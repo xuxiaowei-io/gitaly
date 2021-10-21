@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -19,8 +21,11 @@ import (
 )
 
 func TestRenameRepository_success(t *testing.T) {
+	testhelper.NewFeatureSets(featureflag.PraefectGeneratedReplicaPaths).Run(t, testRenameRepositorySuccess)
+}
+
+func testRenameRepositorySuccess(t *testing.T, ctx context.Context) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
 
 	// Praefect does not move repositories on the disk so this test case is not run with Praefect.
 	cfg, repo, _, client := setupRepositoryService(ctx, t, testserver.WithDisablePraefect())
@@ -43,8 +48,11 @@ func TestRenameRepository_success(t *testing.T) {
 }
 
 func TestRenameRepository_DestinationExists(t *testing.T) {
+	testhelper.NewFeatureSets(featureflag.PraefectGeneratedReplicaPaths).Run(t, testRenameRepositoryDestinationExists)
+}
+
+func testRenameRepositoryDestinationExists(t *testing.T, ctx context.Context) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
 
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
@@ -70,8 +78,11 @@ func TestRenameRepository_DestinationExists(t *testing.T) {
 }
 
 func TestRenameRepository_invalidRequest(t *testing.T) {
+	testhelper.NewFeatureSets(featureflag.PraefectGeneratedReplicaPaths).Run(t, testRenameRepositoryInvalidRequest)
+}
+
+func testRenameRepositoryInvalidRequest(t *testing.T, ctx context.Context) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
 
 	_, repo, repoPath, client := setupRepositoryService(ctx, t)
 	storagePath := strings.TrimSuffix(repoPath, "/"+repo.RelativePath)
