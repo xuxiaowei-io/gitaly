@@ -65,6 +65,22 @@ func TestMerge_missingArguments(t *testing.T) {
 			request:     git2go.MergeCommand{Repository: repoPath, AuthorName: "Foo", AuthorMail: "foo@example.com", Message: "Foo", Ours: "HEAD"},
 			expectedErr: "merge: invalid parameters: missing theirs",
 		},
+		// Committer* arguments are required only when at least one of them is non-empty
+		{
+			desc:        "missing committer mail",
+			request:     git2go.MergeCommand{Repository: repoPath, AuthorName: "Foo", AuthorMail: "foo@example.com", CommitterName: "Bar", Message: "Foo", Theirs: "HEAD", Ours: "HEAD"},
+			expectedErr: "merge: invalid parameters: missing committer mail",
+		},
+		{
+			desc:        "missing committer name",
+			request:     git2go.MergeCommand{Repository: repoPath, AuthorName: "Foo", AuthorMail: "foo@example.com", CommitterMail: "bar@example.com", Message: "Foo", Theirs: "HEAD", Ours: "HEAD"},
+			expectedErr: "merge: invalid parameters: missing committer name",
+		},
+		{
+			desc:        "missing committer date",
+			request:     git2go.MergeCommand{Repository: repoPath, AuthorName: "Foo", AuthorMail: "foo@example.com", CommitterName: "Bar", CommitterMail: "bar@example.com", Message: "Foo", Theirs: "HEAD", Ours: "HEAD"},
+			expectedErr: "merge: invalid parameters: missing committer date",
+		},
 	}
 
 	for _, tc := range testcases {
@@ -101,6 +117,7 @@ func TestMerge_trees(t *testing.T) {
 		ours             map[string]string
 		theirs           map[string]string
 		expected         map[string]string
+		withCommitter    bool
 		expectedResponse git2go.MergeResult
 		expectedErr      error
 	}{
@@ -120,6 +137,25 @@ func TestMerge_trees(t *testing.T) {
 			},
 			expectedResponse: git2go.MergeResult{
 				CommitID: "7d5ae8fb6d2b301c53560bd728004d77778998df",
+			},
+		},
+		{
+			desc: "trivial merge with different committer succeeds",
+			base: map[string]string{
+				"file": "a",
+			},
+			ours: map[string]string{
+				"file": "a",
+			},
+			theirs: map[string]string{
+				"file": "a",
+			},
+			expected: map[string]string{
+				"file": "a",
+			},
+			withCommitter: true,
+			expectedResponse: git2go.MergeResult{
+				CommitID: "cba8c5ddf5a5a24f2f606e4b62d348feb1214b70",
 			},
 		},
 		{
@@ -193,9 +229,10 @@ func TestMerge_trees(t *testing.T) {
 		theirs := cmdtesthelper.BuildCommit(t, repoPath, []*git.Oid{base}, tc.theirs)
 
 		authorDate := time.Date(2020, 7, 30, 7, 45, 50, 0, time.FixedZone("UTC+2", +2*60*60))
+		committerDate := time.Date(2021, 7, 30, 7, 45, 50, 0, time.FixedZone("UTC+2", +2*60*60))
 
 		t.Run(tc.desc, func(t *testing.T) {
-			response, err := executor.Merge(ctx, repoProto, git2go.MergeCommand{
+			mergeCommand := git2go.MergeCommand{
 				Repository: repoPath,
 				AuthorName: "John Doe",
 				AuthorMail: "john.doe@example.com",
@@ -203,7 +240,13 @@ func TestMerge_trees(t *testing.T) {
 				Message:    "Merge message",
 				Ours:       ours.String(),
 				Theirs:     theirs.String(),
-			})
+			}
+			if tc.withCommitter {
+				mergeCommand.CommitterName = "Jane Doe"
+				mergeCommand.CommitterMail = "jane.doe@example.com"
+				mergeCommand.CommitterDate = committerDate
+			}
+			response, err := executor.Merge(ctx, repoProto, mergeCommand)
 
 			if tc.expectedErr != nil {
 				require.Equal(t, tc.expectedErr, err)

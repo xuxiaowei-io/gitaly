@@ -25,6 +25,15 @@ type MergeCommand struct {
 	AuthorMail string
 	// AuthorDate is the author date of merge commit.
 	AuthorDate time.Time
+	// CommitterName. Can be empty if all Committer* vars are empty.
+	// In that case AuthorName is used instead.
+	CommitterName string
+	// CommitterMail. Can be empty if all Committer* vars are empty.
+	// In that case AuthorMail is used instead.
+	CommitterMail string
+	// CommitterDate. Can be empty if all Committer* vars are empty.
+	// In that case AuthorDate is used instead.
+	CommitterDate time.Time
 	// Message is the message to be used for the merge commit.
 	Message string
 	// Ours is the commit into which theirs is to be merged.
@@ -76,6 +85,18 @@ func (m MergeCommand) verify() error {
 	}
 	if m.Theirs == "" {
 		return errors.New("missing theirs")
+	}
+	// If at least one Committer* var is set, require all of them to be set.
+	if m.CommitterMail != "" || !m.CommitterDate.IsZero() || m.CommitterName != "" {
+		if m.CommitterMail == "" {
+			return errors.New("missing committer mail")
+		}
+		if m.CommitterName == "" {
+			return errors.New("missing committer name")
+		}
+		if m.CommitterDate.IsZero() {
+			return errors.New("missing committer date")
+		}
 	}
 	return nil
 }
