@@ -23,13 +23,13 @@ type MergeCommand struct {
 	AuthorName string
 	// AuthorMail is the author mail of merge commit.
 	AuthorMail string
-	// AuthorDate is the auithor date of merge commit.
+	// AuthorDate is the author date of merge commit.
 	AuthorDate time.Time
 	// Message is the message to be used for the merge commit.
 	Message string
-	// Ours is the commit that is to be merged into theirs.
+	// Ours is the commit into which theirs is to be merged.
 	Ours string
-	// Theirs is the commit into which ours is to be merged.
+	// Theirs is the commit that is to be merged into ours.
 	Theirs string
 	// AllowConflicts controls whether conflicts are allowed. If they are,
 	// then conflicts will be committed as part of the result.
