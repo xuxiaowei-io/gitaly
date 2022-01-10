@@ -98,7 +98,13 @@ func merge(request git2go.MergeCommand) (string, error) {
 		committer = git.Signature(git2go.NewSignature(request.CommitterName, request.CommitterMail, request.CommitterDate))
 	}
 
-	commit, err := repo.CreateCommitFromIds("", &author, &committer, request.Message, tree, ours.Id(), theirs.Id())
+	var parents []*git.Oid
+	if request.Squash {
+		parents = []*git.Oid{ours.Id()}
+	} else {
+		parents = []*git.Oid{ours.Id(), theirs.Id()}
+	}
+	commit, err := repo.CreateCommitFromIds("", &author, &committer, request.Message, tree, parents...)
 	if err != nil {
 		return "", fmt.Errorf("could not create merge commit: %w", err)
 	}

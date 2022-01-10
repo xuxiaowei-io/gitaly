@@ -43,6 +43,10 @@ type MergeCommand struct {
 	// AllowConflicts controls whether conflicts are allowed. If they are,
 	// then conflicts will be committed as part of the result.
 	AllowConflicts bool
+	// Squash controls whether to perform squash merge.
+	// If set to `true`, then the resulting commit will have `Ours` as its only parent.
+	// Otherwise, a merge commit will be created with `Ours` and `Theirs` as its parents.
+	Squash bool
 }
 
 // MergeResult contains results from a merge.
