@@ -241,6 +241,60 @@ func TestReceivePackPushHookFailure(t *testing.T) {
 	require.Contains(t, err.Error(), "(pre-receive hook declined)")
 }
 
+func TestReceivePackPushHookFailureWithCustomHook(t *testing.T) {
+	t.Parallel()
+
+	cfg := testcfg.Build(t)
+	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+
+	testcfg.BuildGitalySSH(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
+
+	cfg.SocketPath = runSSHServer(t, cfg, testserver.WithGitCommandFactory(gitCmdFactory))
+	ctx := testhelper.Context(t)
+
+	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
+
+	cloneDetails, cleanup := setupSSHClone(t, cfg, repo, repoPath)
+	defer cleanup()
+
+	hookContent := []byte("#!/bin/sh\necho 'this is wrong' >&2;exit 1")
+	gittest.WriteCustomHook(t, cloneDetails.RemoteRepoPath, "pre-receive", hookContent)
+
+	cmd := sshPushCommand(ctx, t, cfg, cloneDetails, cfg.SocketPath,
+		pushParams{
+			storageName:  cfg.Storages[0].Name,
+			glID:         "1",
+			glRepository: repo.GlRepository,
+		})
+
+	stdout, err := cmd.StdoutPipe()
+	require.NoError(t, err)
+	stderr, err := cmd.StderrPipe()
+	require.NoError(t, err)
+
+	require.NoError(t, cmd.Start())
+
+	c, err := io.Copy(io.Discard, stdout)
+	require.NoError(t, err)
+	require.Equal(t, c, int64(0))
+
+	slurpErr, err := io.ReadAll(stderr)
+	require.NoError(t, err)
+
+	require.Error(t, cmd.Wait())
+
+	require.Contains(t, string(slurpErr), "remote: this is wrong")
+	require.Contains(t, string(slurpErr), "(pre-receive hook declined)")
+
+	if testhelper.IsPraefectEnabled() {
+		// This is a bug tracked in https://gitlab.com/gitlab-org/gitaly/-/issues/3636
+		require.Contains(t, string(slurpErr), "final transactional vote: transaction was stopped")
+	}
+}
+
 func TestObjectPoolRefAdvertisementHidingSSH(t *testing.T) {
 	t.Parallel()
 
