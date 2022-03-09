@@ -10,7 +10,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -489,6 +491,12 @@ func TestGetTreeEntries_unsuccessful(t *testing.T) {
 			path:          []byte("."),
 			pageToken:     "non-existent",
 			expectedError: fmt.Errorf("could not get find starting OID: non-existent"),
+		},
+		{
+			description:   "with non-existent revision",
+			revision:      []byte("blabla"),
+			path:          []byte("."),
+			expectedError: helper.ErrNotFound(git.ErrNotFound),
 		},
 	}
 

@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/lstree"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -100,6 +101,10 @@ func (s *server) sendTreeEntries(
 		if err != nil {
 			if catfile.IsNotFound(err) {
 				return nil
+			}
+
+			if errors.Is(err, git.ErrReferenceNotFound) {
+				return helper.ErrNotFound(err)
 			}
 
 			return err
