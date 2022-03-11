@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
@@ -497,7 +496,7 @@ func TestGetTreeEntries_unsuccessful(t *testing.T) {
 			description:   "with non-existent revision",
 			revision:      []byte("blabla"),
 			path:          []byte("."),
-			expectedError: status.Error(codes.NotFound, git.ErrReferenceNotFound.Error()),
+			expectedError: status.Error(codes.NotFound, "resolving root tree: reference not found"),
 			recursive:     true,
 		},
 	}

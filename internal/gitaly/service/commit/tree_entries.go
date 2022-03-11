@@ -104,7 +104,7 @@ func (s *server) sendTreeEntries(
 			}
 
 			if errors.Is(err, git.ErrReferenceNotFound) {
-				return helper.ErrNotFound(err)
+				return helper.ErrNotFoundf("resolving root tree: %w", err)
 			}
 
 			return err
