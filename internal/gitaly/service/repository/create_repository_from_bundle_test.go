@@ -151,8 +151,8 @@ func TestCreateRepositoryFromBundle_transactional(t *testing.T) {
 		createVote("47553c06f575f757ad56ef3216c59804b72aa4a6", voting.Prepared),
 		createVote("47553c06f575f757ad56ef3216c59804b72aa4a6", voting.Committed),
 		// And this is the manual votes we compute by walking the repository.
-		createVote("da39a3ee5e6b4b0d3255bfef95601890afd80709", voting.Prepared),
-		createVote("da39a3ee5e6b4b0d3255bfef95601890afd80709", voting.Committed),
+		createVote("5947862798db146701879742c0d8fd988ca37797", voting.Prepared),
+		createVote("5947862798db146701879742c0d8fd988ca37797", voting.Committed),
 	}, txManager.Votes())
 }
 
