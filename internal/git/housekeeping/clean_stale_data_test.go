@@ -413,74 +413,98 @@ func TestPerform_emptyRefDirs(t *testing.T) {
 }
 
 func TestPerform_withSpecificFile(t *testing.T) {
-	for file, finder := range map[string]staleFileFinderFn{
-		"HEAD.lock":        findStaleLockfiles,
-		"config.lock":      findStaleLockfiles,
-		"packed-refs.lock": findPackedRefsLock,
-		"packed-refs.new":  findPackedRefsNew,
-	} {
-		testPerformWithSpecificFile(t, file, finder)
-	}
-}
+	t.Parallel()
 
-func testPerformWithSpecificFile(t *testing.T, file string, finder staleFileFinderFn) {
-	ctx := testhelper.Context(t)
-
-	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-	mgr := NewManager(nil)
-
-	require.NoError(t, mgr.CleanStaleData(ctx, repo))
 	for _, tc := range []struct {
-		desc          string
-		entries       []entry
-		expectedFiles []string
+		desc   string
+		file   string
+		finder staleFileFinderFn
 	}{
 		{
-			desc: fmt.Sprintf("fresh %s is kept", file),
-			entries: []entry{
-				f(file, 0o700, 10*time.Minute, Keep),
-			},
+			desc:   "locked HEAD",
+			file:   "HEAD.lock",
+			finder: findStaleLockfiles,
 		},
 		{
-			desc: fmt.Sprintf("stale %s in subdir is kept", file),
-			entries: []entry{
-				d("subdir", 0o700, 240*time.Hour, Keep, []entry{
-					f(file, 0o700, 24*time.Hour, Keep),
-				}),
-			},
+			desc:   "locked config",
+			file:   "config.lock",
+			finder: findStaleLockfiles,
 		},
 		{
-			desc: fmt.Sprintf("stale %s is deleted", file),
-			entries: []entry{
-				f(file, 0o700, 61*time.Minute, Delete),
-			},
-			expectedFiles: []string{
-				filepath.Join(repoPath, file),
-			},
+			desc:   "locked packed-refs",
+			file:   "packed-refs.lock",
+			finder: findPackedRefsLock,
 		},
 		{
-			desc: fmt.Sprintf("variations of %s are kept", file),
-			entries: []entry{
-				f(file[:len(file)-1], 0o700, 61*time.Minute, Keep),
-				f("~"+file, 0o700, 61*time.Minute, Keep),
-				f(file+"~", 0o700, 61*time.Minute, Keep),
-			},
+			desc:   "temporary packed-refs",
+			file:   "packed-refs.new",
+			finder: findPackedRefsNew,
 		},
 	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			for _, e := range tc.entries {
-				e.create(t, repoPath)
-			}
+		tc := tc
 
-			staleFiles, err := finder(ctx, repoPath)
-			require.NoError(t, err)
-			require.ElementsMatch(t, tc.expectedFiles, staleFiles)
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			ctx := testhelper.Context(t)
+
+			cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
+			repo := localrepo.NewTestRepo(t, cfg, repoProto)
+			mgr := NewManager(nil)
 
 			require.NoError(t, mgr.CleanStaleData(ctx, repo))
+			for _, subcase := range []struct {
+				desc          string
+				entries       []entry
+				expectedFiles []string
+			}{
+				{
+					desc: fmt.Sprintf("fresh %s is kept", tc.file),
+					entries: []entry{
+						f(tc.file, 0o700, 10*time.Minute, Keep),
+					},
+				},
+				{
+					desc: fmt.Sprintf("stale %s in subdir is kept", tc.file),
+					entries: []entry{
+						d("subdir", 0o700, 240*time.Hour, Keep, []entry{
+							f(tc.file, 0o700, 24*time.Hour, Keep),
+						}),
+					},
+				},
+				{
+					desc: fmt.Sprintf("stale %s is deleted", tc.file),
+					entries: []entry{
+						f(tc.file, 0o700, 61*time.Minute, Delete),
+					},
+					expectedFiles: []string{
+						filepath.Join(repoPath, tc.file),
+					},
+				},
+				{
+					desc: fmt.Sprintf("variations of %s are kept", tc.file),
+					entries: []entry{
+						f(tc.file[:len(tc.file)-1], 0o700, 61*time.Minute, Keep),
+						f("~"+tc.file, 0o700, 61*time.Minute, Keep),
+						f(tc.file+"~", 0o700, 61*time.Minute, Keep),
+					},
+				},
+			} {
+				t.Run(subcase.desc, func(t *testing.T) {
+					for _, e := range subcase.entries {
+						e.create(t, repoPath)
+					}
 
-			for _, e := range tc.entries {
-				e.validate(t, repoPath)
+					staleFiles, err := tc.finder(ctx, repoPath)
+					require.NoError(t, err)
+					require.ElementsMatch(t, subcase.expectedFiles, staleFiles)
+
+					require.NoError(t, mgr.CleanStaleData(ctx, repo))
+
+					for _, e := range subcase.entries {
+						e.validate(t, repoPath)
+					}
+				})
 			}
 		})
 	}
