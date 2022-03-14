@@ -22,9 +22,9 @@ type Manager interface {
 type RepositoryManager struct {
 	txManager transaction.Manager
 
-	tasksTotal                   *prometheus.CounterVec
-	tasksLatency                 *prometheus.HistogramVec
-	optimizeEmptyDirRemovalTotal prometheus.Counter
+	tasksTotal       *prometheus.CounterVec
+	tasksLatency     *prometheus.HistogramVec
+	prunedFilesTotal *prometheus.CounterVec
 }
 
 // NewManager creates a new RepositoryManager.
@@ -46,11 +46,12 @@ func NewManager(txManager transaction.Manager) *RepositoryManager {
 			},
 			[]string{"housekeeping_task"},
 		),
-		optimizeEmptyDirRemovalTotal: prometheus.NewCounter(
+		prunedFilesTotal: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
-				Name: "gitaly_repository_optimizerepository_empty_dir_removal_total",
-				Help: "Total number of empty directories removed by OptimizeRepository RPC",
+				Name: "gitaly_housekeeping_pruned_files_total",
+				Help: "Total number of files pruned",
 			},
+			[]string{"filetype"},
 		),
 	}
 }
@@ -64,5 +65,5 @@ func (m *RepositoryManager) Describe(descs chan<- *prometheus.Desc) {
 func (m *RepositoryManager) Collect(metrics chan<- prometheus.Metric) {
 	m.tasksTotal.Collect(metrics)
 	m.tasksLatency.Collect(metrics)
-	m.optimizeEmptyDirRemovalTotal.Collect(metrics)
+	m.prunedFilesTotal.Collect(metrics)
 }

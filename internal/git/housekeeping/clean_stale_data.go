@@ -83,7 +83,7 @@ func (m *RepositoryManager) CleanStaleData(ctx context.Context, repo *localrepo.
 	}
 
 	prunedRefDirs, err := removeRefEmptyDirs(ctx, repo)
-	m.optimizeEmptyDirRemovalTotal.Add(float64(prunedRefDirs))
+	m.prunedFilesTotal.WithLabelValues("refsemptydir").Add(float64(prunedRefDirs))
 	if err != nil {
 		return fmt.Errorf("housekeeping could not remove empty refs: %w", err)
 	}
