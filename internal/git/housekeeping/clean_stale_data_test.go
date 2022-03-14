@@ -139,6 +139,7 @@ type cleanStaleDataMetrics struct {
 	refsEmptyDir   int
 	packedRefsLock int
 	packedRefsNew  int
+	serverInfo     int
 }
 
 func requireCleanStaleDataMetrics(t *testing.T, m *RepositoryManager, metrics cleanStaleDataMetrics) {
@@ -159,6 +160,7 @@ func requireCleanStaleDataMetrics(t *testing.T, m *RepositoryManager, metrics cl
 		"packedrefslock": metrics.packedRefsLock,
 		"packedrefsnew":  metrics.packedRefsNew,
 		"refsemptydir":   metrics.refsEmptyDir,
+		"serverinfo":     metrics.serverInfo,
 	} {
 		_, err := builder.WriteString(fmt.Sprintf("gitaly_housekeeping_pruned_files_total{filetype=%q} %d\n", metric, expectedValue))
 		require.NoError(t, err)
@@ -616,6 +618,55 @@ func TestRepositoryManager_CleanStaleData_withSpecificFile(t *testing.T) {
 			requireCleanStaleDataMetrics(t, mgr, tc.expectedMetrics)
 		})
 	}
+}
+
+func TestRepositoryManager_CleanStaleData_serverInfo(t *testing.T) {
+	ctx := testhelper.Context(t)
+
+	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+	entries := []entry{
+		d("info", 0o755, 0, Keep, []entry{
+			f("ref", 0, 0o644, Keep),
+			f("refs", 0, 0o644, Delete),
+			f("refsx", 0, 0o644, Keep),
+			f("refs_123456", 0, 0o644, Delete),
+		}),
+		d("objects", 0o755, 0, Keep, []entry{
+			d("info", 0o755, 0, Keep, []entry{
+				f("pack", 0, 0o644, Keep),
+				f("packs", 0, 0o644, Delete),
+				f("packsx", 0, 0o644, Keep),
+				f("packs_123456", 0, 0o644, Delete),
+			}),
+		}),
+	}
+
+	for _, entry := range entries {
+		entry.create(t, repoPath)
+	}
+
+	staleFiles, err := findServerInfo(ctx, repoPath)
+	require.NoError(t, err)
+	require.ElementsMatch(t, []string{
+		filepath.Join(repoPath, "info/refs"),
+		filepath.Join(repoPath, "info/refs_123456"),
+		filepath.Join(repoPath, "objects/info/packs"),
+		filepath.Join(repoPath, "objects/info/packs_123456"),
+	}, staleFiles)
+
+	mgr := NewManager(cfg.Prometheus, nil)
+
+	require.NoError(t, mgr.CleanStaleData(ctx, repo))
+
+	for _, entry := range entries {
+		entry.validate(t, repoPath)
+	}
+
+	requireCleanStaleDataMetrics(t, mgr, cleanStaleDataMetrics{
+		serverInfo: 4,
+	})
 }
 
 func TestRepositoryManager_CleanStaleData_referenceLocks(t *testing.T) {
