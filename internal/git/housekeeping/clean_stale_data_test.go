@@ -44,6 +44,8 @@ type fileEntry struct {
 }
 
 func (f *fileEntry) create(t *testing.T, parent string) {
+	t.Helper()
+
 	filename := filepath.Join(parent, f.name)
 	ff, err := os.OpenFile(filename, os.O_RDONLY|os.O_CREATE, 0o700)
 	assert.NoError(t, err, "file creation failed: %v", filename)
@@ -55,22 +57,29 @@ func (f *fileEntry) create(t *testing.T, parent string) {
 }
 
 func (f *fileEntry) validate(t *testing.T, parent string) {
+	t.Helper()
+
 	filename := filepath.Join(parent, f.name)
 	f.checkExistence(t, filename)
 }
 
 func (f *fileEntry) chmod(t *testing.T, filename string) {
+	t.Helper()
+
 	err := os.Chmod(filename, f.mode)
 	assert.NoError(t, err, "chmod failed")
 }
 
 func (f *fileEntry) chtimes(t *testing.T, filename string) {
+	t.Helper()
+
 	filetime := time.Now().Add(-f.age)
 	err := os.Chtimes(filename, filetime, filetime)
 	assert.NoError(t, err, "chtimes failed")
 }
 
 func (f *fileEntry) checkExistence(t *testing.T, filename string) {
+	t.Helper()
 	_, err := os.Stat(filename)
 	if err == nil && f.finalState == Delete {
 		t.Errorf("Expected %v to have been deleted.", filename)
@@ -86,6 +95,8 @@ type dirEntry struct {
 }
 
 func (d *dirEntry) create(t *testing.T, parent string) {
+	t.Helper()
+
 	dirname := filepath.Join(parent, d.name)
 
 	if err := os.Mkdir(dirname, 0o700); err != nil {
@@ -102,6 +113,8 @@ func (d *dirEntry) create(t *testing.T, parent string) {
 }
 
 func (d *dirEntry) validate(t *testing.T, parent string) {
+	t.Helper()
+
 	dirname := filepath.Join(parent, d.name)
 	d.checkExistence(t, dirname)
 
