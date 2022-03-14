@@ -493,10 +493,17 @@ func TestGetTreeEntries_unsuccessful(t *testing.T) {
 			expectedError: status.Error(codes.Unknown, "could not find starting OID: non-existent"),
 		},
 		{
-			description:   "with non-existent revision",
+			description:   "with non-existent revision, nonrecursive",
 			revision:      []byte("blabla"),
 			path:          []byte("."),
-			expectedError: status.Error(codes.NotFound, "resolving root tree: reference not found"),
+			expectedError: status.Error(codes.NotFound, "catfile.TreeEntries: reference not found"),
+			recursive:     false,
+		},
+		{
+			description:   "with non-existent revision, recursive",
+			revision:      []byte("blabla"),
+			path:          []byte("."),
+			expectedError: status.Error(codes.NotFound, "repo.ResolveRevision: reference not found"),
 			recursive:     true,
 		},
 	}
