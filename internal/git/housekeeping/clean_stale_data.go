@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
-	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
@@ -31,25 +30,10 @@ const (
 	packedRefsNewGracePeriod         = 15 * time.Minute
 )
 
-var (
-	lockfiles = []string{
-		"config.lock",
-		"HEAD.lock",
-		"objects/info/commit-graphs/commit-graph-chain.lock",
-	}
-
-	optimizeEmptyDirRemovalTotals = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Namespace: "gitaly",
-			Subsystem: "repository",
-			Name:      "optimizerepository_empty_dir_removal_total",
-			Help:      "Total number of empty directories removed by OptimizeRepository RPC",
-		},
-	)
-)
-
-func init() {
-	prometheus.MustRegister(optimizeEmptyDirRemovalTotals)
+var lockfiles = []string{
+	"config.lock",
+	"HEAD.lock",
+	"objects/info/commit-graphs/commit-graph-chain.lock",
 }
 
 type staleFileFinderFn func(context.Context, string) ([]string, error)
@@ -99,7 +83,7 @@ func (m *RepositoryManager) CleanStaleData(ctx context.Context, repo *localrepo.
 	}
 
 	prunedRefDirs, err := removeRefEmptyDirs(ctx, repo)
-	optimizeEmptyDirRemovalTotals.Add(float64(prunedRefDirs))
+	m.optimizeEmptyDirRemovalTotal.Add(float64(prunedRefDirs))
 	if err != nil {
 		return fmt.Errorf("housekeeping could not remove empty refs: %w", err)
 	}
