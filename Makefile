@@ -75,7 +75,7 @@ GOLANGCI_LINT_VERSION     ?= 1.44.2
 GOCOVER_COBERTURA_VERSION ?= aaee18c8195c3f2d90e5ef80ca918d265463842a
 GOFUMPT_VERSION           ?= 0.3.1
 GOIMPORTS_VERSION         ?= 2538eef75904eff384a2551359968e40c207d9d2
-GOSUMTEST_VERSION         ?= v1.7.0
+GOTESTSUM_VERSION         ?= v1.7.0
 GO_LICENSES_VERSION       ?= v1.0.0
 # https://pkg.go.dev/github.com/protocolbuffers/protobuf
 PROTOC_VERSION            ?= v3.17.3
@@ -717,7 +717,7 @@ ${GOIMPORTS}:         TOOL_VERSION = ${GOIMPORTS_VERSION}
 ${GOLANGCI_LINT}:     TOOL_PACKAGE = github.com/golangci/golangci-lint/cmd/golangci-lint
 ${GOLANGCI_LINT}:     TOOL_VERSION = v${GOLANGCI_LINT_VERSION}
 ${GOTESTSUM}:         TOOL_PACKAGE = gotest.tools/gotestsum
-${GOTESTSUM}:         TOOL_VERSION = ${GOSUMTEST_VERSION}
+${GOTESTSUM}:         TOOL_VERSION = ${GOTESTSUM_VERSION}
 ${GO_LICENSES}:       TOOL_PACKAGE = github.com/google/go-licenses
 ${GO_LICENSES}:       TOOL_VERSION = ${GO_LICENSES_VERSION}
 ${PROTOC_GEN_GO}:     TOOL_PACKAGE = google.golang.org/protobuf/cmd/protoc-gen-go
