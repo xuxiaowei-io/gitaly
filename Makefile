@@ -530,11 +530,6 @@ no-proto-changes: | ${BUILD_DIR}
 dump-database-schema: build
 	${Q}"${SOURCE_DIR}"/_support/generate-praefect-schema >"${SOURCE_DIR}"/_support/praefect-schema.sql
 
-.PHONY: smoke-test
-smoke-test: TEST_PACKAGES := ${SOURCE_DIR}/internal/gitaly/rubyserver
-smoke-test: all rspec
-	$(call run_go_tests)
-
 .PHONY: upgrade-module
 upgrade-module:
 	${Q}go run ${SOURCE_DIR}/_support/module-updater/main.go -dir . -from=${FROM_MODULE} -to=${TO_MODULE}
