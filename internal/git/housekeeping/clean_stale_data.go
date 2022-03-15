@@ -67,6 +67,8 @@ func (m *RepositoryManager) CleanStaleData(ctx context.Context, repo *localrepo.
 
 		filesToPrune = append(filesToPrune, staleFiles...)
 		logEntry = logEntry.WithField(field, len(staleFiles))
+
+		m.prunedFilesTotal.WithLabelValues(field).Add(float64(len(staleFiles)))
 	}
 
 	unremovableFiles := 0
