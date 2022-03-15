@@ -77,10 +77,6 @@ issues:
     - linters:
         - errcheck
       text: "Error return value of `[^`]+.(Close|Serve)` is not checked"
-    - linters:
-        - errcheck
-      path: "internal/middleware/limithandler/limithandler.go"
-      text: "Error return value of `limiter.Limit` is not checked"
   # Maximum issues count per one linter. Set to 0 to disable. Default is 50.
   max-issues-per-linter: 0
   # Maximum count of issues with the same text. Set to 0 to disable. Default is 3.
