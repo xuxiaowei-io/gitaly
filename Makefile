@@ -76,7 +76,7 @@ GOCOVER_COBERTURA_VERSION ?= aaee18c8195c3f2d90e5ef80ca918d265463842a
 GOFUMPT_VERSION           ?= 0.3.1
 GOIMPORTS_VERSION         ?= 2538eef75904eff384a2551359968e40c207d9d2
 GOSUMTEST_VERSION         ?= v1.7.0
-GO_LICENSES_VERSION       ?= 73411c8fa237ccc6a75af79d0a5bc021c9487aad
+GO_LICENSES_VERSION       ?= v1.0.0
 # https://pkg.go.dev/github.com/protocolbuffers/protobuf
 PROTOC_VERSION            ?= v3.17.3
 # https://pkg.go.dev/google.golang.org/protobuf
@@ -566,12 +566,7 @@ ${SOURCE_DIR}/NOTICE: ${BUILD_DIR}/NOTICE
 
 ${BUILD_DIR}/NOTICE: ${GO_LICENSES} clean-ruby-vendor-go
 	${Q}rm -rf ${BUILD_DIR}/licenses
-	${Q}GOOS=linux GOFLAGS="-tags=${GO_BUILD_TAGS}" ${GO_LICENSES} save ./... --save_path=${BUILD_DIR}/licenses
-	@ # some projects may be copied from the Go module cache
-	@ # (GOPATH/pkg/mod) and retain strict permissions (444). These
-	@ # permissions are not desirable when removing and rebuilding:
-	${Q}find ${BUILD_DIR}/licenses -type d -exec chmod 0755 {} \;
-	${Q}find ${BUILD_DIR}/licenses -type f -exec chmod 0644 {} \;
+	${Q}GOOS=linux GOFLAGS="-tags=${GO_BUILD_TAGS}" ${GO_LICENSES} save ${SOURCE_DIR}/... --save_path=${BUILD_DIR}/licenses
 	${Q}go run ${SOURCE_DIR}/_support/noticegen/noticegen.go -source ${BUILD_DIR}/licenses -template ${SOURCE_DIR}/_support/noticegen/notice.template > ${BUILD_DIR}/NOTICE
 
 ${BUILD_DIR}:
