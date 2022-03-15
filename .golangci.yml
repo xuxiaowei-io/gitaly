@@ -79,18 +79,6 @@ issues:
       text: "Error return value of `[^`]+.(Close|Serve)` is not checked"
     - linters:
         - errcheck
-      path: "internal/praefect/nodes/local_elector.go"
-      text: "Error return value of `s.checkNodes` is not checked"
-    - linters:
-        - errcheck
-      path: "internal/praefect/nodes/manager.go"
-      text: "Error return value of `strategy.checkNodes` is not checked"
-    - linters:
-        - errcheck
-      path: "internal/praefect/nodes/sql_elector.go"
-      text: "Error return value of `s.checkNodes` is not checked"
-    - linters:
-        - errcheck
       path: "internal/middleware/limithandler/limithandler.go"
       text: "Error return value of `limiter.Limit` is not checked"
     - linters:
