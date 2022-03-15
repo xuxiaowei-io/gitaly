@@ -73,7 +73,7 @@ GO_BUILD_TAGS     := tracer_static,tracer_static_jaeger,tracer_static_stackdrive
 # Dependency versions
 GOLANGCI_LINT_VERSION     ?= 1.44.2
 GOCOVER_COBERTURA_VERSION ?= aaee18c8195c3f2d90e5ef80ca918d265463842a
-GOFUMPT_VERSION           ?= 0.2.0
+GOFUMPT_VERSION           ?= 0.3.1
 GOIMPORTS_VERSION         ?= 2538eef75904eff384a2551359968e40c207d9d2
 GOSUMTEST_VERSION         ?= v1.7.0
 GO_LICENSES_VERSION       ?= 73411c8fa237ccc6a75af79d0a5bc021c9487aad
