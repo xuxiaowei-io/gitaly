@@ -477,9 +477,6 @@ clean:
 clean-ruby-vendor-go:
 	mkdir -p ${SOURCE_DIR}/ruby/vendor && find ${SOURCE_DIR}/ruby/vendor -type f -name '*.go' -delete
 
-.PHONY: check-proto
-check-proto: proto no-proto-changes lint-proto
-
 .PHONY: rubocop
 ## Run Rubocop.
 rubocop: ${SOURCE_DIR}/.ruby-bundle
@@ -517,6 +514,9 @@ proto: ${PROTOC} ${PROTOC_GEN_GO} ${PROTOC_GEN_GO_GRPC} ${SOURCE_DIR}/.ruby-bund
 		${SOURCE_DIR}/internal/helper/chunk/testdata/test.proto \
 		${SOURCE_DIR}/internal/middleware/limithandler/testdata/test.proto
 	${PROTOC} ${SHARED_PROTOC_OPTS} -I ${SOURCE_DIR}/proto -I ${PROTOC_INSTALL_DIR}/include --go_out=${SOURCE_DIR}/proto --go-grpc_out=${SOURCE_DIR}/proto ${SOURCE_DIR}/proto/go/internal/linter/testdata/*.proto
+
+.PHONY: check-proto
+check-proto: proto no-proto-changes lint-proto
 
 .PHONY: lint-proto
 lint-proto: ${PROTOC} ${PROTOC_GEN_GITALY}
