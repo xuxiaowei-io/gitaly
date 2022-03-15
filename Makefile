@@ -416,11 +416,6 @@ test-with-proxies: prepare-tests
 test-with-praefect: prepare-tests
 	${Q}GITALY_TEST_WITH_PRAEFECT=YesPlease $(call run_go_tests)
 
-.PHONY: test-postgres
-## Run Go tests with Postgres.
-test-postgres: TEST_PACKAGES := gitlab.com/gitlab-org/gitaly/v14/internal/praefect/...
-test-postgres: test-go
-
 .PHONY: race-go
 ## Run Go tests with race detection enabled.
 race-go: TEST_OPTIONS := ${TEST_OPTIONS} -race
