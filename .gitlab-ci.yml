@@ -97,6 +97,14 @@ danger-review:
   allow_failure: true
   variables:
     BUNDLE_GEMFILE: danger/Gemfile
+  cache:
+    key:
+      files:
+        - danger/Gemfile.lock
+      prefix: debian-${DEBIAN_VERSION}-ruby-${RUBY_VERSION}
+    paths:
+      - .ruby
+    policy: pull-push
 
 build:
   stage: build
