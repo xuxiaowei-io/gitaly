@@ -528,8 +528,7 @@ no-changes:
 
 .PHONY: no-proto-changes
 no-proto-changes: | ${BUILD_DIR}
-	${Q}${GIT} diff -- '*.pb.go' 'ruby/proto/gitaly' >${BUILD_DIR}/proto.diff
-	${Q}if [ -s ${BUILD_DIR}/proto.diff ]; then echo "There is a difference in generated proto files. Please take a look at ${BUILD_DIR}/proto.diff file." && exit 1; fi
+	${Q}${GIT} diff --exit-code -- '*.pb.go' 'ruby/proto/gitaly'
 
 .PHONY: dump-database-schema
 ## Dump the clean database schema of Praefect into a file.
