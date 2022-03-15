@@ -481,9 +481,8 @@ rubocop: ${SOURCE_DIR}/.ruby-bundle
 ## Generate coverage report via Go tests.
 cover: TEST_OPTIONS  := ${TEST_OPTIONS} -coverprofile "${COVERAGE_DIR}/all.merged"
 cover: prepare-tests libgit2 ${GOCOVER_COBERTURA}
-	${Q}echo "NOTE: make cover does not exit 1 on failure, don't use it to check for tests success!"
+	${Q}rm -rf "${COVERAGE_DIR}"
 	${Q}mkdir -p "${COVERAGE_DIR}"
-	${Q}rm -f "${COVERAGE_DIR}/all.merged" "${COVERAGE_DIR}/all.html"
 	${Q}$(call run_go_tests)
 	${Q}go tool cover -html  "${COVERAGE_DIR}/all.merged" -o "${COVERAGE_DIR}/all.html"
 	@ # sed is used below to convert file paths to repository root relative paths. See https://gitlab.com/gitlab-org/gitlab/-/issues/217664
