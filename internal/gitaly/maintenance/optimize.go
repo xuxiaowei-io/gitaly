@@ -8,17 +8,15 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
-	gitalyauth "gitlab.com/gitlab-org/gitaly/v14/auth"
-	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/server"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
-	"google.golang.org/grpc"
 )
 
 var repoOptimizationHistogram = prometheus.NewHistogram(
@@ -42,32 +40,27 @@ func shuffledStoragesCopy(randSrc *rand.Rand, storages []config.Storage) []confi
 
 // Optimizer knows how to optimize a repository
 type Optimizer interface {
-	OptimizeRepository(context.Context, *gitalypb.OptimizeRepositoryRequest, ...grpc.CallOption) (*gitalypb.OptimizeRepositoryResponse, error)
+	OptimizeRepository(context.Context, repository.GitRepo) error
 }
 
+// OptimizerFunc is an adapter to allow the use of an ordinary function as an Optimizer
+type OptimizerFunc func(context.Context, repository.GitRepo) error
+
+// OptimizeRepository calls o(ctx, repo)
+func (o OptimizerFunc) OptimizeRepository(ctx context.Context, repo repository.GitRepo) error {
+	return o(ctx, repo)
+}
 
 // DailyOptimizationWorker creates a worker that runs repository maintenance daily
-func DailyOptimizationWorker(cfg config.Cfg) server.WorkerFunc {
+func DailyOptimizationWorker(cfg config.Cfg, optimizer Optimizer) server.WorkerFunc {
 	return func(ctx context.Context, l logrus.FieldLogger) error {
-		var opts []grpc.DialOption
-		if cfg.Auth.Token != "" {
-			opts = append(opts, grpc.WithPerRPCCredentials(
-				gitalyauth.RPCCredentialsV2(cfg.Auth.Token),
-			))
-		}
-
-		cc, err := client.Dial("unix:"+cfg.GitalyInternalSocketPath(), opts)
-		if err != nil {
-			return err
-		}
-
 		return NewDailyWorker().StartDaily(
 			ctx,
 			l,
 			cfg.DailyMaintenance,
 			OptimizeReposRandomly(
 				cfg.Storages,
-				gitalypb.NewRepositoryServiceClient(cc),
+				optimizer,
 				helper.NewTimerTicker(1*time.Second),
 				rand.New(rand.NewSource(time.Now().UnixNano())),
 			),
@@ -86,26 +79,26 @@ func optimizeRepoAtPath(ctx context.Context, l logrus.FieldLogger, s config.Stor
 		RelativePath: relPath,
 	}
 
-	optimizeReq := &gitalypb.OptimizeRepositoryRequest{
-		Repository: repo,
-	}
+	start := time.Now()
+	e := l.WithFields(map[string]interface{}{
+		"relative_path": relPath,
+		"storage":       s.Name,
+		"source":        "daily maintenance",
+		"start_time":    start.UTC(),
+	})
 
-	// In order to prevent RPC cancellation because of the parent context cancellation
-	// (job execution duration passed) we suppress cancellation of the parent and add a
-	// new time limit to make sure it won't block forever.
-	// It also helps us to be protected over repositories that are taking too long to complete
-	// a request, so no any other repository can be optimized.
-	ctx, cancel := context.WithTimeout(helper.SuppressCancellation(ctx), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(ctxlogrus.ToContext(ctx, e), 5*time.Minute)
 	defer cancel()
 
-	start := time.Now()
-	if _, err := o.OptimizeRepository(ctx, optimizeReq); err != nil {
-		l.WithFields(map[string]interface{}{
-			"relative_path": relPath,
-			"storage":       s.Name,
-		}).WithError(err).
-			Errorf("maintenance: repo optimization failure")
+	err = o.OptimizeRepository(ctx, repo)
+	e = e.WithField("time_ms", time.Since(start).Milliseconds())
+
+	if err != nil {
+		e.WithError(err).Errorf("maintenance: repo optimization failure")
+		return err
 	}
+
+	e.Info("maintenance: repo optimization succeeded")
 	repoOptimizationHistogram.Observe(time.Since(start).Seconds())
 
 	return nil
