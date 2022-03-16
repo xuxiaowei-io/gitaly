@@ -1,10 +1,7 @@
 package server
 
 import (
-	"context"
-	"fmt"
 	"sync"
-	"time"
 
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
@@ -41,48 +38,6 @@ func NewGitalyServerFactory(
 		cacheInvalidator: cacheInvalidator,
 		limitHandler:     limitHandler,
 	}
-}
-
-// WorkerFunc is a function that does a unit of work meant to run in the background
-type WorkerFunc func(context.Context, logrus.FieldLogger) error
-
-// StartWorkers will start any auxiliary background workers that are allowed
-// to fail without stopping the rest of the server.
-func (s *GitalyServerFactory) StartWorkers(
-	ctx context.Context,
-	l logrus.FieldLogger,
-	workers ...WorkerFunc,
-) (func(), error) {
-	errQ := make(chan error)
-
-	ctx, cancel := context.WithCancel(ctx)
-
-	for _, worker := range workers {
-		worker := worker
-		go func() {
-			errQ <- worker(ctx, l)
-		}()
-	}
-
-	shutdown := func() {
-		cancel()
-
-		// give the worker 5 seconds to shutdown gracefully
-		timeout := 5 * time.Second
-
-		var err error
-		select {
-		case err = <-errQ:
-			break
-		case <-time.After(timeout):
-			err = fmt.Errorf("timed out after %s", timeout)
-		}
-		if err != nil && err != context.Canceled {
-			l.WithError(err).Error("maintenance worker shutdown")
-		}
-	}
-
-	return shutdown, nil
 }
 
 // Stop immediately stops all servers created by the GitalyServerFactory.

@@ -3,6 +3,7 @@ package maintenance
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -13,7 +14,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/server"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -29,6 +29,48 @@ var repoOptimizationHistogram = prometheus.NewHistogram(
 
 func init() {
 	prometheus.MustRegister(repoOptimizationHistogram)
+}
+
+// WorkerFunc is a function that does a unit of work meant to run in the background
+type WorkerFunc func(context.Context, logrus.FieldLogger) error
+
+// StartWorkers will start any background workers and returns a function that
+// can be used to shut down the background workers.
+func StartWorkers(
+	ctx context.Context,
+	l logrus.FieldLogger,
+	workers ...WorkerFunc,
+) (func(), error) {
+	errQ := make(chan error)
+
+	ctx, cancel := context.WithCancel(ctx)
+
+	for _, worker := range workers {
+		worker := worker
+		go func() {
+			errQ <- worker(ctx, l)
+		}()
+	}
+
+	shutdown := func() {
+		cancel()
+
+		// give the worker 5 seconds to shutdown gracefully
+		timeout := 5 * time.Second
+
+		var err error
+		select {
+		case err = <-errQ:
+			break
+		case <-time.After(timeout):
+			err = fmt.Errorf("timed out after %s", timeout)
+		}
+		if err != nil && err != context.Canceled {
+			l.WithError(err).Error("maintenance worker shutdown")
+		}
+	}
+
+	return shutdown, nil
 }
 
 func shuffledStoragesCopy(randSrc *rand.Rand, storages []config.Storage) []config.Storage {
@@ -52,7 +94,7 @@ func (o OptimizerFunc) OptimizeRepository(ctx context.Context, repo repository.G
 }
 
 // DailyOptimizationWorker creates a worker that runs repository maintenance daily
-func DailyOptimizationWorker(cfg config.Cfg, optimizer Optimizer) server.WorkerFunc {
+func DailyOptimizationWorker(cfg config.Cfg, optimizer Optimizer) WorkerFunc {
 	return func(ctx context.Context, l logrus.FieldLogger) error {
 		return NewDailyWorker().StartDaily(
 			ctx,

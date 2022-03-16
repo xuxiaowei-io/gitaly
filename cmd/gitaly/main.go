@@ -318,7 +318,7 @@ func run(cfg config.Cfg) error {
 		return fmt.Errorf("unable to start the bootstrap: %v", err)
 	}
 
-	shutdownWorkers, err := gitalyServerFactory.StartWorkers(
+	shutdownWorkers, err := maintenance.StartWorkers(
 		ctx,
 		glog.Default(),
 		maintenance.DailyOptimizationWorker(cfg, maintenance.OptimizerFunc(func(ctx context.Context, repo repository.GitRepo) error {
