@@ -115,13 +115,18 @@ func TestStreamDirectorReadOnlyEnforcement(t *testing.T) {
 				protoregistry.GitalyProtoPreregistered,
 			)
 
-			frame, err := proto.Marshal(&gitalypb.CleanupRequest{Repository: &gitalypb.Repository{
-				StorageName:  virtualStorage,
-				RelativePath: relativePath,
-			}})
+			frame, err := proto.Marshal(&gitalypb.DeleteRefsRequest{
+				Repository: &gitalypb.Repository{
+					StorageName:  virtualStorage,
+					RelativePath: relativePath,
+				},
+				Refs: [][]byte{
+					[]byte("refs/heads/does-not-exist"),
+				},
+			})
 			require.NoError(t, err)
 
-			_, err = coordinator.StreamDirector(ctx, "/gitaly.RepositoryService/Cleanup", &mockPeeker{frame: frame})
+			_, err = coordinator.StreamDirector(ctx, "/gitaly.RefService/DeleteRefs", &mockPeeker{frame: frame})
 			if tc.readOnly {
 				require.Equal(t, ErrRepositoryReadOnly, err)
 				testhelper.RequireGrpcCode(t, err, codes.FailedPrecondition)
@@ -494,7 +499,7 @@ func TestStreamDirector_maintenance(t *testing.T) {
 
 			queueInterceptor.OnEnqueue(func(context.Context, datastore.ReplicationEvent, datastore.ReplicationEventQueue) (datastore.ReplicationEvent, error) {
 				require.FailNow(t, "no replication jobs should have been created")
-				return datastore.ReplicationEvent{}, fmt.Errorf("unexpected call");
+				return datastore.ReplicationEvent{}, fmt.Errorf("unexpected call")
 			})
 
 			streamParams, err := coordinator.StreamDirector(ctx, methodInfo.FullMethodName(), &mockPeeker{message})
