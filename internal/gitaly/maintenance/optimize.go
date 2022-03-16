@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
@@ -18,18 +17,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
-
-var repoOptimizationHistogram = prometheus.NewHistogram(
-	prometheus.HistogramOpts{
-		Name:    "gitaly_daily_maintenance_repo_optimization_seconds",
-		Help:    "How many seconds each repo takes to successfully optimize during daily maintenance",
-		Buckets: []float64{0.01, 0.1, 1.0, 10.0, 100},
-	},
-)
-
-func init() {
-	prometheus.MustRegister(repoOptimizationHistogram)
-}
 
 // WorkerFunc is a function that does a unit of work meant to run in the background
 type WorkerFunc func(context.Context, logrus.FieldLogger) error
@@ -122,27 +109,25 @@ func optimizeRepoAtPath(ctx context.Context, l logrus.FieldLogger, s config.Stor
 	}
 
 	start := time.Now()
-	e := l.WithFields(map[string]interface{}{
+	logEntry := l.WithFields(map[string]interface{}{
 		"relative_path": relPath,
 		"storage":       s.Name,
-		"source":        "daily maintenance",
+		"source":        "maintenance.daily",
 		"start_time":    start.UTC(),
 	})
 
-	ctx, cancel := context.WithTimeout(ctxlogrus.ToContext(ctx, e), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(ctxlogrus.ToContext(ctx, logEntry), 5*time.Minute)
 	defer cancel()
 
 	err = o.OptimizeRepository(ctx, repo)
-	e = e.WithField("time_ms", time.Since(start).Milliseconds())
+	logEntry = logEntry.WithField("time_ms", time.Since(start).Milliseconds())
 
 	if err != nil {
-		e.WithError(err).Errorf("maintenance: repo optimization failure")
+		logEntry.WithError(err).Errorf("maintenance: repo optimization failure")
 		return err
 	}
 
-	e.Info("maintenance: repo optimization succeeded")
-	repoOptimizationHistogram.Observe(time.Since(start).Seconds())
-
+	logEntry.Info("maintenance: repo optimization succeeded")
 	return nil
 }
 
