@@ -260,12 +260,12 @@ func (cfg *Cfg) setDefaults() error {
 		// socket paths. We hope/expect that os.MkdirTemp creates a directory
 		// that is not too deep. We need a directory, not a tempfile, because we
 		// will later want to set its permissions to 0700
-
-		tmpDir, err := os.MkdirTemp("", "gitaly-internal")
-		if err != nil {
+		socketDir := filepath.Join(cfg.RuntimeDir, "sock.d")
+		if err := os.Mkdir(socketDir, 0o700); err != nil {
 			return fmt.Errorf("create internal socket directory: %w", err)
 		}
-		cfg.InternalSocketDir = tmpDir
+
+		cfg.InternalSocketDir = socketDir
 	}
 
 	if reflect.DeepEqual(cfg.DailyMaintenance, DailyJob{}) {

@@ -112,7 +112,7 @@ func (gc *GitalyCfgBuilder) Build(t testing.TB) config.Cfg {
 	}
 
 	if cfg.InternalSocketDir == "" {
-		cfg.InternalSocketDir = filepath.Join(root, "internal_socks.d")
+		cfg.InternalSocketDir = filepath.Join(cfg.RuntimeDir, "sock.d")
 		require.NoError(t, os.Mkdir(cfg.InternalSocketDir, 0o755))
 	}
 
