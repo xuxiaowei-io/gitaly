@@ -10,7 +10,11 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
+	gitalyauth "gitlab.com/gitlab-org/gitaly/v14/auth"
+	"gitlab.com/gitlab-org/gitaly/v14/client"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/server"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -39,6 +43,36 @@ func shuffledStoragesCopy(randSrc *rand.Rand, storages []config.Storage) []confi
 // Optimizer knows how to optimize a repository
 type Optimizer interface {
 	OptimizeRepository(context.Context, *gitalypb.OptimizeRepositoryRequest, ...grpc.CallOption) (*gitalypb.OptimizeRepositoryResponse, error)
+}
+
+
+// DailyOptimizationWorker creates a worker that runs repository maintenance daily
+func DailyOptimizationWorker(cfg config.Cfg) server.WorkerFunc {
+	return func(ctx context.Context, l logrus.FieldLogger) error {
+		var opts []grpc.DialOption
+		if cfg.Auth.Token != "" {
+			opts = append(opts, grpc.WithPerRPCCredentials(
+				gitalyauth.RPCCredentialsV2(cfg.Auth.Token),
+			))
+		}
+
+		cc, err := client.Dial("unix:"+cfg.GitalyInternalSocketPath(), opts)
+		if err != nil {
+			return err
+		}
+
+		return NewDailyWorker().StartDaily(
+			ctx,
+			l,
+			cfg.DailyMaintenance,
+			OptimizeReposRandomly(
+				cfg.Storages,
+				gitalypb.NewRepositoryServiceClient(cc),
+				helper.NewTimerTicker(1*time.Second),
+				rand.New(rand.NewSource(time.Now().UnixNano())),
+			),
+		)
+	}
 }
 
 func optimizeRepoAtPath(ctx context.Context, l logrus.FieldLogger, s config.Storage, absPath string, o Optimizer) error {

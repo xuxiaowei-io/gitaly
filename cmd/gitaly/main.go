@@ -26,6 +26,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/sentry"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/linguist"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/maintenance"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/server"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
@@ -315,7 +316,11 @@ func run(cfg config.Cfg) error {
 		return fmt.Errorf("unable to start the bootstrap: %v", err)
 	}
 
-	shutdownWorkers, err := gitalyServerFactory.StartWorkers(ctx, glog.Default(), cfg)
+	shutdownWorkers, err := gitalyServerFactory.StartWorkers(
+		ctx,
+		glog.Default(),
+		maintenance.DailyOptimizationWorker(cfg),
+	)
 	if err != nil {
 		return fmt.Errorf("initialize auxiliary workers: %v", err)
 	}

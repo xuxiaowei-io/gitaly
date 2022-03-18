@@ -3,20 +3,14 @@ package server
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
-	gitalyauth "gitlab.com/gitlab-org/gitaly/v14/auth"
-	"gitlab.com/gitlab-org/gitaly/v14/client"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/maintenance"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/limithandler"
-	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc"
 )
 
@@ -49,37 +43,26 @@ func NewGitalyServerFactory(
 	}
 }
 
+// WorkerFunc is a function that does a unit of work meant to run in the background
+type WorkerFunc func(context.Context, logrus.FieldLogger) error
+
 // StartWorkers will start any auxiliary background workers that are allowed
 // to fail without stopping the rest of the server.
-func (s *GitalyServerFactory) StartWorkers(ctx context.Context, l logrus.FieldLogger, cfg config.Cfg) (func(), error) {
-	var opts []grpc.DialOption
-	if cfg.Auth.Token != "" {
-		opts = append(opts, grpc.WithPerRPCCredentials(
-			gitalyauth.RPCCredentialsV2(cfg.Auth.Token),
-		))
-	}
-
-	cc, err := client.Dial("unix:"+cfg.GitalyInternalSocketPath(), opts)
-	if err != nil {
-		return nil, err
-	}
-
+func (s *GitalyServerFactory) StartWorkers(
+	ctx context.Context,
+	l logrus.FieldLogger,
+	workers ...WorkerFunc,
+) (func(), error) {
 	errQ := make(chan error)
 
 	ctx, cancel := context.WithCancel(ctx)
-	go func() {
-		errQ <- maintenance.NewDailyWorker().StartDaily(
-			ctx,
-			l,
-			cfg.DailyMaintenance,
-			maintenance.OptimizeReposRandomly(
-				cfg.Storages,
-				gitalypb.NewRepositoryServiceClient(cc),
-				helper.NewTimerTicker(1*time.Second),
-				rand.New(rand.NewSource(time.Now().UnixNano())),
-			),
-		)
-	}()
+
+	for _, worker := range workers {
+		worker := worker
+		go func() {
+			errQ <- worker(ctx, l)
+		}()
+	}
 
 	shutdown := func() {
 		cancel()
