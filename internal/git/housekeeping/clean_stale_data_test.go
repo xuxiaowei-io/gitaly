@@ -154,7 +154,7 @@ func requireCleanStaleDataMetrics(t *testing.T, m *RepositoryManager, metrics cl
 	require.NoError(t, testutil.CollectAndCompare(m, strings.NewReader(builder.String()), "gitaly_housekeeping_pruned_files_total"))
 }
 
-func TestPerform(t *testing.T) {
+func TestRepositoryManager_CleanStaleData(t *testing.T) {
 	testcases := []struct {
 		name            string
 		entries         []entry
@@ -278,7 +278,7 @@ func TestPerform(t *testing.T) {
 	}
 }
 
-func TestPerform_references(t *testing.T) {
+func TestRepositoryManager_CleanStaleData_references(t *testing.T) {
 	type ref struct {
 		name string
 		age  time.Duration
@@ -382,7 +382,7 @@ func TestPerform_references(t *testing.T) {
 	}
 }
 
-func TestPerform_emptyRefDirs(t *testing.T) {
+func TestRepositoryManager_CleanStaleData_emptyRefDirs(t *testing.T) {
 	testcases := []struct {
 		name            string
 		entries         []entry
@@ -492,7 +492,7 @@ func TestPerform_emptyRefDirs(t *testing.T) {
 	}
 }
 
-func TestPerform_withSpecificFile(t *testing.T) {
+func TestRepositoryManager_CleanStaleData_withSpecificFile(t *testing.T) {
 	t.Parallel()
 
 	for _, tc := range []struct {
@@ -605,7 +605,7 @@ func TestPerform_withSpecificFile(t *testing.T) {
 	}
 }
 
-func TestPerform_referenceLocks(t *testing.T) {
+func TestRepositoryManager_CleanStaleData_referenceLocks(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
@@ -773,7 +773,7 @@ func TestShouldRemoveTemporaryObject(t *testing.T) {
 	}
 }
 
-func TestPerformRepoDoesNotExist(t *testing.T) {
+func TestRepositoryManager_CleanStaleData_missingRepo(t *testing.T) {
 	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	ctx := testhelper.Context(t)
@@ -783,7 +783,7 @@ func TestPerformRepoDoesNotExist(t *testing.T) {
 	require.NoError(t, NewManager(cfg.Prometheus, nil).CleanStaleData(ctx, repo))
 }
 
-func TestPerform_UnsetConfiguration(t *testing.T) {
+func TestRepositoryManager_CleanStaleData_unsetConfiguration(t *testing.T) {
 	cfg := testcfg.Build(t)
 	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -831,7 +831,7 @@ func TestPerform_UnsetConfiguration(t *testing.T) {
 `, string(testhelper.MustReadFile(t, configPath)))
 }
 
-func TestPerform_UnsetConfiguration_transactional(t *testing.T) {
+func TestRepositoryManager_CleanStaleData_unsetConfigurationTransactional(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
@@ -862,7 +862,7 @@ func TestPerform_UnsetConfiguration_transactional(t *testing.T) {
 	require.Equal(t, expectedConfig, string(configKeys))
 }
 
-func TestPerform_cleanupConfig(t *testing.T) {
+func TestRepositoryManager_CleanStaleData_pruneEmptyConfigSections(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
