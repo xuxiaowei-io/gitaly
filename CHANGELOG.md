@@ -1,5 +1,63 @@
 # Gitaly changelog
 
+## 14.9.0 (2022-03-21)
+
+### Added (7 changes)
+
+- [Repository: allow opting for --mirror for CreateRepositoryFromURL](gitlab-org/gitaly@ccffd885339855f18c46deb293ea02f12fe099d4) ([merge request](gitlab-org/gitaly!4378))
+- [housekeeping: Track what kind of repacks OptimizeRepository does](gitlab-org/gitaly@08d51eee2304870f7dc6716d256e7f3e5d49f81f) ([merge request](gitlab-org/gitaly!4406))
+- [housekeeping: Expose pruned stale files via Prometheus metric](gitlab-org/gitaly@a667155fa31a040a900dbfc4470addc9b0ea9dff) ([merge request](gitlab-org/gitaly!4406))
+- [proto: Add structured error types for UserRebaseCofirmable](gitlab-org/gitaly@33ad262c1442608cbf5dc9827ae3b68c0ef569b4) ([merge request](gitlab-org/gitaly!4382))
+- [git2go: Add squash parameter to MergeCommand](gitlab-org/gitaly@017cbb2606fe2e92596476d9174533bcdc2faa2a) by @trakos ([merge request](gitlab-org/gitaly!4241))
+- [git: Support bundled Git v2.35.1.gl1](gitlab-org/gitaly@b547b368c8f584e9aabe8eef9342f99440b0c248) ([merge request](gitlab-org/gitaly!4352))
+- [proto: Add structured error types for UserSquash RPC](gitlab-org/gitaly@009119976f6862362605744a1cefe43080dd7670) ([merge request](gitlab-org/gitaly!4381))
+
+### Fixed (14 changes)
+
+- [housekeeping: Don't prune recent objects](gitlab-org/gitaly@a58c4be993173b767e4f301b3e78f82f257c8acb) ([merge request](gitlab-org/gitaly!4410))
+- [repository: Fix indeterministic voting when creating new repos](gitlab-org/gitaly@88298a9cdb209dcd435244197347299b013e65f7) ([merge request](gitlab-org/gitaly!4402))
+- [operations: Fix wrong error code when UserSquash conflicts](gitlab-org/gitaly@6c63998ad459ff840e82e636c93d2aa7e25fe982) ([merge request](gitlab-org/gitaly!4403))
+- [cgroups: Remove paths field](gitlab-org/gitaly@ac24add628cfdd58b5e0fedb5fb31ab7a696b8d9) ([merge request](gitlab-org/gitaly!4398))
+- [Extend invalid metadata deletion logic to repos existin on target](gitlab-org/gitaly@ce2e5ead35c404ecf3bfa7443637e9a3b5aed231) ([merge request](gitlab-org/gitaly!4396))
+- [localrepo: Unlock symbolic refs when the update fails](gitlab-org/gitaly@037f1719d75ecd3fa2ccdaa8cd3cb8e8b6a723c5) ([merge request](gitlab-org/gitaly!4379))
+- [git: Verify that bundled Git binaries exist and are executable](gitlab-org/gitaly@eb4a24b3aad97c1cd68c2e8b7e1bfd29e9212ff8) ([merge request](gitlab-org/gitaly!4372))
+- [git: Reject config with bundled Git and missing binary directories](gitlab-org/gitaly@b30cee8caa34d4faaa7d9e3fe4c7daa692c88698) ([merge request](gitlab-org/gitaly!4372))
+- [praefect: Pass feature flags to Gitaly when executing ServerInfo](gitlab-org/gitaly@281ffc54d0a19b495dbb048c7419b161b9e5951d) ([merge request](gitlab-org/gitaly!4372))
+- [Hooks: eagerly delete sidechannel socket dir](gitlab-org/gitaly@93eb8618744a8a05f2b588c0fbcb3122e6c98db9) ([merge request](gitlab-org/gitaly!4369))
+- [Handle backchannel connection closing idempotently](gitlab-org/gitaly@2834e1d8a902e2f9a2feceeb323b90b9d12f0964) ([merge request](gitlab-org/gitaly!4370))
+- [repository: Fix indetermenistic voting order in ReplicateRepository](gitlab-org/gitaly@6024533677a29f8af0839ef3614b7c897154f677) ([merge request](gitlab-org/gitaly!4345))
+- [gitaly: Fix missing housekeeping manager dependency](gitlab-org/gitaly@5585b14c7e55de54fc49c05fef26cbf65221dedc) ([merge request](gitlab-org/gitaly!4365))
+- [repository: Ignore missing refs in CreateBundleFromRefList](gitlab-org/gitaly@4c38e05f6697bddd3c049ce86329ffa8524caa54) ([merge request](gitlab-org/gitaly!4364))
+
+### Changed (10 changes)
+
+- [housekeeping: Generalize counter for pruned empty directories](gitlab-org/gitaly@423ec9e7f1dfa7bc9b7384d4b980df04a550484b) ([merge request](gitlab-org/gitaly!4406))
+- [repository: Allow CreateRepository to take default_branch](gitlab-org/gitaly@6c7f67c8468f7cf3385aba8a34904cb8cf08c145) ([merge request](gitlab-org/gitaly!4385))
+- [operations: Return error from UserSquash when merging fails](gitlab-org/gitaly@ea0ac3215cedd17cf113b30ce33a95c0d38673d7) ([merge request](gitlab-org/gitaly!4374))
+- [operations: Return error from UserSquash on conflict](gitlab-org/gitaly@715f4da107598da0fca68d446ca9c8990e93518f) ([merge request](gitlab-org/gitaly!4374))
+- [operations: Return error from UserSquash when resolving revisions fails](gitlab-org/gitaly@d88d29185b7c9f233551fcb4e42a56a1d68d48a4) ([merge request](gitlab-org/gitaly!4374))
+- [git: Enable use of bundled Git by default](gitlab-org/gitaly@52625870d2f973dc56128fb2aadb26715b521b2f) ([merge request](gitlab-org/gitaly!4376))
+- [localrepo: Remove flag to switch to sidechannels for internal fetches](gitlab-org/gitaly@03f9491ef621a35792cca219ee6cb075001dc07b) ([merge request](gitlab-org/gitaly!4375))
+- [localrepo: Do transactional vote in SetDefaultBranch](gitlab-org/gitaly@e1078e0529851c1d713654c156a578e91bacc144) ([merge request](gitlab-org/gitaly!4359))
+- [repository: Use optional auth token for cloning](gitlab-org/gitaly@f613c980c82f2f0970f89b9c2c255c14f7618fe9) ([merge request](gitlab-org/gitaly!4239))
+- [log: Disable gRPC HealthCheck message logging](gitlab-org/gitaly@44abe5c818c7f40118e9fb43e17c82c752d1ff1d) ([merge request](gitlab-org/gitaly!4363))
+
+### Deprecated (3 changes)
+
+- [proto: Deprecate PreReceiveError field in UserMergeBranchResponse](gitlab-org/gitaly@151bdfd96e7baddfbbcc0eb43a7419358aecd34d) ([merge request](gitlab-org/gitaly!4393))
+- [proto: Deprecate PreReceiveError field in UserMergeToRefResponse](gitlab-org/gitaly@9aa0347a23179d34af17f4f49720df83955c4f00) ([merge request](gitlab-org/gitaly!4393))
+- [proto: Deprecate fine-grained repository maintenance RPCs](gitlab-org/gitaly@ccc9dcc985366a2cc360d5d89ac6f1c7ae7e3704) ([merge request](gitlab-org/gitaly!4362))
+
+### Removed (2 changes)
+
+- [operations: Remove deprecated `squash_id` from UserSquash RPC](gitlab-org/gitaly@d481c75006ab618855500ea36021fa2cbf66da38) ([merge request](gitlab-org/gitaly!4381))
+- [git: Remove support for the Ruby hooks directory](gitlab-org/gitaly@bfa0044c89284bb676e65ee3785dd92574c8def6) ([merge request](gitlab-org/gitaly!4356))
+
+### Performance (2 changes)
+
+- [Makefile: Add more patches to speed up git-fetch(1) to v2.35.1.gl1](gitlab-org/gitaly@4c5b7a2a4fa9960381a214b057062ed3693b41ba) ([merge request](gitlab-org/gitaly!4408))
+- [git: Convert internal fetches to use sidechannel](gitlab-org/gitaly@8e5cb64195e732fd95f98d49971b6e9910b86ce2) ([merge request](gitlab-org/gitaly!4358))
+
 ## 14.8.4 (2022-03-16)
 
 No changes.
