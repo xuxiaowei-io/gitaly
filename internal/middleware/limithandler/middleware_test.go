@@ -38,7 +38,7 @@ func TestUnaryLimitHandler(t *testing.T) {
 		},
 	}
 
-	lh := limithandler.New(cfg, fixedLockKey)
+	lh := limithandler.New(cfg, fixedLockKey, limithandler.WithConcurrencyLimiters)
 	interceptor := lh.UnaryInterceptor()
 	srv, serverSocketPath := runServer(t, s, grpc.UnaryInterceptor(interceptor))
 	defer srv.Stop()
@@ -191,7 +191,7 @@ func TestStreamLimitHandler(t *testing.T) {
 				},
 			}
 
-			lh := limithandler.New(cfg, fixedLockKey)
+			lh := limithandler.New(cfg, fixedLockKey, limithandler.WithConcurrencyLimiters)
 			interceptor := lh.StreamInterceptor()
 			srv, serverSocketPath := runServer(t, s, grpc.StreamInterceptor(interceptor))
 			defer srv.Stop()
@@ -233,7 +233,7 @@ func (q *queueTestServer) Unary(ctx context.Context, in *pb.UnaryRequest) (*pb.U
 	return &pb.UnaryResponse{Ok: true}, nil
 }
 
-func TestLimitHandlerMetrics(t *testing.T) {
+func TestConcurrencyLimitHandlerMetrics(t *testing.T) {
 	s := &queueTestServer{reqArrivedCh: make(chan struct{})}
 	s.blockCh = make(chan struct{})
 
@@ -244,7 +244,7 @@ func TestLimitHandlerMetrics(t *testing.T) {
 		},
 	}
 
-	lh := limithandler.New(cfg, fixedLockKey)
+	lh := limithandler.New(cfg, fixedLockKey, limithandler.WithConcurrencyLimiters)
 	interceptor := lh.UnaryInterceptor()
 	srv, serverSocketPath := runServer(t, s, grpc.UnaryInterceptor(interceptor))
 	defer srv.Stop()
