@@ -59,9 +59,6 @@ func (b *Executor) run(ctx context.Context, repo repository.GitRepo, stdin io.Re
 	}
 
 	if err := cmd.Wait(); err != nil {
-		if _, ok := err.(*exec.ExitError); ok {
-			return nil, fmt.Errorf("%s", stderr.String())
-		}
 		return nil, err
 	}
 
