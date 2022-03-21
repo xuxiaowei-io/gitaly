@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	git "github.com/libgit2/git2go/v33"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	glog "gitlab.com/gitlab-org/gitaly/v14/internal/log"
@@ -88,7 +89,9 @@ func main() {
 		fatalf(encoder, "enable fsync: %s", err)
 	}
 
-	if err := subcmd.Run(context.Background(), decoder, encoder); err != nil {
+	ctx := ctxlogrus.ToContext(context.Background(), glog.Default())
+
+	if err := subcmd.Run(ctx, decoder, encoder); err != nil {
 		fatalf(encoder, "%s: %s", subcmdFlags.Name(), err)
 	}
 }
