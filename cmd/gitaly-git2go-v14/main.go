@@ -12,6 +12,7 @@ import (
 
 	git "github.com/libgit2/git2go/v33"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
+	glog "gitlab.com/gitlab-org/gitaly/v14/internal/log"
 )
 
 type subcmd interface {
@@ -43,27 +44,39 @@ func fatalf(encoder *gob.Encoder, format string, args ...interface{}) {
 	os.Exit(0)
 }
 
+func configureLogging(format, level string) {
+	// Gitaly logging by default goes to stdout, which would interfere with gob
+	// encoding.
+	for _, l := range glog.Loggers {
+		l.Out = os.Stderr
+	}
+	glog.Configure(glog.Loggers, format, level)
+}
+
 func main() {
 	decoder := gob.NewDecoder(os.Stdin)
 	encoder := gob.NewEncoder(os.Stdout)
 
-	flags := flag.NewFlagSet(git2go.BinaryName, flag.ContinueOnError)
+	var logFormat, logLevel string
 
-	if err := flags.Parse(os.Args); err != nil {
-		fatalf(encoder, "parsing flags: %s", err)
-	}
+	flags := flag.NewFlagSet(git2go.BinaryName, flag.PanicOnError)
+	flags.StringVar(&logFormat, "log-format", "", "logging format")
+	flags.StringVar(&logLevel, "log-level", "", "logging level")
+	_ = flags.Parse(os.Args[1:])
 
-	if flags.NArg() < 2 {
+	configureLogging(logFormat, logLevel)
+
+	if flags.NArg() < 1 {
 		fatalf(encoder, "missing subcommand")
 	}
 
-	subcmd, ok := subcommands[flags.Arg(1)]
+	subcmd, ok := subcommands[flags.Arg(0)]
 	if !ok {
 		fatalf(encoder, "unknown subcommand: %q", flags.Arg(0))
 	}
 
 	subcmdFlags := subcmd.Flags()
-	if err := subcmdFlags.Parse(flags.Args()[2:]); err != nil {
+	if err := subcmdFlags.Parse(flags.Args()[1:]); err != nil {
 		fatalf(encoder, "parsing flags of %q: %s", subcmdFlags.Name(), err)
 	}
 
