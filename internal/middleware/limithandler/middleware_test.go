@@ -17,6 +17,8 @@ import (
 	pb "gitlab.com/gitlab-org/gitaly/v14/internal/middleware/limithandler/testdata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestMain(m *testing.M) {
@@ -313,6 +315,86 @@ gitaly_requests_dropped_total{grpc_method="Unary",grpc_service="test.limithandle
 	// and the second one that got queued
 	<-respCh
 	<-respCh
+}
+
+func TestRateLimitHandler(t *testing.T) {
+	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.RateLimit).Run(t, testRateLimitHandler)
+}
+
+func testRateLimitHandler(t *testing.T, ctx context.Context) {
+	methodName := "/test.limithandler.Test/Unary"
+	cfg := config.Cfg{
+		RateLimiting: []config.RateLimiting{
+			{RPC: methodName, Interval: 1 * time.Hour, Burst: 1},
+		},
+	}
+
+	t.Run("rate has hit max", func(t *testing.T) {
+		s := &server{blockCh: make(chan struct{})}
+
+		lh := limithandler.New(cfg, fixedLockKey, limithandler.WithRateLimiters)
+		interceptor := lh.UnaryInterceptor()
+		srv, serverSocketPath := runServer(t, s, grpc.UnaryInterceptor(interceptor))
+		defer srv.Stop()
+
+		client, conn := newClient(t, serverSocketPath)
+		defer testhelper.MustClose(t, conn)
+
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, err := client.Unary(ctx, &pb.UnaryRequest{})
+			require.NoError(t, err)
+		}()
+		// wait until the first request is being processed so we know the rate
+		// limiter already knows about it.
+		s.blockCh <- struct{}{}
+		close(s.blockCh)
+
+		for i := 0; i < 10; i++ {
+			_, err := client.Unary(ctx, &pb.UnaryRequest{})
+
+			if featureflag.RateLimit.IsEnabled(ctx) {
+				testhelper.RequireGrpcError(t, status.Error(codes.Unavailable, "too many requests"), err)
+			} else {
+				require.NoError(t, err)
+			}
+		}
+
+		expectedMetrics := `# HELP gitaly_requests_dropped_total Number of requests dropped from the queue
+# TYPE gitaly_requests_dropped_total counter
+gitaly_requests_dropped_total{grpc_method="Unary",grpc_service="test.limithandler.Test",reason="rate",system="gitaly"} 10
+`
+		assert.NoError(t, promtest.CollectAndCompare(lh, bytes.NewBufferString(expectedMetrics),
+			"gitaly_requests_dropped_total"))
+
+		wg.Wait()
+	})
+
+	t.Run("rate has not hit max", func(t *testing.T) {
+		s := &server{blockCh: make(chan struct{})}
+
+		lh := limithandler.New(cfg, fixedLockKey, limithandler.WithRateLimiters)
+		interceptor := lh.UnaryInterceptor()
+		srv, serverSocketPath := runServer(t, s, grpc.UnaryInterceptor(interceptor))
+		defer srv.Stop()
+
+		client, conn := newClient(t, serverSocketPath)
+		defer testhelper.MustClose(t, conn)
+
+		close(s.blockCh)
+		_, err := client.Unary(ctx, &pb.UnaryRequest{})
+		require.NoError(t, err)
+
+		expectedMetrics := `# HELP gitaly_requests_dropped_total Number of requests dropped from the queue
+# TYPE gitaly_requests_dropped_total counter
+gitaly_requests_dropped_total{grpc_method="Unary",grpc_service="test.limithandler.Test",reason="rate",system="gitaly"} 0
+`
+		assert.NoError(t, promtest.CollectAndCompare(lh, bytes.NewBufferString(expectedMetrics),
+			"gitaly_requests_dropped_total"))
+	})
 }
 
 func runServer(t *testing.T, s pb.TestServer, opt ...grpc.ServerOption) (*grpc.Server, string) {
