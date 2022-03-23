@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 14.9.1 (2022-03-23)
+
+No changes.
+
 ## 14.9.0 (2022-03-21)
 
 ### Added (7 changes)
