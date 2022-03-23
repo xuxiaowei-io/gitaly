@@ -18,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/storage"
 	glog "gitlab.com/gitlab-org/gitaly/v14/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/version"
+	"gitlab.com/gitlab-org/labkit/correlation"
 )
 
 var (
@@ -61,7 +62,11 @@ func (b *Executor) run(ctx context.Context, repo repository.GitRepo, stdin io.Re
 	// https://pkg.go.dev/github.com/sirupsen/logrus#readme-thread-safety
 	log := glog.Default().Logger.Out
 
-	args = append([]string{"-log-format", b.logFormat, "-log-level", b.logLevel}, args...)
+	args = append([]string{
+		"-log-format", b.logFormat,
+		"-log-level", b.logLevel,
+		"-correlation-id", correlation.ExtractFromContext(ctx),
+	}, args...)
 
 	var stdout bytes.Buffer
 	cmd, err := command.New(ctx, exec.Command(b.binaryPath, args...), stdin, &stdout, log, env...)

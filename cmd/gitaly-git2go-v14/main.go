@@ -15,6 +15,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	glog "gitlab.com/gitlab-org/gitaly/v14/internal/log"
+	"gitlab.com/gitlab-org/labkit/correlation"
 )
 
 type subcmd interface {
@@ -59,15 +60,25 @@ func main() {
 	decoder := gob.NewDecoder(os.Stdin)
 	encoder := gob.NewEncoder(os.Stdout)
 
-	var logFormat, logLevel string
+	var logFormat, logLevel, correlationID string
 
 	flags := flag.NewFlagSet(git2go.BinaryName, flag.PanicOnError)
 	flags.StringVar(&logFormat, "log-format", "", "logging format")
 	flags.StringVar(&logLevel, "log-level", "", "logging level")
+	flags.StringVar(&correlationID, "correlation-id", "", "correlation ID used for request tracing")
 	_ = flags.Parse(os.Args[1:])
 
+	if correlationID == "" {
+		correlationID = correlation.SafeRandomID()
+	}
+
 	configureLogging(logFormat, logLevel)
-	logger := glog.Default().WithField("command.name", git2go.BinaryName)
+
+	ctx := correlation.ContextWithCorrelation(context.Background(), correlationID)
+	logger := glog.Default().WithFields(logrus.Fields{
+		"command.name":   git2go.BinaryName,
+		"correlation_id": correlationID,
+	})
 
 	if flags.NArg() < 1 {
 		fatalf(logger, encoder, "missing subcommand")
@@ -91,9 +102,14 @@ func main() {
 		fatalf(logger, encoder, "enable fsync: %s", err)
 	}
 
-	ctx := ctxlogrus.ToContext(context.Background(), logger.WithField("subcommand", subcmd))
+	subcmdLogger := logger.WithField("command.subcommand", subcmdFlags.Name())
+	subcmdLogger.Infof("starting %s command", subcmdFlags.Name())
 
+	ctx = ctxlogrus.ToContext(ctx, subcmdLogger)
 	if err := subcmd.Run(ctx, decoder, encoder); err != nil {
+		subcmdLogger.WithError(err).Errorf("%s command failed", subcmdFlags.Name())
 		fatalf(logger, encoder, "%s: %s", subcmdFlags.Name(), err)
 	}
+
+	subcmdLogger.Infof("%s command finished", subcmdFlags.Name())
 }
