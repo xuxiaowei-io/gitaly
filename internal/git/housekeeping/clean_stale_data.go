@@ -369,29 +369,40 @@ func findBrokenLooseReferences(ctx context.Context, repoPath string) ([]string, 
 func findStaleReferenceLocks(ctx context.Context, repoPath string) ([]string, error) {
 	var staleReferenceLocks []string
 
-	err := filepath.Walk(filepath.Join(repoPath, "refs"), func(path string, info os.FileInfo, err error) error {
-		if os.IsNotExist(err) {
-			// Race condition: somebody already deleted the file for us. Ignore this file.
-			return nil
-		}
-
+	if err := filepath.WalkDir(filepath.Join(repoPath, "refs"), func(path string, dirEntry fs.DirEntry, err error) error {
 		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) || errors.Is(err, fs.ErrPermission) {
+				return nil
+			}
+
 			return err
 		}
 
-		if info.IsDir() {
+		if dirEntry.IsDir() {
 			return nil
 		}
 
-		if !strings.HasSuffix(info.Name(), ".lock") || time.Since(info.ModTime()) < referenceLockfileGracePeriod {
+		if !strings.HasSuffix(dirEntry.Name(), ".lock") {
+			return nil
+		}
+
+		fi, err := dirEntry.Info()
+		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				return nil
+			}
+
+			return fmt.Errorf("statting reference lock: %w", err)
+		}
+
+		if time.Since(fi.ModTime()) < referenceLockfileGracePeriod {
 			return nil
 		}
 
 		staleReferenceLocks = append(staleReferenceLocks, path)
 		return nil
-	})
-	if err != nil {
-		return nil, err
+	}); err != nil {
+		return nil, fmt.Errorf("walking refs: %w", err)
 	}
 
 	return staleReferenceLocks, nil
