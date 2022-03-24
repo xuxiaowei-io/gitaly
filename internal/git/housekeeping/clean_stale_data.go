@@ -325,32 +325,41 @@ func isStaleTemporaryObject(dirEntry fs.DirEntry) (bool, error) {
 }
 
 func findBrokenLooseReferences(ctx context.Context, repoPath string) ([]string, error) {
-	logger := myLogger(ctx)
-
 	var brokenRefs []string
-	err := filepath.Walk(filepath.Join(repoPath, "refs"), func(path string, info os.FileInfo, err error) error {
-		if info == nil {
-			logger.WithFields(log.Fields{
-				"path": path,
-			}).WithError(err).Error("nil FileInfo in housekeeping.Perform")
+	if err := filepath.WalkDir(filepath.Join(repoPath, "refs"), func(path string, dirEntry fs.DirEntry, err error) error {
+		if err != nil {
+			if errors.Is(err, fs.ErrPermission) || errors.Is(err, fs.ErrNotExist) {
+				return nil
+			}
+			return err
+		}
 
+		if dirEntry.IsDir() {
 			return nil
+		}
+
+		fi, err := dirEntry.Info()
+		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				return nil
+			}
+
+			return fmt.Errorf("statting loose ref: %w", err)
 		}
 
 		// When git crashes or a node reboots, it may happen that it leaves behind empty
 		// references. These references break various assumptions made by git and cause it
 		// to error in various circumstances. We thus clean them up to work around the
 		// issue.
-		if info.IsDir() || info.Size() > 0 || time.Since(info.ModTime()) < brokenRefsGracePeriod {
+		if fi.Size() > 0 || time.Since(fi.ModTime()) < brokenRefsGracePeriod {
 			return nil
 		}
 
 		brokenRefs = append(brokenRefs, path)
 
 		return nil
-	})
-	if err != nil {
-		return nil, err
+	}); err != nil {
+		return nil, fmt.Errorf("walking references: %w", err)
 	}
 
 	return brokenRefs, nil
