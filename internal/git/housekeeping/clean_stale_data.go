@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -268,43 +269,59 @@ func findStaleLockfiles(ctx context.Context, repoPath string) ([]string, error) 
 func findTemporaryObjects(ctx context.Context, repoPath string) ([]string, error) {
 	var temporaryObjects []string
 
-	logger := myLogger(ctx)
+	if err := filepath.WalkDir(filepath.Join(repoPath, "objects"), func(path string, dirEntry fs.DirEntry, err error) error {
+		if err != nil {
+			if errors.Is(err, fs.ErrPermission) || errors.Is(err, fs.ErrNotExist) {
+				return nil
+			}
+			return err
+		}
 
-	err := filepath.Walk(filepath.Join(repoPath, "objects"), func(path string, info os.FileInfo, err error) error {
-		if info == nil {
-			logger.WithFields(log.Fields{
-				"path": path,
-			}).WithError(err).Error("nil FileInfo in housekeeping.Perform")
-
+		// Git will never create temporary directories, but only temporary objects,
+		// packfiles and packfile indices.
+		if dirEntry.IsDir() {
 			return nil
 		}
 
-		// Git will never create temporary directories, but only
-		// temporary objects, packfiles and packfile indices.
-		if info.IsDir() {
-			return nil
+		isStale, err := isStaleTemporaryObject(dirEntry)
+		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				return nil
+			}
+
+			return fmt.Errorf("checking for stale temporary object: %w", err)
 		}
 
-		if !isStaleTemporaryObject(path, info.ModTime(), info.Mode()) {
+		if !isStale {
 			return nil
 		}
 
 		temporaryObjects = append(temporaryObjects, path)
 
 		return nil
-	})
-	if err != nil {
-		return nil, err
+	}); err != nil {
+		return nil, fmt.Errorf("walking object directory: %w", err)
 	}
 
 	return temporaryObjects, nil
 }
 
-func isStaleTemporaryObject(path string, modTime time.Time, mode os.FileMode) bool {
-	base := filepath.Base(path)
+func isStaleTemporaryObject(dirEntry fs.DirEntry) (bool, error) {
+	// Check the entry's name first so that we can ideally avoid stat'ting the entry.
+	if !strings.HasPrefix(dirEntry.Name(), "tmp_") {
+		return false, nil
+	}
 
-	// Only delete entries starting with `tmp_` and older than a week
-	return strings.HasPrefix(base, "tmp_") && time.Since(modTime) >= deleteTempFilesOlderThanDuration
+	fi, err := dirEntry.Info()
+	if err != nil {
+		return false, err
+	}
+
+	if time.Since(fi.ModTime()) <= deleteTempFilesOlderThanDuration {
+		return false, nil
+	}
+
+	return true, nil
 }
 
 func findBrokenLooseReferences(ctx context.Context, repoPath string) ([]string, error) {
