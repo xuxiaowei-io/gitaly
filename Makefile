@@ -459,7 +459,6 @@ lint: ${GOLANGCI_LINT} libgit2
 format: ${GOIMPORTS} ${GOFUMPT}
 	${Q}${GOIMPORTS} -w -l $(call find_go_sources)
 	${Q}${GOFUMPT} -w $(call find_go_sources)
-	${Q}${GOIMPORTS} -w -l $(call find_go_sources)
 
 .PHONY: notice-up-to-date
 notice-up-to-date: ${BUILD_DIR}/NOTICE
