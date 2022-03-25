@@ -158,7 +158,7 @@ func runGitaly(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, regi
 		gsd.logger.WithField("test", t.Name()),
 		deps.GetBackchannelRegistry(),
 		deps.GetDiskCache(),
-		deps.GetLimitHandler(),
+		[]*limithandler.LimiterMiddleware{deps.GetLimitHandler()},
 	)
 
 	if cfg.InternalSocketDir != "" {

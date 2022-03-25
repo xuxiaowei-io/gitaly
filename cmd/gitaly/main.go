@@ -216,7 +216,7 @@ func run(cfg config.Cfg) error {
 	limitHandler := limithandler.New(cfg, limithandler.LimitConcurrencyByRepo, limithandler.WithConcurrencyLimiters)
 	prometheus.MustRegister(limitHandler)
 
-	gitalyServerFactory := server.NewGitalyServerFactory(cfg, glog.Default(), registry, diskCache, limitHandler)
+	gitalyServerFactory := server.NewGitalyServerFactory(cfg, glog.Default(), registry, diskCache, []*limithandler.LimiterMiddleware{limitHandler})
 	defer gitalyServerFactory.Stop()
 
 	ling, err := linguist.New(cfg, gitCmdFactory)
