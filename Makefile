@@ -327,11 +327,6 @@ ifdef WITHOUT_BUILD_ID
 	go install -ldflags '${GO_LDFLAGS}' -tags "${GO_BUILD_TAGS}" $(addprefix ${GITALY_PACKAGE}/cmd/, $(call find_commands))
 endif
 
-	@ # We use version suffix for the gitaly-git2go binary to support compatibility contract between
-	@ # gitaly and gitaly-git2go during upgrade deployment.
-	@ # For more information refer to https://gitlab.com/gitlab-org/gitaly/-/issues/3647#note_599082033
-	${Q}mv ${BUILD_DIR}/bin/gitaly-git2go "${BUILD_DIR}/bin/gitaly-git2go-${MODULE_VERSION}"
-
 ifndef WITHOUT_BUILD_ID
 build: $(call find_commands)
 
