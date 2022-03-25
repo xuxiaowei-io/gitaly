@@ -254,8 +254,8 @@ TEST_REPO_MIRROR := ${TEST_REPO_DIR}/gitlab-test-mirror.git
 TEST_REPO_GIT    := ${TEST_REPO_DIR}/gitlab-git-test.git
 BENCHMARK_REPO   := ${TEST_REPO_DIR}/benchmark.git
 
-# Find all commands.
-find_commands         = $(notdir $(shell find ${SOURCE_DIR}/cmd -mindepth 1 -maxdepth 1 -type d -print))
+# All executables provided by Gitaly
+GITALY_EXECUTABLES   := $(notdir $(shell find ${SOURCE_DIR}/cmd -mindepth 1 -maxdepth 1 -type d -print))
 # Find all Go source files.
 find_go_sources       = $(shell find ${SOURCE_DIR} -type d \( -name ruby -o -name vendor -o -name testdata -o -name '_*' -o -path '*/proto/go/gitalypb' \) -prune -o -type f -name '*.go' -not -name '*.pb.go' -print | sort -u)
 
@@ -314,14 +314,14 @@ help:
 ## Build Go binaries and install required Ruby Gems.
 build: ${SOURCE_DIR}/.ruby-bundle libgit2
 ifdef WITHOUT_BUILD_ID
-	go install -ldflags '${GO_LDFLAGS}' -tags "${GO_BUILD_TAGS}" $(addprefix ${GITALY_PACKAGE}/cmd/, $(call find_commands))
+	go install -ldflags '${GO_LDFLAGS}' -tags "${GO_BUILD_TAGS}" $(addprefix ${GITALY_PACKAGE}/cmd/, ${GITALY_EXECUTABLES})
 endif
 
 ifndef WITHOUT_BUILD_ID
-build: $(call find_commands)
+build: ${GITALY_EXECUTABLES}
 
-.PHONY: $(call find_commands)
-$(call find_commands):
+.PHONY: ${GITALY_EXECUTABLES}
+${GITALY_EXECUTABLES}:
 	${Q}go install -ldflags '${GO_LDFLAGS}' -tags "${GO_BUILD_TAGS}" $(addprefix ${GITALY_PACKAGE}/cmd/, $@)
 	@ # To compute a unique and deterministic value for GNU build-id, we build the Go binary a second time.
 	@ # From the first build, we extract its unique and deterministic Go build-id, and use that to derive
@@ -338,7 +338,7 @@ endif
 ## Install Gitaly binaries. The target directory can be modified by setting PREFIX and DESTDIR.
 install: build
 	${Q}mkdir -p ${INSTALL_DEST_DIR}
-	install $(addprefix ${BUILD_DIR}/bin/,$(call find_commands)) "${INSTALL_DEST_DIR}"
+	install $(addprefix ${BUILD_DIR}/bin/,${GITALY_EXECUTABLES}) "${INSTALL_DEST_DIR}"
 
 .PHONY: build-bundled-git
 ## Build bundled Git binaries.
