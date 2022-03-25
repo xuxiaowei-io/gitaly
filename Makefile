@@ -315,14 +315,6 @@ help:
 .PHONY: build
 ## Build Go binaries and install required Ruby Gems.
 build: ${SOURCE_DIR}/.ruby-bundle libgit2
-	@ # We used to install Gitaly binaries into the source directory by default when executing
-	@ # "make" or "make all", which has been changed in v14.5 to only build binaries into
-	@ # `_build/bin`. In order to quickly fail in case any source install still refers to these
-	@ # old binaries, we delete them from the source directory. Otherwise, it may happen that a
-	@ # source install continues to use the old set of binaries that wasn't updated at all.
-	@ # This safety guard can go away in v14.6.
-	${Q}rm -f $(addprefix ${SOURCE_DIR}/,$(notdir $(call find_commands)) gitaly-git2go-v14)
-
 ifdef WITHOUT_BUILD_ID
 	go install -ldflags '${GO_LDFLAGS}' -tags "${GO_BUILD_TAGS}" $(addprefix ${GITALY_PACKAGE}/cmd/, $(call find_commands))
 endif
