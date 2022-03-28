@@ -196,7 +196,7 @@ func WithConcurrencyLimiters(cfg config.Cfg, middleware *LimiterMiddleware) {
 	acquiringSecondsMetric := prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: "gitaly",
-			Subsystem: "rate_limiting",
+			Subsystem: "concurrency_limiting",
 			Name:      "acquiring_seconds",
 			Help:      "Histogram of time calls are rate limited (in seconds)",
 			Buckets:   cfg.Prometheus.GRPCLatencyBuckets,
@@ -206,7 +206,7 @@ func WithConcurrencyLimiters(cfg config.Cfg, middleware *LimiterMiddleware) {
 	inProgressMetric := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: "gitaly",
-			Subsystem: "rate_limiting",
+			Subsystem: "concurrency_limiting",
 			Name:      "in_progress",
 			Help:      "Gauge of number of concurrent in-progress calls",
 		},
@@ -215,7 +215,7 @@ func WithConcurrencyLimiters(cfg config.Cfg, middleware *LimiterMiddleware) {
 	queuedMetric := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: "gitaly",
-			Subsystem: "rate_limiting",
+			Subsystem: "concurrency_limiting",
 			Name:      "queued",
 			Help:      "Gauge of number of queued calls",
 		},

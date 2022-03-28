@@ -290,22 +290,22 @@ func TestConcurrencyLimitHandlerMetrics(t *testing.T) {
 		}
 	}
 
-	expectedMetrics := `# HELP gitaly_rate_limiting_in_progress Gauge of number of concurrent in-progress calls
-# TYPE gitaly_rate_limiting_in_progress gauge
-gitaly_rate_limiting_in_progress{grpc_method="ReplicateRepository",grpc_service="gitaly.RepositoryService",system="gitaly"} 0
-gitaly_rate_limiting_in_progress{grpc_method="Unary",grpc_service="test.limithandler.Test",system="gitaly"} 1
-# HELP gitaly_rate_limiting_queued Gauge of number of queued calls
-# TYPE gitaly_rate_limiting_queued gauge
-gitaly_rate_limiting_queued{grpc_method="ReplicateRepository",grpc_service="gitaly.RepositoryService",system="gitaly"} 0
-gitaly_rate_limiting_queued{grpc_method="Unary",grpc_service="test.limithandler.Test",system="gitaly"} 1
+	expectedMetrics := `# HELP gitaly_concurrency_limiting_in_progress Gauge of number of concurrent in-progress calls
+# TYPE gitaly_concurrency_limiting_in_progress gauge
+gitaly_concurrency_limiting_in_progress{grpc_method="ReplicateRepository",grpc_service="gitaly.RepositoryService",system="gitaly"} 0
+gitaly_concurrency_limiting_in_progress{grpc_method="Unary",grpc_service="test.limithandler.Test",system="gitaly"} 1
+# HELP gitaly_concurrency_limiting_queued Gauge of number of queued calls
+# TYPE gitaly_concurrency_limiting_queued gauge
+gitaly_concurrency_limiting_queued{grpc_method="ReplicateRepository",grpc_service="gitaly.RepositoryService",system="gitaly"} 0
+gitaly_concurrency_limiting_queued{grpc_method="Unary",grpc_service="test.limithandler.Test",system="gitaly"} 1
 # HELP gitaly_requests_dropped_total Number of requests dropped from the queue
 # TYPE gitaly_requests_dropped_total counter
 gitaly_requests_dropped_total{grpc_method="Unary",grpc_service="test.limithandler.Test",reason="max_size",system="gitaly"} 9
 `
 	assert.NoError(t, promtest.CollectAndCompare(lh, bytes.NewBufferString(expectedMetrics),
-		"gitaly_rate_limiting_queued",
+		"gitaly_concurrency_limiting_queued",
 		"gitaly_requests_dropped_total",
-		"gitaly_rate_limiting_in_progress"))
+		"gitaly_concurrency_limiting_in_progress"))
 
 	close(s.blockCh)
 	<-s.reqArrivedCh
