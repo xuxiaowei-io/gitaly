@@ -571,18 +571,23 @@ type SSHCloneDetails struct {
 
 // setupSSHClone sets up a test clone
 func setupSSHClone(t *testing.T, cfg config.Cfg, remoteRepo *gitalypb.Repository, remoteRepoPath string) (SSHCloneDetails, func()) {
-	// Make a non-bare clone of the test repo to act as a local one
-	_, localRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
-		WithWorktree: true,
-	})
+	_, localRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
-	// We need git thinking we're pushing over SSH...
-	oldHead, newHead, success := makeCommit(t, cfg, localRepoPath)
-	require.True(t, success)
+	oldHead := text.ChompBytes(gittest.Exec(t, cfg, "-C", localRepoPath, "rev-parse", "HEAD"))
+	newHead := gittest.WriteCommit(t, cfg, localRepoPath,
+		gittest.WithMessage(fmt.Sprintf("Testing ReceivePack RPC around %d", time.Now().Unix())),
+		gittest.WithTreeEntries(gittest.TreeEntry{
+			Path: "foo.txt",
+			Mode: "100644",
+			Content: "foo bar",
+		}),
+		gittest.WithBranch("master"),
+		gittest.WithParents(git.ObjectID(oldHead)),
+	)
 
 	return SSHCloneDetails{
-			OldHead:        oldHead,
-			NewHead:        newHead,
+			OldHead:        []byte(oldHead),
+			NewHead:        []byte(newHead.String()),
 			LocalRepoPath:  localRepoPath,
 			RemoteRepoPath: remoteRepoPath,
 			TempRepo:       remoteRepo.GetRelativePath(),
@@ -642,34 +647,6 @@ func testCloneAndPush(t *testing.T, cfg config.Cfg, serverSocketPath string, rem
 	defer cleanup()
 
 	return sshPush(t, cfg, cloneDetails, serverSocketPath, params)
-}
-
-// makeCommit creates a new commit and returns oldHead, newHead, success
-func makeCommit(t *testing.T, cfg config.Cfg, localRepoPath string) ([]byte, []byte, bool) {
-	commitMsg := fmt.Sprintf("Testing ReceivePack RPC around %d", time.Now().Unix())
-	committerName := "Scrooge McDuck"
-	committerEmail := "scrooge@mcduck.com"
-	newFilePath := localRepoPath + "/foo.txt"
-
-	// Create a tiny file and add it to the index
-	require.NoError(t, os.WriteFile(newFilePath, []byte("foo bar"), 0o644))
-	gittest.Exec(t, cfg, "-C", localRepoPath, "add", ".")
-
-	// The latest commit ID on the remote repo
-	oldHead := bytes.TrimSpace(gittest.Exec(t, cfg, "-C", localRepoPath, "rev-parse", "master"))
-
-	gittest.Exec(t, cfg, "-C", localRepoPath,
-		"-c", fmt.Sprintf("user.name=%s", committerName),
-		"-c", fmt.Sprintf("user.email=%s", committerEmail),
-		"commit", "-m", commitMsg)
-	if t.Failed() {
-		return nil, nil, false
-	}
-
-	// The commit ID we want to push to the remote repo
-	newHead := bytes.TrimSpace(gittest.Exec(t, cfg, "-C", localRepoPath, "rev-parse", "master"))
-
-	return oldHead, newHead, true
 }
 
 func drainPostReceivePackResponse(stream gitalypb.SSHService_SSHReceivePackClient) error {
