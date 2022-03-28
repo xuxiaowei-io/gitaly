@@ -18,6 +18,14 @@ service InternalGitaly {
       scope_level: STORAGE
     };
   }
+  // CleanRepos takes a storage and a list of relative paths and moves them
+  // to a quarantine directory /storage/root/+gitaly/lost+found
+  rpc CleanRepos  (CleanReposRequest) returns (CleanReposResponse) {
+    option (op_type) = {
+      op:          MUTATOR
+      scope_level: STORAGE
+    };
+  }
 }
 
 message WalkReposRequest {
@@ -30,4 +38,17 @@ message WalkReposResponse {
   // This can be used as a proxy for when the repository was last
   // modified.
   google.protobuf.Timestamp modification_time = 2;
+}
+
+
+// CleanReposRequest is a request for the CleanRepos rpc
+message CleanReposRequest {
+  // StorageName is the storage name of the repositories to clean up.
+  string storage_name = 1 [(storage)=true];
+  // RelativePaths are the relative paths of the repositories to clean up.
+  repeated string relative_paths = 2;
+}
+
+// CleanReposResponse is an empty response for the CleanRepos rpc.
+message CleanReposResponse {
 }

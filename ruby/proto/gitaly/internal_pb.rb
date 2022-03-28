@@ -14,10 +14,18 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :relative_path, :string, 1
       optional :modification_time, :message, 2, "google.protobuf.Timestamp"
     end
+    add_message "gitaly.CleanReposRequest" do
+      optional :storage_name, :string, 1
+      repeated :relative_paths, :string, 2
+    end
+    add_message "gitaly.CleanReposResponse" do
+    end
   end
 end
 
 module Gitaly
   WalkReposRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WalkReposRequest").msgclass
   WalkReposResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WalkReposResponse").msgclass
+  CleanReposRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CleanReposRequest").msgclass
+  CleanReposResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CleanReposResponse").msgclass
 end
