@@ -256,8 +256,6 @@ BENCHMARK_REPO   := ${TEST_REPO_DIR}/benchmark.git
 
 # Find all commands.
 find_commands         = $(notdir $(shell find ${SOURCE_DIR}/cmd -mindepth 1 -maxdepth 1 -type d -print))
-# Find all command binaries.
-find_command_binaries = $(addprefix ${BUILD_DIR}/bin/, $(shell ls ${BUILD_DIR}/bin))
 # Find all Go source files.
 find_go_sources       = $(shell find ${SOURCE_DIR} -type d \( -name ruby -o -name vendor -o -name testdata -o -name '_*' -o -path '*/proto/go/gitalypb' \) -prune -o -type f -name '*.go' -not -name '*.pb.go' -print | sort -u)
 
@@ -340,7 +338,7 @@ endif
 ## Install Gitaly binaries. The target directory can be modified by setting PREFIX and DESTDIR.
 install: build
 	${Q}mkdir -p ${INSTALL_DEST_DIR}
-	install $(call find_command_binaries) ${INSTALL_DEST_DIR}
+	install $(addprefix ${BUILD_DIR}/bin/,$(call find_commands)) "${INSTALL_DEST_DIR}"
 
 .PHONY: build-bundled-git
 ## Build bundled Git binaries.
