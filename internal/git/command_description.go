@@ -3,6 +3,8 @@ package git
 import (
 	"fmt"
 	"log"
+	"math"
+	"runtime"
 	"strings"
 )
 
@@ -434,5 +436,12 @@ func packConfiguration() []GlobalOption {
 	return []GlobalOption{
 		ConfigPair{Key: "pack.windowMemory", Value: "100m"},
 		ConfigPair{Key: "pack.writeReverseIndex", Value: "true"},
+		ConfigPair{Key: "pack.threads", Value: threadsConfigValue(runtime.NumCPU())},
 	}
+}
+
+// threadsConfigValue returns the log-2 number of threads based on the number of provided CPUs. This
+// prevents us from using excessively many threads and thus avoids exhaustion of all available CPUs.
+func threadsConfigValue(numCPUs int) string {
+	return fmt.Sprintf("%d", int(math.Max(1, math.Floor(math.Log2(float64(numCPUs))))))
 }
