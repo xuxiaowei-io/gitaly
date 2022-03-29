@@ -115,7 +115,9 @@ func (m *RepositoryManager) CleanStaleData(ctx context.Context, repo *localrepo.
 		staleDataByType["configkeys"] = 1
 	}
 
-	if err := pruneEmptyConfigSections(ctx, repo); err != nil {
+	skippedSections, err := pruneEmptyConfigSections(ctx, repo)
+	staleDataByType["configsections"] = skippedSections
+	if err != nil {
 		return fmt.Errorf("failed pruning empty sections: %w", err)
 	}
 
@@ -123,10 +125,10 @@ func (m *RepositoryManager) CleanStaleData(ctx context.Context, repo *localrepo.
 }
 
 // pruneEmptyConfigSections prunes all empty sections from the repo's config.
-func pruneEmptyConfigSections(ctx context.Context, repo *localrepo.Repo) (returnedErr error) {
+func pruneEmptyConfigSections(ctx context.Context, repo *localrepo.Repo) (_ int, returnedErr error) {
 	repoPath, err := repo.Path()
 	if err != nil {
-		return fmt.Errorf("getting repo path: %w", err)
+		return 0, fmt.Errorf("getting repo path: %w", err)
 	}
 	configPath := filepath.Join(repoPath, "config")
 
@@ -134,13 +136,15 @@ func pruneEmptyConfigSections(ctx context.Context, repo *localrepo.Repo) (return
 	// values into it anymore. Slurping it into memory should thus be fine.
 	configContents, err := os.ReadFile(configPath)
 	if err != nil {
-		return fmt.Errorf("reading config: %w", err)
+		return 0, fmt.Errorf("reading config: %w", err)
 	}
 	configLines := strings.SplitAfter(string(configContents), "\n")
 	if configLines[len(configLines)-1] == "" {
 		// Strip the last line if it's empty.
 		configLines = configLines[:len(configLines)-1]
 	}
+
+	skippedSections := 0
 
 	// We now filter out any empty sections. A section is empty if the next line is a section
 	// header as well, or if it is the last line in the gitconfig. This isn't quite the whole
@@ -151,24 +155,26 @@ func pruneEmptyConfigSections(ctx context.Context, repo *localrepo.Repo) (return
 	for i := 0; i < len(configLines)-1; i++ {
 		// Skip if we have two consecutive section headers.
 		if isSectionHeader(configLines[i]) && isSectionHeader(configLines[i+1]) {
+			skippedSections++
 			continue
 		}
 		filteredLines = append(filteredLines, configLines[i])
 	}
 	// The final line is always stripped in case it is a section header.
 	if len(configLines) > 0 && !isSectionHeader(configLines[len(configLines)-1]) {
+		skippedSections++
 		filteredLines = append(filteredLines, configLines[len(configLines)-1])
 	}
 
 	// If we haven't filtered out anything then there is no need to update the target file.
 	if len(configLines) == len(filteredLines) {
-		return
+		return 0, nil
 	}
 
 	// Otherwise, we need to update the repository's configuration.
 	configWriter, err := safe.NewLockingFileWriter(configPath)
 	if err != nil {
-		return fmt.Errorf("creating config configWriter: %w", err)
+		return 0, fmt.Errorf("creating config configWriter: %w", err)
 	}
 	defer func() {
 		if err := configWriter.Close(); err != nil && returnedErr == nil {
@@ -178,7 +184,7 @@ func pruneEmptyConfigSections(ctx context.Context, repo *localrepo.Repo) (return
 
 	for _, filteredLine := range filteredLines {
 		if _, err := configWriter.Write([]byte(filteredLine)); err != nil {
-			return fmt.Errorf("writing filtered config: %w", err)
+			return 0, fmt.Errorf("writing filtered config: %w", err)
 		}
 	}
 
@@ -197,25 +203,25 @@ func pruneEmptyConfigSections(ctx context.Context, repo *localrepo.Repo) (return
 				git.Flag{Name: "-l"},
 			},
 		}, git.WithStdout(&configOutput)); err != nil {
-			return fmt.Errorf("listing config: %w", err)
+			return 0, fmt.Errorf("listing config: %w", err)
 		}
 
 		configOutputs = append(configOutputs, configOutput.String())
 	}
 	if configOutputs[0] != configOutputs[1] {
-		return fmt.Errorf("section pruning has caused config change")
+		return 0, fmt.Errorf("section pruning has caused config change")
 	}
 
 	// We don't use transactional voting but commit the file directly -- we have asserted that
 	// the change is idempotent anyway.
 	if err := configWriter.Lock(); err != nil {
-		return fmt.Errorf("failed locking config: %w", err)
+		return 0, fmt.Errorf("failed locking config: %w", err)
 	}
 	if err := configWriter.Commit(); err != nil {
-		return fmt.Errorf("failed committing pruned config: %w", err)
+		return 0, fmt.Errorf("failed committing pruned config: %w", err)
 	}
 
-	return nil
+	return skippedSections, nil
 }
 
 func isSectionHeader(line string) bool {

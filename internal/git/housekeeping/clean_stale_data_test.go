@@ -133,6 +133,7 @@ func d(name string, mode os.FileMode, age time.Duration, finalState entryFinalSt
 
 type cleanStaleDataMetrics struct {
 	configkeys     int
+	configsections int
 	objects        int
 	locks          int
 	refs           int
@@ -155,6 +156,7 @@ func requireCleanStaleDataMetrics(t *testing.T, m *RepositoryManager, metrics cl
 
 	for metric, expectedValue := range map[string]int{
 		"configkeys":     metrics.configkeys,
+		"configsections": metrics.configsections,
 		"objects":        metrics.objects,
 		"locks":          metrics.locks,
 		"refs":           metrics.refs,
@@ -977,7 +979,8 @@ func TestRepositoryManager_CleanStaleData_pruneEmptyConfigSections(t *testing.T)
 `, string(testhelper.MustReadFile(t, configPath)))
 
 	requireCleanStaleDataMetrics(t, mgr, cleanStaleDataMetrics{
-		configkeys: 1,
+		configkeys:     1,
+		configsections: 7,
 	})
 }
 
@@ -992,9 +995,10 @@ func TestPruneEmptyConfigSections(t *testing.T) {
 	configPath := filepath.Join(repoPath, "config")
 
 	for _, tc := range []struct {
-		desc         string
-		configData   string
-		expectedData string
+		desc                    string
+		configData              string
+		expectedData            string
+		expectedSkippedSections int
 	}{
 		{
 			desc:         "empty",
@@ -1035,9 +1039,10 @@ func TestPruneEmptyConfigSections(t *testing.T) {
 			// This is not correct, but we really don't want to start parsing
 			// the config format completely. So we err on the side of caution
 			// and just say this is fine.
-			desc:         "empty section with comment",
-			configData:   "[foo]\n# comment\n[bar]\n[baz]\n",
-			expectedData: "[foo]\n# comment\n",
+			desc:                    "empty section with comment",
+			configData:              "[foo]\n# comment\n[bar]\n[baz]\n",
+			expectedData:            "[foo]\n# comment\n",
+			expectedSkippedSections: 1,
 		},
 		{
 			desc:         "empty section",
@@ -1045,14 +1050,16 @@ func TestPruneEmptyConfigSections(t *testing.T) {
 			expectedData: "",
 		},
 		{
-			desc:         "empty sections",
-			configData:   "[foo]\n[bar]\n[baz]\n",
-			expectedData: "",
+			desc:                    "empty sections",
+			configData:              "[foo]\n[bar]\n[baz]\n",
+			expectedData:            "",
+			expectedSkippedSections: 2,
 		},
 		{
-			desc:         "empty sections with missing newline",
-			configData:   "[foo]\n[bar]\n[baz]",
-			expectedData: "",
+			desc:                    "empty sections with missing newline",
+			configData:              "[foo]\n[bar]\n[baz]",
+			expectedData:            "",
+			expectedSkippedSections: 2,
 		},
 		{
 			desc:         "trailing empty section",
@@ -1060,9 +1067,10 @@ func TestPruneEmptyConfigSections(t *testing.T) {
 			expectedData: "[foo]\nbar = baz\n",
 		},
 		{
-			desc:         "mixed keys and sections",
-			configData:   "[empty]\n[nonempty]\nbar = baz\nbar = baz\n[empty]\n",
-			expectedData: "[nonempty]\nbar = baz\nbar = baz\n",
+			desc:                    "mixed keys and sections",
+			configData:              "[empty]\n[nonempty]\nbar = baz\nbar = baz\n[empty]\n",
+			expectedData:            "[nonempty]\nbar = baz\nbar = baz\n",
+			expectedSkippedSections: 1,
 		},
 		{
 			desc: "real world example",
@@ -1099,11 +1107,16 @@ func TestPruneEmptyConfigSections(t *testing.T) {
 [remote "tmp-f7a91ec9415f984d3747cf608b0a7e9c"]
         prune = true
 `,
+			expectedSkippedSections: 15,
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			require.NoError(t, os.WriteFile(configPath, []byte(tc.configData), 0o644))
-			require.NoError(t, pruneEmptyConfigSections(ctx, repo))
+
+			skippedSections, err := pruneEmptyConfigSections(ctx, repo)
+			require.NoError(t, err)
+			require.Equal(t, tc.expectedSkippedSections, skippedSections)
+
 			require.Equal(t, tc.expectedData, string(testhelper.MustReadFile(t, configPath)))
 		})
 	}
