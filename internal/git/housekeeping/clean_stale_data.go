@@ -57,7 +57,7 @@ func (m *RepositoryManager) CleanStaleData(ctx context.Context, repo *localrepo.
 
 		logEntry := myLogger(ctx)
 		for staleDataType, count := range staleDataByType {
-			logEntry = logEntry.WithField(staleDataType, count)
+			logEntry = logEntry.WithField(fmt.Sprintf("stale_data.%s", staleDataType), count)
 			m.prunedFilesTotal.WithLabelValues(staleDataType).Add(float64(count))
 		}
 		logEntry.Info("removed files")
