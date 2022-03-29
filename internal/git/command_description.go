@@ -128,6 +128,12 @@ var commandDescriptions = map[string]commandDescription{
 		// git-grep(1) does not support disambiguating options from paths from
 		// revisions.
 		flags: scNoRefUpdates | scNoEndOfOptions,
+		opts: []GlobalOption{
+			// This command by default spawns as many threads as there are CPUs. This
+			// easily impacts concurrently running commands by exhausting cores and
+			// generating excessive I/O load.
+			ConfigPair{Key: "grep.threads", Value: threadsConfigValue(runtime.NumCPU())},
+		},
 	},
 	"hash-object": {
 		flags: scNoRefUpdates,
