@@ -168,7 +168,7 @@ func NewWalker(conns praefect.Connections, batchSize int, gracePeriod time.Durat
 // ExecOnRepositories runs through all the repositories on a Gitaly storage and executes the provided action.
 // The processing is done in batches to reduce cost of operations.
 func (wr *Walker) ExecOnRepositories(ctx context.Context, virtualStorage, storage string, action func(string, string, []string) error) error {
-	gclient, err := wr.getInternalGitalyClient(virtualStorage, storage)
+	gclient, err := getInternalGitalyClient(wr.conns, virtualStorage, storage)
 	if err != nil {
 		return fmt.Errorf("setup gitaly client: %w", err)
 	}
@@ -211,8 +211,8 @@ func (wr *Walker) ExecOnRepositories(ctx context.Context, virtualStorage, storag
 	return nil
 }
 
-func (wr *Walker) getInternalGitalyClient(virtualStorage, storage string) (gitalypb.InternalGitalyClient, error) {
-	conn, found := wr.conns[virtualStorage][storage]
+func getInternalGitalyClient(conns praefect.Connections, virtualStorage, storage string) (gitalypb.InternalGitalyClient, error) {
+	conn, found := conns[virtualStorage][storage]
 	if !found {
 		return nil, fmt.Errorf("no connection to the gitaly node %q/%q", virtualStorage, storage)
 	}
