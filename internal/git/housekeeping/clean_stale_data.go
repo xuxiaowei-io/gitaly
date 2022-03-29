@@ -105,6 +105,14 @@ func (m *RepositoryManager) CleanStaleData(ctx context.Context, repo *localrepo.
 		if !errors.Is(err, git.ErrNotFound) {
 			return fmt.Errorf("housekeeping could not unset unnecessary config lines: %w", err)
 		}
+		staleDataByType["configkeys"] = 0
+	} else {
+		// If we didn't get an error we know that we've deleted _something_. We just set
+		// this variable to `1` because we don't count how many keys we have deleted. It's
+		// probably good enough: we only want to know whether we're still pruning such old
+		// configuration or not, but typically don't care how many there are so that we know
+		// when to delete this cleanup of legacy data.
+		staleDataByType["configkeys"] = 1
 	}
 
 	if err := pruneEmptyConfigSections(ctx, repo); err != nil {

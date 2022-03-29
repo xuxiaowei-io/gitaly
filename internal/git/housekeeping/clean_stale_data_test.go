@@ -132,6 +132,7 @@ func d(name string, mode os.FileMode, age time.Duration, finalState entryFinalSt
 }
 
 type cleanStaleDataMetrics struct {
+	configkeys     int
 	objects        int
 	locks          int
 	refs           int
@@ -153,6 +154,7 @@ func requireCleanStaleDataMetrics(t *testing.T, m *RepositoryManager, metrics cl
 	require.NoError(t, err)
 
 	for metric, expectedValue := range map[string]int{
+		"configkeys":     metrics.configkeys,
 		"objects":        metrics.objects,
 		"locks":          metrics.locks,
 		"refs":           metrics.refs,
@@ -880,7 +882,9 @@ func TestRepositoryManager_CleanStaleData_unsetConfiguration(t *testing.T) {
 	unrelated = untouched
 `), 0o644))
 
-	require.NoError(t, NewManager(cfg.Prometheus, nil).CleanStaleData(ctx, repo))
+	mgr := NewManager(cfg.Prometheus, nil)
+
+	require.NoError(t, mgr.CleanStaleData(ctx, repo))
 	require.Equal(t,
 		`[core]
 	repositoryformatversion = 0
@@ -893,6 +897,10 @@ func TestRepositoryManager_CleanStaleData_unsetConfiguration(t *testing.T) {
 [totally]
 	unrelated = untouched
 `, string(testhelper.MustReadFile(t, configPath)))
+
+	requireCleanStaleDataMetrics(t, mgr, cleanStaleDataMetrics{
+		configkeys: 1,
+	})
 }
 
 func TestRepositoryManager_CleanStaleData_unsetConfigurationTransactional(t *testing.T) {
@@ -957,7 +965,9 @@ func TestRepositoryManager_CleanStaleData_pruneEmptyConfigSections(t *testing.T)
 [remote "tmp-8c948ca94832c2725733e48cb2902287"]
 `), 0o644))
 
-	require.NoError(t, NewManager(cfg.Prometheus, nil).CleanStaleData(ctx, repo))
+	mgr := NewManager(cfg.Prometheus, nil)
+
+	require.NoError(t, mgr.CleanStaleData(ctx, repo))
 	require.Equal(t, `[core]
 	repositoryformatversion = 0
 	filemode = true
@@ -965,6 +975,10 @@ func TestRepositoryManager_CleanStaleData_pruneEmptyConfigSections(t *testing.T)
 [uploadpack]
 	allowAnySHA1InWant = true
 `, string(testhelper.MustReadFile(t, configPath)))
+
+	requireCleanStaleDataMetrics(t, mgr, cleanStaleDataMetrics{
+		configkeys: 1,
+	})
 }
 
 func TestPruneEmptyConfigSections(t *testing.T) {
