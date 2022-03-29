@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -588,8 +589,13 @@ func makePostUploadPackWithSidechannelRequest(ctx context.Context, t *testing.T,
 
 	responseBuffer := &bytes.Buffer{}
 	ctxOut, waiter := sidechannel.RegisterSidechannel(ctx, registry, func(sideConn *sidechannel.ClientConn) error {
+		var wg sync.WaitGroup
+		defer wg.Wait()
+
+		wg.Add(1)
 		errC := make(chan error, 1)
 		go func() {
+			defer wg.Done()
 			_, err := io.Copy(responseBuffer, sideConn)
 			errC <- err
 		}()
