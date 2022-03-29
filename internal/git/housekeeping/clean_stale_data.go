@@ -49,10 +49,22 @@ func (m *RepositoryManager) CleanStaleData(ctx context.Context, repo *localrepo.
 		return fmt.Errorf("housekeeping failed to get repo path: %w", err)
 	}
 
-	logEntry := myLogger(ctx)
-	var filesToPrune []string
+	staleDataByType := map[string]int{}
+	defer func() {
+		if len(staleDataByType) == 0 {
+			return
+		}
 
-	for field, staleFileFinder := range map[string]staleFileFinderFn{
+		logEntry := myLogger(ctx)
+		for staleDataType, count := range staleDataByType {
+			logEntry = logEntry.WithField(staleDataType, count)
+			m.prunedFilesTotal.WithLabelValues(staleDataType).Add(float64(count))
+		}
+		logEntry.Info("removed files")
+	}()
+
+	var filesToPrune []string
+	for staleFileType, staleFileFinder := range map[string]staleFileFinderFn{
 		"objects":        findTemporaryObjects,
 		"locks":          findStaleLockfiles,
 		"refs":           findBrokenLooseReferences,
@@ -63,37 +75,27 @@ func (m *RepositoryManager) CleanStaleData(ctx context.Context, repo *localrepo.
 	} {
 		staleFiles, err := staleFileFinder(ctx, repoPath)
 		if err != nil {
-			return fmt.Errorf("housekeeping failed to find %s: %w", field, err)
+			return fmt.Errorf("housekeeping failed to find %s: %w", staleFileType, err)
 		}
 
 		filesToPrune = append(filesToPrune, staleFiles...)
-		logEntry = logEntry.WithField(field, len(staleFiles))
-
-		m.prunedFilesTotal.WithLabelValues(field).Add(float64(len(staleFiles)))
+		staleDataByType[staleFileType] = len(staleFiles)
 	}
 
-	unremovableFiles := 0
 	for _, path := range filesToPrune {
 		if err := os.Remove(path); err != nil {
 			if os.IsNotExist(err) {
 				continue
 			}
-			unremovableFiles++
-			// We cannot use `logEntry` here as it's already seeded
-			// with the statistics fields.
+			staleDataByType["failures"]++
 			myLogger(ctx).WithError(err).WithField("path", path).Warn("unable to remove stale file")
 		}
 	}
 
 	prunedRefDirs, err := removeRefEmptyDirs(ctx, repo)
-	m.prunedFilesTotal.WithLabelValues("refsemptydir").Add(float64(prunedRefDirs))
+	staleDataByType["refsemptydir"] = prunedRefDirs
 	if err != nil {
 		return fmt.Errorf("housekeeping could not remove empty refs: %w", err)
-	}
-	logEntry = logEntry.WithField("refsemptydir", prunedRefDirs)
-
-	if len(filesToPrune) > 0 || prunedRefDirs > 0 {
-		logEntry.WithField("failures", unremovableFiles).Info("removed files")
 	}
 
 	// TODO: https://gitlab.com/gitlab-org/gitaly/-/issues/3987
