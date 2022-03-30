@@ -333,7 +333,7 @@ func testRateLimitHandler(t *testing.T, ctx context.Context) {
 	t.Run("rate has hit max", func(t *testing.T) {
 		s := &server{blockCh: make(chan struct{})}
 
-		lh := limithandler.New(cfg, fixedLockKey, limithandler.WithRateLimiters)
+		lh := limithandler.New(cfg, fixedLockKey, limithandler.WithRateLimiters(ctx))
 		interceptor := lh.UnaryInterceptor()
 		srv, serverSocketPath := runServer(t, s, grpc.UnaryInterceptor(interceptor))
 		defer srv.Stop()
@@ -376,7 +376,7 @@ gitaly_requests_dropped_total{grpc_method="Unary",grpc_service="test.limithandle
 	t.Run("rate has not hit max", func(t *testing.T) {
 		s := &server{blockCh: make(chan struct{})}
 
-		lh := limithandler.New(cfg, fixedLockKey, limithandler.WithRateLimiters)
+		lh := limithandler.New(cfg, fixedLockKey, limithandler.WithRateLimiters(ctx))
 		interceptor := lh.UnaryInterceptor()
 		srv, serverSocketPath := runServer(t, s, grpc.UnaryInterceptor(interceptor))
 		defer srv.Stop()
