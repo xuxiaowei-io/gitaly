@@ -43,9 +43,6 @@ INSTALL_DEST_DIR := ${DESTDIR}${bindir}
 ## The prefix where Git will be installed to.
 GIT_PREFIX       ?= ${GIT_DEFAULT_PREFIX}
 
-## Skip generation of the GNU build ID if set to speed up builds.
-WITHOUT_BUILD_ID ?=
-
 # Tools
 GIT               := $(shell command -v git)
 GOIMPORTS         := ${TOOLS_DIR}/goimports
@@ -269,13 +266,7 @@ help:
 
 .PHONY: build
 ## Build Go binaries and install required Ruby Gems.
-build: ${SOURCE_DIR}/.ruby-bundle
-ifdef WITHOUT_BUILD_ID
-	go install -ldflags '${GO_LDFLAGS}' -tags "${GO_BUILD_TAGS}" $(addprefix ${GITALY_PACKAGE}/cmd/, ${GITALY_EXECUTABLES})
-endif
-
-ifndef WITHOUT_BUILD_ID
-build: ${GITALY_EXECUTABLES}
+build: ${SOURCE_DIR}/.ruby-bundle ${GITALY_EXECUTABLES}
 
 gitaly-git2go-v14: libgit2
 
@@ -291,7 +282,6 @@ ${GITALY_EXECUTABLES}:
 	${Q}GO_BUILD_ID=$$( go tool buildid $(addprefix ${BUILD_DIR}/bin/, $@) || openssl rand -hex 32 ) && \
 	GNU_BUILD_ID=$$( echo $$GO_BUILD_ID | sha1sum | cut -d' ' -f1 ) && \
 	go install -ldflags '${GO_LDFLAGS}'" -B 0x$$GNU_BUILD_ID" -tags "${GO_BUILD_TAGS}" $(addprefix ${GITALY_PACKAGE}/cmd/, $@)
-endif
 
 .PHONY: install
 ## Install Gitaly binaries. The target directory can be modified by setting PREFIX and DESTDIR.
