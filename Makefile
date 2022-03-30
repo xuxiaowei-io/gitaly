@@ -288,7 +288,7 @@ ${GITALY_EXECUTABLES}:
 	@ # If we cannot extract a Go build-id, we punt and fallback to using a random 32-byte hex string.
 	@ # This fallback is unique but non-deterministic, making it sufficient to avoid generating the
 	@ # GNU build-id from the empty string and causing guaranteed collisions.
-	GO_BUILD_ID=$$( go tool buildid $(addprefix ${BUILD_DIR}/bin/, $@) || openssl rand -hex 32 ) && \
+	${Q}GO_BUILD_ID=$$( go tool buildid $(addprefix ${BUILD_DIR}/bin/, $@) || openssl rand -hex 32 ) && \
 	GNU_BUILD_ID=$$( echo $$GO_BUILD_ID | sha1sum | cut -d' ' -f1 ) && \
 	go install -ldflags '${GO_LDFLAGS}'" -B 0x$$GNU_BUILD_ID" -tags "${GO_BUILD_TAGS}" $(addprefix ${GITALY_PACKAGE}/cmd/, $@)
 endif
