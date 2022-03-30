@@ -289,10 +289,7 @@ func TestReceivePackPushHookFailureWithCustomHook(t *testing.T) {
 	require.Contains(t, string(slurpErr), "remote: this is wrong")
 	require.Contains(t, string(slurpErr), "(pre-receive hook declined)")
 
-	if testhelper.IsPraefectEnabled() {
-		// This is a bug tracked in https://gitlab.com/gitlab-org/gitaly/-/issues/3636
-		require.Contains(t, string(slurpErr), "final transactional vote: transaction was stopped")
-	}
+	require.NotContains(t, string(slurpErr), "final transactional vote: transaction was stopped")
 }
 
 func TestObjectPoolRefAdvertisementHidingSSH(t *testing.T) {
