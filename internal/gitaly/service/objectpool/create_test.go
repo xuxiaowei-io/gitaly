@@ -156,9 +156,20 @@ func TestDelete(t *testing.T) {
 
 	for _, tc := range []struct {
 		desc         string
+		noPool       bool
 		relativePath string
 		error        error
 	}{
+		{
+			desc:   "no pool in request fails",
+			noPool: true,
+			error:  errMissingPool,
+		},
+		{
+			desc:         "deleting outside pools directory fails",
+			relativePath: ".",
+			error:        errInvalidPoolDir,
+		},
 		{
 			desc:         "deleting outside pools directory fails",
 			relativePath: ".",
@@ -199,20 +210,28 @@ func TestDelete(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			_, err := client.DeleteObjectPool(ctx, &gitalypb.DeleteObjectPoolRequest{ObjectPool: &gitalypb.ObjectPool{
+			request := &gitalypb.DeleteObjectPoolRequest{ObjectPool: &gitalypb.ObjectPool{
 				Repository: &gitalypb.Repository{
 					StorageName:  repo.GetStorageName(),
 					RelativePath: tc.relativePath,
 				},
-			}})
+			}}
+
+			if tc.noPool {
+				request.ObjectPool = nil
+			}
+
 			expectedErr := tc.error
 			if tc.error == errInvalidPoolDir && testhelper.IsPraefectEnabled() {
 				expectedErr = helper.ErrNotFound(fmt.Errorf(
 					"mutator call: route repository mutator: get repository id: %w",
 					commonerr.NewRepositoryNotFoundError(repo.GetStorageName(), tc.relativePath),
 				))
+			} else if tc.error == errMissingPool && testhelper.IsPraefectEnabled() {
+				expectedErr = helper.ErrInvalidArgumentf("repo scoped: unable to descend OID [1 1] into message gitaly.DeleteObjectPoolRequest: proto field is empty")
 			}
 
+			_, err := client.DeleteObjectPool(ctx, request)
 			testhelper.RequireGrpcError(t, expectedErr, err)
 
 			response, err := repositoryClient.RepositoryExists(ctx, &gitalypb.RepositoryExistsRequest{
