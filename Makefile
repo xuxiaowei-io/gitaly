@@ -269,13 +269,15 @@ help:
 
 .PHONY: build
 ## Build Go binaries and install required Ruby Gems.
-build: ${SOURCE_DIR}/.ruby-bundle libgit2
+build: ${SOURCE_DIR}/.ruby-bundle
 ifdef WITHOUT_BUILD_ID
 	go install -ldflags '${GO_LDFLAGS}' -tags "${GO_BUILD_TAGS}" $(addprefix ${GITALY_PACKAGE}/cmd/, ${GITALY_EXECUTABLES})
 endif
 
 ifndef WITHOUT_BUILD_ID
 build: ${GITALY_EXECUTABLES}
+
+gitaly-git2go-v14: libgit2
 
 .PHONY: ${GITALY_EXECUTABLES}
 ${GITALY_EXECUTABLES}:
