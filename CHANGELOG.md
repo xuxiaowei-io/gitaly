@@ -1,5 +1,11 @@
 # Gitaly changelog
 
+## 14.8.5 (2022-03-31)
+
+### Fixed (1 change)
+
+- [housekeeping: Don't prune recent objects](gitlab-org/security/gitaly@c1b91e3ac7fcd9d3e593d31a56c9bf4e0d778240)
+
 ## 14.8.4 (2022-03-16)
 
 No changes.
