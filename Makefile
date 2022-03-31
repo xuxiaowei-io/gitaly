@@ -568,7 +568,10 @@ ${GIT_PREFIX}/bin/git: ${DEPENDENCY_DIR}/git-${GIT_VERSION}.${GIT_EXTRA_VERSION}
 	${Q}env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C "$(<D)" -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} install
 	${Q}touch $@
 
-${BUILD_DIR}/bin/gitaly-%: ${DEPENDENCY_DIR}/git-${GIT_VERSION}.${GIT_EXTRA_VERSION}/% | ${BUILD_DIR}/bin
+${BUILD_DIR}/bin/gitaly-%: override GIT_PATCHES := $(wildcard ${SOURCE_DIR}/_support/git-patches/v2.33.1.gl3/*)
+${BUILD_DIR}/bin/gitaly-%: override GIT_VERSION = v2.33.1
+${BUILD_DIR}/bin/gitaly-%: override GIT_EXTRA_VERSION = gl3
+${BUILD_DIR}/bin/gitaly-%: ${DEPENDENCY_DIR}/git-v2.33.1.gl3/% | ${BUILD_DIR}/bin
 	${Q}install $< $@
 
 ${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1: override GIT_PATCHES := $(wildcard ${SOURCE_DIR}/_support/git-patches/v2.35.1.gl1/*)
