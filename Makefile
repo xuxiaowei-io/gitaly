@@ -120,7 +120,7 @@ GIT_EXECUTABLES += git-http-backend
 # The default version is used in case the caller does not set the variable or
 # if it is either set to the empty string or "default".
 ifeq (${GIT_VERSION:default=},)
-    override GIT_VERSION := v2.33.1
+    override GIT_VERSION := v2.35.1
 
     # This extra version has two intentions: first, it allows us to detect
     # capabilities of the command at runtime. Second, it helps admins to
@@ -128,12 +128,12 @@ ifeq (${GIT_VERSION:default=},)
     # incremented whenever a new patch is added above. When no patches exist,
     # then this should be undefined. Otherwise, it must be set to at least
     # `gl1` given that `0` is the "default" GitLab patch level.
-    GIT_EXTRA_VERSION := gl3
+    GIT_EXTRA_VERSION := gl1
 
     # Before adding custom patches, please read doc/PROCESS.md#Patching-git
     # first to make sure your patches meet our acceptance criteria. Patches
     # must be put into `_support/git-patches`.
-    GIT_PATCHES := $(wildcard ${SOURCE_DIR}/_support/git-patches/v2.33.1.gl3/*)
+    GIT_PATCHES := $(wildcard ${SOURCE_DIR}/_support/git-patches/v2.35.1.gl1/*)
 else
     # Support both vX.Y.Z and X.Y.Z version patterns, since callers across GitLab
     # use both.
