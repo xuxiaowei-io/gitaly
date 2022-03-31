@@ -107,7 +107,7 @@ func TestDeleteObjectPoolHandler(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, 2, len(hook.Entries), "expected a log entry for failed deletion")
-	require.Equal(t, "failed deleting object pool", hook.Entries[0].Message)
+	require.Equal(t, "failed deleting repository", hook.Entries[0].Message)
 	require.Equal(t, repo.StorageName, hook.Entries[0].Data["virtual_storage"])
 	require.Equal(t, repo.RelativePath, hook.Entries[0].Data["relative_path"])
 	require.Equal(t, "secondary", hook.Entries[0].Data["storage"])
