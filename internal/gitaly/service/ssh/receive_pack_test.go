@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -599,7 +600,7 @@ func setupSSHClone(t *testing.T, cfg config.Cfg, remoteRepo *gitalypb.Repository
 		}
 }
 
-func sshPush(ctx context.Context, t *testing.T, cfg config.Cfg, cloneDetails SSHCloneDetails, serverSocketPath string, params pushParams) (string, string, error) {
+func sshPushCommand(ctx context.Context, t *testing.T, cfg config.Cfg, cloneDetails SSHCloneDetails, serverSocketPath string, params pushParams) *exec.Cmd {
 	pbTempRepo := &gitalypb.Repository{
 		StorageName:   params.storageName,
 		RelativePath:  cloneDetails.TempRepo,
@@ -623,6 +624,12 @@ func sshPush(ctx context.Context, t *testing.T, cfg config.Cfg, cloneDetails SSH
 		fmt.Sprintf("GITALY_FEATUREFLAGS=%s", strings.Join(featureflag.AllFlags(ctx), ",")),
 		fmt.Sprintf("GIT_SSH_COMMAND=%s receive-pack", filepath.Join(cfg.BinDir, "gitaly-ssh")),
 	}
+
+	return cmd
+}
+
+func sshPush(ctx context.Context, t *testing.T, cfg config.Cfg, cloneDetails SSHCloneDetails, serverSocketPath string, params pushParams) (string, string, error) {
+	cmd := sshPushCommand(ctx, t, cfg, cloneDetails, serverSocketPath, params)
 
 	out, err := cmd.CombinedOutput()
 	if err != nil {
