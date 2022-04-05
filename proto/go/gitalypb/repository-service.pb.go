@@ -26,7 +26,7 @@ const (
 	// SizeMultiple requires to use '--split --size-multiple=4' strategy to create/update commit graph.
 	// https://git-scm.com/docs/git-commit-graph#Documentation/git-commit-graph.txt-emwriteem
 	// It is a default, there is no need to explicitly set it in the request.
-	WriteCommitGraphRequest_SizeMultiple WriteCommitGraphRequest_SplitStrategy = 0
+	WriteCommitGraphRequest_SizeMultiple WriteCommitGraphRequest_SplitStrategy = 0 // protolint:disable:this ENUM_FIELD_NAMES_UPPER_SNAKE_CASE
 )
 
 // Enum value maps for WriteCommitGraphRequest_SplitStrategy.
@@ -649,7 +649,7 @@ type WriteCommitGraphRequest struct {
 
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 	// SplitStrategy is a strategy used to create/update commit graph.
-	SplitStrategy WriteCommitGraphRequest_SplitStrategy `protobuf:"varint,2,opt,name=splitStrategy,proto3,enum=gitaly.WriteCommitGraphRequest_SplitStrategy" json:"splitStrategy,omitempty"`
+	SplitStrategy WriteCommitGraphRequest_SplitStrategy `protobuf:"varint,2,opt,name=splitStrategy,proto3,enum=gitaly.WriteCommitGraphRequest_SplitStrategy" json:"splitStrategy,omitempty"` // protolint:disable:this FIELD_NAMES_LOWER_SNAKE_CASE
 }
 
 func (x *WriteCommitGraphRequest) Reset() {
@@ -1391,7 +1391,7 @@ type GetArchiveRequest struct {
 	Prefix     string                   `protobuf:"bytes,3,opt,name=prefix,proto3" json:"prefix,omitempty"`
 	Format     GetArchiveRequest_Format `protobuf:"varint,4,opt,name=format,proto3,enum=gitaly.GetArchiveRequest_Format" json:"format,omitempty"`
 	Path       []byte                   `protobuf:"bytes,5,opt,name=path,proto3" json:"path,omitempty"`
-	Exclude    [][]byte                 `protobuf:"bytes,6,rep,name=exclude,proto3" json:"exclude,omitempty"`
+	Exclude    [][]byte                 `protobuf:"bytes,6,rep,name=exclude,proto3" json:"exclude,omitempty"` // protolint:disable:this REPEATED_FIELD_NAMES_PLURALIZED
 	// If `elide_path` is true and `path` refers to a subdirectory, that
 	// subdirectory will be elided from archive entries. For example, if `dir`
 	// contains `README.md`, with `elide_path = false` the corresponding entry
