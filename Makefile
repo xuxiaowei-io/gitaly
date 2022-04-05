@@ -49,6 +49,7 @@ GIT               := $(shell command -v git)
 GOIMPORTS         := ${TOOLS_DIR}/goimports
 GOFUMPT           := ${TOOLS_DIR}/gofumpt
 GOLANGCI_LINT     := ${TOOLS_DIR}/golangci-lint
+PROTOLINT         := ${TOOLS_DIR}/protolint
 GO_LICENSES       := ${TOOLS_DIR}/go-licenses
 PROTOC            := ${TOOLS_DIR}/protoc
 PROTOC_GEN_GO     := ${TOOLS_DIR}/protoc-gen-go
@@ -76,6 +77,7 @@ endif
 
 # Dependency versions
 GOLANGCI_LINT_VERSION     ?= 1.44.2
+PROTOLINT_VERSION         ?= 0.37.1
 GOCOVER_COBERTURA_VERSION ?= aaee18c8195c3f2d90e5ef80ca918d265463842a
 GOFUMPT_VERSION           ?= 0.3.1
 GOIMPORTS_VERSION         ?= 2538eef75904eff384a2551359968e40c207d9d2
@@ -452,8 +454,9 @@ proto: ${PROTOC} ${PROTOC_GEN_GO} ${PROTOC_GEN_GO_GRPC} ${SOURCE_DIR}/.ruby-bund
 check-proto: proto no-proto-changes lint-proto
 
 .PHONY: lint-proto
-lint-proto: ${PROTOC} ${PROTOC_GEN_GITALY}
+lint-proto: ${PROTOC} ${PROTOC_GEN_GITALY} ${PROTOLINT}
 	${Q}${PROTOC} --plugin=${PROTOC_GEN_GITALY} -I ${SOURCE_DIR}/proto -I ${PROTOC_INSTALL_DIR}/include --gitaly_out=proto_dir=${SOURCE_DIR}/proto,gitalypb_dir=${SOURCE_DIR}/proto/go/gitalypb:${SOURCE_DIR} ${SOURCE_DIR}/proto/*.proto
+	${Q}${PROTOLINT} lint -config_dir_path=${SOURCE_DIR}/proto ${SOURCE_DIR}/proto
 
 .PHONY: no-changes
 no-changes:
@@ -605,6 +608,8 @@ ${GOIMPORTS}:         TOOL_PACKAGE = golang.org/x/tools/cmd/goimports
 ${GOIMPORTS}:         TOOL_VERSION = ${GOIMPORTS_VERSION}
 ${GOLANGCI_LINT}:     TOOL_PACKAGE = github.com/golangci/golangci-lint/cmd/golangci-lint
 ${GOLANGCI_LINT}:     TOOL_VERSION = v${GOLANGCI_LINT_VERSION}
+${PROTOLINT}:         TOOL_PACKAGE = github.com/yoheimuta/protolint/cmd/protolint
+${PROTOLINT}:         TOOL_VERSION = v${PROTOLINT_VERSION}
 ${GOTESTSUM}:         TOOL_PACKAGE = gotest.tools/gotestsum
 ${GOTESTSUM}:         TOOL_VERSION = ${GOTESTSUM_VERSION}
 ${GO_LICENSES}:       TOOL_PACKAGE = github.com/google/go-licenses
