@@ -12,10 +12,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/middleware/limithandler"
 	pb "gitlab.com/gitlab-org/gitaly/v14/internal/middleware/limithandler/testdata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -285,7 +287,18 @@ func TestConcurrencyLimitHandlerMetrics(t *testing.T) {
 
 	var errs int
 	for err := range errChan {
-		testhelper.RequireGrpcError(t, limithandler.ErrMaxQueueSize, err)
+		testhelper.RequireGrpcError(
+			t,
+			limithandler.ErrWithDetails(
+				t,
+				helper.ErrResourceExhausted(limithandler.ErrMaxQueueSize),
+				&gitalypb.SystemResourceError{
+					ErrorMessage: limithandler.ErrMaxQueueSize.Error(),
+					Retryable:    false,
+				},
+			),
+			err,
+		)
 		errs++
 		if errs == 9 {
 			break
