@@ -3,6 +3,7 @@ package limithandler_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"net"
 	"sync"
 	"testing"
@@ -19,8 +20,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func TestMain(m *testing.M) {
@@ -370,7 +369,18 @@ func testRateLimitHandler(t *testing.T, ctx context.Context) {
 			_, err := client.Unary(ctx, &pb.UnaryRequest{})
 
 			if featureflag.RateLimit.IsEnabled(ctx) {
-				testhelper.RequireGrpcError(t, status.Error(codes.Unavailable, "too many requests"), err)
+				testhelper.RequireGrpcError(
+					t,
+					limithandler.ErrWithDetails(
+						t,
+						helper.ErrResourceExhausted(errors.New("too many requests")),
+						&gitalypb.SystemResourceError{
+							ErrorMessage: "too many requests",
+							Retryable:    false,
+						},
+					),
+					err,
+				)
 			} else {
 				require.NoError(t, err)
 			}
