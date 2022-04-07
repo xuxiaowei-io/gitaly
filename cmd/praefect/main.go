@@ -359,6 +359,7 @@ func run(
 				hm,
 				conf.BackgroundVerification.VerificationInterval,
 			)
+			promreg.MustRegister(verifier)
 
 			go func() {
 				if err := verifier.Run(ctx, helper.NewTimerTicker(2*time.Second)); err != nil {
