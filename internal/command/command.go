@@ -150,10 +150,11 @@ type Command struct {
 	waitError error
 	waitOnce  sync.Once
 
-	metricsSubCmd string
-	span          opentracing.Span
+	span opentracing.Span
 
-	cgroupPath string
+	metricsCmd    string
+	metricsSubCmd string
+	cgroupPath    string
 }
 
 type stdinSentinel struct{}
@@ -200,6 +201,11 @@ func (c *Command) Wait() error {
 // SetCgroupPath sets the cgroup path for logging
 func (c *Command) SetCgroupPath(path string) {
 	c.cgroupPath = path
+}
+
+// SetMetricsCmd overrides the "cmd" label used in metrics
+func (c *Command) SetMetricsCmd(metricsCmd string) {
+	c.metricsCmd = metricsCmd
 }
 
 // SetMetricsSubCmd sets the "subcmd" label used in metrics
@@ -451,6 +457,9 @@ func (c *Command) logProcessComplete() {
 	if featureflag.CommandStatsMetrics.IsEnabled(ctx) {
 		service, method := methodFromContext(ctx)
 		cmdName := path.Base(c.cmd.Path)
+		if c.metricsCmd != "" {
+			cmdName = c.metricsCmd
+		}
 		cpuSecondsTotal.WithLabelValues(service, method, cmdName, c.metricsSubCmd, "system").Add(systemTime.Seconds())
 		cpuSecondsTotal.WithLabelValues(service, method, cmdName, c.metricsSubCmd, "user").Add(userTime.Seconds())
 		realSecondsTotal.WithLabelValues(service, method, cmdName, c.metricsSubCmd).Add(realTime.Seconds())
