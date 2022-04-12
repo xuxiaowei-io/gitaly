@@ -10,6 +10,7 @@ import (
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
 	cgroupscfg "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/log"
 )
@@ -20,6 +21,8 @@ type CGroupV1Manager struct {
 	hierarchy                   func() ([]cgroups.Subsystem, error)
 	memoryFailedTotal, cpuUsage *prometheus.GaugeVec
 	procs                       *prometheus.GaugeVec
+	gitCmds                     map[string]cgroupscfg.Command
+	gitCgroupPool               chan string
 }
 
 func newV1Manager(cfg cgroupscfg.Config) *CGroupV1Manager {
@@ -49,30 +52,45 @@ func newV1Manager(cfg cgroupscfg.Config) *CGroupV1Manager {
 			},
 			[]string{"path", "subsystem"},
 		),
+		gitCmds: make(map[string]cgroupscfg.Command),
 	}
 }
 
 //nolint: revive,stylecheck // This is unintentionally missing documentation.
 func (cg *CGroupV1Manager) Setup() error {
-	resources := &specs.LinuxResources{}
-
-	if cg.cfg.CPU.Enabled {
-		resources.CPU = &specs.LinuxCPU{
-			Shares: &cg.cfg.CPU.Shares,
-		}
+	repoResources := &specs.LinuxResources{
+		CPU:    &specs.LinuxCPU{Shares: &cg.cfg.Repositories.CPUShares},
+		Memory: &specs.LinuxMemory{Limit: &cg.cfg.Repositories.MemoryBytes},
 	}
 
-	if cg.cfg.Memory.Enabled {
-		resources.Memory = &specs.LinuxMemory{
-			Limit: &cg.cfg.Memory.Limit,
-		}
-	}
-
-	for i := 0; i < int(cg.cfg.Count); i++ {
-		_, err := cgroups.New(cg.hierarchy, cgroups.StaticPath(cg.cgroupPath(i)), resources)
-		if err != nil {
+	for i := 0; i < int(cg.cfg.Repositories.Count); i++ {
+		if _, err := cgroups.New(
+			cg.hierarchy,
+			cgroups.StaticPath(cg.repoPath(i)),
+			repoResources,
+		); err != nil {
 			return fmt.Errorf("failed creating cgroup: %w", err)
 		}
+	}
+
+	for _, command := range cg.cfg.Git.Commands {
+		cg.gitCmds[command.Name] = command
+	}
+
+	cg.gitCgroupPool = make(chan string, len(cg.gitCmds))
+
+	for i := 0; i < int(cg.cfg.Git.Count); i++ {
+		path := cg.gitCommandPath(i)
+
+		if _, err := cgroups.New(
+			cg.hierarchy,
+			cgroups.StaticPath(path),
+			&specs.LinuxResources{},
+		); err != nil {
+			return fmt.Errorf("failed creating cgroup: %w", err)
+		}
+
+		cg.gitCgroupPool <- path
 	}
 
 	return nil
@@ -81,17 +99,72 @@ func (cg *CGroupV1Manager) Setup() error {
 // AddCommand adds the given command to one of the CGroup's buckets. The bucket used for the command
 // is determined by hashing the commands arguments. No error is returned if the command has already
 // exited.
-func (cg *CGroupV1Manager) AddCommand(cmd *command.Command) error {
-	checksum := crc32.ChecksumIEEE([]byte(strings.Join(cmd.Args(), "")))
-	groupID := uint(checksum) % cg.cfg.Count
-	cgroupPath := cg.cgroupPath(int(groupID))
+func (cg *CGroupV1Manager) AddCommand(
+	cmd *command.Command,
+	gitCmdName string,
+	repo repository.GitRepo,
+) error {
+	gitCmdDetails, ok := cg.gitCmds[gitCmdName]
+	if !ok {
+		return cg.addRepositoryCmd(cmd, repo)
+	}
 
+	select {
+	case cgroupPath := <-cg.gitCgroupPool:
+		cmd.SetCgroupPath(cgroupPath)
+		control, err := cgroups.Load(cg.hierarchy, cgroups.StaticPath(cgroupPath))
+		if err != nil {
+			return fmt.Errorf("failed loading %s cgroup: %w", cgroupPath, err)
+		}
+		if err := control.Update(&specs.LinuxResources{
+			CPU: &specs.LinuxCPU{
+				Shares: &gitCmdDetails.CPUShares,
+			},
+			Memory: &specs.LinuxMemory{
+				Limit: &gitCmdDetails.MemoryBytes,
+			},
+		}); err != nil {
+			return fmt.Errorf("failed updating %s cgroups: %w", cgroupPath, err)
+		}
+
+		if err := control.Add(cgroups.Process{Pid: cmd.Pid()}); err != nil {
+			// Command could finish so quickly before we can add it to a cgroup, so
+			// we don't consider it an error.
+			if strings.Contains(err.Error(), "no such process") {
+				return nil
+			}
+			return fmt.Errorf("failed adding process to cgroup: %w", err)
+		}
+
+		cmd.AddFinisher(func() {
+			cg.gitCgroupPool <- cgroupPath
+		})
+	default:
+		return cg.addRepositoryCmd(cmd, repo)
+	}
+
+	return nil
+}
+
+func (cg *CGroupV1Manager) addRepositoryCmd(cmd *command.Command, repo repository.GitRepo) error {
+	checksum := crc32.ChecksumIEEE(
+		[]byte(strings.Join([]string{repo.GetStorageName(), repo.GetRelativePath()}, "")),
+	)
+	groupID := uint(checksum) % cg.cfg.Repositories.Count
+	cgroupPath := cg.repoPath(int(groupID))
+
+	cmd.SetCgroupPath(cgroupPath)
+
+	return cg.addToCgroup(cmd.Pid(), cgroupPath)
+}
+
+func (cg *CGroupV1Manager) addToCgroup(pid int, cgroupPath string) error {
 	control, err := cgroups.Load(cg.hierarchy, cgroups.StaticPath(cgroupPath))
 	if err != nil {
 		return fmt.Errorf("failed loading %s cgroup: %w", cgroupPath, err)
 	}
 
-	if err := control.Add(cgroups.Process{Pid: cmd.Pid()}); err != nil {
+	if err := control.Add(cgroups.Process{Pid: pid}); err != nil {
 		// Command could finish so quickly before we can add it to a cgroup, so
 		// we don't consider it an error.
 		if strings.Contains(err.Error(), "no such process") {
@@ -99,8 +172,6 @@ func (cg *CGroupV1Manager) AddCommand(cmd *command.Command) error {
 		}
 		return fmt.Errorf("failed adding process to cgroup: %w", err)
 	}
-
-	cmd.SetCgroupPath(cgroupPath)
 
 	return nil
 }
@@ -171,8 +242,12 @@ func (cg *CGroupV1Manager) Cleanup() error {
 	return nil
 }
 
-func (cg *CGroupV1Manager) cgroupPath(groupID int) string {
-	return fmt.Sprintf("/%s/shard-%d", cg.currentProcessCgroup(), groupID)
+func (cg *CGroupV1Manager) repoPath(groupID int) string {
+	return fmt.Sprintf("/%s/repos-%d", cg.currentProcessCgroup(), groupID)
+}
+
+func (cg *CGroupV1Manager) gitCommandPath(groupID int) string {
+	return fmt.Sprintf("/%s/git-commands-%d", cg.currentProcessCgroup(), groupID)
 }
 
 func (cg *CGroupV1Manager) currentProcessCgroup() string {

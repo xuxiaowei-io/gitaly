@@ -20,19 +20,16 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
 func defaultCgroupsConfig() cgroups.Config {
 	return cgroups.Config{
-		Count:         3,
 		HierarchyRoot: "gitaly",
-		CPU: cgroups.CPU{
-			Enabled: true,
-			Shares:  256,
-		},
-		Memory: cgroups.Memory{
-			Enabled: true,
-			Limit:   1024000,
+		Repositories: cgroups.Repositories{
+			Count:       3,
+			MemoryBytes: 1024000,
+			CPUShares:   256,
 		},
 	}
 }
@@ -48,14 +45,14 @@ func TestSetup(t *testing.T) {
 
 	for i := 0; i < 3; i++ {
 		memoryPath := filepath.Join(
-			mock.root, "memory", "gitaly", fmt.Sprintf("gitaly-%d", os.Getpid()), fmt.Sprintf("shard-%d", i), "memory.limit_in_bytes",
+			mock.root, "memory", "gitaly", fmt.Sprintf("gitaly-%d", os.Getpid()), fmt.Sprintf("repos-%d", i), "memory.limit_in_bytes",
 		)
 		memoryContent := readCgroupFile(t, memoryPath)
 
 		require.Equal(t, string(memoryContent), "1024000")
 
 		cpuPath := filepath.Join(
-			mock.root, "cpu", "gitaly", fmt.Sprintf("gitaly-%d", os.Getpid()), fmt.Sprintf("shard-%d", i), "cpu.shares",
+			mock.root, "cpu", "gitaly", fmt.Sprintf("gitaly-%d", os.Getpid()), fmt.Sprintf("repos-%d", i), "cpu.shares",
 		)
 		cpuContent := readCgroupFile(t, cpuPath)
 
@@ -65,6 +62,11 @@ func TestSetup(t *testing.T) {
 
 func TestAddCommand(t *testing.T) {
 	mock := newMock(t)
+
+	repo := &gitalypb.Repository{
+		StorageName:  "default",
+		RelativePath: "path/to/repo.git",
+	}
 
 	config := defaultCgroupsConfig()
 	v1Manager1 := &CGroupV1Manager{
@@ -83,13 +85,14 @@ func TestAddCommand(t *testing.T) {
 		cfg:       config,
 		hierarchy: mock.hierarchy,
 	}
-	require.NoError(t, v1Manager2.AddCommand(cmd2))
+	require.NoError(t, v1Manager2.AddCommand(cmd2, "git-cmd-name", repo))
 
-	checksum := crc32.ChecksumIEEE([]byte(strings.Join(cmd2.Args(), "")))
-	groupID := uint(checksum) % config.Count
+	checksum := crc32.ChecksumIEEE([]byte(strings.Join([]string{"default", "path/to/repo.git"}, "")))
+	groupID := uint(checksum) % config.Repositories.Count
 
 	for _, s := range mock.subsystems {
-		path := filepath.Join(mock.root, string(s.Name()), "gitaly", fmt.Sprintf("gitaly-%d", os.Getpid()), fmt.Sprintf("shard-%d", groupID), "cgroup.procs")
+		path := filepath.Join(mock.root, string(s.Name()), "gitaly",
+			fmt.Sprintf("gitaly-%d", os.Getpid()), fmt.Sprintf("repos-%d", groupID), "cgroup.procs")
 		content := readCgroupFile(t, path)
 
 		pid, err := strconv.Atoi(string(content))
@@ -110,8 +113,8 @@ func TestCleanup(t *testing.T) {
 	require.NoError(t, v1Manager.Cleanup())
 
 	for i := 0; i < 3; i++ {
-		memoryPath := filepath.Join(mock.root, "memory", "gitaly", fmt.Sprintf("gitaly-%d", os.Getpid()), fmt.Sprintf("shard-%d", i))
-		cpuPath := filepath.Join(mock.root, "cpu", "gitaly", fmt.Sprintf("gitaly-%d", os.Getpid()), fmt.Sprintf("shard-%d", i))
+		memoryPath := filepath.Join(mock.root, "memory", "gitaly", fmt.Sprintf("gitaly-%d", os.Getpid()), fmt.Sprintf("repos-%d", i))
+		cpuPath := filepath.Join(mock.root, "cpu", "gitaly", fmt.Sprintf("gitaly-%d", os.Getpid()), fmt.Sprintf("repos-%d", i))
 
 		require.NoDirExists(t, memoryPath)
 		require.NoDirExists(t, cpuPath)
@@ -120,6 +123,10 @@ func TestCleanup(t *testing.T) {
 
 func TestMetrics(t *testing.T) {
 	mock := newMock(t)
+	repo := &gitalypb.Repository{
+		StorageName:  "default",
+		RelativePath: "path/to/repo.git",
+	}
 
 	config := defaultCgroupsConfig()
 	v1Manager1 := newV1Manager(config)
@@ -138,7 +145,7 @@ func TestMetrics(t *testing.T) {
 	cmd2, err := command.New(ctx, cmd1, nil, nil, nil)
 	require.NoError(t, err)
 
-	require.NoError(t, v1Manager1.AddCommand(cmd2))
+	require.NoError(t, v1Manager1.AddCommand(cmd2, "git-cmd", repo))
 	require.NoError(t, cmd2.Wait())
 
 	processCgroupPath := v1Manager1.currentProcessCgroup()

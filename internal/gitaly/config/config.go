@@ -546,7 +546,7 @@ func (cfg *Cfg) validateMaintenance() error {
 func (cfg *Cfg) validateCgroups() error {
 	cg := cfg.Cgroups
 
-	if cg.Count == 0 {
+	if cg.Repositories.Count == 0 {
 		return nil
 	}
 
@@ -558,11 +558,11 @@ func (cfg *Cfg) validateCgroups() error {
 		return fmt.Errorf("cgroups.hierarchy_root: cannot be empty")
 	}
 
-	if cg.CPU.Enabled && cg.CPU.Shares == 0 {
+	if cg.Repositories.CPUShares == 0 {
 		return fmt.Errorf("cgroups.cpu.shares: has to be greater than zero")
 	}
 
-	if cg.Memory.Enabled && (cg.Memory.Limit == 0 || cg.Memory.Limit < -1) {
+	if cg.Repositories.MemoryBytes == 0 || cg.Repositories.MemoryBytes < -1 {
 		return fmt.Errorf("cgroups.memory.limit: has to be greater than zero or equal to -1")
 	}
 

@@ -103,8 +103,8 @@ func (m *mockCgroup) setupMockCgroupFiles(
 			require.NoError(t, os.WriteFile(controlFilePath, []byte(content), 0o644))
 		}
 
-		for shard := uint(0); shard < manager.cfg.Count; shard++ {
-			shardPath := filepath.Join(cgroupPath, fmt.Sprintf("shard-%d", shard))
+		for shard := uint(0); shard < manager.cfg.Repositories.Count; shard++ {
+			shardPath := filepath.Join(cgroupPath, fmt.Sprintf("repos-%d", shard))
 			require.NoError(t, os.MkdirAll(shardPath, 0o755))
 
 			for filename, content := range contentByFilename {
