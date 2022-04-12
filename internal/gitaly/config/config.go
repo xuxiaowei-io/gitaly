@@ -289,6 +289,16 @@ func (cfg *Cfg) setDefaults() error {
 		cfg.DailyMaintenance = defaultMaintenanceWindow(cfg.Storages)
 	}
 
+	cfg.maintainCgroupsBackwardsCompatibility()
+
+	if cfg.Cgroups.Mountpoint == "" {
+		cfg.Cgroups.Mountpoint = "/sys/fs/cgroup"
+	}
+
+	if cfg.Cgroups.HierarchyRoot == "" {
+		cfg.Cgroups.HierarchyRoot = "gitaly"
+	}
+
 	return nil
 }
 
@@ -543,27 +553,37 @@ func (cfg *Cfg) validateMaintenance() error {
 	return nil
 }
 
+// TODO: Remove this code before in 15.0. This is only transitional
+// code before Omnibus is changed to write the new cgroups config
+// format.
+func (cfg *Cfg) maintainCgroupsBackwardsCompatibility() {
+	if cfg.Cgroups.Repositories.Count == 0 {
+		// nolint:staticcheck // we will deprecate the old cgroups config in 15.0
+		cfg.Cgroups.Repositories.Count = cfg.Cgroups.Count
+
+		// nolint:staticcheck // we will deprecate the old cgroups config in 15.0
+		if cfg.Cgroups.Memory.Enabled {
+			cfg.Cgroups.Repositories.MemoryBytes = cfg.Cgroups.Memory.Limit
+		}
+
+		// nolint:staticcheck // we will deprecate the old cgroups config in 15.0
+		if cfg.Cgroups.CPU.Enabled {
+			cfg.Cgroups.Repositories.CPUShares = cfg.Cgroups.CPU.Shares
+		}
+	}
+}
+
 func (cfg *Cfg) validateCgroups() error {
 	cg := cfg.Cgroups
 
-	if cg.Count == 0 {
-		return nil
+	if len(cg.Git.Commands) > 0 && cg.Git.Count == 0 {
+		return errors.New("cgroups.git.count: must be greater than zero")
 	}
 
-	if cg.Mountpoint == "" {
-		return fmt.Errorf("cgroups.mountpoint: cannot be empty")
-	}
-
-	if cg.HierarchyRoot == "" {
-		return fmt.Errorf("cgroups.hierarchy_root: cannot be empty")
-	}
-
-	if cg.CPU.Enabled && cg.CPU.Shares == 0 {
-		return fmt.Errorf("cgroups.cpu.shares: has to be greater than zero")
-	}
-
-	if cg.Memory.Enabled && (cg.Memory.Limit == 0 || cg.Memory.Limit < -1) {
-		return fmt.Errorf("cgroups.memory.limit: has to be greater than zero or equal to -1")
+	for _, command := range cg.Git.Commands {
+		if command.Name == "" {
+			return errors.New("cgroups.git.command: name cannot be empty")
+		}
 	}
 
 	return nil

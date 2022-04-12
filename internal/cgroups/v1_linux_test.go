@@ -19,20 +19,18 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/cgroups"
+	cgroupscfg "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
 func defaultCgroupsConfig() cgroups.Config {
 	return cgroups.Config{
-		Count:         3,
 		HierarchyRoot: "gitaly",
-		CPU: cgroups.CPU{
-			Enabled: true,
-			Shares:  256,
-		},
-		Memory: cgroups.Memory{
-			Enabled: true,
-			Limit:   1024000,
+		Repositories: cgroups.Repositories{
+			Count:       3,
+			MemoryBytes: 1024000,
+			CPUShares:   256,
 		},
 	}
 }
@@ -48,14 +46,14 @@ func TestSetup(t *testing.T) {
 
 	for i := 0; i < 3; i++ {
 		memoryPath := filepath.Join(
-			mock.root, "memory", "gitaly", fmt.Sprintf("gitaly-%d", os.Getpid()), fmt.Sprintf("shard-%d", i), "memory.limit_in_bytes",
+			mock.root, "memory", "gitaly", fmt.Sprintf("gitaly-%d", os.Getpid()), fmt.Sprintf("repos-%d", i), "memory.limit_in_bytes",
 		)
 		memoryContent := readCgroupFile(t, memoryPath)
 
 		require.Equal(t, string(memoryContent), "1024000")
 
 		cpuPath := filepath.Join(
-			mock.root, "cpu", "gitaly", fmt.Sprintf("gitaly-%d", os.Getpid()), fmt.Sprintf("shard-%d", i), "cpu.shares",
+			mock.root, "cpu", "gitaly", fmt.Sprintf("gitaly-%d", os.Getpid()), fmt.Sprintf("repos-%d", i), "cpu.shares",
 		)
 		cpuContent := readCgroupFile(t, cpuPath)
 
@@ -64,39 +62,103 @@ func TestSetup(t *testing.T) {
 }
 
 func TestAddCommand(t *testing.T) {
-	mock := newMock(t)
+	t.Run("repository cgroups", func(t *testing.T) {
+		mock := newMock(t)
 
-	config := defaultCgroupsConfig()
-	v1Manager1 := &CGroupV1Manager{
-		cfg:       config,
-		hierarchy: mock.hierarchy,
-	}
-	require.NoError(t, v1Manager1.Setup())
-	ctx := testhelper.Context(t)
+		repo := &gitalypb.Repository{
+			StorageName:  "default",
+			RelativePath: "path/to/repo.git",
+		}
 
-	cmd1 := exec.Command("ls", "-hal", ".")
-	cmd2, err := command.New(ctx, cmd1, nil, nil, nil)
-	require.NoError(t, err)
-	require.NoError(t, cmd2.Wait())
+		config := defaultCgroupsConfig()
+		v1Manager1 := &CGroupV1Manager{
+			cfg:       config,
+			hierarchy: mock.hierarchy,
+		}
+		require.NoError(t, v1Manager1.Setup())
+		ctx := testhelper.Context(t)
 
-	v1Manager2 := &CGroupV1Manager{
-		cfg:       config,
-		hierarchy: mock.hierarchy,
-	}
-	require.NoError(t, v1Manager2.AddCommand(cmd2))
+		cmd1 := exec.Command("ls", "-hal", ".")
+		cmd2, err := command.New(ctx, cmd1, nil, nil, nil)
+		require.NoError(t, err)
+		require.NoError(t, cmd2.Wait())
 
-	checksum := crc32.ChecksumIEEE([]byte(strings.Join(cmd2.Args(), "")))
-	groupID := uint(checksum) % config.Count
+		v1Manager2 := &CGroupV1Manager{
+			cfg:       config,
+			hierarchy: mock.hierarchy,
+		}
 
-	for _, s := range mock.subsystems {
-		path := filepath.Join(mock.root, string(s.Name()), "gitaly", fmt.Sprintf("gitaly-%d", os.Getpid()), fmt.Sprintf("shard-%d", groupID), "cgroup.procs")
-		content := readCgroupFile(t, path)
+		require.NoError(t, v1Manager2.AddCommand(cmd2, "git-cmd-name", repo))
 
-		pid, err := strconv.Atoi(string(content))
+		checksum := crc32.ChecksumIEEE([]byte(strings.Join([]string{"default", "path/to/repo.git"}, "")))
+		groupID := uint(checksum) % config.Repositories.Count
+
+		for _, s := range mock.subsystems {
+			path := filepath.Join(mock.root, string(s.Name()), "gitaly",
+				fmt.Sprintf("gitaly-%d", os.Getpid()), fmt.Sprintf("repos-%d", groupID), "cgroup.procs")
+			content := readCgroupFile(t, path)
+
+			pid, err := strconv.Atoi(string(content))
+			require.NoError(t, err)
+
+			require.Equal(t, cmd2.Pid(), pid)
+		}
+
+	})
+
+	t.Run("git command cgroups", func(t *testing.T) {
+		mock := newMock(t)
+
+		repo := &gitalypb.Repository{
+			StorageName:  "default",
+			RelativePath: "path/to/repo.git",
+		}
+
+		config := defaultCgroupsConfig()
+		config.Git = cgroups.Git{
+			Count: 1,
+			Commands: []cgroups.Command{
+				cgroups.Command{
+					Name:        "git-cmd-1",
+					MemoryBytes: 1048576,
+					CPUShares:   16,
+				},
+			},
+		}
+		v1Manager1 := &CGroupV1Manager{
+			cfg:           config,
+			hierarchy:     mock.hierarchy,
+			gitCmds:       make(map[string]cgroupscfg.Command),
+			gitCgroupPool: make(chan string, config.Git.Count),
+		}
+		require.NoError(t, v1Manager1.Setup())
+		ctx := testhelper.Context(t)
+
+		cmd1, err := command.New(ctx, exec.Command("ls", "-hal", "."), nil, nil, nil)
 		require.NoError(t, err)
 
-		require.Equal(t, cmd2.Pid(), pid)
-	}
+		cmd2, err := command.New(ctx, exec.Command("ls", "-hal", "."), nil, nil, nil)
+		require.NoError(t, err)
+
+		// git-cmd-1 is configured, and should end up in the cgroup
+		require.NoError(t, v1Manager1.AddCommand(cmd1, "git-cmd-1", repo))
+		// git-cmd-2 is not configured, and should not end up in the cgroup
+		require.NoError(t, v1Manager1.AddCommand(cmd2, "git-cmd-2", repo))
+
+		require.NoError(t, cmd1.Wait())
+		require.NoError(t, cmd2.Wait())
+
+		for _, s := range mock.subsystems {
+			path := filepath.Join(mock.root, string(s.Name()), "gitaly",
+				fmt.Sprintf("gitaly-%d", os.Getpid()), "git-commands-0", "cgroup.procs")
+			content := readCgroupFile(t, path)
+
+			pid, err := strconv.Atoi(string(content))
+			require.NoError(t, err)
+
+			require.Equal(t, cmd1.Pid(), pid)
+		}
+	})
 }
 
 func TestCleanup(t *testing.T) {
@@ -110,8 +172,8 @@ func TestCleanup(t *testing.T) {
 	require.NoError(t, v1Manager.Cleanup())
 
 	for i := 0; i < 3; i++ {
-		memoryPath := filepath.Join(mock.root, "memory", "gitaly", fmt.Sprintf("gitaly-%d", os.Getpid()), fmt.Sprintf("shard-%d", i))
-		cpuPath := filepath.Join(mock.root, "cpu", "gitaly", fmt.Sprintf("gitaly-%d", os.Getpid()), fmt.Sprintf("shard-%d", i))
+		memoryPath := filepath.Join(mock.root, "memory", "gitaly", fmt.Sprintf("gitaly-%d", os.Getpid()), fmt.Sprintf("repos-%d", i))
+		cpuPath := filepath.Join(mock.root, "cpu", "gitaly", fmt.Sprintf("gitaly-%d", os.Getpid()), fmt.Sprintf("repos-%d", i))
 
 		require.NoDirExists(t, memoryPath)
 		require.NoDirExists(t, cpuPath)
@@ -120,8 +182,22 @@ func TestCleanup(t *testing.T) {
 
 func TestMetrics(t *testing.T) {
 	mock := newMock(t)
+	repo := &gitalypb.Repository{
+		StorageName:  "default",
+		RelativePath: "path/to/repo.git",
+	}
 
 	config := defaultCgroupsConfig()
+	config.Git = cgroups.Git{
+		Count: 1,
+		Commands: []cgroups.Command{
+			cgroups.Command{
+				Name:        "git-cmd-1",
+				MemoryBytes: 1048576,
+				CPUShares:   16,
+			},
+		},
+	}
 	v1Manager1 := newV1Manager(config)
 	v1Manager1.hierarchy = mock.hierarchy
 
@@ -134,12 +210,18 @@ func TestMetrics(t *testing.T) {
 	logger.SetLevel(logrus.DebugLevel)
 	ctx = ctxlogrus.ToContext(ctx, logrus.NewEntry(logger))
 
-	cmd1 := exec.Command("ls", "-hal", ".")
-	cmd2, err := command.New(ctx, cmd1, nil, nil, nil)
+	cmd, err := command.New(ctx, exec.Command("ls", "-hal", "."), nil, nil, nil)
+	require.NoError(t, err)
+	gitCmd1, err := command.New(ctx, exec.Command("ls", "-hal", "."), nil, nil, nil)
+	require.NoError(t, err)
+	gitCmd2, err := command.New(ctx, exec.Command("ls", "-hal", "."), nil, nil, nil)
 	require.NoError(t, err)
 
-	require.NoError(t, v1Manager1.AddCommand(cmd2))
-	require.NoError(t, cmd2.Wait())
+	require.NoError(t, v1Manager1.AddCommand(cmd, "cmd-1", repo))
+	require.NoError(t, v1Manager1.AddCommand(gitCmd1, "git-cmd-1", repo))
+	require.NoError(t, v1Manager1.AddCommand(gitCmd2, "git-cmd-1", repo))
+	require.NoError(t, cmd.Wait())
+	require.NoError(t, gitCmd1.Wait())
 
 	processCgroupPath := v1Manager1.currentProcessCgroup()
 
@@ -147,20 +229,30 @@ func TestMetrics(t *testing.T) {
 # TYPE gitaly_cgroup_cpu_usage gauge
 gitaly_cgroup_cpu_usage{path="%s",type="kernel"} 0
 gitaly_cgroup_cpu_usage{path="%s",type="user"} 0
+# HELP gitaly_cgroup_git_cgroups Total number of git cgroups in use
+# TYPE gitaly_cgroup_git_cgroups gauge
+gitaly_cgroup_git_cgroups{status="in_use"} 0
+gitaly_cgroup_git_cgroups{status="total"} 1
+# HELP gitaly_cgroup_git_without_cgroup_total Total number of git commands without a cgroup
+# TYPE gitaly_cgroup_git_without_cgroup_total counter
+gitaly_cgroup_git_without_cgroup_total 1
 # HELP gitaly_cgroup_memory_failed_total Number of memory usage hits limits
 # TYPE gitaly_cgroup_memory_failed_total gauge
 gitaly_cgroup_memory_failed_total{path="%s"} 2
 # HELP gitaly_cgroup_procs_total Total number of procs
 # TYPE gitaly_cgroup_procs_total gauge
-gitaly_cgroup_procs_total{path="%s",subsystem="memory"} 1
-gitaly_cgroup_procs_total{path="%s",subsystem="cpu"} 1
+gitaly_cgroup_procs_total{path="%s",subsystem="memory"} 2
+gitaly_cgroup_procs_total{path="%s",subsystem="cpu"} 2
 `, processCgroupPath, processCgroupPath, processCgroupPath, processCgroupPath, processCgroupPath))
 	assert.NoError(t, testutil.CollectAndCompare(
 		v1Manager1,
 		expected,
 		"gitaly_cgroup_memory_failed_total",
 		"gitaly_cgroup_cpu_usage",
-		"gitaly_cgroup_procs_total"))
+		"gitaly_cgroup_procs_total",
+		"gitaly_cgroup_git_cgroups",
+		"gitaly_cgroup_git_without_cgroup_total",
+	))
 
 	logEntry := hook.LastEntry()
 	assert.Contains(

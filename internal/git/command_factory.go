@@ -143,11 +143,16 @@ func NewExecCommandFactory(cfg config.Cfg, opts ...ExecCommandFactoryOption) (_ 
 	}
 	cleanups = append(cleanups, cleanup)
 
+	cgroupMgr := cgroups.NewManager(cfg.Cgroups)
+	if err := cgroupMgr.Setup(); err != nil {
+		return nil, nil, fmt.Errorf("setting up croups: %w", err)
+	}
+
 	gitCmdFactory := &ExecCommandFactory{
 		cfg:            cfg,
 		execEnvs:       execEnvs,
 		locator:        config.NewLocator(cfg),
-		cgroupsManager: cgroups.NewManager(cfg.Cgroups),
+		cgroupsManager: cgroupMgr,
 		invalidCommandsMetric: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "gitaly_invalid_commands_total",
@@ -393,7 +398,7 @@ func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo repository.Gi
 	command.SetMetricsSubCmd(sc.Subcommand())
 
 	if featureflag.RunCommandsInCGroup.IsEnabled(ctx) {
-		if err := cf.cgroupsManager.AddCommand(command); err != nil {
+		if err := cf.cgroupsManager.AddCommand(command, sc.Subcommand(), repo); err != nil {
 			return nil, err
 		}
 	}
