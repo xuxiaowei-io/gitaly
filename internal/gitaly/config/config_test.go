@@ -851,6 +851,11 @@ func TestValidateCgroups(t *testing.T) {
 						Enabled: true,
 						Shares:  512,
 					},
+					Repositories: cgroups.Repositories{
+						Count:       10,
+						MemoryBytes: 1024,
+						CPUShares:   512,
+					},
 				},
 			},
 			{
@@ -864,6 +869,9 @@ func TestValidateCgroups(t *testing.T) {
 					Count:         10,
 					Mountpoint:    "/sys/fs/cgroup",
 					HierarchyRoot: "baz",
+					Repositories: cgroups.Repositories{
+						Count: 10,
+					},
 				},
 			},
 			{
@@ -876,6 +884,9 @@ func TestValidateCgroups(t *testing.T) {
 					Count:         10,
 					Mountpoint:    "/sys/fs/cgroup",
 					HierarchyRoot: "gitaly",
+					Repositories: cgroups.Repositories{
+						Count: 10,
+					},
 				},
 			},
 			{
@@ -901,6 +912,10 @@ func TestValidateCgroups(t *testing.T) {
 					CPU: cgroups.CPU{
 						Enabled: true,
 						Shares:  0,
+					},
+					Repositories: cgroups.Repositories{
+						Count:       10,
+						MemoryBytes: 1024,
 					},
 				},
 			},
@@ -928,6 +943,10 @@ func TestValidateCgroups(t *testing.T) {
 					CPU: cgroups.CPU{
 						Enabled: true,
 						Shares:  512,
+					},
+					Repositories: cgroups.Repositories{
+						Count:     10,
+						CPUShares: 512,
 					},
 				},
 			},
