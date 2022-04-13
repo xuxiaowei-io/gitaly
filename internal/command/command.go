@@ -155,6 +155,7 @@ type Command struct {
 	metricsCmd    string
 	metricsSubCmd string
 	cgroupPath    string
+	finishers     []func()
 }
 
 type stdinSentinel struct{}
@@ -201,6 +202,10 @@ func (c *Command) Wait() error {
 // SetCgroupPath sets the cgroup path for logging
 func (c *Command) SetCgroupPath(path string) {
 	c.cgroupPath = path
+}
+
+func (c *Command) AddFinisher(f func()) {
+	c.finishers = append(c.finishers, f)
 }
 
 // SetMetricsCmd overrides the "cmd" label used in metrics
@@ -364,6 +369,10 @@ func (c *Command) wait() {
 	c.waitError = c.cmd.Wait()
 
 	inFlightCommandGauge.Dec()
+
+	for _, finisher := range c.finishers {
+		finisher()
+	}
 
 	c.logProcessComplete()
 

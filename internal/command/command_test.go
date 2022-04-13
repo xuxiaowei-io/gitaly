@@ -294,6 +294,37 @@ func TestCommandStdErrLargeOutput(t *testing.T) {
 	require.LessOrEqual(t, len(msg), maxStderrBytes)
 }
 
+func TestCommand_Finisher(t *testing.T) {
+	ctx := testhelper.Context(t)
+
+	t.Run("command suceeds", func(t *testing.T) {
+		var finisherCalled bool
+		cmd, err := New(ctx, exec.Command("echo", "hello"), nil, nil, nil)
+		cmd.AddFinisher(func() {
+			finisherCalled = true
+		})
+
+		require.NoError(t, err)
+		require.NoError(t, cmd.Wait())
+
+		assert.True(t, finisherCalled)
+	})
+
+	t.Run("command fails", func(t *testing.T) {
+		var finisherCalled bool
+		cmd, err := New(ctx, exec.Command("cat", "/file/not/exists"), nil, nil, nil)
+		cmd.AddFinisher(func() {
+			finisherCalled = true
+		})
+
+		require.NoError(t, err)
+		require.Error(t, cmd.Wait())
+
+		assert.True(t, finisherCalled)
+	})
+
+}
+
 func TestCommandStdErrBinaryNullBytes(t *testing.T) {
 	ctx := testhelper.Context(t)
 
