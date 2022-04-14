@@ -112,5 +112,15 @@ func (m *mockCgroup) setupMockCgroupFiles(
 				require.NoError(t, os.WriteFile(shardControlFilePath, []byte(content), 0o644))
 			}
 		}
+
+		for shard := uint(0); shard < manager.cfg.Git.Count; shard++ {
+			shardPath := filepath.Join(cgroupPath, fmt.Sprintf("git-commands-%d", shard))
+			require.NoError(t, os.MkdirAll(shardPath, 0o755))
+
+			for filename, content := range contentByFilename {
+				shardControlFilePath := filepath.Join(shardPath, filename)
+				require.NoError(t, os.WriteFile(shardControlFilePath, []byte(content), 0o644))
+			}
+		}
 	}
 }

@@ -20,7 +20,8 @@ type CGroupV1Manager struct {
 	cfg                         cgroupscfg.Config
 	hierarchy                   func() ([]cgroups.Subsystem, error)
 	memoryFailedTotal, cpuUsage *prometheus.GaugeVec
-	procs                       *prometheus.GaugeVec
+	procs, gitCgroups           *prometheus.GaugeVec
+	gitWithoutCgroup            prometheus.Counter
 	gitCmds                     map[string]cgroupscfg.Command
 	gitCgroupPool               chan string
 }
@@ -51,6 +52,19 @@ func newV1Manager(cfg cgroupscfg.Config) *CGroupV1Manager {
 				Help: "Total number of procs",
 			},
 			[]string{"path", "subsystem"},
+		),
+		gitCgroups: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "gitaly_cgroup_git_cgroups",
+				Help: "Total number of git cgroups in use",
+			},
+			[]string{"status"},
+		),
+		gitWithoutCgroup: prometheus.NewCounter(
+			prometheus.CounterOpts{
+				Name: "gitaly_cgroup_git_without_cgroup_total",
+				Help: "Total number of git commands without a cgroup",
+			},
 		),
 		gitCmds: make(map[string]cgroupscfg.Command),
 	}
@@ -139,6 +153,10 @@ func (cg *CGroupV1Manager) AddCommand(
 			return fmt.Errorf("failed adding process to cgroup: %w", err)
 		}
 	default:
+		cg.gitWithoutCgroup.Inc()
+		log.Default().WithField("git_cmd", gitCmdName).
+			WithField("relative_path", repo.GetRelativePath()).
+			Warn("git command could not be added to a cgroup")
 		return nil
 	}
 
@@ -218,6 +236,15 @@ func (cg *CGroupV1Manager) Collect(ch chan<- prometheus.Metric) {
 			ch <- procsMetric
 		}
 	}
+
+	gitCgroupsTotalMetric := cg.gitCgroups.WithLabelValues("total")
+	gitCgroupsTotalMetric.Set(float64(cg.cfg.Git.Count))
+	ch <- gitCgroupsTotalMetric
+
+	gitCgroupsInUseMetric := cg.gitCgroups.WithLabelValues("in_use")
+	gitCgroupsInUseMetric.Set(float64(int(cg.cfg.Git.Count) - len(cg.gitCgroupPool)))
+	ch <- gitCgroupsInUseMetric
+	ch <- cg.gitWithoutCgroup
 }
 
 // Describe describes the cgroup metrics that Collect provides

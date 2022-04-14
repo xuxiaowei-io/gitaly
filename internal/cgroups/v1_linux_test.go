@@ -186,6 +186,16 @@ func TestMetrics(t *testing.T) {
 	}
 
 	config := defaultCgroupsConfig()
+	config.Git = cgroups.Git{
+		Count: 1,
+		Commands: []cgroups.Command{
+			cgroups.Command{
+				Name:        "git-cmd-1",
+				MemoryBytes: 1048576,
+				CPUShares:   16,
+			},
+		},
+	}
 	v1Manager1 := newV1Manager(config)
 	v1Manager1.hierarchy = mock.hierarchy
 
@@ -198,12 +208,18 @@ func TestMetrics(t *testing.T) {
 	logger.SetLevel(logrus.DebugLevel)
 	ctx = ctxlogrus.ToContext(ctx, logrus.NewEntry(logger))
 
-	cmd1 := exec.Command("ls", "-hal", ".")
-	cmd2, err := command.New(ctx, cmd1, nil, nil, nil)
+	cmd, err := command.New(ctx, exec.Command("ls", "-hal", "."), nil, nil, nil)
+	require.NoError(t, err)
+	gitCmd1, err := command.New(ctx, exec.Command("ls", "-hal", "."), nil, nil, nil)
+	require.NoError(t, err)
+	gitCmd2, err := command.New(ctx, exec.Command("ls", "-hal", "."), nil, nil, nil)
 	require.NoError(t, err)
 
-	require.NoError(t, v1Manager1.AddCommand(cmd2, "git-cmd", repo))
-	require.NoError(t, cmd2.Wait())
+	require.NoError(t, v1Manager1.AddCommand(cmd, "cmd-1", repo))
+	require.NoError(t, v1Manager1.AddCommand(gitCmd1, "git-cmd-1", repo))
+	require.NoError(t, v1Manager1.AddCommand(gitCmd2, "git-cmd-1", repo))
+	require.NoError(t, cmd.Wait())
+	require.NoError(t, gitCmd1.Wait())
 
 	processCgroupPath := v1Manager1.currentProcessCgroup()
 
@@ -211,20 +227,30 @@ func TestMetrics(t *testing.T) {
 # TYPE gitaly_cgroup_cpu_usage gauge
 gitaly_cgroup_cpu_usage{path="%s",type="kernel"} 0
 gitaly_cgroup_cpu_usage{path="%s",type="user"} 0
+# HELP gitaly_cgroup_git_cgroups Total number of git cgroups in use
+# TYPE gitaly_cgroup_git_cgroups gauge
+gitaly_cgroup_git_cgroups{status="in_use"} 0
+gitaly_cgroup_git_cgroups{status="total"} 1
+# HELP gitaly_cgroup_git_without_cgroup_total Total number of git commands without a cgroup
+# TYPE gitaly_cgroup_git_without_cgroup_total counter
+gitaly_cgroup_git_without_cgroup_total 1
 # HELP gitaly_cgroup_memory_failed_total Number of memory usage hits limits
 # TYPE gitaly_cgroup_memory_failed_total gauge
 gitaly_cgroup_memory_failed_total{path="%s"} 2
 # HELP gitaly_cgroup_procs_total Total number of procs
 # TYPE gitaly_cgroup_procs_total gauge
-gitaly_cgroup_procs_total{path="%s",subsystem="memory"} 1
-gitaly_cgroup_procs_total{path="%s",subsystem="cpu"} 1
+gitaly_cgroup_procs_total{path="%s",subsystem="memory"} 2
+gitaly_cgroup_procs_total{path="%s",subsystem="cpu"} 2
 `, processCgroupPath, processCgroupPath, processCgroupPath, processCgroupPath, processCgroupPath))
 	assert.NoError(t, testutil.CollectAndCompare(
 		v1Manager1,
 		expected,
 		"gitaly_cgroup_memory_failed_total",
 		"gitaly_cgroup_cpu_usage",
-		"gitaly_cgroup_procs_total"))
+		"gitaly_cgroup_procs_total",
+		"gitaly_cgroup_git_cgroups",
+		"gitaly_cgroup_git_without_cgroup_total",
+	))
 
 	logEntry := hook.LastEntry()
 	assert.Contains(
