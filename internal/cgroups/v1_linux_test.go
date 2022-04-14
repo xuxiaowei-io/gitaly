@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/cgroups"
+	cgroupscfg "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
@@ -61,45 +62,102 @@ func TestSetup(t *testing.T) {
 }
 
 func TestAddCommand(t *testing.T) {
-	mock := newMock(t)
+	t.Run("repository cgroups", func(t *testing.T) {
+		mock := newMock(t)
 
-	repo := &gitalypb.Repository{
-		StorageName:  "default",
-		RelativePath: "path/to/repo.git",
-	}
+		repo := &gitalypb.Repository{
+			StorageName:  "default",
+			RelativePath: "path/to/repo.git",
+		}
 
-	config := defaultCgroupsConfig()
-	v1Manager1 := &CGroupV1Manager{
-		cfg:       config,
-		hierarchy: mock.hierarchy,
-	}
-	require.NoError(t, v1Manager1.Setup())
-	ctx := testhelper.Context(t)
+		config := defaultCgroupsConfig()
+		v1Manager1 := &CGroupV1Manager{
+			cfg:       config,
+			hierarchy: mock.hierarchy,
+		}
+		require.NoError(t, v1Manager1.Setup())
+		ctx := testhelper.Context(t)
 
-	cmd1 := exec.Command("ls", "-hal", ".")
-	cmd2, err := command.New(ctx, cmd1, nil, nil, nil)
-	require.NoError(t, err)
-	require.NoError(t, cmd2.Wait())
-
-	v1Manager2 := &CGroupV1Manager{
-		cfg:       config,
-		hierarchy: mock.hierarchy,
-	}
-	require.NoError(t, v1Manager2.AddCommand(cmd2, "git-cmd-name", repo))
-
-	checksum := crc32.ChecksumIEEE([]byte(strings.Join([]string{"default", "path/to/repo.git"}, "")))
-	groupID := uint(checksum) % config.Repositories.Count
-
-	for _, s := range mock.subsystems {
-		path := filepath.Join(mock.root, string(s.Name()), "gitaly",
-			fmt.Sprintf("gitaly-%d", os.Getpid()), fmt.Sprintf("repos-%d", groupID), "cgroup.procs")
-		content := readCgroupFile(t, path)
-
-		pid, err := strconv.Atoi(string(content))
+		cmd1 := exec.Command("ls", "-hal", ".")
+		cmd2, err := command.New(ctx, cmd1, nil, nil, nil)
 		require.NoError(t, err)
+		require.NoError(t, cmd2.Wait())
 
-		require.Equal(t, cmd2.Pid(), pid)
-	}
+		v1Manager2 := &CGroupV1Manager{
+			cfg:       config,
+			hierarchy: mock.hierarchy,
+		}
+		require.NoError(t, v1Manager2.AddCommand(cmd2, "git-cmd-name", repo))
+
+		checksum := crc32.ChecksumIEEE([]byte(strings.Join([]string{"default", "path/to/repo.git"}, "")))
+		groupID := uint(checksum) % config.Repositories.Count
+
+		for _, s := range mock.subsystems {
+			path := filepath.Join(mock.root, string(s.Name()), "gitaly",
+				fmt.Sprintf("gitaly-%d", os.Getpid()), fmt.Sprintf("repos-%d", groupID), "cgroup.procs")
+			content := readCgroupFile(t, path)
+
+			pid, err := strconv.Atoi(string(content))
+			require.NoError(t, err)
+
+			require.Equal(t, cmd2.Pid(), pid)
+		}
+
+	})
+
+	t.Run("git command cgroups", func(t *testing.T) {
+		mock := newMock(t)
+
+		repo := &gitalypb.Repository{
+			StorageName:  "default",
+			RelativePath: "path/to/repo.git",
+		}
+
+		config := defaultCgroupsConfig()
+		config.Git = cgroups.Git{
+			Count: 1,
+			Commands: []cgroups.Command{
+				cgroups.Command{
+					Name:        "git-cmd-1",
+					MemoryBytes: 1048576,
+					CPUShares:   16,
+				},
+			},
+		}
+		v1Manager1 := &CGroupV1Manager{
+			cfg:       config,
+			hierarchy: mock.hierarchy,
+			gitCmds:   make(map[string]cgroupscfg.Command),
+		}
+		require.NoError(t, v1Manager1.Setup())
+		ctx := testhelper.Context(t)
+
+		cmd1, err := command.New(ctx, exec.Command("ls", "-hal", "."), nil, nil, nil)
+		require.NoError(t, err)
+		require.NoError(t, cmd1.Wait())
+
+		cmd2, err := command.New(ctx, exec.Command("ls", "-hal", "."), nil, nil, nil)
+		require.NoError(t, err)
+		require.NoError(t, cmd2.Wait())
+
+		// git-cmd-1 is configured, and should end up in the cgroup
+		require.NoError(t, v1Manager1.AddCommand(cmd1, "git-cmd-1", repo))
+		// git-cmd-2 is not configured, and should not end up in the cgroup
+		require.NoError(t, v1Manager1.AddCommand(cmd2, "git-cmd-2", repo))
+
+		for _, s := range mock.subsystems {
+			path := filepath.Join(mock.root, string(s.Name()), "gitaly",
+				fmt.Sprintf("gitaly-%d", os.Getpid()), "git-commands-0", "cgroup.procs")
+			content := readCgroupFile(t, path)
+
+			pid, err := strconv.Atoi(string(content))
+			require.NoError(t, err)
+
+			require.Equal(t, cmd1.Pid(), pid)
+		}
+
+	})
+
 }
 
 func TestCleanup(t *testing.T) {

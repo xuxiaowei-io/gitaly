@@ -77,11 +77,10 @@ func (cg *CGroupV1Manager) Setup() error {
 		cg.gitCmds[command.Name] = command
 	}
 
-	cg.gitCgroupPool = make(chan string, len(cg.gitCmds))
+	cg.gitCgroupPool = make(chan string, cg.cfg.Git.Count)
 
 	for i := 0; i < int(cg.cfg.Git.Count); i++ {
 		path := cg.gitCommandPath(i)
-
 		if _, err := cgroups.New(
 			cg.hierarchy,
 			cgroups.StaticPath(path),
@@ -140,7 +139,7 @@ func (cg *CGroupV1Manager) AddCommand(
 			cg.gitCgroupPool <- cgroupPath
 		})
 	default:
-		return cg.addRepositoryCmd(cmd, repo)
+		return nil
 	}
 
 	return nil
