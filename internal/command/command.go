@@ -155,7 +155,7 @@ type Command struct {
 	metricsCmd    string
 	metricsSubCmd string
 	cgroupPath    string
-	finishers     []func()
+	releaseCgroup func()
 }
 
 type stdinSentinel struct{}
@@ -204,8 +204,8 @@ func (c *Command) SetCgroupPath(path string) {
 	c.cgroupPath = path
 }
 
-func (c *Command) AddFinisher(f func()) {
-	c.finishers = append(c.finishers, f)
+func (c *Command) SetCgroupReleaseFunc(f func()) {
+	c.releaseCgroup = f
 }
 
 // SetMetricsCmd overrides the "cmd" label used in metrics
@@ -257,10 +257,11 @@ func New(ctx context.Context, cmd *exec.Cmd, stdin io.Reader, stdout, stderr io.
 	}()
 
 	command := &Command{
-		cmd:       cmd,
-		startTime: time.Now(),
-		context:   ctx,
-		span:      span,
+		cmd:           cmd,
+		startTime:     time.Now(),
+		context:       ctx,
+		span:          span,
+		releaseCgroup: func() {},
 	}
 
 	// Explicitly set the environment for the command
@@ -370,9 +371,7 @@ func (c *Command) wait() {
 
 	inFlightCommandGauge.Dec()
 
-	for _, finisher := range c.finishers {
-		finisher()
-	}
+	c.ReleaseCgroupResources()
 
 	c.logProcessComplete()
 
@@ -384,6 +383,11 @@ func (c *Command) wait() {
 	// counter again. So we instead do it here to accelerate the process, even though it's less
 	// idiomatic.
 	commandcounter.Decrement()
+}
+
+func (c *Command) ReleaseCgroupResources() {
+	c.releaseCgroup()
+	c.releaseCgroup = func() {}
 }
 
 // ExitStatus will return the exit-code from an error returned by Wait().
