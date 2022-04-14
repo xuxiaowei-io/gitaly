@@ -87,6 +87,7 @@ func TestAddCommand(t *testing.T) {
 			cfg:       config,
 			hierarchy: mock.hierarchy,
 		}
+
 		require.NoError(t, v1Manager2.AddCommand(cmd2, "git-cmd-name", repo))
 
 		checksum := crc32.ChecksumIEEE([]byte(strings.Join([]string{"default", "path/to/repo.git"}, "")))
@@ -155,9 +156,7 @@ func TestAddCommand(t *testing.T) {
 
 			require.Equal(t, cmd1.Pid(), pid)
 		}
-
 	})
-
 }
 
 func TestCleanup(t *testing.T) {

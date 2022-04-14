@@ -111,6 +111,10 @@ func (cg *CGroupV1Manager) AddCommand(
 	select {
 	case cgroupPath := <-cg.gitCgroupPool:
 		cmd.SetCgroupPath(cgroupPath)
+		cmd.SetCgroupReleaseFunc(func() {
+			cg.gitCgroupPool <- cgroupPath
+		})
+
 		control, err := cgroups.Load(cg.hierarchy, cgroups.StaticPath(cgroupPath))
 		if err != nil {
 			return fmt.Errorf("failed loading %s cgroup: %w", cgroupPath, err)
@@ -134,10 +138,6 @@ func (cg *CGroupV1Manager) AddCommand(
 			}
 			return fmt.Errorf("failed adding process to cgroup: %w", err)
 		}
-
-		cmd.AddFinisher(func() {
-			cg.gitCgroupPool <- cgroupPath
-		})
 	default:
 		return nil
 	}

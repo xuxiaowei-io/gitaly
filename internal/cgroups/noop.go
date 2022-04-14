@@ -15,7 +15,11 @@ func (cg *NoopManager) Setup() error {
 }
 
 //nolint: revive,stylecheck // This is unintentionally missing documentation.
-func (cg *NoopManager) AddCommand(cmd *command.Command, subCmd string, repo repository.GitRepo) error {
+func (cg *NoopManager) AddCommand(
+	cmd *command.Command,
+	subCmd string,
+	repo repository.GitRepo,
+) error {
 	return nil
 }
 
