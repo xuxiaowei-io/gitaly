@@ -117,8 +117,11 @@ func (cg *CGroupV1Manager) AddCommand(
 	gitCmdName string,
 	repo repository.GitRepo,
 ) error {
+	logger := log.Default().WithField("git_command", gitCmdName)
+
 	gitCmdDetails, ok := cg.gitCmds[gitCmdName]
 	if !ok {
+		logger.Info("adding to repository cgroup")
 		return cg.addRepositoryCmd(cmd, repo)
 	}
 
@@ -152,11 +155,11 @@ func (cg *CGroupV1Manager) AddCommand(
 			}
 			return fmt.Errorf("failed adding process to cgroup: %w", err)
 		}
+		logger.Info("adding to git cgroup")
 	default:
 		cg.gitWithoutCgroup.Inc()
-		log.Default().WithField("git_cmd", gitCmdName).
-			WithField("relative_path", repo.GetRelativePath()).
-			Warn("git command could not be added to a cgroup")
+		logger.WithField("relative_path", repo.GetRelativePath()).
+			Info("could not be added to cgroup")
 		return nil
 	}
 
