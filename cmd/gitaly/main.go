@@ -107,10 +107,6 @@ func configure(configPath string) (config.Cfg, error) {
 
 	glog.Configure(glog.Loggers, cfg.Logging.Format, cfg.Logging.Level)
 
-	if err := cgroups.NewManager(cfg.Cgroups).Setup(); err != nil {
-		return config.Cfg{}, fmt.Errorf("failed setting up cgroups: %w", err)
-	}
-
 	sentry.ConfigureSentry(version.GetVersion(), sentry.Config(cfg.Logging.Sentry))
 	cfg.Prometheus.Configure()
 	tracing.Initialize(tracing.WithServiceName("gitaly"))
