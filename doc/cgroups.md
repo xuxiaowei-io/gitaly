@@ -15,6 +15,8 @@ Here is the top level `[cgroups]` configuration:
 [cgroups]
 mountpoint = "/sys/fs/cgroup"
 hierarchy_root = "gitaly"
+memory_bytes = 64424509440 // 60gb
+cpu_shares = 1024
 ```
 
 **mountpoint** is the top level directory where cgroups will be created.
