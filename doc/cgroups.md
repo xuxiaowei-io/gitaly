@@ -40,68 +40,12 @@ cpu_shares = 512
 **memory_bytes** limits [memory](#memory-limits) for processes within one cgroup.
 This number cannot exceed the top level memory limit.
 **cpu_shares** limits [cpu](#cpu-limits) for processes within one cgroup. This
-number cannot exceed the top level memory limit.
+number cannot exceed the top level cpu limit.
 
 These cgroups will be created when Gitaly starts up. A circular hashing algorithm
 is used to assign repositories to cgroups. So when  we reach the max number of
 cgroups we set in `[cgroups.repositories]`, requests from subsequent repositories
 will be assigned to an existing cgroup.
-
-### Specific Git Commands
-
-Some git operations are much more expensive than others, and would be useful to
-allow a select few to hog up more memory than the general case. Each time we spawn a
-git process for one of these commands for a given repository, it will be
-isolated into its own cgroup.
-
-```toml
-[cgroups.git]]
-count = 1000
-```
-
-**count** is the number of git command cgroups that will be created for managing
-certain git commands that need to be not just isolated by repository but also by
-git command.
-
-```toml
-[[cgroups.git.command]]
-name = "repack"
-memory_bytes = 21474836480 // 20gb
-cpu_shares = 800
-
-[[cgroups.git.command]]
-name = "pack-objects"
-memory_bytes = 21474836480 // 20gb
-cpu_shares = 600
-```
-
-**name** is the git command to create a cgroup for.
-**memory_bytes** limits the [memory](#memory-limits) for this git command for a
-repository. This cannot exceed the top level memory limit.
-**cpu_shares** limits the [cpu](#cpu-limits) for this git command for a repository.
-This cannot exceed the top level memory limit.
-
-NOTE: These git-command cgroups will not be created underneath its respective
-repository-level cgroup. See the [hierarchy](#cgroups-hierarchy) below. The
-purpose of these repository/git command cgroups is so admins can set a higher
-limit for some git commands if they wish. If these were created underneath the
-repsitories cgroups in the cgroup hierarchy, that means it would be controlled
-by the limt set under `[cgroups.repositories]`.
-
-Similar to repository level groups, these cgroups will also be created on
-startup. The difference is however, these cgroups are dedicated for a single
-process. In Gitaly, we will keep track of which process is being managed by which
-git command cgroup. We will maintain a pool of these git command cgroups in
-memory.
-
-When a command is executed, we check what git command it is. If it matches one
-of the ones configured under a `[[cgroups.git.command]]`, we will attempt to
-assign it to a dedicated git command cgroup that will only be responsible for 
-managing that command. Once the command finishes, this cgroup will be returned
-back to the pool to be used by a subsequent git command. 
-
-If no git command cgroups are left in the pool, the command will run without a
-cgroup.
 
 ## Memory Limits
 
@@ -138,6 +82,7 @@ that will be a fraction of the total CPU resources a machine has access to.
 |--memory
 |    |--gitaly
 |         |--gitaly-<pid>
+|               |--memory.limit_in_bytes
 |               |--repository(@hashed/00/000)
 |               |     |--memory.limit_in_bytes
 |               |--repository(@hashed/00/001)
@@ -159,17 +104,12 @@ that will be a fraction of the total CPU resources a machine has access to.
 |               |--repository(@hashed/00/009)
 |               |     |--memory.limit_in_bytes
 |               |--repository(@hashed/00/010)
-|               |     |--memory.limit_in_bytes
-|          	|--git-command(@hashed/00/010, repack)
-|          	|      |--memory.limit_in_bytes
-|          	|--git-command(@hashed/00/010, repack)
-|          	|      |--memory.limit_in_bytes
-|          	|--git-command(@hashed/00/010, repack)
-|           	|      |--memory.limit_in_bytes
+|                     |--memory.limit_in_bytes
 |
 |-cpu
 |  |--gitaly
 |        |--gitaly-<pid>
+|              |--cpu.shares
 |              |--repository(@hashed/00/000)
 |              |     |--cpu.shares
 |              |--repository(@hashed/00/001)
@@ -191,11 +131,5 @@ that will be a fraction of the total CPU resources a machine has access to.
 |              |--repository(@hashed/00/009)
 |              |     |--cpu.shares
 |              |--repository(@hashed/00/010)
-|              |     |--cpu.shares
-|              |--git-command(@hashed/00/010, repack)
-|              |      |--cpu.shares
-|              |--git-command(@hashed/00/010, repack)
-|              |      |--cpu.shares
-|              |--git-command(@hashed/00/010, repack)
-|              |      |--cpu.shares
+|                    |--cpu.shares
 ```
