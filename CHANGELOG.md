@@ -1,5 +1,70 @@
 # Gitaly changelog
 
+## 14.10.0 (2022-04-21)
+
+### Added (9 changes)
+
+- [Wire metadata verifier in Praefect's main](gitlab-org/gitaly@85ace7cf4f63ab8d99372c74f4e7bcb09a2ac219) ([merge request](gitlab-org/gitaly!4459))
+- [Initial implementation of a metadata verifier](gitlab-org/gitaly@6fce7a809a0c515209a2c5cb78d88f08a9fffe92) ([merge request](gitlab-org/gitaly!4459))
+- [Include rate limiter as a middleware in Gitaly](gitlab-org/gitaly@57db9d3f3c2945dfbe3af16392b2568a0081240a) ([merge request](gitlab-org/gitaly!4427))
+- [commit: Add CheckObjectsExist RPC](gitlab-org/gitaly@50b1bcba87438c0a8bf4f00fe7b55d921e40164f) ([merge request](gitlab-org/gitaly!4450))
+- [config: Add RateLimiting configuration](gitlab-org/gitaly@aad545f661c295bcff422424e76abe7c2fd85a10) ([merge request](gitlab-org/gitaly!4427))
+- [Allow Commit.RawBlame to take a Range parameter](gitlab-org/gitaly@2778fb7a767f9da6e2fca4a0ebf2d98b667b8ddf) ([merge request](gitlab-org/gitaly!4433))
+- [repository: Use Size() to calculate repo size behind feature flag](gitlab-org/gitaly@0d28358d259724bc71b1833ffb877f73852b197c) ([merge request](gitlab-org/gitaly!4430))
+- [command: Log cgroup path](gitlab-org/gitaly@7265edf3d56c678505c42a166d82e07f030867e3) ([merge request](gitlab-org/gitaly!4420))
+- [gitaly/config: Introduce runtime directory configuration](gitlab-org/gitaly@7a8b33aa729e0b7ed58be125407808edc08dff1e) ([merge request](gitlab-org/gitaly!4415))
+
+### Fixed (6 changes)
+
+- [ssh: Clean up output when pre-receive hook fails](gitlab-org/gitaly@853be9660c51fa06fa6c4ab1c9611f3910b8a201) ([merge request](gitlab-org/gitaly!4318))
+- [Handle DeleteObjectPool calls in Praefect](gitlab-org/gitaly@b79eeebc6fb40eae817253bdd03cc1e237e708df) ([merge request](gitlab-org/gitaly!4395))
+- [Makefile: Fix performance issues caused by tracing in binaries](gitlab-org/gitaly@560a12d7358e55710760d8e0204ed2a5afcd6eb7) ([merge request](gitlab-org/gitaly!4451))
+- [Makefile: Fix indeterministic sorting order of Git patches](gitlab-org/gitaly@63c6595f55431a61ee90ed93b02cc142a9dcae6a) ([merge request](gitlab-org/gitaly!4458))
+- [cgroups: Allow stats to be collected in absence of memsw.* entries](gitlab-org/gitaly@57d2cc329bf5a5efe9d80f748ae102545c7ba2ff) ([merge request](gitlab-org/gitaly!4431))
+- [operations: Fix missing votes on squashed commits](gitlab-org/gitaly@af4ea3258f572b5f647b2d7eecf07553b41a4938) ([merge request](gitlab-org/gitaly!4417))
+
+### Changed (22 changes)
+
+- [Expose last verification time in 'praefect metadata'](gitlab-org/gitaly@4e9fc294b04971e588476850ecc094d4e54cd062) ([merge request](gitlab-org/gitaly!4466))
+- [Expose VerifiedAt via GetRepositoryMetadata proto definitions](gitlab-org/gitaly@107b54cd152fcdc89d293934bf8ad6f68499e11f) ([merge request](gitlab-org/gitaly!4466))
+- [featureflag: Remove TransactionalSymbolicRefUpdates featureflag](gitlab-org/gitaly@eef4eb7da5ce89305c01077e6628836a3caf6ee6) ([merge request](gitlab-org/gitaly!4467))
+- [limithandler: Change metric name for concurrency limiting](gitlab-org/gitaly@add9d6e101635199301391518726a8113394e968) ([merge request](gitlab-org/gitaly!4427))
+- [Remove implicit pool creation on link behavior](gitlab-org/gitaly@f43afbe236a1b17d31a8aaff8df5a593b8d6e523) ([merge request](gitlab-org/gitaly!4455))
+- [Makefile: Upgrade the default Git distribution to v2.35.1.gl1](gitlab-org/gitaly@cc72b4a4aa74fea71662d2940a6da704affcc7ad) ([merge request](gitlab-org/gitaly!4454))
+- [git: Remove feature flag for Git v2.35.1.gl1](gitlab-org/gitaly@888e6233fd85691f0852ae6c4a3656da9bf3d8e4) ([merge request](gitlab-org/gitaly!4454))
+- [featureflag: Enable TransactionalSymbolicRefUpdates by default](gitlab-org/gitaly@3d2164bb1c7e6b0016164414c1e6b13df5f0eec3) ([merge request](gitlab-org/gitaly!4452))
+- [proto: Mark related RPCs as maintenance operations](gitlab-org/gitaly@a650f42c86d5a1f9e78afffe200b39bb95a89859) ([merge request](gitlab-org/gitaly!4399))
+- [praefect: Implement routing for maintenance operations](gitlab-org/gitaly@985de5088680b848eadfb86ee92a019960cfbfd9) ([merge request](gitlab-org/gitaly!4399))
+- [housekeeping: Skip repacking empty repositories](gitlab-org/gitaly@6e90b48ee1c271e244615eb255070fe451a1f3e7) ([merge request](gitlab-org/gitaly!4438))
+- [operations: Default-enable quarantined voting for UserSquash](gitlab-org/gitaly@fd081d5f6c931176eabe891b766588190833d2a7) ([merge request](gitlab-org/gitaly!4445))
+- [git: Enable bundled Git v2.35.1.gl1 by default](gitlab-org/gitaly@0cb70a8df7f282299ef06a76072d541ea349e8d0) ([merge request](gitlab-org/gitaly!4437))
+- [maintenance: Call housekeeping manager's OptimizeRepository directly](gitlab-org/gitaly@00295c2340ed863044284d9e83b56072ef246b3b) ([merge request](gitlab-org/gitaly!4407))
+- [sidechannel: Convert to use runtime directory to store sockets](gitlab-org/gitaly@4fef8d1aa7cb10f295e07acff8f29fb924cf9c06) ([merge request](gitlab-org/gitaly!4428))
+- [git: Remove feature flag for bundled Git](gitlab-org/gitaly@ca35f072775797cf7375916b4f2687af25744ab7) ([merge request](gitlab-org/gitaly!4429))
+- [repository: Structured errors for UserRebaseConfirmable](gitlab-org/gitaly@3c3f7c2a148d299aef0b6bb6ff3d1ab9a5a883ba) ([merge request](gitlab-org/gitaly!4419))
+- [git: Migrate Git exec path to use runtime directory](gitlab-org/gitaly@6f4b9e5465b219de4f60a5c3c60859ce4fa55bf8) ([merge request](gitlab-org/gitaly!4415))
+- [git: Migrate hook directory to use runtime directory](gitlab-org/gitaly@731b2bb594d50d0f8beb4ae8c73dfe3986395605) ([merge request](gitlab-org/gitaly!4415))
+- [gitaly/config: Migrate internal sockets to use runtime directory](gitlab-org/gitaly@82f34c7f355d69a507f83993580676b7c21ff147) ([merge request](gitlab-org/gitaly!4415))
+- [operations: Always use structured errors for UserSquash](gitlab-org/gitaly@e8413304d822871de2aea82b86dbff7bab70fdc4) ([merge request](gitlab-org/gitaly!4424))
+- [housekeeping: Limit concurrency of OptimizeRepository to 1](gitlab-org/gitaly@c83f00059e6873fadfc83dd389bd3fcb868594af) ([merge request](gitlab-org/gitaly!4411))
+
+### Performance (9 changes)
+
+- [housekeeping: Avoid stat calls when searching for locked refs](gitlab-org/gitaly@01da350f39dea1bb777565eb7fcb6b85df95e6ec) ([merge request](gitlab-org/gitaly!4432))
+- [housekeeping: Avoid stat calls when searching for broken refs](gitlab-org/gitaly@aebb5f0f503eacd042c78635936fb63f8e0c0dd3) ([merge request](gitlab-org/gitaly!4432))
+- [housekeeping: Avoid stat calls when searching for temporary objects](gitlab-org/gitaly@f67491c045d12f817389987e7f856fec28c8abef) ([merge request](gitlab-org/gitaly!4432))
+- [middleware/cache: Handle maintenance-style RPCs](gitlab-org/gitaly@c76f7b447b1678c88e5d9d799f53b48807a74c98) ([merge request](gitlab-org/gitaly!4399))
+- [git: Limit number of threads in git-grep(1)](gitlab-org/gitaly@b0dd8088588a31bdd522e1f76144a0d232ffaa7c) ([merge request](gitlab-org/gitaly!4443))
+- [git: Globally limit threads used by git-pack-objects(1)](gitlab-org/gitaly@b2d62949e1855d4b72a39818fc09250365f230dd) ([merge request](gitlab-org/gitaly!4443))
+- [housekeeping: Skip prune if there are no old objects](gitlab-org/gitaly@8eb27d95fed895f511f81b227a08c69393689bab) ([merge request](gitlab-org/gitaly!4423))
+- [housekeeping: Clean up server info data](gitlab-org/gitaly@2f07489459488cafdfd2ba5d2f7def42a282b4a2) ([merge request](gitlab-org/gitaly!4405))
+- [git: Disable generation of server info in git-repack(1)](gitlab-org/gitaly@0d588e4038d7539232cbae149bbba6d804d6e78e) ([merge request](gitlab-org/gitaly!4405))
+
+### Other (2 changes)
+
+- [Add migrations for background verification schema](gitlab-org/gitaly@465af6714c19c7a7d0b38fd02b626b08d1b6f343) ([merge request](gitlab-org/gitaly!4459))
+- [sidechannel: use default yamux max window size](gitlab-org/gitaly@f99ae8abf6f317892065e99463c179364c462383) ([merge request](gitlab-org/gitaly!4439))
+
 ## 14.9.3 (2022-04-12)
 
 No changes.
