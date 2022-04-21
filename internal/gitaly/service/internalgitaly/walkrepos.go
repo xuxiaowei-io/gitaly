@@ -43,6 +43,10 @@ func walkStorage(ctx context.Context, storagePath string, stream gitalypb.Intern
 			return err
 		}
 
+		if path == filepath.Join(storagePath, "+gitaly") {
+			return filepath.SkipDir
+		}
+
 		select {
 		case <-ctx.Done():
 			return ctx.Err()

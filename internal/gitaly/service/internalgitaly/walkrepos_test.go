@@ -83,6 +83,10 @@ func TestWalkRepos(t *testing.T) {
 			deletedRepo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
 				RelativePath: "b",
 			})
+			_, _ = gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
+				RelativePath: "+gitaly/d",
+			})
+
 			modifiedDate := tc.fileModtimeFunc(t, testRepo1Path)
 
 			// to test a directory being deleted during a walk, we must delete a directory after
