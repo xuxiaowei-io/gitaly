@@ -761,6 +761,7 @@ func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
 		gitalypb.RegisterSmartHTTPServiceServer(srv, NewServer(
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
+			deps.GetTxManager(),
 			deps.GetDiskCache(),
 		))
 		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache()))
