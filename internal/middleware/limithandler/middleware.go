@@ -7,6 +7,7 @@ import (
 	grpcmwtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"google.golang.org/grpc"
 )
 
@@ -146,6 +147,7 @@ func (w *wrappedStream) RecvMsg(m interface{}) error {
 	}
 
 	ready := make(chan struct{})
+	errs := make(chan error)
 	go func() {
 		if _, err := limiter.Limit(ctx, lockKey, func() (interface{}, error) {
 			close(ready)
@@ -153,6 +155,7 @@ func (w *wrappedStream) RecvMsg(m interface{}) error {
 			return nil, nil
 		}); err != nil {
 			ctxlogrus.Extract(ctx).WithError(err).Error("rate limiting streaming request")
+			errs <- err
 		}
 	}()
 
@@ -162,5 +165,7 @@ func (w *wrappedStream) RecvMsg(m interface{}) error {
 	case <-ready:
 		// It's our turn!
 		return nil
+	case err := <-errs:
+		return helper.ErrInternalf("rate limiting stream request: %v", err)
 	}
 }
