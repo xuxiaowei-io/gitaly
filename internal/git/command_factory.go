@@ -421,6 +421,14 @@ func (cf *ExecCommandFactory) combineArgs(ctx context.Context, gitConfig []confi
 		return nil, fmt.Errorf("invalid sub command name %q: %w", sc.Subcommand(), ErrInvalidArg)
 	}
 
+	// It's fine to ask for the Git version whenever we spawn a command: the value is cached
+	// nowadays, so this would typically only boil down to a single stat(3P) call to determine
+	// whether the cache is stale or not.
+	gitVersion, err := cf.GitVersion(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("determining Git version: %w", err)
+	}
+
 	// As global options may cancel out each other, we have a clearly defined order in which
 	// globals get applied. The order is similar to how git handles configuration options from
 	// most general to most specific. This allows callsites to override options which would
@@ -434,10 +442,6 @@ func (cf *ExecCommandFactory) combineArgs(ctx context.Context, gitConfig []confi
 	//    `WithReftxHook()`.
 	// 4. Configuration as provided by the admin in Gitaly's config.toml.
 	combinedGlobals := []GlobalOption{
-		// Synchronize object files to lessen the likelihood of
-		// repository corruption in case the server crashes.
-		ConfigPair{Key: "core.fsyncObjectFiles", Value: "true"},
-
 		// Disable automatic garbage collection as we handle scheduling
 		// of it ourselves.
 		ConfigPair{Key: "gc.auto", Value: "0"},
@@ -454,6 +458,25 @@ func (cf *ExecCommandFactory) combineArgs(ctx context.Context, gitConfig []confi
 		// mechanism to replace malicious commits with seemingly benign ones. We thus globally
 		// disable this mechanism.
 		ConfigPair{Key: "core.useReplaceRefs", Value: "false"},
+	}
+
+	// Git v2.36.0 introduced new fine-grained configuration for what data should be fsynced and
+	// how that should happen.
+	if gitVersion.HasGranularFsyncConfig() {
+		combinedGlobals = append(
+			combinedGlobals,
+			// For now, we only fsync what Git versions previous to v2.36.0 have fsynced
+			// when `core.fsyncObjectFiles=true`. Later, we'll want to expand this to
+			// also sync references to disk to fix a long-standing issue.
+			ConfigPair{Key: "core.fsync", Value: "objects,derived-metadata"},
+			ConfigPair{Key: "core.fsyncMethod", Value: "fsync"},
+		)
+	} else {
+		// Synchronize object files to lessen the likelihood of
+		// repository corruption in case the server crashes.
+		combinedGlobals = append(
+			combinedGlobals, ConfigPair{Key: "core.fsyncObjectFiles", Value: "true"},
+		)
 	}
 
 	combinedGlobals = append(combinedGlobals, commandDescription.opts...)
