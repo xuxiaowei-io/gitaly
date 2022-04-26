@@ -14,7 +14,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
-	"gitlab.com/gitlab-org/labkit/correlation"
 )
 
 const (
@@ -34,10 +33,10 @@ const (
 type Cache interface {
 	// ObjectReader either creates a new object reader or returns a cached one for the given
 	// repository.
-	ObjectReader(context.Context, git.RepositoryExecutor) (ObjectReader, error)
+	ObjectReader(context.Context, git.RepositoryExecutor) (ObjectReader, func(), error)
 	// ObjectInfoReader either creates a new object info reader or returns a cached one for the
 	// given repository.
-	ObjectInfoReader(context.Context, git.RepositoryExecutor) (ObjectInfoReader, error)
+	ObjectInfoReader(context.Context, git.RepositoryExecutor) (ObjectInfoReader, func(), error)
 	// Evict evicts all cached processes from the cache.
 	Evict()
 }
@@ -67,11 +66,6 @@ type ProcessCache struct {
 	totalCatfileProcesses   prometheus.Counter
 	catfileLookupCounter    *prometheus.CounterVec
 	catfileCacheMembers     *prometheus.GaugeVec
-
-	// cachedProcessDone is a condition that gets signalled whenever a process is being
-	// considered to be returned to the cache. This field is optional and must only be used in
-	// tests.
-	cachedProcessDone *sync.Cond
 }
 
 // NewCache creates a new catfile process cache.
@@ -175,37 +169,37 @@ func (c *ProcessCache) Stop() {
 }
 
 // ObjectReader creates a new ObjectReader process for the given repository.
-func (c *ProcessCache) ObjectReader(ctx context.Context, repo git.RepositoryExecutor) (ObjectReader, error) {
-	cacheable, err := c.getOrCreateProcess(ctx, repo, &c.objectReaders, func(ctx context.Context) (cacheable, error) {
+func (c *ProcessCache) ObjectReader(ctx context.Context, repo git.RepositoryExecutor) (ObjectReader, func(), error) {
+	cacheable, cancel, err := c.getOrCreateProcess(ctx, repo, &c.objectReaders, func(ctx context.Context) (cacheable, error) {
 		return newObjectReader(ctx, repo, c.catfileLookupCounter)
 	}, "catfile.ObjectReader")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	objectReader, ok := cacheable.(ObjectReader)
 	if !ok {
-		return nil, fmt.Errorf("expected object reader, got %T", cacheable)
+		return nil, nil, fmt.Errorf("expected object reader, got %T", cacheable)
 	}
 
-	return objectReader, nil
+	return objectReader, cancel, nil
 }
 
 // ObjectInfoReader creates a new ObjectInfoReader process for the given repository.
-func (c *ProcessCache) ObjectInfoReader(ctx context.Context, repo git.RepositoryExecutor) (ObjectInfoReader, error) {
-	cacheable, err := c.getOrCreateProcess(ctx, repo, &c.objectInfoReaders, func(ctx context.Context) (cacheable, error) {
+func (c *ProcessCache) ObjectInfoReader(ctx context.Context, repo git.RepositoryExecutor) (ObjectInfoReader, func(), error) {
+	cacheable, cancel, err := c.getOrCreateProcess(ctx, repo, &c.objectInfoReaders, func(ctx context.Context) (cacheable, error) {
 		return newObjectInfoReader(ctx, repo, c.catfileLookupCounter)
 	}, "catfile.ObjectInfoReader")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	objectInfoReader, ok := cacheable.(ObjectInfoReader)
 	if !ok {
-		return nil, fmt.Errorf("expected object info reader, got %T", cacheable)
+		return nil, nil, fmt.Errorf("expected object info reader, got %T", cacheable)
 	}
 
-	return objectInfoReader, nil
+	return objectInfoReader, cancel, nil
 }
 
 func (c *ProcessCache) getOrCreateProcess(
@@ -214,15 +208,9 @@ func (c *ProcessCache) getOrCreateProcess(
 	processes *processes,
 	create func(context.Context) (cacheable, error),
 	spanName string,
-) (_ cacheable, returnedErr error) {
-	requestDone := ctx.Done()
-	if requestDone == nil {
-		panic("empty ctx.Done() when creating catfile process")
-	}
-
+) (_ cacheable, _ func(), returnedErr error) {
 	defer c.reportCacheMembers()
 
-	var cancel func()
 	cacheKey, isCacheable := newCacheKey(metadata.GetValue(ctx, SessionIDField), repo)
 	if isCacheable {
 		// We only try to look up cached processes in case it is cacheable, which requires a
@@ -232,25 +220,18 @@ func (c *ProcessCache) getOrCreateProcess(
 		// poison the cache with broken git-cat-file(1) processes.
 
 		if entry, ok := processes.Checkout(cacheKey); ok {
-			go c.returnWhenDone(requestDone, processes, cacheKey, entry.value, entry.cancel)
 			c.catfileCacheCounter.WithLabelValues("hit").Inc()
-			return entry.value, nil
+			return entry.value, func() {
+				c.returnToCache(processes, cacheKey, entry.value, entry.cancel)
+			}, nil
 		}
 
 		c.catfileCacheCounter.WithLabelValues("miss").Inc()
 
 		// We have not found any cached process, so we need to create a new one. In this
 		// case, we need to detach the process from the current context such that it does
-		// not get killed when the current context is done. Note that while we explicitly
-		// `close()` processes in case this function fails, we must have a cancellable
-		// context or otherwise our `command` package will panic.
-		ctx, cancel = context.WithCancel(context.Background())
-		defer func() {
-			if returnedErr != nil {
-				cancel()
-			}
-		}()
-
+		// not get killed when the parent context is cancelled.
+		ctx = context.Background()
 		// We have to decorrelate the process from the current context given that it
 		// may potentially be reused across different RPC calls.
 		ctx = correlation.ContextWithCorrelation(ctx, "")
@@ -259,9 +240,20 @@ func (c *ProcessCache) getOrCreateProcess(
 
 	span, ctx := opentracing.StartSpanFromContext(ctx, spanName)
 
+	// Create a new cancellable process context such that we can kill it on demand. If it's a
+	// cached process, then it will only be killed when the cache evicts the entry because we
+	// detached the background further up. If it's an uncached value, we either kill it manually
+	// or via the RPC context's cancellation function.
+	ctx, cancelProcessContext := context.WithCancel(ctx)
+	defer func() {
+		if returnedErr != nil {
+			cancelProcessContext()
+		}
+	}()
+
 	process, err := create(ctx)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer func() {
 		// If we somehow fail after creating a new process, then we want to kill spawned
@@ -273,20 +265,27 @@ func (c *ProcessCache) getOrCreateProcess(
 
 	c.totalCatfileProcesses.Inc()
 	c.currentCatfileProcesses.Inc()
-	go func() {
-		<-ctx.Done()
+
+	// Note that we must make sure that `cancel` and `closeProcess` are two different variables.
+	// Otherwise if we passed `cancel` to `returnToCache` and then set `cancel` itself to the
+	// function that calls it we would accidentally call ourselves and end up with a segfault.
+	closeProcess := func() {
+		cancelProcessContext()
 		process.close()
 		span.Finish()
 		c.currentCatfileProcesses.Dec()
-	}()
+	}
 
+	cancel := closeProcess
 	if isCacheable {
 		// If the process is cacheable, then we want to put the process into the cache when
 		// the current outer context is done.
-		go c.returnWhenDone(requestDone, processes, cacheKey, process, cancel)
+		cancel = func() {
+			c.returnToCache(processes, cacheKey, process, closeProcess)
+		}
 	}
 
-	return process, nil
+	return process, cancel, nil
 }
 
 func (c *ProcessCache) reportCacheMembers() {
@@ -300,16 +299,9 @@ func (c *ProcessCache) Evict() {
 	c.objectInfoReaders.Evict()
 }
 
-func (c *ProcessCache) returnWhenDone(done <-chan struct{}, p *processes, cacheKey key, value cacheable, cancel func()) {
-	<-done
-
+func (c *ProcessCache) returnToCache(p *processes, cacheKey key, value cacheable, cancel func()) {
 	defer func() {
 		c.reportCacheMembers()
-		if c.cachedProcessDone != nil {
-			c.cachedProcessDone.L.Lock()
-			defer c.cachedProcessDone.L.Unlock()
-			c.cachedProcessDone.Broadcast()
-		}
 	}()
 
 	if value == nil || value.isClosed() {
