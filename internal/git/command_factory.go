@@ -317,10 +317,12 @@ func (cf *ExecCommandFactory) GitVersion(ctx context.Context) (Version, error) {
 	cf.cachedGitVersionLock.Lock()
 	defer cf.cachedGitVersionLock.Unlock()
 
+	execEnv := cf.GetExecutionEnvironment(ctx)
+
 	// We cannot reuse the stat(3P) information from above given that it wasn't acquired under
 	// the write-lock. As such, it may have been invalidated by a concurrent thread which has
 	// already updated the Git version information.
-	stat, err = os.Stat(cf.GetExecutionEnvironment(ctx).BinaryPath)
+	stat, err = os.Stat(execEnv.BinaryPath)
 	if err != nil {
 		return Version{}, fmt.Errorf("cannot stat Git binary: %w", err)
 	}
@@ -330,9 +332,11 @@ func (cf *ExecCommandFactory) GitVersion(ctx context.Context) (Version, error) {
 	// though: it can also happen after `GitVersion()` was called, so it doesn't really help to
 	// retry version detection here. Instead, we just live with this raciness -- the next call
 	// to `GitVersion()` would detect the version being out-of-date anyway and thus correct it.
-	cmd, err := cf.NewWithoutRepo(ctx, SubCmd{
-		Name: "version",
-	})
+	//
+	// Furthermore, note that we're not using `newCommand()` but instead hand-craft the command.
+	// This is required to avoid a cyclic dependency when we need to check the version in
+	// `newCommand()` itself.
+	cmd, err := command.New(ctx, exec.Command(execEnv.BinaryPath, "version"), nil, nil, nil, execEnv.EnvironmentVariables...)
 	if err != nil {
 		return Version{}, fmt.Errorf("spawning version command: %w", err)
 	}
@@ -340,6 +344,10 @@ func (cf *ExecCommandFactory) GitVersion(ctx context.Context) (Version, error) {
 	gitVersion, err := parseVersionFromCommand(cmd)
 	if err != nil {
 		return Version{}, err
+	}
+
+	if err := cmd.Wait(); err != nil {
+		return Version{}, fmt.Errorf("waiting for version: %w", err)
 	}
 
 	cf.cachedGitVersionByBinary[gitBinary] = cachedGitVersion{
