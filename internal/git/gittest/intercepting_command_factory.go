@@ -2,6 +2,7 @@ package gittest
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"testing"
 
@@ -70,9 +71,32 @@ func NewInterceptingCommandFactory(
 	// then use a separate config which overrides the Git binary path to point to a custom
 	// script supplied by the user.
 	gitCmdFactory := NewCommandFactory(tb, cfg, interceptingCommandFactoryCfg.opts...)
+	execEnv := gitCmdFactory.GetExecutionEnvironment(ctx)
 
 	scriptPath := filepath.Join(testhelper.TempDir(tb), "git")
-	testhelper.WriteExecutable(tb, scriptPath, []byte(generateScript(gitCmdFactory.GetExecutionEnvironment(ctx))))
+	testhelper.WriteExecutable(tb, scriptPath, []byte(generateScript(execEnv)))
+
+	// In case the user requested us to not intercept the Git version we need to write another
+	// wrapper script. This wrapper script detects whether git-version(1) is executed and, if
+	// so, instead executes the real Git binary. Otherwise, it executes the Git script as
+	// provided by the user.
+	//
+	// This is required in addition to the interception of `GitVersion()` itself so that calls
+	// to `interceptingCommandFactory.GitVersion()` also return the correct results whenever the
+	// factory calls its own `GitVersion()` function.
+	if !interceptingCommandFactoryCfg.interceptVersion {
+		wrapperScriptPath := filepath.Join(testhelper.TempDir(tb), "git")
+		testhelper.WriteExecutable(tb, wrapperScriptPath, []byte(fmt.Sprintf(
+			`#!/bin/bash
+			if test "$1" = "version"
+			then
+				exec %q "$@"
+			fi
+			exec %q "$@"
+		`, execEnv.BinaryPath, scriptPath)))
+
+		scriptPath = wrapperScriptPath
+	}
 
 	return &InterceptingCommandFactory{
 		realCommandFactory:         gitCmdFactory,

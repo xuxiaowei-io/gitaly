@@ -116,11 +116,9 @@ func TestInterceptingCommandFactory_GitVersion(t *testing.T) {
 			// different versions depending on whether the version is intercepted or
 			// not. This is required such that it correctly handles version checks in
 			// case it calls `GitVersion()` on itself.
-			//
-			// Right now, this doesn't work correctly though.
 			version, err = factory.interceptingCommandFactory.GitVersion(ctx)
 			require.NoError(t, err)
-			require.Equal(t, fakeVersion, version)
+			require.Equal(t, tc.expectedVersion, version)
 		})
 	}
 }
