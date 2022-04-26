@@ -19,10 +19,12 @@ var _ git.CommandFactory = &InterceptingCommandFactory{}
 type InterceptingCommandFactory struct {
 	realCommandFactory         git.CommandFactory
 	interceptingCommandFactory git.CommandFactory
+	interceptVersion           bool
 }
 
 type interceptingCommandFactoryConfig struct {
-	opts []git.ExecCommandFactoryOption
+	opts             []git.ExecCommandFactoryOption
+	interceptVersion bool
 }
 
 // InterceptingCommandFactoryOption is an option that can be passed to
@@ -34,6 +36,15 @@ type InterceptingCommandFactoryOption func(*interceptingCommandFactoryConfig)
 func WithRealCommandFactoryOptions(opts ...git.ExecCommandFactoryOption) InterceptingCommandFactoryOption {
 	return func(cfg *interceptingCommandFactoryConfig) {
 		cfg.opts = opts
+	}
+}
+
+// WithInterceptedVersion will cause `GitVersion()` to use the intercepting Git command factory
+// instead of the real Git command factory. This allows the caller to explicitly test version
+// detection.
+func WithInterceptedVersion() InterceptingCommandFactoryOption {
+	return func(cfg *interceptingCommandFactoryConfig) {
+		cfg.interceptVersion = true
 	}
 }
 
@@ -66,6 +77,7 @@ func NewInterceptingCommandFactory(
 	return &InterceptingCommandFactory{
 		realCommandFactory:         gitCmdFactory,
 		interceptingCommandFactory: NewCommandFactory(tb, cfg, git.WithGitBinaryPath(scriptPath)),
+		interceptVersion:           interceptingCommandFactoryCfg.interceptVersion,
 	}
 }
 
@@ -107,5 +119,8 @@ func (f *InterceptingCommandFactory) HooksPath(ctx context.Context) string {
 
 // GitVersion returns the Git version as returned by the intercepted command.
 func (f *InterceptingCommandFactory) GitVersion(ctx context.Context) (git.Version, error) {
-	return f.interceptingCommandFactory.GitVersion(ctx)
+	if f.interceptVersion {
+		return f.interceptingCommandFactory.GitVersion(ctx)
+	}
+	return f.realCommandFactory.GitVersion(ctx)
 }

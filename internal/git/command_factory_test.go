@@ -361,6 +361,7 @@ func TestExecCommandFactory_GitVersion(t *testing.T) {
 			gitCmdFactory := gittest.NewInterceptingCommandFactory(
 				ctx, t, testcfg.Build(t), generateVersionScript(tc.versionString),
 				gittest.WithRealCommandFactoryOptions(git.WithSkipHooks()),
+				gittest.WithInterceptedVersion(),
 			)
 
 			actualVersion, err := gitCmdFactory.GitVersion(ctx)
@@ -377,6 +378,7 @@ func TestExecCommandFactory_GitVersion(t *testing.T) {
 		gitCmdFactory := gittest.NewInterceptingCommandFactory(
 			ctx, t, testcfg.Build(t), generateVersionScript("git version 1.2.3"),
 			gittest.WithRealCommandFactoryOptions(git.WithSkipHooks()),
+			gittest.WithInterceptedVersion(),
 		)
 
 		gitPath := gitCmdFactory.GetExecutionEnvironment(ctx).BinaryPath
