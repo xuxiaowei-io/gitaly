@@ -20,29 +20,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 )
 
-var globalOptions = []GlobalOption{
-	// Synchronize object files to lessen the likelihood of
-	// repository corruption in case the server crashes.
-	ConfigPair{Key: "core.fsyncObjectFiles", Value: "true"},
-
-	// Disable automatic garbage collection as we handle scheduling
-	// of it ourselves.
-	ConfigPair{Key: "gc.auto", Value: "0"},
-
-	// CRLF line endings will get replaced with LF line endings
-	// when writing blobs to the object database. No conversion is
-	// done when reading blobs from the object database. This is
-	// required for the web editor.
-	ConfigPair{Key: "core.autocrlf", Value: "input"},
-
-	// Git allows the use of replace refs, where a given object ID can be replaced with a
-	// different one. The result is that Git commands would use the new object instead of the
-	// old one in almost all contexts. This is a security threat: an adversary may use this
-	// mechanism to replace malicious commits with seemingly benign ones. We thus globally
-	// disable this mechanism.
-	ConfigPair{Key: "core.useReplaceRefs", Value: "false"},
-}
-
 // CommandFactory is designed to create and run git commands in a protected and fully managed manner.
 type CommandFactory interface {
 	// New creates a new command for the repo repository.
@@ -456,8 +433,29 @@ func (cf *ExecCommandFactory) combineArgs(ctx context.Context, gitConfig []confi
 	// 3. Globals passed via command options, e.g. as set up by
 	//    `WithReftxHook()`.
 	// 4. Configuration as provided by the admin in Gitaly's config.toml.
-	var combinedGlobals []GlobalOption
-	combinedGlobals = append(combinedGlobals, globalOptions...)
+	combinedGlobals := []GlobalOption{
+		// Synchronize object files to lessen the likelihood of
+		// repository corruption in case the server crashes.
+		ConfigPair{Key: "core.fsyncObjectFiles", Value: "true"},
+
+		// Disable automatic garbage collection as we handle scheduling
+		// of it ourselves.
+		ConfigPair{Key: "gc.auto", Value: "0"},
+
+		// CRLF line endings will get replaced with LF line endings
+		// when writing blobs to the object database. No conversion is
+		// done when reading blobs from the object database. This is
+		// required for the web editor.
+		ConfigPair{Key: "core.autocrlf", Value: "input"},
+
+		// Git allows the use of replace refs, where a given object ID can be replaced with a
+		// different one. The result is that Git commands would use the new object instead of the
+		// old one in almost all contexts. This is a security threat: an adversary may use this
+		// mechanism to replace malicious commits with seemingly benign ones. We thus globally
+		// disable this mechanism.
+		ConfigPair{Key: "core.useReplaceRefs", Value: "false"},
+	}
+
 	combinedGlobals = append(combinedGlobals, commandDescription.opts...)
 	combinedGlobals = append(combinedGlobals, cc.globals...)
 	for _, configPair := range gitConfig {
