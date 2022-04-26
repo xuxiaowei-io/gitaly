@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata"
+	"gitlab.com/gitlab-org/labkit/correlation"
 )
 
 const (
@@ -231,7 +232,14 @@ func (c *ProcessCache) getOrCreateProcess(
 		// We have not found any cached process, so we need to create a new one. In this
 		// case, we need to detach the process from the current context such that it does
 		// not get killed when the parent context is cancelled.
-		ctx = context.Background()
+		//
+		// Note that we explicitly retain feature flags here, which means that cached
+		// processes may retain flags for some time which have been changed meanwhile. While
+		// not ideal, it feels better compared to just ignoring feature flags altogether.
+		// The latter would mean that we cannot use flags in the catfile code, but more
+		// importantly we also wouldn't be able to use feature-flagged Git version upgrades
+		// for catfile processes.
+		ctx = helper.SuppressCancellation(ctx)
 		// We have to decorrelate the process from the current context given that it
 		// may potentially be reused across different RPC calls.
 		ctx = correlation.ContextWithCorrelation(ctx, "")
