@@ -178,7 +178,7 @@ func (c *ProcessCache) Stop() {
 func (c *ProcessCache) ObjectReader(ctx context.Context, repo git.RepositoryExecutor) (ObjectReader, error) {
 	cacheable, err := c.getOrCreateProcess(ctx, repo, &c.objectReaders, func(ctx context.Context) (cacheable, error) {
 		return newObjectReader(ctx, repo, c.catfileLookupCounter)
-	})
+	}, "catfile.ObjectReader")
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +195,7 @@ func (c *ProcessCache) ObjectReader(ctx context.Context, repo git.RepositoryExec
 func (c *ProcessCache) ObjectInfoReader(ctx context.Context, repo git.RepositoryExecutor) (ObjectInfoReader, error) {
 	cacheable, err := c.getOrCreateProcess(ctx, repo, &c.objectInfoReaders, func(ctx context.Context) (cacheable, error) {
 		return newObjectInfoReader(ctx, repo, c.catfileLookupCounter)
-	})
+	}, "catfile.ObjectInfoReader")
 	if err != nil {
 		return nil, err
 	}
@@ -213,6 +213,7 @@ func (c *ProcessCache) getOrCreateProcess(
 	repo repository.GitRepo,
 	processes *processes,
 	create func(context.Context) (cacheable, error),
+	spanName string,
 ) (_ cacheable, returnedErr error) {
 	requestDone := ctx.Done()
 	if requestDone == nil {
@@ -256,6 +257,8 @@ func (c *ProcessCache) getOrCreateProcess(
 		ctx = opentracing.ContextWithSpan(ctx, nil)
 	}
 
+	span, ctx := opentracing.StartSpanFromContext(ctx, spanName)
+
 	process, err := create(ctx)
 	if err != nil {
 		return nil, err
@@ -272,6 +275,8 @@ func (c *ProcessCache) getOrCreateProcess(
 	c.currentCatfileProcesses.Inc()
 	go func() {
 		<-ctx.Done()
+		process.close()
+		span.Finish()
 		c.currentCatfileProcesses.Dec()
 	}()
 
