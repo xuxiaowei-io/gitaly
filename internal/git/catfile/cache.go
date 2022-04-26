@@ -216,7 +216,7 @@ func (c *ProcessCache) getOrCreateProcess(
 ) (_ cacheable, returnedErr error) {
 	requestDone := ctx.Done()
 	if requestDone == nil {
-		panic("empty ctx.Done() in catfile.Batch.New()")
+		panic("empty ctx.Done() when creating catfile process")
 	}
 
 	defer c.reportCacheMembers()
@@ -224,11 +224,11 @@ func (c *ProcessCache) getOrCreateProcess(
 	var cancel func()
 	cacheKey, isCacheable := newCacheKey(metadata.GetValue(ctx, SessionIDField), repo)
 	if isCacheable {
-		// We only try to look up cached batch processes in case it is cacheable, which
-		// requires a session ID. This is mostly done such that git-cat-file(1) processes
-		// from one user cannot interfer with those from another user. The main intent is to
-		// disallow trivial denial of service attacks against other users in case it is
-		// possible to poison the cache with broken git-cat-file(1) processes.
+		// We only try to look up cached processes in case it is cacheable, which requires a
+		// session ID. This is mostly done such that git-cat-file(1) processes from one user
+		// cannot interfere with those from another user. The main intent is to disallow
+		// trivial denial of service attacks against other users in case it is possible to
+		// poison the cache with broken git-cat-file(1) processes.
 
 		if entry, ok := processes.Checkout(cacheKey); ok {
 			go c.returnWhenDone(requestDone, processes, cacheKey, entry.value, entry.cancel)
@@ -256,15 +256,15 @@ func (c *ProcessCache) getOrCreateProcess(
 		ctx = opentracing.ContextWithSpan(ctx, nil)
 	}
 
-	batch, err := create(ctx)
+	process, err := create(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer func() {
-		// If we somehow fail after creating a new Batch process, then we want to kill
-		// spawned processes right away.
+		// If we somehow fail after creating a new process, then we want to kill spawned
+		// processes right away.
 		if returnedErr != nil {
-			batch.close()
+			process.close()
 		}
 	}()
 
@@ -278,10 +278,10 @@ func (c *ProcessCache) getOrCreateProcess(
 	if isCacheable {
 		// If the process is cacheable, then we want to put the process into the cache when
 		// the current outer context is done.
-		go c.returnWhenDone(requestDone, processes, cacheKey, batch, cancel)
+		go c.returnWhenDone(requestDone, processes, cacheKey, process, cancel)
 	}
 
-	return batch, nil
+	return process, nil
 }
 
 func (c *ProcessCache) reportCacheMembers() {

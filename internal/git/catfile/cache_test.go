@@ -188,7 +188,7 @@ func TestCache_ObjectReader(t *testing.T) {
 	t.Run("uncancellable", func(t *testing.T) {
 		ctx := testhelper.ContextWithoutCancel()
 
-		require.PanicsWithValue(t, "empty ctx.Done() in catfile.Batch.New()", func() {
+		require.PanicsWithValue(t, "empty ctx.Done() when creating catfile process", func() {
 			_, _ = cache.ObjectReader(ctx, repoExecutor)
 		})
 	})
@@ -317,7 +317,7 @@ func TestCache_ObjectInfoReader(t *testing.T) {
 	t.Run("uncancellable", func(t *testing.T) {
 		ctx := testhelper.ContextWithoutCancel()
 
-		require.PanicsWithValue(t, "empty ctx.Done() in catfile.Batch.New()", func() {
+		require.PanicsWithValue(t, "empty ctx.Done() when creating catfile process", func() {
 			_, _ = cache.ObjectInfoReader(ctx, repoExecutor)
 		})
 	})
