@@ -465,10 +465,10 @@ func (cf *ExecCommandFactory) combineArgs(ctx context.Context, gitConfig []confi
 	if gitVersion.HasGranularFsyncConfig() {
 		combinedGlobals = append(
 			combinedGlobals,
-			// For now, we only fsync what Git versions previous to v2.36.0 have fsynced
-			// when `core.fsyncObjectFiles=true`. Later, we'll want to expand this to
-			// also sync references to disk to fix a long-standing issue.
-			ConfigPair{Key: "core.fsync", Value: "objects,derived-metadata"},
+			// This is the same as below, but in addition we're also syncing packed-refs
+			// and loose refs to disk. This fixes a long-standing issue we've had where
+			// hard reboots of a server could end up corrupting loose references.
+			ConfigPair{Key: "core.fsync", Value: "objects,derived-metadata,reference"},
 			ConfigPair{Key: "core.fsyncMethod", Value: "fsync"},
 		)
 	} else {
