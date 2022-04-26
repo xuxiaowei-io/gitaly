@@ -21,6 +21,22 @@ type InterceptingCommandFactory struct {
 	interceptingCommandFactory git.CommandFactory
 }
 
+type interceptingCommandFactoryConfig struct {
+	opts []git.ExecCommandFactoryOption
+}
+
+// InterceptingCommandFactoryOption is an option that can be passed to
+// NewInterceptingCommandFactory.
+type InterceptingCommandFactoryOption func(*interceptingCommandFactoryConfig)
+
+// WithRealCommandFactoryOptions is an option that allows the caller to pass options to the real
+// git.ExecCommandFactory.
+func WithRealCommandFactoryOptions(opts ...git.ExecCommandFactoryOption) InterceptingCommandFactoryOption {
+	return func(cfg *interceptingCommandFactoryConfig) {
+		cfg.opts = opts
+	}
+}
+
 // NewInterceptingCommandFactory creates a new command factory which intercepts Git commands. The
 // given configuration must point to the real Git executable. The function will be executed to
 // generate the script and receives as input the Git execution environment pointing to the real Git
@@ -30,14 +46,19 @@ func NewInterceptingCommandFactory(
 	tb testing.TB,
 	cfg config.Cfg,
 	generateScript func(git.ExecutionEnvironment) string,
-	opts ...git.ExecCommandFactoryOption,
+	opts ...InterceptingCommandFactoryOption,
 ) *InterceptingCommandFactory {
+	var interceptingCommandFactoryCfg interceptingCommandFactoryConfig
+	for _, opt := range opts {
+		opt(&interceptingCommandFactoryCfg)
+	}
+
 	// We create two different command factories. The first one will set up the execution
 	// environment such that we can deterministically resolve the Git binary path as well as
 	// required environment variables for both bundled and non-bundled Git. The second one will
 	// then use a separate config which overrides the Git binary path to point to a custom
 	// script supplied by the user.
-	gitCmdFactory := NewCommandFactory(tb, cfg, opts...)
+	gitCmdFactory := NewCommandFactory(tb, cfg, interceptingCommandFactoryCfg.opts...)
 
 	scriptPath := filepath.Join(testhelper.TempDir(tb), "git")
 	testhelper.WriteExecutable(tb, scriptPath, []byte(generateScript(gitCmdFactory.GetExecutionEnvironment(ctx))))
