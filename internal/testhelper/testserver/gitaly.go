@@ -172,7 +172,7 @@ func runGitaly(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, regi
 		require.NoError(t, os.MkdirAll(cfg.InternalSocketDir, 0o700))
 		t.Cleanup(func() { require.NoError(t, os.RemoveAll(cfg.InternalSocketDir)) })
 
-		internalListener, err := net.Listen("unix", cfg.GitalyInternalSocketPath())
+		internalListener, err := net.Listen("unix", cfg.InternalSocketPath())
 		require.NoError(t, err)
 		go func() {
 			assert.NoError(t, internalServer.Serve(internalListener), "failure to serve internal gRPC")

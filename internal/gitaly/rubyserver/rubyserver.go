@@ -55,7 +55,7 @@ func setupEnv(cfg config.Cfg, gitCmdFactory git.CommandFactory) []string {
 		"GITALY_RUBY_GITALY_BIN_DIR="+cfg.BinDir,
 		"GITALY_VERSION="+version.GetVersion(),
 		"GITALY_GIT_HOOKS_DIR="+hooksPath,
-		"GITALY_SOCKET="+cfg.GitalyInternalSocketPath(),
+		"GITALY_SOCKET="+cfg.InternalSocketPath(),
 		"GITALY_TOKEN="+cfg.Auth.Token,
 		"GITALY_RUGGED_GIT_CONFIG_SEARCH_PATH="+cfg.Ruby.RuggedGitConfigSearchPath,
 	)

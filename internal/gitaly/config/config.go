@@ -390,8 +390,8 @@ func (cfg *Cfg) Storage(storageName string) (Storage, bool) {
 	return Storage{}, false
 }
 
-// GitalyInternalSocketPath is the path to the internal gitaly socket
-func (cfg *Cfg) GitalyInternalSocketPath() string {
+// InternalSocketPath is the path to the internal Gitaly socket.
+func (cfg *Cfg) InternalSocketPath() string {
 	return filepath.Join(cfg.InternalSocketDir, fmt.Sprintf("internal_%d.sock", os.Getpid()))
 }
 
