@@ -142,7 +142,7 @@ func (s *Server) start() error {
 
 	for i := 0; i < numWorkers; i++ {
 		name := fmt.Sprintf("gitaly-ruby.%d", i)
-		socketPath := filepath.Join(cfg.InternalSocketDir, fmt.Sprintf("ruby.%d", i))
+		socketPath := filepath.Join(cfg.InternalSocketDir(), fmt.Sprintf("ruby.%d", i))
 
 		// Use 'ruby-cd' to make sure gitaly-ruby has the same working directory
 		// as the current process. This is a hack to sort-of support relative

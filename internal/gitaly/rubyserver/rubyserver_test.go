@@ -98,8 +98,8 @@ func (mockGitCommandFactory) HooksPath(context.Context) string {
 
 func TestSetupEnv(t *testing.T) {
 	cfg := config.Cfg{
-		BinDir:            "/bin/dit",
-		InternalSocketDir: "/gitaly",
+		BinDir:     "/bin/dit",
+		RuntimeDir: "/gitaly",
 		Logging: config.Logging{
 			Config: log.Config{
 				Dir: "/log/dir",
