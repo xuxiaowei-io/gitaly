@@ -169,15 +169,8 @@ func TestCheckObjectsExist(t *testing.T) {
 					},
 				},
 			},
-			// This is a bug: instead of disallowing revisions with newlines, we just
-			// handle them funnily. Git things we're asking it for two different
-			// revisions, and we expect only one output. So the result is that this
-			// weirdly formatted revision looks like it would exist. Instead, we should
-			// raise an error.
-			expectedErr: nil,
-			expectedResults: map[string]bool{
-				fmt.Sprintf("%s\n%s", commitID1, commitID2): true,
-			},
+			expectedErr:     helper.ErrInvalidArgumentf("invalid revision %q: revision can't contain whitespace", fmt.Sprintf("%s\n%s", commitID1, commitID2)),
+			expectedResults: map[string]bool{},
 		},
 		{
 			desc: "chunked invalid input",

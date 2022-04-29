@@ -37,6 +37,21 @@ func TestValidateRevision(t *testing.T) {
 			expectedErr: fmt.Errorf("revision can't contain whitespace"),
 		},
 		{
+			desc:        "newline",
+			revision:    "foo\nbar",
+			expectedErr: fmt.Errorf("revision can't contain whitespace"),
+		},
+		{
+			desc:        "tab",
+			revision:    "foo\tbar",
+			expectedErr: fmt.Errorf("revision can't contain whitespace"),
+		},
+		{
+			desc:        "carriage-return",
+			revision:    "foo\rbar",
+			expectedErr: fmt.Errorf("revision can't contain whitespace"),
+		},
+		{
 			desc:        "NUL-byte",
 			revision:    "foo\x00bar",
 			expectedErr: fmt.Errorf("revision can't contain NUL"),

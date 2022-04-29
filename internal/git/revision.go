@@ -12,7 +12,7 @@ func validateRevision(revision []byte, allowEmpty bool) error {
 	if bytes.HasPrefix(revision, []byte("-")) {
 		return fmt.Errorf("revision can't start with '-'")
 	}
-	if bytes.Contains(revision, []byte(" ")) {
+	if bytes.ContainsAny(revision, " \t\n\r") {
 		return fmt.Errorf("revision can't contain whitespace")
 	}
 	if bytes.Contains(revision, []byte("\x00")) {
