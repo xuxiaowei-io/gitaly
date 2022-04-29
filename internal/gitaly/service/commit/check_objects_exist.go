@@ -84,7 +84,7 @@ func (c *checkObjectsExistSender) Send() error {
 }
 
 func (c *checkObjectsExistSender) Reset() {
-	c.revisions = make([]*gitalypb.CheckObjectsExistResponse_RevisionExistence, 0)
+	c.revisions = c.revisions[:0]
 }
 
 func (c *checkObjectsExistSender) Append(m proto.Message) {
