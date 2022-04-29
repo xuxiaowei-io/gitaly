@@ -19,7 +19,13 @@ func (s *server) CheckObjectsExist(
 
 	request, err := stream.Recv()
 	if err != nil {
-		return err
+		if err == io.EOF {
+			// Ideally, we'd return an invalid-argument error in case there aren't any
+			// requests. We can't do this though as this would diverge from Praefect's
+			// behaviour, which always returns `io.EOF`.
+			return err
+		}
+		return helper.ErrInternalf("receiving initial request: %w", err)
 	}
 
 	if request.GetRepository() == nil {
@@ -31,7 +37,7 @@ func (s *server) CheckObjectsExist(
 		s.localrepo(request.GetRepository()),
 	)
 	if err != nil {
-		return err
+		return helper.ErrInternalf("creating object info reader: %w", err)
 	}
 	defer cancel()
 
@@ -45,8 +51,8 @@ func (s *server) CheckObjectsExist(
 			}
 		}
 
-		if err = checkObjectsExist(ctx, request, objectInfoReader, chunker); err != nil {
-			return err
+		if err := checkObjectsExist(ctx, request, objectInfoReader, chunker); err != nil {
+			return helper.ErrInternalf("checking object existence: %w", err)
 		}
 
 		request, err = stream.Recv()
@@ -103,12 +109,12 @@ func checkObjectsExist(
 			if catfile.IsNotFound(err) {
 				revisionExistence.Exists = false
 			} else {
-				return err
+				return helper.ErrInternalf("reading object info: %w", err)
 			}
 		}
 
 		if err := chunker.Send(&revisionExistence); err != nil {
-			return err
+			return helper.ErrInternalf("adding to chunker: %w", err)
 		}
 	}
 
