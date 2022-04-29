@@ -143,6 +143,10 @@ No changes.
 - [Makefile: Add more patches to speed up git-fetch(1) to v2.35.1.gl1](gitlab-org/gitaly@4c5b7a2a4fa9960381a214b057062ed3693b41ba) ([merge request](gitlab-org/gitaly!4408))
 - [git: Convert internal fetches to use sidechannel](gitlab-org/gitaly@8e5cb64195e732fd95f98d49971b6e9910b86ce2) ([merge request](gitlab-org/gitaly!4358))
 
+## 14.8.6 (2022-04-29)
+
+No changes.
+
 ## 14.8.5 (2022-03-31)
 
 ### Fixed (1 change)
