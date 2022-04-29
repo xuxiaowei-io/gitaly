@@ -37,14 +37,8 @@ func (s *server) CheckObjectsExist(
 
 	chunker := chunk.New(&checkObjectsExistSender{stream: stream})
 	for {
-		request, err := stream.Recv()
-		if err != nil {
-			if err == io.EOF {
-				return chunker.Flush()
-			}
-			return err
-		}
-
+		// Note: we have already fetched the first request containing revisions further up,
+		// so we only fetch the next request at the end of this loop.
 		for _, revision := range request.GetRevisions() {
 			if err := git.ValidateRevision(revision); err != nil {
 				return helper.ErrInvalidArgumentf("invalid revision %q: %w", revision, err)
@@ -54,7 +48,22 @@ func (s *server) CheckObjectsExist(
 		if err = checkObjectsExist(ctx, request, objectInfoReader, chunker); err != nil {
 			return err
 		}
+
+		request, err = stream.Recv()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+
+			return helper.ErrInternalf("receiving request: %w", err)
+		}
 	}
+
+	if err := chunker.Flush(); err != nil {
+		return helper.ErrInternalf("flushing results: %w", err)
+	}
+
+	return nil
 }
 
 type checkObjectsExistSender struct {

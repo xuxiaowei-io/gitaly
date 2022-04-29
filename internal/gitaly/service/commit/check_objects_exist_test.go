@@ -82,8 +82,13 @@ func TestCheckObjectsExist(t *testing.T) {
 					},
 				},
 			},
-			// This is a bug: revisions of the first message are not checked.
-			expectedResults: map[string]bool{},
+			expectedResults: map[string]bool{
+				commitID1.String(): true,
+				"master":           true,
+				commitID2.String(): true,
+				commitID3.String(): true,
+				"feature":          true,
+			},
 		},
 		{
 			desc: "ref and objects missing",
@@ -100,8 +105,14 @@ func TestCheckObjectsExist(t *testing.T) {
 					},
 				},
 			},
-			// This is a bug: revisions of the first message are not checked.
-			expectedResults: map[string]bool{},
+			expectedResults: map[string]bool{
+				commitID1.String():    true,
+				"master":              true,
+				commitID2.String():    true,
+				commitID3.String():    true,
+				"feature":             true,
+				"refs/does/not/exist": false,
+			},
 		},
 		{
 			desc: "chunked input",
@@ -128,8 +139,8 @@ func TestCheckObjectsExist(t *testing.T) {
 					},
 				},
 			},
-			// This is a bug: revisions of the first message are not checked.
 			expectedResults: map[string]bool{
+				commitID1.String():    true,
 				commitID2.String():    true,
 				commitID3.String():    true,
 				"refs/does/not/exist": false,
@@ -145,7 +156,7 @@ func TestCheckObjectsExist(t *testing.T) {
 					},
 				},
 			},
-			// This is a bug: revisions of the first message are not checked.
+			expectedErr:     helper.ErrInvalidArgumentf("invalid revision %q: revision can't start with '-'", "-not-a-rev"),
 			expectedResults: map[string]bool{},
 		},
 		{
@@ -158,9 +169,15 @@ func TestCheckObjectsExist(t *testing.T) {
 					},
 				},
 			},
-			// This is a bug: revisions of the first message are not checked.
-			expectedErr:     nil,
-			expectedResults: map[string]bool{},
+			// This is a bug: instead of disallowing revisions with newlines, we just
+			// handle them funnily. Git things we're asking it for two different
+			// revisions, and we expect only one output. So the result is that this
+			// weirdly formatted revision looks like it would exist. Instead, we should
+			// raise an error.
+			expectedErr: nil,
+			expectedResults: map[string]bool{
+				fmt.Sprintf("%s\n%s", commitID1, commitID2): true,
+			},
 		},
 		{
 			desc: "chunked invalid input",
