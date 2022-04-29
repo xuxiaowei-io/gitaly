@@ -278,8 +278,10 @@ build: ${SOURCE_DIR}/.ruby-bundle ${GITALY_EXECUTABLES}
 
 gitaly:            GO_BUILD_TAGS = ${SERVER_BUILD_TAGS}
 praefect:          GO_BUILD_TAGS = ${SERVER_BUILD_TAGS}
-gitaly-git2go-v14: GO_BUILD_TAGS = ${GIT2GO_BUILD_TAGS}
-gitaly-git2go-v14: libgit2
+gitaly-git2go: GO_BUILD_TAGS = ${GIT2GO_BUILD_TAGS}
+gitaly-git2go: libgit2
+gitaly-git2go-v14:
+	go install gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go-v14@v14.10.0
 
 .PHONY: ${GITALY_EXECUTABLES}
 ${GITALY_EXECUTABLES}:

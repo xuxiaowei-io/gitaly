@@ -10,8 +10,8 @@ import (
 
 	git "github.com/libgit2/git2go/v33"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/cmd/gitaly-git2go-v14/git2goutil"
-	cmdtesthelper "gitlab.com/gitlab-org/gitaly/cmd/gitaly-git2go-v14/testhelper"
+	"gitlab.com/gitlab-org/gitaly/cmd/gitaly-git2go/git2goutil"
+	cmdtesthelper "gitlab.com/gitlab-org/gitaly/cmd/gitaly-git2go/testhelper"
 	gitalygit "gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git2go"

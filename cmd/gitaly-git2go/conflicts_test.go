@@ -9,7 +9,7 @@ import (
 
 	git "github.com/libgit2/git2go/v33"
 	"github.com/stretchr/testify/require"
-	cmdtesthelper "gitlab.com/gitlab-org/gitaly/cmd/gitaly-git2go-v14/testhelper"
+	cmdtesthelper "gitlab.com/gitlab-org/gitaly/cmd/gitaly-git2go/testhelper"
 	glgit "gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"

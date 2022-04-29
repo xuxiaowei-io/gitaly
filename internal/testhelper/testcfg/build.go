@@ -16,7 +16,7 @@ var buildOnceByName sync.Map
 
 // BuildGitalyGit2Go builds the gitaly-git2go command and installs it into the binary directory.
 func BuildGitalyGit2Go(t testing.TB, cfg config.Cfg) string {
-	return BuildBinary(t, cfg.BinDir, gitalyCommandPath("gitaly-git2go-v14"))
+	return BuildBinary(t, cfg.BinDir, gitalyCommandPath("gitaly-git2go"))
 }
 
 // BuildGitalyWrapper builds the gitaly-wrapper command and installs it into the binary directory.
