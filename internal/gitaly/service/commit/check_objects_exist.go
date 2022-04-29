@@ -22,8 +22,8 @@ func (s *server) CheckObjectsExist(
 		return err
 	}
 
-	if err := validateCheckObjectsExistRequest(request); err != nil {
-		return err
+	if request.GetRepository() == nil {
+		return helper.ErrInvalidArgumentf("empty Repository")
 	}
 
 	objectInfoReader, cancel, err := s.catfileCache.ObjectInfoReader(
@@ -43,6 +43,12 @@ func (s *server) CheckObjectsExist(
 				return chunker.Flush()
 			}
 			return err
+		}
+
+		for _, revision := range request.GetRevisions() {
+			if err := git.ValidateRevision(revision); err != nil {
+				return helper.ErrInvalidArgumentf("invalid revision %q: %w", revision, err)
+			}
 		}
 
 		if err = checkObjectsExist(ctx, request, objectInfoReader, chunker); err != nil {
@@ -94,16 +100,6 @@ func checkObjectsExist(
 
 		if err := chunker.Send(&revisionExistence); err != nil {
 			return err
-		}
-	}
-
-	return nil
-}
-
-func validateCheckObjectsExistRequest(in *gitalypb.CheckObjectsExistRequest) error {
-	for _, revision := range in.GetRevisions() {
-		if err := git.ValidateRevision(revision); err != nil {
-			return helper.ErrInvalidArgument(err)
 		}
 	}
 

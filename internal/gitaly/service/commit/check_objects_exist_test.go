@@ -51,8 +51,12 @@ func TestCheckObjectsExist(t *testing.T) {
 					Revisions: [][]byte{},
 				},
 			},
-			// This is a bug: we don't verify there's a repository.
-			expectedErr:     helper.ErrInvalidArgumentf(`GetStorageByName: no such storage: ""`),
+			expectedErr: func() error {
+				if testhelper.IsPraefectEnabled() {
+					return helper.ErrInvalidArgumentf("repo scoped: empty Repository")
+				}
+				return helper.ErrInvalidArgumentf("empty Repository")
+			}(),
 			expectedResults: map[string]bool{},
 		},
 		{
@@ -141,7 +145,7 @@ func TestCheckObjectsExist(t *testing.T) {
 					},
 				},
 			},
-			expectedErr:     helper.ErrInvalidArgumentf("revision can't start with '-'"),
+			// This is a bug: revisions of the first message are not checked.
 			expectedResults: map[string]bool{},
 		},
 		{
@@ -173,12 +177,8 @@ func TestCheckObjectsExist(t *testing.T) {
 					},
 				},
 			},
-			// This is a bug: we only check that revisions of the first message are
-			// valid, but don't care about any of the latter ones.
-			expectedErr: nil,
-			expectedResults: map[string]bool{
-				"-not-a-rev": false,
-			},
+			expectedErr:     helper.ErrInvalidArgumentf("invalid revision %q: revision can't start with '-'", "-not-a-rev"),
+			expectedResults: map[string]bool{},
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
