@@ -62,7 +62,7 @@ func main() {
 		}
 
 		if p == modInfo.Module.Path {
-			return nil
+			return filepath.SkipDir
 		}
 
 		t, err := os.ReadFile(path)
