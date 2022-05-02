@@ -26,7 +26,7 @@ var skipDirs = map[string]bool{
 	"danger":                            true,
 	"doc":                               true,
 	"proto/go/gitalypb":                 true,
-	"proto/go/internal/linter/testdata": true,
+	"proto/go/internal/cmd/protoc-gen-gitaly-lint/testdata": true,
 	"ruby":                              true,
 	"scripts":                           true,
 	"unreleased":                        true,

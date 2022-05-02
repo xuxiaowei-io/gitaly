@@ -18,7 +18,7 @@
 // Or, you can run the Gitaly linter by itself. To try out, run the following
 // command while in the project root:
 //
-//   protoc --gitaly_lint_out=. ./go/internal/linter/testdata/incomplete.proto
+//   protoc --gitaly_lint_out=. ./go/internal/cmd/protoc-gen-gitaly-lint/testdata/incomplete.proto
 //
 // You should see some errors printed to screen for improperly written
 // RPC's in the incomplete.proto file.
@@ -56,7 +56,6 @@ import (
 	"os"
 	"strings"
 
-	"gitlab.com/gitlab-org/gitaly/v14/proto/go/internal/linter"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/pluginpb"
 )
@@ -81,7 +80,7 @@ func main() {
 func lintProtos(req *pluginpb.CodeGeneratorRequest) error {
 	var errMsgs []string
 	for _, pf := range req.GetProtoFile() {
-		errs := linter.LintFile(pf, req)
+		errs := LintFile(pf, req)
 		for _, err := range errs {
 			errMsgs = append(errMsgs, err.Error())
 		}
