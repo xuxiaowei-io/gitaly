@@ -478,7 +478,7 @@ dump-database-schema: build
 
 .PHONY: upgrade-module
 upgrade-module:
-	${Q}go run ${SOURCE_DIR}/_support/module-updater/main.go -dir . -from=${FROM_MODULE} -to=${TO_MODULE}
+	${Q}go run ${SOURCE_DIR}/tools/module-updater/main.go -dir . -from=${FROM_MODULE} -to=${TO_MODULE}
 	${Q}${MAKE} proto
 
 .PHONY: git
