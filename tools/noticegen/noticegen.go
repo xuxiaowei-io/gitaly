@@ -39,7 +39,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	var modInfo = struct {
+	modInfo := struct {
 		Module struct {
 			Path string
 		}
