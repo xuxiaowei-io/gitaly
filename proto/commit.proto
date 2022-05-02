@@ -29,104 +29,140 @@ service CommitService {
     };
   }
 
+  // This comment is left unintentionally blank.
   rpc CommitIsAncestor(CommitIsAncestorRequest) returns (CommitIsAncestorResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc TreeEntry(TreeEntryRequest) returns (stream TreeEntryResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc CountCommits(CountCommitsRequest) returns (CountCommitsResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc CountDivergingCommits(CountDivergingCommitsRequest) returns (CountDivergingCommitsResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc GetTreeEntries(GetTreeEntriesRequest) returns (stream GetTreeEntriesResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc ListFiles(ListFilesRequest) returns (stream ListFilesResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc FindCommit(FindCommitRequest) returns (FindCommitResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc CommitStats(CommitStatsRequest) returns (CommitStatsResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
   // Use a stream to paginate the result set
   rpc FindAllCommits(FindAllCommitsRequest) returns (stream FindAllCommitsResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc FindCommits(FindCommitsRequest) returns (stream FindCommitsResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc CommitLanguages(CommitLanguagesRequest) returns (CommitLanguagesResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc RawBlame(RawBlameRequest) returns (stream RawBlameResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc LastCommitForPath(LastCommitForPathRequest) returns (LastCommitForPathResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc ListLastCommitsForTree(ListLastCommitsForTreeRequest) returns (stream ListLastCommitsForTreeResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc CommitsByMessage(CommitsByMessageRequest) returns (stream CommitsByMessageResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc ListCommitsByOid(ListCommitsByOidRequest) returns (stream ListCommitsByOidResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc ListCommitsByRefName(ListCommitsByRefNameRequest) returns (stream ListCommitsByRefNameResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
+  // This comment is left unintentionally blank.
   rpc FilterShasWithSignatures(stream FilterShasWithSignaturesRequest) returns (stream FilterShasWithSignaturesResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc GetCommitSignatures(GetCommitSignaturesRequest) returns (stream GetCommitSignaturesResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
 
+  // This comment is left unintentionally blank.
   rpc GetCommitMessages(GetCommitMessagesRequest) returns (stream GetCommitMessagesResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -142,6 +178,7 @@ service CommitService {
       op: ACCESSOR
     };
   }
+
 }
 
 // ListCommitsRequest is a request for the ListCommits RPC.

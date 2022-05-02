@@ -22,6 +22,7 @@ module Gitaly
       # deleted from the mirror. UpdateRemoteMirror updates all tags. Branches are updated if they match
       # the patterns specified in the requests.
       rpc :UpdateRemoteMirror, stream(::Gitaly::UpdateRemoteMirrorRequest), ::Gitaly::UpdateRemoteMirrorResponse
+      # This comment is left unintentionally blank.
       rpc :FindRemoteRepository, ::Gitaly::FindRemoteRepositoryRequest, ::Gitaly::FindRemoteRepositoryResponse
       # FindRemoteRootRef tries to find the root reference of a remote
       # repository. The root reference is the default branch as pointed to by

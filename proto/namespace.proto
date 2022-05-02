@@ -10,30 +10,39 @@ option go_package = "gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb";
 // storage. Namespaces had been used before Gitaly migrated to hashed storages
 // and shouldn't be used nowadays anymore.
 service NamespaceService {
+
+  // This comment is left unintentionally blank.
   rpc AddNamespace(AddNamespaceRequest) returns (AddNamespaceResponse) {
     option (op_type) = {
       op: MUTATOR
       scope_level: STORAGE,
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc RemoveNamespace(RemoveNamespaceRequest) returns (RemoveNamespaceResponse) {
     option (op_type) = {
       op: MUTATOR
       scope_level: STORAGE,
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc RenameNamespace(RenameNamespaceRequest) returns (RenameNamespaceResponse) {
     option (op_type) = {
       op: MUTATOR
       scope_level: STORAGE,
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc NamespaceExists(NamespaceExistsRequest) returns (NamespaceExistsResponse) {
     option (op_type) = {
       op: ACCESSOR
       scope_level: STORAGE,
     };
   }
+
 }
 
 message AddNamespaceRequest {

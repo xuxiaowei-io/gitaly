@@ -16,6 +16,8 @@ module Gitaly
       self.unmarshal_class_method = :decode
       self.service_name = 'gitaly.ConflictsService'
 
+      # ListConflictFiles returns all conflicting files which result from a merge
+      # of two specified commit objects.
       rpc :ListConflictFiles, ::Gitaly::ListConflictFilesRequest, stream(::Gitaly::ListConflictFilesResponse)
       # ResolveConflicts tries to resolve a conflicting merge with a set of
       # user-provided merge resolutions. If resolving the conflict succeeds, the

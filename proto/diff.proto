@@ -10,39 +10,49 @@ option go_package = "gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb";
 // DiffService is a service which provides RPCs to inspect differences
 // introduced between a set of commits.
 service DiffService {
+
   // Returns stream of CommitDiffResponse with patches chunked over messages
   rpc CommitDiff(CommitDiffRequest) returns (stream CommitDiffResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
   // Return a stream so we can divide the response in chunks of deltas
   rpc CommitDelta(CommitDeltaRequest) returns (stream CommitDeltaResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc RawDiff(RawDiffRequest) returns (stream RawDiffResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc RawPatch(RawPatchRequest) returns (stream RawPatchResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc DiffStats(DiffStatsRequest) returns (stream DiffStatsResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
   // Return a list of files changed along with the status of each file
   rpc FindChangedPaths(FindChangedPathsRequest) returns (stream FindChangedPathsResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
 }
 
 message CommitDiffRequest {

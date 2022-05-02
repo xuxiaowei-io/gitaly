@@ -14,7 +14,6 @@ lint:
       # opt-in to enable these linting warnings, but right now we just want to
       # get protolint included in our workflow with minimal required changes.
       - FILE_HAS_COMMENT
-      - RPCS_HAVE_COMMENT
       - FIELDS_HAVE_COMMENT
       - MESSAGES_HAVE_COMMENT
       - ENUMS_HAVE_COMMENT

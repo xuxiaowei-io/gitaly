@@ -11,34 +11,42 @@ option go_package = "gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb";
 // service is deprecated and should not be used anymore. Instead, all
 // functionality to implement Wikis should use Git-based RPCS.
 service WikiService {
+
+  // This comment is left unintentionally blank.
   rpc WikiWritePage(stream WikiWritePageRequest) returns (WikiWritePageResponse) {
     option (op_type) = {
       op: MUTATOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc WikiUpdatePage(stream WikiUpdatePageRequest) returns (WikiUpdatePageResponse) {
     option (op_type) = {
       op: MUTATOR
     };
   }
+
   // WikiFindPage returns a stream because the page's raw_data field may be arbitrarily large.
   rpc WikiFindPage(WikiFindPageRequest) returns (stream WikiFindPageResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc WikiGetAllPages(WikiGetAllPagesRequest) returns (stream WikiGetAllPagesResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
-
   }
+
+  // This comment is left unintentionally blank.
   rpc WikiListPages(WikiListPagesRequest) returns (stream WikiListPagesResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
-
   }
+
 }
 
 message WikiCommitDetails {

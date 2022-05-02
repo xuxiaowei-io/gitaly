@@ -12,11 +12,15 @@ option go_package = "gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb";
 // satellite repositories in order to deduplicate common objects between them.
 // This is mostly used in the contexet of repository forks.
 service ObjectPoolService {
+
+  // This comment is left unintentionally blank.
   rpc CreateObjectPool(CreateObjectPoolRequest) returns (CreateObjectPoolResponse) {
     option (op_type) = {
       op: MUTATOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc DeleteObjectPool(DeleteObjectPoolRequest) returns (DeleteObjectPoolResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -30,26 +34,34 @@ service ObjectPoolService {
     };
   }
 
+  // This comment is left unintentionally blank.
   rpc ReduplicateRepository(ReduplicateRepositoryRequest) returns (ReduplicateRepositoryResponse) {
     option (op_type) = {
       op: MUTATOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc DisconnectGitAlternates(DisconnectGitAlternatesRequest) returns (DisconnectGitAlternatesResponse) {
     option (op_type) = {
       op: MUTATOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc FetchIntoObjectPool(FetchIntoObjectPoolRequest) returns (FetchIntoObjectPoolResponse) {
     option (op_type) = {
       op: MUTATOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc GetObjectPool(GetObjectPoolRequest) returns (GetObjectPoolResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
 }
 
 // Creates an object pool from the repository. The client is responsible for

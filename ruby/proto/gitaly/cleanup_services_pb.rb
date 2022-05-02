@@ -15,6 +15,7 @@ module Gitaly
       self.unmarshal_class_method = :decode
       self.service_name = 'gitaly.CleanupService'
 
+      # This comment is left unintentionally blank.
       rpc :ApplyBfgObjectMapStream, stream(::Gitaly::ApplyBfgObjectMapStreamRequest), stream(::Gitaly::ApplyBfgObjectMapStreamResponse)
     end
 

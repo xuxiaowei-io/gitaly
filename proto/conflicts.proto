@@ -11,6 +11,9 @@ option go_package = "gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb";
 // ConflictsService is a service which provides RPCs to interact with conflicts
 // resulting from a merge.
 service ConflictsService {
+
+  // ListConflictFiles returns all conflicting files which result from a merge
+  // of two specified commit objects.
   rpc ListConflictFiles(ListConflictFilesRequest) returns (stream ListConflictFilesResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -25,6 +28,7 @@ service ConflictsService {
       op: MUTATOR
     };
   }
+
 }
 
 message ListConflictFilesRequest {

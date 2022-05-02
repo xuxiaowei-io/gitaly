@@ -10,49 +10,65 @@ option go_package = "gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb";
 
 // RefService is a service that provides RPCs to list and modify Git references.
 service RefService {
+
+  // This comment is left unintentionally blank.
   rpc FindDefaultBranchName(FindDefaultBranchNameRequest) returns (FindDefaultBranchNameResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc FindAllBranchNames(FindAllBranchNamesRequest) returns (stream FindAllBranchNamesResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
 
   }
+
+  // This comment is left unintentionally blank.
   rpc FindAllTagNames(FindAllTagNamesRequest) returns (stream FindAllTagNamesResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
   // Return a stream so we can divide the response in chunks of branches
   rpc FindLocalBranches(FindLocalBranchesRequest) returns (stream FindLocalBranchesResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc FindAllBranches(FindAllBranchesRequest) returns (stream FindAllBranchesResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
   // Returns a stream of tags repository has.
   rpc FindAllTags(FindAllTagsRequest) returns (stream FindAllTagsResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc FindTag(FindTagRequest) returns (FindTagResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc FindAllRemoteBranches(FindAllRemoteBranchesRequest) returns (stream FindAllRemoteBranchesResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc RefExists(RefExistsRequest) returns (RefExistsResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -66,17 +82,22 @@ service RefService {
       op: ACCESSOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc DeleteRefs(DeleteRefsRequest) returns (DeleteRefsResponse) {
     option (op_type) = {
       op: MUTATOR
     };
   }
 
+  // This comment is left unintentionally blank.
   rpc ListBranchNamesContainingCommit(ListBranchNamesContainingCommitRequest) returns (stream ListBranchNamesContainingCommitResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc ListTagNamesContainingCommit(ListTagNamesContainingCommitRequest) returns (stream ListTagNamesContainingCommitResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -93,6 +114,7 @@ service RefService {
     };
   }
 
+  // This comment is left unintentionally blank.
   rpc GetTagMessages(GetTagMessagesRequest) returns (stream GetTagMessagesResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -124,6 +146,7 @@ service RefService {
       op: ACCESSOR
     };
   }
+
 }
 
 message FindDefaultBranchNameRequest {

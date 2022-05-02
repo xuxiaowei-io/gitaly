@@ -9,11 +9,14 @@ option go_package = "gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb";
 
 // CleanupService provides RPCs to clean up a repository's contents.
 service CleanupService {
+
+  // This comment is left unintentionally blank.
   rpc ApplyBfgObjectMapStream(stream ApplyBfgObjectMapStreamRequest) returns (stream ApplyBfgObjectMapStreamResponse) {
     option (op_type) = {
       op: MUTATOR
     };
   }
+
 }
 
 message ApplyBfgObjectMapStreamRequest {

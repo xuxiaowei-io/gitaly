@@ -13,6 +13,7 @@ option go_package = "gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb";
 service PraefectInfoService {
   option (intercepted) = true;
 
+  // This comment is left unintentionally blank.
   rpc RepositoryReplicas(RepositoryReplicasRequest) returns (RepositoryReplicasResponse);
 
   // DatalossCheck checks for unavailable repositories.
@@ -36,8 +37,10 @@ service PraefectInfoService {
   // from a Praefect node that does not yet know about a new node. As assignments of unconfigured storages are ignored, replication
   // factor of repositories assigned to a storage node removed from the cluster is effectively decreased.
   rpc SetReplicationFactor(SetReplicationFactorRequest) returns (SetReplicationFactorResponse);
+
   // GetRepositoryMetadata returns the cluster metadata for a repository. Returns NotFound if the repository does not exist.
   rpc GetRepositoryMetadata(GetRepositoryMetadataRequest) returns (GetRepositoryMetadataResponse);
+
 }
 
 // MarkUnverifiedRequest specifies the replicas which to mark unverified.

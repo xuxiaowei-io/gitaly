@@ -9,6 +9,8 @@ option go_package = "gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb";
 
 // RepositoryService is a service providing RPCs accessing repositories as a whole.
 service RepositoryService {
+
+  // This comment is left unintentionally blank.
   rpc RepositoryExists(RepositoryExistsRequest) returns (RepositoryExistsResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -55,11 +57,14 @@ service RepositoryService {
     };
   }
 
+  // This comment is left unintentionally blank.
   rpc RepositorySize(RepositorySizeRequest) returns (RepositorySizeResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc ApplyGitattributes(ApplyGitattributesRequest) returns (ApplyGitattributesResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -73,16 +78,22 @@ service RepositoryService {
       op: MUTATOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc CreateRepository(CreateRepositoryRequest) returns (CreateRepositoryResponse) {
     option (op_type) = {
       op: MUTATOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc GetArchive(GetArchiveRequest) returns (stream GetArchiveResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc HasLocalBranches(HasLocalBranchesRequest) returns (HasLocalBranchesResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -96,27 +107,36 @@ service RepositoryService {
       op: MUTATOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc Fsck(FsckRequest) returns (FsckResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc WriteRef(WriteRefRequest) returns (WriteRefResponse) {
     option (op_type) = {
       op: MUTATOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc FindMergeBase(FindMergeBaseRequest) returns (FindMergeBaseResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc CreateFork(CreateForkRequest) returns (CreateForkResponse) {
     option (op_type) = {
       op: MUTATOR
     };
   }
 
+  // This comment is left unintentionally blank.
   rpc CreateRepositoryFromURL(CreateRepositoryFromURLRequest) returns (CreateRepositoryFromURLResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -147,6 +167,7 @@ service RepositoryService {
     };
   }
 
+  // This comment is left unintentionally blank.
   rpc CreateRepositoryFromBundle(stream CreateRepositoryFromBundleRequest) returns (CreateRepositoryFromBundleResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -161,16 +182,21 @@ service RepositoryService {
     };
   }
 
+  // This comment is left unintentionally blank.
   rpc FindLicense(FindLicenseRequest) returns (FindLicenseResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc GetInfoAttributes(GetInfoAttributesRequest) returns (stream GetInfoAttributesResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc CalculateChecksum(CalculateChecksumRequest) returns (CalculateChecksumResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -185,46 +211,62 @@ service RepositoryService {
     };
   }
 
+  // This comment is left unintentionally blank.
   rpc GetSnapshot(GetSnapshotRequest) returns (stream GetSnapshotResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc CreateRepositoryFromSnapshot(CreateRepositoryFromSnapshotRequest) returns (CreateRepositoryFromSnapshotResponse) {
     option (op_type) = {
       op: MUTATOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc GetRawChanges(GetRawChangesRequest) returns (stream GetRawChangesResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc SearchFilesByContent(SearchFilesByContentRequest) returns (stream SearchFilesByContentResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc SearchFilesByName(SearchFilesByNameRequest) returns (stream SearchFilesByNameResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc RestoreCustomHooks(stream RestoreCustomHooksRequest) returns (RestoreCustomHooksResponse) {
     option (op_type) = {
       op: MUTATOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc BackupCustomHooks(BackupCustomHooksRequest) returns (stream BackupCustomHooksResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc GetObjectDirectorySize(GetObjectDirectorySizeRequest) returns (GetObjectDirectorySizeResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
   // RemoveRepository will move the repository to `+gitaly/tmp/<relative_path>_removed` and
   // eventually remove it. This ensures that even on networked filesystems the
   // data is actually removed even if there's someone still handling the data.
@@ -233,11 +275,15 @@ service RepositoryService {
       op: MUTATOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc RenameRepository(RenameRepositoryRequest) returns (RenameRepositoryResponse) {
     option (op_type) = {
       op: MUTATOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc ReplicateRepository(ReplicateRepositoryRequest) returns (ReplicateRepositoryResponse) {
     option (op_type)  = {
       op: MUTATOR

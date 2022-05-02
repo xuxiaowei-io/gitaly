@@ -10,6 +10,7 @@ option go_package = "gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb";
 // BlobService is a service which provides RPCs to retrieve Git blobs from a
 // specific repository.
 service BlobService {
+
   // GetBlob returns the contents of a blob object referenced by its object
   // ID. We use a stream to return a chunked arbitrarily large binary
   // response
@@ -18,6 +19,8 @@ service BlobService {
       op: ACCESSOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc GetBlobs(GetBlobsRequest) returns (stream GetBlobsResponse) {
     option (op_type) = {
       op: ACCESSOR

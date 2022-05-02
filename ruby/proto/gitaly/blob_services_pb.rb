@@ -20,6 +20,7 @@ module Gitaly
       # ID. We use a stream to return a chunked arbitrarily large binary
       # response
       rpc :GetBlob, ::Gitaly::GetBlobRequest, stream(::Gitaly::GetBlobResponse)
+      # This comment is left unintentionally blank.
       rpc :GetBlobs, ::Gitaly::GetBlobsRequest, stream(::Gitaly::GetBlobsResponse)
       # ListBlobs will list all blobs reachable from a given set of revisions by
       # doing a graph walk. It is not valid to pass revisions which do not resolve

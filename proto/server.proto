@@ -10,11 +10,16 @@ option go_package = "gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb";
 service ServerService {
   option (intercepted) = true;
 
+  // This comment is left unintentionally blank.
   rpc ServerInfo(ServerInfoRequest) returns (ServerInfoResponse);
+
+  // This comment is left unintentionally blank.
   rpc DiskStatistics(DiskStatisticsRequest) returns (DiskStatisticsResponse);
+
   // ClockSynced checks if machine clock is synced
   // (the offset is less that the one passed in the request).
-  rpc ClockSynced(ClockSyncedRequest) returns (ClockSyncedResponse) {}
+  rpc ClockSynced(ClockSyncedRequest) returns (ClockSyncedResponse);
+
 }
 
 message ServerInfoRequest {

@@ -14,16 +14,22 @@ option go_package = "gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb";
 // treated as untrusted. Any reference update is thus checked against GitLab's
 // '/allowed' endpoint.
 service OperationService {
+
+  // This comment is left unintentionally blank.
   rpc UserCreateBranch(UserCreateBranchRequest) returns (UserCreateBranchResponse) {
     option (op_type) = {
       op: MUTATOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc UserUpdateBranch(UserUpdateBranchRequest) returns (UserUpdateBranchResponse) {
     option (op_type) = {
       op: MUTATOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc UserDeleteBranch(UserDeleteBranchRequest) returns (UserDeleteBranchResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -36,6 +42,8 @@ service OperationService {
       op: MUTATOR
     };
   }
+
+  // This comment is left unintentionally blank.
   rpc UserDeleteTag(UserDeleteTagRequest) returns (UserDeleteTagResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -140,6 +148,7 @@ service OperationService {
       op: MUTATOR
     };
   }
+
 }
 
 message UserCreateBranchRequest {
@@ -399,7 +408,7 @@ message UserCherryPickError {
   oneof error {
     // CherryPickConflict is returned if there is a conflict when applying the cherry
     // pick.
-    MergeConflictError cherry_pick_conflict = 1; 
+    MergeConflictError cherry_pick_conflict = 1;
     // TargetBranchDiverged is returned whenever the tip commit of the branch we're
     // about to apply the new commit on is not a direct ancestor of the newly created
     // cherry-picked commit. This may happen either due to a race where the reference

@@ -17,9 +17,13 @@ module Gitaly
       self.unmarshal_class_method = :decode
       self.service_name = 'gitaly.NamespaceService'
 
+      # This comment is left unintentionally blank.
       rpc :AddNamespace, ::Gitaly::AddNamespaceRequest, ::Gitaly::AddNamespaceResponse
+      # This comment is left unintentionally blank.
       rpc :RemoveNamespace, ::Gitaly::RemoveNamespaceRequest, ::Gitaly::RemoveNamespaceResponse
+      # This comment is left unintentionally blank.
       rpc :RenameNamespace, ::Gitaly::RenameNamespaceRequest, ::Gitaly::RenameNamespaceResponse
+      # This comment is left unintentionally blank.
       rpc :NamespaceExists, ::Gitaly::NamespaceExistsRequest, ::Gitaly::NamespaceExistsResponse
     end
 

@@ -21,6 +21,8 @@ service RemoteService {
         op: ACCESSOR
       };
   }
+
+  // This comment is left unintentionally blank.
   rpc FindRemoteRepository(FindRemoteRepositoryRequest) returns (FindRemoteRepositoryResponse) {
     option (op_type) = {
         op: ACCESSOR
