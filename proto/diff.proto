@@ -55,6 +55,7 @@ service DiffService {
 
 }
 
+// This comment is left unintentionally blank.
 message CommitDiffRequest {
   enum DiffMode {
     // DEFAULT is the standard diff mode and results in a linewise diff for textfiles.
@@ -114,6 +115,7 @@ message CommitDiffResponse {
   bool too_large = 13;
 }
 
+// This comment is left unintentionally blank.
 message CommitDeltaRequest {
   Repository repository = 1 [(target_repository)=true];
   string left_commit_id = 2;
@@ -121,6 +123,7 @@ message CommitDeltaRequest {
   repeated bytes paths = 4;
 }
 
+// This comment is left unintentionally blank.
 message CommitDelta {
   bytes from_path = 1;
   bytes to_path = 2;
@@ -131,36 +134,43 @@ message CommitDelta {
   int32 new_mode = 6;
 }
 
+// This comment is left unintentionally blank.
 message CommitDeltaResponse {
   repeated CommitDelta deltas = 1;
 }
 
+// This comment is left unintentionally blank.
 message RawDiffRequest {
   Repository repository = 1 [(target_repository)=true];
   string left_commit_id = 2;
   string right_commit_id = 3;
 }
 
+// This comment is left unintentionally blank.
 message RawDiffResponse {
   bytes data = 1;
 }
 
+// This comment is left unintentionally blank.
 message RawPatchRequest {
   Repository repository = 1 [(target_repository)=true];
   string left_commit_id = 2;
   string right_commit_id = 3;
 }
 
+// This comment is left unintentionally blank.
 message RawPatchResponse {
   bytes data = 1;
 }
 
+// This comment is left unintentionally blank.
 message DiffStatsRequest {
   Repository repository = 1 [(target_repository)=true];
   string left_commit_id = 2;
   string right_commit_id = 3;
 }
 
+// This comment is left unintentionally blank.
 message DiffStats {
   bytes path = 1;
   int32 additions = 2;
@@ -168,6 +178,7 @@ message DiffStats {
   bytes old_path = 4;
 }
 
+// This comment is left unintentionally blank.
 message DiffStatsResponse {
   repeated DiffStats stats = 1;
 }

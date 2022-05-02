@@ -20,6 +20,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// This comment is left unintentionally blank.
 type GetBlobRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -85,6 +86,7 @@ func (x *GetBlobRequest) GetLimit() int64 {
 	return 0
 }
 
+// This comment is left unintentionally blank.
 type GetBlobResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -151,6 +153,7 @@ func (x *GetBlobResponse) GetOid() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type GetBlobsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -216,6 +219,7 @@ func (x *GetBlobsRequest) GetLimit() int64 {
 	return 0
 }
 
+// This comment is left unintentionally blank.
 type GetBlobsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -660,6 +664,7 @@ func (x *LFSPointer) GetOid() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type NewBlobObject struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1058,6 +1063,7 @@ func (x *ListAllLFSPointersResponse) GetLfsPointers() []*LFSPointer {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type GetBlobsRequest_RevisionPath struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

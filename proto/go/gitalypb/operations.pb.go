@@ -195,6 +195,7 @@ func (UserCommitFilesActionHeader_ActionType) EnumDescriptor() ([]byte, []int) {
 	return file_operations_proto_rawDescGZIP(), []int{23, 0}
 }
 
+// This comment is left unintentionally blank.
 type UserCreateBranchRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -266,6 +267,7 @@ func (x *UserCreateBranchRequest) GetStartPoint() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type UserCreateBranchResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -323,6 +325,7 @@ func (x *UserCreateBranchResponse) GetPreReceiveError() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type UserUpdateBranchRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -402,6 +405,7 @@ func (x *UserUpdateBranchRequest) GetOldrev() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type UserUpdateBranchResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -449,6 +453,7 @@ func (x *UserUpdateBranchResponse) GetPreReceiveError() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type UserDeleteBranchRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -512,6 +517,7 @@ func (x *UserDeleteBranchRequest) GetUser() *User {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type UserDeleteBranchResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -559,6 +565,7 @@ func (x *UserDeleteBranchResponse) GetPreReceiveError() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type UserDeleteTagRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -622,6 +629,7 @@ func (x *UserDeleteTagRequest) GetUser() *User {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type UserDeleteTagResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -669,6 +677,7 @@ func (x *UserDeleteTagResponse) GetPreReceiveError() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type UserCreateTagRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -765,6 +774,7 @@ func (x *UserCreateTagRequest) GetTimestamp() *timestamppb.Timestamp {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type UserCreateTagResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -832,6 +842,7 @@ func (x *UserCreateTagResponse) GetPreReceiveError() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type UserMergeBranchRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -940,6 +951,7 @@ func (x *UserMergeBranchRequest) GetApply() bool {
 	return false
 }
 
+// This comment is left unintentionally blank.
 type UserMergeBranchResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1097,6 +1109,7 @@ func (*UserMergeBranchError_AccessCheck) isUserMergeBranchError_Error() {}
 
 func (*UserMergeBranchError_ReferenceUpdate) isUserMergeBranchError_Error() {}
 
+// This comment is left unintentionally blank.
 type UserMergeToRefRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1225,6 +1238,7 @@ func (x *UserMergeToRefRequest) GetTimestamp() *timestamppb.Timestamp {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type UserMergeToRefResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1434,6 +1448,7 @@ func (x *UserFFBranchRequest) GetBranch() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type UserFFBranchResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1489,6 +1504,7 @@ func (x *UserFFBranchResponse) GetPreReceiveError() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type UserCherryPickRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1616,6 +1632,7 @@ func (x *UserCherryPickRequest) GetTimestamp() *timestamppb.Timestamp {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type UserCherryPickResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1823,6 +1840,7 @@ func (*UserCherryPickError_ChangesAlreadyApplied) isUserCherryPickError_Error() 
 
 func (*UserCherryPickError_AccessCheck) isUserCherryPickError_Error() {}
 
+// This comment is left unintentionally blank.
 type UserRevertRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1949,6 +1967,7 @@ func (x *UserRevertRequest) GetTimestamp() *timestamppb.Timestamp {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type UserRevertResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2528,6 +2547,7 @@ func (x *UserCommitFilesResponse) GetPreReceiveError() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type UserRebaseConfirmableRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2614,6 +2634,7 @@ func (*UserRebaseConfirmableRequest_Header_) isUserRebaseConfirmableRequest_User
 func (*UserRebaseConfirmableRequest_Apply) isUserRebaseConfirmableRequest_UserRebaseConfirmableRequestPayload() {
 }
 
+// This comment is left unintentionally blank.
 type UserRebaseConfirmableResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2719,6 +2740,7 @@ func (*UserRebaseConfirmableResponse_RebaseSha) isUserRebaseConfirmableResponse_
 func (*UserRebaseConfirmableResponse_RebaseApplied) isUserRebaseConfirmableResponse_UserRebaseConfirmableResponsePayload() {
 }
 
+// This comment is left unintentionally blank.
 type UserSquashRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2825,6 +2847,7 @@ func (x *UserSquashRequest) GetTimestamp() *timestamppb.Timestamp {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type UserSquashResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2887,6 +2910,7 @@ func (x *UserSquashResponse) GetGitError() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type UserRebaseConfirmableError struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3057,6 +3081,7 @@ func (*UserSquashError_ResolveRevision) isUserSquashError_Error() {}
 
 func (*UserSquashError_RebaseConflict) isUserSquashError_Error() {}
 
+// This comment is left unintentionally blank.
 type UserApplyPatchRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3140,6 +3165,7 @@ func (*UserApplyPatchRequest_Header_) isUserApplyPatchRequest_UserApplyPatchRequ
 
 func (*UserApplyPatchRequest_Patches) isUserApplyPatchRequest_UserApplyPatchRequestPayload() {}
 
+// This comment is left unintentionally blank.
 type UserApplyPatchResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3188,6 +3214,7 @@ func (x *UserApplyPatchResponse) GetBranchUpdate() *OperationBranchUpdate {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type UserUpdateSubmoduleRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3294,6 +3321,7 @@ func (x *UserUpdateSubmoduleRequest) GetTimestamp() *timestamppb.Timestamp {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type UserUpdateSubmoduleResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

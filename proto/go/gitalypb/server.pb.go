@@ -20,6 +20,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// This comment is left unintentionally blank.
 type ServerInfoRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -58,6 +59,7 @@ func (*ServerInfoRequest) Descriptor() ([]byte, []int) {
 	return file_server_proto_rawDescGZIP(), []int{0}
 }
 
+// This comment is left unintentionally blank.
 type ServerInfoResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -121,6 +123,7 @@ func (x *ServerInfoResponse) GetStorageStatuses() []*ServerInfoResponse_StorageS
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type DiskStatisticsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -159,6 +162,7 @@ func (*DiskStatisticsRequest) Descriptor() ([]byte, []int) {
 	return file_server_proto_rawDescGZIP(), []int{2}
 }
 
+// This comment is left unintentionally blank.
 type DiskStatisticsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -206,6 +210,7 @@ func (x *DiskStatisticsResponse) GetStorageStatuses() []*DiskStatisticsResponse_
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type ClockSyncedRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -264,6 +269,7 @@ func (x *ClockSyncedRequest) GetDriftThresholdMillis() int64 {
 	return 0
 }
 
+// This comment is left unintentionally blank.
 type ClockSyncedResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -312,6 +318,7 @@ func (x *ClockSyncedResponse) GetSynced() bool {
 	return false
 }
 
+// This comment is left unintentionally blank.
 type ServerInfoResponse_StorageStatus struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -399,6 +406,7 @@ func (x *ServerInfoResponse_StorageStatus) GetReplicationFactor() uint32 {
 	return 0
 }
 
+// This comment is left unintentionally blank.
 type DiskStatisticsResponse_StorageStatus struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

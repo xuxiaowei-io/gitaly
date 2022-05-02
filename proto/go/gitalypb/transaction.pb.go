@@ -128,6 +128,7 @@ func (VoteTransactionResponse_TransactionState) EnumDescriptor() ([]byte, []int)
 	return file_transaction_proto_rawDescGZIP(), []int{1, 0}
 }
 
+// This comment is left unintentionally blank.
 type VoteTransactionRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -211,6 +212,7 @@ func (x *VoteTransactionRequest) GetPhase() VoteTransactionRequest_Phase {
 	return VoteTransactionRequest_UNKNOWN_PHASE
 }
 
+// This comment is left unintentionally blank.
 type VoteTransactionResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -258,6 +260,7 @@ func (x *VoteTransactionResponse) GetState() VoteTransactionResponse_Transaction
 	return VoteTransactionResponse_COMMIT
 }
 
+// This comment is left unintentionally blank.
 type StopTransactionRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -314,6 +317,7 @@ func (x *StopTransactionRequest) GetTransactionId() uint64 {
 	return 0
 }
 
+// This comment is left unintentionally blank.
 type StopTransactionResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

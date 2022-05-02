@@ -69,6 +69,7 @@ func (ReferenceTransactionHookRequest_State) EnumDescriptor() ([]byte, []int) {
 	return file_hook_proto_rawDescGZIP(), []int{6, 0}
 }
 
+// This comment is left unintentionally blank.
 type PreReceiveHookRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -140,6 +141,7 @@ func (x *PreReceiveHookRequest) GetGitPushOptions() []string {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type PreReceiveHookResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -203,6 +205,7 @@ func (x *PreReceiveHookResponse) GetExitStatus() *ExitStatus {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type PostReceiveHookRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -274,6 +277,7 @@ func (x *PostReceiveHookRequest) GetGitPushOptions() []string {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type PostReceiveHookResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -337,6 +341,7 @@ func (x *PostReceiveHookResponse) GetExitStatus() *ExitStatus {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type UpdateHookRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -416,6 +421,7 @@ func (x *UpdateHookRequest) GetNewValue() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type UpdateHookResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -479,6 +485,7 @@ func (x *UpdateHookResponse) GetExitStatus() *ExitStatus {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type ReferenceTransactionHookRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -550,6 +557,7 @@ func (x *ReferenceTransactionHookRequest) GetState() ReferenceTransactionHookReq
 	return ReferenceTransactionHookRequest_PREPARED
 }
 
+// This comment is left unintentionally blank.
 type ReferenceTransactionHookResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -613,6 +621,7 @@ func (x *ReferenceTransactionHookResponse) GetExitStatus() *ExitStatus {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type PackObjectsHookWithSidechannelRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -669,6 +678,7 @@ func (x *PackObjectsHookWithSidechannelRequest) GetArgs() []string {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type PackObjectsHookWithSidechannelResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

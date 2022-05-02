@@ -50,6 +50,7 @@ service HookService {
 
 }
 
+// This comment is left unintentionally blank.
 message PreReceiveHookRequest {
   Repository repository = 1 [(target_repository)=true];
   repeated string environment_variables = 2;
@@ -57,12 +58,14 @@ message PreReceiveHookRequest {
   repeated string git_push_options = 5;
 }
 
+// This comment is left unintentionally blank.
 message PreReceiveHookResponse{
   bytes stdout = 1;
   bytes stderr = 2;
   ExitStatus exit_status = 3;
 }
 
+// This comment is left unintentionally blank.
 message PostReceiveHookRequest {
   Repository repository = 1 [(target_repository)=true];
   repeated string environment_variables = 2;
@@ -70,12 +73,14 @@ message PostReceiveHookRequest {
   repeated string git_push_options = 4;
 }
 
+// This comment is left unintentionally blank.
 message PostReceiveHookResponse{
   bytes stdout = 1;
   bytes stderr = 2;
   ExitStatus exit_status = 3;
 }
 
+// This comment is left unintentionally blank.
 message UpdateHookRequest {
   Repository repository = 1 [(target_repository)=true];
   repeated string environment_variables = 2;
@@ -84,12 +89,14 @@ message UpdateHookRequest {
   string new_value = 5;
 }
 
+// This comment is left unintentionally blank.
 message UpdateHookResponse{
   bytes stdout = 1;
   bytes stderr = 2;
   ExitStatus exit_status = 3;
 }
 
+// This comment is left unintentionally blank.
 message ReferenceTransactionHookRequest {
   Repository repository = 1 [(target_repository)=true];
   repeated string environment_variables = 2;
@@ -102,17 +109,20 @@ message ReferenceTransactionHookRequest {
   State state = 4;
 }
 
+// This comment is left unintentionally blank.
 message ReferenceTransactionHookResponse {
   bytes stdout = 1;
   bytes stderr = 2;
   ExitStatus exit_status = 3;
 }
 
+// This comment is left unintentionally blank.
 message PackObjectsHookWithSidechannelRequest {
   Repository repository = 1 [(target_repository)=true];
   // args contains the arguments passed to the pack-objects hook, without the leading "git"
   repeated string args = 2;
 }
 
+// This comment is left unintentionally blank.
 message PackObjectsHookWithSidechannelResponse {
 }

@@ -75,8 +75,8 @@ service BlobService {
 
 }
 
+// This comment is left unintentionally blank.
 message GetBlobRequest {
-
   Repository repository = 1[(target_repository)=true];
   // Object ID (SHA1) of the blob we want to get
   string oid = 2;
@@ -84,6 +84,7 @@ message GetBlobRequest {
   int64 limit = 3;
 }
 
+// This comment is left unintentionally blank.
 message GetBlobResponse {
   // Blob size; present only in first response message
   int64 size = 1;
@@ -93,8 +94,9 @@ message GetBlobResponse {
   string oid = 3;
 }
 
+// This comment is left unintentionally blank.
 message GetBlobsRequest {
-
+  // This comment is left unintentionally blank.
   message RevisionPath {
     string revision = 1;
     bytes path = 2;
@@ -107,6 +109,7 @@ message GetBlobsRequest {
   int64 limit = 3;
 }
 
+// This comment is left unintentionally blank.
 message GetBlobsResponse {
   // Blob size; present only on the first message per blob
   int64 size = 1;
@@ -217,6 +220,7 @@ message LFSPointer {
   string oid = 3;
 }
 
+// This comment is left unintentionally blank.
 message NewBlobObject {
   int64 size = 1;
   string oid = 2;

@@ -73,6 +73,7 @@ message MarkUnverifiedResponse {
 
 // GetRepositoryMetadataRequest specifies the repository to retrieve metadata for.
 message GetRepositoryMetadataRequest {
+  // This comment is left unintentionally blank.
   message Path {
     // virtual_storage is the virtual storage where the repository is.
     string virtual_storage = 1;
@@ -90,6 +91,7 @@ message GetRepositoryMetadataRequest {
 
 // GeRepositoryMetadataResponse contains the repository's cluster metadata.
 message GetRepositoryMetadataResponse {
+  // This comment is left unintentionally blank.
   message Replica {
     // storage is the name of the replica's storage.
     string storage = 1;
@@ -138,15 +140,18 @@ message SetReplicationFactorResponse {
   repeated string storages = 1;
 }
 
+// This comment is left unintentionally blank.
 message SetAuthoritativeStorageRequest {
   string virtual_storage = 1;
   string relative_path = 2;
   string authoritative_storage = 3;
 }
 
+// This comment is left unintentionally blank.
 message SetAuthoritativeStorageResponse {
 }
 
+// This comment is left unintentionally blank.
 message DatalossCheckRequest {
   string virtual_storage = 1;
   // include_partially_unavailable indicates whether to include repositories which are available but
@@ -154,8 +159,11 @@ message DatalossCheckRequest {
   bool include_partially_replicated = 2;
 }
 
+// This comment is left unintentionally blank.
 message DatalossCheckResponse {
+  // This comment is left unintentionally blank.
   message Repository {
+    // This comment is left unintentionally blank.
     message Storage {
       // name of the storage
       string name = 1;
@@ -184,11 +192,14 @@ message DatalossCheckResponse {
   repeated Repository repositories = 2;
 }
 
+// This comment is left unintentionally blank.
 message RepositoryReplicasRequest{
   Repository repository = 1;
 }
 
+// This comment is left unintentionally blank.
 message RepositoryReplicasResponse{
+  // This comment is left unintentionally blank.
   message RepositoryDetails {
     Repository repository = 1;
     string checksum = 2;

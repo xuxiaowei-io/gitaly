@@ -50,6 +50,7 @@ service SmartHTTPService {
   }
 }
 
+// This comment is left unintentionally blank.
 message InfoRefsRequest {
   Repository repository = 1 [(target_repository)=true];
   // Parameters to use with git -c (key=value pairs)
@@ -59,10 +60,12 @@ message InfoRefsRequest {
   string git_protocol = 3;
 }
 
+// This comment is left unintentionally blank.
 message InfoRefsResponse {
   bytes data = 1;
 }
 
+// This comment is left unintentionally blank.
 message PostUploadPackRequest {
   // repository should only be present in the first message of the stream
   Repository repository = 1 [(target_repository)=true];
@@ -75,11 +78,13 @@ message PostUploadPackRequest {
   string git_protocol = 4;
 }
 
+// This comment is left unintentionally blank.
 message PostUploadPackResponse {
   // Raw data from stdout of 'git upload-pack'
   bytes data = 1;
 }
 
+// This comment is left unintentionally blank.
 message PostUploadPackWithSidechannelRequest {
   // repository should only be present in the first message of the stream
   Repository repository = 1 [(target_repository)=true];
@@ -89,9 +94,11 @@ message PostUploadPackWithSidechannelRequest {
   string git_protocol = 3;
 }
 
+// This comment is left unintentionally blank.
 message PostUploadPackWithSidechannelResponse {
 }
 
+// This comment is left unintentionally blank.
 message PostReceivePackRequest {
   // repository should only be present in the first message of the stream
   Repository repository = 1 [(target_repository)=true];
@@ -109,6 +116,7 @@ message PostReceivePackRequest {
   repeated string git_config_options = 7;
 }
 
+// This comment is left unintentionally blank.
 message PostReceivePackResponse {
   // Raw data from stdout of 'git receive-pack'
   bytes data = 1;

@@ -20,6 +20,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// This comment is left unintentionally blank.
 type AddNamespaceRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -75,6 +76,7 @@ func (x *AddNamespaceRequest) GetName() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type RemoveNamespaceRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -130,6 +132,7 @@ func (x *RemoveNamespaceRequest) GetName() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type RenameNamespaceRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -193,6 +196,7 @@ func (x *RenameNamespaceRequest) GetTo() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type NamespaceExistsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -248,6 +252,7 @@ func (x *NamespaceExistsRequest) GetName() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type NamespaceExistsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -295,6 +300,7 @@ func (x *NamespaceExistsResponse) GetExists() bool {
 	return false
 }
 
+// This comment is left unintentionally blank.
 type AddNamespaceResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -333,6 +339,7 @@ func (*AddNamespaceResponse) Descriptor() ([]byte, []int) {
 	return file_namespace_proto_rawDescGZIP(), []int{5}
 }
 
+// This comment is left unintentionally blank.
 type RemoveNamespaceResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -371,6 +378,7 @@ func (*RemoveNamespaceResponse) Descriptor() ([]byte, []int) {
 	return file_namespace_proto_rawDescGZIP(), []int{6}
 }
 
+// This comment is left unintentionally blank.
 type RenameNamespaceResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

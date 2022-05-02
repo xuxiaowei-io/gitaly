@@ -31,6 +31,7 @@ service ConflictsService {
 
 }
 
+// This comment is left unintentionally blank.
 message ListConflictFilesRequest {
   Repository repository = 1 [(target_repository)=true];
   string our_commit_oid = 2;
@@ -41,6 +42,7 @@ message ListConflictFilesRequest {
   bool allow_tree_conflicts = 4;
 }
 
+// This comment is left unintentionally blank.
 message ConflictFileHeader {
   reserved 1;
   string commit_oid = 2;
@@ -50,6 +52,7 @@ message ConflictFileHeader {
   bytes ancestor_path = 6;
 }
 
+// This comment is left unintentionally blank.
 message ConflictFile {
   oneof conflict_file_payload {
     ConflictFileHeader header = 1;
@@ -57,6 +60,7 @@ message ConflictFile {
   }
 }
 
+// This comment is left unintentionally blank.
 message ListConflictFilesResponse {
   repeated ConflictFile files = 1;
 }

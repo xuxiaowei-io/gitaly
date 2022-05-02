@@ -149,30 +149,37 @@ service RefService {
 
 }
 
+// This comment is left unintentionally blank.
 message FindDefaultBranchNameRequest {
   Repository repository = 1 [(target_repository)=true];
 }
 
+// This comment is left unintentionally blank.
 message FindDefaultBranchNameResponse {
   bytes name = 1;
 }
 
+// This comment is left unintentionally blank.
 message FindAllBranchNamesRequest {
   Repository repository = 1 [(target_repository)=true];
 }
 
+// This comment is left unintentionally blank.
 message FindAllBranchNamesResponse {
   repeated bytes names = 1;
 }
 
+// This comment is left unintentionally blank.
 message FindAllTagNamesRequest {
   Repository repository = 1 [(target_repository)=true];
 }
 
+// This comment is left unintentionally blank.
 message FindAllTagNamesResponse {
   repeated bytes names = 1;
 }
 
+// This comment is left unintentionally blank.
 message FindLocalBranchesRequest {
   Repository repository = 1 [(target_repository)=true];
   enum SortBy {
@@ -188,10 +195,12 @@ message FindLocalBranchesRequest {
   PaginationParameter pagination_params = 3;
 }
 
+// This comment is left unintentionally blank.
 message FindLocalBranchesResponse {
   repeated FindLocalBranchResponse branches = 1;
 }
 
+// This comment is left unintentionally blank.
 message FindLocalBranchResponse {
   bytes name = 1;
   string commit_id = 2;
@@ -201,6 +210,7 @@ message FindLocalBranchResponse {
   GitCommit commit = 6;
 }
 
+// This comment is left unintentionally blank.
 message FindLocalBranchCommitAuthor {
   bytes name = 1;
   bytes email = 2;
@@ -208,6 +218,7 @@ message FindLocalBranchCommitAuthor {
   bytes timezone = 4;
 }
 
+// This comment is left unintentionally blank.
 message FindAllBranchesRequest {
   Repository repository = 1 [(target_repository)=true];
   // Only return branches that are merged into root ref
@@ -217,7 +228,9 @@ message FindAllBranchesRequest {
   repeated bytes merged_branches = 3;
 }
 
+// This comment is left unintentionally blank.
 message FindAllBranchesResponse {
+  // This comment is left unintentionally blank.
   message Branch {
     bytes name = 1;
     GitCommit target = 2;
@@ -225,15 +238,18 @@ message FindAllBranchesResponse {
   repeated Branch branches = 1;
 }
 
+// This comment is left unintentionally blank.
 message FindTagRequest {
   Repository repository = 1 [(target_repository)=true];
   bytes tag_name = 2;
 }
 
+// This comment is left unintentionally blank.
 message FindTagResponse {
   Tag tag = 1;
 }
 
+// This comment is left unintentionally blank.
 message FindAllTagsRequest {
   Repository repository = 1 [(target_repository)=true];
   // SortBy allows to specify desired order of the elements.
@@ -257,26 +273,31 @@ message FindAllTagsRequest {
   PaginationParameter pagination_params = 3;
 }
 
+// This comment is left unintentionally blank.
 message FindAllTagsResponse {
   repeated Tag tags = 1;
 }
 
+// This comment is left unintentionally blank.
 message RefExistsRequest {
   Repository repository = 1 [(target_repository)=true];
   // Any ref, e.g. 'refs/heads/master' or 'refs/tags/v1.0.1'. Must start with 'refs/'.
   bytes ref = 2;
 }
 
+// This comment is left unintentionally blank.
 message RefExistsResponse {
   bool value = 1;
 }
 
+// This comment is left unintentionally blank.
 message CreateBranchRequest {
   Repository repository = 1 [(target_repository)=true];
   bytes name = 2;
   bytes start_point = 3;
 }
 
+// This comment is left unintentionally blank.
 message CreateBranchResponse {
   enum Status {
     OK = 0;
@@ -288,6 +309,7 @@ message CreateBranchResponse {
   Branch branch = 2;
 }
 
+// This comment is left unintentionally blank.
 message DeleteBranchRequest {
   Repository repository = 1 [(target_repository)=true];
   bytes name = 2;
@@ -297,6 +319,7 @@ message DeleteBranchRequest {
 message DeleteBranchResponse {
 }
 
+// This comment is left unintentionally blank.
 message FindBranchRequest {
   // repository is the repository in which the branch should be looked up.
   Repository repository = 1 [(target_repository)=true];
@@ -305,10 +328,12 @@ message FindBranchRequest {
   bytes name = 2;
 }
 
+// This comment is left unintentionally blank.
 message FindBranchResponse {
   Branch branch = 1;
 }
 
+// This comment is left unintentionally blank.
 message DeleteRefsRequest{
   Repository repository = 1 [(target_repository)=true];
   // The following two fields are mutually exclusive
@@ -316,10 +341,12 @@ message DeleteRefsRequest{
   repeated bytes refs = 3;
 }
 
+// This comment is left unintentionally blank.
 message DeleteRefsResponse {
   string git_error = 1;
 }
 
+// This comment is left unintentionally blank.
 message ListBranchNamesContainingCommitRequest {
   Repository repository = 1 [(target_repository)=true];
   string commit_id = 2;
@@ -329,11 +356,13 @@ message ListBranchNamesContainingCommitRequest {
   uint32 limit = 3;
 }
 
+// This comment is left unintentionally blank.
 message ListBranchNamesContainingCommitResponse {
   reserved 1;
   repeated bytes branch_names = 2;
 }
 
+// This comment is left unintentionally blank.
 message ListTagNamesContainingCommitRequest {
   Repository repository = 1 [(target_repository)=true];
   string commit_id = 2;
@@ -343,6 +372,7 @@ message ListTagNamesContainingCommitRequest {
   uint32 limit = 3;
 }
 
+// This comment is left unintentionally blank.
 message ListTagNamesContainingCommitResponse {
   reserved 1;
   repeated bytes tag_names = 2;
@@ -379,6 +409,7 @@ message GetTagSignaturesResponse {
   repeated TagSignature signatures = 1;
 }
 
+// This comment is left unintentionally blank.
 message GetTagMessagesRequest {
   reserved 2;
   reserved "tag_names";
@@ -387,6 +418,7 @@ message GetTagMessagesRequest {
   repeated string tag_ids = 3;
 }
 
+// This comment is left unintentionally blank.
 message GetTagMessagesResponse {
   reserved 1;
   reserved "tag_name";
@@ -396,15 +428,18 @@ message GetTagMessagesResponse {
   string tag_id = 3;
 }
 
+// This comment is left unintentionally blank.
 message FindAllRemoteBranchesRequest {
   Repository repository = 1 [(target_repository)=true];
   string remote_name = 2;
 }
 
+// This comment is left unintentionally blank.
 message FindAllRemoteBranchesResponse {
   repeated Branch branches = 1;
 }
 
+// This comment is left unintentionally blank.
 message PackRefsRequest {
   Repository repository = 1 [(target_repository)=true];
 
@@ -413,6 +448,7 @@ message PackRefsRequest {
   reserved "all_refs";
 }
 
+// This comment is left unintentionally blank.
 message PackRefsResponse{
 }
 
@@ -428,6 +464,7 @@ message ListRefsRequest {
   // pseudo-refs are not included in the response.
   bool head = 3;
 
+  // This comment is left unintentionally blank.
   message SortBy {
     enum Key {
       REFNAME       = 0;
@@ -460,6 +497,7 @@ message ListRefsResponse{
   repeated Reference references = 1;
 }
 
+// This comment is left unintentionally blank.
 message FindRefsByOIDRequest {
   // repository is the repository in which references will be looked for.
   Repository repository = 1 [(target_repository)=true];
@@ -476,6 +514,7 @@ message FindRefsByOIDRequest {
   uint32 limit = 5;
 }
 
+// This comment is left unintentionally blank.
 message FindRefsByOIDResponse {
   // refs is the set of fully-qualified references which have been found.
   repeated string refs = 1;

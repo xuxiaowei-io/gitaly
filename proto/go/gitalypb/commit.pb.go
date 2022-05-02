@@ -631,6 +631,7 @@ func (x *ListAllCommitsResponse) GetCommits() []*GitCommit {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type CommitStatsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -686,6 +687,7 @@ func (x *CommitStatsRequest) GetRevision() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type CommitStatsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -750,6 +752,7 @@ func (x *CommitStatsResponse) GetDeletions() int32 {
 	return 0
 }
 
+// This comment is left unintentionally blank.
 type CommitIsAncestorRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -813,6 +816,7 @@ func (x *CommitIsAncestorRequest) GetChildId() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type CommitIsAncestorResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -860,6 +864,7 @@ func (x *CommitIsAncestorResponse) GetValue() bool {
 	return false
 }
 
+// This comment is left unintentionally blank.
 type TreeEntryRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -945,6 +950,7 @@ func (x *TreeEntryRequest) GetMaxSize() int64 {
 	return 0
 }
 
+// This comment is left unintentionally blank.
 type TreeEntryResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1027,6 +1033,7 @@ func (x *TreeEntryResponse) GetData() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type CountCommitsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1139,6 +1146,7 @@ func (x *CountCommitsRequest) GetGlobalOptions() *GlobalOptions {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type CountCommitsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1186,6 +1194,7 @@ func (x *CountCommitsResponse) GetCount() int32 {
 	return 0
 }
 
+// This comment is left unintentionally blank.
 type CountDivergingCommitsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1257,6 +1266,7 @@ func (x *CountDivergingCommitsRequest) GetMaxCount() int32 {
 	return 0
 }
 
+// This comment is left unintentionally blank.
 type CountDivergingCommitsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1312,6 +1322,7 @@ func (x *CountDivergingCommitsResponse) GetRightCount() int32 {
 	return 0
 }
 
+// This comment is left unintentionally blank.
 type TreeEntry struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1413,6 +1424,7 @@ func (x *TreeEntry) GetFlatPath() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type GetTreeEntriesRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1502,6 +1514,7 @@ func (x *GetTreeEntriesRequest) GetPaginationParams() *PaginationParameter {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type GetTreeEntriesResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1557,6 +1570,7 @@ func (x *GetTreeEntriesResponse) GetPaginationCursor() *PaginationCursor {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type ListFilesRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1661,6 +1675,7 @@ func (x *ListFilesResponse) GetPaths() [][]byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type FindCommitRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1724,6 +1739,7 @@ func (x *FindCommitRequest) GetTrailers() bool {
 	return false
 }
 
+// This comment is left unintentionally blank.
 type FindCommitResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1772,6 +1788,7 @@ func (x *FindCommitResponse) GetCommit() *GitCommit {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type ListCommitsByOidRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1827,6 +1844,7 @@ func (x *ListCommitsByOidRequest) GetOid() []string {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type ListCommitsByOidResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1874,6 +1892,7 @@ func (x *ListCommitsByOidResponse) GetCommits() []*GitCommit {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type ListCommitsByRefNameRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1929,6 +1948,7 @@ func (x *ListCommitsByRefNameRequest) GetRefNames() [][]byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type ListCommitsByRefNameResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1976,6 +1996,7 @@ func (x *ListCommitsByRefNameResponse) GetCommitRefs() []*ListCommitsByRefNameRe
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type FindAllCommitsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2104,6 +2125,7 @@ func (x *FindAllCommitsResponse) GetCommits() []*GitCommit {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type FindCommitsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2320,6 +2342,7 @@ func (x *FindCommitsResponse) GetCommits() []*GitCommit {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type CommitLanguagesRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2375,6 +2398,7 @@ func (x *CommitLanguagesRequest) GetRevision() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type CommitLanguagesResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2422,6 +2446,7 @@ func (x *CommitLanguagesResponse) GetLanguages() []*CommitLanguagesResponse_Lang
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type RawBlameRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2495,6 +2520,7 @@ func (x *RawBlameRequest) GetRange() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type RawBlameResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2542,6 +2568,7 @@ func (x *RawBlameResponse) GetData() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type LastCommitForPathRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2621,6 +2648,7 @@ func (x *LastCommitForPathRequest) GetGlobalOptions() *GlobalOptions {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type LastCommitForPathResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2669,6 +2697,7 @@ func (x *LastCommitForPathResponse) GetCommit() *GitCommit {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type ListLastCommitsForTreeRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2766,6 +2795,7 @@ func (x *ListLastCommitsForTreeRequest) GetGlobalOptions() *GlobalOptions {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type ListLastCommitsForTreeResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2813,6 +2843,7 @@ func (x *ListLastCommitsForTreeResponse) GetCommits() []*ListLastCommitsForTreeR
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type CommitsByMessageRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2956,6 +2987,7 @@ func (x *CommitsByMessageResponse) GetCommits() []*GitCommit {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type FilterShasWithSignaturesRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3011,6 +3043,7 @@ func (x *FilterShasWithSignaturesRequest) GetShas() [][]byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type FilterShasWithSignaturesResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3058,6 +3091,7 @@ func (x *FilterShasWithSignaturesResponse) GetShas() [][]byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type ExtractCommitSignatureRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3170,6 +3204,7 @@ func (x *ExtractCommitSignatureResponse) GetSignedText() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type GetCommitSignaturesRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3225,6 +3260,7 @@ func (x *GetCommitSignaturesRequest) GetCommitIds() []string {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type GetCommitSignaturesResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3290,6 +3326,7 @@ func (x *GetCommitSignaturesResponse) GetSignedText() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type GetCommitMessagesRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3345,6 +3382,7 @@ func (x *GetCommitMessagesRequest) GetCommitIds() []string {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type GetCommitMessagesResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3463,6 +3501,7 @@ func (x *CheckObjectsExistRequest) GetRevisions() [][]byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type CheckObjectsExistResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3510,6 +3549,7 @@ func (x *CheckObjectsExistResponse) GetRevisions() []*CheckObjectsExistResponse_
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type ListCommitsByRefNameResponse_CommitForRef struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3565,6 +3605,7 @@ func (x *ListCommitsByRefNameResponse_CommitForRef) GetRefName() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type CommitLanguagesResponse_Language struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3644,6 +3685,7 @@ func (x *CommitLanguagesResponse_Language) GetBytes() uint64 {
 	return 0
 }
 
+// This comment is left unintentionally blank.
 type ListLastCommitsForTreeResponse_CommitForTree struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3699,6 +3741,7 @@ func (x *ListLastCommitsForTreeResponse_CommitForTree) GetPathBytes() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type CheckObjectsExistResponse_RevisionExistence struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

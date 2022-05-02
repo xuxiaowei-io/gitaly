@@ -177,6 +177,7 @@ func (SortDirection) EnumDescriptor() ([]byte, []int) {
 	return file_shared_proto_rawDescGZIP(), []int{2}
 }
 
+// This comment is left unintentionally blank.
 type Repository struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -465,6 +466,7 @@ func (x *GitCommit) GetTrailers() []*CommitTrailer {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type CommitAuthor struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -536,6 +538,7 @@ func (x *CommitAuthor) GetTimezone() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type ExitStatus struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -639,6 +642,7 @@ func (x *Branch) GetTargetCommit() *GitCommit {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type Tag struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -737,6 +741,7 @@ func (x *Tag) GetSignatureType() SignatureType {
 	return SignatureType_NONE
 }
 
+// This comment is left unintentionally blank.
 type User struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -818,6 +823,7 @@ func (x *User) GetTimezone() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type ObjectPool struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -865,6 +871,7 @@ func (x *ObjectPool) GetRepository() *Repository {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type PaginationParameter struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -931,6 +938,7 @@ func (x *PaginationParameter) GetLimit() int32 {
 	return 0
 }
 
+// This comment is left unintentionally blank.
 type PaginationCursor struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

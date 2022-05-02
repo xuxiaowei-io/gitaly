@@ -179,6 +179,7 @@ func (GetRawChangesResponse_RawChange_Operation) EnumDescriptor() ([]byte, []int
 	return file_repository_proto_rawDescGZIP(), []int{63, 0, 0}
 }
 
+// This comment is left unintentionally blank.
 type RepositoryExistsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -226,6 +227,7 @@ func (x *RepositoryExistsRequest) GetRepository() *Repository {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type RepositoryExistsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -273,6 +275,7 @@ func (x *RepositoryExistsResponse) GetExists() bool {
 	return false
 }
 
+// This comment is left unintentionally blank.
 type RepackIncrementalRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -320,6 +323,7 @@ func (x *RepackIncrementalRequest) GetRepository() *Repository {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type RepackIncrementalResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -358,6 +362,7 @@ func (*RepackIncrementalResponse) Descriptor() ([]byte, []int) {
 	return file_repository_proto_rawDescGZIP(), []int{3}
 }
 
+// This comment is left unintentionally blank.
 type RepackFullRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -413,6 +418,7 @@ func (x *RepackFullRequest) GetCreateBitmap() bool {
 	return false
 }
 
+// This comment is left unintentionally blank.
 type RepackFullResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -451,6 +457,7 @@ func (*RepackFullResponse) Descriptor() ([]byte, []int) {
 	return file_repository_proto_rawDescGZIP(), []int{5}
 }
 
+// This comment is left unintentionally blank.
 type MidxRepackRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -498,6 +505,7 @@ func (x *MidxRepackRequest) GetRepository() *Repository {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type MidxRepackResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -536,6 +544,7 @@ func (*MidxRepackResponse) Descriptor() ([]byte, []int) {
 	return file_repository_proto_rawDescGZIP(), []int{7}
 }
 
+// This comment is left unintentionally blank.
 type GarbageCollectRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -604,6 +613,7 @@ func (x *GarbageCollectRequest) GetPrune() bool {
 	return false
 }
 
+// This comment is left unintentionally blank.
 type GarbageCollectResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -642,6 +652,7 @@ func (*GarbageCollectResponse) Descriptor() ([]byte, []int) {
 	return file_repository_proto_rawDescGZIP(), []int{9}
 }
 
+// This comment is left unintentionally blank.
 type WriteCommitGraphRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -698,6 +709,7 @@ func (x *WriteCommitGraphRequest) GetSplitStrategy() WriteCommitGraphRequest_Spl
 	return WriteCommitGraphRequest_SizeMultiple
 }
 
+// This comment is left unintentionally blank.
 type WriteCommitGraphResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -736,6 +748,7 @@ func (*WriteCommitGraphResponse) Descriptor() ([]byte, []int) {
 	return file_repository_proto_rawDescGZIP(), []int{11}
 }
 
+// This comment is left unintentionally blank.
 type CleanupRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -783,6 +796,7 @@ func (x *CleanupRequest) GetRepository() *Repository {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type CleanupResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -821,6 +835,7 @@ func (*CleanupResponse) Descriptor() ([]byte, []int) {
 	return file_repository_proto_rawDescGZIP(), []int{13}
 }
 
+// This comment is left unintentionally blank.
 type RepositorySizeRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -868,6 +883,7 @@ func (x *RepositorySizeRequest) GetRepository() *Repository {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type RepositorySizeResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -916,6 +932,7 @@ func (x *RepositorySizeResponse) GetSize() int64 {
 	return 0
 }
 
+// This comment is left unintentionally blank.
 type ApplyGitattributesRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -971,6 +988,7 @@ func (x *ApplyGitattributesRequest) GetRevision() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type ApplyGitattributesResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1009,6 +1027,7 @@ func (*ApplyGitattributesResponse) Descriptor() ([]byte, []int) {
 	return file_repository_proto_rawDescGZIP(), []int{17}
 }
 
+// This comment is left unintentionally blank.
 type FetchBundleRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1075,6 +1094,7 @@ func (x *FetchBundleRequest) GetUpdateHead() bool {
 	return false
 }
 
+// This comment is left unintentionally blank.
 type FetchBundleResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1113,6 +1133,7 @@ func (*FetchBundleResponse) Descriptor() ([]byte, []int) {
 	return file_repository_proto_rawDescGZIP(), []int{19}
 }
 
+// This comment is left unintentionally blank.
 type FetchRemoteRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1235,6 +1256,7 @@ func (x *FetchRemoteRequest) GetCheckTagsChanged() bool {
 	return false
 }
 
+// This comment is left unintentionally blank.
 type FetchRemoteResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1285,6 +1307,7 @@ func (x *FetchRemoteResponse) GetTagsChanged() bool {
 	return false
 }
 
+// This comment is left unintentionally blank.
 type CreateRepositoryRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1343,6 +1366,7 @@ func (x *CreateRepositoryRequest) GetDefaultBranch() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type CreateRepositoryResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1381,6 +1405,7 @@ func (*CreateRepositoryResponse) Descriptor() ([]byte, []int) {
 	return file_repository_proto_rawDescGZIP(), []int{23}
 }
 
+// This comment is left unintentionally blank.
 type GetArchiveRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1490,6 +1515,7 @@ func (x *GetArchiveRequest) GetIncludeLfsBlobs() bool {
 	return false
 }
 
+// This comment is left unintentionally blank.
 type GetArchiveResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1537,6 +1563,7 @@ func (x *GetArchiveResponse) GetData() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type HasLocalBranchesRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1584,6 +1611,7 @@ func (x *HasLocalBranchesRequest) GetRepository() *Repository {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type HasLocalBranchesResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1631,6 +1659,7 @@ func (x *HasLocalBranchesResponse) GetValue() bool {
 	return false
 }
 
+// This comment is left unintentionally blank.
 type FetchSourceBranchRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1709,6 +1738,7 @@ func (x *FetchSourceBranchRequest) GetTargetRef() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type FetchSourceBranchResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1758,6 +1788,7 @@ func (x *FetchSourceBranchResponse) GetResult() bool {
 	return false
 }
 
+// This comment is left unintentionally blank.
 type FsckRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1805,6 +1836,7 @@ func (x *FsckRequest) GetRepository() *Repository {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type FsckResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1852,6 +1884,7 @@ func (x *FsckResponse) GetError() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type WriteRefRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1931,6 +1964,7 @@ func (x *WriteRefRequest) GetForce() bool {
 	return false
 }
 
+// This comment is left unintentionally blank.
 type WriteRefResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1969,6 +2003,7 @@ func (*WriteRefResponse) Descriptor() ([]byte, []int) {
 	return file_repository_proto_rawDescGZIP(), []int{33}
 }
 
+// This comment is left unintentionally blank.
 type FindMergeBaseRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2027,6 +2062,7 @@ func (x *FindMergeBaseRequest) GetRevisions() [][]byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type FindMergeBaseResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2074,6 +2110,7 @@ func (x *FindMergeBaseResponse) GetBase() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type CreateForkRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2129,6 +2166,7 @@ func (x *CreateForkRequest) GetSourceRepository() *Repository {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type CreateForkResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2167,6 +2205,7 @@ func (*CreateForkResponse) Descriptor() ([]byte, []int) {
 	return file_repository_proto_rawDescGZIP(), []int{37}
 }
 
+// This comment is left unintentionally blank.
 type CreateRepositoryFromURLRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2256,6 +2295,7 @@ func (x *CreateRepositoryFromURLRequest) GetMirror() bool {
 	return false
 }
 
+// This comment is left unintentionally blank.
 type CreateRepositoryFromURLResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2294,6 +2334,7 @@ func (*CreateRepositoryFromURLResponse) Descriptor() ([]byte, []int) {
 	return file_repository_proto_rawDescGZIP(), []int{39}
 }
 
+// This comment is left unintentionally blank.
 type CreateBundleRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2341,6 +2382,7 @@ func (x *CreateBundleRequest) GetRepository() *Repository {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type CreateBundleResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2388,6 +2430,7 @@ func (x *CreateBundleResponse) GetData() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type CreateBundleFromRefListRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2447,6 +2490,7 @@ func (x *CreateBundleFromRefListRequest) GetPatterns() [][]byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type CreateBundleFromRefListResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2593,6 +2637,7 @@ func (x *GetConfigResponse) GetData() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type RestoreCustomHooksRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2648,6 +2693,7 @@ func (x *RestoreCustomHooksRequest) GetData() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type RestoreCustomHooksResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2686,6 +2732,7 @@ func (*RestoreCustomHooksResponse) Descriptor() ([]byte, []int) {
 	return file_repository_proto_rawDescGZIP(), []int{47}
 }
 
+// This comment is left unintentionally blank.
 type BackupCustomHooksRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2733,6 +2780,7 @@ func (x *BackupCustomHooksRequest) GetRepository() *Repository {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type BackupCustomHooksResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2780,6 +2828,7 @@ func (x *BackupCustomHooksResponse) GetData() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type CreateRepositoryFromBundleRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2836,6 +2885,7 @@ func (x *CreateRepositoryFromBundleRequest) GetData() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type CreateRepositoryFromBundleResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2874,6 +2924,7 @@ func (*CreateRepositoryFromBundleResponse) Descriptor() ([]byte, []int) {
 	return file_repository_proto_rawDescGZIP(), []int{51}
 }
 
+// This comment is left unintentionally blank.
 type FindLicenseRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2921,6 +2972,7 @@ func (x *FindLicenseRequest) GetRepository() *Repository {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type FindLicenseResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2968,6 +3020,7 @@ func (x *FindLicenseResponse) GetLicenseShortName() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type GetInfoAttributesRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3015,6 +3068,7 @@ func (x *GetInfoAttributesRequest) GetRepository() *Repository {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type GetInfoAttributesResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3062,6 +3116,7 @@ func (x *GetInfoAttributesResponse) GetAttributes() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type CalculateChecksumRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3109,6 +3164,7 @@ func (x *CalculateChecksumRequest) GetRepository() *Repository {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type CalculateChecksumResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3156,6 +3212,7 @@ func (x *CalculateChecksumResponse) GetChecksum() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type GetSnapshotRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3203,6 +3260,7 @@ func (x *GetSnapshotRequest) GetRepository() *Repository {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type GetSnapshotResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3250,6 +3308,7 @@ func (x *GetSnapshotResponse) GetData() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type CreateRepositoryFromSnapshotRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3324,6 +3383,7 @@ func (x *CreateRepositoryFromSnapshotRequest) GetHttpHost() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type CreateRepositoryFromSnapshotResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3362,6 +3422,7 @@ func (*CreateRepositoryFromSnapshotResponse) Descriptor() ([]byte, []int) {
 	return file_repository_proto_rawDescGZIP(), []int{61}
 }
 
+// This comment is left unintentionally blank.
 type GetRawChangesRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3425,6 +3486,7 @@ func (x *GetRawChangesRequest) GetToRevision() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type GetRawChangesResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3472,6 +3534,7 @@ func (x *GetRawChangesResponse) GetRawChanges() []*GetRawChangesResponse_RawChan
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type SearchFilesByNameRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3548,6 +3611,7 @@ func (x *SearchFilesByNameRequest) GetFilter() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type SearchFilesByNameResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3595,6 +3659,7 @@ func (x *SearchFilesByNameResponse) GetFiles() [][]byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type SearchFilesByContentRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3666,6 +3731,7 @@ func (x *SearchFilesByContentRequest) GetChunkedResponse() bool {
 	return false
 }
 
+// This comment is left unintentionally blank.
 type SearchFilesByContentResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3818,6 +3884,7 @@ func (x *Remote) GetHttpHost() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type GetObjectDirectorySizeRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3865,6 +3932,7 @@ func (x *GetObjectDirectorySizeRequest) GetRepository() *Repository {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type GetObjectDirectorySizeResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3913,6 +3981,7 @@ func (x *GetObjectDirectorySizeResponse) GetSize() int64 {
 	return 0
 }
 
+// This comment is left unintentionally blank.
 type RemoveRepositoryRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3960,6 +4029,7 @@ func (x *RemoveRepositoryRequest) GetRepository() *Repository {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type RemoveRepositoryResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3998,6 +4068,7 @@ func (*RemoveRepositoryResponse) Descriptor() ([]byte, []int) {
 	return file_repository_proto_rawDescGZIP(), []int{72}
 }
 
+// This comment is left unintentionally blank.
 type RenameRepositoryRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -4053,6 +4124,7 @@ func (x *RenameRepositoryRequest) GetRelativePath() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type RenameRepositoryResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -4091,6 +4163,7 @@ func (*RenameRepositoryResponse) Descriptor() ([]byte, []int) {
 	return file_repository_proto_rawDescGZIP(), []int{74}
 }
 
+// This comment is left unintentionally blank.
 type ReplicateRepositoryRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -4146,6 +4219,7 @@ func (x *ReplicateRepositoryRequest) GetSource() *Repository {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type ReplicateRepositoryResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -4184,6 +4258,7 @@ func (*ReplicateRepositoryResponse) Descriptor() ([]byte, []int) {
 	return file_repository_proto_rawDescGZIP(), []int{76}
 }
 
+// This comment is left unintentionally blank.
 type OptimizeRepositoryRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -4231,6 +4306,7 @@ func (x *OptimizeRepositoryRequest) GetRepository() *Repository {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type OptimizeRepositoryResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -4455,6 +4531,7 @@ func (*SetFullPathResponse) Descriptor() ([]byte, []int) {
 	return file_repository_proto_rawDescGZIP(), []int{82}
 }
 
+// This comment is left unintentionally blank.
 type GetRawChangesResponse_RawChange struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

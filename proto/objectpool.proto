@@ -70,6 +70,8 @@ message CreateObjectPoolRequest {
   ObjectPool object_pool = 1 [(target_repository)=true];
   Repository origin = 2 [(additional_repository)=true];
 }
+
+// This comment is left unintentionally blank.
 message CreateObjectPoolResponse {
 }
 
@@ -78,41 +80,56 @@ message CreateObjectPoolResponse {
 message DeleteObjectPoolRequest {
   ObjectPool object_pool = 1 [(target_repository)=true];
 }
+
+// This comment is left unintentionally blank.
 message DeleteObjectPoolResponse {
 }
 
+// This comment is left unintentionally blank.
 message LinkRepositoryToObjectPoolRequest {
   ObjectPool object_pool = 1 [(additional_repository)=true];
   Repository repository = 2 [(target_repository)=true];
 }
+
+// This comment is left unintentionally blank.
 message LinkRepositoryToObjectPoolResponse {
 }
 
+// This comment is left unintentionally blank.
 message ReduplicateRepositoryRequest {
   Repository repository = 1 [(target_repository)=true];
 }
+
+// This comment is left unintentionally blank.
 message ReduplicateRepositoryResponse {
 }
 
+// This comment is left unintentionally blank.
 message DisconnectGitAlternatesRequest {
   Repository repository = 1  [(target_repository)=true];
 }
 
+// This comment is left unintentionally blank.
 message DisconnectGitAlternatesResponse {
 }
 
+// This comment is left unintentionally blank.
 message FetchIntoObjectPoolRequest {
   Repository origin = 1 [(additional_repository)=true];
   ObjectPool object_pool = 2 [(target_repository)=true];
   bool repack = 3;
 }
+
+// This comment is left unintentionally blank.
 message FetchIntoObjectPoolResponse {
 }
 
+// This comment is left unintentionally blank.
 message GetObjectPoolRequest {
   Repository repository = 1 [(target_repository)=true];
 }
 
+// This comment is left unintentionally blank.
 message GetObjectPoolResponse {
   ObjectPool object_pool = 1;
 }

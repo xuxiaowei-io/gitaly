@@ -119,6 +119,7 @@ func (OperationMsg_Scope) EnumDescriptor() ([]byte, []int) {
 	return file_lint_proto_rawDescGZIP(), []int{0, 1}
 }
 
+// This comment is left unintentionally blank.
 type OperationMsg struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

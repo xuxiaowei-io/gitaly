@@ -20,6 +20,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// This comment is left unintentionally blank.
 type ApplyBfgObjectMapStreamRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -79,6 +80,7 @@ func (x *ApplyBfgObjectMapStreamRequest) GetObjectMap() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type ApplyBfgObjectMapStreamResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

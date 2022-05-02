@@ -49,6 +49,7 @@ service WikiService {
 
 }
 
+// This comment is left unintentionally blank.
 message WikiCommitDetails {
   bytes name = 1;
   bytes email = 2;
@@ -57,11 +58,13 @@ message WikiCommitDetails {
   bytes user_name = 5;
 }
 
+// This comment is left unintentionally blank.
 message WikiPageVersion {
   GitCommit commit = 1;
   string format = 2;
 }
 
+// This comment is left unintentionally blank.
 message WikiPage {
   // These fields are only present in the first message of a WikiPage stream
   WikiPageVersion version = 1;
@@ -87,10 +90,12 @@ message WikiWritePageRequest {
   bytes content = 5;
 }
 
+// This comment is left unintentionally blank.
 message WikiWritePageResponse {
   bytes duplicate_error = 1;
 }
 
+// This comment is left unintentionally blank.
 message WikiUpdatePageRequest {
   // There fields are only present in the first message of the stream
   Repository repository = 1 [(target_repository)=true];
@@ -103,10 +108,12 @@ message WikiUpdatePageRequest {
   bytes content = 6;
 }
 
+// This comment is left unintentionally blank.
 message WikiUpdatePageResponse {
   bytes error = 1;
 }
 
+// This comment is left unintentionally blank.
 message WikiFindPageRequest {
   Repository repository = 1 [(target_repository)=true];
   bytes title = 2;
@@ -122,6 +129,7 @@ message WikiFindPageResponse {
   WikiPage page = 1;
 }
 
+// This comment is left unintentionally blank.
 message WikiGetAllPagesRequest {
   Repository repository = 1 [(target_repository)=true];
   // Passing 0 means no limit is applied
@@ -142,6 +150,7 @@ message WikiGetAllPagesResponse {
   bool end_of_page = 2;
 }
 
+// This comment is left unintentionally blank.
 message WikiListPagesRequest {
   Repository repository = 1 [(target_repository)=true];
   // Passing 0 means no limit is applied

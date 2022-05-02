@@ -77,6 +77,7 @@ func (x *CreateObjectPoolRequest) GetOrigin() *Repository {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type CreateObjectPoolResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -164,6 +165,7 @@ func (x *DeleteObjectPoolRequest) GetObjectPool() *ObjectPool {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type DeleteObjectPoolResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -202,6 +204,7 @@ func (*DeleteObjectPoolResponse) Descriptor() ([]byte, []int) {
 	return file_objectpool_proto_rawDescGZIP(), []int{3}
 }
 
+// This comment is left unintentionally blank.
 type LinkRepositoryToObjectPoolRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -257,6 +260,7 @@ func (x *LinkRepositoryToObjectPoolRequest) GetRepository() *Repository {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type LinkRepositoryToObjectPoolResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -295,6 +299,7 @@ func (*LinkRepositoryToObjectPoolResponse) Descriptor() ([]byte, []int) {
 	return file_objectpool_proto_rawDescGZIP(), []int{5}
 }
 
+// This comment is left unintentionally blank.
 type ReduplicateRepositoryRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -342,6 +347,7 @@ func (x *ReduplicateRepositoryRequest) GetRepository() *Repository {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type ReduplicateRepositoryResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -380,6 +386,7 @@ func (*ReduplicateRepositoryResponse) Descriptor() ([]byte, []int) {
 	return file_objectpool_proto_rawDescGZIP(), []int{7}
 }
 
+// This comment is left unintentionally blank.
 type DisconnectGitAlternatesRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -427,6 +434,7 @@ func (x *DisconnectGitAlternatesRequest) GetRepository() *Repository {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type DisconnectGitAlternatesResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -465,6 +473,7 @@ func (*DisconnectGitAlternatesResponse) Descriptor() ([]byte, []int) {
 	return file_objectpool_proto_rawDescGZIP(), []int{9}
 }
 
+// This comment is left unintentionally blank.
 type FetchIntoObjectPoolRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -528,6 +537,7 @@ func (x *FetchIntoObjectPoolRequest) GetRepack() bool {
 	return false
 }
 
+// This comment is left unintentionally blank.
 type FetchIntoObjectPoolResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -566,6 +576,7 @@ func (*FetchIntoObjectPoolResponse) Descriptor() ([]byte, []int) {
 	return file_objectpool_proto_rawDescGZIP(), []int{11}
 }
 
+// This comment is left unintentionally blank.
 type GetObjectPoolRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -613,6 +624,7 @@ func (x *GetObjectPoolRequest) GetRepository() *Repository {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type GetObjectPoolResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

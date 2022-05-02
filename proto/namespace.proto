@@ -45,34 +45,44 @@ service NamespaceService {
 
 }
 
+// This comment is left unintentionally blank.
 message AddNamespaceRequest {
   string storage_name = 1 [(storage)=true];
   string name = 2;
 }
 
+// This comment is left unintentionally blank.
 message RemoveNamespaceRequest {
   string storage_name = 1 [(storage)=true];
   string name = 2;
 }
 
+// This comment is left unintentionally blank.
 message RenameNamespaceRequest {
   string storage_name = 1 [(storage)=true];
   string from = 2;
   string to = 3;
 }
 
+// This comment is left unintentionally blank.
 message NamespaceExistsRequest {
   string storage_name = 1 [(storage)=true];
   string name = 2;
 }
 
+// This comment is left unintentionally blank.
 message NamespaceExistsResponse {
   bool exists = 1;
 }
 
+// This comment is left unintentionally blank.
 message AddNamespaceResponse {
 }
+
+// This comment is left unintentionally blank.
 message RemoveNamespaceResponse {
 }
+
+// This comment is left unintentionally blank.
 message RenameNamespaceResponse {
 }

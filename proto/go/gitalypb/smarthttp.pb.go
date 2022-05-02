@@ -20,6 +20,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// This comment is left unintentionally blank.
 type InfoRefsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -85,6 +86,7 @@ func (x *InfoRefsRequest) GetGitProtocol() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type InfoRefsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -132,6 +134,7 @@ func (x *InfoRefsResponse) GetData() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type PostUploadPackRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -207,6 +210,7 @@ func (x *PostUploadPackRequest) GetGitProtocol() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type PostUploadPackResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -255,6 +259,7 @@ func (x *PostUploadPackResponse) GetData() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type PostUploadPackWithSidechannelRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -321,6 +326,7 @@ func (x *PostUploadPackWithSidechannelRequest) GetGitProtocol() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type PostUploadPackWithSidechannelResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -359,6 +365,7 @@ func (*PostUploadPackWithSidechannelResponse) Descriptor() ([]byte, []int) {
 	return file_smarthttp_proto_rawDescGZIP(), []int{5}
 }
 
+// This comment is left unintentionally blank.
 type PostReceivePackRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -460,6 +467,7 @@ func (x *PostReceivePackRequest) GetGitConfigOptions() []string {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type PostReceivePackResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

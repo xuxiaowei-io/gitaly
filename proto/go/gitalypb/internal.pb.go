@@ -21,6 +21,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// This comment is left unintentionally blank.
 type WalkReposRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -68,6 +69,7 @@ func (x *WalkReposRequest) GetStorageName() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type WalkReposResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

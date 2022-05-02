@@ -266,11 +266,13 @@ message ListAllCommitsResponse {
   repeated GitCommit commits = 1;
 }
 
+// This comment is left unintentionally blank.
 message CommitStatsRequest {
   Repository repository = 1 [(target_repository)=true];
   bytes revision = 2;
 }
 
+// This comment is left unintentionally blank.
 message CommitStatsResponse {
   // OID is the commit. Empty means not found
   string oid = 1;
@@ -278,16 +280,19 @@ message CommitStatsResponse {
   int32 deletions = 3;
 }
 
+// This comment is left unintentionally blank.
 message CommitIsAncestorRequest {
   Repository repository = 1 [(target_repository)=true];
   string ancestor_id = 2;
   string child_id = 3;
 }
 
+// This comment is left unintentionally blank.
 message CommitIsAncestorResponse {
   bool value = 1;
 }
 
+// This comment is left unintentionally blank.
 message TreeEntryRequest {
   Repository repository = 1 [(target_repository)=true];
   // commit ID or refname
@@ -302,6 +307,7 @@ message TreeEntryRequest {
   int64 max_size = 5;
 }
 
+// This comment is left unintentionally blank.
 message TreeEntryResponse {
   // TODO: Replace this enum with ObjectType in shared.proto
   enum ObjectType {
@@ -320,6 +326,7 @@ message TreeEntryResponse {
   bytes data = 5;
 }
 
+// This comment is left unintentionally blank.
 message CountCommitsRequest {
   Repository repository = 1 [(target_repository)=true];
   bytes revision = 2;
@@ -333,10 +340,12 @@ message CountCommitsRequest {
   GlobalOptions global_options = 9;
 }
 
+// This comment is left unintentionally blank.
 message CountCommitsResponse {
   int32 count = 1;
 }
 
+// This comment is left unintentionally blank.
 message CountDivergingCommitsRequest {
   Repository repository = 1 [(target_repository)=true];
   bytes from = 2;
@@ -347,11 +356,13 @@ message CountDivergingCommitsRequest {
   int32 max_count = 7;
 }
 
+// This comment is left unintentionally blank.
 message CountDivergingCommitsResponse {
   int32 left_count = 1;
   int32 right_count = 2;
 }
 
+// This comment is left unintentionally blank.
 message TreeEntry {
   // TODO: Replace this enum with ObjectType in shared.proto
   enum EntryType {
@@ -374,6 +385,7 @@ message TreeEntry {
   bytes flat_path = 7;
 }
 
+// This comment is left unintentionally blank.
 message GetTreeEntriesRequest {
   Repository repository = 1 [(target_repository)=true];
   bytes revision = 2;
@@ -391,12 +403,14 @@ message GetTreeEntriesRequest {
   PaginationParameter pagination_params = 6;
 }
 
+// This comment is left unintentionally blank.
 message GetTreeEntriesResponse {
   repeated TreeEntry entries = 1;
 
   PaginationCursor pagination_cursor = 2;
 }
 
+// This comment is left unintentionally blank.
 message ListFilesRequest {
   Repository repository = 1 [(target_repository)=true];
   bytes revision = 2;
@@ -408,34 +422,41 @@ message ListFilesResponse {
   repeated bytes paths = 1;
 }
 
+// This comment is left unintentionally blank.
 message FindCommitRequest {
   Repository repository = 1 [(target_repository)=true];
   bytes revision = 2;
   bool trailers = 3;
 }
 
+// This comment is left unintentionally blank.
 message FindCommitResponse {
   // commit is nil when the commit was not found
   GitCommit commit = 1;
 }
 
+// This comment is left unintentionally blank.
 message ListCommitsByOidRequest {
   Repository repository = 1 [(target_repository)=true];
   repeated string oid = 2; // protolint:disable:this REPEATED_FIELD_NAMES_PLURALIZED
 }
 
+// This comment is left unintentionally blank.
 message ListCommitsByOidResponse {
   repeated GitCommit commits = 1;
 }
 
+// This comment is left unintentionally blank.
 message ListCommitsByRefNameRequest {
   Repository repository = 1 [(target_repository)=true];
   repeated bytes ref_names = 2;
 }
 
+// This comment is left unintentionally blank.
 message ListCommitsByRefNameResponse {
   reserved 1;
 
+  // This comment is left unintentionally blank.
   message CommitForRef {
     GitCommit commit = 1;
     bytes ref_name = 2;
@@ -444,6 +465,7 @@ message ListCommitsByRefNameResponse {
   repeated CommitForRef commit_refs = 2;
 }
 
+// This comment is left unintentionally blank.
 message FindAllCommitsRequest {
   Repository repository = 1 [(target_repository)=true];
   // When nil, return all commits reachable by any branch in the repo
@@ -463,6 +485,7 @@ message FindAllCommitsResponse {
   repeated GitCommit commits = 1;
 }
 
+// This comment is left unintentionally blank.
 message FindCommitsRequest {
   Repository repository = 1 [(target_repository)=true];
   bytes revision = 2;
@@ -492,12 +515,15 @@ message FindCommitsResponse {
   repeated GitCommit commits = 1;
 }
 
+// This comment is left unintentionally blank.
 message CommitLanguagesRequest {
   Repository repository = 1 [(target_repository)=true];
   bytes revision = 2;
 }
 
+// This comment is left unintentionally blank.
 message CommitLanguagesResponse {
+  // This comment is left unintentionally blank.
   message Language {
     string name = 1;
     float share = 2;
@@ -508,6 +534,7 @@ message CommitLanguagesResponse {
   repeated Language languages = 1;
 }
 
+// This comment is left unintentionally blank.
 message RawBlameRequest {
   Repository repository = 1 [(target_repository)=true];
   bytes revision = 2;
@@ -517,10 +544,12 @@ message RawBlameRequest {
   bytes range = 4;
 }
 
+// This comment is left unintentionally blank.
 message RawBlameResponse {
   bytes data = 1;
 }
 
+// This comment is left unintentionally blank.
 message LastCommitForPathRequest {
   Repository repository = 1 [(target_repository)=true];
   bytes revision = 2;
@@ -529,11 +558,13 @@ message LastCommitForPathRequest {
   GlobalOptions global_options = 5;
 }
 
+// This comment is left unintentionally blank.
 message LastCommitForPathResponse {
   // commit is nil when the commit was not found
   GitCommit commit = 1;
 }
 
+// This comment is left unintentionally blank.
 message ListLastCommitsForTreeRequest {
   Repository repository = 1 [(target_repository)=true];
   string revision = 2;
@@ -544,7 +575,9 @@ message ListLastCommitsForTreeRequest {
   GlobalOptions global_options = 7;
 }
 
+// This comment is left unintentionally blank.
 message ListLastCommitsForTreeResponse {
+  // This comment is left unintentionally blank.
   message CommitForTree {
     reserved 1;
 
@@ -555,6 +588,7 @@ message ListLastCommitsForTreeResponse {
   repeated CommitForTree commits = 1;
 }
 
+// This comment is left unintentionally blank.
 message CommitsByMessageRequest {
   Repository repository = 1 [(target_repository)=true];
   bytes revision = 2;
@@ -570,15 +604,18 @@ message CommitsByMessageResponse {
   repeated GitCommit commits = 1;
 }
 
+// This comment is left unintentionally blank.
 message FilterShasWithSignaturesRequest {
   Repository repository = 1 [(target_repository)=true];
   repeated bytes shas = 2;
 }
 
+// This comment is left unintentionally blank.
 message FilterShasWithSignaturesResponse {
   repeated bytes shas = 1;
 }
 
+// This comment is left unintentionally blank.
 message ExtractCommitSignatureRequest {
   Repository repository = 1 [(target_repository)=true];
   string commit_id = 2;
@@ -591,11 +628,13 @@ message ExtractCommitSignatureResponse {
   bytes signed_text = 2;
 }
 
+// This comment is left unintentionally blank.
 message GetCommitSignaturesRequest {
   Repository repository = 1 [(target_repository)=true];
   repeated string commit_ids = 2;
 }
 
+// This comment is left unintentionally blank.
 message GetCommitSignaturesResponse {
   // Only present for a new commit signature data.
   string commit_id = 1;
@@ -604,11 +643,13 @@ message GetCommitSignaturesResponse {
   bytes signed_text = 3;
 }
 
+// This comment is left unintentionally blank.
 message GetCommitMessagesRequest {
   Repository repository = 1 [(target_repository)=true];
   repeated string commit_ids = 2;
 }
 
+// This comment is left unintentionally blank.
 message GetCommitMessagesResponse {
   // Only present for a new commit message
   string commit_id = 1;
@@ -627,7 +668,9 @@ message CheckObjectsExistRequest {
   repeated bytes revisions = 2;
 }
 
+// This comment is left unintentionally blank.
 message CheckObjectsExistResponse {
+  // This comment is left unintentionally blank.
   message RevisionExistence {
     bytes name = 1;
     bool exists = 2;

@@ -19,6 +19,7 @@ service CleanupService {
 
 }
 
+// This comment is left unintentionally blank.
 message ApplyBfgObjectMapStreamRequest {
   // Only available on the first message
   Repository repository = 1 [(target_repository)=true];
@@ -29,6 +30,7 @@ message ApplyBfgObjectMapStreamRequest {
   bytes object_map = 2;
 }
 
+// This comment is left unintentionally blank.
 message ApplyBfgObjectMapStreamResponse {
   // We send back each parsed entry in the request's object map so the client
   // can take action

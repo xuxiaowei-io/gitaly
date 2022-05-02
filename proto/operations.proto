@@ -151,6 +151,7 @@ service OperationService {
 
 }
 
+// This comment is left unintentionally blank.
 message UserCreateBranchRequest {
   Repository repository = 1 [(target_repository)=true];
   bytes branch_name = 2;
@@ -158,6 +159,7 @@ message UserCreateBranchRequest {
   bytes start_point = 4;
 }
 
+// This comment is left unintentionally blank.
 message UserCreateBranchResponse {
   Branch branch = 1;
   // Error returned by the pre-receive hook. If no error was thrown,
@@ -165,6 +167,7 @@ message UserCreateBranchResponse {
   string pre_receive_error = 2;
 }
 
+// This comment is left unintentionally blank.
 message UserUpdateBranchRequest {
   Repository repository = 1 [(target_repository)=true];
   bytes branch_name = 2;
@@ -173,30 +176,36 @@ message UserUpdateBranchRequest {
   bytes oldrev = 5;
 }
 
+// This comment is left unintentionally blank.
 message UserUpdateBranchResponse {
   string pre_receive_error = 1;
 }
 
+// This comment is left unintentionally blank.
 message UserDeleteBranchRequest {
   Repository repository = 1 [(target_repository)=true];
   bytes branch_name = 2;
   User user = 3;
 }
 
+// This comment is left unintentionally blank.
 message UserDeleteBranchResponse {
   string pre_receive_error = 1;
 }
 
+// This comment is left unintentionally blank.
 message UserDeleteTagRequest {
   Repository repository = 1 [(target_repository)=true];
   bytes tag_name = 2;
   User user = 3;
 }
 
+// This comment is left unintentionally blank.
 message UserDeleteTagResponse {
   string pre_receive_error = 1;
 }
 
+// This comment is left unintentionally blank.
 message UserCreateTagRequest {
   // repository is the repository in which the tag shall be created.
   Repository repository = 1 [(target_repository)=true];
@@ -215,6 +224,7 @@ message UserCreateTagRequest {
   google.protobuf.Timestamp timestamp = 7;
 }
 
+// This comment is left unintentionally blank.
 message UserCreateTagResponse {
   // tag is the newly created tag.
   Tag tag = 1;
@@ -225,6 +235,7 @@ message UserCreateTagResponse {
   string pre_receive_error = 3;
 }
 
+// This comment is left unintentionally blank.
 message UserMergeBranchRequest {
   // The following parameters must only be set in the first message to declare
   // parameters for the merge.
@@ -252,6 +263,7 @@ message UserMergeBranchRequest {
   bool apply = 6;
 }
 
+// This comment is left unintentionally blank.
 message UserMergeBranchResponse {
   // First message
   // The merge commit the branch will be updated to. The caller can still abort the merge.
@@ -278,6 +290,7 @@ message UserMergeBranchError {
   }
 }
 
+// This comment is left unintentionally blank.
 message UserMergeToRefRequest {
   // repository is the repository in which the merge shall be computed.
   Repository repository = 1 [(target_repository)=true];
@@ -307,6 +320,7 @@ message UserMergeToRefRequest {
   google.protobuf.Timestamp timestamp = 9;
 }
 
+// This comment is left unintentionally blank.
 message UserMergeToRefResponse {
   // commit_id is the object ID of the computed merge commit.
   string commit_id = 1;
@@ -342,11 +356,13 @@ message UserFFBranchRequest {
   bytes branch = 4;
 }
 
+// This comment is left unintentionally blank.
 message UserFFBranchResponse {
   OperationBranchUpdate branch_update = 1;
   string pre_receive_error = 2;
 }
 
+// This comment is left unintentionally blank.
 message UserCherryPickRequest {
   // repository is the repository into which the cherry-pick shall be
   // performed.
@@ -375,6 +391,7 @@ message UserCherryPickRequest {
   google.protobuf.Timestamp timestamp = 9;
 }
 
+// This comment is left unintentionally blank.
 message UserCherryPickResponse {
   // CreateTreeError represents an error which happened when computing the
   // cherry-pick.
@@ -424,6 +441,7 @@ message UserCherryPickError {
   }
 }
 
+// This comment is left unintentionally blank.
 message UserRevertRequest {
   // repository is the repository in which the revert shall be applied.
   Repository repository = 1 [(target_repository)=true];
@@ -451,6 +469,7 @@ message UserRevertRequest {
   google.protobuf.Timestamp timestamp = 9;
 }
 
+// This comment is left unintentionally blank.
 message UserRevertResponse {
   // CreateTreeError represents an error which happened when computing the
   // revert.
@@ -591,6 +610,7 @@ message UserCommitFilesResponse {
   string pre_receive_error = 3;
 }
 
+// This comment is left unintentionally blank.
 message UserRebaseConfirmableRequest {
   // Header contains information to compute the rebase and must be sent as
   // first message.
@@ -633,6 +653,7 @@ message UserRebaseConfirmableRequest {
   }
 }
 
+// This comment is left unintentionally blank.
 message UserRebaseConfirmableResponse {
   oneof user_rebase_confirmable_response_payload {
     // The first response will contain the rebase commit the branch will
@@ -649,6 +670,7 @@ message UserRebaseConfirmableResponse {
   string git_error = 4;
 }
 
+// This comment is left unintentionally blank.
 message UserSquashRequest {
   // repository is the repository into which the squashed commit shall be
   // written.
@@ -673,6 +695,7 @@ message UserSquashRequest {
   reserved "squash_id";
 }
 
+// This comment is left unintentionally blank.
 message UserSquashResponse {
   // squash_sha is the object ID of the squashed commit.
   string squash_sha = 1;
@@ -686,6 +709,7 @@ message UserSquashResponse {
   string git_error = 3 [deprecated=true];
 }
 
+// This comment is left unintentionally blank.
 message UserRebaseConfirmableError {
   oneof error {
     // RebaseConflict is returned in case rebasing commits on top of the start
@@ -710,6 +734,7 @@ message UserSquashError {
   }
 }
 
+// This comment is left unintentionally blank.
 message UserApplyPatchRequest {
   // Header contains information about how to apply the patches.
   message Header {
@@ -733,11 +758,13 @@ message UserApplyPatchRequest {
   }
 }
 
+// This comment is left unintentionally blank.
 message UserApplyPatchResponse {
   // branch_update contains information about the updated branch.
   OperationBranchUpdate branch_update = 1;
 }
 
+// This comment is left unintentionally blank.
 message UserUpdateSubmoduleRequest {
   // repository is the repository in which the submodule shall be updated.
   Repository repository = 1 [(target_repository)=true];
@@ -759,6 +786,7 @@ message UserUpdateSubmoduleRequest {
   google.protobuf.Timestamp timestamp = 7;
 }
 
+// This comment is left unintentionally blank.
 message UserUpdateSubmoduleResponse {
   // branch_update contains information about the updated branch.
   OperationBranchUpdate branch_update = 1;

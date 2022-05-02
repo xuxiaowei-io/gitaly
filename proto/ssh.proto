@@ -38,6 +38,7 @@ service SSHService {
   }
 }
 
+// This comment is left unintentionally blank.
 message SSHUploadPackRequest {
   // 'repository' must be present in the first message.
   Repository repository = 1 [(target_repository)=true];
@@ -53,6 +54,7 @@ message SSHUploadPackRequest {
   string git_protocol = 5;
 }
 
+// This comment is left unintentionally blank.
 message SSHUploadPackResponse {
   // A chunk of raw data from 'git upload-pack' standard output
   bytes stdout = 1;
@@ -63,6 +65,7 @@ message SSHUploadPackResponse {
   ExitStatus exit_status = 3;
 }
 
+// This comment is left unintentionally blank.
 message SSHUploadPackWithSidechannelRequest {
   // 'repository' must be present in the first message.
   Repository repository = 1 [(target_repository)=true];
@@ -73,9 +76,11 @@ message SSHUploadPackWithSidechannelRequest {
   string git_protocol = 3;
 }
 
+// This comment is left unintentionally blank.
 message SSHUploadPackWithSidechannelResponse {
 }
 
+// This comment is left unintentionally blank.
 message SSHReceivePackRequest {
   // 'repository' must be present in the first message.
   Repository repository = 1 [(target_repository)=true];
@@ -94,6 +99,7 @@ message SSHReceivePackRequest {
   repeated string git_config_options = 7;
 }
 
+// This comment is left unintentionally blank.
 message SSHReceivePackResponse {
   // A chunk of raw data from 'git receive-pack' standard output
   bytes stdout = 1;
@@ -104,6 +110,7 @@ message SSHReceivePackResponse {
   ExitStatus exit_status = 3;
 }
 
+// This comment is left unintentionally blank.
 message SSHUploadArchiveRequest {
   // 'repository' must be present in the first message.
   Repository repository = 1 [(target_repository)=true];
@@ -111,6 +118,7 @@ message SSHUploadArchiveRequest {
   bytes stdin = 2;
 }
 
+// This comment is left unintentionally blank.
 message SSHUploadArchiveResponse {
   // A chunk of raw data from 'git upload-archive' standard output
   bytes stdout = 1;

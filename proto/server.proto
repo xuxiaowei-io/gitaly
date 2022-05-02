@@ -22,10 +22,13 @@ service ServerService {
 
 }
 
+// This comment is left unintentionally blank.
 message ServerInfoRequest {
 }
 
+// This comment is left unintentionally blank.
 message ServerInfoResponse {
+  // This comment is left unintentionally blank.
   message StorageStatus {
     string storage_name = 1;
     bool readable = 2;
@@ -40,10 +43,13 @@ message ServerInfoResponse {
   repeated StorageStatus storage_statuses = 3;
 }
 
+// This comment is left unintentionally blank.
 message DiskStatisticsRequest {
 }
 
+// This comment is left unintentionally blank.
 message DiskStatisticsResponse {
+  // This comment is left unintentionally blank.
   message StorageStatus {
     // When both available and used fields are equal 0 that means that
     // Gitaly was unable to determine storage stats.
@@ -55,6 +61,7 @@ message DiskStatisticsResponse {
   repeated StorageStatus storage_statuses = 1;
 }
 
+// This comment is left unintentionally blank.
 message ClockSyncedRequest {
   // ntp_host is a URL to the external NTP service that should be used for clock sync check.
   // Default is ntp.pool.org
@@ -63,6 +70,7 @@ message ClockSyncedRequest {
   int64 drift_threshold_millis = 2;
 }
 
+// This comment is left unintentionally blank.
 message ClockSyncedResponse {
   // synced is set to true if system clock has an affordable drift compared to NTP service.
   bool synced = 1;

@@ -123,6 +123,7 @@ func (ChangedPaths_Status) EnumDescriptor() ([]byte, []int) {
 	return file_diff_proto_rawDescGZIP(), []int{14, 0}
 }
 
+// This comment is left unintentionally blank.
 type CommitDiffRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -431,6 +432,7 @@ func (x *CommitDiffResponse) GetTooLarge() bool {
 	return false
 }
 
+// This comment is left unintentionally blank.
 type CommitDeltaRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -502,6 +504,7 @@ func (x *CommitDeltaRequest) GetPaths() [][]byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type CommitDelta struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -590,6 +593,7 @@ func (x *CommitDelta) GetNewMode() int32 {
 	return 0
 }
 
+// This comment is left unintentionally blank.
 type CommitDeltaResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -637,6 +641,7 @@ func (x *CommitDeltaResponse) GetDeltas() []*CommitDelta {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type RawDiffRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -700,6 +705,7 @@ func (x *RawDiffRequest) GetRightCommitId() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type RawDiffResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -747,6 +753,7 @@ func (x *RawDiffResponse) GetData() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type RawPatchRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -810,6 +817,7 @@ func (x *RawPatchRequest) GetRightCommitId() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type RawPatchResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -857,6 +865,7 @@ func (x *RawPatchResponse) GetData() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type DiffStatsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -920,6 +929,7 @@ func (x *DiffStatsRequest) GetRightCommitId() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type DiffStats struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -991,6 +1001,7 @@ func (x *DiffStats) GetOldPath() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type DiffStatsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

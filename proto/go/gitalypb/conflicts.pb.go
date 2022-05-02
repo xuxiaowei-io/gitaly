@@ -21,6 +21,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// This comment is left unintentionally blank.
 type ListConflictFilesRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -95,6 +96,7 @@ func (x *ListConflictFilesRequest) GetAllowTreeConflicts() bool {
 	return false
 }
 
+// This comment is left unintentionally blank.
 type ConflictFileHeader struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -174,6 +176,7 @@ func (x *ConflictFileHeader) GetAncestorPath() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type ConflictFile struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -254,6 +257,7 @@ func (*ConflictFile_Header) isConflictFile_ConflictFilePayload() {}
 
 func (*ConflictFile_Content) isConflictFile_ConflictFilePayload() {}
 
+// This comment is left unintentionally blank.
 type ListConflictFilesResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

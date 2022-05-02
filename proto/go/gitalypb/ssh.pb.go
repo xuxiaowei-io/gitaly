@@ -20,6 +20,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// This comment is left unintentionally blank.
 type SSHUploadPackRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -95,6 +96,7 @@ func (x *SSHUploadPackRequest) GetGitProtocol() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type SSHUploadPackResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -162,6 +164,7 @@ func (x *SSHUploadPackResponse) GetExitStatus() *ExitStatus {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type SSHUploadPackWithSidechannelRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -228,6 +231,7 @@ func (x *SSHUploadPackWithSidechannelRequest) GetGitProtocol() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type SSHUploadPackWithSidechannelResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -266,6 +270,7 @@ func (*SSHUploadPackWithSidechannelResponse) Descriptor() ([]byte, []int) {
 	return file_ssh_proto_rawDescGZIP(), []int{3}
 }
 
+// This comment is left unintentionally blank.
 type SSHReceivePackRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -367,6 +372,7 @@ func (x *SSHReceivePackRequest) GetGitConfigOptions() []string {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type SSHReceivePackResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -434,6 +440,7 @@ func (x *SSHReceivePackResponse) GetExitStatus() *ExitStatus {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type SSHUploadArchiveRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -491,6 +498,7 @@ func (x *SSHUploadArchiveRequest) GetStdin() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type SSHUploadArchiveResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

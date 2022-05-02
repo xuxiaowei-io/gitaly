@@ -23,6 +23,7 @@ enum SignatureType {
   // maybe add X509+TSA or other combinations at a later step
 }
 
+// This comment is left unintentionally blank.
 message Repository {
   // DEPRECATED: https://gitlab.com/gitlab-org/gitaly/issues/151
   reserved 1;
@@ -83,6 +84,7 @@ message GitCommit {
   repeated CommitTrailer trailers = 10;
 }
 
+// This comment is left unintentionally blank.
 message CommitAuthor {
   bytes name = 1;
   bytes email = 2;
@@ -90,6 +92,7 @@ message CommitAuthor {
   bytes timezone = 4;
 }
 
+// This comment is left unintentionally blank.
 message ExitStatus {
   int32 value = 1;
 }
@@ -100,6 +103,7 @@ message Branch {
   GitCommit target_commit = 2;
 }
 
+// This comment is left unintentionally blank.
 message Tag {
   bytes name = 1;
   string id = 2;
@@ -113,6 +117,7 @@ message Tag {
   SignatureType signature_type = 7;
 }
 
+// This comment is left unintentionally blank.
 message User {
   string gl_id = 1;
   bytes name = 2;
@@ -123,10 +128,12 @@ message User {
   string timezone = 5;
 }
 
+// This comment is left unintentionally blank.
 message ObjectPool {
   Repository repository = 1 [(gitaly.repository)=true];
 }
 
+// This comment is left unintentionally blank.
 message PaginationParameter {
   // Instructs pagination to start sending results after the provided page
   // token appears. A page token allows for a generic pattern to uniquely
@@ -143,6 +150,7 @@ message PaginationParameter {
   int32 limit = 2;
 }
 
+// This comment is left unintentionally blank.
 message PaginationCursor {
   // To the caller, this is an opaque token to indicate what the caller
   // should present as a page_token to get subsequent results.

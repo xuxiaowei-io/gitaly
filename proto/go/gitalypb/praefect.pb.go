@@ -473,6 +473,7 @@ func (x *SetReplicationFactorResponse) GetStorages() []string {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type SetAuthoritativeStorageRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -536,6 +537,7 @@ func (x *SetAuthoritativeStorageRequest) GetAuthoritativeStorage() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type SetAuthoritativeStorageResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -574,6 +576,7 @@ func (*SetAuthoritativeStorageResponse) Descriptor() ([]byte, []int) {
 	return file_praefect_proto_rawDescGZIP(), []int{7}
 }
 
+// This comment is left unintentionally blank.
 type DatalossCheckRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -631,6 +634,7 @@ func (x *DatalossCheckRequest) GetIncludePartiallyReplicated() bool {
 	return false
 }
 
+// This comment is left unintentionally blank.
 type DatalossCheckResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -679,6 +683,7 @@ func (x *DatalossCheckResponse) GetRepositories() []*DatalossCheckResponse_Repos
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type RepositoryReplicasRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -726,6 +731,7 @@ func (x *RepositoryReplicasRequest) GetRepository() *Repository {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type RepositoryReplicasResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -839,6 +845,7 @@ func (x *MarkUnverifiedRequest_Storage) GetStorage() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type GetRepositoryMetadataRequest_Path struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -896,6 +903,7 @@ func (x *GetRepositoryMetadataRequest_Path) GetRelativePath() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type GetRepositoryMetadataResponse_Replica struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -990,6 +998,7 @@ func (x *GetRepositoryMetadataResponse_Replica) GetVerifiedAt() *timestamppb.Tim
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type DatalossCheckResponse_Repository struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1065,6 +1074,7 @@ func (x *DatalossCheckResponse_Repository) GetPrimary() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type DatalossCheckResponse_Repository_Storage struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1149,6 +1159,7 @@ func (x *DatalossCheckResponse_Repository_Storage) GetValidPrimary() bool {
 	return false
 }
 
+// This comment is left unintentionally blank.
 type RepositoryReplicasResponse_RepositoryDetails struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

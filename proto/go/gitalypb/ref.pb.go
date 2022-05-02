@@ -221,6 +221,7 @@ func (ListRefsRequest_SortBy_Key) EnumDescriptor() ([]byte, []int) {
 	return file_ref_proto_rawDescGZIP(), []int{38, 0, 0}
 }
 
+// This comment is left unintentionally blank.
 type FindDefaultBranchNameRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -268,6 +269,7 @@ func (x *FindDefaultBranchNameRequest) GetRepository() *Repository {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type FindDefaultBranchNameResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -315,6 +317,7 @@ func (x *FindDefaultBranchNameResponse) GetName() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type FindAllBranchNamesRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -362,6 +365,7 @@ func (x *FindAllBranchNamesRequest) GetRepository() *Repository {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type FindAllBranchNamesResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -409,6 +413,7 @@ func (x *FindAllBranchNamesResponse) GetNames() [][]byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type FindAllTagNamesRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -456,6 +461,7 @@ func (x *FindAllTagNamesRequest) GetRepository() *Repository {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type FindAllTagNamesResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -503,6 +509,7 @@ func (x *FindAllTagNamesResponse) GetNames() [][]byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type FindLocalBranchesRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -570,6 +577,7 @@ func (x *FindLocalBranchesRequest) GetPaginationParams() *PaginationParameter {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type FindLocalBranchesResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -617,6 +625,7 @@ func (x *FindLocalBranchesResponse) GetBranches() []*FindLocalBranchResponse {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type FindLocalBranchResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -704,6 +713,7 @@ func (x *FindLocalBranchResponse) GetCommit() *GitCommit {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type FindLocalBranchCommitAuthor struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -775,6 +785,7 @@ func (x *FindLocalBranchCommitAuthor) GetTimezone() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type FindAllBranchesRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -841,6 +852,7 @@ func (x *FindAllBranchesRequest) GetMergedBranches() [][]byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type FindAllBranchesResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -888,6 +900,7 @@ func (x *FindAllBranchesResponse) GetBranches() []*FindAllBranchesResponse_Branc
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type FindTagRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -943,6 +956,7 @@ func (x *FindTagRequest) GetTagName() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type FindTagResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -990,6 +1004,7 @@ func (x *FindTagResponse) GetTag() *Tag {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type FindAllTagsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1057,6 +1072,7 @@ func (x *FindAllTagsRequest) GetPaginationParams() *PaginationParameter {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type FindAllTagsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1104,6 +1120,7 @@ func (x *FindAllTagsResponse) GetTags() []*Tag {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type RefExistsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1160,6 +1177,7 @@ func (x *RefExistsRequest) GetRef() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type RefExistsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1207,6 +1225,7 @@ func (x *RefExistsResponse) GetValue() bool {
 	return false
 }
 
+// This comment is left unintentionally blank.
 type CreateBranchRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1270,6 +1289,7 @@ func (x *CreateBranchRequest) GetStartPoint() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type CreateBranchResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1325,6 +1345,7 @@ func (x *CreateBranchResponse) GetBranch() *Branch {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type DeleteBranchRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1419,6 +1440,7 @@ func (*DeleteBranchResponse) Descriptor() ([]byte, []int) {
 	return file_ref_proto_rawDescGZIP(), []int{21}
 }
 
+// This comment is left unintentionally blank.
 type FindBranchRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1477,6 +1499,7 @@ func (x *FindBranchRequest) GetName() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type FindBranchResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1524,6 +1547,7 @@ func (x *FindBranchResponse) GetBranch() *Branch {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type DeleteRefsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1588,6 +1612,7 @@ func (x *DeleteRefsRequest) GetRefs() [][]byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type DeleteRefsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1635,6 +1660,7 @@ func (x *DeleteRefsResponse) GetGitError() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type ListBranchNamesContainingCommitRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1700,6 +1726,7 @@ func (x *ListBranchNamesContainingCommitRequest) GetLimit() uint32 {
 	return 0
 }
 
+// This comment is left unintentionally blank.
 type ListBranchNamesContainingCommitResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1747,6 +1774,7 @@ func (x *ListBranchNamesContainingCommitResponse) GetBranchNames() [][]byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type ListTagNamesContainingCommitRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1812,6 +1840,7 @@ func (x *ListTagNamesContainingCommitRequest) GetLimit() uint32 {
 	return 0
 }
 
+// This comment is left unintentionally blank.
 type ListTagNamesContainingCommitResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1970,6 +1999,7 @@ func (x *GetTagSignaturesResponse) GetSignatures() []*GetTagSignaturesResponse_T
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type GetTagMessagesRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2025,6 +2055,7 @@ func (x *GetTagMessagesRequest) GetTagIds() []string {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type GetTagMessagesResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2081,6 +2112,7 @@ func (x *GetTagMessagesResponse) GetTagId() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type FindAllRemoteBranchesRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2136,6 +2168,7 @@ func (x *FindAllRemoteBranchesRequest) GetRemoteName() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type FindAllRemoteBranchesResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2183,6 +2216,7 @@ func (x *FindAllRemoteBranchesResponse) GetBranches() []*Branch {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type PackRefsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2230,6 +2264,7 @@ func (x *PackRefsRequest) GetRepository() *Repository {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type PackRefsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2397,6 +2432,7 @@ func (x *ListRefsResponse) GetReferences() []*ListRefsResponse_Reference {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type FindRefsByOIDRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2484,6 +2520,7 @@ func (x *FindRefsByOIDRequest) GetLimit() uint32 {
 	return 0
 }
 
+// This comment is left unintentionally blank.
 type FindRefsByOIDResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2532,6 +2569,7 @@ func (x *FindRefsByOIDResponse) GetRefs() []string {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type FindAllBranchesResponse_Branch struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2713,6 +2751,7 @@ func (x *GetTagSignaturesResponse_TagSignature) GetContent() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type ListRefsRequest_SortBy struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

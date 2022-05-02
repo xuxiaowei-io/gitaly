@@ -42,6 +42,7 @@ service RefTransaction {
 
 }
 
+// This comment is left unintentionally blank.
 message VoteTransactionRequest {
   enum Phase {
     // UNKNOWN_PHASE is the unknown voting phase. This value has been the
@@ -68,6 +69,7 @@ message VoteTransactionRequest {
   Phase phase = 5;
 }
 
+// This comment is left unintentionally blank.
 message VoteTransactionResponse {
   // The outcome of the given transaction telling the client whether the
   // transaction should be committed or rolled back.
@@ -80,11 +82,13 @@ message VoteTransactionResponse {
   TransactionState state = 1;
 }
 
+// This comment is left unintentionally blank.
 message StopTransactionRequest {
   Repository repository = 1[(target_repository)=true];
   // ID of the transaction we're processing
   uint64 transaction_id = 2;
 }
 
+// This comment is left unintentionally blank.
 message StopTransactionResponse {
 }

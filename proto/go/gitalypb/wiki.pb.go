@@ -112,6 +112,7 @@ func (WikiListPagesRequest_SortBy) EnumDescriptor() ([]byte, []int) {
 	return file_wiki_proto_rawDescGZIP(), []int{11, 0}
 }
 
+// This comment is left unintentionally blank.
 type WikiCommitDetails struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -191,6 +192,7 @@ func (x *WikiCommitDetails) GetUserName() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type WikiPageVersion struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -246,6 +248,7 @@ func (x *WikiPageVersion) GetFormat() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type WikiPage struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -433,6 +436,7 @@ func (x *WikiWritePageRequest) GetContent() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type WikiWritePageResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -480,6 +484,7 @@ func (x *WikiWritePageResponse) GetDuplicateError() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type WikiUpdatePageRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -569,6 +574,7 @@ func (x *WikiUpdatePageRequest) GetContent() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type WikiUpdatePageResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -616,6 +622,7 @@ func (x *WikiUpdatePageResponse) GetError() []byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type WikiFindPageRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -745,6 +752,7 @@ func (x *WikiFindPageResponse) GetPage() *WikiPage {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type WikiGetAllPagesRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -874,6 +882,7 @@ func (x *WikiGetAllPagesResponse) GetEndOfPage() bool {
 	return false
 }
 
+// This comment is left unintentionally blank.
 type WikiListPagesRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

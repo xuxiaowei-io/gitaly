@@ -20,6 +20,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// This comment is left unintentionally blank.
 type UpdateRemoteMirrorRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -123,6 +124,7 @@ func (x *UpdateRemoteMirrorRequest) GetKeepDivergentRefs() bool {
 	return false
 }
 
+// This comment is left unintentionally blank.
 type UpdateRemoteMirrorResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -172,6 +174,7 @@ func (x *UpdateRemoteMirrorResponse) GetDivergentRefs() [][]byte {
 	return nil
 }
 
+// This comment is left unintentionally blank.
 type FindRemoteRepositoryRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -410,6 +413,7 @@ func (x *FindRemoteRootRefResponse) GetRef() string {
 	return ""
 }
 
+// This comment is left unintentionally blank.
 type UpdateRemoteMirrorRequest_Remote struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
