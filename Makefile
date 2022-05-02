@@ -453,7 +453,7 @@ proto: ${PROTOC} ${PROTOC_GEN_GO} ${PROTOC_GEN_GO_GRPC} ${PROTOC_GEN_GITALY_PROT
 		${SOURCE_DIR}/internal/middleware/cache/testdata/stream.proto \
 		${SOURCE_DIR}/internal/helper/chunk/testdata/test.proto \
 		${SOURCE_DIR}/internal/middleware/limithandler/testdata/test.proto
-	${PROTOC} ${SHARED_PROTOC_OPTS} -I ${SOURCE_DIR}/proto -I ${PROTOC_INSTALL_DIR}/include --go_out=${SOURCE_DIR}/proto --go-grpc_out=${SOURCE_DIR}/proto ${SOURCE_DIR}/proto/go/internal/cmd/protoc-gen-gitaly-lint/testdata/*.proto
+	${PROTOC} ${SHARED_PROTOC_OPTS} -I ${SOURCE_DIR}/proto -I ${SOURCE_DIR}/tools -I ${PROTOC_INSTALL_DIR}/include --go_out=${SOURCE_DIR}/tools --go-grpc_out=${SOURCE_DIR}/tools ${SOURCE_DIR}/tools/protoc-gen-gitaly-lint/testdata/*.proto
 
 .PHONY: check-proto
 check-proto: proto no-proto-changes lint-proto
@@ -608,10 +608,10 @@ ${TOOLS_DIR}/%: ${TOOLS_DIR}/%.version
 	${Q}go install ${TOOL_PACKAGE}@${TOOL_VERSION}
 
 ${PROTOC_GEN_GITALY_LINT}: proto | ${TOOLS_DIR}
-	${Q}go build -o $@ ${SOURCE_DIR}/proto/go/internal/cmd/protoc-gen-gitaly-lint
+	${Q}go build -o $@ ${SOURCE_DIR}/tools/protoc-gen-gitaly-lint
 
 ${PROTOC_GEN_GITALY_PROTOLIST}: | ${TOOLS_DIR}
-	${Q}go build -o $@ ${SOURCE_DIR}/proto/go/internal/cmd/protoc-gen-gitaly-protolist
+	${Q}go build -o $@ ${SOURCE_DIR}/tools/protoc-gen-gitaly-protolist
 
 # External tools
 ${GOCOVER_COBERTURA}: TOOL_PACKAGE = github.com/t-yuki/gocover-cobertura
