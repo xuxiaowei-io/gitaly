@@ -82,10 +82,14 @@ func (ListCommitsRequest_Order) EnumDescriptor() ([]byte, []int) {
 type TreeEntryResponse_ObjectType int32
 
 const (
+	// This comment is left unintentionally blank.
 	TreeEntryResponse_COMMIT TreeEntryResponse_ObjectType = 0
-	TreeEntryResponse_BLOB   TreeEntryResponse_ObjectType = 1
-	TreeEntryResponse_TREE   TreeEntryResponse_ObjectType = 2
-	TreeEntryResponse_TAG    TreeEntryResponse_ObjectType = 3
+	// This comment is left unintentionally blank.
+	TreeEntryResponse_BLOB TreeEntryResponse_ObjectType = 1
+	// This comment is left unintentionally blank.
+	TreeEntryResponse_TREE TreeEntryResponse_ObjectType = 2
+	// This comment is left unintentionally blank.
+	TreeEntryResponse_TAG TreeEntryResponse_ObjectType = 3
 )
 
 // Enum value maps for TreeEntryResponse_ObjectType.
@@ -135,8 +139,11 @@ func (TreeEntryResponse_ObjectType) EnumDescriptor() ([]byte, []int) {
 type TreeEntry_EntryType int32
 
 const (
-	TreeEntry_BLOB   TreeEntry_EntryType = 0
-	TreeEntry_TREE   TreeEntry_EntryType = 1
+	// This comment is left unintentionally blank.
+	TreeEntry_BLOB TreeEntry_EntryType = 0
+	// This comment is left unintentionally blank.
+	TreeEntry_TREE TreeEntry_EntryType = 1
+	// This comment is left unintentionally blank.
 	TreeEntry_COMMIT TreeEntry_EntryType = 3
 )
 
@@ -185,7 +192,9 @@ func (TreeEntry_EntryType) EnumDescriptor() ([]byte, []int) {
 type GetTreeEntriesRequest_SortBy int32
 
 const (
-	GetTreeEntriesRequest_DEFAULT     GetTreeEntriesRequest_SortBy = 0 // Preserve order of git ls-tree
+	// This comment is left unintentionally blank.
+	GetTreeEntriesRequest_DEFAULT GetTreeEntriesRequest_SortBy = 0 // Preserve order of git ls-tree
+	// This comment is left unintentionally blank.
 	GetTreeEntriesRequest_TREES_FIRST GetTreeEntriesRequest_SortBy = 1 // trees, blobs, submodules
 )
 
@@ -232,8 +241,11 @@ func (GetTreeEntriesRequest_SortBy) EnumDescriptor() ([]byte, []int) {
 type FindAllCommitsRequest_Order int32
 
 const (
+	// This comment is left unintentionally blank.
 	FindAllCommitsRequest_NONE FindAllCommitsRequest_Order = 0
+	// This comment is left unintentionally blank.
 	FindAllCommitsRequest_TOPO FindAllCommitsRequest_Order = 1
+	// This comment is left unintentionally blank.
 	FindAllCommitsRequest_DATE FindAllCommitsRequest_Order = 2
 )
 
@@ -282,7 +294,9 @@ func (FindAllCommitsRequest_Order) EnumDescriptor() ([]byte, []int) {
 type FindCommitsRequest_Order int32
 
 const (
+	// This comment is left unintentionally blank.
 	FindCommitsRequest_NONE FindCommitsRequest_Order = 0
+	// This comment is left unintentionally blank.
 	FindCommitsRequest_TOPO FindCommitsRequest_Order = 1
 )
 

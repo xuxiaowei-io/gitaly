@@ -502,9 +502,13 @@ message CreateRepositoryResponse {
 message GetArchiveRequest {
   // This comment is left unintentionally blank.
   enum Format {
+    // This comment is left unintentionally blank.
     ZIP = 0;
+    // This comment is left unintentionally blank.
     TAR = 1;
+    // This comment is left unintentionally blank.
     TAR_GZ = 2;
+    // This comment is left unintentionally blank.
     TAR_BZ2 = 3;
   }
 
@@ -775,12 +779,19 @@ message GetRawChangesResponse {
   message RawChange {
     // This comment is left unintentionally blank.
     enum Operation {
+      // This comment is left unintentionally blank.
       UNKNOWN = 0;
+      // This comment is left unintentionally blank.
       ADDED = 1;
+      // This comment is left unintentionally blank.
       COPIED = 2;
+      // This comment is left unintentionally blank.
       DELETED = 3;
+      // This comment is left unintentionally blank.
       MODIFIED = 4;
+      // This comment is left unintentionally blank.
       RENAMED = 5;
+      // This comment is left unintentionally blank.
       TYPE_CHANGED = 6;
     }
 

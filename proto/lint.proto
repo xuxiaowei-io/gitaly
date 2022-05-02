@@ -10,15 +10,21 @@ option go_package = "gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb";
 message OperationMsg {
   // This comment is left unintentionally blank.
   enum Operation {
+    // This comment is left unintentionally blank.
     UNKNOWN = 0;
+    // This comment is left unintentionally blank.
     MUTATOR = 1;
+    // This comment is left unintentionally blank.
     ACCESSOR = 2;
+    // This comment is left unintentionally blank.
     MAINTENANCE = 3;
   }
 
   // This comment is left unintentionally blank.
   enum Scope {
+    // This comment is left unintentionally blank.
     REPOSITORY = 0;
+    // This comment is left unintentionally blank.
     STORAGE = 2;
 
     reserved 1;

@@ -133,7 +133,9 @@ message WikiFindPageResponse {
 message WikiGetAllPagesRequest {
   // This comment is left unintentionally blank.
   enum SortBy {
+    // This comment is left unintentionally blank.
     TITLE = 0;
+    // This comment is left unintentionally blank.
     CREATED_AT = 1;
   }
 
@@ -155,7 +157,9 @@ message WikiGetAllPagesResponse {
 message WikiListPagesRequest {
   // This comment is left unintentionally blank.
   enum SortBy {
+    // This comment is left unintentionally blank.
     TITLE = 0;
+    // This comment is left unintentionally blank.
     CREATED_AT = 1;
   }
 

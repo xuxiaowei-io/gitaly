@@ -9,18 +9,27 @@ option go_package = "gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb";
 
 // This comment is left unintentionally blank.
 enum ObjectType {
+  // This comment is left unintentionally blank.
   UNKNOWN = 0;
+  // This comment is left unintentionally blank.
   COMMIT = 1;
+  // This comment is left unintentionally blank.
   BLOB = 2;
+  // This comment is left unintentionally blank.
   TREE = 3;
+  // This comment is left unintentionally blank.
   TAG = 4;
 }
 
 // This comment is left unintentionally blank.
 enum SignatureType {
+  // This comment is left unintentionally blank.
   NONE = 0;
+  // This comment is left unintentionally blank.
   PGP = 1;
+  // This comment is left unintentionally blank.
   X509 = 2;
+  // This comment is left unintentionally blank.
   SSH = 3;
   // maybe add X509+TSA or other combinations at a later step
 }

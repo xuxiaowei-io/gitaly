@@ -25,9 +25,13 @@ const (
 type OperationMsg_Operation int32
 
 const (
-	OperationMsg_UNKNOWN     OperationMsg_Operation = 0
-	OperationMsg_MUTATOR     OperationMsg_Operation = 1
-	OperationMsg_ACCESSOR    OperationMsg_Operation = 2
+	// This comment is left unintentionally blank.
+	OperationMsg_UNKNOWN OperationMsg_Operation = 0
+	// This comment is left unintentionally blank.
+	OperationMsg_MUTATOR OperationMsg_Operation = 1
+	// This comment is left unintentionally blank.
+	OperationMsg_ACCESSOR OperationMsg_Operation = 2
+	// This comment is left unintentionally blank.
 	OperationMsg_MAINTENANCE OperationMsg_Operation = 3
 )
 
@@ -78,8 +82,10 @@ func (OperationMsg_Operation) EnumDescriptor() ([]byte, []int) {
 type OperationMsg_Scope int32
 
 const (
+	// This comment is left unintentionally blank.
 	OperationMsg_REPOSITORY OperationMsg_Scope = 0
-	OperationMsg_STORAGE    OperationMsg_Scope = 2
+	// This comment is left unintentionally blank.
+	OperationMsg_STORAGE OperationMsg_Scope = 2
 )
 
 // Enum value maps for OperationMsg_Scope.

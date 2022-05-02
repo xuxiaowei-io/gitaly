@@ -25,11 +25,16 @@ const (
 type ObjectType int32
 
 const (
+	// This comment is left unintentionally blank.
 	ObjectType_UNKNOWN ObjectType = 0
-	ObjectType_COMMIT  ObjectType = 1
-	ObjectType_BLOB    ObjectType = 2
-	ObjectType_TREE    ObjectType = 3
-	ObjectType_TAG     ObjectType = 4
+	// This comment is left unintentionally blank.
+	ObjectType_COMMIT ObjectType = 1
+	// This comment is left unintentionally blank.
+	ObjectType_BLOB ObjectType = 2
+	// This comment is left unintentionally blank.
+	ObjectType_TREE ObjectType = 3
+	// This comment is left unintentionally blank.
+	ObjectType_TAG ObjectType = 4
 )
 
 // Enum value maps for ObjectType.
@@ -81,10 +86,14 @@ func (ObjectType) EnumDescriptor() ([]byte, []int) {
 type SignatureType int32
 
 const (
+	// This comment is left unintentionally blank.
 	SignatureType_NONE SignatureType = 0
-	SignatureType_PGP  SignatureType = 1
+	// This comment is left unintentionally blank.
+	SignatureType_PGP SignatureType = 1
+	// This comment is left unintentionally blank.
 	SignatureType_X509 SignatureType = 2
-	SignatureType_SSH  SignatureType = 3 // maybe add X509+TSA or other combinations at a later step
+	// This comment is left unintentionally blank.
+	SignatureType_SSH SignatureType = 3 // maybe add X509+TSA or other combinations at a later step
 )
 
 // Enum value maps for SignatureType.

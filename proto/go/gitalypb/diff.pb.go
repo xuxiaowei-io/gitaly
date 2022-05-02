@@ -73,11 +73,16 @@ func (CommitDiffRequest_DiffMode) EnumDescriptor() ([]byte, []int) {
 type ChangedPaths_Status int32
 
 const (
-	ChangedPaths_ADDED       ChangedPaths_Status = 0
-	ChangedPaths_MODIFIED    ChangedPaths_Status = 1
-	ChangedPaths_DELETED     ChangedPaths_Status = 2
+	// This comment is left unintentionally blank.
+	ChangedPaths_ADDED ChangedPaths_Status = 0
+	// This comment is left unintentionally blank.
+	ChangedPaths_MODIFIED ChangedPaths_Status = 1
+	// This comment is left unintentionally blank.
+	ChangedPaths_DELETED ChangedPaths_Status = 2
+	// This comment is left unintentionally blank.
 	ChangedPaths_TYPE_CHANGE ChangedPaths_Status = 3
-	ChangedPaths_COPIED      ChangedPaths_Status = 4
+	// This comment is left unintentionally blank.
+	ChangedPaths_COPIED ChangedPaths_Status = 4
 )
 
 // Enum value maps for ChangedPaths_Status.

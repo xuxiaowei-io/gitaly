@@ -71,9 +71,13 @@ func (WriteCommitGraphRequest_SplitStrategy) EnumDescriptor() ([]byte, []int) {
 type GetArchiveRequest_Format int32
 
 const (
-	GetArchiveRequest_ZIP     GetArchiveRequest_Format = 0
-	GetArchiveRequest_TAR     GetArchiveRequest_Format = 1
-	GetArchiveRequest_TAR_GZ  GetArchiveRequest_Format = 2
+	// This comment is left unintentionally blank.
+	GetArchiveRequest_ZIP GetArchiveRequest_Format = 0
+	// This comment is left unintentionally blank.
+	GetArchiveRequest_TAR GetArchiveRequest_Format = 1
+	// This comment is left unintentionally blank.
+	GetArchiveRequest_TAR_GZ GetArchiveRequest_Format = 2
+	// This comment is left unintentionally blank.
 	GetArchiveRequest_TAR_BZ2 GetArchiveRequest_Format = 3
 )
 
@@ -124,12 +128,19 @@ func (GetArchiveRequest_Format) EnumDescriptor() ([]byte, []int) {
 type GetRawChangesResponse_RawChange_Operation int32
 
 const (
-	GetRawChangesResponse_RawChange_UNKNOWN      GetRawChangesResponse_RawChange_Operation = 0
-	GetRawChangesResponse_RawChange_ADDED        GetRawChangesResponse_RawChange_Operation = 1
-	GetRawChangesResponse_RawChange_COPIED       GetRawChangesResponse_RawChange_Operation = 2
-	GetRawChangesResponse_RawChange_DELETED      GetRawChangesResponse_RawChange_Operation = 3
-	GetRawChangesResponse_RawChange_MODIFIED     GetRawChangesResponse_RawChange_Operation = 4
-	GetRawChangesResponse_RawChange_RENAMED      GetRawChangesResponse_RawChange_Operation = 5
+	// This comment is left unintentionally blank.
+	GetRawChangesResponse_RawChange_UNKNOWN GetRawChangesResponse_RawChange_Operation = 0
+	// This comment is left unintentionally blank.
+	GetRawChangesResponse_RawChange_ADDED GetRawChangesResponse_RawChange_Operation = 1
+	// This comment is left unintentionally blank.
+	GetRawChangesResponse_RawChange_COPIED GetRawChangesResponse_RawChange_Operation = 2
+	// This comment is left unintentionally blank.
+	GetRawChangesResponse_RawChange_DELETED GetRawChangesResponse_RawChange_Operation = 3
+	// This comment is left unintentionally blank.
+	GetRawChangesResponse_RawChange_MODIFIED GetRawChangesResponse_RawChange_Operation = 4
+	// This comment is left unintentionally blank.
+	GetRawChangesResponse_RawChange_RENAMED GetRawChangesResponse_RawChange_Operation = 5
+	// This comment is left unintentionally blank.
 	GetRawChangesResponse_RawChange_TYPE_CHANGED GetRawChangesResponse_RawChange_Operation = 6
 )
 

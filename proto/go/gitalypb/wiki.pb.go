@@ -24,7 +24,9 @@ const (
 type WikiGetAllPagesRequest_SortBy int32
 
 const (
-	WikiGetAllPagesRequest_TITLE      WikiGetAllPagesRequest_SortBy = 0
+	// This comment is left unintentionally blank.
+	WikiGetAllPagesRequest_TITLE WikiGetAllPagesRequest_SortBy = 0
+	// This comment is left unintentionally blank.
 	WikiGetAllPagesRequest_CREATED_AT WikiGetAllPagesRequest_SortBy = 1
 )
 
@@ -71,7 +73,9 @@ func (WikiGetAllPagesRequest_SortBy) EnumDescriptor() ([]byte, []int) {
 type WikiListPagesRequest_SortBy int32
 
 const (
-	WikiListPagesRequest_TITLE      WikiListPagesRequest_SortBy = 0
+	// This comment is left unintentionally blank.
+	WikiListPagesRequest_TITLE WikiListPagesRequest_SortBy = 0
+	// This comment is left unintentionally blank.
 	WikiListPagesRequest_CREATED_AT WikiListPagesRequest_SortBy = 1
 )
 

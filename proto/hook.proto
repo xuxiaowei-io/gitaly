@@ -100,8 +100,11 @@ message UpdateHookResponse{
 message ReferenceTransactionHookRequest {
   // This comment is left unintentionally blank.
   enum State {
+    // This comment is left unintentionally blank.
     PREPARED = 0;
+    // This comment is left unintentionally blank.
     COMMITTED = 1;
+    // This comment is left unintentionally blank.
     ABORTED = 2;
   }
 

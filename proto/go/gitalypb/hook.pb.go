@@ -24,9 +24,12 @@ const (
 type ReferenceTransactionHookRequest_State int32
 
 const (
-	ReferenceTransactionHookRequest_PREPARED  ReferenceTransactionHookRequest_State = 0
+	// This comment is left unintentionally blank.
+	ReferenceTransactionHookRequest_PREPARED ReferenceTransactionHookRequest_State = 0
+	// This comment is left unintentionally blank.
 	ReferenceTransactionHookRequest_COMMITTED ReferenceTransactionHookRequest_State = 1
-	ReferenceTransactionHookRequest_ABORTED   ReferenceTransactionHookRequest_State = 2
+	// This comment is left unintentionally blank.
+	ReferenceTransactionHookRequest_ABORTED ReferenceTransactionHookRequest_State = 2
 )
 
 // Enum value maps for ReferenceTransactionHookRequest_State.

@@ -83,9 +83,12 @@ func (VoteTransactionRequest_Phase) EnumDescriptor() ([]byte, []int) {
 type VoteTransactionResponse_TransactionState int32
 
 const (
+	// This comment is left unintentionally blank.
 	VoteTransactionResponse_COMMIT VoteTransactionResponse_TransactionState = 0
-	VoteTransactionResponse_ABORT  VoteTransactionResponse_TransactionState = 1
-	VoteTransactionResponse_STOP   VoteTransactionResponse_TransactionState = 2
+	// This comment is left unintentionally blank.
+	VoteTransactionResponse_ABORT VoteTransactionResponse_TransactionState = 1
+	// This comment is left unintentionally blank.
+	VoteTransactionResponse_STOP VoteTransactionResponse_TransactionState = 2
 )
 
 // Enum value maps for VoteTransactionResponse_TransactionState.

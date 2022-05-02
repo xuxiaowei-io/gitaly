@@ -311,9 +311,13 @@ message TreeEntryRequest {
 message TreeEntryResponse {
   // TODO: Replace this enum with ObjectType in shared.proto
   enum ObjectType {
+    // This comment is left unintentionally blank.
     COMMIT = 0;
+    // This comment is left unintentionally blank.
     BLOB = 1;
+    // This comment is left unintentionally blank.
     TREE = 2;
+    // This comment is left unintentionally blank.
     TAG = 3;
   }
   ObjectType type = 1;
@@ -366,10 +370,14 @@ message CountDivergingCommitsResponse {
 message TreeEntry {
   // TODO: Replace this enum with ObjectType in shared.proto
   enum EntryType {
+    // This comment is left unintentionally blank.
     BLOB = 0;
+    // This comment is left unintentionally blank.
     TREE = 1;
+    // This comment is left unintentionally blank.
     COMMIT = 3;
   }
+
   // OID of the object this tree entry points to
   string oid = 1;
   // OID of the tree attached to commit_oid
@@ -389,7 +397,9 @@ message TreeEntry {
 message GetTreeEntriesRequest {
   // This comment is left unintentionally blank.
   enum SortBy {
+    // This comment is left unintentionally blank.
     DEFAULT = 0; // Preserve order of git ls-tree
+    // This comment is left unintentionally blank.
     TREES_FIRST = 1; // trees, blobs, submodules
   }
 
@@ -469,8 +479,11 @@ message ListCommitsByRefNameResponse {
 message FindAllCommitsRequest {
   // This comment is left unintentionally blank.
   enum Order {
+    // This comment is left unintentionally blank.
     NONE = 0;
+    // This comment is left unintentionally blank.
     TOPO = 1;
+    // This comment is left unintentionally blank.
     DATE = 2;
   }
 
@@ -491,7 +504,9 @@ message FindAllCommitsResponse {
 message FindCommitsRequest {
   // This comment is left unintentionally blank.
   enum Order {
+    // This comment is left unintentionally blank.
     NONE = 0;
+    // This comment is left unintentionally blank.
     TOPO = 1;
   }
 

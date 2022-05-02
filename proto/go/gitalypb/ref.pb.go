@@ -25,8 +25,11 @@ const (
 type FindLocalBranchesRequest_SortBy int32
 
 const (
-	FindLocalBranchesRequest_NAME         FindLocalBranchesRequest_SortBy = 0
-	FindLocalBranchesRequest_UPDATED_ASC  FindLocalBranchesRequest_SortBy = 1
+	// This comment is left unintentionally blank.
+	FindLocalBranchesRequest_NAME FindLocalBranchesRequest_SortBy = 0
+	// This comment is left unintentionally blank.
+	FindLocalBranchesRequest_UPDATED_ASC FindLocalBranchesRequest_SortBy = 1
+	// This comment is left unintentionally blank.
 	FindLocalBranchesRequest_UPDATED_DESC FindLocalBranchesRequest_SortBy = 2
 )
 
@@ -75,7 +78,9 @@ func (FindLocalBranchesRequest_SortBy) EnumDescriptor() ([]byte, []int) {
 type FindAllTagsRequest_SortBy_Key int32
 
 const (
-	FindAllTagsRequest_SortBy_REFNAME     FindAllTagsRequest_SortBy_Key = 0
+	// This comment is left unintentionally blank.
+	FindAllTagsRequest_SortBy_REFNAME FindAllTagsRequest_SortBy_Key = 0
+	// This comment is left unintentionally blank.
 	FindAllTagsRequest_SortBy_CREATORDATE FindAllTagsRequest_SortBy_Key = 1
 )
 
@@ -122,9 +127,13 @@ func (FindAllTagsRequest_SortBy_Key) EnumDescriptor() ([]byte, []int) {
 type CreateBranchResponse_Status int32
 
 const (
-	CreateBranchResponse_OK                      CreateBranchResponse_Status = 0
-	CreateBranchResponse_ERR_EXISTS              CreateBranchResponse_Status = 1
-	CreateBranchResponse_ERR_INVALID             CreateBranchResponse_Status = 2
+	// This comment is left unintentionally blank.
+	CreateBranchResponse_OK CreateBranchResponse_Status = 0
+	// This comment is left unintentionally blank.
+	CreateBranchResponse_ERR_EXISTS CreateBranchResponse_Status = 1
+	// This comment is left unintentionally blank.
+	CreateBranchResponse_ERR_INVALID CreateBranchResponse_Status = 2
+	// This comment is left unintentionally blank.
 	CreateBranchResponse_ERR_INVALID_START_POINT CreateBranchResponse_Status = 3
 )
 
@@ -175,9 +184,13 @@ func (CreateBranchResponse_Status) EnumDescriptor() ([]byte, []int) {
 type ListRefsRequest_SortBy_Key int32
 
 const (
-	ListRefsRequest_SortBy_REFNAME       ListRefsRequest_SortBy_Key = 0
-	ListRefsRequest_SortBy_CREATORDATE   ListRefsRequest_SortBy_Key = 1
-	ListRefsRequest_SortBy_AUTHORDATE    ListRefsRequest_SortBy_Key = 2
+	// This comment is left unintentionally blank.
+	ListRefsRequest_SortBy_REFNAME ListRefsRequest_SortBy_Key = 0
+	// This comment is left unintentionally blank.
+	ListRefsRequest_SortBy_CREATORDATE ListRefsRequest_SortBy_Key = 1
+	// This comment is left unintentionally blank.
+	ListRefsRequest_SortBy_AUTHORDATE ListRefsRequest_SortBy_Key = 2
+	// This comment is left unintentionally blank.
 	ListRefsRequest_SortBy_COMMITTERDATE ListRefsRequest_SortBy_Key = 3
 )
 

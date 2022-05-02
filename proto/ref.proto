@@ -183,8 +183,11 @@ message FindAllTagNamesResponse {
 message FindLocalBranchesRequest {
   // This comment is left unintentionally blank.
   enum SortBy {
+    // This comment is left unintentionally blank.
     NAME = 0;
+    // This comment is left unintentionally blank.
     UPDATED_ASC = 1;
+    // This comment is left unintentionally blank.
     UPDATED_DESC = 2;
   }
 
@@ -258,7 +261,9 @@ message FindAllTagsRequest {
   message SortBy {
     // Key is a key used for sorting.
     enum Key {
+      // This comment is left unintentionally blank.
       REFNAME     = 0;
+      // This comment is left unintentionally blank.
       CREATORDATE = 1;
     }
 
@@ -303,9 +308,13 @@ message CreateBranchRequest {
 message CreateBranchResponse {
   // This comment is left unintentionally blank.
   enum Status {
+    // This comment is left unintentionally blank.
     OK = 0;
+    // This comment is left unintentionally blank.
     ERR_EXISTS = 1;
+    // This comment is left unintentionally blank.
     ERR_INVALID = 2;
+    // This comment is left unintentionally blank.
     ERR_INVALID_START_POINT = 3;
   }
 
@@ -472,9 +481,13 @@ message ListRefsRequest {
   message SortBy {
     // This comment is left unintentionally blank.
     enum Key {
+      // This comment is left unintentionally blank.
       REFNAME       = 0;
+      // This comment is left unintentionally blank.
       CREATORDATE   = 1;
+      // This comment is left unintentionally blank.
       AUTHORDATE    = 2;
+      // This comment is left unintentionally blank.
       COMMITTERDATE = 3;
     }
 
