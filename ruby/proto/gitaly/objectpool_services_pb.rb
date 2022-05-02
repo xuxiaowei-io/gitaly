@@ -6,6 +6,10 @@ require 'objectpool_pb'
 
 module Gitaly
   module ObjectPoolService
+    # ObjectPoolService is a service containing RPCs to manipulate object pools.
+    # An object pool is a separate repository that can be linked to from multiple
+    # satellite repositories in order to deduplicate common objects between them.
+    # This is mostly used in the contexet of repository forks.
     class Service
 
       include ::GRPC::GenericService

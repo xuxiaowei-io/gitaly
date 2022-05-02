@@ -6,6 +6,7 @@ require 'server_pb'
 
 module Gitaly
   module ServerService
+    # ServerService is a service that provides information about a Gitaly server.
     class Service
 
       include ::GRPC::GenericService

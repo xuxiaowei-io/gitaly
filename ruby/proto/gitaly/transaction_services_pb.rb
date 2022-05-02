@@ -6,6 +6,11 @@ require 'transaction_pb'
 
 module Gitaly
   module RefTransaction
+    # RefTransaction is a service which provides RPCs to interact with reference
+    # transactions. Reference transactions are used in the context of Gitaly
+    # Cluster to ensure that all nodes part of a single transaction perform the
+    # same change: given a set of changes, the changes are hashed and the hash is
+    # then voted on.
     class Service
 
       include ::GRPC::GenericService

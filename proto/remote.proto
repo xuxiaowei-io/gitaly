@@ -7,6 +7,8 @@ import "shared.proto";
 
 option go_package = "gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb";
 
+// RemoteService is a service providing RPCs to interact with a remote
+// repository that is hosted on another Git server.
 service RemoteService {
 
   // UpdateRemoteMirror compares the references in the target repository and its remote mirror

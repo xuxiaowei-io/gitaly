@@ -7,6 +7,11 @@ import "shared.proto";
 
 option go_package = "gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb";
 
+// RefTransaction is a service which provides RPCs to interact with reference
+// transactions. Reference transactions are used in the context of Gitaly
+// Cluster to ensure that all nodes part of a single transaction perform the
+// same change: given a set of changes, the changes are hashed and the hash is
+// then voted on.
 service RefTransaction {
   option (intercepted) = true;
 

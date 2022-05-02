@@ -6,6 +6,7 @@ require 'cleanup_pb'
 
 module Gitaly
   module CleanupService
+    # CleanupService provides RPCs to clean up a repository's contents.
     class Service
 
       include ::GRPC::GenericService

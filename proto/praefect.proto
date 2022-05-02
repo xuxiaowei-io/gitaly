@@ -8,6 +8,8 @@ import "shared.proto";
 
 option go_package = "gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb";
 
+// PraefectInfoService is a service which provides RPCs to query and modify
+// Praefect-specific parameters.
 service PraefectInfoService {
   option (intercepted) = true;
 

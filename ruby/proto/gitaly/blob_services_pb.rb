@@ -6,6 +6,8 @@ require 'blob_pb'
 
 module Gitaly
   module BlobService
+    # BlobService is a service which provides RPCs to retrieve Git blobs from a
+    # specific repository.
     class Service
 
       include ::GRPC::GenericService

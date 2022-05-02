@@ -6,6 +6,8 @@ require 'diff_pb'
 
 module Gitaly
   module DiffService
+    # DiffService is a service which provides RPCs to inspect differences
+    # introduced between a set of commits.
     class Service
 
       include ::GRPC::GenericService

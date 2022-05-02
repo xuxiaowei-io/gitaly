@@ -6,6 +6,8 @@ require 'remote_pb'
 
 module Gitaly
   module RemoteService
+    # RemoteService is a service providing RPCs to interact with a remote
+    # repository that is hosted on another Git server.
     class Service
 
       include ::GRPC::GenericService

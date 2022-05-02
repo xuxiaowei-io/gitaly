@@ -8,6 +8,8 @@ import "shared.proto";
 
 option go_package = "gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb";
 
+// CommitService is a service which provides RPCs that interact with Git
+// commits.
 service CommitService {
 
   // ListCommits lists all commits reachable via a set of references by doing a

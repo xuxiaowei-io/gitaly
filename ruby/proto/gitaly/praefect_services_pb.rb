@@ -6,6 +6,8 @@ require 'praefect_pb'
 
 module Gitaly
   module PraefectInfoService
+    # PraefectInfoService is a service which provides RPCs to query and modify
+    # Praefect-specific parameters.
     class Service
 
       include ::GRPC::GenericService

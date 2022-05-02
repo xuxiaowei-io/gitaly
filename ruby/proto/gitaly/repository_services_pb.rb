@@ -6,6 +6,7 @@ require 'repository_pb'
 
 module Gitaly
   module RepositoryService
+    # RepositoryService is a service providing RPCs accessing repositories as a whole.
     class Service
 
       include ::GRPC::GenericService

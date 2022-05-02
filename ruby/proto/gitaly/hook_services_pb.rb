@@ -6,6 +6,9 @@ require 'hook_pb'
 
 module Gitaly
   module HookService
+    # HookService is a service which provides the implementation of a subset of
+    # Git hooks. These are typically invoked via the `gitaly-hooks` binary to
+    # ensure that the actual hook logic is executed in the context of the server.
     class Service
 
       include ::GRPC::GenericService

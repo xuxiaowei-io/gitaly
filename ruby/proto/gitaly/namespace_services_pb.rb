@@ -6,6 +6,9 @@ require 'namespace_pb'
 
 module Gitaly
   module NamespaceService
+    # NamespaceService is a service which provides RPCs to manage namespaces of a
+    # storage. Namespaces had been used before Gitaly migrated to hashed storages
+    # and shouldn't be used nowadays anymore.
     class Service
 
       include ::GRPC::GenericService

@@ -6,6 +6,8 @@ require 'commit_pb'
 
 module Gitaly
   module CommitService
+    # CommitService is a service which provides RPCs that interact with Git
+    # commits.
     class Service
 
       include ::GRPC::GenericService

@@ -6,6 +6,9 @@ import "lint.proto";
 
 option go_package = "gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb";
 
+// NamespaceService is a service which provides RPCs to manage namespaces of a
+// storage. Namespaces had been used before Gitaly migrated to hashed storages
+// and shouldn't be used nowadays anymore.
 service NamespaceService {
   rpc AddNamespace(AddNamespaceRequest) returns (AddNamespaceResponse) {
     option (op_type) = {

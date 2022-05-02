@@ -6,6 +6,7 @@ require 'ref_pb'
 
 module Gitaly
   module RefService
+    # RefService is a service that provides RPCs to list and modify Git references.
     class Service
 
       include ::GRPC::GenericService

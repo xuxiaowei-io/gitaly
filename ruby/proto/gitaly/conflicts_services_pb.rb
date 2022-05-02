@@ -6,6 +6,8 @@ require 'conflicts_pb'
 
 module Gitaly
   module ConflictsService
+    # ConflictsService is a service which provides RPCs to interact with conflicts
+    # resulting from a merge.
     class Service
 
       include ::GRPC::GenericService

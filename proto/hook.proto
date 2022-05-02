@@ -7,6 +7,9 @@ import "shared.proto";
 
 option go_package = "gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb";
 
+// HookService is a service which provides the implementation of a subset of
+// Git hooks. These are typically invoked via the `gitaly-hooks` binary to
+// ensure that the actual hook logic is executed in the context of the server.
 service HookService {
   rpc PreReceiveHook(stream PreReceiveHookRequest) returns (stream PreReceiveHookResponse) {
     option (op_type) = {

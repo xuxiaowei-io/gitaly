@@ -8,6 +8,7 @@ import "shared.proto";
 
 option go_package = "gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb";
 
+// RefService is a service that provides RPCs to list and modify Git references.
 service RefService {
   rpc FindDefaultBranchName(FindDefaultBranchNameRequest) returns (FindDefaultBranchNameResponse) {
     option (op_type) = {

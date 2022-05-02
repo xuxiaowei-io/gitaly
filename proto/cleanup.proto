@@ -7,6 +7,7 @@ import "shared.proto";
 
 option go_package = "gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb";
 
+// CleanupService provides RPCs to clean up a repository's contents.
 service CleanupService {
   rpc ApplyBfgObjectMapStream(stream ApplyBfgObjectMapStreamRequest) returns (stream ApplyBfgObjectMapStreamResponse) {
     option (op_type) = {

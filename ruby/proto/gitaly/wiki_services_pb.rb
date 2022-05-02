@@ -6,6 +6,9 @@ require 'wiki_pb'
 
 module Gitaly
   module WikiService
+    # WikiService is a service that provides Wiki-related functionality. This
+    # service is deprecated and should not be used anymore. Instead, all
+    # functionality to implement Wikis should use Git-based RPCS.
     class Service
 
       include ::GRPC::GenericService
