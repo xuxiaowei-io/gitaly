@@ -8,6 +8,7 @@ option go_package = "gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb";
 
 // This comment is left unintentionally blank.
 message OperationMsg {
+  // This comment is left unintentionally blank.
   enum Operation {
     UNKNOWN = 0;
     MUTATOR = 1;
@@ -15,8 +16,7 @@ message OperationMsg {
     MAINTENANCE = 3;
   }
 
-  Operation op = 1;
-
+  // This comment is left unintentionally blank.
   enum Scope {
     REPOSITORY = 0;
     STORAGE = 2;
@@ -24,6 +24,9 @@ message OperationMsg {
     reserved 1;
     reserved "SERVER";
   }
+
+
+  Operation op = 1;
 
   // Scope level indicates what level an RPC interacts with a server:
   //   - REPOSITORY: scoped to only a single repo

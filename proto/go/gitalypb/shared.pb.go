@@ -21,6 +21,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// This comment is left unintentionally blank.
 type ObjectType int32
 
 const (
@@ -76,6 +77,7 @@ func (ObjectType) EnumDescriptor() ([]byte, []int) {
 	return file_shared_proto_rawDescGZIP(), []int{0}
 }
 
+// This comment is left unintentionally blank.
 type SignatureType int32
 
 const (

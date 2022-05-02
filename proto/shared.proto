@@ -7,6 +7,7 @@ import "lint.proto";
 
 option go_package = "gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb";
 
+// This comment is left unintentionally blank.
 enum ObjectType {
   UNKNOWN = 0;
   COMMIT = 1;
@@ -15,6 +16,7 @@ enum ObjectType {
   TAG = 4;
 }
 
+// This comment is left unintentionally blank.
 enum SignatureType {
   NONE = 0;
   PGP = 1;

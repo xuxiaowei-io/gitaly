@@ -181,12 +181,14 @@ message FindAllTagNamesResponse {
 
 // This comment is left unintentionally blank.
 message FindLocalBranchesRequest {
-  Repository repository = 1 [(target_repository)=true];
+  // This comment is left unintentionally blank.
   enum SortBy {
     NAME = 0;
     UPDATED_ASC = 1;
     UPDATED_DESC = 2;
   }
+
+  Repository repository = 1 [(target_repository)=true];
   SortBy sort_by = 2;
   // The page token is the branch name, with the `refs/heads/` prefix, for
   // example "refs/heads/master". After the first branch name is encountered
@@ -299,12 +301,14 @@ message CreateBranchRequest {
 
 // This comment is left unintentionally blank.
 message CreateBranchResponse {
+  // This comment is left unintentionally blank.
   enum Status {
     OK = 0;
     ERR_EXISTS = 1;
     ERR_INVALID = 2;
     ERR_INVALID_START_POINT = 3;
   }
+
   Status status = 1;
   Branch branch = 2;
 }
@@ -466,6 +470,7 @@ message ListRefsRequest {
 
   // This comment is left unintentionally blank.
   message SortBy {
+    // This comment is left unintentionally blank.
     enum Key {
       REFNAME       = 0;
       CREATORDATE   = 1;

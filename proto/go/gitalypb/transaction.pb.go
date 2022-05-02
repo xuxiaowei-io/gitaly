@@ -20,6 +20,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// This comment is left unintentionally blank.
 type VoteTransactionRequest_Phase int32
 
 const (

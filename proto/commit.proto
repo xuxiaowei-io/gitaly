@@ -387,16 +387,16 @@ message TreeEntry {
 
 // This comment is left unintentionally blank.
 message GetTreeEntriesRequest {
-  Repository repository = 1 [(target_repository)=true];
-  bytes revision = 2;
-  bytes path = 3;
-  bool recursive = 4;
-
+  // This comment is left unintentionally blank.
   enum SortBy {
     DEFAULT = 0; // Preserve order of git ls-tree
     TREES_FIRST = 1; // trees, blobs, submodules
   }
 
+  Repository repository = 1 [(target_repository)=true];
+  bytes revision = 2;
+  bytes path = 3;
+  bool recursive = 4;
   SortBy sort = 5;
   // The page token is the last commit OID that was sent. It's expected to be the
   // full object ID to guard against ambigious OIDs.
@@ -467,16 +467,18 @@ message ListCommitsByRefNameResponse {
 
 // This comment is left unintentionally blank.
 message FindAllCommitsRequest {
-  Repository repository = 1 [(target_repository)=true];
-  // When nil, return all commits reachable by any branch in the repo
-  bytes revision = 2;
-  int32 max_count = 3;
-  int32 skip = 4;
+  // This comment is left unintentionally blank.
   enum Order {
     NONE = 0;
     TOPO = 1;
     DATE = 2;
   }
+
+  Repository repository = 1 [(target_repository)=true];
+  // When nil, return all commits reachable by any branch in the repo
+  bytes revision = 2;
+  int32 max_count = 3;
+  int32 skip = 4;
   Order order = 5;
 }
 
@@ -487,6 +489,12 @@ message FindAllCommitsResponse {
 
 // This comment is left unintentionally blank.
 message FindCommitsRequest {
+  // This comment is left unintentionally blank.
+  enum Order {
+    NONE = 0;
+    TOPO = 1;
+  }
+
   Repository repository = 1 [(target_repository)=true];
   bytes revision = 2;
   int32 limit = 3;
@@ -501,10 +509,6 @@ message FindCommitsRequest {
   bool all = 11;
   bool first_parent = 12;
   bytes author = 13;
-  enum Order {
-    NONE = 0;
-    TOPO = 1;
-  }
   Order order = 14;
   GlobalOptions global_options = 15;
   bool trailers = 16;

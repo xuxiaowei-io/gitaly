@@ -131,6 +131,7 @@ func (UserRevertResponse_CreateTreeError) EnumDescriptor() ([]byte, []int) {
 	return file_operations_proto_rawDescGZIP(), []int{22, 0}
 }
 
+// This comment is left unintentionally blank.
 type UserCommitFilesActionHeader_ActionType int32
 
 const (

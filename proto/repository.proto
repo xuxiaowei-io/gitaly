@@ -386,12 +386,14 @@ message GarbageCollectResponse {
 
 // This comment is left unintentionally blank.
 message WriteCommitGraphRequest {
+  // This comment is left unintentionally blank.
   enum SplitStrategy {
     // SizeMultiple requires to use '--split --size-multiple=4' strategy to create/update commit graph.
     // https://git-scm.com/docs/git-commit-graph#Documentation/git-commit-graph.txt-emwriteem
     // It is a default, there is no need to explicitly set it in the request.
     SizeMultiple = 0; // protolint:disable:this ENUM_FIELD_NAMES_UPPER_SNAKE_CASE
   }
+
   Repository repository = 1 [(target_repository)=true];
   // SplitStrategy is a strategy used to create/update commit graph.
   SplitStrategy splitStrategy = 2; // protolint:disable:this FIELD_NAMES_LOWER_SNAKE_CASE
@@ -498,6 +500,7 @@ message CreateRepositoryResponse {
 
 // This comment is left unintentionally blank.
 message GetArchiveRequest {
+  // This comment is left unintentionally blank.
   enum Format {
     ZIP = 0;
     TAR = 1;
@@ -770,6 +773,7 @@ message GetRawChangesRequest {
 message GetRawChangesResponse {
   // This comment is left unintentionally blank.
   message RawChange {
+    // This comment is left unintentionally blank.
     enum Operation {
       UNKNOWN = 0;
       ADDED = 1;

@@ -181,6 +181,7 @@ func (TreeEntry_EntryType) EnumDescriptor() ([]byte, []int) {
 	return file_commit_proto_rawDescGZIP(), []int{14, 0}
 }
 
+// This comment is left unintentionally blank.
 type GetTreeEntriesRequest_SortBy int32
 
 const (
@@ -227,6 +228,7 @@ func (GetTreeEntriesRequest_SortBy) EnumDescriptor() ([]byte, []int) {
 	return file_commit_proto_rawDescGZIP(), []int{15, 0}
 }
 
+// This comment is left unintentionally blank.
 type FindAllCommitsRequest_Order int32
 
 const (
@@ -276,6 +278,7 @@ func (FindAllCommitsRequest_Order) EnumDescriptor() ([]byte, []int) {
 	return file_commit_proto_rawDescGZIP(), []int{25, 0}
 }
 
+// This comment is left unintentionally blank.
 type FindCommitsRequest_Order int32
 
 const (

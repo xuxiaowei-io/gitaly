@@ -20,6 +20,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// This comment is left unintentionally blank.
 type WikiGetAllPagesRequest_SortBy int32
 
 const (
@@ -66,6 +67,7 @@ func (WikiGetAllPagesRequest_SortBy) EnumDescriptor() ([]byte, []int) {
 	return file_wiki_proto_rawDescGZIP(), []int{9, 0}
 }
 
+// This comment is left unintentionally blank.
 type WikiListPagesRequest_SortBy int32
 
 const (

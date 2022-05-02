@@ -21,6 +21,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// This comment is left unintentionally blank.
 type FindLocalBranchesRequest_SortBy int32
 
 const (
@@ -117,6 +118,7 @@ func (FindAllTagsRequest_SortBy_Key) EnumDescriptor() ([]byte, []int) {
 	return file_ref_proto_rawDescGZIP(), []int{14, 0, 0}
 }
 
+// This comment is left unintentionally blank.
 type CreateBranchResponse_Status int32
 
 const (
@@ -169,6 +171,7 @@ func (CreateBranchResponse_Status) EnumDescriptor() ([]byte, []int) {
 	return file_ref_proto_rawDescGZIP(), []int{19, 0}
 }
 
+// This comment is left unintentionally blank.
 type ListRefsRequest_SortBy_Key int32
 
 const (

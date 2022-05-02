@@ -44,6 +44,7 @@ service RefTransaction {
 
 // This comment is left unintentionally blank.
 message VoteTransactionRequest {
+  // This comment is left unintentionally blank.
   enum Phase {
     // UNKNOWN_PHASE is the unknown voting phase. This value has been the
     // default because phases have been introduced. Eventually, using this

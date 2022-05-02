@@ -20,6 +20,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// This comment is left unintentionally blank.
 type WriteCommitGraphRequest_SplitStrategy int32
 
 const (
@@ -66,6 +67,7 @@ func (WriteCommitGraphRequest_SplitStrategy) EnumDescriptor() ([]byte, []int) {
 	return file_repository_proto_rawDescGZIP(), []int{10, 0}
 }
 
+// This comment is left unintentionally blank.
 type GetArchiveRequest_Format int32
 
 const (
@@ -118,6 +120,7 @@ func (GetArchiveRequest_Format) EnumDescriptor() ([]byte, []int) {
 	return file_repository_proto_rawDescGZIP(), []int{24, 0}
 }
 
+// This comment is left unintentionally blank.
 type GetRawChangesResponse_RawChange_Operation int32
 
 const (

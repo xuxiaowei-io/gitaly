@@ -21,6 +21,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// This comment is left unintentionally blank.
 type OperationMsg_Operation int32
 
 const (
@@ -73,6 +74,7 @@ func (OperationMsg_Operation) EnumDescriptor() ([]byte, []int) {
 	return file_lint_proto_rawDescGZIP(), []int{0, 0}
 }
 
+// This comment is left unintentionally blank.
 type OperationMsg_Scope int32
 
 const (

@@ -500,6 +500,7 @@ message UserRevertResponse {
 
 // UserCommitFilesActionHeader contains the details of the action to be performed.
 message UserCommitFilesActionHeader {
+  // This comment is left unintentionally blank.
   enum ActionType {
     // CREATE creates a new file.
     CREATE = 0;
@@ -514,6 +515,7 @@ message UserCommitFilesActionHeader {
     // CHMOD changes the permissions of an existing file.
     CHMOD = 5;
   }
+
   // action is the type of the action taken to build a commit. Not all fields are
   // used for all of the actions.
   ActionType action = 1;

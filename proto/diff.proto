@@ -57,6 +57,7 @@ service DiffService {
 
 // This comment is left unintentionally blank.
 message CommitDiffRequest {
+  // This comment is left unintentionally blank.
   enum DiffMode {
     // DEFAULT is the standard diff mode and results in a linewise diff for textfiles.
     DEFAULT = 0;
@@ -198,6 +199,7 @@ message FindChangedPathsResponse {
 
 // Includes the path of the file, and the status of the change
 message ChangedPaths {
+  // This comment is left unintentionally blank.
   enum Status {
     ADDED = 0;
     MODIFIED = 1;
