@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 14.10.1 (2022-04-29)
+
+No changes.
+
 ## 14.10.0 (2022-04-21)
 
 ### Added (9 changes)
@@ -64,6 +68,10 @@
 
 - [Add migrations for background verification schema](gitlab-org/gitaly@465af6714c19c7a7d0b38fd02b626b08d1b6f343) ([merge request](gitlab-org/gitaly!4459))
 - [sidechannel: use default yamux max window size](gitlab-org/gitaly@f99ae8abf6f317892065e99463c179364c462383) ([merge request](gitlab-org/gitaly!4439))
+
+## 14.9.4 (2022-04-29)
+
+No changes.
 
 ## 14.9.3 (2022-04-12)
 
@@ -134,6 +142,10 @@ No changes.
 
 - [Makefile: Add more patches to speed up git-fetch(1) to v2.35.1.gl1](gitlab-org/gitaly@4c5b7a2a4fa9960381a214b057062ed3693b41ba) ([merge request](gitlab-org/gitaly!4408))
 - [git: Convert internal fetches to use sidechannel](gitlab-org/gitaly@8e5cb64195e732fd95f98d49971b6e9910b86ce2) ([merge request](gitlab-org/gitaly!4358))
+
+## 14.8.6 (2022-04-29)
+
+No changes.
 
 ## 14.8.5 (2022-03-31)
 
