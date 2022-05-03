@@ -3,13 +3,7 @@ package git
 import (
 	"bytes"
 	"fmt"
-	"time"
 )
-
-// FallbackTimeValue is the value returned by `SafeTimeParse` in case it
-// encounters a parse error. It's the maximum time value possible in golang.
-// See https://gitlab.com/gitlab-org/gitaly/issues/556#note_40289573
-var FallbackTimeValue = time.Unix(1<<63-62135596801, 999999999)
 
 func validateRevision(revision []byte, allowEmpty bool) error {
 	if !allowEmpty && len(revision) == 0 {
