@@ -61,9 +61,16 @@ func walkStorage(ctx context.Context, storagePath string, stream gitalypb.Intern
 				return err
 			}
 
+			mtime := gitDirInfo.ModTime()
+			ctime := getCtime(gitDirInfo)
+
+			if ctime.After(mtime) {
+				mtime = ctime
+			}
+
 			if err := stream.Send(&gitalypb.WalkReposResponse{
 				RelativePath:     relPath,
-				ModificationTime: timestamppb.New(gitDirInfo.ModTime()),
+				ModificationTime: timestamppb.New(mtime),
 			}); err != nil {
 				return err
 			}

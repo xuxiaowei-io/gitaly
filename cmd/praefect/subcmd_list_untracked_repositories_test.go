@@ -89,22 +89,32 @@ func TestListUntrackedRepositories_Exec(t *testing.T) {
 	createRepo(t, ctx, repoClient, praefectStorage, "path/to/test/repo")
 	out := &bytes.Buffer{}
 	cmd := newListUntrackedRepositories(testhelper.NewDiscardingLogger(t), out)
+	// setting onlyInlucdesOlderThan to a negative value will put it in the
+	// future. This is rather nonsensical, but we need it for the purposes
+	// of this test because we check not only the mtime but also the ctime
+	// to determine if a repository has been changed. There is not an easy
+	// way to change modify the ctime manually.
 	fs := cmd.FlagSet()
-	require.NoError(t, fs.Parse([]string{}))
+	require.NoError(t, fs.Parse([]string{"--older-than", "-1h"}))
 
 	// Repositories not managed by praefect.
 	repo1, repo1Path := gittest.InitRepo(t, g1Cfg, g1Cfg.Storages[0])
 	repo2, repo2Path := gittest.InitRepo(t, g1Cfg, g1Cfg.Storages[0])
-	_, _ = gittest.InitRepo(t, g2Cfg, g2Cfg.Storages[0])
+	_, repo3Path := gittest.InitRepo(t, g2Cfg, g2Cfg.Storages[0])
 
 	require.NoError(t, os.Chtimes(
 		repo1Path,
-		time.Now().Add(-(6*time.Hour+1*time.Second)),
-		time.Now().Add(-(6*time.Hour+1*time.Second))))
+		time.Now(),
+		time.Now().Add(time.Hour-time.Minute)))
+
 	require.NoError(t, os.Chtimes(
 		repo2Path,
-		time.Now().Add(-(6*time.Hour+1*time.Second)),
-		time.Now().Add(-(6*time.Hour+1*time.Second))))
+		time.Now(),
+		time.Now().Add(time.Hour-time.Minute)))
+	require.NoError(t, os.Chtimes(
+		repo3Path,
+		time.Now().Add(2*time.Hour),
+		time.Now().Add(2*time.Hour)))
 
 	require.NoError(t, cmd.Exec(fs, conf))
 
@@ -114,6 +124,7 @@ func TestListUntrackedRepositories_Exec(t *testing.T) {
 		fmt.Sprintf(`{"relative_path":%q,"storage":"gitaly-1","virtual_storage":"praefect"}`, repo2.RelativePath),
 		"", // an empty extra element required as each line ends with "delimiter" and strings.Split returns all parts
 	}
+
 	require.ElementsMatch(t, exp, strings.Split(out.String(), "\n"))
 }
 
