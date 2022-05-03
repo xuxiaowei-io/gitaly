@@ -294,7 +294,7 @@ func BenchmarkFindCommitWithCache(b *testing.B) {
 func benchmarkFindCommit(withCache bool, b *testing.B) {
 	ctx := testhelper.Context(b)
 
-	cfg, repo, _, client := setupCommitServiceWithRepo(ctx, b, false)
+	cfg, repo, _, client := setupCommitServiceWithRepo(ctx, b, true)
 
 	// get a list of revisions
 	gitCmdFactory := gittest.NewCommandFactory(b, cfg)
