@@ -140,7 +140,8 @@ func CatfileInfo(
 	}()
 
 	return &catfileInfoIterator{
-		ch: resultChan,
+		ctx: ctx,
+		ch:  resultChan,
 	}, nil
 }
 
@@ -215,7 +216,8 @@ func CatfileInfoAllObjects(
 	}()
 
 	return &catfileInfoIterator{
-		ch: resultChan,
+		ctx: ctx,
+		ch:  resultChan,
 	}
 }
 

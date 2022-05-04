@@ -80,7 +80,7 @@ func TestCatfileObject(t *testing.T) {
 			require.NoError(t, err)
 			defer cancel()
 
-			it, err := CatfileObject(ctx, objectReader, NewCatfileInfoIterator(tc.catfileInfoInputs))
+			it, err := CatfileObject(ctx, objectReader, NewCatfileInfoIterator(ctx, tc.catfileInfoInputs))
 			require.NoError(t, err)
 
 			var results []CatfileObjectResult
@@ -128,7 +128,7 @@ func TestCatfileObject(t *testing.T) {
 		require.NoError(t, err)
 		defer objectReaderCancel()
 
-		it, err := CatfileObject(ctx, objectReader, NewCatfileInfoIterator([]CatfileInfoResult{
+		it, err := CatfileObject(ctx, objectReader, NewCatfileInfoIterator(ctx, []CatfileInfoResult{
 			{ObjectInfo: &catfile.ObjectInfo{Oid: lfsPointer1, Type: "blob", Size: 133}},
 			{ObjectInfo: &catfile.ObjectInfo{Oid: lfsPointer2, Type: "blob", Size: 127}},
 		}))
