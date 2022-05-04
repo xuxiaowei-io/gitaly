@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 14.10.2 (2022-05-04)
+
+No changes.
+
 ## 14.10.1 (2022-04-29)
 
 No changes.
