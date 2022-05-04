@@ -1,6 +1,7 @@
 package commit
 
 import (
+	"fmt"
 	"io"
 	"testing"
 
@@ -63,6 +64,31 @@ var defaultOIDs = []string{
 	"e69de29bb2d1d6434b8b29ae775ad8c2e48c5391", "8c3014aceae45386c3c026a7ea4a1f68660d51d6",
 }
 
+var defaultModes = [][]byte{
+	[]byte(".gitattributes"), []byte(".gitignore"), []byte(".gitmodules"),
+	[]byte("CHANGELOG"), []byte("CONTRIBUTING.md"), []byte("Gemfile.zip"),
+	[]byte("LICENSE"), []byte("MAINTENANCE.md"), []byte("PROCESS.md"),
+	[]byte("README"), []byte("README.md"), []byte("VERSION"),
+	[]byte("bar/branch-test.txt"), []byte("custom-highlighting/test.gitlab-custom"),
+	[]byte("encoding/feature-1.txt"), []byte("encoding/feature-2.txt"),
+	[]byte("encoding/hotfix-1.txt"), []byte("encoding/hotfix-2.txt"),
+	[]byte("encoding/iso8859.txt"), []byte("encoding/russian.rb"),
+	[]byte("encoding/test.txt"), []byte("encoding/テスト.txt"), []byte("encoding/テスト.xls"),
+	[]byte("files/html/500.html"), []byte("files/images/6049019_460s.jpg"),
+	[]byte("files/images/logo-black.png"), []byte("files/images/logo-white.png"),
+	[]byte("files/images/wm.svg"), []byte("files/js/application.js"),
+	[]byte("files/js/commit.coffee"), []byte("files/lfs/lfs_object.iso"),
+	[]byte("files/markdown/ruby-style-guide.md"), []byte("files/ruby/popen.rb"),
+	[]byte("files/ruby/regex.rb"), []byte("files/ruby/version_info.rb"),
+	[]byte("files/whitespace"), []byte("foo/bar/.gitkeep"),
+	[]byte("gitaly/file-with-multiple-chunks"), []byte("gitaly/logo-white.png"),
+	[]byte("gitaly/mode-file"), []byte("gitaly/mode-file-with-mods"),
+	[]byte("gitaly/no-newline-at-the-end"), []byte("gitaly/renamed-file"),
+	[]byte("gitaly/renamed-file-with-mods"), []byte("gitaly/symlink-to-be-regular"),
+	[]byte("gitaly/tab\tnewline\n file"), []byte("gitaly/テスト.txt"),
+	[]byte("with space/README.md"),
+}
+
 func TestListFiles_success(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, repo, repoPath, client := setupCommitServiceWithRepo(ctx, t, true)
@@ -74,6 +100,7 @@ func TestListFiles_success(t *testing.T) {
 		revision string
 		files    [][]byte
 		oids     []string
+		modes    [][]byte
 	}{
 		{
 			desc:     "valid object ID",
@@ -128,42 +155,51 @@ func TestListFiles_success(t *testing.T) {
 				"7d70e02340bac451f281cecf0a980907974bd8be",
 				"e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
 			},
+			modes: [][]byte{
+				[]byte("100644"),
+			},
 		},
 		{
 			desc:     "valid branch",
 			revision: "test-do-not-touch",
 			files:    defaultFiles,
 			oids:     defaultOIDs,
+			modes:    defaultModes,
 		},
 		{
 			desc:     "valid fully qualified branch",
 			revision: "refs/heads/test-do-not-touch",
 			files:    defaultFiles,
 			oids:     defaultOIDs,
+			modes:    defaultModes,
 		},
 		{
 			desc:     "missing object ID uses default branch",
 			revision: "",
 			files:    defaultFiles,
 			oids:     defaultOIDs,
+			modes:    defaultModes,
 		},
 		{
 			desc:     "invalid object ID",
 			revision: "1234123412341234",
 			files:    [][]byte{},
 			oids:     []string{},
+			modes:    [][]byte{},
 		},
 		{
 			desc:     "invalid branch",
 			revision: "non/existing",
 			files:    [][]byte{},
 			oids:     []string{},
+			modes:    [][]byte{},
 		},
 		{
 			desc:     "nonexisting fully qualified branch",
 			revision: "refs/heads/foobar",
 			files:    [][]byte{},
 			oids:     []string{},
+			modes:    [][]byte{},
 		},
 	}
 
@@ -174,6 +210,7 @@ func TestListFiles_success(t *testing.T) {
 			}
 
 			c, err := client.ListFiles(ctx, &rpcRequest)
+			fmt.Printf("%#v", c)
 			require.NoError(t, err)
 
 			var files [][]byte

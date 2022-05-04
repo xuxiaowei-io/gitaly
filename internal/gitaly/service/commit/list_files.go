@@ -97,6 +97,7 @@ func (s *server) listFiles(repo git.RepositoryExecutor, revision string, stream 
 		if err := sender.Send(&gitalypb.ListFilesResponse{
 			Paths: [][]byte{[]byte(entry.Path)},
 			Oids:  []string{entry.ObjectID.String()},
+			Modes: [][]byte{entry.Mode},
 		}); err != nil {
 			return err
 		}

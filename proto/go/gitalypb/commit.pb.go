@@ -1621,6 +1621,7 @@ type ListFilesResponse struct {
 	// Remember to force encoding utf-8 on the client side
 	Paths [][]byte `protobuf:"bytes,1,rep,name=paths,proto3" json:"paths,omitempty"`
 	Oids  []string `protobuf:"bytes,2,rep,name=oids,proto3" json:"oids,omitempty"`
+	Modes  [][]byte `protobuf:"bytes,3,rep,name=modes,proto3" json:"modes,omitempty"`
 }
 
 func (x *ListFilesResponse) Reset() {
