@@ -168,7 +168,8 @@ func CatfileObject(
 	}()
 
 	return &catfileObjectIterator{
-		ch: resultChan,
+		ctx: ctx,
+		ch:  resultChan,
 	}, nil
 }
 

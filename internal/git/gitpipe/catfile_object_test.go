@@ -144,8 +144,9 @@ func TestCatfileObject(t *testing.T) {
 		cancel()
 
 		require.False(t, it.Next())
-		// This is a bug: we expect to get the cancelled context here.
-		require.NoError(t, it.Err())
-		require.Equal(t, CatfileObjectResult{}, it.Result())
+		require.Equal(t, context.Canceled, it.Err())
+		require.Equal(t, CatfileObjectResult{
+			err: context.Canceled,
+		}, it.Result())
 	})
 }
