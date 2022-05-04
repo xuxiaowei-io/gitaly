@@ -137,7 +137,7 @@ func TestCatfileInfo(t *testing.T) {
 			require.NoError(t, err)
 			defer cancel()
 
-			it, err := CatfileInfo(ctx, objectInfoReader, NewRevisionIterator(tc.revlistInputs), tc.opts...)
+			it, err := CatfileInfo(ctx, objectInfoReader, NewRevisionIterator(ctx, tc.revlistInputs), tc.opts...)
 			require.NoError(t, err)
 
 			var results []CatfileInfoResult
@@ -167,7 +167,7 @@ func TestCatfileInfo(t *testing.T) {
 		require.NoError(t, err)
 		defer objectInfoReaderCancel()
 
-		it, err := CatfileInfo(ctx, objectInfoReader, NewRevisionIterator([]RevisionResult{
+		it, err := CatfileInfo(ctx, objectInfoReader, NewRevisionIterator(ctx, []RevisionResult{
 			{OID: lfsPointer1},
 			{OID: lfsPointer1},
 		}))
