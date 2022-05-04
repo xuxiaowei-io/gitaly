@@ -15,7 +15,7 @@ Here is the top level `[cgroups]` configuration:
 [cgroups]
 mountpoint = "/sys/fs/cgroup"
 hierarchy_root = "gitaly"
-memory_bytes = 64424509440 // 60gb
+memory_bytes = 64424509440 # 60gb
 cpu_shares = 1024
 ```
 
@@ -32,7 +32,7 @@ Cgroups that have a repository-level isolation can also be defined:
 ```toml
 [cgroups.repositories]
 count = 10000
-memory_bytes = 12884901888 // 12gb
+memory_bytes = 12884901888 # 12gb
 cpu_shares = 512
 ```
 
@@ -83,53 +83,53 @@ that will be a fraction of the total CPU resources a machine has access to.
 |    |--gitaly
 |         |--gitaly-<pid>
 |               |--memory.limit_in_bytes
-|               |--repository(@hashed/00/000)
+|               |--repos-0
 |               |     |--memory.limit_in_bytes
-|               |--repository(@hashed/00/001)
+|               |--repos-1
 |               |     |--memory.limit_in_bytes
-|               |--repository(@hashed/00/002)
+|               |--repos-2
 |               |     |--memory.limit_in_bytes
-|               |--repository(@hashed/00/003)
+|               |--repos-3
 |               |     |--memory.limit_in_bytes
-|               |--repository(@hashed/00/004)
+|               |--repos-4
 |               |     |--memory.limit_in_bytes
-|               |--repository(@hashed/00/005)
+|               |--repos-5
 |               |     |--memory.limit_in_bytes
-|               |--repository(@hashed/00/006)
+|               |--repos-6
 |               |     |--memory.limit_in_bytes
-|               |--repository(@hashed/00/007)
+|               |--repos-7
 |               |     |--memory.limit_in_bytes
-|               |--repository(@hashed/00/008)
+|               |--repos-8
 |               |     |--memory.limit_in_bytes
-|               |--repository(@hashed/00/009)
+|               |--repos-9
 |               |     |--memory.limit_in_bytes
-|               |--repository(@hashed/00/010)
+|               |--repos-10
 |                     |--memory.limit_in_bytes
 |
 |-cpu
 |  |--gitaly
 |        |--gitaly-<pid>
 |              |--cpu.shares
-|              |--repository(@hashed/00/000)
+|              |--repos-0
 |              |     |--cpu.shares
-|              |--repository(@hashed/00/001)
+|              |--repos-1
 |              |     |--cpu.shares
-|              |--repository(@hashed/00/002)
+|              |--repos-2
 |              |     |--cpu.shares
-|              |--repository(@hashed/00/003)
+|              |--repos-3
 |              |     |--cpu.shares
-|              |--repository(@hashed/00/004)
+|              |--repos-4
 |              |     |--cpu.shares
-|              |--repository(@hashed/00/005)
+|              |--repos-5
 |              |     |--cpu.shares
-|              |--repository(@hashed/00/006)
+|              |--repos-6
 |              |     |--cpu.shares
-|              |--repository(@hashed/00/007)
+|              |--repos-7
 |              |     |--cpu.shares
-|              |--repository(@hashed/00/008)
+|              |--repos-8
 |              |     |--cpu.shares
-|              |--repository(@hashed/00/009)
+|              |--repos-9
 |              |     |--cpu.shares
-|              |--repository(@hashed/00/010)
+|              |--repos-10
 |                    |--cpu.shares
 ```
