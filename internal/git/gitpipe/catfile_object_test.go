@@ -1,11 +1,13 @@
 package gitpipe
 
 import (
+	"context"
 	"errors"
 	"io"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
@@ -115,4 +117,35 @@ func TestCatfileObject(t *testing.T) {
 			require.Equal(t, tc.expectedResults, results)
 		})
 	}
+
+	t.Run("context cancellation", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(testhelper.Context(t))
+
+		catfileCache := catfile.NewCache(cfg)
+		defer catfileCache.Stop()
+
+		objectReader, objectReaderCancel, err := catfileCache.ObjectReader(ctx, repo)
+		require.NoError(t, err)
+		defer objectReaderCancel()
+
+		it, err := CatfileObject(ctx, objectReader, NewCatfileInfoIterator([]CatfileInfoResult{
+			{ObjectInfo: &catfile.ObjectInfo{Oid: lfsPointer1, Type: "blob", Size: 133}},
+			{ObjectInfo: &catfile.ObjectInfo{Oid: lfsPointer2, Type: "blob", Size: 127}},
+		}))
+		require.NoError(t, err)
+
+		require.True(t, it.Next())
+		require.NoError(t, it.Err())
+		require.Equal(t, git.ObjectID(lfsPointer1), it.Result().ObjectID())
+
+		_, err = io.Copy(io.Discard, it.Result())
+		require.NoError(t, err)
+
+		cancel()
+
+		require.False(t, it.Next())
+		// This is a bug: we expect to get the cancelled context here.
+		require.NoError(t, it.Err())
+		require.Equal(t, CatfileObjectResult{}, it.Result())
+	})
 }

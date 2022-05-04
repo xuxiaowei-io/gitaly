@@ -1,6 +1,7 @@
 package gitpipe
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -155,6 +156,36 @@ func TestCatfileInfo(t *testing.T) {
 			require.Equal(t, tc.expectedResults, results)
 		})
 	}
+
+	t.Run("context cancellation", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(testhelper.Context(t))
+
+		catfileCache := catfile.NewCache(cfg)
+		defer catfileCache.Stop()
+
+		objectInfoReader, objectInfoReaderCancel, err := catfileCache.ObjectInfoReader(ctx, repo)
+		require.NoError(t, err)
+		defer objectInfoReaderCancel()
+
+		it, err := CatfileInfo(ctx, objectInfoReader, NewRevisionIterator([]RevisionResult{
+			{OID: lfsPointer1},
+			{OID: lfsPointer1},
+		}))
+		require.NoError(t, err)
+
+		require.True(t, it.Next())
+		require.NoError(t, it.Err())
+		require.Equal(t, CatfileInfoResult{
+			ObjectInfo: &catfile.ObjectInfo{Oid: lfsPointer1, Type: "blob", Size: 133},
+		}, it.Result())
+
+		cancel()
+
+		require.False(t, it.Next())
+		// This is a bug: we expect to get the cancelled context here.
+		require.NoError(t, it.Err())
+		require.Equal(t, CatfileInfoResult{}, it.Result())
+	})
 }
 
 func TestCatfileInfoAllObjects(t *testing.T) {
@@ -171,18 +202,39 @@ func TestCatfileInfoAllObjects(t *testing.T) {
 	})
 	commit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents())
 
-	it := CatfileInfoAllObjects(ctx, repo)
-
-	var results []CatfileInfoResult
-	for it.Next() {
-		results = append(results, it.Result())
-	}
-	require.NoError(t, it.Err())
-
-	require.ElementsMatch(t, []CatfileInfoResult{
+	actualObjects := []CatfileInfoResult{
 		{ObjectInfo: &catfile.ObjectInfo{Oid: blob1, Type: "blob", Size: 6}},
 		{ObjectInfo: &catfile.ObjectInfo{Oid: blob2, Type: "blob", Size: 6}},
 		{ObjectInfo: &catfile.ObjectInfo{Oid: tree, Type: "tree", Size: 34}},
 		{ObjectInfo: &catfile.ObjectInfo{Oid: commit, Type: "commit", Size: 177}},
-	}, results)
+	}
+
+	t.Run("successful", func(t *testing.T) {
+		it := CatfileInfoAllObjects(ctx, repo)
+
+		var results []CatfileInfoResult
+		for it.Next() {
+			results = append(results, it.Result())
+		}
+		require.NoError(t, it.Err())
+
+		require.ElementsMatch(t, actualObjects, results)
+	})
+
+	t.Run("context cancellation", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(testhelper.Context(t))
+
+		it := CatfileInfoAllObjects(ctx, repo)
+
+		require.True(t, it.Next())
+		require.NoError(t, it.Err())
+		require.Contains(t, actualObjects, it.Result())
+
+		cancel()
+
+		require.False(t, it.Next())
+		// This is a bug: we expect to get the cancelled context here.
+		require.NoError(t, it.Err())
+		require.Equal(t, CatfileInfoResult{}, it.Result())
+	})
 }
