@@ -32,7 +32,7 @@ require (
 	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.7.0
 	github.com/uber/jaeger-client-go v2.29.1+incompatible
-	gitlab.com/gitlab-org/gitlab-shell v1.9.8-0.20210720163109-50da611814d2
+	gitlab.com/gitlab-org/gitlab-shell v1.9.8-0.20220606180012-26bfd750e8ac
 	gitlab.com/gitlab-org/labkit v1.14.0
 	go.uber.org/goleak v1.1.10
 	gocloud.dev v0.23.0
