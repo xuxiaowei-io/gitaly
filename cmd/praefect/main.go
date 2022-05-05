@@ -358,6 +358,7 @@ func run(
 				nodeSet.Connections(),
 				hm,
 				conf.BackgroundVerification.VerificationInterval,
+				false,
 			)
 			promreg.MustRegister(verifier)
 
