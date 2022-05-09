@@ -1,7 +1,5 @@
 # Protobuf specifications and client libraries for Gitaly
 
-> This directory was previously hosted at https://gitlab.com/gitlab-org/gitaly-proto. As of Gitaly 1.58.0 and gitaly-proto 1.39.0, all further proto changes will be made here, in `gitaly/proto`.
-
 Gitaly is part of GitLab. It is a [server
 application](https://gitlab.com/gitlab-org/gitaly) that uses its own
 gRPC protocol to communicate with its clients. This repository
@@ -20,11 +18,6 @@ See
 [developers.google.com](https://developers.google.com/protocol-buffers/docs/proto3)
 for documentation of the 'proto3' Protocol buffer specification
 language.
-
-## Issues
-
-We have disabled the issue tracker of the gitaly-proto project. Please use the
-[Gitaly issue tracker](https://gitlab.com/gitlab-org/gitaly/issues).
 
 ## gRPC/Protobuf concepts
 

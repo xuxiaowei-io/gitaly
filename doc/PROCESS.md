@@ -520,12 +520,11 @@ will always have these patches. As a result, all code which makes use of
 patched-in features must have fallback code to support the [minimum required Git
 version](../README.md#installation)
 
-### RPC deprecation process for gitaly-proto
+### RPC deprecation process
 
-First create a deprecation issue at
-https://gitlab.com/gitlab-org/gitaly/issues with the title `Deprecate
-RPC FooBar`. Use label `Deprecation`. Below is a template for the
-issue description.
+First create a deprecation issue at https://gitlab.com/gitlab-org/gitaly/issues
+with the title `Deprecate RPC FooBar`. Use label `Deprecation`. Below is a
+template for the issue description.
 
 ```
 We are deprecating RPC FooBar because **REASONS**.
