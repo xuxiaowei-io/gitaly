@@ -89,12 +89,12 @@ message SSHReceivePackRequest {
   // Contents of GL_ID, GL_REPOSITORY, and GL_USERNAME environment variables
   // for 'git receive-pack'
   string gl_id = 3;
+  // This comment is left unintentionally blank.
   string gl_repository = 4;
+  // This comment is left unintentionally blank.
   string gl_username = 5;
-
   // Git protocol version
   string git_protocol = 6;
-
   // Parameters to use with git -c (key=value pairs)
   repeated string git_config_options = 7;
 }

@@ -35,10 +35,14 @@ message ApplyBfgObjectMapStreamResponse {
   // We send back each parsed entry in the request's object map so the client
   // can take action
   message Entry {
+    // This comment is left unintentionally blank.
     ObjectType type = 1;
+    // This comment is left unintentionally blank.
     string old_oid = 2;
+    // This comment is left unintentionally blank.
     string new_oid = 3;
   }
 
+  // This comment is left unintentionally blank.
   repeated Entry entries = 1;
 }

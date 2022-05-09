@@ -31,7 +31,7 @@ message OperationMsg {
     reserved "SERVER";
   }
 
-
+  // This comment is left unintentionally blank.
   Operation op = 1;
 
   // Scope level indicates what level an RPC interacts with a server:

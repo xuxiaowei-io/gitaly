@@ -27,8 +27,10 @@ type CreateObjectPoolRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	ObjectPool *ObjectPool `protobuf:"bytes,1,opt,name=object_pool,json=objectPool,proto3" json:"object_pool,omitempty"`
-	Origin     *Repository `protobuf:"bytes,2,opt,name=origin,proto3" json:"origin,omitempty"`
+	// This comment is left unintentionally blank.
+	Origin *Repository `protobuf:"bytes,2,opt,name=origin,proto3" json:"origin,omitempty"`
 }
 
 func (x *CreateObjectPoolRequest) Reset() {
@@ -123,6 +125,7 @@ type DeleteObjectPoolRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	ObjectPool *ObjectPool `protobuf:"bytes,1,opt,name=object_pool,json=objectPool,proto3" json:"object_pool,omitempty"`
 }
 
@@ -210,7 +213,9 @@ type LinkRepositoryToObjectPoolRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	ObjectPool *ObjectPool `protobuf:"bytes,1,opt,name=object_pool,json=objectPool,proto3" json:"object_pool,omitempty"`
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,2,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -305,6 +310,7 @@ type ReduplicateRepositoryRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -392,6 +398,7 @@ type DisconnectGitAlternatesRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -479,9 +486,12 @@ type FetchIntoObjectPoolRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Origin     *Repository `protobuf:"bytes,1,opt,name=origin,proto3" json:"origin,omitempty"`
+	// This comment is left unintentionally blank.
+	Origin *Repository `protobuf:"bytes,1,opt,name=origin,proto3" json:"origin,omitempty"`
+	// This comment is left unintentionally blank.
 	ObjectPool *ObjectPool `protobuf:"bytes,2,opt,name=object_pool,json=objectPool,proto3" json:"object_pool,omitempty"`
-	Repack     bool        `protobuf:"varint,3,opt,name=repack,proto3" json:"repack,omitempty"`
+	// This comment is left unintentionally blank.
+	Repack bool `protobuf:"varint,3,opt,name=repack,proto3" json:"repack,omitempty"`
 }
 
 func (x *FetchIntoObjectPoolRequest) Reset() {
@@ -582,6 +592,7 @@ type GetObjectPoolRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -630,6 +641,7 @@ type GetObjectPoolResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	ObjectPool *ObjectPool `protobuf:"bytes,1,opt,name=object_pool,json=objectPool,proto3" json:"object_pool,omitempty"`
 }
 

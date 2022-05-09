@@ -59,6 +59,7 @@ message VoteTransactionRequest {
     COMMITTED_PHASE  = 2;
   };
 
+  // This comment is left unintentionally blank.
   Repository repository = 1[(target_repository)=true];
   // ID of the transaction we're processing
   uint64 transaction_id = 2;
@@ -83,11 +84,13 @@ message VoteTransactionResponse {
     STOP = 2;
   }
 
+  // This comment is left unintentionally blank.
   TransactionState state = 1;
 }
 
 // This comment is left unintentionally blank.
 message StopTransactionRequest {
+  // This comment is left unintentionally blank.
   Repository repository = 1[(target_repository)=true];
   // ID of the transaction we're processing
   uint64 transaction_id = 2;

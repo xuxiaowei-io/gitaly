@@ -65,8 +65,11 @@ type ServerInfoResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	ServerVersion   string                              `protobuf:"bytes,1,opt,name=server_version,json=serverVersion,proto3" json:"server_version,omitempty"`
-	GitVersion      string                              `protobuf:"bytes,2,opt,name=git_version,json=gitVersion,proto3" json:"git_version,omitempty"`
+	// This comment is left unintentionally blank.
+	ServerVersion string `protobuf:"bytes,1,opt,name=server_version,json=serverVersion,proto3" json:"server_version,omitempty"`
+	// This comment is left unintentionally blank.
+	GitVersion string `protobuf:"bytes,2,opt,name=git_version,json=gitVersion,proto3" json:"git_version,omitempty"`
+	// This comment is left unintentionally blank.
 	StorageStatuses []*ServerInfoResponse_StorageStatus `protobuf:"bytes,3,rep,name=storage_statuses,json=storageStatuses,proto3" json:"storage_statuses,omitempty"`
 }
 
@@ -168,6 +171,7 @@ type DiskStatisticsResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	StorageStatuses []*DiskStatisticsResponse_StorageStatus `protobuf:"bytes,1,rep,name=storage_statuses,json=storageStatuses,proto3" json:"storage_statuses,omitempty"`
 }
 
@@ -324,11 +328,17 @@ type ServerInfoResponse_StorageStatus struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	StorageName       string `protobuf:"bytes,1,opt,name=storage_name,json=storageName,proto3" json:"storage_name,omitempty"`
-	Readable          bool   `protobuf:"varint,2,opt,name=readable,proto3" json:"readable,omitempty"`
-	Writeable         bool   `protobuf:"varint,3,opt,name=writeable,proto3" json:"writeable,omitempty"`
-	FsType            string `protobuf:"bytes,4,opt,name=fs_type,json=fsType,proto3" json:"fs_type,omitempty"`
-	FilesystemId      string `protobuf:"bytes,5,opt,name=filesystem_id,json=filesystemId,proto3" json:"filesystem_id,omitempty"`
+	// This comment is left unintentionally blank.
+	StorageName string `protobuf:"bytes,1,opt,name=storage_name,json=storageName,proto3" json:"storage_name,omitempty"`
+	// This comment is left unintentionally blank.
+	Readable bool `protobuf:"varint,2,opt,name=readable,proto3" json:"readable,omitempty"`
+	// This comment is left unintentionally blank.
+	Writeable bool `protobuf:"varint,3,opt,name=writeable,proto3" json:"writeable,omitempty"`
+	// This comment is left unintentionally blank.
+	FsType string `protobuf:"bytes,4,opt,name=fs_type,json=fsType,proto3" json:"fs_type,omitempty"`
+	// This comment is left unintentionally blank.
+	FilesystemId string `protobuf:"bytes,5,opt,name=filesystem_id,json=filesystemId,proto3" json:"filesystem_id,omitempty"`
+	// This comment is left unintentionally blank.
 	ReplicationFactor uint32 `protobuf:"varint,6,opt,name=replication_factor,json=replicationFactor,proto3" json:"replication_factor,omitempty"`
 }
 
@@ -415,8 +425,10 @@ type DiskStatisticsResponse_StorageStatus struct {
 	// When both available and used fields are equal 0 that means that
 	// Gitaly was unable to determine storage stats.
 	StorageName string `protobuf:"bytes,1,opt,name=storage_name,json=storageName,proto3" json:"storage_name,omitempty"`
-	Available   int64  `protobuf:"varint,2,opt,name=available,proto3" json:"available,omitempty"`
-	Used        int64  `protobuf:"varint,3,opt,name=used,proto3" json:"used,omitempty"`
+	// This comment is left unintentionally blank.
+	Available int64 `protobuf:"varint,2,opt,name=available,proto3" json:"available,omitempty"`
+	// This comment is left unintentionally blank.
+	Used int64 `protobuf:"varint,3,opt,name=used,proto3" json:"used,omitempty"`
 }
 
 func (x *DiskStatisticsResponse_StorageStatus) Reset() {

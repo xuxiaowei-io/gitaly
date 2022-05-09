@@ -93,6 +93,7 @@ message UpdateRemoteMirrorResponse {
 
 // This comment is left unintentionally blank.
 message FindRemoteRepositoryRequest {
+  // This comment is left unintentionally blank.
   string remote = 1;
   // This field is used to redirect request to proper storage where it can be handled.
   // As of now it doesn't matter what storage will be used, but it still must be a valid.
@@ -103,6 +104,7 @@ message FindRemoteRepositoryRequest {
 // This migth throw a GRPC Unavailable code, to signal the request failure
 // is transient.
 message FindRemoteRepositoryResponse {
+  // This comment is left unintentionally blank.
   bool exists = 1;
 }
 

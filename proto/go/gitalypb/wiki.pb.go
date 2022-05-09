@@ -124,10 +124,15 @@ type WikiCommitDetails struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Name     []byte `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Email    []byte `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty"`
-	Message  []byte `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
-	UserId   int32  `protobuf:"varint,4,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	// This comment is left unintentionally blank.
+	Name []byte `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// This comment is left unintentionally blank.
+	Email []byte `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty"`
+	// This comment is left unintentionally blank.
+	Message []byte `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
+	// This comment is left unintentionally blank.
+	UserId int32 `protobuf:"varint,4,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	// This comment is left unintentionally blank.
 	UserName []byte `protobuf:"bytes,5,opt,name=user_name,json=userName,proto3" json:"user_name,omitempty"`
 }
 
@@ -204,8 +209,10 @@ type WikiPageVersion struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Commit *GitCommit `protobuf:"bytes,1,opt,name=commit,proto3" json:"commit,omitempty"`
-	Format string     `protobuf:"bytes,2,opt,name=format,proto3" json:"format,omitempty"`
+	// This comment is left unintentionally blank.
+	Format string `protobuf:"bytes,2,opt,name=format,proto3" json:"format,omitempty"`
 }
 
 func (x *WikiPageVersion) Reset() {
@@ -261,13 +268,19 @@ type WikiPage struct {
 	unknownFields protoimpl.UnknownFields
 
 	// These fields are only present in the first message of a WikiPage stream
-	Version    *WikiPageVersion `protobuf:"bytes,1,opt,name=version,proto3" json:"version,omitempty"`
-	Format     string           `protobuf:"bytes,2,opt,name=format,proto3" json:"format,omitempty"`
-	Title      []byte           `protobuf:"bytes,3,opt,name=title,proto3" json:"title,omitempty"`
-	UrlPath    string           `protobuf:"bytes,4,opt,name=url_path,json=urlPath,proto3" json:"url_path,omitempty"`
-	Path       []byte           `protobuf:"bytes,5,opt,name=path,proto3" json:"path,omitempty"`
-	Name       []byte           `protobuf:"bytes,6,opt,name=name,proto3" json:"name,omitempty"`
-	Historical bool             `protobuf:"varint,7,opt,name=historical,proto3" json:"historical,omitempty"`
+	Version *WikiPageVersion `protobuf:"bytes,1,opt,name=version,proto3" json:"version,omitempty"`
+	// This comment is left unintentionally blank.
+	Format string `protobuf:"bytes,2,opt,name=format,proto3" json:"format,omitempty"`
+	// This comment is left unintentionally blank.
+	Title []byte `protobuf:"bytes,3,opt,name=title,proto3" json:"title,omitempty"`
+	// This comment is left unintentionally blank.
+	UrlPath string `protobuf:"bytes,4,opt,name=url_path,json=urlPath,proto3" json:"url_path,omitempty"`
+	// This comment is left unintentionally blank.
+	Path []byte `protobuf:"bytes,5,opt,name=path,proto3" json:"path,omitempty"`
+	// This comment is left unintentionally blank.
+	Name []byte `protobuf:"bytes,6,opt,name=name,proto3" json:"name,omitempty"`
+	// This comment is left unintentionally blank.
+	Historical bool `protobuf:"varint,7,opt,name=historical,proto3" json:"historical,omitempty"`
 	// This field is present in all messages of a WikiPage stream
 	RawData []byte `protobuf:"bytes,8,opt,name=raw_data,json=rawData,proto3" json:"raw_data,omitempty"`
 }
@@ -367,9 +380,12 @@ type WikiWritePageRequest struct {
 	unknownFields protoimpl.UnknownFields
 
 	// These following fields are only present in the first message.
-	Repository    *Repository        `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	Name          []byte             `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Format        string             `protobuf:"bytes,3,opt,name=format,proto3" json:"format,omitempty"`
+	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
+	// This comment is left unintentionally blank.
+	Name []byte `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// This comment is left unintentionally blank.
+	Format string `protobuf:"bytes,3,opt,name=format,proto3" json:"format,omitempty"`
+	// This comment is left unintentionally blank.
 	CommitDetails *WikiCommitDetails `protobuf:"bytes,4,opt,name=commit_details,json=commitDetails,proto3" json:"commit_details,omitempty"`
 	// This field is present in all messages.
 	Content []byte `protobuf:"bytes,5,opt,name=content,proto3" json:"content,omitempty"`
@@ -448,6 +464,7 @@ type WikiWritePageResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	DuplicateError []byte `protobuf:"bytes,1,opt,name=duplicate_error,json=duplicateError,proto3" json:"duplicate_error,omitempty"`
 }
 
@@ -497,10 +514,14 @@ type WikiUpdatePageRequest struct {
 	unknownFields protoimpl.UnknownFields
 
 	// There fields are only present in the first message of the stream
-	Repository    *Repository        `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	PagePath      []byte             `protobuf:"bytes,2,opt,name=page_path,json=pagePath,proto3" json:"page_path,omitempty"`
-	Title         []byte             `protobuf:"bytes,3,opt,name=title,proto3" json:"title,omitempty"`
-	Format        string             `protobuf:"bytes,4,opt,name=format,proto3" json:"format,omitempty"`
+	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
+	// This comment is left unintentionally blank.
+	PagePath []byte `protobuf:"bytes,2,opt,name=page_path,json=pagePath,proto3" json:"page_path,omitempty"`
+	// This comment is left unintentionally blank.
+	Title []byte `protobuf:"bytes,3,opt,name=title,proto3" json:"title,omitempty"`
+	// This comment is left unintentionally blank.
+	Format string `protobuf:"bytes,4,opt,name=format,proto3" json:"format,omitempty"`
+	// This comment is left unintentionally blank.
 	CommitDetails *WikiCommitDetails `protobuf:"bytes,5,opt,name=commit_details,json=commitDetails,proto3" json:"commit_details,omitempty"`
 	// This field is present in all messages
 	Content []byte `protobuf:"bytes,6,opt,name=content,proto3" json:"content,omitempty"`
@@ -586,6 +607,7 @@ type WikiUpdatePageResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Error []byte `protobuf:"bytes,1,opt,name=error,proto3" json:"error,omitempty"`
 }
 
@@ -634,10 +656,14 @@ type WikiFindPageRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	Title      []byte      `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
-	Revision   []byte      `protobuf:"bytes,3,opt,name=revision,proto3" json:"revision,omitempty"`
-	Directory  []byte      `protobuf:"bytes,4,opt,name=directory,proto3" json:"directory,omitempty"`
+	// This comment is left unintentionally blank.
+	Title []byte `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+	// This comment is left unintentionally blank.
+	Revision []byte `protobuf:"bytes,3,opt,name=revision,proto3" json:"revision,omitempty"`
+	// This comment is left unintentionally blank.
+	Directory []byte `protobuf:"bytes,4,opt,name=directory,proto3" json:"directory,omitempty"`
 	// prevents the content from being sent over the response
 	SkipContent bool `protobuf:"varint,5,opt,name=skip_content,json=skipContent,proto3" json:"skip_content,omitempty"`
 }
@@ -716,6 +742,7 @@ type WikiFindPageResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Page *WikiPage `protobuf:"bytes,1,opt,name=page,proto3" json:"page,omitempty"`
 }
 
@@ -764,11 +791,14 @@ type WikiGetAllPagesRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 	// Passing 0 means no limit is applied
-	Limit         uint32                        `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
-	DirectionDesc bool                          `protobuf:"varint,3,opt,name=direction_desc,json=directionDesc,proto3" json:"direction_desc,omitempty"`
-	Sort          WikiGetAllPagesRequest_SortBy `protobuf:"varint,4,opt,name=sort,proto3,enum=gitaly.WikiGetAllPagesRequest_SortBy" json:"sort,omitempty"`
+	Limit uint32 `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
+	// This comment is left unintentionally blank.
+	DirectionDesc bool `protobuf:"varint,3,opt,name=direction_desc,json=directionDesc,proto3" json:"direction_desc,omitempty"`
+	// This comment is left unintentionally blank.
+	Sort WikiGetAllPagesRequest_SortBy `protobuf:"varint,4,opt,name=sort,proto3,enum=gitaly.WikiGetAllPagesRequest_SortBy" json:"sort,omitempty"`
 }
 
 func (x *WikiGetAllPagesRequest) Reset() {
@@ -837,6 +867,7 @@ type WikiGetAllPagesResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Page *WikiPage `protobuf:"bytes,1,opt,name=page,proto3" json:"page,omitempty"`
 	// When end_of_page is true it signals a change of page for the next Response message (if any)
 	EndOfPage bool `protobuf:"varint,2,opt,name=end_of_page,json=endOfPage,proto3" json:"end_of_page,omitempty"`
@@ -894,12 +925,16 @@ type WikiListPagesRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 	// Passing 0 means no limit is applied
-	Limit         uint32                      `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
-	DirectionDesc bool                        `protobuf:"varint,3,opt,name=direction_desc,json=directionDesc,proto3" json:"direction_desc,omitempty"`
-	Sort          WikiListPagesRequest_SortBy `protobuf:"varint,4,opt,name=sort,proto3,enum=gitaly.WikiListPagesRequest_SortBy" json:"sort,omitempty"`
-	Offset        uint32                      `protobuf:"varint,5,opt,name=offset,proto3" json:"offset,omitempty"`
+	Limit uint32 `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
+	// This comment is left unintentionally blank.
+	DirectionDesc bool `protobuf:"varint,3,opt,name=direction_desc,json=directionDesc,proto3" json:"direction_desc,omitempty"`
+	// This comment is left unintentionally blank.
+	Sort WikiListPagesRequest_SortBy `protobuf:"varint,4,opt,name=sort,proto3,enum=gitaly.WikiListPagesRequest_SortBy" json:"sort,omitempty"`
+	// This comment is left unintentionally blank.
+	Offset uint32 `protobuf:"varint,5,opt,name=offset,proto3" json:"offset,omitempty"`
 }
 
 func (x *WikiListPagesRequest) Reset() {
@@ -975,6 +1010,7 @@ type WikiListPagesResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Page *WikiPage `protobuf:"bytes,1,opt,name=page,proto3" json:"page,omitempty"`
 }
 

@@ -199,6 +199,7 @@ type RepositoryExistsRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -247,6 +248,7 @@ type RepositoryExistsResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Exists bool `protobuf:"varint,1,opt,name=exists,proto3" json:"exists,omitempty"`
 }
 
@@ -295,6 +297,7 @@ type RepackIncrementalRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -382,8 +385,10 @@ type RepackFullRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Repository   *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	CreateBitmap bool        `protobuf:"varint,2,opt,name=create_bitmap,json=createBitmap,proto3" json:"create_bitmap,omitempty"`
+	// This comment is left unintentionally blank.
+	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
+	// This comment is left unintentionally blank.
+	CreateBitmap bool `protobuf:"varint,2,opt,name=create_bitmap,json=createBitmap,proto3" json:"create_bitmap,omitempty"`
 }
 
 func (x *RepackFullRequest) Reset() {
@@ -477,6 +482,7 @@ type MidxRepackRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -564,8 +570,10 @@ type GarbageCollectRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Repository   *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	CreateBitmap bool        `protobuf:"varint,2,opt,name=create_bitmap,json=createBitmap,proto3" json:"create_bitmap,omitempty"`
+	// This comment is left unintentionally blank.
+	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
+	// This comment is left unintentionally blank.
+	CreateBitmap bool `protobuf:"varint,2,opt,name=create_bitmap,json=createBitmap,proto3" json:"create_bitmap,omitempty"`
 	// If set to 'true' the 'gc' will be triggered with '--prune=30.minutes.ago' flag.
 	// This will remove dangling objects from the object storage that were not modified in the last 30 minutes.
 	// If 'false' provided the 'gc' will rely on the default expiration period (2 weeks).
@@ -672,6 +680,7 @@ type WriteCommitGraphRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 	// SplitStrategy is a strategy used to create/update commit graph.
 	SplitStrategy WriteCommitGraphRequest_SplitStrategy `protobuf:"varint,2,opt,name=splitStrategy,proto3,enum=gitaly.WriteCommitGraphRequest_SplitStrategy" json:"splitStrategy,omitempty"` // protolint:disable:this FIELD_NAMES_LOWER_SNAKE_CASE
@@ -768,6 +777,7 @@ type CleanupRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -855,6 +865,7 @@ type RepositorySizeRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -952,8 +963,10 @@ type ApplyGitattributesRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	Revision   []byte      `protobuf:"bytes,2,opt,name=revision,proto3" json:"revision,omitempty"`
+	// This comment is left unintentionally blank.
+	Revision []byte `protobuf:"bytes,2,opt,name=revision,proto3" json:"revision,omitempty"`
 }
 
 func (x *ApplyGitattributesRequest) Reset() {
@@ -1153,6 +1166,7 @@ type FetchRemoteRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 	// force determines if references should be force-updated in case they have
 	// diverged.
@@ -1160,8 +1174,10 @@ type FetchRemoteRequest struct {
 	// no_tags determines whether tags should be fetched.
 	NoTags bool `protobuf:"varint,4,opt,name=no_tags,json=noTags,proto3" json:"no_tags,omitempty"`
 	// timeout specifies a timeout for the fetch.
-	Timeout    int32  `protobuf:"varint,5,opt,name=timeout,proto3" json:"timeout,omitempty"`
-	SshKey     string `protobuf:"bytes,6,opt,name=ssh_key,json=sshKey,proto3" json:"ssh_key,omitempty"`
+	Timeout int32 `protobuf:"varint,5,opt,name=timeout,proto3" json:"timeout,omitempty"`
+	// This comment is left unintentionally blank.
+	SshKey string `protobuf:"bytes,6,opt,name=ssh_key,json=sshKey,proto3" json:"ssh_key,omitempty"`
+	// This comment is left unintentionally blank.
 	KnownHosts string `protobuf:"bytes,7,opt,name=known_hosts,json=knownHosts,proto3" json:"known_hosts,omitempty"`
 	// no_prune will the fetch to not prune remote references which do not exist
 	// in the remote repository anymore.
@@ -1327,6 +1343,7 @@ type CreateRepositoryRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 	// Provide a branch name to set as the default branch of a newly created
 	// repository. Note, this will be treated as the branch name and not a
@@ -1425,19 +1442,26 @@ type GetArchiveRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Repository *Repository              `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	CommitId   string                   `protobuf:"bytes,2,opt,name=commit_id,json=commitId,proto3" json:"commit_id,omitempty"`
-	Prefix     string                   `protobuf:"bytes,3,opt,name=prefix,proto3" json:"prefix,omitempty"`
-	Format     GetArchiveRequest_Format `protobuf:"varint,4,opt,name=format,proto3,enum=gitaly.GetArchiveRequest_Format" json:"format,omitempty"`
-	Path       []byte                   `protobuf:"bytes,5,opt,name=path,proto3" json:"path,omitempty"`
-	Exclude    [][]byte                 `protobuf:"bytes,6,rep,name=exclude,proto3" json:"exclude,omitempty"` // protolint:disable:this REPEATED_FIELD_NAMES_PLURALIZED
+	// This comment is left unintentionally blank.
+	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
+	// This comment is left unintentionally blank.
+	CommitId string `protobuf:"bytes,2,opt,name=commit_id,json=commitId,proto3" json:"commit_id,omitempty"`
+	// This comment is left unintentionally blank.
+	Prefix string `protobuf:"bytes,3,opt,name=prefix,proto3" json:"prefix,omitempty"`
+	// This comment is left unintentionally blank.
+	Format GetArchiveRequest_Format `protobuf:"varint,4,opt,name=format,proto3,enum=gitaly.GetArchiveRequest_Format" json:"format,omitempty"`
+	// This comment is left unintentionally blank.
+	Path []byte `protobuf:"bytes,5,opt,name=path,proto3" json:"path,omitempty"`
+	// This comment is left unintentionally blank.
+	Exclude [][]byte `protobuf:"bytes,6,rep,name=exclude,proto3" json:"exclude,omitempty"` // protolint:disable:this REPEATED_FIELD_NAMES_PLURALIZED
 	// If `elide_path` is true and `path` refers to a subdirectory, that
 	// subdirectory will be elided from archive entries. For example, if `dir`
 	// contains `README.md`, with `elide_path = false` the corresponding entry
 	// will be `dir/README.md`; with `elide_path = true`, the entry will be
 	// `README.md`. `elide_path` has no effect if `path` refers to the repository
 	// root. `elide_path = true` is not supported if `path` refers to a file.
-	ElidePath       bool `protobuf:"varint,7,opt,name=elide_path,json=elidePath,proto3" json:"elide_path,omitempty"`
+	ElidePath bool `protobuf:"varint,7,opt,name=elide_path,json=elidePath,proto3" json:"elide_path,omitempty"`
+	// This comment is left unintentionally blank.
 	IncludeLfsBlobs bool `protobuf:"varint,8,opt,name=include_lfs_blobs,json=includeLfsBlobs,proto3" json:"include_lfs_blobs,omitempty"`
 }
 
@@ -1535,6 +1559,7 @@ type GetArchiveResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Data []byte `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
 }
 
@@ -1583,6 +1608,7 @@ type HasLocalBranchesRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -1631,6 +1657,7 @@ type HasLocalBranchesResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Value bool `protobuf:"varint,1,opt,name=value,proto3" json:"value,omitempty"`
 }
 
@@ -1808,6 +1835,7 @@ type FsckRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -1856,6 +1884,7 @@ type FsckResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Error []byte `protobuf:"bytes,1,opt,name=error,proto3" json:"error,omitempty"`
 }
 
@@ -1904,11 +1933,16 @@ type WriteRefRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Repository  *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	Ref         []byte      `protobuf:"bytes,2,opt,name=ref,proto3" json:"ref,omitempty"`
-	Revision    []byte      `protobuf:"bytes,3,opt,name=revision,proto3" json:"revision,omitempty"`
-	OldRevision []byte      `protobuf:"bytes,4,opt,name=old_revision,json=oldRevision,proto3" json:"old_revision,omitempty"`
-	Force       bool        `protobuf:"varint,5,opt,name=force,proto3" json:"force,omitempty"`
+	// This comment is left unintentionally blank.
+	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
+	// This comment is left unintentionally blank.
+	Ref []byte `protobuf:"bytes,2,opt,name=ref,proto3" json:"ref,omitempty"`
+	// This comment is left unintentionally blank.
+	Revision []byte `protobuf:"bytes,3,opt,name=revision,proto3" json:"revision,omitempty"`
+	// This comment is left unintentionally blank.
+	OldRevision []byte `protobuf:"bytes,4,opt,name=old_revision,json=oldRevision,proto3" json:"old_revision,omitempty"`
+	// This comment is left unintentionally blank.
+	Force bool `protobuf:"varint,5,opt,name=force,proto3" json:"force,omitempty"`
 }
 
 func (x *WriteRefRequest) Reset() {
@@ -2023,6 +2057,7 @@ type FindMergeBaseRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 	// We use a repeated field because rugged supports finding a base
 	// for more than 2 revisions, so if we needed that in the future we don't
@@ -2082,6 +2117,7 @@ type FindMergeBaseResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Base string `protobuf:"bytes,1,opt,name=base,proto3" json:"base,omitempty"`
 }
 
@@ -2130,7 +2166,9 @@ type CreateForkRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Repository       *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
+	// This comment is left unintentionally blank.
+	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
+	// This comment is left unintentionally blank.
 	SourceRepository *Repository `protobuf:"bytes,2,opt,name=source_repository,json=sourceRepository,proto3" json:"source_repository,omitempty"`
 }
 
@@ -2225,8 +2263,10 @@ type CreateRepositoryFromURLRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	Url        string      `protobuf:"bytes,2,opt,name=url,proto3" json:"url,omitempty"`
+	// This comment is left unintentionally blank.
+	Url string `protobuf:"bytes,2,opt,name=url,proto3" json:"url,omitempty"`
 	// HttpHost is the hostname of the remote repository. Use this when the
 	// URL hostname has already been resolved to an IP address to prevent DNS
 	// rebinding.
@@ -2354,6 +2394,7 @@ type CreateBundleRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -2402,6 +2443,7 @@ type CreateBundleResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Data []byte `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
 }
 
@@ -2510,6 +2552,7 @@ type CreateBundleFromRefListResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Data []byte `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
 }
 
@@ -2657,8 +2700,10 @@ type RestoreCustomHooksRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	Data       []byte      `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
+	// This comment is left unintentionally blank.
+	Data []byte `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
 }
 
 func (x *RestoreCustomHooksRequest) Reset() {
@@ -2752,6 +2797,7 @@ type BackupCustomHooksRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -2800,6 +2846,7 @@ type BackupCustomHooksResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Data []byte `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
 }
 
@@ -2850,7 +2897,8 @@ type CreateRepositoryFromBundleRequest struct {
 
 	// Only available on the first message
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	Data       []byte      `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
+	// This comment is left unintentionally blank.
+	Data []byte `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
 }
 
 func (x *CreateRepositoryFromBundleRequest) Reset() {
@@ -2944,6 +2992,7 @@ type FindLicenseRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -2992,6 +3041,7 @@ type FindLicenseResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	LicenseShortName string `protobuf:"bytes,1,opt,name=license_short_name,json=licenseShortName,proto3" json:"license_short_name,omitempty"`
 }
 
@@ -3040,6 +3090,7 @@ type GetInfoAttributesRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -3088,6 +3139,7 @@ type GetInfoAttributesResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Attributes []byte `protobuf:"bytes,1,opt,name=attributes,proto3" json:"attributes,omitempty"`
 }
 
@@ -3136,6 +3188,7 @@ type CalculateChecksumRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -3184,6 +3237,7 @@ type CalculateChecksumResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Checksum string `protobuf:"bytes,1,opt,name=checksum,proto3" json:"checksum,omitempty"`
 }
 
@@ -3232,6 +3286,7 @@ type GetSnapshotRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -3280,6 +3335,7 @@ type GetSnapshotResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Data []byte `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
 }
 
@@ -3328,9 +3384,12 @@ type CreateRepositoryFromSnapshotRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	HttpUrl    string      `protobuf:"bytes,2,opt,name=http_url,json=httpUrl,proto3" json:"http_url,omitempty"`
-	HttpAuth   string      `protobuf:"bytes,3,opt,name=http_auth,json=httpAuth,proto3" json:"http_auth,omitempty"`
+	// This comment is left unintentionally blank.
+	HttpUrl string `protobuf:"bytes,2,opt,name=http_url,json=httpUrl,proto3" json:"http_url,omitempty"`
+	// This comment is left unintentionally blank.
+	HttpAuth string `protobuf:"bytes,3,opt,name=http_auth,json=httpAuth,proto3" json:"http_auth,omitempty"`
 	// HttpHost is the hostname of the remote snapshot. Use this when the
 	// URL hostname has already been resolved to an IP address to prevent DNS
 	// rebinding.
@@ -3442,9 +3501,12 @@ type GetRawChangesRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Repository   *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	FromRevision string      `protobuf:"bytes,2,opt,name=from_revision,json=fromRevision,proto3" json:"from_revision,omitempty"`
-	ToRevision   string      `protobuf:"bytes,3,opt,name=to_revision,json=toRevision,proto3" json:"to_revision,omitempty"`
+	// This comment is left unintentionally blank.
+	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
+	// This comment is left unintentionally blank.
+	FromRevision string `protobuf:"bytes,2,opt,name=from_revision,json=fromRevision,proto3" json:"from_revision,omitempty"`
+	// This comment is left unintentionally blank.
+	ToRevision string `protobuf:"bytes,3,opt,name=to_revision,json=toRevision,proto3" json:"to_revision,omitempty"`
 }
 
 func (x *GetRawChangesRequest) Reset() {
@@ -3506,6 +3568,7 @@ type GetRawChangesResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	RawChanges []*GetRawChangesResponse_RawChange `protobuf:"bytes,1,rep,name=raw_changes,json=rawChanges,proto3" json:"raw_changes,omitempty"`
 }
 
@@ -3554,9 +3617,12 @@ type SearchFilesByNameRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	Query      string      `protobuf:"bytes,2,opt,name=query,proto3" json:"query,omitempty"`
-	Ref        []byte      `protobuf:"bytes,3,opt,name=ref,proto3" json:"ref,omitempty"`
+	// This comment is left unintentionally blank.
+	Query string `protobuf:"bytes,2,opt,name=query,proto3" json:"query,omitempty"`
+	// This comment is left unintentionally blank.
+	Ref []byte `protobuf:"bytes,3,opt,name=ref,proto3" json:"ref,omitempty"`
 	// If `filter` is specified and non-empty, it will be parsed as a regular
 	// expression and used to filter the result set before it is transmitted. It is
 	// parsed using Go's `regexp` package, which is closely related to PCRE,
@@ -3631,6 +3697,7 @@ type SearchFilesByNameResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Files [][]byte `protobuf:"bytes,1,rep,name=files,proto3" json:"files,omitempty"`
 }
 
@@ -3679,10 +3746,14 @@ type SearchFilesByContentRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Repository      *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	Query           string      `protobuf:"bytes,2,opt,name=query,proto3" json:"query,omitempty"`
-	Ref             []byte      `protobuf:"bytes,3,opt,name=ref,proto3" json:"ref,omitempty"`
-	ChunkedResponse bool        `protobuf:"varint,4,opt,name=chunked_response,json=chunkedResponse,proto3" json:"chunked_response,omitempty"`
+	// This comment is left unintentionally blank.
+	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
+	// This comment is left unintentionally blank.
+	Query string `protobuf:"bytes,2,opt,name=query,proto3" json:"query,omitempty"`
+	// This comment is left unintentionally blank.
+	Ref []byte `protobuf:"bytes,3,opt,name=ref,proto3" json:"ref,omitempty"`
+	// This comment is left unintentionally blank.
+	ChunkedResponse bool `protobuf:"varint,4,opt,name=chunked_response,json=chunkedResponse,proto3" json:"chunked_response,omitempty"`
 }
 
 func (x *SearchFilesByContentRequest) Reset() {
@@ -3751,9 +3822,12 @@ type SearchFilesByContentResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Matches    [][]byte `protobuf:"bytes,1,rep,name=matches,proto3" json:"matches,omitempty"`
-	MatchData  []byte   `protobuf:"bytes,2,opt,name=match_data,json=matchData,proto3" json:"match_data,omitempty"`
-	EndOfMatch bool     `protobuf:"varint,3,opt,name=end_of_match,json=endOfMatch,proto3" json:"end_of_match,omitempty"`
+	// This comment is left unintentionally blank.
+	Matches [][]byte `protobuf:"bytes,1,rep,name=matches,proto3" json:"matches,omitempty"`
+	// This comment is left unintentionally blank.
+	MatchData []byte `protobuf:"bytes,2,opt,name=match_data,json=matchData,proto3" json:"match_data,omitempty"`
+	// This comment is left unintentionally blank.
+	EndOfMatch bool `protobuf:"varint,3,opt,name=end_of_match,json=endOfMatch,proto3" json:"end_of_match,omitempty"`
 }
 
 func (x *SearchFilesByContentResponse) Reset() {
@@ -3904,6 +3978,7 @@ type GetObjectDirectorySizeRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -4001,6 +4076,7 @@ type RemoveRepositoryRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -4088,8 +4164,10 @@ type RenameRepositoryRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Repository   *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	RelativePath string      `protobuf:"bytes,2,opt,name=relative_path,json=relativePath,proto3" json:"relative_path,omitempty"`
+	// This comment is left unintentionally blank.
+	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
+	// This comment is left unintentionally blank.
+	RelativePath string `protobuf:"bytes,2,opt,name=relative_path,json=relativePath,proto3" json:"relative_path,omitempty"`
 }
 
 func (x *RenameRepositoryRequest) Reset() {
@@ -4183,8 +4261,10 @@ type ReplicateRepositoryRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	Source     *Repository `protobuf:"bytes,2,opt,name=source,proto3" json:"source,omitempty"`
+	// This comment is left unintentionally blank.
+	Source *Repository `protobuf:"bytes,2,opt,name=source,proto3" json:"source,omitempty"`
 }
 
 func (x *ReplicateRepositoryRequest) Reset() {
@@ -4278,6 +4358,7 @@ type OptimizeRepositoryRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -4366,6 +4447,7 @@ type PruneUnreachableObjectsRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -4551,14 +4633,21 @@ type GetRawChangesResponse_RawChange struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	BlobId       string                                    `protobuf:"bytes,1,opt,name=blob_id,json=blobId,proto3" json:"blob_id,omitempty"`
-	Size         int64                                     `protobuf:"varint,2,opt,name=size,proto3" json:"size,omitempty"`
-	Operation    GetRawChangesResponse_RawChange_Operation `protobuf:"varint,5,opt,name=operation,proto3,enum=gitaly.GetRawChangesResponse_RawChange_Operation" json:"operation,omitempty"`
-	RawOperation string                                    `protobuf:"bytes,6,opt,name=raw_operation,json=rawOperation,proto3" json:"raw_operation,omitempty"`
-	OldMode      int32                                     `protobuf:"varint,7,opt,name=old_mode,json=oldMode,proto3" json:"old_mode,omitempty"`
-	NewMode      int32                                     `protobuf:"varint,8,opt,name=new_mode,json=newMode,proto3" json:"new_mode,omitempty"`
+	// This comment is left unintentionally blank.
+	BlobId string `protobuf:"bytes,1,opt,name=blob_id,json=blobId,proto3" json:"blob_id,omitempty"`
+	// This comment is left unintentionally blank.
+	Size int64 `protobuf:"varint,2,opt,name=size,proto3" json:"size,omitempty"`
+	// This comment is left unintentionally blank.
+	Operation GetRawChangesResponse_RawChange_Operation `protobuf:"varint,5,opt,name=operation,proto3,enum=gitaly.GetRawChangesResponse_RawChange_Operation" json:"operation,omitempty"`
+	// This comment is left unintentionally blank.
+	RawOperation string `protobuf:"bytes,6,opt,name=raw_operation,json=rawOperation,proto3" json:"raw_operation,omitempty"`
+	// This comment is left unintentionally blank.
+	OldMode int32 `protobuf:"varint,7,opt,name=old_mode,json=oldMode,proto3" json:"old_mode,omitempty"`
+	// This comment is left unintentionally blank.
+	NewMode int32 `protobuf:"varint,8,opt,name=new_mode,json=newMode,proto3" json:"new_mode,omitempty"`
 	// the following fields, 9 and 10, will eventually replace 3 and 4
 	NewPathBytes []byte `protobuf:"bytes,9,opt,name=new_path_bytes,json=newPathBytes,proto3" json:"new_path_bytes,omitempty"`
+	// This comment is left unintentionally blank.
 	OldPathBytes []byte `protobuf:"bytes,10,opt,name=old_path_bytes,json=oldPathBytes,proto3" json:"old_path_bytes,omitempty"`
 }
 

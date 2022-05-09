@@ -479,8 +479,11 @@ type SetAuthoritativeStorageRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	VirtualStorage       string `protobuf:"bytes,1,opt,name=virtual_storage,json=virtualStorage,proto3" json:"virtual_storage,omitempty"`
-	RelativePath         string `protobuf:"bytes,2,opt,name=relative_path,json=relativePath,proto3" json:"relative_path,omitempty"`
+	// This comment is left unintentionally blank.
+	VirtualStorage string `protobuf:"bytes,1,opt,name=virtual_storage,json=virtualStorage,proto3" json:"virtual_storage,omitempty"`
+	// This comment is left unintentionally blank.
+	RelativePath string `protobuf:"bytes,2,opt,name=relative_path,json=relativePath,proto3" json:"relative_path,omitempty"`
+	// This comment is left unintentionally blank.
 	AuthoritativeStorage string `protobuf:"bytes,3,opt,name=authoritative_storage,json=authoritativeStorage,proto3" json:"authoritative_storage,omitempty"`
 }
 
@@ -582,6 +585,7 @@ type DatalossCheckRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	VirtualStorage string `protobuf:"bytes,1,opt,name=virtual_storage,json=virtualStorage,proto3" json:"virtual_storage,omitempty"`
 	// include_partially_unavailable indicates whether to include repositories which are available but
 	// are unavailable on some assigned storages.
@@ -689,6 +693,7 @@ type RepositoryReplicasRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -737,7 +742,9 @@ type RepositoryReplicasResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Primary  *RepositoryReplicasResponse_RepositoryDetails   `protobuf:"bytes,1,opt,name=primary,proto3" json:"primary,omitempty"`
+	// This comment is left unintentionally blank.
+	Primary *RepositoryReplicasResponse_RepositoryDetails `protobuf:"bytes,1,opt,name=primary,proto3" json:"primary,omitempty"`
+	// This comment is left unintentionally blank.
 	Replicas []*RepositoryReplicasResponse_RepositoryDetails `protobuf:"bytes,2,rep,name=replicas,proto3" json:"replicas,omitempty"`
 }
 
@@ -1165,8 +1172,10 @@ type RepositoryReplicasResponse_RepositoryDetails struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	Checksum   string      `protobuf:"bytes,2,opt,name=checksum,proto3" json:"checksum,omitempty"`
+	// This comment is left unintentionally blank.
+	Checksum string `protobuf:"bytes,2,opt,name=checksum,proto3" json:"checksum,omitempty"`
 }
 
 func (x *RepositoryReplicasResponse_RepositoryDetails) Reset() {

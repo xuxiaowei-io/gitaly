@@ -202,10 +202,14 @@ type UserCreateBranchRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	BranchName []byte      `protobuf:"bytes,2,opt,name=branch_name,json=branchName,proto3" json:"branch_name,omitempty"`
-	User       *User       `protobuf:"bytes,3,opt,name=user,proto3" json:"user,omitempty"`
-	StartPoint []byte      `protobuf:"bytes,4,opt,name=start_point,json=startPoint,proto3" json:"start_point,omitempty"`
+	// This comment is left unintentionally blank.
+	BranchName []byte `protobuf:"bytes,2,opt,name=branch_name,json=branchName,proto3" json:"branch_name,omitempty"`
+	// This comment is left unintentionally blank.
+	User *User `protobuf:"bytes,3,opt,name=user,proto3" json:"user,omitempty"`
+	// This comment is left unintentionally blank.
+	StartPoint []byte `protobuf:"bytes,4,opt,name=start_point,json=startPoint,proto3" json:"start_point,omitempty"`
 }
 
 func (x *UserCreateBranchRequest) Reset() {
@@ -274,6 +278,7 @@ type UserCreateBranchResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Branch *Branch `protobuf:"bytes,1,opt,name=branch,proto3" json:"branch,omitempty"`
 	// Error returned by the pre-receive hook. If no error was thrown,
 	// it's the empty string ("")
@@ -332,11 +337,16 @@ type UserUpdateBranchRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	BranchName []byte      `protobuf:"bytes,2,opt,name=branch_name,json=branchName,proto3" json:"branch_name,omitempty"`
-	User       *User       `protobuf:"bytes,3,opt,name=user,proto3" json:"user,omitempty"`
-	Newrev     []byte      `protobuf:"bytes,4,opt,name=newrev,proto3" json:"newrev,omitempty"`
-	Oldrev     []byte      `protobuf:"bytes,5,opt,name=oldrev,proto3" json:"oldrev,omitempty"`
+	// This comment is left unintentionally blank.
+	BranchName []byte `protobuf:"bytes,2,opt,name=branch_name,json=branchName,proto3" json:"branch_name,omitempty"`
+	// This comment is left unintentionally blank.
+	User *User `protobuf:"bytes,3,opt,name=user,proto3" json:"user,omitempty"`
+	// This comment is left unintentionally blank.
+	Newrev []byte `protobuf:"bytes,4,opt,name=newrev,proto3" json:"newrev,omitempty"`
+	// This comment is left unintentionally blank.
+	Oldrev []byte `protobuf:"bytes,5,opt,name=oldrev,proto3" json:"oldrev,omitempty"`
 }
 
 func (x *UserUpdateBranchRequest) Reset() {
@@ -412,6 +422,7 @@ type UserUpdateBranchResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	PreReceiveError string `protobuf:"bytes,1,opt,name=pre_receive_error,json=preReceiveError,proto3" json:"pre_receive_error,omitempty"`
 }
 
@@ -460,9 +471,12 @@ type UserDeleteBranchRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	BranchName []byte      `protobuf:"bytes,2,opt,name=branch_name,json=branchName,proto3" json:"branch_name,omitempty"`
-	User       *User       `protobuf:"bytes,3,opt,name=user,proto3" json:"user,omitempty"`
+	// This comment is left unintentionally blank.
+	BranchName []byte `protobuf:"bytes,2,opt,name=branch_name,json=branchName,proto3" json:"branch_name,omitempty"`
+	// This comment is left unintentionally blank.
+	User *User `protobuf:"bytes,3,opt,name=user,proto3" json:"user,omitempty"`
 }
 
 func (x *UserDeleteBranchRequest) Reset() {
@@ -524,6 +538,7 @@ type UserDeleteBranchResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	PreReceiveError string `protobuf:"bytes,1,opt,name=pre_receive_error,json=preReceiveError,proto3" json:"pre_receive_error,omitempty"`
 }
 
@@ -572,9 +587,12 @@ type UserDeleteTagRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	TagName    []byte      `protobuf:"bytes,2,opt,name=tag_name,json=tagName,proto3" json:"tag_name,omitempty"`
-	User       *User       `protobuf:"bytes,3,opt,name=user,proto3" json:"user,omitempty"`
+	// This comment is left unintentionally blank.
+	TagName []byte `protobuf:"bytes,2,opt,name=tag_name,json=tagName,proto3" json:"tag_name,omitempty"`
+	// This comment is left unintentionally blank.
+	User *User `protobuf:"bytes,3,opt,name=user,proto3" json:"user,omitempty"`
 }
 
 func (x *UserDeleteTagRequest) Reset() {
@@ -636,6 +654,7 @@ type UserDeleteTagResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	PreReceiveError string `protobuf:"bytes,1,opt,name=pre_receive_error,json=preReceiveError,proto3" json:"pre_receive_error,omitempty"`
 }
 
@@ -1455,8 +1474,10 @@ type UserFFBranchResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	BranchUpdate    *OperationBranchUpdate `protobuf:"bytes,1,opt,name=branch_update,json=branchUpdate,proto3" json:"branch_update,omitempty"`
-	PreReceiveError string                 `protobuf:"bytes,2,opt,name=pre_receive_error,json=preReceiveError,proto3" json:"pre_receive_error,omitempty"`
+	// This comment is left unintentionally blank.
+	BranchUpdate *OperationBranchUpdate `protobuf:"bytes,1,opt,name=branch_update,json=branchUpdate,proto3" json:"branch_update,omitempty"`
+	// This comment is left unintentionally blank.
+	PreReceiveError string `protobuf:"bytes,2,opt,name=pre_receive_error,json=preReceiveError,proto3" json:"pre_receive_error,omitempty"`
 }
 
 func (x *UserFFBranchResponse) Reset() {

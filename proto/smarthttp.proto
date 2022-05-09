@@ -52,6 +52,7 @@ service SmartHTTPService {
 
 // This comment is left unintentionally blank.
 message InfoRefsRequest {
+  // This comment is left unintentionally blank.
   Repository repository = 1 [(target_repository)=true];
   // Parameters to use with git -c (key=value pairs)
   repeated string git_config_options = 2;
@@ -62,6 +63,7 @@ message InfoRefsRequest {
 
 // This comment is left unintentionally blank.
 message InfoRefsResponse {
+  // This comment is left unintentionally blank.
   bytes data = 1;
 }
 
@@ -107,7 +109,9 @@ message PostReceivePackRequest {
   // gl_id, gl_repository, and gl_username become env variables, used by the Git {pre,post}-receive
   // hooks. They should only be present in the first message of the stream.
   string gl_id = 3;
+  // This comment is left unintentionally blank.
   string gl_repository = 4;
+  // This comment is left unintentionally blank.
   string gl_username = 5;
   // Git protocol version
   string git_protocol = 6;

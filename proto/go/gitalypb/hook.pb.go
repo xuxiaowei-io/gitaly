@@ -79,10 +79,14 @@ type PreReceiveHookRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Repository           *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	EnvironmentVariables []string    `protobuf:"bytes,2,rep,name=environment_variables,json=environmentVariables,proto3" json:"environment_variables,omitempty"`
-	Stdin                []byte      `protobuf:"bytes,4,opt,name=stdin,proto3" json:"stdin,omitempty"`
-	GitPushOptions       []string    `protobuf:"bytes,5,rep,name=git_push_options,json=gitPushOptions,proto3" json:"git_push_options,omitempty"`
+	// This comment is left unintentionally blank.
+	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
+	// This comment is left unintentionally blank.
+	EnvironmentVariables []string `protobuf:"bytes,2,rep,name=environment_variables,json=environmentVariables,proto3" json:"environment_variables,omitempty"`
+	// This comment is left unintentionally blank.
+	Stdin []byte `protobuf:"bytes,4,opt,name=stdin,proto3" json:"stdin,omitempty"`
+	// This comment is left unintentionally blank.
+	GitPushOptions []string `protobuf:"bytes,5,rep,name=git_push_options,json=gitPushOptions,proto3" json:"git_push_options,omitempty"`
 }
 
 func (x *PreReceiveHookRequest) Reset() {
@@ -151,8 +155,11 @@ type PreReceiveHookResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Stdout     []byte      `protobuf:"bytes,1,opt,name=stdout,proto3" json:"stdout,omitempty"`
-	Stderr     []byte      `protobuf:"bytes,2,opt,name=stderr,proto3" json:"stderr,omitempty"`
+	// This comment is left unintentionally blank.
+	Stdout []byte `protobuf:"bytes,1,opt,name=stdout,proto3" json:"stdout,omitempty"`
+	// This comment is left unintentionally blank.
+	Stderr []byte `protobuf:"bytes,2,opt,name=stderr,proto3" json:"stderr,omitempty"`
+	// This comment is left unintentionally blank.
 	ExitStatus *ExitStatus `protobuf:"bytes,3,opt,name=exit_status,json=exitStatus,proto3" json:"exit_status,omitempty"`
 }
 
@@ -215,10 +222,14 @@ type PostReceiveHookRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Repository           *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	EnvironmentVariables []string    `protobuf:"bytes,2,rep,name=environment_variables,json=environmentVariables,proto3" json:"environment_variables,omitempty"`
-	Stdin                []byte      `protobuf:"bytes,3,opt,name=stdin,proto3" json:"stdin,omitempty"`
-	GitPushOptions       []string    `protobuf:"bytes,4,rep,name=git_push_options,json=gitPushOptions,proto3" json:"git_push_options,omitempty"`
+	// This comment is left unintentionally blank.
+	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
+	// This comment is left unintentionally blank.
+	EnvironmentVariables []string `protobuf:"bytes,2,rep,name=environment_variables,json=environmentVariables,proto3" json:"environment_variables,omitempty"`
+	// This comment is left unintentionally blank.
+	Stdin []byte `protobuf:"bytes,3,opt,name=stdin,proto3" json:"stdin,omitempty"`
+	// This comment is left unintentionally blank.
+	GitPushOptions []string `protobuf:"bytes,4,rep,name=git_push_options,json=gitPushOptions,proto3" json:"git_push_options,omitempty"`
 }
 
 func (x *PostReceiveHookRequest) Reset() {
@@ -287,8 +298,11 @@ type PostReceiveHookResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Stdout     []byte      `protobuf:"bytes,1,opt,name=stdout,proto3" json:"stdout,omitempty"`
-	Stderr     []byte      `protobuf:"bytes,2,opt,name=stderr,proto3" json:"stderr,omitempty"`
+	// This comment is left unintentionally blank.
+	Stdout []byte `protobuf:"bytes,1,opt,name=stdout,proto3" json:"stdout,omitempty"`
+	// This comment is left unintentionally blank.
+	Stderr []byte `protobuf:"bytes,2,opt,name=stderr,proto3" json:"stderr,omitempty"`
+	// This comment is left unintentionally blank.
 	ExitStatus *ExitStatus `protobuf:"bytes,3,opt,name=exit_status,json=exitStatus,proto3" json:"exit_status,omitempty"`
 }
 
@@ -351,11 +365,16 @@ type UpdateHookRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Repository           *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	EnvironmentVariables []string    `protobuf:"bytes,2,rep,name=environment_variables,json=environmentVariables,proto3" json:"environment_variables,omitempty"`
-	Ref                  []byte      `protobuf:"bytes,3,opt,name=ref,proto3" json:"ref,omitempty"`
-	OldValue             string      `protobuf:"bytes,4,opt,name=old_value,json=oldValue,proto3" json:"old_value,omitempty"`
-	NewValue             string      `protobuf:"bytes,5,opt,name=new_value,json=newValue,proto3" json:"new_value,omitempty"`
+	// This comment is left unintentionally blank.
+	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
+	// This comment is left unintentionally blank.
+	EnvironmentVariables []string `protobuf:"bytes,2,rep,name=environment_variables,json=environmentVariables,proto3" json:"environment_variables,omitempty"`
+	// This comment is left unintentionally blank.
+	Ref []byte `protobuf:"bytes,3,opt,name=ref,proto3" json:"ref,omitempty"`
+	// This comment is left unintentionally blank.
+	OldValue string `protobuf:"bytes,4,opt,name=old_value,json=oldValue,proto3" json:"old_value,omitempty"`
+	// This comment is left unintentionally blank.
+	NewValue string `protobuf:"bytes,5,opt,name=new_value,json=newValue,proto3" json:"new_value,omitempty"`
 }
 
 func (x *UpdateHookRequest) Reset() {
@@ -431,8 +450,11 @@ type UpdateHookResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Stdout     []byte      `protobuf:"bytes,1,opt,name=stdout,proto3" json:"stdout,omitempty"`
-	Stderr     []byte      `protobuf:"bytes,2,opt,name=stderr,proto3" json:"stderr,omitempty"`
+	// This comment is left unintentionally blank.
+	Stdout []byte `protobuf:"bytes,1,opt,name=stdout,proto3" json:"stdout,omitempty"`
+	// This comment is left unintentionally blank.
+	Stderr []byte `protobuf:"bytes,2,opt,name=stderr,proto3" json:"stderr,omitempty"`
+	// This comment is left unintentionally blank.
 	ExitStatus *ExitStatus `protobuf:"bytes,3,opt,name=exit_status,json=exitStatus,proto3" json:"exit_status,omitempty"`
 }
 
@@ -495,10 +517,14 @@ type ReferenceTransactionHookRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Repository           *Repository                           `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	EnvironmentVariables []string                              `protobuf:"bytes,2,rep,name=environment_variables,json=environmentVariables,proto3" json:"environment_variables,omitempty"`
-	Stdin                []byte                                `protobuf:"bytes,3,opt,name=stdin,proto3" json:"stdin,omitempty"`
-	State                ReferenceTransactionHookRequest_State `protobuf:"varint,4,opt,name=state,proto3,enum=gitaly.ReferenceTransactionHookRequest_State" json:"state,omitempty"`
+	// This comment is left unintentionally blank.
+	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
+	// This comment is left unintentionally blank.
+	EnvironmentVariables []string `protobuf:"bytes,2,rep,name=environment_variables,json=environmentVariables,proto3" json:"environment_variables,omitempty"`
+	// This comment is left unintentionally blank.
+	Stdin []byte `protobuf:"bytes,3,opt,name=stdin,proto3" json:"stdin,omitempty"`
+	// This comment is left unintentionally blank.
+	State ReferenceTransactionHookRequest_State `protobuf:"varint,4,opt,name=state,proto3,enum=gitaly.ReferenceTransactionHookRequest_State" json:"state,omitempty"`
 }
 
 func (x *ReferenceTransactionHookRequest) Reset() {
@@ -567,8 +593,11 @@ type ReferenceTransactionHookResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Stdout     []byte      `protobuf:"bytes,1,opt,name=stdout,proto3" json:"stdout,omitempty"`
-	Stderr     []byte      `protobuf:"bytes,2,opt,name=stderr,proto3" json:"stderr,omitempty"`
+	// This comment is left unintentionally blank.
+	Stdout []byte `protobuf:"bytes,1,opt,name=stdout,proto3" json:"stdout,omitempty"`
+	// This comment is left unintentionally blank.
+	Stderr []byte `protobuf:"bytes,2,opt,name=stderr,proto3" json:"stderr,omitempty"`
+	// This comment is left unintentionally blank.
 	ExitStatus *ExitStatus `protobuf:"bytes,3,opt,name=exit_status,json=exitStatus,proto3" json:"exit_status,omitempty"`
 }
 
@@ -631,6 +660,7 @@ type PackObjectsHookWithSidechannelRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 	// args contains the arguments passed to the pack-objects hook, without the leading "git"
 	Args []string `protobuf:"bytes,2,rep,name=args,proto3" json:"args,omitempty"`

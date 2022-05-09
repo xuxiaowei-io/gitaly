@@ -142,8 +142,11 @@ message SetReplicationFactorResponse {
 
 // This comment is left unintentionally blank.
 message SetAuthoritativeStorageRequest {
+  // This comment is left unintentionally blank.
   string virtual_storage = 1;
+  // This comment is left unintentionally blank.
   string relative_path = 2;
+  // This comment is left unintentionally blank.
   string authoritative_storage = 3;
 }
 
@@ -153,6 +156,7 @@ message SetAuthoritativeStorageResponse {
 
 // This comment is left unintentionally blank.
 message DatalossCheckRequest {
+  // This comment is left unintentionally blank.
   string virtual_storage = 1;
   // include_partially_unavailable indicates whether to include repositories which are available but
   // are unavailable on some assigned storages.
@@ -194,6 +198,7 @@ message DatalossCheckResponse {
 
 // This comment is left unintentionally blank.
 message RepositoryReplicasRequest{
+  // This comment is left unintentionally blank.
   Repository repository = 1;
 }
 
@@ -201,10 +206,14 @@ message RepositoryReplicasRequest{
 message RepositoryReplicasResponse{
   // This comment is left unintentionally blank.
   message RepositoryDetails {
+    // This comment is left unintentionally blank.
     Repository repository = 1;
+    // This comment is left unintentionally blank.
     string checksum = 2;
   };
 
+  // This comment is left unintentionally blank.
   RepositoryDetails primary = 1;
+  // This comment is left unintentionally blank.
   repeated RepositoryDetails replicas = 2;
 }

@@ -47,31 +47,41 @@ service NamespaceService {
 
 // This comment is left unintentionally blank.
 message AddNamespaceRequest {
+  // This comment is left unintentionally blank.
   string storage_name = 1 [(storage)=true];
+  // This comment is left unintentionally blank.
   string name = 2;
 }
 
 // This comment is left unintentionally blank.
 message RemoveNamespaceRequest {
+  // This comment is left unintentionally blank.
   string storage_name = 1 [(storage)=true];
+  // This comment is left unintentionally blank.
   string name = 2;
 }
 
 // This comment is left unintentionally blank.
 message RenameNamespaceRequest {
+  // This comment is left unintentionally blank.
   string storage_name = 1 [(storage)=true];
+  // This comment is left unintentionally blank.
   string from = 2;
+  // This comment is left unintentionally blank.
   string to = 3;
 }
 
 // This comment is left unintentionally blank.
 message NamespaceExistsRequest {
+  // This comment is left unintentionally blank.
   string storage_name = 1 [(storage)=true];
+  // This comment is left unintentionally blank.
   string name = 2;
 }
 
 // This comment is left unintentionally blank.
 message NamespaceExistsResponse {
+  // This comment is left unintentionally blank.
   bool exists = 1;
 }
 

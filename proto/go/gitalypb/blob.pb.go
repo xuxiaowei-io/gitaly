@@ -26,6 +26,7 @@ type GetBlobRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 	// Object ID (SHA1) of the blob we want to get
 	Oid string `protobuf:"bytes,2,opt,name=oid,proto3" json:"oid,omitempty"`
@@ -159,6 +160,7 @@ type GetBlobsRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 	// Revision/Path pairs of the blobs we want to get.
 	RevisionPaths []*GetBlobsRequest_RevisionPath `protobuf:"bytes,2,rep,name=revision_paths,json=revisionPaths,proto3" json:"revision_paths,omitempty"`
@@ -230,12 +232,17 @@ type GetBlobsResponse struct {
 	// Chunk of blob data, could span over multiple messages.
 	Data []byte `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
 	// Object ID of the current blob. Only present on the first message per blob. Empty if no blob was found.
-	Oid         string     `protobuf:"bytes,3,opt,name=oid,proto3" json:"oid,omitempty"`
-	IsSubmodule bool       `protobuf:"varint,4,opt,name=is_submodule,json=isSubmodule,proto3" json:"is_submodule,omitempty"`
-	Mode        int32      `protobuf:"varint,5,opt,name=mode,proto3" json:"mode,omitempty"`
-	Revision    string     `protobuf:"bytes,6,opt,name=revision,proto3" json:"revision,omitempty"`
-	Path        []byte     `protobuf:"bytes,7,opt,name=path,proto3" json:"path,omitempty"`
-	Type        ObjectType `protobuf:"varint,8,opt,name=type,proto3,enum=gitaly.ObjectType" json:"type,omitempty"`
+	Oid string `protobuf:"bytes,3,opt,name=oid,proto3" json:"oid,omitempty"`
+	// This comment is left unintentionally blank.
+	IsSubmodule bool `protobuf:"varint,4,opt,name=is_submodule,json=isSubmodule,proto3" json:"is_submodule,omitempty"`
+	// This comment is left unintentionally blank.
+	Mode int32 `protobuf:"varint,5,opt,name=mode,proto3" json:"mode,omitempty"`
+	// This comment is left unintentionally blank.
+	Revision string `protobuf:"bytes,6,opt,name=revision,proto3" json:"revision,omitempty"`
+	// This comment is left unintentionally blank.
+	Path []byte `protobuf:"bytes,7,opt,name=path,proto3" json:"path,omitempty"`
+	// This comment is left unintentionally blank.
+	Type ObjectType `protobuf:"varint,8,opt,name=type,proto3,enum=gitaly.ObjectType" json:"type,omitempty"`
 }
 
 func (x *GetBlobsResponse) Reset() {
@@ -670,8 +677,11 @@ type NewBlobObject struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Size int64  `protobuf:"varint,1,opt,name=size,proto3" json:"size,omitempty"`
-	Oid  string `protobuf:"bytes,2,opt,name=oid,proto3" json:"oid,omitempty"`
+	// This comment is left unintentionally blank.
+	Size int64 `protobuf:"varint,1,opt,name=size,proto3" json:"size,omitempty"`
+	// This comment is left unintentionally blank.
+	Oid string `protobuf:"bytes,2,opt,name=oid,proto3" json:"oid,omitempty"`
+	// This comment is left unintentionally blank.
 	Path []byte `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`
 }
 
@@ -1069,8 +1079,10 @@ type GetBlobsRequest_RevisionPath struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Revision string `protobuf:"bytes,1,opt,name=revision,proto3" json:"revision,omitempty"`
-	Path     []byte `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	// This comment is left unintentionally blank.
+	Path []byte `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
 }
 
 func (x *GetBlobsRequest_RevisionPath) Reset() {

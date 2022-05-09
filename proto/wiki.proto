@@ -51,16 +51,23 @@ service WikiService {
 
 // This comment is left unintentionally blank.
 message WikiCommitDetails {
+  // This comment is left unintentionally blank.
   bytes name = 1;
+  // This comment is left unintentionally blank.
   bytes email = 2;
+  // This comment is left unintentionally blank.
   bytes message = 3;
+  // This comment is left unintentionally blank.
   int32 user_id = 4;
+  // This comment is left unintentionally blank.
   bytes user_name = 5;
 }
 
 // This comment is left unintentionally blank.
 message WikiPageVersion {
+  // This comment is left unintentionally blank.
   GitCommit commit = 1;
+  // This comment is left unintentionally blank.
   string format = 2;
 }
 
@@ -68,13 +75,18 @@ message WikiPageVersion {
 message WikiPage {
   // These fields are only present in the first message of a WikiPage stream
   WikiPageVersion version = 1;
+  // This comment is left unintentionally blank.
   string format = 2;
+  // This comment is left unintentionally blank.
   bytes title = 3;
+  // This comment is left unintentionally blank.
   string url_path = 4;
+  // This comment is left unintentionally blank.
   bytes path = 5;
+  // This comment is left unintentionally blank.
   bytes name = 6;
+  // This comment is left unintentionally blank.
   bool historical = 7;
-
   // This field is present in all messages of a WikiPage stream
   bytes raw_data = 8;
 }
@@ -83,8 +95,11 @@ message WikiPage {
 message WikiWritePageRequest {
   // These following fields are only present in the first message.
   Repository repository = 1 [(target_repository)=true];
+  // This comment is left unintentionally blank.
   bytes name = 2;
+  // This comment is left unintentionally blank.
   string format = 3;
+  // This comment is left unintentionally blank.
   WikiCommitDetails commit_details = 4;
   // This field is present in all messages.
   bytes content = 5;
@@ -92,6 +107,7 @@ message WikiWritePageRequest {
 
 // This comment is left unintentionally blank.
 message WikiWritePageResponse {
+  // This comment is left unintentionally blank.
   bytes duplicate_error = 1;
 }
 
@@ -99,25 +115,33 @@ message WikiWritePageResponse {
 message WikiUpdatePageRequest {
   // There fields are only present in the first message of the stream
   Repository repository = 1 [(target_repository)=true];
+  // This comment is left unintentionally blank.
   bytes page_path = 2;
+  // This comment is left unintentionally blank.
   bytes title = 3;
+  // This comment is left unintentionally blank.
   string format = 4;
+  // This comment is left unintentionally blank.
   WikiCommitDetails commit_details = 5;
-
   // This field is present in all messages
   bytes content = 6;
 }
 
 // This comment is left unintentionally blank.
 message WikiUpdatePageResponse {
+  // This comment is left unintentionally blank.
   bytes error = 1;
 }
 
 // This comment is left unintentionally blank.
 message WikiFindPageRequest {
+  // This comment is left unintentionally blank.
   Repository repository = 1 [(target_repository)=true];
+  // This comment is left unintentionally blank.
   bytes title = 2;
+  // This comment is left unintentionally blank.
   bytes revision = 3;
+  // This comment is left unintentionally blank.
   bytes directory = 4;
   // prevents the content from being sent over the response
   bool skip_content = 5;
@@ -126,6 +150,7 @@ message WikiFindPageRequest {
 // WikiFindPageResponse is a stream because we need multiple WikiPage
 // messages to send the raw_data field.
 message WikiFindPageResponse {
+  // This comment is left unintentionally blank.
   WikiPage page = 1;
 }
 
@@ -139,15 +164,19 @@ message WikiGetAllPagesRequest {
     CREATED_AT = 1;
   }
 
+  // This comment is left unintentionally blank.
   Repository repository = 1 [(target_repository)=true];
   // Passing 0 means no limit is applied
   uint32 limit = 2;
+  // This comment is left unintentionally blank.
   bool direction_desc = 3;
+  // This comment is left unintentionally blank.
   SortBy sort = 4;
 }
 
 // The WikiGetAllPagesResponse stream is a concatenation of WikiPage streams
 message WikiGetAllPagesResponse {
+  // This comment is left unintentionally blank.
   WikiPage page = 1;
   // When end_of_page is true it signals a change of page for the next Response message (if any)
   bool end_of_page = 2;
@@ -163,15 +192,20 @@ message WikiListPagesRequest {
     CREATED_AT = 1;
   }
 
+  // This comment is left unintentionally blank.
   Repository repository = 1 [(target_repository)=true];
   // Passing 0 means no limit is applied
   uint32 limit = 2;
+  // This comment is left unintentionally blank.
   bool direction_desc = 3;
+  // This comment is left unintentionally blank.
   SortBy sort = 4;
+  // This comment is left unintentionally blank.
   uint32 offset = 5;
 }
 
 // The WikiListPagesResponse stream is a concatenation of WikiPage streams without content
 message WikiListPagesResponse {
+  // This comment is left unintentionally blank.
   WikiPage page = 1;
 }

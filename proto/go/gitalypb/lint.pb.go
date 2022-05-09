@@ -133,6 +133,7 @@ type OperationMsg struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Op OperationMsg_Operation `protobuf:"varint,1,opt,name=op,proto3,enum=gitaly.OperationMsg_Operation" json:"op,omitempty"`
 	// Scope level indicates what level an RPC interacts with a server:
 	//   - REPOSITORY: scoped to only a single repo

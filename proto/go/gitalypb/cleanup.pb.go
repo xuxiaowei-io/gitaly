@@ -86,6 +86,7 @@ type ApplyBfgObjectMapStreamResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// This comment is left unintentionally blank.
 	Entries []*ApplyBfgObjectMapStreamResponse_Entry `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty"`
 }
 
@@ -135,9 +136,12 @@ type ApplyBfgObjectMapStreamResponse_Entry struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Type   ObjectType `protobuf:"varint,1,opt,name=type,proto3,enum=gitaly.ObjectType" json:"type,omitempty"`
-	OldOid string     `protobuf:"bytes,2,opt,name=old_oid,json=oldOid,proto3" json:"old_oid,omitempty"`
-	NewOid string     `protobuf:"bytes,3,opt,name=new_oid,json=newOid,proto3" json:"new_oid,omitempty"`
+	// This comment is left unintentionally blank.
+	Type ObjectType `protobuf:"varint,1,opt,name=type,proto3,enum=gitaly.ObjectType" json:"type,omitempty"`
+	// This comment is left unintentionally blank.
+	OldOid string `protobuf:"bytes,2,opt,name=old_oid,json=oldOid,proto3" json:"old_oid,omitempty"`
+	// This comment is left unintentionally blank.
+	NewOid string `protobuf:"bytes,3,opt,name=new_oid,json=newOid,proto3" json:"new_oid,omitempty"`
 }
 
 func (x *ApplyBfgObjectMapStreamResponse_Entry) Reset() {
