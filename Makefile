@@ -293,7 +293,7 @@ ${BUILD_DIR}/bin/%: .FORCE
 	@ # GNU build-id from the empty string and causing guaranteed collisions.
 	${Q}GO_BUILD_ID=$$( go tool buildid "$@" || openssl rand -hex 32 ) && \
 	GNU_BUILD_ID=$$( echo $$GO_BUILD_ID | sha1sum | cut -d' ' -f1 ) && \
-	go build -o "$@" -ldflags '${GO_LDFLAGS}'" -B 0x$$GNU_BUILD_ID" -tags "${GO_BUILD_TAGS}" $(addprefix ${SOURCE_DIR}/cmd/,$(@F))
+	go build -o "$@" -ldflags '${GO_LDFLAGS} -B 0x$$GNU_BUILD_ID' -tags "${GO_BUILD_TAGS}" $(addprefix ${SOURCE_DIR}/cmd/,$(@F))
 
 .PHONY: install
 ## Install Gitaly binaries. The target directory can be modified by setting PREFIX and DESTDIR.
