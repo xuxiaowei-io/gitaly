@@ -932,33 +932,6 @@ func TestValidateCgroups(t *testing.T) {
 				},
 			},
 			{
-				name: "memory limit - negative",
-				rawCfg: `[cgroups]
-				count = 10
-				mountpoint = "/sys/fs/cgroup"
-				hierarchy_root = "gitaly"
-				[cgroups.memory]
-				enabled = true
-				limit = -5
-				[cgroups.cpu]
-				enabled = true
-				shares = 512
-				`,
-				expect: cgroups.Config{
-					Count:         10,
-					Mountpoint:    "/sys/fs/cgroup",
-					HierarchyRoot: "gitaly",
-					Memory: cgroups.Memory{
-						Enabled: true,
-						Limit:   -5,
-					},
-					CPU: cgroups.CPU{
-						Enabled: true,
-						Shares:  512,
-					},
-				},
-			},
-			{
 				name: "repositories - zero count",
 				rawCfg: `[cgroups]
 				mountpoint = "/sys/fs/cgroup"
