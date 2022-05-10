@@ -232,7 +232,6 @@ run_go_tests = PATH='${SOURCE_DIR}/internal/testhelper/testdata/home/bin:${PATH}
     ${GOTESTSUM} --format ${TEST_FORMAT} --junitfile ${TEST_REPORT} -- -ldflags '${GO_LDFLAGS}' -tags '${SERVER_BUILD_TAGS},${GIT2GO_BUILD_TAGS}' ${TEST_OPTIONS} ${TEST_PACKAGES}
 
 unexport GOROOT
-export GOBIN                      = ${BUILD_DIR}/bin
 export GOCACHE                   ?= ${BUILD_DIR}/cache
 export GOPROXY                   ?= https://proxy.golang.org
 export PATH                      := ${BUILD_DIR}/bin:${PATH}
@@ -285,7 +284,7 @@ ${BUILD_DIR}/bin/gitaly-git2go-v14: GO_BUILD_TAGS = ${GIT2GO_BUILD_TAGS}
 ${BUILD_DIR}/bin/gitaly-git2go-v14: libgit2
 
 ${BUILD_DIR}/bin/%: .FORCE
-	${Q}go install -ldflags '${GO_LDFLAGS}' -tags "${GO_BUILD_TAGS}" $(addprefix ${SOURCE_DIR}/cmd/,$(@F))
+	${Q}go build -o "$@" -ldflags '${GO_LDFLAGS}' -tags "${GO_BUILD_TAGS}" $(addprefix ${SOURCE_DIR}/cmd/,$(@F))
 	@ # To compute a unique and deterministic value for GNU build-id, we build the Go binary a second time.
 	@ # From the first build, we extract its unique and deterministic Go build-id, and use that to derive
 	@ # comparably unique and deterministic GNU build-id to inject into the final binary.
@@ -294,7 +293,7 @@ ${BUILD_DIR}/bin/%: .FORCE
 	@ # GNU build-id from the empty string and causing guaranteed collisions.
 	${Q}GO_BUILD_ID=$$( go tool buildid "$@" || openssl rand -hex 32 ) && \
 	GNU_BUILD_ID=$$( echo $$GO_BUILD_ID | sha1sum | cut -d' ' -f1 ) && \
-	go install -ldflags '${GO_LDFLAGS}'" -B 0x$$GNU_BUILD_ID" -tags "${GO_BUILD_TAGS}" $(addprefix ${SOURCE_DIR}/cmd/,$(@F))
+	go build -o "$@" -ldflags '${GO_LDFLAGS}'" -B 0x$$GNU_BUILD_ID" -tags "${GO_BUILD_TAGS}" $(addprefix ${SOURCE_DIR}/cmd/,$(@F))
 
 .PHONY: install
 ## Install Gitaly binaries. The target directory can be modified by setting PREFIX and DESTDIR.
@@ -605,9 +604,8 @@ ${PROTOC}: ${DEPENDENCY_DIR}/protoc.version | ${TOOLS_DIR}
 	${Q}cmake --build "${PROTOC_BUILD_DIR}" --target install -- -j $(shell nproc)
 	${Q}cp "${PROTOC_INSTALL_DIR}"/bin/protoc ${PROTOC}
 
-${TOOLS_DIR}/%: GOBIN = ${TOOLS_DIR}
 ${TOOLS_DIR}/%: ${TOOLS_DIR}/%.version
-	${Q}go install ${TOOL_PACKAGE}@${TOOL_VERSION}
+	${Q}GOBIN=${TOOLS_DIR} go install ${TOOL_PACKAGE}@${TOOL_VERSION}
 
 ${PROTOC_GEN_GITALY_LINT}: proto | ${TOOLS_DIR}
 	${Q}go build -o $@ ${SOURCE_DIR}/tools/protoc-gen-gitaly-lint
