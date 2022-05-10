@@ -218,7 +218,7 @@ TEST_REPO_GIT    := ${TEST_REPO_DIR}/gitlab-git-test.git
 BENCHMARK_REPO   := ${TEST_REPO_DIR}/benchmark.git
 
 # All executables provided by Gitaly
-GITALY_EXECUTABLES    = $(notdir $(shell find ${SOURCE_DIR}/cmd -mindepth 1 -maxdepth 1 -type d -print))
+GITALY_EXECUTABLES    = $(addprefix ${BUILD_DIR}/bin/,$(notdir $(shell find ${SOURCE_DIR}/cmd -mindepth 1 -maxdepth 1 -type d -print)))
 # Find all Go source files.
 find_go_sources       = $(shell find ${SOURCE_DIR} -type d \( -name ruby -o -name vendor -o -name testdata -o -name '_*' -o -path '*/proto/go/gitalypb' \) -prune -o -type f -name '*.go' -not -name '*.pb.go' -print | sort -u)
 
@@ -251,6 +251,9 @@ export CGO_LDFLAGS_ALLOW          = -D_THREAD_SAFE
 ## Default target which builds Gitaly.
 all: build
 
+.PHONY: .FORCE
+.FORCE:
+
 ## Print help about available targets and variables.
 help:
 	@echo "usage: make [<target>...] [<variable>=<value>...]"
@@ -276,23 +279,22 @@ help:
 ## Build Go binaries and install required Ruby Gems.
 build: ${SOURCE_DIR}/.ruby-bundle ${GITALY_EXECUTABLES}
 
-gitaly:            GO_BUILD_TAGS = ${SERVER_BUILD_TAGS}
-praefect:          GO_BUILD_TAGS = ${SERVER_BUILD_TAGS}
-gitaly-git2go-v14: GO_BUILD_TAGS = ${GIT2GO_BUILD_TAGS}
-gitaly-git2go-v14: libgit2
+${BUILD_DIR}/bin/gitaly:            GO_BUILD_TAGS = ${SERVER_BUILD_TAGS}
+${BUILD_DIR}/bin/praefect:          GO_BUILD_TAGS = ${SERVER_BUILD_TAGS}
+${BUILD_DIR}/bin/gitaly-git2go-v14: GO_BUILD_TAGS = ${GIT2GO_BUILD_TAGS}
+${BUILD_DIR}/bin/gitaly-git2go-v14: libgit2
 
-.PHONY: ${GITALY_EXECUTABLES}
-${GITALY_EXECUTABLES}:
-	${Q}go install -ldflags '${GO_LDFLAGS}' -tags "${GO_BUILD_TAGS}" $(addprefix ${GITALY_PACKAGE}/cmd/, $@)
+${BUILD_DIR}/bin/%: .FORCE
+	${Q}go install -ldflags '${GO_LDFLAGS}' -tags "${GO_BUILD_TAGS}" $(addprefix ${SOURCE_DIR}/cmd/,$(@F))
 	@ # To compute a unique and deterministic value for GNU build-id, we build the Go binary a second time.
 	@ # From the first build, we extract its unique and deterministic Go build-id, and use that to derive
 	@ # comparably unique and deterministic GNU build-id to inject into the final binary.
 	@ # If we cannot extract a Go build-id, we punt and fallback to using a random 32-byte hex string.
 	@ # This fallback is unique but non-deterministic, making it sufficient to avoid generating the
 	@ # GNU build-id from the empty string and causing guaranteed collisions.
-	${Q}GO_BUILD_ID=$$( go tool buildid $(addprefix ${BUILD_DIR}/bin/, $@) || openssl rand -hex 32 ) && \
+	${Q}GO_BUILD_ID=$$( go tool buildid "$@" || openssl rand -hex 32 ) && \
 	GNU_BUILD_ID=$$( echo $$GO_BUILD_ID | sha1sum | cut -d' ' -f1 ) && \
-	go install -ldflags '${GO_LDFLAGS}'" -B 0x$$GNU_BUILD_ID" -tags "${GO_BUILD_TAGS}" $(addprefix ${GITALY_PACKAGE}/cmd/, $@)
+	go install -ldflags '${GO_LDFLAGS}'" -B 0x$$GNU_BUILD_ID" -tags "${GO_BUILD_TAGS}" $(addprefix ${SOURCE_DIR}/cmd/,$(@F))
 
 .PHONY: install
 ## Install Gitaly binaries. The target directory can be modified by setting PREFIX and DESTDIR.
