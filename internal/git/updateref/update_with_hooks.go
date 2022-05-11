@@ -32,9 +32,10 @@ type UpdaterWithHooks struct {
 
 // CustomHookError contains an error message when executing a custom hook.
 type CustomHookError struct {
-	err    error
-	stdout string
-	stderr string
+	err      error
+	hookType git.Hook
+	stdout   string
+	stderr   string
 }
 
 // Error returns an error message.
@@ -68,13 +69,14 @@ func (e CustomHookError) Unwrap() error {
 // wrapHookError wraps errors returned by the hook manager into either a CustomHookError if it
 // returned a `hook.CustomHookError`, or alternatively return the error with stderr or stdout
 // appended to the message.
-func wrapHookError(err error, stdout, stderr string) error {
+func wrapHookError(err error, hookType git.Hook, stdout, stderr string) error {
 	var customHookErr hook.CustomHookError
 	if errors.As(err, &customHookErr) {
 		return CustomHookError{
-			err:    err,
-			stdout: stdout,
-			stderr: stderr,
+			err:      err,
+			hookType: hookType,
+			stdout:   stdout,
+			stderr:   stderr,
 		}
 	}
 
@@ -174,7 +176,7 @@ func (u *UpdaterWithHooks) UpdateReference(
 
 	var stdout, stderr bytes.Buffer
 	if err := u.hookManager.PreReceiveHook(ctx, quarantinedRepo, pushOptions, []string{hooksPayload}, strings.NewReader(changes), &stdout, &stderr); err != nil {
-		return wrapHookError(err, stdout.String(), stderr.String())
+		return wrapHookError(err, git.PreReceiveHook, stdout.String(), stderr.String())
 	}
 
 	// Now that Rails has told us that the change is okay via the pre-receive hook, we can
@@ -196,7 +198,7 @@ func (u *UpdaterWithHooks) UpdateReference(
 	}
 
 	if err := u.hookManager.UpdateHook(ctx, quarantinedRepo, reference.String(), oldrev.String(), newrev.String(), []string{hooksPayload}, &stdout, &stderr); err != nil {
-		return wrapHookError(err, stdout.String(), stderr.String())
+		return wrapHookError(err, git.UpdateHook, stdout.String(), stderr.String())
 	}
 
 	// We are already manually invoking the reference-transaction hook, so there is no need to
@@ -248,7 +250,7 @@ func (u *UpdaterWithHooks) UpdateReference(
 	}
 
 	if err := u.hookManager.PostReceiveHook(ctx, repo, pushOptions, []string{hooksPayload}, strings.NewReader(changes), &stdout, &stderr); err != nil {
-		return wrapHookError(err, stdout.String(), stderr.String())
+		return wrapHookError(err, git.PostReceiveHook, stdout.String(), stderr.String())
 	}
 
 	return nil
