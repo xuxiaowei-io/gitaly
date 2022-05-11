@@ -30,15 +30,15 @@ type UpdaterWithHooks struct {
 	catfileCache  catfile.Cache
 }
 
-// HookError contains an error message when executing a hook.
-type HookError struct {
+// CustomHookError contains an error message when executing a custom hook.
+type CustomHookError struct {
 	err    error
 	stdout string
 	stderr string
 }
 
 // Error returns an error message.
-func (e HookError) Error() string {
+func (e CustomHookError) Error() string {
 	// If custom hooks write the "GitLab: " or "GL-HOOK-ERR: " prefix to either their stderr or
 	// their stdout, then this prefix is taken as a hint by Rails to print the error as-is in
 	// the web interface. We must thus make sure to not modify these custom hook error messages
@@ -50,29 +50,42 @@ func (e HookError) Error() string {
 	//
 	// Eventually, we should find a solution which allows us to bubble up the error in hook
 	// package such that we can also make proper use of structured errors for custom hooks.
-	var customHookError hook.CustomHookError
-	if errors.As(e.err, &customHookError) {
-		if len(strings.TrimSpace(e.stderr)) > 0 {
-			return e.stderr
-		}
-		if len(strings.TrimSpace(e.stdout)) > 0 {
-			return e.stdout
-		}
-	} else {
-		if len(strings.TrimSpace(e.stderr)) > 0 {
-			return fmt.Sprintf("%v, stderr: %q", e.err.Error(), e.stderr)
-		}
-		if len(strings.TrimSpace(e.stdout)) > 0 {
-			return fmt.Sprintf("%v, stdout: %q", e.err.Error(), e.stdout)
-		}
+	if len(strings.TrimSpace(e.stderr)) > 0 {
+		return e.stderr
+	}
+	if len(strings.TrimSpace(e.stdout)) > 0 {
+		return e.stdout
 	}
 
 	return e.err.Error()
 }
 
 // Unwrap will return the embedded error.
-func (e HookError) Unwrap() error {
+func (e CustomHookError) Unwrap() error {
 	return e.err
+}
+
+// wrapHookError wraps errors returned by the hook manager into either a CustomHookError if it
+// returned a `hook.CustomHookError`, or alternatively return the error with stderr or stdout
+// appended to the message.
+func wrapHookError(err error, stdout, stderr string) error {
+	var customHookErr hook.CustomHookError
+	if errors.As(err, &customHookErr) {
+		return CustomHookError{
+			err:    err,
+			stdout: stdout,
+			stderr: stderr,
+		}
+	}
+
+	if len(strings.TrimSpace(stderr)) > 0 {
+		return fmt.Errorf("%w, stderr: %q", err, stderr)
+	}
+	if len(strings.TrimSpace(stdout)) > 0 {
+		return fmt.Errorf("%w, stdout: %q", err, stdout)
+	}
+
+	return err
 }
 
 // Error reports an error in git update-ref
@@ -161,7 +174,7 @@ func (u *UpdaterWithHooks) UpdateReference(
 
 	var stdout, stderr bytes.Buffer
 	if err := u.hookManager.PreReceiveHook(ctx, quarantinedRepo, pushOptions, []string{hooksPayload}, strings.NewReader(changes), &stdout, &stderr); err != nil {
-		return HookError{err: err, stdout: stdout.String(), stderr: stderr.String()}
+		return wrapHookError(err, stdout.String(), stderr.String())
 	}
 
 	// Now that Rails has told us that the change is okay via the pre-receive hook, we can
@@ -183,7 +196,7 @@ func (u *UpdaterWithHooks) UpdateReference(
 	}
 
 	if err := u.hookManager.UpdateHook(ctx, quarantinedRepo, reference.String(), oldrev.String(), newrev.String(), []string{hooksPayload}, &stdout, &stderr); err != nil {
-		return HookError{err: err, stdout: stdout.String(), stderr: stderr.String()}
+		return wrapHookError(err, stdout.String(), stderr.String())
 	}
 
 	// We are already manually invoking the reference-transaction hook, so there is no need to
@@ -235,7 +248,7 @@ func (u *UpdaterWithHooks) UpdateReference(
 	}
 
 	if err := u.hookManager.PostReceiveHook(ctx, repo, pushOptions, []string{hooksPayload}, strings.NewReader(changes), &stdout, &stderr); err != nil {
-		return HookError{err: err, stdout: stdout.String(), stderr: stderr.String()}
+		return wrapHookError(err, stdout.String(), stderr.String())
 	}
 
 	return nil

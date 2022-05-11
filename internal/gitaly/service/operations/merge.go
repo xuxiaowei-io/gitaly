@@ -228,10 +228,10 @@ func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequ
 	}
 
 	if err := s.updateReferenceWithHooks(ctx, in.GetRepository(), in.User, quarantineDir, referenceName, commitID, revision); err != nil {
-		var hookError updateref.HookError
-		if errors.As(err, &hookError) {
+		var customHookErr updateref.CustomHookError
+		if errors.As(err, &customHookErr) {
 			return &gitalypb.UserFFBranchResponse{
-				PreReceiveError: hookError.Error(),
+				PreReceiveError: customHookErr.Error(),
 			}, nil
 		}
 
