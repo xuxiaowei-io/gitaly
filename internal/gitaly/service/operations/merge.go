@@ -113,6 +113,7 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 
 	if err := s.updateReferenceWithHooks(ctx, firstRequest.GetRepository(), firstRequest.User, quarantineDir, referenceName, mergeOID, revision); err != nil {
 		var notAllowedError hook.NotAllowedError
+		var customHookErr updateref.CustomHookError
 		var updateRefError updateref.Error
 
 		if errors.As(err, &notAllowedError) {
@@ -126,6 +127,23 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 							Protocol:     notAllowedError.Protocol,
 							Changes:      notAllowedError.Changes,
 						},
+					},
+				},
+			)
+			if err != nil {
+				return helper.ErrInternalf("error details: %w", err)
+			}
+
+			return detailedErr
+		} else if errors.As(err, &customHookErr) {
+			// When an error happens updating the reference, e.g. because of a
+			// race with another update, then we should tell the user that a
+			// precondition failed. A retry may fix this.
+			detailedErr, err := helper.ErrWithDetails(
+				helper.ErrPermissionDenied(customHookErr),
+				&gitalypb.UserMergeBranchError{
+					Error: &gitalypb.UserMergeBranchError_CustomHook{
+						CustomHook: customHookErr.Proto(),
 					},
 				},
 			)

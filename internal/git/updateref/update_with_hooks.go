@@ -61,6 +61,25 @@ func (e CustomHookError) Error() string {
 	return e.err.Error()
 }
 
+// Proto returns the Protobuf representation of this error.
+func (e CustomHookError) Proto() *gitalypb.CustomHookError {
+	hookType := gitalypb.CustomHookError_HOOK_TYPE_UNSPECIFIED
+	switch e.hookType {
+	case git.PreReceiveHook:
+		hookType = gitalypb.CustomHookError_HOOK_TYPE_PRERECEIVE
+	case git.UpdateHook:
+		hookType = gitalypb.CustomHookError_HOOK_TYPE_UPDATE
+	case git.PostReceiveHook:
+		hookType = gitalypb.CustomHookError_HOOK_TYPE_POSTRECEIVE
+	}
+
+	return &gitalypb.CustomHookError{
+		HookType: hookType,
+		Stdout:   []byte(e.stdout),
+		Stderr:   []byte(e.stderr),
+	}
+}
+
 // Unwrap will return the embedded error.
 func (e CustomHookError) Unwrap() error {
 	return e.err
