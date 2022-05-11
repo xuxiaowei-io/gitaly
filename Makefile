@@ -283,29 +283,6 @@ help:
 ## Build Go binaries and install required Ruby Gems.
 build: ${SOURCE_DIR}/.ruby-bundle ${GITALY_EXECUTABLES}
 
-${BUILD_DIR}/bin/%: ${BUILD_DIR}/intermediate/% | ${BUILD_DIR}/bin
-	@ # To compute a unique and deterministic value for GNU build-id, we use an
-	@ # intermediate binary which has a fixed build ID of "TEMP_GITALY_BUILD_ID",
-	@ # which we replace with a deterministic build ID derived from the Go build ID.
-	@ # If we cannot extract a Go build-id, we punt and fallback to using a random 32-byte hex string.
-	@ # This fallback is unique but non-deterministic, making it sufficient to avoid generating the
-	@ # GNU build-id from the empty string and causing guaranteed collisions.
-	${Q}GO_BUILD_ID=$$(go tool buildid "$<" || openssl rand -hex 32) && \
-	GNU_BUILD_ID=$$(echo $$GO_BUILD_ID | sha1sum | cut -d' ' -f1) && \
-	go run "${SOURCE_DIR}"/tools/replace-buildid \
-		-input "$<" -input-build-id "${TEMPORARY_BUILD_ID}" \
-		-output "$@" -output-build-id "$$GNU_BUILD_ID"
-
-${BUILD_DIR}/intermediate/gitaly:            GO_BUILD_TAGS = ${SERVER_BUILD_TAGS}
-${BUILD_DIR}/intermediate/praefect:          GO_BUILD_TAGS = ${SERVER_BUILD_TAGS}
-${BUILD_DIR}/intermediate/gitaly-git2go-v14: GO_BUILD_TAGS = ${GIT2GO_BUILD_TAGS}
-${BUILD_DIR}/intermediate/gitaly-git2go-v14: libgit2
-${BUILD_DIR}/intermediate/%: .FORCE
-	@ # We're building intermediate binaries first which contain a fixed build ID
-	@ # of "TEMP_GITALY_BUILD_ID". In the final binary we replace this build ID with
-	@ # the computed build ID for this binary.
-	${Q}go build -o "$@" -ldflags '-B 0x${TEMPORARY_BUILD_ID} ${GO_LDFLAGS}' -tags "${GO_BUILD_TAGS}" $(addprefix ${SOURCE_DIR}/cmd/,$(@F))
-
 .PHONY: install
 ## Install Gitaly binaries. The target directory can be modified by setting PREFIX and DESTDIR.
 install: build
@@ -524,6 +501,29 @@ ${TOOLS_DIR}: | ${BUILD_DIR}
 	${Q}mkdir -p ${TOOLS_DIR}
 ${DEPENDENCY_DIR}: | ${BUILD_DIR}
 	${Q}mkdir -p ${DEPENDENCY_DIR}
+
+${BUILD_DIR}/bin/%: ${BUILD_DIR}/intermediate/% | ${BUILD_DIR}/bin
+	@ # To compute a unique and deterministic value for GNU build-id, we use an
+	@ # intermediate binary which has a fixed build ID of "TEMP_GITALY_BUILD_ID",
+	@ # which we replace with a deterministic build ID derived from the Go build ID.
+	@ # If we cannot extract a Go build-id, we punt and fallback to using a random 32-byte hex string.
+	@ # This fallback is unique but non-deterministic, making it sufficient to avoid generating the
+	@ # GNU build-id from the empty string and causing guaranteed collisions.
+	${Q}GO_BUILD_ID=$$(go tool buildid "$<" || openssl rand -hex 32) && \
+	GNU_BUILD_ID=$$(echo $$GO_BUILD_ID | sha1sum | cut -d' ' -f1) && \
+	go run "${SOURCE_DIR}"/tools/replace-buildid \
+		-input "$<" -input-build-id "${TEMPORARY_BUILD_ID}" \
+		-output "$@" -output-build-id "$$GNU_BUILD_ID"
+
+${BUILD_DIR}/intermediate/gitaly:            GO_BUILD_TAGS = ${SERVER_BUILD_TAGS}
+${BUILD_DIR}/intermediate/praefect:          GO_BUILD_TAGS = ${SERVER_BUILD_TAGS}
+${BUILD_DIR}/intermediate/gitaly-git2go-v14: GO_BUILD_TAGS = ${GIT2GO_BUILD_TAGS}
+${BUILD_DIR}/intermediate/gitaly-git2go-v14: libgit2
+${BUILD_DIR}/intermediate/%: .FORCE
+	@ # We're building intermediate binaries first which contain a fixed build ID
+	@ # of "TEMP_GITALY_BUILD_ID". In the final binary we replace this build ID with
+	@ # the computed build ID for this binary.
+	${Q}go build -o "$@" -ldflags '-B 0x${TEMPORARY_BUILD_ID} ${GO_LDFLAGS}' -tags "${GO_BUILD_TAGS}" $(addprefix ${SOURCE_DIR}/cmd/,$(@F))
 
 # This is a build hack to avoid excessive rebuilding of targets. Instead of
 # depending on the Makefile, we start to depend on tool versions as defined in
