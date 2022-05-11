@@ -219,7 +219,7 @@ func (u *UpdaterWithHooks) UpdateReference(
 	defer func() { _ = updater.Cancel() }()
 
 	if err := u.hookManager.ReferenceTransactionHook(ctx, hook.ReferenceTransactionPrepared, []string{hooksPayload}, strings.NewReader(changes)); err != nil {
-		return HookError{err: err, stdout: stdout.String(), stderr: stderr.String()}
+		return fmt.Errorf("executing preparatory reference-transaction hook: %w", err)
 	}
 
 	if err := updater.Commit(); err != nil {
@@ -231,7 +231,7 @@ func (u *UpdaterWithHooks) UpdateReference(
 	}
 
 	if err := u.hookManager.ReferenceTransactionHook(ctx, hook.ReferenceTransactionCommitted, []string{hooksPayload}, strings.NewReader(changes)); err != nil {
-		return HookError{err: err}
+		return fmt.Errorf("executing committing reference-transaction hook: %w", err)
 	}
 
 	if err := u.hookManager.PostReceiveHook(ctx, repo, pushOptions, []string{hooksPayload}, strings.NewReader(changes), &stdout, &stderr); err != nil {
