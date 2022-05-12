@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -418,4 +419,60 @@ func TestExecCommandFactory_GitVersion(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "2.34.1", version.String())
 	})
+}
+
+func TestExecCommandFactory_config(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	commonEnv := []string{
+		"gc.auto=0",
+		"core.autocrlf=input",
+		"core.usereplacerefs=false",
+	}
+
+	for _, tc := range []struct {
+		desc        string
+		version     string
+		expectedEnv []string
+	}{
+		{
+			desc:        "without support for core.fsync",
+			version:     "2.35.0",
+			expectedEnv: append(commonEnv, "core.fsyncobjectfiles=true"),
+		},
+		{
+			desc:        "with support for core.fsync",
+			version:     "2.36.0",
+			expectedEnv: append(commonEnv, "core.fsync=objects,derived-metadata,reference", "core.fsyncmethod=fsync"),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			factory := gittest.NewInterceptingCommandFactory(ctx, t, cfg, func(execEnv git.ExecutionEnvironment) string {
+				return fmt.Sprintf(
+					`#!/usr/bin/env bash
+					if test "$1" = "version"
+					then
+						echo "git version %s"
+						exit 0
+					fi
+					exec %q "$@"
+				`, tc.version, execEnv.BinaryPath)
+			}, gittest.WithInterceptedVersion())
+
+			var stdout bytes.Buffer
+			cmd, err := factory.NewWithDir(ctx, "/", git.SubCmd{
+				Name: "config",
+				Flags: []git.Option{
+					git.Flag{Name: "--list"},
+				},
+			}, git.WithStdout(&stdout))
+			require.NoError(t, err)
+
+			require.NoError(t, cmd.Wait())
+			require.Equal(t, tc.expectedEnv, strings.Split(strings.TrimSpace(stdout.String()), "\n"))
+		})
+	}
 }
