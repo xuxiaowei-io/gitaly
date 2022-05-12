@@ -427,6 +427,11 @@ func TestExecCommandFactory_config(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
+	// Create a repository and remove its gitconfig to bring us into a known state where there
+	// is no repo-level configuration that interferes with our test.
+	repo, repoDir := gittest.InitRepo(t, cfg, cfg.Storages[0])
+	require.NoError(t, os.Remove(filepath.Join(repoDir, "config")))
+
 	commonEnv := []string{
 		"gc.auto=0",
 		"core.autocrlf=input",
@@ -463,7 +468,7 @@ func TestExecCommandFactory_config(t *testing.T) {
 			}, gittest.WithInterceptedVersion())
 
 			var stdout bytes.Buffer
-			cmd, err := factory.NewWithDir(ctx, "/", git.SubCmd{
+			cmd, err := factory.New(ctx, repo, git.SubCmd{
 				Name: "config",
 				Flags: []git.Option{
 					git.Flag{Name: "--list"},
@@ -473,6 +478,69 @@ func TestExecCommandFactory_config(t *testing.T) {
 
 			require.NoError(t, cmd.Wait())
 			require.Equal(t, tc.expectedEnv, strings.Split(strings.TrimSpace(stdout.String()), "\n"))
+		})
+	}
+}
+
+func TestExecCommandFactory_SidecarGitConfiguration(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	cfg.Git.Config = []config.GitConfig{
+		{Key: "custom.key", Value: "injected"},
+	}
+
+	commonHead := []git.ConfigPair{
+		{Key: "gc.auto", Value: "0"},
+		{Key: "core.autocrlf", Value: "input"},
+		{Key: "core.useReplaceRefs", Value: "false"},
+	}
+
+	commonTail := []git.ConfigPair{
+		{Key: "fetch.writeCommitGraph", Value: "false"},
+		{Key: "http.followRedirects", Value: "false"},
+		{Key: "fetch.recurseSubmodules", Value: "no"},
+		{Key: "fetch.fsckObjects", Value: "true"},
+		{Key: "fetch.fsck.badTimezone", Value: "ignore"},
+		{Key: "fetch.fsck.missingSpaceBeforeDate", Value: "ignore"},
+		{Key: "fetch.fsck.zeroPaddedFilemode", Value: "ignore"},
+		{Key: "custom.key", Value: "injected"},
+	}
+
+	for _, tc := range []struct {
+		desc           string
+		version        string
+		expectedConfig []git.ConfigPair
+	}{
+		{
+			desc:    "without support for core.fsync",
+			version: "2.35.0",
+			expectedConfig: append(append(commonHead,
+				git.ConfigPair{Key: "core.fsyncObjectFiles", Value: "true"},
+			), commonTail...),
+		},
+		{
+			desc:    "with support for core.fsync",
+			version: "2.36.0",
+			expectedConfig: append(append(commonHead,
+				git.ConfigPair{Key: "core.fsync", Value: "objects,derived-metadata,reference"},
+				git.ConfigPair{Key: "core.fsyncMethod", Value: "fsync"},
+			), commonTail...),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			factory := gittest.NewInterceptingCommandFactory(ctx, t, cfg, func(git.ExecutionEnvironment) string {
+				return fmt.Sprintf(
+					`#!/usr/bin/env bash
+					echo "git version %s"
+				`, tc.version)
+			}, gittest.WithInterceptedVersion())
+
+			configPairs, err := factory.SidecarGitConfiguration(ctx)
+			require.NoError(t, err)
+			require.Equal(t, tc.expectedConfig, configPairs)
 		})
 	}
 }
