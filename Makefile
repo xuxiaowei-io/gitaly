@@ -511,9 +511,13 @@ ${BUILD_DIR}/bin/%: ${BUILD_DIR}/intermediate/% | ${BUILD_DIR}/bin
 	@ # GNU build-id from the empty string and causing guaranteed collisions.
 	${Q}GO_BUILD_ID=$$(go tool buildid "$<" || openssl rand -hex 32) && \
 	GNU_BUILD_ID=$$(echo $$GO_BUILD_ID | sha1sum | cut -d' ' -f1) && \
-	go run "${SOURCE_DIR}"/tools/replace-buildid \
-		-input "$<" -input-build-id "${TEMPORARY_BUILD_ID}" \
-		-output "$@" -output-build-id "$$GNU_BUILD_ID"
+	if test "${OS}" = "Linux"; then \
+		go run "${SOURCE_DIR}"/tools/replace-buildid \
+			-input "$<" -input-build-id "${TEMPORARY_BUILD_ID}" \
+			-output "$@" -output-build-id "$$GNU_BUILD_ID"; \
+	else \
+		install "$<" "$@"; \
+	fi
 
 ${BUILD_DIR}/intermediate/gitaly:            GO_BUILD_TAGS = ${SERVER_BUILD_TAGS}
 ${BUILD_DIR}/intermediate/praefect:          GO_BUILD_TAGS = ${SERVER_BUILD_TAGS}
