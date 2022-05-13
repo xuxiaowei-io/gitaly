@@ -172,7 +172,7 @@ func TestSize(t *testing.T) {
 	}
 }
 
-func TestSize_excludes(t *testing.T) {
+func TestSize_excludeRefs(t *testing.T) {
 	cfg := testcfg.Build(t)
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 	catfileCache := catfile.NewCache(cfg)
@@ -202,7 +202,7 @@ func TestSize_excludes(t *testing.T) {
 	require.NoError(t, err)
 	assert.Less(t, sizeBeforeKeepAround, sizeWithKeepAround)
 
-	sizeWithoutKeepAround, err := repo.Size(ctx, WithExcludes("refs/keep-around/*"))
+	sizeWithoutKeepAround, err := repo.Size(ctx, WithExcludeRefs("refs/keep-around/*"))
 	require.NoError(t, err)
 
 	assert.Equal(t, sizeBeforeKeepAround, sizeWithoutKeepAround)
