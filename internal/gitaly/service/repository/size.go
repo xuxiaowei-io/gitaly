@@ -30,6 +30,7 @@ func (s *server) RepositorySize(ctx context.Context, in *gitalypb.RepositorySize
 		size, err = repo.Size(
 			ctx,
 			localrepo.WithExcludeRefs(excludes...),
+			localrepo.WithoutAlternates(),
 		)
 		if err != nil {
 			return nil, err
