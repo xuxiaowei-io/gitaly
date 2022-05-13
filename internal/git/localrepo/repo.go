@@ -100,6 +100,9 @@ type repoSizeConfig struct {
 	// Excludes is a list of ref glob patterns to exclude from the size
 	// calculation.
 	Excludes []string
+	// ExcludeAlternates will exclude objects in the alternates directory
+	// from being counted towards the total size of the repository.
+	ExcludeAlternates bool
 }
 
 // RepoSizeOption is an option which can be passed to Size
@@ -111,6 +114,13 @@ type RepoSizeOption func(*repoSizeConfig)
 func WithExcludes(excludes ...string) RepoSizeOption {
 	return func(cfg *repoSizeConfig) {
 		cfg.Excludes = excludes
+	}
+}
+
+// WithoutAlternates will exclude any objects in the alternate objects directory
+func WithoutAlternates() RepoSizeOption {
+	return func(cfg *repoSizeConfig) {
+		cfg.ExcludeAlternates = true
 	}
 }
 
@@ -129,6 +139,14 @@ func (repo *Repo) Size(ctx context.Context, opts ...RepoSizeOption) (int64, erro
 		options = append(
 			options,
 			git.Flag{Name: fmt.Sprintf("--exclude=%s", exclude)},
+		)
+	}
+
+	if cfg.ExcludeAlternates {
+		options = append(options,
+			git.Flag{Name: "--not"},
+			git.Flag{Name: "--alternate-refs"},
+			git.Flag{Name: "--not"},
 		)
 	}
 
