@@ -117,8 +117,8 @@ func (s *Server) Stop() {
 		}
 
 		for _, w := range s.workers {
-			w.stopMonitor()
 			w.Process.Stop()
+			w.stopMonitor()
 		}
 	}
 }
