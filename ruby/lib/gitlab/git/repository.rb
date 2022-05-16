@@ -250,24 +250,14 @@ module Gitlab
       end
 
       def head_symbolic_ref
-        message, status = run_git(%w[symbolic-ref HEAD])
+        head = rugged.ref('HEAD')
 
-        return 'main' if status.nonzero?
+        return 'main' if head.type != :symbolic
 
-        Ref.extract_branch_name(message.squish)
+        Ref.extract_branch_name(head.target_id)
       end
 
       private
-
-      def run_git(args, chdir: path, env: {}, nice: false, include_stderr: false, lazy_block: nil, &block)
-        cmd = [Gitlab.config.git.bin_path, *args]
-        cmd.unshift("nice") if nice
-
-        object_directories = alternate_object_directories
-        env['GIT_ALTERNATE_OBJECT_DIRECTORIES'] = object_directories.join(File::PATH_SEPARATOR) if object_directories.any?
-
-        popen(cmd, chdir, env, include_stderr: include_stderr, lazy_block: lazy_block, &block)
-      end
 
       def branches_filter(filter: nil, sort_by: nil)
         branches = rugged.branches.each(filter).map do |rugged_ref|
