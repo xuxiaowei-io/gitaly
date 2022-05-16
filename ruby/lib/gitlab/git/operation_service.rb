@@ -30,7 +30,6 @@ module Gitlab
       # `start_branch_name`.
       def with_branch(branch_name,
                       start_branch_name: nil,
-                      force: false,
                       &block)
         start_branch_name = nil if repository.empty?
 
@@ -38,7 +37,7 @@ module Gitlab
           raise ArgumentError, "Cannot find branch '#{start_branch_name}'"
         end
 
-        update_branch_with_hooks(branch_name, force) do
+        update_branch_with_hooks(branch_name) do
           repository.with_repo_branch_commit(
             start_branch_name.presence || branch_name,
             &block
@@ -49,7 +48,7 @@ module Gitlab
       private
 
       # Returns [newrev, should_run_after_create, should_run_after_create_branch]
-      def update_branch_with_hooks(branch_name, force)
+      def update_branch_with_hooks(branch_name)
         was_empty = repository.empty?
 
         # Make commit
@@ -58,7 +57,7 @@ module Gitlab
         raise Gitlab::Git::CommitError.new('Failed to create commit') unless newrev
 
         branch = repository.find_branch(branch_name)
-        oldrev = find_oldrev_from_branch(newrev, branch, force)
+        oldrev = find_oldrev_from_branch(newrev, branch)
 
         ref = Gitlab::Git::BRANCH_REF_PREFIX + branch_name
         update_ref_in_hooks(ref, newrev, oldrev)
@@ -66,12 +65,10 @@ module Gitlab
         BranchUpdate.new(newrev, was_empty, was_empty || Gitlab::Git.blank_ref?(oldrev))
       end
 
-      def find_oldrev_from_branch(newrev, branch, force)
+      def find_oldrev_from_branch(newrev, branch)
         return Gitlab::Git::BLANK_SHA unless branch
 
         oldrev = branch.target
-
-        return oldrev if force
 
         merge_base = repository.merge_base(newrev, branch.target)
         raise Gitlab::Git::Repository::InvalidRef unless merge_base
