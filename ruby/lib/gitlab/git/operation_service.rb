@@ -25,23 +25,15 @@ module Gitlab
         @repository = new_repository
       end
 
-      # Whenever `start_branch_name` is passed, if `branch_name`
-      # doesn't exist, it will be created from the commit pointed to by
-      # `start_branch_name`.
-      def with_branch(branch_name,
-                      start_branch_name: nil,
-                      &block)
-        start_branch_name = nil if repository.empty?
-
-        if start_branch_name.present? && !repository.branch_exists?(start_branch_name)
-          raise ArgumentError, "Cannot find branch '#{start_branch_name}'"
+      # Execute the block with the tip commit referenced by the given branch.
+      # The branch must exist before calling this function.
+      def with_branch(branch_name, &block)
+        if !repository.empty? && !repository.branch_exists?(branch_name)
+          raise ArgumentError, "Cannot find branch '#{branch_name}'"
         end
 
         update_branch_with_hooks(branch_name) do
-          repository.with_repo_branch_commit(
-            start_branch_name.presence || branch_name,
-            &block
-          )
+          repository.with_repo_branch_commit(branch_name, &block)
         end
       end
 
