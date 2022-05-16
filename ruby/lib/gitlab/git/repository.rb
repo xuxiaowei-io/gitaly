@@ -176,26 +176,12 @@ module Gitlab
         end
       end
 
-      def with_repo_branch_commit(start_repository, start_ref)
-        start_repository = RemoteRepository.new(start_repository) unless start_repository.is_a?(RemoteRepository)
-
-        if start_repository.empty?
-          return yield nil
-        elsif start_repository.same_repository?(self)
-          # Directly return the commit from this repository
-          return yield commit(start_ref)
-        end
-
-        # Find the commit from the remote repository (this triggers an RPC)
-        commit_id = start_repository.commit_id(start_ref)
-        return yield nil unless commit_id
-
-        if existing_commit = commit(commit_id)
-          # Commit is already present (e.g. in a fork, or through a previous fetch)
-          yield existing_commit
+      def with_repo_branch_commit(start_ref)
+        if empty?
+          yield nil
         else
-          fetch_sha(start_repository, commit_id)
-          yield commit(commit_id)
+          # Directly return the commit from this repository
+          yield commit(start_ref)
         end
       end
 
@@ -234,19 +220,6 @@ module Gitlab
         rugged.merge_base(from, to)
       rescue Rugged::ReferenceError
         nil
-      end
-
-      # Fetch a commit from the given source repository
-      def fetch_sha(source_repository, sha)
-        source_repository = RemoteRepository.new(source_repository) unless source_repository.is_a?(RemoteRepository)
-
-        env = source_repository.fetch_env(git_config_options: [GIT_ALLOW_SHA_UPLOAD])
-
-        args = %W[fetch --no-tags #{GITALY_INTERNAL_URL} #{sha}]
-        message, status = run_git(args, env: env, include_stderr: true)
-        raise Gitlab::Git::CommandError, message unless status.zero?
-
-        sha
       end
 
       # Lookup for rugged object by oid or ref name
