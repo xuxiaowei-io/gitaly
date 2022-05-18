@@ -67,6 +67,7 @@ include:
     policy: pull
 
 .test_template: &test_definition
+  needs: [ build ]
   stage: test
   cache:
     - *cache_deps_configuration
@@ -93,6 +94,7 @@ include:
     expire_in: 1 week
 
 danger-review:
+  needs: []
   stage: build
   allow_failure: true
   variables:
@@ -107,6 +109,7 @@ danger-review:
     policy: pull-push
 
 build:
+  needs: []
   stage: build
   cache:
     - <<: *cache_deps_configuration
@@ -126,6 +129,7 @@ build:
       - GIT_VERSION: "v2.33.0"
 
 build:binaries:
+  needs: []
   stage: build
   cache:
     - *cache_deps_configuration
@@ -176,6 +180,7 @@ test:
 
 test:coverage:
   <<: *test_definition
+  needs: [ build ]
   script:
     # We need to explicitly build all prerequisites so that we can run tests unprivileged.
     - make -j$(nproc) build prepare-tests $(pwd)/_build/tools/gocover-cobertura
@@ -245,6 +250,7 @@ test:praefect_smoke:
     - ./_build/bin/praefect -config config.praefect.toml sql-migrate
 
 verify:
+  needs: [ build ]
   stage: test
   cache:
     - *cache_deps_configuration
@@ -260,6 +266,7 @@ verify:
     when: on_failure
 
 dbschema:
+  needs: [ build ]
   stage: test
   cache:
     - *cache_deps_configuration
@@ -281,7 +288,9 @@ dbschema:
     when: on_failure
 
 gosec-sast:
-  dependencies: []
+  needs:
+    - job: build
+      artifacts: false
   cache:
     - *cache_go_configuration
   variables:
@@ -297,7 +306,9 @@ gosec-sast:
     - if: $CI_COMMIT_TAG
 
 license_scanning:
-  dependencies: []
+  needs:
+    - job: build
+      artifacts: false
   cache: []
   before_script:
     - sudo apt-get update
@@ -312,7 +323,9 @@ license_scanning:
     LICENSE_FINDER_CLI_OPTS: '--aggregate-paths=. ruby'
 
 gemnasium-dependency_scanning:
-  dependencies: []
+  needs:
+    - job: build
+      artifacts: false
   cache: []
   rules:
     - if: $DEPENDENCY_SCANNING_DISABLED
@@ -322,7 +335,9 @@ gemnasium-dependency_scanning:
     - if: $CI_COMMIT_TAG
 
 secret_detection:
-  dependencies: []
+  needs:
+    - job: build
+      artifacts: false
   cache: []
   inherit:
     default: false
@@ -334,6 +349,7 @@ secret_detection:
     - if: $CI_COMMIT_TAG
 
 trigger-qa:
+  needs: [ test ]
   stage: qa
   trigger:
     project: gitlab-org/build/omnibus-gitlab-mirror
@@ -352,9 +368,9 @@ trigger-qa:
         GITALY_SERVER_VERSION: $CI_MERGE_REQUEST_SOURCE_BRANCH_SHA
     - when: manual
       allow_failure: true
-  needs: []
 
 qa:nightly-praefect-migration-test:
+  needs: [ test ]
   stage: qa
   trigger:
     project: gitlab-org/quality/praefect-migration-testing
