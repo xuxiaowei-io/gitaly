@@ -67,7 +67,7 @@ include:
     policy: pull
 
 .test_template: &test_definition
-  needs: [ build ]
+  needs: []
   stage: test
   cache:
     - *cache_deps_configuration
@@ -180,7 +180,7 @@ test:
 
 test:coverage:
   <<: *test_definition
-  needs: [ build ]
+  needs: [ build ] # this job fails with permission errors if the caches from the build step are not in place
   script:
     # We need to explicitly build all prerequisites so that we can run tests unprivileged.
     - make -j$(nproc) build prepare-tests $(pwd)/_build/tools/gocover-cobertura
@@ -250,7 +250,7 @@ test:praefect_smoke:
     - ./_build/bin/praefect -config config.praefect.toml sql-migrate
 
 verify:
-  needs: [ build ]
+  needs: [ build ] # this job timeouts if the caches are not in place from the build step
   stage: test
   cache:
     - *cache_deps_configuration
@@ -266,7 +266,7 @@ verify:
     when: on_failure
 
 dbschema:
-  needs: [ build ]
+  needs: []
   stage: test
   cache:
     - *cache_deps_configuration
