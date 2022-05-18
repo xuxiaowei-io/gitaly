@@ -101,7 +101,14 @@ func (p *Process) start(logger *log.Entry) (*exec.Cmd, error) {
 	cmd.Stdout = logWriter
 	cmd.Stderr = logWriter
 
-	return cmd, cmd.Start()
+	// When starting the command fails we need to make sure to close the log pipes, or
+	// otherwise the Goroutines spawned by logrus may leak.
+	if err := cmd.Start(); err != nil {
+		logWriter.Close()
+		return nil, err
+	}
+
+	return cmd, nil
 }
 
 func (p *Process) notifyEvent(eventType EventType, pid int) {
