@@ -349,7 +349,7 @@ secret_detection:
     - if: $CI_COMMIT_TAG
 
 trigger-qa:
-  needs: [ test ]
+  needs: []
   stage: qa
   trigger:
     project: gitlab-org/build/omnibus-gitlab-mirror
@@ -370,7 +370,7 @@ trigger-qa:
       allow_failure: true
 
 qa:nightly-praefect-migration-test:
-  needs: [ test ]
+  needs: []
   stage: qa
   trigger:
     project: gitlab-org/quality/praefect-migration-testing
