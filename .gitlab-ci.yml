@@ -181,6 +181,7 @@ test:
 test:coverage:
   <<: *test_definition
   needs: [ build ] # this job fails with permission errors if the caches from the build step are not in place
+  coverage: /^total:\t+\(statements\)\t+\d+\.\d+%$/
   script:
     # We need to explicitly build all prerequisites so that we can run tests unprivileged.
     - make -j$(nproc) build prepare-tests $(pwd)/_build/tools/gocover-cobertura
