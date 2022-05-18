@@ -307,7 +307,6 @@ gosec-sast:
 
 license_scanning:
   needs: []
-  cache: []
   before_script:
     - sudo apt-get update
     - sudo apt-get install -y libicu-dev libgit2-dev cmake
@@ -322,7 +321,6 @@ license_scanning:
 
 gemnasium-dependency_scanning:
   needs: []
-  cache: []
   rules:
     - if: $DEPENDENCY_SCANNING_DISABLED
       when: never
@@ -332,7 +330,6 @@ gemnasium-dependency_scanning:
 
 secret_detection:
   needs: []
-  cache: []
   inherit:
     default: false
   rules:
