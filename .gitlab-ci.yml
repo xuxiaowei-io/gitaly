@@ -314,9 +314,6 @@ gosec-sast:
 
 license_scanning:
   needs: []
-  before_script:
-    - sudo apt-get update
-    - sudo apt-get install -y libicu-dev libgit2-dev cmake
   rules:
     - if: $LICENSE_SCANNING_DISABLED
       when: never
