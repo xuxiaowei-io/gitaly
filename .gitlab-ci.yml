@@ -334,8 +334,6 @@ gemnasium-dependency_scanning:
 
 secret_detection:
   needs: []
-  inherit:
-    default: false
   rules:
     - if: $SECRET_DETECTION_DISABLED
       when: never
