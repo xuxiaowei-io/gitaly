@@ -82,6 +82,7 @@ include:
     POSTGRES_DB: praefect_test
     POSTGRES_HOST_AUTH_METHOD: trust
     TEST_REPORT: /tmp/go-tests-report.xml
+    TEST_COVERAGE_DIR: /tmp/coverage
   before_script: &test_before_script
     - go version
     - while ! psql -h $PGHOST -U $PGUSER -c 'SELECT 1' > /dev/null; do echo "awaiting Postgres service to be ready..." && sleep 1 ; done && echo "Postgres service is ready!"
@@ -180,7 +181,6 @@ test:
 
 test:coverage:
   <<: *test_definition
-  needs: [ build ] # this job fails with permission errors if the caches from the build step are not in place
   coverage: /^total:\t+\(statements\)\t+\d+\.\d+%$/
   script:
     # We need to explicitly build all prerequisites so that we can run tests unprivileged.
@@ -190,7 +190,7 @@ test:coverage:
     reports:
       coverage_report:
         coverage_format: cobertura
-        path: _build/cover/cobertura.xml
+        path: ${TEST_COVERAGE_DIR}/cobertura.xml
 
 test:pgbouncer:
   <<: *test_definition
