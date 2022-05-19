@@ -13,9 +13,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/env"
 )
-
-var exportedEnvVars = []string{"HOME", "PATH", "GEM_HOME", "BUNDLE_PATH", "BUNDLE_APP_CONFIG", "BUNDLE_USER_CONFIG"}
 
 // Language is used to parse Linguist's language.json file.
 type Language struct {
@@ -123,7 +122,7 @@ func (inst *Instance) startGitLinguist(ctx context.Context, repoPath string, com
 	cmd := exec.Command(args[0], args[1:]...)
 	cmd.Dir = inst.cfg.Ruby.Dir
 
-	internalCmd, err := command.New(ctx, cmd, nil, nil, nil, exportEnvironment()...)
+	internalCmd, err := command.New(ctx, cmd, nil, nil, nil, env.AllowedRubyEnvironment(os.Environ())...)
 	if err != nil {
 		return nil, fmt.Errorf("creating command: %w", err)
 	}
@@ -172,15 +171,4 @@ func openLanguagesJSON(cfg config.Cfg) (io.ReadCloser, error) {
 	}
 
 	return os.Open(filepath.Join(linguistPathSymlink.Name(), "lib", "linguist", "languages.json"))
-}
-
-func exportEnvironment() []string {
-	var env []string
-	for _, envVarName := range exportedEnvVars {
-		if val, ok := os.LookupEnv(envVarName); ok {
-			env = append(env, fmt.Sprintf("%s=%s", envVarName, val))
-		}
-	}
-
-	return env
 }
