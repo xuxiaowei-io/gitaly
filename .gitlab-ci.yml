@@ -295,7 +295,6 @@ gosec-sast:
   variables:
     GOPATH: "/go"
   before_script:
-    - apk add pkgconfig libgit2-dev gcc libc-dev
     # Our pipeline places GOPATH to $CI_PROJECT_DIR/.go so it can be cached.
     # This causes gosec-sast to find the module cache and scan all the sources of
     # the dependencies as well. This makes the scan time grow massively. This is
