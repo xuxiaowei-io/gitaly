@@ -12,6 +12,8 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/env"
 )
@@ -53,7 +55,12 @@ func New(cfg config.Cfg, gitCmdFactory git.CommandFactory) (*Instance, error) {
 }
 
 // Stats returns the repository's language stats as reported by 'git-linguist'.
-func (inst *Instance) Stats(ctx context.Context, repoPath string, commitID string) (ByteCountPerLanguage, error) {
+func (inst *Instance) Stats(ctx context.Context, repo *localrepo.Repo, commitID string, catfileCache catfile.Cache) (ByteCountPerLanguage, error) {
+	repoPath, err := repo.Path()
+	if err != nil {
+		return nil, fmt.Errorf("get repo path: %w", err)
+	}
+
 	cmd, err := inst.startGitLinguist(ctx, repoPath, commitID)
 	if err != nil {
 		return nil, fmt.Errorf("starting linguist: %w", err)
