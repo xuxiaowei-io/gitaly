@@ -1,5 +1,72 @@
 # Gitaly changelog
 
+## 15.0.0 (2022-05-20)
+
+### Added (13 changes)
+
+- [proto: Introduce new `CustomHookError` for `UserMergeBranchError`](gitlab-org/gitaly@4302c0cc9df4bb2736103eea1a69cbc299bd3cda) ([merge request](gitlab-org/gitaly!4549))
+- [Log routing decisions in Praefect](gitlab-org/gitaly@b7d13f2fbd80866076bd17e094a3f51d0aab212e) ([merge request](gitlab-org/gitaly!4540))
+- [localrepo: Allow Size to pass exclude flag](gitlab-org/gitaly@3e04a937bb112bb7b7e85667f6eed65b894a3dca) ([merge request](gitlab-org/gitaly!4532))
+- [Add configuration to enable deletions in background verifier](gitlab-org/gitaly@889d25f3ac44ed491d29d25c42ba0975f8cc071e) ([merge request](gitlab-org/gitaly!4527))
+- [operations: Use merge for squashing](gitlab-org/gitaly@e694381a237da441dd8c5c955def41c48eade760) by @trakos ([merge request](gitlab-org/gitaly!4514))
+- [git: Add execution environment for bundled Git v2.36.0.gl1](gitlab-org/gitaly@a852018be2f88e5ce934533d56e5953666f18349) ([merge request](gitlab-org/gitaly!4516))
+- [Makefile: Install bundled Git v2.36.0.gl1](gitlab-org/gitaly@d07ed513fd4723ed9c1af1cd749ccc478e38aab9) ([merge request](gitlab-org/gitaly!4516))
+- [command: Add metric for spawning tokens](gitlab-org/gitaly@1034bb6bf25466dfe13457f0e5e4f6bb09596487) ([merge request](gitlab-org/gitaly!4487))
+- [safe: Add new LockingDirectory](gitlab-org/gitaly@1a7197e3b2171626a95fbab2b28ecbe43ea79aea) ([merge request](gitlab-org/gitaly!4481))
+- [Implement 'praefect verify' subcommand](gitlab-org/gitaly@b902b6bfbe107e26a8d721414d2fbb76cd648797) ([merge request](gitlab-org/gitaly!4463))
+- [Add proto definitions for MarkUnverified RPC](gitlab-org/gitaly@b850c3990c3eb2e5f42024ca3409b1dfc078ffb7) ([merge request](gitlab-org/gitaly!4463))
+- [Add support for FIPS encryption](gitlab-org/gitaly@fdcb9f0499c8fe2468cbce02b2aa5180dddf3168) ([merge request](gitlab-org/gitaly!4482))
+- [proto: Add LimitError as a structured error](gitlab-org/gitaly@4e2d52201ab72dbc2e18f4cb931a8c1303fb9d47) ([merge request](gitlab-org/gitaly!4476))
+
+### Fixed (14 changes)
+
+- [ruby: Fix diverging Git configuration in Go and Ruby](gitlab-org/gitaly@99c1774919705cee43849a6c6dd6ee8c91b3c7a5) ([merge request](gitlab-org/gitaly!4557))
+- [Generate unique replica paths for repositories](gitlab-org/gitaly@aec4a9343a82c80b919bb081a86fa60d6115a6c7) ([merge request](gitlab-org/gitaly!4101))
+- [Intercept RenameRepository calls in Praefect](gitlab-org/gitaly@3e92c2cf29a757444e11b39f61e58a8820751e2a) ([merge request](gitlab-org/gitaly!4101))
+- [testcfg: Fix building Go binaries with Go 1.18](gitlab-org/gitaly@4e747d4bb4ccc6d23094da9894ebd6d8980e25a3) ([merge request](gitlab-org/gitaly!4561))
+- [gitpipe: Propagate context cancellation in object data pipeline](gitlab-org/gitaly@8773480fd0eb9740c96f32e992697600477a5b63) ([merge request](gitlab-org/gitaly!4524))
+- [gitpipe: Propagate context cancellation in object info pipeline](gitlab-org/gitaly@60b977838c56c120a4cb844392cd304e09510250) ([merge request](gitlab-org/gitaly!4524))
+- [gitpipe: Propagate context cancellation in revisions pipeline](gitlab-org/gitaly@50ad532fcd1e7cdde65ea68b23ea58ad864da537) ([merge request](gitlab-org/gitaly!4524))
+- [gitpipe: Fix sending of events to be race-free with context cancellation](gitlab-org/gitaly@cd56f37bb3d09324805898c4ccb0d66cd89dd24b) ([merge request](gitlab-org/gitaly!4524))
+- [commit: Do not ignore revisions of the initial request](gitlab-org/gitaly@6dc1d2b46da953e893c3da5505a876cef0a51f34) ([merge request](gitlab-org/gitaly!4510))
+- [commit: Fix verification of arguments in `CheckObjectsExist()`](gitlab-org/gitaly@5fc7fa58c6da132fc79f7b0b0f6e893efb986a57) ([merge request](gitlab-org/gitaly!4510))
+- [limithandler: Return error from limit handler](gitlab-org/gitaly@de291225acc1244454075466cb0986e5bf7072fa) ([merge request](gitlab-org/gitaly!4492))
+- [catfile: Fix losing all context information on decorrelation](gitlab-org/gitaly@77b8ced5bd60eebd0614e5ab408d048ab1116d43) ([merge request](gitlab-org/gitaly!4500))
+- [git: Fix corruption of refs on hard-resets](gitlab-org/gitaly@c89c8002131dabee677cce9c0551801a8e272570) ([merge request](gitlab-org/gitaly!4498))
+- [git: Fix fsyncing config incompatibility with Git v2.36.0](gitlab-org/gitaly@e1f0e5a5ffc31387cb1137c41db538f22e0153de) ([merge request](gitlab-org/gitaly!4498))
+
+### Changed (18 changes)
+
+- [Use Praefect's RemoveRepository from remove-repository subcommand](gitlab-org/gitaly@5553cc8f515bbcb0e7414710387f330074f1e27d) ([merge request](gitlab-org/gitaly!4101))
+- [cgroups: Repository isolated cgroups](gitlab-org/gitaly@07dc211c8d457e82cdc682bea35a4b3e7c2181e3) ([merge request](gitlab-org/gitaly!4520))
+- [repository: Exclude alternate object directories in repository size](gitlab-org/gitaly@06b14498122b0a5bab966384375e497566d25574) ([merge request](gitlab-org/gitaly!4558))
+- [ListCommits: Extend ListCommits rpc to support filter by commit msg patterns](gitlab-org/gitaly@269bbd8c76739c4785fa686cb570404a0dc51421) by @akumar1503 ([merge request](gitlab-org/gitaly!4421))
+- [git: Sync internal namespaces with distros' settings](gitlab-org/gitaly@9645623a23b51be7d1525e765d532bef198380df) ([merge request](gitlab-org/gitaly!4562))
+- [repository: Log repo size calculations](gitlab-org/gitaly@92fc011f905a5e80f719d5310b9831243eb31630) ([merge request](gitlab-org/gitaly!4556))
+- [operations: Return detailed errors for hook failures in UserMergeBranch](gitlab-org/gitaly@718370303ca9e0c0a05c34ff58794b2943ea1053) ([merge request](gitlab-org/gitaly!4549))
+- [Use LabKit for FIPS mode check](gitlab-org/gitaly@453bb0e733524e6a55af4cd41fc5c3f1c559074e) ([merge request](gitlab-org/gitaly!4535))
+- [limithandler: Do not wrap errors from limithandler](gitlab-org/gitaly@e01b8fa0334367eccba423a4f8815b9d6e733dc7) ([merge request](gitlab-org/gitaly!4537))
+- [Makefile: Upgrade bundled Git to v2.36.1](gitlab-org/gitaly@4fed4c661cfae6afe2e284932778c89b9977e21b) ([merge request](gitlab-org/gitaly!4538))
+- [Update grpc-go and protobuf](gitlab-org/gitaly@95049fa8b6ceea4aa47ba18910fbbf833c34a389) ([merge request](gitlab-org/gitaly!4536))
+- [repository: Exclude merge-requests, keep-around, pipelines from size](gitlab-org/gitaly@d66c7e2e4f44f0afc621dd591dfb44e1fbac138d) ([merge request](gitlab-org/gitaly!4532))
+- [limithandler: Return structured errors](gitlab-org/gitaly@18c5b92ebb461d2f13712a057795699c183f0f71) ([merge request](gitlab-org/gitaly!4507))
+- [config: Introduce new Cgroups config](gitlab-org/gitaly@be0ee060975bddbabdd27cad3e4e0c6881d5c468) ([merge request](gitlab-org/gitaly!4483))
+- [smarthttp: Add finalizing vote in PostReceivePack](gitlab-org/gitaly@459e7d1dfa36cb443c41144f0b0535ba01556d23) ([merge request](gitlab-org/gitaly!4488))
+- [repository: RestoreCustomHooks to do transaction voting](gitlab-org/gitaly@e66d0d5107a5e3a56259e3bdfc2617d24a920a94) ([merge request](gitlab-org/gitaly!4481))
+- [Remove Maintenance routing feature flag](gitlab-org/gitaly@6f96233eb33adefc756f4be6906a6370ec84a8bd) ([merge request](gitlab-org/gitaly!4486))
+- [Ignore verification columns for read-only cache updates](gitlab-org/gitaly@5c9feb4e8e3175f1f80aae2f452e9e676133d14f) ([merge request](gitlab-org/gitaly!4468))
+
+### Removed (4 changes)
+
+- [proto: Remove deprecated `PackObjectsHook()` RPC](gitlab-org/gitaly@c39a684bbc14bbd91e38d76e5692559bd60a10eb) ([merge request](gitlab-org/gitaly!4508))
+- [config: Remove internal socket path configuration](gitlab-org/gitaly@8a3373c8b07b06fe38ade96350c9bde836b25849) ([merge request](gitlab-org/gitaly!4504))
+- [operations: Remove feature flag for transactional voting in UserSquash](gitlab-org/gitaly@58825d1f725f0c04677aeca6ba65521f2e52217f) ([merge request](gitlab-org/gitaly!4496))
+- [Makefile: Drop bundled Git v2.33.1.gl3](gitlab-org/gitaly@9c700ea473d781eea50eab685d643d95e9c4ffee) ([merge request](gitlab-org/gitaly!4495))
+
+### Other (1 change)
+
+- [go.mod: Remove exclude directive](gitlab-org/gitaly@c40c629a01fae35e3f34b05bf1e28a94aaac2692) ([merge request](gitlab-org/gitaly!4525))
+
 ## 14.10.2 (2022-05-04)
 
 No changes.
