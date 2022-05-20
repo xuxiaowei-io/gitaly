@@ -32,24 +32,17 @@ func TestLanguages(t *testing.T) {
 	resp, err := client.CommitLanguages(ctx, request)
 	require.NoError(t, err)
 
-	require.NotZero(t, len(resp.Languages), "number of languages in response")
-
 	expectedLanguages := []*gitalypb.CommitLanguagesResponse_Language{
-		{Name: "Ruby", Share: 66, Color: "#701516", FileCount: 4, Bytes: 2943},
-		{Name: "JavaScript", Share: 22, Color: "#f1e05a", FileCount: 1, Bytes: 1014},
-		{Name: "HTML", Share: 7, Color: "#e34c26", FileCount: 1, Bytes: 349},
-		{Name: "CoffeeScript", Share: 2, Color: "#244776", FileCount: 1, Bytes: 107},
+		{Name: "Ruby", Share: 65.28394, Color: "#701516", Bytes: 2943},
+		{Name: "JavaScript", Share: 22.493345, Color: "#f1e05a", Bytes: 1014},
+		{Name: "HTML", Share: 7.741792, Color: "#e34c26", Bytes: 349},
+		{Name: "CoffeeScript", Share: 2.373558, Color: "#244776", Bytes: 107},
 		// Modula-2 is a special case because Linguist has no color for it. This
 		// test case asserts that we invent a color for it (SHA256 of the name).
-		{Name: "Modula-2", Share: 2, Color: "#3fd5e0", FileCount: 1, Bytes: 95},
+		{Name: "Modula-2", Share: 2.1073646, Color: "#3fd5e0", Bytes: 95},
 	}
 
-	require.Equal(t, len(expectedLanguages), len(resp.Languages))
-
-	for i, el := range expectedLanguages {
-		actualLanguage := resp.Languages[i]
-		requireLanguageEqual(t, el, actualLanguage)
-	}
+	testhelper.ProtoEqual(t, expectedLanguages, resp.Languages)
 }
 
 func TestFileCountIsZeroWhenFeatureIsDisabled(t *testing.T) {
@@ -72,15 +65,6 @@ func TestFileCountIsZeroWhenFeatureIsDisabled(t *testing.T) {
 		actualLanguage := resp.Languages[i]
 		require.Equal(t, uint32(0), actualLanguage.FileCount)
 	}
-}
-
-func requireLanguageEqual(t *testing.T, expected, actual *gitalypb.CommitLanguagesResponse_Language) {
-	t.Helper()
-
-	require.Equal(t, expected.Name, actual.Name)
-	require.Equal(t, expected.Color, actual.Color)
-	require.False(t, (expected.Share-actual.Share)*(expected.Share-actual.Share) >= 1.0, "shares do not match")
-	require.Equal(t, expected.Bytes, actual.Bytes)
 }
 
 func TestLanguagesEmptyRevision(t *testing.T) {
