@@ -92,32 +92,7 @@ func (inst *Instance) startGitLinguist(ctx context.Context, repoPath string, com
 		return nil, fmt.Errorf("finding bundle executable: %w", err)
 	}
 
-	args := []string{
-		bundle,
-		"exec",
-		"bin/gitaly-linguist",
-		"--repository=" + repoPath,
-		"--commit=" + commitID,
-	}
-
-	gitExecEnv := inst.gitCmdFactory.GetExecutionEnvironment(ctx)
-
-	// This is a horrible hack. git-linguist will execute `git rev-parse
-	// --git-dir` to check whether it is in a Git directory or not. We don't
-	// want to use the one provided by PATH, but instead the one specified
-	// via the configuration. git-linguist doesn't specify any way to choose
-	// a different Git implementation, so we need to prepend the configured
-	// Git's directory to PATH. But as our internal command interface will
-	// overwrite PATH even if we pass it in here, we need to work around it
-	// and instead execute the command with `env PATH=$GITDIR:$PATH`.
-	gitDir := filepath.Dir(gitExecEnv.BinaryPath)
-	if path, ok := os.LookupEnv("PATH"); ok && gitDir != "." {
-		args = append([]string{
-			"env", fmt.Sprintf("PATH=%s:%s", gitDir, path),
-		}, args...)
-	}
-
-	cmd := exec.Command(args[0], args[1:]...)
+	cmd := exec.Command(bundle, "exec", "bin/gitaly-linguist", "--repository="+repoPath, "--commit="+commitID)
 	cmd.Dir = inst.cfg.Ruby.Dir
 
 	internalCmd, err := command.New(ctx, cmd, nil, nil, nil, env.AllowedRubyEnvironment(os.Environ())...)
