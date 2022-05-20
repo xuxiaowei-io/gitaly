@@ -251,13 +251,16 @@ test:praefect_smoke:
     - ./_build/bin/praefect -config config.praefect.toml sql-migrate
 
 verify:
-  needs: [ build ] # this job timeouts if the caches are not in place from the build step
+  needs: []
   stage: test
   cache:
     - *cache_deps_configuration
     - *cache_gems_configuration
     - *cache_go_configuration
   script:
+    # Download the dependencies in case there was no cache hit, otherwise
+    # golang-ci lint will timeout downloading them.
+    - go mod download
     - make -j$(nproc) verify
   artifacts:
     paths:
