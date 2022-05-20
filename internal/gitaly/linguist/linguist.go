@@ -54,7 +54,7 @@ func New(cfg config.Cfg, gitCmdFactory git.CommandFactory) (*Instance, error) {
 
 // Stats returns the repository's language stats as reported by 'git-linguist'.
 func (inst *Instance) Stats(ctx context.Context, repoPath string, commitID string) (ByteCountPerLanguage, error) {
-	cmd, err := inst.startGitLinguist(ctx, repoPath, commitID, "stats")
+	cmd, err := inst.startGitLinguist(ctx, repoPath, commitID)
 	if err != nil {
 		return nil, fmt.Errorf("starting linguist: %w", err)
 	}
@@ -86,7 +86,7 @@ func (inst *Instance) Color(language string) string {
 	return fmt.Sprintf("#%x", colorSha[0:3])
 }
 
-func (inst *Instance) startGitLinguist(ctx context.Context, repoPath string, commitID string, linguistCommand string) (*command.Command, error) {
+func (inst *Instance) startGitLinguist(ctx context.Context, repoPath string, commitID string) (*command.Command, error) {
 	bundle, err := exec.LookPath("bundle")
 	if err != nil {
 		return nil, fmt.Errorf("finding bundle executable: %w", err)
@@ -95,11 +95,9 @@ func (inst *Instance) startGitLinguist(ctx context.Context, repoPath string, com
 	args := []string{
 		bundle,
 		"exec",
-		"bin/ruby-cd",
-		repoPath,
-		"git-linguist",
+		"bin/gitaly-linguist",
+		"--repository=" + repoPath,
 		"--commit=" + commitID,
-		linguistCommand,
 	}
 
 	gitExecEnv := inst.gitCmdFactory.GetExecutionEnvironment(ctx)
@@ -128,7 +126,7 @@ func (inst *Instance) startGitLinguist(ctx context.Context, repoPath string, com
 	}
 
 	internalCmd.SetMetricsCmd("git-linguist")
-	internalCmd.SetMetricsSubCmd(linguistCommand)
+	internalCmd.SetMetricsSubCmd("stats")
 
 	return internalCmd, nil
 }
