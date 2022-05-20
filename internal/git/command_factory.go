@@ -164,7 +164,7 @@ func setupGitExecutionEnvironments(cfg config.Cfg, factoryCfg execCommandFactory
 	// that to check whether to ignore the globals or not.
 	//
 	// See https://gitlab.com/gitlab-org/gitaly/-/issues/3617.
-	if strings.HasSuffix(os.Args[0], ".test") {
+	if strings.HasSuffix(os.Args[0], ".test") || cfg.Git.IgnoreGitconfig {
 		sharedEnvironment = append(sharedEnvironment,
 			"GIT_CONFIG_GLOBAL=/dev/null",
 			"GIT_CONFIG_SYSTEM=/dev/null",
