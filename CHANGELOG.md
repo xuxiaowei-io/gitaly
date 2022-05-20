@@ -1,5 +1,11 @@
 # Gitaly changelog
 
+## 14.10.3 (2022-05-20)
+
+### Other (1 change)
+
+- [go.mod: Remove exclude directive](gitlab-org/gitaly@fab75a04e3be466b5f2023cdb5d3480746241b04) ([merge request](gitlab-org/gitaly!4530))
+
 ## 14.10.2 (2022-05-04)
 
 No changes.
