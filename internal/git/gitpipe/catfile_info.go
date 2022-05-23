@@ -82,6 +82,15 @@ func CatfileInfo(
 				objectID:   it.ObjectID(),
 				objectName: it.ObjectName(),
 			}); isDone {
+				// If the context got cancelled, then we need to flush out all
+				// outstanding requests so that the downstream consumer is
+				// unblocked.
+				if err := queue.Flush(); err != nil {
+					sendCatfileInfoRequest(ctx, requestChan, catfileInfoRequest{err: err})
+					return
+				}
+
+				sendCatfileInfoRequest(ctx, requestChan, catfileInfoRequest{err: ctx.Err()})
 				return
 			}
 
