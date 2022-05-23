@@ -3,6 +3,7 @@ package gitpipe
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"testing"
 
@@ -201,5 +202,37 @@ func TestCatfileObject(t *testing.T) {
 		// Sanity-check whether the iterator is in the expected state.
 		require.False(t, it.Next())
 		require.Equal(t, context.Canceled, it.Err())
+	})
+
+	t.Run("spawning two pipes fails", func(t *testing.T) {
+		ctx := testhelper.Context(t)
+
+		catfileCache := catfile.NewCache(cfg)
+		defer catfileCache.Stop()
+
+		objectReader, cancel, err := catfileCache.ObjectReader(ctx, repo)
+		require.NoError(t, err)
+		defer cancel()
+
+		input := []RevisionResult{
+			{OID: lfsPointer1},
+		}
+
+		it, err := CatfileObject(ctx, objectReader, NewRevisionIterator(ctx, input))
+		require.NoError(t, err)
+
+		// Reusing the queue is not allowed, so we should get an error here.
+		_, err = CatfileObject(ctx, objectReader, NewRevisionIterator(ctx, input))
+		require.Equal(t, fmt.Errorf("object queue already in use"), err)
+
+		// We now consume all the input of the iterator.
+		require.True(t, it.Next())
+		_, err = io.Copy(io.Discard, it.Result())
+		require.NoError(t, err)
+		require.False(t, it.Next())
+
+		// Which means that the queue should now be unused, so we can again use it.
+		_, err = CatfileObject(ctx, objectReader, NewRevisionIterator(ctx, input))
+		require.NoError(t, err)
 	})
 }
