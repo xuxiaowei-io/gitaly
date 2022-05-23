@@ -287,7 +287,7 @@ build: ${SOURCE_DIR}/.ruby-bundle ${GITALY_EXECUTABLES}
 ## Install Gitaly binaries. The target directory can be modified by setting PREFIX and DESTDIR.
 install: build
 	${Q}mkdir -p ${INSTALL_DEST_DIR}
-	install $(addprefix ${BUILD_DIR}/bin/,${GITALY_EXECUTABLES} gitaly-git2go-v14) "${INSTALL_DEST_DIR}"
+	install ${GITALY_EXECUTABLES} "${INSTALL_DEST_DIR}"
 
 .PHONY: build-bundled-git
 ## Build bundled Git binaries.
