@@ -7,13 +7,11 @@ import (
 	"fmt"
 	"io"
 	"net/url"
-	"path/filepath"
 
 	"github.com/git-lfs/git-lfs/lfs"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
-	gitalylog "gitlab.com/gitlab-org/gitaly/v15/internal/log"
 	"gitlab.com/gitlab-org/labkit/log"
 	"gitlab.com/gitlab-org/labkit/tracing"
 )
@@ -22,22 +20,7 @@ type configProvider interface {
 	Get(key string) string
 }
 
-func initLogging(p configProvider) (io.Closer, error) {
-	path := p.Get(gitalylog.GitalyLogDirEnvKey)
-	if path == "" {
-		return log.Initialize(log.WithWriter(io.Discard))
-	}
-
-	filepath := filepath.Join(path, "gitaly_lfs_smudge.log")
-
-	return log.Initialize(
-		log.WithFormatter("json"),
-		log.WithLogLevel("info"),
-		log.WithOutputName(filepath),
-	)
-}
-
-func smudge(to io.Writer, from io.Reader, cfgProvider configProvider) error {
+func smudge(to io.Writer, from io.Reader, cfgProvider configProvider) (returnedErr error) {
 	// Since the environment is sanitized at the moment, we're only
 	// using this to extract the correlation ID. The finished() call
 	// to clean up the tracing will be a NOP here.
@@ -46,19 +29,16 @@ func smudge(to io.Writer, from io.Reader, cfgProvider configProvider) error {
 
 	output, err := handleSmudge(ctx, to, from, cfgProvider)
 	if err != nil {
-		log.WithError(err).Error(err)
-		return err
+		return fmt.Errorf("smudging contents: %w", err)
 	}
 	defer func() {
-		if err := output.Close(); err != nil {
-			log.ContextLogger(ctx).WithError(err).Error("closing LFS object: %w", err)
+		if err := output.Close(); err != nil && returnedErr == nil {
+			returnedErr = fmt.Errorf("closing LFS object: %w", err)
 		}
 	}()
 
-	_, copyErr := io.Copy(to, output)
-	if copyErr != nil {
-		log.WithError(err).Error(copyErr)
-		return copyErr
+	if _, err := io.Copy(to, output); err != nil {
+		return fmt.Errorf("writing smudged contents: %w", err)
 	}
 
 	return nil

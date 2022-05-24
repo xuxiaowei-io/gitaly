@@ -2,7 +2,12 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
+	"path/filepath"
+
+	gitalylog "gitlab.com/gitlab-org/gitaly/v15/internal/log"
+	"gitlab.com/gitlab-org/labkit/log"
 )
 
 type envConfig struct{}
@@ -36,8 +41,23 @@ func main() {
 	}
 	defer closer.Close()
 
-	err = smudge(os.Stdout, os.Stdin, &envConfig{})
-	if err != nil {
+	if err := smudge(os.Stdout, os.Stdin, &envConfig{}); err != nil {
+		log.WithError(err).Error(err)
 		os.Exit(1)
 	}
+}
+
+func initLogging(p configProvider) (io.Closer, error) {
+	path := p.Get(gitalylog.GitalyLogDirEnvKey)
+	if path == "" {
+		return log.Initialize(log.WithWriter(io.Discard))
+	}
+
+	filepath := filepath.Join(path, "gitaly_lfs_smudge.log")
+
+	return log.Initialize(
+		log.WithFormatter("json"),
+		log.WithLogLevel("info"),
+		log.WithOutputName(filepath),
+	)
 }
