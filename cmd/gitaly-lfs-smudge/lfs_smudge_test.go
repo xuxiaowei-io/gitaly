@@ -50,27 +50,8 @@ type mapConfig struct {
 	env map[string]string
 }
 
-func TestMain(m *testing.M) {
-	testhelper.Run(m)
-}
-
 func (m *mapConfig) Get(key string) string {
 	return m.env[key]
-}
-
-func runTestServer(t *testing.T, options gitlab.TestServerOptions) (config.Gitlab, func()) {
-	tempDir := testhelper.TempDir(t)
-
-	gitlab.WriteShellSecretFile(t, tempDir, secretToken)
-	secretFilePath := filepath.Join(tempDir, ".gitlab_shell_secret")
-
-	serverURL, serverCleanup := gitlab.NewTestServer(t, options)
-
-	c := config.Gitlab{URL: serverURL, SecretFile: secretFilePath, HTTPSettings: config.HTTPSettings{CAFile: certPath}}
-
-	return c, func() {
-		serverCleanup()
-	}
 }
 
 func TestSuccessfulLfsSmudge(t *testing.T) {
