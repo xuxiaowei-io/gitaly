@@ -4,14 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
 
 const (
@@ -86,46 +84,29 @@ func TestSuccessfulLfsSmudge(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			tmpDir := testhelper.TempDir(t)
-
 			env := map[string]string{
 				"GL_REPOSITORY":      "project-1",
 				"GL_INTERNAL_CONFIG": string(cfg),
-				"GITALY_LOG_DIR":     tmpDir,
 				"GITALY_TLS":         string(tlsCfg),
 			}
 			cfgProvider := &mapConfig{env: env}
-			_, err = initLogging(cfgProvider)
-			require.NoError(t, err)
 
 			err = smudge(&b, reader, cfgProvider)
 			require.NoError(t, err)
 			require.Equal(t, testData, b.String())
-
-			logFilename := filepath.Join(tmpDir, "gitaly_lfs_smudge.log")
-			require.FileExists(t, logFilename)
-
-			data := testhelper.MustReadFile(t, logFilename)
-			require.NoError(t, err)
-			d := string(data)
-
-			require.Contains(t, d, `"msg":"Finished HTTP request"`)
-			require.Contains(t, d, `"status":200`)
-			require.Contains(t, d, `"content_length_bytes":`)
 		})
 	}
 }
 
 func TestUnsuccessfulLfsSmudge(t *testing.T) {
 	testCases := []struct {
-		desc               string
-		data               string
-		missingEnv         string
-		tlsCfg             config.TLS
-		expectedError      bool
-		options            gitlab.TestServerOptions
-		expectedLogMessage string
-		expectedGitalyTLS  string
+		desc              string
+		data              string
+		missingEnv        string
+		tlsCfg            config.TLS
+		expectedError     bool
+		options           gitlab.TestServerOptions
+		expectedGitalyTLS string
 	}{
 		{
 			desc:          "bad LFS pointer",
@@ -146,20 +127,18 @@ func TestUnsuccessfulLfsSmudge(t *testing.T) {
 			expectedError: false,
 		},
 		{
-			desc:               "missing GL_REPOSITORY",
-			data:               lfsPointer,
-			missingEnv:         "GL_REPOSITORY",
-			options:            defaultOptions,
-			expectedError:      true,
-			expectedLogMessage: "GL_REPOSITORY is not defined",
+			desc:          "missing GL_REPOSITORY",
+			data:          lfsPointer,
+			missingEnv:    "GL_REPOSITORY",
+			options:       defaultOptions,
+			expectedError: true,
 		},
 		{
-			desc:               "missing GL_INTERNAL_CONFIG",
-			data:               lfsPointer,
-			missingEnv:         "GL_INTERNAL_CONFIG",
-			options:            defaultOptions,
-			expectedError:      true,
-			expectedLogMessage: "unable to retrieve GL_INTERNAL_CONFIG",
+			desc:          "missing GL_INTERNAL_CONFIG",
+			data:          lfsPointer,
+			missingEnv:    "GL_INTERNAL_CONFIG",
+			options:       defaultOptions,
+			expectedError: true,
 		},
 		{
 			desc: "failed HTTP response",
@@ -171,8 +150,7 @@ func TestUnsuccessfulLfsSmudge(t *testing.T) {
 				GlRepository:  glRepository,
 				LfsStatusCode: http.StatusInternalServerError,
 			},
-			expectedError:      true,
-			expectedLogMessage: "error loading LFS object",
+			expectedError: true,
 		},
 		{
 			desc:          "invalid TLS paths",
@@ -194,12 +172,9 @@ func TestUnsuccessfulLfsSmudge(t *testing.T) {
 			tlsCfg, err := json.Marshal(tc.tlsCfg)
 			require.NoError(t, err)
 
-			tmpDir := testhelper.TempDir(t)
-
 			env := map[string]string{
 				"GL_REPOSITORY":      "project-1",
 				"GL_INTERNAL_CONFIG": string(cfg),
-				"GITALY_LOG_DIR":     tmpDir,
 				"GITALY_TLS":         string(tlsCfg),
 			}
 
@@ -212,9 +187,6 @@ func TestUnsuccessfulLfsSmudge(t *testing.T) {
 			var b bytes.Buffer
 			reader := strings.NewReader(tc.data)
 
-			_, err = initLogging(cfgProvider)
-			require.NoError(t, err)
-
 			err = smudge(&b, reader, cfgProvider)
 
 			if tc.expectedError {
@@ -222,15 +194,6 @@ func TestUnsuccessfulLfsSmudge(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				require.Equal(t, tc.data, b.String())
-			}
-
-			logFilename := filepath.Join(tmpDir, "gitaly_lfs_smudge.log")
-			require.FileExists(t, logFilename)
-
-			data := testhelper.MustReadFile(t, logFilename)
-
-			if tc.expectedLogMessage != "" {
-				require.Contains(t, string(data), tc.expectedLogMessage)
 			}
 		})
 	}
