@@ -10,12 +10,6 @@ import (
 	"gitlab.com/gitlab-org/labkit/log"
 )
 
-type envConfig struct{}
-
-func (e *envConfig) Get(key string) string {
-	return os.Getenv(key)
-}
-
 func requireStdin(msg string) {
 	var out string
 

@@ -2,23 +2,16 @@ package main
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/url"
 
 	"github.com/git-lfs/git-lfs/lfs"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
 	"gitlab.com/gitlab-org/labkit/log"
 	"gitlab.com/gitlab-org/labkit/tracing"
 )
-
-type configProvider interface {
-	Get(key string) string
-}
 
 func smudge(to io.Writer, from io.Reader, cfgProvider configProvider) (returnedErr error) {
 	// Since the environment is sanitized at the moment, we're only
@@ -88,34 +81,4 @@ func handleSmudge(ctx context.Context, to io.Writer, from io.Reader, config conf
 	}
 
 	return io.NopCloser(contents), nil
-}
-
-func loadConfig(cfgProvider configProvider) (config.Gitlab, config.TLS, string, error) {
-	var cfg config.Gitlab
-	var tlsCfg config.TLS
-
-	glRepository := cfgProvider.Get("GL_REPOSITORY")
-	if glRepository == "" {
-		return cfg, tlsCfg, "", fmt.Errorf("error loading project: GL_REPOSITORY is not defined")
-	}
-
-	u := cfgProvider.Get("GL_INTERNAL_CONFIG")
-	if u == "" {
-		return cfg, tlsCfg, glRepository, fmt.Errorf("unable to retrieve GL_INTERNAL_CONFIG")
-	}
-
-	if err := json.Unmarshal([]byte(u), &cfg); err != nil {
-		return cfg, tlsCfg, glRepository, fmt.Errorf("unable to unmarshal GL_INTERNAL_CONFIG: %v", err)
-	}
-
-	u = cfgProvider.Get("GITALY_TLS")
-	if u == "" {
-		return cfg, tlsCfg, glRepository, errors.New("unable to retrieve GITALY_TLS")
-	}
-
-	if err := json.Unmarshal([]byte(u), &tlsCfg); err != nil {
-		return cfg, tlsCfg, glRepository, fmt.Errorf("unable to unmarshal GITALY_TLS: %w", err)
-	}
-
-	return cfg, tlsCfg, glRepository, nil
 }
