@@ -25,7 +25,7 @@ type configProvider interface {
 func initLogging(p configProvider) (io.Closer, error) {
 	path := p.Get(gitalylog.GitalyLogDirEnvKey)
 	if path == "" {
-		return nil, nil
+		return log.Initialize(log.WithWriter(io.Discard))
 	}
 
 	filepath := filepath.Join(path, "gitaly_lfs_smudge.log")

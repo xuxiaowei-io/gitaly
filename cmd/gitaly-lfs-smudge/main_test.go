@@ -109,6 +109,20 @@ func TestGitalyLFSSmudge(t *testing.T) {
 			expectedLogRegexp: "unable to retrieve GITALY_TLS",
 		},
 		{
+			desc: "missing log configuration",
+			setup: func(t *testing.T) ([]string, string) {
+				logDir := testhelper.TempDir(t)
+
+				return []string{
+					"GL_REPOSITORY=project-1",
+					"GL_INTERNAL_CONFIG=" + string(marshalledGitlabCfg),
+					"GITALY_TLS=" + string(marshalledTLSCfg),
+				}, filepath.Join(logDir, "gitaly_lfs_smudge.log")
+			},
+			stdin:          strings.NewReader(lfsPointer),
+			expectedStdout: "hello world",
+		},
+		{
 			desc: "missing stdin",
 			setup: func(t *testing.T) ([]string, string) {
 				logDir := testhelper.TempDir(t)
