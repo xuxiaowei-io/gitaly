@@ -21,7 +21,7 @@ func smudgeContents(cfg smudge.Config, to io.Writer, from io.Reader) (returnedEr
 	ctx, finished := tracing.ExtractFromEnv(context.Background())
 	defer finished()
 
-	output, err := handleSmudge(ctx, cfg, to, from)
+	output, err := handleSmudge(ctx, cfg, from)
 	if err != nil {
 		return fmt.Errorf("smudging contents: %w", err)
 	}
@@ -38,7 +38,7 @@ func smudgeContents(cfg smudge.Config, to io.Writer, from io.Reader) (returnedEr
 	return nil
 }
 
-func handleSmudge(ctx context.Context, cfg smudge.Config, to io.Writer, from io.Reader) (io.ReadCloser, error) {
+func handleSmudge(ctx context.Context, cfg smudge.Config, from io.Reader) (io.ReadCloser, error) {
 	logger := log.ContextLogger(ctx)
 
 	ptr, contents, err := lfs.DecodeFrom(from)
