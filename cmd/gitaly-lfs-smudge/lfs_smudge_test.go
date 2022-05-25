@@ -10,6 +10,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/smudge"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
 
 const (
@@ -61,6 +62,8 @@ func TestSuccessfulLfsSmudge(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
+			ctx := testhelper.Context(t)
+
 			var b bytes.Buffer
 			reader := strings.NewReader(tc.data)
 
@@ -76,7 +79,7 @@ func TestSuccessfulLfsSmudge(t *testing.T) {
 				},
 			}
 
-			require.NoError(t, smudgeContents(cfg, &b, reader))
+			require.NoError(t, smudgeContents(ctx, cfg, &b, reader))
 			require.Equal(t, testData, b.String())
 		})
 	}
@@ -169,13 +172,15 @@ func TestUnsuccessfulLfsSmudge(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
+			ctx := testhelper.Context(t)
+
 			gitlabCfg, cleanup := runTestServer(t, tc.options)
 			defer cleanup()
 
 			cfg := tc.setupCfg(t, gitlabCfg)
 
 			var b bytes.Buffer
-			err := smudgeContents(cfg, &b, strings.NewReader(tc.data))
+			err := smudgeContents(ctx, cfg, &b, strings.NewReader(tc.data))
 
 			if tc.expectedError {
 				require.Error(t, err)

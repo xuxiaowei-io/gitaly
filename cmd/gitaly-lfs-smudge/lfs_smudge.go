@@ -11,16 +11,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
 	"gitlab.com/gitlab-org/labkit/log"
-	"gitlab.com/gitlab-org/labkit/tracing"
 )
 
-func smudgeContents(cfg smudge.Config, to io.Writer, from io.Reader) (returnedErr error) {
-	// Since the environment is sanitized at the moment, we're only
-	// using this to extract the correlation ID. The finished() call
-	// to clean up the tracing will be a NOP here.
-	ctx, finished := tracing.ExtractFromEnv(context.Background())
-	defer finished()
-
+func smudgeContents(ctx context.Context, cfg smudge.Config, to io.Writer, from io.Reader) (returnedErr error) {
 	output, err := handleSmudge(ctx, cfg, from)
 	if err != nil {
 		return fmt.Errorf("smudging contents: %w", err)
