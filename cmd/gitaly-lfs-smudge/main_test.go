@@ -26,13 +26,15 @@ func TestGitalyLFSSmudge(t *testing.T) {
 	gitlabCfg, cleanup := runTestServer(t, defaultOptions)
 	defer cleanup()
 
+	tlsCfg := config.TLS{
+		CertPath: certPath,
+		KeyPath:  keyPath,
+	}
+
 	marshalledGitlabCfg, err := json.Marshal(gitlabCfg)
 	require.NoError(t, err)
 
-	marshalledTLSCfg, err := json.Marshal(config.TLS{
-		CertPath: certPath,
-		KeyPath:  keyPath,
-	})
+	marshalledTLSCfg, err := json.Marshal(tlsCfg)
 	require.NoError(t, err)
 
 	standardEnv := func(logDir string) []string {
@@ -58,6 +60,29 @@ func TestGitalyLFSSmudge(t *testing.T) {
 			setup: func(t *testing.T) ([]string, string) {
 				logDir := testhelper.TempDir(t)
 				return standardEnv(logDir), filepath.Join(logDir, logName)
+			},
+			stdin:             strings.NewReader(lfsPointer),
+			expectedStdout:    "hello world",
+			expectedLogRegexp: "Finished HTTP request",
+		},
+		{
+			desc: "success with single envvar",
+			setup: func(t *testing.T) ([]string, string) {
+				logDir := testhelper.TempDir(t)
+
+				cfg := Config{
+					GlRepository: "project-1",
+					Gitlab:       gitlabCfg,
+					TLS:          tlsCfg,
+				}
+
+				env, err := cfg.Environment()
+				require.NoError(t, err)
+
+				return []string{
+					env,
+					"GITALY_LOG_DIR=" + logDir,
+				}, filepath.Join(logDir, "gitaly_lfs_smudge.log")
 			},
 			stdin:             strings.NewReader(lfsPointer),
 			expectedStdout:    "hello world",

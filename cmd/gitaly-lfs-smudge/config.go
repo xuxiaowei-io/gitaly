@@ -9,21 +9,36 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/env"
 )
 
+// ConfigEnvironmentKey is the key that gitaly-lfs-smudge expects the configuration to exist at. The
+// value of this environment variable should be the JSON-encoded `Config` struct.
+const ConfigEnvironmentKey = "GITALY_LFS_SMUDGE_CONFIG"
+
 // Config is the configuration used to run gitaly-lfs-smudge. It must be injected via environment
 // variables.
 type Config struct {
 	// GlRepository is the GitLab repository identifier that is required so that we can query
 	// the corresponding Rails' repository for the respective LFS contents.
-	GlRepository string
+	GlRepository string `json:"gl_repository"`
 	// Gitlab contains configuration so that we can connect to Rails in order to retrieve LFS
 	// contents.
-	Gitlab config.Gitlab
+	Gitlab config.Gitlab `json:"gitlab"`
 	// TLS contains configuration for setting up a TLS-encrypted connection to Rails.
-	TLS config.TLS
+	TLS config.TLS `json:"tls"`
 }
 
 func configFromEnvironment(environment []string) (Config, error) {
 	var cfg Config
+
+	// If ConfigEnvironmentKey is set, then we use that instead of the separate environment
+	// variables queried for below. This has been newly introduced in v15.1, so the fallback
+	// to the old environment variables can be removed with v15.2.
+	if encodedCfg := env.ExtractValue(environment, ConfigEnvironmentKey); encodedCfg != "" {
+		if err := json.Unmarshal([]byte(encodedCfg), &cfg); err != nil {
+			return Config{}, fmt.Errorf("unable to unmarshal config: %w", err)
+		}
+
+		return cfg, nil
+	}
 
 	cfg.GlRepository = env.ExtractValue(environment, "GL_REPOSITORY")
 	if cfg.GlRepository == "" {
@@ -49,4 +64,15 @@ func configFromEnvironment(environment []string) (Config, error) {
 	}
 
 	return cfg, nil
+}
+
+// Environment encodes the given configuration as an environment variable that can be injected into
+// `gitaly-lfs-smudge`.
+func (c Config) Environment() (string, error) {
+	marshalled, err := json.Marshal(c)
+	if err != nil {
+		return "", fmt.Errorf("marshalling configuration: %w", err)
+	}
+
+	return fmt.Sprintf("%s=%s", ConfigEnvironmentKey, marshalled), nil
 }
