@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"net/http"
 	"strings"
 	"testing"
@@ -44,14 +43,6 @@ var defaultOptions = gitlab.TestServerOptions{
 	ServerKeyPath:    keyPath,
 }
 
-type mapConfig struct {
-	env map[string]string
-}
-
-func (m *mapConfig) Get(key string) string {
-	return m.env[key]
-}
-
 func TestSuccessfulLfsSmudge(t *testing.T) {
 	testCases := []struct {
 		desc string
@@ -72,38 +63,36 @@ func TestSuccessfulLfsSmudge(t *testing.T) {
 			var b bytes.Buffer
 			reader := strings.NewReader(tc.data)
 
-			c, cleanup := runTestServer(t, defaultOptions)
+			gitlabCfg, cleanup := runTestServer(t, defaultOptions)
 			defer cleanup()
 
-			cfg, err := json.Marshal(c)
-			require.NoError(t, err)
-
-			tlsCfg, err := json.Marshal(config.TLS{
-				CertPath: certPath,
-				KeyPath:  keyPath,
-			})
-			require.NoError(t, err)
-
-			env := map[string]string{
-				"GL_REPOSITORY":      "project-1",
-				"GL_INTERNAL_CONFIG": string(cfg),
-				"GITALY_TLS":         string(tlsCfg),
+			cfg := Config{
+				GlRepository: "project-1",
+				Gitlab:       gitlabCfg,
+				TLS: config.TLS{
+					CertPath: certPath,
+					KeyPath:  keyPath,
+				},
 			}
-			cfgProvider := &mapConfig{env: env}
 
-			err = smudge(&b, reader, cfgProvider)
-			require.NoError(t, err)
+			require.NoError(t, smudge(cfg, &b, reader))
 			require.Equal(t, testData, b.String())
 		})
 	}
 }
 
 func TestUnsuccessfulLfsSmudge(t *testing.T) {
+	defaultConfig := func(t *testing.T, gitlabCfg config.Gitlab) Config {
+		return Config{
+			GlRepository: "project-1",
+			Gitlab:       gitlabCfg,
+		}
+	}
+
 	testCases := []struct {
 		desc              string
+		setupCfg          func(*testing.T, config.Gitlab) Config
 		data              string
-		missingEnv        string
-		tlsCfg            config.TLS
 		expectedError     bool
 		options           gitlab.TestServerOptions
 		expectedGitalyTLS string
@@ -111,38 +100,50 @@ func TestUnsuccessfulLfsSmudge(t *testing.T) {
 		{
 			desc:          "bad LFS pointer",
 			data:          "test data",
+			setupCfg:      defaultConfig,
 			options:       defaultOptions,
 			expectedError: false,
 		},
 		{
 			desc:          "invalid LFS pointer",
 			data:          invalidLfsPointer,
+			setupCfg:      defaultConfig,
 			options:       defaultOptions,
 			expectedError: false,
 		},
 		{
 			desc:          "invalid LFS pointer with non-hex characters",
 			data:          invalidLfsPointerWithNonHex,
+			setupCfg:      defaultConfig,
 			options:       defaultOptions,
 			expectedError: false,
 		},
 		{
-			desc:          "missing GL_REPOSITORY",
-			data:          lfsPointer,
-			missingEnv:    "GL_REPOSITORY",
-			options:       defaultOptions,
-			expectedError: true,
-		},
-		{
-			desc:          "missing GL_INTERNAL_CONFIG",
-			data:          lfsPointer,
-			missingEnv:    "GL_INTERNAL_CONFIG",
-			options:       defaultOptions,
-			expectedError: true,
-		},
-		{
-			desc: "failed HTTP response",
+			desc: "missing GL_REPOSITORY",
 			data: lfsPointer,
+			setupCfg: func(t *testing.T, gitlabCfg config.Gitlab) Config {
+				cfg := defaultConfig(t, gitlabCfg)
+				cfg.GlRepository = ""
+				return cfg
+			},
+			options:       defaultOptions,
+			expectedError: true,
+		},
+		{
+			desc: "missing GL_INTERNAL_CONFIG",
+			data: lfsPointer,
+			setupCfg: func(t *testing.T, gitlabCfg config.Gitlab) Config {
+				cfg := defaultConfig(t, gitlabCfg)
+				cfg.Gitlab = config.Gitlab{}
+				return cfg
+			},
+			options:       defaultOptions,
+			expectedError: true,
+		},
+		{
+			desc:     "failed HTTP response",
+			data:     lfsPointer,
+			setupCfg: defaultConfig,
 			options: gitlab.TestServerOptions{
 				SecretToken:   secretToken,
 				LfsBody:       testData,
@@ -153,41 +154,27 @@ func TestUnsuccessfulLfsSmudge(t *testing.T) {
 			expectedError: true,
 		},
 		{
-			desc:          "invalid TLS paths",
-			data:          lfsPointer,
+			desc: "invalid TLS paths",
+			data: lfsPointer,
+			setupCfg: func(t *testing.T, gitlabCfg config.Gitlab) Config {
+				cfg := defaultConfig(t, gitlabCfg)
+				cfg.TLS = config.TLS{CertPath: "fake-path", KeyPath: "not-real"}
+				return cfg
+			},
 			options:       defaultOptions,
-			tlsCfg:        config.TLS{CertPath: "fake-path", KeyPath: "not-real"},
 			expectedError: true,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			c, cleanup := runTestServer(t, tc.options)
+			gitlabCfg, cleanup := runTestServer(t, tc.options)
 			defer cleanup()
 
-			cfg, err := json.Marshal(c)
-			require.NoError(t, err)
-
-			tlsCfg, err := json.Marshal(tc.tlsCfg)
-			require.NoError(t, err)
-
-			env := map[string]string{
-				"GL_REPOSITORY":      "project-1",
-				"GL_INTERNAL_CONFIG": string(cfg),
-				"GITALY_TLS":         string(tlsCfg),
-			}
-
-			if tc.missingEnv != "" {
-				delete(env, tc.missingEnv)
-			}
-
-			cfgProvider := &mapConfig{env: env}
+			cfg := tc.setupCfg(t, gitlabCfg)
 
 			var b bytes.Buffer
-			reader := strings.NewReader(tc.data)
-
-			err = smudge(&b, reader, cfgProvider)
+			err := smudge(cfg, &b, strings.NewReader(tc.data))
 
 			if tc.expectedError {
 				require.Error(t, err)

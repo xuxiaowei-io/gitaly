@@ -4,47 +4,49 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/env"
 )
 
-type configProvider interface {
-	Get(key string) string
+// Config is the configuration used to run gitaly-lfs-smudge. It must be injected via environment
+// variables.
+type Config struct {
+	// GlRepository is the GitLab repository identifier that is required so that we can query
+	// the corresponding Rails' repository for the respective LFS contents.
+	GlRepository string
+	// Gitlab contains configuration so that we can connect to Rails in order to retrieve LFS
+	// contents.
+	Gitlab config.Gitlab
+	// TLS contains configuration for setting up a TLS-encrypted connection to Rails.
+	TLS config.TLS
 }
 
-type envConfig struct{}
+func configFromEnvironment(environment []string) (Config, error) {
+	var cfg Config
 
-func (e *envConfig) Get(key string) string {
-	return os.Getenv(key)
-}
-
-func loadConfig(cfgProvider configProvider) (config.Gitlab, config.TLS, string, error) {
-	var cfg config.Gitlab
-	var tlsCfg config.TLS
-
-	glRepository := cfgProvider.Get("GL_REPOSITORY")
-	if glRepository == "" {
-		return cfg, tlsCfg, "", fmt.Errorf("error loading project: GL_REPOSITORY is not defined")
+	cfg.GlRepository = env.ExtractValue(environment, "GL_REPOSITORY")
+	if cfg.GlRepository == "" {
+		return Config{}, fmt.Errorf("error loading project: GL_REPOSITORY is not defined")
 	}
 
-	u := cfgProvider.Get("GL_INTERNAL_CONFIG")
+	u := env.ExtractValue(environment, "GL_INTERNAL_CONFIG")
 	if u == "" {
-		return cfg, tlsCfg, glRepository, fmt.Errorf("unable to retrieve GL_INTERNAL_CONFIG")
+		return Config{}, fmt.Errorf("unable to retrieve GL_INTERNAL_CONFIG")
 	}
 
-	if err := json.Unmarshal([]byte(u), &cfg); err != nil {
-		return cfg, tlsCfg, glRepository, fmt.Errorf("unable to unmarshal GL_INTERNAL_CONFIG: %v", err)
+	if err := json.Unmarshal([]byte(u), &cfg.Gitlab); err != nil {
+		return Config{}, fmt.Errorf("unable to unmarshal GL_INTERNAL_CONFIG: %w", err)
 	}
 
-	u = cfgProvider.Get("GITALY_TLS")
+	u = env.ExtractValue(environment, "GITALY_TLS")
 	if u == "" {
-		return cfg, tlsCfg, glRepository, errors.New("unable to retrieve GITALY_TLS")
+		return Config{}, errors.New("unable to retrieve GITALY_TLS")
 	}
 
-	if err := json.Unmarshal([]byte(u), &tlsCfg); err != nil {
-		return cfg, tlsCfg, glRepository, fmt.Errorf("unable to unmarshal GITALY_TLS: %w", err)
+	if err := json.Unmarshal([]byte(u), &cfg.TLS); err != nil {
+		return Config{}, fmt.Errorf("unable to unmarshal GITALY_TLS: %w", err)
 	}
 
-	return cfg, tlsCfg, glRepository, nil
+	return cfg, nil
 }

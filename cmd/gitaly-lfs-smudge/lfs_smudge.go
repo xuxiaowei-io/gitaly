@@ -13,14 +13,14 @@ import (
 	"gitlab.com/gitlab-org/labkit/tracing"
 )
 
-func smudge(to io.Writer, from io.Reader, cfgProvider configProvider) (returnedErr error) {
+func smudge(cfg Config, to io.Writer, from io.Reader) (returnedErr error) {
 	// Since the environment is sanitized at the moment, we're only
 	// using this to extract the correlation ID. The finished() call
 	// to clean up the tracing will be a NOP here.
 	ctx, finished := tracing.ExtractFromEnv(context.Background())
 	defer finished()
 
-	output, err := handleSmudge(ctx, to, from, cfgProvider)
+	output, err := handleSmudge(ctx, cfg, to, from)
 	if err != nil {
 		return fmt.Errorf("smudging contents: %w", err)
 	}
@@ -37,7 +37,7 @@ func smudge(to io.Writer, from io.Reader, cfgProvider configProvider) (returnedE
 	return nil
 }
 
-func handleSmudge(ctx context.Context, to io.Writer, from io.Reader, config configProvider) (io.ReadCloser, error) {
+func handleSmudge(ctx context.Context, cfg Config, to io.Writer, from io.Reader) (io.ReadCloser, error) {
 	logger := log.ContextLogger(ctx)
 
 	ptr, contents, err := lfs.DecodeFrom(from)
@@ -48,23 +48,14 @@ func handleSmudge(ctx context.Context, to io.Writer, from io.Reader, config conf
 
 	logger.WithField("oid", ptr.Oid).Debug("decoded LFS OID")
 
-	glCfg, tlsCfg, glRepository, err := loadConfig(config)
-	if err != nil {
-		return io.NopCloser(contents), err
-	}
-
-	logger.WithField("gitlab_config", glCfg).
-		WithField("gitaly_tls_config", tlsCfg).
-		Debug("loaded GitLab API config")
-
-	client, err := gitlab.NewHTTPClient(logger, glCfg, tlsCfg, prometheus.Config{})
+	client, err := gitlab.NewHTTPClient(logger, cfg.Gitlab, cfg.TLS, prometheus.Config{})
 	if err != nil {
 		return io.NopCloser(contents), err
 	}
 
 	qs := url.Values{}
 	qs.Set("oid", ptr.Oid)
-	qs.Set("gl_repository", glRepository)
+	qs.Set("gl_repository", cfg.GlRepository)
 	u := url.URL{Path: "/lfs", RawQuery: qs.Encode()}
 
 	response, err := client.Get(ctx, u.String())
