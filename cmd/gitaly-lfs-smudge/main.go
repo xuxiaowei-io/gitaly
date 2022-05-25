@@ -41,7 +41,7 @@ func main() {
 	}
 	defer closer.Close()
 
-	if err := smudge(os.Stdout, os.Stdin, &envConfig{}); err != nil {
+	if err := run(os.Stdout, os.Stdin, &envConfig{}); err != nil {
 		log.WithError(err).Error(err)
 		os.Exit(1)
 	}
@@ -60,4 +60,12 @@ func initLogging(p configProvider) (io.Closer, error) {
 		log.WithLogLevel("info"),
 		log.WithOutputName(filepath),
 	)
+}
+
+func run(out io.Writer, in io.Reader, cfgProvider configProvider) error {
+	if err := smudge(out, in, cfgProvider); err != nil {
+		return fmt.Errorf("running smudge filter: %w", err)
+	}
+
+	return nil
 }
