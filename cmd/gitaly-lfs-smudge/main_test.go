@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/smudge"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -70,7 +71,7 @@ func TestGitalyLFSSmudge(t *testing.T) {
 			setup: func(t *testing.T) ([]string, string) {
 				logDir := testhelper.TempDir(t)
 
-				cfg := Config{
+				cfg := smudge.Config{
 					GlRepository: "project-1",
 					Gitlab:       gitlabCfg,
 					TLS:          tlsCfg,

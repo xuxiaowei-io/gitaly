@@ -7,13 +7,14 @@ import (
 	"net/url"
 
 	"github.com/git-lfs/git-lfs/lfs"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/smudge"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
 	"gitlab.com/gitlab-org/labkit/log"
 	"gitlab.com/gitlab-org/labkit/tracing"
 )
 
-func smudge(cfg Config, to io.Writer, from io.Reader) (returnedErr error) {
+func smudgeContents(cfg smudge.Config, to io.Writer, from io.Reader) (returnedErr error) {
 	// Since the environment is sanitized at the moment, we're only
 	// using this to extract the correlation ID. The finished() call
 	// to clean up the tracing will be a NOP here.
@@ -37,7 +38,7 @@ func smudge(cfg Config, to io.Writer, from io.Reader) (returnedErr error) {
 	return nil
 }
 
-func handleSmudge(ctx context.Context, cfg Config, to io.Writer, from io.Reader) (io.ReadCloser, error) {
+func handleSmudge(ctx context.Context, cfg smudge.Config, to io.Writer, from io.Reader) (io.ReadCloser, error) {
 	logger := log.ContextLogger(ctx)
 
 	ptr, contents, err := lfs.DecodeFrom(from)

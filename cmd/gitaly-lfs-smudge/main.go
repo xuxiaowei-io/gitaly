@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/smudge"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/env"
 	gitalylog "gitlab.com/gitlab-org/gitaly/v15/internal/log"
 	"gitlab.com/gitlab-org/labkit/log"
@@ -58,12 +59,12 @@ func initLogging(environment []string) (io.Closer, error) {
 }
 
 func run(environment []string, out io.Writer, in io.Reader) error {
-	cfg, err := configFromEnvironment(environment)
+	cfg, err := smudge.ConfigFromEnvironment(environment)
 	if err != nil {
 		return fmt.Errorf("loading configuration: %w", err)
 	}
 
-	if err := smudge(cfg, out, in); err != nil {
+	if err := smudgeContents(cfg, out, in); err != nil {
 		return fmt.Errorf("running smudge filter: %w", err)
 	}
 

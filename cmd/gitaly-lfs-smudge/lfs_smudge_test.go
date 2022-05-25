@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/smudge"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
 )
@@ -66,7 +67,7 @@ func TestSuccessfulLfsSmudge(t *testing.T) {
 			gitlabCfg, cleanup := runTestServer(t, defaultOptions)
 			defer cleanup()
 
-			cfg := Config{
+			cfg := smudge.Config{
 				GlRepository: "project-1",
 				Gitlab:       gitlabCfg,
 				TLS: config.TLS{
@@ -75,15 +76,15 @@ func TestSuccessfulLfsSmudge(t *testing.T) {
 				},
 			}
 
-			require.NoError(t, smudge(cfg, &b, reader))
+			require.NoError(t, smudgeContents(cfg, &b, reader))
 			require.Equal(t, testData, b.String())
 		})
 	}
 }
 
 func TestUnsuccessfulLfsSmudge(t *testing.T) {
-	defaultConfig := func(t *testing.T, gitlabCfg config.Gitlab) Config {
-		return Config{
+	defaultConfig := func(t *testing.T, gitlabCfg config.Gitlab) smudge.Config {
+		return smudge.Config{
 			GlRepository: "project-1",
 			Gitlab:       gitlabCfg,
 		}
@@ -91,7 +92,7 @@ func TestUnsuccessfulLfsSmudge(t *testing.T) {
 
 	testCases := []struct {
 		desc              string
-		setupCfg          func(*testing.T, config.Gitlab) Config
+		setupCfg          func(*testing.T, config.Gitlab) smudge.Config
 		data              string
 		expectedError     bool
 		options           gitlab.TestServerOptions
@@ -121,7 +122,7 @@ func TestUnsuccessfulLfsSmudge(t *testing.T) {
 		{
 			desc: "missing GL_REPOSITORY",
 			data: lfsPointer,
-			setupCfg: func(t *testing.T, gitlabCfg config.Gitlab) Config {
+			setupCfg: func(t *testing.T, gitlabCfg config.Gitlab) smudge.Config {
 				cfg := defaultConfig(t, gitlabCfg)
 				cfg.GlRepository = ""
 				return cfg
@@ -132,7 +133,7 @@ func TestUnsuccessfulLfsSmudge(t *testing.T) {
 		{
 			desc: "missing GL_INTERNAL_CONFIG",
 			data: lfsPointer,
-			setupCfg: func(t *testing.T, gitlabCfg config.Gitlab) Config {
+			setupCfg: func(t *testing.T, gitlabCfg config.Gitlab) smudge.Config {
 				cfg := defaultConfig(t, gitlabCfg)
 				cfg.Gitlab = config.Gitlab{}
 				return cfg
@@ -156,7 +157,7 @@ func TestUnsuccessfulLfsSmudge(t *testing.T) {
 		{
 			desc: "invalid TLS paths",
 			data: lfsPointer,
-			setupCfg: func(t *testing.T, gitlabCfg config.Gitlab) Config {
+			setupCfg: func(t *testing.T, gitlabCfg config.Gitlab) smudge.Config {
 				cfg := defaultConfig(t, gitlabCfg)
 				cfg.TLS = config.TLS{CertPath: "fake-path", KeyPath: "not-real"}
 				return cfg
@@ -174,7 +175,7 @@ func TestUnsuccessfulLfsSmudge(t *testing.T) {
 			cfg := tc.setupCfg(t, gitlabCfg)
 
 			var b bytes.Buffer
-			err := smudge(cfg, &b, strings.NewReader(tc.data))
+			err := smudgeContents(cfg, &b, strings.NewReader(tc.data))
 
 			if tc.expectedError {
 				require.Error(t, err)

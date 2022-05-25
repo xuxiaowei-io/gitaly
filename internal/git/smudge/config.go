@@ -1,4 +1,4 @@
-package main
+package smudge
 
 import (
 	"encoding/json"
@@ -26,7 +26,8 @@ type Config struct {
 	TLS config.TLS `json:"tls"`
 }
 
-func configFromEnvironment(environment []string) (Config, error) {
+// ConfigFromEnvironment loads the Config structure from the set of given environment variables.
+func ConfigFromEnvironment(environment []string) (Config, error) {
 	var cfg Config
 
 	// If ConfigEnvironmentKey is set, then we use that instead of the separate environment

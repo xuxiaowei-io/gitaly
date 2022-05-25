@@ -1,4 +1,4 @@
-package main
+package smudge
 
 import (
 	"encoding/json"
@@ -134,7 +134,7 @@ func TestConfigFromEnvironment(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			cfg, err := configFromEnvironment(tc.environment)
+			cfg, err := ConfigFromEnvironment(tc.environment)
 			if tc.expectedErr == "" {
 				require.NoError(t, err)
 			} else {
