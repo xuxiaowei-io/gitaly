@@ -56,8 +56,8 @@ func (q *requestQueue) isDirty() bool {
 
 	// We must check for the current object first: we cannot queue another object due to the
 	// object lock, but we may queue another request while checking for dirtiness.
-	if q.currentObject != nil {
-		return q.currentObject.isDirty()
+	if q.currentObject != nil && q.currentObject.isDirty() {
+		return true
 	}
 
 	if atomic.LoadInt64(&q.outstandingRequests) != 0 {
