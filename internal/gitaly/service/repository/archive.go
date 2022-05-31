@@ -20,7 +20,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
-	"gitlab.com/gitlab-org/labkit/correlation"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -216,7 +215,6 @@ func (s *server) handleArchive(p archiveParams) error {
 		env = append(
 			env,
 			smudgeEnv,
-			fmt.Sprintf("CORRELATION_ID=%s", correlation.ExtractFromContext(p.ctx)),
 			fmt.Sprintf("%s=%s", log.GitalyLogDirEnvKey, p.loggingDir),
 		)
 		config = append(config, smudgeGitConfig)
