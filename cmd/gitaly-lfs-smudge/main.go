@@ -72,9 +72,16 @@ func run(environment []string, out io.Writer, in io.Reader) error {
 		return fmt.Errorf("loading configuration: %w", err)
 	}
 
-	if err := filter(ctx, cfg, out, in); err != nil {
-		return fmt.Errorf("running smudge filter: %w", err)
-	}
+	switch cfg.DriverType {
+	case smudge.DriverTypeFilter:
+		if err := filter(ctx, cfg, out, in); err != nil {
+			return fmt.Errorf("running smudge filter: %w", err)
+		}
 
-	return nil
+		return nil
+	case smudge.DriverTypeProcess:
+		return fmt.Errorf("process driver type not yet supported")
+	default:
+		return fmt.Errorf("unknown driver type: %v", cfg.DriverType)
+	}
 }

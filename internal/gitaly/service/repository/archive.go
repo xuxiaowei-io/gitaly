@@ -200,6 +200,7 @@ func (s *server) handleArchive(p archiveParams) error {
 			GlRepository: p.in.GetRepository().GetGlRepository(),
 			Gitlab:       s.cfg.Gitlab,
 			TLS:          s.cfg.TLS,
+			DriverType:   smudge.DriverTypeFilter,
 		}
 
 		smudgeEnv, err := smudgeCfg.Environment()
