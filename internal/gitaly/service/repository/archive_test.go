@@ -3,6 +3,7 @@ package repository
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -17,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
@@ -168,7 +170,12 @@ func TestGetArchiveSuccess(t *testing.T) {
 	}
 }
 
-func TestGetArchiveWithLfsSuccess(t *testing.T) {
+func TestGetArchive_includeLfsBlobs(t *testing.T) {
+	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.GetArchiveLfsFilterProcess).Run(t, testGetArchiveIncludeLfsBlobs)
+}
+
+func testGetArchiveIncludeLfsBlobs(t *testing.T, ctx context.Context) {
 	t.Parallel()
 	defaultOptions := gitlab.TestServerOptions{
 		SecretToken: secretToken,
@@ -192,7 +199,6 @@ func TestGetArchiveWithLfsSuccess(t *testing.T) {
 	client := newRepositoryClient(t, cfg, serverSocketPath)
 	cfg.SocketPath = serverSocketPath
 
-	ctx := testhelper.Context(t)
 	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
@@ -470,13 +476,17 @@ func TestGetArchivePathInjection(t *testing.T) {
 	require.Zero(t, authorizedKeysFileStat.Size())
 }
 
-func TestGetArchiveEnv(t *testing.T) {
+func TestGetArchive_environment(t *testing.T) {
+	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.GetArchiveLfsFilterProcess).Run(t, testGetArchiveEnvironment)
+}
+
+func testGetArchiveEnvironment(t *testing.T, ctx context.Context) {
 	testhelper.SkipWithPraefect(t, "It's not possible to create repositories through the API with the git command overwritten by the script.")
 
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
-	ctx := testhelper.Context(t)
 
 	gitCmdFactory := gittest.NewInterceptingCommandFactory(ctx, t, cfg, func(git.ExecutionEnvironment) string {
 		return `#!/bin/sh
@@ -502,6 +512,11 @@ func TestGetArchiveEnv(t *testing.T) {
 		GlRepository: gittest.GlRepository,
 		Gitlab:       cfg.Gitlab,
 		TLS:          cfg.TLS,
+		DriverType:   smudge.DriverTypeFilter,
+	}
+
+	if featureflag.GetArchiveLfsFilterProcess.IsEnabled(ctx) {
+		smudgeCfg.DriverType = smudge.DriverTypeProcess
 	}
 
 	smudgeEnv, err := smudgeCfg.Environment()

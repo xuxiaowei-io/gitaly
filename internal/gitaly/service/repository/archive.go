@@ -18,13 +18,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/log"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 	"google.golang.org/protobuf/proto"
 )
 
 type archiveParams struct {
-	ctx         context.Context
 	writer      io.Writer
 	in          *gitalypb.GetArchiveRequest
 	compressCmd *exec.Cmd
@@ -83,8 +83,7 @@ func (s *server) GetArchive(in *gitalypb.GetArchiveRequest, stream gitalypb.Repo
 
 	ctxlogrus.Extract(ctx).WithField("request_hash", requestHash(in)).Info("request details")
 
-	return s.handleArchive(archiveParams{
-		ctx:         ctx,
+	return s.handleArchive(ctx, archiveParams{
 		writer:      writer,
 		in:          in,
 		compressCmd: compressCmd,
@@ -173,7 +172,7 @@ func findGetArchivePath(ctx context.Context, f *catfile.TreeEntryFinder, commitI
 	return true, nil
 }
 
-func (s *server) handleArchive(p archiveParams) error {
+func (s *server) handleArchive(ctx context.Context, p archiveParams) error {
 	var args []string
 	pathspecs := make([]string, 0, len(p.exclude)+1)
 	if !p.in.GetElidePath() {
@@ -203,6 +202,10 @@ func (s *server) handleArchive(p archiveParams) error {
 			DriverType:   smudge.DriverTypeFilter,
 		}
 
+		if featureflag.GetArchiveLfsFilterProcess.IsEnabled(ctx) {
+			smudgeCfg.DriverType = smudge.DriverTypeProcess
+		}
+
 		smudgeEnv, err := smudgeCfg.Environment()
 		if err != nil {
 			return fmt.Errorf("setting up smudge environment: %w", err)
@@ -221,7 +224,7 @@ func (s *server) handleArchive(p archiveParams) error {
 		config = append(config, smudgeGitConfig)
 	}
 
-	archiveCommand, err := s.gitCmdFactory.New(p.ctx, p.in.GetRepository(), git.SubCmd{
+	archiveCommand, err := s.gitCmdFactory.New(ctx, p.in.GetRepository(), git.SubCmd{
 		Name:        "archive",
 		Flags:       []git.Option{git.ValueFlag{Name: "--format", Value: p.format}, git.ValueFlag{Name: "--prefix", Value: p.in.GetPrefix() + "/"}},
 		Args:        args,
@@ -232,7 +235,7 @@ func (s *server) handleArchive(p archiveParams) error {
 	}
 
 	if p.compressCmd != nil {
-		command, err := command.New(p.ctx, p.compressCmd, archiveCommand, p.writer, nil)
+		command, err := command.New(ctx, p.compressCmd, archiveCommand, p.writer, nil)
 		if err != nil {
 			return err
 		}
