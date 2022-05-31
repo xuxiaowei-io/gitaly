@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path/filepath"
 
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/env"
 )
@@ -76,4 +78,12 @@ func (c Config) Environment() (string, error) {
 	}
 
 	return fmt.Sprintf("%s=%s", ConfigEnvironmentKey, marshalled), nil
+}
+
+// GitConfiguration returns the Git configuration required to run the smudge filter.
+func (c Config) GitConfiguration(cfg config.Cfg) (git.ConfigPair, error) {
+	return git.ConfigPair{
+		Key:   "filter.lfs.smudge",
+		Value: filepath.Join(cfg.BinDir, "gitaly-lfs-smudge"),
+	}, nil
 }

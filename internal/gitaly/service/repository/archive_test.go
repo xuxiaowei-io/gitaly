@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/smudge"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
@@ -497,11 +498,6 @@ func TestGetArchiveEnv(t *testing.T) {
 	correlationID := correlation.SafeRandomID()
 	ctx = correlation.ContextWithCorrelation(ctx, correlationID)
 
-	req := &gitalypb.GetArchiveRequest{
-		Repository: repo,
-		CommitId:   commitID,
-	}
-
 	smudgeCfg := smudge.Config{
 		GlRepository: gittest.GlRepository,
 		Gitlab:       cfg.Gitlab,
@@ -511,14 +507,41 @@ func TestGetArchiveEnv(t *testing.T) {
 	smudgeEnv, err := smudgeCfg.Environment()
 	require.NoError(t, err)
 
-	stream, err := client.GetArchive(ctx, req)
-	require.NoError(t, err)
+	for _, tc := range []struct {
+		desc            string
+		includeLFSBlobs bool
+		expectedEnv     []string
+	}{
+		{
+			desc:            "without LFS blobs",
+			includeLFSBlobs: false,
+			expectedEnv: []string{
+				"CORRELATION_ID=" + correlationID,
+			},
+		},
+		{
+			desc:            "with LFS blobs",
+			includeLFSBlobs: true,
+			expectedEnv: []string{
+				"CORRELATION_ID=" + correlationID,
+				smudgeEnv,
+				"GITALY_LOG_DIR=" + cfg.Logging.Dir,
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			stream, err := client.GetArchive(ctx, &gitalypb.GetArchiveRequest{
+				Repository:      repo,
+				CommitId:        commitID,
+				IncludeLfsBlobs: tc.includeLFSBlobs,
+			})
+			require.NoError(t, err)
 
-	data, err := consumeArchive(stream)
-	require.NoError(t, err)
-	require.Contains(t, string(data), "CORRELATION_ID="+correlationID)
-	require.Contains(t, string(data), "GITALY_LOG_DIR="+cfg.Logging.Dir)
-	require.Contains(t, string(data), smudgeEnv)
+			data, err := consumeArchive(stream)
+			require.NoError(t, err)
+			require.ElementsMatch(t, tc.expectedEnv, strings.Split(text.ChompBytes(data), "\n"))
+		})
+	}
 }
 
 func compressedFileContents(t *testing.T, format gitalypb.GetArchiveRequest_Format, name string) []byte {

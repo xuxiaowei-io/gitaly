@@ -8,7 +8,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
@@ -33,7 +32,6 @@ type archiveParams struct {
 	format      string
 	archivePath string
 	exclude     []string
-	binDir      string
 	loggingDir  string
 }
 
@@ -94,7 +92,6 @@ func (s *server) GetArchive(in *gitalypb.GetArchiveRequest, stream gitalypb.Repo
 		format:      format,
 		archivePath: path,
 		exclude:     exclude,
-		binDir:      s.binDir,
 		loggingDir:  s.loggingCfg.Dir,
 	})
 }
@@ -196,28 +193,33 @@ func (s *server) handleArchive(p archiveParams) error {
 		pathspecs = append(pathspecs, ":(exclude)"+exclude)
 	}
 
-	smudgeCfg := smudge.Config{
-		GlRepository: p.in.GetRepository().GetGlRepository(),
-		Gitlab:       s.cfg.Gitlab,
-		TLS:          s.cfg.TLS,
-	}
-
-	smudgeEnv, err := smudgeCfg.Environment()
-	if err != nil {
-		return fmt.Errorf("setting up smudge environment: %w", err)
-	}
-
-	env := []string{
-		smudgeEnv,
-		fmt.Sprintf("CORRELATION_ID=%s", correlation.ExtractFromContext(p.ctx)),
-		fmt.Sprintf("%s=%s", log.GitalyLogDirEnvKey, p.loggingDir),
-	}
-
+	var env []string
 	var config []git.ConfigPair
 
 	if p.in.GetIncludeLfsBlobs() {
-		binary := filepath.Join(p.binDir, "gitaly-lfs-smudge")
-		config = append(config, git.ConfigPair{Key: "filter.lfs.smudge", Value: binary})
+		smudgeCfg := smudge.Config{
+			GlRepository: p.in.GetRepository().GetGlRepository(),
+			Gitlab:       s.cfg.Gitlab,
+			TLS:          s.cfg.TLS,
+		}
+
+		smudgeEnv, err := smudgeCfg.Environment()
+		if err != nil {
+			return fmt.Errorf("setting up smudge environment: %w", err)
+		}
+
+		smudgeGitConfig, err := smudgeCfg.GitConfiguration(s.cfg)
+		if err != nil {
+			return fmt.Errorf("setting up smudge gitconfig: %w", err)
+		}
+
+		env = append(
+			env,
+			smudgeEnv,
+			fmt.Sprintf("CORRELATION_ID=%s", correlation.ExtractFromContext(p.ctx)),
+			fmt.Sprintf("%s=%s", log.GitalyLogDirEnvKey, p.loggingDir),
+		)
+		config = append(config, smudgeGitConfig)
 	}
 
 	archiveCommand, err := s.gitCmdFactory.New(p.ctx, p.in.GetRepository(), git.SubCmd{
