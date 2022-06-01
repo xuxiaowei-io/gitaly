@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 15.0.1 (2022-06-01)
+
+No changes.
+
 ## 15.0.0 (2022-05-20)
 
 ### Added (13 changes)
@@ -66,6 +70,10 @@
 ### Other (1 change)
 
 - [go.mod: Remove exclude directive](gitlab-org/gitaly@c40c629a01fae35e3f34b05bf1e28a94aaac2692) ([merge request](gitlab-org/gitaly!4525))
+
+## 14.10.4 (2022-06-01)
+
+No changes.
 
 ## 14.10.3 (2022-05-20)
 
@@ -145,6 +153,10 @@ No changes.
 
 - [Add migrations for background verification schema](gitlab-org/gitaly@465af6714c19c7a7d0b38fd02b626b08d1b6f343) ([merge request](gitlab-org/gitaly!4459))
 - [sidechannel: use default yamux max window size](gitlab-org/gitaly@f99ae8abf6f317892065e99463c179364c462383) ([merge request](gitlab-org/gitaly!4439))
+
+## 14.9.5 (2022-06-01)
+
+No changes.
 
 ## 14.9.4 (2022-04-29)
 
