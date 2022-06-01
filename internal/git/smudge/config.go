@@ -103,7 +103,10 @@ func (c Config) GitConfiguration(cfg config.Cfg) (git.ConfigPair, error) {
 			Value: filepath.Join(cfg.BinDir, "gitaly-lfs-smudge"),
 		}, nil
 	case DriverTypeProcess:
-		return git.ConfigPair{}, fmt.Errorf("processor driver type not yet supported")
+		return git.ConfigPair{
+			Key:   "filter.lfs.process",
+			Value: filepath.Join(cfg.BinDir, "gitaly-lfs-smudge"),
+		}, nil
 	default:
 		return git.ConfigPair{}, fmt.Errorf("unknown driver type: %v", c.DriverType)
 	}

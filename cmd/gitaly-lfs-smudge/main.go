@@ -80,7 +80,11 @@ func run(environment []string, out io.Writer, in io.Reader) error {
 
 		return nil
 	case smudge.DriverTypeProcess:
-		return fmt.Errorf("process driver type not yet supported")
+		if err := process(ctx, cfg, out, in); err != nil {
+			return fmt.Errorf("running smudge process: %w", err)
+		}
+
+		return nil
 	default:
 		return fmt.Errorf("unknown driver type: %v", cfg.DriverType)
 	}
