@@ -14,7 +14,12 @@ import (
 )
 
 func smudgeContents(ctx context.Context, cfg smudge.Config, to io.Writer, from io.Reader) (returnedErr error) {
-	output, err := handleSmudge(ctx, cfg, from)
+	client, err := gitlab.NewHTTPClient(log.ContextLogger(ctx), cfg.Gitlab, cfg.TLS, prometheus.Config{})
+	if err != nil {
+		return fmt.Errorf("creating HTTP client: %w", err)
+	}
+
+	output, err := handleSmudge(ctx, cfg, client, from)
 	if err != nil {
 		return fmt.Errorf("smudging contents: %w", err)
 	}
@@ -31,7 +36,7 @@ func smudgeContents(ctx context.Context, cfg smudge.Config, to io.Writer, from i
 	return nil
 }
 
-func handleSmudge(ctx context.Context, cfg smudge.Config, from io.Reader) (io.ReadCloser, error) {
+func handleSmudge(ctx context.Context, cfg smudge.Config, gitlabClient *gitlab.HTTPClient, from io.Reader) (io.ReadCloser, error) {
 	logger := log.ContextLogger(ctx)
 
 	ptr, contents, err := lfs.DecodeFrom(from)
@@ -42,17 +47,12 @@ func handleSmudge(ctx context.Context, cfg smudge.Config, from io.Reader) (io.Re
 
 	logger.WithField("oid", ptr.Oid).Debug("decoded LFS OID")
 
-	client, err := gitlab.NewHTTPClient(logger, cfg.Gitlab, cfg.TLS, prometheus.Config{})
-	if err != nil {
-		return io.NopCloser(contents), err
-	}
-
 	qs := url.Values{}
 	qs.Set("oid", ptr.Oid)
 	qs.Set("gl_repository", cfg.GlRepository)
 	u := url.URL{Path: "/lfs", RawQuery: qs.Encode()}
 
-	response, err := client.Get(ctx, u.String())
+	response, err := gitlabClient.Get(ctx, u.String())
 	if err != nil {
 		return io.NopCloser(contents), fmt.Errorf("error loading LFS object: %v", err)
 	}
