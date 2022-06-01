@@ -13,13 +13,13 @@ import (
 	"gitlab.com/gitlab-org/labkit/log"
 )
 
-func smudgeContents(ctx context.Context, cfg smudge.Config, to io.Writer, from io.Reader) (returnedErr error) {
+func filter(ctx context.Context, cfg smudge.Config, to io.Writer, from io.Reader) (returnedErr error) {
 	client, err := gitlab.NewHTTPClient(log.ContextLogger(ctx), cfg.Gitlab, cfg.TLS, prometheus.Config{})
 	if err != nil {
 		return fmt.Errorf("creating HTTP client: %w", err)
 	}
 
-	output, err := handleSmudge(ctx, cfg, client, from)
+	output, err := smudgeOneObject(ctx, cfg, client, from)
 	if err != nil {
 		return fmt.Errorf("smudging contents: %w", err)
 	}
@@ -36,7 +36,7 @@ func smudgeContents(ctx context.Context, cfg smudge.Config, to io.Writer, from i
 	return nil
 }
 
-func handleSmudge(ctx context.Context, cfg smudge.Config, gitlabClient *gitlab.HTTPClient, from io.Reader) (io.ReadCloser, error) {
+func smudgeOneObject(ctx context.Context, cfg smudge.Config, gitlabClient *gitlab.HTTPClient, from io.Reader) (io.ReadCloser, error) {
 	logger := log.ContextLogger(ctx)
 
 	ptr, contents, err := lfs.DecodeFrom(from)

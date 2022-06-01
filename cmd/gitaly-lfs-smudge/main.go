@@ -72,7 +72,7 @@ func run(environment []string, out io.Writer, in io.Reader) error {
 		return fmt.Errorf("loading configuration: %w", err)
 	}
 
-	if err := smudgeContents(ctx, cfg, out, in); err != nil {
+	if err := filter(ctx, cfg, out, in); err != nil {
 		return fmt.Errorf("running smudge filter: %w", err)
 	}
 

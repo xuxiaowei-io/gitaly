@@ -45,7 +45,7 @@ var defaultOptions = gitlab.TestServerOptions{
 	ServerKeyPath:    keyPath,
 }
 
-func TestSuccessfulLfsSmudge(t *testing.T) {
+func TestFilter_successful(t *testing.T) {
 	testCases := []struct {
 		desc string
 		data string
@@ -79,13 +79,13 @@ func TestSuccessfulLfsSmudge(t *testing.T) {
 				},
 			}
 
-			require.NoError(t, smudgeContents(ctx, cfg, &b, reader))
+			require.NoError(t, filter(ctx, cfg, &b, reader))
 			require.Equal(t, testData, b.String())
 		})
 	}
 }
 
-func TestUnsuccessfulLfsSmudge(t *testing.T) {
+func TestFilter_unsuccessful(t *testing.T) {
 	defaultConfig := func(t *testing.T, gitlabCfg config.Gitlab) smudge.Config {
 		return smudge.Config{
 			GlRepository: "project-1",
@@ -180,7 +180,7 @@ func TestUnsuccessfulLfsSmudge(t *testing.T) {
 			cfg := tc.setupCfg(t, gitlabCfg)
 
 			var b bytes.Buffer
-			err := smudgeContents(ctx, cfg, &b, strings.NewReader(tc.data))
+			err := filter(ctx, cfg, &b, strings.NewReader(tc.data))
 
 			if tc.expectedError {
 				require.Error(t, err)
