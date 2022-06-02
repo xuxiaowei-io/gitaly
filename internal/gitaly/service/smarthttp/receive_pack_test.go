@@ -705,7 +705,7 @@ func TestPostReceivePack_referenceTransactionHook(t *testing.T) {
 			deps.GetTxManager(),
 			deps.GetDiskCache(),
 		))
-		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache()))
+		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache(), deps.GetPackObjectsConcurrencyTracker()))
 	}, testserver.WithDisablePraefect())
 
 	ctx, err := txinfo.InjectTransaction(ctx, 1234, "primary", true)
@@ -801,7 +801,7 @@ func TestPostReceivePack_notAllowed(t *testing.T) {
 			deps.GetTxManager(),
 			deps.GetDiskCache(),
 		))
-		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache()))
+		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache(), deps.GetPackObjectsConcurrencyTracker()))
 	}, testserver.WithDisablePraefect(), testserver.WithHookManager(hookManager))
 
 	ctx, err := txinfo.InjectTransaction(testhelper.Context(t), 1234, "primary", true)
