@@ -128,7 +128,18 @@ func (q *requestQueue) ReadObject() (*Object, error) {
 
 	objectInfo, err := q.readInfo()
 	if err != nil {
-		atomic.StoreInt32(&q.isReadingObject, 0)
+		// In the general case we cannot know why reading the object's info has failed. And
+		// given that git-cat-file(1) is stateful, we cannot say whether it's safe to
+		// continue reading from it now or whether we need to keep the queue dirty instead.
+		// So we keep `isReadingObject == 0` in the general case so that it continues to
+		// stay dirty.
+		//
+		// One known exception is when we've got a NotFoundError: this is a graceful failure
+		// and we can continue reading from the process.
+		if IsNotFound(err) {
+			atomic.StoreInt32(&q.isReadingObject, 0)
+		}
+
 		return nil, err
 	}
 	q.trace.recordRequest(objectInfo.Type)
