@@ -255,3 +255,54 @@ func filenameForCache(ctx context.Context) string {
 	}
 	return languageStatsFilename
 }
+
+func BenchmarkInstance_Stats(b *testing.B) {
+	testhelper.NewFeatureSets(featureflag.GoLanguageStats).
+		Bench(b, benchmarkInstanceStats)
+}
+
+func benchmarkInstanceStats(b *testing.B, ctx context.Context) {
+	cfg := testcfg.Build(b)
+	gitCmdFactory := gittest.NewCommandFactory(b, cfg)
+	languageStatsFilename := filenameForCache(ctx)
+
+	linguist, err := New(cfg, gitCmdFactory)
+	require.NoError(b, err)
+
+	catfileCache := catfile.NewCache(cfg)
+	b.Cleanup(catfileCache.Stop)
+
+	repoProto, repoPath := gittest.CloneRepo(b, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
+		SourceRepo: "benchmark.git",
+	})
+	repo := localrepo.NewTestRepo(b, cfg, repoProto)
+
+	var scratchStat ByteCountPerLanguage
+	var incStats ByteCountPerLanguage
+
+	b.Run("from scratch", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			b.StopTimer()
+			require.NoError(b, os.RemoveAll(filepath.Join(repoPath, languageStatsFilename)))
+			b.StartTimer()
+
+			scratchStat, err = linguist.Stats(ctx, repo, "f5dfdd0057cd6bffc6259a5c8533dde5bf6a9d37", catfileCache)
+			require.NoError(b, err)
+		}
+	})
+
+	b.Run("incremental", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			b.StopTimer()
+			require.NoError(b, os.RemoveAll(filepath.Join(repoPath, languageStatsFilename)))
+			// a commit about 3 months older than the next
+			_, err = linguist.Stats(ctx, repo, "3c813b292d25a9b2ffda70e7f609f623bfc0cb37", catfileCache)
+			b.StartTimer()
+
+			incStats, err = linguist.Stats(ctx, repo, "f5dfdd0057cd6bffc6259a5c8533dde5bf6a9d37", catfileCache)
+			require.NoError(b, err)
+		}
+	})
+
+	require.Equal(b, scratchStat, incStats)
+}
