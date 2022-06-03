@@ -8,9 +8,9 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 )
@@ -41,17 +41,17 @@ func (s *server) FindChangedPaths(in *gitalypb.FindChangedPathsRequest, stream g
 	}, git.WithStdin(strings.NewReader(strings.Join(in.GetCommits(), "\n")+"\n")))
 	if err != nil {
 		if _, ok := status.FromError(err); ok {
-			return fmt.Errorf("FindChangedPaths Stdin Err: %w", err)
+			return fmt.Errorf("stdin err: %w", err)
 		}
-		return status.Errorf(codes.Internal, "FindChangedPaths: Cmd Err: %v", err)
+		return helper.ErrInternalf("cmd err: %v", err)
 	}
 
 	if err := parsePaths(bufio.NewReader(cmd), diffChunker); err != nil {
-		return fmt.Errorf("FindChangedPaths Parsing Err: %w", err)
+		return fmt.Errorf("parsing err: %w", err)
 	}
 
 	if err := cmd.Wait(); err != nil {
-		return status.Errorf(codes.Unavailable, "FindChangedPaths: Cmd Wait Err: %v", err)
+		return helper.ErrUnavailablef("cmd wait err: %v", err)
 	}
 
 	return diffChunker.Flush()
@@ -65,11 +65,11 @@ func parsePaths(reader *bufio.Reader, chunker *chunk.Chunker) error {
 				break
 			}
 
-			return fmt.Errorf("FindChangedPaths Next Path Err: %w", err)
+			return fmt.Errorf("next path err: %w", err)
 		}
 
 		if err := chunker.Send(path); err != nil {
-			return fmt.Errorf("FindChangedPaths: err sending to chunker: %v", err)
+			return fmt.Errorf("err sending to chunker: %v", err)
 		}
 	}
 
@@ -97,7 +97,7 @@ func nextPath(reader *bufio.Reader) (*gitalypb.ChangedPaths, error) {
 
 	parsedPath, ok := statusTypeMap[string(pathStatus[:len(pathStatus)-1])]
 	if !ok {
-		return nil, status.Errorf(codes.Internal, "FindChangedPaths: Unknown changed paths returned: %v", string(pathStatus))
+		return nil, helper.ErrInternalf("unknown changed paths returned: %v", string(pathStatus))
 	}
 
 	changedPath := &gitalypb.ChangedPaths{
@@ -138,7 +138,7 @@ func (s *server) validateFindChangedPathsRequestParams(ctx context.Context, in *
 
 	for _, commit := range in.GetCommits() {
 		if commit == "" {
-			return status.Errorf(codes.InvalidArgument, "FindChangedPaths: commits cannot contain an empty commit")
+			return helper.ErrInvalidArgumentf("commits cannot contain an empty commit")
 		}
 
 		containsRef, err := gitRepo.HasRevision(ctx, git.Revision(commit+"^{commit}"))
@@ -147,7 +147,7 @@ func (s *server) validateFindChangedPathsRequestParams(ctx context.Context, in *
 		}
 
 		if !containsRef {
-			return status.Errorf(codes.NotFound, "FindChangedPaths: commit: %v can not be found", commit)
+			return helper.ErrNotFoundf("commit: %v can not be found", commit)
 		}
 	}
 

@@ -6,11 +6,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func TestFindChangedPathsRequest_success(t *testing.T) {
@@ -122,31 +121,31 @@ func TestFindChangedPathsRequest_failing(t *testing.T) {
 			desc:    "Repo not found",
 			repo:    &gitalypb.Repository{StorageName: repo.GetStorageName(), RelativePath: "bar.git"},
 			commits: []string{"e4003da16c1c2c3fc4567700121b17bf8e591c6c", "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"},
-			err:     status.Errorf(codes.NotFound, "GetRepoPath: not a git repository: %q", filepath.Join(cfg.Storages[0].Path, "bar.git")),
+			err:     helper.ErrNotFoundf("GetRepoPath: not a git repository: %q", filepath.Join(cfg.Storages[0].Path, "bar.git")),
 		},
 		{
 			desc:    "Storage not found",
 			repo:    &gitalypb.Repository{StorageName: "foo", RelativePath: "bar.git"},
 			commits: []string{"e4003da16c1c2c3fc4567700121b17bf8e591c6c", "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"},
-			err:     status.Error(codes.InvalidArgument, "GetStorageByName: no such storage: \"foo\""),
+			err:     helper.ErrInvalidArgumentf("GetStorageByName: no such storage: \"foo\""),
 		},
 		{
 			desc:    "Commits cannot contain an empty commit",
 			repo:    repo,
 			commits: []string{""},
-			err:     status.Error(codes.InvalidArgument, "FindChangedPaths: commits cannot contain an empty commit"),
+			err:     helper.ErrInvalidArgumentf("commits cannot contain an empty commit"),
 		},
 		{
 			desc:    "Invalid commit",
 			repo:    repo,
 			commits: []string{"invalidinvalidinvalid", "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"},
-			err:     status.Error(codes.NotFound, "FindChangedPaths: commit: invalidinvalidinvalid can not be found"),
+			err:     helper.ErrNotFoundf("commit: invalidinvalidinvalid can not be found"),
 		},
 		{
 			desc:    "Commit not found",
 			repo:    repo,
 			commits: []string{"z4003da16c1c2c3fc4567700121b17bf8e591c6c", "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"},
-			err:     status.Error(codes.NotFound, "FindChangedPaths: commit: z4003da16c1c2c3fc4567700121b17bf8e591c6c can not be found"),
+			err:     helper.ErrNotFoundf("commit: z4003da16c1c2c3fc4567700121b17bf8e591c6c can not be found"),
 		},
 	}
 
