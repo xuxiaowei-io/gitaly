@@ -81,7 +81,7 @@ func (cc *cmdCfg) configureHooks(
 	repo *gitalypb.Repository,
 	cfg config.Cfg,
 	gitCmdFactory CommandFactory,
-	receiveHooksPayload *ReceiveHooksPayload,
+	userDetails *UserDetails,
 	requestedHooks Hook,
 ) error {
 	if cc.hooksConfigured {
@@ -95,7 +95,13 @@ func (cc *cmdCfg) configureHooks(
 		return err
 	}
 
-	payload, err := NewHooksPayload(cfg, repo, transaction, receiveHooksPayload, requestedHooks, featureflag.RawFromContext(ctx)).Env()
+	payload, err := NewHooksPayload(
+		cfg,
+		repo,
+		transaction,
+		userDetails,
+		requestedHooks,
+		featureflag.RawFromContext(ctx)).Env()
 	if err != nil {
 		return err
 	}
@@ -126,7 +132,7 @@ type ReceivePackRequest interface {
 // git-receive-pack(1).
 func WithReceivePackHooks(req ReceivePackRequest, protocol string) CmdOpt {
 	return func(ctx context.Context, cfg config.Cfg, gitCmdFactory CommandFactory, cc *cmdCfg) error {
-		if err := cc.configureHooks(ctx, req.GetRepository(), cfg, gitCmdFactory, &ReceiveHooksPayload{
+		if err := cc.configureHooks(ctx, req.GetRepository(), cfg, gitCmdFactory, &UserDetails{
 			UserID:   req.GetGlId(),
 			Username: req.GetGlUsername(),
 			Protocol: protocol,
