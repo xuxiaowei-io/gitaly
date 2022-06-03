@@ -1,17 +1,21 @@
 package linguist
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -22,7 +26,11 @@ func TestMain(m *testing.M) {
 }
 
 func TestInstance_Stats(t *testing.T) {
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(featureflag.GoLanguageStats).
+		Run(t, testInstanceStats)
+}
+
+func testInstanceStats(t *testing.T, ctx context.Context) {
 	cfg := testcfg.Build(t)
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 
@@ -30,9 +38,11 @@ func TestInstance_Stats(t *testing.T) {
 	require.NoError(t, err)
 
 	catfileCache := catfile.NewCache(cfg)
-	defer catfileCache.Stop()
+	t.Cleanup(catfileCache.Stop)
 
 	commitID := git.ObjectID("1e292f8fedd741b75372e19097c76d327140c312")
+
+	languageStatsFilename := filenameForCache(ctx)
 
 	for _, tc := range []struct {
 		desc          string
@@ -63,7 +73,10 @@ func TestInstance_Stats(t *testing.T) {
 				// write the cache.
 				_, err := linguist.Stats(ctx, repo, commitID.String(), catfileCache)
 				require.NoError(t, err)
-				require.FileExists(t, filepath.Join(repoPath, "language-stats.cache"))
+				require.FileExists(t, filepath.Join(repoPath, languageStatsFilename))
+
+				// Make sure it isn't able to generate stats from scratch
+				require.NoError(t, os.RemoveAll(filepath.Join(repoPath, "objects", "pack")))
 
 				return repoProto, repoPath, commitID
 			},
@@ -79,7 +92,7 @@ func TestInstance_Stats(t *testing.T) {
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
 				repoProto, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
-				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "language-stats.cache"), []byte("garbage"), 0o644))
+				require.NoError(t, os.WriteFile(filepath.Join(repoPath, languageStatsFilename), []byte("garbage"), 0o644))
 
 				return repoProto, repoPath, commitID
 			},
@@ -107,7 +120,7 @@ func TestInstance_Stats(t *testing.T) {
 				// linguist knows to update the cache.
 				stats, err := linguist.Stats(ctx, repo, oldCommitID.String(), catfileCache)
 				require.NoError(t, err)
-				require.FileExists(t, filepath.Join(repoPath, "language-stats.cache"))
+				require.FileExists(t, filepath.Join(repoPath, languageStatsFilename))
 				require.Equal(t, ByteCountPerLanguage{
 					"Ruby": 19,
 				}, stats)
@@ -134,7 +147,7 @@ func TestInstance_Stats(t *testing.T) {
 				repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 				return repoProto, repoPath, commitID
 			},
-			expectedErr: "waiting for linguist: exit status 1",
+			expectedErr: "linguist",
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -145,7 +158,7 @@ func TestInstance_Stats(t *testing.T) {
 			if tc.expectedErr == "" {
 				require.NoError(t, err)
 				require.Equal(t, tc.expectedStats, stats)
-				require.FileExists(t, filepath.Join(repoPath, "language-stats.cache"))
+				require.FileExists(t, filepath.Join(repoPath, languageStatsFilename))
 			} else {
 				require.Contains(t, err.Error(), tc.expectedErr)
 			}
@@ -155,12 +168,12 @@ func TestInstance_Stats(t *testing.T) {
 
 func TestInstance_Stats_unmarshalJSONError(t *testing.T) {
 	cfg := testcfg.Build(t)
-	ctx := testhelper.Context(t)
+	ctx := featureflag.ContextWithFeatureFlag(testhelper.Context(t), featureflag.GoLanguageStats, false)
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}
 
 	catfileCache := catfile.NewCache(cfg)
-	defer catfileCache.Stop()
+	t.Cleanup(catfileCache.Stop)
 
 	repo := localrepo.New(config.NewLocator(cfg), gitCmdFactory, catfileCache, invalidRepo)
 
@@ -174,6 +187,43 @@ func TestInstance_Stats_unmarshalJSONError(t *testing.T) {
 
 	_, ok := err.(*json.SyntaxError)
 	require.False(t, ok, "expected the error not be a json Syntax Error")
+}
+
+func TestInstance_Stats_incremental(t *testing.T) {
+	t.Parallel()
+
+	cfg := testcfg.Build(t)
+	logger, hook := test.NewNullLogger()
+	ctx := testhelper.Context(t, testhelper.ContextWithLogger(logrus.NewEntry(logger)))
+	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.GoLanguageStats, true)
+
+	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+
+	linguist, err := New(cfg, gitCmdFactory)
+	require.NoError(t, err)
+
+	catfileCache := catfile.NewCache(cfg)
+	t.Cleanup(catfileCache.Stop)
+
+	repoProto, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+	cleanStats, err := linguist.Stats(ctx, repo, "1e292f8fedd741b75372e19097c76d327140c312", catfileCache)
+	require.NoError(t, err)
+	require.Len(t, hook.AllEntries(), 0)
+	require.NoError(t, os.Remove(filepath.Join(repoPath, languageStatsFilename)))
+
+	_, err = linguist.Stats(ctx, repo, "cfe32cf61b73a0d5e9f13e774abde7ff789b1660", catfileCache)
+	require.NoError(t, err)
+	require.Len(t, hook.AllEntries(), 0)
+	require.FileExists(t, filepath.Join(repoPath, languageStatsFilename))
+
+	incStats, err := linguist.Stats(ctx, repo, "1e292f8fedd741b75372e19097c76d327140c312", catfileCache)
+	require.NoError(t, err)
+	require.Len(t, hook.AllEntries(), 0)
+	require.FileExists(t, filepath.Join(repoPath, languageStatsFilename))
+
+	require.Equal(t, cleanStats, incStats)
 }
 
 func TestNew(t *testing.T) {
@@ -195,4 +245,13 @@ func TestNew_loadLanguagesCustomPath(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, "foo color", ling.Color("FooBar"))
+}
+
+// filenameForCache returns the filename where the cache is stored, depending on
+// the feature flag.
+func filenameForCache(ctx context.Context) string {
+	if featureflag.GoLanguageStats.IsDisabled(ctx) {
+		return "language-stats.cache"
+	}
+	return languageStatsFilename
 }

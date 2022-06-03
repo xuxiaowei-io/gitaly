@@ -1,10 +1,12 @@
 package commit
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -12,12 +14,16 @@ import (
 )
 
 func TestLanguages(t *testing.T) {
+	testhelper.NewFeatureSets(featureflag.GoLanguageStats).
+		Run(t, testLanguagesFeatured)
+}
+
+func testLanguagesFeatured(t *testing.T, ctx context.Context) {
 	t.Parallel()
 	cfg := testcfg.Build(t, testcfg.WithRealLinguist())
 
 	cfg.SocketPath = startTestServices(t, cfg)
 
-	ctx := testhelper.Context(t)
 	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
@@ -46,9 +52,13 @@ func TestLanguages(t *testing.T) {
 }
 
 func TestFileCountIsZeroWhenFeatureIsDisabled(t *testing.T) {
+	testhelper.NewFeatureSets(featureflag.GoLanguageStats).
+		Run(t, testFileCountIsZeroWhenFeatureIsDisabled)
+}
+
+func testFileCountIsZeroWhenFeatureIsDisabled(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
 	_, repo, _, client := setupCommitServiceWithRepo(ctx, t)
 
 	request := &gitalypb.CommitLanguagesRequest{
@@ -68,9 +78,13 @@ func TestFileCountIsZeroWhenFeatureIsDisabled(t *testing.T) {
 }
 
 func TestLanguagesEmptyRevision(t *testing.T) {
+	testhelper.NewFeatureSets(featureflag.GoLanguageStats).
+		Run(t, testLanguagesEmptyRevisionFeatured)
+}
+
+func testLanguagesEmptyRevisionFeatured(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
 	_, repo, _, client := setupCommitServiceWithRepo(ctx, t)
 
 	request := &gitalypb.CommitLanguagesRequest{
@@ -91,9 +105,13 @@ func TestLanguagesEmptyRevision(t *testing.T) {
 }
 
 func TestInvalidCommitLanguagesRequestRevision(t *testing.T) {
+	testhelper.NewFeatureSets(featureflag.GoLanguageStats).
+		Run(t, testInvalidCommitLanguagesRequestRevisionFeatured)
+}
+
+func testInvalidCommitLanguagesRequestRevisionFeatured(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
 	_, repo, _, client := setupCommitServiceWithRepo(ctx, t)
 
 	_, err := client.CommitLanguages(ctx, &gitalypb.CommitLanguagesRequest{
@@ -104,9 +122,13 @@ func TestInvalidCommitLanguagesRequestRevision(t *testing.T) {
 }
 
 func TestAmbiguousRefCommitLanguagesRequestRevision(t *testing.T) {
+	testhelper.NewFeatureSets(featureflag.GoLanguageStats).
+		Run(t, testAmbiguousRefCommitLanguagesRequestRevisionFeatured)
+}
+
+func testAmbiguousRefCommitLanguagesRequestRevisionFeatured(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
 	_, repo, _, client := setupCommitServiceWithRepo(ctx, t)
 
 	// gitlab-test repo has both a branch and a tag named 'v1.1.0'
