@@ -46,14 +46,14 @@ func TestSetup(t *testing.T) {
 
 	for i := 0; i < 3; i++ {
 		memoryPath := filepath.Join(
-			mock.root, "memory", "gitaly", fmt.Sprintf("gitaly-%d", os.Getpid()), fmt.Sprintf("repos-%d", i), "memory.limit_in_bytes",
+			mock.root, "memory", "gitaly", fmt.Sprintf("repos-%d", i), "memory.limit_in_bytes",
 		)
 		memoryContent := readCgroupFile(t, memoryPath)
 
 		require.Equal(t, string(memoryContent), "1024000")
 
 		cpuPath := filepath.Join(
-			mock.root, "cpu", "gitaly", fmt.Sprintf("gitaly-%d", os.Getpid()), fmt.Sprintf("repos-%d", i), "cpu.shares",
+			mock.root, "cpu", "gitaly", fmt.Sprintf("repos-%d", i), "cpu.shares",
 		)
 		cpuContent := readCgroupFile(t, cpuPath)
 
@@ -99,7 +99,7 @@ func TestAddCommand(t *testing.T) {
 
 		for _, s := range mock.subsystems {
 			path := filepath.Join(mock.root, string(s.Name()), "gitaly",
-				fmt.Sprintf("gitaly-%d", os.Getpid()), fmt.Sprintf("repos-%d", groupID), "cgroup.procs")
+				fmt.Sprintf("repos-%d", groupID), "cgroup.procs")
 			content := readCgroupFile(t, path)
 
 			pid, err := strconv.Atoi(string(content))
@@ -121,7 +121,7 @@ func TestAddCommand(t *testing.T) {
 
 		for _, s := range mock.subsystems {
 			path := filepath.Join(mock.root, string(s.Name()), "gitaly",
-				fmt.Sprintf("gitaly-%d", os.Getpid()), fmt.Sprintf("repos-%d", groupID), "cgroup.procs")
+				fmt.Sprintf("repos-%d", groupID), "cgroup.procs")
 			content := readCgroupFile(t, path)
 
 			pid, err := strconv.Atoi(string(content))
@@ -191,7 +191,7 @@ func TestMetrics(t *testing.T) {
 	require.NoError(t, cmd.Wait())
 	require.NoError(t, gitCmd1.Wait())
 
-	repoCgroupPath := filepath.Join(v1Manager1.currentProcessCgroup(), "repos-0")
+	repoCgroupPath := filepath.Join(config.HierarchyRoot, "repos-0")
 
 	expected := bytes.NewBufferString(fmt.Sprintf(`# HELP gitaly_cgroup_cpu_usage_total CPU Usage of Cgroup
 # TYPE gitaly_cgroup_cpu_usage_total gauge
