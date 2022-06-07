@@ -35,7 +35,7 @@ func (s *testTransactionServer) VoteTransaction(ctx context.Context, in *gitalyp
 	}, nil
 }
 
-func TestSuccessfulCreateBranchRequest(t *testing.T) {
+func TestUserCreateBranch_successful(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
@@ -112,7 +112,7 @@ func TestSuccessfulCreateBranchRequest(t *testing.T) {
 	}
 }
 
-func TestUserCreateBranchWithTransaction(t *testing.T) {
+func TestUserCreateBranch_transactions(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
@@ -186,7 +186,7 @@ func TestUserCreateBranchWithTransaction(t *testing.T) {
 	}
 }
 
-func TestSuccessfulGitHooksForUserCreateBranchRequest(t *testing.T) {
+func TestUserCreateBranch_hook(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
@@ -216,7 +216,7 @@ func TestSuccessfulGitHooksForUserCreateBranchRequest(t *testing.T) {
 	}
 }
 
-func TestSuccessfulCreateBranchRequestWithStartPointRefPrefix(t *testing.T) {
+func TestUserCreateBranch_startPoint(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
@@ -289,7 +289,7 @@ func TestSuccessfulCreateBranchRequestWithStartPointRefPrefix(t *testing.T) {
 	}
 }
 
-func TestFailedUserCreateBranchDueToHooks(t *testing.T) {
+func TestUserCreateBranch_hookFailure(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
@@ -314,7 +314,7 @@ func TestFailedUserCreateBranchDueToHooks(t *testing.T) {
 	}
 }
 
-func TestFailedUserCreateBranchRequest(t *testing.T) {
+func TestUserCreateBranch_failure(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
@@ -374,7 +374,7 @@ func TestFailedUserCreateBranchRequest(t *testing.T) {
 	}
 }
 
-func TestSuccessfulUserDeleteBranchRequest(t *testing.T) {
+func TestUserDeleteBranch_success(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
@@ -429,7 +429,7 @@ func TestSuccessfulUserDeleteBranchRequest(t *testing.T) {
 	}
 }
 
-func TestSuccessfulGitHooksForUserDeleteBranchRequest(t *testing.T) {
+func TestUserDeleteBranch_hooks(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
@@ -510,7 +510,7 @@ func TestUserDeleteBranch_transaction(t *testing.T) {
 	require.Equal(t, 2, transactionServer.called)
 }
 
-func TestFailedUserDeleteBranchDueToValidation(t *testing.T) {
+func TestUserDeleteBranch_invalidArgument(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
@@ -561,7 +561,7 @@ func TestFailedUserDeleteBranchDueToValidation(t *testing.T) {
 	}
 }
 
-func TestFailedUserDeleteBranchDueToHooks(t *testing.T) {
+func TestUserDeleteBranch_hookFailure(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
