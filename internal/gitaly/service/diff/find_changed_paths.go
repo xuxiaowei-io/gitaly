@@ -2,6 +2,7 @@ package diff
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -33,7 +34,6 @@ func (s *server) FindChangedPaths(in *gitalypb.FindChangedPathsRequest, stream g
 			git.Flag{Name: "--stdin"},
 			git.Flag{Name: "-m"},
 			git.Flag{Name: "-r"},
-			git.Flag{Name: "--name-status"},
 			git.Flag{Name: "--no-renames"},
 			git.Flag{Name: "--no-commit-id"},
 			git.Flag{Name: "--diff-filter=AMDTC"},
@@ -77,10 +77,21 @@ func parsePaths(reader *bufio.Reader, chunker *chunk.Chunker) error {
 }
 
 func nextPath(reader *bufio.Reader) (*gitalypb.ChangedPaths, error) {
-	pathStatus, err := reader.ReadBytes(numStatDelimiter)
+	_, err := reader.ReadBytes(':')
 	if err != nil {
 		return nil, err
 	}
+
+	line, err := reader.ReadBytes(numStatDelimiter)
+	if err != nil {
+		return nil, err
+	}
+	split := bytes.Split(line[:len(line)-1], []byte(" "))
+	if len(split) != 5 || len(split[4]) != 1 {
+		return nil, fmt.Errorf("git diff-tree parsing failed on: %v", line)
+	}
+
+	pathStatus := split[4]
 
 	path, err := reader.ReadBytes(numStatDelimiter)
 	if err != nil {
@@ -95,7 +106,7 @@ func nextPath(reader *bufio.Reader) (*gitalypb.ChangedPaths, error) {
 		"A": gitalypb.ChangedPaths_ADDED,
 	}
 
-	parsedPath, ok := statusTypeMap[string(pathStatus[:len(pathStatus)-1])]
+	parsedPath, ok := statusTypeMap[string(pathStatus)]
 	if !ok {
 		return nil, helper.ErrInternalf("unknown changed paths returned: %v", string(pathStatus))
 	}
