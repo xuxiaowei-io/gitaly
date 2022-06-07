@@ -529,7 +529,7 @@ func TestFailedUserDeleteBranchDueToValidation(t *testing.T) {
 				BranchName: []byte("does-matter-the-name-if-user-is-empty"),
 			},
 			response: nil,
-			err:      status.Error(codes.InvalidArgument, "Bad Request (empty user)"),
+			err:      status.Error(codes.InvalidArgument, "bad request: empty user"),
 		},
 		{
 			desc: "empty branch name",
@@ -538,7 +538,7 @@ func TestFailedUserDeleteBranchDueToValidation(t *testing.T) {
 				User:       gittest.TestUser,
 			},
 			response: nil,
-			err:      status.Error(codes.InvalidArgument, "Bad Request (empty branch name)"),
+			err:      status.Error(codes.InvalidArgument, "bad request: empty branch name"),
 		},
 		{
 			desc: "non-existent branch name",
@@ -548,7 +548,7 @@ func TestFailedUserDeleteBranchDueToValidation(t *testing.T) {
 				BranchName: []byte("i-do-not-exist"),
 			},
 			response: nil,
-			err:      status.Errorf(codes.FailedPrecondition, "branch not found: %s", "i-do-not-exist"),
+			err:      status.Errorf(codes.FailedPrecondition, "branch not found: %q", "i-do-not-exist"),
 		},
 	}
 
