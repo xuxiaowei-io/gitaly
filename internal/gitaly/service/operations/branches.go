@@ -143,7 +143,8 @@ func (s *Server) UserUpdateBranch(ctx context.Context, req *gitalypb.UserUpdateB
 	return &gitalypb.UserUpdateBranchResponse{}, nil
 }
 
-//nolint: revive,stylecheck // This is unintentionally missing documentation.
+// UserDeleteBranch force-deletes a single branch in the context of a specific user. It executes
+// hooks and contacts Rails to verify that the user is indeed allowed to delete that branch.
 func (s *Server) UserDeleteBranch(ctx context.Context, req *gitalypb.UserDeleteBranchRequest) (*gitalypb.UserDeleteBranchResponse, error) {
 	// That we do the branch name & user check here first only in
 	// UserDelete but not UserCreate is "intentional", i.e. it's

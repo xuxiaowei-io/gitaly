@@ -465,17 +465,21 @@ func (x *UserUpdateBranchResponse) GetPreReceiveError() string {
 	return ""
 }
 
-// This comment is left unintentionally blank.
+// UserDeleteBranchRequest is a request for the UserDeleteBranch RPC.
 type UserDeleteBranchRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// Repository is the repository to delete the branch in.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// This comment is left unintentionally blank.
+	// BranchName is the name of the branch that shall be deleted. This is expected to be the branch
+	// name only, e.g. in case you want to delete `refs/heads/main` the request needs to only contain
+	// `main` as the branch name.
 	BranchName []byte `protobuf:"bytes,2,opt,name=branch_name,json=branchName,proto3" json:"branch_name,omitempty"`
-	// This comment is left unintentionally blank.
+	// User is the user on whose behalf we should delete the branch. This information is used to
+	// perform access checks against the Rails `/internal/allowed` API. This user is also exposed to
+	// any custom hooks executed as part of this RPC call.
 	User *User `protobuf:"bytes,3,opt,name=user,proto3" json:"user,omitempty"`
 }
 
@@ -532,13 +536,14 @@ func (x *UserDeleteBranchRequest) GetUser() *User {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// UserDeleteBranchResponse is a response for the UserDeleteBranch RPC.
 type UserDeleteBranchResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// PreReceiveError is an error that is returned in case deletion of the branch failed either
+	// because of failing access checks or because hooks have refused the update.
 	PreReceiveError string `protobuf:"bytes,1,opt,name=pre_receive_error,json=preReceiveError,proto3" json:"pre_receive_error,omitempty"`
 }
 
