@@ -146,9 +146,6 @@ func (s *Server) UserUpdateBranch(ctx context.Context, req *gitalypb.UserUpdateB
 // UserDeleteBranch force-deletes a single branch in the context of a specific user. It executes
 // hooks and contacts Rails to verify that the user is indeed allowed to delete that branch.
 func (s *Server) UserDeleteBranch(ctx context.Context, req *gitalypb.UserDeleteBranchRequest) (*gitalypb.UserDeleteBranchResponse, error) {
-	// That we do the branch name & user check here first only in
-	// UserDelete but not UserCreate is "intentional", i.e. it's
-	// always been that way.
 	if len(req.BranchName) == 0 {
 		return nil, status.Errorf(codes.InvalidArgument, "Bad Request (empty branch name)")
 	}
