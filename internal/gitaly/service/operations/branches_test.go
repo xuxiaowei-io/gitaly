@@ -10,8 +10,11 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/hook"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -427,6 +430,89 @@ func TestUserDeleteBranch_success(t *testing.T) {
 			require.NotContains(t, string(refs), testCase.branchCommit, "branch deleted from refs")
 		})
 	}
+}
+
+func TestUserDeleteBranch_allowed(t *testing.T) {
+	t.Parallel()
+	ctx := testhelper.Context(t)
+
+	for _, tc := range []struct {
+		desc             string
+		allowed          func(context.Context, gitlab.AllowedParams) (bool, string, error)
+		expectedErr      error
+		expectedResponse *gitalypb.UserDeleteBranchResponse
+	}{
+		{
+			desc: "allowed",
+			allowed: func(context.Context, gitlab.AllowedParams) (bool, string, error) {
+				return true, "", nil
+			},
+			expectedResponse: &gitalypb.UserDeleteBranchResponse{},
+		},
+		{
+			desc: "not allowed",
+			allowed: func(context.Context, gitlab.AllowedParams) (bool, string, error) {
+				return false, "something something", nil
+			},
+			expectedResponse: &gitalypb.UserDeleteBranchResponse{
+				PreReceiveError: "GitLab: something something",
+			},
+		},
+		{
+			desc: "error",
+			allowed: func(context.Context, gitlab.AllowedParams) (bool, string, error) {
+				return false, "something something", fmt.Errorf("something else")
+			},
+			expectedResponse: &gitalypb.UserDeleteBranchResponse{
+				PreReceiveError: "GitLab: something else",
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx, testserver.WithGitLabClient(
+				gitlab.NewMockClient(t, tc.allowed, gitlab.MockPreReceive, gitlab.MockPostReceive),
+			))
+
+			repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
+			gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(), gittest.WithBranch("branch"))
+
+			response, err := client.UserDeleteBranch(ctx, &gitalypb.UserDeleteBranchRequest{
+				Repository: repo,
+				BranchName: []byte("branch"),
+				User:       gittest.TestUser,
+			})
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
+			testhelper.ProtoEqual(t, tc.expectedResponse, response)
+		})
+	}
+}
+
+func TestUserDeleteBranch_concurrentUpdate(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
+
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("concurrent-update"))
+
+	// Create a git-update-ref(1) process that's locking the "concurrent-update" branch. We do
+	// not commit the update yet though to keep the reference locked to simulate concurrent
+	// writes to the same reference.
+	updater, err := updateref.New(ctx, localrepo.NewTestRepo(t, cfg, repo))
+	require.NoError(t, err)
+	require.NoError(t, updater.Delete("refs/heads/concurrent-update"))
+	require.NoError(t, updater.Prepare())
+	defer func() {
+		require.NoError(t, updater.Cancel())
+	}()
+
+	response, err := client.UserDeleteBranch(ctx, &gitalypb.UserDeleteBranchRequest{
+		Repository: repo,
+		BranchName: []byte("concurrent-update"),
+		User:       gittest.TestUser,
+	})
+	testhelper.RequireGrpcError(t, helper.ErrFailedPreconditionf("Could not update refs/heads/concurrent-update. Please refresh and try again."), err)
+	require.Nil(t, response)
 }
 
 func TestUserDeleteBranch_hooks(t *testing.T) {
