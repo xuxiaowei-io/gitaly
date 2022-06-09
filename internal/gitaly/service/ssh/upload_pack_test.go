@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -156,49 +157,65 @@ func TestFailedUploadPackRequestDueToValidationError(t *testing.T) {
 	client, conn := newSSHClient(t, serverSocketPath)
 	defer conn.Close()
 
-	tests := []struct {
-		Desc string
-		Req  *gitalypb.SSHUploadPackRequest
-		Code codes.Code
+	for _, tc := range []struct {
+		desc        string
+		request     *gitalypb.SSHUploadPackRequest
+		expectedErr error
 	}{
 		{
-			Desc: "Repository.RelativePath is empty",
-			Req:  &gitalypb.SSHUploadPackRequest{Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: ""}},
-			Code: codes.InvalidArgument,
-		},
-		{
-			Desc: "Repository is nil",
-			Req:  &gitalypb.SSHUploadPackRequest{Repository: nil},
-			Code: codes.InvalidArgument,
-		},
-		{
-			Desc: "Data exists on first request",
-			Req:  &gitalypb.SSHUploadPackRequest{Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "path/to/repo"}, Stdin: []byte("Fail")},
-			Code: func() codes.Code {
+			desc: "missing relative path",
+			request: &gitalypb.SSHUploadPackRequest{
+				Repository: &gitalypb.Repository{
+					StorageName:  cfg.Storages[0].Name,
+					RelativePath: "",
+				},
+			},
+			expectedErr: func() error {
 				if testhelper.IsPraefectEnabled() {
-					return codes.NotFound
+					return helper.ErrInvalidArgumentf("repo scoped: invalid Repository")
 				}
-
-				return codes.InvalidArgument
+				return helper.ErrInvalidArgumentf("GetPath: relative path missing from storage_name:%q", "default")
 			}(),
 		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.Desc, func(t *testing.T) {
+		{
+			desc: "missing repository",
+			request: &gitalypb.SSHUploadPackRequest{
+				Repository: nil,
+			},
+			expectedErr: func() error {
+				if testhelper.IsPraefectEnabled() {
+					return helper.ErrInvalidArgumentf("repo scoped: empty Repository")
+				}
+				return helper.ErrInvalidArgumentf("GetStorageByName: no such storage: \"\"")
+			}(),
+		},
+		{
+			desc: "data in first request",
+			request: &gitalypb.SSHUploadPackRequest{
+				Repository: &gitalypb.Repository{
+					StorageName:  cfg.Storages[0].Name,
+					RelativePath: "path/to/repo",
+				},
+				Stdin: []byte("Fail"),
+			},
+			expectedErr: func() error {
+				if testhelper.IsPraefectEnabled() {
+					return helper.ErrNotFoundf("accessor call: route repository accessor: consistent storages: repository %q/%q not found", cfg.Storages[0].Name, "path/to/repo")
+				}
+				return helper.ErrInvalidArgumentf("non-empty stdin in first request")
+			}(),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
 			ctx := testhelper.Context(t)
-			stream, err := client.SSHUploadPack(ctx)
-			if err != nil {
-				t.Fatal(err)
-			}
 
-			if err = stream.Send(test.Req); err != nil {
-				t.Fatal(err)
-			}
+			stream, err := client.SSHUploadPack(ctx)
+			require.NoError(t, err)
+			require.NoError(t, stream.Send(tc.request))
 			require.NoError(t, stream.CloseSend())
 
 			err = testPostUploadPackFailedResponse(t, stream)
-			testhelper.RequireGrpcCode(t, err, test.Code)
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
 	}
 }
