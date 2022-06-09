@@ -94,7 +94,7 @@ GOIMPORTS_VERSION         ?= v0.1.10
 GOTESTSUM_VERSION         ?= v1.8.1
 GO_LICENSES_VERSION       ?= v1.2.1
 # https://pkg.go.dev/github.com/protocolbuffers/protobuf
-PROTOC_VERSION            ?= v3.17.3
+PROTOC_VERSION            ?= v21.1
 # https://pkg.go.dev/google.golang.org/protobuf
 PROTOC_GEN_GO_VERSION     ?= 1.28.0
 # https://pkg.go.dev/google.golang.org/grpc/cmd/protoc-gen-go-grpc
@@ -637,7 +637,7 @@ ${PROTOC}: ${DEPENDENCY_DIR}/protoc.version | ${TOOLS_DIR}
 	${Q}${GIT} -C "${PROTOC_SOURCE_DIR}" checkout ${GIT_QUIET} --detach FETCH_HEAD
 	${Q}${GIT} -C "${PROTOC_SOURCE_DIR}" submodule update --init --recursive
 	${Q}rm -rf "${PROTOC_BUILD_DIR}"
-	${Q}cmake "${PROTOC_SOURCE_DIR}"/cmake -B "${PROTOC_BUILD_DIR}" ${PROTOC_BUILD_OPTIONS}
+	${Q}cmake "${PROTOC_SOURCE_DIR}" -B "${PROTOC_BUILD_DIR}" ${PROTOC_BUILD_OPTIONS}
 	${Q}cmake --build "${PROTOC_BUILD_DIR}" --target install -- -j $(shell nproc)
 	${Q}cp "${PROTOC_INSTALL_DIR}"/bin/protoc ${PROTOC}
 
