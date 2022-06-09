@@ -55,7 +55,6 @@ func runClone(
 		fmt.Sprintf("GITALY_ADDRESS=%s", cfg.SocketPath),
 		fmt.Sprintf("GITALY_PAYLOAD=%s", payload),
 		fmt.Sprintf("GITALY_FEATUREFLAGS=%s", strings.Join(featureflag.AllFlags(ctx), ",")),
-		fmt.Sprintf("PATH=.:%s", os.Getenv("PATH")),
 		fmt.Sprintf(`GIT_SSH_COMMAND=%s upload-pack`, filepath.Join(cfg.BinDir, "gitaly-ssh")),
 	}
 	if withSidechannel {
@@ -452,7 +451,6 @@ func testUploadPackWithoutSideband(t *testing.T, opts ...testcfg.Option) {
 	uploadPack.Env = []string{
 		fmt.Sprintf("GITALY_ADDRESS=%s", cfg.SocketPath),
 		fmt.Sprintf("GITALY_PAYLOAD=%s", payload),
-		fmt.Sprintf("PATH=.:%s", os.Getenv("PATH")),
 	}
 	uploadPack.Stdin = negotiation
 
