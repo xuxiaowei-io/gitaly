@@ -467,8 +467,9 @@ func TestUploadPackCloneFailure(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
-
 	cfg.SocketPath = runSSHServer(t, cfg)
+
+	testcfg.BuildGitalySSH(t, cfg)
 
 	repo, _ := gittest.CreateRepository(testhelper.Context(t), t, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
@@ -478,14 +479,22 @@ func TestUploadPackCloneFailure(t *testing.T) {
 
 	err := runClone(ctx, t, cfg, false, git.SubCmd{
 		Name: "clone",
-		Args: []string{"git@localhost:test/test.git", localRepoPath},
+		Args: []string{
+			"git@localhost:test/test.git", localRepoPath,
+		},
 	}, &gitalypb.SSHUploadPackRequest{
 		Repository: &gitalypb.Repository{
 			StorageName:  "foobar",
 			RelativePath: repo.GetRelativePath(),
 		},
 	})
-	require.Error(t, err, "clone didn't fail")
+	require.Error(t, err)
+
+	if testhelper.IsPraefectEnabled() {
+		require.Contains(t, err.Error(), "rpc error: code = InvalidArgument desc = repo scoped: invalid Repository")
+	} else {
+		require.Contains(t, err.Error(), "rpc error: code = InvalidArgument desc = GetStorageByName: no such storage: \\\"foobar\\\"")
+	}
 }
 
 func TestUploadPack_gitFailure(t *testing.T) {
