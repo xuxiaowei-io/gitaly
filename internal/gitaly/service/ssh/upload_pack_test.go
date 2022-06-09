@@ -313,6 +313,27 @@ func testUploadPackCloneSuccess(t *testing.T, sidechannel bool, opts ...testcfg.
 				gittest.RequireObjectExists(t, cfg, repoPath, blobLessThanLimit)
 			},
 		},
+		{
+			desc: "hidden tags",
+			cloneFlags: []git.Option{
+				git.Flag{Name: "--mirror"},
+			},
+			request: &gitalypb.SSHUploadPackRequest{
+				Repository: repo,
+				GitConfigOptions: []string{
+					"transfer.hideRefs=refs/tags",
+				},
+			},
+			verify: func(t *testing.T, localRepoPath string) {
+				// Assert that there is at least one tag that should've been cloned
+				// if refs weren't hidden as expected
+				require.NotEmpty(t, gittest.Exec(t, cfg, "-C", repoPath, "tag"))
+
+				// And then verify that we did indeed hide tags as expected, which
+				// is demonstrated by not having fetched any tags.
+				require.Empty(t, gittest.Exec(t, cfg, "-C", localRepoPath, "tag"))
+			},
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			localRepoPath := testhelper.TempDir(t)
@@ -441,45 +462,6 @@ func testUploadPackWithoutSideband(t *testing.T, opts ...testcfg.Option) {
 	require.Contains(t, string(out), "refs/heads/master")
 	require.Contains(t, string(out), "Counting objects")
 	require.Contains(t, string(out), "PACK")
-}
-
-func TestUploadPackCloneHideTags(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	cfg := testcfg.Build(t)
-
-	testcfg.BuildGitalySSH(t, cfg)
-	testcfg.BuildGitalyHooks(t, cfg)
-
-	cfg.SocketPath = runSSHServer(t, cfg)
-
-	repo, repoPath := gittest.CreateRepository(testhelper.Context(t), t, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
-
-	localRepoPath := testhelper.TempDir(t)
-
-	require.NoError(t, runClone(ctx, t, cfg, false, git.SubCmd{
-		Name: "clone",
-		Flags: []git.Option{
-			git.Flag{Name: "--mirror"},
-		},
-		Args: []string{"git@localhost:test/test.git", localRepoPath},
-	}, &gitalypb.SSHUploadPackRequest{
-		Repository: repo,
-		GitConfigOptions: []string{
-			"transfer.hideRefs=refs/tags",
-		},
-	}))
-
-	// Assert that there is at least one tag that should've been cloned if refs weren't hidden
-	// as expected
-	require.NotEmpty(t, gittest.Exec(t, cfg, "-C", repoPath, "tag"))
-
-	// And then verify that we did indeed hide tags as expected, which is demonstrated by not
-	// having fetched any tags.
-	require.Empty(t, gittest.Exec(t, cfg, "-C", localRepoPath, "tag"))
 }
 
 func TestUploadPackCloneFailure(t *testing.T) {
