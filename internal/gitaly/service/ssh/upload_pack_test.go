@@ -2,6 +2,7 @@ package ssh
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -17,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
@@ -24,17 +26,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/encoding/protojson"
 )
-
-type cloneCommand struct {
-	command      git.Cmd
-	repository   *gitalypb.Repository
-	server       string
-	featureFlags []string
-	gitConfig    string
-	gitProtocol  string
-	cfg          config.Cfg
-	sidechannel  bool
-}
 
 func runTestWithAndWithoutConfigOptions(t *testing.T, tf func(t *testing.T, opts ...testcfg.Option), opts ...testcfg.Option) {
 	t.Run("no config options", func(t *testing.T) { tf(t) })
@@ -46,37 +37,33 @@ func runTestWithAndWithoutConfigOptions(t *testing.T, tf func(t *testing.T, opts
 	}
 }
 
-func (cmd cloneCommand) execute(t *testing.T) error {
-	req := &gitalypb.SSHUploadPackRequest{
-		Repository:  cmd.repository,
-		GitProtocol: cmd.gitProtocol,
-	}
-	if cmd.gitConfig != "" {
-		req.GitConfigOptions = strings.Split(cmd.gitConfig, " ")
-	}
-	payload, err := protojson.Marshal(req)
+// runClone runs the given Git command with gitaly-ssh set up as its SSH command. It will thus
+// invoke the Gitaly server's SSHUploadPack or SSHUploadPackWithSidechannel endpoint.
+func runClone(
+	ctx context.Context,
+	t *testing.T,
+	cfg config.Cfg,
+	withSidechannel bool,
+	cloneCmd git.Cmd,
+	request *gitalypb.SSHUploadPackRequest,
+) error {
+	payload, err := protojson.Marshal(request)
 	require.NoError(t, err)
 
-	var flagPairs []string
-	for _, flag := range cmd.featureFlags {
-		flagPairs = append(flagPairs, fmt.Sprintf("%s:true", flag))
-	}
-	ctx := testhelper.Context(t)
-
 	env := []string{
-		fmt.Sprintf("GITALY_ADDRESS=%s", cmd.server),
+		fmt.Sprintf("GITALY_ADDRESS=%s", cfg.SocketPath),
 		fmt.Sprintf("GITALY_PAYLOAD=%s", payload),
-		fmt.Sprintf("GITALY_FEATUREFLAGS=%s", strings.Join(flagPairs, ",")),
+		fmt.Sprintf("GITALY_FEATUREFLAGS=%s", strings.Join(featureflag.AllFlags(ctx), ",")),
 		fmt.Sprintf("PATH=.:%s", os.Getenv("PATH")),
-		fmt.Sprintf(`GIT_SSH_COMMAND=%s upload-pack`, filepath.Join(cmd.cfg.BinDir, "gitaly-ssh")),
+		fmt.Sprintf(`GIT_SSH_COMMAND=%s upload-pack`, filepath.Join(cfg.BinDir, "gitaly-ssh")),
 	}
-	if cmd.sidechannel {
+	if withSidechannel {
 		env = append(env, "GITALY_USE_SIDECHANNEL=1")
 	}
 
 	var output bytes.Buffer
-	gitCommand, err := gittest.NewCommandFactory(t, cmd.cfg).NewWithoutRepo(ctx,
-		cmd.command, git.WithStdout(&output), git.WithStderr(&output), git.WithEnv(env...), git.WithDisabledHooks(),
+	gitCommand, err := gittest.NewCommandFactory(t, cfg).NewWithoutRepo(ctx,
+		cloneCmd, git.WithStdout(&output), git.WithStderr(&output), git.WithEnv(env...), git.WithDisabledHooks(),
 	)
 	require.NoError(t, err)
 
@@ -237,6 +224,8 @@ func testUploadPackWithSidechannelCloneSuccess(t *testing.T, opts ...testcfg.Opt
 }
 
 func testUploadPackCloneSuccess2(t *testing.T, sidechannel bool, opts ...testcfg.Option) {
+	ctx := testhelper.Context(t)
+
 	cfg := testcfg.Build(t, opts...)
 
 	testcfg.BuildGitalyHooks(t, cfg)
@@ -274,17 +263,13 @@ func testUploadPackCloneSuccess2(t *testing.T, sidechannel bool, opts ...testcfg
 
 			negotiationMetrics.Reset()
 
-			require.NoError(t, cloneCommand{
-				repository: repo,
-				command: git.SubCmd{
-					Name:  "clone",
-					Args:  []string{"git@localhost:test/test.git", localRepoPath},
-					Flags: tc.cloneFlags,
-				},
-				server:      cfg.SocketPath,
-				cfg:         cfg,
-				sidechannel: sidechannel,
-			}.execute(t))
+			require.NoError(t, runClone(ctx, t, cfg, sidechannel, git.SubCmd{
+				Name:  "clone",
+				Args:  []string{"git@localhost:test/test.git", localRepoPath},
+				Flags: tc.cloneFlags,
+			}, &gitalypb.SSHUploadPackRequest{
+				Repository: repo,
+			}))
 
 			requireRevisionsEqual(t, cfg, repoPath, localRepoPath, "refs/heads/master")
 
@@ -297,6 +282,8 @@ func testUploadPackCloneSuccess2(t *testing.T, sidechannel bool, opts ...testcfg
 
 func TestUploadPackWithPackObjectsHook(t *testing.T) {
 	t.Parallel()
+
+	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t, testcfg.WithPackObjectsCacheEnabled())
 
@@ -327,14 +314,11 @@ func TestUploadPackWithPackObjectsHook(t *testing.T) {
 
 	localRepoPath := testhelper.TempDir(t)
 
-	err := cloneCommand{
-		repository: repo,
-		command: git.SubCmd{
-			Name: "clone", Args: []string{"git@localhost:test/test.git", localRepoPath},
-		},
-		server: cfg.SocketPath,
-		cfg:    cfg,
-	}.execute(t)
+	err := runClone(ctx, t, cfg, false, git.SubCmd{
+		Name: "clone", Args: []string{"git@localhost:test/test.git", localRepoPath},
+	}, &gitalypb.SSHUploadPackRequest{
+		Repository: repo,
+	})
 	require.NoError(t, err)
 
 	require.Equal(t, []byte("I was invoked\n"), testhelper.MustReadFile(t, outputPath))
@@ -400,6 +384,8 @@ func TestUploadPackCloneWithPartialCloneFilter(t *testing.T) {
 }
 
 func testUploadPackCloneWithPartialCloneFilter(t *testing.T, opts ...testcfg.Option) {
+	ctx := testhelper.Context(t)
+
 	cfg := testcfg.Build(t, opts...)
 
 	testcfg.BuildGitalySSH(t, cfg)
@@ -453,13 +439,9 @@ func testUploadPackCloneWithPartialCloneFilter(t *testing.T, opts ...testcfg.Opt
 
 			tc.cmd.Args = []string{"git@localhost:test/test.git", localPath}
 
-			cmd := cloneCommand{
-				repository: repo,
-				command:    tc.cmd,
-				server:     cfg.SocketPath,
-				cfg:        cfg,
-			}
-			err := cmd.execute(t)
+			err := runClone(ctx, t, cfg, false, tc.cmd, &gitalypb.SSHUploadPackRequest{
+				Repository: repo,
+			})
 			defer func() { require.NoError(t, os.RemoveAll(localPath)) }()
 			require.NoError(t, err, "clone failed")
 
@@ -507,17 +489,14 @@ func testUploadPackCloneSuccessWithGitProtocol(t *testing.T, opts ...testcfg.Opt
 		t.Run(tc.desc, func(t *testing.T) {
 			localRepoPath := testhelper.TempDir(t)
 
-			require.NoError(t, cloneCommand{
-				repository: repo,
-				command: git.SubCmd{
-					Name:  "clone",
-					Args:  []string{"git@localhost:test/test.git", localRepoPath},
-					Flags: tc.cloneFlags,
-				},
-				server:      cfg.SocketPath,
-				gitProtocol: git.ProtocolV2,
-				cfg:         cfg,
-			}.execute(t))
+			require.NoError(t, runClone(ctx, t, cfg, false, git.SubCmd{
+				Name:  "clone",
+				Args:  []string{"git@localhost:test/test.git", localRepoPath},
+				Flags: tc.cloneFlags,
+			}, &gitalypb.SSHUploadPackRequest{
+				Repository:  repo,
+				GitProtocol: git.ProtocolV2,
+			}))
 
 			requireRevisionsEqual(t, cfg, repoPath, localRepoPath, "refs/heads/master")
 
@@ -530,6 +509,7 @@ func testUploadPackCloneSuccessWithGitProtocol(t *testing.T, opts ...testcfg.Opt
 func TestUploadPackCloneHideTags(t *testing.T) {
 	t.Parallel()
 
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
 	testcfg.BuildGitalySSH(t, cfg)
@@ -543,19 +523,18 @@ func TestUploadPackCloneHideTags(t *testing.T) {
 
 	localRepoPath := testhelper.TempDir(t)
 
-	require.NoError(t, cloneCommand{
-		repository: repo,
-		command: git.SubCmd{
-			Name: "clone",
-			Flags: []git.Option{
-				git.Flag{Name: "--mirror"},
-			},
-			Args: []string{"git@localhost:test/test.git", localRepoPath},
+	require.NoError(t, runClone(ctx, t, cfg, false, git.SubCmd{
+		Name: "clone",
+		Flags: []git.Option{
+			git.Flag{Name: "--mirror"},
 		},
-		server:    cfg.SocketPath,
-		gitConfig: "transfer.hideRefs=refs/tags",
-		cfg:       cfg,
-	}.execute(t))
+		Args: []string{"git@localhost:test/test.git", localRepoPath},
+	}, &gitalypb.SSHUploadPackRequest{
+		Repository: repo,
+		GitConfigOptions: []string{
+			"transfer.hideRefs=refs/tags",
+		},
+	}))
 
 	// Assert that there is at least one tag that should've been cloned if refs weren't hidden
 	// as expected
@@ -569,6 +548,7 @@ func TestUploadPackCloneHideTags(t *testing.T) {
 func TestUploadPackCloneFailure(t *testing.T) {
 	t.Parallel()
 
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
 	cfg.SocketPath = runSSHServer(t, cfg)
@@ -579,19 +559,15 @@ func TestUploadPackCloneFailure(t *testing.T) {
 
 	localRepoPath := testhelper.TempDir(t)
 
-	cmd := cloneCommand{
-		repository: &gitalypb.Repository{
+	err := runClone(ctx, t, cfg, false, git.SubCmd{
+		Name: "clone",
+		Args: []string{"git@localhost:test/test.git", localRepoPath},
+	}, &gitalypb.SSHUploadPackRequest{
+		Repository: &gitalypb.Repository{
 			StorageName:  "foobar",
 			RelativePath: repo.GetRelativePath(),
 		},
-		command: git.SubCmd{
-			Name: "clone",
-			Args: []string{"git@localhost:test/test.git", localRepoPath},
-		},
-		server: cfg.SocketPath,
-		cfg:    cfg,
-	}
-	err := cmd.execute(t)
+	})
 	require.Error(t, err, "clone didn't fail")
 }
 
