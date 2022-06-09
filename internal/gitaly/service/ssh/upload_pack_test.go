@@ -87,21 +87,12 @@ func (cmd cloneCommand) execute(t *testing.T) error {
 	return nil
 }
 
-func (cmd cloneCommand) test(t *testing.T, cfg config.Cfg, repoPath string, localRepoPath string) (string, string, string, string) {
+func requireRevisionsEqual(t *testing.T, cfg config.Cfg, repoPathA, repoPathB, revision string) {
 	t.Helper()
-
-	defer func() { require.NoError(t, os.RemoveAll(localRepoPath)) }()
-
-	err := cmd.execute(t)
-	require.NoError(t, err)
-
-	remoteHead := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "master"))
-	localHead := text.ChompBytes(gittest.Exec(t, cfg, "-C", localRepoPath, "rev-parse", "master"))
-
-	remoteTags := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "tag"))
-	localTags := text.ChompBytes(gittest.Exec(t, cfg, "-C", localRepoPath, "tag"))
-
-	return localHead, remoteHead, localTags, remoteTags
+	require.Equal(t,
+		text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPathA, "rev-parse", revision+"^{}")),
+		text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPathB, "rev-parse", revision+"^{}")),
+	)
 }
 
 func TestFailedUploadPackRequestDueToTimeout(t *testing.T) {
@@ -259,47 +250,43 @@ func testUploadPackCloneSuccess2(t *testing.T, sidechannel bool, opts ...testcfg
 		Seed: gittest.SeedGitLabTest,
 	})
 
-	localRepoPath := testhelper.TempDir(t)
-
 	tests := []struct {
-		cmd    git.Cmd
-		desc   string
-		deepen float64
+		desc       string
+		cloneFlags []git.Option
+		deepen     float64
 	}{
 		{
-			cmd: git.SubCmd{
-				Name: "clone",
-				Args: []string{"git@localhost:test/test.git", localRepoPath},
-			},
 			desc:   "full clone",
 			deepen: 0,
 		},
 		{
-			cmd: git.SubCmd{
-				Name: "clone",
-				Flags: []git.Option{
-					git.ValueFlag{Name: "--depth", Value: "1"},
-				},
-				Args: []string{"git@localhost:test/test.git", localRepoPath},
+			desc: "shallow clone",
+			cloneFlags: []git.Option{
+				git.ValueFlag{Name: "--depth", Value: "1"},
 			},
-			desc:   "shallow clone",
 			deepen: 1,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.desc, func(t *testing.T) {
+			localRepoPath := testhelper.TempDir(t)
+
 			negotiationMetrics.Reset()
 
-			cmd := cloneCommand{
-				repository:  repo,
-				command:     tc.cmd,
+			require.NoError(t, cloneCommand{
+				repository: repo,
+				command: git.SubCmd{
+					Name:  "clone",
+					Args:  []string{"git@localhost:test/test.git", localRepoPath},
+					Flags: tc.cloneFlags,
+				},
 				server:      cfg.SocketPath,
 				cfg:         cfg,
 				sidechannel: sidechannel,
-			}
-			lHead, rHead, _, _ := cmd.test(t, cfg, repoPath, localRepoPath)
-			require.Equal(t, lHead, rHead, "local and remote head not equal")
+			}.execute(t))
+
+			requireRevisionsEqual(t, cfg, repoPath, localRepoPath, "refs/heads/master")
 
 			metric, err := negotiationMetrics.GetMetricWithLabelValues("deepen")
 			require.NoError(t, err)
@@ -503,43 +490,36 @@ func testUploadPackCloneSuccessWithGitProtocol(t *testing.T, opts ...testcfg.Opt
 	testcfg.BuildGitalySSH(t, cfg)
 	testcfg.BuildGitalyHooks(t, cfg)
 
-	localRepoPath := testhelper.TempDir(t)
-
-	tests := []struct {
-		cmd  git.Cmd
-		desc string
+	for _, tc := range []struct {
+		desc       string
+		cloneFlags []git.Option
 	}{
 		{
-			cmd: git.SubCmd{
-				Name: "clone",
-				Args: []string{"git@localhost:test/test.git", localRepoPath},
-			},
 			desc: "full clone",
 		},
 		{
-			cmd: git.SubCmd{
-				Name: "clone",
-				Args: []string{"git@localhost:test/test.git", localRepoPath},
-				Flags: []git.Option{
-					git.ValueFlag{Name: "--depth", Value: "1"},
-				},
-			},
 			desc: "shallow clone",
+			cloneFlags: []git.Option{
+				git.ValueFlag{Name: "--depth", Value: "1"},
+			},
 		},
-	}
-
-	for _, tc := range tests {
+	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			cmd := cloneCommand{
-				repository:  repo,
-				command:     tc.cmd,
+			localRepoPath := testhelper.TempDir(t)
+
+			require.NoError(t, cloneCommand{
+				repository: repo,
+				command: git.SubCmd{
+					Name:  "clone",
+					Args:  []string{"git@localhost:test/test.git", localRepoPath},
+					Flags: tc.cloneFlags,
+				},
 				server:      cfg.SocketPath,
 				gitProtocol: git.ProtocolV2,
 				cfg:         cfg,
-			}
+			}.execute(t))
 
-			lHead, rHead, _, _ := cmd.test(t, cfg, repoPath, localRepoPath)
-			require.Equal(t, lHead, rHead, "local and remote head not equal")
+			requireRevisionsEqual(t, cfg, repoPath, localRepoPath, "refs/heads/master")
 
 			envData := protocolDetectingFactory.ReadProtocol(t)
 			require.Contains(t, envData, fmt.Sprintf("GIT_PROTOCOL=%s\n", git.ProtocolV2))
@@ -563,7 +543,7 @@ func TestUploadPackCloneHideTags(t *testing.T) {
 
 	localRepoPath := testhelper.TempDir(t)
 
-	cloneCmd := cloneCommand{
+	require.NoError(t, cloneCommand{
 		repository: repo,
 		command: git.SubCmd{
 			Name: "clone",
@@ -575,15 +555,15 @@ func TestUploadPackCloneHideTags(t *testing.T) {
 		server:    cfg.SocketPath,
 		gitConfig: "transfer.hideRefs=refs/tags",
 		cfg:       cfg,
-	}
-	_, _, lTags, rTags := cloneCmd.test(t, cfg, repoPath, localRepoPath)
+	}.execute(t))
 
-	if lTags == rTags {
-		t.Fatalf("local and remote tags are equal. clone failed: %q != %q", lTags, rTags)
-	}
-	if tag := "v1.0.0"; !strings.Contains(rTags, tag) {
-		t.Fatalf("sanity check failed, tag %q not found in %q", tag, rTags)
-	}
+	// Assert that there is at least one tag that should've been cloned if refs weren't hidden
+	// as expected
+	require.NotEmpty(t, gittest.Exec(t, cfg, "-C", repoPath, "tag"))
+
+	// And then verify that we did indeed hide tags as expected, which is demonstrated by not
+	// having fetched any tags.
+	require.Empty(t, gittest.Exec(t, cfg, "-C", localRepoPath, "tag"))
 }
 
 func TestUploadPackCloneFailure(t *testing.T) {
