@@ -1273,10 +1273,8 @@ func TestUserMergeToRef_ignoreHooksRequest(t *testing.T) {
 		t.Run(hookName, func(t *testing.T) {
 			gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
 
-			resp, err := client.UserMergeToRef(ctx, request)
+			_, err := client.UserMergeToRef(ctx, request)
 			require.NoError(t, err)
-			//nolint:staticcheck
-			require.Empty(t, resp.PreReceiveError)
 		})
 	}
 }

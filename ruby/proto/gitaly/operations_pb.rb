@@ -98,7 +98,6 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     end
     add_message "gitaly.UserMergeToRefResponse" do
       optional :commit_id, :string, 1
-      optional :pre_receive_error, :string, 2
     end
     add_message "gitaly.OperationBranchUpdate" do
       optional :commit_id, :string, 1

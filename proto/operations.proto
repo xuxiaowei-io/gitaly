@@ -377,9 +377,11 @@ message UserMergeToRefRequest {
 message UserMergeToRefResponse {
   // commit_id is the object ID of the computed merge commit.
   string commit_id = 1;
-  // PreReceiveError is never set because this RPC does not perform
-  // authentication via `/internal/allowed`.
-  string pre_receive_error = 2 [deprecated=true];
+
+  // PreReceiveError had never been set because this RPC does not perform authentication via
+  // `/internal/allowed`. This field was thus removed without replacement.
+  reserved "pre_receive_error";
+  reserved 2;
 }
 
 // OperationBranchUpdate contains the details of a branch update.
