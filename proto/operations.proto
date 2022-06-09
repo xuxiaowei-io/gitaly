@@ -758,6 +758,7 @@ message UserSquashRequest {
 message UserSquashResponse {
   // squash_sha is the object ID of the squashed commit.
   string squash_sha = 1;
+
   // DEPRECATED: https://gitlab.com/gitlab-org/gitaly/proto/merge_requests/161
   reserved 2;
   reserved "pre_receive_error";
@@ -765,7 +766,8 @@ message UserSquashResponse {
   // GitError is not used anymore. Instead, this RPC always returns a real
   // error with an optional UserRebaseConfirmableError, which may be set on
   // special errors.
-  string git_error = 3 [deprecated=true];
+  reserved 3;
+  reserved "git_error";
 }
 
 // This comment is left unintentionally blank.

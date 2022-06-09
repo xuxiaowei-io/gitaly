@@ -250,7 +250,6 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     end
     add_message "gitaly.UserSquashResponse" do
       optional :squash_sha, :string, 1
-      optional :git_error, :string, 3
     end
     add_message "gitaly.UserRebaseConfirmableError" do
       oneof :error do
