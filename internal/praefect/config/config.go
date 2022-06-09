@@ -154,6 +154,7 @@ type Config struct {
 	MemoryQueueEnabled  bool                `toml:"memory_queue_enabled,omitempty"`
 	GracefulStopTimeout config.Duration     `toml:"graceful_stop_timeout,omitempty"`
 	RepositoriesCleanup RepositoriesCleanup `toml:"repositories_cleanup,omitempty"`
+	Gitlab              config.Gitlab       `toml:"gitlab,omitempty"`
 }
 
 // VirtualStorage represents a set of nodes for a storage
