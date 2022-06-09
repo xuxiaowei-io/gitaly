@@ -252,6 +252,7 @@ func testUploadPackCloneSuccess(t *testing.T, sidechannel bool, opts ...testcfg.
 		desc       string
 		cloneFlags []git.Option
 		deepen     float64
+		verify     func(t *testing.T, localRepoPath string)
 	}{
 		{
 			desc:   "full clone",
@@ -263,6 +264,21 @@ func testUploadPackCloneSuccess(t *testing.T, sidechannel bool, opts ...testcfg.
 				git.ValueFlag{Name: "--depth", Value: "1"},
 			},
 			deepen: 1,
+		},
+		{
+			desc: "partial clone",
+			cloneFlags: []git.Option{
+				git.ValueFlag{Name: "--filter", Value: "blob:limit=2048"},
+			},
+			verify: func(t *testing.T, repoPath string) {
+				// Ruby file which is ~1kB in size and not present in HEAD
+				blobLessThanLimit := git.ObjectID("6ee41e85cc9bf33c10b690df09ca735b22f3790f")
+				// Image which is ~100kB in size and not present in HEAD
+				blobGreaterThanLimit := git.ObjectID("18079e308ff9b3a5e304941020747e5c39b46c88")
+
+				gittest.RequireObjectNotExists(t, cfg, repoPath, blobGreaterThanLimit)
+				gittest.RequireObjectExists(t, cfg, repoPath, blobLessThanLimit)
+			},
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -283,6 +299,10 @@ func testUploadPackCloneSuccess(t *testing.T, sidechannel bool, opts ...testcfg.
 			metric, err := negotiationMetrics.GetMetricWithLabelValues("deepen")
 			require.NoError(t, err)
 			require.Equal(t, tc.deepen, promtest.ToFloat64(metric))
+
+			if tc.verify != nil {
+				tc.verify(t, localRepoPath)
+			}
 		})
 	}
 }
@@ -382,80 +402,6 @@ func testUploadPackWithoutSideband(t *testing.T, opts ...testcfg.Option) {
 	require.Contains(t, string(out), "refs/heads/master")
 	require.Contains(t, string(out), "Counting objects")
 	require.Contains(t, string(out), "PACK")
-}
-
-func TestUploadPackCloneWithPartialCloneFilter(t *testing.T) {
-	t.Parallel()
-
-	runTestWithAndWithoutConfigOptions(t, testUploadPackCloneWithPartialCloneFilter, testcfg.WithPackObjectsCacheEnabled())
-}
-
-func testUploadPackCloneWithPartialCloneFilter(t *testing.T, opts ...testcfg.Option) {
-	ctx := testhelper.Context(t)
-
-	cfg := testcfg.Build(t, opts...)
-
-	testcfg.BuildGitalySSH(t, cfg)
-	testcfg.BuildGitalyHooks(t, cfg)
-
-	cfg.SocketPath = runSSHServer(t, cfg)
-
-	repo, _ := gittest.CreateRepository(testhelper.Context(t), t, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
-
-	// Ruby file which is ~1kB in size and not present in HEAD
-	blobLessThanLimit := git.ObjectID("6ee41e85cc9bf33c10b690df09ca735b22f3790f")
-	// Image which is ~100kB in size and not present in HEAD
-	blobGreaterThanLimit := git.ObjectID("18079e308ff9b3a5e304941020747e5c39b46c88")
-
-	tests := []struct {
-		desc     string
-		repoTest func(t *testing.T, repoPath string)
-		cmd      git.SubCmd
-	}{
-		{
-			desc: "full_clone",
-			repoTest: func(t *testing.T, repoPath string) {
-				gittest.RequireObjectExists(t, cfg, repoPath, blobGreaterThanLimit)
-			},
-			cmd: git.SubCmd{
-				Name: "clone",
-			},
-		},
-		{
-			desc: "partial_clone",
-			repoTest: func(t *testing.T, repoPath string) {
-				gittest.RequireObjectNotExists(t, cfg, repoPath, blobGreaterThanLimit)
-			},
-			cmd: git.SubCmd{
-				Name: "clone",
-				Flags: []git.Option{
-					git.ValueFlag{Name: "--filter", Value: "blob:limit=2048"},
-				},
-			},
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.desc, func(t *testing.T) {
-			// Run the clone with filtering enabled in both runs. The only
-			// difference is that in the first run, we have the
-			// UploadPackFilter flag disabled.
-			localPath := testhelper.TempDir(t)
-
-			tc.cmd.Args = []string{"git@localhost:test/test.git", localPath}
-
-			err := runClone(ctx, t, cfg, false, tc.cmd, &gitalypb.SSHUploadPackRequest{
-				Repository: repo,
-			})
-			defer func() { require.NoError(t, os.RemoveAll(localPath)) }()
-			require.NoError(t, err, "clone failed")
-
-			gittest.RequireObjectExists(t, cfg, localPath, blobLessThanLimit)
-			tc.repoTest(t, localPath)
-		})
-	}
 }
 
 func TestUploadPackCloneSuccessWithGitProtocol(t *testing.T) {
