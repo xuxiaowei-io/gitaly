@@ -320,9 +320,12 @@ message UserMergeBranchResponse {
   // Second message
   // If set, the merge has been applied to the branch.
   OperationBranchUpdate branch_update = 3;
-  // PreReceiveError is never set. Instead, we return a proper gRPC error with
-  // UserMergeBranchError details set to an AccessCheckError.
-  string pre_receive_error = 4 [deprecated=true];
+
+  // PreReceiveError had previously been set in case access checks refused the merge. This has been
+  // changed to Instead we return a proper gRPC error with UserMergeBranchError details set to an
+  // AccessCheckError.
+  reserved "pre_receive_error";
+  reserved 4;
 }
 
 // UserMergeBranchError includes error descriptions which may be set as error

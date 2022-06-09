@@ -77,7 +77,6 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     add_message "gitaly.UserMergeBranchResponse" do
       optional :commit_id, :string, 1
       optional :branch_update, :message, 3, "gitaly.OperationBranchUpdate"
-      optional :pre_receive_error, :string, 4
     end
     add_message "gitaly.UserMergeBranchError" do
       oneof :error do
