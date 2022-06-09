@@ -214,7 +214,7 @@ func TestFailedUploadPackRequestDueToValidationError(t *testing.T) {
 			require.NoError(t, stream.Send(tc.request))
 			require.NoError(t, stream.CloseSend())
 
-			err = testPostUploadPackFailedResponse(t, stream)
+			err = recvUntilError(t, stream)
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
 	}
@@ -578,11 +578,11 @@ func TestUploadPackCloneFailure(t *testing.T) {
 	require.Error(t, err, "clone didn't fail")
 }
 
-func TestUploadPackCloneGitFailure(t *testing.T) {
+func TestUploadPack_gitFailure(t *testing.T) {
 	t.Parallel()
 
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
-
 	cfg.SocketPath = runSSHServer(t, cfg)
 
 	repo, repoPath := gittest.CreateRepository(testhelper.Context(t), t, cfg, gittest.CreateRepositoryConfig{
@@ -592,40 +592,25 @@ func TestUploadPackCloneGitFailure(t *testing.T) {
 	client, conn := newSSHClient(t, cfg.SocketPath)
 	defer conn.Close()
 
-	configPath := filepath.Join(repoPath, "config")
-	gitconfig, err := os.Create(configPath)
-	require.NoError(t, err)
-
 	// Writing an invalid config will allow repo to pass the `IsGitDirectory` check but still
 	// trigger an error when git tries to access the repo.
-	_, err = gitconfig.WriteString("Not a valid git config")
-	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(repoPath, "config"), []byte("Not a valid gitconfig"), 0o644))
 
-	require.NoError(t, gitconfig.Close())
-	ctx := testhelper.Context(t)
 	stream, err := client.SSHUploadPack(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err = stream.Send(&gitalypb.SSHUploadPackRequest{Repository: repo}); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	require.NoError(t, stream.Send(&gitalypb.SSHUploadPackRequest{Repository: repo}))
 	require.NoError(t, stream.CloseSend())
 
-	err = testPostUploadPackFailedResponse(t, stream)
-	testhelper.RequireGrpcCode(t, err, codes.Internal)
-	require.EqualError(t, err, "rpc error: code = Internal desc = cmd wait: exit status 128, stderr: \"fatal: bad config line 1 in file ./config\\n\"")
+	err = recvUntilError(t, stream)
+	testhelper.RequireGrpcError(t, helper.ErrInternalf(`cmd wait: exit status 128, stderr: "fatal: bad config line 1 in file ./config\n"`), err)
 }
 
-func testPostUploadPackFailedResponse(t *testing.T, stream gitalypb.SSHService_SSHUploadPackClient) error {
-	var err error
-	var res *gitalypb.SSHUploadPackResponse
-
-	for err == nil {
-		res, err = stream.Recv()
-		require.Nil(t, res.GetStdout())
+func recvUntilError(t *testing.T, stream gitalypb.SSHService_SSHUploadPackClient) error {
+	for {
+		response, err := stream.Recv()
+		require.Nil(t, response.GetStdout())
+		if err != nil {
+			return err
+		}
 	}
-
-	return err
 }
