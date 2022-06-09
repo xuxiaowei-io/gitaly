@@ -634,6 +634,7 @@ func TestUserMergeBranch_allowed(t *testing.T) {
 				},
 				gitlab.MockPreReceive,
 				gitlab.MockPostReceive,
+				gitlab.MockFeatures,
 			))
 
 			ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithCfg(

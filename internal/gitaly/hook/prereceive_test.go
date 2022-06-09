@@ -31,7 +31,11 @@ func TestPrereceive_customHooks(t *testing.T) {
 	locator := config.NewLocator(cfg)
 
 	hookManager := NewManager(cfg, locator, gitCmdFactory, transaction.NewManager(cfg, backchannel.NewRegistry()), gitlab.NewMockClient(
-		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
+		t,
+		gitlab.MockAllowed,
+		gitlab.MockPreReceive,
+		gitlab.MockPostReceive,
+		gitlab.MockFeatures,
 	))
 
 	receiveHooksPayload := &git.UserDetails{
@@ -186,7 +190,11 @@ func TestPrereceive_quarantine(t *testing.T) {
 	require.NoError(t, err)
 
 	hookManager := NewManager(cfg, config.NewLocator(cfg), gittest.NewCommandFactory(t, cfg), nil, gitlab.NewMockClient(
-		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
+		t,
+		gitlab.MockAllowed,
+		gitlab.MockPreReceive,
+		gitlab.MockPostReceive,
+		gitlab.MockFeatures,
 	))
 
 	gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte(fmt.Sprintf(
@@ -247,6 +255,10 @@ func (m *prereceiveAPIMock) Check(ctx context.Context) (*gitlab.CheckInfo, error
 
 func (m *prereceiveAPIMock) PostReceive(context.Context, string, string, string, ...string) (bool, []gitlab.PostReceiveMessage, error) {
 	return true, nil, errors.New("unexpected call")
+}
+
+func (m *prereceiveAPIMock) Features(ctx context.Context) (map[featureflag.FeatureFlag]bool, error) {
+	return nil, nil
 }
 
 func TestPrereceive_gitlab(t *testing.T) {

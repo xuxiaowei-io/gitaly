@@ -2,6 +2,8 @@ package gitlab
 
 import (
 	"context"
+
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 )
 
 // AllowedParams compose set of parameters required to call 'GitlabAPI.Allowed' method.
@@ -42,6 +44,27 @@ type CheckInfo struct {
 	RedisReachable bool `json:"redis"`
 }
 
+// Feature represents the response of GitLab's `features` API endpoint.
+// The Flipper gem is used in Rails: https://www.flippercloud.io/docs/api
+type Feature struct {
+	// Name is the name of the feature
+	Name string `json:"name"`
+	// State is either "on", "off", or "conditional"
+	State string `json:"state"`
+	// Gates is a slice of FeatureGates
+	Gates []FeatureGate `json:"gates"`
+}
+
+// FeatureGate is a key value pair that controls whether or not a feature
+// is enabled.
+type FeatureGate struct {
+	// Key is the type of the feature gate. boolean, groups, actors,
+	// percentage_of_actors, percentage_of_time.
+	Key string `json:"key"`
+	// Value can be a string, bool, array, or integer
+	Value interface{} `json:"value"`
+}
+
 // Client is an interface for accessing the GitLab internal API
 type Client interface {
 	// Allowed queries the gitlab internal api /allowed endpoint to determine if a ref change for a given repository and user is allowed
@@ -52,4 +75,6 @@ type Client interface {
 	PreReceive(ctx context.Context, glRepository string) (bool, error)
 	// PostReceive queries the gitlab internal api /post_receive to decrease the reference counter
 	PostReceive(ctx context.Context, glRepository, glID, changes string, pushOptions ...string) (bool, []PostReceiveMessage, error)
+	// Features returns features from the api /features
+	Features(ctx context.Context) (map[featureflag.FeatureFlag]bool, error)
 }

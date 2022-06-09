@@ -495,7 +495,13 @@ func TestUserDeleteBranch_allowed(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx, testserver.WithGitLabClient(
-				gitlab.NewMockClient(t, tc.allowed, gitlab.MockPreReceive, gitlab.MockPostReceive),
+				gitlab.NewMockClient(
+					t,
+					tc.allowed,
+					gitlab.MockPreReceive,
+					gitlab.MockPostReceive,
+					gitlab.MockFeatures,
+				),
 			))
 
 			repo, repoPath := gittest.CreateRepository(ctx, t, cfg)

@@ -579,7 +579,11 @@ func TestCheckBadCreds(t *testing.T) {
 
 func runHookServiceServer(t *testing.T, cfg config.Cfg, serverOpts ...testserver.GitalyServerOpt) {
 	runHookServiceWithGitlabClient(t, cfg, gitlab.NewMockClient(
-		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
+		t,
+		gitlab.MockAllowed,
+		gitlab.MockPreReceive,
+		gitlab.MockPostReceive,
+		gitlab.MockFeatures,
 	), serverOpts...)
 }
 

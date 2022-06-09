@@ -28,7 +28,11 @@ func TestUpdate_customHooks(t *testing.T) {
 	locator := config.NewLocator(cfg)
 
 	hookManager := NewManager(cfg, locator, gitCmdFactory, transaction.NewManager(cfg, backchannel.NewRegistry()), gitlab.NewMockClient(
-		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
+		t,
+		gitlab.MockAllowed,
+		gitlab.MockPreReceive,
+		gitlab.MockPostReceive,
+		gitlab.MockFeatures,
 	))
 
 	receiveHooksPayload := &git.UserDetails{
@@ -217,7 +221,11 @@ func TestUpdate_quarantine(t *testing.T) {
 	require.NoError(t, err)
 
 	hookManager := NewManager(cfg, config.NewLocator(cfg), gittest.NewCommandFactory(t, cfg), nil, gitlab.NewMockClient(
-		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
+		t,
+		gitlab.MockAllowed,
+		gitlab.MockPreReceive,
+		gitlab.MockPostReceive,
+		gitlab.MockFeatures,
 	))
 
 	gittest.WriteCustomHook(t, repoPath, "update", []byte(fmt.Sprintf(

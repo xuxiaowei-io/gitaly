@@ -12,10 +12,12 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
-	gitalycfgprom "gitlab.com/gitlab-org/gitaly/v15/internal/config/prometheus"
+	promcfg "gitlab.com/gitlab-org/gitaly/v15/internal/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/prometheus/metrics"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/version"
 	"gitlab.com/gitlab-org/gitlab-shell/v14/client"
@@ -35,7 +37,7 @@ func NewHTTPClient(
 	logger logrus.FieldLogger,
 	gitlabCfg config.Gitlab,
 	tlsCfg config.TLS,
-	promCfg gitalycfgprom.Config,
+	promCfg promcfg.Config,
 ) (*HTTPClient, error) {
 	url, err := url.PathUnescape(gitlabCfg.URL)
 	if err != nil {
@@ -295,6 +297,36 @@ func (c *HTTPClient) Check(ctx context.Context) (*CheckInfo, error) {
 	return &info, nil
 }
 
+// Features performs an HTTP request to the /features API endpoint to check
+// if any feature flags are enabled.
+func (c *HTTPClient) features(ctx context.Context) ([]Feature, error) {
+	defer prometheus.NewTimer(c.latencyMetric.WithLabelValues("feature")).ObserveDuration()
+
+	resp, err := c.DoRequest(
+		ctx,
+		http.MethodGet,
+		"/api/v4/features",
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	defer c.finalizeResponse(resp)
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("Feature HTTP request failed with status: %d", resp.StatusCode)
+	}
+
+	var features []Feature
+
+	if err := json.NewDecoder(resp.Body).Decode(&features); err != nil {
+		return nil, fmt.Errorf("failed to decode response from /feature endpoint: %w", err)
+	}
+
+	return features, nil
+}
+
 func (c *HTTPClient) finalizeResponse(resp *http.Response) {
 	if _, err := io.Copy(io.Discard, resp.Body); err != nil {
 		c.logger.WithError(err).Errorf("discard body error for the request %q", resp.Request.RequestURI)
@@ -315,4 +347,72 @@ func marshallGitObjectDirs(gitObjectDirRel string, gitAltObjectDirsRel []string)
 	}
 
 	return string(envString), nil
+}
+
+var gitalyFeaturePrefix = "gitaly_"
+
+// Features calls Gitlab's /features API and
+// returns all feature flags that are explicitly turned on.
+// NOTE: We only inject a feature flag as enabled if it is explicitly turned on
+// if a boolean feature gate is set to true. If a boolean feature gate is set to
+// false, we don't have a way of knowing whether or not a feature flag should be
+// turned on. In other words, whatever uses this function should expect that
+// feature toggling by percentage or project will not be seen as an enabled
+// feature flag. Only feature flags that are turned completely on will be
+// injected into the outgoing context as enabled.
+func (c *HTTPClient) Features(ctx context.Context) (map[featureflag.FeatureFlag]bool, error) {
+	features, err := c.features(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("getting features: %w", err)
+	}
+
+	featureFlags := make(map[featureflag.FeatureFlag]bool)
+
+	for _, feature := range features {
+		var featureEnabled bool
+
+		if !strings.HasPrefix(feature.Name, gitalyFeaturePrefix) {
+			continue
+		}
+
+		featureName := strings.TrimPrefix(feature.Name, gitalyFeaturePrefix)
+
+		if feature.State == "off" {
+			featureFlags[featureflag.FeatureFlag{Name: featureName}] = false
+		} else if feature.State == "on" {
+			if len(feature.Gates) == 0 {
+				// If there are no feature gates, then we consider the
+				// feature as turned on if the state is "on". Otherwise,
+				// we don't make a decision.
+				featureEnabled = true
+			} else if len(feature.Gates) > 1 {
+				// If there are more than 1 feature gate that means
+				// there is a feature gate with a Key other than
+				// boolean. In this case, we don't have a way to
+				// determine if the flag should be on or off.
+				continue
+			} else {
+				// Once we get here, we know that there is only 1
+				// feature gate. If it is a boolean, then that
+				// determines whether the feature is turned on or off.
+				if feature.Gates[0].Key != "boolean" {
+					continue
+				}
+
+				v, ok := feature.Gates[0].Value.(bool)
+				if !ok {
+					ctxlogrus.Extract(ctx).
+						WithField("feature_flag", feature.Name).
+						Error("feature gate value not a bool")
+					continue
+				}
+
+				featureEnabled = v
+			}
+			featureFlags[featureflag.FeatureFlag{Name: featureName}] = featureEnabled
+		}
+
+	}
+
+	return featureFlags, nil
 }

@@ -30,7 +30,11 @@ func TestHookManager_stopCalled(t *testing.T) {
 
 	var mockTxMgr transaction.MockManager
 	hookManager := NewManager(cfg, config.NewLocator(cfg), gittest.NewCommandFactory(t, cfg), &mockTxMgr, gitlab.NewMockClient(
-		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
+		t,
+		gitlab.MockAllowed,
+		gitlab.MockPreReceive,
+		gitlab.MockPostReceive,
+		gitlab.MockFeatures,
 	))
 
 	ctx := testhelper.Context(t)
@@ -130,7 +134,11 @@ func TestHookManager_contextCancellationCancelsVote(t *testing.T) {
 	}
 
 	hookManager := NewManager(cfg, config.NewLocator(cfg), gittest.NewCommandFactory(t, cfg), &mockTxMgr, gitlab.NewMockClient(
-		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
+		t,
+		gitlab.MockAllowed,
+		gitlab.MockPreReceive,
+		gitlab.MockPostReceive,
+		gitlab.MockFeatures,
 	))
 
 	hooksPayload, err := git.NewHooksPayload(

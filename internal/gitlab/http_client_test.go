@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/promtest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -597,6 +598,163 @@ func TestAccess_postReceive(t *testing.T) {
 			}
 
 			require.Equal(t, [][]string{{"post-receive"}}, mockHistogramVec.LabelsCalled())
+		})
+	}
+}
+
+func TestFeatures(t *testing.T) {
+	testCases := []struct {
+		desc                 string
+		features             []Feature
+		expectedFeatureFlags map[featureflag.FeatureFlag]bool
+	}{
+		{
+			desc: "one feature flag",
+			features: []Feature{
+				{
+					Name:  "gitaly_1",
+					State: "off",
+				},
+				{
+					Name:  "gitaly_2",
+					State: "on",
+					Gates: []FeatureGate{
+						{
+							Key:   "boolean",
+							Value: true,
+						},
+					},
+				},
+				{
+					Name:  "gitaly_3",
+					State: "on",
+					Gates: []FeatureGate{
+						{
+							Key:   "boolean",
+							Value: false,
+						},
+					},
+				},
+			},
+			expectedFeatureFlags: map[featureflag.FeatureFlag]bool{
+				featureflag.FeatureFlag{Name: "1"}: false,
+				featureflag.FeatureFlag{Name: "2"}: true,
+				featureflag.FeatureFlag{Name: "3"}: false,
+			},
+		},
+		{
+			desc: "all feature flags disabled",
+			features: []Feature{
+				{
+					Name:  "gitaly_1",
+					State: "off",
+				},
+				{
+					Name:  "gitaly_2",
+					State: "off",
+				},
+				{
+					Name:  "gitaly_3",
+					State: "off",
+					Gates: []FeatureGate{
+						{
+							Key:   "boolean",
+							Value: false,
+						},
+					},
+				},
+			},
+			expectedFeatureFlags: map[featureflag.FeatureFlag]bool{
+				featureflag.FeatureFlag{Name: "1"}: false,
+				featureflag.FeatureFlag{Name: "2"}: false,
+				featureflag.FeatureFlag{Name: "3"}: false,
+			},
+		},
+		{
+			desc: "undecided",
+			features: []Feature{
+				{
+					Name:  "gitaly_1",
+					State: "on",
+					Gates: []FeatureGate{
+						{
+							Key:   "boolean",
+							Value: true,
+						},
+						{
+							Key:   "percentage_of_time",
+							Value: 20,
+						},
+					},
+				},
+				{
+					Name:  "gitaly_2",
+					State: "on",
+					Gates: []FeatureGate{
+						{
+							Key:   "percentage_of_actorsp",
+							Value: 10,
+						},
+					},
+				},
+			},
+			expectedFeatureFlags: map[featureflag.FeatureFlag]bool{},
+		},
+		{
+			desc: "unknown state",
+			features: []Feature{
+				{
+					Name:  "gitaly_1",
+					State: "on or off",
+					Gates: []FeatureGate{
+						{
+							Key:   "boolean",
+							Value: true,
+						},
+						{
+							Key:   "percentage_of_time",
+							Value: 20,
+						},
+					},
+				},
+			},
+			expectedFeatureFlags: map[featureflag.FeatureFlag]bool{},
+		},
+	}
+
+	secretToken := "topsecret"
+	tempDir := testhelper.TempDir(t)
+	WriteShellSecretFile(t, tempDir, secretToken)
+	secretFilePath := filepath.Join(tempDir, ".gitlab_shell_secret")
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			serverURL, cleanup := NewTestServer(t, TestServerOptions{
+				ServerKeyPath: "testdata/certs/server.key",
+				SecretToken:   secretToken,
+				Features:      tc.features,
+			})
+			defer cleanup()
+
+			c, err := NewHTTPClient(
+				testhelper.NewDiscardingLogger(t),
+				config.Gitlab{
+					URL:        serverURL,
+					SecretFile: secretFilePath,
+					HTTPSettings: config.HTTPSettings{
+						CAFile: "testdata/certs/server.crt",
+					},
+				},
+				config.TLS{},
+				prometheus.Config{},
+			)
+			require.NoError(t, err)
+
+			ctx := testhelper.Context(t)
+
+			features, err := c.Features(ctx)
+			require.NoError(t, err)
+			require.Equal(t, tc.expectedFeatureFlags, features)
 		})
 	}
 }

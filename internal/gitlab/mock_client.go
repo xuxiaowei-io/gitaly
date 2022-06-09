@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 )
 
 var (
@@ -23,6 +24,12 @@ var (
 	MockPostReceive = func(context.Context, string, string, string, ...string) (bool, []PostReceiveMessage, error) {
 		return true, nil, nil
 	}
+
+	// MockFeatures is a callback for the MockClient's `Features()` function
+	// which always returns nothing.
+	MockFeatures = func(ctx context.Context) (map[featureflag.FeatureFlag]bool, error) {
+		return nil, nil
+	}
 )
 
 // MockClient is a mock client of the internal GitLab API.
@@ -31,6 +38,7 @@ type MockClient struct {
 	allowed     func(context.Context, AllowedParams) (bool, string, error)
 	preReceive  func(context.Context, string) (bool, error)
 	postReceive func(context.Context, string, string, string, ...string) (bool, []PostReceiveMessage, error)
+	features    func(context.Context) (map[featureflag.FeatureFlag]bool, error)
 }
 
 // NewMockClient returns a new mock client for the internal GitLab API.
@@ -39,12 +47,14 @@ func NewMockClient(
 	allowed func(context.Context, AllowedParams) (bool, string, error),
 	preReceive func(context.Context, string) (bool, error),
 	postReceive func(context.Context, string, string, string, ...string) (bool, []PostReceiveMessage, error),
+	features func(context.Context) (map[featureflag.FeatureFlag]bool, error),
 ) Client {
 	return &MockClient{
 		tb:          tb,
 		allowed:     allowed,
 		preReceive:  preReceive,
 		postReceive: postReceive,
+		features:    features,
 	}
 }
 
@@ -74,4 +84,10 @@ func (m *MockClient) PreReceive(ctx context.Context, glRepository string) (bool,
 func (m *MockClient) PostReceive(ctx context.Context, glRepository, glID, changes string, gitPushOptions ...string) (bool, []PostReceiveMessage, error) {
 	require.NotNil(m.tb, m.postReceive, "postReceive called but not set")
 	return m.postReceive(ctx, glRepository, glID, changes, gitPushOptions...)
+}
+
+// Features does nothing and always return an empty slice of Features.
+func (m *MockClient) Features(ctx context.Context) (map[featureflag.FeatureFlag]bool, error) {
+	require.NotNil(m.tb, m.features, "features called but not set")
+	return m.features(ctx)
 }

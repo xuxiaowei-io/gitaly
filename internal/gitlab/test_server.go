@@ -57,6 +57,7 @@ type TestServerOptions struct {
 	ClientCACertPath            string // used to verify client certs are valid
 	ServerCertPath              string
 	ServerKeyPath               string
+	Features                    []Feature
 }
 
 // NewTestServer returns a mock gitlab server that responds to the hook api endpoints
@@ -64,12 +65,14 @@ func NewTestServer(t testing.TB, options TestServerOptions) (url string, cleanup
 	t.Helper()
 
 	mux := http.NewServeMux()
-	prefix := strings.TrimRight(options.RelativeURLRoot, "/") + "/api/v4/internal"
-	mux.Handle(prefix+"/allowed", http.HandlerFunc(handleAllowed(t, options)))
-	mux.Handle(prefix+"/pre_receive", http.HandlerFunc(handlePreReceive(t, options)))
-	mux.Handle(prefix+"/post_receive", http.HandlerFunc(handlePostReceive(options)))
-	mux.Handle(prefix+"/check", http.HandlerFunc(handleCheck(t, options)))
-	mux.Handle(prefix+"/lfs", http.HandlerFunc(handleLfs(t, options)))
+	prefix := strings.TrimRight(options.RelativeURLRoot, "/") + "/api/v4"
+	internalPrefix := prefix + "/internal"
+	mux.Handle(internalPrefix+"/allowed", http.HandlerFunc(handleAllowed(t, options)))
+	mux.Handle(internalPrefix+"/pre_receive", http.HandlerFunc(handlePreReceive(t, options)))
+	mux.Handle(internalPrefix+"/post_receive", http.HandlerFunc(handlePostReceive(options)))
+	mux.Handle(internalPrefix+"/check", http.HandlerFunc(handleCheck(t, options)))
+	mux.Handle(internalPrefix+"/lfs", http.HandlerFunc(handleLfs(t, options)))
+	mux.Handle(prefix+"/features", http.HandlerFunc(handleFeatures(t, options)))
 
 	var tlsCfg *tls.Config
 	if options.ClientCACertPath != "" {
@@ -554,6 +557,17 @@ func handleLfs(t testing.TB, options TestServerOptions) func(w http.ResponseWrit
 			_, err := w.Write([]byte(options.LfsBody))
 			require.NoError(t, err)
 		}
+	}
+}
+
+func handleFeatures(t testing.TB, options TestServerOptions) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not GET", http.StatusMethodNotAllowed)
+			return
+		}
+
+		require.NoError(t, json.NewEncoder(w).Encode(options.Features))
 	}
 }
 
