@@ -241,32 +241,65 @@ func testUploadPackCloneSuccess(t *testing.T, sidechannel bool, opts ...testcfg.
 	testcfg.BuildGitalySSH(t, cfg)
 
 	negotiationMetrics := prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"feature"})
+	protocolDetectingFactory := gittest.NewProtocolDetectingCommandFactory(ctx, t, cfg)
 
-	cfg.SocketPath = runSSHServerWithOptions(t, cfg, []ServerOpt{WithPackfileNegotiationMetrics(negotiationMetrics)})
+	cfg.SocketPath = runSSHServerWithOptions(t, cfg, []ServerOpt{
+		WithPackfileNegotiationMetrics(negotiationMetrics),
+	}, testserver.WithGitCommandFactory(protocolDetectingFactory))
 
 	repo, repoPath := gittest.CreateRepository(testhelper.Context(t), t, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
 	for _, tc := range []struct {
-		desc       string
-		cloneFlags []git.Option
-		deepen     float64
-		verify     func(t *testing.T, localRepoPath string)
+		desc             string
+		request          *gitalypb.SSHUploadPackRequest
+		cloneFlags       []git.Option
+		deepen           float64
+		verify           func(t *testing.T, localRepoPath string)
+		expectedProtocol string
 	}{
 		{
-			desc:   "full clone",
-			deepen: 0,
+			desc: "full clone",
+			request: &gitalypb.SSHUploadPackRequest{
+				Repository: repo,
+			},
+		},
+		{
+			desc: "full clone with protocol v2",
+			request: &gitalypb.SSHUploadPackRequest{
+				Repository:  repo,
+				GitProtocol: git.ProtocolV2,
+			},
+			expectedProtocol: git.ProtocolV2,
 		},
 		{
 			desc: "shallow clone",
+			request: &gitalypb.SSHUploadPackRequest{
+				Repository: repo,
+			},
 			cloneFlags: []git.Option{
 				git.ValueFlag{Name: "--depth", Value: "1"},
 			},
 			deepen: 1,
 		},
 		{
+			desc: "shallow clone with protocol v2",
+			request: &gitalypb.SSHUploadPackRequest{
+				Repository:  repo,
+				GitProtocol: git.ProtocolV2,
+			},
+			cloneFlags: []git.Option{
+				git.ValueFlag{Name: "--depth", Value: "1"},
+			},
+			deepen:           1,
+			expectedProtocol: git.ProtocolV2,
+		},
+		{
 			desc: "partial clone",
+			request: &gitalypb.SSHUploadPackRequest{
+				Repository: repo,
+			},
 			cloneFlags: []git.Option{
 				git.ValueFlag{Name: "--filter", Value: "blob:limit=2048"},
 			},
@@ -285,14 +318,13 @@ func testUploadPackCloneSuccess(t *testing.T, sidechannel bool, opts ...testcfg.
 			localRepoPath := testhelper.TempDir(t)
 
 			negotiationMetrics.Reset()
+			protocolDetectingFactory.Reset(t)
 
 			require.NoError(t, runClone(ctx, t, cfg, sidechannel, git.SubCmd{
 				Name:  "clone",
 				Args:  []string{"git@localhost:test/test.git", localRepoPath},
 				Flags: tc.cloneFlags,
-			}, &gitalypb.SSHUploadPackRequest{
-				Repository: repo,
-			}))
+			}, tc.request))
 
 			requireRevisionsEqual(t, cfg, repoPath, localRepoPath, "refs/heads/master")
 
@@ -302,6 +334,13 @@ func testUploadPackCloneSuccess(t *testing.T, sidechannel bool, opts ...testcfg.
 
 			if tc.verify != nil {
 				tc.verify(t, localRepoPath)
+			}
+
+			protocol := protocolDetectingFactory.ReadProtocol(t)
+			if tc.expectedProtocol != "" {
+				require.Contains(t, protocol, fmt.Sprintf("GIT_PROTOCOL=%s\n", git.ProtocolV2))
+			} else {
+				require.Empty(t, protocol)
 			}
 		})
 	}
@@ -402,61 +441,6 @@ func testUploadPackWithoutSideband(t *testing.T, opts ...testcfg.Option) {
 	require.Contains(t, string(out), "refs/heads/master")
 	require.Contains(t, string(out), "Counting objects")
 	require.Contains(t, string(out), "PACK")
-}
-
-func TestUploadPackCloneSuccessWithGitProtocol(t *testing.T) {
-	t.Parallel()
-
-	runTestWithAndWithoutConfigOptions(t, testUploadPackCloneSuccessWithGitProtocol, testcfg.WithPackObjectsCacheEnabled())
-}
-
-func testUploadPackCloneSuccessWithGitProtocol(t *testing.T, opts ...testcfg.Option) {
-	cfg := testcfg.Build(t, opts...)
-	ctx := testhelper.Context(t)
-
-	protocolDetectingFactory := gittest.NewProtocolDetectingCommandFactory(ctx, t, cfg)
-
-	cfg.SocketPath = runSSHServer(t, cfg, testserver.WithGitCommandFactory(protocolDetectingFactory))
-
-	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
-
-	testcfg.BuildGitalySSH(t, cfg)
-	testcfg.BuildGitalyHooks(t, cfg)
-
-	for _, tc := range []struct {
-		desc       string
-		cloneFlags []git.Option
-	}{
-		{
-			desc: "full clone",
-		},
-		{
-			desc: "shallow clone",
-			cloneFlags: []git.Option{
-				git.ValueFlag{Name: "--depth", Value: "1"},
-			},
-		},
-	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			localRepoPath := testhelper.TempDir(t)
-
-			require.NoError(t, runClone(ctx, t, cfg, false, git.SubCmd{
-				Name:  "clone",
-				Args:  []string{"git@localhost:test/test.git", localRepoPath},
-				Flags: tc.cloneFlags,
-			}, &gitalypb.SSHUploadPackRequest{
-				Repository:  repo,
-				GitProtocol: git.ProtocolV2,
-			}))
-
-			requireRevisionsEqual(t, cfg, repoPath, localRepoPath, "refs/heads/master")
-
-			envData := protocolDetectingFactory.ReadProtocol(t)
-			require.Contains(t, envData, fmt.Sprintf("GIT_PROTOCOL=%s\n", git.ProtocolV2))
-		})
-	}
 }
 
 func TestUploadPackCloneHideTags(t *testing.T) {
