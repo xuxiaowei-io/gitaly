@@ -91,7 +91,7 @@ PROTOLINT_VERSION         ?= 0.38.1
 GOCOVER_COBERTURA_VERSION ?= aaee18c8195c3f2d90e5ef80ca918d265463842a
 GOFUMPT_VERSION           ?= 0.3.1
 GOIMPORTS_VERSION         ?= v0.1.10
-GOTESTSUM_VERSION         ?= v1.7.0
+GOTESTSUM_VERSION         ?= v1.8.1
 GO_LICENSES_VERSION       ?= v1.0.0
 # https://pkg.go.dev/github.com/protocolbuffers/protobuf
 PROTOC_VERSION            ?= v3.17.3
