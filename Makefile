@@ -96,7 +96,7 @@ GO_LICENSES_VERSION       ?= v1.2.1
 # https://pkg.go.dev/github.com/protocolbuffers/protobuf
 PROTOC_VERSION            ?= v3.17.3
 # https://pkg.go.dev/google.golang.org/protobuf
-PROTOC_GEN_GO_VERSION     ?= 1.26.0
+PROTOC_GEN_GO_VERSION     ?= 1.28.0
 # https://pkg.go.dev/google.golang.org/grpc/cmd/protoc-gen-go-grpc
 PROTOC_GEN_GO_GRPC_VERSION?= 1.1.0
 # Git2Go and libgit2 may need to be updated in sync. Please refer to
