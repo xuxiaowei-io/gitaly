@@ -206,24 +206,16 @@ func TestFailedUploadPackRequestDueToValidationError(t *testing.T) {
 func TestUploadPackCloneSuccess(t *testing.T) {
 	t.Parallel()
 
-	runTestWithAndWithoutConfigOptions(t, testUploadPackCloneSuccess, testcfg.WithPackObjectsCacheEnabled())
+	for _, withSidechannel := range []bool{true, false} {
+		t.Run(fmt.Sprintf("sidechannel=%v", withSidechannel), func(t *testing.T) {
+			runTestWithAndWithoutConfigOptions(t, func(t *testing.T, opts ...testcfg.Option) {
+				testUploadPackCloneSuccess(t, withSidechannel, opts...)
+			})
+		})
+	}
 }
 
-func testUploadPackCloneSuccess(t *testing.T, opts ...testcfg.Option) {
-	testUploadPackCloneSuccess2(t, false, opts...)
-}
-
-func TestUploadPackWithSidechannelCloneSuccess(t *testing.T) {
-	t.Parallel()
-
-	runTestWithAndWithoutConfigOptions(t, testUploadPackWithSidechannelCloneSuccess, testcfg.WithPackObjectsCacheEnabled())
-}
-
-func testUploadPackWithSidechannelCloneSuccess(t *testing.T, opts ...testcfg.Option) {
-	testUploadPackCloneSuccess2(t, true, opts...)
-}
-
-func testUploadPackCloneSuccess2(t *testing.T, sidechannel bool, opts ...testcfg.Option) {
+func testUploadPackCloneSuccess(t *testing.T, sidechannel bool, opts ...testcfg.Option) {
 	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t, opts...)
@@ -239,7 +231,7 @@ func testUploadPackCloneSuccess2(t *testing.T, sidechannel bool, opts ...testcfg
 		Seed: gittest.SeedGitLabTest,
 	})
 
-	tests := []struct {
+	for _, tc := range []struct {
 		desc       string
 		cloneFlags []git.Option
 		deepen     float64
@@ -255,9 +247,7 @@ func testUploadPackCloneSuccess2(t *testing.T, sidechannel bool, opts ...testcfg
 			},
 			deepen: 1,
 		},
-	}
-
-	for _, tc := range tests {
+	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			localRepoPath := testhelper.TempDir(t)
 
