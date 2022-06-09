@@ -492,9 +492,9 @@ func testUploadPackCloneSuccessWithGitProtocol(t *testing.T, opts ...testcfg.Opt
 	cfg := testcfg.Build(t, opts...)
 	ctx := testhelper.Context(t)
 
-	gitCmdFactory, readProto := gittest.NewProtocolDetectingCommandFactory(ctx, t, cfg)
+	protocolDetectingFactory := gittest.NewProtocolDetectingCommandFactory(ctx, t, cfg)
 
-	cfg.SocketPath = runSSHServer(t, cfg, testserver.WithGitCommandFactory(gitCmdFactory))
+	cfg.SocketPath = runSSHServer(t, cfg, testserver.WithGitCommandFactory(protocolDetectingFactory))
 
 	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
@@ -541,7 +541,7 @@ func testUploadPackCloneSuccessWithGitProtocol(t *testing.T, opts ...testcfg.Opt
 			lHead, rHead, _, _ := cmd.test(t, cfg, repoPath, localRepoPath)
 			require.Equal(t, lHead, rHead, "local and remote head not equal")
 
-			envData := readProto()
+			envData := protocolDetectingFactory.ReadProtocol(t)
 			require.Contains(t, envData, fmt.Sprintf("GIT_PROTOCOL=%s\n", git.ProtocolV2))
 		})
 	}
