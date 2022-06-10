@@ -82,13 +82,13 @@ func requireRevisionsEqual(t *testing.T, cfg config.Cfg, repoPathA, repoPathB, r
 	)
 }
 
-func TestFailedUploadPackRequestDueToTimeout(t *testing.T) {
+func TestUploadPack_timeout(t *testing.T) {
 	t.Parallel()
 
-	runTestWithAndWithoutConfigOptions(t, testFailedUploadPackRequestDueToTimeout, testcfg.WithPackObjectsCacheEnabled())
+	runTestWithAndWithoutConfigOptions(t, testUploadPackTimeout, testcfg.WithPackObjectsCacheEnabled())
 }
 
-func testFailedUploadPackRequestDueToTimeout(t *testing.T, opts ...testcfg.Option) {
+func testUploadPackTimeout(t *testing.T, opts ...testcfg.Option) {
 	cfg := testcfg.Build(t, opts...)
 
 	cfg.SocketPath = runSSHServerWithOptions(t, cfg, []ServerOpt{WithUploadPackRequestTimeout(10 * time.Microsecond)})
@@ -146,7 +146,7 @@ func requireFailedSSHStream(t *testing.T, recv func() (int32, error)) {
 	}
 }
 
-func TestFailedUploadPackRequestDueToValidationError(t *testing.T) {
+func TestUploadPack_validation(t *testing.T) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
@@ -219,19 +219,19 @@ func TestFailedUploadPackRequestDueToValidationError(t *testing.T) {
 	}
 }
 
-func TestUploadPackCloneSuccess(t *testing.T) {
+func TestUploadPack_successful(t *testing.T) {
 	t.Parallel()
 
 	for _, withSidechannel := range []bool{true, false} {
 		t.Run(fmt.Sprintf("sidechannel=%v", withSidechannel), func(t *testing.T) {
 			runTestWithAndWithoutConfigOptions(t, func(t *testing.T, opts ...testcfg.Option) {
-				testUploadPackCloneSuccess(t, withSidechannel, opts...)
+				testUploadPackSuccessful(t, withSidechannel, opts...)
 			})
 		})
 	}
 }
 
-func testUploadPackCloneSuccess(t *testing.T, sidechannel bool, opts ...testcfg.Option) {
+func testUploadPackSuccessful(t *testing.T, sidechannel bool, opts ...testcfg.Option) {
 	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t, opts...)
@@ -366,7 +366,7 @@ func testUploadPackCloneSuccess(t *testing.T, sidechannel bool, opts ...testcfg.
 	}
 }
 
-func TestUploadPackWithPackObjectsHook(t *testing.T) {
+func TestUploadPack_packObjectsHook(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
@@ -410,7 +410,7 @@ func TestUploadPackWithPackObjectsHook(t *testing.T) {
 	require.Equal(t, []byte("I was invoked\n"), testhelper.MustReadFile(t, outputPath))
 }
 
-func TestUploadPackWithoutSideband(t *testing.T) {
+func TestUploadPack_withoutSideband(t *testing.T) {
 	t.Parallel()
 
 	runTestWithAndWithoutConfigOptions(t, testUploadPackWithoutSideband, testcfg.WithPackObjectsCacheEnabled())
@@ -462,7 +462,7 @@ func testUploadPackWithoutSideband(t *testing.T, opts ...testcfg.Option) {
 	require.Contains(t, string(out), "PACK")
 }
 
-func TestUploadPackCloneFailure(t *testing.T) {
+func TestUploadPack_invalidStorage(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
