@@ -5,8 +5,8 @@ import (
 	"sync"
 
 	"github.com/prometheus/client_golang/prometheus"
+	gitalycfgprom "gitlab.com/gitlab-org/gitaly/v15/internal/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
-	gitalycfgprom "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 )
 

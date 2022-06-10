@@ -14,8 +14,8 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
+	gitalycfgprom "gitlab.com/gitlab-org/gitaly/v15/internal/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
-	gitalycfgprom "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/prometheus/metrics"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/version"
 	"gitlab.com/gitlab-org/gitlab-shell/v14/client"

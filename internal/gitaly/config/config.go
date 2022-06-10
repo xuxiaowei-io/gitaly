@@ -15,10 +15,10 @@ import (
 
 	"github.com/pelletier/go-toml"
 	log "github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/auth"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/cgroups"
 	internallog "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/log"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/sentry"
 )
 
