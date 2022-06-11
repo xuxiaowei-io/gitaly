@@ -66,3 +66,18 @@ name = 'praefect'
   storage = "praefect-git-2"
   address = "tcp://praefect-git-2.internal"
   token = 'token3'
+
+[gitlab]
+secret_file = "/home/git/gitlab-shell/.gitlab_shell_secret"
+url = "http+unix://%2Fhome%2Fgit%2Fgitlab%2Ftmp%2Fsockets%2Fgitlab-workhorse.socket"
+# Only needed if a UNIX socket is used in `url` and GitLab is configured to
+# use a relative path (e.g. /gitlab).
+# relative_url_root = '/'
+
+[gitlab.http-settings]
+# read_timeout = 300
+# user = someone
+# password = somepass
+# ca_file = /etc/ssl/cert.pem
+# ca_path = /etc/pki/tls/certs
+
