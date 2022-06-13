@@ -130,7 +130,7 @@ danger-review:
       - .ruby
     policy: pull-push
 
-build_template: &build_template
+.build_template: &build_template
   needs: []
   stage: build
   cache:
@@ -189,7 +189,7 @@ build:binaries-fips:
   image: registry.gitlab.com/gitlab-org/gitlab-build-images:debian-${DEBIAN_VERSION}-ruby-${RUBY_VERSION}-golang-${GO_VERSION}-git-2.33-postgresql-11
   <<: *binaries_template
 
-test:
+.test:
   <<: *test_definition
   script:
     # We need to prepare test dependencies as privileged user.
@@ -216,7 +216,7 @@ test:
       - POSTGRES_VERSION: "11.14-alpine"
         TARGET: [ test, test-with-praefect ]
 
-test:coverage:
+.test:coverage:
   <<: *test_definition
   coverage: /^total:\t+\(statements\)\t+\d+\.\d+%$/
   script:
@@ -229,7 +229,7 @@ test:coverage:
         coverage_format: cobertura
         path: ${TEST_COVERAGE_DIR}/cobertura.xml
 
-test:pgbouncer:
+.test:pgbouncer:
   <<: *test_definition
   services:
     - name: postgres:${POSTGRES_VERSION}
@@ -268,7 +268,7 @@ test:pgbouncer:
     - make -j$(nproc) build prepare-tests
     - setpriv --reuid=${TEST_UID} --regid=${TEST_UID} --clear-groups --no-new-privs make test-with-praefect SKIP_RSPEC_BUILD=YesPlease
 
-test:nightly:
+.test:nightly:
   <<: *test_definition
   script:
     - go version
@@ -281,7 +281,7 @@ test:nightly:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
 
-test:praefect_smoke:
+.test:praefect_smoke:
   <<: *test_definition
   script:
     - make -j$(nproc)
@@ -289,7 +289,7 @@ test:praefect_smoke:
     - ./_build/bin/praefect -config config.praefect.toml sql-ping
     - ./_build/bin/praefect -config config.praefect.toml sql-migrate
 
-verify:
+.verify:
   needs: []
   stage: test
   cache:
@@ -308,7 +308,7 @@ verify:
       - proto/go/gitalypb/*
     when: on_failure
 
-dbschema:
+.dbschema:
   needs: []
   stage: test
   cache:
@@ -330,7 +330,7 @@ dbschema:
       - _support/praefect-schema.sql
     when: on_failure
 
-gosec-sast:
+.gosec-sast:
   needs: []
   cache:
     - *cache_go_configuration
@@ -353,7 +353,7 @@ gosec-sast:
     - if: $CI_MERGE_REQUEST_IID
     - if: $CI_COMMIT_TAG
 
-license_scanning:
+.license_scanning:
   needs: []
   rules:
     - if: $LICENSE_SCANNING_DISABLED
@@ -364,7 +364,7 @@ license_scanning:
   variables:
     LICENSE_FINDER_CLI_OPTS: '--aggregate-paths=. ruby'
 
-gemnasium-dependency_scanning:
+.gemnasium-dependency_scanning:
   needs: []
   rules:
     - if: $DEPENDENCY_SCANNING_DISABLED
@@ -373,7 +373,7 @@ gemnasium-dependency_scanning:
     - if: $CI_MERGE_REQUEST_IID
     - if: $CI_COMMIT_TAG
 
-secret_detection:
+.secret_detection:
   needs: []
   rules:
     - if: $SECRET_DETECTION_DISABLED
@@ -382,7 +382,7 @@ secret_detection:
     - if: $CI_MERGE_REQUEST_IID
     - if: $CI_COMMIT_TAG
 
-trigger-qa:
+.trigger-qa:
   needs: []
   stage: qa
   trigger:
@@ -403,7 +403,7 @@ trigger-qa:
     - when: manual
       allow_failure: true
 
-qa:nightly-praefect-migration-test:
+.qa:nightly-praefect-migration-test:
   needs: []
   stage: qa
   trigger:
