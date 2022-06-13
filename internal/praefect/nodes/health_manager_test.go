@@ -159,7 +159,7 @@ func TestHealthManager(t *testing.T) {
 					},
 				},
 				{
-					After:        failoverTimeout,
+					After:        defaultFailoverTimeout,
 					PraefectName: "praefect-1",
 					LocalStatus: LocalStatus{
 						"virtual-storage-1": {
@@ -451,7 +451,7 @@ func TestHealthManager(t *testing.T) {
 					},
 				},
 				{
-					After:        failoverTimeout,
+					After:        defaultFailoverTimeout,
 					PraefectName: "praefect-1",
 					LocalStatus: LocalStatus{
 						"virtual-storage-1": {

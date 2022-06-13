@@ -162,7 +162,7 @@ func TestBasicFailover(t *testing.T) {
 
 	// Bring first node down
 	healthSrv0.SetServingStatus("", grpc_health_v1.HealthCheckResponse_UNKNOWN)
-	predateElection(t, ctx, db, shardName, failoverTimeout)
+	predateElection(t, ctx, db, shardName, defaultFailoverTimeout)
 
 	// Primary should remain before the failover timeout is exceeded
 	err = elector.checkNodes(ctx)
@@ -175,7 +175,7 @@ func TestBasicFailover(t *testing.T) {
 	}, shard)
 
 	// Predate the timeout to exceed it
-	predateLastSeenActiveAt(t, db, shardName, cs0.GetStorage(), failoverTimeout)
+	predateLastSeenActiveAt(t, db, shardName, cs0.GetStorage(), defaultFailoverTimeout)
 
 	// Expect that the other node is promoted
 	err = elector.checkNodes(ctx)
@@ -193,8 +193,8 @@ func TestBasicFailover(t *testing.T) {
 	// Failover back to the original node
 	healthSrv0.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 	healthSrv1.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
-	predateElection(t, ctx, db, shardName, failoverTimeout)
-	predateLastSeenActiveAt(t, db, shardName, cs1.GetStorage(), failoverTimeout)
+	predateElection(t, ctx, db, shardName, defaultFailoverTimeout)
+	predateLastSeenActiveAt(t, db, shardName, cs1.GetStorage(), defaultFailoverTimeout)
 	require.NoError(t, elector.checkNodes(ctx))
 
 	shard, err = elector.GetShard(ctx)
@@ -206,8 +206,8 @@ func TestBasicFailover(t *testing.T) {
 
 	// Bring second node down
 	healthSrv0.SetServingStatus("", grpc_health_v1.HealthCheckResponse_UNKNOWN)
-	predateElection(t, ctx, db, shardName, failoverTimeout)
-	predateLastSeenActiveAt(t, db, shardName, cs0.GetStorage(), failoverTimeout)
+	predateElection(t, ctx, db, shardName, defaultFailoverTimeout)
+	predateLastSeenActiveAt(t, db, shardName, cs0.GetStorage(), defaultFailoverTimeout)
 
 	err = elector.checkNodes(ctx)
 	require.NoError(t, err)
@@ -245,7 +245,7 @@ func TestElectDemotedPrimary(t *testing.T) {
 	require.NoError(t, err)
 	require.Nil(t, primary)
 
-	predateElection(t, ctx, tx, shardName, failoverTimeout+time.Microsecond)
+	predateElection(t, ctx, tx, shardName, defaultFailoverTimeout+time.Microsecond)
 	require.NoError(t, err)
 	require.NoError(t, elector.electNewPrimary(ctx, tx.Tx, candidates))
 
@@ -514,6 +514,38 @@ func TestConnectionMultiplexing(t *testing.T) {
 					node.GetConnection().Invoke(ctx, "/Service/Method", &gitalypb.VoteTransactionRequest{}, &gitalypb.VoteTransactionResponse{}),
 				)
 			}
+		})
+	}
+}
+
+func TestFailoverTimeout(t *testing.T) {
+	testCases := []struct {
+		desc                    string
+		failoverTimeout         time.Duration
+		expectedFailoverTimeout time.Duration
+	}{
+		{
+			desc:                    "no failover configured",
+			failoverTimeout:         0,
+			expectedFailoverTimeout: defaultFailoverTimeout,
+		},
+		{
+			desc:                    "failover configured",
+			failoverTimeout:         10 * time.Minute,
+			expectedFailoverTimeout: 10 * time.Minute,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			elector := newSQLElector("", config.Config{
+				Failover: config.Failover{
+					FailoverTimeout: tc.failoverTimeout,
+				},
+			}, nil, testhelper.NewDiscardingLogEntry(t), []*nodeStatus{
+				{},
+			})
+
+			assert.Equal(t, tc.expectedFailoverTimeout, elector.failoverTimeout)
 		})
 	}
 }

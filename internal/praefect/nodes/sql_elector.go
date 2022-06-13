@@ -18,8 +18,8 @@ import (
 )
 
 const (
-	failoverTimeout       = 10 * time.Second
-	activePraefectTimeout = 60 * time.Second
+	defaultFailoverTimeout = 10 * time.Second
+	activePraefectTimeout  = 60 * time.Second
 )
 
 type sqlCandidate struct {
@@ -97,6 +97,11 @@ func newSQLElector(name string, c config.Config, db *sql.DB, log logrus.FieldLog
 	nodes := make([]*sqlCandidate, len(ns))
 	for i, n := range ns {
 		nodes[i] = &sqlCandidate{Node: n}
+	}
+
+	failoverTimeout := c.Failover.FailoverTimeout
+	if failoverTimeout == 0 {
+		failoverTimeout = defaultFailoverTimeout
 	}
 
 	return &sqlElector{
