@@ -158,7 +158,7 @@ build-fips:
   image: registry.gitlab.com/gitlab-org/gitlab-build-images:debian-${DEBIAN_VERSION}-ruby-${RUBY_VERSION}-golang-${GO_VERSION}-git-2.33-postgresql-11
   <<: *build_template
 
-binaries_template: &binaries_template
+build:binaries: &build_binaries
   needs: []
   stage: build
   cache:
@@ -181,15 +181,12 @@ binaries_template: &binaries_template
     matrix:
       - GO_VERSION: [ "1.16", "1.17" ]
 
-build:binaries:
-  <<: *binaries_template
-
 build:binaries-fips:
   #TODO - replace with a FIPS based image
   image: registry.gitlab.com/gitlab-org/gitlab-build-images:debian-${DEBIAN_VERSION}-ruby-${RUBY_VERSION}-golang-${GO_VERSION}-git-2.33-postgresql-11
-  <<: *binaries_template
+  <<: *build_binaries
 
-.main_test_template: &main_test_template
+test: &test
   <<: *test_definition
   script:
     # We need to prepare test dependencies as privileged user.
@@ -216,15 +213,12 @@ build:binaries-fips:
       - POSTGRES_VERSION: "11.14-alpine"
         TARGET: [ test, test-with-praefect ]
 
-test:
-  <<: *main_test_template
-
 test-fips:
   #TODO - replace with a FIPS based image
   image: registry.gitlab.com/gitlab-org/gitlab-build-images:debian-${DEBIAN_VERSION}-ruby-${RUBY_VERSION}-golang-${GO_VERSION}-git-2.33-postgresql-11
-  <<: *main_test_template
+  <<: *test
 
-.test:coverage:
+test:coverage: &test_coverage
   <<: *test_definition
   coverage: /^total:\t+\(statements\)\t+\d+\.\d+%$/
   script:
@@ -236,6 +230,11 @@ test-fips:
       coverage_report:
         coverage_format: cobertura
         path: ${TEST_COVERAGE_DIR}/cobertura.xml
+
+test:coverage:fips:
+  #TODO - replace with a FIPS based image
+  image: registry.gitlab.com/gitlab-org/gitlab-build-images:debian-${DEBIAN_VERSION}-ruby-${RUBY_VERSION}-golang-${GO_VERSION}-git-2.33-postgresql-11
+  <<: *test_coverage
 
 .test:pgbouncer:
   <<: *test_definition
