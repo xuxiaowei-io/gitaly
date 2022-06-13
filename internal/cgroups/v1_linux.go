@@ -135,6 +135,10 @@ func (cg *CGroupV1Manager) addToCgroup(pid int, cgroupPath string) error {
 
 // Collect collects metrics from the cgroups controller
 func (cg *CGroupV1Manager) Collect(ch chan<- prometheus.Metric) {
+	if !cg.cfg.MetricsEnabled {
+		return
+	}
+
 	for i := 0; i < int(cg.cfg.Repositories.Count); i++ {
 		repoPath := cg.repoPath(i)
 		logger := log.Default().WithField("cgroup_path", repoPath)
