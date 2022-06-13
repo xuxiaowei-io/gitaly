@@ -192,14 +192,11 @@ func TestMetrics(t *testing.T) {
 # TYPE gitaly_cgroup_cpu_usage gauge
 gitaly_cgroup_cpu_usage{path="%s",type="kernel"} 0
 gitaly_cgroup_cpu_usage{path="%s",type="user"} 0
-# HELP gitaly_cgroup_memory_failed_total Number of memory usage hits limits
-# TYPE gitaly_cgroup_memory_failed_total gauge
-gitaly_cgroup_memory_failed_total{path="%s"} 2
 # HELP gitaly_cgroup_procs_total Total number of procs
 # TYPE gitaly_cgroup_procs_total gauge
 gitaly_cgroup_procs_total{path="%s",subsystem="cpu"} 1
 gitaly_cgroup_procs_total{path="%s",subsystem="memory"} 1
-`, repoCgroupPath, repoCgroupPath, repoCgroupPath, repoCgroupPath, repoCgroupPath))
+`, repoCgroupPath, repoCgroupPath, repoCgroupPath))
 	assert.NoError(t, testutil.CollectAndCompare(
 		v1Manager1,
 		expected))

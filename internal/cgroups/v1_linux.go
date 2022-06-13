@@ -17,10 +17,10 @@ import (
 
 // CGroupV1Manager is the manager for cgroups v1
 type CGroupV1Manager struct {
-	cfg                         cgroupscfg.Config
-	hierarchy                   func() ([]cgroups.Subsystem, error)
-	memoryFailedTotal, cpuUsage *prometheus.GaugeVec
-	procs                       *prometheus.GaugeVec
+	cfg       cgroupscfg.Config
+	hierarchy func() ([]cgroups.Subsystem, error)
+	cpuUsage  *prometheus.CounterVec
+	procs     *prometheus.CounterVec
 }
 
 func newV1Manager(cfg cgroupscfg.Config) *CGroupV1Manager {
@@ -29,22 +29,15 @@ func newV1Manager(cfg cgroupscfg.Config) *CGroupV1Manager {
 		hierarchy: func() ([]cgroups.Subsystem, error) {
 			return defaultSubsystems(cfg.Mountpoint)
 		},
-		memoryFailedTotal: prometheus.NewGaugeVec(
-			prometheus.GaugeOpts{
-				Name: "gitaly_cgroup_memory_failed_total",
-				Help: "Number of memory usage hits limits",
-			},
-			[]string{"path"},
-		),
-		cpuUsage: prometheus.NewGaugeVec(
-			prometheus.GaugeOpts{
+		cpuUsage: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
 				Name: "gitaly_cgroup_cpu_usage",
 				Help: "CPU Usage of Cgroup",
 			},
 			[]string{"path", "type"},
 		),
-		procs: prometheus.NewGaugeVec(
-			prometheus.GaugeOpts{
+		procs: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
 				Name: "gitaly_cgroup_procs_total",
 				Help: "Total number of procs",
 			},
