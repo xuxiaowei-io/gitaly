@@ -236,7 +236,7 @@ test:coverage:fips:
   image: registry.gitlab.com/gitlab-org/gitlab-build-images:debian-${DEBIAN_VERSION}-ruby-${RUBY_VERSION}-golang-${GO_VERSION}-git-2.33-postgresql-11
   <<: *test_coverage
 
-.test:pgbouncer:
+test:pgbouncer: &test_pgbouncer:
   <<: *test_definition
   services:
     - name: postgres:${POSTGRES_VERSION}
@@ -274,6 +274,11 @@ test:coverage:fips:
     # We need to explicitly build all prerequisites so that we can run tests unprivileged.
     - make -j$(nproc) build prepare-tests
     - setpriv --reuid=${TEST_UID} --regid=${TEST_UID} --clear-groups --no-new-privs make test-with-praefect SKIP_RSPEC_BUILD=YesPlease
+
+test:pgbouncer:fips:
+  #TODO - replace with a FIPS based image
+  image: registry.gitlab.com/gitlab-org/gitlab-build-images:debian-${DEBIAN_VERSION}-ruby-${RUBY_VERSION}-golang-${GO_VERSION}-git-2.33-postgresql-11
+  <<: *test_pgbouncer
 
 .test:nightly:
   <<: *test_definition
