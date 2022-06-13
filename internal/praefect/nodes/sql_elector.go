@@ -99,7 +99,7 @@ func newSQLElector(name string, c config.Config, db *sql.DB, log logrus.FieldLog
 		nodes[i] = &sqlCandidate{Node: n}
 	}
 
-	failoverTimeout := c.Failover.FailoverTimeout
+	failoverTimeout := c.Failover.Timeout
 	if failoverTimeout == 0 {
 		failoverTimeout = defaultFailoverTimeout
 	}

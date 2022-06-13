@@ -539,7 +539,7 @@ func TestFailoverTimeout(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			elector := newSQLElector("", config.Config{
 				Failover: config.Failover{
-					FailoverTimeout: tc.failoverTimeout,
+					Timeout: tc.failoverTimeout,
 				},
 			}, nil, testhelper.NewDiscardingLogEntry(t), []*nodeStatus{
 				{},

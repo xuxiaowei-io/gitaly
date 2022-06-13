@@ -54,7 +54,7 @@ type Failover struct {
 	// MonitorInterval allows set a time duration that would be used after bootstrap is completed to execute health checks.
 	// The default value is 3s.
 	MonitorInterval config.Duration `toml:"monitor_interval,omitempty"`
-	FailoverTimeout time.Duration   `toml:"failover_timeout,omitempty"`
+	Timeout         time.Duration   `toml:"timeout,omitempty"`
 }
 
 // ErrorThresholdsConfigured checks whether returns whether the errors thresholds are configured. If they
