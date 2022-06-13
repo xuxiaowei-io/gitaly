@@ -130,7 +130,7 @@ danger-review:
       - .ruby
     policy: pull-push
 
-build:
+build_template: &build_template
   needs: []
   stage: build
   cache:
@@ -150,7 +150,15 @@ build:
         TEST_BOOT_ARGS: "--bundled-git"
       - GIT_VERSION: "v2.33.0"
 
-build:binaries:
+build:
+  <<: *build_template
+
+build-fips:
+  #TODO - replace with a FIPS based image
+  image: registry.gitlab.com/gitlab-org/gitlab-build-images:debian-${DEBIAN_VERSION}-ruby-${RUBY_VERSION}-golang-${GO_VERSION}-git-2.33-postgresql-11
+  <<: *build_template
+
+binaries_template: &binaries_template
   needs: []
   stage: build
   cache:
@@ -172,6 +180,14 @@ build:binaries:
   parallel:
     matrix:
       - GO_VERSION: [ "1.16", "1.17" ]
+
+build:binaries:
+  <<: *binaries_template
+
+build:binaries-fips:
+  #TODO - replace with a FIPS based image
+  image: registry.gitlab.com/gitlab-org/gitlab-build-images:debian-${DEBIAN_VERSION}-ruby-${RUBY_VERSION}-golang-${GO_VERSION}-git-2.33-postgresql-11
+  <<: *binaries_template
 
 test:
   <<: *test_definition
