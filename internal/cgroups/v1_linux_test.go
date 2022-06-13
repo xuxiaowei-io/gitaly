@@ -200,17 +200,30 @@ gitaly_cgroup_memory_reclaim_attempts_total{path="%s"} 2
 gitaly_cgroup_procs_total{path="%s",subsystem="cpu"} 1
 gitaly_cgroup_procs_total{path="%s",subsystem="memory"} 1
 `, repoCgroupPath, repoCgroupPath, repoCgroupPath, repoCgroupPath, repoCgroupPath))
-	assert.NoError(t, testutil.CollectAndCompare(
-		v1Manager1,
-		expected))
 
-	logEntry := hook.LastEntry()
-	assert.Contains(
-		t,
-		logEntry.Data["command.cgroup_path"],
-		repoCgroupPath,
-		"log field includes a cgroup path that is a subdirectory of the current process' cgroup path",
-	)
+	for _, metricsEnabled := range []bool{true, false} {
+		t.Run(fmt.Sprintf("metrics enabled: %v", metricsEnabled), func(t *testing.T) {
+			v1Manager1.cfg.MetricsEnabled = metricsEnabled
+
+			if metricsEnabled {
+				assert.NoError(t, testutil.CollectAndCompare(
+					v1Manager1,
+					expected))
+			} else {
+				assert.NoError(t, testutil.CollectAndCompare(
+					v1Manager1,
+					bytes.NewBufferString("")))
+			}
+
+			logEntry := hook.LastEntry()
+			assert.Contains(
+				t,
+				logEntry.Data["command.cgroup_path"],
+				repoCgroupPath,
+				"log field includes a cgroup path that is a subdirectory of the current process' cgroup path",
+			)
+		})
+	}
 }
 
 func readCgroupFile(t *testing.T, path string) []byte {
