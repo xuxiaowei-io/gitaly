@@ -86,6 +86,8 @@ ifdef FIPS_MODE
     # requested. Note that we explicitly don't do the same for SHA1: we
     # instead use SHA1DC to protect users against the SHAttered attack.
     GIT_FIPS_BUILD_OPTIONS := OPENSSL_SHA256=YesPlease
+
+    export GITALY_TESTING_ENABLE_FIPS := YesPlease
 endif
 
 # Dependency versions
