@@ -95,7 +95,6 @@ include:
     TEST_FULL_OUTPUT: /tmp/test-output.log
   before_script: &test_before_script
     - go version
-    - while ! psql -h $PGHOST -U $PGUSER -c 'SELECT 1' > /dev/null; do echo "awaiting Postgres service to be ready..." && sleep 1 ; done && echo "Postgres service is ready!"
     # Create a directory for the unprivileged user that we're running tests as.
     # This is required so that we can still store test reports successfully.
     - install --directory --owner=${TEST_UID} --group=${TEST_UID} _unprivileged
@@ -238,7 +237,6 @@ test:pgbouncer:
     FF_NETWORK_PER_BUILD: "true"
   before_script:
     - *test_before_script
-    - while ! psql -h "${PGHOST_PGBOUNCER}" -p "${PGPORT_PGBOUNCER}" -U "${PGUSER}" -c 'SELECT 1' > /dev/null; do echo "awaiting PgBouncer service to be ready..." && sleep 1 ; done && echo "PgBouncer service is ready!"
   script:
     # We need to explicitly build all prerequisites so that we can run tests unprivileged.
     - make -j$(nproc) build prepare-tests
@@ -297,8 +295,6 @@ dbschema:
     - postgres:11.13-alpine
   variables:
     <<: *postgres_variables
-  before_script:
-    - while ! psql -h $PGHOST -U $PGUSER -c 'SELECT 1' > /dev/null; do echo "awaiting Postgres service to be ready..." && sleep 1 ; done && echo "Postgres service is ready!"
   script:
     - make dump-database-schema no-changes
   artifacts:
