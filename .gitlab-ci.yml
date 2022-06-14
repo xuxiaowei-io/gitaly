@@ -254,6 +254,28 @@ test:praefect_smoke:
     - ./_build/bin/praefect -config config.praefect.toml sql-ping
     - ./_build/bin/praefect -config config.praefect.toml sql-migrate
 
+test:fips:
+  <<: *test_definition
+  tags:
+    - fips
+  image: registry.access.redhat.com/ubi8/ubi:8.5
+  before_script:
+    - test "$(cat /proc/sys/crypto/fips_enabled)" = "1" || (echo "System is not running in FIPS mode" && exit 1)
+    - dnf module enable -y ruby:2.7
+    - dnf install -y bzip2 cmake gcc-c++ git go-toolset libcurl-devel libicu-devel make openssl procps-ng redhat-rpm-config ruby-devel rubygems
+    - gem install bundler:2.3.15
+    - *test_before_script
+  parallel:
+    matrix:
+      - TEST_TARGET: [ test, test-with-praefect ]
+        FIPS_MODE: "YesPlease"
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_MERGE_REQUEST_LABELS =~ /FIPS/
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: manual
+      allow_failure: true
+
 verify:
   needs: []
   stage: test
