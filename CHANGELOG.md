@@ -1,5 +1,15 @@
 # Gitaly changelog
 
+## 15.0.3 (2022-06-16)
+
+### Fixed (5 changes)
+
+- [catfile: Fix deadlock between reading a new object and accessing it](gitlab-org/gitaly@cde65f668a6a6dbec9868f29082f2ad898ae4231) ([merge request](gitlab-org/gitaly!4638))
+- [catfile: Fix dirtiness check when current object has been fully read](gitlab-org/gitaly@da64bceee41f73a2f3cb3531fe41af458dd1a00f) ([merge request](gitlab-org/gitaly!4638))
+- [gitpipe: Fix closing queue too early](gitlab-org/gitaly@e695fc43615119edf620fbcda0224a68427dea26) ([merge request](gitlab-org/gitaly!4638))
+- [gitpipe: Fix deadlock on context cancellation with unflushed requests](gitlab-org/gitaly@6803dcb284c8598a3613abd951b9f5adf47da460) ([merge request](gitlab-org/gitaly!4638))
+- [cgroups: Handle nil repo](gitlab-org/gitaly@3c68f28df307b2d417ec361fba947f2d5f03a380) ([merge request](gitlab-org/gitaly!4635))
+
 ## 15.0.2 (2022-06-06)
 
 No changes.
