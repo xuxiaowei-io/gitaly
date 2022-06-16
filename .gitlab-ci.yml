@@ -245,7 +245,6 @@ test:pgbouncer:
 test:nightly:
   <<: *test_definition
   script:
-    - go version
     - make -j$(nproc) build prepare-tests
     - setpriv --reuid=${TEST_UID} --regid=${TEST_UID} --clear-groups --no-new-privs make ${TARGET} SKIP_RSPEC_BUILD=YesPlease
   parallel:
