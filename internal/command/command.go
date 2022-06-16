@@ -147,19 +147,20 @@ type Command struct {
 	cgroupPath    string
 }
 
-// New creates a Command from an exec.Cmd. On success, the Command
-// contains a running subprocess. When ctx is canceled the embedded
-// process will be terminated and reaped automatically.
-//
-// If stdin is specified as SetupStdin, you will be able to write to the stdin
-// of the subprocess by calling Write() on the returned Command.
-func New(ctx context.Context, cmd *exec.Cmd, stdin io.Reader, stdout, stderr io.Writer, env ...string) (*Command, error) {
+// New creates a Command from an exec.Cmd. On success, the Command contains a running subprocess.
+// When ctx is canceled the embedded process will be terminated and reaped automatically.
+func New(ctx context.Context, cmd *exec.Cmd, opts ...Option) (*Command, error) {
 	if ctx.Done() == nil {
 		panic(contextWithoutDonePanic("command spawned with context without Done() channel"))
 	}
 
 	if err := checkNullArgv(cmd); err != nil {
 		return nil, err
+	}
+
+	var cfg config
+	for _, opt := range opts {
+		opt(&cfg)
 	}
 
 	span, ctx := opentracing.StartSpanFromContext(
@@ -200,7 +201,7 @@ func New(ctx context.Context, cmd *exec.Cmd, stdin io.Reader, stdout, stderr io.
 	// Export allowed environment variables as set in the Gitaly process.
 	cmd.Env = AllowedEnvironment(os.Environ())
 	// Append environment variables explicitly requested by the caller.
-	cmd.Env = append(cmd.Env, env...)
+	cmd.Env = append(cmd.Env, cfg.environment...)
 	// And finally inject environment variables required for tracing into the command.
 	cmd.Env = envInjector(ctx, cmd.Env)
 
@@ -211,20 +212,20 @@ func New(ctx context.Context, cmd *exec.Cmd, stdin io.Reader, stdout, stderr io.
 	//   * nil - Go implicitly uses /dev/null
 	//   * SetupStdin - configure with cmd.StdinPipe(), allowing Write() to work
 	//   * Another io.Reader - becomes cmd.Stdin. Write() will not work
-	if stdin == SetupStdin {
+	if cfg.stdin == SetupStdin {
 		pipe, err := cmd.StdinPipe()
 		if err != nil {
 			return nil, fmt.Errorf("GitCommand: stdin: %v", err)
 		}
 		command.writer = pipe
-	} else if stdin != nil {
-		cmd.Stdin = stdin
+	} else if cfg.stdin != nil {
+		cmd.Stdin = cfg.stdin
 	}
 
-	if stdout != nil {
+	if cfg.stdout != nil {
 		// We don't assign a reader if an stdout override was passed. We assume
 		// output is going to be directly handled by the caller.
-		cmd.Stdout = stdout
+		cmd.Stdout = cfg.stdout
 	} else {
 		pipe, err := cmd.StdoutPipe()
 		if err != nil {
@@ -233,8 +234,8 @@ func New(ctx context.Context, cmd *exec.Cmd, stdin io.Reader, stdout, stderr io.
 		command.reader = pipe
 	}
 
-	if stderr != nil {
-		cmd.Stderr = stderr
+	if cfg.stderr != nil {
+		cmd.Stderr = cfg.stderr
 	} else {
 		command.stderrBuffer, err = newStderrBuffer(maxStderrBytes, maxStderrLineLength, []byte("\n"))
 		if err != nil {

@@ -81,7 +81,7 @@ func TestAddCommand(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cmd1 := exec.Command("ls", "-hal", ".")
-	cmd2, err := command.New(ctx, cmd1, nil, nil, nil)
+	cmd2, err := command.New(ctx, cmd1)
 	require.NoError(t, err)
 	require.NoError(t, cmd2.Wait())
 
@@ -173,11 +173,11 @@ func TestMetrics(t *testing.T) {
 	logger.SetLevel(logrus.DebugLevel)
 	ctx = ctxlogrus.ToContext(ctx, logrus.NewEntry(logger))
 
-	cmd, err := command.New(ctx, exec.Command("ls", "-hal", "."), nil, nil, nil)
+	cmd, err := command.New(ctx, exec.Command("ls", "-hal", "."))
 	require.NoError(t, err)
-	gitCmd1, err := command.New(ctx, exec.Command("ls", "-hal", "."), nil, nil, nil)
+	gitCmd1, err := command.New(ctx, exec.Command("ls", "-hal", "."))
 	require.NoError(t, err)
-	gitCmd2, err := command.New(ctx, exec.Command("ls", "-hal", "."), nil, nil, nil)
+	gitCmd2, err := command.New(ctx, exec.Command("ls", "-hal", "."))
 	require.NoError(t, err)
 
 	require.NoError(t, v1Manager1.AddCommand(cmd, repo))

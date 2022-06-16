@@ -68,7 +68,12 @@ func (m *GitLabHookManager) newCustomHooksExecutor(repo *gitalypb.Repository, ho
 		for _, hookFile := range hookFiles {
 			cmd := exec.Command(hookFile, args...)
 			cmd.Dir = repoPath
-			c, err := command.New(ctx, cmd, bytes.NewReader(stdinBytes), stdout, stderr, env...)
+			c, err := command.New(ctx, cmd,
+				command.WithStdin(bytes.NewReader(stdinBytes)),
+				command.WithStdout(stdout),
+				command.WithStderr(stderr),
+				command.WithEnvironment(env),
+			)
 			if err != nil {
 				return err
 			}

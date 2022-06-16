@@ -341,7 +341,7 @@ func (cf *ExecCommandFactory) GitVersion(ctx context.Context) (Version, error) {
 	// Furthermore, note that we're not using `newCommand()` but instead hand-craft the command.
 	// This is required to avoid a cyclic dependency when we need to check the version in
 	// `newCommand()` itself.
-	cmd, err := command.New(ctx, exec.Command(execEnv.BinaryPath, "version"), nil, nil, nil, execEnv.EnvironmentVariables...)
+	cmd, err := command.New(ctx, exec.Command(execEnv.BinaryPath, "version"), command.WithEnvironment(execEnv.EnvironmentVariables))
 	if err != nil {
 		return Version{}, fmt.Errorf("spawning version command: %w", err)
 	}
@@ -397,7 +397,12 @@ func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo repository.Gi
 	execCommand := exec.Command(execEnv.BinaryPath, args...)
 	execCommand.Dir = dir
 
-	command, err := command.New(ctx, execCommand, config.stdin, config.stdout, config.stderr, env...)
+	command, err := command.New(ctx, execCommand,
+		command.WithStdin(config.stdin),
+		command.WithStdout(config.stdout),
+		command.WithStderr(config.stderr),
+		command.WithEnvironment(env),
+	)
 	if err != nil {
 		return nil, err
 	}

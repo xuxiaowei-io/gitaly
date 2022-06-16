@@ -30,7 +30,7 @@ func TestNew_environment(t *testing.T) {
 	extraVar := "FOOBAR=123456"
 
 	var buf bytes.Buffer
-	cmd, err := New(ctx, exec.Command("/usr/bin/env"), nil, &buf, nil, extraVar)
+	cmd, err := New(ctx, exec.Command("/usr/bin/env"), WithStdout(&buf), WithEnvironment([]string{extraVar}))
 
 	require.NoError(t, err)
 	require.NoError(t, cmd.Wait())
@@ -118,7 +118,7 @@ func TestNew_exportedEnvironment(t *testing.T) {
 			testhelper.ModifyEnvironment(t, tc.key, tc.value)
 
 			var buf bytes.Buffer
-			cmd, err := New(ctx, exec.Command("/usr/bin/env"), nil, &buf, nil)
+			cmd, err := New(ctx, exec.Command("/usr/bin/env"), WithStdout(&buf))
 			require.NoError(t, err)
 			require.NoError(t, cmd.Wait())
 
@@ -135,7 +135,7 @@ func TestNew_unexportedEnv(t *testing.T) {
 	testhelper.ModifyEnvironment(t, unexportedEnvKey, unexportedEnvVal)
 
 	var buf bytes.Buffer
-	cmd, err := New(ctx, exec.Command("/usr/bin/env"), nil, &buf, nil)
+	cmd, err := New(ctx, exec.Command("/usr/bin/env"), WithStdout(&buf))
 	require.NoError(t, err)
 	require.NoError(t, cmd.Wait())
 
@@ -146,7 +146,7 @@ func TestNew_rejectContextWithoutDone(t *testing.T) {
 	t.Parallel()
 
 	require.PanicsWithValue(t, contextWithoutDonePanic("command spawned with context without Done() channel"), func() {
-		_, err := New(testhelper.ContextWithoutCancel(), exec.Command("true"), nil, nil, nil)
+		_, err := New(testhelper.ContextWithoutCancel(), exec.Command("true"))
 		require.NoError(t, err)
 	})
 }
@@ -169,7 +169,7 @@ func TestNew_spawnTimeout(t *testing.T) {
 
 	errCh := make(chan error)
 	go func() {
-		_, err := New(ctx, exec.Command("true"), nil, nil, nil)
+		_, err := New(ctx, exec.Command("true"))
 		errCh <- err
 	}()
 
@@ -191,7 +191,7 @@ func TestCommand_Wait_contextCancellationKillsCommand(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(testhelper.Context(t))
 
-	cmd, err := New(ctx, exec.CommandContext(ctx, "sleep", "1h"), nil, nil, nil)
+	cmd, err := New(ctx, exec.CommandContext(ctx, "sleep", "1h"))
 	require.NoError(t, err)
 
 	// Cancel the command early.
@@ -212,7 +212,7 @@ func TestNew_setupStdin(t *testing.T) {
 	stdin := "Test value"
 
 	var buf bytes.Buffer
-	cmd, err := New(ctx, exec.Command("cat"), SetupStdin, &buf, nil)
+	cmd, err := New(ctx, exec.Command("cat"), WithStdin(SetupStdin), WithStdout(&buf))
 	require.NoError(t, err)
 
 	_, err = fmt.Fprintf(cmd, "%s", stdin)
@@ -227,7 +227,7 @@ func TestCommand_read(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cmd, err := New(ctx, exec.Command("echo", "test value"), nil, nil, nil)
+	cmd, err := New(ctx, exec.Command("echo", "test value"))
 	require.NoError(t, err)
 
 	output, err := io.ReadAll(cmd)
@@ -242,7 +242,7 @@ func TestNew_nulByteInArgument(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cmd, err := New(ctx, exec.Command("sh", "-c", "hello\x00world"), nil, nil, nil)
+	cmd, err := New(ctx, exec.Command("sh", "-c", "hello\x00world"))
 	require.Equal(t, fmt.Errorf("detected null byte in command argument %q", "hello\x00world"), err)
 	require.Nil(t, cmd)
 }
@@ -252,7 +252,7 @@ func TestNew_missingBinary(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cmd, err := New(ctx, exec.Command("command-non-existent"), nil, nil, nil)
+	cmd, err := New(ctx, exec.Command("command-non-existent"))
 	require.Equal(t, fmt.Errorf("GitCommand: start [command-non-existent]: exec: \"command-non-existent\": executable file not found in $PATH"), err)
 	require.Nil(t, cmd)
 }
@@ -273,7 +273,7 @@ func TestCommand_stderrLogging(t *testing.T) {
 	ctx = ctxlogrus.ToContext(ctx, logrus.NewEntry(logger))
 
 	var stdout bytes.Buffer
-	cmd, err := New(ctx, exec.Command(binaryPath), nil, &stdout, nil)
+	cmd, err := New(ctx, exec.Command(binaryPath), WithStdout(&stdout))
 	require.NoError(t, err)
 
 	require.EqualError(t, cmd.Wait(), "exit status 1")
@@ -297,7 +297,7 @@ func TestCommand_stderrLoggingTruncation(t *testing.T) {
 	ctx = ctxlogrus.ToContext(ctx, logrus.NewEntry(logger))
 
 	var stdout bytes.Buffer
-	cmd, err := New(ctx, exec.Command(binaryPath), nil, &stdout, nil)
+	cmd, err := New(ctx, exec.Command(binaryPath), WithStdout(&stdout))
 	require.NoError(t, err)
 
 	require.Error(t, cmd.Wait())
@@ -318,7 +318,7 @@ func TestCommand_stderrLoggingWithNulBytes(t *testing.T) {
 	ctx = ctxlogrus.ToContext(ctx, logrus.NewEntry(logger))
 
 	var stdout bytes.Buffer
-	cmd, err := New(ctx, exec.Command(binaryPath), nil, &stdout, nil)
+	cmd, err := New(ctx, exec.Command(binaryPath), WithStdout(&stdout))
 	require.NoError(t, err)
 
 	require.Error(t, cmd.Wait())
@@ -341,7 +341,7 @@ func TestCommand_stderrLoggingLongLine(t *testing.T) {
 	ctx = ctxlogrus.ToContext(ctx, logrus.NewEntry(logger))
 
 	var stdout bytes.Buffer
-	cmd, err := New(ctx, exec.Command(binaryPath), nil, &stdout, nil)
+	cmd, err := New(ctx, exec.Command(binaryPath), WithStdout(&stdout))
 	require.NoError(t, err)
 
 	require.Error(t, cmd.Wait())
@@ -388,7 +388,7 @@ func TestCommand_stderrLoggingMaxBytes(t *testing.T) {
 	ctx = ctxlogrus.ToContext(ctx, logrus.NewEntry(logger))
 
 	var stdout bytes.Buffer
-	cmd, err := New(ctx, exec.Command(binaryPath), nil, &stdout, nil)
+	cmd, err := New(ctx, exec.Command(binaryPath), WithStdout(&stdout))
 	require.NoError(t, err)
 	require.Error(t, cmd.Wait())
 
@@ -404,7 +404,7 @@ func TestCommand_logMessage(t *testing.T) {
 
 	ctx := ctxlogrus.ToContext(testhelper.Context(t), logrus.NewEntry(logger))
 
-	cmd, err := New(ctx, exec.Command("echo", "hello world"), nil, nil, nil)
+	cmd, err := New(ctx, exec.Command("echo", "hello world"))
 	require.NoError(t, err)
 	cgroupPath := "/sys/fs/cgroup/1"
 	cmd.SetCgroupPath(cgroupPath)
@@ -434,7 +434,7 @@ func TestNew_commandSpawnTokenMetrics(t *testing.T) {
 	tags.Set("grpc.request.fullMethod", "/test.Service/TestRPC")
 	ctx = grpcmwtags.SetInContext(ctx, tags)
 
-	cmd, err := New(ctx, exec.Command("echo", "goodbye, cruel world."), nil, nil, nil)
+	cmd, err := New(ctx, exec.Command("echo", "goodbye, cruel world."))
 
 	require.NoError(t, err)
 	require.NoError(t, cmd.Wait())
