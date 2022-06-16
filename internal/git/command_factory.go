@@ -397,12 +397,7 @@ func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo repository.Gi
 	execCommand := exec.Command(execEnv.BinaryPath, args...)
 	execCommand.Dir = dir
 
-	command, err := command.New(ctx, execCommand,
-		command.WithStdin(config.stdin),
-		command.WithStdout(config.stdout),
-		command.WithStderr(config.stderr),
-		command.WithEnvironment(env),
-	)
+	command, err := command.New(ctx, execCommand, append(config.commandOpts, command.WithEnvironment(env))...)
 	if err != nil {
 		return nil, err
 	}

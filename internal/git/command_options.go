@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 
+	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
@@ -168,9 +169,7 @@ func ConvertConfigOptions(options []string) ([]ConfigPair, error) {
 type cmdCfg struct {
 	env             []string
 	globals         []GlobalOption
-	stdin           io.Reader
-	stdout          io.Writer
-	stderr          io.Writer
+	commandOpts     []command.Option
 	hooksConfigured bool
 }
 
@@ -181,7 +180,7 @@ type CmdOpt func(context.Context, config.Cfg, CommandFactory, *cmdCfg) error
 // command suitable for `Write()`ing to.
 func WithStdin(r io.Reader) CmdOpt {
 	return func(_ context.Context, _ config.Cfg, _ CommandFactory, c *cmdCfg) error {
-		c.stdin = r
+		c.commandOpts = append(c.commandOpts, command.WithStdin(r))
 		return nil
 	}
 }
@@ -189,7 +188,7 @@ func WithStdin(r io.Reader) CmdOpt {
 // WithStdout sets the command's stdout.
 func WithStdout(w io.Writer) CmdOpt {
 	return func(_ context.Context, _ config.Cfg, _ CommandFactory, c *cmdCfg) error {
-		c.stdout = w
+		c.commandOpts = append(c.commandOpts, command.WithStdout(w))
 		return nil
 	}
 }
@@ -197,7 +196,7 @@ func WithStdout(w io.Writer) CmdOpt {
 // WithStderr sets the command's stderr.
 func WithStderr(w io.Writer) CmdOpt {
 	return func(_ context.Context, _ config.Cfg, _ CommandFactory, c *cmdCfg) error {
-		c.stderr = w
+		c.commandOpts = append(c.commandOpts, command.WithStderr(w))
 		return nil
 	}
 }
