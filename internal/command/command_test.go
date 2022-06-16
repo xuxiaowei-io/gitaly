@@ -212,7 +212,7 @@ func TestNew_setupStdin(t *testing.T) {
 	stdin := "Test value"
 
 	var buf bytes.Buffer
-	cmd, err := New(ctx, exec.Command("cat"), WithStdin(SetupStdin), WithStdout(&buf))
+	cmd, err := New(ctx, exec.Command("cat"), WithSetupStdin(), WithStdout(&buf))
 	require.NoError(t, err)
 
 	_, err = fmt.Fprintf(cmd, "%s", stdin)

@@ -109,13 +109,6 @@ var (
 	// envInjector is responsible for injecting environment variables required for tracing into
 	// the child process.
 	envInjector = tracing.NewEnvInjector()
-
-	// SetupStdin instructs New() to configure the stdin pipe of the command it is creating.
-	// This allows you call Write() on the command as if it is an ordinary io.Writer, sending
-	// data directly to the stdin of the process.
-	//
-	// You should not call Read() on this value - it is strictly for configuration!
-	SetupStdin io.Reader = stdinSentinel{}
 )
 
 const (
@@ -210,9 +203,9 @@ func New(ctx context.Context, cmd *exec.Cmd, opts ...Option) (*Command, error) {
 
 	// Three possible values for stdin:
 	//   * nil - Go implicitly uses /dev/null
-	//   * SetupStdin - configure with cmd.StdinPipe(), allowing Write() to work
+	//   * stdinSentinel - configure with cmd.StdinPipe(), allowing Write() to work
 	//   * Another io.Reader - becomes cmd.Stdin. Write() will not work
-	if cfg.stdin == SetupStdin {
+	if _, ok := cfg.stdin.(stdinSentinel); ok {
 		pipe, err := cmd.StdinPipe()
 		if err != nil {
 			return nil, fmt.Errorf("GitCommand: stdin: %v", err)

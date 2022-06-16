@@ -185,6 +185,14 @@ func WithStdin(r io.Reader) CmdOpt {
 	}
 }
 
+// WithSetupStdin sets up the command so that it can be `Write()`en to.
+func WithSetupStdin() CmdOpt {
+	return func(_ context.Context, _ config.Cfg, _ CommandFactory, c *cmdCfg) error {
+		c.commandOpts = append(c.commandOpts, command.WithSetupStdin())
+		return nil
+	}
+}
+
 // WithStdout sets the command's stdout.
 func WithStdout(w io.Writer) CmdOpt {
 	return func(_ context.Context, _ config.Cfg, _ CommandFactory, c *cmdCfg) error {

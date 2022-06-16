@@ -13,12 +13,19 @@ type config struct {
 // created.
 type Option func(cfg *config)
 
-// WithStdin sets up the command to read from the given reader. If stdin is specified as SetupStdin,
-// you will be able to write to the stdin of the subprocess by calling Write() on the returned
-// Command.
+// WithStdin sets up the command to read from the given reader.
 func WithStdin(stdin io.Reader) Option {
 	return func(cfg *config) {
 		cfg.stdin = stdin
+	}
+}
+
+// WithSetupStdin instructs New() to configure the stdin pipe of the command it is creating. This
+// allows you call Write() on the command as if it is an ordinary io.Writer, sending data directly
+// to the stdin of the process.
+func WithSetupStdin() Option {
+	return func(cfg *config) {
+		cfg.stdin = stdinSentinel{}
 	}
 }
 
