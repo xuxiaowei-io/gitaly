@@ -73,40 +73,50 @@ var (
 		},
 		[]string{"grpc_service", "grpc_method", "cmd"},
 	)
+
+	// exportedEnvVars contains a list of environment variables
+	// that are always exported to child processes on spawn
+	exportedEnvVars = []string{
+		"HOME",
+		"PATH",
+		"LD_LIBRARY_PATH",
+		"TZ",
+
+		// Export git tracing variables for easier debugging
+		"GIT_TRACE",
+		"GIT_TRACE_PACK_ACCESS",
+		"GIT_TRACE_PACKET",
+		"GIT_TRACE_PERFORMANCE",
+		"GIT_TRACE_SETUP",
+
+		// GIT_EXEC_PATH tells Git where to find its binaries. This must be exported
+		// especially in the case where we use bundled Git executables given that we cannot
+		// rely on a complete Git installation in that case.
+		"GIT_EXEC_PATH",
+
+		// Git HTTP proxy settings:
+		// https://git-scm.com/docs/git-config#git-config-httpproxy
+		"all_proxy",
+		"http_proxy",
+		"HTTP_PROXY",
+		"https_proxy",
+		"HTTPS_PROXY",
+		// libcurl settings: https://curl.haxx.se/libcurl/c/CURLOPT_NOPROXY.html
+		"no_proxy",
+		"NO_PROXY",
+	}
+
+	// envInjector is responsible for injecting environment variables required for tracing into
+	// the child process.
+	envInjector = tracing.NewEnvInjector()
+
+	// SetupStdin instructs New() to configure the stdin pipe of the command it is creating.
+	// This allows you call Write() on the command as if it is an ordinary io.Writer, sending
+	// data directly to the stdin of the process.
+	//
+	// You should not call Read() on this value - it is strictly for configuration!
+	SetupStdin io.Reader = stdinSentinel{}
 )
-
-// exportedEnvVars contains a list of environment variables
-// that are always exported to child processes on spawn
-var exportedEnvVars = []string{
-	"HOME",
-	"PATH",
-	"LD_LIBRARY_PATH",
-	"TZ",
-
-	// Export git tracing variables for easier debugging
-	"GIT_TRACE",
-	"GIT_TRACE_PACK_ACCESS",
-	"GIT_TRACE_PACKET",
-	"GIT_TRACE_PERFORMANCE",
-	"GIT_TRACE_SETUP",
-
-	// GIT_EXEC_PATH tells Git where to find its binaries. This must be exported especially in
-	// the case where we use bundled Git executables given that we cannot rely on a complete Git
-	// installation in that case.
-	"GIT_EXEC_PATH",
-
-	// Git HTTP proxy settings: https://git-scm.com/docs/git-config#git-config-httpproxy
-	"all_proxy",
-	"http_proxy",
-	"HTTP_PROXY",
-	"https_proxy",
-	"HTTPS_PROXY",
-	// libcurl settings: https://curl.haxx.se/libcurl/c/CURLOPT_NOPROXY.html
-	"no_proxy",
-	"NO_PROXY",
-}
-
-var envInjector = tracing.NewEnvInjector()
 
 const (
 	// maxStderrBytes is at most how many bytes will be written to stderr
@@ -135,68 +145,6 @@ type Command struct {
 	metricsCmd    string
 	metricsSubCmd string
 	cgroupPath    string
-}
-
-type stdinSentinel struct{}
-
-func (stdinSentinel) Read([]byte) (int, error) {
-	return 0, errors.New("stdin sentinel should not be read from")
-}
-
-// SetupStdin instructs New() to configure the stdin pipe of the command it is
-// creating. This allows you call Write() on the command as if it is an ordinary
-// io.Writer, sending data directly to the stdin of the process.
-//
-// You should not call Read() on this value - it is strictly for configuration!
-var SetupStdin io.Reader = stdinSentinel{}
-
-// Read calls Read() on the stdout pipe of the command.
-func (c *Command) Read(p []byte) (int, error) {
-	if c.reader == nil {
-		panic("command has no reader")
-	}
-
-	return c.reader.Read(p)
-}
-
-// Write calls Write() on the stdin pipe of the command.
-func (c *Command) Write(p []byte) (int, error) {
-	if c.writer == nil {
-		panic("command has no writer")
-	}
-
-	return c.writer.Write(p)
-}
-
-// Wait calls Wait() on the exec.Cmd instance inside the command. This
-// blocks until the command has finished and reports the command exit
-// status via the error return value. Use ExitStatus to get the integer
-// exit status from the error returned by Wait().
-func (c *Command) Wait() error {
-	c.waitOnce.Do(c.wait)
-
-	return c.waitError
-}
-
-// SetCgroupPath sets the cgroup path for logging
-func (c *Command) SetCgroupPath(path string) {
-	c.cgroupPath = path
-}
-
-// SetMetricsCmd overrides the "cmd" label used in metrics
-func (c *Command) SetMetricsCmd(metricsCmd string) {
-	c.metricsCmd = metricsCmd
-}
-
-// SetMetricsSubCmd sets the "subcmd" label used in metrics
-func (c *Command) SetMetricsSubCmd(metricsSubCmd string) {
-	c.metricsSubCmd = metricsSubCmd
-}
-
-type contextWithoutDonePanic string
-
-var getSpawnTokenAcquiringSeconds = func(t time.Time) float64 {
-	return time.Since(t).Seconds()
 }
 
 // New creates a Command from an exec.Cmd. On success, the Command
@@ -322,22 +270,47 @@ func New(ctx context.Context, cmd *exec.Cmd, stdin io.Reader, stdout, stderr io.
 	return command, nil
 }
 
-// AllowedEnvironment filters the given slice of environment variables and
-// returns all variables which are allowed per the variables defined above.
-// This is useful for constructing a base environment in which a command can be
-// run.
-func AllowedEnvironment(envs []string) []string {
-	var filtered []string
-
-	for _, env := range envs {
-		for _, exportedEnv := range exportedEnvVars {
-			if strings.HasPrefix(env, exportedEnv+"=") {
-				filtered = append(filtered, env)
-			}
-		}
+// Read calls Read() on the stdout pipe of the command.
+func (c *Command) Read(p []byte) (int, error) {
+	if c.reader == nil {
+		panic("command has no reader")
 	}
 
-	return filtered
+	return c.reader.Read(p)
+}
+
+// Write calls Write() on the stdin pipe of the command.
+func (c *Command) Write(p []byte) (int, error) {
+	if c.writer == nil {
+		panic("command has no writer")
+	}
+
+	return c.writer.Write(p)
+}
+
+// Wait calls Wait() on the exec.Cmd instance inside the command. This
+// blocks until the command has finished and reports the command exit
+// status via the error return value. Use ExitStatus to get the integer
+// exit status from the error returned by Wait().
+func (c *Command) Wait() error {
+	c.waitOnce.Do(c.wait)
+
+	return c.waitError
+}
+
+// SetCgroupPath sets the cgroup path for logging
+func (c *Command) SetCgroupPath(path string) {
+	c.cgroupPath = path
+}
+
+// SetMetricsCmd overrides the "cmd" label used in metrics
+func (c *Command) SetMetricsCmd(metricsCmd string) {
+	c.metricsCmd = metricsCmd
+}
+
+// SetMetricsSubCmd sets the "subcmd" label used in metrics
+func (c *Command) SetMetricsSubCmd(metricsSubCmd string) {
+	c.metricsSubCmd = metricsSubCmd
 }
 
 // This function should never be called directly, use Wait().
@@ -366,21 +339,6 @@ func (c *Command) wait() {
 	// counter again. So we instead do it here to accelerate the process, even though it's less
 	// idiomatic.
 	commandcounter.Decrement()
-}
-
-// ExitStatus will return the exit-code from an error returned by Wait().
-func ExitStatus(err error) (int, bool) {
-	exitError, ok := err.(*exec.ExitError)
-	if !ok {
-		return 0, false
-	}
-
-	waitStatus, ok := exitError.Sys().(syscall.WaitStatus)
-	if !ok {
-		return 0, false
-	}
-
-	return waitStatus.ExitStatus(), true
 }
 
 func (c *Command) logProcessComplete() {
@@ -480,6 +438,66 @@ func (c *Command) logProcessComplete() {
 	c.span.Finish()
 }
 
+// Args is an accessor for the command arguments
+func (c *Command) Args() []string {
+	return c.cmd.Args
+}
+
+// Env is an accessor for the environment variables
+func (c *Command) Env() []string {
+	return c.cmd.Env
+}
+
+// Pid is an accessor for the pid
+func (c *Command) Pid() int {
+	return c.cmd.Process.Pid
+}
+
+type contextWithoutDonePanic string
+
+var getSpawnTokenAcquiringSeconds = func(t time.Time) float64 {
+	return time.Since(t).Seconds()
+}
+
+type stdinSentinel struct{}
+
+func (stdinSentinel) Read([]byte) (int, error) {
+	return 0, errors.New("stdin sentinel should not be read from")
+}
+
+// AllowedEnvironment filters the given slice of environment variables and
+// returns all variables which are allowed per the variables defined above.
+// This is useful for constructing a base environment in which a command can be
+// run.
+func AllowedEnvironment(envs []string) []string {
+	var filtered []string
+
+	for _, env := range envs {
+		for _, exportedEnv := range exportedEnvVars {
+			if strings.HasPrefix(env, exportedEnv+"=") {
+				filtered = append(filtered, env)
+			}
+		}
+	}
+
+	return filtered
+}
+
+// ExitStatus will return the exit-code from an error returned by Wait().
+func ExitStatus(err error) (int, bool) {
+	exitError, ok := err.(*exec.ExitError)
+	if !ok {
+		return 0, false
+	}
+
+	waitStatus, ok := exitError.Sys().(syscall.WaitStatus)
+	if !ok {
+		return 0, false
+	}
+
+	return waitStatus.ExitStatus(), true
+}
+
 func methodFromContext(ctx context.Context) (service string, method string) {
 	tags := grpcmwtags.Extract(ctx)
 	ctxValue := tags.Values()["grpc.request.fullMethod"]
@@ -513,19 +531,4 @@ func checkNullArgv(cmd *exec.Cmd) error {
 	}
 
 	return nil
-}
-
-// Args is an accessor for the command arguments
-func (c *Command) Args() []string {
-	return c.cmd.Args
-}
-
-// Env is an accessor for the environment variables
-func (c *Command) Env() []string {
-	return c.cmd.Env
-}
-
-// Pid is an accessor for the pid
-func (c *Command) Pid() int {
-	return c.cmd.Process.Pid
 }
