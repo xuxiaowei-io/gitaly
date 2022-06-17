@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
@@ -294,21 +293,20 @@ type pushData struct {
 }
 
 func newTestPush(t *testing.T, cfg config.Cfg, fileContents []byte) *pushData {
-	_, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
-		WithWorktree: true,
-	})
+	_, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
-	oldHead, newHead := createCommit(t, cfg, repoPath, fileContents)
+	oldCommitID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD"))
+	newCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(git.ObjectID(oldCommitID)))
 
 	// ReceivePack request is a packet line followed by a packet flush, then the pack file of the objects we want to push.
 	// This is explained a bit in https://git-scm.com/book/en/v2/Git-Internals-Transfer-Protocols#_uploading_data
 	// We form the packet line the same way git executable does: https://github.com/git/git/blob/d1a13d3fcb252631361a961cb5e2bf10ed467cba/send-pack.c#L524-L527
 	requestBuffer := &bytes.Buffer{}
 
-	pkt := fmt.Sprintf("%s %s refs/heads/master\x00 %s", oldHead, newHead, uploadPackCapabilities)
+	pkt := fmt.Sprintf("%s %s refs/heads/master\x00 %s", oldCommitID, newCommitID, uploadPackCapabilities)
 	fmt.Fprintf(requestBuffer, "%04x%s", len(pkt)+4, pkt)
 
-	pkt = fmt.Sprintf("%s %s refs/heads/branch", git.ZeroOID, newHead)
+	pkt = fmt.Sprintf("%s %s refs/heads/branch", git.ZeroOID, newCommitID)
 	fmt.Fprintf(requestBuffer, "%04x%s", len(pkt)+4, pkt)
 
 	fmt.Fprintf(requestBuffer, "%s", pktFlushStr)
@@ -317,7 +315,7 @@ func newTestPush(t *testing.T, cfg config.Cfg, fileContents []byte) *pushData {
 	// which expects a list of revisions passed through standard input. The list format means
 	// pack the objects needed if I have oldHead but not newHead (think of it from the perspective of the remote repo).
 	// For more info, check the man pages of both `git-pack-objects` and `git-rev-list --objects`.
-	stdin := strings.NewReader(fmt.Sprintf("^%s\n%s\n", oldHead, newHead))
+	stdin := strings.NewReader(fmt.Sprintf("^%s\n%s\n", oldCommitID, newCommitID))
 
 	// The options passed are the same ones used when doing an actual push.
 	pack := gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: stdin},
@@ -325,32 +323,7 @@ func newTestPush(t *testing.T, cfg config.Cfg, fileContents []byte) *pushData {
 	)
 	requestBuffer.Write(pack)
 
-	return &pushData{newHead: newHead, body: requestBuffer}
-}
-
-// createCommit creates a commit on HEAD with a file containing the
-// specified contents.
-func createCommit(t *testing.T, cfg config.Cfg, repoPath string, fileContents []byte) (oldHead string, newHead string) {
-	commitMsg := fmt.Sprintf("Testing ReceivePack RPC around %d", time.Now().Unix())
-	committerName := "Scrooge McDuck"
-	committerEmail := "scrooge@mcduck.com"
-
-	// The latest commit ID on the remote repo
-	oldHead = text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "master"))
-
-	changedFile := "README.md"
-	require.NoError(t, os.WriteFile(filepath.Join(repoPath, changedFile), fileContents, 0o644))
-
-	gittest.Exec(t, cfg, "-C", repoPath, "add", changedFile)
-	gittest.Exec(t, cfg, "-C", repoPath,
-		"-c", fmt.Sprintf("user.name=%s", committerName),
-		"-c", fmt.Sprintf("user.email=%s", committerEmail),
-		"commit", "-m", commitMsg)
-
-	// The commit ID we want to push to the remote repo
-	newHead = text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "master"))
-
-	return oldHead, newHead
+	return &pushData{newHead: newCommitID.String(), body: requestBuffer}
 }
 
 func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
