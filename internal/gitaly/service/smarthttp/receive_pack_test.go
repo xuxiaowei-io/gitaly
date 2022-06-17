@@ -279,55 +279,6 @@ func TestPostReceivePack_rejectViaHooks(t *testing.T) {
 	require.Equal(t, expectedResponse, response)
 }
 
-func performPush(t *testing.T, stream gitalypb.SmartHTTPService_PostReceivePackClient, firstRequest *gitalypb.PostReceivePackRequest, body io.Reader) string {
-	require.NoError(t, stream.Send(firstRequest))
-
-	sw := streamio.NewWriter(func(p []byte) error {
-		return stream.Send(&gitalypb.PostReceivePackRequest{Data: p})
-	})
-	_, err := io.Copy(sw, body)
-	require.NoError(t, err)
-	require.NoError(t, stream.CloseSend())
-
-	var response bytes.Buffer
-	rr := streamio.NewReader(func() ([]byte, error) {
-		resp, err := stream.Recv()
-		return resp.GetData(), err
-	})
-	_, err = io.Copy(&response, rr)
-	require.NoError(t, err)
-
-	return response.String()
-}
-
-func createPushRequest(t *testing.T, cfg config.Cfg) (git.ObjectID, git.ObjectID, io.Reader) {
-	_, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
-
-	oldCommitID := git.ObjectID(text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD")))
-	newCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(oldCommitID))
-
-	// ReceivePack request is a packet line followed by a packet flush, then the pack file of the objects we want to push.
-	// This is explained a bit in https://git-scm.com/book/en/v2/Git-Internals-Transfer-Protocols#_uploading_data
-	// We form the packet line the same way git executable does: https://github.com/git/git/blob/d1a13d3fcb252631361a961cb5e2bf10ed467cba/send-pack.c#L524-L527
-	var request bytes.Buffer
-	gittest.WritePktlinef(t, &request, "%s %s refs/heads/master\x00 %s", oldCommitID, newCommitID, uploadPackCapabilities)
-	gittest.WritePktlinef(t, &request, "%s %s refs/heads/branch", git.ZeroOID, newCommitID)
-	gittest.WritePktlineFlush(t, &request)
-
-	// We need to get a pack file containing the objects we want to push, so we use git pack-objects
-	// which expects a list of revisions passed through standard input. The list format means
-	// pack the objects needed if I have oldHead but not newHead (think of it from the perspective of the remote repo).
-	// For more info, check the man pages of both `git-pack-objects` and `git-rev-list --objects`.
-	stdin := strings.NewReader(fmt.Sprintf("^%s\n%s\n", oldCommitID, newCommitID))
-
-	// The options passed are the same ones used when doing an actual push.
-	gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: stdin, Stdout: &request},
-		"-C", repoPath, "pack-objects", "--stdout", "--revs", "--thin", "--delta-base-offset", "-q",
-	)
-
-	return oldCommitID, newCommitID, &request
-}
-
 func TestPostReceivePack_requestValidation(t *testing.T) {
 	t.Parallel()
 
@@ -599,14 +550,6 @@ func TestPostReceivePack_fsck(t *testing.T) {
 	require.Contains(t, response, "duplicateEntries: contains duplicate file entries")
 }
 
-func drainPostReceivePackResponse(stream gitalypb.SmartHTTPService_PostReceivePackClient) error {
-	var err error
-	for err == nil {
-		_, err = stream.Recv()
-	}
-	return err
-}
-
 func TestPostReceivePack_hooks(t *testing.T) {
 	t.Parallel()
 
@@ -866,4 +809,61 @@ func TestPostReceivePack_notAllowed(t *testing.T) {
 	performPush(t, stream, request, pushRequest)
 
 	require.Equal(t, 1, refTransactionServer.called)
+}
+
+func createPushRequest(t *testing.T, cfg config.Cfg) (git.ObjectID, git.ObjectID, io.Reader) {
+	_, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+
+	oldCommitID := git.ObjectID(text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD")))
+	newCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(oldCommitID))
+
+	// ReceivePack request is a packet line followed by a packet flush, then the pack file of the objects we want to push.
+	// This is explained a bit in https://git-scm.com/book/en/v2/Git-Internals-Transfer-Protocols#_uploading_data
+	// We form the packet line the same way git executable does: https://github.com/git/git/blob/d1a13d3fcb252631361a961cb5e2bf10ed467cba/send-pack.c#L524-L527
+	var request bytes.Buffer
+	gittest.WritePktlinef(t, &request, "%s %s refs/heads/master\x00 %s", oldCommitID, newCommitID, uploadPackCapabilities)
+	gittest.WritePktlinef(t, &request, "%s %s refs/heads/branch", git.ZeroOID, newCommitID)
+	gittest.WritePktlineFlush(t, &request)
+
+	// We need to get a pack file containing the objects we want to push, so we use git pack-objects
+	// which expects a list of revisions passed through standard input. The list format means
+	// pack the objects needed if I have oldHead but not newHead (think of it from the perspective of the remote repo).
+	// For more info, check the man pages of both `git-pack-objects` and `git-rev-list --objects`.
+	stdin := strings.NewReader(fmt.Sprintf("^%s\n%s\n", oldCommitID, newCommitID))
+
+	// The options passed are the same ones used when doing an actual push.
+	gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: stdin, Stdout: &request},
+		"-C", repoPath, "pack-objects", "--stdout", "--revs", "--thin", "--delta-base-offset", "-q",
+	)
+
+	return oldCommitID, newCommitID, &request
+}
+
+func performPush(t *testing.T, stream gitalypb.SmartHTTPService_PostReceivePackClient, firstRequest *gitalypb.PostReceivePackRequest, body io.Reader) string {
+	require.NoError(t, stream.Send(firstRequest))
+
+	sw := streamio.NewWriter(func(p []byte) error {
+		return stream.Send(&gitalypb.PostReceivePackRequest{Data: p})
+	})
+	_, err := io.Copy(sw, body)
+	require.NoError(t, err)
+	require.NoError(t, stream.CloseSend())
+
+	var response bytes.Buffer
+	rr := streamio.NewReader(func() ([]byte, error) {
+		resp, err := stream.Recv()
+		return resp.GetData(), err
+	})
+	_, err = io.Copy(&response, rr)
+	require.NoError(t, err)
+
+	return response.String()
+}
+
+func drainPostReceivePackResponse(stream gitalypb.SmartHTTPService_PostReceivePackClient) error {
+	var err error
+	for err == nil {
+		_, err = stream.Recv()
+	}
+	return err
 }
