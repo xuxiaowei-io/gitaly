@@ -214,8 +214,9 @@ func New(ctx context.Context, cmd *exec.Cmd, opts ...Option) (*Command, error) {
 	if _, ok := cfg.stdin.(stdinSentinel); ok {
 		pipe, err := cmd.StdinPipe()
 		if err != nil {
-			return nil, fmt.Errorf("GitCommand: stdin: %v", err)
+			return nil, fmt.Errorf("creating stdin pipe: %w", err)
 		}
+
 		command.writer = pipe
 	} else if cfg.stdin != nil {
 		cmd.Stdin = cfg.stdin
@@ -228,8 +229,9 @@ func New(ctx context.Context, cmd *exec.Cmd, opts ...Option) (*Command, error) {
 	} else {
 		pipe, err := cmd.StdoutPipe()
 		if err != nil {
-			return nil, fmt.Errorf("GitCommand: stdout: %v", err)
+			return nil, fmt.Errorf("creating stdout pipe: %w", err)
 		}
+
 		command.reader = pipe
 	}
 
@@ -238,13 +240,14 @@ func New(ctx context.Context, cmd *exec.Cmd, opts ...Option) (*Command, error) {
 	} else {
 		command.stderrBuffer, err = newStderrBuffer(maxStderrBytes, maxStderrLineLength, []byte("\n"))
 		if err != nil {
-			return nil, fmt.Errorf("GitCommand: failed to create stderr buffer: %v", err)
+			return nil, fmt.Errorf("creating stderr buffer: %w", err)
 		}
+
 		cmd.Stderr = command.stderrBuffer
 	}
 
 	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("GitCommand: start %v: %v", cmd.Args, err)
+		return nil, fmt.Errorf("starting process %v: %w", cmd.Args, err)
 	}
 
 	inFlightCommandGauge.Inc()

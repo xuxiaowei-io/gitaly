@@ -254,7 +254,7 @@ func TestNew_missingBinary(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cmd, err := New(ctx, exec.Command("command-non-existent"))
-	require.Equal(t, fmt.Errorf("GitCommand: start [command-non-existent]: exec: \"command-non-existent\": executable file not found in $PATH"), err)
+	require.EqualError(t, err, "starting process [command-non-existent]: exec: \"command-non-existent\": executable file not found in $PATH")
 	require.Nil(t, cmd)
 }
 
