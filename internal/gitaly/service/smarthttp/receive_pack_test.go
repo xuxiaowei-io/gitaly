@@ -301,15 +301,10 @@ func newTestPush(t *testing.T, cfg config.Cfg, fileContents []byte) *pushData {
 	// ReceivePack request is a packet line followed by a packet flush, then the pack file of the objects we want to push.
 	// This is explained a bit in https://git-scm.com/book/en/v2/Git-Internals-Transfer-Protocols#_uploading_data
 	// We form the packet line the same way git executable does: https://github.com/git/git/blob/d1a13d3fcb252631361a961cb5e2bf10ed467cba/send-pack.c#L524-L527
-	requestBuffer := &bytes.Buffer{}
-
-	pkt := fmt.Sprintf("%s %s refs/heads/master\x00 %s", oldCommitID, newCommitID, uploadPackCapabilities)
-	fmt.Fprintf(requestBuffer, "%04x%s", len(pkt)+4, pkt)
-
-	pkt = fmt.Sprintf("%s %s refs/heads/branch", git.ZeroOID, newCommitID)
-	fmt.Fprintf(requestBuffer, "%04x%s", len(pkt)+4, pkt)
-
-	fmt.Fprintf(requestBuffer, "%s", pktFlushStr)
+	var request bytes.Buffer
+	gittest.WritePktlinef(t, &request, "%s %s refs/heads/master\x00 %s", oldCommitID, newCommitID, uploadPackCapabilities)
+	gittest.WritePktlinef(t, &request, "%s %s refs/heads/branch", git.ZeroOID, newCommitID)
+	gittest.WritePktlineFlush(t, &request)
 
 	// We need to get a pack file containing the objects we want to push, so we use git pack-objects
 	// which expects a list of revisions passed through standard input. The list format means
@@ -318,12 +313,11 @@ func newTestPush(t *testing.T, cfg config.Cfg, fileContents []byte) *pushData {
 	stdin := strings.NewReader(fmt.Sprintf("^%s\n%s\n", oldCommitID, newCommitID))
 
 	// The options passed are the same ones used when doing an actual push.
-	pack := gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: stdin},
+	gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: stdin, Stdout: &request},
 		"-C", repoPath, "pack-objects", "--stdout", "--revs", "--thin", "--delta-base-offset", "-q",
 	)
-	requestBuffer.Write(pack)
 
-	return &pushData{newHead: newCommitID.String(), body: requestBuffer}
+	return &pushData{newHead: newCommitID.String(), body: &request}
 }
 
 func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
