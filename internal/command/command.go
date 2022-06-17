@@ -134,6 +134,8 @@ type Command struct {
 	waitError error
 	waitOnce  sync.Once
 
+	finalizer func(*Command)
+
 	span opentracing.Span
 
 	metricsCmd    string
@@ -190,6 +192,7 @@ func New(ctx context.Context, cmd *exec.Cmd, opts ...Option) (*Command, error) {
 		startTime:     time.Now(),
 		context:       ctx,
 		span:          span,
+		finalizer:     cfg.finalizer,
 		metricsCmd:    cfg.commandName,
 		metricsSubCmd: cfg.subcommandName,
 	}
@@ -337,6 +340,10 @@ func (c *Command) wait() {
 	// counter again. So we instead do it here to accelerate the process, even though it's less
 	// idiomatic.
 	commandcounter.Decrement()
+
+	if c.finalizer != nil {
+		c.finalizer(c)
+	}
 }
 
 func (c *Command) logProcessComplete() {

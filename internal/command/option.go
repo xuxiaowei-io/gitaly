@@ -12,6 +12,8 @@ type config struct {
 	stderr      io.Writer
 	environment []string
 
+	finalizer func(*Command)
+
 	commandName    string
 	subcommandName string
 
@@ -80,5 +82,13 @@ func WithCgroup(cgroupsManager CgroupsManager, repo repository.GitRepo) Option {
 	return func(cfg *config) {
 		cfg.cgroupsManager = cgroupsManager
 		cfg.cgroupsRepo = repo
+	}
+}
+
+// WithFinalizer sets up the finalizer to be run when the command is being wrapped up. It will be
+// called after `Wait()` has returned.
+func WithFinalizer(finalizer func(*Command)) Option {
+	return func(cfg *config) {
+		cfg.finalizer = finalizer
 	}
 }
