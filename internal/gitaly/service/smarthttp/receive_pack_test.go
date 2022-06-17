@@ -37,7 +37,7 @@ const (
 	uploadPackCapabilities = "report-status side-band-64k agent=git/2.12.0"
 )
 
-func TestSuccessfulReceivePackRequest(t *testing.T) {
+func TestPostReceivePack_successful(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
@@ -117,7 +117,7 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 	}, payload)
 }
 
-func TestReceivePackHiddenRefs(t *testing.T) {
+func TestPostReceivePack_hiddenRefs(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
@@ -173,7 +173,7 @@ func TestReceivePackHiddenRefs(t *testing.T) {
 	}
 }
 
-func TestSuccessfulReceivePackRequestWithGitProtocol(t *testing.T) {
+func TestPostReceivePack_protocolV2(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
@@ -213,7 +213,7 @@ func TestSuccessfulReceivePackRequestWithGitProtocol(t *testing.T) {
 	gittest.Exec(t, cfg, "-C", repoPath, "show", newCommitID.String())
 }
 
-func TestFailedReceivePackRequestWithGitOpts(t *testing.T) {
+func TestPostReceivePack_rejectViaGitConfigOptions(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
@@ -243,7 +243,7 @@ func TestFailedReceivePackRequestWithGitOpts(t *testing.T) {
 	require.Equal(t, expectedResponse, response)
 }
 
-func TestFailedReceivePackRequestDueToHooksFailure(t *testing.T) {
+func TestPostReceivePack_rejectViaHooks(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
@@ -328,7 +328,7 @@ func createPushRequest(t *testing.T, cfg config.Cfg) (git.ObjectID, git.ObjectID
 	return oldCommitID, newCommitID, &request
 }
 
-func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
+func TestPostReceivePack_requestValidation(t *testing.T) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
@@ -550,7 +550,7 @@ func TestPostReceivePack_invalidObjects(t *testing.T) {
 	}
 }
 
-func TestReceivePackFsck(t *testing.T) {
+func TestPostReceivePack_fsck(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
@@ -607,7 +607,7 @@ func drainPostReceivePackResponse(stream gitalypb.SmartHTTPService_PostReceivePa
 	return err
 }
 
-func TestPostReceivePackToHooks(t *testing.T) {
+func TestPostReceivePack_hooks(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
@@ -669,7 +669,7 @@ func TestPostReceivePackToHooks(t *testing.T) {
 	require.Equal(t, io.EOF, drainPostReceivePackResponse(stream))
 }
 
-func TestPostReceiveWithTransactionsViaPraefect(t *testing.T) {
+func TestPostReceivePack_transactionsViaPraefect(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
@@ -732,7 +732,7 @@ func (t *testTransactionServer) VoteTransaction(ctx context.Context, in *gitalyp
 	}, nil
 }
 
-func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
+func TestPostReceivePack_referenceTransactionHook(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
@@ -812,7 +812,7 @@ func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
 	})
 }
 
-func TestPostReceive_allRejected(t *testing.T) {
+func TestPostReceivePack_notAllowed(t *testing.T) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
