@@ -21,6 +21,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
@@ -31,7 +32,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 )
 
 const (
@@ -343,9 +343,9 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 	defer conn.Close()
 
 	for _, tc := range []struct {
-		desc    string
-		request *gitalypb.PostReceivePackRequest
-		code    codes.Code
+		desc        string
+		request     *gitalypb.PostReceivePackRequest
+		expectedErr error
 	}{
 		{
 			desc: "Repository doesn't exist",
@@ -356,12 +356,24 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 				},
 				GlId: "user-123",
 			},
-			code: codes.InvalidArgument,
+			expectedErr: func() error {
+				if testhelper.IsPraefectEnabled() {
+					return helper.ErrInvalidArgumentf("repo scoped: invalid Repository")
+				}
+
+				return helper.ErrInvalidArgumentf("GetStorageByName: no such storage: %q", "fake")
+			}(),
 		},
 		{
 			desc:    "Repository is nil",
 			request: &gitalypb.PostReceivePackRequest{Repository: nil, GlId: "user-123"},
-			code:    codes.InvalidArgument,
+			expectedErr: func() error {
+				if testhelper.IsPraefectEnabled() {
+					return helper.ErrInvalidArgumentf("repo scoped: empty Repository")
+				}
+
+				return helper.ErrInvalidArgumentf("PostReceivePack: empty Repository")
+			}(),
 		},
 		{
 			desc: "Empty GlId",
@@ -372,12 +384,12 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 				},
 				GlId: "",
 			},
-			code: func() codes.Code {
+			expectedErr: func() error {
 				if testhelper.IsPraefectEnabled() {
-					return codes.NotFound
+					return helper.ErrNotFoundf("mutator call: route repository mutator: get repository id: repository %q/%q not found", cfg.Storages[0].Name, "path/to/repo")
 				}
 
-				return codes.InvalidArgument
+				return helper.ErrInvalidArgumentf("PostReceivePack: empty GlId")
 			}(),
 		},
 		{
@@ -390,12 +402,12 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 				GlId: "user-123",
 				Data: []byte("Fail"),
 			},
-			code: func() codes.Code {
+			expectedErr: func() error {
 				if testhelper.IsPraefectEnabled() {
-					return codes.NotFound
+					return helper.ErrNotFoundf("mutator call: route repository mutator: get repository id: repository %q/%q not found", cfg.Storages[0].Name, "path/to/repo")
 				}
 
-				return codes.InvalidArgument
+				return helper.ErrInvalidArgumentf("PostReceivePack: non-empty Data")
 			}(),
 		},
 	} {
@@ -408,7 +420,7 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 			require.NoError(t, stream.CloseSend())
 
 			err = drainPostReceivePackResponse(stream)
-			testhelper.RequireGrpcCode(t, err, tc.code)
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
 	}
 }
