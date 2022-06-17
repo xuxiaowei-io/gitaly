@@ -74,19 +74,19 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 	stream, err := client.PostReceivePack(ctx)
 	require.NoError(t, err)
 
-	push := newTestPush(t, cfg, nil)
+	_, newCommitID, request := createPushRequest(t, cfg)
 
 	projectPath := "project/path"
 
 	repo.GlProjectPath = projectPath
 	firstRequest := &gitalypb.PostReceivePackRequest{Repository: repo, GlUsername: "user", GlId: "123", GlRepository: "project-456"}
-	response := doPush(t, stream, firstRequest, push.body)
+	response := doPush(t, stream, firstRequest, request)
 
 	expectedResponse := "0049\x01000eunpack ok\n0019ok refs/heads/master\n0019ok refs/heads/branch\n00000000"
 	require.Equal(t, expectedResponse, string(response), "Expected response to be %q, got %q", expectedResponse, response)
 
 	// The fact that this command succeeds means that we got the commit correctly, no further checks should be needed.
-	gittest.Exec(t, cfg, "-C", repoPath, "show", push.newHead)
+	gittest.Exec(t, cfg, "-C", repoPath, "show", newCommitID.String())
 
 	envData := testhelper.MustReadFile(t, hookOutputFile)
 	payload, err := git.HooksPayloadFromEnv(strings.Split(string(envData), "\n"))
@@ -195,15 +195,15 @@ func TestSuccessfulReceivePackRequestWithGitProtocol(t *testing.T) {
 	stream, err := client.PostReceivePack(ctx)
 	require.NoError(t, err)
 
-	push := newTestPush(t, cfg, nil)
+	_, newCommitID, request := createPushRequest(t, cfg)
 	firstRequest := &gitalypb.PostReceivePackRequest{Repository: repo, GlId: "user-123", GlRepository: "project-123", GitProtocol: git.ProtocolV2}
-	doPush(t, stream, firstRequest, push.body)
+	doPush(t, stream, firstRequest, request)
 
 	envData := protocolDetectingFactory.ReadProtocol(t)
 	require.Equal(t, fmt.Sprintf("GIT_PROTOCOL=%s\n", git.ProtocolV2), envData)
 
 	// The fact that this command succeeds means that we got the commit correctly, no further checks should be needed.
-	gittest.Exec(t, cfg, "-C", repoPath, "show", push.newHead)
+	gittest.Exec(t, cfg, "-C", repoPath, "show", newCommitID.String())
 }
 
 func TestFailedReceivePackRequestWithGitOpts(t *testing.T) {
@@ -224,9 +224,9 @@ func TestFailedReceivePackRequestWithGitOpts(t *testing.T) {
 	stream, err := client.PostReceivePack(ctx)
 	require.NoError(t, err)
 
-	push := newTestPush(t, cfg, nil)
+	_, _, request := createPushRequest(t, cfg)
 	firstRequest := &gitalypb.PostReceivePackRequest{Repository: repo, GlId: "user-123", GlRepository: "project-123", GitConfigOptions: []string{"receive.MaxInputSize=1"}}
-	response := doPush(t, stream, firstRequest, push.body)
+	response := doPush(t, stream, firstRequest, request)
 
 	expectedResponse := "002e\x02fatal: pack exceeds maximum allowed size\n0081\x010028unpack unpack-objects abnormal exit\n0028ng refs/heads/master unpacker error\n0028ng refs/heads/branch unpacker error\n00000000"
 	require.Equal(t, expectedResponse, string(response), "Expected response to be %q, got %q", expectedResponse, response)
@@ -257,9 +257,9 @@ func TestFailedReceivePackRequestDueToHooksFailure(t *testing.T) {
 	stream, err := client.PostReceivePack(ctx)
 	require.NoError(t, err)
 
-	push := newTestPush(t, cfg, nil)
+	_, _, request := createPushRequest(t, cfg)
 	firstRequest := &gitalypb.PostReceivePackRequest{Repository: repo, GlId: "user-123", GlRepository: "project-123"}
-	response := doPush(t, stream, firstRequest, push.body)
+	response := doPush(t, stream, firstRequest, request)
 
 	expectedResponse := "007d\x01000eunpack ok\n0033ng refs/heads/master pre-receive hook declined\n0033ng refs/heads/branch pre-receive hook declined\n00000000"
 	require.Equal(t, expectedResponse, string(response), "Expected response to be %q, got %q", expectedResponse, response)
@@ -287,16 +287,11 @@ func doPush(t *testing.T, stream gitalypb.SmartHTTPService_PostReceivePackClient
 	return responseBuffer.Bytes()
 }
 
-type pushData struct {
-	newHead string
-	body    io.Reader
-}
-
-func newTestPush(t *testing.T, cfg config.Cfg, fileContents []byte) *pushData {
+func createPushRequest(t *testing.T, cfg config.Cfg) (git.ObjectID, git.ObjectID, io.Reader) {
 	_, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
-	oldCommitID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD"))
-	newCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(git.ObjectID(oldCommitID)))
+	oldCommitID := git.ObjectID(text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD")))
+	newCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(oldCommitID))
 
 	// ReceivePack request is a packet line followed by a packet flush, then the pack file of the objects we want to push.
 	// This is explained a bit in https://git-scm.com/book/en/v2/Git-Internals-Transfer-Protocols#_uploading_data
@@ -317,7 +312,7 @@ func newTestPush(t *testing.T, cfg config.Cfg, fileContents []byte) *pushData {
 		"-C", repoPath, "pack-objects", "--stdout", "--revs", "--thin", "--delta-base-offset", "-q",
 	)
 
-	return &pushData{newHead: newCommitID.String(), body: &request}
+	return oldCommitID, newCommitID, &request
 }
 
 func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
@@ -613,10 +608,10 @@ func TestPostReceivePackToHooks(t *testing.T) {
 	cfg.Auth.Token = "abc123"
 	cfg.Gitlab.SecretFile = gitlab.WriteShellSecretFile(t, cfg.GitlabShell.Dir, secretToken)
 
-	push := newTestPush(t, cfg, nil)
+	_, newCommitID, request := createPushRequest(t, cfg)
 	oldHead := text.ChompBytes(gittest.Exec(t, cfg, "-C", testRepoPath, "rev-parse", "HEAD"))
 
-	changes := fmt.Sprintf("%s %s refs/heads/master\n", oldHead, push.newHead)
+	changes := fmt.Sprintf("%s %s refs/heads/master\n", oldHead, newCommitID)
 
 	cfg.Gitlab.URL, cleanup = gitlab.NewTestServer(t, gitlab.TestServerOptions{
 		User:                        "",
@@ -644,7 +639,7 @@ func TestPostReceivePackToHooks(t *testing.T) {
 		GlRepository: glRepository,
 	}
 
-	response := doPush(t, stream, firstRequest, push.body)
+	response := doPush(t, stream, firstRequest, request)
 
 	expectedResponse := "0049\x01000eunpack ok\n0019ok refs/heads/master\n0019ok refs/heads/branch\n00000000"
 	require.Equal(t, expectedResponse, string(response), "Expected response to be %q, got %q", expectedResponse, response)
@@ -697,9 +692,9 @@ func TestPostReceiveWithTransactionsViaPraefect(t *testing.T) {
 	stream, err := client.PostReceivePack(ctx)
 	require.NoError(t, err)
 
-	push := newTestPush(t, cfg, nil)
+	_, _, pushRequest := createPushRequest(t, cfg)
 	request := &gitalypb.PostReceivePackRequest{Repository: repo, GlId: glID, GlRepository: glRepository}
-	response := doPush(t, stream, request, push.body)
+	response := doPush(t, stream, request, pushRequest)
 
 	expectedResponse := "0049\x01000eunpack ok\n0019ok refs/heads/master\n0019ok refs/heads/branch\n00000000"
 	require.Equal(t, expectedResponse, string(response), "Expected response to be %q, got %q", expectedResponse, response)
@@ -753,8 +748,9 @@ func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
 
 		repo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
+		_, _, pushRequest := createPushRequest(t, cfg)
 		request := &gitalypb.PostReceivePackRequest{Repository: repo, GlId: "key-1234", GlRepository: "some_repo"}
-		response := doPush(t, stream, request, newTestPush(t, cfg, nil).body)
+		response := doPush(t, stream, request, pushRequest)
 
 		expectedResponse := "0049\x01000eunpack ok\n0019ok refs/heads/master\n0019ok refs/heads/branch\n00000000"
 		require.Equal(t, expectedResponse, string(response), "Expected response to be %q, got %q", expectedResponse, response)
@@ -839,8 +835,9 @@ func TestPostReceive_allRejected(t *testing.T) {
 
 	repo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
+	_, _, pushRequest := createPushRequest(t, cfg)
 	request := &gitalypb.PostReceivePackRequest{Repository: repo, GlId: "key-1234", GlRepository: "some_repo"}
-	doPush(t, stream, request, newTestPush(t, cfg, nil).body)
+	doPush(t, stream, request, pushRequest)
 
 	require.Equal(t, 1, refTransactionServer.called)
 }
