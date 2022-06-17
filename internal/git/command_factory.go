@@ -397,12 +397,14 @@ func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo repository.Gi
 	execCommand := exec.Command(execEnv.BinaryPath, args...)
 	execCommand.Dir = dir
 
-	command, err := command.New(ctx, execCommand, append(config.commandOpts, command.WithEnvironment(env))...)
+	command, err := command.New(ctx, execCommand, append(
+		config.commandOpts,
+		command.WithEnvironment(env),
+		command.WithCommandName("git", sc.Subcommand()),
+	)...)
 	if err != nil {
 		return nil, err
 	}
-
-	command.SetMetricsSubCmd(sc.Subcommand())
 
 	if featureflag.RunCommandsInCGroup.IsEnabled(ctx) {
 		if err := cf.cgroupsManager.AddCommand(command, repo); err != nil {

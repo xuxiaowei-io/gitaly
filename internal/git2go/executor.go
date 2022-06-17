@@ -93,12 +93,11 @@ func (b *Executor) run(ctx context.Context, repo repository.GitRepo, stdin io.Re
 		command.WithStdout(&stdout),
 		command.WithStderr(log),
 		command.WithEnvironment(env),
+		command.WithCommandName("gitaly-git2go", subcmd),
 	)
 	if err != nil {
 		return nil, err
 	}
-
-	cmd.SetMetricsSubCmd(subcmd)
 
 	if err := cmd.Wait(); err != nil {
 		return nil, err

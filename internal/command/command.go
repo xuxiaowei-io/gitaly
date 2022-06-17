@@ -185,10 +185,12 @@ func New(ctx context.Context, cmd *exec.Cmd, opts ...Option) (*Command, error) {
 	}()
 
 	command := &Command{
-		cmd:       cmd,
-		startTime: time.Now(),
-		context:   ctx,
-		span:      span,
+		cmd:           cmd,
+		startTime:     time.Now(),
+		context:       ctx,
+		span:          span,
+		metricsCmd:    cfg.commandName,
+		metricsSubCmd: cfg.subcommandName,
 	}
 
 	// Export allowed environment variables as set in the Gitaly process.
@@ -295,16 +297,6 @@ func (c *Command) Wait() error {
 // SetCgroupPath sets the cgroup path for logging
 func (c *Command) SetCgroupPath(path string) {
 	c.cgroupPath = path
-}
-
-// SetMetricsCmd overrides the "cmd" label used in metrics
-func (c *Command) SetMetricsCmd(metricsCmd string) {
-	c.metricsCmd = metricsCmd
-}
-
-// SetMetricsSubCmd sets the "subcmd" label used in metrics
-func (c *Command) SetMetricsSubCmd(metricsSubCmd string) {
-	c.metricsSubCmd = metricsSubCmd
 }
 
 // This function should never be called directly, use Wait().

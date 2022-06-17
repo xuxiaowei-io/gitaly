@@ -7,6 +7,9 @@ type config struct {
 	stdout      io.Writer
 	stderr      io.Writer
 	environment []string
+
+	commandName    string
+	subcommandName string
 }
 
 // Option is an option that can be passed to `New()` for controlling how the command is being
@@ -47,5 +50,13 @@ func WithStderr(stderr io.Writer) Option {
 func WithEnvironment(environment []string) Option {
 	return func(cfg *config) {
 		cfg.environment = environment
+	}
+}
+
+// WithCommandName overrides the "cmd" and "subcmd" label used in metrics.
+func WithCommandName(commandName, subcommandName string) Option {
+	return func(cfg *config) {
+		cfg.commandName = commandName
+		cfg.subcommandName = subcommandName
 	}
 }
