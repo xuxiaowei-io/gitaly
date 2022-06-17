@@ -17,7 +17,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/log"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 )
 
 // CommandFactory is designed to create and run git commands in a protected and fully managed manner.
@@ -401,15 +400,10 @@ func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo repository.Gi
 		config.commandOpts,
 		command.WithEnvironment(env),
 		command.WithCommandName("git", sc.Subcommand()),
+		command.WithCgroup(cf.cgroupsManager, repo),
 	)...)
 	if err != nil {
 		return nil, err
-	}
-
-	if featureflag.RunCommandsInCGroup.IsEnabled(ctx) {
-		if err := cf.cgroupsManager.AddCommand(command, repo); err != nil {
-			return nil, err
-		}
 	}
 
 	return command, nil

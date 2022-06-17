@@ -1,6 +1,10 @@
 package command
 
-import "io"
+import (
+	"io"
+
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
+)
 
 type config struct {
 	stdin       io.Reader
@@ -10,6 +14,9 @@ type config struct {
 
 	commandName    string
 	subcommandName string
+
+	cgroupsManager CgroupsManager
+	cgroupsRepo    repository.GitRepo
 }
 
 // Option is an option that can be passed to `New()` for controlling how the command is being
@@ -58,5 +65,20 @@ func WithCommandName(commandName, subcommandName string) Option {
 	return func(cfg *config) {
 		cfg.commandName = commandName
 		cfg.subcommandName = subcommandName
+	}
+}
+
+// CgroupsManager is a subset of the `cgroups.Manager` interface. We need to replicate it here to
+// avoid a cyclic dependency between both packages.
+type CgroupsManager interface {
+	AddCommand(*Command, repository.GitRepo) (string, error)
+}
+
+// WithCgroup adds the spawned command to a Cgroup. The bucket used will be derived from the
+// command's arguments and/or from the repository.
+func WithCgroup(cgroupsManager CgroupsManager, repo repository.GitRepo) Option {
+	return func(cfg *config) {
+		cfg.cgroupsManager = cgroupsManager
+		cfg.cgroupsRepo = repo
 	}
 }

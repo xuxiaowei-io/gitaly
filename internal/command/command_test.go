@@ -19,6 +19,7 @@ import (
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
 
@@ -396,6 +397,12 @@ func TestCommand_stderrLoggingMaxBytes(t *testing.T) {
 	require.Len(t, hook.LastEntry().Message, maxStderrBytes)
 }
 
+type mockCgroupManager string
+
+func (m mockCgroupManager) AddCommand(*Command, repository.GitRepo) (string, error) {
+	return string(m), nil
+}
+
 func TestCommand_logMessage(t *testing.T) {
 	t.Parallel()
 
@@ -404,17 +411,17 @@ func TestCommand_logMessage(t *testing.T) {
 
 	ctx := ctxlogrus.ToContext(testhelper.Context(t), logrus.NewEntry(logger))
 
-	cmd, err := New(ctx, exec.Command("echo", "hello world"))
+	cmd, err := New(ctx, exec.Command("echo", "hello world"),
+		WithCgroup(mockCgroupManager("/sys/fs/cgroup/1"), nil),
+	)
 	require.NoError(t, err)
-	cgroupPath := "/sys/fs/cgroup/1"
-	cmd.SetCgroupPath(cgroupPath)
 
 	require.NoError(t, cmd.Wait())
 	logEntry := hook.LastEntry()
 	assert.Equal(t, cmd.Pid(), logEntry.Data["pid"])
 	assert.Equal(t, []string{"echo", "hello world"}, logEntry.Data["args"])
 	assert.Equal(t, 0, logEntry.Data["command.exitCode"])
-	assert.Equal(t, cgroupPath, logEntry.Data["command.cgroup_path"])
+	assert.Equal(t, "/sys/fs/cgroup/1", logEntry.Data["command.cgroup_path"])
 }
 
 func TestNew_commandSpawnTokenMetrics(t *testing.T) {

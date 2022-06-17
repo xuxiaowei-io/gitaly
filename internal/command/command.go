@@ -20,6 +20,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command/commandcounter"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/labkit/tracing"
 )
 
@@ -242,24 +243,40 @@ func New(ctx context.Context, cmd *exec.Cmd, opts ...Option) (*Command, error) {
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("GitCommand: start %v: %v", cmd.Args, err)
 	}
+
 	inFlightCommandGauge.Inc()
-
-	// The goroutine below is responsible for terminating and reaping the
-	// process when ctx is canceled.
 	commandcounter.Increment()
-	go func() {
-		<-ctx.Done()
 
-		if process := cmd.Process; process != nil && process.Pid > 0 {
-			//nolint:errcheck // TODO: do we want to report errors?
-			// Send SIGTERM to the process group of cmd
-			syscall.Kill(-process.Pid, syscall.SIGTERM)
+	// The goroutine below is responsible for terminating and reaping the process when ctx is
+	// canceled. While we must ensure that it does run when `cmd.Start()` was successful, it
+	// must not run before have fully set up the command. Otherwise, we may end up with racy
+	// access patterns when the context gets terminated early.
+	//
+	// We thus defer spawning the Goroutine.
+	defer func() {
+		go func() {
+			<-ctx.Done()
+
+			if process := cmd.Process; process != nil && process.Pid > 0 {
+				//nolint:errcheck // TODO: do we want to report errors?
+				// Send SIGTERM to the process group of cmd
+				syscall.Kill(-process.Pid, syscall.SIGTERM)
+			}
+
+			// We do not care for any potential error code, but just want to make sure that the
+			// subprocess gets properly killed and processed.
+			_ = command.Wait()
+		}()
+	}()
+
+	if featureflag.RunCommandsInCGroup.IsEnabled(ctx) && cfg.cgroupsManager != nil {
+		cgroupPath, err := cfg.cgroupsManager.AddCommand(command, cfg.cgroupsRepo)
+		if err != nil {
+			return nil, err
 		}
 
-		// We do not care for any potential erorr code, but just want to make sure that the
-		// subprocess gets properly killed and processed.
-		_ = command.Wait()
-	}()
+		command.cgroupPath = cgroupPath
+	}
 
 	logPid = cmd.Process.Pid
 
@@ -292,11 +309,6 @@ func (c *Command) Wait() error {
 	c.waitOnce.Do(c.wait)
 
 	return c.waitError
-}
-
-// SetCgroupPath sets the cgroup path for logging
-func (c *Command) SetCgroupPath(path string) {
-	c.cgroupPath = path
 }
 
 // This function should never be called directly, use Wait().
