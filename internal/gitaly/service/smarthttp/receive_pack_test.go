@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
@@ -83,8 +84,9 @@ func TestPostReceivePack_successful(t *testing.T) {
 		GlRepository: "project-456",
 	}, request)
 
-	expectedResponse := "0049\x01000eunpack ok\n0019ok refs/heads/master\n0019ok refs/heads/branch\n00000000"
-	require.Equal(t, expectedResponse, response)
+	requireSideband(t, []string{
+		"0049\x01000eunpack ok\n0019ok refs/heads/master\n0019ok refs/heads/branch\n0000",
+	}, response)
 
 	// The fact that this command succeeds means that we got the commit correctly, no further
 	// checks should be needed.
@@ -239,8 +241,10 @@ func TestPostReceivePack_rejectViaGitConfigOptions(t *testing.T) {
 		GitConfigOptions: []string{"receive.MaxInputSize=1"},
 	}, request)
 
-	expectedResponse := "002e\x02fatal: pack exceeds maximum allowed size\n0081\x010028unpack unpack-objects abnormal exit\n0028ng refs/heads/master unpacker error\n0028ng refs/heads/branch unpacker error\n00000000"
-	require.Equal(t, expectedResponse, response)
+	requireSideband(t, []string{
+		"002e\x02fatal: pack exceeds maximum allowed size\n",
+		"0081\x010028unpack unpack-objects abnormal exit\n0028ng refs/heads/master unpacker error\n0028ng refs/heads/branch unpacker error\n0000",
+	}, response)
 }
 
 func TestPostReceivePack_rejectViaHooks(t *testing.T) {
@@ -275,8 +279,9 @@ func TestPostReceivePack_rejectViaHooks(t *testing.T) {
 		GlRepository: "project-123",
 	}, request)
 
-	expectedResponse := "007d\x01000eunpack ok\n0033ng refs/heads/master pre-receive hook declined\n0033ng refs/heads/branch pre-receive hook declined\n00000000"
-	require.Equal(t, expectedResponse, response)
+	requireSideband(t, []string{
+		"007d\x01000eunpack ok\n0033ng refs/heads/master pre-receive hook declined\n0033ng refs/heads/branch pre-receive hook declined\n0000",
+	}, response)
 }
 
 func TestPostReceivePack_requestValidation(t *testing.T) {
@@ -403,7 +408,7 @@ func TestPostReceivePack_invalidObjects(t *testing.T) {
 	for _, tc := range []struct {
 		desc             string
 		prepareCommit    func(t *testing.T, repoPath string) bytes.Buffer
-		expectedResponse string
+		expectedSideband []string
 		expectObject     bool
 	}{
 		{
@@ -418,8 +423,10 @@ func TestPostReceivePack_invalidObjects(t *testing.T) {
 				buf.WriteString("Commit message\n")
 				return buf
 			},
-			expectedResponse: "0030\x01000eunpack ok\n0019ok refs/heads/master\n00000000",
-			expectObject:     true,
+			expectedSideband: []string{
+				"0030\x01000eunpack ok\n0019ok refs/heads/master\n0000",
+			},
+			expectObject: true,
 		},
 		{
 			desc: "missing author and committer date",
@@ -433,8 +440,10 @@ func TestPostReceivePack_invalidObjects(t *testing.T) {
 				buf.WriteString("Commit message\n")
 				return buf
 			},
-			expectedResponse: "0030\x01000eunpack ok\n0019ok refs/heads/master\n00000000",
-			expectObject:     true,
+			expectedSideband: []string{
+				"0030\x01000eunpack ok\n0019ok refs/heads/master\n0000",
+			},
+			expectObject: true,
 		},
 		{
 			desc: "zero-padded file mode",
@@ -462,8 +471,10 @@ func TestPostReceivePack_invalidObjects(t *testing.T) {
 				buf.WriteString("Commit message\n")
 				return buf
 			},
-			expectedResponse: "0030\x01000eunpack ok\n0019ok refs/heads/master\n00000000",
-			expectObject:     true,
+			expectedSideband: []string{
+				"0030\x01000eunpack ok\n0019ok refs/heads/master\n0000",
+			},
+			expectObject: true,
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -492,7 +503,7 @@ func TestPostReceivePack_invalidObjects(t *testing.T) {
 				GlRepository: "project-456",
 			}, body)
 
-			require.Contains(t, response, tc.expectedResponse)
+			requireSideband(t, tc.expectedSideband, response)
 
 			exists, err := repo.HasRevision(ctx, git.Revision(commitID+"^{commit}"))
 			require.NoError(t, err)
@@ -607,8 +618,9 @@ func TestPostReceivePack_hooks(t *testing.T) {
 		GlRepository: glRepository,
 	}, request)
 
-	expectedResponse := "0049\x01000eunpack ok\n0019ok refs/heads/master\n0019ok refs/heads/branch\n00000000"
-	require.Equal(t, expectedResponse, response)
+	requireSideband(t, []string{
+		"0049\x01000eunpack ok\n0019ok refs/heads/master\n0019ok refs/heads/branch\n0000",
+	}, response)
 	require.Equal(t, io.EOF, drainPostReceivePackResponse(stream))
 }
 
@@ -659,8 +671,9 @@ func TestPostReceivePack_transactionsViaPraefect(t *testing.T) {
 		GlRepository: opts.GLRepository,
 	}, pushRequest)
 
-	expectedResponse := "0049\x01000eunpack ok\n0019ok refs/heads/master\n0019ok refs/heads/branch\n00000000"
-	require.Equal(t, expectedResponse, response)
+	requireSideband(t, []string{
+		"0049\x01000eunpack ok\n0019ok refs/heads/master\n0019ok refs/heads/branch\n0000",
+	}, response)
 }
 
 type testTransactionServer struct {
@@ -718,8 +731,9 @@ func TestPostReceivePack_referenceTransactionHook(t *testing.T) {
 			GlRepository: "some_repo",
 		}, pushRequest)
 
-		expectedResponse := "0049\x01000eunpack ok\n0019ok refs/heads/master\n0019ok refs/heads/branch\n00000000"
-		require.Equal(t, expectedResponse, response)
+		requireSideband(t, []string{
+			"0049\x01000eunpack ok\n0019ok refs/heads/master\n0019ok refs/heads/branch\n0000",
+		}, response)
 		require.Equal(t, 5, refTransactionServer.called)
 	})
 
@@ -749,8 +763,9 @@ func TestPostReceivePack_referenceTransactionHook(t *testing.T) {
 			GlRepository: "some_repo",
 		}, uploadPackData)
 
-		expectedResponse := "0033\x01000eunpack ok\n001cok refs/heads/delete-me\n00000000"
-		require.Equal(t, expectedResponse, response)
+		requireSideband(t, []string{
+			"0033\x01000eunpack ok\n001cok refs/heads/delete-me\n0000",
+		}, response)
 		require.Equal(t, 3, refTransactionServer.called)
 	})
 }
@@ -866,4 +881,36 @@ func drainPostReceivePackResponse(stream gitalypb.SmartHTTPService_PostReceivePa
 		_, err = stream.Recv()
 	}
 	return err
+}
+
+// requireSideband compares the actual sideband data to expected sideband data. This function is
+// required to filter out any keep-alive packets which Git may send over the sideband and which are
+// kind of unpredictable for us.
+func requireSideband(t testing.TB, expectedSidebandMessages []string, actualInput string) {
+	t.Helper()
+
+	scanner := pktline.NewScanner(strings.NewReader(actualInput))
+
+	var actualSidebandMessages []string
+	for scanner.Scan() {
+		payload := scanner.Bytes()
+
+		// Flush packets terminate the communication via side-channels, so we expect them to
+		// come.
+		if pktline.IsFlush(payload) {
+			require.Equal(t, expectedSidebandMessages, actualSidebandMessages)
+			return
+		}
+
+		// git-receive-pack(1) by default sends keep-alive packets every 5 seconds after it
+		// has received the full packfile. We must filter out these keep-alive packets to
+		// not break tests on machines which are really slow to execute.
+		if string(payload) == "0005\x01" {
+			continue
+		}
+
+		actualSidebandMessages = append(actualSidebandMessages, string(payload))
+	}
+
+	require.FailNow(t, "expected to receive a flush to terminate the protocol")
 }
