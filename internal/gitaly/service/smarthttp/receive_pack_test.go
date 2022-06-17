@@ -79,11 +79,15 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 	projectPath := "project/path"
 
 	repo.GlProjectPath = projectPath
-	firstRequest := &gitalypb.PostReceivePackRequest{Repository: repo, GlUsername: "user", GlId: "123", GlRepository: "project-456"}
-	response := doPush(t, stream, firstRequest, request)
+	response := performPush(t, stream, &gitalypb.PostReceivePackRequest{
+		Repository:   repo,
+		GlUsername:   "user",
+		GlId:         "123",
+		GlRepository: "project-456",
+	}, request)
 
 	expectedResponse := "0049\x01000eunpack ok\n0019ok refs/heads/master\n0019ok refs/heads/branch\n00000000"
-	require.Equal(t, expectedResponse, string(response), "Expected response to be %q, got %q", expectedResponse, response)
+	require.Equal(t, expectedResponse, response, "Expected response to be %q, got %q", expectedResponse, response)
 
 	// The fact that this command succeeds means that we got the commit correctly, no further checks should be needed.
 	gittest.Exec(t, cfg, "-C", repoPath, "show", newCommitID.String())
@@ -160,11 +164,14 @@ func TestReceivePackHiddenRefs(t *testing.T) {
 			stream, err := client.PostReceivePack(ctx)
 			require.NoError(t, err)
 
-			response := doPush(t, stream, &gitalypb.PostReceivePackRequest{
-				Repository: repoProto, GlUsername: "user", GlId: "123", GlRepository: "project-456",
+			response := performPush(t, stream, &gitalypb.PostReceivePackRequest{
+				Repository:   repoProto,
+				GlUsername:   "user",
+				GlId:         "123",
+				GlRepository: "project-456",
 			}, request)
 
-			require.Contains(t, string(response), fmt.Sprintf("%s deny updating a hidden ref", ref))
+			require.Contains(t, response, fmt.Sprintf("%s deny updating a hidden ref", ref))
 		})
 	}
 }
@@ -196,8 +203,12 @@ func TestSuccessfulReceivePackRequestWithGitProtocol(t *testing.T) {
 	require.NoError(t, err)
 
 	_, newCommitID, request := createPushRequest(t, cfg)
-	firstRequest := &gitalypb.PostReceivePackRequest{Repository: repo, GlId: "user-123", GlRepository: "project-123", GitProtocol: git.ProtocolV2}
-	doPush(t, stream, firstRequest, request)
+	performPush(t, stream, &gitalypb.PostReceivePackRequest{
+		Repository:   repo,
+		GlId:         "user-123",
+		GlRepository: "project-123",
+		GitProtocol:  git.ProtocolV2,
+	}, request)
 
 	envData := protocolDetectingFactory.ReadProtocol(t)
 	require.Equal(t, fmt.Sprintf("GIT_PROTOCOL=%s\n", git.ProtocolV2), envData)
@@ -225,11 +236,15 @@ func TestFailedReceivePackRequestWithGitOpts(t *testing.T) {
 	require.NoError(t, err)
 
 	_, _, request := createPushRequest(t, cfg)
-	firstRequest := &gitalypb.PostReceivePackRequest{Repository: repo, GlId: "user-123", GlRepository: "project-123", GitConfigOptions: []string{"receive.MaxInputSize=1"}}
-	response := doPush(t, stream, firstRequest, request)
+	response := performPush(t, stream, &gitalypb.PostReceivePackRequest{
+		Repository:       repo,
+		GlId:             "user-123",
+		GlRepository:     "project-123",
+		GitConfigOptions: []string{"receive.MaxInputSize=1"},
+	}, request)
 
 	expectedResponse := "002e\x02fatal: pack exceeds maximum allowed size\n0081\x010028unpack unpack-objects abnormal exit\n0028ng refs/heads/master unpacker error\n0028ng refs/heads/branch unpacker error\n00000000"
-	require.Equal(t, expectedResponse, string(response), "Expected response to be %q, got %q", expectedResponse, response)
+	require.Equal(t, expectedResponse, response, "Expected response to be %q, got %q", expectedResponse, response)
 }
 
 func TestFailedReceivePackRequestDueToHooksFailure(t *testing.T) {
@@ -258,14 +273,17 @@ func TestFailedReceivePackRequestDueToHooksFailure(t *testing.T) {
 	require.NoError(t, err)
 
 	_, _, request := createPushRequest(t, cfg)
-	firstRequest := &gitalypb.PostReceivePackRequest{Repository: repo, GlId: "user-123", GlRepository: "project-123"}
-	response := doPush(t, stream, firstRequest, request)
+	response := performPush(t, stream, &gitalypb.PostReceivePackRequest{
+		Repository:   repo,
+		GlId:         "user-123",
+		GlRepository: "project-123",
+	}, request)
 
 	expectedResponse := "007d\x01000eunpack ok\n0033ng refs/heads/master pre-receive hook declined\n0033ng refs/heads/branch pre-receive hook declined\n00000000"
-	require.Equal(t, expectedResponse, string(response), "Expected response to be %q, got %q", expectedResponse, response)
+	require.Equal(t, expectedResponse, response, "Expected response to be %q, got %q", expectedResponse, response)
 }
 
-func doPush(t *testing.T, stream gitalypb.SmartHTTPService_PostReceivePackClient, firstRequest *gitalypb.PostReceivePackRequest, body io.Reader) []byte {
+func performPush(t *testing.T, stream gitalypb.SmartHTTPService_PostReceivePackClient, firstRequest *gitalypb.PostReceivePackRequest, body io.Reader) string {
 	require.NoError(t, stream.Send(firstRequest))
 
 	sw := streamio.NewWriter(func(p []byte) error {
@@ -273,18 +291,17 @@ func doPush(t *testing.T, stream gitalypb.SmartHTTPService_PostReceivePackClient
 	})
 	_, err := io.Copy(sw, body)
 	require.NoError(t, err)
-
 	require.NoError(t, stream.CloseSend())
 
-	responseBuffer := bytes.Buffer{}
+	var response bytes.Buffer
 	rr := streamio.NewReader(func() ([]byte, error) {
 		resp, err := stream.Recv()
 		return resp.GetData(), err
 	})
-	_, err = io.Copy(&responseBuffer, rr)
+	_, err = io.Copy(&response, rr)
 	require.NoError(t, err)
 
-	return responseBuffer.Bytes()
+	return response.String()
 }
 
 func createPushRequest(t *testing.T, cfg config.Cfg) (git.ObjectID, git.ObjectID, io.Reader) {
@@ -509,14 +526,13 @@ func TestPostReceivePack_invalidObjects(t *testing.T) {
 
 			stream, err := client.PostReceivePack(ctx)
 			require.NoError(t, err)
-			firstRequest := &gitalypb.PostReceivePackRequest{
+			response := performPush(t, stream, &gitalypb.PostReceivePackRequest{
 				Repository:   repoProto,
 				GlId:         "user-123",
 				GlRepository: "project-456",
-			}
-			response := doPush(t, stream, firstRequest, body)
+			}, body)
 
-			require.Contains(t, string(response), tc.expectedResponse)
+			require.Contains(t, response, tc.expectedResponse)
 
 			exists, err := repo.HasRevision(ctx, git.Revision(commitID+"^{commit}"))
 			require.NoError(t, err)
@@ -566,13 +582,13 @@ func TestReceivePackFsck(t *testing.T) {
 	stream, err := client.PostReceivePack(ctx)
 	require.NoError(t, err)
 
-	response := doPush(t, stream, &gitalypb.PostReceivePackRequest{
+	response := performPush(t, stream, &gitalypb.PostReceivePackRequest{
 		Repository:   repo,
 		GlId:         "user-123",
 		GlRepository: "project-456",
 	}, &body)
 
-	require.Contains(t, string(response), "duplicateEntries: contains duplicate file entries")
+	require.Contains(t, response, "duplicateEntries: contains duplicate file entries")
 }
 
 func drainPostReceivePackResponse(stream gitalypb.SmartHTTPService_PostReceivePackClient) error {
@@ -633,16 +649,14 @@ func TestPostReceivePackToHooks(t *testing.T) {
 	stream, err := client.PostReceivePack(ctx)
 	require.NoError(t, err)
 
-	firstRequest := &gitalypb.PostReceivePackRequest{
+	response := performPush(t, stream, &gitalypb.PostReceivePackRequest{
 		Repository:   repo,
 		GlId:         glID,
 		GlRepository: glRepository,
-	}
-
-	response := doPush(t, stream, firstRequest, request)
+	}, request)
 
 	expectedResponse := "0049\x01000eunpack ok\n0019ok refs/heads/master\n0019ok refs/heads/branch\n00000000"
-	require.Equal(t, expectedResponse, string(response), "Expected response to be %q, got %q", expectedResponse, response)
+	require.Equal(t, expectedResponse, response, "Expected response to be %q, got %q", expectedResponse, response)
 	require.Equal(t, io.EOF, drainPostReceivePackResponse(stream))
 }
 
@@ -693,11 +707,14 @@ func TestPostReceiveWithTransactionsViaPraefect(t *testing.T) {
 	require.NoError(t, err)
 
 	_, _, pushRequest := createPushRequest(t, cfg)
-	request := &gitalypb.PostReceivePackRequest{Repository: repo, GlId: glID, GlRepository: glRepository}
-	response := doPush(t, stream, request, pushRequest)
+	response := performPush(t, stream, &gitalypb.PostReceivePackRequest{
+		Repository:   repo,
+		GlId:         glID,
+		GlRepository: glRepository,
+	}, pushRequest)
 
 	expectedResponse := "0049\x01000eunpack ok\n0019ok refs/heads/master\n0019ok refs/heads/branch\n00000000"
-	require.Equal(t, expectedResponse, string(response), "Expected response to be %q, got %q", expectedResponse, response)
+	require.Equal(t, expectedResponse, response, "Expected response to be %q, got %q", expectedResponse, response)
 }
 
 type testTransactionServer struct {
@@ -749,11 +766,14 @@ func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
 		repo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
 		_, _, pushRequest := createPushRequest(t, cfg)
-		request := &gitalypb.PostReceivePackRequest{Repository: repo, GlId: "key-1234", GlRepository: "some_repo"}
-		response := doPush(t, stream, request, pushRequest)
+		response := performPush(t, stream, &gitalypb.PostReceivePackRequest{
+			Repository:   repo,
+			GlId:         "key-1234",
+			GlRepository: "some_repo",
+		}, pushRequest)
 
 		expectedResponse := "0049\x01000eunpack ok\n0019ok refs/heads/master\n0019ok refs/heads/branch\n00000000"
-		require.Equal(t, expectedResponse, string(response), "Expected response to be %q, got %q", expectedResponse, response)
+		require.Equal(t, expectedResponse, response, "Expected response to be %q, got %q", expectedResponse, response)
 		require.Equal(t, 5, refTransactionServer.called)
 	})
 
@@ -777,11 +797,14 @@ func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
 		gittest.WritePktlineString(t, uploadPackData, fmt.Sprintf("%s %s refs/heads/delete-me\x00 %s", branchOID, git.ZeroOID.String(), uploadPackCapabilities))
 		gittest.WritePktlineFlush(t, uploadPackData)
 
-		request := &gitalypb.PostReceivePackRequest{Repository: repo, GlId: "key-1234", GlRepository: "some_repo"}
-		response := doPush(t, stream, request, uploadPackData)
+		response := performPush(t, stream, &gitalypb.PostReceivePackRequest{
+			Repository:   repo,
+			GlId:         "key-1234",
+			GlRepository: "some_repo",
+		}, uploadPackData)
 
 		expectedResponse := "0033\x01000eunpack ok\n001cok refs/heads/delete-me\n00000000"
-		require.Equal(t, expectedResponse, string(response), "Expected response to be %q, got %q", expectedResponse, response)
+		require.Equal(t, expectedResponse, response, "Expected response to be %q, got %q", expectedResponse, response)
 		require.Equal(t, 3, refTransactionServer.called)
 	})
 }
@@ -837,7 +860,7 @@ func TestPostReceive_allRejected(t *testing.T) {
 
 	_, _, pushRequest := createPushRequest(t, cfg)
 	request := &gitalypb.PostReceivePackRequest{Repository: repo, GlId: "key-1234", GlRepository: "some_repo"}
-	doPush(t, stream, request, pushRequest)
+	performPush(t, stream, request, pushRequest)
 
 	require.Equal(t, 1, refTransactionServer.called)
 }
