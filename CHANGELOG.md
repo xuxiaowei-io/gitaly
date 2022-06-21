@@ -1,5 +1,43 @@
 # Gitaly changelog
 
+## 15.1.0 (2022-06-21)
+
+### Added (4 changes)
+
+- [operations: Return structured errors on conflict in UserMergeBranch](gitlab-org/gitaly@ba8202022606baa73e8ddde68d11a386a1ae4b64) ([merge request](gitlab-org/gitaly!4623))
+- [praefect: Add list-storages subcommand](gitlab-org/gitaly@1350878ea184e06ab7d22f3cdd9e2b106ea3c8de) ([merge request](gitlab-org/gitaly!4609))
+- [gitaly/config: Add option to ignore gitconfig files](gitlab-org/gitaly@7224e71bc7684578950b193f8130a4ce123f63ab) ([merge request](gitlab-org/gitaly!4588))
+- [Make Git build with SHA256 routines in FIPS mode](gitlab-org/gitaly@4d3a9577487ddc9cb588b4725c8b8804897a93c3) ([merge request](gitlab-org/gitaly!4570))
+
+### Fixed (10 changes)
+
+- [operations: Use structured errors in UserDeleteBranch](gitlab-org/gitaly@30d4fd427fc63daef560f1608b3833b827ab54ac) ([merge request](gitlab-org/gitaly!4605))
+- [datastore: Fix migration that prunes maintenance-style replication jobs](gitlab-org/gitaly@8e94bb2baee1634525a4648342a9d20efb4ca608) ([merge request](gitlab-org/gitaly!4608))
+- [catfile: Fix deadlock between reading a new object and accessing it](gitlab-org/gitaly@e263ba26e72b18015fc09bd97b759b074e660abf) ([merge request](gitlab-org/gitaly!4590))
+- [catfile: Fix dirtiness check when current object has been fully read](gitlab-org/gitaly@4b83e5996056b4a6260d57b7a19180aa4f220c2c) ([merge request](gitlab-org/gitaly!4590))
+- [streamcache: Unlock waiters after cache keys have been pruned](gitlab-org/gitaly@59864b3bc908d82789fbd289f1de04672cfe5a82) ([merge request](gitlab-org/gitaly!4589))
+- [gitpipe: Fix closing queue too early](gitlab-org/gitaly@3672650574465fbd42677b5f68d35f1beb555dc0) ([merge request](gitlab-org/gitaly!4581))
+- [gitpipe: Fix deadlock on context cancellation with unflushed requests](gitlab-org/gitaly@bee7ceb4ed70fc4b4001e2981725c95943d539d8) ([merge request](gitlab-org/gitaly!4581))
+- [Makefile: Fix install target using doubly-prefixed Gitaly paths](gitlab-org/gitaly@316f0078fa88aa2f1991f197efb425c065d9c6df) ([merge request](gitlab-org/gitaly!4553))
+- [cgroups: Handle nil repo](gitlab-org/gitaly@00e44ba6dd47ba7e089468698fb0dfa643d51edb) ([merge request](gitlab-org/gitaly!4572))
+- [supervisor: Fix leaking logrus Goroutine on spawn failure](gitlab-org/gitaly@faac47edca44039bcfcc4becb3be5b21b8dc5f95) ([merge request](gitlab-org/gitaly!4567))
+
+### Changed (5 changes)
+
+- [Update nokogiri to v1.13.6](gitlab-org/gitaly@52538cbfafc73c071f94b0189c5bd1d890d95fad) ([merge request](gitlab-org/gitaly!4626))
+- [metadatahandler: Add grpc_method to prometheus metric](gitlab-org/gitaly@8c55670cf91f8f34ea682a1a816e227dab63fa35) ([merge request](gitlab-org/gitaly!4625))
+- [Enable feature flag exact_pagination_token_match by default](gitlab-org/gitaly@b40f2581082a81cebbdcc96fee35f21b6805466e) ([merge request](gitlab-org/gitaly!4606))
+- [gitaly-lfs-smudge: Update git-lfs module and dependencies](gitlab-org/gitaly@336df8ac52306225d89eb06ad9a64c83ead67749) ([merge request](gitlab-org/gitaly!4600))
+- [linguist: Implement wrapper to ignore gitconfig in Rugged](gitlab-org/gitaly@41fe00cab752de8701a0bc4f86866a30b9157d45) ([merge request](gitlab-org/gitaly!4577))
+
+### Security (1 change)
+
+- [Makefile: Run bundle in frozen mode](gitlab-org/gitaly@037e033f846274093ed857aec17c2a5b7a310a96) ([merge request](gitlab-org/gitaly!4613))
+
+### Performance (1 change)
+
+- [repository: Use long-running filter process for converting LFS pointers](gitlab-org/gitaly@0603c758d6e3580adbd3d0d69e326d05baa340b9) ([merge request](gitlab-org/gitaly!4595))
+
 ## 15.0.2 (2022-06-06)
 
 No changes.
