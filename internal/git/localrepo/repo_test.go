@@ -51,16 +51,22 @@ func TestSize(t *testing.T) {
 
 	testCases := []struct {
 		desc         string
-		setup        func(repoPath string, t *testing.T)
+		setup        func(t *testing.T) *gitalypb.Repository
 		expectedSize int64
 	}{
 		{
 			desc:         "empty repository",
 			expectedSize: 0,
+			setup: func(t *testing.T) *gitalypb.Repository {
+				repoProto, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
+				return repoProto
+			},
 		},
 		{
 			desc: "referenced commit",
-			setup: func(repoPath string, t *testing.T) {
+			setup: func(t *testing.T) *gitalypb.Repository {
+				repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+
 				gittest.WriteCommit(t, cfg, repoPath,
 					gittest.WithParents(),
 					gittest.WithTreeEntries(
@@ -68,24 +74,32 @@ func TestSize(t *testing.T) {
 					),
 					gittest.WithBranch("main"),
 				)
+
+				return repoProto
 			},
 			expectedSize: 203,
 		},
 		{
 			desc: "unreferenced commit",
-			setup: func(repoPath string, t *testing.T) {
+			setup: func(t *testing.T) *gitalypb.Repository {
+				repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+
 				gittest.WriteCommit(t, cfg, repoPath,
 					gittest.WithParents(),
 					gittest.WithTreeEntries(
 						gittest.TreeEntry{Path: "file", Mode: "100644", Content: strings.Repeat("a", 1000)},
 					),
 				)
+
+				return repoProto
 			},
 			expectedSize: 0,
 		},
 		{
 			desc: "modification to blob without repack",
-			setup: func(repoPath string, t *testing.T) {
+			setup: func(t *testing.T) *gitalypb.Repository {
+				repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+
 				rootCommitID := gittest.WriteCommit(t, cfg, repoPath,
 					gittest.WithParents(),
 					gittest.WithTreeEntries(
@@ -101,12 +115,16 @@ func TestSize(t *testing.T) {
 					gittest.WithMessage("modification"),
 					gittest.WithBranch("main"),
 				)
+
+				return repoProto
 			},
 			expectedSize: 439,
 		},
 		{
 			desc: "modification to blob after repack",
-			setup: func(repoPath string, t *testing.T) {
+			setup: func(t *testing.T) *gitalypb.Repository {
+				repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+
 				rootCommitID := gittest.WriteCommit(t, cfg, repoPath,
 					gittest.WithParents(),
 					gittest.WithTreeEntries(
@@ -124,6 +142,8 @@ func TestSize(t *testing.T) {
 				)
 
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-a", "-d")
+
+				return repoProto
 			},
 			expectedSize: 398,
 		},
@@ -131,11 +151,8 @@ func TestSize(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			pbRepo, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
-			repo := New(config.NewLocator(cfg), gitCmdFactory, catfileCache, pbRepo)
-			if tc.setup != nil {
-				tc.setup(repoPath, t)
-			}
+			repoProto := tc.setup(t)
+			repo := New(config.NewLocator(cfg), gitCmdFactory, catfileCache, repoProto)
 
 			ctx := testhelper.Context(t)
 			size, err := repo.Size(ctx)
