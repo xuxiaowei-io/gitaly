@@ -8,12 +8,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -44,16 +44,28 @@ func TestRepo(t *testing.T) {
 }
 
 func TestSize(t *testing.T) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
 
+	ctx := testhelper.Context(t)
+
+	commandArgFile := filepath.Join(testhelper.TempDir(t), "args")
+	interceptingFactory := gittest.NewInterceptingCommandFactory(ctx, t, cfg, func(execEnv git.ExecutionEnvironment) string {
+		return fmt.Sprintf(`#!/bin/bash
+			echo "$@" >%q
+			exec %q "$@"
+		`, commandArgFile, execEnv.BinaryPath)
+	})
+
 	testCases := []struct {
-		desc         string
-		setup        func(t *testing.T) *gitalypb.Repository
-		opts         []RepoSizeOption
-		expectedSize int64
+		desc              string
+		setup             func(t *testing.T) *gitalypb.Repository
+		opts              []RepoSizeOption
+		expectedSize      int64
+		expectedUseBitmap bool
 	}{
 		{
 			desc:         "empty repository",
@@ -62,6 +74,7 @@ func TestSize(t *testing.T) {
 				repoProto, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
 				return repoProto
 			},
+			expectedUseBitmap: true,
 		},
 		{
 			desc: "referenced commit",
@@ -78,7 +91,8 @@ func TestSize(t *testing.T) {
 
 				return repoProto
 			},
-			expectedSize: 203,
+			expectedSize:      203,
+			expectedUseBitmap: true,
 		},
 		{
 			desc: "unreferenced commit",
@@ -94,7 +108,8 @@ func TestSize(t *testing.T) {
 
 				return repoProto
 			},
-			expectedSize: 0,
+			expectedSize:      0,
+			expectedUseBitmap: true,
 		},
 		{
 			desc: "modification to blob without repack",
@@ -119,7 +134,8 @@ func TestSize(t *testing.T) {
 
 				return repoProto
 			},
-			expectedSize: 439,
+			expectedSize:      439,
+			expectedUseBitmap: true,
 		},
 		{
 			desc: "modification to blob after repack",
@@ -146,7 +162,8 @@ func TestSize(t *testing.T) {
 
 				return repoProto
 			},
-			expectedSize: 398,
+			expectedSize:      398,
+			expectedUseBitmap: true,
 		},
 		{
 			desc: "excluded single ref",
@@ -174,7 +191,8 @@ func TestSize(t *testing.T) {
 			opts: []RepoSizeOption{
 				WithExcludeRefs("refs/heads/exclude-me"),
 			},
-			expectedSize: 217,
+			expectedSize:      217,
+			expectedUseBitmap: true,
 		},
 		{
 			desc: "excluded everything",
@@ -194,7 +212,8 @@ func TestSize(t *testing.T) {
 			opts: []RepoSizeOption{
 				WithExcludeRefs("refs/heads/*"),
 			},
-			expectedSize: 0,
+			expectedSize:      0,
+			expectedUseBitmap: true,
 		},
 		{
 			desc: "repo with alternate",
@@ -223,6 +242,9 @@ func TestSize(t *testing.T) {
 			// While both repositories have the same contents, we should still return
 			// the actual repository's size because we don't exclude the alternate.
 			expectedSize: 207,
+			// Even though we have an alternate, we should still use bitmap indices
+			// given that we don't use `--not --alternate-refs`.
+			expectedUseBitmap: true,
 		},
 		{
 			desc: "exclude alternate with identical contents",
@@ -253,7 +275,8 @@ func TestSize(t *testing.T) {
 			opts: []RepoSizeOption{
 				WithoutAlternates(),
 			},
-			expectedSize: 0,
+			expectedSize:      0,
+			expectedUseBitmap: false,
 		},
 		{
 			desc: "exclude alternate with additional contents",
@@ -294,19 +317,28 @@ func TestSize(t *testing.T) {
 			opts: []RepoSizeOption{
 				WithoutAlternates(),
 			},
-			expectedSize: 224,
+			expectedSize:      224,
+			expectedUseBitmap: false,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			repoProto := tc.setup(t)
-			repo := New(config.NewLocator(cfg), gitCmdFactory, catfileCache, repoProto)
+			require.NoError(t, os.RemoveAll(commandArgFile))
 
-			ctx := testhelper.Context(t)
+			repoProto := tc.setup(t)
+			repo := New(config.NewLocator(cfg), interceptingFactory, catfileCache, repoProto)
+
 			size, err := repo.Size(ctx, tc.opts...)
 			require.NoError(t, err)
-			assert.Equal(t, tc.expectedSize, size)
+			require.Equal(t, tc.expectedSize, size)
+
+			commandArgs := text.ChompBytes(testhelper.MustReadFile(t, commandArgFile))
+			if tc.expectedUseBitmap {
+				require.Contains(t, commandArgs, "--use-bitmap-index")
+			} else {
+				require.NotContains(t, commandArgs, "--use-bitmap-index")
+			}
 		})
 	}
 }
