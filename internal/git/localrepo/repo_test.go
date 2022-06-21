@@ -2,6 +2,7 @@ package localrepo
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -195,6 +196,106 @@ func TestSize(t *testing.T) {
 			},
 			expectedSize: 0,
 		},
+		{
+			desc: "repo with alternate",
+			setup: func(t *testing.T) *gitalypb.Repository {
+				repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+				_, poolPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+
+				require.NoError(t, os.WriteFile(
+					filepath.Join(repoPath, "objects", "info", "alternates"),
+					[]byte(filepath.Join(poolPath, "objects")),
+					os.ModePerm,
+				))
+
+				for _, path := range []string{repoPath, poolPath} {
+					gittest.WriteCommit(t, cfg, path,
+						gittest.WithParents(),
+						gittest.WithTreeEntries(
+							gittest.TreeEntry{Path: "1kbblob", Mode: "100644", Content: strings.Repeat("a", 1000)},
+						),
+						gittest.WithBranch("main"),
+					)
+				}
+
+				return repoProto
+			},
+			// While both repositories have the same contents, we should still return
+			// the actual repository's size because we don't exclude the alternate.
+			expectedSize: 207,
+		},
+		{
+			desc: "exclude alternate with identical contents",
+			setup: func(t *testing.T) *gitalypb.Repository {
+				repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+				_, poolPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+
+				require.NoError(t, os.WriteFile(
+					filepath.Join(repoPath, "objects", "info", "alternates"),
+					[]byte(filepath.Join(poolPath, "objects")),
+					os.ModePerm,
+				))
+
+				// We write the same object into both repositories, so we should
+				// exclude it from our size calculations.
+				for _, path := range []string{repoPath, poolPath} {
+					gittest.WriteCommit(t, cfg, path,
+						gittest.WithParents(),
+						gittest.WithTreeEntries(
+							gittest.TreeEntry{Path: "1kbblob", Mode: "100644", Content: strings.Repeat("a", 1000)},
+						),
+						gittest.WithBranch("main"),
+					)
+				}
+
+				return repoProto
+			},
+			opts: []RepoSizeOption{
+				WithoutAlternates(),
+			},
+			expectedSize: 0,
+		},
+		{
+			desc: "exclude alternate with additional contents",
+			setup: func(t *testing.T) *gitalypb.Repository {
+				repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+				_, poolPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+
+				require.NoError(t, os.WriteFile(
+					filepath.Join(repoPath, "objects", "info", "alternates"),
+					[]byte(filepath.Join(poolPath, "objects")),
+					os.ModePerm,
+				))
+
+				for i, path := range []string{repoPath, poolPath} {
+					// We first write one blob into the repo that is the same
+					// across both repositories.
+					rootCommitID := gittest.WriteCommit(t, cfg, path,
+						gittest.WithParents(),
+						gittest.WithTreeEntries(
+							gittest.TreeEntry{Path: "1kbblob", Mode: "100644", Content: strings.Repeat("a", 1000)},
+						),
+					)
+
+					// But this time we also write a second commit into each of
+					// the repositories that is not the same to simulate history
+					// that has diverged.
+					gittest.WriteCommit(t, cfg, path,
+						gittest.WithParents(rootCommitID),
+						gittest.WithTreeEntries(
+							gittest.TreeEntry{Path: "1kbblob", Mode: "100644", Content: fmt.Sprintf("%d", i)},
+						),
+						gittest.WithBranch("main"),
+					)
+				}
+
+				return repoProto
+			},
+			opts: []RepoSizeOption{
+				WithoutAlternates(),
+			},
+			expectedSize: 224,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -208,35 +309,4 @@ func TestSize(t *testing.T) {
 			assert.Equal(t, tc.expectedSize, size)
 		})
 	}
-}
-
-func TestSize_excludeAlternates(t *testing.T) {
-	cfg := testcfg.Build(t)
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
-	catfileCache := catfile.NewCache(cfg)
-	t.Cleanup(catfileCache.Stop)
-	locator := config.NewLocator(cfg)
-
-	pbRepo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
-	_, altRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
-
-	require.NoError(t, os.WriteFile(
-		filepath.Join(repoPath, "objects", "info", "alternates"),
-		[]byte(filepath.Join(altRepoPath, "objects")),
-		os.ModePerm,
-	))
-
-	repo := New(locator, gitCmdFactory, catfileCache, pbRepo)
-
-	ctx := testhelper.Context(t)
-
-	gittest.Exec(t, cfg, "-C", repoPath, "gc")
-
-	sizeIncludingAlternates, err := repo.Size(ctx)
-	require.NoError(t, err)
-	assert.Greater(t, sizeIncludingAlternates, int64(0))
-
-	sizeExcludingAlternates, err := repo.Size(ctx, WithoutAlternates())
-	require.NoError(t, err)
-	assert.Equal(t, int64(0), sizeExcludingAlternates)
 }
