@@ -5,6 +5,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -58,107 +59,79 @@ func TestSize(t *testing.T) {
 			expectedSize: 0,
 		},
 		{
-			desc: "one committed file",
+			desc: "referenced commit",
 			setup: func(repoPath string, t *testing.T) {
-				require.NoError(t, os.WriteFile(
-					filepath.Join(repoPath, "file"),
-					bytes.Repeat([]byte("a"), 1000),
-					0o644,
-				))
-
-				cmd := gittest.NewCommand(t, cfg, "-C", repoPath, "add", "file")
-				require.NoError(t, cmd.Run())
-				cmd = gittest.NewCommand(t, cfg, "-C", repoPath, "commit", "-m", "initial")
-				require.NoError(t, cmd.Run())
+				gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithParents(),
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{Path: "file", Mode: "100644", Content: strings.Repeat("a", 1000)},
+					),
+					gittest.WithBranch("main"),
+				)
 			},
-			expectedSize: 202,
+			expectedSize: 203,
 		},
 		{
-			desc: "one large loose blob",
+			desc: "unreferenced commit",
 			setup: func(repoPath string, t *testing.T) {
-				require.NoError(t, os.WriteFile(
-					filepath.Join(repoPath, "file"),
-					bytes.Repeat([]byte("a"), 1000),
-					0o644,
-				))
-
-				cmd := gittest.NewCommand(t, cfg, "-C", repoPath, "checkout", "-b", "branch-a")
-				require.NoError(t, cmd.Run())
-				cmd = gittest.NewCommand(t, cfg, "-C", repoPath, "add", "file")
-				require.NoError(t, cmd.Run())
-				cmd = gittest.NewCommand(t, cfg, "-C", repoPath, "commit", "-m", "initial")
-				require.NoError(t, cmd.Run())
-				cmd = gittest.NewCommand(t, cfg, "-C", repoPath, "update-ref", "-d", "refs/heads/branch-a")
-				require.NoError(t, cmd.Run())
+				gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithParents(),
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{Path: "file", Mode: "100644", Content: strings.Repeat("a", 1000)},
+					),
+				)
 			},
 			expectedSize: 0,
 		},
 		{
 			desc: "modification to blob without repack",
 			setup: func(repoPath string, t *testing.T) {
-				require.NoError(t, os.WriteFile(
-					filepath.Join(repoPath, "file"),
-					bytes.Repeat([]byte("a"), 1000),
-					0o644,
-				))
+				rootCommitID := gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithParents(),
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{Path: "file", Mode: "100644", Content: strings.Repeat("a", 1000)},
+					),
+				)
 
-				cmd := gittest.NewCommand(t, cfg, "-C", repoPath, "add", "file")
-				require.NoError(t, cmd.Run())
-				cmd = gittest.NewCommand(t, cfg, "-C", repoPath, "commit", "-m", "initial")
-				require.NoError(t, cmd.Run())
-
-				f, err := os.OpenFile(
-					filepath.Join(repoPath, "file"),
-					os.O_APPEND|os.O_WRONLY,
-					0o644)
-				require.NoError(t, err)
-				defer f.Close()
-				_, err = f.WriteString("a")
-				assert.NoError(t, err)
-
-				cmd = gittest.NewCommand(t, cfg, "-C", repoPath, "commit", "-am", "modification")
-				require.NoError(t, cmd.Run())
+				gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithParents(rootCommitID),
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{Path: "file", Mode: "100644", Content: strings.Repeat("a", 1001)},
+					),
+					gittest.WithMessage("modification"),
+					gittest.WithBranch("main"),
+				)
 			},
-			expectedSize: 437,
+			expectedSize: 439,
 		},
 		{
 			desc: "modification to blob after repack",
 			setup: func(repoPath string, t *testing.T) {
-				require.NoError(t, os.WriteFile(
-					filepath.Join(repoPath, "file"),
-					bytes.Repeat([]byte("a"), 1000),
-					0o644,
-				))
+				rootCommitID := gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithParents(),
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{Path: "file", Mode: "100644", Content: strings.Repeat("a", 1000)},
+					),
+				)
 
-				cmd := gittest.NewCommand(t, cfg, "-C", repoPath, "add", "file")
-				require.NoError(t, cmd.Run())
-				cmd = gittest.NewCommand(t, cfg, "-C", repoPath, "commit", "-m", "initial")
-				require.NoError(t, cmd.Run())
+				gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithParents(rootCommitID),
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{Path: "file", Mode: "100644", Content: strings.Repeat("a", 1001)},
+					),
+					gittest.WithMessage("modification"),
+					gittest.WithBranch("main"),
+				)
 
-				f, err := os.OpenFile(
-					filepath.Join(repoPath, "file"),
-					os.O_APPEND|os.O_WRONLY,
-					0o644)
-				require.NoError(t, err)
-				defer f.Close()
-				_, err = f.WriteString("a")
-				assert.NoError(t, err)
-
-				cmd = gittest.NewCommand(t, cfg, "-C", repoPath, "commit", "-am", "modification")
-				require.NoError(t, cmd.Run())
-
-				cmd = gittest.NewCommand(t, cfg, "-C", repoPath, "repack", "-a", "-d")
-				require.NoError(t, cmd.Run())
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-a", "-d")
 			},
-			expectedSize: 391,
+			expectedSize: 398,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			pbRepo, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0], gittest.InitRepoOpts{
-				WithWorktree: true,
-			})
+			pbRepo, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 			repo := New(config.NewLocator(cfg), gitCmdFactory, catfileCache, pbRepo)
 			if tc.setup != nil {
 				tc.setup(repoPath, t)
