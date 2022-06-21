@@ -1,7 +1,6 @@
 package localrepo
 
 import (
-	"bytes"
 	"context"
 	"os"
 	"path/filepath"
@@ -52,6 +51,7 @@ func TestSize(t *testing.T) {
 	testCases := []struct {
 		desc         string
 		setup        func(t *testing.T) *gitalypb.Repository
+		opts         []RepoSizeOption
 		expectedSize int64
 	}{
 		{
@@ -147,6 +147,54 @@ func TestSize(t *testing.T) {
 			},
 			expectedSize: 398,
 		},
+		{
+			desc: "excluded single ref",
+			setup: func(t *testing.T) *gitalypb.Repository {
+				repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+
+				gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithParents(),
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{Path: "1kbblob", Mode: "100644", Content: strings.Repeat("a", 1000)},
+					),
+					gittest.WithBranch("exclude-me"),
+				)
+
+				gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithParents(),
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{Path: "1kbblob", Mode: "100644", Content: strings.Repeat("x", 2000)},
+					),
+					gittest.WithBranch("include-me"),
+				)
+
+				return repoProto
+			},
+			opts: []RepoSizeOption{
+				WithExcludeRefs("refs/heads/exclude-me"),
+			},
+			expectedSize: 217,
+		},
+		{
+			desc: "excluded everything",
+			setup: func(t *testing.T) *gitalypb.Repository {
+				repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+
+				gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithParents(),
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{Path: "1kbblob", Mode: "100644", Content: strings.Repeat("a", 1000)},
+					),
+					gittest.WithBranch("exclude-me"),
+				)
+
+				return repoProto
+			},
+			opts: []RepoSizeOption{
+				WithExcludeRefs("refs/heads/*"),
+			},
+			expectedSize: 0,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -155,47 +203,11 @@ func TestSize(t *testing.T) {
 			repo := New(config.NewLocator(cfg), gitCmdFactory, catfileCache, repoProto)
 
 			ctx := testhelper.Context(t)
-			size, err := repo.Size(ctx)
+			size, err := repo.Size(ctx, tc.opts...)
 			require.NoError(t, err)
 			assert.Equal(t, tc.expectedSize, size)
 		})
 	}
-}
-
-func TestSize_excludeRefs(t *testing.T) {
-	cfg := testcfg.Build(t)
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
-	catfileCache := catfile.NewCache(cfg)
-	t.Cleanup(catfileCache.Stop)
-
-	pbRepo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
-	blob := bytes.Repeat([]byte("a"), 1000)
-	blobOID := gittest.WriteBlob(t, cfg, repoPath, blob)
-	treeOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
-		{
-			OID:  blobOID,
-			Mode: "100644",
-			Path: "1kbblob",
-		},
-	})
-	commitOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(treeOID))
-
-	repo := New(config.NewLocator(cfg), gitCmdFactory, catfileCache, pbRepo)
-
-	ctx := testhelper.Context(t)
-	sizeBeforeKeepAround, err := repo.Size(ctx)
-	require.NoError(t, err)
-
-	gittest.WriteRef(t, cfg, repoPath, git.ReferenceName("refs/keep-around/keep1"), commitOID)
-
-	sizeWithKeepAround, err := repo.Size(ctx)
-	require.NoError(t, err)
-	assert.Less(t, sizeBeforeKeepAround, sizeWithKeepAround)
-
-	sizeWithoutKeepAround, err := repo.Size(ctx, WithExcludeRefs("refs/keep-around/*"))
-	require.NoError(t, err)
-
-	assert.Equal(t, sizeBeforeKeepAround, sizeWithoutKeepAround)
 }
 
 func TestSize_excludeAlternates(t *testing.T) {
