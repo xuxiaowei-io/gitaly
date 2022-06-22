@@ -43,9 +43,7 @@ func testLanguagesFeatured(t *testing.T, ctx context.Context) {
 		{Name: "JavaScript", Share: 22.493345, Color: "#f1e05a", Bytes: 1014},
 		{Name: "HTML", Share: 7.741792, Color: "#e34c26", Bytes: 349},
 		{Name: "CoffeeScript", Share: 2.373558, Color: "#244776", Bytes: 107},
-		// Modula-2 is a special case because Linguist has no color for it. This
-		// test case asserts that we invent a color for it (SHA256 of the name).
-		{Name: "Modula-2", Share: 2.1073646, Color: "#3fd5e0", Bytes: 95},
+		{Name: "Modula-2", Share: 2.1073646, Color: "#10253f", Bytes: 95},
 	}
 
 	testhelper.ProtoEqual(t, expectedLanguages, resp.Languages)
