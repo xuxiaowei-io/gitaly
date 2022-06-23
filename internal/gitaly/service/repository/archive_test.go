@@ -408,7 +408,7 @@ func TestGetArchive_pathInjection(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupRepositoryServiceWithWorktree(ctx, t)
+	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
 
 	// It used to be possible to inject options into `git-archive(1)`, with the worst outcome
 	// being that an adversary may create or overwrite arbitrary files in the filesystem in case
@@ -420,23 +420,24 @@ func TestGetArchive_pathInjection(t *testing.T) {
 	// relative path. This is done to verify that git-archive(1) indeed treats the parameter as
 	// a path and does not interpret it as an option.
 	outputPath := "/non/existent"
-	repoExploitPath := filepath.Join(repoPath, "--output="+ outputPath)
-	require.NoError(t, os.MkdirAll(repoExploitPath, os.ModeDir|0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(repoExploitPath, "injected file"), []byte("injected content"), 0o644))
 
-	// Create a commit containing this file so that we can try to create an archive from the
-	// resulting revision.
-	gittest.Exec(t, cfg, "-C", repoPath, "add", ".")
-	gittest.Exec(t, cfg, "-C", repoPath, "commit", "-m", "adding injected file")
-	commitID := strings.TrimRight(string(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD")), "\n")
+	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+		{Path: "--output=", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+			{Path: "non", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				{Path: "existent", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "injected file", Mode: "100644", Content: "injected content"},
+				})},
+			})},
+		})},
+	})))
 
 	// And now we fire the request path our bogus path to try and overwrite the output path.
 	stream, err := client.GetArchive(ctx, &gitalypb.GetArchiveRequest{
 		Repository: repo,
-		CommitId:   commitID,
+		CommitId:   commitID.String(),
 		Prefix:     "",
 		Format:     gitalypb.GetArchiveRequest_TAR,
-		Path:       []byte("--output="+outputPath),
+		Path:       []byte("--output=" + outputPath),
 	})
 	require.NoError(t, err)
 
