@@ -342,13 +342,15 @@ func TestUserSquash_renames(t *testing.T) {
 	gittest.Exec(t, cfg, "-C", repoPath, "add", ".")
 	gittest.Exec(t, cfg, "-C", repoPath, "commit", "-m", "test file")
 
-	startCommitID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD"))
+	rootCommit := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD"))
 
 	gittest.Exec(t, cfg, "-C", repoPath, "mv", originalFilename, renamedFilename)
 	gittest.Exec(t, cfg, "-C", repoPath, "commit", "-a", "-m", "renamed test file")
 
+	startCommitID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD"))
+
 	// Modify the original file in another branch
-	gittest.Exec(t, cfg, "-C", repoPath, "checkout", "-b", "squash-rename-branch", startCommitID)
+	gittest.Exec(t, cfg, "-C", repoPath, "checkout", "-b", "squash-rename-branch", rootCommit)
 	require.NoError(t, os.WriteFile(filepath.Join(repoPath, originalFilename), []byte("This is a change"), 0o644))
 	gittest.Exec(t, cfg, "-C", repoPath, "commit", "-a", "-m", "test")
 
@@ -381,7 +383,7 @@ func TestUserSquash_renames(t *testing.T) {
 	require.Equal(t, commitMessage, commit.Subject)
 
 	gittest.RequireTree(t, cfg, repoPath, response.SquashSha, []gittest.TreeEntry{
-		{Path: originalFilename, Mode: "100644", Content: "This is another change", OID: "1b2ae89cca65f0d514f677981f012d708df651fc"},
+		{Path: renamedFilename, Mode: "100644", Content: "This is another change", OID: "1b2ae89cca65f0d514f677981f012d708df651fc"},
 	})
 }
 
