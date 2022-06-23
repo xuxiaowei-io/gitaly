@@ -149,13 +149,7 @@ func TestGetArchive_success(t *testing.T) {
 				data, err := consumeArchive(stream)
 				require.NoError(t, err)
 
-				archiveFile, err := os.Create(filepath.Join(testhelper.TempDir(t), "archive"))
-				require.NoError(t, err)
-
-				_, err = archiveFile.Write(data)
-				require.NoError(t, err)
-
-				contents := string(compressedFileContents(t, format, archiveFile.Name()))
+				contents := compressedFileContents(t, format, data)
 
 				for _, content := range tc.contents {
 					require.Contains(t, contents, tc.prefix+content)
@@ -550,19 +544,23 @@ func TestGetArchive_environment(t *testing.T) {
 	}
 }
 
-func compressedFileContents(t *testing.T, format gitalypb.GetArchiveRequest_Format, name string) []byte {
+func compressedFileContents(t *testing.T, format gitalypb.GetArchiveRequest_Format, contents []byte) string {
+	path := filepath.Join(testhelper.TempDir(t), "archive")
+	require.NoError(t, os.WriteFile(path, contents, 0o644))
+
 	switch format {
 	case gitalypb.GetArchiveRequest_TAR:
-		return testhelper.MustRunCommand(t, nil, "tar", "tf", name)
+		return text.ChompBytes(testhelper.MustRunCommand(t, nil, "tar", "tf", path))
 	case gitalypb.GetArchiveRequest_TAR_GZ:
-		return testhelper.MustRunCommand(t, nil, "tar", "ztf", name)
+		return text.ChompBytes(testhelper.MustRunCommand(t, nil, "tar", "ztf", path))
 	case gitalypb.GetArchiveRequest_TAR_BZ2:
-		return testhelper.MustRunCommand(t, nil, "tar", "jtf", name)
+		return text.ChompBytes(testhelper.MustRunCommand(t, nil, "tar", "jtf", path))
 	case gitalypb.GetArchiveRequest_ZIP:
-		return testhelper.MustRunCommand(t, nil, "unzip", "-l", name)
+		return text.ChompBytes(testhelper.MustRunCommand(t, nil, "unzip", "-l", path))
+	default:
+		require.FailNow(t, "unsupported archive format: %v", format)
+		return ""
 	}
-
-	return nil
 }
 
 func consumeArchive(stream gitalypb.RepositoryService_GetArchiveClient) ([]byte, error) {
