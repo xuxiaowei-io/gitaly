@@ -124,30 +124,55 @@ func TestRawPatch_successful(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupDiffService(ctx, t)
+	cfg, repoProto, repoPath, client := setupDiffService(ctx, t)
+	testcfg.BuildGitalyGit2Go(t, cfg)
+
+	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+	locator := config.NewLocator(cfg)
+	git2goExecutor := git2go.NewExecutor(cfg, gitCmdFactory, locator)
 
 	rightCommit := "e395f646b1499e8e0279445fc99a0596a65fab7e"
 	leftCommit := "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"
-	rpcRequest := &gitalypb.RawPatchRequest{Repository: repo, RightCommitId: rightCommit, LeftCommitId: leftCommit}
 
-	c, err := client.RawPatch(ctx, rpcRequest)
+	stream, err := client.RawPatch(ctx, &gitalypb.RawPatchRequest{
+		Repository:    repoProto,
+		LeftCommitId:  leftCommit,
+		RightCommitId: rightCommit,
+	})
 	require.NoError(t, err)
 
-	reader := streamio.NewReader(func() ([]byte, error) {
-		response, err := c.Recv()
+	rawPatch, err := io.ReadAll(streamio.NewReader(func() ([]byte, error) {
+		response, err := stream.Recv()
 		return response.GetData(), err
+	}))
+	require.NoError(t, err)
+
+	signature := git2go.Signature{
+		Name:  "Scrooge McDuck",
+		Email: "scrooge@mcduck.com",
+		When:  time.Unix(12345, 0),
+	}
+
+	// Now that we have read the patch in we verify that it indeed round-trips to the same tree
+	// as the right commit is referring to by reapplying the diff on top of the left commit.
+	patchedCommitID, err := git2goExecutor.Apply(ctx, gittest.RewrittenRepository(ctx, t, cfg, repoProto), git2go.ApplyParams{
+		Repository:   repoPath,
+		Committer:    signature,
+		ParentCommit: leftCommit,
+		Patches: git2go.NewSlicePatchIterator([]git2go.Patch{{
+			Author:  signature,
+			Message: "Applying received raw patch",
+			Diff:    rawPatch,
+		}}),
 	})
+	require.NoError(t, err)
 
-	_, sandboxRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
-		WithWorktree: true,
-	})
-
-	gittest.Exec(t, cfg, "-C", sandboxRepoPath, "reset", "--hard", leftCommit)
-	gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: reader}, "-C", sandboxRepoPath, "am")
-
-	expectedTreeStructure := gittest.Exec(t, cfg, "-C", repoPath, "ls-tree", "-r", rightCommit)
-	actualTreeStructure := gittest.Exec(t, cfg, "-C", sandboxRepoPath, "ls-tree", "-r", "HEAD")
-	require.Equal(t, expectedTreeStructure, actualTreeStructure)
+	// Peel both right commit and patched commit to their trees and assert that they refer to
+	// the same one.
+	require.Equal(t,
+		gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", rightCommit+"^{tree}"),
+		gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", patchedCommitID.String()+"^{tree}"),
+	)
 }
 
 func TestRawPatch_inputValidation(t *testing.T) {
