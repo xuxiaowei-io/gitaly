@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/go-enry/go-enry/v2"
+	enrydata "github.com/go-enry/go-enry/v2/data"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
@@ -23,6 +25,57 @@ import (
 
 func TestMain(m *testing.M) {
 	testhelper.Run(m)
+}
+
+// TestNew_knownLanguages tests the compatibility between the Ruby and the Go
+// implementation. This test will be removed together with the Ruby implementation.
+func TestNew_knownLanguages(t *testing.T) {
+	t.Parallel()
+
+	cfg := testcfg.Build(t, testcfg.WithRealLinguist())
+	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+
+	linguist, err := New(cfg, gitCmdFactory)
+	require.NoError(t, err)
+
+	t.Run("by name", func(t *testing.T) {
+		linguistLanguages := make([]string, 0, len(linguist.colorMap))
+		for language := range linguist.colorMap {
+			linguistLanguages = append(linguistLanguages, language)
+		}
+
+		enryLanguages := make([]string, 0, len(enrydata.IDByLanguage))
+		for language := range enrydata.IDByLanguage {
+			enryLanguages = append(enryLanguages, language)
+		}
+
+		require.ElementsMatch(t, linguistLanguages, enryLanguages)
+	})
+
+	t.Run("with their color", func(t *testing.T) {
+		exclude := map[string]struct{}{}
+
+		linguistLanguages := make(map[string]string, len(linguist.colorMap))
+		for language, color := range linguist.colorMap {
+			if color.Color == "" {
+				exclude[language] = struct{}{}
+				continue
+			}
+			linguistLanguages[language] = color.Color
+		}
+
+		enryLanguages := make(map[string]string, len(enrydata.IDByLanguage))
+		for language := range enrydata.IDByLanguage {
+			if _, excluded := exclude[language]; excluded {
+				continue
+			}
+
+			color := enry.GetColor(language)
+			enryLanguages[language] = color
+		}
+
+		require.Equal(t, linguistLanguages, enryLanguages)
+	})
 }
 
 func TestInstance_Stats(t *testing.T) {
