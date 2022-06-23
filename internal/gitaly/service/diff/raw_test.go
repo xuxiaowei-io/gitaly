@@ -14,7 +14,9 @@ import (
 	"google.golang.org/grpc/codes"
 )
 
-func TestSuccessfulRawDiffRequest(t *testing.T) {
+func TestRawDiff_successful(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg, repo, repoPath, client := setupDiffService(ctx, t)
 
@@ -50,7 +52,9 @@ func TestSuccessfulRawDiffRequest(t *testing.T) {
 	require.Equal(t, expectedTreeStructure, actualTreeStructure)
 }
 
-func TestFailedRawDiffRequestDueToValidations(t *testing.T) {
+func TestRawDiff_inputValidation(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	_, repo, _, client := setupDiffService(ctx, t)
 
@@ -96,7 +100,9 @@ func TestFailedRawDiffRequestDueToValidations(t *testing.T) {
 	}
 }
 
-func TestSuccessfulRawPatchRequest(t *testing.T) {
+func TestRawPatch_successful(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg, repo, repoPath, client := setupDiffService(ctx, t)
 
@@ -124,7 +130,9 @@ func TestSuccessfulRawPatchRequest(t *testing.T) {
 	require.Equal(t, expectedTreeStructure, actualTreeStructure)
 }
 
-func TestFailedRawPatchRequestDueToValidations(t *testing.T) {
+func TestRawPatch_inputValidation(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	_, repo, _, client := setupDiffService(ctx, t)
 
@@ -170,7 +178,9 @@ func TestFailedRawPatchRequestDueToValidations(t *testing.T) {
 	}
 }
 
-func TestRawPatchContainsGitLabSignature(t *testing.T) {
+func TestRawPatch_gitlabSignature(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	_, repo, _, client := setupDiffService(ctx, t)
 
