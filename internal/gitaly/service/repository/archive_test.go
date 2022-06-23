@@ -410,63 +410,50 @@ func TestGetArchive_pathInjection(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, repo, repoPath, client := setupRepositoryServiceWithWorktree(ctx, t)
 
-	// Adding a temp directory representing the .ssh directory
-	sshDirectory := testhelper.TempDir(t)
-
-	// Adding an empty authorized_keys file
-	authorizedKeysPath := filepath.Join(sshDirectory, "authorized_keys")
-
-	authorizedKeysFile, err := os.Create(authorizedKeysPath)
-	require.NoError(t, err)
-	require.NoError(t, authorizedKeysFile.Close())
-
-	// Create the directory on the repository
-	repoExploitPath := filepath.Join(repoPath, "--output=", authorizedKeysPath)
+	// It used to be possible to inject options into `git-archive(1)`, with the worst outcome
+	// being that an adversary may create or overwrite arbitrary files in the filesystem in case
+	// they passed `--output`.
+	//
+	// We pretend that the adversary wants to override a fixed file `/non/existent`. In
+	// practice, thus would be something more interesting like `/etc/shadow` or `allowed_keys`.
+	// We then create a file inside the repository itself that has `--output=/non/existent` as
+	// relative path. This is done to verify that git-archive(1) indeed treats the parameter as
+	// a path and does not interpret it as an option.
+	outputPath := "/non/existent"
+	repoExploitPath := filepath.Join(repoPath, "--output="+ outputPath)
 	require.NoError(t, os.MkdirAll(repoExploitPath, os.ModeDir|0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(repoExploitPath, "injected file"), []byte("injected content"), 0o644))
 
-	f, err := os.Create(filepath.Join(repoExploitPath, "id_12345.pub"))
-	require.NoError(t, err)
-
-	evilPubKeyFile := `#
-		ssh-ed25519 my_super_evil_ssh_pubkey
-		#`
-
-	_, err = fmt.Fprint(f, evilPubKeyFile)
-	require.NoError(t, err)
-	require.NoError(t, f.Close())
-
-	// Add the directory to the repository
+	// Create a commit containing this file so that we can try to create an archive from the
+	// resulting revision.
 	gittest.Exec(t, cfg, "-C", repoPath, "add", ".")
-	gittest.Exec(t, cfg, "-C", repoPath, "commit", "-m", "adding fake key file")
+	gittest.Exec(t, cfg, "-C", repoPath, "commit", "-m", "adding injected file")
 	commitID := strings.TrimRight(string(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD")), "\n")
 
-	injectionPath := fmt.Sprintf("--output=%s", authorizedKeysPath)
-
-	req := &gitalypb.GetArchiveRequest{
+	// And now we fire the request path our bogus path to try and overwrite the output path.
+	stream, err := client.GetArchive(ctx, &gitalypb.GetArchiveRequest{
 		Repository: repo,
 		CommitId:   commitID,
 		Prefix:     "",
 		Format:     gitalypb.GetArchiveRequest_TAR,
-		Path:       []byte(injectionPath),
-	}
-
-	stream, err := client.GetArchive(ctx, req)
+		Path:       []byte("--output="+outputPath),
+	})
 	require.NoError(t, err)
 
-	_, err = consumeArchive(stream)
+	content, err := consumeArchive(stream)
 	require.NoError(t, err)
 
-	authorizedKeysFile, err = os.Open(authorizedKeysPath)
-	require.NoError(t, err)
-	defer authorizedKeysFile.Close()
-
-	authorizedKeysFileBytes, err := io.ReadAll(authorizedKeysFile)
-	require.NoError(t, err)
-	authorizedKeysFileStat, err := authorizedKeysFile.Stat()
-	require.NoError(t, err)
-
-	require.NotContains(t, string(authorizedKeysFileBytes), evilPubKeyFile) // this should fail first in pre-fix failing test
-	require.Zero(t, authorizedKeysFileStat.Size())
+	require.NoFileExists(t, outputPath)
+	require.Equal(t,
+		strings.Join([]string{
+			"/",
+			"/--output=/",
+			"/--output=/non/",
+			"/--output=/non/existent/",
+			"/--output=/non/existent/injected file",
+		}, "\n"),
+		compressedFileContents(t, gitalypb.GetArchiveRequest_TAR, content),
+	)
 }
 
 func TestGetArchive_environment(t *testing.T) {
