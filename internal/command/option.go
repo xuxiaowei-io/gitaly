@@ -3,6 +3,7 @@ package command
 import (
 	"io"
 
+	"github.com/opentracing/opentracing-go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 )
 
@@ -12,6 +13,7 @@ type config struct {
 	stderr      io.Writer
 	dir         string
 	environment []string
+	span        opentracing.Span
 
 	finalizer func(*Command)
 
@@ -106,5 +108,12 @@ func WithCgroup(cgroupsManager CgroupsManager, repo repository.GitRepo) Option {
 func WithFinalizer(finalizer func(*Command)) Option {
 	return func(cfg *config) {
 		cfg.finalizer = finalizer
+	}
+}
+
+// WithSpan will use an existing span instead of creating it itself.
+func WithSpan(span opentracing.Span) Option {
+	return func(cfg *config) {
+		cfg.span = span
 	}
 }
