@@ -323,7 +323,11 @@ func TestUserSquash_renames(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+
+	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg)
+
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(), gittest.WithBranch("main"))
 
 	gittest.AddWorktree(t, cfg, repoPath, "worktree")
 	repoPath = filepath.Join(repoPath, "worktree")
@@ -333,7 +337,7 @@ func TestUserSquash_renames(t *testing.T) {
 	originalFilename := "original-file.txt"
 	renamedFilename := "renamed-file.txt"
 
-	gittest.Exec(t, cfg, "-C", repoPath, "checkout", "-b", "squash-rename-test", "master")
+	gittest.Exec(t, cfg, "-C", repoPath, "checkout", "-b", "squash-rename-test", "main")
 	require.NoError(t, os.WriteFile(filepath.Join(repoPath, originalFilename), []byte("This is a test"), 0o644))
 	gittest.Exec(t, cfg, "-C", repoPath, "add", ".")
 	gittest.Exec(t, cfg, "-C", repoPath, "commit", "-m", "test file")
@@ -375,6 +379,10 @@ func TestUserSquash_renames(t *testing.T) {
 	require.Equal(t, gittest.TimezoneOffset, string(commit.Committer.Timezone))
 	require.Equal(t, gittest.TimezoneOffset, string(commit.Author.Timezone))
 	require.Equal(t, commitMessage, commit.Subject)
+
+	gittest.RequireTree(t, cfg, repoPath, response.SquashSha, []gittest.TreeEntry{
+		{Path: originalFilename, Mode: "100644", Content: "This is another change", OID: "1b2ae89cca65f0d514f677981f012d708df651fc"},
+	})
 }
 
 func TestUserSquash_missingFileOnTargetBranch(t *testing.T) {
