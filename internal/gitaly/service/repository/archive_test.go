@@ -31,8 +31,9 @@ const (
 	lfsBody     = "hello world\n"
 )
 
-func TestGetArchiveSuccess(t *testing.T) {
+func TestGetArchive_success(t *testing.T) {
 	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	_, repo, _, client := setupRepositoryService(ctx, t)
 
@@ -282,8 +283,9 @@ func TestGetArchive_includeLfsBlobs(t *testing.T) {
 	}
 }
 
-func TestGetArchiveFailure(t *testing.T) {
+func TestGetArchive_inputValidation(t *testing.T) {
 	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	_, repo, _, client := setupRepositoryService(ctx, t)
 
@@ -408,8 +410,9 @@ func TestGetArchiveFailure(t *testing.T) {
 	}
 }
 
-func TestGetArchivePathInjection(t *testing.T) {
+func TestGetArchive_pathInjection(t *testing.T) {
 	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg, repo, repoPath, client := setupRepositoryServiceWithWorktree(ctx, t)
 
