@@ -48,10 +48,8 @@ func TestReplicateRepository(t *testing.T) {
 	testcfg.BuildGitalyHooks(t, cfg)
 	testcfg.BuildGitalySSH(t, cfg)
 
-	serverSocketPath := runRepositoryServerWithConfig(t, cfg, nil, testserver.WithDisablePraefect())
+	client, serverSocketPath := runRepositoryService(t, cfg, nil, testserver.WithDisablePraefect())
 	cfg.SocketPath = serverSocketPath
-
-	client := newRepositoryClient(t, cfg, serverSocketPath)
 
 	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 
@@ -121,7 +119,7 @@ func TestReplicateRepositoryTransactional(t *testing.T) {
 	testcfg.BuildGitalyHooks(t, cfg)
 	testcfg.BuildGitalySSH(t, cfg)
 
-	serverSocketPath := runRepositoryServerWithConfig(t, cfg, nil, testserver.WithDisablePraefect())
+	_, serverSocketPath := runRepositoryService(t, cfg, nil, testserver.WithDisablePraefect())
 	cfg.SocketPath = serverSocketPath
 
 	sourceRepo, sourceRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
@@ -330,10 +328,8 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 			testcfg.BuildGitalyHooks(t, cfg)
 			testcfg.BuildGitalySSH(t, cfg)
 
-			serverSocketPath := runRepositoryServerWithConfig(t, cfg, nil, testserver.WithDisablePraefect())
+			client, serverSocketPath := runRepositoryService(t, cfg, nil, testserver.WithDisablePraefect())
 			cfg.SocketPath = serverSocketPath
-
-			client := newRepositoryClient(t, cfg, serverSocketPath)
 
 			sourceRepo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
 			targetRepo, targetRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[1], gittest.CloneRepoOpts{
@@ -386,7 +382,8 @@ func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 
 	// Our test setup does not allow for Praefects with multiple storages. We thus have to
 	// disable Praefect here.
-	cfg.SocketPath = runRepositoryServerWithConfig(t, cfg, nil, testserver.WithDisablePraefect())
+	client, socketPath := runRepositoryService(t, cfg, nil, testserver.WithDisablePraefect())
+	cfg.SocketPath = socketPath
 
 	targetRepo, _ := gittest.InitRepo(t, cfg, cfg.Storages[1])
 
@@ -405,9 +402,7 @@ func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
-	repoClient := newRepositoryClient(t, cfg, cfg.SocketPath)
-
-	_, err = repoClient.ReplicateRepository(ctx, &gitalypb.ReplicateRepositoryRequest{
+	_, err = client.ReplicateRepository(ctx, &gitalypb.ReplicateRepositoryRequest{
 		Repository: targetRepo,
 		Source:     sourceRepo,
 	})
