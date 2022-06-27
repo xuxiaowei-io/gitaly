@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -637,120 +636,140 @@ func testFailedUserRebaseConfirmableDueToGitError(t *testing.T, ctx context.Cont
 	require.Equal(t, targetBranchCommitID, newBranchCommitID, "branch should not change when the rebase fails due to GitError")
 }
 
-func TestUserRebaseConfirmable_deletedFile(t *testing.T) {
+func TestUserRebaseConfirmable_deletedFileInLocalRepo(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
-	gittest.AddWorktree(t, cfg, repoPath, "worktree")
-	repoPath = filepath.Join(repoPath, "worktree")
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	localRepoProto, localRepoPath := gittest.CreateRepository(ctx, t, cfg)
+	localRepo := localrepo.NewTestRepo(t, cfg, localRepoProto)
 
-	repoCopyProto, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
+	remoteRepoProto, remoteRepoPath := gittest.CreateRepository(ctx, t, cfg)
 
-	branch := "rebase-delete-test"
+	// Write the root commit into both repositories as common history.
+	var rootCommitID git.ObjectID
+	for _, path := range []string{localRepoPath, remoteRepoPath} {
+		rootCommitID = gittest.WriteCommit(t, cfg, path,
+			gittest.WithParents(),
+			gittest.WithTreeEntries(
+				gittest.TreeEntry{Path: "change-me", Mode: "100644", Content: "unchanged contents"},
+				gittest.TreeEntry{Path: "delete-me", Mode: "100644", Content: "useless stuff"},
+			),
+		)
+	}
 
-	gittest.Exec(t, cfg, "-C", repoPath, "config", "user.name", string(gittest.TestUser.Name))
-	gittest.Exec(t, cfg, "-C", repoPath, "config", "user.email", string(gittest.TestUser.Email))
-	gittest.Exec(t, cfg, "-C", repoPath, "checkout", "-b", branch, "master~1")
-	gittest.Exec(t, cfg, "-C", repoPath, "rm", "README")
-	gittest.Exec(t, cfg, "-C", repoPath, "commit", "-a", "-m", "delete file")
+	// Write a commit into the local repository that deletes a single file.
+	localCommitID := gittest.WriteCommit(t, cfg, localRepoPath,
+		gittest.WithParents(rootCommitID),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Path: "change-me", Mode: "100644", Content: "unchanged contents"},
+		),
+		gittest.WithBranch("local"),
+	)
 
-	branchCommitID := gittest.ResolveRevision(t, cfg, repoPath, branch)
+	// And then finally write a commit into the remote repository that changes a different file.
+	gittest.WriteCommit(t, cfg, remoteRepoPath,
+		gittest.WithParents(rootCommitID),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Path: "change-me", Mode: "100644", Content: "modified contents"},
+			gittest.TreeEntry{Path: "delete-me", Mode: "100644", Content: "useless stuff"},
+		),
+		gittest.WithBranch("remote"),
+	)
 
-	rebaseStream, err := client.UserRebaseConfirmable(ctx)
+	// Send the first request to tell the server to perform the rebase.
+	stream, err := client.UserRebaseConfirmable(ctx)
+	require.NoError(t, err)
+	require.NoError(t, stream.Send(buildHeaderRequest(
+		localRepoProto, gittest.TestUser, "1", "local", localCommitID, remoteRepoProto, "remote",
+	)))
+	firstResponse, err := stream.Recv()
 	require.NoError(t, err)
 
-	headerRequest := buildHeaderRequest(repoProto, gittest.TestUser, "1", branch, branchCommitID, repoCopyProto, "master")
-	require.NoError(t, rebaseStream.Send(headerRequest), "send header")
-
-	firstResponse, err := rebaseStream.Recv()
-	require.NoError(t, err, "receive first response")
-
-	_, err = repo.ReadCommit(ctx, git.Revision(firstResponse.GetRebaseSha()))
+	_, err = localRepo.ReadCommit(ctx, git.Revision(firstResponse.GetRebaseSha()))
 	require.Equal(t, localrepo.ErrObjectNotFound, err, "commit should not exist in the normal repo given that it is quarantined")
 
-	applyRequest := buildApplyRequest(true)
-	require.NoError(t, rebaseStream.Send(applyRequest), "apply rebase")
+	// Send the second request to tell the server to apply the rebase.
+	require.NoError(t, stream.Send(buildApplyRequest(true)))
+	secondResponse, err := stream.Recv()
+	require.NoError(t, err)
+	require.True(t, secondResponse.GetRebaseApplied())
 
-	secondResponse, err := rebaseStream.Recv()
-	require.NoError(t, err, "receive second response")
-
-	_, err = rebaseStream.Recv()
+	_, err = stream.Recv()
 	require.Equal(t, io.EOF, err)
 
-	newBranchCommitID := gittest.ResolveRevision(t, cfg, repoPath, branch)
+	newBranchCommitID := gittest.ResolveRevision(t, cfg, localRepoPath, "local")
 
-	_, err = repo.ReadCommit(ctx, git.Revision(firstResponse.GetRebaseSha()))
-	require.NoError(t, err, "look up git commit after rebase is applied")
-
-	require.NotEqual(t, newBranchCommitID, branchCommitID)
+	_, err = localRepo.ReadCommit(ctx, git.Revision(firstResponse.GetRebaseSha()))
+	require.NoError(t, err)
+	require.NotEqual(t, newBranchCommitID, localCommitID)
 	require.Equal(t, newBranchCommitID.String(), firstResponse.GetRebaseSha())
-
-	require.True(t, secondResponse.GetRebaseApplied(), "the second rebase is applied")
 }
 
-func TestUserRebaseConfirmable_ontoRemoteBranch(t *testing.T) {
+func TestUserRebaseConfirmable_deletedFileInRemoteRepo(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	localRepoProto, localRepoPath := gittest.CreateRepository(ctx, t, cfg)
+	localRepo := localrepo.NewTestRepo(t, cfg, localRepoProto)
 
-	remoteRepo, remoteRepoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
-	gittest.AddWorktree(t, cfg, remoteRepoPath, "worktree")
-	remoteRepoPath = filepath.Join(remoteRepoPath, "worktree")
+	remoteRepoProto, remoteRepoPath := gittest.CreateRepository(ctx, t, cfg)
 
-	localBranch := "master"
-	localBranchCommitID := gittest.ResolveRevision(t, cfg, repoPath, localBranch)
+	// Write the root commit into both repositories as common history.
+	var rootCommitID git.ObjectID
+	for _, path := range []string{localRepoPath, remoteRepoPath} {
+		rootCommitID = gittest.WriteCommit(t, cfg, path,
+			gittest.WithParents(),
+			gittest.WithTreeEntries(
+				gittest.TreeEntry{Path: "unchanged", Mode: "100644", Content: "unchanged contents"},
+				gittest.TreeEntry{Path: "delete-me", Mode: "100644", Content: "useless stuff"},
+			),
+			gittest.WithBranch("local"),
+		)
+	}
 
-	remoteBranch := "remote-branch"
-	gittest.Exec(t, cfg, "-C", remoteRepoPath, "config", "user.name", string(gittest.TestUser.Name))
-	gittest.Exec(t, cfg, "-C", remoteRepoPath, "config", "user.email", string(gittest.TestUser.Email))
-	gittest.Exec(t, cfg, "-C", remoteRepoPath, "checkout", "-b", remoteBranch, "master")
-	gittest.Exec(t, cfg, "-C", remoteRepoPath, "rm", "README")
-	gittest.Exec(t, cfg, "-C", remoteRepoPath, "commit", "-a", "-m", "remove README")
-	remoteBranchHash := gittest.ResolveRevision(t, cfg, remoteRepoPath, remoteBranch)
+	// Write a commit into the remote repository that deletes a file.
+	remoteCommitID := gittest.WriteCommit(t, cfg, remoteRepoPath,
+		gittest.WithParents(rootCommitID),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Path: "unchanged", Mode: "100644", Content: "unchanged contents"},
+		),
+		gittest.WithBranch("remote"),
+	)
 
+	_, err := localRepo.ReadCommit(ctx, remoteCommitID.Revision())
+	require.Equal(t, localrepo.ErrObjectNotFound, err, "remote commit should not yet exist in local repository")
+
+	// Send the first request to tell the server to perform the rebase.
 	rebaseStream, err := client.UserRebaseConfirmable(ctx)
 	require.NoError(t, err)
-
-	_, err = repo.ReadCommit(ctx, git.Revision(remoteBranchHash))
-	require.Equal(t, localrepo.ErrObjectNotFound, err, "remote commit does not yet exist in local repository")
-
-	headerRequest := buildHeaderRequest(repoProto, gittest.TestUser, "1", localBranch, localBranchCommitID, remoteRepo, remoteBranch)
-	require.NoError(t, rebaseStream.Send(headerRequest), "send header")
-
+	require.NoError(t, rebaseStream.Send(buildHeaderRequest(
+		localRepoProto, gittest.TestUser, "1", "local", rootCommitID, remoteRepoProto, "remote",
+	)))
 	firstResponse, err := rebaseStream.Recv()
-	require.NoError(t, err, "receive first response")
+	require.NoError(t, err)
 
-	_, err = repo.ReadCommit(ctx, git.Revision(remoteBranchHash))
+	_, err = localRepo.ReadCommit(ctx, remoteCommitID.Revision())
 	require.Equal(t, localrepo.ErrObjectNotFound, err, "commit should not exist in the normal repo given that it is quarantined")
 
-	applyRequest := buildApplyRequest(true)
-	require.NoError(t, rebaseStream.Send(applyRequest), "apply rebase")
-
+	// Send the second request to tell the server to apply the rebase.
+	require.NoError(t, rebaseStream.Send(buildApplyRequest(true)))
 	secondResponse, err := rebaseStream.Recv()
-	require.NoError(t, err, "receive second response")
+	require.NoError(t, err)
+	require.True(t, secondResponse.GetRebaseApplied(), "the second rebase is applied")
 
 	_, err = rebaseStream.Recv()
 	require.Equal(t, io.EOF, err)
 
-	_, err = repo.ReadCommit(ctx, git.Revision(remoteBranchHash))
+	_, err = localRepo.ReadCommit(ctx, remoteCommitID.Revision())
 	require.NoError(t, err)
 
-	rebasedBranchCommitID := gittest.ResolveRevision(t, cfg, repoPath, localBranch)
-
-	require.NotEqual(t, rebasedBranchCommitID, localBranchCommitID)
+	rebasedBranchCommitID := gittest.ResolveRevision(t, cfg, localRepoPath, "local")
+	require.NotEqual(t, rebasedBranchCommitID, rootCommitID)
 	require.Equal(t, rebasedBranchCommitID.String(), firstResponse.GetRebaseSha())
-
-	require.True(t, secondResponse.GetRebaseApplied(), "the second rebase is applied")
 }
 
 func TestUserRebaseConfirmable_failedWithCode(t *testing.T) {
