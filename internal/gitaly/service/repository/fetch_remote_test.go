@@ -28,33 +28,80 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func TestFetchRemoteSuccess(t *testing.T) {
+func TestFetchRemote_checkTagsChanged(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, _, repoPath, client := setupRepositoryService(ctx, t)
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	cloneRepo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	_, remoteRepoPath := gittest.CreateRepository(ctx, t, cfg)
+
+	gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithParents(), gittest.WithBranch("main"))
+
+	t.Run("check tags without tags", func(t *testing.T) {
+		repoProto, _ := gittest.CreateRepository(ctx, t, cfg)
+
+		response, err := client.FetchRemote(ctx, &gitalypb.FetchRemoteRequest{
+			Repository: repoProto,
+			RemoteParams: &gitalypb.Remote{
+				Url: remoteRepoPath,
+			},
+			CheckTagsChanged: true,
+		})
+		require.NoError(t, err)
+		testhelper.ProtoEqual(t, &gitalypb.FetchRemoteResponse{}, response)
 	})
 
-	// Ensure there's a new tag to fetch
-	gittest.WriteTag(t, cfg, repoPath, "testtag", "master")
+	gittest.WriteTag(t, cfg, remoteRepoPath, "testtag", "main")
 
-	req := &gitalypb.FetchRemoteRequest{Repository: cloneRepo, RemoteParams: &gitalypb.Remote{
-		Url: repoPath,
-	}, Timeout: 120, CheckTagsChanged: true}
-	resp, err := client.FetchRemote(ctx, req)
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-	require.Equal(t, resp.TagsChanged, true)
+	t.Run("check tags with tags", func(t *testing.T) {
+		repoProto, _ := gittest.CreateRepository(ctx, t, cfg)
 
-	// Ensure that it returns true if we're asked not to check
-	req.CheckTagsChanged = false
-	resp, err = client.FetchRemote(ctx, req)
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-	require.Equal(t, resp.TagsChanged, true)
+		// The first fetch should report that the tags have changed, ...
+		response, err := client.FetchRemote(ctx, &gitalypb.FetchRemoteRequest{
+			Repository: repoProto,
+			RemoteParams: &gitalypb.Remote{
+				Url: remoteRepoPath,
+			},
+			CheckTagsChanged: true,
+		})
+		require.NoError(t, err)
+		testhelper.ProtoEqual(t, &gitalypb.FetchRemoteResponse{
+			TagsChanged: true,
+		}, response)
+
+		// ... while the second fetch shouldn't fetch it anew, and thus the tag should not
+		// have changed.
+		response, err = client.FetchRemote(ctx, &gitalypb.FetchRemoteRequest{
+			Repository: repoProto,
+			RemoteParams: &gitalypb.Remote{
+				Url: remoteRepoPath,
+			},
+			CheckTagsChanged: true,
+		})
+		require.NoError(t, err)
+		testhelper.ProtoEqual(t, &gitalypb.FetchRemoteResponse{}, response)
+	})
+
+	t.Run("without checking for changed tags", func(t *testing.T) {
+		repoProto, _ := gittest.CreateRepository(ctx, t, cfg)
+
+		// We fetch into the same repository multiple times to assert that `TagsChanged` is
+		// `true` regardless of whether we have the tag locally already or not.
+		for i := 0; i < 2; i++ {
+			response, err := client.FetchRemote(ctx, &gitalypb.FetchRemoteRequest{
+				Repository: repoProto,
+				RemoteParams: &gitalypb.Remote{
+					Url: remoteRepoPath,
+				},
+				CheckTagsChanged: false,
+			})
+			require.NoError(t, err)
+			testhelper.ProtoEqual(t, &gitalypb.FetchRemoteResponse{
+				TagsChanged: true,
+			}, response)
+		}
+	})
 }
 
 func TestFetchRemote_sshCommand(t *testing.T) {
