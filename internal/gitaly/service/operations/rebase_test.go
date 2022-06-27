@@ -30,8 +30,9 @@ import (
 
 var rebaseBranchName = "many_files"
 
-func TestSuccessfulUserRebaseConfirmableRequest(t *testing.T) {
+func TestUserRebaseConfirmable_successful(t *testing.T) {
 	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
@@ -191,7 +192,7 @@ func TestUserRebaseConfirmable_skipEmptyCommits(t *testing.T) {
 	}, rebaseCommit)
 }
 
-func TestUserRebaseConfirmableTransaction(t *testing.T) {
+func TestUserRebaseConfirmable_transaction(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
@@ -279,7 +280,7 @@ func TestUserRebaseConfirmableTransaction(t *testing.T) {
 	}
 }
 
-func TestUserRebaseConfirmableStableCommitIDs(t *testing.T) {
+func TestUserRebaseConfirmable_stableCommitIDs(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
@@ -349,7 +350,7 @@ func TestUserRebaseConfirmableStableCommitIDs(t *testing.T) {
 	}, commit)
 }
 
-func TestFailedRebaseUserRebaseConfirmableRequestDueToInvalidHeader(t *testing.T) {
+func TestUserRebaseConfirmable_inputValidation(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
@@ -408,7 +409,7 @@ func TestFailedRebaseUserRebaseConfirmableRequestDueToInvalidHeader(t *testing.T
 	}
 }
 
-func TestAbortedUserRebaseConfirmable(t *testing.T) {
+func TestUserRebaseConfirmable_abortViaClose(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
@@ -467,7 +468,7 @@ func TestAbortedUserRebaseConfirmable(t *testing.T) {
 	}
 }
 
-func TestFailedUserRebaseConfirmableDueToApplyBeingFalse(t *testing.T) {
+func TestUserRebaseConfirmable_abortViaApply(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
@@ -509,13 +510,15 @@ func TestFailedUserRebaseConfirmableDueToApplyBeingFalse(t *testing.T) {
 	require.NotEqual(t, newBranchSha, firstResponse.GetRebaseSha(), "branch should not be the sha returned when the rebase is not applied")
 }
 
-func TestFailedUserRebaseConfirmableRequestDueToPreReceiveError(t *testing.T) {
+func TestUserRebaseConfirmable_preReceiveError(t *testing.T) {
 	t.Parallel()
 	testhelper.NewFeatureSets(featureflag.UserRebaseConfirmableImprovedErrorHandling).
-		Run(t, testFailedUserRebaseConfirmableRequestDueToPreReceiveError)
+		Run(t, testUserRebaseConfirmablePreReceiveError)
 }
 
-func testFailedUserRebaseConfirmableRequestDueToPreReceiveError(t *testing.T, ctx context.Context) {
+func testUserRebaseConfirmablePreReceiveError(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -587,6 +590,8 @@ func TestUserRebaseConfirmable_gitError(t *testing.T) {
 }
 
 func testFailedUserRebaseConfirmableDueToGitError(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repoCopyProto, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
@@ -639,7 +644,7 @@ func getBranchSha(t *testing.T, cfg config.Cfg, repoPath string, branchName stri
 	return strings.TrimSpace(branchSha)
 }
 
-func TestRebaseRequestWithDeletedFile(t *testing.T) {
+func TestUserRebaseConfirmable_deletedFile(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
@@ -695,7 +700,7 @@ func TestRebaseRequestWithDeletedFile(t *testing.T) {
 	require.True(t, secondResponse.GetRebaseApplied(), "the second rebase is applied")
 }
 
-func TestRebaseOntoRemoteBranch(t *testing.T) {
+func TestUserRebaseConfirmable_ontoRemoteBranch(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
@@ -755,7 +760,7 @@ func TestRebaseOntoRemoteBranch(t *testing.T) {
 	require.True(t, secondResponse.GetRebaseApplied(), "the second rebase is applied")
 }
 
-func TestRebaseFailedWithCode(t *testing.T) {
+func TestUserRebaseConfirmable_failedWithCode(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
