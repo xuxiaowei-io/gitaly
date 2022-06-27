@@ -16,7 +16,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
@@ -25,7 +24,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -173,22 +171,8 @@ func TestFetchRemote_transaction(t *testing.T) {
 	sourceCfg := testcfg.Build(t)
 
 	txManager := transaction.NewTrackingManager()
-	addr := testserver.RunGitalyServer(t, sourceCfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterRepositoryServiceServer(srv, NewServer(
-			deps.GetCfg(),
-			deps.GetRubyServer(),
-			deps.GetLocator(),
-			deps.GetTxManager(),
-			deps.GetGitCmdFactory(),
-			deps.GetCatfileCache(),
-			deps.GetConnsPool(),
-			deps.GetGit2goExecutor(),
-			deps.GetHousekeepingManager(),
-		))
-	}, testserver.WithTransactionManager(txManager))
+	client, addr := runRepositoryService(t, sourceCfg, nil, testserver.WithTransactionManager(txManager))
 	sourceCfg.SocketPath = addr
-
-	client := newRepositoryClient(t, sourceCfg, addr)
 
 	ctx := testhelper.Context(t)
 	repo, _ := gittest.CreateRepository(ctx, t, sourceCfg, gittest.CreateRepositoryConfig{

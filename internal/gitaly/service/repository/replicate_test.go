@@ -20,10 +20,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/hook"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/ref"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/ssh"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
@@ -460,19 +456,7 @@ func TestFetchInternalRemote_successful(t *testing.T) {
 	testcfg.BuildGitalyHooks(t, remoteCfg)
 	gittest.WriteCommit(t, remoteCfg, remoteRepoPath, gittest.WithBranch("master"))
 
-	remoteAddr := testserver.RunGitalyServer(t, remoteCfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetTxManager(),
-		))
-		gitalypb.RegisterRefServiceServer(srv, ref.NewServer(
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetTxManager(),
-			deps.GetCatfileCache(),
-		))
-	}, testserver.WithDisablePraefect())
+	_, remoteAddr := runRepositoryService(t, remoteCfg, nil, testserver.WithDisablePraefect())
 
 	localCfg, localRepoProto, localRepoPath := testcfg.BuildWithRepo(t)
 	localRepo := localrepo.NewTestRepo(t, localCfg, localRepoProto)
@@ -484,13 +468,7 @@ func TestFetchInternalRemote_successful(t *testing.T) {
 
 	// We do not require the server's address, but it needs to be around regardless such that
 	// `FetchInternalRemote` can reach the hook service which is injected via the config.
-	testserver.RunGitalyServer(t, localCfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(
-			deps.GetHookManager(),
-			deps.GetGitCmdFactory(),
-			deps.GetPackObjectsCache(),
-		))
-	}, testserver.WithHookManager(gitalyhook.NewMockManager(t, nil, nil, nil,
+	runRepositoryService(t, localCfg, nil, testserver.WithHookManager(gitalyhook.NewMockManager(t, nil, nil, nil,
 		func(t *testing.T, _ context.Context, _ gitalyhook.ReferenceTransactionState, _ []string, stdin io.Reader) error {
 			// We need to discard stdin or otherwise the sending Goroutine may return an
 			// EOF error and cause the test to fail.
