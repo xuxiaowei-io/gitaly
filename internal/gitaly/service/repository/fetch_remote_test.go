@@ -472,7 +472,7 @@ func TestFetchRemote_force(t *testing.T) {
 	}
 }
 
-func TestFetchRemoteFailure(t *testing.T) {
+func TestFetchRemote_inputValidation(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
@@ -617,11 +617,11 @@ func getRefnames(t *testing.T, cfg config.Cfg, repoPath string) []string {
 	return strings.Split(text.ChompBytes(result), "\n")
 }
 
-func TestFetchRemoteOverHTTP(t *testing.T) {
+func TestFetchRemote_http(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, _, _, client := setupRepositoryService(ctx, t)
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	testCases := []struct {
 		description string
@@ -675,7 +675,7 @@ func TestFetchRemoteOverHTTP(t *testing.T) {
 	}
 }
 
-func TestFetchRemoteWithPath(t *testing.T) {
+func TestFetchRemote_localPath(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
@@ -696,7 +696,7 @@ func TestFetchRemoteWithPath(t *testing.T) {
 	require.Equal(t, getRefnames(t, cfg, sourceRepoPath), getRefnames(t, cfg, mirrorRepoPath))
 }
 
-func TestFetchRemoteOverHTTPWithRedirect(t *testing.T) {
+func TestFetchRemote_httpWithRedirect(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
@@ -721,7 +721,7 @@ func TestFetchRemoteOverHTTPWithRedirect(t *testing.T) {
 	require.Contains(t, err.Error(), "The requested URL returned error: 303")
 }
 
-func TestFetchRemoteOverHTTPWithTimeout(t *testing.T) {
+func TestFetchRemote_httpWithTimeout(t *testing.T) {
 	t.Parallel()
 
 	ctx, cancel := context.WithCancel(testhelper.Context(t))
