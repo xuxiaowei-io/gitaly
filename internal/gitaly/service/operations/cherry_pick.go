@@ -69,11 +69,6 @@ func (s *Server) UserCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 			var emptyErr git2go.EmptyError
 
 			switch {
-			case errors.As(err, &git2go.HasConflictsError{}):
-				return &gitalypb.UserCherryPickResponse{
-					CreateTreeError:     err.Error(),
-					CreateTreeErrorCode: gitalypb.UserCherryPickResponse_CONFLICT,
-				}, nil
 			case errors.As(err, &conflictErr):
 				conflictingFiles := make([][]byte, 0, len(conflictErr.ConflictingFiles))
 				for _, conflictingFile := range conflictErr.ConflictingFiles {
