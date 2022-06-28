@@ -191,7 +191,7 @@ func TestServer_CloneFromURLCommand(t *testing.T) {
 	cfg := testcfg.Build(t)
 	s := server{cfg: cfg, gitCmdFactory: gittest.NewCommandFactory(t, cfg)}
 
-	userInfo := "user:pass%21%3F%40"
+	user, password := "example_user", "pass%21%3F%40"
 
 	for _, tc := range []struct {
 		desc               string
@@ -201,11 +201,11 @@ func TestServer_CloneFromURLCommand(t *testing.T) {
 	}{
 		{
 			desc:  "user credentials",
-			url:   fmt.Sprintf("https://%s@192.0.2.1/secretrepo.git", userInfo),
+			url:   fmt.Sprintf("https://%s:%s@192.0.2.1/secretrepo.git", user, password),
 			token: "",
 			expectedAuthHeader: fmt.Sprintf(
 				"http.extraHeader=Authorization: Basic %s",
-				base64.StdEncoding.EncodeToString([]byte("user:pass!?@")),
+				base64.StdEncoding.EncodeToString([]byte("example_user:pass!?@")),
 			),
 		},
 		{
@@ -234,7 +234,10 @@ func TestServer_CloneFromURLCommand(t *testing.T) {
 			require.Contains(t, args, "https://192.0.2.1/secretrepo.git")
 			require.Contains(t, args, tc.expectedAuthHeader)
 			require.Contains(t, args, "http.extraHeader=Host: www.example.com")
-			require.NotContains(t, args, userInfo)
+			for _, arg := range args {
+				require.NotContains(t, arg, user)
+				require.NotContains(t, arg, password)
+			}
 		})
 	}
 }
