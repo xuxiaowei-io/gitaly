@@ -22,10 +22,12 @@ import (
 
 func TestBinaryPath(t *testing.T) {
 	cfg := Cfg{
-		BinDir: "bindir",
+		BinDir:     "bindir",
+		RuntimeDir: "runtime",
 	}
 
-	require.Equal(t, "bindir/gitaly-hooks", cfg.BinaryPath("gitaly-hooks"))
+	require.Equal(t, "runtime/gitaly-hooks", cfg.BinaryPath("gitaly-hooks"))
+	require.Equal(t, "bindir/gitaly-debug", cfg.BinaryPath("gitaly-debug"))
 	require.Equal(t, "bindir", cfg.BinaryPath(""))
 }
 
