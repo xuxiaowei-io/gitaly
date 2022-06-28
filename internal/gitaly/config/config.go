@@ -281,6 +281,13 @@ func validateIsDirectory(path, name string) error {
 	return nil
 }
 
+// BinaryPath returns the path to a given binary. BinaryPath does not do any validation, it simply joins the binaryName
+// with the correct base directory.
+func (cfg *Cfg) BinaryPath(binaryName string) string {
+	baseDirectory := cfg.BinDir
+	return filepath.Join(baseDirectory, binaryName)
+}
+
 func (cfg *Cfg) validateStorages() error {
 	if len(cfg.Storages) == 0 {
 		return fmt.Errorf("no storage configurations found. Are you using the right format? https://gitlab.com/gitlab-org/gitaly/issues/397")
