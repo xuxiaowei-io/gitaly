@@ -188,51 +188,55 @@ func TestServer_CloneFromURLCommand(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	var authToken string
+	cfg := testcfg.Build(t)
+	s := server{cfg: cfg, gitCmdFactory: gittest.NewCommandFactory(t, cfg)}
+
 	userInfo := "user:pass%21%3F%40"
-	repositoryFullPath := "full/path/to/repository"
-	url := fmt.Sprintf("https://%s@192.0.2.1/secretrepo.git", userInfo)
-	host := "www.example.com"
 
-	cfg := testcfg.Build(t)
-	s := server{cfg: cfg, gitCmdFactory: gittest.NewCommandFactory(t, cfg)}
-	cmd, err := s.cloneFromURLCommand(ctx, url, host, repositoryFullPath, authToken, false, git.WithDisabledHooks())
-	require.NoError(t, err)
+	for _, tc := range []struct {
+		desc               string
+		url                string
+		token              string
+		expectedAuthHeader string
+	}{
+		{
+			desc:  "user credentials",
+			url:   fmt.Sprintf("https://%s@192.0.2.1/secretrepo.git", userInfo),
+			token: "",
+			expectedAuthHeader: fmt.Sprintf(
+				"http.extraHeader=Authorization: Basic %s",
+				base64.StdEncoding.EncodeToString([]byte("user:pass!?@")),
+			),
+		},
+		{
+			desc:  "token",
+			url:   "https://192.0.2.1/secretrepo.git",
+			token: "some-token",
+			expectedAuthHeader: fmt.Sprintf(
+				"http.extraHeader=Authorization: %s", "some-token",
+			),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			cmd, err := s.cloneFromURLCommand(
+				ctx,
+				tc.url,
+				"www.example.com",
+				"full/path/to/repository",
+				tc.token,
+				false,
+				git.WithDisabledHooks(),
+			)
+			require.NoError(t, err)
 
-	expectedBareFlag := "--bare"
-	expectedScrubbedURL := "https://192.0.2.1/secretrepo.git"
-	expectedBasicAuthHeader := fmt.Sprintf("Authorization: Basic %s", base64.StdEncoding.EncodeToString([]byte("user:pass!?@")))
-	expectedAuthHeader := fmt.Sprintf("http.extraHeader=%s", expectedBasicAuthHeader)
-	expectedHostHeader := "http.extraHeader=Host: www.example.com"
-
-	args := cmd.Args()
-	require.Contains(t, args, expectedBareFlag)
-	require.Contains(t, args, expectedScrubbedURL)
-	require.Contains(t, args, expectedAuthHeader)
-	require.Contains(t, args, expectedHostHeader)
-	require.NotContains(t, args, userInfo)
-}
-
-func TestServer_CloneFromURLCommand_withToken(t *testing.T) {
-	t.Parallel()
-	ctx := testhelper.Context(t)
-
-	repositoryFullPath := "full/path/to/repository"
-	url := "https://www.example.com/secretrepo.git"
-	authToken := "GL-Geo EhEhKSUk_385GSLnS7BI:eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjoie1wic2NvcGVcIjpcInJvb3QvZ2l0bGFiLWNlXCJ9IiwianRpIjoiNmQ4ZDM1NGQtZjUxYS00MDQ5LWExZjctMjUyMjk4YmQwMTI4IiwiaWF0IjoxNjQyMDk1MzY5LCJuYmYiOjE2NDIwOTUzNjQsImV4cCI6MTY0MjA5NTk2OX0.YEpfzg8305dUqkYOiB7_dhbL0FVSaUPgpSpMuKrgNrg"
-
-	cfg := testcfg.Build(t)
-	s := server{cfg: cfg, gitCmdFactory: gittest.NewCommandFactory(t, cfg)}
-	cmd, err := s.cloneFromURLCommand(ctx, url, "", repositoryFullPath, authToken, false, git.WithDisabledHooks())
-	require.NoError(t, err)
-
-	expectedScrubbedURL := "https://www.example.com/secretrepo.git"
-	expectedBasicAuthHeader := fmt.Sprintf("Authorization: %s", authToken)
-	expectedHeader := fmt.Sprintf("http.extraHeader=%s", expectedBasicAuthHeader)
-
-	args := cmd.Args()
-	require.Contains(t, args, expectedScrubbedURL)
-	require.Contains(t, args, expectedHeader)
+			args := cmd.Args()
+			require.Contains(t, args, "--bare")
+			require.Contains(t, args, "https://192.0.2.1/secretrepo.git")
+			require.Contains(t, args, tc.expectedAuthHeader)
+			require.Contains(t, args, "http.extraHeader=Host: www.example.com")
+			require.NotContains(t, args, userInfo)
+		})
+	}
 }
 
 func TestServer_CloneFromURLCommand_withMirror(t *testing.T) {
