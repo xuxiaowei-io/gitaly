@@ -186,7 +186,6 @@ func TestCreateRepositoryFromURL_redirect(t *testing.T) {
 
 func TestServer_CloneFromURLCommand(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
 	s := server{cfg: cfg, gitCmdFactory: gittest.NewCommandFactory(t, cfg)}
@@ -218,6 +217,8 @@ func TestServer_CloneFromURLCommand(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(testhelper.Context(t))
+
 			cmd, err := s.cloneFromURLCommand(
 				ctx,
 				tc.url,
@@ -228,6 +229,13 @@ func TestServer_CloneFromURLCommand(t *testing.T) {
 				git.WithDisabledHooks(),
 			)
 			require.NoError(t, err)
+
+			// Kill the command so that it won't leak outside of the current test
+			// context. We know that it will return an error, but we cannot quite tell
+			// what kind of error it will be because it might fail either be to the kill
+			// signal or because it failed to clone the repository.
+			cancel()
+			require.Error(t, cmd.Wait())
 
 			args := cmd.Args()
 			require.Contains(t, args, "--bare")
