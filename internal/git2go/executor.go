@@ -19,7 +19,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	glog "gitlab.com/gitlab-org/gitaly/v15/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/version"
 	"gitlab.com/gitlab-org/labkit/correlation"
 )
 
@@ -28,7 +27,7 @@ var (
 	ErrInvalidArgument = errors.New("invalid parameters")
 
 	// BinaryName is a binary name with version suffix .
-	BinaryName = "gitaly-git2go-" + version.GetModuleVersion()
+	BinaryName = "gitaly-git2go-v15"
 )
 
 // Executor executes gitaly-git2go.
