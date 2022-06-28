@@ -203,7 +203,7 @@ func TestServer_CloneFromURLCommand(t *testing.T) {
 			url:   fmt.Sprintf("https://%s:%s@192.0.2.1/secretrepo.git", user, password),
 			token: "",
 			expectedAuthHeader: fmt.Sprintf(
-				"http.extraHeader=Authorization: Basic %s",
+				"Authorization: Basic %s",
 				base64.StdEncoding.EncodeToString([]byte("example_user:pass!?@")),
 			),
 		},
@@ -212,7 +212,7 @@ func TestServer_CloneFromURLCommand(t *testing.T) {
 			url:   "https://192.0.2.1/secretrepo.git",
 			token: "some-token",
 			expectedAuthHeader: fmt.Sprintf(
-				"http.extraHeader=Authorization: %s", "some-token",
+				"Authorization: %s", "some-token",
 			),
 		},
 	} {
@@ -240,12 +240,18 @@ func TestServer_CloneFromURLCommand(t *testing.T) {
 			args := cmd.Args()
 			require.Contains(t, args, "--bare")
 			require.Contains(t, args, "https://192.0.2.1/secretrepo.git")
-			require.Contains(t, args, tc.expectedAuthHeader)
-			require.Contains(t, args, "http.extraHeader=Host: www.example.com")
 			for _, arg := range args {
 				require.NotContains(t, arg, user)
 				require.NotContains(t, arg, password)
+				require.NotContains(t, arg, tc.expectedAuthHeader)
 			}
+
+			require.Subset(t, cmd.Env(), []string{
+				"GIT_CONFIG_KEY_0=http.extraHeader",
+				"GIT_CONFIG_VALUE_0=" + tc.expectedAuthHeader,
+				"GIT_CONFIG_KEY_1=http.extraHeader",
+				"GIT_CONFIG_VALUE_1=Host: www.example.com",
+			})
 		})
 	}
 }

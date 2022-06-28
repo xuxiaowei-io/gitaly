@@ -68,7 +68,7 @@ func (s *server) cloneFromURLCommand(
 			Flags: cloneFlags,
 			Args:  []string{u.String(), repositoryFullPath},
 		},
-		append(opts, git.WithConfig(config...))...,
+		append(opts, git.WithConfigEnv(config...))...,
 	)
 }
 
