@@ -1,8 +1,10 @@
 package repository
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -751,4 +753,124 @@ func TestFetchRemote_httpWithTimeout(t *testing.T) {
 	require.Error(t, err)
 
 	require.Contains(t, err.Error(), "fetch remote: signal: terminated")
+}
+
+func TestFetchRemote_pooledRepository(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+
+	// By default git-fetch(1) will always run with `core.alternateRefsCommand=exit 0 #`, which
+	// effectively disables use of alternate refs. We can't just unset this value, so instead we
+	// just write a script that knows to execute git-for-each-ref(1) as expected by this config
+	// option.
+	//
+	// Note that we're using a separate command factory here just to ease the setup because we
+	// need to recreate the other command factory with the Git configuration specified by the
+	// test.
+	alternateRefsCommandFactory := gittest.NewCommandFactory(t, testcfg.Build(t))
+	exec := testhelper.WriteExecutable(t,
+		filepath.Join(testhelper.TempDir(t), "alternate-refs"),
+		[]byte(fmt.Sprintf(`#!/bin/sh
+			exec %q -C "$1" for-each-ref --format='%%(objectname)'
+		`, alternateRefsCommandFactory.GetExecutionEnvironment(ctx).BinaryPath)),
+	)
+
+	for _, tc := range []struct {
+		desc                     string
+		cfg                      config.Cfg
+		shouldAnnouncePooledRefs bool
+	}{
+		{
+			desc: "with default configuration",
+		},
+		{
+			desc: "with alternates",
+			cfg: config.Cfg{
+				Git: config.Git{
+					Config: []config.GitConfig{
+						{
+							Key:   "core.alternateRefsCommand",
+							Value: exec,
+						},
+					},
+				},
+			},
+			shouldAnnouncePooledRefs: true,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			cfg := testcfg.Build(t, testcfg.WithBase(tc.cfg))
+			gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+
+			client, swocketPath := runRepositoryService(t, cfg, nil, testserver.WithGitCommandFactory(gitCmdFactory))
+			cfg.SocketPath = swocketPath
+
+			// Create a repository that emulates an object pool. This object contains a
+			// single reference with an object that is neither in the pool member nor in
+			// the remote. If alternate refs are used, then Git will announce it to the
+			// remote as "have".
+			_, poolRepoPath := gittest.CreateRepository(ctx, t, cfg)
+			poolCommitID := gittest.WriteCommit(t, cfg, poolRepoPath,
+				gittest.WithParents(),
+				gittest.WithBranch("pooled"),
+				gittest.WithTreeEntries(gittest.TreeEntry{Path: "pool", Mode: "100644", Content: "pool contents"}),
+			)
+
+			// Create the pooled repository and link it to its pool. This is the
+			// repository we're fetching into.
+			pooledRepoProto, pooledRepoPath := gittest.CreateRepository(ctx, t, cfg)
+			require.NoError(t, os.WriteFile(filepath.Join(pooledRepoPath, "objects", "info", "alternates"), []byte(filepath.Join(poolRepoPath, "objects")), 0o644))
+
+			// And then finally create a third repository that emulates the remote side
+			// we're fetching from. We need to create at least one reference so that Git
+			// would actually try to fetch objects.
+			_, remoteRepoPath := gittest.CreateRepository(ctx, t, cfg)
+			gittest.WriteCommit(t, cfg, remoteRepoPath,
+				gittest.WithParents(),
+				gittest.WithBranch("remote"),
+				gittest.WithTreeEntries(gittest.TreeEntry{Path: "remote", Mode: "100644", Content: "remote contents"}),
+			)
+
+			// Set up an HTTP server and intercept the request. This is done so that we
+			// can observe the reference negotiation and check whether alternate refs
+			// are announced or not.
+			var requestBuffer bytes.Buffer
+			port, stop := gittest.HTTPServer(ctx, t, gitCmdFactory, remoteRepoPath, func(responseWriter http.ResponseWriter, request *http.Request, handler http.Handler) {
+				closer := request.Body
+				defer testhelper.MustClose(t, closer)
+
+				request.Body = io.NopCloser(io.TeeReader(request.Body, &requestBuffer))
+
+				handler.ServeHTTP(responseWriter, request)
+			})
+			defer func() {
+				require.NoError(t, stop())
+			}()
+
+			// Perform the fetch.
+			_, err := client.FetchRemote(ctx, &gitalypb.FetchRemoteRequest{
+				Repository: pooledRepoProto,
+				RemoteParams: &gitalypb.Remote{
+					Url: fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(remoteRepoPath)),
+				},
+			})
+			require.NoError(t, err)
+
+			// This should result in the "remote" branch having been fetched into the
+			// pooled repository.
+			require.Equal(t,
+				gittest.ResolveRevision(t, cfg, pooledRepoPath, "refs/heads/remote"),
+				gittest.ResolveRevision(t, cfg, remoteRepoPath, "refs/heads/remote"),
+			)
+
+			// Verify whether alternate refs have been announced as part of the
+			// reference negotiation phase.
+			if tc.shouldAnnouncePooledRefs {
+				require.Contains(t, requestBuffer.String(), fmt.Sprintf("have %s", poolCommitID))
+			} else {
+				require.NotContains(t, requestBuffer.String(), fmt.Sprintf("have %s", poolCommitID))
+			}
+		})
+	}
 }
