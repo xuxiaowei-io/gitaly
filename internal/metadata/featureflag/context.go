@@ -10,9 +10,6 @@ import (
 )
 
 const (
-	// ffPrefix is the prefix used for Gitaly-scoped feature flags.
-	ffPrefix = "gitaly-feature-"
-
 	// explicitFeatureFlagKey is used by ContextWithExplicitFeatureFlags to mark a context as
 	// requiring all feature flags to have been explicitly defined.
 	explicitFeatureFlagKey = "require_explicit_feature_flag_checks"
@@ -99,19 +96,9 @@ func FromContext(ctx context.Context) map[FeatureFlag]bool {
 
 	flags := map[FeatureFlag]bool{}
 	for rawName, value := range rawFlags {
-		flagName := strings.TrimPrefix(rawName, ffPrefix)
-		flagName = strings.ReplaceAll(flagName, "-", "_")
-
-		// Try to look up the feature flag definition. If we don't know this flag, we
-		// instead return a manually constructed feature flag that we pretend to be off by
-		// default. We cannot ignore any unknown feature flags though given that we may
-		// want to pass them down to other systems that may know the definition.
-		flag, ok := flagsByName[flagName]
-		if !ok {
-			flag = FeatureFlag{
-				Name:        flagName,
-				OnByDefault: false,
-			}
+		flag, err := FromMetadataKey(rawName)
+		if err != nil {
+			continue
 		}
 
 		flags[flag] = value == "true"

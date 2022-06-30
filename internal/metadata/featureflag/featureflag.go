@@ -36,6 +36,11 @@ var (
 	flagsByName = map[string]FeatureFlag{}
 )
 
+const (
+	// ffPrefix is the prefix used for Gitaly-scoped feature flags.
+	ffPrefix = "gitaly-feature-"
+)
+
 // DefinedFlags returns the set of feature flags that have been explicitly defined.
 func DefinedFlags() []FeatureFlag {
 	flags := make([]FeatureFlag, 0, len(flagsByName))
@@ -77,6 +82,30 @@ func NewFeatureFlag(name, version, rolloutIssueURL string, onByDefault bool) Fea
 	flagsByName[name] = featureFlag
 
 	return featureFlag
+}
+
+// FromMetadataKey parses the given gRPC metadata key into a Gitaly feature flag and performs the
+// necessary conversions. Returns an error in case the metadata does not refer to a feature flag.
+//
+// This function tries to look up the default value via our set of flag definitions. In case the
+// flag definition is unknown to Gitaly it assumes a default value of `false`.
+func FromMetadataKey(metadataKey string) (FeatureFlag, error) {
+	if !strings.HasPrefix(metadataKey, ffPrefix) {
+		return FeatureFlag{}, fmt.Errorf("not a feature flag: %q", metadataKey)
+	}
+
+	flagName := strings.TrimPrefix(metadataKey, ffPrefix)
+	flagName = strings.ReplaceAll(flagName, "-", "_")
+
+	flag, ok := flagsByName[flagName]
+	if !ok {
+		flag = FeatureFlag{
+			Name:        flagName,
+			OnByDefault: false,
+		}
+	}
+
+	return flag, nil
 }
 
 // FormatWithValue converts the feature flag into a string with the given state. Note that this
