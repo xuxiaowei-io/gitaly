@@ -42,6 +42,10 @@ No changes.
 
 - [repository: Use long-running filter process for converting LFS pointers](gitlab-org/gitaly@0603c758d6e3580adbd3d0d69e326d05baa340b9) ([merge request](gitlab-org/gitaly!4595))
 
+## 15.0.4 (2022-06-30)
+
+No changes.
+
 ## 15.0.3 (2022-06-16)
 
 ### Fixed (5 changes)
