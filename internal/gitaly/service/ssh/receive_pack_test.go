@@ -152,10 +152,17 @@ func TestReceivePackPushSuccess(t *testing.T) {
 	// figuring out their actual contents. So let's just remove it, too.
 	payload.Transaction = nil
 
-	expectedFeatureFlags := featureflag.Raw{}
+	var expectedFeatureFlags []git.FeatureFlagWithValue
 	for _, feature := range featureflag.DefinedFlags() {
-		expectedFeatureFlags[feature.MetadataKey()] = "true"
+		expectedFeatureFlags = append(expectedFeatureFlags, git.FeatureFlagWithValue{
+			Flag: feature, Enabled: true,
+		})
 	}
+
+	// Compare here without paying attention to the order given that flags aren't sorted and
+	// unset the struct member afterwards.
+	require.ElementsMatch(t, expectedFeatureFlags, payload.FeatureFlagsWithValue)
+	payload.FeatureFlagsWithValue = nil
 
 	require.Equal(t, git.HooksPayload{
 		RuntimeDir:          cfg.RuntimeDir,
@@ -167,7 +174,6 @@ func TestReceivePackPushSuccess(t *testing.T) {
 			Protocol: "ssh",
 		},
 		RequestedHooks: git.ReceivePackHooks,
-		FeatureFlags:   expectedFeatureFlags,
 	}, payload)
 }
 
