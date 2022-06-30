@@ -177,30 +177,3 @@ func TestFromContext(t *testing.T) {
 		}, FromContext(ctx))
 	})
 }
-
-func TestRaw(t *testing.T) {
-	enabledFlag := FeatureFlag{Name: "enabled-flag"}
-	disabledFlag := FeatureFlag{Name: "disabled-flag"}
-
-	raw := Raw{
-		ffPrefix + enabledFlag.Name:  "true",
-		ffPrefix + disabledFlag.Name: "false",
-	}
-
-	t.Run("RawFromContext", func(t *testing.T) {
-		ctx := createContext()
-		ctx = IncomingCtxWithFeatureFlag(ctx, enabledFlag, true)
-		ctx = IncomingCtxWithFeatureFlag(ctx, disabledFlag, false)
-
-		require.Equal(t, raw, RawFromContext(ctx))
-	})
-
-	t.Run("OutgoingWithRaw", func(t *testing.T) {
-		outgoingMD, ok := metadata.FromOutgoingContext(OutgoingWithRaw(createContext(), raw))
-		require.True(t, ok)
-		require.Equal(t, metadata.MD{
-			ffPrefix + enabledFlag.Name:  {"true"},
-			ffPrefix + disabledFlag.Name: {"false"},
-		}, outgoingMD)
-	})
-}

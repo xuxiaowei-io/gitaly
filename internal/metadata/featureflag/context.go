@@ -92,57 +92,26 @@ func injectIntoIncomingAndOutgoingContext(ctx context.Context, key string, enabl
 // by us in case they match the feature flag prefix but don't have a definition. This function also
 // returns the state of the feature flag *as defined in the context*. This value may be overridden.
 func FromContext(ctx context.Context) map[FeatureFlag]bool {
-	rawFlags := RawFromContext(ctx)
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return map[FeatureFlag]bool{}
+	}
 
 	flags := map[FeatureFlag]bool{}
-	for rawName, value := range rawFlags {
-		flag, err := FromMetadataKey(rawName)
+	for metadataName, values := range md {
+		if len(values) == 0 {
+			continue
+		}
+
+		flag, err := FromMetadataKey(metadataName)
 		if err != nil {
 			continue
 		}
 
-		flags[flag] = value == "true"
+		flags[flag] = values[0] == "true"
 	}
 
 	return flags
-}
-
-// Raw contains feature flags and their values in their raw form with header prefix in place
-// and values unparsed.
-type Raw map[string]string
-
-// RawFromContext returns a map that contains all feature flags with their values. The feature
-// flags are in their raw format with the header prefix in place. If multiple values are set a
-// flag, the first occurrence is used.
-//
-// This is mostly intended for propagating the feature flags by other means than the metadata,
-// for example into the hooks through the environment.
-func RawFromContext(ctx context.Context) Raw {
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		return nil
-	}
-
-	featureFlags := map[string]string{}
-	for key, values := range md {
-		if !strings.HasPrefix(key, ffPrefix) || len(values) == 0 {
-			continue
-		}
-
-		featureFlags[key] = values[0]
-	}
-
-	return featureFlags
-}
-
-// OutgoingWithRaw returns a new context with raw flags appended into the outgoing
-// metadata.
-func OutgoingWithRaw(ctx context.Context, flags Raw) context.Context {
-	for key, value := range flags {
-		ctx = metadata.AppendToOutgoingContext(ctx, key, value)
-	}
-
-	return ctx
 }
 
 func rubyHeaderKey(flag string) string {
