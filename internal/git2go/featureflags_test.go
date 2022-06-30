@@ -3,7 +3,6 @@ package git2go
 import (
 	"context"
 	"encoding/gob"
-	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -16,7 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 )
 
-func (b *Executor) FeatureFlags(ctx context.Context, repo repository.GitRepo) (featureflag.Raw, error) {
+func (b *Executor) FeatureFlags(ctx context.Context, repo repository.GitRepo) ([]FeatureFlag, error) {
 	output, err := b.run(ctx, repo, nil, "feature-flags")
 	if err != nil {
 		return nil, err
@@ -31,7 +30,7 @@ func (b *Executor) FeatureFlags(ctx context.Context, repo repository.GitRepo) (f
 		return nil, result.Err
 	}
 
-	return result.Raw, err
+	return result.Flags, err
 }
 
 var (
@@ -53,9 +52,19 @@ func testExecutorFeatureFlags(t *testing.T, ctx context.Context) {
 
 	executor := NewExecutor(cfg, gittest.NewCommandFactory(t, cfg), config.NewLocator(cfg))
 
-	raw, err := executor.FeatureFlags(ctx, repo)
+	flags, err := executor.FeatureFlags(ctx, repo)
 	require.NoError(t, err)
 
-	require.Equal(t, strconv.FormatBool(featureA.IsEnabled(ctx)), raw["gitaly-feature-feature-a"])
-	require.Equal(t, strconv.FormatBool(featureB.IsEnabled(ctx)), raw["gitaly-feature-feature-b"])
+	require.Subset(t, flags, []FeatureFlag{
+		{
+			Name:        "feature_a",
+			MetadataKey: "gitaly-feature-feature-a",
+			Value:       featureA.IsEnabled(ctx),
+		},
+		{
+			Name:        "feature_b",
+			MetadataKey: "gitaly-feature-feature-b",
+			Value:       featureB.IsEnabled(ctx),
+		},
+	}, flags)
 }
