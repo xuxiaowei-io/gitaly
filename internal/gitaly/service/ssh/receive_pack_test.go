@@ -668,11 +668,16 @@ func sshPushCommand(ctx context.Context, t *testing.T, cfg config.Cfg, cloneDeta
 	})
 	require.NoError(t, err)
 
+	var flagsWithValues []string
+	for flag, value := range featureflag.FromContext(ctx) {
+		flagsWithValues = append(flagsWithValues, flag.FormatWithValue(value))
+	}
+
 	cmd := gittest.NewCommand(t, cfg, "-C", cloneDetails.LocalRepoPath, "push", "-v", "git@localhost:test/test.git", "master")
 	cmd.Env = []string{
 		fmt.Sprintf("GITALY_PAYLOAD=%s", payload),
 		fmt.Sprintf("GITALY_ADDRESS=%s", serverSocketPath),
-		fmt.Sprintf("GITALY_FEATUREFLAGS=%s", strings.Join(featureflag.AllFlags(ctx), ",")),
+		fmt.Sprintf("GITALY_FEATUREFLAGS=%s", strings.Join(flagsWithValues, ",")),
 		fmt.Sprintf("GIT_SSH_COMMAND=%s receive-pack", filepath.Join(cfg.BinDir, "gitaly-ssh")),
 	}
 

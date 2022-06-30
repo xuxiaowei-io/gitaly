@@ -10,9 +10,6 @@ import (
 )
 
 const (
-	// Delim is a delimiter used between a feature flag name and its value.
-	Delim = ":"
-
 	// ffPrefix is the prefix used for Gitaly-scoped feature flags.
 	ffPrefix = "gitaly-feature-"
 
@@ -93,18 +90,34 @@ func injectIntoIncomingAndOutgoingContext(ctx context.Context, key string, enabl
 	return metadata.AppendToOutgoingContext(ctx, key, strconv.FormatBool(enabled))
 }
 
-// AllFlags returns all feature flags with their value that use the Gitaly metadata
-// prefix. Note: results will not be sorted.
-func AllFlags(ctx context.Context) []string {
-	featureFlagMap := RawFromContext(ctx)
-	featureFlagSlice := make([]string, 0, len(featureFlagMap))
-	for key, value := range featureFlagMap {
-		featureFlagSlice = append(featureFlagSlice,
-			fmt.Sprintf("%s%s%s", strings.TrimPrefix(key, ffPrefix), Delim, value),
-		)
+// FromContext returns the set of all feature flags defined in the context. This returns both
+// feature flags that are currently defined by Gitaly, but may also return some that aren't defined
+// by us in case they match the feature flag prefix but don't have a definition. This function also
+// returns the state of the feature flag *as defined in the context*. This value may be overridden.
+func FromContext(ctx context.Context) map[FeatureFlag]bool {
+	rawFlags := RawFromContext(ctx)
+
+	flags := map[FeatureFlag]bool{}
+	for rawName, value := range rawFlags {
+		flagName := strings.TrimPrefix(rawName, ffPrefix)
+		flagName = strings.ReplaceAll(flagName, "-", "_")
+
+		// Try to look up the feature flag definition. If we don't know this flag, we
+		// instead return a manually constructed feature flag that we pretend to be off by
+		// default. We cannot ignore any unknown feature flags though given that we may
+		// want to pass them down to other systems that may know the definition.
+		flag, ok := flagsByName[flagName]
+		if !ok {
+			flag = FeatureFlag{
+				Name:        flagName,
+				OnByDefault: false,
+			}
+		}
+
+		flags[flag] = value == "true"
 	}
 
-	return featureFlagSlice
+	return flags
 }
 
 // Raw contains feature flags and their values in their raw form with header prefix in place

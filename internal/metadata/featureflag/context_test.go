@@ -119,16 +119,63 @@ func TestGRPCMetadataFeatureFlag(t *testing.T) {
 	}
 }
 
-func TestAllEnabledFlags(t *testing.T) {
-	flags := map[string]string{
-		ffPrefix + "meow": "true",
-		ffPrefix + "foo":  "true",
-		ffPrefix + "woof": "false", // not enabled
-		ffPrefix + "bar":  "TRUE",  // not enabled
+func TestFromContext(t *testing.T) {
+	defer func(old map[string]FeatureFlag) {
+		flagsByName = old
+	}(flagsByName)
+
+	defaultDisabledFlag := FeatureFlag{
+		Name:        "default_disabled",
+		OnByDefault: false,
 	}
 
-	ctx := metadata.NewIncomingContext(createContext(), metadata.New(flags))
-	require.ElementsMatch(t, AllFlags(ctx), []string{"meow:true", "foo:true", "woof:false", "bar:TRUE"})
+	defaultEnabledFlag := FeatureFlag{
+		Name:        "default_enabled",
+		OnByDefault: true,
+	}
+
+	flagsByName = map[string]FeatureFlag{
+		"default_disabled": defaultDisabledFlag,
+		"default_enabled":  defaultEnabledFlag,
+	}
+
+	t.Run("with no defined flags", func(t *testing.T) {
+		require.Empty(t, FromContext(createContext()))
+	})
+
+	t.Run("with single defined flag", func(t *testing.T) {
+		ctx := ContextWithFeatureFlag(createContext(), defaultDisabledFlag, false)
+		ctx = ContextWithFeatureFlag(ctx, defaultEnabledFlag, true)
+
+		require.Equal(t, map[FeatureFlag]bool{
+			defaultDisabledFlag: false,
+			defaultEnabledFlag:  true,
+		}, FromContext(ctx))
+	})
+
+	t.Run("with defined flags and non-default values", func(t *testing.T) {
+		ctx := ContextWithFeatureFlag(createContext(), defaultDisabledFlag, true)
+		ctx = ContextWithFeatureFlag(ctx, defaultEnabledFlag, false)
+
+		require.Equal(t, map[FeatureFlag]bool{
+			defaultDisabledFlag: true,
+			defaultEnabledFlag:  false,
+		}, FromContext(ctx))
+	})
+
+	t.Run("with defined and undefined flag", func(t *testing.T) {
+		undefinedFlag := FeatureFlag{
+			Name: "undefined_flag",
+		}
+
+		ctx := ContextWithFeatureFlag(createContext(), defaultDisabledFlag, false)
+		ctx = ContextWithFeatureFlag(ctx, undefinedFlag, false)
+
+		require.Equal(t, map[FeatureFlag]bool{
+			defaultDisabledFlag: false,
+			undefinedFlag:       false,
+		}, FromContext(ctx))
+	})
 }
 
 func TestRaw(t *testing.T) {

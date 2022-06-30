@@ -79,6 +79,12 @@ func NewFeatureFlag(name, version, rolloutIssueURL string, onByDefault bool) Fea
 	return featureFlag
 }
 
+// FormatWithValue converts the feature flag into a string with the given state. Note that this
+// function uses the feature flag name and not the raw metadata key as used in gRPC metadata.
+func (ff FeatureFlag) FormatWithValue(enabled bool) string {
+	return fmt.Sprintf("%s:%v", ff.Name, enabled)
+}
+
 // IsEnabled checks if the feature flag is enabled for the passed context.
 // Only returns true if the metadata for the feature flag is set to "true"
 func (ff FeatureFlag) IsEnabled(ctx context.Context) bool {
