@@ -252,11 +252,13 @@ TEST_REPO_GIT     := ${TEST_REPO_DIR}/gitlab-git-test.git
 BENCHMARK_REPO    := ${TEST_REPO_DIR}/benchmark.git
 
 # All executables provided by Gitaly.
-GITALY_EXECUTABLES        = $(addprefix ${BUILD_DIR}/bin/,$(notdir $(shell find ${SOURCE_DIR}/cmd -mindepth 1 -maxdepth 1 -type d -print)) gitaly-git2go-v14)
+GITALY_EXECUTABLES           = $(addprefix ${BUILD_DIR}/bin/,$(notdir $(shell find ${SOURCE_DIR}/cmd -mindepth 1 -maxdepth 1 -type d -print)) gitaly-git2go-v14)
 # All executables packed inside the Gitaly binary.
-GITALY_PACKED_EXECUTABLES = $(filter %gitaly-hooks %gitaly-git2go-v15 %gitaly-ssh %gitaly-lfs-smudge, ${GITALY_EXECUTABLES})
+GITALY_PACKED_EXECUTABLES    = $(filter %gitaly-hooks %gitaly-git2go-v15 %gitaly-ssh %gitaly-lfs-smudge, ${GITALY_EXECUTABLES})
+# All executables that should be installed.
+GITALY_INSTALLED_EXECUTABLES = $(filter-out ${GITALY_PACKED_EXECUTABLES}, ${GITALY_EXECUTABLES})
 # Find all Go source files.
-find_go_sources           = $(shell find ${SOURCE_DIR} -type d \( -name ruby -o -name vendor -o -name testdata -o -name '_*' -o -path '*/proto/go/gitalypb' \) -prune -o -type f -name '*.go' -not -name '*.pb.go' -print | sort -u)
+find_go_sources              = $(shell find ${SOURCE_DIR} -type d \( -name ruby -o -name vendor -o -name testdata -o -name '_*' -o -path '*/proto/go/gitalypb' \) -prune -o -type f -name '*.go' -not -name '*.pb.go' -print | sort -u)
 
 # run_go_tests will execute Go tests with all required parameters. Its
 # behaviour can be modified via the following variables:
@@ -329,13 +331,13 @@ help:
 
 .PHONY: build
 ## Build Go binaries and install required Ruby Gems.
-build: ${SOURCE_DIR}/.ruby-bundle ${GITALY_EXECUTABLES}
+build: ${SOURCE_DIR}/.ruby-bundle ${GITALY_INSTALLED_EXECUTABLES}
 
 .PHONY: install
 ## Install Gitaly binaries. The target directory can be modified by setting PREFIX and DESTDIR.
 install: build
 	${Q}mkdir -p ${INSTALL_DEST_DIR}
-	install ${GITALY_EXECUTABLES} "${INSTALL_DEST_DIR}"
+	install ${GITALY_INSTALLED_EXECUTABLES} "${INSTALL_DEST_DIR}"
 
 .PHONY: build-bundled-git
 ## Build bundled Git binaries.
