@@ -589,8 +589,6 @@ func (c *Coordinator) maintenanceStreamParameters(ctx context.Context, call grpc
 // streamParametersContexts converts the contexts with incoming metadata into a context that is
 // usable by peer Gitaly nodes.
 func streamParametersContext(ctx context.Context) context.Context {
-	outgoingCtx := metadata.IncomingToOutgoing(ctx)
-
 	// When upgrading Gitaly nodes where the upgrade contains feature flag default changes, then
 	// there will be a window where a subset of Gitaly nodes has a different understanding of
 	// the current default value. If the feature flag wasn't set explicitly on upgrade by
@@ -619,12 +617,14 @@ func streamParametersContext(ctx context.Context) context.Context {
 		rawFeatureFlags = map[string]string{}
 	}
 
+	outgoingCtx := metadata.IncomingToOutgoing(ctx)
 	for _, ff := range featureflag.DefinedFlags() {
 		if _, ok := rawFeatureFlags[ff.MetadataKey()]; !ok {
-			rawFeatureFlags[ff.MetadataKey()] = strconv.FormatBool(ff.OnByDefault)
+			outgoingCtx = grpc_metadata.AppendToOutgoingContext(
+				outgoingCtx, ff.MetadataKey(), strconv.FormatBool(ff.OnByDefault),
+			)
 		}
 	}
-	outgoingCtx = featureflag.OutgoingWithRaw(outgoingCtx, rawFeatureFlags)
 
 	return outgoingCtx
 }

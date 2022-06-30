@@ -2803,10 +2803,6 @@ func TestStreamParametersContext(t *testing.T) {
 			),
 			expectedOutgoingMD: metadata.Join(
 				metadataForFlags(expectedFlags()),
-				metadata.Pairs(
-					enabledFF.MetadataKey(), "true",
-					disabledFF.MetadataKey(), "false",
-				),
 			),
 			expectedFlags: expectedFlags(),
 		},
@@ -2827,10 +2823,6 @@ func TestStreamParametersContext(t *testing.T) {
 					expectedFlag{flag: enabledFF, enabled: false},
 					expectedFlag{flag: disabledFF, enabled: true},
 				)),
-				metadata.Pairs(
-					enabledFF.MetadataKey(), "false",
-					disabledFF.MetadataKey(), "true",
-				),
 			),
 			expectedFlags: expectedFlags(
 				expectedFlag{flag: enabledFF, enabled: false},
@@ -2856,7 +2848,6 @@ func TestStreamParametersContext(t *testing.T) {
 					expectedFlag{flag: disabledFF, enabled: true},
 				)),
 				metadata.Pairs(
-					disabledFF.MetadataKey(), "true",
 					"incoming", "value",
 				),
 			),
