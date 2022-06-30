@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 15.1.1 (2022-06-30)
+
+No changes.
+
 ## 15.1.0 (2022-06-21)
 
 ### Added (4 changes)
@@ -37,6 +41,10 @@
 ### Performance (1 change)
 
 - [repository: Use long-running filter process for converting LFS pointers](gitlab-org/gitaly@0603c758d6e3580adbd3d0d69e326d05baa340b9) ([merge request](gitlab-org/gitaly!4595))
+
+## 15.0.4 (2022-06-30)
+
+No changes.
 
 ## 15.0.3 (2022-06-16)
 
@@ -122,6 +130,10 @@ No changes.
 ### Other (1 change)
 
 - [go.mod: Remove exclude directive](gitlab-org/gitaly@c40c629a01fae35e3f34b05bf1e28a94aaac2692) ([merge request](gitlab-org/gitaly!4525))
+
+## 14.10.5 (2022-06-30)
+
+No changes.
 
 ## 14.10.4 (2022-06-01)
 
