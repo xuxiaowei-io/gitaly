@@ -36,29 +36,6 @@ var (
 	All = []FeatureFlag{}
 )
 
-const explicitFeatureFlagKey = "require_explicit_feature_flag_checks"
-
-func injectIntoIncomingAndOutgoingContext(ctx context.Context, key string, enabled bool) context.Context {
-	incomingMD, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		incomingMD = metadata.New(map[string]string{})
-	}
-
-	incomingMD.Set(key, strconv.FormatBool(enabled))
-
-	ctx = metadata.NewIncomingContext(ctx, incomingMD)
-
-	return metadata.AppendToOutgoingContext(ctx, key, strconv.FormatBool(enabled))
-}
-
-// ContextWithExplicitFeatureFlags marks the context such that all feature flags which are checked
-// must have been explicitly set in that context. If a feature flag wasn't set to an explicit value,
-// then checking this feature flag will panic. This is not for use in production systems, but is
-// intended for tests to verify that we test each feature flag properly.
-func ContextWithExplicitFeatureFlags(ctx context.Context) context.Context {
-	return injectIntoIncomingAndOutgoingContext(ctx, explicitFeatureFlagKey, true)
-}
-
 // FeatureFlag gates the implementation of new or changed functionality.
 type FeatureFlag struct {
 	// Name is the name of the feature flag.

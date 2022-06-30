@@ -15,7 +15,19 @@ const (
 
 	// ffPrefix is the prefix used for Gitaly-scoped feature flags.
 	ffPrefix = "gitaly-feature-"
+
+	// explicitFeatureFlagKey is used by ContextWithExplicitFeatureFlags to mark a context as
+	// requiring all feature flags to have been explicitly defined.
+	explicitFeatureFlagKey = "require_explicit_feature_flag_checks"
 )
+
+// ContextWithExplicitFeatureFlags marks the context such that all feature flags which are checked
+// must have been explicitly set in that context. If a feature flag wasn't set to an explicit value,
+// then checking this feature flag will panic. This is not for use in production systems, but is
+// intended for tests to verify that we test each feature flag properly.
+func ContextWithExplicitFeatureFlags(ctx context.Context) context.Context {
+	return injectIntoIncomingAndOutgoingContext(ctx, explicitFeatureFlagKey, true)
+}
 
 // ContextWithFeatureFlag sets the feature flag in both the incoming and outgoing context.
 func ContextWithFeatureFlag(ctx context.Context, flag FeatureFlag, enabled bool) context.Context {
@@ -66,6 +78,19 @@ func incomingCtxWithFeatureFlag(ctx context.Context, key string, enabled bool) c
 	md.Set(key, strconv.FormatBool(enabled))
 
 	return metadata.NewIncomingContext(ctx, md)
+}
+
+func injectIntoIncomingAndOutgoingContext(ctx context.Context, key string, enabled bool) context.Context {
+	incomingMD, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		incomingMD = metadata.New(map[string]string{})
+	}
+
+	incomingMD.Set(key, strconv.FormatBool(enabled))
+
+	ctx = metadata.NewIncomingContext(ctx, incomingMD)
+
+	return metadata.AppendToOutgoingContext(ctx, key, strconv.FormatBool(enabled))
 }
 
 // AllFlags returns all feature flags with their value that use the Gitaly metadata
