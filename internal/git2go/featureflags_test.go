@@ -39,9 +39,8 @@ var (
 	featureB = featureflag.NewFeatureFlag("feature-b", "", "", true)
 )
 
-func TestFeatureFlagsExecutor_FeatureFlags(t *testing.T) {
-	testhelper.NewFeatureSets(featureA, featureB).
-		Run(t, testExecutorFeatureFlags)
+func TestExecutor_explicitFeatureFlags(t *testing.T) {
+	testhelper.NewFeatureSets(featureA, featureB).Run(t, testExecutorFeatureFlags)
 }
 
 func testExecutorFeatureFlags(t *testing.T, ctx context.Context) {
