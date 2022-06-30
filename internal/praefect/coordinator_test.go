@@ -2699,7 +2699,7 @@ func TestStreamParametersContext(t *testing.T) {
 
 	expectedFlags := func(overrides ...expectedFlag) []expectedFlag {
 		flagValues := map[featureflag.FeatureFlag]bool{}
-		for _, flag := range featureflag.All {
+		for _, flag := range featureflag.DefinedFlags() {
 			flagValues[flag] = flag.OnByDefault
 		}
 		for _, override := range overrides {

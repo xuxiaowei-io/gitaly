@@ -619,7 +619,7 @@ func streamParametersContext(ctx context.Context) context.Context {
 		rawFeatureFlags = map[string]string{}
 	}
 
-	for _, ff := range featureflag.All {
+	for _, ff := range featureflag.DefinedFlags() {
 		if _, ok := rawFeatureFlags[ff.MetadataKey()]; !ok {
 			rawFeatureFlags[ff.MetadataKey()] = strconv.FormatBool(ff.OnByDefault)
 		}

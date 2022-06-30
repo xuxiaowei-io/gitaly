@@ -32,9 +32,18 @@ var (
 		[]string{"flag", "enabled"},
 	)
 
-	// All is the list of all registered feature flags.
-	All = []FeatureFlag{}
+	// flagsByName is the set of defined feature flags mapped by their respective name.
+	flagsByName = map[string]FeatureFlag{}
 )
+
+// DefinedFlags returns the set of feature flags that have been explicitly defined.
+func DefinedFlags() []FeatureFlag {
+	flags := make([]FeatureFlag, 0, len(flagsByName))
+	for _, flag := range flagsByName {
+		flags = append(flags, flag)
+	}
+	return flags
+}
 
 // FeatureFlag gates the implementation of new or changed functionality.
 type FeatureFlag struct {
@@ -54,7 +63,9 @@ func NewFeatureFlag(name, version, rolloutIssueURL string, onByDefault bool) Fea
 		Name:        name,
 		OnByDefault: onByDefault,
 	}
-	All = append(All, featureFlag)
+
+	flagsByName[name] = featureFlag
+
 	return featureFlag
 }
 

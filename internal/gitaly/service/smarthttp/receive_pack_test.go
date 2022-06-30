@@ -68,7 +68,7 @@ func TestPostReceivePack_successful(t *testing.T) {
 	// the context's feature flags we see here and the context's metadata as it would
 	// arrive on the proxied Gitaly. To fix this, we thus inject all feature flags
 	// explicitly here.
-	for _, ff := range featureflag.All {
+	for _, ff := range featureflag.DefinedFlags() {
 		ctx = featureflag.OutgoingCtxWithFeatureFlag(ctx, ff, true)
 		ctx = featureflag.IncomingCtxWithFeatureFlag(ctx, ff, true)
 	}

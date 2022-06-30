@@ -120,7 +120,7 @@ func TestReceivePackPushSuccess(t *testing.T) {
 	// when deserializing the HooksPayload. By setting all flags to `true` explicitly, we both
 	// verify that gitaly-ssh picks up feature flags correctly and fix the test to behave the
 	// same with and without Praefect.
-	for _, featureFlag := range featureflag.All {
+	for _, featureFlag := range featureflag.DefinedFlags() {
 		ctx = featureflag.ContextWithFeatureFlag(ctx, featureFlag, true)
 	}
 
@@ -153,7 +153,7 @@ func TestReceivePackPushSuccess(t *testing.T) {
 	payload.Transaction = nil
 
 	expectedFeatureFlags := featureflag.Raw{}
-	for _, feature := range featureflag.All {
+	for _, feature := range featureflag.DefinedFlags() {
 		expectedFeatureFlags[feature.MetadataKey()] = "true"
 	}
 
