@@ -131,6 +131,10 @@ No changes.
 
 - [go.mod: Remove exclude directive](gitlab-org/gitaly@c40c629a01fae35e3f34b05bf1e28a94aaac2692) ([merge request](gitlab-org/gitaly!4525))
 
+## 14.10.5 (2022-06-30)
+
+No changes.
+
 ## 14.10.4 (2022-06-01)
 
 No changes.
