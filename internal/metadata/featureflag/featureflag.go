@@ -59,6 +59,16 @@ type FeatureFlag struct {
 // input that are not used for anything but only for the sake of linking to the feature flag rollout
 // issue in the Gitaly project.
 func NewFeatureFlag(name, version, rolloutIssueURL string, onByDefault bool) FeatureFlag {
+	if strings.ContainsAny(name, "-:") {
+		// It is critical that feature flags don't contain either a dash nor a colon:
+		//
+		// - We convert dashes to underscores when converting a feature flag's name to the
+		//   metadata key, and vice versa. The name wouldn't round-trip in case it had
+		//   underscores and must thus use dashes instead.
+		// - We use colons to separate feature flags and their values.
+		panic("Feature flags must not contain dashes or colons.")
+	}
+
 	featureFlag := FeatureFlag{
 		Name:        name,
 		OnByDefault: onByDefault,
