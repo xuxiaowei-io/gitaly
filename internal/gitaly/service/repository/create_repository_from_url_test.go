@@ -213,9 +213,9 @@ func TestCreateRepositoryFromURL_fsck(t *testing.T) {
 		Repository: targetRepoProto,
 		Url:        "file://" + sourceRepoPath,
 	})
-
-	// This is broken: the RPC should fail due to Git's consistency checks.
-	require.NoError(t, err)
+	require.Error(t, err)
+	testhelper.RequireGrpcCode(t, err, codes.Internal)
+	require.Contains(t, err.Error(), "duplicateEntries: contains duplicate file entries")
 }
 
 func TestServer_CloneFromURLCommand(t *testing.T) {

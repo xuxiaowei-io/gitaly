@@ -54,12 +54,12 @@ var commandDescriptions = map[string]commandDescription{
 		flags: scNoEndOfOptions,
 	},
 	"clone": {
-		opts: append([]GlobalOption{
+		opts: append(append([]GlobalOption{
 			// See "init" for why we set the template directory to the empty string.
 			ConfigPair{Key: "init.templateDir", Value: ""},
 			// See "fetch" for why we disable following redirects.
 			ConfigPair{Key: "http.followRedirects", Value: "false"},
-		}, packConfiguration()...),
+		}, packConfiguration()...), fsckConfiguration("fetch")...),
 	},
 	"commit": {
 		flags: 0,
