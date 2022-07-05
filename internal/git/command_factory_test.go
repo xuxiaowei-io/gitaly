@@ -483,6 +483,7 @@ func TestExecCommandFactory_config(t *testing.T) {
 		"gc.auto=0",
 		"core.autocrlf=input",
 		"core.usereplacerefs=false",
+		"commitgraph.generationversion=1",
 	}
 
 	for _, tc := range []struct {
@@ -543,6 +544,7 @@ func TestExecCommandFactory_SidecarGitConfiguration(t *testing.T) {
 		{Key: "gc.auto", Value: "0"},
 		{Key: "core.autocrlf", Value: "input"},
 		{Key: "core.useReplaceRefs", Value: "false"},
+		{Key: "commitGraph.generationVersion", Value: "1"},
 	}
 
 	commonTail := []git.ConfigPair{
