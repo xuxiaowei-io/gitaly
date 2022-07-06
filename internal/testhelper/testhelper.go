@@ -267,23 +267,6 @@ func WriteExecutable(t testing.TB, path string, content []byte) string {
 	return path
 }
 
-// ModifyEnvironment will change an environment variable and revert it when the test completed.
-func ModifyEnvironment(t testing.TB, key string, value string) {
-	t.Helper()
-
-	oldValue, hasOldValue := os.LookupEnv(key)
-	if value == "" {
-		require.NoError(t, os.Unsetenv(key))
-		t.Cleanup(func() {
-			if hasOldValue {
-				require.NoError(t, os.Setenv(key, oldValue))
-			}
-		})
-	} else {
-		t.Setenv(key, value)
-	}
-}
-
 // Unsetenv unsets an environment variable. The variable will be restored after the test has
 // finished.
 func Unsetenv(t testing.TB, key string) {
