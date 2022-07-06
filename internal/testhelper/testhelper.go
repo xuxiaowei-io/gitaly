@@ -284,6 +284,21 @@ func ModifyEnvironment(t testing.TB, key string, value string) {
 	}
 }
 
+// Unsetenv unsets an environment variable. The variable will be restored after the test has
+// finished.
+func Unsetenv(t testing.TB, key string) {
+	t.Helper()
+
+	// We're first using `t.Setenv()` here due to two reasons: first, it will automitcally
+	// handle restoring the environment variable for us after the test has finished. And second,
+	// it performs a check whether we're running with `t.Parallel()`.
+	t.Setenv(key, "")
+
+	// And now we can unset the environment variable given that we know we're not running in a
+	// parallel test and where the cleanup function has been installed.
+	require.NoError(t, os.Unsetenv(key))
+}
+
 // GenerateCerts creates a certificate that can be used to establish TLS protected TCP connection.
 // It returns paths to the file with the certificate and its private key.
 func GenerateCerts(t *testing.T) (string, string) {
