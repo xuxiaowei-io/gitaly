@@ -2,7 +2,6 @@ package helper
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 	"testing"
 
@@ -93,20 +92,15 @@ func TestError(t *testing.T) {
 }
 
 func TestErrorF_withVFormat(t *testing.T) {
-	testErrorfFormat(t, "expected %v", "expected %v")
+	testErrorfFormat(t, "top-level: %v", "top-level: %v")
 }
 
 func TestErrorF_withWFormat(t *testing.T) {
-	testErrorfFormat(t, "expected %w", "expected %s")
+	testErrorfFormat(t, "top-level: %w", "top-level: %s")
 }
 
 func testErrorfFormat(t *testing.T, errorFormat, errorFormatEqual string) {
 	isFormatW := strings.Contains(errorFormat, "%w")
-	errorMessage := "sentinel error"
-	input := errors.New(errorMessage)
-	inputGRPCCode := codes.Unauthenticated
-	inputGRPC := status.Error(inputGRPCCode, errorMessage)
-	inputGRPCFmt := status.Errorf(inputGRPCCode, errorFormat, errorMessage)
 
 	for _, tc := range []struct {
 		desc         string
@@ -145,44 +139,54 @@ func testErrorfFormat(t *testing.T, errorFormat, errorFormatEqual string) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			require.NotEqual(t, tc.expectedCode, inputGRPCCode, "canary test code and tc.code may not be the same")
-
 			t.Run("with non-gRPC error", func(t *testing.T) {
-				// When not re-throwing an error we get the GRPC error code
-				// corresponding to the function's name. Just like the non-f
-				// functions.
-				err := tc.errorf(errorFormat, input)
-				require.EqualError(t, err, fmt.Sprintf(errorFormatEqual, errorMessage))
-				require.False(t, errors.Is(err, inputGRPC))
+				err := tc.errorf(errorFormat, errors.New("nested"))
+				require.EqualError(t, err, "top-level: nested")
 				require.Equal(t, tc.expectedCode, status.Code(err))
+
+				s, ok := status.FromError(err)
+				require.True(t, ok)
+				require.Equal(t, status.New(tc.expectedCode, "top-level: nested"), s)
 			})
 
 			t.Run("with status.Errorf error", func(t *testing.T) {
-				// When wrapping an existing gRPC error, then the error code will
-				// stay the same.
+				require.NotEqual(t, tc.expectedCode, codes.Unauthenticated)
 
-				err := tc.errorf(errorFormat, inputGRPCFmt)
-				require.False(t, errors.Is(err, input))
+				err := tc.errorf(errorFormat, status.Errorf(codes.Unauthenticated, "deeply: %s", "nested"))
+				require.EqualError(t, err, "top-level: rpc error: code = Unauthenticated desc = deeply: nested")
 				if isFormatW {
-					require.Equal(t, inputGRPCCode, status.Code(err))
+					require.Equal(t, codes.Unauthenticated, status.Code(err))
 				} else {
 					require.Equal(t, tc.expectedCode, status.Code(err))
 				}
-				require.NotEqual(t, tc.expectedCode, status.Code(inputGRPC))
+
+				s, ok := status.FromError(err)
+				require.True(t, ok)
+				if isFormatW {
+					require.Equal(t, status.New(codes.Unauthenticated, "top-level: rpc error: code = Unauthenticated desc = deeply: nested"), s)
+				} else {
+					require.Equal(t, status.New(tc.expectedCode, "top-level: rpc error: code = Unauthenticated desc = deeply: nested"), s)
+				}
 			})
 
 			t.Run("with status.Error error", func(t *testing.T) {
-				// The same as above, except that we test with an error returned by
-				// `status.Error()`.
-				err := tc.errorf(errorFormat, inputGRPC)
-				require.Equal(t, errors.Is(err, inputGRPC), isFormatW) // .True() for non-f
-				require.False(t, errors.Is(err, input))
+				require.NotEqual(t, tc.expectedCode, codes.Unauthenticated)
+
+				err := tc.errorf(errorFormat, status.Error(codes.Unauthenticated, "nested"))
+				require.EqualError(t, err, "top-level: rpc error: code = Unauthenticated desc = nested")
 				if isFormatW {
-					require.Equal(t, inputGRPCCode, status.Code(err))
+					require.Equal(t, codes.Unauthenticated, status.Code(err))
 				} else {
 					require.Equal(t, tc.expectedCode, status.Code(err))
 				}
-				require.Equal(t, inputGRPCCode, status.Code(inputGRPC))
+
+				s, ok := status.FromError(err)
+				require.True(t, ok)
+				if isFormatW {
+					require.Equal(t, status.New(codes.Unauthenticated, "top-level: rpc error: code = Unauthenticated desc = nested"), s)
+				} else {
+					require.Equal(t, status.New(tc.expectedCode, "top-level: rpc error: code = Unauthenticated desc = nested"), s)
+				}
 			})
 		})
 	}
