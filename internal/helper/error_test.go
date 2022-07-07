@@ -109,43 +109,43 @@ func testErrorfFormat(t *testing.T, errorFormat, errorFormatEqual string) {
 	inputGRPCFmt := status.Errorf(inputGRPCCode, errorFormat, errorMessage)
 
 	for _, tc := range []struct {
-		desc   string
-		errorf func(format string, a ...interface{}) error
-		code   codes.Code
+		desc         string
+		errorf       func(format string, a ...interface{}) error
+		expectedCode codes.Code
 	}{
 		{
-			desc:   "Internalf",
-			errorf: ErrInternalf,
-			code:   codes.Internal,
+			desc:         "Internalf",
+			errorf:       ErrInternalf,
+			expectedCode: codes.Internal,
 		},
 		{
-			desc:   "InvalidArgumentf",
-			errorf: ErrInvalidArgumentf,
-			code:   codes.InvalidArgument,
+			desc:         "InvalidArgumentf",
+			errorf:       ErrInvalidArgumentf,
+			expectedCode: codes.InvalidArgument,
 		},
 		{
-			desc:   "FailedPreconditionf",
-			errorf: ErrFailedPreconditionf,
-			code:   codes.FailedPrecondition,
+			desc:         "FailedPreconditionf",
+			errorf:       ErrFailedPreconditionf,
+			expectedCode: codes.FailedPrecondition,
 		},
 		{
-			desc:   "NotFoundf",
-			errorf: ErrNotFoundf,
-			code:   codes.NotFound,
+			desc:         "NotFoundf",
+			errorf:       ErrNotFoundf,
+			expectedCode: codes.NotFound,
 		},
 		{
-			desc:   "ErrUnavailablef",
-			errorf: ErrUnavailablef,
-			code:   codes.Unavailable,
+			desc:         "ErrUnavailablef",
+			errorf:       ErrUnavailablef,
+			expectedCode: codes.Unavailable,
 		},
 		{
-			desc:   "ErrAbortedf",
-			errorf: ErrAbortedf,
-			code:   codes.Aborted,
+			desc:         "ErrAbortedf",
+			errorf:       ErrAbortedf,
+			expectedCode: codes.Aborted,
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			require.NotEqual(t, tc.code, inputGRPCCode, "canary test code and tc.code may not be the same")
+			require.NotEqual(t, tc.expectedCode, inputGRPCCode, "canary test code and tc.code may not be the same")
 
 			t.Run("with non-gRPC error", func(t *testing.T) {
 				// When not re-throwing an error we get the GRPC error code
@@ -154,7 +154,7 @@ func testErrorfFormat(t *testing.T, errorFormat, errorFormatEqual string) {
 				err := tc.errorf(errorFormat, input)
 				require.EqualError(t, err, fmt.Sprintf(errorFormatEqual, errorMessage))
 				require.False(t, errors.Is(err, inputGRPC))
-				require.Equal(t, tc.code, status.Code(err))
+				require.Equal(t, tc.expectedCode, status.Code(err))
 			})
 
 			t.Run("with status.Errorf error", func(t *testing.T) {
@@ -166,9 +166,9 @@ func testErrorfFormat(t *testing.T, errorFormat, errorFormatEqual string) {
 				if isFormatW {
 					require.Equal(t, inputGRPCCode, status.Code(err))
 				} else {
-					require.Equal(t, tc.code, status.Code(err))
+					require.Equal(t, tc.expectedCode, status.Code(err))
 				}
-				require.NotEqual(t, tc.code, status.Code(inputGRPC))
+				require.NotEqual(t, tc.expectedCode, status.Code(inputGRPC))
 			})
 
 			t.Run("with status.Error error", func(t *testing.T) {
@@ -180,7 +180,7 @@ func testErrorfFormat(t *testing.T, errorFormat, errorFormatEqual string) {
 				if isFormatW {
 					require.Equal(t, inputGRPCCode, status.Code(err))
 				} else {
-					require.Equal(t, tc.code, status.Code(err))
+					require.Equal(t, tc.expectedCode, status.Code(err))
 				}
 				require.Equal(t, inputGRPCCode, status.Code(inputGRPC))
 			})
