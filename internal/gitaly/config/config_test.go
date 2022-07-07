@@ -601,9 +601,9 @@ dir = '%s'`, gitlabShellDir))
 	}, cfg.Hooks)
 }
 
-func TestValidateInternalSocketDir(t *testing.T) {
+func TestSetupRuntimeDirectory_validateInternalSocket(t *testing.T) {
 	verifyPathDoesNotExist := func(t *testing.T, runtimeDir string, actualErr error) {
-		require.Equal(t, fmt.Errorf("internal_socket_dir: path doesn't exist: %q", filepath.Join(runtimeDir, "sock.d")), actualErr)
+		require.EqualError(t, actualErr, fmt.Sprintf("creating runtime directory: mkdir %s/gitaly-%d: no such file or directory", runtimeDir, os.Getpid()))
 	}
 
 	testCases := []struct {
@@ -612,34 +612,11 @@ func TestValidateInternalSocketDir(t *testing.T) {
 		verify func(t *testing.T, runtimeDir string, actualErr error)
 	}{
 		{
-			desc: "unconfigured runtime directory",
-			setup: func(t *testing.T) string {
-				return ""
-			},
-			verify: verifyPathDoesNotExist,
-		},
-		{
 			desc: "non existing directory",
 			setup: func(t *testing.T) string {
 				return "/path/does/not/exist"
 			},
 			verify: verifyPathDoesNotExist,
-		},
-		{
-			desc: "runtime directory missing sock.d",
-			setup: func(t *testing.T) string {
-				runtimeDir := testhelper.TempDir(t)
-				return runtimeDir
-			},
-			verify: verifyPathDoesNotExist,
-		},
-		{
-			desc: "runtime directory with valid sock.d",
-			setup: func(t *testing.T) string {
-				runtimeDir := testhelper.TempDir(t)
-				require.NoError(t, os.Mkdir(filepath.Join(runtimeDir, "sock.d"), os.ModePerm))
-				return runtimeDir
-			},
 		},
 		{
 			desc: "symlinked runtime directory",
@@ -690,11 +667,11 @@ func TestValidateInternalSocketDir(t *testing.T) {
 				RuntimeDir: runtimeDir,
 			}
 
-			actualErr := cfg.validateInternalSocketDir()
+			_, actualErr := SetupRuntimeDirectory(cfg, os.Getpid())
 			if tc.verify == nil {
 				require.NoError(t, actualErr)
 			} else {
-				tc.verify(t, runtimeDir, actualErr)
+				tc.verify(t, cfg.RuntimeDir, actualErr)
 			}
 		})
 	}

@@ -206,7 +206,6 @@ func (cfg *Cfg) Validate() error {
 		cfg.ConfigureRuby,
 		cfg.validateBinDir,
 		cfg.validateRuntimeDir,
-		cfg.validateInternalSocketDir,
 		cfg.validateMaintenance,
 		cfg.validateCgroups,
 		cfg.configurePackObjectsCache,
@@ -237,14 +236,6 @@ func (cfg *Cfg) setDefaults() error {
 		return err
 	}
 	cfg.RuntimeDir = runtimeDir
-
-	// The socket path must be short-ish because listen(2) fails on long
-	// socket paths. We hope/expect that os.MkdirTemp creates a directory
-	// that is not too deep. We need a directory, not a tempfile, because we
-	// will later want to set its permissions to 0700
-	if err := os.Mkdir(cfg.InternalSocketDir(), 0o700); err != nil {
-		return fmt.Errorf("create internal socket directory: %w", err)
-	}
 
 	if reflect.DeepEqual(cfg.DailyMaintenance, DailyJob{}) {
 		cfg.DailyMaintenance = defaultMaintenanceWindow(cfg.Storages)
@@ -441,18 +432,6 @@ func (cfg *Cfg) validateToken() error {
 	return nil
 }
 
-func (cfg *Cfg) validateInternalSocketDir() error {
-	if err := validateIsDirectory(cfg.InternalSocketDir(), "internal_socket_dir"); err != nil {
-		return err
-	}
-
-	if err := trySocketCreation(cfg.InternalSocketDir()); err != nil {
-		return fmt.Errorf("failed creating internal test socket: %w", err)
-	}
-
-	return nil
-}
-
 func trySocketCreation(dir string) error {
 	// To validate the socket can actually be created, we open and close a socket.
 	// Any error will be assumed persistent for when the gitaly-ruby sockets are created
@@ -576,8 +555,9 @@ func (cfg *Cfg) configurePackObjectsCache() error {
 // it's used as the parent directory for the runtime directory. Runtime directory owner process
 // can be identified by the suffix process ID suffixed in the directory name. If a directory already
 // exists for this process' ID, it's removed and recreated. If cfg.RuntimeDir is not set, a temporary
-// directory is used instead. SetupRuntimeDirectory returns the absolute path to the created runtime
-// directory.
+// directory is used instead. A directory is created for the internal socket as well since it is
+// expected to be present in the runtime directory. SetupRuntimeDirectory returns the absolute path
+// to the created runtime directory.
 func SetupRuntimeDirectory(cfg Cfg, processID int) (string, error) {
 	var runtimeDir string
 	if cfg.RuntimeDir == "" {
@@ -616,6 +596,22 @@ func SetupRuntimeDirectory(cfg Cfg, processID int) (string, error) {
 		if err := os.Mkdir(runtimeDir, 0o700); err != nil {
 			return "", fmt.Errorf("creating runtime directory: %w", err)
 		}
+	}
+
+	// Set the runtime dir in the config as the internal socket helpers
+	// rely on it.
+	cfg.RuntimeDir = runtimeDir
+
+	// The socket path must be short-ish because listen(2) fails on long
+	// socket paths. We hope/expect that os.MkdirTemp creates a directory
+	// that is not too deep. We need a directory, not a tempfile, because we
+	// will later want to set its permissions to 0700
+	if err := os.Mkdir(cfg.InternalSocketDir(), 0o700); err != nil {
+		return "", fmt.Errorf("create internal socket directory: %w", err)
+	}
+
+	if err := trySocketCreation(cfg.InternalSocketDir()); err != nil {
+		return "", fmt.Errorf("failed creating internal test socket: %w", err)
 	}
 
 	return runtimeDir, nil
