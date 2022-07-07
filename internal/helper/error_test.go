@@ -142,52 +142,52 @@ func TestErrorf(t *testing.T) {
 				require.NotEqual(t, tc.expectedCode, codes.Unauthenticated)
 
 				err := tc.errorf("top-level: %v", status.Errorf(codes.Unauthenticated, "deeply: %s", "nested"))
-				require.EqualError(t, err, "top-level: rpc error: code = Unauthenticated desc = deeply: nested")
+				require.EqualError(t, err, "top-level: deeply: nested")
 
 				// The error code of the nested error should be discarded.
 				require.Equal(t, tc.expectedCode, status.Code(err))
 				s, ok := status.FromError(err)
 				require.True(t, ok)
-				require.Equal(t, status.New(tc.expectedCode, "top-level: rpc error: code = Unauthenticated desc = deeply: nested"), s)
+				require.Equal(t, status.New(tc.expectedCode, "top-level: deeply: nested"), s)
 			})
 
 			t.Run("with status.Errorf error and %w", func(t *testing.T) {
 				require.NotEqual(t, tc.expectedCode, codes.Unauthenticated)
 
 				err := tc.errorf("top-level: %w", status.Errorf(codes.Unauthenticated, "deeply: %s", "nested"))
-				require.EqualError(t, err, "top-level: rpc error: code = Unauthenticated desc = deeply: nested")
+				require.EqualError(t, err, "top-level: deeply: nested")
 
 				// We should be reporting the error code of the nested error.
 				require.Equal(t, codes.Unauthenticated, status.Code(err))
 				s, ok := status.FromError(err)
 				require.True(t, ok)
-				require.Equal(t, status.New(codes.Unauthenticated, "top-level: rpc error: code = Unauthenticated desc = deeply: nested"), s)
+				require.Equal(t, status.New(codes.Unauthenticated, "top-level: deeply: nested"), s)
 			})
 
 			t.Run("with status.Error error and %v", func(t *testing.T) {
 				require.NotEqual(t, tc.expectedCode, codes.Unauthenticated)
 
 				err := tc.errorf("top-level: %v", status.Error(codes.Unauthenticated, "nested"))
-				require.EqualError(t, err, "top-level: rpc error: code = Unauthenticated desc = nested")
+				require.EqualError(t, err, "top-level: nested")
 
 				// The error code of the nested error should be discarded.
 				require.Equal(t, tc.expectedCode, status.Code(err))
 				s, ok := status.FromError(err)
 				require.True(t, ok)
-				require.Equal(t, status.New(tc.expectedCode, "top-level: rpc error: code = Unauthenticated desc = nested"), s)
+				require.Equal(t, status.New(tc.expectedCode, "top-level: nested"), s)
 			})
 
 			t.Run("with status.Error error and %w", func(t *testing.T) {
 				require.NotEqual(t, tc.expectedCode, codes.Unauthenticated)
 
 				err := tc.errorf("top-level: %w", status.Error(codes.Unauthenticated, "nested"))
-				require.EqualError(t, err, "top-level: rpc error: code = Unauthenticated desc = nested")
+				require.EqualError(t, err, "top-level: nested")
 
 				// We should be reporting the error code of the nested error.
 				require.Equal(t, codes.Unauthenticated, status.Code(err))
 				s, ok := status.FromError(err)
 				require.True(t, ok)
-				require.Equal(t, status.New(codes.Unauthenticated, "top-level: rpc error: code = Unauthenticated desc = nested"), s)
+				require.Equal(t, status.New(codes.Unauthenticated, "top-level: nested"), s)
 			})
 
 			t.Run("multi-nesting gRPC errors", func(t *testing.T) {
@@ -198,13 +198,13 @@ func TestErrorf(t *testing.T) {
 						status.Error(codes.Unauthenticated, "third"),
 					),
 				)
-				require.EqualError(t, err, "first: second: rpc error: code = Unauthenticated desc = third")
+				require.EqualError(t, err, "first: second: third")
 
 				// We should be reporting the error code of the nested error.
 				require.Equal(t, codes.Unauthenticated, status.Code(err))
 				s, ok := status.FromError(err)
 				require.True(t, ok)
-				require.Equal(t, status.New(codes.Unauthenticated, "first: second: rpc error: code = Unauthenticated desc = third"), s)
+				require.Equal(t, status.New(codes.Unauthenticated, "first: second: third"), s)
 			})
 		})
 	}
