@@ -40,6 +40,10 @@ func (s *server) RepackFull(ctx context.Context, in *gitalypb.RepackFullRequest)
 		return nil, helper.ErrInternalf("repacking objects: %w", err)
 	}
 
+	if err := housekeeping.WriteCommitGraph(ctx, repo); err != nil {
+		return nil, helper.ErrInternalf("writing commit-graph: %w", err)
+	}
+
 	return &gitalypb.RepackFullResponse{}, nil
 }
 
@@ -58,6 +62,10 @@ func (s *server) RepackIncremental(ctx context.Context, in *gitalypb.RepackIncre
 
 	if err := housekeeping.RepackObjects(ctx, repo, cfg); err != nil {
 		return nil, helper.ErrInternalf("repacking objects: %w", err)
+	}
+
+	if err := housekeeping.WriteCommitGraph(ctx, repo); err != nil {
+		return nil, helper.ErrInternalf("writing commit-graph: %w", err)
 	}
 
 	return &gitalypb.RepackIncrementalResponse{}, nil

@@ -85,7 +85,17 @@ func optimizeRepository(ctx context.Context, m *RepositoryManager, repo *localre
 			optimizations["written_bitmap"] = "success"
 		}
 	}
+	timer.ObserveDuration()
 
+	timer = prometheus.NewTimer(m.tasksLatency.WithLabelValues("commit-graph"))
+	if didRepack {
+		if err := WriteCommitGraph(ctx, repo); err != nil {
+			optimizations["written_commit_graph"] = "failure"
+			return fmt.Errorf("could not write commit-graph: %w", err)
+		}
+
+		optimizations["written_commit_graph"] = "success"
+	}
 	timer.ObserveDuration()
 
 	timer = prometheus.NewTimer(m.tasksLatency.WithLabelValues("prune"))

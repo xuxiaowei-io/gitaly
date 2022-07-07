@@ -120,8 +120,9 @@ func TestPruneIfNeeded(t *testing.T) {
 
 			require.NoError(t, housekeeping.NewManager(cfg.Prometheus, nil).OptimizeRepository(ctx, repo))
 			expectedLogEntry := map[string]string{
-				"packed_objects_full": "success",
-				"written_bitmap":      "success",
+				"packed_objects_full":  "success",
+				"written_commit_graph": "success",
+				"written_bitmap":       "success",
 			}
 
 			if tc.expectedPrune {
