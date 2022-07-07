@@ -432,33 +432,6 @@ func (cfg *Cfg) validateToken() error {
 	return nil
 }
 
-func trySocketCreation(dir string) error {
-	// To validate the socket can actually be created, we open and close a socket.
-	// Any error will be assumed persistent for when the gitaly-ruby sockets are created
-	// and thus fatal at boot time.
-	//
-	// There are two kinds of internal sockets we create: the internal server socket
-	// called "intern", and then the Ruby worker sockets called "ruby.$N", with "$N"
-	// being the number of the Ruby worker. Given that we typically wouldn't spawn
-	// hundreds of Ruby workers, the maximum internal socket path name would thus be 7
-	// characters long.
-	socketPath := filepath.Join(dir, "tsocket")
-	defer func() { _ = os.Remove(socketPath) }()
-
-	// Attempt to create an actual socket and not just a file to catch socket path length problems
-	l, err := net.Listen("unix", socketPath)
-	if err != nil {
-		var errno syscall.Errno
-		if errors.As(err, &errno) && errno == syscall.EINVAL {
-			return fmt.Errorf("%w: your socket path is likely too long, please change Gitaly's runtime directory", errno)
-		}
-
-		return fmt.Errorf("socket could not be created in %s: %w", dir, err)
-	}
-
-	return l.Close()
-}
-
 // defaultMaintenanceWindow specifies a 10 minute job that runs daily at +1200
 // GMT time
 func defaultMaintenanceWindow(storages []Storage) DailyJob {
@@ -615,4 +588,31 @@ func SetupRuntimeDirectory(cfg Cfg, processID int) (string, error) {
 	}
 
 	return runtimeDir, nil
+}
+
+func trySocketCreation(dir string) error {
+	// To validate the socket can actually be created, we open and close a socket.
+	// Any error will be assumed persistent for when the gitaly-ruby sockets are created
+	// and thus fatal at boot time.
+	//
+	// There are two kinds of internal sockets we create: the internal server socket
+	// called "intern", and then the Ruby worker sockets called "ruby.$N", with "$N"
+	// being the number of the Ruby worker. Given that we typically wouldn't spawn
+	// hundreds of Ruby workers, the maximum internal socket path name would thus be 7
+	// characters long.
+	socketPath := filepath.Join(dir, "tsocket")
+	defer func() { _ = os.Remove(socketPath) }()
+
+	// Attempt to create an actual socket and not just a file to catch socket path length problems
+	l, err := net.Listen("unix", socketPath)
+	if err != nil {
+		var errno syscall.Errno
+		if errors.As(err, &errno) && errno == syscall.EINVAL {
+			return fmt.Errorf("%w: your socket path is likely too long, please change Gitaly's runtime directory", errno)
+		}
+
+		return fmt.Errorf("socket could not be created in %s: %w", dir, err)
+	}
+
+	return l.Close()
 }
