@@ -37,7 +37,7 @@ func (s *server) RepackFull(ctx context.Context, in *gitalypb.RepackFullRequest)
 	repackCounter.WithLabelValues(fmt.Sprint(in.GetCreateBitmap())).Inc()
 
 	if err := housekeeping.RepackObjects(ctx, repo, cfg); err != nil {
-		return nil, helper.ErrInternal(err)
+		return nil, helper.ErrInternalf("repacking objects: %w", err)
 	}
 
 	return &gitalypb.RepackFullResponse{}, nil
@@ -57,7 +57,7 @@ func (s *server) RepackIncremental(ctx context.Context, in *gitalypb.RepackIncre
 	repackCounter.WithLabelValues(fmt.Sprint(false)).Inc()
 
 	if err := housekeeping.RepackObjects(ctx, repo, cfg); err != nil {
-		return nil, err
+		return nil, helper.ErrInternalf("repacking objects: %w", err)
 	}
 
 	return &gitalypb.RepackIncrementalResponse{}, nil
