@@ -61,6 +61,71 @@ func TestSetup(t *testing.T) {
 	}
 }
 
+func TestSetup_multiple(t *testing.T) {
+	mock := newMock(t)
+	cfg := defaultCgroupsConfig()
+
+	v1Manager := &CGroupV1Manager{
+		cfg:       cfg,
+		hierarchy: mock.hierarchy,
+	}
+	mock.setupMockCgroupFiles(t, v1Manager, 0)
+	require.NoError(t, v1Manager.Setup())
+
+	// Set up a set of cgroups. This is meant to emulate a left over group of cgroups of a
+	// Gitaly process during a graceful restart.
+
+	for i := 0; i < 3; i++ {
+		memoryPath := filepath.Join(
+			mock.root, "memory", "gitaly", fmt.Sprintf("repos-%d", i), "memory.limit_in_bytes",
+		)
+		memoryContent := readCgroupFile(t, memoryPath)
+
+		require.Equal(t, string(memoryContent), "1024000")
+
+		cpuPath := filepath.Join(
+			mock.root, "cpu", "gitaly", fmt.Sprintf("repos-%d", i), "cpu.shares",
+		)
+		cpuContent := readCgroupFile(t, cpuPath)
+
+		require.Equal(t, string(cpuContent), "256")
+	}
+
+	updatedCfg := cfg
+	updatedCfg.Repositories.Count = cfg.Repositories.Count + 5
+	updatedCfg.Repositories.MemoryBytes = cfg.Repositories.MemoryBytes + 10
+	updatedCfg.Repositories.CPUShares = cfg.Repositories.CPUShares + 10
+
+	secondManager := &CGroupV1Manager{
+		cfg:       updatedCfg,
+		hierarchy: mock.hierarchy,
+	}
+
+	mock.setupMockCgroupFiles(t, secondManager, 0)
+
+	// By starting cgroups with an updated config that has more cgroups with higher limits,
+	// ensure that it successfully adds more cgroups as well as update the limits of the
+	// existing cgroups.
+	require.NoError(t, secondManager.Setup())
+
+	// Verify that it updates all the cgroups.
+	for i := 0; i < int(updatedCfg.Repositories.Count); i++ {
+		memoryPath := filepath.Join(
+			mock.root, "memory", "gitaly", fmt.Sprintf("repos-%d", i), "memory.limit_in_bytes",
+		)
+		memoryContent := readCgroupFile(t, memoryPath)
+
+		require.Equal(t, string(memoryContent), strconv.Itoa(int(updatedCfg.Repositories.MemoryBytes)))
+
+		cpuPath := filepath.Join(
+			mock.root, "cpu", "gitaly", fmt.Sprintf("repos-%d", i), "cpu.shares",
+		)
+		cpuContent := readCgroupFile(t, cpuPath)
+
+		require.Equal(t, string(cpuContent), strconv.Itoa(int(updatedCfg.Repositories.CPUShares)))
+	}
+}
+
 func TestAddCommand(t *testing.T) {
 	mock := newMock(t)
 
