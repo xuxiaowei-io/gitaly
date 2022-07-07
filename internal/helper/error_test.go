@@ -2,7 +2,6 @@ package helper
 
 import (
 	"errors"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -91,17 +90,7 @@ func TestError(t *testing.T) {
 	}
 }
 
-func TestErrorF_withVFormat(t *testing.T) {
-	testErrorfFormat(t, "top-level: %v", "top-level: %v")
-}
-
-func TestErrorF_withWFormat(t *testing.T) {
-	testErrorfFormat(t, "top-level: %w", "top-level: %s")
-}
-
-func testErrorfFormat(t *testing.T, errorFormat, errorFormatEqual string) {
-	isFormatW := strings.Contains(errorFormat, "%w")
-
+func TestErrorf(t *testing.T) {
 	for _, tc := range []struct {
 		desc         string
 		errorf       func(format string, a ...interface{}) error
@@ -140,7 +129,7 @@ func testErrorfFormat(t *testing.T, errorFormat, errorFormatEqual string) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Run("with non-gRPC error", func(t *testing.T) {
-				err := tc.errorf(errorFormat, errors.New("nested"))
+				err := tc.errorf("top-level: %w", errors.New("nested"))
 				require.EqualError(t, err, "top-level: nested")
 				require.Equal(t, tc.expectedCode, status.Code(err))
 
@@ -149,44 +138,56 @@ func testErrorfFormat(t *testing.T, errorFormat, errorFormatEqual string) {
 				require.Equal(t, status.New(tc.expectedCode, "top-level: nested"), s)
 			})
 
-			t.Run("with status.Errorf error", func(t *testing.T) {
+			t.Run("with status.Errorf error and %v", func(t *testing.T) {
 				require.NotEqual(t, tc.expectedCode, codes.Unauthenticated)
 
-				err := tc.errorf(errorFormat, status.Errorf(codes.Unauthenticated, "deeply: %s", "nested"))
+				err := tc.errorf("top-level: %v", status.Errorf(codes.Unauthenticated, "deeply: %s", "nested"))
 				require.EqualError(t, err, "top-level: rpc error: code = Unauthenticated desc = deeply: nested")
-				if isFormatW {
-					require.Equal(t, codes.Unauthenticated, status.Code(err))
-				} else {
-					require.Equal(t, tc.expectedCode, status.Code(err))
-				}
 
+				// The error code of the nested error should be discarded.
+				require.Equal(t, tc.expectedCode, status.Code(err))
 				s, ok := status.FromError(err)
 				require.True(t, ok)
-				if isFormatW {
-					require.Equal(t, status.New(codes.Unauthenticated, "top-level: rpc error: code = Unauthenticated desc = deeply: nested"), s)
-				} else {
-					require.Equal(t, status.New(tc.expectedCode, "top-level: rpc error: code = Unauthenticated desc = deeply: nested"), s)
-				}
+				require.Equal(t, status.New(tc.expectedCode, "top-level: rpc error: code = Unauthenticated desc = deeply: nested"), s)
 			})
 
-			t.Run("with status.Error error", func(t *testing.T) {
+			t.Run("with status.Errorf error and %w", func(t *testing.T) {
 				require.NotEqual(t, tc.expectedCode, codes.Unauthenticated)
 
-				err := tc.errorf(errorFormat, status.Error(codes.Unauthenticated, "nested"))
-				require.EqualError(t, err, "top-level: rpc error: code = Unauthenticated desc = nested")
-				if isFormatW {
-					require.Equal(t, codes.Unauthenticated, status.Code(err))
-				} else {
-					require.Equal(t, tc.expectedCode, status.Code(err))
-				}
+				err := tc.errorf("top-level: %w", status.Errorf(codes.Unauthenticated, "deeply: %s", "nested"))
+				require.EqualError(t, err, "top-level: rpc error: code = Unauthenticated desc = deeply: nested")
 
+				// We should be reporting the error code of the nested error.
+				require.Equal(t, codes.Unauthenticated, status.Code(err))
 				s, ok := status.FromError(err)
 				require.True(t, ok)
-				if isFormatW {
-					require.Equal(t, status.New(codes.Unauthenticated, "top-level: rpc error: code = Unauthenticated desc = nested"), s)
-				} else {
-					require.Equal(t, status.New(tc.expectedCode, "top-level: rpc error: code = Unauthenticated desc = nested"), s)
-				}
+				require.Equal(t, status.New(codes.Unauthenticated, "top-level: rpc error: code = Unauthenticated desc = deeply: nested"), s)
+			})
+
+			t.Run("with status.Error error and %v", func(t *testing.T) {
+				require.NotEqual(t, tc.expectedCode, codes.Unauthenticated)
+
+				err := tc.errorf("top-level: %v", status.Error(codes.Unauthenticated, "nested"))
+				require.EqualError(t, err, "top-level: rpc error: code = Unauthenticated desc = nested")
+
+				// The error code of the nested error should be discarded.
+				require.Equal(t, tc.expectedCode, status.Code(err))
+				s, ok := status.FromError(err)
+				require.True(t, ok)
+				require.Equal(t, status.New(tc.expectedCode, "top-level: rpc error: code = Unauthenticated desc = nested"), s)
+			})
+
+			t.Run("with status.Error error and %w", func(t *testing.T) {
+				require.NotEqual(t, tc.expectedCode, codes.Unauthenticated)
+
+				err := tc.errorf("top-level: %w", status.Error(codes.Unauthenticated, "nested"))
+				require.EqualError(t, err, "top-level: rpc error: code = Unauthenticated desc = nested")
+
+				// We should be reporting the error code of the nested error.
+				require.Equal(t, codes.Unauthenticated, status.Code(err))
+				s, ok := status.FromError(err)
+				require.True(t, ok)
+				require.Equal(t, status.New(codes.Unauthenticated, "top-level: rpc error: code = Unauthenticated desc = nested"), s)
 			})
 		})
 	}
