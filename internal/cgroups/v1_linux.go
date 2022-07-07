@@ -1,6 +1,7 @@
 package cgroups
 
 import (
+	"errors"
 	"fmt"
 	"hash/crc32"
 	"strings"
@@ -196,11 +197,29 @@ func (cg *CGroupV1Manager) Describe(ch chan<- *prometheus.Desc) {
 	prometheus.DescribeByCollect(cg, ch)
 }
 
+// ErrProcessesExist is returned from Cleanup and indicates there are existing
+// processes in the cgroup
+var ErrProcessesExist = errors.New("processes exist")
+
 //nolint: revive,stylecheck // This is unintentionally missing documentation.
 func (cg *CGroupV1Manager) Cleanup() error {
 	control, err := cgroups.Load(cg.hierarchy, cgroups.StaticPath(cg.cfg.HierarchyRoot))
 	if err != nil {
 		return fmt.Errorf("failed loading cgroup %s: %w", cg.cfg.HierarchyRoot, err)
+	}
+
+	memProcesses, err := control.Processes("memory", true)
+	if err != nil {
+		return fmt.Errorf("failed getting cgroup processes %s: %w", cg.cfg.HierarchyRoot, err)
+	}
+
+	cpuProcesses, err := control.Processes("cpu", true)
+	if err != nil {
+		return fmt.Errorf("failed getting cgroup processes %s: %w", cg.cfg.HierarchyRoot, err)
+	}
+
+	if len(memProcesses)+len(cpuProcesses) > 0 {
+		return ErrProcessesExist
 	}
 
 	if err := control.Delete(); err != nil {

@@ -216,6 +216,33 @@ func TestCleanup(t *testing.T) {
 	}
 }
 
+func TestCleanup_processesExist(t *testing.T) {
+	mock := newMock(t)
+
+	config := defaultCgroupsConfig()
+	config.Repositories.Count = 10
+	config.Repositories.MemoryBytes = 1024
+	config.Repositories.CPUShares = 16
+	config.Mountpoint = mock.root
+
+	v1Manager1 := &CGroupV1Manager{
+		cfg:       config,
+		hierarchy: mock.hierarchy,
+	}
+	mock.setupMockCgroupFiles(t, v1Manager1, 2)
+	require.NoError(t, v1Manager1.Setup())
+
+	ctx := testhelper.Context(t)
+	cmd1, err := command.New(ctx, []string{"ls", "-hal", "."})
+	require.NoError(t, err)
+	require.NoError(t, cmd1.Wait())
+
+	_, err = v1Manager1.AddCommand(cmd1, nil)
+	require.NoError(t, err)
+
+	assert.Equal(t, ErrProcessesExist, v1Manager1.Cleanup())
+}
+
 func TestMetrics(t *testing.T) {
 	t.Parallel()
 
