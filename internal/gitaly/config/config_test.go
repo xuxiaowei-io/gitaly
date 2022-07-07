@@ -1193,15 +1193,15 @@ func TestValidateBinDir(t *testing.T) {
 	}
 }
 
-func TestCfg_RuntimeDir(t *testing.T) {
+func TestSetupRuntimeDirectory(t *testing.T) {
 	t.Run("defaults", func(t *testing.T) {
 		t.Run("empty runtime directory", func(t *testing.T) {
 			cfg := Cfg{}
-			require.NoError(t, cfg.setDefaults())
+			runtimeDir, err := SetupRuntimeDirectory(cfg, os.Getpid())
+			require.NoError(t, err)
 
-			require.Equal(t, os.TempDir(), filepath.Dir(cfg.RuntimeDir))
-			require.True(t, strings.HasPrefix(filepath.Base(cfg.RuntimeDir), "gitaly-"))
-			require.DirExists(t, cfg.RuntimeDir)
+			require.DirExists(t, runtimeDir)
+			require.True(t, strings.HasPrefix(runtimeDir, filepath.Join(os.TempDir(), "gitaly-")))
 		})
 
 		t.Run("non-existent runtime directory", func(t *testing.T) {
@@ -1209,7 +1209,8 @@ func TestCfg_RuntimeDir(t *testing.T) {
 				RuntimeDir: "/does/not/exist",
 			}
 
-			require.EqualError(t, cfg.setDefaults(), fmt.Sprintf("creating runtime directory: mkdir /does/not/exist/gitaly-%d: no such file or directory", os.Getpid()))
+			_, err := SetupRuntimeDirectory(cfg, os.Getpid())
+			require.EqualError(t, err, fmt.Sprintf("creating runtime directory: mkdir /does/not/exist/gitaly-%d: no such file or directory", os.Getpid()))
 		})
 
 		t.Run("existent runtime directory", func(t *testing.T) {
@@ -1217,9 +1218,12 @@ func TestCfg_RuntimeDir(t *testing.T) {
 			cfg := Cfg{
 				RuntimeDir: dir,
 			}
-			require.NoError(t, cfg.setDefaults())
-			require.Equal(t, filepath.Join(dir, fmt.Sprintf("gitaly-%d", os.Getpid())), cfg.RuntimeDir)
-			require.DirExists(t, cfg.RuntimeDir)
+
+			runtimeDir, err := SetupRuntimeDirectory(cfg, os.Getpid())
+			require.NoError(t, err)
+
+			require.Equal(t, filepath.Join(dir, fmt.Sprintf("gitaly-%d", os.Getpid())), runtimeDir)
+			require.DirExists(t, runtimeDir)
 		})
 	})
 
@@ -1238,9 +1242,8 @@ func TestCfg_RuntimeDir(t *testing.T) {
 				runtimeDir: dirPath,
 			},
 			{
-				desc:        "unset",
-				runtimeDir:  "",
-				expectedErr: fmt.Errorf("runtime_dir: is not set"),
+				desc:       "unset",
+				runtimeDir: "",
 			},
 			{
 				desc:        "path doesn't exist",

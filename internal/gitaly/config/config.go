@@ -231,12 +231,6 @@ func (cfg *Cfg) setDefaults() error {
 		cfg.Hooks.CustomHooksDir = filepath.Join(cfg.GitlabShell.Dir, "hooks")
 	}
 
-	runtimeDir, err := SetupRuntimeDirectory(*cfg, os.Getpid())
-	if err != nil {
-		return err
-	}
-	cfg.RuntimeDir = runtimeDir
-
 	if reflect.DeepEqual(cfg.DailyMaintenance, DailyJob{}) {
 		cfg.DailyMaintenance = defaultMaintenanceWindow(cfg.Storages)
 	}
@@ -377,8 +371,8 @@ func (cfg *Cfg) validateBinDir() error {
 }
 
 func (cfg *Cfg) validateRuntimeDir() error {
-	if len(cfg.RuntimeDir) == 0 {
-		return fmt.Errorf("runtime_dir: is not set")
+	if cfg.RuntimeDir == "" {
+		return nil
 	}
 
 	if err := validateIsDirectory(cfg.RuntimeDir, "runtime_dir"); err != nil {

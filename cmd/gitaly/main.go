@@ -136,6 +136,12 @@ func run(cfg config.Cfg) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	runtimeDir, err := config.SetupRuntimeDirectory(cfg, os.Getpid())
+	if err != nil {
+		return fmt.Errorf("setup runtime directory: %w", err)
+	}
+	cfg.RuntimeDir = runtimeDir
+
 	defer func() {
 		if err := os.RemoveAll(cfg.RuntimeDir); err != nil {
 			log.Warn("could not clean up runtime dir")
