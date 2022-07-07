@@ -189,6 +189,23 @@ func TestErrorf(t *testing.T) {
 				require.True(t, ok)
 				require.Equal(t, status.New(codes.Unauthenticated, "top-level: rpc error: code = Unauthenticated desc = nested"), s)
 			})
+
+			t.Run("multi-nesting gRPC errors", func(t *testing.T) {
+				require.NotEqual(t, tc.expectedCode, codes.Unauthenticated)
+
+				err := tc.errorf("first: %w",
+					ErrInternalf("second: %w",
+						status.Error(codes.Unauthenticated, "third"),
+					),
+				)
+				require.EqualError(t, err, "first: second: rpc error: code = Unauthenticated desc = third")
+
+				// We should be reporting the error code of the nested error.
+				require.Equal(t, codes.Unauthenticated, status.Code(err))
+				s, ok := status.FromError(err)
+				require.True(t, ok)
+				require.Equal(t, status.New(codes.Unauthenticated, "first: second: rpc error: code = Unauthenticated desc = third"), s)
+			})
 		})
 	}
 }
