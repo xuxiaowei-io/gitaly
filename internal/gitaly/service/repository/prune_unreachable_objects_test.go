@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -131,5 +133,37 @@ func TestPruneUnreachableObjects(t *testing.T) {
 		output, err := cmd.CombinedOutput()
 		require.Error(t, err)
 		require.Equal(t, "fatal: Needed a single revision\n", string(output))
+	})
+
+	t.Run("repository with commit-graph", func(t *testing.T) {
+		repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
+
+		// Write two commits into the repository and create a commit-graph. The second
+		// commit will become unreachable and will be pruned, but will be contained in the
+		// commit-graph.
+		rootCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents())
+		unreachableCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(rootCommitID), gittest.WithBranch("main"))
+		gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split", "--changed-paths")
+
+		// Reset the "main" branch back to the initial root commit ID and prune the now
+		// unreachable second commit.
+		gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/main", rootCommitID.String())
+
+		// Modify the modification time of the unreachable commit ID so that it will be
+		// pruned.
+		setObjectTime(t, repoPath, unreachableCommitID, time.Now().Add(-30*time.Minute))
+
+		_, err := client.PruneUnreachableObjects(ctx, &gitalypb.PruneUnreachableObjectsRequest{
+			Repository: repo,
+		})
+		require.NoError(t, err)
+
+		// The commit-graph chain now refers to the pruned commit, and git-commit-graph(1)
+		// should complain about that.
+		var stderr bytes.Buffer
+		verifyCmd := gittest.NewCommand(t, cfg, "-C", repoPath, "commit-graph", "verify")
+		verifyCmd.Stderr = &stderr
+		require.EqualError(t, verifyCmd.Run(), "exit status 1")
+		require.Equal(t, stderr.String(), fmt.Sprintf("error: Could not read %[1]s\nfailed to parse commit %[1]s from object database for commit-graph\n", unreachableCommitID))
 	})
 }
