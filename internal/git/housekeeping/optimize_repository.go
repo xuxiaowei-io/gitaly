@@ -87,20 +87,6 @@ func optimizeRepository(ctx context.Context, m *RepositoryManager, repo *localre
 	}
 	timer.ObserveDuration()
 
-	timer = prometheus.NewTimer(m.tasksLatency.WithLabelValues("commit-graph"))
-	if didWriteCommitGraph, writeCommitGraphCfg, err := writeCommitGraphIfNeeded(ctx, repo, didRepack); err != nil {
-		optimizations["written_commit_graph_full"] = "failure"
-		optimizations["written_commit_graph_incremental"] = "failure"
-		return fmt.Errorf("could not write commit-graph: %w", err)
-	} else if didWriteCommitGraph {
-		if writeCommitGraphCfg.ReplaceChain {
-			optimizations["written_commit_graph_full"] = "success"
-		} else {
-			optimizations["written_commit_graph_incremental"] = "success"
-		}
-	}
-	timer.ObserveDuration()
-
 	timer = prometheus.NewTimer(m.tasksLatency.WithLabelValues("prune"))
 	didPrune, err := pruneIfNeeded(ctx, repo)
 	if err != nil {
@@ -119,8 +105,22 @@ func optimizeRepository(ctx context.Context, m *RepositoryManager, repo *localre
 	} else if didPackRefs {
 		optimizations["packed_refs"] = "success"
 	}
-
 	timer.ObserveDuration()
+
+	timer = prometheus.NewTimer(m.tasksLatency.WithLabelValues("commit-graph"))
+	if didWriteCommitGraph, writeCommitGraphCfg, err := writeCommitGraphIfNeeded(ctx, repo, didRepack); err != nil {
+		optimizations["written_commit_graph_full"] = "failure"
+		optimizations["written_commit_graph_incremental"] = "failure"
+		return fmt.Errorf("could not write commit-graph: %w", err)
+	} else if didWriteCommitGraph {
+		if writeCommitGraphCfg.ReplaceChain {
+			optimizations["written_commit_graph_full"] = "success"
+		} else {
+			optimizations["written_commit_graph_incremental"] = "success"
+		}
+	}
+	timer.ObserveDuration()
+
 	totalStatus = "success"
 
 	return nil
