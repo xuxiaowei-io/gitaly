@@ -12,6 +12,8 @@ Please complete all but the "Reading material" section in your first few working
 - Ask your manager or your mentor in order to:
   - [ ] get Maintainer access to the [@gl-gitaly](https://gitlab.com/groups/gl-gitaly/-/group_members) group
   - [ ] be added to the weekly team meeting and [meeting notes](https://docs.google.com/document/d/1k1hY0ZdeFUnSqF6GUToFaJEtVIN_SjWeaRdx1V0i25E/edit)
+- Open issues / Access Requests to:
+  - [ ] join the @gitalyteam Slack group ([example](https://gitlab.com/gitlab-com/team-member-epics/access-requests/-/issues/15868))
 - If transferring from another team within GitLab: 
   - [ ] update your [Team page entry](https://about.gitlab.com/handbook/git-page-update/#12-add-yourself-to-the-team-page)
   - [ ] update your Slack profile ("What I do")
