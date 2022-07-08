@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -512,6 +513,70 @@ func (cfg *Cfg) configurePackObjectsCache() error {
 
 	if !filepath.IsAbs(poc.Dir) {
 		return errPackObjectsCacheRelativePath
+	}
+
+	return nil
+}
+
+// PruneRuntimeDirectories removes leftover runtime directories that belonged to processes that
+// no longer exist. The removals are logged prior to being executed. Unexpected directory entries
+// are logged but not removed
+func PruneRuntimeDirectories(log log.FieldLogger, runtimeDir string) error {
+	entries, err := os.ReadDir(runtimeDir)
+	if err != nil {
+		return fmt.Errorf("list runtime directory: %w", err)
+	}
+
+	for _, entry := range entries {
+		if err := func() error {
+			log := log.WithField("path", filepath.Join(runtimeDir, entry.Name()))
+			if !entry.IsDir() {
+				// There should be no files, only the runtime directories.
+				log.Error("runtime directory contains an unexpected file")
+				return nil
+			}
+
+			components := strings.Split(entry.Name(), "-")
+			if len(components) != 2 || components[0] != "gitaly" {
+				// This directory does not match the runtime directory naming format
+				// of `gitaly-<process id>.
+				log.Error("runtime directory contains an unexpected directory")
+				return nil
+			}
+
+			processID, err := strconv.ParseInt(components[1], 10, 64)
+			if err != nil {
+				// This is not a runtime directory as the section after the hyphen is not a process id.
+				log.Error("runtime directory contains an unexpected directory")
+				return nil
+			}
+
+			process, err := os.FindProcess(int(processID))
+			if err != nil {
+				return fmt.Errorf("find process: %w", err)
+			}
+			defer func() {
+				if err := process.Release(); err != nil {
+					log.WithError(err).Error("failed releasing process")
+				}
+			}()
+
+			if err := process.Signal(syscall.Signal(0)); err != nil {
+				if !errors.Is(err, os.ErrProcessDone) {
+					return fmt.Errorf("signal: %w", err)
+				}
+
+				log.Info("removing leftover runtime directory")
+
+				if err := os.RemoveAll(filepath.Join(runtimeDir, entry.Name())); err != nil {
+					return fmt.Errorf("remove leftover runtime directory: %w", err)
+				}
+			}
+
+			return nil
+		}(); err != nil {
+			return err
+		}
 	}
 
 	return nil

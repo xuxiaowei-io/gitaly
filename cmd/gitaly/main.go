@@ -136,6 +136,12 @@ func run(cfg config.Cfg) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	if cfg.RuntimeDir != "" {
+		if err := config.PruneRuntimeDirectories(log.StandardLogger(), cfg.RuntimeDir); err != nil {
+			return fmt.Errorf("prune runtime directories: %w", err)
+		}
+	}
+
 	runtimeDir, err := config.SetupRuntimeDirectory(cfg, os.Getpid())
 	if err != nil {
 		return fmt.Errorf("setup runtime directory: %w", err)
