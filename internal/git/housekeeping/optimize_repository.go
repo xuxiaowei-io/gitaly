@@ -412,10 +412,12 @@ func pruneIfNeeded(ctx context.Context, repo *localrepo.Repo) (bool, error) {
 	return true, nil
 }
 
-func packRefsIfNeeded(ctx context.Context, repo *localrepo.Repo) (bool, error) {
+// countLooseAndPackedRefs counts the number of loose references that exist in the repository and
+// returns the size of the packed-refs file.
+func countLooseAndPackedRefs(ctx context.Context, repo *localrepo.Repo) (int64, int64, error) {
 	repoPath, err := repo.Path()
 	if err != nil {
-		return false, fmt.Errorf("getting repository path: %w", err)
+		return 0, 0, fmt.Errorf("getting repository path: %w", err)
 	}
 	refsPath := filepath.Join(repoPath, "refs")
 
@@ -431,21 +433,30 @@ func packRefsIfNeeded(ctx context.Context, repo *localrepo.Repo) (bool, error) {
 
 		return nil
 	}); err != nil {
-		return false, fmt.Errorf("counting loose refs: %w", err)
-	}
-
-	// If there aren't any loose refs then there is nothing we need to do.
-	if looseRefs == 0 {
-		return false, nil
+		return 0, 0, fmt.Errorf("counting loose refs: %w", err)
 	}
 
 	packedRefsSize := int64(0)
 	if stat, err := os.Stat(filepath.Join(repoPath, "packed-refs")); err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
-			return false, fmt.Errorf("getting packed-refs size: %w", err)
+			return 0, 0, fmt.Errorf("getting packed-refs size: %w", err)
 		}
 	} else {
 		packedRefsSize = stat.Size()
+	}
+
+	return looseRefs, packedRefsSize, nil
+}
+
+func packRefsIfNeeded(ctx context.Context, repo *localrepo.Repo) (bool, error) {
+	looseRefs, packedRefsSize, err := countLooseAndPackedRefs(ctx, repo)
+	if err != nil {
+		return false, fmt.Errorf("counting refs: %w", err)
+	}
+
+	// If there aren't any loose refs then there is nothing we need to do.
+	if looseRefs == 0 {
+		return false, nil
 	}
 
 	// Packing loose references into the packed-refs file scales with the number of references
