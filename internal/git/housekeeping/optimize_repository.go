@@ -108,7 +108,7 @@ func optimizeRepository(ctx context.Context, m *RepositoryManager, repo *localre
 	timer.ObserveDuration()
 
 	timer = prometheus.NewTimer(m.tasksLatency.WithLabelValues("commit-graph"))
-	if didWriteCommitGraph, writeCommitGraphCfg, err := writeCommitGraphIfNeeded(ctx, repo, didRepack); err != nil {
+	if didWriteCommitGraph, writeCommitGraphCfg, err := writeCommitGraphIfNeeded(ctx, repo, didRepack, didPrune); err != nil {
 		optimizations["written_commit_graph_full"] = "failure"
 		optimizations["written_commit_graph_incremental"] = "failure"
 		return fmt.Errorf("could not write commit-graph: %w", err)
@@ -359,8 +359,8 @@ func estimateLooseObjectCount(repo *localrepo.Repo, cutoffDate time.Time) (int64
 }
 
 // writeCommitGraphIfNeeded writes the commit-graph if required.
-func writeCommitGraphIfNeeded(ctx context.Context, repo *localrepo.Repo, didRepack bool) (bool, WriteCommitGraphConfig, error) {
-	needed, cfg, err := needsWriteCommitGraph(ctx, repo, didRepack)
+func writeCommitGraphIfNeeded(ctx context.Context, repo *localrepo.Repo, didRepack, didPrune bool) (bool, WriteCommitGraphConfig, error) {
+	needed, cfg, err := needsWriteCommitGraph(ctx, repo, didRepack, didPrune)
 	if err != nil {
 		return false, WriteCommitGraphConfig{}, fmt.Errorf("determining whether repo needs commit-graph update: %w", err)
 	}
@@ -376,7 +376,7 @@ func writeCommitGraphIfNeeded(ctx context.Context, repo *localrepo.Repo, didRepa
 }
 
 // needsWriteCommitGraph determines whether we need to write the commit-graph.
-func needsWriteCommitGraph(ctx context.Context, repo *localrepo.Repo, didRepack bool) (bool, WriteCommitGraphConfig, error) {
+func needsWriteCommitGraph(ctx context.Context, repo *localrepo.Repo, didRepack, didPrune bool) (bool, WriteCommitGraphConfig, error) {
 	looseRefs, packedRefsSize, err := countLooseAndPackedRefs(ctx, repo)
 	if err != nil {
 		return false, WriteCommitGraphConfig{}, fmt.Errorf("counting refs: %w", err)
@@ -387,6 +387,20 @@ func needsWriteCommitGraph(ctx context.Context, repo *localrepo.Repo, didRepack 
 	// none.
 	if looseRefs == 0 && packedRefsSize == 0 {
 		return false, WriteCommitGraphConfig{}, nil
+	}
+
+	// When we have pruned objects in the repository then it may happen that the commit-graph
+	// still refers to commits that have now been deleted. While this wouldn't typically cause
+	// any issues during runtime, it may cause errors when explicitly asking for any commit that
+	// does exist in the commit-graph, only. Furthermore, it causes git-fsck(1) to report that
+	// the commit-graph is inconsistent.
+	//
+	// To fix this case we will replace the complete commit-chain when we have pruned objects
+	// from the repository.
+	if didPrune {
+		return true, WriteCommitGraphConfig{
+			ReplaceChain: true,
+		}, nil
 	}
 
 	// When we repacked the repository then chances are high that we have accumulated quite some

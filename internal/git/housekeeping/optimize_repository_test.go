@@ -663,7 +663,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 			expectedMetrics: `# HELP gitaly_housekeeping_tasks_total Total number of housekeeping tasks performed in the repository
 # TYPE gitaly_housekeeping_tasks_total counter
 gitaly_housekeeping_tasks_total{housekeeping_task="packed_objects_incremental", status="success"} 1
-gitaly_housekeeping_tasks_total{housekeeping_task="written_commit_graph_incremental", status="success"} 1
+gitaly_housekeeping_tasks_total{housekeeping_task="written_commit_graph_full", status="success"} 1
 gitaly_housekeeping_tasks_total{housekeeping_task="pruned_objects",status="success"} 1
 gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 `,
@@ -977,6 +977,7 @@ func TestWriteCommitGraphIfNeeded(t *testing.T) {
 		desc                string
 		setup               func(t *testing.T) (*gitalypb.Repository, string)
 		didRepack           bool
+		didPrune            bool
 		expectedWrite       bool
 		expectedCfg         WriteCommitGraphConfig
 		expectedCommitGraph bool
@@ -987,6 +988,7 @@ func TestWriteCommitGraphIfNeeded(t *testing.T) {
 				return gittest.InitRepo(t, cfg, cfg.Storages[0])
 			},
 			didRepack:     true,
+			didPrune:      true,
 			expectedWrite: false,
 		},
 		{
@@ -997,6 +999,7 @@ func TestWriteCommitGraphIfNeeded(t *testing.T) {
 				return repoProto, repoPath
 			},
 			didRepack:     true,
+			didPrune:      true,
 			expectedWrite: false,
 		},
 		{
@@ -1092,12 +1095,35 @@ func TestWriteCommitGraphIfNeeded(t *testing.T) {
 			expectedWrite:       true,
 			expectedCommitGraph: true,
 		},
+		{
+			desc: "repository with split commit-graph with bitmap with pruned objects",
+			setup: func(t *testing.T) (*gitalypb.Repository, string) {
+				repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(), gittest.WithBranch("main"))
+
+				// Write a split commit-graph with bitmaps. This is the state we
+				// want to be in, so there is no write required if we didn't also
+				// repack objects.
+				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split", "--changed-paths")
+
+				return repoProto, repoPath
+			},
+			// When we have a valid commit-graph, but objects have been repacked, we
+			// assume that there are new objects in the repository. So consequentially,
+			// we should write the commit-graphs.
+			didPrune:      true,
+			expectedWrite: true,
+			expectedCfg: WriteCommitGraphConfig{
+				ReplaceChain: true,
+			},
+			expectedCommitGraph: true,
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			repoProto, repoPath := tc.setup(t)
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-			didWrite, writeCommitGraphCfg, err := writeCommitGraphIfNeeded(ctx, repo, tc.didRepack)
+			didWrite, writeCommitGraphCfg, err := writeCommitGraphIfNeeded(ctx, repo, tc.didRepack, tc.didPrune)
 			require.NoError(t, err)
 			require.Equal(t, tc.expectedWrite, didWrite)
 			require.Equal(t, tc.expectedCfg, writeCommitGraphCfg)
@@ -1138,21 +1164,31 @@ func TestWriteCommitGraphIfNeeded(t *testing.T) {
 		require.EqualError(t, verifyCmd.Run(), "exit status 1")
 		require.Equal(t, stderr.String(), fmt.Sprintf("error: Could not read %[1]s\nfailed to parse commit %[1]s from object database for commit-graph\n", unreachableCommitID))
 
-		// Write the commit-graph and pretend that objects have been rewritten. Ideally,
-		// this causes us to fix up the broken commit-graph to not contain references to the
-		// pruned commit anymore.
-		didWrite, writeCommitGraphCfg, err := writeCommitGraphIfNeeded(ctx, repo, true)
+		// Write the commit-graph and pretend that objects have been rewritten, but not
+		// pruned.
+		didWrite, writeCommitGraphCfg, err := writeCommitGraphIfNeeded(ctx, repo, true, false)
 		require.NoError(t, err)
 		require.True(t, didWrite)
 		require.Equal(t, WriteCommitGraphConfig{}, writeCommitGraphCfg)
 
-		// But right now, this is not the case. This is caused by the fact that Git will
-		// only do an incremental update and thus not rewrite all parts of the commit-graph
-		// chain.
+		// When pretending that no objects have been pruned we still observe the same
+		// failure.
 		stderr.Reset()
 		verifyCmd = gittest.NewCommand(t, cfg, "-C", repoPath, "commit-graph", "verify")
 		verifyCmd.Stderr = &stderr
 		require.EqualError(t, verifyCmd.Run(), "exit status 1")
 		require.Equal(t, stderr.String(), fmt.Sprintf("error: Could not read %[1]s\nfailed to parse commit %[1]s from object database for commit-graph\n", unreachableCommitID))
+
+		// Write the commit-graph a second time, but this time we pretend we have just
+		// pruned objects. This should cause the commit-graph to be rewritten.
+		didWrite, writeCommitGraphCfg, err = writeCommitGraphIfNeeded(ctx, repo, false, true)
+		require.NoError(t, err)
+		require.True(t, didWrite)
+		require.Equal(t, WriteCommitGraphConfig{
+			ReplaceChain: true,
+		}, writeCommitGraphCfg)
+
+		// The commit-graph should now have been fixed.
+		gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "verify")
 	})
 }
