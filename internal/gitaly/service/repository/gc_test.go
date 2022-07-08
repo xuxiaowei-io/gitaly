@@ -267,36 +267,72 @@ func TestGarbageCollectDeletesFileLocks(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, repoPath, client := setupRepositoryService(ctx, t)
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	req := &gitalypb.GarbageCollectRequest{Repository: repo}
-
-	for _, tc := range []string{
-		"config.lock",
-		"HEAD.lock",
-		"objects/info/commit-graphs/commit-graph-chain.lock",
+	for _, tc := range []struct {
+		desc                string
+		lockfile            string
+		expectedErrContains string
+	}{
+		{
+			desc:     "locked gitconfig",
+			lockfile: "config.lock",
+		},
+		{
+			desc:     "locked HEAD",
+			lockfile: "HEAD.lock",
+		},
+		{
+			desc:     "locked commit-graph",
+			lockfile: "objects/info/commit-graphs/commit-graph-chain.lock",
+			// Writing commit-graphs fails if there is another, concurrent process that
+			// has locked the commit-graph chain.
+			expectedErrContains: "Another git process seems to be running in this repository",
+		},
 	} {
-		lockPath := filepath.Join(repoPath, tc)
-		// No file on the lock path
-		//nolint:staticcheck
-		_, err := client.GarbageCollect(ctx, req)
-		assert.NoError(t, err)
+		t.Run(tc.desc, func(t *testing.T) {
+			// Create a lockfile and run GarbageCollect. Because the lock has been
+			// freshly created GarbageCollect shouldn't remove the not-yet-stale
+			// lockfile.
+			t.Run("with recent lockfile", func(t *testing.T) {
+				repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					Seed: gittest.SeedGitLabTest,
+				})
 
-		// Fresh lock should remain
-		mustCreateFileWithTimes(t, lockPath, freshTime)
-		//nolint:staticcheck
-		_, err = client.GarbageCollect(ctx, req)
+				lockPath := filepath.Join(repoPath, tc.lockfile)
+				mustCreateFileWithTimes(t, lockPath, freshTime)
 
-		assert.NoError(t, err)
+				//nolint:staticcheck
+				_, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{
+					Repository: repo,
+				})
+				if tc.expectedErrContains == "" {
+					require.NoError(t, err)
+				} else {
+					require.Error(t, err)
+					require.Contains(t, err.Error(), tc.expectedErrContains)
+				}
+				require.FileExists(t, lockPath)
+			})
 
-		assert.FileExists(t, lockPath)
+			// Redo the same test, but this time we create the lockfile so that it is
+			// considered stale. GarbageCollect should know to remove it.
+			t.Run("with stale lockfile", func(t *testing.T) {
+				repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					Seed: gittest.SeedGitLabTest,
+				})
 
-		// Old lock should be removed
-		mustCreateFileWithTimes(t, lockPath, oldTime)
-		//nolint:staticcheck
-		_, err = client.GarbageCollect(ctx, req)
-		assert.NoError(t, err)
-		require.NoFileExists(t, lockPath)
+				lockPath := filepath.Join(repoPath, tc.lockfile)
+				mustCreateFileWithTimes(t, lockPath, oldTime)
+
+				//nolint:staticcheck
+				_, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{
+					Repository: repo,
+				})
+				require.NoError(t, err)
+				require.NoFileExists(t, lockPath)
+			})
+		})
 	}
 }
 
