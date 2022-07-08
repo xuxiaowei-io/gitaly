@@ -88,11 +88,16 @@ func optimizeRepository(ctx context.Context, m *RepositoryManager, repo *localre
 	timer.ObserveDuration()
 
 	timer = prometheus.NewTimer(m.tasksLatency.WithLabelValues("commit-graph"))
-	if didWriteCommitGraph, _, err := writeCommitGraphIfNeeded(ctx, repo, didRepack); err != nil {
-		optimizations["written_commit_graph"] = "failure"
+	if didWriteCommitGraph, writeCommitGraphCfg, err := writeCommitGraphIfNeeded(ctx, repo, didRepack); err != nil {
+		optimizations["written_commit_graph_full"] = "failure"
+		optimizations["written_commit_graph_incremental"] = "failure"
 		return fmt.Errorf("could not write commit-graph: %w", err)
 	} else if didWriteCommitGraph {
-		optimizations["written_commit_graph"] = "success"
+		if writeCommitGraphCfg.ReplaceChain {
+			optimizations["written_commit_graph_full"] = "success"
+		} else {
+			optimizations["written_commit_graph_incremental"] = "success"
+		}
 	}
 	timer.ObserveDuration()
 
