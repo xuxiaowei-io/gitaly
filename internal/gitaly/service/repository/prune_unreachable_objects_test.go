@@ -1,8 +1,6 @@
 package repository
 
 import (
-	"bytes"
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -158,12 +156,8 @@ func TestPruneUnreachableObjects(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		// The commit-graph chain now refers to the pruned commit, and git-commit-graph(1)
-		// should complain about that.
-		var stderr bytes.Buffer
-		verifyCmd := gittest.NewCommand(t, cfg, "-C", repoPath, "commit-graph", "verify")
-		verifyCmd.Stderr = &stderr
-		require.EqualError(t, verifyCmd.Run(), "exit status 1")
-		require.Equal(t, stderr.String(), fmt.Sprintf("error: Could not read %[1]s\nfailed to parse commit %[1]s from object database for commit-graph\n", unreachableCommitID))
+		// The commit-graph chain should have been rewritten by PruneUnreachableObjects so
+		// that it doesn't refer to the pruned commit anymore.
+		gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "verify")
 	})
 }
