@@ -1111,4 +1111,48 @@ func TestWriteCommitGraphIfNeeded(t *testing.T) {
 			gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "verify")
 		})
 	}
+
+	t.Run("commit-graph with pruned objects", func(t *testing.T) {
+		repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+		repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+		// Write a first commit-graph that contains the root commit, only.
+		rootCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(), gittest.WithBranch("main"))
+		gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split", "--changed-paths")
+
+		// Write a second, incremental commit-graph that contains a commit we're about to
+		// make unreachable and then prune.
+		unreachableCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(rootCommitID), gittest.WithBranch("main"))
+		gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split=no-merge", "--changed-paths")
+
+		// Reset the "main" branch back to the initial root commit ID and prune the now
+		// unreachable second commit.
+		gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/main", rootCommitID.String())
+		gittest.Exec(t, cfg, "-C", repoPath, "prune", "--expire", "now")
+
+		// The commit-graph chain now refers to the pruned commit, and git-commit-graph(1)
+		// should complain about that.
+		var stderr bytes.Buffer
+		verifyCmd := gittest.NewCommand(t, cfg, "-C", repoPath, "commit-graph", "verify")
+		verifyCmd.Stderr = &stderr
+		require.EqualError(t, verifyCmd.Run(), "exit status 1")
+		require.Equal(t, stderr.String(), fmt.Sprintf("error: Could not read %[1]s\nfailed to parse commit %[1]s from object database for commit-graph\n", unreachableCommitID))
+
+		// Write the commit-graph and pretend that objects have been rewritten. Ideally,
+		// this causes us to fix up the broken commit-graph to not contain references to the
+		// pruned commit anymore.
+		didWrite, writeCommitGraphCfg, err := writeCommitGraphIfNeeded(ctx, repo, true)
+		require.NoError(t, err)
+		require.True(t, didWrite)
+		require.Equal(t, WriteCommitGraphConfig{}, writeCommitGraphCfg)
+
+		// But right now, this is not the case. This is caused by the fact that Git will
+		// only do an incremental update and thus not rewrite all parts of the commit-graph
+		// chain.
+		stderr.Reset()
+		verifyCmd = gittest.NewCommand(t, cfg, "-C", repoPath, "commit-graph", "verify")
+		verifyCmd.Stderr = &stderr
+		require.EqualError(t, verifyCmd.Run(), "exit status 1")
+		require.Equal(t, stderr.String(), fmt.Sprintf("error: Could not read %[1]s\nfailed to parse commit %[1]s from object database for commit-graph\n", unreachableCommitID))
+	})
 }
