@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -538,4 +539,48 @@ func TestGarbageCollectDeltaIslands(t *testing.T) {
 		_, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: repo})
 		return err
 	})
+}
+
+func TestGarbageCollect_commitGraphsWithPrunedObjects(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
+
+	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg)
+
+	// Write a first commit-graph that contains the root commit, only.
+	rootCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(), gittest.WithBranch("main"))
+	gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split", "--changed-paths")
+
+	// Write a second, incremental commit-graph that contains a commit we're about to
+	// make unreachable and then prune.
+	unreachableCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(rootCommitID), gittest.WithBranch("main"))
+	gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split=no-merge", "--changed-paths")
+
+	// Reset the "main" branch back to the initial root commit ID and prune the now
+	// unreachable second commit.
+	gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/main", rootCommitID.String())
+	gittest.Exec(t, cfg, "-C", repoPath, "prune", "--expire", "now")
+
+	// The commit-graph chain now refers to the pruned commit, and git-commit-graph(1)
+	// should complain about that.
+	var stderr bytes.Buffer
+	verifyCmd := gittest.NewCommand(t, cfg, "-C", repoPath, "commit-graph", "verify")
+	verifyCmd.Stderr = &stderr
+	require.EqualError(t, verifyCmd.Run(), "exit status 1")
+	require.Equal(t, stderr.String(), fmt.Sprintf("error: Could not read %[1]s\nfailed to parse commit %[1]s from object database for commit-graph\n", unreachableCommitID))
+
+	// Given that GarbageCollect is an RPC that prunes objects it should know to fix up commit
+	// graphs...
+	//nolint:staticcheck
+	_, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: repoProto})
+	require.NoError(t, err)
+
+	// ... but as it turns out it doesn't.
+	stderr.Reset()
+	verifyCmd = gittest.NewCommand(t, cfg, "-C", repoPath, "commit-graph", "verify")
+	verifyCmd.Stderr = &stderr
+	require.EqualError(t, verifyCmd.Run(), "exit status 1")
+	require.Equal(t, stderr.String(), fmt.Sprintf("error: Could not read %[1]s\nfailed to parse commit %[1]s from object database for commit-graph\n", unreachableCommitID))
 }
