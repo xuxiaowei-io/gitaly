@@ -88,7 +88,7 @@ func optimizeRepository(ctx context.Context, m *RepositoryManager, repo *localre
 	timer.ObserveDuration()
 
 	timer = prometheus.NewTimer(m.tasksLatency.WithLabelValues("commit-graph"))
-	if didWriteCommitGraph, err := writeCommitGraphIfNeeded(ctx, repo, didRepack); err != nil {
+	if didWriteCommitGraph, _, err := writeCommitGraphIfNeeded(ctx, repo, didRepack); err != nil {
 		optimizations["written_commit_graph"] = "failure"
 		return fmt.Errorf("could not write commit-graph: %w", err)
 	} else if didWriteCommitGraph {
@@ -354,45 +354,45 @@ func estimateLooseObjectCount(repo *localrepo.Repo, cutoffDate time.Time) (int64
 }
 
 // writeCommitGraphIfNeeded writes the commit-graph if required.
-func writeCommitGraphIfNeeded(ctx context.Context, repo *localrepo.Repo, didRepack bool) (bool, error) {
-	needed, err := needsWriteCommitGraph(ctx, repo, didRepack)
+func writeCommitGraphIfNeeded(ctx context.Context, repo *localrepo.Repo, didRepack bool) (bool, WriteCommitGraphConfig, error) {
+	needed, cfg, err := needsWriteCommitGraph(ctx, repo, didRepack)
 	if err != nil {
-		return false, fmt.Errorf("determining whether repo needs commit-graph update: %w", err)
+		return false, WriteCommitGraphConfig{}, fmt.Errorf("determining whether repo needs commit-graph update: %w", err)
 	}
 	if !needed {
-		return false, nil
+		return false, WriteCommitGraphConfig{}, nil
 	}
 
-	if err := WriteCommitGraph(ctx, repo); err != nil {
-		return true, fmt.Errorf("writing commit-graph: %w", err)
+	if err := WriteCommitGraph(ctx, repo, cfg); err != nil {
+		return true, cfg, fmt.Errorf("writing commit-graph: %w", err)
 	}
 
-	return true, nil
+	return true, cfg, nil
 }
 
 // needsWriteCommitGraph determines whether we need to write the commit-graph.
-func needsWriteCommitGraph(ctx context.Context, repo *localrepo.Repo, didRepack bool) (bool, error) {
+func needsWriteCommitGraph(ctx context.Context, repo *localrepo.Repo, didRepack bool) (bool, WriteCommitGraphConfig, error) {
 	looseRefs, packedRefsSize, err := countLooseAndPackedRefs(ctx, repo)
 	if err != nil {
-		return false, fmt.Errorf("counting refs: %w", err)
+		return false, WriteCommitGraphConfig{}, fmt.Errorf("counting refs: %w", err)
 	}
 
 	// If the repository doesn't have any references at all then there is no point in writing
 	// commit-graphs given that it would only contain reachable objects, of which there are
 	// none.
 	if looseRefs == 0 && packedRefsSize == 0 {
-		return false, nil
+		return false, WriteCommitGraphConfig{}, nil
 	}
 
 	// When we repacked the repository then chances are high that we have accumulated quite some
 	// objects since the last time we wrote a commit-graph.
 	if didRepack {
-		return true, nil
+		return true, WriteCommitGraphConfig{}, nil
 	}
 
 	repoPath, err := repo.Path()
 	if err != nil {
-		return false, fmt.Errorf("getting repository path: %w", err)
+		return false, WriteCommitGraphConfig{}, fmt.Errorf("getting repository path: %w", err)
 	}
 
 	// Bloom filters are part of the commit-graph and allow us to efficiently determine which
@@ -401,13 +401,15 @@ func needsWriteCommitGraph(ctx context.Context, repo *localrepo.Repo, didRepack 
 	// whole commit-graph to generate them.
 	missingBloomFilters, err := stats.IsMissingBloomFilters(repoPath)
 	if err != nil {
-		return false, fmt.Errorf("checking for bloom filters: %w", err)
+		return false, WriteCommitGraphConfig{}, fmt.Errorf("checking for bloom filters: %w", err)
 	}
 	if missingBloomFilters {
-		return true, nil
+		return true, WriteCommitGraphConfig{
+			ReplaceChain: true,
+		}, nil
 	}
 
-	return false, nil
+	return false, WriteCommitGraphConfig{}, nil
 }
 
 // pruneIfNeeded removes objects from the repository which are either unreachable or which are

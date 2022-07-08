@@ -978,6 +978,7 @@ func TestWriteCommitGraphIfNeeded(t *testing.T) {
 		setup               func(t *testing.T) (*gitalypb.Repository, string)
 		didRepack           bool
 		expectedWrite       bool
+		expectedCfg         WriteCommitGraphConfig
 		expectedCommitGraph bool
 	}{
 		{
@@ -1005,7 +1006,10 @@ func TestWriteCommitGraphIfNeeded(t *testing.T) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(), gittest.WithBranch("main"))
 				return repoProto, repoPath
 			},
-			expectedWrite:       true,
+			expectedWrite: true,
+			expectedCfg: WriteCommitGraphConfig{
+				ReplaceChain: true,
+			},
 			expectedCommitGraph: true,
 		},
 		{
@@ -1024,7 +1028,10 @@ func TestWriteCommitGraphIfNeeded(t *testing.T) {
 
 				return repoProto, repoPath
 			},
-			expectedWrite:       true,
+			expectedWrite: true,
+			expectedCfg: WriteCommitGraphConfig{
+				ReplaceChain: true,
+			},
 			expectedCommitGraph: true,
 		},
 		{
@@ -1040,7 +1047,10 @@ func TestWriteCommitGraphIfNeeded(t *testing.T) {
 
 				return repoProto, repoPath
 			},
-			expectedWrite:       true,
+			expectedWrite: true,
+			expectedCfg: WriteCommitGraphConfig{
+				ReplaceChain: true,
+			},
 			expectedCommitGraph: true,
 		},
 		{
@@ -1087,9 +1097,10 @@ func TestWriteCommitGraphIfNeeded(t *testing.T) {
 			repoProto, repoPath := tc.setup(t)
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-			didWrite, err := writeCommitGraphIfNeeded(ctx, repo, tc.didRepack)
+			didWrite, writeCommitGraphCfg, err := writeCommitGraphIfNeeded(ctx, repo, tc.didRepack)
 			require.NoError(t, err)
 			require.Equal(t, tc.expectedWrite, didWrite)
+			require.Equal(t, tc.expectedCfg, writeCommitGraphCfg)
 
 			commitGraphPath := filepath.Join(repoPath, "objects", "info", "commit-graphs", "commit-graph-chain")
 			if tc.expectedCommitGraph {
