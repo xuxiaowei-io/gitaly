@@ -88,12 +88,10 @@ func optimizeRepository(ctx context.Context, m *RepositoryManager, repo *localre
 	timer.ObserveDuration()
 
 	timer = prometheus.NewTimer(m.tasksLatency.WithLabelValues("commit-graph"))
-	if didRepack {
-		if err := WriteCommitGraph(ctx, repo); err != nil {
-			optimizations["written_commit_graph"] = "failure"
-			return fmt.Errorf("could not write commit-graph: %w", err)
-		}
-
+	if didWriteCommitGraph, err := writeCommitGraphIfNeeded(ctx, repo, didRepack); err != nil {
+		optimizations["written_commit_graph"] = "failure"
+		return fmt.Errorf("could not write commit-graph: %w", err)
+	} else if didWriteCommitGraph {
 		optimizations["written_commit_graph"] = "success"
 	}
 	timer.ObserveDuration()
@@ -193,26 +191,6 @@ func needsRepacking(repo *localrepo.Repo) (bool, RepackObjectsConfig, error) {
 		return true, RepackObjectsConfig{
 			FullRepack:  true,
 			WriteBitmap: true,
-		}, nil
-	}
-
-	missingBloomFilters, err := stats.IsMissingBloomFilters(repoPath)
-	if err != nil {
-		return false, RepackObjectsConfig{}, fmt.Errorf("checking for bloom filters: %w", err)
-	}
-
-	// Bloom filters are part of the commit-graph and allow us to efficiently determine which
-	// paths have been modified in a given commit without having to look into the object
-	// database. In the past we didn't compute bloom filters at all, so we want to rewrite the
-	// whole commit-graph to generate them.
-	//
-	// Note that we'll eventually want to move out commit-graph generation from repacking. When
-	// that happens we should update the commit-graph either if it's missing, when bloom filters
-	// are missing or when packfiles have been updated.
-	if missingBloomFilters {
-		return true, RepackObjectsConfig{
-			FullRepack:  true,
-			WriteBitmap: !hasAlternate,
 		}, nil
 	}
 
@@ -373,6 +351,63 @@ func estimateLooseObjectCount(repo *localrepo.Repo, cutoffDate time.Time) (int64
 
 	// Scale up found loose objects by the number of sharding directories.
 	return looseObjects * 256, nil
+}
+
+// writeCommitGraphIfNeeded writes the commit-graph if required.
+func writeCommitGraphIfNeeded(ctx context.Context, repo *localrepo.Repo, didRepack bool) (bool, error) {
+	needed, err := needsWriteCommitGraph(ctx, repo, didRepack)
+	if err != nil {
+		return false, fmt.Errorf("determining whether repo needs commit-graph update: %w", err)
+	}
+	if !needed {
+		return false, nil
+	}
+
+	if err := WriteCommitGraph(ctx, repo); err != nil {
+		return true, fmt.Errorf("writing commit-graph: %w", err)
+	}
+
+	return true, nil
+}
+
+// needsWriteCommitGraph determines whether we need to write the commit-graph.
+func needsWriteCommitGraph(ctx context.Context, repo *localrepo.Repo, didRepack bool) (bool, error) {
+	looseRefs, packedRefsSize, err := countLooseAndPackedRefs(ctx, repo)
+	if err != nil {
+		return false, fmt.Errorf("counting refs: %w", err)
+	}
+
+	// If the repository doesn't have any references at all then there is no point in writing
+	// commit-graphs given that it would only contain reachable objects, of which there are
+	// none.
+	if looseRefs == 0 && packedRefsSize == 0 {
+		return false, nil
+	}
+
+	// When we repacked the repository then chances are high that we have accumulated quite some
+	// objects since the last time we wrote a commit-graph.
+	if didRepack {
+		return true, nil
+	}
+
+	repoPath, err := repo.Path()
+	if err != nil {
+		return false, fmt.Errorf("getting repository path: %w", err)
+	}
+
+	// Bloom filters are part of the commit-graph and allow us to efficiently determine which
+	// paths have been modified in a given commit without having to look into the object
+	// database. In the past we didn't compute bloom filters at all, so we want to rewrite the
+	// whole commit-graph to generate them.
+	missingBloomFilters, err := stats.IsMissingBloomFilters(repoPath)
+	if err != nil {
+		return false, fmt.Errorf("checking for bloom filters: %w", err)
+	}
+	if missingBloomFilters {
+		return true, nil
+	}
+
+	return false, nil
 }
 
 // pruneIfNeeded removes objects from the repository which are either unreachable or which are

@@ -73,11 +73,10 @@ func TestNeedsRepacking(t *testing.T) {
 
 				return repoProto
 			},
-			expectedNeeded: true,
-			expectedConfig: RepackObjectsConfig{
-				FullRepack:  true,
-				WriteBitmap: false,
-			},
+			// If we have no bitmap in the repository we'd normally want to fully repack
+			// the repository. But because we have an alternates file we know that the
+			// repository must not have a bitmap anyway, so we can skip the repack here.
+			expectedNeeded: false,
 		},
 		{
 			desc: "missing commit-graph",
@@ -90,11 +89,10 @@ func TestNeedsRepacking(t *testing.T) {
 
 				return repoProto
 			},
-			expectedNeeded: true,
-			expectedConfig: RepackObjectsConfig{
-				FullRepack:  true,
-				WriteBitmap: true,
-			},
+			// The commit-graph used to influence whether we repacked a repository or
+			// not. That was due to historic reasons only, though, and ultimately does
+			// not make any sense.
+			expectedNeeded: false,
 		},
 		{
 			desc: "commit-graph without bloom filters",
@@ -108,11 +106,10 @@ func TestNeedsRepacking(t *testing.T) {
 
 				return repoProto
 			},
-			expectedNeeded: true,
-			expectedConfig: RepackObjectsConfig{
-				FullRepack:  true,
-				WriteBitmap: true,
-			},
+			// The commit-graph used to influence whether we repacked a repository or
+			// not. That was due to historic reasons only, though, and ultimately does
+			// not make any sense.
+			expectedNeeded: false,
 		},
 		{
 			desc: "no repack needed",
@@ -552,7 +549,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 `,
 		},
 		{
-			desc: "repository without commit-graph repacks objects",
+			desc: "repository without commit-graph writes commit-graph",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
 				repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
 					RelativePath: relativePath,
@@ -562,9 +559,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 			},
 			expectedMetrics: `# HELP gitaly_housekeeping_tasks_total Total number of housekeeping tasks performed in the repository
 # TYPE gitaly_housekeeping_tasks_total counter
-gitaly_housekeeping_tasks_total{housekeeping_task="packed_objects_full", status="success"} 1
 gitaly_housekeeping_tasks_total{housekeeping_task="written_commit_graph", status="success"} 1
-gitaly_housekeeping_tasks_total{housekeeping_task="written_bitmap", status="success"} 1
 gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 `,
 		},
@@ -972,4 +967,137 @@ func TestPruneIfNeeded(t *testing.T) {
 			require.FileExists(t, objectPath(recentBlob))
 		}
 	})
+}
+
+func TestWriteCommitGraphIfNeeded(t *testing.T) {
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	for _, tc := range []struct {
+		desc                string
+		setup               func(t *testing.T) (*gitalypb.Repository, string)
+		didRepack           bool
+		expectedWrite       bool
+		expectedCommitGraph bool
+	}{
+		{
+			desc: "empty repository",
+			setup: func(t *testing.T) (*gitalypb.Repository, string) {
+				return gittest.InitRepo(t, cfg, cfg.Storages[0])
+			},
+			didRepack:     true,
+			expectedWrite: false,
+		},
+		{
+			desc: "repository with objects but no refs",
+			setup: func(t *testing.T) (*gitalypb.Repository, string) {
+				repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+				gittest.WriteBlob(t, cfg, repoPath, []byte("something"))
+				return repoProto, repoPath
+			},
+			didRepack:     true,
+			expectedWrite: false,
+		},
+		{
+			desc: "repository without commit-graph",
+			setup: func(t *testing.T) (*gitalypb.Repository, string) {
+				repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(), gittest.WithBranch("main"))
+				return repoProto, repoPath
+			},
+			expectedWrite:       true,
+			expectedCommitGraph: true,
+		},
+		{
+			desc: "repository with old-style unsplit commit-graph",
+			setup: func(t *testing.T) (*gitalypb.Repository, string) {
+				repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(), gittest.WithBranch("main"))
+
+				// Write a non-split commit-graph with bloom filters. We should
+				// always rewrite the commit-graphs when we're not using a split
+				// commit-graph. We make sure to add bloom filters via
+				// `--changed-paths` given that it would otherwise cause us to
+				// rewrite the graph regardless of whether the graph is split or not
+				// if they were missing.
+				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--changed-paths")
+
+				return repoProto, repoPath
+			},
+			expectedWrite:       true,
+			expectedCommitGraph: true,
+		},
+		{
+			desc: "repository with split commit-graph without bitmap",
+			setup: func(t *testing.T) (*gitalypb.Repository, string) {
+				repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(), gittest.WithBranch("main"))
+
+				// Generate a split commit-graph, but don't enable computation of
+				// changed paths. This should trigger a rewrite so that we can
+				// recompute all graphs and generate the changed paths.
+				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split")
+
+				return repoProto, repoPath
+			},
+			expectedWrite:       true,
+			expectedCommitGraph: true,
+		},
+		{
+			desc: "repository with split commit-graph with bitmap without repack",
+			setup: func(t *testing.T) (*gitalypb.Repository, string) {
+				repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(), gittest.WithBranch("main"))
+
+				// Write a split commit-graph with bitmaps. This is the state we
+				// want to be in.
+				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split", "--changed-paths")
+
+				return repoProto, repoPath
+			},
+			// We use the information about whether we repacked objects as an indicator
+			// whether something has changed in the repository. If it didn't, then we
+			// assume no new objects exist and thus we don't rewrite the commit-graph.
+			didRepack:           false,
+			expectedWrite:       false,
+			expectedCommitGraph: true,
+		},
+		{
+			desc: "repository with split commit-graph with bitmap with repack",
+			setup: func(t *testing.T) (*gitalypb.Repository, string) {
+				repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(), gittest.WithBranch("main"))
+
+				// Write a split commit-graph with bitmaps. This is the state we
+				// want to be in, so there is no write required if we didn't also
+				// repack objects.
+				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split", "--changed-paths")
+
+				return repoProto, repoPath
+			},
+			// When we have a valid commit-graph, but objects have been repacked, we
+			// assume that there are new objects in the repository. So consequentially,
+			// we should write the commit-graphs.
+			didRepack:           true,
+			expectedWrite:       true,
+			expectedCommitGraph: true,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			repoProto, repoPath := tc.setup(t)
+			repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+			didWrite, err := writeCommitGraphIfNeeded(ctx, repo, tc.didRepack)
+			require.NoError(t, err)
+			require.Equal(t, tc.expectedWrite, didWrite)
+
+			commitGraphPath := filepath.Join(repoPath, "objects", "info", "commit-graphs", "commit-graph-chain")
+			if tc.expectedCommitGraph {
+				require.FileExists(t, commitGraphPath)
+			} else {
+				require.NoFileExists(t, commitGraphPath)
+			}
+			gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "verify")
+		})
+	}
 }
