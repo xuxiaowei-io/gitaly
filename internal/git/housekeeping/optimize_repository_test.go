@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,15 +24,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
-
-type infiniteReader struct{}
-
-func (r infiniteReader) Read(b []byte) (int, error) {
-	for i := range b {
-		b[i] = '\000'
-	}
-	return len(b), nil
-}
 
 func TestNeedsRepacking(t *testing.T) {
 	t.Parallel()
@@ -193,11 +183,9 @@ func TestNeedsRepacking(t *testing.T) {
 
 			// We first create a single big packfile which is used to determine the
 			// boundary of when we repack.
-			bigPackfile, err := os.OpenFile(filepath.Join(packDir, "big.pack"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
-			require.NoError(t, err)
-			defer testhelper.MustClose(t, bigPackfile)
-			_, err = io.Copy(bigPackfile, io.LimitReader(infiniteReader{}, tc.packfileSize))
-			require.NoError(t, err)
+			bigPackPath := filepath.Join(packDir, "big.pack")
+			require.NoError(t, os.WriteFile(bigPackPath, nil, 0o644))
+			require.NoError(t, os.Truncate(bigPackPath, tc.packfileSize))
 
 			// And then we create one less packfile than we need to hit the boundary.
 			// This is done to assert that we indeed don't repack before hitting the
