@@ -18,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 )
 
 // FetchFromOrigin initializes the pool and fetches the objects from its origin repository
@@ -73,15 +74,21 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *localrepo.Repo
 		return fmt.Errorf("computing stats after fetch: %w", err)
 	}
 
-	if err := o.Repo.ExecAndWait(ctx, git.SubCmd{
-		Name:  "pack-refs",
-		Flags: []git.Option{git.Flag{Name: "--all"}},
-	}); err != nil {
-		return fmt.Errorf("packing pool refs: %w", err)
-	}
+	if featureflag.FetchIntoObjectPoolOptimizeRepository.IsEnabled(ctx) {
+		if err := o.housekeepingManager.OptimizeRepository(ctx, o.Repo); err != nil {
+			return fmt.Errorf("optimizing pool repo: %w", err)
+		}
+	} else {
+		if err := o.Repo.ExecAndWait(ctx, git.SubCmd{
+			Name:  "pack-refs",
+			Flags: []git.Option{git.Flag{Name: "--all"}},
+		}); err != nil {
+			return fmt.Errorf("packing pool refs: %w", err)
+		}
 
-	if err := o.repackPool(ctx, o); err != nil {
-		return fmt.Errorf("repacking pool: %w", err)
+		if err := o.repackPool(ctx, o); err != nil {
+			return fmt.Errorf("repacking pool: %w", err)
+		}
 	}
 
 	return nil

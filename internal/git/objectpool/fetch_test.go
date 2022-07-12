@@ -1,9 +1,11 @@
 package objectpool
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -13,13 +15,17 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
 
 func TestFetchFromOrigin_dangling(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.FetchIntoObjectPoolOptimizeRepository).Run(t, testFetchFromOriginDangling)
+}
 
-	ctx := testhelper.Context(t)
+func testFetchFromOriginDangling(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	cfg, pool, repoProto := setupObjectPool(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -90,8 +96,11 @@ func TestFetchFromOrigin_dangling(t *testing.T) {
 
 func TestFetchFromOrigin_fsck(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.FetchIntoObjectPoolOptimizeRepository).Run(t, testFetchFromOriginFsck)
+}
 
-	ctx := testhelper.Context(t)
+func testFetchFromOriginFsck(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	cfg, pool, repoProto := setupObjectPool(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -116,8 +125,11 @@ func TestFetchFromOrigin_fsck(t *testing.T) {
 
 func TestFetchFromOrigin_deltaIslands(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.FetchIntoObjectPoolOptimizeRepository).Run(t, testFetchFromOriginDeltaIslands)
+}
 
-	ctx := testhelper.Context(t)
+func testFetchFromOriginDeltaIslands(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	cfg, pool, repoProto := setupObjectPool(t, ctx)
 
@@ -144,8 +156,11 @@ func TestFetchFromOrigin_deltaIslands(t *testing.T) {
 
 func TestFetchFromOrigin_bitmapHashCache(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.FetchIntoObjectPoolOptimizeRepository).Run(t, testFetchFromOriginBitmapHashCache)
+}
 
-	ctx := testhelper.Context(t)
+func testFetchFromOriginBitmapHashCache(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	cfg, pool, repoProto := setupObjectPool(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -171,8 +186,11 @@ func TestFetchFromOrigin_bitmapHashCache(t *testing.T) {
 
 func TestFetchFromOrigin_refUpdates(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.FetchIntoObjectPoolOptimizeRepository).Run(t, testFetchFromOriginRefUpdates)
+}
 
-	ctx := testhelper.Context(t)
+func testFetchFromOriginRefUpdates(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	cfg, pool, repoProto := setupObjectPool(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -197,11 +215,19 @@ func TestFetchFromOrigin_refUpdates(t *testing.T) {
 		"tags/v1.1.0": "646ece5cfed840eca0a4feb21bcd6a81bb19bda3",
 	}
 
-	for ref, newOid := range newRefs {
-		require.NotEqual(t, newOid, oldRefs[ref], "sanity check of new refs")
+	// Create a bunch of additional references. This is to trigger OptimizeRepository to indeed
+	// repack the loose references as we expect it to in this test. It's debatable whether we
+	// should test this at all here given that this is business of the housekeeping package. But
+	// it's easy enough to do, so it doesn't hurt.
+	for i := 0; i < 32; i++ {
+		newRefs[fmt.Sprintf("heads/branch-%d", i)] = gittest.WriteCommit(t, cfg, repoPath,
+			gittest.WithParents(),
+			gittest.WithMessage(strconv.Itoa(i)),
+		).String()
 	}
 
 	for ref, oid := range newRefs {
+		require.NotEqual(t, oid, oldRefs[ref], "sanity check of new refs")
 		gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/"+ref, oid)
 		require.Equal(t, oid, resolveRef(t, cfg, repoPath, "refs/"+ref), "look up %q in source after update", ref)
 	}
@@ -218,8 +244,11 @@ func TestFetchFromOrigin_refUpdates(t *testing.T) {
 
 func TestFetchFromOrigin_refs(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.FetchIntoObjectPoolOptimizeRepository).Run(t, testFetchFromOriginRefs)
+}
 
-	ctx := testhelper.Context(t)
+func testFetchFromOriginRefs(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	cfg, pool, _ := setupObjectPool(t, ctx)
 	poolPath := pool.FullPath()
