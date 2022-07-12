@@ -148,36 +148,44 @@ func TestNeedsRepacking(t *testing.T) {
 	const megaByte = 1024 * 1024
 
 	for _, tc := range []struct {
-		packfileSize      int64
-		requiredPackfiles int
+		packfileSize             int64
+		requiredPackfiles        int
+		requiredPackfilesForPool int
 	}{
 		{
-			packfileSize:      1,
-			requiredPackfiles: 5,
+			packfileSize:             1,
+			requiredPackfiles:        5,
+			requiredPackfilesForPool: 2,
 		},
 		{
-			packfileSize:      5 * megaByte,
-			requiredPackfiles: 6,
+			packfileSize:             5 * megaByte,
+			requiredPackfiles:        6,
+			requiredPackfilesForPool: 2,
 		},
 		{
-			packfileSize:      10 * megaByte,
-			requiredPackfiles: 8,
+			packfileSize:             10 * megaByte,
+			requiredPackfiles:        8,
+			requiredPackfilesForPool: 2,
 		},
 		{
-			packfileSize:      50 * megaByte,
-			requiredPackfiles: 14,
+			packfileSize:             50 * megaByte,
+			requiredPackfiles:        14,
+			requiredPackfilesForPool: 2,
 		},
 		{
-			packfileSize:      100 * megaByte,
-			requiredPackfiles: 17,
+			packfileSize:             100 * megaByte,
+			requiredPackfiles:        17,
+			requiredPackfilesForPool: 2,
 		},
 		{
-			packfileSize:      500 * megaByte,
-			requiredPackfiles: 23,
+			packfileSize:             500 * megaByte,
+			requiredPackfiles:        23,
+			requiredPackfilesForPool: 2,
 		},
 		{
-			packfileSize:      1000 * megaByte,
-			requiredPackfiles: 26,
+			packfileSize:             1001 * megaByte,
+			requiredPackfiles:        26,
+			requiredPackfilesForPool: 3,
 		},
 		// Let's not go any further than this, we're thrashing the temporary directory.
 	} {
@@ -203,10 +211,15 @@ func TestNeedsRepacking(t *testing.T) {
 			require.NoError(t, os.WriteFile(bigPackPath, nil, 0o644))
 			require.NoError(t, os.Truncate(bigPackPath, tc.packfileSize))
 
+			requiredPackfiles := tc.requiredPackfiles
+			if IsPoolRepository(repoProto) {
+				requiredPackfiles = tc.requiredPackfilesForPool
+			}
+
 			// And then we create one less packfile than we need to hit the boundary.
 			// This is done to assert that we indeed don't repack before hitting the
 			// boundary.
-			for i := 0; i < tc.requiredPackfiles-2; i++ {
+			for i := 0; i < requiredPackfiles-2; i++ {
 				additionalPackfile, err := os.Create(filepath.Join(packDir, fmt.Sprintf("%d.pack", i)))
 				require.NoError(t, err)
 				testhelper.MustClose(t, additionalPackfile)
@@ -543,10 +556,35 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 				repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
 					RelativePath: relativePath,
 				})
-				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "--write-bitmap-index")
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "--write-bitmap-index")
 				return repo
 			},
 			expectedMetrics: `# HELP gitaly_housekeeping_tasks_total Total number of housekeeping tasks performed in the repository
+# TYPE gitaly_housekeeping_tasks_total counter
+gitaly_housekeeping_tasks_total{housekeeping_task="packed_objects_full", status="success"} 1
+gitaly_housekeeping_tasks_total{housekeeping_task="written_bitmap", status="success"} 1
+gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
+`,
+		},
+		{
+			desc: "repository with multiple packfiles packs only for object pool",
+			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
+				repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
+					RelativePath: relativePath,
+				})
+
+				// Note: git-repack(1) without "-d" will _not_ delete the old
+				// packfile and thus end up with two packfiles.
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "--write-bitmap-index")
+				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
+
+				return repo
+			},
+			expectedMetrics: `# HELP gitaly_housekeeping_tasks_total Total number of housekeeping tasks performed in the repository
+# TYPE gitaly_housekeeping_tasks_total counter
+gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
+`,
+			expectedMetricsForPool: `# HELP gitaly_housekeeping_tasks_total Total number of housekeeping tasks performed in the repository
 # TYPE gitaly_housekeeping_tasks_total counter
 gitaly_housekeeping_tasks_total{housekeeping_task="packed_objects_full", status="success"} 1
 gitaly_housekeeping_tasks_total{housekeeping_task="written_bitmap", status="success"} 1
@@ -559,7 +597,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 				repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
 					RelativePath: relativePath,
 				})
-				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "--write-bitmap-index")
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "--write-bitmap-index")
 				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 				return repo
 			},
@@ -574,7 +612,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 				repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
 					RelativePath: relativePath,
 				})
-				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "--write-bitmap-index")
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "--write-bitmap-index")
 				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 
 				// The repack won't repack the following objects because they're
@@ -606,7 +644,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 				repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
 					RelativePath: relativePath,
 				})
-				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "--write-bitmap-index")
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "--write-bitmap-index")
 				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 
 				// The repack won't repack the following objects because they're
