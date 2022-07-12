@@ -16,7 +16,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
 
-func TestFetchFromOriginDangling(t *testing.T) {
+func TestFetchFromOrigin_dangling(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	cfg, pool, repoProto := setupObjectPool(t, ctx)
@@ -86,7 +88,9 @@ func TestFetchFromOriginDangling(t *testing.T) {
 	require.NoFileExists(t, filepath.Join(pool.FullPath(), "objects", "info", "packs"))
 }
 
-func TestFetchFromOriginFsck(t *testing.T) {
+func TestFetchFromOrigin_fsck(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	cfg, pool, repoProto := setupObjectPool(t, ctx)
@@ -110,7 +114,9 @@ func TestFetchFromOriginFsck(t *testing.T) {
 	require.Contains(t, err.Error(), "duplicateEntries: contains duplicate file entries")
 }
 
-func TestFetchFromOriginDeltaIslands(t *testing.T) {
+func TestFetchFromOrigin_deltaIslands(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	cfg, pool, repoProto := setupObjectPool(t, ctx)
@@ -133,7 +139,9 @@ func TestFetchFromOriginDeltaIslands(t *testing.T) {
 	})
 }
 
-func TestFetchFromOriginBitmapHashCache(t *testing.T) {
+func TestFetchFromOrigin_bitmapHashCache(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	cfg, pool, repoProto := setupObjectPool(t, ctx)
@@ -158,7 +166,9 @@ func TestFetchFromOriginBitmapHashCache(t *testing.T) {
 	gittest.TestBitmapHasHashcache(t, bitmap)
 }
 
-func TestFetchFromOriginRefUpdates(t *testing.T) {
+func TestFetchFromOrigin_refUpdates(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	cfg, pool, repoProto := setupObjectPool(t, ctx)
@@ -204,6 +214,8 @@ func TestFetchFromOriginRefUpdates(t *testing.T) {
 }
 
 func TestFetchFromOrigin_refs(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	cfg, pool, _ := setupObjectPool(t, ctx)
