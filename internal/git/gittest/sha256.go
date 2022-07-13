@@ -7,6 +7,11 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/sha256"
 )
 
+const (
+	// EmptyTreeOID is the Git tree object hash that corresponds to an empty tree (directory)
+	EmptyTreeOID = sha256.EmptyTreeOID
+)
+
 var initRepoExtraArgs = []string{"--object-format=sha256"}
 
 // NewObjectIDFromHex constructs a new ObjectID from the given hex
