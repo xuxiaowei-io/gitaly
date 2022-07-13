@@ -1,6 +1,6 @@
 # Gitaly Team specific onboarding
 
-Welcome to [Gitaly Team](https://about.gitlab.com/handbook/engineering/development/dev/gitaly/)!!
+Welcome to [Gitaly Team](https://about.gitlab.com/handbook/engineering/development/enablement/systems/gitaly/)!!
 
 The following items are the team-specific extension of your onboarding issue.
 Please complete all but the "Reading material" section in your first few working days.
@@ -19,7 +19,9 @@ Please complete all but the "Reading material" section in your first few working
   - [ ] update your Slack profile ("What I do")
   - [ ] update your Zoom title
 - Reading material
-  - [ ] Check out the README at https://gitlab.com/gitlab-org/gitaly, without getting lost in too much detail.
+  - [ ] check out the README at https://gitlab.com/gitlab-org/gitaly, without getting lost in too much detail
   - [ ] get familiar with how we [schedule work] and possibly bookmark the [Gitaly ongoing work issue board]
+  - [ ] check out the [team page](https://about.gitlab.com/handbook/engineering/development/enablement/systems/gitaly/)
 
 /assign me
+/cc @andrashorvath
