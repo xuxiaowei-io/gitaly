@@ -20,8 +20,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
 )
 
-const sourceRefNamespace = "refs/remotes/origin"
-
 // FetchFromOrigin initializes the pool and fetches the objects from its origin repository
 func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *localrepo.Repo) error {
 	if err := o.Init(ctx); err != nil {
@@ -41,7 +39,7 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *localrepo.Repo
 		return fmt.Errorf("computing stats before fetch: %w", err)
 	}
 
-	refSpec := fmt.Sprintf("+refs/*:%s/*", sourceRefNamespace)
+	refSpec := fmt.Sprintf("+refs/*:%s/*", git.ObjectPoolRefNamespace)
 	var stderr bytes.Buffer
 	if err := o.Repo.ExecAndWait(ctx,
 		git.SubCmd{
@@ -143,8 +141,8 @@ func (o *ObjectPool) rescueDanglingObjects(ctx context.Context) error {
 
 func (o *ObjectPool) repackPool(ctx context.Context, pool repository.GitRepo) error {
 	config := []git.ConfigPair{
-		{Key: "pack.island", Value: sourceRefNamespace + "/he(a)ds"},
-		{Key: "pack.island", Value: sourceRefNamespace + "/t(a)gs"},
+		{Key: "pack.island", Value: git.ObjectPoolRefNamespace + "/he(a)ds"},
+		{Key: "pack.island", Value: git.ObjectPoolRefNamespace + "/t(a)gs"},
 		{Key: "pack.islandCore", Value: "a"},
 		{Key: "pack.writeBitmapHashCache", Value: "true"},
 	}
