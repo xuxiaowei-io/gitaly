@@ -210,7 +210,7 @@ func WriteCommit(t testing.TB, cfg config.Cfg, repoPath string, opts ...WriteCom
 		Stdin: stdin,
 		Env:   env,
 	}, commitArgs...)
-	oid, err := git.NewObjectIDFromHex(text.ChompBytes(stdout))
+	oid, err := NewObjectIDFromHex(text.ChompBytes(stdout))
 	require.NoError(t, err)
 
 	if writeCommitConfig.branch != "" {
