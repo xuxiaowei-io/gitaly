@@ -233,7 +233,7 @@ func needsRepacking(repo *localrepo.Repo) (bool, RepackObjectsConfig, error) {
 	//
 	// This is a heuristic and thus imperfect by necessity. We may tune it as we gain experience
 	// with the way it behaves.
-	if int64(math.Max(5, math.Log(float64(largestPackfileSize))/math.Log(1.3))) < packfileCount {
+	if int64(math.Max(5, math.Log(float64(largestPackfileSize))/math.Log(1.3))) <= packfileCount {
 		return true, RepackObjectsConfig{
 			FullRepack:  true,
 			WriteBitmap: !hasAlternate,

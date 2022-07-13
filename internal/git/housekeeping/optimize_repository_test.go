@@ -206,7 +206,7 @@ func TestNeedsRepacking(t *testing.T) {
 			// And then we create one less packfile than we need to hit the boundary.
 			// This is done to assert that we indeed don't repack before hitting the
 			// boundary.
-			for i := 0; i < tc.requiredPackfiles-1; i++ {
+			for i := 0; i < tc.requiredPackfiles-2; i++ {
 				additionalPackfile, err := os.Create(filepath.Join(packDir, fmt.Sprintf("%d.pack", i)))
 				require.NoError(t, err)
 				testhelper.MustClose(t, additionalPackfile)
