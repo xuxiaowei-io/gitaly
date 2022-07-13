@@ -12,7 +12,7 @@ import (
 
 // TestDeltaIslands checks whether functions that repack objects in a repository correctly set up
 // delta islands. Based on https://github.com/git/git/blob/master/t/t5320-delta-islands.sh.
-func TestDeltaIslands(t *testing.T, cfg config.Cfg, repoPath string, repack func() error) {
+func TestDeltaIslands(t *testing.T, cfg config.Cfg, repoPath string, isPoolRepo bool, repack func() error) {
 	t.Helper()
 
 	// Create blobs that we expect Git to use delta compression on.
@@ -24,13 +24,20 @@ func TestDeltaIslands(t *testing.T, cfg config.Cfg, repoPath string, repack func
 	// be used as delta base.
 	badBlob := blob2 + "\nbad blob"
 
+	refsPrefix := "refs"
+	if isPoolRepo {
+		// Pool repositories use different references for their delta islands, so we need to
+		// adapt accordingly.
+		refsPrefix = git.ObjectPoolRefNamespace
+	}
+
 	// Make the first two blobs reachable via references that are part of the delta island.
-	blob1ID := commitBlob(t, cfg, repoPath, "refs/heads/branch1", blob1)
-	blob2ID := commitBlob(t, cfg, repoPath, "refs/tags/tag2", blob2)
+	blob1ID := commitBlob(t, cfg, repoPath, refsPrefix+"/heads/branch1", blob1)
+	blob2ID := commitBlob(t, cfg, repoPath, refsPrefix+"/tags/tag2", blob2)
 
 	// The bad blob will only be reachable via a reference that is not covered by a delta
 	// island. Because of that it should be excluded from delta chains in the main island.
-	badBlobID := commitBlob(t, cfg, repoPath, "refs/bad/ref3", badBlob)
+	badBlobID := commitBlob(t, cfg, repoPath, refsPrefix+"/bad/ref3", badBlob)
 
 	// Repack all objects into a single pack so that we can verify that delta chains are built
 	// by Git as expected. Most notably, we don't use the delta islands here yet and thus the

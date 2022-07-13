@@ -120,22 +120,25 @@ func TestFetchFromOrigin_deltaIslands(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg, pool, repoProto := setupObjectPool(t, ctx)
+
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-	repoPath := filepath.Join(cfg.Storages[0].Path, repo.GetRelativePath())
+	repoPath, err := repo.Path()
+	require.NoError(t, err)
 
 	require.NoError(t, pool.FetchFromOrigin(ctx, repo), "seed pool")
 	require.NoError(t, pool.Link(ctx, repo))
 
-	gittest.TestDeltaIslands(t, cfg, repoPath, func() error {
-		// This should create a new packfile with good delta chains in the pool
-		if err := pool.FetchFromOrigin(ctx, repo); err != nil {
-			return err
-		}
+	gittest.TestDeltaIslands(t, cfg, pool.FullPath(), true, func() error {
+		// The first fetch has already fetched all objects into the pool repository, so
+		// there is nothing new to fetch anymore. Consequentially, FetchFromOrigin doesn't
+		// alter the object database and thus OptimizeRepository would notice that nothing
+		// needs to be optimized.
+		//
+		// We thus write a new commit into the pool member's repository so that we end up
+		// with two packfiles after the fetch.
+		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("changed-ref"))
 
-		// Make sure the old packfile, with bad delta chains, is deleted from the source repo
-		gittest.Exec(t, cfg, "-C", repoPath, "repack", "-ald")
-
-		return nil
+		return pool.FetchFromOrigin(ctx, repo)
 	})
 }
 
