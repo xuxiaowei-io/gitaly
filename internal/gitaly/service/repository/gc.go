@@ -51,12 +51,9 @@ func (s *server) GarbageCollect(ctx context.Context, in *gitalypb.GarbageCollect
 		return nil, err
 	}
 
-	writeCommitGraphCfg, err := housekeeping.WriteCommitGraphConfigForRepository(ctx, repo)
-	if err != nil {
-		return nil, helper.ErrInternalf("getting commit-graph config: %w", err)
-	}
-
-	if err := housekeeping.WriteCommitGraph(ctx, repo, writeCommitGraphCfg); err != nil {
+	if err := housekeeping.WriteCommitGraph(ctx, repo, housekeeping.WriteCommitGraphConfig{
+		ReplaceChain: true,
+	}); err != nil {
 		return nil, err
 	}
 

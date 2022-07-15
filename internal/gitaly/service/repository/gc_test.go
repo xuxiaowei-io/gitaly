@@ -577,10 +577,6 @@ func TestGarbageCollect_commitGraphsWithPrunedObjects(t *testing.T) {
 	_, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: repoProto})
 	require.NoError(t, err)
 
-	// ... but as it turns out it doesn't.
-	stderr.Reset()
-	verifyCmd = gittest.NewCommand(t, cfg, "-C", repoPath, "commit-graph", "verify")
-	verifyCmd.Stderr = &stderr
-	require.EqualError(t, verifyCmd.Run(), "exit status 1")
-	require.Equal(t, stderr.String(), fmt.Sprintf("error: Could not read %[1]s\nfailed to parse commit %[1]s from object database for commit-graph\n", unreachableCommitID))
+	// ... and it does.
+	gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "verify")
 }
