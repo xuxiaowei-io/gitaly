@@ -141,6 +141,10 @@ func TestRemoveRepository_Exec(t *testing.T) {
 	t.Run("ok", func(t *testing.T) {
 		var out bytes.Buffer
 		repo := createRepo(t, ctx, repoClient, praefectStorage, t.Name())
+		replicaPath := gittest.GetReplicaPath(ctx, t, gitalycfg.Cfg{SocketPath: praefectServer.Address()}, repo)
+		require.DirExists(t, filepath.Join(g1Cfg.Storages[0].Path, replicaPath))
+		require.DirExists(t, filepath.Join(g2Cfg.Storages[0].Path, replicaPath))
+
 		cmd := &removeRepository{
 			logger:         testhelper.NewDiscardingLogger(t),
 			virtualStorage: repo.StorageName,
@@ -151,8 +155,8 @@ func TestRemoveRepository_Exec(t *testing.T) {
 		}
 		require.NoError(t, cmd.Exec(flag.NewFlagSet("", flag.PanicOnError), conf))
 
-		require.NoDirExists(t, filepath.Join(g1Cfg.Storages[0].Path, repo.RelativePath))
-		require.NoDirExists(t, filepath.Join(g2Cfg.Storages[0].Path, repo.RelativePath))
+		require.NoDirExists(t, filepath.Join(g1Cfg.Storages[0].Path, replicaPath))
+		require.NoDirExists(t, filepath.Join(g2Cfg.Storages[0].Path, replicaPath))
 		assert.Contains(t, out.String(), "Repository found in the database.\n")
 		assert.Contains(t, out.String(), fmt.Sprintf("Attempting to remove %s from the database, and delete it from all gitaly nodes...\n", repo.RelativePath))
 		assert.Contains(t, out.String(), "Repository removal completed.")
@@ -162,8 +166,11 @@ func TestRemoveRepository_Exec(t *testing.T) {
 	t.Run("repository doesnt exist on one gitaly", func(t *testing.T) {
 		var out bytes.Buffer
 		repo := createRepo(t, ctx, repoClient, praefectStorage, t.Name())
+		replicaPath := gittest.GetReplicaPath(ctx, t, gitalycfg.Cfg{SocketPath: praefectServer.Address()}, repo)
 
-		require.NoError(t, os.RemoveAll(filepath.Join(g2Cfg.Storages[0].Path, repo.RelativePath)))
+		require.DirExists(t, filepath.Join(g2Cfg.Storages[0].Path, replicaPath))
+		require.DirExists(t, filepath.Join(g1Cfg.Storages[0].Path, replicaPath))
+		require.NoError(t, os.RemoveAll(filepath.Join(g2Cfg.Storages[0].Path, replicaPath)))
 
 		cmd := &removeRepository{
 			logger:         testhelper.NewDiscardingLogger(t),
@@ -175,8 +182,8 @@ func TestRemoveRepository_Exec(t *testing.T) {
 		}
 		require.NoError(t, cmd.Exec(flag.NewFlagSet("", flag.PanicOnError), conf))
 
-		require.NoDirExists(t, filepath.Join(g1Cfg.Storages[0].Path, repo.RelativePath))
-		require.NoDirExists(t, filepath.Join(g2Cfg.Storages[0].Path, repo.RelativePath))
+		require.NoDirExists(t, filepath.Join(g1Cfg.Storages[0].Path, replicaPath))
+		require.NoDirExists(t, filepath.Join(g2Cfg.Storages[0].Path, replicaPath))
 		assert.Contains(t, out.String(), "Repository found in the database.\n")
 		assert.Contains(t, out.String(), fmt.Sprintf("Attempting to remove %s from the database, and delete it from all gitaly nodes...\n", repo.RelativePath))
 		assert.Contains(t, out.String(), "Repository removal completed.")
