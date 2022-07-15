@@ -108,9 +108,9 @@ func (inst *Instance) startGitLinguist(ctx context.Context, repoPath string, com
 	}
 
 	cmd := exec.Command(bundle, "exec", "bin/gitaly-linguist", "--repository="+repoPath, "--commit="+commitID)
-	cmd.Dir = inst.cfg.Ruby.Dir
 
 	internalCmd, err := command.New(ctx, cmd,
+		command.WithDir(inst.cfg.Ruby.Dir),
 		command.WithEnvironment(env.AllowedRubyEnvironment(os.Environ())),
 		command.WithCommandName("git-linguist", "stats"),
 	)

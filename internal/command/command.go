@@ -204,6 +204,8 @@ func New(ctx context.Context, cmd *exec.Cmd, opts ...Option) (*Command, error) {
 		cmdGitVersion: cfg.gitVersion,
 	}
 
+	cmd.Dir = cfg.dir
+
 	// Export allowed environment variables as set in the Gitaly process.
 	cmd.Env = AllowedEnvironment(os.Environ())
 	// Append environment variables explicitly requested by the caller.
