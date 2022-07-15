@@ -12,6 +12,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore/glsql"
 )
 
+var errDuplicateWorkNotEnqueued = errors.New("duplicate work not enqueued")
+
 // ReplicationEventQueue allows to put new events to the persistent queue and retrieve them back.
 type ReplicationEventQueue interface {
 	// Enqueue puts provided event into the persistent queue.
@@ -20,8 +22,8 @@ type ReplicationEventQueue interface {
 	Dequeue(ctx context.Context, virtualStorage, nodeStorage string, count int) ([]ReplicationEvent, error)
 	// Acknowledge updates previously dequeued events with the new state and releases resources acquired for it.
 	// It updates events that are in 'in_progress' state to the state that is passed in.
-	// It also updates state of similar events (scheduled fot the same repository with same change from the same source)
-	// that are in 'ready' state and created before the target event was dequeue for the processing if the new state is
+	// It also updates state of similar events (scheduled for the same repository with same change from the same source)
+	// that are in 'ready' state and created before the target event was dequeued for the processing if the new state is
 	// 'completed'. Otherwise it won't be changed.
 	// It returns sub-set of passed in ids that were updated.
 	Acknowledge(ctx context.Context, state JobState, ids []uint64) ([]uint64, error)
@@ -66,7 +68,7 @@ type ReplicationJob struct {
 	Params            Params `json:"params"`
 }
 
-//nolint: stylecheck // This is unintentionally missing documentation.
+// Scan a value of json data into the ReplicationJob
 func (job *ReplicationJob) Scan(value interface{}) error {
 	if value == nil {
 		return nil
@@ -80,7 +82,7 @@ func (job *ReplicationJob) Scan(value interface{}) error {
 	return json.Unmarshal(d, job)
 }
 
-//nolint: stylecheck // This is unintentionally missing documentation.
+// Value transforms the ReplicationJob into json
 func (job ReplicationJob) Value() (driver.Value, error) {
 	data, err := json.Marshal(job)
 	if err != nil {
@@ -208,11 +210,12 @@ type PostgresReplicationEventQueue struct {
 	qc glsql.Querier
 }
 
-//nolint: stylecheck // This is unintentionally missing documentation.
+// Enqueue puts provided event into the persistent queue.
 func (rq PostgresReplicationEventQueue) Enqueue(ctx context.Context, event ReplicationEvent) (ReplicationEvent, error) {
 	// When `Enqueue` method is called:
 	//  1. Insertion of the new record into `replication_queue_lock` table, so we are ensured all events have
-	//     a corresponding <lock>. If a record already exists it won't be inserted again.
+	//     a corresponding <lock>. If a record already exists it won't be inserted again, but locked for update to
+	//     block concurrent Enqueue calls.
 	//  2. Insertion of the new record into the `replication_queue` table with the defaults listed above,
 	//     the job, the meta and corresponding <lock> used in `replication_queue_lock` table for the `lock_id` column.
 
@@ -226,6 +229,15 @@ func (rq PostgresReplicationEventQueue) Enqueue(ctx context.Context, event Repli
 		INSERT INTO replication_queue(lock_id, job, meta)
 		SELECT insert_lock.id, $4, $5
 		FROM insert_lock
+		WHERE NOT EXISTS (
+			SELECT
+			FROM replication_queue AS q
+			WHERE q.state = 'ready'
+                        AND q.job->>'virtual_storage' = $4::json->>'virtual_storage'
+                        AND q.job->>'relative_path' = $4::json->>'relative_path'
+			AND q.job->>'target_node_storage' = $4::json->>'target_node_storage'
+			AND q.job->>'change' = $4::json->>'change'
+		)
 		RETURNING id, state, created_at, updated_at, lock_id, attempt, job, meta`
 	// this will always return a single row result (because of lock uniqueness) or an error
 	rows, err := rq.qc.QueryContext(ctx, query, event.Job.VirtualStorage, event.Job.TargetNodeStorage, event.Job.RelativePath, event.Job, event.Meta)
@@ -237,11 +249,14 @@ func (rq PostgresReplicationEventQueue) Enqueue(ctx context.Context, event Repli
 	if err != nil {
 		return ReplicationEvent{}, fmt.Errorf("scan: %w", err)
 	}
+	if len(events) == 0 {
+		return ReplicationEvent{}, errDuplicateWorkNotEnqueued
+	}
 
 	return events[0], nil
 }
 
-//nolint: stylecheck // This is unintentionally missing documentation.
+// Dequeue retrieves events from the persistent queue using provided limitations and filters.
 func (rq PostgresReplicationEventQueue) Dequeue(ctx context.Context, virtualStorage, nodeStorage string, count int) ([]ReplicationEvent, error) {
 	// When `Dequeue` method is called:
 	//  1. Events with attempts left that are either in `ready` or `failed` state are candidates for dequeuing.
@@ -322,7 +337,7 @@ func (rq PostgresReplicationEventQueue) Dequeue(ctx context.Context, virtualStor
 	return res, nil
 }
 
-//nolint: stylecheck // This is unintentionally missing documentation.
+// Acknowledge updates previously dequeued events with the new state and releases resources acquired for it.
 func (rq PostgresReplicationEventQueue) Acknowledge(ctx context.Context, state JobState, ids []uint64) ([]uint64, error) {
 	// When `Acknowledge` method is called:
 	//  1. The list of event `id`s and corresponding <lock>s retrieved from `replication_queue` table as passed in by the

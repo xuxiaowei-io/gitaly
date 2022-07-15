@@ -490,7 +490,7 @@ func TestProcessBacklog_Success(t *testing.T) {
 		ackIDs, err := queue.Acknowledge(ctx, state, ids)
 		if len(ids) > 0 {
 			assert.Equal(t, datastore.JobStateCompleted, state, "no fails expected")
-			assert.Equal(t, []uint64{1, 3, 4}, ids, "all jobs must be processed at once")
+			assert.Equal(t, []uint64{1, 2, 3}, ids, "all jobs must be processed at once")
 		}
 		return ackIDs, err
 	})
@@ -515,9 +515,6 @@ func TestProcessBacklog_Success(t *testing.T) {
 	}
 
 	_, err := queueInterceptor.Enqueue(ctx, eventType1)
-	require.NoError(t, err)
-
-	_, err = queueInterceptor.Enqueue(ctx, eventType1)
 	require.NoError(t, err)
 
 	renameTo1 := filepath.Join(testRepo.GetRelativePath(), "..", filepath.Base(testRepo.GetRelativePath())+"-mv1")

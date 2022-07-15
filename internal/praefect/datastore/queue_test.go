@@ -300,25 +300,10 @@ func TestPostgresReplicationEventQueue_EnqueueMultiple(t *testing.T) {
 	requireLocks(t, ctx, db, []LockRow{expLock1}) // expected a new lock for new event
 	db.RequireRowsInTable(t, "replication_queue_job_lock", 0)
 
-	event2, err := queue.Enqueue(ctx, eventType1) // repeat of the same event
-	require.NoError(t, err)
+	_, err = queue.Enqueue(ctx, eventType1) // repeat of the same event
+	require.Error(t, err, errDuplicateWorkNotEnqueued)
 
-	expEvent2 := ReplicationEvent{
-		ID:      event2.ID,
-		State:   "ready",
-		Attempt: 3,
-		LockID:  "praefect-0|gitaly-1|/project/path-1",
-		Job: ReplicationJob{
-			Change:            UpdateRepo,
-			RelativePath:      "/project/path-1",
-			TargetNodeStorage: "gitaly-1",
-			SourceNodeStorage: "gitaly-0",
-			VirtualStorage:    "praefect-0",
-			Params:            nil,
-		},
-	}
-
-	requireEvents(t, ctx, db, []ReplicationEvent{expEvent1, expEvent2})
+	requireEvents(t, ctx, db, []ReplicationEvent{expEvent1})
 	requireLocks(t, ctx, db, []LockRow{expLock1}) // expected still one the same lock for repeated event
 
 	event3, err := queue.Enqueue(ctx, eventType2) // event for another target
@@ -339,7 +324,7 @@ func TestPostgresReplicationEventQueue_EnqueueMultiple(t *testing.T) {
 		},
 	}
 
-	requireEvents(t, ctx, db, []ReplicationEvent{expEvent1, expEvent2, expEvent3})
+	requireEvents(t, ctx, db, []ReplicationEvent{expEvent1, expEvent3})
 	requireLocks(t, ctx, db, []LockRow{expLock1, expLock2}) // the new lock for another target repeated event
 
 	event4, err := queue.Enqueue(ctx, eventType3) // event for another repo
@@ -360,10 +345,45 @@ func TestPostgresReplicationEventQueue_EnqueueMultiple(t *testing.T) {
 		},
 	}
 
-	requireEvents(t, ctx, db, []ReplicationEvent{expEvent1, expEvent2, expEvent3, expEvent4})
+	requireEvents(t, ctx, db, []ReplicationEvent{expEvent1, expEvent3, expEvent4})
 	requireLocks(t, ctx, db, []LockRow{expLock1, expLock2, expLock3}) // the new lock for same target but for another repo
 
 	db.RequireRowsInTable(t, "replication_queue_job_lock", 0) // there is no fetches it must be empty
+
+	dequeued, err := queue.Dequeue(ctx, "praefect-0", "gitaly-1", 1)
+	require.NoError(t, err)
+	require.Len(t, dequeued, 1)
+	require.Equal(t, event1.ID, dequeued[0].ID)
+
+	expEvent1.State = JobStateInProgress
+	expEvent1.Attempt = 2
+	expLock1.Acquired = true
+
+	requireEvents(t, ctx, db, []ReplicationEvent{expEvent1, expEvent3, expEvent4})
+	requireLocks(t, ctx, db, []LockRow{expLock1, expLock2, expLock3})
+
+	event5, err := queue.Enqueue(ctx, eventType1) // event for in-progress repo
+	require.NoError(t, err)
+
+	expEvent5 := ReplicationEvent{
+		ID:      event5.ID,
+		State:   "ready",
+		Attempt: 3,
+		LockID:  "praefect-0|gitaly-1|/project/path-1",
+		Job: ReplicationJob{
+			Change:            UpdateRepo,
+			RelativePath:      "/project/path-1",
+			TargetNodeStorage: "gitaly-1",
+			SourceNodeStorage: "gitaly-0",
+			VirtualStorage:    "praefect-0",
+			Params:            nil,
+		},
+	}
+
+	requireEvents(t, ctx, db, []ReplicationEvent{expEvent1, expEvent3, expEvent4, expEvent5})
+	requireLocks(t, ctx, db, []LockRow{expLock1, expLock2, expLock3})
+
+	db.RequireRowsInTable(t, "replication_queue_job_lock", 1)
 }
 
 func TestPostgresReplicationEventQueue_Dequeue(t *testing.T) {
@@ -464,7 +484,7 @@ func TestPostgresReplicationEventQueue_DequeueMultiple(t *testing.T) {
 	}
 
 	// events to fill in the queue
-	events := []ReplicationEvent{eventType1, eventType1, eventType2, eventType1, eventType3, eventType4}
+	events := []ReplicationEvent{eventType1, eventType2, eventType3, eventType4}
 	for i := range events {
 		var err error
 		events[i], err = queue.Enqueue(ctx, events[i])
@@ -472,11 +492,11 @@ func TestPostgresReplicationEventQueue_DequeueMultiple(t *testing.T) {
 	}
 
 	// first request to deque
-	expectedEvents1 := []ReplicationEvent{events[0], events[2], events[4]}
+	expectedEvents1 := []ReplicationEvent{events[0], events[1], events[2]}
 	expectedJobLocks1 := []JobLockRow{
 		{JobID: events[0].ID, LockID: "praefect|gitaly-1|/project/path-1"},
-		{JobID: events[2].ID, LockID: "praefect|gitaly-1|/project/path-1"},
-		{JobID: events[4].ID, LockID: "praefect|gitaly-1|/project/path-2"},
+		{JobID: events[1].ID, LockID: "praefect|gitaly-1|/project/path-1"},
+		{JobID: events[2].ID, LockID: "praefect|gitaly-1|/project/path-2"},
 	}
 
 	// we expect only first two types of events by limiting count to 3
@@ -500,11 +520,11 @@ func TestPostgresReplicationEventQueue_DequeueMultiple(t *testing.T) {
 
 	// second request to deque
 	// there must be only last event fetched from the queue
-	expectedEvents2 := []ReplicationEvent{events[5]}
+	expectedEvents2 := []ReplicationEvent{events[3]}
 	expectedEvents2[0].State = JobStateInProgress
 	expectedEvents2[0].Attempt = 2
 
-	expectedJobLocks2 := []JobLockRow{{JobID: 6, LockID: "backup|gitaly-1|/project/path-1"}}
+	expectedJobLocks2 := []JobLockRow{{JobID: 4, LockID: "backup|gitaly-1|/project/path-1"}}
 
 	dequeuedEvents2, err := queue.Dequeue(ctx, "backup", "gitaly-1", 100500)
 	require.NoError(t, err)
@@ -550,10 +570,8 @@ func TestPostgresReplicationEventQueue_DequeueSameStorageOtherRepository(t *test
 		},
 	}
 
-	for i := 0; i < 2; i++ {
-		_, err := queue.Enqueue(ctx, eventType1)
-		require.NoError(t, err, "failed to fill in event queue")
-	}
+	_, err := queue.Enqueue(ctx, eventType1)
+	require.NoError(t, err, "failed to fill in event queue")
 
 	dequeuedEvents1, err := queue.Dequeue(ctx, "praefect", "gitaly-1", 1)
 	require.NoError(t, err)
@@ -564,10 +582,8 @@ func TestPostgresReplicationEventQueue_DequeueSameStorageOtherRepository(t *test
 	})
 	requireJobLocks(t, ctx, db, []JobLockRow{{JobID: 1, LockID: "praefect|gitaly-1|/project/path-1"}})
 
-	for i := 0; i < 2; i++ {
-		_, err := queue.Enqueue(ctx, eventType2)
-		require.NoError(t, err, "failed to fill in event queue")
-	}
+	_, err = queue.Enqueue(ctx, eventType2)
+	require.NoError(t, err, "failed to fill in event queue")
 
 	dequeuedEvents2, err := queue.Dequeue(ctx, "praefect", "gitaly-1", 1)
 	require.NoError(t, err)
@@ -578,7 +594,7 @@ func TestPostgresReplicationEventQueue_DequeueSameStorageOtherRepository(t *test
 	})
 	requireJobLocks(t, ctx, db, []JobLockRow{
 		{JobID: 1, LockID: "praefect|gitaly-1|/project/path-1"},
-		{JobID: 3, LockID: "praefect|gitaly-1|/project/path-2"},
+		{JobID: 2, LockID: "praefect|gitaly-1|/project/path-2"},
 	})
 }
 
@@ -675,7 +691,7 @@ func TestPostgresReplicationEventQueue_AcknowledgeMultiple(t *testing.T) {
 		},
 	}
 
-	events := []ReplicationEvent{eventType1, eventType1, eventType2, eventType1, eventType3, eventType2, eventType4} // events to fill in the queue
+	events := []ReplicationEvent{eventType1, eventType2, eventType3, eventType4}
 	for i := range events {
 		var err error
 		events[i], err = queue.Enqueue(ctx, events[i])
@@ -688,29 +704,29 @@ func TestPostgresReplicationEventQueue_AcknowledgeMultiple(t *testing.T) {
 	require.Len(t, dequeuedEvents1, 3)
 	requireLocks(t, ctx, db, []LockRow{
 		{ID: events[0].LockID, Acquired: true},
+		{ID: events[1].LockID, Acquired: true},
 		{ID: events[2].LockID, Acquired: true},
-		{ID: events[4].LockID, Acquired: true},
-		{ID: events[6].LockID, Acquired: false},
+		{ID: events[3].LockID, Acquired: false},
+	})
+	requireJobLocks(t, ctx, db, []JobLockRow{
+		{JobID: events[0].ID, LockID: events[0].LockID},
+		{JobID: events[1].ID, LockID: events[1].LockID},
+		{JobID: events[2].ID, LockID: events[2].LockID},
+	})
+
+	// release lock for events of second type
+	acknowledge1, err := queue.Acknowledge(ctx, JobStateFailed, []uint64{events[1].ID})
+	require.NoError(t, err)
+	require.Equal(t, []uint64{2}, acknowledge1)
+	requireLocks(t, ctx, db, []LockRow{
+		{ID: events[0].LockID, Acquired: true},
+		{ID: events[1].LockID, Acquired: false},
+		{ID: events[2].LockID, Acquired: true},
+		{ID: events[3].LockID, Acquired: false},
 	})
 	requireJobLocks(t, ctx, db, []JobLockRow{
 		{JobID: events[0].ID, LockID: events[0].LockID},
 		{JobID: events[2].ID, LockID: events[2].LockID},
-		{JobID: events[4].ID, LockID: events[4].LockID},
-	})
-
-	// release lock for events of second type
-	acknowledge1, err := queue.Acknowledge(ctx, JobStateFailed, []uint64{events[2].ID})
-	require.NoError(t, err)
-	require.Equal(t, []uint64{3}, acknowledge1)
-	requireLocks(t, ctx, db, []LockRow{
-		{ID: events[0].LockID, Acquired: true},
-		{ID: events[2].LockID, Acquired: false},
-		{ID: events[4].LockID, Acquired: true},
-		{ID: events[6].LockID, Acquired: false},
-	})
-	requireJobLocks(t, ctx, db, []JobLockRow{
-		{JobID: events[0].ID, LockID: events[0].LockID},
-		{JobID: events[4].ID, LockID: events[4].LockID},
 	})
 
 	dequeuedEvents2, err := queue.Dequeue(ctx, "praefect", "gitaly-1", 3)
@@ -718,14 +734,14 @@ func TestPostgresReplicationEventQueue_AcknowledgeMultiple(t *testing.T) {
 	require.Len(t, dequeuedEvents2, 1, "expected: events of type 2 ('failed' will  be fetched for retry)")
 	requireLocks(t, ctx, db, []LockRow{
 		{ID: events[0].LockID, Acquired: true},
+		{ID: events[1].LockID, Acquired: true},
 		{ID: events[2].LockID, Acquired: true},
-		{ID: events[4].LockID, Acquired: true},
-		{ID: events[6].LockID, Acquired: false},
+		{ID: events[3].LockID, Acquired: false},
 	})
 	requireJobLocks(t, ctx, db, []JobLockRow{
 		{JobID: events[0].ID, LockID: events[0].LockID},
+		{JobID: events[1].ID, LockID: events[1].LockID},
 		{JobID: events[2].ID, LockID: events[2].LockID},
-		{JobID: events[4].ID, LockID: events[4].LockID},
 	})
 
 	// creation of the new event that is equal to those already dequeue and processed
@@ -734,47 +750,47 @@ func TestPostgresReplicationEventQueue_AcknowledgeMultiple(t *testing.T) {
 	_, err = queue.Enqueue(ctx, eventType1)
 	require.NoError(t, err)
 
-	acknowledge2, err := queue.Acknowledge(ctx, JobStateCompleted, []uint64{events[0].ID, events[4].ID})
+	acknowledge2, err := queue.Acknowledge(ctx, JobStateCompleted, []uint64{events[0].ID, events[2].ID})
 	require.NoError(t, err)
-	require.Equal(t, []uint64{events[0].ID, events[4].ID}, acknowledge2)
+	require.Equal(t, []uint64{events[0].ID, events[2].ID}, acknowledge2)
 	requireLocks(t, ctx, db, []LockRow{
 		{ID: events[0].LockID, Acquired: false},
-		{ID: events[2].LockID, Acquired: true},
-		{ID: events[4].LockID, Acquired: false},
-		{ID: events[6].LockID, Acquired: false},
+		{ID: events[1].LockID, Acquired: true},
+		{ID: events[2].LockID, Acquired: false},
+		{ID: events[3].LockID, Acquired: false},
 	})
 	requireJobLocks(t, ctx, db, []JobLockRow{
-		{JobID: events[2].ID, LockID: events[2].LockID},
+		{JobID: events[1].ID, LockID: events[1].LockID},
 	})
-	db.RequireRowsInTable(t, "replication_queue", 4)
+	db.RequireRowsInTable(t, "replication_queue", 3)
 
 	dequeuedEvents3, err := queue.Dequeue(ctx, "praefect", "gitaly-2", 3)
 	require.NoError(t, err)
 	require.Len(t, dequeuedEvents3, 1, "expected: event of type 4")
 	requireLocks(t, ctx, db, []LockRow{
 		{ID: events[0].LockID, Acquired: false},
-		{ID: events[2].LockID, Acquired: true},
-		{ID: events[4].LockID, Acquired: false},
-		{ID: events[6].LockID, Acquired: true},
+		{ID: events[1].LockID, Acquired: true},
+		{ID: events[2].LockID, Acquired: false},
+		{ID: events[3].LockID, Acquired: true},
 	})
 	requireJobLocks(t, ctx, db, []JobLockRow{
-		{JobID: events[2].ID, LockID: events[2].LockID},
-		{JobID: events[6].ID, LockID: events[6].LockID},
+		{JobID: events[1].ID, LockID: events[1].LockID},
+		{JobID: events[3].ID, LockID: events[3].LockID},
 	})
 
-	acknowledged3, err := queue.Acknowledge(ctx, JobStateCompleted, []uint64{events[2].ID, events[6].ID})
+	acknowledged3, err := queue.Acknowledge(ctx, JobStateCompleted, []uint64{events[1].ID, events[3].ID})
 	require.NoError(t, err)
-	require.Equal(t, []uint64{events[2].ID, events[6].ID}, acknowledged3)
+	require.Equal(t, []uint64{events[1].ID, events[3].ID}, acknowledged3)
 	requireLocks(t, ctx, db, []LockRow{
 		{ID: events[0].LockID, Acquired: false},
+		{ID: events[1].LockID, Acquired: false},
 		{ID: events[2].LockID, Acquired: false},
-		{ID: events[4].LockID, Acquired: false},
-		{ID: events[6].LockID, Acquired: false},
+		{ID: events[3].LockID, Acquired: false},
 	})
 	requireJobLocks(t, ctx, db, nil)
 	db.RequireRowsInTable(t, "replication_queue", 1)
 
-	newEvent, err := queue.Enqueue(ctx, eventType1)
+	newEvent, err := queue.Enqueue(ctx, eventType2)
 	require.NoError(t, err)
 
 	acknowledge4, err := queue.Acknowledge(ctx, JobStateCompleted, []uint64{newEvent.ID})
@@ -787,9 +803,9 @@ func TestPostgresReplicationEventQueue_AcknowledgeMultiple(t *testing.T) {
 	require.Equal(t, "ready", newEventState, "no way to acknowledge event that is not in in_progress state(was not dequeued)")
 	requireLocks(t, ctx, db, []LockRow{
 		{ID: events[0].LockID, Acquired: false},
+		{ID: events[1].LockID, Acquired: false},
 		{ID: events[2].LockID, Acquired: false},
-		{ID: events[4].LockID, Acquired: false},
-		{ID: events[6].LockID, Acquired: false},
+		{ID: events[3].LockID, Acquired: false},
 	})
 	requireJobLocks(t, ctx, db, nil)
 }
