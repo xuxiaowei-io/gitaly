@@ -149,14 +149,19 @@ type Command struct {
 	cmdGitVersion string
 }
 
-// New creates a Command from an exec.Cmd. On success, the Command contains a running subprocess.
-// When ctx is canceled the embedded process will be terminated and reaped automatically.
-func New(ctx context.Context, cmd *exec.Cmd, opts ...Option) (*Command, error) {
+// New creates a Command from the given executable name and arguments On success, the Command
+// contains a running subprocess. When ctx is canceled the embedded process will be terminated and
+// reaped automatically.
+func New(ctx context.Context, nameAndArgs []string, opts ...Option) (*Command, error) {
 	if ctx.Done() == nil {
 		panic(contextWithoutDonePanic("command spawned with context without Done() channel"))
 	}
 
-	if err := checkNullArgv(cmd); err != nil {
+	if len(nameAndArgs) == 0 {
+		panic("command spawned without name")
+	}
+
+	if err := checkNullArgv(nameAndArgs); err != nil {
 		return nil, err
 	}
 
@@ -167,8 +172,8 @@ func New(ctx context.Context, cmd *exec.Cmd, opts ...Option) (*Command, error) {
 
 	span, ctx := opentracing.StartSpanFromContext(
 		ctx,
-		cmd.Path,
-		opentracing.Tag{Key: "args", Value: strings.Join(cmd.Args, " ")},
+		nameAndArgs[0],
+		opentracing.Tag{Key: "args", Value: strings.Join(nameAndArgs[1:], " ")},
 	)
 
 	spawnStartTime := time.Now()
@@ -177,7 +182,7 @@ func New(ctx context.Context, cmd *exec.Cmd, opts ...Option) (*Command, error) {
 		return nil, err
 	}
 	service, method := methodFromContext(ctx)
-	cmdName := path.Base(cmd.Path)
+	cmdName := path.Base(nameAndArgs[0])
 	spawnTokenAcquiringSeconds.
 		WithLabelValues(service, method, cmdName, cfg.gitVersion).
 		Add(getSpawnTokenAcquiringSeconds(spawnStartTime))
@@ -188,10 +193,12 @@ func New(ctx context.Context, cmd *exec.Cmd, opts ...Option) (*Command, error) {
 	defer func() {
 		ctxlogrus.Extract(ctx).WithFields(logrus.Fields{
 			"pid":  logPid,
-			"path": cmd.Path,
-			"args": cmd.Args,
+			"path": nameAndArgs[0],
+			"args": nameAndArgs[1:],
 		}).Debug("spawn")
 	}()
+
+	cmd := exec.Command(nameAndArgs[0], nameAndArgs[1:]...)
 
 	command := &Command{
 		cmd:           cmd,
@@ -535,12 +542,11 @@ func methodFromContext(ctx context.Context) (service string, method string) {
 	return "", ""
 }
 
-// Command arguments will be passed to the exec syscall as
-// null-terminated C strings. That means the arguments themselves may not
-// contain a null byte. The go stdlib checks for null bytes but it
+// Command arguments will be passed to the exec syscall as null-terminated C strings. That means the
+// arguments themselves may not contain a null byte. The go stdlib checks for null bytes but it
 // returns a cryptic error. This function returns a more explicit error.
-func checkNullArgv(cmd *exec.Cmd) error {
-	for _, arg := range cmd.Args {
+func checkNullArgv(args []string) error {
+	for _, arg := range args {
 		if strings.IndexByte(arg, 0) > -1 {
 			// Use %q so that the null byte gets printed as \x00
 			return fmt.Errorf("detected null byte in command argument %q", arg)

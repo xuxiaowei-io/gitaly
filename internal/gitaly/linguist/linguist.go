@@ -107,7 +107,7 @@ func (inst *Instance) startGitLinguist(ctx context.Context, repoPath string, com
 		return nil, fmt.Errorf("finding bundle executable: %w", err)
 	}
 
-	cmd := exec.Command(bundle, "exec", "bin/gitaly-linguist", "--repository="+repoPath, "--commit="+commitID)
+	cmd := []string{bundle, "exec", "bin/gitaly-linguist", "--repository=" + repoPath, "--commit=" + commitID}
 
 	internalCmd, err := command.New(ctx, cmd,
 		command.WithDir(inst.cfg.Ruby.Dir),
