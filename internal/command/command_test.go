@@ -460,3 +460,56 @@ gitaly_command_spawn_token_acquiring_seconds_total{cmd="echo",git_version="",grp
 		),
 	)
 }
+
+func TestCommand_withFinalizer(t *testing.T) {
+	t.Parallel()
+
+	t.Run("context cancellation runs finalizer", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(testhelper.Context(t))
+
+		finalizerCh := make(chan struct{})
+		_, err := New(ctx, exec.Command("echo"), WithFinalizer(func(*Command) {
+			close(finalizerCh)
+		}))
+		require.NoError(t, err)
+
+		cancel()
+
+		<-finalizerCh
+	})
+
+	t.Run("Wait runs finalizer", func(t *testing.T) {
+		ctx := testhelper.Context(t)
+
+		finalizerCh := make(chan struct{})
+		cmd, err := New(ctx, exec.Command("echo"), WithFinalizer(func(*Command) {
+			close(finalizerCh)
+		}))
+		require.NoError(t, err)
+
+		require.NoError(t, cmd.Wait())
+
+		<-finalizerCh
+	})
+
+	t.Run("process exit does not run finalizer", func(t *testing.T) {
+		ctx := testhelper.Context(t)
+
+		finalizerCh := make(chan struct{})
+		_, err := New(ctx, exec.Command("echo"), WithFinalizer(func(*Command) {
+			close(finalizerCh)
+		}))
+		require.NoError(t, err)
+
+		select {
+		case <-finalizerCh:
+			// Command finalizers should only be running when we have either explicitly
+			// called `Wait()` on the command, or when the context has been cancelled.
+			// Otherwise we may run into the case where finalizers have already been ran
+			// on the exited process even though we may still be busy handling the
+			// output of that command, which may result in weird races.
+			require.FailNow(t, "finalizer should not have been ran")
+		case <-time.After(50 * time.Millisecond):
+		}
+	})
+}
