@@ -194,11 +194,11 @@ func TestCommand_Wait_contextCancellationKillsCommand(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(testhelper.Context(t))
 
-	cmd, err := New(ctx, exec.CommandContext(ctx, "sleep", "1h"))
+	cmd, err := New(ctx, exec.Command("sleep", "1h"))
 	require.NoError(t, err)
 
 	// Cancel the command early.
-	go cancel()
+	cancel()
 
 	err = cmd.Wait()
 	require.Error(t, err)
