@@ -277,11 +277,10 @@ func TestPostReceivePack_packfiles(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, packfiles, 2)
 
-	// ... and one reverse index for the newly added packfile. Due to a bug we don't generate
-	// the reverse index though.
+	// ... and one reverse index for the newly added packfile.
 	reverseIndices, err = filepath.Glob(filepath.Join(repoPath, "objects", "pack", "*.rev"))
 	require.NoError(t, err)
-	require.Empty(t, reverseIndices)
+	require.Len(t, reverseIndices, 1)
 }
 
 func TestPostReceivePack_rejectViaGitConfigOptions(t *testing.T) {

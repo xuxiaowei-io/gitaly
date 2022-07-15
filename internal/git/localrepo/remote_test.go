@@ -205,11 +205,10 @@ func TestRepo_FetchRemote(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, packfiles, 1)
 
-		// And furthermore, that packfile should have a reverse index. Due to a bug it
-		// doesn't though.
+		// And furthermore, that packfile should have a reverse index.
 		reverseIndices, err = filepath.Glob(filepath.Join(repoPath, "objects", "pack", "*.rev"))
 		require.NoError(t, err)
-		require.Empty(t, reverseIndices)
+		require.Len(t, reverseIndices, 1)
 	})
 }
 
