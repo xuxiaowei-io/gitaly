@@ -136,8 +136,9 @@ type Command struct {
 	context      context.Context
 	startTime    time.Time
 
-	waitError error
-	waitOnce  sync.Once
+	waitError       error
+	waitOnce        sync.Once
+	processExitedCh chan struct{}
 
 	finalizer func(*Command)
 
@@ -201,14 +202,15 @@ func New(ctx context.Context, nameAndArgs []string, opts ...Option) (*Command, e
 	cmd := exec.Command(nameAndArgs[0], nameAndArgs[1:]...)
 
 	command := &Command{
-		cmd:           cmd,
-		startTime:     time.Now(),
-		context:       ctx,
-		span:          span,
-		finalizer:     cfg.finalizer,
-		metricsCmd:    cfg.commandName,
-		metricsSubCmd: cfg.subcommandName,
-		cmdGitVersion: cfg.gitVersion,
+		cmd:             cmd,
+		startTime:       time.Now(),
+		context:         ctx,
+		span:            span,
+		finalizer:       cfg.finalizer,
+		metricsCmd:      cfg.commandName,
+		metricsSubCmd:   cfg.subcommandName,
+		cmdGitVersion:   cfg.gitVersion,
+		processExitedCh: make(chan struct{}),
 	}
 
 	cmd.Dir = cfg.dir
@@ -277,17 +279,24 @@ func New(ctx context.Context, nameAndArgs []string, opts ...Option) (*Command, e
 	// We thus defer spawning the Goroutine.
 	defer func() {
 		go func() {
-			<-ctx.Done()
+			select {
+			case <-ctx.Done():
+				// If the context has been cancelled and we didn't explicitly reap
+				// the child process then we need to manually kill it and release
+				// all associated resources.
+				if process := cmd.Process; process != nil && process.Pid > 0 {
+					//nolint:errcheck // TODO: do we want to report errors?
+					// Send SIGTERM to the process group of cmd
+					syscall.Kill(-process.Pid, syscall.SIGTERM)
+				}
 
-			if process := cmd.Process; process != nil && process.Pid > 0 {
-				//nolint:errcheck // TODO: do we want to report errors?
-				// Send SIGTERM to the process group of cmd
-				syscall.Kill(-process.Pid, syscall.SIGTERM)
+				// We do not care for any potential error code, but just want to
+				// make sure that the subprocess gets properly killed and processed.
+				_ = command.Wait()
+			case <-command.processExitedCh:
+				// Otherwise, if the process has exited via a call to `wait()`
+				// already then there is nothing we need to do.
 			}
-
-			// We do not care for any potential error code, but just want to make sure that the
-			// subprocess gets properly killed and processed.
-			_ = command.Wait()
 		}()
 	}()
 
@@ -335,6 +344,8 @@ func (c *Command) Wait() error {
 
 // This function should never be called directly, use Wait().
 func (c *Command) wait() {
+	defer close(c.processExitedCh)
+
 	if c.writer != nil {
 		// Prevent the command from blocking on waiting for stdin to be closed
 		c.writer.Close()
