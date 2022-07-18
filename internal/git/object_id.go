@@ -1,10 +1,15 @@
 package git
 
 import (
+	"bytes"
+	"context"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"regexp"
+
+	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 )
 
 var (
@@ -34,6 +39,32 @@ type ObjectHash struct {
 	EmptyTreeOID ObjectID
 	// ZeroOID is the special value that Git uses to signal a ref or object does not exist
 	ZeroOID ObjectID
+}
+
+// DetectObjectHash detects the object-hash used by the given repository.
+func DetectObjectHash(ctx context.Context, repoExecutor RepositoryExecutor) (ObjectHash, error) {
+	var stdout bytes.Buffer
+
+	if err := repoExecutor.ExecAndWait(ctx, SubCmd{
+		Name: "config",
+		Args: []string{"extensions.objectFormat"},
+	}, WithStdout(&stdout)); err != nil {
+		if status, ok := command.ExitStatus(err); ok && status == 1 {
+			return ObjectHashSHA1, nil
+		}
+
+		return ObjectHash{}, fmt.Errorf("reading object format: %w", err)
+	}
+
+	objectFormat := text.ChompBytes(stdout.Bytes())
+	switch objectFormat {
+	case "sha1":
+		return ObjectHashSHA1, nil
+	case "sha256":
+		return ObjectHashSHA256, nil
+	default:
+		return ObjectHash{}, fmt.Errorf("unknown object format: %q", objectFormat)
+	}
 }
 
 // FromHex constructs a new ObjectID from the given hex representation of the object ID. Returns

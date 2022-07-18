@@ -6,12 +6,103 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
+
+func TestDetectObjectHash(t *testing.T) {
+	cfg := testcfg.Build(t)
+	ctx := testhelper.Context(t)
+
+	for _, tc := range []struct {
+		desc         string
+		setup        func(t *testing.T) *gitalypb.Repository
+		expectedErr  error
+		expectedHash git.ObjectHash
+	}{
+		{
+			desc: "defaults to SHA1",
+			setup: func(t *testing.T) *gitalypb.Repository {
+				repo, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0], gittest.InitRepoOpts{
+					ObjectFormat: "sha1",
+				})
+
+				// Verify that the repo doesn't explicitly mention it's using SHA1
+				// as object hash.
+				content := testhelper.MustReadFile(t, filepath.Join(repoPath, "config"))
+				require.NotContains(t, text.ChompBytes(content), "sha1")
+
+				return repo
+			},
+			expectedHash: git.ObjectHashSHA1,
+		},
+		{
+			desc: "explicitly set to SHA1",
+			setup: func(t *testing.T) *gitalypb.Repository {
+				repo, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0], gittest.InitRepoOpts{
+					ObjectFormat: "sha1",
+				})
+
+				// Explicitly set the object format to SHA1.
+				gittest.Exec(t, cfg, "-C", repoPath, "config", "extensions.objectFormat", "sha1")
+
+				return repo
+			},
+			expectedHash: git.ObjectHashSHA1,
+		},
+		{
+			desc: "explicitly set to SHA256",
+			setup: func(t *testing.T) *gitalypb.Repository {
+				repo, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0], gittest.InitRepoOpts{
+					ObjectFormat: "sha256",
+				})
+
+				require.Equal(t,
+					"sha256",
+					text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "config", "extensions.objectFormat")),
+				)
+
+				return repo
+			},
+			expectedHash: git.ObjectHashSHA256,
+		},
+		{
+			desc: "unknown hash",
+			setup: func(t *testing.T) *gitalypb.Repository {
+				repo, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+
+				// Explicitly set the object format to something unknown.
+				gittest.Exec(t, cfg, "-C", repoPath, "config", "extensions.objectFormat", "blake2")
+
+				return repo
+			},
+			expectedErr: fmt.Errorf("reading object format: exit status 128"),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			repoProto := tc.setup(t)
+			repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+			hash, err := git.DetectObjectHash(ctx, repo)
+			if tc.expectedErr != nil {
+				require.EqualError(t, err, tc.expectedErr.Error())
+			} else {
+				require.NoError(t, err)
+			}
+			require.Equal(t, tc.expectedHash, hash)
+		})
+	}
+}
 
 func TestObjectHash_ValidateHex(t *testing.T) {
 	for _, hash := range []struct {
