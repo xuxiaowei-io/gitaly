@@ -147,8 +147,11 @@ func TestUpdater_concurrentLocking(t *testing.T) {
 	require.NoError(t, secondUpdater.Update("refs/heads/master", "", commit.Id))
 
 	err = secondUpdater.Prepare()
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "fatal: prepare: cannot lock ref 'refs/heads/master'")
+	var errAlreadyLocked *ErrAlreadyLocked
+	require.ErrorAs(t, err, &errAlreadyLocked)
+	require.Equal(t, err, &ErrAlreadyLocked{
+		Ref: "refs/heads/master",
+	})
 
 	require.NoError(t, firstUpdater.Commit())
 }
