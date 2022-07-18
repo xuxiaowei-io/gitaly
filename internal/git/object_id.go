@@ -7,22 +7,19 @@ import (
 	"regexp"
 )
 
-const (
-	// ZeroOID is the special value that Git uses to signal a ref or object does not exist
-	ZeroOID = ObjectID("0000000000000000000000000000000000000000")
-)
-
 var (
 	// ObjectHashSHA1 is the implementation of an object ID via SHA1.
 	ObjectHashSHA1 = ObjectHash{
 		regexp:       regexp.MustCompile(`\A[0-9a-f]{40}\z`),
 		EmptyTreeOID: ObjectID("4b825dc642cb6eb9a060e54bf8d69288fbee4904"),
+		ZeroOID:      ObjectID("0000000000000000000000000000000000000000"),
 	}
 
 	// ObjectHashSHA256 is the implementation of an object ID via SHA256.
 	ObjectHashSHA256 = ObjectHash{
 		regexp:       regexp.MustCompile(`\A[0-9a-f]{64}\z`),
 		EmptyTreeOID: ObjectID("6ef19b41225c5369f1c104d45d8d85efa9b057b53b14b4b9b939dd74decc5321"),
+		ZeroOID:      ObjectID("0000000000000000000000000000000000000000000000000000000000000000"),
 	}
 
 	// ErrInvalidObjectID is returned in case an object ID's string
@@ -35,6 +32,8 @@ type ObjectHash struct {
 	regexp *regexp.Regexp
 	// EmptyTreeOID is the object ID of the tree object that has no directory entries.
 	EmptyTreeOID ObjectID
+	// ZeroOID is the special value that Git uses to signal a ref or object does not exist
+	ZeroOID ObjectID
 }
 
 // FromHex constructs a new ObjectID from the given hex representation of the object ID. Returns
@@ -55,6 +54,11 @@ func (h ObjectHash) ValidateHex(hex string) error {
 	}
 
 	return fmt.Errorf("%w: %q", ErrInvalidObjectID, hex)
+}
+
+// IsZeroOID checks whether the given object ID is the all-zeroes object ID for the given hash.
+func (h ObjectHash) IsZeroOID(oid ObjectID) bool {
+	return string(oid) == string(h.ZeroOID)
 }
 
 // ObjectID represents an object ID.
@@ -78,9 +82,4 @@ func (oid ObjectID) Bytes() ([]byte, error) {
 // representation as every object ID is a valid revision.
 func (oid ObjectID) Revision() Revision {
 	return Revision(oid.String())
-}
-
-// IsZeroOID is a shortcut for `something == git.ZeroOID.String()`
-func (oid ObjectID) IsZeroOID() bool {
-	return string(oid) == string(ZeroOID)
 }

@@ -157,7 +157,7 @@ func TestObjectID_Bytes(t *testing.T) {
 	}{
 		{
 			desc:          "zero OID",
-			oid:           ZeroOID,
+			oid:           ObjectHashSHA1.ZeroOID,
 			expectedBytes: bytes.Repeat([]byte{0}, 20),
 		},
 		{
@@ -179,25 +179,42 @@ func TestObjectID_Bytes(t *testing.T) {
 	}
 }
 
-func TestIsZeroOID(t *testing.T) {
-	for _, tc := range []struct {
-		desc   string
-		oid    ObjectID
-		isZero bool
+func TestObjectHash_IsZeroOID(t *testing.T) {
+	for _, hash := range []struct {
+		desc     string
+		hash     ObjectHash
+		validHex string
 	}{
 		{
-			desc:   "zero object ID",
-			oid:    ZeroOID,
-			isZero: true,
+			desc: "SHA1",
+			hash: ObjectHashSHA1,
 		},
 		{
-			desc:   "zero object ID",
-			oid:    ObjectHashSHA1.EmptyTreeOID,
-			isZero: false,
+			desc: "SHA256",
+			hash: ObjectHashSHA256,
 		},
 	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			require.Equal(t, tc.isZero, tc.oid.IsZeroOID())
+		t.Run(hash.desc, func(t *testing.T) {
+			for _, tc := range []struct {
+				desc   string
+				oid    ObjectID
+				isZero bool
+			}{
+				{
+					desc:   "zero object ID",
+					oid:    hash.hash.ZeroOID,
+					isZero: true,
+				},
+				{
+					desc:   "zero object ID",
+					oid:    hash.hash.EmptyTreeOID,
+					isZero: false,
+				},
+			} {
+				t.Run(tc.desc, func(t *testing.T) {
+					require.Equal(t, tc.isZero, hash.hash.IsZeroOID(tc.oid))
+				})
+			}
 		})
 	}
 }

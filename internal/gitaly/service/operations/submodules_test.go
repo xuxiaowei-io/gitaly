@@ -32,14 +32,14 @@ func TestSuccessfulUserUpdateSubmoduleRequest(t *testing.T) {
 	// a branch which has a name starting with "refs/heads/".
 	currentOID, err := repo.ResolveRevision(ctx, "refs/heads/master")
 	require.NoError(t, err)
-	require.NoError(t, repo.UpdateRef(ctx, "refs/heads/refs/heads/master", currentOID, git.ZeroOID))
+	require.NoError(t, repo.UpdateRef(ctx, "refs/heads/refs/heads/master", currentOID, git.ObjectHashSHA1.ZeroOID))
 
 	// If something uses the branch name as an unqualified reference, then
 	// git would return the tag instead of the branch. We thus create a tag
 	// with a different OID than the current master branch.
 	prevOID, err := repo.ResolveRevision(ctx, "refs/heads/master~")
 	require.NoError(t, err)
-	require.NoError(t, repo.UpdateRef(ctx, "refs/tags/master", prevOID, git.ZeroOID))
+	require.NoError(t, repo.UpdateRef(ctx, "refs/tags/master", prevOID, git.ObjectHashSHA1.ZeroOID))
 
 	commitMessage := []byte("Update Submodule message")
 

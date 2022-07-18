@@ -176,7 +176,7 @@ func (s *Server) userApplyPatch(ctx context.Context, header *gitalypb.UserApplyP
 
 	currentCommit := parentCommitID
 	if branchCreated {
-		currentCommit = git.ZeroOID
+		currentCommit = git.ObjectHashSHA1.ZeroOID
 	}
 
 	if err := s.updateReferenceWithHooks(ctx, header.Repository, header.User, nil, targetBranch, patchedCommit, currentCommit); err != nil {

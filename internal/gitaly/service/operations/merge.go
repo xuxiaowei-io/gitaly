@@ -372,7 +372,7 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 
 		oldTargetOID = oid
 	} else if errors.Is(err, git.ErrReferenceNotFound) {
-		oldTargetOID = git.ZeroOID
+		oldTargetOID = git.ObjectHashSHA1.ZeroOID
 	} else {
 		return nil, helper.ErrInternalf("could not read target reference: %v", err)
 	}

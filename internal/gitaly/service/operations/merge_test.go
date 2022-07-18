@@ -393,7 +393,7 @@ func TestUserMergeBranch_ambiguousReference(t *testing.T) {
 		"refs/tags/heads/" + mergeBranchName,
 		"refs/tags/refs/heads/" + mergeBranchName,
 	} {
-		require.NoError(t, repo.UpdateRef(ctx, git.ReferenceName(reference), masterOID, git.ZeroOID))
+		require.NoError(t, repo.UpdateRef(ctx, git.ReferenceName(reference), masterOID, git.ObjectHashSHA1.ZeroOID))
 	}
 
 	mergeCommitMessage := "Merged by Gitaly"

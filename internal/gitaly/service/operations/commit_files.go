@@ -310,7 +310,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 
 	oldRevision := parentCommitOID
 	if targetBranchCommit == "" {
-		oldRevision = git.ZeroOID
+		oldRevision = git.ObjectHashSHA1.ZeroOID
 	} else if header.Force {
 		oldRevision = targetBranchCommit
 	}
@@ -326,7 +326,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 	return stream.SendAndClose(&gitalypb.UserCommitFilesResponse{BranchUpdate: &gitalypb.OperationBranchUpdate{
 		CommitId:      commitID.String(),
 		RepoCreated:   !hasBranches,
-		BranchCreated: oldRevision.IsZeroOID(),
+		BranchCreated: git.ObjectHashSHA1.IsZeroOID(oldRevision),
 	}})
 }
 
