@@ -192,7 +192,7 @@ func TestIsZeroOID(t *testing.T) {
 		},
 		{
 			desc:   "zero object ID",
-			oid:    EmptyTreeOID,
+			oid:    ObjectHashSHA1.EmptyTreeOID,
 			isZero: false,
 		},
 	} {

@@ -245,7 +245,7 @@ func TestConflicts_checkError(t *testing.T) {
 		},
 		{
 			desc:   "invalid object type",
-			ours:   glgit.EmptyTreeOID,
+			ours:   glgit.ObjectHashSHA1.EmptyTreeOID,
 			theirs: validOID,
 			expErr: status.Error(codes.InvalidArgument, "the requested type does not match the type in the ODB"),
 		},

@@ -249,7 +249,7 @@ func TestFindAllTags_simpleNestedTags(t *testing.T) {
 					Body:     []byte("message"),
 					BodySize: 7,
 					Subject:  []byte("message"),
-					TreeId:   git.EmptyTreeOID.String(),
+					TreeId:   git.ObjectHashSHA1.EmptyTreeOID.String(),
 					Author: &gitalypb.CommitAuthor{
 						Name:     []byte("Scrooge McDuck"),
 						Email:    []byte("scrooge@mcduck.com"),

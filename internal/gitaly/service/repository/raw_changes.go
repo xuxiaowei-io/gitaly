@@ -59,7 +59,7 @@ func (s *server) getRawChanges(stream gitalypb.RepositoryService_GetRawChangesSe
 	}
 
 	if git.ObjectID(from).IsZeroOID() {
-		from = git.EmptyTreeOID.String()
+		from = git.ObjectHashSHA1.EmptyTreeOID.String()
 	}
 
 	ctx := stream.Context()

@@ -4,10 +4,8 @@ package gittest
 
 import "gitlab.com/gitlab-org/gitaly/v15/internal/git"
 
-const (
-	// EmptyTreeOID is the Git tree object hash that corresponds to an empty tree (directory)
-	EmptyTreeOID = git.EmptyTreeOID
-)
+// EmptyTreeOID is the Git tree object hash that corresponds to an empty tree (directory)
+var EmptyTreeOID = git.ObjectHashSHA1.EmptyTreeOID
 
 var initRepoExtraArgs = []string{}
 
