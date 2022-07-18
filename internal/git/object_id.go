@@ -16,12 +16,45 @@ const (
 )
 
 var (
+	// ObjectHashSHA1 is the implementation of an object ID via SHA1.
+	ObjectHashSHA1 = ObjectHash{
+		regexp: regexp.MustCompile(`\A[0-9a-f]{40}\z`),
+	}
+
+	// ObjectHashSHA256 is the implementation of an object ID via SHA256.
+	ObjectHashSHA256 = ObjectHash{
+		regexp: regexp.MustCompile(`\A[0-9a-f]{64}\z`),
+	}
+
 	// ErrInvalidObjectID is returned in case an object ID's string
 	// representation is not a valid one.
 	ErrInvalidObjectID = errors.New("invalid object ID")
-
-	objectIDRegex = regexp.MustCompile(`\A[0-9a-f]{40}\z`)
 )
+
+// ObjectHash is a hash-function specific implementation of an object ID.
+type ObjectHash struct {
+	regexp *regexp.Regexp
+}
+
+// FromHex constructs a new ObjectID from the given hex representation of the object ID. Returns
+// ErrInvalidObjectID if the given object ID is not valid.
+func (h ObjectHash) FromHex(hex string) (ObjectID, error) {
+	if err := h.ValidateHex(hex); err != nil {
+		return "", err
+	}
+
+	return ObjectID(hex), nil
+}
+
+// ValidateHex checks if `hex` is a syntactically correct object ID for the given hash. Abbreviated
+// object IDs are not deemed to be valid. Returns an `ErrInvalidObjectID` if the `hex` is not valid.
+func (h ObjectHash) ValidateHex(hex string) error {
+	if h.regexp.MatchString(hex) {
+		return nil
+	}
+
+	return fmt.Errorf("%w: %q", ErrInvalidObjectID, hex)
+}
 
 // ObjectID represents an object ID.
 type ObjectID string
@@ -30,10 +63,7 @@ type ObjectID string
 // representation of the object ID. Returns ErrInvalidObjectID if the given
 // OID is not valid.
 func NewObjectIDFromHex(hex string) (ObjectID, error) {
-	if err := ValidateObjectID(hex); err != nil {
-		return "", err
-	}
-	return ObjectID(hex), nil
+	return ObjectHashSHA1.FromHex(hex)
 }
 
 // String returns the hex representation of the ObjectID.
@@ -60,11 +90,7 @@ func (oid ObjectID) Revision() Revision {
 // object IDs are not deemed to be valid. Returns an ErrInvalidObjectID if the
 // id is not valid.
 func ValidateObjectID(id string) error {
-	if objectIDRegex.MatchString(id) {
-		return nil
-	}
-
-	return fmt.Errorf("%w: %q", ErrInvalidObjectID, id)
+	return ObjectHashSHA1.ValidateHex(id)
 }
 
 // IsZeroOID is a shortcut for `something == git.ZeroOID.String()`
