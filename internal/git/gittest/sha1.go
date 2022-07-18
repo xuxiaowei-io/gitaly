@@ -15,5 +15,5 @@ var initRepoExtraArgs = []string{}
 // representation of the object ID. Returns ErrInvalidObjectID if the given
 // OID is not valid.
 func NewObjectIDFromHex(hex string) (git.ObjectID, error) {
-	return git.NewObjectIDFromHex(hex)
+	return git.ObjectHashSHA1.FromHex(hex)
 }

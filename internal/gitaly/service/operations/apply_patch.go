@@ -169,7 +169,7 @@ func (s *Server) userApplyPatch(ctx context.Context, header *gitalypb.UserApplyP
 		return fmt.Errorf("get patched commit: %w", gitError{ErrMsg: revParseStderr.String(), Err: err})
 	}
 
-	patchedCommit, err := git.NewObjectIDFromHex(text.ChompBytes(revParseStdout.Bytes()))
+	patchedCommit, err := git.ObjectHashSHA1.FromHex(text.ChompBytes(revParseStdout.Bytes()))
 	if err != nil {
 		return fmt.Errorf("parse patched commit oid: %w", err)
 	}

@@ -44,7 +44,7 @@ func (s *Server) UserCreateBranch(ctx context.Context, req *gitalypb.UserCreateB
 		return nil, status.Errorf(codes.FailedPrecondition, "revspec '%s' not found", req.StartPoint)
 	}
 
-	startPointOID, err := git.NewObjectIDFromHex(startPointCommit.Id)
+	startPointOID, err := git.ObjectHashSHA1.FromHex(startPointCommit.Id)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "could not parse start point commit ID: %v", err)
 	}
@@ -108,12 +108,12 @@ func (s *Server) UserUpdateBranch(ctx context.Context, req *gitalypb.UserUpdateB
 		return nil, err
 	}
 
-	newOID, err := git.NewObjectIDFromHex(string(req.Newrev))
+	newOID, err := git.ObjectHashSHA1.FromHex(string(req.Newrev))
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "could not parse newrev: %v", err)
 	}
 
-	oldOID, err := git.NewObjectIDFromHex(string(req.Oldrev))
+	oldOID, err := git.ObjectHashSHA1.FromHex(string(req.Oldrev))
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "could not parse oldrev: %v", err)
 	}

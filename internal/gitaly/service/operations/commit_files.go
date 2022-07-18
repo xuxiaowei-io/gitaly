@@ -161,7 +161,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 			return fmt.Errorf("resolve parent commit: %w", err)
 		}
 	} else {
-		parentCommitOID, err = git.NewObjectIDFromHex(header.StartSha)
+		parentCommitOID, err = git.ObjectHashSHA1.FromHex(header.StartSha)
 		if err != nil {
 			return helper.ErrInvalidArgumentf("cannot resolve parent commit: %w", err)
 		}

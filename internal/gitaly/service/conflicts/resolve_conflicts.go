@@ -192,7 +192,7 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 		return err
 	}
 
-	commitOID, err := git.NewObjectIDFromHex(result.CommitID)
+	commitOID, err := git.ObjectHashSHA1.FromHex(result.CommitID)
 	if err != nil {
 		return err
 	}

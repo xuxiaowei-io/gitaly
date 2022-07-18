@@ -64,7 +64,7 @@ func WriteTag(
 
 	tagID := Exec(t, cfg, "-C", repoPath, "show-ref", "-s", tagName)
 
-	objectID, err := git.NewObjectIDFromHex(text.ChompBytes(tagID))
+	objectID, err := NewObjectIDFromHex(text.ChompBytes(tagID))
 	require.NoError(t, err)
 
 	return objectID

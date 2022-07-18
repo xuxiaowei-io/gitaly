@@ -170,7 +170,7 @@ func TestUserMergeBranch_quarantine(t *testing.T) {
 	), err)
 	require.Nil(t, secondResponse)
 
-	oid, err := git.NewObjectIDFromHex(strings.TrimSpace(firstResponse.CommitId))
+	oid, err := git.ObjectHashSHA1.FromHex(strings.TrimSpace(firstResponse.CommitId))
 	require.NoError(t, err)
 	exists, err := repo.HasRevision(ctx, oid.Revision()+"^{commit}")
 	require.NoError(t, err)

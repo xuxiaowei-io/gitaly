@@ -59,13 +59,6 @@ func (h ObjectHash) ValidateHex(hex string) error {
 // ObjectID represents an object ID.
 type ObjectID string
 
-// NewObjectIDFromHex constructs a new ObjectID from the given hex
-// representation of the object ID. Returns ErrInvalidObjectID if the given
-// OID is not valid.
-func NewObjectIDFromHex(hex string) (ObjectID, error) {
-	return ObjectHashSHA1.FromHex(hex)
-}
-
 // String returns the hex representation of the ObjectID.
 func (oid ObjectID) String() string {
 	return string(oid)
