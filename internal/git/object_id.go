@@ -86,13 +86,6 @@ func (oid ObjectID) Revision() Revision {
 	return Revision(oid.String())
 }
 
-// ValidateObjectID checks if id is a syntactically correct object ID. Abbreviated
-// object IDs are not deemed to be valid. Returns an ErrInvalidObjectID if the
-// id is not valid.
-func ValidateObjectID(id string) error {
-	return ObjectHashSHA1.ValidateHex(id)
-}
-
 // IsZeroOID is a shortcut for `something == git.ZeroOID.String()`
 func (oid ObjectID) IsZeroOID() bool {
 	return string(oid) == string(ZeroOID)
