@@ -1,6 +1,6 @@
 //go:build !gitaly_test_sha256
 
-package git
+package git_test
 
 import (
 	"bytes"
@@ -10,22 +10,23 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 )
 
 func TestObjectHash_ValidateHex(t *testing.T) {
 	for _, hash := range []struct {
 		desc     string
-		hash     ObjectHash
+		hash     git.ObjectHash
 		validHex string
 	}{
 		{
 			desc:     "SHA1",
-			hash:     ObjectHashSHA1,
+			hash:     git.ObjectHashSHA1,
 			validHex: "356e7793f9654d51dfb27312a1464062bceb9fa3",
 		},
 		{
 			desc:     "SHA256",
-			hash:     ObjectHashSHA256,
+			hash:     git.ObjectHashSHA256,
 			validHex: "aec070645fe53ee3b3763059376134f058cc337247c978add178b6ccdfb0019f",
 		},
 	} {
@@ -83,17 +84,17 @@ func TestObjectHash_ValidateHex(t *testing.T) {
 func TestObjectHash_FromHex(t *testing.T) {
 	for _, hash := range []struct {
 		desc     string
-		hash     ObjectHash
+		hash     git.ObjectHash
 		validHex string
 	}{
 		{
 			desc:     "SHA1",
-			hash:     ObjectHashSHA1,
+			hash:     git.ObjectHashSHA1,
 			validHex: "356e7793f9654d51dfb27312a1464062bceb9fa3",
 		},
 		{
 			desc:     "SHA256",
-			hash:     ObjectHashSHA256,
+			hash:     git.ObjectHashSHA256,
 			validHex: "aec070645fe53ee3b3763059376134f058cc337247c978add178b6ccdfb0019f",
 		},
 	} {
@@ -151,23 +152,23 @@ func TestObjectHash_FromHex(t *testing.T) {
 func TestObjectID_Bytes(t *testing.T) {
 	for _, tc := range []struct {
 		desc          string
-		oid           ObjectID
+		oid           git.ObjectID
 		expectedBytes []byte
 		expectedErr   error
 	}{
 		{
 			desc:          "zero OID",
-			oid:           ObjectHashSHA1.ZeroOID,
+			oid:           git.ObjectHashSHA1.ZeroOID,
 			expectedBytes: bytes.Repeat([]byte{0}, 20),
 		},
 		{
 			desc:          "valid object ID",
-			oid:           ObjectID(strings.Repeat("8", 40)),
+			oid:           git.ObjectID(strings.Repeat("8", 40)),
 			expectedBytes: bytes.Repeat([]byte{0x88}, 20),
 		},
 		{
 			desc:        "invalid object ID",
-			oid:         ObjectID(strings.Repeat("8", 39) + "x"),
+			oid:         git.ObjectID(strings.Repeat("8", 39) + "x"),
 			expectedErr: hex.InvalidByteError('x'),
 		},
 	} {
@@ -182,22 +183,22 @@ func TestObjectID_Bytes(t *testing.T) {
 func TestObjectHash_IsZeroOID(t *testing.T) {
 	for _, hash := range []struct {
 		desc     string
-		hash     ObjectHash
+		hash     git.ObjectHash
 		validHex string
 	}{
 		{
 			desc: "SHA1",
-			hash: ObjectHashSHA1,
+			hash: git.ObjectHashSHA1,
 		},
 		{
 			desc: "SHA256",
-			hash: ObjectHashSHA256,
+			hash: git.ObjectHashSHA256,
 		},
 	} {
 		t.Run(hash.desc, func(t *testing.T) {
 			for _, tc := range []struct {
 				desc   string
-				oid    ObjectID
+				oid    git.ObjectID
 				isZero bool
 			}{
 				{
