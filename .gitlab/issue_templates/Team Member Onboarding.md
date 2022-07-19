@@ -23,7 +23,7 @@ Please complete all but the "Reading material" section in your first few working
   - [ ] update your Zoom title
 - Reading material
   - [ ] check out the README at https://gitlab.com/gitlab-org/gitaly, without getting lost in too much detail
-  - [ ] get familiar with how we [schedule work] and possibly bookmark the [Gitaly ongoing work issue board]
+  - [ ] get familiar with how we [schedule work](https://gitlab.com/gitlab-org/gitaly/-/issues/4095) and possibly bookmark the [Gitaly ongoing work issue board](https://gitlab.com/groups/gitlab-org/-/boards/1140874?label_name%5B%5D=group%3A%3Agitaly&milestone_title=Upcoming)
   - [ ] check out the [team page](https://about.gitlab.com/handbook/engineering/development/enablement/systems/gitaly/)
 
 /assign me
