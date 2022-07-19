@@ -298,12 +298,12 @@ var commandDescriptions = map[string]commandDescription{
 	},
 	"upload-pack": {
 		flags: scNoRefUpdates,
-		opts: append([]GlobalOption{
+		opts: append(append([]GlobalOption{
 			ConfigPair{Key: "uploadpack.allowFilter", Value: "true"},
 			// Enables the capability to request individual SHA1's from the
 			// remote repo.
 			ConfigPair{Key: "uploadpack.allowAnySHA1InWant", Value: "true"},
-		}, packConfiguration()...),
+		}, hiddenUploadPackRefPrefixes()...), packConfiguration()...),
 	},
 	"version": {
 		flags: scNoRefUpdates,
@@ -383,6 +383,24 @@ func hiddenReceivePackRefPrefixes() []GlobalOption {
 			// We want to hide both read-only and hidden refs in git-receive-pack(1) so
 			// that we make neither of them writeable.
 			config = append(config, ConfigPair{Key: "receive.hideRefs", Value: refPrefix})
+		default:
+			panic(fmt.Sprintf("unhandled internal reference type: %v", refType))
+		}
+	}
+
+	return config
+}
+
+func hiddenUploadPackRefPrefixes() []GlobalOption {
+	config := make([]GlobalOption, 0, len(InternalRefPrefixes))
+
+	for refPrefix, refType := range InternalRefPrefixes {
+		switch refType {
+		case InternalReferenceTypeHidden:
+			config = append(config, ConfigPair{Key: "uploadpack.hideRefs", Value: refPrefix})
+		case InternalReferenceTypeReadonly:
+			// git-upload-pack(1) doesn't allow writing references, and we do want to
+			// announce read-only references that aren't hidden.
 		default:
 			panic(fmt.Sprintf("unhandled internal reference type: %v", refType))
 		}

@@ -100,8 +100,6 @@ func TestInfoRefsUploadPack_internalRefs(t *testing.T) {
 			expectedAdvertisements: []string{
 				"HEAD",
 				"refs/heads/main\n",
-				// This is a bug as temporary references should be hidden.
-				"refs/tmp/1\n",
 			},
 		},
 		{
@@ -109,8 +107,6 @@ func TestInfoRefsUploadPack_internalRefs(t *testing.T) {
 			expectedAdvertisements: []string{
 				"HEAD",
 				"refs/heads/main\n",
-				// This is a bug as keep-around references should be hidden.
-				"refs/keep-around/1\n",
 			},
 		},
 	} {
