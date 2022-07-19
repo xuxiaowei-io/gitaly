@@ -60,6 +60,80 @@ func TestInfoRefsUploadPack_successful(t *testing.T) {
 	})
 }
 
+func TestInfoRefsUploadPack_internalRefs(t *testing.T) {
+	t.Parallel()
+
+	cfg := testcfg.Build(t)
+	cfg.SocketPath = runSmartHTTPServer(t, cfg)
+	ctx := testhelper.Context(t)
+
+	for _, tc := range []struct {
+		ref                    string
+		expectedAdvertisements []string
+	}{
+		{
+			ref: "refs/merge-requests/1/head",
+			expectedAdvertisements: []string{
+				"HEAD",
+				"refs/heads/main\n",
+				"refs/merge-requests/1/head\n",
+			},
+		},
+		{
+			ref: "refs/environments/1",
+			expectedAdvertisements: []string{
+				"HEAD",
+				"refs/environments/1\n",
+				"refs/heads/main\n",
+			},
+		},
+		{
+			ref: "refs/pipelines/1",
+			expectedAdvertisements: []string{
+				"HEAD",
+				"refs/heads/main\n",
+				"refs/pipelines/1\n",
+			},
+		},
+		{
+			ref: "refs/tmp/1",
+			expectedAdvertisements: []string{
+				"HEAD",
+				"refs/heads/main\n",
+				// This is a bug as temporary references should be hidden.
+				"refs/tmp/1\n",
+			},
+		},
+		{
+			ref: "refs/keep-around/1",
+			expectedAdvertisements: []string{
+				"HEAD",
+				"refs/heads/main\n",
+				// This is a bug as keep-around references should be hidden.
+				"refs/keep-around/1\n",
+			},
+		},
+	} {
+		t.Run(tc.ref, func(t *testing.T) {
+			repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
+
+			commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithParents())
+			gittest.Exec(t, cfg, "-C", repoPath, "update-ref", tc.ref, commitID.String())
+
+			var expectedAdvertisements []string
+			for _, expectedRef := range tc.expectedAdvertisements {
+				expectedAdvertisements = append(expectedAdvertisements, commitID.String()+" "+expectedRef)
+			}
+
+			response, err := makeInfoRefsUploadPackRequest(ctx, t, cfg.SocketPath, cfg.Auth.Token, &gitalypb.InfoRefsRequest{
+				Repository: repo,
+			})
+			require.NoError(t, err)
+			requireAdvertisedRefs(t, string(response), "git-upload-pack", expectedAdvertisements)
+		})
+	}
+}
+
 func TestInfoRefsUploadPack_repositoryDoesntExist(t *testing.T) {
 	t.Parallel()
 
