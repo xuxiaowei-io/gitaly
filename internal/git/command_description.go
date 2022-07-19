@@ -375,13 +375,20 @@ func validatePositionalArg(arg string) error {
 }
 
 func hiddenReceivePackRefPrefixes() []GlobalOption {
-	var cps []GlobalOption
+	config := make([]GlobalOption, 0, len(InternalRefPrefixes))
 
-	for _, ns := range InternalRefPrefixes {
-		cps = append(cps, ConfigPair{Key: "receive.hideRefs", Value: ns})
+	for refPrefix, refType := range InternalRefPrefixes {
+		switch refType {
+		case InternalReferenceTypeReadonly, InternalReferenceTypeHidden:
+			// We want to hide both read-only and hidden refs in git-receive-pack(1) so
+			// that we make neither of them writeable.
+			config = append(config, ConfigPair{Key: "receive.hideRefs", Value: refPrefix})
+		default:
+			panic(fmt.Sprintf("unhandled internal reference type: %v", refType))
+		}
 	}
 
-	return cps
+	return config
 }
 
 // fsckConfiguration generates our fsck configuration, including ignored checks. The prefix must

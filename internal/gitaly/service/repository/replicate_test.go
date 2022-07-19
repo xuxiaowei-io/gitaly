@@ -129,7 +129,7 @@ func TestReplicateRepository_hiddenRefs(t *testing.T) {
 		// Create a bunch of internal references, regardless of whether we classify them as hidden
 		// or read-only. We should be able to replicate all of them.
 		var expectedRefs []string
-		for _, refPrefix := range git.InternalRefPrefixes {
+		for refPrefix := range git.InternalRefPrefixes {
 			commitID := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithParents(), gittest.WithMessage(refPrefix))
 			gittest.Exec(t, cfg, "-C", sourceRepoPath, "update-ref", refPrefix+"1", commitID.String())
 			expectedRefs = append(expectedRefs, fmt.Sprintf("%s commit\t%s", commitID, refPrefix+"1"))
@@ -168,7 +168,7 @@ func TestReplicateRepository_hiddenRefs(t *testing.T) {
 		require.Equal(t, sourceCommitID, targetCommitID)
 
 		// Create the internal references now.
-		for _, refPrefix := range git.InternalRefPrefixes {
+		for refPrefix := range git.InternalRefPrefixes {
 			commitID := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithParents(), gittest.WithMessage(refPrefix))
 			gittest.Exec(t, cfg, "-C", sourceRepoPath, "update-ref", refPrefix+"1", commitID.String())
 		}
