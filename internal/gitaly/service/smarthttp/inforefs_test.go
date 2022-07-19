@@ -35,7 +35,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func TestSuccessfulInfoRefsUploadPack(t *testing.T) {
+func TestInfoRefsUploadPack_successful(t *testing.T) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
@@ -79,7 +79,7 @@ func TestInfoRefsUploadPack_repositoryDoesntExist(t *testing.T) {
 	testhelper.RequireGrpcError(t, expectedErr, err)
 }
 
-func TestSuccessfulInfoRefsUploadWithPartialClone(t *testing.T) {
+func TestInfoRefsUploadPack_partialClone(t *testing.T) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
@@ -106,7 +106,7 @@ func TestSuccessfulInfoRefsUploadWithPartialClone(t *testing.T) {
 	}
 }
 
-func TestSuccessfulInfoRefsUploadPackWithGitConfigOptions(t *testing.T) {
+func TestInfoRefsUploadPack_gitConfigOptions(t *testing.T) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
@@ -128,7 +128,7 @@ func TestSuccessfulInfoRefsUploadPackWithGitConfigOptions(t *testing.T) {
 	assertGitRefAdvertisement(t, "InfoRefsUploadPack", string(response), "001e# service=git-upload-pack", "0000", []string{})
 }
 
-func TestSuccessfulInfoRefsUploadPackWithGitProtocol(t *testing.T) {
+func TestInfoRefsUploadPack_gitProtocol(t *testing.T) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
@@ -186,7 +186,7 @@ func makeInfoRefsUploadPackRequest(ctx context.Context, t *testing.T, serverSock
 	return response, err
 }
 
-func TestSuccessfulInfoRefsReceivePack(t *testing.T) {
+func TestInfoRefsReceivePack_successful(t *testing.T) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
@@ -209,7 +209,7 @@ func TestSuccessfulInfoRefsReceivePack(t *testing.T) {
 	})
 }
 
-func TestObjectPoolRefAdvertisementHiding(t *testing.T) {
+func TestInfoRefsReceivePack_hiddenRefs(t *testing.T) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
@@ -252,7 +252,7 @@ func TestObjectPoolRefAdvertisementHiding(t *testing.T) {
 	require.NotContains(t, string(response), commitID+" .have")
 }
 
-func TestFailureRepoNotFoundInfoRefsReceivePack(t *testing.T) {
+func TestInfoRefsReceivePack_repoNotFound(t *testing.T) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
@@ -272,7 +272,7 @@ func TestFailureRepoNotFoundInfoRefsReceivePack(t *testing.T) {
 	testhelper.RequireGrpcError(t, expectedErr, err)
 }
 
-func TestFailureRepoNotSetInfoRefsReceivePack(t *testing.T) {
+func TestInfoRefsReceivePack_repoNotSet(t *testing.T) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
@@ -335,7 +335,7 @@ func (ms *mockStreamer) PutStream(ctx context.Context, repo *gitalypb.Repository
 	return ms.Streamer.PutStream(ctx, repo, req, src)
 }
 
-func TestCacheInfoRefsUploadPack(t *testing.T) {
+func TestInfoRefsUploadPack_cache(t *testing.T) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
