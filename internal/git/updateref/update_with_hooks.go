@@ -15,7 +15,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -161,13 +160,13 @@ func (u *UpdaterWithHooks) UpdateReference(
 	}
 
 	if reference == "" {
-		return helper.ErrInternalf("UpdateReference: got no reference")
+		return fmt.Errorf("reference cannot be empty")
 	}
 	if err := git.ValidateObjectID(oldrev.String()); err != nil {
-		return helper.ErrInternalf("UpdateReference: got invalid old value: %w", err)
+		return fmt.Errorf("validating old value: %w", err)
 	}
 	if err := git.ValidateObjectID(newrev.String()); err != nil {
-		return helper.ErrInternalf("UpdateReference: got invalid new value: %w", err)
+		return fmt.Errorf("validating new value: %w", err)
 	}
 
 	changes := fmt.Sprintf("%s %s %s\n", oldrev, newrev, reference)
