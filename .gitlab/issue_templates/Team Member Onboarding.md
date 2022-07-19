@@ -24,6 +24,7 @@ Please complete all but the "Reading material" section in your first few working
 - Reading material
   - [ ] check out the README at https://gitlab.com/gitlab-org/gitaly, without getting lost in too much detail
   - [ ] get familiar with how we [schedule work](https://gitlab.com/gitlab-org/gitaly/-/issues/4095) and possibly bookmark the [Gitaly ongoing work issue board](https://gitlab.com/groups/gitlab-org/-/boards/1140874?label_name%5B%5D=group%3A%3Agitaly&milestone_title=Upcoming)
+  - [ ] familiarize yourself with the [Merge request workflow](https://docs.gitlab.com/ee/development/contributing/merge_request_workflow.html) specific to working _on_ GitLab (the whole page)
   - [ ] check out the [team page](https://about.gitlab.com/handbook/engineering/development/enablement/systems/gitaly/)
 
 /assign me
