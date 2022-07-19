@@ -15,12 +15,12 @@ Please complete all but the "Reading material" section in your first few working
   - [ ] be added to the weekly team meeting and [meeting notes](https://docs.google.com/document/d/1k1hY0ZdeFUnSqF6GUToFaJEtVIN_SjWeaRdx1V0i25E/edit)
 - Open issues / Access Requests to:
   - [ ] join the @gitalyteam Slack group ([example](https://gitlab.com/gitlab-com/team-member-epics/access-requests/-/issues/15868))
+  - [ ] get access to [Stackdriver](https://about.gitlab.com/handbook/engineering/monitoring/#go-services)
+  - [ ] join the `gcp-host-profiles-sg@gitlab.com` GCP group for access to [periodic profiling data](https://gitlab.com/gitlab-com/gl-infra/scalability/-/issues/1433#note_901717231)
 - If transferring from another team within GitLab: 
   - [ ] update your [Team page entry](https://about.gitlab.com/handbook/git-page-update/#12-add-yourself-to-the-team-page)
   - [ ] update your Slack profile ("What I do")
   - [ ] update your Zoom title
-  - [ ] get access to [Stackdriver](https://about.gitlab.com/handbook/engineering/monitoring/#go-services)
-  - [ ] join the `gcp-host-profiles-sg@gitlab.com` GCP group for access to [periodic profiling data](https://gitlab.com/gitlab-com/gl-infra/scalability/-/issues/1433#note_901717231)
 - Reading material
   - [ ] check out the README at https://gitlab.com/gitlab-org/gitaly, without getting lost in too much detail
   - [ ] get familiar with how we [schedule work] and possibly bookmark the [Gitaly ongoing work issue board]
