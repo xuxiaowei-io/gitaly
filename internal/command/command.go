@@ -284,10 +284,10 @@ func New(ctx context.Context, nameAndArgs []string, opts ...Option) (*Command, e
 				// If the context has been cancelled and we didn't explicitly reap
 				// the child process then we need to manually kill it and release
 				// all associated resources.
-				if process := cmd.Process; process != nil && process.Pid > 0 {
+				if cmd.Process.Pid > 0 {
 					//nolint:errcheck // TODO: do we want to report errors?
 					// Send SIGTERM to the process group of cmd
-					syscall.Kill(-process.Pid, syscall.SIGTERM)
+					syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM)
 				}
 
 				// We do not care for any potential error code, but just want to
