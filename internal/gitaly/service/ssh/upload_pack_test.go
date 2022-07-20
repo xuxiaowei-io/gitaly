@@ -309,7 +309,7 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 
 				return nil
 			},
-			expectedErr: helper.ErrInternalf("cmd wait: exit status 128, stderr: %q", "fatal: the remote end hung up unexpectedly\n"),
+			expectedErr: helper.ErrCanceledf("user canceled the fetch"),
 		},
 		{
 			desc: "garbage",
