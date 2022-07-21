@@ -3,9 +3,12 @@ package git
 import (
 	"bytes"
 	"context"
+	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"hash"
 	"regexp"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
@@ -15,6 +18,7 @@ var (
 	// ObjectHashSHA1 is the implementation of an object ID via SHA1.
 	ObjectHashSHA1 = ObjectHash{
 		regexp:       regexp.MustCompile(`\A[0-9a-f]{40}\z`),
+		Hash:         sha1.New,
 		EmptyTreeOID: ObjectID("4b825dc642cb6eb9a060e54bf8d69288fbee4904"),
 		ZeroOID:      ObjectID("0000000000000000000000000000000000000000"),
 	}
@@ -22,6 +26,7 @@ var (
 	// ObjectHashSHA256 is the implementation of an object ID via SHA256.
 	ObjectHashSHA256 = ObjectHash{
 		regexp:       regexp.MustCompile(`\A[0-9a-f]{64}\z`),
+		Hash:         sha256.New,
 		EmptyTreeOID: ObjectID("6ef19b41225c5369f1c104d45d8d85efa9b057b53b14b4b9b939dd74decc5321"),
 		ZeroOID:      ObjectID("0000000000000000000000000000000000000000000000000000000000000000"),
 	}
@@ -34,6 +39,8 @@ var (
 // ObjectHash is a hash-function specific implementation of an object ID.
 type ObjectHash struct {
 	regexp *regexp.Regexp
+	// Hash is the hashing function used to hash objects.
+	Hash func() hash.Hash
 	// EmptyTreeOID is the object ID of the tree object that has no directory entries.
 	EmptyTreeOID ObjectID
 	// ZeroOID is the special value that Git uses to signal a ref or object does not exist

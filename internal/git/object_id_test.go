@@ -121,6 +121,11 @@ func TestDetectObjectHash(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 			}
+
+			// Function pointers cannot be compared, so we need to unset them.
+			hash.Hash = nil
+			tc.expectedHash.Hash = nil
+
 			require.Equal(t, tc.expectedHash, hash)
 		})
 	}
