@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"regexp"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 )
 
@@ -43,17 +42,15 @@ type ObjectHash struct {
 
 // DetectObjectHash detects the object-hash used by the given repository.
 func DetectObjectHash(ctx context.Context, repoExecutor RepositoryExecutor) (ObjectHash, error) {
-	var stdout bytes.Buffer
+	var stdout, stderr bytes.Buffer
 
 	if err := repoExecutor.ExecAndWait(ctx, SubCmd{
-		Name: "config",
-		Args: []string{"extensions.objectFormat"},
-	}, WithStdout(&stdout)); err != nil {
-		if status, ok := command.ExitStatus(err); ok && status == 1 {
-			return ObjectHashSHA1, nil
-		}
-
-		return ObjectHash{}, fmt.Errorf("reading object format: %w", err)
+		Name: "rev-parse",
+		Flags: []Option{
+			Flag{"--show-object-format"},
+		},
+	}, WithStdout(&stdout), WithStderr(&stderr)); err != nil {
+		return ObjectHash{}, fmt.Errorf("reading object format: %w, stderr: %q", err, stderr.String())
 	}
 
 	objectFormat := text.ChompBytes(stdout.Bytes())
