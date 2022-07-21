@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/hook"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -435,7 +436,7 @@ func TestUserCreateTag_message(t *testing.T) {
 		{
 			desc:    "error: contains null byte",
 			message: "\000",
-			err:     status.Error(codes.Unknown, "ArgumentError: string contains null byte"),
+			err:     helper.ErrInvalidArgumentf("validating request: tag message contains NUL byte"),
 		},
 		{
 			desc:    "annotated: some control characters",
@@ -1159,7 +1160,7 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 			targetRevision: "",
 			user:           gittest.TestUser,
 			response:       nil,
-			err:            status.Error(codes.InvalidArgument, "empty target revision"),
+			err:            helper.ErrInvalidArgumentf("validating request: empty target revision"),
 		},
 		{
 			desc:           "empty user",
@@ -1167,7 +1168,7 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 			targetRevision: "master",
 			user:           nil,
 			response:       nil,
-			err:            status.Error(codes.InvalidArgument, "empty user"),
+			err:            helper.ErrInvalidArgumentf("validating request: empty user"),
 		},
 		{
 			desc:           "empty starting point",
@@ -1175,7 +1176,7 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 			targetRevision: "",
 			user:           gittest.TestUser,
 			response:       nil,
-			err:            status.Error(codes.InvalidArgument, "empty target revision"),
+			err:            helper.ErrInvalidArgumentf("validating request: empty target revision"),
 		},
 		{
 			desc:           "non-existing starting point",
@@ -1183,7 +1184,7 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 			targetRevision: "i-dont-exist",
 			user:           gittest.TestUser,
 			response:       nil,
-			err:            status.Errorf(codes.FailedPrecondition, "revspec '%s' not found", "i-dont-exist"),
+			err:            helper.ErrFailedPreconditionf("revspec '%s' not found", "i-dont-exist"),
 		},
 		{
 			desc:           "space in lightweight tag name",
@@ -1191,7 +1192,7 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 			targetRevision: "master",
 			user:           gittest.TestUser,
 			response:       nil,
-			err:            status.Errorf(codes.Unknown, "Gitlab::Git::CommitError: Could not update refs/tags/%s. Please refresh and try again.", "a tag"),
+			err:            helper.ErrInvalidArgumentf("validating request: tag name contains space"),
 		},
 		{
 			desc:           "space in annotated tag name",
@@ -1200,7 +1201,7 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 			message:        "a message",
 			user:           gittest.TestUser,
 			response:       nil,
-			err:            status.Errorf(codes.Unknown, "Gitlab::Git::CommitError: Could not update refs/tags/%s. Please refresh and try again.", "a tag"),
+			err:            helper.ErrInvalidArgumentf("validating request: tag name contains space"),
 		},
 		{
 			desc:           "newline in lightweight tag name",
@@ -1225,7 +1226,7 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 			targetRevision: "master",
 			user:           gittest.TestUser,
 			response:       nil,
-			err:            status.Errorf(codes.Unknown, "Gitlab::Git::CommitError: Could not update refs/tags/%s. Please refresh and try again.", injectedTag),
+			err:            helper.ErrInvalidArgumentf("validating request: tag name contains space"),
 		},
 		{
 			desc:           "injection in annotated tag name",
@@ -1234,7 +1235,7 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 			message:        "a message",
 			user:           gittest.TestUser,
 			response:       nil,
-			err:            status.Errorf(codes.Unknown, "Gitlab::Git::CommitError: Could not update refs/tags/%s. Please refresh and try again.", injectedTag),
+			err:            helper.ErrInvalidArgumentf("validating request: tag name contains space"),
 		},
 	}
 
