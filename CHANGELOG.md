@@ -1,5 +1,55 @@
 # Gitaly changelog
 
+## 15.2.0 (2022-07-21)
+
+### Added (4 changes)
+
+- [cgroups: Only enable metrics if option is turned on](gitlab-org/gitaly@fde4a4702a17509f12e63732f7778da19972278f) ([merge request](gitlab-org/gitaly!4619))
+- [Add an option to skip flat paths for tree entries](gitlab-org/gitaly@a6b5618baa4c722890812606876501f5eb65f20c) ([merge request](gitlab-org/gitaly!4693))
+- [git: Add a gitversion label](gitlab-org/gitaly@a5e97fc55aebf67ce14a5da64103b8763abb6f23) ([merge request](gitlab-org/gitaly!4460))
+- [Add proto for FullPath RPC](gitlab-org/gitaly@19f47f2757ab7afdbb22e0ae7a0a60e96cc773e3) ([merge request](gitlab-org/gitaly!4642))
+
+### Fixed (25 changes)
+
+- [config: Don't treat EPERM as error when signalling](gitlab-org/gitaly@b32f0ad8f66f42057dabfac127e3d1ca75cda7e7) ([merge request](gitlab-org/gitaly!4716))
+- [repository: Fix commit-graphs referencing pruned commits after PruneUnreachableObjects](gitlab-org/gitaly@e972e73d08c5ed6bd6491a523204d2812c659ea4) ([merge request](gitlab-org/gitaly!4695))
+- [repository: Fix commit-graphs referencing pruned commits after GC](gitlab-org/gitaly@0920b15a01e1fb7ac54fd36ae29802b2855d9e4b) ([merge request](gitlab-org/gitaly!4695))
+- [housekeeping: Fix commit-graphs referencing pruned commits](gitlab-org/gitaly@83802e116052ba032ddb76770bf29ff346b547ea) ([merge request](gitlab-org/gitaly!4695))
+- [git: Fix missing reverse indices for some Git commands](gitlab-org/gitaly@a99108e67146e10d84dd0370db8f643501f12ef1) ([merge request](gitlab-org/gitaly!4712))
+- [Pin auxiliary binaries the main Gitaly binary invokes](gitlab-org/gitaly@19636a5caa57a0a580abab958cb06a086bf1b794) ([merge request](gitlab-org/gitaly!4670))
+- [objectpool: Switch to use OptimizeRepository for pool repos](gitlab-org/gitaly@410295810f9b3e7d94d0ce07b1a3ad1682023746) ([merge request](gitlab-org/gitaly!4708))
+- [housekeeping: Fix delta islands for pool repositories](gitlab-org/gitaly@81a6acbd3fb8ab30f0e4a1276722b55e780ba23c) ([merge request](gitlab-org/gitaly!4708))
+- [housekeeping: Fix off-by-one in packfile count required to repack](gitlab-org/gitaly@84e99923567045f71b90b804f07f81ea4fef977d) ([merge request](gitlab-org/gitaly!4708))
+- [maintenance: Remove per-repository timeouts in nightly maintenance](gitlab-org/gitaly@608d1a1124ca4f5290910e3c1d1a59784f07f3f3) ([merge request](gitlab-org/gitaly!4711))
+- [Prune leftover runtime directories on startup](gitlab-org/gitaly@d760915a3736498f5c422e9e43aafd7a3f5c5035) ([merge request](gitlab-org/gitaly!4700))
+- [datastore: Extend timeout to retrieve Postgres server's version](gitlab-org/gitaly@83d0af99ad184df110f0d5bd2865a353b226983b) ([merge request](gitlab-org/gitaly!4710))
+- [git: Fix commit-graph corruption caused by corrected committer dates](gitlab-org/gitaly@a8f996a321e73597a0c726576bc9b8c1d03d9a07) ([merge request](gitlab-org/gitaly!4677))
+- [coordinator: Fix feature flags being set twice](gitlab-org/gitaly@a8c7c3e210bf5f0a2f7ef2418248429e2187cba0) ([merge request](gitlab-org/gitaly!4675))
+- [command: Export environment variable to force-enable all feature flags](gitlab-org/gitaly@3e466e74e72b5b02c5da0b57bb771995f199efae) ([merge request](gitlab-org/gitaly!4672))
+- [operations: Honor feature flag for structured errors in UserCherryPick](gitlab-org/gitaly@6d32a81bc028feccddabdb5a6c369b72afa1ccaf) ([merge request](gitlab-org/gitaly!4669))
+- [repository: Fix clone credentials leaking via command line arguments](gitlab-org/gitaly@0ef2a43087a702169fb0ab98776b4260a51ad455) ([merge request](gitlab-org/gitaly!4668))
+- [ssh: Fix racy cleanup of read monitor's pipe](gitlab-org/gitaly@584b529003efe914d497720620e387b17be146aa) ([merge request](gitlab-org/gitaly!4615))
+- [command: Fix race with setting Cgroup path and context cancellation](gitlab-org/gitaly@2068a98fd460bf6a6079806bb4466b1f2c757be2) ([merge request](gitlab-org/gitaly!4615))
+- [command: Fix race with setting command names and context cancellation](gitlab-org/gitaly@c25f5094e1a0916b133358f078f1496985c28f00) ([merge request](gitlab-org/gitaly!4615))
+- [operations: Always enable structured errors in UserDeleteBranch](gitlab-org/gitaly@76483dccec0600278845dc825516ff3896595f19) ([merge request](gitlab-org/gitaly!4660))
+- [localrepo: Speed up calculating size for repo with excluded alternates](gitlab-org/gitaly@c9c426cf6297984a2639f4036f34fc725fa3a8b2) ([merge request](gitlab-org/gitaly!4657))
+- [git: Always disable use of alternate refs for git-fetch(1)](gitlab-org/gitaly@2383696d128d2c448ba5aca6a7fb3a688af11756) ([merge request](gitlab-org/gitaly!4657))
+- [Ensure there is a receive hooks payload before using it](gitlab-org/gitaly@227a594d2128d80f4239fea952e33eb372740782) ([merge request](gitlab-org/gitaly!4655))
+- [praefect: Don't overwrite '-older-than' flag](gitlab-org/gitaly@cb0fb4c0ff91825e8a35c1dbf6a5795535b0d7bf) ([merge request](gitlab-org/gitaly!4644))
+
+### Changed (6 changes)
+
+- [Makefile: Update Git to v2.37.1](gitlab-org/gitaly@be8b2457721e1ec154ecb6e037e797b37578ea62) ([merge request](gitlab-org/gitaly!4706))
+- [cgroups: Adjust metric names](gitlab-org/gitaly@c0955807f263552ff28ef09519f249498aa3b7cd) ([merge request](gitlab-org/gitaly!4619))
+- [operations: Convert UserCherryPick to return structured errors](gitlab-org/gitaly@b253d7c82adab0e4df280be61c5a5ea892f2cb71) ([merge request](gitlab-org/gitaly!4585))
+- [Use FIPS-compliant encryption for gitaly-ruby in FIPS mode](gitlab-org/gitaly@3c37bfdc1bb29ac00ad8879d5b48624a3c480fb6) ([merge request](gitlab-org/gitaly!4645))
+- [git2go: Add conflicting files to cherry pick error](gitlab-org/gitaly@372fdeec4c06000b248648bf780d665a98aa9514) ([merge request](gitlab-org/gitaly!4585))
+- [git2go: Pass feature flags into gitaly-git2go binary](gitlab-org/gitaly@47c23de002767c131095cfc0ed5f5eac99af1c63) ([merge request](gitlab-org/gitaly!4601))
+
+### Performance (1 change)
+
+- [linguist: Implement Stats in pure Go](gitlab-org/gitaly@efd9a598f50e03f05620b56f2e010600128f3b1c) ([merge request](gitlab-org/gitaly!4580))
+
 ## 15.1.3 (2022-07-19)
 
 No changes.
