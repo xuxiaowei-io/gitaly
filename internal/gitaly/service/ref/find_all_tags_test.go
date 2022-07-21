@@ -228,9 +228,7 @@ func TestFindAllTags_simpleNestedTags(t *testing.T) {
 
 	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg)
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithParents(),
-	)
+	commitID := gittest.WriteCommit(t, cfg, repoPath)
 
 	tagID := gittest.WriteTag(t, cfg, repoPath, "my/nested/tag", commitID.Revision())
 
@@ -280,7 +278,7 @@ func TestFindAllTags_duplicateAnnotatedTags(t *testing.T) {
 	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents())
+	commitID := gittest.WriteCommit(t, cfg, repoPath)
 	date := time.Unix(12345, 0)
 	dateOffset := date.Format("-0700")
 

@@ -144,12 +144,6 @@ func WriteCommit(t testing.TB, cfg config.Cfg, repoPath string, opts ...WriteCom
 	}
 	stdin := bytes.NewBufferString(message)
 
-	// The ID of an arbitrary commit known to exist in the test repository.
-	parents := []git.ObjectID{"1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"}
-	if writeCommitConfig.parents != nil {
-		parents = writeCommitConfig.parents
-	}
-
 	if len(writeCommitConfig.treeEntries) > 0 && writeCommitConfig.treeID != "" {
 		require.FailNow(t, "cannot set tree entries and tree ID at the same time")
 	}
@@ -159,11 +153,11 @@ func WriteCommit(t testing.TB, cfg config.Cfg, repoPath string, opts ...WriteCom
 		tree = WriteTree(t, cfg, repoPath, writeCommitConfig.treeEntries).String()
 	} else if writeCommitConfig.treeID != "" {
 		tree = writeCommitConfig.treeID.String()
-	} else if len(parents) == 0 {
+	} else if len(writeCommitConfig.parents) == 0 {
 		// If there are no parents, then we set the root tree to the empty tree.
 		tree = DefaultObjectHash.EmptyTreeOID.String()
 	} else {
-		tree = parents[0].String() + "^{tree}"
+		tree = writeCommitConfig.parents[0].String() + "^{tree}"
 	}
 
 	if writeCommitConfig.authorName == "" {
@@ -213,7 +207,7 @@ func WriteCommit(t testing.TB, cfg config.Cfg, repoPath string, opts ...WriteCom
 		fmt.Sprintf("GIT_COMMITTER_EMAIL=%s", DefaultCommitterMail),
 	)
 
-	for _, parent := range parents {
+	for _, parent := range writeCommitConfig.parents {
 		commitArgs = append(commitArgs, "-p", parent.String())
 	}
 

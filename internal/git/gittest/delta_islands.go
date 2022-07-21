@@ -62,7 +62,6 @@ func commitBlob(t *testing.T, cfg config.Cfg, repoPath, ref string, content stri
 		WithTreeEntries(TreeEntry{
 			Mode: "100644", OID: blobID, Path: "file",
 		}),
-		WithParents(),
 	)
 
 	Exec(t, cfg, "-C", repoPath, "update-ref", ref, commitID.String())

@@ -117,7 +117,6 @@ func TestListAllCommits(t *testing.T) {
 		// manually here and write the commit into the quarantine object directory.
 		commitID := gittest.WriteCommit(t, cfg, repoPath,
 			gittest.WithAlternateObjectDirectory(filepath.Join(repoPath, quarantineDir)),
-			gittest.WithParents(),
 		)
 
 		// We now expect only the quarantined commit to be returned.

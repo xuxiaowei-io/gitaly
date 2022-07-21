@@ -15,8 +15,6 @@ import (
 func TestWriteCommit(t *testing.T) {
 	cfg, _, repoPath := setup(t)
 
-	defaultParentID := "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"
-
 	revisions := map[git.Revision]git.ObjectID{
 		"refs/heads/master":  "",
 		"refs/heads/master~": "",
@@ -36,8 +34,7 @@ func TestWriteCommit(t *testing.T) {
 		{
 			desc: "no options",
 			expectedCommit: strings.Join([]string{
-				"tree 91639b9835ff541f312fd2735f639a50bf35d472",
-				"parent " + defaultParentID,
+				"tree " + DefaultObjectHash.EmptyTreeOID.String(),
 				"author " + DefaultCommitterSignature,
 				"committer " + DefaultCommitterSignature,
 				"",
@@ -50,8 +47,7 @@ func TestWriteCommit(t *testing.T) {
 				WithMessage("my custom message\n\nfoobar\n"),
 			},
 			expectedCommit: strings.Join([]string{
-				"tree 91639b9835ff541f312fd2735f639a50bf35d472",
-				"parent " + defaultParentID,
+				"tree " + DefaultObjectHash.EmptyTreeOID.String(),
 				"author " + DefaultCommitterSignature,
 				"committer " + DefaultCommitterSignature,
 				"",
@@ -67,8 +63,7 @@ func TestWriteCommit(t *testing.T) {
 				WithAuthorDate(time.Date(2005, 4, 7, 15, 13, 13, 0, time.FixedZone("UTC-7", -7*60*60))),
 			},
 			expectedCommit: strings.Join([]string{
-				"tree 91639b9835ff541f312fd2735f639a50bf35d472",
-				"parent " + defaultParentID,
+				"tree " + DefaultObjectHash.EmptyTreeOID.String(),
 				"author John Doe <scrooge@mcduck.com> 1112911993 -0700",
 				"committer " + DefaultCommitterSignature,
 				"",
@@ -82,8 +77,7 @@ func TestWriteCommit(t *testing.T) {
 				WithCommitterDate(time.Date(2005, 4, 7, 15, 13, 13, 0, time.FixedZone("UTC-7", -7*60*60))),
 			},
 			expectedCommit: strings.Join([]string{
-				"tree 91639b9835ff541f312fd2735f639a50bf35d472",
-				"parent " + defaultParentID,
+				"tree " + DefaultObjectHash.EmptyTreeOID.String(),
 				"author " + DefaultCommitterSignature,
 				"committer John Doe <scrooge@mcduck.com> 1112911993 -0700",
 				"",
@@ -124,8 +118,7 @@ func TestWriteCommit(t *testing.T) {
 				WithBranch("foo"),
 			},
 			expectedCommit: strings.Join([]string{
-				"tree 91639b9835ff541f312fd2735f639a50bf35d472",
-				"parent " + defaultParentID,
+				"tree " + DefaultObjectHash.EmptyTreeOID.String(),
 				"author " + DefaultCommitterSignature,
 				"committer " + DefaultCommitterSignature,
 				"",
@@ -144,7 +137,6 @@ func TestWriteCommit(t *testing.T) {
 			},
 			expectedCommit: strings.Join([]string{
 				"tree 0a2fde9f84d2642adbfdf7c37560005e2532fd31",
-				"parent " + defaultParentID,
 				"author " + DefaultCommitterSignature,
 				"committer " + DefaultCommitterSignature,
 				"",
@@ -171,7 +163,6 @@ func TestWriteCommit(t *testing.T) {
 			},
 			expectedCommit: strings.Join([]string{
 				"tree 52193934b12dbe23bf1d663802d77a04792a79ac",
-				"parent " + defaultParentID,
 				"author " + DefaultCommitterSignature,
 				"committer " + DefaultCommitterSignature,
 				"",
