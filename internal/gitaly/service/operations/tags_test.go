@@ -29,7 +29,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func TestSuccessfulUserDeleteTagRequest(t *testing.T) {
+func TestUserDeleteTag_successful(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
@@ -53,7 +53,7 @@ func TestSuccessfulUserDeleteTagRequest(t *testing.T) {
 	require.NotContains(t, string(tags), tagNameInput, "tag name still exists in tags list")
 }
 
-func TestSuccessfulGitHooksForUserDeleteTagRequest(t *testing.T) {
+func TestUserDeleteTag_hooks(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
@@ -142,7 +142,7 @@ func writeAssertObjectTypeUpdateHook(t *testing.T, repoPath, expectedObjectType 
 	`, expectedObjectType)))
 }
 
-func TestSuccessfulUserCreateTagRequest(t *testing.T) {
+func TestUserCreateTag_successful(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
@@ -227,7 +227,7 @@ func TestSuccessfulUserCreateTagRequest(t *testing.T) {
 	}
 }
 
-func TestUserCreateTagWithTransaction(t *testing.T) {
+func TestUserCreateTag_transactional(t *testing.T) {
 	t.Parallel()
 	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 
@@ -372,7 +372,7 @@ func TestUserCreateTagWithTransaction(t *testing.T) {
 	}
 }
 
-func TestUserCreateTagQuarantine(t *testing.T) {
+func TestUserCreateTag_quarantine(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
@@ -420,7 +420,7 @@ message`,
 	require.False(t, tagExists, "tag should not have been migrated")
 }
 
-func TestSuccessfulUserCreateTagRequestAnnotatedLightweightDisambiguation(t *testing.T) {
+func TestUserCreateTag_message(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
@@ -501,7 +501,7 @@ func TestSuccessfulUserCreateTagRequestAnnotatedLightweightDisambiguation(t *tes
 	}
 }
 
-func TestSuccessfulUserCreateTagRequestWithParsedTargetRevision(t *testing.T) {
+func TestUserCreateTag_targetRevision(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
@@ -580,7 +580,7 @@ func TestSuccessfulUserCreateTagRequestWithParsedTargetRevision(t *testing.T) {
 	}
 }
 
-func TestSuccessfulUserCreateTagRequestToNonCommit(t *testing.T) {
+func TestUserCreateTag_nonCommitTarget(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
@@ -683,7 +683,7 @@ func TestSuccessfulUserCreateTagRequestToNonCommit(t *testing.T) {
 	}
 }
 
-func TestSuccessfulUserCreateTagNestedTags(t *testing.T) {
+func TestUserCreateTag_nestedTags(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
@@ -800,7 +800,7 @@ func TestSuccessfulUserCreateTagNestedTags(t *testing.T) {
 	}
 }
 
-func TestUserCreateTagStableTagIDs(t *testing.T) {
+func TestUserCreateTag_stableTagIDs(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
@@ -824,7 +824,7 @@ func TestUserCreateTagStableTagIDs(t *testing.T) {
 	}, response.Tag)
 }
 
-func TestUserDeleteTagSuccessfulDeletionOfPrefixedTag(t *testing.T) {
+func TestUserDeleteTag_prefixedTag(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
@@ -868,7 +868,7 @@ func TestUserDeleteTagSuccessfulDeletionOfPrefixedTag(t *testing.T) {
 	}
 }
 
-func TestUserCreateTagsuccessfulCreationOfPrefixedTag(t *testing.T) {
+func TestUserCreateTag_prefixedTag(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
@@ -924,7 +924,7 @@ func TestUserCreateTagsuccessfulCreationOfPrefixedTag(t *testing.T) {
 	}
 }
 
-func TestSuccessfulGitHooksForUserCreateTagRequest(t *testing.T) {
+func TestUserCreateTag_gitHooks(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
@@ -959,7 +959,7 @@ func TestSuccessfulGitHooksForUserCreateTagRequest(t *testing.T) {
 	}
 }
 
-func TestFailedUserDeleteTagRequestDueToValidation(t *testing.T) {
+func TestUserDeleteTag_invalidArgument(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
@@ -1030,7 +1030,7 @@ func TestFailedUserDeleteTagRequestDueToValidation(t *testing.T) {
 	}
 }
 
-func TestFailedUserDeleteTagDueToHooks(t *testing.T) {
+func TestUserDeleteTag_hookFailure(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
@@ -1062,7 +1062,7 @@ func TestFailedUserDeleteTagDueToHooks(t *testing.T) {
 	}
 }
 
-func TestFailedUserCreateTagDueToHooks(t *testing.T) {
+func TestUserCreateTag_hookFailure(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
@@ -1086,7 +1086,7 @@ func TestFailedUserCreateTagDueToHooks(t *testing.T) {
 	}
 }
 
-func TestFailedUserCreateTagRequestDueToTagExistence(t *testing.T) {
+func TestUserCreateTag_preexisting(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
@@ -1137,7 +1137,7 @@ func TestFailedUserCreateTagRequestDueToTagExistence(t *testing.T) {
 	}
 }
 
-func TestFailedUserCreateTagRequestDueToValidation(t *testing.T) {
+func TestUserCreateTag_invalidArgument(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
