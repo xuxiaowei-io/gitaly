@@ -15,7 +15,6 @@ import (
 func TestWriteCommit(t *testing.T) {
 	cfg, _, repoPath := setup(t)
 
-	defaultCommitter := "Scrooge McDuck <scrooge@mcduck.com> 1572776879 +0100"
 	defaultParentID := "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"
 
 	revisions := map[git.Revision]git.ObjectID{
@@ -39,8 +38,8 @@ func TestWriteCommit(t *testing.T) {
 			expectedCommit: strings.Join([]string{
 				"tree 91639b9835ff541f312fd2735f639a50bf35d472",
 				"parent " + defaultParentID,
-				"author " + defaultCommitter,
-				"committer " + defaultCommitter,
+				"author " + DefaultCommitterSignature,
+				"committer " + DefaultCommitterSignature,
 				"",
 				"message",
 			}, "\n"),
@@ -53,8 +52,8 @@ func TestWriteCommit(t *testing.T) {
 			expectedCommit: strings.Join([]string{
 				"tree 91639b9835ff541f312fd2735f639a50bf35d472",
 				"parent " + defaultParentID,
-				"author " + defaultCommitter,
-				"committer " + defaultCommitter,
+				"author " + DefaultCommitterSignature,
+				"committer " + DefaultCommitterSignature,
 				"",
 				"my custom message",
 				"",
@@ -71,7 +70,7 @@ func TestWriteCommit(t *testing.T) {
 				"tree 91639b9835ff541f312fd2735f639a50bf35d472",
 				"parent " + defaultParentID,
 				"author John Doe <scrooge@mcduck.com> 1112911993 -0700",
-				"committer " + defaultCommitter,
+				"committer " + DefaultCommitterSignature,
 				"",
 				"message",
 			}, "\n"),
@@ -85,7 +84,7 @@ func TestWriteCommit(t *testing.T) {
 			expectedCommit: strings.Join([]string{
 				"tree 91639b9835ff541f312fd2735f639a50bf35d472",
 				"parent " + defaultParentID,
-				"author Scrooge McDuck <scrooge@mcduck.com> 1572776879 +0100",
+				"author " + DefaultCommitterSignature,
 				"committer John Doe <scrooge@mcduck.com> 1112911993 -0700",
 				"",
 				"message",
@@ -98,8 +97,8 @@ func TestWriteCommit(t *testing.T) {
 			},
 			expectedCommit: strings.Join([]string{
 				"tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904",
-				"author " + defaultCommitter,
-				"committer " + defaultCommitter,
+				"author " + DefaultCommitterSignature,
+				"committer " + DefaultCommitterSignature,
 				"",
 				"message",
 			}, "\n"),
@@ -113,8 +112,8 @@ func TestWriteCommit(t *testing.T) {
 				"tree 07f8147e8e73aab6c935c296e8cdc5194dee729b",
 				"parent 1e292f8fedd741b75372e19097c76d327140c312",
 				"parent 7975be0116940bf2ad4321f79d02a55c5f7779aa",
-				"author " + defaultCommitter,
-				"committer " + defaultCommitter,
+				"author " + DefaultCommitterSignature,
+				"committer " + DefaultCommitterSignature,
 				"",
 				"message",
 			}, "\n"),
@@ -127,8 +126,8 @@ func TestWriteCommit(t *testing.T) {
 			expectedCommit: strings.Join([]string{
 				"tree 91639b9835ff541f312fd2735f639a50bf35d472",
 				"parent " + defaultParentID,
-				"author " + defaultCommitter,
-				"committer " + defaultCommitter,
+				"author " + DefaultCommitterSignature,
+				"committer " + DefaultCommitterSignature,
 				"",
 				"message",
 			}, "\n"),
@@ -146,8 +145,8 @@ func TestWriteCommit(t *testing.T) {
 			expectedCommit: strings.Join([]string{
 				"tree 0a2fde9f84d2642adbfdf7c37560005e2532fd31",
 				"parent " + defaultParentID,
-				"author " + defaultCommitter,
-				"committer " + defaultCommitter,
+				"author " + DefaultCommitterSignature,
+				"committer " + DefaultCommitterSignature,
 				"",
 				"message",
 			}, "\n"),
@@ -173,8 +172,8 @@ func TestWriteCommit(t *testing.T) {
 			expectedCommit: strings.Join([]string{
 				"tree 52193934b12dbe23bf1d663802d77a04792a79ac",
 				"parent " + defaultParentID,
-				"author " + defaultCommitter,
-				"committer " + defaultCommitter,
+				"author " + DefaultCommitterSignature,
+				"committer " + DefaultCommitterSignature,
 				"",
 				"message",
 			}, "\n"),

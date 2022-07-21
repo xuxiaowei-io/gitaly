@@ -99,9 +99,9 @@ func TestFindAllTags_successful(t *testing.T) {
 			Message:      []byte("commit tag with a commit sha as the name"),
 			MessageSize:  40,
 			Tagger: &gitalypb.CommitAuthor{
-				Name:     []byte("Scrooge McDuck"),
-				Email:    []byte("scrooge@mcduck.com"),
-				Date:     &timestamppb.Timestamp{Seconds: 1572776879},
+				Name:     []byte(gittest.DefaultCommitterName),
+				Email:    []byte(gittest.DefaultCommitterMail),
+				Date:     timestamppb.New(gittest.DefaultCommitTime),
 				Timezone: []byte("+0100"),
 			},
 		},
@@ -112,9 +112,9 @@ func TestFindAllTags_successful(t *testing.T) {
 			Message:      []byte("tag of a tag"),
 			MessageSize:  12,
 			Tagger: &gitalypb.CommitAuthor{
-				Name:     []byte("Scrooge McDuck"),
-				Email:    []byte("scrooge@mcduck.com"),
-				Date:     &timestamppb.Timestamp{Seconds: 1572776879},
+				Name:     []byte(gittest.DefaultCommitterName),
+				Email:    []byte(gittest.DefaultCommitterMail),
+				Date:     timestamppb.New(gittest.DefaultCommitTime),
 				Timezone: []byte("+0100"),
 			},
 		},
@@ -165,8 +165,8 @@ func TestFindAllTags_successful(t *testing.T) {
 			Message:      truncatedPGPTagMsg[146:10386], // first 10240 bytes of tag message
 			MessageSize:  11148,
 			Tagger: &gitalypb.CommitAuthor{
-				Name:     []byte("Scrooge McDuck"),
-				Email:    []byte("scrooge@mcduck.com"),
+				Name:     []byte(gittest.DefaultCommitterName),
+				Email:    []byte(gittest.DefaultCommitterMail),
 				Date:     &timestamppb.Timestamp{Seconds: 1393491261},
 				Timezone: []byte("+0100"),
 			},
@@ -178,9 +178,9 @@ func TestFindAllTags_successful(t *testing.T) {
 			Message:     []byte("Blob tag"),
 			MessageSize: 8,
 			Tagger: &gitalypb.CommitAuthor{
-				Name:     []byte("Scrooge McDuck"),
-				Email:    []byte("scrooge@mcduck.com"),
-				Date:     &timestamppb.Timestamp{Seconds: 1572776879},
+				Name:     []byte(gittest.DefaultCommitterName),
+				Email:    []byte(gittest.DefaultCommitterMail),
+				Date:     timestamppb.New(gittest.DefaultCommitTime),
 				Timezone: []byte("+0100"),
 			},
 		},
@@ -210,9 +210,9 @@ func TestFindAllTags_successful(t *testing.T) {
 			MessageSize:  int64(len(bigMessage)),
 			TargetCommit: gitCommit,
 			Tagger: &gitalypb.CommitAuthor{
-				Name:     []byte("Scrooge McDuck"),
-				Email:    []byte("scrooge@mcduck.com"),
-				Date:     &timestamppb.Timestamp{Seconds: 1572776879},
+				Name:     []byte(gittest.DefaultCommitterName),
+				Email:    []byte(gittest.DefaultCommitterMail),
+				Date:     timestamppb.New(gittest.DefaultCommitTime),
 				Timezone: []byte("+0100"),
 			},
 		},
@@ -251,15 +251,15 @@ func TestFindAllTags_simpleNestedTags(t *testing.T) {
 					Subject:  []byte("message"),
 					TreeId:   git.ObjectHashSHA1.EmptyTreeOID.String(),
 					Author: &gitalypb.CommitAuthor{
-						Name:     []byte("Scrooge McDuck"),
-						Email:    []byte("scrooge@mcduck.com"),
-						Date:     &timestamppb.Timestamp{Seconds: 1572776879},
+						Name:     []byte(gittest.DefaultCommitterName),
+						Email:    []byte(gittest.DefaultCommitterMail),
+						Date:     timestamppb.New(gittest.DefaultCommitTime),
 						Timezone: []byte("+0100"),
 					},
 					Committer: &gitalypb.CommitAuthor{
-						Name:     []byte("Scrooge McDuck"),
-						Email:    []byte("scrooge@mcduck.com"),
-						Date:     &timestamppb.Timestamp{Seconds: 1572776879},
+						Name:     []byte(gittest.DefaultCommitterName),
+						Email:    []byte(gittest.DefaultCommitterMail),
+						Date:     timestamppb.New(gittest.DefaultCommitTime),
 						Timezone: []byte("+0100"),
 					},
 				},
@@ -307,9 +307,9 @@ func TestFindAllTags_duplicateAnnotatedTags(t *testing.T) {
 	}
 
 	commitAuthor := &gitalypb.CommitAuthor{
-		Name:     []byte("Scrooge McDuck"),
-		Email:    []byte("scrooge@mcduck.com"),
-		Date:     &timestamppb.Timestamp{Seconds: 1572776879},
+		Name:     []byte(gittest.DefaultCommitterName),
+		Email:    []byte(gittest.DefaultCommitterMail),
+		Date:     timestamppb.New(gittest.DefaultCommitTime),
 		Timezone: []byte("+0100"),
 	}
 	commit := &gitalypb.GitCommit{
@@ -430,9 +430,9 @@ func TestFindAllTags_nestedTags(t *testing.T) {
 					Message:     []byte(tagMessage),
 					MessageSize: int64(len([]byte(tagMessage))),
 					Tagger: &gitalypb.CommitAuthor{
-						Name:     []byte("Scrooge McDuck"),
-						Email:    []byte("scrooge@mcduck.com"),
-						Date:     &timestamppb.Timestamp{Seconds: 1572776879},
+						Name:     []byte(gittest.DefaultCommitterName),
+						Email:    []byte(gittest.DefaultCommitterMail),
+						Date:     timestamppb.New(gittest.DefaultCommitTime),
 						Timezone: []byte("+0100"),
 					},
 				}

@@ -133,14 +133,14 @@ func TestListAllCommits(t *testing.T) {
 			BodySize: 7,
 			TreeId:   "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
 			Author: &gitalypb.CommitAuthor{
-				Name:     []byte("Scrooge McDuck"),
-				Email:    []byte("scrooge@mcduck.com"),
+				Name:     []byte(gittest.DefaultCommitterName),
+				Email:    []byte(gittest.DefaultCommitterMail),
 				Date:     &timestamppb.Timestamp{Seconds: 1572776879},
 				Timezone: []byte("+0100"),
 			},
 			Committer: &gitalypb.CommitAuthor{
-				Name:     []byte("Scrooge McDuck"),
-				Email:    []byte("scrooge@mcduck.com"),
+				Name:     []byte(gittest.DefaultCommitterName),
+				Email:    []byte(gittest.DefaultCommitterMail),
 				Date:     &timestamppb.Timestamp{Seconds: 1572776879},
 				Timezone: []byte("+0100"),
 			},

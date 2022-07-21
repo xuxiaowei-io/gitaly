@@ -15,9 +15,20 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
-const (
-	committerName  = "Scrooge McDuck"
-	committerEmail = "scrooge@mcduck.com"
+var (
+	// DefaultCommitterName is the default name of the committer and author used to create
+	// commits.
+	DefaultCommitterName = "Scrooge McDuck"
+	// DefaultCommitterMail is the default mail of the committer and author used to create
+	// commits.
+	DefaultCommitterMail = "scrooge@mcduck.com"
+	// DefaultCommitTime is the default time used as written by WriteCommit().
+	DefaultCommitTime = time.Date(2019, 11, 3, 11, 27, 59, 0, time.FixedZone("", 60*60))
+	// DefaultCommitterSignature is the default signature in the format like it would be present
+	// in commits: "$name <$email> $unixtimestamp $timezone".
+	DefaultCommitterSignature = fmt.Sprintf(
+		"%s <%s> %d %s", DefaultCommitterName, DefaultCommitterMail, DefaultCommitTime.Unix(), DefaultCommitTime.Format("-0700"),
+	)
 )
 
 type writeCommitConfig struct {
@@ -156,7 +167,7 @@ func WriteCommit(t testing.TB, cfg config.Cfg, repoPath string, opts ...WriteCom
 	}
 
 	if writeCommitConfig.authorName == "" {
-		writeCommitConfig.authorName = committerName
+		writeCommitConfig.authorName = DefaultCommitterName
 	}
 
 	if writeCommitConfig.authorDate.IsZero() {
@@ -164,7 +175,7 @@ func WriteCommit(t testing.TB, cfg config.Cfg, repoPath string, opts ...WriteCom
 	}
 
 	if writeCommitConfig.committerName == "" {
-		writeCommitConfig.committerName = committerName
+		writeCommitConfig.committerName = DefaultCommitterName
 	}
 
 	if writeCommitConfig.committerDate.IsZero() {
@@ -176,7 +187,7 @@ func WriteCommit(t testing.TB, cfg config.Cfg, repoPath string, opts ...WriteCom
 	// --allow-empty".
 	commitArgs := []string{
 		"-c", fmt.Sprintf("user.name=%s", writeCommitConfig.committerName),
-		"-c", fmt.Sprintf("user.email=%s", committerEmail),
+		"-c", fmt.Sprintf("user.email=%s", DefaultCommitterMail),
 		"-C", repoPath,
 		"commit-tree", "-F", "-", tree,
 	}
@@ -196,10 +207,10 @@ func WriteCommit(t testing.TB, cfg config.Cfg, repoPath string, opts ...WriteCom
 	env = append(env,
 		fmt.Sprintf("GIT_AUTHOR_DATE=%d %s", writeCommitConfig.authorDate.Unix(), writeCommitConfig.authorDate.Format("-0700")),
 		fmt.Sprintf("GIT_AUTHOR_NAME=%s", writeCommitConfig.authorName),
-		fmt.Sprintf("GIT_AUTHOR_EMAIL=%s", committerEmail),
+		fmt.Sprintf("GIT_AUTHOR_EMAIL=%s", DefaultCommitterMail),
 		fmt.Sprintf("GIT_COMMITTER_DATE=%d %s", writeCommitConfig.committerDate.Unix(), writeCommitConfig.committerDate.Format("-0700")),
 		fmt.Sprintf("GIT_COMMITTER_NAME=%s", writeCommitConfig.committerName),
-		fmt.Sprintf("GIT_COMMITTER_EMAIL=%s", committerEmail),
+		fmt.Sprintf("GIT_COMMITTER_EMAIL=%s", DefaultCommitterMail),
 	)
 
 	for _, parent := range parents {
