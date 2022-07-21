@@ -15,14 +15,14 @@ import (
 func TestWriteCommit(t *testing.T) {
 	cfg, _, repoPath := setup(t)
 
-	revisions := map[git.Revision]git.ObjectID{
-		"refs/heads/master":  "",
-		"refs/heads/master~": "",
-	}
-	for revision := range revisions {
-		oid := Exec(t, cfg, "-C", repoPath, "rev-parse", revision.String())
-		revisions[revision] = git.ObjectID(text.ChompBytes(oid))
-	}
+	treeEntryA := TreeEntry{Path: "file", Mode: "100644", Content: "something"}
+
+	treeA := WriteTree(t, cfg, repoPath, []TreeEntry{treeEntryA})
+	treeB := WriteTree(t, cfg, repoPath, []TreeEntry{
+		{Path: "file", Mode: "100644", Content: "changed"},
+	})
+	commitA := WriteCommit(t, cfg, repoPath, WithTree(treeA))
+	commitB := WriteCommit(t, cfg, repoPath, WithTree(treeB))
 
 	for _, tc := range []struct {
 		desc                string
@@ -90,7 +90,7 @@ func TestWriteCommit(t *testing.T) {
 				WithParents(),
 			},
 			expectedCommit: strings.Join([]string{
-				"tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+				"tree " + DefaultObjectHash.EmptyTreeOID.String(),
 				"author " + DefaultCommitterSignature,
 				"committer " + DefaultCommitterSignature,
 				"",
@@ -100,12 +100,12 @@ func TestWriteCommit(t *testing.T) {
 		{
 			desc: "with multiple parents",
 			opts: []WriteCommitOption{
-				WithParents(revisions["refs/heads/master"], revisions["refs/heads/master~"]),
+				WithParents(commitA, commitB),
 			},
 			expectedCommit: strings.Join([]string{
-				"tree 07f8147e8e73aab6c935c296e8cdc5194dee729b",
-				"parent 1e292f8fedd741b75372e19097c76d327140c312",
-				"parent 7975be0116940bf2ad4321f79d02a55c5f7779aa",
+				"tree " + treeA.String(),
+				"parent " + commitA.String(),
+				"parent " + commitB.String(),
 				"author " + DefaultCommitterSignature,
 				"committer " + DefaultCommitterSignature,
 				"",
@@ -129,40 +129,24 @@ func TestWriteCommit(t *testing.T) {
 		{
 			desc: "with tree entry",
 			opts: []WriteCommitOption{
-				WithTreeEntries(TreeEntry{
-					Content: "foobar",
-					Mode:    "100644",
-					Path:    "file",
-				}),
+				WithTreeEntries(treeEntryA),
 			},
 			expectedCommit: strings.Join([]string{
-				"tree 0a2fde9f84d2642adbfdf7c37560005e2532fd31",
+				"tree " + treeA.String(),
 				"author " + DefaultCommitterSignature,
 				"committer " + DefaultCommitterSignature,
 				"",
 				"message",
 			}, "\n"),
-			expectedTreeEntries: []TreeEntry{
-				{
-					Content: "foobar",
-					Mode:    "100644",
-					Path:    "file",
-				},
-			},
+			expectedTreeEntries: []TreeEntry{treeEntryA},
 		},
 		{
 			desc: "with tree",
 			opts: []WriteCommitOption{
-				WithTree(WriteTree(t, cfg, repoPath, []TreeEntry{
-					{
-						Content: "something",
-						Mode:    "100644",
-						Path:    "file",
-					},
-				})),
+				WithTree(treeA),
 			},
 			expectedCommit: strings.Join([]string{
-				"tree 52193934b12dbe23bf1d663802d77a04792a79ac",
+				"tree " + treeA.String(),
 				"author " + DefaultCommitterSignature,
 				"committer " + DefaultCommitterSignature,
 				"",
