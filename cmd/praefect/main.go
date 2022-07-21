@@ -76,6 +76,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/bootstrap"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/bootstrap/starter"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/sentry"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect"
@@ -400,6 +401,22 @@ func run(
 	logger.Infof("election strategy: %q", conf.Failover.ElectionStrategy)
 	logger.Info("background started: gitaly nodes health monitoring")
 
+	var featureGetter gitlab.FeatureGetter
+
+	featureGetter, err = gitlab.NewHTTPClient(
+		logger,
+		conf.Gitlab,
+		conf.TLS,
+		conf.Prometheus,
+	)
+
+	if err != nil {
+		logger.WithError(err).Error("could not create GitLab client")
+		featureGetter = &gitlab.EmptyFeatureGetter{}
+	} else {
+		prometheus.MustRegister(featureGetter)
+	}
+
 	var (
 		// top level server dependencies
 		coordinator = praefect.NewCoordinator(
@@ -409,6 +426,7 @@ func run(
 			transactionManager,
 			conf,
 			protoregistry.GitalyProtoPreregistered,
+			featureGetter,
 		)
 
 		repl = praefect.NewReplMgr(

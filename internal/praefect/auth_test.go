@@ -159,7 +159,7 @@ func runServer(t *testing.T, token string, required bool) (*grpc.Server, string,
 	registry, err := protoregistry.NewFromPaths("praefect/mock/mock.proto")
 	require.NoError(t, err)
 
-	coordinator := NewCoordinator(queue, nil, NewNodeManagerRouter(nodeMgr, nil), txMgr, conf, registry)
+	coordinator := NewCoordinator(queue, nil, NewNodeManagerRouter(nodeMgr, nil), txMgr, conf, registry, nil)
 
 	srv := NewGRPCServer(conf, logEntry, registry, coordinator.StreamDirector, txMgr, nil, nil, nil, nil, nil)
 

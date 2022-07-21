@@ -11,6 +11,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
@@ -190,6 +191,7 @@ type Coordinator struct {
 	conf                     config.Config
 	votersMetric             *prometheus.HistogramVec
 	txReplicationCountMetric *prometheus.CounterVec
+	featureGetter            gitlab.FeatureGetter
 }
 
 // NewCoordinator returns a new Coordinator that utilizes the provided logger
@@ -200,6 +202,7 @@ func NewCoordinator(
 	txMgr *transactions.Manager,
 	conf config.Config,
 	r *protoregistry.Registry,
+	featureGetter gitlab.FeatureGetter,
 ) *Coordinator {
 	maxVoters := 1
 	for _, storage := range conf.VirtualStorages {
@@ -208,13 +211,18 @@ func NewCoordinator(
 		}
 	}
 
+	if featureGetter == nil {
+		featureGetter = &gitlab.EmptyFeatureGetter{}
+	}
+
 	coordinator := &Coordinator{
-		queue:    queue,
-		rs:       rs,
-		registry: r,
-		router:   router,
-		txMgr:    txMgr,
-		conf:     conf,
+		queue:         queue,
+		rs:            rs,
+		registry:      r,
+		router:        router,
+		txMgr:         txMgr,
+		conf:          conf,
+		featureGetter: featureGetter,
 		votersMetric: prometheus.NewHistogramVec(
 			prometheus.HistogramOpts{
 				Name:    "gitaly_praefect_voters_per_transaction_total",
@@ -484,6 +492,7 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 		finalizers = append(finalizers,
 			c.newRequestFinalizer(
 				ctx,
+				c.featureGetter,
 				route.RepositoryID,
 				virtualStorage,
 				targetRepo,
@@ -836,7 +845,7 @@ func (c *Coordinator) createTransactionFinalizer(
 		}
 
 		return c.newRequestFinalizer(
-			ctx, route.RepositoryID, virtualStorage, targetRepo, route.ReplicaPath, route.Primary.Storage,
+			ctx, c.featureGetter, route.RepositoryID, virtualStorage, targetRepo, route.ReplicaPath, route.Primary.Storage,
 			updated, outdated, change, params, cause)()
 	}
 }
@@ -990,6 +999,7 @@ func routerNodesToStorages(nodes []RouterNode) []string {
 
 func (c *Coordinator) newRequestFinalizer(
 	ctx context.Context,
+	featureGetter gitlab.FeatureGetter,
 	repositoryID int64,
 	virtualStorage string,
 	targetRepo *gitalypb.Repository,
@@ -1067,6 +1077,15 @@ func (c *Coordinator) newRequestFinalizer(
 		}
 
 		correlationID := correlation.ExtractFromContextOrGenerate(ctx)
+
+		if featureflag.PraefectFeatureFlags.IsEnabled(ctx) {
+			features, err := featureGetter.Features(ctx)
+			if err != nil {
+				ctxlogrus.Extract(ctx).WithError(err).Error("could not inject feature flags")
+			} else {
+				ctxlogrus.Extract(ctx).WithField("feature_flags", features).Info("feature flags")
+			}
+		}
 
 		g, ctx := errgroup.WithContext(ctx)
 		for _, secondary := range outdatedSecondaries {

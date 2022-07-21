@@ -834,8 +834,7 @@ func TestProxyWrites(t *testing.T) {
 		NewNodeManagerRouter(nodeMgr, rs),
 		txMgr,
 		conf,
-		protoregistry.GitalyProtoPreregistered,
-	)
+		protoregistry.GitalyProtoPreregistered, nil)
 
 	server := grpc.NewServer(
 		grpc.ForceServerCodec(proxy.NewCodec()),
@@ -988,8 +987,7 @@ func TestErrorThreshold(t *testing.T) {
 				NewNodeManagerRouter(nodeMgr, rs),
 				nil,
 				conf,
-				registry,
-			)
+				registry, nil)
 
 			server := grpc.NewServer(
 				grpc.ForceServerCodec(proxy.NewCodec()),

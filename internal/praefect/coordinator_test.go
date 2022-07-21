@@ -22,6 +22,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	gconfig "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	gitaly_metadata "gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
@@ -115,7 +116,7 @@ func TestStreamDirectorReadOnlyEnforcement(t *testing.T) {
 				transactions.NewManager(conf),
 				conf,
 				protoregistry.GitalyProtoPreregistered,
-			)
+				nil)
 
 			frame, err := proto.Marshal(&gitalypb.DeleteRefsRequest{
 				Repository: &gitalypb.Repository{
@@ -198,6 +199,7 @@ func TestStreamDirectorMutator(t *testing.T) {
 			queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(db))
 			queueInterceptor.OnEnqueue(func(ctx context.Context, event datastore.ReplicationEvent, queue datastore.ReplicationEventQueue) (datastore.ReplicationEvent, error) {
 				assert.True(t, len(queueInterceptor.GetEnqueued()) < 2, "expected only one event to be created")
+
 				return queue.Enqueue(ctx, event)
 			})
 
@@ -217,7 +219,7 @@ func TestStreamDirectorMutator(t *testing.T) {
 				txMgr,
 				conf,
 				protoregistry.GitalyProtoPreregistered,
-			)
+				nil)
 
 			frame, err := proto.Marshal(&gitalypb.FetchIntoObjectPoolRequest{
 				Origin:     &targetRepo,
@@ -335,7 +337,7 @@ func TestStreamDirectorMutator_StopTransaction(t *testing.T) {
 		txMgr,
 		conf,
 		protoregistry.GitalyProtoPreregistered,
-	)
+		nil)
 
 	fullMethod := "/gitaly.SmartHTTPService/PostReceivePack"
 
@@ -458,7 +460,7 @@ func TestStreamDirector_maintenance(t *testing.T) {
 		nil,
 		cfg,
 		registry,
-	)
+		nil)
 
 	message, err := proto.Marshal(&mock.RepoRequest{
 		Repo: &repo,
@@ -912,7 +914,7 @@ func TestStreamDirectorAccessor(t *testing.T) {
 				txMgr,
 				conf,
 				protoregistry.GitalyProtoPreregistered,
-			)
+				nil)
 
 			frame, err := proto.Marshal(&gitalypb.FindAllBranchesRequest{Repository: &targetRepo})
 			require.NoError(t, err)
@@ -1002,7 +1004,7 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 		txMgr,
 		conf,
 		protoregistry.GitalyProtoPreregistered,
-	)
+		nil)
 
 	t.Run("forwards accessor operations", func(t *testing.T) {
 		var primaryChosen int
@@ -1339,7 +1341,7 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 				txMgr,
 				conf,
 				protoregistry.GitalyProtoPreregistered,
-			)
+				nil)
 
 			frame, err := proto.Marshal(&gitalypb.CreateRepositoryRequest{
 				Repository: &targetRepo,
@@ -1390,6 +1392,7 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 				require.Len(t, actual, 1)
 
 				actualEvents = append(actualEvents, actual[0])
+
 				expectedEvents = append(expectedEvents, datastore.ReplicationEvent{
 					ID:        actual[0].ID,
 					State:     datastore.JobStateInProgress,
@@ -1497,7 +1500,7 @@ func TestAbsentCorrelationID(t *testing.T) {
 		txMgr,
 		conf,
 		protoregistry.GitalyProtoPreregistered,
-	)
+		nil)
 
 	frame, err := proto.Marshal(&gitalypb.CreateObjectPoolRequest{
 		Origin:     &targetRepo,
@@ -1626,7 +1629,8 @@ func TestStreamDirectorStorageScope(t *testing.T) {
 		nil,
 		conf,
 		protoregistry.GitalyProtoPreregistered,
-	)
+		nil)
+
 	ctx := testhelper.Context(t)
 
 	t.Run("mutator", func(t *testing.T) {
@@ -1689,7 +1693,7 @@ func TestStreamDirectorStorageScopeError(t *testing.T) {
 			nil,
 			config.Config{},
 			protoregistry.GitalyProtoPreregistered,
-		)
+			nil)
 
 		frame, err := proto.Marshal(&gitalypb.RemoveNamespaceRequest{StorageName: "", Name: "stub"})
 		require.NoError(t, err)
@@ -1718,7 +1722,7 @@ func TestStreamDirectorStorageScopeError(t *testing.T) {
 			nil,
 			config.Config{},
 			protoregistry.GitalyProtoPreregistered,
-		)
+			nil)
 
 		frame, err := proto.Marshal(&gitalypb.RemoveNamespaceRequest{StorageName: "fake", Name: "stub"})
 		require.NoError(t, err)
@@ -1748,7 +1752,7 @@ func TestStreamDirectorStorageScopeError(t *testing.T) {
 				nil,
 				config.Config{},
 				protoregistry.GitalyProtoPreregistered,
-			)
+				nil)
 
 			fullMethod := "/gitaly.NamespaceService/NamespaceExists"
 			requireScopeOperation(t, coordinator.registry, fullMethod, protoregistry.ScopeStorage, protoregistry.OpAccessor)
@@ -1779,7 +1783,7 @@ func TestStreamDirectorStorageScopeError(t *testing.T) {
 				nil,
 				config.Config{},
 				protoregistry.GitalyProtoPreregistered,
-			)
+				nil)
 
 			fullMethod := "/gitaly.NamespaceService/RemoveNamespace"
 			requireScopeOperation(t, coordinator.registry, fullMethod, protoregistry.ScopeStorage, protoregistry.OpMutator)
@@ -2668,19 +2672,21 @@ func TestNewRequestFinalizer_contextIsDisjointedFromTheRPC(t *testing.T) {
 					nil,
 					config.Config{},
 					nil,
-				).newRequestFinalizer(
-					ctx,
-					0,
-					"virtual storage",
-					&gitalypb.Repository{},
-					"replica-path",
-					"primary",
-					[]string{},
-					[]string{"secondary"},
-					tc.change,
-					datastore.Params{"RelativePath": "relative-path"},
-					"rpc-name",
-				)(),
+					nil).
+					newRequestFinalizer(
+						ctx,
+						&gitlab.EmptyFeatureGetter{},
+						0,
+						"virtual storage",
+						&gitalypb.Repository{},
+						"replica-path",
+						"primary",
+						[]string{},
+						[]string{"secondary"},
+						tc.change,
+						datastore.Params{"RelativePath": "relative-path"},
+						"rpc-name",
+					)(),
 				tc.errMsg,
 			)
 		})

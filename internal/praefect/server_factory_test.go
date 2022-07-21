@@ -89,8 +89,7 @@ func TestServerFactory(t *testing.T) {
 		NewNodeManagerRouter(nodeMgr, rs),
 		txMgr,
 		conf,
-		registry,
-	)
+		registry, nil)
 
 	checkOwnRegisteredServices := func(ctx context.Context, t *testing.T, cc *grpc.ClientConn) healthpb.HealthClient {
 		t.Helper()
