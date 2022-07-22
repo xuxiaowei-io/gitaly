@@ -1191,8 +1191,7 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 			tagName:        "a tag",
 			targetRevision: "master",
 			user:           gittest.TestUser,
-			response:       nil,
-			err:            helper.ErrInvalidArgumentf("validating request: tag name contains space"),
+			err:            helper.ErrInvalidArgumentf("validating request: invalid tag name: revision can't contain whitespace"),
 		},
 		{
 			desc:           "space in annotated tag name",
@@ -1200,16 +1199,14 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 			targetRevision: "master",
 			message:        "a message",
 			user:           gittest.TestUser,
-			response:       nil,
-			err:            helper.ErrInvalidArgumentf("validating request: tag name contains space"),
+			err:            helper.ErrInvalidArgumentf("validating request: invalid tag name: revision can't contain whitespace"),
 		},
 		{
 			desc:           "newline in lightweight tag name",
 			tagName:        "a\ntag",
 			targetRevision: "master",
 			user:           gittest.TestUser,
-			response:       nil,
-			err:            status.Errorf(codes.Unknown, "Gitlab::Git::CommitError: Could not update refs/tags/%s. Please refresh and try again.", "a\ntag"),
+			err:            helper.ErrInvalidArgumentf("validating request: invalid tag name: revision can't contain whitespace"),
 		},
 		{
 			desc:           "newline in annotated tag name",
@@ -1217,16 +1214,14 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 			targetRevision: "master",
 			message:        "a message",
 			user:           gittest.TestUser,
-			response:       nil,
-			err:            status.Error(codes.Unknown, "Rugged::InvalidError: failed to parse signature - expected prefix doesn't match actual"),
+			err:            helper.ErrInvalidArgumentf("validating request: invalid tag name: revision can't contain whitespace"),
 		},
 		{
 			desc:           "injection in lightweight tag name",
 			tagName:        injectedTag,
 			targetRevision: "master",
 			user:           gittest.TestUser,
-			response:       nil,
-			err:            helper.ErrInvalidArgumentf("validating request: tag name contains space"),
+			err:            helper.ErrInvalidArgumentf("validating request: invalid tag name: revision can't contain whitespace"),
 		},
 		{
 			desc:           "injection in annotated tag name",
@@ -1234,8 +1229,7 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 			targetRevision: "master",
 			message:        "a message",
 			user:           gittest.TestUser,
-			response:       nil,
-			err:            helper.ErrInvalidArgumentf("validating request: tag name contains space"),
+			err:            helper.ErrInvalidArgumentf("validating request: invalid tag name: revision can't contain whitespace"),
 		},
 	}
 

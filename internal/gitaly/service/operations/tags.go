@@ -58,8 +58,8 @@ func validateUserCreateTag(req *gitalypb.UserCreateTagRequest) error {
 		return fmt.Errorf("empty tag name")
 	}
 
-	if bytes.Contains(req.TagName, []byte(" ")) {
-		return fmt.Errorf("tag name contains space")
+	if err := git.ValidateRevision(req.TagName); err != nil {
+		return fmt.Errorf("invalid tag name: %w", err)
 	}
 
 	if req.User == nil {
