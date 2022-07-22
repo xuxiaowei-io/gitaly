@@ -265,7 +265,6 @@ func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, ru
 			gitlab.MockAllowed,
 			gitlab.MockPreReceive,
 			gitlab.MockPostReceive,
-			gitlab.MockFeatures,
 		)
 	}
 

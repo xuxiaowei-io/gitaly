@@ -633,9 +633,7 @@ func TestUserMergeBranch_allowed(t *testing.T) {
 					return tc.allowed, tc.allowedMessage, tc.allowedErr
 				},
 				gitlab.MockPreReceive,
-				gitlab.MockPostReceive,
-				gitlab.MockFeatures,
-			))
+				gitlab.MockPostReceive))
 
 			ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithCfg(
 				t, ctx, cfg,

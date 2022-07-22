@@ -34,9 +34,7 @@ func TestPrereceive_customHooks(t *testing.T) {
 		t,
 		gitlab.MockAllowed,
 		gitlab.MockPreReceive,
-		gitlab.MockPostReceive,
-		gitlab.MockFeatures,
-	))
+		gitlab.MockPostReceive))
 
 	receiveHooksPayload := &git.UserDetails{
 		UserID:   "1234",
@@ -193,9 +191,7 @@ func TestPrereceive_quarantine(t *testing.T) {
 		t,
 		gitlab.MockAllowed,
 		gitlab.MockPreReceive,
-		gitlab.MockPostReceive,
-		gitlab.MockFeatures,
-	))
+		gitlab.MockPostReceive))
 
 	gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte(fmt.Sprintf(
 		`#!/bin/sh

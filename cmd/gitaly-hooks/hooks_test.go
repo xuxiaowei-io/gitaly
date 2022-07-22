@@ -583,7 +583,6 @@ func runHookServiceServer(t *testing.T, cfg config.Cfg, serverOpts ...testserver
 		gitlab.MockAllowed,
 		gitlab.MockPreReceive,
 		gitlab.MockPostReceive,
-		gitlab.MockFeatures,
 	), serverOpts...)
 }
 

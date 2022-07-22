@@ -499,9 +499,7 @@ func TestUserDeleteBranch_allowed(t *testing.T) {
 					t,
 					tc.allowed,
 					gitlab.MockPreReceive,
-					gitlab.MockPostReceive,
-					gitlab.MockFeatures,
-				),
+					gitlab.MockPostReceive),
 			))
 
 			repo, repoPath := gittest.CreateRepository(ctx, t, cfg)

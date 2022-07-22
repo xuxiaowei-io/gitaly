@@ -637,9 +637,9 @@ func TestFeatures(t *testing.T) {
 				},
 			},
 			expectedFeatureFlags: map[featureflag.FeatureFlag]bool{
-				featureflag.FeatureFlag{Name: "1"}: false,
-				featureflag.FeatureFlag{Name: "2"}: true,
-				featureflag.FeatureFlag{Name: "3"}: false,
+				{Name: "1"}: false,
+				{Name: "2"}: true,
+				{Name: "3"}: false,
 			},
 		},
 		{
@@ -665,9 +665,9 @@ func TestFeatures(t *testing.T) {
 				},
 			},
 			expectedFeatureFlags: map[featureflag.FeatureFlag]bool{
-				featureflag.FeatureFlag{Name: "1"}: false,
-				featureflag.FeatureFlag{Name: "2"}: false,
-				featureflag.FeatureFlag{Name: "3"}: false,
+				{Name: "1"}: false,
+				{Name: "2"}: false,
+				{Name: "3"}: false,
 			},
 		},
 		{

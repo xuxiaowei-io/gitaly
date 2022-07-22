@@ -33,9 +33,7 @@ func TestHookManager_stopCalled(t *testing.T) {
 		t,
 		gitlab.MockAllowed,
 		gitlab.MockPreReceive,
-		gitlab.MockPostReceive,
-		gitlab.MockFeatures,
-	))
+		gitlab.MockPostReceive))
 
 	ctx := testhelper.Context(t)
 
@@ -137,9 +135,7 @@ func TestHookManager_contextCancellationCancelsVote(t *testing.T) {
 		t,
 		gitlab.MockAllowed,
 		gitlab.MockPreReceive,
-		gitlab.MockPostReceive,
-		gitlab.MockFeatures,
-	))
+		gitlab.MockPostReceive))
 
 	hooksPayload, err := git.NewHooksPayload(
 		cfg,

@@ -31,9 +31,7 @@ func TestUpdate_customHooks(t *testing.T) {
 		t,
 		gitlab.MockAllowed,
 		gitlab.MockPreReceive,
-		gitlab.MockPostReceive,
-		gitlab.MockFeatures,
-	))
+		gitlab.MockPostReceive))
 
 	receiveHooksPayload := &git.UserDetails{
 		UserID:   "1234",
@@ -224,9 +222,7 @@ func TestUpdate_quarantine(t *testing.T) {
 		t,
 		gitlab.MockAllowed,
 		gitlab.MockPreReceive,
-		gitlab.MockPostReceive,
-		gitlab.MockFeatures,
-	))
+		gitlab.MockPostReceive))
 
 	gittest.WriteCustomHook(t, repoPath, "update", []byte(fmt.Sprintf(
 		`#!/bin/sh

@@ -199,9 +199,7 @@ func runServer(t *testing.T, cfg config.Cfg) string {
 		t,
 		gitlab.MockAllowed,
 		gitlab.MockPreReceive,
-		gitlab.MockPostReceive,
-		gitlab.MockFeatures,
-	))
+		gitlab.MockPostReceive))
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
 	diskCache := cache.New(cfg, locator)

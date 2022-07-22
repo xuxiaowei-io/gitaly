@@ -3,6 +3,7 @@ package gitlab
 import (
 	"context"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 )
 
@@ -75,6 +76,14 @@ type Client interface {
 	PreReceive(ctx context.Context, glRepository string) (bool, error)
 	// PostReceive queries the gitlab internal api /post_receive to decrease the reference counter
 	PostReceive(ctx context.Context, glRepository, glID, changes string, pushOptions ...string) (bool, []PostReceiveMessage, error)
+}
+
+// FeatureGetter is an interface for accessing feature flags
+type FeatureGetter interface {
 	// Features returns features from the api /features
 	Features(ctx context.Context) (map[featureflag.FeatureFlag]bool, error)
+	// Describe provides prometheus descriptions
+	Describe(chan<- *prometheus.Desc)
+	// Collect collects prometheus metrics
+	Collect(chan<- prometheus.Metric)
 }
