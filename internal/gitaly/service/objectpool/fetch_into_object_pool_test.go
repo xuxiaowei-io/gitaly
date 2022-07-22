@@ -48,7 +48,6 @@ func TestFetchIntoObjectPool_Success(t *testing.T) {
 	req := &gitalypb.FetchIntoObjectPoolRequest{
 		ObjectPool: pool.ToProto(),
 		Origin:     repo,
-		Repack:     true,
 	}
 
 	_, err = client.FetchIntoObjectPool(ctx, req)
@@ -116,7 +115,6 @@ func TestFetchIntoObjectPool_hooks(t *testing.T) {
 	req := &gitalypb.FetchIntoObjectPoolRequest{
 		ObjectPool: pool.ToProto(),
 		Origin:     repo,
-		Repack:     true,
 	}
 
 	_, err = client.FetchIntoObjectPool(ctx, req)
@@ -155,7 +153,6 @@ func TestFetchIntoObjectPool_CollectLogStatistics(t *testing.T) {
 	req := &gitalypb.FetchIntoObjectPoolRequest{
 		ObjectPool: pool.ToProto(),
 		Origin:     repo,
-		Repack:     true,
 	}
 
 	_, err = client.FetchIntoObjectPool(ctx, req)

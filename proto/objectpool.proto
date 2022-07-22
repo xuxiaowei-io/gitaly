@@ -129,8 +129,11 @@ message FetchIntoObjectPoolRequest {
   Repository origin = 1 [(additional_repository)=true];
   // ObjectPool is the repository to fetch changes into.
   ObjectPool object_pool = 2 [(target_repository)=true];
-  // Repack is not used.
-  bool repack = 3;
+
+  // Repack had the intent to control whether FetchIntoObjectPool would perform housekeeping tasks
+  // in the pool repository or not. This flag wasn't ever honored though and is thus doing nothing.
+  reserved 3;
+  reserved "repack";
 }
 
 // FetchIntoObjectPoolResponse is a response for the FetchIntoObjectPool RPC.
