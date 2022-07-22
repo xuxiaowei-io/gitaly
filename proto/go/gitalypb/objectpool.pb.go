@@ -480,17 +480,17 @@ func (*DisconnectGitAlternatesResponse) Descriptor() ([]byte, []int) {
 	return file_objectpool_proto_rawDescGZIP(), []int{9}
 }
 
-// This comment is left unintentionally blank.
+// FetchIntoObjectPoolRequest is a request for the FetchIntoObjectPool RPC.
 type FetchIntoObjectPoolRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// Origin is the repository to fetch changes from.
 	Origin *Repository `protobuf:"bytes,1,opt,name=origin,proto3" json:"origin,omitempty"`
-	// This comment is left unintentionally blank.
+	// ObjectPool is the repository to fetch changes into.
 	ObjectPool *ObjectPool `protobuf:"bytes,2,opt,name=object_pool,json=objectPool,proto3" json:"object_pool,omitempty"`
-	// This comment is left unintentionally blank.
+	// Repack is not used.
 	Repack bool `protobuf:"varint,3,opt,name=repack,proto3" json:"repack,omitempty"`
 }
 
@@ -547,7 +547,7 @@ func (x *FetchIntoObjectPoolRequest) GetRepack() bool {
 	return false
 }
 
-// This comment is left unintentionally blank.
+// FetchIntoObjectPoolResponse is a response for the FetchIntoObjectPool RPC.
 type FetchIntoObjectPoolResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
