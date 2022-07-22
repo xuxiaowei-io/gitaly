@@ -22,6 +22,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -322,4 +323,57 @@ func TestFetchIntoObjectPool_Failure(t *testing.T) {
 			assert.Contains(t, err.Error(), tc.errMsg)
 		})
 	}
+}
+
+func TestFetchIntoObjectPool_dfConflict(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg, repo, repoPath, _, client := setup(ctx, t)
+
+	pool := initObjectPool(t, cfg, cfg.Storages[0])
+	_, err := client.CreateObjectPool(ctx, &gitalypb.CreateObjectPoolRequest{
+		ObjectPool: pool.ToProto(),
+		Origin:     repo,
+	})
+	require.NoError(t, err)
+
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"))
+
+	// Perform an initial fetch into the object pool with the given object that exists in the
+	// pool member's repository.
+	_, err = client.FetchIntoObjectPool(ctx, &gitalypb.FetchIntoObjectPoolRequest{
+		ObjectPool: pool.ToProto(),
+		Origin:     repo,
+	})
+	require.NoError(t, err)
+
+	// Now we delete the reference in the pool member and create a new reference that has the
+	// same prefix, but is stored in a subdirectory. This will create a D/F conflict.
+	gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "-d", "refs/heads/branch")
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch/conflict"))
+
+	gitVersion, err := gittest.NewCommandFactory(t, cfg).GitVersion(ctx)
+	require.NoError(t, err)
+
+	// Due to a bug in old Git versions we may get an unexpected exit status.
+	expectedExitStatus := 254
+	if !gitVersion.FlushesUpdaterefStatus() {
+		expectedExitStatus = 1
+	}
+
+	// Verify that we can still fetch into the object pool regardless of the D/F conflict. While
+	// it is not possible to store both references at the same time due to the conflict, we
+	// should know to delete the old conflicting reference and replace it with the new one.
+	_, err = client.FetchIntoObjectPool(ctx, &gitalypb.FetchIntoObjectPoolRequest{
+		ObjectPool: pool.ToProto(),
+		Origin:     repo,
+	})
+
+	// But right now it fails due to a bug.
+	testhelper.RequireGrpcError(t, helper.ErrInternalf(
+		"fetch into object pool: exit status %d, stderr: %q",
+		expectedExitStatus,
+		"error: cannot lock ref 'refs/remotes/origin/heads/branch/conflict': 'refs/remotes/origin/heads/branch' exists; cannot create 'refs/remotes/origin/heads/branch/conflict'\n",
+	), err)
 }
