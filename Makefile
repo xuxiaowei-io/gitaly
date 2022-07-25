@@ -254,7 +254,7 @@ BENCHMARK_REPO    := ${TEST_REPO_DIR}/benchmark.git
 # All executables provided by Gitaly.
 GITALY_EXECUTABLES           = $(addprefix ${BUILD_DIR}/bin/,$(notdir $(shell find ${SOURCE_DIR}/cmd -mindepth 1 -maxdepth 1 -type d -print)))
 # All executables packed inside the Gitaly binary.
-GITALY_PACKED_EXECUTABLES    = $(filter %gitaly-hooks %gitaly-git2go-v15 %gitaly-ssh %gitaly-lfs-smudge, ${GITALY_EXECUTABLES})
+GITALY_PACKED_EXECUTABLES    = $(filter %gitaly-hooks %gitaly-git2go %gitaly-ssh %gitaly-lfs-smudge, ${GITALY_EXECUTABLES})
 # All executables that should be installed.
 GITALY_INSTALLED_EXECUTABLES = $(filter-out ${GITALY_PACKED_EXECUTABLES}, ${GITALY_EXECUTABLES})
 # Find all Go source files.
@@ -623,8 +623,8 @@ clear-go-build-cache-if-needed:
 ${BUILD_DIR}/intermediate/gitaly:            GO_BUILD_TAGS = ${SERVER_BUILD_TAGS}
 ${BUILD_DIR}/intermediate/gitaly:            remove-legacy-go-mod ${GITALY_PACKED_EXECUTABLES}
 ${BUILD_DIR}/intermediate/praefect:          GO_BUILD_TAGS = ${SERVER_BUILD_TAGS}
-${BUILD_DIR}/intermediate/gitaly-git2go-v15: GO_BUILD_TAGS = ${GIT2GO_BUILD_TAGS}
-${BUILD_DIR}/intermediate/gitaly-git2go-v15: libgit2
+${BUILD_DIR}/intermediate/gitaly-git2go:     GO_BUILD_TAGS = ${GIT2GO_BUILD_TAGS}
+${BUILD_DIR}/intermediate/gitaly-git2go:     libgit2
 ${BUILD_DIR}/intermediate/%:                 clear-go-build-cache-if-needed .FORCE
 	@ # We're building intermediate binaries first which contain a fixed build ID
 	@ # of "TEMP_GITALY_BUILD_ID". In the final binary we replace this build ID with
