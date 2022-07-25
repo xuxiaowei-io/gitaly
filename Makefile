@@ -252,7 +252,7 @@ TEST_REPO_GIT     := ${TEST_REPO_DIR}/gitlab-git-test.git
 BENCHMARK_REPO    := ${TEST_REPO_DIR}/benchmark.git
 
 # All executables provided by Gitaly.
-GITALY_EXECUTABLES           = $(addprefix ${BUILD_DIR}/bin/,$(notdir $(shell find ${SOURCE_DIR}/cmd -mindepth 1 -maxdepth 1 -type d -print)) gitaly-git2go-v14)
+GITALY_EXECUTABLES           = $(addprefix ${BUILD_DIR}/bin/,$(notdir $(shell find ${SOURCE_DIR}/cmd -mindepth 1 -maxdepth 1 -type d -print)))
 # All executables packed inside the Gitaly binary.
 GITALY_PACKED_EXECUTABLES    = $(filter %gitaly-hooks %gitaly-git2go-v15 %gitaly-ssh %gitaly-lfs-smudge, ${GITALY_EXECUTABLES})
 # All executables that should be installed.
@@ -630,16 +630,6 @@ ${BUILD_DIR}/intermediate/%:                 clear-go-build-cache-if-needed .FOR
 	@ # of "TEMP_GITALY_BUILD_ID". In the final binary we replace this build ID with
 	@ # the computed build ID for this binary.
 	${Q}go build -o "$@" -ldflags '-B 0x${TEMPORARY_BUILD_ID} ${GO_LDFLAGS}' -tags "${GO_BUILD_TAGS}" $(addprefix ${SOURCE_DIR}/cmd/,$(@F))
-
-# This target is required for backwards compatibility during zero-downtime
-# upgrades and can be removed when v15.0 has been released.
-${BUILD_DIR}/intermediate/gitaly-git2go-v14: GO_BUILD_TAGS = ${GIT2GO_BUILD_TAGS}
-${BUILD_DIR}/intermediate/gitaly-git2go-v14: libgit2
-${BUILD_DIR}/intermediate/gitaly-git2go-v14: .FORCE
-	@ # gitaly-git2go-v14  pulls directly from a commit sha so that the gitaly-git2go-v14
-	@ # binary can continue to be installed for the sake of zero downtime
-	@ # upgrades.
-	${Q}GOBIN="$(dir $@)" go install -ldflags '-B 0x${TEMPORARY_BUILD_ID} ${GO_LDFLAGS}' -tags "${GO_BUILD_TAGS}" "gitlab.com/gitlab-org/gitaly/v14/cmd/gitaly-git2go-v14@c7c7c936c302ab435a0a56fbc19cfbd9bea0c835"
 
 # This is a build hack to avoid excessive rebuilding of targets. Instead of
 # depending on the Makefile, we start to depend on tool versions as defined in
