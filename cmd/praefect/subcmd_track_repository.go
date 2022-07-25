@@ -54,7 +54,7 @@ func (cmd *trackRepository) FlagSet() *flag.FlagSet {
 			"	It checks if the repository exists on disk on the authoritative storage,\n" +
 			"	and whether database records are absent from tracking the repository.\n" +
 			"	If -replicate-immediately is used, the command will attempt to replicate the repository to the secondaries.\n" +
-			"	Otherwise, replication jobs will be created and will be excuted eventually by Praefect itself.\n")
+			"	Otherwise, replication jobs will be created and will be executed eventually by Praefect itself.\n")
 		fs.PrintDefaults()
 	}
 	return fs
