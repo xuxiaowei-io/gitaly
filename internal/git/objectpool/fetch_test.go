@@ -128,16 +128,10 @@ func TestFetchFromOrigin_deltaIslands(t *testing.T) {
 	require.NoError(t, pool.FetchFromOrigin(ctx, repo), "seed pool")
 	require.NoError(t, pool.Link(ctx, repo))
 
-	gittest.TestDeltaIslands(t, cfg, pool.FullPath(), true, func() error {
-		// The first fetch has already fetched all objects into the pool repository, so
-		// there is nothing new to fetch anymore. Consequentially, FetchFromOrigin doesn't
-		// alter the object database and thus OptimizeRepository would notice that nothing
-		// needs to be optimized.
-		//
-		// We thus write a new commit into the pool member's repository so that we end up
-		// with two packfiles after the fetch.
-		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("changed-ref"))
-
+	// The setup of delta islands is done in the normal repository, and thus we pass `false`
+	// for `isPoolRepo`. Verification whether we correctly handle repacking though happens in
+	// the pool repository.
+	gittest.TestDeltaIslands(t, cfg, repoPath, pool.FullPath(), false, func() error {
 		return pool.FetchFromOrigin(ctx, repo)
 	})
 }
