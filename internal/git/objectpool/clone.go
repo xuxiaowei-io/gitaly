@@ -1,7 +1,9 @@
 package objectpool
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -17,6 +19,7 @@ func (o *ObjectPool) clone(ctx context.Context, repo *localrepo.Repo) error {
 		return err
 	}
 
+	var stderr bytes.Buffer
 	cmd, err := o.gitCmdFactory.NewWithoutRepo(ctx,
 		git.SubCmd{
 			Name: "clone",
@@ -28,12 +31,17 @@ func (o *ObjectPool) clone(ctx context.Context, repo *localrepo.Repo) error {
 			Args: []string{repoPath, o.FullPath()},
 		},
 		git.WithRefTxHook(repo),
+		git.WithStderr(&stderr),
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("spawning clone: %w", err)
 	}
 
-	return cmd.Wait()
+	if err := cmd.Wait(); err != nil {
+		return fmt.Errorf("cloning to pool: %w, stderr: %q", err, stderr.String())
+	}
+
+	return nil
 }
 
 func (o *ObjectPool) removeHooksDir() error {
