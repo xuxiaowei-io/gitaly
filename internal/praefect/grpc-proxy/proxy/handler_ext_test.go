@@ -18,9 +18,9 @@ import (
 	"testing"
 
 	"github.com/getsentry/sentry-go"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/client"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/grpc-proxy/proxy"
 	pb "gitlab.com/gitlab-org/gitaly/v15/internal/praefect/grpc-proxy/testdata"
@@ -30,106 +30,78 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	grpc_metadata "google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"google.golang.org/grpc/test/grpc_testing"
 )
 
 const (
-	pingDefaultValue   = "I like kittens."
-	clientMdKey        = "test-client-header"
-	serverHeaderMdKey  = "test-client-header"
-	serverTrailerMdKey = "test-client-trailer"
-
 	rejectingMdKey = "test-reject-rpc-if-in-context"
-
-	countListResponses = 20
 )
 
-// asserting service is implemented on the server side and serves as a handler for stuff
-type assertingService struct {
-	pb.UnimplementedTestServiceServer
-	t *testing.T
-}
+func TestHandler_carriesClientMetadata(t *testing.T) {
+	ctx, client, backend := setupProxy(t)
 
-func (s *assertingService) PingEmpty(ctx context.Context, _ *pb.Empty) (*pb.PingResponse, error) {
-	// Check that this call has client's metadata.
-	md, ok := grpc_metadata.FromIncomingContext(ctx)
-	assert.True(s.t, ok, "PingEmpty call must have metadata in context")
-	_, ok = md[clientMdKey]
-	assert.True(s.t, ok, "PingEmpty call must have clients's custom headers in metadata")
-	return &pb.PingResponse{Value: pingDefaultValue, Counter: 42}, nil
-}
+	backend.unaryCall = func(ctx context.Context, request *grpc_testing.SimpleRequest) (*grpc_testing.SimpleResponse, error) {
+		metadata, ok := grpc_metadata.FromIncomingContext(ctx)
+		require.True(t, ok)
 
-func (s *assertingService) Ping(ctx context.Context, ping *pb.PingRequest) (*pb.PingResponse, error) {
-	// Send user trailers and headers.
-	require.NoError(s.t, grpc.SendHeader(ctx, grpc_metadata.Pairs(serverHeaderMdKey, "I like turtles.")))
-	require.NoError(s.t, grpc.SetTrailer(ctx, grpc_metadata.Pairs(serverTrailerMdKey, "I like ending turtles.")))
-	return &pb.PingResponse{Value: ping.Value, Counter: 42}, nil
-}
+		metadataValue, ok := metadata["injected_metadata"]
+		require.True(t, ok)
+		require.Equal(t, []string{"injected_value"}, metadataValue)
 
-func (s *assertingService) PingError(ctx context.Context, ping *pb.PingRequest) (*pb.Empty, error) {
-	return nil, status.Errorf(codes.ResourceExhausted, "Userspace error.")
-}
-
-func (s *assertingService) PingList(ping *pb.PingRequest, stream pb.TestService_PingListServer) error {
-	// Send user trailers and headers.
-	require.NoError(s.t, stream.SendHeader(grpc_metadata.Pairs(serverHeaderMdKey, "I like turtles.")))
-	for i := 0; i < countListResponses; i++ {
-		require.NoError(s.t, stream.Send(&pb.PingResponse{Value: ping.Value, Counter: int32(i)}))
+		return &grpc_testing.SimpleResponse{Payload: request.GetPayload()}, nil
 	}
-	stream.SetTrailer(grpc_metadata.Pairs(serverTrailerMdKey, "I like ending turtles."))
-	return nil
-}
 
-func (s *assertingService) PingStream(stream pb.TestService_PingStreamServer) error {
-	require.NoError(s.t, stream.SendHeader(grpc_metadata.Pairs(serverHeaderMdKey, "I like turtles.")))
-	counter := int32(0)
-	for {
-		ping, err := stream.Recv()
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			require.NoError(s.t, err, "can't fail reading stream")
-			return err
-		}
-		pong := &pb.PingResponse{Value: ping.Value, Counter: counter}
-		if err := stream.Send(pong); err != nil {
-			require.NoError(s.t, err, "can't fail sending back a pong")
-		}
-		counter++
-	}
-	stream.SetTrailer(grpc_metadata.Pairs(serverTrailerMdKey, "I like ending turtles."))
-	return nil
-}
+	ctx = grpc_metadata.NewOutgoingContext(ctx, grpc_metadata.Pairs("injected_metadata", "injected_value"))
 
-func TestPingEmptyCarriesClientMetadata(t *testing.T) {
-	ctx, client := setupProxy(t)
-
-	ctx = grpc_metadata.NewOutgoingContext(ctx, grpc_metadata.Pairs(clientMdKey, "true"))
-	out, err := client.PingEmpty(ctx, &pb.Empty{})
+	response, err := client.UnaryCall(ctx, &grpc_testing.SimpleRequest{
+		Payload: &grpc_testing.Payload{Body: []byte("data")},
+	})
 	require.NoError(t, err, "PingEmpty should succeed without errors")
-	testhelper.ProtoEqual(t, &pb.PingResponse{Value: pingDefaultValue, Counter: 42}, out)
+	testhelper.ProtoEqual(t, &grpc_testing.SimpleResponse{
+		Payload: &grpc_testing.Payload{Body: []byte("data")},
+	}, response)
 }
 
-func TestPingEmpty_StressTest(t *testing.T) {
+func TestHandler_carriesClientMetadataStressTest(t *testing.T) {
 	for i := 0; i < 50; i++ {
-		TestPingEmptyCarriesClientMetadata(t)
+		TestHandler_carriesClientMetadata(t)
 	}
 }
 
-func TestPingCarriesServerHeadersAndTrailers(t *testing.T) {
-	ctx, client := setupProxy(t)
+func TestHandler_carriesHeadersAndTrailers(t *testing.T) {
+	ctx, client, backend := setupProxy(t)
 
-	headerMd := make(grpc_metadata.MD)
-	trailerMd := make(grpc_metadata.MD)
-	// This is an awkward calling convention... but meh.
-	out, err := client.Ping(ctx, &pb.PingRequest{Value: "foo"}, grpc.Header(&headerMd), grpc.Trailer(&trailerMd))
-	require.NoError(t, err, "Ping should succeed without errors")
-	testhelper.ProtoEqual(t, &pb.PingResponse{Value: "foo", Counter: 42}, out)
-	assert.Contains(t, headerMd, serverHeaderMdKey, "server response headers must contain server data")
-	assert.Len(t, trailerMd, 1, "server response trailers must contain server data")
+	backend.unaryCall = func(ctx context.Context, request *grpc_testing.SimpleRequest) (*grpc_testing.SimpleResponse, error) {
+		require.NoError(t, grpc.SendHeader(ctx, grpc_metadata.Pairs("injected_header", "header_value")))
+		require.NoError(t, grpc.SetTrailer(ctx, grpc_metadata.Pairs("injected_trailer", "trailer_value")))
+		return &grpc_testing.SimpleResponse{Payload: request.GetPayload()}, nil
+	}
+
+	var headerMetadata, trailerMetadata grpc_metadata.MD
+
+	response, err := client.UnaryCall(ctx, &grpc_testing.SimpleRequest{
+		Payload: &grpc_testing.Payload{Body: []byte("data")},
+	}, grpc.Header(&headerMetadata), grpc.Trailer(&trailerMetadata))
+	require.NoError(t, err)
+	testhelper.ProtoEqual(t, &grpc_testing.SimpleResponse{
+		Payload: &grpc_testing.Payload{Body: []byte("data")},
+	}, response)
+
+	require.Equal(t, grpc_metadata.Pairs(
+		"content-type", "application/grpc",
+		"injected_header", "header_value",
+	), headerMetadata)
+	require.Equal(t, grpc_metadata.Pairs(
+		"injected_trailer", "trailer_value",
+	), trailerMetadata)
 }
 
-func TestPingErrorPropagatesAppError(t *testing.T) {
-	ctx, client := setupProxy(t)
+func TestHandler_propagatesServerError(t *testing.T) {
+	ctx, client, backend := setupProxy(t)
+
+	backend.unaryCall = func(context.Context, *grpc_testing.SimpleRequest) (*grpc_testing.SimpleResponse, error) {
+		return nil, status.Errorf(codes.ResourceExhausted, "service error")
+	}
 
 	sentryTriggered := 0
 	sentrySrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -148,73 +120,104 @@ func TestPingErrorPropagatesAppError(t *testing.T) {
 		Transport: sentry.NewHTTPSyncTransport(),
 	}))
 
+	// Verify that Sentry is configured correctyl to be triggered.
 	sentry.CaptureEvent(sentry.NewEvent())
-	require.Equal(t, 1, sentryTriggered, "sentry configured incorrectly")
+	require.Equal(t, 1, sentryTriggered)
 
-	_, err = client.PingError(ctx, &pb.PingRequest{Value: "foo"})
-	require.Error(t, err, "PingError should never succeed")
-	assert.Equal(t, codes.ResourceExhausted, status.Code(err))
-	assert.Equal(t, "Userspace error.", status.Convert(err).Message())
-	require.Equal(t, 1, sentryTriggered, "sentry must not be triggered because errors from remote must be just propagated")
+	_, err = client.UnaryCall(ctx, &grpc_testing.SimpleRequest{})
+	testhelper.RequireGrpcError(t, status.Errorf(codes.ResourceExhausted, "service error"), err)
+
+	// Sentry must not be triggered because errors from remote must be just propagated.
+	require.Equal(t, 1, sentryTriggered)
 }
 
-func TestDirectorErrorIsPropagated(t *testing.T) {
-	ctx, client := setupProxy(t)
+func TestHandler_directorErrorIsPropagated(t *testing.T) {
+	// There is no need to set up the backend given that we should reject the call before we
+	// even hit the server.
+	ctx, client, _ := setupProxy(t)
 
-	// See setupProxy where the StreamDirector has a special case.
+	// The proxy's director is set up so that it is rejecting requests when it sees the
+	// following gRPC metadata.
 	ctx = grpc_metadata.NewOutgoingContext(ctx, grpc_metadata.Pairs(rejectingMdKey, "true"))
-	_, err := client.Ping(ctx, &pb.PingRequest{Value: "foo"})
-	require.Error(t, err, "Director should reject this RPC")
-	assert.Equal(t, codes.PermissionDenied, status.Code(err))
-	assert.Equal(t, "testing rejection", status.Convert(err).Message())
+
+	_, err := client.UnaryCall(ctx, &grpc_testing.SimpleRequest{})
+	require.Error(t, err)
+	testhelper.RequireGrpcError(t, helper.ErrPermissionDeniedf("testing rejection"), err)
 }
 
-func TestPingStream_FullDuplexWorks(t *testing.T) {
-	ctx, client := setupProxy(t)
+func TestHandler_fullDuplex(t *testing.T) {
+	ctx, client, backend := setupProxy(t)
 
-	stream, err := client.PingStream(ctx)
-	require.NoError(t, err, "PingStream request should be successful.")
+	backend.fullDuplexCall = func(stream grpc_testing.TestService_FullDuplexCallServer) error {
+		require.NoError(t, stream.SendHeader(grpc_metadata.Pairs("custom_header", "header_value")))
 
-	for i := 0; i < countListResponses; i++ {
-		ping := &pb.PingRequest{Value: fmt.Sprintf("foo:%d", i)}
-		require.NoError(t, stream.Send(ping), "sending to PingStream must not fail")
-		resp, err := stream.Recv()
-		if err == io.EOF {
-			break
+		for i := 0; ; i++ {
+			request, err := stream.Recv()
+			if err == io.EOF {
+				break
+			}
+			require.NoError(t, err)
+
+			require.NoError(t, stream.Send(&grpc_testing.StreamingOutputCallResponse{
+				Payload: &grpc_testing.Payload{
+					Body: []byte(fmt.Sprintf("%s: %d", request.GetPayload().GetBody(), i)),
+				},
+			}))
 		}
+
+		stream.SetTrailer(grpc_metadata.Pairs("custom_trailer", "trailer_value"))
+		return nil
+	}
+
+	stream, err := client.FullDuplexCall(ctx)
+	require.NoError(t, err)
+
+	for i := 0; i < 20; i++ {
+		require.NoError(t, stream.Send(&grpc_testing.StreamingOutputCallRequest{
+			Payload: &grpc_testing.Payload{
+				Body: []byte(fmt.Sprintf("foo:%d", i)),
+			},
+		}))
+
+		response, err := stream.Recv()
+		require.NoError(t, err)
+		testhelper.ProtoEqual(t, &grpc_testing.StreamingOutputCallResponse{
+			Payload: &grpc_testing.Payload{
+				Body: []byte(fmt.Sprintf("foo:%d: %d", i, i)),
+			},
+		}, response)
+
 		if i == 0 {
-			// Check that the header arrives before all entries.
-			headerMd, err := stream.Header()
-			require.NoError(t, err, "PingStream headers should not error.")
-			assert.Contains(t, headerMd, serverHeaderMdKey, "PingStream response headers user contain metadata")
+			headerMetadata, err := stream.Header()
+			require.NoError(t, err)
+			require.Equal(t, grpc_metadata.Pairs(
+				"content-type", "application/grpc",
+				"custom_header", "header_value",
+			), headerMetadata)
 		}
-		assert.EqualValues(t, i, resp.Counter, "ping roundtrip must succeed with the correct id")
 	}
-	require.NoError(t, stream.CloseSend(), "no error on close send")
+
+	require.NoError(t, stream.CloseSend())
 	_, err = stream.Recv()
-	require.Equal(t, io.EOF, err, "stream should close with io.EOF, meaining OK")
-	// Check that the trailer headers are here.
-	trailerMd := stream.Trailer()
-	assert.Len(t, trailerMd, 1, "PingList trailer headers user contain metadata")
+	require.Equal(t, io.EOF, err)
+
+	require.Equal(t, grpc_metadata.Pairs(
+		"custom_trailer", "trailer_value",
+	), stream.Trailer())
 }
 
-func TestPingStream_StressTest(t *testing.T) {
+func TestHandler_fullDuplexStressTest(t *testing.T) {
 	for i := 0; i < 50; i++ {
-		TestPingStream_FullDuplexWorks(t)
+		TestHandler_fullDuplex(t)
 	}
 }
 
-func setupProxy(t *testing.T) (context.Context, pb.TestServiceClient) {
+func setupProxy(t *testing.T) (context.Context, grpc_testing.TestServiceClient, *interceptPinger) {
 	t.Helper()
 
 	ctx := testhelper.Context(t)
 
-	listenerServer := newListener(t)
-
-	// Setup of the proxy's Director.
-	proxy2Server, err := grpc.Dial(listenerServer.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithDefaultCallOptions(grpc.ForceCodec(proxy.NewCodec())))
-	require.NoError(t, err)
-	t.Cleanup(func() { testhelper.MustClose(t, proxy2Server) })
+	proxy2Server, backend := newBackendPinger(t, ctx)
 
 	director := func(ctx context.Context, _ string, peeker proxy.StreamPeeker) (*proxy.StreamParameters, error) {
 		payload, err := peeker.Peek()
@@ -237,17 +240,9 @@ func setupProxy(t *testing.T) (context.Context, pb.TestServiceClient) {
 		}, nil, nil, nil), nil
 	}
 
-	// Setup backend server for test suite
-	backendServer := grpc.NewServer()
-	pb.RegisterTestServiceServer(backendServer, &assertingService{t: t})
-	go func() {
-		backendServer.Serve(listenerServer)
-	}()
-	t.Cleanup(backendServer.Stop)
-
 	client2Proxy := newProxy(t, ctx, director, "mwitkow.testproto.TestService", "Ping")
 
-	return ctx, pb.NewTestServiceClient(client2Proxy)
+	return ctx, grpc_testing.NewTestServiceClient(client2Proxy), backend
 }
 
 func TestProxyErrorPropagation(t *testing.T) {
