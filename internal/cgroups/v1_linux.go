@@ -3,6 +3,7 @@ package cgroups
 import (
 	"fmt"
 	"hash/crc32"
+	"path/filepath"
 	"strings"
 
 	"github.com/containerd/cgroups"
@@ -10,6 +11,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	cgroupscfg "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/log"
 )
@@ -215,11 +217,11 @@ func (cg *CGroupV1Manager) Cleanup() error {
 }
 
 func (cg *CGroupV1Manager) repoPath(groupID int) string {
-	return fmt.Sprintf("%s/repos-%d", cg.currentProcessCgroup(), groupID)
+	return filepath.Join(cg.currentProcessCgroup(), fmt.Sprintf("repos-%d", groupID))
 }
 
 func (cg *CGroupV1Manager) currentProcessCgroup() string {
-	return fmt.Sprintf("/%s/gitaly-%d", cg.cfg.HierarchyRoot, cg.pid)
+	return config.GetGitalyProcessTempDir(cg.cfg.HierarchyRoot, cg.pid)
 }
 
 func defaultSubsystems(root string) ([]cgroups.Subsystem, error) {
