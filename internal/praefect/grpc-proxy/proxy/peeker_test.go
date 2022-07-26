@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/grpc-proxy/proxy"
-	testservice "gitlab.com/gitlab-org/gitaly/v15/internal/praefect/grpc-proxy/testdata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
+	"google.golang.org/grpc/test/grpc_testing"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -23,11 +23,15 @@ func TestStreamPeeking(t *testing.T) {
 
 	backendCC, backendSrvr := newBackendPinger(t, ctx)
 
-	requestSent := &testservice.PingRequest{
-		Value: "hi",
+	requestSent := &grpc_testing.StreamingOutputCallRequest{
+		Payload: &grpc_testing.Payload{
+			Body: []byte("hi"),
+		},
 	}
-	responseSent := &testservice.PingResponse{
-		Counter: 1,
+	responseSent := &grpc_testing.StreamingOutputCallResponse{
+		Payload: &grpc_testing.Payload{
+			Body: []byte("bye"),
+		},
 	}
 
 	// We create a director that's peeking into the message in order to assert that the peeked
@@ -36,20 +40,20 @@ func TestStreamPeeking(t *testing.T) {
 		peekedMessage, err := peeker.Peek()
 		require.NoError(t, err)
 
-		var peekedRequest testservice.PingRequest
+		var peekedRequest grpc_testing.StreamingOutputCallRequest
 		require.NoError(t, proto.Unmarshal(peekedMessage, &peekedRequest))
 		testhelper.ProtoEqual(t, requestSent, &peekedRequest)
 
 		return proxy.NewStreamParameters(proxy.Destination{
-			Ctx: metadata.IncomingToOutgoing(ctx),
+			Ctx:  metadata.IncomingToOutgoing(ctx),
 			Conn: backendCC,
-			Msg: peekedMessage,
+			Msg:  peekedMessage,
 		}, nil, nil, nil), nil
 	}
 
 	// The backend is supposed to still receive the message as expected without any modification
 	// to it.
-	backendSrvr.pingStream = func(stream testservice.TestService_PingStreamServer) error {
+	backendSrvr.fullDuplexCall = func(stream grpc_testing.TestService_FullDuplexCallServer) error {
 		requestReceived, err := stream.Recv()
 		require.NoError(t, err)
 		testhelper.ProtoEqual(t, requestSent, requestReceived)
@@ -57,11 +61,11 @@ func TestStreamPeeking(t *testing.T) {
 		return stream.Send(responseSent)
 	}
 
-	proxyConn := newProxy(t, ctx, director, "mwitkow.testproto.TestService", "PingStream")
-	proxyClient := testservice.NewTestServiceClient(proxyConn)
+	proxyConn := newProxy(t, ctx, director, "grpc_testing.TestService", "FullDuplexCall")
+	proxyClient := grpc_testing.NewTestServiceClient(proxyConn)
 
 	// Send the request on the stream and close the writing side.
-	proxyStream, err := proxyClient.PingStream(ctx)
+	proxyStream, err := proxyClient.FullDuplexCall(ctx)
 	require.NoError(t, err)
 	require.NoError(t, proxyStream.Send(requestSent))
 	require.NoError(t, proxyStream.CloseSend())
@@ -80,14 +84,20 @@ func TestStreamInjecting(t *testing.T) {
 
 	backendCC, backendSrvr := newBackendPinger(t, ctx)
 
-	requestSent := &testservice.PingRequest{
-		Value: "hi",
+	requestSent := &grpc_testing.StreamingOutputCallRequest{
+		Payload: &grpc_testing.Payload{
+			Body: []byte("hi"),
+		},
 	}
-	requestReplaced := &testservice.PingRequest{
-		Value: "bye",
+	requestReplaced := &grpc_testing.StreamingOutputCallRequest{
+		Payload: &grpc_testing.Payload{
+			Body: []byte("replaced"),
+		},
 	}
-	responseSent := &testservice.PingResponse{
-		Counter: 1,
+	responseSent := &grpc_testing.StreamingOutputCallResponse{
+		Payload: &grpc_testing.Payload{
+			Body: []byte("bye"),
+		},
 	}
 
 	// We create a director that peeks the incoming request and in fact changes its values. This
@@ -97,7 +107,7 @@ func TestStreamInjecting(t *testing.T) {
 		require.NoError(t, err)
 
 		// Assert that we get the expected original ping request.
-		var peekedRequest testservice.PingRequest
+		var peekedRequest grpc_testing.StreamingOutputCallRequest
 		require.NoError(t, proto.Unmarshal(peekedMessage, &peekedRequest))
 		testhelper.ProtoEqual(t, requestSent, &peekedRequest)
 
@@ -106,14 +116,14 @@ func TestStreamInjecting(t *testing.T) {
 		require.NoError(t, err)
 
 		return proxy.NewStreamParameters(proxy.Destination{
-			Ctx: metadata.IncomingToOutgoing(ctx),
+			Ctx:  metadata.IncomingToOutgoing(ctx),
 			Conn: backendCC,
-			Msg: replacedMessage,
+			Msg:  replacedMessage,
 		}, nil, nil, nil), nil
 	}
 
 	// Upon receiving the request the backend server should only ever see the changed request.
-	backendSrvr.pingStream = func(stream testservice.TestService_PingStreamServer) error {
+	backendSrvr.fullDuplexCall = func(stream grpc_testing.TestService_FullDuplexCallServer) error {
 		requestReceived, err := stream.Recv()
 		require.NoError(t, err)
 		testhelper.ProtoEqual(t, requestReplaced, requestReceived)
@@ -121,10 +131,10 @@ func TestStreamInjecting(t *testing.T) {
 		return stream.Send(responseSent)
 	}
 
-	proxyConn := newProxy(t, ctx, director, "mwitkow.testproto.TestService", "PingStream")
-	proxyClient := testservice.NewTestServiceClient(proxyConn)
+	proxyConn := newProxy(t, ctx, director, "grpc_testing.TestService", "FullDuplexCall")
+	proxyClient := grpc_testing.NewTestServiceClient(proxyConn)
 
-	proxyStream, err := proxyClient.PingStream(ctx)
+	proxyStream, err := proxyClient.FullDuplexCall(ctx)
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, proxyStream.CloseSend())

@@ -9,10 +9,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/grpc-proxy/proxy"
-	testservice "gitlab.com/gitlab-org/gitaly/v15/internal/praefect/grpc-proxy/testdata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/test/grpc_testing"
 )
 
 func TestMain(m *testing.M) {
@@ -32,7 +32,7 @@ func newBackendPinger(tb testing.TB, ctx context.Context) (*grpc.ClientConn, *in
 	srvr := grpc.NewServer()
 	listener := newListener(tb)
 
-	testservice.RegisterTestServiceServer(srvr, ip)
+	grpc_testing.RegisterTestServiceServer(srvr, ip)
 
 	done := make(chan struct{})
 	go func() {
@@ -94,30 +94,26 @@ func newProxy(tb testing.TB, ctx context.Context, director proxy.StreamDirector,
 // interceptPinger allows an RPC to be intercepted with a custom
 // function defined in each unit test
 type interceptPinger struct {
-	testservice.UnimplementedTestServiceServer
-	pingStream func(testservice.TestService_PingStreamServer) error
-	pingEmpty  func(context.Context, *testservice.Empty) (*testservice.PingResponse, error)
-	ping       func(context.Context, *testservice.PingRequest) (*testservice.PingResponse, error)
-	pingError  func(context.Context, *testservice.PingRequest) (*testservice.Empty, error)
-	pingList   func(*testservice.PingRequest, testservice.TestService_PingListServer) error
+	grpc_testing.UnimplementedTestServiceServer
+
+	fullDuplexCall      func(grpc_testing.TestService_FullDuplexCallServer) error
+	emptyCall           func(context.Context, *grpc_testing.Empty) (*grpc_testing.Empty, error)
+	unaryCall           func(context.Context, *grpc_testing.SimpleRequest) (*grpc_testing.SimpleResponse, error)
+	streamingOutputCall func(*grpc_testing.StreamingOutputCallRequest, grpc_testing.TestService_StreamingOutputCallServer) error
 }
 
-func (ip *interceptPinger) PingStream(stream testservice.TestService_PingStreamServer) error {
-	return ip.pingStream(stream)
+func (ip *interceptPinger) FullDuplexCall(stream grpc_testing.TestService_FullDuplexCallServer) error {
+	return ip.fullDuplexCall(stream)
 }
 
-func (ip *interceptPinger) PingEmpty(ctx context.Context, req *testservice.Empty) (*testservice.PingResponse, error) {
-	return ip.pingEmpty(ctx, req)
+func (ip *interceptPinger) EmptyCall(ctx context.Context, req *grpc_testing.Empty) (*grpc_testing.Empty, error) {
+	return ip.emptyCall(ctx, req)
 }
 
-func (ip *interceptPinger) Ping(ctx context.Context, req *testservice.PingRequest) (*testservice.PingResponse, error) {
-	return ip.ping(ctx, req)
+func (ip *interceptPinger) UnaryCall(ctx context.Context, req *grpc_testing.SimpleRequest) (*grpc_testing.SimpleResponse, error) {
+	return ip.unaryCall(ctx, req)
 }
 
-func (ip *interceptPinger) PingError(ctx context.Context, req *testservice.PingRequest) (*testservice.Empty, error) {
-	return ip.pingError(ctx, req)
-}
-
-func (ip *interceptPinger) PingList(req *testservice.PingRequest, stream testservice.TestService_PingListServer) error {
-	return ip.pingList(req, stream)
+func (ip *interceptPinger) StreamingOutputCall(req *grpc_testing.StreamingOutputCallRequest, stream grpc_testing.TestService_StreamingOutputCallServer) error {
+	return ip.streamingOutputCall(req, stream)
 }
