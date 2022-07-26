@@ -7,7 +7,11 @@ import (
 	"net"
 	"testing"
 
+	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpcmwtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/fieldextractors"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/middleware/sentryhandler"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/grpc-proxy/proxy"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"google.golang.org/grpc"
@@ -63,6 +67,14 @@ func newBackendPinger(tb testing.TB, ctx context.Context) (*grpc.ClientConn, *in
 func newProxy(tb testing.TB, ctx context.Context, director proxy.StreamDirector, svc, method string) *grpc.ClientConn {
 	proxySrvr := grpc.NewServer(
 		grpc.ForceServerCodec(proxy.NewCodec()),
+		grpc.StreamInterceptor(
+			grpcmw.ChainStreamServer(
+				// context tags usage is required by sentryhandler.StreamLogHandler
+				grpcmwtags.StreamServerInterceptor(grpcmwtags.WithFieldExtractorForInitialReq(fieldextractors.FieldExtractor)),
+				// sentry middleware to capture errors
+				sentryhandler.StreamLogHandler,
+			),
+		),
 		grpc.UnknownServiceHandler(proxy.TransparentHandler(director)),
 	)
 	proxy.RegisterService(proxySrvr, director, svc, method)

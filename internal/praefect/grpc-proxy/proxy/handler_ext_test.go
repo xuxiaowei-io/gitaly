@@ -18,14 +18,10 @@ import (
 	"testing"
 
 	"github.com/getsentry/sentry-go"
-	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
-	grpcmwtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/client"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/fieldextractors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/middleware/sentryhandler"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/grpc-proxy/proxy"
 	pb "gitlab.com/gitlab-org/gitaly/v15/internal/praefect/grpc-proxy/testdata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -213,10 +209,7 @@ func setupProxy(t *testing.T) (context.Context, pb.TestServiceClient) {
 
 	ctx := testhelper.Context(t)
 
-	listenerProxy, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-	listenerServer, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
+	listenerServer := newListener(t)
 
 	// Setup of the proxy's Director.
 	proxy2Server, err := grpc.Dial(listenerServer.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithDefaultCallOptions(grpc.ForceCodec(proxy.NewCodec())))
@@ -252,30 +245,7 @@ func setupProxy(t *testing.T) (context.Context, pb.TestServiceClient) {
 	}()
 	t.Cleanup(backendServer.Stop)
 
-	// Setup grpc-proxy server for test suite
-	proxyServer := grpc.NewServer(
-		grpc.ForceServerCodec(proxy.NewCodec()),
-		grpc.StreamInterceptor(
-			grpcmw.ChainStreamServer(
-				// context tags usage is required by sentryhandler.StreamLogHandler
-				grpcmwtags.StreamServerInterceptor(grpcmwtags.WithFieldExtractorForInitialReq(fieldextractors.FieldExtractor)),
-				// sentry middleware to capture errors
-				sentryhandler.StreamLogHandler,
-			),
-		),
-		grpc.UnknownServiceHandler(proxy.TransparentHandler(director)),
-	)
-
-	// Ping handler is handled as an explicit registration and not as a TransparentHandler.
-	proxy.RegisterService(proxyServer, director, "mwitkow.testproto.TestService", "Ping")
-	go func() {
-		proxyServer.Serve(listenerProxy)
-	}()
-	t.Cleanup(proxyServer.Stop)
-
-	client2Proxy, err := grpc.DialContext(ctx, listenerProxy.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
-	require.NoError(t, err)
-	t.Cleanup(func() { testhelper.MustClose(t, client2Proxy) })
+	client2Proxy := newProxy(t, ctx, director, "mwitkow.testproto.TestService", "Ping")
 
 	return ctx, pb.NewTestServiceClient(client2Proxy)
 }
