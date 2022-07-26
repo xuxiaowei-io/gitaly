@@ -23,7 +23,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/grpc-proxy/proxy"
-	pb "gitlab.com/gitlab-org/gitaly/v15/internal/praefect/grpc-proxy/testdata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -364,7 +363,7 @@ func TestProxyErrorPropagation(t *testing.T) {
 				require.NoError(t, proxyClientConn.Close())
 			}()
 
-			resp, err := pb.NewTestServiceClient(proxyClientConn).Ping(ctx, &pb.PingRequest{})
+			resp, err := grpc_testing.NewTestServiceClient(proxyClientConn).UnaryCall(ctx, &grpc_testing.SimpleRequest{})
 			testhelper.RequireGrpcError(t, tc.returnedError, err)
 			require.Nil(t, resp)
 		})
@@ -374,74 +373,110 @@ func TestProxyErrorPropagation(t *testing.T) {
 func TestRegisterStreamHandlers(t *testing.T) {
 	directorCalledError := errors.New("director was called")
 
-	server := grpc.NewServer(
-		grpc.ForceServerCodec(proxy.NewCodec()),
-		grpc.UnknownServiceHandler(proxy.TransparentHandler(func(ctx context.Context, fullMethodName string, peeker proxy.StreamPeeker) (*proxy.StreamParameters, error) {
-			return nil, directorCalledError
-		})),
-	)
-
-	var pingStreamHandlerCalled, pingEmptyStreamHandlerCalled bool
-
-	pingValue := "hello"
-
-	pingStreamHandler := func(srv interface{}, stream grpc.ServerStream) error {
-		pingStreamHandlerCalled = true
-		var req pb.PingRequest
-
-		if err := stream.RecvMsg(&req); err != nil {
-			return err
-		}
-
-		require.Equal(t, pingValue, req.Value)
-
-		return stream.SendMsg(nil)
+	requestSent := &grpc_testing.SimpleRequest{
+		Payload: &grpc_testing.Payload{
+			Body: []byte("hello"),
+		},
 	}
 
-	pingEmptyStreamHandler := func(srv interface{}, stream grpc.ServerStream) error {
-		pingEmptyStreamHandlerCalled = true
-		var req pb.Empty
-
-		if err := stream.RecvMsg(&req); err != nil {
-			return err
-		}
-
-		return stream.SendMsg(nil)
+	unaryCallStreamHandler := func(t *testing.T, srv interface{}, stream grpc.ServerStream) {
+		var request grpc_testing.SimpleRequest
+		require.NoError(t, stream.RecvMsg(&request))
+		testhelper.ProtoEqual(t, requestSent, &request)
+		require.NoError(t, stream.SendMsg(nil))
 	}
 
-	streamers := map[string]grpc.StreamHandler{
-		"Ping":      pingStreamHandler,
-		"PingEmpty": pingEmptyStreamHandler,
+	emptyCallStreamHandler := func(t *testing.T, srv interface{}, stream grpc.ServerStream) {
+		var request grpc_testing.Empty
+		require.NoError(t, stream.RecvMsg(&request))
+		require.NoError(t, stream.SendMsg(nil))
 	}
 
-	proxy.RegisterStreamHandlers(server, "mwitkow.testproto.TestService", streamers)
+	for _, tc := range []struct {
+		desc               string
+		registeredHandlers map[string]func(*testing.T, interface{}, grpc.ServerStream)
+		execute            func(context.Context, *testing.T, grpc_testing.TestServiceClient)
+		expectedErr        error
+		expectedCalls      map[string]int
+	}{
+		{
+			desc: "single handler",
+			registeredHandlers: map[string]func(*testing.T, interface{}, grpc.ServerStream){
+				"UnaryCall": unaryCallStreamHandler,
+			},
+			execute: func(ctx context.Context, t *testing.T, client grpc_testing.TestServiceClient) {
+				_, err := client.UnaryCall(ctx, requestSent)
+				require.NoError(t, err)
+			},
+			expectedCalls: map[string]int{
+				"UnaryCall": 1,
+			},
+		},
+		{
+			desc: "multiple handlers picks the right one",
+			registeredHandlers: map[string]func(*testing.T, interface{}, grpc.ServerStream){
+				"UnaryCall": unaryCallStreamHandler,
+				"EmptyCall": emptyCallStreamHandler,
+			},
+			execute: func(ctx context.Context, t *testing.T, client grpc_testing.TestServiceClient) {
+				_, err := client.EmptyCall(ctx, &grpc_testing.Empty{})
+				require.NoError(t, err)
+			},
+			expectedCalls: map[string]int{
+				"EmptyCall": 1,
+			},
+		},
+		{
+			desc: "call to unregistered handler",
+			registeredHandlers: map[string]func(*testing.T, interface{}, grpc.ServerStream){
+				"EmptyCall": emptyCallStreamHandler,
+			},
+			execute: func(ctx context.Context, t *testing.T, client grpc_testing.TestServiceClient) {
+				_, err := client.UnaryCall(ctx, requestSent)
+				testhelper.RequireGrpcError(t, directorCalledError, err)
+			},
+			expectedCalls: map[string]int{},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			ctx := testhelper.Context(t)
 
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
+			server := grpc.NewServer(
+				grpc.ForceServerCodec(proxy.NewCodec()),
+				grpc.UnknownServiceHandler(proxy.TransparentHandler(
+					func(ctx context.Context, fullMethodName string, peeker proxy.StreamPeeker) (*proxy.StreamParameters, error) {
+						return nil, directorCalledError
+					},
+				)),
+			)
 
-	listener, err := net.Listen("unix", serverSocketPath)
-	if err != nil {
-		t.Fatal(err)
+			calls := map[string]int{}
+			registeredHandlers := map[string]grpc.StreamHandler{}
+			for name, handler := range tc.registeredHandlers {
+				name, handler := name, handler
+
+				// We wrap every handler so that we can easily count the number of
+				// times each of them has been invoked.
+				registeredHandlers[name] = func(srv interface{}, stream grpc.ServerStream) error {
+					calls[name]++
+					handler(t, srv, stream)
+					return nil
+				}
+			}
+			proxy.RegisterStreamHandlers(server, grpc_testing.TestService_ServiceDesc.ServiceName, registeredHandlers)
+
+			listener := newListener(t)
+			go server.Serve(listener)
+			defer server.Stop()
+
+			conn, err := client.Dial("tcp://"+listener.Addr().String(), []grpc.DialOption{grpc.WithBlock()})
+			require.NoError(t, err)
+			defer conn.Close()
+			client := grpc_testing.NewTestServiceClient(conn)
+
+			tc.execute(ctx, t, client)
+
+			require.Equal(t, tc.expectedCalls, calls)
+		})
 	}
-
-	go server.Serve(listener)
-	defer server.Stop()
-
-	cc, err := client.Dial("unix://"+serverSocketPath, []grpc.DialOption{grpc.WithBlock()})
-	require.NoError(t, err)
-	defer cc.Close()
-
-	testServiceClient := pb.NewTestServiceClient(cc)
-	ctx := testhelper.Context(t)
-
-	_, err = testServiceClient.Ping(ctx, &pb.PingRequest{Value: pingValue})
-	require.NoError(t, err)
-	require.True(t, pingStreamHandlerCalled)
-
-	_, err = testServiceClient.PingEmpty(ctx, &pb.Empty{})
-	require.NoError(t, err)
-	require.True(t, pingEmptyStreamHandlerCalled)
-
-	// since PingError was never registered with its own streamer, it should get sent to the UnknownServiceHandler
-	_, err = testServiceClient.PingError(ctx, &pb.PingRequest{})
-	testhelper.RequireGrpcError(t, status.Error(codes.Unknown, directorCalledError.Error()), err)
 }
