@@ -37,6 +37,19 @@ const (
 )
 
 func TestHandler_carriesClientMetadata(t *testing.T) {
+	t.Parallel()
+	testHandlerCarriesClientMetadata(t)
+}
+
+func TestHandler_carriesClientMetadataStressTest(t *testing.T) {
+	t.Parallel()
+
+	for i := 0; i < 50; i++ {
+		testHandlerCarriesClientMetadata(t)
+	}
+}
+
+func testHandlerCarriesClientMetadata(t *testing.T) {
 	ctx, client, backend := setupProxy(t)
 
 	backend.unaryCall = func(ctx context.Context, request *grpc_testing.SimpleRequest) (*grpc_testing.SimpleResponse, error) {
@@ -61,13 +74,9 @@ func TestHandler_carriesClientMetadata(t *testing.T) {
 	}, response)
 }
 
-func TestHandler_carriesClientMetadataStressTest(t *testing.T) {
-	for i := 0; i < 50; i++ {
-		TestHandler_carriesClientMetadata(t)
-	}
-}
-
 func TestHandler_carriesHeadersAndTrailers(t *testing.T) {
+	t.Parallel()
+
 	ctx, client, backend := setupProxy(t)
 
 	backend.unaryCall = func(ctx context.Context, request *grpc_testing.SimpleRequest) (*grpc_testing.SimpleResponse, error) {
@@ -131,6 +140,8 @@ func TestHandler_propagatesServerError(t *testing.T) {
 }
 
 func TestHandler_directorErrorIsPropagated(t *testing.T) {
+	t.Parallel()
+
 	// There is no need to set up the backend given that we should reject the call before we
 	// even hit the server.
 	ctx, client, _ := setupProxy(t)
@@ -145,6 +156,19 @@ func TestHandler_directorErrorIsPropagated(t *testing.T) {
 }
 
 func TestHandler_fullDuplex(t *testing.T) {
+	t.Parallel()
+	testHandlerFullDuplex(t)
+}
+
+func TestHandler_fullDuplexStressTest(t *testing.T) {
+	t.Parallel()
+
+	for i := 0; i < 50; i++ {
+		testHandlerFullDuplex(t)
+	}
+}
+
+func testHandlerFullDuplex(t *testing.T) {
 	ctx, client, backend := setupProxy(t)
 
 	backend.fullDuplexCall = func(stream grpc_testing.TestService_FullDuplexCallServer) error {
@@ -205,12 +229,6 @@ func TestHandler_fullDuplex(t *testing.T) {
 	), stream.Trailer())
 }
 
-func TestHandler_fullDuplexStressTest(t *testing.T) {
-	for i := 0; i < 50; i++ {
-		TestHandler_fullDuplex(t)
-	}
-}
-
 func setupProxy(t *testing.T) (context.Context, grpc_testing.TestServiceClient, *interceptPinger) {
 	t.Helper()
 
@@ -245,6 +263,8 @@ func setupProxy(t *testing.T) (context.Context, grpc_testing.TestServiceClient, 
 }
 
 func TestProxyErrorPropagation(t *testing.T) {
+	t.Parallel()
+
 	errBackend := status.Error(codes.InvalidArgument, "backend error")
 	errDirector := status.Error(codes.FailedPrecondition, "director error")
 	errRequestFinalizer := status.Error(codes.Internal, "request finalizer error")
@@ -371,6 +391,8 @@ func TestProxyErrorPropagation(t *testing.T) {
 }
 
 func TestRegisterStreamHandlers(t *testing.T) {
+	t.Parallel()
+
 	directorCalledError := errors.New("director was called")
 
 	requestSent := &grpc_testing.SimpleRequest{
