@@ -48,10 +48,6 @@ const (
 	countListResponses = 20
 )
 
-func TestMain(m *testing.M) {
-	testhelper.Run(m)
-}
-
 // asserting service is implemented on the server side and serves as a handler for stuff
 type assertingService struct {
 	pb.UnimplementedTestServiceServer

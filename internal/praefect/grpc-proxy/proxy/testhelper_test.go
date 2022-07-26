@@ -10,9 +10,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/grpc-proxy/proxy"
 	testservice "gitlab.com/gitlab-org/gitaly/v15/internal/praefect/grpc-proxy/testdata"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
+
+func TestMain(m *testing.M) {
+	testhelper.Run(m)
+}
 
 func newListener(tb testing.TB) net.Listener {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
