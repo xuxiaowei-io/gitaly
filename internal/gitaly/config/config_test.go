@@ -1304,15 +1304,18 @@ func TestSetupRuntimeDirectory(t *testing.T) {
 
 func TestPruneRuntimeDirectories(t *testing.T) {
 	t.Run("no runtime directories", func(t *testing.T) {
-		require.NoError(t, PruneRuntimeDirectories(testhelper.NewDiscardingLogEntry(t), testhelper.TempDir(t)))
+		require.NoError(t, PruneOldGitalyProcessDirectories(testhelper.NewDiscardingLogEntry(t), testhelper.TempDir(t)))
 	})
 
 	t.Run("unset runtime directory", func(t *testing.T) {
-		require.EqualError(t, PruneRuntimeDirectories(testhelper.NewDiscardingLogEntry(t), ""), "list runtime directory: open : no such file or directory")
+		require.EqualError(t,
+			PruneOldGitalyProcessDirectories(testhelper.NewDiscardingLogEntry(t), ""), "list gitaly process directory: open : no such file or directory")
 	})
 
 	t.Run("non-existent runtime directory", func(t *testing.T) {
-		require.EqualError(t, PruneRuntimeDirectories(testhelper.NewDiscardingLogEntry(t), "/path/does/not/exist"), "list runtime directory: open /path/does/not/exist: no such file or directory")
+		require.EqualError(t,
+			PruneOldGitalyProcessDirectories(testhelper.NewDiscardingLogEntry(t),
+				"/path/does/not/exist"), "list gitaly process directory: open /path/does/not/exist: no such file or directory")
 	})
 
 	t.Run("invalid, stale and active runtime directories", func(t *testing.T) {
@@ -1336,19 +1339,19 @@ func TestPruneRuntimeDirectories(t *testing.T) {
 			require.NoError(t, err)
 
 			prunableDirs = append(prunableDirs, staleRuntimeDir)
-			expectedLogs[staleRuntimeDir] = "removing leftover runtime directory"
+			expectedLogs[staleRuntimeDir] = "removing leftover gitaly process directory"
 		}
 
 		// Setup runtime directory with pid of process not owned by git user
 		rootRuntimeDir, err := SetupRuntimeDirectory(cfg, 1)
 		require.NoError(t, err)
-		expectedLogs[rootRuntimeDir] = "removing leftover runtime directory"
+		expectedLogs[rootRuntimeDir] = "removing leftover gitaly process directory"
 		prunableDirs = append(prunableDirs, rootRuntimeDir)
 
 		// Create an unexpected file in the runtime directory
 		unexpectedFilePath := filepath.Join(baseDir, "unexpected-file")
 		require.NoError(t, os.WriteFile(unexpectedFilePath, []byte(""), os.ModePerm))
-		expectedLogs[unexpectedFilePath] = "runtime directory contains an unexpected file"
+		expectedLogs[unexpectedFilePath] = "gitaly process directory contains an unexpected file"
 
 		nonPrunableDirs := []string{ownRuntimeDir}
 
@@ -1361,12 +1364,12 @@ func TestPruneRuntimeDirectories(t *testing.T) {
 		} {
 			dirPath := filepath.Join(baseDir, dirName)
 			require.NoError(t, os.Mkdir(dirPath, os.ModePerm))
-			expectedLogs[dirPath] = "runtime directory contains an unexpected directory"
+			expectedLogs[dirPath] = "gitaly process directory contains an unexpected directory"
 			nonPrunableDirs = append(nonPrunableDirs, dirPath)
 		}
 
 		logger, hook := test.NewNullLogger()
-		require.NoError(t, PruneRuntimeDirectories(logger, cfg.RuntimeDir))
+		require.NoError(t, PruneOldGitalyProcessDirectories(logger, cfg.RuntimeDir))
 
 		actualLogs := map[string]string{}
 		for _, entry := range hook.Entries {

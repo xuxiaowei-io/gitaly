@@ -149,7 +149,7 @@ func run(cfg config.Cfg) error {
 	defer cancel()
 
 	if cfg.RuntimeDir != "" {
-		if err := config.PruneRuntimeDirectories(log.StandardLogger(), cfg.RuntimeDir); err != nil {
+		if err := config.PruneOldGitalyProcessDirectories(log.StandardLogger(), cfg.RuntimeDir); err != nil {
 			return fmt.Errorf("prune runtime directories: %w", err)
 		}
 	}
