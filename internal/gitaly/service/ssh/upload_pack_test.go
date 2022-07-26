@@ -103,11 +103,10 @@ func TestUploadPack_timeout(t *testing.T) {
 func testUploadPackTimeout(t *testing.T, opts ...testcfg.Option) {
 	cfg := testcfg.Build(t, opts...)
 
-	cfg.SocketPath = runSSHServerWithOptions(t, cfg, []ServerOpt{WithUploadPackRequestTimeout(10 * time.Microsecond)})
+	cfg.SocketPath = runSSHServerWithOptions(t, cfg, []ServerOpt{WithUploadPackRequestTimeout(1)})
 
-	repo, _ := gittest.CreateRepository(testhelper.Context(t), t, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
+	repo, repoPath := gittest.CreateRepository(testhelper.Context(t), t, cfg)
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 
 	client, conn := newSSHClient(t, cfg.SocketPath)
 	defer conn.Close()
@@ -527,9 +526,21 @@ func testUploadPackSuccessful(t *testing.T, sidechannel bool, opts ...testcfg.Op
 		WithPackfileNegotiationMetrics(negotiationMetrics),
 	}, testserver.WithGitCommandFactory(protocolDetectingFactory))
 
-	repo, repoPath := gittest.CreateRepository(testhelper.Context(t), t, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
+	repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
+
+	smallBlobID := gittest.WriteBlob(t, cfg, repoPath, []byte("foobar"))
+	largeBlobID := gittest.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("1"), 2048))
+
+	// We set up the commits so that HEAD does not reference the above two blobs. If it did we'd
+	// fetch the blobs regardless of `--filter=blob:limit`.
+	rootCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(), gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "small", Mode: "100644", OID: smallBlobID},
+		gittest.TreeEntry{Path: "large", Mode: "100644", OID: largeBlobID},
+	))
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(rootCommitID), gittest.WithBranch("main"), gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "unrelated", Mode: "100644", Content: "something"},
+	))
+	gittest.WriteTag(t, cfg, repoPath, "v1.0.0", rootCommitID.Revision())
 
 	for _, tc := range []struct {
 		desc             string
@@ -581,16 +592,11 @@ func testUploadPackSuccessful(t *testing.T, sidechannel bool, opts ...testcfg.Op
 				Repository: repo,
 			},
 			cloneFlags: []git.Option{
-				git.ValueFlag{Name: "--filter", Value: "blob:limit=2048"},
+				git.ValueFlag{Name: "--filter", Value: "blob:limit=1024"},
 			},
 			verify: func(t *testing.T, repoPath string) {
-				// Ruby file which is ~1kB in size and not present in HEAD
-				blobLessThanLimit := git.ObjectID("6ee41e85cc9bf33c10b690df09ca735b22f3790f")
-				// Image which is ~100kB in size and not present in HEAD
-				blobGreaterThanLimit := git.ObjectID("18079e308ff9b3a5e304941020747e5c39b46c88")
-
-				gittest.RequireObjectNotExists(t, cfg, repoPath, blobGreaterThanLimit)
-				gittest.RequireObjectExists(t, cfg, repoPath, blobLessThanLimit)
+				gittest.RequireObjectNotExists(t, cfg, repoPath, largeBlobID)
+				gittest.RequireObjectExists(t, cfg, repoPath, smallBlobID)
 			},
 		},
 		{
@@ -627,7 +633,7 @@ func testUploadPackSuccessful(t *testing.T, sidechannel bool, opts ...testcfg.Op
 				Flags: tc.cloneFlags,
 			}, tc.request))
 
-			requireRevisionsEqual(t, cfg, repoPath, localRepoPath, "refs/heads/master")
+			requireRevisionsEqual(t, cfg, repoPath, localRepoPath, "refs/heads/main")
 
 			metric, err := negotiationMetrics.GetMetricWithLabelValues("deepen")
 			require.NoError(t, err)
