@@ -26,15 +26,15 @@ func newListener(tb testing.TB) net.Listener {
 	return listener
 }
 
-func newBackendPinger(tb testing.TB, ctx context.Context) (*grpc.ClientConn, *interceptPinger, func()) {
+func newBackendPinger(tb testing.TB, ctx context.Context) (*grpc.ClientConn, *interceptPinger) {
 	ip := &interceptPinger{}
 
-	done := make(chan struct{})
 	srvr := grpc.NewServer()
 	listener := newListener(tb)
 
 	testservice.RegisterTestServiceServer(srvr, ip)
 
+	done := make(chan struct{})
 	go func() {
 		defer close(done)
 		srvr.Serve(listener)
@@ -51,26 +51,24 @@ func newBackendPinger(tb testing.TB, ctx context.Context) (*grpc.ClientConn, *in
 	)
 	require.NoError(tb, err)
 
-	cleanup := func() {
+	tb.Cleanup(func() {
 		srvr.GracefulStop()
 		require.NoError(tb, cc.Close())
 		<-done
-	}
+	})
 
-	return cc, ip, cleanup
+	return cc, ip
 }
 
-func newProxy(tb testing.TB, ctx context.Context, director proxy.StreamDirector, svc, method string) (*grpc.ClientConn, func()) {
+func newProxy(tb testing.TB, ctx context.Context, director proxy.StreamDirector, svc, method string) *grpc.ClientConn {
 	proxySrvr := grpc.NewServer(
 		grpc.ForceServerCodec(proxy.NewCodec()),
 		grpc.UnknownServiceHandler(proxy.TransparentHandler(director)),
 	)
-
 	proxy.RegisterService(proxySrvr, director, svc, method)
 
 	done := make(chan struct{})
 	listener := newListener(tb)
-
 	go func() {
 		defer close(done)
 		proxySrvr.Serve(listener)
@@ -84,13 +82,13 @@ func newProxy(tb testing.TB, ctx context.Context, director proxy.StreamDirector,
 	)
 	require.NoError(tb, err)
 
-	cleanup := func() {
+	tb.Cleanup(func() {
 		proxySrvr.GracefulStop()
 		require.NoError(tb, proxyCC.Close())
 		<-done
-	}
+	})
 
-	return proxyCC, cleanup
+	return proxyCC
 }
 
 // interceptPinger allows an RPC to be intercepted with a custom

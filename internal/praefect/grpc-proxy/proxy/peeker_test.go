@@ -22,8 +22,7 @@ import (
 func TestStreamPeeking(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	backendCC, backendSrvr, cleanupPinger := newBackendPinger(t, ctx)
-	defer cleanupPinger()
+	backendCC, backendSrvr := newBackendPinger(t, ctx)
 
 	pingReqSent := &testservice.PingRequest{Value: "hi"}
 
@@ -53,9 +52,7 @@ func TestStreamPeeking(t *testing.T) {
 		return stream.Send(pingResp)
 	}
 
-	proxyCC, cleanupProxy := newProxy(t, ctx, director, "mwitkow.testproto.TestService", "PingStream")
-	defer cleanupProxy()
-
+	proxyCC := newProxy(t, ctx, director, "mwitkow.testproto.TestService", "PingStream")
 	proxyClient := testservice.NewTestServiceClient(proxyCC)
 
 	proxyClientPingStream, err := proxyClient.PingStream(ctx)
@@ -79,8 +76,7 @@ func TestStreamPeeking(t *testing.T) {
 func TestStreamInjecting(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	backendCC, backendSrvr, cleanupPinger := newBackendPinger(t, ctx)
-	defer cleanupPinger()
+	backendCC, backendSrvr := newBackendPinger(t, ctx)
 
 	pingReqSent := &testservice.PingRequest{Value: "hi"}
 	newValue := "bye"
@@ -115,9 +111,7 @@ func TestStreamInjecting(t *testing.T) {
 		return stream.Send(pingResp)
 	}
 
-	proxyCC, cleanupProxy := newProxy(t, ctx, director, "mwitkow.testproto.TestService", "PingStream")
-	defer cleanupProxy()
-
+	proxyCC := newProxy(t, ctx, director, "mwitkow.testproto.TestService", "PingStream")
 	proxyClient := testservice.NewTestServiceClient(proxyCC)
 
 	proxyClientPingStream, err := proxyClient.PingStream(ctx)
