@@ -3,8 +3,11 @@
 package objectpool
 
 import (
+	"context"
+	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -19,15 +22,18 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/txinfo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/log"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/status"
+	"google.golang.org/grpc/peer"
 )
 
 func TestFetchIntoObjectPool_Success(t *testing.T) {
@@ -84,16 +90,34 @@ func TestFetchIntoObjectPool_Success(t *testing.T) {
 	require.Error(t, err, "Expected refs/heads/broken to be deleted")
 }
 
-func TestFetchIntoObjectPool_hooks(t *testing.T) {
-	cfg := testcfg.Build(t)
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg, git.WithHooksPath(testhelper.TempDir(t)))
-
-	cfg.SocketPath = runObjectPoolServer(t, cfg, config.NewLocator(cfg), testhelper.NewDiscardingLogger(t), testserver.WithGitCommandFactory(gitCmdFactory))
+func TestFetchIntoObjectPool_transactional(t *testing.T) {
+	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
+
+	var votes []voting.Vote
+	var votesMutex sync.Mutex
+	txManager := transaction.MockManager{
+		VoteFn: func(_ context.Context, _ txinfo.Transaction, vote voting.Vote, _ voting.Phase) error {
+			votesMutex.Lock()
+			defer votesMutex.Unlock()
+			votes = append(votes, vote)
+			return nil
+		},
+	}
+
+	cfg := testcfg.Build(t)
+	cfg.SocketPath = runObjectPoolServer(
+		t, cfg, config.NewLocator(cfg),
+		testhelper.NewDiscardingLogger(t),
+		testserver.WithTransactionManager(&txManager),
+		// We need to disable Praefect given that we replace transactions with our own logic
+		// here.
+		testserver.WithDisablePraefect(),
+	)
+	testcfg.BuildGitalyHooks(t, cfg)
+
+	repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
 
 	conn, err := grpc.Dial(cfg.SocketPath, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, err)
@@ -108,17 +132,67 @@ func TestFetchIntoObjectPool_hooks(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Set up a custom reference-transaction hook which simply exits failure. This asserts that
-	// the RPC doesn't invoke any reference-transaction.
-	testhelper.WriteExecutable(t, filepath.Join(gitCmdFactory.HooksPath(ctx), "reference-transaction"), []byte("#!/bin/sh\nexit 1\n"))
+	// CreateObjectPool has a bug because it will leave the configuration of the origin remote
+	// in the gitconfig. This will get cleaned up at a later point by our housekeeping logic, so
+	// it doesn't hurt much in the first place to have it. But the cleanup logic would trigger
+	// another transactional vote which we want to avoid, so we simply unset the configuration
+	// here.
+	gittest.Exec(t, cfg, "-C", pool.FullPath(), "config", "--unset", "remote.origin.url")
 
-	req := &gitalypb.FetchIntoObjectPoolRequest{
-		ObjectPool: pool.ToProto(),
-		Origin:     repo,
-	}
+	// Inject transaction information so that FetchInotObjectPool knows to perform
+	// transactional voting.
+	ctx, err = txinfo.InjectTransaction(peer.NewContext(ctx, &peer.Peer{}), 1, "node", true)
+	require.NoError(t, err)
+	ctx = metadata.IncomingToOutgoing(ctx)
 
-	_, err = client.FetchIntoObjectPool(ctx, req)
-	testhelper.RequireGrpcError(t, status.Error(codes.Internal, "fetch into object pool: exit status 128, stderr: \"fatal: ref updates aborted by hook\\n\""), err)
+	t.Run("without changed data", func(t *testing.T) {
+		votes = nil
+
+		_, err = client.FetchIntoObjectPool(ctx, &gitalypb.FetchIntoObjectPoolRequest{
+			ObjectPool: pool.ToProto(),
+			Origin:     repo,
+		})
+		require.NoError(t, err)
+
+		// This is a bug: we should always perform transactional voting even when nothing
+		// has changed.
+		require.Nil(t, votes)
+	})
+
+	t.Run("with a new reference", func(t *testing.T) {
+		votes = nil
+
+		// Create a new reference that we'd in fact fetch into the object pool so that we
+		// know that something will be voted on.
+		repoCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(), gittest.WithBranch("new-branch"))
+
+		_, err = client.FetchIntoObjectPool(ctx, &gitalypb.FetchIntoObjectPoolRequest{
+			ObjectPool: pool.ToProto(),
+			Origin:     repo,
+		})
+		require.NoError(t, err)
+
+		// We expect a single vote on the reference we're about to pull in here.
+		vote := voting.VoteFromData([]byte(fmt.Sprintf(
+			"%s %s refs/remotes/origin/heads/new-branch\n", git.ObjectHashSHA1.ZeroOID, repoCommit,
+		)))
+		require.Equal(t, []voting.Vote{vote, vote}, votes)
+	})
+
+	t.Run("with a stale reference in pool", func(t *testing.T) {
+		votes = nil
+
+		// Create a commit in the pool repository itself. Right now, we don't touch this
+		// commit at all, but this will change in one of the next commits.
+		gittest.WriteCommit(t, cfg, pool.FullPath(), gittest.WithParents(), gittest.WithReference("refs/remotes/origin/to-be-pruned"))
+
+		_, err = client.FetchIntoObjectPool(ctx, &gitalypb.FetchIntoObjectPoolRequest{
+			ObjectPool: pool.ToProto(),
+			Origin:     repo,
+		})
+		require.NoError(t, err)
+		require.Nil(t, votes)
+	})
 }
 
 func TestFetchIntoObjectPool_CollectLogStatistics(t *testing.T) {
