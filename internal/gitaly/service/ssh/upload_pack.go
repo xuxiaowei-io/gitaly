@@ -28,13 +28,8 @@ func (s *server) SSHUploadPack(stream gitalypb.SSHService_SSHUploadPackServer) e
 		return helper.ErrInternal(err)
 	}
 
-	repository := ""
-	if req.Repository != nil {
-		repository = req.Repository.GlRepository
-	}
-
 	ctxlogrus.Extract(ctx).WithFields(log.Fields{
-		"GlRepository":     repository,
+		"GlRepository":     req.GetRepository().GetGlRepository(),
 		"GitConfigOptions": req.GitConfigOptions,
 		"GitProtocol":      req.GitProtocol,
 	}).Debug("SSHUploadPack")
