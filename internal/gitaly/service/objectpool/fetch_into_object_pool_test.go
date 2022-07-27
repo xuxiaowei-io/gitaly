@@ -24,6 +24,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
@@ -39,8 +40,12 @@ import (
 
 func TestFetchIntoObjectPool_Success(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.FetchIntoObjectPoolPruneRefs).Run(t, testFetchIntoObjectPoolSuccess)
+}
 
-	ctx := testhelper.Context(t)
+func testFetchIntoObjectPoolSuccess(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, repo, repoPath, locator, client := setup(ctx, t)
 
 	repoCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(t.Name()))
@@ -93,8 +98,11 @@ func TestFetchIntoObjectPool_Success(t *testing.T) {
 
 func TestFetchIntoObjectPool_transactional(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.FetchIntoObjectPoolPruneRefs).Run(t, testFetchIntoObjectPoolTransactional)
+}
 
-	ctx := testhelper.Context(t)
+func testFetchIntoObjectPoolTransactional(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	var votes []voting.Vote
 	var votesMutex sync.Mutex
@@ -155,9 +163,17 @@ func TestFetchIntoObjectPool_transactional(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		// This is a bug: we should always perform transactional voting even when nothing
-		// has changed.
-		require.Nil(t, votes)
+		if featureflag.FetchIntoObjectPoolPruneRefs.IsEnabled(ctx) {
+			require.Equal(t, []voting.Vote{
+				// We expect to see two votes that demonstrate we're voting on no deleted
+				// references.
+				voting.VoteFromData(nil), voting.VoteFromData(nil),
+				// It is a bug though that we don't have a vote on the unchanged references
+				// in git-fetch(1).
+			}, votes)
+		} else {
+			require.Nil(t, votes)
+		}
 	})
 
 	t.Run("with a new reference", func(t *testing.T) {
@@ -173,33 +189,61 @@ func TestFetchIntoObjectPool_transactional(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		// We expect a single vote on the reference we're about to pull in here.
 		vote := voting.VoteFromData([]byte(fmt.Sprintf(
 			"%s %s refs/remotes/origin/heads/new-branch\n", git.ObjectHashSHA1.ZeroOID, repoCommit,
 		)))
-		require.Equal(t, []voting.Vote{vote, vote}, votes)
+		if featureflag.FetchIntoObjectPoolPruneRefs.IsEnabled(ctx) {
+			require.Equal(t, []voting.Vote{
+				// The first two votes stem from the fact that we're voting on no
+				// deleted references.
+				voting.VoteFromData(nil), voting.VoteFromData(nil),
+				// And the other two votes are from the new branch we pull in.
+				vote, vote,
+			}, votes)
+		} else {
+			require.Equal(t, []voting.Vote{vote, vote}, votes)
+		}
 	})
 
 	t.Run("with a stale reference in pool", func(t *testing.T) {
 		votes = nil
 
+		reference := "refs/remotes/origin/heads/to-be-pruned"
+
 		// Create a commit in the pool repository itself. Right now, we don't touch this
 		// commit at all, but this will change in one of the next commits.
-		gittest.WriteCommit(t, cfg, pool.FullPath(), gittest.WithParents(), gittest.WithReference("refs/remotes/origin/to-be-pruned"))
+		gittest.WriteCommit(t, cfg, pool.FullPath(), gittest.WithParents(), gittest.WithReference(reference))
 
 		_, err = client.FetchIntoObjectPool(ctx, &gitalypb.FetchIntoObjectPoolRequest{
 			ObjectPool: pool.ToProto(),
 			Origin:     repo,
 		})
 		require.NoError(t, err)
-		require.Nil(t, votes)
+
+		if featureflag.FetchIntoObjectPoolPruneRefs.IsEnabled(ctx) {
+			// We expect a single vote on the reference we have deleted.
+			vote := voting.VoteFromData([]byte(fmt.Sprintf(
+				"%[1]s %[1]s %s\n", git.ObjectHashSHA1.ZeroOID, reference,
+			)))
+			require.Equal(t, []voting.Vote{vote, vote}, votes)
+		} else {
+			require.Nil(t, votes)
+		}
+
+		exists, err := pool.Repo.HasRevision(ctx, git.Revision(reference))
+		require.NoError(t, err)
+		require.Equal(t, exists, featureflag.FetchIntoObjectPoolPruneRefs.IsDisabled(ctx))
 	})
 }
 
 func TestFetchIntoObjectPool_CollectLogStatistics(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.FetchIntoObjectPoolPruneRefs).Run(t, testFetchIntoObjectPoolCollectLogStatistics)
+}
 
-	ctx := testhelper.Context(t)
+func testFetchIntoObjectPoolCollectLogStatistics(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 	testcfg.BuildGitalyHooks(t, cfg)
 
@@ -327,8 +371,12 @@ func TestFetchIntoObjectPool_Failure(t *testing.T) {
 
 func TestFetchIntoObjectPool_dfConflict(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.FetchIntoObjectPoolPruneRefs).Run(t, testFetchIntoObjectPoolDfConflict)
+}
 
-	ctx := testhelper.Context(t)
+func testFetchIntoObjectPoolDfConflict(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, repo, repoPath, _, client := setup(ctx, t)
 
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
@@ -369,11 +417,20 @@ func TestFetchIntoObjectPool_dfConflict(t *testing.T) {
 		ObjectPool: pool.ToProto(),
 		Origin:     repo,
 	})
+	if featureflag.FetchIntoObjectPoolPruneRefs.IsEnabled(ctx) {
+		require.NoError(t, err)
 
-	// But right now it fails due to a bug.
-	testhelper.RequireGrpcError(t, helper.ErrInternalf(
-		"fetch into object pool: exit status %d, stderr: %q",
-		expectedExitStatus,
-		"error: cannot lock ref 'refs/remotes/origin/heads/branch/conflict': 'refs/remotes/origin/heads/branch' exists; cannot create 'refs/remotes/origin/heads/branch/conflict'\n",
-	), err)
+		poolPath, err := config.NewLocator(cfg).GetRepoPath(gittest.RewrittenRepository(ctx, t, cfg, pool.ToProto().GetRepository()))
+		require.NoError(t, err)
+
+		// Verify that the conflicting reference exists now.
+		gittest.Exec(t, cfg, "-C", poolPath, "rev-parse", "refs/remotes/origin/heads/branch/conflict")
+	} else {
+		// But right now it fails due to a bug.
+		testhelper.RequireGrpcError(t, helper.ErrInternalf(
+			"fetch into object pool: exit status %d, stderr: %q",
+			expectedExitStatus,
+			"error: cannot lock ref 'refs/remotes/origin/heads/branch/conflict': 'refs/remotes/origin/heads/branch' exists; cannot create 'refs/remotes/origin/heads/branch/conflict'\n",
+		), err)
+	}
 }

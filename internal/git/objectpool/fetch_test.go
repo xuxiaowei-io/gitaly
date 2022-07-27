@@ -3,6 +3,7 @@
 package objectpool
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -16,13 +17,18 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
 
 func TestFetchFromOrigin_dangling(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.FetchIntoObjectPoolPruneRefs).Run(t, testFetchFromOriginDangling)
+}
 
-	ctx := testhelper.Context(t)
+func testFetchFromOriginDangling(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, pool, repoProto := setupObjectPool(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -92,8 +98,12 @@ func TestFetchFromOrigin_dangling(t *testing.T) {
 
 func TestFetchFromOrigin_fsck(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.FetchIntoObjectPoolPruneRefs).Run(t, testFetchFromOriginFsck)
+}
 
-	ctx := testhelper.Context(t)
+func testFetchFromOriginFsck(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, pool, repoProto := setupObjectPool(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	repoPath := filepath.Join(cfg.Storages[0].Path, repo.GetRelativePath())
@@ -117,8 +127,12 @@ func TestFetchFromOrigin_fsck(t *testing.T) {
 
 func TestFetchFromOrigin_deltaIslands(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.FetchIntoObjectPoolPruneRefs).Run(t, testFetchFromOriginDeltaIslands)
+}
 
-	ctx := testhelper.Context(t)
+func testFetchFromOriginDeltaIslands(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, pool, repoProto := setupObjectPool(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -138,8 +152,12 @@ func TestFetchFromOrigin_deltaIslands(t *testing.T) {
 
 func TestFetchFromOrigin_bitmapHashCache(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.FetchIntoObjectPoolPruneRefs).Run(t, testFetchFromOriginBitmapHashCache)
+}
 
-	ctx := testhelper.Context(t)
+func testFetchFromOriginBitmapHashCache(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, pool, repoProto := setupObjectPool(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -164,8 +182,12 @@ func TestFetchFromOrigin_bitmapHashCache(t *testing.T) {
 
 func TestFetchFromOrigin_refUpdates(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.FetchIntoObjectPoolPruneRefs).Run(t, testFetchFromOriginRefUpdates)
+}
 
-	ctx := testhelper.Context(t)
+func testFetchFromOriginRefUpdates(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, pool, repoProto := setupObjectPool(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	repoPath := filepath.Join(cfg.Storages[0].Path, repo.GetRelativePath())
@@ -217,8 +239,12 @@ func TestFetchFromOrigin_refUpdates(t *testing.T) {
 
 func TestFetchFromOrigin_refs(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.FetchIntoObjectPoolPruneRefs).Run(t, testFetchFromOriginRefs)
+}
 
-	ctx := testhelper.Context(t)
+func testFetchFromOriginRefs(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, pool, _ := setupObjectPool(t, ctx)
 	poolPath := pool.FullPath()
 
