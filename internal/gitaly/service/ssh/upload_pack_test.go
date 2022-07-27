@@ -30,7 +30,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/encoding/protojson"
 )
@@ -97,10 +96,14 @@ func requireRevisionsEqual(t *testing.T, cfg config.Cfg, repoPathA, repoPathB, r
 func TestUploadPack_timeout(t *testing.T) {
 	t.Parallel()
 
-	runTestWithAndWithoutConfigOptions(t, testUploadPackTimeout, testcfg.WithPackObjectsCacheEnabled())
+	testhelper.NewFeatureSets(featureflag.UploadPackHideRefs).Run(t, func(t *testing.T, ctx context.Context) {
+		runTestWithAndWithoutConfigOptions(t, func(t *testing.T, opts ...testcfg.Option) {
+			testUploadPackTimeout(t, ctx, opts...)
+		}, testcfg.WithPackObjectsCacheEnabled())
+	})
 }
 
-func testUploadPackTimeout(t *testing.T, opts ...testcfg.Option) {
+func testUploadPackTimeout(t *testing.T, ctx context.Context, opts ...testcfg.Option) {
 	cfg := testcfg.Build(t, opts...)
 
 	cfg.SocketPath = runSSHServerWithOptions(t, cfg, []ServerOpt{WithUploadPackRequestTimeout(1)})
@@ -110,7 +113,6 @@ func testUploadPackTimeout(t *testing.T, opts ...testcfg.Option) {
 
 	client, conn := newSSHClient(t, cfg.SocketPath)
 	defer conn.Close()
-	ctx := testhelper.Context(t)
 
 	stream, err := client.SSHUploadPack(ctx)
 	require.NoError(t, err)
@@ -121,7 +123,7 @@ func testUploadPackTimeout(t *testing.T, opts ...testcfg.Option) {
 	// Because the client says nothing, the server would block. Because of
 	// the timeout, it won't block forever, and return with a non-zero exit
 	// code instead.
-	requireFailedSSHStream(t, func() (int32, error) {
+	requireFailedSSHStream(t, helper.ErrInternalf("cmd wait: signal: terminated, stderr: \"\""), func() (int32, error) {
 		resp, err := stream.Recv()
 		if err != nil {
 			return 0, err
@@ -405,7 +407,7 @@ func testUploadPackWithSidechannelClient(t *testing.T, ctx context.Context) {
 	}
 }
 
-func requireFailedSSHStream(t *testing.T, recv func() (int32, error)) {
+func requireFailedSSHStream(t *testing.T, expectedErr error, recv func() (int32, error)) {
 	done := make(chan struct{})
 	var code int32
 	var err error
@@ -419,7 +421,7 @@ func requireFailedSSHStream(t *testing.T, recv func() (int32, error)) {
 
 	select {
 	case <-done:
-		testhelper.RequireGrpcCode(t, err, codes.Internal)
+		testhelper.RequireGrpcError(t, expectedErr, err)
 		require.NotEqual(t, 0, code, "exit status")
 	case <-time.After(10 * time.Second):
 		t.Fatal("timeout waiting for SSH stream")
