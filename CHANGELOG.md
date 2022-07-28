@@ -112,6 +112,12 @@ No changes.
 
 - [repository: Use long-running filter process for converting LFS pointers](gitlab-org/gitaly@0603c758d6e3580adbd3d0d69e326d05baa340b9) ([merge request](gitlab-org/gitaly!4595))
 
+## 15.0.5 (2022-07-28)
+
+### Security (1 change)
+
+- [Import via git protocol allows to bypass checks on repository](gitlab-org/security/gitaly@a110173b56e3bc8c7cb5db2e1e84f6cfb226c39e) ([merge request](gitlab-org/security/gitaly!55))
+
 ## 15.0.4 (2022-06-30)
 
 No changes.
