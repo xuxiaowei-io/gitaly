@@ -233,7 +233,7 @@ func (cmd *trackRepository) trackRepository(
 	repositoryID, err := ds.ReserveRepositoryID(ctx, cmd.virtualStorage, cmd.relativePath)
 	if err != nil {
 		if errors.Is(err, commonerr.ErrRepositoryAlreadyExists) {
-			cmd.logger.Print("repository is already tracked in praefect database")
+			fmt.Fprintf(cmd.w, "repository is already tracked in praefect database")
 			return 0, nil
 		}
 
@@ -290,8 +290,7 @@ func (cmd *trackRepository) authoritativeRepositoryExists(ctx context.Context, c
 				}
 				exists, err := repositoryExists(ctx, repo, node.Address, node.Token)
 				if err != nil {
-					logger.WithError(err).Warnf("checking if repository exists %q, %q", node.Storage, cmd.relativePath)
-					return false, nil
+					return false, fmt.Errorf("checking if repository exists %q, %q", node.Storage, cmd.relativePath)
 				}
 				return exists, nil
 			}
