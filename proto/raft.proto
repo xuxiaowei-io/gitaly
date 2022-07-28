@@ -1,0 +1,47 @@
+package gitaly
+
+// LogEntry is a single log entry in the Raft log of a repository.
+message LogEntry {
+	// term is the Raft election term when the log entry was created.
+	int64 term = 1;
+
+	// UpdateReferences operation contains one or more reference updates
+	// to be applied in a transaction to a repository.
+	message UpdateReferences {
+		// RerferenceUpdate contains instructions to update a single reference.
+		message ReferenceUpdate {
+			// reference_name is the name of the reference to update.
+			bytes reference_name = 1;
+			// new_oid is the new oid to update the reference to. Null reference means
+			// the reference was deleted.
+			string new_oid       = 2;
+		}
+
+		// reference_updates contains all of the reference updates to apply in a transaction.
+		repeated ReferenceUpdate reference_updates = 1;
+	}
+
+	// SetConfig is an operation that sets the Git config of the repository.
+	message SetConfig {
+		// file_content is the content of the config.
+		bytes file_content = 1;
+	}
+
+	// SetAttributes is an operation that sets the info/attributes file of a repository.
+	message SetAttributes {
+		//  file_content is the content of the info/attributes file.
+		bytes file_content = 1;
+	}
+
+	// SetCustomHooks is an operation that sets the custom hooks of a repository.
+	message SetCustomHooks {
+
+	}
+
+	oneof operation {
+		UpdateReferences update_references = 2;
+		SetConfig        set_config        = 3;
+		SetAttributes    set_attributes    = 4;
+		SetCustomHooks   set_custom_hooks  = 5;
+	}
+}

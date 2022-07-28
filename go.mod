@@ -36,7 +36,7 @@ require (
 	go.uber.org/goleak v1.1.12
 	gocloud.dev v0.25.0
 	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
-	golang.org/x/sys v0.0.0-20220715151400-c0bba94af5f8
+	golang.org/x/sys v0.0.0-20220728004956-3c1f35247d10
 	golang.org/x/time v0.0.0-20220609170525-579cf78fd858
 	google.golang.org/grpc v1.47.0
 	google.golang.org/protobuf v1.28.0
@@ -64,6 +64,7 @@ require (
 	github.com/Microsoft/go-winio v0.5.0 // indirect
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
 	github.com/alexbrainman/sspi v0.0.0-20210105120005-909beea2cc74 // indirect
+	github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da // indirect
 	github.com/avast/retry-go v3.0.0+incompatible // indirect
 	github.com/aws/aws-sdk-go v1.43.31 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.16.2 // indirect
@@ -108,10 +109,17 @@ require (
 	github.com/golang-jwt/jwt/v4 v4.4.1 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
+	github.com/google/btree v1.0.0 // indirect
 	github.com/google/pprof v0.0.0-20210804190019-f964ff605595 // indirect
 	github.com/google/wire v0.5.0 // indirect
 	github.com/googleapis/gax-go/v2 v2.2.0 // indirect
+	github.com/hashicorp/errwrap v1.0.0 // indirect
+	github.com/hashicorp/go-immutable-radix v1.0.0 // indirect
+	github.com/hashicorp/go-msgpack v0.5.3 // indirect
+	github.com/hashicorp/go-multierror v1.0.0 // indirect
+	github.com/hashicorp/go-sockaddr v1.0.0 // indirect
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
+	github.com/hashicorp/memberlist v0.4.0 // indirect
 	github.com/hhatto/gorst v0.0.0-20181029133204-ca9f730cac5b // indirect
 	github.com/imdario/mergo v0.3.12 // indirect
 	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
@@ -136,6 +144,7 @@ require (
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/mattn/go-runewidth v0.0.9 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
+	github.com/miekg/dns v1.1.26 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/montanaflynn/stats v0.0.0-20151014174947-eeaced052adb // indirect
 	github.com/oklog/ulid/v2 v2.0.2 // indirect
@@ -147,6 +156,7 @@ require (
 	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/rubyist/tracerx v0.0.0-20170927163412-787959303086 // indirect
 	github.com/russross/blackfriday/v2 v2.0.1 // indirect
+	github.com/sean-/seed v0.0.0-20170313163322-e2103e2c3529 // indirect
 	github.com/sebest/xff v0.0.0-20210106013422-671bd2870b3a // indirect
 	github.com/sergi/go-diff v1.1.0 // indirect
 	github.com/shirou/gopsutil/v3 v3.21.2 // indirect
