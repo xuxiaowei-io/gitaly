@@ -1,5 +1,11 @@
 # Gitaly changelog
 
+## 15.2.1 (2022-07-28)
+
+### Security (1 change)
+
+- [Import via git protocol allows to bypass checks on repository](gitlab-org/security/gitaly@d7af133ce2c05dcfc93ebf15a47154a0cd40e9bd) ([merge request](gitlab-org/security/gitaly!56))
+
 ## 15.2.0 (2022-07-21)
 
 ### Added (4 changes)
@@ -50,6 +56,12 @@
 
 - [linguist: Implement Stats in pure Go](gitlab-org/gitaly@efd9a598f50e03f05620b56f2e010600128f3b1c) ([merge request](gitlab-org/gitaly!4580))
 
+## 15.1.4 (2022-07-28)
+
+### Security (1 change)
+
+- [Import via git protocol allows to bypass checks on repository](gitlab-org/security/gitaly@f8909dcbab9ea2ddabad06577a1c2ae50ac5f8f3) ([merge request](gitlab-org/security/gitaly!54))
+
 ## 15.1.3 (2022-07-19)
 
 No changes.
@@ -99,6 +111,12 @@ No changes.
 ### Performance (1 change)
 
 - [repository: Use long-running filter process for converting LFS pointers](gitlab-org/gitaly@0603c758d6e3580adbd3d0d69e326d05baa340b9) ([merge request](gitlab-org/gitaly!4595))
+
+## 15.0.5 (2022-07-28)
+
+### Security (1 change)
+
+- [Import via git protocol allows to bypass checks on repository](gitlab-org/security/gitaly@a110173b56e3bc8c7cb5db2e1e84f6cfb226c39e) ([merge request](gitlab-org/security/gitaly!55))
 
 ## 15.0.4 (2022-06-30)
 

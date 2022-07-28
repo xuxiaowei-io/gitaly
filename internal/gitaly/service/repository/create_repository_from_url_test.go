@@ -186,6 +186,40 @@ func TestCreateRepositoryFromURL_redirect(t *testing.T) {
 	require.Contains(t, err.Error(), "The requested URL returned error: 301")
 }
 
+func TestCreateRepositoryFromURL_fsck(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
+
+	_, sourceRepoPath := gittest.CreateRepository(ctx, t, cfg)
+
+	// We're creating a new commit which has a root tree with duplicate entries. git-mktree(1)
+	// allows us to create these trees just fine, but git-fsck(1) complains.
+	gittest.WriteCommit(t, cfg, sourceRepoPath,
+		gittest.WithParents(),
+		gittest.WithBranch("main"),
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Content: "content", Path: "dup", Mode: "100644"},
+			gittest.TreeEntry{Content: "content", Path: "dup", Mode: "100644"},
+		),
+	)
+
+	targetRepoProto := &gitalypb.Repository{
+		RelativePath: gittest.NewRepositoryName(t, true),
+		StorageName:  cfg.Storages[0].Name,
+	}
+
+	_, err := client.CreateRepositoryFromURL(ctx, &gitalypb.CreateRepositoryFromURLRequest{
+		Repository: targetRepoProto,
+		Url:        "file://" + sourceRepoPath,
+	})
+	require.Error(t, err)
+	testhelper.RequireGrpcCode(t, err, codes.Internal)
+	require.Contains(t, err.Error(), "duplicateEntries: contains duplicate file entries")
+}
+
 func TestServer_CloneFromURLCommand(t *testing.T) {
 	t.Parallel()
 
