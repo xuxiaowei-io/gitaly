@@ -235,7 +235,7 @@ func TestReceivePack_client(t *testing.T) {
 			writeRequest: func(t *testing.T, stdin io.Writer) {
 				gittest.WritePktlinef(t, stdin, "%[1]s %[1]s refs/heads/main", gittest.DefaultObjectHash.ZeroOID)
 			},
-			expectedErr:       helper.ErrInternalf("cmd wait: exit status 128"),
+			expectedErr:       helper.ErrCanceledf("user canceled the push"),
 			expectedErrorCode: 128,
 			expectedStderr:    "fatal: the remote end hung up unexpectedly\n",
 		},
