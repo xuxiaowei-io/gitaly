@@ -111,8 +111,7 @@ func testUploadPackTimeout(t *testing.T, ctx context.Context, opts ...testcfg.Op
 	repo, repoPath := gittest.CreateRepository(testhelper.Context(t), t, cfg)
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 
-	client, conn := newSSHClient(t, cfg.SocketPath)
-	defer conn.Close()
+	client := newSSHClient(t, cfg.SocketPath)
 
 	stream, err := client.SSHUploadPack(ctx)
 	require.NoError(t, err)
@@ -435,8 +434,7 @@ func TestUploadPack_validation(t *testing.T) {
 
 	serverSocketPath := runSSHServer(t, cfg)
 
-	client, conn := newSSHClient(t, serverSocketPath)
-	defer conn.Close()
+	client := newSSHClient(t, serverSocketPath)
 
 	for _, tc := range []struct {
 		desc        string
@@ -808,8 +806,7 @@ func testUploadPackGitFailure(t *testing.T, ctx context.Context) {
 		Seed: gittest.SeedGitLabTest,
 	})
 
-	client, conn := newSSHClient(t, cfg.SocketPath)
-	defer conn.Close()
+	client := newSSHClient(t, cfg.SocketPath)
 
 	// Writing an invalid config will allow repo to pass the `IsGitDirectory` check but still
 	// trigger an error when git tries to access the repo.

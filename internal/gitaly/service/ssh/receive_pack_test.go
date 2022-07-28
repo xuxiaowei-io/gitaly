@@ -46,8 +46,7 @@ func TestReceivePack_validation(t *testing.T) {
 
 	repo, _ := gittest.CreateRepository(ctx, t, cfg)
 
-	client, conn := newSSHClient(t, cfg.SocketPath)
-	defer conn.Close()
+	client := newSSHClient(t, cfg.SocketPath)
 
 	for _, tc := range []struct {
 		desc        string
@@ -342,8 +341,7 @@ func TestReceivePack_hidesObjectPoolReferences(t *testing.T) {
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
 
-	client, conn := newSSHClient(t, cfg.SocketPath)
-	defer conn.Close()
+	client := newSSHClient(t, cfg.SocketPath)
 
 	stream, err := client.SSHReceivePack(ctx)
 	require.NoError(t, err)
@@ -391,8 +389,7 @@ func TestReceivePack_transactional(t *testing.T) {
 
 	testcfg.BuildGitalyHooks(t, cfg)
 
-	client, conn := newSSHClient(t, cfg.SocketPath)
-	defer conn.Close()
+	client := newSSHClient(t, cfg.SocketPath)
 
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)
