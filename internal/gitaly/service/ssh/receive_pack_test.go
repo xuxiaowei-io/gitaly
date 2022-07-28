@@ -402,41 +402,38 @@ func TestReceivePack_hidesObjectPoolReferences(t *testing.T) {
 func TestReceivePack_transactional(t *testing.T) {
 	t.Parallel()
 
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
-
-	testcfg.BuildGitalyHooks(t, cfg)
 
 	txManager := transaction.NewTrackingManager()
 
 	cfg.SocketPath = runSSHServer(t, cfg, testserver.WithTransactionManager(txManager))
 
-	ctx := testhelper.Context(t)
-	repoProto, repoPath := gittest.CreateRepository(testhelper.Context(t), t, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	testcfg.BuildGitalyHooks(t, cfg)
 
 	client, conn := newSSHClient(t, cfg.SocketPath)
 	defer conn.Close()
+
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)
 	ctx = metadata.IncomingToOutgoing(ctx)
 
-	masterOID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath,
-		"rev-parse", "refs/heads/master"))
-	masterParentOID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/master~"))
+	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	parentCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithParents(parentCommitID))
 
 	type command struct {
 		ref    string
-		oldOID string
-		newOID string
+		oldOID git.ObjectID
+		newOID git.ObjectID
 	}
 
 	for _, tc := range []struct {
 		desc          string
 		writePackfile bool
 		commands      []command
-		expectedRefs  map[string]string
+		expectedRefs  map[string]git.ObjectID
 		expectedVotes int
 	}{
 		{
@@ -444,13 +441,13 @@ func TestReceivePack_transactional(t *testing.T) {
 			writePackfile: true,
 			commands: []command{
 				{
-					ref:    "refs/heads/master",
-					oldOID: masterOID,
-					newOID: masterOID,
+					ref:    "refs/heads/main",
+					oldOID: commitID,
+					newOID: commitID,
 				},
 			},
-			expectedRefs: map[string]string{
-				"refs/heads/master": masterOID,
+			expectedRefs: map[string]git.ObjectID{
+				"refs/heads/main": commitID,
 			},
 			expectedVotes: 3,
 		},
@@ -459,13 +456,13 @@ func TestReceivePack_transactional(t *testing.T) {
 			writePackfile: true,
 			commands: []command{
 				{
-					ref:    "refs/heads/master",
-					oldOID: masterOID,
-					newOID: masterParentOID,
+					ref:    "refs/heads/main",
+					oldOID: commitID,
+					newOID: parentCommitID,
 				},
 			},
-			expectedRefs: map[string]string{
-				"refs/heads/master": masterParentOID,
+			expectedRefs: map[string]git.ObjectID{
+				"refs/heads/main": parentCommitID,
 			},
 			expectedVotes: 3,
 		},
@@ -475,12 +472,12 @@ func TestReceivePack_transactional(t *testing.T) {
 			commands: []command{
 				{
 					ref:    "refs/heads/other",
-					oldOID: git.ObjectHashSHA1.ZeroOID.String(),
-					newOID: masterOID,
+					oldOID: gittest.DefaultObjectHash.ZeroOID,
+					newOID: commitID,
 				},
 			},
-			expectedRefs: map[string]string{
-				"refs/heads/other": masterOID,
+			expectedRefs: map[string]git.ObjectID{
+				"refs/heads/other": commitID,
 			},
 			expectedVotes: 3,
 		},
@@ -489,12 +486,12 @@ func TestReceivePack_transactional(t *testing.T) {
 			commands: []command{
 				{
 					ref:    "refs/heads/other",
-					oldOID: masterOID,
-					newOID: git.ObjectHashSHA1.ZeroOID.String(),
+					oldOID: commitID,
+					newOID: gittest.DefaultObjectHash.ZeroOID,
 				},
 			},
-			expectedRefs: map[string]string{
-				"refs/heads/other": git.ObjectHashSHA1.ZeroOID.String(),
+			expectedRefs: map[string]git.ObjectID{
+				"refs/heads/other": gittest.DefaultObjectHash.ZeroOID,
 			},
 			expectedVotes: 3,
 		},
@@ -504,18 +501,18 @@ func TestReceivePack_transactional(t *testing.T) {
 			commands: []command{
 				{
 					ref:    "refs/heads/a",
-					oldOID: git.ObjectHashSHA1.ZeroOID.String(),
-					newOID: masterOID,
+					oldOID: gittest.DefaultObjectHash.ZeroOID,
+					newOID: commitID,
 				},
 				{
 					ref:    "refs/heads/b",
-					oldOID: git.ObjectHashSHA1.ZeroOID.String(),
-					newOID: masterOID,
+					oldOID: gittest.DefaultObjectHash.ZeroOID,
+					newOID: commitID,
 				},
 			},
-			expectedRefs: map[string]string{
-				"refs/heads/a": masterOID,
-				"refs/heads/b": masterOID,
+			expectedRefs: map[string]git.ObjectID{
+				"refs/heads/a": commitID,
+				"refs/heads/b": commitID,
 			},
 			expectedVotes: 5,
 		},
@@ -525,12 +522,12 @@ func TestReceivePack_transactional(t *testing.T) {
 			commands: []command{
 				{
 					ref:    "refs/heads/a",
-					oldOID: git.ObjectHashSHA1.ZeroOID.String(),
-					newOID: masterParentOID,
+					oldOID: gittest.DefaultObjectHash.ZeroOID,
+					newOID: parentCommitID,
 				},
 			},
-			expectedRefs: map[string]string{
-				"refs/heads/a": masterOID,
+			expectedRefs: map[string]git.ObjectID{
+				"refs/heads/a": commitID,
 			},
 			expectedVotes: 1,
 		},
@@ -540,17 +537,17 @@ func TestReceivePack_transactional(t *testing.T) {
 			commands: []command{
 				{
 					ref:    "refs/heads/a",
-					oldOID: git.ObjectHashSHA1.ZeroOID.String(),
-					newOID: masterParentOID,
+					oldOID: gittest.DefaultObjectHash.ZeroOID,
+					newOID: parentCommitID,
 				},
 				{
 					ref:    "refs/heads/b",
-					oldOID: masterOID,
-					newOID: git.ObjectHashSHA1.ZeroOID.String(),
+					oldOID: commitID,
+					newOID: gittest.DefaultObjectHash.ZeroOID,
 				},
 			},
-			expectedRefs: map[string]string{
-				"refs/heads/a": masterOID,
+			expectedRefs: map[string]git.ObjectID{
+				"refs/heads/a": commitID,
 			},
 			expectedVotes: 3,
 		},
@@ -594,11 +591,11 @@ func TestReceivePack_transactional(t *testing.T) {
 			for expectedRef, expectedOID := range tc.expectedRefs {
 				actualOID, err := repo.ResolveRevision(ctx, git.Revision(expectedRef))
 
-				if expectedOID == git.ObjectHashSHA1.ZeroOID.String() {
+				if expectedOID == gittest.DefaultObjectHash.ZeroOID {
 					require.Equal(t, git.ErrReferenceNotFound, err)
 				} else {
 					require.NoError(t, err)
-					require.Equal(t, expectedOID, actualOID.String())
+					require.Equal(t, expectedOID, actualOID)
 				}
 			}
 			require.Equal(t, tc.expectedVotes, len(txManager.Votes()))
