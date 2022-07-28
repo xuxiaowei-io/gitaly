@@ -49,6 +49,12 @@ func (s *server) CreateFork(ctx context.Context, req *gitalypb.CreateForkRequest
 			},
 		}, git.WithInternalFetch(&gitalypb.SSHUploadPackRequest{
 			Repository: sourceRepository,
+		}), git.WithConfig(git.ConfigPair{
+			// Disable consistency checks for fetched objects when creating a
+			// fork. We don't want to end up in a situation where it's
+			// impossible to create forks we already have anyway because we have
+			// e.g. retroactively tightened the consistency checks.
+			Key: "fetch.fsckObjects", Value: "false",
 		}), git.WithDisabledHooks())
 		if err != nil {
 			return fmt.Errorf("spawning fetch: %w", err)
