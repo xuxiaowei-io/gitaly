@@ -24,6 +24,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
@@ -33,63 +34,89 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
 func TestReceivePack_validation(t *testing.T) {
 	t.Parallel()
 
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
-
 	cfg.SocketPath = runSSHServer(t, cfg)
 
-	repo, _ := gittest.CreateRepository(testhelper.Context(t), t, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
+	repo, _ := gittest.CreateRepository(ctx, t, cfg)
 
 	client, conn := newSSHClient(t, cfg.SocketPath)
 	defer conn.Close()
 
-	tests := []struct {
-		Desc string
-		Req  *gitalypb.SSHReceivePackRequest
-		Code codes.Code
+	for _, tc := range []struct {
+		desc        string
+		request     *gitalypb.SSHReceivePackRequest
+		expectedErr error
 	}{
 		{
-			Desc: "Repository.RelativePath is empty",
-			Req:  &gitalypb.SSHReceivePackRequest{Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: ""}, GlId: "user-123"},
-			Code: codes.InvalidArgument,
-		},
-		{
-			Desc: "Repository is nil",
-			Req:  &gitalypb.SSHReceivePackRequest{Repository: nil, GlId: "user-123"},
-			Code: codes.InvalidArgument,
-		},
-		{
-			Desc: "Empty GlId",
-			Req:  &gitalypb.SSHReceivePackRequest{Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: repo.GetRelativePath()}, GlId: ""},
-			Code: codes.InvalidArgument,
-		},
-		{
-			Desc: "Data exists on first request",
-			Req:  &gitalypb.SSHReceivePackRequest{Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: repo.GetRelativePath()}, GlId: "user-123", Stdin: []byte("Fail")},
-			Code: codes.InvalidArgument,
-		},
-	}
+			desc: "empty relative path",
+			request: &gitalypb.SSHReceivePackRequest{
+				Repository: &gitalypb.Repository{
+					StorageName:  cfg.Storages[0].Name,
+					RelativePath: "",
+				},
+				GlId: "user-123",
+			},
+			expectedErr: func() error {
+				if testhelper.IsPraefectEnabled() {
+					return helper.ErrInvalidArgumentf("repo scoped: invalid Repository")
+				}
 
-	for _, test := range tests {
-		t.Run(test.Desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
+				return helper.ErrInvalidArgumentf("GetPath: relative path missing from storage_name:\"default\"")
+			}(),
+		},
+		{
+			desc: "missing repository",
+			request: &gitalypb.SSHReceivePackRequest{
+				Repository: nil,
+				GlId:       "user-123",
+			},
+			expectedErr: func() error {
+				if testhelper.IsPraefectEnabled() {
+					return helper.ErrInvalidArgumentf("repo scoped: empty Repository")
+				}
 
+				return helper.ErrInvalidArgumentf("repository is empty")
+			}(),
+		},
+		{
+			desc: "missing GlId",
+			request: &gitalypb.SSHReceivePackRequest{
+				Repository: &gitalypb.Repository{
+					StorageName:  cfg.Storages[0].Name,
+					RelativePath: repo.GetRelativePath(),
+				},
+				GlId: "",
+			},
+			expectedErr: helper.ErrInvalidArgumentf("empty GlId"),
+		},
+		{
+			desc: "stdin on first request",
+			request: &gitalypb.SSHReceivePackRequest{
+				Repository: &gitalypb.Repository{
+					StorageName:  cfg.Storages[0].Name,
+					RelativePath: repo.GetRelativePath(),
+				},
+				GlId:  "user-123",
+				Stdin: []byte("Fail"),
+			},
+			expectedErr: helper.ErrInvalidArgumentf("non-empty data in first request"),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
 			stream, err := client.SSHReceivePack(ctx)
 			require.NoError(t, err)
 
-			require.NoError(t, stream.Send(test.Req))
+			require.NoError(t, stream.Send(tc.request))
 			require.NoError(t, stream.CloseSend())
 
-			err = drainPostReceivePackResponse(stream)
-			testhelper.RequireGrpcCode(t, err, test.Code)
+			testhelper.RequireGrpcError(t, tc.expectedErr, drainPostReceivePackResponse(stream))
 		})
 	}
 }
@@ -214,16 +241,32 @@ func TestReceivePack_failure(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+	cfg.SocketPath = runSSHServer(t, cfg)
 
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	testcfg.BuildGitalySSH(t, cfg)
 
-	serverSocketPath := runSSHServer(t, cfg)
+	repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
 
-	_, _, err := testCloneAndPush(ctx, t, cfg, serverSocketPath, repo, repoPath, pushParams{storageName: "foobar", glID: "1"})
-	require.Error(t, err, "local and remote head equal. push did not fail")
+	t.Run("clone with invalid storage name", func(t *testing.T) {
+		_, _, err := testCloneAndPush(ctx, t, cfg, cfg.SocketPath, repo, repoPath, pushParams{
+			storageName: "foobar",
+			glID:        "1",
+		})
+		require.Error(t, err)
 
-	_, _, err = testCloneAndPush(ctx, t, cfg, serverSocketPath, repo, repoPath, pushParams{storageName: cfg.Storages[0].Name, glID: ""})
-	require.Error(t, err, "local and remote head equal. push did not fail")
+		if testhelper.IsPraefectEnabled() {
+			require.Contains(t, err.Error(), helper.ErrInvalidArgumentf("repo scoped: invalid Repository").Error())
+		} else {
+			require.Contains(t, err.Error(), helper.ErrInvalidArgumentf("GetStorageByName: no such storage: \\\"foobar\\\"\\n").Error())
+		}
+	})
+
+	t.Run("clone with invalid GlId", func(t *testing.T) {
+		_, _, err := testCloneAndPush(ctx, t, cfg, cfg.SocketPath, repo, repoPath, pushParams{storageName: cfg.Storages[0].Name, glID: ""})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), helper.ErrInvalidArgumentf("empty GlId").Error())
+	})
 }
 
 func TestReceivePack_hookFailure(t *testing.T) {
