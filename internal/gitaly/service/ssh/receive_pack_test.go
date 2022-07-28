@@ -37,7 +37,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
+func TestReceivePack_validation(t *testing.T) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
@@ -94,7 +94,7 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 	}
 }
 
-func TestReceivePackPushSuccess(t *testing.T) {
+func TestReceivePack_success(t *testing.T) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
@@ -179,7 +179,7 @@ func TestReceivePackPushSuccess(t *testing.T) {
 	}, payload)
 }
 
-func TestReceivePackPushSuccessWithGitProtocol(t *testing.T) {
+func TestReceive_gitProtocol(t *testing.T) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
@@ -210,7 +210,7 @@ func TestReceivePackPushSuccessWithGitProtocol(t *testing.T) {
 	require.Contains(t, envData, fmt.Sprintf("GIT_PROTOCOL=%s\n", git.ProtocolV2))
 }
 
-func TestReceivePackPushFailure(t *testing.T) {
+func TestReceivePack_failure(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
@@ -226,7 +226,7 @@ func TestReceivePackPushFailure(t *testing.T) {
 	require.Error(t, err, "local and remote head equal. push did not fail")
 }
 
-func TestReceivePackPushHookFailure(t *testing.T) {
+func TestReceivePack_hookFailure(t *testing.T) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
@@ -249,7 +249,7 @@ func TestReceivePackPushHookFailure(t *testing.T) {
 	require.Contains(t, err.Error(), "(pre-receive hook declined)")
 }
 
-func TestReceivePackPushHookFailureWithCustomHook(t *testing.T) {
+func TestReceivePack_customHookFailure(t *testing.T) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
@@ -300,7 +300,7 @@ func TestReceivePackPushHookFailureWithCustomHook(t *testing.T) {
 	require.NotContains(t, string(slurpErr), "final transactional vote: transaction was stopped")
 }
 
-func TestObjectPoolRefAdvertisementHidingSSH(t *testing.T) {
+func TestReceivePack_hidesObjectPoolReferences(t *testing.T) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
@@ -356,7 +356,7 @@ func TestObjectPoolRefAdvertisementHidingSSH(t *testing.T) {
 	require.NotContains(t, b.String(), commitID+" .have")
 }
 
-func TestReceivePackTransactional(t *testing.T) {
+func TestReceivePack_transactional(t *testing.T) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
@@ -563,7 +563,7 @@ func TestReceivePackTransactional(t *testing.T) {
 	}
 }
 
-func TestSSHReceivePackToHooks(t *testing.T) {
+func TestReceivePack_objectExistsHook(t *testing.T) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
