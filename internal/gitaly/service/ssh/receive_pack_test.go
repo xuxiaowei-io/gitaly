@@ -211,6 +211,7 @@ func TestReceivePack_client(t *testing.T) {
 	for _, tc := range []struct {
 		desc              string
 		writeRequest      func(*testing.T, io.Writer)
+		expectedErr       error
 		expectedErrorCode int32
 		expectedStderr    string
 	}{
@@ -225,6 +226,7 @@ func TestReceivePack_client(t *testing.T) {
 			writeRequest: func(t *testing.T, stdin io.Writer) {
 				gittest.WritePktlineString(t, stdin, "garbage")
 			},
+			expectedErr:       helper.ErrInternalf("cmd wait: exit status 128"),
 			expectedErrorCode: 128,
 			expectedStderr:    "fatal: protocol error: expected old/new/ref, got 'garbage'\n",
 		},
@@ -233,6 +235,7 @@ func TestReceivePack_client(t *testing.T) {
 			writeRequest: func(t *testing.T, stdin io.Writer) {
 				gittest.WritePktlinef(t, stdin, "%[1]s %[1]s refs/heads/main", gittest.DefaultObjectHash.ZeroOID)
 			},
+			expectedErr:       helper.ErrInternalf("cmd wait: exit status 128"),
 			expectedErrorCode: 128,
 			expectedStderr:    "fatal: the remote end hung up unexpectedly\n",
 		},
@@ -274,8 +277,7 @@ func TestReceivePack_client(t *testing.T) {
 			tc.writeRequest(t, stdin)
 			require.NoError(t, stream.CloseSend())
 
-			// Even if the request has failed we still don't see any errors at all.
-			require.NoError(t, <-errCh)
+			testhelper.RequireGrpcError(t, <-errCh, tc.expectedErr)
 			require.Equal(t, tc.expectedErrorCode, observedErrorCode)
 			require.Equal(t, tc.expectedStderr, stderr.String())
 		})

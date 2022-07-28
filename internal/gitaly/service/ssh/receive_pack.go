@@ -86,10 +86,18 @@ func (s *server) sshReceivePack(stream gitalypb.SSHService_SSHReceivePackServer,
 	}
 
 	if err := cmd.Wait(); err != nil {
-		if status, ok := command.ExitStatus(err); ok {
-			return stream.Send(&gitalypb.SSHReceivePackResponse{
-				ExitStatus: &gitalypb.ExitStatus{Value: int32(status)},
-			})
+		status, ok := command.ExitStatus(err)
+		if !ok {
+			return fmt.Errorf("extracting exit status: %w", err)
+		}
+
+		// When the command has failed we both want to send its exit status as well as
+		// return an error from this RPC call. Otherwise we'd fail the RPC, but return with
+		// an `OK` error code to the client.
+		if errSend := stream.Send(&gitalypb.SSHReceivePackResponse{
+			ExitStatus: &gitalypb.ExitStatus{Value: int32(status)},
+		}); errSend != nil {
+			ctxlogrus.Extract(ctx).WithError(errSend).Error("send final status code")
 		}
 
 		return fmt.Errorf("cmd wait: %v", err)
