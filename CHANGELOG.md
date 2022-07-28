@@ -56,6 +56,12 @@
 
 - [linguist: Implement Stats in pure Go](gitlab-org/gitaly@efd9a598f50e03f05620b56f2e010600128f3b1c) ([merge request](gitlab-org/gitaly!4580))
 
+## 15.1.4 (2022-07-28)
+
+### Security (1 change)
+
+- [Import via git protocol allows to bypass checks on repository](gitlab-org/security/gitaly@f8909dcbab9ea2ddabad06577a1c2ae50ac5f8f3) ([merge request](gitlab-org/security/gitaly!54))
+
 ## 15.1.3 (2022-07-19)
 
 No changes.
