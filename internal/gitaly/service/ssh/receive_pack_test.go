@@ -201,6 +201,87 @@ func TestReceivePack_success(t *testing.T) {
 	}, payload)
 }
 
+func TestReceivePack_client(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+	cfg.SocketPath = runSSHServer(t, cfg)
+
+	for _, tc := range []struct {
+		desc              string
+		writeRequest      func(*testing.T, io.Writer)
+		expectedErrorCode int32
+		expectedStderr    string
+	}{
+		{
+			desc: "no commands",
+			writeRequest: func(t *testing.T, stdin io.Writer) {
+				gittest.WritePktlineFlush(t, stdin)
+			},
+		},
+		{
+			desc: "garbage",
+			writeRequest: func(t *testing.T, stdin io.Writer) {
+				gittest.WritePktlineString(t, stdin, "garbage")
+			},
+			expectedErrorCode: 128,
+			expectedStderr:    "fatal: protocol error: expected old/new/ref, got 'garbage'\n",
+		},
+		{
+			desc: "command without flush",
+			writeRequest: func(t *testing.T, stdin io.Writer) {
+				gittest.WritePktlinef(t, stdin, "%[1]s %[1]s refs/heads/main", gittest.DefaultObjectHash.ZeroOID)
+			},
+			expectedErrorCode: 128,
+			expectedStderr:    "fatal: the remote end hung up unexpectedly\n",
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			repoProto, _ := gittest.CreateRepository(ctx, t, cfg)
+
+			stream, err := newSSHClient(t, cfg.SocketPath).SSHReceivePack(ctx)
+			require.NoError(t, err)
+
+			var observedErrorCode int32
+			var stderr bytes.Buffer
+			errCh := make(chan error, 1)
+			go func() {
+				stdout := streamio.NewReader(func() ([]byte, error) {
+					msg, err := stream.Recv()
+					if errorCode := msg.GetExitStatus().GetValue(); errorCode != 0 {
+						require.Zero(t, observedErrorCode, "must not receive multiple messages with non-zero exit code")
+						observedErrorCode = errorCode
+					}
+
+					// Write stderr so we can verify what git-receive-pack(1)
+					// complains about.
+					_, writeErr := stderr.Write(msg.GetStderr())
+					require.NoError(t, writeErr)
+
+					return msg.GetStdout(), err
+				})
+
+				_, err := io.Copy(io.Discard, stdout)
+				errCh <- err
+			}()
+
+			require.NoError(t, stream.Send(&gitalypb.SSHReceivePackRequest{Repository: repoProto, GlId: "user-123"}))
+
+			stdin := streamio.NewWriter(func(b []byte) error {
+				return stream.Send(&gitalypb.SSHReceivePackRequest{Stdin: b})
+			})
+			tc.writeRequest(t, stdin)
+			require.NoError(t, stream.CloseSend())
+
+			// Even if the request has failed we still don't see any errors at all.
+			require.NoError(t, <-errCh)
+			require.Equal(t, tc.expectedErrorCode, observedErrorCode)
+			require.Equal(t, tc.expectedStderr, stderr.String())
+		})
+	}
+}
+
 func TestReceive_gitProtocol(t *testing.T) {
 	t.Parallel()
 
