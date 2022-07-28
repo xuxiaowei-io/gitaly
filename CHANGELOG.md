@@ -1,5 +1,11 @@
 # Gitaly changelog
 
+## 15.2.1 (2022-07-28)
+
+### Security (1 change)
+
+- [Import via git protocol allows to bypass checks on repository](gitlab-org/security/gitaly@d7af133ce2c05dcfc93ebf15a47154a0cd40e9bd) ([merge request](gitlab-org/security/gitaly!56))
+
 ## 15.2.0 (2022-07-21)
 
 ### Added (4 changes)

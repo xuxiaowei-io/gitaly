@@ -3,8 +3,10 @@
 package repository
 
 import (
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -158,6 +160,62 @@ func TestCreateFork_refs(t *testing.T) {
 		string(gittest.Exec(t, cfg, "-C", sourceRepoPath, "symbolic-ref", "HEAD")),
 		string(gittest.Exec(t, cfg, "-C", targetRepoPath, "symbolic-ref", "HEAD")),
 	)
+}
+
+func TestCreateFork_fsck(t *testing.T) {
+	t.Parallel()
+
+	cfg := testcfg.Build(t)
+
+	testcfg.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalySSH(t, cfg)
+
+	client, socketPath := runRepositoryService(t, cfg, nil)
+	cfg.SocketPath = socketPath
+
+	ctx := testhelper.Context(t)
+	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
+
+	repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
+
+	// Write a tree into the repository that's known-broken.
+	treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+		{Content: "content", Path: "dup", Mode: "100644"},
+		{Content: "content", Path: "dup", Mode: "100644"},
+	})
+
+	gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithParents(),
+		gittest.WithBranch("main"),
+		gittest.WithTree(treeID),
+	)
+
+	forkedRepo := &gitalypb.Repository{
+		RelativePath: gittest.NewRepositoryName(t, true),
+		StorageName:  repo.GetStorageName(),
+	}
+
+	// Create a fork from the repository with the broken tree. This should work alright: repos
+	// with preexisting broken objects that we already have on our disk anyway should not be
+	// subject to additional consistency checks. Otherwise we might end up in a situation where
+	// we retroactively tighten consistency checks for repositories such that preexisting repos
+	// wouldn't be forkable anymore.
+	_, err := client.CreateFork(ctx, &gitalypb.CreateForkRequest{
+		Repository:       forkedRepo,
+		SourceRepository: repo,
+	})
+	require.NoError(t, err)
+
+	forkedRepoPath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(ctx, t, cfg, forkedRepo))
+
+	// Verify that the broken tree is indeed in the fork and that it is reported as broken by
+	// git-fsck(1).
+	var stderr bytes.Buffer
+	fsckCmd := gittest.NewCommand(t, cfg, "-C", forkedRepoPath, "fsck")
+	fsckCmd.Stderr = &stderr
+
+	require.EqualError(t, fsckCmd.Run(), "exit status 4")
+	require.Equal(t, fmt.Sprintf("error in tree %s: duplicateEntries: contains duplicate file entries\n", treeID), stderr.String())
 }
 
 func TestCreateFork_targetExists(t *testing.T) {
