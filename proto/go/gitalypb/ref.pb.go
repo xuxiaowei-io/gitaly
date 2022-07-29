@@ -937,15 +937,17 @@ func (x *FindAllBranchesResponse) GetBranches() []*FindAllBranchesResponse_Branc
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// FindTagRequest is a request for the FindTag RPC.
 type FindTagRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// Repository is the repository to look up the tag in.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// This comment is left unintentionally blank.
+	// TagName is the name of the tag that should be looked up. The caller is supposed to pass in the
+	// tag name only, so if e.g. a tag `refs/tags/v1.0.0` exists, then the caller should pass `v1.0.0`
+	// as argument.
 	TagName []byte `protobuf:"bytes,2,opt,name=tag_name,json=tagName,proto3" json:"tag_name,omitempty"`
 }
 
@@ -995,13 +997,13 @@ func (x *FindTagRequest) GetTagName() []byte {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// FindTagResponse is a response for the FindTag RPC.
 type FindTagResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// Tag is the tag that was found.
 	Tag *Tag `protobuf:"bytes,1,opt,name=tag,proto3" json:"tag,omitempty"`
 }
 
