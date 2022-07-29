@@ -20,7 +20,9 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func TestSuccessfulFindTagRequest(t *testing.T) {
+func TestFindTag_successful(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg, repoProto, repoPath, client := setupRefService(ctx, t)
 
@@ -184,7 +186,9 @@ func TestSuccessfulFindTagRequest(t *testing.T) {
 	}
 }
 
-func TestFindTagNestedTag(t *testing.T) {
+func TestFindTag_nestedTag(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg, repoProto, repoPath, client := setupRefService(ctx, t)
 
@@ -280,7 +284,9 @@ func TestFindTagNestedTag(t *testing.T) {
 	}
 }
 
-func TestInvalidFindTagRequest(t *testing.T) {
+func TestFindTag_invalidRequest(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	_, repo, _, client := setupRefService(ctx, t)
 
