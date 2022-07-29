@@ -105,24 +105,24 @@ func New(ctx context.Context, repo git.RepositoryExecutor, opts ...UpdaterOpt) (
 	return updater, nil
 }
 
-// Update commands the reference to be updated to point at the object ID specified in newvalue. If
-// newvalue is the zero OID, then the branch will be deleted. If oldvalue is a non-empty string,
-// then the reference will only be updated if its current value matches the old value. If the old
-// value is the zero OID, then the branch must not exist.
-func (u *Updater) Update(reference git.ReferenceName, newvalue, oldvalue string) error {
-	_, err := fmt.Fprintf(u.cmd, "update %s\x00%s\x00%s\x00", reference.String(), newvalue, oldvalue)
+// Update commands the reference to be updated to point at the object ID specified in newOID. If
+// newOID is the zero OID, then the branch will be deleted. If oldOID is a non-empty string, then
+// the reference will only be updated if its current value matches the old value. If the old value
+// is the zero OID, then the branch must not exist.
+func (u *Updater) Update(reference git.ReferenceName, newOID, oldOID git.ObjectID) error {
+	_, err := fmt.Fprintf(u.cmd, "update %s\x00%s\x00%s\x00", reference.String(), newOID, oldOID)
 	return err
 }
 
 // Create commands the reference to be created with the given object ID. The ref must not exist.
-func (u *Updater) Create(reference git.ReferenceName, value string) error {
-	return u.Update(reference, value, git.ObjectHashSHA1.ZeroOID.String())
+func (u *Updater) Create(reference git.ReferenceName, oid git.ObjectID) error {
+	return u.Update(reference, oid, git.ObjectHashSHA1.ZeroOID)
 }
 
 // Delete commands the reference to be removed from the repository. This command will ignore any old
 // state of the reference and just force-remove it.
 func (u *Updater) Delete(reference git.ReferenceName) error {
-	return u.Update(reference, git.ObjectHashSHA1.ZeroOID.String(), "")
+	return u.Update(reference, git.ObjectHashSHA1.ZeroOID, "")
 }
 
 var refLockedRegex = regexp.MustCompile("cannot lock ref '(.+?)'")

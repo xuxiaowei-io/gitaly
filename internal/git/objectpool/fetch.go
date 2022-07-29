@@ -256,7 +256,7 @@ func (o *ObjectPool) rescueDanglingObjects(ctx context.Context) error {
 		}
 
 		ref := git.ReferenceName(danglingObjectNamespace + split[2])
-		if err := updater.Create(ref, danglingObjectID.String()); err != nil {
+		if err := updater.Create(ref, danglingObjectID); err != nil {
 			return err
 		}
 	}

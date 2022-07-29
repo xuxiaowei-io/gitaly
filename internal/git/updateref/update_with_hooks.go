@@ -235,7 +235,7 @@ func (u *UpdaterWithHooks) UpdateReference(
 		return fmt.Errorf("creating updater: %w", err)
 	}
 
-	if err := updater.Update(reference, newrev.String(), oldrev.String()); err != nil {
+	if err := updater.Update(reference, newrev, oldrev); err != nil {
 		return fmt.Errorf("queueing ref update: %w", err)
 	}
 

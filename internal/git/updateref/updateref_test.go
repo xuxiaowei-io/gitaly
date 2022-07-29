@@ -44,7 +44,7 @@ func TestUpdater_create(t *testing.T) {
 
 	commitID := gittest.WriteCommit(t, cfg, repoPath)
 
-	require.NoError(t, updater.Create("refs/heads/_create", commitID.String()))
+	require.NoError(t, updater.Create("refs/heads/_create", commitID))
 	require.NoError(t, updater.Commit())
 
 	// Verify that the reference was created as expected and that it points to the correct
@@ -66,14 +66,14 @@ func TestUpdater_update(t *testing.T) {
 	// Check that we can force-update the reference when we don't give an old object ID.
 	updater, err := New(ctx, repo)
 	require.NoError(t, err)
-	require.NoError(t, updater.Update("refs/heads/main", newCommitID.String(), ""))
+	require.NoError(t, updater.Update("refs/heads/main", newCommitID, ""))
 	require.NoError(t, updater.Commit())
 	require.Equal(t, gittest.ResolveRevision(t, cfg, repoPath, "refs/heads/main"), newCommitID)
 
 	// Check that we can update with safety guards when giving an old commit ID.
 	updater, err = New(ctx, repo)
 	require.NoError(t, err)
-	require.NoError(t, updater.Update("refs/heads/main", oldCommitID.String(), newCommitID.String()))
+	require.NoError(t, updater.Update("refs/heads/main", oldCommitID, newCommitID))
 	require.NoError(t, updater.Commit())
 	require.Equal(t, gittest.ResolveRevision(t, cfg, repoPath, "refs/heads/main"), oldCommitID)
 
@@ -81,7 +81,7 @@ func TestUpdater_update(t *testing.T) {
 	// when the old commit ID doesn't match.
 	updater, err = New(ctx, repo)
 	require.NoError(t, err)
-	require.NoError(t, updater.Update("refs/heads/main", newCommitID.String(), otherCommitID.String()))
+	require.NoError(t, updater.Update("refs/heads/main", newCommitID, otherCommitID))
 	err = updater.Commit()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), fmt.Sprintf("fatal: commit: cannot lock ref 'refs/heads/main': is at %s but expected %s", oldCommitID, otherCommitID))
@@ -115,9 +115,9 @@ func TestUpdater_prepareLocksTransaction(t *testing.T) {
 
 	commitID := gittest.WriteCommit(t, cfg, repoPath)
 
-	require.NoError(t, updater.Update("refs/heads/feature", commitID.String(), ""))
+	require.NoError(t, updater.Update("refs/heads/feature", commitID, ""))
 	require.NoError(t, updater.Prepare())
-	require.NoError(t, updater.Update("refs/heads/feature", commitID.String(), ""))
+	require.NoError(t, updater.Update("refs/heads/feature", commitID, ""))
 
 	err := updater.Commit()
 	require.Error(t, err, "cannot update after prepare")
@@ -144,13 +144,13 @@ func TestUpdater_concurrentLocking(t *testing.T) {
 	// we're about to update is locked.
 	firstUpdater, err := New(ctx, repo)
 	require.NoError(t, err)
-	require.NoError(t, firstUpdater.Update("refs/heads/master", commitID.String(), ""))
+	require.NoError(t, firstUpdater.Update("refs/heads/master", commitID, ""))
 	require.NoError(t, firstUpdater.Prepare())
 
 	// Now we create a second updater that tries to update the same reference.
 	secondUpdater, err := New(ctx, repo)
 	require.NoError(t, err)
-	require.NoError(t, secondUpdater.Update("refs/heads/master", commitID.String(), ""))
+	require.NoError(t, secondUpdater.Update("refs/heads/master", commitID, ""))
 
 	// Preparing this second updater should fail though because we notice that the reference is
 	// locked.
@@ -181,7 +181,7 @@ func TestUpdater_bulkOperation(t *testing.T) {
 			Target: commitID.String(),
 		}
 
-		require.NoError(t, updater.Create(reference.Name, commitID.String()))
+		require.NoError(t, updater.Create(reference.Name, commitID))
 		expectedRefs = append(expectedRefs, reference)
 	}
 
@@ -206,7 +206,7 @@ func TestUpdater_contextCancellation(t *testing.T) {
 	updater, err := New(childCtx, repo)
 	require.NoError(t, err)
 
-	require.NoError(t, updater.Create("refs/heads/main", commitID.String()))
+	require.NoError(t, updater.Create("refs/heads/main", commitID))
 
 	// Force the update-ref process to terminate early by cancelling the context.
 	childCancel()
@@ -264,7 +264,7 @@ func TestUpdater_closingStdinAbortsChanges(t *testing.T) {
 
 	commitID := gittest.WriteCommit(t, cfg, repoPath)
 
-	require.NoError(t, updater.Create("refs/heads/main", commitID.String()))
+	require.NoError(t, updater.Create("refs/heads/main", commitID))
 
 	// Note that we call `Wait()` on the command, not on the updater. This
 	// circumvents our usual semantics of sending "commit" and thus
@@ -286,8 +286,8 @@ func TestUpdater_capturesStderr(t *testing.T) {
 
 	cfg, _, _, updater := setupUpdater(t, ctx)
 
-	newValue := strings.Repeat("1", gittest.DefaultObjectHash.EncodedLen())
-	oldValue := gittest.DefaultObjectHash.ZeroOID.String()
+	newValue := git.ObjectID(strings.Repeat("1", gittest.DefaultObjectHash.EncodedLen()))
+	oldValue := gittest.DefaultObjectHash.ZeroOID
 
 	require.NoError(t, updater.Update("refs/heads/main", newValue, oldValue))
 
