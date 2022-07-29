@@ -34,7 +34,9 @@ func setupUpdater(t *testing.T, ctx context.Context) (config.Cfg, *localrepo.Rep
 	return cfg, repo, updater
 }
 
-func TestCreate(t *testing.T) {
+func TestUpdater_create(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	_, repo, updater := setupUpdater(t, ctx)
@@ -54,7 +56,9 @@ func TestCreate(t *testing.T) {
 	require.Equal(t, commit.Id, sha, "reference was created with the wrong SHA")
 }
 
-func TestUpdate(t *testing.T) {
+func TestUpdater_update(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	_, repo, updater := setupUpdater(t, ctx)
@@ -90,7 +94,9 @@ func TestUpdate(t *testing.T) {
 	require.NotEqual(t, commit.Id, parentCommit.Id, "reference was updated when it shouldn't have been")
 }
 
-func TestDelete(t *testing.T) {
+func TestUpdater_delete(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	_, repo, updater := setupUpdater(t, ctx)
@@ -106,6 +112,8 @@ func TestDelete(t *testing.T) {
 }
 
 func TestUpdater_prepareLocksTransaction(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	_, repo, updater := setupUpdater(t, ctx)
@@ -156,7 +164,9 @@ func TestUpdater_concurrentLocking(t *testing.T) {
 	require.NoError(t, firstUpdater.Commit())
 }
 
-func TestBulkOperation(t *testing.T) {
+func TestUpdater_bulkOperation(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	_, repo, updater := setupUpdater(t, ctx)
@@ -176,7 +186,9 @@ func TestBulkOperation(t *testing.T) {
 	require.Greater(t, len(refs), 1000, "At least 1000 refs should be present")
 }
 
-func TestContextCancelAbortsRefChanges(t *testing.T) {
+func TestUpdater_contextCancellation(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	cfg, repo, _ := setupUpdater(t, ctx)
@@ -203,6 +215,8 @@ func TestContextCancelAbortsRefChanges(t *testing.T) {
 }
 
 func TestUpdater_cancel(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	cfg, repo, updater := setupUpdater(t, ctx)
@@ -233,6 +247,8 @@ func TestUpdater_cancel(t *testing.T) {
 }
 
 func TestUpdater_closingStdinAbortsChanges(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	_, repo, updater := setupUpdater(t, ctx)
@@ -259,6 +275,7 @@ func TestUpdater_closingStdinAbortsChanges(t *testing.T) {
 
 func TestUpdater_capturesStderr(t *testing.T) {
 	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	cfg, _, updater := setupUpdater(t, ctx)
