@@ -286,6 +286,13 @@ message FindTagResponse {
   Tag tag = 1;
 }
 
+// FindTagError is an error that will be returned by the FindTag RPC under specific error
+// conditions.
+message FindTagError {
+  // TagNotFound indicates that the tag was not found.
+  ReferenceNotFoundError tag_not_found = 1;
+}
+
 // This comment is left unintentionally blank.
 message FindAllTagsRequest {
   // SortBy allows to specify desired order of the elements.

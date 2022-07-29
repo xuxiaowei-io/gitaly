@@ -94,6 +94,8 @@ func (s *server) findTag(ctx context.Context, repo git.RepositoryExecutor, tagNa
 			return nil, err
 		}
 	} else {
+		// TODO: this callsite will eventually be converted to return a FindTagError with
+		// `TagNotFound` set.
 		return nil, errors.New("no tag found")
 	}
 
