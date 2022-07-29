@@ -345,3 +345,44 @@ func TestRepo_StorageTempDir(t *testing.T) {
 	require.DirExists(t, expected)
 	require.Equal(t, expected, tempPath)
 }
+
+func TestRepo_ObjectHash(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	catfileCache := catfile.NewCache(cfg)
+	t.Cleanup(catfileCache.Stop)
+	locator := config.NewLocator(cfg)
+
+	outputFile := filepath.Join(testhelper.TempDir(t), "output")
+
+	// We create an intercepting command factory that detects when we run our object hash
+	// detection logic and, if so, writes a sentinel value into our output file. Like this we
+	// can test how often the logic runs.
+	gitCmdFactory := gittest.NewInterceptingCommandFactory(ctx, t, cfg, func(execEnv git.ExecutionEnvironment) string {
+		return fmt.Sprintf(`#!/bin/sh
+		( echo "$@" | grep --silent -- '--show-object-format' ) && echo detection-logic >>%q
+		exec %q "$@"`, outputFile, execEnv.BinaryPath)
+	})
+
+	repoProto, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
+	repo := New(locator, gitCmdFactory, catfileCache, repoProto)
+
+	objectHash, err := repo.ObjectHash(ctx)
+	require.NoError(t, err)
+	require.Equal(t, gittest.DefaultObjectHash.EmptyTreeOID, objectHash.EmptyTreeOID)
+
+	// We should see that the detection logic has been executed once.
+	require.Equal(t, "detection-logic\n", string(testhelper.MustReadFile(t, outputFile)))
+
+	// Verify that running this a second time continues to return the object hash alright
+	// regardless of the cache.
+	objectHash, err = repo.ObjectHash(ctx)
+	require.NoError(t, err)
+	require.Equal(t, gittest.DefaultObjectHash.EmptyTreeOID, objectHash.EmptyTreeOID)
+
+	// But the detection logic should not have been executed a second time.
+	require.Equal(t, "detection-logic\n", string(testhelper.MustReadFile(t, outputFile)))
+}
