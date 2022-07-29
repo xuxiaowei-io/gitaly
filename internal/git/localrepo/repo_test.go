@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package localrepo
 
 import (
@@ -53,6 +51,13 @@ func TestSize(t *testing.T) {
 		`, commandArgFile, execEnv.BinaryPath)
 	})
 
+	hashDependentSize := func(sha1Size, sha256Size int64) int64 {
+		if gittest.ObjectHashIsSHA256() {
+			return sha256Size
+		}
+		return sha1Size
+	}
+
 	testCases := []struct {
 		desc              string
 		setup             func(t *testing.T) *gitalypb.Repository
@@ -83,7 +88,7 @@ func TestSize(t *testing.T) {
 
 				return repoProto
 			},
-			expectedSize:      203,
+			expectedSize:      hashDependentSize(203, 230),
 			expectedUseBitmap: true,
 		},
 		{
@@ -124,7 +129,7 @@ func TestSize(t *testing.T) {
 
 				return repoProto
 			},
-			expectedSize:      439,
+			expectedSize:      hashDependentSize(439, 510),
 			expectedUseBitmap: true,
 		},
 		{
@@ -151,7 +156,7 @@ func TestSize(t *testing.T) {
 
 				return repoProto
 			},
-			expectedSize:      398,
+			expectedSize:      hashDependentSize(398, 465),
 			expectedUseBitmap: true,
 		},
 		{
@@ -178,7 +183,7 @@ func TestSize(t *testing.T) {
 			opts: []RepoSizeOption{
 				WithExcludeRefs("refs/heads/exclude-me"),
 			},
-			expectedSize:      217,
+			expectedSize:      hashDependentSize(217, 245),
 			expectedUseBitmap: true,
 		},
 		{
@@ -226,7 +231,7 @@ func TestSize(t *testing.T) {
 			},
 			// While both repositories have the same contents, we should still return
 			// the actual repository's size because we don't exclude the alternate.
-			expectedSize: 207,
+			expectedSize: hashDependentSize(207, 234),
 			// Even though we have an alternate, we should still use bitmap indices
 			// given that we don't use `--not --alternate-refs`.
 			expectedUseBitmap: true,
@@ -300,7 +305,7 @@ func TestSize(t *testing.T) {
 			opts: []RepoSizeOption{
 				WithoutAlternates(),
 			},
-			expectedSize:      224,
+			expectedSize:      hashDependentSize(224, 268),
 			expectedUseBitmap: false,
 		},
 	}
