@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/quarantine"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
@@ -21,8 +22,10 @@ import (
 )
 
 func TestRepo_Path(t *testing.T) {
+	cfg := testcfg.Build(t)
+
 	t.Run("valid repository", func(t *testing.T) {
-		cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
+		repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 		path, err := repo.Path()
@@ -31,7 +34,7 @@ func TestRepo_Path(t *testing.T) {
 	})
 
 	t.Run("deleted repository", func(t *testing.T) {
-		cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
+		repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 		require.NoError(t, os.RemoveAll(repoPath))
@@ -41,7 +44,7 @@ func TestRepo_Path(t *testing.T) {
 	})
 
 	t.Run("non-git repository", func(t *testing.T) {
-		cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
+		repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 		// Recreate the repository as a simple empty directory to simulate
@@ -55,7 +58,8 @@ func TestRepo_Path(t *testing.T) {
 }
 
 func TestRepo_ObjectDirectoryPath(t *testing.T) {
-	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
+	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 	locator := config.NewLocator(cfg)
 
 	ctx := testhelper.Context(t)

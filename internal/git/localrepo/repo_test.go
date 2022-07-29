@@ -333,8 +333,8 @@ func TestRepo_StorageTempDir(t *testing.T) {
 	t.Cleanup(catfileCache.Stop)
 	locator := config.NewLocator(cfg)
 
-	pbRepo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
-	repo := New(locator, gitCmdFactory, catfileCache, pbRepo)
+	repoProto, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
+	repo := New(locator, gitCmdFactory, catfileCache, repoProto)
 
 	expected, err := locator.TempDir(cfg.Storages[0].Name)
 	require.NoError(t, err)
