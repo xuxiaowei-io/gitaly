@@ -25,10 +25,11 @@ func (e *ErrAlreadyLocked) Error() string {
 // that allows references to be easily updated in bulk. It is not suitable for
 // concurrent use.
 type Updater struct {
-	repo   git.RepositoryExecutor
-	cmd    *command.Command
-	stdout *bufio.Reader
-	stderr *bytes.Buffer
+	repo       git.RepositoryExecutor
+	cmd        *command.Command
+	stdout     *bufio.Reader
+	stderr     *bytes.Buffer
+	objectHash git.ObjectHash
 
 	// withStatusFlushing determines whether the Git version used supports proper flushing of
 	// status messages.
@@ -86,11 +87,17 @@ func New(ctx context.Context, repo git.RepositoryExecutor, opts ...UpdaterOpt) (
 		return nil, fmt.Errorf("determining git version: %w", err)
 	}
 
+	objectHash, err := repo.ObjectHash(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("detecting object hash: %w", err)
+	}
+
 	updater := &Updater{
 		repo:               repo,
 		cmd:                cmd,
 		stderr:             &stderr,
 		stdout:             bufio.NewReader(cmd),
+		objectHash:         objectHash,
 		withStatusFlushing: gitVersion.FlushesUpdaterefStatus(),
 	}
 
@@ -116,13 +123,13 @@ func (u *Updater) Update(reference git.ReferenceName, newOID, oldOID git.ObjectI
 
 // Create commands the reference to be created with the given object ID. The ref must not exist.
 func (u *Updater) Create(reference git.ReferenceName, oid git.ObjectID) error {
-	return u.Update(reference, oid, git.ObjectHashSHA1.ZeroOID)
+	return u.Update(reference, oid, u.objectHash.ZeroOID)
 }
 
 // Delete commands the reference to be removed from the repository. This command will ignore any old
 // state of the reference and just force-remove it.
 func (u *Updater) Delete(reference git.ReferenceName) error {
-	return u.Update(reference, git.ObjectHashSHA1.ZeroOID, "")
+	return u.Update(reference, u.objectHash.ZeroOID, "")
 }
 
 var refLockedRegex = regexp.MustCompile("cannot lock ref '(.+?)'")
