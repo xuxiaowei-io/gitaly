@@ -19,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/mock"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/protoregistry"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/transactions"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/promtest"
@@ -53,6 +54,8 @@ type BuildOptions struct {
 	WithPrimaryGetter PrimaryGetter
 	// WithRouter sets an implementation of the request router to use by praefect service.
 	WithRouter Router
+	// WithChecks sets a list of check to run when ReadinessCheck RPC is called.
+	WithChecks []service.CheckFunc
 }
 
 // WithMockBackends mocks backends with a set of passed in stubs.
@@ -215,6 +218,9 @@ func RunPraefectServer(
 	if opt.WithRouter == nil {
 		opt.WithRouter = NewNodeManagerRouter(opt.WithNodeMgr, opt.WithRepoStore)
 	}
+	if opt.WithChecks == nil {
+		opt.WithChecks = service.AllChecks()
+	}
 
 	coordinator := NewCoordinator(
 		opt.WithQueue,
@@ -246,6 +252,7 @@ func RunPraefectServer(
 		opt.WithConnections,
 		opt.WithPrimaryGetter,
 		nil,
+		opt.WithChecks,
 	)
 
 	listener, port := listenAvailPort(t)
