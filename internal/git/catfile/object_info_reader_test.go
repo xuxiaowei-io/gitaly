@@ -46,7 +46,7 @@ func TestParseObjectInfoSuccess(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			reader := bufio.NewReader(strings.NewReader(tc.input))
-			output, err := ParseObjectInfo(reader)
+			output, err := ParseObjectInfo(gittest.DefaultObjectHash, reader)
 			if tc.notFound {
 				require.True(t, IsNotFound(err), "expect NotFoundError")
 				return
@@ -72,7 +72,7 @@ func TestParseObjectInfoErrors(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			reader := bufio.NewReader(strings.NewReader(tc.input))
-			_, err := ParseObjectInfo(reader)
+			_, err := ParseObjectInfo(gittest.DefaultObjectHash, reader)
 
 			require.Error(t, err)
 		})

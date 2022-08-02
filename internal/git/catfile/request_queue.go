@@ -212,5 +212,5 @@ func (q *requestQueue) readInfo() (*ObjectInfo, error) {
 		return nil, fmt.Errorf("concurrent read on request queue")
 	}
 
-	return ParseObjectInfo(q.stdout)
+	return ParseObjectInfo(git.ObjectHashSHA1, q.stdout)
 }

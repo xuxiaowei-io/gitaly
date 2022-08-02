@@ -49,8 +49,9 @@ func IsNotFound(err error) bool {
 	return ok
 }
 
-// ParseObjectInfo reads from a reader and parses the data into an ObjectInfo struct
-func ParseObjectInfo(stdout *bufio.Reader) (*ObjectInfo, error) {
+// ParseObjectInfo reads from a reader and parses the data into an ObjectInfo struct with the given
+// object hash.
+func ParseObjectInfo(objectHash git.ObjectHash, stdout *bufio.Reader) (*ObjectInfo, error) {
 restart:
 	infoLine, err := stdout.ReadString('\n')
 	if err != nil {
@@ -75,7 +76,7 @@ restart:
 		return nil, fmt.Errorf("invalid info line: %q", infoLine)
 	}
 
-	oid, err := git.ObjectHashSHA1.FromHex(info[0])
+	oid, err := objectHash.FromHex(info[0])
 	if err != nil {
 		return nil, fmt.Errorf("parse object ID: %w", err)
 	}
