@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package catfile
 
 import (
@@ -129,7 +127,7 @@ func TestObjectInfoReader(t *testing.T) {
 		"refs/tags/v1.1.1",
 	} {
 		revParseOutput := gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", revision)
-		objectID, err := git.ObjectHashSHA1.FromHex(text.ChompBytes(revParseOutput))
+		objectID, err := gittest.DefaultObjectHash.FromHex(text.ChompBytes(revParseOutput))
 		require.NoError(t, err)
 
 		objectType := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "cat-file", "-t", revision))
@@ -225,7 +223,12 @@ func TestObjectInfoReader_queue(t *testing.T) {
 	commitInfo := ObjectInfo{
 		Oid:  commitOID,
 		Type: "commit",
-		Size: 177,
+		Size: func() int64 {
+			if gittest.ObjectHashIsSHA256() {
+				return 201
+			}
+			return 177
+		}(),
 	}
 
 	t.Run("read single info", func(t *testing.T) {
