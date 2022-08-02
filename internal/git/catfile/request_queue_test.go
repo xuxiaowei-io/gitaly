@@ -17,6 +17,8 @@ import (
 )
 
 func TestRequestQueue_ReadObject(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	t.Run("ReadInfo on ReadObject queue", func(t *testing.T) {
@@ -215,6 +217,8 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 }
 
 func TestRequestQueue_RequestRevision(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	requireRevision := func(t *testing.T, queue *requestQueue, rev git.Revision) {

@@ -16,6 +16,8 @@ import (
 )
 
 func TestParser_ParseCommit(t *testing.T) {
+	t.Parallel()
+
 	info := &ObjectInfo{
 		Oid:  "a984dfa4dee018c6d5f5f57ffec0d0e22763df16",
 		Type: "commit",
@@ -28,7 +30,7 @@ func TestParser_ParseCommit(t *testing.T) {
 	// Once a repository contains a pathological object it can be hard to get
 	// rid of it. Because of this I think it's nicer to ignore such objects
 	// than to throw hard errors.
-	testCases := []struct {
+	for _, tc := range []struct {
 		desc string
 		in   string
 		out  *gitalypb.GitCommit
@@ -119,9 +121,7 @@ fF3T79iV8paT4/OfX8Ygg=
 				},
 			},
 		},
-	}
-
-	for _, tc := range testCases {
+	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			info.Size = int64(len(tc.in))
 			out, err := NewParser().ParseCommit(newStaticObject(tc.in, "commit", info.Oid))
@@ -132,6 +132,8 @@ fF3T79iV8paT4/OfX8Ygg=
 }
 
 func TestParseCommitAuthor(t *testing.T) {
+	t.Parallel()
+
 	for _, tc := range []struct {
 		desc     string
 		author   string
@@ -177,6 +179,8 @@ func TestParseCommitAuthor(t *testing.T) {
 }
 
 func TestParser_ParseTag(t *testing.T) {
+	t.Parallel()
+
 	for _, tc := range []struct {
 		desc           string
 		oid            git.ObjectID

@@ -6,7 +6,9 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"io"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -20,68 +22,86 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 )
 
-func TestParseObjectInfoSuccess(t *testing.T) {
-	testCases := []struct {
-		desc     string
-		input    string
-		output   *ObjectInfo
-		notFound bool
+func TestParseObjectInfo_success(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		desc               string
+		input              string
+		expectedErr        error
+		expectedObjectInfo *ObjectInfo
 	}{
 		{
 			desc:  "existing object",
 			input: "7c9373883988204e5a9f72c4a5119cbcefc83627 commit 222\n",
-			output: &ObjectInfo{
+			expectedObjectInfo: &ObjectInfo{
 				Oid:  "7c9373883988204e5a9f72c4a5119cbcefc83627",
 				Type: "commit",
 				Size: 222,
 			},
 		},
 		{
-			desc:     "non existing object",
-			input:    "bla missing\n",
-			notFound: true,
+			desc:        "non existing object",
+			input:       "bla missing\n",
+			expectedErr: NotFoundError{fmt.Errorf("object not found")},
 		},
-	}
-
-	for _, tc := range testCases {
+	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			reader := bufio.NewReader(strings.NewReader(tc.input))
-			output, err := ParseObjectInfo(gittest.DefaultObjectHash, reader)
-			if tc.notFound {
-				require.True(t, IsNotFound(err), "expect NotFoundError")
-				return
-			}
 
-			require.NoError(t, err)
-			require.Equal(t, tc.output, output)
+			objectInfo, err := ParseObjectInfo(gittest.DefaultObjectHash, reader)
+			require.Equal(t, tc.expectedErr, err)
+			require.Equal(t, tc.expectedObjectInfo, objectInfo)
 		})
 	}
 }
 
-func TestParseObjectInfoErrors(t *testing.T) {
-	testCases := []struct {
-		desc  string
-		input string
-	}{
-		{desc: "missing newline", input: "7c9373883988204e5a9f72c4a5119cbcefc83627 commit 222"},
-		{desc: "too few words", input: "7c9373883988204e5a9f72c4a5119cbcefc83627 commit\n"},
-		{desc: "too many words", input: "7c9373883988204e5a9f72c4a5119cbcefc83627 commit 222 bla\n"},
-		{desc: "parse object size", input: "7c9373883988204e5a9f72c4a5119cbcefc83627 commit bla\n"},
-	}
+func TestParseObjectInfo_errors(t *testing.T) {
+	t.Parallel()
 
-	for _, tc := range testCases {
+	for _, tc := range []struct {
+		desc        string
+		input       string
+		expectedErr error
+	}{
+		{
+			desc:        "missing newline",
+			input:       "7c9373883988204e5a9f72c4a5119cbcefc83627 commit 222",
+			expectedErr: fmt.Errorf("read info line: %w", io.EOF),
+		},
+		{
+			desc:        "too few words",
+			input:       "7c9373883988204e5a9f72c4a5119cbcefc83627 commit\n",
+			expectedErr: fmt.Errorf("invalid info line: %q", "7c9373883988204e5a9f72c4a5119cbcefc83627 commit"),
+		},
+		{
+			desc:        "too many words",
+			input:       "7c9373883988204e5a9f72c4a5119cbcefc83627 commit 222 bla\n",
+			expectedErr: fmt.Errorf("invalid info line: %q", "7c9373883988204e5a9f72c4a5119cbcefc83627 commit 222 bla"),
+		},
+		{
+			desc:  "parse object size",
+			input: "7c9373883988204e5a9f72c4a5119cbcefc83627 commit bla\n",
+			expectedErr: fmt.Errorf("parse object size: %w", &strconv.NumError{
+				Func: "ParseInt",
+				Num:  "bla",
+				Err:  strconv.ErrSyntax,
+			}),
+		},
+	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			reader := bufio.NewReader(strings.NewReader(tc.input))
-			_, err := ParseObjectInfo(gittest.DefaultObjectHash, reader)
 
-			require.Error(t, err)
+			_, err := ParseObjectInfo(gittest.DefaultObjectHash, reader)
+			require.Equal(t, tc.expectedErr, err)
 		})
 	}
 }
 
 func TestObjectInfoReader(t *testing.T) {
-	ctx := testhelper.Context(t)
+	t.Parallel()
 
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
@@ -181,8 +201,9 @@ func TestObjectInfoReader(t *testing.T) {
 }
 
 func TestObjectInfoReader_queue(t *testing.T) {
-	ctx := testhelper.Context(t)
+	t.Parallel()
 
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
