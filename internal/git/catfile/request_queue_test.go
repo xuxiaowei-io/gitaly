@@ -305,7 +305,8 @@ func TestRequestQueue_RequestRevision(t *testing.T) {
 }
 
 func newInterceptedQueue(ctx context.Context, t *testing.T, script string) (ObjectReader, *requestQueue) {
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
+	repo, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
 	commandFactory := gittest.NewInterceptingCommandFactory(ctx, t, cfg, func(execEnv git.ExecutionEnvironment) string {
 		return script

@@ -82,13 +82,23 @@ func TestParseObjectInfoErrors(t *testing.T) {
 func TestObjectInfoReader(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
+	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+
+	commitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithBranch("main"),
+		gittest.WithMessage("commit message"),
+		gittest.WithTreeEntries(gittest.TreeEntry{Path: "README", Mode: "100644", Content: "something"}),
+	)
+	gittest.WriteTag(t, cfg, repoPath, "v1.1.1", commitID.Revision(), gittest.WriteTagConfig{
+		Message: "annotated tag",
+	})
 
 	oiByRevision := make(map[string]*ObjectInfo)
 	for _, revision := range []string{
-		"refs/heads/master",
-		"refs/heads/master^{tree}",
-		"refs/heads/master:README",
+		"refs/heads/main",
+		"refs/heads/main^{tree}",
+		"refs/heads/main:README",
 		"refs/tags/v1.1.1",
 	} {
 		revParseOutput := gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", revision)
@@ -113,23 +123,23 @@ func TestObjectInfoReader(t *testing.T) {
 	}{
 		{
 			desc:         "commit by ref",
-			revision:     "refs/heads/master",
-			expectedInfo: oiByRevision["refs/heads/master"],
+			revision:     "refs/heads/main",
+			expectedInfo: oiByRevision["refs/heads/main"],
 		},
 		{
 			desc:         "commit by ID",
-			revision:     oiByRevision["refs/heads/master"].Oid.Revision(),
-			expectedInfo: oiByRevision["refs/heads/master"],
+			revision:     oiByRevision["refs/heads/main"].Oid.Revision(),
+			expectedInfo: oiByRevision["refs/heads/main"],
 		},
 		{
 			desc:         "tree",
-			revision:     oiByRevision["refs/heads/master^{tree}"].Oid.Revision(),
-			expectedInfo: oiByRevision["refs/heads/master^{tree}"],
+			revision:     oiByRevision["refs/heads/main^{tree}"].Oid.Revision(),
+			expectedInfo: oiByRevision["refs/heads/main^{tree}"],
 		},
 		{
 			desc:         "blob",
-			revision:     oiByRevision["refs/heads/master:README"].Oid.Revision(),
-			expectedInfo: oiByRevision["refs/heads/master:README"],
+			revision:     oiByRevision["refs/heads/main:README"].Oid.Revision(),
+			expectedInfo: oiByRevision["refs/heads/main:README"],
 		},
 		{
 			desc:         "tag",
@@ -162,7 +172,7 @@ func TestObjectInfoReader(t *testing.T) {
 
 			// Verify that we do another request no matter whether the previous call
 			// succeeded or failed.
-			_, err = reader.Info(ctx, "refs/heads/master")
+			_, err = reader.Info(ctx, "refs/heads/main")
 			require.NoError(t, err)
 
 			require.Equal(t, float64(expectedRequests+1), testutil.ToFloat64(counter.WithLabelValues("info")))
@@ -173,7 +183,8 @@ func TestObjectInfoReader(t *testing.T) {
 func TestObjectInfoReader_queue(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
+	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 
 	blobOID := gittest.WriteBlob(t, cfg, repoPath, []byte("foobar"))
 	blobInfo := ObjectInfo{
@@ -182,11 +193,11 @@ func TestObjectInfoReader_queue(t *testing.T) {
 		Size: int64(len("foobar")),
 	}
 
-	commitOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents("master"))
+	commitOID := gittest.WriteCommit(t, cfg, repoPath)
 	commitInfo := ObjectInfo{
 		Oid:  commitOID,
 		Type: "commit",
-		Size: 225,
+		Size: 177,
 	}
 
 	t.Run("read single info", func(t *testing.T) {
