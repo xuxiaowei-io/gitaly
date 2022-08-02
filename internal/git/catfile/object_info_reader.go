@@ -126,7 +126,8 @@ type ObjectInfoQueue interface {
 // long-lived  `git cat-file --batch-check` process such that we do not have to spawn a separate
 // process per object info we're about to read.
 type objectInfoReader struct {
-	cmd *command.Command
+	cmd        *command.Command
+	objectHash git.ObjectHash
 
 	counter *prometheus.CounterVec
 
@@ -153,12 +154,19 @@ func newObjectInfoReader(
 		return nil, err
 	}
 
+	objectHash, err := repo.ObjectHash(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("detecting object hash: %w", err)
+	}
+
 	objectInfoReader := &objectInfoReader{
-		cmd:     batchCmd,
-		counter: counter,
+		cmd:        batchCmd,
+		objectHash: objectHash,
+		counter:    counter,
 		queue: requestQueue{
-			stdout: bufio.NewReader(batchCmd),
-			stdin:  bufio.NewWriter(batchCmd),
+			objectHash: objectHash,
+			stdout:     bufio.NewReader(batchCmd),
+			stdin:      bufio.NewWriter(batchCmd),
 		},
 	}
 
