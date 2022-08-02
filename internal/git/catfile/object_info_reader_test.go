@@ -33,9 +33,9 @@ func TestParseObjectInfo_success(t *testing.T) {
 	}{
 		{
 			desc:  "existing object",
-			input: "7c9373883988204e5a9f72c4a5119cbcefc83627 commit 222\n",
+			input: fmt.Sprintf("%s commit 222\n", gittest.DefaultObjectHash.EmptyTreeOID),
 			expectedObjectInfo: &ObjectInfo{
-				Oid:  "7c9373883988204e5a9f72c4a5119cbcefc83627",
+				Oid:  gittest.DefaultObjectHash.EmptyTreeOID,
 				Type: "commit",
 				Size: 222,
 			},
@@ -59,6 +59,8 @@ func TestParseObjectInfo_success(t *testing.T) {
 func TestParseObjectInfo_errors(t *testing.T) {
 	t.Parallel()
 
+	oid := gittest.DefaultObjectHash.EmptyTreeOID
+
 	for _, tc := range []struct {
 		desc        string
 		input       string
@@ -66,22 +68,27 @@ func TestParseObjectInfo_errors(t *testing.T) {
 	}{
 		{
 			desc:        "missing newline",
-			input:       "7c9373883988204e5a9f72c4a5119cbcefc83627 commit 222",
+			input:       fmt.Sprintf("%s commit 222", oid),
 			expectedErr: fmt.Errorf("read info line: %w", io.EOF),
 		},
 		{
 			desc:        "too few words",
-			input:       "7c9373883988204e5a9f72c4a5119cbcefc83627 commit\n",
-			expectedErr: fmt.Errorf("invalid info line: %q", "7c9373883988204e5a9f72c4a5119cbcefc83627 commit"),
+			input:       fmt.Sprintf("%s commit\n", oid),
+			expectedErr: fmt.Errorf("invalid info line: %q", oid+" commit"),
 		},
 		{
 			desc:        "too many words",
-			input:       "7c9373883988204e5a9f72c4a5119cbcefc83627 commit 222 bla\n",
-			expectedErr: fmt.Errorf("invalid info line: %q", "7c9373883988204e5a9f72c4a5119cbcefc83627 commit 222 bla"),
+			input:       fmt.Sprintf("%s commit 222 bla\n", oid),
+			expectedErr: fmt.Errorf("invalid info line: %q", oid+" commit 222 bla"),
+		},
+		{
+			desc:        "invalid object hash",
+			input:       "7c9373883988204e5a9f72c4 commit 222 bla\n",
+			expectedErr: fmt.Errorf("invalid info line: %q", "7c9373883988204e5a9f72c4 commit 222 bla"),
 		},
 		{
 			desc:  "parse object size",
-			input: "7c9373883988204e5a9f72c4a5119cbcefc83627 commit bla\n",
+			input: fmt.Sprintf("%s commit bla\n", oid),
 			expectedErr: fmt.Errorf("parse object size: %w", &strconv.NumError{
 				Func: "ParseInt",
 				Num:  "bla",
