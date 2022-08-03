@@ -1,6 +1,9 @@
 package hook
 
 import (
+	"context"
+	"io"
+
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/streamcache"
@@ -13,6 +16,16 @@ type server struct {
 	gitCmdFactory      git.CommandFactory
 	packObjectsCache   streamcache.Cache
 	concurrencyTracker *gitalyhook.ConcurrencyTracker
+	runPackObjectsFn   func(
+		context.Context,
+		git.CommandFactory,
+		io.Writer,
+		*gitalypb.PackObjectsHookWithSidechannelRequest,
+		*packObjectsArgs,
+		io.Reader,
+		string,
+		*gitalyhook.ConcurrencyTracker,
+	) error
 }
 
 // NewServer creates a new instance of a gRPC namespace server
@@ -27,6 +40,7 @@ func NewServer(
 		gitCmdFactory:      gitCmdFactory,
 		packObjectsCache:   packObjectsCache,
 		concurrencyTracker: concurrencyTracker,
+		runPackObjectsFn:   runPackObjects,
 	}
 
 	return srv

@@ -20,7 +20,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/pktline"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
+	gitalyhook "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/stream"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -130,10 +130,23 @@ func (s *server) runPackObjects(
 
 	defer stdin.Close()
 
+	return s.runPackObjectsFn(ctx, s.gitCmdFactory, w, req, args, stdin, key, s.concurrencyTracker)
+}
+
+func runPackObjects(
+	ctx context.Context,
+	gitCmdFactory git.CommandFactory,
+	w io.Writer,
+	req *gitalypb.PackObjectsHookWithSidechannelRequest,
+	args *packObjectsArgs,
+	stdin io.Reader,
+	key string,
+	concurrencyTracker *gitalyhook.ConcurrencyTracker,
+) error {
 	repo := req.GetRepository()
 
-	if s.concurrencyTracker != nil {
-		finishRepoLog := s.concurrencyTracker.LogConcurrency(ctx, "repository", repo.GetRelativePath())
+	if concurrencyTracker != nil {
+		finishRepoLog := concurrencyTracker.LogConcurrency(ctx, "repository", repo.GetRelativePath())
 		defer finishRepoLog()
 
 		userID := req.GetGlId()
@@ -142,7 +155,7 @@ func (s *server) runPackObjects(
 			userID = "none"
 		}
 
-		finishUserLog := s.concurrencyTracker.LogConcurrency(ctx, "user_id", userID)
+		finishUserLog := concurrencyTracker.LogConcurrency(ctx, "user_id", userID)
 		defer finishUserLog()
 	}
 
@@ -165,7 +178,7 @@ func (s *server) runPackObjects(
 		}
 	}()
 
-	cmd, err := s.gitCmdFactory.New(ctx, repo, args.subcmd(),
+	cmd, err := gitCmdFactory.New(ctx, repo, args.subcmd(),
 		git.WithStdin(stdin),
 		git.WithStdout(stdout),
 		git.WithStderr(stderr),
@@ -301,7 +314,7 @@ func (s *server) PackObjectsHookWithSidechannel(ctx context.Context, req *gitaly
 		return nil, helper.ErrInvalidArgumentf("invalid pack-objects command: %v: %w", req.Args, err)
 	}
 
-	c, err := hook.GetSidechannel(ctx)
+	c, err := gitalyhook.GetSidechannel(ctx)
 	if err != nil {
 		return nil, err
 	}
