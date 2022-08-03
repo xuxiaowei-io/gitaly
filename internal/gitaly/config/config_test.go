@@ -1299,3 +1299,65 @@ func TestSetupRuntimeDirectory(t *testing.T) {
 		}
 	})
 }
+
+func TestPackObjectsLimiting(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		desc              string
+		rawCfg            string
+		expectedErrString string
+		expectedCfg       PackObjectsLimiting
+	}{
+		{
+			desc: "using repo as key",
+			rawCfg: `[pack_objects_limiting]
+			key = "repository"
+			max_concurrency = 20
+			max_queue_wait = "10s"
+			`,
+			expectedCfg: PackObjectsLimiting{
+				Key:            PackObjectsLimitingKeyRepository,
+				MaxConcurrency: 20,
+				MaxQueueWait:   duration.Duration(10 * time.Second),
+			},
+		},
+		{
+			desc: "using user as key",
+			rawCfg: `[pack_objects_limiting]
+			key = "user"
+			max_concurrency = 10
+			max_queue_wait = "1m"
+			`,
+			expectedCfg: PackObjectsLimiting{
+				Key:            PackObjectsLimitingKeyUser,
+				MaxConcurrency: 10,
+				MaxQueueWait:   duration.Duration(1 * time.Minute),
+			},
+		},
+		{
+			desc: "invalid key",
+			rawCfg: `[pack_objects_limiting]
+			key = "project"
+			max_concurrency = 10
+			max_queue_wait = "1m"
+			`,
+			expectedErrString: "unsupported pack objects limiting key: project",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			tmpFile := strings.NewReader(tc.rawCfg)
+			cfg, err := Load(tmpFile)
+			if tc.expectedErrString != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.expectedErrString)
+				return
+			}
+
+			require.NoError(t, err)
+			require.Equal(t, tc.expectedCfg, cfg.PackObjectsLimiting)
+		})
+	}
+}
