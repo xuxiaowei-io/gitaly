@@ -218,7 +218,7 @@ func (c *ConcurrencyLimiter) Limit(ctx context.Context, lockKey string, f Limite
 // NewConcurrencyLimiter creates a new concurrency rate limiter
 func NewConcurrencyLimiter(perKeyLimit, globalLimit int, maxWaitTickerGetter QueueTickerCreator, monitor ConcurrencyMonitor) *ConcurrencyLimiter {
 	if monitor == nil {
-		monitor = &nullConcurrencyMonitor{}
+		monitor = NewNoopConcurrencyMonitor()
 	}
 
 	return &ConcurrencyLimiter{
@@ -286,7 +286,7 @@ func WithConcurrencyLimiters(cfg config.Cfg, middleware *LimiterMiddleware) {
 			limit.MaxPerRepo,
 			limit.MaxQueueSize,
 			newTickerFunc,
-			newPromMonitor("gitaly", limit.RPC, queuedMetric, inProgressMetric,
+			newPerRPCPromMonitor("gitaly", limit.RPC, queuedMetric, inProgressMetric,
 				acquiringSecondsMetric, middleware.requestsDroppedMetric),
 		)
 	}
@@ -300,7 +300,7 @@ func WithConcurrencyLimiters(cfg config.Cfg, middleware *LimiterMiddleware) {
 			func() helper.Ticker {
 				return helper.NewManualTicker()
 			},
-			newPromMonitor("gitaly", replicateRepositoryFullMethod, queuedMetric,
+			newPerRPCPromMonitor("gitaly", replicateRepositoryFullMethod, queuedMetric,
 				inProgressMetric, acquiringSecondsMetric, middleware.requestsDroppedMetric))
 	}
 
