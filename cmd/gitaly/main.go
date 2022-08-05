@@ -122,7 +122,7 @@ func configure(configPath string) (config.Cfg, error) {
 
 	glog.Configure(glog.Loggers, cfg.Logging.Format, cfg.Logging.Level)
 
-	if err := cgroups.NewManager(cfg.Cgroups).Setup(); err != nil {
+	if err := cgroups.NewManager(cfg.Cgroups, os.Getpid()).Setup(); err != nil {
 		return config.Cfg{}, fmt.Errorf("failed setting up cgroups: %w", err)
 	}
 
@@ -381,7 +381,7 @@ func run(cfg config.Cfg) error {
 	defer shutdownWorkers()
 
 	defer func() {
-		if err := cgroups.NewManager(cfg.Cgroups).Cleanup(); err != nil {
+		if err := cgroups.NewManager(cfg.Cgroups, os.Getpid()).Cleanup(); err != nil {
 			log.WithError(err).Warn("error cleaning up cgroups")
 		}
 	}()

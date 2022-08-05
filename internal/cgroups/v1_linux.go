@@ -3,7 +3,6 @@ package cgroups
 import (
 	"fmt"
 	"hash/crc32"
-	"os"
 	"strings"
 
 	"github.com/containerd/cgroups"
@@ -21,11 +20,13 @@ type CGroupV1Manager struct {
 	hierarchy                            func() ([]cgroups.Subsystem, error)
 	memoryReclaimAttemptsTotal, cpuUsage *prometheus.GaugeVec
 	procs                                *prometheus.GaugeVec
+	pid                                  int
 }
 
-func newV1Manager(cfg cgroupscfg.Config) *CGroupV1Manager {
+func newV1Manager(cfg cgroupscfg.Config, pid int) *CGroupV1Manager {
 	return &CGroupV1Manager{
 		cfg: cfg,
+		pid: pid,
 		hierarchy: func() ([]cgroups.Subsystem, error) {
 			return defaultSubsystems(cfg.Mountpoint)
 		},
@@ -218,7 +219,7 @@ func (cg *CGroupV1Manager) repoPath(groupID int) string {
 }
 
 func (cg *CGroupV1Manager) currentProcessCgroup() string {
-	return fmt.Sprintf("/%s/gitaly-%d", cg.cfg.HierarchyRoot, os.Getpid())
+	return fmt.Sprintf("/%s/gitaly-%d", cg.cfg.HierarchyRoot, cg.pid)
 }
 
 func defaultSubsystems(root string) ([]cgroups.Subsystem, error) {

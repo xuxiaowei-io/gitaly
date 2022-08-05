@@ -24,9 +24,9 @@ type Manager interface {
 }
 
 // NewManager returns the appropriate Cgroups manager
-func NewManager(cfg cgroups.Config) Manager {
+func NewManager(cfg cgroups.Config, pid int) Manager {
 	if cfg.Repositories.Count > 0 {
-		return newV1Manager(cfg)
+		return newV1Manager(cfg, pid)
 	}
 
 	return &NoopManager{}
