@@ -244,43 +244,6 @@ func TestInstance_Stats_unmarshalJSONError(t *testing.T) {
 	require.False(t, ok, "expected the error not be a json Syntax Error")
 }
 
-func TestInstance_Stats_incremental(t *testing.T) {
-	t.Parallel()
-
-	cfg := testcfg.Build(t)
-	logger, hook := test.NewNullLogger()
-	ctx := testhelper.Context(t, testhelper.ContextWithLogger(logrus.NewEntry(logger)))
-	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.GoLanguageStats, true)
-
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
-
-	linguist, err := New(cfg, gitCmdFactory)
-	require.NoError(t, err)
-
-	catfileCache := catfile.NewCache(cfg)
-	t.Cleanup(catfileCache.Stop)
-
-	repoProto, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-	cleanStats, err := linguist.Stats(ctx, repo, "1e292f8fedd741b75372e19097c76d327140c312", catfileCache)
-	require.NoError(t, err)
-	require.Len(t, hook.AllEntries(), 0)
-	require.NoError(t, os.Remove(filepath.Join(repoPath, languageStatsFilename)))
-
-	_, err = linguist.Stats(ctx, repo, "cfe32cf61b73a0d5e9f13e774abde7ff789b1660", catfileCache)
-	require.NoError(t, err)
-	require.Len(t, hook.AllEntries(), 0)
-	require.FileExists(t, filepath.Join(repoPath, languageStatsFilename))
-
-	incStats, err := linguist.Stats(ctx, repo, "1e292f8fedd741b75372e19097c76d327140c312", catfileCache)
-	require.NoError(t, err)
-	require.Len(t, hook.AllEntries(), 0)
-	require.FileExists(t, filepath.Join(repoPath, languageStatsFilename))
-
-	require.Equal(t, cleanStats, incStats)
-}
-
 func TestNew(t *testing.T) {
 	cfg := testcfg.Build(t, testcfg.WithRealLinguist())
 
