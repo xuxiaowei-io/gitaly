@@ -7,12 +7,11 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/go-enry/go-enry/v2"
 	enrydata "github.com/go-enry/go-enry/v2/data"
-	"github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
@@ -95,8 +94,6 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
 
-	commitID := git.ObjectID("1e292f8fedd741b75372e19097c76d327140c312")
-
 	languageStatsFilename := filenameForCache(ctx)
 
 	for _, tc := range []struct {
@@ -108,7 +105,14 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 		{
 			desc: "successful",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
-				repoProto, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+				repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "webpack.coffee", Mode: "100644", Content: strings.Repeat("a", 107)},
+					gittest.TreeEntry{Path: "show_user.html", Mode: "100644", Content: strings.Repeat("a", 349)},
+					gittest.TreeEntry{Path: "api.javascript", Mode: "100644", Content: strings.Repeat("a", 1014)},
+					gittest.TreeEntry{Path: "application.rb", Mode: "100644", Content: strings.Repeat("a", 2943)},
+				))
+
 				return repoProto, repoPath, commitID
 			},
 			expectedStats: map[string]uint64{
@@ -121,7 +125,13 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 		{
 			desc: "preexisting cache",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
-				repoProto, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+				repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "webpack.coffee", Mode: "100644", Content: strings.Repeat("a", 107)},
+					gittest.TreeEntry{Path: "show_user.html", Mode: "100644", Content: strings.Repeat("a", 349)},
+					gittest.TreeEntry{Path: "api.javascript", Mode: "100644", Content: strings.Repeat("a", 1014)},
+					gittest.TreeEntry{Path: "application.rb", Mode: "100644", Content: strings.Repeat("a", 2943)},
+				))
 				repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 				// We simply run the linguist once before so that it can already
@@ -145,7 +155,13 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 		{
 			desc: "corrupted cache",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
-				repoProto, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+				repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "webpack.coffee", Mode: "100644", Content: strings.Repeat("a", 107)},
+					gittest.TreeEntry{Path: "show_user.html", Mode: "100644", Content: strings.Repeat("a", 349)},
+					gittest.TreeEntry{Path: "api.javascript", Mode: "100644", Content: strings.Repeat("a", 1014)},
+					gittest.TreeEntry{Path: "application.rb", Mode: "100644", Content: strings.Repeat("a", 2943)},
+				))
 
 				require.NoError(t, os.WriteFile(filepath.Join(repoPath, languageStatsFilename), []byte("garbage"), 0o644))
 
@@ -192,7 +208,7 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 				repoPath := filepath.Join(testhelper.TempDir(t), "nonexistent")
 				repoProto := &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "nonexistent"}
 
-				return repoProto, repoPath, commitID
+				return repoProto, repoPath, git.ObjectID("b1bb1d1b0b1d1b00")
 			},
 			expectedErr: "GetRepoPath: not a git repository",
 		},
@@ -200,7 +216,8 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 			desc: "missing commit",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
 				repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
-				return repoProto, repoPath, commitID
+
+				return repoProto, repoPath, git.ObjectID("b1bb1d1b0b1d1b00")
 			},
 			expectedErr: "linguist",
 		},

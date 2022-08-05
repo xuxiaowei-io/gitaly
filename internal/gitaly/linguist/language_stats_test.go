@@ -17,7 +17,7 @@ func TestNewLanguageStats(t *testing.T) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
-	repoProto, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	t.Run("non-existing cache", func(t *testing.T) {
@@ -51,7 +51,7 @@ func TestLanguageStats_add(t *testing.T) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
-	repoProto, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	repoProto, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	for _, tc := range []struct {
@@ -118,7 +118,7 @@ func TestLanguageStats_drop(t *testing.T) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
-	repoProto, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	repoProto, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	for _, tc := range []struct {
@@ -173,7 +173,7 @@ func TestLanguageStats_save(t *testing.T) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
-	repoProto, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	s, err := newLanguageStats(repo)
