@@ -60,7 +60,7 @@ func ListEntries(
 		return nil, fmt.Errorf("spawning git-ls-tree: %w", err)
 	}
 
-	parser := NewParser(cmd)
+	parser := NewParser(cmd, git.ObjectHashSHA1)
 	var entries []*Entry
 	for {
 		entry, err := parser.NextEntry()

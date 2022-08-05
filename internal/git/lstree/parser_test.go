@@ -69,7 +69,7 @@ func TestParser(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			treeData := gittest.Exec(t, cfg, "-C", repoPath, "ls-tree", "-z", tc.treeID.String())
 
-			parser := NewParser(bytes.NewReader(treeData))
+			parser := NewParser(bytes.NewReader(treeData), gittest.DefaultObjectHash)
 			parsedEntries := Entries{}
 			for {
 				entry, err := parser.NextEntry()
