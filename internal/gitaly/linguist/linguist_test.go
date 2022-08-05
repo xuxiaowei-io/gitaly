@@ -115,7 +115,7 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 
 				return repoProto, repoPath, commitID
 			},
-			expectedStats: map[string]uint64{
+			expectedStats: ByteCountPerLanguage{
 				"CoffeeScript": 107,
 				"HTML":         349,
 				"JavaScript":   1014,
@@ -145,7 +145,7 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 
 				return repoProto, repoPath, commitID
 			},
-			expectedStats: map[string]uint64{
+			expectedStats: ByteCountPerLanguage{
 				"CoffeeScript": 107,
 				"HTML":         349,
 				"JavaScript":   1014,
@@ -167,7 +167,7 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 
 				return repoProto, repoPath, commitID
 			},
-			expectedStats: map[string]uint64{
+			expectedStats: ByteCountPerLanguage{
 				"CoffeeScript": 107,
 				"HTML":         349,
 				"JavaScript":   1014,
@@ -198,7 +198,7 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 
 				return repoProto, repoPath, newCommitID
 			},
-			expectedStats: map[string]uint64{
+			expectedStats: ByteCountPerLanguage{
 				"Go": 12,
 			},
 		},
