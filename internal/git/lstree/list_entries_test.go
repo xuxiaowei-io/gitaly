@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package lstree
 
 import (
@@ -153,8 +151,8 @@ func TestListEntries(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			results, err := ListEntries(ctx, repo, tc.treeish, tc.cfg)
-			require.Equal(t, tc.expectedResults, results)
 			require.Equal(t, tc.expectedErr, err)
+			require.Equal(t, tc.expectedResults, results)
 		})
 	}
 }
