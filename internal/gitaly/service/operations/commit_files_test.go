@@ -1293,7 +1293,9 @@ func testSuccessfulUserCommitFilesRemoteRepositoryRequest(setHeader func(header 
 
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-		newRepoProto, _ := gittest.InitRepo(t, cfg, cfg.Storages[0])
+		newRepoProto, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+			SkipCreationViaService: true,
+		})
 		newRepo := localrepo.NewTestRepo(t, cfg, newRepoProto)
 
 		targetBranchName := "new"
