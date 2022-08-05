@@ -14,10 +14,12 @@ import (
 )
 
 func TestListEntries(t *testing.T) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 	ctx := testhelper.Context(t)
 
-	repoProto, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("blob contents"))
