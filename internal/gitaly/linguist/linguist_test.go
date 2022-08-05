@@ -123,6 +123,21 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 			},
 		},
 		{
+			desc: "empty code files",
+			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
+				repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])
+				emptyBlob := gittest.WriteBlob(t, cfg, repoPath, []byte{})
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "README.md", Mode: "100644", Content: "Hello world!"},
+					gittest.TreeEntry{Path: "index.html", Mode: "100644", OID: emptyBlob},
+					gittest.TreeEntry{Path: "app.js", Mode: "100644", OID: emptyBlob},
+				))
+
+				return repoProto, repoPath, commitID
+			},
+			expectedStats: ByteCountPerLanguage{},
+		},
+		{
 			desc: "preexisting cache",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
 				repoProto, repoPath := gittest.InitRepo(t, cfg, cfg.Storages[0])

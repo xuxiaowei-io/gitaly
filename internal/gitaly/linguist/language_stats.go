@@ -89,7 +89,9 @@ func (c *languageStats) add(filename, language string, size uint64) {
 	}
 
 	c.ByFile[filename] = ByteCountPerLanguage{language: size}
-	c.Totals[language] += size
+	if size > 0 {
+		c.Totals[language] += size
+	}
 }
 
 // drop statistics for the given files
