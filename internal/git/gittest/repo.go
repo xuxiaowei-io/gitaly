@@ -186,19 +186,23 @@ func CreateRepository(ctx context.Context, t testing.TB, cfg config.Cfg, configs
 
 		repoPath = filepath.Join(storage.Path, getReplicaPath(ctx, t, conn, repository))
 	} else {
+		repoPath = filepath.Join(storage.Path, repository.RelativePath)
+
 		if opts.Seed != "" {
-			CloneRepo(t, cfg, storage, CloneRepoOpts{
-				RelativePath: relativePath,
-				SourceRepo:   opts.Seed,
-			})
+			Exec(t, cfg, "clone", "--no-hardlinks", "--dissociate", "--bare", testRepositoryPath(t, opts.Seed), repoPath)
+			Exec(t, cfg, "-C", repoPath, "remote", "remove", "origin")
 		} else {
-			InitRepo(t, cfg, storage, InitRepoOpts{
-				WithRelativePath: relativePath,
-				ObjectFormat:     opts.ObjectFormat,
-			})
+			args := []string{"init", "--bare"}
+			args = append(args, initRepoExtraArgs...)
+			args = append(args, repoPath)
+			if opts.ObjectFormat != "" {
+				args = append(args, "--object-format", opts.ObjectFormat)
+			}
+
+			Exec(t, cfg, args...)
 		}
 
-		repoPath = filepath.Join(storage.Path, repository.RelativePath)
+		t.Cleanup(func() { require.NoError(t, os.RemoveAll(repoPath)) })
 	}
 
 	// Return a cloned repository so the above clean up function still targets the correct repository
@@ -263,96 +267,6 @@ func RewrittenRepository(ctx context.Context, t testing.TB, cfg config.Cfg, repo
 	rewritten := proto.Clone(repository).(*gitalypb.Repository)
 	rewritten.RelativePath = GetReplicaPath(ctx, t, cfg, repository)
 	return rewritten
-}
-
-// InitRepoOpts contains options for InitRepo.
-type InitRepoOpts struct {
-	// WithRelativePath determines the relative path of this repository.
-	WithRelativePath string
-	// ObjectFormat overrides the object format used by the repository.
-	ObjectFormat string
-}
-
-// InitRepo creates a new empty repository in the given storage. You can either pass no or exactly
-// one InitRepoOpts.
-func InitRepo(t testing.TB, cfg config.Cfg, storage config.Storage, opts ...InitRepoOpts) (*gitalypb.Repository, string) {
-	require.Less(t, len(opts), 2, "you must either pass no or exactly one option")
-
-	opt := InitRepoOpts{}
-	if len(opts) == 1 {
-		opt = opts[0]
-	}
-
-	relativePath := opt.WithRelativePath
-	if relativePath == "" {
-		relativePath = NewRepositoryName(t, true)
-	}
-	repoPath := filepath.Join(storage.Path, relativePath)
-
-	args := []string{"init", "--bare"}
-	args = append(args, initRepoExtraArgs...)
-	args = append(args, repoPath)
-	if opt.ObjectFormat != "" {
-		args = append(args, "--object-format", opt.ObjectFormat)
-	}
-
-	Exec(t, cfg, args...)
-
-	repo := InitRepoDir(t, storage.Path, relativePath)
-	repo.StorageName = storage.Name
-
-	t.Cleanup(func() { require.NoError(t, os.RemoveAll(repoPath)) })
-
-	return repo, repoPath
-}
-
-// CloneRepoOpts is an option for CloneRepo.
-type CloneRepoOpts struct {
-	// RelativePath determines the relative path of newly created Git repository. If unset, the
-	// relative path is computed via NewRepositoryName.
-	RelativePath string
-	// SourceRepo determines the name of the source repository which shall be cloned. The source
-	// repository is assumed to be relative to "_build/testrepos". If unset, defaults to
-	// "gitlab-test.git".
-	SourceRepo string
-}
-
-// CloneRepo clones a new copy of test repository under a subdirectory in the storage root. You can
-// either pass no or exactly one CloneRepoOpts.
-func CloneRepo(t testing.TB, cfg config.Cfg, storage config.Storage, opts ...CloneRepoOpts) (*gitalypb.Repository, string) {
-	if ObjectHashIsSHA256() {
-		require.FailNow(t, "seeded repository creation not supported with SHA256")
-	}
-
-	require.Less(t, len(opts), 2, "you must either pass no or exactly one option")
-
-	opt := CloneRepoOpts{}
-	if len(opts) == 1 {
-		opt = opts[0]
-	}
-
-	relativePath := opt.RelativePath
-	if relativePath == "" {
-		relativePath = NewRepositoryName(t, true)
-	}
-
-	sourceRepo := opt.SourceRepo
-	if sourceRepo == "" {
-		sourceRepo = "gitlab-test.git"
-	}
-
-	repo := InitRepoDir(t, storage.Path, relativePath)
-	repo.StorageName = storage.Name
-
-	args := []string{"clone", "--no-hardlinks", "--dissociate", "--bare"}
-
-	absolutePath := filepath.Join(storage.Path, relativePath)
-	Exec(t, cfg, append(args, testRepositoryPath(t, sourceRepo), absolutePath)...)
-	Exec(t, cfg, "-C", absolutePath, "remote", "remove", "origin")
-
-	t.Cleanup(func() { require.NoError(t, os.RemoveAll(absolutePath)) })
-
-	return repo, absolutePath
 }
 
 // BundleRepo creates a bundle of a repository. `patterns` define the bundle contents as per
