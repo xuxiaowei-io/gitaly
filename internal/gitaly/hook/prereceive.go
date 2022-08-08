@@ -72,6 +72,8 @@ func (m *GitLabHookManager) PreReceiveHook(ctx context.Context, repo *gitalypb.R
 		return helper.ErrInternalf("reading stdin from request: %w", err)
 	}
 
+	fmt.Printf("\n\npush options: %v\n\n\n", pushOptions)
+
 	// Only the primary should execute hooks and increment reference counters.
 	if isPrimary(payload) {
 		if err := m.preReceiveHook(ctx, payload, repo, pushOptions, env, changes, stdout, stderr); err != nil {
