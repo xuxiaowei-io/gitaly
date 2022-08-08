@@ -483,8 +483,7 @@ func TestGetArchive_environment(t *testing.T) {
 	cfg.SocketPath = serverSocketPath
 
 	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
-		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
+		Seed: gittest.SeedGitLabTest,
 	})
 
 	commitID := "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"

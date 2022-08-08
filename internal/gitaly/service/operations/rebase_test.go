@@ -348,8 +348,7 @@ func TestUserRebaseConfirmable_inputValidation(t *testing.T) {
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	repoCopy, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
-		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
+		Seed: gittest.SeedGitLabTest,
 	})
 
 	branchCommitID := gittest.ResolveRevision(t, cfg, repoPath, rebaseBranchName)

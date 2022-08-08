@@ -25,11 +25,11 @@ func TestRepositoryExists(t *testing.T) {
 
 	require.NoError(t, os.RemoveAll(cfg.Storages[2].Path), "third storage needs to be invalid")
 
-	client, _ := runRepositoryService(t, cfg, nil, testserver.WithDisablePraefect())
+	client, socketPath := runRepositoryService(t, cfg, nil, testserver.WithDisablePraefect())
+	cfg.SocketPath = socketPath
 
 	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
-		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
+		Seed: gittest.SeedGitLabTest,
 	})
 
 	queries := []struct {

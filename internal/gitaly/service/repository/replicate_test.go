@@ -51,8 +51,7 @@ func TestReplicateRepository(t *testing.T) {
 	cfg.SocketPath = serverSocketPath
 
 	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
-		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
+		Seed: gittest.SeedGitLabTest,
 	})
 
 	// create a loose object to ensure snapshot replication is used
@@ -127,10 +126,7 @@ func TestReplicateRepository_hiddenRefs(t *testing.T) {
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
 	t.Run("initial seeding", func(t *testing.T) {
-		sourceRepo, sourceRepoPath := gittest.CreateRepository(ctx, t, cfg,
-			gittest.CreateRepositoryConfig{
-				SkipCreationViaService: true,
-			})
+		sourceRepo, sourceRepoPath := gittest.CreateRepository(ctx, t, cfg)
 
 		// Create a bunch of internal references, regardless of whether we classify them as hidden
 		// or read-only. We should be able to replicate all of them.
@@ -162,13 +158,10 @@ func TestReplicateRepository_hiddenRefs(t *testing.T) {
 	})
 
 	t.Run("incremental replication", func(t *testing.T) {
-		sourceRepo, sourceRepoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
-			SkipCreationViaService: true,
-		})
+		sourceRepo, sourceRepoPath := gittest.CreateRepository(ctx, t, cfg)
 		targetRepo, targetRepoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
-			SkipCreationViaService: true,
-			RelativePath:           sourceRepo.GetRelativePath(),
-			Storage:                cfg.Storages[1],
+			RelativePath: sourceRepo.GetRelativePath(),
+			Storage:      cfg.Storages[1],
 		})
 
 		// Create the same commit in both repositories so that they're in a known-good
@@ -214,8 +207,7 @@ func TestReplicateRepositoryTransactional(t *testing.T) {
 	cfg.SocketPath = serverSocketPath
 
 	sourceRepo, sourceRepoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
-		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
+		Seed: gittest.SeedGitLabTest,
 	})
 
 	targetRepo := proto.Clone(sourceRepo).(*gitalypb.Repository)
@@ -426,13 +418,11 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 			cfg.SocketPath = serverSocketPath
 
 			sourceRepo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
-				SkipCreationViaService: true,
-				Seed:                   gittest.SeedGitLabTest,
+				Seed: gittest.SeedGitLabTest,
 			})
 			targetRepo, targetRepoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
-				SkipCreationViaService: true,
-				Storage:                cfg.Storages[1],
-				RelativePath:           sourceRepo.RelativePath,
+				Storage:      cfg.Storages[1],
+				RelativePath: sourceRepo.RelativePath,
 			})
 
 			var invalidRepos []*gitalypb.Repository
@@ -485,8 +475,7 @@ func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 	cfg.SocketPath = socketPath
 
 	targetRepo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
-		SkipCreationViaService: true,
-		Storage:                cfg.Storages[1],
+		Storage: cfg.Storages[1],
 	})
 
 	// The source repository must be at the same path as the target repository, and it must be a

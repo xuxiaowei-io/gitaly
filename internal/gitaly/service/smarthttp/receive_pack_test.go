@@ -20,8 +20,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
@@ -761,28 +759,23 @@ func (t *testTransactionServer) VoteTransaction(ctx context.Context, in *gitalyp
 func TestPostReceivePack_referenceTransactionHook(t *testing.T) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
+	ctxWithoutTransaction := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
 	testcfg.BuildGitalyHooks(t, cfg)
 
 	refTransactionServer := &testTransactionServer{}
 
-	addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterSmartHTTPServiceServer(srv, NewServer(
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetTxManager(),
-			deps.GetDiskCache(),
-		))
-		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache(), deps.GetPackObjectsConcurrencyTracker()))
-	}, testserver.WithDisablePraefect())
+	server := startSmartHTTPServerWithOptions(t, cfg, nil, []testserver.GitalyServerOpt{
+		testserver.WithDisablePraefect(),
+	})
+	cfg.SocketPath = server.Address()
 
-	ctx, err := txinfo.InjectTransaction(ctx, 1234, "primary", true)
+	ctx, err := txinfo.InjectTransaction(ctxWithoutTransaction, 1234, "primary", true)
 	require.NoError(t, err)
 	ctx = metadata.IncomingToOutgoing(ctx)
 
-	client := newMuxedSmartHTTPClient(t, ctx, addr, cfg.Auth.Token, func() backchannel.Server {
+	client := newMuxedSmartHTTPClient(t, ctx, server.Address(), cfg.Auth.Token, func() backchannel.Server {
 		srv := grpc.NewServer()
 		gitalypb.RegisterRefTransactionServer(srv, refTransactionServer)
 		return srv
@@ -792,9 +785,8 @@ func TestPostReceivePack_referenceTransactionHook(t *testing.T) {
 		stream, err := client.PostReceivePack(ctx)
 		require.NoError(t, err)
 
-		repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
-			SkipCreationViaService: true,
-			Seed:                   gittest.SeedGitLabTest,
+		repo, _ := gittest.CreateRepository(ctxWithoutTransaction, t, cfg, gittest.CreateRepositoryConfig{
+			Seed: gittest.SeedGitLabTest,
 		})
 
 		_, _, pushRequest := createPushRequest(t, cfg)
@@ -816,10 +808,9 @@ func TestPostReceivePack_referenceTransactionHook(t *testing.T) {
 		stream, err := client.PostReceivePack(ctx)
 		require.NoError(t, err)
 
-		repo, repoPath := gittest.CreateRepository(ctx, t, cfg,
+		repo, repoPath := gittest.CreateRepository(ctxWithoutTransaction, t, cfg,
 			gittest.CreateRepositoryConfig{
-				SkipCreationViaService: true,
-				Seed:                   gittest.SeedGitLabTest,
+				Seed: gittest.SeedGitLabTest,
 			})
 
 		// Create a new branch which we're about to delete. We also pack references because
@@ -871,21 +862,18 @@ func TestPostReceivePack_notAllowed(t *testing.T) {
 		gitalyhook.NopUpdate,
 		gitalyhook.NopReferenceTransaction,
 	)
-	addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterSmartHTTPServiceServer(srv, NewServer(
-			deps.GetLocator(),
-			deps.GetGitCmdFactory(),
-			deps.GetTxManager(),
-			deps.GetDiskCache(),
-		))
-		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache(), deps.GetPackObjectsConcurrencyTracker()))
-	}, testserver.WithDisablePraefect(), testserver.WithHookManager(hookManager))
 
-	ctx, err := txinfo.InjectTransaction(testhelper.Context(t), 1234, "primary", true)
+	server := startSmartHTTPServerWithOptions(t, cfg, nil, []testserver.GitalyServerOpt{
+		testserver.WithDisablePraefect(), testserver.WithHookManager(hookManager),
+	})
+	cfg.SocketPath = server.Address()
+
+	ctxWithoutTransaction := testhelper.Context(t)
+	ctx, err := txinfo.InjectTransaction(ctxWithoutTransaction, 1234, "primary", true)
 	require.NoError(t, err)
 	ctx = metadata.IncomingToOutgoing(ctx)
 
-	client := newMuxedSmartHTTPClient(t, ctx, addr, cfg.Auth.Token, func() backchannel.Server {
+	client := newMuxedSmartHTTPClient(t, ctx, server.Address(), cfg.Auth.Token, func() backchannel.Server {
 		srv := grpc.NewServer()
 		gitalypb.RegisterRefTransactionServer(srv, refTransactionServer)
 		return srv
@@ -894,9 +882,8 @@ func TestPostReceivePack_notAllowed(t *testing.T) {
 	stream, err := client.PostReceivePack(ctx)
 	require.NoError(t, err)
 
-	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
-		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
+	repo, _ := gittest.CreateRepository(ctxWithoutTransaction, t, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
 	})
 
 	_, _, pushRequest := createPushRequest(t, cfg)
@@ -910,8 +897,7 @@ func createPushRequest(t *testing.T, cfg config.Cfg) (git.ObjectID, git.ObjectID
 	ctx := testhelper.Context(t)
 
 	_, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
-		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
+		Seed: gittest.SeedGitLabTest,
 	})
 
 	oldCommitID := git.ObjectID(text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD")))

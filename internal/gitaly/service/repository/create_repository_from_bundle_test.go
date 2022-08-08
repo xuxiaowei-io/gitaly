@@ -266,9 +266,8 @@ func TestCreateRepositoryFromBundle_existingRepository(t *testing.T) {
 	// we'll use the next replica path Praefect will assign in order to ensure this repository creation conflicts even
 	// with Praefect in front of it.
 	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
-		SkipCreationViaService: true,
-		RelativePath:           praefectutil.DeriveReplicaPath(1),
-		Seed:                   gittest.SeedGitLabTest,
+		RelativePath: praefectutil.DeriveReplicaPath(1),
+		Seed:         gittest.SeedGitLabTest,
 	})
 
 	stream, err := client.CreateRepositoryFromBundle(ctx)
@@ -279,7 +278,11 @@ func TestCreateRepositoryFromBundle_existingRepository(t *testing.T) {
 	}))
 
 	_, err = stream.CloseAndRecv()
-	testhelper.RequireGrpcError(t, status.Error(codes.AlreadyExists, "creating repository: repository exists already"), err)
+	if testhelper.IsPraefectEnabled() {
+		testhelper.ProtoEqual(t, status.Error(codes.AlreadyExists, "route repository creation: reserve repository id: repository already exists"), err)
+	} else {
+		testhelper.ProtoEqual(t, status.Error(codes.AlreadyExists, "creating repository: repository exists already"), err)
+	}
 }
 
 func TestSanitizedError(t *testing.T) {
