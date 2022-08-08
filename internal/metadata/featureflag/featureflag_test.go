@@ -76,6 +76,7 @@ func TestFeatureFlag_enabled(t *testing.T) {
 		desc        string
 		flag        string
 		headers     map[string]string
+		shouldPanic bool
 		enabled     bool
 		onByDefault bool
 	}{
@@ -83,6 +84,7 @@ func TestFeatureFlag_enabled(t *testing.T) {
 			desc:        "empty name and no headers",
 			flag:        "",
 			headers:     nil,
+			shouldPanic: false,
 			enabled:     false,
 			onByDefault: false,
 		},
@@ -90,6 +92,7 @@ func TestFeatureFlag_enabled(t *testing.T) {
 			desc:        "no headers",
 			flag:        "flag",
 			headers:     nil,
+			shouldPanic: false,
 			enabled:     false,
 			onByDefault: false,
 		},
@@ -97,6 +100,7 @@ func TestFeatureFlag_enabled(t *testing.T) {
 			desc:        "no 'gitaly-feature' prefix in flag name",
 			flag:        "flag",
 			headers:     map[string]string{"flag": "true"},
+			shouldPanic: false,
 			enabled:     false,
 			onByDefault: false,
 		},
@@ -104,6 +108,7 @@ func TestFeatureFlag_enabled(t *testing.T) {
 			desc:        "not valid header value",
 			flag:        "flag",
 			headers:     map[string]string{"gitaly-feature-flag": "TRUE"},
+			shouldPanic: false,
 			enabled:     false,
 			onByDefault: false,
 		},
@@ -111,20 +116,27 @@ func TestFeatureFlag_enabled(t *testing.T) {
 			desc:        "flag name with underscores",
 			flag:        "flag_under_score",
 			headers:     map[string]string{"gitaly-feature-flag-under-score": "true"},
+			shouldPanic: false,
 			enabled:     true,
 			onByDefault: false,
 		},
 		{
 			desc:        "flag name with dashes",
-			flag:        "flag-dash-ok",
-			headers:     map[string]string{"gitaly-feature-flag-dash-ok": "true"},
-			enabled:     true,
-			onByDefault: false,
+			flag:        "flag-with-dash",
+			headers:     map[string]string{"gitaly-feature-flag-with-dash": "true"},
+			shouldPanic: true,
+		},
+		{
+			desc:        "flag name with colons",
+			flag:        "flag_with_colon:",
+			headers:     map[string]string{"gitaly-feature-flag-with-colon:": "true"},
+			shouldPanic: true,
 		},
 		{
 			desc:        "flag explicitly disabled",
 			flag:        "flag",
 			headers:     map[string]string{"gitaly-feature-flag": "false"},
+			shouldPanic: false,
 			enabled:     false,
 			onByDefault: true,
 		},
@@ -132,6 +144,7 @@ func TestFeatureFlag_enabled(t *testing.T) {
 			desc:        "flag enabled by default but missing",
 			flag:        "flag",
 			headers:     map[string]string{},
+			shouldPanic: false,
 			enabled:     true,
 			onByDefault: true,
 		},
@@ -139,7 +152,13 @@ func TestFeatureFlag_enabled(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			ctx := metadata.NewIncomingContext(createContext(), metadata.New(tc.headers))
 
-			ff := FeatureFlag{tc.flag, tc.onByDefault}
+			var ff FeatureFlag
+			ffInitFunc := func() { ff = NewFeatureFlag(tc.flag, "", "", tc.onByDefault) }
+			if tc.shouldPanic {
+				require.PanicsWithValue(t, "Feature flags must not contain dashes or colons.", ffInitFunc)
+				return
+			}
+			require.NotPanics(t, ffInitFunc)
 			require.Equal(t, tc.enabled, ff.IsEnabled(ctx))
 			require.Equal(t, tc.enabled, !ff.IsDisabled(ctx))
 		})
