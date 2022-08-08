@@ -3,6 +3,9 @@
 package linguist
 
 import (
+	"compress/zlib"
+	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -52,6 +55,29 @@ func TestNewLanguageStats(t *testing.T) {
 				require.Errorf(t, err, "new language stats zlib reader: invalid header")
 				require.Empty(t, stats.Totals)
 				require.Empty(t, stats.ByFile)
+			},
+		},
+		{
+			desc: "incorrect version cache",
+			run: func(t *testing.T, repo *localrepo.Repo, repoPath string) {
+				stats, err := newLanguageStats(repo)
+				require.NoError(t, err)
+
+				stats.Totals["C"] = 555
+				stats.Version = "faulty"
+
+				// Copy save() behavior, but with a faulty version
+				file, err := os.OpenFile(filepath.Join(repoPath, languageStatsFilename), os.O_WRONLY|os.O_CREATE, 0o755)
+				require.NoError(t, err)
+				w := zlib.NewWriter(file)
+				require.NoError(t, json.NewEncoder(w).Encode(stats))
+				require.NoError(t, w.Close())
+				require.NoError(t, file.Sync())
+				require.NoError(t, file.Close())
+
+				newStats, err := newLanguageStats(repo)
+				require.Error(t, err, fmt.Errorf("new language stats version mismatch %s vs %s", languageStatsVersion, "faulty"))
+				require.Empty(t, newStats.Totals)
 			},
 		},
 	} {
