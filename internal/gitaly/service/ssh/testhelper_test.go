@@ -41,8 +41,8 @@ func startSSHServerWithOptions(t *testing.T, cfg config.Cfg, opts []ServerOpt, s
 				deps.GetHookManager(),
 				deps.GetGitCmdFactory(),
 				deps.GetPackObjectsCache(),
-				deps.GetPackObjectsConcurrencyTracker(),
-			))
+				deps.GetPackObjectsConcurrencyTracker(), deps.GetPackObjectsLimiter()),
+		)
 		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
 			cfg,
 			deps.GetRubyServer(),

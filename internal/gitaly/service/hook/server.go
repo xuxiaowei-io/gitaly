@@ -6,6 +6,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/middleware/limithandler"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/streamcache"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -16,6 +17,7 @@ type server struct {
 	gitCmdFactory      git.CommandFactory
 	packObjectsCache   streamcache.Cache
 	concurrencyTracker *gitalyhook.ConcurrencyTracker
+	packObjectsLimiter limithandler.Limiter
 	runPackObjectsFn   func(
 		context.Context,
 		git.CommandFactory,
@@ -34,11 +36,13 @@ func NewServer(
 	gitCmdFactory git.CommandFactory,
 	packObjectsCache streamcache.Cache,
 	concurrencyTracker *gitalyhook.ConcurrencyTracker,
+	packObjectsLimiter limithandler.Limiter,
 ) gitalypb.HookServiceServer {
 	srv := &server{
 		manager:            manager,
 		gitCmdFactory:      gitCmdFactory,
 		packObjectsCache:   packObjectsCache,
+		packObjectsLimiter: packObjectsLimiter,
 		concurrencyTracker: concurrencyTracker,
 		runPackObjectsFn:   runPackObjects,
 	}

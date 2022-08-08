@@ -22,6 +22,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/pktline"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/stream"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -73,6 +74,30 @@ func (s *server) packObjectsHook(ctx context.Context, req *gitalypb.PackObjectsH
 	key := hex.EncodeToString(h.Sum(nil))
 
 	r, created, err := s.packObjectsCache.FindOrCreate(key, func(w io.Writer) error {
+		if featureflag.PackObjectsLimitingRepo.IsEnabled(ctx) {
+			return s.runPackObjectsLimited(
+				ctx,
+				w,
+				req.GetRepository().GetStorageName()+":"+req.GetRepository().GetRelativePath(),
+				req,
+				args,
+				stdin,
+				key,
+			)
+		}
+
+		if featureflag.PackObjectsLimitingUser.IsEnabled(ctx) && req.GetGlId() != "" {
+			return s.runPackObjectsLimited(
+				ctx,
+				w,
+				req.GetGlId(),
+				req,
+				args,
+				stdin,
+				key,
+			)
+		}
+
 		return s.runPackObjects(ctx, w, req, args, stdin, key)
 	})
 	if err != nil {
@@ -131,6 +156,45 @@ func (s *server) runPackObjects(
 	defer stdin.Close()
 
 	return s.runPackObjectsFn(ctx, s.gitCmdFactory, w, req, args, stdin, key, s.concurrencyTracker)
+}
+
+func (s *server) runPackObjectsLimited(
+	ctx context.Context,
+	w io.Writer,
+	limitkey string,
+	req *gitalypb.PackObjectsHookWithSidechannelRequest,
+	args *packObjectsArgs,
+	stdin io.ReadCloser,
+	key string,
+) error {
+	ctx = helper.SuppressCancellation(ctx)
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	defer stdin.Close()
+
+	if _, err := s.packObjectsLimiter.Limit(
+		ctx,
+		limitkey,
+		func() (interface{}, error) {
+			return nil,
+				s.runPackObjectsFn(
+					ctx,
+					s.gitCmdFactory,
+					w,
+					req,
+					args,
+					stdin,
+					key,
+					s.concurrencyTracker,
+				)
+		},
+	); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func runPackObjects(
