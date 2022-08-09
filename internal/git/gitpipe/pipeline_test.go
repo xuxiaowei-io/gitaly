@@ -19,6 +19,8 @@ import (
 )
 
 func TestPipeline_revlist(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
@@ -386,6 +388,8 @@ func TestPipeline_revlist(t *testing.T) {
 }
 
 func TestPipeline_forEachRef(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 

@@ -15,6 +15,8 @@ import (
 )
 
 func TestLsTree(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 

@@ -19,6 +19,8 @@ import (
 )
 
 func TestCatfileInfo(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
@@ -281,6 +283,8 @@ func TestCatfileInfo(t *testing.T) {
 }
 
 func TestCatfileInfoAllObjects(t *testing.T) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 	ctx := testhelper.Context(t)
 

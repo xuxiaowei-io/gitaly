@@ -19,6 +19,8 @@ import (
 )
 
 func TestRevlist(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
@@ -526,6 +528,8 @@ func TestRevlist(t *testing.T) {
 }
 
 func TestForEachRef(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	readRefs := func(t *testing.T, repo *localrepo.Repo, patterns []string, opts ...ForEachRefOption) []RevisionResult {
@@ -658,6 +662,8 @@ func TestForEachRef(t *testing.T) {
 }
 
 func TestForEachRef_options(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
