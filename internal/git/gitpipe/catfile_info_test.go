@@ -18,12 +18,6 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-const (
-	lfsPointer1 = "0c304a93cb8430108629bbbcaa27db3343299bc0"
-	lfsPointer2 = "f78df813119a79bfbe0442ab92540a61d3ab7ff3"
-	lfsPointer3 = "bab31d249f78fba464d1b75799aad496cc07fa3b"
-)
-
 func TestCatfileInfo(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
