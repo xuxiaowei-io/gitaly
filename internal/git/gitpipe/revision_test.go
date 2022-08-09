@@ -11,7 +11,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
@@ -541,55 +540,54 @@ func TestForEachRef(t *testing.T) {
 		return results
 	}
 
-	cfg, repoProto, _ := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
+	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	revisions := make(map[string]git.ObjectID)
-	for _, reference := range []string{"refs/heads/master", "refs/heads/feature"} {
-		revision, err := repo.ResolveRevision(ctx, git.Revision(reference))
-		require.NoError(t, err)
-
-		revisions[reference] = revision
-	}
+	mainCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithMessage("main"))
+	featureCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("feature"), gittest.WithMessage("feature"))
+	tag := gittest.WriteTag(t, cfg, repoPath, "v1.0.0", featureCommit.Revision(), gittest.WriteTagConfig{
+		Message: "annotated tag",
+	})
 
 	t.Run("single fully qualified branch", func(t *testing.T) {
 		require.Equal(t, []RevisionResult{
 			{
-				ObjectName: []byte("refs/heads/master"),
-				OID:        revisions["refs/heads/master"],
+				ObjectName: []byte("refs/heads/main"),
+				OID:        mainCommit,
 			},
-		}, readRefs(t, repo, []string{"refs/heads/master"}))
+		}, readRefs(t, repo, []string{"refs/heads/main"}))
 	})
 
 	t.Run("unqualified branch name", func(t *testing.T) {
-		require.Nil(t, readRefs(t, repo, []string{"master"}))
+		require.Nil(t, readRefs(t, repo, []string{"main"}))
 	})
 
 	t.Run("multiple branches", func(t *testing.T) {
 		require.Equal(t, []RevisionResult{
 			{
 				ObjectName: []byte("refs/heads/feature"),
-				OID:        revisions["refs/heads/feature"],
+				OID:        featureCommit,
 			},
 			{
-				ObjectName: []byte("refs/heads/master"),
-				OID:        revisions["refs/heads/master"],
+				ObjectName: []byte("refs/heads/main"),
+				OID:        mainCommit,
 			},
-		}, readRefs(t, repo, []string{"refs/heads/master", "refs/heads/feature"}))
+		}, readRefs(t, repo, []string{"refs/heads/main", "refs/heads/feature"}))
 	})
 
 	t.Run("branches pattern", func(t *testing.T) {
 		refs := readRefs(t, repo, []string{"refs/heads/*"})
-		require.Greater(t, len(refs), 90)
-
-		require.Subset(t, refs, []RevisionResult{
-			{
-				ObjectName: []byte("refs/heads/master"),
-				OID:        revisions["refs/heads/master"],
-			},
+		require.Equal(t, refs, []RevisionResult{
 			{
 				ObjectName: []byte("refs/heads/feature"),
-				OID:        revisions["refs/heads/feature"],
+				OID:        featureCommit,
+			},
+			{
+				ObjectName: []byte("refs/heads/main"),
+				OID:        mainCommit,
 			},
 		})
 	})
@@ -602,18 +600,31 @@ func TestForEachRef(t *testing.T) {
 		require.Equal(t, refs, []RevisionResult{
 			{
 				ObjectName: []byte("tag"),
-				OID:        "f4e6814c3e4e7a0de82a9e7cd20c626cc963a2f8",
+				OID:        tag,
 			},
 			{
 				ObjectName: []byte("peeled"),
-				OID:        "6f6d7e7ed97bb5f0054f2b1df789b39ca89b6ff9",
+				OID:        featureCommit,
 			},
 		})
 	})
 
 	t.Run("multiple patterns", func(t *testing.T) {
 		refs := readRefs(t, repo, []string{"refs/heads/*", "refs/tags/*"})
-		require.Greater(t, len(refs), 90)
+		require.Equal(t, refs, []RevisionResult{
+			{
+				ObjectName: []byte("refs/heads/feature"),
+				OID:        featureCommit,
+			},
+			{
+				ObjectName: []byte("refs/heads/main"),
+				OID:        mainCommit,
+			},
+			{
+				ObjectName: []byte("refs/tags/v1.0.0"),
+				OID:        tag,
+			},
+		})
 	})
 
 	t.Run("nonexisting branch", func(t *testing.T) {
@@ -632,8 +643,8 @@ func TestForEachRef(t *testing.T) {
 		require.True(t, it.Next())
 		require.NoError(t, it.Err())
 		require.Equal(t, RevisionResult{
-			OID:        "e56497bb5f03a90a51293fc6d516788730953899",
-			ObjectName: []byte("refs/heads/'test'"),
+			OID:        featureCommit,
+			ObjectName: []byte("refs/heads/feature"),
 		}, it.Result())
 
 		cancel()
@@ -699,8 +710,11 @@ func TestForEachRef_options(t *testing.T) {
 			},
 		},
 	} {
+		cfg := testcfg.Build(t)
 
-		cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
+		repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+			SkipCreationViaService: true,
+		})
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 		oid := tc.prepare(repoPath, cfg)
 
