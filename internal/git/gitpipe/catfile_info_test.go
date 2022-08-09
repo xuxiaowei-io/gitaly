@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package gitpipe
 
 import (
@@ -77,7 +75,7 @@ func TestCatfileInfo(t *testing.T) {
 				{OID: blobID, ObjectName: []byte("branch-test.txt")},
 			},
 			expectedResults: []CatfileInfoResult{
-				{ObjectInfo: &catfile.ObjectInfo{Oid: treeID, Type: "tree", Size: 43}},
+				{ObjectInfo: &catfile.ObjectInfo{Oid: treeID, Type: "tree", Size: hashDependentObjectSize(43, 55)}},
 				{ObjectInfo: &catfile.ObjectInfo{Oid: blobID, Type: "blob", Size: 8}, ObjectName: []byte("branch-test.txt")},
 			},
 		},
@@ -303,8 +301,8 @@ func TestCatfileInfoAllObjects(t *testing.T) {
 	actualObjects := []CatfileInfoResult{
 		{ObjectInfo: &catfile.ObjectInfo{Oid: blob1, Type: "blob", Size: 6}},
 		{ObjectInfo: &catfile.ObjectInfo{Oid: blob2, Type: "blob", Size: 6}},
-		{ObjectInfo: &catfile.ObjectInfo{Oid: tree, Type: "tree", Size: 34}},
-		{ObjectInfo: &catfile.ObjectInfo{Oid: commit, Type: "commit", Size: 177}},
+		{ObjectInfo: &catfile.ObjectInfo{Oid: tree, Type: "tree", Size: hashDependentObjectSize(34, 46)}},
+		{ObjectInfo: &catfile.ObjectInfo{Oid: commit, Type: "commit", Size: hashDependentObjectSize(177, 201)}},
 	}
 
 	t.Run("successful", func(t *testing.T) {

@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package gitpipe
 
 import (
@@ -73,11 +71,11 @@ func TestCatfileObject(t *testing.T) {
 		{
 			desc: "revlist result with object names",
 			catfileInfoInputs: []CatfileInfoResult{
-				{ObjectInfo: &catfile.ObjectInfo{Oid: treeID, Type: "tree", Size: 43}},
+				{ObjectInfo: &catfile.ObjectInfo{Oid: treeID, Type: "tree", Size: hashDependentObjectSize(43, 55)}},
 				{ObjectInfo: &catfile.ObjectInfo{Oid: blobID, Type: "blob", Size: 59}, ObjectName: []byte("branch-test.txt")},
 			},
 			expectedResults: []CatfileObjectResult{
-				{Object: &catfile.Object{ObjectInfo: catfile.ObjectInfo{Oid: treeID, Type: "tree", Size: 43}}},
+				{Object: &catfile.Object{ObjectInfo: catfile.ObjectInfo{Oid: treeID, Type: "tree", Size: hashDependentObjectSize(43, 55)}}},
 				{Object: &catfile.Object{ObjectInfo: catfile.ObjectInfo{Oid: blobID, Type: "blob", Size: 8}}, ObjectName: []byte("branch-test.txt")},
 			},
 		},
