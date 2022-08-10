@@ -361,9 +361,9 @@ install: install-bundled-git
 
 export GITALY_TESTING_BUNDLED_GIT_PATH ?= ${BUILD_DIR}/bin
 else
-prepare-tests: git
+prepare-tests: ${DEPENDENCY_DIR}/git-distribution/git
 
-export GITALY_TESTING_GIT_BINARY ?= ${GIT_PREFIX}/bin/git
+export GITALY_TESTING_GIT_BINARY ?= ${DEPENDENCY_DIR}/git-distribution/bin-wrappers/git
 endif
 
 .PHONY: prepare-tests
