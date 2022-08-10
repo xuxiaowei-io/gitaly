@@ -265,8 +265,10 @@ func TestCreateRepositoryFromBundle_existingRepository(t *testing.T) {
 	// The above test creates the second repository on the server. As this test can run with Praefect in front of it,
 	// we'll use the next replica path Praefect will assign in order to ensure this repository creation conflicts even
 	// with Praefect in front of it.
-	repo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
-		RelativePath: praefectutil.DeriveReplicaPath(1),
+	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		RelativePath:           praefectutil.DeriveReplicaPath(1),
+		Seed:                   gittest.SeedGitLabTest,
 	})
 
 	stream, err := client.CreateRepositoryFromBundle(ctx)

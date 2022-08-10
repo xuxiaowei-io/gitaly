@@ -50,7 +50,10 @@ func TestReplicateRepository(t *testing.T) {
 	client, serverSocketPath := runRepositoryService(t, cfg, nil, testserver.WithDisablePraefect())
 	cfg.SocketPath = serverSocketPath
 
-	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	// create a loose object to ensure snapshot replication is used
 	blobData, err := text.RandomHex(10)
@@ -210,7 +213,10 @@ func TestReplicateRepositoryTransactional(t *testing.T) {
 	_, serverSocketPath := runRepositoryService(t, cfg, nil, testserver.WithDisablePraefect())
 	cfg.SocketPath = serverSocketPath
 
-	sourceRepo, sourceRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	sourceRepo, sourceRepoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	targetRepo := proto.Clone(sourceRepo).(*gitalypb.Repository)
 	targetRepo.StorageName = cfg.Storages[1].Name
@@ -419,9 +425,14 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 			client, serverSocketPath := runRepositoryService(t, cfg, nil, testserver.WithDisablePraefect())
 			cfg.SocketPath = serverSocketPath
 
-			sourceRepo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
-			targetRepo, targetRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[1], gittest.CloneRepoOpts{
-				RelativePath: sourceRepo.RelativePath,
+			sourceRepo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				SkipCreationViaService: true,
+				Seed:                   gittest.SeedGitLabTest,
+			})
+			targetRepo, targetRepoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				SkipCreationViaService: true,
+				Storage:                cfg.Storages[1],
+				RelativePath:           sourceRepo.RelativePath,
 			})
 
 			var invalidRepos []*gitalypb.Repository

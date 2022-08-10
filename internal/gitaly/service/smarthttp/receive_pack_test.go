@@ -792,7 +792,10 @@ func TestPostReceivePack_referenceTransactionHook(t *testing.T) {
 		stream, err := client.PostReceivePack(ctx)
 		require.NoError(t, err)
 
-		repo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+		repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+			SkipCreationViaService: true,
+			Seed:                   gittest.SeedGitLabTest,
+		})
 
 		_, _, pushRequest := createPushRequest(t, cfg)
 		response := performPush(t, stream, &gitalypb.PostReceivePackRequest{
@@ -813,7 +816,11 @@ func TestPostReceivePack_referenceTransactionHook(t *testing.T) {
 		stream, err := client.PostReceivePack(ctx)
 		require.NoError(t, err)
 
-		repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+		repo, repoPath := gittest.CreateRepository(ctx, t, cfg,
+			gittest.CreateRepositoryConfig{
+				SkipCreationViaService: true,
+				Seed:                   gittest.SeedGitLabTest,
+			})
 
 		// Create a new branch which we're about to delete. We also pack references because
 		// this used to generate two transactions: one for the packed-refs file and one for
@@ -887,7 +894,10 @@ func TestPostReceivePack_notAllowed(t *testing.T) {
 	stream, err := client.PostReceivePack(ctx)
 	require.NoError(t, err)
 
-	repo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	_, _, pushRequest := createPushRequest(t, cfg)
 	request := &gitalypb.PostReceivePackRequest{Repository: repo, GlId: "key-1234", GlRepository: "some_repo"}
@@ -897,7 +907,12 @@ func TestPostReceivePack_notAllowed(t *testing.T) {
 }
 
 func createPushRequest(t *testing.T, cfg config.Cfg) (git.ObjectID, git.ObjectID, io.Reader) {
-	_, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	ctx := testhelper.Context(t)
+
+	_, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	oldCommitID := git.ObjectID(text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD")))
 	newCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(oldCommitID))

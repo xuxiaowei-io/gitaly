@@ -252,7 +252,10 @@ func copyRepoUsingSnapshot(t *testing.T, ctx context.Context, cfg config.Cfg, cl
 	srv := httptest.NewServer(&tarTesthandler{tarData: bytes.NewBuffer(data), secret: secret})
 	defer srv.Close()
 
-	repoCopy, repoCopyPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	repoCopy, repoCopyPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	// Delete the repository so we can re-use the path
 	require.NoError(t, os.RemoveAll(repoCopyPath))

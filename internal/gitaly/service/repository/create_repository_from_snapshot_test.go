@@ -82,7 +82,10 @@ func TestCreateRepositoryFromSnapshot_success(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
-	_, sourceRepoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	_, sourceRepoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	// Ensure these won't be in the archive
 	require.NoError(t, os.Remove(filepath.Join(sourceRepoPath, "config")))
@@ -137,8 +140,10 @@ func TestCreateRepositoryFromSnapshot_repositoryExists(t *testing.T) {
 	// This creates the first repository on the server. As this test can run with Praefect in front of it,
 	// we'll use the next replica path Praefect will assign in order to ensure this repository creation
 	// conflicts even with Praefect in front of it.
-	repo, _ := gittest.CloneRepo(t, cfg, cfg.Storages[0], gittest.CloneRepoOpts{
-		RelativePath: praefectutil.DeriveReplicaPath(1),
+	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		RelativePath:           praefectutil.DeriveReplicaPath(1),
+		Seed:                   gittest.SeedGitLabTest,
 	})
 
 	req := &gitalypb.CreateRepositoryFromSnapshotRequest{Repository: repo}
@@ -153,7 +158,10 @@ func TestCreateRepositoryFromSnapshot_badURL(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
-	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 	require.NoError(t, os.RemoveAll(repoPath))
 
 	req := &gitalypb.CreateRepositoryFromSnapshotRequest{
@@ -207,7 +215,10 @@ func TestCreateRepositoryFromSnapshot_invalidArguments(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			cfg := testcfg.Build(t)
-			repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+			repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				SkipCreationViaService: true,
+				Seed:                   gittest.SeedGitLabTest,
+			})
 			require.NoError(t, os.RemoveAll(repoPath))
 
 			req := &gitalypb.CreateRepositoryFromSnapshotRequest{
@@ -231,7 +242,10 @@ func TestCreateRepositoryFromSnapshot_malformedResponse(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
-	repo, repoPath := gittest.CloneRepo(t, cfg, cfg.Storages[0])
+	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	require.NoError(t, os.Remove(filepath.Join(repoPath, "config")))
 	require.NoError(t, os.RemoveAll(filepath.Join(repoPath, "hooks")))
