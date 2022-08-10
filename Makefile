@@ -40,7 +40,7 @@ exec_prefix      ?= ${prefix}
 bindir           ?= ${exec_prefix}/bin
 INSTALL_DEST_DIR := ${DESTDIR}${bindir}
 ## The prefix where Git will be installed to.
-GIT_PREFIX       ?= ${GIT_DEFAULT_PREFIX}
+GIT_PREFIX       ?= ${PREFIX}
 
 # Tools
 GIT                         := $(shell command -v git)
@@ -133,9 +133,6 @@ endif
 
 # Git target
 GIT_REPO_URL       ?= https://gitlab.com/gitlab-org/gitlab-git.git
-# The default prefix specifies where Git will be installed to if no GIT_PREFIX
-# was given. This directory will be cleaned up before we install into it.
-GIT_DEFAULT_PREFIX := ${DEPENDENCY_DIR}/git/install
 GIT_QUIET          :=
 ifeq (${Q},@)
     GIT_QUIET = --quiet
@@ -569,12 +566,6 @@ ${DEPENDENCY_DIR}: | ${BUILD_DIR}
 
 # This target installs the full Git distribution into GIT_PREFIX.
 ${GIT_PREFIX}/bin/git: ${DEPENDENCY_DIR}/git-distribution/git
-	@ # Remove the Git installation first in case GIT_PREFIX is the default
-	@ # prefix which always points into our build directory. This is done so
-	@ # we never end up with mixed Git installations on developer machines.
-	@ # We cannot ever remove GIT_PREFIX though in case they're different
-	@ # because it may point to a user-controlled directory.
-	${Q}if [ "x${GIT_DEFAULT_PREFIX}" = "x${GIT_PREFIX}" ]; then rm -rf "${GIT_DEFAULT_PREFIX}"; fi
 	${Q}env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C "$(<D)" -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} install
 	${Q}touch $@
 
