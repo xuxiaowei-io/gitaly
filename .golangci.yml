@@ -34,6 +34,7 @@ linters:
     - staticcheck
     - structcheck
     - stylecheck
+    - thelper
     - unconvert
     - unused
     - varcheck
@@ -73,6 +74,17 @@ linters-settings:
     # ST1000 checks for missing package comments. We don't use these for most
     # packages, so let's disable this check.
     checks: [ "all", "-ST1000" ]
+  thelper:
+    test:
+      first: false
+      begin: false
+    benchmark:
+      first: false
+      begin: false
+    tb:
+      first: false
+      name: false
+      begin: false
 
 issues:
   exclude-use-default: false
