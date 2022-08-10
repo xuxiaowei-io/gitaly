@@ -533,9 +533,13 @@ upgrade-module:
 	${Q}${MAKE} proto
 
 .PHONY: git
+# This target is deprecated and will eventually be removed.
+git: install-git
+
+.PHONY: install-git
 ## Install Git.
-git: ${DEPENDENCY_DIR}/git-distribution/Makefile
-	${Q}env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C "$(<D)" -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} install
+install-git: ${DEPENDENCY_DIR}/git-distribution/Makefile
+	${Q}env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C "${DEPENDENCY_DIR}/git-distribution" -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} install
 
 .PHONY: libgit2
 ## Build libgit2.
