@@ -76,13 +76,10 @@ linters-settings:
     checks: [ "all", "-ST1000" ]
   thelper:
     test:
-      first: false
       begin: false
     benchmark:
-      first: false
       begin: false
     tb:
-      first: false
       name: false
       begin: false
 
