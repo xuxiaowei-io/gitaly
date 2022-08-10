@@ -80,7 +80,6 @@ linters-settings:
     benchmark:
       begin: false
     tb:
-      name: false
       begin: false
 
 issues:
