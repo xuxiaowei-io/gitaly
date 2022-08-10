@@ -533,8 +533,9 @@ upgrade-module:
 	${Q}${MAKE} proto
 
 .PHONY: git
-## Build Git.
-git: ${GIT_PREFIX}/bin/git
+## Install Git.
+git: ${DEPENDENCY_DIR}/git-distribution/Makefile
+	${Q}env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C "$(<D)" -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} install
 
 .PHONY: libgit2
 ## Build libgit2.
@@ -563,11 +564,6 @@ ${TOOLS_DIR}: | ${BUILD_DIR}
 	${Q}mkdir -p ${TOOLS_DIR}
 ${DEPENDENCY_DIR}: | ${BUILD_DIR}
 	${Q}mkdir -p ${DEPENDENCY_DIR}
-
-# This target installs the full Git distribution into GIT_PREFIX.
-${GIT_PREFIX}/bin/git: ${DEPENDENCY_DIR}/git-distribution/git
-	${Q}env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C "$(<D)" -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} install
-	${Q}touch $@
 
 # This target builds a full Git distribution.
 ${DEPENDENCY_DIR}/git-distribution/git: ${DEPENDENCY_DIR}/git-distribution/Makefile
