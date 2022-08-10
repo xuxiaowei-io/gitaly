@@ -181,8 +181,6 @@ func startProcessBacklog(ctx context.Context, replMgr ReplMgr) <-chan struct{} {
 // The caller is responsible to call returned testhelper.Cleanup in order to stop the service
 // and release all acquired resources.
 // The function should be used only for testing purposes and not as part of the production code.
-//
-//nolint:revive
 func RunPraefectServer(
 	t testing.TB,
 	ctx context.Context,
