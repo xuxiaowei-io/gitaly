@@ -567,8 +567,8 @@ ${TOOLS_DIR}: | ${BUILD_DIR}
 ${DEPENDENCY_DIR}: | ${BUILD_DIR}
 	${Q}mkdir -p ${DEPENDENCY_DIR}
 
-# This target builds a full Git distribution and installs it into GIT_PREFIX.
-${GIT_PREFIX}/bin/git: ${DEPENDENCY_DIR}/git-distribution/Makefile
+# This target installs the full Git distribution into GIT_PREFIX.
+${GIT_PREFIX}/bin/git: ${DEPENDENCY_DIR}/git-distribution/git
 	@ # Remove the Git installation first in case GIT_PREFIX is the default
 	@ # prefix which always points into our build directory. This is done so
 	@ # we never end up with mixed Git installations on developer machines.
@@ -576,6 +576,11 @@ ${GIT_PREFIX}/bin/git: ${DEPENDENCY_DIR}/git-distribution/Makefile
 	@ # because it may point to a user-controlled directory.
 	${Q}if [ "x${GIT_DEFAULT_PREFIX}" = "x${GIT_PREFIX}" ]; then rm -rf "${GIT_DEFAULT_PREFIX}"; fi
 	${Q}env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C "$(<D)" -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} install
+	${Q}touch $@
+
+# This target builds a full Git distribution.
+${DEPENDENCY_DIR}/git-distribution/git: ${DEPENDENCY_DIR}/git-distribution/Makefile
+	${Q}env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C "$(<D)" -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS}
 	${Q}touch $@
 
 ${BUILD_DIR}/bin/gitaly-%-v2.35.1.gl1: override GIT_PATCHES := $(sort $(wildcard ${SOURCE_DIR}/_support/git-patches/v2.35.1.gl1/*))
