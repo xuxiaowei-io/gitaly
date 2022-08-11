@@ -52,7 +52,6 @@ linters-settings:
     # cases to skip the checks, but rather as a list of things we should
     # eventually fix.
     exclude-functions:
-      # Close
       - (*database/sql.DB).Close
       - (*database/sql.Rows).Close
       - (*gitlab.com/gitlab-org/gitaly/v15/client.Pool).Close
@@ -68,8 +67,6 @@ linters-settings:
       - (io/fs.File).Close
       - (net.Conn).Close
       - (net.Listener).Close
-      # Serve
-      - (*gitlab.com/gitlab-org/gitaly/v15/internal/praefect.ServerFactory).Serve
   forbidigo:
     forbid:
       # Tests and code which use timing-based setups have repeatedly resulted
