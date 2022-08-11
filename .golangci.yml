@@ -64,7 +64,6 @@ linters-settings:
       - (*io.PipeWriter).Close
       - (*os.File).Close
       - (io.Closer).Close
-      - (io/fs.File).Close
       - (net.Conn).Close
       - (net.Listener).Close
   forbidigo:
