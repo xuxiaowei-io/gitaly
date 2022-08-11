@@ -102,6 +102,20 @@ func MustClose(tb testing.TB, closer io.Closer) {
 	require.NoError(tb, closer.Close())
 }
 
+// Server is an interface for a server that can serve requests on a specific listener. This
+// interface is used by the MustServe helper function.
+type Server interface {
+	Serve(net.Listener) error
+}
+
+// MustServe starts to serve the given server with the listener. This function asserts that the
+// server was able to successfully serve and is useful in contexts where one wants to simply spawn a
+// server in a Goroutine.
+func MustServe(tb testing.TB, server Server, listener net.Listener) {
+	tb.Helper()
+	require.NoError(tb, server.Serve(listener))
+}
+
 // CopyFile copies a file at the path src to a file at the path dst
 func CopyFile(tb testing.TB, src, dst string) {
 	fsrc, err := os.Open(src)

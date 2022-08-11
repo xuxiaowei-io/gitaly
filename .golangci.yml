@@ -70,7 +70,6 @@ linters-settings:
       - (net.Listener).Close
       # Serve
       - (*gitlab.com/gitlab-org/gitaly/v15/internal/praefect.ServerFactory).Serve
-      - (*google.golang.org/grpc.Server).Serve
       - (*net/http.Server).Serve
   forbidigo:
     forbid:

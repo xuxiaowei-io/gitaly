@@ -206,6 +206,6 @@ func startStreamServer(t *testing.T, handler func(gitalypb.SSHService_SSHUploadP
 	require.NoError(t, err)
 
 	t.Cleanup(srv.Stop)
-	go srv.Serve(ln)
+	go testhelper.MustServe(t, srv, ln)
 	return ln.Addr().String()
 }
