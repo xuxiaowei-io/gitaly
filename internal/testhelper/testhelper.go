@@ -8,11 +8,13 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
 	mrand "math/rand"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -113,7 +115,12 @@ type Server interface {
 // server in a Goroutine.
 func MustServe(tb testing.TB, server Server, listener net.Listener) {
 	tb.Helper()
-	require.NoError(tb, server.Serve(listener))
+
+	// `http.Server.Serve()` is expected to return `http.ErrServerClosed`, so we special-case
+	// this error here.
+	if err := server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		require.NoError(tb, err)
+	}
 }
 
 // CopyFile copies a file at the path src to a file at the path dst
