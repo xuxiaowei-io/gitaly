@@ -247,7 +247,7 @@ func TestDialSidechannel(t *testing.T) {
 
 				return nil
 			})
-			defer scw.Close()
+			defer testhelper.MustClose(t, scw)
 
 			req := &healthpb.HealthCheckRequest{Service: "test sidechannel"}
 			_, err = healthpb.NewHealthClient(conn).Check(ctx, req)

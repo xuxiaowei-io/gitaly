@@ -187,7 +187,10 @@ func call(ctx context.Context, conn *grpc.ClientConn, registry *Registry, handle
 	client := healthpb.NewHealthClient(conn)
 
 	ctxOut, waiter := RegisterSidechannel(ctx, registry, handler)
-	defer waiter.Close()
+	defer func() {
+		// We aleady check the error further down.
+		_ = waiter.Close()
+	}()
 
 	if _, err := client.Check(ctxOut, &healthpb.HealthCheckRequest{}); err != nil {
 		return err

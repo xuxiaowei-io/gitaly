@@ -169,7 +169,7 @@ func testStreamProxy(t *testing.T, closeWrite bool) {
 
 	conn, registry := dial(t, proxyAddr)
 	ctx, waiter := RegisterSidechannel(ctx, registry, testProxyClient(closeWrite))
-	defer waiter.Close()
+	defer testhelper.MustClose(t, waiter)
 
 	client, err := gitalypb.NewSSHServiceClient(conn).SSHUploadPack(ctx)
 	require.NoError(t, err)

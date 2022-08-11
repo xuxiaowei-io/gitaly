@@ -165,7 +165,7 @@ func TestServerFactory(t *testing.T) {
 
 			return nil
 		})
-		defer waiter.Close()
+		defer testhelper.MustClose(t, waiter)
 
 		_, err = gitalypb.NewSmartHTTPServiceClient(cc).PostUploadPackWithSidechannel(ctx,
 			&gitalypb.PostUploadPackWithSidechannelRequest{Repository: repo},
