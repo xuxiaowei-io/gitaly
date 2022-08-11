@@ -71,7 +71,6 @@ linters-settings:
       - (*google.golang.org/grpc.ServerConn).Close
       - (*io.PipeReader).Close
       - (*io.PipeWriter).Close
-      - (*net.UnixConn).Close
       - (*os.File).Close
       - (io.Closer).Close
       - (io/fs.File).Close
