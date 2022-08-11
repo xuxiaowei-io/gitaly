@@ -61,8 +61,6 @@ linters-settings:
       - (*gitlab.com/gitlab-org/gitaly/v15/client.Pool).Close
       - (*gitlab.com/gitlab-org/gitaly/v15/client.SidechannelWaiter).Close
       - (*gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook.SidechannelWaiter).Close
-      - (*gitlab.com/gitlab-org/gitaly/v15/internal/safe.FileWriter).Close
-      - (*gitlab.com/gitlab-org/gitaly/v15/internal/safe.LockingFileWriter).Close
       - (*gitlab.com/gitlab-org/gitaly/v15/internal/sidechannel.ServerConn).Close
       - (*gitlab.com/gitlab-org/gitaly/v15/internal/sidechannel.Waiter).Close
       - (*gitlab.com/gitlab-org/gitaly/v15/internal/streamcache.pipe).Close
