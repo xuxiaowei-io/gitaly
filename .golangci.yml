@@ -55,7 +55,6 @@ linters-settings:
       # Close
       - (*database/sql.DB).Close
       - (*database/sql.Rows).Close
-      - (*github.com/hashicorp/yamux.Session).Close
       - (*gitlab.com/gitlab-org/gitaly/v15/client.Pool).Close
       - (*gitlab.com/gitlab-org/gitaly/v15/client.SidechannelWaiter).Close
       - (*gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook.SidechannelWaiter).Close
