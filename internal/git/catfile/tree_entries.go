@@ -19,17 +19,15 @@ type revisionPath struct{ revision, path string }
 
 // TreeEntryFinder is a struct for searching through a tree with caching.
 type TreeEntryFinder struct {
-	objectReader     ObjectReader
-	objectInfoReader ObjectInfoReader
-	treeCache        map[revisionPath][]*gitalypb.TreeEntry
+	objectReader ObjectReader
+	treeCache    map[revisionPath][]*gitalypb.TreeEntry
 }
 
 // NewTreeEntryFinder initializes a TreeEntryFinder with an empty tree cache.
-func NewTreeEntryFinder(objectReader ObjectReader, objectInfoReader ObjectInfoReader) *TreeEntryFinder {
+func NewTreeEntryFinder(objectReader ObjectReader) *TreeEntryFinder {
 	return &TreeEntryFinder{
-		objectReader:     objectReader,
-		objectInfoReader: objectInfoReader,
-		treeCache:        make(map[revisionPath][]*gitalypb.TreeEntry),
+		objectReader: objectReader,
+		treeCache:    make(map[revisionPath][]*gitalypb.TreeEntry),
 	}
 }
 
@@ -41,7 +39,7 @@ func (tef *TreeEntryFinder) FindByRevisionAndPath(ctx context.Context, revision,
 
 	if !ok {
 		var err error
-		entries, err = TreeEntries(ctx, tef.objectReader, tef.objectInfoReader, revision, dir)
+		entries, err = TreeEntries(ctx, tef.objectReader, revision, dir)
 		if err != nil {
 			return nil, err
 		}
@@ -108,7 +106,6 @@ func extractEntryInfoFromTreeData(treeData io.Reader, commitOid, rootOid, rootPa
 func TreeEntries(
 	ctx context.Context,
 	objectReader ObjectReader,
-	objectInfoReader ObjectInfoReader,
 	revision, path string,
 ) (_ []*gitalypb.TreeEntry, returnedErr error) {
 	if path == "." {
@@ -121,7 +118,7 @@ func TreeEntries(
 		return nil, nil
 	}
 
-	rootTreeInfo, err := objectInfoReader.Info(ctx, git.Revision(revision+"^{tree}"))
+	rootTreeInfo, err := objectReader.Info(ctx, git.Revision(revision+"^{tree}"))
 	if err != nil {
 		if IsNotFound(err) {
 			return nil, nil

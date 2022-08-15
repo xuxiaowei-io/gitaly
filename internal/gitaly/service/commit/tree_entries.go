@@ -77,11 +77,7 @@ func (s *server) sendTreeEntries(
 	ctx := stream.Context()
 
 	var entries []*gitalypb.TreeEntry
-
-	var (
-		objectReader     catfile.ObjectReader
-		objectInfoReader catfile.ObjectInfoReader
-	)
+	var objectReader catfile.ObjectReader
 
 	// When we want to do a recursive listing, then it's a _lot_ more efficient to let
 	// git-ls-tree(1) handle this for us. In theory, we'd also want to do this for the
