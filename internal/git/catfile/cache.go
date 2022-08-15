@@ -35,9 +35,6 @@ type Cache interface {
 	// ObjectReader either creates a new object reader or returns a cached one for the given
 	// repository.
 	ObjectReader(context.Context, git.RepositoryExecutor) (ObjectReader, func(), error)
-	// ObjectInfoReader either creates a new object info reader or returns a cached one for the
-	// given repository.
-	ObjectInfoReader(context.Context, git.RepositoryExecutor) (ObjectInfoReader, func(), error)
 	// Evict evicts all cached processes from the cache.
 	Evict()
 }
@@ -59,8 +56,7 @@ type ProcessCache struct {
 	monitorTicker helper.Ticker
 	monitorDone   chan interface{}
 
-	objectReaders     processes
-	objectInfoReaders processes
+	objectReaders processes
 
 	catfileCacheCounter     *prometheus.CounterVec
 	currentCatfileProcesses prometheus.Gauge
@@ -82,9 +78,6 @@ func newCache(ttl time.Duration, maxLen int, monitorTicker helper.Ticker) *Proce
 	processCache := &ProcessCache{
 		ttl: ttl,
 		objectReaders: processes{
-			maxLen: maxLen,
-		},
-		objectInfoReaders: processes{
 			maxLen: maxLen,
 		},
 		catfileCacheCounter: prometheus.NewCounterVec(
@@ -149,7 +142,6 @@ func (c *ProcessCache) monitor() {
 		select {
 		case <-c.monitorTicker.C():
 			c.objectReaders.EnforceTTL(time.Now())
-			c.objectInfoReaders.EnforceTTL(time.Now())
 			c.monitorTicker.Reset()
 		case <-c.monitorDone:
 			close(c.monitorDone)
@@ -184,23 +176,6 @@ func (c *ProcessCache) ObjectReader(ctx context.Context, repo git.RepositoryExec
 	}
 
 	return objectReader, cancel, nil
-}
-
-// ObjectInfoReader creates a new ObjectInfoReader process for the given repository.
-func (c *ProcessCache) ObjectInfoReader(ctx context.Context, repo git.RepositoryExecutor) (ObjectInfoReader, func(), error) {
-	cacheable, cancel, err := c.getOrCreateProcess(ctx, repo, &c.objectInfoReaders, func(ctx context.Context) (cacheable, error) {
-		return newObjectInfoReader(ctx, repo, c.catfileLookupCounter)
-	}, "catfile.ObjectInfoReader")
-	if err != nil {
-		return nil, nil, err
-	}
-
-	objectInfoReader, ok := cacheable.(ObjectInfoReader)
-	if !ok {
-		return nil, nil, fmt.Errorf("expected object info reader, got %T", cacheable)
-	}
-
-	return objectInfoReader, cancel, nil
 }
 
 func (c *ProcessCache) getOrCreateProcess(
@@ -298,13 +273,11 @@ func (c *ProcessCache) getOrCreateProcess(
 
 func (c *ProcessCache) reportCacheMembers() {
 	c.catfileCacheMembers.WithLabelValues("object_reader").Set(float64(c.objectReaders.EntryCount()))
-	c.catfileCacheMembers.WithLabelValues("object_info_reader").Set(float64(c.objectInfoReaders.EntryCount()))
 }
 
 // Evict evicts all cached processes from the cache.
 func (c *ProcessCache) Evict() {
 	c.objectReaders.Evict()
-	c.objectInfoReaders.Evict()
 }
 
 func (c *ProcessCache) returnToCache(p *processes, cacheKey key, value cacheable, cancel func()) {

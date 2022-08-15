@@ -320,13 +320,13 @@ func TestCache_ObjectInfoReader(t *testing.T) {
 		// The context doesn't carry a session ID and is thus uncacheable.
 		// The process should never get returned to the cache and must be
 		// killed on context cancellation.
-		reader, cancel, err := cache.ObjectInfoReader(ctx, repoExecutor)
+		reader, cancel, err := cache.ObjectReader(ctx, repoExecutor)
 		require.NoError(t, err)
 
 		cancel()
 
 		require.True(t, reader.isClosed())
-		require.Empty(t, keys(t, &cache.objectInfoReaders))
+		require.Empty(t, keys(t, &cache.objectReaders))
 	})
 
 	t.Run("cacheable", func(t *testing.T) {
@@ -337,13 +337,13 @@ func TestCache_ObjectInfoReader(t *testing.T) {
 			metadata.Pairs(SessionIDField, "1"),
 		)
 
-		reader, cancel, err := cache.ObjectInfoReader(ctx, repoExecutor)
+		reader, cancel, err := cache.ObjectReader(ctx, repoExecutor)
 		require.NoError(t, err)
 
 		// Cancel the process such it will be considered for return to the cache.
 		cancel()
 
-		keys := keys(t, &cache.objectInfoReaders)
+		keys := keys(t, &cache.objectReaders)
 		require.Equal(t, []key{{
 			sessionID:   "1",
 			repoStorage: repo.GetStorageName(),
@@ -362,7 +362,7 @@ func TestCache_ObjectInfoReader(t *testing.T) {
 			metadata.Pairs(SessionIDField, "1"),
 		)
 
-		reader, cancel, err := cache.ObjectInfoReader(ctx, repoExecutor)
+		reader, cancel, err := cache.ObjectReader(ctx, repoExecutor)
 		require.NoError(t, err)
 
 		// Closed processes naturally cannot be reused anymore and thus shouldn't ever get
@@ -372,7 +372,7 @@ func TestCache_ObjectInfoReader(t *testing.T) {
 		// Cancel the process such that it will be considered for return to the cache.
 		cancel()
 
-		require.Empty(t, keys(t, &cache.objectInfoReaders))
+		require.Empty(t, keys(t, &cache.objectReaders))
 	})
 }
 
