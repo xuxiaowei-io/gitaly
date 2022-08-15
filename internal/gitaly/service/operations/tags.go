@@ -224,15 +224,9 @@ func (s *Server) createTag(
 	}
 	defer cancel()
 
-	objectInfoReader, cancel, err := s.catfileCache.ObjectInfoReader(ctx, repo)
-	if err != nil {
-		return nil, "", status.Error(codes.Internal, err.Error())
-	}
-	defer cancel()
-
 	// We allow all ways to name a revision that cat-file
 	// supports, not just OID. Resolve it.
-	targetInfo, err := objectInfoReader.Info(ctx, targetRevision)
+	targetInfo, err := objectReader.Info(ctx, targetRevision)
 	if err != nil {
 		return nil, "", status.Errorf(codes.FailedPrecondition, "revspec '%s' not found", targetRevision)
 	}
@@ -254,7 +248,7 @@ func (s *Server) createTag(
 	// the commit/tree/blob object itself in subsequent logic.
 	peeledTargetObjectID, peeledTargetObjectType := targetObjectID, targetObjectType
 	if targetObjectType == "tag" {
-		peeledTargetObjectInfo, err := objectInfoReader.Info(ctx, targetRevision+"^{}")
+		peeledTargetObjectInfo, err := objectReader.Info(ctx, targetRevision+"^{}")
 		if err != nil {
 			return nil, "", status.Error(codes.Internal, err.Error())
 		}

@@ -369,11 +369,7 @@ func TestFindAllTags_nestedTags(t *testing.T) {
 			require.NoError(t, err)
 			defer cancel()
 
-			objectInfoReader, cancel, err := catfileCache.ObjectInfoReader(ctx, repo)
-			require.NoError(t, err)
-			defer cancel()
-
-			info, err := objectInfoReader.Info(ctx, git.Revision(tc.originalOid))
+			info, err := objectReader.Info(ctx, git.Revision(tc.originalOid))
 			require.NoError(t, err)
 
 			expectedTags := make(map[string]*gitalypb.Tag)

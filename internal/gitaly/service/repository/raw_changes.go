@@ -20,32 +20,32 @@ func (s *server) GetRawChanges(req *gitalypb.GetRawChangesRequest, stream gitaly
 	ctx := stream.Context()
 	repo := s.localrepo(req.GetRepository())
 
-	objectInfoReader, cancel, err := s.catfileCache.ObjectInfoReader(stream.Context(), repo)
+	objectReader, cancel, err := s.catfileCache.ObjectReader(stream.Context(), repo)
 	if err != nil {
 		return helper.ErrInternal(err)
 	}
 	defer cancel()
 
-	if err := validateRawChangesRequest(ctx, req, objectInfoReader); err != nil {
+	if err := validateRawChangesRequest(ctx, req, objectReader); err != nil {
 		return helper.ErrInvalidArgument(err)
 	}
 
-	if err := s.getRawChanges(stream, repo, objectInfoReader, req.GetFromRevision(), req.GetToRevision()); err != nil {
+	if err := s.getRawChanges(stream, repo, objectReader, req.GetFromRevision(), req.GetToRevision()); err != nil {
 		return helper.ErrInternal(err)
 	}
 
 	return nil
 }
 
-func validateRawChangesRequest(ctx context.Context, req *gitalypb.GetRawChangesRequest, objectInfoReader catfile.ObjectInfoReader) error {
+func validateRawChangesRequest(ctx context.Context, req *gitalypb.GetRawChangesRequest, objectReader catfile.ObjectReader) error {
 	if from := req.FromRevision; !git.ObjectHashSHA1.IsZeroOID(git.ObjectID(from)) {
-		if _, err := objectInfoReader.Info(ctx, git.Revision(from)); err != nil {
+		if _, err := objectReader.Info(ctx, git.Revision(from)); err != nil {
 			return fmt.Errorf("invalid 'from' revision: %q", from)
 		}
 	}
 
 	if to := req.ToRevision; !git.ObjectHashSHA1.IsZeroOID(git.ObjectID(to)) {
-		if _, err := objectInfoReader.Info(ctx, git.Revision(to)); err != nil {
+		if _, err := objectReader.Info(ctx, git.Revision(to)); err != nil {
 			return fmt.Errorf("invalid 'to' revision: %q", to)
 		}
 	}
@@ -53,7 +53,7 @@ func validateRawChangesRequest(ctx context.Context, req *gitalypb.GetRawChangesR
 	return nil
 }
 
-func (s *server) getRawChanges(stream gitalypb.RepositoryService_GetRawChangesServer, repo git.RepositoryExecutor, objectInfoReader catfile.ObjectInfoReader, from, to string) error {
+func (s *server) getRawChanges(stream gitalypb.RepositoryService_GetRawChangesServer, repo git.RepositoryExecutor, objectReader catfile.ObjectReader, from, to string) error {
 	if git.ObjectHashSHA1.IsZeroOID(git.ObjectID(to)) {
 		return nil
 	}
@@ -85,7 +85,7 @@ func (s *server) getRawChanges(stream gitalypb.RepositoryService_GetRawChangesSe
 			return fmt.Errorf("read diff: %v", err)
 		}
 
-		change, err := changeFromDiff(ctx, objectInfoReader, d)
+		change, err := changeFromDiff(ctx, objectReader, d)
 		if err != nil {
 			return fmt.Errorf("build change from diff line: %v", err)
 		}
@@ -126,7 +126,7 @@ var zeroRegexp = regexp.MustCompile(`\A0+\z`)
 
 const submoduleTreeEntryMode = "160000"
 
-func changeFromDiff(ctx context.Context, objectInfoReader catfile.ObjectInfoReader, d *rawdiff.Diff) (*gitalypb.GetRawChangesResponse_RawChange, error) {
+func changeFromDiff(ctx context.Context, objectReader catfile.ObjectReader, d *rawdiff.Diff) (*gitalypb.GetRawChangesResponse_RawChange, error) {
 	resp := &gitalypb.GetRawChangesResponse_RawChange{}
 
 	newMode64, err := strconv.ParseInt(d.DstMode, 8, 32)
@@ -153,7 +153,7 @@ func changeFromDiff(ctx context.Context, objectInfoReader catfile.ObjectInfoRead
 	}
 
 	if blobMode != submoduleTreeEntryMode {
-		info, err := objectInfoReader.Info(ctx, git.Revision(shortBlobID))
+		info, err := objectReader.Info(ctx, git.Revision(shortBlobID))
 		if err != nil {
 			return nil, fmt.Errorf("find %q: %v", shortBlobID, err)
 		}

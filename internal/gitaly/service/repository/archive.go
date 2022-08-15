@@ -132,13 +132,7 @@ func (s *server) validateGetArchivePrecondition(
 	}
 	defer cancel()
 
-	objectInfoReader, cancel, err := s.catfileCache.ObjectInfoReader(ctx, repo)
-	if err != nil {
-		return err
-	}
-	defer cancel()
-
-	f := catfile.NewTreeEntryFinder(objectReader, objectInfoReader)
+	f := catfile.NewTreeEntryFinder(objectReader)
 	if path != "." {
 		if ok, err := findGetArchivePath(ctx, f, commitID, path); err != nil {
 			return err

@@ -15,13 +15,12 @@ import (
 func sendTreeEntry(
 	stream gitalypb.CommitService_TreeEntryServer,
 	objectReader catfile.ObjectReader,
-	objectInfoReader catfile.ObjectInfoReader,
 	revision, path string,
 	limit, maxSize int64,
 ) error {
 	ctx := stream.Context()
 
-	treeEntry, err := catfile.NewTreeEntryFinder(objectReader, objectInfoReader).FindByRevisionAndPath(ctx, revision, path)
+	treeEntry, err := catfile.NewTreeEntryFinder(objectReader).FindByRevisionAndPath(ctx, revision, path)
 	if err != nil {
 		return err
 	}
@@ -44,7 +43,7 @@ func sendTreeEntry(
 	}
 
 	if treeEntry.Type == gitalypb.TreeEntry_TREE {
-		treeInfo, err := objectInfoReader.Info(ctx, git.Revision(treeEntry.Oid))
+		treeInfo, err := objectReader.Info(ctx, git.Revision(treeEntry.Oid))
 		if err != nil {
 			return err
 		}
@@ -58,7 +57,7 @@ func sendTreeEntry(
 		return helper.ErrUnavailable(stream.Send(response))
 	}
 
-	objectInfo, err := objectInfoReader.Info(ctx, git.Revision(treeEntry.Oid))
+	objectInfo, err := objectReader.Info(ctx, git.Revision(treeEntry.Oid))
 	if err != nil {
 		return helper.ErrInternalf("TreeEntry: %v", err)
 	}
@@ -138,13 +137,7 @@ func (s *server) TreeEntry(in *gitalypb.TreeEntryRequest, stream gitalypb.Commit
 	}
 	defer cancel()
 
-	objectInfoReader, cancel, err := s.catfileCache.ObjectInfoReader(stream.Context(), repo)
-	if err != nil {
-		return err
-	}
-	defer cancel()
-
-	return sendTreeEntry(stream, objectReader, objectInfoReader, string(in.GetRevision()), requestPath, in.GetLimit(), in.GetMaxSize())
+	return sendTreeEntry(stream, objectReader, string(in.GetRevision()), requestPath, in.GetLimit(), in.GetMaxSize())
 }
 
 func validateRequest(in *gitalypb.TreeEntryRequest) error {

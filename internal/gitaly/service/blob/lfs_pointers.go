@@ -137,7 +137,7 @@ func (s *server) GetLFSPointers(req *gitalypb.GetLFSPointersRequest, stream gita
 		},
 	})
 
-	objectInfoReader, cancel, err := s.catfileCache.ObjectInfoReader(ctx, repo)
+	objectInfoReader, cancel, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
 		return helper.ErrInternal(fmt.Errorf("creating object info reader: %w", err))
 	}
@@ -145,7 +145,7 @@ func (s *server) GetLFSPointers(req *gitalypb.GetLFSPointersRequest, stream gita
 
 	objectReader, cancel, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
-		return helper.ErrInternal(fmt.Errorf("creating object reader: %w", err))
+		return helper.ErrInternal(fmt.Errorf("creating object info reader: %w", err))
 	}
 	defer cancel()
 

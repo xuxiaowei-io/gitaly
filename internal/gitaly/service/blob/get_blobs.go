@@ -24,11 +24,10 @@ func sendGetBlobsResponse(
 	req *gitalypb.GetBlobsRequest,
 	stream gitalypb.BlobService_GetBlobsServer,
 	objectReader catfile.ObjectReader,
-	objectInfoReader catfile.ObjectInfoReader,
 ) error {
 	ctx := stream.Context()
 
-	tef := catfile.NewTreeEntryFinder(objectReader, objectInfoReader)
+	tef := catfile.NewTreeEntryFinder(objectReader)
 
 	for _, revisionPath := range req.RevisionPaths {
 		revision := revisionPath.Revision
@@ -67,7 +66,7 @@ func sendGetBlobsResponse(
 			continue
 		}
 
-		objectInfo, err := objectInfoReader.Info(ctx, git.Revision(treeEntry.Oid))
+		objectInfo, err := objectReader.Info(ctx, git.Revision(treeEntry.Oid))
 		if err != nil {
 			return helper.ErrInternalf("read object info: %w", err)
 		}
@@ -167,13 +166,7 @@ func (s *server) GetBlobs(req *gitalypb.GetBlobsRequest, stream gitalypb.BlobSer
 	}
 	defer cancel()
 
-	objectInfoReader, cancel, err := s.catfileCache.ObjectInfoReader(stream.Context(), repo)
-	if err != nil {
-		return helper.ErrInternal(fmt.Errorf("creating object info reader: %w", err))
-	}
-	defer cancel()
-
-	return sendGetBlobsResponse(req, stream, objectReader, objectInfoReader)
+	return sendGetBlobsResponse(req, stream, objectReader)
 }
 
 func validateGetBlobsRequest(req *gitalypb.GetBlobsRequest) error {

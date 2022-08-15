@@ -12,18 +12,18 @@ import (
 // Notifier sends messages stating that an OID has been rewritten, looking
 // up the type of the OID if necessary. It is not safe for concurrent use
 type Notifier struct {
-	objectInfoReader catfile.ObjectInfoReader
-	chunker          *chunk.Chunker
+	objectReader catfile.ObjectReader
+	chunker      *chunk.Chunker
 }
 
 // New instantiates a new Notifier
 func New(ctx context.Context, catfileCache catfile.Cache, repo git.RepositoryExecutor, chunker *chunk.Chunker) (*Notifier, func(), error) {
-	objectInfoReader, cancel, err := catfileCache.ObjectInfoReader(ctx, repo)
+	objectReader, cancel, err := catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return &Notifier{objectInfoReader: objectInfoReader, chunker: chunker}, cancel, nil
+	return &Notifier{objectReader: objectReader, chunker: chunker}, cancel, nil
 }
 
 // Notify builds a new message and sends it to the chunker
@@ -44,7 +44,7 @@ func (n *Notifier) lookupType(ctx context.Context, oid string, isInternalRef boo
 		return gitalypb.ObjectType_COMMIT
 	}
 
-	info, err := n.objectInfoReader.Info(ctx, git.Revision(oid))
+	info, err := n.objectReader.Info(ctx, git.Revision(oid))
 	if err != nil {
 		return gitalypb.ObjectType_UNKNOWN
 	}

@@ -32,7 +32,7 @@ func (s *server) CheckObjectsExist(
 		return helper.ErrInvalidArgumentf("empty Repository")
 	}
 
-	objectInfoReader, cancel, err := s.catfileCache.ObjectInfoReader(
+	objectReader, cancel, err := s.catfileCache.ObjectReader(
 		ctx,
 		s.localrepo(request.GetRepository()),
 	)
@@ -51,7 +51,7 @@ func (s *server) CheckObjectsExist(
 			}
 		}
 
-		if err := checkObjectsExist(ctx, request, objectInfoReader, chunker); err != nil {
+		if err := checkObjectsExist(ctx, request, objectReader, chunker); err != nil {
 			return helper.ErrInternalf("checking object existence: %w", err)
 		}
 
@@ -94,7 +94,7 @@ func (c *checkObjectsExistSender) Append(m proto.Message) {
 func checkObjectsExist(
 	ctx context.Context,
 	request *gitalypb.CheckObjectsExistRequest,
-	objectInfoReader catfile.ObjectInfoReader,
+	objectReader catfile.ObjectReader,
 	chunker *chunk.Chunker,
 ) error {
 	revisions := request.GetRevisions()
@@ -104,7 +104,7 @@ func checkObjectsExist(
 			Name:   revision,
 			Exists: true,
 		}
-		_, err := objectInfoReader.Info(ctx, git.Revision(revision))
+		_, err := objectReader.Info(ctx, git.Revision(revision))
 		if err != nil {
 			if catfile.IsNotFound(err) {
 				revisionExistence.Exists = false
