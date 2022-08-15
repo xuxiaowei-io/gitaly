@@ -25,6 +25,9 @@ type ObjectReader interface {
 	// objects. The returned function must be executed after use of the ObjectQueue has
 	// finished.
 	ObjectQueue(context.Context) (ObjectQueue, func(), error)
+
+	// Info requests information about the revision pointed to by the given revision.
+	Info(context.Context, git.Revision) (*ObjectInfo, error)
 }
 
 // ObjectQueue allows for requesting and reading objects independently of each other. The number of
@@ -33,10 +36,14 @@ type ObjectReader interface {
 // which objects have been requested. Users of this interface must call `Flush()` after all requests
 // have been queued up such that all requested objects will be readable.
 type ObjectQueue interface {
-	// RequestRevision requests the given revision from git-cat-file(1).
-	RequestRevision(git.Revision) error
+	// RequestContents requests the given contents of the revision from git-cat-file(1).
+	RequestContents(git.Revision) error
+	// RequestInfo requests the given object metadata of the revision from git-cat-file(1).
+	RequestInfo(git.Revision) error
 	// ReadObject reads an object which has previously been requested.
 	ReadObject() (*Object, error)
+	// ReadInfo reads an object which has previously been requested.
+	ReadInfo() (*ObjectInfo, error)
 	// Flush flushes all queued requests and asks git-cat-file(1) to print all objects which
 	// have been requested up to this point.
 	Flush() error
@@ -63,7 +70,7 @@ func newObjectReader(
 		git.SubCmd{
 			Name: "cat-file",
 			Flags: []git.Option{
-				git.Flag{Name: "--batch"},
+				git.Flag{Name: "--batch-command"},
 				git.Flag{Name: "--buffer"},
 			},
 		},
@@ -126,7 +133,7 @@ func (o *objectReader) Object(ctx context.Context, revision git.Revision) (*Obje
 	}
 	defer finish()
 
-	if err := queue.RequestRevision(revision); err != nil {
+	if err := queue.RequestContents(revision); err != nil {
 		return nil, err
 	}
 
@@ -140,6 +147,29 @@ func (o *objectReader) Object(ctx context.Context, revision git.Revision) (*Obje
 	}
 
 	return object, nil
+}
+
+func (o *objectReader) Info(ctx context.Context, revision git.Revision) (*ObjectInfo, error) {
+	queue, cleanup, err := o.objectQueue(ctx, "catfile.Info")
+	if err != nil {
+		return nil, err
+	}
+	defer cleanup()
+
+	if err := queue.RequestInfo(revision); err != nil {
+		return nil, err
+	}
+
+	if err := queue.Flush(); err != nil {
+		return nil, err
+	}
+
+	objectInfo, err := queue.ReadInfo()
+	if err != nil {
+		return nil, err
+	}
+
+	return objectInfo, nil
 }
 
 func (o *objectReader) ObjectQueue(ctx context.Context) (ObjectQueue, func(), error) {
