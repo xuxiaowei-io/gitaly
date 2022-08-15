@@ -11,13 +11,7 @@ import (
 )
 
 const (
-	// flushCommand is the command we send to git-cat-file(1) to cause it to flush its stdout.
-	// Note that this is a hack: git-cat-file(1) doesn't really support flushing, but it will
-	// flush whenever it encounters an object it doesn't know. The flush command we use is thus
-	// chosen such that it cannot ever refer to a valid object: refs may not contain whitespace,
-	// so this command cannot refer to a ref. Adding "FLUSH" is just for the sake of making it
-	// easier to spot what's going on in case we ever mistakenly see this output in the wild.
-	flushCommand = "\tFLUSH\t"
+	flushCommand = "flush"
 )
 
 type requestQueue struct {
@@ -72,14 +66,22 @@ func (q *requestQueue) close() {
 	atomic.StoreInt32(&q.closed, 1)
 }
 
-func (q *requestQueue) RequestRevision(revision git.Revision) error {
+func (q *requestQueue) RequestInfo(revision git.Revision) error {
+	return q.requestRevision(revision, "info")
+}
+
+func (q *requestQueue) RequestContents(revision git.Revision) error {
+	return q.requestRevision(revision, "contents")
+}
+
+func (q *requestQueue) requestRevision(revision git.Revision, cmd string) error {
 	if q.isClosed() {
 		return fmt.Errorf("cannot request revision: %w", os.ErrClosed)
 	}
 
 	atomic.AddInt64(&q.outstandingRequests, 1)
 
-	if _, err := q.stdin.WriteString(revision.String()); err != nil {
+	if _, err := q.stdin.WriteString(cmd + " " + revision.String()); err != nil {
 		atomic.AddInt64(&q.outstandingRequests, -1)
 		return fmt.Errorf("writing object request: %w", err)
 	}
@@ -117,10 +119,6 @@ type readerFunc func([]byte) (int, error)
 func (fn readerFunc) Read(buf []byte) (int, error) { return fn(buf) }
 
 func (q *requestQueue) ReadObject() (*Object, error) {
-	if !q.isObjectQueue {
-		panic("object queue used to read object info")
-	}
-
 	// We need to ensure that only a single call to `ReadObject()` can happen at the
 	// same point in time.
 	//
@@ -183,10 +181,6 @@ func (q *requestQueue) ReadObject() (*Object, error) {
 }
 
 func (q *requestQueue) ReadInfo() (*ObjectInfo, error) {
-	if q.isObjectQueue {
-		panic("object queue used to read object info")
-	}
-
 	objectInfo, err := q.readInfo()
 	if err != nil {
 		return nil, err
