@@ -12,12 +12,11 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
-
 	"gitlab.com/gitlab-org/labkit/log"
 )
 
 const (
-	internalApiPath     = "/api/v4/internal"
+	internalAPIPath     = "/api/v4/internal"
 	secretHeaderName    = "Gitlab-Shared-Secret"
 	apiSecretHeaderName = "Gitlab-Shell-Api-Request"
 	defaultUserAgent    = "GitLab-Shell"
@@ -30,21 +29,22 @@ type ErrorResponse struct {
 }
 
 type GitlabNetClient struct {
-	httpClient *HttpClient
+	httpClient *HTTPClient
 	user       string
 	password   string
 	secret     string
 	userAgent  string
 }
 
-type ApiError struct {
+type APIError struct {
 	Msg string
 }
 
-// To use as the key in a Context to set an X-Forwarded-For header in a request
+// OriginalRemoteIPContextKey is to be used as the key in a Context
+// to set an X-Forwarded-For header in a request
 type OriginalRemoteIPContextKey struct{}
 
-func (e *ApiError) Error() string {
+func (e *APIError) Error() string {
 	return e.Msg
 }
 
@@ -52,11 +52,10 @@ func NewGitlabNetClient(
 	user,
 	password,
 	secret string,
-	httpClient *HttpClient,
+	httpClient *HTTPClient,
 ) (*GitlabNetClient, error) {
-
 	if httpClient == nil {
-		return nil, fmt.Errorf("Unsupported protocol")
+		return nil, fmt.Errorf("unsupported protocol")
 	}
 
 	return &GitlabNetClient{
@@ -79,8 +78,8 @@ func normalizePath(path string) string {
 		path = "/" + path
 	}
 
-	if !strings.HasPrefix(path, internalApiPath) {
-		path = internalApiPath + path
+	if !strings.HasPrefix(path, internalAPIPath) {
+		path = internalAPIPath + path
 	}
 	return path
 }
@@ -112,11 +111,10 @@ func parseError(resp *http.Response) error {
 	parsedResponse := &ErrorResponse{}
 
 	if err := json.NewDecoder(resp.Body).Decode(parsedResponse); err != nil {
-		return &ApiError{fmt.Sprintf("Internal API error (%v)", resp.StatusCode)}
+		return &APIError{fmt.Sprintf("Internal API error (%v)", resp.StatusCode)}
 	} else {
-		return &ApiError{parsedResponse.Message}
+		return &APIError{parsedResponse.Message}
 	}
-
 }
 
 func (c *GitlabNetClient) Get(ctx context.Context, path string) (*http.Response, error) {
@@ -173,7 +171,7 @@ func (c *GitlabNetClient) DoRequest(ctx context.Context, method, path string, da
 
 	if err != nil {
 		logger.WithError(err).Error("Internal API unreachable")
-		return nil, &ApiError{"Internal API unreachable"}
+		return nil, &APIError{"Internal API unreachable"}
 	}
 
 	if response != nil {

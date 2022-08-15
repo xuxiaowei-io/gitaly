@@ -18,18 +18,16 @@ import (
 )
 
 const (
-	socketBaseUrl             = "http://unix"
+	socketBaseURL             = "http://unix"
 	unixSocketProtocol        = "http+unix://"
 	httpProtocol              = "http://"
 	httpsProtocol             = "https://"
 	defaultReadTimeoutSeconds = 300
 )
 
-var (
-	ErrCafileNotFound = errors.New("cafile not found")
-)
+var ErrCafileNotFound = errors.New("cafile not found")
 
-type HttpClient struct {
+type HTTPClient struct {
 	*http.Client
 	Host string
 }
@@ -70,14 +68,14 @@ func validateCaFile(filename string) error {
 }
 
 // NewHTTPClientWithOpts builds an HTTP client using the provided options
-func NewHTTPClientWithOpts(gitlabURL, gitlabRelativeURLRoot, caFile, caPath string, readTimeoutSeconds uint64, opts []HTTPClientOpt) (*HttpClient, error) {
+func NewHTTPClientWithOpts(gitlabURL, gitlabRelativeURLRoot, caFile, caPath string, readTimeoutSeconds uint64, opts []HTTPClientOpt) (*HTTPClient, error) {
 	var transport *http.Transport
 	var host string
 	var err error
 	if strings.HasPrefix(gitlabURL, unixSocketProtocol) {
 		transport, host = buildSocketTransport(gitlabURL, gitlabRelativeURLRoot)
 	} else if strings.HasPrefix(gitlabURL, httpProtocol) {
-		transport, host = buildHttpTransport(gitlabURL)
+		transport, host = buildHTTPTransport(gitlabURL)
 	} else if strings.HasPrefix(gitlabURL, httpsProtocol) {
 		err = validateCaFile(caFile)
 		if err != nil {
@@ -93,7 +91,7 @@ func NewHTTPClientWithOpts(gitlabURL, gitlabRelativeURLRoot, caFile, caPath stri
 			opt(hcc)
 		}
 
-		transport, host, err = buildHttpsTransport(*hcc, gitlabURL)
+		transport, host, err = buildHTTPSTransport(*hcc, gitlabURL)
 		if err != nil {
 			return nil, err
 		}
@@ -106,7 +104,7 @@ func NewHTTPClientWithOpts(gitlabURL, gitlabRelativeURLRoot, caFile, caPath stri
 		Timeout:   readTimeout(readTimeoutSeconds),
 	}
 
-	client := &HttpClient{Client: c, Host: host}
+	client := &HTTPClient{Client: c, Host: host}
 
 	return client, nil
 }
@@ -121,7 +119,7 @@ func buildSocketTransport(gitlabURL, gitlabRelativeURLRoot string) (*http.Transp
 		},
 	}
 
-	host := socketBaseUrl
+	host := socketBaseURL
 	gitlabRelativeURLRoot = strings.Trim(gitlabRelativeURLRoot, "/")
 	if gitlabRelativeURLRoot != "" {
 		host = host + "/" + gitlabRelativeURLRoot
@@ -130,9 +128,8 @@ func buildSocketTransport(gitlabURL, gitlabRelativeURLRoot string) (*http.Transp
 	return transport, host
 }
 
-func buildHttpsTransport(hcc httpClientCfg, gitlabURL string) (*http.Transport, string, error) {
+func buildHTTPSTransport(hcc httpClientCfg, gitlabURL string) (*http.Transport, string, error) {
 	certPool, err := x509.SystemCertPool()
-
 	if err != nil {
 		certPool = x509.NewCertPool()
 	}
@@ -178,7 +175,7 @@ func addCertToPool(certPool *x509.CertPool, fileName string) {
 	}
 }
 
-func buildHttpTransport(gitlabURL string) (*http.Transport, string) {
+func buildHTTPTransport(gitlabURL string) (*http.Transport, string) {
 	return &http.Transport{}, gitlabURL
 }
 
