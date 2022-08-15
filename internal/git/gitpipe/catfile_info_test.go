@@ -142,11 +142,11 @@ func TestCatfileInfo(t *testing.T) {
 			catfileCache := catfile.NewCache(cfg)
 			defer catfileCache.Stop()
 
-			objectInfoReader, cancel, err := catfileCache.ObjectInfoReader(ctx, repo)
+			objectReader, cancel, err := catfileCache.ObjectReader(ctx, repo)
 			require.NoError(t, err)
 			defer cancel()
 
-			it, err := CatfileInfo(ctx, objectInfoReader, NewRevisionIterator(ctx, tc.revlistInputs), tc.opts...)
+			it, err := CatfileInfo(ctx, objectReader, NewRevisionIterator(ctx, tc.revlistInputs), tc.opts...)
 			require.NoError(t, err)
 
 			var results []CatfileInfoResult
@@ -172,11 +172,11 @@ func TestCatfileInfo(t *testing.T) {
 		catfileCache := catfile.NewCache(cfg)
 		defer catfileCache.Stop()
 
-		objectInfoReader, objectInfoReaderCancel, err := catfileCache.ObjectInfoReader(ctx, repo)
+		objectReader, objectReaderCancel, err := catfileCache.ObjectReader(ctx, repo)
 		require.NoError(t, err)
-		defer objectInfoReaderCancel()
+		defer objectReaderCancel()
 
-		it, err := CatfileInfo(ctx, objectInfoReader, NewRevisionIterator(ctx, []RevisionResult{
+		it, err := CatfileInfo(ctx, objectReader, NewRevisionIterator(ctx, []RevisionResult{
 			{OID: blobA},
 			{OID: blobA},
 		}))
@@ -206,13 +206,13 @@ func TestCatfileInfo(t *testing.T) {
 		catfileCache := catfile.NewCache(cfg)
 		defer catfileCache.Stop()
 
-		objectInfoReader, objectInfoReaderCancel, err := catfileCache.ObjectInfoReader(ctx, repo)
+		objectReader, objectReaderCancel, err := catfileCache.ObjectReader(ctx, repo)
 		require.NoError(t, err)
-		defer objectInfoReaderCancel()
+		defer objectReaderCancel()
 
 		inputIter, inputCh, nextCh := newChanObjectIterator()
 
-		it, err := CatfileInfo(ctx, objectInfoReader, inputIter)
+		it, err := CatfileInfo(ctx, objectReader, inputIter)
 		require.NoError(t, err)
 
 		// We request a single object from the catfile process. Because the request queue is
@@ -255,7 +255,7 @@ func TestCatfileInfo(t *testing.T) {
 		catfileCache := catfile.NewCache(cfg)
 		defer catfileCache.Stop()
 
-		objectInfoReader, cancel, err := catfileCache.ObjectInfoReader(ctx, repo)
+		objectReader, cancel, err := catfileCache.ObjectReader(ctx, repo)
 		require.NoError(t, err)
 		defer cancel()
 
@@ -263,19 +263,19 @@ func TestCatfileInfo(t *testing.T) {
 			{OID: blobA},
 		}
 
-		it, err := CatfileInfo(ctx, objectInfoReader, NewRevisionIterator(ctx, input))
+		it, err := CatfileInfo(ctx, objectReader, NewRevisionIterator(ctx, input))
 		require.NoError(t, err)
 
 		// Reusing the queue is not allowed, so we should get an error here.
-		_, err = CatfileInfo(ctx, objectInfoReader, NewRevisionIterator(ctx, input))
-		require.Equal(t, fmt.Errorf("object info queue already in use"), err)
+		_, err = CatfileInfo(ctx, objectReader, NewRevisionIterator(ctx, input))
+		require.Equal(t, fmt.Errorf("object queue already in use"), err)
 
 		// We now consume all the input of the iterator.
 		require.True(t, it.Next())
 		require.False(t, it.Next())
 
 		// Which means that the queue should now be unused, so we can again use it.
-		_, err = CatfileInfo(ctx, objectInfoReader, NewRevisionIterator(ctx, input))
+		_, err = CatfileInfo(ctx, objectReader, NewRevisionIterator(ctx, input))
 		require.NoError(t, err)
 	})
 }

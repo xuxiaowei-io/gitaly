@@ -62,7 +62,7 @@ type catfileInfoRequest struct {
 // to fail. Context cancellation will gracefully halt the pipeline.
 func CatfileInfo(
 	ctx context.Context,
-	objectInfoReader catfile.ObjectInfoReader,
+	objectReader catfile.ObjectReader,
 	it ObjectIterator,
 	opts ...CatfileInfoOption,
 ) (CatfileInfoIterator, error) {
@@ -71,7 +71,7 @@ func CatfileInfo(
 		opt(&cfg)
 	}
 
-	queue, queueCleanup, err := objectInfoReader.InfoQueue(ctx)
+	queue, queueCleanup, err := objectReader.ObjectQueue(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +88,7 @@ func CatfileInfo(
 
 		var i int64
 		for it.Next() {
-			if err := queue.RequestRevision(it.ObjectID().Revision()); err != nil {
+			if err := queue.RequestInfo(it.ObjectID().Revision()); err != nil {
 				sendCatfileInfoRequest(ctx, requestChan, catfileInfoRequest{err: err})
 				return
 			}

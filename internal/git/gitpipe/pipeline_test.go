@@ -241,7 +241,7 @@ func TestPipeline_revlist(t *testing.T) {
 			catfileCache := catfile.NewCache(cfg)
 			defer catfileCache.Stop()
 
-			objectInfoReader, cancel, err := catfileCache.ObjectInfoReader(ctx, repo)
+			objectInfoReader, cancel, err := catfileCache.ObjectReader(ctx, repo)
 			require.NoError(t, err)
 			defer cancel()
 
@@ -299,7 +299,7 @@ func TestPipeline_revlist(t *testing.T) {
 		catfileCache := catfile.NewCache(cfg)
 		defer catfileCache.Stop()
 
-		objectInfoReader, cancelReader, err := catfileCache.ObjectInfoReader(ctx, repo)
+		objectInfoReader, cancelReader, err := catfileCache.ObjectReader(ctx, repo)
 		require.NoError(t, err)
 		defer cancelReader()
 
@@ -341,7 +341,7 @@ func TestPipeline_revlist(t *testing.T) {
 		catfileCache := catfile.NewCache(cfg)
 		defer catfileCache.Stop()
 
-		objectInfoReader, cancel, err := catfileCache.ObjectInfoReader(ctx, repo)
+		objectInfoReader, cancel, err := catfileCache.ObjectReader(ctx, repo)
 		require.NoError(t, err)
 		defer cancel()
 
@@ -406,7 +406,7 @@ func TestPipeline_forEachRef(t *testing.T) {
 	catfileCache := catfile.NewCache(cfg)
 	defer catfileCache.Stop()
 
-	objectInfoReader, cancel, err := catfileCache.ObjectInfoReader(ctx, repo)
+	objectInfoReader, cancel, err := catfileCache.ObjectReader(ctx, repo)
 	require.NoError(t, err)
 	defer cancel()
 
