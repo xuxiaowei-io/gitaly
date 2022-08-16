@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pelletier/go-toml"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/log"
@@ -522,6 +522,6 @@ func TestSerialization(t *testing.T) {
 	t.Run("partially set", func(t *testing.T) {
 		out.Reset()
 		require.NoError(t, encoder.Encode(Config{ListenAddr: "localhost:5640"}))
-		require.Equal(t, "listen_addr = \"localhost:5640\"\n", out.String())
+		require.Equal(t, "listen_addr = 'localhost:5640'\n", out.String())
 	})
 }
