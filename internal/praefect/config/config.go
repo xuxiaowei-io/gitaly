@@ -211,20 +211,14 @@ type Config struct {
 	Sentry                 sentry.Config          `toml:"sentry,omitempty"`
 	PrometheusListenAddr   string                 `toml:"prometheus_listen_addr,omitempty"`
 	Prometheus             prometheus.Config      `toml:"prometheus,omitempty"`
-	// PrometheusExcludeDatabaseFromDefaultMetrics excludes database-related metrics from the
-	// default metrics. If set to `false`, then database metrics will be available both via
-	// `/metrics` and `/db_metrics`. Otherwise, they will only be accessible via `/db_metrics`.
-	// Defaults to `true`. This is used as a transitory configuration key: eventually, database
-	// metrics will always be removed from the standard metrics endpoint.
-	PrometheusExcludeDatabaseFromDefaultMetrics bool        `toml:"prometheus_exclude_database_from_default_metrics,omitempty"`
-	Auth                                        auth.Config `toml:"auth,omitempty"`
-	TLS                                         config.TLS  `toml:"tls,omitempty"`
-	DB                                          `toml:"database,omitempty"`
-	Failover                                    Failover            `toml:"failover,omitempty"`
-	MemoryQueueEnabled                          bool                `toml:"memory_queue_enabled,omitempty"`
-	GracefulStopTimeout                         duration.Duration   `toml:"graceful_stop_timeout,omitempty"`
-	RepositoriesCleanup                         RepositoriesCleanup `toml:"repositories_cleanup,omitempty"`
-	Yamux                                       Yamux               `toml:"yamux,omitempty"`
+	Auth                   auth.Config            `toml:"auth,omitempty"`
+	TLS                    config.TLS             `toml:"tls,omitempty"`
+	DB                     `toml:"database,omitempty"`
+	Failover               Failover            `toml:"failover,omitempty"`
+	MemoryQueueEnabled     bool                `toml:"memory_queue_enabled,omitempty"`
+	GracefulStopTimeout    duration.Duration   `toml:"graceful_stop_timeout,omitempty"`
+	RepositoriesCleanup    RepositoriesCleanup `toml:"repositories_cleanup,omitempty"`
+	Yamux                  Yamux               `toml:"yamux,omitempty"`
 }
 
 // Yamux contains Yamux related configuration values.
@@ -310,7 +304,6 @@ func FromReader(reader io.Reader) (Config, error) {
 		Reconciliation:         DefaultReconciliationConfig(),
 		Replication:            DefaultReplicationConfig(),
 		Prometheus:             prometheus.DefaultConfig(),
-		PrometheusExcludeDatabaseFromDefaultMetrics: true,
 		// Sets the default Failover, to be overwritten when deserializing the TOML
 		Failover:            Failover{Enabled: true, ElectionStrategy: ElectionStrategyPerRepository},
 		RepositoriesCleanup: DefaultRepositoriesCleanup(),
