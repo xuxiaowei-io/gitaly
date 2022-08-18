@@ -381,7 +381,7 @@ func run(cfg config.Cfg) error {
 		}
 	}()
 
-	gracefulStopTicker := helper.NewTimerTicker(cfg.GracefulRestartTimeout.Duration())
+	gracefulStopTicker := helper.NewTimerTicker(cfg.GracefulRestartTimeout)
 	defer gracefulStopTicker.Stop()
 
 	return b.Wait(gracefulStopTicker, gitalyServerFactory.GracefulStop)
