@@ -7,7 +7,7 @@ Please complete all but the "Reading material" section in your first few working
 
 - Join Slack channels:
   - [ ] [#gitaly-lounge](https://gitlab.slack.com/archives/gitaly-lounge) (internal team affairs, generic informal chat)
-  - [ ] [#g_create_gitaly](https://gitlab.slack.com/archives/g_create_gitaly) (important communication also outside the team)
+  - [ ] [#g_gitaly](https://gitlab.slack.com/archives/g_gitaly) (important communication also outside the team)
   - [ ] [#git-core](https://gitlab.slack.com/archives/git-core) (conversations re git itself)
   - [ ] [#s_enablement](https://gitlab.slack.com/archives/s_enablement) (section-wide communication)
 - Ask your manager or your mentor in order to:
