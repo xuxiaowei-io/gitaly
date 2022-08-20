@@ -97,6 +97,7 @@ func TestGitalyServerFactory(t *testing.T) {
 			cache.New(cfg, config.NewLocator(cfg)),
 			nil,
 		)
+		t.Cleanup(sf.Stop)
 
 		checkHealth(t, sf, starter.TCP, "localhost:0")
 	})
@@ -160,6 +161,7 @@ func TestGitalyServerFactory(t *testing.T) {
 			cache.New(cfg, config.NewLocator(cfg)),
 			nil,
 		)
+		t.Cleanup(sf.Stop)
 
 		checkHealth(t, sf, starter.TCP, "localhost:0")
 
