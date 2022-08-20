@@ -39,13 +39,12 @@ func TestGitalyServerFactory(t *testing.T) {
 
 		var cc *grpc.ClientConn
 		if schema == starter.TLS {
-			listener, err := net.Listen(starter.TCP, addr)
-			require.NoError(t, err)
-			t.Cleanup(func() { listener.Close() })
-
 			srv, err := sf.CreateExternal(true)
 			require.NoError(t, err)
 			healthpb.RegisterHealthServer(srv, health.NewServer())
+
+			listener, err := net.Listen(starter.TCP, addr)
+			require.NoError(t, err)
 			go srv.Serve(listener)
 
 			certPool, err := x509.SystemCertPool()
@@ -62,13 +61,12 @@ func TestGitalyServerFactory(t *testing.T) {
 			cc, err = grpc.DialContext(ctx, listener.Addr().String(), grpc.WithTransportCredentials(creds))
 			require.NoError(t, err)
 		} else {
-			listener, err := net.Listen(schema, addr)
-			require.NoError(t, err)
-			t.Cleanup(func() { listener.Close() })
-
 			srv, err := sf.CreateExternal(false)
 			require.NoError(t, err)
 			healthpb.RegisterHealthServer(srv, health.NewServer())
+
+			listener, err := net.Listen(schema, addr)
+			require.NoError(t, err)
 			go srv.Serve(listener)
 
 			endpoint, err := starter.ComposeEndpoint(schema, listener.Addr().String())
@@ -77,11 +75,9 @@ func TestGitalyServerFactory(t *testing.T) {
 			cc, err = client.Dial(endpoint, nil)
 			require.NoError(t, err)
 		}
-
-		t.Cleanup(func() { cc.Close() })
+		t.Cleanup(func() { assert.NoError(t, cc.Close()) })
 
 		healthClient := healthpb.NewHealthClient(cc)
-
 		resp, err := healthClient.Check(ctx, &healthpb.HealthCheckRequest{})
 		require.NoError(t, err)
 		require.Equal(t, healthpb.HealthCheckResponse_SERVING, resp.Status)
