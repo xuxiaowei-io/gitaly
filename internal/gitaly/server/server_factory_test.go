@@ -22,6 +22,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -33,6 +34,8 @@ import (
 
 func TestGitalyServerFactory(t *testing.T) {
 	ctx := testhelper.Context(t)
+	grp, ctx := errgroup.WithContext(ctx)
+	t.Cleanup(func() { assert.NoError(t, grp.Wait()) })
 
 	checkHealth := func(t *testing.T, sf *GitalyServerFactory, schema, addr string) healthpb.HealthClient {
 		t.Helper()
@@ -45,7 +48,7 @@ func TestGitalyServerFactory(t *testing.T) {
 
 			listener, err := net.Listen(starter.TCP, addr)
 			require.NoError(t, err)
-			go srv.Serve(listener)
+			grp.Go(func() error { return srv.Serve(listener) })
 
 			certPool, err := x509.SystemCertPool()
 			require.NoError(t, err)
@@ -67,7 +70,7 @@ func TestGitalyServerFactory(t *testing.T) {
 
 			listener, err := net.Listen(schema, addr)
 			require.NoError(t, err)
-			go srv.Serve(listener)
+			grp.Go(func() error { return srv.Serve(listener) })
 
 			endpoint, err := starter.ComposeEndpoint(schema, listener.Addr().String())
 			require.NoError(t, err)
