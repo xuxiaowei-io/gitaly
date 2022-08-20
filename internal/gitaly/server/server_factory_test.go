@@ -20,7 +20,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/bootstrap/starter"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/middleware/limithandler"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"google.golang.org/grpc"
@@ -96,7 +95,7 @@ func TestGitalyServerFactory(t *testing.T) {
 			testhelper.NewDiscardingLogEntry(t),
 			backchannel.NewRegistry(),
 			cache.New(cfg, config.NewLocator(cfg)),
-			[]*limithandler.LimiterMiddleware{limithandler.New(cfg, limithandler.LimitConcurrencyByRepo, limithandler.WithConcurrencyLimiters)},
+			nil,
 		)
 
 		checkHealth(t, sf, starter.TCP, "localhost:0")
@@ -115,7 +114,7 @@ func TestGitalyServerFactory(t *testing.T) {
 			testhelper.NewDiscardingLogEntry(t),
 			backchannel.NewRegistry(),
 			cache.New(cfg, config.NewLocator(cfg)),
-			[]*limithandler.LimiterMiddleware{limithandler.New(cfg, limithandler.LimitConcurrencyByRepo, limithandler.WithConcurrencyLimiters)},
+			nil,
 		)
 		t.Cleanup(sf.Stop)
 
@@ -129,7 +128,7 @@ func TestGitalyServerFactory(t *testing.T) {
 			testhelper.NewDiscardingLogEntry(t),
 			backchannel.NewRegistry(),
 			cache.New(cfg, config.NewLocator(cfg)),
-			[]*limithandler.LimiterMiddleware{limithandler.New(cfg, limithandler.LimitConcurrencyByRepo, limithandler.WithConcurrencyLimiters)},
+			nil,
 		)
 		t.Cleanup(sf.Stop)
 
@@ -159,7 +158,7 @@ func TestGitalyServerFactory(t *testing.T) {
 			logger.WithContext(ctx),
 			backchannel.NewRegistry(),
 			cache.New(cfg, config.NewLocator(cfg)),
-			[]*limithandler.LimiterMiddleware{limithandler.New(cfg, limithandler.LimitConcurrencyByRepo, limithandler.WithConcurrencyLimiters)},
+			nil,
 		)
 
 		checkHealth(t, sf, starter.TCP, "localhost:0")
@@ -193,7 +192,7 @@ func TestGitalyServerFactory_closeOrder(t *testing.T) {
 		testhelper.NewDiscardingLogEntry(t),
 		backchannel.NewRegistry(),
 		cache.New(cfg, config.NewLocator(cfg)),
-		[]*limithandler.LimiterMiddleware{limithandler.New(cfg, limithandler.LimitConcurrencyByRepo, limithandler.WithConcurrencyLimiters)},
+		nil,
 	)
 	defer sf.Stop()
 
