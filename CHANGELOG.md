@@ -115,6 +115,10 @@ No changes.
 
 - [linguist: Implement Stats in pure Go](gitlab-org/gitaly@efd9a598f50e03f05620b56f2e010600128f3b1c) ([merge request](gitlab-org/gitaly!4580))
 
+## 15.1.5 (2022-08-22)
+
+No changes.
+
 ## 15.1.4 (2022-07-28)
 
 ### Security (1 change)
