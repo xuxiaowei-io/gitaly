@@ -3,6 +3,7 @@ module gitlab.com/gitlab-org/gitaly/v15
 go 1.17
 
 require (
+	github.com/ProtonMail/go-crypto v0.0.0-20220810064516-de89276ce0f3
 	github.com/beevik/ntp v0.3.0
 	github.com/cloudflare/tableflip v1.2.3
 	github.com/containerd/cgroups v1.0.4
@@ -87,6 +88,7 @@ require (
 	github.com/census-instrumentation/opencensus-proto v0.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/client9/reopen v1.0.0 // indirect
+	github.com/cloudflare/circl v1.1.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.3.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dgryski/go-minhash v0.0.0-20170608043002-7fe510aff544 // indirect
