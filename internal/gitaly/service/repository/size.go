@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
+	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
@@ -23,28 +24,32 @@ import (
 
 func (s *server) RepositorySize(ctx context.Context, in *gitalypb.RepositorySizeRequest) (*gitalypb.RepositorySizeResponse, error) {
 	repo := s.localrepo(in.GetRepository())
-	var size int64
+	var newSize int64
 	var err error
+	var logger *logrus.Entry
 
 	path, err := repo.Path()
 	if err != nil {
 		return nil, err
 	}
 
-	duSize := getPathSize(ctx, path)
+	size := getPathSize(ctx, path)
+
+	logger = ctxlogrus.Extract(ctx).WithField("repo_size_du", size)
 
 	if featureflag.RevlistForRepoSize.IsEnabled(ctx) {
-		size, err = calculateSizeWithRevlist(ctx, repo)
+		newSize, err = calculateSizeWithRevlist(ctx, repo)
 		if err != nil {
 			return nil, fmt.Errorf("calculating repository size with git-rev-list: %w,", err)
 		}
 
-		ctxlogrus.Extract(ctx).
-			WithField("repo_size_revlist", size).
-			WithField("repo_size_du", duSize).
-			Info("repository size calculated")
+		logger.WithField("repo_size_revlist", newSize).Info("repository size calculated")
+
+		if featureflag.UseNewRepoSize.IsEnabled(ctx) {
+			size = newSize
+		}
 	} else if featureflag.CatfileRepoSize.IsEnabled(ctx) {
-		size, err = calculateSizeWithCatfile(
+		newSize, err = calculateSizeWithCatfile(
 			ctx,
 			repo,
 			s.locator,
@@ -57,12 +62,11 @@ func (s *server) RepositorySize(ctx context.Context, in *gitalypb.RepositorySize
 			return nil, fmt.Errorf("calculating repository size with git-cat-file: %w", err)
 		}
 
-		ctxlogrus.Extract(ctx).
-			WithField("repo_size_catfile", size).
-			WithField("repo_size_du", duSize).
-			Info("repository size calculated")
-	} else {
-		size = duSize
+		logger.WithField("repo_size_catfile", newSize).Info("repository size calculated")
+
+		if featureflag.UseNewRepoSize.IsEnabled(ctx) {
+			size = newSize
+		}
 	}
 
 	return &gitalypb.RepositorySizeResponse{Size: size}, nil
