@@ -57,6 +57,8 @@ type Handshaker interface {
 // If handshaker is provided, it's passed the transport credentials which would be otherwise set. The transport credentials
 // returned by handshaker are then set instead.
 func Dial(ctx context.Context, rawAddress string, connOpts []grpc.DialOption, handshaker Handshaker) (*grpc.ClientConn, error) {
+	connOpts = cloneOpts(connOpts) // copy to avoid potentially mutating the backing array of the passed slice
+
 	var canonicalAddress string
 	var err error
 	var transportCredentials credentials.TransportCredentials
@@ -148,4 +150,10 @@ func UnaryInterceptor() grpc.DialOption {
 		grpctracing.UnaryClientTracingInterceptor(),
 		grpccorrelation.UnaryClientCorrelationInterceptor(),
 	)
+}
+
+func cloneOpts(opts []grpc.DialOption) []grpc.DialOption {
+	clone := make([]grpc.DialOption, len(opts))
+	copy(clone, opts)
+	return clone
 }
