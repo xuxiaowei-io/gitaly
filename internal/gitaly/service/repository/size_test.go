@@ -149,17 +149,21 @@ func testSuccessfulRepositorySizeRequest(t *testing.T, ctx context.Context) {
 	switch {
 	case featureflag.RevlistForRepoSize.IsEnabled(ctx):
 		for _, entry := range hook.AllEntries() {
-			_, ok := entry.Data["repo_size_revlist"]
+			_, ok := entry.Data["repo_size_revlist_bytes"]
 			if ok {
 				entries = append(entries, entry)
 			}
 		}
 
 		require.Len(t, entries, 2)
-		sizeInLog, ok := entries[1].Data["repo_size_revlist"]
+		revlistSizeInLog, ok := entries[1].Data["repo_size_revlist_bytes"]
 		require.True(t, ok)
 		require.Equal(t, "repository size calculated", entries[1].Message)
 
+		duSizeInLog, ok := entries[1].Data["repo_size_du_bytes"]
+		require.True(t, ok)
+
+		require.Less(t, revlistSizeInLog, duSizeInLog)
 		if featureflag.UseNewRepoSize.IsEnabled(ctx) {
 			assert.Equal(
 				t,
@@ -167,24 +171,29 @@ func testSuccessfulRepositorySizeRequest(t *testing.T, ctx context.Context) {
 				responseAfterRefs.Size,
 				"excluded refs do not contribute to the repository size",
 			)
-			require.Equal(t, responseAfterRefs.Size, sizeInLog)
 		}
 	case featureflag.CatfileRepoSize.IsEnabled(ctx):
 		for _, entry := range hook.AllEntries() {
-			_, ok := entry.Data["repo_size_catfile"]
+			_, ok := entry.Data["repo_size_catfile_bytes"]
 			if ok {
 				entries = append(entries, entry)
 			}
 		}
 
 		require.Len(t, entries, 2)
-		sizeInLog, ok := entries[1].Data["repo_size_catfile"]
+		catfileSizeInLog, ok := entries[1].Data["repo_size_catfile_bytes"]
 		require.True(t, ok)
+		duSizeInLog, ok := entries[1].Data["repo_size_du_bytes"]
+		require.True(t, ok)
+
 		require.Equal(t, "repository size calculated", entries[1].Message)
 
+		require.Less(t, catfileSizeInLog, duSizeInLog)
+
 		if featureflag.UseNewRepoSize.IsEnabled(ctx) {
-			require.Less(t, response.Size, sizeInLog)
-			assert.Less(t, response.Size, responseAfterRefs.Size)
+			// Because we divide by 1024 to get kibibytes, small
+			// differences might not appear in the final size.
+			assert.LessOrEqual(t, response.Size, responseAfterRefs.Size)
 		}
 	default:
 		assert.Less(t, response.Size, responseAfterRefs.Size)

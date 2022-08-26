@@ -8,7 +8,6 @@ import (
 	"strconv"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
@@ -22,34 +21,42 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
+// RepositorySize returns the size of the specified repository in kibibytes.
+// By default, this calculation is performed using the disk usage command.
+//
+// Optionally the feature flags `revlist_for_repo_size` or `catfile_repo_size`
+// can be enabled to log an alternative calculation of the repository size.
+// The original size derived from disk usage is still returned.
+//
+// In conjunction with the other flags the `use_new_repository_size` feature
+// flag can be enabled to return the alternative repository size calculation
+// instead of the size derived from the disk usage command.
 func (s *server) RepositorySize(ctx context.Context, in *gitalypb.RepositorySizeRequest) (*gitalypb.RepositorySizeResponse, error) {
 	repo := s.localrepo(in.GetRepository())
-	var newSize int64
-	var err error
-	var logger *logrus.Entry
 
 	path, err := repo.Path()
 	if err != nil {
 		return nil, err
 	}
 
-	size := getPathSize(ctx, path)
+	sizeKiB := getPathSize(ctx, path)
 
-	logger = ctxlogrus.Extract(ctx).WithField("repo_size_du", size)
+	logger := ctxlogrus.Extract(ctx).WithField("repo_size_du_bytes", sizeKiB*1024)
 
+	var newSizeBytes int64
 	if featureflag.RevlistForRepoSize.IsEnabled(ctx) {
-		newSize, err = calculateSizeWithRevlist(ctx, repo)
+		newSizeBytes, err = calculateSizeWithRevlist(ctx, repo)
 		if err != nil {
-			return nil, fmt.Errorf("calculating repository size with git-rev-list: %w,", err)
+			return nil, fmt.Errorf("calculating repository size with git-rev-list: %w", err)
 		}
 
-		logger.WithField("repo_size_revlist", newSize).Info("repository size calculated")
+		logger.WithField("repo_size_revlist_bytes", newSizeBytes).Info("repository size calculated")
 
 		if featureflag.UseNewRepoSize.IsEnabled(ctx) {
-			size = newSize
+			sizeKiB = newSizeBytes / 1024
 		}
 	} else if featureflag.CatfileRepoSize.IsEnabled(ctx) {
-		newSize, err = calculateSizeWithCatfile(
+		newSizeBytes, err = calculateSizeWithCatfile(
 			ctx,
 			repo,
 			s.locator,
@@ -62,14 +69,14 @@ func (s *server) RepositorySize(ctx context.Context, in *gitalypb.RepositorySize
 			return nil, fmt.Errorf("calculating repository size with git-cat-file: %w", err)
 		}
 
-		logger.WithField("repo_size_catfile", newSize).Info("repository size calculated")
+		logger.WithField("repo_size_catfile_bytes", newSizeBytes).Info("repository size calculated")
 
 		if featureflag.UseNewRepoSize.IsEnabled(ctx) {
-			size = newSize
+			sizeKiB = newSizeBytes / 1024
 		}
 	}
 
-	return &gitalypb.RepositorySizeResponse{Size: size}, nil
+	return &gitalypb.RepositorySizeResponse{Size: sizeKiB}, nil
 }
 
 // calculateSizeWithCatfile calculates the repository size using git-cat-file.
@@ -92,6 +99,7 @@ func calculateSizeWithCatfile(
 	catfileInfoIterator := gitpipe.CatfileInfoAllObjects(
 		ctx,
 		repo,
+		gitpipe.WithDiskUsageSize(),
 	)
 
 	for catfileInfoIterator.Next() {
@@ -115,6 +123,7 @@ func calculateSizeWithCatfile(
 		catfileInfoIterator = gitpipe.CatfileInfoAllObjects(
 			ctx,
 			pool.Repo,
+			gitpipe.WithDiskUsageSize(),
 		)
 
 		for catfileInfoIterator.Next() {
@@ -127,8 +136,8 @@ func calculateSizeWithCatfile(
 	}
 
 	size -= poolSize
-	// return the size in kb
-	return size / 1024, nil
+	// return the size in bytes
+	return size, nil
 }
 
 func calculateSizeWithRevlist(ctx context.Context, repo *localrepo.Repo) (int64, error) {
@@ -146,8 +155,8 @@ func calculateSizeWithRevlist(ctx context.Context, repo *localrepo.Repo) (int64,
 		return 0, err
 	}
 
-	// return the size in kb to remain consistent
-	return (size / 1024), nil
+	// return the size in bytes
+	return size, nil
 }
 
 func (s *server) GetObjectDirectorySize(ctx context.Context, in *gitalypb.GetObjectDirectorySizeRequest) (*gitalypb.GetObjectDirectorySizeResponse, error) {
