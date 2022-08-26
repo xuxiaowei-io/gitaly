@@ -23,7 +23,7 @@ func (s *server) GetBlob(in *gitalypb.GetBlobRequest, stream gitalypb.BlobServic
 
 	objectReader, cancel, err := s.catfileCache.ObjectReader(stream.Context(), repo)
 	if err != nil {
-		return helper.ErrInternalf("GetBlob: %v", err)
+		return helper.ErrInternalf("create object reader: %v", err)
 	}
 	defer cancel()
 
@@ -32,7 +32,7 @@ func (s *server) GetBlob(in *gitalypb.GetBlobRequest, stream gitalypb.BlobServic
 		if catfile.IsNotFound(err) {
 			return helper.ErrUnavailable(stream.Send(&gitalypb.GetBlobResponse{}))
 		}
-		return helper.ErrInternalf("GetBlob: %v", err)
+		return helper.ErrInternalf("read object: %v", err)
 	}
 
 	if blob.Type != "blob" {
@@ -64,7 +64,7 @@ func (s *server) GetBlob(in *gitalypb.GetBlobRequest, stream gitalypb.BlobServic
 
 	_, err = io.CopyN(sw, blob, readLimit)
 	if err != nil {
-		return helper.ErrUnavailablef("GetBlob: send: %v", err)
+		return helper.ErrUnavailablef("send: %v", err)
 	}
 
 	return nil

@@ -40,14 +40,14 @@ func sendGetBlobsResponse(
 
 		treeEntry, err := tef.FindByRevisionAndPath(ctx, revision, string(path))
 		if err != nil {
-			return helper.ErrInternal(err)
+			return helper.ErrInternalf("find by revision and path: %v", err)
 		}
 
 		response := &gitalypb.GetBlobsResponse{Revision: revision, Path: path}
 
 		if treeEntry == nil || len(treeEntry.Oid) == 0 {
 			if err := stream.Send(response); err != nil {
-				return helper.ErrUnavailablef("GetBlobs: send: %v", err)
+				return helper.ErrUnavailablef("send: %v", err)
 			}
 
 			continue
@@ -61,7 +61,7 @@ func sendGetBlobsResponse(
 			response.Type = gitalypb.ObjectType_COMMIT
 
 			if err := stream.Send(response); err != nil {
-				return helper.ErrUnavailablef("GetBlobs: send: %v", err)
+				return helper.ErrUnavailablef("send: %v", err)
 			}
 
 			continue
@@ -69,7 +69,7 @@ func sendGetBlobsResponse(
 
 		objectInfo, err := objectInfoReader.Info(ctx, git.Revision(treeEntry.Oid))
 		if err != nil {
-			return helper.ErrInternalf("GetBlobs: %v", err)
+			return helper.ErrInternalf("read object info: %v", err)
 		}
 
 		response.Size = objectInfo.Size
@@ -83,7 +83,7 @@ func sendGetBlobsResponse(
 
 		if response.Type != gitalypb.ObjectType_BLOB {
 			if err := stream.Send(response); err != nil {
-				return helper.ErrUnavailablef("GetBlobs: send: %v", err)
+				return helper.ErrUnavailablef("send: %v", err)
 			}
 			continue
 		}
@@ -116,18 +116,18 @@ func sendBlobTreeEntry(
 	// blobObj.
 	if readLimit == 0 {
 		if err := stream.Send(response); err != nil {
-			return helper.ErrUnavailablef("GetBlobs: send: %v", err)
+			return helper.ErrUnavailablef("send: %v", err)
 		}
 		return nil
 	}
 
 	blobObj, err := objectReader.Object(ctx, git.Revision(response.Oid))
 	if err != nil {
-		return helper.ErrInternalf("GetBlobs: %v", err)
+		return helper.ErrInternalf("read object: %v", err)
 	}
 	defer func() {
 		if _, err := io.Copy(io.Discard, blobObj); err != nil && returnedErr == nil {
-			returnedErr = helper.ErrInternalf("GetBlobs: discarding data: %v", err)
+			returnedErr = helper.ErrInternalf("discarding data: %v", err)
 		}
 	}()
 	if blobObj.Type != "blob" {
@@ -148,7 +148,7 @@ func sendBlobTreeEntry(
 
 	_, err = io.CopyN(sw, blobObj, readLimit)
 	if err != nil {
-		return helper.ErrUnavailablef("GetBlobs: send: %v", err)
+		return helper.ErrUnavailablef("send: %v", err)
 	}
 
 	return nil
@@ -163,13 +163,13 @@ func (s *server) GetBlobs(req *gitalypb.GetBlobsRequest, stream gitalypb.BlobSer
 
 	objectReader, cancel, err := s.catfileCache.ObjectReader(stream.Context(), repo)
 	if err != nil {
-		return helper.ErrInternal(err)
+		return helper.ErrInternal(fmt.Errorf("creating object reader: %w", err))
 	}
 	defer cancel()
 
 	objectInfoReader, cancel, err := s.catfileCache.ObjectInfoReader(stream.Context(), repo)
 	if err != nil {
-		return helper.ErrInternal(err)
+		return helper.ErrInternal(fmt.Errorf("creating object info reader: %w", err))
 	}
 	defer cancel()
 
@@ -182,12 +182,12 @@ func validateGetBlobsRequest(req *gitalypb.GetBlobsRequest) error {
 	}
 
 	if len(req.RevisionPaths) == 0 {
-		return errors.New("GetBlobs: empty RevisionPaths")
+		return errors.New("empty RevisionPaths")
 	}
 
 	for _, rp := range req.RevisionPaths {
 		if err := git.ValidateRevision([]byte(rp.Revision)); err != nil {
-			return fmt.Errorf("GetBlobs: %v", err)
+			return err
 		}
 	}
 

@@ -95,7 +95,7 @@ func (s *server) ListAllLFSPointers(in *gitalypb.ListAllLFSPointersRequest, stre
 
 	objectReader, cancel, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
-		return helper.ErrInternal(fmt.Errorf("creating object reader: %w", err))
+		return helper.ErrInternalf("creating object reader: %w", err)
 	}
 	defer cancel()
 

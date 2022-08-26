@@ -142,7 +142,7 @@ func (s *server) processBlobs(
 
 		catfileObjectIter, err := gitpipe.CatfileObject(ctx, objectReader, objectIter)
 		if err != nil {
-			return helper.ErrInternalf("creating catfile object iterator: %w", err)
+			return helper.ErrInternalf("creating object iterator: %w", err)
 		}
 
 		var i uint32
