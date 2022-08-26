@@ -91,11 +91,13 @@ SOFTWARE.`,
 				expectedLicenseRuby: &gitalypb.FindLicenseResponse{
 					LicenseShortName: "other",
 					LicenseName:      "Other",
+					LicenseNickname:  "LICENSE",
 					LicensePath:      "LICENSE.md",
 				},
 				expectedLicenseGo: &gitalypb.FindLicenseResponse{
 					LicenseShortName: "other",
 					LicenseName:      "Other",
+					LicenseNickname:  "LICENSE",
 					LicensePath:      "LICENSE.md",
 				},
 			},

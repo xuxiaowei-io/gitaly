@@ -21,6 +21,7 @@ module GitalyServer
           license_nickname: license.nickname || ""
         ).tap do |resp|
           if license.key == "other"
+            resp.license_nickname = "LICENSE"
             resp.license_url = ""
           end
         end
