@@ -121,7 +121,7 @@ func findLocalBranchResponsesEqual(a *gitalypb.FindLocalBranchResponse, b *gital
 		findLocalBranchCommitAuthorsEqual(a.CommitCommitter, b.CommitCommitter)
 }
 
-func assertContainsBranch(t *testing.T, branches []*gitalypb.FindAllBranchesResponse_Branch, branch *gitalypb.FindAllBranchesResponse_Branch) {
+func assertContainsAllBranchesResponseBranch(t *testing.T, branches []*gitalypb.FindAllBranchesResponse_Branch, branch *gitalypb.FindAllBranchesResponse_Branch) {
 	t.Helper()
 
 	var branchNames [][]byte

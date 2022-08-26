@@ -569,11 +569,11 @@ func TestSuccessfulFindAllBranchesRequest(t *testing.T) {
 			Name:   []byte(name),
 			Target: target,
 		}
-		assertContainsBranch(t, branches, branch)
+		assertContainsAllBranchesResponseBranch(t, branches, branch)
 	}
 
 	// It contains our fake remote branch
-	assertContainsBranch(t, branches, remoteBranch)
+	assertContainsAllBranchesResponseBranch(t, branches, remoteBranch)
 }
 
 func TestSuccessfulFindAllBranchesRequestWithMergedBranches(t *testing.T) {
@@ -656,7 +656,7 @@ func TestSuccessfulFindAllBranchesRequestWithMergedBranches(t *testing.T) {
 					continue
 				}
 
-				assertContainsBranch(t, testCase.expectedBranches, branch)
+				assertContainsAllBranchesResponseBranch(t, testCase.expectedBranches, branch)
 			}
 		})
 	}
