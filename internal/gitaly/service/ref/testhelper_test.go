@@ -137,6 +137,22 @@ func assertContainsAllBranchesResponseBranch(t *testing.T, branches []*gitalypb.
 	t.Errorf("Expected to find branch %q in branches %s", branch.Name, branchNames)
 }
 
+func assertContainsBranch(t *testing.T, branches []*gitalypb.Branch, branch *gitalypb.Branch) {
+	t.Helper()
+
+	var branchNames [][]byte
+
+	for _, b := range branches {
+		if bytes.Equal(branch.Name, b.Name) {
+			testhelper.ProtoEqual(t, b.TargetCommit, branch.TargetCommit)
+			return // Found the branch and it matches. Success!
+		}
+		branchNames = append(branchNames, b.Name)
+	}
+
+	t.Errorf("Expected to find branch %q in branches %s", branch.Name, branchNames)
+}
+
 func gitalyOrPraefect(gitalyMsg, praefectMsg string) string {
 	if testhelper.IsPraefectEnabled() {
 		return praefectMsg
