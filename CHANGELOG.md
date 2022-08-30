@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 15.3.2 (2022-08-30)
+
+No changes.
+
 ## 15.3.1 (2022-08-22)
 
 No changes.
@@ -50,6 +54,10 @@ No changes.
 
 - [Exclude github.com/gin-gonic/gin vulnerable to CVE-2020-28483](gitlab-org/gitaly@790de3895243fac0c550c8f60e230fb9eb58febb) ([merge request](gitlab-org/gitaly!4784))
 - [git: Fix missing consistency checks for clones](gitlab-org/gitaly@b5d0d04155ad7b464ab5c63440b55e9ca514ae6e)
+
+## 15.2.4 (2022-08-30)
+
+No changes.
 
 ## 15.2.3 (2022-08-22)
 
@@ -114,6 +122,10 @@ No changes.
 ### Performance (1 change)
 
 - [linguist: Implement Stats in pure Go](gitlab-org/gitaly@efd9a598f50e03f05620b56f2e010600128f3b1c) ([merge request](gitlab-org/gitaly!4580))
+
+## 15.1.6 (2022-08-30)
+
+No changes.
 
 ## 15.1.5 (2022-08-22)
 
