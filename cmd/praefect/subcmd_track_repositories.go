@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"flag"
@@ -55,8 +56,8 @@ func (cmd *trackRepositories) FlagSet() *flag.FlagSet {
 		printfErr("Description:\n" +
 			"	This command allows bulk requests for repositories to be tracked by Praefect.\n" +
 			"	The -input-path flag must be the path of a file containing the details of the repositories\n" +
-			"	to track as a list of newline-delimited JSON objects. Each entry must contain the\n" +
-			"	following keys:\n\n" +
+			"	to track as a list of newline-delimited JSON objects. Each line must contain the details for\n" +
+			"   one and only one repository. Each item must contain the following keys:\n\n" +
 			"		relative_path - The relative path of the repository on-disk.\n" +
 			"		virtual_storage - The Praefect virtual storage name.\n" +
 			"		authoritative_storage - Which storage to consider as the canonical copy of the repository.\n\n" +
@@ -92,8 +93,7 @@ func (cmd trackRepositories) Exec(flags *flag.FlagSet, cfg config.Config) error 
 	}
 	defer f.Close()
 
-	d := json.NewDecoder(f)
-	d.DisallowUnknownFields()
+	scanner := bufio.NewScanner(f)
 
 	fmt.Fprintf(cmd.w, "Validating repository information in %q\n", cmd.inputPath)
 
@@ -105,13 +105,13 @@ func (cmd trackRepositories) Exec(flags *flag.FlagSet, cfg config.Config) error 
 	// Read in and validate all requests from input file before executing. This prevents us from
 	// partially executing a file, which makes it difficult to tell which repos were actually
 	// tracked.
-	for d.More() {
+	for scanner.Scan() {
 		repoNum++
 
 		request := trackRepositoryRequest{}
 		badReq := invalidRequest{reqNum: repoNum}
 
-		if err := d.Decode(&request); err != nil {
+		if err := json.Unmarshal(scanner.Bytes(), &request); err != nil {
 			badReq.errs = append(badReq.errs, err)
 			repoErrs = append(repoErrs, badReq)
 
