@@ -23,9 +23,9 @@ const (
 )
 
 type invalidRequest struct {
-	reqNum int
-	path   string
-	errs   []error
+	line int
+	path string
+	errs []error
 }
 
 type dupPathError struct {
@@ -34,7 +34,7 @@ type dupPathError struct {
 }
 
 func (d *dupPathError) Error() string {
-	return fmt.Sprintf("duplicate entries for relative_path, item #: %v", d.reqNums)
+	return fmt.Sprintf("duplicate entries for relative_path, line %v", d.reqNums)
 }
 
 type trackRepositories struct {
@@ -98,7 +98,7 @@ func (cmd trackRepositories) Exec(flags *flag.FlagSet, cfg config.Config) error 
 	fmt.Fprintf(cmd.w, "Validating repository information in %q\n", cmd.inputPath)
 
 	var requests []trackRepositoryRequest
-	var repoNum int
+	var line int
 	var repoErrs []invalidRequest
 	pathLines := make(map[string][]int)
 
@@ -106,10 +106,10 @@ func (cmd trackRepositories) Exec(flags *flag.FlagSet, cfg config.Config) error 
 	// partially executing a file, which makes it difficult to tell which repos were actually
 	// tracked.
 	for scanner.Scan() {
-		repoNum++
+		line++
 
 		request := trackRepositoryRequest{}
-		badReq := invalidRequest{reqNum: repoNum}
+		badReq := invalidRequest{line: line}
 
 		if err := json.Unmarshal(scanner.Bytes(), &request); err != nil {
 			badReq.errs = append(badReq.errs, err)
@@ -144,13 +144,13 @@ func (cmd trackRepositories) Exec(flags *flag.FlagSet, cfg config.Config) error 
 			badReq.errs = append(badReq.errs, &dupPathError{path: request.RelativePath})
 			repoErrs = append(repoErrs, badReq)
 
-			prevLines = append(prevLines, repoNum)
+			prevLines = append(prevLines, line)
 			pathLines[request.RelativePath] = prevLines
 
 			// We've already checked this path, no need to run further checks.
 			continue
 		}
-		pathLines[request.RelativePath] = []int{repoNum}
+		pathLines[request.RelativePath] = []int{line}
 
 		repoInDB, err := store.RepositoryExists(ctx, request.VirtualStorage, request.RelativePath)
 		if err != nil {
@@ -187,7 +187,7 @@ func (cmd trackRepositories) Exec(flags *flag.FlagSet, cfg config.Config) error 
 	}
 
 	fmt.Fprintf(cmd.w, "All repository details are correctly formatted\n")
-	fmt.Fprintf(cmd.w, "Tracking %v repositories in Praefect DB...\n", repoNum)
+	fmt.Fprintf(cmd.w, "Tracking %v repositories in Praefect DB...\n", line)
 	for _, request := range requests {
 		if err := request.execRequest(ctx, db, cfg, cmd.w, logger, cmd.replicateImmediately); err != nil {
 			return fmt.Errorf("tracking repository %q: %w", request.RelativePath, err)
@@ -201,7 +201,7 @@ func printInvalidRequests(w io.Writer, repoErrs []invalidRequest, pathLines map[
 	fmt.Fprintf(w, "Found %v invalid request(s) in %q:\n", len(repoErrs), inputPath)
 
 	for _, l := range repoErrs {
-		fmt.Fprintf(w, "  item #: %v, relative_path: %q\n", l.reqNum, l.path)
+		fmt.Fprintf(w, "  line %v, relative_path: %q\n", l.line, l.path)
 		for _, err := range l.errs {
 			if dup, ok := err.(*dupPathError); ok {
 				// The complete set of duplicate reqNums won't be known until input is
