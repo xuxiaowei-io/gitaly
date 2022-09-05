@@ -40,14 +40,14 @@ func sendGetBlobsResponse(
 
 		treeEntry, err := tef.FindByRevisionAndPath(ctx, revision, string(path))
 		if err != nil {
-			return helper.ErrInternalf("find by revision and path: %v", err)
+			return helper.ErrInternalf("find by revision and path: %w", err)
 		}
 
 		response := &gitalypb.GetBlobsResponse{Revision: revision, Path: path}
 
 		if treeEntry == nil || len(treeEntry.Oid) == 0 {
 			if err := stream.Send(response); err != nil {
-				return helper.ErrUnavailablef("send: %v", err)
+				return helper.ErrUnavailablef("send: %w", err)
 			}
 
 			continue
@@ -61,7 +61,7 @@ func sendGetBlobsResponse(
 			response.Type = gitalypb.ObjectType_COMMIT
 
 			if err := stream.Send(response); err != nil {
-				return helper.ErrUnavailablef("send: %v", err)
+				return helper.ErrUnavailablef("send: %w", err)
 			}
 
 			continue
@@ -69,7 +69,7 @@ func sendGetBlobsResponse(
 
 		objectInfo, err := objectInfoReader.Info(ctx, git.Revision(treeEntry.Oid))
 		if err != nil {
-			return helper.ErrInternalf("read object info: %v", err)
+			return helper.ErrInternalf("read object info: %w", err)
 		}
 
 		response.Size = objectInfo.Size
@@ -83,7 +83,7 @@ func sendGetBlobsResponse(
 
 		if response.Type != gitalypb.ObjectType_BLOB {
 			if err := stream.Send(response); err != nil {
-				return helper.ErrUnavailablef("send: %v", err)
+				return helper.ErrUnavailablef("send: %w", err)
 			}
 			continue
 		}
@@ -116,18 +116,18 @@ func sendBlobTreeEntry(
 	// blobObj.
 	if readLimit == 0 {
 		if err := stream.Send(response); err != nil {
-			return helper.ErrUnavailablef("send: %v", err)
+			return helper.ErrUnavailablef("send: %w", err)
 		}
 		return nil
 	}
 
 	blobObj, err := objectReader.Object(ctx, git.Revision(response.Oid))
 	if err != nil {
-		return helper.ErrInternalf("read object: %v", err)
+		return helper.ErrInternalf("read object: %w", err)
 	}
 	defer func() {
 		if _, err := io.Copy(io.Discard, blobObj); err != nil && returnedErr == nil {
-			returnedErr = helper.ErrInternalf("discarding data: %v", err)
+			returnedErr = helper.ErrInternalf("discarding data: %w", err)
 		}
 	}()
 	if blobObj.Type != "blob" {
@@ -148,7 +148,7 @@ func sendBlobTreeEntry(
 
 	_, err = io.CopyN(sw, blobObj, readLimit)
 	if err != nil {
-		return helper.ErrUnavailablef("send: %v", err)
+		return helper.ErrUnavailablef("send: %w", err)
 	}
 
 	return nil
