@@ -289,7 +289,7 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg, r
 
 	if gsd.linguist == nil {
 		var err error
-		gsd.linguist, err = linguist.New(cfg, gsd.gitCmdFactory)
+		gsd.linguist, err = linguist.New(cfg)
 		require.NoError(tb, err)
 	}
 

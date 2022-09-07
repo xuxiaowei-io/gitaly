@@ -32,14 +32,13 @@ type ByteCountPerLanguage map[string]uint64
 
 // Instance is a holder of the defined in the system language settings.
 type Instance struct {
-	cfg           config.Cfg
-	colorMap      map[string]Language
-	gitCmdFactory git.CommandFactory
+	cfg      config.Cfg
+	colorMap map[string]Language
 }
 
-// New loads the name->color map from the Linguist gem and returns initialised instance
-// to use back to the caller or an error.
-func New(cfg config.Cfg, gitCmdFactory git.CommandFactory) (*Instance, error) {
+// New loads the name->color map from the Linguist gem and returns initialized
+// instance to use back to the caller or an error.
+func New(cfg config.Cfg) (*Instance, error) {
 	jsonReader, err := openLanguagesJSON(cfg)
 	if err != nil {
 		return nil, err
@@ -52,9 +51,8 @@ func New(cfg config.Cfg, gitCmdFactory git.CommandFactory) (*Instance, error) {
 	}
 
 	return &Instance{
-		cfg:           cfg,
-		gitCmdFactory: gitCmdFactory,
-		colorMap:      colorMap,
+		cfg:      cfg,
+		colorMap: colorMap,
 	}, nil
 }
 

@@ -34,9 +34,8 @@ func TestNew_knownLanguages(t *testing.T) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t, testcfg.WithRealLinguist())
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 
-	linguist, err := New(cfg, gitCmdFactory)
+	linguist, err := New(cfg)
 	require.NoError(t, err)
 
 	t.Run("by name", func(t *testing.T) {
@@ -86,9 +85,8 @@ func TestInstance_Stats(t *testing.T) {
 
 func testInstanceStats(t *testing.T, ctx context.Context) {
 	cfg := testcfg.Build(t)
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 
-	linguist, err := New(cfg, gitCmdFactory)
+	linguist, err := New(cfg)
 	require.NoError(t, err)
 
 	catfileCache := catfile.NewCache(cfg)
@@ -280,7 +278,7 @@ func TestInstance_Stats_unmarshalJSONError(t *testing.T) {
 
 	repo := localrepo.New(config.NewLocator(cfg), gitCmdFactory, catfileCache, invalidRepo)
 
-	ling, err := New(cfg, gitCmdFactory)
+	ling, err := New(cfg)
 	require.NoError(t, err)
 
 	// When an error occurs, this used to trigger JSON marshaling of a plain string
@@ -295,7 +293,7 @@ func TestInstance_Stats_unmarshalJSONError(t *testing.T) {
 func TestNew(t *testing.T) {
 	cfg := testcfg.Build(t, testcfg.WithRealLinguist())
 
-	ling, err := New(cfg, gittest.NewCommandFactory(t, cfg))
+	ling, err := New(cfg)
 	require.NoError(t, err)
 
 	require.Equal(t, "#701516", ling.Color("Ruby"), "color value for 'Ruby'")
@@ -307,7 +305,7 @@ func TestNew_loadLanguagesCustomPath(t *testing.T) {
 
 	cfg := testcfg.Build(t, testcfg.WithBase(config.Cfg{Ruby: config.Ruby{LinguistLanguagesPath: jsonPath}}))
 
-	ling, err := New(cfg, gittest.NewCommandFactory(t, cfg))
+	ling, err := New(cfg)
 	require.NoError(t, err)
 
 	require.Equal(t, "foo color", ling.Color("FooBar"))
@@ -329,10 +327,9 @@ func BenchmarkInstance_Stats(b *testing.B) {
 
 func benchmarkInstanceStats(b *testing.B, ctx context.Context) {
 	cfg := testcfg.Build(b)
-	gitCmdFactory := gittest.NewCommandFactory(b, cfg)
 	languageStatsFilename := filenameForCache(ctx)
 
-	linguist, err := New(cfg, gitCmdFactory)
+	linguist, err := New(cfg)
 	require.NoError(b, err)
 
 	catfileCache := catfile.NewCache(cfg)
