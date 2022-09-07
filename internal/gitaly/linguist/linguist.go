@@ -115,7 +115,7 @@ func (inst *Instance) enryStats(ctx context.Context, commitID string) (ByteCount
 
 	objectReader, cancel, err := inst.catfileCache.ObjectReader(ctx, inst.repo)
 	if err != nil {
-		return nil, fmt.Errorf("create object reader: %w", err)
+		return nil, fmt.Errorf("linguist create object reader: %w", err)
 	}
 	defer cancel()
 
@@ -162,30 +162,23 @@ func (inst *Instance) enryStats(ctx context.Context, commitID string) (ByteCount
 		object := objectIt.Result()
 		filename := string(object.ObjectName)
 
-		// Read arbitrary number of bytes considered enough to determine language
-		content, err := io.ReadAll(io.LimitReader(object, 2048))
+		lang, size, err := inst.determineStats(filename, object)
 		if err != nil {
-			return nil, fmt.Errorf("linguist read blob: %w", err)
+			return nil, fmt.Errorf("linguist determine stats: %w", err)
 		}
 
+		// Ensure object content is completely consumed
 		if _, err := io.Copy(io.Discard, object); err != nil {
 			return nil, fmt.Errorf("linguist discard excess blob: %w", err)
 		}
 
-		lang := enry.GetLanguage(filename, content)
-
-		// Ignore anything that's neither markup nor a programming language,
-		// similar to what the linguist gem does:
-		// https://github.com/github/linguist/blob/v7.20.0/lib/linguist/blob_helper.rb#L378-L387
-		if enry.GetLanguageType(lang) != enry.Programming &&
-			enry.GetLanguageType(lang) != enry.Markup {
-			// The file might have been included in the stats before
+		if len(lang) == 0 {
 			stats.drop(filename)
 
 			continue
 		}
 
-		stats.add(filename, lang, uint64(object.Object.ObjectSize()))
+		stats.add(filename, lang, size)
 	}
 
 	if err := objectIt.Err(); err != nil {
@@ -197,4 +190,27 @@ func (inst *Instance) enryStats(ctx context.Context, commitID string) (ByteCount
 	}
 
 	return stats.Totals, nil
+}
+
+// determineStats determines the size and language of the given file. The
+// language will be an empty string when the stats should be omitted from the
+// count.
+func (inst *Instance) determineStats(filename string, object gitpipe.CatfileObjectResult) (string, uint64, error) {
+	// Read arbitrary number of bytes considered enough to determine language
+	content, err := io.ReadAll(io.LimitReader(object, 2048))
+	if err != nil {
+		return "", 0, fmt.Errorf("determine stats read blob: %w", err)
+	}
+
+	lang := enry.GetLanguage(filename, content)
+
+	// Ignore anything that's neither markup nor a programming language,
+	// similar to what the linguist gem does:
+	// https://github.com/github/linguist/blob/v7.20.0/lib/linguist/blob_helper.rb#L378-L387
+	if enry.GetLanguageType(lang) != enry.Programming &&
+		enry.GetLanguageType(lang) != enry.Markup {
+		return "", 0, nil
+	}
+
+	return lang, uint64(object.Object.ObjectSize()), nil
 }
