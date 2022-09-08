@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/linguist"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -61,7 +62,7 @@ func (s *server) CommitLanguages(ctx context.Context, req *gitalypb.CommitLangua
 		l := &gitalypb.CommitLanguagesResponse_Language{
 			Name:  lang,
 			Share: float32(100*count) / float32(total),
-			Color: s.linguist.Color(lang),
+			Color: linguist.Color(lang),
 			Bytes: stats[lang],
 		}
 		resp.Languages = append(resp.Languages, l)

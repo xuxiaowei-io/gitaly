@@ -8,7 +8,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 
 	"github.com/go-enry/go-enry/v2"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
@@ -22,37 +21,19 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 )
 
-// Language is used to parse Linguist's language.json file.
-type Language struct {
-	Color string `json:"color"`
-}
-
 // ByteCountPerLanguage represents a counter value (bytes) per language.
 type ByteCountPerLanguage map[string]uint64
 
 // Instance is a holder of the defined in the system language settings.
 type Instance struct {
-	cfg      config.Cfg
-	colorMap map[string]Language
+	cfg config.Cfg
 }
 
 // New loads the name->color map from the Linguist gem and returns initialized
 // instance to use back to the caller or an error.
 func New(cfg config.Cfg) (*Instance, error) {
-	jsonReader, err := openLanguagesJSON(cfg)
-	if err != nil {
-		return nil, err
-	}
-	defer jsonReader.Close()
-
-	var colorMap map[string]Language
-	if err := json.NewDecoder(jsonReader).Decode(&colorMap); err != nil {
-		return nil, err
-	}
-
 	return &Instance{
-		cfg:      cfg,
-		colorMap: colorMap,
+		cfg: cfg,
 	}, nil
 }
 
@@ -90,8 +71,8 @@ func (inst *Instance) Stats(ctx context.Context, repo *localrepo.Repo, commitID 
 }
 
 // Color returns the color Linguist has assigned to language.
-func (inst *Instance) Color(language string) string {
-	if color := inst.colorMap[language].Color; color != "" {
+func Color(language string) string {
+	if color := enry.GetColor(language); color != "#cccccc" {
 		return color
 	}
 
@@ -117,46 +98,6 @@ func (inst *Instance) startGitLinguist(ctx context.Context, repoPath string, com
 	}
 
 	return internalCmd, nil
-}
-
-func openLanguagesJSON(cfg config.Cfg) (io.ReadCloser, error) {
-	if jsonPath := cfg.Ruby.LinguistLanguagesPath; jsonPath != "" {
-		// This is a fallback for environments where dynamic discovery of the
-		// linguist path via Bundler is not working for some reason, for example
-		// https://gitlab.com/gitlab-org/gitaly/issues/1119.
-		return os.Open(jsonPath)
-	}
-
-	linguistPathSymlink, err := os.CreateTemp("", "gitaly-linguist-path")
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = os.Remove(linguistPathSymlink.Name()) }()
-
-	if err := linguistPathSymlink.Close(); err != nil {
-		return nil, err
-	}
-
-	// We use a symlink because we cannot trust Bundler to not print garbage
-	// on its stdout.
-	rubyScript := `FileUtils.ln_sf(Bundler.rubygems.find_name('github-linguist').first.full_gem_path, ARGV.first)`
-	cmd := exec.Command("bundle", "exec", "ruby", "-rfileutils", "-e", rubyScript, linguistPathSymlink.Name())
-	cmd.Dir = cfg.Ruby.Dir
-
-	// We have learned that in practice the command we are about to run is a
-	// canary for Ruby/Bundler configuration problems. Including stderr and
-	// stdout in the gitaly log is useful for debugging such problems.
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
-
-	if err := cmd.Run(); err != nil {
-		if exitError, ok := err.(*exec.ExitError); ok {
-			err = fmt.Errorf("%v; stderr: %q", exitError, exitError.Stderr)
-		}
-		return nil, err
-	}
-
-	return os.Open(filepath.Join(linguistPathSymlink.Name(), "lib", "linguist", "languages.json"))
 }
 
 func (inst *Instance) enryStats(ctx context.Context, repo *localrepo.Repo, commitID string, catfileCache catfile.Cache) (ByteCountPerLanguage, error) {

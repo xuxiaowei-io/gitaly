@@ -10,8 +10,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-enry/go-enry/v2"
-	enrydata "github.com/go-enry/go-enry/v2/data"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
@@ -26,56 +24,6 @@ import (
 
 func TestMain(m *testing.M) {
 	testhelper.Run(m)
-}
-
-// TestNew_knownLanguages tests the compatibility between the Ruby and the Go
-// implementation. This test will be removed together with the Ruby implementation.
-func TestNew_knownLanguages(t *testing.T) {
-	t.Parallel()
-
-	cfg := testcfg.Build(t, testcfg.WithRealLinguist())
-
-	linguist, err := New(cfg)
-	require.NoError(t, err)
-
-	t.Run("by name", func(t *testing.T) {
-		linguistLanguages := make([]string, 0, len(linguist.colorMap))
-		for language := range linguist.colorMap {
-			linguistLanguages = append(linguistLanguages, language)
-		}
-
-		enryLanguages := make([]string, 0, len(enrydata.IDByLanguage))
-		for language := range enrydata.IDByLanguage {
-			enryLanguages = append(enryLanguages, language)
-		}
-
-		require.ElementsMatch(t, linguistLanguages, enryLanguages)
-	})
-
-	t.Run("with their color", func(t *testing.T) {
-		exclude := map[string]struct{}{}
-
-		linguistLanguages := make(map[string]string, len(linguist.colorMap))
-		for language, color := range linguist.colorMap {
-			if color.Color == "" {
-				exclude[language] = struct{}{}
-				continue
-			}
-			linguistLanguages[language] = color.Color
-		}
-
-		enryLanguages := make(map[string]string, len(enrydata.IDByLanguage))
-		for language := range enrydata.IDByLanguage {
-			if _, excluded := exclude[language]; excluded {
-				continue
-			}
-
-			color := enry.GetColor(language)
-			enryLanguages[language] = color
-		}
-
-		require.Equal(t, linguistLanguages, enryLanguages)
-	})
 }
 
 func TestInstance_Stats(t *testing.T) {
@@ -290,13 +238,8 @@ func TestInstance_Stats_unmarshalJSONError(t *testing.T) {
 	require.False(t, ok, "expected the error not be a json Syntax Error")
 }
 
-func TestInstance_Color(t *testing.T) {
+func TestColor(t *testing.T) {
 	t.Parallel()
-
-	cfg := testcfg.Build(t, testcfg.WithRealLinguist())
-
-	ling, err := New(cfg)
-	require.NoError(t, err)
 
 	for _, tc := range []struct {
 		language      string
@@ -307,25 +250,13 @@ func TestInstance_Color(t *testing.T) {
 		{language: "HTML", expectedColor: "#e34c26"},
 		{language: "Markdown", expectedColor: "#083fa1"},
 		{language: "Javascript", expectedColor: "#75712c"},
-		{language: "SSH Config", expectedColor: "#2d519e"},
+		{language: "SSH Config", expectedColor: "#d1dbe0"},    // grouped into INI by go-enry
 		{language: "Wozzle Wuzzle", expectedColor: "#3adbcf"}, // non-existing language
 	} {
 		t.Run(tc.language, func(t *testing.T) {
-			require.Equal(t, tc.expectedColor, ling.Color(tc.language), "color value for '%v'", tc.language)
+			require.Equal(t, tc.expectedColor, Color(tc.language), "color value for '%v'", tc.language)
 		})
 	}
-}
-
-func TestNew_loadLanguagesCustomPath(t *testing.T) {
-	jsonPath, err := filepath.Abs("testdata/fake-languages.json")
-	require.NoError(t, err)
-
-	cfg := testcfg.Build(t, testcfg.WithBase(config.Cfg{Ruby: config.Ruby{LinguistLanguagesPath: jsonPath}}))
-
-	ling, err := New(cfg)
-	require.NoError(t, err)
-
-	require.Equal(t, "foo color", ling.Color("FooBar"))
 }
 
 // filenameForCache returns the filename where the cache is stored, depending on
