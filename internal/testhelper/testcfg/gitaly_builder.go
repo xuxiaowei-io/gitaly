@@ -40,13 +40,6 @@ func WithStorages(name string, names ...string) Option {
 	}
 }
 
-// WithRealLinguist suppress stubbing of the linguist language detection.
-func WithRealLinguist() Option {
-	return func(builder *GitalyCfgBuilder) {
-		builder.realLinguist = true
-	}
-}
-
 // WithPackObjectsCacheEnabled enables the pack object cache.
 func WithPackObjectsCacheEnabled() Option {
 	return func(builder *GitalyCfgBuilder) {
@@ -70,7 +63,6 @@ type GitalyCfgBuilder struct {
 	cfg config.Cfg
 
 	storages                []string
-	realLinguist            bool
 	packObjectsCacheEnabled bool
 }
 
@@ -131,14 +123,6 @@ func (gc *GitalyCfgBuilder) Build(tb testing.TB) config.Cfg {
 			require.NoError(tb, os.MkdirAll(storagePath, 0o755))
 			cfg.Storages[i].Name = storageName
 			cfg.Storages[i].Path = storagePath
-		}
-	}
-
-	if !gc.realLinguist {
-		if cfg.Ruby.LinguistLanguagesPath == "" {
-			// set a stub to prevent a long ruby process to run where it is not needed
-			cfg.Ruby.LinguistLanguagesPath = filepath.Join(root, "linguist_languages.json")
-			require.NoError(tb, os.WriteFile(cfg.Ruby.LinguistLanguagesPath, []byte(`{}`), 0o655))
 		}
 	}
 

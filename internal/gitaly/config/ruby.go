@@ -15,7 +15,6 @@ type Ruby struct {
 	GracefulRestartTimeout    duration.Duration `toml:"graceful_restart_timeout"`
 	RestartDelay              duration.Duration `toml:"restart_delay"`
 	NumWorkers                int               `toml:"num_workers"`
-	LinguistLanguagesPath     string            `toml:"linguist_languages_path"`
 	RuggedGitConfigSearchPath string            `toml:"rugged_git_config_search_path"`
 }
 

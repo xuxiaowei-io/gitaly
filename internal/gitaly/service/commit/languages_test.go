@@ -22,7 +22,7 @@ func TestLanguages(t *testing.T) {
 
 func testLanguagesFeatured(t *testing.T, ctx context.Context) {
 	t.Parallel()
-	cfg := testcfg.Build(t, testcfg.WithRealLinguist())
+	cfg := testcfg.Build(t)
 
 	cfg.SocketPath = startTestServices(t, cfg)
 
