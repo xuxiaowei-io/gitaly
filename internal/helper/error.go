@@ -133,6 +133,24 @@ func ErrAbortedf(format string, a ...interface{}) error {
 	return formatError(codes.Aborted, format, a...)
 }
 
+// ErrDataLossf wraps a formatted error with codes.DataLoss, unless the formatted error is a wrapped
+// gRPC error.
+func ErrDataLossf(format string, a ...interface{}) error {
+	return formatError(codes.DataLoss, format, a...)
+}
+
+// ErrUnknownf wraps a formatted error with codes.Unknown, unless the formatted error is a wrapped
+// gRPC error.
+func ErrUnknownf(format string, a ...interface{}) error {
+	return formatError(codes.Unknown, format, a...)
+}
+
+// ErrUnimplementedf wraps a formatted error with codes.Unimplemented, unless the formatted error is a wrapped
+// gRPC error.
+func ErrUnimplementedf(format string, a ...interface{}) error {
+	return formatError(codes.Unimplemented, format, a...)
+}
+
 // grpcErrorMessageWrapper is used to wrap a gRPC `status.Status`-style error such that it behaves
 // like a `status.Status`, except that it generates a readable error message.
 type grpcErrorMessageWrapper struct {
