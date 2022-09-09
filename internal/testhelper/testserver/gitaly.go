@@ -24,7 +24,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/auth"
 	gitalylog "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/log"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/linguist"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/server"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
@@ -240,7 +239,6 @@ type gitalyServerDeps struct {
 	hookMgr                       hook.Manager
 	gitlabClient                  gitlab.Client
 	gitCmdFactory                 git.CommandFactory
-	linguist                      *linguist.Instance
 	backchannelReg                *backchannel.Registry
 	catfileCache                  catfile.Cache
 	diskCache                     cache.Cache
@@ -287,12 +285,6 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg, r
 		gsd.hookMgr = hook.NewManager(cfg, gsd.locator, gsd.gitCmdFactory, gsd.txMgr, gsd.gitlabClient)
 	}
 
-	if gsd.linguist == nil {
-		var err error
-		gsd.linguist, err = linguist.New(cfg)
-		require.NoError(tb, err)
-	}
-
 	if gsd.catfileCache == nil {
 		cache := catfile.NewCache(cfg)
 		gsd.catfileCache = cache
@@ -336,7 +328,6 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg, r
 		TransactionManager:            gsd.txMgr,
 		GitalyHookManager:             gsd.hookMgr,
 		GitCmdFactory:                 gsd.gitCmdFactory,
-		Linguist:                      gsd.linguist,
 		BackchannelRegistry:           gsd.backchannelReg,
 		GitlabClient:                  gsd.gitlabClient,
 		CatfileCache:                  gsd.catfileCache,

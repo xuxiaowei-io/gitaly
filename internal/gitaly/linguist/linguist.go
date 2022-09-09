@@ -29,12 +29,11 @@ type Instance struct {
 	cfg config.Cfg
 }
 
-// New loads the name->color map from the Linguist gem and returns initialized
-// instance to use back to the caller or an error.
-func New(cfg config.Cfg) (*Instance, error) {
+// New creates a new instance that can be used to calculate language stats.
+func New(cfg config.Cfg) *Instance {
 	return &Instance{
 		cfg: cfg,
-	}, nil
+	}
 }
 
 // Stats returns the repository's language stats as reported by 'git-linguist'.

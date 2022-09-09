@@ -11,7 +11,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/linguist"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
@@ -29,7 +28,6 @@ type Dependencies struct {
 	StorageLocator                storage.Locator
 	ClientPool                    *client.Pool
 	GitCmdFactory                 git.CommandFactory
-	Linguist                      *linguist.Instance
 	BackchannelRegistry           *backchannel.Registry
 	GitlabClient                  gitlab.Client
 	CatfileCache                  catfile.Cache
@@ -75,11 +73,6 @@ func (dc *Dependencies) GetConnsPool() *client.Pool {
 // GetGitCmdFactory returns git commands factory.
 func (dc *Dependencies) GetGitCmdFactory() git.CommandFactory {
 	return dc.GitCmdFactory
-}
-
-// GetLinguist returns linguist.
-func (dc *Dependencies) GetLinguist() *linguist.Instance {
-	return dc.Linguist
 }
 
 // GetBackchannelRegistry returns a registry of the backchannels.
