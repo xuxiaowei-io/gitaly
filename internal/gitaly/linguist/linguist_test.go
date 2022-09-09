@@ -290,13 +290,30 @@ func TestInstance_Stats_unmarshalJSONError(t *testing.T) {
 	require.False(t, ok, "expected the error not be a json Syntax Error")
 }
 
-func TestNew(t *testing.T) {
+func TestInstance_Color(t *testing.T) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t, testcfg.WithRealLinguist())
 
 	ling, err := New(cfg)
 	require.NoError(t, err)
 
-	require.Equal(t, "#701516", ling.Color("Ruby"), "color value for 'Ruby'")
+	for _, tc := range []struct {
+		language      string
+		expectedColor string
+	}{
+		{language: "Go", expectedColor: "#00ADD8"},
+		{language: "Ruby", expectedColor: "#701516"},
+		{language: "HTML", expectedColor: "#e34c26"},
+		{language: "Markdown", expectedColor: "#083fa1"},
+		{language: "Javascript", expectedColor: "#75712c"},
+		{language: "SSH Config", expectedColor: "#2d519e"},
+		{language: "Wozzle Wuzzle", expectedColor: "#3adbcf"}, // non-existing language
+	} {
+		t.Run(tc.language, func(t *testing.T) {
+			require.Equal(t, tc.expectedColor, ling.Color(tc.language), "color value for '%v'", tc.language)
+		})
+	}
 }
 
 func TestNew_loadLanguagesCustomPath(t *testing.T) {
