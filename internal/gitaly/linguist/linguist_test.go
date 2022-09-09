@@ -34,9 +34,6 @@ func TestInstance_Stats(t *testing.T) {
 func testInstanceStats(t *testing.T, ctx context.Context) {
 	cfg := testcfg.Build(t)
 
-	linguist, err := New(cfg)
-	require.NoError(t, err)
-
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
 
@@ -106,7 +103,7 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 
 				// We simply run the linguist once before so that it can already
 				// write the cache.
-				_, err := linguist.Stats(ctx, repo, commitID.String(), catfileCache)
+				_, err := New(cfg, catfileCache, repo).Stats(ctx, commitID.String())
 				require.NoError(t, err)
 				require.FileExists(t, filepath.Join(repoPath, languageStatsFilename))
 
@@ -164,7 +161,7 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 
 				// Precreate the cache with the old commit. This ensures that
 				// linguist knows to update the cache.
-				stats, err := linguist.Stats(ctx, repo, oldCommitID.String(), catfileCache)
+				stats, err := New(cfg, catfileCache, repo).Stats(ctx, oldCommitID.String())
 				require.NoError(t, err)
 				require.FileExists(t, filepath.Join(repoPath, languageStatsFilename))
 				require.Equal(t, ByteCountPerLanguage{
@@ -203,7 +200,8 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 			repoProto, repoPath, objectID := tc.setup(t)
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-			stats, err := linguist.Stats(ctx, repo, objectID.String(), catfileCache)
+			linguist := New(cfg, catfileCache, repo)
+			stats, err := linguist.Stats(ctx, objectID.String())
 			if tc.expectedErr == "" {
 				require.NoError(t, err)
 				require.Equal(t, tc.expectedStats, stats)
@@ -226,12 +224,11 @@ func TestInstance_Stats_unmarshalJSONError(t *testing.T) {
 
 	repo := localrepo.New(config.NewLocator(cfg), gitCmdFactory, catfileCache, invalidRepo)
 
-	ling, err := New(cfg)
-	require.NoError(t, err)
+	ling := New(cfg, catfileCache, repo)
 
 	// When an error occurs, this used to trigger JSON marshaling of a plain string
 	// the new behaviour shouldn't do that, and return a command error
-	_, err = ling.Stats(ctx, repo, "deadbeef", catfileCache)
+	_, err := ling.Stats(ctx, "deadbeef")
 	require.Error(t, err)
 
 	_, ok := err.(*json.SyntaxError)
@@ -277,9 +274,6 @@ func benchmarkInstanceStats(b *testing.B, ctx context.Context) {
 	cfg := testcfg.Build(b)
 	languageStatsFilename := filenameForCache(ctx)
 
-	linguist, err := New(cfg)
-	require.NoError(b, err)
-
 	catfileCache := catfile.NewCache(cfg)
 	b.Cleanup(catfileCache.Stop)
 
@@ -288,6 +282,8 @@ func benchmarkInstanceStats(b *testing.B, ctx context.Context) {
 		Seed:                   "benchmark.git",
 	})
 	repo := localrepo.NewTestRepo(b, cfg, repoProto)
+
+	linguist := New(cfg, catfileCache, repo)
 
 	var scratchStat ByteCountPerLanguage
 	var incStats ByteCountPerLanguage
@@ -298,7 +294,8 @@ func benchmarkInstanceStats(b *testing.B, ctx context.Context) {
 			require.NoError(b, os.RemoveAll(filepath.Join(repoPath, languageStatsFilename)))
 			b.StartTimer()
 
-			scratchStat, err = linguist.Stats(ctx, repo, "f5dfdd0057cd6bffc6259a5c8533dde5bf6a9d37", catfileCache)
+			var err error
+			scratchStat, err = linguist.Stats(ctx, "f5dfdd0057cd6bffc6259a5c8533dde5bf6a9d37")
 			require.NoError(b, err)
 		}
 	})
@@ -308,10 +305,11 @@ func benchmarkInstanceStats(b *testing.B, ctx context.Context) {
 			b.StopTimer()
 			require.NoError(b, os.RemoveAll(filepath.Join(repoPath, languageStatsFilename)))
 			// a commit about 3 months older than the next
-			_, err = linguist.Stats(ctx, repo, "3c813b292d25a9b2ffda70e7f609f623bfc0cb37", catfileCache)
+			_, err := linguist.Stats(ctx, "3c813b292d25a9b2ffda70e7f609f623bfc0cb37")
+			require.NoError(b, err)
 			b.StartTimer()
 
-			incStats, err = linguist.Stats(ctx, repo, "f5dfdd0057cd6bffc6259a5c8533dde5bf6a9d37", catfileCache)
+			incStats, err = linguist.Stats(ctx, "f5dfdd0057cd6bffc6259a5c8533dde5bf6a9d37")
 			require.NoError(b, err)
 		}
 	})

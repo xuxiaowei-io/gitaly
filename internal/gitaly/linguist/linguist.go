@@ -26,28 +26,28 @@ type ByteCountPerLanguage map[string]uint64
 
 // Instance is a holder of the defined in the system language settings.
 type Instance struct {
-	cfg config.Cfg
+	cfg          config.Cfg
+	catfileCache catfile.Cache
+	repo         *localrepo.Repo
 }
 
-// New creates a new instance that can be used to calculate language stats.
-func New(cfg config.Cfg) *Instance {
+// New creates a new instance that can be used to calculate language stats for
+// the given repo.
+func New(cfg config.Cfg, catfileCache catfile.Cache, repo *localrepo.Repo) *Instance {
 	return &Instance{
-		cfg: cfg,
+		cfg:          cfg,
+		catfileCache: catfileCache,
+		repo:         repo,
 	}
 }
 
 // Stats returns the repository's language stats as reported by 'git-linguist'.
-func (inst *Instance) Stats(ctx context.Context, repo *localrepo.Repo, commitID string, catfileCache catfile.Cache) (ByteCountPerLanguage, error) {
+func (inst *Instance) Stats(ctx context.Context, commitID string) (ByteCountPerLanguage, error) {
 	if featureflag.GoLanguageStats.IsEnabled(ctx) {
-		return inst.enryStats(ctx, repo, commitID, catfileCache)
+		return inst.enryStats(ctx, commitID)
 	}
 
-	repoPath, err := repo.Path()
-	if err != nil {
-		return nil, fmt.Errorf("get repo path: %w", err)
-	}
-
-	cmd, err := inst.startGitLinguist(ctx, repoPath, commitID)
+	cmd, err := inst.startGitLinguist(ctx, commitID)
 	if err != nil {
 		return nil, fmt.Errorf("starting linguist: %w", err)
 	}
@@ -79,7 +79,12 @@ func Color(language string) string {
 	return fmt.Sprintf("#%x", colorSha[0:3])
 }
 
-func (inst *Instance) startGitLinguist(ctx context.Context, repoPath string, commitID string) (*command.Command, error) {
+func (inst *Instance) startGitLinguist(ctx context.Context, commitID string) (*command.Command, error) {
+	repoPath, err := inst.repo.Path()
+	if err != nil {
+		return nil, fmt.Errorf("get repo path: %w", err)
+	}
+
 	bundle, err := exec.LookPath("bundle")
 	if err != nil {
 		return nil, fmt.Errorf("finding bundle executable: %w", err)
@@ -99,8 +104,8 @@ func (inst *Instance) startGitLinguist(ctx context.Context, repoPath string, com
 	return internalCmd, nil
 }
 
-func (inst *Instance) enryStats(ctx context.Context, repo *localrepo.Repo, commitID string, catfileCache catfile.Cache) (ByteCountPerLanguage, error) {
-	stats, err := newLanguageStats(repo)
+func (inst *Instance) enryStats(ctx context.Context, commitID string) (ByteCountPerLanguage, error) {
+	stats, err := newLanguageStats(inst.repo)
 	if err != nil {
 		ctxlogrus.Extract(ctx).WithError(err).Info("linguist load from cache")
 	}
@@ -108,7 +113,7 @@ func (inst *Instance) enryStats(ctx context.Context, repo *localrepo.Repo, commi
 		return stats.Totals, nil
 	}
 
-	objectReader, cancel, err := catfileCache.ObjectReader(ctx, repo)
+	objectReader, cancel, err := inst.catfileCache.ObjectReader(ctx, inst.repo)
 	if err != nil {
 		return nil, fmt.Errorf("create object reader: %w", err)
 	}
@@ -119,7 +124,7 @@ func (inst *Instance) enryStats(ctx context.Context, repo *localrepo.Repo, commi
 	if stats.CommitID == "" {
 		// No existing stats cached, so get all the files for the commit
 		// using git-ls-tree(1).
-		revlistIt = gitpipe.LsTree(ctx, repo,
+		revlistIt = gitpipe.LsTree(ctx, inst.repo,
 			commitID,
 			gitpipe.LsTreeWithRecursive(),
 			gitpipe.LsTreeWithBlobFilter(),
@@ -140,7 +145,7 @@ func (inst *Instance) enryStats(ctx context.Context, repo *localrepo.Repo, commi
 			return false
 		}
 
-		revlistIt = gitpipe.DiffTree(ctx, repo,
+		revlistIt = gitpipe.DiffTree(ctx, inst.repo,
 			stats.CommitID, commitID,
 			gitpipe.DiffTreeWithRecursive(),
 			gitpipe.DiffTreeWithIgnoreSubmodules(),
@@ -187,7 +192,7 @@ func (inst *Instance) enryStats(ctx context.Context, repo *localrepo.Repo, commi
 		return nil, fmt.Errorf("linguist object iterator: %w", err)
 	}
 
-	if err := stats.save(repo, commitID); err != nil {
+	if err := stats.save(inst.repo, commitID); err != nil {
 		return nil, fmt.Errorf("linguist language stats save: %w", err)
 	}
 

@@ -39,7 +39,7 @@ func (s *server) CommitLanguages(ctx context.Context, req *gitalypb.CommitLangua
 		return nil, helper.ErrInternalf("looking up revision: %w", err)
 	}
 
-	stats, err := linguist.New(s.cfg).Stats(ctx, repo, commitID, s.catfileCache)
+	stats, err := linguist.New(s.cfg, s.catfileCache, repo).Stats(ctx, commitID)
 	if err != nil {
 		return nil, helper.ErrInternalf("language stats: %w", err)
 	}
