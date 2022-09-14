@@ -18,7 +18,7 @@ variables:
   # We use Gitaly's Git version by default.
   GIT_VERSION: "default"
   GO_VERSION: "1.18"
-  RUBY_VERSION: "2.7"
+  RUBY_VERSION: "3.0"
   POSTGRES_VERSION: "12.6-alpine"
   PGBOUNCER_VERSION: "1.16.1"
   BUNDLE_PATH: "${CI_PROJECT_DIR}/.ruby"
@@ -194,6 +194,7 @@ test:
       # version in `datastore.CheckPostgresVersion()`.
       - POSTGRES_VERSION: "11.14-alpine"
         TEST_TARGET: [ test, test-with-praefect ]
+      - RUBY_VERSION: ['2.7', '3.0']
 
 test:coverage:
   <<: *test_definition
@@ -277,6 +278,7 @@ test:fips:
     matrix:
       - TEST_TARGET: [ test, test-with-praefect ]
         FIPS_MODE: "YesPlease"
+      - RUBY_VERSION: ['2.7', '3.0']
   rules:
     # When running in a fork of Gitaly we don't have the runners available, and
     # consequentially this job would fail anyway. So we configure the job to be
