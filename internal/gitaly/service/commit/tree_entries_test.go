@@ -3,6 +3,8 @@
 package commit
 
 import (
+	"crypto/sha1"
+	"encoding/hex"
 	"errors"
 	"io"
 	"strconv"
@@ -352,6 +354,7 @@ func TestGetTreeEntries_successful(t *testing.T) {
 		pageToken     string
 		pageLimit     int32
 		cursor        string
+		entryPath     []byte
 		skipFlatPaths bool
 	}{
 		{
@@ -433,23 +436,25 @@ func TestGetTreeEntries_successful(t *testing.T) {
 			entries:     sortedAndPaginated,
 			pageLimit:   4,
 			sortBy:      gitalypb.GetTreeEntriesRequest_TREES_FIRST,
-			cursor:      "fd90a3d2d21d6b4f9bec2c33fb7f49780c55f0d2",
+			cursor:      "1c497fbb3a46b78edf04cc2a2fa33f67e3ffbe2a",
+			entryPath:   sortedAndPaginated[3].Path,
 		},
 		{
 			description: "with pagination parameters",
 			revision:    []byte(commitID),
 			path:        []byte("."),
 			entries:     rootEntries[3:6],
-			pageToken:   "fdaada1754989978413d618ee1fb1c0469d6a664",
+			pageToken:   "7445606fbf8f3683cd42bdc54b05d7a0bc2dfc44",
 			pageLimit:   3,
 			cursor:      rootEntries[5].Oid,
+			entryPath:   rootEntries[5].Path,
 		},
 		{
 			description: "with pagination parameters larger than length",
 			revision:    []byte(commitID),
 			path:        []byte("."),
 			entries:     rootEntries[12:],
-			pageToken:   "b4a3321157f6e80c42b031ecc9ba79f784c8a557",
+			pageToken:   "a1f13b3bc20a296e08c212be9c56c706c10abc4f",
 			pageLimit:   20,
 		},
 		{
@@ -457,14 +462,14 @@ func TestGetTreeEntries_successful(t *testing.T) {
 			revision:    []byte(commitID),
 			path:        []byte("."),
 			entries:     rootEntries[2:],
-			pageToken:   "470ad2fcf1e33798f1afc5781d08e60c40f51e7a",
+			pageToken:   "a5cc2925ca8258af241be7e5b0381edf30266302",
 			pageLimit:   -1,
 		},
 		{
 			description: "with pagination limit of 0",
 			revision:    []byte(commitID),
 			path:        []byte("."),
-			pageToken:   "470ad2fcf1e33798f1afc5781d08e60c40f51e7a",
+			pageToken:   "a5cc2925ca8258af241be7e5b0381edf30266302",
 			pageLimit:   0,
 		},
 		{
@@ -475,6 +480,7 @@ func TestGetTreeEntries_successful(t *testing.T) {
 			entries:     rootEntries[0:2],
 			pageLimit:   2,
 			cursor:      rootEntries[1].Oid,
+			entryPath:   rootEntries[1].Path,
 		},
 	}
 
@@ -504,7 +510,15 @@ func TestGetTreeEntries_successful(t *testing.T) {
 
 			if testCase.pageLimit > 0 && len(testCase.entries) < len(rootEntries) {
 				require.NotNil(t, cursor)
-				require.Equal(t, testCase.cursor, cursor.NextCursor)
+
+				expectedCursor := ""
+
+				if testCase.cursor != "" {
+					shaHash := sha1.Sum(testCase.entryPath)
+					expectedCursor = hex.EncodeToString(shaHash[:])
+				}
+
+				require.Equal(t, expectedCursor, cursor.NextCursor)
 			}
 		})
 	}

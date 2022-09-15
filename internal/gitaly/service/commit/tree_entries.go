@@ -2,6 +2,8 @@ package commit
 
 import (
 	"context"
+	"crypto/sha1"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"sort"
@@ -310,7 +312,7 @@ func paginateTreeEntries(entries []*gitalypb.TreeEntry, p *gitalypb.PaginationPa
 		index = 0
 	} else {
 		for i, entry := range entries {
-			if entry.GetOid() == start {
+			if generateCursor(entry) == start {
 				index = i + 1
 				break
 			}
@@ -330,5 +332,14 @@ func paginateTreeEntries(entries []*gitalypb.TreeEntry, p *gitalypb.PaginationPa
 	}
 
 	paginated := entries[index : index+limit]
-	return paginated, paginated[len(paginated)-1].GetOid(), nil
+	return paginated, generateCursor(paginated[len(paginated)-1]), nil
+}
+
+// Oid is not a unique value and cannot be used for the cursor generation.
+// Instead we use the file name that should be unique
+func generateCursor(entry *gitalypb.TreeEntry) string {
+	h := sha1.New()
+	h.Write(entry.GetPath())
+
+	return hex.EncodeToString(h.Sum(nil))
 }
