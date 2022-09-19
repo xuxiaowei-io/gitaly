@@ -223,10 +223,6 @@ func TestDeleteRefs_refLocked(t *testing.T) {
 func testDeleteRefsRefLocked(t *testing.T, ctx context.Context) {
 	cfg, repoProto, _, client := setupRefService(t, ctx)
 
-	if !gittest.GitSupportsStatusFlushing(t, ctx, cfg) {
-		t.Skip("git does not support flushing yet, which is known to be flaky")
-	}
-
 	request := &gitalypb.DeleteRefsRequest{
 		Repository: repoProto,
 		Refs:       [][]byte{[]byte("refs/heads/master")},

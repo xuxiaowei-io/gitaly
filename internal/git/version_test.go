@@ -124,28 +124,3 @@ func TestVersion_IsSupported(t *testing.T) {
 		})
 	}
 }
-
-func TestVersion_FlushesUpdaterefStatus(t *testing.T) {
-	for _, tc := range []struct {
-		version string
-		expect  bool
-	}{
-		{"2.31.0", false},
-		{"2.31.0-rc0", false},
-		{"2.31.1", false},
-		{"2.37.0", true},
-		{"2.37.0.gl0", true},
-		{"2.37.0.gl2", true},
-		{"2.37.0.gl3", true},
-		{"2.37.0.gl4", true},
-		{"2.33.1", true},
-		{"3.0.0", true},
-		{"3.0.0.gl5", true},
-	} {
-		t.Run(tc.version, func(t *testing.T) {
-			version, err := parseVersion(tc.version)
-			require.NoError(t, err)
-			require.Equal(t, tc.expect, version.FlushesUpdaterefStatus())
-		})
-	}
-}

@@ -73,17 +73,6 @@ func (v Version) IsSupported() bool {
 	return !v.LessThan(minimumVersion)
 }
 
-// FlushesUpdaterefStatus determines whether the given Git version properly flushes status messages
-// in git-update-ref(1).
-func (v Version) FlushesUpdaterefStatus() bool {
-	// This has been released with v2.33.1 and will be part of v2.34.0. It's also contained in
-	// our custom-patched version v2.33.0-gl3. So everything newer than these versions is
-	// supported.
-	return !v.LessThan(Version{
-		major: 2, minor: 33, patch: 0, gl: 3,
-	})
-}
-
 // LessThan determines whether the version is older than another version.
 func (v Version) LessThan(other Version) bool {
 	switch {
