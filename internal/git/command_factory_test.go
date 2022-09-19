@@ -481,55 +481,28 @@ func TestExecCommandFactory_config(t *testing.T) {
 	})
 	require.NoError(t, os.Remove(filepath.Join(repoDir, "config")))
 
-	commonEnv := []string{
+	expectedEnv := []string{
 		"gc.auto=0",
 		"core.autocrlf=input",
 		"core.usereplacerefs=false",
 		"commitgraph.generationversion=1",
+		"core.fsync=objects,derived-metadata,reference",
+		"core.fsyncmethod=fsync",
 	}
 
-	for _, tc := range []struct {
-		desc        string
-		version     string
-		expectedEnv []string
-	}{
-		{
-			desc:        "without support for core.fsync",
-			version:     "2.35.0",
-			expectedEnv: append(commonEnv, "core.fsyncobjectfiles=true"),
-		},
-		{
-			desc:        "with support for core.fsync",
-			version:     "2.36.0",
-			expectedEnv: append(commonEnv, "core.fsync=objects,derived-metadata,reference", "core.fsyncmethod=fsync"),
-		},
-	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			factory := gittest.NewInterceptingCommandFactory(t, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
-				return fmt.Sprintf(
-					`#!/usr/bin/env bash
-					if test "$1" = "version"
-					then
-						echo "git version %s"
-						exit 0
-					fi
-					exec %q "$@"
-				`, tc.version, execEnv.BinaryPath)
-			}, gittest.WithInterceptedVersion())
+	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 
-			var stdout bytes.Buffer
-			cmd, err := factory.New(ctx, repo, git.SubCmd{
-				Name: "config",
-				Flags: []git.Option{
-					git.Flag{Name: "--list"},
-				},
-			}, git.WithStdout(&stdout))
-			require.NoError(t, err)
+	var stdout bytes.Buffer
+	cmd, err := gitCmdFactory.New(ctx, repo, git.SubCmd{
+		Name: "config",
+		Flags: []git.Option{
+			git.Flag{Name: "--list"},
+		},
+	}, git.WithStdout(&stdout))
+	require.NoError(t, err)
 
-			require.NoError(t, cmd.Wait())
-			require.Equal(t, tc.expectedEnv, strings.Split(strings.TrimSpace(stdout.String()), "\n"))
-		})
-	}
+	require.NoError(t, cmd.Wait())
+	require.Equal(t, expectedEnv, strings.Split(strings.TrimSpace(stdout.String()), "\n"))
 }
 
 func TestExecCommandFactory_SidecarGitConfiguration(t *testing.T) {
@@ -559,14 +532,7 @@ func TestExecCommandFactory_SidecarGitConfiguration(t *testing.T) {
 		expectedConfig []git.ConfigPair
 	}{
 		{
-			desc:    "without support for core.fsync",
-			version: "2.35.0",
-			expectedConfig: append(append(commonHead,
-				git.ConfigPair{Key: "core.fsyncObjectFiles", Value: "true"},
-			), commonTail...),
-		},
-		{
-			desc:    "with support for core.fsync",
+			desc:    "with core.fsync",
 			version: "2.36.0",
 			expectedConfig: append(append(commonHead,
 				git.ConfigPair{Key: "core.fsync", Value: "objects,derived-metadata,reference"},
