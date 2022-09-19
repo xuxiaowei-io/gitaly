@@ -16,9 +16,9 @@ import (
 // - https://gitlab.com/gitlab-org/gitlab-foss/blob/master/.gitlab-ci.yml
 // - https://gitlab.com/gitlab-org/gitlab-foss/blob/master/lib/system_check/app/git_version_check.rb
 var minimumVersion = Version{
-	versionString: "2.33.0",
+	versionString: "2.37.0",
 	major:         2,
-	minor:         33,
+	minor:         37,
 	patch:         0,
 	rc:            false,
 
