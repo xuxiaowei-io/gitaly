@@ -92,6 +92,31 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 			},
 		},
 		{
+			desc: "documentation with overrides",
+			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
+				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
+
+				docTree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "readme.md", Mode: "100644", Content: strings.Repeat("a", 500)},
+					{Path: "index.html", Mode: "100644", Content: strings.Repeat("a", 120)},
+					{Path: "formatter.rb", Mode: "100644", Content: strings.Repeat("a", 403)},
+				})
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "docs", Mode: "040000", OID: docTree},
+					gittest.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
+					gittest.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "formatter.rb -linguist-documentation"},
+				))
+
+				return repoProto, repoPath, commitID
+			},
+			expectedStats: ByteCountPerLanguage{
+				"C":    85,
+				"Ruby": 403,
+			},
+		},
+		{
 			desc: "vendor is ignored",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
 				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
@@ -110,6 +135,29 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 			},
 			expectedStats: ByteCountPerLanguage{
 				"C": 85,
+			},
+		},
+		{
+			desc: "vendor with overrides",
+			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
+				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
+
+				vendorTree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "app.rb", Mode: "100644", Content: strings.Repeat("a", 500)},
+				})
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "vendor", Mode: "040000", OID: vendorTree},
+					gittest.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
+					gittest.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "*.rb -linguist-vendored"},
+				))
+
+				return repoProto, repoPath, commitID
+			},
+			expectedStats: ByteCountPerLanguage{
+				"C":    85,
+				"Ruby": 500,
 			},
 		},
 		{
@@ -134,6 +182,29 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 			},
 		},
 		{
+			desc: "generated with overrides",
+			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
+				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
+
+				podsTree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "app.swift", Mode: "100644", Content: strings.Repeat("a", 500)},
+				})
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "Pods", Mode: "040000", OID: podsTree},
+					gittest.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
+					gittest.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "Pods/* -linguist-generated"},
+				))
+
+				return repoProto, repoPath, commitID
+			},
+			expectedStats: ByteCountPerLanguage{
+				"C":     85,
+				"Swift": 500,
+			},
+		},
+		{
 			desc: "undetectable languages are ignored",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
 				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
@@ -150,6 +221,124 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 			},
 			expectedStats: ByteCountPerLanguage{
 				"C": 85,
+			},
+		},
+		{
+			desc: "undetectable languages with overrides",
+			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
+				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "config.json", Mode: "100644", Content: strings.Repeat("a", 234)},
+					gittest.TreeEntry{Path: "manual.md", Mode: "100644", Content: strings.Repeat("a", 553)},
+					gittest.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
+					gittest.TreeEntry{
+						Path: ".gitattributes",
+						Mode: "100644",
+						Content: "*.md linguist-detectable\n" +
+							"*.json linguist-detectable\n",
+					},
+				))
+
+				return repoProto, repoPath, commitID
+			},
+			expectedStats: ByteCountPerLanguage{
+				"C":        85,
+				"JSON":     234,
+				"Markdown": 553,
+			},
+		},
+		{
+			desc: "file specific documentation override",
+			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
+				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
+
+				docTree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "readme.md", Mode: "100644", Content: strings.Repeat("a", 500)},
+					{Path: "index.html", Mode: "100644", Content: strings.Repeat("a", 120)},
+					{Path: "formatter.rb", Mode: "100644", Content: strings.Repeat("a", 403)},
+				})
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "docu", Mode: "040000", OID: docTree},
+					gittest.TreeEntry{
+						Path: ".gitattributes",
+						Mode: "100644",
+						Content: "docu/* linguist-documentation\n" +
+							"docu/formatter.rb -linguist-documentation",
+					},
+				))
+
+				return repoProto, repoPath, commitID
+			},
+			expectedStats: ByteCountPerLanguage{
+				"Ruby": 403,
+			},
+		},
+		{
+			desc: "detectable overrides",
+			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
+				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "keeb.kicad_pcb", Mode: "100644", Content: strings.Repeat("a", 500)},
+					gittest.TreeEntry{Path: "keeb.sch", Mode: "100644", Content: strings.Repeat("a", 120)},
+					gittest.TreeEntry{Path: "export_bom.py", Mode: "100644", Content: strings.Repeat("a", 403)},
+					gittest.TreeEntry{
+						Path: ".gitattributes",
+						Mode: "100644",
+						Content: "*.kicad_pcb linguist-detectable\n" +
+							"*.sch linguist-detectable\n" +
+							"export_bom.py -linguist-detectable",
+					},
+				))
+
+				return repoProto, repoPath, commitID
+			},
+			expectedStats: ByteCountPerLanguage{
+				"KiCad Layout": 500,
+				"XML":          120,
+			},
+		},
+		{
+			desc: "double star file pattern documentation override",
+			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
+				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
+
+				subSubTree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "first.rb", Mode: "100644", Content: strings.Repeat("a", 483)},
+					{Path: "second.rb", Mode: "100644", Content: strings.Repeat("a", 888)},
+				})
+
+				subTree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "main.rb", Mode: "100644", Content: strings.Repeat("a", 500)},
+					{Path: "formatter.rb", Mode: "100644", Content: strings.Repeat("a", 120)},
+					{Path: "example", Mode: "040000", OID: subSubTree},
+				})
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "scripts", Mode: "040000", OID: subTree},
+					gittest.TreeEntry{Path: "run.rb", Mode: "100644", Content: strings.Repeat("a", 55)},
+					gittest.TreeEntry{
+						Path: ".gitattributes",
+						Mode: "100644",
+						Content: "scripts/** linguist-documentation\n" +
+							"scripts/formatter.rb -linguist-documentation",
+					},
+				))
+
+				return repoProto, repoPath, commitID
+			},
+			expectedStats: ByteCountPerLanguage{
+				"Ruby": 175,
 			},
 		},
 		{

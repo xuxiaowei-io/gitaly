@@ -8,8 +8,10 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/go-enry/go-enry/v2"
+	"github.com/go-git/go-git/v5/plumbing/format/gitattributes"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
@@ -119,12 +121,17 @@ func (inst *Instance) enryStats(ctx context.Context, commitID string) (ByteCount
 	}
 	defer cancel()
 
+	attrMatcher, err := inst.newAttrMatcher(ctx, objectReader, commitID)
+	if err != nil {
+		return nil, fmt.Errorf("linguist new attribute matcher: %w", err)
+	}
+
 	var revlistIt gitpipe.RevisionIterator
 
 	if stats.CommitID == "" {
 		skipFunc := func(result *gitpipe.RevisionResult) bool {
 			// Skip files that are an excluded filetype based on filename.
-			return newFileInstance(string(result.ObjectName)).IsExcluded()
+			return newFileInstance(string(result.ObjectName), attrMatcher).IsExcluded()
 		}
 
 		// No existing stats cached, so get all the files for the commit
@@ -143,7 +150,7 @@ func (inst *Instance) enryStats(ctx context.Context, commitID string) (ByteCount
 			// Skip files that are deleted, or
 			// an excluded filetype based on filename.
 			if git.ObjectHashSHA1.IsZeroOID(result.OID) ||
-				newFileInstance(string(result.ObjectName)).IsExcluded() {
+				newFileInstance(string(result.ObjectName), attrMatcher).IsExcluded() {
 				// It's a little bit of a hack to use this skip
 				// function, but for every file that's deleted,
 				// remove the stats.
@@ -170,7 +177,7 @@ func (inst *Instance) enryStats(ctx context.Context, commitID string) (ByteCount
 		object := objectIt.Result()
 		filename := string(object.ObjectName)
 
-		lang, size, err := newFileInstance(filename).DetermineStats(object)
+		lang, size, err := newFileInstance(filename, attrMatcher).DetermineStats(object)
 		if err != nil {
 			return nil, fmt.Errorf("linguist determine stats: %w", err)
 		}
@@ -198,4 +205,32 @@ func (inst *Instance) enryStats(ctx context.Context, commitID string) (ByteCount
 	}
 
 	return stats.Totals, nil
+}
+
+func (inst *Instance) newAttrMatcher(ctx context.Context, objectReader catfile.ObjectReader, commitID string) (gitattributes.Matcher, error) {
+	var gitattrObject io.Reader
+	var err error
+
+	gitattrObject, err = objectReader.Object(ctx, git.Revision(commitID+":.gitattributes"))
+	if catfile.IsNotFound(err) {
+		gitattrObject = strings.NewReader("")
+	} else if err != nil {
+		return nil, fmt.Errorf("read .gitattributes: %w", err)
+	}
+
+	attrs, err := gitattributes.ReadAttributes(gitattrObject, nil, true)
+	if err != nil {
+		return nil, fmt.Errorf("read attr: %w", err)
+	}
+
+	// Reverse the slice because of a bug in go-git, see
+	// https://github.com/go-git/go-git/pull/585
+	attrsLen := len(attrs)
+	attrsMid := attrsLen / 2
+	for i := 0; i < attrsMid; i++ {
+		j := attrsLen - i - 1
+		attrs[i], attrs[j] = attrs[j], attrs[i]
+	}
+
+	return gitattributes.NewMatcher(attrs), nil
 }
