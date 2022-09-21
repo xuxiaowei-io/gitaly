@@ -3,7 +3,6 @@
 package operations
 
 import (
-	"context"
 	"fmt"
 	"path/filepath"
 	"testing"
@@ -17,7 +16,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
@@ -132,12 +130,8 @@ func writeAssertObjectTypeUpdateHook(t *testing.T, repoPath, expectedObjectType 
 
 func TestUserCreateTag_successful(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCreateTagStructuredErrors).Run(t, testUserCreateTagSuccessful)
-}
 
-func testUserCreateTagSuccessful(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg)
@@ -212,12 +206,8 @@ func testUserCreateTagSuccessful(t *testing.T, ctx context.Context) {
 
 func TestUserCreateTag_transactional(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCreateTagStructuredErrors).Run(t, testUserCreateTagTransactional)
-}
 
-func testUserCreateTagTransactional(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 	cfg.SocketPath = runOperationServiceServer(t, cfg, testserver.WithDisablePraefect())
 
@@ -332,12 +322,8 @@ func testUserCreateTagTransactional(t *testing.T, ctx context.Context) {
 
 func TestUserCreateTag_quarantine(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCreateTagStructuredErrors).Run(t, testUserCreateTagQuarantine)
-}
 
-func testUserCreateTagQuarantine(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg)
@@ -377,27 +363,18 @@ tagger Jane Doe <janedoe@gitlab.com> 1600000000 +0800
 
 message`, commitID)
 
-	if featureflag.UserCreateTagStructuredErrors.IsEnabled(ctx) {
-		testhelper.RequireGrpcError(t, errWithDetails(t,
-			helper.ErrPermissionDeniedf("reference update denied by custom hooks"),
-			&gitalypb.UserCreateTagError{
-				Error: &gitalypb.UserCreateTagError_CustomHook{
-					CustomHook: &gitalypb.CustomHookError{
-						HookType: gitalypb.CustomHookError_HOOK_TYPE_PRERECEIVE,
-						Stdout:   []byte(expectedObject),
-					},
+	testhelper.RequireGrpcError(t, errWithDetails(t,
+		helper.ErrPermissionDeniedf("reference update denied by custom hooks"),
+		&gitalypb.UserCreateTagError{
+			Error: &gitalypb.UserCreateTagError_CustomHook{
+				CustomHook: &gitalypb.CustomHookError{
+					HookType: gitalypb.CustomHookError_HOOK_TYPE_PRERECEIVE,
+					Stdout:   []byte(expectedObject),
 				},
 			},
-		), err)
-		require.Nil(t, response)
-	} else {
-		require.NoError(t, err)
-		// Conveniently, the pre-receive error will now contain output from our custom hook and thus
-		// the tag's contents.
-		testhelper.ProtoEqual(t, &gitalypb.UserCreateTagResponse{
-			PreReceiveError: expectedObject,
-		}, response)
-	}
+		},
+	), err)
+	require.Nil(t, response)
 
 	tagID := text.ChompBytes(testhelper.MustReadFile(t, tagIDOutputPath))
 
@@ -410,12 +387,8 @@ message`, commitID)
 
 func TestUserCreateTag_message(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCreateTagStructuredErrors).Run(t, testUserCreateTagMessage)
-}
 
-func testUserCreateTagMessage(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	for _, tc := range []struct {
@@ -510,12 +483,8 @@ func testUserCreateTagMessage(t *testing.T, ctx context.Context) {
 
 func TestUserCreateTag_targetRevision(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCreateTagStructuredErrors).Run(t, testUserCreateTagTargetRevision)
-}
 
-func testUserCreateTagTargetRevision(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	for _, tc := range []struct {
@@ -614,12 +583,8 @@ func testUserCreateTagTargetRevision(t *testing.T, ctx context.Context) {
 
 func TestUserCreateTag_nonCommitTarget(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCreateTagStructuredErrors).Run(t, testUserCreateTagNonCommitTarget)
-}
 
-func testUserCreateTagNonCommitTarget(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
@@ -711,12 +676,8 @@ func testUserCreateTagNonCommitTarget(t *testing.T, ctx context.Context) {
 
 func TestUserCreateTag_nestedTags(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCreateTagStructuredErrors).Run(t, testUserCreateTagNestedTags)
-}
 
-func testUserCreateTagNestedTags(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -830,12 +791,8 @@ func testUserCreateTagNestedTags(t *testing.T, ctx context.Context) {
 
 func TestUserCreateTag_stableTagIDs(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCreateTagStructuredErrors).Run(t, testUserCreateTagStableTagIDs)
-}
 
-func testUserCreateTagStableTagIDs(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg)
@@ -910,12 +867,8 @@ func TestUserDeleteTag_prefixedTag(t *testing.T) {
 
 func TestUserCreateTag_prefixedTag(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCreateTagStructuredErrors).Run(t, testUserCreateTagPrefixedTag)
-}
 
-func testUserCreateTagPrefixedTag(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg)
@@ -950,12 +903,8 @@ func testUserCreateTagPrefixedTag(t *testing.T, ctx context.Context) {
 
 func TestUserCreateTag_gitHooks(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCreateTagStructuredErrors).Run(t, testUserCreateTagGitHooks)
-}
 
-func testUserCreateTagGitHooks(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	for _, hookName := range GitlabHooks {
@@ -1096,12 +1045,8 @@ func TestUserDeleteTag_hookFailure(t *testing.T) {
 
 func TestUserCreateTag_hookFailure(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCreateTagStructuredErrors).Run(t, testUserCreateTagHookFailure)
-}
 
-func testUserCreateTagHookFailure(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	for _, tc := range []struct {
@@ -1131,37 +1076,28 @@ func testUserCreateTagHookFailure(t *testing.T, ctx context.Context) {
 				TargetRevision: []byte(commitID),
 				User:           gittest.TestUser,
 			})
-			if featureflag.UserCreateTagStructuredErrors.IsEnabled(ctx) {
-				testhelper.RequireGrpcError(t, errWithDetails(t,
-					helper.ErrPermissionDeniedf("reference update denied by custom hooks"),
-					&gitalypb.UserCreateTagError{
-						Error: &gitalypb.UserCreateTagError_CustomHook{
-							CustomHook: &gitalypb.CustomHookError{
-								HookType: tc.hookType,
-								Stdout: []byte(
-									"GL_ID=" + gittest.TestUser.GlId + "\n",
-								),
-							},
+			testhelper.RequireGrpcError(t, errWithDetails(t,
+				helper.ErrPermissionDeniedf("reference update denied by custom hooks"),
+				&gitalypb.UserCreateTagError{
+					Error: &gitalypb.UserCreateTagError_CustomHook{
+						CustomHook: &gitalypb.CustomHookError{
+							HookType: tc.hookType,
+							Stdout: []byte(
+								"GL_ID=" + gittest.TestUser.GlId + "\n",
+							),
 						},
 					},
-				), err)
-				require.Nil(t, response)
-			} else {
-				require.NoError(t, err)
-				require.Contains(t, response.PreReceiveError, "GL_ID="+gittest.TestUser.GlId)
-			}
+				},
+			), err)
+			require.Nil(t, response)
 		})
 	}
 }
 
 func TestUserCreateTag_preexisting(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCreateTagStructuredErrors).Run(t, testUserCreateTagPreexisting)
-}
 
-func testUserCreateTagPreexisting(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
@@ -1181,32 +1117,17 @@ func testUserCreateTagPreexisting(t *testing.T, ctx context.Context) {
 			tagName:        "v1.1.0",
 			targetRevision: commitID.String(),
 			user:           gittest.TestUser,
-			expectedErr: func() error {
-				if featureflag.UserCreateTagStructuredErrors.IsDisabled(ctx) {
-					return nil
-				}
-
-				return errWithDetails(t,
-					helper.ErrAlreadyExistsf("tag reference exists already"),
-					&gitalypb.UserCreateTagError{
-						Error: &gitalypb.UserCreateTagError_ReferenceExists{
-							ReferenceExists: &gitalypb.ReferenceExistsError{
-								ReferenceName: []byte("refs/tags/v1.1.0"),
-								Oid:           commitID.String(),
-							},
+			expectedErr: errWithDetails(t,
+				helper.ErrAlreadyExistsf("tag reference exists already"),
+				&gitalypb.UserCreateTagError{
+					Error: &gitalypb.UserCreateTagError_ReferenceExists{
+						ReferenceExists: &gitalypb.ReferenceExistsError{
+							ReferenceName: []byte("refs/tags/v1.1.0"),
+							Oid:           commitID.String(),
 						},
 					},
-				)
-			}(),
-			expectedResponse: func() *gitalypb.UserCreateTagResponse {
-				if featureflag.UserCreateTagStructuredErrors.IsEnabled(ctx) {
-					return nil
-				}
-
-				return &gitalypb.UserCreateTagResponse{
-					Exists: true,
-				}
-			}(),
+				},
+			),
 		},
 		{
 			desc:           "existing tag nonexisting target revision",
@@ -1231,12 +1152,8 @@ func testUserCreateTagPreexisting(t *testing.T, ctx context.Context) {
 
 func TestUserCreateTag_invalidArgument(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCreateTagStructuredErrors).Run(t, testUserCreateTagInvalidArgument)
-}
 
-func testUserCreateTagInvalidArgument(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
@@ -1344,12 +1261,8 @@ func testUserCreateTagInvalidArgument(t *testing.T, ctx context.Context) {
 
 func TestTagHookOutput(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCreateTagStructuredErrors).Run(t, testTagHookOutput)
-}
 
-func testTagHookOutput(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	for _, tc := range []struct {
@@ -1430,29 +1343,19 @@ func testTagHookOutput(t *testing.T, ctx context.Context) {
 				hookFilename := gittest.WriteCustomHook(t, repoPath, hookTC.hook, []byte(tc.hookContent))
 
 				createResponse, err := client.UserCreateTag(ctx, createRequest)
-				if featureflag.UserCreateTagStructuredErrors.IsEnabled(ctx) {
-					testhelper.RequireGrpcError(t, errWithDetails(t,
-						helper.ErrPermissionDeniedf("reference update denied by custom hooks"),
-						&gitalypb.UserCreateTagError{
-							Error: &gitalypb.UserCreateTagError_CustomHook{
-								CustomHook: &gitalypb.CustomHookError{
-									HookType: hookTC.hookType,
-									Stdout:   []byte(tc.expectedStdout),
-									Stderr:   []byte(tc.expectedStderr),
-								},
+				testhelper.RequireGrpcError(t, errWithDetails(t,
+					helper.ErrPermissionDeniedf("reference update denied by custom hooks"),
+					&gitalypb.UserCreateTagError{
+						Error: &gitalypb.UserCreateTagError_CustomHook{
+							CustomHook: &gitalypb.CustomHookError{
+								HookType: hookTC.hookType,
+								Stdout:   []byte(tc.expectedStdout),
+								Stderr:   []byte(tc.expectedStderr),
 							},
 						},
-					), err)
-					require.Nil(t, createResponse)
-				} else {
-					require.NoError(t, err)
-
-					testhelper.ProtoEqual(t, &gitalypb.UserCreateTagResponse{
-						Tag:             createResponse.Tag,
-						Exists:          false,
-						PreReceiveError: tc.expectedErr(hookFilename),
-					}, createResponse)
-				}
+					},
+				), err)
+				require.Nil(t, createResponse)
 
 				defer gittest.Exec(t, cfg, "-C", repoPath, "tag", "-d", tagNameInput)
 				gittest.Exec(t, cfg, "-C", repoPath, "tag", tagNameInput)
