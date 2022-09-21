@@ -16,7 +16,7 @@ const (
 	// a cached version of the language statistics. The name is
 	// intentionally different from what the linguist gem uses.
 	languageStatsFilename = "gitaly-language.stats"
-	languageStatsVersion  = "v2:gitaly"
+	languageStatsVersion  = "v3:gitaly"
 )
 
 // languageStats takes care of accumulating and caching language statistics for
