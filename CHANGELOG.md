@@ -1,5 +1,28 @@
 # Gitaly changelog
 
+## 15.4.0 (2022-09-21)
+
+### Added (1 change)
+
+- [praefect: Add 'track-repositories' subcommand](gitlab-org/gitaly@69420b517a18582cfefeab4297c0ac2456b96de8) ([merge request](gitlab-org/gitaly!4845))
+
+### Fixed (2 changes)
+
+- [featureflag: Add more constraint to flag name](gitlab-org/gitaly@b619bfb798e6ad9924f82dbe337a1ac6133a1fd6) by @blanet ([merge request](gitlab-org/gitaly!4793))
+- [Fix Repository SearchFilesByName not handle non-ASCII file names well](gitlab-org/gitaly@8ba76ca0cd834574e9db2d611a8152457f8e82d0) ([merge request](gitlab-org/gitaly!4827))
+
+### Changed (4 changes)
+
+- [repository: Use git-cat-file to calculate repository size](gitlab-org/gitaly@62fa713f85a6fdc13fb6d330aadfc10b9f2df460) ([merge request](gitlab-org/gitaly!4797))
+- [Update rack and rouge gems to match GitLab Rails](gitlab-org/gitaly@94bdfbe63229ce05d0bf2c5e6bd867e415de6af9) ([merge request](gitlab-org/gitaly!4817))
+- [Update ffi gem to v1.15.5](gitlab-org/gitaly@03b47d49bc11adcc8398947a632e3e41266a2cc8) ([merge request](gitlab-org/gitaly!4816))
+- [Update pg_query gem to v2.1.3](gitlab-org/gitaly@3365f28c76212f1664f5fc1e6934abd1d065c83c) ([merge request](gitlab-org/gitaly!4815))
+
+### Other (2 changes)
+
+- [Public Grafana dashboards does not exist any more](gitlab-org/gitaly@ef80fcf20a02fa6fd4010d50d8a7cfa030b5b39c) ([merge request](gitlab-org/gitaly!4831))
+- [Add support for MulanPSL-2.0 in license detection](gitlab-org/gitaly@5a64218610feb05b833647b4e703386b2d1564f0) ([merge request](gitlab-org/gitaly!4825))
+
 ## 15.3.3 (2022-09-01)
 
 No changes.
