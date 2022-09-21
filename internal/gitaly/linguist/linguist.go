@@ -128,14 +128,21 @@ func (inst *Instance) enryStats(ctx context.Context, commitID string) (ByteCount
 
 	var revlistIt gitpipe.RevisionIterator
 
-	if stats.CommitID == "" {
+	full, err := inst.needsFullRecalculation(ctx, stats.CommitID, commitID)
+	if err != nil {
+		return nil, fmt.Errorf("linguist cannot determine full recalculation: %w", err)
+	}
+
+	if full {
+		stats = newLanguageStats()
+
 		skipFunc := func(result *gitpipe.RevisionResult) bool {
 			// Skip files that are an excluded filetype based on filename.
 			return newFileInstance(string(result.ObjectName), attrMatcher).IsExcluded()
 		}
 
-		// No existing stats cached, so get all the files for the commit
-		// using git-ls-tree(1).
+		// Full recalculation is needed, so get all the files for the
+		// commit using git-ls-tree(1).
 		revlistIt = gitpipe.LsTree(ctx, inst.repo,
 			commitID,
 			gitpipe.LsTreeWithRecursive(),
@@ -233,4 +240,25 @@ func (inst *Instance) newAttrMatcher(ctx context.Context, objectReader catfile.O
 	}
 
 	return gitattributes.NewMatcher(attrs), nil
+}
+
+func (inst *Instance) needsFullRecalculation(ctx context.Context, cachedID, commitID string) (bool, error) {
+	if cachedID == "" {
+		return true, nil
+	}
+
+	err := inst.repo.ExecAndWait(ctx, git.SubCmd{
+		Name:        "diff",
+		Flags:       []git.Option{git.Flag{Name: "--quiet"}},
+		Args:        []string{fmt.Sprintf("%v..%v", cachedID, commitID)},
+		PostSepArgs: []string{".gitattributes"},
+	})
+	if err == nil {
+		return false, nil
+	}
+	if code, ok := command.ExitStatus(err); ok && code == 1 {
+		return true, nil
+	}
+
+	return true, fmt.Errorf("git diff .gitattributes: %w", err)
 }

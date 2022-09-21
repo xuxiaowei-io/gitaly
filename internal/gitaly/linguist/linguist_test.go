@@ -393,6 +393,39 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 			},
 		},
 		{
+			desc: "preexisting cache with .gitattributes modified",
+			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
+				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "webpack.coffee", Mode: "100644", Content: strings.Repeat("a", 107)},
+					gittest.TreeEntry{Path: "show_user.html", Mode: "100644", Content: strings.Repeat("a", 349)},
+					gittest.TreeEntry{Path: "api.javascript", Mode: "100644", Content: strings.Repeat("a", 1014)},
+					gittest.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "*.html linguist-vendored"},
+				))
+				repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+				_, err := New(cfg, catfileCache, repo).Stats(ctx, commitID.String())
+				require.NoError(t, err)
+				require.FileExists(t, filepath.Join(repoPath, languageStatsFilename))
+
+				commitID = gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "webpack.coffee", Mode: "100644", Content: strings.Repeat("a", 107)},
+					gittest.TreeEntry{Path: "show_user.html", Mode: "100644", Content: strings.Repeat("a", 349)},
+					gittest.TreeEntry{Path: "api.javascript", Mode: "100644", Content: strings.Repeat("a", 1014)},
+					gittest.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "*.coffee linguist-vendored"},
+				))
+
+				return repoProto, repoPath, commitID
+			},
+			expectedStats: ByteCountPerLanguage{
+				"HTML":       349,
+				"JavaScript": 1014,
+			},
+		},
+		{
 			desc: "corrupted cache",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
 				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
