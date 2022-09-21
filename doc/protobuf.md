@@ -129,6 +129,16 @@ Common concepts that can be considered:
   with ambiguity and makes it possible to use RPCs for references which are not
   branches.
 
+RPCs should not implement business-specific logic and policy, but should only
+provide the means to handle data in the problem-domain of Gitaly and/or
+Praefect. The goal of this is to ensure that the Gitaly project creates an
+interface to manage Git data, but does not make business decisions around how to
+manage the data.
+
+For example, Gitaly can provide a robust and efficient set of APIs to move Git
+repositories between storage solutions, but it would be up to the calling
+application to decide when such moves should occur.
+
 ### RPC naming conventions
 
 Gitaly has RPCs that are resource based, for example when querying for a commit.
