@@ -196,7 +196,10 @@ func run(cfg config.Cfg) error {
 	}
 
 	skipHooks, _ := env.GetBool("GITALY_TESTING_NO_GIT_HOOKS", false)
-	var commandFactoryOpts []git.ExecCommandFactoryOption
+	commandFactoryOpts := []git.ExecCommandFactoryOption{
+		git.WithGitalyPid(os.Getpid()),
+	}
+
 	if skipHooks {
 		commandFactoryOpts = append(commandFactoryOpts, git.WithSkipHooks())
 	}
