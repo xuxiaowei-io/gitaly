@@ -75,7 +75,7 @@ func WriteCommitGraph(ctx context.Context, repo *localrepo.Repo, cfg WriteCommit
 		Action: "write",
 		Flags:  flags,
 	}, git.WithStderr(&stderr)); err != nil {
-		return helper.ErrInternalf("writing commit-graph: %s: %v", err, stderr.String())
+		return helper.ErrInternalf("writing commit-graph: %w: %v", err, stderr.String())
 	}
 
 	return nil
