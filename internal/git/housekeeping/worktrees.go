@@ -14,8 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 )
 
 const (
@@ -30,11 +29,11 @@ func CleanupWorktrees(ctx context.Context, repo *localrepo.Repo) error {
 
 	worktreeThreshold := time.Now().Add(-6 * time.Hour)
 	if err := cleanStaleWorktrees(ctx, repo, worktreeThreshold); err != nil {
-		return status.Errorf(codes.Internal, "Cleanup: cleanStaleWorktrees: %v", err)
+		return helper.ErrInternalf("cleanStaleWorktrees: %w", err)
 	}
 
 	if err := cleanDisconnectedWorktrees(ctx, repo); err != nil {
-		return status.Errorf(codes.Internal, "Cleanup: cleanDisconnectedWorktrees: %v", err)
+		return helper.ErrInternalf("cleanDisconnectedWorktrees: %w", err)
 	}
 
 	return nil
