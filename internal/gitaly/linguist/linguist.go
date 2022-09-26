@@ -162,7 +162,7 @@ func (inst *Instance) enryStats(ctx context.Context, commitID string) (ByteCount
 		object := objectIt.Result()
 		filename := string(object.ObjectName)
 
-		lang, size, err := inst.determineStats(filename, object)
+		lang, size, err := newFileInstance(filename).DetermineStats(object)
 		if err != nil {
 			return nil, fmt.Errorf("linguist determine stats: %w", err)
 		}
@@ -190,27 +190,4 @@ func (inst *Instance) enryStats(ctx context.Context, commitID string) (ByteCount
 	}
 
 	return stats.Totals, nil
-}
-
-// determineStats determines the size and language of the given file. The
-// language will be an empty string when the stats should be omitted from the
-// count.
-func (inst *Instance) determineStats(filename string, object gitpipe.CatfileObjectResult) (string, uint64, error) {
-	// Read arbitrary number of bytes considered enough to determine language
-	content, err := io.ReadAll(io.LimitReader(object, 2048))
-	if err != nil {
-		return "", 0, fmt.Errorf("determine stats read blob: %w", err)
-	}
-
-	lang := enry.GetLanguage(filename, content)
-
-	// Ignore anything that's neither markup nor a programming language,
-	// similar to what the linguist gem does:
-	// https://github.com/github/linguist/blob/v7.20.0/lib/linguist/blob_helper.rb#L378-L387
-	if enry.GetLanguageType(lang) != enry.Programming &&
-		enry.GetLanguageType(lang) != enry.Markup {
-		return "", 0, nil
-	}
-
-	return lang, uint64(object.Object.ObjectSize()), nil
 }
