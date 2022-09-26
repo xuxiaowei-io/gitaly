@@ -3,6 +3,7 @@ package internalrefs
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -147,7 +148,7 @@ func buildLookupTable(ctx context.Context, repo git.RepositoryExecutor) (map[str
 		parts := strings.SplitN(line, " ", 2)
 		if len(parts) != 2 || len(parts[0]) != 40 {
 			logger.WithFields(log.Fields{"line": line}).Warn("failed to parse git refs")
-			return nil, fmt.Errorf("failed to parse git refs")
+			return nil, errors.New("failed to parse git refs")
 		}
 
 		out[parts[0]] = append(out[parts[0]], git.ReferenceName(parts[1]))

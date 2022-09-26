@@ -2,6 +2,7 @@ package notifier
 
 import (
 	"context"
+	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
@@ -20,7 +21,7 @@ type Notifier struct {
 func New(ctx context.Context, catfileCache catfile.Cache, repo git.RepositoryExecutor, chunker *chunk.Chunker) (*Notifier, func(), error) {
 	objectInfoReader, cancel, err := catfileCache.ObjectInfoReader(ctx, repo)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("creating object info reader: %w", err)
 	}
 
 	return &Notifier{objectInfoReader: objectInfoReader, chunker: chunker}, cancel, nil
