@@ -62,10 +62,8 @@ func TestPruneOldGitalyProcessDirectories(t *testing.T) {
 		prunableDirs = append(prunableDirs, rootRuntimeDir)
 
 		// Create an unexpected file in the runtime directory
-		unexpectedFilePath := filepath.Join(baseDir, "unexpected-file")
-		require.NoError(t, os.WriteFile(unexpectedFilePath, []byte(""), os.ModePerm))
-		expectedLogs[unexpectedFilePath] = "could not prune entry"
-		expectedErrs[unexpectedFilePath] = errors.New("gitaly process directory contains an unexpected file")
+		file := filepath.Join(baseDir, "file")
+		require.NoError(t, os.WriteFile(file, []byte(""), os.ModePerm))
 
 		nonPrunableDirs := []string{ownRuntimeDir}
 
@@ -100,7 +98,7 @@ func TestPruneOldGitalyProcessDirectories(t *testing.T) {
 		require.Equal(t, expectedLogs, actualLogs)
 		require.Equal(t, expectedErrs, actualErrs)
 
-		require.FileExists(t, unexpectedFilePath)
+		require.FileExists(t, file)
 
 		for _, nonPrunableEntry := range nonPrunableDirs {
 			require.DirExists(t, nonPrunableEntry, nonPrunableEntry)

@@ -26,8 +26,7 @@ func PruneOldGitalyProcessDirectories(log log.FieldLogger, directory string) err
 		log := log.WithField("path", filepath.Join(directory, entry.Name()))
 		if err := func() error {
 			if !entry.IsDir() {
-				// There should be no files, only the gitaly process directories.
-				return errors.New("gitaly process directory contains an unexpected file")
+				return nil
 			}
 
 			components := strings.Split(entry.Name(), "-")
