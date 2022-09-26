@@ -4,7 +4,7 @@ package blob
 
 import (
 	"bytes"
-	"fmt"
+	"errors"
 	"io"
 	"strconv"
 	"testing"
@@ -121,10 +121,10 @@ func getBlob(stream gitalypb.BlobService_GetBlobClient) (int64, string, []byte, 
 	reader := streamio.NewReader(func() ([]byte, error) {
 		response, err := stream.Recv()
 		if response.GetSize() != 0 {
-			return nil, fmt.Errorf("size may only be set in the first response message")
+			return nil, errors.New("size may only be set in the first response message")
 		}
 		if len(response.GetOid()) != 0 {
-			return nil, fmt.Errorf("oid may only be set in the first response message")
+			return nil, errors.New("oid may only be set in the first response message")
 		}
 		return response.GetData(), err
 	})

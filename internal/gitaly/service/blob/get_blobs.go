@@ -3,7 +3,6 @@ package blob
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"io"
 
 	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
@@ -163,13 +162,13 @@ func (s *server) GetBlobs(req *gitalypb.GetBlobsRequest, stream gitalypb.BlobSer
 
 	objectReader, cancel, err := s.catfileCache.ObjectReader(stream.Context(), repo)
 	if err != nil {
-		return helper.ErrInternal(fmt.Errorf("creating object reader: %w", err))
+		return helper.ErrInternalf("creating object reader: %w", err)
 	}
 	defer cancel()
 
 	objectInfoReader, cancel, err := s.catfileCache.ObjectInfoReader(stream.Context(), repo)
 	if err != nil {
-		return helper.ErrInternal(fmt.Errorf("creating object info reader: %w", err))
+		return helper.ErrInternalf("creating object info reader: %w", err)
 	}
 	defer cancel()
 

@@ -101,7 +101,7 @@ func (s *server) processBlobs(
 		if catfileInfoIter == nil {
 			objectInfoReader, cancel, err := s.catfileCache.ObjectInfoReader(ctx, repo)
 			if err != nil {
-				return helper.ErrInternal(fmt.Errorf("creating object info reader: %w", err))
+				return helper.ErrInternalf("creating object info reader: %w", err)
 			}
 			defer cancel()
 
@@ -136,7 +136,7 @@ func (s *server) processBlobs(
 	} else {
 		objectReader, cancel, err := s.catfileCache.ObjectReader(ctx, repo)
 		if err != nil {
-			return helper.ErrInternal(fmt.Errorf("creating object reader: %w", err))
+			return helper.ErrInternalf("creating object reader: %w", err)
 		}
 		defer cancel()
 
