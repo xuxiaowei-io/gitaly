@@ -21,6 +21,7 @@ const (
 	sidechannelSocket = "sidechannel"
 )
 
+// ErrInvalidSidechannelAddress is returned by GetSidechannel if improper address is used.
 type ErrInvalidSidechannelAddress struct{ string }
 
 func (e *ErrInvalidSidechannelAddress) Error() string {

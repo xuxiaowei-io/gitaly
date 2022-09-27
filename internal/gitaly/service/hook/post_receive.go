@@ -17,7 +17,7 @@ func postReceiveHookResponse(stream gitalypb.HookService_PostReceiveHookServer, 
 		ExitStatus: &gitalypb.ExitStatus{Value: code},
 		Stderr:     []byte(stderr),
 	}); err != nil {
-		return helper.ErrInternalf("sending response: %v", err)
+		return helper.ErrInternalf("sending response: %w", err)
 	}
 
 	return nil
