@@ -1,6 +1,7 @@
 package commit
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"sort"
@@ -38,7 +39,7 @@ func (s *server) listLastCommitsForTree(in *gitalypb.ListLastCommitsForTreeReque
 	repo := s.localrepo(in.GetRepository())
 	objectReader, cancel, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
-		return err
+		return fmt.Errorf("creating object reader: %w", err)
 	}
 	defer cancel()
 
@@ -147,10 +148,10 @@ func validateListLastCommitsForTreeRequest(in *gitalypb.ListLastCommitsForTreeRe
 		return err
 	}
 	if in.GetOffset() < 0 {
-		return fmt.Errorf("offset negative")
+		return errors.New("offset negative")
 	}
 	if in.GetLimit() < 0 {
-		return fmt.Errorf("limit negative")
+		return errors.New("limit negative")
 	}
 	return nil
 }

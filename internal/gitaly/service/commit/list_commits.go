@@ -42,7 +42,7 @@ func (s *server) ListCommits(
 
 	objectReader, cancel, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
-		return helper.ErrInternal(fmt.Errorf("creating object reader: %w", err))
+		return helper.ErrInternalf("creating object reader: %w", err)
 	}
 	defer cancel()
 
@@ -113,7 +113,7 @@ func (s *server) ListCommits(
 
 	catfileObjectIter, err := gitpipe.CatfileObject(ctx, objectReader, revlistIter)
 	if err != nil {
-		return err
+		return helper.ErrInternalf("crate cat-file object iterator: %w", err)
 	}
 
 	chunker := chunk.New(&commitsSender{

@@ -265,7 +265,7 @@ func TestFailedFindCommitRequest(t *testing.T) {
 			repo:     invalidRepo,
 			revision: []byte("master"),
 			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
-				"GetStorageByName: no such storage: \"fake\"",
+				`read commit: GetStorageByName: no such storage: "fake"`,
 				"repo scoped: invalid Repository",
 			)),
 		},

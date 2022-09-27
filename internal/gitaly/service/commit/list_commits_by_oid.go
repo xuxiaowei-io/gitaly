@@ -32,7 +32,7 @@ func (s *server) ListCommitsByOid(in *gitalypb.ListCommitsByOidRequest, stream g
 
 	objectReader, cancel, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
-		return err
+		return helper.ErrInternalf("creating object reader: %w", err)
 	}
 	defer cancel()
 
@@ -45,7 +45,7 @@ func (s *server) ListCommitsByOid(in *gitalypb.ListCommitsByOidRequest, stream g
 			continue
 		}
 		if err != nil {
-			return err
+			return helper.ErrInternalf("get commit: %w", err)
 		}
 
 		if err := sender.Send(commit); err != nil {

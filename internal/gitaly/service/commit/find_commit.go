@@ -37,7 +37,7 @@ func (s *server) FindCommit(ctx context.Context, in *gitalypb.FindCommitRequest)
 		if errors.Is(err, localrepo.ErrObjectNotFound) {
 			return &gitalypb.FindCommitResponse{}, nil
 		}
-		return &gitalypb.FindCommitResponse{}, err
+		return &gitalypb.FindCommitResponse{}, helper.ErrInternalf("read commit: %w", err)
 	}
 
 	return &gitalypb.FindCommitResponse{Commit: commit}, nil

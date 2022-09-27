@@ -104,7 +104,7 @@ func TestFailedGetCommitSignaturesRequest(t *testing.T) {
 				CommitIds:  []string{"5937ac0a7beb003549fc5fd26fc247adbce4a52e"},
 			},
 			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"GetCommitSignatures: empty Repository",
+				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
 		},
@@ -114,7 +114,7 @@ func TestFailedGetCommitSignaturesRequest(t *testing.T) {
 				Repository: repo,
 				CommitIds:  []string{},
 			},
-			expErr: status.Error(codes.InvalidArgument, "GetCommitSignatures: empty CommitIds"),
+			expErr: status.Error(codes.InvalidArgument, "empty CommitIds"),
 		},
 		{
 			desc: "commitIDS with shorthand sha",
@@ -122,7 +122,7 @@ func TestFailedGetCommitSignaturesRequest(t *testing.T) {
 				Repository: repo,
 				CommitIds:  []string{"5937ac0a7beb003549fc5fd26fc247adbce4a52e", "a17a9f6"},
 			},
-			expErr: status.Error(codes.InvalidArgument, `GetCommitSignatures: invalid object ID: "a17a9f6"`),
+			expErr: status.Error(codes.InvalidArgument, `invalid object ID: "a17a9f6"`),
 		},
 	}
 

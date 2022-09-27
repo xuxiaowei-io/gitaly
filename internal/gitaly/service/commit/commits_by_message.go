@@ -1,6 +1,7 @@
 package commit
 
 import (
+	"errors"
 	"fmt"
 
 	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
@@ -79,7 +80,7 @@ func validateCommitsByMessageRequest(in *gitalypb.CommitsByMessageRequest) error
 	}
 
 	if in.GetQuery() == "" {
-		return fmt.Errorf("empty Query")
+		return errors.New("empty Query")
 	}
 
 	return nil

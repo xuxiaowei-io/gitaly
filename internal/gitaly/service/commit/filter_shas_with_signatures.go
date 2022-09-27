@@ -2,6 +2,7 @@ package commit
 
 import (
 	"context"
+	"fmt"
 	"io"
 
 	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
@@ -40,7 +41,7 @@ func (s *server) filterShasWithSignatures(bidi gitalypb.CommitService_FilterShas
 
 	objectReader, cancel, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
-		return err
+		return fmt.Errorf("creating object reader: %w", err)
 	}
 	defer cancel()
 

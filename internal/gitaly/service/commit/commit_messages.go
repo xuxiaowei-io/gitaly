@@ -30,14 +30,14 @@ func (s *server) getAndStreamCommitMessages(request *gitalypb.GetCommitMessagesR
 
 	objectReader, cancel, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
-		return err
+		return fmt.Errorf("creating object reader: %w", err)
 	}
 	defer cancel()
 
 	for _, commitID := range request.GetCommitIds() {
 		msg, err := catfile.GetCommitMessage(ctx, objectReader, repo, git.Revision(commitID))
 		if err != nil {
-			return fmt.Errorf("failed to get commit message: %v", err)
+			return fmt.Errorf("failed to get commit message: %w", err)
 		}
 		msgReader := bytes.NewReader(msg)
 
@@ -49,7 +49,7 @@ func (s *server) getAndStreamCommitMessages(request *gitalypb.GetCommitMessagesR
 		})
 		_, err = io.Copy(sw, msgReader)
 		if err != nil {
-			return fmt.Errorf("failed to send response: %v", err)
+			return fmt.Errorf("failed to send response: %w", err)
 		}
 	}
 	return nil

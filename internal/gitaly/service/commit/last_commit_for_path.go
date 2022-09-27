@@ -2,6 +2,7 @@ package commit
 
 import (
 	"context"
+	"fmt"
 
 	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
@@ -32,7 +33,7 @@ func (s *server) lastCommitForPath(ctx context.Context, in *gitalypb.LastCommitF
 	repo := s.localrepo(in.GetRepository())
 	objectReader, cancel, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("creating object reader: %w", err)
 	}
 	defer cancel()
 

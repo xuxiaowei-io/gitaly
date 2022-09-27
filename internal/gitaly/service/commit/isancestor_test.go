@@ -44,7 +44,7 @@ func TestCommitIsAncestorFailure(t *testing.T) {
 				AncestorId: "",
 				ChildId:    "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
 			},
-			expErr: status.Error(codes.InvalidArgument, "Bad Request (empty ancestor sha)"),
+			expErr: status.Error(codes.InvalidArgument, "empty ancestor sha"),
 		},
 		{
 			Request: &gitalypb.CommitIsAncestorRequest{
@@ -52,7 +52,7 @@ func TestCommitIsAncestorFailure(t *testing.T) {
 				AncestorId: "b83d6e391c22777fca1ed3012fce84f633d7fed0",
 				ChildId:    "",
 			},
-			expErr: status.Error(codes.InvalidArgument, "Bad Request (empty child sha)"),
+			expErr: status.Error(codes.InvalidArgument, "empty child sha"),
 		},
 		{
 			Request: &gitalypb.CommitIsAncestorRequest{

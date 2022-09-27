@@ -93,7 +93,7 @@ func TestFailedRawBlameRequest(t *testing.T) {
 			description: "No repository provided",
 			repo:        nil,
 			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"RawBlame: empty Repository",
+				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
 		},
@@ -104,7 +104,7 @@ func TestFailedRawBlameRequest(t *testing.T) {
 			path:        []byte("a/b/c"),
 			blameRange:  []byte{},
 			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				`GetStorageByName: no such storage: "fake"`,
+				`cmd: GetStorageByName: no such storage: "fake"`,
 				"repo scoped: invalid Repository",
 			)),
 		},
@@ -114,7 +114,7 @@ func TestFailedRawBlameRequest(t *testing.T) {
 			revision:    []byte(""),
 			path:        []byte("a/b/c"),
 			blameRange:  []byte{},
-			expErr:      status.Error(codes.InvalidArgument, "RawBlame: empty revision"),
+			expErr:      status.Error(codes.InvalidArgument, "empty revision"),
 		},
 		{
 			description: "Empty path",
@@ -122,7 +122,7 @@ func TestFailedRawBlameRequest(t *testing.T) {
 			revision:    []byte("abcdef"),
 			path:        []byte(""),
 			blameRange:  []byte{},
-			expErr:      status.Error(codes.InvalidArgument, "RawBlame: empty Path"),
+			expErr:      status.Error(codes.InvalidArgument, "empty Path"),
 		},
 		{
 			description: "Invalid revision",
@@ -130,7 +130,7 @@ func TestFailedRawBlameRequest(t *testing.T) {
 			revision:    []byte("--output=/meow"),
 			path:        []byte("a/b/c"),
 			blameRange:  []byte{},
-			expErr:      status.Error(codes.InvalidArgument, "RawBlame: revision can't start with '-'"),
+			expErr:      status.Error(codes.InvalidArgument, "revision can't start with '-'"),
 		},
 		{
 			description: "Invalid range",
@@ -138,7 +138,7 @@ func TestFailedRawBlameRequest(t *testing.T) {
 			revision:    []byte("abcdef"),
 			path:        []byte("a/b/c"),
 			blameRange:  []byte("foo"),
-			expErr:      status.Error(codes.InvalidArgument, "RawBlame: invalid Range"),
+			expErr:      status.Error(codes.InvalidArgument, "invalid Range"),
 		},
 	}
 

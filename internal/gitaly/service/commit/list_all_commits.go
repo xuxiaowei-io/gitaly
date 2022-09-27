@@ -56,7 +56,7 @@ func (s *server) ListAllCommits(
 
 	catfileObjectIter, err := gitpipe.CatfileObject(ctx, objectReader, catfileInfoIter)
 	if err != nil {
-		return err
+		return helper.ErrInternalf("crate cat-file object iterator: %w", err)
 	}
 
 	chunker := chunk.New(&commitsSender{

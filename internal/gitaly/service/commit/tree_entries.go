@@ -15,11 +15,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/lstree"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -36,7 +35,7 @@ func validateGetTreeEntriesRequest(in *gitalypb.GetTreeEntriesRequest) error {
 	}
 
 	if len(in.GetPath()) == 0 {
-		return fmt.Errorf("empty Path")
+		return errors.New("empty Path")
 	}
 
 	return nil
@@ -159,13 +158,13 @@ func (s *server) sendTreeEntries(
 
 		objectReader, cancel, err = s.catfileCache.ObjectReader(stream.Context(), repo)
 		if err != nil {
-			return err
+			return fmt.Errorf("creating object reader: %w", err)
 		}
 		defer cancel()
 
 		objectInfoReader, cancel, err = s.catfileCache.ObjectInfoReader(stream.Context(), repo)
 		if err != nil {
-			return err
+			return fmt.Errorf("creating object info reader: %w", err)
 		}
 		defer cancel()
 
@@ -297,14 +296,23 @@ func (s *server) GetTreeEntries(in *gitalypb.GetTreeEntriesRequest, stream gital
 	}).Debug("GetTreeEntries")
 
 	if err := validateGetTreeEntriesRequest(in); err != nil {
-		return status.Errorf(codes.InvalidArgument, "TreeEntry: %v", err)
+		return helper.ErrInvalidArgument(err)
 	}
 
 	repo := s.localrepo(in.GetRepository())
 
 	revision := string(in.GetRevision())
 	path := string(in.GetPath())
-	return s.sendTreeEntries(stream, repo, revision, path, in.Recursive, in.SkipFlatPaths, in.GetSort(), in.GetPaginationParams())
+	return helper.ErrInternal(s.sendTreeEntries(
+		stream,
+		repo,
+		revision,
+		path,
+		in.Recursive,
+		in.SkipFlatPaths,
+		in.GetSort(),
+		in.GetPaginationParams(),
+	))
 }
 
 func paginateTreeEntries(ctx context.Context, entries []*gitalypb.TreeEntry, p *gitalypb.PaginationParameter) ([]*gitalypb.TreeEntry, string, error) {

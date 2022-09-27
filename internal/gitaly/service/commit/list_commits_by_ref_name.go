@@ -19,7 +19,7 @@ func (s *server) ListCommitsByRefName(in *gitalypb.ListCommitsByRefNameRequest, 
 
 	objectReader, cancel, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("creating object reader: %w", err)
 	}
 	defer cancel()
 
@@ -31,7 +31,7 @@ func (s *server) ListCommitsByRefName(in *gitalypb.ListCommitsByRefNameRequest, 
 			continue
 		}
 		if err != nil {
-			return helper.ErrInternal(err)
+			return helper.ErrInternalf("get commit: %w", err)
 		}
 
 		commitByRef := &gitalypb.ListCommitsByRefNameResponse_CommitForRef{

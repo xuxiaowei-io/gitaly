@@ -3,6 +3,7 @@ package commit
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -11,14 +12,13 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func (s *server) CountCommits(ctx context.Context, in *gitalypb.CountCommitsRequest) (*gitalypb.CountCommitsResponse, error) {
 	if err := validateCountCommitsRequest(in); err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "CountCommits: %v", err)
+		return nil, helper.ErrInvalidArgument(err)
 	}
 
 	subCmd := git.SubCmd{Name: "rev-list", Flags: []git.Option{git.Flag{Name: "--count"}}}
@@ -48,10 +48,7 @@ func (s *server) CountCommits(ctx context.Context, in *gitalypb.CountCommitsRequ
 	opts := git.ConvertGlobalOptions(in.GetGlobalOptions())
 	cmd, err := s.gitCmdFactory.New(ctx, in.Repository, subCmd, opts...)
 	if err != nil {
-		if _, ok := status.FromError(err); ok {
-			return nil, err
-		}
-		return nil, status.Errorf(codes.Internal, "CountCommits: cmd: %v", err)
+		return nil, helper.ErrInternalf("cmd: %w", err)
 	}
 
 	var count int64
@@ -69,7 +66,7 @@ func (s *server) CountCommits(ctx context.Context, in *gitalypb.CountCommitsRequ
 		count, err = strconv.ParseInt(string(countStr), 10, 0)
 
 		if err != nil {
-			return nil, status.Errorf(codes.Internal, "CountCommits: parse count: %v", err)
+			return nil, helper.ErrInternalf("parse count: %w", err)
 		}
 	}
 
@@ -86,7 +83,7 @@ func validateCountCommitsRequest(in *gitalypb.CountCommitsRequest) error {
 	}
 
 	if len(in.GetRevision()) == 0 && !in.GetAll() {
-		return fmt.Errorf("empty Revision and false All")
+		return errors.New("empty Revision and false All")
 	}
 
 	return nil
