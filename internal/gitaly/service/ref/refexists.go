@@ -2,7 +2,7 @@ package ref
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
@@ -21,7 +21,7 @@ func (s *server) RefExists(ctx context.Context, in *gitalypb.RefExistsRequest) (
 	ref := string(in.Ref)
 
 	if !isValidRefName(ref) {
-		return nil, helper.ErrInvalidArgument(fmt.Errorf("invalid refname"))
+		return nil, helper.ErrInvalidArgument(errors.New("invalid refname"))
 	}
 
 	exists, err := s.refExists(ctx, in.Repository, ref)

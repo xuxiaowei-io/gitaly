@@ -282,7 +282,7 @@ func TestDeleteRefs_validation(t *testing.T) {
 			desc:    "no repository provided",
 			request: &gitalypb.DeleteRefsRequest{Repository: nil},
 			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"DeleteRefs: empty Repository",
+				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
 		},
@@ -304,7 +304,7 @@ func TestDeleteRefs_validation(t *testing.T) {
 				ExceptWithPrefix: [][]byte{[]byte("exclude-this")},
 			},
 			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"DeleteRefs: empty Repository",
+				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
 		},
@@ -313,7 +313,7 @@ func TestDeleteRefs_validation(t *testing.T) {
 			request: &gitalypb.DeleteRefsRequest{
 				Repository: repo,
 			},
-			expErr: status.Error(codes.InvalidArgument, "DeleteRefs: empty ExceptWithPrefix and Refs"),
+			expErr: status.Error(codes.InvalidArgument, "empty ExceptWithPrefix and Refs"),
 		},
 		{
 			desc: "prefixes with refs",
@@ -322,7 +322,7 @@ func TestDeleteRefs_validation(t *testing.T) {
 				ExceptWithPrefix: [][]byte{[]byte("exclude-this")},
 				Refs:             [][]byte{[]byte("delete-this")},
 			},
-			expErr: status.Error(codes.InvalidArgument, "DeleteRefs: ExceptWithPrefix and Refs are mutually exclusive"),
+			expErr: status.Error(codes.InvalidArgument, "ExceptWithPrefix and Refs are mutually exclusive"),
 		},
 		{
 			desc: "Empty prefix",
@@ -330,7 +330,7 @@ func TestDeleteRefs_validation(t *testing.T) {
 				Repository:       repo,
 				ExceptWithPrefix: [][]byte{[]byte("exclude-this"), {}},
 			},
-			expErr: status.Error(codes.InvalidArgument, "DeleteRefs: empty prefix for exclusion"),
+			expErr: status.Error(codes.InvalidArgument, "empty prefix for exclusion"),
 		},
 		{
 			desc: "Empty ref",
@@ -338,7 +338,7 @@ func TestDeleteRefs_validation(t *testing.T) {
 				Repository: repo,
 				Refs:       [][]byte{[]byte("delete-this"), {}},
 			},
-			expErr: status.Error(codes.InvalidArgument, "DeleteRefs: empty ref"),
+			expErr: status.Error(codes.InvalidArgument, "empty ref"),
 		},
 	}
 

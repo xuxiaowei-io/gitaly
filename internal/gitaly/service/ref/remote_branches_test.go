@@ -94,7 +94,7 @@ func TestInvalidFindAllRemoteBranchesRequest(t *testing.T) {
 				RemoteName: "stub",
 			},
 			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				`GetStorageByName: no such storage: "fake"`,
+				`creating object reader: GetStorageByName: no such storage: "fake"`,
 				"repo scoped: invalid Repository",
 			)),
 		},
