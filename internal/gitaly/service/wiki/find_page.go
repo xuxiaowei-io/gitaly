@@ -6,16 +6,15 @@ import (
 	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/rubyserver"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func (s *server) WikiFindPage(request *gitalypb.WikiFindPageRequest, stream gitalypb.WikiService_WikiFindPageServer) error {
 	ctx := stream.Context()
 
 	if err := validateWikiFindPage(request); err != nil {
-		return status.Errorf(codes.InvalidArgument, "WikiFindPage: %v", err)
+		return helper.ErrInvalidArgument(err)
 	}
 
 	client, err := s.ruby.WikiServiceClient(ctx)

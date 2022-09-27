@@ -396,13 +396,13 @@ func TestFailedWikiFindPageDueToValidation(t *testing.T) {
 		{
 			desc:   "empty page path",
 			req:    &gitalypb.WikiFindPageRequest{Repository: wikiRepo, Title: nil},
-			expErr: status.Error(codes.InvalidArgument, "WikiFindPage: empty Title"),
+			expErr: status.Error(codes.InvalidArgument, "empty Title"),
 		},
 		{
 			desc: "repository not provided",
 			req:  &gitalypb.WikiFindPageRequest{Repository: nil},
 			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"WikiFindPage: empty Repository",
+				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
 		},

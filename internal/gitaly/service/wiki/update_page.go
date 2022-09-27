@@ -1,13 +1,12 @@
 package wiki
 
 import (
-	"fmt"
+	"errors"
 
 	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/rubyserver"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func (s *server) WikiUpdatePage(stream gitalypb.WikiService_WikiUpdatePageServer) error {
@@ -17,7 +16,7 @@ func (s *server) WikiUpdatePage(stream gitalypb.WikiService_WikiUpdatePageServer
 	}
 
 	if err := validateWikiUpdatePageRequest(firstRequest); err != nil {
-		return status.Errorf(codes.InvalidArgument, "WikiUpdatePage: %v", err)
+		return helper.ErrInvalidArgument(err)
 	}
 
 	ctx := stream.Context()
@@ -66,15 +65,15 @@ func validateWikiUpdatePageRequest(request *gitalypb.WikiUpdatePageRequest) erro
 		return gitalyerrors.ErrEmptyRepository
 	}
 	if len(request.GetPagePath()) == 0 {
-		return fmt.Errorf("empty Page Path")
+		return errors.New("empty Page Path")
 	}
 
 	if len(request.GetTitle()) == 0 {
-		return fmt.Errorf("empty Title")
+		return errors.New("empty Title")
 	}
 
 	if len(request.GetFormat()) == 0 {
-		return fmt.Errorf("empty Format")
+		return errors.New("empty Format")
 	}
 
 	return validateRequestCommitDetails(request)
