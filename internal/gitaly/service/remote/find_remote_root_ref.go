@@ -10,8 +10,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 const headPrefix = "HEAD branch: "
@@ -54,7 +52,7 @@ func (s *server) findRemoteRootRef(ctx context.Context, request *gitalypb.FindRe
 		if strings.HasPrefix(line, headPrefix) {
 			rootRef := strings.TrimPrefix(line, headPrefix)
 			if rootRef == "(unknown)" {
-				return "", status.Error(codes.NotFound, "no remote HEAD found")
+				return "", helper.ErrNotFoundf("no remote HEAD found")
 			}
 			return rootRef, nil
 		}
@@ -68,13 +66,13 @@ func (s *server) findRemoteRootRef(ctx context.Context, request *gitalypb.FindRe
 		return "", err
 	}
 
-	return "", status.Error(codes.NotFound, "couldn't query the remote HEAD")
+	return "", helper.ErrNotFoundf("couldn't query the remote HEAD")
 }
 
 // FindRemoteRootRef queries the remote to determine its HEAD
 func (s *server) FindRemoteRootRef(ctx context.Context, in *gitalypb.FindRemoteRootRefRequest) (*gitalypb.FindRemoteRootRefResponse, error) {
 	if in.GetRemoteUrl() == "" {
-		return nil, status.Error(codes.InvalidArgument, "missing remote URL")
+		return nil, helper.ErrInvalidArgumentf("missing remote URL")
 	}
 	if in.Repository == nil {
 		return nil, helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
