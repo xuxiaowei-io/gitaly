@@ -2,6 +2,7 @@ package ssh
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -88,9 +89,9 @@ func (s *server) sshUploadArchive(stream gitalypb.SSHService_SSHUploadArchiveSer
 			}); sendErr != nil {
 				return sendErr
 			}
-			return fmt.Errorf("SSHUploadPack: %v", err)
+			return fmt.Errorf("SSHUploadPack: %w", err)
 		}
-		return fmt.Errorf("wait cmd: %v", err)
+		return fmt.Errorf("wait cmd: %w", err)
 	}
 
 	return stream.Send(&gitalypb.SSHUploadArchiveResponse{
@@ -103,7 +104,7 @@ func validateFirstUploadArchiveRequest(req *gitalypb.SSHUploadArchiveRequest) er
 		return gitalyerrors.ErrEmptyRepository
 	}
 	if req.Stdin != nil {
-		return fmt.Errorf("non-empty stdin in first request")
+		return errors.New("non-empty stdin in first request")
 	}
 
 	return nil

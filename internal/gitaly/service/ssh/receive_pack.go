@@ -17,8 +17,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func (s *server) SSHReceivePack(stream gitalypb.SSHService_SSHReceivePackServer) error {
@@ -91,7 +89,7 @@ func (s *server) sshReceivePack(stream gitalypb.SSHService_SSHReceivePackServer,
 		git.WithConfig(config...),
 	)
 	if err != nil {
-		return fmt.Errorf("start cmd: %v", err)
+		return fmt.Errorf("start cmd: %w", err)
 	}
 
 	if err := cmd.Wait(); err != nil {
@@ -116,7 +114,7 @@ func (s *server) sshReceivePack(stream gitalypb.SSHService_SSHReceivePackServer,
 			return helper.ErrCanceledf("user canceled the push")
 		}
 
-		return fmt.Errorf("cmd wait: %v", err)
+		return fmt.Errorf("cmd wait: %w", err)
 	}
 
 	// In cases where all reference updates are rejected by git-receive-pack(1), we would end up
@@ -132,7 +130,7 @@ func (s *server) sshReceivePack(stream gitalypb.SSHService_SSHReceivePackServer,
 		// To avoid this error being presented to the end user, ignore it when the
 		// transaction was stopped.
 		if !errors.Is(err, transaction.ErrTransactionStopped) {
-			return status.Errorf(codes.Aborted, "final transactional vote: %v", err)
+			return helper.ErrAbortedf("final transactional vote: %w", err)
 		}
 	}
 

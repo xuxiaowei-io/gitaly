@@ -2,6 +2,7 @@ package ssh
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -186,7 +187,7 @@ func validateFirstUploadPackRequest(req *gitalypb.SSHUploadPackRequest) error {
 		return gitalyerrors.ErrEmptyRepository
 	}
 	if req.Stdin != nil {
-		return fmt.Errorf("non-empty stdin in first request")
+		return errors.New("non-empty stdin in first request")
 	}
 
 	return nil
