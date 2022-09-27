@@ -786,7 +786,7 @@ func TestUserRebaseConfirmable_failedWithCode(t *testing.T) {
 				return buildHeaderRequest(nil, gittest.TestUser, "1", rebaseBranchName, branchCommitID, nil, "master")
 			},
 			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
-				"UserRebaseConfirmable: empty Repository",
+				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
 		},
@@ -812,7 +812,7 @@ func TestUserRebaseConfirmable_failedWithCode(t *testing.T) {
 				return buildHeaderRequest(repo, gittest.TestUser, "1", rebaseBranchName, branchCommitID, repo, "master")
 			},
 			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
-				"UserRebaseConfirmable: empty RelativePath",
+				"empty RelativePath",
 				"repo scoped: invalid Repository",
 			)),
 		},

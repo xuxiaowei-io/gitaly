@@ -808,7 +808,7 @@ func TestUserCommitFiles(t *testing.T) {
 							},
 						}),
 					},
-					error: status.Error(codes.Internal, "NoMethodError: undefined method `downcase' for -1:Integer"),
+					error: status.Error(codes.InvalidArgument, "NoMethodError: undefined method `downcase' for -1:Integer"),
 				},
 			},
 		},
@@ -1486,29 +1486,29 @@ func TestFailedUserCommitFilesRequest(t *testing.T) {
 			desc: "empty Repository",
 			req:  headerRequest(nil, gittest.TestUser, branchName, commitFilesMessage, ""),
 			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
-				"UserCommitFiles: empty Repository",
+				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
 		},
 		{
 			desc:        "empty User",
 			req:         headerRequest(repo, nil, branchName, commitFilesMessage, ""),
-			expectedErr: status.Error(codes.InvalidArgument, "UserCommitFiles: empty User"),
+			expectedErr: status.Error(codes.InvalidArgument, "empty User"),
 		},
 		{
 			desc:        "empty BranchName",
 			req:         headerRequest(repo, gittest.TestUser, "", commitFilesMessage, ""),
-			expectedErr: status.Error(codes.InvalidArgument, "UserCommitFiles: empty BranchName"),
+			expectedErr: status.Error(codes.InvalidArgument, "empty BranchName"),
 		},
 		{
 			desc:        "empty CommitMessage",
 			req:         headerRequest(repo, gittest.TestUser, branchName, nil, ""),
-			expectedErr: status.Error(codes.InvalidArgument, "UserCommitFiles: empty CommitMessage"),
+			expectedErr: status.Error(codes.InvalidArgument, "empty CommitMessage"),
 		},
 		{
 			desc:        "invalid object ID: \"foobar\"",
 			req:         setStartSha(headerRequest(repo, gittest.TestUser, branchName, commitFilesMessage, ""), "foobar"),
-			expectedErr: status.Error(codes.InvalidArgument, `UserCommitFiles: invalid object ID: "foobar"`),
+			expectedErr: status.Error(codes.InvalidArgument, `invalid object ID: "foobar"`),
 		},
 		{
 			desc:        "failed to parse signature - Signature cannot have an empty name or email",

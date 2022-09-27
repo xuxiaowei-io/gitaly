@@ -1,7 +1,7 @@
 package operations
 
 import (
-	"fmt"
+	"errors"
 	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
@@ -23,19 +23,19 @@ func validateCherryPickOrRevertRequest(req cherryPickOrRevertRequest) error {
 	}
 
 	if req.GetUser() == nil {
-		return fmt.Errorf("empty User")
+		return errors.New("empty User")
 	}
 
 	if req.GetCommit() == nil {
-		return fmt.Errorf("empty Commit")
+		return errors.New("empty Commit")
 	}
 
 	if len(req.GetBranchName()) == 0 {
-		return fmt.Errorf("empty BranchName")
+		return errors.New("empty BranchName")
 	}
 
 	if len(req.GetMessage()) == 0 {
-		return fmt.Errorf("empty Message")
+		return errors.New("empty Message")
 	}
 
 	return nil

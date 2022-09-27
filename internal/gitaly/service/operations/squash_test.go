@@ -4,7 +4,7 @@ package operations
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -131,7 +131,7 @@ func TestUserSquash_transactional(t *testing.T) {
 		{
 			desc: "preparatory vote failure",
 			voteFn: func(ctx context.Context, tx txinfo.Transaction, vote voting.Vote, phase voting.Phase) error {
-				return fmt.Errorf("vote failed")
+				return errors.New("vote failed")
 			},
 			expectedErr: helper.ErrAbortedf("preparatory vote on squashed commit: vote failed"),
 			expectedVotes: []voting.Vote{
@@ -143,7 +143,7 @@ func TestUserSquash_transactional(t *testing.T) {
 			desc: "committing vote failure",
 			voteFn: func(ctx context.Context, tx txinfo.Transaction, vote voting.Vote, phase voting.Phase) error {
 				if phase == voting.Committed {
-					return fmt.Errorf("vote failed")
+					return errors.New("vote failed")
 				}
 				return nil
 			},
@@ -539,7 +539,7 @@ func TestUserSquash_validation(t *testing.T) {
 				EndSha:        endSha,
 			},
 			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
-				"UserSquash: empty Repository",
+				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
 		},
@@ -553,7 +553,7 @@ func TestUserSquash_validation(t *testing.T) {
 				StartSha:      startSha,
 				EndSha:        endSha,
 			},
-			expectedErr: status.Error(codes.InvalidArgument, "UserSquash: empty User"),
+			expectedErr: status.Error(codes.InvalidArgument, "empty User"),
 		},
 		{
 			desc: "empty StartSha",
@@ -565,7 +565,7 @@ func TestUserSquash_validation(t *testing.T) {
 				StartSha:      "",
 				EndSha:        endSha,
 			},
-			expectedErr: status.Error(codes.InvalidArgument, "UserSquash: empty StartSha"),
+			expectedErr: status.Error(codes.InvalidArgument, "empty StartSha"),
 		},
 		{
 			desc: "empty EndSha",
@@ -577,7 +577,7 @@ func TestUserSquash_validation(t *testing.T) {
 				StartSha:      startSha,
 				EndSha:        "",
 			},
-			expectedErr: status.Error(codes.InvalidArgument, "UserSquash: empty EndSha"),
+			expectedErr: status.Error(codes.InvalidArgument, "empty EndSha"),
 		},
 		{
 			desc: "empty Author",
@@ -589,7 +589,7 @@ func TestUserSquash_validation(t *testing.T) {
 				StartSha:      startSha,
 				EndSha:        endSha,
 			},
-			expectedErr: status.Error(codes.InvalidArgument, "UserSquash: empty Author"),
+			expectedErr: status.Error(codes.InvalidArgument, "empty Author"),
 		},
 		{
 			desc: "empty CommitMessage",
@@ -601,7 +601,7 @@ func TestUserSquash_validation(t *testing.T) {
 				StartSha:      startSha,
 				EndSha:        endSha,
 			},
-			expectedErr: status.Error(codes.InvalidArgument, "UserSquash: empty CommitMessage"),
+			expectedErr: status.Error(codes.InvalidArgument, "empty CommitMessage"),
 		},
 	}
 
@@ -762,7 +762,7 @@ func TestUserSquash_gitError(t *testing.T) {
 				StartSha:      startSha,
 				EndSha:        endSha,
 			},
-			expectedErr: helper.ErrInvalidArgumentf("UserSquash: empty user name"),
+			expectedErr: helper.ErrInvalidArgumentf("empty user name"),
 		},
 		{
 			desc: "author has no name set",
@@ -774,7 +774,7 @@ func TestUserSquash_gitError(t *testing.T) {
 				StartSha:      startSha,
 				EndSha:        endSha,
 			},
-			expectedErr: helper.ErrInvalidArgumentf("UserSquash: empty author name"),
+			expectedErr: helper.ErrInvalidArgumentf("empty author name"),
 		},
 		{
 			desc: "author has no email set",
@@ -786,7 +786,7 @@ func TestUserSquash_gitError(t *testing.T) {
 				StartSha:      startSha,
 				EndSha:        endSha,
 			},
-			expectedErr: helper.ErrInvalidArgumentf("UserSquash: empty author email"),
+			expectedErr: helper.ErrInvalidArgumentf("empty author email"),
 		},
 	}
 
