@@ -4,6 +4,7 @@ package operations
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -507,7 +508,7 @@ func TestUserDeleteBranch_allowed(t *testing.T) {
 		{
 			desc: "error",
 			allowed: func(context.Context, gitlab.AllowedParams) (bool, string, error) {
-				return false, "something something", fmt.Errorf("something else")
+				return false, "something something", errors.New("something else")
 			},
 			expectedErr: errWithDetails(t,
 				helper.ErrPermissionDeniedf("deletion denied by access checks: running pre-receive hooks: GitLab: something else"),

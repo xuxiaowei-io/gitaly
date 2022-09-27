@@ -808,7 +808,7 @@ func TestUserCommitFiles(t *testing.T) {
 							},
 						}),
 					},
-					error: status.Error(codes.Unknown, "NoMethodError: undefined method `downcase' for -1:Integer"),
+					error: status.Error(codes.InvalidArgument, "NoMethodError: undefined method `downcase' for -1:Integer"),
 				},
 			},
 		},
@@ -1486,29 +1486,29 @@ func TestFailedUserCommitFilesRequest(t *testing.T) {
 			desc: "empty Repository",
 			req:  headerRequest(nil, gittest.TestUser, branchName, commitFilesMessage, ""),
 			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"UserCommitFiles: empty Repository",
+				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
 		},
 		{
 			desc:   "empty User",
 			req:    headerRequest(repo, nil, branchName, commitFilesMessage, ""),
-			expErr: status.Error(codes.InvalidArgument, "UserCommitFiles: empty User"),
+			expErr: status.Error(codes.InvalidArgument, "empty User"),
 		},
 		{
 			desc:   "empty BranchName",
 			req:    headerRequest(repo, gittest.TestUser, "", commitFilesMessage, ""),
-			expErr: status.Error(codes.InvalidArgument, "UserCommitFiles: empty BranchName"),
+			expErr: status.Error(codes.InvalidArgument, "empty BranchName"),
 		},
 		{
 			desc:   "empty CommitMessage",
 			req:    headerRequest(repo, gittest.TestUser, branchName, nil, ""),
-			expErr: status.Error(codes.InvalidArgument, "UserCommitFiles: empty CommitMessage"),
+			expErr: status.Error(codes.InvalidArgument, "empty CommitMessage"),
 		},
 		{
 			desc:   "invalid object ID: \"foobar\"",
 			req:    setStartSha(headerRequest(repo, gittest.TestUser, branchName, commitFilesMessage, ""), "foobar"),
-			expErr: status.Error(codes.InvalidArgument, `UserCommitFiles: invalid object ID: "foobar"`),
+			expErr: status.Error(codes.InvalidArgument, `invalid object ID: "foobar"`),
 		},
 		{
 			desc:   "failed to parse signature - Signature cannot have an empty name or email",

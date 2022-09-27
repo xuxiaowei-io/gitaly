@@ -712,7 +712,7 @@ func TestFailedValidationUserApplyPatch(t *testing.T) {
 			branchName: "new-branch",
 			user:       gittest.TestUser,
 			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"UserApplyPatch: empty Repository",
+				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
 		},
@@ -720,20 +720,20 @@ func TestFailedValidationUserApplyPatch(t *testing.T) {
 			desc:   "missing Branch",
 			repo:   repo,
 			user:   gittest.TestUser,
-			expErr: status.Error(codes.InvalidArgument, "UserApplyPatch: missing Branch"),
+			expErr: status.Error(codes.InvalidArgument, "missing Branch"),
 		},
 		{
 			desc:       "empty BranchName",
 			repo:       repo,
 			user:       gittest.TestUser,
 			branchName: "",
-			expErr:     status.Error(codes.InvalidArgument, "UserApplyPatch: missing Branch"),
+			expErr:     status.Error(codes.InvalidArgument, "missing Branch"),
 		},
 		{
 			desc:       "missing User",
 			branchName: "new-branch",
 			repo:       repo,
-			expErr:     status.Error(codes.InvalidArgument, "UserApplyPatch: missing User"),
+			expErr:     status.Error(codes.InvalidArgument, "missing User"),
 		},
 	}
 

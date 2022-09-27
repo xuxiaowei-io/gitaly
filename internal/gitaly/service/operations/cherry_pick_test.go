@@ -300,7 +300,7 @@ func TestServer_UserCherryPick_failedValidations(t *testing.T) {
 				Repository: nil,
 			},
 			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"UserCherryPick: empty Repository",
+				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
 		},
@@ -313,7 +313,7 @@ func TestServer_UserCherryPick_failedValidations(t *testing.T) {
 				BranchName: []byte(destinationBranch),
 				Message:    []byte("Cherry-picking " + cherryPickedCommit.Id),
 			},
-			expErr: status.Error(codes.InvalidArgument, "UserCherryPick: empty User"),
+			expErr: status.Error(codes.InvalidArgument, "empty User"),
 		},
 		{
 			desc: "empty commit",
@@ -324,7 +324,7 @@ func TestServer_UserCherryPick_failedValidations(t *testing.T) {
 				BranchName: []byte(destinationBranch),
 				Message:    []byte("Cherry-picking " + cherryPickedCommit.Id),
 			},
-			expErr: status.Error(codes.InvalidArgument, "UserCherryPick: empty Commit"),
+			expErr: status.Error(codes.InvalidArgument, "empty Commit"),
 		},
 		{
 			desc: "empty branch name",
@@ -335,7 +335,7 @@ func TestServer_UserCherryPick_failedValidations(t *testing.T) {
 				BranchName: nil,
 				Message:    []byte("Cherry-picking " + cherryPickedCommit.Id),
 			},
-			expErr: status.Error(codes.InvalidArgument, "UserCherryPick: empty BranchName"),
+			expErr: status.Error(codes.InvalidArgument, "empty BranchName"),
 		},
 		{
 			desc: "empty message",
@@ -346,7 +346,7 @@ func TestServer_UserCherryPick_failedValidations(t *testing.T) {
 				BranchName: []byte(destinationBranch),
 				Message:    nil,
 			},
-			expErr: status.Error(codes.InvalidArgument, "UserCherryPick: empty Message"),
+			expErr: status.Error(codes.InvalidArgument, "empty Message"),
 		},
 	}
 

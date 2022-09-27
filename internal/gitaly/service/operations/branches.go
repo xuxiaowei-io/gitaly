@@ -10,8 +10,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func validateUserCreateBranchRequest(in *gitalypb.UserCreateBranchRequest) error {
@@ -19,7 +17,7 @@ func validateUserCreateBranchRequest(in *gitalypb.UserCreateBranchRequest) error
 		return gitalyerrors.ErrEmptyRepository
 	}
 	if len(in.BranchName) == 0 {
-		return errors.New("Bad Request (empty branch name)") //nolint:stylecheck
+		return errors.New("empty branch name")
 	}
 	if in.User == nil {
 		return errors.New("empty user")
@@ -49,20 +47,20 @@ func (s *Server) UserCreateBranch(ctx context.Context, req *gitalypb.UserCreateB
 	startPointCommit, err := quarantineRepo.ReadCommit(ctx, git.Revision(req.StartPoint))
 	// END TODO
 	if err != nil {
-		return nil, status.Errorf(codes.FailedPrecondition, "revspec '%s' not found", req.StartPoint)
+		return nil, helper.ErrFailedPreconditionf("revspec '%s' not found", req.StartPoint)
 	}
 
 	startPointOID, err := git.ObjectHashSHA1.FromHex(startPointCommit.Id)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "could not parse start point commit ID: %v", err)
+		return nil, helper.ErrInvalidArgumentf("could not parse start point commit ID: %w", err)
 	}
 
 	referenceName := git.NewReferenceNameFromBranchName(string(req.BranchName))
 	_, err = quarantineRepo.GetReference(ctx, referenceName)
 	if err == nil {
-		return nil, status.Errorf(codes.FailedPrecondition, "Could not update %s. Please refresh and try again.", req.BranchName)
+		return nil, helper.ErrFailedPreconditionf("Could not update %s. Please refresh and try again.", req.BranchName)
 	} else if !errors.Is(err, git.ErrReferenceNotFound) {
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, helper.ErrInternal(err)
 	}
 
 	if err := s.updateReferenceWithHooks(ctx, req.GetRepository(), req.User, quarantineDir, referenceName, startPointOID, git.ObjectHashSHA1.ZeroOID); err != nil {
@@ -91,7 +89,7 @@ func (s *Server) UserCreateBranch(ctx context.Context, req *gitalypb.UserCreateB
 
 		var updateRefError updateref.Error
 		if errors.As(err, &updateRefError) {
-			return nil, status.Error(codes.FailedPrecondition, err.Error())
+			return nil, helper.ErrFailedPrecondition(err)
 		}
 
 		return nil, err
@@ -138,12 +136,12 @@ func (s *Server) UserUpdateBranch(ctx context.Context, req *gitalypb.UserUpdateB
 
 	newOID, err := git.ObjectHashSHA1.FromHex(string(req.Newrev))
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "could not parse newrev: %v", err)
+		return nil, helper.ErrInternalf("could not parse newrev: %w", err)
 	}
 
 	oldOID, err := git.ObjectHashSHA1.FromHex(string(req.Oldrev))
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "could not parse oldrev: %v", err)
+		return nil, helper.ErrInternalf("could not parse oldrev: %w", err)
 	}
 
 	referenceName := git.NewReferenceNameFromBranchName(string(req.BranchName))
@@ -167,7 +165,7 @@ func (s *Server) UserUpdateBranch(ctx context.Context, req *gitalypb.UserUpdateB
 		// say "branch-name", not
 		// "refs/heads/branch-name". See the
 		// "Gitlab::Git::CommitError" case in the Ruby code.
-		return nil, status.Errorf(codes.FailedPrecondition, "Could not update %s. Please refresh and try again.", req.BranchName)
+		return nil, helper.ErrFailedPreconditionf("Could not update %s. Please refresh and try again.", req.BranchName)
 	}
 
 	return &gitalypb.UserUpdateBranchResponse{}, nil

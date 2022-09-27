@@ -786,7 +786,7 @@ func TestUserRebaseConfirmable_failedWithCode(t *testing.T) {
 				return buildHeaderRequest(nil, gittest.TestUser, "1", rebaseBranchName, branchCommitID, nil, "master")
 			},
 			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"UserRebaseConfirmable: empty Repository",
+				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
 		},

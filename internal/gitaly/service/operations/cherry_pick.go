@@ -3,7 +3,6 @@ package operations
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 
@@ -12,14 +11,12 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 //nolint:revive // This is unintentionally missing documentation.
 func (s *Server) UserCherryPick(ctx context.Context, req *gitalypb.UserCherryPickRequest) (*gitalypb.UserCherryPickResponse, error) {
 	if err := validateCherryPickOrRevertRequest(req); err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "UserCherryPick: %v", err)
+		return nil, helper.ErrInvalidArgument(err)
 	}
 
 	quarantineDir, quarantineRepo, err := s.quarantinedRepo(ctx, req.GetRepository())
@@ -34,7 +31,7 @@ func (s *Server) UserCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 
 	repoHadBranches, err := quarantineRepo.HasBranches(ctx)
 	if err != nil {
-		return nil, err
+		return nil, helper.ErrInternalf("has branches: %w", err)
 	}
 
 	repoPath, err := quarantineRepo.Path()
@@ -125,7 +122,7 @@ func (s *Server) UserCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 	if !branchCreated {
 		ancestor, err := quarantineRepo.IsAncestor(ctx, oldrev.Revision(), newrev.Revision())
 		if err != nil {
-			return nil, err
+			return nil, helper.ErrInternalf("is %q an ancestor of %q: %w", oldrev.Revision(), newrev.Revision(), err)
 		}
 		if !ancestor {
 			detailedErr, errGeneratingDetailedErr := helper.ErrWithDetails(
@@ -174,7 +171,7 @@ func (s *Server) UserCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 			}, nil
 		}
 
-		return nil, fmt.Errorf("update reference with hooks: %w", err)
+		return nil, helper.ErrInternalf("update reference with hooks: %w", err)
 	}
 
 	return &gitalypb.UserCherryPickResponse{

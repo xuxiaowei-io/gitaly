@@ -16,8 +16,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func validateUserDeleteTagRequest(in *gitalypb.UserDeleteTagRequest) error {
@@ -41,7 +39,10 @@ func (s *Server) UserDeleteTag(ctx context.Context, req *gitalypb.UserDeleteTagR
 	referenceName := git.ReferenceName(fmt.Sprintf("refs/tags/%s", req.TagName))
 	revision, err := s.localrepo(req.GetRepository()).ResolveRevision(ctx, referenceName.Revision())
 	if err != nil {
-		return nil, status.Errorf(codes.FailedPrecondition, "tag not found: %s", req.TagName)
+		if errors.Is(err, git.ErrReferenceNotFound) {
+			return nil, helper.ErrFailedPreconditionf("tag not found: %s", req.TagName)
+		}
+		return nil, helper.ErrInternalf("resolve revision %q: %w", referenceName, err)
 	}
 
 	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, nil, referenceName, git.ObjectHashSHA1.ZeroOID, revision); err != nil {
@@ -54,10 +55,10 @@ func (s *Server) UserDeleteTag(ctx context.Context, req *gitalypb.UserDeleteTagR
 
 		var updateRefError updateref.Error
 		if errors.As(err, &updateRefError) {
-			return nil, status.Error(codes.FailedPrecondition, err.Error())
+			return nil, helper.ErrFailedPrecondition(err)
 		}
 
-		return nil, err
+		return nil, helper.ErrInternal(err)
 	}
 
 	return &gitalypb.UserDeleteTagResponse{}, nil
@@ -65,7 +66,7 @@ func (s *Server) UserDeleteTag(ctx context.Context, req *gitalypb.UserDeleteTagR
 
 func validateUserCreateTag(req *gitalypb.UserCreateTagRequest) error {
 	if len(req.TagName) == 0 {
-		return fmt.Errorf("empty tag name")
+		return errors.New("empty tag name")
 	}
 
 	if err := git.ValidateRevision(req.TagName); err != nil {
@@ -73,15 +74,15 @@ func validateUserCreateTag(req *gitalypb.UserCreateTagRequest) error {
 	}
 
 	if req.User == nil {
-		return fmt.Errorf("empty user")
+		return errors.New("empty user")
 	}
 
 	if len(req.TargetRevision) == 0 {
-		return fmt.Errorf("empty target revision")
+		return errors.New("empty target revision")
 	}
 
 	if bytes.Contains(req.Message, []byte("\000")) {
-		return fmt.Errorf("tag message contains NUL byte")
+		return errors.New("tag message contains NUL byte")
 	}
 
 	if req.GetRepository() == nil {
@@ -229,13 +230,13 @@ func (s *Server) createTag(
 ) (*gitalypb.Tag, git.ObjectID, error) {
 	objectReader, cancel, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
-		return nil, "", status.Error(codes.Internal, err.Error())
+		return nil, "", helper.ErrInternalf("creating object reader: %w", err)
 	}
 	defer cancel()
 
 	objectInfoReader, cancel, err := s.catfileCache.ObjectInfoReader(ctx, repo)
 	if err != nil {
-		return nil, "", status.Error(codes.Internal, err.Error())
+		return nil, "", helper.ErrInternalf("creating object info reader: %w", err)
 	}
 	defer cancel()
 
@@ -243,7 +244,7 @@ func (s *Server) createTag(
 	// supports, not just OID. Resolve it.
 	targetInfo, err := objectInfoReader.Info(ctx, targetRevision)
 	if err != nil {
-		return nil, "", status.Errorf(codes.FailedPrecondition, "revspec '%s' not found", targetRevision)
+		return nil, "", helper.ErrFailedPreconditionf("revspec '%s' not found", targetRevision)
 	}
 	targetObjectID, targetObjectType := targetInfo.Oid, targetInfo.Type
 
@@ -265,7 +266,7 @@ func (s *Server) createTag(
 	if targetObjectType == "tag" {
 		peeledTargetObjectInfo, err := objectInfoReader.Info(ctx, targetRevision+"^{}")
 		if err != nil {
-			return nil, "", status.Error(codes.Internal, err.Error())
+			return nil, "", helper.ErrInternalf("read object info: %w", err)
 		}
 		peeledTargetObjectID, peeledTargetObjectType = peeledTargetObjectInfo.Oid, peeledTargetObjectInfo.Type
 
@@ -288,19 +289,19 @@ func (s *Server) createTag(
 		if err != nil {
 			var FormatTagError localrepo.FormatTagError
 			if errors.As(err, &FormatTagError) {
-				return nil, "", status.Errorf(codes.Unknown, "Rugged::InvalidError: failed to parse signature - expected prefix doesn't match actual")
+				return nil, "", helper.ErrUnknownf("Rugged::InvalidError: failed to parse signature - expected prefix doesn't match actual")
 			}
 
 			var MktagError localrepo.MktagError
 			if errors.As(err, &MktagError) {
-				return nil, "", status.Errorf(codes.NotFound, "Gitlab::Git::CommitError: %s", err.Error())
+				return nil, "", helper.ErrNotFoundf("Gitlab::Git::CommitError: %s", err.Error())
 			}
-			return nil, "", status.Error(codes.Internal, err.Error())
+			return nil, "", helper.ErrInternalf("write tag: %w", err)
 		}
 
 		createdTag, err := catfile.GetTag(ctx, objectReader, tagObjectID.Revision(), string(tagName))
 		if err != nil {
-			return nil, "", status.Error(codes.Internal, err.Error())
+			return nil, "", helper.ErrInternalf("get tag: %w", err)
 		}
 
 		tagObject = &gitalypb.Tag{
@@ -325,7 +326,7 @@ func (s *Server) createTag(
 	if peeledTargetObjectType == "commit" {
 		peeledTargetCommit, err := catfile.GetCommit(ctx, objectReader, peeledTargetObjectID.Revision())
 		if err != nil {
-			return nil, "", status.Error(codes.Internal, err.Error())
+			return nil, "", helper.ErrInternalf("get commit: %w", err)
 		}
 		tagObject.TargetCommit = peeledTargetCommit
 	}

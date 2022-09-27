@@ -1417,7 +1417,7 @@ func TestUserMergeToRef_ignoreHooksRequest(t *testing.T) {
 }
 
 // This error is used as a sentinel value
-var errRecvTimeout = fmt.Errorf("timeout waiting for response")
+var errRecvTimeout = errors.New("timeout waiting for response")
 
 func recvTimeout(bidi gitalypb.OperationService_UserMergeBranchClient, timeout time.Duration) (*gitalypb.UserMergeBranchResponse, error) {
 	type responseError struct {

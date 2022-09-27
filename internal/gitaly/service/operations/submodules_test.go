@@ -210,7 +210,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T) {
 				CommitMessage: []byte("Update Submodule message"),
 			},
 			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"UserUpdateSubmodule: empty Repository",
+				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
 		},
@@ -224,7 +224,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T) {
 				Branch:        []byte("some-branch"),
 				CommitMessage: []byte("Update Submodule message"),
 			},
-			expErr: status.Error(codes.InvalidArgument, "UserUpdateSubmodule: empty User"),
+			expErr: status.Error(codes.InvalidArgument, "empty User"),
 		},
 		{
 			desc: "empty Submodule",
@@ -236,7 +236,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T) {
 				Branch:        []byte("some-branch"),
 				CommitMessage: []byte("Update Submodule message"),
 			},
-			expErr: status.Error(codes.InvalidArgument, "UserUpdateSubmodule: empty Submodule"),
+			expErr: status.Error(codes.InvalidArgument, "empty Submodule"),
 		},
 		{
 			desc: "empty CommitSha",
@@ -248,7 +248,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T) {
 				Branch:        []byte("some-branch"),
 				CommitMessage: []byte("Update Submodule message"),
 			},
-			expErr: status.Error(codes.InvalidArgument, "UserUpdateSubmodule: empty CommitSha"),
+			expErr: status.Error(codes.InvalidArgument, "empty CommitSha"),
 		},
 		{
 			desc: "invalid CommitSha",
@@ -260,7 +260,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T) {
 				Branch:        []byte("some-branch"),
 				CommitMessage: []byte("Update Submodule message"),
 			},
-			expErr: status.Error(codes.InvalidArgument, "UserUpdateSubmodule: invalid CommitSha"),
+			expErr: status.Error(codes.InvalidArgument, "invalid CommitSha"),
 		},
 		{
 			desc: "invalid CommitSha",
@@ -272,7 +272,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T) {
 				Branch:        []byte("some-branch"),
 				CommitMessage: []byte("Update Submodule message"),
 			},
-			expErr: status.Error(codes.InvalidArgument, "UserUpdateSubmodule: invalid CommitSha"),
+			expErr: status.Error(codes.InvalidArgument, "invalid CommitSha"),
 		},
 		{
 			desc: "empty Branch",
@@ -284,7 +284,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T) {
 				Branch:        nil,
 				CommitMessage: []byte("Update Submodule message"),
 			},
-			expErr: status.Error(codes.InvalidArgument, "UserUpdateSubmodule: empty Branch"),
+			expErr: status.Error(codes.InvalidArgument, "empty Branch"),
 		},
 		{
 			desc: "empty CommitMessage",
@@ -296,7 +296,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T) {
 				Branch:        []byte("some-branch"),
 				CommitMessage: nil,
 			},
-			expErr: status.Error(codes.InvalidArgument, "UserUpdateSubmodule: empty CommitMessage"),
+			expErr: status.Error(codes.InvalidArgument, "empty CommitMessage"),
 		},
 	}
 
