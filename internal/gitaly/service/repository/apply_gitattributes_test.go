@@ -139,7 +139,7 @@ func TestApplyGitattributesWithTransaction(t *testing.T) {
 			},
 			shouldExist: false,
 			expectedErr: func() error {
-				return status.Error(codes.Unknown, "committing gitattributes: voting on locked file: preimage vote: transaction was aborted")
+				return status.Error(codes.Internal, "committing gitattributes: voting on locked file: preimage vote: transaction was aborted")
 			}(),
 			expectedVotes: 1,
 		},
@@ -151,7 +151,7 @@ func TestApplyGitattributesWithTransaction(t *testing.T) {
 			},
 			shouldExist: false,
 			expectedErr: func() error {
-				return status.Error(codes.Unknown, "committing gitattributes: voting on locked file: preimage vote: rpc error: code = Unknown desc = foobar")
+				return status.Error(codes.Internal, "committing gitattributes: voting on locked file: preimage vote: rpc error: code = Unknown desc = foobar")
 			}(),
 			expectedVotes: 1,
 		},

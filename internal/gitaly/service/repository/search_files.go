@@ -44,11 +44,11 @@ func (s *server) SearchFilesByContent(req *gitalypb.SearchFilesByContentRequest,
 			git.Flag{Name: "-e"},
 		}, Args: []string{req.GetQuery(), string(req.GetRef())}})
 	if err != nil {
-		return helper.ErrInternalf("SearchFilesByContent: cmd start failed: %v", err)
+		return helper.ErrInternalf("cmd start failed: %w", err)
 	}
 
 	if err = sendSearchFilesResultChunked(cmd, stream); err != nil {
-		return helper.ErrInternalf("SearchFilesByContent: sending chunked response failed: %v", err)
+		return helper.ErrInternalf("sending chunked response failed: %w", err)
 	}
 
 	return nil
@@ -104,12 +104,12 @@ func (s *server) SearchFilesByName(req *gitalypb.SearchFilesByNameRequest, strea
 	var filter *regexp.Regexp
 	if req.GetFilter() != "" {
 		if len(req.GetFilter()) > searchFilesFilterMaxLength {
-			return helper.ErrInvalidArgumentf("SearchFilesByName: filter exceeds maximum length")
+			return helper.ErrInvalidArgumentf("filter exceeds maximum length")
 		}
 		var err error
 		filter, err = regexp.Compile(req.GetFilter())
 		if err != nil {
-			return helper.ErrInvalidArgumentf("SearchFilesByName: filter did not compile: %v", err)
+			return helper.ErrInvalidArgumentf("filter did not compile: %w", err)
 		}
 	}
 
@@ -128,7 +128,7 @@ func (s *server) SearchFilesByName(req *gitalypb.SearchFilesByNameRequest, strea
 			git.Flag{Name: "-z"},
 		}, Args: []string{string(req.GetRef()), req.GetQuery()}})
 	if err != nil {
-		return helper.ErrInternalf("SearchFilesByName: cmd start failed: %v", err)
+		return helper.ErrInternalf("cmd start failed: %w", err)
 	}
 
 	files, err := parseLsTree(cmd, filter, int(req.GetOffset()), int(req.GetLimit()))

@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -49,7 +48,7 @@ func (s *server) renameRepository(ctx context.Context, sourceRepo, targetRepo *g
 	}
 
 	if err := os.MkdirAll(filepath.Dir(targetPath), 0o770); err != nil {
-		return fmt.Errorf("create target parent dir: %w", err)
+		return helper.ErrInternalf("create target parent dir: %w", err)
 	}
 
 	// We're locking both the source repository path and the target repository path for
@@ -57,7 +56,7 @@ func (s *server) renameRepository(ctx context.Context, sourceRepo, targetRepo *g
 	// meanwhile, and so that the target repo doesn't get created concurrently either.
 	sourceLocker, err := safe.NewLockingFileWriter(sourcePath)
 	if err != nil {
-		return fmt.Errorf("creating source repo locker: %w", err)
+		return helper.ErrInternalf("creating source repo locker: %w", err)
 	}
 	defer func() {
 		if err := sourceLocker.Close(); err != nil {
@@ -67,7 +66,7 @@ func (s *server) renameRepository(ctx context.Context, sourceRepo, targetRepo *g
 
 	targetLocker, err := safe.NewLockingFileWriter(targetPath)
 	if err != nil {
-		return fmt.Errorf("creating target repo locker: %w", err)
+		return helper.ErrInternalf("creating target repo locker: %w", err)
 	}
 	defer func() {
 		if err := targetLocker.Close(); err != nil {
@@ -77,10 +76,10 @@ func (s *server) renameRepository(ctx context.Context, sourceRepo, targetRepo *g
 
 	// We're now entering the critical section where both the source and target path are locked.
 	if err := sourceLocker.Lock(); err != nil {
-		return fmt.Errorf("locking source repo: %w", err)
+		return helper.ErrInternalf("locking source repo: %w", err)
 	}
 	if err := targetLocker.Lock(); err != nil {
-		return fmt.Errorf("locking target repo: %w", err)
+		return helper.ErrInternalf("locking target repo: %w", err)
 	}
 
 	// We need to re-check whether the target path exists in case somebody has removed it before
@@ -90,7 +89,7 @@ func (s *server) renameRepository(ctx context.Context, sourceRepo, targetRepo *g
 	}
 
 	if err := os.Rename(sourcePath, targetPath); err != nil {
-		return fmt.Errorf("moving repository into place: %w", err)
+		return helper.ErrInternalf("moving repository into place: %w", err)
 	}
 
 	return nil

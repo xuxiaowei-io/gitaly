@@ -154,7 +154,7 @@ func TestServer_FetchBundle_validation(t *testing.T) {
 				},
 			},
 			expErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefect(
-				`GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/unknown"`,
+				`fetch remote: GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/unknown"`,
 				`mutator call: route repository mutator: get repository id: repository "default"/"unknown" not found`,
 			)),
 		},

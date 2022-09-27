@@ -325,14 +325,14 @@ func TestServer_CloneFromURLCommand_validate(t *testing.T) {
 			desc: "no repository provided",
 			req:  &gitalypb.CreateRepositoryFromURLRequest{Repository: nil},
 			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"CreateRepositoryFromURL: empty Repository",
+				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
 		},
 		{
 			desc:   "no URL provided",
 			req:    &gitalypb.CreateRepositoryFromURLRequest{Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "new"}, Url: ""},
-			expErr: status.Error(codes.InvalidArgument, "CreateRepositoryFromURL: empty Url"),
+			expErr: status.Error(codes.InvalidArgument, "empty Url"),
 		},
 	}
 

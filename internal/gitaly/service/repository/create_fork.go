@@ -10,8 +10,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func (s *server) CreateFork(ctx context.Context, req *gitalypb.CreateForkRequest) (*gitalypb.CreateForkResponse, error) {
@@ -19,10 +17,10 @@ func (s *server) CreateFork(ctx context.Context, req *gitalypb.CreateForkRequest
 	sourceRepository := req.SourceRepository
 
 	if sourceRepository == nil {
-		return nil, status.Errorf(codes.InvalidArgument, "CreateFork: empty SourceRepository")
+		return nil, helper.ErrInvalidArgumentf("empty SourceRepository")
 	}
 	if targetRepository == nil {
-		return nil, helper.ErrInvalidArgumentf("CreateFork: %w", gitalyerrors.ErrEmptyRepository)
+		return nil, helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
 	}
 
 	if err := s.createRepository(ctx, targetRepository, func(repo *gitalypb.Repository) error {

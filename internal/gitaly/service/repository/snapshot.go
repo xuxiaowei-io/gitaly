@@ -76,7 +76,7 @@ func (s *server) GetSnapshot(in *gitalypb.GetSnapshotRequest, stream gitalypb.Re
 	}
 
 	if err := builder.Close(); err != nil {
-		return helper.ErrInternal(fmt.Errorf("building snapshot failed: %v", err))
+		return helper.ErrInternal(fmt.Errorf("building snapshot failed: %w", err))
 	}
 
 	return nil
@@ -101,7 +101,7 @@ func (s *server) addAlternateFiles(ctx context.Context, repository *gitalypb.Rep
 
 	for _, altObjDir := range altObjDirs {
 		if err := walkAndAddToBuilder(altObjDir, builder); err != nil {
-			return fmt.Errorf("walking alternates file: %v", err)
+			return fmt.Errorf("walking alternates file: %w", err)
 		}
 	}
 
@@ -111,7 +111,7 @@ func (s *server) addAlternateFiles(ctx context.Context, repository *gitalypb.Rep
 func walkAndAddToBuilder(alternateObjDir string, builder *archive.TarBuilder) error {
 	matchWalker := archive.NewMatchWalker(objectFiles, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return fmt.Errorf("error walking %v: %v", path, err)
+			return fmt.Errorf("error walking %v: %w", path, err)
 		}
 
 		relPath, err := filepath.Rel(alternateObjDir, path)
@@ -121,21 +121,21 @@ func walkAndAddToBuilder(alternateObjDir string, builder *archive.TarBuilder) er
 
 		file, err := os.Open(path)
 		if err != nil {
-			return fmt.Errorf("opening file %s: %v", path, err)
+			return fmt.Errorf("opening file %s: %w", path, err)
 		}
 		defer file.Close()
 
 		objectPath := filepath.Join("objects", relPath)
 
 		if err := builder.VirtualFileWithContents(objectPath, file); err != nil {
-			return fmt.Errorf("expected file %v to exist: %v", path, err)
+			return fmt.Errorf("expected file %v to exist: %w", path, err)
 		}
 
 		return nil
 	})
 
 	if err := filepath.Walk(alternateObjDir, matchWalker.Walk); err != nil {
-		return fmt.Errorf("error when traversing: %v", err)
+		return fmt.Errorf("error when traversing: %w", err)
 	}
 
 	return nil

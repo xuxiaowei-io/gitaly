@@ -106,11 +106,11 @@ func testFailedRestoreCustomHooksDueToValidations(t *testing.T, ctx context.Cont
 	stream, err := client.RestoreCustomHooks(ctx)
 	require.NoError(t, err)
 
-	require.NoError(t, stream.Send(&gitalypb.RestoreCustomHooksRequest{}))
+	require.NoError(t, stream.Send(&gitalypb.RestoreCustomHooksRequest{Repository: nil}))
 
 	_, err = stream.CloseAndRecv()
 	testhelper.RequireGrpcError(t, err, status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-		"RestoreCustomHooks: empty Repository",
+		"empty Repository",
 		"repo scoped: empty Repository",
 	)))
 }

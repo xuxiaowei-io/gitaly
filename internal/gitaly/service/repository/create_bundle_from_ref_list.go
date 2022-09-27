@@ -10,8 +10,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func (s *server) CreateBundleFromRefList(stream gitalypb.RepositoryService_CreateBundleFromRefListServer) error {
@@ -63,7 +61,7 @@ func (s *server) CreateBundleFromRefList(stream gitalypb.RepositoryService_Creat
 		git.WithStderr(&stderr),
 	)
 	if err != nil {
-		return status.Errorf(codes.Internal, "cmd start failed: %v", err)
+		return helper.ErrInternalf("cmd start failed: %w", err)
 	}
 
 	writer := streamio.NewWriter(func(p []byte) error {
@@ -72,14 +70,14 @@ func (s *server) CreateBundleFromRefList(stream gitalypb.RepositoryService_Creat
 
 	_, err = io.Copy(writer, cmd)
 	if err != nil {
-		return status.Errorf(codes.Internal, "stream writer failed: %v", err)
+		return helper.ErrInternalf("stream writer failed: %w", err)
 	}
 
 	err = cmd.Wait()
 	if isExitWithCode(err, 128) && bytes.HasPrefix(stderr.Bytes(), []byte("fatal: Refusing to create empty bundle.")) {
-		return status.Errorf(codes.FailedPrecondition, "cmd wait failed: refusing to create empty bundle")
+		return helper.ErrFailedPreconditionf("cmd wait failed: refusing to create empty bundle")
 	} else if err != nil {
-		return status.Errorf(codes.Internal, "cmd wait failed: %v, stderr: %q", err, stderr.String())
+		return helper.ErrInternalf("cmd wait failed: %w, stderr: %q", err, stderr.String())
 	}
 
 	return nil

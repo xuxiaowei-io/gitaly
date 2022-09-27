@@ -52,7 +52,7 @@ func (s *server) RepositorySize(ctx context.Context, in *gitalypb.RepositorySize
 	if featureflag.RevlistForRepoSize.IsEnabled(ctx) {
 		newSizeBytes, err = calculateSizeWithRevlist(ctx, repo)
 		if err != nil {
-			return nil, fmt.Errorf("calculating repository size with git-rev-list: %w", err)
+			return nil, helper.ErrInternalf("calculating repository size with git-rev-list: %w", err)
 		}
 
 		logger.WithField("repo_size_revlist_bytes", newSizeBytes).Info("repository size calculated")
@@ -71,7 +71,7 @@ func (s *server) RepositorySize(ctx context.Context, in *gitalypb.RepositorySize
 			s.housekeepingManager,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("calculating repository size with git-cat-file: %w", err)
+			return nil, helper.ErrInternalf("calculating repository size with git-cat-file: %w", err)
 		}
 
 		logger.WithField("repo_size_catfile_bytes", newSizeBytes).Info("repository size calculated")

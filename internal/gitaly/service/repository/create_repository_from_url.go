@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -73,7 +74,7 @@ func (s *server) cloneFromURLCommand(
 
 func (s *server) CreateRepositoryFromURL(ctx context.Context, req *gitalypb.CreateRepositoryFromURLRequest) (*gitalypb.CreateRepositoryFromURLResponse, error) {
 	if err := validateCreateRepositoryFromURLRequest(req); err != nil {
-		return nil, helper.ErrInvalidArgumentf("CreateRepositoryFromURL: %w", err)
+		return nil, helper.ErrInvalidArgument(err)
 	}
 
 	if err := s.createRepository(ctx, req.GetRepository(), func(repo *gitalypb.Repository) error {
@@ -123,7 +124,7 @@ func validateCreateRepositoryFromURLRequest(req *gitalypb.CreateRepositoryFromUR
 	}
 
 	if req.GetUrl() == "" {
-		return fmt.Errorf("empty Url")
+		return errors.New("empty Url")
 	}
 
 	return nil

@@ -295,7 +295,7 @@ func TestCreateFork_validate(t *testing.T) {
 			desc: "repository not provided",
 			req:  &gitalypb.CreateForkRequest{Repository: nil, SourceRepository: repo},
 			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"CreateFork: empty Repository",
+				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
 		},
@@ -306,7 +306,7 @@ func TestCreateFork_validate(t *testing.T) {
 				if testhelper.IsPraefectEnabled() {
 					return status.Error(codes.AlreadyExists, "route repository creation: reserve repository id: repository already exists")
 				}
-				return status.Error(codes.InvalidArgument, "CreateFork: empty SourceRepository")
+				return status.Error(codes.InvalidArgument, "empty SourceRepository")
 			}(),
 		},
 	} {

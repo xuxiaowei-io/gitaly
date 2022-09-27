@@ -253,7 +253,7 @@ func TestCreateRepositoryFromBundle_invalidArgument(t *testing.T) {
 	require.NoError(t, stream.Send(&gitalypb.CreateRepositoryFromBundleRequest{}))
 
 	_, err = stream.CloseAndRecv()
-	msg := testhelper.GitalyOrPraefect("CreateRepositoryFromBundle: empty Repository", "repo scoped: empty Repository")
+	msg := testhelper.GitalyOrPraefect("empty Repository", "repo scoped: empty Repository")
 	testhelper.RequireGrpcError(t, err, status.Error(codes.InvalidArgument, msg))
 }
 

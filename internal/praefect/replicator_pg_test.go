@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/repository"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testdb"
@@ -41,7 +42,7 @@ func TestReplicatorInvalidSourceRepository(t *testing.T) {
 	srv := grpc.NewServer()
 	gitalypb.RegisterRepositoryServiceServer(srv, &mockRepositoryService{
 		ReplicateRepositoryFunc: func(context.Context, *gitalypb.ReplicateRepositoryRequest) (*gitalypb.ReplicateRepositoryResponse, error) {
-			return nil, repository.ErrInvalidSourceRepository
+			return nil, helper.ErrNotFoundf("validate: %w", repository.ErrInvalidSourceRepository)
 		},
 	})
 	defer srv.Stop()

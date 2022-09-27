@@ -24,7 +24,7 @@ func (s *server) Fsck(ctx context.Context, req *gitalypb.FsckRequest) (*gitalypb
 		git.WithStderr(&stderr),
 	)
 	if err != nil {
-		return nil, err
+		return nil, helper.ErrInternal(err)
 	}
 
 	if err = cmd.Wait(); err != nil {

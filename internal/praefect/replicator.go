@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -19,6 +20,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/correlation"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -79,13 +82,15 @@ func (dr defaultReplicator) Replicate(ctx context.Context, event datastore.Repli
 		Source:     sourceRepository,
 		Repository: targetRepository,
 	}); err != nil {
-		if errors.Is(err, repository.ErrInvalidSourceRepository) {
-			if err := dr.rs.DeleteInvalidRepository(ctx, event.Job.RepositoryID, event.Job.SourceNodeStorage); err != nil {
-				return fmt.Errorf("delete invalid repository: %w", err)
-			}
+		if st, ok := status.FromError(err); ok {
+			if st.Code() == codes.NotFound && strings.Contains(st.Message(), repository.ErrInvalidSourceRepository.Error()) {
+				if err := dr.rs.DeleteInvalidRepository(ctx, event.Job.RepositoryID, event.Job.SourceNodeStorage); err != nil {
+					return fmt.Errorf("delete invalid repository: %w", err)
+				}
 
-			logger.Info("invalid repository record removed")
-			return nil
+				logger.Info("invalid repository record removed")
+				return nil
+			}
 		}
 
 		return fmt.Errorf("failed to create repository: %w", err)

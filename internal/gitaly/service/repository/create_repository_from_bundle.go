@@ -14,19 +14,17 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func (s *server) CreateRepositoryFromBundle(stream gitalypb.RepositoryService_CreateRepositoryFromBundleServer) error {
 	firstRequest, err := stream.Recv()
 	if err != nil {
-		return status.Errorf(codes.Internal, "CreateRepositoryFromBundle: first request failed: %v", err)
+		return helper.ErrInternalf("first request failed: %w", err)
 	}
 
 	repo := firstRequest.GetRepository()
 	if repo == nil {
-		return helper.ErrInvalidArgumentf("CreateRepositoryFromBundle: %w", gitalyerrors.ErrEmptyRepository)
+		return helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
 	}
 
 	ctx := stream.Context()

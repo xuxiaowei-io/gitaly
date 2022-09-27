@@ -33,12 +33,12 @@ func (s *server) applyGitattributes(ctx context.Context, repo *localrepo.Repo, o
 			return helper.ErrInvalidArgumentf("revision does not exist")
 		}
 
-		return err
+		return helper.ErrInternalf("resolve revision: %w", err)
 	}
 
 	blobObj, err := objectReader.Object(ctx, git.Revision(fmt.Sprintf("%s:.gitattributes", revision)))
 	if err != nil && !catfile.IsNotFound(err) {
-		return err
+		return helper.ErrInternalf("read object: %w", err)
 	}
 
 	// Create  /info folder if it doesn't exist
@@ -51,7 +51,7 @@ func (s *server) applyGitattributes(ctx context.Context, repo *localrepo.Repo, o
 			FileWriterConfig: safe.FileWriterConfig{FileMode: attributesFileMode},
 		})
 		if err != nil {
-			return fmt.Errorf("creating gitattributes lock: %w", err)
+			return helper.ErrInternalf("creating gitattributes lock: %w", err)
 		}
 		defer func() {
 			if err := locker.Close(); err != nil {
@@ -60,21 +60,21 @@ func (s *server) applyGitattributes(ctx context.Context, repo *localrepo.Repo, o
 		}()
 
 		if err := locker.Lock(); err != nil {
-			return fmt.Errorf("locking gitattributes: %w", err)
+			return helper.ErrInternalf("locking gitattributes: %w", err)
 		}
 
 		// We use the zero OID as placeholder to vote on removal of the
 		// gitattributes file.
 		if err := s.vote(ctx, git.ObjectHashSHA1.ZeroOID, voting.Prepared); err != nil {
-			return fmt.Errorf("preimage vote: %w", err)
+			return helper.ErrInternalf("preimage vote: %w", err)
 		}
 
 		if err := os.Remove(attributesPath); err != nil && !os.IsNotExist(err) {
-			return err
+			return helper.ErrInternalf("remove attributes file: %w", err)
 		}
 
 		if err := s.vote(ctx, git.ObjectHashSHA1.ZeroOID, voting.Committed); err != nil {
-			return fmt.Errorf("postimage vote: %w", err)
+			return helper.ErrInternalf("postimage vote: %w", err)
 		}
 
 		return nil
@@ -84,7 +84,7 @@ func (s *server) applyGitattributes(ctx context.Context, repo *localrepo.Repo, o
 		FileWriterConfig: safe.FileWriterConfig{FileMode: attributesFileMode},
 	})
 	if err != nil {
-		return fmt.Errorf("creating gitattributes writer: %w", err)
+		return helper.ErrInternalf("creating gitattributes writer: %w", err)
 	}
 	defer func() {
 		if err := writer.Close(); err != nil && returnedErr == nil {
@@ -95,11 +95,11 @@ func (s *server) applyGitattributes(ctx context.Context, repo *localrepo.Repo, o
 	}()
 
 	if _, err := io.Copy(writer, blobObj); err != nil {
-		return err
+		return helper.ErrInternalf("writing data: %w", err)
 	}
 
 	if err := transaction.CommitLockedFile(ctx, s.txManager, writer); err != nil {
-		return fmt.Errorf("committing gitattributes: %w", err)
+		return helper.ErrInternalf("committing gitattributes: %w", err)
 	}
 
 	return nil
@@ -139,12 +139,12 @@ func (s *server) ApplyGitattributes(ctx context.Context, in *gitalypb.ApplyGitat
 	}
 
 	if err := git.ValidateRevision(in.GetRevision()); err != nil {
-		return nil, helper.ErrInvalidArgumentf("revision: %v", err)
+		return nil, helper.ErrInvalidArgumentf("revision: %w", err)
 	}
 
 	objectReader, cancel, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
-		return nil, err
+		return nil, helper.ErrInternalf("creating object reader: %w", err)
 	}
 	defer cancel()
 

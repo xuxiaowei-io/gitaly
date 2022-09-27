@@ -300,12 +300,12 @@ func TestMidxRepack_validationChecks(t *testing.T) {
 		{
 			desc:   "invalid storage",
 			req:    &gitalypb.MidxRepackRequest{Repository: &gitalypb.Repository{StorageName: "invalid"}},
-			expErr: status.Error(codes.InvalidArgument, `GetStorageByName: no such storage: "invalid"`),
+			expErr: status.Error(codes.InvalidArgument, `setting config: GetStorageByName: no such storage: "invalid"`),
 		},
 		{
 			desc:   "not existing repository",
 			req:    &gitalypb.MidxRepackRequest{Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "invalid"}},
-			expErr: status.Error(codes.NotFound, fmt.Sprintf(`GetRepoPath: not a git repository: "%s/invalid"`, cfg.Storages[0].Path)),
+			expErr: status.Error(codes.NotFound, fmt.Sprintf(`setting config: GetRepoPath: not a git repository: "%s/invalid"`, cfg.Storages[0].Path)),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

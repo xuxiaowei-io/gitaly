@@ -12,8 +12,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/correlation"
 	"gitlab.com/gitlab-org/labkit/tracing"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 // httpTransport defines a http.Transport with values that are more restrictive
@@ -47,7 +45,7 @@ var httpClient = &http.Client{
 func untar(ctx context.Context, path string, in *gitalypb.CreateRepositoryFromSnapshotRequest) error {
 	req, err := http.NewRequestWithContext(ctx, "GET", in.HttpUrl, nil)
 	if err != nil {
-		return status.Errorf(codes.InvalidArgument, "Bad HTTP URL: %v", err)
+		return helper.ErrInvalidArgumentf("Bad HTTP URL: %w", err)
 	}
 
 	if in.HttpAuth != "" {
@@ -59,12 +57,12 @@ func untar(ctx context.Context, path string, in *gitalypb.CreateRepositoryFromSn
 
 	rsp, err := httpClient.Do(req)
 	if err != nil {
-		return status.Errorf(codes.Internal, "HTTP request failed: %v", err)
+		return helper.ErrInternalf("HTTP request failed: %w", err)
 	}
 	defer rsp.Body.Close()
 
 	if rsp.StatusCode < http.StatusOK || rsp.StatusCode >= http.StatusMultipleChoices {
-		return status.Errorf(codes.Internal, "HTTP server: %v", rsp.Status)
+		return helper.ErrInternalf("HTTP server: %v", rsp.Status)
 	}
 
 	cmd, err := command.New(ctx, []string{"tar", "-C", path, "-xvf", "-"}, command.WithStdin(rsp.Body))

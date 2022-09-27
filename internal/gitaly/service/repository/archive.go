@@ -85,7 +85,7 @@ func (s *server) GetArchive(in *gitalypb.GetArchiveRequest, stream gitalypb.Repo
 
 	ctxlogrus.Extract(ctx).WithField("request_hash", requestHash(in)).Info("request details")
 
-	return s.handleArchive(ctx, archiveParams{
+	return helper.ErrInternal(s.handleArchive(ctx, archiveParams{
 		writer:       writer,
 		in:           in,
 		compressArgs: compressArgs,
@@ -93,7 +93,7 @@ func (s *server) GetArchive(in *gitalypb.GetArchiveRequest, stream gitalypb.Repo
 		archivePath:  path,
 		exclude:      exclude,
 		loggingDir:   s.loggingCfg.Dir,
-	})
+	}))
 }
 
 func parseArchiveFormat(format gitalypb.GetArchiveRequest_Format) ([]string, string) {
@@ -113,7 +113,7 @@ func parseArchiveFormat(format gitalypb.GetArchiveRequest_Format) ([]string, str
 
 func validateGetArchiveRequest(in *gitalypb.GetArchiveRequest, format string) error {
 	if err := git.ValidateRevision([]byte(in.GetCommitId())); err != nil {
-		return helper.ErrInvalidArgumentf("invalid commitId: %v", err)
+		return helper.ErrInvalidArgumentf("invalid commitId: %w", err)
 	}
 
 	if len(format) == 0 {
@@ -132,20 +132,20 @@ func (s *server) validateGetArchivePrecondition(
 ) error {
 	objectReader, cancel, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
-		return err
+		return helper.ErrInternalf("creating object reader: %w", err)
 	}
 	defer cancel()
 
 	objectInfoReader, cancel, err := s.catfileCache.ObjectInfoReader(ctx, repo)
 	if err != nil {
-		return err
+		return helper.ErrInternalf("creating object info reader: %w", err)
 	}
 	defer cancel()
 
 	f := catfile.NewTreeEntryFinder(objectReader, objectInfoReader)
 	if path != "." {
 		if ok, err := findGetArchivePath(ctx, f, commitID, path); err != nil {
-			return err
+			return helper.ErrInternalf("find archive: %w", err)
 		} else if !ok {
 			return helper.ErrFailedPreconditionf("path doesn't exist")
 		}
@@ -153,7 +153,7 @@ func (s *server) validateGetArchivePrecondition(
 
 	for i, exclude := range exclude {
 		if ok, err := findGetArchivePath(ctx, f, commitID, exclude); err != nil {
-			return err
+			return helper.ErrInternalf("find archive exclude: %w", err)
 		} else if !ok {
 			return helper.ErrFailedPreconditionf("exclude[%d] doesn't exist", i)
 		}

@@ -30,7 +30,7 @@ import (
 )
 
 // ErrInvalidSourceRepository is returned when attempting to replicate from an invalid source repository.
-var ErrInvalidSourceRepository = status.Error(codes.NotFound, "invalid source repository")
+var ErrInvalidSourceRepository = errors.New("invalid source repository")
 
 func (s *server) ReplicateRepository(ctx context.Context, in *gitalypb.ReplicateRepositoryRequest) (*gitalypb.ReplicateRepositoryResponse, error) {
 	if err := validateReplicateRepository(in); err != nil {
@@ -45,10 +45,10 @@ func (s *server) ReplicateRepository(ctx context.Context, in *gitalypb.Replicate
 	if !storage.IsGitDirectory(repoPath) {
 		if err = s.create(ctx, in, repoPath); err != nil {
 			if errors.Is(err, ErrInvalidSourceRepository) {
-				return nil, ErrInvalidSourceRepository
+				return nil, helper.ErrNotFound(ErrInvalidSourceRepository)
 			}
 
-			return nil, helper.ErrInternal(err)
+			return nil, helper.ErrInternalf("create repository: %w", err)
 		}
 	}
 
@@ -70,7 +70,7 @@ func (s *server) ReplicateRepository(ctx context.Context, in *gitalypb.Replicate
 		return nil, helper.ErrInternalf("checking for repo existence: %w", err)
 	}
 	if !request.GetExists() {
-		return nil, ErrInvalidSourceRepository
+		return nil, helper.ErrNotFound(ErrInvalidSourceRepository)
 	}
 
 	outgoingCtx := metadata.IncomingToOutgoing(ctx)
@@ -119,7 +119,7 @@ func (s *server) create(ctx context.Context, in *gitalypb.ReplicateRepositoryReq
 		}
 
 		if err = os.Rename(repoPath, filepath.Join(tempDir.Path(), filepath.Base(repoPath))); err != nil {
-			return fmt.Errorf("error deleting invalid repo: %v", err)
+			return fmt.Errorf("error deleting invalid repo: %w", err)
 		}
 
 		ctxlogrus.Extract(ctx).WithField("repo_path", repoPath).Warn("removed invalid repository")
@@ -166,7 +166,7 @@ func (s *server) extractSnapshot(ctx context.Context, source, target *gitalypb.R
 	firstBytes, err := stream.Recv()
 	if err != nil {
 		if st, ok := status.FromError(err); ok {
-			if st.Code() == codes.NotFound && strings.HasPrefix(st.Message(), "GetRepoPath: not a git repository:") {
+			if st.Code() == codes.NotFound && strings.Contains(st.Message(), "GetRepoPath: not a git repository:") {
 				return ErrInvalidSourceRepository
 			}
 		}

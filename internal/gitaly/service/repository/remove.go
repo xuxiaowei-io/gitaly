@@ -33,7 +33,7 @@ func (s *server) RemoveRepository(ctx context.Context, in *gitalypb.RemoveReposi
 	}
 
 	if err := os.MkdirAll(tempDir, 0o755); err != nil {
-		return nil, helper.ErrInternal(err)
+		return nil, helper.ErrInternalf("create tmp dir: %w", err)
 	}
 
 	base := filepath.Base(path)
@@ -81,7 +81,7 @@ func (s *server) RemoveRepository(ctx context.Context, in *gitalypb.RemoveReposi
 	}
 
 	if err := s.voteOnAction(ctx, repo, voting.Prepared); err != nil {
-		return nil, helper.ErrInternalf("vote on rename: %v", err)
+		return nil, helper.ErrInternalf("vote on rename: %w", err)
 	}
 
 	// We move the repository into our temporary directory first before we start to
@@ -96,7 +96,7 @@ func (s *server) RemoveRepository(ctx context.Context, in *gitalypb.RemoveReposi
 	}
 
 	if err := s.voteOnAction(ctx, repo, voting.Committed); err != nil {
-		return nil, helper.ErrInternalf("vote on finalizing: %v", err)
+		return nil, helper.ErrInternalf("vote on finalizing: %w", err)
 	}
 
 	return &gitalypb.RemoveRepositoryResponse{}, nil

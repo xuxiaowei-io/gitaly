@@ -217,7 +217,7 @@ func TestWriteRef_missingRevisions(t *testing.T) {
 				Ref:        []byte("refs/heads/main"),
 				Revision:   []byte("refs/heads/missing"),
 			},
-			expectedErr: helper.ErrInternalf("resolving new revision: reference not found"),
+			expectedErr: helper.ErrNotFoundf("update ref: resolving new revision: reference not found"),
 		},
 		{
 			desc: "revision refers to missing object",
@@ -226,7 +226,7 @@ func TestWriteRef_missingRevisions(t *testing.T) {
 				Ref:        []byte("refs/heads/main"),
 				Revision:   bytes.Repeat([]byte("1"), gittest.DefaultObjectHash.EncodedLen()),
 			},
-			expectedErr: helper.ErrInternalf("resolving new revision: reference not found"),
+			expectedErr: helper.ErrNotFoundf("update ref: resolving new revision: reference not found"),
 		},
 		{
 			desc: "old revision refers to missing reference",
@@ -236,7 +236,7 @@ func TestWriteRef_missingRevisions(t *testing.T) {
 				Revision:    []byte(commitID),
 				OldRevision: bytes.Repeat([]byte("1"), gittest.DefaultObjectHash.EncodedLen()),
 			},
-			expectedErr: helper.ErrInternalf("resolving old revision: reference not found"),
+			expectedErr: helper.ErrNotFoundf("update ref: resolving old revision: reference not found"),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

@@ -9,8 +9,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func (s *server) FindMergeBase(ctx context.Context, req *gitalypb.FindMergeBaseRequest) (*gitalypb.FindMergeBaseResponse, error) {
@@ -23,7 +21,7 @@ func (s *server) FindMergeBase(ctx context.Context, req *gitalypb.FindMergeBaseR
 	}
 
 	if len(revisions) < 2 {
-		return nil, status.Errorf(codes.InvalidArgument, "FindMergeBase: at least 2 revisions are required")
+		return nil, helper.ErrInvalidArgumentf("at least 2 revisions are required")
 	}
 
 	cmd, err := s.gitCmdFactory.New(ctx, req.GetRepository(),
@@ -33,15 +31,12 @@ func (s *server) FindMergeBase(ctx context.Context, req *gitalypb.FindMergeBaseR
 		},
 	)
 	if err != nil {
-		if _, ok := status.FromError(err); ok {
-			return nil, err
-		}
-		return nil, status.Errorf(codes.Internal, "FindMergeBase: cmd: %v", err)
+		return nil, helper.ErrInternalf("cmd: %w", err)
 	}
 
 	mergeBase, err := io.ReadAll(cmd)
 	if err != nil {
-		return nil, err
+		return nil, helper.ErrInternalf("read output: %w", err)
 	}
 
 	mergeBaseStr := text.ChompBytes(mergeBase)
