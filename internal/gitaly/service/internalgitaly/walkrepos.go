@@ -6,9 +6,8 @@ import (
 	"path/filepath"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -18,7 +17,7 @@ func (s *server) WalkRepos(req *gitalypb.WalkReposRequest, stream gitalypb.Inter
 		return err
 	}
 
-	return walkStorage(stream.Context(), sPath, stream)
+	return helper.ErrInternal(walkStorage(stream.Context(), sPath, stream))
 }
 
 func (s *server) storagePath(storageName string) (string, error) {
@@ -27,10 +26,7 @@ func (s *server) storagePath(storageName string) (string, error) {
 			return storage.Path, nil
 		}
 	}
-	return "", status.Errorf(
-		codes.NotFound,
-		"storage name %q not found", storageName,
-	)
+	return "", helper.ErrNotFoundf("storage name %q not found", storageName)
 }
 
 func walkStorage(ctx context.Context, storagePath string, stream gitalypb.InternalGitaly_WalkReposServer) error {
