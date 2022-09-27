@@ -3,7 +3,6 @@ package conflicts
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"io"
 	"unicode/utf8"
 
@@ -131,10 +130,10 @@ func validateListConflictFilesRequest(in *gitalypb.ListConflictFilesRequest) err
 		return gitalyerrors.ErrEmptyRepository
 	}
 	if in.GetOurCommitOid() == "" {
-		return fmt.Errorf("empty OurCommitOid")
+		return errors.New("empty OurCommitOid")
 	}
 	if in.GetTheirCommitOid() == "" {
-		return fmt.Errorf("empty TheirCommitOid")
+		return errors.New("empty TheirCommitOid")
 	}
 
 	return nil

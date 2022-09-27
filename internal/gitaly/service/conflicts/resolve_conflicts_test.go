@@ -678,7 +678,7 @@ func TestFailedResolveConflictsRequestDueToValidation(t *testing.T) {
 				SourceBranch:     sourceBranch,
 				TargetBranch:     targetBranch,
 			},
-			expErr: status.Error(codes.InvalidArgument, "ResolveConflicts: empty User"),
+			expErr: status.Error(codes.InvalidArgument, "empty User"),
 		},
 		{
 			desc: "empty repo",
@@ -693,7 +693,7 @@ func TestFailedResolveConflictsRequestDueToValidation(t *testing.T) {
 				TargetBranch:     targetBranch,
 			},
 			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"ResolveConflicts: empty Repository",
+				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
 		},
@@ -709,7 +709,7 @@ func TestFailedResolveConflictsRequestDueToValidation(t *testing.T) {
 				SourceBranch:     sourceBranch,
 				TargetBranch:     targetBranch,
 			},
-			expErr: status.Error(codes.InvalidArgument, "ResolveConflicts: empty TargetRepository"),
+			expErr: status.Error(codes.InvalidArgument, "empty TargetRepository"),
 		},
 		{
 			desc: "empty OurCommitId repo",
@@ -723,7 +723,7 @@ func TestFailedResolveConflictsRequestDueToValidation(t *testing.T) {
 				SourceBranch:     sourceBranch,
 				TargetBranch:     targetBranch,
 			},
-			expErr: status.Error(codes.InvalidArgument, "ResolveConflicts: empty OurCommitOid"),
+			expErr: status.Error(codes.InvalidArgument, "empty OurCommitOid"),
 		},
 		{
 			desc: "empty TheirCommitId repo",
@@ -737,7 +737,7 @@ func TestFailedResolveConflictsRequestDueToValidation(t *testing.T) {
 				SourceBranch:     sourceBranch,
 				TargetBranch:     targetBranch,
 			},
-			expErr: status.Error(codes.InvalidArgument, "ResolveConflicts: empty TheirCommitOid"),
+			expErr: status.Error(codes.InvalidArgument, "empty TheirCommitOid"),
 		},
 		{
 			desc: "empty CommitMessage repo",
@@ -751,7 +751,7 @@ func TestFailedResolveConflictsRequestDueToValidation(t *testing.T) {
 				SourceBranch:     sourceBranch,
 				TargetBranch:     targetBranch,
 			},
-			expErr: status.Error(codes.InvalidArgument, "ResolveConflicts: empty CommitMessage"),
+			expErr: status.Error(codes.InvalidArgument, "empty CommitMessage"),
 		},
 		{
 			desc: "empty SourceBranch repo",
@@ -765,7 +765,7 @@ func TestFailedResolveConflictsRequestDueToValidation(t *testing.T) {
 				SourceBranch:     nil,
 				TargetBranch:     targetBranch,
 			},
-			expErr: status.Error(codes.InvalidArgument, "ResolveConflicts: empty SourceBranch"),
+			expErr: status.Error(codes.InvalidArgument, "empty SourceBranch"),
 		},
 		{
 			desc: "empty TargetBranch repo",
@@ -779,7 +779,7 @@ func TestFailedResolveConflictsRequestDueToValidation(t *testing.T) {
 				SourceBranch:     sourceBranch,
 				TargetBranch:     nil,
 			},
-			expErr: status.Error(codes.InvalidArgument, "ResolveConflicts: empty TargetBranch"),
+			expErr: status.Error(codes.InvalidArgument, "empty TargetBranch"),
 		},
 	}
 

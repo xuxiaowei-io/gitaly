@@ -22,8 +22,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func (s *server) ResolveConflicts(stream gitalypb.ConflictsService_ResolveConflictsServer) error {
@@ -34,11 +32,11 @@ func (s *server) ResolveConflicts(stream gitalypb.ConflictsService_ResolveConfli
 
 	header := firstRequest.GetHeader()
 	if header == nil {
-		return status.Errorf(codes.InvalidArgument, "ResolveConflicts: empty ResolveConflictsRequestHeader")
+		return helper.ErrInvalidArgumentf("empty ResolveConflictsRequestHeader")
 	}
 
 	if err = validateResolveConflictsHeader(header); err != nil {
-		return status.Errorf(codes.InvalidArgument, "ResolveConflicts: %v", err)
+		return helper.ErrInvalidArgument(err)
 	}
 
 	err = s.resolveConflicts(header, stream)
@@ -78,28 +76,28 @@ func handleResolveConflictsErr(err error, stream gitalypb.ConflictsService_Resol
 
 func validateResolveConflictsHeader(header *gitalypb.ResolveConflictsRequestHeader) error {
 	if header.GetOurCommitOid() == "" {
-		return fmt.Errorf("empty OurCommitOid")
+		return errors.New("empty OurCommitOid")
 	}
 	if header.GetRepository() == nil {
 		return gitalyerrors.ErrEmptyRepository
 	}
 	if header.GetTargetRepository() == nil {
-		return fmt.Errorf("empty TargetRepository")
+		return errors.New("empty TargetRepository")
 	}
 	if header.GetTheirCommitOid() == "" {
-		return fmt.Errorf("empty TheirCommitOid")
+		return errors.New("empty TheirCommitOid")
 	}
 	if header.GetSourceBranch() == nil {
-		return fmt.Errorf("empty SourceBranch")
+		return errors.New("empty SourceBranch")
 	}
 	if header.GetTargetBranch() == nil {
-		return fmt.Errorf("empty TargetBranch")
+		return errors.New("empty TargetBranch")
 	}
 	if header.GetCommitMessage() == nil {
-		return fmt.Errorf("empty CommitMessage")
+		return errors.New("empty CommitMessage")
 	}
 	if header.GetUser() == nil {
-		return fmt.Errorf("empty User")
+		return errors.New("empty User")
 	}
 
 	return nil
