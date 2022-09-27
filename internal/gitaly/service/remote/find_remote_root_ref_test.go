@@ -104,7 +104,7 @@ func TestFindRemoteRootRefFailedDueToValidation(t *testing.T) {
 			request: &gitalypb.FindRemoteRootRefRequest{
 				RemoteUrl: "remote-url",
 			},
-			expectedErr: helper.ErrInvalidArgumentf("missing repository"),
+			expectedErr: helper.ErrInvalidArgumentf("empty Repository"),
 		},
 		{
 			desc: "Remote URL is empty",

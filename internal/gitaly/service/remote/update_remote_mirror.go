@@ -26,7 +26,7 @@ const (
 func (s *server) UpdateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMirrorServer) error {
 	firstRequest, err := stream.Recv()
 	if err != nil {
-		return helper.ErrInternalf("receive first request: %v", err)
+		return helper.ErrInternalf("receive first request: %w", err)
 	}
 
 	if err = validateUpdateRemoteMirrorRequest(stream.Context(), firstRequest); err != nil {
@@ -148,7 +148,7 @@ func (s *server) updateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMi
 		if firstRequest.GetKeepDivergentRefs() {
 			isAncestor, err := repo.IsAncestor(ctx, git.Revision(remoteTarget), git.Revision(localRef.Target))
 			if err != nil && !errors.Is(err, localrepo.InvalidCommitError(remoteTarget)) {
-				return fmt.Errorf("is ancestor: %w", err)
+				return fmt.Errorf("is %q an ancestor of %q: %w", remoteTarget, localRef.Target, err)
 			}
 
 			if !isAncestor {
@@ -178,7 +178,7 @@ func (s *server) updateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMi
 	for remoteRef, remoteCommitOID := range toDelete {
 		isAncestor, err := repo.IsAncestor(ctx, git.Revision(remoteCommitOID), git.Revision(defaultBranch))
 		if err != nil && !errors.Is(err, localrepo.InvalidCommitError(remoteCommitOID)) {
-			return fmt.Errorf("is ancestor: %w", err)
+			return fmt.Errorf("is %q an ancestor of %q: %w", remoteCommitOID, defaultBranch, err)
 		}
 
 		if isAncestor {
@@ -268,11 +268,11 @@ func validateUpdateRemoteMirrorRequest(ctx context.Context, req *gitalypb.Update
 	}
 
 	if req.GetRemote() == nil {
-		return fmt.Errorf("missing Remote")
+		return errors.New("missing Remote")
 	}
 
 	if req.GetRemote().GetUrl() == "" {
-		return fmt.Errorf("remote is missing URL")
+		return errors.New("remote is missing URL")
 	}
 
 	return nil
