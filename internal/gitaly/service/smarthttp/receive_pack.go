@@ -5,14 +5,13 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	log "github.com/sirupsen/logrus"
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func (s *server) PostReceivePack(stream gitalypb.SmartHTTPService_PostReceivePackServer) error {
@@ -64,11 +63,11 @@ func (s *server) PostReceivePack(stream gitalypb.SmartHTTPService_PostReceivePac
 		git.WithConfig(config...),
 	)
 	if err != nil {
-		return status.Errorf(codes.Unavailable, "PostReceivePack: %v", err)
+		return helper.ErrUnavailable(err)
 	}
 
 	if err := cmd.Wait(); err != nil {
-		return status.Errorf(codes.Unavailable, "PostReceivePack: %v", err)
+		return helper.ErrUnavailable(err)
 	}
 
 	// In cases where all reference updates are rejected by git-receive-pack(1), we would end up
@@ -88,7 +87,7 @@ func (s *server) PostReceivePack(stream gitalypb.SmartHTTPService_PostReceivePac
 		// To avoid this error being presented to the end user, ignore it when the
 		// transaction was stopped.
 		if !errors.Is(err, transaction.ErrTransactionStopped) {
-			return status.Errorf(codes.Aborted, "final transactional vote: %v", err)
+			return helper.ErrAbortedf("final transactional vote: %w", err)
 		}
 	}
 
@@ -97,13 +96,13 @@ func (s *server) PostReceivePack(stream gitalypb.SmartHTTPService_PostReceivePac
 
 func validateReceivePackRequest(req *gitalypb.PostReceivePackRequest) error {
 	if req.GlId == "" {
-		return status.Errorf(codes.InvalidArgument, "PostReceivePack: empty GlId")
+		return helper.ErrInvalidArgumentf("empty GlId")
 	}
 	if req.Data != nil {
-		return status.Errorf(codes.InvalidArgument, "PostReceivePack: non-empty Data")
+		return helper.ErrInvalidArgumentf("non-empty Data")
 	}
 	if req.Repository == nil {
-		return helper.ErrInvalidArgumentf("PostReceivePack: empty Repository")
+		return helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
 	}
 
 	return nil
