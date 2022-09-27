@@ -395,11 +395,11 @@ debug-test-go: prepare-tests prepare-debug
 
 .PHONY: test
 ## Run Go benchmarks.
-bench: TEST_OPTIONS := ${TEST_OPTIONS} -bench=. -run=^$
+bench: override TEST_OPTIONS := ${TEST_OPTIONS} -bench=. -run=^$
 bench: ${BENCHMARK_REPO} test-go
 
 .PHONY: test-with-proxies
-test-with-proxies: TEST_OPTIONS  := ${TEST_OPTIONS} -exec ${SOURCE_DIR}/_support/bad-proxies
+test-with-proxies: override TEST_OPTIONS  := ${TEST_OPTIONS} -exec ${SOURCE_DIR}/_support/bad-proxies
 test-with-proxies: TEST_PACKAGES := ${GITALY_PACKAGE}/internal/gitaly/rubyserver
 test-with-proxies: prepare-tests
 	${Q}$(call run_go_tests)
@@ -411,7 +411,7 @@ test-with-praefect: prepare-tests
 
 .PHONY: race-go
 ## Run Go tests with race detection enabled.
-race-go: TEST_OPTIONS := ${TEST_OPTIONS} -race
+race-go: override TEST_OPTIONS := ${TEST_OPTIONS} -race
 race-go: test-go
 
 .PHONY: rspec
@@ -477,7 +477,7 @@ rubocop: ${SOURCE_DIR}/.ruby-bundle
 
 .PHONY: cover
 ## Generate coverage report via Go tests.
-cover: TEST_OPTIONS  := ${TEST_OPTIONS} -coverprofile "${TEST_COVERAGE_DIR}/all.merged"
+cover: override TEST_OPTIONS  := ${TEST_OPTIONS} -coverprofile "${TEST_COVERAGE_DIR}/all.merged"
 cover: prepare-tests libgit2 ${GOCOVER_COBERTURA}
 	${Q}rm -rf "${TEST_COVERAGE_DIR}"
 	${Q}mkdir -p "${TEST_COVERAGE_DIR}"
