@@ -25,11 +25,7 @@ func (s *server) ListBranchNamesContainingCommit(in *gitalypb.ListBranchNamesCon
 
 	chunker := chunk.New(&branchNamesContainingCommitSender{stream: stream})
 	ctx := stream.Context()
-	if err := s.listRefNames(ctx, chunker, "refs/heads", in.Repository, containingArgs(in)); err != nil {
-		return helper.ErrInternal(err)
-	}
-
-	return nil
+	return helper.ErrInternal(s.listRefNames(ctx, chunker, "refs/heads", in.Repository, containingArgs(in)))
 }
 
 type containingRequest interface {
@@ -71,11 +67,7 @@ func (s *server) ListTagNamesContainingCommit(in *gitalypb.ListTagNamesContainin
 
 	chunker := chunk.New(&tagNamesContainingCommitSender{stream: stream})
 	ctx := stream.Context()
-	if err := s.listRefNames(ctx, chunker, "refs/tags", in.Repository, containingArgs(in)); err != nil {
-		return helper.ErrInternal(err)
-	}
-
-	return nil
+	return helper.ErrInternal(s.listRefNames(ctx, chunker, "refs/tags", in.Repository, containingArgs(in)))
 }
 
 type tagNamesContainingCommitSender struct {

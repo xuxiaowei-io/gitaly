@@ -25,7 +25,7 @@ func (s *server) ListRefs(in *gitalypb.ListRefsRequest, stream gitalypb.RefServi
 		var err error
 		headOID, err = repo.ResolveRevision(ctx, git.Revision("HEAD"))
 		if err != nil && !errors.Is(err, git.ErrReferenceNotFound) {
-			return helper.ErrInternal(err)
+			return helper.ErrInternalf("resolving HEAD: %w", err)
 		}
 	}
 
@@ -44,7 +44,7 @@ func (s *server) ListRefs(in *gitalypb.ListRefsRequest, stream gitalypb.RefServi
 		git.ValueFlag{Name: "--sort", Value: sorting},
 	}
 
-	return s.findRefs(ctx, writer, repo, patterns, opts)
+	return helper.ErrInternal(s.findRefs(ctx, writer, repo, patterns, opts))
 }
 
 func validateListRefsRequest(in *gitalypb.ListRefsRequest) error {
