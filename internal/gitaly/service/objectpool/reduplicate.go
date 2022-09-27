@@ -3,15 +3,15 @@ package objectpool
 import (
 	"context"
 
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func (s *server) ReduplicateRepository(ctx context.Context, req *gitalypb.ReduplicateRepositoryRequest) (*gitalypb.ReduplicateRepositoryResponse, error) {
 	if req.GetRepository() == nil {
-		return nil, status.Errorf(codes.InvalidArgument, "ReduplicateRepository: no repository")
+		return nil, helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
 	}
 
 	cmd, err := s.gitCmdFactory.New(ctx, req.GetRepository(), git.SubCmd{

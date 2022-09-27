@@ -6,8 +6,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 var (
@@ -34,11 +32,11 @@ func (s *server) CreateObjectPool(ctx context.Context, in *gitalypb.CreateObject
 	origin := s.localrepo(in.GetOrigin())
 
 	if pool.Exists() {
-		return nil, status.Errorf(codes.FailedPrecondition, "pool already exists at: %v", pool.GetRelativePath())
+		return nil, helper.ErrFailedPreconditionf("pool already exists at: %v", pool.GetRelativePath())
 	}
 
 	if err := pool.Create(ctx, origin); err != nil {
-		return nil, err
+		return nil, helper.ErrInternalf("pool creation: %w", err)
 	}
 
 	return &gitalypb.CreateObjectPoolResponse{}, nil
@@ -51,7 +49,7 @@ func (s *server) DeleteObjectPool(ctx context.Context, in *gitalypb.DeleteObject
 	}
 
 	if err := pool.Remove(ctx); err != nil {
-		return nil, err
+		return nil, helper.ErrInternalf("remove pool: %w", err)
 	}
 
 	return &gitalypb.DeleteObjectPoolResponse{}, nil

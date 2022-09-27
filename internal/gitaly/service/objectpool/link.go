@@ -3,15 +3,14 @@ package objectpool
 import (
 	"context"
 
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func (s *server) LinkRepositoryToObjectPool(ctx context.Context, req *gitalypb.LinkRepositoryToObjectPoolRequest) (*gitalypb.LinkRepositoryToObjectPoolResponse, error) {
 	if req.GetRepository() == nil {
-		return nil, status.Error(codes.InvalidArgument, "no repository")
+		return nil, helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
 	}
 
 	pool, err := s.poolForRequest(req)
