@@ -387,7 +387,7 @@ func TestPostReceivePack_requestValidation(t *testing.T) {
 			desc:    "Repository is nil",
 			request: &gitalypb.PostReceivePackRequest{Repository: nil, GlId: "user-123"},
 			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"PostReceivePack: empty Repository",
+				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
 		},
@@ -405,7 +405,7 @@ func TestPostReceivePack_requestValidation(t *testing.T) {
 					return helper.ErrNotFoundf("mutator call: route repository mutator: get repository id: repository %q/%q not found", cfg.Storages[0].Name, "path/to/repo")
 				}
 
-				return helper.ErrInvalidArgumentf("PostReceivePack: empty GlId")
+				return helper.ErrInvalidArgumentf("empty GlId")
 			}(),
 		},
 		{
@@ -423,7 +423,7 @@ func TestPostReceivePack_requestValidation(t *testing.T) {
 					return helper.ErrNotFoundf("mutator call: route repository mutator: get repository id: repository %q/%q not found", cfg.Storages[0].Name, "path/to/repo")
 				}
 
-				return helper.ErrInvalidArgumentf("PostReceivePack: non-empty Data")
+				return helper.ErrInvalidArgumentf("non-empty Data")
 			}(),
 		},
 	} {

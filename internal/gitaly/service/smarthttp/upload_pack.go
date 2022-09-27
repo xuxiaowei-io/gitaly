@@ -15,8 +15,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/sidechannel"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 type basicPostUploadPackRequest interface {
@@ -34,7 +32,7 @@ func (s *server) PostUploadPack(stream gitalypb.SmartHTTPService_PostUploadPackS
 	}
 
 	if req.Data != nil {
-		return status.Errorf(codes.InvalidArgument, "non-empty Data")
+		return helper.ErrInvalidArgumentf("non-empty Data")
 	}
 
 	repoPath, gitConfig, err := s.validateUploadPackRequest(ctx, req)
@@ -62,7 +60,7 @@ func (s *server) PostUploadPackWithSidechannel(ctx context.Context, req *gitalyp
 
 	conn, err := sidechannel.OpenSidechannel(ctx)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "open sidechannel: %v", err)
+		return nil, helper.ErrInternalf("open sidechannel: %w", err)
 	}
 	defer conn.Close()
 
@@ -71,7 +69,7 @@ func (s *server) PostUploadPackWithSidechannel(ctx context.Context, req *gitalyp
 	}
 
 	if err := conn.Close(); err != nil {
-		return nil, status.Errorf(codes.Internal, "close sidechannel connection: %v", err)
+		return nil, helper.ErrInternalf("close sidechannel connection: %w", err)
 	}
 
 	return &gitalypb.PostUploadPackWithSidechannelResponse{}, nil
@@ -149,13 +147,13 @@ func (s *server) runUploadPack(ctx context.Context, req basicPostUploadPackReque
 		Args:  []string{repoPath},
 	}, commandOpts...)
 	if err != nil {
-		return helper.ErrUnavailablef("cmd: %v", err)
+		return helper.ErrUnavailablef("cmd: %w", err)
 	}
 
 	// Use a custom buffer size to minimize the number of system calls.
 	respBytes, err := io.CopyBuffer(stdout, cmd, make([]byte, 64*1024))
 	if err != nil {
-		return helper.ErrUnavailablef("Fail to transfer git data: %v", err)
+		return helper.ErrUnavailablef("Fail to transfer git data: %w", err)
 	}
 
 	if err := cmd.Wait(); err != nil {

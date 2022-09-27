@@ -10,9 +10,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/cache"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 type infoRefCache struct {
@@ -67,7 +66,7 @@ func (c infoRefCache) tryCache(ctx context.Context, in *gitalypb.InfoRefsRequest
 		logger.Info("cache hit for UploadPack response")
 
 		if _, err := io.Copy(w, stream); err != nil {
-			return status.Errorf(codes.Internal, "GetInfoRefs: cache copy: %v", err)
+			return helper.ErrInternalf("GetInfoRefs: cache copy: %w", err)
 		}
 
 		return nil
