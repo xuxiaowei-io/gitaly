@@ -3,7 +3,6 @@ package objectpool
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
@@ -18,7 +17,7 @@ func (s *server) FetchIntoObjectPool(ctx context.Context, req *gitalypb.FetchInt
 
 	objectPool, err := objectpool.FromProto(s.locator, s.gitCmdFactory, s.catfileCache, s.txManager, s.housekeepingManager, req.GetObjectPool())
 	if err != nil {
-		return nil, helper.ErrInvalidArgument(fmt.Errorf("object pool invalid: %v", err))
+		return nil, helper.ErrInvalidArgumentf("object pool invalid: %w", err)
 	}
 
 	origin := s.localrepo(req.GetOrigin())
