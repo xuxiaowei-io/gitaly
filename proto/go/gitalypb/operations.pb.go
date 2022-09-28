@@ -616,7 +616,7 @@ type UserDeleteBranchResponse struct {
 	unknownFields protoimpl.UnknownFields
 
 	// PreReceiveError is never set anymore. This RPC will instead return a UserDeleteBranchError for
-	// a subset of well-defined error cases.
+	// a subset of well-defined error cases. This field will be removed in v16.0.
 	//
 	// Deprecated: Do not use.
 	PreReceiveError string `protobuf:"bytes,1,opt,name=pre_receive_error,json=preReceiveError,proto3" json:"pre_receive_error,omitempty"`

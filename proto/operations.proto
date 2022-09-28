@@ -233,7 +233,7 @@ message UserDeleteBranchRequest {
 // UserDeleteBranchResponse is a response for the UserDeleteBranch RPC.
 message UserDeleteBranchResponse {
   // PreReceiveError is never set anymore. This RPC will instead return a UserDeleteBranchError for
-  // a subset of well-defined error cases.
+  // a subset of well-defined error cases. This field will be removed in v16.0.
   string pre_receive_error = 1 [deprecated=true];
 }
 
