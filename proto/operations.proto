@@ -294,11 +294,13 @@ message UserCreateTagRequest {
 message UserCreateTagResponse {
   // tag is the newly created tag.
   Tag tag = 1;
-  // exists denotes whether the tag has existed already.
-  bool exists = 2;
-  // pre_receive_error contains an error message if updating the tag failed
-  // because of a pre-receive error.
-  string pre_receive_error = 3;
+  // exists is deprecated and never set by Gitaly. Instead, Gitaly returns a structured error with
+  // the `reference_exists` field set. This field will be removed in v16.0.
+  bool exists = 2 [deprecated=true];
+  // pre_receive_error is deprecated and never set by Gitaly. Instead, Gitaly returns a structured
+  // error with either of the `access_check`, `reference_update` or `custom_hook` fields being set
+  // depending on the error condition. This field will be removed in v16.0.
+  string pre_receive_error = 3 [deprecated=true];
 }
 
 // UserCreateTagError includes error descriptions which may be set as error details in case
