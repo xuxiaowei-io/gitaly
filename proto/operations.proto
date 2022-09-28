@@ -504,17 +504,19 @@ message UserCherryPickResponse {
 
   // branch_update represents details about the updated branch.
   OperationBranchUpdate branch_update = 1;
-  // create_tree_error contains the error message if creation of the tree
-  // failed.
-  string create_tree_error = 2;
-  // commit_error contains the error message if updating the reference failed.
-  string commit_error = 3;
-  // pre_receive_error contains the error message if the pre-receive hook
-  // failed.
-  string pre_receive_error = 4;
-  // create_tree_error_code contains the error code if creation of the tree
-  // failed.
-  CreateTreeError create_tree_error_code = 5;
+  // create_tree_error is deprecated and never set by Gitaly. Instead, Gitaly returns a structured
+  // error with the `cherry_pick_conflict` or `changes_already_applied` field set. This field will
+  // be removed in v16.0.
+  string create_tree_error = 2 [deprecated=true];
+  // commit_error is deprecated and never set by Gitaly. Instead, Gitaly returns a structured
+  // error with the `target_branch_diverged` field set. This field will be removed in v16.0.
+  string commit_error = 3 [deprecated=true];
+  // pre_receive_error is deprecated and never set by Gitaly. Instead, Gitaly returns a structured
+  // error with the `access_check` field set. This field will be removed in v16.0.
+  string pre_receive_error = 4 [deprecated=true];
+  // create_tree_error_code is deprecated and never set by Gitaly. There is no replacement. This
+  // field will be removed in v16.0.
+  CreateTreeError create_tree_error_code = 5 [deprecated=true];
 }
 
 // UserCherryPickError is an error returned by the UserCherryPick RPC.
