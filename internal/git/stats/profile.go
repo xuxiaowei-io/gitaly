@@ -1,10 +1,9 @@
 package stats
 
-//nolint:depguard
 import (
 	"context"
 	"errors"
-	"io/ioutil"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -34,13 +33,13 @@ func PackfilesCount(repoPath string) (int, error) {
 }
 
 // GetPackfiles returns the FileInfo of packfiles inside a repository.
-func GetPackfiles(repoPath string) ([]os.FileInfo, error) {
-	files, err := ioutil.ReadDir(filepath.Join(repoPath, "objects/pack/"))
+func GetPackfiles(repoPath string) ([]fs.DirEntry, error) {
+	files, err := os.ReadDir(filepath.Join(repoPath, "objects/pack/"))
 	if err != nil {
 		return nil, err
 	}
 
-	var packFiles []os.FileInfo
+	var packFiles []fs.DirEntry
 	for _, f := range files {
 		if filepath.Ext(f.Name()) == ".pack" {
 			packFiles = append(packFiles, f)

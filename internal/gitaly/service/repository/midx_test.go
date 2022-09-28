@@ -5,6 +5,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -111,8 +112,8 @@ func TestMidxRepack(t *testing.T) {
 		"At least 1 pack file should have been created",
 	)
 
-	newPackFile := findNewestPackFile(t, repoPath)
-	assert.True(t, newPackFile.ModTime().After(time.Time{}))
+	_, newPackFileInfo := findNewestPackFile(t, repoPath)
+	assert.True(t, newPackFileInfo.ModTime().After(time.Time{}))
 }
 
 func TestMidxRepack_transactional(t *testing.T) {
@@ -214,21 +215,26 @@ func TestMidxRepackExpire(t *testing.T) {
 }
 
 // findNewestPackFile returns the latest created pack file in repo's odb
-func findNewestPackFile(t *testing.T, repoPath string) os.FileInfo {
+func findNewestPackFile(t *testing.T, repoPath string) (fs.DirEntry, fs.FileInfo) {
 	t.Helper()
 
 	files, err := stats.GetPackfiles(repoPath)
 	require.NoError(t, err)
 
-	var newestPack os.FileInfo
+	var newestPack fs.DirEntry
+	var newestPackInfo fs.FileInfo
 	for _, f := range files {
-		if newestPack == nil || f.ModTime().After(newestPack.ModTime()) {
+		info, err := f.Info()
+		require.NoError(t, err)
+
+		if newestPack == nil || info.ModTime().After(newestPackInfo.ModTime()) {
 			newestPack = f
+			newestPackInfo = info
 		}
 	}
 	require.NotNil(t, newestPack)
 
-	return newestPack
+	return newestPack, newestPackInfo
 }
 
 // addPackFiles creates some packfiles by
