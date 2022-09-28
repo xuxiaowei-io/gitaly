@@ -36,6 +36,15 @@ func LsTreeWithBlobFilter() LsTreeOption {
 	}
 }
 
+// LsTreeWithSkip will execute the given function for each RevisionResult processed by the
+// pipeline. If the callback returns `true`, then the object will be skipped and not passed down
+// the pipeline.
+func LsTreeWithSkip(skipResult func(*RevisionResult) bool) LsTreeOption {
+	return func(cfg *lsTreeConfig) {
+		cfg.skipResult = skipResult
+	}
+}
+
 // LsTree runs git-ls-tree(1) for the given revisions. The returned channel will
 // contain all object IDs listed by this command. This might include:
 //  - Blobs

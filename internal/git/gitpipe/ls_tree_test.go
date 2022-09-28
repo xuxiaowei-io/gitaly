@@ -1,6 +1,7 @@
 package gitpipe
 
 import (
+	"bytes"
 	"errors"
 	"testing"
 
@@ -148,6 +149,30 @@ func TestLsTree(t *testing.T) {
 			},
 			options: []LsTreeOption{
 				LsTreeWithRecursive(),
+			},
+		},
+		{
+			desc: "with skip function",
+			setup: func(t *testing.T, repoPath string) (git.Revision, []RevisionResult) {
+				blobA := gittest.WriteBlob(t, cfg, repoPath, []byte("a"))
+				blobB := gittest.WriteBlob(t, cfg, repoPath, []byte("b"))
+				blobC := gittest.WriteBlob(t, cfg, repoPath, []byte("c"))
+
+				tree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: ".gitignore", Mode: "100644", OID: blobA},
+					{Path: "LICENSE", Mode: "100644", OID: blobB},
+					{Path: "README.md", Mode: "100644", OID: blobC},
+				})
+
+				return tree.Revision(), []RevisionResult{
+					{OID: blobB, ObjectName: []byte("LICENSE")},
+					{OID: blobC, ObjectName: []byte("README.md")},
+				}
+			},
+			options: []LsTreeOption{
+				LsTreeWithSkip(func(r *RevisionResult) bool {
+					return bytes.Equal(r.ObjectName, []byte(".gitignore"))
+				}),
 			},
 		},
 		{
