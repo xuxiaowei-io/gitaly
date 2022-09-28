@@ -1,13 +1,12 @@
 package cache
 
-//nolint:depguard
 import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -120,7 +119,18 @@ func (keyer leaseKeyer) keyPath(ctx context.Context, repo *gitalypb.Repository, 
 
 	anyValidPending := false
 	for _, p := range pending {
-		if time.Since(p.ModTime()) > staleAge {
+		info, err := p.Info()
+		if err != nil {
+			// The lease may have been cleaned up already, so we just ignore it as we
+			// wanted to remove it anyway.
+			if errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
+
+			return "", fmt.Errorf("statting lease: %w", err)
+		}
+
+		if time.Since(info.ModTime()) > staleAge {
 			pPath := filepath.Join(pDir, p.Name())
 			if err := os.Remove(pPath); err != nil && !os.IsNotExist(err) {
 				return "", err
@@ -221,13 +231,13 @@ func (keyer leaseKeyer) getRepoStatePath(repo *gitalypb.Repository) (string, err
 	return filepath.Join(stateDir, relativePath), nil
 }
 
-func (keyer leaseKeyer) currentLeases(repo *gitalypb.Repository) ([]os.FileInfo, error) {
+func (keyer leaseKeyer) currentLeases(repo *gitalypb.Repository) ([]fs.DirEntry, error) {
 	repoStatePath, err := keyer.getRepoStatePath(repo)
 	if err != nil {
 		return nil, err
 	}
 
-	pendings, err := ioutil.ReadDir(pendingDir(repoStatePath))
+	pendings, err := os.ReadDir(pendingDir(repoStatePath))
 	switch {
 	case os.IsNotExist(err):
 		// pending files subdir don't exist yet, that's okay
