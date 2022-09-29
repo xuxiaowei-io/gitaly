@@ -69,6 +69,90 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 			},
 		},
 		{
+			desc: "documentation is ignored",
+			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
+				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
+
+				docTree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "readme.md", Mode: "100644", Content: strings.Repeat("a", 500)},
+					{Path: "index.html", Mode: "100644", Content: strings.Repeat("a", 120)},
+					{Path: "formatter.rb", Mode: "100644", Content: strings.Repeat("a", 403)},
+				})
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "docs", Mode: "040000", OID: docTree},
+					gittest.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
+				))
+
+				return repoProto, repoPath, commitID
+			},
+			expectedStats: ByteCountPerLanguage{
+				"C": 85,
+			},
+		},
+		{
+			desc: "vendor is ignored",
+			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
+				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
+
+				vendorTree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "app.rb", Mode: "100644", Content: strings.Repeat("a", 500)},
+				})
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "vendor", Mode: "040000", OID: vendorTree},
+					gittest.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
+				))
+
+				return repoProto, repoPath, commitID
+			},
+			expectedStats: ByteCountPerLanguage{
+				"C": 85,
+			},
+		},
+		{
+			desc: "generated is ignored",
+			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
+				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
+
+				podsTree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "app.swift", Mode: "100644", Content: strings.Repeat("a", 500)},
+				})
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "Pods", Mode: "040000", OID: podsTree},
+					gittest.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
+				))
+
+				return repoProto, repoPath, commitID
+			},
+			expectedStats: ByteCountPerLanguage{
+				"C": 85,
+			},
+		},
+		{
+			desc: "undetectable languages are ignored",
+			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
+				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "config.json", Mode: "100644", Content: strings.Repeat("a", 234)},
+					gittest.TreeEntry{Path: "manual.md", Mode: "100644", Content: strings.Repeat("a", 553)},
+					gittest.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
+				))
+
+				return repoProto, repoPath, commitID
+			},
+			expectedStats: ByteCountPerLanguage{
+				"C": 85,
+			},
+		},
+		{
 			desc: "empty code files",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
 				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{

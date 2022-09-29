@@ -122,20 +122,28 @@ func (inst *Instance) enryStats(ctx context.Context, commitID string) (ByteCount
 	var revlistIt gitpipe.RevisionIterator
 
 	if stats.CommitID == "" {
+		skipFunc := func(result *gitpipe.RevisionResult) bool {
+			// Skip files that are an excluded filetype based on filename.
+			return newFileInstance(string(result.ObjectName)).IsExcluded()
+		}
+
 		// No existing stats cached, so get all the files for the commit
 		// using git-ls-tree(1).
 		revlistIt = gitpipe.LsTree(ctx, inst.repo,
 			commitID,
 			gitpipe.LsTreeWithRecursive(),
 			gitpipe.LsTreeWithBlobFilter(),
+			gitpipe.LsTreeWithSkip(skipFunc),
 		)
 	} else {
 		// Stats are cached for one commit, so get the git-diff-tree(1)
 		// between that commit and the one we're calculating stats for.
 
-		skipDeleted := func(result *gitpipe.RevisionResult) bool {
-			// Skip files that are deleted.
-			if git.ObjectHashSHA1.IsZeroOID(result.OID) {
+		skipFunc := func(result *gitpipe.RevisionResult) bool {
+			// Skip files that are deleted, or
+			// an excluded filetype based on filename.
+			if git.ObjectHashSHA1.IsZeroOID(result.OID) ||
+				newFileInstance(string(result.ObjectName)).IsExcluded() {
 				// It's a little bit of a hack to use this skip
 				// function, but for every file that's deleted,
 				// remove the stats.
@@ -149,7 +157,7 @@ func (inst *Instance) enryStats(ctx context.Context, commitID string) (ByteCount
 			stats.CommitID, commitID,
 			gitpipe.DiffTreeWithRecursive(),
 			gitpipe.DiffTreeWithIgnoreSubmodules(),
-			gitpipe.DiffTreeWithSkip(skipDeleted),
+			gitpipe.DiffTreeWithSkip(skipFunc),
 		)
 	}
 
