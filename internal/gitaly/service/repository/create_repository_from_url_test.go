@@ -229,10 +229,13 @@ func TestServer_CloneFromURLCommand(t *testing.T) {
 	user, password := "example_user", "pass%21%3F%40"
 
 	for _, tc := range []struct {
-		desc               string
-		url                string
-		token              string
-		expectedAuthHeader string
+		desc                         string
+		url                          string
+		resolvedAddress              string
+		token                        string
+		expectedAuthHeader           string
+		expectedCurloptResolveHeader string
+		expectedURL                  string
 	}{
 		{
 			desc:  "user credentials",
@@ -242,6 +245,7 @@ func TestServer_CloneFromURLCommand(t *testing.T) {
 				"Authorization: Basic %s",
 				base64.StdEncoding.EncodeToString([]byte("example_user:pass!?@")),
 			),
+			expectedURL: "https://192.0.2.1/secretrepo.git",
 		},
 		{
 			desc:  "token",
@@ -250,6 +254,16 @@ func TestServer_CloneFromURLCommand(t *testing.T) {
 			expectedAuthHeader: fmt.Sprintf(
 				"Authorization: %s", "some-token",
 			),
+			expectedURL: "https://192.0.2.1/secretrepo.git",
+		},
+		{
+			desc:                         "with resolved address",
+			url:                          "https://gitlab.com/secretrepo.git",
+			token:                        "some-token",
+			expectedAuthHeader:           fmt.Sprintf("Authorization: %s", "some-token"),
+			resolvedAddress:              "192.0.1.1",
+			expectedURL:                  "https://gitlab.com/secretrepo.git",
+			expectedCurloptResolveHeader: "*:443:192.0.1.1",
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -259,6 +273,7 @@ func TestServer_CloneFromURLCommand(t *testing.T) {
 				ctx,
 				tc.url,
 				"www.example.com",
+				tc.resolvedAddress,
 				"full/path/to/repository",
 				tc.token,
 				false,
@@ -275,7 +290,7 @@ func TestServer_CloneFromURLCommand(t *testing.T) {
 
 			args := cmd.Args()
 			require.Contains(t, args, "--bare")
-			require.Contains(t, args, "https://192.0.2.1/secretrepo.git")
+			require.Contains(t, args, tc.expectedURL)
 			for _, arg := range args {
 				require.NotContains(t, arg, user)
 				require.NotContains(t, arg, password)
@@ -285,9 +300,21 @@ func TestServer_CloneFromURLCommand(t *testing.T) {
 			require.Subset(t, cmd.Env(), []string{
 				"GIT_CONFIG_KEY_0=http.extraHeader",
 				"GIT_CONFIG_VALUE_0=" + tc.expectedAuthHeader,
-				"GIT_CONFIG_KEY_1=http.extraHeader",
-				"GIT_CONFIG_VALUE_1=Host: www.example.com",
 			})
+
+			if tc.expectedCurloptResolveHeader != "" {
+				require.Subset(t, cmd.Env(), []string{
+					"GIT_CONFIG_KEY_1=http.curloptResolve",
+					"GIT_CONFIG_VALUE_1=" + tc.expectedCurloptResolveHeader,
+					"GIT_CONFIG_KEY_2=http.extraHeader",
+					"GIT_CONFIG_VALUE_2=Host: www.example.com",
+				})
+			} else {
+				require.Subset(t, cmd.Env(), []string{
+					"GIT_CONFIG_KEY_1=http.extraHeader",
+					"GIT_CONFIG_VALUE_1=Host: www.example.com",
+				})
+			}
 		})
 	}
 }
@@ -301,7 +328,7 @@ func TestServer_CloneFromURLCommand_withMirror(t *testing.T) {
 
 	cfg := testcfg.Build(t)
 	s := server{cfg: cfg, gitCmdFactory: gittest.NewCommandFactory(t, cfg)}
-	cmd, err := s.cloneFromURLCommand(ctx, url, "", repositoryFullPath, "", true, git.WithDisabledHooks())
+	cmd, err := s.cloneFromURLCommand(ctx, url, "", "", repositoryFullPath, "", true, git.WithDisabledHooks())
 	require.NoError(t, err)
 
 	args := cmd.Args()
