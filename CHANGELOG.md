@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 15.4.1 (2022-09-29)
+
+No changes.
+
 ## 15.4.0 (2022-09-21)
 
 ### Added (1 change)
@@ -22,6 +26,10 @@
 
 - [Public Grafana dashboards does not exist any more](gitlab-org/gitaly@ef80fcf20a02fa6fd4010d50d8a7cfa030b5b39c) ([merge request](gitlab-org/gitaly!4831))
 - [Add support for MulanPSL-2.0 in license detection](gitlab-org/gitaly@5a64218610feb05b833647b4e703386b2d1564f0) ([merge request](gitlab-org/gitaly!4825))
+
+## 15.3.4 (2022-09-29)
+
+No changes.
 
 ## 15.3.3 (2022-09-01)
 
@@ -81,6 +89,10 @@ No changes.
 
 - [Exclude github.com/gin-gonic/gin vulnerable to CVE-2020-28483](gitlab-org/gitaly@790de3895243fac0c550c8f60e230fb9eb58febb) ([merge request](gitlab-org/gitaly!4784))
 - [git: Fix missing consistency checks for clones](gitlab-org/gitaly@b5d0d04155ad7b464ab5c63440b55e9ca514ae6e)
+
+## 15.2.5 (2022-09-29)
+
+No changes.
 
 ## 15.2.4 (2022-08-30)
 
