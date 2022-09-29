@@ -67,7 +67,6 @@ func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteReque
 
 	opts.CommandOptions = append(opts.CommandOptions, git.WithConfigEnv(config...))
 
-	//nolint:staticcheck
 	sshCommand, cleanup, err := git.BuildSSHInvocation(ctx, req.GetSshKey(), req.GetKnownHosts())
 	if err != nil {
 		return nil, err

@@ -18,7 +18,7 @@ import (
 
 func (s *server) cloneFromURLCommand(
 	ctx context.Context,
-	repoURL, repoHost, repositoryFullPath, authorizationToken string, mirror bool,
+	repoURL, repoHost, resolvedAddress, repositoryFullPath, authorizationToken string, mirror bool,
 	opts ...git.CmdOpt,
 ) (*command.Command, error) {
 	cloneFlags := []git.Option{
@@ -55,6 +55,18 @@ func (s *server) cloneFromURLCommand(
 		config = append(config, git.ConfigPair{Key: "http.extraHeader", Value: authHeader})
 	}
 
+	urlString := u.String()
+
+	if resolvedAddress != "" {
+		modifiedURL, resolveConfig, err := git.GetURLAndResolveConfig(u.String(), resolvedAddress)
+		if err != nil {
+			return nil, helper.ErrInvalidArgumentf("couldn't get curloptResolve config: %w", err)
+		}
+
+		urlString = modifiedURL
+		config = append(config, resolveConfig...)
+	}
+
 	if repoHost != "" {
 		config = append(config, git.ConfigPair{
 			Key:   "http.extraHeader",
@@ -66,7 +78,7 @@ func (s *server) cloneFromURLCommand(
 		git.SubCmd{
 			Name:  "clone",
 			Flags: cloneFlags,
-			Args:  []string{u.String(), repositoryFullPath},
+			Args:  []string{urlString, repositoryFullPath},
 		},
 		append(opts, git.WithConfigEnv(config...))...,
 	)
@@ -93,6 +105,7 @@ func (s *server) CreateRepositoryFromURL(ctx context.Context, req *gitalypb.Crea
 			req.GetUrl(),
 			//nolint:staticcheck
 			req.GetHttpHost(),
+			req.GetResolvedAddress(),
 			targetPath,
 			req.GetHttpAuthorizationHeader(),
 			req.GetMirror(),
