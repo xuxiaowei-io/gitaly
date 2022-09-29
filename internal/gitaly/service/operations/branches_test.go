@@ -109,6 +109,7 @@ func TestUserCreateBranch_successful(t *testing.T) {
 
 			require.NoError(t, err)
 			require.Equal(t, testCase.expectedBranch, response.Branch)
+			//nolint:staticcheck
 			require.Empty(t, response.PreReceiveError)
 
 			branches := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs/heads/"+branchName)
@@ -185,6 +186,7 @@ func TestUserCreateBranch_Transactions(t *testing.T) {
 			transactionServer.called = 0
 			response, err := client.UserCreateBranch(ctx, request)
 			require.NoError(t, err)
+			//nolint:staticcheck
 			require.Empty(t, response.PreReceiveError)
 			require.Equal(t, 2, transactionServer.called)
 		})
@@ -213,6 +215,7 @@ func TestUserCreateBranch_hook(t *testing.T) {
 
 			response, err := client.UserCreateBranch(ctx, request)
 			require.NoError(t, err)
+			//nolint:staticcheck
 			require.Empty(t, response.PreReceiveError)
 
 			output := string(testhelper.MustReadFile(t, hookOutputTempPath))
