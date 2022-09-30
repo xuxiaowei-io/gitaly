@@ -12,12 +12,11 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/setup"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func TestConfigLocator_GetRepoPath(t *testing.T) {
@@ -53,37 +52,37 @@ func TestConfigLocator_GetRepoPath(t *testing.T) {
 		{
 			desc:   "storage is empty",
 			repo:   &gitalypb.Repository{RelativePath: repo.RelativePath},
-			expErr: status.Error(codes.InvalidArgument, `GetStorageByName: no such storage: ""`),
+			expErr: helper.ErrInvalidArgumentf(`GetStorageByName: no such storage: ""`),
 		},
 		{
 			desc:   "unknown storage",
 			repo:   &gitalypb.Repository{StorageName: "invalid", RelativePath: repo.RelativePath},
-			expErr: status.Error(codes.InvalidArgument, `GetStorageByName: no such storage: "invalid"`),
+			expErr: helper.ErrInvalidArgumentf(`GetStorageByName: no such storage: "invalid"`),
 		},
 		{
 			desc:   "storage doesn't exist on disk",
 			repo:   &gitalypb.Repository{StorageName: cfg.Storages[1].Name, RelativePath: repo.RelativePath},
-			expErr: status.Errorf(codes.NotFound, `GetPath: does not exist: stat %s: no such file or directory`, cfg.Storages[1].Path),
+			expErr: helper.ErrNotFoundf(`GetPath: does not exist: stat %s: no such file or directory`, cfg.Storages[1].Path),
 		},
 		{
 			desc:   "relative path is empty",
 			repo:   &gitalypb.Repository{StorageName: storageName, RelativePath: ""},
-			expErr: status.Error(codes.InvalidArgument, `GetPath: relative path missing from storage_name:"exists"`),
+			expErr: helper.ErrInvalidArgumentf(`GetPath: relative path missing from storage_name:"exists"`),
 		},
 		{
 			desc:   "unknown relative path",
 			repo:   &gitalypb.Repository{StorageName: storageName, RelativePath: "invalid"},
-			expErr: status.Errorf(codes.NotFound, `GetRepoPath: not a git repository: %q`, filepath.Join(cfg.Storages[0].Path, "invalid")),
+			expErr: helper.ErrNotFoundf(`GetRepoPath: not a git repository: %q`, filepath.Join(cfg.Storages[0].Path, "invalid")),
 		},
 		{
 			desc:   "path exists but not a git repository",
 			repo:   &gitalypb.Repository{StorageName: storageName, RelativePath: notRepositoryFolder},
-			expErr: status.Errorf(codes.NotFound, `GetRepoPath: not a git repository: %q`, filepath.Join(cfg.Storages[0].Path, notRepositoryFolder)),
+			expErr: helper.ErrNotFoundf(`GetRepoPath: not a git repository: %q`, filepath.Join(cfg.Storages[0].Path, notRepositoryFolder)),
 		},
 		{
 			desc:   "relative path escapes parent folder",
 			repo:   &gitalypb.Repository{StorageName: storageName, RelativePath: "../.."},
-			expErr: status.Error(codes.InvalidArgument, `GetRepoPath: relative path escapes root directory`),
+			expErr: helper.ErrInvalidArgumentf(`GetRepoPath: relative path escapes root directory`),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -151,27 +150,27 @@ func TestConfigLocator_GetPath(t *testing.T) {
 		{
 			desc:   "storage is empty",
 			repo:   &gitalypb.Repository{RelativePath: repo.RelativePath},
-			expErr: status.Error(codes.InvalidArgument, `GetStorageByName: no such storage: ""`),
+			expErr: helper.ErrInvalidArgumentf(`GetStorageByName: no such storage: ""`),
 		},
 		{
 			desc:   "unknown storage",
 			repo:   &gitalypb.Repository{StorageName: "invalid", RelativePath: repo.RelativePath},
-			expErr: status.Error(codes.InvalidArgument, `GetStorageByName: no such storage: "invalid"`),
+			expErr: helper.ErrInvalidArgumentf(`GetStorageByName: no such storage: "invalid"`),
 		},
 		{
 			desc:   "storage doesn't exist on disk",
 			repo:   &gitalypb.Repository{StorageName: cfg.Storages[1].Name, RelativePath: repo.RelativePath},
-			expErr: status.Errorf(codes.NotFound, `GetPath: does not exist: stat %s: no such file or directory`, cfg.Storages[1].Path),
+			expErr: helper.ErrNotFoundf(`GetPath: does not exist: stat %s: no such file or directory`, cfg.Storages[1].Path),
 		},
 		{
 			desc:   "relative path is empty",
 			repo:   &gitalypb.Repository{StorageName: storageName, RelativePath: ""},
-			expErr: status.Error(codes.InvalidArgument, `GetPath: relative path missing from storage_name:"exists"`),
+			expErr: helper.ErrInvalidArgumentf(`GetPath: relative path missing from storage_name:"exists"`),
 		},
 		{
 			desc:   "relative path escapes parent folder",
 			repo:   &gitalypb.Repository{StorageName: storageName, RelativePath: "../.."},
-			expErr: status.Error(codes.InvalidArgument, `GetRepoPath: relative path escapes root directory`),
+			expErr: helper.ErrInvalidArgumentf(`GetRepoPath: relative path escapes root directory`),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -203,7 +202,7 @@ func TestConfigLocator_CacheDir(t *testing.T) {
 
 	t.Run("unknown storage", func(t *testing.T) {
 		_, err := locator.CacheDir("unknown")
-		require.Equal(t, status.Error(codes.InvalidArgument, `cache dir: no such storage: "unknown"`), err)
+		require.Equal(t, helper.ErrInvalidArgumentf(`cache dir: no such storage: "unknown"`), err)
 	})
 }
 
@@ -228,7 +227,7 @@ func TestConfigLocator_StateDir(t *testing.T) {
 
 	t.Run("unknown storage", func(t *testing.T) {
 		_, err := locator.StateDir("unknown")
-		require.Equal(t, status.Error(codes.InvalidArgument, `state dir: no such storage: "unknown"`), err)
+		require.Equal(t, helper.ErrInvalidArgumentf(`state dir: no such storage: "unknown"`), err)
 	})
 }
 
@@ -253,6 +252,6 @@ func TestConfigLocator_TempDir(t *testing.T) {
 
 	t.Run("unknown storage", func(t *testing.T) {
 		_, err := locator.TempDir("unknown")
-		require.Equal(t, status.Error(codes.InvalidArgument, `tmp dir: no such storage: "unknown"`), err)
+		require.Equal(t, helper.ErrInvalidArgumentf(`tmp dir: no such storage: "unknown"`), err)
 	})
 }
