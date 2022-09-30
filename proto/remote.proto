@@ -53,8 +53,9 @@ message UpdateRemoteMirrorRequest {
     string http_authorization_header = 2;
     // HttpHost is the hostname of the remote repository. Use this when the
     // URL hostname has already been resolved to an IP address to prevent DNS
-    // rebinding.
-    string http_host = 3;
+    // rebinding. This is deprecated as we will be using resolved_address
+    // going forward.
+    string http_host = 3 [deprecated=true];
     // ResolvedAddress holds the resolved IP address of the remote_url. This is
     // used to avoid DNS rebinding by mapping the url to the resolved address.
     // Only IPv4 dotted decimal ("192.0.2.1"), IPv6 ("2001:db8::68"), or IPv4-mapped
@@ -128,8 +129,9 @@ message FindRemoteRootRefRequest {
   string http_authorization_header = 4;
   // HttpHost is the hostname of the remote repository. Use this when the
   // URL hostname has already been resolved to an IP address to prevent DNS
-  // rebinding.
-  string http_host = 5;
+  // rebinding. This is deprecated as we will be using resolved_address
+  // going forward.
+  string http_host = 5 [deprecated=true];
   // ResolvedAddress holds the resolved IP address of the remote_url. This is
   // used to avoid DNS rebinding by mapping the url to the resolved address.
   // Only IPv4 dotted decimal ("192.0.2.1"), IPv6 ("2001:db8::68"), or IPv4-mapped
