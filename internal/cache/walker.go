@@ -5,10 +5,10 @@
 // worker will walk the cache directory every ten minutes.
 package cache
 
-//nolint:depguard
 import (
+	"errors"
 	"fmt"
-	"io/ioutil"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"time"
@@ -31,7 +31,7 @@ func (c *DiskCache) cleanWalk(path string) error {
 	defer time.Sleep(100 * time.Microsecond) // relieve pressure
 
 	c.walkerCheckTotal.Inc()
-	entries, err := ioutil.ReadDir(path)
+	entries, err := os.ReadDir(path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil
@@ -50,8 +50,19 @@ func (c *DiskCache) cleanWalk(path string) error {
 			continue
 		}
 
+		info, err := e.Info()
+		if err != nil {
+			// The file may have been cleaned up already, so we just ignore it as we
+			// wanted to remove it anyway.
+			if errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
+
+			return fmt.Errorf("statting cached file: %w", err)
+		}
+
 		c.walkerCheckTotal.Inc()
-		if time.Since(e.ModTime()) < staleAge {
+		if time.Since(info.ModTime()) < staleAge {
 			continue // still fresh
 		}
 

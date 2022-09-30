@@ -1,11 +1,10 @@
 package repository
 
-//nolint:depguard
 import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -107,7 +106,7 @@ func (s *server) cleanupKeepArounds(ctx context.Context, repo *localrepo.Repo) e
 	keepAroundsPrefix := "refs/keep-around"
 	keepAroundsPath := filepath.Join(repoPath, keepAroundsPrefix)
 
-	refInfos, err := ioutil.ReadDir(keepAroundsPath)
+	refEntries, err := os.ReadDir(keepAroundsPath)
 	if os.IsNotExist(err) {
 		return nil
 	}
@@ -115,9 +114,22 @@ func (s *server) cleanupKeepArounds(ctx context.Context, repo *localrepo.Repo) e
 		return err
 	}
 
-	for _, info := range refInfos {
-		if info.IsDir() {
+	for _, entry := range refEntries {
+		if entry.IsDir() {
 			continue
+		}
+
+		info, err := entry.Info()
+		if err != nil {
+			// Even though the reference has disappeared we know its name
+			// and thus the object hash it is supposed to point to. So
+			// while we technically could try to fix it, we don't as
+			// we seem to be racing with a concurrent process.
+			if errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
+
+			return fmt.Errorf("statting keep-around ref: %w", err)
 		}
 
 		refName := fmt.Sprintf("%s/%s", keepAroundsPrefix, info.Name())

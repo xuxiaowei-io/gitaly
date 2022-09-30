@@ -1,10 +1,10 @@
 package tempdir
 
-//nolint:depguard
 import (
 	"context"
+	"errors"
 	"fmt"
-	"io/ioutil"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -71,7 +71,7 @@ func clean(locator storage.Locator, storage config.Storage) error {
 		panic(invalidCleanRoot("invalid tempdir clean root: panicking to prevent data loss"))
 	}
 
-	entries, err := ioutil.ReadDir(dir)
+	entries, err := os.ReadDir(dir)
 	if os.IsNotExist(err) {
 		return nil
 	}
@@ -79,7 +79,18 @@ func clean(locator storage.Locator, storage config.Storage) error {
 		return err
 	}
 
-	for _, info := range entries {
+	for _, entry := range entries {
+		info, err := entry.Info()
+		if err != nil {
+			// It's fine if the entry has disappeared meanwhile, we wanted to remove it
+			// anyway.
+			if errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
+
+			return fmt.Errorf("statting tempdir entry: %w", err)
+		}
+
 		if time.Since(info.ModTime()) < maxAge {
 			continue
 		}

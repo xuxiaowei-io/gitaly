@@ -2,7 +2,9 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -209,28 +211,39 @@ func (s *server) midxRepack(ctx context.Context, repo repository.GitRepo) error 
 // Reference:
 // - https://public-inbox.org/git/f3b25a9927fe560b764850ea880a71932ec2af32.1598380599.git.gitgitgadget@gmail.com/
 func calculateBatchSize(repoPath string) (int64, error) {
-	files, err := stats.GetPackfiles(repoPath)
+	packfiles, err := stats.GetPackfiles(repoPath)
 	if err != nil {
 		return 0, err
 	}
 
 	// In case of 2 or less packs,
 	// batch size should be 0 for a full repack
-	if len(files) <= 2 {
+	if len(packfiles) <= 2 {
 		return 0, nil
 	}
 
 	var biggestSize int64
 	var secondBiggestSize int64
-	for _, f := range files {
-		if f.Size() > biggestSize {
+	for _, packfile := range packfiles {
+		info, err := packfile.Info()
+		if err != nil {
+			// It's fine if the entry has disappeared meanwhile, we just don't account
+			// for its size.
+			if errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
+
+			return 0, fmt.Errorf("statting packfile: %w", err)
+		}
+
+		if info.Size() > biggestSize {
 			secondBiggestSize = biggestSize
-			biggestSize = f.Size()
+			biggestSize = info.Size()
 			continue
 		}
 
-		if f.Size() > secondBiggestSize {
-			secondBiggestSize = f.Size()
+		if info.Size() > secondBiggestSize {
+			secondBiggestSize = info.Size()
 		}
 	}
 

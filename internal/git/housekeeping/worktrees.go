@@ -1,12 +1,11 @@
 package housekeeping
 
-//nolint:depguard
 import (
 	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -57,14 +56,25 @@ func cleanStaleWorktrees(ctx context.Context, repo *localrepo.Repo, threshold ti
 		return err
 	}
 
-	worktreeEntries, err := ioutil.ReadDir(worktreePath)
+	worktreeEntries, err := os.ReadDir(worktreePath)
 	if err != nil {
 		return err
 	}
 
-	for _, info := range worktreeEntries {
-		if !info.IsDir() || (info.Mode()&os.ModeSymlink != 0) {
+	for _, entry := range worktreeEntries {
+		if !entry.IsDir() || (entry.Type()&fs.ModeSymlink != 0) {
 			continue
+		}
+
+		info, err := entry.Info()
+		if err != nil {
+			// It's fine if the entry has disappeared meanwhile, we wanted to remove it
+			// anyway.
+			if errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
+
+			return fmt.Errorf("statting worktree: %w", err)
 		}
 
 		if info.ModTime().Before(threshold) {
