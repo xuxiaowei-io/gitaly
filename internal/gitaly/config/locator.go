@@ -45,10 +45,6 @@ func (l *configLocator) GetRepoPath(repo repository.GitRepo) (string, error) {
 		return "", err
 	}
 
-	if repoPath == "" {
-		return "", status.Errorf(codes.InvalidArgument, "GetRepoPath: empty repo path")
-	}
-
 	if storage.IsGitDirectory(repoPath) {
 		return repoPath, nil
 	}
