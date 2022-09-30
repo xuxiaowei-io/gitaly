@@ -157,6 +157,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :http_host, :string, 3
       optional :http_authorization_header, :string, 4
       optional :mirror, :bool, 5
+      optional :resolved_address, :string, 6
     end
     add_message "gitaly.CreateRepositoryFromURLResponse" do
     end
@@ -230,6 +231,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :http_url, :string, 2
       optional :http_auth, :string, 3
       optional :http_host, :string, 4
+      optional :resolved_address, :string, 5
     end
     add_message "gitaly.CreateRepositoryFromSnapshotResponse" do
     end
@@ -287,6 +289,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :http_authorization_header, :string, 3
       repeated :mirror_refmaps, :string, 4
       optional :http_host, :string, 5
+      optional :resolved_address, :string, 6
     end
     add_message "gitaly.GetObjectDirectorySizeRequest" do
       optional :repository, :message, 1, "gitaly.Repository"

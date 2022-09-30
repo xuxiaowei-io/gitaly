@@ -683,6 +683,13 @@ message CreateRepositoryFromURLRequest {
   // repository. If set to `true`, create a complete mirror-clone which maps all
   // remote references into the local repository.
   bool mirror = 5;
+  // ResolvedAddress holds the resolved IP address of the remote_url. This is
+  // used to avoid DNS rebinding by mapping the url to the resolved address.
+  // Only IPv4 dotted decimal ("192.0.2.1"), IPv6 ("2001:db8::68"), or IPv4-mapped
+  // IPv6 ("::ffff:192.0.2.1") forms are supported.
+  // Works with HTTP/HTTPS/Git/SSH protocols.
+  // Optional.
+  string resolved_address = 6;
 }
 
 // This comment is left unintentionally blank.
@@ -840,6 +847,13 @@ message CreateRepositoryFromSnapshotRequest {
   // URL hostname has already been resolved to an IP address to prevent DNS
   // rebinding.
   string http_host = 4;
+  // ResolvedAddress holds the resolved IP address of the remote_url. This is
+  // used to avoid DNS rebinding by mapping the url to the resolved address.
+  // Only IPv4 dotted decimal ("192.0.2.1"), IPv6 ("2001:db8::68"), or IPv4-mapped
+  // IPv6 ("::ffff:192.0.2.1") forms are supported.
+  // Works with HTTP/HTTPS protocols.
+  // Optional.
+  string resolved_address = 5;
 }
 
 // This comment is left unintentionally blank.
@@ -982,6 +996,13 @@ message Remote {
   // URL hostname has already been resolved to an IP address to prevent DNS
   // rebinding.
   string http_host = 5;
+  // ResolvedAddress holds the resolved IP address of the remote_url. This is
+  // used to avoid DNS rebinding by mapping the url to the resolved address.
+  // Only IPv4 dotted decimal ("192.0.2.1"), IPv6 ("2001:db8::68"), or IPv4-mapped
+  // IPv6 ("::ffff:192.0.2.1") forms are supported.
+  // Works with HTTP/HTTPS/Git/SSH protocols.
+  // Optional.
+  string resolved_address = 6;
 
   // Previously, it was possible to specify a remote name. This was quite a
   // dangerous field to set though: the name was simply used to create an ad-hoc

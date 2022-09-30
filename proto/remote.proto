@@ -55,6 +55,13 @@ message UpdateRemoteMirrorRequest {
     // URL hostname has already been resolved to an IP address to prevent DNS
     // rebinding.
     string http_host = 3;
+    // ResolvedAddress holds the resolved IP address of the remote_url. This is
+    // used to avoid DNS rebinding by mapping the url to the resolved address.
+    // Only IPv4 dotted decimal ("192.0.2.1"), IPv6 ("2001:db8::68"), or IPv4-mapped
+    // IPv6 ("::ffff:192.0.2.1") forms are supported.
+    // Works with HTTP/HTTPS/Git/SSH protocols.
+    // Optional.
+    string resolved_address = 4;
   }
 
   // Repository is the repository whose mirror repository to update.
@@ -123,6 +130,13 @@ message FindRemoteRootRefRequest {
   // URL hostname has already been resolved to an IP address to prevent DNS
   // rebinding.
   string http_host = 5;
+  // ResolvedAddress holds the resolved IP address of the remote_url. This is
+  // used to avoid DNS rebinding by mapping the url to the resolved address.
+  // Only IPv4 dotted decimal ("192.0.2.1"), IPv6 ("2001:db8::68"), or IPv4-mapped
+  // IPv6 ("::ffff:192.0.2.1") forms are supported.
+  // Works with HTTP/HTTPS/Git/SSH protocols.
+  // Optional.
+  string resolved_address = 6;
 
   reserved 2;
   reserved "remote";
