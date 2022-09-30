@@ -107,7 +107,7 @@ func (inst *Instance) startGitLinguist(ctx context.Context, commitID string) (*c
 }
 
 func (inst *Instance) enryStats(ctx context.Context, commitID string) (ByteCountPerLanguage, error) {
-	stats, err := newLanguageStats(inst.repo)
+	stats, err := initLanguageStats(inst.repo)
 	if err != nil {
 		ctxlogrus.Extract(ctx).WithError(err).Info("linguist load from cache")
 	}
