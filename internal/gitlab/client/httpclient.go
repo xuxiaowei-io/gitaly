@@ -25,8 +25,10 @@ const (
 	defaultReadTimeoutSeconds = 300
 )
 
+//nolint:revive // This is unintentionally missing documentation.
 var ErrCafileNotFound = errors.New("cafile not found")
 
+//nolint:revive // This is unintentionally missing documentation.
 type HTTPClient struct {
 	*http.Client
 	Host string

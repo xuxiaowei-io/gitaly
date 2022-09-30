@@ -58,12 +58,12 @@ func NewStreamParameters(primary Destination, secondaries []Destination, reqFina
 	}
 }
 
-//nolint: stylecheck // This is unintentionally missing documentation.
+//nolint:revive // This is unintentionally missing documentation.
 func (s *StreamParameters) Primary() Destination {
 	return s.primary
 }
 
-//nolint: stylecheck // This is unintentionally missing documentation.
+//nolint:revive // This is unintentionally missing documentation.
 func (s *StreamParameters) Secondaries() []Destination {
 	return s.secondaries
 }

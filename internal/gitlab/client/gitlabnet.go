@@ -24,10 +24,12 @@ const (
 	jwtIssuer           = "gitlab-shell"
 )
 
+//nolint:revive // This is unintentionally missing documentation.
 type ErrorResponse struct {
 	Message string `json:"message"`
 }
 
+//nolint:revive // This is unintentionally missing documentation.
 type GitlabNetClient struct {
 	httpClient *HTTPClient
 	user       string
@@ -36,6 +38,7 @@ type GitlabNetClient struct {
 	userAgent  string
 }
 
+//nolint:revive // This is unintentionally missing documentation.
 type APIError struct {
 	Msg string
 }
@@ -48,6 +51,7 @@ func (e *APIError) Error() string {
 	return e.Msg
 }
 
+//nolint:revive // This is unintentionally missing documentation.
 func NewGitlabNetClient(
 	user,
 	password,
@@ -112,19 +116,22 @@ func parseError(resp *http.Response) error {
 
 	if err := json.NewDecoder(resp.Body).Decode(parsedResponse); err != nil {
 		return &APIError{fmt.Sprintf("Internal API error (%v)", resp.StatusCode)}
-	} else {
-		return &APIError{parsedResponse.Message}
 	}
+
+	return &APIError{parsedResponse.Message}
 }
 
+//nolint:revive // This is unintentionally missing documentation.
 func (c *GitlabNetClient) Get(ctx context.Context, path string) (*http.Response, error) {
 	return c.DoRequest(ctx, http.MethodGet, normalizePath(path), nil)
 }
 
+//nolint:revive // This is unintentionally missing documentation.
 func (c *GitlabNetClient) Post(ctx context.Context, path string, data interface{}) (*http.Response, error) {
 	return c.DoRequest(ctx, http.MethodPost, normalizePath(path), data)
 }
 
+//nolint:revive // This is unintentionally missing documentation.
 func (c *GitlabNetClient) DoRequest(ctx context.Context, method, path string, data interface{}) (*http.Response, error) {
 	request, err := newRequest(ctx, method, c.httpClient.Host, path, data)
 	if err != nil {

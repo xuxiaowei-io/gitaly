@@ -14,7 +14,7 @@ type MockManager struct {
 	Storage      string
 }
 
-//nolint: stylecheck // This is unintentionally missing documentation.
+//nolint:revive // This is unintentionally missing documentation.
 func (m *MockManager) GetShard(_ context.Context, storage string) (Shard, error) {
 	return m.GetShardFunc(storage)
 }
@@ -58,17 +58,17 @@ type MockNode struct {
 	Healthy          bool
 }
 
-//nolint: stylecheck // This is unintentionally missing documentation.
+//nolint:revive // This is unintentionally missing documentation.
 func (m *MockNode) GetStorage() string { return m.GetStorageMethod() }
 
-//nolint: stylecheck // This is unintentionally missing documentation.
+//nolint:revive // This is unintentionally missing documentation.
 func (m *MockNode) IsHealthy() bool { return m.Healthy }
 
-//nolint: stylecheck // This is unintentionally missing documentation.
+//nolint:revive // This is unintentionally missing documentation.
 func (m *MockNode) GetConnection() *grpc.ClientConn { return m.Conn }
 
-//nolint: stylecheck // This is unintentionally missing documentation.
+//nolint:revive // This is unintentionally missing documentation.
 func (m *MockNode) GetAddress() string { return "" }
 
-//nolint: stylecheck // This is unintentionally missing documentation.
+//nolint:revive // This is unintentionally missing documentation.
 func (m *MockNode) GetToken() string { return "" }

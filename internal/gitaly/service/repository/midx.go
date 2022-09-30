@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	// This is unintentionally missing documentation.
+	//nolint:revive // This is unintentionally missing documentation.
 	MidxRelPath = "objects/pack/multi-pack-index"
 )
 

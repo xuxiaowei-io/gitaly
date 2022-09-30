@@ -68,7 +68,7 @@ func WithArchiveRequestTimeout(d time.Duration) ServerOpt {
 	}
 }
 
-//nolint: stylecheck // This is unintentionally missing documentation.
+//nolint:revive // This is unintentionally missing documentation.
 func WithPackfileNegotiationMetrics(c *prometheus.CounterVec) ServerOpt {
 	return func(s *server) {
 		s.packfileNegotiationMetrics = c
