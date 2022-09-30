@@ -91,6 +91,7 @@ func (s *server) CreateRepositoryFromURL(ctx context.Context, req *gitalypb.Crea
 		var stderr bytes.Buffer
 		cmd, err := s.cloneFromURLCommand(ctx,
 			req.GetUrl(),
+			//nolint:staticcheck
 			req.GetHttpHost(),
 			targetPath,
 			req.GetHttpAuthorizationHeader(),
