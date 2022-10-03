@@ -61,7 +61,7 @@ func (s *server) FindLicense(ctx context.Context, req *gitalypb.FindLicenseReque
 					return &gitalypb.FindLicenseResponse{
 						LicenseName:      "Other",
 						LicenseShortName: "other",
-						LicenseUrl:       "http://choosealicense.com/licenses/other/",
+						LicenseNickname:  "LICENSE", // Show as LICENSE in the UI
 						LicensePath:      repoFiler.path,
 					}, nil
 				}
