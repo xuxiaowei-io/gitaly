@@ -57,10 +57,20 @@ func ErrAborted(err error) error { return wrapError(codes.Aborted, err) }
 // wrapError wraps the given error with the error code unless it's already a gRPC error. If given
 // nil it will return nil.
 func wrapError(code codes.Code, err error) error {
-	if GrpcCode(err) == codes.Unknown {
-		return statusWrapper{err, status.New(code, err.Error())}
+	if err == nil {
+		return nil
 	}
-	return err
+
+	_, ok := status.FromError(err)
+	if ok {
+		return err
+	}
+
+	if foundCode := GrpcCode(err); foundCode != codes.OK && foundCode != codes.Unknown {
+		code = foundCode
+	}
+
+	return statusWrapper{error: err, status: status.New(code, err.Error())}
 }
 
 // ErrCanceledf wraps a formatted error with codes.Canceled, unless the formatted error is a
@@ -165,9 +175,11 @@ func formatError(code codes.Code, format string, a ...interface{}) error {
 
 	err := fmt.Errorf(format, args...)
 
-	nestedCode := GrpcCode(errors.Unwrap(err))
-	if nestedCode != codes.OK && nestedCode != codes.Unknown {
-		code = nestedCode
+	for current := err; current != nil; current = errors.Unwrap(current) {
+		nestedCode := GrpcCode(current)
+		if nestedCode != codes.OK && nestedCode != codes.Unknown {
+			code = nestedCode
+		}
 	}
 
 	return statusWrapper{err, status.New(code, err.Error())}
@@ -197,16 +209,22 @@ func ErrWithDetails(err error, details ...proto.Message) (error, error) {
 	return statusWrapper{err, status.FromProto(proto)}, nil
 }
 
-// GrpcCode emulates the old grpc.Code function: it translates errors into codes.Code values.
+// GrpcCode translates errors into codes.Code values.
+// It unwraps the nested errors until it finds the most nested one that returns the codes.Code.
+// If err is nil it returns codes.OK.
+// If no codes.Code found it returns codes.Unknown.
 func GrpcCode(err error) codes.Code {
 	if err == nil {
 		return codes.OK
 	}
 
-	st, ok := status.FromError(err)
-	if !ok {
-		return codes.Unknown
+	code := codes.Unknown
+	for ; err != nil; err = errors.Unwrap(err) {
+		st, ok := status.FromError(err)
+		if ok {
+			code = st.Code()
+		}
 	}
 
-	return st.Code()
+	return code
 }

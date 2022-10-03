@@ -4,8 +4,10 @@ package helper
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -19,6 +21,7 @@ func TestError(t *testing.T) {
 	input := errors.New(errorMessage)
 	inputGRPCCode := codes.Unauthenticated
 	inputGRPC := status.Error(inputGRPCCode, errorMessage)
+	inputInternalGRPC := ErrAbortedf(errorMessage)
 
 	for _, tc := range []struct {
 		desc   string
@@ -93,6 +96,26 @@ func TestError(t *testing.T) {
 			require.False(t, errors.Is(err, input))
 			require.Equal(t, inputGRPCCode, status.Code(err))
 			require.NotEqual(t, tc.code, status.Code(inputGRPC))
+
+			// Wrapped gRPC error (internal.status.Error) code will get
+			// preserved, instead of the one corresponding to the function's
+			// name.
+			err = tc.errorf(fmt.Errorf("outer: %w", inputGRPC))
+			require.True(t, errors.Is(err, inputGRPC))
+			require.False(t, errors.Is(err, input))
+			require.Equal(t, inputGRPCCode, status.Code(err))
+			require.NotEqual(t, tc.code, status.Code(inputGRPC))
+
+			if tc.code != codes.Aborted {
+				// Wrapped gRPC error code constructed with helpers will get
+				// preserved, instead of the one corresponding to the function's
+				// name.
+				err = tc.errorf(fmt.Errorf("outer: %w", inputInternalGRPC))
+				require.True(t, errors.Is(err, inputInternalGRPC))
+				require.False(t, errors.Is(err, input))
+				require.Equal(t, codes.Aborted, status.Code(err))
+				require.NotEqual(t, tc.code, status.Code(inputInternalGRPC))
+			}
 		})
 	}
 }
@@ -223,6 +246,23 @@ func TestErrorf(t *testing.T) {
 				require.True(t, ok)
 				require.Equal(t, status.New(codes.Unauthenticated, "first: second: third"), s)
 			})
+
+			t.Run("multi-nesting with standard error wrapping", func(t *testing.T) {
+				require.NotEqual(t, tc.expectedCode, codes.Unauthenticated)
+
+				err := tc.errorf("first: %w",
+					fmt.Errorf("second: %w",
+						formatError(codes.Unauthenticated, "third"),
+					),
+				)
+				require.EqualError(t, err, "first: second: third")
+
+				// We should be reporting the error code of the nested error.
+				require.Equal(t, codes.Unauthenticated, status.Code(err))
+				s, ok := status.FromError(err)
+				require.True(t, ok)
+				require.Equal(t, status.New(codes.Unauthenticated, "first: second: third"), s)
+			})
 		})
 	}
 }
@@ -321,6 +361,51 @@ func TestErrWithDetails(t *testing.T) {
 				details = append(details, detailProto)
 			}
 			testhelper.ProtoEqual(t, tc.expectedDetails, details)
+		})
+	}
+}
+
+func TestGrpcCode(t *testing.T) {
+	t.Parallel()
+	for desc, tc := range map[string]struct {
+		in  error
+		exp codes.Code
+	}{
+		"unwrapped status": {
+			in:  status.Error(codes.NotFound, ""),
+			exp: codes.NotFound,
+		},
+		"wrapped status": {
+			in:  fmt.Errorf("context: %w", status.Error(codes.NotFound, "")),
+			exp: codes.NotFound,
+		},
+		"unwrapped status created by helpers": {
+			in:  ErrNotFoundf(""),
+			exp: codes.NotFound,
+		},
+		"wrapped status created by helpers": {
+			in:  fmt.Errorf("context: %w", ErrNotFoundf("")),
+			exp: codes.NotFound,
+		},
+		"double wrapped status created by helpers": {
+			in:  fmt.Errorf("outer: %w", fmt.Errorf("context: %w", ErrNotFoundf(""))),
+			exp: codes.NotFound,
+		},
+		"double helper wrapped status": {
+			in:  ErrAbortedf("outer: %w", fmt.Errorf("context: %w", ErrNotFoundf(""))),
+			exp: codes.NotFound,
+		},
+		"nil input": {
+			in:  nil,
+			exp: codes.OK,
+		},
+		"no code defined": {
+			in:  assert.AnError,
+			exp: codes.Unknown,
+		},
+	} {
+		t.Run(desc, func(t *testing.T) {
+			assert.Equal(t, tc.exp, GrpcCode(tc.in))
 		})
 	}
 }
