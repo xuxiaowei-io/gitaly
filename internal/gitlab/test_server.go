@@ -16,6 +16,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
@@ -298,6 +299,10 @@ func handleAllowed(tb testing.TB, options TestServerOptions) func(w http.Respons
 			}
 		}
 
+		if !verifyJWT(r.Header.Get("Gitlab-Shell-Api-Request"), options.SecretToken) {
+			authenticated = false
+		}
+
 		if authenticated {
 			_, err := w.Write([]byte(`{"status":true}`))
 			require.NoError(tb, err)
@@ -378,6 +383,10 @@ func handlePreReceive(tb testing.TB, options TestServerOptions) func(w http.Resp
 			}
 		}
 
+		if !verifyJWT(r.Header.Get("Gitlab-Shell-Api-Request"), options.SecretToken) {
+			authenticated = false
+		}
+
 		if !authenticated {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -438,6 +447,11 @@ func handlePostReceive(options TestServerOptions) func(w http.ResponseWriter, r 
 				http.Error(w, "secret_token is invalid", http.StatusUnauthorized)
 				return
 			}
+		}
+
+		if !verifyJWT(r.Header.Get("Gitlab-Shell-Api-Request"), options.SecretToken) {
+			http.Error(w, "jwt header is invalid", http.StatusUnauthorized)
+			return
 		}
 
 		if params.Identifier == "" {
@@ -555,6 +569,15 @@ func handleLfs(tb testing.TB, options TestServerOptions) func(w http.ResponseWri
 			require.NoError(tb, err)
 		}
 	}
+}
+
+func verifyJWT(header, secretToken string) bool {
+	claims := &jwt.RegisteredClaims{}
+	token, err := jwt.ParseWithClaims(header, claims, func(token *jwt.Token) (interface{}, error) {
+		return []byte(secretToken), nil
+	})
+
+	return err == nil && token.Valid && claims.Issuer == "gitlab-shell"
 }
 
 func startSocketHTTPServer(tb testing.TB, mux *http.ServeMux, tlsCfg *tls.Config) (string, func()) {
