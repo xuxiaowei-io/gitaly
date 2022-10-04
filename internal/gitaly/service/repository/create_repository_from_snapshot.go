@@ -2,8 +2,10 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
@@ -43,10 +45,57 @@ var httpClient = &http.Client{
 	},
 }
 
+// newResolvedHTTPClient is a modified version of the httpClient variable but here we resolve the
+// URL to predefined IP:PORT. This is to avoid DNS rebinding.
+func newResolvedHTTPClient(httpAddress, resolvedAddress string) (*http.Client, error) {
+	url, err := url.ParseRequestURI(httpAddress)
+	if err != nil {
+		return nil, helper.ErrInvalidArgumentf("parsing HTTP URL: %w", err)
+	}
+
+	port := url.Port()
+	if port == "" {
+		switch url.Scheme {
+		case "http":
+			port = "80"
+		case "https":
+			port = "443"
+		default:
+			return nil, helper.ErrInvalidArgumentf("unsupported schema %q", url.Scheme)
+		}
+	}
+
+	// Sanity-check whether the resolved address is a valid IP address.
+	if net.ParseIP(resolvedAddress) == nil {
+		return nil, helper.ErrInvalidArgumentf("invalid resolved address %q", resolvedAddress)
+	}
+
+	transport := httpTransport.Clone()
+	transport.DialContext = func(ctx context.Context, network, _ string) (net.Conn, error) {
+		return httpTransport.DialContext(ctx, network, fmt.Sprintf("%s:%s", resolvedAddress, port))
+	}
+
+	return &http.Client{
+		Transport: correlation.NewInstrumentedRoundTripper(tracing.NewRoundTripper(transport)),
+		// Here we directly return the `ErrUseLastResponse` to prevent redirects
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}, nil
+}
+
 func untar(ctx context.Context, path string, in *gitalypb.CreateRepositoryFromSnapshotRequest) error {
 	req, err := http.NewRequestWithContext(ctx, "GET", in.HttpUrl, nil)
 	if err != nil {
 		return status.Errorf(codes.InvalidArgument, "Bad HTTP URL: %v", err)
+	}
+
+	client := httpClient
+	if resolvedAddress := in.GetResolvedAddress(); resolvedAddress != "" {
+		client, err = newResolvedHTTPClient(in.HttpUrl, resolvedAddress)
+		if err != nil {
+			return helper.ErrInvalidArgumentf("creating resolved HTTP client: %w", err)
+		}
 	}
 
 	if in.HttpAuth != "" {
@@ -57,7 +106,7 @@ func untar(ctx context.Context, path string, in *gitalypb.CreateRepositoryFromSn
 		req.Host = httpHost
 	}
 
-	rsp, err := httpClient.Do(req)
+	rsp, err := client.Do(req)
 	if err != nil {
 		return status.Errorf(codes.Internal, "HTTP request failed: %v", err)
 	}
