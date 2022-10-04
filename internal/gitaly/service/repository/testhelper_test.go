@@ -146,9 +146,9 @@ func runRepositoryService(tb testing.TB, cfg config.Cfg, rubySrv *rubyserver.Ser
 			deps.GetCatfileCache(),
 		))
 		gitalypb.RegisterCommitServiceServer(srv, commit.NewServer(
+			deps.GetCfg(),
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
-			nil,
 			deps.GetCatfileCache(),
 		))
 		gitalypb.RegisterObjectPoolServiceServer(srv, objectpool.NewServer(

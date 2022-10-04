@@ -16,7 +16,7 @@ const (
 	// a cached version of the language statistics. The name is
 	// intentionally different from what the linguist gem uses.
 	languageStatsFilename = "gitaly-language.stats"
-	languageStatsVersion  = "v2:gitaly"
+	languageStatsVersion  = "v3:gitaly"
 )
 
 // languageStats takes care of accumulating and caching language statistics for
@@ -28,7 +28,7 @@ type languageStats struct {
 	CommitID string `json:"commit_id"`
 
 	// m will protect concurrent writes to Totals & ByFile maps
-	m sync.Mutex
+	m *sync.Mutex
 
 	// Totals contains the total statistics for the CommitID
 	Totals ByteCountPerLanguage `json:"totals"`
@@ -37,43 +37,47 @@ type languageStats struct {
 	ByFile map[string]ByteCountPerLanguage `json:"by_file"`
 }
 
-// newLanguageStats creates a languageStats object and tries to load the
-// optionally available stats from file.
-func newLanguageStats(repo *localrepo.Repo) (*languageStats, error) {
-	stats := languageStats{
+func newLanguageStats() languageStats {
+	return languageStats{
 		Totals: ByteCountPerLanguage{},
 		ByFile: make(map[string]ByteCountPerLanguage),
+		m:      &sync.Mutex{},
 	}
+}
 
+// initLanguageStats tries to load the optionally available stats from file or
+// returns a blank languageStats struct.
+func initLanguageStats(repo *localrepo.Repo) (languageStats, error) {
 	objPath, err := repo.Path()
 	if err != nil {
-		return &stats, fmt.Errorf("new language stats get repo path: %w", err)
+		return newLanguageStats(), fmt.Errorf("new language stats get repo path: %w", err)
 	}
 
 	file, err := os.Open(filepath.Join(objPath, languageStatsFilename))
 	if err != nil {
 		if os.IsNotExist(err) {
-			return &stats, nil
+			return newLanguageStats(), nil
 		}
-		return &stats, fmt.Errorf("new language stats open: %w", err)
+		return newLanguageStats(), fmt.Errorf("new language stats open: %w", err)
 	}
 	defer file.Close()
 
 	r, err := zlib.NewReader(file)
 	if err != nil {
-		return &stats, fmt.Errorf("new language stats zlib reader: %w", err)
+		return newLanguageStats(), fmt.Errorf("new language stats zlib reader: %w", err)
 	}
 
 	var loaded languageStats
 	if err = json.NewDecoder(r).Decode(&loaded); err != nil {
-		return &stats, fmt.Errorf("new language stats json decode: %w", err)
+		return newLanguageStats(), fmt.Errorf("new language stats json decode: %w", err)
 	}
 
 	if loaded.Version != languageStatsVersion {
-		return &stats, fmt.Errorf("new language stats version mismatch %s vs %s", languageStatsVersion, loaded.Version)
+		return newLanguageStats(), fmt.Errorf("new language stats version mismatch %s vs %s", languageStatsVersion, loaded.Version)
 	}
 
-	return &loaded, nil
+	loaded.m = &sync.Mutex{}
+	return loaded, nil
 }
 
 // add the statistics for the given filename

@@ -64,9 +64,9 @@ func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 		deps.GetCatfileCache(),
 	))
 	gitalypb.RegisterCommitServiceServer(srv, commit.NewServer(
+		deps.GetCfg(),
 		deps.GetLocator(),
 		deps.GetGitCmdFactory(),
-		deps.GetLinguist(),
 		deps.GetCatfileCache(),
 	))
 	gitalypb.RegisterDiffServiceServer(srv, diff.NewServer(

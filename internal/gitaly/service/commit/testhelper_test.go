@@ -66,9 +66,9 @@ func startTestServices(tb testing.TB, cfg config.Cfg) string {
 	tb.Helper()
 	return testserver.RunGitalyServer(tb, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterCommitServiceServer(srv, NewServer(
+			deps.GetCfg(),
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
-			deps.GetLinguist(),
 			deps.GetCatfileCache(),
 		))
 		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(

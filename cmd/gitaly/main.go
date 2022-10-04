@@ -29,7 +29,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/sentry"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/linguist"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/maintenance"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/server"
@@ -287,11 +286,6 @@ func run(cfg config.Cfg) error {
 	)
 	defer gitalyServerFactory.Stop()
 
-	ling, err := linguist.New(cfg, gitCmdFactory)
-	if err != nil {
-		return fmt.Errorf("linguist instance creation: %w", err)
-	}
-
 	git2goExecutor := git2go.NewExecutor(cfg, gitCmdFactory, locator)
 
 	updaterWithHooks := updateref.NewUpdaterWithHooks(cfg, locator, hookManager, gitCmdFactory, catfileCache)
@@ -337,7 +331,6 @@ func run(cfg config.Cfg) error {
 			StorageLocator:                locator,
 			ClientPool:                    conns,
 			GitCmdFactory:                 gitCmdFactory,
-			Linguist:                      ling,
 			CatfileCache:                  catfileCache,
 			DiskCache:                     diskCache,
 			PackObjectsCache:              streamCache,

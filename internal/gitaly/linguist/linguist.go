@@ -8,9 +8,10 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
+	"strings"
 
 	"github.com/go-enry/go-enry/v2"
+	"github.com/go-git/go-git/v5/plumbing/format/gitattributes"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
@@ -22,54 +23,33 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 )
 
-// Language is used to parse Linguist's language.json file.
-type Language struct {
-	Color string `json:"color"`
-}
-
 // ByteCountPerLanguage represents a counter value (bytes) per language.
 type ByteCountPerLanguage map[string]uint64
 
 // Instance is a holder of the defined in the system language settings.
 type Instance struct {
-	cfg           config.Cfg
-	colorMap      map[string]Language
-	gitCmdFactory git.CommandFactory
+	cfg          config.Cfg
+	catfileCache catfile.Cache
+	repo         *localrepo.Repo
 }
 
-// New loads the name->color map from the Linguist gem and returns initialised instance
-// to use back to the caller or an error.
-func New(cfg config.Cfg, gitCmdFactory git.CommandFactory) (*Instance, error) {
-	jsonReader, err := openLanguagesJSON(cfg)
-	if err != nil {
-		return nil, err
-	}
-	defer jsonReader.Close()
-
-	var colorMap map[string]Language
-	if err := json.NewDecoder(jsonReader).Decode(&colorMap); err != nil {
-		return nil, err
-	}
-
+// New creates a new instance that can be used to calculate language stats for
+// the given repo.
+func New(cfg config.Cfg, catfileCache catfile.Cache, repo *localrepo.Repo) *Instance {
 	return &Instance{
-		cfg:           cfg,
-		gitCmdFactory: gitCmdFactory,
-		colorMap:      colorMap,
-	}, nil
+		cfg:          cfg,
+		catfileCache: catfileCache,
+		repo:         repo,
+	}
 }
 
 // Stats returns the repository's language stats as reported by 'git-linguist'.
-func (inst *Instance) Stats(ctx context.Context, repo *localrepo.Repo, commitID string, catfileCache catfile.Cache) (ByteCountPerLanguage, error) {
+func (inst *Instance) Stats(ctx context.Context, commitID string) (ByteCountPerLanguage, error) {
 	if featureflag.GoLanguageStats.IsEnabled(ctx) {
-		return inst.enryStats(ctx, repo, commitID, catfileCache)
+		return inst.enryStats(ctx, commitID)
 	}
 
-	repoPath, err := repo.Path()
-	if err != nil {
-		return nil, fmt.Errorf("get repo path: %w", err)
-	}
-
-	cmd, err := inst.startGitLinguist(ctx, repoPath, commitID)
+	cmd, err := inst.startGitLinguist(ctx, commitID)
 	if err != nil {
 		return nil, fmt.Errorf("starting linguist: %w", err)
 	}
@@ -92,8 +72,8 @@ func (inst *Instance) Stats(ctx context.Context, repo *localrepo.Repo, commitID 
 }
 
 // Color returns the color Linguist has assigned to language.
-func (inst *Instance) Color(language string) string {
-	if color := inst.colorMap[language].Color; color != "" {
+func Color(language string) string {
+	if color := enry.GetColor(language); color != "#cccccc" {
 		return color
 	}
 
@@ -101,7 +81,12 @@ func (inst *Instance) Color(language string) string {
 	return fmt.Sprintf("#%x", colorSha[0:3])
 }
 
-func (inst *Instance) startGitLinguist(ctx context.Context, repoPath string, commitID string) (*command.Command, error) {
+func (inst *Instance) startGitLinguist(ctx context.Context, commitID string) (*command.Command, error) {
+	repoPath, err := inst.repo.Path()
+	if err != nil {
+		return nil, fmt.Errorf("get repo path: %w", err)
+	}
+
 	bundle, err := exec.LookPath("bundle")
 	if err != nil {
 		return nil, fmt.Errorf("finding bundle executable: %w", err)
@@ -121,48 +106,8 @@ func (inst *Instance) startGitLinguist(ctx context.Context, repoPath string, com
 	return internalCmd, nil
 }
 
-func openLanguagesJSON(cfg config.Cfg) (io.ReadCloser, error) {
-	if jsonPath := cfg.Ruby.LinguistLanguagesPath; jsonPath != "" {
-		// This is a fallback for environments where dynamic discovery of the
-		// linguist path via Bundler is not working for some reason, for example
-		// https://gitlab.com/gitlab-org/gitaly/issues/1119.
-		return os.Open(jsonPath)
-	}
-
-	linguistPathSymlink, err := os.CreateTemp("", "gitaly-linguist-path")
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = os.Remove(linguistPathSymlink.Name()) }()
-
-	if err := linguistPathSymlink.Close(); err != nil {
-		return nil, err
-	}
-
-	// We use a symlink because we cannot trust Bundler to not print garbage
-	// on its stdout.
-	rubyScript := `FileUtils.ln_sf(Bundler.rubygems.find_name('github-linguist').first.full_gem_path, ARGV.first)`
-	cmd := exec.Command("bundle", "exec", "ruby", "-rfileutils", "-e", rubyScript, linguistPathSymlink.Name())
-	cmd.Dir = cfg.Ruby.Dir
-
-	// We have learned that in practice the command we are about to run is a
-	// canary for Ruby/Bundler configuration problems. Including stderr and
-	// stdout in the gitaly log is useful for debugging such problems.
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
-
-	if err := cmd.Run(); err != nil {
-		if exitError, ok := err.(*exec.ExitError); ok {
-			err = fmt.Errorf("%v; stderr: %q", exitError, exitError.Stderr)
-		}
-		return nil, err
-	}
-
-	return os.Open(filepath.Join(linguistPathSymlink.Name(), "lib", "linguist", "languages.json"))
-}
-
-func (inst *Instance) enryStats(ctx context.Context, repo *localrepo.Repo, commitID string, catfileCache catfile.Cache) (ByteCountPerLanguage, error) {
-	stats, err := newLanguageStats(repo)
+func (inst *Instance) enryStats(ctx context.Context, commitID string) (ByteCountPerLanguage, error) {
+	stats, err := initLanguageStats(inst.repo)
 	if err != nil {
 		ctxlogrus.Extract(ctx).WithError(err).Info("linguist load from cache")
 	}
@@ -170,29 +115,49 @@ func (inst *Instance) enryStats(ctx context.Context, repo *localrepo.Repo, commi
 		return stats.Totals, nil
 	}
 
-	objectReader, cancel, err := catfileCache.ObjectReader(ctx, repo)
+	objectReader, cancel, err := inst.catfileCache.ObjectReader(ctx, inst.repo)
 	if err != nil {
-		return nil, fmt.Errorf("create object reader: %w", err)
+		return nil, fmt.Errorf("linguist create object reader: %w", err)
 	}
 	defer cancel()
 
+	attrMatcher, err := inst.newAttrMatcher(ctx, objectReader, commitID)
+	if err != nil {
+		return nil, fmt.Errorf("linguist new attribute matcher: %w", err)
+	}
+
 	var revlistIt gitpipe.RevisionIterator
 
-	if stats.CommitID == "" {
-		// No existing stats cached, so get all the files for the commit
-		// using git-ls-tree(1).
-		revlistIt = gitpipe.LsTree(ctx, repo,
+	full, err := inst.needsFullRecalculation(ctx, stats.CommitID, commitID)
+	if err != nil {
+		return nil, fmt.Errorf("linguist cannot determine full recalculation: %w", err)
+	}
+
+	if full {
+		stats = newLanguageStats()
+
+		skipFunc := func(result *gitpipe.RevisionResult) bool {
+			// Skip files that are an excluded filetype based on filename.
+			return newFileInstance(string(result.ObjectName), attrMatcher).IsExcluded()
+		}
+
+		// Full recalculation is needed, so get all the files for the
+		// commit using git-ls-tree(1).
+		revlistIt = gitpipe.LsTree(ctx, inst.repo,
 			commitID,
 			gitpipe.LsTreeWithRecursive(),
 			gitpipe.LsTreeWithBlobFilter(),
+			gitpipe.LsTreeWithSkip(skipFunc),
 		)
 	} else {
 		// Stats are cached for one commit, so get the git-diff-tree(1)
 		// between that commit and the one we're calculating stats for.
 
-		skipDeleted := func(result *gitpipe.RevisionResult) bool {
-			// Skip files that are deleted.
-			if git.ObjectHashSHA1.IsZeroOID(result.OID) {
+		skipFunc := func(result *gitpipe.RevisionResult) bool {
+			// Skip files that are deleted, or
+			// an excluded filetype based on filename.
+			if git.ObjectHashSHA1.IsZeroOID(result.OID) ||
+				newFileInstance(string(result.ObjectName), attrMatcher).IsExcluded() {
 				// It's a little bit of a hack to use this skip
 				// function, but for every file that's deleted,
 				// remove the stats.
@@ -202,11 +167,11 @@ func (inst *Instance) enryStats(ctx context.Context, repo *localrepo.Repo, commi
 			return false
 		}
 
-		revlistIt = gitpipe.DiffTree(ctx, repo,
+		revlistIt = gitpipe.DiffTree(ctx, inst.repo,
 			stats.CommitID, commitID,
 			gitpipe.DiffTreeWithRecursive(),
 			gitpipe.DiffTreeWithIgnoreSubmodules(),
-			gitpipe.DiffTreeWithSkip(skipDeleted),
+			gitpipe.DiffTreeWithSkip(skipFunc),
 		)
 	}
 
@@ -219,39 +184,81 @@ func (inst *Instance) enryStats(ctx context.Context, repo *localrepo.Repo, commi
 		object := objectIt.Result()
 		filename := string(object.ObjectName)
 
-		// Read arbitrary number of bytes considered enough to determine language
-		content, err := io.ReadAll(io.LimitReader(object, 2048))
+		lang, size, err := newFileInstance(filename, attrMatcher).DetermineStats(object)
 		if err != nil {
-			return nil, fmt.Errorf("linguist read blob: %w", err)
+			return nil, fmt.Errorf("linguist determine stats: %w", err)
 		}
 
+		// Ensure object content is completely consumed
 		if _, err := io.Copy(io.Discard, object); err != nil {
 			return nil, fmt.Errorf("linguist discard excess blob: %w", err)
 		}
 
-		lang := enry.GetLanguage(filename, content)
-
-		// Ignore anything that's neither markup nor a programming language,
-		// similar to what the linguist gem does:
-		// https://github.com/github/linguist/blob/v7.20.0/lib/linguist/blob_helper.rb#L378-L387
-		if enry.GetLanguageType(lang) != enry.Programming &&
-			enry.GetLanguageType(lang) != enry.Markup {
-			// The file might have been included in the stats before
+		if len(lang) == 0 {
 			stats.drop(filename)
 
 			continue
 		}
 
-		stats.add(filename, lang, uint64(object.Object.ObjectSize()))
+		stats.add(filename, lang, size)
 	}
 
 	if err := objectIt.Err(); err != nil {
 		return nil, fmt.Errorf("linguist object iterator: %w", err)
 	}
 
-	if err := stats.save(repo, commitID); err != nil {
+	if err := stats.save(inst.repo, commitID); err != nil {
 		return nil, fmt.Errorf("linguist language stats save: %w", err)
 	}
 
 	return stats.Totals, nil
+}
+
+func (inst *Instance) newAttrMatcher(ctx context.Context, objectReader catfile.ObjectReader, commitID string) (gitattributes.Matcher, error) {
+	var gitattrObject io.Reader
+	var err error
+
+	gitattrObject, err = objectReader.Object(ctx, git.Revision(commitID+":.gitattributes"))
+	if catfile.IsNotFound(err) {
+		gitattrObject = strings.NewReader("")
+	} else if err != nil {
+		return nil, fmt.Errorf("read .gitattributes: %w", err)
+	}
+
+	attrs, err := gitattributes.ReadAttributes(gitattrObject, nil, true)
+	if err != nil {
+		return nil, fmt.Errorf("read attr: %w", err)
+	}
+
+	// Reverse the slice because of a bug in go-git, see
+	// https://github.com/go-git/go-git/pull/585
+	attrsLen := len(attrs)
+	attrsMid := attrsLen / 2
+	for i := 0; i < attrsMid; i++ {
+		j := attrsLen - i - 1
+		attrs[i], attrs[j] = attrs[j], attrs[i]
+	}
+
+	return gitattributes.NewMatcher(attrs), nil
+}
+
+func (inst *Instance) needsFullRecalculation(ctx context.Context, cachedID, commitID string) (bool, error) {
+	if cachedID == "" {
+		return true, nil
+	}
+
+	err := inst.repo.ExecAndWait(ctx, git.SubCmd{
+		Name:        "diff",
+		Flags:       []git.Option{git.Flag{Name: "--quiet"}},
+		Args:        []string{fmt.Sprintf("%v..%v", cachedID, commitID)},
+		PostSepArgs: []string{".gitattributes"},
+	})
+	if err == nil {
+		return false, nil
+	}
+	if code, ok := command.ExitStatus(err); ok && code == 1 {
+		return true, nil
+	}
+
+	return true, fmt.Errorf("git diff .gitattributes: %w", err)
 }

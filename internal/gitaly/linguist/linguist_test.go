@@ -10,8 +10,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-enry/go-enry/v2"
-	enrydata "github.com/go-enry/go-enry/v2/data"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
@@ -28,57 +26,6 @@ func TestMain(m *testing.M) {
 	testhelper.Run(m)
 }
 
-// TestNew_knownLanguages tests the compatibility between the Ruby and the Go
-// implementation. This test will be removed together with the Ruby implementation.
-func TestNew_knownLanguages(t *testing.T) {
-	t.Parallel()
-
-	cfg := testcfg.Build(t, testcfg.WithRealLinguist())
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
-
-	linguist, err := New(cfg, gitCmdFactory)
-	require.NoError(t, err)
-
-	t.Run("by name", func(t *testing.T) {
-		linguistLanguages := make([]string, 0, len(linguist.colorMap))
-		for language := range linguist.colorMap {
-			linguistLanguages = append(linguistLanguages, language)
-		}
-
-		enryLanguages := make([]string, 0, len(enrydata.IDByLanguage))
-		for language := range enrydata.IDByLanguage {
-			enryLanguages = append(enryLanguages, language)
-		}
-
-		require.ElementsMatch(t, linguistLanguages, enryLanguages)
-	})
-
-	t.Run("with their color", func(t *testing.T) {
-		exclude := map[string]struct{}{}
-
-		linguistLanguages := make(map[string]string, len(linguist.colorMap))
-		for language, color := range linguist.colorMap {
-			if color.Color == "" {
-				exclude[language] = struct{}{}
-				continue
-			}
-			linguistLanguages[language] = color.Color
-		}
-
-		enryLanguages := make(map[string]string, len(enrydata.IDByLanguage))
-		for language := range enrydata.IDByLanguage {
-			if _, excluded := exclude[language]; excluded {
-				continue
-			}
-
-			color := enry.GetColor(language)
-			enryLanguages[language] = color
-		}
-
-		require.Equal(t, linguistLanguages, enryLanguages)
-	})
-}
-
 func TestInstance_Stats(t *testing.T) {
 	testhelper.NewFeatureSets(featureflag.GoLanguageStats).
 		Run(t, testInstanceStats)
@@ -86,10 +33,6 @@ func TestInstance_Stats(t *testing.T) {
 
 func testInstanceStats(t *testing.T, ctx context.Context) {
 	cfg := testcfg.Build(t)
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
-
-	linguist, err := New(cfg, gitCmdFactory)
-	require.NoError(t, err)
 
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
@@ -123,6 +66,279 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 				"HTML":         349,
 				"JavaScript":   1014,
 				"Ruby":         2943,
+			},
+		},
+		{
+			desc: "documentation is ignored",
+			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
+				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
+
+				docTree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "readme.md", Mode: "100644", Content: strings.Repeat("a", 500)},
+					{Path: "index.html", Mode: "100644", Content: strings.Repeat("a", 120)},
+					{Path: "formatter.rb", Mode: "100644", Content: strings.Repeat("a", 403)},
+				})
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "docs", Mode: "040000", OID: docTree},
+					gittest.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
+				))
+
+				return repoProto, repoPath, commitID
+			},
+			expectedStats: ByteCountPerLanguage{
+				"C": 85,
+			},
+		},
+		{
+			desc: "documentation with overrides",
+			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
+				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
+
+				docTree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "readme.md", Mode: "100644", Content: strings.Repeat("a", 500)},
+					{Path: "index.html", Mode: "100644", Content: strings.Repeat("a", 120)},
+					{Path: "formatter.rb", Mode: "100644", Content: strings.Repeat("a", 403)},
+				})
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "docs", Mode: "040000", OID: docTree},
+					gittest.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
+					gittest.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "formatter.rb -linguist-documentation"},
+				))
+
+				return repoProto, repoPath, commitID
+			},
+			expectedStats: ByteCountPerLanguage{
+				"C":    85,
+				"Ruby": 403,
+			},
+		},
+		{
+			desc: "vendor is ignored",
+			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
+				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
+
+				vendorTree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "app.rb", Mode: "100644", Content: strings.Repeat("a", 500)},
+				})
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "vendor", Mode: "040000", OID: vendorTree},
+					gittest.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
+				))
+
+				return repoProto, repoPath, commitID
+			},
+			expectedStats: ByteCountPerLanguage{
+				"C": 85,
+			},
+		},
+		{
+			desc: "vendor with overrides",
+			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
+				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
+
+				vendorTree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "app.rb", Mode: "100644", Content: strings.Repeat("a", 500)},
+				})
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "vendor", Mode: "040000", OID: vendorTree},
+					gittest.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
+					gittest.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "*.rb -linguist-vendored"},
+				))
+
+				return repoProto, repoPath, commitID
+			},
+			expectedStats: ByteCountPerLanguage{
+				"C":    85,
+				"Ruby": 500,
+			},
+		},
+		{
+			desc: "generated is ignored",
+			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
+				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
+
+				podsTree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "app.swift", Mode: "100644", Content: strings.Repeat("a", 500)},
+				})
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "Pods", Mode: "040000", OID: podsTree},
+					gittest.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
+				))
+
+				return repoProto, repoPath, commitID
+			},
+			expectedStats: ByteCountPerLanguage{
+				"C": 85,
+			},
+		},
+		{
+			desc: "generated with overrides",
+			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
+				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
+
+				podsTree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "app.swift", Mode: "100644", Content: strings.Repeat("a", 500)},
+				})
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "Pods", Mode: "040000", OID: podsTree},
+					gittest.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
+					gittest.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "Pods/* -linguist-generated"},
+				))
+
+				return repoProto, repoPath, commitID
+			},
+			expectedStats: ByteCountPerLanguage{
+				"C":     85,
+				"Swift": 500,
+			},
+		},
+		{
+			desc: "undetectable languages are ignored",
+			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
+				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "config.json", Mode: "100644", Content: strings.Repeat("a", 234)},
+					gittest.TreeEntry{Path: "manual.md", Mode: "100644", Content: strings.Repeat("a", 553)},
+					gittest.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
+				))
+
+				return repoProto, repoPath, commitID
+			},
+			expectedStats: ByteCountPerLanguage{
+				"C": 85,
+			},
+		},
+		{
+			desc: "undetectable languages with overrides",
+			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
+				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "config.json", Mode: "100644", Content: strings.Repeat("a", 234)},
+					gittest.TreeEntry{Path: "manual.md", Mode: "100644", Content: strings.Repeat("a", 553)},
+					gittest.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
+					gittest.TreeEntry{
+						Path: ".gitattributes",
+						Mode: "100644",
+						Content: "*.md linguist-detectable\n" +
+							"*.json linguist-detectable\n",
+					},
+				))
+
+				return repoProto, repoPath, commitID
+			},
+			expectedStats: ByteCountPerLanguage{
+				"C":        85,
+				"JSON":     234,
+				"Markdown": 553,
+			},
+		},
+		{
+			desc: "file specific documentation override",
+			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
+				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
+
+				docTree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "readme.md", Mode: "100644", Content: strings.Repeat("a", 500)},
+					{Path: "index.html", Mode: "100644", Content: strings.Repeat("a", 120)},
+					{Path: "formatter.rb", Mode: "100644", Content: strings.Repeat("a", 403)},
+				})
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "docu", Mode: "040000", OID: docTree},
+					gittest.TreeEntry{
+						Path: ".gitattributes",
+						Mode: "100644",
+						Content: "docu/* linguist-documentation\n" +
+							"docu/formatter.rb -linguist-documentation",
+					},
+				))
+
+				return repoProto, repoPath, commitID
+			},
+			expectedStats: ByteCountPerLanguage{
+				"Ruby": 403,
+			},
+		},
+		{
+			desc: "detectable overrides",
+			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
+				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "keeb.kicad_pcb", Mode: "100644", Content: strings.Repeat("a", 500)},
+					gittest.TreeEntry{Path: "keeb.sch", Mode: "100644", Content: strings.Repeat("a", 120)},
+					gittest.TreeEntry{Path: "export_bom.py", Mode: "100644", Content: strings.Repeat("a", 403)},
+					gittest.TreeEntry{
+						Path: ".gitattributes",
+						Mode: "100644",
+						Content: "*.kicad_pcb linguist-detectable\n" +
+							"*.sch linguist-detectable\n" +
+							"export_bom.py -linguist-detectable",
+					},
+				))
+
+				return repoProto, repoPath, commitID
+			},
+			expectedStats: ByteCountPerLanguage{
+				"KiCad Layout": 500,
+				"XML":          120,
+			},
+		},
+		{
+			desc: "double star file pattern documentation override",
+			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
+				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
+
+				subSubTree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "first.rb", Mode: "100644", Content: strings.Repeat("a", 483)},
+					{Path: "second.rb", Mode: "100644", Content: strings.Repeat("a", 888)},
+				})
+
+				subTree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "main.rb", Mode: "100644", Content: strings.Repeat("a", 500)},
+					{Path: "formatter.rb", Mode: "100644", Content: strings.Repeat("a", 120)},
+					{Path: "example", Mode: "040000", OID: subSubTree},
+				})
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "scripts", Mode: "040000", OID: subTree},
+					gittest.TreeEntry{Path: "run.rb", Mode: "100644", Content: strings.Repeat("a", 55)},
+					gittest.TreeEntry{
+						Path: ".gitattributes",
+						Mode: "100644",
+						Content: "scripts/** linguist-documentation\n" +
+							"scripts/formatter.rb -linguist-documentation",
+					},
+				))
+
+				return repoProto, repoPath, commitID
+			},
+			expectedStats: ByteCountPerLanguage{
+				"Ruby": 175,
 			},
 		},
 		{
@@ -160,7 +376,7 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 
 				// We simply run the linguist once before so that it can already
 				// write the cache.
-				_, err := linguist.Stats(ctx, repo, commitID.String(), catfileCache)
+				_, err := New(cfg, catfileCache, repo).Stats(ctx, commitID.String())
 				require.NoError(t, err)
 				require.FileExists(t, filepath.Join(repoPath, languageStatsFilename))
 
@@ -174,6 +390,39 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 				"HTML":         349,
 				"JavaScript":   1014,
 				"Ruby":         2943,
+			},
+		},
+		{
+			desc: "preexisting cache with .gitattributes modified",
+			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
+				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "webpack.coffee", Mode: "100644", Content: strings.Repeat("a", 107)},
+					gittest.TreeEntry{Path: "show_user.html", Mode: "100644", Content: strings.Repeat("a", 349)},
+					gittest.TreeEntry{Path: "api.javascript", Mode: "100644", Content: strings.Repeat("a", 1014)},
+					gittest.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "*.html linguist-vendored"},
+				))
+				repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+				_, err := New(cfg, catfileCache, repo).Stats(ctx, commitID.String())
+				require.NoError(t, err)
+				require.FileExists(t, filepath.Join(repoPath, languageStatsFilename))
+
+				commitID = gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "webpack.coffee", Mode: "100644", Content: strings.Repeat("a", 107)},
+					gittest.TreeEntry{Path: "show_user.html", Mode: "100644", Content: strings.Repeat("a", 349)},
+					gittest.TreeEntry{Path: "api.javascript", Mode: "100644", Content: strings.Repeat("a", 1014)},
+					gittest.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "*.coffee linguist-vendored"},
+				))
+
+				return repoProto, repoPath, commitID
+			},
+			expectedStats: ByteCountPerLanguage{
+				"HTML":       349,
+				"JavaScript": 1014,
 			},
 		},
 		{
@@ -218,7 +467,7 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 
 				// Precreate the cache with the old commit. This ensures that
 				// linguist knows to update the cache.
-				stats, err := linguist.Stats(ctx, repo, oldCommitID.String(), catfileCache)
+				stats, err := New(cfg, catfileCache, repo).Stats(ctx, oldCommitID.String())
 				require.NoError(t, err)
 				require.FileExists(t, filepath.Join(repoPath, languageStatsFilename))
 				require.Equal(t, ByteCountPerLanguage{
@@ -257,7 +506,8 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 			repoProto, repoPath, objectID := tc.setup(t)
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-			stats, err := linguist.Stats(ctx, repo, objectID.String(), catfileCache)
+			linguist := New(cfg, catfileCache, repo)
+			stats, err := linguist.Stats(ctx, objectID.String())
 			if tc.expectedErr == "" {
 				require.NoError(t, err)
 				require.Equal(t, tc.expectedStats, stats)
@@ -280,37 +530,36 @@ func TestInstance_Stats_unmarshalJSONError(t *testing.T) {
 
 	repo := localrepo.New(config.NewLocator(cfg), gitCmdFactory, catfileCache, invalidRepo)
 
-	ling, err := New(cfg, gitCmdFactory)
-	require.NoError(t, err)
+	ling := New(cfg, catfileCache, repo)
 
 	// When an error occurs, this used to trigger JSON marshaling of a plain string
 	// the new behaviour shouldn't do that, and return a command error
-	_, err = ling.Stats(ctx, repo, "deadbeef", catfileCache)
+	_, err := ling.Stats(ctx, "deadbeef")
 	require.Error(t, err)
 
 	_, ok := err.(*json.SyntaxError)
 	require.False(t, ok, "expected the error not be a json Syntax Error")
 }
 
-func TestNew(t *testing.T) {
-	cfg := testcfg.Build(t, testcfg.WithRealLinguist())
+func TestColor(t *testing.T) {
+	t.Parallel()
 
-	ling, err := New(cfg, gittest.NewCommandFactory(t, cfg))
-	require.NoError(t, err)
-
-	require.Equal(t, "#701516", ling.Color("Ruby"), "color value for 'Ruby'")
-}
-
-func TestNew_loadLanguagesCustomPath(t *testing.T) {
-	jsonPath, err := filepath.Abs("testdata/fake-languages.json")
-	require.NoError(t, err)
-
-	cfg := testcfg.Build(t, testcfg.WithBase(config.Cfg{Ruby: config.Ruby{LinguistLanguagesPath: jsonPath}}))
-
-	ling, err := New(cfg, gittest.NewCommandFactory(t, cfg))
-	require.NoError(t, err)
-
-	require.Equal(t, "foo color", ling.Color("FooBar"))
+	for _, tc := range []struct {
+		language      string
+		expectedColor string
+	}{
+		{language: "Go", expectedColor: "#00ADD8"},
+		{language: "Ruby", expectedColor: "#701516"},
+		{language: "HTML", expectedColor: "#e34c26"},
+		{language: "Markdown", expectedColor: "#083fa1"},
+		{language: "Javascript", expectedColor: "#75712c"},
+		{language: "SSH Config", expectedColor: "#d1dbe0"},    // grouped into INI by go-enry
+		{language: "Wozzle Wuzzle", expectedColor: "#3adbcf"}, // non-existing language
+	} {
+		t.Run(tc.language, func(t *testing.T) {
+			require.Equal(t, tc.expectedColor, Color(tc.language), "color value for '%v'", tc.language)
+		})
+	}
 }
 
 // filenameForCache returns the filename where the cache is stored, depending on
@@ -329,11 +578,7 @@ func BenchmarkInstance_Stats(b *testing.B) {
 
 func benchmarkInstanceStats(b *testing.B, ctx context.Context) {
 	cfg := testcfg.Build(b)
-	gitCmdFactory := gittest.NewCommandFactory(b, cfg)
 	languageStatsFilename := filenameForCache(ctx)
-
-	linguist, err := New(cfg, gitCmdFactory)
-	require.NoError(b, err)
 
 	catfileCache := catfile.NewCache(cfg)
 	b.Cleanup(catfileCache.Stop)
@@ -344,6 +589,8 @@ func benchmarkInstanceStats(b *testing.B, ctx context.Context) {
 	})
 	repo := localrepo.NewTestRepo(b, cfg, repoProto)
 
+	linguist := New(cfg, catfileCache, repo)
+
 	var scratchStat ByteCountPerLanguage
 	var incStats ByteCountPerLanguage
 
@@ -353,7 +600,8 @@ func benchmarkInstanceStats(b *testing.B, ctx context.Context) {
 			require.NoError(b, os.RemoveAll(filepath.Join(repoPath, languageStatsFilename)))
 			b.StartTimer()
 
-			scratchStat, err = linguist.Stats(ctx, repo, "f5dfdd0057cd6bffc6259a5c8533dde5bf6a9d37", catfileCache)
+			var err error
+			scratchStat, err = linguist.Stats(ctx, "f5dfdd0057cd6bffc6259a5c8533dde5bf6a9d37")
 			require.NoError(b, err)
 		}
 	})
@@ -363,10 +611,11 @@ func benchmarkInstanceStats(b *testing.B, ctx context.Context) {
 			b.StopTimer()
 			require.NoError(b, os.RemoveAll(filepath.Join(repoPath, languageStatsFilename)))
 			// a commit about 3 months older than the next
-			_, err = linguist.Stats(ctx, repo, "3c813b292d25a9b2ffda70e7f609f623bfc0cb37", catfileCache)
+			_, err := linguist.Stats(ctx, "3c813b292d25a9b2ffda70e7f609f623bfc0cb37")
+			require.NoError(b, err)
 			b.StartTimer()
 
-			incStats, err = linguist.Stats(ctx, repo, "f5dfdd0057cd6bffc6259a5c8533dde5bf6a9d37", catfileCache)
+			incStats, err = linguist.Stats(ctx, "f5dfdd0057cd6bffc6259a5c8533dde5bf6a9d37")
 			require.NoError(b, err)
 		}
 	})

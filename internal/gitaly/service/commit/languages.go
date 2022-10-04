@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/linguist"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -38,7 +39,7 @@ func (s *server) CommitLanguages(ctx context.Context, req *gitalypb.CommitLangua
 		return nil, helper.ErrInternalf("looking up revision: %w", err)
 	}
 
-	stats, err := s.linguist.Stats(ctx, repo, commitID, s.catfileCache)
+	stats, err := linguist.New(s.cfg, s.catfileCache, repo).Stats(ctx, commitID)
 	if err != nil {
 		return nil, helper.ErrInternalf("language stats: %w", err)
 	}
@@ -61,7 +62,7 @@ func (s *server) CommitLanguages(ctx context.Context, req *gitalypb.CommitLangua
 		l := &gitalypb.CommitLanguagesResponse_Language{
 			Name:  lang,
 			Share: float32(100*count) / float32(total),
-			Color: s.linguist.Color(lang),
+			Color: linguist.Color(lang),
 			Bytes: stats[lang],
 		}
 		resp.Languages = append(resp.Languages, l)

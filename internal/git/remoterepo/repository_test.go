@@ -39,9 +39,9 @@ func TestRepository(t *testing.T) {
 			deps.GetHousekeepingManager(),
 		))
 		gitalypb.RegisterCommitServiceServer(srv, commit.NewServer(
+			deps.GetCfg(),
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
-			deps.GetLinguist(),
 			deps.GetCatfileCache(),
 		))
 		gitalypb.RegisterRefServiceServer(srv, ref.NewServer(

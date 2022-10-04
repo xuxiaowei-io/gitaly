@@ -17,7 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 )
 
-func TestNewLanguageStats(t *testing.T) {
+func TestInitLanguageStats(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
@@ -30,7 +30,7 @@ func TestNewLanguageStats(t *testing.T) {
 		{
 			desc: "non-existing cache",
 			run: func(t *testing.T, repo *localrepo.Repo, repoPath string) {
-				stats, err := newLanguageStats(repo)
+				stats, err := initLanguageStats(repo)
 				require.NoError(t, err)
 				require.Empty(t, stats.Totals)
 				require.Empty(t, stats.ByFile)
@@ -39,7 +39,7 @@ func TestNewLanguageStats(t *testing.T) {
 		{
 			desc: "pre-existing cache",
 			run: func(t *testing.T, repo *localrepo.Repo, repoPath string) {
-				stats, err := newLanguageStats(repo)
+				stats, err := initLanguageStats(repo)
 				require.NoError(t, err)
 
 				stats.Totals["C"] = 555
@@ -53,7 +53,7 @@ func TestNewLanguageStats(t *testing.T) {
 			run: func(t *testing.T, repo *localrepo.Repo, repoPath string) {
 				require.NoError(t, os.WriteFile(filepath.Join(repoPath, languageStatsFilename), []byte("garbage"), 0o644))
 
-				stats, err := newLanguageStats(repo)
+				stats, err := initLanguageStats(repo)
 				require.Errorf(t, err, "new language stats zlib reader: invalid header")
 				require.Empty(t, stats.Totals)
 				require.Empty(t, stats.ByFile)
@@ -62,7 +62,7 @@ func TestNewLanguageStats(t *testing.T) {
 		{
 			desc: "incorrect version cache",
 			run: func(t *testing.T, repo *localrepo.Repo, repoPath string) {
-				stats, err := newLanguageStats(repo)
+				stats, err := initLanguageStats(repo)
 				require.NoError(t, err)
 
 				stats.Totals["C"] = 555
@@ -77,7 +77,7 @@ func TestNewLanguageStats(t *testing.T) {
 				require.NoError(t, file.Sync())
 				require.NoError(t, file.Close())
 
-				newStats, err := newLanguageStats(repo)
+				newStats, err := initLanguageStats(repo)
 				require.Error(t, err, fmt.Errorf("new language stats version mismatch %s vs %s", languageStatsVersion, "faulty"))
 				require.Empty(t, newStats.Totals)
 			},
@@ -106,11 +106,11 @@ func TestLanguageStats_add(t *testing.T) {
 
 	for _, tc := range []struct {
 		desc string
-		run  func(*testing.T, *languageStats)
+		run  func(*testing.T, languageStats)
 	}{
 		{
 			desc: "adds to the total",
-			run: func(t *testing.T, s *languageStats) {
+			run: func(t *testing.T, s languageStats) {
 				s.add("main.go", "Go", 100)
 
 				require.Equal(t, uint64(100), s.Totals["Go"])
@@ -120,7 +120,7 @@ func TestLanguageStats_add(t *testing.T) {
 		},
 		{
 			desc: "accumulates",
-			run: func(t *testing.T, s *languageStats) {
+			run: func(t *testing.T, s languageStats) {
 				s.add("main.go", "Go", 100)
 				s.add("main_test.go", "Go", 80)
 
@@ -132,7 +132,7 @@ func TestLanguageStats_add(t *testing.T) {
 		},
 		{
 			desc: "languages don't interfere",
-			run: func(t *testing.T, s *languageStats) {
+			run: func(t *testing.T, s languageStats) {
 				s.add("main.go", "Go", 60)
 				s.add("Makefile", "Make", 30)
 
@@ -145,7 +145,7 @@ func TestLanguageStats_add(t *testing.T) {
 		},
 		{
 			desc: "updates the stat for a file",
-			run: func(t *testing.T, s *languageStats) {
+			run: func(t *testing.T, s languageStats) {
 				s.add("main.go", "Go", 60)
 				s.add("main.go", "Go", 30)
 
@@ -156,7 +156,7 @@ func TestLanguageStats_add(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			s, err := newLanguageStats(repo)
+			s, err := initLanguageStats(repo)
 			require.NoError(t, err)
 
 			tc.run(t, s)
@@ -177,11 +177,11 @@ func TestLanguageStats_drop(t *testing.T) {
 
 	for _, tc := range []struct {
 		desc string
-		run  func(*testing.T, *languageStats)
+		run  func(*testing.T, languageStats)
 	}{
 		{
 			desc: "existing file",
-			run: func(t *testing.T, s *languageStats) {
+			run: func(t *testing.T, s languageStats) {
 				s.drop("main.go")
 
 				require.Equal(t, uint64(20), s.Totals["Go"])
@@ -191,7 +191,7 @@ func TestLanguageStats_drop(t *testing.T) {
 		},
 		{
 			desc: "non-existing file",
-			run: func(t *testing.T, s *languageStats) {
+			run: func(t *testing.T, s languageStats) {
 				s.drop("foo.go")
 
 				require.Equal(t, uint64(100), s.Totals["Go"])
@@ -202,7 +202,7 @@ func TestLanguageStats_drop(t *testing.T) {
 		},
 		{
 			desc: "all files",
-			run: func(t *testing.T, s *languageStats) {
+			run: func(t *testing.T, s languageStats) {
 				s.drop("main.go", "main_test.go")
 
 				require.Empty(t, s.Totals)
@@ -211,7 +211,7 @@ func TestLanguageStats_drop(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			s, err := newLanguageStats(repo)
+			s, err := initLanguageStats(repo)
 			require.NoError(t, err)
 
 			s.Totals["Go"] = 100
@@ -233,7 +233,7 @@ func TestLanguageStats_save(t *testing.T) {
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	s, err := newLanguageStats(repo)
+	s, err := initLanguageStats(repo)
 	require.NoError(t, err)
 
 	s.Totals["Go"] = 100
@@ -244,7 +244,7 @@ func TestLanguageStats_save(t *testing.T) {
 	require.NoError(t, err)
 	require.FileExists(t, filepath.Join(repoPath, languageStatsFilename))
 
-	loaded, err := newLanguageStats(repo)
+	loaded, err := initLanguageStats(repo)
 	require.NoError(t, err)
 
 	require.Equal(t, "buzz", loaded.CommitID)
