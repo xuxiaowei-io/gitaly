@@ -9,17 +9,17 @@ import (
 // NoopManager is a cgroups manager that does nothing
 type NoopManager struct{}
 
-//nolint: stylecheck // This is unintentionally missing documentation.
+//nolint:revive // This is unintentionally missing documentation.
 func (cg *NoopManager) Setup() error {
 	return nil
 }
 
-//nolint: stylecheck // This is unintentionally missing documentation.
+//nolint:revive // This is unintentionally missing documentation.
 func (cg *NoopManager) AddCommand(cmd *command.Command, repo repository.GitRepo) (string, error) {
 	return "", nil
 }
 
-//nolint: stylecheck // This is unintentionally missing documentation.
+//nolint:revive // This is unintentionally missing documentation.
 func (cg *NoopManager) Cleanup() error {
 	return nil
 }

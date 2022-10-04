@@ -85,11 +85,37 @@ linters-settings:
       - ^os.Setenv$
       - ^os.Unsetenv$
   revive:
+    # Specifying any rule explicitly will disable the default-enabled rules.
+    # Manually specify the defaults along with `context-as-argument`.
     rules:
+      - name: blank-imports
+        disabled: false
       - name: context-as-argument
         arguments:
           # The context should always be first, except in our testing packages.
           allowTypesBefore: "*testing.T,*testing.B,testing.TB"
+      - name: dot-imports
+        disabled: false
+      - name: error-naming
+        disabled: false
+      - name: error-return
+        disabled: false
+      - name: error-strings
+        disabled: false
+      - name: exported
+        disabled: false
+      - name: increment-decrement
+        disabled: false
+      - name: indent-error-flow
+        disabled: false
+      - name: package-comments
+        disabled: false
+      - name: receiver-naming
+        disabled: false
+      - name: range
+        disabled: false
+      - name: var-naming
+        disabled: false
   stylecheck:
     # ST1000 checks for missing package comments. We don't use these for most
     # packages, so let's disable this check.

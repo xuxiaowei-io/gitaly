@@ -18,7 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
-//nolint: stylecheck // This is unintentionally missing documentation.
+//nolint:revive // This is unintentionally missing documentation.
 type Server struct {
 	gitalypb.UnimplementedOperationServiceServer
 	hookManager    hook.Manager

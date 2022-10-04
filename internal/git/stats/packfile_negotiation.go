@@ -11,7 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 )
 
-//nolint: stylecheck // This is unintentionally missing documentation.
+//nolint:revive // This is unintentionally missing documentation.
 type PackfileNegotiation struct {
 	// Total size of all pktlines' data
 	PayloadSize int64
@@ -31,7 +31,7 @@ type PackfileNegotiation struct {
 	Filter string
 }
 
-//nolint: stylecheck // This is unintentionally missing documentation.
+//nolint:revive // This is unintentionally missing documentation.
 func ParsePackfileNegotiation(body io.Reader) (PackfileNegotiation, error) {
 	n := PackfileNegotiation{}
 	return n, n.Parse(body)

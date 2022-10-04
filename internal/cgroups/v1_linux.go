@@ -56,7 +56,7 @@ func newV1Manager(cfg cgroupscfg.Config, pid int) *CGroupV1Manager {
 	}
 }
 
-//nolint: stylecheck // This is unintentionally missing documentation.
+//nolint:revive // This is unintentionally missing documentation.
 func (cg *CGroupV1Manager) Setup() error {
 	var parentResources specs.LinuxResources
 
@@ -200,7 +200,7 @@ func (cg *CGroupV1Manager) Describe(ch chan<- *prometheus.Desc) {
 	prometheus.DescribeByCollect(cg, ch)
 }
 
-//nolint: stylecheck // This is unintentionally missing documentation.
+//nolint:revive // This is unintentionally missing documentation.
 func (cg *CGroupV1Manager) Cleanup() error {
 	processCgroupPath := cg.currentProcessCgroup()
 
