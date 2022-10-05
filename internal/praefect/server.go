@@ -1,5 +1,7 @@
-/*Package praefect is a Gitaly reverse proxy for transparently routing gRPC
-calls to a set of Gitaly services.*/
+/*
+Package praefect is a Gitaly reverse proxy for transparently routing gRPC
+calls to a set of Gitaly services.
+*/
 package praefect
 
 import (

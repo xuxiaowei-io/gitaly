@@ -16,8 +16,9 @@ var (
 	ffB = FeatureFlag{"feature-b", false}
 )
 
-//nolint:forbidigo // We cannot use `testhelper.Context()` given that it would inject feature flags
 // already.
+//
+//nolint:forbidigo // We cannot use `testhelper.Context()` given that it would inject feature flags
 func createContext() context.Context {
 	return context.Background()
 }

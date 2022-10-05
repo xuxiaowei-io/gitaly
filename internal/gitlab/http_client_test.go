@@ -29,6 +29,7 @@ type postReceiveRequest struct {
 
 // TestAllowedVerifyParams uses client cert fixtures to test TLS connections. To
 // regenerate these certs, run `go generate access_test.go`.
+//
 //go:generate openssl req -newkey rsa:4096 -new -nodes -x509 -days 3650 -out testdata/certs/server.crt -keyout testdata/certs/server.key -subj "/C=US/ST=California/L=San Francisco/O=GitLab/OU=GitLab-Shell/CN=localhost" -addext "subjectAltName = IP:127.0.0.1"
 func TestAccess_verifyParams(t *testing.T) {
 	user, password := "user", "password"

@@ -28,7 +28,7 @@ const (
 // The expected input is a single line containing trailers in the following
 // format:
 //
-//     KEY:VALUE\0KEY:VALUE
+//	KEY:VALUE\0KEY:VALUE
 //
 // Where \0 is a NULL byte. The input should not end in a NULL byte.
 //
@@ -47,12 +47,12 @@ const (
 // The limits this parser imposes on the sizes/amounts are loosely based on
 // trailers found in GitLab's own repository. Here are just a few examples:
 //
-//     Change-Id: I009c716ce2475b9efa3fd07aee9215fca7a1c150
-//     Changelog: https://github.com/nahi/httpclient/blob/b51d7a8bb78f71726b08fbda5abfb900d627569f/CHANGELOG.md#changes-in-282
-//     Co-Authored-By: Alex Kalderimis <akalderimis@gitlab.com>
-//     fixes: https://gitlab.com/gitlab-org/gitlab-ce/issues/44458
-//     Signed-off-by: Dmitriy Zaporozhets <dmitriy.zaporozhets@gmail.com>
-//     See: https://gitlab.com/gitlab-org/gitlab-ee/blob/ff9ad690650c23665439499d23f3ed22103b55bb/spec/spec_helper.rb#L50
+//	Change-Id: I009c716ce2475b9efa3fd07aee9215fca7a1c150
+//	Changelog: https://github.com/nahi/httpclient/blob/b51d7a8bb78f71726b08fbda5abfb900d627569f/CHANGELOG.md#changes-in-282
+//	Co-Authored-By: Alex Kalderimis <akalderimis@gitlab.com>
+//	fixes: https://gitlab.com/gitlab-org/gitlab-ce/issues/44458
+//	Signed-off-by: Dmitriy Zaporozhets <dmitriy.zaporozhets@gmail.com>
+//	See: https://gitlab.com/gitlab-org/gitlab-ee/blob/ff9ad690650c23665439499d23f3ed22103b55bb/spec/spec_helper.rb#L50
 func Parse(input []byte) []*gitalypb.CommitTrailer {
 	// The choice of a nil slice instead of an empty one is deliberate: gRPC
 	// turns empty slices into nil.

@@ -1,7 +1,6 @@
 // Package streamio contains wrappers intended for turning gRPC streams
 // that send/receive messages with a []byte field into io.Writers and
 // io.Readers.
-//
 package streamio
 
 import (

@@ -11,10 +11,10 @@ import (
 // buildDir is the directory path where our build target places the built binaries.
 const buildDir = "_build/bin"
 
-//go:embed _build/bin/gitaly-hooks _build/bin/gitaly-ssh _build/bin/gitaly-git2go _build/bin/gitaly-lfs-smudge
-//
 // packedBinariesFS contains embedded binaries. If you modify the above embeddings, you must also update
 // GITALY_PACKED_EXECUTABLES in Makefile and packedBinaries in internal/gitaly/config/config.go.
+//
+//go:embed _build/bin/gitaly-hooks _build/bin/gitaly-ssh _build/bin/gitaly-git2go _build/bin/gitaly-lfs-smudge
 var packedBinariesFS embed.FS
 
 // UnpackAuxiliaryBinaries unpacks the packed auxiliary binaries of Gitaly into destination directory.

@@ -20,9 +20,10 @@ import (
 // files.
 //
 // Structure:
-//   <repo relative path>.bundle
-//   <repo relative path>.refs
-//   <repo relative path>/custom_hooks.tar
+//
+//	<repo relative path>.bundle
+//	<repo relative path>.refs
+//	<repo relative path>/custom_hooks.tar
 type LegacyLocator struct{}
 
 // BeginFull returns the static paths for a legacy repository backup
@@ -65,11 +66,12 @@ func (l LegacyLocator) newFull(repo *gitalypb.Repository) *Step {
 // file named LATEST.
 //
 // Structure:
-//   <repo relative path>/LATEST
-//   <repo relative path>/<backup id>/LATEST
-//   <repo relative path>/<backup id>/<nnn>.bundle
-//   <repo relative path>/<backup id>/<nnn>.refs
-//   <repo relative path>/<backup id>/<nnn>.custom_hooks.tar
+//
+//	<repo relative path>/LATEST
+//	<repo relative path>/<backup id>/LATEST
+//	<repo relative path>/<backup id>/<nnn>.bundle
+//	<repo relative path>/<backup id>/<nnn>.refs
+//	<repo relative path>/<backup id>/<nnn>.custom_hooks.tar
 type PointerLocator struct {
 	Sink     Sink
 	Fallback Locator

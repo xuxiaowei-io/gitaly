@@ -40,20 +40,25 @@ func LogObjectsInfo(ctx context.Context, repo git.RepositoryExecutor) {
 	}
 }
 
-/* readObjectInfoStatistic parses output of 'git count-objects -v' command and represents it as dictionary
+/*
+	readObjectInfoStatistic parses output of 'git count-objects -v' command and represents it as dictionary
+
 current supported format is:
-  count: 12
-  packs: 2
-  size-garbage: 934
-  alternate: /some/path/to/.git/objects
-  alternate: "/some/other path/to/.git/objects"
+
+	count: 12
+	packs: 2
+	size-garbage: 934
+	alternate: /some/path/to/.git/objects
+	alternate: "/some/other path/to/.git/objects"
+
 will result in:
-  {
-    "count": 12,
-    "packs": 2,
-    "size-garbage": 934,
-    "alternate": ["/some/path/to/.git/objects", "/some/other path/to/.git/objects"]
-  }
+
+	{
+	  "count": 12,
+	  "packs": 2,
+	  "size-garbage": 934,
+	  "alternate": ["/some/path/to/.git/objects", "/some/other path/to/.git/objects"]
+	}
 */
 func readObjectInfoStatistic(reader io.Reader) (map[string]interface{}, error) {
 	stats := map[string]interface{}{}

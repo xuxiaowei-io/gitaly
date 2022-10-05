@@ -12,7 +12,7 @@
 // readers). A cache entry consists of a key, an maximum age, a
 // pipe and the error result of the thing writing to the pipe.
 //
-// Eviction
+// # Eviction
 //
 // There are two eviction goroutines: one for Cache and one for filestore.
 // The Cache eviction goroutine evicts entries after a set amount of time,

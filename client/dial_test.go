@@ -566,6 +566,7 @@ func startUnixListener(tb testing.TB, factory func(credentials.TransportCredenti
 }
 
 // startTLSListener will start a secure TLS listener on a random unused port
+//
 //go:generate openssl req -newkey rsa:4096 -new -nodes -x509 -days 3650 -out testdata/gitalycert.pem -keyout testdata/gitalykey.pem -subj "/C=US/ST=California/L=San Francisco/O=GitLab/OU=GitLab-Shell/CN=localhost" -addext "subjectAltName = IP:127.0.0.1, DNS:localhost"
 func startTLSListener(tb testing.TB, factory func(credentials.TransportCredentials) *grpc.Server) (func(), string) {
 	listener, err := net.Listen("tcp", "localhost:0")

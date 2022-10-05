@@ -844,18 +844,18 @@ func (c *Coordinator) createTransactionFinalizer(
 // getUpdatedAndOutdatedSecondaries returns all nodes which can be considered up-to-date or outdated
 // after the given transaction. A node is considered outdated, if one of the following is true:
 //
-// - No subtransactions were created and the RPC was successful on the primary. This really is only
-//   a safeguard in case the RPC wasn't aware of transactions and thus failed to correctly assert
-//   its state matches across nodes. This is rather pessimistic, as it could also indicate that an
-//   RPC simply didn't change anything. If the RPC was a failure on the primary and there were no
-//   subtransactions, we assume no changes were done and that the nodes failed prior to voting.
+//   - No subtransactions were created and the RPC was successful on the primary. This really is only
+//     a safeguard in case the RPC wasn't aware of transactions and thus failed to correctly assert
+//     its state matches across nodes. This is rather pessimistic, as it could also indicate that an
+//     RPC simply didn't change anything. If the RPC was a failure on the primary and there were no
+//     subtransactions, we assume no changes were done and that the nodes failed prior to voting.
 //
-// - The node failed to be part of the quorum. As a special case, if the primary fails the vote, all
-//   nodes need to get replication jobs.
+//   - The node failed to be part of the quorum. As a special case, if the primary fails the vote, all
+//     nodes need to get replication jobs.
 //
-// - The node has a different error state than the primary. If both primary and secondary have
-//   returned the same error, then we assume they did the same thing and failed in the same
-//   controlled way.
+//   - The node has a different error state than the primary. If both primary and secondary have
+//     returned the same error, then we assume they did the same thing and failed in the same
+//     controlled way.
 //
 // Note that this function cannot and should not fail: if anything goes wrong, we need to create
 // replication jobs to repair state.

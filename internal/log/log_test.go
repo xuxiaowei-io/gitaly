@@ -442,8 +442,9 @@ func TestStreamLogDataCatcherServerInterceptor(t *testing.T) {
 	})
 }
 
-//nolint:forbidigo // We cannot use `testhelper.Context()` because of a cyclic dependency between
 // this package and the `testhelper` package.
+//
+//nolint:forbidigo // We cannot use `testhelper.Context()` because of a cyclic dependency between
 func createContext() context.Context {
 	return context.Background()
 }
