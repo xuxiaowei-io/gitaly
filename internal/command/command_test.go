@@ -7,11 +7,9 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 
@@ -23,7 +21,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
 
@@ -514,65 +511,4 @@ func TestCommand_withFinalizer(t *testing.T) {
 		case <-time.After(50 * time.Millisecond):
 		}
 	})
-}
-
-func TestCommand_withPgid(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	r, w := io.Pipe()
-	parentCmd, err := New(ctx, []string{"cat", "/dev/stdin"}, WithStdin(r))
-	require.NoError(t, err)
-
-	errCh := make(chan error)
-	go func() {
-		errCh <- parentCmd.Wait()
-	}()
-
-	parentPid := parentCmd.cmd.Process.Pid
-
-	childCmd, err := New(
-		ctx,
-		[]string{"cat", "/dev/stdin"},
-		WithStdin(r),
-		WithParent(parentPid),
-	)
-	require.NoError(t, err)
-	go func() {
-		errCh <- childCmd.Wait()
-	}()
-
-	childPid := childCmd.cmd.Process.Pid
-
-	// check that both processes are running
-	for _, pid := range []int{parentPid, childPid} {
-		process, err := os.FindProcess(pid)
-		require.NoError(t, err)
-		require.NoError(t, process.Signal(syscall.Signal(0)))
-	}
-
-	// check that killing the pgid kills the childpid as well
-	if featureflag.RunCmdsInProcessGroup.IsEnabled(ctx) {
-		require.NoError(t, syscall.Kill(-parentPid, syscall.SIGKILL))
-	} else {
-		require.NoError(t, syscall.Kill(parentPid, syscall.SIGKILL))
-		require.NoError(t, syscall.Kill(childPid, syscall.SIGKILL))
-	}
-
-	w.Close()
-
-	err = <-errCh
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "signal: killed")
-
-	err = <-errCh
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "signal: killed")
-
-	// check that both processes are not running
-	for _, pid := range []int{parentPid, childPid} {
-		process, err := os.FindProcess(pid)
-		require.NoError(t, err)
-		require.Error(t, process.Signal(syscall.Signal(0)))
-	}
 }

@@ -196,7 +196,6 @@ func ContextWithoutCancel(opts ...ContextOpt) context.Context {
 	// deep in the call stack, so almost every test function would have to inject it into its
 	// context.
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RunCommandsInCGroup, true)
-	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RunCmdsInProcessGroup, rnd.Int()%2 == 0)
 	// PraefectGeneratedReplicaPaths affects many tests as it changes the repository creation logic.
 	// Randomly enable the flag to exercise both paths to some extent.
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.PraefectGeneratedReplicaPaths, rnd.Int()%2 == 0)

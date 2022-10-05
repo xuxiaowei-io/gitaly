@@ -21,8 +21,6 @@ type config struct {
 
 	cgroupsManager CgroupsManager
 	cgroupsRepo    repository.GitRepo
-
-	parentPid int
 }
 
 // Option is an option that can be passed to `New()` for controlling how the command is being
@@ -108,12 +106,5 @@ func WithCgroup(cgroupsManager CgroupsManager, repo repository.GitRepo) Option {
 func WithFinalizer(finalizer func(*Command)) Option {
 	return func(cfg *config) {
 		cfg.finalizer = finalizer
-	}
-}
-
-// WithParent sets a parent pid under which the command will be spawned
-func WithParent(pid int) Option {
-	return func(cfg *config) {
-		cfg.parentPid = pid
 	}
 }
