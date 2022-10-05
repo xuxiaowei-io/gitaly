@@ -201,16 +201,6 @@ func New(ctx context.Context, nameAndArgs []string, opts ...Option) (*Command, e
 
 	cmd := exec.Command(nameAndArgs[0], nameAndArgs[1:]...)
 
-	if featureflag.RunCmdsInProcessGroup.IsEnabled(ctx) {
-		cmd.SysProcAttr = &syscall.SysProcAttr{
-			Setpgid: true,
-			Pgid:    cfg.parentPid,
-		}
-	} else {
-		// Start the command in its own process group (nice for signalling)
-		cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	}
-
 	command := &Command{
 		cmd:             cmd,
 		startTime:       time.Now(),
@@ -231,6 +221,9 @@ func New(ctx context.Context, nameAndArgs []string, opts ...Option) (*Command, e
 	cmd.Env = append(cmd.Env, cfg.environment...)
 	// And finally inject environment variables required for tracing into the command.
 	cmd.Env = envInjector(ctx, cmd.Env)
+
+	// Start the command in its own process group (nice for signalling)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	// Three possible values for stdin:
 	//   * nil - Go implicitly uses /dev/null

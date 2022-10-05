@@ -43,7 +43,6 @@ type CommandFactory interface {
 type execCommandFactoryConfig struct {
 	hooksPath     string
 	gitBinaryPath string
-	gitalyPid     int
 }
 
 // ExecCommandFactoryOption is an option that can be passed to NewExecCommandFactory.
@@ -70,14 +69,6 @@ func WithGitBinaryPath(path string) ExecCommandFactoryOption {
 	}
 }
 
-// WithGitalyPid will cause new commands to be started under the gitaly pid as
-// the pgid
-func WithGitalyPid(gitalyPid int) ExecCommandFactoryOption {
-	return func(cfg *execCommandFactoryConfig) {
-		cfg.gitalyPid = gitalyPid
-	}
-}
-
 type hookDirectories struct {
 	tempHooksPath string
 }
@@ -98,8 +89,6 @@ type ExecCommandFactory struct {
 
 	cachedGitVersionLock     sync.RWMutex
 	cachedGitVersionByBinary map[string]cachedGitVersion
-
-	gitalyPid int
 }
 
 // NewExecCommandFactory returns a new instance of initialized ExecCommandFactory. The returned
@@ -149,7 +138,6 @@ func NewExecCommandFactory(cfg config.Cfg, opts ...ExecCommandFactoryOption) (_ 
 		),
 		hookDirs:                 hookDirectories,
 		cachedGitVersionByBinary: make(map[string]cachedGitVersion),
-		gitalyPid:                factoryCfg.gitalyPid,
 	}
 
 	return gitCmdFactory, runCleanups, nil
@@ -425,7 +413,6 @@ func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo repository.Gi
 		command.WithCommandName("git", sc.Subcommand()),
 		command.WithCgroup(cf.cgroupsManager, repo),
 		command.WithCommandGitVersion(cmdGitVersion.String()),
-		command.WithParent(cf.gitalyPid),
 	)...)
 	if err != nil {
 		return nil, err
