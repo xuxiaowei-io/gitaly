@@ -5,13 +5,12 @@ import (
 	"bytes"
 	"errors"
 	"io"
-	"math"
 	"regexp"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/lstree"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/lines"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 )
@@ -141,11 +140,12 @@ func (s *server) SearchFilesByName(req *gitalypb.SearchFilesByNameRequest, strea
 		return helper.ErrInternalf("SearchFilesByName: cmd start failed: %v", err)
 	}
 
-	lr := func(objs [][]byte) error {
-		return stream.Send(&gitalypb.SearchFilesByNameResponse{Files: objs})
+	files, err := parseLsTree(cmd, filter, int(req.GetOffset()), int(req.GetLimit()))
+	if err != nil {
+		return err
 	}
 
-	return lines.Send(cmd, lr, lines.SenderOpts{Delimiter: 0x00, Limit: math.MaxInt32, Filter: filter})
+	return stream.Send(&gitalypb.SearchFilesByNameResponse{Files: files})
 }
 
 type searchFilesRequest interface {
@@ -167,4 +167,37 @@ func validateSearchFilesRequest(req searchFilesRequest) error {
 	}
 
 	return nil
+}
+
+func parseLsTree(cmd *command.Command, filter *regexp.Regexp, offset int, limit int) ([][]byte, error) {
+	var files [][]byte
+	var index int
+	parser := lstree.NewParser(cmd, git.ObjectHashSHA1)
+
+	for {
+		path, err := parser.NextEntryPath()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, err
+		}
+		if filter != nil && !filter.Match(path) {
+			continue
+		}
+
+		index++
+		if index > offset {
+			files = append(files, path)
+		}
+		if limit > 0 && len(files) >= limit {
+			break
+		}
+	}
+
+	if err := cmd.Wait(); err != nil {
+		return nil, helper.ErrInternalf("SearchFilesByName: cmd failed: %v", err)
+	}
+
+	return files, nil
 }
