@@ -2,6 +2,7 @@ package commit
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -308,7 +309,12 @@ type PageToken struct {
 func decodedPageToken(token string) (string, string) {
 	var pageToken PageToken
 
-	if err := json.Unmarshal([]byte(token), &pageToken); err != nil {
+	decodedString, err := base64.StdEncoding.DecodeString(token)
+	if err != nil {
+		return token, "oid"
+	}
+
+	if err := json.Unmarshal([]byte(decodedString), &pageToken); err != nil {
 		return token, "oid"
 	} else {
 		return pageToken.FileName, "filename"
@@ -364,7 +370,12 @@ func paginateTreeEntries(entries []*gitalypb.TreeEntry, p *gitalypb.PaginationPa
 // Oid is not a unique value and cannot be used for the cursor generation.
 // Instead we use the file name that should be unique
 func generateCursor(entry *gitalypb.TreeEntry) (string, error) {
-	encoded, err := json.Marshal(PageToken{FileName: string(entry.GetPath())})
+	jsonEncoded, err := json.Marshal(PageToken{FileName: string(entry.GetPath())})
+	if err != nil {
+		return "", err
+	}
+
+	encoded := base64.StdEncoding.EncodeToString(jsonEncoded)
 
 	return string(encoded), err
 }

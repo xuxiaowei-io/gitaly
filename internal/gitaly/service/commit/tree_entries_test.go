@@ -435,7 +435,7 @@ func TestGetTreeEntries_successful(t *testing.T) {
 			entries:     sortedAndPaginated,
 			pageLimit:   4,
 			sortBy:      gitalypb.GetTreeEntriesRequest_TREES_FIRST,
-			cursor:      "{\"FileName\":\".DS_Store\"}",
+			cursor:      "eyJGaWxlTmFtZSI6Ii5EU19TdG9yZSJ9",
 		},
 		{
 			description:     "with pagination parameters",
@@ -445,7 +445,7 @@ func TestGetTreeEntries_successful(t *testing.T) {
 			legacyPageToken: "fdaada1754989978413d618ee1fb1c0469d6a664",
 			pageToken:       getPageToken(t, rootEntries[2]),
 			pageLimit:       3,
-			cursor:          "{\"FileName\":\"LICENSE\"}",
+			cursor:          "eyJGaWxlTmFtZSI6IkxJQ0VOU0UifQ==",
 		},
 		{
 			description:     "with pagination parameters larger than length",
@@ -480,7 +480,7 @@ func TestGetTreeEntries_successful(t *testing.T) {
 			pageToken:   "",
 			entries:     rootEntries[0:2],
 			pageLimit:   2,
-			cursor:      "{\"FileName\":\".gitignore\"}",
+			cursor:      "eyJGaWxlTmFtZSI6Ii5naXRpZ25vcmUifQ==",
 		},
 	}
 
