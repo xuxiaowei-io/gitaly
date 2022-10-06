@@ -330,7 +330,7 @@ dbschema:
       - _support/praefect-schema.sql
     when: on_failure
 
-gosec-sast:
+semgrep-sast:
   needs: []
   cache:
     - *cache_go_configuration
