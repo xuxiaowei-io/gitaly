@@ -276,3 +276,110 @@ func TestTransaction_createSubtransaction(t *testing.T) {
 		})
 	}
 }
+
+func TestTransaction_cancelNodeVoter(t *testing.T) {
+	t.Parallel()
+
+	var id uint64
+	voters := []Voter{
+		{Name: "1", Votes: 1},
+		{Name: "2", Votes: 1},
+		{Name: "3", Votes: 1},
+	}
+	threshold := uint(2)
+
+	committedSubtransaction, err := newSubtransaction(
+		[]Voter{
+			{Name: "1", Votes: 1, result: VoteCommitted},
+			{Name: "2", Votes: 1, result: VoteCommitted},
+			{Name: "3", Votes: 1, result: VoteCommitted},
+		},
+		threshold,
+	)
+	require.NoError(t, err)
+	undecidedSubtransaction, err := newSubtransaction(
+		[]Voter{
+			{Name: "1", Votes: 1, result: VoteUndecided},
+			{Name: "2", Votes: 1, result: VoteUndecided},
+			{Name: "3", Votes: 1, result: VoteUndecided},
+		},
+		threshold,
+	)
+	require.NoError(t, err)
+	decidedSubtransaction, err := newSubtransaction(
+		[]Voter{
+			{Name: "1", Votes: 1, result: VoteUndecided},
+			{Name: "2", Votes: 1, result: VoteCommitted},
+			{Name: "3", Votes: 1, result: VoteCommitted},
+		},
+		threshold,
+	)
+	require.NoError(t, err)
+	cancelingSubtransaction, err := newSubtransaction(
+		[]Voter{
+			{Name: "1", Votes: 1, result: VoteUndecided},
+			{Name: "2", Votes: 1, result: VoteUndecided},
+			{Name: "3", Votes: 1, result: VoteCanceled},
+		},
+		threshold,
+	)
+	require.NoError(t, err)
+
+	for _, tc := range []struct {
+		desc      string
+		subs      []*subtransaction
+		node      string
+		expErrMsg string
+	}{
+		{
+			desc:      "No subtransactions",
+			subs:      nil,
+			node:      "1",
+			expErrMsg: "",
+		},
+		{
+			desc:      "No pending subtransactions",
+			subs:      []*subtransaction{committedSubtransaction},
+			node:      "1",
+			expErrMsg: "",
+		},
+		{
+			desc:      "One Pending subtransaction",
+			subs:      []*subtransaction{undecidedSubtransaction},
+			node:      "1",
+			expErrMsg: "",
+		},
+		{
+			desc:      "Two Pending subtransactions",
+			subs:      []*subtransaction{decidedSubtransaction, cancelingSubtransaction},
+			node:      "1",
+			expErrMsg: "",
+		},
+		{
+			desc:      "Invalid node",
+			subs:      []*subtransaction{committedSubtransaction},
+			node:      "4",
+			expErrMsg: "invalid node for transaction: \"4\"",
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			transaction, err := newTransaction(id, voters, threshold)
+			require.NoError(t, err)
+
+			transaction.subtransactions = tc.subs
+
+			err = transaction.cancelNodeVoter(tc.node)
+			if tc.expErrMsg != "" {
+				require.Error(t, err)
+				require.Equal(t, tc.expErrMsg, err.Error())
+			} else {
+				require.NoError(t, err)
+
+				// Check the last subtransaction to make sure cancel propagation occurs.
+				sub := transaction.subtransactions[len(transaction.subtransactions)-1]
+				voter := sub.votersByNode[tc.node]
+				require.Equal(t, VoteCanceled, voter.result)
+			}
+		})
+	}
+}

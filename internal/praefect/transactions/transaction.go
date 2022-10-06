@@ -339,3 +339,39 @@ func (t *transaction) vote(ctx context.Context, node string, vote voting.Vote) e
 
 	return subtransaction.collectVotes(ctx, node)
 }
+
+// cancelNodeVoter cancels the undecided voters associated with
+// the specified node for all pending subtransactions.
+func (t *transaction) cancelNodeVoter(node string) error {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
+	// Get all undecided subtransactions for node.
+	pendingSubtransactions, err := t.getPendingNodeSubtransactions(node)
+	if err != nil {
+		return err
+	}
+
+	// If there are no pending subtransactions a new one should
+	// be created and added to the transaction so the failure
+	// can be tracked.
+	if len(pendingSubtransactions) == 0 {
+		sub, err := t.createSubtransaction()
+		if err != nil {
+			return err
+		}
+
+		t.subtransactions = append(t.subtransactions, sub)
+		pendingSubtransactions = []*subtransaction{sub}
+	}
+
+	// Cancel node voters in undecided subtransactions.
+	for _, subtransaction := range pendingSubtransactions {
+		err := subtransaction.cancelNodeVoter(node)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}

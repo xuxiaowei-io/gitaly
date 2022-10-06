@@ -806,6 +806,101 @@ func TestSubtransaction_quorumCheck(t *testing.T) {
 	}
 }
 
+func TestSubtransaction_cancelNodeVoter(t *testing.T) {
+	voteA := newVote(t, "a")
+	voteB := newVote(t, "b")
+
+	threshold := uint(2)
+
+	for _, tc := range []struct {
+		desc      string
+		voters    []Voter
+		node      string
+		result    VoteResult
+		subDone   bool
+		expErrMsg string
+	}{
+		{
+			desc: "Cancel undecided voter",
+			voters: []Voter{
+				{Name: "1", Votes: 1},
+				{Name: "2", Votes: 1},
+				{Name: "3", Votes: 1},
+			},
+			node:      "1",
+			result:    VoteCanceled,
+			subDone:   false,
+			expErrMsg: "",
+		},
+		{
+			desc: "Cancel canceled voter",
+			voters: []Voter{
+				{Name: "1", Votes: 1, result: VoteCanceled},
+				{Name: "2", Votes: 1},
+				{Name: "3", Votes: 1},
+			},
+			node:      "1",
+			result:    VoteCanceled,
+			subDone:   false,
+			expErrMsg: "cancel vote: transaction has been canceled",
+		},
+		{
+			desc: "Cancel nonexistent voter",
+			voters: []Voter{
+				{Name: "1", Votes: 1},
+				{Name: "2", Votes: 1},
+				{Name: "3", Votes: 1},
+			},
+			node:      "4",
+			result:    VoteCanceled,
+			subDone:   false,
+			expErrMsg: "invalid node for subtransaction: \"4\"",
+		},
+		{
+			desc: "Cancel last voter",
+			voters: []Voter{
+				{Name: "1", Votes: 1, vote: &voteA},
+				{Name: "2", Votes: 1, vote: &voteB},
+				{Name: "3", Votes: 1},
+			},
+			node:      "3",
+			result:    VoteCanceled,
+			subDone:   true,
+			expErrMsg: "",
+		},
+		{
+			desc: "Cancel voter making quorum impossible",
+			voters: []Voter{
+				{Name: "1", Votes: 1, result: VoteCanceled},
+				{Name: "2", Votes: 1},
+				{Name: "3", Votes: 1},
+			},
+			node:      "2",
+			result:    VoteCanceled,
+			subDone:   true,
+			expErrMsg: "",
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			subtransaction, err := newSubtransaction(tc.voters, threshold)
+			require.NoError(t, err)
+
+			if err := subtransaction.cancelNodeVoter(tc.node); tc.expErrMsg != "" {
+				require.EqualError(t, err, tc.expErrMsg)
+			} else {
+				require.NoError(t, err)
+			}
+
+			voter, ok := subtransaction.votersByNode[tc.node]
+			if ok {
+				require.Equal(t, tc.result, voter.result)
+			}
+
+			require.Equal(t, tc.subDone, subtransaction.isDone())
+		})
+	}
+}
+
 func newVote(t *testing.T, s string) voting.Vote {
 	hash := sha1.Sum([]byte(s))
 	vote, err := voting.VoteFromHash(hash[:])

@@ -380,3 +380,27 @@ func (t *subtransaction) getVote(node string) (*voting.Vote, error) {
 	vote := *voter.vote
 	return &vote, nil
 }
+
+// cancelNodeVoter updates a node's associated voter state to `VoteCanceled`.
+// All must voters wait until either quorum has been achieved or quorum
+// becomes impossible. A canceled voter's votes are not counted as a part of
+// the total outstanding votes which can cause a subtransaction to not have
+// enough votes to reach the required threshold. If this happens the vote
+// will be considered failed and the voters unblocked.
+func (t *subtransaction) cancelNodeVoter(node string) error {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
+	voter, ok := t.votersByNode[node]
+	if !ok {
+		return fmt.Errorf("invalid node for subtransaction: %q", node)
+	}
+
+	// Updating voter state with a nil vote will result in the voter
+	// getting canceled.
+	if err := t.updateVoterState(voter, nil); err != nil {
+		return fmt.Errorf("cancel vote: %w", err)
+	}
+
+	return nil
+}
