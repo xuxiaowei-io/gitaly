@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	git "github.com/libgit2/git2go/v33"
+	git "github.com/libgit2/git2go/v34"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/cmd/gitaly-git2go/git2goutil"

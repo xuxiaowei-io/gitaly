@@ -113,8 +113,8 @@ PROTOC_GEN_GO_GRPC_VERSION?= v1.2.0
 # Git2Go and libgit2 may need to be updated in sync. Please refer to
 # https://github.com/libgit2/git2go/#which-go-version-to-use for a
 # compatibility matrix.
-GIT2GO_VERSION            ?= v33
-LIBGIT2_VERSION           ?= v1.3.2
+GIT2GO_VERSION            ?= v34
+LIBGIT2_VERSION           ?= v1.5.0
 DELVE_VERSION             ?= v1.9.1
 
 # protoc target
