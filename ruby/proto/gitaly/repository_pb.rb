@@ -265,6 +265,8 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :query, :string, 2
       optional :ref, :bytes, 3
       optional :filter, :string, 4
+      optional :limit, :uint32, 5
+      optional :offset, :uint32, 6
     end
     add_message "gitaly.SearchFilesByNameResponse" do
       repeated :files, :bytes, 1
