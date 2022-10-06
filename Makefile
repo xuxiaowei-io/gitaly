@@ -694,9 +694,6 @@ ${PROTOC}: ${DEPENDENCY_DIR}/protoc.version | ${TOOLS_DIR}
 	${Q}cmake --build "${PROTOC_BUILD_DIR}" --target install -- -j $(shell nproc)
 	${Q}cp "${PROTOC_INSTALL_DIR}"/bin/protoc ${PROTOC}
 
-${TOOLS_DIR}/%: ${TOOLS_DIR}/%.version
-	${Q}GOBIN=${TOOLS_DIR} go install ${TOOL_PACKAGE}@${TOOL_VERSION}
-
 ${PROTOC_GEN_GITALY_LINT}: proto | ${TOOLS_DIR}
 	${Q}go build -o $@ ${SOURCE_DIR}/tools/protoc-gen-gitaly-lint
 
@@ -704,6 +701,9 @@ ${PROTOC_GEN_GITALY_PROTOLIST}: | ${TOOLS_DIR}
 	${Q}go build -o $@ ${SOURCE_DIR}/tools/protoc-gen-gitaly-protolist
 
 # External tools
+${TOOLS_DIR}/%: ${TOOLS_DIR}/%.version
+	${Q}GOBIN=${TOOLS_DIR} go install ${TOOL_PACKAGE}@${TOOL_VERSION}
+
 ${GOCOVER_COBERTURA}: TOOL_PACKAGE = github.com/t-yuki/gocover-cobertura
 ${GOCOVER_COBERTURA}: TOOL_VERSION = ${GOCOVER_COBERTURA_VERSION}
 ${GOFUMPT}:           TOOL_PACKAGE = mvdan.cc/gofumpt
