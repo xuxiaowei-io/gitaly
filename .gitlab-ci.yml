@@ -12,7 +12,6 @@ variables:
   FF_USE_FASTZIP: "true"
   FF_NETWORK_PER_BUILD: "true"
   SAST_DISABLE_DIND: "true"
-  SAST_DEFAULT_ANALYZERS: "gosec"
   DEBIAN_VERSION: "bullseye"
   UBI_VERSION: "8.6"
   # We use Gitaly's Git version by default.
