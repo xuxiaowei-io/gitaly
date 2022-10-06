@@ -3,8 +3,6 @@
 package commit
 
 import (
-	"crypto/sha1"
-	"encoding/hex"
 	"errors"
 	"io"
 	"strconv"
@@ -345,17 +343,18 @@ func TestGetTreeEntries_successful(t *testing.T) {
 	}
 
 	testCases := []struct {
-		description   string
-		revision      []byte
-		path          []byte
-		recursive     bool
-		sortBy        gitalypb.GetTreeEntriesRequest_SortBy
-		entries       []*gitalypb.TreeEntry
-		pageToken     string
-		pageLimit     int32
-		cursor        string
-		entryPath     []byte
-		skipFlatPaths bool
+		description     string
+		revision        []byte
+		path            []byte
+		recursive       bool
+		sortBy          gitalypb.GetTreeEntriesRequest_SortBy
+		entries         []*gitalypb.TreeEntry
+		legacyPageToken string
+		pageToken       string
+		pageLimit       int32
+		cursor          string
+		entryPath       []byte
+		skipFlatPaths   bool
 	}{
 		{
 			description: "with root path",
@@ -436,41 +435,43 @@ func TestGetTreeEntries_successful(t *testing.T) {
 			entries:     sortedAndPaginated,
 			pageLimit:   4,
 			sortBy:      gitalypb.GetTreeEntriesRequest_TREES_FIRST,
-			cursor:      "1c497fbb3a46b78edf04cc2a2fa33f67e3ffbe2a",
-			entryPath:   sortedAndPaginated[3].Path,
+			cursor:      "{\"FileName\":\".DS_Store\"}",
 		},
 		{
-			description: "with pagination parameters",
-			revision:    []byte(commitID),
-			path:        []byte("."),
-			entries:     rootEntries[3:6],
-			pageToken:   "7445606fbf8f3683cd42bdc54b05d7a0bc2dfc44",
-			pageLimit:   3,
-			cursor:      rootEntries[5].Oid,
-			entryPath:   rootEntries[5].Path,
+			description:     "with pagination parameters",
+			revision:        []byte(commitID),
+			path:            []byte("."),
+			entries:         rootEntries[3:6],
+			legacyPageToken: "fdaada1754989978413d618ee1fb1c0469d6a664",
+			pageToken:       getPageToken(t, rootEntries[2]),
+			pageLimit:       3,
+			cursor:          "{\"FileName\":\"LICENSE\"}",
 		},
 		{
-			description: "with pagination parameters larger than length",
-			revision:    []byte(commitID),
-			path:        []byte("."),
-			entries:     rootEntries[12:],
-			pageToken:   "a1f13b3bc20a296e08c212be9c56c706c10abc4f",
-			pageLimit:   20,
+			description:     "with pagination parameters larger than length",
+			revision:        []byte(commitID),
+			path:            []byte("."),
+			entries:         rootEntries[12:],
+			legacyPageToken: "b4a3321157f6e80c42b031ecc9ba79f784c8a557",
+			pageToken:       getPageToken(t, rootEntries[11]),
+			pageLimit:       20,
 		},
 		{
-			description: "with pagination limit of -1",
-			revision:    []byte(commitID),
-			path:        []byte("."),
-			entries:     rootEntries[2:],
-			pageToken:   "a5cc2925ca8258af241be7e5b0381edf30266302",
-			pageLimit:   -1,
+			description:     "with pagination limit of -1",
+			revision:        []byte(commitID),
+			path:            []byte("."),
+			entries:         rootEntries[2:],
+			legacyPageToken: "470ad2fcf1e33798f1afc5781d08e60c40f51e7a",
+			pageToken:       getPageToken(t, rootEntries[1]),
+			pageLimit:       -1,
 		},
 		{
-			description: "with pagination limit of 0",
-			revision:    []byte(commitID),
-			path:        []byte("."),
-			pageToken:   "a5cc2925ca8258af241be7e5b0381edf30266302",
-			pageLimit:   0,
+			description:     "with pagination limit of 0",
+			revision:        []byte(commitID),
+			path:            []byte("."),
+			legacyPageToken: "470ad2fcf1e33798f1afc5781d08e60c40f51e7a",
+			pageToken:       getPageToken(t, rootEntries[0]),
+			pageLimit:       0,
 		},
 		{
 			description: "with a blank pagination token",
@@ -479,49 +480,64 @@ func TestGetTreeEntries_successful(t *testing.T) {
 			pageToken:   "",
 			entries:     rootEntries[0:2],
 			pageLimit:   2,
-			cursor:      rootEntries[1].Oid,
-			entryPath:   rootEntries[1].Path,
+			cursor:      "{\"FileName\":\".gitignore\"}",
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.description, func(t *testing.T) {
-			request := &gitalypb.GetTreeEntriesRequest{
-				Repository:    repo,
-				Revision:      testCase.revision,
-				Path:          testCase.path,
-				Recursive:     testCase.recursive,
-				Sort:          testCase.sortBy,
-				SkipFlatPaths: testCase.skipFlatPaths,
-			}
+			for _, tc := range []struct {
+				desc      string
+				pageToken string
+			}{
+				{
+					desc:      "legacy token",
+					pageToken: testCase.legacyPageToken,
+				},
+				{
+					desc:      "page token",
+					pageToken: testCase.pageToken,
+				},
+			} {
+				t.Run(tc.desc, func(t *testing.T) {
+					request := &gitalypb.GetTreeEntriesRequest{
+						Repository:    repo,
+						Revision:      testCase.revision,
+						Path:          testCase.path,
+						Recursive:     testCase.recursive,
+						Sort:          testCase.sortBy,
+						SkipFlatPaths: testCase.skipFlatPaths,
+					}
 
-			if testCase.pageToken != "" || testCase.pageLimit > 0 {
-				request.PaginationParams = &gitalypb.PaginationParameter{
-					PageToken: testCase.pageToken,
-					Limit:     testCase.pageLimit,
-				}
-			}
+					if tc.pageToken != "" || testCase.pageLimit > 0 {
+						request.PaginationParams = &gitalypb.PaginationParameter{
+							PageToken: tc.pageToken,
+							Limit:     testCase.pageLimit,
+						}
+					}
 
-			c, err := client.GetTreeEntries(ctx, request)
+					c, err := client.GetTreeEntries(ctx, request)
 
-			require.NoError(t, err)
-			fetchedEntries, cursor := getTreeEntriesFromTreeEntryClient(t, c, nil)
-			testhelper.ProtoEqual(t, testCase.entries, fetchedEntries)
+					require.NoError(t, err)
+					fetchedEntries, cursor := getTreeEntriesFromTreeEntryClient(t, c, nil)
+					testhelper.ProtoEqual(t, testCase.entries, fetchedEntries)
 
-			if testCase.pageLimit > 0 && len(testCase.entries) < len(rootEntries) {
-				require.NotNil(t, cursor)
+					if testCase.pageLimit > 0 && len(testCase.entries) < len(rootEntries) {
+						require.NotNil(t, cursor)
 
-				expectedCursor := ""
-
-				if testCase.cursor != "" {
-					shaHash := sha1.Sum(testCase.entryPath)
-					expectedCursor = hex.EncodeToString(shaHash[:])
-				}
-
-				require.Equal(t, expectedCursor, cursor.NextCursor)
+						require.Equal(t, testCase.cursor, cursor.NextCursor)
+					}
+				})
 			}
 		})
 	}
+}
+
+func getPageToken(t *testing.T, entry *gitalypb.TreeEntry) string {
+	newCursor, err := generateCursor(entry)
+	require.NoError(t, err)
+
+	return newCursor
 }
 
 func TestGetTreeEntries_unsuccessful(t *testing.T) {

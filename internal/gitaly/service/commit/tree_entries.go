@@ -2,8 +2,7 @@ package commit
 
 import (
 	"context"
-	"crypto/sha1"
-	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -302,9 +301,23 @@ func (s *server) GetTreeEntries(in *gitalypb.GetTreeEntriesRequest, stream gital
 	return s.sendTreeEntries(stream, repo, revision, path, in.Recursive, in.SkipFlatPaths, in.GetSort(), in.GetPaginationParams())
 }
 
+type PageToken struct {
+	FileName string
+}
+
+func decodedPageToken(token string) (string, string) {
+	var pageToken PageToken
+
+	if err := json.Unmarshal([]byte(token), &pageToken); err != nil {
+		return token, "oid"
+	} else {
+		return pageToken.FileName, "filename"
+	}
+}
+
 func paginateTreeEntries(entries []*gitalypb.TreeEntry, p *gitalypb.PaginationParameter) ([]*gitalypb.TreeEntry, string, error) {
 	limit := int(p.GetLimit())
-	start := p.GetPageToken()
+	start, tokenType := decodedPageToken(p.GetPageToken())
 	index := -1
 
 	// No token means we should start from the top
@@ -312,9 +325,16 @@ func paginateTreeEntries(entries []*gitalypb.TreeEntry, p *gitalypb.PaginationPa
 		index = 0
 	} else {
 		for i, entry := range entries {
-			if generateCursor(entry) == start {
-				index = i + 1
-				break
+			if tokenType == "oid" {
+				if entry.GetOid() == start {
+					index = i + 1
+					break
+				}
+			} else {
+				if string(entry.GetPath()) == start {
+					index = i + 1
+					break
+				}
 			}
 		}
 	}
@@ -332,14 +352,19 @@ func paginateTreeEntries(entries []*gitalypb.TreeEntry, p *gitalypb.PaginationPa
 	}
 
 	paginated := entries[index : index+limit]
-	return paginated, generateCursor(paginated[len(paginated)-1]), nil
+
+	newCursor, err := generateCursor(paginated[len(paginated)-1])
+	if err != nil {
+		return nil, "", fmt.Errorf("cannot marshal JSON token: %s", err)
+	}
+
+	return paginated, newCursor, nil
 }
 
 // Oid is not a unique value and cannot be used for the cursor generation.
 // Instead we use the file name that should be unique
-func generateCursor(entry *gitalypb.TreeEntry) string {
-	h := sha1.New()
-	h.Write(entry.GetPath())
+func generateCursor(entry *gitalypb.TreeEntry) (string, error) {
+	encoded, err := json.Marshal(PageToken{FileName: string(entry.GetPath())})
 
-	return hex.EncodeToString(h.Sum(nil))
+	return string(encoded), err
 }
