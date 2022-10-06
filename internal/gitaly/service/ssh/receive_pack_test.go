@@ -67,7 +67,7 @@ func TestReceivePack_validation(t *testing.T) {
 					return helper.ErrInvalidArgumentf("repo scoped: invalid Repository")
 				}
 
-				return helper.ErrInvalidArgumentf("GetPath: relative path missing from storage_name:\"default\"")
+				return helper.ErrInvalidArgumentf("GetPath: relative path missing")
 			}(),
 		},
 		{

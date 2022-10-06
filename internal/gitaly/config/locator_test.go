@@ -67,7 +67,7 @@ func TestConfigLocator_GetRepoPath(t *testing.T) {
 		{
 			desc:   "relative path is empty",
 			repo:   &gitalypb.Repository{StorageName: storageName, RelativePath: ""},
-			expErr: helper.ErrInvalidArgumentf(`GetPath: relative path missing from storage_name:"exists"`),
+			expErr: helper.ErrInvalidArgumentf("GetPath: relative path missing"),
 		},
 		{
 			desc:   "unknown relative path",
@@ -165,7 +165,7 @@ func TestConfigLocator_GetPath(t *testing.T) {
 		{
 			desc:   "relative path is empty",
 			repo:   &gitalypb.Repository{StorageName: storageName, RelativePath: ""},
-			expErr: helper.ErrInvalidArgumentf(`GetPath: relative path missing from storage_name:"exists"`),
+			expErr: helper.ErrInvalidArgumentf("GetPath: relative path missing"),
 		},
 		{
 			desc:   "relative path escapes parent folder",

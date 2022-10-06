@@ -69,7 +69,7 @@ func (l *configLocator) GetPath(repo repository.GitRepo) (string, error) {
 
 	relativePath := repo.GetRelativePath()
 	if len(relativePath) == 0 {
-		err := helper.ErrInvalidArgumentf("GetPath: relative path missing from %+v", repo)
+		err := helper.ErrInvalidArgumentf("GetPath: relative path missing")
 		return "", err
 	}
 
