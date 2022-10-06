@@ -526,7 +526,15 @@ func TestNewClockSyncCheck(t *testing.T) {
 		{
 			desc:        "failure",
 			offsetCheck: func(_ string, _ time.Duration) (bool, error) { return false, assert.AnError },
-			expErr:      fmt.Errorf("praefect: %w", assert.AnError),
+			expErr:      fmt.Errorf("praefect: %w (NTP_HOST was not set)", assert.AnError),
+		},
+		{
+			desc:        "failure with NTP_HOST set",
+			offsetCheck: func(_ string, _ time.Duration) (bool, error) { return false, assert.AnError },
+			setup: func(t *testing.T) {
+				t.Setenv("NTP_HOST", "custom")
+			},
+			expErr: fmt.Errorf("praefect: %w", assert.AnError),
 		},
 		{
 			desc: "custom url",
