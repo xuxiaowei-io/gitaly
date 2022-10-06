@@ -302,28 +302,9 @@ func (s *server) GetTreeEntries(in *gitalypb.GetTreeEntriesRequest, stream gital
 	return s.sendTreeEntries(stream, repo, revision, path, in.Recursive, in.SkipFlatPaths, in.GetSort(), in.GetPaginationParams())
 }
 
-type PageToken struct {
-	FileName string
-}
-
-func decodedPageToken(token string) (string, string) {
-	var pageToken PageToken
-
-	decodedString, err := base64.StdEncoding.DecodeString(token)
-	if err != nil {
-		return token, "oid"
-	}
-
-	if err := json.Unmarshal([]byte(decodedString), &pageToken); err != nil {
-		return token, "oid"
-	} else {
-		return pageToken.FileName, "filename"
-	}
-}
-
 func paginateTreeEntries(entries []*gitalypb.TreeEntry, p *gitalypb.PaginationParameter) ([]*gitalypb.TreeEntry, string, error) {
 	limit := int(p.GetLimit())
-	start, tokenType := decodedPageToken(p.GetPageToken())
+	start, tokenType := decodePageToken(p.GetPageToken())
 	index := -1
 
 	// No token means we should start from the top
@@ -331,16 +312,9 @@ func paginateTreeEntries(entries []*gitalypb.TreeEntry, p *gitalypb.PaginationPa
 		index = 0
 	} else {
 		for i, entry := range entries {
-			if tokenType == "oid" {
-				if entry.GetOid() == start {
-					index = i + 1
-					break
-				}
-			} else {
-				if string(entry.GetPath()) == start {
-					index = i + 1
-					break
-				}
+			if buildEntryToken(entry, tokenType) == start {
+				index = i + 1
+				break
 			}
 		}
 	}
@@ -359,23 +333,55 @@ func paginateTreeEntries(entries []*gitalypb.TreeEntry, p *gitalypb.PaginationPa
 
 	paginated := entries[index : index+limit]
 
-	newCursor, err := generateCursor(paginated[len(paginated)-1])
+	newPageToken, err := encodePageToken(paginated[len(paginated)-1])
 	if err != nil {
 		return nil, "", fmt.Errorf("cannot marshal JSON token: %s", err)
 	}
 
-	return paginated, newCursor, nil
+	return paginated, newPageToken, nil
+}
+
+func buildEntryToken(entry *gitalypb.TreeEntry, tokenType string) string {
+	if tokenType == "oid" {
+		return entry.GetOid()
+	}
+
+	if tokenType == "filename" {
+		return string(entry.GetPath())
+	}
+
+	return ""
+}
+
+type pageToken struct {
+	FileName string
+}
+
+// Decodes Base64 encoded, json marshalled string
+func decodePageToken(token string) (string, string) {
+	var pageToken pageToken
+
+	decodedString, err := base64.StdEncoding.DecodeString(token)
+	if err != nil {
+		return token, "oid"
+	}
+
+	if err := json.Unmarshal(decodedString, &pageToken); err != nil {
+		return token, "oid"
+	}
+
+	return pageToken.FileName, "filename"
 }
 
 // Oid is not a unique value and cannot be used for the cursor generation.
 // Instead we use the file name that should be unique
-func generateCursor(entry *gitalypb.TreeEntry) (string, error) {
-	jsonEncoded, err := json.Marshal(PageToken{FileName: string(entry.GetPath())})
+func encodePageToken(entry *gitalypb.TreeEntry) (string, error) {
+	jsonEncoded, err := json.Marshal(pageToken{FileName: string(entry.GetPath())})
 	if err != nil {
 		return "", err
 	}
 
 	encoded := base64.StdEncoding.EncodeToString(jsonEncoded)
 
-	return string(encoded), err
+	return encoded, err
 }

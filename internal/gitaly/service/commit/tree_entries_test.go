@@ -495,7 +495,7 @@ func TestGetTreeEntries_successful(t *testing.T) {
 					pageToken: testCase.legacyPageToken,
 				},
 				{
-					desc:      "page token",
+					desc:      "structured page token",
 					pageToken: testCase.pageToken,
 				},
 			} {
@@ -534,10 +534,10 @@ func TestGetTreeEntries_successful(t *testing.T) {
 }
 
 func getPageToken(t *testing.T, entry *gitalypb.TreeEntry) string {
-	newCursor, err := generateCursor(entry)
+	pageToken, err := encodePageToken(entry)
 	require.NoError(t, err)
 
-	return newCursor
+	return pageToken
 }
 
 func TestGetTreeEntries_unsuccessful(t *testing.T) {
