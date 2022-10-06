@@ -96,17 +96,9 @@ ifdef GITALY_TESTING_ENABLE_SHA256
     GIT2GO_BUILD_TAGS := ${GIT2GO_BUILD_TAGS},gitaly_test_sha256
 endif
 
-# Dependency versions
-# https://pkg.go.dev/github.com/protocolbuffers/protobuf
-PROTOC_VERSION            ?= v21.1
-# Git2Go and libgit2 may need to be updated in sync. Please refer to
-# https://github.com/libgit2/git2go/#which-go-version-to-use for a
-# compatibility matrix.
-GIT2GO_VERSION            ?= v33
-LIBGIT2_VERSION           ?= v1.3.2
-
 # protoc target
-PROTOC_REPO_URL ?= https://github.com/protocolbuffers/protobuf
+PROTOC_VERSION      ?= v21.1
+PROTOC_REPO_URL     ?= https://github.com/protocolbuffers/protobuf
 PROTOC_SOURCE_DIR   ?= ${DEPENDENCY_DIR}/protobuf/source
 PROTOC_BUILD_DIR    ?= ${DEPENDENCY_DIR}/protobuf/build
 PROTOC_INSTALL_DIR  ?= ${DEPENDENCY_DIR}/protobuf/install
@@ -186,6 +178,11 @@ ifdef GIT_FIPS_BUILD_OPTIONS
 endif
 
 # libgit2 target
+# Git2Go and libgit2 may need to be updated in sync. Please refer to
+# https://github.com/libgit2/git2go/#which-go-version-to-use for a
+# compatibility matrix.
+GIT2GO_VERSION      ?= v33
+LIBGIT2_VERSION     ?= v1.3.2
 LIBGIT2_REPO_URL    ?= https://gitlab.com/libgit2/libgit2
 LIBGIT2_SOURCE_DIR  ?= ${DEPENDENCY_DIR}/libgit2/source
 LIBGIT2_BUILD_DIR   ?= ${DEPENDENCY_DIR}/libgit2/build
