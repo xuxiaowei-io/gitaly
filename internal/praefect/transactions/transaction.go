@@ -227,7 +227,31 @@ func (t *transaction) getOrCreateSubtransaction(node string) (*subtransaction, e
 		return nil, errors.New("invalid transaction state")
 	}
 
-	for _, subtransaction := range t.subtransactions {
+	// Check for pending subtransactions on the specified node.
+	if subtransactions, err := t.getPendingNodeSubtransactions(node); err != nil {
+		return nil, err
+	} else if len(subtransactions) != 0 {
+		// First pending subtransaction is the next in queue for processing.
+		return subtransactions[0], nil
+	}
+
+	// If we arrive here, then we know that all the node has voted and
+	// reached quorum on all subtransactions. We can thus create a new one.
+	subtransaction, err := newSubtransaction(t.voters, t.threshold)
+	if err != nil {
+		return nil, err
+	}
+
+	t.subtransactions = append(t.subtransactions, subtransaction)
+
+	return subtransaction, nil
+}
+
+// getPendingNodeSubtransactions returns all undecided subtransactions
+// for the specified voter. `nil` is returned if there are no pending
+// subtransactions for the node.
+func (t *transaction) getPendingNodeSubtransactions(node string) ([]*subtransaction, error) {
+	for i, subtransaction := range t.subtransactions {
 		result, err := subtransaction.getResult(node)
 		if err != nil {
 			return nil, err
@@ -235,8 +259,9 @@ func (t *transaction) getOrCreateSubtransaction(node string) (*subtransaction, e
 
 		switch result {
 		case VoteUndecided:
-			// An undecided vote means we should vote on this one.
-			return subtransaction, nil
+			// Nodes after first undecided voter will also be undecided.
+			// Remaining subtransactions are returned.
+			return t.subtransactions[i:], nil
 		case VoteCommitted:
 			// If we have committed this subtransaction, we're good
 			// to go.
@@ -258,16 +283,7 @@ func (t *transaction) getOrCreateSubtransaction(node string) (*subtransaction, e
 		}
 	}
 
-	// If we arrive here, then we know that all the node has voted and
-	// reached quorum on all subtransactions. We can thus create a new one.
-	subtransaction, err := newSubtransaction(t.voters, t.threshold)
-	if err != nil {
-		return nil, err
-	}
-
-	t.subtransactions = append(t.subtransactions, subtransaction)
-
-	return subtransaction, nil
+	return nil, nil
 }
 
 func (t *transaction) vote(ctx context.Context, node string, vote voting.Vote) error {
