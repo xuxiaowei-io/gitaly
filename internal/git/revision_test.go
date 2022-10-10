@@ -63,6 +63,11 @@ func TestValidateRevision(t *testing.T) {
 			revision:    "foo/bar:baz",
 			expectedErr: fmt.Errorf("revision can't contain ':'"),
 		},
+		{
+			desc:        "backslash",
+			revision:    "foo\\bar\\baz",
+			expectedErr: fmt.Errorf("revision can't contain '\\'"),
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			require.Equal(t, tc.expectedErr, ValidateRevision([]byte(tc.revision)))

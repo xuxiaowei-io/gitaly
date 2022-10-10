@@ -21,6 +21,9 @@ func validateRevision(revision []byte, allowEmpty bool) error {
 	if bytes.Contains(revision, []byte(":")) {
 		return fmt.Errorf("revision can't contain ':'")
 	}
+	if bytes.Contains(revision, []byte("\\")) {
+		return fmt.Errorf("revision can't contain '\\'")
+	}
 	return nil
 }
 
