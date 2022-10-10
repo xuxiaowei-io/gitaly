@@ -172,3 +172,107 @@ func TestTransaction_getPendingNodeSubtransactions(t *testing.T) {
 		})
 	}
 }
+
+func TestTransaction_createSubtransaction(t *testing.T) {
+	t.Parallel()
+
+	var id uint64
+	voters := []Voter{
+		{Name: "1", Votes: 1},
+		{Name: "2", Votes: 1},
+		{Name: "3", Votes: 1},
+	}
+	threshold := uint(2)
+
+	committedSubtransaction, err := newSubtransaction(
+		[]Voter{
+			{Name: "1", Votes: 1, result: VoteCommitted},
+			{Name: "2", Votes: 1, result: VoteCommitted},
+			{Name: "3", Votes: 1, result: VoteCommitted},
+		},
+		threshold,
+	)
+	require.NoError(t, err)
+	mixedSubtransaction, err := newSubtransaction(
+		[]Voter{
+			{Name: "1", Votes: 1, result: VoteCanceled},
+			{Name: "2", Votes: 1, result: VoteCommitted},
+			{Name: "3", Votes: 1, result: VoteCommitted},
+		},
+		threshold,
+	)
+	require.NoError(t, err)
+	canceledSubtransaction, err := newSubtransaction(
+		[]Voter{
+			{Name: "1", Votes: 1, result: VoteCanceled},
+			{Name: "2", Votes: 1, result: VoteCommitted},
+			{Name: "3", Votes: 1, result: VoteCanceled},
+		},
+		threshold,
+	)
+	require.NoError(t, err)
+
+	for _, tc := range []struct {
+		desc      string
+		subs      []*subtransaction
+		node      string
+		expVoters []Voter
+	}{
+		{
+			desc: "No previous subtransactions",
+			subs: nil,
+			node: "1",
+			expVoters: []Voter{
+				{Name: "1", result: VoteUndecided},
+				{Name: "2", result: VoteUndecided},
+				{Name: "3", result: VoteUndecided},
+			},
+		},
+		{
+			desc: "One previous subtransaction, no canceled voters",
+			subs: []*subtransaction{committedSubtransaction},
+			node: "1",
+			expVoters: []Voter{
+				{Name: "1", result: VoteUndecided},
+				{Name: "2", result: VoteUndecided},
+				{Name: "3", result: VoteUndecided},
+			},
+		},
+		{
+			desc: "One previous subtransaction, one canceled voter",
+			subs: []*subtransaction{mixedSubtransaction},
+			node: "1",
+			expVoters: []Voter{
+				{Name: "1", result: VoteCanceled},
+				{Name: "2", result: VoteUndecided},
+				{Name: "3", result: VoteUndecided},
+			},
+		},
+		{
+			desc: "One previous subtransaction, two canceled voters",
+			subs: []*subtransaction{canceledSubtransaction},
+			node: "1",
+			expVoters: []Voter{
+				{Name: "1", result: VoteCanceled},
+				{Name: "2", result: VoteUndecided},
+				{Name: "3", result: VoteCanceled},
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			transaction, err := newTransaction(id, voters, threshold)
+			require.NoError(t, err)
+
+			transaction.subtransactions = tc.subs
+
+			subtransaction, err := transaction.createSubtransaction()
+			require.NoError(t, err)
+
+			for _, expVoter := range tc.expVoters {
+				voter := subtransaction.votersByNode[expVoter.Name]
+				require.NotNil(t, voter)
+				require.Equal(t, expVoter.result, voter.result)
+			}
+		})
+	}
+}

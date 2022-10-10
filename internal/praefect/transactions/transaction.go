@@ -237,7 +237,7 @@ func (t *transaction) getOrCreateSubtransaction(node string) (*subtransaction, e
 
 	// If we arrive here, then we know that all the node has voted and
 	// reached quorum on all subtransactions. We can thus create a new one.
-	subtransaction, err := newSubtransaction(t.voters, t.threshold)
+	subtransaction, err := t.createSubtransaction()
 	if err != nil {
 		return nil, err
 	}
@@ -284,6 +284,47 @@ func (t *transaction) getPendingNodeSubtransactions(node string) ([]*subtransact
 	}
 
 	return nil, nil
+}
+
+// createSubtransaction returns a new subtransaction with any previously
+// canceled voter results propagated into the new subtransaction. Once a
+// voter has been canceled it can no longer vote in the current and all
+// future subtransactions. Propagating canceled voter state ensures
+// subtransactions do not wait for an impossible quorum due to canceled
+// voters.
+func (t *transaction) createSubtransaction() (*subtransaction, error) {
+	// If there are no subtransactions propagation can be skipped
+	if len(t.subtransactions) == 0 {
+		return newSubtransaction(t.voters, t.threshold)
+	}
+
+	prevSub := t.subtransactions[len(t.subtransactions)-1]
+
+	// Check previous voters state and propagate canceled voters.
+	var propagatedVoters []Voter
+	for _, voter := range t.voters {
+		prevVoter := prevSub.votersByNode[voter.Name]
+		if prevVoter == nil {
+			// This error should in theory never be reached. When a
+			// subtransaction is created it receives all voters from
+			// the parent transaction. The parent transaction voters
+			// are not mutated throughout the lifespan of the
+			// transaction meaning that all voters in a transaction
+			// should be present in a subtransaction.
+			return nil, errors.New("subtransaction missing previous voter")
+		}
+
+		// Only canceled voters need to be propagated since a node voter
+		// can be canceled and the transaction continue. Other terminal
+		// results are applied to voters and end the transaction.
+		if prevVoter.result == VoteCanceled {
+			voter.result = VoteCanceled
+		}
+
+		propagatedVoters = append(propagatedVoters, voter)
+	}
+
+	return newSubtransaction(propagatedVoters, t.threshold)
 }
 
 func (t *transaction) vote(ctx context.Context, node string, vote voting.Vote) error {
