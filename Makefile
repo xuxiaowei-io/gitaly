@@ -96,29 +96,9 @@ ifdef GITALY_TESTING_ENABLE_SHA256
     GIT2GO_BUILD_TAGS := ${GIT2GO_BUILD_TAGS},gitaly_test_sha256
 endif
 
-# Dependency versions
-GOLANGCI_LINT_VERSION     ?= v1.48.0
-PROTOLINT_VERSION         ?= v0.38.1
-GOCOVER_COBERTURA_VERSION ?= aaee18c8195c3f2d90e5ef80ca918d265463842a
-GOFUMPT_VERSION           ?= v0.4.0
-GOIMPORTS_VERSION         ?= v0.1.10
-GOTESTSUM_VERSION         ?= v1.8.1
-GO_LICENSES_VERSION       ?= v1.2.1
-# https://pkg.go.dev/github.com/protocolbuffers/protobuf
-PROTOC_VERSION            ?= v21.1
-# https://pkg.go.dev/google.golang.org/protobuf
-PROTOC_GEN_GO_VERSION     ?= v1.28.0
-# https://pkg.go.dev/google.golang.org/grpc/cmd/protoc-gen-go-grpc
-PROTOC_GEN_GO_GRPC_VERSION?= v1.2.0
-# Git2Go and libgit2 may need to be updated in sync. Please refer to
-# https://github.com/libgit2/git2go/#which-go-version-to-use for a
-# compatibility matrix.
-GIT2GO_VERSION            ?= v33
-LIBGIT2_VERSION           ?= v1.3.2
-DELVE_VERSION             ?= v1.9.1
-
 # protoc target
-PROTOC_REPO_URL ?= https://github.com/protocolbuffers/protobuf
+PROTOC_VERSION      ?= v21.1
+PROTOC_REPO_URL     ?= https://github.com/protocolbuffers/protobuf
 PROTOC_SOURCE_DIR   ?= ${DEPENDENCY_DIR}/protobuf/source
 PROTOC_BUILD_DIR    ?= ${DEPENDENCY_DIR}/protobuf/build
 PROTOC_INSTALL_DIR  ?= ${DEPENDENCY_DIR}/protobuf/install
@@ -198,6 +178,11 @@ ifdef GIT_FIPS_BUILD_OPTIONS
 endif
 
 # libgit2 target
+# Git2Go and libgit2 may need to be updated in sync. Please refer to
+# https://github.com/libgit2/git2go/#which-go-version-to-use for a
+# compatibility matrix.
+GIT2GO_VERSION      ?= v33
+LIBGIT2_VERSION     ?= v1.3.2
 LIBGIT2_REPO_URL    ?= https://gitlab.com/libgit2/libgit2
 LIBGIT2_SOURCE_DIR  ?= ${DEPENDENCY_DIR}/libgit2/source
 LIBGIT2_BUILD_DIR   ?= ${DEPENDENCY_DIR}/libgit2/build
@@ -644,8 +629,6 @@ ${DEPENDENCY_DIR}/git-%.version: dependency-version | ${DEPENDENCY_DIR}
 	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${GIT_VERSION}.${GIT_EXTRA_VERSION} ${GIT_BUILD_OPTIONS} ${GIT_PATCHES}" ] || >$@ echo -n "${GIT_VERSION}.${GIT_EXTRA_VERSION} ${GIT_BUILD_OPTIONS} ${GIT_PATCHES}"
 ${DEPENDENCY_DIR}/protoc.version: dependency-version | ${DEPENDENCY_DIR}
 	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${PROTOC_VERSION} ${PROTOC_BUILD_OPTIONS}" ] || >$@ echo -n "${PROTOC_VERSION} ${PROTOC_BUILD_OPTIONS}"
-${TOOLS_DIR}/%.version: dependency-version | ${TOOLS_DIR}
-	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${TOOL_VERSION}" ] || >$@ echo -n "${TOOL_VERSION}"
 
 ${LIBGIT2_INSTALL_DIR}/lib/libgit2.a: ${DEPENDENCY_DIR}/libgit2.version
 	${Q}${GIT} -c init.defaultBranch=master init ${GIT_QUIET} ${LIBGIT2_SOURCE_DIR}
@@ -699,9 +682,6 @@ ${PROTOC}: ${DEPENDENCY_DIR}/protoc.version | ${TOOLS_DIR}
 	${Q}cmake --build "${PROTOC_BUILD_DIR}" --target install -- -j $(shell nproc)
 	${Q}cp "${PROTOC_INSTALL_DIR}"/bin/protoc ${PROTOC}
 
-${TOOLS_DIR}/%: ${TOOLS_DIR}/%.version
-	${Q}GOBIN=${TOOLS_DIR} go install ${TOOL_PACKAGE}@${TOOL_VERSION}
-
 ${PROTOC_GEN_GITALY_LINT}: proto | ${TOOLS_DIR}
 	${Q}go build -o $@ ${SOURCE_DIR}/tools/protoc-gen-gitaly-lint
 
@@ -709,26 +689,19 @@ ${PROTOC_GEN_GITALY_PROTOLIST}: | ${TOOLS_DIR}
 	${Q}go build -o $@ ${SOURCE_DIR}/tools/protoc-gen-gitaly-protolist
 
 # External tools
+${TOOLS_DIR}/%: ${SOURCE_DIR}/tools/%/tool.go ${SOURCE_DIR}/tools/%/go.mod ${SOURCE_DIR}/tools/%/go.sum | ${TOOLS_DIR}
+	${Q}GOBIN=${TOOLS_DIR} go install -modfile ${SOURCE_DIR}/tools/$*/go.mod ${TOOL_PACKAGE}
+
 ${GOCOVER_COBERTURA}: TOOL_PACKAGE = github.com/t-yuki/gocover-cobertura
-${GOCOVER_COBERTURA}: TOOL_VERSION = ${GOCOVER_COBERTURA_VERSION}
 ${GOFUMPT}:           TOOL_PACKAGE = mvdan.cc/gofumpt
-${GOFUMPT}:           TOOL_VERSION = ${GOFUMPT_VERSION}
 ${GOIMPORTS}:         TOOL_PACKAGE = golang.org/x/tools/cmd/goimports
-${GOIMPORTS}:         TOOL_VERSION = ${GOIMPORTS_VERSION}
 ${GOLANGCI_LINT}:     TOOL_PACKAGE = github.com/golangci/golangci-lint/cmd/golangci-lint
-${GOLANGCI_LINT}:     TOOL_VERSION = ${GOLANGCI_LINT_VERSION}
 ${PROTOLINT}:         TOOL_PACKAGE = github.com/yoheimuta/protolint/cmd/protolint
-${PROTOLINT}:         TOOL_VERSION = ${PROTOLINT_VERSION}
 ${GOTESTSUM}:         TOOL_PACKAGE = gotest.tools/gotestsum
-${GOTESTSUM}:         TOOL_VERSION = ${GOTESTSUM_VERSION}
 ${GO_LICENSES}:       TOOL_PACKAGE = github.com/google/go-licenses
-${GO_LICENSES}:       TOOL_VERSION = ${GO_LICENSES_VERSION}
 ${PROTOC_GEN_GO}:     TOOL_PACKAGE = google.golang.org/protobuf/cmd/protoc-gen-go
-${PROTOC_GEN_GO}:     TOOL_VERSION = ${PROTOC_GEN_GO_VERSION}
 ${PROTOC_GEN_GO_GRPC}:TOOL_PACKAGE = google.golang.org/grpc/cmd/protoc-gen-go-grpc
-${PROTOC_GEN_GO_GRPC}:TOOL_VERSION = ${PROTOC_GEN_GO_GRPC_VERSION}
 ${DELVE}:             TOOL_PACKAGE = github.com/go-delve/delve/cmd/dlv
-${DELVE}:             TOOL_VERSION = ${DELVE_VERSION}
 
 ${TEST_REPO_MIRROR}:
 	${GIT} clone --mirror ${GIT_QUIET} https://gitlab.com/gitlab-org/gitlab-test.git $@
