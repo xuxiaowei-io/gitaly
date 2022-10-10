@@ -25,7 +25,7 @@ func TestPackRefsSuccessfulRequest(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repoProto, repoPath, client := setupRefService(ctx, t)
+	cfg, repoProto, repoPath, client := setupRefService(t, ctx)
 
 	packedRefs := linesInPackfile(t, repoPath)
 

@@ -30,7 +30,7 @@ func TestCreateSubcommand(t *testing.T) {
 
 	var repos []*gitalypb.Repository
 	for i := 0; i < 5; i++ {
-		repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			Seed:         gittest.SeedGitLabTest,
 			RelativePath: fmt.Sprintf("repo-%d", i),
 		})

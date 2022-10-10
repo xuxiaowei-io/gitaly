@@ -59,7 +59,7 @@ func TestCleanTempDir(t *testing.T) {
 	cfg := testcfg.Build(t, testcfg.WithStorages("first", "second"))
 	locator := config.NewLocator(cfg)
 
-	gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 		Seed:                   gittest.SeedGitLabTest,
 	})

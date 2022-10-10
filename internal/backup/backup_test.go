@@ -44,7 +44,7 @@ func TestManager_Create(t *testing.T) {
 		{
 			desc: "no hooks",
 			setup: func(tb testing.TB) (*gitalypb.Repository, string) {
-				noHooksRepo, repoPath := gittest.CreateRepository(ctx, tb, cfg, gittest.CreateRepositoryConfig{
+				noHooksRepo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
 					RelativePath: "no-hooks",
 					Seed:         gittest.SeedGitLabTest,
 				})
@@ -56,7 +56,7 @@ func TestManager_Create(t *testing.T) {
 		{
 			desc: "hooks",
 			setup: func(tb testing.TB) (*gitalypb.Repository, string) {
-				hooksRepo, hooksRepoPath := gittest.CreateRepository(ctx, tb, cfg, gittest.CreateRepositoryConfig{
+				hooksRepo, hooksRepoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
 					RelativePath: "hooks",
 					Seed:         gittest.SeedGitLabTest,
 				})
@@ -70,7 +70,7 @@ func TestManager_Create(t *testing.T) {
 		{
 			desc: "empty repo",
 			setup: func(tb testing.TB) (*gitalypb.Repository, string) {
-				emptyRepo, repoPath := gittest.CreateRepository(ctx, tb, cfg)
+				emptyRepo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 				return emptyRepo, repoPath
 			},
 			createsBundle:      false,
@@ -80,7 +80,7 @@ func TestManager_Create(t *testing.T) {
 		{
 			desc: "nonexistent repo",
 			setup: func(tb testing.TB) (*gitalypb.Repository, string) {
-				emptyRepo, repoPath := gittest.CreateRepository(ctx, tb, cfg)
+				emptyRepo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 				nonexistentRepo := proto.Clone(emptyRepo).(*gitalypb.Repository)
 				nonexistentRepo.RelativePath = "nonexistent"
 				return nonexistentRepo, repoPath
@@ -165,7 +165,7 @@ func TestManager_Create_incremental(t *testing.T) {
 		{
 			desc: "no previous backup",
 			setup: func(tb testing.TB, backupRoot string) (*gitalypb.Repository, string) {
-				repo, repoPath := gittest.CreateRepository(ctx, tb, cfg, gittest.CreateRepositoryConfig{
+				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
 					RelativePath: "repo",
 					Seed:         gittest.SeedGitLabTest,
 				})
@@ -176,7 +176,7 @@ func TestManager_Create_incremental(t *testing.T) {
 		{
 			desc: "previous backup, no updates",
 			setup: func(tb testing.TB, backupRoot string) (*gitalypb.Repository, string) {
-				repo, repoPath := gittest.CreateRepository(ctx, tb, cfg, gittest.CreateRepositoryConfig{
+				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
 					RelativePath: "repo",
 					Seed:         gittest.SeedGitLabTest,
 				})
@@ -202,7 +202,7 @@ func TestManager_Create_incremental(t *testing.T) {
 		{
 			desc: "previous backup, updates",
 			setup: func(tb testing.TB, backupRoot string) (*gitalypb.Repository, string) {
-				repo, repoPath := gittest.CreateRepository(ctx, tb, cfg, gittest.CreateRepositoryConfig{
+				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
 					RelativePath: "repo",
 					Seed:         gittest.SeedGitLabTest,
 				})
@@ -298,12 +298,12 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 		// The repository might be created through Praefect and the tests reach into the repository directly
 		// on the filesystem. To ensure the test accesses correct directory, we need to rewrite the relative
 		// path if the repository creation went through Praefect.
-		repo.RelativePath = gittest.GetReplicaPath(ctx, tb, cfg, repo)
+		repo.RelativePath = gittest.GetReplicaPath(tb, ctx, cfg, repo)
 
 		return repo
 	}
 
-	_, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	_, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 	repoChecksum := gittest.ChecksumRepo(t, cfg, repoPath)
@@ -509,7 +509,7 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 						// Restore has to use the rewritten path as the relative path due to the test creating
 						// the repository through Praefect. In order to get to the correct disk paths, we need
 						// to get the replica path of the rewritten repository.
-						repoPath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(ctx, t, cfg, repo))
+						repoPath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(t, ctx, cfg, repo))
 						for _, p := range tc.expectedPaths {
 							require.FileExists(t, filepath.Join(repoPath, p))
 						}

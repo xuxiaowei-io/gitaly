@@ -629,11 +629,11 @@ func testRenameRepository(t *testing.T, ctx context.Context) {
 	})
 	t.Cleanup(cleanup)
 
-	virtualRepo1, _ := gittest.CreateRepository(ctx, t, gconfig.Cfg{
+	virtualRepo1, _ := gittest.CreateRepository(t, ctx, gconfig.Cfg{
 		Storages: []gconfig.Storage{{Name: "praefect"}},
 	}, gittest.CreateRepositoryConfig{ClientConn: cc})
 
-	virtualRepo2, _ := gittest.CreateRepository(ctx, t, gconfig.Cfg{
+	virtualRepo2, _ := gittest.CreateRepository(t, ctx, gconfig.Cfg{
 		Storages: []gconfig.Storage{{Name: "praefect"}},
 	}, gittest.CreateRepositoryConfig{ClientConn: cc})
 
@@ -859,7 +859,7 @@ func TestProxyWrites(t *testing.T) {
 	for _, storage := range conf.VirtualStorages[0].Nodes {
 		node, err := shard.GetNode(storage.Storage)
 		require.NoError(t, err)
-		waitNodeToChangeHealthStatus(ctx, t, node, true)
+		waitNodeToChangeHealthStatus(t, ctx, node, true)
 	}
 
 	stream, err := client.PostReceivePack(ctx)

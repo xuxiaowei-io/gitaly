@@ -94,7 +94,7 @@ func TestServerFactory(t *testing.T) {
 		registry,
 	)
 
-	checkOwnRegisteredServices := func(ctx context.Context, t *testing.T, cc *grpc.ClientConn) healthpb.HealthClient {
+	checkOwnRegisteredServices := func(t *testing.T, ctx context.Context, cc *grpc.ClientConn) healthpb.HealthClient {
 		t.Helper()
 
 		healthClient := healthpb.NewHealthClient(cc)
@@ -104,7 +104,7 @@ func TestServerFactory(t *testing.T) {
 		return healthClient
 	}
 
-	checkProxyingOntoGitaly := func(ctx context.Context, t *testing.T, cc *grpc.ClientConn) {
+	checkProxyingOntoGitaly := func(t *testing.T, ctx context.Context, cc *grpc.ClientConn) {
 		t.Helper()
 
 		commitClient := gitalypb.NewCommitServiceClient(cc)
@@ -116,7 +116,7 @@ func TestServerFactory(t *testing.T) {
 		require.Equal(t, revision, resp.Commit.Id)
 	}
 
-	checkSidechannelGitaly := func(ctx context.Context, t *testing.T, addr string, creds credentials.TransportCredentials) {
+	checkSidechannelGitaly := func(t *testing.T, ctx context.Context, addr string, creds credentials.TransportCredentials) {
 		t.Helper()
 
 		// Client has its own sidechannel registry, don't reuse the one we plugged into Praefect.
@@ -198,15 +198,15 @@ func TestServerFactory(t *testing.T) {
 		ctx := testhelper.Context(t)
 
 		t.Run("handles registered RPCs", func(t *testing.T) {
-			checkOwnRegisteredServices(ctx, t, cc)
+			checkOwnRegisteredServices(t, ctx, cc)
 		})
 
 		t.Run("proxies RPCs onto gitaly server", func(t *testing.T) {
-			checkProxyingOntoGitaly(ctx, t, cc)
+			checkProxyingOntoGitaly(t, ctx, cc)
 		})
 
 		t.Run("proxies sidechannel RPCs onto gitaly server", func(t *testing.T) {
-			checkSidechannelGitaly(ctx, t, listener.Addr().String(), creds)
+			checkSidechannelGitaly(t, ctx, listener.Addr().String(), creds)
 		})
 	})
 
@@ -237,15 +237,15 @@ func TestServerFactory(t *testing.T) {
 		defer func() { require.NoError(t, cc.Close()) }()
 
 		t.Run("handles registered RPCs", func(t *testing.T) {
-			checkOwnRegisteredServices(ctx, t, cc)
+			checkOwnRegisteredServices(t, ctx, cc)
 		})
 
 		t.Run("proxies RPCs onto gitaly server", func(t *testing.T) {
-			checkProxyingOntoGitaly(ctx, t, cc)
+			checkProxyingOntoGitaly(t, ctx, cc)
 		})
 
 		t.Run("proxies sidechannel RPCs onto gitaly server", func(t *testing.T) {
-			checkSidechannelGitaly(ctx, t, listener.Addr().String(), creds)
+			checkSidechannelGitaly(t, ctx, listener.Addr().String(), creds)
 		})
 	})
 
@@ -268,7 +268,7 @@ func TestServerFactory(t *testing.T) {
 		require.NoError(t, err)
 		defer func() { require.NoError(t, tcpCC.Close()) }()
 
-		tcpHealthClient := checkOwnRegisteredServices(ctx, t, tcpCC)
+		tcpHealthClient := checkOwnRegisteredServices(t, ctx, tcpCC)
 
 		// start with tls address
 		tlsListener, err := net.Listen(starter.TCP, "localhost:0")
@@ -283,7 +283,7 @@ func TestServerFactory(t *testing.T) {
 		require.NoError(t, err)
 		defer func() { require.NoError(t, tlsCC.Close()) }()
 
-		tlsHealthClient := checkOwnRegisteredServices(ctx, t, tlsCC)
+		tlsHealthClient := checkOwnRegisteredServices(t, ctx, tlsCC)
 
 		// start with socket address
 		socketPath := testhelper.GetTemporaryGitalySocketFileName(t)
@@ -300,7 +300,7 @@ func TestServerFactory(t *testing.T) {
 		require.NoError(t, err)
 		defer func() { require.NoError(t, socketCC.Close()) }()
 
-		unixHealthClient := checkOwnRegisteredServices(ctx, t, socketCC)
+		unixHealthClient := checkOwnRegisteredServices(t, ctx, socketCC)
 
 		praefectServerFactory.GracefulStop()
 

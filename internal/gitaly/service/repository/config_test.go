@@ -48,7 +48,7 @@ func TestGetConfig(t *testing.T) {
 	}
 
 	t.Run("normal repo", func(t *testing.T) {
-		repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			Seed: gittest.SeedGitLabTest,
 		})
 
@@ -64,7 +64,7 @@ func TestGetConfig(t *testing.T) {
 	})
 
 	t.Run("missing config", func(t *testing.T) {
-		repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			Seed: gittest.SeedGitLabTest,
 		})
 

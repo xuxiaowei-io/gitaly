@@ -23,7 +23,7 @@ import (
 func TestApplyBfgObjectMapStreamSuccess(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	cfg, protoRepo, repoPath, client := setupCleanupService(ctx, t)
+	cfg, protoRepo, repoPath, client := setupCleanupService(t, ctx)
 
 	testcfg.BuildGitalyHooks(t, cfg)
 
@@ -64,7 +64,7 @@ func TestApplyBfgObjectMapStreamSuccess(t *testing.T) {
 		tagID, tagID,
 	)
 
-	entries, err := doStreamingRequest(ctx, t, protoRepo, client, objectMapData)
+	entries, err := doStreamingRequest(t, ctx, protoRepo, client, objectMapData)
 	require.NoError(t, err)
 
 	// Ensure that the internal refs are gone, but the others still exist
@@ -107,14 +107,14 @@ func requireEntry(t *testing.T, entry *gitalypb.ApplyBfgObjectMapStreamResponse_
 func TestApplyBfgObjectMapStreamFailsOnInvalidInput(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	_, repo, _, client := setupCleanupService(ctx, t)
+	_, repo, _, client := setupCleanupService(t, ctx)
 
-	entries, err := doStreamingRequest(ctx, t, repo, client, "invalid-data here as you can see")
+	entries, err := doStreamingRequest(t, ctx, repo, client, "invalid-data here as you can see")
 	require.Empty(t, entries)
 	testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 }
 
-func doStreamingRequest(ctx context.Context, t *testing.T, repo *gitalypb.Repository, client gitalypb.CleanupServiceClient, objectMap string) ([]*gitalypb.ApplyBfgObjectMapStreamResponse_Entry, error) {
+func doStreamingRequest(t *testing.T, ctx context.Context, repo *gitalypb.Repository, client gitalypb.CleanupServiceClient, objectMap string) ([]*gitalypb.ApplyBfgObjectMapStreamResponse_Entry, error) {
 	t.Helper()
 
 	// Split the data across multiple requests

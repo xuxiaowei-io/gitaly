@@ -143,7 +143,7 @@ func TestReferenceTransactionHook(t *testing.T) {
 			cfg.SocketPath = runHooksServer(t, cfg, nil, testserver.WithBackchannelRegistry(registry))
 			ctx := testhelper.Context(t)
 
-			repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+			repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				Seed: gittest.SeedGitLabTest,
 			})
 

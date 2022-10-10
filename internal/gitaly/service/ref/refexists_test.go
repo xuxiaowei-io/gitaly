@@ -13,7 +13,7 @@ import (
 
 func TestRefExists(t *testing.T) {
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRefService(ctx, t)
+	_, repo, _, client := setupRefService(t, ctx)
 
 	badRepo := &gitalypb.Repository{StorageName: "invalid", RelativePath: "/etc/"}
 

@@ -44,7 +44,7 @@ func setupRepo(t *testing.T, opts ...setupRepoOption) (config.Cfg, *Repo, string
 		commandFactoryOpts = append(commandFactoryOpts, git.WithSkipHooks())
 	}
 
-	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 

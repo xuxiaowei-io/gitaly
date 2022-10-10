@@ -17,9 +17,9 @@ import (
 
 func TestServer_ListRefs(t *testing.T) {
 	ctx := testhelper.Context(t)
-	cfg, _, _, client := setupRefService(ctx, t)
+	cfg, _, _, client := setupRefService(t, ctx)
 
-	repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	oldCommitID := gittest.WriteCommit(t, cfg, repoPath)
 	newCommitID := gittest.WriteCommit(t, cfg, repoPath,

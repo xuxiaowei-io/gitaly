@@ -22,7 +22,7 @@ func TestFindRemoteRootRefSuccess(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupRemoteService(ctx, t)
+	cfg, repo, repoPath, client := setupRemoteService(t, ctx)
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 
 	const (
@@ -30,7 +30,7 @@ func TestFindRemoteRootRefSuccess(t *testing.T) {
 		secret = "mysecret"
 	)
 
-	port, stopGitServer := gittest.HTTPServer(ctx, t, gitCmdFactory, repoPath, newGitRequestValidationMiddleware(host, secret))
+	port, stopGitServer := gittest.HTTPServer(t, ctx, gitCmdFactory, repoPath, newGitRequestValidationMiddleware(host, secret))
 	defer func() { require.NoError(t, stopGitServer()) }()
 
 	originURL := fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(repoPath))
@@ -61,11 +61,11 @@ func TestFindRemoteRootRefWithUnbornRemoteHead(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, remoteRepo, remoteRepoPath, client := setupRemoteService(ctx, t)
+	cfg, remoteRepo, remoteRepoPath, client := setupRemoteService(t, ctx)
 
 	// We're creating an empty repository. Empty repositories do have a HEAD set up, but they
 	// point to an unborn branch because the default branch hasn't yet been created.
-	_, clientRepoPath := gittest.CreateRepository(ctx, t, cfg)
+	_, clientRepoPath := gittest.CreateRepository(t, ctx, cfg)
 	gittest.Exec(t, cfg, "-C", remoteRepoPath, "remote", "add", "foo", "file://"+clientRepoPath)
 	response, err := client.FindRemoteRootRef(ctx, &gitalypb.FindRemoteRootRefRequest{
 		Repository: remoteRepo,
@@ -82,7 +82,7 @@ func TestFindRemoteRootRefFailedDueToValidation(t *testing.T) {
 	ctx := testhelper.Context(t)
 	// We're running tests with Praefect disabled given that we don't want to exercise
 	// Praefect's validation, but Gitaly's.
-	_, repo, _, client := setupRemoteService(ctx, t, testserver.WithDisablePraefect())
+	_, repo, _, client := setupRemoteService(t, ctx, testserver.WithDisablePraefect())
 
 	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}
 
@@ -127,7 +127,7 @@ func TestFindRemoteRootRefFailedDueToInvalidRemote(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRemoteService(ctx, t)
+	_, repo, _, client := setupRemoteService(t, ctx)
 
 	t.Run("invalid remote URL", func(t *testing.T) {
 		fakeRepoDir := testhelper.TempDir(t)

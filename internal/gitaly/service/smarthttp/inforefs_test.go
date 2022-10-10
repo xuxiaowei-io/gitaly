@@ -42,7 +42,7 @@ func TestInfoRefsUploadPack_successful(t *testing.T) {
 	cfg.SocketPath = runSmartHTTPServer(t, cfg)
 	ctx := testhelper.Context(t)
 
-	repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithParents())
 	tagID := gittest.WriteTag(t, cfg, repoPath, "v1.0.0", commitID.Revision(), gittest.WriteTagConfig{
@@ -50,7 +50,7 @@ func TestInfoRefsUploadPack_successful(t *testing.T) {
 	})
 
 	rpcRequest := &gitalypb.InfoRefsRequest{Repository: repo}
-	response, err := makeInfoRefsUploadPackRequest(ctx, t, cfg.SocketPath, cfg.Auth.Token, rpcRequest)
+	response, err := makeInfoRefsUploadPackRequest(t, ctx, cfg.SocketPath, cfg.Auth.Token, rpcRequest)
 	require.NoError(t, err)
 	requireAdvertisedRefs(t, string(response), "git-upload-pack", []string{
 		commitID.String() + " HEAD",
@@ -111,7 +111,7 @@ func TestInfoRefsUploadPack_internalRefs(t *testing.T) {
 		},
 	} {
 		t.Run(tc.ref, func(t *testing.T) {
-			repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
+			repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 			commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithParents())
 			gittest.Exec(t, cfg, "-C", repoPath, "update-ref", tc.ref, commitID.String())
@@ -121,7 +121,7 @@ func TestInfoRefsUploadPack_internalRefs(t *testing.T) {
 				expectedAdvertisements = append(expectedAdvertisements, commitID.String()+" "+expectedRef)
 			}
 
-			response, err := makeInfoRefsUploadPackRequest(ctx, t, cfg.SocketPath, cfg.Auth.Token, &gitalypb.InfoRefsRequest{
+			response, err := makeInfoRefsUploadPackRequest(t, ctx, cfg.SocketPath, cfg.Auth.Token, &gitalypb.InfoRefsRequest{
 				Repository: repo,
 			})
 			require.NoError(t, err)
@@ -143,7 +143,7 @@ func TestInfoRefsUploadPack_repositoryDoesntExist(t *testing.T) {
 	}}
 	ctx := testhelper.Context(t)
 
-	_, err := makeInfoRefsUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest)
+	_, err := makeInfoRefsUploadPackRequest(t, ctx, serverSocketPath, cfg.Auth.Token, rpcRequest)
 
 	expectedErr := helper.ErrNotFoundf(`GetRepoPath: not a git repository: "` + cfg.Storages[0].Path + `/doesnt/exist"`)
 	if testhelper.IsPraefectEnabled() {
@@ -161,7 +161,7 @@ func TestInfoRefsUploadPack_partialClone(t *testing.T) {
 	cfg.SocketPath = runSmartHTTPServer(t, cfg)
 	ctx := testhelper.Context(t)
 
-	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
@@ -169,7 +169,7 @@ func TestInfoRefsUploadPack_partialClone(t *testing.T) {
 		Repository: repo,
 	}
 
-	partialResponse, err := makeInfoRefsUploadPackRequest(ctx, t, cfg.SocketPath, cfg.Auth.Token, request)
+	partialResponse, err := makeInfoRefsUploadPackRequest(t, ctx, cfg.SocketPath, cfg.Auth.Token, request)
 	require.NoError(t, err)
 	partialRefs := stats.ReferenceDiscovery{}
 	err = partialRefs.Parse(bytes.NewReader(partialResponse))
@@ -187,7 +187,7 @@ func TestInfoRefsUploadPack_gitConfigOptions(t *testing.T) {
 	cfg.SocketPath = runSmartHTTPServer(t, cfg)
 
 	ctx := testhelper.Context(t)
-	repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithParents())
 
@@ -197,7 +197,7 @@ func TestInfoRefsUploadPack_gitConfigOptions(t *testing.T) {
 		Repository:       repo,
 		GitConfigOptions: []string{"transfer.hideRefs=refs"},
 	}
-	response, err := makeInfoRefsUploadPackRequest(ctx, t, cfg.SocketPath, cfg.Auth.Token, rpcRequest)
+	response, err := makeInfoRefsUploadPackRequest(t, ctx, cfg.SocketPath, cfg.Auth.Token, rpcRequest)
 	require.NoError(t, err)
 	requireAdvertisedRefs(t, string(response), "git-upload-pack", []string{
 		commitID.String() + " HEAD",
@@ -210,14 +210,14 @@ func TestInfoRefsUploadPack_gitProtocol(t *testing.T) {
 	cfg := testcfg.Build(t)
 	ctx := testhelper.Context(t)
 
-	protocolDetectingFactory := gittest.NewProtocolDetectingCommandFactory(ctx, t, cfg)
+	protocolDetectingFactory := gittest.NewProtocolDetectingCommandFactory(t, ctx, cfg)
 
 	server := startSmartHTTPServerWithOptions(t, cfg, nil, []testserver.GitalyServerOpt{
 		testserver.WithGitCommandFactory(protocolDetectingFactory),
 	})
 	cfg.SocketPath = server.Address()
 
-	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
@@ -243,7 +243,7 @@ func TestInfoRefsUploadPack_gitProtocol(t *testing.T) {
 	require.Contains(t, envData, fmt.Sprintf("GIT_PROTOCOL=%s\n", git.ProtocolV2))
 }
 
-func makeInfoRefsUploadPackRequest(ctx context.Context, t *testing.T, serverSocketPath, token string, rpcRequest *gitalypb.InfoRefsRequest) ([]byte, error) {
+func makeInfoRefsUploadPackRequest(t *testing.T, ctx context.Context, serverSocketPath, token string, rpcRequest *gitalypb.InfoRefsRequest) ([]byte, error) {
 	t.Helper()
 
 	client, conn := newSmartHTTPClient(t, serverSocketPath, token)
@@ -269,14 +269,14 @@ func TestInfoRefsReceivePack_successful(t *testing.T) {
 	cfg.SocketPath = runSmartHTTPServer(t, cfg)
 	ctx := testhelper.Context(t)
 
-	repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithParents())
 	tagID := gittest.WriteTag(t, cfg, repoPath, "v1.0.0", commitID.Revision(), gittest.WriteTagConfig{
 		Message: "annotated tag",
 	})
 
-	response, err := makeInfoRefsReceivePackRequest(ctx, t, cfg.SocketPath, cfg.Auth.Token, &gitalypb.InfoRefsRequest{
+	response, err := makeInfoRefsReceivePackRequest(t, ctx, cfg.SocketPath, cfg.Auth.Token, &gitalypb.InfoRefsRequest{
 		Repository: repo,
 	})
 	require.NoError(t, err)
@@ -297,7 +297,7 @@ func TestInfoRefsReceivePack_hiddenRefs(t *testing.T) {
 	cfg.SocketPath = runSmartHTTPServer(t, cfg)
 	ctx := testhelper.Context(t)
 
-	repoProto, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -325,7 +325,7 @@ func TestInfoRefsReceivePack_hiddenRefs(t *testing.T) {
 
 	rpcRequest := &gitalypb.InfoRefsRequest{Repository: repoProto}
 
-	response, err := makeInfoRefsReceivePackRequest(ctx, t, cfg.SocketPath, cfg.Auth.Token, rpcRequest)
+	response, err := makeInfoRefsReceivePackRequest(t, ctx, cfg.SocketPath, cfg.Auth.Token, rpcRequest)
 	require.NoError(t, err)
 	require.NotContains(t, string(response), commitID+" .have")
 }
@@ -340,7 +340,7 @@ func TestInfoRefsReceivePack_repoNotFound(t *testing.T) {
 	repo := &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "testdata/scratch/another_repo"}
 	rpcRequest := &gitalypb.InfoRefsRequest{Repository: repo}
 	ctx := testhelper.Context(t)
-	_, err := makeInfoRefsReceivePackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest)
+	_, err := makeInfoRefsReceivePackRequest(t, ctx, serverSocketPath, cfg.Auth.Token, rpcRequest)
 
 	expectedErr := helper.ErrNotFoundf(`GetRepoPath: not a git repository: "` + cfg.Storages[0].Path + "/" + repo.RelativePath + `"`)
 	if testhelper.IsPraefectEnabled() {
@@ -359,11 +359,11 @@ func TestInfoRefsReceivePack_repoNotSet(t *testing.T) {
 
 	rpcRequest := &gitalypb.InfoRefsRequest{}
 	ctx := testhelper.Context(t)
-	_, err := makeInfoRefsReceivePackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest)
+	_, err := makeInfoRefsReceivePackRequest(t, ctx, serverSocketPath, cfg.Auth.Token, rpcRequest)
 	testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 }
 
-func makeInfoRefsReceivePackRequest(ctx context.Context, t *testing.T, serverSocketPath, token string, rpcRequest *gitalypb.InfoRefsRequest) ([]byte, error) {
+func makeInfoRefsReceivePackRequest(t *testing.T, ctx context.Context, serverSocketPath, token string, rpcRequest *gitalypb.InfoRefsRequest) ([]byte, error) {
 	t.Helper()
 
 	client, conn := newSmartHTTPClient(t, serverSocketPath, token)
@@ -436,7 +436,7 @@ func TestInfoRefsUploadPack_cache(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithParents())
 	tagID := gittest.WriteTag(t, cfg, repoPath, "v1.0.0", commitID.Revision(), gittest.WriteTagConfig{
@@ -455,7 +455,7 @@ func TestInfoRefsUploadPack_cache(t *testing.T) {
 	}
 
 	assertNormalResponse := func(addr string) {
-		response, err := makeInfoRefsUploadPackRequest(ctx, t, addr, cfg.Auth.Token, rpcRequest)
+		response, err := makeInfoRefsUploadPackRequest(t, ctx, addr, cfg.Auth.Token, rpcRequest)
 		require.NoError(t, err)
 
 		requireAdvertisedRefs(t, string(response), "git-upload-pack", []string{
@@ -467,7 +467,7 @@ func TestInfoRefsUploadPack_cache(t *testing.T) {
 	}
 
 	assertNormalResponse(gitalyServer.Address())
-	rewrittenRequest := &gitalypb.InfoRefsRequest{Repository: gittest.RewrittenRepository(ctx, t, cfg, repo)}
+	rewrittenRequest := &gitalypb.InfoRefsRequest{Repository: gittest.RewrittenRepository(t, ctx, cfg, repo)}
 	require.FileExists(t, pathToCachedResponse(t, ctx, cache, rewrittenRequest))
 
 	replacedContents := []string{
@@ -479,7 +479,7 @@ func TestInfoRefsUploadPack_cache(t *testing.T) {
 
 	// replace cached response file to prove the info-ref uses the cache
 	replaceCachedResponse(t, ctx, cache, rewrittenRequest, strings.Join(replacedContents, "\n"))
-	response, err := makeInfoRefsUploadPackRequest(ctx, t, gitalyServer.Address(), cfg.Auth.Token, rpcRequest)
+	response, err := makeInfoRefsUploadPackRequest(t, ctx, gitalyServer.Address(), cfg.Auth.Token, rpcRequest)
 	require.NoError(t, err)
 	require.Equal(t, strings.Join(replacedContents, "\n"), string(response))
 
@@ -504,7 +504,7 @@ func TestInfoRefsUploadPack_cache(t *testing.T) {
 	invalidRepoCleanup := createInvalidRepo(t, filepath.Join(testhelper.GitlabTestStoragePath(), invalidReq.Repository.RelativePath))
 	defer invalidRepoCleanup()
 
-	_, err = makeInfoRefsUploadPackRequest(ctx, t, gitalyServer.Address(), cfg.Auth.Token, invalidReq)
+	_, err = makeInfoRefsUploadPackRequest(t, ctx, gitalyServer.Address(), cfg.Auth.Token, invalidReq)
 	testhelper.RequireGrpcCode(t, err, codes.NotFound)
 	require.NoFileExists(t, pathToCachedResponse(t, ctx, cache, invalidReq))
 

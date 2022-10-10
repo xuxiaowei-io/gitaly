@@ -168,7 +168,7 @@ func TestUserSquash_transactional(t *testing.T) {
 				return nil
 			}
 
-			repoProto, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+			repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				Seed: gittest.SeedGitLabTest,
 			})
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -326,7 +326,7 @@ func TestUserSquash_renames(t *testing.T) {
 	ctx := testhelper.Context(t)
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
-	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 

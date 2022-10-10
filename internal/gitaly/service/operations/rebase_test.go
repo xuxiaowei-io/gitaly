@@ -39,7 +39,7 @@ func TestUserRebaseConfirmable_successful(t *testing.T) {
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	repoCopyProto, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repoCopyProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
@@ -347,7 +347,7 @@ func TestUserRebaseConfirmable_inputValidation(t *testing.T) {
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
-	repoCopy, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repoCopy, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
@@ -422,8 +422,8 @@ func TestUserRebaseConfirmable_abortViaClose(t *testing.T) {
 	for i, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			createRepoOpts := gittest.CreateRepositoryConfig{Seed: gittest.SeedGitLabTest}
-			testRepo, testRepoPath := gittest.CreateRepository(ctx, t, cfg, createRepoOpts)
-			testRepoCopy, _ := gittest.CreateRepository(ctx, t, cfg, createRepoOpts)
+			testRepo, testRepoPath := gittest.CreateRepository(t, ctx, cfg, createRepoOpts)
+			testRepoCopy, _ := gittest.CreateRepository(t, ctx, cfg, createRepoOpts)
 
 			branchCommitID := gittest.ResolveRevision(t, cfg, testRepoPath, rebaseBranchName)
 
@@ -469,7 +469,7 @@ func TestUserRebaseConfirmable_abortViaApply(t *testing.T) {
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	testRepoCopy, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	testRepoCopy, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
@@ -509,7 +509,7 @@ func TestUserRebaseConfirmable_preReceiveError(t *testing.T) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, testhelper.Context(t))
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	repoCopyProto, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repoCopyProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
@@ -569,7 +569,7 @@ func TestUserRebaseConfirmable_gitError(t *testing.T) {
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, testhelper.Context(t))
 
-	repoCopyProto, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repoCopyProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
@@ -613,10 +613,10 @@ func TestUserRebaseConfirmable_deletedFileInLocalRepo(t *testing.T) {
 
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
-	localRepoProto, localRepoPath := gittest.CreateRepository(ctx, t, cfg)
+	localRepoProto, localRepoPath := gittest.CreateRepository(t, ctx, cfg)
 	localRepo := localrepo.NewTestRepo(t, cfg, localRepoProto)
 
-	remoteRepoProto, remoteRepoPath := gittest.CreateRepository(ctx, t, cfg)
+	remoteRepoProto, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	// Write the root commit into both repositories as common history.
 	var rootCommitID git.ObjectID
@@ -683,10 +683,10 @@ func TestUserRebaseConfirmable_deletedFileInRemoteRepo(t *testing.T) {
 	ctx := testhelper.Context(t)
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
-	localRepoProto, localRepoPath := gittest.CreateRepository(ctx, t, cfg)
+	localRepoProto, localRepoPath := gittest.CreateRepository(t, ctx, cfg)
 	localRepo := localrepo.NewTestRepo(t, cfg, localRepoProto)
 
-	remoteRepoProto, remoteRepoPath := gittest.CreateRepository(ctx, t, cfg)
+	remoteRepoProto, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	// Write the root commit into both repositories as common history.
 	var rootCommitID git.ObjectID

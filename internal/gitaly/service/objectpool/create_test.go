@@ -18,7 +18,7 @@ import (
 
 func TestCreate(t *testing.T) {
 	ctx := testhelper.Context(t)
-	cfg, repo, _, _, client := setup(ctx, t)
+	cfg, repo, _, _, client := setup(t, ctx)
 
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
 
@@ -30,7 +30,7 @@ func TestCreate(t *testing.T) {
 	_, err := client.CreateObjectPool(ctx, poolReq)
 	require.NoError(t, err)
 
-	pool = rewrittenObjectPool(ctx, t, cfg, pool)
+	pool = rewrittenObjectPool(t, ctx, cfg, pool)
 
 	// Checks if the underlying repository is valid
 	require.True(t, pool.IsValid())
@@ -50,7 +50,7 @@ func TestCreate(t *testing.T) {
 
 func TestUnsuccessfulCreate(t *testing.T) {
 	ctx := testhelper.Context(t)
-	cfg, repo, _, _, client := setup(ctx, t, testserver.WithDisablePraefect())
+	cfg, repo, _, _, client := setup(t, ctx, testserver.WithDisablePraefect())
 
 	storageName := repo.GetStorageName()
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
@@ -139,7 +139,7 @@ func TestUnsuccessfulCreate(t *testing.T) {
 
 func TestDelete(t *testing.T) {
 	ctx := testhelper.Context(t)
-	cfg, repoProto, _, _, client := setup(ctx, t)
+	cfg, repoProto, _, _, client := setup(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	repositoryClient := gitalypb.NewRepositoryServiceClient(extractConn(client))

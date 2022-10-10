@@ -459,7 +459,7 @@ func TestMgr_GetSyncedNode(t *testing.T) {
 }
 
 func TestNodeStatus_IsHealthy(t *testing.T) {
-	checkNTimes := func(ctx context.Context, t *testing.T, ns *nodeStatus, n int) {
+	checkNTimes := func(t *testing.T, ctx context.Context, ns *nodeStatus, n int) {
 		for i := 0; i < n; i++ {
 			_, err := ns.CheckHealth(ctx)
 			require.NoError(t, err)
@@ -489,7 +489,7 @@ func TestNodeStatus_IsHealthy(t *testing.T) {
 	t.Run("not enough check to consider it healthy", func(t *testing.T) {
 		ns := newConnectionStatus(node, clientConn, logger, latencyHistMock, nil)
 		healthSrv.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
-		checkNTimes(ctx, t, ns, healthcheckThreshold-1)
+		checkNTimes(t, ctx, ns, healthcheckThreshold-1)
 
 		require.False(t, ns.IsHealthy())
 	})
@@ -497,7 +497,7 @@ func TestNodeStatus_IsHealthy(t *testing.T) {
 	t.Run("healthy", func(t *testing.T) {
 		ns := newConnectionStatus(node, clientConn, logger, latencyHistMock, nil)
 		healthSrv.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
-		checkNTimes(ctx, t, ns, healthcheckThreshold)
+		checkNTimes(t, ctx, ns, healthcheckThreshold)
 
 		require.True(t, ns.IsHealthy())
 	})
@@ -505,12 +505,12 @@ func TestNodeStatus_IsHealthy(t *testing.T) {
 	t.Run("healthy turns into unhealthy after single failed check", func(t *testing.T) {
 		ns := newConnectionStatus(node, clientConn, logger, latencyHistMock, nil)
 		healthSrv.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
-		checkNTimes(ctx, t, ns, healthcheckThreshold)
+		checkNTimes(t, ctx, ns, healthcheckThreshold)
 
 		require.True(t, ns.IsHealthy(), "node must be turned into healthy state")
 
 		healthSrv.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
-		checkNTimes(ctx, t, ns, 1)
+		checkNTimes(t, ctx, ns, 1)
 
 		require.False(t, ns.IsHealthy(), "node must be turned into unhealthy state")
 	})
@@ -518,21 +518,21 @@ func TestNodeStatus_IsHealthy(t *testing.T) {
 	t.Run("unhealthy turns into healthy after pre-define threshold of checks", func(t *testing.T) {
 		ns := newConnectionStatus(node, clientConn, logger, latencyHistMock, nil)
 		healthSrv.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
-		checkNTimes(ctx, t, ns, healthcheckThreshold)
+		checkNTimes(t, ctx, ns, healthcheckThreshold)
 
 		require.True(t, ns.IsHealthy(), "node must be turned into healthy state")
 
 		healthSrv.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
-		checkNTimes(ctx, t, ns, 1)
+		checkNTimes(t, ctx, ns, 1)
 
 		require.False(t, ns.IsHealthy(), "node must be turned into unhealthy state")
 
 		healthSrv.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 		for i := 1; i < healthcheckThreshold; i++ {
-			checkNTimes(ctx, t, ns, 1)
+			checkNTimes(t, ctx, ns, 1)
 			require.False(t, ns.IsHealthy(), "node must be unhealthy until defined threshold of checks complete positively")
 		}
-		checkNTimes(ctx, t, ns, 1) // the last check that must turn it into healthy state
+		checkNTimes(t, ctx, ns, 1) // the last check that must turn it into healthy state
 
 		require.True(t, ns.IsHealthy(), "node should be healthy again")
 	})
@@ -543,7 +543,7 @@ func TestNodeStatus_IsHealthy(t *testing.T) {
 
 		t.Run("continuously does health checks - 1", func(t *testing.T) {
 			t.Parallel()
-			checkNTimes(ctx, t, ns, healthcheckThreshold)
+			checkNTimes(t, ctx, ns, healthcheckThreshold)
 		})
 
 		t.Run("continuously checks health - 1", func(t *testing.T) {
@@ -553,7 +553,7 @@ func TestNodeStatus_IsHealthy(t *testing.T) {
 
 		t.Run("continuously does health checks - 2", func(t *testing.T) {
 			t.Parallel()
-			checkNTimes(ctx, t, ns, healthcheckThreshold)
+			checkNTimes(t, ctx, ns, healthcheckThreshold)
 		})
 
 		t.Run("continuously checks health - 2", func(t *testing.T) {

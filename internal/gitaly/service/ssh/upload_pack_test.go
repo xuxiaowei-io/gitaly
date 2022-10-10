@@ -47,8 +47,8 @@ func runTestWithAndWithoutConfigOptions(t *testing.T, tf func(t *testing.T, opts
 // runClone runs the given Git command with gitaly-ssh set up as its SSH command. It will thus
 // invoke the Gitaly server's SSHUploadPack or SSHUploadPackWithSidechannel endpoint.
 func runClone(
-	ctx context.Context,
 	t *testing.T,
+	ctx context.Context,
 	cfg config.Cfg,
 	withSidechannel bool,
 	cloneCmd git.Cmd,
@@ -105,7 +105,7 @@ func testUploadPackTimeout(t *testing.T, opts ...testcfg.Option) {
 
 	cfg.SocketPath = runSSHServerWithOptions(t, cfg, []ServerOpt{WithUploadPackRequestTimeout(1)})
 
-	repo, repoPath := gittest.CreateRepository(testhelper.Context(t), t, cfg)
+	repo, repoPath := gittest.CreateRepository(t, testhelper.Context(t), cfg)
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 
 	client := newSSHClient(t, cfg.SocketPath)
@@ -140,7 +140,7 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 	cfg := testcfg.Build(t)
 	cfg.SocketPath = runSSHServer(t, cfg)
 
-	repo, repoPath := gittest.CreateRepository(testhelper.Context(t), t, cfg, gittest.CreateRepositoryConfig{
+	repo, repoPath := gittest.CreateRepository(t, testhelper.Context(t), cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 	commitID := gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD^{commit}")
@@ -512,13 +512,13 @@ func testUploadPackSuccessful(t *testing.T, sidechannel bool, opts ...testcfg.Op
 	testcfg.BuildGitalySSH(t, cfg)
 
 	negotiationMetrics := prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"feature"})
-	protocolDetectingFactory := gittest.NewProtocolDetectingCommandFactory(ctx, t, cfg)
+	protocolDetectingFactory := gittest.NewProtocolDetectingCommandFactory(t, ctx, cfg)
 
 	cfg.SocketPath = runSSHServerWithOptions(t, cfg, []ServerOpt{
 		WithPackfileNegotiationMetrics(negotiationMetrics),
 	}, testserver.WithGitCommandFactory(protocolDetectingFactory))
 
-	repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	smallBlobID := gittest.WriteBlob(t, cfg, repoPath, []byte("foobar"))
 	largeBlobID := gittest.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("1"), 2048))
@@ -619,7 +619,7 @@ func testUploadPackSuccessful(t *testing.T, sidechannel bool, opts ...testcfg.Op
 			negotiationMetrics.Reset()
 			protocolDetectingFactory.Reset(t)
 
-			require.NoError(t, runClone(ctx, t, cfg, sidechannel, git.SubCmd{
+			require.NoError(t, runClone(t, ctx, cfg, sidechannel, git.SubCmd{
 				Name:  "clone",
 				Args:  []string{"git@localhost:test/test.git", localRepoPath},
 				Flags: tc.cloneFlags,
@@ -673,13 +673,13 @@ func TestUploadPack_packObjectsHook(t *testing.T) {
 
 	cfg.SocketPath = runSSHServer(t, cfg)
 
-	repo, _ := gittest.CreateRepository(testhelper.Context(t), t, cfg, gittest.CreateRepositoryConfig{
+	repo, _ := gittest.CreateRepository(t, testhelper.Context(t), cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
 	localRepoPath := testhelper.TempDir(t)
 
-	err := runClone(ctx, t, cfg, false, git.SubCmd{
+	err := runClone(t, ctx, cfg, false, git.SubCmd{
 		Name: "clone", Args: []string{"git@localhost:test/test.git", localRepoPath},
 	}, &gitalypb.SSHUploadPackRequest{
 		Repository: repo,
@@ -703,7 +703,7 @@ func testUploadPackWithoutSideband(t *testing.T, opts ...testcfg.Option) {
 
 	cfg.SocketPath = runSSHServer(t, cfg)
 
-	repo, _ := gittest.CreateRepository(testhelper.Context(t), t, cfg, gittest.CreateRepositoryConfig{
+	repo, _ := gittest.CreateRepository(t, testhelper.Context(t), cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
@@ -750,13 +750,13 @@ func TestUploadPack_invalidStorage(t *testing.T) {
 
 	testcfg.BuildGitalySSH(t, cfg)
 
-	repo, _ := gittest.CreateRepository(testhelper.Context(t), t, cfg, gittest.CreateRepositoryConfig{
+	repo, _ := gittest.CreateRepository(t, testhelper.Context(t), cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
 	localRepoPath := testhelper.TempDir(t)
 
-	err := runClone(ctx, t, cfg, false, git.SubCmd{
+	err := runClone(t, ctx, cfg, false, git.SubCmd{
 		Name: "clone",
 		Args: []string{
 			"git@localhost:test/test.git", localRepoPath,
@@ -783,7 +783,7 @@ func TestUploadPack_gitFailure(t *testing.T) {
 	cfg := testcfg.Build(t)
 	cfg.SocketPath = runSSHServer(t, cfg)
 
-	repo, repoPath := gittest.CreateRepository(testhelper.Context(t), t, cfg, gittest.CreateRepositoryConfig{
+	repo, repoPath := gittest.CreateRepository(t, testhelper.Context(t), cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 

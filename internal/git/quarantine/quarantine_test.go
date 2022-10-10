@@ -88,7 +88,7 @@ func TestQuarantine_Migrate(t *testing.T) {
 	t.Run("no changes", func(t *testing.T) {
 		ctx := testhelper.Context(t)
 
-		repo, repoPath := gittest.CreateRepository(ctx, t, cfg,
+		repo, repoPath := gittest.CreateRepository(t, ctx, cfg,
 			gittest.CreateRepositoryConfig{
 				SkipCreationViaService: true,
 				Seed:                   gittest.SeedGitLabTest,
@@ -107,7 +107,7 @@ func TestQuarantine_Migrate(t *testing.T) {
 	t.Run("simple change", func(t *testing.T) {
 		ctx := testhelper.Context(t)
 
-		repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 			Seed:                   gittest.SeedGitLabTest,
 		})

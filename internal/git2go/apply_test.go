@@ -22,7 +22,7 @@ func TestExecutor_Apply(t *testing.T) {
 	cfg := testcfg.Build(t)
 	testcfg.BuildGitalyGit2Go(t, cfg)
 
-	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 

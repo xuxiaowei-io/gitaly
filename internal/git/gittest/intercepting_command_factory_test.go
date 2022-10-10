@@ -14,7 +14,7 @@ func TestInterceptingCommandFactory(t *testing.T) {
 	cfg, repoProto, repoPath := setup(t)
 	ctx := testhelper.Context(t)
 
-	factory := NewInterceptingCommandFactory(ctx, t, cfg, func(execEnv git.ExecutionEnvironment) string {
+	factory := NewInterceptingCommandFactory(t, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
 		return fmt.Sprintf(
 			`#!/usr/bin/env bash
 			%q rev-parse --sq-quote 'Hello, world!'
@@ -79,7 +79,7 @@ func TestInterceptingCommandFactory_GitVersion(t *testing.T) {
 
 	// Furthermore, we need to obtain the intercepted version here because we cannot construct
 	// `git.Version` structs ourselves.
-	fakeVersion, err := NewInterceptingCommandFactory(ctx, t, cfg, generateVersionScript, WithInterceptedVersion()).GitVersion(ctx)
+	fakeVersion, err := NewInterceptingCommandFactory(t, ctx, cfg, generateVersionScript, WithInterceptedVersion()).GitVersion(ctx)
 	require.NoError(t, err)
 	require.Equal(t, "1.2.3", fakeVersion.String())
 
@@ -101,7 +101,7 @@ func TestInterceptingCommandFactory_GitVersion(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			factory := NewInterceptingCommandFactory(ctx, t, cfg, generateVersionScript, tc.opts...)
+			factory := NewInterceptingCommandFactory(t, ctx, cfg, generateVersionScript, tc.opts...)
 
 			version, err := factory.GitVersion(ctx)
 			require.NoError(t, err)

@@ -23,12 +23,12 @@ func TestMain(m *testing.M) {
 	testhelper.Run(m)
 }
 
-func setupCleanupService(ctx context.Context, t *testing.T) (config.Cfg, *gitalypb.Repository, string, gitalypb.CleanupServiceClient) {
+func setupCleanupService(t *testing.T, ctx context.Context) (config.Cfg, *gitalypb.Repository, string, gitalypb.CleanupServiceClient) {
 	cfg := testcfg.Build(t)
 
 	cfg.SocketPath = runCleanupServiceServer(t, cfg)
 
-	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 

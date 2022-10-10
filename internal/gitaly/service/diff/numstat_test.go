@@ -15,7 +15,7 @@ import (
 
 func TestSuccessfulDiffStatsRequest(t *testing.T) {
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupDiffService(ctx, t)
+	_, repo, _, client := setupDiffService(t, ctx)
 
 	rightCommit := "e4003da16c1c2c3fc4567700121b17bf8e591c6c"
 	leftCommit := "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"
@@ -119,7 +119,7 @@ func TestSuccessfulDiffStatsRequest(t *testing.T) {
 
 func TestFailedDiffStatsRequest(t *testing.T) {
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupDiffService(ctx, t)
+	_, repo, _, client := setupDiffService(t, ctx)
 
 	tests := []struct {
 		desc          string

@@ -33,7 +33,7 @@ func TestMidxWrite(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
+	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	//nolint:staticcheck
 	_, err := client.MidxRepack(ctx, &gitalypb.MidxRepackRequest{Repository: repo})
@@ -52,7 +52,7 @@ func TestMidxRewrite(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, repoPath, client := setupRepositoryService(ctx, t)
+	_, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	midxPath := filepath.Join(repoPath, MidxRelPath)
 
@@ -80,7 +80,7 @@ func TestMidxRepack(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
+	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	// add some pack files with different sizes
 	packsAdded := 5
@@ -122,7 +122,7 @@ func TestMidxRepack_transactional(t *testing.T) {
 	ctx := testhelper.Context(t)
 	txManager := transaction.NewTrackingManager()
 
-	cfg, repo, repoPath, client := setupRepositoryService(ctx, t, testserver.WithTransactionManager(txManager))
+	cfg, repo, repoPath, client := setupRepositoryService(t, ctx, testserver.WithTransactionManager(txManager))
 
 	// Reset the votes after creating the test repository.
 	txManager.Reset()
@@ -155,7 +155,7 @@ func TestMidxRepackExpire(t *testing.T) {
 	for _, packsAdded := range []int{3, 5, 11, 20} {
 		t.Run(fmt.Sprintf("Test repack expire with %d added packs", packsAdded),
 			func(t *testing.T) {
-				repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					Seed: gittest.SeedGitLabTest,
 				})
 

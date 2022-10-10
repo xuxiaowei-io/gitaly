@@ -60,7 +60,7 @@ func testDeleteRefSuccessful(t *testing.T, ctx context.Context) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+			repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				Seed: gittest.SeedGitLabTest,
 			})
 
@@ -157,7 +157,7 @@ func testDeleteRefsTransaction(t *testing.T, ctx context.Context) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+			repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				Seed: gittest.SeedGitLabTest,
 			})
 			txManager.Reset()
@@ -183,7 +183,7 @@ func TestDeleteRefs_invalidRefFormat(t *testing.T) {
 }
 
 func testDeleteRefsInvalidRefFormat(t *testing.T, ctx context.Context) {
-	_, repo, _, client := setupRefService(ctx, t)
+	_, repo, _, client := setupRefService(t, ctx)
 
 	request := &gitalypb.DeleteRefsRequest{
 		Repository: repo,
@@ -221,7 +221,7 @@ func TestDeleteRefs_refLocked(t *testing.T) {
 }
 
 func testDeleteRefsRefLocked(t *testing.T, ctx context.Context) {
-	cfg, repoProto, _, client := setupRefService(ctx, t)
+	cfg, repoProto, _, client := setupRefService(t, ctx)
 
 	if !gittest.GitSupportsStatusFlushing(t, ctx, cfg) {
 		t.Skip("git does not support flushing yet, which is known to be flaky")
@@ -270,7 +270,7 @@ func TestDeleteRefs_validation(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	_, repo, _, client := setupRefService(ctx, t)
+	_, repo, _, client := setupRefService(t, ctx)
 
 	testCases := []struct {
 		desc    string

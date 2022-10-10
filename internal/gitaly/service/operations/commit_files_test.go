@@ -40,7 +40,7 @@ func TestUserCommitFiles(t *testing.T) {
 		targetRelativePath = "target-repository"
 	)
 
-	startRepo, _ := gittest.CreateRepository(ctx, t, cfg)
+	startRepo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	type step struct {
 		actions         []*gitalypb.UserCommitFilesRequest
@@ -871,7 +871,7 @@ func TestUserCommitFiles(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			const branch = "main"
 
-			repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+			repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				RelativePath: targetRelativePath,
 			})
 
@@ -929,7 +929,7 @@ func TestUserCommitFilesStableCommitID(t *testing.T) {
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
-	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	for key, values := range testcfg.GitalyServersMetadataFromCfg(t, cfg) {
@@ -987,7 +987,7 @@ func TestUserCommitFilesQuarantine(t *testing.T) {
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
-	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
@@ -1030,7 +1030,7 @@ func TestSuccessfulUserCommitFilesRequest(t *testing.T) {
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
-	newRepo, newRepoPath := gittest.CreateRepository(ctx, t, cfg)
+	newRepo, newRepoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	filePath := "héllo/wörld"
 	authorName := []byte("Jane Doe")
@@ -1155,7 +1155,7 @@ func TestSuccessfulUserCommitFilesRequestMove(t *testing.T) {
 		{content: "foo", infer: true},
 	} {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			testRepo, testRepoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+			testRepo, testRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				Seed: gittest.SeedGitLabTest,
 			})
 
@@ -1293,7 +1293,7 @@ func testSuccessfulUserCommitFilesRemoteRepositoryRequest(setHeader func(header 
 
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-		newRepoProto, _ := gittest.CreateRepository(ctx, t, cfg)
+		newRepoProto, _ := gittest.CreateRepository(t, ctx, cfg)
 		newRepo := localrepo.NewTestRepo(t, cfg, newRepoProto)
 
 		targetBranchName := "new"
@@ -1329,7 +1329,7 @@ func TestSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *tes
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
-	repoProto, _ := gittest.CreateRepository(ctx, t, cfg)
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	targetBranchName := "master"

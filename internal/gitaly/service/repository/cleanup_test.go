@@ -54,7 +54,7 @@ func TestCleanupDeletesStaleWorktrees(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+			repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				Seed: gittest.SeedGitLabTest,
 			})
 
@@ -91,7 +91,7 @@ func TestCleanupDeletesOrphanedWorktrees(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, repoPath, client := setupRepositoryService(ctx, t)
+	_, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	worktreeCheckoutPath := filepath.Join(repoPath, worktreePrefix, "test-worktree")
 	basePath := filepath.Join(repoPath, "worktrees")
@@ -120,7 +120,7 @@ func TestCleanupDisconnectedWorktrees(t *testing.T) {
 		worktreeAdminDir = "worktrees"
 	)
 
-	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
+	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	worktreePath := filepath.Join(repoPath, worktreePrefix, worktreeName)
 	worktreeAdminPath := filepath.Join(

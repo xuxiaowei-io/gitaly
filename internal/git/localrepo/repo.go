@@ -53,7 +53,7 @@ func NewTestRepo(tb testing.TB, cfg config.Cfg, repo repository.GitRepo, factory
 	tb.Helper()
 
 	if cfg.SocketPath != testcfg.UnconfiguredSocketPath {
-		repo = gittest.RewrittenRepository(testhelper.Context(tb), tb, cfg, &gitalypb.Repository{
+		repo = gittest.RewrittenRepository(tb, testhelper.Context(tb), cfg, &gitalypb.Repository{
 			StorageName:                   repo.GetStorageName(),
 			RelativePath:                  repo.GetRelativePath(),
 			GitObjectDirectory:            repo.GetGitObjectDirectory(),

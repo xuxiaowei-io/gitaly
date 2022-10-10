@@ -89,7 +89,7 @@ func TestUpdate_customHooks(t *testing.T) {
 			oldHash:        hash1,
 			newHash:        hash2,
 			hook:           "#!/bin/sh\nenv | grep -v -e '^SHLVL=' -e '^_=' | sort\n",
-			expectedStdout: strings.Join(getExpectedEnv(ctx, t, locator, gitCmdFactory, repo), "\n") + "\n",
+			expectedStdout: strings.Join(getExpectedEnv(t, ctx, locator, gitCmdFactory, repo), "\n") + "\n",
 		},
 		{
 			desc:           "hook receives arguments",

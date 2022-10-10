@@ -35,7 +35,7 @@ func TestGarbageCollectCommitGraph(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, repoPath, client := setupRepositoryService(ctx, t)
+	_, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	//nolint:staticcheck
 	c, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: repo})
@@ -50,7 +50,7 @@ func TestGarbageCollectSuccess(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, repoPath, client := setupRepositoryService(ctx, t)
+	_, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	tests := []struct {
 		req  *gitalypb.GarbageCollectRequest
@@ -103,7 +103,7 @@ func TestGarbageCollectWithPrune(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
+	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	blobHashes := gittest.WriteBlobs(t, cfg, repoPath, 3)
 	oldDanglingObjFile := filepath.Join(repoPath, "objects", blobHashes[0][:2], blobHashes[0][2:])
@@ -147,7 +147,7 @@ func TestGarbageCollectLogStatistics(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	logger, hook := test.NewNullLogger()
-	_, repo, _, client := setupRepositoryService(ctx, t, testserver.WithLogger(logger))
+	_, repo, _, client := setupRepositoryService(t, ctx, testserver.WithLogger(logger))
 
 	//nolint:staticcheck
 	_, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: repo})
@@ -160,7 +160,7 @@ func TestGarbageCollectDeletesRefsLocks(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, repoPath, client := setupRepositoryService(ctx, t)
+	_, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	req := &gitalypb.GarbageCollectRequest{Repository: repo}
 	refsPath := filepath.Join(repoPath, "refs")
@@ -228,7 +228,7 @@ func TestGarbageCollectDeletesPackedRefsLock(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+			repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				Seed: gittest.SeedGitLabTest,
 			})
 
@@ -298,7 +298,7 @@ func TestGarbageCollectDeletesFileLocks(t *testing.T) {
 			// freshly created GarbageCollect shouldn't remove the not-yet-stale
 			// lockfile.
 			t.Run("with recent lockfile", func(t *testing.T) {
-				repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					Seed: gittest.SeedGitLabTest,
 				})
 
@@ -321,7 +321,7 @@ func TestGarbageCollectDeletesFileLocks(t *testing.T) {
 			// Redo the same test, but this time we create the lockfile so that it is
 			// considered stale. GarbageCollect should know to remove it.
 			t.Run("with stale lockfile", func(t *testing.T) {
-				repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					Seed: gittest.SeedGitLabTest,
 				})
 
@@ -368,7 +368,7 @@ func TestGarbageCollectDeletesPackedRefsNew(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
+			repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 			req := &gitalypb.GarbageCollectRequest{Repository: repo}
 			packedRefsNewPath := filepath.Join(repoPath, "packed-refs.new")
@@ -399,7 +399,7 @@ func TestGarbageCollectFailure(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, repoPath, client := setupRepositoryService(ctx, t)
+	_, repo, repoPath, client := setupRepositoryService(t, ctx)
 	storagePath := strings.TrimSuffix(repoPath, "/"+repo.RelativePath)
 
 	tests := []struct {
@@ -439,7 +439,7 @@ func TestCleanupInvalidKeepAroundRefs(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
+	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	// Make the directory, so we can create random reflike things in it
 	require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "refs", "keep-around"), 0o755))
@@ -534,7 +534,7 @@ func TestGarbageCollectDeltaIslands(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
+	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	gittest.TestDeltaIslands(t, cfg, repoPath, repoPath, false, func() error {
 		//nolint:staticcheck
@@ -549,7 +549,7 @@ func TestGarbageCollect_commitGraphsWithPrunedObjects(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	// Write a first commit-graph that contains the root commit, only.
 	rootCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))

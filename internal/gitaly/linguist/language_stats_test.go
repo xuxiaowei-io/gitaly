@@ -84,7 +84,7 @@ func TestInitLanguageStats(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				SkipCreationViaService: true,
 			})
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -98,7 +98,7 @@ func TestLanguageStats_add(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
-	repoProto, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 
@@ -169,7 +169,7 @@ func TestLanguageStats_drop(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
-	repoProto, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 
@@ -228,7 +228,7 @@ func TestLanguageStats_save(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
-	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)

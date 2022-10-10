@@ -23,7 +23,7 @@ func TestFindCommitsFields(t *testing.T) {
 	windows1251Message := testhelper.MustReadFile(t, "testdata/commit-c809470461118b7bcab850f6e9a7ca97ac42f8ea-message.txt")
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupCommitServiceWithRepo(ctx, t)
+	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
 
 	testCases := []struct {
 		id       string
@@ -179,7 +179,7 @@ func TestSuccessfulFindCommitsRequest(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupCommitServiceWithRepo(ctx, t)
+	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
 
 	testCases := []struct {
 		desc    string
@@ -437,7 +437,7 @@ func TestSuccessfulFindCommitsRequestWithAltGitObjectDirs(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupCommitServiceWithRepo(ctx, t)
+	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, ctx)
 
 	altObjectsDir := "./alt-objects"
 	commitID := gittest.WriteCommit(t, cfg, repoPath,
@@ -484,7 +484,7 @@ func TestSuccessfulFindCommitsRequestWithAmbiguousRef(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupCommitServiceWithRepo(ctx, t)
+	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, ctx)
 
 	// These are arbitrary SHAs in the repository. The important part is
 	// that we create a branch using one of them with a different SHA so
@@ -512,7 +512,7 @@ func TestFailureFindCommitsRequest(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupCommitServiceWithRepo(ctx, t)
+	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
 
 	testCases := []struct {
 		desc    string
@@ -556,7 +556,7 @@ func TestFindCommitsRequestWithFollowAndOffset(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupCommitServiceWithRepo(ctx, t)
+	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
 
 	request := &gitalypb.FindCommitsRequest{
 		Repository: repo,
@@ -564,7 +564,7 @@ func TestFindCommitsRequestWithFollowAndOffset(t *testing.T) {
 		Paths:      [][]byte{[]byte("CHANGELOG")},
 		Limit:      100,
 	}
-	allCommits := getCommits(ctx, t, request, client)
+	allCommits := getCommits(t, ctx, request, client)
 	totalCommits := len(allCommits)
 
 	for offset := 0; offset < totalCommits; offset++ {
@@ -572,7 +572,7 @@ func TestFindCommitsRequestWithFollowAndOffset(t *testing.T) {
 			ctx := testhelper.Context(t)
 			request.Offset = int32(offset)
 			request.Limit = int32(totalCommits)
-			commits := getCommits(ctx, t, request, client)
+			commits := getCommits(t, ctx, request, client)
 			assert.Len(t, commits, totalCommits-offset)
 			assert.Equal(t, allCommits[offset:], commits)
 		})
@@ -583,7 +583,7 @@ func TestFindCommitsWithExceedingOffset(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupCommitServiceWithRepo(ctx, t)
+	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
 
 	stream, err := client.FindCommits(ctx, &gitalypb.FindCommitsRequest{
 		Repository: repo,
@@ -598,7 +598,7 @@ func TestFindCommitsWithExceedingOffset(t *testing.T) {
 	require.EqualError(t, err, "EOF")
 }
 
-func getCommits(ctx context.Context, t *testing.T, request *gitalypb.FindCommitsRequest, client gitalypb.CommitServiceClient) []*gitalypb.GitCommit {
+func getCommits(t *testing.T, ctx context.Context, request *gitalypb.FindCommitsRequest, client gitalypb.CommitServiceClient) []*gitalypb.GitCommit {
 	t.Helper()
 
 	stream, err := client.FindCommits(ctx, request)
@@ -619,7 +619,7 @@ func TestFindCommits_withStats(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupCommitServiceWithRepo(ctx, t)
+	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
 
 	type commitInfo struct {
 		id         string
@@ -766,7 +766,7 @@ func TestFindCommits_withStats(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			commits := getCommits(ctx, t, tc.request, client)
+			commits := getCommits(t, ctx, tc.request, client)
 			assert.Equal(t, len(tc.commitStats), len(commits))
 
 			for i, commit := range commits {
@@ -779,7 +779,7 @@ func TestFindCommits_withStats(t *testing.T) {
 
 func BenchmarkCommitStats(b *testing.B) {
 	ctx := testhelper.Context(b)
-	_, repo, _, client := setupCommitServiceWithRepo(ctx, b)
+	_, repo, _, client := setupCommitServiceWithRepo(b, ctx)
 	request := &gitalypb.FindCommitsRequest{
 		Repository: repo,
 		Limit:      100,

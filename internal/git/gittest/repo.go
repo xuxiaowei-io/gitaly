@@ -104,7 +104,7 @@ type CreateRepositoryConfig struct {
 	ObjectFormat string
 }
 
-func dialService(ctx context.Context, tb testing.TB, cfg config.Cfg) *grpc.ClientConn {
+func dialService(tb testing.TB, ctx context.Context, cfg config.Cfg) *grpc.ClientConn {
 	dialOptions := []grpc.DialOption{internalclient.UnaryInterceptor(), internalclient.StreamInterceptor()}
 	if cfg.Auth.Token != "" {
 		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(cfg.Auth.Token)))
@@ -116,7 +116,7 @@ func dialService(ctx context.Context, tb testing.TB, cfg config.Cfg) *grpc.Clien
 }
 
 // CreateRepository creates a new repository and returns it and its absolute path.
-func CreateRepository(ctx context.Context, tb testing.TB, cfg config.Cfg, configs ...CreateRepositoryConfig) (*gitalypb.Repository, string) {
+func CreateRepository(tb testing.TB, ctx context.Context, cfg config.Cfg, configs ...CreateRepositoryConfig) (*gitalypb.Repository, string) {
 	tb.Helper()
 
 	require.Less(tb, len(configs), 2, "you must either pass no or exactly one option")
@@ -152,7 +152,7 @@ func CreateRepository(ctx context.Context, tb testing.TB, cfg config.Cfg, config
 	if !opts.SkipCreationViaService {
 		conn := opts.ClientConn
 		if conn == nil {
-			conn = dialService(ctx, tb, cfg)
+			conn = dialService(tb, ctx, cfg)
 			tb.Cleanup(func() { testhelper.MustClose(tb, conn) })
 		}
 		client := gitalypb.NewRepositoryServiceClient(conn)
@@ -185,7 +185,7 @@ func CreateRepository(ctx context.Context, tb testing.TB, cfg config.Cfg, config
 			require.NoError(tb, err)
 		})
 
-		repoPath = filepath.Join(storage.Path, getReplicaPath(ctx, tb, conn, repository))
+		repoPath = filepath.Join(storage.Path, getReplicaPath(tb, ctx, conn, repository))
 	} else {
 		repoPath = filepath.Join(storage.Path, repository.RelativePath)
 
@@ -224,7 +224,7 @@ type GetReplicaPathConfig struct {
 // run with Praefect in front of it. This is necessary if the test creates a repository
 // through Praefect and peeks into the filesystem afterwards. Conn should be pointing to
 // Praefect.
-func GetReplicaPath(ctx context.Context, tb testing.TB, cfg config.Cfg, repo repository.GitRepo, opts ...GetReplicaPathConfig) string {
+func GetReplicaPath(tb testing.TB, ctx context.Context, cfg config.Cfg, repo repository.GitRepo, opts ...GetReplicaPathConfig) string {
 	require.Less(tb, len(opts), 2, "you must either pass no or exactly one option")
 
 	var opt GetReplicaPathConfig
@@ -234,14 +234,14 @@ func GetReplicaPath(ctx context.Context, tb testing.TB, cfg config.Cfg, repo rep
 
 	conn := opt.ClientConn
 	if conn == nil {
-		conn = dialService(ctx, tb, cfg)
+		conn = dialService(tb, ctx, cfg)
 		defer conn.Close()
 	}
 
-	return getReplicaPath(ctx, tb, conn, repo)
+	return getReplicaPath(tb, ctx, conn, repo)
 }
 
-func getReplicaPath(ctx context.Context, tb testing.TB, conn *grpc.ClientConn, repo repository.GitRepo) string {
+func getReplicaPath(tb testing.TB, ctx context.Context, conn *grpc.ClientConn, repo repository.GitRepo) string {
 	metadata, err := gitalypb.NewPraefectInfoServiceClient(conn).GetRepositoryMetadata(
 		ctx, &gitalypb.GetRepositoryMetadataRequest{
 			Query: &gitalypb.GetRepositoryMetadataRequest_Path_{
@@ -263,10 +263,10 @@ func getReplicaPath(ctx context.Context, tb testing.TB, conn *grpc.ClientConn, r
 // RewrittenRepository returns the repository as it would be received by a Gitaly after being rewritten by Praefect.
 // This should be used when the repository is being accessed through the filesystem to ensure the access path is
 // correct. If the test is not running with Praefect in front, it returns the an unaltered copy of repository.
-func RewrittenRepository(ctx context.Context, tb testing.TB, cfg config.Cfg, repository *gitalypb.Repository) *gitalypb.Repository {
+func RewrittenRepository(tb testing.TB, ctx context.Context, cfg config.Cfg, repository *gitalypb.Repository) *gitalypb.Repository {
 	// Don'tb modify the original repository.
 	rewritten := proto.Clone(repository).(*gitalypb.Repository)
-	rewritten.RelativePath = GetReplicaPath(ctx, tb, cfg, repository)
+	rewritten.RelativePath = GetReplicaPath(tb, ctx, cfg, repository)
 	return rewritten
 }
 

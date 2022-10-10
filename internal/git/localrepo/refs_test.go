@@ -226,7 +226,7 @@ func TestRepo_GetRemoteReferences(t *testing.T) {
 
 	cfg := testcfg.Build(t)
 
-	gitCmdFactory, readSSHCommand := captureGitSSHCommand(ctx, t, cfg)
+	gitCmdFactory, readSSHCommand := captureGitSSHCommand(t, ctx, cfg)
 
 	storagePath, ok := cfg.StoragePath("default")
 	require.True(t, ok)
@@ -474,7 +474,7 @@ func TestRepo_UpdateRef(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			// We need to re-seed the repository every time so that we don't carry over
 			// the state.
-			repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				SkipCreationViaService: true,
 			})
 			repo := New(repo.locator, repo.gitCmdFactory, repo.catfileCache, repoProto)

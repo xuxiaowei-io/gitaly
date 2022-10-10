@@ -17,7 +17,7 @@ import (
 func testSuccessfulWikiGetAllPagesRequest(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server) {
 	ctx := testhelper.Context(t)
 
-	wikiRepo, wikiRepoPath := setupWikiRepo(ctx, t, cfg)
+	wikiRepo, wikiRepoPath := setupWikiRepo(t, ctx, cfg)
 
 	expectedPages := createTestWikiPages(t, cfg, client, wikiRepo, wikiRepoPath)
 
@@ -64,7 +64,7 @@ func testSuccessfulWikiGetAllPagesRequest(t *testing.T, cfg config.Cfg, client g
 func testWikiGetAllPagesSorting(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server) {
 	ctx := testhelper.Context(t)
 
-	wikiRepo, wikiRepoPath := setupWikiRepo(ctx, t, cfg)
+	wikiRepo, wikiRepoPath := setupWikiRepo(t, ctx, cfg)
 
 	expectedPages := createTestWikiPages(t, cfg, client, wikiRepo, wikiRepoPath)
 

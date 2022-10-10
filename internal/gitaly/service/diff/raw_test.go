@@ -22,7 +22,7 @@ func TestRawDiff_successful(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repoProto, repoPath, client := setupDiffService(ctx, t)
+	cfg, repoProto, repoPath, client := setupDiffService(t, ctx)
 	testcfg.BuildGitalyGit2Go(t, cfg)
 
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
@@ -53,7 +53,7 @@ func TestRawDiff_successful(t *testing.T) {
 
 	// Now that we have read the patch in we verify that it indeed round-trips to the same tree
 	// as the right commit is referring to by reapplying the diff on top of the left commit.
-	patchedCommitID, err := git2goExecutor.Apply(ctx, gittest.RewrittenRepository(ctx, t, cfg, repoProto), git2go.ApplyParams{
+	patchedCommitID, err := git2goExecutor.Apply(ctx, gittest.RewrittenRepository(t, ctx, cfg, repoProto), git2go.ApplyParams{
 		Repository:   repoPath,
 		Committer:    signature,
 		ParentCommit: leftCommit,
@@ -77,7 +77,7 @@ func TestRawDiff_inputValidation(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupDiffService(ctx, t)
+	_, repo, _, client := setupDiffService(t, ctx)
 
 	testCases := []struct {
 		desc    string
@@ -125,7 +125,7 @@ func TestRawPatch_successful(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repoProto, repoPath, client := setupDiffService(ctx, t)
+	cfg, repoProto, repoPath, client := setupDiffService(t, ctx)
 	testcfg.BuildGitalyGit2Go(t, cfg)
 
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
@@ -156,7 +156,7 @@ func TestRawPatch_successful(t *testing.T) {
 
 	// Now that we have read the patch in we verify that it indeed round-trips to the same tree
 	// as the right commit is referring to by reapplying the diff on top of the left commit.
-	patchedCommitID, err := git2goExecutor.Apply(ctx, gittest.RewrittenRepository(ctx, t, cfg, repoProto), git2go.ApplyParams{
+	patchedCommitID, err := git2goExecutor.Apply(ctx, gittest.RewrittenRepository(t, ctx, cfg, repoProto), git2go.ApplyParams{
 		Repository:   repoPath,
 		Committer:    signature,
 		ParentCommit: leftCommit,
@@ -180,7 +180,7 @@ func TestRawPatch_inputValidation(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupDiffService(ctx, t)
+	_, repo, _, client := setupDiffService(t, ctx)
 
 	testCases := []struct {
 		desc    string
@@ -228,7 +228,7 @@ func TestRawPatch_gitlabSignature(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupDiffService(ctx, t)
+	_, repo, _, client := setupDiffService(t, ctx)
 
 	rightCommit := "e395f646b1499e8e0279445fc99a0596a65fab7e"
 	leftCommit := "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"

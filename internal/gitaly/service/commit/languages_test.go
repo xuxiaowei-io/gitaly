@@ -26,7 +26,7 @@ func testLanguagesFeatured(t *testing.T, ctx context.Context) {
 
 	cfg.SocketPath = startTestServices(t, cfg)
 
-	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
@@ -59,7 +59,7 @@ func TestFileCountIsZeroWhenFeatureIsDisabled(t *testing.T) {
 func testFileCountIsZeroWhenFeatureIsDisabled(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	_, repo, _, client := setupCommitServiceWithRepo(ctx, t)
+	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
 
 	request := &gitalypb.CommitLanguagesRequest{
 		Repository: repo,
@@ -85,7 +85,7 @@ func TestLanguagesEmptyRevision(t *testing.T) {
 func testLanguagesEmptyRevisionFeatured(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	_, repo, _, client := setupCommitServiceWithRepo(ctx, t)
+	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
 
 	request := &gitalypb.CommitLanguagesRequest{
 		Repository: repo,
@@ -112,7 +112,7 @@ func TestInvalidCommitLanguagesRequestRevision(t *testing.T) {
 func testInvalidCommitLanguagesRequestRevisionFeatured(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	_, repo, _, client := setupCommitServiceWithRepo(ctx, t)
+	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
 
 	_, err := client.CommitLanguages(ctx, &gitalypb.CommitLanguagesRequest{
 		Repository: repo,
@@ -129,7 +129,7 @@ func TestAmbiguousRefCommitLanguagesRequestRevision(t *testing.T) {
 func testAmbiguousRefCommitLanguagesRequestRevisionFeatured(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	_, repo, _, client := setupCommitServiceWithRepo(ctx, t)
+	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
 
 	// gitlab-test repo has both a branch and a tag named 'v1.1.0'
 	// b83d6e391c22777fca1ed3012fce84f633d7fed0 refs/heads/v1.1.0

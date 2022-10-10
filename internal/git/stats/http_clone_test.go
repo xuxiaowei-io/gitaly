@@ -20,7 +20,7 @@ func TestClone(t *testing.T) {
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 	ctx := testhelper.Context(t)
 
-	serverPort, stopGitServer := gittest.HTTPServer(ctx, t, gitCmdFactory, repoPath, nil)
+	serverPort, stopGitServer := gittest.HTTPServer(t, ctx, gitCmdFactory, repoPath, nil)
 	defer func() {
 		require.NoError(t, stopGitServer())
 	}()
@@ -86,7 +86,7 @@ func TestCloneWithAuth(t *testing.T) {
 
 	authWasChecked := false
 
-	serverPort, stopGitServer := gittest.HTTPServer(ctx, t, gitCmdFactory, repoPath, func(w http.ResponseWriter, r *http.Request, next http.Handler) {
+	serverPort, stopGitServer := gittest.HTTPServer(t, ctx, gitCmdFactory, repoPath, func(w http.ResponseWriter, r *http.Request, next http.Handler) {
 		authWasChecked = true
 
 		actualUser, actualPassword, ok := r.BasicAuth()

@@ -206,7 +206,7 @@ func TestDiffTree(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				SkipCreationViaService: true,
 			})
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)

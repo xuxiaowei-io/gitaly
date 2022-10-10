@@ -21,7 +21,7 @@ func TestObjectReader_reader(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
-	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 
@@ -133,7 +133,7 @@ func TestObjectReader_queue(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
-	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 
@@ -433,7 +433,7 @@ func TestObjectReader_replaceRefs(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
-	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 

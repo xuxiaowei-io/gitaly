@@ -23,7 +23,7 @@ func TestMain(m *testing.M) {
 	testhelper.Run(m)
 }
 
-func setupDiffService(ctx context.Context, tb testing.TB, opt ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, gitalypb.DiffServiceClient) {
+func setupDiffService(tb testing.TB, ctx context.Context, opt ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, gitalypb.DiffServiceClient) {
 	cfg := testcfg.Build(tb)
 
 	addr := testserver.RunGitalyServer(tb, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
@@ -50,7 +50,7 @@ func setupDiffService(ctx context.Context, tb testing.TB, opt ...testserver.Gita
 	require.NoError(tb, err)
 	tb.Cleanup(func() { testhelper.MustClose(tb, conn) })
 
-	repo, repoPath := gittest.CreateRepository(ctx, tb, cfg, gittest.CreateRepositoryConfig{
+	repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 

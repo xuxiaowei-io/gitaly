@@ -55,13 +55,13 @@ func TestRepository(t *testing.T) {
 	pool := client.NewPool()
 	defer pool.Close()
 
-	gittest.TestRepository(t, cfg, func(ctx context.Context, tb testing.TB) (git.Repository, string) {
+	gittest.TestRepository(t, cfg, func(tb testing.TB, ctx context.Context) (git.Repository, string) {
 		tb.Helper()
 
 		ctx, err := storage.InjectGitalyServers(ctx, "default", cfg.SocketPath, cfg.Auth.Token)
 		require.NoError(tb, err)
 
-		repoProto, repoPath := gittest.CreateRepository(ctx, tb, cfg)
+		repoProto, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 
 		repo, err := remoterepo.New(metadata.OutgoingToIncoming(ctx), repoProto, pool)
 		require.NoError(tb, err)

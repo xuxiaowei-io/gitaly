@@ -26,7 +26,7 @@ func TestPerformHTTPPush(t *testing.T) {
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 	ctx := testhelper.Context(t)
 
-	serverPort, stopGitServer := gittest.HTTPServer(ctx, t, gitCmdFactory, targetRepoPath, nil)
+	serverPort, stopGitServer := gittest.HTTPServer(t, ctx, gitCmdFactory, targetRepoPath, nil)
 	defer func() {
 		require.NoError(t, stopGitServer())
 	}()
@@ -42,7 +42,7 @@ func TestPerformHTTPPush(t *testing.T) {
 		{
 			desc: "single revision",
 			preparePush: func(t *testing.T, cfg config.Cfg) ([]PushCommand, io.Reader) {
-				_, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				_, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					Seed:                   gittest.SeedGitLabTest,
 				})
@@ -79,7 +79,7 @@ func TestPerformHTTPPush(t *testing.T) {
 		{
 			desc: "many revisions",
 			preparePush: func(t *testing.T, cfg config.Cfg) ([]PushCommand, io.Reader) {
-				_, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				_, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					Seed:                   gittest.SeedGitLabTest,
 				})

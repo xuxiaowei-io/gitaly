@@ -19,7 +19,7 @@ func TestSuccessfulGetCommitMessagesRequest(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupCommitServiceWithRepo(ctx, t)
+	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, ctx)
 
 	message1 := strings.Repeat("a\n", helper.MaxCommitOrTagMessageSize*2)
 	message2 := strings.Repeat("b\n", helper.MaxCommitOrTagMessageSize*2)
@@ -61,7 +61,7 @@ func TestFailedGetCommitMessagesRequest(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, _, _, client := setupCommitServiceWithRepo(ctx, t)
+	_, _, _, client := setupCommitServiceWithRepo(t, ctx)
 
 	testCases := []struct {
 		desc    string

@@ -19,7 +19,7 @@ import (
 
 func testSuccessfulWikiUpdatePageRequest(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server) {
 	ctx := testhelper.Context(t)
-	wikiRepoProto, wikiRepoPath := setupWikiRepo(ctx, t, cfg)
+	wikiRepoProto, wikiRepoPath := setupWikiRepo(t, ctx, cfg)
 	wikiRepo := localrepo.NewTestRepo(t, cfg, wikiRepoProto)
 
 	writeWikiPage(t, client, wikiRepoProto, createWikiPageOpts{title: "Instálling Gitaly", content: []byte("foobar")})
@@ -110,7 +110,7 @@ func testSuccessfulWikiUpdatePageRequest(t *testing.T, cfg config.Cfg, client gi
 
 func testFailedWikiUpdatePageDueToValidations(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server) {
 	ctx := testhelper.Context(t)
-	wikiRepo, _ := setupWikiRepo(ctx, t, cfg)
+	wikiRepo, _ := setupWikiRepo(t, ctx, cfg)
 
 	writeWikiPage(t, client, wikiRepo, createWikiPageOpts{title: "Installing Gitaly", content: []byte("foobar")})
 
@@ -251,7 +251,7 @@ func testFailedWikiUpdatePageDueToValidations(t *testing.T, cfg config.Cfg, clie
 
 func testFailedWikiUpdatePageDueToDuplicatePage(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server) {
 	ctx := testhelper.Context(t)
-	wikiRepo, _ := setupWikiRepo(ctx, t, cfg)
+	wikiRepo, _ := setupWikiRepo(t, ctx, cfg)
 
 	page1Name := "Installing Gitaly"
 	page2Name := "Setting up Gitaly"

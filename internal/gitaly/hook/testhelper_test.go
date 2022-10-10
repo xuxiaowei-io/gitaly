@@ -23,7 +23,7 @@ func TestMain(m *testing.M) {
 	testhelper.Run(m)
 }
 
-func getExpectedEnv(ctx context.Context, tb testing.TB, locator storage.Locator, gitCmdFactory git.CommandFactory, repo *gitalypb.Repository) []string {
+func getExpectedEnv(tb testing.TB, ctx context.Context, locator storage.Locator, gitCmdFactory git.CommandFactory, repo *gitalypb.Repository) []string {
 	repoPath, err := locator.GetPath(repo)
 	require.NoError(tb, err)
 

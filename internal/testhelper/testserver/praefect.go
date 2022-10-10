@@ -135,7 +135,7 @@ func StartPraefect(tb testing.TB, cfg config.Config) PraefectServer {
 		}
 	}()
 
-	waitHealthy(ctx, tb, praefectServer.Address(), cfg.Auth.Token)
+	waitHealthy(tb, ctx, praefectServer.Address(), cfg.Auth.Token)
 
 	return praefectServer
 }

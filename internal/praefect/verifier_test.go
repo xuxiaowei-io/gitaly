@@ -548,12 +548,12 @@ func TestVerifier(t *testing.T) {
 			for virtualStorage, relativePaths := range tc.replicas {
 				for relativePath, storages := range relativePaths {
 					// Create the expected repository. This creates all of the replicas transactionally.
-					repo, _ := gittest.CreateRepository(ctx, t,
+					repo, _ := gittest.CreateRepository(t, ctx,
 						gitalyconfig.Cfg{Storages: []gitalyconfig.Storage{{Name: virtualStorage}}},
 						gittest.CreateRepositoryConfig{ClientConn: conn, RelativePath: relativePath},
 					)
 
-					replicaPath := gittest.GetReplicaPath(ctx, t, gitalyconfig.Cfg{}, repo, gittest.GetReplicaPathConfig{ClientConn: conn})
+					replicaPath := gittest.GetReplicaPath(t, ctx, gitalyconfig.Cfg{}, repo, gittest.GetReplicaPathConfig{ClientConn: conn})
 
 					// Now remove the replicas that were created in the transaction but the test case
 					// expects not to exist. We remove them directly from the Gitalys so the metadata
@@ -605,7 +605,7 @@ func TestVerifier(t *testing.T) {
 			}
 
 			// Create a repository and lock its records to assert the dequeuer does not wait on row locks.
-			gittest.CreateRepository(ctx, t,
+			gittest.CreateRepository(t, ctx,
 				gitalyconfig.Cfg{Storages: []gitalyconfig.Storage{{Name: "virtual-storage"}}},
 				gittest.CreateRepositoryConfig{ClientConn: conn, RelativePath: "locked-repository"},
 			)
@@ -701,7 +701,7 @@ func TestVerifier(t *testing.T) {
 				require.True(t, exists.GetExists())
 
 				// Ensure all the metadata still contains the expected replicas
-				require.Equal(t, step.expectedReplicas, getAllReplicas(ctx, t, db))
+				require.Equal(t, step.expectedReplicas, getAllReplicas(t, ctx, db))
 			}
 
 			require.NoError(t, testutil.CollectAndCompare(verifier, strings.NewReader(fmt.Sprintf(`
@@ -744,7 +744,7 @@ gitaly_praefect_verification_jobs_dequeued_total{storage="gitaly-2",virtual_stor
 
 // getAllReplicas gets all replicas from the database except for the locked-repository which is created
 // by the test suite to ensure non-blocking queries.
-func getAllReplicas(ctx context.Context, tb testing.TB, db glsql.Querier) map[string]map[string][]string {
+func getAllReplicas(tb testing.TB, ctx context.Context, db glsql.Querier) map[string]map[string][]string {
 	rows, err := db.QueryContext(ctx, `
 		SELECT repositories.virtual_storage, repositories.relative_path, storage
 		FROM repositories

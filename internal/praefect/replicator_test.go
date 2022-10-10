@@ -285,7 +285,7 @@ func TestConfirmReplication(t *testing.T) {
 	cfg, testRepoA, testRepoAPath := testcfg.BuildWithRepo(t)
 	srvSocketPath := testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 
-	testRepoB, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	testRepoB, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 		Seed:                   gittest.SeedGitLabTest,
 	})

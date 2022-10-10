@@ -22,7 +22,7 @@ func TestCatfileInfo(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
-	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -286,7 +286,7 @@ func TestCatfileInfoAllObjects(t *testing.T) {
 	cfg := testcfg.Build(t)
 	ctx := testhelper.Context(t)
 
-	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -342,7 +342,7 @@ func TestCatfileInfo_WithDiskUsageSize(t *testing.T) {
 	cfg := testcfg.Build(t)
 	ctx := testhelper.Context(t)
 
-	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)

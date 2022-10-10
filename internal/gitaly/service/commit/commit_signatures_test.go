@@ -20,7 +20,7 @@ func TestSuccessfulGetCommitSignaturesRequest(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupCommitServiceWithRepo(ctx, t)
+	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, ctx)
 
 	commitData := testhelper.MustReadFile(t, "testdata/dc00eb001f41dfac08192ead79c2377c588b82ee.commit")
 	commit := text.ChompBytes(gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: bytes.NewReader(commitData)},
@@ -89,7 +89,7 @@ func TestFailedGetCommitSignaturesRequest(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupCommitServiceWithRepo(ctx, t)
+	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
 
 	testCases := []struct {
 		desc    string

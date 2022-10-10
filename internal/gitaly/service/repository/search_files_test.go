@@ -88,7 +88,7 @@ func TestSearchFilesByContentSuccessful(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	_, repo, _, client := setupRepositoryService(ctx, t)
+	_, repo, _, client := setupRepositoryService(t, ctx)
 
 	testCases := []struct {
 		desc   string
@@ -154,7 +154,7 @@ func TestSearchFilesByContentLargeFile(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
+	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	for _, tc := range []struct {
 		desc     string
@@ -283,7 +283,7 @@ func TestSearchFilesByNameSuccessful(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	_, repo, _, client := setupRepositoryService(ctx, t)
+	_, repo, _, client := setupRepositoryService(t, ctx)
 
 	testCases := []struct {
 		desc     string
@@ -349,7 +349,7 @@ func TestSearchFilesByNameUnusualFileNamesSuccessful(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
+	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	ref := []byte("unusual_file_names")
 	gittest.WriteCommit(t, cfg, repoPath,
@@ -447,7 +447,7 @@ func TestSearchFilesByNamePaginationSuccessful(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
+	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	ref := []byte("pagination")
 	gittest.WriteCommit(t, cfg, repoPath,

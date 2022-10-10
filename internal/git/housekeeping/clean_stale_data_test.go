@@ -868,7 +868,7 @@ func TestRepositoryManager_CleanStaleData_unsetConfiguration(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
-	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -925,7 +925,7 @@ func TestRepositoryManager_CleanStaleData_unsetConfigurationTransactional(t *tes
 	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
-	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -959,7 +959,7 @@ func TestRepositoryManager_CleanStaleData_pruneEmptyConfigSections(t *testing.T)
 	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
-	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -1009,7 +1009,7 @@ func TestPruneEmptyConfigSections(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
-	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)

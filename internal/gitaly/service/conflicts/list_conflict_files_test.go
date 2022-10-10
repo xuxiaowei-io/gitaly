@@ -22,7 +22,7 @@ type conflictFile struct {
 func TestSuccessfulListConflictFilesRequest(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	_, repo, _, client := setupConflictsService(ctx, t, nil)
+	_, repo, _, client := setupConflictsService(t, ctx, nil)
 
 	ourCommitOid := "1a35b5a77cf6af7edf6703f88e82f6aff613666f"
 	theirCommitOid := "8309e68585b28d61eb85b7e2834849dda6bf1733"
@@ -88,7 +88,7 @@ end
 func TestSuccessfulListConflictFilesRequestWithAncestor(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	_, repo, _, client := setupConflictsService(ctx, t, nil)
+	_, repo, _, client := setupConflictsService(t, ctx, nil)
 
 	ourCommitOid := "824be604a34828eb682305f0d963056cfac87b2d"
 	theirCommitOid := "1450cd639e0bc6721eb02800169e464f212cde06"
@@ -134,7 +134,7 @@ func TestSuccessfulListConflictFilesRequestWithAncestor(t *testing.T) {
 func TestListConflictFilesHugeDiff(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	cfg, repo, repoPath, client := setupConflictsService(ctx, t, nil)
+	cfg, repo, repoPath, client := setupConflictsService(t, ctx, nil)
 
 	ourCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
 		gittest.TreeEntry{Path: "a", Mode: "100644", Content: strings.Repeat("a\n", 128*1024)},
@@ -173,7 +173,7 @@ func TestListConflictFilesHugeDiff(t *testing.T) {
 func TestListConflictFilesFailedPrecondition(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	_, repo, _, client := setupConflictsService(ctx, t, nil)
+	_, repo, _, client := setupConflictsService(t, ctx, nil)
 
 	testCases := []struct {
 		desc           string
@@ -230,7 +230,7 @@ func TestListConflictFilesFailedPrecondition(t *testing.T) {
 func TestListConflictFilesAllowTreeConflicts(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	_, repo, _, client := setupConflictsService(ctx, t, nil)
+	_, repo, _, client := setupConflictsService(t, ctx, nil)
 
 	ourCommitOid := "eb227b3e214624708c474bdab7bde7afc17cefcc"
 	theirCommitOid := "824be604a34828eb682305f0d963056cfac87b2d"
@@ -322,7 +322,7 @@ end
 func TestFailedListConflictFilesRequestDueToValidation(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	_, repo, _, client := setupConflictsService(ctx, t, nil)
+	_, repo, _, client := setupConflictsService(t, ctx, nil)
 
 	ourCommitOid := "0b4bc9a49b562e85de7cc9e834518ea6828729b9"
 	theirCommitOid := "bb5206fee213d983da88c47f9cf4cc6caf9c66dc"

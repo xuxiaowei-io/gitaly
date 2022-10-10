@@ -20,7 +20,7 @@ func TestSuccessfulCalculateChecksum(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
+	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	// Force the refs database of testRepo into a known state
 	require.NoError(t, os.RemoveAll(filepath.Join(repoPath, "refs")))
@@ -44,7 +44,7 @@ func TestEmptyRepositoryCalculateChecksum(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	repo, _ := gittest.CreateRepository(ctx, t, cfg)
+	repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	request := &gitalypb.CalculateChecksumRequest{Repository: repo}
 
@@ -59,7 +59,7 @@ func TestBrokenRepositoryCalculateChecksum(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	// Force an empty HEAD file
 	require.NoError(t, os.Truncate(filepath.Join(repoPath, "HEAD"), 0))
@@ -105,7 +105,7 @@ func TestInvalidRefsCalculateChecksum(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, repoPath, client := setupRepositoryService(ctx, t)
+	_, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	// Force the refs database of testRepo into a known state
 	require.NoError(t, os.RemoveAll(filepath.Join(repoPath, "refs")))

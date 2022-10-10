@@ -23,7 +23,7 @@ func TestCleanupDisconnectedWorktrees_doesNothingWithoutWorktrees(t *testing.T) 
 	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 	worktreePath := filepath.Join(testhelper.TempDir(t), "worktree")
 
-	failingGitCmdFactory := gittest.NewInterceptingCommandFactory(ctx, t, cfg, func(git.ExecutionEnvironment) string {
+	failingGitCmdFactory := gittest.NewInterceptingCommandFactory(t, ctx, cfg, func(git.ExecutionEnvironment) string {
 		return `#!/usr/bin/env bash
 		exit 15
 		`

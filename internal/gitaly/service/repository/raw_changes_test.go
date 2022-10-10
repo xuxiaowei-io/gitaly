@@ -20,7 +20,7 @@ func TestGetRawChanges(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRepositoryService(ctx, t)
+	_, repo, _, client := setupRepositoryService(t, ctx)
 
 	testCases := []struct {
 		oldRev  string
@@ -122,7 +122,7 @@ func TestGetRawChangesSpecialCharacters(t *testing.T) {
 	// characters.
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRepositoryService(ctx, t)
+	_, repo, _, client := setupRepositoryService(t, ctx)
 
 	req := &gitalypb.GetRawChangesRequest{
 		Repository:   repo,
@@ -162,7 +162,7 @@ func TestGetRawChangesFailures(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRepositoryService(ctx, t)
+	_, repo, _, client := setupRepositoryService(t, ctx)
 
 	for _, tc := range []struct {
 		desc        string
@@ -216,7 +216,7 @@ func TestGetRawChangesManyFiles(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRepositoryService(ctx, t)
+	_, repo, _, client := setupRepositoryService(t, ctx)
 
 	initCommit := "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"
 	req := &gitalypb.GetRawChangesRequest{
@@ -237,7 +237,7 @@ func TestGetRawChangesMappingOperations(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRepositoryService(ctx, t)
+	_, repo, _, client := setupRepositoryService(t, ctx)
 
 	req := &gitalypb.GetRawChangesRequest{
 		Repository:   repo,
@@ -279,7 +279,7 @@ func TestGetRawChangesInvalidUTF8Paths(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
+	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	const (
 		// These are arbitrary blobs known to exist in the test repository

@@ -55,7 +55,7 @@ func TestCreateRepository_successful(t *testing.T) {
 	_, err := client.CreateRepository(ctx, req)
 	require.NoError(t, err)
 
-	repoDir := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(ctx, t, cfg, repo))
+	repoDir := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(t, ctx, cfg, repo))
 
 	require.NoError(t, unix.Access(repoDir, unix.R_OK))
 	require.NoError(t, unix.Access(repoDir, unix.W_OK))
@@ -114,7 +114,7 @@ func TestCreateRepository_withDefaultBranch(t *testing.T) {
 				require.Contains(t, err.Error(), tc.expectedErrString)
 			} else {
 				require.NoError(t, err)
-				repoPath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(ctx, t, cfg, repo))
+				repoPath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(t, ctx, cfg, repo))
 				symRef := text.ChompBytes(gittest.Exec(
 					t,
 					cfg,
@@ -197,7 +197,7 @@ func TestCreateRepository_transactional(t *testing.T) {
 		_, err = client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: repo})
 		require.NoError(t, err)
 
-		require.DirExists(t, filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(ctx, t, cfg, repo)))
+		require.DirExists(t, filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(t, ctx, cfg, repo)))
 		require.Equal(t, 2, len(txManager.Votes()), "expected transactional vote")
 	})
 
@@ -207,7 +207,7 @@ func TestCreateRepository_transactional(t *testing.T) {
 		// The above test creates the second repository on the server. As this test can run with Praefect in front of it,
 		// we'll use the next replica path Praefect will assign in order to ensure this repository creation conflicts even
 		// with Praefect in front of it.
-		repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			RelativePath: praefectutil.DeriveReplicaPath(2),
 		})
 
@@ -235,7 +235,7 @@ func TestCreateRepository_idempotent(t *testing.T) {
 		// conflicts even with Praefect in front of it.
 		RelativePath: praefectutil.DeriveReplicaPath(1),
 	}
-	gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		RelativePath: repo.RelativePath,
 	})
 

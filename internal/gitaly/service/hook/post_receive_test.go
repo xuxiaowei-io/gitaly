@@ -27,7 +27,7 @@ import (
 
 func TestPostReceiveInvalidArgument(t *testing.T) {
 	ctx := testhelper.Context(t)
-	_, _, _, client := setupHookService(ctx, t)
+	_, _, _, client := setupHookService(t, ctx)
 
 	stream, err := client.PostReceiveHook(ctx)
 	require.NoError(t, err)

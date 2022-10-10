@@ -24,11 +24,11 @@ func TestLogObjectInfo(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
-	repo1, repoPath1 := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo1, repoPath1 := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 		Seed:                   gittest.SeedGitLabTest,
 	})
-	repo2, repoPath2 := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo2, repoPath2 := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 		Seed:                   gittest.SeedGitLabTest,
 	})

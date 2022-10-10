@@ -26,7 +26,7 @@ func TestFailedUploadArchiveRequestDueToTimeout(t *testing.T) {
 	cfg.SocketPath = runSSHServerWithOptions(t, cfg, []ServerOpt{WithArchiveRequestTimeout(100 * time.Microsecond)})
 
 	ctx := testhelper.Context(t)
-	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
@@ -122,7 +122,7 @@ func TestUploadArchiveSuccess(t *testing.T) {
 	cfg.SocketPath = runSSHServer(t, cfg)
 
 	ctx := testhelper.Context(t)
-	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 

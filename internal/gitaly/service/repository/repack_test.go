@@ -25,7 +25,7 @@ func TestRepackIncrementalSuccess(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, repoPath, client := setupRepositoryService(ctx, t)
+	_, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	packPath := filepath.Join(repoPath, "objects", "pack")
 
@@ -53,7 +53,7 @@ func TestRepackIncrementalCollectLogStatistics(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	logger, hook := test.NewNullLogger()
-	_, repo, _, client := setupRepositoryService(ctx, t, testserver.WithLogger(logger))
+	_, repo, _, client := setupRepositoryService(t, ctx, testserver.WithLogger(logger))
 
 	//nolint:staticcheck
 	_, err := client.RepackIncremental(ctx, &gitalypb.RepackIncrementalRequest{Repository: repo})
@@ -66,7 +66,7 @@ func TestRepackLocal(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
+	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	altObjectsDir := "./alt-objects"
 	alternateCommit := gittest.WriteCommit(t, cfg, repoPath,
@@ -166,7 +166,7 @@ func TestRepackFullSuccess(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
 			var repoPath string
-			test.req.Repository, repoPath = gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+			test.req.Repository, repoPath = gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				Seed: gittest.SeedGitLabTest,
 			})
 			// Reset mtime to a long while ago since some filesystems don't have sub-second
@@ -210,7 +210,7 @@ func TestRepackFullCollectLogStatistics(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	logger, hook := test.NewNullLogger()
-	_, repo, _, client := setupRepositoryService(ctx, t, testserver.WithLogger(logger))
+	_, repo, _, client := setupRepositoryService(t, ctx, testserver.WithLogger(logger))
 
 	//nolint:staticcheck
 	_, err := client.RepackFull(ctx, &gitalypb.RepackFullRequest{Repository: repo})
@@ -298,7 +298,7 @@ func TestRepackFullDeltaIslands(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
+	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	gittest.TestDeltaIslands(t, cfg, repoPath, repoPath, false, func() error {
 		//nolint:staticcheck

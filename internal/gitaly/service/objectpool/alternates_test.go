@@ -28,7 +28,7 @@ func TestDisconnectGitAlternates(t *testing.T) {
 }
 
 func testDisconnectGitAlternates(t *testing.T, ctx context.Context) {
-	cfg, repoProto, repoPath, _, client := setup(ctx, t)
+	cfg, repoProto, repoPath, _, client := setup(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
@@ -74,7 +74,7 @@ func TestDisconnectGitAlternatesNoAlternates(t *testing.T) {
 }
 
 func testDisconnectGitAlternatesNoAlternates(t *testing.T, ctx context.Context) {
-	cfg, repoProto, repoPath, _, client := setup(ctx, t)
+	cfg, repoProto, repoPath, _, client := setup(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	altPath, err := repo.InfoAlternatesPath()
@@ -96,7 +96,7 @@ func TestDisconnectGitAlternatesUnexpectedAlternates(t *testing.T) {
 }
 
 func testDisconnectGitAlternatesUnexpectedAlternates(t *testing.T, ctx context.Context) {
-	cfg, _, _, _, client := setup(ctx, t)
+	cfg, _, _, _, client := setup(t, ctx)
 
 	testCases := []struct {
 		desc       string
@@ -109,7 +109,7 @@ func testDisconnectGitAlternatesUnexpectedAlternates(t *testing.T, ctx context.C
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			repoProto, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+			repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				Seed: gittest.SeedGitLabTest,
 			})
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -138,7 +138,7 @@ func TestRemoveAlternatesIfOk(t *testing.T) {
 
 func testRemoveAlternatesIfOk(t *testing.T, ctx context.Context) {
 	t.Run("pack files are missing", func(t *testing.T) {
-		cfg, repoProto, repoPath, _, _ := setup(ctx, t)
+		cfg, repoProto, repoPath, _, _ := setup(t, ctx)
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 		altPath, err := repo.InfoAlternatesPath()
@@ -165,7 +165,7 @@ func testRemoveAlternatesIfOk(t *testing.T, ctx context.Context) {
 	})
 
 	t.Run("commit graph exists but object is missing from odb", func(t *testing.T) {
-		cfg, repoProto, repoPath, _, _ := setup(ctx, t)
+		cfg, repoProto, repoPath, _, _ := setup(t, ctx)
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 		altPath, err := repo.InfoAlternatesPath()

@@ -60,7 +60,7 @@ func setupOperationsServiceWithCfg(
 	md := testcfg.GitalyServersMetadataFromCfg(tb, cfg)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
 
-	repo, repoPath := gittest.CreateRepository(ctx, tb, cfg, gittest.CreateRepositoryConfig{
+	repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 

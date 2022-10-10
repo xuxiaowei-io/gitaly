@@ -35,9 +35,9 @@ func TestListAllCommits(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	t.Run("empty repo", func(t *testing.T) {
-		cfg, client := setupCommitService(ctx, t)
+		cfg, client := setupCommitService(t, ctx)
 
-		repo, _ := gittest.CreateRepository(ctx, t, cfg)
+		repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 		stream, err := client.ListAllCommits(ctx, &gitalypb.ListAllCommitsRequest{
 			Repository: repo,
@@ -48,7 +48,7 @@ func TestListAllCommits(t *testing.T) {
 	})
 
 	t.Run("normal repo", func(t *testing.T) {
-		_, repo, _, client := setupCommitServiceWithRepo(ctx, t)
+		_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
 
 		stream, err := client.ListAllCommits(ctx, &gitalypb.ListAllCommitsRequest{
 			Repository: repo,
@@ -79,7 +79,7 @@ func TestListAllCommits(t *testing.T) {
 	})
 
 	t.Run("pagination", func(t *testing.T) {
-		_, repo, _, client := setupCommitServiceWithRepo(ctx, t)
+		_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
 
 		stream, err := client.ListAllCommits(ctx, &gitalypb.ListAllCommitsRequest{
 			Repository: repo,
@@ -96,7 +96,7 @@ func TestListAllCommits(t *testing.T) {
 	})
 
 	t.Run("quarantine directory", func(t *testing.T) {
-		cfg, repo, repoPath, client := setupCommitServiceWithRepo(ctx, t)
+		cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, ctx)
 
 		quarantineDir := filepath.Join("objects", "incoming-123456")
 		require.NoError(t, os.Mkdir(filepath.Join(repoPath, quarantineDir), 0o777))
@@ -140,7 +140,7 @@ func BenchmarkListAllCommits(b *testing.B) {
 	b.StopTimer()
 	ctx := testhelper.Context(b)
 
-	_, repo, _, client := setupCommitServiceWithRepo(ctx, b)
+	_, repo, _, client := setupCommitServiceWithRepo(b, ctx)
 
 	b.Run("ListAllCommits", func(b *testing.B) {
 		b.ReportAllocs()

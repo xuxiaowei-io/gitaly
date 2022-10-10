@@ -53,7 +53,7 @@ func setup(tb testing.TB) (config.Cfg, *gitalypb.Repository, string) {
 
 	require.NoError(tb, cfg.Validate())
 
-	repo, repoPath := CreateRepository(ctx, tb, cfg, CreateRepositoryConfig{
+	repo, repoPath := CreateRepository(tb, ctx, cfg, CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 

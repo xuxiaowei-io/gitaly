@@ -409,7 +409,7 @@ func TestExecCommandFactory_GitVersion(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			gitCmdFactory := gittest.NewInterceptingCommandFactory(
-				ctx, t, testcfg.Build(t), generateVersionScript(tc.versionString),
+				t, ctx, testcfg.Build(t), generateVersionScript(tc.versionString),
 				gittest.WithRealCommandFactoryOptions(git.WithSkipHooks()),
 				gittest.WithInterceptedVersion(),
 			)
@@ -426,7 +426,7 @@ func TestExecCommandFactory_GitVersion(t *testing.T) {
 
 	t.Run("caching", func(t *testing.T) {
 		gitCmdFactory := gittest.NewInterceptingCommandFactory(
-			ctx, t, testcfg.Build(t), generateVersionScript("git version 1.2.3"),
+			t, ctx, testcfg.Build(t), generateVersionScript("git version 1.2.3"),
 			gittest.WithRealCommandFactoryOptions(git.WithSkipHooks()),
 			gittest.WithInterceptedVersion(),
 		)
@@ -476,7 +476,7 @@ func TestExecCommandFactory_config(t *testing.T) {
 
 	// Create a repository and remove its gitconfig to bring us into a known state where there
 	// is no repo-level configuration that interferes with our test.
-	repo, repoDir := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo, repoDir := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	require.NoError(t, os.Remove(filepath.Join(repoDir, "config")))
@@ -505,7 +505,7 @@ func TestExecCommandFactory_config(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			factory := gittest.NewInterceptingCommandFactory(ctx, t, cfg, func(execEnv git.ExecutionEnvironment) string {
+			factory := gittest.NewInterceptingCommandFactory(t, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
 				return fmt.Sprintf(
 					`#!/usr/bin/env bash
 					if test "$1" = "version"
@@ -575,7 +575,7 @@ func TestExecCommandFactory_SidecarGitConfiguration(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			factory := gittest.NewInterceptingCommandFactory(ctx, t, cfg, func(git.ExecutionEnvironment) string {
+			factory := gittest.NewInterceptingCommandFactory(t, ctx, cfg, func(git.ExecutionEnvironment) string {
 				return fmt.Sprintf(
 					`#!/usr/bin/env bash
 					echo "git version %s"
@@ -632,7 +632,7 @@ func TestFsckConfiguration(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			ctx := testhelper.Context(t)
 			cfg := testcfg.Build(t)
-			repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg,
+			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg,
 				gittest.CreateRepositoryConfig{SkipCreationViaService: true},
 			)
 

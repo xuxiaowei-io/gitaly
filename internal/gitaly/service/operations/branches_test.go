@@ -515,7 +515,7 @@ func TestUserDeleteBranch_allowed(t *testing.T) {
 				gitlab.NewMockClient(t, tc.allowed, gitlab.MockPreReceive, gitlab.MockPostReceive),
 			))
 
-			repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
+			repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 			gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"))
 
 			response, err := client.UserDeleteBranch(ctx, &gitalypb.UserDeleteBranchRequest{

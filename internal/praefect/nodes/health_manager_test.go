@@ -26,7 +26,7 @@ func (m mockHealthClient) Check(ctx context.Context, r *grpc_health_v1.HealthChe
 	return m.CheckFunc(ctx, r, opts...)
 }
 
-func getHealthConsensus(ctx context.Context, t *testing.T, db glsql.Querier) map[string][]string {
+func getHealthConsensus(t *testing.T, ctx context.Context, db glsql.Querier) map[string][]string {
 	t.Helper()
 
 	rows, err := db.QueryContext(ctx, "SELECT virtual_storage, storage FROM healthy_storages")
@@ -541,7 +541,7 @@ func TestHealthManager(t *testing.T) {
 				}
 
 				require.Equal(t, expectedHealthyNodes, actualHealthyNodes, "health check %d", i+1)
-				require.Equal(t, hc.HealthConsensus, getHealthConsensus(ctx, t, db), "health check %d", i+1)
+				require.Equal(t, hc.HealthConsensus, getHealthConsensus(t, ctx, db), "health check %d", i+1)
 
 				select {
 				case <-hm.Updated():
@@ -597,7 +597,7 @@ func TestHealthManager_databaseTimeout(t *testing.T) {
 	}()
 
 	// Wait until the blocked query is waiting.
-	testdb.WaitForBlockedQuery(ctx, t, db, "INSERT INTO node_status")
+	testdb.WaitForBlockedQuery(t, ctx, db, "INSERT INTO node_status")
 	// Simulate a timeout.
 	timeoutQuery()
 	// Query should have been canceled.
@@ -647,7 +647,7 @@ func TestHealthManager_orderedWrites(t *testing.T) {
 	}()
 
 	// Wait for tx2 to be blocked on the gitaly-1 lock acquired by tx1
-	testdb.WaitForBlockedQuery(ctx, t, db, "INSERT INTO node_status")
+	testdb.WaitForBlockedQuery(t, ctx, db, "INSERT INTO node_status")
 
 	// Ensure tx1 can acquire lock on gitaly-2.
 	require.NoError(t, hm1.updateHealthChecks(ctx, []string{virtualStorage}, []string{"gitaly-2"}, []bool{true}))
@@ -658,5 +658,5 @@ func TestHealthManager_orderedWrites(t *testing.T) {
 	require.NoError(t, <-tx2Err)
 	require.NoError(t, tx2.Commit())
 
-	require.Equal(t, map[string][]string{"virtual-storage": {"gitaly-1", "gitaly-2"}}, getHealthConsensus(ctx, t, db))
+	require.Equal(t, map[string][]string{"virtual-storage": {"gitaly-1", "gitaly-2"}}, getHealthConsensus(t, ctx, db))
 }

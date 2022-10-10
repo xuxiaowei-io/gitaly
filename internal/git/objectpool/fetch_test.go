@@ -223,7 +223,7 @@ func TestFetchFromOrigin_refs(t *testing.T) {
 	poolPath := pool.FullPath()
 
 	// Init the source repo with a bunch of refs.
-	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)

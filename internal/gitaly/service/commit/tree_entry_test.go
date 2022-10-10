@@ -26,7 +26,7 @@ func TestSuccessfulTreeEntry(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupCommitServiceWithRepo(ctx, t)
+	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
 
 	testCases := []struct {
 		revision          []byte
@@ -155,7 +155,7 @@ func TestFailedTreeEntry(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupCommitServiceWithRepo(ctx, t)
+	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
 
 	revision := []byte("d42783470dc29fde2cf459eb3199ee1d7e3f3a72")
 	path := []byte("a/b/c")

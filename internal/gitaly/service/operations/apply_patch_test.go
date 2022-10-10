@@ -277,10 +277,10 @@ To restore the original branch and stop patching, run "git am --abort".
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			repoPb, repoPath := gittest.CreateRepository(ctx, t, cfg)
+			repoPb, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 			repo := localrepo.NewTestRepo(t, cfg, repoPb)
-			rewrittenRepo := gittest.RewrittenRepository(ctx, t, cfg, repoPb)
+			rewrittenRepo := gittest.RewrittenRepository(t, ctx, cfg, repoPb)
 
 			executor := git2go.NewExecutor(cfg, gittest.NewCommandFactory(t, cfg), config.NewLocator(cfg))
 

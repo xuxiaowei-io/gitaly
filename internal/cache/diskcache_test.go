@@ -50,11 +50,11 @@ func TestStreamDBNaiveKeyer(t *testing.T) {
 	ctx := testhelper.Context(t)
 	ctx = testhelper.SetCtxGrpcMethod(ctx, "InfoRefsUploadPack")
 
-	repo1, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo1, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 		Seed:                   gittest.SeedGitLabTest,
 	})
-	repo2, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo2, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 		Seed:                   gittest.SeedGitLabTest,
 	})

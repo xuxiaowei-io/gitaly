@@ -26,7 +26,7 @@ func TestProcesses_add(t *testing.T) {
 	p := &processes{maxLen: maxLen}
 
 	cfg := testcfg.Build(t)
-	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 
@@ -63,7 +63,7 @@ func TestProcesses_addTwice(t *testing.T) {
 	p := &processes{maxLen: 10}
 
 	cfg := testcfg.Build(t)
-	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 
@@ -95,7 +95,7 @@ func TestProcesses_Checkout(t *testing.T) {
 	p := &processes{maxLen: 10}
 
 	cfg := testcfg.Build(t)
-	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 
@@ -127,7 +127,7 @@ func TestProcesses_EnforceTTL(t *testing.T) {
 	p := &processes{maxLen: 10}
 
 	cfg := testcfg.Build(t)
-	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 
@@ -177,7 +177,7 @@ func TestCache_autoExpiry(t *testing.T) {
 	defer c.Stop()
 
 	cfg := testcfg.Build(t)
-	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 
@@ -206,7 +206,7 @@ func TestCache_ObjectReader(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
-	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
@@ -306,7 +306,7 @@ func TestCache_ObjectInfoReader(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
-	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))

@@ -18,7 +18,7 @@ func TestSuccessfulRawBlameRequest(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupCommitServiceWithRepo(ctx, t)
+	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
 
 	testCases := []struct {
 		revision, path, data, blameRange []byte
@@ -77,7 +77,7 @@ func TestFailedRawBlameRequest(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupCommitServiceWithRepo(ctx, t)
+	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
 
 	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}
 

@@ -19,7 +19,7 @@ import (
 func TestSuccessfulFindAllRemoteBranchesRequest(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	cfg, repoProto, repoPath, client := setupRefService(ctx, t)
+	cfg, repoProto, repoPath, client := setupRefService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -76,7 +76,7 @@ func TestSuccessfulFindAllRemoteBranchesRequest(t *testing.T) {
 
 func TestInvalidFindAllRemoteBranchesRequest(t *testing.T) {
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRefService(ctx, t)
+	_, repo, _, client := setupRefService(t, ctx)
 
 	testCases := []struct {
 		description string

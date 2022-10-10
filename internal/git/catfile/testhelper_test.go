@@ -59,7 +59,7 @@ func setupObjectReader(t *testing.T, ctx context.Context) (config.Cfg, ObjectRea
 	t.Helper()
 
 	cfg := testcfg.Build(t)
-	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repoExecutor := newRepoExecutor(t, cfg, repo)

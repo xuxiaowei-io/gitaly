@@ -35,7 +35,7 @@ func containsRef(refs [][]byte, ref string) bool {
 
 func TestSuccessfulFindAllBranchNames(t *testing.T) {
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRefService(ctx, t)
+	_, repo, _, client := setupRefService(t, ctx)
 
 	rpcRequest := &gitalypb.FindAllBranchNamesRequest{Repository: repo}
 	c, err := client.FindAllBranchNames(ctx, rpcRequest)
@@ -60,7 +60,7 @@ func TestSuccessfulFindAllBranchNames(t *testing.T) {
 
 func TestFindAllBranchNamesVeryLargeResponse(t *testing.T) {
 	ctx := testhelper.Context(t)
-	cfg, repoProto, _, client := setupRefService(ctx, t)
+	cfg, repoProto, _, client := setupRefService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	updater, err := updateref.New(ctx, repo)
@@ -145,7 +145,7 @@ func TestInvalidRepoFindAllBranchNamesRequest(t *testing.T) {
 
 func TestSuccessfulFindAllTagNames(t *testing.T) {
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRefService(ctx, t)
+	_, repo, _, client := setupRefService(t, ctx)
 
 	rpcRequest := &gitalypb.FindAllTagNamesRequest{Repository: repo}
 	c, err := client.FindAllTagNames(ctx, rpcRequest)
@@ -207,7 +207,7 @@ func TestInvalidRepoFindAllTagNamesRequest(t *testing.T) {
 
 func TestSuccessfulFindDefaultBranchName(t *testing.T) {
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupRefService(ctx, t)
+	cfg, repo, repoPath, client := setupRefService(t, ctx)
 	rpcRequest := &gitalypb.FindDefaultBranchNameRequest{Repository: repo}
 
 	// The testing repository has no main branch, so we create it and update
@@ -222,7 +222,7 @@ func TestSuccessfulFindDefaultBranchName(t *testing.T) {
 
 func TestSuccessfulFindDefaultBranchNameLegacy(t *testing.T) {
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRefService(ctx, t)
+	_, repo, _, client := setupRefService(t, ctx)
 	rpcRequest := &gitalypb.FindDefaultBranchNameRequest{Repository: repo}
 	r, err := client.FindDefaultBranchName(ctx, rpcRequest)
 	require.NoError(t, err)
@@ -259,7 +259,7 @@ func TestSuccessfulFindLocalBranches(t *testing.T) {
 }
 
 func testSuccessfulFindLocalBranches(t *testing.T, ctx context.Context) {
-	_, repo, _, client := setupRefService(ctx, t)
+	_, repo, _, client := setupRefService(t, ctx)
 
 	rpcRequest := &gitalypb.FindLocalBranchesRequest{Repository: repo}
 	c, err := client.FindLocalBranches(ctx, rpcRequest)
@@ -325,7 +325,7 @@ func TestFindLocalBranchesHugeCommitter(t *testing.T) {
 }
 
 func testFindLocalBranchesHugeCommitter(t *testing.T, ctx context.Context) {
-	cfg, repo, repoPath, client := setupRefService(ctx, t)
+	cfg, repo, repoPath, client := setupRefService(t, ctx)
 
 	gittest.WriteCommit(t, cfg, repoPath,
 		gittest.WithBranch("refs/heads/improve/awesome"),
@@ -352,7 +352,7 @@ func TestFindLocalBranchesPagination(t *testing.T) {
 }
 
 func testFindLocalBranchesPagination(t *testing.T, ctx context.Context) {
-	_, repo, _, client := setupRefService(ctx, t)
+	_, repo, _, client := setupRefService(t, ctx)
 
 	limit := 1
 	rpcRequest := &gitalypb.FindLocalBranchesRequest{
@@ -425,7 +425,7 @@ func TestFindLocalBranchesPaginationSequence(t *testing.T) {
 }
 
 func testFindLocalBranchesPaginationSequence(t *testing.T, ctx context.Context) {
-	_, repo, _, client := setupRefService(ctx, t)
+	_, repo, _, client := setupRefService(t, ctx)
 
 	limit := 2
 	firstRPCRequest := &gitalypb.FindLocalBranchesRequest{
@@ -516,7 +516,7 @@ func TestFindLocalBranchesPaginationWithIncorrectToken(t *testing.T) {
 }
 
 func testFindLocalBranchesPaginationWithIncorrectToken(t *testing.T, ctx context.Context) {
-	_, repo, _, client := setupRefService(ctx, t)
+	_, repo, _, client := setupRefService(t, ctx)
 
 	limit := 1
 	rpcRequest := &gitalypb.FindLocalBranchesRequest{
@@ -580,7 +580,7 @@ func testFindLocalBranchesSort(t *testing.T, ctx context.Context) {
 		},
 	}
 
-	_, repo, _, client := setupRefService(ctx, t)
+	_, repo, _, client := setupRefService(t, ctx)
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
@@ -644,7 +644,7 @@ func testEmptyFindLocalBranchesRequest(t *testing.T, ctx context.Context) {
 
 func TestSuccessfulFindAllBranchesRequest(t *testing.T) {
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupRefService(ctx, t)
+	cfg, repo, repoPath, client := setupRefService(t, ctx)
 
 	remoteBranch := &gitalypb.FindAllBranchesResponse_Branch{
 		Name: []byte("refs/remotes/origin/fake-remote-branch"),
@@ -694,7 +694,7 @@ func TestSuccessfulFindAllBranchesRequest(t *testing.T) {
 
 func TestSuccessfulFindAllBranchesRequestWithMergedBranches(t *testing.T) {
 	ctx := testhelper.Context(t)
-	cfg, repoProto, repoPath, client := setupRefService(ctx, t)
+	cfg, repoProto, repoPath, client := setupRefService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -839,7 +839,7 @@ func readFindAllBranchesResponsesFromClient(t *testing.T, c gitalypb.RefService_
 
 func TestListTagNamesContainingCommit(t *testing.T) {
 	ctx := testhelper.Context(t)
-	_, repoProto, _, client := setupRefService(ctx, t)
+	_, repoProto, _, client := setupRefService(t, ctx)
 
 	testCases := []struct {
 		description string
@@ -907,7 +907,7 @@ func TestListTagNamesContainingCommit(t *testing.T) {
 
 func TestListBranchNamesContainingCommit(t *testing.T) {
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRefService(ctx, t)
+	_, repo, _, client := setupRefService(t, ctx)
 
 	testCases := []struct {
 		description string

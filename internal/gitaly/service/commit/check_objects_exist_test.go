@@ -18,9 +18,9 @@ func TestCheckObjectsExist(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupCommitService(ctx, t)
+	cfg, client := setupCommitService(t, ctx)
 
-	repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	commitID1 := gittest.WriteCommit(t, cfg, repoPath,
 		gittest.WithBranch("master"), gittest.WithMessage("commit-1"),

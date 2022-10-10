@@ -37,7 +37,7 @@ func TestGetArchive_success(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRepositoryService(ctx, t)
+	_, repo, _, client := setupRepositoryService(t, ctx)
 
 	formats := []gitalypb.GetArchiveRequest_Format{
 		gitalypb.GetArchiveRequest_ZIP,
@@ -191,7 +191,7 @@ func TestGetArchive_includeLfsBlobs(t *testing.T) {
 	client, serverSocketPath := runRepositoryService(t, cfg, nil)
 	cfg.SocketPath = serverSocketPath
 
-	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
@@ -282,7 +282,7 @@ func TestGetArchive_inputValidation(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRepositoryService(ctx, t)
+	_, repo, _, client := setupRepositoryService(t, ctx)
 
 	commitID := "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"
 
@@ -409,7 +409,7 @@ func TestGetArchive_pathInjection(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
+	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	// It used to be possible to inject options into `git-archive(1)`, with the worst outcome
 	// being that an adversary may create or overwrite arbitrary files in the filesystem in case
@@ -468,7 +468,7 @@ func TestGetArchive_environment(t *testing.T) {
 
 	// Intercept commands to git-archive(1) to print the environment. Note that we continue to
 	// execute any other Git commands so that the command factory behaves as expected.
-	gitCmdFactory := gittest.NewInterceptingCommandFactory(ctx, t, cfg, func(execEnv git.ExecutionEnvironment) string {
+	gitCmdFactory := gittest.NewInterceptingCommandFactory(t, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
 		return fmt.Sprintf(`#!/bin/bash
 		if [[ ! "$@" =~ "archive" ]]; then
 			exec %q "$@"
@@ -482,7 +482,7 @@ func TestGetArchive_environment(t *testing.T) {
 	client, serverSocketPath := runRepositoryService(t, cfg, nil, testserver.WithGitCommandFactory(gitCmdFactory))
 	cfg.SocketPath = serverSocketPath
 
-	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 

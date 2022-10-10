@@ -48,7 +48,7 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 		{
 			desc: "successful",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
-				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
@@ -71,7 +71,7 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 		{
 			desc: "documentation is ignored",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
-				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
@@ -94,7 +94,7 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 		{
 			desc: "documentation with overrides",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
-				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
@@ -119,7 +119,7 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 		{
 			desc: "vendor is ignored",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
-				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
@@ -140,7 +140,7 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 		{
 			desc: "vendor with overrides",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
-				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
@@ -163,7 +163,7 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 		{
 			desc: "generated is ignored",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
-				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
@@ -184,7 +184,7 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 		{
 			desc: "generated with overrides",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
-				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
@@ -207,7 +207,7 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 		{
 			desc: "undetectable languages are ignored",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
-				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
@@ -226,7 +226,7 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 		{
 			desc: "undetectable languages with overrides",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
-				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
@@ -253,7 +253,7 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 		{
 			desc: "file specific documentation override",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
-				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
@@ -282,7 +282,7 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 		{
 			desc: "detectable overrides",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
-				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
@@ -309,7 +309,7 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 		{
 			desc: "double star file pattern documentation override",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
-				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
@@ -344,7 +344,7 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 		{
 			desc: "empty code files",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
-				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
@@ -362,7 +362,7 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 		{
 			desc: "preexisting cache",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
-				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
@@ -395,7 +395,7 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 		{
 			desc: "preexisting cache with .gitattributes modified",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
-				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
@@ -428,7 +428,7 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 		{
 			desc: "corrupted cache",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
-				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
@@ -453,7 +453,7 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 		{
 			desc: "old cache",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
-				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 				repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -493,7 +493,7 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 		{
 			desc: "missing commit",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
-				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
@@ -583,7 +583,7 @@ func benchmarkInstanceStats(b *testing.B, ctx context.Context) {
 	catfileCache := catfile.NewCache(cfg)
 	b.Cleanup(catfileCache.Stop)
 
-	repoProto, repoPath := gittest.CreateRepository(ctx, b, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := gittest.CreateRepository(b, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 		Seed:                   "benchmark.git",
 	})

@@ -47,7 +47,7 @@ func TestOptimizeRepository(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repoProto, repoPath, client := setupRepositoryService(ctx, t)
+	cfg, repoProto, repoPath, client := setupRepositoryService(t, ctx)
 
 	gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-b")
 	gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--size-multiple=4", "--split=replace", "--reachable", "--changed-paths")
@@ -95,7 +95,7 @@ func TestOptimizeRepository(t *testing.T) {
 
 	require.Equal(t, getNewestPackfileModtime(t, repoPath), newestsPackfileTime, "there should not have been a new packfile created")
 
-	testRepoProto, testRepoPath := gittest.CreateRepository(ctx, t, cfg)
+	testRepoProto, testRepoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	blobs := 10
 	blobIDs := gittest.WriteBlobs(t, cfg, testRepoPath, blobs)
@@ -160,7 +160,7 @@ func TestOptimizeRepositoryValidation(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, _, client := setupRepositoryService(ctx, t)
+	cfg, repo, _, client := setupRepositoryService(t, ctx)
 
 	testCases := []struct {
 		desc string

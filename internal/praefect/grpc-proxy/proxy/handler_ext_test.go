@@ -417,7 +417,7 @@ func TestRegisterStreamHandlers(t *testing.T) {
 	for _, tc := range []struct {
 		desc               string
 		registeredHandlers map[string]func(*testing.T, interface{}, grpc.ServerStream)
-		execute            func(context.Context, *testing.T, grpc_testing.TestServiceClient)
+		execute            func(*testing.T, context.Context, grpc_testing.TestServiceClient)
 		expectedErr        error
 		expectedCalls      map[string]int
 	}{
@@ -426,7 +426,7 @@ func TestRegisterStreamHandlers(t *testing.T) {
 			registeredHandlers: map[string]func(*testing.T, interface{}, grpc.ServerStream){
 				"UnaryCall": unaryCallStreamHandler,
 			},
-			execute: func(ctx context.Context, t *testing.T, client grpc_testing.TestServiceClient) {
+			execute: func(t *testing.T, ctx context.Context, client grpc_testing.TestServiceClient) {
 				_, err := client.UnaryCall(ctx, requestSent)
 				require.NoError(t, err)
 			},
@@ -440,7 +440,7 @@ func TestRegisterStreamHandlers(t *testing.T) {
 				"UnaryCall": unaryCallStreamHandler,
 				"EmptyCall": emptyCallStreamHandler,
 			},
-			execute: func(ctx context.Context, t *testing.T, client grpc_testing.TestServiceClient) {
+			execute: func(t *testing.T, ctx context.Context, client grpc_testing.TestServiceClient) {
 				_, err := client.EmptyCall(ctx, &grpc_testing.Empty{})
 				require.NoError(t, err)
 			},
@@ -453,7 +453,7 @@ func TestRegisterStreamHandlers(t *testing.T) {
 			registeredHandlers: map[string]func(*testing.T, interface{}, grpc.ServerStream){
 				"EmptyCall": emptyCallStreamHandler,
 			},
-			execute: func(ctx context.Context, t *testing.T, client grpc_testing.TestServiceClient) {
+			execute: func(t *testing.T, ctx context.Context, client grpc_testing.TestServiceClient) {
 				_, err := client.UnaryCall(ctx, requestSent)
 				testhelper.RequireGrpcError(t, directorCalledError, err)
 			},
@@ -496,7 +496,7 @@ func TestRegisterStreamHandlers(t *testing.T) {
 			defer conn.Close()
 			client := grpc_testing.NewTestServiceClient(conn)
 
-			tc.execute(ctx, t, client)
+			tc.execute(t, ctx, client)
 
 			require.Equal(t, tc.expectedCalls, calls)
 		})

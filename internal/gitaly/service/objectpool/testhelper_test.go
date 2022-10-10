@@ -45,7 +45,7 @@ func extractConn(client gitalypb.ObjectPoolServiceClient) *grpc.ClientConn {
 	return client.(clientWithConn).conn
 }
 
-func setup(ctx context.Context, t *testing.T, opts ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, storage.Locator, gitalypb.ObjectPoolServiceClient) {
+func setup(t *testing.T, ctx context.Context, opts ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, storage.Locator, gitalypb.ObjectPoolServiceClient) {
 	t.Helper()
 
 	cfg := testcfg.Build(t)
@@ -59,7 +59,7 @@ func setup(ctx context.Context, t *testing.T, opts ...testserver.GitalyServerOpt
 	require.NoError(t, err)
 	t.Cleanup(func() { testhelper.MustClose(t, conn) })
 
-	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
@@ -140,7 +140,7 @@ func initObjectPool(tb testing.TB, cfg config.Cfg, storage config.Storage) *obje
 
 // rewrittenObjectPool returns a pool that is rewritten as if it was passed through Praefect. This should be used
 // to access the pool on the disk if the tests are running with Praefect in front of them.
-func rewrittenObjectPool(ctx context.Context, tb testing.TB, cfg config.Cfg, pool *objectpool.ObjectPool) *objectpool.ObjectPool {
-	replicaPath := gittest.GetReplicaPath(ctx, tb, cfg, pool)
+func rewrittenObjectPool(tb testing.TB, ctx context.Context, cfg config.Cfg, pool *objectpool.ObjectPool) *objectpool.ObjectPool {
+	replicaPath := gittest.GetReplicaPath(tb, ctx, cfg, pool)
 	return newObjectPool(tb, cfg, pool.GetStorageName(), replicaPath)
 }

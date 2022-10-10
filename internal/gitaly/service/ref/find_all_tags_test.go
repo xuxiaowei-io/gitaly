@@ -28,7 +28,7 @@ import (
 
 func TestFindAllTags_successful(t *testing.T) {
 	ctx := testhelper.Context(t)
-	cfg, repoProto, repoPath, client := setupRefService(ctx, t)
+	cfg, repoProto, repoPath, client := setupRefService(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	// reconstruct the v1.1.2 tag from patches to test truncated tag message
@@ -204,7 +204,7 @@ func TestFindAllTags_simpleNestedTags(t *testing.T) {
 	cfg, client := setupRefServiceWithoutRepo(t)
 	ctx := testhelper.Context(t)
 
-	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	commitID := gittest.WriteCommit(t, cfg, repoPath)
 
@@ -243,7 +243,7 @@ func TestFindAllTags_duplicateAnnotatedTags(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	commitID := gittest.WriteCommit(t, cfg, repoPath)
@@ -316,7 +316,7 @@ func TestFindAllTags_duplicateAnnotatedTags(t *testing.T) {
 
 func TestFindAllTags_nestedTags(t *testing.T) {
 	ctx := testhelper.Context(t)
-	cfg, repoProto, repoPath, client := setupRefService(ctx, t)
+	cfg, repoProto, repoPath, client := setupRefService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -464,7 +464,7 @@ func TestFindAllTags_invalidRequest(t *testing.T) {
 
 func TestFindAllTags_pagination(t *testing.T) {
 	ctx := testhelper.Context(t)
-	cfg, repoProto, repoPath, client := setupRefService(ctx, t)
+	cfg, repoProto, repoPath, client := setupRefService(t, ctx)
 
 	catfileCache := catfile.NewCache(cfg)
 	defer catfileCache.Stop()
@@ -572,7 +572,7 @@ func TestFindAllTags_pagination(t *testing.T) {
 
 func TestFindAllTags_sorted(t *testing.T) {
 	ctx := testhelper.Context(t)
-	cfg, repoProto, _, client := setupRefService(ctx, t)
+	cfg, repoProto, _, client := setupRefService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	headCommit, err := repo.ReadCommit(ctx, "HEAD")
@@ -703,7 +703,7 @@ func TestFindAllTags_sorted(t *testing.T) {
 	})
 
 	t.Run("no tags", func(t *testing.T) {
-		repoProto, _ := gittest.CreateRepository(ctx, t, cfg)
+		repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
 		c, err := client.FindAllTags(ctx, &gitalypb.FindAllTagsRequest{
 			Repository: repoProto,
 			SortBy:     &gitalypb.FindAllTagsRequest_SortBy{Key: gitalypb.FindAllTagsRequest_SortBy_REFNAME},
@@ -722,7 +722,7 @@ func BenchmarkFindAllTags(b *testing.B) {
 
 	cfg, client := setupRefServiceWithoutRepo(b)
 
-	repoProto, repoPath := gittest.CreateRepository(ctx, b, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := gittest.CreateRepository(b, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
