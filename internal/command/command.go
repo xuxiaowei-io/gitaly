@@ -202,6 +202,8 @@ func New(ctx context.Context, nameAndArgs []string, opts ...Option) (*Command, e
 	cmd := exec.Command(nameAndArgs[0], nameAndArgs[1:]...)
 
 	if featureflag.RunCmdsInProcessGroup.IsEnabled(ctx) {
+		fmt.Printf("PARENT PID IS %d\n", cfg.parentPid)
+		time.Sleep(10 * time.Second)
 		cmd.SysProcAttr = &syscall.SysProcAttr{
 			Setpgid: true,
 			Pgid:    cfg.parentPid,
