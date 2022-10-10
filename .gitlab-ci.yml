@@ -11,8 +11,6 @@ default:
 variables:
   FF_USE_FASTZIP: "true"
   FF_NETWORK_PER_BUILD: "true"
-  SAST_DISABLE_DIND: "true"
-  SAST_DEFAULT_ANALYZERS: "gosec"
   DEBIAN_VERSION: "bullseye"
   UBI_VERSION: "8.6"
   # We use Gitaly's Git version by default.
@@ -331,22 +329,10 @@ dbschema:
       - _support/praefect-schema.sql
     when: on_failure
 
-gosec-sast:
+semgrep-sast:
   needs: []
   cache:
     - *cache_go_configuration
-  variables:
-    GOPATH: "/go"
-  before_script:
-    # Our pipeline places GOPATH to $CI_PROJECT_DIR/.go so it can be cached.
-    # This causes gosec-sast to find the module cache and scan all the sources of
-    # the dependencies as well. This makes the scan time grow massively. This is
-    # avoided by this job moving the GOPATH outside of the project directory along
-    # with the cached modules if they were successfully extracted.
-    #
-    # SAST_EXCLUDED_PATHS is not sufficient as it only filters out the results but
-    # still performs the expensive scan.
-    - if [ -d .go ]; then mv .go $GOPATH; fi
   rules:
     - if: $SAST_DISABLED
       when: never
