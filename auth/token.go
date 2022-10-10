@@ -18,7 +18,7 @@ import (
 )
 
 var (
-	//nolint: gochecknoglobals
+	//nolint:gochecknoglobals
 	// This infrastructure is required for testing purposes and there is no
 	// proper place to put it instead. While we could move it into the
 	// config, we certainly don't want to make it configurable for now, so

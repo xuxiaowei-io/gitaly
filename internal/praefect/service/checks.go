@@ -130,7 +130,7 @@ func NewPostgresReadWriteCheck(conf config.Config, w io.Writer, quiet bool) *Che
 			if err != nil {
 				return fmt.Errorf("error starting transaction: %w", err)
 			}
-			//nolint: errcheck
+			//nolint:errcheck
 			defer tx.Rollback()
 
 			var id int
