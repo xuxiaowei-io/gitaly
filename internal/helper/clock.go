@@ -17,7 +17,7 @@ func CheckClockSync(ntpHost string, driftThreshold time.Duration) (bool, error) 
 
 	resp, err := ntp.Query(ntpHost)
 	if err != nil {
-		return false, fmt.Errorf("query ntp: %w", err)
+		return false, fmt.Errorf("query ntp host %s: %w", ntpHost, err)
 	}
 	if err := resp.Validate(); err != nil {
 		return false, fmt.Errorf("validate ntp response: %w", err)

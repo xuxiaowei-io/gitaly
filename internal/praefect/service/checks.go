@@ -234,7 +234,11 @@ func NewClockSyncCheck(clockDriftCheck func(ntpHost string, driftThreshold time.
 				g.Go(func() error {
 					synced, err := clockDriftCheck(ntpHost, driftThreshold)
 					if err != nil {
-						return fmt.Errorf("praefect: %w", err)
+						message := ""
+						if ntpHost == "" {
+							message = " (NTP_HOST was not set)"
+						}
+						return fmt.Errorf("praefect: %w%s", err, message)
 					}
 					if !synced {
 						return errors.New("praefect: clock is not synced")
