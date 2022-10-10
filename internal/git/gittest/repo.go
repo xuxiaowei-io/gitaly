@@ -335,7 +335,7 @@ func AddWorktree(tb testing.TB, cfg config.Cfg, repoPath string, worktreeName st
 // date causes commit-graphs to become corrupt with the following error that's likely caused by
 // an overflow:
 //
-//     commit date for commit ba3343bc4fa403a8dfbfcab7fc1a8c29ee34bd69 in commit-graph is 15668040695 != 9223372036854775
+//	commit date for commit ba3343bc4fa403a8dfbfcab7fc1a8c29ee34bd69 in commit-graph is 15668040695 != 9223372036854775
 //
 // This is not a new error, but something that has existed for quite a while already in Git. And
 // while the bug can also be easily hit in Gitaly because we do write commit-graphs in pool
@@ -355,9 +355,9 @@ func AddWorktree(tb testing.TB, cfg config.Cfg, repoPath string, worktreeName st
 //
 // You can easily test whether this bug still exists via the following commands:
 //
-//     $ git clone _build/testrepos/gitlab-test.git
-//     $ git -C gitlab-test commit-graph write
-//     $ git -C gitlab-test commit-graph verify
+//	$ git clone _build/testrepos/gitlab-test.git
+//	$ git -C gitlab-test commit-graph write
+//	$ git -C gitlab-test commit-graph verify
 func FixGitLabTestRepoForCommitGraphs(tb testing.TB, cfg config.Cfg, repoPath string) {
 	Exec(tb, cfg, "-C", repoPath, "update-ref", "-d", "refs/heads/spooky-stuff", "ba3343bc4fa403a8dfbfcab7fc1a8c29ee34bd69")
 }

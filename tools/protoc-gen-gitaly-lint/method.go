@@ -32,8 +32,8 @@ func (ml methodLinter) validateAccessor() error {
 }
 
 // validateMutator will ensure the following rules:
-//  - Mutator RPC's with repository level scope must specify a target repo
-//  - Mutator RPC's without target repo must not be scoped at repo level
+//   - Mutator RPC's with repository level scope must specify a target repo
+//   - Mutator RPC's without target repo must not be scoped at repo level
 func (ml methodLinter) validateMutator() error {
 	switch scope := ml.opMsg.GetScopeLevel(); scope {
 

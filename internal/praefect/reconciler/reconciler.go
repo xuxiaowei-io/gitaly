@@ -99,14 +99,14 @@ type job struct {
 //
 // It currently handles fixing two discrepancies:
 //
-// 1. Assigned storage having an outdated replica of a repository. This is fixed by scheduling
-//    an `update` type job from any healthy storage with an up to date replica. These are only
-//    scheduled if there is no other active `update` type job targeting the outdated replica.
-// 2. Unassigned storage having an unnecessary replica. This is fixed by scheduling a `delete_replica`
-//    type job to remove the unneeded replica from the storage. These are only scheduled if all assigned
-//    storages are up to date and the replica is not used as a source or target storage in any other job.
-//    Only one job of this type is allowed to be queued for a given repository at a time. This is to avoid
-//    deleting too many replicas if assignments are changed while the jobs are queued.
+//  1. Assigned storage having an outdated replica of a repository. This is fixed by scheduling
+//     an `update` type job from any healthy storage with an up to date replica. These are only
+//     scheduled if there is no other active `update` type job targeting the outdated replica.
+//  2. Unassigned storage having an unnecessary replica. This is fixed by scheduling a `delete_replica`
+//     type job to remove the unneeded replica from the storage. These are only scheduled if all assigned
+//     storages are up to date and the replica is not used as a source or target storage in any other job.
+//     Only one job of this type is allowed to be queued for a given repository at a time. This is to avoid
+//     deleting too many replicas if assignments are changed while the jobs are queued.
 //
 // The fixes are only scheduled if the target node is healthy, and if there is a healthy source node
 // available should the job need one.

@@ -3,18 +3,18 @@
 //
 // Additionally, praefect has subcommands for common tasks:
 //
-// SQL Ping
+// # SQL Ping
 //
 // The subcommand "sql-ping" checks if the database configured in the config
 // file is reachable:
 //
-//     praefect -config PATH_TO_CONFIG sql-ping
+//	praefect -config PATH_TO_CONFIG sql-ping
 //
-// SQL Migrate
+// # SQL Migrate
 //
 // The subcommand "sql-migrate" will apply any outstanding SQL migrations.
 //
-//     praefect -config PATH_TO_CONFIG sql-migrate [-ignore-unknown=true|false]
+//	praefect -config PATH_TO_CONFIG sql-migrate [-ignore-unknown=true|false]
 //
 // By default, the migration will ignore any unknown migrations that are
 // not known by the Praefect binary.
@@ -24,36 +24,36 @@
 // The subcommand "sql-migrate-status" will show which SQL migrations have
 // been applied and which ones have not:
 //
-//     praefect -config PATH_TO_CONFIG sql-migrate-status
+//	praefect -config PATH_TO_CONFIG sql-migrate-status
 //
-// Dial Nodes
+// # Dial Nodes
 //
 // The subcommand "dial-nodes" helps diagnose connection problems to Gitaly or
 // Praefect. The subcommand works by sourcing the connection information from
 // the config file, and then dialing and health checking the remote nodes.
 //
-//     praefect -config PATH_TO_CONFIG dial-nodes
+//	praefect -config PATH_TO_CONFIG dial-nodes
 //
-// Dataloss
+// # Dataloss
 //
 // The subcommand "dataloss" identifies Gitaly nodes which are missing data from the
 // previous write-enabled primary node. It does so by looking through incomplete
 // replication jobs. This is useful for identifying potential data loss from a failover
 // event.
 //
-//     praefect -config PATH_TO_CONFIG dataloss [-virtual-storage <virtual-storage>]
+//	praefect -config PATH_TO_CONFIG dataloss [-virtual-storage <virtual-storage>]
 //
 // "-virtual-storage" specifies which virtual storage to check for data loss. If not specified,
 // the check is performed for every configured virtual storage.
 //
-// Accept Dataloss
+// # Accept Dataloss
 //
 // The subcommand "accept-dataloss" allows for accepting data loss in a repository to enable it for
 // writing again. The current version of the repository on the authoritative storage is set to be
 // the latest version and replications to other nodes are scheduled in order to bring them consistent
 // with the new authoritative version.
 //
-//     praefect -config PATH_TO_CONFIG accept-dataloss -virtual-storage <virtual-storage> -relative-path <relative-path> -authoritative-storage <authoritative-storage>
+//	praefect -config PATH_TO_CONFIG accept-dataloss -virtual-storage <virtual-storage> -relative-path <relative-path> -authoritative-storage <authoritative-storage>
 package main
 
 import (

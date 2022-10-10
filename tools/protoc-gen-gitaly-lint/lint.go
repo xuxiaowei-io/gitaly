@@ -14,9 +14,9 @@ import (
 // ensureMethodOpType will ensure that method includes the op_type option.
 // See proto example below:
 //
-//  rpc ExampleMethod(ExampleMethodRequest) returns (ExampleMethodResponse) {
-//     option (op_type).op = ACCESSOR;
-//   }
+//	rpc ExampleMethod(ExampleMethodRequest) returns (ExampleMethodResponse) {
+//	   option (op_type).op = ACCESSOR;
+//	 }
 func ensureMethodOpType(fileDesc *descriptorpb.FileDescriptorProto, m *descriptorpb.MethodDescriptorProto, req *pluginpb.CodeGeneratorRequest) error {
 	opMsg, err := protoutil.GetOpExtension(m)
 	if err != nil {

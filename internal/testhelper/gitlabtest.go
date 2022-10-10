@@ -6,9 +6,9 @@ import (
 )
 
 /*
-	This is a manually maintained map to remove duplicate variable
-	assignments. Please do not use go generate or such to maintain
-	these, as we'd effectively test one parser against another.
+This is a manually maintained map to remove duplicate variable
+assignments. Please do not use go generate or such to maintain
+these, as we'd effectively test one parser against another.
 */
 var commitMap = map[string]*gitalypb.GitCommit{
 	"b83d6e391c22777fca1ed3012fce84f633d7fed0": {

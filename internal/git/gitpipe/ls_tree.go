@@ -47,9 +47,9 @@ func LsTreeWithSkip(skipResult func(*RevisionResult) bool) LsTreeOption {
 
 // LsTree runs git-ls-tree(1) for the given revisions. The returned channel will
 // contain all object IDs listed by this command. This might include:
-//  - Blobs
-//  - Trees, unless you're calling it with LsTreeWithRecursive()
-//  - Submodules, referring to the commit of the submodule
+//   - Blobs
+//   - Trees, unless you're calling it with LsTreeWithRecursive()
+//   - Submodules, referring to the commit of the submodule
 func LsTree(
 	ctx context.Context,
 	repo *localrepo.Repo,

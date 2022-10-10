@@ -51,8 +51,9 @@ type upgrader interface {
 }
 
 // New performs tableflip initialization
-//  pidFile is optional, if provided it will always contain the current process PID
-//  upgradesEnabled controls the upgrade process on SIGHUP signal
+//
+//	pidFile is optional, if provided it will always contain the current process PID
+//	upgradesEnabled controls the upgrade process on SIGHUP signal
 //
 // first boot:
 // * gitaly starts as usual, we will refer to it as p1
@@ -63,16 +64,17 @@ type upgrader interface {
 // * upg.Exit() channel will be closed when an upgrades completed successfully and the process must terminate
 //
 // graceful upgrade:
-// * user replaces gitaly binary and/or config file
-// * user sends SIGHUP to p1
-// * p1 will fork and exec the new gitaly, we will refer to it as p2
-// * from now on p1 will ignore other SIGHUP
-// * if p2 terminates with a non-zero exit code, SIGHUP handling will be restored
-// * p2 will follow the "first boot" sequence but upg.Fds will provide sockets and files from p1, when available
-// * when p2 invokes upg.Ready() all the shared file descriptors not claimed by p2 will be closed
-// * upg.Exit() channel in p1 will be closed now and p1 can gracefully terminate already accepted connections
-// * upgrades cannot starts again if p1 and p2 are both running, an hard termination should be scheduled to overcome
-//   freezes during a graceful shutdown
+//   - user replaces gitaly binary and/or config file
+//   - user sends SIGHUP to p1
+//   - p1 will fork and exec the new gitaly, we will refer to it as p2
+//   - from now on p1 will ignore other SIGHUP
+//   - if p2 terminates with a non-zero exit code, SIGHUP handling will be restored
+//   - p2 will follow the "first boot" sequence but upg.Fds will provide sockets and files from p1, when available
+//   - when p2 invokes upg.Ready() all the shared file descriptors not claimed by p2 will be closed
+//   - upg.Exit() channel in p1 will be closed now and p1 can gracefully terminate already accepted connections
+//   - upgrades cannot starts again if p1 and p2 are both running, an hard termination should be scheduled to overcome
+//     freezes during a graceful shutdown
+//
 // gitaly-wrapper is supposed to set EnvUpgradesEnabled in order to enable graceful upgrades
 func New(totalConn *prometheus.CounterVec) (*Bootstrap, error) {
 	pidFile := os.Getenv(EnvPidFile)

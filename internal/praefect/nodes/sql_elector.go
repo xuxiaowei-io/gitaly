@@ -42,19 +42,20 @@ type sqlCandidate struct {
 // 1. For each node, Praefect updates a row in a new table
 // (`node_status`) with the following information:
 //
-//    a. The name of the Praefect instance (`praefect_name`)
-//    b. The name of the virtual storage name (`shard_name`)
-//    c. The name of the Gitaly storage name (`storage_name`)
-//    d. The timestamp of the last time Praefect tried to reach that node (`last_contact_attempt_at`)
-//    e. The timestamp of the last successful health check (`last_seen_active_at`)
+//	a. The name of the Praefect instance (`praefect_name`)
+//	b. The name of the virtual storage name (`shard_name`)
+//	c. The name of the Gitaly storage name (`storage_name`)
+//	d. The timestamp of the last time Praefect tried to reach that node (`last_contact_attempt_at`)
+//	e. The timestamp of the last successful health check (`last_seen_active_at`)
 //
 // 2. Once the health checks are complete, Praefect node does a `SELECT` from
 // `node_status` to determine healthy nodes. A healthy node is
 // defined by:
-//    a. A node that has a recent successful error check (e.g. one in
-//    the last 10 s).
-//    b. A majority of the available Praefect nodes have entries that
-//    match the two above.
+//
+//	a. A node that has a recent successful error check (e.g. one in
+//	the last 10 s).
+//	b. A majority of the available Praefect nodes have entries that
+//	match the two above.
 //
 // To determine the majority, we use a lightweight service discovery
 // protocol: a Praefect node is deemed a voting member if the

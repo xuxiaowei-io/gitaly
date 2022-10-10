@@ -20,13 +20,13 @@ type HealthClients map[string]map[string]grpc_health_v1.HealthClient
 // HealthManager monitors the health status of the storage cluster. The monitoring frequency
 // is controlled by the Ticker passed in to Run method. On each tick, the HealthManager:
 //
-// 1. Runs health checks on configured physical storages by performing a gRPC call
-//    to the health checking endpoint. If an error tracker is configured, it also considers
-//    its view of the node's health.
-// 2. Stores its health check results in the `node_status` table.
-// 3. Checks if the clusters consensus of healthy nodes has changed by querying the `node_status`
-//    table for results of the other Praefect instances. If so, it sends to the Updated channel
-//    to signal a change in the cluster status.
+//  1. Runs health checks on configured physical storages by performing a gRPC call
+//     to the health checking endpoint. If an error tracker is configured, it also considers
+//     its view of the node's health.
+//  2. Stores its health check results in the `node_status` table.
+//  3. Checks if the clusters consensus of healthy nodes has changed by querying the `node_status`
+//     table for results of the other Praefect instances. If so, it sends to the Updated channel
+//     to signal a change in the cluster status.
 //
 // To determine the participants for the quorum, we use a lightweight service discovery protocol.
 // A Praefect instance is deemed to be voting member if it has a recent health check in the

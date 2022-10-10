@@ -6,7 +6,8 @@ import (
 )
 
 // Pattern taken from Regular Expressions Cookbook, slightly modified though
-//                                        |Scheme                |User                         |Named/IPv4 host|IPv6+ host
+//
+//	|Scheme                |User                         |Named/IPv4 host|IPv6+ host
 var hostPattern = regexp.MustCompile(`(?i)([a-z][a-z0-9+\-.]*://)([a-z0-9\-._~%!$&'()*+,;=:]+@)([a-z0-9\-._~%]+|\[[a-z0-9\-._~%!$&'()*+,;=:]+\])`)
 
 // SanitizeString will clean password and tokens from URLs, and replace them

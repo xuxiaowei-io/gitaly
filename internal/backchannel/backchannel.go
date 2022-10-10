@@ -17,15 +17,15 @@
 // The server side uses listenmux to support clients that are unaware of the multiplexing.
 //
 // Usage:
-// 1. Implement a ServerFactory, which is simply a function that returns a Server that can serve on the backchannel
-//    connection. Plug in the ClientHandshake to the Clientconn via grpc.WithTransportCredentials when dialing.
-//    This ensures all connections established by gRPC work with a multiplexing session and have a backchannel Server serving.
-// 2. Create a *listenmux.Mux and register a *ServerHandshaker with it.
-// 3. Pass the *listenmux.Mux into the grpc Server using grpc.Creds.
-//    The Handshake method is called on each newly established connection that presents the backchannel magic bytes. It dials back to the client's backchannel server. Server
-//    makes the backchannel connection's available later via the Registry's Backchannel method. The ID of the
-//    peer associated with the current RPC handler can be fetched via GetPeerID. The returned ID can be used
-//    to access the correct backchannel connection from the Registry.
+//  1. Implement a ServerFactory, which is simply a function that returns a Server that can serve on the backchannel
+//     connection. Plug in the ClientHandshake to the Clientconn via grpc.WithTransportCredentials when dialing.
+//     This ensures all connections established by gRPC work with a multiplexing session and have a backchannel Server serving.
+//  2. Create a *listenmux.Mux and register a *ServerHandshaker with it.
+//  3. Pass the *listenmux.Mux into the grpc Server using grpc.Creds.
+//     The Handshake method is called on each newly established connection that presents the backchannel magic bytes. It dials back to the client's backchannel server. Server
+//     makes the backchannel connection's available later via the Registry's Backchannel method. The ID of the
+//     peer associated with the current RPC handler can be fetched via GetPeerID. The returned ID can be used
+//     to access the correct backchannel connection from the Registry.
 package backchannel
 
 import (

@@ -126,9 +126,11 @@ func (db DB) Close() error {
 // Must be used only for testing.
 // The new database with empty relations will be created for each call of this function.
 // It uses env vars:
-//   PGHOST - required, URL/socket/dir
-//   PGPORT - required, binding port
-//   PGUSER - optional, user - `$ whoami` would be used if not provided
+//
+//	PGHOST - required, URL/socket/dir
+//	PGPORT - required, binding port
+//	PGUSER - optional, user - `$ whoami` would be used if not provided
+//
 // Once the test is completed the database will be dropped on test cleanup execution.
 func New(tb testing.TB) DB {
 	tb.Helper()

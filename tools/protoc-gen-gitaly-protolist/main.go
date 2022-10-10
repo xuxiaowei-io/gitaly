@@ -3,7 +3,7 @@
 //
 // This plugin can be accessed by invoking the protoc compiler with the following arguments:
 //
-//    protoc --plugin=protoc-gen-gitaly-protolist --gitaly_protolist_out=.
+//	protoc --plugin=protoc-gen-gitaly-protolist --gitaly_protolist_out=.
 //
 // The plugin accepts a protobuf message in STDIN that describes the parsed protobuf files. A
 // response is sent back on STDOUT that contains any errors.

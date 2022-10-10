@@ -1,49 +1,49 @@
 // Command protoc-gen-gitaly-lint is designed to be used as a protobuf compiler
 // plugin to verify Gitaly processes are being followed when writing RPC's.
 //
-// Usage
+// # Usage
 //
 // The protoc-gen-gitaly linter can be chained into any protoc workflow that
 // requires verification that Gitaly RPC guidelines are followed. Typically
 // this can be done by adding the following argument to an existing protoc
 // command:
 //
-//   --gitaly_lint_out=.
+//	--gitaly_lint_out=.
 //
 // For example, you may add the linter as an argument to the command responsible
 // for generating Go code:
 //
-//   protoc --go_out=. --gitaly_lint_out=. *.proto
+//	protoc --go_out=. --gitaly_lint_out=. *.proto
 //
 // Or, you can run the Gitaly linter by itself. To try out, run the following
 // command while in the project root:
 //
-//   protoc --gitaly_lint_out=. ./go/internal/cmd/protoc-gen-gitaly-lint/testdata/incomplete.proto
+//	protoc --gitaly_lint_out=. ./go/internal/cmd/protoc-gen-gitaly-lint/testdata/incomplete.proto
 //
 // You should see some errors printed to screen for improperly written
 // RPC's in the incomplete.proto file.
 //
-// Prerequisites
+// # Prerequisites
 //
 // The protobuf compiler (protoc) can be obtained from the GitHub page:
 // https://github.com/protocolbuffers/protobuf/releases
 //
-// Background
+// # Background
 //
 // The protobuf compiler accepts plugins to analyze protobuf files and generate
 // language specific code.
 //
 // These plugins require the following executable naming convention:
 //
-//   protoc-gen-$NAME
+//	protoc-gen-$NAME
 //
 // Where $NAME is the plugin name of the compiler desired. The protobuf compiler
 // will search the PATH until an executable with that name is found for a
 // desired plugin. For example, the following protoc command:
 //
-//   protoc --gitaly_lint_out=. *.proto
+//	protoc --gitaly_lint_out=. *.proto
 //
-// The above will search the PATH for an executable named protoc-gen-gitaly-lint
+// # The above will search the PATH for an executable named protoc-gen-gitaly-lint
 //
 // The plugin accepts a protobuf message in STDIN that describes the parsed
 // protobuf files. A response is sent back on STDOUT that contains any errors.

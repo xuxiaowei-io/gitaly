@@ -191,7 +191,8 @@ func (t *TextPrinter) Printf(format string, args ...interface{}) {
 }
 
 // CheckNode checks network connectivity by issuing a healthcheck request, and
-//  also calls the ServerInfo RPC to check disk read/write access.
+//
+//	also calls the ServerInfo RPC to check disk read/write access.
 func (p *Ping) CheckNode(ctx context.Context) {
 	p.log("dialing...")
 	cc, err := p.dial(ctx)
