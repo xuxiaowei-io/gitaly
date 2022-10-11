@@ -3,7 +3,7 @@
 package commit
 
 import (
-	git "github.com/libgit2/git2go/v33"
+	git "github.com/libgit2/git2go/v34"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 )
 

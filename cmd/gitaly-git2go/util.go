@@ -5,7 +5,7 @@ package main
 import (
 	"fmt"
 
-	git "github.com/libgit2/git2go/v33"
+	git "github.com/libgit2/git2go/v34"
 )
 
 func lookupCommit(repo *git.Repository, ref string) (*git.Commit, error) {
