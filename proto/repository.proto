@@ -923,12 +923,6 @@ message SearchFilesByNameRequest {
   // excluding backreferences, atomic/possesive operators, and some other
   // features. It has a maximum length of 1000 bytes.
   string filter = 4;
-  // Limit the number of returned files. Gitaly does not enforce a limit by default.
-  // Clients should always set a value for this field. limit = 0 means unlimited files.
-  uint32 limit = 5;
-  // `offset` says to skip that many files before beginning to return files.
-  // offset = 0 means starting to return files from beginning.
-  uint32 offset = 6;
 }
 
 // This comment is left unintentionally blank.

@@ -76,19 +76,6 @@ func (p *Parser) NextEntry() (*Entry, error) {
 	}, nil
 }
 
-// NextEntryPath reads the path of next entry as it would be written by `git ls-tree --name-only -z`.
-func (p *Parser) NextEntryPath() ([]byte, error) {
-	treeEntryPath, err := p.reader.ReadBytes(0x00)
-	if err != nil {
-		if errors.Is(err, io.EOF) {
-			return nil, io.EOF
-		}
-
-		return nil, fmt.Errorf("reading path: %w", err)
-	}
-	return treeEntryPath[:len(treeEntryPath)-1], nil
-}
-
 func toEnum(s string) (ObjectType, error) {
 	switch s {
 	case "tree":
