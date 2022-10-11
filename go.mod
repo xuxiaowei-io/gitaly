@@ -33,7 +33,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.0.5
 	github.com/prometheus/client_golang v1.13.0
 	github.com/prometheus/client_model v0.2.0
-	github.com/rubenv/sql-migrate v1.1.2
+	github.com/rubenv/sql-migrate v1.2.0
 	github.com/sirupsen/logrus v1.9.0
 	github.com/stretchr/testify v1.8.0
 	github.com/uber/jaeger-client-go v2.30.0+incompatible
