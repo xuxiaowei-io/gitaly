@@ -435,112 +435,6 @@ func TestSearchFilesByNameUnusualFileNamesSuccessful(t *testing.T) {
 	}
 }
 
-func TestSearchFilesByNamePaginationSuccessful(t *testing.T) {
-	t.Parallel()
-	ctx := testhelper.Context(t)
-
-	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
-
-	ref := []byte("pagination")
-	gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithBranch(string(ref)),
-		gittest.WithMessage("commit message"),
-		gittest.WithTreeEntries(
-			gittest.TreeEntry{Path: "file1.md", Mode: "100644", Content: "file1"},
-			gittest.TreeEntry{Path: "file2.md", Mode: "100644", Content: "file2"},
-			gittest.TreeEntry{Path: "file3.md", Mode: "100644", Content: "file3"},
-			gittest.TreeEntry{Path: "file4.md", Mode: "100644", Content: "file4"},
-			gittest.TreeEntry{Path: "file5.md", Mode: "100644", Content: "file5"},
-			gittest.TreeEntry{Path: "new_file1.md", Mode: "100644", Content: "new_file1"},
-			gittest.TreeEntry{Path: "new_file2.md", Mode: "100644", Content: "new_file2"},
-			gittest.TreeEntry{Path: "new_file3.md", Mode: "100644", Content: "new_file3"},
-		),
-	)
-
-	testCases := []struct {
-		desc          string
-		query         string
-		filter        string
-		offset        uint32
-		limit         uint32
-		expectedFiles [][]byte
-	}{
-		{
-			desc:          "only limit is set",
-			query:         ".",
-			limit:         3,
-			expectedFiles: [][]byte{[]byte("file1.md"), []byte("file2.md"), []byte("file3.md")},
-		},
-		{
-			desc:          "only offset is set",
-			query:         ".",
-			offset:        2,
-			expectedFiles: [][]byte{[]byte("file3.md"), []byte("file4.md"), []byte("file5.md"), []byte("new_file1.md"), []byte("new_file2.md"), []byte("new_file3.md")},
-		},
-		{
-			desc:          "both limit and offset are set",
-			query:         ".",
-			offset:        2,
-			limit:         2,
-			expectedFiles: [][]byte{[]byte("file3.md"), []byte("file4.md")},
-		},
-		{
-			desc:          "offset exceeds the total files",
-			query:         ".",
-			offset:        8,
-			expectedFiles: nil,
-		},
-		{
-			desc:          "offset + limit exceeds the total files",
-			query:         ".",
-			offset:        6,
-			limit:         5,
-			expectedFiles: [][]byte{[]byte("new_file2.md"), []byte("new_file3.md")},
-		},
-		{
-			desc:          "limit and offset combine with filter",
-			query:         ".",
-			filter:        "new.*",
-			offset:        1,
-			limit:         2,
-			expectedFiles: [][]byte{[]byte("new_file2.md"), []byte("new_file3.md")},
-		},
-		{
-			desc:          "limit and offset combine with unmatched filter",
-			query:         ".",
-			filter:        "not_matched.*",
-			offset:        1,
-			limit:         2,
-			expectedFiles: nil,
-		},
-		{
-			desc:          "limit and offset combine with matched query",
-			query:         "new_file2.md",
-			offset:        0,
-			limit:         2,
-			expectedFiles: [][]byte{[]byte("new_file2.md")},
-		},
-	}
-	for _, tc := range testCases {
-		t.Run(tc.desc, func(t *testing.T) {
-			stream, err := client.SearchFilesByName(ctx, &gitalypb.SearchFilesByNameRequest{
-				Repository: repo,
-				Ref:        ref,
-				Query:      tc.query,
-				Filter:     tc.filter,
-				Offset:     tc.offset,
-				Limit:      tc.limit,
-			})
-			require.NoError(t, err)
-
-			var files [][]byte
-			files, err = consumeFilenameByName(stream)
-			require.NoError(t, err)
-			require.Equal(t, tc.expectedFiles, files)
-		})
-	}
-}
-
 func TestSearchFilesByNameFailure(t *testing.T) {
 	t.Parallel()
 	cfg := testcfg.Build(t)
@@ -575,8 +469,6 @@ func TestSearchFilesByNameFailure(t *testing.T) {
 		query  string
 		filter string
 		ref    string
-		offset uint32
-		limit  uint32
 		code   codes.Code
 		msg    string
 	}{
@@ -623,8 +515,6 @@ func TestSearchFilesByNameFailure(t *testing.T) {
 				Query:      tc.query,
 				Filter:     tc.filter,
 				Ref:        []byte(tc.ref),
-				Offset:     tc.offset,
-				Limit:      tc.limit,
 			}, nil)
 
 			testhelper.RequireGrpcCode(t, err, tc.code)
