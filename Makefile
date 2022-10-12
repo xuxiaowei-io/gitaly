@@ -420,7 +420,7 @@ verify: check-mod-tidy notice-up-to-date check-proto rubocop lint
 .PHONY: check-mod-tidy
 check-mod-tidy:
 	${Q}${GIT} diff --quiet --exit-code go.mod go.sum || (echo "error: uncommitted changes in go.mod or go.sum" && exit 1)
-	${Q}go mod tidy
+	${Q}go mod tidy -compat=1.17
 	${Q}${GIT} diff --quiet --exit-code go.mod go.sum || (echo "error: uncommitted changes in go.mod or go.sum" && exit 1)
 
 .PHONY: lint
