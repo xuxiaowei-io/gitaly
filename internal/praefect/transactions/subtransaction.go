@@ -79,7 +79,9 @@ func (t *subtransaction) stop() error {
 		switch voter.result {
 		case VoteCanceled:
 			// If the vote was canceled already, we cannot stop it.
-			return ErrTransactionCanceled
+			// A single node voter being canceled is not indicative
+			// of all voter's state. Other voters must be checked.
+			continue
 		case VoteStopped:
 			// Similar if the vote was stopped already.
 			return ErrTransactionStopped
@@ -136,9 +138,9 @@ func (t *subtransaction) vote(node string, vote voting.Vote) error {
 	return nil
 }
 
-// updateVoterStates updates undecided voters or cancels existing votes of decided voters if given a
-// `nil` vote. Voters are updated either as soon as quorum was reached or alternatively when all
-// votes were cast.
+// updateVoterState updates undecided voters or cancels existing votes if given a `nil`
+// vote. Voters are updated either as soon as quorum was reached or alternatively when
+// quorum becomes impossible.
 func (t *subtransaction) updateVoterState(voter *Voter, vote *voting.Vote) error {
 	switch voter.result {
 	case VoteUndecided:
@@ -171,10 +173,20 @@ func (t *subtransaction) updateVoterState(voter *Voter, vote *voting.Vote) error
 			return errors.New("subtransaction was already finished")
 		}
 
+		// A voter's result can only be canceled if the subtransaction is still pending.
+		// If a change has already been committed to disk the voter result cannot be
+		// changed since the subtransction is considered complete.
+		voter.result = VoteCanceled
+
 		// Remove the voter's support for the vote so it's not counted towards the
 		// majority. The node is not going to commit the subtransaction anyway.
-		t.voteCounts[*voter.vote] -= voter.Votes
-		voter.result = VoteCanceled
+		if voter.vote != nil {
+			t.voteCounts[*voter.vote] -= voter.Votes
+		}
+
+		// A canceled voter can no longer voter so its vote is
+		// reset after being subtracted from the vote counts.
+		voter.vote = nil
 	}
 
 	defer func() {
