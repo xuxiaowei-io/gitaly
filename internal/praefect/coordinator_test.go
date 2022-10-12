@@ -395,6 +395,105 @@ func TestStreamDirectorMutator_StopTransaction(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestStreamDirectorMutator_SecondaryErrorHandling(t *testing.T) {
+	t.Parallel()
+	socket := testhelper.GetTemporaryGitalySocketFileName(t)
+	testhelper.NewServerWithHealth(t, socket)
+
+	primaryNode := &config.Node{Address: "unix://" + socket, Storage: "praefect-internal-1"}
+	secondaryNode1 := &config.Node{Address: "unix://" + socket, Storage: "praefect-internal-2"}
+	secondaryNode2 := &config.Node{Address: "unix://" + socket, Storage: "praefect-internal-3"}
+
+	conf := config.Config{
+		VirtualStorages: []*config.VirtualStorage{
+			{
+				Name:  "praefect",
+				Nodes: []*config.Node{primaryNode, secondaryNode1, secondaryNode2},
+			},
+		},
+	}
+
+	repo := gitalypb.Repository{
+		StorageName:  "praefect",
+		RelativePath: "/path/to/hashed/storage",
+	}
+
+	nodeMgr, err := nodes.NewManager(testhelper.NewDiscardingLogEntry(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
+	require.NoError(t, err)
+	nodeMgr.Start(0, time.Hour)
+	defer nodeMgr.Stop()
+
+	ctx := testhelper.Context(t)
+
+	shard, err := nodeMgr.GetShard(ctx, conf.VirtualStorages[0].Name)
+	require.NoError(t, err)
+
+	for _, name := range []string{"praefect-internal-1", "praefect-internal-2", "praefect-internal-3"} {
+		node, err := shard.GetNode(name)
+		require.NoError(t, err)
+		waitNodeToChangeHealthStatus(t, ctx, node, true)
+	}
+
+	rs := datastore.MockRepositoryStore{
+		GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error) {
+			return relativePath, map[string]struct{}{"praefect-internal-1": {}, "praefect-internal-2": {}, "praefect-internal-3": {}}, nil
+		},
+	}
+
+	txMgr := transactions.NewManager(conf)
+
+	coordinator := NewCoordinator(
+		datastore.NewPostgresReplicationEventQueue(testdb.New(t)),
+		rs,
+		NewNodeManagerRouter(nodeMgr, rs),
+		txMgr,
+		conf,
+		protoregistry.GitalyProtoPreregistered,
+	)
+
+	fullMethod := "/gitaly.SmartHTTPService/PostReceivePack"
+
+	frame, err := proto.Marshal(&gitalypb.PostReceivePackRequest{
+		Repository: &repo,
+	})
+	require.NoError(t, err)
+	peeker := &mockPeeker{frame}
+
+	streamParams, err := coordinator.StreamDirector(correlation.ContextWithCorrelation(ctx, "my-correlation-id"), fullMethod, peeker)
+	require.NoError(t, err)
+
+	txCtx := peer.NewContext(streamParams.Primary().Ctx, &peer.Peer{})
+	transaction, err := txinfo.TransactionFromContext(txCtx)
+	require.NoError(t, err)
+
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		vote := voting.VoteFromData([]byte("vote"))
+		err := txMgr.VoteTransaction(ctx, transaction.ID, "praefect-internal-1", vote)
+		require.Error(t, err)
+	}()
+
+	for _, secondary := range streamParams.Secondaries() {
+		wg.Add(1)
+		secondary := secondary
+		go func() {
+			err := secondary.ErrHandler(errors.New("node RPC failure"))
+			require.NoError(t, err)
+
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
+
+	err = streamParams.RequestFinalizer()
+	require.NoError(t, err)
+}
+
 func TestStreamDirector_maintenance(t *testing.T) {
 	t.Parallel()
 

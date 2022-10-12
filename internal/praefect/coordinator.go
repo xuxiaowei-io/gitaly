@@ -467,10 +467,17 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 					ctxlogrus.Extract(ctx).WithError(err).
 						Error("proxying to secondary failed")
 
-					// For now, any errors returned by secondaries are ignored.
-					// This is mostly so that we do not abort transactions which
-					// are ongoing and may succeed even with a subset of
-					// secondaries bailing out.
+					// Cancels failed node's voter in its current subtransaction.
+					// Also updates internal state of subtransaction to fail and
+					// release blocked voters if quorum becomes impossible.
+					if err := c.txMgr.CancelTransactionNodeVoter(transaction.ID(), secondary.Storage); err != nil {
+						ctxlogrus.Extract(ctx).WithError(err).
+							Error("canceling secondary voter failed")
+					}
+
+					// The error is ignored, so we do not abort transactions
+					// which are ongoing and may succeed even with a subset
+					// of secondaries bailing out.
 					return nil
 				},
 			})
