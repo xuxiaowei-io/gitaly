@@ -427,6 +427,34 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 			},
 		},
 		{
+			desc: "buggy behavior",
+			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
+
+				includeTree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "ffx_a.h", Mode: "100644", Content: "#include <stdio.h>\n"},
+				})
+				thirdPartyTree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "ffx_a.c", Mode: "100644", Content: "#include <include/ffx_a.h>\nstatic int something() {}"},
+					{Path: "include", Mode: "040000", OID: includeTree},
+				})
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "thirdparty", Mode: "040000", OID: thirdPartyTree},
+					gittest.TreeEntry{
+						Path:    ".gitattributes",
+						Mode:    "100644",
+						Content: "*.h linguist-language=cpp\nthirdparty/* linguist-vendored",
+					},
+				))
+
+				return repoProto, repoPath, commitID
+			},
+			expectedStats: ByteCountPerLanguage{},
+		},
+		{
 			desc: "corrupted cache",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
