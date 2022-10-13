@@ -11,10 +11,12 @@ import (
 	"time"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -148,9 +150,9 @@ func findObjectFiles(altDir string) ([]string, error) {
 	return objectFiles, nil
 }
 
-type fsckError struct{ error }
+type connectivityError struct{ error }
 
-func (fe *fsckError) Error() string {
+func (fe *connectivityError) Error() string {
 	return fmt.Sprintf("git fsck error while disconnected: %v", fe.error)
 }
 
@@ -200,23 +202,41 @@ func (s *server) removeAlternatesIfOk(ctx context.Context, repo *localrepo.Repo,
 		}
 	}()
 
-	cmd, err := repo.Exec(ctx, git.SubCmd{
-		Name:  "fsck",
-		Flags: []git.Option{git.Flag{Name: "--connectivity-only"}},
-	}, git.WithConfig(git.ConfigPair{
-		// Starting with Git's f30e4d854b (fsck: verify commit graph when implicitly
-		// enabled, 2021-10-15), git-fsck(1) will check the commit graph for consistency
-		// even if `core.commitGraph` is not enabled explicitly. We do not want to verify
-		// whether the commit graph is consistent though, but only care about connectivity,
-		// so we now explicitly disable usage of the commit graph.
-		Key: "core.commitGraph", Value: "false",
-	}))
+	var err error
+	var cmd *command.Command
+
+	if featureflag.RevlistForConnectivity.IsEnabled(ctx) {
+		// The choice here of git rev-list is for performance reasons.
+		// git fsck --connectivity-only performed badly for large
+		// repositories. The reasons are detailed in https://lore.kernel.org/git/9304B938-4A59-456B-B091-DBBCAA1823B2@gmail.com/
+		cmd, err = repo.Exec(ctx, git.SubCmd{
+			Name: "rev-list",
+			Flags: []git.Option{
+				git.Flag{Name: "--objects"},
+				git.Flag{Name: "--all"},
+				git.Flag{Name: "--quiet"},
+			},
+		})
+	} else {
+		cmd, err = repo.Exec(ctx, git.SubCmd{
+			Name:  "fsck",
+			Flags: []git.Option{git.Flag{Name: "--connectivity-only"}},
+		}, git.WithConfig(git.ConfigPair{
+			// Starting with Git's f30e4d854b (fsck: verify commit graph when implicitly
+			// enabled, 2021-10-15), git-fsck(1) will check the commit graph for consistency
+			// even if `core.commitGraph` is not enabled explicitly. We do not want to verify
+			// whether the commit graph is consistent though, but only care about connectivity,
+			// so we now explicitly disable usage of the commit graph.
+			Key: "core.commitGraph", Value: "false",
+		}))
+	}
+
 	if err != nil {
 		return err
 	}
 
 	if err := cmd.Wait(); err != nil {
-		return &fsckError{error: err}
+		return &connectivityError{error: err}
 	}
 
 	rollback = false

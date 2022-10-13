@@ -3,20 +3,31 @@
 package objectpool
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
 func TestDisconnectGitAlternates(t *testing.T) {
-	ctx := testhelper.Context(t)
+	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.RevlistForConnectivity).Run(
+		t,
+		testDisconnectGitAlternates,
+	)
+}
+
+func testDisconnectGitAlternates(t *testing.T, ctx context.Context) {
 	cfg, repoProto, repoPath, _, client := setup(ctx, t)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -55,7 +66,14 @@ func TestDisconnectGitAlternates(t *testing.T) {
 }
 
 func TestDisconnectGitAlternatesNoAlternates(t *testing.T) {
-	ctx := testhelper.Context(t)
+	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.RevlistForConnectivity).Run(
+		t,
+		testDisconnectGitAlternatesNoAlternates,
+	)
+}
+
+func testDisconnectGitAlternatesNoAlternates(t *testing.T, ctx context.Context) {
 	cfg, repoProto, repoPath, _, client := setup(ctx, t)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -70,7 +88,14 @@ func TestDisconnectGitAlternatesNoAlternates(t *testing.T) {
 }
 
 func TestDisconnectGitAlternatesUnexpectedAlternates(t *testing.T) {
-	ctx := testhelper.Context(t)
+	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.RevlistForConnectivity).Run(
+		t,
+		testDisconnectGitAlternatesUnexpectedAlternates,
+	)
+}
+
+func testDisconnectGitAlternatesUnexpectedAlternates(t *testing.T, ctx context.Context) {
 	cfg, _, _, _, client := setup(ctx, t)
 
 	testCases := []struct {
@@ -104,31 +129,81 @@ func TestDisconnectGitAlternatesUnexpectedAlternates(t *testing.T) {
 }
 
 func TestRemoveAlternatesIfOk(t *testing.T) {
-	ctx := testhelper.Context(t)
-	cfg, repoProto, repoPath, _, _ := setup(ctx, t)
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.RevlistForConnectivity).Run(
+		t,
+		testRemoveAlternatesIfOk,
+	)
+}
 
-	altPath, err := repo.InfoAlternatesPath()
-	require.NoError(t, err, "find info/alternates")
-	altContent := "/var/empty\n"
-	require.NoError(t, os.WriteFile(altPath, []byte(altContent), 0o644), "write alternates file")
+func testRemoveAlternatesIfOk(t *testing.T, ctx context.Context) {
+	t.Run("pack files are missing", func(t *testing.T) {
+		cfg, repoProto, repoPath, _, _ := setup(ctx, t)
+		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	// Intentionally break the repository, so that 'git fsck' will fail later.
-	testhelper.MustRunCommand(t, nil, "sh", "-c", fmt.Sprintf("rm %s/objects/pack/*.pack", repoPath))
+		altPath, err := repo.InfoAlternatesPath()
+		require.NoError(t, err, "find info/alternates")
+		altContent := "/var/empty\n"
+		require.NoError(t, os.WriteFile(altPath, []byte(altContent), 0o644), "write alternates file")
 
-	altBackup := altPath + ".backup"
+		// Intentionally break the repository, so that 'git fsck' will fail later.
+		testhelper.MustRunCommand(t, nil, "sh", "-c", fmt.Sprintf("rm %s/objects/pack/*.pack", repoPath))
 
-	srv := server{gitCmdFactory: gittest.NewCommandFactory(t, cfg)}
-	err = srv.removeAlternatesIfOk(ctx, repo, altPath, altBackup)
-	require.Error(t, err, "removeAlternatesIfOk should fail")
-	require.IsType(t, &fsckError{}, err, "error must be because of fsck")
+		altBackup := altPath + ".backup"
 
-	// We expect objects/info/alternates to have been restored when
-	// removeAlternatesIfOk returned.
-	assertAlternates(t, altPath, altContent)
+		srv := server{gitCmdFactory: gittest.NewCommandFactory(t, cfg)}
+		err = srv.removeAlternatesIfOk(ctx, repo, altPath, altBackup)
+		require.Error(t, err, "removeAlternatesIfOk should fail")
+		require.IsType(t, &connectivityError{}, err, "error must be because of fsck")
 
-	// We expect the backup alternates file to still exist.
-	assertAlternates(t, altBackup, altContent)
+		// We expect objects/info/alternates to have been restored when
+		// removeAlternatesIfOk returned.
+		assertAlternates(t, altPath, altContent)
+
+		// We expect the backup alternates file to still exist.
+		assertAlternates(t, altBackup, altContent)
+	})
+
+	t.Run("commit graph exists but object is missing from odb", func(t *testing.T) {
+		cfg, repoProto, repoPath, _, _ := setup(ctx, t)
+		repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+		altPath, err := repo.InfoAlternatesPath()
+		require.NoError(t, err, "find info/alternates")
+
+		tmpDir := testhelper.TempDir(t)
+		altContent := tmpDir + "\n"
+		require.NoError(t, os.WriteFile(altPath, []byte(altContent), 0o644), "write alternates file")
+
+		// In order to test the scenario where a commit is in a commit
+		// graph but not in the object database, we will first write a
+		// new commit, write the commit graph, then remove that commit
+		// object from the object database.
+		headCommitOid := gittest.ResolveRevision(t, cfg, repoPath, "HEAD")
+		commitOid := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(headCommitOid), gittest.WithBranch("master"))
+
+		gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write")
+
+		require.NoError(t, os.Remove(filepath.Join(repoPath, "objects", string(commitOid)[0:2], string(commitOid)[2:])))
+
+		altBackup := altPath + ".backup"
+
+		srv := server{gitCmdFactory: gittest.NewCommandFactory(t, cfg)}
+		err = srv.removeAlternatesIfOk(ctx, repo, altPath, altBackup)
+		require.Error(t, err, "removeAlternatesIfOk should fail")
+
+		require.IsType(t, &connectivityError{}, err, "error must be because of connectivity check")
+
+		connectivityErr := err.(*connectivityError)
+		require.IsType(t, &exec.ExitError{}, connectivityErr.error, "error must be because of fsck")
+
+		// We expect objects/info/alternates to have been restored when
+		// removeAlternatesIfOk returned.
+		assertAlternates(t, altPath, altContent)
+
+		// We expect the backup alternates file to still exist.
+		assertAlternates(t, altBackup, altContent)
+	})
 }
 
 func assertAlternates(t *testing.T, altPath string, altContent string) {
