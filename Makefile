@@ -112,7 +112,7 @@ ifeq ($(origin PROTOC_BUILD_OPTIONS),undefined)
 endif
 
 # Git target
-GIT_REPO_URL       ?= https://gitlab.com/gitlab-org/gitlab-git.git
+GIT_REPO_URL       ?= https://gitlab.com/gitlab-org/git.git
 GIT_QUIET          :=
 ifeq (${Q},@)
     GIT_QUIET = --quiet
