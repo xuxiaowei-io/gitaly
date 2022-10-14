@@ -89,6 +89,8 @@ var (
 		"GIT_TRACE_PACKET",
 		"GIT_TRACE_PERFORMANCE",
 		"GIT_TRACE_SETUP",
+		"GIT_TRACE2_EVENT",
+		"GIT_TRACE2_PARENT_SID",
 
 		// GIT_EXEC_PATH tells Git where to find its binaries. This must be exported
 		// especially in the case where we use bundled Git executables given that we cannot

@@ -199,6 +199,8 @@ func ContextWithoutCancel(opts ...ContextOpt) context.Context {
 	// PraefectGeneratedReplicaPaths affects many tests as it changes the repository creation logic.
 	// Randomly enable the flag to exercise both paths to some extent.
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.PraefectGeneratedReplicaPaths, rnd.Int()%2 == 0)
+	// Many tests use git commands, but few of them enable TRACE2, and most also don't need it.
+	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.GitTrace2, false)
 
 	for _, opt := range opts {
 		ctx = opt(ctx)

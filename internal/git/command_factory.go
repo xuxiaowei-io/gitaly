@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
+	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/cgroups"
@@ -401,6 +403,23 @@ func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo repository.Gi
 
 	env = append(env, execEnv.EnvironmentVariables...)
 
+	span, ctx := opentracing.StartSpanFromContext(
+		ctx,
+		"git",
+		opentracing.Tag{Key: "args", Value: strings.Join(args, " ")},
+	)
+
+	trace2Env, trace2Finish, err := enableTrace2(ctx, span)
+	if err != nil {
+		return nil, err
+	}
+	env = append(env, trace2Env...)
+
+	finalizer := func(*command.Command) {
+		trace2Finish()
+		span.Finish()
+	}
+
 	cmdGitVersion, err := cf.GitVersion(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("getting Git version: %w", err)
@@ -410,9 +429,11 @@ func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo repository.Gi
 		config.commandOpts,
 		command.WithDir(dir),
 		command.WithEnvironment(env),
+		command.WithSpan(span),
 		command.WithCommandName("git", sc.Subcommand()),
 		command.WithCgroup(cf.cgroupsManager, repo),
 		command.WithCommandGitVersion(cmdGitVersion.String()),
+		command.WithFinalizer(finalizer),
 	)...)
 	if err != nil {
 		return nil, err

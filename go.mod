@@ -38,6 +38,7 @@ require (
 	github.com/stretchr/testify v1.8.0
 	github.com/uber/jaeger-client-go v2.30.0+incompatible
 	gitlab.com/gitlab-org/labkit v1.16.0
+	go.opencensus.io v0.23.0
 	go.uber.org/goleak v1.2.0
 	gocloud.dev v0.26.0
 	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
@@ -164,7 +165,6 @@ require (
 	github.com/tklauser/numcpus v0.2.1 // indirect
 	github.com/uber/jaeger-lib v2.4.1+incompatible // indirect
 	github.com/xanzy/ssh-agent v0.3.0 // indirect
-	go.opencensus.io v0.23.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa // indirect
 	golang.org/x/exp v0.0.0-20200331195152-e8c3332aa8e5 // indirect
