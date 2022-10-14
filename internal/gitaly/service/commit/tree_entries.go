@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/lstree"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -178,7 +179,7 @@ func (s *server) sendTreeEntries(
 
 	cursor := ""
 	if p != nil {
-		entries, cursor, err = paginateTreeEntries(entries, p)
+		entries, cursor, err = paginateTreeEntries(ctx, entries, p)
 		if err != nil {
 			return err
 		}
@@ -302,7 +303,7 @@ func (s *server) GetTreeEntries(in *gitalypb.GetTreeEntriesRequest, stream gital
 	return s.sendTreeEntries(stream, repo, revision, path, in.Recursive, in.SkipFlatPaths, in.GetSort(), in.GetPaginationParams())
 }
 
-func paginateTreeEntries(entries []*gitalypb.TreeEntry, p *gitalypb.PaginationParameter) ([]*gitalypb.TreeEntry, string, error) {
+func paginateTreeEntries(ctx context.Context, entries []*gitalypb.TreeEntry, p *gitalypb.PaginationParameter) ([]*gitalypb.TreeEntry, string, error) {
 	limit := int(p.GetLimit())
 	start, tokenType := decodePageToken(p.GetPageToken())
 	index := -1
@@ -333,12 +334,16 @@ func paginateTreeEntries(entries []*gitalypb.TreeEntry, p *gitalypb.PaginationPa
 
 	paginated := entries[index : index+limit]
 
-	newPageToken, err := encodePageToken(paginated[len(paginated)-1])
-	if err != nil {
-		return nil, "", fmt.Errorf("encode page token: %w", err)
+	if featureflag.TreeEntriesNewPageTokenFormat.IsEnabled(ctx) {
+		newPageToken, err := encodePageToken(paginated[len(paginated)-1])
+		if err != nil {
+			return nil, "", fmt.Errorf("encode page token: %w", err)
+		}
+
+		return paginated, newPageToken, nil
 	}
 
-	return paginated, newPageToken, nil
+	return paginated, paginated[len(paginated)-1].GetOid(), nil
 }
 
 func buildEntryToken(entry *gitalypb.TreeEntry, tokenType pageTokenType) string {
@@ -363,7 +368,6 @@ const (
 	// pageTokenTypeFilename is a page token that contains the tree entry path.
 	pageTokenTypeFilename
 )
-
 
 // decodePageToken decodes the given Base64-encoded page token. It returns the
 // continuation point of the token and its type.
