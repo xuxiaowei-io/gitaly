@@ -335,46 +335,55 @@ func paginateTreeEntries(entries []*gitalypb.TreeEntry, p *gitalypb.PaginationPa
 
 	newPageToken, err := encodePageToken(paginated[len(paginated)-1])
 	if err != nil {
-		return nil, "", fmt.Errorf("cannot marshal JSON token: %s", err)
+		return nil, "", fmt.Errorf("encode page token: %w", err)
 	}
 
 	return paginated, newPageToken, nil
 }
 
-func buildEntryToken(entry *gitalypb.TreeEntry, tokenType string) string {
-	if tokenType == "oid" {
+func buildEntryToken(entry *gitalypb.TreeEntry, tokenType pageTokenType) string {
+	if tokenType == pageTokenTypeOID {
 		return entry.GetOid()
 	}
 
-	if tokenType == "filename" {
-		return string(entry.GetPath())
-	}
-
-	return ""
+	return string(entry.GetPath())
 }
 
 type pageToken struct {
-	FileName string
+	// FileName is the name of the tree entry that acts as continuation point.
+	FileName string `json:"file_name"`
 }
 
-// Decodes Base64 encoded, json marshalled string
-func decodePageToken(token string) (string, string) {
+type pageTokenType int
+
+const (
+	// pageTokenTypeOID is an old-style page token that contains the object ID a tree
+	// entry is pointing to. This is ambiguous and thus deprecated.
+	pageTokenTypeOID = pageTokenType(iota)
+	// pageTokenTypeFilename is a page token that contains the tree entry path.
+	pageTokenTypeFilename
+)
+
+
+// decodePageToken decodes the given Base64-encoded page token. It returns the
+// continuation point of the token and its type.
+func decodePageToken(token string) (string, pageTokenType) {
 	var pageToken pageToken
 
 	decodedString, err := base64.StdEncoding.DecodeString(token)
 	if err != nil {
-		return token, "oid"
+		return token, pageTokenTypeOID
 	}
 
 	if err := json.Unmarshal(decodedString, &pageToken); err != nil {
-		return token, "oid"
+		return token, pageTokenTypeOID
 	}
 
-	return pageToken.FileName, "filename"
+	return pageToken.FileName, pageTokenTypeFilename
 }
 
-// Oid is not a unique value and cannot be used for the cursor generation.
-// Instead we use the file name that should be unique
+// encodePageToken returns a page token with the TreeEntry's path as the continuation point for
+// the next page. The page token serialized by first JSON marshaling it and then base64 encoding it.
 func encodePageToken(entry *gitalypb.TreeEntry) (string, error) {
 	jsonEncoded, err := json.Marshal(pageToken{FileName: string(entry.GetPath())})
 	if err != nil {

@@ -342,6 +342,15 @@ func TestGetTreeEntries_successful(t *testing.T) {
 		return strippedEntries
 	}
 
+	getPageToken := func(t testing.TB, entry *gitalypb.TreeEntry) string {
+		t.Helper()
+
+		pageToken, err := encodePageToken(entry)
+		require.NoError(t, err)
+
+		return pageToken
+	}
+
 	testCases := []struct {
 		description     string
 		revision        []byte
@@ -353,7 +362,6 @@ func TestGetTreeEntries_successful(t *testing.T) {
 		pageToken       string
 		pageLimit       int32
 		cursor          string
-		entryPath       []byte
 		skipFlatPaths   bool
 	}{
 		{
@@ -435,7 +443,7 @@ func TestGetTreeEntries_successful(t *testing.T) {
 			entries:     sortedAndPaginated,
 			pageLimit:   4,
 			sortBy:      gitalypb.GetTreeEntriesRequest_TREES_FIRST,
-			cursor:      "eyJGaWxlTmFtZSI6Ii5EU19TdG9yZSJ9",
+			cursor:      "eyJmaWxlX25hbWUiOiIuRFNfU3RvcmUifQ==",
 		},
 		{
 			description:     "with pagination parameters",
@@ -445,7 +453,7 @@ func TestGetTreeEntries_successful(t *testing.T) {
 			legacyPageToken: "fdaada1754989978413d618ee1fb1c0469d6a664",
 			pageToken:       getPageToken(t, rootEntries[2]),
 			pageLimit:       3,
-			cursor:          "eyJGaWxlTmFtZSI6IkxJQ0VOU0UifQ==",
+			cursor:          "eyJmaWxlX25hbWUiOiJMSUNFTlNFIn0=",
 		},
 		{
 			description:     "with pagination parameters larger than length",
@@ -480,7 +488,7 @@ func TestGetTreeEntries_successful(t *testing.T) {
 			pageToken:   "",
 			entries:     rootEntries[0:2],
 			pageLimit:   2,
-			cursor:      "eyJGaWxlTmFtZSI6Ii5naXRpZ25vcmUifQ==",
+			cursor:      "eyJmaWxlX25hbWUiOiIuZ2l0aWdub3JlIn0=",
 		},
 	}
 
@@ -524,20 +532,12 @@ func TestGetTreeEntries_successful(t *testing.T) {
 
 					if testCase.pageLimit > 0 && len(testCase.entries) < len(rootEntries) {
 						require.NotNil(t, cursor)
-
 						require.Equal(t, testCase.cursor, cursor.NextCursor)
 					}
 				})
 			}
 		})
 	}
-}
-
-func getPageToken(t *testing.T, entry *gitalypb.TreeEntry) string {
-	pageToken, err := encodePageToken(entry)
-	require.NoError(t, err)
-
-	return pageToken
 }
 
 func TestGetTreeEntries_unsuccessful(t *testing.T) {
