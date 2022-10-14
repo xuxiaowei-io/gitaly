@@ -27,7 +27,7 @@ func TestServer_FetchBundle_success(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, _, repoPath, client := setupRepositoryService(ctx, t)
+	cfg, _, repoPath, client := setupRepositoryService(t, ctx)
 
 	tmp := testhelper.TempDir(t)
 	bundlePath := filepath.Join(tmp, "test.bundle")
@@ -36,7 +36,7 @@ func TestServer_FetchBundle_success(t *testing.T) {
 	gittest.Exec(t, cfg, "-C", repoPath, "bundle", "create", bundlePath, "--all")
 	expectedRefs := gittest.Exec(t, cfg, "-C", repoPath, "show-ref", "--head")
 
-	targetRepo, targetRepoPath := gittest.CreateRepository(ctx, t, cfg)
+	targetRepo, targetRepoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	stream, err := client.FetchBundle(ctx)
 	require.NoError(t, err)
@@ -84,7 +84,7 @@ func TestServer_FetchBundle_transaction(t *testing.T) {
 	gittest.BundleRepo(t, cfg, repoPath, bundlePath)
 
 	hookManager.Reset()
-	_, stopGitServer := gittest.HTTPServer(ctx, t, gitCmdFactory, repoPath, nil)
+	_, stopGitServer := gittest.HTTPServer(t, ctx, gitCmdFactory, repoPath, nil)
 	defer func() { require.NoError(t, stopGitServer()) }()
 
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)

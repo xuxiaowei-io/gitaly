@@ -378,7 +378,7 @@ func getDatabaseEnvironment(tb testing.TB) map[string]string {
 // WaitForBlockedQuery is a helper that waits until a blocked query matching the prefix is present in the
 // database. This is useful for ensuring another transaction is blocking a query when testing concurrent
 // execution of multiple queries.
-func WaitForBlockedQuery(ctx context.Context, tb testing.TB, db glsql.Querier, queryPrefix string) {
+func WaitForBlockedQuery(tb testing.TB, ctx context.Context, db glsql.Querier, queryPrefix string) {
 	tb.Helper()
 
 	for {

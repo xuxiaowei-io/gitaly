@@ -36,7 +36,7 @@ func TestCreateRepositoryFromBundle_successful(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
+	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	locator := config.NewLocator(cfg)
 	tmpdir, err := tempdir.New(ctx, repo.GetStorageName(), locator)
@@ -84,7 +84,7 @@ func TestCreateRepositoryFromBundle_successful(t *testing.T) {
 	require.NoError(t, err)
 
 	importedRepo := localrepo.NewTestRepo(t, cfg, importedRepoProto)
-	importedRepoPath, err := locator.GetPath(gittest.RewrittenRepository(ctx, t, cfg, importedRepoProto))
+	importedRepoPath, err := locator.GetPath(gittest.RewrittenRepository(t, ctx, cfg, importedRepoProto))
 	require.NoError(t, err)
 	defer func() { require.NoError(t, os.RemoveAll(importedRepoPath)) }()
 
@@ -108,7 +108,7 @@ func TestCreateRepositoryFromBundle_transactional(t *testing.T) {
 	ctx := testhelper.Context(t)
 	txManager := transaction.NewTrackingManager()
 
-	cfg, repoProto, repoPath, client := setupRepositoryService(ctx, t, testserver.WithTransactionManager(txManager))
+	cfg, repoProto, repoPath, client := setupRepositoryService(t, ctx, testserver.WithTransactionManager(txManager))
 
 	// Reset the votes casted while creating the test repository.
 	txManager.Reset()
@@ -160,7 +160,7 @@ func TestCreateRepositoryFromBundle_transactional(t *testing.T) {
 		return transaction.PhasedVote{Vote: vote, Phase: phase}
 	}
 
-	createdRepoPath, err := config.NewLocator(cfg).GetRepoPath(gittest.RewrittenRepository(ctx, t, cfg, createdRepo))
+	createdRepoPath, err := config.NewLocator(cfg).GetRepoPath(gittest.RewrittenRepository(t, ctx, cfg, createdRepo))
 	require.NoError(t, err)
 
 	refsVote := voting.VoteFromData([]byte(strings.Join([]string{
@@ -265,7 +265,7 @@ func TestCreateRepositoryFromBundle_existingRepository(t *testing.T) {
 	// The above test creates the second repository on the server. As this test can run with Praefect in front of it,
 	// we'll use the next replica path Praefect will assign in order to ensure this repository creation conflicts even
 	// with Praefect in front of it.
-	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		RelativePath: praefectutil.DeriveReplicaPath(1),
 		Seed:         gittest.SeedGitLabTest,
 	})

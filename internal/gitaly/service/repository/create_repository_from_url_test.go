@@ -25,7 +25,7 @@ func TestCreateRepositoryFromURL_successful(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	cfg, _, repoPath, client := setupRepositoryService(ctx, t)
+	cfg, _, repoPath, client := setupRepositoryService(t, ctx)
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 
 	importedRepo := &gitalypb.Repository{
@@ -35,7 +35,7 @@ func TestCreateRepositoryFromURL_successful(t *testing.T) {
 
 	user := "username123"
 	password := "password321localhost"
-	port, stopGitServer := gitServerWithBasicAuth(ctx, t, gitCmdFactory, user, password, repoPath)
+	port, stopGitServer := gitServerWithBasicAuth(t, ctx, gitCmdFactory, user, password, repoPath)
 	defer func() {
 		require.NoError(t, stopGitServer())
 	}()
@@ -50,7 +50,7 @@ func TestCreateRepositoryFromURL_successful(t *testing.T) {
 	_, err := client.CreateRepositoryFromURL(ctx, req)
 	require.NoError(t, err)
 
-	importedRepoPath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(ctx, t, cfg, importedRepo))
+	importedRepoPath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(t, ctx, cfg, importedRepo))
 
 	gittest.Exec(t, cfg, "-C", importedRepoPath, "fsck")
 
@@ -65,7 +65,7 @@ func TestCreateRepositoryFromURL_successfulWithOptionalParameters(t *testing.T) 
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	cfg, _, repoPath, client := setupRepositoryServiceFromMirror(ctx, t)
+	cfg, _, repoPath, client := setupRepositoryServiceFromMirror(t, ctx)
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 
 	importedRepo := &gitalypb.Repository{
@@ -75,7 +75,7 @@ func TestCreateRepositoryFromURL_successfulWithOptionalParameters(t *testing.T) 
 
 	user := "username123"
 	password := "password321localhost"
-	port, stopGitServer := gitServerWithBasicAuth(ctx, t, gitCmdFactory, user, password, repoPath)
+	port, stopGitServer := gitServerWithBasicAuth(t, ctx, gitCmdFactory, user, password, repoPath)
 	defer func() {
 		require.NoError(t, stopGitServer())
 	}()
@@ -96,7 +96,7 @@ func TestCreateRepositoryFromURL_successfulWithOptionalParameters(t *testing.T) 
 	_, err := client.CreateRepositoryFromURL(ctx, req)
 	require.NoError(t, err)
 
-	importedRepoPath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(ctx, t, cfg, importedRepo))
+	importedRepoPath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(t, ctx, cfg, importedRepo))
 
 	gittest.Exec(t, cfg, "-C", importedRepoPath, "fsck")
 
@@ -193,7 +193,7 @@ func TestCreateRepositoryFromURL_fsck(t *testing.T) {
 
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	_, sourceRepoPath := gittest.CreateRepository(ctx, t, cfg)
+	_, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	// We're creating a new commit which has a root tree with duplicate entries. git-mktree(1)
 	// allows us to create these trees just fine, but git-fsck(1) complains.
@@ -310,8 +310,8 @@ func TestServer_CloneFromURLCommand_withMirror(t *testing.T) {
 	require.Error(t, cmd.Wait())
 }
 
-func gitServerWithBasicAuth(ctx context.Context, tb testing.TB, gitCmdFactory git.CommandFactory, user, pass, repoPath string) (int, func() error) {
-	return gittest.HTTPServer(ctx, tb, gitCmdFactory, repoPath, basicAuthMiddleware(tb, user, pass))
+func gitServerWithBasicAuth(tb testing.TB, ctx context.Context, gitCmdFactory git.CommandFactory, user, pass, repoPath string) (int, func() error) {
+	return gittest.HTTPServer(tb, ctx, gitCmdFactory, repoPath, basicAuthMiddleware(tb, user, pass))
 }
 
 func basicAuthMiddleware(tb testing.TB, user, pass string) func(http.ResponseWriter, *http.Request, http.Handler) {

@@ -14,7 +14,7 @@ func TestSuccessfulListCommitsByOidRequest(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupCommitServiceWithRepo(ctx, t)
+	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
 
 	commits := []*gitalypb.GitCommit{
 		{
@@ -156,7 +156,7 @@ func TestSuccessfulListCommitsByOidLargeRequest(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupCommitServiceWithRepo(ctx, t)
+	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
 
 	req := &gitalypb.ListCommitsByOidRequest{
 		Oid:        masterCommitids,

@@ -30,7 +30,7 @@ func testRenameRepositorySuccess(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
 	// Praefect does not move repositories on the disk so this test case is not run with Praefect.
-	cfg, repo, _, client := setupRepositoryService(ctx, t, testserver.WithDisablePraefect())
+	cfg, repo, _, client := setupRepositoryService(t, ctx, testserver.WithDisablePraefect())
 
 	const targetPath = "a-new-location"
 	_, err := client.RenameRepository(ctx, &gitalypb.RenameRepositoryRequest{
@@ -66,7 +66,7 @@ func testRenameRepositoryDestinationExists(t *testing.T, ctx context.Context) {
 	_, err = client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: renamedRepo})
 	require.NoError(t, err)
 
-	destinationRepoPath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(ctx, t, cfg, existingDestinationRepo))
+	destinationRepoPath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(t, ctx, cfg, existingDestinationRepo))
 	commitID := gittest.WriteCommit(t, cfg, destinationRepoPath)
 
 	_, err = client.RenameRepository(ctx, &gitalypb.RenameRepositoryRequest{
@@ -86,7 +86,7 @@ func TestRenameRepository_invalidRequest(t *testing.T) {
 func testRenameRepositoryInvalidRequest(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	_, repo, repoPath, client := setupRepositoryService(ctx, t)
+	_, repo, repoPath, client := setupRepositoryService(t, ctx)
 	storagePath := strings.TrimSuffix(repoPath, "/"+repo.RelativePath)
 
 	testCases := []struct {

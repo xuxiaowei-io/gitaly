@@ -163,20 +163,20 @@ func runRepositoryService(tb testing.TB, cfg config.Cfg, rubySrv *rubyserver.Ser
 	return newRepositoryClient(tb, cfg, serverSocketPath), serverSocketPath
 }
 
-func setupRepositoryService(ctx context.Context, tb testing.TB, opts ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, gitalypb.RepositoryServiceClient) {
+func setupRepositoryService(tb testing.TB, ctx context.Context, opts ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, gitalypb.RepositoryServiceClient) {
 	cfg, client := setupRepositoryServiceWithoutRepo(tb, opts...)
 
-	repo, repoPath := gittest.CreateRepository(ctx, tb, cfg, gittest.CreateRepositoryConfig{
+	repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 	return cfg, repo, repoPath, client
 }
 
 // Sets up a repository that has been cloned using `--mirror` which contains GitLab internal references
-func setupRepositoryServiceFromMirror(ctx context.Context, tb testing.TB, opts ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, gitalypb.RepositoryServiceClient) {
+func setupRepositoryServiceFromMirror(tb testing.TB, ctx context.Context, opts ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, gitalypb.RepositoryServiceClient) {
 	cfg, client := setupRepositoryServiceWithoutRepo(tb, opts...)
 
-	repo, repoPath := gittest.CreateRepository(ctx, tb, cfg, gittest.CreateRepositoryConfig{
+	repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTestMirror,
 	})
 	return cfg, repo, repoPath, client

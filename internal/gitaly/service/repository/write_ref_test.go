@@ -25,7 +25,7 @@ func TestWriteRef_successful(t *testing.T) {
 	t.Parallel()
 
 	txManager := transaction.NewTrackingManager()
-	cfg, repo, repoPath, client := setupRepositoryService(testhelper.Context(t), t, testserver.WithTransactionManager(txManager))
+	cfg, repo, repoPath, client := setupRepositoryService(t, testhelper.Context(t), testserver.WithTransactionManager(txManager))
 
 	testCases := []struct {
 		desc          string
@@ -125,7 +125,7 @@ func TestWriteRef_validation(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRepositoryService(ctx, t)
+	_, repo, _, client := setupRepositoryService(t, ctx)
 
 	testCases := []struct {
 		desc string
@@ -202,7 +202,7 @@ func TestWriteRef_missingRevisions(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	commitID := gittest.WriteCommit(t, cfg, repoPath)
 
 	for _, tc := range []struct {

@@ -52,7 +52,7 @@ func TestPostReceivePack_successful(t *testing.T) {
 	})
 	cfg.SocketPath = server.Address()
 
-	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 	repo.GlProjectPath = "project/path"
@@ -98,7 +98,7 @@ func TestPostReceivePack_successful(t *testing.T) {
 
 	// Compare the repository up front so that we can use require.Equal for
 	// the remaining values.
-	testhelper.ProtoEqual(t, gittest.RewrittenRepository(ctx, t, cfg, repo), payload.Repo)
+	testhelper.ProtoEqual(t, gittest.RewrittenRepository(t, ctx, cfg, repo), payload.Repo)
 	payload.Repo = nil
 
 	// If running tests with Praefect, then the transaction would be set, but we have no way of
@@ -138,7 +138,7 @@ func TestPostReceivePack_hiddenRefs(t *testing.T) {
 	cfg := testcfg.Build(t)
 	cfg.SocketPath = runSmartHTTPServer(t, cfg)
 
-	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 	repoProto.GlProjectPath = "project/path"
@@ -194,14 +194,14 @@ func TestPostReceivePack_protocolV2(t *testing.T) {
 	cfg := testcfg.Build(t)
 	testcfg.BuildGitalyHooks(t, cfg)
 
-	protocolDetectingFactory := gittest.NewProtocolDetectingCommandFactory(ctx, t, cfg)
+	protocolDetectingFactory := gittest.NewProtocolDetectingCommandFactory(t, ctx, cfg)
 
 	server := startSmartHTTPServerWithOptions(t, cfg, nil, []testserver.GitalyServerOpt{
 		testserver.WithGitCommandFactory(protocolDetectingFactory),
 	})
 	cfg.SocketPath = server.Address()
 
-	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
@@ -238,7 +238,7 @@ func TestPostReceivePack_packfiles(t *testing.T) {
 	client, conn := newSmartHTTPClient(t, cfg.SocketPath, cfg.Auth.Token)
 	defer conn.Close()
 
-	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
@@ -291,7 +291,7 @@ func TestPostReceivePack_rejectViaGitConfigOptions(t *testing.T) {
 	cfg := testcfg.Build(t)
 	cfg.SocketPath = runSmartHTTPServer(t, cfg)
 
-	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
@@ -330,7 +330,7 @@ func TestPostReceivePack_rejectViaHooks(t *testing.T) {
 	})
 	cfg.SocketPath = server.Address()
 
-	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
@@ -458,12 +458,12 @@ func TestPostReceivePack_invalidObjects(t *testing.T) {
 	})
 	cfg.SocketPath = server.Address()
 
-	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-	_, localRepoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	_, localRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
@@ -588,7 +588,7 @@ func TestPostReceivePack_fsck(t *testing.T) {
 	cfg := testcfg.Build(t)
 	cfg.SocketPath = runSmartHTTPServer(t, cfg)
 
-	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
@@ -639,7 +639,7 @@ func TestPostReceivePack_hooks(t *testing.T) {
 
 	testcfg.BuildGitalyHooks(t, cfg)
 
-	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
@@ -700,7 +700,7 @@ func TestPostReceivePack_transactionsViaPraefect(t *testing.T) {
 	cfg := testcfg.Build(t)
 	cfg.SocketPath = runSmartHTTPServer(t, cfg)
 
-	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
@@ -785,7 +785,7 @@ func TestPostReceivePack_referenceTransactionHook(t *testing.T) {
 		stream, err := client.PostReceivePack(ctx)
 		require.NoError(t, err)
 
-		repo, _ := gittest.CreateRepository(ctxWithoutTransaction, t, cfg, gittest.CreateRepositoryConfig{
+		repo, _ := gittest.CreateRepository(t, ctxWithoutTransaction, cfg, gittest.CreateRepositoryConfig{
 			Seed: gittest.SeedGitLabTest,
 		})
 
@@ -808,7 +808,7 @@ func TestPostReceivePack_referenceTransactionHook(t *testing.T) {
 		stream, err := client.PostReceivePack(ctx)
 		require.NoError(t, err)
 
-		repo, repoPath := gittest.CreateRepository(ctxWithoutTransaction, t, cfg,
+		repo, repoPath := gittest.CreateRepository(t, ctxWithoutTransaction, cfg,
 			gittest.CreateRepositoryConfig{
 				Seed: gittest.SeedGitLabTest,
 			})
@@ -882,7 +882,7 @@ func TestPostReceivePack_notAllowed(t *testing.T) {
 	stream, err := client.PostReceivePack(ctx)
 	require.NoError(t, err)
 
-	repo, _ := gittest.CreateRepository(ctxWithoutTransaction, t, cfg, gittest.CreateRepositoryConfig{
+	repo, _ := gittest.CreateRepository(t, ctxWithoutTransaction, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
@@ -896,7 +896,7 @@ func TestPostReceivePack_notAllowed(t *testing.T) {
 func createPushRequest(t *testing.T, cfg config.Cfg) (git.ObjectID, git.ObjectID, io.Reader) {
 	ctx := testhelper.Context(t)
 
-	_, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	_, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 

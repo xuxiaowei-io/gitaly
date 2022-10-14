@@ -18,7 +18,7 @@ func TestFsckSuccess(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	_, repo, _, client := setupRepositoryService(ctx, t)
+	_, repo, _, client := setupRepositoryService(t, ctx)
 
 	c, err := client.Fsck(ctx, &gitalypb.FsckRequest{Repository: repo})
 	assert.NoError(t, err)
@@ -30,7 +30,7 @@ func TestFsckFailureSeverelyBrokenRepo(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	_, repo, repoPath, client := setupRepositoryService(ctx, t)
+	_, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	// This makes the repo severely broken so that `git` does not identify it as a
 	// proper repo.
@@ -49,7 +49,7 @@ func TestFsckFailureSlightlyBrokenRepo(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	_, repo, repoPath, client := setupRepositoryService(ctx, t)
+	_, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	// This makes the repo slightly broken so that `git` still identify it as a
 	// proper repo, but `fsck` complains about broken refs...

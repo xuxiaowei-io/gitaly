@@ -122,7 +122,7 @@ func TestInfoService_RepositoryReplicas(t *testing.T) {
 
 	client := gitalypb.NewPraefectInfoServiceClient(cc)
 
-	testRepository, testRepoPath := gittest.CreateRepository(ctx, t,
+	testRepository, testRepoPath := gittest.CreateRepository(t, ctx,
 		// The helper was implemented with the test server in mind. Here we need use the virtual storage's name
 		// as the storage and the path of the storage we want to modify the replica in.
 		gconfig.Cfg{Storages: []gconfig.Storage{{Name: virtualStorage, Path: cfgs[1].Storages[0].Path}}},

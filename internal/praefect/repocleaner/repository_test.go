@@ -77,61 +77,61 @@ func TestRunner_Run(t *testing.T) {
 	ctx, cancel := context.WithCancel(testhelper.Context(t))
 
 	// each gitaly has an extra repo-4.git repository
-	gittest.CreateRepository(ctx, t, g1Cfg, gittest.CreateRepositoryConfig{
+	gittest.CreateRepository(t, ctx, g1Cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 		RelativePath:           repo1RelPath,
 		Seed:                   gittest.SeedGitLabTest,
 	})
-	gittest.CreateRepository(ctx, t, g1Cfg, gittest.CreateRepositoryConfig{
+	gittest.CreateRepository(t, ctx, g1Cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 		RelativePath:           repo2RelPath,
 		Seed:                   gittest.SeedGitLabTest,
 	})
-	gittest.CreateRepository(ctx, t, g1Cfg, gittest.CreateRepositoryConfig{
+	gittest.CreateRepository(t, ctx, g1Cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 		RelativePath:           repo3RelPath,
 		Seed:                   gittest.SeedGitLabTest,
 	})
-	_, repo4Path := gittest.CreateRepository(ctx, t, g1Cfg, gittest.CreateRepositoryConfig{
+	_, repo4Path := gittest.CreateRepository(t, ctx, g1Cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 		RelativePath:           "repo-4.git",
 		Seed:                   gittest.SeedGitLabTest,
 	})
 	require.NoError(t, os.Chtimes(repo4Path, time.Now().Add(-25*time.Hour), time.Now().Add(-25*time.Hour)))
 
-	gittest.CreateRepository(ctx, t, g2Cfg, gittest.CreateRepositoryConfig{
+	gittest.CreateRepository(t, ctx, g2Cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 		RelativePath:           repo1RelPath,
 		Seed:                   gittest.SeedGitLabTest,
 	})
-	gittest.CreateRepository(ctx, t, g2Cfg, gittest.CreateRepositoryConfig{
+	gittest.CreateRepository(t, ctx, g2Cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 		RelativePath:           repo2RelPath,
 		Seed:                   gittest.SeedGitLabTest,
 	})
-	_, repo4Path = gittest.CreateRepository(ctx, t, g2Cfg, gittest.CreateRepositoryConfig{
+	_, repo4Path = gittest.CreateRepository(t, ctx, g2Cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 		RelativePath:           "repo-4.git",
 		Seed:                   gittest.SeedGitLabTest,
 	})
 	require.NoError(t, os.Chtimes(repo4Path, time.Now().Add(-25*time.Hour), time.Now().Add(-25*time.Hour)))
 
-	gittest.CreateRepository(ctx, t, g3Cfg, gittest.CreateRepositoryConfig{
+	gittest.CreateRepository(t, ctx, g3Cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 		RelativePath:           repo1RelPath,
 		Seed:                   gittest.SeedGitLabTest,
 	})
-	gittest.CreateRepository(ctx, t, g3Cfg, gittest.CreateRepositoryConfig{
+	gittest.CreateRepository(t, ctx, g3Cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 		RelativePath:           repo2RelPath,
 		Seed:                   gittest.SeedGitLabTest,
 	})
-	gittest.CreateRepository(ctx, t, g3Cfg, gittest.CreateRepositoryConfig{
+	gittest.CreateRepository(t, ctx, g3Cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 		RelativePath:           repo3RelPath,
 		Seed:                   gittest.SeedGitLabTest,
 	})
-	_, repo4Path = gittest.CreateRepository(ctx, t, g3Cfg, gittest.CreateRepositoryConfig{
+	_, repo4Path = gittest.CreateRepository(t, ctx, g3Cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 		RelativePath:           "repo-4.git",
 		Seed:                   gittest.SeedGitLabTest,
@@ -255,7 +255,7 @@ func TestRunner_Run_noAvailableStorages(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(testhelper.Context(t))
 
-	_, repoPath := gittest.CreateRepository(ctx, t, g1Cfg, gittest.CreateRepositoryConfig{
+	_, repoPath := gittest.CreateRepository(t, ctx, g1Cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 		RelativePath:           repo1RelPath,
 		Seed:                   gittest.SeedGitLabTest,

@@ -19,12 +19,12 @@ func TestFetchSourceBranchSourceRepositorySuccess(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, sourceRepo, sourcePath, client := setupRepositoryService(ctx, t)
+	cfg, sourceRepo, sourcePath, client := setupRepositoryService(t, ctx)
 
 	md := testcfg.GitalyServersMetadataFromCfg(t, cfg)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
 
-	targetRepoProto, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	targetRepoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 	targetRepo := localrepo.NewTestRepo(t, cfg, targetRepoProto)
@@ -53,7 +53,7 @@ func TestFetchSourceBranchSameRepositorySuccess(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repoProto, repoPath, client := setupRepositoryService(ctx, t)
+	cfg, repoProto, repoPath, client := setupRepositoryService(t, ctx)
 
 	md := testcfg.GitalyServersMetadataFromCfg(t, cfg)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
@@ -84,12 +84,12 @@ func TestFetchSourceBranchBranchNotFound(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, targetRepo, _, client := setupRepositoryService(ctx, t)
+	cfg, targetRepo, _, client := setupRepositoryService(t, ctx)
 
 	md := testcfg.GitalyServersMetadataFromCfg(t, cfg)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
 
-	sourceRepo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	sourceRepo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
@@ -133,12 +133,12 @@ func TestFetchSourceBranchWrongRef(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, targetRepo, _, client := setupRepositoryService(ctx, t)
+	cfg, targetRepo, _, client := setupRepositoryService(t, ctx)
 
 	md := testcfg.GitalyServersMetadataFromCfg(t, cfg)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
 
-	sourceRepo, sourceRepoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	sourceRepo, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 

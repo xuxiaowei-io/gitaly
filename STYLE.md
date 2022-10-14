@@ -194,6 +194,19 @@ func TestT_M_suffix() { ... }
 func TestT_M_suffixWithMultipleWords() { ... }
 ```
 
+### Test helpers
+
+Helper functions for test helpers should be clearly marked with `t.Helper()` so
+that stack traces become more usable. `testing.TB` arguments should always be
+passed as first parameter, followed by `context.Context` if required.
+
+```go
+func testHelper(tb testing.TB, ctx context.Context) {
+    tb.Helper()
+    ...
+}
+```
+
 ### Table-driven tests
 
 We like table-driven tests ([Table-driven tests using subtests](https://blog.golang.org/subtests#TOC_4.), [Cheney blog post], [Golang wiki]).

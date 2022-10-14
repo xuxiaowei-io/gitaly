@@ -24,7 +24,7 @@ func TestWriteCommitGraph_withExistingCommitGraphCreatedWithDefaults(t *testing.
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
+	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	commitGraphPath := filepath.Join(repoPath, stats.CommitGraphRelPath)
 	require.NoError(t, os.RemoveAll(commitGraphPath))
@@ -62,7 +62,7 @@ func TestWriteCommitGraph_withExistingCommitGraphCreatedWithSplit(t *testing.T) 
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
+	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	commitGraphPath := filepath.Join(repoPath, stats.CommitGraphRelPath)
 	require.NoError(t, os.RemoveAll(commitGraphPath))
@@ -100,7 +100,7 @@ func TestWriteCommitGraph(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, repoPath, client := setupRepositoryService(ctx, t)
+	_, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	chainPath := filepath.Join(repoPath, stats.CommitGraphChainRelPath)
 
@@ -121,7 +121,7 @@ func TestWriteCommitGraph_validationChecks(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, _, client := setupRepositoryService(ctx, t, testserver.WithDisablePraefect())
+	cfg, repo, _, client := setupRepositoryService(t, ctx, testserver.WithDisablePraefect())
 
 	for _, tc := range []struct {
 		desc   string
@@ -164,7 +164,7 @@ func TestUpdateCommitGraph(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
+	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	chainPath := filepath.Join(repoPath, stats.CommitGraphChainRelPath)
 	require.NoFileExists(t, chainPath)

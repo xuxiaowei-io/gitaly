@@ -16,7 +16,7 @@ import (
 	"google.golang.org/grpc/codes"
 )
 
-func createRepoWithDivergentBranches(ctx context.Context, t *testing.T, cfg config.Cfg, leftCommits, rightCommits int, leftBranchName, rightBranchName string) *gitalypb.Repository {
+func createRepoWithDivergentBranches(t *testing.T, ctx context.Context, cfg config.Cfg, leftCommits, rightCommits int, leftBranchName, rightBranchName string) *gitalypb.Repository {
 	/* create a branch structure as follows
 	   	   a
 	   	   |
@@ -29,7 +29,7 @@ func createRepoWithDivergentBranches(ctx context.Context, t *testing.T, cfg conf
 		 f   h
 	*/
 
-	repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	mainCommitOID := createCommits(t, cfg, repoPath, "main", 2, "")
 	createCommits(t, cfg, repoPath, leftBranchName, leftCommits, mainCommitOID)
@@ -42,9 +42,9 @@ func TestSuccessfulCountDivergentCommitsRequest(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupCommitService(ctx, t)
+	cfg, client := setupCommitService(t, ctx)
 
-	testRepo := createRepoWithDivergentBranches(ctx, t, cfg, 3, 3, "left", "right")
+	testRepo := createRepoWithDivergentBranches(t, ctx, cfg, 3, 3, "left", "right")
 
 	testCases := []struct {
 		leftRevision  string
@@ -116,9 +116,9 @@ func TestSuccessfulCountDivergentCommitsRequestWithMaxCount(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupCommitService(ctx, t)
+	cfg, client := setupCommitService(t, ctx)
 
-	testRepo := createRepoWithDivergentBranches(ctx, t, cfg, 4, 4, "left", "right")
+	testRepo := createRepoWithDivergentBranches(t, ctx, cfg, 4, 4, "left", "right")
 
 	testCases := []struct {
 		leftRevision  string
@@ -161,7 +161,7 @@ func TestFailedCountDivergentCommitsRequestDueToValidationError(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupCommitServiceWithRepo(ctx, t)
+	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
 
 	revision := []byte("d42783470dc29fde2cf459eb3199ee1d7e3f3a72")
 

@@ -18,7 +18,7 @@ import (
 func TestSuccessfulGetBlobsRequest(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	cfg, repo, repoPath, client := setup(ctx, t)
+	cfg, repo, repoPath, client := setup(t, ctx)
 
 	expectedBlobs := []*gitalypb.GetBlobsResponse{
 		{
@@ -134,7 +134,7 @@ func TestSuccessfulGetBlobsRequest(t *testing.T) {
 func TestFailedGetBlobsRequestDueToValidation(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	_, repo, _, client := setup(ctx, t)
+	_, repo, _, client := setup(t, ctx)
 
 	testCases := []struct {
 		desc    string

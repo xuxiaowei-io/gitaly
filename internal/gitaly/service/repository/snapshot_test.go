@@ -50,7 +50,7 @@ func touch(t *testing.T, format string, args ...interface{}) {
 
 func TestGetSnapshotSuccess(t *testing.T) {
 	t.Parallel()
-	cfg, repo, repoPath, client := setupRepositoryService(testhelper.Context(t), t)
+	cfg, repo, repoPath, client := setupRepositoryService(t, testhelper.Context(t))
 
 	// Ensure certain files exist in the test repo.
 	// WriteCommit produces a loose object with the given sha
@@ -113,7 +113,7 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			cfg, repoProto, repoPath, client := setupRepositoryService(ctx, t)
+			cfg, repoProto, repoPath, client := setupRepositoryService(t, ctx)
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 			alternateObjDir := tc.alternatePathFunc(t, cfg.Storages[0].Path, filepath.Join(repoPath, "objects"))
@@ -150,7 +150,7 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 			gittest.RequireObjectExists(t, cfg, repoPath, secondCommitID)
 
 			repoCopy, _ := copyRepoUsingSnapshot(t, ctx, cfg, client, repoProto)
-			repoCopy.RelativePath = gittest.GetReplicaPath(ctx, t, cfg, repoCopy)
+			repoCopy.RelativePath = gittest.GetReplicaPath(t, ctx, cfg, repoCopy)
 			repoCopyPath, err := locator.GetRepoPath(repoCopy)
 			require.NoError(t, err)
 
@@ -165,7 +165,7 @@ func TestGetSnapshot_alternateObjectDirectory(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	cfg, repoProto, repoPath, client := setupRepositoryService(ctx, t)
+	cfg, repoProto, repoPath, client := setupRepositoryService(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	locator := config.NewLocator(cfg)
@@ -229,7 +229,7 @@ func TestGetSnapshot_alternateObjectDirectory(t *testing.T) {
 		}()
 
 		repoCopy, _ := copyRepoUsingSnapshot(t, ctx, cfg, client, repoProto)
-		repoCopy.RelativePath = gittest.GetReplicaPath(ctx, t, cfg, repoCopy)
+		repoCopy.RelativePath = gittest.GetReplicaPath(t, ctx, cfg, repoCopy)
 		repoCopyPath, err := locator.GetRepoPath(repoCopy)
 		require.NoError(t, err)
 
@@ -267,7 +267,7 @@ func copyRepoUsingSnapshot(t *testing.T, ctx context.Context, cfg config.Cfg, cl
 	require.NoError(t, err)
 	testhelper.ProtoEqual(t, rsp, &gitalypb.CreateRepositoryFromSnapshotResponse{})
 
-	return repoCopy, filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(ctx, t, cfg, repoCopy))
+	return repoCopy, filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(t, ctx, cfg, repoCopy))
 }
 
 func TestGetSnapshotFailsIfRepositoryMissing(t *testing.T) {
@@ -288,7 +288,7 @@ func TestGetSnapshotFailsIfRepositoryMissing(t *testing.T) {
 
 func TestGetSnapshotFailsIfRepositoryContainsSymlink(t *testing.T) {
 	t.Parallel()
-	_, repo, repoPath, client := setupRepositoryService(testhelper.Context(t), t)
+	_, repo, repoPath, client := setupRepositoryService(t, testhelper.Context(t))
 
 	// Make packed-refs into a symlink to break GetSnapshot()
 	packedRefsFile := filepath.Join(repoPath, "packed-refs")

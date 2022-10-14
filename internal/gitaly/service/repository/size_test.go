@@ -51,7 +51,7 @@ func testSuccessfulRepositorySizeRequestPoolMember(t *testing.T, ctx context.Con
 
 	objectPoolClient := newObjectPoolClient(t, cfg, serverSocketPath)
 
-	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
@@ -112,7 +112,7 @@ func testSuccessfulRepositorySizeRequestPoolMember(t *testing.T, ctx context.Con
 
 func testSuccessfulRepositorySizeRequest(t *testing.T, ctx context.Context) {
 	logger, hook := test.NewNullLogger()
-	cfg, repo, repoPath, client := setupRepositoryService(ctx, t, testserver.WithLogger(logger))
+	cfg, repo, repoPath, client := setupRepositoryService(t, ctx, testserver.WithLogger(logger))
 
 	request := &gitalypb.RepositorySizeRequest{Repository: repo}
 	response, err := client.RepositorySize(ctx, request)
@@ -237,7 +237,7 @@ func TestRepositorySize_SuccessfulGetObjectDirectorySizeRequest(t *testing.T) {
 }
 
 func testSuccessfulGetObjectDirectorySizeRequest(t *testing.T, ctx context.Context) {
-	_, repo, _, client := setupRepositoryService(ctx, t)
+	_, repo, _, client := setupRepositoryService(t, ctx)
 	repo.GitObjectDirectory = "objects/"
 
 	request := &gitalypb.GetObjectDirectorySizeRequest{Repository: repo}
@@ -261,11 +261,11 @@ func testGetObjectDirectorySizeQuarantine(t *testing.T, ctx context.Context) {
 	locator := config.NewLocator(cfg)
 
 	t.Run("quarantined repo", func(t *testing.T) {
-		repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			Seed: gittest.SeedGitLabTest,
 		})
 
-		quarantine, err := quarantine.New(ctx, gittest.RewrittenRepository(ctx, t, cfg, repo), locator)
+		quarantine, err := quarantine.New(ctx, gittest.RewrittenRepository(t, ctx, cfg, repo), locator)
 		require.NoError(t, err)
 
 		// quarantine.New in Gitaly would receive an already rewritten repository. Gitaly would then calculate
@@ -289,16 +289,16 @@ func testGetObjectDirectorySizeQuarantine(t *testing.T, ctx context.Context) {
 	})
 
 	t.Run("quarantined repo with different relative path", func(t *testing.T) {
-		repo1, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		repo1, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			Seed: gittest.SeedGitLabTest,
 		})
-		quarantine1, err := quarantine.New(ctx, gittest.RewrittenRepository(ctx, t, cfg, repo1), locator)
+		quarantine1, err := quarantine.New(ctx, gittest.RewrittenRepository(t, ctx, cfg, repo1), locator)
 		require.NoError(t, err)
 
-		repo2, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		repo2, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			Seed: gittest.SeedGitLabTest,
 		})
-		quarantine2, err := quarantine.New(ctx, gittest.RewrittenRepository(ctx, t, cfg, repo2), locator)
+		quarantine2, err := quarantine.New(ctx, gittest.RewrittenRepository(t, ctx, cfg, repo2), locator)
 		require.NoError(t, err)
 
 		// We swap out the the object directories of both quarantines. So while both are

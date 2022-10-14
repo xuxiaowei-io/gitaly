@@ -16,7 +16,7 @@ import (
 func TestSuccessfulFindBranchRequest(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	cfg, repoProto, _, client := setupRefService(ctx, t)
+	cfg, repoProto, _, client := setupRefService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -84,7 +84,7 @@ func TestSuccessfulFindBranchRequest(t *testing.T) {
 
 func TestFailedFindBranchRequest(t *testing.T) {
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRefService(ctx, t)
+	_, repo, _, client := setupRefService(t, ctx)
 
 	testCases := []struct {
 		desc       string

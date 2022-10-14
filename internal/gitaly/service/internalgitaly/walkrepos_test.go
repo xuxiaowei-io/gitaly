@@ -47,17 +47,17 @@ func TestWalkRepos(t *testing.T) {
 
 	// file walk happens lexicographically, so we delete repository in the middle
 	// of the sequence to ensure the walk proceeds normally
-	testRepo1, testRepo1Path := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	testRepo1, testRepo1Path := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 		Seed:                   gittest.SeedGitLabTest,
 		RelativePath:           "a",
 	})
-	deletedRepo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	deletedRepo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 		Seed:                   gittest.SeedGitLabTest,
 		RelativePath:           "b",
 	})
-	testRepo2, testRepo2Path := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	testRepo2, testRepo2Path := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 		Seed:                   gittest.SeedGitLabTest,
 		RelativePath:           "c",

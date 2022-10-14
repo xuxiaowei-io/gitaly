@@ -20,7 +20,7 @@ import (
 func TestLink(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	cfg, repo, _, _, client := setup(ctx, t, testserver.WithDisablePraefect())
+	cfg, repo, _, _, client := setup(t, ctx, testserver.WithDisablePraefect())
 
 	localRepo := localrepo.NewTestRepo(t, cfg, repo)
 
@@ -87,7 +87,7 @@ func TestLink(t *testing.T) {
 func TestLinkIdempotent(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	cfg, repoProto, _, _, client := setup(ctx, t)
+	cfg, repoProto, _, _, client := setup(t, ctx)
 
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
 	_, err := client.CreateObjectPool(ctx, &gitalypb.CreateObjectPoolRequest{
@@ -110,7 +110,7 @@ func TestLinkIdempotent(t *testing.T) {
 
 func TestLinkNoClobber(t *testing.T) {
 	ctx := testhelper.Context(t)
-	cfg, repoProto, repoPath, _, client := setup(ctx, t)
+	cfg, repoProto, repoPath, _, client := setup(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
@@ -137,7 +137,7 @@ func TestLinkNoClobber(t *testing.T) {
 func TestLinkNoPool(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	cfg, repo, _, _, client := setup(ctx, t)
+	cfg, repo, _, _, client := setup(t, ctx)
 
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
 	_, err := client.CreateObjectPool(ctx, &gitalypb.CreateObjectPoolRequest{

@@ -50,7 +50,7 @@ func TestReplicateRepository(t *testing.T) {
 	client, serverSocketPath := runRepositoryService(t, cfg, nil, testserver.WithDisablePraefect())
 	cfg.SocketPath = serverSocketPath
 
-	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
@@ -126,7 +126,7 @@ func TestReplicateRepository_hiddenRefs(t *testing.T) {
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
 	t.Run("initial seeding", func(t *testing.T) {
-		sourceRepo, sourceRepoPath := gittest.CreateRepository(ctx, t, cfg)
+		sourceRepo, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
 
 		// Create a bunch of internal references, regardless of whether we classify them as hidden
 		// or read-only. We should be able to replicate all of them.
@@ -158,8 +158,8 @@ func TestReplicateRepository_hiddenRefs(t *testing.T) {
 	})
 
 	t.Run("incremental replication", func(t *testing.T) {
-		sourceRepo, sourceRepoPath := gittest.CreateRepository(ctx, t, cfg)
-		targetRepo, targetRepoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		sourceRepo, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
+		targetRepo, targetRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			RelativePath: sourceRepo.GetRelativePath(),
 			Storage:      cfg.Storages[1],
 		})
@@ -206,7 +206,7 @@ func TestReplicateRepositoryTransactional(t *testing.T) {
 	_, serverSocketPath := runRepositoryService(t, cfg, nil, testserver.WithDisablePraefect())
 	cfg.SocketPath = serverSocketPath
 
-	sourceRepo, sourceRepoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	sourceRepo, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
@@ -417,10 +417,10 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 			client, serverSocketPath := runRepositoryService(t, cfg, nil, testserver.WithDisablePraefect())
 			cfg.SocketPath = serverSocketPath
 
-			sourceRepo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+			sourceRepo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				Seed: gittest.SeedGitLabTest,
 			})
-			targetRepo, targetRepoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+			targetRepo, targetRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				Storage:      cfg.Storages[1],
 				RelativePath: sourceRepo.RelativePath,
 			})
@@ -474,7 +474,7 @@ func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 	client, socketPath := runRepositoryService(t, cfg, nil, testserver.WithDisablePraefect())
 	cfg.SocketPath = socketPath
 
-	targetRepo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	targetRepo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Storage: cfg.Storages[1],
 	})
 

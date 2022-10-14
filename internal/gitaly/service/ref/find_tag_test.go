@@ -24,7 +24,7 @@ func TestFindTag_successful(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repoProto, repoPath, client := setupRefService(ctx, t)
+	cfg, repoProto, repoPath, client := setupRefService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -170,7 +170,7 @@ func TestFindTag_nestedTag(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repoProto, repoPath, client := setupRefService(ctx, t)
+	cfg, repoProto, repoPath, client := setupRefService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -264,7 +264,7 @@ func TestFindTag_notFound(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg, client := setupRefServiceWithoutRepo(t)
-	repoProto, _ := gittest.CreateRepository(ctx, t, cfg)
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	response, err := client.FindTag(ctx, &gitalypb.FindTagRequest{
 		Repository: repoProto,
@@ -290,7 +290,7 @@ func TestFindTag_invalidRequest(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRefService(ctx, t)
+	_, repo, _, client := setupRefService(t, ctx)
 
 	testCases := []struct {
 		desc    string

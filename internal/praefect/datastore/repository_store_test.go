@@ -1204,7 +1204,7 @@ func TestRepositoryStore_incrementGenerationConcurrently(t *testing.T) {
 			require.NoError(t, err)
 
 			go func() {
-				testdb.WaitForBlockedQuery(ctx, t, db, "WITH updated_replicas AS (")
+				testdb.WaitForBlockedQuery(t, ctx, db, "WITH updated_replicas AS (")
 				firstTx.Commit(t)
 			}()
 

@@ -28,8 +28,8 @@ func TestMain(m *testing.M) {
 }
 
 // setupCommitService makes a basic configuration and starts the service with the client.
-func setupCommitService(ctx context.Context, tb testing.TB) (config.Cfg, gitalypb.CommitServiceClient) {
-	cfg, _, _, client := setupCommitServiceCreateRepo(ctx, tb, func(ctx context.Context, tb testing.TB, cfg config.Cfg) (*gitalypb.Repository, string) {
+func setupCommitService(tb testing.TB, ctx context.Context) (config.Cfg, gitalypb.CommitServiceClient) {
+	cfg, _, _, client := setupCommitServiceCreateRepo(tb, ctx, func(tb testing.TB, ctx context.Context, cfg config.Cfg) (*gitalypb.Repository, string) {
 		return nil, ""
 	})
 	return cfg, client
@@ -37,10 +37,10 @@ func setupCommitService(ctx context.Context, tb testing.TB) (config.Cfg, gitalyp
 
 // setupCommitServiceWithRepo makes a basic configuration, creates a test repository and starts the service with the client.
 func setupCommitServiceWithRepo(
-	ctx context.Context, tb testing.TB,
+	tb testing.TB, ctx context.Context,
 ) (config.Cfg, *gitalypb.Repository, string, gitalypb.CommitServiceClient) {
-	return setupCommitServiceCreateRepo(ctx, tb, func(ctx context.Context, tb testing.TB, cfg config.Cfg) (*gitalypb.Repository, string) {
-		repo, repoPath := gittest.CreateRepository(ctx, tb, cfg, gittest.CreateRepositoryConfig{
+	return setupCommitServiceCreateRepo(tb, ctx, func(tb testing.TB, ctx context.Context, cfg config.Cfg) (*gitalypb.Repository, string) {
+		repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
 			Seed: gittest.SeedGitLabTest,
 		})
 		return repo, repoPath
@@ -48,16 +48,16 @@ func setupCommitServiceWithRepo(
 }
 
 func setupCommitServiceCreateRepo(
-	ctx context.Context,
 	tb testing.TB,
-	createRepo func(context.Context, testing.TB, config.Cfg) (*gitalypb.Repository, string),
+	ctx context.Context,
+	createRepo func(testing.TB, context.Context, config.Cfg) (*gitalypb.Repository, string),
 ) (config.Cfg, *gitalypb.Repository, string, gitalypb.CommitServiceClient) {
 	cfg := testcfg.Build(tb)
 
 	cfg.SocketPath = startTestServices(tb, cfg)
 	client := newCommitServiceClient(tb, cfg.SocketPath)
 
-	repo, repoPath := createRepo(ctx, tb, cfg)
+	repo, repoPath := createRepo(tb, ctx, cfg)
 
 	return cfg, repo, repoPath, client
 }

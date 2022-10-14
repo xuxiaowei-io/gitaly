@@ -134,7 +134,7 @@ func TestUserCreateTag_successful(t *testing.T) {
 	ctx := testhelper.Context(t)
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
-	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents())
 
@@ -258,7 +258,7 @@ func TestUserCreateTag_transactional(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			*transactionServer = testTransactionServer{}
 
-			repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg)
+			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 			hooksOutputDir := testhelper.TempDir(t)
@@ -326,7 +326,7 @@ func TestUserCreateTag_quarantine(t *testing.T) {
 	ctx := testhelper.Context(t)
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
-	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents())
@@ -444,7 +444,7 @@ func TestUserCreateTag_message(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg)
+			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 			commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents())
@@ -539,7 +539,7 @@ func TestUserCreateTag_targetRevision(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg)
+			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 			baseCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(), gittest.WithMessage("1"))
@@ -587,7 +587,7 @@ func TestUserCreateTag_nonCommitTarget(t *testing.T) {
 	ctx := testhelper.Context(t)
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
-	repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("content"))
 	treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 		{Path: "file", Mode: "100644", Content: "something"},
@@ -797,7 +797,7 @@ func TestUserCreateTag_stableTagIDs(t *testing.T) {
 	ctx := testhelper.Context(t)
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
-	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents())
@@ -873,7 +873,7 @@ func TestUserCreateTag_prefixedTag(t *testing.T) {
 	ctx := testhelper.Context(t)
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
-	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents())
@@ -911,7 +911,7 @@ func TestUserCreateTag_gitHooks(t *testing.T) {
 
 	for _, hookName := range GitlabHooks {
 		t.Run(hookName, func(t *testing.T) {
-			repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg)
+			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 			commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents())
@@ -1065,7 +1065,7 @@ func TestUserCreateTag_hookFailure(t *testing.T) {
 		},
 	} {
 		t.Run(tc.hook, func(t *testing.T) {
-			repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
+			repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 			commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents())
 
 			gittest.WriteCustomHook(t, repoPath, tc.hook, []byte(
@@ -1102,7 +1102,7 @@ func TestUserCreateTag_preexisting(t *testing.T) {
 	ctx := testhelper.Context(t)
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
-	repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents())
 	gittest.WriteTag(t, cfg, repoPath, "v1.1.0", commitID.Revision())
 
@@ -1158,7 +1158,7 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 	ctx := testhelper.Context(t)
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
-	repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithParents())
 
 	injectedTag := "inject-tag\ntagger . <> 0 +0000\n\nInjected subject\n\n"

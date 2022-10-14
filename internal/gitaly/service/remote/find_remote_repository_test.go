@@ -19,7 +19,7 @@ func TestFindRemoteRepository(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRemoteService(ctx, t)
+	_, repo, _, client := setupRemoteService(t, ctx)
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		infoRefs := testhelper.MustReadFile(t, "testdata/lsremotedata.txt")
@@ -39,7 +39,7 @@ func TestFailedFindRemoteRepository(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRemoteService(ctx, t)
+	_, repo, _, client := setupRemoteService(t, ctx)
 
 	testCases := []struct {
 		description string

@@ -76,7 +76,7 @@ func TestCreateRepositoryFromSnapshot_success(t *testing.T) {
 	client, socketPath := runRepositoryService(t, cfg, nil)
 	cfg.SocketPath = socketPath
 
-	_, sourceRepoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	_, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
@@ -107,7 +107,7 @@ func TestCreateRepositoryFromSnapshot_success(t *testing.T) {
 	require.NoError(t, err)
 	testhelper.ProtoEqual(t, rsp, &gitalypb.CreateRepositoryFromSnapshotResponse{})
 
-	repoAbsolutePath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(ctx, t, cfg, repo))
+	repoAbsolutePath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(t, ctx, cfg, repo))
 	require.DirExists(t, repoAbsolutePath)
 	for _, entry := range entries {
 		if strings.HasSuffix(entry, "/") {
@@ -132,7 +132,7 @@ func TestCreateRepositoryFromSnapshot_repositoryExists(t *testing.T) {
 	// This creates the first repository on the server. As this test can run with Praefect in front of it,
 	// we'll use the next replica path Praefect will assign in order to ensure this repository creation
 	// conflicts even with Praefect in front of it.
-	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		RelativePath: praefectutil.DeriveReplicaPath(1),
 		Seed:         gittest.SeedGitLabTest,
 	})
@@ -239,7 +239,7 @@ func TestCreateRepositoryFromSnapshot_malformedResponse(t *testing.T) {
 	client, socketPath := runRepositoryService(t, cfg, nil)
 	cfg.SocketPath = socketPath
 
-	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 

@@ -20,7 +20,7 @@ import (
 
 func testSuccessfulWikiWritePageRequest(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server) {
 	ctx := testhelper.Context(t)
-	wikiRepoProto, wikiRepoPath := setupWikiRepo(ctx, t, cfg)
+	wikiRepoProto, wikiRepoPath := setupWikiRepo(t, ctx, cfg)
 	wikiRepo := localrepo.NewTestRepo(t, cfg, wikiRepoProto)
 
 	authorID := int32(1)
@@ -114,7 +114,7 @@ func testSuccessfulWikiWritePageRequest(t *testing.T, cfg config.Cfg, client git
 
 func testFailedWikiWritePageDueToDuplicatePage(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server) {
 	ctx := testhelper.Context(t)
-	wikiRepo, _ := setupWikiRepo(ctx, t, cfg)
+	wikiRepo, _ := setupWikiRepo(t, ctx, cfg)
 
 	pageName := "Installing Gitaly"
 	content := []byte("Mock wiki page content")
@@ -150,7 +150,7 @@ func testFailedWikiWritePageDueToDuplicatePage(t *testing.T, cfg config.Cfg, cli
 
 func testFailedWikiWritePageInPathDueToDuplicatePage(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server) {
 	ctx := testhelper.Context(t)
-	wikiRepo, _ := setupWikiRepo(ctx, t, cfg)
+	wikiRepo, _ := setupWikiRepo(t, ctx, cfg)
 
 	pageName := "foo/Installing Gitaly"
 	content := []byte("Mock wiki page content")

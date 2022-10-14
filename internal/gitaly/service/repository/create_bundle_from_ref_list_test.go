@@ -23,7 +23,7 @@ func TestCreateBundleFromRefList_success(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
+	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	// Create a work tree with a HEAD pointing to a commit that is missing. CreateBundle should
 	// clean this up before creating the bundle.
@@ -73,7 +73,7 @@ func TestCreateBundleFromRefList_missing_ref(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupRepositoryService(ctx, t)
+	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	masterOID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/master"))
 
@@ -111,7 +111,7 @@ func TestCreateBundleFromRefList_validations(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRepositoryService(ctx, t)
+	_, repo, _, client := setupRepositoryService(t, ctx)
 
 	testCases := []struct {
 		desc         string

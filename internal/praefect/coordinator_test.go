@@ -319,7 +319,7 @@ func TestStreamDirectorMutator_StopTransaction(t *testing.T) {
 	for _, name := range []string{"primary", "secondary"} {
 		node, err := shard.GetNode(name)
 		require.NoError(t, err)
-		waitNodeToChangeHealthStatus(ctx, t, node, true)
+		waitNodeToChangeHealthStatus(t, ctx, node, true)
 	}
 
 	rs := datastore.MockRepositoryStore{
@@ -1144,10 +1144,10 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 
 		gitaly1, err := shard.GetNode(secondaryNodeConf.Storage)
 		require.NoError(t, err)
-		waitNodeToChangeHealthStatus(ctx, t, gitaly1, false)
+		waitNodeToChangeHealthStatus(t, ctx, gitaly1, false)
 		defer func() {
 			healthSrv.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
-			waitNodeToChangeHealthStatus(ctx, t, gitaly1, true)
+			waitNodeToChangeHealthStatus(t, ctx, gitaly1, true)
 		}()
 
 		frame, err := proto.Marshal(&gitalypb.FindAllBranchesRequest{Repository: &targetRepo})
@@ -1180,10 +1180,10 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 
 		primaryGitaly, err := shard.GetNode(primaryNodeConf.Storage)
 		require.NoError(t, err)
-		waitNodeToChangeHealthStatus(ctx, t, primaryGitaly, false)
+		waitNodeToChangeHealthStatus(t, ctx, primaryGitaly, false)
 		defer func() {
 			primaryHealthSrv.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
-			waitNodeToChangeHealthStatus(ctx, t, primaryGitaly, true)
+			waitNodeToChangeHealthStatus(t, ctx, primaryGitaly, true)
 		}()
 
 		frame, err := proto.Marshal(&gitalypb.FindAllBranchesRequest{Repository: &targetRepo})
@@ -1416,7 +1416,7 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 	}
 }
 
-func waitNodeToChangeHealthStatus(ctx context.Context, t *testing.T, node nodes.Node, health bool) {
+func waitNodeToChangeHealthStatus(t *testing.T, ctx context.Context, node nodes.Node, health bool) {
 	t.Helper()
 
 	require.Eventually(t, func() bool {

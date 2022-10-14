@@ -18,7 +18,7 @@ import (
 
 func testSuccessfulWikiFindPageRequest(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server) {
 	ctx := testhelper.Context(t)
-	wikiRepo, wikiRepoPath := setupWikiRepo(ctx, t, cfg)
+	wikiRepo, wikiRepoPath := setupWikiRepo(t, ctx, cfg)
 
 	page1Name := "Home Pagé"
 	page2Name := "Instálling/Step 133-b"
@@ -273,7 +273,7 @@ func testSuccessfulWikiFindPageRequest(t *testing.T, cfg config.Cfg, client gita
 
 func testSuccessfulWikiFindPageSameTitleDifferentPathRequest(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server) {
 	ctx := testhelper.Context(t)
-	wikiRepo, wikiRepoPath := setupWikiRepo(ctx, t, cfg)
+	wikiRepo, wikiRepoPath := setupWikiRepo(t, ctx, cfg)
 
 	page1Name := "page1"
 	page1Content := []byte("content " + page1Name)
@@ -385,7 +385,7 @@ func TestFailedWikiFindPageDueToValidation(t *testing.T) {
 	cfg.SocketPath = socketPath
 
 	ctx := testhelper.Context(t)
-	wikiRepo, _ := setupWikiRepo(ctx, t, cfg)
+	wikiRepo, _ := setupWikiRepo(t, ctx, cfg)
 
 	testCases := []struct {
 		desc  string
@@ -450,7 +450,7 @@ func TestInvalidWikiFindPageRequestRevision(t *testing.T) {
 	cfg.SocketPath = socketPath
 
 	ctx := testhelper.Context(t)
-	wikiRepo, _ := setupWikiRepo(ctx, t, cfg)
+	wikiRepo, _ := setupWikiRepo(t, ctx, cfg)
 
 	stream, err := client.WikiFindPage(ctx, &gitalypb.WikiFindPageRequest{
 		Repository: wikiRepo,
@@ -465,7 +465,7 @@ func TestInvalidWikiFindPageRequestRevision(t *testing.T) {
 
 func testSuccessfulWikiFindPageRequestWithTrailers(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server) {
 	ctx := testhelper.Context(t)
-	wikiRepo, repoPath := gittest.CreateRepository(ctx, t, cfg)
+	wikiRepo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	gittest.WriteCommit(t, cfg, repoPath,
 		gittest.WithBranch("main"),

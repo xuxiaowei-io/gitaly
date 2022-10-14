@@ -39,7 +39,7 @@ func TestListBlobs(t *testing.T) {
 	streamio.WriteBufferSize = 200
 	ctx := testhelper.Context(t)
 
-	cfg, repoProto, repoPath, client := setup(ctx, t)
+	cfg, repoProto, repoPath, client := setup(t, ctx)
 
 	bigBlobContents := bytes.Repeat([]byte{1}, streamio.WriteBufferSize*2+1)
 	bigBlobOID := gittest.WriteBlob(t, cfg, repoPath, bigBlobContents)
@@ -283,9 +283,9 @@ func TestListBlobs(t *testing.T) {
 
 func TestListAllBlobs(t *testing.T) {
 	ctx := testhelper.Context(t)
-	cfg, repo, _, client := setup(ctx, t)
+	cfg, repo, _, client := setup(t, ctx)
 
-	quarantine, err := quarantine.New(ctx, gittest.RewrittenRepository(ctx, t, cfg, repo), config.NewLocator(cfg))
+	quarantine, err := quarantine.New(ctx, gittest.RewrittenRepository(t, ctx, cfg, repo), config.NewLocator(cfg))
 	require.NoError(t, err)
 
 	// quarantine.New in Gitaly would receive an already rewritten repository. Gitaly would then calculate
@@ -300,9 +300,9 @@ func TestListAllBlobs(t *testing.T) {
 	quarantineRepoWithoutAlternates := proto.Clone(quarantinedRepo).(*gitalypb.Repository)
 	quarantineRepoWithoutAlternates.GitAlternateObjectDirectories = []string{}
 
-	emptyRepo, _ := gittest.CreateRepository(ctx, t, cfg)
+	emptyRepo, _ := gittest.CreateRepository(t, ctx, cfg)
 
-	singleBlobRepo, singleBlobRepoPath := gittest.CreateRepository(ctx, t, cfg)
+	singleBlobRepo, singleBlobRepoPath := gittest.CreateRepository(t, ctx, cfg)
 	blobID := gittest.WriteBlob(t, cfg, singleBlobRepoPath, []byte("foobar"))
 
 	for _, tc := range []struct {
@@ -430,7 +430,7 @@ func BenchmarkListAllBlobs(b *testing.B) {
 	b.StopTimer()
 	ctx := testhelper.Context(b)
 
-	_, repoProto, _, client := setup(ctx, b)
+	_, repoProto, _, client := setup(b, ctx)
 
 	for _, tc := range []struct {
 		desc    string
@@ -474,7 +474,7 @@ func BenchmarkListBlobs(b *testing.B) {
 	b.StopTimer()
 	ctx := testhelper.Context(b)
 
-	_, repoProto, _, client := setup(ctx, b)
+	_, repoProto, _, client := setup(b, ctx)
 
 	for _, tc := range []struct {
 		desc    string

@@ -20,7 +20,7 @@ import (
 func TestSuccessfullBackupCustomHooksRequest(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
-	_, repo, repoPath, client := setupRepositoryService(ctx, t)
+	_, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	expectedTarResponse := []string{
 		"custom_hooks/",
@@ -58,7 +58,7 @@ func TestSuccessfullBackupCustomHooksRequest(t *testing.T) {
 func TestSuccessfullBackupCustomHooksSymlink(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
-	_, repo, repoPath, client := setupRepositoryService(ctx, t)
+	_, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	linkTarget := "/var/empty"
 	require.NoError(t, os.Symlink(linkTarget, filepath.Join(repoPath, "custom_hooks")), "Could not create custom_hooks symlink")
@@ -86,7 +86,7 @@ func TestSuccessfullBackupCustomHooksSymlink(t *testing.T) {
 func TestSuccessfullBackupCustomHooksRequestWithNoHooks(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRepositoryService(ctx, t)
+	_, repo, _, client := setupRepositoryService(t, ctx)
 
 	backupRequest := &gitalypb.BackupCustomHooksRequest{Repository: repo}
 	backupStream, err := client.BackupCustomHooks(ctx, backupRequest)

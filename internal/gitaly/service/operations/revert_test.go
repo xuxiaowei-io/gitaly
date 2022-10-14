@@ -35,7 +35,7 @@ func TestServer_UserRevert_successful(t *testing.T) {
 	revertedCommit, err := repo.ReadCommit(ctx, "d59c60028b053793cecfb4022de34602e1a9218e")
 	require.NoError(t, err)
 
-	testRepoCopy, testRepoCopyPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	testRepoCopy, testRepoCopyPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	}) // read-only repo
 
@@ -286,7 +286,7 @@ func TestServer_UserRevert_successfulIntoEmptyRepo(t *testing.T) {
 	masterHeadCommit, err := startRepo.ReadCommit(ctx, "master")
 	require.NoError(t, err)
 
-	repoProto, _ := gittest.CreateRepository(ctx, t, cfg)
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	request := &gitalypb.UserRevertRequest{

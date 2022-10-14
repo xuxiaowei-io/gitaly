@@ -77,7 +77,7 @@ func TestCreateFork_successful(t *testing.T) {
 				client, cfg.SocketPath = runRepositoryService(t, cfg, nil)
 			}
 
-			repo, _ := gittest.CreateRepository(ctx, t, cfg, createRepoConfig)
+			repo, _ := gittest.CreateRepository(t, ctx, cfg, createRepoConfig)
 
 			ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
@@ -92,7 +92,7 @@ func TestCreateFork_successful(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			replicaPath := gittest.GetReplicaPath(ctx, t, cfg, forkedRepo, getReplicaPathConfig)
+			replicaPath := gittest.GetReplicaPath(t, ctx, cfg, forkedRepo, getReplicaPathConfig)
 			forkedRepoPath := filepath.Join(cfg.Storages[0].Path, replicaPath)
 
 			gittest.Exec(t, cfg, "-C", forkedRepoPath, "fsck")
@@ -115,7 +115,7 @@ func TestCreateFork_refs(t *testing.T) {
 	client, socketPath := runRepositoryService(t, cfg, nil)
 	cfg.SocketPath = socketPath
 
-	sourceRepo, sourceRepoPath := gittest.CreateRepository(ctx, t, cfg)
+	sourceRepo, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	// Prepare the source repository with a bunch of refs and a non-default HEAD ref so we can
 	// assert that the target repo gets created with the correct set of refs.
@@ -146,7 +146,7 @@ func TestCreateFork_refs(t *testing.T) {
 	storagePath, err := config.NewLocator(cfg).GetStorageByName(targetRepo.GetStorageName())
 	require.NoError(t, err)
 
-	targetRepoPath := filepath.Join(storagePath, gittest.GetReplicaPath(ctx, t, cfg, targetRepo))
+	targetRepoPath := filepath.Join(storagePath, gittest.GetReplicaPath(t, ctx, cfg, targetRepo))
 
 	require.Equal(t,
 		[]string{
@@ -176,7 +176,7 @@ func TestCreateFork_fsck(t *testing.T) {
 	ctx := testhelper.Context(t)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
-	repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	// Write a tree into the repository that's known-broken.
 	treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
@@ -206,7 +206,7 @@ func TestCreateFork_fsck(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	forkedRepoPath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(ctx, t, cfg, forkedRepo))
+	forkedRepoPath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(t, ctx, cfg, forkedRepo))
 
 	// Verify that the broken tree is indeed in the fork and that it is reported as broken by
 	// git-fsck(1).
@@ -256,7 +256,7 @@ func TestCreateFork_targetExists(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			cfg, repo, _, client := setupRepositoryService(ctx, t)
+			cfg, repo, _, client := setupRepositoryService(t, ctx)
 
 			ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 

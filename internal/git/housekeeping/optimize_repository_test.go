@@ -43,7 +43,7 @@ func TestNeedsRepacking(t *testing.T) {
 		{
 			desc: "empty repo does nothing",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repoProto, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
 				})
@@ -53,7 +53,7 @@ func TestNeedsRepacking(t *testing.T) {
 		{
 			desc: "missing bitmap",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repoProto, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					Seed:                   gittest.SeedGitLabTest,
 					RelativePath:           relativePath,
@@ -69,7 +69,7 @@ func TestNeedsRepacking(t *testing.T) {
 		{
 			desc: "missing bitmap with alternate",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					Seed:                   gittest.SeedGitLabTest,
 					RelativePath:           relativePath,
@@ -89,7 +89,7 @@ func TestNeedsRepacking(t *testing.T) {
 		{
 			desc: "missing commit-graph",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					Seed:                   gittest.SeedGitLabTest,
 					RelativePath:           relativePath,
@@ -107,7 +107,7 @@ func TestNeedsRepacking(t *testing.T) {
 		{
 			desc: "commit-graph without bloom filters",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					Seed:                   gittest.SeedGitLabTest,
 					RelativePath:           relativePath,
@@ -126,7 +126,7 @@ func TestNeedsRepacking(t *testing.T) {
 		{
 			desc: "no repack needed",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					Seed:                   gittest.SeedGitLabTest,
 					RelativePath:           relativePath,
@@ -201,7 +201,7 @@ func TestNeedsRepacking(t *testing.T) {
 		// Let's not go any further than this, we're thrashing the temporary directory.
 	} {
 		testRepoAndPool(t, fmt.Sprintf("packfile with %d bytes", tc.packfileSize), func(t *testing.T, relativePath string) {
-			repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				SkipCreationViaService: true,
 				RelativePath:           relativePath,
 			})
@@ -314,7 +314,7 @@ func TestNeedsRepacking(t *testing.T) {
 		},
 	} {
 		testRepoAndPool(t, tc.desc, func(t *testing.T, relativePath string) {
-			repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				SkipCreationViaService: true,
 				RelativePath:           relativePath,
 			})
@@ -393,7 +393,7 @@ func TestPackRefsIfNeeded(t *testing.T) {
 		},
 	} {
 		testRepoAndPool(t, fmt.Sprintf("packed-refs with %d bytes", tc.packedRefsSize), func(t *testing.T, relativePath string) {
-			repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				SkipCreationViaService: true,
 				RelativePath:           relativePath,
 			})
@@ -449,7 +449,7 @@ func TestEstimateLooseObjectCount(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
-	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -545,7 +545,7 @@ func TestOptimizeRepository(t *testing.T) {
 		{
 			desc: "empty repository does nothing",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
 				})
@@ -559,7 +559,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 		{
 			desc: "repository without bitmap repacks objects",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					Seed:                   gittest.SeedGitLabTest,
 					RelativePath:           relativePath,
@@ -577,7 +577,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 		{
 			desc: "repository without commit-graph writes commit-graph",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					Seed:                   gittest.SeedGitLabTest,
 					RelativePath:           relativePath,
@@ -594,7 +594,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 		{
 			desc: "repository with multiple packfiles packs only for object pool",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					Seed:                   gittest.SeedGitLabTest,
 					RelativePath:           relativePath,
@@ -622,7 +622,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 		{
 			desc: "well-packed repository does not optimize",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					Seed:                   gittest.SeedGitLabTest,
 					RelativePath:           relativePath,
@@ -639,7 +639,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 		{
 			desc: "recent loose objects don't get pruned",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					Seed:                   gittest.SeedGitLabTest,
 					RelativePath:           relativePath,
@@ -674,7 +674,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 		{
 			desc: "old loose objects get pruned",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					Seed:                   gittest.SeedGitLabTest,
 					RelativePath:           relativePath,
@@ -714,7 +714,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 		{
 			desc: "loose refs get packed",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
 				})
@@ -767,7 +767,7 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 	t.Run("subsequent calls get skipped", func(t *testing.T) {
 		reqReceivedCh, ch := make(chan struct{}), make(chan struct{})
 
-		repoProto, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 			Seed:                   gittest.SeedGitLabTest,
 		})
@@ -798,12 +798,12 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 	t.Run("multiple repositories concurrently", func(t *testing.T) {
 		reqReceivedCh, ch := make(chan struct{}), make(chan struct{})
 
-		repoProtoFirst, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		repoProtoFirst, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 			Seed:                   gittest.SeedGitLabTest,
 		})
 		repoFirst := localrepo.NewTestRepo(t, cfg, repoProtoFirst)
-		repoProtoSecond, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		repoProtoSecond, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 			Seed:                   gittest.SeedGitLabTest,
 		})
@@ -843,7 +843,7 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 
 	t.Run("serialized optimizations", func(t *testing.T) {
 		reqReceivedCh, ch := make(chan struct{}), make(chan struct{})
-		repoProto, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 			Seed:                   gittest.SeedGitLabTest,
 		})
@@ -899,7 +899,7 @@ func TestPruneIfNeeded(t *testing.T) {
 	cfg := testcfg.Build(t)
 
 	testRepoAndPool(t, "empty repo does not prune", func(t *testing.T, relativePath string) {
-		repoProto, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 			RelativePath:           relativePath,
 		})
@@ -911,7 +911,7 @@ func TestPruneIfNeeded(t *testing.T) {
 	})
 
 	testRepoAndPool(t, "repo with single object does not prune", func(t *testing.T, relativePath string) {
-		repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 			RelativePath:           relativePath,
 		})
@@ -925,7 +925,7 @@ func TestPruneIfNeeded(t *testing.T) {
 	})
 
 	testRepoAndPool(t, "repo with single 17-prefixed objects does not prune", func(t *testing.T, relativePath string) {
-		repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 			RelativePath:           relativePath,
 		})
@@ -940,7 +940,7 @@ func TestPruneIfNeeded(t *testing.T) {
 	})
 
 	testRepoAndPool(t, "repo with four 17-prefixed objects does not prune", func(t *testing.T, relativePath string) {
-		repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 			RelativePath:           relativePath,
 		})
@@ -957,7 +957,7 @@ func TestPruneIfNeeded(t *testing.T) {
 	})
 
 	testRepoAndPool(t, "repo with five 17-prefixed objects does prune after grace period", func(t *testing.T, relativePath string) {
-		repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 			RelativePath:           relativePath,
 		})
@@ -1039,7 +1039,7 @@ func TestWriteCommitGraphIfNeeded(t *testing.T) {
 		{
 			desc: "empty repository",
 			setup: func(t *testing.T) (*gitalypb.Repository, string) {
-				return gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				return gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 			},
@@ -1050,7 +1050,7 @@ func TestWriteCommitGraphIfNeeded(t *testing.T) {
 		{
 			desc: "repository with objects but no refs",
 			setup: func(t *testing.T) (*gitalypb.Repository, string) {
-				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 				gittest.WriteBlob(t, cfg, repoPath, []byte("something"))
@@ -1063,7 +1063,7 @@ func TestWriteCommitGraphIfNeeded(t *testing.T) {
 		{
 			desc: "repository without commit-graph",
 			setup: func(t *testing.T) (*gitalypb.Repository, string) {
-				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
@@ -1078,7 +1078,7 @@ func TestWriteCommitGraphIfNeeded(t *testing.T) {
 		{
 			desc: "repository with old-style unsplit commit-graph",
 			setup: func(t *testing.T) (*gitalypb.Repository, string) {
-				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
@@ -1102,7 +1102,7 @@ func TestWriteCommitGraphIfNeeded(t *testing.T) {
 		{
 			desc: "repository with split commit-graph without bitmap",
 			setup: func(t *testing.T) (*gitalypb.Repository, string) {
-				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
@@ -1123,7 +1123,7 @@ func TestWriteCommitGraphIfNeeded(t *testing.T) {
 		{
 			desc: "repository with split commit-graph with bitmap without repack",
 			setup: func(t *testing.T) (*gitalypb.Repository, string) {
-				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
@@ -1144,7 +1144,7 @@ func TestWriteCommitGraphIfNeeded(t *testing.T) {
 		{
 			desc: "repository with split commit-graph with bitmap with repack",
 			setup: func(t *testing.T) (*gitalypb.Repository, string) {
-				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
@@ -1166,7 +1166,7 @@ func TestWriteCommitGraphIfNeeded(t *testing.T) {
 		{
 			desc: "repository with split commit-graph with bitmap with pruned objects",
 			setup: func(t *testing.T) (*gitalypb.Repository, string) {
-				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
@@ -1209,7 +1209,7 @@ func TestWriteCommitGraphIfNeeded(t *testing.T) {
 	}
 
 	t.Run("commit-graph with pruned objects", func(t *testing.T) {
-		repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 		})
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)

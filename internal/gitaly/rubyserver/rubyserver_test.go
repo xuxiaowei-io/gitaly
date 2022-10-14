@@ -206,7 +206,7 @@ func TestServer_gitconfig(t *testing.T) {
 				`[`,
 			), 0o666))
 
-			repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+			repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				SkipCreationViaService: true,
 			})
 

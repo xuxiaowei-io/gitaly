@@ -33,7 +33,7 @@ func TestDetectObjectHash(t *testing.T) {
 		{
 			desc: "defaults to SHA1",
 			setup: func(t *testing.T) *gitalypb.Repository {
-				repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					ObjectFormat:           "sha1",
 				})
@@ -50,7 +50,7 @@ func TestDetectObjectHash(t *testing.T) {
 		{
 			desc: "explicitly set to SHA1",
 			setup: func(t *testing.T) *gitalypb.Repository {
-				repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					ObjectFormat:           "sha1",
 				})
@@ -68,7 +68,7 @@ func TestDetectObjectHash(t *testing.T) {
 		{
 			desc: "explicitly set to SHA256",
 			setup: func(t *testing.T) *gitalypb.Repository {
-				repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					ObjectFormat:           "sha256",
 				})
@@ -85,7 +85,7 @@ func TestDetectObjectHash(t *testing.T) {
 		{
 			desc: "invalid repository configuration",
 			setup: func(t *testing.T) *gitalypb.Repository {
-				repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					ObjectFormat:           "sha1",
 				})
@@ -102,7 +102,7 @@ func TestDetectObjectHash(t *testing.T) {
 		{
 			desc: "unknown hash",
 			setup: func(t *testing.T) *gitalypb.Repository {
-				repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 

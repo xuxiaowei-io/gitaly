@@ -143,7 +143,7 @@ SOFTWARE.`,
 			},
 		} {
 			t.Run(tc.desc, func(t *testing.T) {
-				repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 				var treeEntries []gittest.TreeEntry
 				for file, content := range tc.files {
@@ -180,7 +180,7 @@ SOFTWARE.`,
 
 func testFindLicenseRequestEmptyRepo(t *testing.T, cfg config.Cfg, client gitalypb.RepositoryServiceClient, rubySrv *rubyserver.Server) {
 	testhelper.NewFeatureSets(featureflag.GoFindLicense).Run(t, func(t *testing.T, ctx context.Context) {
-		repo, _ := gittest.CreateRepository(ctx, t, cfg)
+		repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 		resp, err := client.FindLicense(ctx, &gitalypb.FindLicenseRequest{Repository: repo})
 		require.NoError(t, err)

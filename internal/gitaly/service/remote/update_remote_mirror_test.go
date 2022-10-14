@@ -529,9 +529,9 @@ func TestUpdateRemoteMirror(t *testing.T) {
 
 			testcfg.BuildGitalyGit2Go(t, cfg)
 
-			mirrorRepoPb, mirrorRepoPath := gittest.CreateRepository(ctx, t, cfg)
+			mirrorRepoPb, mirrorRepoPath := gittest.CreateRepository(t, ctx, cfg)
 
-			sourceRepoPb, sourceRepoPath := gittest.CreateRepository(ctx, t, cfg)
+			sourceRepoPb, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
 
 			// create identical commits in both repositories so we can use them for
 			// the references
@@ -559,7 +559,7 @@ func TestUpdateRemoteMirror(t *testing.T) {
 					var commitOID git.ObjectID
 					for _, commit := range commits {
 						var err error
-						commitOID, err = executor.Commit(ctx, gittest.RewrittenRepository(ctx, t, cfg, c.repoProto),
+						commitOID, err = executor.Commit(ctx, gittest.RewrittenRepository(t, ctx, cfg, c.repoProto),
 							git2go.CommitCommand{
 								Repository: c.repoPath,
 								Author:     commitSignature,
@@ -636,8 +636,8 @@ func TestSuccessfulUpdateRemoteMirrorRequest(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, testRepo, testRepoPath, client := setupRemoteService(ctx, t)
-	_, mirrorPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	cfg, testRepo, testRepoPath, client := setupRemoteService(t, ctx)
+	_, mirrorPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
@@ -723,9 +723,9 @@ func TestSuccessfulUpdateRemoteMirrorRequestWithWildcards(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, testRepo, testRepoPath, client := setupRemoteService(ctx, t)
+	cfg, testRepo, testRepoPath, client := setupRemoteService(t, ctx)
 
-	_, mirrorPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	_, mirrorPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
@@ -794,10 +794,10 @@ func TestUpdateRemoteMirrorInmemory(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, localRepo, localPath, client := setupRemoteService(ctx, t)
+	cfg, localRepo, localPath, client := setupRemoteService(t, ctx)
 	gittest.WriteCommit(t, cfg, localPath)
 
-	_, remotePath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	_, remotePath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
@@ -824,8 +824,8 @@ func TestSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefs(t *testing.T) 
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, testRepo, testRepoPath, client := setupRemoteService(ctx, t)
-	_, mirrorPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	cfg, testRepo, testRepoPath, client := setupRemoteService(t, ctx)
+	_, mirrorPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
@@ -896,7 +896,7 @@ func TestFailedUpdateRemoteMirrorRequestDueToValidation(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, testRepo, _, client := setupRemoteService(ctx, t)
+	_, testRepo, _, client := setupRemoteService(t, ctx)
 
 	testCases := []struct {
 		desc    string

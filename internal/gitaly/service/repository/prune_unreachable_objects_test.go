@@ -37,7 +37,7 @@ func TestPruneUnreachableObjects(t *testing.T) {
 	})
 
 	t.Run("relative path points to removed repository", func(t *testing.T) {
-		repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
+		repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 		require.NoError(t, os.RemoveAll(repoPath))
 
 		_, err := client.PruneUnreachableObjects(ctx, &gitalypb.PruneUnreachableObjectsRequest{
@@ -47,7 +47,7 @@ func TestPruneUnreachableObjects(t *testing.T) {
 	})
 
 	t.Run("empty repository", func(t *testing.T) {
-		repo, _ := gittest.CreateRepository(ctx, t, cfg)
+		repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 		_, err := client.PruneUnreachableObjects(ctx, &gitalypb.PruneUnreachableObjectsRequest{
 			Repository: repo,
@@ -56,7 +56,7 @@ func TestPruneUnreachableObjects(t *testing.T) {
 	})
 
 	t.Run("repository with reachable objects", func(t *testing.T) {
-		repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
+		repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 		// Create the commit and a branch pointing to it to make it reachable.
 		commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"))
@@ -71,7 +71,7 @@ func TestPruneUnreachableObjects(t *testing.T) {
 	})
 
 	t.Run("repository with recent unreachable objects", func(t *testing.T) {
-		repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
+		repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 		// Create the commit, but don't create a reference pointing to it.
 		commitID := gittest.WriteCommit(t, cfg, repoPath)
@@ -90,7 +90,7 @@ func TestPruneUnreachableObjects(t *testing.T) {
 	})
 
 	t.Run("repository with old unreachable objects", func(t *testing.T) {
-		repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
+		repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 		// Create the commit, but don't create a reference pointing to it.
 		commitID := gittest.WriteCommit(t, cfg, repoPath)
@@ -108,7 +108,7 @@ func TestPruneUnreachableObjects(t *testing.T) {
 	})
 
 	t.Run("repository with mixed objects", func(t *testing.T) {
-		repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
+		repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 		reachableOldCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("a"), gittest.WithBranch("branch"))
 		setObjectTime(t, repoPath, reachableOldCommit, time.Now().Add(-31*time.Minute))
@@ -136,7 +136,7 @@ func TestPruneUnreachableObjects(t *testing.T) {
 	})
 
 	t.Run("repository with commit-graph", func(t *testing.T) {
-		repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
+		repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 		// Write two commits into the repository and create a commit-graph. The second
 		// commit will become unreachable and will be pruned, but will be contained in the

@@ -127,7 +127,7 @@ func TestPostReceive_customHook(t *testing.T) {
 			env:            []string{payload},
 			stdin:          "changes\n",
 			hook:           "#!/bin/sh\nenv | grep -v -e '^SHLVL=' -e '^_=' | sort\n",
-			expectedStdout: strings.Join(getExpectedEnv(ctx, t, locator, gitCmdFactory, repo), "\n") + "\n",
+			expectedStdout: strings.Join(getExpectedEnv(t, ctx, locator, gitCmdFactory, repo), "\n") + "\n",
 		},
 		{
 			desc:  "push options are passed through",

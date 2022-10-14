@@ -91,7 +91,7 @@ func testServerPackObjectsHookSeparateContextWithRuntimeDir(t *testing.T, ctx co
 
 	ctx1, cancel := context.WithCancel(ctx)
 	defer cancel()
-	repo, repoPath := gittest.CreateRepository(ctx1, t, cfg, gittest.CreateRepositoryConfig{
+	repo, repoPath := gittest.CreateRepository(t, ctx1, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
@@ -212,7 +212,7 @@ func testServerPackObjectsHookUsesCache(t *testing.T, ctx context.Context, runti
 		s.packObjectsCache = tlc
 	}})
 
-	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
@@ -320,7 +320,7 @@ func testServerPackObjectsHookWithSidechannelWithRuntimeDir(t *testing.T, ctx co
 				testserver.WithLogger(logger),
 				testserver.WithConcurrencyTracker(concurrencyTracker),
 			)
-			repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+			repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				Seed: gittest.SeedGitLabTest,
 			})
 
@@ -481,7 +481,7 @@ func TestServer_PackObjectsHookWithSidechannel_invalidArgument(t *testing.T) {
 	cfg.SocketPath = runHooksServer(t, cfg, nil)
 	ctx := testhelper.Context(t)
 
-	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
@@ -542,7 +542,7 @@ func testServerPackObjectsHookWithSidechannelCanceledWithRuntimeDir(t *testing.T
 	defer testhelper.MustClose(t, wt)
 
 	cfg.SocketPath = runHooksServer(t, cfg, nil)
-	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 

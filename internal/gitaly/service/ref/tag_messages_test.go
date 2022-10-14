@@ -17,7 +17,7 @@ import (
 
 func TestSuccessfulGetTagMessagesRequest(t *testing.T) {
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupRefService(ctx, t)
+	cfg, repo, repoPath, client := setupRefService(t, ctx)
 
 	message1 := strings.Repeat("a", helper.MaxCommitOrTagMessageSize*2)
 	message2 := strings.Repeat("b", helper.MaxCommitOrTagMessageSize)

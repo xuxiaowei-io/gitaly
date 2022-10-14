@@ -40,7 +40,7 @@ func TestFetchIntoObjectPool_Success(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, locator, client := setup(ctx, t)
+	cfg, repo, repoPath, locator, client := setup(t, ctx)
 
 	repoCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(t.Name()))
 
@@ -59,7 +59,7 @@ func TestFetchIntoObjectPool_Success(t *testing.T) {
 	_, err = client.FetchIntoObjectPool(ctx, req)
 	require.NoError(t, err)
 
-	pool = rewrittenObjectPool(ctx, t, cfg, pool)
+	pool = rewrittenObjectPool(t, ctx, cfg, pool)
 
 	require.True(t, pool.IsValid(), "ensure underlying repository is valid")
 
@@ -116,7 +116,7 @@ func TestFetchIntoObjectPool_transactional(t *testing.T) {
 	)
 	testcfg.BuildGitalyHooks(t, cfg)
 
-	repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	conn, err := grpc.Dial(cfg.SocketPath, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, err)
@@ -227,7 +227,7 @@ func TestFetchIntoObjectPool_CollectLogStatistics(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	ctx = ctxlogrus.ToContext(ctx, log.WithField("test", "logging"))
-	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
@@ -347,7 +347,7 @@ func TestFetchIntoObjectPool_dfConflict(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, _, client := setup(ctx, t)
+	cfg, repo, repoPath, _, client := setup(t, ctx)
 
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
 	_, err := client.CreateObjectPool(ctx, &gitalypb.CreateObjectPoolRequest{
@@ -380,7 +380,7 @@ func TestFetchIntoObjectPool_dfConflict(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	poolPath, err := config.NewLocator(cfg).GetRepoPath(gittest.RewrittenRepository(ctx, t, cfg, pool.ToProto().GetRepository()))
+	poolPath, err := config.NewLocator(cfg).GetRepoPath(gittest.RewrittenRepository(t, ctx, cfg, pool.ToProto().GetRepository()))
 	require.NoError(t, err)
 
 	// Verify that the conflicting reference exists now.

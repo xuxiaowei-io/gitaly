@@ -22,10 +22,10 @@ import (
 func TestRepo(t *testing.T) {
 	cfg := testcfg.Build(t)
 
-	gittest.TestRepository(t, cfg, func(ctx context.Context, tb testing.TB) (git.Repository, string) {
+	gittest.TestRepository(t, cfg, func(tb testing.TB, ctx context.Context) (git.Repository, string) {
 		tb.Helper()
 
-		repoProto, repoPath := gittest.CreateRepository(ctx, tb, cfg, gittest.CreateRepositoryConfig{
+		repoProto, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 		})
 
@@ -46,7 +46,7 @@ func TestSize(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	commandArgFile := filepath.Join(testhelper.TempDir(t), "args")
-	interceptingFactory := gittest.NewInterceptingCommandFactory(ctx, t, cfg, func(execEnv git.ExecutionEnvironment) string {
+	interceptingFactory := gittest.NewInterceptingCommandFactory(t, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
 		return fmt.Sprintf(`#!/bin/bash
 			echo "$@" >%q
 			exec %q "$@"
@@ -71,7 +71,7 @@ func TestSize(t *testing.T) {
 			desc:         "empty repository",
 			expectedSize: 0,
 			setup: func(t *testing.T) *gitalypb.Repository {
-				repoProto, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 				return repoProto
@@ -81,7 +81,7 @@ func TestSize(t *testing.T) {
 		{
 			desc: "referenced commit",
 			setup: func(t *testing.T) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
@@ -100,7 +100,7 @@ func TestSize(t *testing.T) {
 		{
 			desc: "unreferenced commit",
 			setup: func(t *testing.T) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
@@ -118,7 +118,7 @@ func TestSize(t *testing.T) {
 		{
 			desc: "modification to blob without repack",
 			setup: func(t *testing.T) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
@@ -145,7 +145,7 @@ func TestSize(t *testing.T) {
 		{
 			desc: "modification to blob after repack",
 			setup: func(t *testing.T) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
@@ -174,7 +174,7 @@ func TestSize(t *testing.T) {
 		{
 			desc: "excluded single ref",
 			setup: func(t *testing.T) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
@@ -203,7 +203,7 @@ func TestSize(t *testing.T) {
 		{
 			desc: "excluded everything",
 			setup: func(t *testing.T) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
@@ -225,10 +225,10 @@ func TestSize(t *testing.T) {
 		{
 			desc: "repo with alternate",
 			setup: func(t *testing.T) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
-				_, poolPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				_, poolPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
@@ -259,10 +259,10 @@ func TestSize(t *testing.T) {
 		{
 			desc: "exclude alternate with identical contents",
 			setup: func(t *testing.T) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
-				_, poolPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				_, poolPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
@@ -294,10 +294,10 @@ func TestSize(t *testing.T) {
 		{
 			desc: "exclude alternate with additional contents",
 			setup: func(t *testing.T) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
-				_, poolPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+				_, poolPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
@@ -368,7 +368,7 @@ func TestRepo_StorageTempDir(t *testing.T) {
 	t.Cleanup(catfileCache.Stop)
 	locator := config.NewLocator(cfg)
 
-	repoProto, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := New(locator, gitCmdFactory, catfileCache, repoProto)
@@ -398,13 +398,13 @@ func TestRepo_ObjectHash(t *testing.T) {
 	// We create an intercepting command factory that detects when we run our object hash
 	// detection logic and, if so, writes a sentinel value into our output file. Like this we
 	// can test how often the logic runs.
-	gitCmdFactory := gittest.NewInterceptingCommandFactory(ctx, t, cfg, func(execEnv git.ExecutionEnvironment) string {
+	gitCmdFactory := gittest.NewInterceptingCommandFactory(t, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
 		return fmt.Sprintf(`#!/bin/sh
 		( echo "$@" | grep --silent -- '--show-object-format' ) && echo detection-logic >>%q
 		exec %q "$@"`, outputFile, execEnv.BinaryPath)
 	})
 
-	repoProto, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := New(locator, gitCmdFactory, catfileCache, repoProto)

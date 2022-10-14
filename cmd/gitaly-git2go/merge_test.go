@@ -418,7 +418,7 @@ func TestMerge_recursive(t *testing.T) {
 	testcfg.BuildGitalyGit2Go(t, cfg)
 	executor := buildExecutor(t, cfg)
 
-	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 

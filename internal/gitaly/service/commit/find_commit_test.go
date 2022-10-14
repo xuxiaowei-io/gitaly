@@ -22,7 +22,7 @@ func TestSuccessfulFindCommitRequest(t *testing.T) {
 	windows1251Message := testhelper.MustReadFile(t, "testdata/commit-c809470461118b7bcab850f6e9a7ca97ac42f8ea-message.txt")
 
 	ctx := testhelper.Context(t)
-	cfg, repoProto, repoPath, client := setupCommitServiceWithRepo(ctx, t)
+	cfg, repoProto, repoPath, client := setupCommitServiceWithRepo(t, ctx)
 
 	bigMessage := "An empty commit with REALLY BIG message\n\n" + strings.Repeat("MOAR!\n", 20*1024)
 	bigCommitID := gittest.WriteCommit(t, cfg, repoPath,
@@ -240,7 +240,7 @@ func TestFailedFindCommitRequest(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupCommitServiceWithRepo(ctx, t)
+	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
 
 	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}
 
@@ -301,7 +301,7 @@ func BenchmarkFindCommitWithCache(b *testing.B) {
 func benchmarkFindCommit(b *testing.B, withCache bool) {
 	ctx := testhelper.Context(b)
 
-	cfg, repo, _, client := setupCommitServiceWithRepo(ctx, b)
+	cfg, repo, _, client := setupCommitServiceWithRepo(b, ctx)
 
 	// get a list of revisions
 	gitCmdFactory := gittest.NewCommandFactory(b, cfg)
@@ -339,12 +339,12 @@ func TestFindCommitWithCache(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	cfg, repo, _, client := setupCommitServiceWithRepo(ctx, t)
+	cfg, repo, _, client := setupCommitServiceWithRepo(t, ctx)
 
 	// get a list of revisions
 
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
-	logCmd, err := gitCmdFactory.New(ctx, gittest.RewrittenRepository(ctx, t, cfg, repo),
+	logCmd, err := gitCmdFactory.New(ctx, gittest.RewrittenRepository(t, ctx, cfg, repo),
 		git.SubCmd{Name: "log", Flags: []git.Option{git.Flag{Name: "--format=format:%H"}}})
 	require.NoError(t, err)
 

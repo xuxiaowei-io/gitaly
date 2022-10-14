@@ -54,8 +54,8 @@ func WithInterceptedVersion() InterceptingCommandFactoryOption {
 // generate the script and receives as input the Git execution environment pointing to the real Git
 // binary.
 func NewInterceptingCommandFactory(
-	ctx context.Context,
 	tb testing.TB,
+	ctx context.Context,
 	cfg config.Cfg,
 	generateScript func(git.ExecutionEnvironment) string,
 	opts ...InterceptingCommandFactoryOption,

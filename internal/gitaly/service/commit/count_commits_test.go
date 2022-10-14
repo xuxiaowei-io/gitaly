@@ -19,9 +19,9 @@ func TestSuccessfulCountCommitsRequest(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo1, _, client := setupCommitServiceWithRepo(ctx, t)
+	cfg, repo1, _, client := setupCommitServiceWithRepo(t, ctx)
 
-	repo2, repo2Path := gittest.CreateRepository(ctx, t, cfg)
+	repo2, repo2Path := gittest.CreateRepository(t, ctx, cfg)
 
 	commitOID := createCommits(t, cfg, repo2Path, "master", 5, "")
 	createCommits(t, cfg, repo2Path, "another-branch", 3, commitOID)
@@ -160,7 +160,7 @@ func TestFailedCountCommitsRequestDueToValidationError(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupCommitServiceWithRepo(ctx, t)
+	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
 
 	revision := []byte("d42783470dc29fde2cf459eb3199ee1d7e3f3a72")
 

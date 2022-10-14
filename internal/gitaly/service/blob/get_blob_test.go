@@ -18,7 +18,7 @@ import (
 func TestSuccessfulGetBlob(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	_, repo, _, client := setup(ctx, t)
+	_, repo, _, client := setup(t, ctx)
 
 	maintenanceMdBlobData := testhelper.MustReadFile(t, "testdata/maintenance-md-blob.txt")
 	testCases := []struct {
@@ -88,7 +88,7 @@ func TestSuccessfulGetBlob(t *testing.T) {
 func TestGetBlobNotFound(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	_, repo, _, client := setup(ctx, t)
+	_, repo, _, client := setup(t, ctx)
 
 	request := &gitalypb.GetBlobRequest{
 		Repository: repo,
@@ -136,7 +136,7 @@ func getBlob(stream gitalypb.BlobService_GetBlobClient) (int64, string, []byte, 
 func TestFailedGetBlobRequestDueToValidationError(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	_, repo, _, client := setup(ctx, t)
+	_, repo, _, client := setup(t, ctx)
 
 	oid := "d42783470dc29fde2cf459eb3199ee1d7e3f3a72"
 

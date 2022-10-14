@@ -28,7 +28,7 @@ func TestRepositoryExists(t *testing.T) {
 	client, socketPath := runRepositoryService(t, cfg, nil, testserver.WithDisablePraefect())
 	cfg.SocketPath = socketPath
 
-	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
@@ -117,9 +117,9 @@ func TestSuccessfulHasLocalBranches(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, _, client := setupRepositoryService(ctx, t)
+	cfg, repo, _, client := setupRepositoryService(t, ctx)
 
-	emptyRepo, _ := gittest.CreateRepository(ctx, t, cfg)
+	emptyRepo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	testCases := []struct {
 		desc      string

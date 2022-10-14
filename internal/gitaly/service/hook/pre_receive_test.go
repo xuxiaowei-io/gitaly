@@ -31,7 +31,7 @@ import (
 
 func TestPreReceiveInvalidArgument(t *testing.T) {
 	ctx := testhelper.Context(t)
-	_, _, _, client := setupHookService(ctx, t)
+	_, _, _, client := setupHookService(t, ctx)
 
 	stream, err := client.PreReceiveHook(ctx)
 	require.NoError(t, err)
@@ -256,7 +256,7 @@ func TestPreReceive_APIErrors(t *testing.T) {
 			cfg.SocketPath = runHooksServer(t, cfg, nil, testserver.WithGitLabClient(gitlabClient))
 
 			ctx := testhelper.Context(t)
-			repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+			repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				Seed: gittest.SeedGitLabTest,
 			})
 
@@ -322,7 +322,7 @@ func TestPreReceiveHook_CustomHookErrors(t *testing.T) {
 	cfg.SocketPath = runHooksServer(t, cfg, nil, testserver.WithGitLabClient(gitlabClient))
 
 	ctx := testhelper.Context(t)
-	repo, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
@@ -457,7 +457,7 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 			cfg.SocketPath = runHooksServer(t, cfg, nil, testserver.WithGitLabClient(gitlabClient))
 
 			ctx := testhelper.Context(t)
-			testRepo, testRepoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+			testRepo, testRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				Seed: gittest.SeedGitLabTest,
 			})
 

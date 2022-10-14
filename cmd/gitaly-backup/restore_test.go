@@ -29,7 +29,7 @@ func TestRestoreSubcommand(t *testing.T) {
 
 	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
 
-	existingRepo, existRepoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	existingRepo, existRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed:         gittest.SeedGitLabTest,
 		RelativePath: "existing_repo",
 	})
@@ -76,7 +76,7 @@ func TestRestoreSubcommand(t *testing.T) {
 		"restore: pipeline: 1 failures encountered:\n - invalid: manager: remove repository: could not dial source: invalid connection string: \"invalid\"\n")
 
 	for _, repo := range repos {
-		repoPath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(ctx, t, cfg, repo))
+		repoPath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(t, ctx, cfg, repo))
 		bundlePath := filepath.Join(path, repo.RelativePath+".bundle")
 
 		output := gittest.Exec(t, cfg, "-C", repoPath, "bundle", "verify", bundlePath)

@@ -24,7 +24,7 @@ func TestRepo_Path(t *testing.T) {
 	cfg := testcfg.Build(t)
 
 	t.Run("valid repository", func(t *testing.T) {
-		repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 		})
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -35,7 +35,7 @@ func TestRepo_Path(t *testing.T) {
 	})
 
 	t.Run("deleted repository", func(t *testing.T) {
-		repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 		})
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -47,7 +47,7 @@ func TestRepo_Path(t *testing.T) {
 	})
 
 	t.Run("non-git repository", func(t *testing.T) {
-		repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 		})
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -66,7 +66,7 @@ func TestRepo_ObjectDirectoryPath(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
-	repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	locator := config.NewLocator(cfg)

@@ -17,7 +17,7 @@ import (
 
 func TestReduplicate(t *testing.T) {
 	ctx := testhelper.Context(t)
-	cfg, repoProto, repoPath, _, client := setup(ctx, t)
+	cfg, repoProto, repoPath, _, client := setup(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)

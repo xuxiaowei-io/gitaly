@@ -45,7 +45,7 @@ func testSuccessfulRestoreCustomHooksRequest(t *testing.T, ctx context.Context) 
 	require.NoError(t, err)
 
 	ctx = metadata.IncomingToOutgoing(ctx)
-	repo, repoPath := gittest.CreateRepository(ctx, t, cfg)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	// reset the txManager since CreateRepository would have done
 	// voting
@@ -118,7 +118,7 @@ func TestFailedRestoreCustomHooksDueToBadTar(t *testing.T) {
 }
 
 func testFailedRestoreCustomHooksDueToBadTar(t *testing.T, ctx context.Context) {
-	_, repo, _, client := setupRepositoryService(ctx, t)
+	_, repo, _, client := setupRepositoryService(t, ctx)
 
 	stream, err := client.RestoreCustomHooks(ctx)
 

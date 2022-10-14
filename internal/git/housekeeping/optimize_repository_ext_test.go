@@ -105,7 +105,7 @@ func TestPruneIfNeeded(t *testing.T) {
 				createRepoCfg.RelativePath = gittest.NewObjectPoolName(t)
 			}
 
-			repoProto, repoPath := gittest.CreateRepository(ctx, t, cfg, createRepoCfg)
+			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, createRepoCfg)
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 			for _, looseObjectPath := range tc.looseObjects {

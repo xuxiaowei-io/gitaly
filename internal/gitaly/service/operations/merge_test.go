@@ -126,7 +126,7 @@ func TestUserMergeBranch_failure(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
-	repoProto, _ := gittest.CreateRepository(ctx, t, cfg)
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	_ = localrepo.NewTestRepo(t, cfg, repoProto)
 
