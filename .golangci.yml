@@ -108,8 +108,6 @@ linters-settings:
         disabled: false
       - name: indent-error-flow
         disabled: false
-      - name: package-comments
-        disabled: false
       - name: receiver-naming
         disabled: false
       - name: range
