@@ -3,6 +3,7 @@
 package commit
 
 import (
+	"context"
 	"errors"
 	"io"
 	"strconv"
@@ -12,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -342,17 +344,28 @@ func TestGetTreeEntries_successful(t *testing.T) {
 		return strippedEntries
 	}
 
+	getPageToken := func(tb testing.TB, entry *gitalypb.TreeEntry) string {
+		tb.Helper()
+
+		pageToken, err := encodePageToken(entry)
+		require.NoError(tb, err)
+
+		return pageToken
+	}
+
 	testCases := []struct {
-		description   string
-		revision      []byte
-		path          []byte
-		recursive     bool
-		sortBy        gitalypb.GetTreeEntriesRequest_SortBy
-		entries       []*gitalypb.TreeEntry
-		pageToken     string
-		pageLimit     int32
-		cursor        string
-		skipFlatPaths bool
+		description     string
+		revision        []byte
+		path            []byte
+		recursive       bool
+		sortBy          gitalypb.GetTreeEntriesRequest_SortBy
+		entries         []*gitalypb.TreeEntry
+		legacyPageToken string
+		pageToken       string
+		pageLimit       int32
+		cursor          string
+		legacyCursor    string
+		skipFlatPaths   bool
 	}{
 		{
 			description: "with root path",
@@ -427,86 +440,119 @@ func TestGetTreeEntries_successful(t *testing.T) {
 			sortBy:      gitalypb.GetTreeEntriesRequest_TREES_FIRST,
 		},
 		{
-			description: "with root path and sorted by trees with pagination",
-			revision:    []byte(commitID),
-			path:        []byte("."),
-			entries:     sortedAndPaginated,
-			pageLimit:   4,
-			sortBy:      gitalypb.GetTreeEntriesRequest_TREES_FIRST,
-			cursor:      "fd90a3d2d21d6b4f9bec2c33fb7f49780c55f0d2",
+			description:  "with root path and sorted by trees with pagination",
+			revision:     []byte(commitID),
+			path:         []byte("."),
+			entries:      sortedAndPaginated,
+			pageLimit:    4,
+			sortBy:       gitalypb.GetTreeEntriesRequest_TREES_FIRST,
+			cursor:       "eyJmaWxlX25hbWUiOiIuRFNfU3RvcmUifQ==",
+			legacyCursor: "fd90a3d2d21d6b4f9bec2c33fb7f49780c55f0d2",
 		},
 		{
-			description: "with pagination parameters",
-			revision:    []byte(commitID),
-			path:        []byte("."),
-			entries:     rootEntries[3:6],
-			pageToken:   "fdaada1754989978413d618ee1fb1c0469d6a664",
-			pageLimit:   3,
-			cursor:      rootEntries[5].Oid,
+			description:     "with pagination parameters",
+			revision:        []byte(commitID),
+			path:            []byte("."),
+			entries:         rootEntries[3:6],
+			legacyPageToken: "fdaada1754989978413d618ee1fb1c0469d6a664",
+			pageToken:       getPageToken(t, rootEntries[2]),
+			pageLimit:       3,
+			cursor:          "eyJmaWxlX25hbWUiOiJMSUNFTlNFIn0=",
+			legacyCursor:    "50b27c6518be44c42c4d87966ae2481ce895624c",
 		},
 		{
-			description: "with pagination parameters larger than length",
-			revision:    []byte(commitID),
-			path:        []byte("."),
-			entries:     rootEntries[12:],
-			pageToken:   "b4a3321157f6e80c42b031ecc9ba79f784c8a557",
-			pageLimit:   20,
+			description:     "with pagination parameters larger than length",
+			revision:        []byte(commitID),
+			path:            []byte("."),
+			entries:         rootEntries[12:],
+			legacyPageToken: "b4a3321157f6e80c42b031ecc9ba79f784c8a557",
+			pageToken:       getPageToken(t, rootEntries[11]),
+			pageLimit:       20,
 		},
 		{
-			description: "with pagination limit of -1",
-			revision:    []byte(commitID),
-			path:        []byte("."),
-			entries:     rootEntries[2:],
-			pageToken:   "470ad2fcf1e33798f1afc5781d08e60c40f51e7a",
-			pageLimit:   -1,
+			description:     "with pagination limit of -1",
+			revision:        []byte(commitID),
+			path:            []byte("."),
+			entries:         rootEntries[2:],
+			legacyPageToken: "470ad2fcf1e33798f1afc5781d08e60c40f51e7a",
+			pageToken:       getPageToken(t, rootEntries[1]),
+			pageLimit:       -1,
 		},
 		{
-			description: "with pagination limit of 0",
-			revision:    []byte(commitID),
-			path:        []byte("."),
-			pageToken:   "470ad2fcf1e33798f1afc5781d08e60c40f51e7a",
-			pageLimit:   0,
+			description:     "with pagination limit of 0",
+			revision:        []byte(commitID),
+			path:            []byte("."),
+			legacyPageToken: "470ad2fcf1e33798f1afc5781d08e60c40f51e7a",
+			pageToken:       getPageToken(t, rootEntries[0]),
+			pageLimit:       0,
 		},
 		{
-			description: "with a blank pagination token",
-			revision:    []byte(commitID),
-			path:        []byte("."),
-			pageToken:   "",
-			entries:     rootEntries[0:2],
-			pageLimit:   2,
-			cursor:      rootEntries[1].Oid,
+			description:  "with a blank pagination token",
+			revision:     []byte(commitID),
+			path:         []byte("."),
+			pageToken:    "",
+			entries:      rootEntries[0:2],
+			pageLimit:    2,
+			cursor:       "eyJmaWxlX25hbWUiOiIuZ2l0aWdub3JlIn0=",
+			legacyCursor: "470ad2fcf1e33798f1afc5781d08e60c40f51e7a",
 		},
 	}
 
 	for _, testCase := range testCases {
-		t.Run(testCase.description, func(t *testing.T) {
-			request := &gitalypb.GetTreeEntriesRequest{
-				Repository:    repo,
-				Revision:      testCase.revision,
-				Path:          testCase.path,
-				Recursive:     testCase.recursive,
-				Sort:          testCase.sortBy,
-				SkipFlatPaths: testCase.skipFlatPaths,
-			}
+		testhelper.NewFeatureSets(featureflag.TreeEntriesNewPageTokenFormat).Run(
+			t,
+			func(t *testing.T, ctx context.Context) {
+				t.Run(testCase.description, func(t *testing.T) {
+					for _, tc := range []struct {
+						desc      string
+						pageToken string
+					}{
+						{
+							desc:      "legacy token",
+							pageToken: testCase.legacyPageToken,
+						},
+						{
+							desc:      "structured page token",
+							pageToken: testCase.pageToken,
+						},
+					} {
+						t.Run(tc.desc, func(t *testing.T) {
+							request := &gitalypb.GetTreeEntriesRequest{
+								Repository:    repo,
+								Revision:      testCase.revision,
+								Path:          testCase.path,
+								Recursive:     testCase.recursive,
+								Sort:          testCase.sortBy,
+								SkipFlatPaths: testCase.skipFlatPaths,
+							}
 
-			if testCase.pageToken != "" || testCase.pageLimit > 0 {
-				request.PaginationParams = &gitalypb.PaginationParameter{
-					PageToken: testCase.pageToken,
-					Limit:     testCase.pageLimit,
-				}
-			}
+							if tc.pageToken != "" || testCase.pageLimit > 0 {
+								request.PaginationParams = &gitalypb.PaginationParameter{
+									PageToken: tc.pageToken,
+									Limit:     testCase.pageLimit,
+								}
+							}
 
-			c, err := client.GetTreeEntries(ctx, request)
+							c, err := client.GetTreeEntries(ctx, request)
 
-			require.NoError(t, err)
-			fetchedEntries, cursor := getTreeEntriesFromTreeEntryClient(t, c, nil)
-			testhelper.ProtoEqual(t, testCase.entries, fetchedEntries)
+							require.NoError(t, err)
+							fetchedEntries, cursor := getTreeEntriesFromTreeEntryClient(t, c, nil)
+							testhelper.ProtoEqual(t, testCase.entries, fetchedEntries)
 
-			if testCase.pageLimit > 0 && len(testCase.entries) < len(rootEntries) {
-				require.NotNil(t, cursor)
-				require.Equal(t, testCase.cursor, cursor.NextCursor)
-			}
-		})
+							if testCase.pageLimit > 0 && len(testCase.entries) < len(rootEntries) {
+								require.NotNil(t, cursor)
+
+								if featureflag.TreeEntriesNewPageTokenFormat.IsEnabled(ctx) {
+									require.Equal(t, testCase.cursor, cursor.NextCursor)
+								} else {
+									require.Equal(t, testCase.legacyCursor, cursor.NextCursor)
+								}
+							}
+						})
+					}
+				})
+			},
+		)
 	}
 }
 
