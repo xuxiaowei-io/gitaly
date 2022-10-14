@@ -359,14 +359,14 @@ type pageToken struct {
 	FileName string `json:"file_name"`
 }
 
-type pageTokenType int
+type pageTokenType bool
 
 const (
 	// pageTokenTypeOID is an old-style page token that contains the object ID a tree
 	// entry is pointing to. This is ambiguous and thus deprecated.
-	pageTokenTypeOID = pageTokenType(iota)
+	pageTokenTypeOID pageTokenType = false
 	// pageTokenTypeFilename is a page token that contains the tree entry path.
-	pageTokenTypeFilename
+	pageTokenTypeFilename pageTokenType = true
 )
 
 // decodePageToken decodes the given Base64-encoded page token. It returns the
