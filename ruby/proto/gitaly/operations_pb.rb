@@ -228,6 +228,13 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :index_error, :string, 2
       optional :pre_receive_error, :string, 3
     end
+    add_message "gitaly.UserCommitFilesError" do
+      oneof :error do
+        optional :access_check, :message, 1, "gitaly.AccessCheckError"
+        optional :index_update, :message, 2, "gitaly.IndexError"
+        optional :custom_hook, :message, 3, "gitaly.CustomHookError"
+      end
+    end
     add_message "gitaly.UserRebaseConfirmableRequest" do
       oneof :user_rebase_confirmable_request_payload do
         optional :header, :message, 1, "gitaly.UserRebaseConfirmableRequest.Header"
@@ -344,6 +351,7 @@ module Gitaly
   UserCommitFilesRequestHeader = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.UserCommitFilesRequestHeader").msgclass
   UserCommitFilesRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.UserCommitFilesRequest").msgclass
   UserCommitFilesResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.UserCommitFilesResponse").msgclass
+  UserCommitFilesError = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.UserCommitFilesError").msgclass
   UserRebaseConfirmableRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.UserRebaseConfirmableRequest").msgclass
   UserRebaseConfirmableRequest::Header = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.UserRebaseConfirmableRequest.Header").msgclass
   UserRebaseConfirmableResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.UserRebaseConfirmableResponse").msgclass
