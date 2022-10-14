@@ -136,7 +136,7 @@ require (
 	github.com/spf13/cobra v1.5.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/spf13/viper v1.13.0 // indirect
+	github.com/spf13/viper v1.12.0 // indirect
 	github.com/ssgreg/nlreturn/v2 v2.2.1 // indirect
 	github.com/stbenjam/no-sprintf-host-port v0.1.1 // indirect
 	github.com/stretchr/objx v0.4.0 // indirect
@@ -174,3 +174,9 @@ require (
 	mvdan.cc/lint v0.0.0-20170908181259-adc824a0674b // indirect
 	mvdan.cc/unparam v0.0.0-20220706161116-678bad134442 // indirect
 )
+
+// https://github.com/spf13/viper/commit/5247643f02358b40d01385b0dbf743b659b0133f
+// converted Viper to lower-case keys in arrays. As the Revive linter
+// depends on exact matches for its configuration this breaks our ability
+// to set the "allowTypesBefore" option.
+exclude github.com/spf13/viper v1.13.0
