@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package gitaly;
+
+option go_package = "gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb";
+
+// LogEntry is a single entry in a repository's write-ahead log.
+//
+// Schema for :
+// - `repository/<repository_id>/log/entry/<log_index>`.
+message LogEntry {
+  // ReferenceUpdate models a single reference update.
+  message ReferenceUpdate {
+    // reference_name is the fully qualified name of the reference
+    // to update.
+    bytes reference_name = 1;
+    // new_oid is the new oid to point the reference to. Deletions
+    // are denoted as the SHA1 or SHA256 zero OID depending on the
+    // hash type used in the repository.
+    bytes new_oid = 2;
+  }
+
+  // reference_updates contains the reference updates this log
+  // entry records. The logged reference updates have already passed
+  // through verification and are applied without any further checks.
+  repeated ReferenceUpdate reference_updates = 1;
+}
+
+// LogIndex serializes a log index. It's used for storing a repository's
+// applied log index in the database.
+//
+// Schema for:
+// - `repository/<repository_id>/log/index/applied`
+message LogIndex {
+  // log_index is an index pointing to a position in the log.
+  uint64 log_index = 1;
+}
