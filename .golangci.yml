@@ -9,7 +9,6 @@ linters:
   disable-all: true
   enable:
     - bidichk
-    - deadcode
     - errcheck
     - exportloopref
     - depguard
@@ -32,12 +31,10 @@ linters:
     - rowserrcheck
     - sqlclosecheck
     - staticcheck
-    - structcheck
     - stylecheck
     - thelper
     - unconvert
     - unused
-    - varcheck
     - wastedassign
 
 linters-settings:
@@ -107,8 +104,6 @@ linters-settings:
       - name: increment-decrement
         disabled: false
       - name: indent-error-flow
-        disabled: false
-      - name: package-comments
         disabled: false
       - name: receiver-naming
         disabled: false
