@@ -6,8 +6,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 )
 
 const (
@@ -45,15 +44,11 @@ func (l *configLocator) GetRepoPath(repo repository.GitRepo) (string, error) {
 		return "", err
 	}
 
-	if repoPath == "" {
-		return "", status.Errorf(codes.InvalidArgument, "GetRepoPath: empty repo path")
-	}
-
 	if storage.IsGitDirectory(repoPath) {
 		return repoPath, nil
 	}
 
-	return "", status.Errorf(codes.NotFound, "GetRepoPath: not a git repository: %q", repoPath)
+	return "", helper.ErrNotFoundf("GetRepoPath: not a git repository: %q", repoPath)
 }
 
 // GetPath returns the path of the repo passed as first argument. An error is
@@ -67,19 +62,19 @@ func (l *configLocator) GetPath(repo repository.GitRepo) (string, error) {
 
 	if _, err := os.Stat(storagePath); err != nil {
 		if os.IsNotExist(err) {
-			return "", status.Errorf(codes.NotFound, "GetPath: does not exist: %v", err)
+			return "", helper.ErrNotFoundf("GetPath: does not exist: %v", err)
 		}
-		return "", status.Errorf(codes.Internal, "GetPath: storage path: %v", err)
+		return "", helper.ErrInternalf("GetPath: storage path: %v", err)
 	}
 
 	relativePath := repo.GetRelativePath()
 	if len(relativePath) == 0 {
-		err := status.Errorf(codes.InvalidArgument, "GetPath: relative path missing from %+v", repo)
+		err := helper.ErrInvalidArgumentf("GetPath: relative path missing")
 		return "", err
 	}
 
 	if _, err := storage.ValidateRelativePath(storagePath, relativePath); err != nil {
-		return "", status.Errorf(codes.InvalidArgument, "GetRepoPath: %s", err)
+		return "", helper.ErrInvalidArgumentf("GetRepoPath: %s", err)
 	}
 
 	return filepath.Join(storagePath, relativePath), nil
@@ -90,7 +85,7 @@ func (l *configLocator) GetPath(repo repository.GitRepo) (string, error) {
 func (l *configLocator) GetStorageByName(storageName string) (string, error) {
 	storagePath, ok := l.conf.StoragePath(storageName)
 	if !ok {
-		return "", status.Errorf(codes.InvalidArgument, "GetStorageByName: no such storage: %q", storageName)
+		return "", helper.ErrInvalidArgumentf("GetStorageByName: no such storage: %q", storageName)
 	}
 
 	return storagePath, nil
@@ -114,7 +109,7 @@ func (l *configLocator) TempDir(storageName string) (string, error) {
 func (l *configLocator) getPath(storageName, prefix string) (string, error) {
 	storagePath, ok := l.conf.StoragePath(storageName)
 	if !ok {
-		return "", status.Errorf(codes.InvalidArgument, "%s dir: no such storage: %q",
+		return "", helper.ErrInvalidArgumentf("%s dir: no such storage: %q",
 			filepath.Base(prefix), storageName)
 	}
 

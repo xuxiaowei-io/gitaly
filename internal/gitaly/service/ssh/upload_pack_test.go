@@ -445,7 +445,7 @@ func TestUploadPack_validation(t *testing.T) {
 				if testhelper.IsPraefectEnabled() {
 					return helper.ErrInvalidArgumentf("repo scoped: invalid Repository")
 				}
-				return helper.ErrInvalidArgumentf("GetPath: relative path missing from storage_name:%q", "default")
+				return helper.ErrInvalidArgumentf("GetPath: relative path missing")
 			}(),
 		},
 		{

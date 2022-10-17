@@ -87,7 +87,7 @@ func TestCleanNoStorageExists(t *testing.T) {
 	locator := config.NewLocator(cfg)
 
 	err := clean(locator, config.Storage{Name: "does-not-exist", Path: "/something"})
-	require.EqualError(t, err, "temporary dir: rpc error: code = InvalidArgument desc = tmp dir: no such storage: \"does-not-exist\"")
+	require.EqualError(t, err, "temporary dir: tmp dir: no such storage: \"does-not-exist\"")
 }
 
 type mockLocator struct {
