@@ -114,13 +114,6 @@ func NewGRPCServer(
 		panichandler.StreamPanicHandler,
 	}
 
-	if conf.Failover.ElectionStrategy == config.ElectionStrategyPerRepository {
-		streamInterceptors = append(
-			streamInterceptors,
-			RenameRepositoryFeatureFlagger(conf.VirtualStorageNames(), rs, RenameRepositoryHandler(conf.VirtualStorageNames(), rs)),
-		)
-	}
-
 	grpcOpts = append(grpcOpts, proxyRequiredOpts(director)...)
 	grpcOpts = append(grpcOpts, []grpc.ServerOption{
 		grpc.StreamInterceptor(grpcmw.ChainStreamServer(streamInterceptors...)),
@@ -162,6 +155,7 @@ func NewGRPCServer(
 		proxy.RegisterStreamHandlers(srv, "gitaly.RepositoryService", map[string]grpc.StreamHandler{
 			"RepositoryExists": RepositoryExistsHandler(rs),
 			"RemoveRepository": RemoveRepositoryHandler(rs, conns),
+			"RenameRepository": RenameRepositoryHandler(conf.VirtualStorageNames(), rs),
 		})
 		proxy.RegisterStreamHandlers(srv, "gitaly.ObjectPoolService", map[string]grpc.StreamHandler{
 			"DeleteObjectPool": DeleteObjectPoolHandler(rs, conns),

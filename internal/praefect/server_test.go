@@ -27,7 +27,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/listenmux"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/grpc-proxy/proxy"
@@ -569,10 +568,6 @@ func TestRemoveRepository(t *testing.T) {
 }
 
 func TestRenameRepository(t *testing.T) {
-	testhelper.NewFeatureSets(featureflag.PraefectGeneratedReplicaPaths).Run(t, testRenameRepository)
-}
-
-func testRenameRepository(t *testing.T, ctx context.Context) {
 	gitalyStorages := []string{"gitaly-1", "gitaly-2", "gitaly-3"}
 	praefectCfg := config.Config{
 		VirtualStorages: []*config.VirtualStorage{{Name: "praefect"}},
@@ -608,6 +603,7 @@ func testRenameRepository(t *testing.T, ctx context.Context) {
 		),
 	)
 
+	ctx := testhelper.Context(t)
 	nodeSet, err := DialNodes(ctx, praefectCfg.VirtualStorages, nil, nil, clientHandshaker, nil)
 	require.NoError(t, err)
 	defer nodeSet.Close()
