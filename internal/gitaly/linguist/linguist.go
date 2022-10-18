@@ -8,14 +8,13 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"strings"
 
 	"github.com/go-enry/go-enry/v2"
-	"github.com/go-git/go-git/v5/plumbing/format/gitattributes"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gitattributes"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gitpipe"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
@@ -121,10 +120,11 @@ func (inst *Instance) enryStats(ctx context.Context, commitID string) (ByteCount
 	}
 	defer cancel()
 
-	attrMatcher, err := inst.newAttrMatcher(ctx, objectReader, commitID)
+	checkAttr, finishAttr, err := gitattributes.CheckAttr(ctx, inst.repo, linguistAttrs)
 	if err != nil {
-		return nil, fmt.Errorf("linguist new attribute matcher: %w", err)
+		return nil, fmt.Errorf("linguist create check attr: %w", err)
 	}
+	defer finishAttr()
 
 	var revlistIt gitpipe.RevisionIterator
 
@@ -137,8 +137,13 @@ func (inst *Instance) enryStats(ctx context.Context, commitID string) (ByteCount
 		stats = newLanguageStats()
 
 		skipFunc := func(result *gitpipe.RevisionResult) (bool, error) {
+			f, err := newFileInstance(string(result.ObjectName), checkAttr)
+			if err != nil {
+				return true, fmt.Errorf("new file instance: %w", err)
+			}
+
 			// Skip files that are an excluded filetype based on filename.
-			return newFileInstance(string(result.ObjectName), attrMatcher).IsExcluded(), nil
+			return f.IsExcluded(), nil
 		}
 
 		// Full recalculation is needed, so get all the files for the
@@ -154,10 +159,21 @@ func (inst *Instance) enryStats(ctx context.Context, commitID string) (ByteCount
 		// between that commit and the one we're calculating stats for.
 
 		skipFunc := func(result *gitpipe.RevisionResult) (bool, error) {
+			var skip bool
+
 			// Skip files that are deleted, or
 			// an excluded filetype based on filename.
-			if git.ObjectHashSHA1.IsZeroOID(result.OID) ||
-				newFileInstance(string(result.ObjectName), attrMatcher).IsExcluded() {
+			if git.ObjectHashSHA1.IsZeroOID(result.OID) {
+				skip = true
+			} else {
+				f, err := newFileInstance(string(result.ObjectName), checkAttr)
+				if err != nil {
+					return false, fmt.Errorf("new file instance: %w", err)
+				}
+				skip = f.IsExcluded()
+			}
+
+			if skip {
 				// It's a little bit of a hack to use this skip
 				// function, but for every file that's deleted,
 				// remove the stats.
@@ -184,7 +200,12 @@ func (inst *Instance) enryStats(ctx context.Context, commitID string) (ByteCount
 		object := objectIt.Result()
 		filename := string(object.ObjectName)
 
-		lang, size, err := newFileInstance(filename, attrMatcher).DetermineStats(object)
+		f, err := newFileInstance(filename, checkAttr)
+		if err != nil {
+			return nil, fmt.Errorf("linguist new file instance: %w", err)
+		}
+
+		lang, size, err := f.DetermineStats(object)
 		if err != nil {
 			return nil, fmt.Errorf("linguist determine stats: %w", err)
 		}
@@ -212,34 +233,6 @@ func (inst *Instance) enryStats(ctx context.Context, commitID string) (ByteCount
 	}
 
 	return stats.Totals, nil
-}
-
-func (inst *Instance) newAttrMatcher(ctx context.Context, objectReader catfile.ObjectReader, commitID string) (gitattributes.Matcher, error) {
-	var gitattrObject io.Reader
-	var err error
-
-	gitattrObject, err = objectReader.Object(ctx, git.Revision(commitID+":.gitattributes"))
-	if catfile.IsNotFound(err) {
-		gitattrObject = strings.NewReader("")
-	} else if err != nil {
-		return nil, fmt.Errorf("read .gitattributes: %w", err)
-	}
-
-	attrs, err := gitattributes.ReadAttributes(gitattrObject, nil, true)
-	if err != nil {
-		return nil, fmt.Errorf("read attr: %w", err)
-	}
-
-	// Reverse the slice because of a bug in go-git, see
-	// https://github.com/go-git/go-git/pull/585
-	attrsLen := len(attrs)
-	attrsMid := attrsLen / 2
-	for i := 0; i < attrsMid; i++ {
-		j := attrsLen - i - 1
-		attrs[i], attrs[j] = attrs[j], attrs[i]
-	}
-
-	return gitattributes.NewMatcher(attrs), nil
 }
 
 func (inst *Instance) needsFullRecalculation(ctx context.Context, cachedID, commitID string) (bool, error) {

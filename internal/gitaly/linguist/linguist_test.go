@@ -5,6 +5,7 @@ package linguist
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -504,8 +505,17 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			repoProto, repoPath, objectID := tc.setup(t)
-			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
+			// Apply the gitattributes
+			// We should get rid of this with https://gitlab.com/groups/gitlab-org/-/epics/9006
+			infoPath := filepath.Join(repoPath, "info")
+			require.NoError(t, os.MkdirAll(infoPath, 0o755))
+			attrData, err := gittest.NewCommand(t, cfg, "-C", repoPath, "cat-file", "blob", objectID.String()+":.gitattributes").Output()
+			if err == nil {
+				require.NoError(t, os.WriteFile(filepath.Join(infoPath, "attributes"), attrData, 0o644))
+			}
+
+			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 			linguist := New(cfg, catfileCache, repo)
 			stats, err := linguist.Stats(ctx, objectID.String())
 			if tc.expectedErr == "" {
@@ -517,6 +527,43 @@ func testInstanceStats(t *testing.T, ctx context.Context) {
 			}
 		})
 	}
+}
+
+func TestInstance_Stats_failureGitattributes(t *testing.T) {
+	t.Parallel()
+
+	cfg := testcfg.Build(t)
+	ctx := featureflag.ContextWithFeatureFlag(testhelper.Context(t), featureflag.GoLanguageStats, true)
+	locator := config.NewLocator(cfg)
+
+	catfileCache := catfile.NewCache(cfg)
+	t.Cleanup(catfileCache.Stop)
+
+	gitCmdFactory := gittest.NewInterceptingCommandFactory(t, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
+		return fmt.Sprintf(`#!/bin/bash
+		if [[ ! "$@" =~ "check-attr" ]]; then
+			exec %q "$@"
+		fi
+		exit 1'
+		`, execEnv.BinaryPath)
+	})
+
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+	})
+
+	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "main.rb", Mode: "100644", Content: strings.Repeat("a", 107)},
+		gittest.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "*.rb -linguist-vendored"},
+	))
+
+	repo := localrepo.New(locator, gitCmdFactory, catfileCache, repoProto)
+
+	linguist := New(cfg, catfileCache, repo)
+	_, err := linguist.Stats(ctx, commitID.String())
+
+	expectedErr := `linguist object iterator: ls-tree skip: "new file instance: checking attribute:`
+	require.ErrorContains(t, err, expectedErr)
 }
 
 func TestInstance_Stats_unmarshalJSONError(t *testing.T) {
