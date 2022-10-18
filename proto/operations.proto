@@ -711,6 +711,21 @@ message UserCommitFilesResponse {
   string pre_receive_error = 3;
 }
 
+// UserCommitFilesError is an error returned by the UserCommitFiles RPC in some specific well
+// defined error cases.
+message UserCommitFilesError {
+  oneof error {
+    // AccessCheckError is set if the RPC failed because `/internal/allowed` failed.
+    AccessCheckError access_check = 1;
+    // IndexError is set to the error message when an operation conflicts with the repository
+    // index, such as creating a file that already exists.
+    IndexError index_update = 2;
+    // CustomHook is set if any custom hook which has running as part of this RPC call has returned
+    // a non-zero exit code.
+    CustomHookError custom_hook = 3;
+  }
+}
+
 // This comment is left unintentionally blank.
 message UserRebaseConfirmableRequest {
   // Header contains information to compute the rebase and must be sent as

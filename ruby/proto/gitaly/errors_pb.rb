@@ -12,6 +12,19 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :user_id, :string, 3
       optional :changes, :bytes, 4
     end
+    add_message "gitaly.IndexError" do
+      optional :path, :bytes, 1
+      optional :error_type, :enum, 2, "gitaly.IndexError.ErrorType"
+    end
+    add_enum "gitaly.IndexError.ErrorType" do
+      value :ERROR_TYPE_UNSPECIFIED, 0
+      value :ERROR_TYPE_EMPTY_PATH, 1
+      value :ERROR_TYPE_INVALID_PATH, 2
+      value :ERROR_TYPE_DIRECTORY_EXISTS, 3
+      value :ERROR_TYPE_DIRECTORY_TRAVERSAL, 4
+      value :ERROR_TYPE_FILE_EXISTS, 5
+      value :ERROR_TYPE_FILE_NOT_FOUND, 6
+    end
     add_message "gitaly.InvalidRefFormatError" do
       repeated :refs, :bytes, 2
     end
@@ -63,6 +76,8 @@ end
 
 module Gitaly
   AccessCheckError = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.AccessCheckError").msgclass
+  IndexError = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.IndexError").msgclass
+  IndexError::ErrorType = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.IndexError.ErrorType").enummodule
   InvalidRefFormatError = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.InvalidRefFormatError").msgclass
   NotAncestorError = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.NotAncestorError").msgclass
   ChangesAlreadyAppliedError = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ChangesAlreadyAppliedError").msgclass

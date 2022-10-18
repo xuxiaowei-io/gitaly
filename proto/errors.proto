@@ -19,6 +19,35 @@ message AccessCheckError {
   bytes changes = 4;
 }
 
+// IndexError is an error returned when an operation fails to due a conflict with
+// the repository index.
+message IndexError {
+  // ErrorType is the type of error encountered on the index operation.
+  enum ErrorType {
+    // ERROR_TYPE_UNSPECIFIED is the default error type and should never be set.
+    ERROR_TYPE_UNSPECIFIED = 0;
+    // ERROR_TYPE_EMPTY_PATH indicates an empty path was provided by the caller.
+    ERROR_TYPE_EMPTY_PATH = 1;
+    // ERROR_TYPE_INVALID_PATH indicates a path either contained '.git', or was
+    // incorrectly formated, e.g. invalid://file/path.
+    ERROR_TYPE_INVALID_PATH = 2;
+    // ERROR_TYPE_DIRECTORY_EXISTS indicates the directory being created already exists.
+    ERROR_TYPE_DIRECTORY_EXISTS = 3;
+    // ERROR_TYPE_DIRECTORY_TRAVERSAL indicates the path contains a directory traversal
+    // sequence.
+    ERROR_TYPE_DIRECTORY_TRAVERSAL = 4;
+    // ERROR_TYPE_FILE_EXISTS indicates the file being created already exists.
+    ERROR_TYPE_FILE_EXISTS = 5;
+    // ERROR_TYPE_FILE_NOT_FOUND indicates the file being updated does not exist.
+    ERROR_TYPE_FILE_NOT_FOUND = 6;
+  };
+
+  // Path is the file or directory path that triggered the error.
+  bytes path = 1;
+  // ErrorType is the type of index error that occurred.
+  ErrorType error_type = 2;
+}
+
 // InvalidRefFormatError is an error returned when refs have an invalid format.
 message InvalidRefFormatError {
   // Refs are the offending refs with invalid formats.
