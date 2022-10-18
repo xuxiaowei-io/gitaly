@@ -570,45 +570,41 @@ func TestRepositoryManager_CleanStaleData_withSpecificFile(t *testing.T) {
 			require.NoError(t, mgr.CleanStaleData(ctx, repo))
 			for _, subcase := range []struct {
 				desc          string
-				entries       []entry
+				entry         entry
 				expectedFiles []string
 			}{
 				{
-					desc: fmt.Sprintf("fresh %s is kept", tc.file),
-					entries: []entry{
-						f(tc.file, 0o700, 10*time.Minute, Keep),
-					},
+					desc:  fmt.Sprintf("fresh %s is kept", tc.file),
+					entry: f(tc.file, 0o700, 10*time.Minute, Keep),
 				},
 				{
 					desc: fmt.Sprintf("stale %s in subdir is kept", tc.file),
-					entries: []entry{
-						d("subdir", 0o700, 240*time.Hour, Keep,
-							f(tc.file, 0o700, 24*time.Hour, Keep),
-						),
-					},
+					entry: d("subdir", 0o700, 240*time.Hour, Keep,
+						f(tc.file, 0o700, 24*time.Hour, Keep),
+					),
 				},
 				{
-					desc: fmt.Sprintf("stale %s is deleted", tc.file),
-					entries: []entry{
-						f(tc.file, 0o700, 61*time.Minute, Delete),
-					},
+					desc:  fmt.Sprintf("stale %s is deleted", tc.file),
+					entry: f(tc.file, 0o700, 61*time.Minute, Delete),
 					expectedFiles: []string{
 						filepath.Join(repoPath, tc.file),
 					},
 				},
 				{
-					desc: fmt.Sprintf("variations of %s are kept", tc.file),
-					entries: []entry{
-						f(tc.file[:len(tc.file)-1], 0o700, 61*time.Minute, Keep),
-						f("~"+tc.file, 0o700, 61*time.Minute, Keep),
-						f(tc.file+"~", 0o700, 61*time.Minute, Keep),
-					},
+					desc:  fmt.Sprintf("%q is kept", tc.file[:len(tc.file)-1]),
+					entry: f(tc.file[:len(tc.file)-1], 0o700, 61*time.Minute, Keep),
+				},
+				{
+					desc:  fmt.Sprintf("%q is kept", "~"+tc.file),
+					entry: f("~"+tc.file, 0o700, 61*time.Minute, Keep),
+				},
+				{
+					desc:  fmt.Sprintf("%q is kept", tc.file+"~"),
+					entry: f(tc.file+"~", 0o700, 61*time.Minute, Keep),
 				},
 			} {
 				t.Run(subcase.desc, func(t *testing.T) {
-					for _, e := range subcase.entries {
-						e.create(t, repoPath)
-					}
+					subcase.entry.create(t, repoPath)
 
 					staleFiles, err := tc.finder(ctx, repoPath)
 					require.NoError(t, err)
@@ -616,9 +612,7 @@ func TestRepositoryManager_CleanStaleData_withSpecificFile(t *testing.T) {
 
 					require.NoError(t, mgr.CleanStaleData(ctx, repo))
 
-					for _, e := range subcase.entries {
-						e.validate(t, repoPath)
-					}
+					subcase.entry.validate(t, repoPath)
 				})
 			}
 
