@@ -517,9 +517,34 @@ func TestRepositoryManager_CleanStaleData_emptyRefDirs(t *testing.T) {
 func TestRepositoryManager_CleanStaleData_withSpecificFile(t *testing.T) {
 	t.Parallel()
 
+	entryInSubdir := func(e entry, subdirs ...string) entry {
+		if len(subdirs) == 0 {
+			return e
+		}
+
+		var topLevelDir, currentDir *dirEntry
+		for _, subdir := range subdirs {
+			dir := d(subdir, 0o700, 1*time.Hour, Keep)
+			if topLevelDir == nil {
+				topLevelDir = dir
+			}
+
+			if currentDir != nil {
+				currentDir.entries = []entry{dir}
+			}
+
+			currentDir = dir
+		}
+
+		currentDir.entries = []entry{e}
+
+		return topLevelDir
+	}
+
 	for _, tc := range []struct {
 		desc            string
 		file            string
+		subdirs         []string
 		finder          staleFileFinderFn
 		expectedMetrics cleanStaleDataMetrics
 	}{
@@ -534,6 +559,17 @@ func TestRepositoryManager_CleanStaleData_withSpecificFile(t *testing.T) {
 		{
 			desc:   "locked config",
 			file:   "config.lock",
+			finder: findStaleLockfiles,
+			expectedMetrics: cleanStaleDataMetrics{
+				locks: 1,
+			},
+		},
+		{
+			desc: "locked commit-graph-chain",
+			file: "commit-graph-chain.lock",
+			subdirs: []string{
+				"objects", "info", "commit-graphs",
+			},
 			finder: findStaleLockfiles,
 			expectedMetrics: cleanStaleDataMetrics{
 				locks: 1,
@@ -587,7 +623,7 @@ func TestRepositoryManager_CleanStaleData_withSpecificFile(t *testing.T) {
 					desc:  fmt.Sprintf("stale %s is deleted", tc.file),
 					entry: f(tc.file, 0o700, 61*time.Minute, Delete),
 					expectedFiles: []string{
-						filepath.Join(repoPath, tc.file),
+						filepath.Join(append([]string{repoPath}, append(tc.subdirs, tc.file)...)...),
 					},
 				},
 				{
@@ -604,7 +640,8 @@ func TestRepositoryManager_CleanStaleData_withSpecificFile(t *testing.T) {
 				},
 			} {
 				t.Run(subcase.desc, func(t *testing.T) {
-					subcase.entry.create(t, repoPath)
+					entry := entryInSubdir(subcase.entry, tc.subdirs...)
+					entry.create(t, repoPath)
 
 					staleFiles, err := tc.finder(ctx, repoPath)
 					require.NoError(t, err)
@@ -612,7 +649,7 @@ func TestRepositoryManager_CleanStaleData_withSpecificFile(t *testing.T) {
 
 					require.NoError(t, mgr.CleanStaleData(ctx, repo))
 
-					subcase.entry.validate(t, repoPath)
+					entry.validate(t, repoPath)
 				})
 			}
 
