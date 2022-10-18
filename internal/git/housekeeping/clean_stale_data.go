@@ -34,6 +34,8 @@ const (
 var lockfiles = []string{
 	"config.lock",
 	"HEAD.lock",
+	"info/attributes.lock",
+	"objects/info/alternates.lock",
 	"objects/info/commit-graphs/commit-graph-chain.lock",
 }
 

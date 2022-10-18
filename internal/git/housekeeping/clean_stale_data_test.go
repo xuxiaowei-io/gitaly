@@ -565,6 +565,28 @@ func TestRepositoryManager_CleanStaleData_withSpecificFile(t *testing.T) {
 			},
 		},
 		{
+			desc: "locked attributes",
+			file: "attributes.lock",
+			subdirs: []string{
+				"info",
+			},
+			finder: findStaleLockfiles,
+			expectedMetrics: cleanStaleDataMetrics{
+				locks: 1,
+			},
+		},
+		{
+			desc: "locked alternates",
+			file: "alternates.lock",
+			subdirs: []string{
+				"objects", "info",
+			},
+			finder: findStaleLockfiles,
+			expectedMetrics: cleanStaleDataMetrics{
+				locks: 1,
+			},
+		},
+		{
 			desc: "locked commit-graph-chain",
 			file: "commit-graph-chain.lock",
 			subdirs: []string{
