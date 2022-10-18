@@ -4,6 +4,7 @@ package repository
 
 import (
 	"bytes"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -244,4 +245,26 @@ func TestWriteRef_missingRevisions(t *testing.T) {
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
 	}
+}
+
+func TestWriteRef_forceTruncatedRef(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+	commitID := gittest.WriteCommit(t, cfg, repoPath)
+	require.NoError(t, os.WriteFile(filepath.Join(repoPath, "refs", "heads", "main"), []byte{}, os.ModePerm))
+
+	_, err := client.WriteRef(ctx, &gitalypb.WriteRefRequest{
+		Repository: repo,
+		Ref:        []byte("refs/heads/main"),
+		Revision:   []byte(commitID),
+	})
+	testhelper.RequireGrpcError(t, testhelper.GitalyOrPraefect(
+		helper.ErrInternalf(`error when running update-ref command: state update to "commit" failed: EOF, stderr: "fatal: commit: cannot lock ref 'refs/heads/main': unable to resolve reference 'refs/heads/main': reference broken\n"`),
+		helper.ErrInternalf(`error when running update-ref command: git update-ref: exit status 128, stderr: "fatal: commit: cannot lock ref 'refs/heads/main': unable to resolve reference 'refs/heads/main': reference broken\n"`),
+	), err)
 }
