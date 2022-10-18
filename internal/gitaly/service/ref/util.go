@@ -8,7 +8,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/lines"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -88,43 +87,23 @@ func newFindLocalBranchesWriter(stream gitalypb.RefService_FindLocalBranchesServ
 		ctx := stream.Context()
 		var response *gitalypb.FindLocalBranchesResponse
 
-		if featureflag.SimplifyFindLocalBranchesResponse.IsEnabled(ctx) {
-			var branches []*gitalypb.Branch
+		var branches []*gitalypb.Branch
 
-			for _, ref := range refs {
-				elements, err := parseRef(ref)
-				if err != nil {
-					return err
-				}
-
-				branch, err := buildBranch(ctx, objectReader, elements)
-				if err != nil {
-					return err
-				}
-
-				branches = append(branches, branch)
+		for _, ref := range refs {
+			elements, err := parseRef(ref)
+			if err != nil {
+				return err
 			}
 
-			response = &gitalypb.FindLocalBranchesResponse{LocalBranches: branches}
-		} else {
-			var branches []*gitalypb.FindLocalBranchResponse
-
-			for _, ref := range refs {
-				elements, err := parseRef(ref)
-				if err != nil {
-					return err
-				}
-
-				target, err := catfile.GetCommit(ctx, objectReader, git.Revision(elements[1]))
-				if err != nil {
-					return err
-				}
-
-				branches = append(branches, buildLocalBranch(elements[0], target))
+			branch, err := buildBranch(ctx, objectReader, elements)
+			if err != nil {
+				return err
 			}
 
-			response = &gitalypb.FindLocalBranchesResponse{Branches: branches}
+			branches = append(branches, branch)
 		}
+
+		response = &gitalypb.FindLocalBranchesResponse{LocalBranches: branches}
 
 		return stream.Send(response)
 	}
