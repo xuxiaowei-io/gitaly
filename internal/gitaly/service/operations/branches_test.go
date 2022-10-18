@@ -373,14 +373,14 @@ func TestUserCreateBranch_Failure(t *testing.T) {
 			branchName: "master",
 			startPoint: "master",
 			user:       gittest.TestUser,
-			err:        status.Errorf(codes.FailedPrecondition, "Could not update %s. Please refresh and try again.", "master"),
+			err:        status.Errorf(codes.FailedPrecondition, "Could not update %s. Please refresh and try again.", "refs/heads/master"),
 		},
 		{
 			desc:       "conflicting with refs/heads/improve/awesome",
 			branchName: "improve",
 			startPoint: "master",
 			user:       gittest.TestUser,
-			err:        status.Errorf(codes.Internal, "reference is ambiguous: conflicts with %q", "refs/heads/improve/awesome"),
+			err:        status.Errorf(codes.FailedPrecondition, "Could not update %s. Please refresh and try again.", "refs/heads/improve"),
 		},
 	}
 
