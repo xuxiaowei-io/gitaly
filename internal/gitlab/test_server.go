@@ -3,7 +3,6 @@ package gitlab
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -22,8 +21,6 @@ import (
 )
 
 var changeLineRegex = regexp.MustCompile("^[a-f0-9]{40} [a-f0-9]{40} refs/[^ ]+$")
-
-const secretHeaderName = "Gitlab-Shared-Secret"
 
 // WriteShellSecretFile writes a .gitlab_shell_secret file in the specified directory
 func WriteShellSecretFile(tb testing.TB, dir, secretToken string) string {
@@ -287,30 +284,14 @@ func handleAllowed(tb testing.TB, options TestServerOptions) func(w http.Respons
 			}
 		}
 
-		var authenticated bool
-		if r.Form.Get("secret_token") == options.SecretToken {
-			authenticated = true
-		}
-
-		secretHeader, err := base64.StdEncoding.DecodeString(r.Header.Get(secretHeaderName))
-		if err == nil {
-			if string(secretHeader) == options.SecretToken {
-				authenticated = true
-			}
-		}
-
-		if !verifyJWT(r.Header.Get("Gitlab-Shell-Api-Request"), options.SecretToken) {
-			authenticated = false
-		}
-
-		if authenticated {
+		if verifyJWT(r.Header.Get("Gitlab-Shell-Api-Request"), options.SecretToken) {
 			_, err := w.Write([]byte(`{"status":true}`))
 			require.NoError(tb, err)
 			return
 		}
-		w.WriteHeader(http.StatusUnauthorized)
 
-		_, err = w.Write([]byte(`{"message":"401 Unauthorized\n"}`))
+		w.WriteHeader(http.StatusUnauthorized)
+		_, err := w.Write([]byte(`{"message":"401 Unauthorized\n"}`))
 		require.NoError(tb, err)
 	}
 }
@@ -371,23 +352,7 @@ func handlePreReceive(tb testing.TB, options TestServerOptions) func(w http.Resp
 			}
 		}
 
-		var authenticated bool
-		if r.Form.Get("secret_token") == options.SecretToken {
-			authenticated = true
-		}
-
-		secretHeader, err := base64.StdEncoding.DecodeString(r.Header.Get(secretHeaderName))
-		if err == nil {
-			if string(secretHeader) == options.SecretToken {
-				authenticated = true
-			}
-		}
-
 		if !verifyJWT(r.Header.Get("Gitlab-Shell-Api-Request"), options.SecretToken) {
-			authenticated = false
-		}
-
-		if !authenticated {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
@@ -395,7 +360,7 @@ func handlePreReceive(tb testing.TB, options TestServerOptions) func(w http.Resp
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 
-		_, err = w.Write([]byte(`{"reference_counter_increased": true}`))
+		_, err := w.Write([]byte(`{"reference_counter_increased": true}`))
 		require.NoError(tb, err)
 	}
 }
@@ -432,19 +397,6 @@ func handlePostReceive(options TestServerOptions) func(w http.ResponseWriter, r 
 		if options.GLRepository != "" {
 			if params.GLRepository != options.GLRepository {
 				http.Error(w, "gl_repository is invalid", http.StatusUnauthorized)
-				return
-			}
-		}
-
-		if params.SecretToken != options.SecretToken {
-			decodedSecret, err := base64.StdEncoding.DecodeString(r.Header.Get("Gitlab-Shared-Secret"))
-			if err != nil {
-				http.Error(w, "secret_token is invalid", http.StatusUnauthorized)
-				return
-			}
-
-			if string(decodedSecret) != options.SecretToken {
-				http.Error(w, "secret_token is invalid", http.StatusUnauthorized)
 				return
 			}
 		}
