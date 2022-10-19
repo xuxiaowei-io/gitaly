@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 )
 
 // HasBitmap returns whether or not the repository contains an object bitmap.
@@ -61,8 +60,11 @@ func UnpackedObjects(repoPath string) (int64, error) {
 }
 
 // LooseObjects returns the number of loose objects that are not in a packfile.
-func LooseObjects(ctx context.Context, gitCmdFactory git.CommandFactory, repository repository.GitRepo) (int64, error) {
-	cmd, err := gitCmdFactory.New(ctx, repository, git.SubCmd{Name: "count-objects", Flags: []git.Option{git.Flag{Name: "--verbose"}}})
+func LooseObjects(ctx context.Context, repo git.RepositoryExecutor) (int64, error) {
+	cmd, err := repo.Exec(ctx, git.SubCmd{
+		Name:  "count-objects",
+		Flags: []git.Option{git.Flag{Name: "--verbose"}},
+	})
 	if err != nil {
 		return 0, err
 	}
