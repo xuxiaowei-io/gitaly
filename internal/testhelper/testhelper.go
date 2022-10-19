@@ -373,3 +373,12 @@ func GenerateCerts(tb testing.TB) (string, string) {
 
 	return certFile.Name(), keyFile.Name()
 }
+
+// GitalyOrPraefect returns gitalyMsg if GITALY_TEST_WITH_PRAEFECT env var is not set and
+// praefectMsg otherwise.
+func GitalyOrPraefect(gitalyMsg, praefectMsg string) string {
+	if IsPraefectEnabled() {
+		return praefectMsg
+	}
+	return gitalyMsg
+}
