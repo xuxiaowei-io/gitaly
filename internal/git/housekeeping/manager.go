@@ -17,7 +17,7 @@ type Manager interface {
 	CleanStaleData(context.Context, *localrepo.Repo) error
 	// OptimizeRepository optimizes the repository's data structures such that it can be more
 	// efficiently served.
-	OptimizeRepository(context.Context, *localrepo.Repo) error
+	OptimizeRepository(context.Context, *localrepo.Repo, ...OptimizeRepositoryOption) error
 }
 
 // RepositoryManager is an implementation of the Manager interface.
@@ -27,7 +27,7 @@ type RepositoryManager struct {
 	tasksTotal       *prometheus.CounterVec
 	tasksLatency     *prometheus.HistogramVec
 	prunedFilesTotal *prometheus.CounterVec
-	optimizeFunc     func(ctx context.Context, m *RepositoryManager, repo *localrepo.Repo) error
+	optimizeFunc     func(context.Context, *RepositoryManager, *localrepo.Repo, optimizeRepositoryConfig) error
 	reposInProgress  sync.Map
 }
 

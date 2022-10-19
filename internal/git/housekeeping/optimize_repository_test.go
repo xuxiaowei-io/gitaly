@@ -774,7 +774,7 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 		manager := &RepositoryManager{
-			optimizeFunc: func(_ context.Context, _ *RepositoryManager, _ *localrepo.Repo) error {
+			optimizeFunc: func(context.Context, *RepositoryManager, *localrepo.Repo, optimizeRepositoryConfig) error {
 				reqReceivedCh <- struct{}{}
 				ch <- struct{}{}
 
@@ -812,7 +812,7 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 		reposOptimized := make(map[string]struct{})
 
 		manager := &RepositoryManager{
-			optimizeFunc: func(_ context.Context, _ *RepositoryManager, repo *localrepo.Repo) error {
+			optimizeFunc: func(_ context.Context, _ *RepositoryManager, repo *localrepo.Repo, _ optimizeRepositoryConfig) error {
 				reposOptimized[repo.GetRelativePath()] = struct{}{}
 
 				if repo.GitRepo.GetRelativePath() == repoFirst.GetRelativePath() {
@@ -851,7 +851,7 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 		var optimizations int
 
 		manager := &RepositoryManager{
-			optimizeFunc: func(_ context.Context, _ *RepositoryManager, _ *localrepo.Repo) error {
+			optimizeFunc: func(context.Context, *RepositoryManager, *localrepo.Repo, optimizeRepositoryConfig) error {
 				optimizations++
 
 				if optimizations == 1 {

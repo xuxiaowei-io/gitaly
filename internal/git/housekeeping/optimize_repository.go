@@ -20,9 +20,18 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 )
 
+type optimizeRepositoryConfig struct{}
+
+// OptimizeRepositoryOption is an option that can be passed to OptimizeRepository.
+type OptimizeRepositoryOption func(cfg *optimizeRepositoryConfig)
+
 // OptimizeRepository performs optimizations on the repository. Whether optimizations are performed
 // or not depends on a set of heuristics.
-func (m *RepositoryManager) OptimizeRepository(ctx context.Context, repo *localrepo.Repo) error {
+func (m *RepositoryManager) OptimizeRepository(
+	ctx context.Context,
+	repo *localrepo.Repo,
+	opts ...OptimizeRepositoryOption,
+) error {
 	path, err := repo.Path()
 	if err != nil {
 		return err
@@ -36,10 +45,20 @@ func (m *RepositoryManager) OptimizeRepository(ctx context.Context, repo *localr
 		m.reposInProgress.Delete(path)
 	}()
 
-	return m.optimizeFunc(ctx, m, repo)
+	var cfg optimizeRepositoryConfig
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
+	return m.optimizeFunc(ctx, m, repo, cfg)
 }
 
-func optimizeRepository(ctx context.Context, m *RepositoryManager, repo *localrepo.Repo) error {
+func optimizeRepository(
+	ctx context.Context,
+	m *RepositoryManager,
+	repo *localrepo.Repo,
+	cfg optimizeRepositoryConfig,
+) error {
 	totalTimer := prometheus.NewTimer(m.tasksLatency.WithLabelValues("total"))
 	totalStatus := "failure"
 
