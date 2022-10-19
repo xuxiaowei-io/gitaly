@@ -15,7 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 )
 
-func requireObjectCount(t *testing.T, ctx context.Context, repo *localrepo.Repo, expectedObjects int64) {
+func requireObjectCount(t *testing.T, ctx context.Context, repo *localrepo.Repo, expectedObjects uint64) {
 	t.Helper()
 
 	objects, err := stats.LooseObjects(ctx, repo)

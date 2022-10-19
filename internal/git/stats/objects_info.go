@@ -3,8 +3,7 @@ package stats
 import (
 	"bufio"
 	"context"
-	"errors"
-	"io"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -53,127 +52,115 @@ func GetPackfiles(repoPath string) ([]fs.DirEntry, error) {
 }
 
 // LooseObjects returns the number of loose objects that are not in a packfile.
-func LooseObjects(ctx context.Context, repo git.RepositoryExecutor) (int64, error) {
-	cmd, err := repo.Exec(ctx, git.SubCmd{
-		Name:  "count-objects",
-		Flags: []git.Option{git.Flag{Name: "--verbose"}},
-	})
+func LooseObjects(ctx context.Context, repo git.RepositoryExecutor) (uint64, error) {
+	objectsInfo, err := ObjectsInfoForRepository(ctx, repo)
 	if err != nil {
 		return 0, err
 	}
 
-	objectStats, err := readObjectInfoStatistic(cmd)
-	if err != nil {
-		return 0, err
-	}
-
-	count, ok := objectStats["count"].(int64)
-	if !ok {
-		return 0, errors.New("could not get object count")
-	}
-
-	return count, nil
+	return objectsInfo.LooseObjects, nil
 }
 
 // LogObjectsInfo read statistics of the git repo objects
-// and logs it under 'count-objects' key as structured entry.
+// and logs it under 'objects_info' key as structured entry.
 func LogObjectsInfo(ctx context.Context, repo git.RepositoryExecutor) {
 	logger := ctxlogrus.Extract(ctx)
 
-	cmd, err := repo.Exec(ctx, git.SubCmd{
+	objectsInfo, err := ObjectsInfoForRepository(ctx, repo)
+	if err != nil {
+		logger.WithError(err).Warn("failed reading objects info")
+	} else {
+		logger.WithField("objects_info", objectsInfo).Info("repository objects info")
+	}
+}
+
+// ObjectsInfo contains information on the object database.
+type ObjectsInfo struct {
+	// LooseObjects is the count of loose objects.
+	LooseObjects uint64 `json:"loose_objects"`
+	// LooseObjectsSize is the accumulated on-disk size of all loose objects in KiB.
+	LooseObjectsSize uint64 `json:"loose_objects_size"`
+	// PackedObjects is the count of packed objects.
+	PackedObjects uint64 `json:"packed_objects"`
+	// Packfiles is the number of packfiles.
+	Packfiles uint64 `json:"packfiles"`
+	// PackfilesSize is the accumulated on-disk size of all packfiles in KiB.
+	PackfilesSize uint64 `json:"packfiles_size"`
+	// PrunableObjects is the number of objects that exist both as loose and as packed objects.
+	// The loose objects may be pruned in that case.
+	PruneableObjects uint64 `json:"prunable_objects"`
+	// Garbage is the count of files in the object database that are neither a valid loose
+	// object nor a valid packfile.
+	Garbage uint64 `json:"garbage"`
+	// GarbageSize is the accumulated on-disk size of garbage files.
+	GarbageSize uint64 `json:"garbage_size"`
+	// Alternates is the list of absolute paths of alternate object databases this repository is
+	// connected to.
+	Alternates []string `json:"alternates"`
+}
+
+// ObjectsInfoForRepository computes the ObjectsInfo for a repository.
+func ObjectsInfoForRepository(ctx context.Context, repo git.RepositoryExecutor) (ObjectsInfo, error) {
+	countObjects, err := repo.Exec(ctx, git.SubCmd{
 		Name:  "count-objects",
 		Flags: []git.Option{git.Flag{Name: "--verbose"}},
 	})
 	if err != nil {
-		logger.WithError(err).Warn("failed on bootstrapping to gather object statistic")
-		return
+		return ObjectsInfo{}, fmt.Errorf("running git-count-objects: %w", err)
 	}
 
-	stats, err := readObjectInfoStatistic(cmd)
-	if err != nil {
-		logger.WithError(err).Warn("failed on reading to gather object statistic")
-	}
+	var info ObjectsInfo
 
-	if err := cmd.Wait(); err != nil {
-		logger.WithError(err).Warn("failed on waiting to gather object statistic")
-		return
-	}
-
-	if len(stats) > 0 {
-		logger.WithField("count_objects", stats).Info("git repo statistic")
-	}
-}
-
-/*
-	readObjectInfoStatistic parses output of 'git count-objects -v' command and represents it as dictionary
-
-current supported format is:
-
-	count: 12
-	packs: 2
-	size-garbage: 934
-	alternate: /some/path/to/.git/objects
-	alternate: "/some/other path/to/.git/objects"
-
-will result in:
-
-	{
-	  "count": 12,
-	  "packs": 2,
-	  "size-garbage": 934,
-	  "alternate": ["/some/path/to/.git/objects", "/some/other path/to/.git/objects"]
-	}
-*/
-func readObjectInfoStatistic(reader io.Reader) (map[string]interface{}, error) {
-	stats := map[string]interface{}{}
-
-	scanner := bufio.NewScanner(reader)
+	// The expected format is:
+	//
+	//	count: 12
+	//	packs: 2
+	//	size-garbage: 934
+	//	alternate: /some/path/to/.git/objects
+	//	alternate: "/some/other path/to/.git/objects"
+	scanner := bufio.NewScanner(countObjects)
 	for scanner.Scan() {
 		line := scanner.Text()
+
 		parts := strings.SplitN(line, ": ", 2)
 		if len(parts) != 2 {
 			continue
 		}
 
-		// one of: count, size, in-pack, packs, size-pack, prune-packable, garbage, size-garbage, alternate (repeatable)
-		key := parts[0]
-		rawVal := strings.TrimPrefix(parts[1], ": ")
-
-		switch key {
+		var err error
+		switch parts[0] {
+		case "count":
+			info.LooseObjects, err = strconv.ParseUint(parts[1], 10, 64)
+		case "size":
+			info.LooseObjectsSize, err = strconv.ParseUint(parts[1], 10, 64)
+		case "in-pack":
+			info.PackedObjects, err = strconv.ParseUint(parts[1], 10, 64)
+		case "packs":
+			info.Packfiles, err = strconv.ParseUint(parts[1], 10, 64)
+		case "size-pack":
+			info.PackfilesSize, err = strconv.ParseUint(parts[1], 10, 64)
+		case "prune-packable":
+			info.PruneableObjects, err = strconv.ParseUint(parts[1], 10, 64)
+		case "garbage":
+			info.Garbage, err = strconv.ParseUint(parts[1], 10, 64)
+		case "size-garbage":
+			info.GarbageSize, err = strconv.ParseUint(parts[1], 10, 64)
 		case "alternate":
-			addMultiString(stats, key, rawVal)
-		default:
-			addInt(stats, key, rawVal)
+			info.Alternates = append(info.Alternates, strings.Trim(parts[1], "\" \t\n"))
+		}
+
+		if err != nil {
+			return ObjectsInfo{}, fmt.Errorf("parsing %q: %w", parts[0], err)
 		}
 	}
 
-	return stats, scanner.Err()
-}
-
-func addMultiString(stats map[string]interface{}, key, rawVal string) {
-	val := strings.Trim(rawVal, "\" \t\n")
-
-	statVal, found := stats[key]
-	if !found {
-		stats[key] = val
-		return
+	if err := scanner.Err(); err != nil {
+		return ObjectsInfo{}, fmt.Errorf("scanning object info: %w", err)
 	}
 
-	statAggr, ok := statVal.([]string) // 'alternate' is only repeatable key and it is a string type
-	if ok {
-		statAggr = append(statAggr, val)
-	} else {
-		delete(stats, key) // remove single string value of 'alternate' to replace it with slice
-		statAggr = []string{statVal.(string), val}
-	}
-	stats[key] = statAggr
-}
-
-func addInt(stats map[string]interface{}, key, rawVal string) {
-	val, err := strconv.ParseInt(rawVal, 10, 64)
-	if err != nil {
-		return
+	if err := countObjects.Wait(); err != nil {
+		return ObjectsInfo{}, fmt.Errorf("counting objects: %w", err)
 	}
 
-	stats[key] = val
+	return info, nil
 }
