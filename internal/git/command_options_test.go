@@ -175,6 +175,12 @@ func TestGlobalOption(t *testing.T) {
 			expected: []string{"-c", "foo.bar="},
 		},
 		{
+			desc:     "config pair with URL key",
+			option:   ConfigPair{Key: "http.https://user@example.com/repo.git.user", Value: "kitty"},
+			valid:    true,
+			expected: []string{"-c", "http.https://user@example.com/repo.git.user=kitty"},
+		},
+		{
 			desc:   "config pair with invalid section format",
 			option: ConfigPair{Key: "foo", Value: "value"},
 			valid:  false,
@@ -186,7 +192,7 @@ func TestGlobalOption(t *testing.T) {
 		},
 		{
 			desc:   "config pair with disallowed character in key",
-			option: ConfigPair{Key: "http.https://weak.example.com.sslVerify", Value: "false"},
+			option: ConfigPair{Key: "foo.b=r", Value: "value"},
 			valid:  false,
 		},
 	} {
