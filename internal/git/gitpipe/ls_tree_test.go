@@ -170,10 +170,26 @@ func TestLsTree(t *testing.T) {
 				}
 			},
 			options: []LsTreeOption{
-				LsTreeWithSkip(func(r *RevisionResult) bool {
-					return bytes.Equal(r.ObjectName, []byte(".gitignore"))
+				LsTreeWithSkip(func(r *RevisionResult) (bool, error) {
+					return bytes.Equal(r.ObjectName, []byte(".gitignore")), nil
 				}),
 			},
+		},
+		{
+			desc: "with skip failure",
+			setup: func(t *testing.T, repoPath string) (git.Revision, []RevisionResult) {
+				tree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "README.md", Mode: "100644", Content: "Hello world"},
+				})
+
+				return tree.Revision(), nil
+			},
+			options: []LsTreeOption{
+				LsTreeWithSkip(func(r *RevisionResult) (bool, error) {
+					return true, errors.New("broken")
+				}),
+			},
+			expectedErr: errors.New(`ls-tree skip: "broken"`),
 		},
 		{
 			desc: "invalid revision",

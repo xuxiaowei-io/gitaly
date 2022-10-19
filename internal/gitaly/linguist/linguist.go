@@ -136,9 +136,9 @@ func (inst *Instance) enryStats(ctx context.Context, commitID string) (ByteCount
 	if full {
 		stats = newLanguageStats()
 
-		skipFunc := func(result *gitpipe.RevisionResult) bool {
+		skipFunc := func(result *gitpipe.RevisionResult) (bool, error) {
 			// Skip files that are an excluded filetype based on filename.
-			return newFileInstance(string(result.ObjectName), attrMatcher).IsExcluded()
+			return newFileInstance(string(result.ObjectName), attrMatcher).IsExcluded(), nil
 		}
 
 		// Full recalculation is needed, so get all the files for the
