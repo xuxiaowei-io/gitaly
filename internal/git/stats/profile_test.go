@@ -28,9 +28,6 @@ func TestRepositoryProfile(t *testing.T) {
 	hasBitmap, err := HasBitmap(repoPath)
 	require.NoError(t, err)
 	require.False(t, hasBitmap, "repository should not have a bitmap initially")
-	unpackedObjects, err := UnpackedObjects(repoPath)
-	require.NoError(t, err)
-	require.Zero(t, unpackedObjects)
 	packfiles, err := GetPackfiles(repoPath)
 	require.NoError(t, err)
 	require.Empty(t, packfiles)
@@ -40,10 +37,6 @@ func TestRepositoryProfile(t *testing.T) {
 
 	blobs := 10
 	blobIDs := gittest.WriteBlobs(t, cfg, repoPath, blobs)
-
-	unpackedObjects, err = UnpackedObjects(repoPath)
-	require.NoError(t, err)
-	require.Equal(t, int64(blobs), unpackedObjects)
 
 	looseObjects, err := LooseObjects(ctx, repo)
 	require.NoError(t, err)
@@ -63,9 +56,6 @@ func TestRepositoryProfile(t *testing.T) {
 
 	gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-b", "-d")
 
-	unpackedObjects, err = UnpackedObjects(repoPath)
-	require.NoError(t, err)
-	require.Zero(t, unpackedObjects)
 	looseObjects, err = LooseObjects(ctx, repo)
 	require.NoError(t, err)
 	require.Equal(t, int64(1), looseObjects)
@@ -76,10 +66,6 @@ func TestRepositoryProfile(t *testing.T) {
 	// due to OS semantics, ensure that the blob has a timestamp that is after the packfile
 	theFuture := time.Now().Add(10 * time.Minute)
 	require.NoError(t, os.Chtimes(filepath.Join(repoPath, "objects", blobID[0:2], blobID[2:]), theFuture, theFuture))
-
-	unpackedObjects, err = UnpackedObjects(repoPath)
-	require.NoError(t, err)
-	require.Equal(t, int64(1), unpackedObjects)
 
 	looseObjects, err = LooseObjects(ctx, repo)
 	require.NoError(t, err)

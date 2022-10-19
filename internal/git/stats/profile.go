@@ -6,8 +6,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strconv"
-	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 )
@@ -48,17 +46,6 @@ func GetPackfiles(repoPath string) ([]fs.DirEntry, error) {
 	return packFiles, nil
 }
 
-// UnpackedObjects returns the number of loose objects that have a timestamp later than the newest
-// packfile.
-func UnpackedObjects(repoPath string) (int64, error) {
-	unpackedObjects, err := getUnpackedObjects(repoPath)
-	if err != nil {
-		return 0, err
-	}
-
-	return unpackedObjects, nil
-}
-
 // LooseObjects returns the number of loose objects that are not in a packfile.
 func LooseObjects(ctx context.Context, repo git.RepositoryExecutor) (int64, error) {
 	cmd, err := repo.Exec(ctx, git.SubCmd{
@@ -89,65 +76,4 @@ func hasBitmap(repoPath string) (bool, error) {
 	}
 
 	return len(bitmaps) > 0, nil
-}
-
-func getUnpackedObjects(repoPath string) (int64, error) {
-	objectDir := filepath.Join(repoPath, "objects")
-
-	packFiles, err := filepath.Glob(filepath.Join(objectDir, "pack", "*.pack"))
-	if err != nil {
-		return 0, err
-	}
-
-	var newestPackfileModtime time.Time
-
-	for _, packFilePath := range packFiles {
-		stat, err := os.Stat(packFilePath)
-		if err != nil {
-			return 0, err
-		}
-		if stat.ModTime().After(newestPackfileModtime) {
-			newestPackfileModtime = stat.ModTime()
-		}
-	}
-
-	var unpackedObjects int64
-	if err = filepath.Walk(objectDir, func(path string, info os.FileInfo, err error) error {
-		if objectDir == path {
-			return nil
-		}
-
-		if info.IsDir() {
-			if err := skipNonObjectDir(objectDir, path); err != nil {
-				return err
-			}
-		}
-
-		if !info.IsDir() && info.ModTime().After(newestPackfileModtime) {
-			unpackedObjects++
-		}
-
-		return nil
-	}); err != nil {
-		return 0, err
-	}
-
-	return unpackedObjects, nil
-}
-
-func skipNonObjectDir(root, path string) error {
-	rel, err := filepath.Rel(root, path)
-	if err != nil {
-		return err
-	}
-
-	if len(rel) != 2 {
-		return filepath.SkipDir
-	}
-
-	if _, err := strconv.ParseUint(rel, 16, 8); err != nil {
-		return filepath.SkipDir
-	}
-
-	return nil
 }
