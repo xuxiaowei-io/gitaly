@@ -5,4 +5,3 @@
 <REPLACE ABSTRACT>
 
 <!--- Replace this line and start writing your RFC. Good luck! -->
-

@@ -6,13 +6,13 @@ application.
 Gitaly is configured via a [TOML](https://github.com/toml-lang/toml)
 configuration file. Where this TOML file is located and how you should
 edit it depend on how you installed GitLab. See:
-https://docs.gitlab.com/ce/administration/gitaly/
+<https://docs.gitlab.com/ee/administration/gitaly/>
 
 The configuration file is passed as an argument to the `gitaly`
-executable. This is usually done by either omnibus-gitlab or your init
+executable. This is usually done by either `omnibus-gitlab` or your init
 script.
 
-```
+```shell
 gitaly /path/to/config.toml
 ```
 
@@ -38,14 +38,14 @@ name = "my_shard"
 #path = "/path/to/other/repositories"
 ```
 
-|name|type|required|notes|
-|----|----|--------|-----|
-|socket_path|string|see notes|A path which gitaly should open a Unix socket. Required unless listen_addr is set|
-|listen_addr|string|see notes|TCP address for Gitaly to listen on (See #GITALY_LISTEN_ADDR). Required unless socket_path is set|
-|internal_socket_dir|string|yes|Path where Gitaly will create sockets for internal Gitaly calls to connect to|
-|bin_dir|string|yes|Directory containing Gitaly's executables|
-|prometheus_listen_addr|string|no|TCP listen address for Prometheus metrics. If not set, no Prometheus listener is started|
-|storage|array|yes|An array of storage shards|
+| Name                     | Type   | Required  | Notes                                                                                               |
+|:-------------------------|:-------|:----------|:----------------------------------------------------------------------------------------------------|
+| `socket_path`            | string | see notes | A path which Gitaly should open a Unix socket. Required unless listen_addr is set                   |
+| `listen_addr`            | string | see notes | TCP address for Gitaly to listen on (See #GITALY_LISTEN_ADDR). Required unless `socket_path` is set |
+| `internal_socket_dir`    | string | yes       | Path where Gitaly will create sockets for internal Gitaly calls to connect to                       |
+| `bin_dir`                | string | yes       | Directory containing Gitaly's executables                                                           |
+| `prometheus_listen_addr` | string | no        | TCP listen address for Prometheus metrics. If not set, no Prometheus listener is started            |
+| `storage`                | array  | yes       | An array of storage shards                                                                          |
 
 ### Authentication
 
@@ -53,7 +53,7 @@ Gitaly can be configured to reject requests that do not contain a
 specific bearer token in their headers. This is a security measure to
 be used when serving requests over TCP.
 
-Authentication is disabled when the token setting in config.toml is absent or the empty string.
+Authentication is disabled when the token setting in `config.toml` is absent or the empty string.
 
 ```toml
 [auth]
@@ -85,31 +85,31 @@ GitLab repositories are grouped into 'storages'. These are directories
 by GitLab , with names (e.g. `default`).
 
 These names and paths are also defined in the `gitlab.yml`
-configuration file of gitlab-ce (or gitlab-ee). When you run Gitaly on
-the same machine as gitlab-ce, which is the default and recommended
-configuration, storage paths defined in Gitaly's config.toml must
-match those in gitlab.yml.
+configuration file of `gitlab-foss` (or `gitlab`). When you run Gitaly on
+the same machine as `gitlab-foss`, which is the default and recommended
+configuration, storage paths defined in Gitaly's `config.toml` must
+match those in `gitlab.yml`.
 
-|name|type|required|notes|
-|----|----|--------|-----|
-|path|string|yes|Path to storage shard|
-|name|string|yes|Name of storage shard|
+| Name   | Type   | Required | Notes                 |
+|:-------|:-------|:---------|:----------------------|
+| `path` | string | yes      | Path to storage shard |
+| `name` | string | yes      | Name of storage shard |
 
 ### Git
 
 The following values can be set in the `[git]` section of the configuration file:
 
-|name|type|required|notes|
-|----|----|--------|-----|
-|bin_path|string|no|Path to git binary. If not set, will be resolved using PATH.|
-|catfile_cache_size|integer|no|Maximum number of cached cat-file processes (see below). Default 100.|
+| Name                 | Type    | Required | Notes                                                                 |
+|:---------------------|:--------|:---------|:----------------------------------------------------------------------|
+| `bin_path`           | string  | no       | Path to Git binary. If not set, will be resolved using PATH.          |
+| `catfile_cache_size` | integer | no       | Maximum number of cached cat-file processes (see below). Default 100. |
 
 #### cat-file cache
 
 A lot of Gitaly RPC's need to look up Git objects from repositories.
 Most of the time we use `git cat-file --batch` processes for that. For
 the sake of performance, Gitaly can re-use thse `git cat-file` processes
-across RPC calls. Previously used processes are kept around in a "git
+across RPC calls. Previously used processes are kept around in a "Git
 cat-file cache". In order to control how much system resources this uses
 we have a maximum number of cat-file processes that can go into the
 cache.
@@ -123,29 +123,29 @@ Ideally the number should be large enough to handle normal (peak)
 traffic. If you raise the limit you should measure the cache hit ratio
 before and after. If the hit ratio does not improve, the higher limit is
 probably not making a meaningful difference. Here is an example
-prometheus query to see the hit rate:
+Prometheus query to see the hit rate:
 
-```
+```prometheus
 sum(rate(gitaly_catfile_cache_total{type="hit"}[5m])) / sum(rate(gitaly_catfile_cache_total{type=~"(hit)|(miss)"}[5m]))
 ```
 
-### gitaly-ruby
+### `gitaly-ruby`
 
-A Gitaly process uses one or more gitaly-ruby helper processes to
+A Gitaly process uses one or more `gitaly-ruby` helper processes to
 execute RPC's implemented in Ruby instead of Go. The `[gitaly-ruby]`
 section of the config file contains settings for these helper processes.
 
 These processes are known to occasionally suffer from memory leaks.
-Gitaly restarts its gitaly-ruby helpers when their memory exceeds the
+Gitaly restarts its `gitaly-ruby` helpers when their memory exceeds the
 max\_rss limit.
 
-|name|type|required|notes|
-|----|----|--------|-----|
-|dir|string|yes|Path to where gitaly-ruby is installed (needed to boot the process).|
-|max_rss|integer|no|Resident set size limit that triggers a gitaly-ruby restart, in bytes. Default 300MB.|
-|graceful_restart_timeout|string|no|Grace period to allow a gitaly-ruby process to finish ongoing requests. Default 10 minutes ("10m").|
-|restart_delay|string|no|Time memory must be high before a restart is triggered, in seconds. Default 5 minutes ("5m").|
-|num_workers|integer|no|Number of gitaly-ruby worker processes. Try increasing this number in case of ResourceExhausted errors. Default 2, minimum 2.|
+| Name                       | Type    | Required | Notes                                                                                                                           |
+|:---------------------------|:--------|:---------|:--------------------------------------------------------------------------------------------------------------------------------|
+| `dir`                      | string  | yes      | Path to where `gitaly-ruby` is installed (needed to boot the process).                                                          |
+| `max_rss`                  | integer | no       | Resident set size limit that triggers a `gitaly-ruby` restart, in bytes. Default 300MB.                                         |
+| `graceful_restart_timeout` | string  | no       | Grace period to allow a `gitaly-ruby` process to finish ongoing requests. Default 10 minutes ("10m").                           |
+| `restart_delay`            | string  | no       | Time memory must be high before a restart is triggered, in seconds. Default 5 minutes ("5m").                                   |
+| `num_workers`              | integer | no       | Number of `gitaly-ruby` worker processes. Try increasing this number in case of ResourceExhausted errors. Default 2, minimum 2. |
 
 ### Logging
 
@@ -156,20 +156,20 @@ Example:
 level = "warn"
 ```
 
-|name|type|required|notes|
-|----|----|--------|-----|
-|format|string|no|Log format: "text" or "json". Default: "text"|
-|level|string|no| Log level: "debug", "info", "warn", "error", "fatal", or "panic". Default: "info"|
-|sentry_dsn|string|no|Sentry DSN for exception monitoring|
-|sentry_environment|string|no|Sentry Environment for exception monitoring|
-|ruby_sentry_dsn|string|no|Sentry DSN for gitaly-ruby exception monitoring|
+| Name                 | Type   | Required | Notes                                                                             |
+|:---------------------|:-------|:---------|:----------------------------------------------------------------------------------|
+| `format`             | string | no       | Log format: `text` or `json`. Default: `text`                                     |
+| `level`              | string | no       | Log level: `debug`, `info`, `warn`, `error`, `fatal`, or `panic`. Default: `info` |
+| `sentry_dsn`         | string | no       | Sentry DSN for exception monitoring                                               |
+| `sentry_environment` | string | no       | Sentry Environment for exception monitoring                                       |
+| `ruby_sentry_dsn`    | string | no       | Sentry DSN for `gitaly-ruby` exception monitoring                                 |
 
 #### Environment variables
 
-|name|default|notes|
-|----|-------|-----|
-|GITALY_LOG_REQUEST_METHOD_ALLOW_PATTERN||Regular expression that controls which gRPC methods should be logged|
-|GITALY_LOG_REQUEST_METHOD_DENY_PATTERN|`^/grpc.health.v1.Health/Check$`|Regular expression that controls which gRPC methods should be filtered out|
+| Name                                      | Default                          | Notes                                                                      |
+|:------------------------------------------|:---------------------------------|:---------------------------------------------------------------------------|
+| `GITALY_LOG_REQUEST_METHOD_ALLOW_PATTERN` |                                  | Regular expression that controls which gRPC methods should be logged       |
+| `GITALY_LOG_REQUEST_METHOD_DENY_PATTERN`  | `^/grpc.health.v1.Health/Check$` | Regular expression that controls which gRPC methods should be filtered out |
 
 Note that `GITALY_LOG_REQUEST_METHOD_ALLOW_PATTERN` takes precedence
 over `GITALY_LOG_REQUEST_METHOD_DENY_PATTERN`. If a pattern matches in
