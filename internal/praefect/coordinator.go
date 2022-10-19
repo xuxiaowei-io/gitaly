@@ -385,6 +385,13 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 	switch change {
 	case datastore.CreateRepo:
 		route, err = c.router.RouteRepositoryCreation(ctx, virtualStorage, targetRepo.RelativePath, additionalRepoRelativePath)
+
+		// ReplicateRepository RPC should also be able to replicate if repository ID already exists in Praefect.
+		if call.fullMethodName == "/gitaly.RepositoryService/ReplicateRepository" &&
+			errors.Is(err, commonerr.ErrRepositoryAlreadyExists) {
+			change = datastore.UpdateRepo
+			route, err = c.router.RouteRepositoryMutator(ctx, virtualStorage, targetRepo.RelativePath, additionalRepoRelativePath)
+		}
 		if err != nil {
 			return nil, fmt.Errorf("route repository creation: %w", err)
 		}
