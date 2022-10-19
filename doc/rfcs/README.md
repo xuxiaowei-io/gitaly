@@ -20,7 +20,7 @@ In order to preserve architectural integrity, we sometimes require thought frame
 - Use an RFC to vet a complex concept with your peers and reach consensus on an approach.
 - Use an RFC to retroactively capture the thinking behind design decisions.
 
-Note: this is not an exhaustive list. Be creative :)
+Note: this is not an exhaustive list. Be creative `:)`
 
 ## When NOT to use an RFC?
 
@@ -39,4 +39,3 @@ Note: this is not an exhaustive list. Be creative :)
 ### Updating an existing RFC
 
 When updating an RFC, use discretion when deciding between using the normal merge request process, or using the more process heavy RFC process. The RFC process should be used for more substantial revisions of an RFC.
-

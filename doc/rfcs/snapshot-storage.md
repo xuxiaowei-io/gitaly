@@ -9,18 +9,18 @@ repository snapshots in SQL and object storage (e.g. S3).
 
 Key properties:
 
--   Use a SQL database as a catalogue of the repositories in snapshot storage
--   Git data (objects and refs) is stored as cold "snapshots" in object
-    storage
--   snapshots can have a "parent", so a repository is stored as a linked
-    list of snapshots. The linked list relation is stored in SQL.
--   to use the repository it must first be copied down to a local
-    filesystem
+- Use a SQL database as a catalogue of the repositories in snapshot storage
+- Git data (objects and refs) is stored as cold "snapshots" in object
+  storage
+- snapshots can have a "parent", so a repository is stored as a linked
+  list of snapshots. The linked list relation is stored in SQL.
+- to use the repository it must first be copied down to a local
+  filesystem
 
 Possible applications:
 
--   incremental repository backups
--   cold storage for repositories
+- incremental repository backups
+- cold storage for repositories
 
 ## Primitives
 
@@ -90,7 +90,7 @@ repositories, and that Praefect is aware of when repositories change and
 a new snapshot is warranted, it would be a candidate for managing
 snapshots.
 
-However, we could also build this in gitlab-rails. That should work fine
+However, we could also build this in GitLab Rails. That should work fine
 for periodic snapshots, where we take snapshots regardless of whether we
 know/think there was a change in the repository.
 
