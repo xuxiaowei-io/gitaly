@@ -147,13 +147,6 @@ func TestNewProtoRegistry(t *testing.T) {
 			"SSHUploadArchive": protoregistry.OpAccessor,
 			"SSHUploadPack":    protoregistry.OpAccessor,
 		},
-		"WikiService": {
-			"WikiFindPage":    protoregistry.OpAccessor,
-			"WikiGetAllPages": protoregistry.OpAccessor,
-			"WikiListPages":   protoregistry.OpAccessor,
-			"WikiUpdatePage":  protoregistry.OpMutator,
-			"WikiWritePage":   protoregistry.OpMutator,
-		},
 	}
 
 	for serviceName, methods := range expectedResults {

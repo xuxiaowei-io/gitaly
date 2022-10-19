@@ -11,6 +11,7 @@ require 'fileutils'
 require 'grpc'
 require 'gitlab-labkit'
 require 'rugged'
+require 'openssl'
 
 require_relative '../lib/gitaly_server.rb'
 require_relative '../lib/gitaly_server/sentry_interceptor.rb'

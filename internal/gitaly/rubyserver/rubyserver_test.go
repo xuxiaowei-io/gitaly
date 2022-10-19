@@ -199,31 +199,20 @@ func TestServer_gitconfig(t *testing.T) {
 			gitconfigContents := testhelper.MustReadFile(t, expectedPath)
 			require.Equal(t, tc.expectedGitconfig, string(gitconfigContents))
 
-			// Write a gitconfig that is invalidly formatted. Like this we can assert
-			// whether the Ruby server tries to read it or not because it should in fact
-			// fail.
-			require.NoError(t, os.WriteFile(expectedPath, []byte(
-				`[`,
-			), 0o666))
-
 			repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				SkipCreationViaService: true,
 			})
 
 			// We now do any random RPC request that hits the Ruby server...
-			client, err := rubyServer.WikiServiceClient(ctx)
+			client, err := rubyServer.RepositoryServiceClient(ctx)
 			require.NoError(t, err)
 
 			ctx, err = SetHeaders(ctx, locator, repo)
 			require.NoError(t, err)
 
-			stream, err := client.WikiListPages(ctx, &gitalypb.WikiListPagesRequest{Repository: repo})
+			response, err := client.FindLicense(ctx, &gitalypb.FindLicenseRequest{Repository: repo})
 			require.NoError(t, err)
-
-			// ... and expect it to fail with an error parsing the configuration. This
-			// demonstrates the config was injected successfully.
-			_, err = stream.Recv()
-			testhelper.RequireGrpcError(t, fmt.Errorf("Rugged::ConfigError: failed to parse config file: missing ']' in section header (in %s:1)", expectedPath), err)
+			testhelper.ProtoEqual(t, &gitalypb.FindLicenseResponse{}, response)
 		})
 	}
 }

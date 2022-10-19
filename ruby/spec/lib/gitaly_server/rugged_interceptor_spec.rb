@@ -5,7 +5,7 @@ require_relative '../../../lib/gitaly_server/rugged_interceptor.rb'
 describe GitalyServer::RuggedInterceptor do
   include TestRepo
 
-  let(:meth) { GitalyServer::WikiService.instance_method(:wiki_write_page) }
+  let(:meth) { GitalyServer::RepositoryService.instance_method(:find_license) }
   let(:call) { double(metadata: {}) }
 
   subject do
