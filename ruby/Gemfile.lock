@@ -81,7 +81,7 @@ GEM
       with_env (= 1.1.0)
       xml-simple (~> 1.1.5)
     gitlab-markup (1.7.1)
-    google-protobuf (3.21.7)
+    google-protobuf (3.21.8)
     googleapis-common-protos-types (1.4.0)
       google-protobuf (~> 3.14)
     grpc (1.42.0)
@@ -234,7 +234,7 @@ DEPENDENCIES
   gitlab-labkit (~> 0.25)
   gitlab-license_finder
   gitlab-markup (~> 1.7.1)
-  google-protobuf (~> 3.21.7)
+  google-protobuf (~> 3.21.8)
   grpc (~> 1.42.0)
   grpc-tools (~> 1.42.0)
   licensee (~> 9.15)
@@ -250,4 +250,4 @@ DEPENDENCIES
   timecop
 
 BUNDLED WITH
-   2.3.15
+   2.3.24
