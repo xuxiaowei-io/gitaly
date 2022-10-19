@@ -126,11 +126,11 @@ func (d *dirEntry) validate(t *testing.T, parent string) {
 	}
 }
 
-func f(name string, mode os.FileMode, age time.Duration, finalState entryFinalState) entry {
+func f(name string, mode os.FileMode, age time.Duration, finalState entryFinalState) *fileEntry {
 	return &fileEntry{name, mode, age, finalState}
 }
 
-func d(name string, mode os.FileMode, age time.Duration, finalState entryFinalState, entries []entry) entry {
+func d(name string, mode os.FileMode, age time.Duration, finalState entryFinalState, entries ...entry) *dirEntry {
 	return &dirEntry{fileEntry{name, mode, age, finalState}, entries}
 }
 
@@ -185,38 +185,38 @@ func TestRepositoryManager_CleanStaleData(t *testing.T) {
 		{
 			name: "clean",
 			entries: []entry{
-				d("objects", 0o700, 240*time.Hour, Keep, []entry{
+				d("objects", 0o700, 240*time.Hour, Keep,
 					f("a", 0o700, 24*time.Hour, Keep),
 					f("b", 0o700, 24*time.Hour, Keep),
 					f("c", 0o700, 24*time.Hour, Keep),
-				}),
+				),
 			},
 		},
 		{
 			name: "emptyperms",
 			entries: []entry{
-				d("objects", 0o700, 240*time.Hour, Keep, []entry{
+				d("objects", 0o700, 240*time.Hour, Keep,
 					f("b", 0o700, 24*time.Hour, Keep),
 					f("tmp_a", 0o000, 2*time.Hour, Keep),
-				}),
+				),
 			},
 		},
 		{
 			name: "emptytempdir",
 			entries: []entry{
-				d("objects", 0o700, 240*time.Hour, Keep, []entry{
-					d("tmp_d", 0o000, 240*time.Hour, Keep, []entry{}),
+				d("objects", 0o700, 240*time.Hour, Keep,
+					d("tmp_d", 0o000, 240*time.Hour, Keep),
 					f("b", 0o700, 24*time.Hour, Keep),
-				}),
+				),
 			},
 		},
 		{
 			name: "oldtempfile",
 			entries: []entry{
-				d("objects", 0o700, 240*time.Hour, Keep, []entry{
+				d("objects", 0o700, 240*time.Hour, Keep,
 					f("tmp_a", 0o770, 240*time.Hour, Delete),
 					f("b", 0o700, 24*time.Hour, Keep),
-				}),
+				),
 			},
 			expectedMetrics: cleanStaleDataMetrics{
 				objects: 1,
@@ -225,11 +225,11 @@ func TestRepositoryManager_CleanStaleData(t *testing.T) {
 		{
 			name: "subdir temp file",
 			entries: []entry{
-				d("objects", 0o700, 240*time.Hour, Keep, []entry{
-					d("a", 0o770, 240*time.Hour, Keep, []entry{
+				d("objects", 0o700, 240*time.Hour, Keep,
+					d("a", 0o770, 240*time.Hour, Keep,
 						f("tmp_b", 0o700, 240*time.Hour, Delete),
-					}),
-				}),
+					),
+				),
 			},
 			expectedMetrics: cleanStaleDataMetrics{
 				objects: 1,
@@ -238,23 +238,23 @@ func TestRepositoryManager_CleanStaleData(t *testing.T) {
 		{
 			name: "inaccessible tmp directory",
 			entries: []entry{
-				d("objects", 0o700, 240*time.Hour, Keep, []entry{
-					d("tmp_a", 0o000, 240*time.Hour, Keep, []entry{
+				d("objects", 0o700, 240*time.Hour, Keep,
+					d("tmp_a", 0o000, 240*time.Hour, Keep,
 						f("tmp_b", 0o700, 240*time.Hour, Delete),
-					}),
-				}),
+					),
+				),
 			},
 		},
 		{
 			name: "deeply nested inaccessible tmp directory",
 			entries: []entry{
-				d("objects", 0o700, 240*time.Hour, Keep, []entry{
-					d("tmp_a", 0o700, 240*time.Hour, Keep, []entry{
-						d("tmp_a", 0o700, 24*time.Hour, Keep, []entry{
+				d("objects", 0o700, 240*time.Hour, Keep,
+					d("tmp_a", 0o700, 240*time.Hour, Keep,
+						d("tmp_a", 0o700, 24*time.Hour, Keep,
 							f("tmp_b", 0o000, 240*time.Hour, Delete),
-						}),
-					}),
-				}),
+						),
+					),
+				),
 			},
 			expectedMetrics: cleanStaleDataMetrics{
 				objects: 1,
@@ -264,9 +264,9 @@ func TestRepositoryManager_CleanStaleData(t *testing.T) {
 			name: "files outside of object database",
 			entries: []entry{
 				f("tmp_a", 0o770, 240*time.Hour, Keep),
-				d("info", 0o700, 240*time.Hour, Keep, []entry{
+				d("info", 0o700, 240*time.Hour, Keep,
 					f("tmp_a", 0o770, 240*time.Hour, Keep),
-				}),
+				),
 			},
 		},
 	}
@@ -413,31 +413,31 @@ func TestRepositoryManager_CleanStaleData_emptyRefDirs(t *testing.T) {
 		{
 			name: "unrelated empty directories",
 			entries: []entry{
-				d("objects", 0o700, 240*time.Hour, Keep, []entry{
-					d("empty", 0o700, 240*time.Hour, Keep, []entry{}),
-				}),
+				d("objects", 0o700, 240*time.Hour, Keep,
+					d("empty", 0o700, 240*time.Hour, Keep),
+				),
 			},
 		},
 		{
 			name: "empty ref dir gets retained",
 			entries: []entry{
-				d("refs", 0o700, 240*time.Hour, Keep, []entry{}),
+				d("refs", 0o700, 240*time.Hour, Keep),
 			},
 		},
 		{
 			name: "empty nested non-stale ref dir gets kept",
 			entries: []entry{
-				d("refs", 0o700, 240*time.Hour, Keep, []entry{
-					d("nested", 0o700, 23*time.Hour, Keep, []entry{}),
-				}),
+				d("refs", 0o700, 240*time.Hour, Keep,
+					d("nested", 0o700, 23*time.Hour, Keep),
+				),
 			},
 		},
 		{
 			name: "empty nested stale ref dir gets pruned",
 			entries: []entry{
-				d("refs", 0o700, 240*time.Hour, Keep, []entry{
-					d("nested", 0o700, 240*time.Hour, Delete, []entry{}),
-				}),
+				d("refs", 0o700, 240*time.Hour, Keep,
+					d("nested", 0o700, 240*time.Hour, Delete),
+				),
 			},
 			expectedMetrics: cleanStaleDataMetrics{
 				refsEmptyDir: 1,
@@ -446,11 +446,11 @@ func TestRepositoryManager_CleanStaleData_emptyRefDirs(t *testing.T) {
 		{
 			name: "hierarchy of nested stale ref dirs gets pruned",
 			entries: []entry{
-				d("refs", 0o700, 240*time.Hour, Keep, []entry{
-					d("first", 0o700, 240*time.Hour, Delete, []entry{
-						d("second", 0o700, 240*time.Hour, Delete, []entry{}),
-					}),
-				}),
+				d("refs", 0o700, 240*time.Hour, Keep,
+					d("first", 0o700, 240*time.Hour, Delete,
+						d("second", 0o700, 240*time.Hour, Delete),
+					),
+				),
 			},
 			expectedMetrics: cleanStaleDataMetrics{
 				refsEmptyDir: 2,
@@ -459,13 +459,13 @@ func TestRepositoryManager_CleanStaleData_emptyRefDirs(t *testing.T) {
 		{
 			name: "hierarchy with intermediate non-stale ref dir gets kept",
 			entries: []entry{
-				d("refs", 0o700, 240*time.Hour, Keep, []entry{
-					d("first", 0o700, 240*time.Hour, Keep, []entry{
-						d("second", 0o700, 1*time.Hour, Keep, []entry{
-							d("third", 0o700, 24*time.Hour, Delete, []entry{}),
-						}),
-					}),
-				}),
+				d("refs", 0o700, 240*time.Hour, Keep,
+					d("first", 0o700, 240*time.Hour, Keep,
+						d("second", 0o700, 1*time.Hour, Keep,
+							d("third", 0o700, 24*time.Hour, Delete),
+						),
+					),
+				),
 			},
 			expectedMetrics: cleanStaleDataMetrics{
 				refsEmptyDir: 1,
@@ -474,16 +474,16 @@ func TestRepositoryManager_CleanStaleData_emptyRefDirs(t *testing.T) {
 		{
 			name: "stale hierrachy with refs gets partially retained",
 			entries: []entry{
-				d("refs", 0o700, 240*time.Hour, Keep, []entry{
-					d("first", 0o700, 240*time.Hour, Keep, []entry{
-						d("second", 0o700, 240*time.Hour, Delete, []entry{
-							d("third", 0o700, 24*time.Hour, Delete, []entry{}),
-						}),
-						d("other", 0o700, 240*time.Hour, Keep, []entry{
+				d("refs", 0o700, 240*time.Hour, Keep,
+					d("first", 0o700, 240*time.Hour, Keep,
+						d("second", 0o700, 240*time.Hour, Delete,
+							d("third", 0o700, 24*time.Hour, Delete),
+						),
+						d("other", 0o700, 240*time.Hour, Keep,
 							f("ref", 0o700, 1*time.Hour, Keep),
-						}),
-					}),
-				}),
+						),
+					),
+				),
 			},
 			expectedMetrics: cleanStaleDataMetrics{
 				refsEmptyDir: 2,
@@ -517,9 +517,34 @@ func TestRepositoryManager_CleanStaleData_emptyRefDirs(t *testing.T) {
 func TestRepositoryManager_CleanStaleData_withSpecificFile(t *testing.T) {
 	t.Parallel()
 
+	entryInSubdir := func(e entry, subdirs ...string) entry {
+		if len(subdirs) == 0 {
+			return e
+		}
+
+		var topLevelDir, currentDir *dirEntry
+		for _, subdir := range subdirs {
+			dir := d(subdir, 0o700, 1*time.Hour, Keep)
+			if topLevelDir == nil {
+				topLevelDir = dir
+			}
+
+			if currentDir != nil {
+				currentDir.entries = []entry{dir}
+			}
+
+			currentDir = dir
+		}
+
+		currentDir.entries = []entry{e}
+
+		return topLevelDir
+	}
+
 	for _, tc := range []struct {
 		desc            string
 		file            string
+		subdirs         []string
 		finder          staleFileFinderFn
 		expectedMetrics cleanStaleDataMetrics
 	}{
@@ -534,6 +559,39 @@ func TestRepositoryManager_CleanStaleData_withSpecificFile(t *testing.T) {
 		{
 			desc:   "locked config",
 			file:   "config.lock",
+			finder: findStaleLockfiles,
+			expectedMetrics: cleanStaleDataMetrics{
+				locks: 1,
+			},
+		},
+		{
+			desc: "locked attributes",
+			file: "attributes.lock",
+			subdirs: []string{
+				"info",
+			},
+			finder: findStaleLockfiles,
+			expectedMetrics: cleanStaleDataMetrics{
+				locks: 1,
+			},
+		},
+		{
+			desc: "locked alternates",
+			file: "alternates.lock",
+			subdirs: []string{
+				"objects", "info",
+			},
+			finder: findStaleLockfiles,
+			expectedMetrics: cleanStaleDataMetrics{
+				locks: 1,
+			},
+		},
+		{
+			desc: "locked commit-graph-chain",
+			file: "commit-graph-chain.lock",
+			subdirs: []string{
+				"objects", "info", "commit-graphs",
+			},
 			finder: findStaleLockfiles,
 			expectedMetrics: cleanStaleDataMetrics{
 				locks: 1,
@@ -570,45 +628,42 @@ func TestRepositoryManager_CleanStaleData_withSpecificFile(t *testing.T) {
 			require.NoError(t, mgr.CleanStaleData(ctx, repo))
 			for _, subcase := range []struct {
 				desc          string
-				entries       []entry
+				entry         entry
 				expectedFiles []string
 			}{
 				{
-					desc: fmt.Sprintf("fresh %s is kept", tc.file),
-					entries: []entry{
-						f(tc.file, 0o700, 10*time.Minute, Keep),
-					},
+					desc:  fmt.Sprintf("fresh %s is kept", tc.file),
+					entry: f(tc.file, 0o700, 10*time.Minute, Keep),
 				},
 				{
 					desc: fmt.Sprintf("stale %s in subdir is kept", tc.file),
-					entries: []entry{
-						d("subdir", 0o700, 240*time.Hour, Keep, []entry{
-							f(tc.file, 0o700, 24*time.Hour, Keep),
-						}),
-					},
+					entry: d("subdir", 0o700, 240*time.Hour, Keep,
+						f(tc.file, 0o700, 24*time.Hour, Keep),
+					),
 				},
 				{
-					desc: fmt.Sprintf("stale %s is deleted", tc.file),
-					entries: []entry{
-						f(tc.file, 0o700, 61*time.Minute, Delete),
-					},
+					desc:  fmt.Sprintf("stale %s is deleted", tc.file),
+					entry: f(tc.file, 0o700, 61*time.Minute, Delete),
 					expectedFiles: []string{
-						filepath.Join(repoPath, tc.file),
+						filepath.Join(append([]string{repoPath}, append(tc.subdirs, tc.file)...)...),
 					},
 				},
 				{
-					desc: fmt.Sprintf("variations of %s are kept", tc.file),
-					entries: []entry{
-						f(tc.file[:len(tc.file)-1], 0o700, 61*time.Minute, Keep),
-						f("~"+tc.file, 0o700, 61*time.Minute, Keep),
-						f(tc.file+"~", 0o700, 61*time.Minute, Keep),
-					},
+					desc:  fmt.Sprintf("%q is kept", tc.file[:len(tc.file)-1]),
+					entry: f(tc.file[:len(tc.file)-1], 0o700, 61*time.Minute, Keep),
+				},
+				{
+					desc:  fmt.Sprintf("%q is kept", "~"+tc.file),
+					entry: f("~"+tc.file, 0o700, 61*time.Minute, Keep),
+				},
+				{
+					desc:  fmt.Sprintf("%q is kept", tc.file+"~"),
+					entry: f(tc.file+"~", 0o700, 61*time.Minute, Keep),
 				},
 			} {
 				t.Run(subcase.desc, func(t *testing.T) {
-					for _, e := range subcase.entries {
-						e.create(t, repoPath)
-					}
+					entry := entryInSubdir(subcase.entry, tc.subdirs...)
+					entry.create(t, repoPath)
 
 					staleFiles, err := tc.finder(ctx, repoPath)
 					require.NoError(t, err)
@@ -616,9 +671,7 @@ func TestRepositoryManager_CleanStaleData_withSpecificFile(t *testing.T) {
 
 					require.NoError(t, mgr.CleanStaleData(ctx, repo))
 
-					for _, e := range subcase.entries {
-						e.validate(t, repoPath)
-					}
+					entry.validate(t, repoPath)
 				})
 			}
 
@@ -634,20 +687,20 @@ func TestRepositoryManager_CleanStaleData_serverInfo(t *testing.T) {
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	entries := []entry{
-		d("info", 0o755, 0, Keep, []entry{
+		d("info", 0o755, 0, Keep,
 			f("ref", 0, 0o644, Keep),
 			f("refs", 0, 0o644, Delete),
 			f("refsx", 0, 0o644, Keep),
 			f("refs_123456", 0, 0o644, Delete),
-		}),
-		d("objects", 0o755, 0, Keep, []entry{
-			d("info", 0o755, 0, Keep, []entry{
+		),
+		d("objects", 0o755, 0, Keep,
+			d("info", 0o755, 0, Keep,
 				f("pack", 0, 0o644, Keep),
 				f("packs", 0, 0o644, Delete),
 				f("packsx", 0, 0o644, Keep),
 				f("packs_123456", 0, 0o644, Delete),
-			}),
-		}),
+			),
+		),
 	}
 
 	for _, entry := range entries {
@@ -688,19 +741,19 @@ func TestRepositoryManager_CleanStaleData_referenceLocks(t *testing.T) {
 		{
 			desc: "fresh lock is kept",
 			entries: []entry{
-				d("refs", 0o755, 0*time.Hour, Keep, []entry{
+				d("refs", 0o755, 0*time.Hour, Keep,
 					f("main", 0o755, 10*time.Minute, Keep),
 					f("main.lock", 0o755, 10*time.Minute, Keep),
-				}),
+				),
 			},
 		},
 		{
 			desc: "stale lock is deleted",
 			entries: []entry{
-				d("refs", 0o755, 0*time.Hour, Keep, []entry{
+				d("refs", 0o755, 0*time.Hour, Keep,
 					f("main", 0o755, 1*time.Hour, Keep),
 					f("main.lock", 0o755, 1*time.Hour, Delete),
-				}),
+				),
 			},
 			expectedReferenceLocks: []string{
 				"refs/main.lock",
@@ -712,20 +765,20 @@ func TestRepositoryManager_CleanStaleData_referenceLocks(t *testing.T) {
 		{
 			desc: "nested reference locks are deleted",
 			entries: []entry{
-				d("refs", 0o755, 0*time.Hour, Keep, []entry{
-					d("tags", 0o755, 0*time.Hour, Keep, []entry{
+				d("refs", 0o755, 0*time.Hour, Keep,
+					d("tags", 0o755, 0*time.Hour, Keep,
 						f("main", 0o755, 1*time.Hour, Keep),
 						f("main.lock", 0o755, 1*time.Hour, Delete),
-					}),
-					d("heads", 0o755, 0*time.Hour, Keep, []entry{
+					),
+					d("heads", 0o755, 0*time.Hour, Keep,
 						f("main", 0o755, 1*time.Hour, Keep),
 						f("main.lock", 0o755, 1*time.Hour, Delete),
-					}),
-					d("foobar", 0o755, 0*time.Hour, Keep, []entry{
+					),
+					d("foobar", 0o755, 0*time.Hour, Keep,
 						f("main", 0o755, 1*time.Hour, Keep),
 						f("main.lock", 0o755, 1*time.Hour, Delete),
-					}),
-				}),
+					),
+				),
 			},
 			expectedReferenceLocks: []string{
 				"refs/tags/main.lock",
