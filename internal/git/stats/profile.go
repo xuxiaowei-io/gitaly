@@ -12,11 +12,12 @@ import (
 
 // HasBitmap returns whether or not the repository contains an object bitmap.
 func HasBitmap(repoPath string) (bool, error) {
-	hasBitmap, err := hasBitmap(repoPath)
+	bitmaps, err := filepath.Glob(filepath.Join(repoPath, "objects", "pack", "*.bitmap"))
 	if err != nil {
 		return false, err
 	}
-	return hasBitmap, nil
+
+	return len(bitmaps) > 0, nil
 }
 
 // PackfilesCount returns the number of packfiles a repository has.
@@ -67,13 +68,4 @@ func LooseObjects(ctx context.Context, repo git.RepositoryExecutor) (int64, erro
 	}
 
 	return count, nil
-}
-
-func hasBitmap(repoPath string) (bool, error) {
-	bitmaps, err := filepath.Glob(filepath.Join(repoPath, "objects", "pack", "*.bitmap"))
-	if err != nil {
-		return false, err
-	}
-
-	return len(bitmaps) > 0, nil
 }
