@@ -395,6 +395,93 @@ func TestStreamDirectorMutator_StopTransaction(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestStreamDirectorMutator_ReplicateRepository(t *testing.T) {
+	ctx := testhelper.Context(t)
+
+	socket := testhelper.GetTemporaryGitalySocketFileName(t)
+	testhelper.NewServerWithHealth(t, socket)
+
+	// Setup config with two virtual storages.
+	conf := config.Config{
+		VirtualStorages: []*config.VirtualStorage{
+			{
+				Name:  "praefect-1",
+				Nodes: []*config.Node{{Address: "unix://" + socket, Storage: "praefect-internal-1"}},
+			},
+			{
+				Name:  "praefect-2",
+				Nodes: []*config.Node{{Address: "unix://" + socket, Storage: "praefect-internal-2"}},
+			},
+		},
+	}
+
+	nodeMgr, err := nodes.NewManager(testhelper.NewDiscardingLogEntry(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
+	require.NoError(t, err)
+	nodeMgr.Start(0, time.Hour)
+	defer nodeMgr.Stop()
+
+	incrementGenerationInvoked := false
+	rs := datastore.MockRepositoryStore{
+		GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error) {
+			return relativePath, map[string]struct{}{"praefect-internal-2": {}}, nil
+		},
+		CreateRepositoryFunc: func(ctx context.Context, repositoryID int64, virtualStorage, relativePath, replicaPath, primary string, updatedSecondaries, outdatedSecondaries []string, storePrimary, storeAssignments bool) error {
+			require.Fail(t, "CreateRepository should not be called")
+			return nil
+		},
+		IncrementGenerationFunc: func(ctx context.Context, repositoryID int64, primary string, secondaries []string) error {
+			incrementGenerationInvoked = true
+			return nil
+		},
+	}
+
+	router := mockRouter{
+		// Simulate scenario where target repository already exists and error is returned.
+		routeRepositoryCreation: func(ctx context.Context, virtualStorage, relativePath, additionalRepoRelativePath string) (RepositoryMutatorRoute, error) {
+			return RepositoryMutatorRoute{}, fmt.Errorf("reserve repository id: %w", commonerr.ErrRepositoryAlreadyExists)
+		},
+		// Pass through normally to handle route creation.
+		routeRepositoryMutator: func(ctx context.Context, virtualStorage, relativePath, additionalRepoRelativePath string) (RepositoryMutatorRoute, error) {
+			return NewNodeManagerRouter(nodeMgr, rs).RouteRepositoryMutator(ctx, virtualStorage, relativePath, additionalRepoRelativePath)
+		},
+	}
+
+	coordinator := NewCoordinator(
+		&datastore.MockReplicationEventQueue{},
+		rs,
+		router,
+		transactions.NewManager(conf),
+		conf,
+		protoregistry.GitalyProtoPreregistered,
+	)
+
+	fullMethod := "/gitaly.RepositoryService/ReplicateRepository"
+
+	frame, err := proto.Marshal(&gitalypb.ReplicateRepositoryRequest{
+		Repository: &gitalypb.Repository{
+			StorageName:  "praefect-2",
+			RelativePath: "/path/to/hashed/storage",
+		},
+		Source: &gitalypb.Repository{
+			StorageName:  "praefect-1",
+			RelativePath: "/path/to/hashed/storage",
+		},
+	})
+	require.NoError(t, err)
+	peeker := &mockPeeker{frame}
+
+	// Validate that stream parameters can be constructed successfully for
+	// `ReplicateRepository` when the target repository already exists.
+	streamParams, err := coordinator.StreamDirector(correlation.ContextWithCorrelation(ctx, "my-correlation-id"), fullMethod, peeker)
+	require.NoError(t, err)
+
+	// Validate that `CreateRepository()` is not invoked and `IncrementGeneration()`
+	// is when target repository already exists.
+	err = streamParams.RequestFinalizer()
+	require.NoError(t, err)
+	require.True(t, incrementGenerationInvoked)
+}
+
 func TestStreamDirector_maintenance(t *testing.T) {
 	t.Parallel()
 
@@ -843,10 +930,20 @@ func (m *mockMaintenanceServer) PackRefs(ctx context.Context, in *gitalypb.PackR
 type mockRouter struct {
 	Router
 	routeRepositoryAccessorFunc func(ctx context.Context, virtualStorage, relativePath string, forcePrimary bool) (RepositoryAccessorRoute, error)
+	routeRepositoryCreation     func(ctx context.Context, virtualStorage, relativePath, additionalRepoRelativePath string) (RepositoryMutatorRoute, error)
+	routeRepositoryMutator      func(ctx context.Context, virtualStorage, relativePath, additionalRepoRelativePath string) (RepositoryMutatorRoute, error)
 }
 
 func (m mockRouter) RouteRepositoryAccessor(ctx context.Context, virtualStorage, relativePath string, forcePrimary bool) (RepositoryAccessorRoute, error) {
 	return m.routeRepositoryAccessorFunc(ctx, virtualStorage, relativePath, forcePrimary)
+}
+
+func (m mockRouter) RouteRepositoryCreation(ctx context.Context, virtualStorage, relativePath, additionalRepoRelativePath string) (RepositoryMutatorRoute, error) {
+	return m.routeRepositoryCreation(ctx, virtualStorage, relativePath, additionalRepoRelativePath)
+}
+
+func (m mockRouter) RouteRepositoryMutator(ctx context.Context, virtualStorage, relativePath, additionalRepoRelativePath string) (RepositoryMutatorRoute, error) {
+	return m.routeRepositoryMutator(ctx, virtualStorage, relativePath, additionalRepoRelativePath)
 }
 
 func TestStreamDirectorAccessor(t *testing.T) {
