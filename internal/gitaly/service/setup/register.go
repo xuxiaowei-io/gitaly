@@ -21,7 +21,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/server"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/smarthttp"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/ssh"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/wiki"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
@@ -115,7 +114,6 @@ func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 		deps.GetDiskCache(),
 		smarthttp.WithPackfileNegotiationMetrics(smarthttpPackfileNegotiationMetrics),
 	))
-	gitalypb.RegisterWikiServiceServer(srv, wiki.NewServer(deps.GetRubyServer(), deps.GetLocator()))
 	gitalypb.RegisterConflictsServiceServer(srv, conflicts.NewServer(
 		deps.GetHookManager(),
 		deps.GetLocator(),
