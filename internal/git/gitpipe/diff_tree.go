@@ -15,7 +15,7 @@ import (
 type diffTreeConfig struct {
 	recursive        bool
 	ignoreSubmodules bool
-	skipResult       func(*RevisionResult) bool
+	skipResult       func(*RevisionResult) (bool, error)
 }
 
 // DiffTreeOption is an option for the DiffTree pipeline step.
@@ -38,7 +38,7 @@ func DiffTreeWithIgnoreSubmodules() DiffTreeOption {
 // DiffTreeWithSkip will execute the given function for each RevisionResult processed by the
 // pipeline. If the callback returns `true`, then the object will be skipped and not passed down
 // the pipeline.
-func DiffTreeWithSkip(skipResult func(*RevisionResult) bool) DiffTreeOption {
+func DiffTreeWithSkip(skipResult func(*RevisionResult) (bool, error)) DiffTreeOption {
 	return func(cfg *diffTreeConfig) {
 		cfg.skipResult = skipResult
 	}
@@ -116,8 +116,17 @@ func DiffTree(
 				ObjectName: attrsAndFile[1],
 			}
 
-			if cfg.skipResult != nil && cfg.skipResult(&result) {
-				continue
+			if cfg.skipResult != nil {
+				skip, err := cfg.skipResult(&result)
+				if err != nil {
+					sendRevisionResult(ctx, resultChan, RevisionResult{
+						err: fmt.Errorf("diff-tree skip: %q", err),
+					})
+					return
+				}
+				if skip {
+					continue
+				}
 			}
 
 			if isDone := sendRevisionResult(ctx, resultChan, result); isDone {

@@ -153,7 +153,7 @@ func (inst *Instance) enryStats(ctx context.Context, commitID string) (ByteCount
 		// Stats are cached for one commit, so get the git-diff-tree(1)
 		// between that commit and the one we're calculating stats for.
 
-		skipFunc := func(result *gitpipe.RevisionResult) bool {
+		skipFunc := func(result *gitpipe.RevisionResult) (bool, error) {
 			// Skip files that are deleted, or
 			// an excluded filetype based on filename.
 			if git.ObjectHashSHA1.IsZeroOID(result.OID) ||
@@ -162,9 +162,9 @@ func (inst *Instance) enryStats(ctx context.Context, commitID string) (ByteCount
 				// function, but for every file that's deleted,
 				// remove the stats.
 				stats.drop(string(result.ObjectName))
-				return true
+				return true, nil
 			}
-			return false
+			return false, nil
 		}
 
 		revlistIt = gitpipe.DiffTree(ctx, inst.repo,
