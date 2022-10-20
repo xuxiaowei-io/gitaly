@@ -5,6 +5,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	log "github.com/sirupsen/logrus"
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
@@ -103,7 +104,7 @@ func validateReceivePackRequest(req *gitalypb.PostReceivePackRequest) error {
 		return status.Errorf(codes.InvalidArgument, "PostReceivePack: non-empty Data")
 	}
 	if req.Repository == nil {
-		return helper.ErrInvalidArgumentf("PostReceivePack: empty Repository")
+		return helper.ErrInvalidArgumentf("PostReceivePack: %w", gitalyerrors.ErrEmptyRepository)
 	}
 
 	return nil
