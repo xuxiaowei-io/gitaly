@@ -1313,7 +1313,6 @@ type FindChangedPathsRequest_Request struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to Type:
-	//
 	//	*FindChangedPathsRequest_Request_TreeRequest_
 	//	*FindChangedPathsRequest_Request_CommitRequest_
 	Type isFindChangedPathsRequest_Request_Type `protobuf_oneof:"type"`

@@ -342,7 +342,6 @@ type UserCreateBranchError struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to Error:
-	//
 	//	*UserCreateBranchError_CustomHook
 	Error isUserCreateBranchError_Error `protobuf_oneof:"error"`
 }
@@ -671,7 +670,6 @@ type UserDeleteBranchError struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to Error:
-	//
 	//	*UserDeleteBranchError_AccessCheck
 	//	*UserDeleteBranchError_ReferenceUpdate
 	//	*UserDeleteBranchError_CustomHook
@@ -1065,7 +1063,6 @@ type UserCreateTagError struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to Error:
-	//
 	//	*UserCreateTagError_AccessCheck
 	//	*UserCreateTagError_ReferenceUpdate
 	//	*UserCreateTagError_CustomHook
@@ -1351,7 +1348,6 @@ type UserMergeBranchError struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to Error:
-	//
 	//	*UserMergeBranchError_AccessCheck
 	//	*UserMergeBranchError_ReferenceUpdate
 	//	*UserMergeBranchError_CustomHook
@@ -2081,7 +2077,6 @@ type UserCherryPickError struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to Error:
-	//
 	//	*UserCherryPickError_CherryPickConflict
 	//	*UserCherryPickError_TargetBranchDiverged
 	//	*UserCherryPickError_ChangesAlreadyApplied
@@ -2421,12 +2416,12 @@ type UserCommitFilesActionHeader struct {
 	Action UserCommitFilesActionHeader_ActionType `protobuf:"varint,1,opt,name=action,proto3,enum=gitaly.UserCommitFilesActionHeader_ActionType" json:"action,omitempty"`
 	// file_path refers to the file or directory being modified. The meaning differs for each
 	// action:
-	//  1. CREATE: path of the file to create
-	//  2. CREATE_DIR: path of the directory to create
-	//  3. UPDATE: path of the file to update
-	//  4. MOVE: the new path of the moved file
-	//  5. DELETE: path of the file to delete
-	//  6. CHMOD: path of the file to modify permissions for
+	//   1. CREATE: path of the file to create
+	//   2. CREATE_DIR: path of the directory to create
+	//   3. UPDATE: path of the file to update
+	//   4. MOVE: the new path of the moved file
+	//   5. DELETE: path of the file to delete
+	//   6. CHMOD: path of the file to modify permissions for
 	FilePath []byte `protobuf:"bytes,2,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
 	// previous_path is used in MOVE action to specify the path of the file to move.
 	PreviousPath []byte `protobuf:"bytes,3,opt,name=previous_path,json=previousPath,proto3" json:"previous_path,omitempty"`
@@ -2524,7 +2519,6 @@ type UserCommitFilesAction struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to UserCommitFilesActionPayload:
-	//
 	//	*UserCommitFilesAction_Header
 	//	*UserCommitFilesAction_Content
 	UserCommitFilesActionPayload isUserCommitFilesAction_UserCommitFilesActionPayload `protobuf_oneof:"user_commit_files_action_payload"`
@@ -2758,7 +2752,6 @@ type UserCommitFilesRequest struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to UserCommitFilesRequestPayload:
-	//
 	//	*UserCommitFilesRequest_Header
 	//	*UserCommitFilesRequest_Action
 	UserCommitFilesRequestPayload isUserCommitFilesRequest_UserCommitFilesRequestPayload `protobuf_oneof:"user_commit_files_request_payload"`
@@ -2912,7 +2905,6 @@ type UserCommitFilesError struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to Error:
-	//
 	//	*UserCommitFilesError_AccessCheck
 	//	*UserCommitFilesError_IndexUpdate
 	//	*UserCommitFilesError_CustomHook
@@ -3013,7 +3005,6 @@ type UserRebaseConfirmableRequest struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to UserRebaseConfirmableRequestPayload:
-	//
 	//	*UserRebaseConfirmableRequest_Header_
 	//	*UserRebaseConfirmableRequest_Apply
 	UserRebaseConfirmableRequestPayload isUserRebaseConfirmableRequest_UserRebaseConfirmableRequestPayload `protobuf_oneof:"user_rebase_confirmable_request_payload"`
@@ -3101,7 +3092,6 @@ type UserRebaseConfirmableResponse struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to UserRebaseConfirmableResponsePayload:
-	//
 	//	*UserRebaseConfirmableResponse_RebaseSha
 	//	*UserRebaseConfirmableResponse_RebaseApplied
 	UserRebaseConfirmableResponsePayload isUserRebaseConfirmableResponse_UserRebaseConfirmableResponsePayload `protobuf_oneof:"user_rebase_confirmable_response_payload"`
@@ -3364,7 +3354,6 @@ type UserRebaseConfirmableError struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to Error:
-	//
 	//	*UserRebaseConfirmableError_RebaseConflict
 	//	*UserRebaseConfirmableError_AccessCheck
 	Error isUserRebaseConfirmableError_Error `protobuf_oneof:"error"`
@@ -3452,7 +3441,6 @@ type UserSquashError struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to Error:
-	//
 	//	*UserSquashError_ResolveRevision
 	//	*UserSquashError_RebaseConflict
 	Error isUserSquashError_Error `protobuf_oneof:"error"`
@@ -3538,7 +3526,6 @@ type UserApplyPatchRequest struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to UserApplyPatchRequestPayload:
-	//
 	//	*UserApplyPatchRequest_Header_
 	//	*UserApplyPatchRequest_Patches
 	UserApplyPatchRequestPayload isUserApplyPatchRequest_UserApplyPatchRequestPayload `protobuf_oneof:"user_apply_patch_request_payload"`
