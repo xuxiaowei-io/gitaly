@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestSuccessfulDiffStatsRequest(t *testing.T) {
@@ -119,82 +120,96 @@ func TestSuccessfulDiffStatsRequest(t *testing.T) {
 
 func TestFailedDiffStatsRequest(t *testing.T) {
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupDiffService(t, ctx)
+	cfg, repo, _, client := setupDiffService(t, ctx)
 
 	tests := []struct {
 		desc          string
 		repo          *gitalypb.Repository
 		leftCommitID  string
 		rightCommitID string
-		err           codes.Code
+		expectedErr   error
 	}{
 		{
-			desc:          "repo not found",
+			desc:          "repository not provided",
+			repo:          nil,
+			leftCommitID:  "e4003da16c1c2c3fc4567700121b17bf8e591c6c",
+			rightCommitID: "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
+		{
+			desc:          "repository not found",
 			repo:          &gitalypb.Repository{StorageName: repo.GetStorageName(), RelativePath: "bar.git"},
 			leftCommitID:  "e4003da16c1c2c3fc4567700121b17bf8e591c6c",
 			rightCommitID: "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
-			err:           codes.NotFound,
+			expectedErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefect(
+				`GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/bar.git"`,
+				`accessor call: route repository accessor: consistent storages: repository "default"/"bar.git" not found`,
+			)),
 		},
 		{
 			desc:          "storage not found",
 			repo:          &gitalypb.Repository{StorageName: "foo", RelativePath: "bar.git"},
 			leftCommitID:  "e4003da16c1c2c3fc4567700121b17bf8e591c6c",
 			rightCommitID: "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
-			err:           codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				`GetStorageByName: no such storage: "foo"`,
+				"repo scoped: invalid Repository",
+			)),
 		},
 		{
 			desc:          "left commit ID not found",
 			repo:          repo,
 			leftCommitID:  "",
 			rightCommitID: "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
-			err:           codes.InvalidArgument,
+			expectedErr:   status.Error(codes.InvalidArgument, "DiffStats: empty LeftCommitId"),
 		},
 		{
 			desc:          "right commit ID not found",
 			repo:          repo,
 			leftCommitID:  "e4003da16c1c2c3fc4567700121b17bf8e591c6c",
 			rightCommitID: "",
-			err:           codes.InvalidArgument,
+			expectedErr:   status.Error(codes.InvalidArgument, "DiffStats: empty RightCommitId"),
 		},
 		{
 			desc:          "invalid left commit",
 			repo:          repo,
 			leftCommitID:  "invalidinvalidinvalid",
 			rightCommitID: "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
-			err:           codes.Unavailable,
+			expectedErr:   status.Error(codes.Unavailable, "DiffStats: exit status 128"),
 		},
 		{
 			desc:          "invalid right commit",
 			repo:          repo,
 			leftCommitID:  "e4003da16c1c2c3fc4567700121b17bf8e591c6c",
 			rightCommitID: "invalidinvalidinvalid",
-			err:           codes.Unavailable,
+			expectedErr:   status.Error(codes.Unavailable, "DiffStats: exit status 128"),
 		},
 		{
 			desc:          "left commit not found",
 			repo:          repo,
 			leftCommitID:  "z4003da16c1c2c3fc4567700121b17bf8e591c6c",
 			rightCommitID: "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
-			err:           codes.Unavailable,
+			expectedErr:   status.Error(codes.Unavailable, "DiffStats: exit status 128"),
 		},
 		{
 			desc:          "right commit not found",
 			repo:          repo,
 			leftCommitID:  "e4003da16c1c2c3fc4567700121b17bf8e591c6c",
 			rightCommitID: "z4003da16c1c2c3fc4567700121b17bf8e591c6c",
-			err:           codes.Unavailable,
+			expectedErr:   status.Error(codes.Unavailable, "DiffStats: exit status 128"),
 		},
 	}
 
 	for _, tc := range tests {
-		rpcRequest := &gitalypb.DiffStatsRequest{Repository: tc.repo, RightCommitId: tc.rightCommitID, LeftCommitId: tc.leftCommitID}
-		stream, err := client.DiffStats(ctx, rpcRequest)
-		require.NoError(t, err)
-
 		t.Run(tc.desc, func(t *testing.T) {
-			_, err := stream.Recv()
-
-			testhelper.RequireGrpcCode(t, err, tc.err)
+			rpcRequest := &gitalypb.DiffStatsRequest{Repository: tc.repo, RightCommitId: tc.rightCommitID, LeftCommitId: tc.leftCommitID}
+			stream, err := client.DiffStats(ctx, rpcRequest)
+			require.NoError(t, err)
+			_, err = stream.Recv()
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
 	}
 }
