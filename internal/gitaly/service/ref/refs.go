@@ -7,6 +7,7 @@ import (
 	"math"
 	"strings"
 
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/lines"
@@ -69,6 +70,9 @@ func (s *server) findRefs(ctx context.Context, writer lines.Sender, repo git.Rep
 
 // FindDefaultBranchName returns the default branch name for the given repository
 func (s *server) FindDefaultBranchName(ctx context.Context, in *gitalypb.FindDefaultBranchNameRequest) (*gitalypb.FindDefaultBranchNameResponse, error) {
+	if in.GetRepository() == nil {
+		return nil, helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
+	}
 	repo := s.localrepo(in.GetRepository())
 
 	defaultBranch, err := repo.GetDefaultBranch(ctx)
@@ -94,6 +98,9 @@ func parseSortKey(sortKey gitalypb.FindLocalBranchesRequest_SortBy) string {
 
 // FindLocalBranches creates a stream of branches for all local branches in the given repository
 func (s *server) FindLocalBranches(in *gitalypb.FindLocalBranchesRequest, stream gitalypb.RefService_FindLocalBranchesServer) error {
+	if in.GetRepository() == nil {
+		return helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
+	}
 	if err := s.findLocalBranches(in, stream); err != nil {
 		return helper.ErrInternal(err)
 	}
@@ -123,6 +130,9 @@ func (s *server) findLocalBranches(in *gitalypb.FindLocalBranchesRequest, stream
 }
 
 func (s *server) FindAllBranches(in *gitalypb.FindAllBranchesRequest, stream gitalypb.RefService_FindAllBranchesServer) error {
+	if in.GetRepository() == nil {
+		return helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
+	}
 	if err := s.findAllBranches(in, stream); err != nil {
 		return helper.ErrInternal(err)
 	}

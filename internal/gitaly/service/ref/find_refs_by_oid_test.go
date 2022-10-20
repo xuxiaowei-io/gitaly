@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestFindRefsByOID_successful(t *testing.T) {
@@ -219,34 +220,32 @@ func TestFindRefsByOID_validation(t *testing.T) {
 	_, repo, _, client := setupRefService(t, ctx)
 
 	testCases := map[string]struct {
-		req          *gitalypb.FindRefsByOIDRequest
-		expectedMsg  string
-		expectedCode codes.Code
+		req         *gitalypb.FindRefsByOIDRequest
+		expectedErr error
 	}{
 		"no repository": {
 			req: &gitalypb.FindRefsByOIDRequest{
 				Repository: nil,
 				Oid:        "abcdefg",
 			},
-			expectedMsg:  "empty Repository",
-			expectedCode: codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 		"no oid": {
 			req: &gitalypb.FindRefsByOIDRequest{
 				Repository: repo,
 				Oid:        "",
 			},
-			expectedMsg:  "empty Oid",
-			expectedCode: codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, "empty Oid"),
 		},
 	}
 
 	for tn, tc := range testCases {
 		t.Run(tn, func(t *testing.T) {
 			_, err := client.FindRefsByOID(ctx, tc.req)
-			require.Error(t, err)
-			require.Contains(t, err.Error(), tc.expectedMsg)
-			testhelper.RequireGrpcCode(t, err, tc.expectedCode)
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
 	}
 }

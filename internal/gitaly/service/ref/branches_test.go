@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestSuccessfulFindBranchRequest(t *testing.T) {
@@ -87,26 +88,36 @@ func TestFailedFindBranchRequest(t *testing.T) {
 	_, repo, _, client := setupRefService(t, ctx)
 
 	testCases := []struct {
-		desc       string
-		branchName string
-		code       codes.Code
+		desc        string
+		repo        *gitalypb.Repository
+		branchName  string
+		expectedErr error
 	}{
 		{
-			desc:       "empty branch name",
-			branchName: "",
-			code:       codes.InvalidArgument,
+			desc: "no repository provided",
+			repo: nil,
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
+		{
+			desc:        "empty branch name",
+			repo:        repo,
+			branchName:  "",
+			expectedErr: status.Error(codes.InvalidArgument, "Branch name cannot be empty"),
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			request := &gitalypb.FindBranchRequest{
-				Repository: repo,
+				Repository: testCase.repo,
 				Name:       []byte(testCase.branchName),
 			}
 
 			_, err := client.FindBranch(ctx, request)
-			testhelper.RequireGrpcCode(t, err, testCase.code)
+			testhelper.RequireGrpcError(t, testCase.expectedErr, err)
 		})
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
@@ -27,7 +28,7 @@ func (s *server) GetTagMessages(request *gitalypb.GetTagMessagesRequest, stream 
 
 func validateGetTagMessagesRequest(request *gitalypb.GetTagMessagesRequest) error {
 	if request.GetRepository() == nil {
-		return fmt.Errorf("empty Repository")
+		return gitalyerrors.ErrEmptyRepository
 	}
 
 	return nil

@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestSuccessfulGetTagMessagesRequest(t *testing.T) {
@@ -51,12 +52,14 @@ func TestSuccessfulGetTagMessagesRequest(t *testing.T) {
 }
 
 func TestFailedGetTagMessagesRequest(t *testing.T) {
+	t.Parallel()
+	ctx := testhelper.Context(t)
 	_, client := setupRefServiceWithoutRepo(t)
 
 	testCases := []struct {
-		desc    string
-		request *gitalypb.GetTagMessagesRequest
-		code    codes.Code
+		desc        string
+		request     *gitalypb.GetTagMessagesRequest
+		expectedErr error
 	}{
 		{
 			desc: "empty Repository",
@@ -64,25 +67,19 @@ func TestFailedGetTagMessagesRequest(t *testing.T) {
 				Repository: nil,
 				TagIds:     []string{"5937ac0a7beb003549fc5fd26fc247adbce4a52e"},
 			},
-			code: codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"GetTagMessages: empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
-
 			c, err := client.GetTagMessages(ctx, testCase.request)
 			require.NoError(t, err)
-
-			for {
-				_, err = c.Recv()
-				if err != nil {
-					break
-				}
-			}
-
-			testhelper.RequireGrpcCode(t, err, testCase.code)
+			_, err = c.Recv()
+			testhelper.RequireGrpcError(t, testCase.expectedErr, err)
 		})
 	}
 }

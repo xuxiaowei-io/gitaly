@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -293,12 +294,17 @@ func TestFindTag_invalidRequest(t *testing.T) {
 	_, repo, _, client := setupRefService(t, ctx)
 
 	testCases := []struct {
-		desc    string
-		request *gitalypb.FindTagRequest
+		desc        string
+		request     *gitalypb.FindTagRequest
+		expectedErr error
 	}{
 		{
 			desc:    "empty request",
 			request: &gitalypb.FindTagRequest{},
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 		{
 			desc: "invalid repo",
@@ -308,19 +314,24 @@ func TestFindTag_invalidRequest(t *testing.T) {
 					RelativePath: "repo",
 				},
 			},
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				`invalid git directory: GetStorageByName: no such storage: "fake"`,
+				"repo scoped: invalid Repository",
+			)),
 		},
 		{
 			desc: "empty tag name",
 			request: &gitalypb.FindTagRequest{
 				Repository: repo,
 			},
+			expectedErr: status.Error(codes.InvalidArgument, "tag name is empty"),
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			_, err := client.FindTag(ctx, tc.request)
-			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
 	}
 }

@@ -123,10 +123,3 @@ func assertContainsBranch(t *testing.T, branches []*gitalypb.Branch, branch *git
 
 	t.Errorf("Expected to find branch %q in branches %s", branch.Name, branchNames)
 }
-
-func gitalyOrPraefect(gitalyMsg, praefectMsg string) string {
-	if testhelper.IsPraefectEnabled() {
-		return praefectMsg
-	}
-	return gitalyMsg
-}

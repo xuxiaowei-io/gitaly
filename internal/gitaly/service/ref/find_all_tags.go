@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gitpipe"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
@@ -166,7 +167,7 @@ func (s *server) findAllTags(ctx context.Context, repo *localrepo.Repo, sortFiel
 
 func (s *server) validateFindAllTagsRequest(request *gitalypb.FindAllTagsRequest) error {
 	if request.GetRepository() == nil {
-		return errors.New("empty Repository")
+		return gitalyerrors.ErrEmptyRepository
 	}
 
 	if _, err := s.locator.GetRepoPath(request.GetRepository()); err != nil {
