@@ -566,6 +566,29 @@ func countLooseAndPackedRefs(ctx context.Context, repo *localrepo.Repo) (int64, 
 }
 
 func packRefsIfNeeded(ctx context.Context, repo *localrepo.Repo) (bool, error) {
+	shouldPackRefs, err := needsPackRefs(ctx, repo)
+	if err != nil {
+		return false, fmt.Errorf("determining whether repo needs to pack refs: %w", err)
+	}
+
+	if !shouldPackRefs {
+		return false, nil
+	}
+
+	var stderr bytes.Buffer
+	if err := repo.ExecAndWait(ctx, git.SubCmd{
+		Name: "pack-refs",
+		Flags: []git.Option{
+			git.Flag{Name: "--all"},
+		},
+	}, git.WithStderr(&stderr)); err != nil {
+		return false, fmt.Errorf("packing refs: %w, stderr: %q", err, stderr.String())
+	}
+
+	return true, nil
+}
+
+func needsPackRefs(ctx context.Context, repo *localrepo.Repo) (bool, error) {
 	looseRefs, packedRefsSize, err := countLooseAndPackedRefs(ctx, repo)
 	if err != nil {
 		return false, fmt.Errorf("counting refs: %w", err)
@@ -599,16 +622,6 @@ func packRefsIfNeeded(ctx context.Context, repo *localrepo.Repo) (bool, error) {
 	// iteration.
 	if int64(math.Max(16, math.Log(float64(packedRefsSize)/100)/math.Log(1.15))) > looseRefs {
 		return false, nil
-	}
-
-	var stderr bytes.Buffer
-	if err := repo.ExecAndWait(ctx, git.SubCmd{
-		Name: "pack-refs",
-		Flags: []git.Option{
-			git.Flag{Name: "--all"},
-		},
-	}, git.WithStderr(&stderr)); err != nil {
-		return false, fmt.Errorf("packing refs: %w, stderr: %q", err, stderr.String())
 	}
 
 	return true, nil
