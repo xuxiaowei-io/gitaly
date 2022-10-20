@@ -1,4 +1,4 @@
-# Observibility
+# Observability
 
 ## Logging
 
@@ -12,14 +12,14 @@ Messages can be queried leveraging our [Kibana instance](https://log.gitlab.net)
 ## Prometheus
 
 Gitaly emits low cardinality metrics through Prometheus. Most of these are added
-by [go-grpc-prometheus](https://github.com/grpc-ecosystem/go-grpc-prometheus).
+by [`go-grpc-prometheus`](https://github.com/grpc-ecosystem/go-grpc-prometheus).
 Many custom metrics were also added.
 
 ### Grafana
 
-To display the prometheus metrics, GitLab leverages Grafana. The instance is
+To display the Prometheus metrics, GitLab leverages Grafana. The instance is
 available only for GitLab team members to view the dashboards. The dashboards can be found at:
-[dashboards.gitlab.net](https://dashboards.gitlab.net).
+<https://dashboards.gitlab.net>.
 
 #### Editing Gitaly dashboards
 
@@ -51,5 +51,5 @@ Grafana-specific modifiers.
 
 ## Sentry
 
-Errors are tracked in our sentry instance, and due to their sensitive nature only viewable
+Errors are tracked in our Sentry instance, and due to their sensitive nature only viewable
 by developers at GitLab at [the error tracking page](https://gitlab.com/gitlab-org/gitaly/error_tracking).
