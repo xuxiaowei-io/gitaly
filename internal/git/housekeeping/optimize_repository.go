@@ -472,6 +472,33 @@ func needsWriteCommitGraph(ctx context.Context, repo *localrepo.Repo, didRepack,
 // pruneIfNeeded removes objects from the repository which are either unreachable or which are
 // already part of a packfile. We use a grace period of two weeks.
 func pruneIfNeeded(ctx context.Context, repo *localrepo.Repo) (bool, error) {
+	shouldPrune, err := needsPrune(repo)
+	if err != nil {
+		return false, fmt.Errorf("determining whether repo needs pruning: %w", err)
+	}
+
+	if !shouldPrune {
+		return false, nil
+	}
+
+	if err := repo.ExecAndWait(ctx, git.SubCmd{
+		Name: "prune",
+		Flags: []git.Option{
+			// By default, this prunes all unreachable objects regardless of when they
+			// have last been accessed. This opens us up for races when there are
+			// concurrent commands which are just at the point of writing objects into
+			// the repository, but which haven't yet updated any references to make them
+			// reachable. We thus use the same two-week grace period as git-gc(1) does.
+			git.ValueFlag{Name: "--expire", Value: "two.weeks.ago"},
+		},
+	}); err != nil {
+		return false, fmt.Errorf("pruning objects: %w", err)
+	}
+
+	return true, nil
+}
+
+func needsPrune(repo *localrepo.Repo) (bool, error) {
 	// Pool repositories must never prune any objects, or otherwise we may corrupt members of
 	// that pool if they still refer to that object.
 	if IsPoolRepository(repo) {
@@ -497,20 +524,6 @@ func pruneIfNeeded(ctx context.Context, repo *localrepo.Repo) (bool, error) {
 	// unreachable objects.
 	if looseObjectCount <= looseObjectLimit {
 		return false, nil
-	}
-
-	if err := repo.ExecAndWait(ctx, git.SubCmd{
-		Name: "prune",
-		Flags: []git.Option{
-			// By default, this prunes all unreachable objects regardless of when they
-			// have last been accessed. This opens us up for races when there are
-			// concurrent commands which are just at the point of writing objects into
-			// the repository, but which haven't yet updated any references to make them
-			// reachable. We thus use the same two-week grace period as git-gc(1) does.
-			git.ValueFlag{Name: "--expire", Value: "two.weeks.ago"},
-		},
-	}); err != nil {
-		return false, fmt.Errorf("pruning objects: %w", err)
 	}
 
 	return true, nil
