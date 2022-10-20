@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
@@ -278,7 +279,7 @@ func newReferenceMatcher(branchMatchers [][]byte) (*regexp.Regexp, error) {
 
 func validateUpdateRemoteMirrorRequest(ctx context.Context, req *gitalypb.UpdateRemoteMirrorRequest) error {
 	if req.GetRepository() == nil {
-		return fmt.Errorf("empty Repository")
+		return gitalyerrors.ErrEmptyRepository
 	}
 
 	if req.GetRemote() == nil {

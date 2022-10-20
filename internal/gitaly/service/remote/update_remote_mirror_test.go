@@ -26,6 +26,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type commandFactoryWrapper struct {
@@ -899,8 +900,9 @@ func TestFailedUpdateRemoteMirrorRequestDueToValidation(t *testing.T) {
 	_, testRepo, _, client := setupRemoteService(t, ctx)
 
 	testCases := []struct {
-		desc    string
-		request *gitalypb.UpdateRemoteMirrorRequest
+		desc        string
+		request     *gitalypb.UpdateRemoteMirrorRequest
+		expectedErr error
 	}{
 		{
 			desc: "empty Repository",
@@ -910,6 +912,18 @@ func TestFailedUpdateRemoteMirrorRequestDueToValidation(t *testing.T) {
 					Url: "something",
 				},
 			},
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
+		{
+			desc: "no Remote",
+			request: &gitalypb.UpdateRemoteMirrorRequest{
+				Repository: testRepo,
+				Remote:     nil,
+			},
+			expectedErr: status.Error(codes.InvalidArgument, "missing Remote"),
 		},
 		{
 			desc: "remote is missing URL",
@@ -919,6 +933,7 @@ func TestFailedUpdateRemoteMirrorRequestDueToValidation(t *testing.T) {
 					Url: "",
 				},
 			},
+			expectedErr: status.Error(codes.InvalidArgument, "remote is missing URL"),
 		},
 	}
 
@@ -929,8 +944,7 @@ func TestFailedUpdateRemoteMirrorRequestDueToValidation(t *testing.T) {
 			require.NoError(t, stream.Send(tc.request))
 
 			_, err = stream.CloseAndRecv()
-			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
-			require.Contains(t, err.Error(), tc.desc)
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
 	}
 }
