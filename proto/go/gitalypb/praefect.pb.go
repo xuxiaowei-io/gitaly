@@ -30,7 +30,6 @@ type MarkUnverifiedRequest struct {
 	// selector specifies the replicas which to mark unverified.
 	//
 	// Types that are assignable to Selector:
-	//
 	//	*MarkUnverifiedRequest_RepositoryId
 	//	*MarkUnverifiedRequest_VirtualStorage
 	//	*MarkUnverifiedRequest_Storage_
@@ -179,7 +178,6 @@ type GetRepositoryMetadataRequest struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to Query:
-	//
 	//	*GetRepositoryMetadataRequest_RepositoryId
 	//	*GetRepositoryMetadataRequest_Path_
 	Query isGetRepositoryMetadataRequest_Query `protobuf_oneof:"query"`

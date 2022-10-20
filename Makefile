@@ -497,7 +497,7 @@ proto: ${PROTOC} ${PROTOC_GEN_GO} ${PROTOC_GEN_GO_GRPC} ${PROTOC_GEN_GITALY_PROT
 	${PROTOC} ${SHARED_PROTOC_OPTS} -I ${SOURCE_DIR}/proto -I ${SOURCE_DIR}/tools -I ${PROTOC_INSTALL_DIR}/include --go_out=${SOURCE_DIR}/tools --go-grpc_out=${SOURCE_DIR}/tools ${SOURCE_DIR}/tools/protoc-gen-gitaly-lint/testdata/*.proto
 
 .PHONY: check-proto
-check-proto: proto no-proto-changes lint-proto
+check-proto: no-proto-changes lint-proto
 
 .PHONY: lint-proto
 lint-proto: ${PROTOC} ${PROTOLINT} ${PROTOC_GEN_GITALY_LINT}
@@ -509,7 +509,7 @@ no-changes:
 	${Q}${GIT} diff --exit-code
 
 .PHONY: no-proto-changes
-no-proto-changes: | ${BUILD_DIR}
+no-proto-changes: proto | ${BUILD_DIR}
 	${Q}${GIT} diff --exit-code -- '*.pb.go' 'ruby/proto/gitaly'
 
 .PHONY: dump-database-schema
