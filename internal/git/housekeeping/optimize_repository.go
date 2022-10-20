@@ -20,10 +20,20 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 )
 
-type optimizeRepositoryConfig struct{}
+type optimizeRepositoryConfig struct {
+	strategy OptimizationStrategy
+}
 
 // OptimizeRepositoryOption is an option that can be passed to OptimizeRepository.
 type OptimizeRepositoryOption func(cfg *optimizeRepositoryConfig)
+
+// WithOptimizationStrategy changes the strategy used to determine which parts of the repository
+// will be optimized. By default the HeuristicalOptimizationStrategy is used.
+func WithOptimizationStrategy(strategy OptimizationStrategy) OptimizeRepositoryOption {
+	return func(cfg *optimizeRepositoryConfig) {
+		cfg.strategy = strategy
+	}
+}
 
 // OptimizeRepository performs optimizations on the repository. Whether optimizations are performed
 // or not depends on a set of heuristics.
@@ -48,6 +58,15 @@ func (m *RepositoryManager) OptimizeRepository(
 	var cfg optimizeRepositoryConfig
 	for _, opt := range opts {
 		opt(&cfg)
+	}
+
+	if cfg.strategy == nil {
+		strategy, err := NewHeuristicalOptimizationStrategy(ctx, repo)
+		if err != nil {
+			return fmt.Errorf("creating default optimization strategy: %w", err)
+		}
+
+		cfg.strategy = strategy
 	}
 
 	return m.optimizeFunc(ctx, m, repo, cfg)
