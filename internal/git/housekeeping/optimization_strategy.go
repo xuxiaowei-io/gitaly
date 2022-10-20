@@ -21,6 +21,9 @@ type OptimizationStrategy interface {
 	// ShouldRepackObjects determines whether the repository needs to be repacked and, if so,
 	// how it should be done.
 	ShouldRepackObjects() (bool, RepackObjectsConfig)
+	// ShouldPruneObjects determines whether the repository has stale objects that should be
+	// pruned.
+	ShouldPruneObjects() bool
 }
 
 // HeuristicalOptimizationStrategy is an optimization strategy that is based on a set of
@@ -29,6 +32,7 @@ type HeuristicalOptimizationStrategy struct {
 	largestPackfileSizeInMB int64
 	packfileCount           int64
 	looseObjectCount        int64
+	oldLooseObjectCount     int64
 	hasAlternate            bool
 	hasBitmap               bool
 	isObjectPool            bool
@@ -70,6 +74,11 @@ func NewHeuristicalOptimizationStrategy(_ context.Context, repo *localrepo.Repo)
 	strategy.looseObjectCount, err = estimateLooseObjectCount(repo, time.Now())
 	if err != nil {
 		return strategy, fmt.Errorf("estimating loose object count: %w", err)
+	}
+
+	strategy.oldLooseObjectCount, err = estimateLooseObjectCount(repo, time.Now().AddDate(0, 0, -14))
+	if err != nil {
+		return strategy, fmt.Errorf("estimating old loose object count: %w", err)
 	}
 
 	return strategy, nil
@@ -317,35 +326,23 @@ func needsWriteCommitGraph(ctx context.Context, repo *localrepo.Repo, didRepack,
 	return false, WriteCommitGraphConfig{}, nil
 }
 
-func needsPrune(repo *localrepo.Repo) (bool, error) {
+// ShouldPruneObjects determines whether the repository has stale objects that should be pruned.
+// Object pools are never pruned to not lose data in them, but otherwise we prune when we've found
+// enough stale objects that might in fact get pruned.
+func (s HeuristicalOptimizationStrategy) ShouldPruneObjects() bool {
 	// Pool repositories must never prune any objects, or otherwise we may corrupt members of
 	// that pool if they still refer to that object.
-	if IsPoolRepository(repo) {
-		return false, nil
+	if s.isObjectPool {
+		return false
 	}
 
-	// Only count objects older than two weeks. Objects which are more recent than that wouldn't
-	// get pruned anyway and thus cause us to prune all the time during the grace period.
-	looseObjectCount, err := estimateLooseObjectCount(repo, time.Now().AddDate(0, 0, -14))
-	if err != nil {
-		return false, fmt.Errorf("estimating loose object count: %w", err)
+	// When we have a number of loose objects that is older than two weeks then they have
+	// surpassed the grace period and may thus be pruned.
+	if s.oldLooseObjectCount <= looseObjectLimit {
+		return false
 	}
 
-	// We again use the same limit here as we do when doing an incremental repack. This is done
-	// intentionally: if we determine that there's too many loose objects and try to repack, but
-	// all of those loose objects are in fact unreachable, then we'd still have the same number
-	// of unreachable objects after the incremental repack. We'd thus try to repack every single
-	// time.
-	//
-	// Using the same limit here doesn't quite fix this case: the unreachable objects would only
-	// be pruned after a grace period of two weeks. Because of that we only count objects which
-	// are older than this grace period such that we don't prune if there aren't any old and
-	// unreachable objects.
-	if looseObjectCount <= looseObjectLimit {
-		return false, nil
-	}
-
-	return true, nil
+	return true
 }
 
 // countLooseAndPackedRefs counts the number of loose references that exist in the repository and

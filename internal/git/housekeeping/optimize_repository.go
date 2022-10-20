@@ -117,7 +117,7 @@ func optimizeRepository(
 	timer.ObserveDuration()
 
 	timer = prometheus.NewTimer(m.tasksLatency.WithLabelValues("prune"))
-	didPrune, err := pruneIfNeeded(ctx, repo)
+	didPrune, err := pruneIfNeeded(ctx, repo, cfg.strategy)
 	if err != nil {
 		optimizations["pruned_objects"] = "failure"
 		return fmt.Errorf("could not prune: %w", err)
@@ -188,13 +188,8 @@ func writeCommitGraphIfNeeded(ctx context.Context, repo *localrepo.Repo, didRepa
 
 // pruneIfNeeded removes objects from the repository which are either unreachable or which are
 // already part of a packfile. We use a grace period of two weeks.
-func pruneIfNeeded(ctx context.Context, repo *localrepo.Repo) (bool, error) {
-	shouldPrune, err := needsPrune(repo)
-	if err != nil {
-		return false, fmt.Errorf("determining whether repo needs pruning: %w", err)
-	}
-
-	if !shouldPrune {
+func pruneIfNeeded(ctx context.Context, repo *localrepo.Repo, strategy OptimizationStrategy) (bool, error) {
+	if !strategy.ShouldPruneObjects() {
 		return false, nil
 	}
 

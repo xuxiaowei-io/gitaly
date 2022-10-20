@@ -58,6 +58,33 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 			},
 		},
 		{
+			desc: "old object in 17 shard",
+			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+					RelativePath:           relativePath,
+				})
+
+				shard := filepath.Join(repoPath, "objects", "17")
+				require.NoError(t, os.MkdirAll(shard, 0o755))
+
+				// We write one recent...
+				require.NoError(t, os.WriteFile(filepath.Join(shard, "1234"), nil, 0o644))
+
+				// ... and one stale object.
+				staleObjectPath := filepath.Join(shard, "5678")
+				require.NoError(t, os.WriteFile(staleObjectPath, nil, 0o644))
+				twoWeeksAgo := time.Now().Add(-1 * 2 * 7 * 24 * time.Hour)
+				require.NoError(t, os.Chtimes(staleObjectPath, twoWeeksAgo, twoWeeksAgo))
+
+				return repoProto
+			},
+			expectedStrategy: HeuristicalOptimizationStrategy{
+				looseObjectCount:    512,
+				oldLooseObjectCount: 256,
+			},
+		},
+		{
 			desc: "packfile",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
@@ -405,6 +432,55 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 	}
 }
 
+func TestHeuristicalOptimizationStrategy_ShouldPruneObjects(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		desc                       string
+		strategy                   HeuristicalOptimizationStrategy
+		expectedShouldPruneObjects bool
+	}{
+		{
+			desc:                       "empty repository",
+			strategy:                   HeuristicalOptimizationStrategy{},
+			expectedShouldPruneObjects: false,
+		},
+		{
+			desc: "only recent object",
+			strategy: HeuristicalOptimizationStrategy{
+				looseObjectCount: 10000,
+			},
+			expectedShouldPruneObjects: false,
+		},
+		{
+			desc: "few stale objects",
+			strategy: HeuristicalOptimizationStrategy{
+				oldLooseObjectCount: 1000,
+			},
+			expectedShouldPruneObjects: false,
+		},
+		{
+			desc: "too many stale objects",
+			strategy: HeuristicalOptimizationStrategy{
+				oldLooseObjectCount: 1025,
+			},
+			expectedShouldPruneObjects: true,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Run("normal repository", func(t *testing.T) {
+				require.Equal(t, tc.expectedShouldPruneObjects, tc.strategy.ShouldPruneObjects())
+			})
+
+			t.Run("object pool", func(t *testing.T) {
+				strategy := tc.strategy
+				strategy.isObjectPool = true
+				require.False(t, strategy.ShouldPruneObjects())
+			})
+		})
+	}
+}
+
 func TestEstimateLooseObjectCount(t *testing.T) {
 	t.Parallel()
 
@@ -495,8 +571,13 @@ func TestEstimateLooseObjectCount(t *testing.T) {
 type mockOptimizationStrategy struct {
 	shouldRepackObjects bool
 	repackObjectsCfg    RepackObjectsConfig
+	shouldPruneObjects  bool
 }
 
 func (m mockOptimizationStrategy) ShouldRepackObjects() (bool, RepackObjectsConfig) {
 	return m.shouldRepackObjects, m.repackObjectsCfg
+}
+
+func (m mockOptimizationStrategy) ShouldPruneObjects() bool {
+	return m.shouldPruneObjects
 }

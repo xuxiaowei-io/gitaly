@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -572,132 +571,48 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 }
 
 func TestPruneIfNeeded(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
-	testRepoAndPool(t, "empty repo does not prune", func(t *testing.T, relativePath string) {
-		repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-			SkipCreationViaService: true,
-			RelativePath:           relativePath,
-		})
-		repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-		didPrune, err := pruneIfNeeded(ctx, repo)
-		require.NoError(t, err)
-		require.False(t, didPrune)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
 	})
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	testRepoAndPool(t, "repo with single object does not prune", func(t *testing.T, relativePath string) {
-		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-			SkipCreationViaService: true,
-			RelativePath:           relativePath,
-		})
-		repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	objectPath := func(oid git.ObjectID) string {
+		return filepath.Join(repoPath, "objects", oid.String()[0:2], oid.String()[2:])
+	}
 
-		gittest.WriteBlob(t, cfg, repoPath, []byte("something"))
+	// Write two blobs, one recent blob and one blob that is older than two weeks and that would
+	// thus get pruned.
+	recentBlobID := gittest.WriteBlob(t, cfg, repoPath, []byte("recent"))
+	staleBlobID := gittest.WriteBlob(t, cfg, repoPath, []byte("stale"))
+	twoWeeksAgo := time.Now().Add(-1 * 2 * 7 * 24 * time.Hour)
+	require.NoError(t, os.Chtimes(objectPath(staleBlobID), twoWeeksAgo, twoWeeksAgo))
 
-		didPrune, err := pruneIfNeeded(ctx, repo)
-		require.NoError(t, err)
-		require.False(t, didPrune)
+	// We shouldn't prune when the strategy determines there aren't enough old objects.
+	didPrune, err := pruneIfNeeded(ctx, repo, mockOptimizationStrategy{
+		shouldPruneObjects: false,
 	})
+	require.NoError(t, err)
+	require.False(t, didPrune)
 
-	testRepoAndPool(t, "repo with single 17-prefixed objects does not prune", func(t *testing.T, relativePath string) {
-		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-			SkipCreationViaService: true,
-			RelativePath:           relativePath,
-		})
-		repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	// Consequentially, the objects shouldn't have been pruned.
+	require.FileExists(t, objectPath(recentBlobID))
+	require.FileExists(t, objectPath(staleBlobID))
 
-		blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("32"))
-		require.True(t, strings.HasPrefix(blobID.String(), "17"))
-
-		didPrune, err := pruneIfNeeded(ctx, repo)
-		require.NoError(t, err)
-		require.False(t, didPrune)
+	// But we naturally should prune if told so.
+	didPrune, err = pruneIfNeeded(ctx, repo, mockOptimizationStrategy{
+		shouldPruneObjects: true,
 	})
+	require.NoError(t, err)
+	require.True(t, didPrune)
 
-	testRepoAndPool(t, "repo with four 17-prefixed objects does not prune", func(t *testing.T, relativePath string) {
-		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-			SkipCreationViaService: true,
-			RelativePath:           relativePath,
-		})
-		repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-		for _, contents := range []string{"32", "119", "334", "782"} {
-			blobID := gittest.WriteBlob(t, cfg, repoPath, []byte(contents))
-			require.True(t, strings.HasPrefix(blobID.String(), "17"))
-		}
-
-		didPrune, err := pruneIfNeeded(ctx, repo)
-		require.NoError(t, err)
-		require.False(t, didPrune)
-	})
-
-	testRepoAndPool(t, "repo with five 17-prefixed objects does prune after grace period", func(t *testing.T, relativePath string) {
-		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-			SkipCreationViaService: true,
-			RelativePath:           relativePath,
-		})
-		repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-		objectPath := func(oid git.ObjectID) string {
-			return filepath.Join(repoPath, "objects", oid.String()[0:2], oid.String()[2:])
-		}
-
-		// Contents with 17-prefix were brute forced with git-hash-object(1).
-		var blobs []git.ObjectID
-		for _, contents := range []string{"32", "119", "334", "782", "907"} {
-			blobID := gittest.WriteBlob(t, cfg, repoPath, []byte(contents))
-			require.True(t, strings.HasPrefix(blobID.String(), "17"))
-			blobs = append(blobs, blobID)
-		}
-
-		// We also write one blob that stays recent to verify it doesn't get pruned.
-		recentBlob := gittest.WriteBlob(t, cfg, repoPath, []byte("922"))
-		require.True(t, strings.HasPrefix(recentBlob.String(), "17"))
-
-		// We shouldn't want to prune anything yet because there is no object older than two
-		// weeks.
-		didPrune, err := pruneIfNeeded(ctx, repo)
-		require.NoError(t, err)
-		require.False(t, didPrune)
-
-		// Consequentially, the objects shouldn't have been pruned.
-		for _, blob := range blobs {
-			require.FileExists(t, objectPath(blob))
-		}
-		require.FileExists(t, objectPath(recentBlob))
-
-		// Now we modify the object's times to be older than two weeks.
-		twoWeeksAgo := time.Now().Add(-1 * 2 * 7 * 24 * time.Hour)
-		for _, blob := range blobs {
-			require.NoError(t, os.Chtimes(objectPath(blob), twoWeeksAgo, twoWeeksAgo))
-		}
-
-		// Because we didn't prune objects before due to the grace period, the still exist
-		// and thus we would still want to prune here.
-		didPrune, err = pruneIfNeeded(ctx, repo)
-		require.NoError(t, err)
-
-		if IsPoolRepository(repoProto) {
-			// Object pools mustn't ever prune objects.
-			require.False(t, didPrune)
-			for _, blob := range append(blobs, recentBlob) {
-				require.FileExists(t, objectPath(blob))
-			}
-		} else {
-			require.True(t, didPrune)
-
-			// But this time the objects shouldn't exist anymore because they were older than
-			// the grace period.
-			for _, blob := range blobs {
-				require.NoFileExists(t, objectPath(blob))
-			}
-
-			// The recent blob should continue to exist though.
-			require.FileExists(t, objectPath(recentBlob))
-		}
-	})
+	// But we should only prune the stale blob, never the recent one.
+	require.FileExists(t, objectPath(recentBlobID))
+	require.NoFileExists(t, objectPath(staleBlobID))
 }
 
 func TestWriteCommitGraphIfNeeded(t *testing.T) {
