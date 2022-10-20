@@ -342,13 +342,26 @@ func TestUserCreateBranch_Failure(t *testing.T) {
 
 	testCases := []struct {
 		desc       string
+		repo       *gitalypb.Repository
 		branchName string
 		startPoint string
 		user       *gitalypb.User
 		err        error
 	}{
 		{
+			desc:       "repository not provided",
+			repo:       nil,
+			branchName: "shiny-new-branch",
+			startPoint: "",
+			user:       gittest.TestUser,
+			err: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
+		{
 			desc:       "empty start_point",
+			repo:       repo,
 			branchName: "shiny-new-branch",
 			startPoint: "",
 			user:       gittest.TestUser,
@@ -356,6 +369,7 @@ func TestUserCreateBranch_Failure(t *testing.T) {
 		},
 		{
 			desc:       "empty user",
+			repo:       repo,
 			branchName: "shiny-new-branch",
 			startPoint: "master",
 			user:       nil,
@@ -363,6 +377,7 @@ func TestUserCreateBranch_Failure(t *testing.T) {
 		},
 		{
 			desc:       "non-existing starting point",
+			repo:       repo,
 			branchName: "new-branch",
 			startPoint: "i-dont-exist",
 			user:       gittest.TestUser,
@@ -371,6 +386,7 @@ func TestUserCreateBranch_Failure(t *testing.T) {
 
 		{
 			desc:       "branch exists",
+			repo:       repo,
 			branchName: "master",
 			startPoint: "master",
 			user:       gittest.TestUser,
@@ -381,7 +397,7 @@ func TestUserCreateBranch_Failure(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			request := &gitalypb.UserCreateBranchRequest{
-				Repository: repo,
+				Repository: testCase.repo,
 				BranchName: []byte(testCase.branchName),
 				StartPoint: []byte(testCase.startPoint),
 				User:       testCase.user,

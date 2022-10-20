@@ -292,8 +292,18 @@ func TestServer_UserCherryPick_failedValidations(t *testing.T) {
 	testCases := []struct {
 		desc    string
 		request *gitalypb.UserCherryPickRequest
-		code    codes.Code
+		expErr  error
 	}{
+		{
+			desc: "no repository provided",
+			request: &gitalypb.UserCherryPickRequest{
+				Repository: nil,
+			},
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"UserCherryPick: empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
 		{
 			desc: "empty user",
 			request: &gitalypb.UserCherryPickRequest{
@@ -303,7 +313,7 @@ func TestServer_UserCherryPick_failedValidations(t *testing.T) {
 				BranchName: []byte(destinationBranch),
 				Message:    []byte("Cherry-picking " + cherryPickedCommit.Id),
 			},
-			code: codes.InvalidArgument,
+			expErr: status.Error(codes.InvalidArgument, "UserCherryPick: empty User"),
 		},
 		{
 			desc: "empty commit",
@@ -314,7 +324,7 @@ func TestServer_UserCherryPick_failedValidations(t *testing.T) {
 				BranchName: []byte(destinationBranch),
 				Message:    []byte("Cherry-picking " + cherryPickedCommit.Id),
 			},
-			code: codes.InvalidArgument,
+			expErr: status.Error(codes.InvalidArgument, "UserCherryPick: empty Commit"),
 		},
 		{
 			desc: "empty branch name",
@@ -325,7 +335,7 @@ func TestServer_UserCherryPick_failedValidations(t *testing.T) {
 				BranchName: nil,
 				Message:    []byte("Cherry-picking " + cherryPickedCommit.Id),
 			},
-			code: codes.InvalidArgument,
+			expErr: status.Error(codes.InvalidArgument, "UserCherryPick: empty BranchName"),
 		},
 		{
 			desc: "empty message",
@@ -336,14 +346,14 @@ func TestServer_UserCherryPick_failedValidations(t *testing.T) {
 				BranchName: []byte(destinationBranch),
 				Message:    nil,
 			},
-			code: codes.InvalidArgument,
+			expErr: status.Error(codes.InvalidArgument, "UserCherryPick: empty Message"),
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			_, err := client.UserCherryPick(ctx, testCase.request)
-			testhelper.RequireGrpcCode(t, err, testCase.code)
+			testhelper.RequireGrpcError(t, testCase.expErr, err)
 		})
 	}
 }

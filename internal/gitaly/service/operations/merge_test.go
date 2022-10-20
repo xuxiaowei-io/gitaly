@@ -140,6 +140,14 @@ func TestUserMergeBranch_failure(t *testing.T) {
 		expectedErr error
 	}{
 		{
+			desc: "no repository provided",
+			repo: nil,
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
+		{
 			desc:        "empty user",
 			repo:        repoProto,
 			branch:      []byte(mergeBranchName),
@@ -372,8 +380,8 @@ func TestUserMergeBranch_abort(t *testing.T) {
 		closeSend bool
 		desc      string
 	}{
-		{req: &gitalypb.UserMergeBranchRequest{}, desc: "empty request, don't close"},
-		{req: &gitalypb.UserMergeBranchRequest{}, closeSend: true, desc: "empty request and close"},
+		{req: &gitalypb.UserMergeBranchRequest{Repository: &gitalypb.Repository{}}, desc: "empty request, don't close"},
+		{req: &gitalypb.UserMergeBranchRequest{Repository: &gitalypb.Repository{}}, closeSend: true, desc: "empty request and close"},
 		{closeSend: true, desc: "no request just close"},
 	}
 

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
@@ -34,7 +35,7 @@ func (s *Server) UserSquash(ctx context.Context, req *gitalypb.UserSquashRequest
 
 func validateUserSquashRequest(req *gitalypb.UserSquashRequest) error {
 	if req.GetRepository() == nil {
-		return errors.New("empty Repository")
+		return gitalyerrors.ErrEmptyRepository
 	}
 
 	if req.GetUser() == nil {
