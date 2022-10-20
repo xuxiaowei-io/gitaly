@@ -12,6 +12,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestCommitStatsSuccess(t *testing.T) {
@@ -90,6 +92,14 @@ func TestCommitStatsFailure(t *testing.T) {
 		expectedErr error
 	}{
 		{
+			desc:    "no repository provided",
+			request: &gitalypb.CommitStatsRequest{Repository: nil},
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
+		{
 			desc: "repo not found",
 			request: &gitalypb.CommitStatsRequest{
 				Repository: &gitalypb.Repository{
@@ -98,7 +108,21 @@ func TestCommitStatsFailure(t *testing.T) {
 				},
 				Revision: []byte("test-do-not-touch"),
 			},
-			expectedErr: helper.ErrNotFoundf(gitalyOrPraefect(
+			expectedErr: helper.ErrNotFoundf(testhelper.GitalyOrPraefect(
+				fmt.Sprintf("GetRepoPath: not a git repository: %q", filepath.Join(cfg.Storages[0].Path, "bar.git")),
+				"accessor call: route repository accessor: consistent storages: repository \"default\"/\"bar.git\" not found",
+			)),
+		},
+		{
+			desc: "repo not found",
+			request: &gitalypb.CommitStatsRequest{
+				Repository: &gitalypb.Repository{
+					StorageName:  repo.GetStorageName(),
+					RelativePath: "bar.git",
+				},
+				Revision: []byte("test-do-not-touch"),
+			},
+			expectedErr: helper.ErrNotFoundf(testhelper.GitalyOrPraefect(
 				fmt.Sprintf("GetRepoPath: not a git repository: %q", filepath.Join(cfg.Storages[0].Path, "bar.git")),
 				"accessor call: route repository accessor: consistent storages: repository \"default\"/\"bar.git\" not found",
 			)),
@@ -112,7 +136,7 @@ func TestCommitStatsFailure(t *testing.T) {
 				},
 				Revision: []byte("test-do-not-touch"),
 			},
-			expectedErr: helper.ErrInvalidArgumentf(gitalyOrPraefect(
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
 				"GetStorageByName: no such storage: \"foo\"",
 				"repo scoped: invalid Repository",
 			)),

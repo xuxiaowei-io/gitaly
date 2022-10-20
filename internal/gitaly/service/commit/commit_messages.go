@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
@@ -56,7 +57,7 @@ func (s *server) getAndStreamCommitMessages(request *gitalypb.GetCommitMessagesR
 
 func validateGetCommitMessagesRequest(request *gitalypb.GetCommitMessagesRequest) error {
 	if request.GetRepository() == nil {
-		return fmt.Errorf("empty Repository")
+		return gitalyerrors.ErrEmptyRepository
 	}
 
 	return nil

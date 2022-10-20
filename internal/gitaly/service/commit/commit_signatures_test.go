@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestSuccessfulGetCommitSignaturesRequest(t *testing.T) {
@@ -92,17 +93,20 @@ func TestFailedGetCommitSignaturesRequest(t *testing.T) {
 	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
 
 	testCases := []struct {
-		desc    string
-		request *gitalypb.GetCommitSignaturesRequest
-		code    codes.Code
+		desc        string
+		request     *gitalypb.GetCommitSignaturesRequest
+		expectedErr error
 	}{
 		{
-			desc: "empty Repository",
+			desc: "no repository provided",
 			request: &gitalypb.GetCommitSignaturesRequest{
 				Repository: nil,
 				CommitIds:  []string{"5937ac0a7beb003549fc5fd26fc247adbce4a52e"},
 			},
-			code: codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"GetCommitSignatures: empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 		{
 			desc: "empty CommitIds",
@@ -110,7 +114,7 @@ func TestFailedGetCommitSignaturesRequest(t *testing.T) {
 				Repository: repo,
 				CommitIds:  []string{},
 			},
-			code: codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, "GetCommitSignatures: empty CommitIds"),
 		},
 		{
 			desc: "commitIDS with shorthand sha",
@@ -118,7 +122,7 @@ func TestFailedGetCommitSignaturesRequest(t *testing.T) {
 				Repository: repo,
 				CommitIds:  []string{"5937ac0a7beb003549fc5fd26fc247adbce4a52e", "a17a9f6"},
 			},
-			code: codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, `GetCommitSignatures: invalid object ID: "a17a9f6"`),
 		},
 	}
 
@@ -134,7 +138,7 @@ func TestFailedGetCommitSignaturesRequest(t *testing.T) {
 				}
 			}
 
-			testhelper.RequireGrpcCode(t, err, testCase.code)
+			testhelper.RequireGrpcError(t, testCase.expectedErr, err)
 		})
 	}
 }

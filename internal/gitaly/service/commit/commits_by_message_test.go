@@ -9,6 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -166,29 +167,35 @@ func TestFailedCommitsByMessageRequest(t *testing.T) {
 	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}
 
 	testCases := []struct {
-		desc    string
-		request *gitalypb.CommitsByMessageRequest
-		code    codes.Code
+		desc        string
+		request     *gitalypb.CommitsByMessageRequest
+		expectedErr error
 	}{
 		{
 			desc:    "Invalid repository",
 			request: &gitalypb.CommitsByMessageRequest{Repository: invalidRepo, Query: "foo"},
-			code:    codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				`GetStorageByName: no such storage: "fake"`,
+				"repo scoped: invalid Repository",
+			)),
 		},
 		{
 			desc:    "Repository is nil",
 			request: &gitalypb.CommitsByMessageRequest{Query: "foo"},
-			code:    codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 		{
-			desc:    "Query is missing",
-			request: &gitalypb.CommitsByMessageRequest{Repository: repo},
-			code:    codes.InvalidArgument,
+			desc:        "Query is missing",
+			request:     &gitalypb.CommitsByMessageRequest{Repository: repo},
+			expectedErr: status.Error(codes.InvalidArgument, "empty Query"),
 		},
 		{
-			desc:    "Revision is invalid",
-			request: &gitalypb.CommitsByMessageRequest{Repository: repo, Revision: []byte("--output=/meow"), Query: "not empty"},
-			code:    codes.InvalidArgument,
+			desc:        "Revision is invalid",
+			request:     &gitalypb.CommitsByMessageRequest{Repository: repo, Revision: []byte("--output=/meow"), Query: "not empty"},
+			expectedErr: status.Error(codes.InvalidArgument, "revision can't start with '-'"),
 		},
 	}
 
@@ -197,7 +204,7 @@ func TestFailedCommitsByMessageRequest(t *testing.T) {
 			c, err := client.CommitsByMessage(ctx, testCase.request)
 			require.NoError(t, err)
 
-			testhelper.RequireGrpcCode(t, drainCommitsByMessageResponse(c), testCase.code)
+			testhelper.RequireGrpcError(t, testCase.expectedErr, drainCommitsByMessageResponse(c))
 		})
 	}
 }

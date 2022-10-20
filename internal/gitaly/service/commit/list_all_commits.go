@@ -1,9 +1,9 @@
 package commit
 
 import (
-	"errors"
 	"fmt"
 
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gitpipe"
@@ -14,7 +14,7 @@ import (
 
 func verifyListAllCommitsRequest(request *gitalypb.ListAllCommitsRequest) error {
 	if request.GetRepository() == nil {
-		return errors.New("empty repository")
+		return gitalyerrors.ErrEmptyRepository
 	}
 	return nil
 }

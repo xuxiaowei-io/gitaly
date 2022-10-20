@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -76,6 +77,10 @@ func (s *server) CountCommits(ctx context.Context, in *gitalypb.CountCommitsRequ
 }
 
 func validateCountCommitsRequest(in *gitalypb.CountCommitsRequest) error {
+	if in.GetRepository() == nil {
+		return gitalyerrors.ErrEmptyRepository
+	}
+
 	if err := git.ValidateRevisionAllowEmpty(in.Revision); err != nil {
 		return err
 	}

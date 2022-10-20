@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestSuccessfulRawBlameRequest(t *testing.T) {
@@ -86,15 +87,26 @@ func TestFailedRawBlameRequest(t *testing.T) {
 		repo           *gitalypb.Repository
 		revision, path []byte
 		blameRange     []byte
-		code           codes.Code
+		expectedErr    error
 	}{
+		{
+			description: "No repository provided",
+			repo:        nil,
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"RawBlame: empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
 		{
 			description: "Invalid repo",
 			repo:        invalidRepo,
 			revision:    []byte("master"),
 			path:        []byte("a/b/c"),
 			blameRange:  []byte{},
-			code:        codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				`GetStorageByName: no such storage: "fake"`,
+				"repo scoped: invalid Repository",
+			)),
 		},
 		{
 			description: "Empty revision",
@@ -102,7 +114,7 @@ func TestFailedRawBlameRequest(t *testing.T) {
 			revision:    []byte(""),
 			path:        []byte("a/b/c"),
 			blameRange:  []byte{},
-			code:        codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, "RawBlame: empty revision"),
 		},
 		{
 			description: "Empty path",
@@ -110,7 +122,7 @@ func TestFailedRawBlameRequest(t *testing.T) {
 			revision:    []byte("abcdef"),
 			path:        []byte(""),
 			blameRange:  []byte{},
-			code:        codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, "RawBlame: empty Path"),
 		},
 		{
 			description: "Invalid revision",
@@ -118,7 +130,7 @@ func TestFailedRawBlameRequest(t *testing.T) {
 			revision:    []byte("--output=/meow"),
 			path:        []byte("a/b/c"),
 			blameRange:  []byte{},
-			code:        codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, "RawBlame: revision can't start with '-'"),
 		},
 		{
 			description: "Invalid range",
@@ -126,7 +138,7 @@ func TestFailedRawBlameRequest(t *testing.T) {
 			revision:    []byte("abcdef"),
 			path:        []byte("a/b/c"),
 			blameRange:  []byte("foo"),
-			code:        codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, "RawBlame: invalid Range"),
 		},
 	}
 
@@ -141,7 +153,7 @@ func TestFailedRawBlameRequest(t *testing.T) {
 			c, err := client.RawBlame(ctx, &request)
 			require.NoError(t, err)
 
-			testhelper.RequireGrpcCode(t, drainRawBlameResponse(c), testCase.code)
+			testhelper.RequireGrpcError(t, testCase.expectedErr, drainRawBlameResponse(c))
 		})
 	}
 }

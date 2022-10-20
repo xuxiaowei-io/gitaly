@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/linguist"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
@@ -18,8 +19,18 @@ import (
 
 var errAmbigRef = errors.New("ambiguous reference")
 
-func (s *server) CommitLanguages(ctx context.Context, req *gitalypb.CommitLanguagesRequest) (*gitalypb.CommitLanguagesResponse, error) {
+func (s *server) validateCommitLanguagesRequest(req *gitalypb.CommitLanguagesRequest) error {
+	if req.GetRepository() == nil {
+		return gitalyerrors.ErrEmptyRepository
+	}
 	if err := git.ValidateRevisionAllowEmpty(req.Revision); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *server) CommitLanguages(ctx context.Context, req *gitalypb.CommitLanguagesRequest) (*gitalypb.CommitLanguagesResponse, error) {
+	if err := s.validateCommitLanguagesRequest(req); err != nil {
 		return nil, helper.ErrInvalidArgument(err)
 	}
 

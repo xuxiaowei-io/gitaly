@@ -5,6 +5,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	log "github.com/sirupsen/logrus"
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/lstree"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
@@ -19,7 +20,7 @@ func (s *server) ListFiles(in *gitalypb.ListFilesRequest, stream gitalypb.Commit
 	}).Debug("ListFiles")
 
 	if err := validateListFilesRequest(in); err != nil {
-		return err
+		return helper.ErrInvalidArgument(err)
 	}
 
 	repo := s.localrepo(in.GetRepository())
@@ -58,8 +59,11 @@ func (s *server) ListFiles(in *gitalypb.ListFilesRequest, stream gitalypb.Commit
 }
 
 func validateListFilesRequest(in *gitalypb.ListFilesRequest) error {
+	if in.GetRepository() == nil {
+		return gitalyerrors.ErrEmptyRepository
+	}
 	if err := git.ValidateRevisionAllowEmpty(in.Revision); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return err
 	}
 	return nil
 }

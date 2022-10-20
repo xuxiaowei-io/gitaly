@@ -3,7 +3,6 @@
 package commit
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -164,17 +164,41 @@ func TestFailedCountCommitsRequestDueToValidationError(t *testing.T) {
 
 	revision := []byte("d42783470dc29fde2cf459eb3199ee1d7e3f3a72")
 
-	rpcRequests := []*gitalypb.CountCommitsRequest{
-		{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, Revision: revision}, // Repository doesn't exist
-		{Repository: nil, Revision: revision},                              // Repository is nil
-		{Repository: repo, Revision: nil, All: false},                      // Revision is empty and All is false
-		{Repository: repo, Revision: []byte("--output=/meow"), All: false}, // Revision is invalid
-	}
-
-	for _, rpcRequest := range rpcRequests {
-		t.Run(fmt.Sprintf("%v", rpcRequest), func(t *testing.T) {
-			_, err := client.CountCommits(ctx, rpcRequest)
-			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
+	for _, tc := range []struct {
+		desc        string
+		req         *gitalypb.CountCommitsRequest
+		expectedErr error
+	}{
+		{
+			desc: "Repository doesn't exist",
+			req:  &gitalypb.CountCommitsRequest{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, Revision: revision},
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				`GetStorageByName: no such storage: "fake"`,
+				"repo scoped: invalid Repository",
+			)),
+		},
+		{
+			desc: "Repository is nil",
+			req:  &gitalypb.CountCommitsRequest{Repository: nil, Revision: revision},
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"CountCommits: empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
+		{
+			desc:        "Revision is empty and All is false",
+			req:         &gitalypb.CountCommitsRequest{Repository: repo, Revision: nil, All: false},
+			expectedErr: status.Error(codes.InvalidArgument, "CountCommits: empty Revision and false All"),
+		},
+		{
+			desc:        "Revision is invalid",
+			req:         &gitalypb.CountCommitsRequest{Repository: repo, Revision: []byte("--output=/meow"), All: false},
+			expectedErr: status.Error(codes.InvalidArgument, "CountCommits: revision can't start with '-'"),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			_, err := client.CountCommits(ctx, tc.req)
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
 	}
 }
