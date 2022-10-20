@@ -117,7 +117,7 @@ func testRenameRepositoryInvalidRequest(t *testing.T, ctx context.Context) {
 		{
 			desc: "repository relative path doesn't exist",
 			req:  &gitalypb.RenameRepositoryRequest{Repository: &gitalypb.Repository{StorageName: repo.StorageName, RelativePath: "stub"}, RelativePath: "non-existent/directory"},
-			exp:  status.Error(codes.NotFound, fmt.Sprintf(`GetRepoPath: not a git repository: "%s/stub"`, gitalyOrPraefect(storagePath, repo.GetStorageName()))),
+			exp:  status.Error(codes.NotFound, fmt.Sprintf(`GetRepoPath: not a git repository: "%s/stub"`, testhelper.GitalyOrPraefect(storagePath, repo.GetStorageName()))),
 		},
 	}
 

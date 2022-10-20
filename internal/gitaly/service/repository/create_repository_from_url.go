@@ -9,11 +9,10 @@ import (
 	"os"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func (s *server) cloneFromURLCommand(
@@ -74,7 +73,7 @@ func (s *server) cloneFromURLCommand(
 
 func (s *server) CreateRepositoryFromURL(ctx context.Context, req *gitalypb.CreateRepositoryFromURLRequest) (*gitalypb.CreateRepositoryFromURLResponse, error) {
 	if err := validateCreateRepositoryFromURLRequest(req); err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "CreateRepositoryFromURL: %v", err)
+		return nil, helper.ErrInvalidArgumentf("CreateRepositoryFromURL: %w", err)
 	}
 
 	if err := s.createRepository(ctx, req.GetRepository(), func(repo *gitalypb.Repository) error {
@@ -120,7 +119,7 @@ func (s *server) CreateRepositoryFromURL(ctx context.Context, req *gitalypb.Crea
 
 func validateCreateRepositoryFromURLRequest(req *gitalypb.CreateRepositoryFromURLRequest) error {
 	if req.GetRepository() == nil {
-		return fmt.Errorf("empty Repository")
+		return gitalyerrors.ErrEmptyRepository
 	}
 
 	if req.GetUrl() == "" {

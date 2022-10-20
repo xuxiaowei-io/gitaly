@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -21,6 +20,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestServer_FetchBundle_success(t *testing.T) {
@@ -127,20 +127,23 @@ func TestServer_FetchBundle_transaction(t *testing.T) {
 
 func TestServer_FetchBundle_validation(t *testing.T) {
 	t.Parallel()
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
-		desc                  string
-		firstRequest          *gitalypb.FetchBundleRequest
-		expectedStreamErr     string
-		expectedStreamErrCode codes.Code
+		desc         string
+		firstRequest *gitalypb.FetchBundleRequest
+		expErr       error
 	}{
 		{
 			desc: "no repo",
 			firstRequest: &gitalypb.FetchBundleRequest{
 				Repository: nil,
 			},
-			expectedStreamErr:     "empty Repository",
-			expectedStreamErrCode: codes.InvalidArgument,
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 		{
 			desc: "unknown repo",
@@ -150,20 +153,13 @@ func TestServer_FetchBundle_validation(t *testing.T) {
 					RelativePath: "unknown",
 				},
 			},
-			expectedStreamErr: func() string {
-				if testhelper.IsPraefectEnabled() {
-					return `repository "default"/"unknown" not found`
-				}
-
-				return "not a git repository"
-			}(),
-			expectedStreamErrCode: codes.NotFound,
+			expErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefect(
+				`GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/unknown"`,
+				`mutator call: route repository mutator: get repository id: repository "default"/"unknown" not found`,
+			)),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			_, client := setupRepositoryServiceWithoutRepo(t)
-			ctx := testhelper.Context(t)
-
 			stream, err := client.FetchBundle(ctx)
 			require.NoError(t, err)
 
@@ -171,13 +167,7 @@ func TestServer_FetchBundle_validation(t *testing.T) {
 			require.NoError(t, err)
 
 			_, err = stream.CloseAndRecv()
-			require.Error(t, err)
-			if tc.expectedStreamErr != "" {
-				require.Contains(t, err.Error(), tc.expectedStreamErr)
-			}
-			if tc.expectedStreamErrCode != 0 {
-				require.Equal(t, tc.expectedStreamErrCode, helper.GrpcCode(err))
-			}
+			testhelper.RequireGrpcError(t, tc.expErr, err)
 		})
 	}
 }

@@ -26,6 +26,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 	"gitlab.com/gitlab-org/labkit/correlation"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -295,7 +296,7 @@ func TestGetArchive_inputValidation(t *testing.T) {
 		path      []byte
 		exclude   [][]byte
 		elidePath bool
-		code      codes.Code
+		expErr    error
 	}{
 		{
 			desc:     "Repository doesn't exist",
@@ -303,7 +304,10 @@ func TestGetArchive_inputValidation(t *testing.T) {
 			prefix:   "",
 			commitID: commitID,
 			format:   gitalypb.GetArchiveRequest_ZIP,
-			code:     codes.InvalidArgument,
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				`GetStorageByName: no such storage: "fake"`,
+				"repo scoped: invalid Repository",
+			)),
 		},
 		{
 			desc:     "Repository is nil",
@@ -311,7 +315,10 @@ func TestGetArchive_inputValidation(t *testing.T) {
 			prefix:   "",
 			commitID: commitID,
 			format:   gitalypb.GetArchiveRequest_ZIP,
-			code:     codes.InvalidArgument,
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 		{
 			desc:     "CommitId is empty",
@@ -319,15 +326,15 @@ func TestGetArchive_inputValidation(t *testing.T) {
 			prefix:   "",
 			commitID: "",
 			format:   gitalypb.GetArchiveRequest_ZIP,
-			code:     codes.InvalidArgument,
+			expErr:   status.Error(codes.InvalidArgument, "invalid commitId: empty revision"),
 		},
 		{
 			desc:     "Format is invalid",
 			repo:     repo,
 			prefix:   "",
-			commitID: "",
+			commitID: "stub",
 			format:   gitalypb.GetArchiveRequest_Format(-1),
-			code:     codes.InvalidArgument,
+			expErr:   status.Error(codes.InvalidArgument, "invalid format"),
 		},
 		{
 			desc:     "Non-existing path in repository",
@@ -336,7 +343,7 @@ func TestGetArchive_inputValidation(t *testing.T) {
 			commitID: "1e292f8fedd741b75372e19097c76d327140c312",
 			format:   gitalypb.GetArchiveRequest_ZIP,
 			path:     []byte("unknown-path"),
-			code:     codes.FailedPrecondition,
+			expErr:   status.Error(codes.FailedPrecondition, "path doesn't exist"),
 		},
 		{
 			desc:     "Non-existing path in repository on commit ID",
@@ -345,7 +352,7 @@ func TestGetArchive_inputValidation(t *testing.T) {
 			commitID: commitID,
 			format:   gitalypb.GetArchiveRequest_ZIP,
 			path:     []byte("files/"),
-			code:     codes.FailedPrecondition,
+			expErr:   status.Error(codes.FailedPrecondition, "path doesn't exist"),
 		},
 		{
 			desc:     "Non-existing exclude path in repository on commit ID",
@@ -354,7 +361,7 @@ func TestGetArchive_inputValidation(t *testing.T) {
 			commitID: commitID,
 			format:   gitalypb.GetArchiveRequest_ZIP,
 			exclude:  [][]byte{[]byte("files/")},
-			code:     codes.FailedPrecondition,
+			expErr:   status.Error(codes.FailedPrecondition, "exclude[0] doesn't exist"),
 		},
 		{
 			desc:     "path contains directory traversal outside repository root",
@@ -363,7 +370,7 @@ func TestGetArchive_inputValidation(t *testing.T) {
 			commitID: "1e292f8fedd741b75372e19097c76d327140c312",
 			format:   gitalypb.GetArchiveRequest_ZIP,
 			path:     []byte("../../foo"),
-			code:     codes.InvalidArgument,
+			expErr:   status.Error(codes.InvalidArgument, "relative path escapes root directory"),
 		},
 		{
 			desc:     "repo missing fields",
@@ -372,7 +379,10 @@ func TestGetArchive_inputValidation(t *testing.T) {
 			commitID: "sadf",
 			format:   gitalypb.GetArchiveRequest_TAR,
 			path:     []byte("Here is a string...."),
-			code:     codes.InvalidArgument,
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"GetPath: relative path missing",
+				"repo scoped: invalid Repository",
+			)),
 		},
 		{
 			desc:      "with path is file and path elision",
@@ -381,7 +391,8 @@ func TestGetArchive_inputValidation(t *testing.T) {
 			prefix:    "my-prefix",
 			elidePath: true,
 			path:      []byte("files/html/500.html"),
-			code:      codes.Unknown,
+			exclude:   [][]byte{[]byte("files/html")},
+			expErr:    status.Error(codes.InvalidArgument, `invalid exclude: "files/html" is not a subdirectory of "files/html/500.html"`),
 		},
 	}
 
@@ -400,7 +411,7 @@ func TestGetArchive_inputValidation(t *testing.T) {
 			require.NoError(t, err)
 
 			_, err = consumeArchive(stream)
-			testhelper.RequireGrpcCode(t, err, tc.code)
+			testhelper.RequireGrpcError(t, tc.expErr, err)
 		})
 	}
 }

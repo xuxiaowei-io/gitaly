@@ -408,17 +408,23 @@ func TestGarbageCollectFailure(t *testing.T) {
 	}{
 		{
 			repo: nil,
-			err:  status.Error(codes.InvalidArgument, gitalyOrPraefect("empty Repository", "repo scoped: empty Repository")),
+			err: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 		{
 			repo: &gitalypb.Repository{StorageName: "foo"},
-			err:  status.Error(codes.InvalidArgument, gitalyOrPraefect(`GetStorageByName: no such storage: "foo"`, "repo scoped: invalid Repository")),
+			err: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				`GetStorageByName: no such storage: "foo"`,
+				"repo scoped: invalid Repository",
+			)),
 		},
 		{
 			repo: &gitalypb.Repository{StorageName: repo.StorageName, RelativePath: "bar"},
 			err: status.Error(
 				codes.NotFound,
-				gitalyOrPraefect(
+				testhelper.GitalyOrPraefect(
 					fmt.Sprintf(`GetRepoPath: not a git repository: "%s/bar"`, storagePath),
 					`routing repository maintenance: getting repository metadata: repository not found`,
 				),

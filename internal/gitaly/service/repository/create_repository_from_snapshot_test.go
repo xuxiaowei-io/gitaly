@@ -20,6 +20,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 var (
@@ -269,4 +270,34 @@ func TestCreateRepositoryFromSnapshot_malformedResponse(t *testing.T) {
 
 	// Ensure that a partial result is not left in place
 	require.NoFileExists(t, repoPath)
+}
+
+func TestServer_CreateRepositoryFromSnapshot_validate(t *testing.T) {
+	t.Parallel()
+	ctx := testhelper.Context(t)
+
+	_, _, _, client := setupRepositoryService(t, ctx)
+
+	testCases := []struct {
+		desc   string
+		req    *gitalypb.CreateRepositoryFromSnapshotRequest
+		expErr error
+	}{
+		{
+			desc: "no repository provided",
+			req:  &gitalypb.CreateRepositoryFromSnapshotRequest{Repository: nil},
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			_, err := client.CreateRepositoryFromSnapshot(ctx, tc.req)
+			require.Error(t, err)
+			testhelper.RequireGrpcError(t, tc.expErr, err)
+		})
+	}
 }

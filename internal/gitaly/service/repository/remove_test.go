@@ -13,6 +13,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestRemoveRepository(t *testing.T) {
@@ -49,6 +51,17 @@ func TestRemoveRepository_doesNotExist(t *testing.T) {
 		Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "/does/not/exist"},
 	})
 	testhelper.RequireGrpcError(t, helper.ErrNotFoundf("repository does not exist"), err)
+}
+
+func TestRemoveRepository_validate(t *testing.T) {
+	t.Parallel()
+	ctx := testhelper.Context(t)
+	_, client := setupRepositoryServiceWithoutRepo(t)
+	_, err := client.RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{Repository: nil})
+	testhelper.RequireGrpcError(t, status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+		"empty Repository",
+		"missing repository",
+	)), err)
 }
 
 func TestRemoveRepository_locking(t *testing.T) {

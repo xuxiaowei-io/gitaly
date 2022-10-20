@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestSuccessfulCalculateChecksum(t *testing.T) {
@@ -79,17 +80,23 @@ func TestFailedCalculateChecksum(t *testing.T) {
 	testCases := []struct {
 		desc    string
 		request *gitalypb.CalculateChecksumRequest
-		code    codes.Code
+		expErr  error
 	}{
 		{
 			desc:    "Invalid repository",
 			request: &gitalypb.CalculateChecksumRequest{Repository: invalidRepo},
-			code:    codes.InvalidArgument,
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				`GetStorageByName: no such storage: "fake"`,
+				"repo scoped: invalid Repository",
+			)),
 		},
 		{
 			desc:    "Repository is nil",
 			request: &gitalypb.CalculateChecksumRequest{},
-			code:    codes.InvalidArgument,
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 	}
 
@@ -97,7 +104,7 @@ func TestFailedCalculateChecksum(t *testing.T) {
 		testCtx := testhelper.Context(t)
 
 		_, err := client.CalculateChecksum(testCtx, testCase.request)
-		testhelper.RequireGrpcCode(t, err, testCase.code)
+		testhelper.RequireGrpcError(t, testCase.expErr, err)
 	}
 }
 

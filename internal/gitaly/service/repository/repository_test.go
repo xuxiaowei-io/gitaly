@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestRepositoryExists(t *testing.T) {
@@ -162,28 +163,32 @@ func TestFailedHasLocalBranches(t *testing.T) {
 	testCases := []struct {
 		desc       string
 		repository *gitalypb.Repository
-		errorCode  codes.Code
+		expErr     error
 	}{
 		{
 			desc:       "repository nil",
 			repository: nil,
-			errorCode:  codes.InvalidArgument,
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 		{
 			desc:       "repository doesn't exist",
 			repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"},
-			errorCode:  codes.InvalidArgument,
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				`GetStorageByName: no such storage: "fake"`,
+				"repo scoped: invalid Repository",
+			)),
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			ctx := testhelper.Context(t)
-
 			request := &gitalypb.HasLocalBranchesRequest{Repository: tc.repository}
 			_, err := client.HasLocalBranches(ctx, request)
-
-			require.Equal(t, tc.errorCode, helper.GrpcCode(err))
+			testhelper.RequireGrpcError(t, tc.expErr, err)
 		})
 	}
 }

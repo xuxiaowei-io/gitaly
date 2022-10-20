@@ -54,7 +54,7 @@ func (s *server) RepackFull(ctx context.Context, in *gitalypb.RepackFullRequest)
 
 func (s *server) RepackIncremental(ctx context.Context, in *gitalypb.RepackIncrementalRequest) (*gitalypb.RepackIncrementalResponse, error) {
 	if in.GetRepository() == nil {
-		return nil, helper.ErrInvalidArgumentf("empty repository")
+		return nil, helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
 	}
 
 	repo := s.localrepo(in.GetRepository())

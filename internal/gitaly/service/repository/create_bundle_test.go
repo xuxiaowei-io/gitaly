@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestSuccessfulCreateBundleRequest(t *testing.T) {
@@ -69,12 +70,15 @@ func TestFailedCreateBundleRequestDueToValidations(t *testing.T) {
 	testCases := []struct {
 		desc    string
 		request *gitalypb.CreateBundleRequest
-		code    codes.Code
+		expErr  error
 	}{
 		{
 			desc:    "empty repository",
 			request: &gitalypb.CreateBundleRequest{},
-			code:    codes.InvalidArgument,
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"CreateBundle: empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 	}
 
@@ -87,7 +91,7 @@ func TestFailedCreateBundleRequestDueToValidations(t *testing.T) {
 
 			_, err = stream.Recv()
 			require.NotEqual(t, io.EOF, err)
-			testhelper.RequireGrpcCode(t, err, testCase.code)
+			testhelper.RequireGrpcError(t, testCase.expErr, err)
 		})
 	}
 }

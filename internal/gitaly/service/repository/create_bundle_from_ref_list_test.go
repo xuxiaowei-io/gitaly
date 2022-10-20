@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestCreateBundleFromRefList_success(t *testing.T) {
@@ -114,18 +115,19 @@ func TestCreateBundleFromRefList_validations(t *testing.T) {
 	_, repo, _, client := setupRepositoryService(t, ctx)
 
 	testCases := []struct {
-		desc         string
-		request      *gitalypb.CreateBundleFromRefListRequest
-		expectedErr  string
-		expectedCode codes.Code
+		desc    string
+		request *gitalypb.CreateBundleFromRefListRequest
+		expErr  error
 	}{
 		{
 			desc: "empty repository",
 			request: &gitalypb.CreateBundleFromRefListRequest{
 				Patterns: [][]byte{[]byte("master")},
 			},
-			expectedErr:  "empty Repository",
-			expectedCode: codes.InvalidArgument,
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 		{
 			desc: "empty bundle",
@@ -133,8 +135,7 @@ func TestCreateBundleFromRefList_validations(t *testing.T) {
 				Repository: repo,
 				Patterns:   [][]byte{[]byte("master"), []byte("^master")},
 			},
-			expectedErr:  "cmd wait failed: refusing to create empty bundle",
-			expectedCode: codes.FailedPrecondition,
+			expErr: status.Error(codes.FailedPrecondition, "cmd wait failed: refusing to create empty bundle"),
 		},
 	}
 
@@ -145,16 +146,9 @@ func TestCreateBundleFromRefList_validations(t *testing.T) {
 
 			require.NoError(t, stream.Send(testCase.request))
 			require.NoError(t, stream.CloseSend())
-
-			for {
-				_, err = stream.Recv()
-				if err != nil {
-					break
-				}
+			for _, err = stream.Recv(); err == nil; _, err = stream.Recv() {
 			}
-			require.Error(t, err)
-			require.Contains(t, err.Error(), testCase.expectedErr)
-			testhelper.RequireGrpcCode(t, err, testCase.expectedCode)
+			testhelper.RequireGrpcError(t, testCase.expErr, err)
 		})
 	}
 }

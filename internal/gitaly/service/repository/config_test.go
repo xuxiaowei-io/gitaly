@@ -75,4 +75,11 @@ func TestGetConfig(t *testing.T) {
 		testhelper.RequireGrpcError(t, status.Errorf(codes.NotFound, "opening gitconfig: open %s: no such file or directory", configPath), err)
 		require.Equal(t, "", config)
 	})
+
+	t.Run("no repository provided", func(t *testing.T) {
+		_, err := getConfig(t, client, nil)
+		msg := testhelper.GitalyOrPraefect("empty Repository", "repo scoped: empty Repository")
+		expErr := status.Errorf(codes.InvalidArgument, msg)
+		testhelper.RequireGrpcError(t, expErr, err)
+	})
 }

@@ -5,7 +5,9 @@ import (
 	"io"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 	"google.golang.org/grpc/codes"
@@ -19,7 +21,7 @@ func (s *server) CreateBundleFromRefList(stream gitalypb.RepositoryService_Creat
 	}
 
 	if firstRequest.GetRepository() == nil {
-		return status.Errorf(codes.InvalidArgument, "empty Repository")
+		return helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
 	}
 
 	ctx := stream.Context()

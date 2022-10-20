@@ -23,6 +23,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -212,20 +213,23 @@ func testFailedRepositorySizeRequest(t *testing.T, ctx context.Context) {
 	testCases := []struct {
 		description string
 		repo        *gitalypb.Repository
+		expErr      error
 	}{
 		{
-			description: "Invalid repo",
-			repo:        &gitalypb.Repository{StorageName: "fake", RelativePath: "path"},
+			description: "no repository provided",
+			repo:        nil,
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.description, func(t *testing.T) {
-			request := &gitalypb.RepositorySizeRequest{
-				Repository: testCase.repo,
-			}
+			request := &gitalypb.RepositorySizeRequest{Repository: testCase.repo}
 			_, err := client.RepositorySize(ctx, request)
-			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
+			testhelper.RequireGrpcError(t, testCase.expErr, err)
 		})
 	}
 }

@@ -9,6 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestSuccessfulFindFindMergeBaseRequest(t *testing.T) {
@@ -82,17 +83,31 @@ func TestSuccessfulFindFindMergeBaseRequest(t *testing.T) {
 
 func TestFailedFindMergeBaseRequestDueToValidations(t *testing.T) {
 	t.Parallel()
-
 	ctx := testhelper.Context(t)
 	_, repo, _, client := setupRepositoryService(t, ctx)
-
-	request := &gitalypb.FindMergeBaseRequest{
-		Repository: repo,
-		Revisions: [][]byte{
-			[]byte("372ab6950519549b14d220271ee2322caa44d4eb"),
+	for _, tc := range []struct {
+		desc   string
+		req    *gitalypb.FindMergeBaseRequest
+		expErr error
+	}{
+		{
+			desc: "no repository provided",
+			req:  &gitalypb.FindMergeBaseRequest{Repository: nil},
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
+		{
+			desc: "no enough revisions",
+			req: &gitalypb.FindMergeBaseRequest{
+				Repository: repo,
+				Revisions:  [][]byte{[]byte("372ab6950519549b14d220271ee2322caa44d4eb")},
+			},
+			expErr: status.Error(codes.InvalidArgument, "FindMergeBase: at least 2 revisions are required"),
+		},
+	} {
+		_, err := client.FindMergeBase(ctx, tc.req)
+		testhelper.RequireGrpcError(t, tc.expErr, err)
 	}
-
-	_, err := client.FindMergeBase(ctx, request)
-	testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 }

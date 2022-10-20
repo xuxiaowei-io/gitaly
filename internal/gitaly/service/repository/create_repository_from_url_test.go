@@ -19,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestCreateRepositoryFromURL_successful(t *testing.T) {
@@ -308,6 +309,40 @@ func TestServer_CloneFromURLCommand_withMirror(t *testing.T) {
 	require.Contains(t, args, "--mirror")
 	require.NotContains(t, args, "--bare")
 	require.Error(t, cmd.Wait())
+}
+
+func TestServer_CloneFromURLCommand_validate(t *testing.T) {
+	t.Parallel()
+	ctx := testhelper.Context(t)
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
+
+	testCases := []struct {
+		desc   string
+		req    *gitalypb.CreateRepositoryFromURLRequest
+		expErr error
+	}{
+		{
+			desc: "no repository provided",
+			req:  &gitalypb.CreateRepositoryFromURLRequest{Repository: nil},
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"CreateRepositoryFromURL: empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
+		{
+			desc:   "no URL provided",
+			req:    &gitalypb.CreateRepositoryFromURLRequest{Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "new"}, Url: ""},
+			expErr: status.Error(codes.InvalidArgument, "CreateRepositoryFromURL: empty Url"),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			_, err := client.CreateRepositoryFromURL(ctx, tc.req)
+			require.Error(t, err)
+			testhelper.RequireGrpcError(t, tc.expErr, err)
+		})
+	}
 }
 
 func gitServerWithBasicAuth(tb testing.TB, ctx context.Context, gitCmdFactory git.CommandFactory, user, pass, repoPath string) (int, func() error) {

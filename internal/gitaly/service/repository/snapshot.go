@@ -8,6 +8,7 @@ import (
 	"regexp"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/archive"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
@@ -21,6 +22,10 @@ var objectFiles = []*regexp.Regexp{
 }
 
 func (s *server) GetSnapshot(in *gitalypb.GetSnapshotRequest, stream gitalypb.RepositoryService_GetSnapshotServer) error {
+	if in.GetRepository() == nil {
+		return helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
+	}
+
 	path, err := s.locator.GetRepoPath(in.Repository)
 	if err != nil {
 		return err

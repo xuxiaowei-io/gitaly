@@ -9,6 +9,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
@@ -33,7 +34,7 @@ func (s *server) RestoreCustomHooks(stream gitalypb.RepositoryService_RestoreCus
 
 	repo := firstRequest.GetRepository()
 	if repo == nil {
-		return status.Errorf(codes.InvalidArgument, "RestoreCustomHooks: empty Repository")
+		return helper.ErrInvalidArgumentf("RestoreCustomHooks: %w", gitalyerrors.ErrEmptyRepository)
 	}
 
 	reader := streamio.NewReader(func() ([]byte, error) {
@@ -83,7 +84,7 @@ func (s *server) restoreCustomHooksWithVoting(stream gitalypb.RepositoryService_
 
 	repo := firstRequest.GetRepository()
 	if repo == nil {
-		return helper.ErrInvalidArgumentf("RestoreCustomHooks: empty Repository")
+		return helper.ErrInvalidArgumentf("RestoreCustomHooks: %w", gitalyerrors.ErrEmptyRepository)
 	}
 
 	v := voting.NewVoteHash()

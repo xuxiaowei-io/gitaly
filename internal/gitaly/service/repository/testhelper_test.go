@@ -193,10 +193,3 @@ func setupRepositoryServiceWithoutRepo(tb testing.TB, opts ...testserver.GitalyS
 
 	return cfg, client
 }
-
-func gitalyOrPraefect(gitalyMsg, praefectMsg string) string {
-	if testhelper.IsPraefectEnabled() {
-		return praefectMsg
-	}
-	return gitalyMsg
-}

@@ -32,7 +32,7 @@ func TestPruneUnreachableObjects(t *testing.T) {
 		if testhelper.IsPraefectEnabled() {
 			testhelper.RequireGrpcError(t, helper.ErrInvalidArgumentf("repo scoped: empty Repository"), err)
 		} else {
-			testhelper.RequireGrpcError(t, helper.ErrInvalidArgumentf("missing repository"), err)
+			testhelper.RequireGrpcError(t, helper.ErrInvalidArgumentf("empty Repository"), err)
 		}
 	})
 
