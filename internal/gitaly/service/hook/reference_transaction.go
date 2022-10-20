@@ -3,6 +3,7 @@ package hook
 import (
 	"errors"
 
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
@@ -14,7 +15,7 @@ import (
 
 func validateReferenceTransactionHookRequest(in *gitalypb.ReferenceTransactionHookRequest) error {
 	if in.GetRepository() == nil {
-		return errors.New("repository is empty")
+		return gitalyerrors.ErrEmptyRepository
 	}
 
 	return nil

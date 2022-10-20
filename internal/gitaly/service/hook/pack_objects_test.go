@@ -31,6 +31,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func runTestsWithRuntimeDir(t *testing.T, testFunc func(*testing.T, context.Context, string)) func(*testing.T, context.Context) {
@@ -502,20 +503,24 @@ func TestServer_PackObjectsHookWithSidechannel_invalidArgument(t *testing.T) {
 	})
 
 	testCases := []struct {
-		desc string
-		req  *gitalypb.PackObjectsHookWithSidechannelRequest
+		desc        string
+		req         *gitalypb.PackObjectsHookWithSidechannelRequest
+		expectedErr error
 	}{
 		{
-			desc: "empty",
-			req:  &gitalypb.PackObjectsHookWithSidechannelRequest{},
+			desc:        "empty",
+			req:         &gitalypb.PackObjectsHookWithSidechannelRequest{},
+			expectedErr: status.Error(codes.InvalidArgument, "empty Repository"),
 		},
 		{
-			desc: "repo, no args",
-			req:  &gitalypb.PackObjectsHookWithSidechannelRequest{Repository: repo},
+			desc:        "repo, no args",
+			req:         &gitalypb.PackObjectsHookWithSidechannelRequest{Repository: repo},
+			expectedErr: status.Error(codes.InvalidArgument, "invalid pack-objects command: []: missing pack-objects"),
 		},
 		{
-			desc: "repo, bad args",
-			req:  &gitalypb.PackObjectsHookWithSidechannelRequest{Repository: repo, Args: []string{"rm", "-rf"}},
+			desc:        "repo, bad args",
+			req:         &gitalypb.PackObjectsHookWithSidechannelRequest{Repository: repo, Args: []string{"rm", "-rf"}},
+			expectedErr: status.Error(codes.InvalidArgument, "invalid pack-objects command: [rm -rf]: missing pack-objects"),
 		},
 	}
 
@@ -525,7 +530,7 @@ func TestServer_PackObjectsHookWithSidechannel_invalidArgument(t *testing.T) {
 			defer conn.Close()
 
 			_, err := client.PackObjectsHookWithSidechannel(ctx, tc.req)
-			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
 	}
 }
