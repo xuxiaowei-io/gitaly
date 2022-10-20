@@ -457,7 +457,7 @@ func TestUploadPack_validation(t *testing.T) {
 				if testhelper.IsPraefectEnabled() {
 					return helper.ErrInvalidArgumentf("repo scoped: empty Repository")
 				}
-				return helper.ErrInvalidArgumentf("GetStorageByName: no such storage: \"\"")
+				return helper.ErrInvalidArgumentf("empty Repository")
 			}(),
 		},
 		{
