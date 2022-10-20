@@ -6,6 +6,7 @@ import (
 	"io"
 	"strings"
 
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gitpipe"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
@@ -16,7 +17,7 @@ import (
 
 func verifyGetTagSignaturesRequest(req *gitalypb.GetTagSignaturesRequest) error {
 	if req.GetRepository() == nil {
-		return errors.New("empty repository")
+		return gitalyerrors.ErrEmptyRepository
 	}
 
 	if len(req.GetTagRevisions()) == 0 {

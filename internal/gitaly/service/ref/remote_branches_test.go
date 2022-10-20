@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestSuccessfulFindAllRemoteBranchesRequest(t *testing.T) {
@@ -81,6 +82,7 @@ func TestInvalidFindAllRemoteBranchesRequest(t *testing.T) {
 	testCases := []struct {
 		description string
 		request     *gitalypb.FindAllRemoteBranchesRequest
+		expErr      error
 	}{
 		{
 			description: "Invalid repo",
@@ -89,15 +91,25 @@ func TestInvalidFindAllRemoteBranchesRequest(t *testing.T) {
 					StorageName:  "fake",
 					RelativePath: "repo",
 				},
+				RemoteName: "stub",
 			},
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				`GetStorageByName: no such storage: "fake"`,
+				"repo scoped: invalid Repository",
+			)),
 		},
 		{
 			description: "Empty repo",
 			request:     &gitalypb.FindAllRemoteBranchesRequest{RemoteName: "myRemote"},
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 		{
 			description: "Empty remote name",
 			request:     &gitalypb.FindAllRemoteBranchesRequest{Repository: repo},
+			expErr:      status.Error(codes.InvalidArgument, "empty RemoteName"),
 		},
 	}
 
@@ -105,13 +117,8 @@ func TestInvalidFindAllRemoteBranchesRequest(t *testing.T) {
 		t.Run(tc.description, func(t *testing.T) {
 			c, err := client.FindAllRemoteBranches(ctx, tc.request)
 			require.NoError(t, err)
-
-			var recvError error
-			for recvError == nil {
-				_, recvError = c.Recv()
-			}
-
-			testhelper.RequireGrpcCode(t, recvError, codes.InvalidArgument)
+			_, recvError := c.Recv()
+			testhelper.RequireGrpcError(t, tc.expErr, recvError)
 		})
 	}
 }

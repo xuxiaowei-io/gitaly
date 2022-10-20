@@ -26,6 +26,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestDeleteRefs_successful(t *testing.T) {
@@ -275,17 +276,26 @@ func TestDeleteRefs_validation(t *testing.T) {
 	testCases := []struct {
 		desc    string
 		request *gitalypb.DeleteRefsRequest
-		// repo     *gitalypb.Repository
-		// prefixes [][]byte
-		code codes.Code
+		expErr  error
 	}{
+		{
+			desc:    "no repository provided",
+			request: &gitalypb.DeleteRefsRequest{Repository: nil},
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"DeleteRefs: empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
 		{
 			desc: "Invalid repository",
 			request: &gitalypb.DeleteRefsRequest{
 				Repository:       &gitalypb.Repository{StorageName: "fake", RelativePath: "path"},
 				ExceptWithPrefix: [][]byte{[]byte("exclude-this")},
 			},
-			code: codes.InvalidArgument,
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				`GetStorageByName: no such storage: "fake"`,
+				"repo scoped: invalid Repository",
+			)),
 		},
 		{
 			desc: "Repository is nil",
@@ -293,14 +303,17 @@ func TestDeleteRefs_validation(t *testing.T) {
 				Repository:       nil,
 				ExceptWithPrefix: [][]byte{[]byte("exclude-this")},
 			},
-			code: codes.InvalidArgument,
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"DeleteRefs: empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 		{
 			desc: "No prefixes nor refs",
 			request: &gitalypb.DeleteRefsRequest{
 				Repository: repo,
 			},
-			code: codes.InvalidArgument,
+			expErr: status.Error(codes.InvalidArgument, "DeleteRefs: empty ExceptWithPrefix and Refs"),
 		},
 		{
 			desc: "prefixes with refs",
@@ -309,7 +322,7 @@ func TestDeleteRefs_validation(t *testing.T) {
 				ExceptWithPrefix: [][]byte{[]byte("exclude-this")},
 				Refs:             [][]byte{[]byte("delete-this")},
 			},
-			code: codes.InvalidArgument,
+			expErr: status.Error(codes.InvalidArgument, "DeleteRefs: ExceptWithPrefix and Refs are mutually exclusive"),
 		},
 		{
 			desc: "Empty prefix",
@@ -317,7 +330,7 @@ func TestDeleteRefs_validation(t *testing.T) {
 				Repository:       repo,
 				ExceptWithPrefix: [][]byte{[]byte("exclude-this"), {}},
 			},
-			code: codes.InvalidArgument,
+			expErr: status.Error(codes.InvalidArgument, "DeleteRefs: empty prefix for exclusion"),
 		},
 		{
 			desc: "Empty ref",
@@ -325,14 +338,14 @@ func TestDeleteRefs_validation(t *testing.T) {
 				Repository: repo,
 				Refs:       [][]byte{[]byte("delete-this"), {}},
 			},
-			code: codes.InvalidArgument,
+			expErr: status.Error(codes.InvalidArgument, "DeleteRefs: empty ref"),
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			_, err := client.DeleteRefs(ctx, tc.request)
-			testhelper.RequireGrpcCode(t, err, tc.code)
+			testhelper.RequireGrpcError(t, tc.expErr, err)
 		})
 	}
 }

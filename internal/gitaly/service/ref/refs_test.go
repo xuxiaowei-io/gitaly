@@ -19,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -122,22 +123,45 @@ func TestEmptyFindAllBranchNamesRequest(t *testing.T) {
 	}
 }
 
-func TestInvalidRepoFindAllBranchNamesRequest(t *testing.T) {
-	_, client := setupRefServiceWithoutRepo(t)
-
-	repo := &gitalypb.Repository{StorageName: "default", RelativePath: "made/up/path"}
-	rpcRequest := &gitalypb.FindAllBranchNamesRequest{Repository: repo}
+func TestFindAllBranchNames_validate(t *testing.T) {
 	ctx := testhelper.Context(t)
-	c, err := client.FindAllBranchNames(ctx, rpcRequest)
-	require.NoError(t, err)
-
-	var recvError error
-	for recvError == nil {
-		_, recvError = c.Recv()
-	}
-
-	if helper.GrpcCode(recvError) != codes.NotFound {
-		t.Fatal(recvError)
+	cfg, repo, _, client := setupRefService(t, ctx)
+	for _, tc := range []struct {
+		desc   string
+		repo   *gitalypb.Repository
+		expErr error
+	}{
+		{
+			desc: "repository not provided",
+			repo: nil,
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
+		{
+			desc: "repository doesn't exist on disk",
+			repo: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "made/up/path"},
+			expErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefect(
+				`GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/made/up/path"`,
+				`accessor call: route repository accessor: consistent storages: repository "default"/"made/up/path" not found`,
+			)),
+		},
+		{
+			desc: "unknown storage",
+			repo: &gitalypb.Repository{StorageName: "invalid", RelativePath: repo.GetRelativePath()},
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				`GetStorageByName: no such storage: "invalid"`,
+				"repo scoped: invalid Repository",
+			)),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			c, err := client.FindAllBranchNames(ctx, &gitalypb.FindAllBranchNamesRequest{Repository: tc.repo})
+			require.NoError(t, err)
+			_, err = c.Recv()
+			testhelper.RequireGrpcError(t, tc.expErr, err)
+		})
 	}
 }
 
@@ -166,40 +190,45 @@ func TestSuccessfulFindAllTagNames(t *testing.T) {
 	}
 }
 
-func TestEmptyFindAllTagNamesRequest(t *testing.T) {
-	_, client := setupRefServiceWithoutRepo(t)
-
-	rpcRequest := &gitalypb.FindAllTagNamesRequest{}
+func TestFindAllTagNames_validate(t *testing.T) {
 	ctx := testhelper.Context(t)
-	c, err := client.FindAllTagNames(ctx, rpcRequest)
-	require.NoError(t, err)
-
-	var recvError error
-	for recvError == nil {
-		_, recvError = c.Recv()
-	}
-
-	if helper.GrpcCode(recvError) != codes.InvalidArgument {
-		t.Fatal(recvError)
-	}
-}
-
-func TestInvalidRepoFindAllTagNamesRequest(t *testing.T) {
-	_, client := setupRefServiceWithoutRepo(t)
-
-	repo := &gitalypb.Repository{StorageName: "default", RelativePath: "made/up/path"}
-	rpcRequest := &gitalypb.FindAllTagNamesRequest{Repository: repo}
-	ctx := testhelper.Context(t)
-	c, err := client.FindAllTagNames(ctx, rpcRequest)
-	require.NoError(t, err)
-
-	var recvError error
-	for recvError == nil {
-		_, recvError = c.Recv()
-	}
-
-	if helper.GrpcCode(recvError) != codes.NotFound {
-		t.Fatal(recvError)
+	cfg, repo, _, client := setupRefService(t, ctx)
+	for _, tc := range []struct {
+		desc   string
+		repo   *gitalypb.Repository
+		expErr error
+	}{
+		{
+			desc: "repository not provided",
+			repo: nil,
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
+		{
+			desc: "repository doesn't exist on disk",
+			repo: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "made/up/path"},
+			expErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefect(
+				`GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/made/up/path"`,
+				`accessor call: route repository accessor: consistent storages: repository "default"/"made/up/path" not found`,
+			)),
+		},
+		{
+			desc: "unknown storage",
+			repo: &gitalypb.Repository{StorageName: "invalid", RelativePath: repo.GetRelativePath()},
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				`GetStorageByName: no such storage: "invalid"`,
+				"repo scoped: invalid Repository",
+			)),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			c, err := client.FindAllTagNames(ctx, &gitalypb.FindAllTagNamesRequest{Repository: tc.repo})
+			require.NoError(t, err)
+			_, err = c.Recv()
+			testhelper.RequireGrpcError(t, tc.expErr, err)
+		})
 	}
 }
 
@@ -239,15 +268,43 @@ func TestEmptyFindDefaultBranchNameRequest(t *testing.T) {
 	}
 }
 
-func TestInvalidRepoFindDefaultBranchNameRequest(t *testing.T) {
-	cfg, client := setupRefServiceWithoutRepo(t)
-	repo := &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "/made/up/path"}
-	rpcRequest := &gitalypb.FindDefaultBranchNameRequest{Repository: repo}
+func TestFindDefaultBranchName_validate(t *testing.T) {
 	ctx := testhelper.Context(t)
-	_, err := client.FindDefaultBranchName(ctx, rpcRequest)
-
-	if helper.GrpcCode(err) != codes.NotFound {
-		t.Fatal(err)
+	cfg, repo, _, client := setupRefService(t, ctx)
+	for _, tc := range []struct {
+		desc   string
+		repo   *gitalypb.Repository
+		expErr error
+	}{
+		{
+			desc: "repository not provided",
+			repo: nil,
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
+		{
+			desc: "repository doesn't exist on disk",
+			repo: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "made/up/path"},
+			expErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefect(
+				`GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/made/up/path"`,
+				`accessor call: route repository accessor: consistent storages: repository "default"/"made/up/path" not found`,
+			)),
+		},
+		{
+			desc: "unknown storage",
+			repo: &gitalypb.Repository{StorageName: "invalid", RelativePath: repo.GetRelativePath()},
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				`GetStorageByName: no such storage: "invalid"`,
+				"repo scoped: invalid Repository",
+			)),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			_, err := client.FindDefaultBranchName(ctx, &gitalypb.FindDefaultBranchNameRequest{Repository: tc.repo})
+			testhelper.RequireGrpcError(t, tc.expErr, err)
+		})
 	}
 }
 
@@ -492,28 +549,48 @@ func TestFindLocalBranchesSort(t *testing.T) {
 	}
 }
 
-func TestEmptyFindLocalBranchesRequest(t *testing.T) {
+func TestFindLocalBranches_validate(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	_, client := setupRefServiceWithoutRepo(t)
-
-	rpcRequest := &gitalypb.FindLocalBranchesRequest{}
-	c, err := client.FindLocalBranches(ctx, rpcRequest)
-	require.NoError(t, err)
-
-	var recvError error
-	for recvError == nil {
-		_, recvError = c.Recv()
+	cfg, repo, _, client := setupRefService(t, ctx)
+	for _, tc := range []struct {
+		desc   string
+		repo   *gitalypb.Repository
+		expErr error
+	}{
+		{
+			desc: "repository not provided",
+			repo: nil,
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
+		{
+			desc: "repository doesn't exist on disk",
+			repo: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "made/up/path"},
+			expErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefect(
+				`GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/made/up/path"`,
+				`accessor call: route repository accessor: consistent storages: repository "default"/"made/up/path" not found`,
+			)),
+		},
+		{
+			desc: "unknown storage",
+			repo: &gitalypb.Repository{StorageName: "invalid", RelativePath: repo.GetRelativePath()},
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				`GetStorageByName: no such storage: "invalid"`,
+				"repo scoped: invalid Repository",
+			)),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			stream, err := client.FindLocalBranches(ctx, &gitalypb.FindLocalBranchesRequest{Repository: tc.repo})
+			require.NoError(t, err)
+			_, err = stream.Recv()
+			testhelper.RequireGrpcError(t, tc.expErr, err)
+		})
 	}
-
-	testhelper.RequireGrpcError(t,
-		helper.ErrInvalidArgumentf(gitalyOrPraefect(
-			"GetStorageByName: no such storage: \"\"",
-			"repo scoped: empty Repository",
-		)),
-		recvError,
-	)
 }
 
 func TestSuccessfulFindAllBranchesRequest(t *testing.T) {
@@ -663,8 +740,8 @@ func TestInvalidFindAllBranchesRequest(t *testing.T) {
 		{
 			description: "Empty request",
 			request:     &gitalypb.FindAllBranchesRequest{},
-			expectedErr: helper.ErrInvalidArgumentf(gitalyOrPraefect(
-				"GetStorageByName: no such storage: \"\"",
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
 		},
@@ -676,7 +753,7 @@ func TestInvalidFindAllBranchesRequest(t *testing.T) {
 					RelativePath: "repo",
 				},
 			},
-			expectedErr: helper.ErrInvalidArgumentf(gitalyOrPraefect(
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
 				"GetStorageByName: no such storage: \"fake\"",
 				"repo scoped: invalid Repository",
 			)),
@@ -779,6 +856,39 @@ func TestListTagNamesContainingCommit(t *testing.T) {
 	}
 }
 
+func TestListTagNamesContainingCommit_validate(t *testing.T) {
+	t.Parallel()
+	ctx := testhelper.Context(t)
+	_, repoProto, _, client := setupRefService(t, ctx)
+
+	for _, tc := range []struct {
+		desc   string
+		req    *gitalypb.ListTagNamesContainingCommitRequest
+		expErr error
+	}{
+		{
+			desc: "repository not provided",
+			req:  &gitalypb.ListTagNamesContainingCommitRequest{Repository: nil},
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
+		{
+			desc:   "bad commit provided",
+			req:    &gitalypb.ListTagNamesContainingCommitRequest{Repository: repoProto, CommitId: "invalid"},
+			expErr: status.Error(codes.InvalidArgument, `invalid object ID: "invalid"`),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			stream, err := client.ListTagNamesContainingCommit(ctx, tc.req)
+			require.NoError(t, err)
+			_, err = stream.Recv()
+			testhelper.RequireGrpcError(t, tc.expErr, err)
+		})
+	}
+}
+
 func TestListBranchNamesContainingCommit(t *testing.T) {
 	ctx := testhelper.Context(t)
 	_, repo, _, client := setupRefService(t, ctx)
@@ -860,6 +970,39 @@ func TestListBranchNamesContainingCommit(t *testing.T) {
 			// Test for inclusion instead of equality because new refs
 			// will get added to the gitlab-test repo over time.
 			require.Subset(t, names, tc.branches)
+		})
+	}
+}
+
+func TestListBranchNamesContainingCommit_validate(t *testing.T) {
+	t.Parallel()
+	ctx := testhelper.Context(t)
+	_, repoProto, _, client := setupRefService(t, ctx)
+
+	for _, tc := range []struct {
+		desc   string
+		req    *gitalypb.ListBranchNamesContainingCommitRequest
+		expErr error
+	}{
+		{
+			desc: "repository not provided",
+			req:  &gitalypb.ListBranchNamesContainingCommitRequest{Repository: nil},
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
+		{
+			desc:   "bad commit provided",
+			req:    &gitalypb.ListBranchNamesContainingCommitRequest{Repository: repoProto, CommitId: "invalid"},
+			expErr: status.Error(codes.InvalidArgument, `invalid object ID: "invalid"`),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			stream, err := client.ListBranchNamesContainingCommit(ctx, tc.req)
+			require.NoError(t, err)
+			_, err = stream.Recv()
+			testhelper.RequireGrpcError(t, tc.expErr, err)
 		})
 	}
 }

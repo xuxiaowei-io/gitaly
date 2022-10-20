@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
@@ -181,6 +182,10 @@ func hasAnyPrefix(s string, prefixes []string) bool {
 }
 
 func validateDeleteRefRequest(req *gitalypb.DeleteRefsRequest) error {
+	if req.GetRepository() == nil {
+		return gitalyerrors.ErrEmptyRepository
+	}
+
 	if len(req.ExceptWithPrefix) > 0 && len(req.Refs) > 0 {
 		return fmt.Errorf("ExceptWithPrefix and Refs are mutually exclusive")
 	}

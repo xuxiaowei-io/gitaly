@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
@@ -15,6 +16,9 @@ import (
 // ListBranchNamesContainingCommit returns a maximum of in.GetLimit() Branch names
 // which contain the SHA1 passed as argument
 func (s *server) ListBranchNamesContainingCommit(in *gitalypb.ListBranchNamesContainingCommitRequest, stream gitalypb.RefService_ListBranchNamesContainingCommitServer) error {
+	if in.GetRepository() == nil {
+		return helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
+	}
 	if err := git.ObjectHashSHA1.ValidateHex(in.GetCommitId()); err != nil {
 		return helper.ErrInvalidArgument(err)
 	}
@@ -58,6 +62,9 @@ func (bs *branchNamesContainingCommitSender) Send() error {
 // ListTagNamesContainingCommit returns a maximum of in.GetLimit() Tag names
 // which contain the SHA1 passed as argument
 func (s *server) ListTagNamesContainingCommit(in *gitalypb.ListTagNamesContainingCommitRequest, stream gitalypb.RefService_ListTagNamesContainingCommitServer) error {
+	if in.GetRepository() == nil {
+		return helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
+	}
 	if err := git.ObjectHashSHA1.ValidateHex(in.GetCommitId()); err != nil {
 		return helper.ErrInvalidArgument(err)
 	}

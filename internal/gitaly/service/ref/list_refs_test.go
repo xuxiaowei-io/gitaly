@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestServer_ListRefs(t *testing.T) {
@@ -198,6 +199,59 @@ func TestServer_ListRefs(t *testing.T) {
 			}
 
 			testhelper.ProtoEqual(t, tc.expected, refs)
+		})
+	}
+}
+
+func TestListRefs_validate(t *testing.T) {
+	t.Parallel()
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupRefService(t, ctx)
+	for _, tc := range []struct {
+		desc   string
+		req    *gitalypb.ListRefsRequest
+		expErr error
+	}{
+		{
+			desc: "repository not provided",
+			req:  &gitalypb.ListRefsRequest{Repository: nil},
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
+		{
+			desc:   "no Patterns",
+			req:    &gitalypb.ListRefsRequest{Repository: repo, Patterns: nil},
+			expErr: status.Error(codes.InvalidArgument, "patterns must have at least one entry"),
+		},
+		{
+			desc: "bad sort key",
+			req: &gitalypb.ListRefsRequest{
+				Repository: repo,
+				Patterns:   [][]byte{{}},
+				SortBy:     &gitalypb.ListRefsRequest_SortBy{Key: gitalypb.ListRefsRequest_SortBy_Key(-1)},
+			},
+			expErr: status.Error(codes.InvalidArgument, `sorting key "-1" is not supported`),
+		},
+		{
+			desc: "bad sort direction",
+			req: &gitalypb.ListRefsRequest{
+				Repository: repo,
+				Patterns:   [][]byte{{}},
+				SortBy: &gitalypb.ListRefsRequest_SortBy{
+					Key:       gitalypb.ListRefsRequest_SortBy_REFNAME,
+					Direction: gitalypb.SortDirection(-2),
+				},
+			},
+			expErr: status.Error(codes.InvalidArgument, "sorting direction is not supported"),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			stream, err := client.ListRefs(ctx, tc.req)
+			require.NoError(t, err)
+			_, err = stream.Recv()
+			testhelper.RequireGrpcError(t, tc.expErr, err)
 		})
 	}
 }
