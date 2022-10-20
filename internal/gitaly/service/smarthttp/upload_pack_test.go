@@ -30,6 +30,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -377,15 +378,31 @@ func testServerPostUploadPackWithSideChannelValidation(t *testing.T, ctx context
 	cfg := testcfg.Build(t, opts...)
 	serverSocketPath := runSmartHTTPServer(t, cfg)
 
-	rpcRequests := []*gitalypb.PostUploadPackRequest{
-		{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}}, // Repository doesn't exist
-		{Repository: nil}, // Repository is nil
-	}
-
-	for _, rpcRequest := range rpcRequests {
-		t.Run(fmt.Sprintf("%v", rpcRequest), func(t *testing.T) {
-			_, err := makeRequest(t, ctx, serverSocketPath, cfg.Auth.Token, rpcRequest, bytes.NewBuffer(nil))
-			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
+	for _, tc := range []struct {
+		desc        string
+		req         *gitalypb.PostUploadPackRequest
+		expectedErr error
+	}{
+		{
+			desc: "Repository doesn't exist",
+			req:  &gitalypb.PostUploadPackRequest{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}},
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				`GetStorageByName: no such storage: "fake"`,
+				"repo scoped: invalid Repository",
+			)),
+		},
+		{
+			desc: "Repository no provided",
+			req:  &gitalypb.PostUploadPackRequest{Repository: nil},
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			_, err := makeRequest(t, ctx, serverSocketPath, cfg.Auth.Token, tc.req, bytes.NewBuffer(nil))
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
 	}
 }

@@ -24,7 +24,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -32,6 +31,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -130,27 +130,40 @@ func TestInfoRefsUploadPack_internalRefs(t *testing.T) {
 	}
 }
 
-func TestInfoRefsUploadPack_repositoryDoesntExist(t *testing.T) {
+func TestInfoRefsUploadPack_validate(t *testing.T) {
 	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
-
 	serverSocketPath := runSmartHTTPServer(t, cfg)
 
-	rpcRequest := &gitalypb.InfoRefsRequest{Repository: &gitalypb.Repository{
-		StorageName:  cfg.Storages[0].Name,
-		RelativePath: "doesnt/exist",
-	}}
-	ctx := testhelper.Context(t)
-
-	_, err := makeInfoRefsUploadPackRequest(t, ctx, serverSocketPath, cfg.Auth.Token, rpcRequest)
-
-	expectedErr := helper.ErrNotFoundf(`GetRepoPath: not a git repository: "` + cfg.Storages[0].Path + `/doesnt/exist"`)
-	if testhelper.IsPraefectEnabled() {
-		expectedErr = helper.ErrNotFoundf(`accessor call: route repository accessor: consistent storages: repository "default"/"doesnt/exist" not found`)
+	for _, tc := range []struct {
+		desc        string
+		req         *gitalypb.InfoRefsRequest
+		expectedErr error
+	}{
+		{
+			desc: "repository not provided",
+			req:  &gitalypb.InfoRefsRequest{Repository: nil},
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
+		{
+			desc: "not existing repository",
+			req: &gitalypb.InfoRefsRequest{Repository: &gitalypb.Repository{
+				StorageName:  cfg.Storages[0].Name,
+				RelativePath: "doesnt/exist",
+			}},
+			expectedErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefect(
+				`GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/doesnt/exist"`,
+				`accessor call: route repository accessor: consistent storages: repository "default"/"doesnt/exist" not found`,
+			)),
+		},
+	} {
+		_, err := makeInfoRefsUploadPackRequest(t, ctx, serverSocketPath, cfg.Auth.Token, tc.req)
+		testhelper.RequireGrpcError(t, tc.expectedErr, err)
 	}
-
-	testhelper.RequireGrpcError(t, expectedErr, err)
 }
 
 func TestInfoRefsUploadPack_partialClone(t *testing.T) {
@@ -330,37 +343,40 @@ func TestInfoRefsReceivePack_hiddenRefs(t *testing.T) {
 	require.NotContains(t, string(response), commitID+" .have")
 }
 
-func TestInfoRefsReceivePack_repoNotFound(t *testing.T) {
+func TestInfoRefsReceivePack_validate(t *testing.T) {
 	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
-
 	serverSocketPath := runSmartHTTPServer(t, cfg)
 
-	repo := &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "testdata/scratch/another_repo"}
-	rpcRequest := &gitalypb.InfoRefsRequest{Repository: repo}
-	ctx := testhelper.Context(t)
-	_, err := makeInfoRefsReceivePackRequest(t, ctx, serverSocketPath, cfg.Auth.Token, rpcRequest)
-
-	expectedErr := helper.ErrNotFoundf(`GetRepoPath: not a git repository: "` + cfg.Storages[0].Path + "/" + repo.RelativePath + `"`)
-	if testhelper.IsPraefectEnabled() {
-		expectedErr = helper.ErrNotFoundf(`accessor call: route repository accessor: consistent storages: repository "default"/"testdata/scratch/another_repo" not found`)
+	for _, tc := range []struct {
+		desc        string
+		req         *gitalypb.InfoRefsRequest
+		expectedErr error
+	}{
+		{
+			desc: "repository not provided",
+			req:  &gitalypb.InfoRefsRequest{Repository: nil},
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
+		{
+			desc: "not existing repository",
+			req: &gitalypb.InfoRefsRequest{Repository: &gitalypb.Repository{
+				StorageName:  cfg.Storages[0].Name,
+				RelativePath: "testdata/scratch/another_repo",
+			}},
+			expectedErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefect(
+				`GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/testdata/scratch/another_repo"`,
+				`accessor call: route repository accessor: consistent storages: repository "default"/"testdata/scratch/another_repo" not found`,
+			)),
+		},
+	} {
+		_, err := makeInfoRefsReceivePackRequest(t, ctx, serverSocketPath, cfg.Auth.Token, tc.req)
+		testhelper.RequireGrpcError(t, tc.expectedErr, err)
 	}
-
-	testhelper.RequireGrpcError(t, expectedErr, err)
-}
-
-func TestInfoRefsReceivePack_repoNotSet(t *testing.T) {
-	t.Parallel()
-
-	cfg := testcfg.Build(t)
-
-	serverSocketPath := runSmartHTTPServer(t, cfg)
-
-	rpcRequest := &gitalypb.InfoRefsRequest{}
-	ctx := testhelper.Context(t)
-	_, err := makeInfoRefsReceivePackRequest(t, ctx, serverSocketPath, cfg.Auth.Token, rpcRequest)
-	testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 }
 
 func makeInfoRefsReceivePackRequest(t *testing.T, ctx context.Context, serverSocketPath, token string, rpcRequest *gitalypb.InfoRefsRequest) ([]byte, error) {
