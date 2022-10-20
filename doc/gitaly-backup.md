@@ -148,7 +148,6 @@ $BACKUP_DESTINATION_PATH/
         4ec9599fc203d176a301536c2e091a19bc852759b255bd6818810a42c5fed14a.bundle
 ```
 
-
 #### Generating full backups
 
 A bundle with all references is created via the RPC `CreateBundle`. It
@@ -205,6 +204,7 @@ $BACKUP_DESTINATION_PATH/
    ```shell
    awk '{print $2}' 001.refs | git bundle create repo.bundle --stdin
    ```
+
 1. The backup and increment pointers are written.
 
 #### Generating incremental backups

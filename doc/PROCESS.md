@@ -30,7 +30,9 @@ Feature flags are [enabled through chatops][enable-flags] (which is
 just a consumer [of the API][ff-api]). In
 [`#chat-ops-test`][chan-chat-ops-test] try:
 
-    /chatops run feature list --match gitaly_
+```shell
+/chatops run feature list --match gitaly_
+```
 
 If you get a permission error you need to request access first. That
 can be done [in the `#production` channel][production-request-acl].
@@ -40,7 +42,9 @@ enabling or disabling. For example: to check if
 [`gitaly_go_user_delete_tag`][chan-production] is enabled on staging
 run:
 
-    /chatops run feature get gitaly_go_user_delete_tag --staging
+```shell
+/chatops run feature get gitaly_go_user_delete_tag --staging
+```
 
 Note that the full set of chatops features for the Rails environment
 does not work in Gitaly. E.g. the [`--user` argument does
@@ -83,14 +87,16 @@ checking if the MR has [a `workflow::staging`][deployed-staging],
 [`workflow::canary`][deployed-canary] or
 [`workflow::production`][deployed-production] label.
 
-The [/help action on gitlab.com][help-action] shows the currently
+The [/help action on GitLab.com][help-action] shows the currently
 deployed hash. Copy that `HASH` and look at `GITALY_SERVER_VERSION` in
-[gitlab-org/gitlab.git][gitlab-git] to see what the embedded gitaly
-version is. Or in [a gitaly.git checkout][gitaly-git] run this to see
+[`gitlab-org/gitlab.git`][gitlab-git] to see what the embedded Gitaly
+version is. Or in [a `gitaly.git` checkout][gitaly-git] run this to see
 what commits aren't deployed yet:
 
-    git fetch
-    git shortlog $(curl -s https://gitlab.com/gitlab-org/gitlab/-/raw/HASH/GITALY_SERVER_VERSION)..origin/master
+```shell
+git fetch
+git shortlog $(curl -s https://gitlab.com/gitlab-org/gitlab/-/raw/HASH/GITALY_SERVER_VERSION)..origin/master
+```
 
 See the [documentation on releases below](#gitaly-releases) for more
 details on the tagging and release process.
@@ -123,19 +129,19 @@ Where `X` is the name of your feature.
 
 ##### Prerequisites
 
-Access to https://staging.gitlab.com/users is not the same as on
-gitlab.com (or signing in with Google on the @gitlab.com account). You
+Access to <https://staging.gitlab.com/users> is not the same as on
+GitLab.com (or signing in with Google on the `@gitlab.com` account). You
 must [request access to it][staging-access-request].
 
 As of December 2020 clicking "Sign in" on
-https://about.staging.gitlab.com will redirect to https://gitlab.com,
+<https://about.staging.gitlab.com> will redirect to <https://gitlab.com>,
 so make sure to use the `/users` link.
 
 As of writing signing in at [that link][staging-users-link] will land
 you on the `/users` 404 page once you're logged in. You should then
 typically manually modify the URL
 `https://staging.gitlab.com/YOURUSER`
-(e.g. https://staging.gitlab.com/avar) or another way to get at a test
+(e.g. <https://staging.gitlab.com/avar>) or another way to get at a test
 repository, and manually test from there.
 
 [staging-access-request]: https://gitlab.com/gitlab-com/team-member-epics/access-requests/-/issues/new?issuable_template=Individual_Bulk_Access_Request
@@ -148,14 +154,16 @@ being enabled.
 
 Then enable `X` on staging, with:
 
-     /chatops run feature set gitaly_X --staging
+```shell
+/chatops run feature set gitaly_X --staging
+```
 
 ##### Discussion
 
 It's a good idea to run the feature for a full day on staging, this is
 because there are daily smoke tests that run daily in that
 environment. These are handled by
-[gitlab-org/gitlab-qa.git][gitlab-qa-git]
+[`gitlab-org/gitlab-qa.git`][gitlab-qa-git]
 
 [gitlab-qa-git]: https://gitlab.com/gitlab-org/gitlab-qa#how-do-we-use-it
 
@@ -170,17 +178,23 @@ environment? Good!
 
 To enable your `X` feature at 5/25/50 percent, run:
 
-    /chatops run feature set gitaly_X 5
-    /chatops run feature set gitaly_X 25
-    /chatops run feature set gitaly_X 50
+```shell
+/chatops run feature set gitaly_X 5
+/chatops run feature set gitaly_X 25
+/chatops run feature set gitaly_X 50
+```
 
 And then finally when you're happy it works properly do:
 
-    /chatops run feature set gitaly_X 100
+```shell
+/chatops run feature set gitaly_X 100
+```
 
 Followed by:
 
-    /chatops run feature set gitaly_X true
+```shell
+/chatops run feature set gitaly_X true
+```
 
 Note that you need both the `100` and `true` as separate commands. See
 [the documentation on actor gates][actor-gates]
@@ -229,11 +243,8 @@ pre-feature code from the codebase, and we should add another
 changelog entry when doing that.
 
 This is because even after setting `OnByDefault: true` users might
-still have opted to disable the new feature. See [the discussion
-below](#two-phase-ruby-to-go-rollouts)) for possibly needing to do
-such changes over multiple releases.
-
-[example-on-by-default-mr]: https://gitlab.com/gitlab-org/gitaly/-/merge_requests/3033
+still have opted to disable the new feature. See [the discussion below](#two-phase-ruby-to-go-rollouts) for possibly
+needing to do such changes over multiple releases.
 
 ##### Two phase Ruby to Go rollouts
 
@@ -244,11 +255,10 @@ a rewrite of Ruby code in Go.
 As we deploy the Ruby code might be in the middle of auto-restarting,
 so we could remove its code before the Go code has a chance to update
 with its default, and would still want to call it. So therefore you
-need to do any such removal in two gitlab.com release cycles.
+need to do any such removal in two GitLab.com release cycles.
 
-See the example of [MR !3033][example-on-by-default-mr] and [MR
-!3056][example-post-go-ruby-code-removal-mr] for how to do such a
-two-phase removal.
+See the example of [MR !3033][example-on-by-default-mr] and [MR !3056][example-post-go-ruby-code-removal-mr] for how to
+do such a two-phase removal.
 
 [example-on-by-default-mr]: https://gitlab.com/gitlab-org/gitaly/-/merge_requests/3033
 [example-post-go-ruby-code-removal-mr]: https://gitlab.com/gitlab-org/gitaly/-/merge_requests/3056
@@ -261,7 +271,9 @@ from the database of available features via `chatops`.
 If you don't do this others will continue to see the features with
 e.g.:
 
-	/chatops run feature list --match=gitaly_
+```shell
+/chatops run feature list --match=gitaly_
+```
 
 It also incrementally adds to data that needs to be fetched &
 populated on every request.
@@ -269,11 +281,15 @@ populated on every request.
 To remove the flag first sanity check that it's the feature you want,
 that it's at [`100%` and is `true`](#enable-in-production):
 
-	/chatops run feature get gitaly_X
+```shell
+/chatops run feature get gitaly_X
+```
 
 Then delete it if that's the data you're expecting:
 
-	/chatops run feature delete gitaly_X
+```shell
+/chatops run feature delete gitaly_X
+```
 
 ### Git Version Upgrades
 
@@ -296,9 +312,9 @@ that we have no such issues with zero-downtime upgrades:
    Git binaries. The new version is guarded behind a feature flag at this
    point in time.
 
-2. We roll out the feature flag and eventually remove it.
+1. We roll out the feature flag and eventually remove it.
 
-3. We remove the old bundled Git binaries.
+1. We remove the old bundled Git binaries.
 
 Note that because we cannot remove the old Git binaries at the same time when we
 add the new ones. We must ensure that both sets exist in parallel for at least
@@ -313,23 +329,23 @@ The following detailed steps need to be done to upgrade to a new Git version:
 1. Add the new bundled Git distribution to the `Makefile`. See
    c0d05650be681c2accb4cec5aac74a6dd77a2fa6.
 
-2. Add a new bundled Git execution environment with a feature flag. See
+1. Add a new bundled Git execution environment with a feature flag. See
    b547b368c8f584e9aabe8eef9342f99440b0c248. Please note that execution
    environments are ordered by decreasing priority: the first environment
    whose feature flags are all turned on will be picked. You thus have to
    add your new environment to the top.
 
-3. Roll out the feature flag by following our feature flag process. You may
+1. Roll out the feature flag by following our feature flag process. You may
    decide to remove the feature flag before the feature flag is removed in
    case it is a low-risk upgrade of the Git version (e.g. when you perform a
    patch-release upgrade, only).
 
-4. Remove the feature flag. See 888e6233fd85691f0852ae6c4a3656da9bf3d8e4.
+1. Remove the feature flag. See 888e6233fd85691f0852ae6c4a3656da9bf3d8e4.
 
-5. Remove the execution environment of the old bundled Git version. See
+1. Remove the execution environment of the old bundled Git version. See
    af1a3fe7b536d22a6db9ba6591d222b23d01d83f.
 
-6. Remove the old set of bundled Git binaries from the `Makefile`. See
+1. Remove the old set of bundled Git binaries from the `Makefile`. See
    9c700ea473d781eea50eab685d643d95e9c4ffee. Note that this must only happen
    _after_ both old and new bundled Git binaries have been installed in
    parallel in a release already.
@@ -344,10 +360,10 @@ version.
 
 #### Major or minor releases
 
-Once we release GitLab X.Y.0, we also release gitaly X.Y.0 based on the content of `GITALY_SERVER_VERSION`.
+Once we release GitLab X.Y.0, we also release Gitaly X.Y.0 based on the content of `GITALY_SERVER_VERSION`.
 This version file is automatically updated by `release-tools` during auto-deploy picking.
 
-Because gitaly master is moving we need to take extra care of what we tag.
+Because Gitaly master is moving we need to take extra care of what we tag.
 
 Let's imagine a situation like this on `master`
 
@@ -366,7 +382,7 @@ graph LR;
 
 Commit `C` is picked into auto-deploy and the build is successfully deployed to production
 
-We are ready to tag `v12.9.0` but there is a new merge commit, `D`, on gitaly `master`.
+We are ready to tag `v12.9.0` but there is a new merge commit, `D`, on Gitaly `master`.
 
 ```mermaid
 graph LR;
@@ -387,6 +403,7 @@ graph LR;
 We cannot tag on `D` as it never reached production.
 
 `release-tools` follows this algorithm:
+
 1. create a stable branch from `GITALY_SERVER_VERSION` (commit `C`),
 1. bump the version and
 1. prepare the changelog (commit `C'`).
@@ -415,6 +432,7 @@ graph LR;
 ```
 
 Legend
+
 ```mermaid
 graph TD;
   A["master commit"];
@@ -442,8 +460,8 @@ For patch releases, we don't merge back to master. But `release-tools` will comm
 Release candidate (RC) can be created with a chatops command.
 This is the only type of release that a developer can build autonomously.
 
-When working on a GitLab feature that requires a minimum gitaly version,
-tagging a RC is a good way to make sure the gitlab feature branch has the proper gitaly version.
+When working on a GitLab feature that requires a minimum Gitaly version,
+tagging a RC is a good way to make sure the `gitlab` feature branch has the proper Gitaly version.
 
 - Pick the current milestone (i.e. 12.9)
 - Pick a release candidate number, you can check `VERSION` to see if we have one already (12.9.0-rc1)
@@ -453,9 +471,9 @@ tagging a RC is a good way to make sure the gitlab feature branch has the proper
   has a **manual** job, `update-downstream-server-version`, that will create a merge request on the GitLab codebase to bump the Gitaly server version, and this will be assigned to you.
   Once the build has completed successfully, assign it to a maintainer for review.
 
-### Publishing the ruby gem
+### Publishing the Ruby gem
 
-If an updated version of the ruby proto gem is needed, it can be published to rubygems.org with the `_support/publish-gem` script.
+If an updated version of the Ruby proto gem is needed, it can be published to rubygems.org with the `_support/publish-gem` script.
 
 If the changes needed are not yet released, [create a release candidate](#creating-a-release-candidate) first.
 
@@ -477,7 +495,7 @@ make upgrade-module FROM_MODULE=v15 TO_MODULE=v16
 It replaces old imports with the new version in the go source files,
 updates `*.proto` files and modifies `go.mod` file to use a new target version of the module.
 
-##### Security release
+#### Security release
 
 Security releases involve additional processes to ensure that recent releases
 of GitLab are properly patched while avoiding the leaking of the security
@@ -489,17 +507,17 @@ the template.
 
 ### Experimental builds
 
-Push the release tag to dev.gitlab.org/gitlab/gitaly. After
+Push the release tag to `dev.gitlab.org/gitlab/gitaly`. After
 passing the test suite, the tag will automatically be built and
-published in https://packages.gitlab.com/gitlab/unstable.
+published in <https://packages.gitlab.com/gitlab/unstable>.
 
-### Patching git
+### Patching Git
 
 The Gitaly project is the single source of truth for the Git distribution across
 all of GitLab: all downstream distributions use the `make git` target to build
-and install the git version used at runtime. Given that there is only one
-central location where we define the git version and its features, this grants
-us the possibility to easily apply custom patches to git.
+and install the Git version used at runtime. Given that there is only one
+central location where we define the Git version and its features, this grants
+us the possibility to easily apply custom patches to Git.
 
 In order for a custom patch to be accepted into the Gitaly project, it must meet
 the high bar of being at least in the upstream's `next` branch. The mechanism is
@@ -507,14 +525,14 @@ thus intended as a process to ensure that we can test upstreamed patches faster
 than having to wait for the next release, not to add patches which would never
 be accepted upstream. Patches which were not upstreamed yet will not be
 accepted: at no point in time do we want to start maintaining a friendly fork of
-git.
+Git.
 
 In order to add a patch, you can simply add it to the `GIT_PATCHES` array in our
 `Makefile`.
 
-Note: while there is only a single git distribution which is distributed across
+Note: while there is only a single Git distribution which is distributed across
 all of GitLab's official distributions, there may be unofficial ones which use a
-different version of git (most importantly source-based installations). So even
+different version of Git (most importantly source-based installations). So even
 if you add patches to Gitaly's Makefile, you cannot assume that installations
 will always have these patches. As a result, all code which makes use of
 patched-in features must have fallback code to support the [minimum required Git
@@ -522,11 +540,11 @@ version](../README.md#installation)
 
 ### RPC deprecation process
 
-First create a deprecation issue at https://gitlab.com/gitlab-org/gitaly/issues
+First create a deprecation issue at <https://gitlab.com/gitlab-org/gitaly/issues>
 with the title `Deprecate RPC FooBar`. Use label `Deprecation`. Below is a
 template for the issue description.
 
-```
+```markdown
 We are deprecating RPC FooBar because **REASONS**.
 
 - [ ] put a deprecation comment `// DEPRECATED: <ISSUE-LINK>` in ./proto **Merge Request LINK**

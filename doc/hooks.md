@@ -46,8 +46,8 @@ execution path is:
 
 ## `gitaly-hooks` binary
 
-`gitaly-hooks` is a binary that is the single point of entry for git hooks
-through gitaly.
+`gitaly-hooks` is a binary that is the single point of entry for Git hooks
+through Gitaly.
 
 ### Subcommands
 
@@ -55,11 +55,11 @@ through gitaly.
 
 | subcommand     | purpose  | arguments | stdin  |
 |----------------|----------|-----------|--------|
-| `pre-receive`  | used as the git pre-receive hook  none | `<old-value>` SP `<new-value>` SP `<ref-name>` LF |
-| `update`       | used as the git update hook | `<ref-name>` `<old-object>` `<new-object>` | none
-| `post-receive` | used as the git post-receive hook | none | `<old-value>` SP `<new-value>` SP `<ref-name>` LF |
-| `reference-transaction` | used as the git reference-transactionhook | `prepared|committed|aborted` | `<old-value>` SP `<new-value>` SP `<ref-name>` LF |
-| `git`          | used as the git pack-objects hook | `pack-objects` `[--stdout]` `[--shallow-file]` | `<object-list>` |
+| `pre-receive`  | used as the Git `pre-receive` hook  none | `<old-value>` SP `<new-value>` SP `<ref-name>` LF |
+| `update`       | used as the Git `update` hook | `<ref-name>` `<old-object>` `<new-object>` | none
+| `post-receive` | used as the Git `post-receive` hook | none | `<old-value>` SP `<new-value>` SP `<ref-name>` LF |
+| `reference-transaction` | used as the Git `reference-transaction` hook | `prepared|committed|aborted` | `<old-value>` SP `<new-value>` SP `<ref-name>` LF |
+| `git`          | used as the Git `pack-objects` hook | `pack-objects` `[--stdout]` `[--shallow-file]` | `<object-list>` |
 
 ## Hook-specific logic
 

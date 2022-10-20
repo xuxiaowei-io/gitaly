@@ -1,59 +1,66 @@
 # Gitaly High Availability (HA) Design
-Gitaly Cluster is an active-active cluster configuration for resilient git operations. [Refer to our specific requirements](https://gitlab.com/gitlab-org/gitaly/issues/1332).
+
+Gitaly Cluster is an active-active cluster configuration for resilient Git operations. [Refer to our specific requirements](https://gitlab.com/gitlab-org/gitaly/issues/1332).
 
 Refer to [epic &289][epic] for current issues and discussions revolving around
 HA MVC development.
 
 ## Terminology
+
 The following terminology may be used within the context of the Gitaly Cluster project:
 
 - Shard - partition of the storage for all repos. Each shard will require redundancy in the form of multiple Gitaly nodes (at least 3 when optimal) to maintain HA.
 - Praefect - a transparent front end to all Gitaly shards. This reverse proxy ensures that all gRPC calls are forwarded to the correct shard by consulting the coordinator. The reverse proxy also ensures that write actions are performed transactionally when needed.
-    - etymology: from Latin praefectus for _a person appointed to any of various positions of command, authority, or superintendence, as a chief magistrate in ancient Rome or the chief administrative official of a department of France or Italy._
-    - [pronounced _pree-fect_](https://www.youtube.com/watch?v=MHszCZjPmTQ)
-- Node - This is the Gitaly service which performs the actual git read/write operations from/to disk. Has no knowledge of shards/praefects.
+  - etymology: from Latin praefectus for _a person appointed to any of various positions of command, authority, or superintendence, as a chief magistrate in ancient Rome or the chief administrative official of a department of France or Italy._
+  - [pronounced _pree-fect_](https://www.youtube.com/watch?v=MHszCZjPmTQ)
+- Node - This is the Gitaly service which performs the actual Git read/write operations from/to disk. Has no knowledge of shards/praefects.
 - RPC categories (#1496):
-    - Accessor - a side effect free (or read-only) RPC; does not modify the git repo (!228)
-    - Mutator - an RPC that modifies the data in the git repo (!228)
+  - Accessor - a side effect free (or read-only) RPC; does not modify the Git repo (!228)
+  - Mutator - an RPC that modifies the data in the Git repo (!228)
 - Transaction - mechanism used to ensure that a set of voters agree on the same
   modifications.
-    - Voter - a node registered in a transaction. Only registered voters may
-      cast votes in transactions.
-    - Vote - the change a voter intends to commit if the transaction succeeds.
-      This is e.g. the hash of all references which are to be updated in their
-      old and new state.
-    - Quorum - minimum number of voters required to agree in order to commit a
-      transaction.
-    - Voting strategy - defines how many nodes are required to reach quorum.
-        - strong - all nodes need to agree.
-        - primary-wins - the transaction always succeeds as long as the primary
-          has cast a vote.
-        - majority-wins - the transaction succeeds when the primary and at least
-          half of the secondaries agree.
-    - Subtransactions - ordered list of voting processes of a transaction. For
-      each vote cast by a voter, a new subtransaction is created. For a
-      transaction to be successful, all subtransactions need to be successful.
-      This is done so that Gitaly may perform multiple modifications in a single
-      transaction.
-    - reference-transaction - Git mechanism to update references. The
-      [reference-transaction hook](https://git-scm.com/docs/githooks#_reference_transaction)
-      directly hooks into this mechanism whenever a reference is being updated
-      via Git.
+  - Voter - a node registered in a transaction. Only registered voters may
+    cast votes in transactions.
+  - Vote - the change a voter intends to commit if the transaction succeeds.
+    This is e.g. the hash of all references which are to be updated in their
+    old and new state.
+  - Quorum - minimum number of voters required to agree in order to commit a
+    transaction.
+  - Voting strategy - defines how many nodes are required to reach quorum.
+    - strong - all nodes need to agree.
+    - primary-wins - the transaction always succeeds as long as the primary
+      has cast a vote.
+    - majority-wins - the transaction succeeds when the primary and at least
+      half of the secondaries agree.
+  - Subtransactions - ordered list of voting processes of a transaction. For
+    each vote cast by a voter, a new subtransaction is created. For a
+    transaction to be successful, all subtransactions need to be successful.
+    This is done so that Gitaly may perform multiple modifications in a single
+    transaction.
+  - reference-transaction - Git mechanism to update references. The
+    [reference-transaction hook](https://git-scm.com/docs/githooks#_reference_transaction)
+    directly hooks into this mechanism whenever a reference is being updated
+    via Git.
 
 ## Design
+
 The high level design takes a reverse proxy approach to fanning out write requests to the appropriate nodes:
 
 <img src="https://docs.google.com/drawings/d/e/2PACX-1vRl7WS-6RBOWxyLSBbBBAoV9MupmTh5vTqMOw_AX9axlboqkybTbFqGqExLyyYOilqEW7S9euXdBHzX/pub?w=960&amp;h=720">
 
 ## Phases
+
 An iterative low risk approach needs to be devised to add functionality and verify assumptions at a sustainable pace while not impeding the existing functionality.
 
 ### 1. Simple pass-through proxy - no added functionality
+
 - allows us to set up telemetry for observability of new service
 - allows us to evaluate a gRPC proxy library
 
 ### 2. Introduce State
+
 The following details need to be persisted in Postgres:
+
 - [x] Primary location for a project
 - [ ] Redundant locations for a project
 - [ ] Available storage locations (initially can be configuration file)
@@ -61,29 +68,30 @@ The following details need to be persisted in Postgres:
 Initially, the state of the shard nodes will be static and loaded from a configuration file. Eventually, this will be made dynamic via a data store (Postgres).
 
 ### Resolving Location
+
 The following existing interaction will remain intact for the first iteration of the HA feature:
 
 ```mermaid
 sequenceDiagram
-    Client->>Rails: Modify repo X
-	Rails-->>Datastore: Where is Repo X?
-	Datastore-->> Rails: Repo X is at location A
-    Rails-->>Gitaly: Modify repo X at location A
-	Gitaly-->>Rails: Request succeeded/failed
+  Client->>Rails: Modify repo X
+  Rails-->>Datastore: Where is Repo X?
+  Datastore-->> Rails: Repo X is at location A
+  Rails-->>Gitaly: Modify repo X at location A
+  Gitaly-->>Rails: Request succeeded/failed
 ```
 
-Once the Rails app has resolved the primary location for the project, the request is made to the praefect. The praefect then resolves the redundant locations via the coordinator before applying the changes.
+Once the Rails app has resolved the primary location for the project, the request is made to the Praefect. The Praefect then resolves the redundant locations via the coordinator before applying the changes.
 
 ```mermaid
 sequenceDiagram
-	Rails->>Praefect: Modify repo X at A
-	Praefect->>Coordinator: Which locations complement A for X?
-	Coordinator->>Praefect: Locations B and C complement A
-	Praefect->>Nodes ABC: Modify repo X
-	Nodes ABC->>Praefect: Modifications successful!
+  Rails->>Praefect: Modify repo X at A
+  Praefect->>Coordinator: Which locations complement A for X?
+  Coordinator->>Praefect: Locations B and C complement A
+  Praefect->>Nodes ABC: Modify repo X
+  Nodes ABC->>Praefect: Modifications successful!
 ```
 
-*Note: the above interaction between the praefect and nodes A-B-C is an all-or-nothing transaction. All nodes must complete in success, otherwise a single node failure will cause the entire transaction to fail. This will be improved when replication is introduced.*
+*Note: the above interaction between the Praefect and nodes A-B-C is an all-or-nothing transaction. All nodes must complete in success, otherwise a single node failure will cause the entire transaction to fail. This will be improved when replication is introduced.*
 
 ### 3. Replication
 
@@ -98,14 +106,14 @@ design](#strong-consistency-design) for more details.
 
 ```mermaid
 sequenceDiagram
-	Praefect->>Node A: Modify repo X
-	Praefect->>Node B: Modify repo X
-	Praefect->>Node C: Modify repo X
-	Node A->>Praefect: Success :-)
-	Node B->>Praefect: Success :-)
-	Node C->>Praefect: FAILURE :'(
-	Praefect->>Node C: Replicate From A
-	Node C->>Praefect: Success!
+  Praefect->>Node A: Modify repo X
+  Praefect->>Node B: Modify repo X
+  Praefect->>Node C: Modify repo X
+  Node A->>Praefect: Success :-)
+  Node B->>Praefect: Success :-)
+  Node C->>Praefect: FAILURE :'(
+  Praefect->>Node C: Replicate From A
+  Node C->>Praefect: Success!
 ```
 
 When Praefect proxies a non-transactional mutator RPC, it will first route the
@@ -115,12 +123,12 @@ to all secondaries.
 
 ```mermaid
 sequenceDiagram
-	Praefect->>Node A: Modify repo X
-	Node A->>Praefect: Success!
-	Praefect->>Node B: Replicate From A
-	Praefect->>Node C: Replicate From A
-	Node B->>Praefect: Success!
-	Node C->>Praefect: Success!
+  Praefect->>Node A: Modify repo X
+  Node A->>Praefect: Success!
+  Praefect->>Node B: Replicate From A
+  Praefect->>Node C: Replicate From A
+  Node B->>Praefect: Success!
+  Node C->>Praefect: Success!
 ```
 
 #### Replication Process
@@ -153,11 +161,11 @@ The snapshot process is very resource intensive for fork operations. When
 snapshotting a large repo, you end up with n-1 (n == replica count) copies of
 the repository being compressed and extracted to secondary replicas.
 
-Adding to this stress is the constraint of storage limitations for gitlab.com
+Adding to this stress is the constraint of storage limitations for GitLab.com
 users. The GitLab handbook (`www-gitlab-com`) is now larger than the storage
 quota for free users. Until a secondary replica performs housekeeping, it
 will consume the storage quota of the extracted snapshot. If Praefect instead
-used fast forking (https://gitlab.com/gitlab-org/gitlab/-/issues/24523), this
+used fast forking (<https://gitlab.com/gitlab-org/gitlab/-/issues/24523>), this
 would not be an issue since forked copies would only use a small amount of
 additional data.
 
@@ -178,10 +186,10 @@ graph TD
   B-->| yes | C[Peek into RPC Stream to determine Repository]
   B-->| no  | G[Forward request to Gitaly]
   C-->D{Scoped for repository?}
-	D-->| yes | E[Get target repository from message]
-	D-->| no  | G
+  D-->| yes | E[Get target repository from message]
+  D-->| no  | G
   E-->F[Schedule Replication]
-	F-->G
+  F-->G
 ```
 
 ## Stages until v1.0
@@ -331,16 +339,16 @@ sake of simplicity, we can thus reduce the problem scope to ensure strong
 consistency for reference updates, only. There are multiple paths in GitLab that
 can trigger such a reference update, including but not limited to:
 
-- Clients execute git-push(1).
+- Clients execute `git-push(1)`.
 
 - Creation of tags via GitLab's `UserCreateTag` RPC.
 
 - Merges and rebases when accepting merge requests.
 
-Common to all of them is that they perform reference updates using git-core,
+Common to all of them is that they perform reference updates using `git-core`,
 and, more importantly, its reference transaction mechanism. An ideal solution
 would thus hook into this reference transaction mechanism directly via
-githooks(5), which has been implemented in git-core and is going to be part of
+githooks(5), which has been implemented in `git-core` and is going to be part of
 release v2.28.0.
 
 Strong consistency is implemented via the reference-transaction hook. This hook
@@ -531,45 +539,45 @@ In order to observe reference transactions, the following metrics can be used:
 v13.1.0-rc3.
 
 ## Notes
-* Existing discussions
-	* Requirements: https://gitlab.com/gitlab-org/gitaly/issues/1332
-	* Design: https://gitlab.com/gitlab-org/gitaly/issues/1335
-* Prior art
-	* Stemma by Palantir
-		* [Announcement](https://medium.com/palantir/stemma-distributed-git-server-70afbca0fc29)
-		* Extends jgit (java git implementation)
-	* Spokes by GitHub
-		* Application layer approach: uses underlying git software to propagate changes to other locations.
-	* Bitbucket Data Center (BDC)
-		* [BDC FAQ](https://confluence.atlassian.com/enterprise/bitbucket-data-center-faq-776663707.html)
-	* Ketch by Google (no longer maintained)
-		* [Sid's comment on performance issue](https://news.ycombinator.com/item?id=13934698)
-		* Also jgit based
-* gRPC proxy considerations
-	* [gRPC Proxy library](https://github.com/mwitkow/grpc-proxy)
-		* Pros
-			* Handles all gRPC requests generically
-		* Cons
-			* Lack of support
-				* [See current importers of project](https://godoc.org/github.com/mwitkow/grpc-proxy/proxy?importers)
-			* Low level implementation requires knowledge of gRPC internals
-	* Custom code generation
-		* Pros
-			* Simple and maintainable
-			* Allows us to handwrite proxy code and later automate with lessons learned via code generation
-		* Cons
-			* Process heavy; requires custom tooling
-			* Requires a way to tell which methods are read/write
-				* [See MR for marking modifying RPCs](https://gitlab.com/gitlab-org/gitaly-proto/merge_requests/228)
-	* See also:
-		* [nRPC](https://github.com/nats-rpc/nrpc) - gRPC via NATS
-		* [grpclb](https://github.com/bsm/grpclb) - gRPC load balancer
-* Complications
-	* Existing Rails app indicates the Gitaly instance that a request is destined for (e.g. request to modify repo X should be directed to gitaly #1).
-		* This means that rails app must be kept in the loop about any changes made to the location of a repo.
-		* This may be mitigated by changing the proxy implementation to interpret the destination address as a reference to a shard rather than a specific host. This might open the door to allowing for something like consistent hashing.
-    * While Git is distributed in nature, some write operations need to be serialized to avoid race conditions. This includes ref updates.
-	* How do we coordinate proxies when applying ref updates? Do we need to?
 
+- Existing discussions
+  - Requirements: <https://gitlab.com/gitlab-org/gitaly/issues/1332>
+  - Design: <https://gitlab.com/gitlab-org/gitaly/issues/1335>
+- Prior art
+  - Stemma by Palantir
+    - [Announcement](https://medium.com/palantir/stemma-distributed-git-server-70afbca0fc29)
+    - Extends jgit (java Git implementation)
+  - Spokes by GitHub
+    - Application layer approach: uses underlying Git software to propagate changes to other locations.
+  - Bitbucket Data Center (BDC)
+    - [BDC FAQ](https://confluence.atlassian.com/enterprise/bitbucket-data-center-faq-776663707.html)
+  - Ketch by Google (no longer maintained)
+    - [Sid's comment on performance issue](https://news.ycombinator.com/item?id=13934698)
+    - Also jgit based
+- gRPC proxy considerations
+  - [gRPC Proxy library](https://github.com/mwitkow/grpc-proxy)
+    - Pros
+      - Handles all gRPC requests generically
+    - Cons
+      - Lack of support
+        - [See current importers of project](https://godoc.org/github.com/mwitkow/grpc-proxy/proxy?importers)
+      - Low level implementation requires knowledge of gRPC internals
+  - Custom code generation
+    - Pros
+      - Simple and maintainable
+      - Allows us to handwrite proxy code and later automate with lessons learned via code generation
+    - Cons
+      - Process heavy; requires custom tooling
+      - Requires a way to tell which methods are read/write
+        - [See MR for marking modifying RPCs](https://gitlab.com/gitlab-org/gitaly-proto/merge_requests/228)
+  - See also:
+    - [nRPC](https://github.com/nats-rpc/nrpc) - gRPC via NATS
+    - [grpclb](https://github.com/bsm/grpclb) - gRPC load balancer
+- Complications
+  - Existing Rails app indicates the Gitaly instance that a request is destined for (e.g. request to modify repo X should be directed to Gitaly #1).
+    - This means that rails app must be kept in the loop about any changes made to the location of a repo.
+    - This may be mitigated by changing the proxy implementation to interpret the destination address as a reference to a shard rather than a specific host. This might open the door to allowing for something like consistent hashing.
+  - While Git is distributed in nature, some write operations need to be serialized to avoid race conditions. This includes ref updates.
+  - How do we coordinate proxies when applying ref updates? Do we need to?
 
 [epic]: https://gitlab.com/groups/gitlab-org/-/epics/289
