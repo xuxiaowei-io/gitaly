@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
@@ -128,6 +129,9 @@ func (s *server) vote(ctx context.Context, oid git.ObjectID, phase voting.Phase)
 }
 
 func (s *server) ApplyGitattributes(ctx context.Context, in *gitalypb.ApplyGitattributesRequest) (*gitalypb.ApplyGitattributesResponse, error) {
+	if in.GetRepository() == nil {
+		return nil, helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
+	}
 	repo := s.localrepo(in.GetRepository())
 	repoPath, err := s.locator.GetRepoPath(repo)
 	if err != nil {

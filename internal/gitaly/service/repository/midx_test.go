@@ -288,30 +288,30 @@ func TestMidxRepack_validationChecks(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
-		desc   string
-		req    *gitalypb.MidxRepackRequest
-		expErr error
+		desc        string
+		req         *gitalypb.MidxRepackRequest
+		expectedErr error
 	}{
 		{
-			desc:   "no repository",
-			req:    &gitalypb.MidxRepackRequest{},
-			expErr: status.Error(codes.InvalidArgument, "empty Repository"),
+			desc:        "no repository",
+			req:         &gitalypb.MidxRepackRequest{},
+			expectedErr: status.Error(codes.InvalidArgument, "empty Repository"),
 		},
 		{
-			desc:   "invalid storage",
-			req:    &gitalypb.MidxRepackRequest{Repository: &gitalypb.Repository{StorageName: "invalid"}},
-			expErr: status.Error(codes.InvalidArgument, `GetStorageByName: no such storage: "invalid"`),
+			desc:        "invalid storage",
+			req:         &gitalypb.MidxRepackRequest{Repository: &gitalypb.Repository{StorageName: "invalid"}},
+			expectedErr: status.Error(codes.InvalidArgument, `GetStorageByName: no such storage: "invalid"`),
 		},
 		{
-			desc:   "not existing repository",
-			req:    &gitalypb.MidxRepackRequest{Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "invalid"}},
-			expErr: status.Error(codes.NotFound, fmt.Sprintf(`GetRepoPath: not a git repository: "%s/invalid"`, cfg.Storages[0].Path)),
+			desc:        "not existing repository",
+			req:         &gitalypb.MidxRepackRequest{Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "invalid"}},
+			expectedErr: status.Error(codes.NotFound, fmt.Sprintf(`GetRepoPath: not a git repository: "%s/invalid"`, cfg.Storages[0].Path)),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			//nolint:staticcheck
 			_, err := client.MidxRepack(ctx, tc.req)
-			testhelper.RequireGrpcError(t, tc.expErr, err)
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
 	}
 }

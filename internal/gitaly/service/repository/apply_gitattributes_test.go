@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -206,55 +205,75 @@ func TestApplyGitattributesFailure(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	_, repo, _, client := setupRepositoryService(t, ctx)
+	cfg, repo, _, client := setupRepositoryService(t, ctx)
 
 	tests := []struct {
-		repo     *gitalypb.Repository
-		revision []byte
-		code     codes.Code
+		desc        string
+		repo        *gitalypb.Repository
+		revision    []byte
+		expectedErr error
 	}{
 		{
+			desc:     "no repository provided",
 			repo:     nil,
 			revision: nil,
-			code:     codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 		{
+			desc:     "unknown storage provided",
 			repo:     &gitalypb.Repository{StorageName: "foo"},
 			revision: []byte("master"),
-			code:     codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				`GetStorageByName: no such storage: "foo"`,
+				"repo scoped: invalid Repository",
+			)),
 		},
 		{
-			repo:     &gitalypb.Repository{RelativePath: "bar"},
+			desc:     "storage not provided",
+			repo:     &gitalypb.Repository{RelativePath: repo.GetRelativePath()},
 			revision: []byte("master"),
-			code:     codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				`GetStorageByName: no such storage: ""`,
+				"repo scoped: invalid Repository",
+			)),
 		},
 		{
+			desc:     "repository doesn't exist on disk",
 			repo:     &gitalypb.Repository{StorageName: repo.GetStorageName(), RelativePath: "bar"},
 			revision: []byte("master"),
-			code:     codes.NotFound,
+			expectedErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefect(
+				`GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/bar"`,
+				`mutator call: route repository mutator: get repository id: repository "default"/"bar" not found`,
+			)),
 		},
 		{
-			repo:     repo,
-			revision: []byte(""),
-			code:     codes.InvalidArgument,
+			desc:        "no revision provided",
+			repo:        repo,
+			revision:    []byte(""),
+			expectedErr: status.Error(codes.InvalidArgument, "revision: empty revision"),
 		},
 		{
-			repo:     repo,
-			revision: []byte("not-existing-ref"),
-			code:     codes.InvalidArgument,
+			desc:        "unknown revision",
+			repo:        repo,
+			revision:    []byte("not-existing-ref"),
+			expectedErr: status.Error(codes.InvalidArgument, "revision does not exist"),
 		},
 		{
-			repo:     repo,
-			revision: []byte("--output=/meow"),
-			code:     codes.InvalidArgument,
+			desc:        "invalid revision",
+			repo:        repo,
+			revision:    []byte("--output=/meow"),
+			expectedErr: status.Error(codes.InvalidArgument, "revision: revision can't start with '-'"),
 		},
 	}
 
 	for _, test := range tests {
-		t.Run(fmt.Sprintf("%+v", test), func(t *testing.T) {
+		t.Run(test.desc, func(t *testing.T) {
 			req := &gitalypb.ApplyGitattributesRequest{Repository: test.repo, Revision: test.revision}
 			_, err := client.ApplyGitattributes(ctx, req)
-			testhelper.RequireGrpcCode(t, err, test.code)
+			testhelper.RequireGrpcError(t, test.expectedErr, err)
 		})
 	}
 }

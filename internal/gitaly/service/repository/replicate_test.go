@@ -323,7 +323,7 @@ func TestReplicateRepositoryInvalidArguments(t *testing.T) {
 					RelativePath: "/ab/cd/abcdef1234",
 				},
 			},
-			expectedError: "repository cannot be empty",
+			expectedError: "empty Repository",
 		},
 		{
 			description: "empty source",
@@ -334,7 +334,10 @@ func TestReplicateRepositoryInvalidArguments(t *testing.T) {
 				},
 				Source: nil,
 			},
-			expectedError: "repository cannot be empty",
+			expectedError: testhelper.GitalyOrPraefect(
+				"source repository cannot be empty",
+				"repo scoped: invalid Repository",
+			),
 		},
 		{
 			description: "source and repository have different relative paths",
@@ -348,7 +351,10 @@ func TestReplicateRepositoryInvalidArguments(t *testing.T) {
 					RelativePath: "/ab/cd/abcdef4321",
 				},
 			},
-			expectedError: "both source and repository should have the same relative path",
+			expectedError: testhelper.GitalyOrPraefect(
+				"both source and repository should have the same relative path",
+				"repo scoped: invalid Repository",
+			),
 		},
 		{
 			description: "source and repository have the same storage",
@@ -362,7 +368,10 @@ func TestReplicateRepositoryInvalidArguments(t *testing.T) {
 					RelativePath: "/ab/cd/abcdef1234",
 				},
 			},
-			expectedError: "repository and source have the same storage",
+			expectedError: testhelper.GitalyOrPraefect(
+				"repository and source have the same storage",
+				"repo scoped: invalid Repository",
+			),
 		},
 	}
 
@@ -372,6 +381,7 @@ func TestReplicateRepositoryInvalidArguments(t *testing.T) {
 		t.Run(tc.description, func(t *testing.T) {
 			_, err := client.ReplicateRepository(ctx, tc.input)
 			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
+			require.Contains(t, err.Error(), tc.expectedError)
 		})
 	}
 }

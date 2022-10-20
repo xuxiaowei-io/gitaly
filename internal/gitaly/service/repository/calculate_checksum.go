@@ -7,7 +7,9 @@ import (
 	"encoding/hex"
 	"strings"
 
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -15,7 +17,9 @@ import (
 
 func (s *server) CalculateChecksum(ctx context.Context, in *gitalypb.CalculateChecksumRequest) (*gitalypb.CalculateChecksumResponse, error) {
 	repo := in.GetRepository()
-
+	if repo == nil {
+		return nil, helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
+	}
 	repoPath, err := s.locator.GetRepoPath(repo)
 	if err != nil {
 		return nil, err

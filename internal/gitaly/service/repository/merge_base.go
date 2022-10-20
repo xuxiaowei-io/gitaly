@@ -4,7 +4,9 @@ import (
 	"context"
 	"io"
 
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -12,6 +14,9 @@ import (
 )
 
 func (s *server) FindMergeBase(ctx context.Context, req *gitalypb.FindMergeBaseRequest) (*gitalypb.FindMergeBaseResponse, error) {
+	if req.GetRepository() == nil {
+		return nil, helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
+	}
 	var revisions []string
 	for _, rev := range req.GetRevisions() {
 		revisions = append(revisions, string(rev))

@@ -13,6 +13,7 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v15/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/remoterepo"
@@ -91,7 +92,7 @@ func (s *server) ReplicateRepository(ctx context.Context, in *gitalypb.Replicate
 
 func validateReplicateRepository(in *gitalypb.ReplicateRepositoryRequest) error {
 	if in.GetRepository() == nil {
-		return errors.New("repository cannot be empty")
+		return gitalyerrors.ErrEmptyRepository
 	}
 
 	if in.GetSource() == nil {

@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
@@ -87,6 +88,9 @@ func updateRef(ctx context.Context, repo *localrepo.Repo, req *gitalypb.WriteRef
 }
 
 func validateWriteRefRequest(req *gitalypb.WriteRefRequest) error {
+	if req.GetRepository() == nil {
+		return gitalyerrors.ErrEmptyRepository
+	}
 	if err := git.ValidateRevision(req.Ref); err != nil {
 		return fmt.Errorf("invalid ref: %v", err)
 	}

@@ -3,6 +3,7 @@ package repository
 import (
 	"io"
 
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -14,7 +15,7 @@ import (
 func (s *server) CreateBundle(req *gitalypb.CreateBundleRequest, stream gitalypb.RepositoryService_CreateBundleServer) error {
 	repo := req.GetRepository()
 	if repo == nil {
-		return status.Errorf(codes.InvalidArgument, "CreateBundle: empty Repository")
+		return helper.ErrInvalidArgumentf("CreateBundle: %w", gitalyerrors.ErrEmptyRepository)
 	}
 
 	ctx := stream.Context()

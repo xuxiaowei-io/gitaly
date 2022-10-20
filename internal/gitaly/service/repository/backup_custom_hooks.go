@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 	"google.golang.org/grpc/codes"
@@ -14,6 +16,9 @@ import (
 const customHooksDir = "custom_hooks"
 
 func (s *server) BackupCustomHooks(in *gitalypb.BackupCustomHooksRequest, stream gitalypb.RepositoryService_BackupCustomHooksServer) error {
+	if in.GetRepository() == nil {
+		return helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
+	}
 	repoPath, err := s.locator.GetPath(in.Repository)
 	if err != nil {
 		return status.Errorf(codes.Internal, "BackupCustomHooks: getting repo path failed %v", err)

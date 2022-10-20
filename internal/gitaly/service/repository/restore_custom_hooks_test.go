@@ -23,6 +23,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestSuccessfulRestoreCustomHooksRequest(t *testing.T) {
@@ -108,7 +109,10 @@ func testFailedRestoreCustomHooksDueToValidations(t *testing.T, ctx context.Cont
 	require.NoError(t, stream.Send(&gitalypb.RestoreCustomHooksRequest{}))
 
 	_, err = stream.CloseAndRecv()
-	testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
+	testhelper.RequireGrpcError(t, err, status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+		"RestoreCustomHooks: empty Repository",
+		"repo scoped: empty Repository",
+	)))
 }
 
 func TestFailedRestoreCustomHooksDueToBadTar(t *testing.T) {

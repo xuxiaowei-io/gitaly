@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/tempdir"
@@ -25,7 +26,7 @@ func (s *server) CreateRepositoryFromBundle(stream gitalypb.RepositoryService_Cr
 
 	repo := firstRequest.GetRepository()
 	if repo == nil {
-		return status.Errorf(codes.InvalidArgument, "CreateRepositoryFromBundle: empty Repository")
+		return helper.ErrInvalidArgumentf("CreateRepositoryFromBundle: %w", gitalyerrors.ErrEmptyRepository)
 	}
 
 	ctx := stream.Context()

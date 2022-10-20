@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/safe"
@@ -18,7 +19,9 @@ import (
 
 func (s *server) RemoveRepository(ctx context.Context, in *gitalypb.RemoveRepositoryRequest) (*gitalypb.RemoveRepositoryResponse, error) {
 	repo := in.GetRepository()
-
+	if repo == nil {
+		return nil, helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
+	}
 	path, err := s.locator.GetPath(repo)
 	if err != nil {
 		return nil, helper.ErrInternal(err)

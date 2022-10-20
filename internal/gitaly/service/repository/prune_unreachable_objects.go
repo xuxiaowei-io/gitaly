@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
@@ -19,7 +20,7 @@ func (s *server) PruneUnreachableObjects(
 	request *gitalypb.PruneUnreachableObjectsRequest,
 ) (*gitalypb.PruneUnreachableObjectsResponse, error) {
 	if request.GetRepository() == nil {
-		return nil, helper.ErrInvalidArgumentf("missing repository")
+		return nil, helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
 	}
 
 	repo := s.localrepo(request.GetRepository())

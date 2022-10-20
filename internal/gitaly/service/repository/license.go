@@ -13,6 +13,7 @@ import (
 	"github.com/go-enry/go-license-detector/v4/licensedb"
 	"github.com/go-enry/go-license-detector/v4/licensedb/api"
 	"github.com/go-enry/go-license-detector/v4/licensedb/filer"
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/lstree"
@@ -40,6 +41,9 @@ var nicknameByLicenseIdentifier = map[string]string{
 }
 
 func (s *server) FindLicense(ctx context.Context, req *gitalypb.FindLicenseRequest) (*gitalypb.FindLicenseResponse, error) {
+	if req.GetRepository() == nil {
+		return nil, helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
+	}
 	if featureflag.GoFindLicense.IsEnabled(ctx) {
 		repo := localrepo.New(s.locator, s.gitCmdFactory, s.catfileCache, req.GetRepository())
 

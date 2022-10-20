@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -21,7 +22,7 @@ func (s *server) CreateFork(ctx context.Context, req *gitalypb.CreateForkRequest
 		return nil, status.Errorf(codes.InvalidArgument, "CreateFork: empty SourceRepository")
 	}
 	if targetRepository == nil {
-		return nil, status.Errorf(codes.InvalidArgument, "CreateFork: empty Repository")
+		return nil, helper.ErrInvalidArgumentf("CreateFork: %w", gitalyerrors.ErrEmptyRepository)
 	}
 
 	if err := s.createRepository(ctx, targetRepository, func(repo *gitalypb.Repository) error {
