@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type conflictFile struct {
@@ -330,7 +331,7 @@ func TestFailedListConflictFilesRequestDueToValidation(t *testing.T) {
 	testCases := []struct {
 		desc    string
 		request *gitalypb.ListConflictFilesRequest
-		code    codes.Code
+		expErr  error
 	}{
 		{
 			desc: "empty repo",
@@ -339,7 +340,10 @@ func TestFailedListConflictFilesRequestDueToValidation(t *testing.T) {
 				OurCommitOid:   ourCommitOid,
 				TheirCommitOid: theirCommitOid,
 			},
-			code: codes.InvalidArgument,
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 		{
 			desc: "empty OurCommitId field",
@@ -348,7 +352,7 @@ func TestFailedListConflictFilesRequestDueToValidation(t *testing.T) {
 				OurCommitOid:   "",
 				TheirCommitOid: theirCommitOid,
 			},
-			code: codes.InvalidArgument,
+			expErr: status.Error(codes.InvalidArgument, "empty OurCommitOid"),
 		},
 		{
 			desc: "empty TheirCommitId field",
@@ -357,14 +361,14 @@ func TestFailedListConflictFilesRequestDueToValidation(t *testing.T) {
 				OurCommitOid:   ourCommitOid,
 				TheirCommitOid: "",
 			},
-			code: codes.InvalidArgument,
+			expErr: status.Error(codes.InvalidArgument, "empty TheirCommitOid"),
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			c, _ := client.ListConflictFiles(ctx, testCase.request)
-			testhelper.RequireGrpcCode(t, drainListConflictFilesResponse(c), testCase.code)
+			testhelper.RequireGrpcError(t, testCase.expErr, drainListConflictFilesResponse(c))
 		})
 	}
 }
