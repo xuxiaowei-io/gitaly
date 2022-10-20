@@ -12,7 +12,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -80,11 +79,7 @@ func TestFindRemoteRootRefFailedDueToValidation(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	// We're running tests with Praefect disabled given that we don't want to exercise
-	// Praefect's validation, but Gitaly's.
-	_, repo, _, client := setupRemoteService(t, ctx, testserver.WithDisablePraefect())
-
-	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}
+	_, repo, _, client := setupRemoteService(t, ctx)
 
 	testCases := []struct {
 		desc        string
@@ -94,17 +89,23 @@ func TestFindRemoteRootRefFailedDueToValidation(t *testing.T) {
 		{
 			desc: "Invalid repository",
 			request: &gitalypb.FindRemoteRootRefRequest{
-				Repository: invalidRepo,
+				Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"},
 				RemoteUrl:  "remote-url",
 			},
-			expectedErr: helper.ErrInvalidArgumentf("GetStorageByName: no such storage: \"fake\""),
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+				`GetStorageByName: no such storage: "fake"`,
+				"repo scoped: invalid Repository",
+			)),
 		},
 		{
 			desc: "Repository is nil",
 			request: &gitalypb.FindRemoteRootRefRequest{
 				RemoteUrl: "remote-url",
 			},
-			expectedErr: helper.ErrInvalidArgumentf("missing repository"),
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 		{
 			desc: "Remote URL is empty",

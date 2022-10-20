@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -76,7 +77,7 @@ func (s *server) FindRemoteRootRef(ctx context.Context, in *gitalypb.FindRemoteR
 		return nil, status.Error(codes.InvalidArgument, "missing remote URL")
 	}
 	if in.Repository == nil {
-		return nil, status.Error(codes.InvalidArgument, "missing repository")
+		return nil, helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
 	}
 
 	ref, err := s.findRemoteRootRef(ctx, in)
