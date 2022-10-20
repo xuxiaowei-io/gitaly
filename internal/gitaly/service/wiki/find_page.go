@@ -3,6 +3,7 @@ package wiki
 import (
 	"errors"
 
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -44,6 +45,9 @@ func (s *server) WikiFindPage(request *gitalypb.WikiFindPageRequest, stream gita
 }
 
 func validateWikiFindPage(request *gitalypb.WikiFindPageRequest) error {
+	if request.GetRepository() == nil {
+		return gitalyerrors.ErrEmptyRepository
+	}
 	if err := git.ValidateRevisionAllowEmpty(request.Revision); err != nil {
 		return err
 	}

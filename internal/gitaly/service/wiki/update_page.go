@@ -3,6 +3,7 @@ package wiki
 import (
 	"fmt"
 
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -61,6 +62,9 @@ func (s *server) WikiUpdatePage(stream gitalypb.WikiService_WikiUpdatePageServer
 }
 
 func validateWikiUpdatePageRequest(request *gitalypb.WikiUpdatePageRequest) error {
+	if request.GetRepository() == nil {
+		return gitalyerrors.ErrEmptyRepository
+	}
 	if len(request.GetPagePath()) == 0 {
 		return fmt.Errorf("empty Page Path")
 	}

@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func testSuccessfulWikiFindPageRequest(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, rubySrv *rubyserver.Server) {
@@ -388,29 +389,31 @@ func TestFailedWikiFindPageDueToValidation(t *testing.T) {
 	wikiRepo, _ := setupWikiRepo(t, ctx, cfg)
 
 	testCases := []struct {
-		desc  string
-		title string
-		code  codes.Code
+		desc   string
+		req    *gitalypb.WikiFindPageRequest
+		expErr error
 	}{
 		{
-			desc:  "empty page path",
-			title: "",
-			code:  codes.InvalidArgument,
+			desc:   "empty page path",
+			req:    &gitalypb.WikiFindPageRequest{Repository: wikiRepo, Title: nil},
+			expErr: status.Error(codes.InvalidArgument, "WikiFindPage: empty Title"),
+		},
+		{
+			desc: "repository not provided",
+			req:  &gitalypb.WikiFindPageRequest{Repository: nil},
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"WikiFindPage: empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			request := &gitalypb.WikiFindPageRequest{
-				Repository: wikiRepo,
-				Title:      []byte(testCase.title),
-			}
-
-			c, err := client.WikiFindPage(ctx, request)
+			c, err := client.WikiFindPage(ctx, testCase.req)
 			require.NoError(t, err)
-
 			err = drainWikiFindPageResponse(c)
-			testhelper.RequireGrpcCode(t, err, testCase.code)
+			testhelper.RequireGrpcError(t, testCase.expErr, err)
 		})
 	}
 }
