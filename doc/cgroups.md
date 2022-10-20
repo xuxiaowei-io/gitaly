@@ -1,8 +1,8 @@
-# Cgroups in Gitaly 
+# Cgroups in Gitaly
 
 ## High Level
 
-Gitaly can be configured to run its git processes inside of cgroups, which prevent
+Gitaly can be configured to run its Git processes inside of cgroups, which prevent
 shelled-out processes from hogging too much CPU and memory. See [these docs](https://man7.org/linux/man-pages/man7/cgroups.7.html) for a full specification on cgroups.
 
 ## Configuration
@@ -61,11 +61,11 @@ and [here](https://lwn.net/Kernel/Index/#OOM_killer).
 
 This provides baseline protection from processes running haywire, such as a
 memory leak. However, this only provides limited protection because there are
-some legitimate git processes that can take a huge amount of memory such as
+some legitimate Git processes that can take a huge amount of memory such as
 `git-repack(1)`, or `git-upload-pack(1)`. For a large repository, these
 operations can easily take 12gb of ram as seen in production systems.
 
-Hence, we also need finer grained controls to allow certain expensive git
+Hence, we also need finer grained controls to allow certain expensive Git
 operations to have their own cgroups.
 
 ## CPU Limits
@@ -76,7 +76,7 @@ that will be a fraction of the total CPU resources a machine has access to.
 
 ## Cgroup Hierarchy
 
-```
+```plaintext
 /sys/fs/cgroup
 |
 |--memory
