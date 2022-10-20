@@ -662,10 +662,9 @@ func TestFailedResolveConflictsRequestDueToValidation(t *testing.T) {
 	targetBranch := []byte("conflict-start")
 
 	testCases := []struct {
-		desc         string
-		header       *gitalypb.ResolveConflictsRequestHeader
-		expectedCode codes.Code
-		expectedErr  string
+		desc        string
+		header      *gitalypb.ResolveConflictsRequestHeader
+		expectedErr error
 	}{
 		{
 			desc: "empty user",
@@ -679,8 +678,7 @@ func TestFailedResolveConflictsRequestDueToValidation(t *testing.T) {
 				SourceBranch:     sourceBranch,
 				TargetBranch:     targetBranch,
 			},
-			expectedCode: codes.InvalidArgument,
-			expectedErr:  "ResolveConflicts: empty User",
+			expectedErr: status.Error(codes.InvalidArgument, "ResolveConflicts: empty User"),
 		},
 		{
 			desc: "empty repo",
@@ -694,11 +692,10 @@ func TestFailedResolveConflictsRequestDueToValidation(t *testing.T) {
 				SourceBranch:     sourceBranch,
 				TargetBranch:     targetBranch,
 			},
-			expectedCode: codes.InvalidArgument,
-			// Praefect checks for an empty repository, too, but will raise a different
-			// error message. Luckily, both Gitaly's and Praefect's error messages
-			// contain "empty Repository".
-			expectedErr: "empty Repository",
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"ResolveConflicts: empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 		{
 			desc: "empty target repo",
@@ -712,8 +709,7 @@ func TestFailedResolveConflictsRequestDueToValidation(t *testing.T) {
 				SourceBranch:     sourceBranch,
 				TargetBranch:     targetBranch,
 			},
-			expectedCode: codes.InvalidArgument,
-			expectedErr:  "ResolveConflicts: empty TargetRepository",
+			expectedErr: status.Error(codes.InvalidArgument, "ResolveConflicts: empty TargetRepository"),
 		},
 		{
 			desc: "empty OurCommitId repo",
@@ -727,8 +723,7 @@ func TestFailedResolveConflictsRequestDueToValidation(t *testing.T) {
 				SourceBranch:     sourceBranch,
 				TargetBranch:     targetBranch,
 			},
-			expectedCode: codes.InvalidArgument,
-			expectedErr:  "ResolveConflicts: empty OurCommitOid",
+			expectedErr: status.Error(codes.InvalidArgument, "ResolveConflicts: empty OurCommitOid"),
 		},
 		{
 			desc: "empty TheirCommitId repo",
@@ -742,8 +737,7 @@ func TestFailedResolveConflictsRequestDueToValidation(t *testing.T) {
 				SourceBranch:     sourceBranch,
 				TargetBranch:     targetBranch,
 			},
-			expectedCode: codes.InvalidArgument,
-			expectedErr:  "ResolveConflicts: empty TheirCommitOid",
+			expectedErr: status.Error(codes.InvalidArgument, "ResolveConflicts: empty TheirCommitOid"),
 		},
 		{
 			desc: "empty CommitMessage repo",
@@ -757,8 +751,7 @@ func TestFailedResolveConflictsRequestDueToValidation(t *testing.T) {
 				SourceBranch:     sourceBranch,
 				TargetBranch:     targetBranch,
 			},
-			expectedCode: codes.InvalidArgument,
-			expectedErr:  "ResolveConflicts: empty CommitMessage",
+			expectedErr: status.Error(codes.InvalidArgument, "ResolveConflicts: empty CommitMessage"),
 		},
 		{
 			desc: "empty SourceBranch repo",
@@ -772,8 +765,7 @@ func TestFailedResolveConflictsRequestDueToValidation(t *testing.T) {
 				SourceBranch:     nil,
 				TargetBranch:     targetBranch,
 			},
-			expectedCode: codes.InvalidArgument,
-			expectedErr:  "ResolveConflicts: empty SourceBranch",
+			expectedErr: status.Error(codes.InvalidArgument, "ResolveConflicts: empty SourceBranch"),
 		},
 		{
 			desc: "empty TargetBranch repo",
@@ -787,8 +779,7 @@ func TestFailedResolveConflictsRequestDueToValidation(t *testing.T) {
 				SourceBranch:     sourceBranch,
 				TargetBranch:     nil,
 			},
-			expectedCode: codes.InvalidArgument,
-			expectedErr:  "ResolveConflicts: empty TargetBranch",
+			expectedErr: status.Error(codes.InvalidArgument, "ResolveConflicts: empty TargetBranch"),
 		},
 	}
 
@@ -808,8 +799,7 @@ func TestFailedResolveConflictsRequestDueToValidation(t *testing.T) {
 			require.NoError(t, stream.Send(headerRequest))
 
 			_, err = stream.CloseAndRecv()
-			testhelper.RequireGrpcCode(t, err, testCase.expectedCode)
-			require.Contains(t, err.Error(), testCase.expectedErr)
+			testhelper.RequireGrpcError(t, testCase.expectedErr, err)
 		})
 	}
 }

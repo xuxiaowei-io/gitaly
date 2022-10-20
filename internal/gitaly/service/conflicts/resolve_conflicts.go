@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/conflict"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
@@ -80,7 +81,7 @@ func validateResolveConflictsHeader(header *gitalypb.ResolveConflictsRequestHead
 		return fmt.Errorf("empty OurCommitOid")
 	}
 	if header.GetRepository() == nil {
-		return fmt.Errorf("empty Repository")
+		return gitalyerrors.ErrEmptyRepository
 	}
 	if header.GetTargetRepository() == nil {
 		return fmt.Errorf("empty TargetRepository")

@@ -7,6 +7,7 @@ import (
 	"io"
 	"unicode/utf8"
 
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
@@ -127,7 +128,7 @@ func (s *server) ListConflictFiles(request *gitalypb.ListConflictFilesRequest, s
 
 func validateListConflictFilesRequest(in *gitalypb.ListConflictFilesRequest) error {
 	if in.GetRepository() == nil {
-		return fmt.Errorf("empty Repository")
+		return gitalyerrors.ErrEmptyRepository
 	}
 	if in.GetOurCommitOid() == "" {
 		return fmt.Errorf("empty OurCommitOid")
