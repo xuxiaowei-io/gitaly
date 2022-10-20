@@ -27,6 +27,9 @@ type OptimizationStrategy interface {
 	// ShouldRepackReferences determines whether the repository's references need to be
 	// repacked.
 	ShouldRepackReferences() bool
+	// ShouldWriteCommitGraph determines whether we need to write the commit-graph and how it
+	// should be written.
+	ShouldWriteCommitGraph() (bool, WriteCommitGraphConfig)
 }
 
 // HeuristicalOptimizationStrategy is an optimization strategy that is based on a set of
@@ -40,6 +43,7 @@ type HeuristicalOptimizationStrategy struct {
 	packedRefsSize          int64
 	hasAlternate            bool
 	hasBitmap               bool
+	hasBloomFilters         bool
 	isObjectPool            bool
 }
 
@@ -70,6 +74,12 @@ func NewHeuristicalOptimizationStrategy(ctx context.Context, repo *localrepo.Rep
 	if err != nil {
 		return strategy, fmt.Errorf("checking for bitmap: %w", err)
 	}
+
+	missingBloomFilters, err := stats.IsMissingBloomFilters(repoPath)
+	if err != nil {
+		return strategy, fmt.Errorf("checking for bloom filters: %w", err)
+	}
+	strategy.hasBloomFilters = !missingBloomFilters
 
 	strategy.largestPackfileSizeInMB, strategy.packfileCount, err = packfileSizeAndCount(repo)
 	if err != nil {
@@ -280,18 +290,14 @@ func estimateLooseObjectCount(repo *localrepo.Repo, cutoffDate time.Time) (int64
 	return looseObjects * 256, nil
 }
 
-// needsWriteCommitGraph determines whether we need to write the commit-graph.
-func needsWriteCommitGraph(ctx context.Context, repo *localrepo.Repo, didRepack, didPrune bool) (bool, WriteCommitGraphConfig, error) {
-	looseRefs, packedRefsSize, err := countLooseAndPackedRefs(ctx, repo)
-	if err != nil {
-		return false, WriteCommitGraphConfig{}, fmt.Errorf("counting refs: %w", err)
-	}
-
+// ShouldWriteCommitGraph determines whether we need to write the commit-graph and how it should be
+// written.
+func (s HeuristicalOptimizationStrategy) ShouldWriteCommitGraph() (bool, WriteCommitGraphConfig) {
 	// If the repository doesn't have any references at all then there is no point in writing
 	// commit-graphs given that it would only contain reachable objects, of which there are
 	// none.
-	if looseRefs == 0 && packedRefsSize == 0 {
-		return false, WriteCommitGraphConfig{}, nil
+	if s.looseRefsCount == 0 && s.packedRefsSize == 0 {
+		return false, WriteCommitGraphConfig{}
 	}
 
 	// When we have pruned objects in the repository then it may happen that the commit-graph
@@ -302,38 +308,29 @@ func needsWriteCommitGraph(ctx context.Context, repo *localrepo.Repo, didRepack,
 	//
 	// To fix this case we will replace the complete commit-chain when we have pruned objects
 	// from the repository.
-	if didPrune {
+	if s.ShouldPruneObjects() {
 		return true, WriteCommitGraphConfig{
 			ReplaceChain: true,
-		}, nil
+		}
 	}
 
 	// When we repacked the repository then chances are high that we have accumulated quite some
 	// objects since the last time we wrote a commit-graph.
-	if didRepack {
-		return true, WriteCommitGraphConfig{}, nil
-	}
-
-	repoPath, err := repo.Path()
-	if err != nil {
-		return false, WriteCommitGraphConfig{}, fmt.Errorf("getting repository path: %w", err)
+	if needsRepacking, _ := s.ShouldRepackObjects(); needsRepacking {
+		return true, WriteCommitGraphConfig{}
 	}
 
 	// Bloom filters are part of the commit-graph and allow us to efficiently determine which
 	// paths have been modified in a given commit without having to look into the object
 	// database. In the past we didn't compute bloom filters at all, so we want to rewrite the
 	// whole commit-graph to generate them.
-	missingBloomFilters, err := stats.IsMissingBloomFilters(repoPath)
-	if err != nil {
-		return false, WriteCommitGraphConfig{}, fmt.Errorf("checking for bloom filters: %w", err)
-	}
-	if missingBloomFilters {
+	if !s.hasBloomFilters {
 		return true, WriteCommitGraphConfig{
 			ReplaceChain: true,
-		}, nil
+		}
 	}
 
-	return false, WriteCommitGraphConfig{}, nil
+	return false, WriteCommitGraphConfig{}
 }
 
 // ShouldPruneObjects determines whether the repository has stale objects that should be pruned.

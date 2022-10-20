@@ -132,6 +132,67 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 				hasBitmap: true,
 			},
 		},
+		{
+			desc: "existing unsplit commit-graph with bloom filters",
+			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+
+				// Write a non-split commit-graph with bloom filters. We should
+				// always rewrite the commit-graphs when we're not using a split
+				// commit-graph. We make sure to add bloom filters via
+				// `--changed-paths` given that it would otherwise cause us to
+				// rewrite the graph regardless of whether the graph is split or not
+				// if they were missing.
+				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--changed-paths")
+
+				return repoProto
+			},
+			expectedStrategy: HeuristicalOptimizationStrategy{
+				looseRefsCount: 1,
+			},
+		},
+		{
+			desc: "existing split commit-graph without bloom filters",
+			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+
+				// Generate a split commit-graph, but don't enable computation of
+				// changed paths. This should trigger a rewrite so that we can
+				// recompute all graphs and generate the changed paths.
+				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split")
+
+				return repoProto
+			},
+			expectedStrategy: HeuristicalOptimizationStrategy{
+				looseRefsCount: 1,
+			},
+		},
+		{
+			desc: "existing split commit-graph with bloom filters",
+			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+
+				// Write a split commit-graph with bitmaps. This is the state we
+				// want to be in, so there is no write required if we didn't also
+				// repack objects.
+				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split", "--changed-paths")
+
+				return repoProto
+			},
+			expectedStrategy: HeuristicalOptimizationStrategy{
+				looseRefsCount:  1,
+				hasBloomFilters: true,
+			},
+		},
 	} {
 		tc := tc
 
@@ -534,6 +595,83 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackReferences(t *testing.T) {
 	}
 }
 
+func TestHeuristicalOptimizationStrategy_NeedsWriteCommitGraph(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		desc           string
+		strategy       HeuristicalOptimizationStrategy
+		expectedNeeded bool
+		expectedCfg    WriteCommitGraphConfig
+	}{
+		{
+			desc:           "empty repository",
+			expectedNeeded: false,
+		},
+		{
+			desc: "repository with objects but no refs",
+			strategy: HeuristicalOptimizationStrategy{
+				looseObjectCount: 9000,
+			},
+			expectedNeeded: false,
+		},
+		{
+			desc: "repository without bloom filters",
+			strategy: HeuristicalOptimizationStrategy{
+				looseRefsCount: 1,
+			},
+			expectedNeeded: true,
+			expectedCfg: WriteCommitGraphConfig{
+				ReplaceChain: true,
+			},
+		},
+		{
+			desc: "repository with split commit-graph with bitmap without repack",
+			strategy: HeuristicalOptimizationStrategy{
+				looseRefsCount:  1,
+				hasBloomFilters: true,
+			},
+			// We use the information about whether we repacked objects as an indicator
+			// whether something has changed in the repository. If it didn't, then we
+			// assume no new objects exist and thus we don't rewrite the commit-graph.
+			expectedNeeded: false,
+		},
+		{
+			desc: "repository with split commit-graph with bitmap with repack",
+			strategy: HeuristicalOptimizationStrategy{
+				looseRefsCount:   1,
+				hasBloomFilters:  true,
+				looseObjectCount: 9000,
+			},
+			// When we have a valid commit-graph, but objects have been repacked, we
+			// assume that there are new objects in the repository. So consequentially,
+			// we should write the commit-graphs.
+			expectedNeeded: true,
+		},
+		{
+			desc: "repository with split commit-graph with bitmap with pruned objects",
+			strategy: HeuristicalOptimizationStrategy{
+				looseRefsCount:      1,
+				hasBloomFilters:     true,
+				oldLooseObjectCount: 9000,
+			},
+			// When we have a valid commit-graph, but objects have been repacked, we
+			// assume that there are new objects in the repository. So consequentially,
+			// we should write the commit-graphs.
+			expectedNeeded: true,
+			expectedCfg: WriteCommitGraphConfig{
+				ReplaceChain: true,
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			needed, writeCommitGraphCfg := tc.strategy.ShouldWriteCommitGraph()
+			require.Equal(t, tc.expectedNeeded, needed)
+			require.Equal(t, tc.expectedCfg, writeCommitGraphCfg)
+		})
+	}
+}
+
 func TestEstimateLooseObjectCount(t *testing.T) {
 	t.Parallel()
 
@@ -626,6 +764,8 @@ type mockOptimizationStrategy struct {
 	repackObjectsCfg       RepackObjectsConfig
 	shouldPruneObjects     bool
 	shouldRepackReferences bool
+	shouldWriteCommitGraph bool
+	writeCommitGraphCfg    WriteCommitGraphConfig
 }
 
 func (m mockOptimizationStrategy) ShouldRepackObjects() (bool, RepackObjectsConfig) {
@@ -638,4 +778,8 @@ func (m mockOptimizationStrategy) ShouldPruneObjects() bool {
 
 func (m mockOptimizationStrategy) ShouldRepackReferences() bool {
 	return m.shouldRepackReferences
+}
+
+func (m mockOptimizationStrategy) ShouldWriteCommitGraph() (bool, WriteCommitGraphConfig) {
+	return m.shouldWriteCommitGraph, m.writeCommitGraphCfg
 }

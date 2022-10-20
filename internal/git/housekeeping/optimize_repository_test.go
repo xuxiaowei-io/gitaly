@@ -562,189 +562,48 @@ func TestPruneIfNeeded(t *testing.T) {
 }
 
 func TestWriteCommitGraphIfNeeded(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
-	for _, tc := range []struct {
-		desc                string
-		setup               func(t *testing.T) (*gitalypb.Repository, string)
-		didRepack           bool
-		didPrune            bool
-		expectedWrite       bool
-		expectedCfg         WriteCommitGraphConfig
-		expectedCommitGraph bool
-	}{
-		{
-			desc: "empty repository",
-			setup: func(t *testing.T) (*gitalypb.Repository, string) {
-				return gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-					SkipCreationViaService: true,
-				})
-			},
-			didRepack:     true,
-			didPrune:      true,
-			expectedWrite: false,
-		},
-		{
-			desc: "repository with objects but no refs",
-			setup: func(t *testing.T) (*gitalypb.Repository, string) {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-					SkipCreationViaService: true,
-				})
-				gittest.WriteBlob(t, cfg, repoPath, []byte("something"))
-				return repoProto, repoPath
-			},
-			didRepack:     true,
-			didPrune:      true,
-			expectedWrite: false,
-		},
-		{
-			desc: "repository without commit-graph",
-			setup: func(t *testing.T) (*gitalypb.Repository, string) {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-					SkipCreationViaService: true,
-				})
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
-				return repoProto, repoPath
-			},
-			expectedWrite: true,
-			expectedCfg: WriteCommitGraphConfig{
-				ReplaceChain: true,
-			},
-			expectedCommitGraph: true,
-		},
-		{
-			desc: "repository with old-style unsplit commit-graph",
-			setup: func(t *testing.T) (*gitalypb.Repository, string) {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-					SkipCreationViaService: true,
-				})
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
-
-				// Write a non-split commit-graph with bloom filters. We should
-				// always rewrite the commit-graphs when we're not using a split
-				// commit-graph. We make sure to add bloom filters via
-				// `--changed-paths` given that it would otherwise cause us to
-				// rewrite the graph regardless of whether the graph is split or not
-				// if they were missing.
-				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--changed-paths")
-
-				return repoProto, repoPath
-			},
-			expectedWrite: true,
-			expectedCfg: WriteCommitGraphConfig{
-				ReplaceChain: true,
-			},
-			expectedCommitGraph: true,
-		},
-		{
-			desc: "repository with split commit-graph without bitmap",
-			setup: func(t *testing.T) (*gitalypb.Repository, string) {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-					SkipCreationViaService: true,
-				})
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
-
-				// Generate a split commit-graph, but don't enable computation of
-				// changed paths. This should trigger a rewrite so that we can
-				// recompute all graphs and generate the changed paths.
-				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split")
-
-				return repoProto, repoPath
-			},
-			expectedWrite: true,
-			expectedCfg: WriteCommitGraphConfig{
-				ReplaceChain: true,
-			},
-			expectedCommitGraph: true,
-		},
-		{
-			desc: "repository with split commit-graph with bitmap without repack",
-			setup: func(t *testing.T) (*gitalypb.Repository, string) {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-					SkipCreationViaService: true,
-				})
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
-
-				// Write a split commit-graph with bitmaps. This is the state we
-				// want to be in.
-				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split", "--changed-paths")
-
-				return repoProto, repoPath
-			},
-			// We use the information about whether we repacked objects as an indicator
-			// whether something has changed in the repository. If it didn't, then we
-			// assume no new objects exist and thus we don't rewrite the commit-graph.
-			didRepack:           false,
-			expectedWrite:       false,
-			expectedCommitGraph: true,
-		},
-		{
-			desc: "repository with split commit-graph with bitmap with repack",
-			setup: func(t *testing.T) (*gitalypb.Repository, string) {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-					SkipCreationViaService: true,
-				})
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
-
-				// Write a split commit-graph with bitmaps. This is the state we
-				// want to be in, so there is no write required if we didn't also
-				// repack objects.
-				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split", "--changed-paths")
-
-				return repoProto, repoPath
-			},
-			// When we have a valid commit-graph, but objects have been repacked, we
-			// assume that there are new objects in the repository. So consequentially,
-			// we should write the commit-graphs.
-			didRepack:           true,
-			expectedWrite:       true,
-			expectedCommitGraph: true,
-		},
-		{
-			desc: "repository with split commit-graph with bitmap with pruned objects",
-			setup: func(t *testing.T) (*gitalypb.Repository, string) {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-					SkipCreationViaService: true,
-				})
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
-
-				// Write a split commit-graph with bitmaps. This is the state we
-				// want to be in, so there is no write required if we didn't also
-				// repack objects.
-				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split", "--changed-paths")
-
-				return repoProto, repoPath
-			},
-			// When we have a valid commit-graph, but objects have been repacked, we
-			// assume that there are new objects in the repository. So consequentially,
-			// we should write the commit-graphs.
-			didPrune:      true,
-			expectedWrite: true,
-			expectedCfg: WriteCommitGraphConfig{
-				ReplaceChain: true,
-			},
-			expectedCommitGraph: true,
-		},
-	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			repoProto, repoPath := tc.setup(t)
-			repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-			didWrite, writeCommitGraphCfg, err := writeCommitGraphIfNeeded(ctx, repo, tc.didRepack, tc.didPrune)
-			require.NoError(t, err)
-			require.Equal(t, tc.expectedWrite, didWrite)
-			require.Equal(t, tc.expectedCfg, writeCommitGraphCfg)
-
-			commitGraphPath := filepath.Join(repoPath, "objects", "info", "commit-graphs", "commit-graph-chain")
-			if tc.expectedCommitGraph {
-				require.FileExists(t, commitGraphPath)
-			} else {
-				require.NoFileExists(t, commitGraphPath)
-			}
-			gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "verify")
+	t.Run("strategy does not update commit-graph", func(t *testing.T) {
+		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			SkipCreationViaService: true,
 		})
-	}
+		repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+
+		written, cfg, err := writeCommitGraphIfNeeded(ctx, repo, mockOptimizationStrategy{
+			shouldWriteCommitGraph: false,
+		})
+		require.NoError(t, err)
+		require.False(t, written)
+		require.Equal(t, WriteCommitGraphConfig{}, cfg)
+
+		require.NoFileExists(t, filepath.Join(repoPath, "objects", "info", "commit-graph"))
+		require.NoDirExists(t, filepath.Join(repoPath, "objects", "info", "commit-graphs"))
+	})
+
+	t.Run("strategy does update commit-graph", func(t *testing.T) {
+		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			SkipCreationViaService: true,
+		})
+		repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+
+		written, cfg, err := writeCommitGraphIfNeeded(ctx, repo, mockOptimizationStrategy{
+			shouldWriteCommitGraph: true,
+		})
+		require.NoError(t, err)
+		require.True(t, written)
+		require.Equal(t, WriteCommitGraphConfig{}, cfg)
+
+		require.NoFileExists(t, filepath.Join(repoPath, "objects", "info", "commit-graph"))
+		require.DirExists(t, filepath.Join(repoPath, "objects", "info", "commit-graphs"))
+	})
 
 	t.Run("commit-graph with pruned objects", func(t *testing.T) {
 		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
@@ -774,24 +633,29 @@ func TestWriteCommitGraphIfNeeded(t *testing.T) {
 		require.EqualError(t, verifyCmd.Run(), "exit status 1")
 		require.Equal(t, stderr.String(), fmt.Sprintf("error: Could not read %[1]s\nfailed to parse commit %[1]s from object database for commit-graph\n", unreachableCommitID))
 
-		// Write the commit-graph and pretend that objects have been rewritten, but not
-		// pruned.
-		didWrite, writeCommitGraphCfg, err := writeCommitGraphIfNeeded(ctx, repo, true, false)
+		// Write the commit-graph incrementally.
+		didWrite, writeCommitGraphCfg, err := writeCommitGraphIfNeeded(ctx, repo, mockOptimizationStrategy{
+			shouldWriteCommitGraph: true,
+		})
 		require.NoError(t, err)
 		require.True(t, didWrite)
 		require.Equal(t, WriteCommitGraphConfig{}, writeCommitGraphCfg)
 
-		// When pretending that no objects have been pruned we still observe the same
-		// failure.
+		// We should still observe the failure failure.
 		stderr.Reset()
 		verifyCmd = gittest.NewCommand(t, cfg, "-C", repoPath, "commit-graph", "verify")
 		verifyCmd.Stderr = &stderr
 		require.EqualError(t, verifyCmd.Run(), "exit status 1")
 		require.Equal(t, stderr.String(), fmt.Sprintf("error: Could not read %[1]s\nfailed to parse commit %[1]s from object database for commit-graph\n", unreachableCommitID))
 
-		// Write the commit-graph a second time, but this time we pretend we have just
-		// pruned objects. This should cause the commit-graph to be rewritten.
-		didWrite, writeCommitGraphCfg, err = writeCommitGraphIfNeeded(ctx, repo, false, true)
+		// Write the commit-graph a second time, but this time we ask to rewrite the
+		// commit-graph completely.
+		didWrite, writeCommitGraphCfg, err = writeCommitGraphIfNeeded(ctx, repo, mockOptimizationStrategy{
+			shouldWriteCommitGraph: true,
+			writeCommitGraphCfg: WriteCommitGraphConfig{
+				ReplaceChain: true,
+			},
+		})
 		require.NoError(t, err)
 		require.True(t, didWrite)
 		require.Equal(t, WriteCommitGraphConfig{

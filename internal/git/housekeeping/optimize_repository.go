@@ -137,7 +137,7 @@ func optimizeRepository(
 	timer.ObserveDuration()
 
 	timer = prometheus.NewTimer(m.tasksLatency.WithLabelValues("commit-graph"))
-	if didWriteCommitGraph, writeCommitGraphCfg, err := writeCommitGraphIfNeeded(ctx, repo, didRepack, didPrune); err != nil {
+	if didWriteCommitGraph, writeCommitGraphCfg, err := writeCommitGraphIfNeeded(ctx, repo, cfg.strategy); err != nil {
 		optimizations["written_commit_graph_full"] = "failure"
 		optimizations["written_commit_graph_incremental"] = "failure"
 		return fmt.Errorf("could not write commit-graph: %w", err)
@@ -170,11 +170,8 @@ func repackIfNeeded(ctx context.Context, repo *localrepo.Repo, strategy Optimiza
 }
 
 // writeCommitGraphIfNeeded writes the commit-graph if required.
-func writeCommitGraphIfNeeded(ctx context.Context, repo *localrepo.Repo, didRepack, didPrune bool) (bool, WriteCommitGraphConfig, error) {
-	needed, cfg, err := needsWriteCommitGraph(ctx, repo, didRepack, didPrune)
-	if err != nil {
-		return false, WriteCommitGraphConfig{}, fmt.Errorf("determining whether repo needs commit-graph update: %w", err)
-	}
+func writeCommitGraphIfNeeded(ctx context.Context, repo *localrepo.Repo, strategy OptimizationStrategy) (bool, WriteCommitGraphConfig, error) {
+	needed, cfg := strategy.ShouldWriteCommitGraph()
 	if !needed {
 		return false, WriteCommitGraphConfig{}, nil
 	}
