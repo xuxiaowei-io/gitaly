@@ -21,7 +21,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -698,49 +697,62 @@ func TestFailedPatchApplyPatch(t *testing.T) {
 
 func TestFailedValidationUserApplyPatch(t *testing.T) {
 	t.Parallel()
-	_, repo, _ := testcfg.BuildWithRepo(t)
+	ctx := testhelper.Context(t)
+	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
 	testCases := []struct {
-		desc         string
-		errorMessage string
-		repo         *gitalypb.Repository
-		user         *gitalypb.User
-		branchName   string
+		desc        string
+		repo        *gitalypb.Repository
+		user        *gitalypb.User
+		branchName  string
+		expectedErr error
 	}{
 		{
-			desc:         "missing Repository",
-			errorMessage: "missing Repository",
-			branchName:   "new-branch",
-			user:         gittest.TestUser,
-		},
-
-		{
-			desc:         "missing Branch",
-			errorMessage: "missing Branch",
-			repo:         repo,
-			user:         gittest.TestUser,
+			desc:       "missing Repository",
+			branchName: "new-branch",
+			user:       gittest.TestUser,
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"UserApplyPatch: empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 		{
-			desc:         "empty BranchName",
-			errorMessage: "missing Branch",
-			repo:         repo,
-			user:         gittest.TestUser,
-			branchName:   "",
+			desc:        "missing Branch",
+			repo:        repo,
+			user:        gittest.TestUser,
+			expectedErr: status.Error(codes.InvalidArgument, "UserApplyPatch: missing Branch"),
 		},
 		{
-			desc:         "missing User",
-			errorMessage: "missing User",
-			branchName:   "new-branch",
-			repo:         repo,
+			desc:        "empty BranchName",
+			repo:        repo,
+			user:        gittest.TestUser,
+			branchName:  "",
+			expectedErr: status.Error(codes.InvalidArgument, "UserApplyPatch: missing Branch"),
+		},
+		{
+			desc:        "missing User",
+			branchName:  "new-branch",
+			repo:        repo,
+			expectedErr: status.Error(codes.InvalidArgument, "UserApplyPatch: missing User"),
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			request := applyPatchHeaderRequest(testCase.repo, testCase.user, testCase.branchName)
-			err := validateUserApplyPatchHeader(request.GetHeader())
-
-			require.Contains(t, err.Error(), testCase.errorMessage)
+			stream, err := client.UserApplyPatch(ctx)
+			require.NoError(t, err)
+			err = stream.Send(&gitalypb.UserApplyPatchRequest{
+				UserApplyPatchRequestPayload: &gitalypb.UserApplyPatchRequest_Header_{
+					Header: &gitalypb.UserApplyPatchRequest_Header{
+						Repository:   testCase.repo,
+						User:         testCase.user,
+						TargetBranch: []byte(testCase.branchName),
+					},
+				},
+			})
+			require.NoError(t, err)
+			_, err = stream.CloseAndRecv()
+			testhelper.RequireGrpcError(t, testCase.expectedErr, err)
 		})
 	}
 }

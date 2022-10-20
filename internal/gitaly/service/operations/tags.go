@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"time"
 
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
@@ -19,16 +20,24 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+func validateUserDeleteTagRequest(in *gitalypb.UserDeleteTagRequest) error {
+	if in.GetRepository() == nil {
+		return gitalyerrors.ErrEmptyRepository
+	}
+	if len(in.GetTagName()) == 0 {
+		return errors.New("empty tag name")
+	}
+	if in.GetUser() == nil {
+		return errors.New("empty user")
+	}
+	return nil
+}
+
 //nolint:revive // This is unintentionally missing documentation.
 func (s *Server) UserDeleteTag(ctx context.Context, req *gitalypb.UserDeleteTagRequest) (*gitalypb.UserDeleteTagResponse, error) {
-	if len(req.TagName) == 0 {
-		return nil, status.Errorf(codes.InvalidArgument, "empty tag name")
+	if err := validateUserDeleteTagRequest(req); err != nil {
+		return nil, helper.ErrInvalidArgument(err)
 	}
-
-	if req.User == nil {
-		return nil, status.Errorf(codes.InvalidArgument, "empty user")
-	}
-
 	referenceName := git.ReferenceName(fmt.Sprintf("refs/tags/%s", req.TagName))
 	revision, err := s.localrepo(req.GetRepository()).ResolveRevision(ctx, referenceName.Revision())
 	if err != nil {
@@ -76,7 +85,7 @@ func validateUserCreateTag(req *gitalypb.UserCreateTagRequest) error {
 	}
 
 	if req.GetRepository() == nil {
-		return fmt.Errorf("empty repository")
+		return gitalyerrors.ErrEmptyRepository
 	}
 
 	return nil

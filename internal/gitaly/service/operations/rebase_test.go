@@ -21,6 +21,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -414,9 +415,34 @@ func TestUserRebaseConfirmable_abortViaClose(t *testing.T) {
 		desc      string
 		code      codes.Code
 	}{
-		{req: &gitalypb.UserRebaseConfirmableRequest{}, desc: "empty request, don't close", code: codes.FailedPrecondition},
-		{req: &gitalypb.UserRebaseConfirmableRequest{}, closeSend: true, desc: "empty request and close", code: codes.FailedPrecondition},
-		{closeSend: true, desc: "no request just close", code: codes.Internal},
+		{
+			req: &gitalypb.UserRebaseConfirmableRequest{
+				UserRebaseConfirmableRequestPayload: &gitalypb.UserRebaseConfirmableRequest_Header_{
+					Header: &gitalypb.UserRebaseConfirmableRequest_Header{
+						Repository: &gitalypb.Repository{},
+					},
+				},
+			},
+			desc: "empty request, don't close",
+			code: codes.FailedPrecondition,
+		},
+		{
+			req: &gitalypb.UserRebaseConfirmableRequest{
+				UserRebaseConfirmableRequestPayload: &gitalypb.UserRebaseConfirmableRequest_Header_{
+					Header: &gitalypb.UserRebaseConfirmableRequest_Header{
+						Repository: &gitalypb.Repository{},
+					},
+				},
+			},
+			closeSend: true,
+			desc:      "empty request and close",
+			code:      codes.FailedPrecondition,
+		},
+		{
+			closeSend: true,
+			desc:      "no request just close",
+			code:      codes.Internal,
+		},
 	}
 
 	for i, tc := range testCases {
@@ -752,8 +778,18 @@ func TestUserRebaseConfirmable_failedWithCode(t *testing.T) {
 	testCases := []struct {
 		desc               string
 		buildHeaderRequest func() *gitalypb.UserRebaseConfirmableRequest
-		expectedCode       codes.Code
+		expectedErr        error
 	}{
+		{
+			desc: "no repository provided",
+			buildHeaderRequest: func() *gitalypb.UserRebaseConfirmableRequest {
+				return buildHeaderRequest(nil, gittest.TestUser, "1", rebaseBranchName, branchCommitID, nil, "master")
+			},
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"UserRebaseConfirmable: empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
 		{
 			desc: "non-existing storage",
 			buildHeaderRequest: func() *gitalypb.UserRebaseConfirmableRequest {
@@ -762,7 +798,10 @@ func TestUserRebaseConfirmable_failedWithCode(t *testing.T) {
 
 				return buildHeaderRequest(repo, gittest.TestUser, "1", rebaseBranchName, branchCommitID, repo, "master")
 			},
-			expectedCode: codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				`creating repo quarantine: creating object quarantine: getting repo path: GetStorageByName: no such storage: "@this-storage-does-not-exist"`,
+				"repo scoped: invalid Repository",
+			)),
 		},
 		{
 			desc: "missing repository path",
@@ -772,7 +811,10 @@ func TestUserRebaseConfirmable_failedWithCode(t *testing.T) {
 
 				return buildHeaderRequest(repo, gittest.TestUser, "1", rebaseBranchName, branchCommitID, repo, "master")
 			},
-			expectedCode: codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"creating repo quarantine: creating object quarantine: getting repo path: GetPath: relative path missing",
+				"repo scoped: invalid Repository",
+			)),
 		},
 	}
 
@@ -785,7 +827,7 @@ func TestUserRebaseConfirmable_failedWithCode(t *testing.T) {
 			require.NoError(t, rebaseStream.Send(headerRequest), "send header")
 
 			_, err = rebaseStream.Recv()
-			testhelper.RequireGrpcCode(t, err, tc.expectedCode)
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
 	}
 }

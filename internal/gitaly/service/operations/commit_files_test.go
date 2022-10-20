@@ -1478,48 +1478,62 @@ func TestFailedUserCommitFilesRequest(t *testing.T) {
 	branchName := "feature"
 
 	testCases := []struct {
-		desc string
-		req  *gitalypb.UserCommitFilesRequest
+		desc        string
+		req         *gitalypb.UserCommitFilesRequest
+		expectedErr error
 	}{
 		{
 			desc: "empty Repository",
 			req:  headerRequest(nil, gittest.TestUser, branchName, commitFilesMessage, ""),
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"UserCommitFiles: empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 		{
-			desc: "empty User",
-			req:  headerRequest(repo, nil, branchName, commitFilesMessage, ""),
+			desc:        "empty User",
+			req:         headerRequest(repo, nil, branchName, commitFilesMessage, ""),
+			expectedErr: status.Error(codes.InvalidArgument, "UserCommitFiles: empty User"),
 		},
 		{
-			desc: "empty BranchName",
-			req:  headerRequest(repo, gittest.TestUser, "", commitFilesMessage, ""),
+			desc:        "empty BranchName",
+			req:         headerRequest(repo, gittest.TestUser, "", commitFilesMessage, ""),
+			expectedErr: status.Error(codes.InvalidArgument, "UserCommitFiles: empty BranchName"),
 		},
 		{
-			desc: "empty CommitMessage",
-			req:  headerRequest(repo, gittest.TestUser, branchName, nil, ""),
+			desc:        "empty CommitMessage",
+			req:         headerRequest(repo, gittest.TestUser, branchName, nil, ""),
+			expectedErr: status.Error(codes.InvalidArgument, "UserCommitFiles: empty CommitMessage"),
 		},
 		{
-			desc: "invalid object ID: \"foobar\"",
-			req:  setStartSha(headerRequest(repo, gittest.TestUser, branchName, commitFilesMessage, ""), "foobar"),
+			desc:        "invalid object ID: \"foobar\"",
+			req:         setStartSha(headerRequest(repo, gittest.TestUser, branchName, commitFilesMessage, ""), "foobar"),
+			expectedErr: status.Error(codes.InvalidArgument, `UserCommitFiles: invalid object ID: "foobar"`),
 		},
 		{
-			desc: "failed to parse signature - Signature cannot have an empty name or email",
-			req:  headerRequest(repo, &gitalypb.User{}, branchName, commitFilesMessage, ""),
+			desc:        "failed to parse signature - Signature cannot have an empty name or email",
+			req:         headerRequest(repo, &gitalypb.User{}, branchName, commitFilesMessage, ""),
+			expectedErr: status.Error(codes.InvalidArgument, "commit: commit: failed to parse signature - Signature cannot have an empty name or email"),
 		},
 		{
-			desc: "failed to parse signature - Signature cannot have an empty name or email",
-			req:  headerRequest(repo, &gitalypb.User{Name: []byte(""), Email: []byte("")}, branchName, commitFilesMessage, ""),
+			desc:        "failed to parse signature - Signature cannot have an empty name or email",
+			req:         headerRequest(repo, &gitalypb.User{Name: []byte(""), Email: []byte("")}, branchName, commitFilesMessage, ""),
+			expectedErr: status.Error(codes.InvalidArgument, "commit: commit: failed to parse signature - Signature cannot have an empty name or email"),
 		},
 		{
-			desc: "failed to parse signature - Signature cannot have an empty name or email",
-			req:  headerRequest(repo, &gitalypb.User{Name: []byte(" "), Email: []byte(" ")}, branchName, commitFilesMessage, ""),
+			desc:        "failed to parse signature - Signature cannot have an empty name or email",
+			req:         headerRequest(repo, &gitalypb.User{Name: []byte(" "), Email: []byte(" ")}, branchName, commitFilesMessage, ""),
+			expectedErr: status.Error(codes.InvalidArgument, "commit: commit: failed to parse signature - Signature cannot have an empty name or email"),
 		},
 		{
-			desc: "failed to parse signature - Signature cannot have an empty name or email",
-			req:  headerRequest(repo, &gitalypb.User{Name: []byte("Jane Doe"), Email: []byte("")}, branchName, commitFilesMessage, ""),
+			desc:        "failed to parse signature - Signature cannot have an empty name or email",
+			req:         headerRequest(repo, &gitalypb.User{Name: []byte("Jane Doe"), Email: []byte("")}, branchName, commitFilesMessage, ""),
+			expectedErr: status.Error(codes.InvalidArgument, "commit: commit: failed to parse signature - Signature cannot have an empty name or email"),
 		},
 		{
-			desc: "failed to parse signature - Signature cannot have an empty name or email",
-			req:  headerRequest(repo, &gitalypb.User{Name: []byte(""), Email: []byte("janedoe@gitlab.com")}, branchName, commitFilesMessage, ""),
+			desc:        "failed to parse signature - Signature cannot have an empty name or email",
+			req:         headerRequest(repo, &gitalypb.User{Name: []byte(""), Email: []byte("janedoe@gitlab.com")}, branchName, commitFilesMessage, ""),
+			expectedErr: status.Error(codes.InvalidArgument, "commit: commit: failed to parse signature - Signature cannot have an empty name or email"),
 		},
 	}
 
@@ -1531,8 +1545,7 @@ func TestFailedUserCommitFilesRequest(t *testing.T) {
 			require.NoError(t, stream.Send(tc.req))
 
 			_, err = stream.CloseAndRecv()
-			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
-			require.Contains(t, err.Error(), tc.desc)
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
 	}
 }
