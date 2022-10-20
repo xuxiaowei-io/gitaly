@@ -15,6 +15,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestDisconnectGitAlternates(t *testing.T) {
@@ -203,6 +205,31 @@ func testRemoveAlternatesIfOk(t *testing.T, ctx context.Context) {
 		// We expect the backup alternates file to still exist.
 		assertAlternates(t, altBackup, altContent)
 	})
+}
+
+func TestDisconnectGitAlternates_validate(t *testing.T) {
+	t.Parallel()
+	ctx := testhelper.Context(t)
+	_, _, _, _, client := setup(t, ctx)
+	for _, tc := range []struct {
+		desc        string
+		req         *gitalypb.DisconnectGitAlternatesRequest
+		expectedErr error
+	}{
+		{
+			desc: "repository not provided",
+			req:  &gitalypb.DisconnectGitAlternatesRequest{Repository: nil},
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			_, err := client.DisconnectGitAlternates(ctx, tc.req)
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
+		})
+	}
 }
 
 func assertAlternates(t *testing.T, altPath string, altContent string) {
