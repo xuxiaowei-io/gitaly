@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestSuccessfulFindAllCommitsRequest(t *testing.T) {
@@ -168,17 +169,23 @@ func TestFailedFindAllCommitsRequest(t *testing.T) {
 	testCases := []struct {
 		desc    string
 		request *gitalypb.FindAllCommitsRequest
-		code    codes.Code
+		expErr  error
 	}{
 		{
 			desc:    "Invalid repository",
 			request: &gitalypb.FindAllCommitsRequest{Repository: invalidRepo},
-			code:    codes.InvalidArgument,
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				`GetStorageByName: no such storage: "fake"`,
+				"repo scoped: invalid Repository",
+			)),
 		},
 		{
 			desc:    "Repository is nil",
 			request: &gitalypb.FindAllCommitsRequest{},
-			code:    codes.InvalidArgument,
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 		{
 			desc: "Revision is invalid",
@@ -186,7 +193,7 @@ func TestFailedFindAllCommitsRequest(t *testing.T) {
 				Repository: repo,
 				Revision:   []byte("--output=/meow"),
 			},
-			code: codes.InvalidArgument,
+			expErr: status.Error(codes.InvalidArgument, "revision can't start with '-'"),
 		},
 	}
 
@@ -196,7 +203,7 @@ func TestFailedFindAllCommitsRequest(t *testing.T) {
 			require.NoError(t, err)
 
 			err = drainFindAllCommitsResponse(c)
-			testhelper.RequireGrpcCode(t, err, testCase.code)
+			testhelper.RequireGrpcError(t, testCase.expErr, err)
 		})
 	}
 }

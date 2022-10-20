@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/trailerparser"
@@ -22,10 +23,20 @@ import (
 
 var statsPattern = regexp.MustCompile(`\s(\d+)\sfiles? changed(,\s(\d+)\sinsertions?\(\+\))?(,\s(\d+)\sdeletions?\(-\))?`)
 
+func validateFindCommitsRequest(in *gitalypb.FindCommitsRequest) error {
+	if in.GetRepository() == nil {
+		return gitalyerrors.ErrEmptyRepository
+	}
+	if err := git.ValidateRevisionAllowEmpty(in.GetRevision()); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *server) FindCommits(req *gitalypb.FindCommitsRequest, stream gitalypb.CommitService_FindCommitsServer) error {
 	ctx := stream.Context()
 
-	if err := git.ValidateRevisionAllowEmpty(req.Revision); err != nil {
+	if err := validateFindCommitsRequest(req); err != nil {
 		return helper.ErrInvalidArgument(err)
 	}
 

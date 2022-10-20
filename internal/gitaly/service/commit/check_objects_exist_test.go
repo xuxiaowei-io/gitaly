@@ -12,6 +12,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestCheckObjectsExist(t *testing.T) {
@@ -39,12 +41,19 @@ func TestCheckObjectsExist(t *testing.T) {
 		expectedErr     error
 	}{
 		{
+			desc:     "no repository provided",
+			requests: []*gitalypb.CheckObjectsExistRequest{{Repository: nil}},
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
+		{
 			desc:     "no requests",
 			requests: []*gitalypb.CheckObjectsExistRequest{},
 			// Ideally, we'd return an invalid-argument error in case there aren't any
 			// requests. We can't do this though as this would diverge from Praefect's
 			// behaviour, which always returns `io.EOF`.
-			expectedResults: map[string]bool{},
 		},
 		{
 			desc: "missing repository",
@@ -59,7 +68,6 @@ func TestCheckObjectsExist(t *testing.T) {
 				}
 				return helper.ErrInvalidArgumentf("empty Repository")
 			}(),
-			expectedResults: map[string]bool{},
 		},
 		{
 			desc: "request without revisions",
@@ -68,7 +76,6 @@ func TestCheckObjectsExist(t *testing.T) {
 					Repository: repo,
 				},
 			},
-			expectedResults: map[string]bool{},
 		},
 		{
 			desc: "commit ids and refs that exist",
@@ -158,8 +165,7 @@ func TestCheckObjectsExist(t *testing.T) {
 					},
 				},
 			},
-			expectedErr:     helper.ErrInvalidArgumentf("invalid revision %q: revision can't start with '-'", "-not-a-rev"),
-			expectedResults: map[string]bool{},
+			expectedErr: helper.ErrInvalidArgumentf("invalid revision %q: revision can't start with '-'", "-not-a-rev"),
 		},
 		{
 			desc: "input with whitespace",
@@ -171,8 +177,7 @@ func TestCheckObjectsExist(t *testing.T) {
 					},
 				},
 			},
-			expectedErr:     helper.ErrInvalidArgumentf("invalid revision %q: revision can't contain whitespace", fmt.Sprintf("%s\n%s", commitID1, commitID2)),
-			expectedResults: map[string]bool{},
+			expectedErr: helper.ErrInvalidArgumentf("invalid revision %q: revision can't contain whitespace", fmt.Sprintf("%s\n%s", commitID1, commitID2)),
 		},
 		{
 			desc: "chunked invalid input",
@@ -189,8 +194,7 @@ func TestCheckObjectsExist(t *testing.T) {
 					},
 				},
 			},
-			expectedErr:     helper.ErrInvalidArgumentf("invalid revision %q: revision can't start with '-'", "-not-a-rev"),
-			expectedResults: map[string]bool{},
+			expectedErr: helper.ErrInvalidArgumentf("invalid revision %q: revision can't start with '-'", "-not-a-rev"),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -202,7 +206,7 @@ func TestCheckObjectsExist(t *testing.T) {
 			}
 			require.NoError(t, client.CloseSend())
 
-			results := map[string]bool{}
+			var results map[string]bool
 			for {
 				var response *gitalypb.CheckObjectsExistResponse
 				response, err = client.Recv()
@@ -211,6 +215,9 @@ func TestCheckObjectsExist(t *testing.T) {
 				}
 
 				for _, revision := range response.GetRevisions() {
+					if results == nil {
+						results = map[string]bool{}
+					}
 					results[string(revision.GetName())] = revision.GetExists()
 				}
 			}

@@ -7,20 +7,19 @@ import (
 	"fmt"
 	"io"
 
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 var gpgSiganturePrefix = []byte("gpgsig")
 
 func (s *server) GetCommitSignatures(request *gitalypb.GetCommitSignaturesRequest, stream gitalypb.CommitService_GetCommitSignaturesServer) error {
 	if err := validateGetCommitSignaturesRequest(request); err != nil {
-		return status.Errorf(codes.InvalidArgument, "GetCommitSignatures: %v", err)
+		return helper.ErrInvalidArgumentf("GetCommitSignatures: %w", err)
 	}
 
 	return s.getCommitSignatures(request, stream)
@@ -129,7 +128,7 @@ func sendResponse(commitID string, signatureKey []byte, commitText []byte, strea
 
 func validateGetCommitSignaturesRequest(request *gitalypb.GetCommitSignaturesRequest) error {
 	if request.GetRepository() == nil {
-		return errors.New("empty Repository")
+		return gitalyerrors.ErrEmptyRepository
 	}
 
 	if len(request.GetCommitIds()) == 0 {

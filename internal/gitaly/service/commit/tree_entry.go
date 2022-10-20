@@ -5,6 +5,7 @@ import (
 	"io"
 	"strings"
 
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
@@ -148,6 +149,9 @@ func (s *server) TreeEntry(in *gitalypb.TreeEntryRequest, stream gitalypb.Commit
 }
 
 func validateRequest(in *gitalypb.TreeEntryRequest) error {
+	if in.GetRepository() == nil {
+		return gitalyerrors.ErrEmptyRepository
+	}
 	if err := git.ValidateRevision(in.Revision); err != nil {
 		return err
 	}

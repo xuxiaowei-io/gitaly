@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestFilterShasWithSignaturesSuccessful(t *testing.T) {
@@ -61,8 +63,31 @@ func TestFilterShasWithSignaturesSuccessful(t *testing.T) {
 
 func TestFilterShasWithSignaturesValidationError(t *testing.T) {
 	t.Parallel()
-	err := validateFirstFilterShasWithSignaturesRequest(&gitalypb.FilterShasWithSignaturesRequest{})
-	require.Contains(t, err.Error(), "no repository given")
+	ctx := testhelper.Context(t)
+	_, client := setupCommitService(t, ctx)
+
+	for _, tc := range []struct {
+		desc   string
+		req    *gitalypb.FilterShasWithSignaturesRequest
+		expErr error
+	}{
+		{
+			desc: "no repository provided",
+			req:  &gitalypb.FilterShasWithSignaturesRequest{Repository: nil},
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			stream, err := client.FilterShasWithSignatures(ctx)
+			require.NoError(t, err)
+			require.NoError(t, stream.Send(tc.req))
+			_, err = stream.Recv()
+			testhelper.RequireGrpcError(t, tc.expErr, err)
+		})
+	}
 }
 
 func recvFSWS(stream gitalypb.CommitService_FilterShasWithSignaturesClient) ([][]byte, error) {

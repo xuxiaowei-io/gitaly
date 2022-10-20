@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestSuccessfulListCommitsByRefNameRequest(t *testing.T) {
@@ -190,6 +192,33 @@ func TestSuccessfulListCommitsByRefNameLargeRequest(t *testing.T) {
 	for _, actual := range actualCommits {
 		_, ok := repositoryRefNames[actual.Commit.Id]
 		require.True(t, ok, "commit ID must be present in the input list: %s", actual.Commit.Id)
+	}
+}
+
+func TestListCommitsByRefName_validate(t *testing.T) {
+	t.Parallel()
+	ctx := testhelper.Context(t)
+	_, client := setupCommitService(t, ctx)
+	for _, tc := range []struct {
+		desc   string
+		req    *gitalypb.ListCommitsByRefNameRequest
+		expErr error
+	}{
+		{
+			desc: "repository not provided",
+			req:  &gitalypb.ListCommitsByRefNameRequest{Repository: nil},
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			stream, err := client.ListCommitsByRefName(ctx, tc.req)
+			require.NoError(t, err)
+			_, err = stream.Recv()
+			testhelper.RequireGrpcError(t, tc.expErr, err)
+		})
 	}
 }
 

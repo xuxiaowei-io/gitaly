@@ -8,6 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestSuccessfulListCommitsByOidRequest(t *testing.T) {
@@ -170,5 +172,32 @@ func TestSuccessfulListCommitsByOidLargeRequest(t *testing.T) {
 	require.Equal(t, len(masterCommitids), len(actualCommits))
 	for i, actual := range actualCommits {
 		require.Equal(t, masterCommitids[i], actual.Id, "commit ID must match, entry %d", i)
+	}
+}
+
+func TestListCommitsByOid_validate(t *testing.T) {
+	t.Parallel()
+	ctx := testhelper.Context(t)
+	_, client := setupCommitService(t, ctx)
+	for _, tc := range []struct {
+		desc   string
+		req    *gitalypb.ListCommitsByOidRequest
+		expErr error
+	}{
+		{
+			desc: "repository not provided",
+			req:  &gitalypb.ListCommitsByOidRequest{Repository: nil},
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			stream, err := client.ListCommitsByOid(ctx, tc.req)
+			require.NoError(t, err)
+			_, err = stream.Recv()
+			testhelper.RequireGrpcError(t, tc.expErr, err)
+		})
 	}
 }

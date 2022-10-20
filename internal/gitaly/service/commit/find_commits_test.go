@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -517,15 +518,26 @@ func TestFailureFindCommitsRequest(t *testing.T) {
 	testCases := []struct {
 		desc    string
 		request *gitalypb.FindCommitsRequest
-		code    codes.Code
+		expErr  error
 	}{
+		{
+			desc: "no repository provided",
+			request: &gitalypb.FindCommitsRequest{
+				Repository: nil,
+				Revision:   []byte("HEAD"),
+			},
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
 		{
 			desc: "empty path string",
 			request: &gitalypb.FindCommitsRequest{
 				Repository: repo,
 				Paths:      [][]byte{[]byte("")},
 			},
-			code: codes.InvalidArgument,
+			expErr: status.Error(codes.InvalidArgument, "path is empty string"),
 		},
 		{
 			desc: "invalid revision",
@@ -534,7 +546,7 @@ func TestFailureFindCommitsRequest(t *testing.T) {
 				Revision:   []byte("--output=/meow"),
 				Limit:      1,
 			},
-			code: codes.InvalidArgument,
+			expErr: status.Error(codes.InvalidArgument, "revision can't start with '-'"),
 		},
 	}
 
@@ -547,7 +559,7 @@ func TestFailureFindCommitsRequest(t *testing.T) {
 				_, err = stream.Recv()
 			}
 
-			testhelper.RequireGrpcCode(t, err, tc.code)
+			testhelper.RequireGrpcError(t, tc.expErr, err)
 		})
 	}
 }

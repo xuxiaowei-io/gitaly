@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 var defaultFiles = [][]byte{
@@ -201,27 +202,36 @@ func TestListFiles_failure(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, _, _, client := setupCommitServiceWithRepo(t, ctx)
+	_, client := setupCommitService(t, ctx)
 
 	tests := []struct {
-		desc string
-		repo *gitalypb.Repository
-		code codes.Code
+		desc   string
+		repo   *gitalypb.Repository
+		expErr error
 	}{
 		{
 			desc: "nil repo",
 			repo: nil,
-			code: codes.InvalidArgument,
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 		{
 			desc: "empty repo object",
 			repo: &gitalypb.Repository{},
-			code: codes.InvalidArgument,
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				`GetStorageByName: no such storage: ""`,
+				"repo scoped: invalid Repository",
+			)),
 		},
 		{
 			desc: "non-existing repo",
 			repo: &gitalypb.Repository{StorageName: "foo", RelativePath: "bar"},
-			code: codes.InvalidArgument,
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				`GetStorageByName: no such storage: "foo"`,
+				"repo scoped: invalid Repository",
+			)),
 		},
 	}
 
@@ -235,7 +245,7 @@ func TestListFiles_failure(t *testing.T) {
 			require.NoError(t, err)
 
 			err = drainListFilesResponse(c)
-			testhelper.RequireGrpcCode(t, err, tc.code)
+			testhelper.RequireGrpcError(t, tc.expErr, err)
 		})
 	}
 }

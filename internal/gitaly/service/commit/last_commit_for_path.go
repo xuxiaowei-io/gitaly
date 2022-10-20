@@ -3,6 +3,7 @@ package commit
 import (
 	"context"
 
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
@@ -57,8 +58,11 @@ func (s *server) lastCommitForPath(ctx context.Context, in *gitalypb.LastCommitF
 }
 
 func validateLastCommitForPathRequest(in *gitalypb.LastCommitForPathRequest) error {
+	if in.GetRepository() == nil {
+		return gitalyerrors.ErrEmptyRepository
+	}
 	if err := git.ValidateRevision(in.Revision); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return err
 	}
 	return nil
 }

@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -36,7 +37,7 @@ func (s *server) validateCountDivergingCommitsRequest(req *gitalypb.CountDivergi
 	}
 
 	if req.GetRepository() == nil {
-		return errors.New("repository is empty")
+		return gitalyerrors.ErrEmptyRepository
 	}
 
 	if _, err := s.locator.GetRepoPath(req.GetRepository()); err != nil {

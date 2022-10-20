@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type commitInfo struct {
@@ -220,7 +221,7 @@ func TestFailedListLastCommitsForTreeRequest(t *testing.T) {
 	testCases := []struct {
 		desc    string
 		request *gitalypb.ListLastCommitsForTreeRequest
-		code    codes.Code
+		expErr  error
 	}{
 		{
 			desc: "Revision is missing",
@@ -231,7 +232,7 @@ func TestFailedListLastCommitsForTreeRequest(t *testing.T) {
 				Offset:     0,
 				Limit:      25,
 			},
-			code: codes.InvalidArgument,
+			expErr: status.Error(codes.InvalidArgument, "empty revision"),
 		},
 		{
 			desc: "Invalid repository",
@@ -242,7 +243,10 @@ func TestFailedListLastCommitsForTreeRequest(t *testing.T) {
 				Offset:     0,
 				Limit:      25,
 			},
-			code: codes.InvalidArgument,
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				`GetStorageByName: no such storage: "broken"`,
+				"repo scoped: invalid Repository",
+			)),
 		},
 		{
 			desc: "Repository is nil",
@@ -252,17 +256,10 @@ func TestFailedListLastCommitsForTreeRequest(t *testing.T) {
 				Offset:   0,
 				Limit:    25,
 			},
-			code: codes.InvalidArgument,
-		},
-		{
-			desc: "Revision is missing",
-			request: &gitalypb.ListLastCommitsForTreeRequest{
-				Repository: repo,
-				Path:       []byte("/"),
-				Offset:     0,
-				Limit:      25,
-			},
-			code: codes.InvalidArgument,
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 		{
 			desc: "Ambiguous revision",
@@ -272,7 +269,7 @@ func TestFailedListLastCommitsForTreeRequest(t *testing.T) {
 				Offset:     0,
 				Limit:      25,
 			},
-			code: codes.Internal,
+			expErr: status.Error(codes.Internal, "exit status 128"),
 		},
 		{
 			desc: "Invalid revision",
@@ -282,7 +279,7 @@ func TestFailedListLastCommitsForTreeRequest(t *testing.T) {
 				Offset:     0,
 				Limit:      25,
 			},
-			code: codes.InvalidArgument,
+			expErr: status.Error(codes.InvalidArgument, "revision can't start with '-'"),
 		},
 		{
 			desc: "Negative offset",
@@ -292,7 +289,7 @@ func TestFailedListLastCommitsForTreeRequest(t *testing.T) {
 				Offset:     -1,
 				Limit:      25,
 			},
-			code: codes.InvalidArgument,
+			expErr: status.Error(codes.InvalidArgument, "revision can't start with '-'"),
 		},
 		{
 			desc: "Negative limit",
@@ -302,7 +299,7 @@ func TestFailedListLastCommitsForTreeRequest(t *testing.T) {
 				Offset:     0,
 				Limit:      -1,
 			},
-			code: codes.InvalidArgument,
+			expErr: status.Error(codes.InvalidArgument, "revision can't start with '-'"),
 		},
 	}
 
@@ -312,7 +309,7 @@ func TestFailedListLastCommitsForTreeRequest(t *testing.T) {
 			require.NoError(t, err)
 
 			_, err = stream.Recv()
-			testhelper.RequireGrpcCode(t, err, testCase.code)
+			testhelper.RequireGrpcError(t, testCase.expErr, err)
 		})
 	}
 }

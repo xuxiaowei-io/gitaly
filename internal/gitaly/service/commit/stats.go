@@ -7,13 +7,24 @@ import (
 	"strconv"
 	"strings"
 
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
-func (s *server) CommitStats(ctx context.Context, in *gitalypb.CommitStatsRequest) (*gitalypb.CommitStatsResponse, error) {
+func validateCommitStatsRequest(in *gitalypb.CommitStatsRequest) error {
+	if in.GetRepository() == nil {
+		return gitalyerrors.ErrEmptyRepository
+	}
 	if err := git.ValidateRevision(in.Revision); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *server) CommitStats(ctx context.Context, in *gitalypb.CommitStatsRequest) (*gitalypb.CommitStatsResponse, error) {
+	if err := validateCommitStatsRequest(in); err != nil {
 		return nil, helper.ErrInvalidArgument(err)
 	}
 

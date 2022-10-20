@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
@@ -29,7 +30,7 @@ func (s *server) CheckObjectsExist(
 	}
 
 	if request.GetRepository() == nil {
-		return helper.ErrInvalidArgumentf("empty Repository")
+		return helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
 	}
 
 	objectInfoReader, cancel, err := s.catfileCache.ObjectInfoReader(
