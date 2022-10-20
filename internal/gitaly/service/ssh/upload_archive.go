@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
@@ -98,6 +99,9 @@ func (s *server) sshUploadArchive(stream gitalypb.SSHService_SSHUploadArchiveSer
 }
 
 func validateFirstUploadArchiveRequest(req *gitalypb.SSHUploadArchiveRequest) error {
+	if req.GetRepository() == nil {
+		return gitalyerrors.ErrEmptyRepository
+	}
 	if req.Stdin != nil {
 		return fmt.Errorf("non-empty stdin in first request")
 	}

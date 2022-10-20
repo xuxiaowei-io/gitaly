@@ -10,6 +10,7 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
@@ -181,6 +182,9 @@ func (s *server) sshUploadPack(rpcContext context.Context, req sshUploadPackRequ
 }
 
 func validateFirstUploadPackRequest(req *gitalypb.SSHUploadPackRequest) error {
+	if req.GetRepository() == nil {
+		return gitalyerrors.ErrEmptyRepository
+	}
 	if req.Stdin != nil {
 		return fmt.Errorf("non-empty stdin in first request")
 	}

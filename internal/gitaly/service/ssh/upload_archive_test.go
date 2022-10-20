@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
@@ -66,29 +67,34 @@ func TestFailedUploadArchiveRequestDueToValidationError(t *testing.T) {
 	client := newSSHClient(t, serverSocketPath)
 
 	tests := []struct {
-		Desc string
-		Req  *gitalypb.SSHUploadArchiveRequest
-		Code codes.Code
+		Desc   string
+		Req    *gitalypb.SSHUploadArchiveRequest
+		expErr error
 	}{
 		{
 			Desc: "Repository.RelativePath is empty",
 			Req:  &gitalypb.SSHUploadArchiveRequest{Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: ""}},
-			Code: codes.InvalidArgument,
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"GetPath: relative path missing",
+				"repo scoped: invalid Repository",
+			)),
 		},
 		{
 			Desc: "Repository is nil",
 			Req:  &gitalypb.SSHUploadArchiveRequest{Repository: nil},
-			Code: codes.InvalidArgument,
+			expErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 		{
 			Desc: "Data exists on first request",
 			Req:  &gitalypb.SSHUploadArchiveRequest{Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "path/to/repo"}, Stdin: []byte("Fail")},
-			Code: func() codes.Code {
+			expErr: func() error {
 				if testhelper.IsPraefectEnabled() {
-					return codes.NotFound
+					return status.Error(codes.NotFound, `accessor call: route repository accessor: consistent storages: repository "default"/"path/to/repo" not found`)
 				}
-
-				return codes.InvalidArgument
+				return status.Error(codes.InvalidArgument, "non-empty stdin in first request")
 			}(),
 		},
 	}
@@ -107,7 +113,7 @@ func TestFailedUploadArchiveRequestDueToValidationError(t *testing.T) {
 			require.NoError(t, stream.CloseSend())
 
 			err = testUploadArchiveFailedResponse(t, stream)
-			testhelper.RequireGrpcCode(t, err, test.Code)
+			testhelper.RequireGrpcError(t, test.expErr, err)
 		})
 	}
 }

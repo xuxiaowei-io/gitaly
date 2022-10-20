@@ -81,7 +81,7 @@ func TestReceivePack_validation(t *testing.T) {
 					return helper.ErrInvalidArgumentf("repo scoped: empty Repository")
 				}
 
-				return helper.ErrInvalidArgumentf("repository is empty")
+				return helper.ErrInvalidArgumentf("empty Repository")
 			}(),
 		},
 		{
