@@ -19,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestUpdateInvalidArgument(t *testing.T) {
@@ -32,7 +33,7 @@ func TestUpdateInvalidArgument(t *testing.T) {
 	require.NoError(t, err)
 	_, err = stream.Recv()
 
-	testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
+	testhelper.RequireGrpcError(t, status.Error(codes.InvalidArgument, "empty Repository"), err)
 }
 
 func TestUpdate_CustomHooks(t *testing.T) {
