@@ -12,27 +12,24 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
-func TestNeedsRepacking(t *testing.T) {
+func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
 	for _, tc := range []struct {
-		desc           string
-		setup          func(t *testing.T, relativePath string) *gitalypb.Repository
-		expectedErr    error
-		expectedNeeded bool
-		expectedConfig RepackObjectsConfig
+		desc             string
+		setup            func(t *testing.T, relativePath string) *gitalypb.Repository
+		expectedStrategy HeuristicalOptimizationStrategy
 	}{
 		{
-			desc: "empty repo does nothing",
+			desc: "empty repo",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
 				repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
@@ -40,98 +37,77 @@ func TestNeedsRepacking(t *testing.T) {
 				})
 				return repoProto
 			},
+			expectedStrategy: HeuristicalOptimizationStrategy{},
 		},
 		{
-			desc: "missing bitmap",
-			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-					SkipCreationViaService: true,
-					Seed:                   gittest.SeedGitLabTest,
-					RelativePath:           relativePath,
-				})
-				return repoProto
-			},
-			expectedNeeded: true,
-			expectedConfig: RepackObjectsConfig{
-				FullRepack:  true,
-				WriteBitmap: true,
-			},
-		},
-		{
-			desc: "missing bitmap with alternate",
+			desc: "object in 17 shard",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
-					Seed:                   gittest.SeedGitLabTest,
 					RelativePath:           relativePath,
 				})
 
-				// Create the alternates file. If it exists, then we shouldn't try
-				// to generate a bitmap.
-				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "objects", "info", "alternates"), nil, 0o755))
+				looseObjectPath := filepath.Join(repoPath, "objects", "17", "1234")
+				require.NoError(t, os.MkdirAll(filepath.Dir(looseObjectPath), 0o755))
+				require.NoError(t, os.WriteFile(looseObjectPath, nil, 0o644))
 
 				return repoProto
 			},
-			// If we have no bitmap in the repository we'd normally want to fully repack
-			// the repository. But because we have an alternates file we know that the
-			// repository must not have a bitmap anyway, so we can skip the repack here.
-			expectedNeeded: false,
+			expectedStrategy: HeuristicalOptimizationStrategy{
+				looseObjectCount: 256,
+			},
 		},
 		{
-			desc: "missing commit-graph",
+			desc: "packfile",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
-					Seed:                   gittest.SeedGitLabTest,
 					RelativePath:           relativePath,
 				})
 
-				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Ad", "--write-bitmap-index")
+				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "objects", "pack", "pack-foobar.pack"), nil, 0o644))
 
 				return repoProto
 			},
-			// The commit-graph used to influence whether we repacked a repository or
-			// not. That was due to historic reasons only, though, and ultimately does
-			// not make any sense.
-			expectedNeeded: false,
+			expectedStrategy: HeuristicalOptimizationStrategy{
+				packfileCount: 1,
+			},
 		},
 		{
-			desc: "commit-graph without bloom filters",
+			desc: "alternate",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
-					Seed:                   gittest.SeedGitLabTest,
 					RelativePath:           relativePath,
 				})
 
-				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Ad", "--write-bitmap-index")
-				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write")
+				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "objects", "info", "alternates"), nil, 0o644))
 
 				return repoProto
 			},
-			// The commit-graph used to influence whether we repacked a repository or
-			// not. That was due to historic reasons only, though, and ultimately does
-			// not make any sense.
-			expectedNeeded: false,
+			expectedStrategy: HeuristicalOptimizationStrategy{
+				hasAlternate: true,
+			},
 		},
 		{
-			desc: "no repack needed",
+			desc: "bitmap",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
-					Seed:                   gittest.SeedGitLabTest,
 					RelativePath:           relativePath,
 				})
 
-				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Ad", "--write-bitmap-index")
-				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--changed-paths", "--split")
+				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "objects", "pack", "pack-1234.bitmap"), nil, 0o644))
 
 				return repoProto
 			},
-			expectedNeeded: false,
+			expectedStrategy: HeuristicalOptimizationStrategy{
+				hasBitmap: true,
+			},
 		},
 	} {
 		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
@@ -139,138 +115,45 @@ func TestNeedsRepacking(t *testing.T) {
 				repoProto := tc.setup(t, relativePath)
 				repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-				repackNeeded, repackCfg, err := needsRepacking(repo)
-				require.Equal(t, tc.expectedErr, err)
-				require.Equal(t, tc.expectedNeeded, repackNeeded)
-				require.Equal(t, tc.expectedConfig, repackCfg)
-			})
-		})
-	}
+				tc.expectedStrategy.isObjectPool = IsPoolRepository(repo)
 
-	const megaByte = 1024 * 1024
-
-	for _, tc := range []struct {
-		packfileSize             int64
-		requiredPackfiles        int
-		requiredPackfilesForPool int
-	}{
-		{
-			packfileSize:             1,
-			requiredPackfiles:        5,
-			requiredPackfilesForPool: 2,
-		},
-		{
-			packfileSize:             5 * megaByte,
-			requiredPackfiles:        6,
-			requiredPackfilesForPool: 2,
-		},
-		{
-			packfileSize:             10 * megaByte,
-			requiredPackfiles:        8,
-			requiredPackfilesForPool: 2,
-		},
-		{
-			packfileSize:             50 * megaByte,
-			requiredPackfiles:        14,
-			requiredPackfilesForPool: 2,
-		},
-		{
-			packfileSize:             100 * megaByte,
-			requiredPackfiles:        17,
-			requiredPackfilesForPool: 2,
-		},
-		{
-			packfileSize:             500 * megaByte,
-			requiredPackfiles:        23,
-			requiredPackfilesForPool: 2,
-		},
-		{
-			packfileSize:             1001 * megaByte,
-			requiredPackfiles:        26,
-			requiredPackfilesForPool: 3,
-		},
-		// Let's not go any further than this, we're thrashing the temporary directory.
-	} {
-		testRepoAndPool(t, fmt.Sprintf("packfile with %d bytes", tc.packfileSize), func(t *testing.T, relativePath string) {
-			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-				SkipCreationViaService: true,
-				RelativePath:           relativePath,
-			})
-			repo := localrepo.NewTestRepo(t, cfg, repoProto)
-			packDir := filepath.Join(repoPath, "objects", "pack")
-
-			// Emulate the existence of a bitmap and a commit-graph with bloom filters.
-			// We explicitly don't want to generate them via Git commands as they would
-			// require us to already have objects in the repository, and we want to be
-			// in full control over all objects and packfiles in the repo.
-			require.NoError(t, os.WriteFile(filepath.Join(packDir, "something.bitmap"), nil, 0o644))
-			commitGraphChainPath := filepath.Join(repoPath, stats.CommitGraphChainRelPath)
-			require.NoError(t, os.MkdirAll(filepath.Dir(commitGraphChainPath), 0o755))
-			require.NoError(t, os.WriteFile(commitGraphChainPath, nil, 0o644))
-
-			// We first create a single big packfile which is used to determine the
-			// boundary of when we repack.
-			bigPackPath := filepath.Join(packDir, "big.pack")
-			require.NoError(t, os.WriteFile(bigPackPath, nil, 0o644))
-			require.NoError(t, os.Truncate(bigPackPath, tc.packfileSize))
-
-			requiredPackfiles := tc.requiredPackfiles
-			if IsPoolRepository(repoProto) {
-				requiredPackfiles = tc.requiredPackfilesForPool
-			}
-
-			// And then we create one less packfile than we need to hit the boundary.
-			// This is done to assert that we indeed don't repack before hitting the
-			// boundary.
-			for i := 0; i < requiredPackfiles-2; i++ {
-				additionalPackfile, err := os.Create(filepath.Join(packDir, fmt.Sprintf("%d.pack", i)))
+				strategy, err := NewHeuristicalOptimizationStrategy(ctx, repo)
 				require.NoError(t, err)
-				testhelper.MustClose(t, additionalPackfile)
-			}
-
-			repackNeeded, _, err := needsRepacking(repo)
-			require.NoError(t, err)
-			require.False(t, repackNeeded)
-
-			// Now we create the additional packfile that causes us to hit the boundary.
-			// We should thus see that we want to repack now.
-			lastPackfile, err := os.Create(filepath.Join(packDir, "last.pack"))
-			require.NoError(t, err)
-			testhelper.MustClose(t, lastPackfile)
-
-			repackNeeded, repackCfg, err := needsRepacking(repo)
-			require.NoError(t, err)
-			require.True(t, repackNeeded)
-			require.Equal(t, RepackObjectsConfig{
-				FullRepack:  true,
-				WriteBitmap: true,
-			}, repackCfg)
+				require.Equal(t, tc.expectedStrategy, strategy)
+			})
 		})
 	}
+}
+
+func TestNewHeuristicalOptimizationStrategy_looseObjectCount(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
 
 	for _, tc := range []struct {
-		desc           string
-		looseObjects   []string
-		expectedRepack bool
+		desc                     string
+		looseObjects             []string
+		expectedLooneObjectCount int64
 	}{
 		{
-			desc:           "no objects",
-			looseObjects:   nil,
-			expectedRepack: false,
+			desc:                     "no objects",
+			looseObjects:             nil,
+			expectedLooneObjectCount: 0,
 		},
 		{
 			desc: "object not in 17 shard",
 			looseObjects: []string{
 				filepath.Join("ab/12345"),
 			},
-			expectedRepack: false,
+			expectedLooneObjectCount: 0,
 		},
 		{
 			desc: "object in 17 shard",
 			looseObjects: []string{
 				filepath.Join("17/12345"),
 			},
-			expectedRepack: false,
+			expectedLooneObjectCount: 256,
 		},
 		{
 			desc: "objects in different shards",
@@ -280,45 +163,24 @@ func TestNeedsRepacking(t *testing.T) {
 				filepath.Join("12/12345"),
 				filepath.Join("17/12345"),
 			},
-			expectedRepack: false,
+			expectedLooneObjectCount: 256,
 		},
 		{
-			desc: "boundary",
+			desc: "multiple objects in 17 shard",
 			looseObjects: []string{
 				filepath.Join("17/1"),
 				filepath.Join("17/2"),
 				filepath.Join("17/3"),
 				filepath.Join("17/4"),
 			},
-			expectedRepack: false,
-		},
-		{
-			desc: "exceeding boundary should cause repack",
-			looseObjects: []string{
-				filepath.Join("17/1"),
-				filepath.Join("17/2"),
-				filepath.Join("17/3"),
-				filepath.Join("17/4"),
-				filepath.Join("17/5"),
-			},
-			expectedRepack: true,
+			expectedLooneObjectCount: 1024,
 		},
 	} {
-		testRepoAndPool(t, tc.desc, func(t *testing.T, relativePath string) {
+		t.Run(tc.desc, func(t *testing.T) {
 			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				SkipCreationViaService: true,
-				RelativePath:           relativePath,
 			})
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-			// Emulate the existence of a bitmap and a commit-graph with bloom filters.
-			// We explicitly don't want to generate them via Git commands as they would
-			// require us to already have objects in the repository, and we want to be
-			// in full control over all objects and packfiles in the repo.
-			require.NoError(t, os.WriteFile(filepath.Join(repoPath, "objects", "pack", "something.bitmap"), nil, 0o644))
-			commitGraphChainPath := filepath.Join(repoPath, stats.CommitGraphChainRelPath)
-			require.NoError(t, os.MkdirAll(filepath.Dir(commitGraphChainPath), 0o755))
-			require.NoError(t, os.WriteFile(commitGraphChainPath, nil, 0o644))
 
 			for _, looseObjectPath := range tc.looseObjects {
 				looseObjectPath := filepath.Join(repoPath, "objects", looseObjectPath)
@@ -329,16 +191,217 @@ func TestNeedsRepacking(t *testing.T) {
 				testhelper.MustClose(t, looseObjectFile)
 			}
 
-			repackNeeded, repackCfg, err := needsRepacking(repo)
+			strategy, err := NewHeuristicalOptimizationStrategy(ctx, repo)
 			require.NoError(t, err)
-			require.Equal(t, tc.expectedRepack, repackNeeded)
-			if tc.expectedRepack {
+			require.Equal(t, HeuristicalOptimizationStrategy{
+				looseObjectCount: tc.expectedLooneObjectCount,
+			}, strategy)
+		})
+	}
+}
+
+func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		desc           string
+		strategy       HeuristicalOptimizationStrategy
+		expectedNeeded bool
+		expectedConfig RepackObjectsConfig
+	}{
+		{
+			desc:     "empty repo does nothing",
+			strategy: HeuristicalOptimizationStrategy{},
+		},
+		{
+			desc: "missing bitmap",
+			strategy: HeuristicalOptimizationStrategy{
+				hasBitmap:     false,
+				hasAlternate:  false,
+				packfileCount: 1,
+			},
+			expectedNeeded: true,
+			expectedConfig: RepackObjectsConfig{
+				FullRepack:  true,
+				WriteBitmap: true,
+			},
+		},
+		{
+			desc: "missing bitmap with alternate",
+			strategy: HeuristicalOptimizationStrategy{
+				hasBitmap:     false,
+				hasAlternate:  true,
+				packfileCount: 1,
+			},
+			// If we have no bitmap in the repository we'd normally want to fully repack
+			// the repository. But because we have an alternates file we know that the
+			// repository must not have a bitmap anyway, so we can skip the repack here.
+			expectedNeeded: false,
+		},
+		{
+			desc: "no repack needed",
+			strategy: HeuristicalOptimizationStrategy{
+				hasBitmap:     true,
+				packfileCount: 1,
+			},
+			expectedNeeded: false,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			repackNeeded, repackCfg := tc.strategy.ShouldRepackObjects()
+			require.Equal(t, tc.expectedNeeded, repackNeeded)
+			require.Equal(t, tc.expectedConfig, repackCfg)
+		})
+	}
+
+	for _, outerTC := range []struct {
+		largestPackfileSizeInMB  int64
+		requiredPackfiles        int64
+		requiredPackfilesForPool int64
+	}{
+		{
+			largestPackfileSizeInMB:  1,
+			requiredPackfiles:        5,
+			requiredPackfilesForPool: 2,
+		},
+		{
+			largestPackfileSizeInMB:  5,
+			requiredPackfiles:        6,
+			requiredPackfilesForPool: 2,
+		},
+		{
+			largestPackfileSizeInMB:  10,
+			requiredPackfiles:        8,
+			requiredPackfilesForPool: 2,
+		},
+		{
+			largestPackfileSizeInMB:  50,
+			requiredPackfiles:        14,
+			requiredPackfilesForPool: 2,
+		},
+		{
+			largestPackfileSizeInMB:  100,
+			requiredPackfiles:        17,
+			requiredPackfilesForPool: 2,
+		},
+		{
+			largestPackfileSizeInMB:  500,
+			requiredPackfiles:        23,
+			requiredPackfilesForPool: 2,
+		},
+		{
+			largestPackfileSizeInMB:  1001,
+			requiredPackfiles:        26,
+			requiredPackfilesForPool: 3,
+		},
+	} {
+		t.Run(fmt.Sprintf("packfile with %dMB", outerTC.largestPackfileSizeInMB), func(t *testing.T) {
+			for _, tc := range []struct {
+				desc              string
+				isPool            bool
+				hasAlternate      bool
+				requiredPackfiles int64
+			}{
+				{
+					desc:              "normal repository",
+					isPool:            false,
+					requiredPackfiles: outerTC.requiredPackfiles,
+				},
+				{
+					desc:              "pooled repository",
+					isPool:            false,
+					hasAlternate:      true,
+					requiredPackfiles: outerTC.requiredPackfiles,
+				},
+				{
+					desc:              "object pool",
+					isPool:            true,
+					requiredPackfiles: outerTC.requiredPackfilesForPool,
+				},
+			} {
+				t.Run(tc.desc, func(t *testing.T) {
+					strategy := HeuristicalOptimizationStrategy{
+						largestPackfileSizeInMB: outerTC.largestPackfileSizeInMB,
+						packfileCount:           tc.requiredPackfiles - 1,
+						isObjectPool:            tc.isPool,
+						hasAlternate:            tc.hasAlternate,
+						hasBitmap:               true,
+					}
+
+					repackNeeded, _ := strategy.ShouldRepackObjects()
+					require.False(t, repackNeeded)
+
+					// Now we add the last packfile that should bring us across
+					// the boundary of having to repack.
+					strategy.packfileCount++
+
+					repackNeeded, repackCfg := strategy.ShouldRepackObjects()
+					require.True(t, repackNeeded)
+					require.Equal(t, RepackObjectsConfig{
+						FullRepack:  true,
+						WriteBitmap: !tc.hasAlternate,
+					}, repackCfg)
+				})
+			}
+		})
+	}
+
+	for _, outerTC := range []struct {
+		desc           string
+		looseObjects   int64
+		expectedRepack bool
+	}{
+		{
+			desc:           "no objects",
+			looseObjects:   0,
+			expectedRepack: false,
+		},
+		{
+			desc:           "single object",
+			looseObjects:   1,
+			expectedRepack: false,
+		},
+		{
+			desc:           "boundary",
+			looseObjects:   1024,
+			expectedRepack: false,
+		},
+		{
+			desc:           "exceeding boundary should cause repack",
+			looseObjects:   1025,
+			expectedRepack: true,
+		},
+	} {
+		for _, tc := range []struct {
+			desc   string
+			isPool bool
+		}{
+			{
+				desc:   "normal repository",
+				isPool: false,
+			},
+			{
+				desc:   "object pool",
+				isPool: true,
+			},
+		} {
+			t.Run(tc.desc, func(t *testing.T) {
+				strategy := HeuristicalOptimizationStrategy{
+					looseObjectCount: outerTC.looseObjects,
+					isObjectPool:     tc.isPool,
+					// We need to pretend that we have a bitmap, otherwise we
+					// aways do a full repack.
+					hasBitmap: true,
+				}
+
+				repackNeeded, repackCfg := strategy.ShouldRepackObjects()
+				require.Equal(t, outerTC.expectedRepack, repackNeeded)
 				require.Equal(t, RepackObjectsConfig{
 					FullRepack:  false,
 					WriteBitmap: false,
 				}, repackCfg)
-			}
-		})
+			})
+		}
 	}
 }
 
@@ -429,4 +492,11 @@ func TestEstimateLooseObjectCount(t *testing.T) {
 }
 
 // mockOptimizationStrategy is a mock strategy that can be used with OptimizeRepository.
-type mockOptimizationStrategy struct{}
+type mockOptimizationStrategy struct {
+	shouldRepackObjects bool
+	repackObjectsCfg    RepackObjectsConfig
+}
+
+func (m mockOptimizationStrategy) ShouldRepackObjects() (bool, RepackObjectsConfig) {
+	return m.shouldRepackObjects, m.repackObjectsCfg
+}

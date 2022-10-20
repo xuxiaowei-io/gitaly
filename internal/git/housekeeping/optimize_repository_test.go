@@ -20,11 +20,99 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
+
+func TestRepackIfNeeded(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	requirePackfilesAndLooseObjects := func(t *testing.T, repo *localrepo.Repo, expectedPackfiles, expectedLooseObjects uint64) {
+		t.Helper()
+
+		info, err := stats.ObjectsInfoForRepository(ctx, repo)
+		require.NoError(t, err)
+
+		require.Equal(t, expectedPackfiles, info.Packfiles)
+		require.Equal(t, expectedLooseObjects, info.LooseObjects)
+	}
+
+	t.Run("no repacking", func(t *testing.T) {
+		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			SkipCreationViaService: true,
+		})
+		repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+		// Create a loose object to verify it's not getting repacked.
+		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithMessage("a"))
+
+		didRepack, repackObjectsCfg, err := repackIfNeeded(ctx, repo, mockOptimizationStrategy{
+			shouldRepackObjects: false,
+		})
+		require.NoError(t, err)
+		require.False(t, didRepack)
+		require.Equal(t, RepackObjectsConfig{}, repackObjectsCfg)
+
+		requirePackfilesAndLooseObjects(t, repo, 0, 2)
+	})
+
+	t.Run("incremental repack", func(t *testing.T) {
+		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			SkipCreationViaService: true,
+		})
+		repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+		// Create an object and pack it into a packfile.
+		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithMessage("a"))
+		gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
+		// And a second object that is loose. The incremental repack should only pack the
+		// loose object.
+		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithMessage("b"))
+
+		didRepack, repackObjectsCfg, err := repackIfNeeded(ctx, repo, mockOptimizationStrategy{
+			shouldRepackObjects: true,
+		})
+		require.NoError(t, err)
+		require.True(t, didRepack)
+		require.Equal(t, RepackObjectsConfig{}, repackObjectsCfg)
+
+		requirePackfilesAndLooseObjects(t, repo, 2, 0)
+	})
+
+	t.Run("full repack", func(t *testing.T) {
+		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			SkipCreationViaService: true,
+		})
+		repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+		// Create an object and pack it into a packfile.
+		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("a"), gittest.WithMessage("a"))
+		gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
+		// And a second object that is loose. The full repack should repack both the
+		// packfiles and loose objects into a single packfile.
+		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("b"), gittest.WithMessage("b"))
+
+		didRepack, repackObjectsCfg, err := repackIfNeeded(ctx, repo, mockOptimizationStrategy{
+			shouldRepackObjects: true,
+			repackObjectsCfg: RepackObjectsConfig{
+				FullRepack: true,
+			},
+		})
+		require.NoError(t, err)
+		require.True(t, didRepack)
+		require.Equal(t, RepackObjectsConfig{
+			FullRepack: true,
+		}, repackObjectsCfg)
+
+		requirePackfilesAndLooseObjects(t, repo, 1, 0)
+	})
+}
 
 func TestPackRefsIfNeeded(t *testing.T) {
 	t.Parallel()

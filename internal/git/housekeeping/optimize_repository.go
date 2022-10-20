@@ -97,7 +97,7 @@ func optimizeRepository(
 	timer.ObserveDuration()
 
 	timer = prometheus.NewTimer(m.tasksLatency.WithLabelValues("repack"))
-	didRepack, repackCfg, err := repackIfNeeded(ctx, repo)
+	didRepack, repackCfg, err := repackIfNeeded(ctx, repo, cfg.strategy)
 	if err != nil {
 		optimizations["packed_objects_full"] = "failure"
 		optimizations["packed_objects_incremental"] = "failure"
@@ -155,14 +155,9 @@ func optimizeRepository(
 	return nil
 }
 
-// repackIfNeeded uses a set of heuristics to determine whether the repository needs a
-// full repack and, if so, repacks it.
-func repackIfNeeded(ctx context.Context, repo *localrepo.Repo) (bool, RepackObjectsConfig, error) {
-	repackNeeded, cfg, err := needsRepacking(repo)
-	if err != nil {
-		return false, RepackObjectsConfig{}, fmt.Errorf("determining whether repo needs repack: %w", err)
-	}
-
+// repackIfNeeded repacks the repository according to the strategy.
+func repackIfNeeded(ctx context.Context, repo *localrepo.Repo, strategy OptimizationStrategy) (bool, RepackObjectsConfig, error) {
+	repackNeeded, cfg := strategy.ShouldRepackObjects()
 	if !repackNeeded {
 		return false, RepackObjectsConfig{}, nil
 	}

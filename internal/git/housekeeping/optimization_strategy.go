@@ -13,59 +13,76 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 )
 
 // OptimizationStrategy is an interface to determine which parts of a repository should be
 // optimized.
-type OptimizationStrategy interface{}
+type OptimizationStrategy interface {
+	// ShouldRepackObjects determines whether the repository needs to be repacked and, if so,
+	// how it should be done.
+	ShouldRepackObjects() (bool, RepackObjectsConfig)
+}
 
 // HeuristicalOptimizationStrategy is an optimization strategy that is based on a set of
 // heuristics.
-type HeuristicalOptimizationStrategy struct{}
+type HeuristicalOptimizationStrategy struct {
+	largestPackfileSizeInMB int64
+	packfileCount           int64
+	looseObjectCount        int64
+	hasAlternate            bool
+	hasBitmap               bool
+	isObjectPool            bool
+}
 
 // NewHeuristicalOptimizationStrategy constructs a heuristicalOptimizationStrategy for the given
 // repository. It derives all data from the repository so that the heuristics used by this
 // repository can be decided without further disk reads.
-func NewHeuristicalOptimizationStrategy(context.Context, *localrepo.Repo) (HeuristicalOptimizationStrategy, error) {
-	return HeuristicalOptimizationStrategy{}, nil
-}
+func NewHeuristicalOptimizationStrategy(_ context.Context, repo *localrepo.Repo) (HeuristicalOptimizationStrategy, error) {
+	var strategy HeuristicalOptimizationStrategy
 
-func needsRepacking(repo *localrepo.Repo) (bool, RepackObjectsConfig, error) {
 	repoPath, err := repo.Path()
 	if err != nil {
-		return false, RepackObjectsConfig{}, fmt.Errorf("getting repository path: %w", err)
-	}
-
-	largestPackfileSize, packfileCount, err := packfileSizeAndCount(repo)
-	if err != nil {
-		return false, RepackObjectsConfig{}, fmt.Errorf("checking largest packfile size: %w", err)
-	}
-
-	looseObjectCount, err := estimateLooseObjectCount(repo, time.Now())
-	if err != nil {
-		return false, RepackObjectsConfig{}, fmt.Errorf("estimating loose object count: %w", err)
-	}
-
-	// If there are neither packfiles nor loose objects in this repository then there is no need
-	// to repack anything.
-	if packfileCount == 0 && looseObjectCount == 0 {
-		return false, RepackObjectsConfig{}, nil
+		return strategy, fmt.Errorf("getting repository path: %w", err)
 	}
 
 	altFile, err := repo.InfoAlternatesPath()
 	if err != nil {
-		return false, RepackObjectsConfig{}, helper.ErrInternal(err)
+		return strategy, fmt.Errorf("getting alternates path: %w", err)
 	}
 
-	hasAlternate := true
+	strategy.hasAlternate = true
 	if _, err := os.Stat(altFile); os.IsNotExist(err) {
-		hasAlternate = false
+		strategy.hasAlternate = false
 	}
 
-	hasBitmap, err := stats.HasBitmap(repoPath)
+	strategy.isObjectPool = IsPoolRepository(repo)
+
+	strategy.hasBitmap, err = stats.HasBitmap(repoPath)
 	if err != nil {
-		return false, RepackObjectsConfig{}, fmt.Errorf("checking for bitmap: %w", err)
+		return strategy, fmt.Errorf("checking for bitmap: %w", err)
+	}
+
+	strategy.largestPackfileSizeInMB, strategy.packfileCount, err = packfileSizeAndCount(repo)
+	if err != nil {
+		return strategy, fmt.Errorf("checking largest packfile size: %w", err)
+	}
+
+	strategy.looseObjectCount, err = estimateLooseObjectCount(repo, time.Now())
+	if err != nil {
+		return strategy, fmt.Errorf("estimating loose object count: %w", err)
+	}
+
+	return strategy, nil
+}
+
+// ShouldRepackObjects checks whether the repository's objects need to be repacked. This uses a
+// set of heuristics that scales with the size of the object database: the larger the repository,
+// the less frequent does it get a full repack.
+func (s HeuristicalOptimizationStrategy) ShouldRepackObjects() (bool, RepackObjectsConfig) {
+	// If there are neither packfiles nor loose objects in this repository then there is no need
+	// to repack anything.
+	if s.packfileCount == 0 && s.looseObjectCount == 0 {
+		return false, RepackObjectsConfig{}
 	}
 
 	// Bitmaps are used to efficiently determine transitive reachability of objects from a
@@ -78,11 +95,11 @@ func needsRepacking(repo *localrepo.Repo) (bool, RepackObjectsConfig, error) {
 	// a bitmap on their own. We do not yet use multi-pack indices, and in that case Git can
 	// only use one bitmap. We already generate this bitmap in the pool, so member of it
 	// shouldn't have another bitmap on their own.
-	if !hasBitmap && !hasAlternate {
+	if !s.hasBitmap && !s.hasAlternate {
 		return true, RepackObjectsConfig{
 			FullRepack:  true,
 			WriteBitmap: true,
-		}, nil
+		}
 	}
 
 	// Whenever we do an incremental repack we create a new packfile, and as a result Git may
@@ -119,15 +136,15 @@ func needsRepacking(repo *localrepo.Repo) (bool, RepackObjectsConfig, error) {
 	// This is a heuristic and thus imperfect by necessity. We may tune it as we gain experience
 	// with the way it behaves.
 	lowerLimit, log := 5.0, 1.3
-	if IsPoolRepository(repo) {
+	if s.isObjectPool {
 		lowerLimit, log = 2.0, 10.0
 	}
 
-	if int64(math.Max(lowerLimit, math.Log(float64(largestPackfileSize))/math.Log(log))) <= packfileCount {
+	if int64(math.Max(lowerLimit, math.Log(float64(s.largestPackfileSizeInMB))/math.Log(log))) <= s.packfileCount {
 		return true, RepackObjectsConfig{
 			FullRepack:  true,
-			WriteBitmap: !hasAlternate,
-		}, nil
+			WriteBitmap: !s.hasAlternate,
+		}
 	}
 
 	// Most Git commands do not write packfiles directly, but instead write loose objects into
@@ -143,14 +160,14 @@ func needsRepacking(repo *localrepo.Repo) (bool, RepackObjectsConfig, error) {
 	//
 	// In our case we typically want to ensure that our repositories are much better packed than
 	// it is necessary on the client side. We thus take a much stricter limit of 1024 objects.
-	if looseObjectCount > looseObjectLimit {
+	if s.looseObjectCount > looseObjectLimit {
 		return true, RepackObjectsConfig{
 			FullRepack:  false,
 			WriteBitmap: false,
-		}, nil
+		}
 	}
 
-	return false, RepackObjectsConfig{}, nil
+	return false, RepackObjectsConfig{}
 }
 
 func packfileSizeAndCount(repo *localrepo.Repo) (int64, int64, error) {
