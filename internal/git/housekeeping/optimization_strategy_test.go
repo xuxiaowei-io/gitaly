@@ -481,6 +481,59 @@ func TestHeuristicalOptimizationStrategy_ShouldPruneObjects(t *testing.T) {
 	}
 }
 
+func TestHeuristicalOptimizationStrategy_ShouldRepackReferences(t *testing.T) {
+	t.Parallel()
+
+	const kiloByte = 1024
+
+	for _, tc := range []struct {
+		packedRefsSize int64
+		requiredRefs   int64
+	}{
+		{
+			packedRefsSize: 1,
+			requiredRefs:   16,
+		},
+		{
+			packedRefsSize: 1 * kiloByte,
+			requiredRefs:   16,
+		},
+		{
+			packedRefsSize: 10 * kiloByte,
+			requiredRefs:   33,
+		},
+		{
+			packedRefsSize: 100 * kiloByte,
+			requiredRefs:   49,
+		},
+		{
+			packedRefsSize: 1000 * kiloByte,
+			requiredRefs:   66,
+		},
+		{
+			packedRefsSize: 10000 * kiloByte,
+			requiredRefs:   82,
+		},
+		{
+			packedRefsSize: 100000 * kiloByte,
+			requiredRefs:   99,
+		},
+	} {
+		t.Run("packed-refs with %d bytes", func(t *testing.T) {
+			strategy := HeuristicalOptimizationStrategy{
+				packedRefsSize: tc.packedRefsSize,
+				looseRefsCount: tc.requiredRefs - 1,
+			}
+
+			require.False(t, strategy.ShouldRepackReferences())
+
+			strategy.looseRefsCount++
+
+			require.True(t, strategy.ShouldRepackReferences())
+		})
+	}
+}
+
 func TestEstimateLooseObjectCount(t *testing.T) {
 	t.Parallel()
 
@@ -569,9 +622,10 @@ func TestEstimateLooseObjectCount(t *testing.T) {
 
 // mockOptimizationStrategy is a mock strategy that can be used with OptimizeRepository.
 type mockOptimizationStrategy struct {
-	shouldRepackObjects bool
-	repackObjectsCfg    RepackObjectsConfig
-	shouldPruneObjects  bool
+	shouldRepackObjects    bool
+	repackObjectsCfg       RepackObjectsConfig
+	shouldPruneObjects     bool
+	shouldRepackReferences bool
 }
 
 func (m mockOptimizationStrategy) ShouldRepackObjects() (bool, RepackObjectsConfig) {
@@ -580,4 +634,8 @@ func (m mockOptimizationStrategy) ShouldRepackObjects() (bool, RepackObjectsConf
 
 func (m mockOptimizationStrategy) ShouldPruneObjects() bool {
 	return m.shouldPruneObjects
+}
+
+func (m mockOptimizationStrategy) ShouldRepackReferences() bool {
+	return m.shouldRepackReferences
 }

@@ -24,6 +24,9 @@ type OptimizationStrategy interface {
 	// ShouldPruneObjects determines whether the repository has stale objects that should be
 	// pruned.
 	ShouldPruneObjects() bool
+	// ShouldRepackReferences determines whether the repository's references need to be
+	// repacked.
+	ShouldRepackReferences() bool
 }
 
 // HeuristicalOptimizationStrategy is an optimization strategy that is based on a set of
@@ -33,6 +36,8 @@ type HeuristicalOptimizationStrategy struct {
 	packfileCount           int64
 	looseObjectCount        int64
 	oldLooseObjectCount     int64
+	looseRefsCount          int64
+	packedRefsSize          int64
 	hasAlternate            bool
 	hasBitmap               bool
 	isObjectPool            bool
@@ -41,7 +46,7 @@ type HeuristicalOptimizationStrategy struct {
 // NewHeuristicalOptimizationStrategy constructs a heuristicalOptimizationStrategy for the given
 // repository. It derives all data from the repository so that the heuristics used by this
 // repository can be decided without further disk reads.
-func NewHeuristicalOptimizationStrategy(_ context.Context, repo *localrepo.Repo) (HeuristicalOptimizationStrategy, error) {
+func NewHeuristicalOptimizationStrategy(ctx context.Context, repo *localrepo.Repo) (HeuristicalOptimizationStrategy, error) {
 	var strategy HeuristicalOptimizationStrategy
 
 	repoPath, err := repo.Path()
@@ -79,6 +84,11 @@ func NewHeuristicalOptimizationStrategy(_ context.Context, repo *localrepo.Repo)
 	strategy.oldLooseObjectCount, err = estimateLooseObjectCount(repo, time.Now().AddDate(0, 0, -14))
 	if err != nil {
 		return strategy, fmt.Errorf("estimating old loose object count: %w", err)
+	}
+
+	strategy.looseRefsCount, strategy.packedRefsSize, err = countLooseAndPackedRefs(ctx, repo)
+	if err != nil {
+		return strategy, fmt.Errorf("counting refs: %w", err)
 	}
 
 	return strategy, nil
@@ -381,15 +391,13 @@ func countLooseAndPackedRefs(ctx context.Context, repo *localrepo.Repo) (int64, 
 	return looseRefs, packedRefsSize, nil
 }
 
-func needsPackRefs(ctx context.Context, repo *localrepo.Repo) (bool, error) {
-	looseRefs, packedRefsSize, err := countLooseAndPackedRefs(ctx, repo)
-	if err != nil {
-		return false, fmt.Errorf("counting refs: %w", err)
-	}
-
+// ShouldRepackReferences determines whether the repository's references need to be repacked based
+// on heuristics. The more references there are, the more loose referencos may exist until they are
+// packed again.
+func (s HeuristicalOptimizationStrategy) ShouldRepackReferences() bool {
 	// If there aren't any loose refs then there is nothing we need to do.
-	if looseRefs == 0 {
-		return false, nil
+	if s.looseRefsCount == 0 {
+		return false
 	}
 
 	// Packing loose references into the packed-refs file scales with the number of references
@@ -413,9 +421,9 @@ func needsPackRefs(ctx context.Context, repo *localrepo.Repo) (bool, error) {
 	//
 	// This heuristic may likely need tweaking in the future, but should serve as a good first
 	// iteration.
-	if int64(math.Max(16, math.Log(float64(packedRefsSize)/100)/math.Log(1.15))) > looseRefs {
-		return false, nil
+	if int64(math.Max(16, math.Log(float64(s.packedRefsSize)/100)/math.Log(1.15))) > s.looseRefsCount {
+		return false
 	}
 
-	return true, nil
+	return true
 }
