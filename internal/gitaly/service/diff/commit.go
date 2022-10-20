@@ -6,6 +6,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	log "github.com/sirupsen/logrus"
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/diff"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -14,6 +15,7 @@ import (
 )
 
 type requestWithLeftRightCommitIds interface {
+	GetRepository() *gitalypb.Repository
 	GetLeftCommitId() string
 	GetRightCommitId() string
 }
@@ -197,6 +199,9 @@ func (s *server) CommitDelta(in *gitalypb.CommitDeltaRequest, stream gitalypb.Di
 }
 
 func validateRequest(in requestWithLeftRightCommitIds) error {
+	if in.GetRepository() == nil {
+		return gitalyerrors.ErrEmptyRepository
+	}
 	if in.GetLeftCommitId() == "" {
 		return fmt.Errorf("empty LeftCommitId")
 	}

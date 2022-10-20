@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestSuccessfulCommitDiffRequest(t *testing.T) {
@@ -793,23 +794,47 @@ func TestFailedCommitDiffRequestDueToValidationError(t *testing.T) {
 	ctx := testhelper.Context(t)
 	_, repo, _, client := setupDiffService(t, ctx)
 
-	rightCommit := "d42783470dc29fde2cf459eb3199ee1d7e3f3a72"
-	leftCommit := rightCommit + "~" // Parent of rightCommit
+	const rightCommit = "d42783470dc29fde2cf459eb3199ee1d7e3f3a72"
+	const leftCommit = rightCommit + "~" // Parent of rightCommit
 
-	rpcRequests := []*gitalypb.CommitDiffRequest{
-		{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, RightCommitId: rightCommit, LeftCommitId: leftCommit}, // Repository doesn't exist
-		{Repository: nil, RightCommitId: rightCommit, LeftCommitId: leftCommit},                                                             // Repository is nil
-		{Repository: repo, RightCommitId: "", LeftCommitId: leftCommit},                                                                     // RightCommitId is empty
-		{Repository: repo, RightCommitId: rightCommit, LeftCommitId: ""},                                                                    // LeftCommitId is empty
-	}
-
-	for _, rpcRequest := range rpcRequests {
-		t.Run(fmt.Sprintf("%v", rpcRequest), func(t *testing.T) {
-			c, err := client.CommitDiff(ctx, rpcRequest)
+	for _, tc := range []struct {
+		desc   string
+		req    *gitalypb.CommitDiffRequest
+		exrErr error
+	}{
+		{
+			desc: "Repository doesn't exist",
+			req:  &gitalypb.CommitDiffRequest{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, RightCommitId: rightCommit, LeftCommitId: leftCommit},
+			exrErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				`GetStorageByName: no such storage: "fake"`,
+				"repo scoped: invalid Repository",
+			)),
+		},
+		{
+			desc: "Repository is nil",
+			req:  &gitalypb.CommitDiffRequest{Repository: nil, RightCommitId: rightCommit, LeftCommitId: leftCommit},
+			exrErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"CommitDiff: empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
+		{
+			desc:   "RightCommitId is empty",
+			req:    &gitalypb.CommitDiffRequest{Repository: repo, RightCommitId: "", LeftCommitId: leftCommit},
+			exrErr: status.Error(codes.InvalidArgument, "CommitDiff: empty RightCommitId"),
+		},
+		{
+			desc:   "LeftCommitId is empty",
+			req:    &gitalypb.CommitDiffRequest{Repository: repo, RightCommitId: rightCommit, LeftCommitId: ""},
+			exrErr: status.Error(codes.InvalidArgument, "CommitDiff: empty LeftCommitId"),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			c, err := client.CommitDiff(ctx, tc.req)
 			require.NoError(t, err)
 
 			err = drainCommitDiffResponse(c)
-			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
+			testhelper.RequireGrpcError(t, tc.exrErr, err)
 		})
 	}
 }

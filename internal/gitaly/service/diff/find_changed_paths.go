@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
@@ -195,6 +196,9 @@ func resolveObjectWithType(ctx context.Context, repo *localrepo.Repo, revision s
 
 func (s *server) validateFindChangedPathsRequestParams(ctx context.Context, in *gitalypb.FindChangedPathsRequest) error {
 	repo := in.GetRepository()
+	if repo == nil {
+		return helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
+	}
 	if _, err := s.locator.GetRepoPath(repo); err != nil {
 		return err
 	}
