@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/commonerr"
@@ -16,7 +17,7 @@ func validateRenameRepositoryRequest(req *gitalypb.RenameRepositoryRequest, virt
 	// These checks are not strictly necessary but they exist to keep retain compatibility with
 	// Gitaly's tested behavior.
 	if req.GetRepository() == nil {
-		return helper.ErrInvalidArgumentf("empty Repository")
+		return helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
 	} else if req.GetRelativePath() == "" {
 		return helper.ErrInvalidArgumentf("destination relative path is empty")
 	} else if _, ok := virtualStorages[req.GetRepository().GetStorageName()]; !ok {
