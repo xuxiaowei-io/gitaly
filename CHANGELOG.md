@@ -1,5 +1,35 @@
 # Gitaly changelog
 
+## 15.5.0 (2022-10-21)
+
+### Added (2 changes)
+
+- [Add limit and offset to SearchFilesByNameRequest](gitlab-org/gitaly@0a9253147ad953e6d148f184a0fa885b033603eb) ([merge request](gitlab-org/gitaly!4932))
+- [Add limit and offset to SearchFilesByNameRequest](gitlab-org/gitaly@1c9b6bdc861b7b1b39eae83f36ed0e154ac785e5) ([merge request](gitlab-org/gitaly!4911))
+
+### Fixed (2 changes)
+
+- [ref: Return structured error when update error is not ErrAlreadyLocked](gitlab-org/gitaly@80d62284b148521cd0377b40aaae4aee81f0db62) ([merge request](gitlab-org/gitaly!4897))
+- [Trim secret before signing JWT tokens](gitlab-org/gitaly@c7c35a8db91d4a4b7032eca00b2aff5f2836a27d) ([merge request](gitlab-org/gitaly!4898))
+
+### Changed (11 changes)
+
+- [Update google-protobuf to v3.21.7](gitlab-org/gitaly@a764e8c4a333a50ed200ce6d102b21272d1b6332) ([merge request](gitlab-org/gitaly!4949))
+- [git: Validate \\ in refname](gitlab-org/gitaly@894bd7d8bd67dd40e2f0bdb002d4632884cdb9e6) ([merge request](gitlab-org/gitaly!4921))
+- [Improve NTP connectivity error message](gitlab-org/gitaly@ecde3d72c3aeeb20547fc5b2186c14a93f0b28db) ([merge request](gitlab-org/gitaly!4916))
+- [objectpool: use rev-list for connectivity check](gitlab-org/gitaly@45f643e019b275453a604086782140c52ef4db11) ([merge request](gitlab-org/gitaly!4887))
+- [git: Add gitalyPid option to NewExecCommandFactory](gitlab-org/gitaly@dcdb5cd3e1cc332ec067d8df7c1dae5d4958bf16) ([merge request](gitlab-org/gitaly!4889))
+- [objectpool: Always prune refs on fetches to fix D/F conflicts](gitlab-org/gitaly@e9d6656e56e90b3ec29143bb1760e311efec1d17) ([merge request](gitlab-org/gitaly!4885))
+- [operations: Structured errors in UserCreateBranch](gitlab-org/gitaly@248f5d5677a11a3bb07643580c4614e4645bc31f) ([merge request](gitlab-org/gitaly!4883))
+- [operations: Always use structured errors in UserCreateTag RPC](gitlab-org/gitaly@3de42198fd8dda821ad60ad72bc2d597e596cb25) ([merge request](gitlab-org/gitaly!4882))
+- [ref: Always use structured errors in FindTag RPC](gitlab-org/gitaly@f169b5d94b061fc6e939b485706da969d6955d06) ([merge request](gitlab-org/gitaly!4881))
+- [Update pg_query to v2.1.4](gitlab-org/gitaly@67463800932abf4ab73a0d43e6b3ed5cd896d58e) ([merge request](gitlab-org/gitaly!4872))
+- [Fix pagination cursor generation for TreeEntries](gitlab-org/gitaly@eb82c328b2a3ca312724724eb9849bc25a3b0b24) ([merge request](gitlab-org/gitaly!4870))
+
+### Security (1 change)
+
+- [Fix CVE-2022-32149 in dependencies](gitlab-org/gitaly@1f49b2de36c84c429031ef60ff0189d1a5c3f2d5) ([merge request](gitlab-org/gitaly!4937))
+
 ## 15.4.3 (2022-10-19)
 
 No changes.
