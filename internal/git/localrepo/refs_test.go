@@ -96,7 +96,7 @@ func TestRepo_GetReference(t *testing.T) {
 		{
 			desc:        "prefix returns an error",
 			ref:         "refs/heads",
-			expectedErr: fmt.Errorf("%w: conflicts with %q", git.ErrReferenceAmbiguous, "refs/heads/master"),
+			expectedErr: git.ErrReferenceAmbiguous,
 		},
 		{
 			desc:        "nonexistent branch",
