@@ -3,10 +3,9 @@ package linguist
 import (
 	"fmt"
 	"io"
-	"strings"
 
 	"github.com/go-enry/go-enry/v2"
-	"github.com/go-git/go-git/v5/plumbing/format/gitattributes"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gitattributes"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gitpipe"
 )
 
@@ -18,78 +17,78 @@ const (
 	linguistLanguage      = "linguist-language"
 )
 
-type fileInstance struct {
-	filename string
-	attrs    map[string]gitattributes.Attribute
+var linguistAttrs = []string{
+	linguistDocumentation,
+	linguistDetectable,
+	linguistGenerated,
+	linguistVendored,
+	linguistLanguage,
 }
 
-func newFileInstance(filename string, attrMatcher gitattributes.Matcher) fileInstance {
-	attrs, _ := attrMatcher.Match(strings.Split(filename, "/"),
-		[]string{
-			linguistDocumentation,
-			linguistDetectable,
-			linguistGenerated,
-			linguistVendored,
-			linguistLanguage,
-		})
+type fileInstance struct {
+	filename string
+	attrs    gitattributes.Attributes
+}
 
-	return fileInstance{
+func newFileInstance(filename string, checkAttr *gitattributes.CheckAttrCmd) (*fileInstance, error) {
+	attrs, err := checkAttr.Check(filename)
+	if err != nil {
+		return nil, fmt.Errorf("checking attribute: %w", err)
+	}
+
+	return &fileInstance{
 		filename: filename,
 		attrs:    attrs,
-	}
+	}, nil
 }
 
 func (f fileInstance) isDocumentation() bool {
-	attr, ok := f.attrs[linguistDocumentation]
-	if ok {
-		if attr.IsUnset() {
-			return false
-		}
-		if attr.IsSet() {
-			return true
-		}
+	if f.attrs.IsUnset(linguistDocumentation) {
+		return false
+	}
+	if f.attrs.IsSet(linguistDocumentation) {
+		return true
 	}
 
 	return enry.IsDocumentation(f.filename)
 }
 
 func (f fileInstance) isVendored() bool {
-	if attr, ok := f.attrs[linguistVendored]; ok {
-		if attr.IsUnset() {
-			return false
-		}
-		if attr.IsSet() {
-			return true
-		}
+	if f.attrs.IsUnset(linguistVendored) {
+		return false
+	}
+	if f.attrs.IsSet(linguistVendored) {
+		return true
 	}
 
 	return enry.IsVendor(f.filename)
 }
 
 func (f fileInstance) isGenerated(content []byte) bool {
-	if attr, ok := f.attrs[linguistGenerated]; ok {
-		if attr.IsUnset() {
-			return false
-		}
-		if attr.IsSet() {
-			return true
-		}
+	if f.attrs.IsUnset(linguistGenerated) {
+		return false
+	}
+	if f.attrs.IsSet(linguistGenerated) {
+		return true
 	}
 
 	return enry.IsGenerated(f.filename, content)
 }
 
 func (f fileInstance) getLanguage(content []byte) string {
-	if attr, ok := f.attrs[linguistLanguage]; ok {
-		return attr.Value()
+	if lang, ok := f.attrs.StateFor(linguistLanguage); ok {
+		return lang
 	}
 
 	return enry.GetLanguage(f.filename, content)
 }
 
 func (f fileInstance) isIgnoredLanguage(lang string) bool {
-	if attr, ok := f.attrs[linguistDetectable]; ok {
-		return !attr.IsSet()
+	if f.attrs.IsSet(linguistDetectable) {
+		return false
+	}
+	if f.attrs.IsUnset(linguistDetectable) {
+		return true
 	}
 
 	// Ignore anything that's neither markup nor a programming language,

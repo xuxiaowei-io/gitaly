@@ -42,6 +42,9 @@ var commandDescriptions = map[string]commandDescription{
 	"cat-file": {
 		flags: scNoRefUpdates,
 	},
+	"check-attr": {
+		flags: scNoRefUpdates | scNoEndOfOptions,
+	},
 	"check-ref-format": {
 		// git-check-ref-format(1) uses a hand-rolled option parser which doesn't support
 		// `--end-of-options`.

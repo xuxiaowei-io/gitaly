@@ -16,7 +16,7 @@ import (
 type lsTreeConfig struct {
 	recursive  bool
 	typeFilter func(*lstree.Entry) bool
-	skipResult func(*RevisionResult) bool
+	skipResult func(*RevisionResult) (bool, error)
 }
 
 // LsTreeOption is an option for the LsTree pipeline step.
@@ -39,7 +39,7 @@ func LsTreeWithBlobFilter() LsTreeOption {
 // LsTreeWithSkip will execute the given function for each RevisionResult processed by the
 // pipeline. If the callback returns `true`, then the object will be skipped and not passed down
 // the pipeline.
-func LsTreeWithSkip(skipResult func(*RevisionResult) bool) LsTreeOption {
+func LsTreeWithSkip(skipResult func(*RevisionResult) (bool, error)) LsTreeOption {
 	return func(cfg *lsTreeConfig) {
 		cfg.skipResult = skipResult
 	}
@@ -119,8 +119,17 @@ func LsTree(
 				ObjectName: []byte(entry.Path),
 			}
 
-			if cfg.skipResult != nil && cfg.skipResult(&result) {
-				continue
+			if cfg.skipResult != nil {
+				skip, err := cfg.skipResult(&result)
+				if err != nil {
+					sendRevisionResult(ctx, resultChan, RevisionResult{
+						err: fmt.Errorf("ls-tree skip: %q", err),
+					})
+					return
+				}
+				if skip {
+					continue
+				}
 			}
 
 			if isDone := sendRevisionResult(ctx, resultChan, result); isDone {

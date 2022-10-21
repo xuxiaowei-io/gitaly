@@ -188,10 +188,33 @@ func TestDiffTree(t *testing.T) {
 				}
 			},
 			options: []DiffTreeOption{
-				DiffTreeWithSkip(func(r *RevisionResult) bool {
-					return bytes.Equal(r.ObjectName, []byte("b"))
+				DiffTreeWithSkip(func(r *RevisionResult) (bool, error) {
+					return bytes.Equal(r.ObjectName, []byte("b")), nil
 				}),
 			},
+		},
+		{
+			desc: "with skip failure",
+			setup: func(t *testing.T, repoPath string) (git.Revision, git.Revision, []RevisionResult) {
+				treeA := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "a", Mode: "100644", Content: "1"},
+					{Path: "b", Mode: "100644", Content: "2"},
+				})
+
+				changedBlobA := gittest.WriteBlob(t, cfg, repoPath, []byte("x"))
+				treeB := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "a", Mode: "100644", OID: changedBlobA},
+					{Path: "b", Mode: "100644", Content: "y"},
+				})
+
+				return treeA.Revision(), treeB.Revision(), nil
+			},
+			options: []DiffTreeOption{
+				DiffTreeWithSkip(func(r *RevisionResult) (bool, error) {
+					return true, errors.New("broken")
+				}),
+			},
+			expectedErr: errors.New(`diff-tree skip: "broken"`),
 		},
 		{
 			desc: "invalid revision",
