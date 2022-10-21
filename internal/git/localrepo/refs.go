@@ -82,7 +82,7 @@ func (repo *Repo) GetReference(ctx context.Context, reference git.ReferenceName)
 		return git.Reference{}, git.ErrReferenceNotFound
 	}
 	if refs[0].Name != reference {
-		return git.Reference{}, fmt.Errorf("%w: conflicts with %q", git.ErrReferenceAmbiguous, refs[0].Name)
+		return git.Reference{}, git.ErrReferenceAmbiguous
 	}
 
 	return refs[0], nil

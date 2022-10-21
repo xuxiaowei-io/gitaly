@@ -50,6 +50,12 @@ func (s *Server) UserCreateBranch(ctx context.Context, req *gitalypb.UserCreateB
 	}
 
 	referenceName := git.NewReferenceNameFromBranchName(string(req.BranchName))
+	_, err = quarantineRepo.GetReference(ctx, referenceName)
+	if err == nil {
+		return nil, status.Errorf(codes.FailedPrecondition, "Could not update %s. Please refresh and try again.", req.BranchName)
+	} else if !errors.Is(err, git.ErrReferenceNotFound) {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
 
 	if err := s.updateReferenceWithHooks(ctx, req.GetRepository(), req.User, quarantineDir, referenceName, startPointOID, git.ObjectHashSHA1.ZeroOID); err != nil {
 		var customHookErr updateref.CustomHookError
