@@ -3,6 +3,7 @@
 package housekeeping
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 
@@ -14,10 +15,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 )
 
-func requireObjectCount(t *testing.T, repoPath string, expectedObjects int64) {
+func requireObjectCount(t *testing.T, ctx context.Context, repo *localrepo.Repo, expectedObjects uint64) {
 	t.Helper()
 
-	objects, err := stats.UnpackedObjects(repoPath)
+	objects, err := stats.LooseObjects(ctx, repo)
 	require.NoError(t, err)
 	require.Equal(t, expectedObjects, objects)
 }
@@ -44,12 +45,12 @@ func TestRepackObjects(t *testing.T) {
 
 		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 
-		requireObjectCount(t, repoPath, 1)
+		requireObjectCount(t, ctx, repo, 1)
 		requirePackfileCount(t, repoPath, 0)
 
 		require.NoError(t, RepackObjects(ctx, repo, RepackObjectsConfig{}))
 
-		requireObjectCount(t, repoPath, 0)
+		requireObjectCount(t, ctx, repo, 0)
 		requirePackfileCount(t, repoPath, 1)
 
 		require.NoFileExists(t, filepath.Join(repoPath, "info", "refs"))

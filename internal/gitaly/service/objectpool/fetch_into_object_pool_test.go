@@ -20,6 +20,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
@@ -251,26 +252,9 @@ func TestFetchIntoObjectPool_CollectLogStatistics(t *testing.T) {
 	_, err = client.FetchIntoObjectPool(ctx, req)
 	require.NoError(t, err)
 
-	const key = "count_objects"
 	for _, logEntry := range hook.AllEntries() {
-		if stats, ok := logEntry.Data[key]; ok {
-			require.IsType(t, map[string]interface{}{}, stats)
-
-			var keys []string
-			for key := range stats.(map[string]interface{}) {
-				keys = append(keys, key)
-			}
-
-			require.ElementsMatch(t, []string{
-				"count",
-				"garbage",
-				"in-pack",
-				"packs",
-				"prune-packable",
-				"size",
-				"size-garbage",
-				"size-pack",
-			}, keys)
+		if objectsInfo, ok := logEntry.Data["objects_info"]; ok {
+			require.IsType(t, stats.ObjectsInfo{}, objectsInfo)
 			return
 		}
 	}

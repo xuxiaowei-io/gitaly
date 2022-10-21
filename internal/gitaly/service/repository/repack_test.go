@@ -222,16 +222,13 @@ func TestRepackFullCollectLogStatistics(t *testing.T) {
 func mustCountObjectLog(tb testing.TB, entries ...*logrus.Entry) {
 	tb.Helper()
 
-	const key = "count_objects"
+	const key = "objects_info"
 	for _, entry := range entries {
-		if entry.Message == "git repo statistic" {
+		if entry.Message == "repository objects info" {
 			require.Contains(tb, entry.Data, "grpc.request.glProjectPath")
 			require.Contains(tb, entry.Data, "grpc.request.glRepository")
-			require.Contains(tb, entry.Data, key, "statistics not found")
-
-			objectStats, ok := entry.Data[key].(map[string]interface{})
-			require.True(tb, ok, "expected count_objects to be a map")
-			require.Contains(tb, objectStats, "count")
+			require.Contains(tb, entry.Data, key, "objects info not found")
+			require.IsType(tb, stats.ObjectsInfo{}, entry.Data[key])
 			return
 		}
 	}
