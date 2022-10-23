@@ -5,7 +5,6 @@ package ref
 import (
 	"bufio"
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -17,7 +16,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -255,76 +253,38 @@ func TestInvalidRepoFindDefaultBranchNameRequest(t *testing.T) {
 
 func TestSuccessfulFindLocalBranches(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.SimplifyFindLocalBranchesResponse).Run(t, testSuccessfulFindLocalBranches)
-}
+	ctx := testhelper.Context(t)
 
-func testSuccessfulFindLocalBranches(t *testing.T, ctx context.Context) {
 	_, repo, _, client := setupRefService(t, ctx)
 
 	rpcRequest := &gitalypb.FindLocalBranchesRequest{Repository: repo}
 	c, err := client.FindLocalBranches(ctx, rpcRequest)
 	require.NoError(t, err)
 
-	if featureflag.SimplifyFindLocalBranchesResponse.IsEnabled(ctx) {
-		var branches []*gitalypb.Branch
-		for {
-			r, err := c.Recv()
-			if err == io.EOF {
-				break
-			}
-			require.NoError(t, err)
-			branches = append(branches, r.GetLocalBranches()...)
+	var branches []*gitalypb.Branch
+	for {
+		r, err := c.Recv()
+		if err == io.EOF {
+			break
+		}
+		require.NoError(t, err)
+		branches = append(branches, r.GetLocalBranches()...)
+	}
+
+	for name, target := range localBranches {
+		localBranch := &gitalypb.Branch{
+			Name:         []byte(name),
+			TargetCommit: target,
 		}
 
-		for name, target := range localBranches {
-			localBranch := &gitalypb.Branch{
-				Name:         []byte(name),
-				TargetCommit: target,
-			}
-
-			assertContainsBranch(t, branches, localBranch)
-		}
-
-	} else {
-		var branches []*gitalypb.FindLocalBranchResponse
-		for {
-			r, err := c.Recv()
-			if err == io.EOF {
-				break
-			}
-			require.NoError(t, err)
-			branches = append(branches, r.GetBranches()...)
-		}
-
-		for name, target := range localBranches {
-			localBranch := &gitalypb.FindLocalBranchResponse{
-				Name:          []byte(name),
-				CommitId:      target.Id,
-				CommitSubject: target.Subject,
-				CommitAuthor: &gitalypb.FindLocalBranchCommitAuthor{
-					Name:  target.Author.Name,
-					Email: target.Author.Email,
-					Date:  target.Author.Date,
-				},
-				CommitCommitter: &gitalypb.FindLocalBranchCommitAuthor{
-					Name:  target.Committer.Name,
-					Email: target.Committer.Email,
-					Date:  target.Committer.Date,
-				},
-				Commit: target,
-			}
-
-			assertContainsLocalBranch(t, branches, localBranch)
-		}
+		assertContainsBranch(t, branches, localBranch)
 	}
 }
 
 func TestFindLocalBranchesHugeCommitter(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.SimplifyFindLocalBranchesResponse).Run(t, testFindLocalBranchesHugeCommitter)
-}
+	ctx := testhelper.Context(t)
 
-func testFindLocalBranchesHugeCommitter(t *testing.T, ctx context.Context) {
 	cfg, repo, repoPath, client := setupRefService(t, ctx)
 
 	gittest.WriteCommit(t, cfg, repoPath,
@@ -348,10 +308,8 @@ func testFindLocalBranchesHugeCommitter(t *testing.T, ctx context.Context) {
 
 func TestFindLocalBranchesPagination(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.SimplifyFindLocalBranchesResponse).Run(t, testFindLocalBranchesPagination)
-}
+	ctx := testhelper.Context(t)
 
-func testFindLocalBranchesPagination(t *testing.T, ctx context.Context) {
 	_, repo, _, client := setupRefService(t, ctx)
 
 	limit := 1
@@ -368,63 +326,29 @@ func testFindLocalBranchesPagination(t *testing.T, ctx context.Context) {
 	expectedBranch := "refs/heads/improve/awesome"
 	target := localBranches[expectedBranch]
 
-	if featureflag.SimplifyFindLocalBranchesResponse.IsEnabled(ctx) {
-		var branches []*gitalypb.Branch
-		for {
-			r, err := c.Recv()
-			if err == io.EOF {
-				break
-			}
-			require.NoError(t, err)
-			branches = append(branches, r.GetLocalBranches()...)
+	var branches []*gitalypb.Branch
+	for {
+		r, err := c.Recv()
+		if err == io.EOF {
+			break
 		}
-
-		require.Len(t, branches, limit)
-
-		branch := &gitalypb.Branch{
-			Name:         []byte(expectedBranch),
-			TargetCommit: target,
-		}
-		assertContainsBranch(t, branches, branch)
-	} else {
-		var branches []*gitalypb.FindLocalBranchResponse
-		for {
-			r, err := c.Recv()
-			if err == io.EOF {
-				break
-			}
-			require.NoError(t, err)
-			branches = append(branches, r.GetBranches()...)
-		}
-
-		require.Len(t, branches, limit)
-
-		branch := &gitalypb.FindLocalBranchResponse{
-			Name:          []byte(expectedBranch),
-			CommitId:      target.Id,
-			CommitSubject: target.Subject,
-			CommitAuthor: &gitalypb.FindLocalBranchCommitAuthor{
-				Name:  target.Author.Name,
-				Email: target.Author.Email,
-				Date:  target.Author.Date,
-			},
-			CommitCommitter: &gitalypb.FindLocalBranchCommitAuthor{
-				Name:  target.Committer.Name,
-				Email: target.Committer.Email,
-				Date:  target.Committer.Date,
-			},
-			Commit: target,
-		}
-		assertContainsLocalBranch(t, branches, branch)
+		require.NoError(t, err)
+		branches = append(branches, r.GetLocalBranches()...)
 	}
+
+	require.Len(t, branches, limit)
+
+	branch := &gitalypb.Branch{
+		Name:         []byte(expectedBranch),
+		TargetCommit: target,
+	}
+	assertContainsBranch(t, branches, branch)
 }
 
 func TestFindLocalBranchesPaginationSequence(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.SimplifyFindLocalBranchesResponse).Run(t, testFindLocalBranchesPaginationSequence)
-}
+	ctx := testhelper.Context(t)
 
-func testFindLocalBranchesPaginationSequence(t *testing.T, ctx context.Context) {
 	_, repo, _, client := setupRefService(t, ctx)
 
 	limit := 2
@@ -437,85 +361,46 @@ func testFindLocalBranchesPaginationSequence(t *testing.T, ctx context.Context) 
 	c, err := client.FindLocalBranches(ctx, firstRPCRequest)
 	require.NoError(t, err)
 
-	if featureflag.SimplifyFindLocalBranchesResponse.IsEnabled(ctx) {
-		var firstResponseBranches []*gitalypb.Branch
-		for {
-			r, err := c.Recv()
-			if err == io.EOF {
-				break
-			}
-			require.NoError(t, err)
-			firstResponseBranches = append(firstResponseBranches, r.GetLocalBranches()...)
+	var firstResponseBranches []*gitalypb.Branch
+	for {
+		r, err := c.Recv()
+		if err == io.EOF {
+			break
 		}
-
-		require.Len(t, firstResponseBranches, limit)
-
-		secondRPCRequest := &gitalypb.FindLocalBranchesRequest{
-			Repository: repo,
-			PaginationParams: &gitalypb.PaginationParameter{
-				Limit:     1,
-				PageToken: string(firstResponseBranches[0].Name),
-			},
-		}
-		c, err = client.FindLocalBranches(ctx, secondRPCRequest)
 		require.NoError(t, err)
-
-		var secondResponseBranches []*gitalypb.Branch
-		for {
-			r, err := c.Recv()
-			if err == io.EOF {
-				break
-			}
-			require.NoError(t, err)
-			secondResponseBranches = append(secondResponseBranches, r.GetLocalBranches()...)
-		}
-
-		require.Len(t, secondResponseBranches, 1)
-		require.Equal(t, firstResponseBranches[1], secondResponseBranches[0])
-	} else {
-		var firstResponseBranches []*gitalypb.FindLocalBranchResponse
-		for {
-			r, err := c.Recv()
-			if err == io.EOF {
-				break
-			}
-			require.NoError(t, err)
-			firstResponseBranches = append(firstResponseBranches, r.GetBranches()...)
-		}
-
-		require.Len(t, firstResponseBranches, limit)
-
-		secondRPCRequest := &gitalypb.FindLocalBranchesRequest{
-			Repository: repo,
-			PaginationParams: &gitalypb.PaginationParameter{
-				Limit:     1,
-				PageToken: string(firstResponseBranches[0].Name),
-			},
-		}
-		c, err = client.FindLocalBranches(ctx, secondRPCRequest)
-		require.NoError(t, err)
-
-		var secondResponseBranches []*gitalypb.FindLocalBranchResponse
-		for {
-			r, err := c.Recv()
-			if err == io.EOF {
-				break
-			}
-			require.NoError(t, err)
-			secondResponseBranches = append(secondResponseBranches, r.GetBranches()...)
-		}
-
-		require.Len(t, secondResponseBranches, 1)
-		require.Equal(t, firstResponseBranches[1], secondResponseBranches[0])
+		firstResponseBranches = append(firstResponseBranches, r.GetLocalBranches()...)
 	}
+
+	require.Len(t, firstResponseBranches, limit)
+
+	secondRPCRequest := &gitalypb.FindLocalBranchesRequest{
+		Repository: repo,
+		PaginationParams: &gitalypb.PaginationParameter{
+			Limit:     1,
+			PageToken: string(firstResponseBranches[0].Name),
+		},
+	}
+	c, err = client.FindLocalBranches(ctx, secondRPCRequest)
+	require.NoError(t, err)
+
+	var secondResponseBranches []*gitalypb.Branch
+	for {
+		r, err := c.Recv()
+		if err == io.EOF {
+			break
+		}
+		require.NoError(t, err)
+		secondResponseBranches = append(secondResponseBranches, r.GetLocalBranches()...)
+	}
+
+	require.Len(t, secondResponseBranches, 1)
+	require.Equal(t, firstResponseBranches[1], secondResponseBranches[0])
 }
 
 func TestFindLocalBranchesPaginationWithIncorrectToken(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.SimplifyFindLocalBranchesResponse).Run(t, testFindLocalBranchesPaginationWithIncorrectToken)
-}
+	ctx := testhelper.Context(t)
 
-func testFindLocalBranchesPaginationWithIncorrectToken(t *testing.T, ctx context.Context) {
 	_, repo, _, client := setupRefService(t, ctx)
 
 	limit := 1
@@ -554,10 +439,8 @@ func isOrderedSubset(subset, set []string) bool {
 
 func TestFindLocalBranchesSort(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.SimplifyFindLocalBranchesResponse).Run(t, testFindLocalBranchesSort)
-}
+	ctx := testhelper.Context(t)
 
-func testFindLocalBranchesSort(t *testing.T, ctx context.Context) {
 	testCases := []struct {
 		desc          string
 		relativeOrder []string
@@ -597,16 +480,9 @@ func testFindLocalBranchesSort(t *testing.T, ctx context.Context) {
 				}
 				require.NoError(t, err)
 
-				if featureflag.SimplifyFindLocalBranchesResponse.IsEnabled(ctx) {
-					for _, branch := range r.GetLocalBranches() {
-						branches = append(branches, string(branch.Name))
-					}
-				} else {
-					for _, branch := range r.GetBranches() {
-						branches = append(branches, string(branch.Name))
-					}
+				for _, branch := range r.GetLocalBranches() {
+					branches = append(branches, string(branch.Name))
 				}
-
 			}
 
 			if !isOrderedSubset(testCase.relativeOrder, branches) {
@@ -618,10 +494,8 @@ func testFindLocalBranchesSort(t *testing.T, ctx context.Context) {
 
 func TestEmptyFindLocalBranchesRequest(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.SimplifyFindLocalBranchesResponse).Run(t, testEmptyFindLocalBranchesRequest)
-}
+	ctx := testhelper.Context(t)
 
-func testEmptyFindLocalBranchesRequest(t *testing.T, ctx context.Context) {
 	_, client := setupRefServiceWithoutRepo(t)
 
 	rpcRequest := &gitalypb.FindLocalBranchesRequest{}
