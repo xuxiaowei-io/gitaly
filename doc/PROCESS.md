@@ -255,7 +255,7 @@ a rewrite of Ruby code in Go.
 As we deploy the Ruby code might be in the middle of auto-restarting,
 so we could remove its code before the Go code has a chance to update
 with its default, and would still want to call it. So therefore you
-need to do any such removal in two GitLab.com release cycles.
+need to do any such removal in two GitLab release cycles.
 
 See the example of [MR !3033][example-on-by-default-mr] and [MR !3056][example-post-go-ruby-code-removal-mr] for how to
 do such a two-phase removal.
