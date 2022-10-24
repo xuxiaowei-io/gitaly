@@ -301,6 +301,7 @@ func TestCatfileInfoAllObjects(t *testing.T) {
 	actualObjects := []CatfileInfoResult{
 		{ObjectInfo: &catfile.ObjectInfo{Oid: blob1, Type: "blob", Size: 6}},
 		{ObjectInfo: &catfile.ObjectInfo{Oid: blob2, Type: "blob", Size: 6}},
+		{ObjectInfo: &catfile.ObjectInfo{Oid: gittest.DefaultObjectHash.EmptyTreeOID, Type: "tree", Size: 0}},
 		{ObjectInfo: &catfile.ObjectInfo{Oid: tree, Type: "tree", Size: hashDependentObjectSize(34, 46)}},
 		{ObjectInfo: &catfile.ObjectInfo{Oid: commit, Type: "commit", Size: hashDependentObjectSize(177, 201)}},
 	}
