@@ -230,3 +230,22 @@ func (mgr *Manager) StopTransaction(ctx context.Context, transactionID uint64) e
 
 	return nil
 }
+
+// CancelTransactionNodeVoter cancels the voter associated with the specified transaction
+// and node. Voters are canceled when the node RPC fails and its votes can no longer count
+// towards quorum.
+func (mgr *Manager) CancelTransactionNodeVoter(transactionID uint64, node string) error {
+	mgr.lock.Lock()
+	transaction, ok := mgr.transactions[transactionID]
+	mgr.lock.Unlock()
+
+	if !ok {
+		return fmt.Errorf("%w: %d", ErrNotFound, transactionID)
+	}
+
+	if err := transaction.cancelNodeVoter(node); err != nil {
+		return err
+	}
+
+	return nil
+}

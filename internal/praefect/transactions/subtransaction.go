@@ -79,7 +79,9 @@ func (t *subtransaction) stop() error {
 		switch voter.result {
 		case VoteCanceled:
 			// If the vote was canceled already, we cannot stop it.
-			return ErrTransactionCanceled
+			// A single node voter being canceled is not indicative
+			// of all voter's state. Other voters must be checked.
+			continue
 		case VoteStopped:
 			// Similar if the vote was stopped already.
 			return ErrTransactionStopped
@@ -136,9 +138,9 @@ func (t *subtransaction) vote(node string, vote voting.Vote) error {
 	return nil
 }
 
-// updateVoterStates updates undecided voters or cancels existing votes of decided voters if given a
-// `nil` vote. Voters are updated either as soon as quorum was reached or alternatively when all
-// votes were cast.
+// updateVoterState updates undecided voters or cancels existing votes if given a `nil`
+// vote. Voters are updated either as soon as quorum was reached or alternatively when
+// quorum becomes impossible.
 func (t *subtransaction) updateVoterState(voter *Voter, vote *voting.Vote) error {
 	switch voter.result {
 	case VoteUndecided:
@@ -171,10 +173,20 @@ func (t *subtransaction) updateVoterState(voter *Voter, vote *voting.Vote) error
 			return errors.New("subtransaction was already finished")
 		}
 
+		// A voter's result can only be canceled if the subtransaction is still pending.
+		// If a change has already been committed to disk the voter result cannot be
+		// changed since the subtransction is considered complete.
+		voter.result = VoteCanceled
+
 		// Remove the voter's support for the vote so it's not counted towards the
 		// majority. The node is not going to commit the subtransaction anyway.
-		t.voteCounts[*voter.vote] -= voter.Votes
-		voter.result = VoteCanceled
+		if voter.vote != nil {
+			t.voteCounts[*voter.vote] -= voter.Votes
+		}
+
+		// A canceled voter can no longer voter so its vote is
+		// reset after being subtracted from the vote counts.
+		voter.vote = nil
 	}
 
 	defer func() {
@@ -183,26 +195,12 @@ func (t *subtransaction) updateVoterState(voter *Voter, vote *voting.Vote) error
 		}
 	}()
 
-	var majorityVote *voting.Vote
-	var majorityVoteCount uint
-	for v, voteCount := range t.voteCounts {
-		if majorityVoteCount < voteCount {
-			v := v
-			majorityVoteCount = voteCount
-			majorityVote = &v
-		}
-	}
-
-	var outstandingVotes uint
-	for _, voter := range t.votersByNode {
-		if voter.vote == nil {
-			outstandingVotes += voter.Votes
-		}
-	}
-
-	// When the majority vote didn't yet cross the threshold and the number of outstanding votes
-	// may still get us across that threshold, then we need to wait for more votes to come in.
-	if majorityVoteCount < t.threshold && majorityVoteCount+outstandingVotes >= t.threshold {
+	// Check if quorum has been reached or if quorum is still attainable for the subtransaction.
+	// If quorum has not been achieved the vote returned by the quorum check will be `nil`.
+	// As long as quorum has not been achieved and is still possible, the subtransaction
+	// will wait for additional voter's results to come in.
+	majorityVote, quorumPossible := t.quorumCheck()
+	if majorityVote == nil && quorumPossible {
 		return nil
 	}
 
@@ -223,15 +221,15 @@ func (t *subtransaction) updateVoterState(voter *Voter, vote *voting.Vote) error
 			continue
 		}
 
-		// If the majority vote count is smaller than the threshold at this point, then we
-		// know that we cannot ever reach it anymore even with the votes which are still
-		// outstanding. We can thus mark this node as failed.
-		if majorityVoteCount < t.threshold {
+		// If quorum is not possible we know there are not enough outstanding votes to cross
+		// the threshold required by the subtransaction. We can thus mark this node as failed.
+		if !quorumPossible {
 			voter.result = VoteFailed
 			continue
 		}
 
-		// Otherwise, the result depends on whether the voter agrees on the quorum or not.
+		// At this point we know quorum has been achieved and a majority vote is present.
+		// A check is done to see if the voter agrees with the quorum majority vote.
 		if *voter.vote == *majorityVote {
 			voter.result = VoteCommitted
 		} else {
@@ -252,26 +250,45 @@ func (t *subtransaction) mustSignalVoters() bool {
 		return false
 	}
 
-	// Check if any node has reached the threshold. If it did, then we need
-	// to signal voters.
-	for _, voteCount := range t.voteCounts {
-		if voteCount >= t.threshold {
-			return true
+	majorityVote, quorumPossible := t.quorumCheck()
+
+	// If there is majority vote threshold has been met and voters can be signaled.
+	if majorityVote != nil {
+		return true
+	}
+
+	// If quorum is still possible the voters should not be signaled, since
+	// remaining voters could cause us to reach quorum. If quorum is not
+	// possible voters should be unblocked to allow the transaction to fail.
+	return !quorumPossible
+}
+
+// quorumCheck returns the majority vote if quorum has been achieved
+// and if not `nil` is returned. It also returns whether quorum can
+// still be achieved with the outstanding voters.
+func (t *subtransaction) quorumCheck() (*voting.Vote, bool) {
+	var leader *voting.Vote
+	var majority uint
+	for v, voteCount := range t.voteCounts {
+		if majority < voteCount {
+			v := v
+			majority = voteCount
+			leader = &v
 		}
 	}
 
-	// The threshold wasn't reached by any node yet. If there are undecided voters, then we
-	// cannot notify yet as any remaining nodes may cause us to reach quorum.
+	if majority >= t.threshold {
+		return leader, true
+	}
+
+	var outstanding uint
 	for _, voter := range t.votersByNode {
-		if voter.result == VoteUndecided {
-			return false
+		if voter.vote == nil && voter.result == VoteUndecided {
+			outstanding += voter.Votes
 		}
 	}
 
-	// Otherwise we know that all votes are in and that no quorum was
-	// reached. We thus need to notify callers of the failed vote as the
-	// last node which has cast its vote.
-	return true
+	return nil, majority+outstanding >= t.threshold
 }
 
 func (t *subtransaction) collectVotes(ctx context.Context, node string) error {
@@ -362,4 +379,28 @@ func (t *subtransaction) getVote(node string) (*voting.Vote, error) {
 	// Return a copy of the vote.
 	vote := *voter.vote
 	return &vote, nil
+}
+
+// cancelNodeVoter updates a node's associated voter state to `VoteCanceled`.
+// All must voters wait until either quorum has been achieved or quorum
+// becomes impossible. A canceled voter's votes are not counted as a part of
+// the total outstanding votes which can cause a subtransaction to not have
+// enough votes to reach the required threshold. If this happens the vote
+// will be considered failed and the voters unblocked.
+func (t *subtransaction) cancelNodeVoter(node string) error {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
+	voter, ok := t.votersByNode[node]
+	if !ok {
+		return fmt.Errorf("invalid node for subtransaction: %q", node)
+	}
+
+	// Updating voter state with a nil vote will result in the voter
+	// getting canceled.
+	if err := t.updateVoterState(voter, nil); err != nil {
+		return fmt.Errorf("cancel vote: %w", err)
+	}
+
+	return nil
 }

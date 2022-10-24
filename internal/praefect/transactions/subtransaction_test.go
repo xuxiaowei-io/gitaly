@@ -51,7 +51,7 @@ func TestSubtransaction_stop(t *testing.T) {
 		require.Equal(t, VoteFailed, s.votersByNode["3"].result)
 	})
 
-	t.Run("stop of canceled transaction fails", func(t *testing.T) {
+	t.Run("stop of transaction with single canceled voter", func(t *testing.T) {
 		s, err := newSubtransaction([]Voter{
 			{Name: "1", Votes: 1, result: VoteUndecided},
 			{Name: "2", Votes: 1, result: VoteCommitted},
@@ -60,8 +60,8 @@ func TestSubtransaction_stop(t *testing.T) {
 		}, 1)
 		require.NoError(t, err)
 
-		require.Equal(t, s.stop(), ErrTransactionCanceled)
-		require.False(t, s.isDone())
+		require.NoError(t, s.stop())
+		require.True(t, s.isDone())
 	})
 
 	t.Run("stop of stopped transaction fails", func(t *testing.T) {
@@ -512,6 +512,8 @@ func TestSubtransaction_voterStopsWaiting(t *testing.T) {
 			s, err := newSubtransaction(voters, totalWeight/2+1)
 			require.NoError(t, err)
 
+			var deferredCollectVotes []func(ctx context.Context)
+
 			results := make([]chan error, len(tc.outcomes))
 			for i, outcome := range tc.outcomes {
 				voterName := voters[i].Name
@@ -535,7 +537,15 @@ func TestSubtransaction_voterStopsWaiting(t *testing.T) {
 					continue
 				}
 
-				go collectVotes(ctx)
+				// Since voters are unblocked once quorum becomes impossible voters that
+				// are not dropped must have their call to `collectVotes` deferred so
+				// the result state will not be prone to race conditions.
+				deferredCollectVotes = append(deferredCollectVotes, collectVotes)
+			}
+
+			// With all votes cast the remaining `collectVotes` can be called.
+			for _, collectVotes := range deferredCollectVotes {
+				collectVotes(ctx)
 			}
 
 			for i, outcome := range tc.outcomes {
@@ -589,6 +599,304 @@ func TestSubtransaction_race(t *testing.T) {
 			}
 
 			wg.Wait()
+		})
+	}
+}
+
+func TestSubtransaction_updateVoterState(t *testing.T) {
+	voters := []Voter{
+		{Name: "1", Votes: 1},
+		{Name: "2", Votes: 1},
+		{Name: "3", Votes: 1},
+	}
+	threshold := uint(2)
+
+	vote := newVote(t, "a")
+
+	for _, tc := range []struct {
+		desc      string
+		voter     *Voter
+		vote      *voting.Vote
+		expVote   *voting.Vote
+		expVotes  uint
+		expResult VoteResult
+		expErrMsg string
+	}{
+		{
+			desc: "Update voter",
+			voter: &Voter{
+				Name: "1", Votes: 1, vote: nil, result: VoteUndecided,
+			},
+			vote:      &vote,
+			expVote:   &vote,
+			expVotes:  1,
+			expResult: VoteUndecided,
+			expErrMsg: "",
+		},
+		{
+			desc: "Cancel voter that has not voted",
+			voter: &Voter{
+				Name: "1", Votes: 1, vote: nil, result: VoteUndecided,
+			},
+			vote:      nil,
+			expVote:   nil,
+			expVotes:  0,
+			expResult: VoteCanceled,
+			expErrMsg: "",
+		},
+		{
+			desc: "Cancel voter that has voted",
+			voter: &Voter{
+				Name: "1", Votes: 1, vote: &vote, result: VoteUndecided,
+			},
+			vote:      nil,
+			expVote:   nil,
+			expVotes:  0,
+			expResult: VoteCanceled,
+			expErrMsg: "",
+		},
+		{
+			desc: "Update canceled voter",
+			voter: &Voter{
+				Name: "1", Votes: 1, vote: nil, result: VoteCanceled,
+			},
+			vote:      nil,
+			expVote:   nil,
+			expVotes:  0,
+			expResult: VoteCanceled,
+			expErrMsg: "transaction has been canceled",
+		},
+		{
+			desc: "Update canceled voter",
+			voter: &Voter{
+				Name: "1", Votes: 1, vote: nil, result: VoteStopped,
+			},
+			vote:      nil,
+			expVote:   nil,
+			expVotes:  0,
+			expResult: VoteStopped,
+			expErrMsg: "transaction has been stopped",
+		},
+		{
+			desc: "Update committed voter",
+			voter: &Voter{
+				Name: "1", Votes: 1, vote: nil, result: VoteCommitted,
+			},
+			vote:      nil,
+			expVote:   nil,
+			expVotes:  0,
+			expResult: VoteCommitted,
+			expErrMsg: "cannot change committed vote",
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			subtransaction, err := newSubtransaction(voters, threshold)
+			require.NoError(t, err)
+
+			if tc.voter.vote != nil {
+				subtransaction.voteCounts[*tc.voter.vote] += tc.voter.Votes
+			}
+
+			err = subtransaction.updateVoterState(tc.voter, tc.vote)
+			if tc.expErrMsg != "" {
+				require.Equal(t, tc.expErrMsg, err.Error())
+			} else {
+				require.NoError(t, err)
+			}
+
+			require.Equal(t, tc.expVote, tc.voter.vote)
+			require.Equal(t, tc.expResult, tc.voter.result)
+
+			if tc.voter.vote != nil {
+				require.Equal(t, tc.expVotes, subtransaction.voteCounts[*tc.voter.vote])
+			}
+		})
+	}
+}
+
+func TestSubtransaction_quorumCheck(t *testing.T) {
+	voteA := newVote(t, "a")
+	voteB := newVote(t, "b")
+	voteC := newVote(t, "c")
+
+	threshold := uint(2)
+
+	for _, tc := range []struct {
+		desc      string
+		voters    []Voter
+		expVote   *voting.Vote
+		expQuorum bool
+	}{
+		{
+			desc: "No votes yet",
+			voters: []Voter{
+				{Name: "1", Votes: 1, vote: nil, result: VoteUndecided},
+				{Name: "2", Votes: 1, vote: nil, result: VoteUndecided},
+				{Name: "3", Votes: 1, vote: nil, result: VoteUndecided},
+			},
+			expVote:   nil,
+			expQuorum: true,
+		},
+		{
+			desc: "Two nodes failed",
+			voters: []Voter{
+				{Name: "1", Votes: 1, vote: nil, result: VoteCanceled},
+				{Name: "2", Votes: 1, vote: nil, result: VoteCanceled},
+				{Name: "3", Votes: 1, vote: nil, result: VoteUndecided},
+			},
+			expVote:   nil,
+			expQuorum: false,
+		},
+		{
+			desc: "Two nodes vote differently",
+			voters: []Voter{
+				{Name: "1", Votes: 1, vote: &voteA, result: VoteUndecided},
+				{Name: "2", Votes: 1, vote: &voteB, result: VoteUndecided},
+				{Name: "3", Votes: 1, vote: nil, result: VoteUndecided},
+			},
+			expVote:   nil,
+			expQuorum: true,
+		},
+		{
+			desc: "Two nodes vote same",
+			voters: []Voter{
+				{Name: "1", Votes: 1, vote: &voteA, result: VoteUndecided},
+				{Name: "2", Votes: 1, vote: &voteA, result: VoteUndecided},
+				{Name: "3", Votes: 1, vote: nil, result: VoteUndecided},
+			},
+			expVote:   &voteA,
+			expQuorum: true,
+		},
+		{
+			desc: "One node votes different",
+			voters: []Voter{
+				{Name: "1", Votes: 1, vote: &voteA, result: VoteUndecided},
+				{Name: "2", Votes: 1, vote: &voteA, result: VoteUndecided},
+				{Name: "3", Votes: 1, vote: &voteB, result: VoteUndecided},
+			},
+			expVote:   &voteA,
+			expQuorum: true,
+		},
+		{
+			desc: "All nodes votes different",
+			voters: []Voter{
+				{Name: "1", Votes: 1, vote: &voteA, result: VoteUndecided},
+				{Name: "2", Votes: 1, vote: &voteB, result: VoteUndecided},
+				{Name: "3", Votes: 1, vote: &voteC, result: VoteUndecided},
+			},
+			expVote:   nil,
+			expQuorum: false,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			subtransaction, err := newSubtransaction(tc.voters, threshold)
+			require.NoError(t, err)
+
+			// Vote counts usually updated when `updateVoterState()` is called
+			for _, voter := range tc.voters {
+				if voter.vote != nil {
+					subtransaction.voteCounts[*voter.vote] += voter.Votes
+				}
+			}
+
+			majorityVote, quorumPossible := subtransaction.quorumCheck()
+			require.Equal(t, tc.expVote, majorityVote)
+			require.Equal(t, tc.expQuorum, quorumPossible)
+		})
+	}
+}
+
+func TestSubtransaction_cancelNodeVoter(t *testing.T) {
+	voteA := newVote(t, "a")
+	voteB := newVote(t, "b")
+
+	threshold := uint(2)
+
+	for _, tc := range []struct {
+		desc      string
+		voters    []Voter
+		node      string
+		result    VoteResult
+		subDone   bool
+		expErrMsg string
+	}{
+		{
+			desc: "Cancel undecided voter",
+			voters: []Voter{
+				{Name: "1", Votes: 1},
+				{Name: "2", Votes: 1},
+				{Name: "3", Votes: 1},
+			},
+			node:      "1",
+			result:    VoteCanceled,
+			subDone:   false,
+			expErrMsg: "",
+		},
+		{
+			desc: "Cancel canceled voter",
+			voters: []Voter{
+				{Name: "1", Votes: 1, result: VoteCanceled},
+				{Name: "2", Votes: 1},
+				{Name: "3", Votes: 1},
+			},
+			node:      "1",
+			result:    VoteCanceled,
+			subDone:   false,
+			expErrMsg: "cancel vote: transaction has been canceled",
+		},
+		{
+			desc: "Cancel nonexistent voter",
+			voters: []Voter{
+				{Name: "1", Votes: 1},
+				{Name: "2", Votes: 1},
+				{Name: "3", Votes: 1},
+			},
+			node:      "4",
+			result:    VoteCanceled,
+			subDone:   false,
+			expErrMsg: "invalid node for subtransaction: \"4\"",
+		},
+		{
+			desc: "Cancel last voter",
+			voters: []Voter{
+				{Name: "1", Votes: 1, vote: &voteA},
+				{Name: "2", Votes: 1, vote: &voteB},
+				{Name: "3", Votes: 1},
+			},
+			node:      "3",
+			result:    VoteCanceled,
+			subDone:   true,
+			expErrMsg: "",
+		},
+		{
+			desc: "Cancel voter making quorum impossible",
+			voters: []Voter{
+				{Name: "1", Votes: 1, result: VoteCanceled},
+				{Name: "2", Votes: 1},
+				{Name: "3", Votes: 1},
+			},
+			node:      "2",
+			result:    VoteCanceled,
+			subDone:   true,
+			expErrMsg: "",
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			subtransaction, err := newSubtransaction(tc.voters, threshold)
+			require.NoError(t, err)
+
+			if err := subtransaction.cancelNodeVoter(tc.node); tc.expErrMsg != "" {
+				require.EqualError(t, err, tc.expErrMsg)
+			} else {
+				require.NoError(t, err)
+			}
+
+			voter, ok := subtransaction.votersByNode[tc.node]
+			if ok {
+				require.Equal(t, tc.result, voter.result)
+			}
+
+			require.Equal(t, tc.subDone, subtransaction.isDone())
 		})
 	}
 }

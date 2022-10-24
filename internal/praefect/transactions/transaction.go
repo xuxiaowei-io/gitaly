@@ -227,7 +227,31 @@ func (t *transaction) getOrCreateSubtransaction(node string) (*subtransaction, e
 		return nil, errors.New("invalid transaction state")
 	}
 
-	for _, subtransaction := range t.subtransactions {
+	// Check for pending subtransactions on the specified node.
+	if subtransactions, err := t.getPendingNodeSubtransactions(node); err != nil {
+		return nil, err
+	} else if len(subtransactions) != 0 {
+		// First pending subtransaction is the next in queue for processing.
+		return subtransactions[0], nil
+	}
+
+	// If we arrive here, then we know that all the node has voted and
+	// reached quorum on all subtransactions. We can thus create a new one.
+	subtransaction, err := t.createSubtransaction()
+	if err != nil {
+		return nil, err
+	}
+
+	t.subtransactions = append(t.subtransactions, subtransaction)
+
+	return subtransaction, nil
+}
+
+// getPendingNodeSubtransactions returns all undecided subtransactions
+// for the specified voter. `nil` is returned if there are no pending
+// subtransactions for the node.
+func (t *transaction) getPendingNodeSubtransactions(node string) ([]*subtransaction, error) {
+	for i, subtransaction := range t.subtransactions {
 		result, err := subtransaction.getResult(node)
 		if err != nil {
 			return nil, err
@@ -235,8 +259,9 @@ func (t *transaction) getOrCreateSubtransaction(node string) (*subtransaction, e
 
 		switch result {
 		case VoteUndecided:
-			// An undecided vote means we should vote on this one.
-			return subtransaction, nil
+			// Nodes after first undecided voter will also be undecided.
+			// Remaining subtransactions are returned.
+			return t.subtransactions[i:], nil
 		case VoteCommitted:
 			// If we have committed this subtransaction, we're good
 			// to go.
@@ -258,16 +283,48 @@ func (t *transaction) getOrCreateSubtransaction(node string) (*subtransaction, e
 		}
 	}
 
-	// If we arrive here, then we know that all the node has voted and
-	// reached quorum on all subtransactions. We can thus create a new one.
-	subtransaction, err := newSubtransaction(t.voters, t.threshold)
-	if err != nil {
-		return nil, err
+	return nil, nil
+}
+
+// createSubtransaction returns a new subtransaction with any previously
+// canceled voter results propagated into the new subtransaction. Once a
+// voter has been canceled it can no longer vote in the current and all
+// future subtransactions. Propagating canceled voter state ensures
+// subtransactions do not wait for an impossible quorum due to canceled
+// voters.
+func (t *transaction) createSubtransaction() (*subtransaction, error) {
+	// If there are no subtransactions propagation can be skipped
+	if len(t.subtransactions) == 0 {
+		return newSubtransaction(t.voters, t.threshold)
 	}
 
-	t.subtransactions = append(t.subtransactions, subtransaction)
+	prevSub := t.subtransactions[len(t.subtransactions)-1]
 
-	return subtransaction, nil
+	// Check previous voters state and propagate canceled voters.
+	var propagatedVoters []Voter
+	for _, voter := range t.voters {
+		prevVoter := prevSub.votersByNode[voter.Name]
+		if prevVoter == nil {
+			// This error should in theory never be reached. When a
+			// subtransaction is created it receives all voters from
+			// the parent transaction. The parent transaction voters
+			// are not mutated throughout the lifespan of the
+			// transaction meaning that all voters in a transaction
+			// should be present in a subtransaction.
+			return nil, errors.New("subtransaction missing previous voter")
+		}
+
+		// Only canceled voters need to be propagated since a node voter
+		// can be canceled and the transaction continue. Other terminal
+		// results are applied to voters and end the transaction.
+		if prevVoter.result == VoteCanceled {
+			voter.result = VoteCanceled
+		}
+
+		propagatedVoters = append(propagatedVoters, voter)
+	}
+
+	return newSubtransaction(propagatedVoters, t.threshold)
 }
 
 func (t *transaction) vote(ctx context.Context, node string, vote voting.Vote) error {
@@ -281,4 +338,40 @@ func (t *transaction) vote(ctx context.Context, node string, vote voting.Vote) e
 	}
 
 	return subtransaction.collectVotes(ctx, node)
+}
+
+// cancelNodeVoter cancels the undecided voters associated with
+// the specified node for all pending subtransactions.
+func (t *transaction) cancelNodeVoter(node string) error {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
+	// Get all undecided subtransactions for node.
+	pendingSubtransactions, err := t.getPendingNodeSubtransactions(node)
+	if err != nil {
+		return err
+	}
+
+	// If there are no pending subtransactions a new one should
+	// be created and added to the transaction so the failure
+	// can be tracked.
+	if len(pendingSubtransactions) == 0 {
+		sub, err := t.createSubtransaction()
+		if err != nil {
+			return err
+		}
+
+		t.subtransactions = append(t.subtransactions, sub)
+		pendingSubtransactions = []*subtransaction{sub}
+	}
+
+	// Cancel node voters in undecided subtransactions.
+	for _, subtransaction := range pendingSubtransactions {
+		err := subtransaction.cancelNodeVoter(node)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
