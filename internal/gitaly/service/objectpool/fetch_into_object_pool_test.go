@@ -41,9 +41,9 @@ func TestFetchIntoObjectPool_Success(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, locator, client := setup(t, ctx)
+	cfg, repo, repoPath, _, client := setup(t, ctx)
 
-	repoCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(t.Name()))
+	parentID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
 	_, err := client.CreateObjectPool(ctx, &gitalypb.CreateObjectPoolRequest{
@@ -52,43 +52,47 @@ func TestFetchIntoObjectPool_Success(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	// Create a new commit after having created the object pool. This commit exists only in the
+	// pool member, but not in the pool itself.
+	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(parentID), gittest.WithBranch("main"))
+	gittest.RequireObjectExists(t, cfg, repoPath, commitID)
+	gittest.RequireObjectNotExists(t, cfg, pool.FullPath(), commitID)
+
 	req := &gitalypb.FetchIntoObjectPoolRequest{
 		ObjectPool: pool.ToProto(),
 		Origin:     repo,
 	}
 
+	// Now we update the object pool, which should pull the new commit into the pool.
 	_, err = client.FetchIntoObjectPool(ctx, req)
 	require.NoError(t, err)
 
 	pool = rewrittenObjectPool(t, ctx, cfg, pool)
+	require.True(t, pool.IsValid())
 
-	require.True(t, pool.IsValid(), "ensure underlying repository is valid")
-
-	// No problems
+	// Verify that the object pool is still consistent and that it's got the new commit now.
 	gittest.Exec(t, cfg, "-C", pool.FullPath(), "fsck")
+	gittest.RequireObjectExists(t, cfg, pool.FullPath(), commitID)
 
-	// Verify that the newly written commit exists in the repository now.
-	gittest.Exec(t, cfg, "-C", pool.FullPath(), "rev-parse", "--verify", repoCommit.String())
-
+	// Re-fetching the pool should be just fine.
 	_, err = client.FetchIntoObjectPool(ctx, req)
-	require.NoError(t, err, "calling FetchIntoObjectPool twice should be OK")
-	require.True(t, pool.IsValid(), "ensure that pool is valid")
-
-	// Simulate a broken ref
-	poolPath, err := locator.GetRepoPath(pool)
 	require.NoError(t, err)
-	brokenRef := filepath.Join(poolPath, "refs", "heads", "broken")
+	require.True(t, pool.IsValid())
+
+	// We now create a broken reference that is all-empty and stale. Normally, such references
+	// break many Git commands, including git-fetch(1). We should know to prune stale broken
+	// references though and thus be able to recover.
+	brokenRef := filepath.Join(pool.FullPath(), "refs", "heads", "broken")
 	require.NoError(t, os.MkdirAll(filepath.Dir(brokenRef), 0o755))
 	require.NoError(t, os.WriteFile(brokenRef, []byte{}, 0o777))
-
 	oldTime := time.Now().Add(-25 * time.Hour)
 	require.NoError(t, os.Chtimes(brokenRef, oldTime, oldTime))
 
+	// So the fetch should be successful, and...
 	_, err = client.FetchIntoObjectPool(ctx, req)
 	require.NoError(t, err)
-
-	_, err = os.Stat(brokenRef)
-	require.Error(t, err, "Expected refs/heads/broken to be deleted")
+	// ... it should have pruned the broken reference.
+	require.NoFileExists(t, brokenRef)
 }
 
 func TestFetchIntoObjectPool_transactional(t *testing.T) {

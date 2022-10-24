@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -19,7 +18,9 @@ func TestCreate(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, _, _, client := setup(t, ctx)
+	cfg, repo, repoPath, _, client := setup(t, ctx)
+
+	commitID := gittest.WriteCommit(t, cfg, repoPath)
 
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
 
@@ -33,17 +34,12 @@ func TestCreate(t *testing.T) {
 
 	pool = rewrittenObjectPool(t, ctx, cfg, pool)
 
-	// Checks if the underlying repository is valid
+	// Assert that the now-created object pool exists and is valid.
 	require.True(t, pool.IsValid())
+	require.NoDirExists(t, filepath.Join(pool.FullPath(), "hooks"))
+	gittest.RequireObjectExists(t, cfg, pool.FullPath(), commitID)
 
-	// No hooks
-	assert.NoDirExists(t, filepath.Join(pool.FullPath(), "hooks"))
-
-	// No problems
-	out := gittest.Exec(t, cfg, "-C", pool.FullPath(), "cat-file", "-s", "55bc176024cfa3baaceb71db584c7e5df900ea65")
-	assert.Equal(t, "282\n", string(out))
-
-	// Making the same request twice, should result in an error
+	// Making the same request twice should result in an error.
 	_, err = client.CreateObjectPool(ctx, poolReq)
 	require.Error(t, err)
 	require.True(t, pool.IsValid())
