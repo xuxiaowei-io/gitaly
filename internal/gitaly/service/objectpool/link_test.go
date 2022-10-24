@@ -18,6 +18,8 @@ import (
 )
 
 func TestLink(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	cfg, repo, _, _, client := setup(t, ctx, testserver.WithDisablePraefect())
@@ -84,7 +86,9 @@ func TestLink(t *testing.T) {
 	}
 }
 
-func TestLinkIdempotent(t *testing.T) {
+func TestLink_idempotent(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	cfg, repoProto, _, _, client := setup(t, ctx)
@@ -108,7 +112,9 @@ func TestLinkIdempotent(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestLinkNoClobber(t *testing.T) {
+func TestLink_noClobber(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg, repoProto, repoPath, _, client := setup(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -134,7 +140,9 @@ func TestLinkNoClobber(t *testing.T) {
 	require.Equal(t, contentBefore, string(contentAfter), "contents of existing alternates file should not have changed")
 }
 
-func TestLinkNoPool(t *testing.T) {
+func TestLink_noPool(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	cfg, repo, _, _, client := setup(t, ctx)

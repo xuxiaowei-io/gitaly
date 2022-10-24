@@ -262,6 +262,8 @@ func TestFetchIntoObjectPool_CollectLogStatistics(t *testing.T) {
 }
 
 func TestFetchIntoObjectPool_Failure(t *testing.T) {
+	t.Parallel()
+
 	cfgBuilder := testcfg.NewGitalyCfgBuilder()
 	cfg, repos := cfgBuilder.BuildWithRepoAt(t, t.Name())
 

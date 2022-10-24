@@ -14,6 +14,8 @@ import (
 )
 
 func TestGetObjectPoolSuccess(t *testing.T) {
+	t.Parallel()
+
 	poolCtx := testhelper.Context(t)
 	cfg, repoProto, _, _, client := setup(t, poolCtx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -25,9 +27,6 @@ func TestGetObjectPoolSuccess(t *testing.T) {
 	require.NoError(t, pool.Link(poolCtx, repo))
 
 	ctx := testhelper.Context(t)
-	defer func() {
-		require.NoError(t, pool.Remove(ctx))
-	}()
 
 	resp, err := client.GetObjectPool(ctx, &gitalypb.GetObjectPoolRequest{
 		Repository: repoProto,
@@ -38,6 +37,8 @@ func TestGetObjectPoolSuccess(t *testing.T) {
 }
 
 func TestGetObjectPoolNoFile(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	_, repo, _, _, client := setup(t, ctx)
 
@@ -50,6 +51,8 @@ func TestGetObjectPoolNoFile(t *testing.T) {
 }
 
 func TestGetObjectPoolBadFile(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	_, repo, repoPath, _, client := setup(t, ctx)
 

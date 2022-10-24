@@ -16,6 +16,8 @@ import (
 )
 
 func TestCreate(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg, repo, _, _, client := setup(t, ctx)
 
@@ -47,7 +49,9 @@ func TestCreate(t *testing.T) {
 	require.True(t, pool.IsValid())
 }
 
-func TestUnsuccessfulCreate(t *testing.T) {
+func TestCreate_unsuccessful(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg, repo, _, _, client := setup(t, ctx, testserver.WithDisablePraefect())
 
@@ -56,23 +60,23 @@ func TestUnsuccessfulCreate(t *testing.T) {
 	validPoolPath := pool.GetRelativePath()
 
 	testCases := []struct {
-		desc    string
-		request *gitalypb.CreateObjectPoolRequest
-		error   error
+		desc        string
+		request     *gitalypb.CreateObjectPoolRequest
+		expectedErr error
 	}{
 		{
 			desc: "no origin repository",
 			request: &gitalypb.CreateObjectPoolRequest{
 				ObjectPool: pool.ToProto(),
 			},
-			error: errMissingOriginRepository,
+			expectedErr: errMissingOriginRepository,
 		},
 		{
 			desc: "no object pool",
 			request: &gitalypb.CreateObjectPoolRequest{
 				Origin: repo,
 			},
-			error: errMissingPool,
+			expectedErr: errMissingPool,
 		},
 		{
 			desc: "outside pools directory",
@@ -85,7 +89,7 @@ func TestUnsuccessfulCreate(t *testing.T) {
 					},
 				},
 			},
-			error: errInvalidPoolDir,
+			expectedErr: errInvalidPoolDir,
 		},
 		{
 			desc: "path must be lowercase",
@@ -98,7 +102,7 @@ func TestUnsuccessfulCreate(t *testing.T) {
 					},
 				},
 			},
-			error: errInvalidPoolDir,
+			expectedErr: errInvalidPoolDir,
 		},
 		{
 			desc: "subdirectories must match first four pool digits",
@@ -111,7 +115,7 @@ func TestUnsuccessfulCreate(t *testing.T) {
 					},
 				},
 			},
-			error: errInvalidPoolDir,
+			expectedErr: errInvalidPoolDir,
 		},
 		{
 			desc: "pool path traversal fails",
@@ -124,14 +128,14 @@ func TestUnsuccessfulCreate(t *testing.T) {
 					},
 				},
 			},
-			error: errInvalidPoolDir,
+			expectedErr: errInvalidPoolDir,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			_, err := client.CreateObjectPool(ctx, tc.request)
-			testhelper.RequireGrpcError(t, tc.error, err)
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
 	}
 }

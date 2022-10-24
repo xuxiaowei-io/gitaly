@@ -13,6 +13,8 @@ import (
 )
 
 func TestDelete(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg, repoProto, _, _, client := setup(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -32,47 +34,47 @@ func TestDelete(t *testing.T) {
 		desc         string
 		noPool       bool
 		relativePath string
-		error        error
+		expectedErr  error
 	}{
 		{
-			desc:   "no pool in request fails",
-			noPool: true,
-			error:  errMissingPool,
+			desc:        "no pool in request fails",
+			noPool:      true,
+			expectedErr: errMissingPool,
 		},
 		{
 			desc:         "deleting outside pools directory fails",
 			relativePath: ".",
-			error:        errInvalidPoolDir,
+			expectedErr:  errInvalidPoolDir,
 		},
 		{
 			desc:         "deleting outside pools directory fails",
 			relativePath: ".",
-			error:        errInvalidPoolDir,
+			expectedErr:  errInvalidPoolDir,
 		},
 		{
 			desc:         "deleting pools directory fails",
 			relativePath: "@pools",
-			error:        errInvalidPoolDir,
+			expectedErr:  errInvalidPoolDir,
 		},
 		{
 			desc:         "deleting first level subdirectory fails",
 			relativePath: "@pools/ab",
-			error:        errInvalidPoolDir,
+			expectedErr:  errInvalidPoolDir,
 		},
 		{
 			desc:         "deleting second level subdirectory fails",
 			relativePath: "@pools/ab/cd",
-			error:        errInvalidPoolDir,
+			expectedErr:  errInvalidPoolDir,
 		},
 		{
 			desc:         "deleting pool subdirectory fails",
 			relativePath: filepath.Join(validPoolPath, "objects"),
-			error:        errInvalidPoolDir,
+			expectedErr:  errInvalidPoolDir,
 		},
 		{
 			desc:         "path traversing fails",
 			relativePath: validPoolPath + "/../../../../..",
-			error:        errInvalidPoolDir,
+			expectedErr:  errInvalidPoolDir,
 		},
 		{
 			desc:         "deleting pool succeeds",
@@ -96,13 +98,13 @@ func TestDelete(t *testing.T) {
 			}
 
 			_, err := client.DeleteObjectPool(ctx, request)
-			testhelper.RequireGrpcError(t, tc.error, err)
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 
 			response, err := repositoryClient.RepositoryExists(ctx, &gitalypb.RepositoryExistsRequest{
 				Repository: pool.ToProto().GetRepository(),
 			})
 			require.NoError(t, err)
-			require.Equal(t, tc.error != nil, response.GetExists())
+			require.Equal(t, tc.expectedErr != nil, response.GetExists())
 		})
 	}
 }
