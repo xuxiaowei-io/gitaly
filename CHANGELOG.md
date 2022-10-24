@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 15.5.1 (2022-10-24)
+
+No changes.
+
 ## 15.5.0 (2022-10-21)
 
 ### Added (2 changes)
