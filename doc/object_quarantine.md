@@ -1,4 +1,4 @@
-# Git object quarantine during git push
+# Git object quarantine during Git push
 
 While receiving a Git push, GitLab can reject pushes using the
 `pre-receive` Git hook. Git has a special "object quarantine"
@@ -10,7 +10,7 @@ how GitLab is able to see quarantined objects.
 ## Git object quarantine
 
 Git object quarantine was introduced in Git 2.11.0 via
-https://gitlab.com/gitlab-org/git/-/commit/25ab004c53cdcfea485e5bf437aeaa74df47196d.
+<https://gitlab.com/gitlab-org/git/-/commit/25ab004c53cdcfea485e5bf437aeaa74df47196d>.
 To understand what it does we need to know how Git receives pushes on
 the server.
 
@@ -125,8 +125,8 @@ the environment
 variables](https://gitlab.com/gitlab-org/gitaly/-/blob/969bac80e2f246867c1a976864bd1f5b34ee43dd/internal/git/alternates/alternates.go#L21-34)
 that were present on the `pre-receive` hook, so that we can see the
 quarantined objects. We do the same when we [instantiate a
-Gitlab::Git::Repository in
-gitaly-ruby](https://gitlab.com/gitlab-org/gitaly/-/blob/969bac80e2f246867c1a976864bd1f5b34ee43dd/ruby/lib/gitlab/git/repository.rb#L44).
+`Gitlab::Git::Repository` in
+`gitaly-ruby`](https://gitlab.com/gitlab-org/gitaly/-/blob/969bac80e2f246867c1a976864bd1f5b34ee43dd/ruby/lib/gitlab/git/repository.rb#L44).
 
 ### Relative paths
 

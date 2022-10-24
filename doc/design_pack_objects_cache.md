@@ -1,6 +1,6 @@
 # Pack-objects cache design notes
 
-The purpose of this document is to give more insight into the design choices we made when building the first iteration of the pack-objects cache in https://gitlab.com/groups/gitlab-com/gl-infra/-/epics/372.
+The purpose of this document is to give more insight into the design choices we made when building the first iteration of the pack-objects cache in <https://gitlab.com/groups/gitlab-com/gl-infra/-/epics/372>.
 
 ## Introduction
 
@@ -10,7 +10,7 @@ Please read [Pack-objects cache for CI Git clones epic](https://gitlab.com/group
 
 ## High-level architecture
 
-```
+```plaintext
 Gitaly (PostUploadPack)  git-upload-pack  gitaly-hooks  Gitaly (PackObjectsHook)  git-pack-objects
 ------------+----------  -------+-------  -----+------  -----------+------------  -------+--------
             |  fetch request    |              |                   |                     |
@@ -31,7 +31,7 @@ Gitaly (PostUploadPack)  git-upload-pack  gitaly-hooks  Gitaly (PackObjectsHook)
 
 The whole pack-objects cache path depends on
 [uploadpack.packObjectsHook](https://git-scm.com/docs/git-config#Documentation/git-config.txt-uploadpackpackObjectsHook)
-option. When upload-pack would run git pack-objects to create a packfile for a
+option. When upload-pack would run `git pack-objects` to create a packfile for a
 client, it will run `gitaly-hooks` binary instead. The arguments when calling
 `gitaly-hooks` includes `git pack-objects` at the beginning. This pattern is
 similar to how Gitaly handles Git hooks during a push (such as `pre-receive`
@@ -104,7 +104,7 @@ Local files get a speed boost from RAM, and GitLab.com servers have lots of unus
 The pack-objects cache is off by default because in some cases it
 significantly increases the number of bytes written to disk. For more
 information, see this issue where [we turned on the cache for
-gitlab-com/www-gitlab-com](https://gitlab.com/gitlab-com/gl-infra/production/-/issues/4010#note_534564684).
+`gitlab-com/www-gitlab-com`](https://gitlab.com/gitlab-com/gl-infra/production/-/issues/4010#note_534564684).
 
 It would be better if the cache was on by default. But, if you don't have
 CI-like traffic, there is probably no benefit, and if your Gitaly
