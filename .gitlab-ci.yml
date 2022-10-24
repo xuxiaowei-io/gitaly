@@ -107,7 +107,7 @@ include:
     # directory.
     - setpriv --reuid=${TEST_UID} --regid=${TEST_UID} --clear-groups --no-new-privs make ${TEST_TARGET} UNPRIVILEGED_CI_SKIP=YesPlease $(test "${GIT_VERSION}" = default && echo WITH_BUNDLED_GIT=YesPlease)
 
-  after_script:
+  after_script: &test_after_script
     - |
       # Checking for panics in ${TEST_FULL_OUTPUT}
       if [ "${CI_JOB_STATUS}" = "failed" ] && grep 'Output":"panic' "${TEST_FULL_OUTPUT}" > /dev/null; then
@@ -397,3 +397,40 @@ qa:nightly-praefect-migration-test:
     project: gitlab-org/quality/praefect-migration-testing
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
+
+test:macos:
+  needs: []
+  stage: test
+  image: macos-12-xcode-14
+  script:
+    - sw_vers
+    - go version
+    - pg_ctl --version
+    - ulimit -n 4096 # The default of 256 can lead to 'too many open files' errors when running parallel tests
+    - pg_ctl -D /usr/local/var/postgres start > /tmp/postgres.log
+    - pg_ctl status
+    - createdb -U $PGUSER $POSTGRES_DB
+    - brew install cmake
+    - make -j$(nproc) build prepare-tests
+    - make test-go
+    - *test_after_script
+  tags:
+    - shared-macos-amd64
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      allow_failure: true
+    - when: manual
+      allow_failure: true
+  variables:
+    <<: *test_variables
+    PGDATA: /usr/local/var/postgres
+    PGHOST: localhost
+    PGUSER: gitlab
+    TEST_OPTIONS: "-timeout=20m" # a number of tests may exceed the default 10m
+    TEST_REPORT: go-tests-report.xml
+    TEST_FULL_OUTPUT: test-output.log
+  artifacts:
+    reports:
+      junit: ${TEST_REPORT}
+    when: always
+    expire_in: 1 week
