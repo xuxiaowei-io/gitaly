@@ -1,6 +1,6 @@
-## Gitaly Team Process
+# Gitaly Team Process
 
-### Feature flags
+## Feature flags
 
 Gitaly uses feature flags to safely roll out features in production. Feature
 flags are part of the `context.Context` of each RPC. The `featureflag` package
@@ -24,7 +24,7 @@ steps.
 [issue-for-feature-rollout]: https://gitlab.com/gitlab-org/gitaly/-/issues/new?issuable_template=Feature%20Flag%20Roll%20Out
 [feature-issue-template]: https://gitlab.com/gitlab-org/gitaly/-/blob/master/.gitlab/issue_templates/Feature%20Flag%20Roll%20Out.md
 
-#### Use and limitations
+### Use and limitations
 
 Feature flags are [enabled through chatops][enable-flags] (which is
 just a consumer [of the API][ff-api]). In
@@ -58,14 +58,14 @@ project][bug-project-argument].
 [bug-user-argument]: https://gitlab.com/gitlab-org/gitaly/-/issues/3385
 [bug-project-argument]: https://gitlab.com/gitlab-org/gitaly/-/issues/3386
 
-### Feature flags issue checklist
+## Feature flags issue checklist
 
 The rest of this section is help for the individual checklist steps in
 [the issue template][feature-issue-template]. If this is your first
 time doing this you might want to first skip ahead to the help below,
 you'll likely need to file some access requests.
 
-#### Feature flag labels
+### Feature flag labels
 
 The lifecycle of feature flags is monitored via issue labels.
 
@@ -79,7 +79,7 @@ checklist the person rolling it out will add
 [featureflag-staging]: https://gitlab.com/gitlab-org/gitaly/-/issues?label_name[]=featureflag%3A%3Astaging
 [featureflag-production]: https://gitlab.com/gitlab-org/gitaly/-/issues?label_name[]=featureflag%3A%3Aproduction
 
-#### Is the required code deployed?
+### Is the required code deployed?
 
 A quick way to see if your MR is deployed is to check if [the release
 bot][release-bot] has deployed it to staging, canary or production by
@@ -109,15 +109,15 @@ details on the tagging and release process.
 [gitlab-git]: https://gitlab.com/gitlab-org/gitlab/
 [gitaly-git]: https://gitlab.com/gitlab-org/gitaly/
 
-#### Do we need a change management issue?
+### Do we need a change management issue?
 
-#### Enable on staging
+### Enable on staging
 
-##### Prerequisites
+#### Prerequisites
 
 You'll need chatops access. See [above](#use-and-limitations).
 
-##### Steps
+#### Steps
 
 Run:
 
@@ -125,9 +125,9 @@ Run:
 
 Where `X` is the name of your feature.
 
-#### Test on staging
+### Test on staging
 
-##### Prerequisites
+#### Prerequisites
 
 Access to <https://staging.gitlab.com/users> is not the same as on
 GitLab.com (or signing in with Google on the `@gitlab.com` account). You
@@ -147,7 +147,7 @@ repository, and manually test from there.
 [staging-access-request]: https://gitlab.com/gitlab-com/team-member-epics/access-requests/-/issues/new?issuable_template=Individual_Bulk_Access_Request
 [staging-users-link]: https://staging.gitlab.com/users
 
-##### Steps
+#### Steps
 
 Manually use the feature in whatever way exercises the code paths
 being enabled.
@@ -158,7 +158,7 @@ Then enable `X` on staging, with:
 /chatops run feature set gitaly_X --staging
 ```
 
-##### Discussion
+#### Discussion
 
 It's a good idea to run the feature for a full day on staging, this is
 because there are daily smoke tests that run daily in that
@@ -167,14 +167,14 @@ environment. These are handled by
 
 [gitlab-qa-git]: https://gitlab.com/gitlab-org/gitlab-qa#how-do-we-use-it
 
-#### Enable in production
+### Enable in production
 
-##### Prerequisites
+#### Prerequisites
 
 Have you waited enough time with the feature running in the staging
 environment? Good!
 
-##### Steps
+#### Steps
 
 To enable your `X` feature at 5/25/50 percent, run:
 
@@ -207,7 +207,7 @@ the feature flag code is deleted. So make sure you don't skip the
 
 [actor-gates]: https://docs.gitlab.com/ee/development/feature_flags/controls.html#process
 
-##### Discussion
+#### Discussion
 
 What percentages should you pick and how long should you wait?
 
@@ -228,9 +228,9 @@ Nobody's better off if you wait 10 hours at 1% to get error data you
 could have waited 1 hour at 10% to get, or just over 10 minutes with
 close monitoring at 50%.
 
-#### Feature lifecycle after it is live
+### Feature lifecycle after it is live
 
-##### Discussion
+#### Discussion
 
 After a feature is running at `100%` for what ever's deemed to be a
 safe amount of time we should change it to be `OnByDefault: true`. See
@@ -246,7 +246,7 @@ This is because even after setting `OnByDefault: true` users might
 still have opted to disable the new feature. See [the discussion below](#two-phase-ruby-to-go-rollouts) for possibly
 needing to do such changes over multiple releases.
 
-##### Two phase Ruby to Go rollouts
+#### Two phase Ruby to Go rollouts
 
 Depending on what the feature does it may be bad to remove the `else`
 branch where we have the feature disabled at this point. E.g. if it's
@@ -263,7 +263,7 @@ do such a two-phase removal.
 [example-on-by-default-mr]: https://gitlab.com/gitlab-org/gitaly/-/merge_requests/3033
 [example-post-go-ruby-code-removal-mr]: https://gitlab.com/gitlab-org/gitaly/-/merge_requests/3056
 
-##### Remove the feature flag via chatops
+#### Remove the feature flag via chatops
 
 After completing the above steps the feature flag should be deleted
 from the database of available features via `chatops`.
@@ -291,7 +291,7 @@ Then delete it if that's the data you're expecting:
 /chatops run feature delete gitaly_X
 ```
 
-### Git Version Upgrades
+## Git Version Upgrades
 
 With the introduction of [bundled Git][bundled-git] we have gained the ability
 to do feature-flag-based rollouts of new Git versions, and using feature flags
@@ -322,7 +322,7 @@ one release.
 
 [bundled-git]: git-execution-environments.md#bundled-git-recommended
 
-#### Detailed Process
+### Detailed Process
 
 The following detailed steps need to be done to upgrade to a new Git version:
 
@@ -350,7 +350,7 @@ The following detailed steps need to be done to upgrade to a new Git version:
    _after_ both old and new bundled Git binaries have been installed in
    parallel in a release already.
 
-### Gitaly Releases
+## Gitaly Releases
 
 Gitaly releases are tagged automatically by
 [`release-tools`][release-tools] when a Release Manager tags a GitLab
@@ -358,7 +358,7 @@ version.
 
 [release-tools]: https://gitlab.com/gitlab-org/release-tools
 
-#### Major or minor releases
+### Major or minor releases
 
 Once we release GitLab X.Y.0, we also release Gitaly X.Y.0 based on the content of `GITALY_SERVER_VERSION`.
 This version file is automatically updated by `release-tools` during auto-deploy picking.
@@ -446,7 +446,7 @@ graph TD;
 
 With this solution, the team can autonomously tag any RC they like, but the other releases are handled by the GitLab tagging process.
 
-#### Patch releases
+### Patch releases
 
 The Gitaly team usually works on patch releases in the context of a security release.
 
@@ -455,7 +455,7 @@ A Gitaly maintainer will only take care of merging the fixes on the stable branc
 
 For patch releases, we don't merge back to master. But `release-tools` will commit a changelog update to both the patch release, and the master branch.
 
-#### Creating a release candidate
+### Creating a release candidate
 
 Release candidate (RC) can be created with a chatops command.
 This is the only type of release that a developer can build autonomously.
@@ -471,7 +471,7 @@ tagging a RC is a good way to make sure the `gitlab` feature branch has the prop
   has a **manual** job, `update-downstream-server-version`, that will create a merge request on the GitLab codebase to bump the Gitaly server version, and this will be assigned to you.
   Once the build has completed successfully, assign it to a maintainer for review.
 
-### Publishing the Ruby gem
+## Publishing the Ruby gem
 
 If an updated version of the Ruby proto gem is needed, it can be published to rubygems.org with the `_support/publish-gem` script.
 
@@ -480,7 +480,7 @@ If the changes needed are not yet released, [create a release candidate](#creati
 - Checkout the tag to publish (vX.Y.Z)
 - run `_support/publish-gem X.Y.Z`
 
-### Publishing the go module
+## Publishing the go module
 
 If an [updated version](https://golang.org/doc/modules/release-workflow) of the go module is needed, it can be [published](https://golang.org/doc/modules/publishing)
 by tag creation.
@@ -495,7 +495,7 @@ make upgrade-module FROM_MODULE=v15 TO_MODULE=v16
 It replaces old imports with the new version in the go source files,
 updates `*.proto` files and modifies `go.mod` file to use a new target version of the module.
 
-#### Security release
+### Security release
 
 Security releases involve additional processes to ensure that recent releases
 of GitLab are properly patched while avoiding the leaking of the security
@@ -505,13 +505,13 @@ Before beginning work on a security fix, open a new Gitaly issue with the templa
 `Security Release` and follow the instructions at the top of the page for following
 the template.
 
-### Experimental builds
+## Experimental builds
 
 Push the release tag to `dev.gitlab.org/gitlab/gitaly`. After
 passing the test suite, the tag will automatically be built and
 published in <https://packages.gitlab.com/gitlab/unstable>.
 
-### Patching Git
+## Patching Git
 
 The Gitaly project is the single source of truth for the Git distribution across
 all of GitLab: all downstream distributions use the `make git` target to build
@@ -538,7 +538,7 @@ will always have these patches. As a result, all code which makes use of
 patched-in features must have fallback code to support the [minimum required Git
 version](../README.md#installation)
 
-### RPC deprecation process
+## RPC deprecation process
 
 First create a deprecation issue at <https://gitlab.com/gitlab-org/gitaly/issues>
 with the title `Deprecate RPC FooBar`. Use label `Deprecation`. Below is a

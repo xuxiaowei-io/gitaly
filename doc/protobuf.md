@@ -15,7 +15,7 @@ Run `make proto` from the root of the repository to regenerate the client
 libraries after updating .proto files.
 
 See
-[developers.google.com](https://developers.google.com/protocol-buffers/docs/proto3)
+[`developers.google.com`](https://developers.google.com/protocol-buffers/docs/proto3)
 for documentation of the 'proto3' Protocol buffer specification
 language.
 
@@ -24,37 +24,37 @@ language.
 The core Protobuf concepts we use are rpc, service and message. We use
 these to define the Gitaly **protocol**.
 
--   **rpc** a function that can be called from the client and that gets
-    executed on the server. Belongs to a service. Can have one of four
-    request/response signatures: message/message (example: get metadata for
-    commit xxx), message/stream (example: get contents of blob xxx),
-    stream/message (example: create new blob with contents xxx),
-    stream/stream (example: git SSH session).
--   **service** a logical group of RPC's.
--   **message** like a JSON object except it has pre-defined types.
--   **stream** an unbounded sequence of messages. In the Ruby clients
-    this looks like an Enumerator.
+- **rpc** a function that can be called from the client and that gets
+  executed on the server. Belongs to a service. Can have one of four
+  request/response signatures: message/message (example: get metadata for
+  commit xxx), message/stream (example: get contents of blob xxx),
+  stream/message (example: create new blob with contents xxx),
+  stream/stream (example: Git SSH session).
+- **service** a logical group of RPC's.
+- **message** like a JSON object except it has pre-defined types.
+- **stream** an unbounded sequence of messages. In the Ruby clients
+  this looks like an Enumerator.
 
 gRPC provides an implementation framework based on these Protobuf concepts.
 
--   A gRPC **server** implements one or more services behind a network
-    listener. Example: the Gitaly server application.
--   The gRPC toolchain automatically generates **client libraries** that
-    handle serialization and connection management. Example: the Go
-    client package and Ruby gem in this repository.
--   gRPC **clients** use the client libraries to make remote procedure
-    calls. These clients must decide what network address to reach their
-    gRPC servers on and handle connection reuse: it is possible to
-    spread different gRPC services over multiple connections to the same
-    gRPC server.
--   Officially a gRPC connection is called a **channel**. In the Go gRPC
-    library these channels are called **client connections** because
-    'channel' is already a concept in Go itself. In Ruby a gRPC channel
-    is an instance of GRPC::Core::Channel. We use the word 'connection'
-    in this document. The underlying transport of gRPC, HTTP/2, allows
-    multiple remote procedure calls to happen at the same time on a
-    single connection to a gRPC server. In principle, a multi-threaded
-    gRPC client needs only one connection to a gRPC server.
+- A gRPC **server** implements one or more services behind a network
+  listener. Example: the Gitaly server application.
+- The gRPC toolchain automatically generates **client libraries** that
+  handle serialization and connection management. Example: the Go
+  client package and Ruby gem in this repository.
+- gRPC **clients** use the client libraries to make remote procedure
+  calls. These clients must decide what network address to reach their
+  gRPC servers on and handle connection reuse: it is possible to
+  spread different gRPC services over multiple connections to the same
+  gRPC server.
+- Officially a gRPC connection is called a **channel**. In the Go gRPC
+  library these channels are called **client connections** because
+  'channel' is already a concept in Go itself. In Ruby a gRPC channel
+  is an instance of GRPC::Core::Channel. We use the word 'connection'
+  in this document. The underlying transport of gRPC, HTTP/2, allows
+  multiple remote procedure calls to happen at the same time on a
+  single connection to a gRPC server. In principle, a multi-threaded
+  gRPC client needs only one connection to a gRPC server.
 
 ## Gitaly RPC Server Architecture
 
@@ -183,15 +183,15 @@ As a general principle, remember that Git does not enforce encodings on most
 data inside repositories, so we can rarely assume data to be a Protobuf "string"
 (which implies UTF-8).
 
-1.  `bytes revision`: for fields that accept any of branch names / tag
-    names / commit ID's. Uses `bytes` to be encoding agnostic.
-2.  `string commit_id`: for fields that accept a commit ID.
-3.  `bytes ref`: for fields that accept a refname.
-4.  `bytes path`: for paths inside Git repositories, i.e., inside Git
-    `tree` objects.
-5.  `string relative_path`: for paths on disk on a Gitaly server,
-    created by "us" (GitLab the application) instead of the user, we
-    want to use UTF-8, or better, ASCII.
+1. `bytes revision`: for fields that accept any of branch names / tag
+   names / commit ID's. Uses `bytes` to be encoding agnostic.
+1. `string commit_id`: for fields that accept a commit ID.
+1. `bytes ref`: for fields that accept a refname.
+1. `bytes path`: for paths inside Git repositories, i.e., inside Git
+   `tree` objects.
+1. `string relative_path`: for paths on disk on a Gitaly server,
+   created by "us" (GitLab the application) instead of the user, we
+   want to use UTF-8, or better, ASCII.
 
 ### Stream patterns
 
@@ -203,7 +203,7 @@ messages should not typically be larger than 1MB.
 
 #### Stream response of many small items
 
-```
+```go
 rpc FooBar(FooBarRequest) returns (stream FooBarResponse);
 
 message FooBarResponse {
@@ -218,11 +218,11 @@ A typical example of an "Item" would be a commit. To avoid the penalty of
 network IO for each Item we return, we batch them together. You can think of
 this as a kind of buffered IO at the level of the Item messages. In Go, to ease
 the bookkeeping you can use
-[gitlab.com/gitlab-org/gitaly/internal/helper/chunker](https://godoc.org/gitlab.com/gitlab-org/gitaly/internal/helper/chunker).
+[`gitlab.com/gitlab-org/gitaly/internal/helper/chunker`](https://pkg.go.dev/gitlab.com/gitlab-org/gitaly/internal/helper/chunker).
 
 #### Single large item split over multiple messages
 
-```
+```go
 rpc FooBar(FooBarRequest) returns (stream FooBarResponse);
 
 message FooBarResponse {
@@ -243,7 +243,7 @@ the response stream has `header` set, all others have `data` but no `header`.
 
 In the particular case where you're sending back raw binary data from Go, you
 can use
-[gitlab.com/gitlab-org/gitaly/streamio](https://godoc.org/gitlab.com/gitlab-org/gitaly/streamio)
+[`gitlab.com/gitlab-org/gitaly/streamio`](https://pkg.go.dev/gitlab.com/gitlab-org/gitaly/streamio)
 to turn your gRPC response stream into an `io.Writer`.
 
 > Note that a number of existing RPC's do not use this pattern exactly;
@@ -254,7 +254,7 @@ to turn your gRPC response stream into an `io.Writer`.
 
 #### Many large items split over multiple messages
 
-```
+```go
 rpc FooBar(FooBarRequest) returns (stream FooBarResponse);
 
 message FooBarResponse {

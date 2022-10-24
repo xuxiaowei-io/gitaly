@@ -1,12 +1,12 @@
 # Repositories used by the Gitaly test suite
 
 Gitaly uses two test repositories. One should be enough but we got a
-second one for free when importing code from gitlab-ce.
+second one for free when importing code from `gitlab-ce`.
 
 These repositories get cloned by `make prepare-tests`. They end up in:
 
--   `_build/testrepos/gitlab-test.git`
--   `_build/testrepos/gitlab-git-test.git`
+- `_build/testrepos/gitlab-test.git`
+- `_build/testrepos/gitlab-git-test.git`
 
 To prevent fragile tests, we use fixed `packed-refs` files for these
 repositories. They get installed by make (see `_support/makegen.go`)
@@ -15,11 +15,11 @@ from files in `_support`.
 To update `packed-refs` run `git gc` in your test repo and copy the new
 `packed-refs` to the right location in `_support`.
 
-## Example:
+## Example
 
-Let's add a new branch to gitlab-test.
+Let's add a new branch to `gitlab-test`.
 
-```
+```shell
 make prepare-tests
 git clone _build/testrepos/gitlab-test.git _build/gitlab-test
 
