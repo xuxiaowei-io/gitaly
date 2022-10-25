@@ -187,7 +187,7 @@ func TestFetchFromOrigin_refUpdates(t *testing.T) {
 func testFetchFromOriginRefUpdates(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	cfg, pool, repoProto := setupObjectPool(t, ctx, withSeededRepo)
+	cfg, pool, repoProto := setupObjectPool(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	repoPath, err := repo.Path()
@@ -195,48 +195,42 @@ func testFetchFromOriginRefUpdates(t *testing.T, ctx context.Context) {
 
 	poolPath := pool.FullPath()
 
+	// Seed the pool member with some preliminary data.
+	oldRefs := map[string]git.ObjectID{}
+	oldRefs["heads/csv"] = gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("csv"), gittest.WithMessage("old"))
+	oldRefs["tags/v1.1.0"] = gittest.WriteTag(t, cfg, repoPath, "v1.1.0", oldRefs["heads/csv"].Revision())
+
+	// We now fetch that data into the object pool and verify that it exists as expected.
 	require.NoError(t, pool.Init(ctx))
-	require.NoError(t, pool.FetchFromOrigin(ctx, repo), "seed pool")
-
-	oldRefs := map[string]git.ObjectID{
-		"heads/csv":   "3dd08961455abf80ef9115f4afdc1c6f968b503c",
-		"tags/v1.1.0": "8a2a6eb295bb170b34c24c76c49ed0e9b2eaf34b",
-	}
-
+	require.NoError(t, pool.FetchFromOrigin(ctx, repo))
 	for ref, oid := range oldRefs {
-		require.Equal(t, oid, gittest.ResolveRevision(t, cfg, repoPath, "refs/"+ref))
 		require.Equal(t, oid, gittest.ResolveRevision(t, cfg, poolPath, "refs/remotes/origin/"+ref))
 	}
 
-	newRefs := map[string]git.ObjectID{
-		"heads/csv":   "46abbb087fcc0fd02c340f0f2f052bd2c7708da3",
-		"tags/v1.1.0": "646ece5cfed840eca0a4feb21bcd6a81bb19bda3",
-	}
+	// Next, we force-overwrite both old references with new objects.
+	newRefs := map[string]git.ObjectID{}
+	newRefs["heads/csv"] = gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("csv"), gittest.WithMessage("new"))
+	newRefs["tags/v1.1.0"] = gittest.WriteTag(t, cfg, repoPath, "v1.1.0", newRefs["heads/csv"].Revision(), gittest.WriteTagConfig{
+		Force: true,
+	})
 
 	// Create a bunch of additional references. This is to trigger OptimizeRepository to indeed
 	// repack the loose references as we expect it to in this test. It's debatable whether we
 	// should test this at all here given that this is business of the housekeeping package. But
 	// it's easy enough to do, so it doesn't hurt.
 	for i := 0; i < 32; i++ {
-		newRefs[fmt.Sprintf("heads/branch-%d", i)] = gittest.WriteCommit(t, cfg, repoPath,
+		branchName := fmt.Sprintf("branch-%d", i)
+		newRefs["heads/"+branchName] = gittest.WriteCommit(t, cfg, repoPath,
 			gittest.WithMessage(strconv.Itoa(i)),
+			gittest.WithBranch(branchName),
 		)
 	}
 
-	for ref, oid := range newRefs {
-		require.NotEqual(t, oid, oldRefs[ref], "sanity check of new refs")
-		gittest.WriteRef(t, cfg, repoPath, git.ReferenceName("refs/"+ref), oid)
-		require.Equal(t, oid, gittest.ResolveRevision(t, cfg, repoPath, "refs/"+ref))
-	}
-
-	require.NoError(t, pool.FetchFromOrigin(ctx, repo), "update pool")
-
+	// Now we fetch again and verify that all references should have been updated accordingly.
+	require.NoError(t, pool.FetchFromOrigin(ctx, repo))
 	for ref, oid := range newRefs {
 		require.Equal(t, oid, gittest.ResolveRevision(t, cfg, poolPath, "refs/remotes/origin/"+ref))
 	}
-
-	looseRefs := testhelper.MustRunCommand(t, nil, "find", filepath.Join(poolPath, "refs"), "-type", "f")
-	require.Equal(t, "", string(looseRefs), "there should be no loose refs after the fetch")
 }
 
 func TestFetchFromOrigin_refs(t *testing.T) {
