@@ -5,15 +5,14 @@ package objectpool
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 )
@@ -121,26 +120,19 @@ func TestCreate(t *testing.T) {
 	repoPath, err := repo.Path()
 	require.NoError(t, err)
 
-	masterSha := gittest.Exec(t, cfg, "-C", repoPath, "show-ref", "master")
+	commitID := gittest.ResolveRevision(t, cfg, repoPath, "refs/heads/master")
 
 	require.NoError(t, pool.Create(ctx, repo))
-
 	require.True(t, pool.IsValid())
 
-	// No hooks
-	assert.NoDirExists(t, filepath.Join(pool.FullPath(), "hooks"))
-
-	// origin is set
-	out := gittest.Exec(t, cfg, "-C", pool.FullPath(), "remote", "get-url", "origin")
-	assert.Equal(t, repoPath, strings.TrimRight(string(out), "\n"))
-
-	// refs exist
-	out = gittest.Exec(t, cfg, "-C", pool.FullPath(), "show-ref", "refs/heads/master")
-	assert.Equal(t, masterSha, out)
-
-	// No problems
-	out = gittest.Exec(t, cfg, "-C", pool.FullPath(), "cat-file", "-s", "55bc176024cfa3baaceb71db584c7e5df900ea65")
-	assert.Equal(t, "282\n", string(out))
+	// There should not be a "hooks" directory in the pool.
+	require.NoDirExists(t, filepath.Join(pool.FullPath(), "hooks"))
+	// The "origin" remote of the pool points to the pool member.
+	require.Equal(t, repoPath, text.ChompBytes(gittest.Exec(t, cfg, "-C", pool.FullPath(), "remote", "get-url", "origin")))
+	// The "master" branch points to the same commit as in the pool member.
+	require.Equal(t, commitID, gittest.ResolveRevision(t, cfg, pool.FullPath(), "refs/heads/master"))
+	// Objects exist in the pool repository.
+	gittest.RequireObjectExists(t, cfg, pool.FullPath(), commitID)
 }
 
 func TestCreate_subdirsExist(t *testing.T) {
