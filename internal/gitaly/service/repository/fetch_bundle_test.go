@@ -137,7 +137,7 @@ func TestServer_FetchBundle_validation(t *testing.T) {
 			firstRequest: &gitalypb.FetchBundleRequest{
 				Repository: nil,
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -150,7 +150,7 @@ func TestServer_FetchBundle_validation(t *testing.T) {
 					RelativePath: "unknown",
 				},
 			},
-			expectedErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefect(
+			expectedErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefectMessage(
 				`GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/unknown"`,
 				`mutator call: route repository mutator: get repository id: repository "default"/"unknown" not found`,
 			)),

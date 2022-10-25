@@ -75,7 +75,7 @@ func TestFailedCreateBundleRequestDueToValidations(t *testing.T) {
 		{
 			desc:    "empty repository",
 			request: &gitalypb.CreateBundleRequest{},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				"CreateBundle: empty Repository",
 				"repo scoped: empty Repository",
 			)),

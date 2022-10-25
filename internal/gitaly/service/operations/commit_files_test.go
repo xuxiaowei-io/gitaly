@@ -1485,7 +1485,7 @@ func TestFailedUserCommitFilesRequest(t *testing.T) {
 		{
 			desc: "empty Repository",
 			req:  headerRequest(nil, gittest.TestUser, branchName, commitFilesMessage, ""),
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				"UserCommitFiles: empty Repository",
 				"repo scoped: empty Repository",
 			)),

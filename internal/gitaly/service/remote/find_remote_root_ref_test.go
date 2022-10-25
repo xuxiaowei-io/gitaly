@@ -92,7 +92,7 @@ func TestFindRemoteRootRefFailedDueToValidation(t *testing.T) {
 				Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"},
 				RemoteUrl:  "remote-url",
 			},
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefectMessage(
 				`GetStorageByName: no such storage: "fake"`,
 				"repo scoped: invalid Repository",
 			)),
@@ -102,7 +102,7 @@ func TestFindRemoteRootRefFailedDueToValidation(t *testing.T) {
 			request: &gitalypb.FindRemoteRootRefRequest{
 				RemoteUrl: "remote-url",
 			},
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefectMessage(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),

@@ -354,7 +354,7 @@ func TestUserCreateBranch_Failure(t *testing.T) {
 			branchName: "shiny-new-branch",
 			startPoint: "",
 			user:       gittest.TestUser,
-			err: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			err: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),

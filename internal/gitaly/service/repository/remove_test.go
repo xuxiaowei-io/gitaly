@@ -58,7 +58,7 @@ func TestRemoveRepository_validate(t *testing.T) {
 	ctx := testhelper.Context(t)
 	_, client := setupRepositoryServiceWithoutRepo(t)
 	_, err := client.RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{Repository: nil})
-	testhelper.RequireGrpcError(t, status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+	testhelper.RequireGrpcError(t, status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 		"empty Repository",
 		"missing repository",
 	)), err)

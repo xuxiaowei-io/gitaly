@@ -124,7 +124,7 @@ func TestCreateBundleFromRefList_validations(t *testing.T) {
 			request: &gitalypb.CreateBundleFromRefListRequest{
 				Patterns: [][]byte{[]byte("master")},
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),

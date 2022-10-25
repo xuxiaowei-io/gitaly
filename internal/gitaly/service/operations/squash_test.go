@@ -538,7 +538,7 @@ func TestUserSquash_validation(t *testing.T) {
 				StartSha:      startSha,
 				EndSha:        endSha,
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				"UserSquash: empty Repository",
 				"repo scoped: empty Repository",
 			)),

@@ -209,7 +209,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T) {
 				Branch:        []byte("some-branch"),
 				CommitMessage: []byte("Update Submodule message"),
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				"UserUpdateSubmodule: empty Repository",
 				"repo scoped: empty Repository",
 			)),

@@ -386,7 +386,7 @@ func testServerPostUploadPackWithSideChannelValidation(t *testing.T, ctx context
 		{
 			desc: "Repository doesn't exist",
 			req:  &gitalypb.PostUploadPackRequest{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				`GetStorageByName: no such storage: "fake"`,
 				"repo scoped: invalid Repository",
 			)),
@@ -394,7 +394,7 @@ func testServerPostUploadPackWithSideChannelValidation(t *testing.T, ctx context
 		{
 			desc: "Repository no provided",
 			req:  &gitalypb.PostUploadPackRequest{Repository: nil},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),

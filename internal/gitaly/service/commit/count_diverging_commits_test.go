@@ -174,7 +174,7 @@ func TestFailedCountDivergentCommitsRequestDueToValidationError(t *testing.T) {
 		{
 			desc: "Repository not provided",
 			req:  &gitalypb.CountDivergingCommitsRequest{Repository: nil, From: []byte("abcdef"), To: []byte("12345")},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -182,7 +182,7 @@ func TestFailedCountDivergentCommitsRequestDueToValidationError(t *testing.T) {
 		{
 			desc: "Repository doesn't exist",
 			req:  &gitalypb.CountDivergingCommitsRequest{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, From: []byte("abcdef"), To: []byte("12345")},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				`repository not valid: GetStorageByName: no such storage: "fake"`,
 				"repo scoped: invalid Repository",
 			)),

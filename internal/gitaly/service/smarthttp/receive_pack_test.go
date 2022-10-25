@@ -378,7 +378,7 @@ func TestPostReceivePack_requestValidation(t *testing.T) {
 				},
 				GlId: "user-123",
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				`GetStorageByName: no such storage: "fake"`,
 				"repo scoped: invalid Repository",
 			)),
@@ -386,7 +386,7 @@ func TestPostReceivePack_requestValidation(t *testing.T) {
 		{
 			desc:    "Repository is nil",
 			request: &gitalypb.PostReceivePackRequest{Repository: nil, GlId: "user-123"},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),

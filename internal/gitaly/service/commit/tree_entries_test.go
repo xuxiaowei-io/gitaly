@@ -707,7 +707,7 @@ func TestGetTreeEntries_validation(t *testing.T) {
 				Revision:   revision,
 				Path:       path,
 			},
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefectMessage(
 				"GetStorageByName: no such storage: \"fake\"",
 				"repo scoped: invalid Repository",
 			)),
@@ -719,7 +719,7 @@ func TestGetTreeEntries_validation(t *testing.T) {
 				Revision:   revision,
 				Path:       path,
 			},
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefectMessage(
 				"TreeEntry: empty Repository",
 				"repo scoped: empty Repository",
 			)),

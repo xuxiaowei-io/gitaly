@@ -340,7 +340,7 @@ func TestFailedListConflictFilesRequestDueToValidation(t *testing.T) {
 				OurCommitOid:   ourCommitOid,
 				TheirCommitOid: theirCommitOid,
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),

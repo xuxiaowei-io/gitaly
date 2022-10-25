@@ -174,7 +174,7 @@ func TestFailedCommitsByMessageRequest(t *testing.T) {
 		{
 			desc:    "Invalid repository",
 			request: &gitalypb.CommitsByMessageRequest{Repository: invalidRepo, Query: "foo"},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				`GetStorageByName: no such storage: "fake"`,
 				"repo scoped: invalid Repository",
 			)),
@@ -182,7 +182,7 @@ func TestFailedCommitsByMessageRequest(t *testing.T) {
 		{
 			desc:    "Repository is nil",
 			request: &gitalypb.CommitsByMessageRequest{Query: "foo"},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),

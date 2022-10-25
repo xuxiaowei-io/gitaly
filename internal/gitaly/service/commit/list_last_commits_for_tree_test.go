@@ -243,7 +243,7 @@ func TestFailedListLastCommitsForTreeRequest(t *testing.T) {
 				Offset:     0,
 				Limit:      25,
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				`GetStorageByName: no such storage: "broken"`,
 				"repo scoped: invalid Repository",
 			)),
@@ -256,7 +256,7 @@ func TestFailedListLastCommitsForTreeRequest(t *testing.T) {
 				Offset:   0,
 				Limit:    25,
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),

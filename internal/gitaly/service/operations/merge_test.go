@@ -142,7 +142,7 @@ func TestUserMergeBranch_failure(t *testing.T) {
 		{
 			desc: "no repository provided",
 			repo: nil,
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),

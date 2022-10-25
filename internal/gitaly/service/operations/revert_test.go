@@ -380,7 +380,7 @@ func TestServer_UserRevert_failuedDueToValidations(t *testing.T) {
 			request: &gitalypb.UserRevertRequest{
 				Repository: nil,
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),

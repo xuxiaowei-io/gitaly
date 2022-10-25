@@ -161,14 +161,14 @@ func TestCreateRepository_invalidArguments(t *testing.T) {
 	}{
 		{
 			repo: nil,
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
 		},
 		{
 			repo: &gitalypb.Repository{StorageName: "does not exist", RelativePath: "foobar.git"},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				`creating repository: locate repository: GetStorageByName: no such storage: "does not exist"`,
 				"repo scoped: invalid Repository",
 			)),

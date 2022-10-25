@@ -692,7 +692,7 @@ func TestFailedResolveConflictsRequestDueToValidation(t *testing.T) {
 				SourceBranch:     sourceBranch,
 				TargetBranch:     targetBranch,
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				"ResolveConflicts: empty Repository",
 				"repo scoped: empty Repository",
 			)),

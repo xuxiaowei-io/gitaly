@@ -156,7 +156,7 @@ func TestFetchSourceBranch_validate(t *testing.T) {
 		{
 			desc: "no repository provided",
 			req:  &gitalypb.FetchSourceBranchRequest{Repository: nil},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),

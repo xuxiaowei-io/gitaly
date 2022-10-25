@@ -277,7 +277,7 @@ func TestDeleteRefs_validation(t *testing.T) {
 		{
 			desc:    "no repository provided",
 			request: &gitalypb.DeleteRefsRequest{Repository: nil},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				"DeleteRefs: empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -288,7 +288,7 @@ func TestDeleteRefs_validation(t *testing.T) {
 				Repository:       &gitalypb.Repository{StorageName: "fake", RelativePath: "path"},
 				ExceptWithPrefix: [][]byte{[]byte("exclude-this")},
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				`GetStorageByName: no such storage: "fake"`,
 				"repo scoped: invalid Repository",
 			)),
@@ -299,7 +299,7 @@ func TestDeleteRefs_validation(t *testing.T) {
 				Repository:       nil,
 				ExceptWithPrefix: [][]byte{[]byte("exclude-this")},
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				"DeleteRefs: empty Repository",
 				"repo scoped: empty Repository",
 			)),

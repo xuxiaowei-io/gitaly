@@ -217,7 +217,7 @@ func TestApplyGitattributesFailure(t *testing.T) {
 			desc:     "no repository provided",
 			repo:     nil,
 			revision: nil,
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -226,7 +226,7 @@ func TestApplyGitattributesFailure(t *testing.T) {
 			desc:     "unknown storage provided",
 			repo:     &gitalypb.Repository{StorageName: "foo"},
 			revision: []byte("master"),
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				`GetStorageByName: no such storage: "foo"`,
 				"repo scoped: invalid Repository",
 			)),
@@ -235,7 +235,7 @@ func TestApplyGitattributesFailure(t *testing.T) {
 			desc:     "storage not provided",
 			repo:     &gitalypb.Repository{RelativePath: repo.GetRelativePath()},
 			revision: []byte("master"),
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				`GetStorageByName: no such storage: ""`,
 				"repo scoped: invalid Repository",
 			)),
@@ -244,7 +244,7 @@ func TestApplyGitattributesFailure(t *testing.T) {
 			desc:     "repository doesn't exist on disk",
 			repo:     &gitalypb.Repository{StorageName: repo.GetStorageName(), RelativePath: "bar"},
 			revision: []byte("master"),
-			expectedErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefect(
+			expectedErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefectMessage(
 				`GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/bar"`,
 				`mutator call: route repository mutator: get repository id: repository "default"/"bar" not found`,
 			)),

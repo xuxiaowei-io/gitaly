@@ -128,7 +128,7 @@ func TestApplyBfgObjectMapStreamFailsOnInvalidInput(t *testing.T) {
 	t.Run("no repository provided", func(t *testing.T) {
 		entries, err := doStreamingRequest(t, ctx, nil, client, objectMapData)
 		require.Empty(t, entries)
-		testhelper.RequireGrpcError(t, status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+		testhelper.RequireGrpcError(t, status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 			"empty Repository",
 			"repo scoped: empty Repository",
 		)), err)

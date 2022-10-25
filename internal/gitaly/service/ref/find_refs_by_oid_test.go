@@ -228,7 +228,7 @@ func TestFindRefsByOID_validation(t *testing.T) {
 				Repository: nil,
 				Oid:        "abcdefg",
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),

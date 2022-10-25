@@ -172,7 +172,7 @@ func TestFailedCountCommitsRequestDueToValidationError(t *testing.T) {
 		{
 			desc: "Repository doesn't exist",
 			req:  &gitalypb.CountCommitsRequest{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, Revision: revision},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				`GetStorageByName: no such storage: "fake"`,
 				"repo scoped: invalid Repository",
 			)),
@@ -180,7 +180,7 @@ func TestFailedCountCommitsRequestDueToValidationError(t *testing.T) {
 		{
 			desc: "Repository is nil",
 			req:  &gitalypb.CountCommitsRequest{Repository: nil, Revision: revision},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				"CountCommits: empty Repository",
 				"repo scoped: empty Repository",
 			)),

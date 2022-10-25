@@ -70,6 +70,6 @@ func TestGetInfoAttributes_validate(t *testing.T) {
 	response, err := client.GetInfoAttributes(ctx, &gitalypb.GetInfoAttributesRequest{Repository: nil})
 	require.NoError(t, err)
 	_, err = response.Recv()
-	msg := testhelper.GitalyOrPraefect("empty Repository", "repo scoped: empty Repository")
+	msg := testhelper.GitalyOrPraefectMessage("empty Repository", "repo scoped: empty Repository")
 	testhelper.RequireGrpcError(t, status.Error(codes.InvalidArgument, msg), err)
 }

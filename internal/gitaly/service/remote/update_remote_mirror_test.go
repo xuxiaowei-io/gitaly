@@ -912,7 +912,7 @@ func TestFailedUpdateRemoteMirrorRequestDueToValidation(t *testing.T) {
 					Url: "something",
 				},
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),

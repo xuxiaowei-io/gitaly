@@ -301,7 +301,7 @@ func TestFindTag_invalidRequest(t *testing.T) {
 		{
 			desc:    "empty request",
 			request: &gitalypb.FindTagRequest{},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -314,7 +314,7 @@ func TestFindTag_invalidRequest(t *testing.T) {
 					RelativePath: "repo",
 				},
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				`invalid git directory: GetStorageByName: no such storage: "fake"`,
 				"repo scoped: invalid Repository",
 			)),
