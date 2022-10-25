@@ -148,7 +148,7 @@ func TestObjectReader_queue(t *testing.T) {
 		require.NoError(t, err)
 		defer cleanup()
 
-		require.NoError(t, queue.RequestRevision(foobarBlob.Revision()))
+		require.NoError(t, queue.RequestObject(foobarBlob.Revision()))
 		require.NoError(t, queue.Flush())
 
 		object, err := queue.ReadObject()
@@ -171,7 +171,7 @@ func TestObjectReader_queue(t *testing.T) {
 			foobarBlob: "foobar",
 			barfooBlob: "barfoo",
 		} {
-			require.NoError(t, queue.RequestRevision(blobID.Revision()))
+			require.NoError(t, queue.RequestObject(blobID.Revision()))
 			require.NoError(t, queue.Flush())
 
 			object, err := queue.ReadObject()
@@ -191,8 +191,8 @@ func TestObjectReader_queue(t *testing.T) {
 		require.NoError(t, err)
 		defer cleanup()
 
-		require.NoError(t, queue.RequestRevision(foobarBlob.Revision()))
-		require.NoError(t, queue.RequestRevision(barfooBlob.Revision()))
+		require.NoError(t, queue.RequestObject(foobarBlob.Revision()))
+		require.NoError(t, queue.RequestObject(barfooBlob.Revision()))
 		require.NoError(t, queue.Flush())
 
 		for _, expectedContents := range []string{"foobar", "barfoo"} {
@@ -228,7 +228,7 @@ func TestObjectReader_queue(t *testing.T) {
 		// We flush once before and once after requesting the object such that we can be
 		// sure that it doesn't impact which objects we can read.
 		require.NoError(t, queue.Flush())
-		require.NoError(t, queue.RequestRevision(foobarBlob.Revision()))
+		require.NoError(t, queue.RequestObject(foobarBlob.Revision()))
 		require.NoError(t, queue.Flush())
 
 		object, err := queue.ReadObject()
@@ -248,7 +248,7 @@ func TestObjectReader_queue(t *testing.T) {
 		defer cleanup()
 
 		for i := 0; i < 10; i++ {
-			require.NoError(t, queue.RequestRevision(foobarBlob.Revision()))
+			require.NoError(t, queue.RequestObject(foobarBlob.Revision()))
 		}
 		require.NoError(t, queue.Flush())
 
@@ -284,7 +284,7 @@ func TestObjectReader_queue(t *testing.T) {
 		require.NoError(t, err)
 		defer cleanup()
 
-		require.NoError(t, queue.RequestRevision("does-not-exist"))
+		require.NoError(t, queue.RequestObject("does-not-exist"))
 		require.NoError(t, queue.Flush())
 
 		_, err = queue.ReadObject()
@@ -299,7 +299,7 @@ func TestObjectReader_queue(t *testing.T) {
 		require.NoError(t, err)
 		defer cleanup()
 
-		require.NoError(t, queue.RequestRevision("does-not-exist"))
+		require.NoError(t, queue.RequestObject("does-not-exist"))
 		require.NoError(t, queue.Flush())
 
 		_, err = queue.ReadObject()
@@ -307,7 +307,7 @@ func TestObjectReader_queue(t *testing.T) {
 
 		// Requesting another object after the previous one has failed should continue to
 		// work alright.
-		require.NoError(t, queue.RequestRevision(foobarBlob.Revision()))
+		require.NoError(t, queue.RequestObject(foobarBlob.Revision()))
 		require.NoError(t, queue.Flush())
 		object, err := queue.ReadObject()
 		require.NoError(t, err)
@@ -347,7 +347,7 @@ func TestObjectReader_queue(t *testing.T) {
 		require.False(t, reader.isDirty())
 		require.False(t, queue.isDirty())
 
-		require.NoError(t, queue.RequestRevision(foobarBlob.Revision()))
+		require.NoError(t, queue.RequestObject(foobarBlob.Revision()))
 		require.NoError(t, queue.Flush())
 
 		require.True(t, reader.isDirty())
@@ -380,7 +380,7 @@ func TestObjectReader_queue(t *testing.T) {
 		require.True(t, reader.isClosed())
 		require.True(t, queue.isClosed())
 
-		require.Equal(t, fmt.Errorf("cannot request revision: %w", os.ErrClosed), queue.RequestRevision(foobarBlob.Revision()))
+		require.Equal(t, fmt.Errorf("cannot request revision: %w", os.ErrClosed), queue.RequestObject(foobarBlob.Revision()))
 	})
 
 	t.Run("closing queue blocks read", func(t *testing.T) {
@@ -392,7 +392,7 @@ func TestObjectReader_queue(t *testing.T) {
 		defer cleanup()
 
 		// Request the object before we close the queue.
-		require.NoError(t, queue.RequestRevision(foobarBlob.Revision()))
+		require.NoError(t, queue.RequestObject(foobarBlob.Revision()))
 		require.NoError(t, queue.Flush())
 
 		queue.close()
@@ -412,7 +412,7 @@ func TestObjectReader_queue(t *testing.T) {
 		require.NoError(t, err)
 		defer cleanup()
 
-		require.NoError(t, queue.RequestRevision(foobarBlob.Revision()))
+		require.NoError(t, queue.RequestObject(foobarBlob.Revision()))
 		require.NoError(t, queue.Flush())
 
 		// Read the object header before closing.

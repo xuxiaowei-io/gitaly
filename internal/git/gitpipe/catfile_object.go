@@ -72,7 +72,7 @@ func CatfileObject(
 
 		var i int64
 		for it.Next() {
-			if err := queue.RequestRevision(it.ObjectID().Revision()); err != nil {
+			if err := queue.RequestObject(it.ObjectID().Revision()); err != nil {
 				sendRequest(catfileObjectRequest{err: err})
 				return
 			}

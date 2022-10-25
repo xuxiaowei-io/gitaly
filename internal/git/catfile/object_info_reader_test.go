@@ -243,7 +243,7 @@ func TestObjectInfoReader_queue(t *testing.T) {
 		require.NoError(t, err)
 		defer cleanup()
 
-		require.NoError(t, queue.RequestRevision(blobOID.Revision()))
+		require.NoError(t, queue.RequestInfo(blobOID.Revision()))
 		require.NoError(t, queue.Flush())
 
 		info, err := queue.ReadInfo()
@@ -263,7 +263,7 @@ func TestObjectInfoReader_queue(t *testing.T) {
 			blobOID:   blobInfo,
 			commitOID: commitInfo,
 		} {
-			require.NoError(t, queue.RequestRevision(oid.Revision()))
+			require.NoError(t, queue.RequestInfo(oid.Revision()))
 			require.NoError(t, queue.Flush())
 
 			info, err := queue.ReadInfo()
@@ -280,8 +280,8 @@ func TestObjectInfoReader_queue(t *testing.T) {
 		require.NoError(t, err)
 		defer cleanup()
 
-		require.NoError(t, queue.RequestRevision(blobOID.Revision()))
-		require.NoError(t, queue.RequestRevision(commitOID.Revision()))
+		require.NoError(t, queue.RequestInfo(blobOID.Revision()))
+		require.NoError(t, queue.RequestInfo(commitOID.Revision()))
 		require.NoError(t, queue.Flush())
 
 		for _, expectedInfo := range []ObjectInfo{blobInfo, commitInfo} {
@@ -314,7 +314,7 @@ func TestObjectInfoReader_queue(t *testing.T) {
 		// We flush once before and once after requesting the object such that we can be
 		// sure that it doesn't impact which objects we can read.
 		require.NoError(t, queue.Flush())
-		require.NoError(t, queue.RequestRevision(blobOID.Revision()))
+		require.NoError(t, queue.RequestInfo(blobOID.Revision()))
 		require.NoError(t, queue.Flush())
 
 		info, err := queue.ReadInfo()
@@ -331,7 +331,7 @@ func TestObjectInfoReader_queue(t *testing.T) {
 		defer cleanup()
 
 		for i := 0; i < 10; i++ {
-			require.NoError(t, queue.RequestRevision(blobOID.Revision()))
+			require.NoError(t, queue.RequestInfo(blobOID.Revision()))
 		}
 		require.NoError(t, queue.Flush())
 
@@ -364,7 +364,7 @@ func TestObjectInfoReader_queue(t *testing.T) {
 		require.NoError(t, err)
 		defer cleanup()
 
-		require.NoError(t, queue.RequestRevision("does-not-exist"))
+		require.NoError(t, queue.RequestInfo("does-not-exist"))
 		require.NoError(t, queue.Flush())
 
 		_, err = queue.ReadInfo()
@@ -379,7 +379,7 @@ func TestObjectInfoReader_queue(t *testing.T) {
 		require.NoError(t, err)
 		defer cleanup()
 
-		require.NoError(t, queue.RequestRevision("does-not-exist"))
+		require.NoError(t, queue.RequestInfo("does-not-exist"))
 		require.NoError(t, queue.Flush())
 
 		_, err = queue.ReadInfo()
@@ -387,7 +387,7 @@ func TestObjectInfoReader_queue(t *testing.T) {
 
 		// Requesting another object info after the previous one has failed should continue
 		// to work alright.
-		require.NoError(t, queue.RequestRevision(blobOID.Revision()))
+		require.NoError(t, queue.RequestInfo(blobOID.Revision()))
 		require.NoError(t, queue.Flush())
 		info, err := queue.ReadInfo()
 		require.NoError(t, err)
@@ -424,7 +424,7 @@ func TestObjectInfoReader_queue(t *testing.T) {
 		require.False(t, reader.isDirty())
 		require.False(t, queue.isDirty())
 
-		require.NoError(t, queue.RequestRevision(blobOID.Revision()))
+		require.NoError(t, queue.RequestInfo(blobOID.Revision()))
 		require.NoError(t, queue.Flush())
 
 		require.True(t, reader.isDirty())
@@ -450,7 +450,7 @@ func TestObjectInfoReader_queue(t *testing.T) {
 		require.True(t, reader.isClosed())
 		require.True(t, queue.isClosed())
 
-		require.Equal(t, fmt.Errorf("cannot request revision: %w", os.ErrClosed), queue.RequestRevision(blobOID.Revision()))
+		require.Equal(t, fmt.Errorf("cannot request revision: %w", os.ErrClosed), queue.RequestInfo(blobOID.Revision()))
 	})
 
 	t.Run("closing queue blocks read", func(t *testing.T) {
@@ -462,7 +462,7 @@ func TestObjectInfoReader_queue(t *testing.T) {
 		defer cleanup()
 
 		// Request the object before we close the queue.
-		require.NoError(t, queue.RequestRevision(blobOID.Revision()))
+		require.NoError(t, queue.RequestInfo(blobOID.Revision()))
 		require.NoError(t, queue.Flush())
 
 		queue.close()
