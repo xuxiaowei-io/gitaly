@@ -45,7 +45,7 @@ func TestRepackObjects(t *testing.T) {
 
 		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 
-		requireObjectCount(t, ctx, repo, 1)
+		requireObjectCount(t, ctx, repo, 2)
 		requirePackfileCount(t, repoPath, 0)
 
 		require.NoError(t, RepackObjects(ctx, repo, RepackObjectsConfig{}))

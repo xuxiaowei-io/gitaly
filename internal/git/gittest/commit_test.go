@@ -190,4 +190,15 @@ func TestWriteCommit(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("empty tree gets written", func(t *testing.T) {
+		cfg, _, repoPath := setup(t)
+
+		// Write a commit with no tree entries and verify that the repository is consistent.
+		// In the past we didn't write empty trees into the repository, which led to
+		// corruption.
+		WriteCommit(t, cfg, repoPath, WithBranch("main"))
+		Exec(t, cfg, "-C", repoPath, "fsck")
+		RequireObjectExists(t, cfg, repoPath, DefaultObjectHash.EmptyTreeOID)
+	})
 }

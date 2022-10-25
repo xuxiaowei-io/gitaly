@@ -49,6 +49,7 @@ func TestOptimizeRepository(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, repoProto, repoPath, client := setupRepositoryService(t, ctx)
 
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
 	gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-b")
 	gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--size-multiple=4", "--split=replace", "--reachable", "--changed-paths")
 
@@ -62,8 +63,6 @@ func TestOptimizeRepository(t *testing.T) {
 
 	// get timestamp of latest packfile
 	newestsPackfileTime := getNewestPackfileModtime(t, repoPath)
-
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
 
 	gittest.Exec(t, cfg, "-C", repoPath, "config", "http.http://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c1.git.extraHeader", "Authorization: Basic secret-password")
 	gittest.Exec(t, cfg, "-C", repoPath, "config", "http.http://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c2.git.extraHeader", "Authorization: Basic secret-password")

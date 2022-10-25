@@ -169,8 +169,7 @@ func WriteCommit(tb testing.TB, cfg config.Cfg, repoPath string, opts ...WriteCo
 	} else if writeCommitConfig.treeID != "" {
 		tree = writeCommitConfig.treeID.String()
 	} else if len(writeCommitConfig.parents) == 0 {
-		// If there are no parents, then we set the root tree to the empty tree.
-		tree = DefaultObjectHash.EmptyTreeOID.String()
+		tree = WriteTree(tb, cfg, repoPath, []TreeEntry{}).String()
 	} else {
 		tree = writeCommitConfig.parents[0].String() + "^{tree}"
 	}
