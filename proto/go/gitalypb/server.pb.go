@@ -222,7 +222,7 @@ type ClockSyncedRequest struct {
 	unknownFields protoimpl.UnknownFields
 
 	// NtpHost is a URL to the external NTP service that should be used for clock sync check.
-	// Default is "ntp.pool.org"
+	// Default is "pool.ntp.org"
 	NtpHost string `protobuf:"bytes,1,opt,name=ntp_host,json=ntpHost,proto3" json:"ntp_host,omitempty"`
 	// DriftThreshold is an allowed drift from the NTP service.
 	DriftThreshold *durationpb.Duration `protobuf:"bytes,3,opt,name=drift_threshold,json=driftThreshold,proto3" json:"drift_threshold,omitempty"`

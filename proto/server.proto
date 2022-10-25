@@ -79,7 +79,7 @@ message DiskStatisticsResponse {
 // ClockSyncedRequest contains settings to be used for the system clock synchronisation check.
 message ClockSyncedRequest {
   // NtpHost is a URL to the external NTP service that should be used for clock sync check.
-  // Default is "ntp.pool.org"
+  // Default is "pool.ntp.org"
   string ntp_host = 1;
   reserved "drift_threshold_millis";
   reserved 2;
