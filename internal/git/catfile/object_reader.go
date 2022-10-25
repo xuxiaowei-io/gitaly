@@ -33,8 +33,8 @@ type ObjectReader interface {
 // which objects have been requested. Users of this interface must call `Flush()` after all requests
 // have been queued up such that all requested objects will be readable.
 type ObjectQueue interface {
-	// RequestRevision requests the given revision from git-cat-file(1).
-	RequestRevision(git.Revision) error
+	// RequestObject requests the given revision from git-cat-file(1).
+	RequestObject(git.Revision) error
 	// ReadObject reads an object which has previously been requested.
 	ReadObject() (*Object, error)
 	// Flush flushes all queued requests and asks git-cat-file(1) to print all objects which
@@ -126,7 +126,7 @@ func (o *objectReader) Object(ctx context.Context, revision git.Revision) (*Obje
 	}
 	defer finish()
 
-	if err := queue.RequestRevision(revision); err != nil {
+	if err := queue.RequestObject(revision); err != nil {
 		return nil, err
 	}
 

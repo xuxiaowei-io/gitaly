@@ -23,7 +23,7 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 	oid := git.ObjectID(strings.Repeat("1", gittest.DefaultObjectHash.EncodedLen()))
 
 	t.Run("ReadInfo on ReadObject queue", func(t *testing.T) {
-		_, queue := newInterceptedQueue(t, ctx, "#!/bin/sh\nread\n")
+		_, queue := newInterceptedObjectQueue(t, ctx, "#!/bin/sh\nread\n")
 
 		require.PanicsWithValue(t, "object queue used to read object info", func() {
 			_, _ = queue.ReadInfo()
@@ -31,15 +31,15 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 	})
 
 	t.Run("read without request", func(t *testing.T) {
-		_, queue := newInterceptedQueue(t, ctx, "#!/bin/sh\nread\n")
+		_, queue := newInterceptedObjectQueue(t, ctx, "#!/bin/sh\nread\n")
 		_, err := queue.ReadObject()
 		require.Equal(t, fmt.Errorf("no outstanding request"), err)
 	})
 
 	t.Run("read on closed reader", func(t *testing.T) {
-		reader, queue := newInterceptedQueue(t, ctx, "#!/bin/sh\nread\n")
+		reader, queue := newInterceptedObjectQueue(t, ctx, "#!/bin/sh\nread\n")
 
-		require.NoError(t, queue.RequestRevision("foo"))
+		require.NoError(t, queue.RequestObject("foo"))
 		require.True(t, queue.isDirty())
 
 		reader.close()
@@ -50,13 +50,13 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 	})
 
 	t.Run("read with unconsumed object", func(t *testing.T) {
-		_, queue := newInterceptedQueue(t, ctx, fmt.Sprintf(`#!/bin/sh
+		_, queue := newInterceptedObjectQueue(t, ctx, fmt.Sprintf(`#!/bin/sh
 			echo "%s commit 464"
 		`, oid))
 
 		// We queue two revisions...
-		require.NoError(t, queue.RequestRevision("foo"))
-		require.NoError(t, queue.RequestRevision("foo"))
+		require.NoError(t, queue.RequestObject("foo"))
+		require.NoError(t, queue.RequestObject("foo"))
 
 		// .. and only unqueue one object. This object isn't read though, ...
 		_, err := queue.ReadObject()
@@ -70,11 +70,11 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 	})
 
 	t.Run("read with invalid object header", func(t *testing.T) {
-		_, queue := newInterceptedQueue(t, ctx, `#!/bin/sh
+		_, queue := newInterceptedObjectQueue(t, ctx, `#!/bin/sh
 			echo "something something"
 		`)
 
-		require.NoError(t, queue.RequestRevision("foo"))
+		require.NoError(t, queue.RequestObject("foo"))
 
 		_, err := queue.ReadObject()
 		require.Equal(t, fmt.Errorf("invalid info line: %q", "something something"), err)
@@ -84,11 +84,11 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 	})
 
 	t.Run("read with unexpected exit", func(t *testing.T) {
-		_, queue := newInterceptedQueue(t, ctx, `#!/bin/sh
+		_, queue := newInterceptedObjectQueue(t, ctx, `#!/bin/sh
 			exit 1
 		`)
 
-		require.NoError(t, queue.RequestRevision("foo"))
+		require.NoError(t, queue.RequestObject("foo"))
 
 		_, err := queue.ReadObject()
 		require.Equal(t, fmt.Errorf("read info line: %w", io.EOF), err)
@@ -98,11 +98,11 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 	})
 
 	t.Run("read with missing object", func(t *testing.T) {
-		_, queue := newInterceptedQueue(t, ctx, fmt.Sprintf(`#!/bin/sh
+		_, queue := newInterceptedObjectQueue(t, ctx, fmt.Sprintf(`#!/bin/sh
 			echo "%s missing"
 		`, oid))
 
-		require.NoError(t, queue.RequestRevision("foo"))
+		require.NoError(t, queue.RequestObject("foo"))
 
 		_, err := queue.ReadObject()
 		require.Equal(t, NotFoundError{error: fmt.Errorf("object not found")}, err)
@@ -113,12 +113,12 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 	})
 
 	t.Run("read single object", func(t *testing.T) {
-		_, queue := newInterceptedQueue(t, ctx, fmt.Sprintf(`#!/bin/sh
+		_, queue := newInterceptedObjectQueue(t, ctx, fmt.Sprintf(`#!/bin/sh
 			echo "%s blob 10"
 			echo "1234567890"
 		`, oid))
 
-		require.NoError(t, queue.RequestRevision("foo"))
+		require.NoError(t, queue.RequestObject("foo"))
 		require.True(t, queue.isDirty())
 
 		object, err := queue.ReadObject()
@@ -139,15 +139,15 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 	t.Run("read multiple objects", func(t *testing.T) {
 		secondOID := git.ObjectID(strings.Repeat("2", gittest.DefaultObjectHash.EncodedLen()))
 
-		_, queue := newInterceptedQueue(t, ctx, fmt.Sprintf(`#!/bin/sh
+		_, queue := newInterceptedObjectQueue(t, ctx, fmt.Sprintf(`#!/bin/sh
 			echo "%s blob 10"
 			echo "1234567890"
 			echo "%s commit 10"
 			echo "0987654321"
 		`, oid, secondOID))
 
-		require.NoError(t, queue.RequestRevision("foo"))
-		require.NoError(t, queue.RequestRevision("foo"))
+		require.NoError(t, queue.RequestObject("foo"))
+		require.NoError(t, queue.RequestObject("foo"))
 		require.True(t, queue.isDirty())
 
 		for _, expectedObject := range []struct {
@@ -186,12 +186,12 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 	})
 
 	t.Run("truncated object", func(t *testing.T) {
-		_, queue := newInterceptedQueue(t, ctx, fmt.Sprintf(`#!/bin/sh
+		_, queue := newInterceptedObjectQueue(t, ctx, fmt.Sprintf(`#!/bin/sh
 			echo "%s blob 10"
 			printf "123"
 		`, oid))
 
-		require.NoError(t, queue.RequestRevision("foo"))
+		require.NoError(t, queue.RequestObject("foo"))
 		require.True(t, queue.isDirty())
 
 		object, err := queue.ReadObject()
@@ -219,7 +219,7 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 	})
 }
 
-func TestRequestQueue_RequestRevision(t *testing.T) {
+func TestRequestQueue_RequestObject(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
@@ -236,35 +236,35 @@ func TestRequestQueue_RequestRevision(t *testing.T) {
 	}
 
 	t.Run("requesting revision on closed queue", func(t *testing.T) {
-		_, queue := newInterceptedQueue(t, ctx, "#!/bin/sh")
+		_, queue := newInterceptedObjectQueue(t, ctx, "#!/bin/sh")
 		queue.close()
 
-		require.Equal(t, fmt.Errorf("cannot request revision: %w", os.ErrClosed), queue.RequestRevision("foo"))
+		require.Equal(t, fmt.Errorf("cannot request revision: %w", os.ErrClosed), queue.RequestObject("foo"))
 	})
 
 	t.Run("requesting revision on closed process", func(t *testing.T) {
-		process, queue := newInterceptedQueue(t, ctx, "#!/bin/sh")
+		process, queue := newInterceptedObjectQueue(t, ctx, "#!/bin/sh")
 
 		process.close()
 
-		require.Equal(t, fmt.Errorf("cannot request revision: %w", os.ErrClosed), queue.RequestRevision("foo"))
+		require.Equal(t, fmt.Errorf("cannot request revision: %w", os.ErrClosed), queue.RequestObject("foo"))
 	})
 
 	t.Run("single request", func(t *testing.T) {
-		_, queue := newInterceptedQueue(t, ctx, fmt.Sprintf(`#!/bin/sh
+		_, queue := newInterceptedObjectQueue(t, ctx, fmt.Sprintf(`#!/bin/sh
 			read revision
 			echo "%s blob ${#revision}"
 			echo "${revision}"
 		`, oid))
 
-		require.NoError(t, queue.RequestRevision("foo"))
+		require.NoError(t, queue.RequestObject("foo"))
 		require.NoError(t, queue.Flush())
 
 		requireRevision(t, queue, "foo")
 	})
 
 	t.Run("multiple request", func(t *testing.T) {
-		_, queue := newInterceptedQueue(t, ctx, fmt.Sprintf(`#!/bin/sh
+		_, queue := newInterceptedObjectQueue(t, ctx, fmt.Sprintf(`#!/bin/sh
 			while read revision
 			do
 				echo "%s blob ${#revision}"
@@ -272,10 +272,10 @@ func TestRequestQueue_RequestRevision(t *testing.T) {
 			done
 		`, oid))
 
-		require.NoError(t, queue.RequestRevision("foo"))
-		require.NoError(t, queue.RequestRevision("bar"))
-		require.NoError(t, queue.RequestRevision("baz"))
-		require.NoError(t, queue.RequestRevision("qux"))
+		require.NoError(t, queue.RequestObject("foo"))
+		require.NoError(t, queue.RequestObject("bar"))
+		require.NoError(t, queue.RequestObject("baz"))
+		require.NoError(t, queue.RequestObject("qux"))
 		require.NoError(t, queue.Flush())
 
 		requireRevision(t, queue, "foo")
@@ -285,7 +285,7 @@ func TestRequestQueue_RequestRevision(t *testing.T) {
 	})
 
 	t.Run("multiple request with intermediate flushing", func(t *testing.T) {
-		_, queue := newInterceptedQueue(t, ctx, fmt.Sprintf(`#!/bin/sh
+		_, queue := newInterceptedObjectQueue(t, ctx, fmt.Sprintf(`#!/bin/sh
 			while read revision
 			do
 				read flush
@@ -306,14 +306,105 @@ func TestRequestQueue_RequestRevision(t *testing.T) {
 			"foo",
 			"qux",
 		} {
-			require.NoError(t, queue.RequestRevision(revision))
+			require.NoError(t, queue.RequestObject(revision))
 			require.NoError(t, queue.Flush())
 			requireRevision(t, queue, revision)
 		}
 	})
 }
 
-func newInterceptedQueue(t *testing.T, ctx context.Context, script string) (ObjectReader, *requestQueue) {
+func TestRequestQueue_RequestInfo(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+
+	oid := git.ObjectID(strings.Repeat("1", gittest.DefaultObjectHash.EncodedLen()))
+	expectedInfo := &ObjectInfo{oid, "blob", 955}
+
+	requireRevision := func(t *testing.T, queue *requestQueue) {
+		info, err := queue.ReadInfo()
+		require.NoError(t, err)
+
+		require.NoError(t, err)
+		require.Equal(t, info, expectedInfo)
+	}
+
+	t.Run("requesting revision on closed queue", func(t *testing.T) {
+		_, queue := newInterceptedInfoQueue(t, ctx, "#!/bin/sh")
+		queue.close()
+
+		require.Equal(t, fmt.Errorf("cannot request revision: %w", os.ErrClosed), queue.RequestInfo("foo"))
+	})
+
+	t.Run("requesting revision on closed process", func(t *testing.T) {
+		process, queue := newInterceptedInfoQueue(t, ctx, "#!/bin/sh")
+
+		process.close()
+
+		require.Equal(t, fmt.Errorf("cannot request revision: %w", os.ErrClosed), queue.RequestInfo("foo"))
+	})
+
+	t.Run("single request", func(t *testing.T) {
+		_, queue := newInterceptedInfoQueue(t, ctx, fmt.Sprintf(`#!/bin/sh
+			read revision
+			echo "%s blob 955"
+		`, oid))
+
+		require.NoError(t, queue.RequestInfo("foo"))
+		require.NoError(t, queue.Flush())
+
+		requireRevision(t, queue)
+	})
+
+	t.Run("multiple request", func(t *testing.T) {
+		_, queue := newInterceptedInfoQueue(t, ctx, fmt.Sprintf(`#!/bin/sh
+			while read revision
+			do
+				echo "%s blob 955"
+			done
+		`, oid))
+
+		require.NoError(t, queue.RequestInfo("foo"))
+		require.NoError(t, queue.RequestInfo("bar"))
+		require.NoError(t, queue.RequestInfo("baz"))
+		require.NoError(t, queue.RequestInfo("qux"))
+		require.NoError(t, queue.Flush())
+
+		requireRevision(t, queue)
+		requireRevision(t, queue)
+		requireRevision(t, queue)
+		requireRevision(t, queue)
+	})
+
+	t.Run("multiple request with intermediate flushing", func(t *testing.T) {
+		_, queue := newInterceptedInfoQueue(t, ctx, fmt.Sprintf(`#!/bin/sh
+			while read revision
+			do
+				read flush
+				if test "$flush" != "FLUSH"
+				then
+					echo "expected a flush"
+					exit 1
+				fi
+
+				echo "%s blob 955"
+			done
+		`, oid))
+
+		for _, revision := range []git.Revision{
+			"foo",
+			"bar",
+			"foo",
+			"qux",
+		} {
+			require.NoError(t, queue.RequestInfo(revision))
+			require.NoError(t, queue.Flush())
+			requireRevision(t, queue)
+		}
+	})
+}
+
+func newInterceptedObjectQueue(t *testing.T, ctx context.Context, script string) (ObjectReader, *requestQueue) {
 	cfg := testcfg.Build(t)
 	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
@@ -332,6 +423,31 @@ func newInterceptedQueue(t *testing.T, ctx context.Context, script string) (Obje
 	t.Cleanup(reader.close)
 
 	queue, cleanup, err := reader.objectQueue(ctx, "trace")
+	require.NoError(t, err)
+	t.Cleanup(cleanup)
+
+	return reader, queue
+}
+
+func newInterceptedInfoQueue(t *testing.T, ctx context.Context, script string) (ObjectInfoReader, *requestQueue) {
+	cfg := testcfg.Build(t)
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+	})
+
+	commandFactory := gittest.NewInterceptingCommandFactory(t, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
+		return script
+	})
+	repoExecutor := repoExecutor{
+		GitRepo:       repo,
+		gitCmdFactory: commandFactory,
+	}
+
+	reader, err := newObjectInfoReader(ctx, &repoExecutor, nil)
+	require.NoError(t, err)
+	t.Cleanup(reader.close)
+
+	queue, cleanup, err := reader.infoQueue(ctx, "trace")
 	require.NoError(t, err)
 	t.Cleanup(cleanup)
 
