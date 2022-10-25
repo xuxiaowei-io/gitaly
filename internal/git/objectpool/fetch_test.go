@@ -241,30 +241,29 @@ func TestFetchFromOrigin_refs(t *testing.T) {
 func testFetchFromOriginRefs(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	cfg, pool, _ := setupObjectPool(t, ctx)
+	cfg, pool, repoProto := setupObjectPool(t, ctx)
+
+	// Initialize the object pool and verify that it ain't yet got any references.
 	poolPath := pool.FullPath()
+	require.NoError(t, pool.Init(ctx))
+	require.Empty(t, gittest.Exec(t, cfg, "-C", poolPath, "for-each-ref", "--format=%(refname)"))
 
-	// Init the source repo with a bunch of refs.
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		SkipCreationViaService: true,
-	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	repoPath, err := repo.Path()
+	require.NoError(t, err)
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries())
-	for _, ref := range []string{"refs/heads/master", "refs/environments/1", "refs/tags/lightweight-tag"} {
-		gittest.Exec(t, cfg, "-C", repoPath, "update-ref", ref, commitID.String())
+	// Initialize the repository with a bunch of references.
+	commitID := gittest.WriteCommit(t, cfg, repoPath)
+	for _, ref := range []git.ReferenceName{"refs/heads/master", "refs/environments/1", "refs/tags/lightweight-tag"} {
+		gittest.WriteRef(t, cfg, repoPath, ref, commitID)
 	}
 	gittest.WriteTag(t, cfg, repoPath, "annotated-tag", commitID.Revision(), gittest.WriteTagConfig{
 		Message: "tag message",
 	})
 
-	require.NoError(t, pool.Init(ctx))
-
-	// The pool shouldn't have any refs yet.
-	require.Empty(t, gittest.Exec(t, cfg, "-C", poolPath, "for-each-ref", "--format=%(refname)"))
-
+	// Fetch from the pool member. This should pull in all references we have just created in
+	// that repository into the pool.
 	require.NoError(t, pool.FetchFromOrigin(ctx, repo))
-
 	require.Equal(t,
 		[]string{
 			"refs/remotes/origin/environments/1",
@@ -275,6 +274,8 @@ func testFetchFromOriginRefs(t *testing.T, ctx context.Context) {
 		strings.Split(text.ChompBytes(gittest.Exec(t, cfg, "-C", poolPath, "for-each-ref", "--format=%(refname)")), "\n"),
 	)
 
+	// We don't want to see "FETCH_HEAD" though: it's useless and may take quite some time to
+	// write out in Git.
 	require.NoFileExists(t, filepath.Join(poolPath, "FETCH_HEAD"))
 }
 
