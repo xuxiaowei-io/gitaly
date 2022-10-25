@@ -55,9 +55,11 @@ func TestFromRepo_failures(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg, pool, repoProto := setupObjectPool(t, ctx)
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	locator := config.NewLocator(cfg)
-	testRepoPath := filepath.Join(cfg.Storages[0].Path, repo.GetRelativePath())
+
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	repoPath, err := repo.Path()
+	require.NoError(t, err)
 
 	// no alternates file
 	poolFromRepo, err := FromRepo(locator, pool.gitCmdFactory, nil, nil, nil, repo)
@@ -87,11 +89,11 @@ func TestFromRepo_failures(t *testing.T) {
 		},
 	}
 
-	require.NoError(t, os.MkdirAll(filepath.Join(testRepoPath, "objects", "info"), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "objects", "info"), 0o755))
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			alternateFilePath := filepath.Join(testRepoPath, "objects", "info", "alternates")
+			alternateFilePath := filepath.Join(repoPath, "objects", "info", "alternates")
 			require.NoError(t, os.WriteFile(alternateFilePath, tc.fileContent, 0o644))
 			poolFromRepo, err := FromRepo(locator, pool.gitCmdFactory, nil, nil, nil, repo)
 			require.Equal(t, tc.expectedErr, err)
@@ -108,14 +110,14 @@ func TestCreate(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg, pool, repoProto := setupObjectPool(t, ctx)
+
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-	testRepoPath := filepath.Join(cfg.Storages[0].Path, repo.GetRelativePath())
-
-	masterSha := gittest.Exec(t, cfg, "-C", testRepoPath, "show-ref", "master")
-
-	err := pool.Create(ctx, repo)
+	repoPath, err := repo.Path()
 	require.NoError(t, err)
+
+	masterSha := gittest.Exec(t, cfg, "-C", repoPath, "show-ref", "master")
+
+	require.NoError(t, pool.Create(ctx, repo))
 
 	require.True(t, pool.IsValid())
 
@@ -124,7 +126,7 @@ func TestCreate(t *testing.T) {
 
 	// origin is set
 	out := gittest.Exec(t, cfg, "-C", pool.FullPath(), "remote", "get-url", "origin")
-	assert.Equal(t, testRepoPath, strings.TrimRight(string(out), "\n"))
+	assert.Equal(t, repoPath, strings.TrimRight(string(out), "\n"))
 
 	// refs exist
 	out = gittest.Exec(t, cfg, "-C", pool.FullPath(), "show-ref", "refs/heads/master")

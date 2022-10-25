@@ -107,8 +107,10 @@ func testFetchFromOriginFsck(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
 	cfg, pool, repoProto := setupObjectPool(t, ctx)
+
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-	repoPath := filepath.Join(cfg.Storages[0].Path, repo.GetRelativePath())
+	repoPath, err := repo.Path()
+	require.NoError(t, err)
 
 	require.NoError(t, pool.Init(ctx))
 	require.NoError(t, pool.FetchFromOrigin(ctx, repo), "seed pool")
@@ -123,7 +125,7 @@ func testFetchFromOriginFsck(t *testing.T, ctx context.Context) {
 		gittest.WithBranch("branch"),
 	)
 
-	err := pool.FetchFromOrigin(ctx, repo)
+	err = pool.FetchFromOrigin(ctx, repo)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "duplicateEntries: contains duplicate file entries")
 }
@@ -194,8 +196,10 @@ func testFetchFromOriginRefUpdates(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
 	cfg, pool, repoProto := setupObjectPool(t, ctx)
+
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-	repoPath := filepath.Join(cfg.Storages[0].Path, repo.GetRelativePath())
+	repoPath, err := repo.Path()
+	require.NoError(t, err)
 
 	poolPath := pool.FullPath()
 
