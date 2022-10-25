@@ -28,72 +28,62 @@ func TestFetchFromOrigin_dangling(t *testing.T) {
 func testFetchFromOriginDangling(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	cfg, pool, repoProto := setupObjectPool(t, ctx, withSeededRepo)
+	cfg, pool, repoProto := setupObjectPool(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-	require.NoError(t, pool.Init(ctx))
-	require.NoError(t, pool.FetchFromOrigin(ctx, repo), "seed pool")
-
-	const (
-		existingTree   = "07f8147e8e73aab6c935c296e8cdc5194dee729b"
-		existingCommit = "7975be0116940bf2ad4321f79d02a55c5f7779aa"
-		existingBlob   = "c60514b6d3d6bf4bec1030f70026e34dfbd69ad5"
-	)
-
-	// We want to have some objects that are guaranteed to be dangling. Use
-	// random data to make each object unique.
-	nonce, err := text.RandomHex(4)
+	repoPath, err := repo.Path()
 	require.NoError(t, err)
 
-	// A blob with random contents should be unique.
-	newBlob := gittest.WriteBlob(t, cfg, pool.FullPath(), []byte(nonce))
-
-	// A tree with a randomly named blob entry should be unique.
-	newTree := gittest.WriteTree(t, cfg, pool.FullPath(), []gittest.TreeEntry{
-		{Mode: "100644", OID: git.ObjectID(existingBlob), Path: nonce},
+	// Write some reachable objects into the object pool member and fetch them into the pool.
+	blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("contents"))
+	treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+		{Mode: "100644", OID: blobID, Path: "reachable"},
 	})
-
-	// A commit with a random message should be unique.
-	newCommit := gittest.WriteCommit(t, cfg, pool.FullPath(),
-		gittest.WithTreeEntries(gittest.TreeEntry{
-			OID: git.ObjectID(existingTree), Path: nonce, Mode: "040000",
-		}),
+	commitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithTree(treeID),
+		gittest.WithBranch("master"),
 	)
+	require.NoError(t, pool.Init(ctx))
+	require.NoError(t, pool.FetchFromOrigin(ctx, repo))
 
-	// A tag with random hex characters in its name should be unique.
-	newTagName := "tag-" + nonce
-	newTag := gittest.WriteTag(t, cfg, pool.FullPath(), newTagName, existingCommit, gittest.WriteTagConfig{
-		Message: "msg",
+	// We now write a bunch of objects into the object pool that are not referenced by anything.
+	// These are thus "dangling".
+	unreachableBlob := gittest.WriteBlob(t, cfg, pool.FullPath(), []byte("unreachable"))
+	unreachableTree := gittest.WriteTree(t, cfg, pool.FullPath(), []gittest.TreeEntry{
+		{Mode: "100644", OID: blobID, Path: "unreachable"},
 	})
+	unreachableCommit := gittest.WriteCommit(t, cfg, pool.FullPath(),
+		gittest.WithMessage("unreachable"),
+		gittest.WithTree(treeID),
+	)
+	unreachableTag := gittest.WriteTag(t, cfg, pool.FullPath(), "unreachable", commitID.Revision(), gittest.WriteTagConfig{
+		Message: "unreachable",
+	})
+	// `WriteTag()` automatically creates a reference and thus makes the annotated tag
+	// reachable. We thus delete the reference here again.
+	gittest.Exec(t, cfg, "-C", pool.FullPath(), "update-ref", "-d", "refs/tags/unreachable")
 
-	// `git tag` automatically creates a ref, so our new tag is not dangling.
-	// Deleting the ref should fix that.
-	gittest.Exec(t, cfg, "-C", pool.FullPath(), "update-ref", "-d", "refs/tags/"+newTagName)
-
+	// git-fsck(1) should report the newly created unreachable objects as dangling.
 	fsckBefore := gittest.Exec(t, cfg, "-C", pool.FullPath(), "fsck", "--connectivity-only", "--dangling")
-	fsckBeforeLines := strings.Split(string(fsckBefore), "\n")
+	require.Equal(t, strings.Join([]string{
+		fmt.Sprintf("dangling blob %s", unreachableBlob),
+		fmt.Sprintf("dangling tag %s", unreachableTag),
+		fmt.Sprintf("dangling commit %s", unreachableCommit),
+		fmt.Sprintf("dangling tree %s", unreachableTree),
+	}, "\n"), text.ChompBytes(fsckBefore))
 
-	for _, l := range []string{
-		fmt.Sprintf("dangling blob %s", newBlob),
-		fmt.Sprintf("dangling tree %s", newTree),
-		fmt.Sprintf("dangling commit %s", newCommit),
-		fmt.Sprintf("dangling tag %s", newTag),
-	} {
-		require.Contains(t, fsckBeforeLines, l, "test setup sanity check")
-	}
+	// We expect this second run to convert the dangling objects into non-dangling objects.
+	require.NoError(t, pool.FetchFromOrigin(ctx, repo))
 
-	// We expect this second run to convert the dangling objects into
-	// non-dangling objects.
-	require.NoError(t, pool.FetchFromOrigin(ctx, repo), "second fetch")
-
-	refsAfter := gittest.Exec(t, cfg, "-C", pool.FullPath(), "for-each-ref", "--format=%(refname) %(objectname)")
-	refsAfterLines := strings.Split(string(refsAfter), "\n")
-	for _, id := range []git.ObjectID{newBlob, newTree, newCommit, newTag} {
-		require.Contains(t, refsAfterLines, fmt.Sprintf("refs/dangling/%s %s", id, id))
-	}
-
-	require.NoFileExists(t, filepath.Join(pool.FullPath(), "info", "refs"))
-	require.NoFileExists(t, filepath.Join(pool.FullPath(), "objects", "info", "packs"))
+	// Each of the dangling objects should have gotten a new dangling reference.
+	danglingRefs := gittest.Exec(t, cfg, "-C", pool.FullPath(), "for-each-ref", "--format=%(refname) %(objectname)", "refs/dangling/")
+	require.Equal(t, strings.Join([]string{
+		fmt.Sprintf("refs/dangling/%[1]s %[1]s", unreachableBlob),
+		fmt.Sprintf("refs/dangling/%[1]s %[1]s", unreachableTree),
+		fmt.Sprintf("refs/dangling/%[1]s %[1]s", unreachableTag),
+		fmt.Sprintf("refs/dangling/%[1]s %[1]s", unreachableCommit),
+	}, "\n"), text.ChompBytes(danglingRefs))
+	// And git-fsck(1) shouldn't report the objects as dangling anymore.
+	require.Empty(t, gittest.Exec(t, cfg, "-C", pool.FullPath(), "fsck", "--connectivity-only", "--dangling"))
 }
 
 func TestFetchFromOrigin_fsck(t *testing.T) {
