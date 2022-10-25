@@ -32,6 +32,8 @@ func WriteTag(
 	targetRevision git.Revision,
 	optionalConfig ...WriteTagConfig,
 ) git.ObjectID {
+	tb.Helper()
+
 	require.Less(tb, len(optionalConfig), 2, "only a single config may be passed")
 
 	var config WriteTagConfig
