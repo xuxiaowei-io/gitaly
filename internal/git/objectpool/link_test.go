@@ -19,6 +19,8 @@ import (
 )
 
 func TestLink(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	cfg, pool, repoProto := setupObjectPool(t, ctx)
@@ -48,6 +50,7 @@ func TestLink(t *testing.T) {
 
 func TestLink_transactional(t *testing.T) {
 	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	cfg, pool, poolMemberProto := setupObjectPool(t, ctx)
@@ -72,7 +75,9 @@ func TestLink_transactional(t *testing.T) {
 	require.Equal(t, 2, len(txManager.Votes()))
 }
 
-func TestLinkRemoveBitmap(t *testing.T) {
+func TestLink_removeBitmap(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	cfg, pool, repoProto := setupObjectPool(t, ctx)
@@ -117,7 +122,9 @@ func listBitmaps(t *testing.T, repoPath string) []string {
 	return bitmaps
 }
 
-func TestLinkAbsoluteLinkExists(t *testing.T) {
+func TestLink_absoluteLinkExists(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	cfg, pool, repoProto := setupObjectPool(t, ctx)
