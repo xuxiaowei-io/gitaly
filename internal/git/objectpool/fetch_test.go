@@ -14,7 +14,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
@@ -195,17 +194,17 @@ func testFetchFromOriginRefUpdates(t *testing.T, ctx context.Context) {
 	require.NoError(t, pool.Init(ctx))
 	require.NoError(t, pool.FetchFromOrigin(ctx, repo), "seed pool")
 
-	oldRefs := map[string]string{
+	oldRefs := map[string]git.ObjectID{
 		"heads/csv":   "3dd08961455abf80ef9115f4afdc1c6f968b503c",
 		"tags/v1.1.0": "8a2a6eb295bb170b34c24c76c49ed0e9b2eaf34b",
 	}
 
 	for ref, oid := range oldRefs {
-		require.Equal(t, oid, resolveRef(t, cfg, repoPath, "refs/"+ref), "look up %q in source", ref)
-		require.Equal(t, oid, resolveRef(t, cfg, poolPath, "refs/remotes/origin/"+ref), "look up %q in pool", ref)
+		require.Equal(t, oid, gittest.ResolveRevision(t, cfg, repoPath, "refs/"+ref))
+		require.Equal(t, oid, gittest.ResolveRevision(t, cfg, poolPath, "refs/remotes/origin/"+ref))
 	}
 
-	newRefs := map[string]string{
+	newRefs := map[string]git.ObjectID{
 		"heads/csv":   "46abbb087fcc0fd02c340f0f2f052bd2c7708da3",
 		"tags/v1.1.0": "646ece5cfed840eca0a4feb21bcd6a81bb19bda3",
 	}
@@ -217,19 +216,19 @@ func testFetchFromOriginRefUpdates(t *testing.T, ctx context.Context) {
 	for i := 0; i < 32; i++ {
 		newRefs[fmt.Sprintf("heads/branch-%d", i)] = gittest.WriteCommit(t, cfg, repoPath,
 			gittest.WithMessage(strconv.Itoa(i)),
-		).String()
+		)
 	}
 
 	for ref, oid := range newRefs {
 		require.NotEqual(t, oid, oldRefs[ref], "sanity check of new refs")
-		gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/"+ref, oid)
-		require.Equal(t, oid, resolveRef(t, cfg, repoPath, "refs/"+ref), "look up %q in source after update", ref)
+		gittest.WriteRef(t, cfg, repoPath, git.ReferenceName("refs/"+ref), oid)
+		require.Equal(t, oid, gittest.ResolveRevision(t, cfg, repoPath, "refs/"+ref))
 	}
 
 	require.NoError(t, pool.FetchFromOrigin(ctx, repo), "update pool")
 
 	for ref, oid := range newRefs {
-		require.Equal(t, oid, resolveRef(t, cfg, poolPath, "refs/remotes/origin/"+ref), "look up %q in pool after update", ref)
+		require.Equal(t, oid, gittest.ResolveRevision(t, cfg, poolPath, "refs/remotes/origin/"+ref))
 	}
 
 	looseRefs := testhelper.MustRunCommand(t, nil, "find", filepath.Join(poolPath, "refs"), "-type", "f")
@@ -300,9 +299,4 @@ func testFetchFromOriginMissingPool(t *testing.T, ctx context.Context) {
 		require.NoError(t, err)
 		require.True(t, pool.Exists())
 	}
-}
-
-func resolveRef(t *testing.T, cfg config.Cfg, repo string, ref string) string {
-	out := gittest.Exec(t, cfg, "-C", repo, "rev-parse", ref)
-	return text.ChompBytes(out)
 }
