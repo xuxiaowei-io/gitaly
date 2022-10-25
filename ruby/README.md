@@ -7,22 +7,22 @@ speed up the Gitaly migration project.
 
 ## Architecture
 
-Gitaly-ruby is a minimal Ruby gRPC service which should only receive
+`gitaly-ruby` is a minimal Ruby gRPC service which should only receive
 requests from its (Go) parent Gitaly process. The Gitaly parent
 handles authentication, logging, metrics, configuration file parsing
 etc.
 
 The Gitaly parent is also responsible for starting and (if necessary)
-restarting Gitaly-ruby.
+restarting `gitaly-ruby`.
 
 ## Authentication
 
-Gitaly-ruby listens on a Unix socket in a temporary directory with
+`gitaly-ruby` listens on a Unix socket in a temporary directory with
 mode 0700. It runs as the same user as the Gitaly parent process.
 
 ## Testing
 
-There are three sets of test that exercise gitaly-ruby:
+There are three sets of test that exercise `gitaly-ruby`:
 
 - Top-level Go integration tests
 - Rspec integration tests (`spec/gitaly`)
@@ -37,7 +37,7 @@ tests only, without recompiling the Go parts then do the following:
 
 ## Development
 
-Gitaly-ruby is only meant to be spawned by Gitaly itself. But, during
+`gitaly-ruby` is only meant to be spawned by Gitaly itself. But, during
 development you may want to try spawning it in a terminal yourself.
 You can do that with the following incantation:
 

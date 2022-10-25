@@ -6,7 +6,8 @@ Except for the license granted herein to GitLab B.V. and recipients of software
 distributed by GitLab B.V., you reserve all right, title, and interest in and to
 your Contributions.
 
-All contributions are subject to the Developer Certificate of Origin and license set out at [docs.gitlab.com/ce/legal/developer_certificate_of_origin](https://docs.gitlab.com/ce/legal/developer_certificate_of_origin).
+All contributions are subject to the
+[Developer Certificate of Origin and License](https://docs.gitlab.com/ee/legal/developer_certificate_of_origin).
 
 _This notice should stay as the first item in the CONTRIBUTING.md file._
 
@@ -225,7 +226,7 @@ Signed-off-by: Alice <alice@example.com>
 ## Gitaly Maintainers
 
 This project is maintained by the [members](https://gitlab.com/groups/gl-gitaly/-/group_members)
-of @gl-gitaly.
+of `@gl-gitaly`.
 
 ## Development Process
 
@@ -251,15 +252,15 @@ See the [beginner's guide](doc/beginners_guide.md).
 
 ## Debug Logging
 
-Debug logging can be enabled in Gitaly using `level = "debug"` under `[logging]` in config.toml.
+Debug logging can be enabled in Gitaly using `level = "debug"` under `[logging]` in `config.toml`.
 
 ## Git Tracing
 
 Gitaly will reexport `GIT_TRACE*` [environment variables](https://git-scm.com/book/en/v2/Git-Internals-Environment-Variables) if they are set.
 
-This can be an aid to debugging some sets of problems. For example, if you would like to know what git is doing internally, you can set `GIT_TRACE=true`:
+This can be an aid to debugging some sets of problems. For example, if you would like to know what Git is doing internally, you can set `GIT_TRACE=true`:
 
-Note that since git stderr stream will be logged at debug level, you need to enable debug logging in `config.toml`.
+Note that since Git stderr stream will be logged at debug level, you need to enable debug logging in `config.toml`.
 
 ```shell
 $ GIT_TRACE=true ./gitaly config.toml
@@ -283,7 +284,7 @@ DEBU[0037] 13:04:31.079286 git.c:322               trace: built-in: git 'rerere'
 
 ## Testing with Instrumentation
 
-If you would like to test with instrumentation and prometheus metrics, use the `instrumented-cluster` docker compose configuration in
+If you would like to test with instrumentation and Prometheus metrics, use the `instrumented-cluster` Docker compose configuration in
 `_support/instrumented-cluster`. This cluster will create several services:
 
 |*Service*|*Endpoint*|
@@ -294,7 +295,7 @@ If you would like to test with instrumentation and prometheus metrics, use the `
 | cAdvisor | [http://localhost:8080](http://localhost:8080) |
 | Grafana | [http://localhost:3000](http://localhost:3000) use default login `admin`/`admin` |
 
-The gitaly service uses the `gitlab/gitaly:latest` image, which you need to build using `make docker` before starting the cluster.
+The Gitaly service uses the `gitlab/gitaly:latest` image, which you need to build using `make docker` before starting the cluster.
 
 Once you have the `gitlab/gitaly:latest` image, start the cluster from the `_support/instrumented-cluster` directory using:
 
@@ -308,7 +309,7 @@ Note that the Gitaly service is intentionally limited to 50% CPU and 200MB of me
 
 Once the cluster has started, it will clone the `gitlab-org/gitlab-ce` repository, for testing purposes.
 
-This can then be used for testing, using tools like [gitaly-bench](https://gitlab.com/gitlab-org/gitaly-bench):
+This can then be used for testing, using tools like [`gitaly-bench`](https://gitlab.com/gitlab-org/gitaly-bench):
 
 ```shell
 gitaly-bench -concurrency 100 -repo gitlab-org/gitlab-ce.git find-all-branches
