@@ -203,7 +203,7 @@ messages should not typically be larger than 1MB.
 
 #### Stream response of many small items
 
-```go
+```protobuf
 rpc FooBar(FooBarRequest) returns (stream FooBarResponse);
 
 message FooBarResponse {
@@ -222,7 +222,7 @@ the bookkeeping you can use
 
 #### Single large item split over multiple messages
 
-```go
+```protobuf
 rpc FooBar(FooBarRequest) returns (stream FooBarResponse);
 
 message FooBarResponse {
@@ -254,7 +254,7 @@ to turn your gRPC response stream into an `io.Writer`.
 
 #### Many large items split over multiple messages
 
-```go
+```protobuf
 rpc FooBar(FooBarRequest) returns (stream FooBarResponse);
 
 message FooBarResponse {
