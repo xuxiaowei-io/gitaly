@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 )
@@ -24,11 +25,15 @@ func TestNewObjectPool(t *testing.T) {
 
 	locator := config.NewLocator(cfg)
 
-	_, err := NewObjectPool(locator, nil, nil, nil, nil, cfg.Storages[0].Name, gittest.NewObjectPoolName(t))
-	require.NoError(t, err)
+	t.Run("successful", func(t *testing.T) {
+		_, err := NewObjectPool(locator, nil, nil, nil, nil, cfg.Storages[0].Name, gittest.NewObjectPoolName(t))
+		require.NoError(t, err)
+	})
 
-	_, err = NewObjectPool(locator, nil, nil, nil, nil, "mepmep", gittest.NewObjectPoolName(t))
-	require.Error(t, err, "creating pool in storage that does not exist should fail")
+	t.Run("unknown storage", func(t *testing.T) {
+		_, err := NewObjectPool(locator, nil, nil, nil, nil, "mepmep", gittest.NewObjectPoolName(t))
+		require.Equal(t, helper.ErrInvalidArgumentf("GetStorageByName: no such storage: %q", "mepmep"), err)
+	})
 }
 
 func TestFromRepo_successful(t *testing.T) {
@@ -54,45 +59,46 @@ func TestFromRepo_failures(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, pool, repoProto := setupObjectPool(t, ctx)
-	locator := config.NewLocator(cfg)
+	t.Run("without alternates file", func(t *testing.T) {
+		cfg, pool, repoProto := setupObjectPool(t, ctx)
+		locator := config.NewLocator(cfg)
+		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-	repoPath, err := repo.Path()
-	require.NoError(t, err)
+		poolFromRepo, err := FromRepo(locator, pool.gitCmdFactory, nil, nil, nil, repo)
+		require.Equal(t, ErrAlternateObjectDirNotExist, err)
+		require.Nil(t, poolFromRepo)
+	})
 
-	// no alternates file
-	poolFromRepo, err := FromRepo(locator, pool.gitCmdFactory, nil, nil, nil, repo)
-	require.Equal(t, ErrAlternateObjectDirNotExist, err)
-	require.Nil(t, poolFromRepo)
-
-	// with an alternates file
-	testCases := []struct {
+	for _, tc := range []struct {
 		desc        string
 		fileContent []byte
 		expectedErr error
 	}{
 		{
-			desc:        "points to non existent path",
+			desc:        "alternates points to non existent path",
 			fileContent: []byte("/tmp/invalid_path"),
 			expectedErr: ErrInvalidPoolRepository,
 		},
 		{
-			desc:        "empty file",
+			desc:        "alternates is empty",
 			fileContent: nil,
 			expectedErr: nil,
 		},
 		{
-			desc:        "first line commented out",
+			desc:        "alternates is commented",
 			fileContent: []byte("#/tmp/invalid/path"),
 			expectedErr: ErrAlternateObjectDirNotExist,
 		},
-	}
-
-	require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "objects", "info"), 0o755))
-
-	for _, tc := range testCases {
+	} {
 		t.Run(tc.desc, func(t *testing.T) {
+			cfg, pool, repoProto := setupObjectPool(t, ctx)
+			locator := config.NewLocator(cfg)
+
+			repo := localrepo.NewTestRepo(t, cfg, repoProto)
+			repoPath, err := repo.Path()
+			require.NoError(t, err)
+
+			require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "objects", "info"), 0o755))
 			alternateFilePath := filepath.Join(repoPath, "objects", "info", "alternates")
 			require.NoError(t, os.WriteFile(alternateFilePath, tc.fileContent, 0o644))
 			poolFromRepo, err := FromRepo(locator, pool.gitCmdFactory, nil, nil, nil, repo)
