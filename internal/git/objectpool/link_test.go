@@ -81,11 +81,13 @@ func TestLink_removeBitmap(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, pool, repoProto := setupObjectPool(t, ctx, withSeededRepo)
+	cfg, pool, repoProto := setupObjectPool(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	repoPath, err := repo.Path()
 	require.NoError(t, err)
+
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
 
 	// Initialize the pool and pull in all references from the repository.
 	require.NoError(t, pool.Init(ctx))

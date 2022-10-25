@@ -52,7 +52,7 @@ func TestClone_fsck(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, pool, repoProto := setupObjectPool(t, ctx, withSeededRepo)
+	cfg, pool, repoProto := setupObjectPool(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	repoPath, err := repo.Path()
@@ -66,7 +66,7 @@ func TestClone_fsck(t *testing.T) {
 
 	gittest.WriteCommit(t, cfg, repoPath,
 		gittest.WithParents(),
-		gittest.WithBranch("main"),
+		gittest.WithBranch("master"),
 		gittest.WithTree(treeID),
 	)
 

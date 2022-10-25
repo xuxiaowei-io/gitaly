@@ -114,13 +114,13 @@ func TestCreate(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, pool, repoProto := setupObjectPool(t, ctx, withSeededRepo)
+	cfg, pool, repoProto := setupObjectPool(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	repoPath, err := repo.Path()
 	require.NoError(t, err)
 
-	commitID := gittest.ResolveRevision(t, cfg, repoPath, "refs/heads/master")
+	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
 
 	require.NoError(t, pool.Create(ctx, repo))
 	require.True(t, pool.IsValid())

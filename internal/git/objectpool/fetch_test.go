@@ -162,8 +162,12 @@ func TestFetchFromOrigin_bitmapHashCache(t *testing.T) {
 func testFetchFromOriginBitmapHashCache(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	cfg, pool, repoProto := setupObjectPool(t, ctx, withSeededRepo)
+	cfg, pool, repoProto := setupObjectPool(t, ctx)
+
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	repoPath, err := repo.Path()
+	require.NoError(t, err)
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
 
 	require.NoError(t, pool.Init(ctx))
 	require.NoError(t, pool.FetchFromOrigin(ctx, repo))
