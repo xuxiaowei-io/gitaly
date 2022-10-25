@@ -2,13 +2,13 @@
 
 SQL migration files are stored in `/internal/praefect/datastore/migrations`.
 
-The underlying migration engine we use is [github.com/rubenv/sql-migrate](https://github.com/rubenv/sql-migrate).
+The underlying migration engine we use is [`github.com/rubenv/sql-migrate`](https://github.com/rubenv/sql-migrate).
 
 To generate a new migration, run the `_support/new-migration` script from the top level of your Gitaly checkout.
 
 Praefect SQL migrations should be applied automatically when you deploy Praefect. If you want to run them manually, run:
 
-```
+```shell
 praefect -config /path/to/config.toml sql-migrate
 ```
 
@@ -25,13 +25,13 @@ praefect -config /path/to/config.toml sql-migrate -ignore-unknown=false
 
 To see which migrations have been applied, run:
 
-```
+```shell
 praefect -config /path/to/config.toml sql-migrate-status
 ```
 
 For example, the output may look like:
 
-```
+```plaintext
 +----------------------------------------+--------------------------------------+
 |               MIGRATION                |               APPLIED                |
 +----------------------------------------+--------------------------------------+
@@ -46,8 +46,8 @@ For example, the output may look like:
 The first column contains the migration ID, and the second contains one of three items:
 
 1. The date on which the migration was applied
-2. `no` if the migration has not yet been applied
-3. `unknown migration` if the migration is not known by the current Praefect binary
+1. `no` if the migration has not yet been applied
+1. `unknown migration` if the migration is not known by the current Praefect binary
 
 ## Rolling back migrations
 
@@ -60,7 +60,7 @@ Count the number of migrations you want to roll back.
 
 ### 2. Perform a dry run and verify that the right migrations are getting rolled back
 
-```
+```shell
 praefect -config /path/to/config.toml sql-migrate-down NUM_ROLLBACK
 ```
 
@@ -73,6 +73,6 @@ roll back.
 We use the same command as before, but we pass `-f` to indicate we
 want destructive changes (the rollbacks) to happen.
 
-```
+```shell
 praefect -config /path/to/config.toml sql-migrate-down -f NUM_ROLLBACK
 ```

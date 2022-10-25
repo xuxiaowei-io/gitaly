@@ -45,7 +45,7 @@ route Workhorse->Gitaly traffic through a gRPC proxy. If you need a
 proxy between Workhorse and Gitaly, use a TCP proxy instead.
 
 For more information about how and why we introduced sidechannels, see
-https://gitlab.com/groups/gitlab-com/gl-infra/-/epics/463.
+<https://gitlab.com/groups/gitlab-com/gl-infra/-/epics/463>.
 
 ## Implementation details
 
