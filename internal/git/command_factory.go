@@ -489,14 +489,6 @@ func (cf *ExecCommandFactory) combineArgs(ctx context.Context, gitConfig []confi
 // globalConfiguration returns the global Git configuration that should be applied to every Git
 // command.
 func (cf *ExecCommandFactory) globalConfiguration(ctx context.Context) ([]GlobalOption, error) {
-	// It's fine to ask for the Git version whenever we spawn a command: the value is cached
-	// nowadays, so this would typically only boil down to a single stat(3P) call to determine
-	// whether the cache is stale or not.
-	gitVersion, err := cf.GitVersion(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("determining Git version: %w", err)
-	}
-
 	// As global options may cancel out each other, we have a clearly defined order in which
 	// globals get applied. The order is similar to how git handles configuration options from
 	// most general to most specific. This allows callsites to override options which would
@@ -556,24 +548,14 @@ func (cf *ExecCommandFactory) globalConfiguration(ctx context.Context) ([]Global
 		ConfigPair{Key: "commitGraph.generationVersion", Value: "1"},
 	}
 
-	// Git v2.36.0 introduced new fine-grained configuration for what data should be fsynced and
-	// how that should happen.
-	if gitVersion.HasGranularFsyncConfig() {
-		config = append(
-			config,
-			// This is the same as below, but in addition we're also syncing packed-refs
-			// and loose refs to disk. This fixes a long-standing issue we've had where
-			// hard reboots of a server could end up corrupting loose references.
-			ConfigPair{Key: "core.fsync", Value: "objects,derived-metadata,reference"},
-			ConfigPair{Key: "core.fsyncMethod", Value: "fsync"},
-		)
-	} else {
-		// Synchronize object files to lessen the likelihood of
-		// repository corruption in case the server crashes.
-		config = append(
-			config, ConfigPair{Key: "core.fsyncObjectFiles", Value: "true"},
-		)
-	}
+	// We configure for what data should be fsynced and how that should happen.
+	// Synchronize object files, packed-refs and loose refs to disk to lessen the likelihood
+	// of repository corruption in case the server crashes.
+	config = append(
+		config,
+		ConfigPair{Key: "core.fsync", Value: "objects,derived-metadata,reference"},
+		ConfigPair{Key: "core.fsyncMethod", Value: "fsync"},
+	)
 
 	return config, nil
 }

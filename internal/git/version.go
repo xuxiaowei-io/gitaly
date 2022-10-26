@@ -13,12 +13,12 @@ import (
 // also update the following locations:
 // - https://gitlab.com/gitlab-org/gitaly/blob/master/README.md#installation
 // - https://gitlab.com/gitlab-org/gitaly/blob/master/.gitlab-ci.yml
-// - https://gitlab.com/gitlab-org/gitlab-foss/blob/master/.gitlab-ci.yml
-// - https://gitlab.com/gitlab-org/gitlab-foss/blob/master/lib/system_check/app/git_version_check.rb
+// - https://docs.gitlab.com/ee/install/installation.html#software-requirements
+// - https://docs.gitlab.com/ee/update/ (see e.g. https://docs.gitlab.com/ee/update/#1440)
 var minimumVersion = Version{
-	versionString: "2.33.0",
+	versionString: "2.37.0",
 	major:         2,
-	minor:         33,
+	minor:         37,
 	patch:         0,
 	rc:            false,
 
@@ -71,23 +71,6 @@ func (v Version) String() string {
 // supported by Gitaly.
 func (v Version) IsSupported() bool {
 	return !v.LessThan(minimumVersion)
-}
-
-// FlushesUpdaterefStatus determines whether the given Git version properly flushes status messages
-// in git-update-ref(1).
-func (v Version) FlushesUpdaterefStatus() bool {
-	// This has been released with v2.33.1 and will be part of v2.34.0. It's also contained in
-	// our custom-patched version v2.33.0-gl3. So everything newer than these versions is
-	// supported.
-	return !v.LessThan(Version{
-		major: 2, minor: 33, patch: 0, gl: 3,
-	})
-}
-
-// HasGranularFsyncConfig determines whether the given Git version supports the new granular fsync
-// configuration via `core.fsync`. This new config has been introduced with Git v2.36.0.
-func (v Version) HasGranularFsyncConfig() bool {
-	return !v.LessThan(Version{major: 2, minor: 36, rc: true})
 }
 
 // LessThan determines whether the version is older than another version.

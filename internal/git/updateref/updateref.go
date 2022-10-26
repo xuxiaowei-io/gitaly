@@ -30,10 +30,6 @@ type Updater struct {
 	stdout     *bufio.Reader
 	stderr     *bytes.Buffer
 	objectHash git.ObjectHash
-
-	// withStatusFlushing determines whether the Git version used supports proper flushing of
-	// status messages.
-	withStatusFlushing bool
 }
 
 // UpdaterOpt is a type representing options for the Updater.
@@ -82,23 +78,17 @@ func New(ctx context.Context, repo git.RepositoryExecutor, opts ...UpdaterOpt) (
 		return nil, err
 	}
 
-	gitVersion, err := repo.GitVersion(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("determining git version: %w", err)
-	}
-
 	objectHash, err := repo.ObjectHash(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("detecting object hash: %w", err)
 	}
 
 	updater := &Updater{
-		repo:               repo,
-		cmd:                cmd,
-		stderr:             &stderr,
-		stdout:             bufio.NewReader(cmd),
-		objectHash:         objectHash,
-		withStatusFlushing: gitVersion.FlushesUpdaterefStatus(),
+		repo:       repo,
+		cmd:        cmd,
+		stderr:     &stderr,
+		stdout:     bufio.NewReader(cmd),
+		objectHash: objectHash,
 	}
 
 	// By writing an explicit "start" to the command, we enable
@@ -185,22 +175,19 @@ func (u *Updater) setState(state string) error {
 	// "<command>: ok" lines printed to its stdout. Ideally, we should thus verify here whether
 	// the command was successfully executed by checking for exactly this line, otherwise we
 	// cannot be sure whether the command has correctly been processed by Git or if an error was
-	// raised. Unfortunately, Git only knows to flush these reports either starting with v2.34.0
-	// or with our backported version v2.33.0.gl3.
-	if u.withStatusFlushing {
-		line, err := u.stdout.ReadString('\n')
-		if err != nil {
-			// We need to explicitly cancel the command here and wait for it to
-			// terminate such that we can retrieve the command's stderr in a race-free
-			// manner.
-			_ = u.Cancel()
+	// raised.
+	line, err := u.stdout.ReadString('\n')
+	if err != nil {
+		// We need to explicitly cancel the command here and wait for it to
+		// terminate such that we can retrieve the command's stderr in a race-free
+		// manner.
+		_ = u.Cancel()
 
-			return fmt.Errorf("state update to %q failed: %w, stderr: %q", state, err, u.stderr)
-		}
+		return fmt.Errorf("state update to %q failed: %w, stderr: %q", state, err, u.stderr)
+	}
 
-		if line != fmt.Sprintf("%s: ok\n", state) {
-			return fmt.Errorf("state update to %q not successful: expected ok, got %q", state, line)
-		}
+	if line != fmt.Sprintf("%s: ok\n", state) {
+		return fmt.Errorf("state update to %q not successful: expected ok, got %q", state, line)
 	}
 
 	return nil

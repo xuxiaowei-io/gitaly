@@ -131,10 +131,6 @@ func TestUpdater_concurrentLocking(t *testing.T) {
 
 	cfg := testcfg.Build(t)
 
-	if !gittest.GitSupportsStatusFlushing(t, ctx, cfg) {
-		t.Skip("git does not support flushing yet, which is known to be flaky")
-	}
-
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
@@ -228,10 +224,6 @@ func TestUpdater_cancel(t *testing.T) {
 
 	cfg, repo, repoPath, updater := setupUpdater(t, ctx)
 
-	if !gittest.GitSupportsStatusFlushing(t, ctx, cfg) {
-		t.Skip("git does not support flushing yet, which is known to be flaky")
-	}
-
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 
 	// Queue the branch for deletion and lock it.
@@ -286,22 +278,15 @@ func TestUpdater_capturesStderr(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, _, _, updater := setupUpdater(t, ctx)
+	_, _, _, updater := setupUpdater(t, ctx)
 
 	newValue := git.ObjectID(strings.Repeat("1", gittest.DefaultObjectHash.EncodedLen()))
 	oldValue := gittest.DefaultObjectHash.ZeroOID
 
 	require.NoError(t, updater.Update("refs/heads/main", newValue, oldValue))
 
-	var expectedErr string
-	if gittest.GitSupportsStatusFlushing(t, ctx, cfg) {
-		expectedErr = fmt.Sprintf("state update to \"commit\" failed: EOF, stderr: \"fatal: commit: cannot update ref '%[1]s': "+
-			"trying to write ref '%[1]s' with nonexistent object %[2]s\\n\"", "refs/heads/main", newValue)
-	} else {
-		expectedErr = fmt.Sprintf("git update-ref: exit status 128, stderr: "+
-			"\"fatal: commit: cannot update ref '%[1]s': "+
-			"trying to write ref '%[1]s' with nonexistent object %[2]s\\n\"", "refs/heads/main", newValue)
-	}
+	expectedErr := fmt.Sprintf("state update to \"commit\" failed: EOF, stderr: \"fatal: commit: cannot update ref '%[1]s': "+
+		"trying to write ref '%[1]s' with nonexistent object %[2]s\\n\"", "refs/heads/main", newValue)
 
 	err := updater.Commit()
 	require.NotNil(t, err)
