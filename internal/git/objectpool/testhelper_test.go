@@ -23,12 +23,37 @@ func TestMain(m *testing.M) {
 	testhelper.Run(m)
 }
 
-func setupObjectPool(t *testing.T, ctx context.Context) (config.Cfg, *ObjectPool, *gitalypb.Repository) {
+type setupObjectPoolConfig struct {
+	seededRepo bool
+}
+
+var withSeededRepo = setupObjectPoolConfig{
+	seededRepo: true,
+}
+
+func setupObjectPool(t *testing.T, ctx context.Context, optionalCfg ...setupObjectPoolConfig) (config.Cfg, *ObjectPool, *gitalypb.Repository) {
 	t.Helper()
 
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	require.LessOrEqual(t, len(optionalCfg), 1, "must either pass one or no optional configs")
+	var setupCfg setupObjectPoolConfig
+	if len(optionalCfg) == 1 {
+		setupCfg = optionalCfg[0]
+	}
 
-	gittest.FixGitLabTestRepoForCommitGraphs(t, cfg, repoPath)
+	var seed string
+	if setupCfg.seededRepo {
+		seed = gittest.SeedGitLabTest
+	}
+
+	cfg := testcfg.Build(t)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   seed,
+	})
+
+	if setupCfg.seededRepo {
+		gittest.FixGitLabTestRepoForCommitGraphs(t, cfg, repoPath)
+	}
 
 	gitCommandFactory := gittest.NewCommandFactory(t, cfg, git.WithSkipHooks())
 

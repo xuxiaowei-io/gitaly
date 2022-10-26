@@ -28,7 +28,7 @@ func TestFetchFromOrigin_dangling(t *testing.T) {
 func testFetchFromOriginDangling(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	cfg, pool, repoProto := setupObjectPool(t, ctx)
+	cfg, pool, repoProto := setupObjectPool(t, ctx, withSeededRepo)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	require.NoError(t, pool.Init(ctx))
@@ -162,7 +162,7 @@ func TestFetchFromOrigin_bitmapHashCache(t *testing.T) {
 func testFetchFromOriginBitmapHashCache(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	cfg, pool, repoProto := setupObjectPool(t, ctx)
+	cfg, pool, repoProto := setupObjectPool(t, ctx, withSeededRepo)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	require.NoError(t, pool.Init(ctx))
@@ -183,7 +183,7 @@ func TestFetchFromOrigin_refUpdates(t *testing.T) {
 func testFetchFromOriginRefUpdates(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	cfg, pool, repoProto := setupObjectPool(t, ctx)
+	cfg, pool, repoProto := setupObjectPool(t, ctx, withSeededRepo)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	repoPath, err := repo.Path()

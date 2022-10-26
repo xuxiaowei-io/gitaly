@@ -81,7 +81,7 @@ func TestLink_removeBitmap(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, pool, repoProto := setupObjectPool(t, ctx)
+	cfg, pool, repoProto := setupObjectPool(t, ctx, withSeededRepo)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	repoPath, err := repo.Path()
