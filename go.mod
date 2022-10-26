@@ -6,7 +6,7 @@ go 1.17
 replace github.com/go-enry/go-license-detector/v4 => github.com/pavelmemory/go-license-detector/v4 v4.3.1-0.20220801101717-a7c9e28533cf
 
 require (
-	github.com/ProtonMail/go-crypto v0.0.0-20220930113650-c6815a8c17ad
+	github.com/ProtonMail/go-crypto v0.0.0-20221026131551-cf6655e29de4
 	github.com/beevik/ntp v0.3.0
 	github.com/cloudflare/tableflip v1.2.3
 	github.com/containerd/cgroups v1.0.4
