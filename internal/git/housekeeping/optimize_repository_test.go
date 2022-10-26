@@ -152,6 +152,7 @@ func TestPackRefsIfNeeded(t *testing.T) {
 }
 
 func TestOptimizeRepository(t *testing.T) {
+	t.Parallel()
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
@@ -383,6 +384,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 }
 
 func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
+	t.Parallel()
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
