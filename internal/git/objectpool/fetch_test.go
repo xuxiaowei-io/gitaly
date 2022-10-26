@@ -5,7 +5,6 @@ package objectpool
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -168,23 +167,13 @@ func testFetchFromOriginBitmapHashCache(t *testing.T, ctx context.Context) {
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	require.NoError(t, pool.Init(ctx))
-	require.NoError(t, pool.FetchFromOrigin(ctx, repo), "seed pool")
+	require.NoError(t, pool.FetchFromOrigin(ctx, repo))
 
-	packDir := filepath.Join(pool.FullPath(), "objects/pack")
-	packEntries, err := os.ReadDir(packDir)
+	bitmaps, err := filepath.Glob(filepath.Join(pool.FullPath(), "objects", "pack", "*.bitmap"))
 	require.NoError(t, err)
+	require.Len(t, bitmaps, 1)
 
-	var bitmap string
-	for _, ent := range packEntries {
-		if name := ent.Name(); strings.HasSuffix(name, ".bitmap") {
-			bitmap = filepath.Join(packDir, name)
-			break
-		}
-	}
-
-	require.NotEmpty(t, bitmap, "path to bitmap file")
-
-	gittest.TestBitmapHasHashcache(t, bitmap)
+	gittest.TestBitmapHasHashcache(t, bitmaps[0])
 }
 
 func TestFetchFromOrigin_refUpdates(t *testing.T) {
