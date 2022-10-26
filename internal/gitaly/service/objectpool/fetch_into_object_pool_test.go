@@ -24,6 +24,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
@@ -39,8 +40,12 @@ import (
 
 func TestFetchIntoObjectPool_Success(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.ObjectPoolDontInitOnFetch).Run(t, testFetchIntoObjectPoolsuccess)
+}
 
-	ctx := testhelper.Context(t)
+func testFetchIntoObjectPoolsuccess(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, repo, repoPath, _, client := setup(t, ctx)
 
 	parentID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
@@ -97,6 +102,11 @@ func TestFetchIntoObjectPool_Success(t *testing.T) {
 
 func TestFetchIntoObjectPool_transactional(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.ObjectPoolDontInitOnFetch).Run(t, testFetchIntoObjectPoolTransactional)
+}
+
+func testFetchIntoObjectPoolTransactional(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	var votes []voting.Vote
 	var votesMutex sync.Mutex
@@ -109,7 +119,6 @@ func TestFetchIntoObjectPool_transactional(t *testing.T) {
 		},
 	}
 
-	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 	cfg.SocketPath = runObjectPoolServer(
 		t, cfg, config.NewLocator(cfg),
@@ -221,6 +230,11 @@ func TestFetchIntoObjectPool_transactional(t *testing.T) {
 
 func TestFetchIntoObjectPool_CollectLogStatistics(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.ObjectPoolDontInitOnFetch).Run(t, testFetchIntoObjectPoolcollectLogStatistics)
+}
+
+func testFetchIntoObjectPoolcollectLogStatistics(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	cfg := testcfg.Build(t)
 	testcfg.BuildGitalyHooks(t, cfg)
@@ -230,7 +244,6 @@ func TestFetchIntoObjectPool_CollectLogStatistics(t *testing.T) {
 	logger, hook := test.NewNullLogger()
 	cfg.SocketPath = runObjectPoolServer(t, cfg, locator, logger)
 
-	ctx := testhelper.Context(t)
 	ctx = ctxlogrus.ToContext(ctx, log.WithField("test", "logging"))
 	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
@@ -267,6 +280,11 @@ func TestFetchIntoObjectPool_CollectLogStatistics(t *testing.T) {
 
 func TestFetchIntoObjectPool_Failure(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.ObjectPoolDontInitOnFetch).Run(t, testFetchIntoObjectPoolfailure)
+}
+
+func testFetchIntoObjectPoolfailure(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	cfgBuilder := testcfg.NewGitalyCfgBuilder()
 	cfg, repos := cfgBuilder.BuildWithRepoAt(t, t.Name())
@@ -284,7 +302,6 @@ func TestFetchIntoObjectPool_Failure(t *testing.T) {
 		txManager,
 		housekeeping.NewManager(cfg.Prometheus, txManager),
 	)
-	ctx := testhelper.Context(t)
 
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
 
@@ -335,8 +352,12 @@ func TestFetchIntoObjectPool_Failure(t *testing.T) {
 
 func TestFetchIntoObjectPool_dfConflict(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.ObjectPoolDontInitOnFetch).Run(t, testFetchIntoObjectPoolDfConflict)
+}
 
-	ctx := testhelper.Context(t)
+func testFetchIntoObjectPoolDfConflict(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, repo, repoPath, _, client := setup(t, ctx)
 
 	pool := initObjectPool(t, cfg, cfg.Storages[0])
