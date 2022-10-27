@@ -443,13 +443,6 @@ trigger-qa:
     GITALY_SERVER_ALTERNATIVE_REPO: $CI_PROJECT_URL
     ee: "true"
   rules:
-    - if: $CI_MERGE_REQUEST_SOURCE_BRANCH_SHA != ""
-      when: manual
-      allow_failure: true
-      variables:
-        # Downstream pipeline does not fetch the merged result SHA.
-        # Fix: https://gitlab.com/gitlab-org/omnibus-gitlab/-/issues/6482
-        GITALY_SERVER_VERSION: $CI_MERGE_REQUEST_SOURCE_BRANCH_SHA
     - when: manual
       allow_failure: true
 
