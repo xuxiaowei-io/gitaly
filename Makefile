@@ -368,7 +368,7 @@ test-ruby: rspec
 test-go: prepare-tests
 	${Q}$(call run_go_tests)
 
-.PHONY: debug-go-tests
+.PHONY: debug-test-go
 ## Run Go tests in delve debugger.
 debug-test-go: prepare-tests prepare-debug
 	${Q}$(call debug_go_tests)
