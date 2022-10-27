@@ -9,9 +9,13 @@ Encoding.default_external = Encoding::UTF_8
 require 'fileutils'
 
 require 'grpc'
+require 'openssl'
+# There is a small bug in the upstream Labkit::FIPS. That gem replaces native
+# SHAx implementation of Digest gem by OpenSSL version. Somehow, when building
+# in FIPS mode, Digest::SHA1 must be required explicitly.
+require 'digest/sha1'
 require 'gitlab-labkit'
 require 'rugged'
-require 'openssl'
 
 require_relative '../lib/gitaly_server.rb'
 require_relative '../lib/gitaly_server/sentry_interceptor.rb'
