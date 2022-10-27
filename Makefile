@@ -516,7 +516,7 @@ lint-proto: ${PROTOC} ${PROTOLINT} ${PROTOC_GEN_GITALY_LINT}
 .PHONY: build-proto-gem
 ## Build the Ruby Gem that contains Gitaly's Protobuf definitons.
 build-proto-gem:
-	${Q}"${SOURCE_DIR}"/tools/protogem/generate-proto-ruby "${BUILD_DIR}/gitaly.gem"
+	${Q}"${SOURCE_DIR}"/tools/protogem/build-proto-gem "${BUILD_DIR}/gitaly.gem"
 
 .PHONY: publish-proto-gem
 ## Build and publish the Ruby Gem that contains Gitaly's Protobuf definitons.
