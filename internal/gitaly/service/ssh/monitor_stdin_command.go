@@ -13,7 +13,7 @@ import (
 func monitorStdinCommand(ctx context.Context, gitCmdFactory git.CommandFactory, stdin io.Reader, stdout, stderr io.Writer, sc git.SubCmd, opts ...git.CmdOpt) (*command.Command, *pktline.ReadMonitor, error) {
 	stdinPipe, monitor, cleanup, err := pktline.NewReadMonitor(ctx, stdin)
 	if err != nil {
-		return nil, nil, fmt.Errorf("create monitor: %v", err)
+		return nil, nil, fmt.Errorf("create monitor: %w", err)
 	}
 
 	cmd, err := gitCmdFactory.NewWithoutRepo(ctx, sc, append([]git.CmdOpt{
@@ -25,7 +25,7 @@ func monitorStdinCommand(ctx context.Context, gitCmdFactory git.CommandFactory, 
 	stdinPipe.Close() // this now belongs to cmd
 	if err != nil {
 		cleanup()
-		return nil, nil, fmt.Errorf("start cmd: %v", err)
+		return nil, nil, fmt.Errorf("start cmd: %w", err)
 	}
 
 	return cmd, monitor, err
