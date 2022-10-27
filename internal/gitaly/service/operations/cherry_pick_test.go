@@ -290,9 +290,10 @@ func TestServer_UserCherryPick_failedValidations(t *testing.T) {
 	destinationBranch := "cherry-picking-dst"
 
 	testCases := []struct {
-		desc    string
-		request *gitalypb.UserCherryPickRequest
-		code    codes.Code
+		desc            string
+		request         *gitalypb.UserCherryPickRequest
+		expectedErrCode codes.Code
+		expectedErrMsg  string
 	}{
 		{
 			desc: "empty user",
@@ -303,7 +304,8 @@ func TestServer_UserCherryPick_failedValidations(t *testing.T) {
 				BranchName: []byte(destinationBranch),
 				Message:    []byte("Cherry-picking " + cherryPickedCommit.Id),
 			},
-			code: codes.InvalidArgument,
+			expectedErrCode: codes.InvalidArgument,
+			expectedErrMsg:  "rpc error: code = InvalidArgument desc = UserCherryPick: empty User",
 		},
 		{
 			desc: "empty commit",
@@ -314,7 +316,8 @@ func TestServer_UserCherryPick_failedValidations(t *testing.T) {
 				BranchName: []byte(destinationBranch),
 				Message:    []byte("Cherry-picking " + cherryPickedCommit.Id),
 			},
-			code: codes.InvalidArgument,
+			expectedErrCode: codes.InvalidArgument,
+			expectedErrMsg:  "rpc error: code = InvalidArgument desc = UserCherryPick: empty Commit",
 		},
 		{
 			desc: "empty branch name",
@@ -325,7 +328,8 @@ func TestServer_UserCherryPick_failedValidations(t *testing.T) {
 				BranchName: nil,
 				Message:    []byte("Cherry-picking " + cherryPickedCommit.Id),
 			},
-			code: codes.InvalidArgument,
+			expectedErrCode: codes.InvalidArgument,
+			expectedErrMsg:  "rpc error: code = InvalidArgument desc = UserCherryPick: empty BranchName",
 		},
 		{
 			desc: "empty message",
@@ -336,14 +340,17 @@ func TestServer_UserCherryPick_failedValidations(t *testing.T) {
 				BranchName: []byte(destinationBranch),
 				Message:    nil,
 			},
-			code: codes.InvalidArgument,
+			expectedErrCode: codes.InvalidArgument,
+			expectedErrMsg:  "rpc error: code = InvalidArgument desc = UserCherryPick: empty Message",
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			_, err := client.UserCherryPick(ctx, testCase.request)
-			testhelper.RequireGrpcCode(t, err, testCase.code)
+
+			testhelper.RequireGrpcCode(t, err, testCase.expectedErrCode)
+			require.EqualError(t, err, testCase.expectedErrMsg)
 		})
 	}
 }
