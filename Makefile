@@ -382,6 +382,7 @@ debug-test-go: prepare-tests prepare-debug
 
 .PHONY: test
 ## Run Go benchmarks.
+bench: override TEST_FORMAT := standard-verbose
 bench: override TEST_OPTIONS := ${TEST_OPTIONS} -bench=. -run=^$
 bench: ${BENCHMARK_REPO} prepare-tests
 	${Q}$(call run_go_tests)
