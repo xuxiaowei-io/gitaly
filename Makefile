@@ -383,7 +383,8 @@ debug-test-go: prepare-tests prepare-debug
 .PHONY: test
 ## Run Go benchmarks.
 bench: override TEST_OPTIONS := ${TEST_OPTIONS} -bench=. -run=^$
-bench: ${BENCHMARK_REPO} test-go
+bench: ${BENCHMARK_REPO} prepare-tests
+	${Q}$(call run_go_tests)
 
 .PHONY: test-with-proxies
 test-with-proxies: override TEST_OPTIONS  := ${TEST_OPTIONS} -exec ${SOURCE_DIR}/_support/bad-proxies
