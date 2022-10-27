@@ -1,3 +1,7 @@
+# frozen_string_literal: true
+
+require 'digest'
+
 FactoryBot.define do
   sequence(:gitaly_commit_id) { Digest::SHA1.hexdigest(Time.now.to_f.to_s) }
 

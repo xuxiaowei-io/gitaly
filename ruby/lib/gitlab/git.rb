@@ -14,7 +14,6 @@ require 'active_support/core_ext/enumerable'
 
 require_relative 'git_logger.rb'
 require_relative 'rails_logger.rb'
-require_relative 'gollum.rb'
 require_relative 'config.rb'
 
 dir = __dir__
