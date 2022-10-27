@@ -65,7 +65,7 @@ GEM
     gitlab-gollum-rugged_adapter (0.4.4.4.gitlab.1)
       mime-types (>= 1.15)
       rugged (~> 1.0)
-    gitlab-labkit (0.25.0)
+    gitlab-labkit (0.26.0)
       actionpack (>= 5.0.0, < 8.0.0)
       activesupport (>= 5.0.0, < 8.0.0)
       grpc (>= 1.37)
@@ -231,7 +231,7 @@ DEPENDENCIES
   github-linguist (~> 7.20.0)
   gitlab-gollum-lib (~> 4.2.7.10.gitlab.2)
   gitlab-gollum-rugged_adapter (~> 0.4.4.4.gitlab.1)
-  gitlab-labkit (~> 0.25)
+  gitlab-labkit (~> 0.26)
   gitlab-license_finder
   gitlab-markup (~> 1.7.1)
   google-protobuf (~> 3.21.8)
