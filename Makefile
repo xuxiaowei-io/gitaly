@@ -29,7 +29,6 @@ BUILD_DIR        := ${SOURCE_DIR}/_build
 DEPENDENCY_DIR   := ${BUILD_DIR}/deps
 TOOLS_DIR        := ${BUILD_DIR}/tools
 GITALY_RUBY_DIR  := ${SOURCE_DIR}/ruby
-MODULE_VERSION   := $(notdir $(shell go list -m))
 
 # These variables may be overridden at runtime by top-level make
 ## The prefix where Gitaly binaries will be installed to. Binaries will end up
@@ -66,7 +65,7 @@ GOLANGCI_LINT_CONFIG  ?= ${SOURCE_DIR}/.golangci.yml
 GITALY_PACKAGE    := gitlab.com/gitlab-org/gitaly/v15
 BUILD_TIME        := $(shell date +"%Y%m%d.%H%M%S")
 GITALY_VERSION    := $(shell ${GIT} describe --match v* 2>/dev/null | sed 's/^v//' || cat ${SOURCE_DIR}/VERSION 2>/dev/null || echo unknown)
-GO_LDFLAGS        := -X ${GITALY_PACKAGE}/internal/version.version=${GITALY_VERSION} -X ${GITALY_PACKAGE}/internal/version.buildtime=${BUILD_TIME} -X ${GITALY_PACKAGE}/internal/version.moduleVersion=${MODULE_VERSION}
+GO_LDFLAGS        := -X ${GITALY_PACKAGE}/internal/version.version=${GITALY_VERSION} -X ${GITALY_PACKAGE}/internal/version.buildtime=${BUILD_TIME}
 SERVER_BUILD_TAGS := tracer_static,tracer_static_jaeger,tracer_static_stackdriver,continuous_profiler_stackdriver
 GIT2GO_BUILD_TAGS := static,system_libgit2
 
@@ -427,6 +426,11 @@ lint: ${GOLANGCI_LINT} libgit2 ${GITALY_PACKED_EXECUTABLES}
 ## Run Go linter and write back fixes to the files (not supported by all linters).
 lint-fix: ${GOLANGCI_LINT} libgit2 ${GITALY_PACKED_EXECUTABLES}
 	${Q}${GOLANGCI_LINT} run --fix --build-tags "${SERVER_BUILD_TAGS},${GIT2GO_BUILD_TAGS}" --out-format tab --config ${GOLANGCI_LINT_CONFIG} ${GOLANGCI_LINT_OPTIONS}
+
+.PHONY: lint-docs
+## Run Markdownlint to lint documentation.
+lint-docs:
+	${Q}markdownlint-cli2-config .markdownlint.yml README.md REVIEWING.md STYLE.md **/*.md || (echo "error: markdownlint-cli2 not found!")
 
 .PHONY: format
 ## Run Go formatter and adjust imports.

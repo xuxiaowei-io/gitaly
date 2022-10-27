@@ -14,7 +14,9 @@ code is accessible to different developers with varying setups.
 
 Use `%w` when wrapping errors with context.
 
-    fmt.Errorf("foo context: %w", err)
+```go
+fmt.Errorf("foo context: %w", err)
+```
 
 It allows to inspect the wrapped error by the caller with [`errors.As`](https://golang.org/pkg/errors/#As) and [`errors.Is`](https://golang.org/pkg/errors/#Is). More info about `errors` package capabilities could be found in the [blog post](https://blog.golang.org/go1.13-errors).
 
@@ -24,11 +26,13 @@ It is customary in Go to pass errors up the call stack and decorate
 them. To be a good neighbor to the rest of the call stack we should keep
 our errors short.
 
-    // Good
-    fmt.Errorf("peek diff line: %w", err)
+```go
+// Good
+fmt.Errorf("peek diff line: %w", err)
 
-    // Too long
-    fmt.Errorf("ParseDiffOutput: Unexpected error while peeking: %w", err)
+// Too long
+fmt.Errorf("ParseDiffOutput: Unexpected error while peeking: %w", err)
+```
 
 ### Use lower case in errors
 
@@ -211,9 +215,9 @@ func testHelper(tb testing.TB, ctx context.Context) {
 
 We like table-driven tests ([Table-driven tests using subtests](https://blog.golang.org/subtests#TOC_4.), [Cheney blog post], [Golang wiki]).
 
--   Use [subtests](https://blog.golang.org/subtests#TOC_4.) with your table-driven tests, using `t.Run`:
+- Use [subtests](https://blog.golang.org/subtests#TOC_4.) with your table-driven tests, using `t.Run`:
 
-```
+```go
 func TestTime(t *testing.T) {
     testCases := []struct {
         gmt  string
@@ -302,7 +306,7 @@ be implemented in a file called `testhelper_test.go`
 
 ## Git Commands
 
-Gitaly relies heavily on spawning git subprocesses to perform work. Any git
+Gitaly relies heavily on spawning Git subprocesses to perform work. Any Git
 commands spawned from Go code should use the constructs found in
 [`safecmd.go`](internal/git/safecmd.go). These constructs, all beginning with
 `Safe`, help prevent certain kinds of flag injection exploits. Proper usage is
@@ -310,15 +314,15 @@ important to mitigate these injection risks:
 
 - When toggling an option, prefer a longer flag over a short flag for
   readability.
-	- Desired: `git.Flag{Name: "--long-flag"}` is easier to read and audit
-	- Undesired: `git.Flag{Name: "-L"}`
+  - Desired: `git.Flag{Name: "--long-flag"}` is easier to read and audit
+  - Undesired: `git.Flag{Name: "-L"}`
 - When providing a variable to configure a flag, make sure to include the
   variable after an equal sign
-	- Desired: `[]git.Flag{Name: "-a="+foo}` prevents flag injection
-	- Undesired: `[]git.Flag(Name: "-a"+foo)` allows flag injection
+  - Desired: `[]git.Flag{Name: "-a="+foo}` prevents flag injection
+  - Undesired: `[]git.Flag(Name: "-a"+foo)` allows flag injection
 - Always define a flag's name via a constant, never use a variable:
-	- Desired: `[]git.Flag{Name: "-a"}`
-	- Undesired: `[]git.Flag{Name: foo}` is ambiguous and difficult to audit
+  - Desired: `[]git.Flag{Name: "-a"}`
+  - Undesired: `[]git.Flag{Name: foo}` is ambiguous and difficult to audit
 
 ## Go Imports Style
 
@@ -332,13 +336,13 @@ Example of **valid** usage:
 
 ```go
 import (
-	"context"
-	"io"
-	"os/exec"
+    "context"
+    "io"
+    "os/exec"
 
-	"gitlab.com/gitlab-org/gitaly/internal/command"
-	"gitlab.com/gitlab-org/gitaly/internal/git/alternates"
-	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
+    "gitlab.com/gitlab-org/gitaly/internal/command"
+    "gitlab.com/gitlab-org/gitaly/internal/git/alternates"
+    "gitlab.com/gitlab-org/gitaly/internal/git/repository"
 )
 ```
 
@@ -346,15 +350,15 @@ Example of **invalid** usage:
 
 ```go
 import (
-	"io"
-	"os/exec"
+    "io"
+    "os/exec"
 
-	"context"
+    "context"
 
-	"gitlab.com/gitlab-org/gitaly/internal/git/alternates"
-	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
+    "gitlab.com/gitlab-org/gitaly/internal/git/alternates"
+    "gitlab.com/gitlab-org/gitaly/internal/git/repository"
 
-	"gitlab.com/gitlab-org/gitaly/internal/command"
+    "gitlab.com/gitlab-org/gitaly/internal/command"
 )
 ```
 
@@ -398,7 +402,7 @@ func (scs SuperCoolService) MyAwesomeRPC(ctx context.Context, r Request) error {
 
     go func() {
         defer close(done)    // signal when the goroutine returns
-	doWork(r)
+    doWork(r)
     }()
 
     return nil

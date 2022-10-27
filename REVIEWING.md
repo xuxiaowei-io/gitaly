@@ -15,11 +15,12 @@ one reviewer.
 When a merge request is created, Danger bot will suggest two people for
 review. To spread the load across the team, it's generally recommended to assign
 these two for review. But it's not uncommon to swap out one or two of them when:
+
 - they are OOO
 - they know the context of the change already
 
 The complete list of eligible reviewers can be found at:
-https://about.gitlab.com/handbook/engineering/projects/#gitaly_assignments
+<https://about.gitlab.com/handbook/engineering/projects/#gitaly_assignments>
 
 For small changes it's fine to only chose one person for review. The contributor
 can ask the reviewer if they are okay with this.
@@ -41,7 +42,7 @@ outage, because causing an outage is not the right thing to do.
 Goals of these tips:
 
 1. Streamline the review and acceptance process: improve throughput
-2. Ensure a thorough review: minimize the number of problems that are discovered after merging
+1. Ensure a thorough review: minimize the number of problems that are discovered after merging
 
 ### Tips for the Contributor
 
@@ -127,6 +128,7 @@ You finished a review round and you are about to submit your review with the
 problem in the MR?
 
 For example:
+
 - the MR is solving the wrong problem
 - the MR is making a backwards incompatible change
 - the MR has a test that does not test the right thing
