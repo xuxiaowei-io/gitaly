@@ -1385,7 +1385,7 @@ func TestFailedUserCommitFilesRequestDueToHooks(t *testing.T) {
 	headerRequest := headerRequest(repoProto, gittest.TestUser, branchName, commitFilesMessage, "")
 	actionsRequest1 := createFileHeaderRequest(filePath)
 	actionsRequest2 := actionContentRequest("My content")
-	hookContent := []byte("#!/bin/sh\nprintenv | paste -sd ' ' -\nexit 1")
+	hookContent := []byte("#!/bin/sh\nprintenv | grep -e GL_ID -e GL_USERNAME | sort | paste -sd ' ' -\nexit 1")
 
 	for _, hookName := range GitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
