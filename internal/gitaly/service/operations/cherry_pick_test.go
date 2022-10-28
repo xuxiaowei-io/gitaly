@@ -280,7 +280,7 @@ func TestServer_UserCherryPick_failedValidations(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -288,6 +288,7 @@ func TestServer_UserCherryPick_failedValidations(t *testing.T) {
 	require.NoError(t, err)
 
 	destinationBranch := "cherry-picking-dst"
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, "master")
 
 	testCases := []struct {
 		desc            string
@@ -342,6 +343,18 @@ func TestServer_UserCherryPick_failedValidations(t *testing.T) {
 			},
 			expectedErrCode: codes.InvalidArgument,
 			expectedErrMsg:  "rpc error: code = InvalidArgument desc = UserCherryPick: empty Message",
+		},
+		{
+			desc: "commit not found",
+			request: &gitalypb.UserCherryPickRequest{
+				Repository: repoProto,
+				User:       gittest.TestUser,
+				Commit:     &gitalypb.GitCommit{Id: "will-not-be-found"},
+				BranchName: []byte(destinationBranch),
+				Message:    []byte("Cherry-picking not found"),
+			},
+			expectedErrCode: codes.NotFound,
+			expectedErrMsg:  "rpc error: code = NotFound desc = cherry-pick: commit lookup: commit not found: \"will-not-be-found\"",
 		},
 	}
 
