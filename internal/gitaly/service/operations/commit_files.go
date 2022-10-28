@@ -19,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -67,25 +68,62 @@ func (s *Server) UserCommitFiles(stream gitalypb.OperationService_UserCommitFile
 			customHookErr updateref.CustomHookError
 		)
 
-		switch {
-		case errors.As(err, &unknownErr):
-			// Problems that occur within git2go itself will still be returned
-			// as UnknownIndexErrors. The most common case of this would be
-			// creating an invalid path, e.g. '.git' but there are many other
-			// potential, if unusual, issues that could occur.
-			response = gitalypb.UserCommitFilesResponse{IndexError: unknownErr.Error()}
-		case errors.As(err, &indexErr):
-			response = gitalypb.UserCommitFilesResponse{IndexError: indexErr.Error()}
-		case errors.As(err, &customHookErr):
-			response = gitalypb.UserCommitFilesResponse{PreReceiveError: customHookErr.Error()}
-		case errors.As(err, new(git2go.InvalidArgumentError)):
-			return helper.ErrInvalidArgument(err)
-		default:
-			return err
-		}
+		if featureflag.UserCommitFilesStructuredErrors.IsEnabled(ctx) {
+			switch {
+			case errors.As(err, &unknownErr):
+				// Problems that occur within git2go itself will still be returned
+				// as UnknownIndexErrors. The most common case of this would be
+				// creating an invalid path, e.g. '.git' but there are many other
+				// potential, if unusual, issues that could occur.
+				return unknownErr
+			case errors.As(err, &indexErr):
+				detailedErr, err := helper.ErrWithDetails(
+					indexErr.GrpcError(),
+					&gitalypb.UserCommitFilesError{
+						Error: &gitalypb.UserCommitFilesError_IndexUpdate{
+							IndexUpdate: indexErr.Proto(),
+						},
+					},
+				)
+				if err != nil {
+					return helper.ErrInternalf("error details: %w", err)
+				}
+				return detailedErr
+			case errors.As(err, &customHookErr):
+				detailedErr, err := helper.ErrWithDetails(
+					helper.ErrPermissionDeniedf("denied by custom hooks"),
+					&gitalypb.UserCommitFilesError{
+						Error: &gitalypb.UserCommitFilesError_CustomHook{
+							CustomHook: customHookErr.Proto(),
+						},
+					},
+				)
+				if err != nil {
+					return helper.ErrInternalf("error details: %w", err)
+				}
+				return detailedErr
+			case errors.As(err, new(git2go.InvalidArgumentError)):
+				return helper.ErrInvalidArgument(err)
+			default:
+				return err
+			}
+		} else {
+			switch {
+			case errors.As(err, &unknownErr):
+				response = gitalypb.UserCommitFilesResponse{IndexError: unknownErr.Error()}
+			case errors.As(err, &indexErr):
+				response = gitalypb.UserCommitFilesResponse{IndexError: indexErr.Error()}
+			case errors.As(err, &customHookErr):
+				response = gitalypb.UserCommitFilesResponse{PreReceiveError: customHookErr.Error()}
+			case errors.As(err, new(git2go.InvalidArgumentError)):
+				return helper.ErrInvalidArgument(err)
+			default:
+				return err
+			}
 
-		ctxlogrus.Extract(ctx).WithError(err).Error("user commit files failed")
-		return stream.SendAndClose(&response)
+			ctxlogrus.Extract(ctx).WithError(err).Error("user commit files failed")
+			return stream.SendAndClose(&response)
+		}
 	}
 
 	return nil
