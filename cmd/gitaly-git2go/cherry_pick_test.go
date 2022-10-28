@@ -133,14 +133,16 @@ func TestCherryPick(t *testing.T) {
 		},
 		{
 			desc:           "fails on nonexistent ours commit",
-			expectedErrMsg: "cherry-pick: ours commit lookup: lookup commit \"nonexistent\": revspec 'nonexistent' not found",
+			expectedErrAs:  &git2go.CommitNotFoundError{},
+			expectedErrMsg: "cherry-pick: ours commit lookup: commit not found: \"nonexistent\"",
 		},
 		{
 			desc: "fails on nonexistent cherry-pick commit",
 			ours: []gittest.TreeEntry{
 				{Path: "file", Content: "fooqux", Mode: "100644"},
 			},
-			expectedErrMsg: "cherry-pick: commit lookup: lookup commit \"nonexistent\": revspec 'nonexistent' not found",
+			expectedErrAs:  &git2go.CommitNotFoundError{},
+			expectedErrMsg: "cherry-pick: commit lookup: commit not found: \"nonexistent\"",
 		},
 	}
 	for _, tc := range testcases {
