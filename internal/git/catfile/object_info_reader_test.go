@@ -398,7 +398,7 @@ func TestObjectInfoReader_queue(t *testing.T) {
 		defer cleanup()
 
 		_, _, err = reader.infoQueue(ctx, "trace")
-		require.Equal(t, errors.New("object info queue already in use"), err)
+		require.Equal(t, errors.New("object queue already in use"), err)
 
 		// After calling cleanup we should be able to create an object queue again.
 		cleanup()

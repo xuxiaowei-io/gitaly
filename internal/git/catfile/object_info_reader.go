@@ -68,7 +68,7 @@ restart:
 		// object that cannot exist. This causes Git to write an error and immediately flush
 		// stdout. The only downside is that we need to filter this error here, but that's
 		// acceptable while git-cat-file(1) doesn't yet have any way to natively flush.
-		if strings.HasPrefix(infoLine, flushCommand) {
+		if strings.HasPrefix(infoLine, flushCommandHack) {
 			goto restart
 		}
 
@@ -191,7 +191,7 @@ func (o *objectInfoReader) isDirty() bool {
 
 func (o *objectInfoReader) infoQueue(ctx context.Context, tracedMethod string) (*requestQueue, func(), error) {
 	if !atomic.CompareAndSwapInt32(&o.queueInUse, 0, 1) {
-		return nil, nil, fmt.Errorf("object info queue already in use")
+		return nil, nil, fmt.Errorf("object queue already in use")
 	}
 
 	trace := startTrace(ctx, o.counter, tracedMethod)
