@@ -15,13 +15,13 @@ gem 'rbtrace', require: false
 gem 'gitaly', '~> 15.5.0'
 
 # Labkit provides observability functionality
-gem 'gitlab-labkit', '~> 0.26'
+gem 'gitlab-labkit', '~> 0.28'
 
 # Detects the open source license the repository includes
 # This version needs to be in sync with GitLab CE/EE
 gem 'licensee', '~> 9.15'
 
-gem 'google-protobuf', '~> 3.21.8'
+gem 'google-protobuf', '~> 3.21.9'
 
 # Rails is currently blocked on the upgrade to the new major version for Redis,
 # so we don't upgrade either until the issue is resolved. This is an indirect
