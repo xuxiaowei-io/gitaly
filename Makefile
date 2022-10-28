@@ -483,11 +483,10 @@ cover: prepare-tests libgit2 ${GOCOVER_COBERTURA}
 .PHONY: proto
 ## Regenerate protobuf definitions.
 proto: SHARED_PROTOC_OPTS = --plugin=${PROTOC_GEN_GO} --plugin=${PROTOC_GEN_GO_GRPC} --plugin=${PROTOC_GEN_GITALY_PROTOLIST} --go_opt=paths=source_relative --go-grpc_opt=paths=source_relative
-proto: ${PROTOC} ${PROTOC_GEN_GO} ${PROTOC_GEN_GO_GRPC} ${PROTOC_GEN_GITALY_PROTOLIST} ${SOURCE_DIR}/.ruby-bundle
+proto: ${PROTOC} ${PROTOC_GEN_GO} ${PROTOC_GEN_GO_GRPC} ${PROTOC_GEN_GITALY_PROTOLIST}
 	${Q}mkdir -p ${SOURCE_DIR}/proto/go/gitalypb
 	${Q}rm -f ${SOURCE_DIR}/proto/go/gitalypb/*.pb.go
 	${PROTOC} ${SHARED_PROTOC_OPTS} -I ${SOURCE_DIR}/proto -I ${PROTOC_INSTALL_DIR}/include --go_out=${SOURCE_DIR}/proto/go/gitalypb --gitaly-protolist_out=proto_dir=${SOURCE_DIR}/proto,gitalypb_dir=${SOURCE_DIR}/proto/go/gitalypb:${SOURCE_DIR} --go-grpc_out=${SOURCE_DIR}/proto/go/gitalypb ${SOURCE_DIR}/proto/*.proto
-	${SOURCE_DIR}/tools/protogem/generate-proto-ruby
 	@ # this part is related to the generation of sources from testing proto files
 	${PROTOC} ${SHARED_PROTOC_OPTS} -I ${SOURCE_DIR}/proto -I ${SOURCE_DIR}/internal -I ${PROTOC_INSTALL_DIR}/include --go_out=${SOURCE_DIR}/internal --go-grpc_out=${SOURCE_DIR}/internal \
 		${SOURCE_DIR}/internal/praefect/mock/mock.proto \
@@ -504,13 +503,23 @@ lint-proto: ${PROTOC} ${PROTOLINT} ${PROTOC_GEN_GITALY_LINT}
 	${Q}${PROTOC} -I ${SOURCE_DIR}/proto -I ${PROTOC_INSTALL_DIR}/include --plugin=${PROTOC_GEN_GITALY_LINT} --gitaly-lint_out=${SOURCE_DIR} ${SOURCE_DIR}/proto/*.proto
 	${Q}${PROTOLINT} lint -config_dir_path=${SOURCE_DIR}/proto ${SOURCE_DIR}/proto
 
+.PHONY: build-proto-gem
+## Build the Ruby Gem that contains Gitaly's Protobuf definitons.
+build-proto-gem:
+	${Q}"${SOURCE_DIR}"/tools/protogem/generate-proto-ruby "${BUILD_DIR}/gitaly.gem"
+
+.PHONY: publish-proto-gem
+## Build and publish the Ruby Gem that contains Gitaly's Protobuf definitons.
+publish-proto-gem: build-proto-gem
+	${Q}gem push "${BUILD_DIR}/gitaly.gem"
+
 .PHONY: no-changes
 no-changes:
 	${Q}${GIT} diff --exit-code
 
 .PHONY: no-proto-changes
 no-proto-changes: proto | ${BUILD_DIR}
-	${Q}${GIT} diff --exit-code -- '*.pb.go' 'ruby/proto/gitaly'
+	${Q}${GIT} diff --exit-code -- '*.pb.go'
 
 .PHONY: dump-database-schema
 ## Dump the clean database schema of Praefect into a file.
