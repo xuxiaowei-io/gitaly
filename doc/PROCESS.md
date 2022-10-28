@@ -455,12 +455,14 @@ tagging a RC is a good way to make sure the gitlab feature branch has the proper
 
 ### Publishing the ruby gem
 
-If an updated version of the ruby proto gem is needed, it can be published to rubygems.org with the `tools/protogen/publish-gem` script.
+If an updated version of the ruby proto gem is needed, it can be published to
+rubygems.org with the `make publish-proto-gem` Makefile target.
 
 If the changes needed are not yet released, [create a release candidate](#creating-a-release-candidate) first.
 
-- Checkout the tag to publish (vX.Y.Z)
-- run `tools/protogen/publish-gem X.Y.Z`
+- Checkout the tag to publish (vX.Y.Z).
+- Run `make publish-proto-gem`, which automatically builds any publishes the
+  Protobuf Gem.
 
 ### Publishing the go module
 
