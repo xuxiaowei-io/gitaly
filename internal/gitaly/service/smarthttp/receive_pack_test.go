@@ -381,7 +381,7 @@ func TestPostReceivePack_requestValidation(t *testing.T) {
 					return helper.ErrInvalidArgumentf("repo scoped: invalid Repository")
 				}
 
-				return helper.ErrInvalidArgumentf("GetStorageByName: no such storage: %q", "fake")
+				return helper.ErrInvalidArgumentf(`GetStorageByName: no such storage: "fake"`)
 			}(),
 		},
 		{
@@ -392,7 +392,7 @@ func TestPostReceivePack_requestValidation(t *testing.T) {
 					return helper.ErrInvalidArgumentf("repo scoped: empty Repository")
 				}
 
-				return helper.ErrInvalidArgumentf("PostReceivePack: empty Repository")
+				return helper.ErrInvalidArgumentf("empty Repository")
 			}(),
 		},
 		{
@@ -409,7 +409,7 @@ func TestPostReceivePack_requestValidation(t *testing.T) {
 					return helper.ErrNotFoundf("mutator call: route repository mutator: get repository id: repository %q/%q not found", cfg.Storages[0].Name, "path/to/repo")
 				}
 
-				return helper.ErrInvalidArgumentf("PostReceivePack: empty GlId")
+				return helper.ErrInvalidArgumentf("empty GlId")
 			}(),
 		},
 		{
@@ -427,7 +427,7 @@ func TestPostReceivePack_requestValidation(t *testing.T) {
 					return helper.ErrNotFoundf("mutator call: route repository mutator: get repository id: repository %q/%q not found", cfg.Storages[0].Name, "path/to/repo")
 				}
 
-				return helper.ErrInvalidArgumentf("PostReceivePack: non-empty Data")
+				return helper.ErrInvalidArgumentf("non-empty Data")
 			}(),
 		},
 	} {
