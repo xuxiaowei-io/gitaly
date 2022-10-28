@@ -8,11 +8,11 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 )
 
-// IndexError is an error that was produced by performing an invalid operation on the index.
-type IndexError string
+// UnknownIndexError is an unspecified error that was produced by performing an invalid operation on the index.
+type UnknownIndexError string
 
-// Error returns the error message of the index error.
-func (err IndexError) Error() string { return string(err) }
+// Error returns the error message of the unknown index error.
+func (e UnknownIndexError) Error() string { return string(e) }
 
 // InvalidArgumentError is returned when an invalid argument is provided.
 type InvalidArgumentError string

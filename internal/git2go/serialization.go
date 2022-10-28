@@ -28,7 +28,7 @@ var registeredTypes = map[reflect.Type]struct{}{
 	reflect.TypeOf(HasConflictsError{}):      {},
 	reflect.TypeOf(ConflictingFilesError{}):  {},
 	reflect.TypeOf(EmptyError{}):             {},
-	reflect.TypeOf(IndexError("")):           {},
+	reflect.TypeOf(UnknownIndexError("")):    {},
 	reflect.TypeOf(ConflictError{}):          {},
 	reflect.TypeOf(CommitNotFoundError{}):    {},
 }
