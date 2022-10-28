@@ -1,0 +1,6 @@
+---
+pre-push:
+  commands:
+    verify-docs:
+      tags: documentation
+      run: make lint-docs
