@@ -84,7 +84,7 @@ func TestCherryPick(t *testing.T) {
 		commit           []gittest.TreeEntry
 		expected         map[string]string
 		expectedCommitID string
-		expectedErr      error
+		expectedErrAs    interface{}
 		expectedErrMsg   string
 	}{
 		{
@@ -114,7 +114,7 @@ func TestCherryPick(t *testing.T) {
 			commit: []gittest.TreeEntry{
 				{Path: "file", Content: "foobar", Mode: "100644"},
 			},
-			expectedErr:    git2go.ConflictingFilesError{},
+			expectedErrAs:  &git2go.ConflictingFilesError{},
 			expectedErrMsg: "cherry-pick: there are conflicting files",
 		},
 		{
@@ -128,7 +128,7 @@ func TestCherryPick(t *testing.T) {
 			commit: []gittest.TreeEntry{
 				{Path: "file", Content: "fooqux", Mode: "100644"},
 			},
-			expectedErr:    git2go.EmptyError{},
+			expectedErrAs:  &git2go.EmptyError{},
 			expectedErrMsg: "cherry-pick: could not apply because the result was empty",
 		},
 		{
@@ -180,8 +180,8 @@ func TestCherryPick(t *testing.T) {
 			if tc.expectedErrMsg != "" {
 				require.EqualError(t, err, tc.expectedErrMsg)
 
-				if tc.expectedErr != nil {
-					require.ErrorAs(t, err, &tc.expectedErr)
+				if tc.expectedErrAs != nil {
+					require.ErrorAs(t, err, tc.expectedErrAs)
 				}
 				return
 			}
