@@ -28,14 +28,17 @@ linters:
     - noctx
     - nolintlint
     - revive
-    - rowserrcheck
-    - sqlclosecheck
     - staticcheck
     - stylecheck
     - thelper
     - unconvert
     - unused
-    - wastedassign
+    # These linters don't currently support Go 1.18+. Please refer to
+    # https://github.com/golangci/golangci-lint/issues/2649 for further
+    # information.
+    #- rowserrcheck
+    #- sqlclosecheck
+    #- wastedassign
 
 linters-settings:
   depguard:
