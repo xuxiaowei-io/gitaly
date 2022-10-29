@@ -280,7 +280,7 @@ func TestServer_UserCherryPick_failedValidations(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -288,11 +288,13 @@ func TestServer_UserCherryPick_failedValidations(t *testing.T) {
 	require.NoError(t, err)
 
 	destinationBranch := "cherry-picking-dst"
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, "master")
 
 	testCases := []struct {
-		desc    string
-		request *gitalypb.UserCherryPickRequest
-		code    codes.Code
+		desc            string
+		request         *gitalypb.UserCherryPickRequest
+		expectedErrCode codes.Code
+		expectedErrMsg  string
 	}{
 		{
 			desc: "empty user",
@@ -303,7 +305,8 @@ func TestServer_UserCherryPick_failedValidations(t *testing.T) {
 				BranchName: []byte(destinationBranch),
 				Message:    []byte("Cherry-picking " + cherryPickedCommit.Id),
 			},
-			code: codes.InvalidArgument,
+			expectedErrCode: codes.InvalidArgument,
+			expectedErrMsg:  "rpc error: code = InvalidArgument desc = UserCherryPick: empty User",
 		},
 		{
 			desc: "empty commit",
@@ -314,7 +317,8 @@ func TestServer_UserCherryPick_failedValidations(t *testing.T) {
 				BranchName: []byte(destinationBranch),
 				Message:    []byte("Cherry-picking " + cherryPickedCommit.Id),
 			},
-			code: codes.InvalidArgument,
+			expectedErrCode: codes.InvalidArgument,
+			expectedErrMsg:  "rpc error: code = InvalidArgument desc = UserCherryPick: empty Commit",
 		},
 		{
 			desc: "empty branch name",
@@ -325,7 +329,8 @@ func TestServer_UserCherryPick_failedValidations(t *testing.T) {
 				BranchName: nil,
 				Message:    []byte("Cherry-picking " + cherryPickedCommit.Id),
 			},
-			code: codes.InvalidArgument,
+			expectedErrCode: codes.InvalidArgument,
+			expectedErrMsg:  "rpc error: code = InvalidArgument desc = UserCherryPick: empty BranchName",
 		},
 		{
 			desc: "empty message",
@@ -336,14 +341,29 @@ func TestServer_UserCherryPick_failedValidations(t *testing.T) {
 				BranchName: []byte(destinationBranch),
 				Message:    nil,
 			},
-			code: codes.InvalidArgument,
+			expectedErrCode: codes.InvalidArgument,
+			expectedErrMsg:  "rpc error: code = InvalidArgument desc = UserCherryPick: empty Message",
+		},
+		{
+			desc: "commit not found",
+			request: &gitalypb.UserCherryPickRequest{
+				Repository: repoProto,
+				User:       gittest.TestUser,
+				Commit:     &gitalypb.GitCommit{Id: "will-not-be-found"},
+				BranchName: []byte(destinationBranch),
+				Message:    []byte("Cherry-picking not found"),
+			},
+			expectedErrCode: codes.NotFound,
+			expectedErrMsg:  "rpc error: code = NotFound desc = cherry-pick: commit lookup: commit not found: \"will-not-be-found\"",
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			_, err := client.UserCherryPick(ctx, testCase.request)
-			testhelper.RequireGrpcCode(t, err, testCase.code)
+
+			testhelper.RequireGrpcCode(t, err, testCase.expectedErrCode)
+			require.EqualError(t, err, testCase.expectedErrMsg)
 		})
 	}
 }

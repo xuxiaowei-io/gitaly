@@ -6,11 +6,15 @@ import (
 	"fmt"
 
 	git "github.com/libgit2/git2go/v34"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 )
 
 func lookupCommit(repo *git.Repository, ref string) (*git.Commit, error) {
 	object, err := repo.RevparseSingle(ref)
-	if err != nil {
+	switch {
+	case git.IsErrorCode(err, git.ErrorCodeNotFound):
+		return nil, git2go.CommitNotFoundError{Revision: ref}
+	case err != nil:
 		return nil, fmt.Errorf("lookup commit %q: %w", ref, err)
 	}
 

@@ -3,6 +3,7 @@ package git2go
 import (
 	"encoding/gob"
 	"errors"
+	"fmt"
 	"reflect"
 )
 
@@ -29,6 +30,7 @@ var registeredTypes = map[reflect.Type]struct{}{
 	reflect.TypeOf(EmptyError{}):             {},
 	reflect.TypeOf(IndexError("")):           {},
 	reflect.TypeOf(ConflictError{}):          {},
+	reflect.TypeOf(CommitNotFoundError{}):    {},
 }
 
 // Result is the serialized result.
@@ -76,6 +78,16 @@ type EmptyError struct{}
 
 func (err EmptyError) Error() string {
 	return "could not apply because the result was empty"
+}
+
+// CommitNotFoundError indicates that the given commit rev could not be found.
+type CommitNotFoundError struct {
+	// Revision used to lookup the commit
+	Revision string
+}
+
+func (err CommitNotFoundError) Error() string {
+	return fmt.Sprintf("commit not found: %q", err.Revision)
 }
 
 // SerializableError returns an error that is Gob serializable.

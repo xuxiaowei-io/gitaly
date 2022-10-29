@@ -16,7 +16,8 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-//nolint:revive // This is unintentionally missing documentation.
+// UserCherryPick tries to perform a cherry-pick of a given commit onto a
+// branch. See the protobuf documentation for details.
 func (s *Server) UserCherryPick(ctx context.Context, req *gitalypb.UserCherryPickRequest) (*gitalypb.UserCherryPickResponse, error) {
 	if err := validateCherryPickOrRevertRequest(req); err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "UserCherryPick: %v", err)
@@ -100,6 +101,8 @@ func (s *Server) UserCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 			}
 
 			return nil, detailedErr
+		case errors.As(err, &git2go.CommitNotFoundError{}):
+			return nil, helper.ErrNotFound(err)
 		case errors.Is(err, git2go.ErrInvalidArgument):
 			return nil, helper.ErrInvalidArgument(err)
 		default:
