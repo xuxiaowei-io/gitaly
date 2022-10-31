@@ -55,6 +55,52 @@ interpolating strings. The `%q` operator quotes strings and escapes
 spaces and non-printable characters. This can save a lot of debugging
 time.
 
+### Use [helper](internal/helper/error.go) for error creation
+
+[gRPC](https://grpc.io/) is the only transport supported by Gitaly and Praefect.
+
+To return proper error codes, you must use the
+[`status.Error()`](https://pkg.go.dev/google.golang.org/grpc@v1.50.1/status#Error)
+function, otherwise the `Unknown` status code is returned that doesn't provide much
+information about what happened on the server.
+
+However, using `status.Error()` everywhere may be too much of dependency for Gitaly.
+Therefore, you can use a set of helper functions to create statuses with
+proper codes. The benefit of using these is that you can wrap errors
+without losing initial status code that should be returned to the caller.
+
+The example below uses helpers with the standard `fmt.Errorf()` function that
+adds additional context to the error on the intermediate step. The result of the RPC
+call is:
+
+- `codes.InvalidArgument` code.
+- `action crashed: validation: condition` message.
+
+This means it fairly safe to use error wrapping in combination with helper functions.
+That said, pay attention when using a helper wrapper on the transport layer, otherwise
+the `Unknown` code may be returned by the RPC.
+
+```golang
+// We have declaration of some `service`
+type service struct {}
+
+func (s service) Action() error {
+	if err := s.validation(); err != nil {
+        return fmt.Errorf("validation: %w", err)
+    }
+    return nil
+}
+
+func (service) validation() error {
+	return helper.ErrInvalidArgumentf("condition")
+}
+
+// Somewhere at the transport layer:
+if err := srv.Action(); err != nil {
+    return helper.ErrInternalf("action crashed: %w", err)
+}
+```
+
 ## Logging
 
 ### Use context-based logging

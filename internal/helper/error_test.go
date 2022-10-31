@@ -166,6 +166,21 @@ func TestErrorf(t *testing.T) {
 			errorf:       ErrAbortedf,
 			expectedCode: codes.Aborted,
 		},
+		{
+			desc:         "ErrDataLossf",
+			errorf:       ErrDataLossf,
+			expectedCode: codes.DataLoss,
+		},
+		{
+			desc:         "ErrUnknownf",
+			errorf:       ErrUnknownf,
+			expectedCode: codes.Unknown,
+		},
+		{
+			desc:         "ErrUnimplementedf",
+			errorf:       ErrUnimplementedf,
+			expectedCode: codes.Unimplemented,
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Run("with non-gRPC error", func(t *testing.T) {
