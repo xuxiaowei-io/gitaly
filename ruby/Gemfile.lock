@@ -53,7 +53,7 @@ GEM
       escape_utils (~> 1.2.0)
       mini_mime (~> 1.0)
       rugged (~> 1.0)
-    gitlab-labkit (0.26.0)
+    gitlab-labkit (0.28.0)
       actionpack (>= 5.0.0, < 8.0.0)
       activesupport (>= 5.0.0, < 8.0.0)
       grpc (>= 1.37)
@@ -69,7 +69,7 @@ GEM
       with_env (= 1.1.0)
       xml-simple (~> 1.1.5)
     gitlab-markup (1.7.1)
-    google-protobuf (3.21.8)
+    google-protobuf (3.21.9)
     googleapis-common-protos-types (1.4.0)
       google-protobuf (~> 3.14)
     grpc (1.42.0)
@@ -208,10 +208,10 @@ DEPENDENCIES
   faraday (~> 1.0)
   gitaly (~> 15.5.0)
   github-linguist (~> 7.20.0)
-  gitlab-labkit (~> 0.26)
+  gitlab-labkit (~> 0.28)
   gitlab-license_finder
   gitlab-markup (~> 1.7.1)
-  google-protobuf (~> 3.21.8)
+  google-protobuf (~> 3.21.9)
   grpc (~> 1.42.0)
   licensee (~> 9.15)
   pry (~> 0.12.2)
@@ -226,4 +226,4 @@ DEPENDENCIES
   timecop
 
 BUNDLED WITH
-   2.3.23
+   2.3.24
