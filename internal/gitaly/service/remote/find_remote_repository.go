@@ -6,14 +6,13 @@ import (
 	"io"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func (s *server) FindRemoteRepository(ctx context.Context, req *gitalypb.FindRemoteRepositoryRequest) (*gitalypb.FindRemoteRepositoryResponse, error) {
 	if req.GetRemote() == "" {
-		return nil, status.Error(codes.InvalidArgument, "FindRemoteRepository: empty remote can't be checked.")
+		return nil, helper.ErrInvalidArgumentf("empty remote can't be checked.")
 	}
 
 	cmd, err := s.gitCmdFactory.NewWithoutRepo(ctx,
@@ -26,12 +25,12 @@ func (s *server) FindRemoteRepository(ctx context.Context, req *gitalypb.FindRem
 		},
 	)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "error executing git command: %s", err)
+		return nil, helper.ErrInternalf("error executing git command: %w", err)
 	}
 
 	output, err := io.ReadAll(cmd)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "unable to read stdout: %s", err)
+		return nil, helper.ErrInternalf("unable to read stdout: %w", err)
 	}
 	if err := cmd.Wait(); err != nil {
 		return &gitalypb.FindRemoteRepositoryResponse{Exists: false}, nil
