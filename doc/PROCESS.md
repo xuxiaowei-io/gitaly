@@ -152,7 +152,7 @@ repository, and manually test from there.
 Manually use the feature in whatever way exercises the code paths
 being enabled.
 
-Then enable `X` on staging, with:
+Then enable `X` on staging, run the following in the `#staging` Slack channel:
 
 ```shell
 /chatops run feature set gitaly_X --staging
@@ -176,12 +176,20 @@ environment? Good!
 
 #### Steps
 
-To enable your `X` feature at 5/25/50 percent, run:
+Feature flags must be rolled out in production systems gradually to
+reduce risk of incidents. Use percentage based actors instead of enabling a
+feature flag fully. The concrete percentages depend on the scope of the feature
+flag as well as its inherent risk. In general, add more fine-grained steps the
+higher the risk and the broader the scope of the gated feature.
+
+To enable your `X` feature at 5/25/50 percent, run the following in the
+`#production` Slack channel. As Gitaly does not reliably support feature
+flag actors, you need to do a fully-randomized rollout:
 
 ```shell
-/chatops run feature set gitaly_X 5
-/chatops run feature set gitaly_X 25
-/chatops run feature set gitaly_X 50
+/chatops run feature set gitaly_X 5 --random
+/chatops run feature set gitaly_X 25 --random
+/chatops run feature set gitaly_X 50 --random
 ```
 
 And then finally when you're happy it works properly do:
