@@ -1062,14 +1062,14 @@ message ReplicateRepositoryRequest {
 message ReplicateRepositoryResponse{
 }
 
-// This comment is left unintentionally blank.
+// OptimizeRepositoryRequest is a request for the OptimizeRepository RPC.
 message OptimizeRepositoryRequest {
-  // This comment is left unintentionally blank.
+  // Repository is the repository that should be optimized.
   Repository repository = 1 [(target_repository)=true];
 }
 
-// This comment is left unintentionally blank.
-message OptimizeRepositoryResponse{
+// OptimizeRepositoryResponse is a response for the OptimizeRepository RPC.
+message OptimizeRepositoryResponse {
 }
 
 // PruneUnreachableObjectsRequest is a request for the PruneUnreachableObjects

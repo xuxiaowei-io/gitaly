@@ -4466,13 +4466,13 @@ func (*ReplicateRepositoryResponse) Descriptor() ([]byte, []int) {
 	return file_repository_proto_rawDescGZIP(), []int{76}
 }
 
-// This comment is left unintentionally blank.
+// OptimizeRepositoryRequest is a request for the OptimizeRepository RPC.
 type OptimizeRepositoryRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// Repository is the repository that should be optimized.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -4515,7 +4515,7 @@ func (x *OptimizeRepositoryRequest) GetRepository() *Repository {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// OptimizeRepositoryResponse is a response for the OptimizeRepository RPC.
 type OptimizeRepositoryResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
