@@ -46,7 +46,7 @@ I.e.
     - [ ] Verify the feature flag was used by checking Prometheus metric [`gitaly_feature_flag_checks_total`](https://prometheus.gstg.gitlab.net/graph?g0.expr=sum%20by%20(flag)%20(rate(gitaly_feature_flag_checks_total%5B5m%5D))&g0.tab=1&g0.stacked=0&g0.range_input=1h)
 - [ ] Enable on production
     - [ ] Is the required code deployed on production? ([howto](https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/PROCESS.md#is-the-required-code-deployed))
-    - [ ] Enable on production in `#production` ([howto](https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/PROCESS.md#enable-in-production))
+    - [ ] Progressively enable in production ([howto](https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/PROCESS.md#enable-in-production))
     - [ ] Add ~"featureflag::production" to this issue
     - [ ] Verify the feature flag was used by checking Prometheus metric [`gitaly_feature_flag_checks_total`](https://prometheus.gprd.gitlab.net/graph?g0.expr=sum%20by%20(flag)%20(rate(gitaly_feature_flag_checks_total%5B5m%5D))&g0.tab=1&g0.stacked=0&g0.range_input=1h)
 - [ ] Default-enable the feature flag (optional, only required if backwards-compatibility concerns exist)
