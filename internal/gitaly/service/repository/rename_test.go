@@ -3,7 +3,6 @@
 package repository
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,7 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -22,12 +20,10 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func TestRenameRepository_success(t *testing.T) {
-	testhelper.NewFeatureSets(featureflag.PraefectGeneratedReplicaPaths).Run(t, testRenameRepositorySuccess)
-}
-
-func testRenameRepositorySuccess(t *testing.T, ctx context.Context) {
+func TestRenameRepositorySuccess(t *testing.T) {
 	t.Parallel()
+
+	ctx := testhelper.Context(t)
 
 	// Praefect does not move repositories on the disk so this test case is not run with Praefect.
 	cfg, repo, _, client := setupRepositoryService(t, ctx, testserver.WithDisablePraefect())
@@ -49,12 +45,10 @@ func testRenameRepositorySuccess(t *testing.T, ctx context.Context) {
 	gittest.RequireObjectExists(t, cfg, newDirectory, git.ObjectID("913c66a37b4a45b9769037c55c2d238bd0942d2e"))
 }
 
-func TestRenameRepository_DestinationExists(t *testing.T) {
-	testhelper.NewFeatureSets(featureflag.PraefectGeneratedReplicaPaths).Run(t, testRenameRepositoryDestinationExists)
-}
-
-func testRenameRepositoryDestinationExists(t *testing.T, ctx context.Context) {
+func TestRenameRepositoryDestinationExists(t *testing.T) {
 	t.Parallel()
+
+	ctx := testhelper.Context(t)
 
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
@@ -79,12 +73,10 @@ func testRenameRepositoryDestinationExists(t *testing.T, ctx context.Context) {
 	gittest.RequireObjectExists(t, cfg, destinationRepoPath, commitID)
 }
 
-func TestRenameRepository_invalidRequest(t *testing.T) {
-	testhelper.NewFeatureSets(featureflag.PraefectGeneratedReplicaPaths).Run(t, testRenameRepositoryInvalidRequest)
-}
-
-func testRenameRepositoryInvalidRequest(t *testing.T, ctx context.Context) {
+func TestRenameRepositoryInvalidRequest(t *testing.T) {
 	t.Parallel()
+
+	ctx := testhelper.Context(t)
 
 	_, repo, repoPath, client := setupRepositoryService(t, ctx)
 	storagePath := strings.TrimSuffix(repoPath, "/"+repo.RelativePath)
