@@ -219,13 +219,6 @@ Style/RaiseArgs:
     - 'lib/gitlab/git/operation_service.rb'
     - 'lib/gitlab/git/remote_repository.rb'
 
-# Offense count: 5
-# Cop supports --auto-correct.
-Style/RedundantSelf:
-  Exclude:
-    - 'lib/gitlab/git.rb'
-    - 'lib/gitlab/git/blob.rb'
-
 # Offense count: 14
 # Cop supports --auto-correct.
 # Configuration parameters: EnforcedStyle.

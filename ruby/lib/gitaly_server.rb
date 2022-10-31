@@ -1,13 +1,11 @@
 $:.unshift(File.expand_path('../proto', __dir__))
 require 'gitaly'
 
-# External dependencies of Gitlab::Git
 require 'linguist/blob_helper'
 require 'securerandom'
 require 'gitlab-labkit'
 require 'rugged'
 
-# Ruby on Rails mix-ins that GitLab::Git code relies on
 require 'active_support/core_ext/object/blank'
 require 'active_support/core_ext/numeric/bytes'
 require 'active_support/core_ext/numeric/time'
