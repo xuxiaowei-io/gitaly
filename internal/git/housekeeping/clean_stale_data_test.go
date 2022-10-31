@@ -177,6 +177,7 @@ func requireCleanStaleDataMetrics(t *testing.T, m *RepositoryManager, metrics cl
 }
 
 func TestRepositoryManager_CleanStaleData(t *testing.T) {
+	t.Parallel()
 	testcases := []struct {
 		name            string
 		entries         []entry
@@ -301,6 +302,7 @@ func TestRepositoryManager_CleanStaleData(t *testing.T) {
 }
 
 func TestRepositoryManager_CleanStaleData_references(t *testing.T) {
+	t.Parallel()
 	type ref struct {
 		name string
 		age  time.Duration
@@ -405,6 +407,7 @@ func TestRepositoryManager_CleanStaleData_references(t *testing.T) {
 }
 
 func TestRepositoryManager_CleanStaleData_emptyRefDirs(t *testing.T) {
+	t.Parallel()
 	testcases := []struct {
 		name            string
 		entries         []entry
@@ -681,6 +684,7 @@ func TestRepositoryManager_CleanStaleData_withSpecificFile(t *testing.T) {
 }
 
 func TestRepositoryManager_CleanStaleData_serverInfo(t *testing.T) {
+	t.Parallel()
 	ctx := testhelper.Context(t)
 
 	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
@@ -730,6 +734,7 @@ func TestRepositoryManager_CleanStaleData_serverInfo(t *testing.T) {
 }
 
 func TestRepositoryManager_CleanStaleData_referenceLocks(t *testing.T) {
+	t.Parallel()
 	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
@@ -791,6 +796,7 @@ func TestRepositoryManager_CleanStaleData_referenceLocks(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
 			cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -852,6 +858,7 @@ func (m mockFileInfo) ModTime() time.Time {
 }
 
 func TestIsStaleTemporaryObject(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name          string
 		dirEntry      fs.DirEntry
@@ -908,6 +915,7 @@ func TestIsStaleTemporaryObject(t *testing.T) {
 }
 
 func TestRepositoryManager_CleanStaleData_missingRepo(t *testing.T) {
+	t.Parallel()
 	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	ctx := testhelper.Context(t)
@@ -918,6 +926,7 @@ func TestRepositoryManager_CleanStaleData_missingRepo(t *testing.T) {
 }
 
 func TestRepositoryManager_CleanStaleData_unsetConfiguration(t *testing.T) {
+	t.Parallel()
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
