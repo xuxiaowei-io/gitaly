@@ -7,7 +7,6 @@ require_relative 'gitaly_server/client.rb'
 require_relative 'gitaly_server/utils.rb'
 require_relative 'gitaly_server/repository_service.rb'
 require_relative 'gitaly_server/health_service.rb'
-require_relative 'gitaly_server/feature_flags.rb'
 
 module GitalyServer
   STORAGE_PATH_HEADER = 'gitaly-storage-path'.freeze
