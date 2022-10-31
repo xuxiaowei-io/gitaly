@@ -758,6 +758,120 @@ func TestEstimateLooseObjectCount(t *testing.T) {
 	})
 }
 
+func TestNewEagerOptimizationStrategy(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	for _, tc := range []struct {
+		desc             string
+		setup            func(t *testing.T, relativePath string) *gitalypb.Repository
+		expectedStrategy EagerOptimizationStrategy
+	}{
+		{
+			desc: "empty repo",
+			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
+				repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+					RelativePath:           relativePath,
+				})
+				return repoProto
+			},
+			expectedStrategy: EagerOptimizationStrategy{},
+		},
+		{
+			desc: "alternate",
+			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+					RelativePath:           relativePath,
+				})
+
+				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "objects", "info", "alternates"), nil, 0o644))
+
+				return repoProto
+			},
+			expectedStrategy: EagerOptimizationStrategy{
+				hasAlternate: true,
+			},
+		},
+	} {
+		tc := tc
+
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			testRepoAndPool(t, tc.desc, func(t *testing.T, relativePath string) {
+				repoProto := tc.setup(t, relativePath)
+				repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+				tc.expectedStrategy.isObjectPool = IsPoolRepository(repo)
+
+				strategy, err := NewEagerOptimizationStrategy(ctx, repo)
+				require.NoError(t, err)
+				require.Equal(t, tc.expectedStrategy, strategy)
+			})
+		})
+	}
+}
+
+func TestEagerOptimizationStrategy(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		desc                     string
+		strategy                 EagerOptimizationStrategy
+		expectWriteBitmap        bool
+		expectShouldPruneObjects bool
+	}{
+		{
+			desc:                     "no alternate",
+			expectWriteBitmap:        true,
+			expectShouldPruneObjects: true,
+		},
+		{
+			desc: "alternate",
+			strategy: EagerOptimizationStrategy{
+				hasAlternate: true,
+			},
+			expectShouldPruneObjects: true,
+		},
+		{
+			desc: "object pool",
+			strategy: EagerOptimizationStrategy{
+				isObjectPool: true,
+			},
+			expectWriteBitmap: true,
+		},
+		{
+			desc: "object pool with alternate",
+			strategy: EagerOptimizationStrategy{
+				hasAlternate: true,
+				isObjectPool: true,
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			shouldRepackObjects, repackObjectsCfg := tc.strategy.ShouldRepackObjects()
+			require.True(t, shouldRepackObjects)
+			require.Equal(t, RepackObjectsConfig{
+				FullRepack:  true,
+				WriteBitmap: tc.expectWriteBitmap,
+			}, repackObjectsCfg)
+
+			shouldWriteCommitGraph, writeCommitGraphCfg := tc.strategy.ShouldWriteCommitGraph()
+			require.True(t, shouldWriteCommitGraph)
+			require.Equal(t, WriteCommitGraphConfig{
+				ReplaceChain: true,
+			}, writeCommitGraphCfg)
+
+			require.Equal(t, tc.expectShouldPruneObjects, tc.strategy.ShouldPruneObjects())
+			require.True(t, tc.strategy.ShouldRepackReferences())
+		})
+	}
+}
+
 // mockOptimizationStrategy is a mock strategy that can be used with OptimizeRepository.
 type mockOptimizationStrategy struct {
 	shouldRepackObjects    bool

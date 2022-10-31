@@ -1073,6 +1073,9 @@ message OptimizeRepositoryRequest {
     // decide on a set of heuristics which parts need optimization and which ones don't to avoid
     // performing unnecessary optimization tasks.
     STRATEGY_HEURISTICAL = 1;
+    // STRATEGY_EAGER performs eager optimizations in the repository. The server will optimize all
+    // data structures regardless of whether they are well-optimized already.
+    STRATEGY_EAGER = 2;
   }
 
   // Repository is the repository that should be optimized.

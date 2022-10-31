@@ -25,6 +25,13 @@ func (s *server) OptimizeRepository(ctx context.Context, in *gitalypb.OptimizeRe
 		}
 
 		strategyOpt = housekeeping.WithOptimizationStrategy(strategy)
+	case gitalypb.OptimizeRepositoryRequest_STRATEGY_EAGER:
+		strategy, err := housekeeping.NewEagerOptimizationStrategy(ctx, repo)
+		if err != nil {
+			return nil, helper.ErrInternalf("creating eager optimization strategy: %w", err)
+		}
+
+		strategyOpt = housekeeping.WithOptimizationStrategy(strategy)
 	default:
 		return nil, helper.ErrInvalidArgumentf("unsupported optimization strategy %d", in.GetStrategy())
 	}

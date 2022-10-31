@@ -209,6 +209,16 @@ func TestOptimizeRepository_strategy(t *testing.T) {
 				Strategy: housekeeping.HeuristicalOptimizationStrategy{},
 			},
 		},
+		{
+			desc: "eager strategy",
+			request: &gitalypb.OptimizeRepositoryRequest{
+				Repository: repoProto,
+				Strategy:   gitalypb.OptimizeRepositoryRequest_STRATEGY_EAGER,
+			},
+			expectedCfg: housekeeping.OptimizeRepositoryConfig{
+				Strategy: housekeeping.EagerOptimizationStrategy{},
+			},
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			response, err := client.OptimizeRepository(ctx, tc.request)
