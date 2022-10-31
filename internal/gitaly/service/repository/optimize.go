@@ -4,6 +4,7 @@ import (
 	"context"
 
 	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -15,7 +16,20 @@ func (s *server) OptimizeRepository(ctx context.Context, in *gitalypb.OptimizeRe
 
 	repo := s.localrepo(in.GetRepository())
 
-	if err := s.housekeepingManager.OptimizeRepository(ctx, repo); err != nil {
+	var strategyOpt housekeeping.OptimizeRepositoryOption
+	switch in.GetStrategy() {
+	case gitalypb.OptimizeRepositoryRequest_STRATEGY_UNSPECIFIED, gitalypb.OptimizeRepositoryRequest_STRATEGY_HEURISTICAL:
+		strategy, err := housekeeping.NewHeuristicalOptimizationStrategy(ctx, repo)
+		if err != nil {
+			return nil, helper.ErrInternalf("creating heuristical optimization strategy: %w", err)
+		}
+
+		strategyOpt = housekeeping.WithOptimizationStrategy(strategy)
+	default:
+		return nil, helper.ErrInvalidArgumentf("unsupported optimization strategy %d", in.GetStrategy())
+	}
+
+	if err := s.housekeepingManager.OptimizeRepository(ctx, repo, strategyOpt); err != nil {
 		return nil, helper.ErrInternal(err)
 	}
 

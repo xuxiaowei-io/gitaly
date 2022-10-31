@@ -1064,8 +1064,21 @@ message ReplicateRepositoryResponse{
 
 // OptimizeRepositoryRequest is a request for the OptimizeRepository RPC.
 message OptimizeRepositoryRequest {
+  // Strategy determines how the repository shall be optimized.
+  enum Strategy {
+    // STRATEGY_UNSPECIFIED indicates that the strategy has not been explicitly set by the
+    // caller. The default will be STRATEGY_HEURISTICAL in that case.
+    STRATEGY_UNSPECIFIED = 0;
+    // STRATEGY_HEURISTICAL performs heuristical optimizations in the repository. The server will
+    // decide on a set of heuristics which parts need optimization and which ones don't to avoid
+    // performing unnecessary optimization tasks.
+    STRATEGY_HEURISTICAL = 1;
+  }
+
   // Repository is the repository that should be optimized.
   Repository repository = 1 [(target_repository)=true];
+  // Strategy is the strategy that determines which parts of the repository shall be optimized.
+  Strategy strategy = 2;
 }
 
 // OptimizeRepositoryResponse is a response for the OptimizeRepository RPC.

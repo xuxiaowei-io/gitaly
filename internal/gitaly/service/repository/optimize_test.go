@@ -4,6 +4,7 @@ package repository
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,9 +15,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -154,6 +158,68 @@ func TestOptimizeRepository(t *testing.T) {
 	require.NoFileExists(t, mrRefs)
 }
 
+type mockHousekeepingManager struct {
+	housekeeping.Manager
+	cfgCh chan housekeeping.OptimizeRepositoryConfig
+}
+
+func (m mockHousekeepingManager) OptimizeRepository(_ context.Context, _ *localrepo.Repo, opts ...housekeeping.OptimizeRepositoryOption) error {
+	var cfg housekeeping.OptimizeRepositoryConfig
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
+	m.cfgCh <- cfg
+	return nil
+}
+
+func TestOptimizeRepository_strategy(t *testing.T) {
+	t.Parallel()
+
+	housekeepingManager := mockHousekeepingManager{
+		cfgCh: make(chan housekeeping.OptimizeRepositoryConfig, 1),
+	}
+
+	ctx := testhelper.Context(t)
+	cfg, client := setupRepositoryServiceWithoutRepo(t, testserver.WithHousekeepingManager(housekeepingManager))
+
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+
+	for _, tc := range []struct {
+		desc        string
+		request     *gitalypb.OptimizeRepositoryRequest
+		expectedCfg housekeeping.OptimizeRepositoryConfig
+	}{
+		{
+			desc: "no strategy",
+			request: &gitalypb.OptimizeRepositoryRequest{
+				Repository: repoProto,
+			},
+			expectedCfg: housekeeping.OptimizeRepositoryConfig{
+				Strategy: housekeeping.HeuristicalOptimizationStrategy{},
+			},
+		},
+		{
+			desc: "heuristical strategy",
+			request: &gitalypb.OptimizeRepositoryRequest{
+				Repository: repoProto,
+				Strategy:   gitalypb.OptimizeRepositoryRequest_STRATEGY_HEURISTICAL,
+			},
+			expectedCfg: housekeeping.OptimizeRepositoryConfig{
+				Strategy: housekeeping.HeuristicalOptimizationStrategy{},
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			response, err := client.OptimizeRepository(ctx, tc.request)
+			require.NoError(t, err)
+			testhelper.ProtoEqual(t, &gitalypb.OptimizeRepositoryResponse{}, response)
+
+			require.Equal(t, tc.expectedCfg, <-housekeepingManager.cfgCh)
+		})
+	}
+}
+
 func TestOptimizeRepository_validation(t *testing.T) {
 	t.Parallel()
 
@@ -198,6 +264,14 @@ func TestOptimizeRepository_validation(t *testing.T) {
 				fmt.Sprintf(`GetRepoPath: not a git repository: "%s/path/not/exist"`, cfg.Storages[0].Path),
 				`routing repository maintenance: getting repository metadata: repository not found`,
 			)),
+		},
+		{
+			desc: "invalid optimization strategy",
+			request: &gitalypb.OptimizeRepositoryRequest{
+				Repository: repo,
+				Strategy:   12,
+			},
+			expectedErr: helper.ErrInvalidArgumentf("unsupported optimization strategy 12"),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
