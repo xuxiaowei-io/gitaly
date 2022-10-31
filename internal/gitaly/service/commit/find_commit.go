@@ -4,16 +4,16 @@ import (
 	"context"
 	"errors"
 
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
 func validateFindCommitRequest(in *gitalypb.FindCommitRequest) error {
-	if in.GetRepository() == nil {
-		return gitalyerrors.ErrEmptyRepository
+	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+		return err
 	}
 	if err := git.ValidateRevision(in.GetRevision()); err != nil {
 		return err

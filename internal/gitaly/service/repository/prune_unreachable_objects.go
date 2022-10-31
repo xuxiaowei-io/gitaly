@@ -3,10 +3,10 @@ package repository
 import (
 	"context"
 
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -19,11 +19,12 @@ func (s *server) PruneUnreachableObjects(
 	ctx context.Context,
 	request *gitalypb.PruneUnreachableObjectsRequest,
 ) (*gitalypb.PruneUnreachableObjectsResponse, error) {
-	if request.GetRepository() == nil {
-		return nil, helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
+	repository := request.GetRepository()
+	if err := service.ValidateRepository(repository); err != nil {
+		return nil, helper.ErrInvalidArgument(err)
 	}
 
-	repo := s.localrepo(request.GetRepository())
+	repo := s.localrepo(repository)
 
 	// Verify that the repository exists on-disk such that we can return a proper gRPC code in
 	// case it doesn't.

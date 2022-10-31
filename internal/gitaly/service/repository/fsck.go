@@ -4,21 +4,20 @@ import (
 	"bytes"
 	"context"
 
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
 func (s *server) Fsck(ctx context.Context, req *gitalypb.FsckRequest) (*gitalypb.FsckResponse, error) {
-	var stdout, stderr bytes.Buffer
-
-	repo := req.GetRepository()
-	if repo == nil {
-		return nil, helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
+	repository := req.GetRepository()
+	if err := service.ValidateRepository(repository); err != nil {
+		return nil, helper.ErrInvalidArgument(err)
 	}
 
-	cmd, err := s.gitCmdFactory.New(ctx, repo,
+	var stdout, stderr bytes.Buffer
+	cmd, err := s.gitCmdFactory.New(ctx, repository,
 		git.SubCmd{Name: "fsck"},
 		git.WithStdout(&stdout),
 		git.WithStderr(&stderr),

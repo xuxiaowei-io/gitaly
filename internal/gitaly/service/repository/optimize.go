@@ -3,8 +3,8 @@ package repository
 import (
 	"context"
 
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -44,11 +44,12 @@ func (s *server) OptimizeRepository(ctx context.Context, in *gitalypb.OptimizeRe
 }
 
 func (s *server) validateOptimizeRepositoryRequest(in *gitalypb.OptimizeRepositoryRequest) error {
-	if in.GetRepository() == nil {
-		return helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
+	repository := in.GetRepository()
+	if err := service.ValidateRepository(repository); err != nil {
+		return helper.ErrInvalidArgument(err)
 	}
 
-	_, err := s.locator.GetRepoPath(in.GetRepository())
+	_, err := s.locator.GetRepoPath(repository)
 	if err != nil {
 		return err
 	}

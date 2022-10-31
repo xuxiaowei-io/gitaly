@@ -7,10 +7,10 @@ import (
 	"regexp"
 	"strconv"
 
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/rawdiff"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -19,10 +19,11 @@ import (
 
 func (s *server) GetRawChanges(req *gitalypb.GetRawChangesRequest, stream gitalypb.RepositoryService_GetRawChangesServer) error {
 	ctx := stream.Context()
-	if req.GetRepository() == nil {
-		return helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
+	repository := req.GetRepository()
+	if err := service.ValidateRepository(repository); err != nil {
+		return helper.ErrInvalidArgument(err)
 	}
-	repo := s.localrepo(req.GetRepository())
+	repo := s.localrepo(repository)
 
 	objectInfoReader, cancel, err := s.catfileCache.ObjectInfoReader(stream.Context(), repo)
 	if err != nil {

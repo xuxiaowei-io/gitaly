@@ -4,9 +4,9 @@ import (
 	"errors"
 	"io"
 
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
@@ -71,8 +71,8 @@ func (s *server) GetBlob(in *gitalypb.GetBlobRequest, stream gitalypb.BlobServic
 }
 
 func validateRequest(in *gitalypb.GetBlobRequest) error {
-	if in.GetRepository() == nil {
-		return gitalyerrors.ErrEmptyRepository
+	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+		return err
 	}
 
 	if len(in.GetOid()) == 0 {

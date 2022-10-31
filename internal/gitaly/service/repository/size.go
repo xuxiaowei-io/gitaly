@@ -9,13 +9,13 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gitpipe"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/objectpool"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
@@ -34,10 +34,11 @@ import (
 // flag can be enabled to return the alternative repository size calculation
 // instead of the size derived from the disk usage command.
 func (s *server) RepositorySize(ctx context.Context, in *gitalypb.RepositorySizeRequest) (*gitalypb.RepositorySizeResponse, error) {
-	if in.GetRepository() == nil {
-		return nil, helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
+	repository := in.GetRepository()
+	if err := service.ValidateRepository(repository); err != nil {
+		return nil, helper.ErrInvalidArgument(err)
 	}
-	repo := s.localrepo(in.GetRepository())
+	repo := s.localrepo(repository)
 
 	path, err := repo.Path()
 	if err != nil {
@@ -165,10 +166,11 @@ func calculateSizeWithRevlist(ctx context.Context, repo *localrepo.Repo) (int64,
 }
 
 func (s *server) GetObjectDirectorySize(ctx context.Context, in *gitalypb.GetObjectDirectorySizeRequest) (*gitalypb.GetObjectDirectorySizeResponse, error) {
-	if in.GetRepository() == nil {
-		return nil, helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
+	repository := in.GetRepository()
+	if err := service.ValidateRepository(repository); err != nil {
+		return nil, helper.ErrInvalidArgument(err)
 	}
-	repo := s.localrepo(in.GetRepository())
+	repo := s.localrepo(repository)
 
 	path, err := repo.ObjectDirectoryPath()
 	if err != nil {

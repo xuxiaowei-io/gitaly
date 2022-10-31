@@ -6,10 +6,10 @@ import (
 	"sort"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/lstree"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -140,8 +140,8 @@ func sendCommitsForTree(batch []*gitalypb.ListLastCommitsForTreeResponse_CommitF
 }
 
 func validateListLastCommitsForTreeRequest(in *gitalypb.ListLastCommitsForTreeRequest) error {
-	if in.GetRepository() == nil {
-		return gitalyerrors.ErrEmptyRepository
+	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+		return err
 	}
 	if err := git.ValidateRevision([]byte(in.Revision)); err != nil {
 		return err

@@ -7,9 +7,9 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	log "github.com/sirupsen/logrus"
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/pktline"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
@@ -21,10 +21,11 @@ const (
 )
 
 func (s *server) InfoRefsUploadPack(in *gitalypb.InfoRefsRequest, stream gitalypb.SmartHTTPService_InfoRefsUploadPackServer) error {
-	if in.GetRepository() == nil {
-		return helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
+	repository := in.GetRepository()
+	if err := service.ValidateRepository(repository); err != nil {
+		return helper.ErrInvalidArgument(err)
 	}
-	repoPath, err := s.locator.GetRepoPath(in.GetRepository())
+	repoPath, err := s.locator.GetRepoPath(repository)
 	if err != nil {
 		return err
 	}
@@ -39,10 +40,11 @@ func (s *server) InfoRefsUploadPack(in *gitalypb.InfoRefsRequest, stream gitalyp
 }
 
 func (s *server) InfoRefsReceivePack(in *gitalypb.InfoRefsRequest, stream gitalypb.SmartHTTPService_InfoRefsReceivePackServer) error {
-	if in.GetRepository() == nil {
-		return helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
+	repository := in.GetRepository()
+	if err := service.ValidateRepository(repository); err != nil {
+		return helper.ErrInvalidArgument(err)
 	}
-	repoPath, err := s.locator.GetRepoPath(in.GetRepository())
+	repoPath, err := s.locator.GetRepoPath(repository)
 	if err != nil {
 		return err
 	}

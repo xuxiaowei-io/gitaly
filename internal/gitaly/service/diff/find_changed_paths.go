@@ -10,9 +10,9 @@ import (
 	"strconv"
 	"strings"
 
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -195,15 +195,15 @@ func resolveObjectWithType(ctx context.Context, repo *localrepo.Repo, revision s
 }
 
 func (s *server) validateFindChangedPathsRequestParams(ctx context.Context, in *gitalypb.FindChangedPathsRequest) error {
-	repo := in.GetRepository()
-	if repo == nil {
-		return helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
+	repository := in.GetRepository()
+	if err := service.ValidateRepository(repository); err != nil {
+		return helper.ErrInvalidArgument(err)
 	}
-	if _, err := s.locator.GetRepoPath(repo); err != nil {
+	if _, err := s.locator.GetRepoPath(repository); err != nil {
 		return err
 	}
 
-	gitRepo := s.localrepo(in.GetRepository())
+	gitRepo := s.localrepo(repository)
 
 	if len(in.GetCommits()) > 0 { //nolint:staticcheck
 		if len(in.GetRequests()) > 0 {

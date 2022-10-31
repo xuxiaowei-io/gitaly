@@ -414,7 +414,7 @@ func TestGarbageCollectFailure(t *testing.T) {
 			)),
 		},
 		{
-			repo: &gitalypb.Repository{StorageName: "foo"},
+			repo: &gitalypb.Repository{RelativePath: "stub", StorageName: "foo"},
 			err: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				`GetStorageByName: no such storage: "foo"`,
 				"repo scoped: invalid Repository",

@@ -3,8 +3,8 @@ package repository
 import (
 	"io"
 
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
@@ -13,18 +13,18 @@ import (
 )
 
 func (s *server) CreateBundle(req *gitalypb.CreateBundleRequest, stream gitalypb.RepositoryService_CreateBundleServer) error {
-	repo := req.GetRepository()
-	if repo == nil {
-		return helper.ErrInvalidArgumentf("CreateBundle: %w", gitalyerrors.ErrEmptyRepository)
+	repository := req.GetRepository()
+	if err := service.ValidateRepository(repository); err != nil {
+		return helper.ErrInvalidArgumentf("CreateBundle: %w", err)
 	}
 
 	ctx := stream.Context()
 
-	if _, err := s.Cleanup(ctx, &gitalypb.CleanupRequest{Repository: req.GetRepository()}); err != nil {
+	if _, err := s.Cleanup(ctx, &gitalypb.CleanupRequest{Repository: repository}); err != nil {
 		return helper.ErrInternalf("running Cleanup on repository: %w", err)
 	}
 
-	cmd, err := s.gitCmdFactory.New(ctx, repo, git.SubSubCmd{
+	cmd, err := s.gitCmdFactory.New(ctx, repository, git.SubSubCmd{
 		Name:   "bundle",
 		Action: "create",
 		Flags:  []git.Option{git.OutputToStdout, git.Flag{Name: "--all"}},

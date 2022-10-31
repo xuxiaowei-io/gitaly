@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/correlation"
@@ -126,10 +126,11 @@ func untar(ctx context.Context, path string, in *gitalypb.CreateRepositoryFromSn
 }
 
 func (s *server) CreateRepositoryFromSnapshot(ctx context.Context, in *gitalypb.CreateRepositoryFromSnapshotRequest) (*gitalypb.CreateRepositoryFromSnapshotResponse, error) {
-	if in.GetRepository() == nil {
-		return nil, helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
+	repository := in.GetRepository()
+	if err := service.ValidateRepository(repository); err != nil {
+		return nil, helper.ErrInvalidArgument(err)
 	}
-	if err := s.createRepository(ctx, in.GetRepository(), func(repo *gitalypb.Repository) error {
+	if err := s.createRepository(ctx, repository, func(repo *gitalypb.Repository) error {
 		path, err := s.locator.GetPath(repo)
 		if err != nil {
 			return helper.ErrInternalf("getting repo path: %w", err)

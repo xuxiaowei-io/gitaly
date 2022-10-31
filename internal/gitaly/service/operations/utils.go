@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -18,8 +18,8 @@ type cherryPickOrRevertRequest interface {
 }
 
 func validateCherryPickOrRevertRequest(req cherryPickOrRevertRequest) error {
-	if req.GetRepository() == nil {
-		return gitalyerrors.ErrEmptyRepository
+	if err := service.ValidateRepository(req.GetRepository()); err != nil {
+		return err
 	}
 
 	if req.GetUser() == nil {

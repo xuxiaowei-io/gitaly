@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -91,8 +91,8 @@ func (s *server) FindRemoteRootRef(ctx context.Context, in *gitalypb.FindRemoteR
 	if in.GetRemoteUrl() == "" {
 		return nil, helper.ErrInvalidArgumentf("missing remote URL")
 	}
-	if in.Repository == nil {
-		return nil, helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
+	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+		return nil, helper.ErrInvalidArgument(err)
 	}
 
 	ref, err := s.findRemoteRootRef(ctx, in)

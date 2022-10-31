@@ -299,7 +299,7 @@ func TestMidxRepack_validationChecks(t *testing.T) {
 		},
 		{
 			desc:        "invalid storage",
-			req:         &gitalypb.MidxRepackRequest{Repository: &gitalypb.Repository{StorageName: "invalid"}},
+			req:         &gitalypb.MidxRepackRequest{Repository: &gitalypb.Repository{RelativePath: "stub", StorageName: "invalid"}},
 			expectedErr: status.Error(codes.InvalidArgument, `GetStorageByName: no such storage: "invalid"`),
 		},
 		{

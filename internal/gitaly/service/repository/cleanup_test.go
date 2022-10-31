@@ -173,7 +173,7 @@ func TestCleanup_invalidRequest(t *testing.T) {
 		},
 		{
 			desc: "storage doesn't exist",
-			in:   &gitalypb.Repository{StorageName: "stub"},
+			in:   &gitalypb.Repository{RelativePath: "stub", StorageName: "stub"},
 			err: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				`GetStorageByName: no such storage: "stub"`,
 				"repo scoped: invalid Repository",

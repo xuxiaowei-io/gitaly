@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -97,8 +97,8 @@ func (s *server) renameRepository(ctx context.Context, sourceRepo, targetRepo *g
 }
 
 func validateRenameRepositoryRequest(in *gitalypb.RenameRepositoryRequest) error {
-	if in.GetRepository() == nil {
-		return gitalyerrors.ErrEmptyRepository
+	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+		return helper.ErrInvalidArgument(err)
 	}
 
 	if in.GetRelativePath() == "" {

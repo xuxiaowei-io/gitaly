@@ -224,7 +224,7 @@ func TestApplyGitattributesFailure(t *testing.T) {
 		},
 		{
 			desc:     "unknown storage provided",
-			repo:     &gitalypb.Repository{StorageName: "foo"},
+			repo:     &gitalypb.Repository{RelativePath: "stub", StorageName: "foo"},
 			revision: []byte("master"),
 			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				`GetStorageByName: no such storage: "foo"`,
@@ -236,7 +236,7 @@ func TestApplyGitattributesFailure(t *testing.T) {
 			repo:     &gitalypb.Repository{RelativePath: repo.GetRelativePath()},
 			revision: []byte("master"),
 			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
-				`GetStorageByName: no such storage: ""`,
+				"empty StorageName",
 				"repo scoped: invalid Repository",
 			)),
 		},

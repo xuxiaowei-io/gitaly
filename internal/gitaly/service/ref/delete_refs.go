@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"strings"
 
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
@@ -182,8 +182,8 @@ func hasAnyPrefix(s string, prefixes []string) bool {
 }
 
 func validateDeleteRefRequest(req *gitalypb.DeleteRefsRequest) error {
-	if req.GetRepository() == nil {
-		return gitalyerrors.ErrEmptyRepository
+	if err := service.ValidateRepository(req.GetRepository()); err != nil {
+		return err
 	}
 
 	if len(req.ExceptWithPrefix) > 0 && len(req.Refs) > 0 {

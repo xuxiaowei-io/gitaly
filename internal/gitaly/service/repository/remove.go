@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/safe"
@@ -18,16 +18,16 @@ import (
 )
 
 func (s *server) RemoveRepository(ctx context.Context, in *gitalypb.RemoveRepositoryRequest) (*gitalypb.RemoveRepositoryResponse, error) {
-	repo := in.GetRepository()
-	if repo == nil {
-		return nil, helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
+	repository := in.GetRepository()
+	if err := service.ValidateRepository(repository); err != nil {
+		return nil, helper.ErrInvalidArgument(err)
 	}
-	path, err := s.locator.GetPath(repo)
+	path, err := s.locator.GetPath(repository)
 	if err != nil {
 		return nil, helper.ErrInternal(err)
 	}
 
-	tempDir, err := s.locator.TempDir(repo.GetStorageName())
+	tempDir, err := s.locator.TempDir(repository.GetStorageName())
 	if err != nil {
 		return nil, helper.ErrInternalf("temporary directory: %w", err)
 	}
@@ -80,7 +80,7 @@ func (s *server) RemoveRepository(ctx context.Context, in *gitalypb.RemoveReposi
 		return nil, helper.ErrInternalf("re-statting repository: %w", err)
 	}
 
-	if err := s.voteOnAction(ctx, repo, voting.Prepared); err != nil {
+	if err := s.voteOnAction(ctx, repository, voting.Prepared); err != nil {
 		return nil, helper.ErrInternalf("vote on rename: %v", err)
 	}
 
@@ -95,7 +95,7 @@ func (s *server) RemoveRepository(ctx context.Context, in *gitalypb.RemoveReposi
 		return nil, helper.ErrInternalf("removing repository: %w", err)
 	}
 
-	if err := s.voteOnAction(ctx, repo, voting.Committed); err != nil {
+	if err := s.voteOnAction(ctx, repository, voting.Committed); err != nil {
 		return nil, helper.ErrInternalf("vote on finalizing: %v", err)
 	}
 

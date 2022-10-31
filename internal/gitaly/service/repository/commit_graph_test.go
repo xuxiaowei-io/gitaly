@@ -143,7 +143,7 @@ func TestWriteCommitGraph_validationChecks(t *testing.T) {
 		},
 		{
 			desc:        "invalid storage",
-			req:         &gitalypb.WriteCommitGraphRequest{Repository: &gitalypb.Repository{StorageName: "invalid"}},
+			req:         &gitalypb.WriteCommitGraphRequest{Repository: &gitalypb.Repository{RelativePath: "stub", StorageName: "invalid"}},
 			expectedErr: status.Error(codes.InvalidArgument, `getting commit-graph config: GetStorageByName: no such storage: "invalid"`),
 		},
 		{

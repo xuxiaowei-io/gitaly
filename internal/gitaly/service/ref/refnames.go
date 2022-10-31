@@ -4,8 +4,8 @@ import (
 	"bufio"
 	"context"
 
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -15,8 +15,8 @@ import (
 
 // FindAllBranchNames creates a stream of ref names for all branches in the given repository
 func (s *server) FindAllBranchNames(in *gitalypb.FindAllBranchNamesRequest, stream gitalypb.RefService_FindAllBranchNamesServer) error {
-	if in.GetRepository() == nil {
-		return helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
+	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+		return helper.ErrInvalidArgument(err)
 	}
 
 	chunker := chunk.New(&findAllBranchNamesSender{stream: stream})
@@ -40,8 +40,8 @@ func (ts *findAllBranchNamesSender) Send() error {
 
 // FindAllTagNames creates a stream of ref names for all tags in the given repository
 func (s *server) FindAllTagNames(in *gitalypb.FindAllTagNamesRequest, stream gitalypb.RefService_FindAllTagNamesServer) error {
-	if in.GetRepository() == nil {
-		return helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
+	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+		return helper.ErrInvalidArgument(err)
 	}
 
 	chunker := chunk.New(&findAllTagNamesSender{stream: stream})

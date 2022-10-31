@@ -3,8 +3,8 @@ package repository
 import (
 	"context"
 
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -14,11 +14,12 @@ func (s *server) WriteCommitGraph(
 	ctx context.Context,
 	in *gitalypb.WriteCommitGraphRequest,
 ) (*gitalypb.WriteCommitGraphResponse, error) {
-	if in.GetRepository() == nil {
-		return nil, helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
+	repository := in.GetRepository()
+	if err := service.ValidateRepository(repository); err != nil {
+		return nil, helper.ErrInvalidArgument(err)
 	}
 
-	repo := s.localrepo(in.GetRepository())
+	repo := s.localrepo(repository)
 
 	if in.GetSplitStrategy() != gitalypb.WriteCommitGraphRequest_SizeMultiple {
 		return nil, helper.ErrInvalidArgumentf("unsupported split strategy: %v", in.GetSplitStrategy())

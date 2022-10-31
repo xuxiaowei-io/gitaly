@@ -5,8 +5,8 @@ import (
 	"errors"
 	"strings"
 
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gitpipe"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -52,8 +52,8 @@ func (s *server) FindRefsByOID(ctx context.Context, in *gitalypb.FindRefsByOIDRe
 }
 
 func validateFindRefsReq(in *gitalypb.FindRefsByOIDRequest) error {
-	if in.GetRepository() == nil {
-		return gitalyerrors.ErrEmptyRepository
+	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+		return err
 	}
 
 	if in.GetOid() == "" {

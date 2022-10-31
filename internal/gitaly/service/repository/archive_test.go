@@ -380,7 +380,7 @@ func TestGetArchive_inputValidation(t *testing.T) {
 			format:   gitalypb.GetArchiveRequest_TAR,
 			path:     []byte("Here is a string...."),
 			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
-				"GetPath: relative path missing",
+				"empty RelativePath",
 				"repo scoped: invalid Repository",
 			)),
 		},

@@ -6,9 +6,9 @@ import (
 	"io"
 	"strings"
 
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gitpipe"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -16,8 +16,8 @@ import (
 )
 
 func verifyGetTagSignaturesRequest(req *gitalypb.GetTagSignaturesRequest) error {
-	if req.GetRepository() == nil {
-		return gitalyerrors.ErrEmptyRepository
+	if err := service.ValidateRepository(req.GetRepository()); err != nil {
+		return err
 	}
 
 	if len(req.GetTagRevisions()) == 0 {

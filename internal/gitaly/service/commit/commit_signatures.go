@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"io"
 
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
@@ -127,8 +127,8 @@ func sendResponse(commitID string, signatureKey []byte, commitText []byte, strea
 }
 
 func validateGetCommitSignaturesRequest(request *gitalypb.GetCommitSignaturesRequest) error {
-	if request.GetRepository() == nil {
-		return gitalyerrors.ErrEmptyRepository
+	if err := service.ValidateRepository(request.GetRepository()); err != nil {
+		return err
 	}
 
 	if len(request.GetCommitIds()) == 0 {

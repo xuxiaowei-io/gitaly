@@ -8,18 +8,18 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
 func validateMergeBranchRequest(request *gitalypb.UserMergeBranchRequest) error {
-	if request.GetRepository() == nil {
-		return gitalyerrors.ErrEmptyRepository
+	if err := service.ValidateRepository(request.GetRepository()); err != nil {
+		return err
 	}
 
 	if request.User == nil {
@@ -229,8 +229,8 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 }
 
 func validateFFRequest(in *gitalypb.UserFFBranchRequest) error {
-	if in.Repository == nil {
-		return gitalyerrors.ErrEmptyRepository
+	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+		return err
 	}
 
 	if len(in.Branch) == 0 {
@@ -309,8 +309,8 @@ func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequ
 }
 
 func validateUserMergeToRefRequest(in *gitalypb.UserMergeToRefRequest) error {
-	if in.GetRepository() == nil {
-		return gitalyerrors.ErrEmptyRepository
+	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+		return err
 	}
 
 	if len(in.FirstParentRef) == 0 && len(in.Branch) == 0 {

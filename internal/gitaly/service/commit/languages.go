@@ -9,9 +9,9 @@ import (
 	"sort"
 	"strings"
 
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/linguist"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -20,8 +20,8 @@ import (
 var errAmbigRef = errors.New("ambiguous reference")
 
 func (s *server) validateCommitLanguagesRequest(req *gitalypb.CommitLanguagesRequest) error {
-	if req.GetRepository() == nil {
-		return gitalyerrors.ErrEmptyRepository
+	if err := service.ValidateRepository(req.GetRepository()); err != nil {
+		return err
 	}
 	if err := git.ValidateRevisionAllowEmpty(req.Revision); err != nil {
 		return err

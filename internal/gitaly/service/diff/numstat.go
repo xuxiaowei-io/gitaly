@@ -3,9 +3,9 @@ package diff
 import (
 	"io"
 
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/diff"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -82,11 +82,11 @@ func sendStats(batch []*gitalypb.DiffStats, stream gitalypb.DiffService_DiffStat
 }
 
 func (s *server) validateDiffStatsRequestParams(in *gitalypb.DiffStatsRequest) error {
-	repo := in.GetRepository()
-	if repo == nil {
-		return helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
+	repository := in.GetRepository()
+	if err := service.ValidateRepository(repository); err != nil {
+		return helper.ErrInvalidArgument(err)
 	}
-	if _, err := s.locator.GetRepoPath(repo); err != nil {
+	if _, err := s.locator.GetRepoPath(repository); err != nil {
 		return err
 	}
 

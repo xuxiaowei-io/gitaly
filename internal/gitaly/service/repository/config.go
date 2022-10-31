@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
@@ -18,10 +18,11 @@ func (s *server) GetConfig(
 	request *gitalypb.GetConfigRequest,
 	stream gitalypb.RepositoryService_GetConfigServer,
 ) error {
-	if request.GetRepository() == nil {
-		return helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
+	repository := request.GetRepository()
+	if err := service.ValidateRepository(repository); err != nil {
+		return helper.ErrInvalidArgument(err)
 	}
-	repoPath, err := s.locator.GetPath(request.GetRepository())
+	repoPath, err := s.locator.GetPath(repository)
 	if err != nil {
 		return err
 	}

@@ -10,8 +10,8 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/voting"
@@ -144,9 +144,5 @@ func validateFirstReceivePackRequest(req *gitalypb.SSHReceivePackRequest) error 
 	if req.Stdin != nil {
 		return errors.New("non-empty data in first request")
 	}
-	if req.Repository == nil {
-		return gitalyerrors.ErrEmptyRepository
-	}
-
-	return nil
+	return service.ValidateRepository(req.GetRepository())
 }

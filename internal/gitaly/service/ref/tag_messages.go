@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"io"
 
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
@@ -27,11 +27,7 @@ func (s *server) GetTagMessages(request *gitalypb.GetTagMessagesRequest, stream 
 }
 
 func validateGetTagMessagesRequest(request *gitalypb.GetTagMessagesRequest) error {
-	if request.GetRepository() == nil {
-		return gitalyerrors.ErrEmptyRepository
-	}
-
-	return nil
+	return service.ValidateRepository(request.GetRepository())
 }
 
 func (s *server) getAndStreamTagMessages(request *gitalypb.GetTagMessagesRequest, stream gitalypb.RefService_GetTagMessagesServer) error {

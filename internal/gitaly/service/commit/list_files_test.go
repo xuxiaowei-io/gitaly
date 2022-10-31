@@ -221,7 +221,7 @@ func TestListFiles_failure(t *testing.T) {
 			desc: "empty repo object",
 			repo: &gitalypb.Repository{},
 			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
-				`GetStorageByName: no such storage: ""`,
+				"empty StorageName",
 				"repo scoped: invalid Repository",
 			)),
 		},

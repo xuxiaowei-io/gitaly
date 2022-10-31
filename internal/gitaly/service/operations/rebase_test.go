@@ -812,7 +812,7 @@ func TestUserRebaseConfirmable_failedWithCode(t *testing.T) {
 				return buildHeaderRequest(repo, gittest.TestUser, "1", rebaseBranchName, branchCommitID, repo, "master")
 			},
 			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
-				"creating repo quarantine: creating object quarantine: getting repo path: GetPath: relative path missing",
+				"UserRebaseConfirmable: empty RelativePath",
 				"repo scoped: invalid Repository",
 			)),
 		},

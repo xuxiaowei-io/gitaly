@@ -122,7 +122,7 @@ func TestRepackIncrementalFailure(t *testing.T) {
 		},
 		{
 			desc: "invalid storage name",
-			repo: &gitalypb.Repository{StorageName: "foo"},
+			repo: &gitalypb.Repository{RelativePath: "stub", StorageName: "foo"},
 			err: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				`repacking objects: GetStorageByName: no such storage: "foo"`,
 				"repo scoped: invalid Repository",
@@ -132,7 +132,7 @@ func TestRepackIncrementalFailure(t *testing.T) {
 			desc: "no storage name",
 			repo: &gitalypb.Repository{RelativePath: "bar"},
 			err: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
-				`repacking objects: GetStorageByName: no such storage: ""`,
+				"empty StorageName",
 				"repo scoped: invalid Repository",
 			)),
 		},
@@ -270,13 +270,13 @@ func TestRepackFullFailure(t *testing.T) {
 		},
 		{
 			desc: "invalid storage name",
-			repo: &gitalypb.Repository{StorageName: "foo"},
+			repo: &gitalypb.Repository{RelativePath: "stub", StorageName: "foo"},
 			err:  status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(`repacking objects: GetStorageByName: no such storage: "foo"`, "repo scoped: invalid Repository")),
 		},
 		{
 			desc: "no storage name",
 			repo: &gitalypb.Repository{RelativePath: "bar"},
-			err:  status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(`repacking objects: GetStorageByName: no such storage: ""`, "repo scoped: invalid Repository")),
+			err:  status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage("empty StorageName", "repo scoped: invalid Repository")),
 		},
 		{
 			desc: "non-existing repo",

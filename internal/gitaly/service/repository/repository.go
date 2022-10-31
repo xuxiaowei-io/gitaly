@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -17,8 +17,8 @@ func (s *server) Exists(ctx context.Context, in *gitalypb.RepositoryExistsReques
 }
 
 func (s *server) RepositoryExists(ctx context.Context, in *gitalypb.RepositoryExistsRequest) (*gitalypb.RepositoryExistsResponse, error) {
-	if in.GetRepository() == nil {
-		return nil, helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
+	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+		return nil, helper.ErrInvalidArgument(err)
 	}
 	path, err := s.locator.GetPath(in.Repository)
 	if err != nil {
@@ -29,10 +29,11 @@ func (s *server) RepositoryExists(ctx context.Context, in *gitalypb.RepositoryEx
 }
 
 func (s *server) HasLocalBranches(ctx context.Context, in *gitalypb.HasLocalBranchesRequest) (*gitalypb.HasLocalBranchesResponse, error) {
-	if in.GetRepository() == nil {
-		return nil, helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
+	repository := in.GetRepository()
+	if err := service.ValidateRepository(repository); err != nil {
+		return nil, helper.ErrInvalidArgument(err)
 	}
-	hasBranches, err := s.localrepo(in.GetRepository()).HasBranches(ctx)
+	hasBranches, err := s.localrepo(repository).HasBranches(ctx)
 	if err != nil {
 		return nil, helper.ErrInternal(err)
 	}

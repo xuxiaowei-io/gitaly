@@ -89,7 +89,7 @@ func TestPackRefs_invalidRequest(t *testing.T) {
 		},
 		{
 			desc: "invalid storage name",
-			repo: &gitalypb.Repository{StorageName: "foo"},
+			repo: &gitalypb.Repository{RelativePath: "stub", StorageName: "foo"},
 			err: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
 				`GetStorageByName: no such storage: "foo"`,
 				"repo scoped: invalid Repository",

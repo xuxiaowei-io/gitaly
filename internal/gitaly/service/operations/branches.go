@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -15,8 +15,8 @@ import (
 )
 
 func validateUserCreateBranchRequest(in *gitalypb.UserCreateBranchRequest) error {
-	if in.GetRepository() == nil {
-		return gitalyerrors.ErrEmptyRepository
+	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+		return err
 	}
 	if len(in.BranchName) == 0 {
 		return errors.New("Bad Request (empty branch name)") //nolint:stylecheck
@@ -100,8 +100,8 @@ func (s *Server) UserCreateBranch(ctx context.Context, req *gitalypb.UserCreateB
 }
 
 func validateUserUpdateBranchGo(req *gitalypb.UserUpdateBranchRequest) error {
-	if req.GetRepository() == nil {
-		return gitalyerrors.ErrEmptyRepository
+	if err := service.ValidateRepository(req.GetRepository()); err != nil {
+		return err
 	}
 
 	if req.User == nil {
@@ -168,8 +168,8 @@ func (s *Server) UserUpdateBranch(ctx context.Context, req *gitalypb.UserUpdateB
 }
 
 func validateUserDeleteBranchRequest(in *gitalypb.UserDeleteBranchRequest) error {
-	if in.GetRepository() == nil {
-		return gitalyerrors.ErrEmptyRepository
+	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+		return err
 	}
 	if len(in.GetBranchName()) == 0 {
 		return errors.New("bad request: empty branch name")

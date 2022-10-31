@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/conflict"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
@@ -20,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/remoterepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -80,8 +80,8 @@ func validateResolveConflictsHeader(header *gitalypb.ResolveConflictsRequestHead
 	if header.GetOurCommitOid() == "" {
 		return fmt.Errorf("empty OurCommitOid")
 	}
-	if header.GetRepository() == nil {
-		return gitalyerrors.ErrEmptyRepository
+	if err := service.ValidateRepository(header.GetRepository()); err != nil {
+		return err
 	}
 	if header.GetTargetRepository() == nil {
 		return fmt.Errorf("empty TargetRepository")

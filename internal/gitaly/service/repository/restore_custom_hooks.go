@@ -9,7 +9,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
@@ -32,9 +32,9 @@ func (s *server) RestoreCustomHooks(stream gitalypb.RepositoryService_RestoreCus
 		return status.Errorf(codes.Internal, "RestoreCustomHooks: first request failed %v", err)
 	}
 
-	repo := firstRequest.GetRepository()
-	if repo == nil {
-		return helper.ErrInvalidArgumentf("RestoreCustomHooks: %w", gitalyerrors.ErrEmptyRepository)
+	repository := firstRequest.GetRepository()
+	if err := service.ValidateRepository(repository); err != nil {
+		return helper.ErrInvalidArgumentf("RestoreCustomHooks: %w", err)
 	}
 
 	reader := streamio.NewReader(func() ([]byte, error) {
@@ -48,7 +48,7 @@ func (s *server) RestoreCustomHooks(stream gitalypb.RepositoryService_RestoreCus
 		return request.GetData(), err
 	})
 
-	repoPath, err := s.locator.GetPath(repo)
+	repoPath, err := s.locator.GetPath(repository)
 	if err != nil {
 		return status.Errorf(codes.Internal, "RestoreCustomHooks: getting repo path failed %v", err)
 	}
@@ -82,14 +82,14 @@ func (s *server) restoreCustomHooksWithVoting(stream gitalypb.RepositoryService_
 
 	ctx := stream.Context()
 
-	repo := firstRequest.GetRepository()
-	if repo == nil {
-		return helper.ErrInvalidArgumentf("RestoreCustomHooks: %w", gitalyerrors.ErrEmptyRepository)
+	repository := firstRequest.GetRepository()
+	if err := service.ValidateRepository(repository); err != nil {
+		return helper.ErrInvalidArgumentf("RestoreCustomHooks: %w", err)
 	}
 
 	v := voting.NewVoteHash()
 
-	repoPath, err := s.locator.GetRepoPath(repo)
+	repoPath, err := s.locator.GetRepoPath(repository)
 	if err != nil {
 		return helper.ErrInternalf("RestoreCustomHooks: getting repo path failed %w", err)
 	}
