@@ -22,6 +22,12 @@ variables:
   PGBOUNCER_VERSION: "1.16.1"
   BUNDLE_PATH: "${CI_PROJECT_DIR}/.ruby"
   GOPATH: "${CI_PROJECT_DIR}/.go"
+  # We run the build as an untrusted user in a source directory owned by
+  # "root". Running Git commands in that repository will thus fail due to
+  # Git's `safe.directory` protections, and that in turns breaks the Go
+  # build. We work around this by telling Go to not embed VCS information in
+  # the binaries.
+  GOFLAGS: "-buildvcs=false"
   # Run tests with an intercepted home directory so that we detect cases where
   # Gitaly picks up the gitconfig even though it ought not to.
   GITALY_TESTING_INTERCEPT_HOME: "YesPlease"

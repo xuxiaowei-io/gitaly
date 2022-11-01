@@ -1,18 +1,15 @@
 package testcfg
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
@@ -93,66 +90,14 @@ func BuildBinary(tb testing.TB, targetDir, sourcePath string) string {
 	buildOnce.Do(func() {
 		require.NoFileExists(tb, sharedBinaryPath, "binary has already been built")
 
-		cfg := Build(tb)
-		gitCommandFactory := gittest.NewCommandFactory(tb, cfg)
-		gitExecEnv := gitCommandFactory.GetExecutionEnvironment(context.TODO())
-
-		// Unfortunately, Go has started to execute Git as parts of its build process in
-		// order to embed VCS information into the resulting binary. In Gitaly we're doing a
-		// bunch of things to verify that we don't ever use Git information from outside of
-		// our defined parameters: we intercept Git executed via PATH, and we also override
-		// Git configuration locations. So executing Git without special logic simply does
-		// not work.
-		//
-		// While we could in theory just ask it not to do that via `-buildvcs=false`, this
-		// option is only understood with Go 1.18+. So we have the option between either
-		// using logic that is conditional on the Go version here, or alternatively we fix
-		// the environment to allow for the execution of Git. We opt for the latter here and
-		// set up a Git command factory.
-		gitEnvironment := make([]string, 0, len(os.Environ()))
-
 		// We need to filter out some environments we set globally in our tests which would
 		// cause Git to not operate correctly.
+		filteredEnvironment := make([]string, 0, len(os.Environ()))
 		for _, env := range os.Environ() {
 			if !strings.HasPrefix(env, "GIT_DIR=") {
-				gitEnvironment = append(gitEnvironment, env)
+				filteredEnvironment = append(filteredEnvironment, env)
 			}
 		}
-
-		// Furthermore, as we're using the Git command factory which may or may not use
-		// bundled Git we need to append some environment variables that make Git find its
-		// auxiliary helper binaries.
-		gitEnvironment = append(gitEnvironment, gitExecEnv.EnvironmentVariables...)
-
-		// And last but not least we need to override PATH so that our Git binary from the
-		// command factory is up front.
-		gitEnvironment = append(gitEnvironment, fmt.Sprintf(
-			"PATH=%s:%s", filepath.Dir(gitExecEnv.BinaryPath), os.Getenv("PATH"),
-		))
-
-		// Go 1.18 has started to extract VCS information so that it can be embedded into
-		// the resulting binary and will thus execute Git in the Gitaly repository. In CI,
-		// the Gitaly repository is owned by a different user than the one that is executing
-		// tests though, which means that Git will refuse to open the repository because of
-		// CVE-2022-24765.
-		//
-		// Let's override this mechanism by labelling the Git repository as safe. While this
-		// does in theory make us vulnerable to this exploit, it is clear that any adversary
-		// would already have arbitrary code execution because we are executing code right
-		// now that would be controlled by the very same adversary.
-		//
-		// Note that we cannot pass `safe.directory` via command line arguments by design.
-		// Instead, we just override the system-level gitconfig to point to a temporary file
-		// that contains this setting.
-		_, currentFile, _, ok := runtime.Caller(0)
-		require.True(tb, ok)
-		gitconfigPath := filepath.Join(testhelper.TempDir(tb), "gitconfig")
-		require.NoError(tb, os.WriteFile(gitconfigPath, []byte(
-			"[safe]\ndirectory = "+filepath.Join(filepath.Dir(currentFile), "..", "..", "..")+"\n"), 0o400),
-		)
-		gitEnvironment = append(gitEnvironment,
-			"GIT_CONFIG_SYSTEM="+gitconfigPath,
-		)
 
 		buildTags := []string{
 			"static", "system_libgit2", "gitaly_test",
@@ -164,11 +109,12 @@ func BuildBinary(tb testing.TB, targetDir, sourcePath string) string {
 		cmd := exec.Command(
 			"go",
 			"build",
+			"-buildvcs=false",
 			"-tags", strings.Join(buildTags, ","),
 			"-o", sharedBinaryPath,
 			sourcePath,
 		)
-		cmd.Env = gitEnvironment
+		cmd.Env = filteredEnvironment
 
 		output, err := cmd.CombinedOutput()
 		require.NoError(tb, err, "building Go executable: %v, output: %q", err, output)
