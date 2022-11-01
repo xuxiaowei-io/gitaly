@@ -334,8 +334,6 @@ test:macos:
     PGHOST: localhost
     PGUSER: gitlab
     TEST_OPTIONS: "-timeout=20m" # a number of tests may exceed the default 10m
-    TEST_REPORT: go-tests-report.xml
-    TEST_FULL_OUTPUT: test-output.log
   artifacts:
     reports:
       junit: ${TEST_REPORT}
