@@ -1,6 +1,7 @@
 stages:
   - build
   - test
+  - analyze
   - qa
 
 default:
@@ -331,13 +332,13 @@ test:macos:
 verify:docs:
   image: registry.gitlab.com/gitlab-org/gitlab-docs/lint-markdown:alpine-3.16-vale-2.20.2-markdownlint-0.32.2-markdownlint2-0.5.1
   needs: []
-  stage: test
+  stage: analyze
   script:
     - make lint-docs
 
 verify:
   needs: []
-  stage: test
+  stage: analyze
   cache:
     - *cache_deps_configuration
     - *cache_gems_configuration
@@ -356,7 +357,7 @@ verify:
 
 dbschema:
   needs: []
-  stage: test
+  stage: analyze
   cache:
     - *cache_deps_configuration
     - *cache_gems_configuration
@@ -376,6 +377,7 @@ dbschema:
 
 semgrep-sast:
   needs: []
+  stage: analyze
   cache:
     - *cache_go_configuration
   rules:
@@ -387,6 +389,7 @@ semgrep-sast:
 
 license_scanning:
   needs: []
+  stage: analyze
   rules:
     - if: $LICENSE_SCANNING_DISABLED
       when: never
@@ -398,6 +401,7 @@ license_scanning:
 
 gemnasium-dependency_scanning:
   needs: []
+  stage: analyze
   rules:
     - if: $DEPENDENCY_SCANNING_DISABLED
       when: never
@@ -407,6 +411,7 @@ gemnasium-dependency_scanning:
 
 secret_detection:
   needs: []
+  stage: analyze
   rules:
     - if: $SECRET_DETECTION_DISABLED
       when: never
