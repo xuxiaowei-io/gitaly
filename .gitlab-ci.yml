@@ -20,8 +20,9 @@ variables:
   RUBY_VERSION: "2.7"
   POSTGRES_VERSION: "12.6-alpine"
   PGBOUNCER_VERSION: "1.16.1"
-  BUNDLE_PATH: "${CI_PROJECT_DIR}/.ruby"
-  GOPATH: "${CI_PROJECT_DIR}/.go"
+  BUNDLE_PATH: "${CI_PROJECT_DIR}/_build/cache/ruby"
+  GOCACHE: "${CI_PROJECT_DIR}/_build/cache/go-build"
+  GOMODCACHE: "${CI_PROJECT_DIR}/_build/cache/go-mod"
   # We run the build as an untrusted user in a source directory owned by
   # "root". Running Git commands in that repository will thus fail due to
   # Git's `safe.directory` protections, and that in turns breaks the Go
@@ -66,7 +67,7 @@ include:
         - ruby/Gemfile.lock
       prefix: debian-${DEBIAN_VERSION}-ruby-${RUBY_VERSION}
     paths:
-      - .ruby
+      - ${BUNDLE_PATH}
     policy: pull
 
 .cache_go:
@@ -77,8 +78,8 @@ include:
         - go.sum
       prefix: go-${GO_VERSION}
     paths:
-      - .go/pkg/mod
-      - _build/cache
+      - ${GOCACHE}
+      - ${GOMODCACHE}
     policy: pull
 
 .test_template: &test_definition
@@ -98,22 +99,20 @@ include:
     PGUSER: postgres
     POSTGRES_DB: praefect_test
     POSTGRES_HOST_AUTH_METHOD: trust
-    TEST_REPORT: _unprivileged/go-tests-report.xml
-    TEST_COVERAGE_DIR: _unprivileged
-    TEST_FULL_OUTPUT: /tmp/test-output.log
+    TEST_REPORT: "${CI_PROJECT_DIR}/_build/reports/go-tests-report.xml"
+    TEST_COVERAGE_DIR: "${CI_PROJECT_DIR}/_build/reports/coverage"
+    TEST_FULL_OUTPUT: "${CI_PROJECT_DIR}/_build/reports/test-output.log"
   before_script: &test_before_script
     - go version
-    # Create a directory for the unprivileged user that we're running tests as.
-    # This is required so that we can still store test reports successfully.
-    - install --directory --owner=${TEST_UID} --group=${TEST_UID} _unprivileged
-    # We need to explicitly build all prerequisites so that we can run tests unprivileged.
-    - make -j$(nproc) build prepare-tests $(pwd)/_build/tools/gocover-cobertura $(test "${GIT_VERSION}" = default && echo WITH_BUNDLED_GIT=YesPlease)
   script:
+    # Create the build directory for the unprivileged user that we're running
+    # tests as. This is required because the source directory itself is owned
+    # by `root`.
+    - install --directory --owner=${TEST_UID} --group=${TEST_UID} _build
     # But the actual tests should run unprivileged. This assures that we pay
     # proper attention to permission bits and that we don't modify the source
     # directory.
-    - setpriv --reuid=${TEST_UID} --regid=${TEST_UID} --clear-groups --no-new-privs make ${TEST_TARGET} UNPRIVILEGED_CI_SKIP=YesPlease $(test "${GIT_VERSION}" = default && echo WITH_BUNDLED_GIT=YesPlease)
-
+    - setpriv --reuid=${TEST_UID} --regid=${TEST_UID} --clear-groups --no-new-privs make ${TEST_TARGET} $(test "${GIT_VERSION}" = default && echo WITH_BUNDLED_GIT=YesPlease)
   after_script: &test_after_script
     - |
       # Checking for panics in ${TEST_FULL_OUTPUT}
@@ -149,7 +148,10 @@ build:
       policy: pull-push
   script:
     - go version
-    - make -j$(nproc) build $(pwd)/_build/tools/protoc $(test "${GIT_VERSION}" = default && echo build-bundled-git || echo build-git)
+    # Build the binaries as unprivileged user so that we can reuse the cache
+    # for our "test" targets, which also run unprivileged.
+    - install --directory --owner=${TEST_UID} --group=${TEST_UID} _build
+    - setpriv --reuid=${TEST_UID} --regid=${TEST_UID} --clear-groups --no-new-privs make build $(test "${GIT_VERSION}" = default && echo build-bundled-git || echo build-git)
     - _support/test-boot . ${TEST_BOOT_ARGS}
   parallel:
     matrix:
