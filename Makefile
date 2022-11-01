@@ -29,6 +29,13 @@ BUILD_DIR        := ${SOURCE_DIR}/_build
 DEPENDENCY_DIR   := ${BUILD_DIR}/deps
 TOOLS_DIR        := ${BUILD_DIR}/tools
 GITALY_RUBY_DIR  := ${SOURCE_DIR}/ruby
+# This file is used as a dependency for running `bundle install`: when its
+# mtime is older than that of either `Gemfile` or `Gemfile.lock` we will
+# execute the command. There is not typically any need to change the location,
+# but we need this for our unprivileged CI so that it can be moved into the
+# `_build` directory. Just moving the file completely doesn't work, as both CNG
+# and Omnibus depend on it to inhibit re-bundling Ruby Gems.
+RUBY_BUNDLE_FILE ?= ${SOURCE_DIR}/.ruby-bundle
 
 # These variables may be overridden at runtime by top-level make
 ## The prefix where Gitaly binaries will be installed to. Binaries will end up
@@ -312,7 +319,7 @@ help:
 
 .PHONY: build
 ## Build Go binaries and install required Ruby Gems.
-build: ${SOURCE_DIR}/.ruby-bundle ${GITALY_INSTALLED_EXECUTABLES}
+build: ${RUBY_BUNDLE_FILE} ${GITALY_INSTALLED_EXECUTABLES}
 
 .PHONY: install
 ## Install Gitaly binaries. The target directory can be modified by setting PREFIX and DESTDIR.
@@ -347,7 +354,7 @@ export GITALY_TESTING_GIT_BINARY ?= ${DEPENDENCY_DIR}/git-distribution/bin-wrapp
 endif
 
 .PHONY: prepare-tests
-prepare-tests: libgit2 prepare-test-repos ${SOURCE_DIR}/.ruby-bundle ${GOTESTSUM}
+prepare-tests: libgit2 prepare-test-repos ${RUBY_BUNDLE_FILE} ${GOTESTSUM}
 ifndef UNPRIVILEGED_CI_SKIP
 prepare-tests: ${GITALY_PACKED_EXECUTABLES}
 endif
@@ -465,7 +472,7 @@ clean-ruby-vendor-go:
 
 .PHONY: rubocop
 ## Run Rubocop.
-rubocop: ${SOURCE_DIR}/.ruby-bundle
+rubocop: ${RUBY_BUNDLE_FILE}
 	${Q}cd ${GITALY_RUBY_DIR} && bundle exec rubocop --parallel --config ${GITALY_RUBY_DIR}/.rubocop.yml ${GITALY_RUBY_DIR} ${SOURCE_DIR}/_support/test-boot
 
 .PHONY: cover
@@ -554,7 +561,7 @@ libgit2: ${LIBGIT2_INSTALL_DIR}/lib/libgit2.a
 # This file is used by Omnibus and CNG to skip the "bundle install"
 # step. Both Omnibus and CNG assume it is in the Gitaly root, not in
 # _build. Hence the '../' in front.
-${SOURCE_DIR}/.ruby-bundle: ${GITALY_RUBY_DIR}/Gemfile.lock ${GITALY_RUBY_DIR}/Gemfile
+${RUBY_BUNDLE_FILE}: ${GITALY_RUBY_DIR}/Gemfile.lock ${GITALY_RUBY_DIR}/Gemfile
 	${Q}cd ${GITALY_RUBY_DIR} && bundle install
 	${Q}touch $@
 
