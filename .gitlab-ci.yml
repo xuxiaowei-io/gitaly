@@ -147,7 +147,7 @@ build:
     - _support/test-boot . ${TEST_BOOT_ARGS}
   parallel:
     matrix:
-      - GO_VERSION: [ "1.17", "1.18" ]
+      - GO_VERSION: [ "1.18" ]
         TEST_BOOT_ARGS: "--bundled-git"
       - GIT_VERSION: "v2.37.0"
 
@@ -172,7 +172,7 @@ build:binaries:
     expire_in: 6 months
   parallel:
     matrix:
-      - GO_VERSION: [ "1.17", "1.18" ]
+      - GO_VERSION: [ "1.18" ]
 
 test:
   <<: *test_definition
@@ -180,7 +180,7 @@ test:
     matrix:
       # The following jobs all test with our default Git version, which is
       # using bundled Git binaries.
-      - GO_VERSION: [ "1.17", "1.18" ]
+      - GO_VERSION: [ "1.18" ]
         TEST_TARGET: test
       - TEST_TARGET: [ test-with-proxies, test-with-praefect, race-go ]
       # We also verify that things work as expected with a non-bundled Git
