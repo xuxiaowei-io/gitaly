@@ -291,6 +291,43 @@ test:fips:
       when: manual
       allow_failure: true
 
+test:macos:
+  needs: []
+  stage: test
+  image: macos-12-xcode-14
+  script:
+    - sw_vers
+    - go version
+    - pg_ctl --version
+    - ulimit -n 4096 # The default of 256 can lead to 'too many open files' errors when running parallel tests
+    - pg_ctl -D /usr/local/var/postgres start > /tmp/postgres.log
+    - pg_ctl status
+    - createdb -U $PGUSER $POSTGRES_DB
+    - brew install cmake
+    - make -j$(nproc) build prepare-tests
+    - make test-go
+    - *test_after_script
+  tags:
+    - shared-macos-amd64
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      allow_failure: true
+    - when: manual
+      allow_failure: true
+  variables:
+    <<: *test_variables
+    PGDATA: /usr/local/var/postgres
+    PGHOST: localhost
+    PGUSER: gitlab
+    TEST_OPTIONS: "-timeout=20m" # a number of tests may exceed the default 10m
+    TEST_REPORT: go-tests-report.xml
+    TEST_FULL_OUTPUT: test-output.log
+  artifacts:
+    reports:
+      junit: ${TEST_REPORT}
+    when: always
+    expire_in: 1 week
+
 verify:docs:
   image: registry.gitlab.com/gitlab-org/gitlab-docs/lint-markdown:alpine-3.16-vale-2.20.2-markdownlint-0.32.2-markdownlint2-0.5.1
   needs: []
@@ -405,40 +442,3 @@ qa:nightly-praefect-migration-test:
     project: gitlab-org/quality/praefect-migration-testing
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
-
-test:macos:
-  needs: []
-  stage: test
-  image: macos-12-xcode-14
-  script:
-    - sw_vers
-    - go version
-    - pg_ctl --version
-    - ulimit -n 4096 # The default of 256 can lead to 'too many open files' errors when running parallel tests
-    - pg_ctl -D /usr/local/var/postgres start > /tmp/postgres.log
-    - pg_ctl status
-    - createdb -U $PGUSER $POSTGRES_DB
-    - brew install cmake
-    - make -j$(nproc) build prepare-tests
-    - make test-go
-    - *test_after_script
-  tags:
-    - shared-macos-amd64
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-      allow_failure: true
-    - when: manual
-      allow_failure: true
-  variables:
-    <<: *test_variables
-    PGDATA: /usr/local/var/postgres
-    PGHOST: localhost
-    PGUSER: gitlab
-    TEST_OPTIONS: "-timeout=20m" # a number of tests may exceed the default 10m
-    TEST_REPORT: go-tests-report.xml
-    TEST_FULL_OUTPUT: test-output.log
-  artifacts:
-    reports:
-      junit: ${TEST_REPORT}
-    when: always
-    expire_in: 1 week
