@@ -26,9 +26,10 @@ func TestMain(m *testing.M) {
 func setupObjectPool(t *testing.T, ctx context.Context) (config.Cfg, *ObjectPool, *gitalypb.Repository) {
 	t.Helper()
 
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
-
-	gittest.FixGitLabTestRepoForCommitGraphs(t, cfg, repoPath)
+	cfg := testcfg.Build(t)
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+	})
 
 	gitCommandFactory := gittest.NewCommandFactory(t, cfg, git.WithSkipHooks())
 

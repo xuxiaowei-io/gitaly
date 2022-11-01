@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/txinfo"
@@ -19,6 +20,8 @@ import (
 )
 
 func TestLink(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	cfg, pool, repoProto := setupObjectPool(t, ctx)
@@ -48,6 +51,7 @@ func TestLink(t *testing.T) {
 
 func TestLink_transactional(t *testing.T) {
 	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	cfg, pool, poolMemberProto := setupObjectPool(t, ctx)
@@ -72,58 +76,56 @@ func TestLink_transactional(t *testing.T) {
 	require.Equal(t, 2, len(txManager.Votes()))
 }
 
-func TestLinkRemoveBitmap(t *testing.T) {
+func TestLink_removeBitmap(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	cfg, pool, repoProto := setupObjectPool(t, ctx)
+
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-	require.NoError(t, pool.Init(ctx))
-
-	testRepoPath := filepath.Join(cfg.Storages[0].Path, repo.GetRelativePath())
-
-	poolPath := pool.FullPath()
-	gittest.Exec(t, cfg, "-C", poolPath, "fetch", testRepoPath, "+refs/*:refs/*")
-
-	gittest.Exec(t, cfg, "-C", poolPath, "repack", "-adb")
-	require.Len(t, listBitmaps(t, pool.FullPath()), 1, "pool bitmaps before")
-
-	gittest.Exec(t, cfg, "-C", testRepoPath, "repack", "-adb")
-	require.Len(t, listBitmaps(t, testRepoPath), 1, "member bitmaps before")
-
-	refsBefore := gittest.Exec(t, cfg, "-C", testRepoPath, "for-each-ref")
-
-	require.NoError(t, pool.Link(ctx, repo))
-
-	require.Len(t, listBitmaps(t, pool.FullPath()), 1, "pool bitmaps after")
-	require.Len(t, listBitmaps(t, testRepoPath), 0, "member bitmaps after")
-
-	gittest.Exec(t, cfg, "-C", testRepoPath, "fsck")
-
-	refsAfter := gittest.Exec(t, cfg, "-C", testRepoPath, "for-each-ref")
-	require.Equal(t, refsBefore, refsAfter, "compare member refs before/after link")
-}
-
-func listBitmaps(t *testing.T, repoPath string) []string {
-	entries, err := os.ReadDir(filepath.Join(repoPath, "objects/pack"))
+	repoPath, err := repo.Path()
 	require.NoError(t, err)
 
-	var bitmaps []string
-	for _, entry := range entries {
-		if strings.HasSuffix(entry.Name(), ".bitmap") {
-			bitmaps = append(bitmaps, entry.Name())
-		}
-	}
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
 
-	return bitmaps
+	// Initialize the pool and pull in all references from the repository.
+	require.NoError(t, pool.Init(ctx))
+	poolPath := pool.FullPath()
+	gittest.Exec(t, cfg, "-C", poolPath, "fetch", repoPath, "+refs/*:refs/*")
+
+	// Repack both the object pool and the pool member such that they both have bitmaps.
+	gittest.Exec(t, cfg, "-C", poolPath, "repack", "-adb")
+	requireHasBitmap(t, poolPath, true)
+	gittest.Exec(t, cfg, "-C", repoPath, "repack", "-adb")
+	requireHasBitmap(t, repoPath, true)
+
+	// After linking the repository to its pool it should not have a bitmap anymore as Git does
+	// not allow for multiple bitmaps to exist.
+	require.NoError(t, pool.Link(ctx, repo))
+	requireHasBitmap(t, poolPath, true)
+	requireHasBitmap(t, repoPath, false)
+
+	// Sanity-check that the repository is still consistent.
+	gittest.Exec(t, cfg, "-C", repoPath, "fsck")
 }
 
-func TestLinkAbsoluteLinkExists(t *testing.T) {
+func requireHasBitmap(t *testing.T, repoPath string, expected bool) {
+	hasBitmap, err := stats.HasBitmap(repoPath)
+	require.NoError(t, err)
+	require.Equal(t, expected, hasBitmap)
+}
+
+func TestLink_absoluteLinkExists(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	cfg, pool, repoProto := setupObjectPool(t, ctx)
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	testRepoPath := filepath.Join(cfg.Storages[0].Path, repo.GetRelativePath())
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	repoPath, err := repo.Path()
+	require.NoError(t, err)
 
 	require.NoError(t, pool.Remove(ctx), "make sure pool does not exist prior to creation")
 	require.NoError(t, pool.Create(ctx, repo), "create pool")
@@ -142,8 +144,8 @@ func TestLinkAbsoluteLinkExists(t *testing.T) {
 	content := testhelper.MustReadFile(t, altPath)
 	require.False(t, filepath.IsAbs(string(content)), "expected %q to be relative path", content)
 
-	testRepoObjectsPath := filepath.Join(testRepoPath, "objects")
-	require.Equal(t, fullPath, filepath.Join(testRepoObjectsPath, string(content)), "the content of the alternates file should be the relative version of the absolute pat")
+	repoObjectsPath := filepath.Join(repoPath, "objects")
+	require.Equal(t, fullPath, filepath.Join(repoObjectsPath, string(content)), "the content of the alternates file should be the relative version of the absolute pat")
 
 	require.True(t, gittest.RemoteExists(t, cfg, pool.FullPath(), "origin"), "pool remotes should include %v", repo)
 }

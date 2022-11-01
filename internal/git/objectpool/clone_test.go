@@ -66,7 +66,7 @@ func TestClone_fsck(t *testing.T) {
 
 	gittest.WriteCommit(t, cfg, repoPath,
 		gittest.WithParents(),
-		gittest.WithBranch("main"),
+		gittest.WithBranch("master"),
 		gittest.WithTree(treeID),
 	)
 
