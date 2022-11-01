@@ -95,6 +95,7 @@ include:
     TEST_REPORT: _unprivileged/go-tests-report.xml
     TEST_COVERAGE_DIR: _unprivileged
     TEST_FULL_OUTPUT: /tmp/test-output.log
+    TEST_LOG_DIR: ${CI_PROJECT_DIR}/_unprivileged/test-logs
   before_script: &test_before_script
     - go version
     # Create a directory for the unprivileged user that we're running tests as.
@@ -118,7 +119,8 @@ include:
       fi
   artifacts:
     paths:
-      - ruby/tmp/gitaly-rspec-test.log
+      - ${CI_PROJECT_DIR}/ruby/tmp/gitaly-rspec-test.log
+      - ${TEST_LOG_DIR}
     reports:
       junit: ${TEST_REPORT}
     when: on_failure
@@ -323,7 +325,10 @@ test:macos:
     TEST_OPTIONS: "-timeout=20m" # a number of tests may exceed the default 10m
     TEST_REPORT: go-tests-report.xml
     TEST_FULL_OUTPUT: test-output.log
+    TEST_LOG_DIR: ${CI_PROJECT_DIR}/test-logs
   artifacts:
+    paths:
+      - ${TEST_LOG_DIR}
     reports:
       junit: ${TEST_REPORT}
     when: always
