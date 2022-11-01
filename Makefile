@@ -354,10 +354,7 @@ export GITALY_TESTING_GIT_BINARY ?= ${DEPENDENCY_DIR}/git-distribution/bin-wrapp
 endif
 
 .PHONY: prepare-tests
-prepare-tests: libgit2 prepare-test-repos ${RUBY_BUNDLE_FILE} ${GOTESTSUM}
-ifndef UNPRIVILEGED_CI_SKIP
-prepare-tests: ${GITALY_PACKED_EXECUTABLES}
-endif
+prepare-tests: libgit2 prepare-test-repos ${RUBY_BUNDLE_FILE} ${GOTESTSUM} ${GITALY_PACKED_EXECUTABLES}
 	${Q}mkdir -p "$(dir ${TEST_REPORT})"
 
 .PHONY: prepare-debug
@@ -406,16 +403,8 @@ race-go: test-go
 
 .PHONY: rspec
 ## Run Ruby tests.
-rspec: prepare-tests
+rspec: build prepare-tests
 	${Q}cd ${GITALY_RUBY_DIR} && PATH='${SOURCE_DIR}/internal/testhelper/testdata/home/bin:${PATH}' bundle exec rspec
-
-# This is a workaround for our unprivileged CI builds. We manually execute the
-# build target as privileged user, but then run other targets unprivileged.
-# We thus cannot rebuild binaries there given that we have no permissions to
-# write into the build directory.
-ifndef UNPRIVILEGED_CI_SKIP
-rspec: build
-endif
 
 .PHONY: verify
 ## Verify that various files conform to our expectations.
