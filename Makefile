@@ -233,6 +233,8 @@ TEST_FULL_OUTPUT  ?= /dev/null
 TEST_COVERAGE_DIR ?= ${BUILD_DIR}/cover
 ## Directory where all runtime test data is being created.
 TEST_TMP_DIR      ?=
+## Directory where Gitaly should write logs to during test execution.
+TEST_LOG_DIR	  ?=
 TEST_REPO_DIR     := ${BUILD_DIR}/testrepos
 TEST_REPO         := ${TEST_REPO_DIR}/gitlab-test.git
 TEST_REPO_MIRROR  := ${TEST_REPO_DIR}/gitlab-test-mirror.git
@@ -253,8 +255,10 @@ find_go_sources              = $(shell find ${SOURCE_DIR} -type d \( -name ruby 
 #
 # TEST_OPTIONS: any additional options
 # TEST_PACKAGES: packages which shall be tested
+# TEST_LOG_DIR: specify the output log dir. By default, all logs will be discarded
 run_go_tests = PATH='${SOURCE_DIR}/internal/testhelper/testdata/home/bin:${PATH}' \
     TEST_TMP_DIR='${TEST_TMP_DIR}' \
+    TEST_LOG_DIR='${TEST_LOG_DIR}' \
     ${GOTESTSUM} --format ${TEST_FORMAT} --junitfile ${TEST_REPORT} --jsonfile ${TEST_FULL_OUTPUT} -- -ldflags '${GO_LDFLAGS}' -tags '${SERVER_BUILD_TAGS},${GIT2GO_BUILD_TAGS},gitaly_test_signing' ${TEST_OPTIONS} ${TEST_PACKAGES}
 
 ## Test options passed to `dlv test`.
