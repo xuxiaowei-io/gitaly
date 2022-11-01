@@ -4,9 +4,11 @@ package repository
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -175,11 +177,12 @@ func TestCreateRepositoryFromSnapshot_invalidArguments(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	testCases := []struct {
-		desc        string
-		url         string
-		auth        string
-		code        codes.Code
-		errContains string
+		desc            string
+		url             string
+		auth            string
+		resolvedAddress string
+		code            codes.Code
+		errContains     string
 	}{
 		{
 			desc:        "http bad auth",
@@ -202,6 +205,14 @@ func TestCreateRepositoryFromSnapshot_invalidArguments(t *testing.T) {
 			code:        codes.Internal,
 			errContains: "HTTP server: 302 ",
 		},
+		{
+			desc:            "resolved address not in expected format",
+			url:             tarPath,
+			auth:            secret,
+			resolvedAddress: "foo/bar",
+			code:            codes.InvalidArgument,
+			errContains:     "creating resolved HTTP client: invalid resolved address",
+		},
 	}
 
 	srv := httptest.NewServer(&tarTesthandler{secret: secret, host: host})
@@ -218,9 +229,10 @@ func TestCreateRepositoryFromSnapshot_invalidArguments(t *testing.T) {
 					StorageName:  cfg.Storages[0].Name,
 					RelativePath: gittest.NewRepositoryName(t, true),
 				},
-				HttpUrl:  srv.URL + tc.url,
-				HttpAuth: tc.auth,
-				HttpHost: host,
+				HttpUrl:         srv.URL + tc.url,
+				HttpAuth:        tc.auth,
+				HttpHost:        host,
+				ResolvedAddress: tc.resolvedAddress,
 			}
 
 			rsp, err := client.CreateRepositoryFromSnapshot(ctx, req)
@@ -269,4 +281,67 @@ func TestCreateRepositoryFromSnapshot_malformedResponse(t *testing.T) {
 
 	// Ensure that a partial result is not left in place
 	require.NoFileExists(t, repoPath)
+}
+
+func TestCreateRepositoryFromSnapshot_resolvedAddressSuccess(t *testing.T) {
+	t.Parallel()
+	ctx := testhelper.Context(t)
+
+	cfg := testcfg.Build(t)
+
+	client, socketPath := runRepositoryService(t, cfg, nil)
+	cfg.SocketPath = socketPath
+
+	_, sourceRepoPath := gittest.CreateRepository(ctx, t, cfg)
+
+	// Ensure these won't be in the archive
+	require.NoError(t, os.Remove(filepath.Join(sourceRepoPath, "config")))
+	require.NoError(t, os.RemoveAll(filepath.Join(sourceRepoPath, "hooks")))
+
+	data, entries := generateTarFile(t, sourceRepoPath)
+
+	// Create a HTTP server that serves a given tar file
+	srv := httptest.NewServer(&tarTesthandler{tarData: bytes.NewReader(data), secret: secret, host: host})
+	defer srv.Close()
+
+	repoRelativePath := gittest.NewRepositoryName(t, true)
+
+	repo := &gitalypb.Repository{
+		StorageName:  cfg.Storages[0].Name,
+		RelativePath: repoRelativePath,
+	}
+
+	// Any URL should be resolved to the provided IP in resolved address
+	// so provide a random URL and it should work as long as the resolved
+	// address is correct (here we're utilizing the fact that HTTP doesn't
+	// have SSL verification).
+	u, err := url.Parse(srv.URL)
+	require.NoError(t, err)
+
+	randomHostname := fmt.Sprintf("http://www.example.com:%s%s", u.Port(), tarPath)
+
+	req := &gitalypb.CreateRepositoryFromSnapshotRequest{
+		Repository:      repo,
+		HttpUrl:         randomHostname,
+		HttpAuth:        secret,
+		ResolvedAddress: u.Hostname(),
+		HttpHost:        host,
+	}
+
+	rsp, err := client.CreateRepositoryFromSnapshot(ctx, req)
+	require.NoError(t, err)
+	testhelper.ProtoEqual(t, rsp, &gitalypb.CreateRepositoryFromSnapshotResponse{})
+
+	repoAbsolutePath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(ctx, t, cfg, repo))
+	require.DirExists(t, repoAbsolutePath)
+	for _, entry := range entries {
+		if strings.HasSuffix(entry, "/") {
+			require.DirExists(t, filepath.Join(repoAbsolutePath, entry), "directory %q not unpacked", entry)
+		} else {
+			require.FileExists(t, filepath.Join(repoAbsolutePath, entry), "file %q not unpacked", entry)
+		}
+	}
+
+	// hooks/ and config were excluded, but the RPC should create them
+	require.FileExists(t, filepath.Join(repoAbsolutePath, "config"), "Config file not created")
 }

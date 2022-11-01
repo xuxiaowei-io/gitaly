@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -154,5 +155,76 @@ func newGitRequestValidationMiddleware(host, secret string) func(http.ResponseWr
 		}
 
 		next.ServeHTTP(w, r)
+	}
+}
+
+func TestServer_findRemoteRootRefCmd(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	repo, _ := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+	})
+
+	s := server{gitCmdFactory: gittest.NewCommandFactory(t, cfg)}
+
+	for _, tc := range []struct {
+		desc             string
+		request          *gitalypb.FindRemoteRootRefRequest
+		expectedErrorStr string
+		expectedConfig   []string
+	}{
+		{
+			desc: "no resolved address is present",
+			request: &gitalypb.FindRemoteRootRefRequest{
+				RemoteUrl:       "git@gitlab.com:foo/bar.git",
+				ResolvedAddress: "",
+				Repository:      repo,
+			},
+			expectedConfig: []string{
+				"GIT_CONFIG_KEY_0=remote.inmemory.url",
+				"GIT_CONFIG_VALUE_0=git@gitlab.com:foo/bar.git",
+			},
+		},
+		{
+			desc: "resolved address is present",
+			request: &gitalypb.FindRemoteRootRefRequest{
+				RemoteUrl:       "https://gitlab.com/foo/bar.git",
+				ResolvedAddress: "192.168.0.1",
+				Repository:      repo,
+			},
+			expectedConfig: []string{
+				"GIT_CONFIG_KEY_0=http.curloptResolve",
+				"GIT_CONFIG_VALUE_0=*:443:192.168.0.1",
+			},
+		},
+		{
+			desc: "corrupt resolved address is present",
+			request: &gitalypb.FindRemoteRootRefRequest{
+				RemoteUrl:       "git@gitlab.com:foo/bar.git",
+				ResolvedAddress: "foo/bar",
+				Repository:      repo,
+			},
+			expectedErrorStr: "resolved address has invalid IPv4/IPv6 address",
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			cmd, err := s.findRemoteRootRefCmd(ctx, tc.request)
+			if err == nil {
+				defer func() {
+					err := cmd.Wait()
+					require.Error(t, err)
+				}()
+			}
+
+			if tc.expectedErrorStr != "" {
+				require.Error(t, err, tc.expectedErrorStr)
+			} else {
+				require.NoError(t, err)
+				require.Subset(t, cmd.Env(), tc.expectedConfig)
+			}
+		})
 	}
 }
