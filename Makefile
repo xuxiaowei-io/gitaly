@@ -538,9 +538,13 @@ upgrade-module:
 # This target is deprecated and will eventually be removed.
 git: install-git
 
+.PHONY: build-git
+## Build Git distribution.
+build-git: ${DEPENDENCY_DIR}/git-distribution/git
+
 .PHONY: install-git
-## Install Git.
-install-git: ${DEPENDENCY_DIR}/git-distribution/Makefile
+## Install Git distribution.
+install-git: build-git
 	${Q}env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C "${DEPENDENCY_DIR}/git-distribution" -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} install
 
 .PHONY: libgit2

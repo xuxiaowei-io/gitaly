@@ -149,7 +149,7 @@ build:
       policy: pull-push
   script:
     - go version
-    - make -j$(nproc) build $(pwd)/_build/tools/protoc $(test "${GIT_VERSION}" = "default" && echo "build-bundled-git" || echo "git")
+    - make -j$(nproc) build $(pwd)/_build/tools/protoc $(test "${GIT_VERSION}" = default && echo build-bundled-git || echo build-git)
     - _support/test-boot . ${TEST_BOOT_ARGS}
   parallel:
     matrix:
