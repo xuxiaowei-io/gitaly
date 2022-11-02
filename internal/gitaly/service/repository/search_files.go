@@ -130,11 +130,6 @@ func (s *server) SearchFilesByName(req *gitalypb.SearchFilesByNameRequest, strea
 			git.Flag{Name: "--full-tree"},
 			git.Flag{Name: "--name-status"},
 			git.Flag{Name: "-r"},
-			// We use -z to force NULL byte termination here to prevent git from
-			// quoting and escaping unusual file names. Lstree parser would be a
-			// more ideal solution. Unfortunately, it supports parsing full
-			// output while we are interested in the filenames only.
-			git.Flag{Name: "-z"},
 		}, Args: []string{string(req.GetRef()), req.GetQuery()}})
 	if err != nil {
 		return helper.ErrInternalf("SearchFilesByName: cmd start failed: %v", err)
