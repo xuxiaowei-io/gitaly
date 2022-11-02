@@ -41,10 +41,7 @@ func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteReque
 	repo := s.localrepo(req.GetRepository())
 	remoteName := "inmemory"
 	remoteURL := req.GetRemoteParams().GetUrl()
-
-	config := []git.ConfigPair{
-		{Key: "remote.inmemory.url", Value: remoteURL},
-	}
+	var config []git.ConfigPair
 
 	for _, refspec := range s.getRefspecs(req.GetRemoteParams().GetMirrorRefmaps()) {
 		config = append(config, git.ConfigPair{
@@ -52,15 +49,29 @@ func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteReque
 		})
 	}
 
+	if resolvedAddress := req.GetRemoteParams().GetResolvedAddress(); resolvedAddress != "" {
+		modifiedURL, resolveConfig, err := git.GetURLAndResolveConfig(remoteURL, resolvedAddress)
+		if err != nil {
+			return nil, fmt.Errorf("couldn't get curloptResolve config: %w", err)
+		}
+
+		remoteURL = modifiedURL
+		config = append(config, resolveConfig...)
+	}
+
+	config = append(config, git.ConfigPair{Key: "remote.inmemory.url", Value: remoteURL})
+
 	if authHeader := req.GetRemoteParams().GetHttpAuthorizationHeader(); authHeader != "" {
 		config = append(config, git.ConfigPair{
-			Key:   fmt.Sprintf("http.%s.extraHeader", remoteURL),
+			Key:   fmt.Sprintf("http.%s.extraHeader", req.GetRemoteParams().GetUrl()),
 			Value: "Authorization: " + authHeader,
 		})
 	}
+
+	//nolint: staticcheck
 	if host := req.GetRemoteParams().GetHttpHost(); host != "" {
 		config = append(config, git.ConfigPair{
-			Key:   fmt.Sprintf("http.%s.extraHeader", remoteURL),
+			Key:   fmt.Sprintf("http.%s.extraHeader", req.GetRemoteParams().GetUrl()),
 			Value: "Host: " + host,
 		})
 	}
