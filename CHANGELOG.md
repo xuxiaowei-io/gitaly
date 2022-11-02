@@ -40,6 +40,12 @@ No changes.
 
 - [Fix CVE-2022-32149 in dependencies](gitlab-org/gitaly@1f49b2de36c84c429031ef60ff0189d1a5c3f2d5) ([merge request](gitlab-org/gitaly!4937))
 
+## 15.4.4 (2022-11-02)
+
+### Security (1 change)
+
+- [git: Add logic to avoid DNS rebinding](gitlab-org/security/gitaly@5954406cefee4a6a01dcd0b03077c78c4e175b48) ([merge request](gitlab-org/security/gitaly!64))
+
 ## 15.4.3 (2022-10-19)
 
 No changes.
