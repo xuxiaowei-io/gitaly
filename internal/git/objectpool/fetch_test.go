@@ -3,7 +3,6 @@
 package objectpool
 
 import (
-	"context"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -14,23 +13,18 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
 
 func TestFetchFromOrigin_dangling(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.ObjectPoolDontInitOnFetch).Run(t, testFetchFromOriginDangling)
-}
 
-func testFetchFromOriginDangling(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg, pool, repoProto := setupObjectPool(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	repoPath, err := repo.Path()
+
 	require.NoError(t, err)
 
 	// Write some reachable objects into the object pool member and fetch them into the pool.
@@ -42,7 +36,6 @@ func testFetchFromOriginDangling(t *testing.T, ctx context.Context) {
 		gittest.WithTree(treeID),
 		gittest.WithBranch("master"),
 	)
-	require.NoError(t, pool.Init(ctx))
 	require.NoError(t, pool.FetchFromOrigin(ctx, repo))
 
 	// We now write a bunch of objects into the object pool that are not referenced by anything.
@@ -88,19 +81,14 @@ func testFetchFromOriginDangling(t *testing.T, ctx context.Context) {
 
 func TestFetchFromOrigin_fsck(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.ObjectPoolDontInitOnFetch).Run(t, testFetchFromOriginFsck)
-}
 
-func testFetchFromOriginFsck(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg, pool, repoProto := setupObjectPool(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	repoPath, err := repo.Path()
 	require.NoError(t, err)
 
-	require.NoError(t, pool.Init(ctx))
 	require.NoError(t, pool.FetchFromOrigin(ctx, repo), "seed pool")
 
 	// We're creating a new commit which has a root tree with duplicate entries. git-mktree(1)
@@ -120,19 +108,14 @@ func testFetchFromOriginFsck(t *testing.T, ctx context.Context) {
 
 func TestFetchFromOrigin_deltaIslands(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.ObjectPoolDontInitOnFetch).Run(t, testFetchFromOriginDeltaIslands)
-}
 
-func testFetchFromOriginDeltaIslands(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg, pool, repoProto := setupObjectPool(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	repoPath, err := repo.Path()
 	require.NoError(t, err)
 
-	require.NoError(t, pool.Init(ctx))
 	require.NoError(t, pool.FetchFromOrigin(ctx, repo), "seed pool")
 	require.NoError(t, pool.Link(ctx, repo))
 
@@ -146,12 +129,8 @@ func testFetchFromOriginDeltaIslands(t *testing.T, ctx context.Context) {
 
 func TestFetchFromOrigin_bitmapHashCache(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.ObjectPoolDontInitOnFetch).Run(t, testFetchFromOriginBitmapHashCache)
-}
 
-func testFetchFromOriginBitmapHashCache(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg, pool, repoProto := setupObjectPool(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -159,7 +138,6 @@ func testFetchFromOriginBitmapHashCache(t *testing.T, ctx context.Context) {
 	require.NoError(t, err)
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
 
-	require.NoError(t, pool.Init(ctx))
 	require.NoError(t, pool.FetchFromOrigin(ctx, repo))
 
 	bitmaps, err := filepath.Glob(filepath.Join(pool.FullPath(), "objects", "pack", "*.bitmap"))
@@ -171,12 +149,8 @@ func testFetchFromOriginBitmapHashCache(t *testing.T, ctx context.Context) {
 
 func TestFetchFromOrigin_refUpdates(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.ObjectPoolDontInitOnFetch).Run(t, testFetchFromOriginRefUpdates)
-}
 
-func testFetchFromOriginRefUpdates(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg, pool, repoProto := setupObjectPool(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -191,7 +165,6 @@ func testFetchFromOriginRefUpdates(t *testing.T, ctx context.Context) {
 	oldRefs["tags/v1.1.0"] = gittest.WriteTag(t, cfg, repoPath, "v1.1.0", oldRefs["heads/csv"].Revision())
 
 	// We now fetch that data into the object pool and verify that it exists as expected.
-	require.NoError(t, pool.Init(ctx))
 	require.NoError(t, pool.FetchFromOrigin(ctx, repo))
 	for ref, oid := range oldRefs {
 		require.Equal(t, oid, gittest.ResolveRevision(t, cfg, poolPath, "refs/remotes/origin/"+ref))
@@ -225,12 +198,8 @@ func testFetchFromOriginRefUpdates(t *testing.T, ctx context.Context) {
 
 func TestFetchFromOrigin_refs(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.ObjectPoolDontInitOnFetch).Run(t, testFetchFromOriginRefs)
-}
 
-func testFetchFromOriginRefs(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg, pool, repoProto := setupObjectPool(t, ctx)
 
 	// Initialize the object pool and verify that it ain't yet got any references.
@@ -267,25 +236,4 @@ func testFetchFromOriginRefs(t *testing.T, ctx context.Context) {
 	// We don't want to see "FETCH_HEAD" though: it's useless and may take quite some time to
 	// write out in Git.
 	require.NoFileExists(t, filepath.Join(poolPath, "FETCH_HEAD"))
-}
-
-func TestFetchFromOrigin_missingPool(t *testing.T) {
-	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.ObjectPoolDontInitOnFetch).Run(t, testFetchFromOriginMissingPool)
-}
-
-func testFetchFromOriginMissingPool(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
-	cfg, pool, repoProto := setupObjectPool(t, ctx)
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-	err := pool.FetchFromOrigin(ctx, repo)
-	if featureflag.ObjectPoolDontInitOnFetch.IsEnabled(ctx) {
-		require.Equal(t, helper.ErrInvalidArgumentf("object pool does not exist"), err)
-		require.False(t, pool.Exists())
-	} else {
-		require.NoError(t, err)
-		require.True(t, pool.Exists())
-	}
 }
