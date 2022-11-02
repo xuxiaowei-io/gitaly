@@ -1,43 +1,30 @@
 $:.unshift(File.expand_path('../proto', __dir__))
 require 'gitaly'
 
-require_relative 'gitlab/git.rb'
+require 'linguist/blob_helper'
+require 'securerandom'
+require 'gitlab-labkit'
+require 'rugged'
 
-require_relative 'gitaly_server/client.rb'
+require 'active_support/core_ext/object/blank'
+require 'active_support/core_ext/numeric/bytes'
+require 'active_support/core_ext/numeric/time'
+require 'active_support/core_ext/integer/time'
+require 'active_support/core_ext/module/delegation'
+require 'active_support/core_ext/enumerable'
+
+require_relative './gitlab/config.rb'
+
 require_relative 'gitaly_server/utils.rb'
 require_relative 'gitaly_server/repository_service.rb'
 require_relative 'gitaly_server/health_service.rb'
-require_relative 'gitaly_server/feature_flags.rb'
 
 module GitalyServer
-  STORAGE_PATH_HEADER = 'gitaly-storage-path'.freeze
   REPO_PATH_HEADER = 'gitaly-repo-path'.freeze
-  GL_REPOSITORY_HEADER = 'gitaly-gl-repository'.freeze
-  REPO_ALT_DIRS_HEADER = 'gitaly-repo-alt-dirs'.freeze
   GITALY_SERVERS_HEADER = 'gitaly-servers'.freeze
-
-  def self.storage_path(call)
-    call.metadata.fetch(STORAGE_PATH_HEADER)
-  end
 
   def self.repo_path(call)
     call.metadata.fetch(REPO_PATH_HEADER)
-  end
-
-  def self.gl_repository(call)
-    call.metadata.fetch(GL_REPOSITORY_HEADER)
-  end
-
-  def self.repo_alt_dirs(call)
-    call.metadata.fetch(REPO_ALT_DIRS_HEADER)
-  end
-
-  def self.feature_flags(call)
-    FeatureFlags.new(call.metadata)
-  end
-
-  def self.client(call)
-    Client.new(call.metadata[GITALY_SERVERS_HEADER])
   end
 
   def self.register_handlers(server)

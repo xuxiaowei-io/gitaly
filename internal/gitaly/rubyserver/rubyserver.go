@@ -208,60 +208,12 @@ func (s *Server) start() error {
 	return nil
 }
 
-// CommitServiceClient returns a CommitServiceClient instance that is
-// configured to connect to the running Ruby server. This assumes Start()
-// has been called already.
-func (s *Server) CommitServiceClient(ctx context.Context) (gitalypb.CommitServiceClient, error) {
-	conn, err := s.getConnection(ctx)
-	return gitalypb.NewCommitServiceClient(conn), err
-}
-
-// DiffServiceClient returns a DiffServiceClient instance that is
-// configured to connect to the running Ruby server. This assumes Start()
-// has been called already.
-func (s *Server) DiffServiceClient(ctx context.Context) (gitalypb.DiffServiceClient, error) {
-	conn, err := s.getConnection(ctx)
-	return gitalypb.NewDiffServiceClient(conn), err
-}
-
-// RefServiceClient returns a RefServiceClient instance that is
-// configured to connect to the running Ruby server. This assumes Start()
-// has been called already.
-func (s *Server) RefServiceClient(ctx context.Context) (gitalypb.RefServiceClient, error) {
-	conn, err := s.getConnection(ctx)
-	return gitalypb.NewRefServiceClient(conn), err
-}
-
-// OperationServiceClient returns a OperationServiceClient instance that is
-// configured to connect to the running Ruby server. This assumes Start()
-// has been called already.
-func (s *Server) OperationServiceClient(ctx context.Context) (gitalypb.OperationServiceClient, error) {
-	conn, err := s.getConnection(ctx)
-	return gitalypb.NewOperationServiceClient(conn), err
-}
-
 // RepositoryServiceClient returns a RefServiceClient instance that is
 // configured to connect to the running Ruby server. This assumes Start()
 // has been called already.
 func (s *Server) RepositoryServiceClient(ctx context.Context) (gitalypb.RepositoryServiceClient, error) {
 	conn, err := s.getConnection(ctx)
 	return gitalypb.NewRepositoryServiceClient(conn), err
-}
-
-// RemoteServiceClient returns a RemoteServiceClient instance that is
-// configured to connect to the running Ruby server. This assumes Start()
-// has been called already.
-func (s *Server) RemoteServiceClient(ctx context.Context) (gitalypb.RemoteServiceClient, error) {
-	conn, err := s.getConnection(ctx)
-	return gitalypb.NewRemoteServiceClient(conn), err
-}
-
-// BlobServiceClient returns a BlobServiceClient instance that is
-// configured to connect to the running Ruby server. This assumes Start()
-// has been called already.
-func (s *Server) BlobServiceClient(ctx context.Context) (gitalypb.BlobServiceClient, error) {
-	conn, err := s.getConnection(ctx)
-	return gitalypb.NewBlobServiceClient(conn), err
 }
 
 func (s *Server) getConnection(ctx context.Context) (*grpc.ClientConn, error) {

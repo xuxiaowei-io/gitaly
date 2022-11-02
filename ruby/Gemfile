@@ -4,10 +4,8 @@ gem 'rugged', '~> 1.2'
 gem 'github-linguist', '~> 7.20.0', require: 'linguist'
 gem 'gitlab-markup', '~> 1.7.1'
 gem 'activesupport', '~> 6.1.6.1'
-gem 'rdoc', '~> 6.0'
 gem 'grpc', '~> 1.42.0' # keep in lock-step with grpc-tools
 gem 'sentry-raven', '~> 3.0', require: false
-gem 'faraday', '~> 1.0'
 gem 'rbtrace', require: false
 
 # The Gitaly Gem contains the Protobuf and gRPC definitions required by the
@@ -22,11 +20,6 @@ gem 'gitlab-labkit', '~> 0.28'
 gem 'licensee', '~> 9.15'
 
 gem 'google-protobuf', '~> 3.21.9'
-
-# Rails is currently blocked on the upgrade to the new major version for Redis,
-# so we don't upgrade either until the issue is resolved. This is an indirect
-# dependency and can thus be removed when the version constraint is gone.
-gem 'redis', '~> 4.7.1'
 
 group :development, :test do
   gem 'rubocop', '~> 0.69', require: false

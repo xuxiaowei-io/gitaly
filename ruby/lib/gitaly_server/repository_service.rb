@@ -4,11 +4,11 @@ module GitalyServer
   class RepositoryService < Gitaly::RepositoryService::Service
     include Utils
 
-    def find_license(request, call)
-      repo = Gitlab::Git::Repository.from_gitaly(request.repository, call)
+    def find_license(_request, call)
+      path = GitalyServer.repo_path(call)
 
       begin
-        project = ::Licensee.project(repo.path)
+        project = ::Licensee.project(path)
         return Gitaly::FindLicenseResponse.new(license_short_name: "") unless project&.license
 
         license = project.license
