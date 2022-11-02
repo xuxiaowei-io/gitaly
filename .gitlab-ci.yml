@@ -1,6 +1,7 @@
 stages:
   - build
   - test
+  - analyze
   - qa
 
 default:
@@ -291,121 +292,6 @@ test:fips:
       when: manual
       allow_failure: true
 
-verify:docs:
-  image: registry.gitlab.com/gitlab-org/gitlab-docs/lint-markdown:alpine-3.16-vale-2.20.2-markdownlint-0.32.2-markdownlint2-0.5.1
-  needs: []
-  stage: test
-  script:
-    - make lint-docs
-
-verify:
-  needs: []
-  stage: test
-  cache:
-    - *cache_deps_configuration
-    - *cache_gems_configuration
-    - *cache_go_configuration
-  script:
-    # Download the dependencies in case there was no cache hit, otherwise
-    # golang-ci lint will timeout downloading them.
-    - go mod download
-    - make -j$(nproc) verify
-  artifacts:
-    paths:
-      - _build/proto.diff
-      - ruby/proto/gitaly/*
-      - proto/go/gitalypb/*
-    when: on_failure
-
-dbschema:
-  needs: []
-  stage: test
-  cache:
-    - *cache_deps_configuration
-    - *cache_gems_configuration
-    - *cache_go_configuration
-  services:
-    # The database version we use must match the version of `pg_dump` we have
-    # available in the build image.
-    - postgres:11.13-alpine
-  variables:
-    <<: *test_variables
-  script:
-    - make dump-database-schema no-changes
-  artifacts:
-    paths:
-      - _support/praefect-schema.sql
-    when: on_failure
-
-semgrep-sast:
-  needs: []
-  cache:
-    - *cache_go_configuration
-  rules:
-    - if: $SAST_DISABLED
-      when: never
-    - if: $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    - if: $CI_MERGE_REQUEST_IID
-    - if: $CI_COMMIT_TAG
-
-license_scanning:
-  needs: []
-  rules:
-    - if: $LICENSE_SCANNING_DISABLED
-      when: never
-    - if: $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    - if: $CI_MERGE_REQUEST_IID
-    - if: $CI_COMMIT_TAG
-  variables:
-    LICENSE_FINDER_CLI_OPTS: '--aggregate-paths=. ruby'
-
-gemnasium-dependency_scanning:
-  needs: []
-  rules:
-    - if: $DEPENDENCY_SCANNING_DISABLED
-      when: never
-    - if: $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    - if: $CI_MERGE_REQUEST_IID
-    - if: $CI_COMMIT_TAG
-
-secret_detection:
-  needs: []
-  rules:
-    - if: $SECRET_DETECTION_DISABLED
-      when: never
-    - if: $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    - if: $CI_MERGE_REQUEST_IID
-    - if: $CI_COMMIT_TAG
-
-trigger-qa:
-  needs: []
-  stage: qa
-  trigger:
-    project: gitlab-org/build/omnibus-gitlab-mirror
-  variables:
-    ALTERNATIVE_SOURCES: "true"
-    GITALY_SERVER_VERSION: $CI_COMMIT_SHA
-    GITALY_SERVER_ALTERNATIVE_REPO: $CI_PROJECT_URL
-    ee: "true"
-  rules:
-    - if: $CI_MERGE_REQUEST_SOURCE_BRANCH_SHA != ""
-      when: manual
-      allow_failure: true
-      variables:
-        # Downstream pipeline does not fetch the merged result SHA.
-        # Fix: https://gitlab.com/gitlab-org/omnibus-gitlab/-/issues/6482
-        GITALY_SERVER_VERSION: $CI_MERGE_REQUEST_SOURCE_BRANCH_SHA
-    - when: manual
-      allow_failure: true
-
-qa:nightly-praefect-migration-test:
-  needs: []
-  stage: qa
-  trigger:
-    project: gitlab-org/quality/praefect-migration-testing
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "schedule"'
-
 test:macos:
   needs: []
   stage: test
@@ -442,3 +328,122 @@ test:macos:
       junit: ${TEST_REPORT}
     when: always
     expire_in: 1 week
+
+verify:docs:
+  image: registry.gitlab.com/gitlab-org/gitlab-docs/lint-markdown:alpine-3.16-vale-2.20.2-markdownlint-0.32.2-markdownlint2-0.5.1
+  needs: []
+  stage: analyze
+  script:
+    - make lint-docs
+
+verify:
+  needs: []
+  stage: analyze
+  cache:
+    - *cache_deps_configuration
+    - *cache_gems_configuration
+    - *cache_go_configuration
+  script:
+    # Download the dependencies in case there was no cache hit, otherwise
+    # golang-ci lint will timeout downloading them.
+    - go mod download
+    - make -j$(nproc) verify
+  artifacts:
+    paths:
+      - _build/proto.diff
+      - ruby/proto/gitaly/*
+      - proto/go/gitalypb/*
+    when: on_failure
+
+dbschema:
+  needs: []
+  stage: analyze
+  cache:
+    - *cache_deps_configuration
+    - *cache_gems_configuration
+    - *cache_go_configuration
+  services:
+    # The database version we use must match the version of `pg_dump` we have
+    # available in the build image.
+    - postgres:11.13-alpine
+  variables:
+    <<: *test_variables
+  script:
+    - make dump-database-schema no-changes
+  artifacts:
+    paths:
+      - _support/praefect-schema.sql
+    when: on_failure
+
+semgrep-sast:
+  needs: []
+  stage: analyze
+  cache:
+    - *cache_go_configuration
+  rules:
+    - if: $SAST_DISABLED
+      when: never
+    - if: $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_MERGE_REQUEST_IID
+    - if: $CI_COMMIT_TAG
+
+license_scanning:
+  needs: []
+  stage: analyze
+  rules:
+    - if: $LICENSE_SCANNING_DISABLED
+      when: never
+    - if: $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_MERGE_REQUEST_IID
+    - if: $CI_COMMIT_TAG
+  variables:
+    LICENSE_FINDER_CLI_OPTS: '--aggregate-paths=. ruby'
+
+gemnasium-dependency_scanning:
+  needs: []
+  stage: analyze
+  rules:
+    - if: $DEPENDENCY_SCANNING_DISABLED
+      when: never
+    - if: $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_MERGE_REQUEST_IID
+    - if: $CI_COMMIT_TAG
+
+secret_detection:
+  needs: []
+  stage: analyze
+  rules:
+    - if: $SECRET_DETECTION_DISABLED
+      when: never
+    - if: $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_MERGE_REQUEST_IID
+    - if: $CI_COMMIT_TAG
+
+trigger-qa:
+  needs: []
+  stage: qa
+  trigger:
+    project: gitlab-org/build/omnibus-gitlab-mirror
+  variables:
+    ALTERNATIVE_SOURCES: "true"
+    GITALY_SERVER_VERSION: $CI_COMMIT_SHA
+    GITALY_SERVER_ALTERNATIVE_REPO: $CI_PROJECT_URL
+    ee: "true"
+  rules:
+    - if: $CI_MERGE_REQUEST_SOURCE_BRANCH_SHA != ""
+      when: manual
+      allow_failure: true
+      variables:
+        # Downstream pipeline does not fetch the merged result SHA.
+        # Fix: https://gitlab.com/gitlab-org/omnibus-gitlab/-/issues/6482
+        GITALY_SERVER_VERSION: $CI_MERGE_REQUEST_SOURCE_BRANCH_SHA
+    - when: manual
+      allow_failure: true
+
+qa:nightly-praefect-migration-test:
+  needs: []
+  stage: qa
+  trigger:
+    project: gitlab-org/quality/praefect-migration-testing
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
