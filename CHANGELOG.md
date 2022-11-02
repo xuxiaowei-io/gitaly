@@ -81,6 +81,12 @@ No changes.
 - [Public Grafana dashboards does not exist any more](gitlab-org/gitaly@ef80fcf20a02fa6fd4010d50d8a7cfa030b5b39c) ([merge request](gitlab-org/gitaly!4831))
 - [Add support for MulanPSL-2.0 in license detection](gitlab-org/gitaly@5a64218610feb05b833647b4e703386b2d1564f0) ([merge request](gitlab-org/gitaly!4825))
 
+## 15.3.5 (2022-11-02)
+
+### Security (1 change)
+
+- [git: Add logic to avoid DNS rebinding](gitlab-org/security/gitaly@e695c0bac1a797bd62d0a3e0ca24da222a395b74) ([merge request](gitlab-org/security/gitaly!67))
+
 ## 15.3.4 (2022-09-29)
 
 No changes.
