@@ -1,5 +1,11 @@
 # Gitaly changelog
 
+## 15.5.2 (2022-11-02)
+
+### Security (1 change)
+
+- [git: Add logic to avoid DNS rebinding](gitlab-org/security/gitaly@1ff8eedb04cf2bb4a9ba2fc2e99553f873155f17) ([merge request](gitlab-org/security/gitaly!66))
+
 ## 15.5.1 (2022-10-24)
 
 No changes.
@@ -33,6 +39,12 @@ No changes.
 ### Security (1 change)
 
 - [Fix CVE-2022-32149 in dependencies](gitlab-org/gitaly@1f49b2de36c84c429031ef60ff0189d1a5c3f2d5) ([merge request](gitlab-org/gitaly!4937))
+
+## 15.4.4 (2022-11-02)
+
+### Security (1 change)
+
+- [git: Add logic to avoid DNS rebinding](gitlab-org/security/gitaly@5954406cefee4a6a01dcd0b03077c78c4e175b48) ([merge request](gitlab-org/security/gitaly!64))
 
 ## 15.4.3 (2022-10-19)
 
@@ -68,6 +80,12 @@ No changes.
 
 - [Public Grafana dashboards does not exist any more](gitlab-org/gitaly@ef80fcf20a02fa6fd4010d50d8a7cfa030b5b39c) ([merge request](gitlab-org/gitaly!4831))
 - [Add support for MulanPSL-2.0 in license detection](gitlab-org/gitaly@5a64218610feb05b833647b4e703386b2d1564f0) ([merge request](gitlab-org/gitaly!4825))
+
+## 15.3.5 (2022-11-02)
+
+### Security (1 change)
+
+- [git: Add logic to avoid DNS rebinding](gitlab-org/security/gitaly@e695c0bac1a797bd62d0a3e0ca24da222a395b74) ([merge request](gitlab-org/security/gitaly!67))
 
 ## 15.3.4 (2022-09-29)
 

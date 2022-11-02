@@ -71,9 +71,22 @@ func (s *server) updateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMi
 	}
 	remoteName := "inmemory-" + remoteSuffix
 
-	remoteConfig := []git.ConfigPair{
-		{Key: fmt.Sprintf("remote.%s.url", remoteName), Value: remote.GetUrl()},
+	var remoteConfig []git.ConfigPair
+	remoteURL := remote.GetUrl()
+
+	if resolvedAddress := remote.GetResolvedAddress(); resolvedAddress != "" {
+		modifiedURL, resolveConfig, err := git.GetURLAndResolveConfig(remoteURL, resolvedAddress)
+		if err != nil {
+			return fmt.Errorf("couldn't get curloptResolve config: %w", err)
+		}
+
+		remoteURL = modifiedURL
+		remoteConfig = append(remoteConfig, resolveConfig...)
 	}
+
+	remoteConfig = append(remoteConfig, git.ConfigPair{
+		Key: fmt.Sprintf("remote.%s.url", remoteName), Value: remoteURL,
+	})
 
 	if authHeader := remote.GetHttpAuthorizationHeader(); authHeader != "" {
 		remoteConfig = append(remoteConfig, git.ConfigPair{
@@ -81,6 +94,7 @@ func (s *server) updateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMi
 			Value: "Authorization: " + authHeader,
 		})
 	}
+	//nolint:staticcheck
 	if host := remote.GetHttpHost(); host != "" {
 		remoteConfig = append(remoteConfig, git.ConfigPair{
 			Key:   fmt.Sprintf("http.%s.extraHeader", remote.GetUrl()),
