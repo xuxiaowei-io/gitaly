@@ -1,5 +1,11 @@
 # Gitaly changelog
 
+## 15.3.5 (2022-11-02)
+
+### Security (1 change)
+
+- [git: Add logic to avoid DNS rebinding](gitlab-org/security/gitaly@e695c0bac1a797bd62d0a3e0ca24da222a395b74) ([merge request](gitlab-org/security/gitaly!67))
+
 ## 15.3.4 (2022-09-29)
 
 No changes.
