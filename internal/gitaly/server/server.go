@@ -21,12 +21,12 @@ import (
 	gitalylog "gitlab.com/gitlab-org/gitaly/v15/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/logsanitizer"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/middleware/cache"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/middleware/cancelhandler"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/middleware/commandstatshandler"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/middleware/limithandler"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/middleware/panichandler"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/middleware/sentryhandler"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/middleware/statushandler"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/protoregistry"
 	grpccorrelation "gitlab.com/gitlab-org/labkit/correlation/grpc"
 	grpctracing "gitlab.com/gitlab-org/labkit/tracing/grpc"
@@ -108,7 +108,7 @@ func New(
 		),
 		gitalylog.StreamLogDataCatcherServerInterceptor(),
 		sentryhandler.StreamLogHandler,
-		cancelhandler.Stream, // Should be below LogHandler
+		statushandler.Stream, // Should be below LogHandler
 		auth.StreamServerInterceptor(cfg.Auth),
 	}
 	unaryServerInterceptors := []grpc.UnaryServerInterceptor{
@@ -124,7 +124,7 @@ func New(
 		),
 		gitalylog.UnaryLogDataCatcherServerInterceptor(),
 		sentryhandler.UnaryLogHandler,
-		cancelhandler.Unary, // Should be below LogHandler
+		statushandler.Unary, // Should be below LogHandler
 		auth.UnaryServerInterceptor(cfg.Auth),
 	}
 	// Should be below auth handler to prevent v2 hmac tokens from timing out while queued

@@ -54,6 +54,7 @@ func TestCheckObjectsExist(t *testing.T) {
 			// Ideally, we'd return an invalid-argument error in case there aren't any
 			// requests. We can't do this though as this would diverge from Praefect's
 			// behaviour, which always returns `io.EOF`.
+			expectedErr: status.Error(codes.Internal, io.EOF.Error()),
 		},
 		{
 			desc: "missing repository",

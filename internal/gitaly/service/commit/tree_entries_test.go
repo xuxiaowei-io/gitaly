@@ -576,7 +576,7 @@ func TestGetTreeEntries_unsuccessful(t *testing.T) {
 			revision:      []byte(commitID),
 			path:          []byte("."),
 			pageToken:     "non-existent",
-			expectedError: status.Error(codes.Unknown, "could not find starting OID: non-existent"),
+			expectedError: status.Error(codes.Internal, "could not find starting OID: non-existent"),
 		},
 	}
 

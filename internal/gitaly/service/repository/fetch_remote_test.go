@@ -363,7 +363,7 @@ func TestFetchRemote_force(t *testing.T) {
 					Url: remoteURL,
 				},
 			},
-			expectedErr: status.Error(codes.Unknown, "fetch remote: exit status 1"),
+			expectedErr: status.Error(codes.Internal, "fetch remote: exit status 1"),
 			expectedRefs: map[git.ReferenceName]git.ObjectID{
 				"refs/heads/master": branchOID,
 				"refs/tags/v1.0.0":  tagOID,
@@ -395,7 +395,7 @@ func TestFetchRemote_force(t *testing.T) {
 			// The master branch has been updated to the diverging branch, but the
 			// command still fails because we do fetch tags by default, and the tag did
 			// diverge.
-			expectedErr: status.Error(codes.Unknown, "fetch remote: exit status 1"),
+			expectedErr: status.Error(codes.Internal, "fetch remote: exit status 1"),
 			expectedRefs: map[git.ReferenceName]git.ObjectID{
 				"refs/heads/master": divergingBranchOID,
 				"refs/tags/v1.0.0":  tagOID,
@@ -549,7 +549,7 @@ func TestFetchRemote_inputValidation(t *testing.T) {
 				},
 				Timeout: 1000,
 			},
-			code:   codes.Unknown,
+			code:   codes.Internal,
 			errMsg: "invalid/repo/path.git/' not found",
 		},
 		{
@@ -561,7 +561,7 @@ func TestFetchRemote_inputValidation(t *testing.T) {
 				},
 				Timeout: 1000,
 			},
-			code:   codes.Unknown,
+			code:   codes.Internal,
 			errMsg: "'/dev/null' does not appear to be a git repository",
 		},
 	}

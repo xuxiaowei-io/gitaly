@@ -72,7 +72,7 @@ func (s *server) sshUploadArchive(stream gitalypb.SSHService_SSHUploadArchiveSer
 
 	if err := cmd.Wait(); err != nil {
 		// When waiting for the packfile negotiation to end times out we'll cancel the local
-		// context, but not cancel the overall RPC's context. Our cancelhandler middleware
+		// context, but not cancel the overall RPC's context. Our statushandler middleware
 		// thus cannot observe the fact that we're cancelling the context, and neither do we
 		// provide any valuable information to the caller that we do indeed kill the command
 		// because of our own internal timeout.

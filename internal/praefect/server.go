@@ -17,10 +17,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/fieldextractors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/listenmux"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/log"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/middleware/cancelhandler"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/middleware/panichandler"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/middleware/sentryhandler"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/middleware/statushandler"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/grpc-proxy/proxy"
@@ -69,7 +69,7 @@ func commonUnaryServerInterceptors(logger *logrus.Entry) []grpc.UnaryServerInter
 		grpcprometheus.UnaryServerInterceptor,
 		grpcmwlogrus.UnaryServerInterceptor(logger, grpcmwlogrus.WithTimestampFormat(log.LogTimestampFormat)),
 		sentryhandler.UnaryLogHandler,
-		cancelhandler.Unary, // Should be below LogHandler
+		statushandler.Unary, // Should be below LogHandler
 		grpctracing.UnaryServerTracingInterceptor(),
 		// Panic handler should remain last so that application panics will be
 		// converted to errors and logged
@@ -106,7 +106,7 @@ func NewGRPCServer(
 		grpcmwlogrus.StreamServerInterceptor(logger,
 			grpcmwlogrus.WithTimestampFormat(log.LogTimestampFormat)),
 		sentryhandler.StreamLogHandler,
-		cancelhandler.Stream, // Should be below LogHandler
+		statushandler.Stream, // Should be below LogHandler
 		grpctracing.StreamServerTracingInterceptor(),
 		auth.StreamServerInterceptor(conf.Auth),
 		// Panic handler should remain last so that application panics will be
