@@ -323,13 +323,16 @@ install: build
 .PHONY: build-bundled-git
 ## Build bundled Git binaries.
 build-bundled-git: build-bundled-git-v2.37.1.gl1
+build-bundled-git: build-bundled-git-v2.38
 build-bundled-git-v2.37.1.gl1: $(patsubst %,${BUILD_DIR}/bin/gitaly-%-v2.37.1.gl1,${GIT_EXECUTABLES})
+build-bundled-git-v2.38: $(patsubst %,${BUILD_DIR}/bin/gitaly-%-v2.38,${GIT_EXECUTABLES})
 
 .PHONY: install-bundled-git
 ## Install bundled Git binaries. The target directory can be modified by
 ## setting PREFIX and DESTDIR.
-install-bundled-git: install-bundled-git-v2.37.1.gl1
+install-bundled-git: install-bundled-git-v2.37.1.gl1 install-bundled-git-v2.38
 install-bundled-git-v2.37.1.gl1: $(patsubst %,${INSTALL_DEST_DIR}/gitaly-%-v2.37.1.gl1,${GIT_EXECUTABLES})
+install-bundled-git-v2.38: $(patsubst %,${INSTALL_DEST_DIR}/gitaly-%-v2.38,${GIT_EXECUTABLES})
 
 ifdef WITH_BUNDLED_GIT
 build: build-bundled-git
@@ -577,6 +580,11 @@ ${BUILD_DIR}/bin/gitaly-%-v2.37.1.gl1: override GIT_PATCHES := $(sort $(wildcard
 ${BUILD_DIR}/bin/gitaly-%-v2.37.1.gl1: override GIT_VERSION = v2.37.1
 ${BUILD_DIR}/bin/gitaly-%-v2.37.1.gl1: override GIT_EXTRA_VERSION = gl1
 ${BUILD_DIR}/bin/gitaly-%-v2.37.1.gl1: ${DEPENDENCY_DIR}/git-v2.37.1.gl1/% | ${BUILD_DIR}/bin
+	${Q}install $< $@
+
+${BUILD_DIR}/bin/gitaly-%-v2.38: override GIT_VERSION = v2.38.1
+${BUILD_DIR}/bin/gitaly-%-v2.38: override GIT_EXTRA_VERSION = gl0
+${BUILD_DIR}/bin/gitaly-%-v2.38: ${DEPENDENCY_DIR}/git-v2.38/% | ${BUILD_DIR}/bin
 	${Q}install $< $@
 
 ${BUILD_DIR}/bin/%: ${BUILD_DIR}/intermediate/% | ${BUILD_DIR}/bin

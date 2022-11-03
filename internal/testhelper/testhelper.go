@@ -200,6 +200,8 @@ func ContextWithoutCancel(opts ...ContextOpt) context.Context {
 	// Randomly enable the flag to exercise both paths to some extent.
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.NodeErrorCancelsVoter, rnd.Int()%2 == 0)
 
+	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.GitV238, rnd.Int()%2 == 0)
+
 	for _, opt := range opts {
 		ctx = opt(ctx)
 	}
