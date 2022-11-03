@@ -3,8 +3,6 @@
 package linguist
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,7 +15,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -28,17 +25,13 @@ func TestMain(m *testing.M) {
 }
 
 func TestInstance_Stats(t *testing.T) {
-	testhelper.NewFeatureSets(featureflag.GoLanguageStats).
-		Run(t, testInstanceStats)
-}
+	t.Parallel()
 
-func testInstanceStats(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
-
-	languageStatsFilename := filenameForCache(ctx)
 
 	for _, tc := range []struct {
 		desc          string
@@ -561,7 +554,7 @@ func TestInstance_Stats_failureGitattributes(t *testing.T) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
-	ctx := featureflag.ContextWithFeatureFlag(testhelper.Context(t), featureflag.GoLanguageStats, true)
+	ctx := testhelper.Context(t)
 	locator := config.NewLocator(cfg)
 
 	catfileCache := catfile.NewCache(cfg)
@@ -594,28 +587,6 @@ func TestInstance_Stats_failureGitattributes(t *testing.T) {
 	require.ErrorContains(t, err, expectedErr)
 }
 
-func TestInstance_Stats_unmarshalJSONError(t *testing.T) {
-	cfg := testcfg.Build(t)
-	ctx := featureflag.ContextWithFeatureFlag(testhelper.Context(t), featureflag.GoLanguageStats, false)
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
-	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}
-
-	catfileCache := catfile.NewCache(cfg)
-	t.Cleanup(catfileCache.Stop)
-
-	repo := localrepo.New(config.NewLocator(cfg), gitCmdFactory, catfileCache, invalidRepo)
-
-	ling := New(cfg, catfileCache, repo)
-
-	// When an error occurs, this used to trigger JSON marshaling of a plain string
-	// the new behaviour shouldn't do that, and return a command error
-	_, err := ling.Stats(ctx, "deadbeef")
-	require.Error(t, err)
-
-	_, ok := err.(*json.SyntaxError)
-	require.False(t, ok, "expected the error not be a json Syntax Error")
-}
-
 func TestColor(t *testing.T) {
 	t.Parallel()
 
@@ -637,23 +608,9 @@ func TestColor(t *testing.T) {
 	}
 }
 
-// filenameForCache returns the filename where the cache is stored, depending on
-// the feature flag.
-func filenameForCache(ctx context.Context) string {
-	if featureflag.GoLanguageStats.IsDisabled(ctx) {
-		return "language-stats.cache"
-	}
-	return languageStatsFilename
-}
-
 func BenchmarkInstance_Stats(b *testing.B) {
-	testhelper.NewFeatureSets(featureflag.GoLanguageStats).
-		Bench(b, benchmarkInstanceStats)
-}
-
-func benchmarkInstanceStats(b *testing.B, ctx context.Context) {
 	cfg := testcfg.Build(b)
-	languageStatsFilename := filenameForCache(ctx)
+	ctx := testhelper.Context(b)
 
 	catfileCache := catfile.NewCache(cfg)
 	b.Cleanup(catfileCache.Stop)
