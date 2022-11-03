@@ -297,6 +297,12 @@ test:macos:
   stage: test
   image: macos-12-xcode-14
   script:
+    - brew uninstall go
+    - brew install cmake go@${GO_VERSION}
+    # Older Go versions may be keg-only and thus aren't linked into `PATH` by
+    # default. We need to override this mechanism to force this specific Go
+    # version to become active.
+    - brew link --force go@${GO_VERSION}
     - sw_vers
     - go version
     - pg_ctl --version
@@ -304,7 +310,6 @@ test:macos:
     - pg_ctl -D /usr/local/var/postgres start > /tmp/postgres.log
     - pg_ctl status
     - createdb -U $PGUSER $POSTGRES_DB
-    - brew install cmake
     - make -j$(nproc) build prepare-tests
     - make test-go
     - *test_after_script
