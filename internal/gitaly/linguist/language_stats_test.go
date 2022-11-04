@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
@@ -251,4 +250,60 @@ func TestLanguageStats_save(t *testing.T) {
 	require.Equal(t, languageStatsVersion, loaded.Version)
 	require.Equal(t, s.Totals, loaded.Totals)
 	require.Equal(t, s.ByFile, loaded.ByFile)
+}
+
+func BenchmarkLanguageStats(b *testing.B) {
+	ctx := testhelper.Context(b)
+	cfg := testcfg.Build(b)
+	repoProto, _ := gittest.CreateRepository(b, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+	})
+
+	repo := localrepo.NewTestRepo(b, cfg, repoProto)
+
+	{
+		languages := []string{
+			"Ruby",
+			"Javascript",
+			"C++",
+			"Golang",
+			"HTML",
+			"CSS",
+			"SQL",
+			"Assembly",
+			"Elixir",
+			"C#",
+			"Kotlin",
+			"Zig",
+		}
+		lenLang := len(languages)
+		stats := newLanguageStats()
+		rnd := rand.New(rand.NewSource(0x1337C0DE))
+
+		for i := 0; i < 3_000_000; i++ {
+			stats.add(
+				fmt.Sprintf("file_%010d", i),
+				languages[rnd.Intn(lenLang-1)],
+				uint64(rnd.Int()),
+			)
+		}
+
+		require.NoError(b, stats.save(repo, "1337C0DE"))
+	}
+
+	b.Run("totals", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			stats, err := initLanguageStats(repo)
+			require.NoError(b, err)
+			_ = stats.Totals
+		}
+	})
+
+	b.Run("allCounts", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			stats, err := initLanguageStats(repo)
+			require.NoError(b, err)
+			_ = stats.allCounts()
+		}
+	})
 }
