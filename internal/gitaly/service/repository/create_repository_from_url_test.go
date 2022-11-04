@@ -35,10 +35,7 @@ func TestCreateRepositoryFromURL_successful(t *testing.T) {
 
 	user := "username123"
 	password := "password321localhost"
-	port, stopGitServer := gitServerWithBasicAuth(t, ctx, gitCmdFactory, user, password, repoPath)
-	defer func() {
-		require.NoError(t, stopGitServer())
-	}()
+	port := gitServerWithBasicAuth(t, ctx, gitCmdFactory, user, password, repoPath)
 
 	url := fmt.Sprintf("http://%s:%s@localhost:%d/%s", user, password, port, filepath.Base(repoPath))
 
@@ -75,10 +72,7 @@ func TestCreateRepositoryFromURL_successfulWithOptionalParameters(t *testing.T) 
 
 	user := "username123"
 	password := "password321localhost"
-	port, stopGitServer := gitServerWithBasicAuth(t, ctx, gitCmdFactory, user, password, repoPath)
-	defer func() {
-		require.NoError(t, stopGitServer())
-	}()
+	port := gitServerWithBasicAuth(t, ctx, gitCmdFactory, user, password, repoPath)
 
 	url := fmt.Sprintf("http://%s:%s@localhost:%d/%s", user, password, port, filepath.Base(repoPath))
 	host := "www.example.com"
@@ -337,7 +331,7 @@ func TestServer_CloneFromURLCommand_withMirror(t *testing.T) {
 	require.Error(t, cmd.Wait())
 }
 
-func gitServerWithBasicAuth(tb testing.TB, ctx context.Context, gitCmdFactory git.CommandFactory, user, pass, repoPath string) (int, func() error) {
+func gitServerWithBasicAuth(tb testing.TB, ctx context.Context, gitCmdFactory git.CommandFactory, user, pass, repoPath string) int {
 	return gittest.HTTPServer(tb, ctx, gitCmdFactory, repoPath, basicAuthMiddleware(tb, user, pass))
 }
 

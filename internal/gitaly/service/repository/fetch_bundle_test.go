@@ -73,7 +73,6 @@ func TestServer_FetchBundle_transaction(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 	testcfg.BuildGitalyHooks(t, cfg)
 
 	hookManager := &mockHookManager{}
@@ -84,8 +83,6 @@ func TestServer_FetchBundle_transaction(t *testing.T) {
 	gittest.BundleRepo(t, cfg, repoPath, bundlePath)
 
 	hookManager.Reset()
-	_, stopGitServer := gittest.HTTPServer(t, ctx, gitCmdFactory, repoPath, nil)
-	defer func() { require.NoError(t, stopGitServer()) }()
 
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)

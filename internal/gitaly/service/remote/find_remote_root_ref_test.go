@@ -31,8 +31,7 @@ func TestFindRemoteRootRefSuccess(t *testing.T) {
 		secret = "mysecret"
 	)
 
-	port, stopGitServer := gittest.HTTPServer(t, ctx, gitCmdFactory, repoPath, newGitRequestValidationMiddleware(host, secret))
-	defer func() { require.NoError(t, stopGitServer()) }()
+	port := gittest.HTTPServer(t, ctx, gitCmdFactory, repoPath, newGitRequestValidationMiddleware(host, secret))
 
 	originURL := fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(repoPath))
 

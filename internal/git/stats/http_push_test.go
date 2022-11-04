@@ -26,10 +26,7 @@ func TestPerformHTTPPush(t *testing.T) {
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 	ctx := testhelper.Context(t)
 
-	serverPort, stopGitServer := gittest.HTTPServer(t, ctx, gitCmdFactory, targetRepoPath, nil)
-	defer func() {
-		require.NoError(t, stopGitServer())
-	}()
+	serverPort := gittest.HTTPServer(t, ctx, gitCmdFactory, targetRepoPath, nil)
 	url := fmt.Sprintf("http://localhost:%d/%s", serverPort, filepath.Base(targetRepoPath))
 
 	for _, tc := range []struct {
