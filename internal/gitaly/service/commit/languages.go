@@ -62,7 +62,7 @@ func (s *server) CommitLanguages(ctx context.Context, req *gitalypb.CommitLangua
 
 	total := uint64(0)
 	for _, count := range stats {
-		total += count
+		total += count.ByteCount
 	}
 
 	if total == 0 {
@@ -71,10 +71,11 @@ func (s *server) CommitLanguages(ctx context.Context, req *gitalypb.CommitLangua
 
 	for lang, count := range stats {
 		l := &gitalypb.CommitLanguagesResponse_Language{
-			Name:  lang,
-			Share: float32(100*count) / float32(total),
-			Color: linguist.Color(lang),
-			Bytes: stats[lang],
+			Name:      lang,
+			Share:     float32(100*count.ByteCount) / float32(total),
+			Color:     linguist.Color(lang),
+			Bytes:     count.ByteCount,
+			FileCount: count.FileCount,
 		}
 		resp.Languages = append(resp.Languages, l)
 	}

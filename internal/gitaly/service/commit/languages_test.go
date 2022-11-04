@@ -37,36 +37,14 @@ func TestLanguages(t *testing.T) {
 	require.NoError(t, err)
 
 	expectedLanguages := []*gitalypb.CommitLanguagesResponse_Language{
-		{Name: "Ruby", Share: 65.28394, Color: "#701516", Bytes: 2943},
-		{Name: "JavaScript", Share: 22.493345, Color: "#f1e05a", Bytes: 1014},
-		{Name: "HTML", Share: 7.741792, Color: "#e34c26", Bytes: 349},
-		{Name: "CoffeeScript", Share: 2.373558, Color: "#244776", Bytes: 107},
-		{Name: "Modula-2", Share: 2.1073646, Color: "#10253f", Bytes: 95},
+		{Name: "Ruby", Share: 65.28394, Color: "#701516", Bytes: 2943, FileCount: 4},
+		{Name: "JavaScript", Share: 22.493345, Color: "#f1e05a", Bytes: 1014, FileCount: 1},
+		{Name: "HTML", Share: 7.741792, Color: "#e34c26", Bytes: 349, FileCount: 1},
+		{Name: "CoffeeScript", Share: 2.373558, Color: "#244776", Bytes: 107, FileCount: 1},
+		{Name: "Modula-2", Share: 2.1073646, Color: "#10253f", Bytes: 95, FileCount: 1},
 	}
 
 	testhelper.ProtoEqual(t, expectedLanguages, resp.Languages)
-}
-
-func TestFileCountIsZeroWhenFeatureIsDisabled(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
-
-	request := &gitalypb.CommitLanguagesRequest{
-		Repository: repo,
-		Revision:   []byte("cb19058ecc02d01f8e4290b7e79cafd16a8839b6"),
-	}
-
-	resp, err := client.CommitLanguages(ctx, request)
-	require.NoError(t, err)
-
-	require.NotZero(t, len(resp.Languages), "number of languages in response")
-
-	for i := range resp.Languages {
-		actualLanguage := resp.Languages[i]
-		require.Equal(t, uint32(0), actualLanguage.FileCount)
-	}
 }
 
 func TestLanguagesEmptyRevision(t *testing.T) {

@@ -34,7 +34,7 @@ func TestInstance_Stats(t *testing.T) {
 	for _, tc := range []struct {
 		desc          string
 		setup         func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID)
-		expectedStats ByteCountPerLanguage
+		expectedStats CountPerLanguage
 		expectedErr   string
 	}{
 		{
@@ -53,11 +53,11 @@ func TestInstance_Stats(t *testing.T) {
 
 				return repoProto, repoPath, commitID
 			},
-			expectedStats: ByteCountPerLanguage{
-				"CoffeeScript": 107,
-				"HTML":         349,
-				"JavaScript":   1014,
-				"Ruby":         2943,
+			expectedStats: CountPerLanguage{
+				"CoffeeScript": {ByteCount: 107, FileCount: 1},
+				"HTML":         {ByteCount: 349, FileCount: 1},
+				"JavaScript":   {ByteCount: 1014, FileCount: 1},
+				"Ruby":         {ByteCount: 2943, FileCount: 1},
 			},
 		},
 		{
@@ -79,8 +79,8 @@ func TestInstance_Stats(t *testing.T) {
 
 				return repoProto, repoPath, commitID
 			},
-			expectedStats: ByteCountPerLanguage{
-				"C": 85,
+			expectedStats: CountPerLanguage{
+				"C": {ByteCount: 85, FileCount: 1},
 			},
 		},
 		{
@@ -103,9 +103,9 @@ func TestInstance_Stats(t *testing.T) {
 
 				return repoProto, repoPath, commitID
 			},
-			expectedStats: ByteCountPerLanguage{
-				"C":    85,
-				"Ruby": 403,
+			expectedStats: CountPerLanguage{
+				"C":    {ByteCount: 85, FileCount: 1},
+				"Ruby": {ByteCount: 403, FileCount: 1},
 			},
 		},
 		{
@@ -125,8 +125,8 @@ func TestInstance_Stats(t *testing.T) {
 
 				return repoProto, repoPath, commitID
 			},
-			expectedStats: ByteCountPerLanguage{
-				"C": 85,
+			expectedStats: CountPerLanguage{
+				"C": {ByteCount: 85, FileCount: 1},
 			},
 		},
 		{
@@ -147,9 +147,9 @@ func TestInstance_Stats(t *testing.T) {
 
 				return repoProto, repoPath, commitID
 			},
-			expectedStats: ByteCountPerLanguage{
-				"C":    85,
-				"Ruby": 500,
+			expectedStats: CountPerLanguage{
+				"C":    {ByteCount: 85, FileCount: 1},
+				"Ruby": {ByteCount: 500, FileCount: 1},
 			},
 		},
 		{
@@ -169,8 +169,8 @@ func TestInstance_Stats(t *testing.T) {
 
 				return repoProto, repoPath, commitID
 			},
-			expectedStats: ByteCountPerLanguage{
-				"C": 85,
+			expectedStats: CountPerLanguage{
+				"C": {ByteCount: 85, FileCount: 1},
 			},
 		},
 		{
@@ -191,9 +191,9 @@ func TestInstance_Stats(t *testing.T) {
 
 				return repoProto, repoPath, commitID
 			},
-			expectedStats: ByteCountPerLanguage{
-				"C":     85,
-				"Swift": 500,
+			expectedStats: CountPerLanguage{
+				"C":     {ByteCount: 85, FileCount: 1},
+				"Swift": {ByteCount: 500, FileCount: 1},
 			},
 		},
 		{
@@ -211,8 +211,8 @@ func TestInstance_Stats(t *testing.T) {
 
 				return repoProto, repoPath, commitID
 			},
-			expectedStats: ByteCountPerLanguage{
-				"C": 85,
+			expectedStats: CountPerLanguage{
+				"C": {ByteCount: 85, FileCount: 1},
 			},
 		},
 		{
@@ -236,10 +236,10 @@ func TestInstance_Stats(t *testing.T) {
 
 				return repoProto, repoPath, commitID
 			},
-			expectedStats: ByteCountPerLanguage{
-				"C":        85,
-				"JSON":     234,
-				"Markdown": 553,
+			expectedStats: CountPerLanguage{
+				"C":        {ByteCount: 85, FileCount: 1},
+				"JSON":     {ByteCount: 234, FileCount: 1},
+				"Markdown": {ByteCount: 553, FileCount: 1},
 			},
 		},
 		{
@@ -267,8 +267,8 @@ func TestInstance_Stats(t *testing.T) {
 
 				return repoProto, repoPath, commitID
 			},
-			expectedStats: ByteCountPerLanguage{
-				"Ruby": 403,
+			expectedStats: CountPerLanguage{
+				"Ruby": {ByteCount: 403, FileCount: 1},
 			},
 		},
 		{
@@ -293,9 +293,9 @@ func TestInstance_Stats(t *testing.T) {
 
 				return repoProto, repoPath, commitID
 			},
-			expectedStats: ByteCountPerLanguage{
-				"KiCad Layout": 500,
-				"XML":          120,
+			expectedStats: CountPerLanguage{
+				"KiCad Layout": {ByteCount: 500, FileCount: 1},
+				"XML":          {ByteCount: 120, FileCount: 1},
 			},
 		},
 		{
@@ -329,8 +329,8 @@ func TestInstance_Stats(t *testing.T) {
 
 				return repoProto, repoPath, commitID
 			},
-			expectedStats: ByteCountPerLanguage{
-				"Ruby": 175,
+			expectedStats: CountPerLanguage{
+				"Ruby": {ByteCount: 175, FileCount: 2},
 			},
 		},
 		{
@@ -349,7 +349,7 @@ func TestInstance_Stats(t *testing.T) {
 
 				return repoProto, repoPath, commitID
 			},
-			expectedStats: ByteCountPerLanguage{},
+			expectedStats: CountPerLanguage{},
 		},
 		{
 			desc: "preexisting cache",
@@ -377,11 +377,11 @@ func TestInstance_Stats(t *testing.T) {
 
 				return repoProto, repoPath, commitID
 			},
-			expectedStats: ByteCountPerLanguage{
-				"CoffeeScript": 107,
-				"HTML":         349,
-				"JavaScript":   1014,
-				"Ruby":         2943,
+			expectedStats: CountPerLanguage{
+				"CoffeeScript": {ByteCount: 107, FileCount: 1},
+				"HTML":         {ByteCount: 349, FileCount: 1},
+				"JavaScript":   {ByteCount: 1014, FileCount: 1},
+				"Ruby":         {ByteCount: 2943, FileCount: 1},
 			},
 		},
 		{
@@ -412,9 +412,9 @@ func TestInstance_Stats(t *testing.T) {
 
 				return repoProto, repoPath, commitID
 			},
-			expectedStats: ByteCountPerLanguage{
-				"HTML":       349,
-				"JavaScript": 1014,
+			expectedStats: CountPerLanguage{
+				"HTML":       {ByteCount: 349, FileCount: 1},
+				"JavaScript": {ByteCount: 1014, FileCount: 1},
 			},
 		},
 		{
@@ -443,7 +443,7 @@ func TestInstance_Stats(t *testing.T) {
 
 				return repoProto, repoPath, commitID
 			},
-			expectedStats: ByteCountPerLanguage{},
+			expectedStats: CountPerLanguage{},
 		},
 		{
 			desc: "corrupted cache",
@@ -463,11 +463,11 @@ func TestInstance_Stats(t *testing.T) {
 
 				return repoProto, repoPath, commitID
 			},
-			expectedStats: ByteCountPerLanguage{
-				"CoffeeScript": 107,
-				"HTML":         349,
-				"JavaScript":   1014,
-				"Ruby":         2943,
+			expectedStats: CountPerLanguage{
+				"CoffeeScript": {ByteCount: 107, FileCount: 1},
+				"HTML":         {ByteCount: 349, FileCount: 1},
+				"JavaScript":   {ByteCount: 1014, FileCount: 1},
+				"Ruby":         {ByteCount: 2943, FileCount: 1},
 			},
 		},
 		{
@@ -490,14 +490,14 @@ func TestInstance_Stats(t *testing.T) {
 				stats, err := New(cfg, catfileCache, repo).Stats(ctx, oldCommitID.String())
 				require.NoError(t, err)
 				require.FileExists(t, filepath.Join(repoPath, languageStatsFilename))
-				require.Equal(t, ByteCountPerLanguage{
-					"Ruby": 19,
+				require.Equal(t, CountPerLanguage{
+					"Ruby": {ByteCount: 19, FileCount: 1},
 				}, stats)
 
 				return repoProto, repoPath, newCommitID
 			},
-			expectedStats: ByteCountPerLanguage{
-				"Go": 12,
+			expectedStats: CountPerLanguage{
+				"Go": {ByteCount: 12, FileCount: 1},
 			},
 		},
 		{
@@ -621,8 +621,8 @@ func BenchmarkInstance_Stats(b *testing.B) {
 
 	linguist := New(cfg, catfileCache, repo)
 
-	var scratchStat ByteCountPerLanguage
-	var incStats ByteCountPerLanguage
+	var scratchStat CountPerLanguage
+	var incStats CountPerLanguage
 
 	b.Run("from scratch", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {

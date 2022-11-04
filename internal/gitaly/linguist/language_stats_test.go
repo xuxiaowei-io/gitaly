@@ -4,9 +4,11 @@ import (
 	"compress/zlib"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
@@ -43,7 +45,7 @@ func TestInitLanguageStats(t *testing.T) {
 				stats.Totals["C"] = 555
 				require.NoError(t, stats.save(repo, "badcafe"))
 
-				require.Equal(t, ByteCountPerLanguage{"C": 555}, stats.Totals)
+				require.Equal(t, byteCountPerLanguage{"C": 555}, stats.Totals)
 			},
 		},
 		{
@@ -113,7 +115,7 @@ func TestLanguageStats_add(t *testing.T) {
 
 				require.Equal(t, uint64(100), s.Totals["Go"])
 				require.Len(t, s.ByFile, 1)
-				require.Equal(t, ByteCountPerLanguage{"Go": 100}, s.ByFile["main.go"])
+				require.Equal(t, byteCountPerLanguage{"Go": 100}, s.ByFile["main.go"])
 			},
 		},
 		{
@@ -124,8 +126,8 @@ func TestLanguageStats_add(t *testing.T) {
 
 				require.Equal(t, uint64(180), s.Totals["Go"])
 				require.Len(t, s.ByFile, 2)
-				require.Equal(t, ByteCountPerLanguage{"Go": 100}, s.ByFile["main.go"])
-				require.Equal(t, ByteCountPerLanguage{"Go": 80}, s.ByFile["main_test.go"])
+				require.Equal(t, byteCountPerLanguage{"Go": 100}, s.ByFile["main.go"])
+				require.Equal(t, byteCountPerLanguage{"Go": 80}, s.ByFile["main_test.go"])
 			},
 		},
 		{
@@ -137,8 +139,8 @@ func TestLanguageStats_add(t *testing.T) {
 				require.Equal(t, uint64(60), s.Totals["Go"])
 				require.Equal(t, uint64(30), s.Totals["Make"])
 				require.Len(t, s.ByFile, 2)
-				require.Equal(t, ByteCountPerLanguage{"Go": 60}, s.ByFile["main.go"])
-				require.Equal(t, ByteCountPerLanguage{"Make": 30}, s.ByFile["Makefile"])
+				require.Equal(t, byteCountPerLanguage{"Go": 60}, s.ByFile["main.go"])
+				require.Equal(t, byteCountPerLanguage{"Make": 30}, s.ByFile["Makefile"])
 			},
 		},
 		{
@@ -149,7 +151,7 @@ func TestLanguageStats_add(t *testing.T) {
 
 				require.Equal(t, uint64(30), s.Totals["Go"])
 				require.Len(t, s.ByFile, 1)
-				require.Equal(t, ByteCountPerLanguage{"Go": 30}, s.ByFile["main.go"])
+				require.Equal(t, byteCountPerLanguage{"Go": 30}, s.ByFile["main.go"])
 			},
 		},
 	} {
@@ -184,7 +186,7 @@ func TestLanguageStats_drop(t *testing.T) {
 
 				require.Equal(t, uint64(20), s.Totals["Go"])
 				require.Len(t, s.ByFile, 1)
-				require.Equal(t, ByteCountPerLanguage{"Go": 20}, s.ByFile["main_test.go"])
+				require.Equal(t, byteCountPerLanguage{"Go": 20}, s.ByFile["main_test.go"])
 			},
 		},
 		{
@@ -194,8 +196,8 @@ func TestLanguageStats_drop(t *testing.T) {
 
 				require.Equal(t, uint64(100), s.Totals["Go"])
 				require.Len(t, s.ByFile, 2)
-				require.Equal(t, ByteCountPerLanguage{"Go": 80}, s.ByFile["main.go"])
-				require.Equal(t, ByteCountPerLanguage{"Go": 20}, s.ByFile["main_test.go"])
+				require.Equal(t, byteCountPerLanguage{"Go": 80}, s.ByFile["main.go"])
+				require.Equal(t, byteCountPerLanguage{"Go": 20}, s.ByFile["main_test.go"])
 			},
 		},
 		{
@@ -213,8 +215,8 @@ func TestLanguageStats_drop(t *testing.T) {
 			require.NoError(t, err)
 
 			s.Totals["Go"] = 100
-			s.ByFile["main.go"] = ByteCountPerLanguage{"Go": 80}
-			s.ByFile["main_test.go"] = ByteCountPerLanguage{"Go": 20}
+			s.ByFile["main.go"] = byteCountPerLanguage{"Go": 80}
+			s.ByFile["main_test.go"] = byteCountPerLanguage{"Go": 20}
 
 			tc.run(t, s)
 		})
@@ -235,8 +237,8 @@ func TestLanguageStats_save(t *testing.T) {
 	require.NoError(t, err)
 
 	s.Totals["Go"] = 100
-	s.ByFile["main.go"] = ByteCountPerLanguage{"Go": 80}
-	s.ByFile["main_test.go"] = ByteCountPerLanguage{"Go": 20}
+	s.ByFile["main.go"] = byteCountPerLanguage{"Go": 80}
+	s.ByFile["main_test.go"] = byteCountPerLanguage{"Go": 20}
 
 	err = s.save(repo, "buzz")
 	require.NoError(t, err)

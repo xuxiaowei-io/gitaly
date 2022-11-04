@@ -17,8 +17,14 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 )
 
-// ByteCountPerLanguage represents a counter value (bytes) per language.
-type ByteCountPerLanguage map[string]uint64
+// Count holds both the byte and file count for one language.
+type Count struct {
+	ByteCount uint64
+	FileCount uint32
+}
+
+// CountPerLanguage represents a byte and file count per language.
+type CountPerLanguage map[string]Count
 
 // Instance is a holder of the defined in the system language settings.
 type Instance struct {
@@ -48,13 +54,13 @@ func Color(language string) string {
 }
 
 // Stats returns the repository's language statistics.
-func (inst *Instance) Stats(ctx context.Context, commitID string) (ByteCountPerLanguage, error) {
+func (inst *Instance) Stats(ctx context.Context, commitID string) (CountPerLanguage, error) {
 	stats, err := initLanguageStats(inst.repo)
 	if err != nil {
 		ctxlogrus.Extract(ctx).WithError(err).Info("linguist load from cache")
 	}
 	if stats.CommitID == commitID {
-		return stats.Totals, nil
+		return stats.allCounts(), nil
 	}
 
 	objectReader, cancel, err := inst.catfileCache.ObjectReader(ctx, inst.repo)
@@ -180,7 +186,7 @@ func (inst *Instance) Stats(ctx context.Context, commitID string) (ByteCountPerL
 		return nil, fmt.Errorf("linguist language stats save: %w", err)
 	}
 
-	return stats.Totals, nil
+	return stats.allCounts(), nil
 }
 
 func (inst *Instance) needsFullRecalculation(ctx context.Context, cachedID, commitID string) (bool, error) {

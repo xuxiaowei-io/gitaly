@@ -19,6 +19,9 @@ const (
 	languageStatsVersion  = "v3:gitaly"
 )
 
+// byteCountPerLanguage represents a counter value (bytes) per language.
+type byteCountPerLanguage map[string]uint64
+
 // languageStats takes care of accumulating and caching language statistics for
 // a repository.
 type languageStats struct {
@@ -31,16 +34,16 @@ type languageStats struct {
 	m *sync.Mutex
 
 	// Totals contains the total statistics for the CommitID
-	Totals ByteCountPerLanguage `json:"totals"`
+	Totals byteCountPerLanguage `json:"totals"`
 	// ByFile contains the statistics for a single file, where the filename
 	// is its key.
-	ByFile map[string]ByteCountPerLanguage `json:"by_file"`
+	ByFile map[string]byteCountPerLanguage `json:"by_file"`
 }
 
 func newLanguageStats() languageStats {
 	return languageStats{
-		Totals: ByteCountPerLanguage{},
-		ByFile: make(map[string]ByteCountPerLanguage),
+		Totals: byteCountPerLanguage{},
+		ByFile: make(map[string]byteCountPerLanguage),
 		m:      &sync.Mutex{},
 	}
 }
@@ -92,7 +95,7 @@ func (c *languageStats) add(filename, language string, size uint64) {
 		}
 	}
 
-	c.ByFile[filename] = ByteCountPerLanguage{language: size}
+	c.ByFile[filename] = byteCountPerLanguage{language: size}
 	if size > 0 {
 		c.Totals[language] += size
 	}
@@ -163,4 +166,24 @@ func (c *languageStats) save(repo *localrepo.Repo, commitID string) error {
 	}
 
 	return nil
+}
+
+func (c *languageStats) allCounts() CountPerLanguage {
+	countsByLanguage := make(CountPerLanguage, len(c.Totals))
+
+	for _, bytesPerLanguage := range c.ByFile {
+		for language, byteCount := range bytesPerLanguage {
+			if byteCount <= 0 {
+				continue
+			}
+
+			counts := countsByLanguage[language]
+			counts.ByteCount += byteCount
+			counts.FileCount++
+
+			countsByLanguage[language] = counts
+		}
+	}
+
+	return countsByLanguage
 }
