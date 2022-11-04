@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package stats
 
 import (
@@ -58,7 +56,7 @@ func TestPerformHTTPPush(t *testing.T) {
 				)
 
 				return []PushCommand{
-					{OldOID: git.ObjectHashSHA1.ZeroOID, NewOID: commit, Reference: "refs/heads/foobar"},
+					{OldOID: gittest.DefaultObjectHash.ZeroOID, NewOID: commit, Reference: "refs/heads/foobar"},
 				}, bytes.NewReader(pack)
 			},
 			expectedTimings: []string{
@@ -93,7 +91,7 @@ func TestPerformHTTPPush(t *testing.T) {
 					commit := gittest.WriteCommit(t, cfg, repoPath)
 					commits[i] = commit.String()
 					commands[i] = PushCommand{
-						OldOID:    git.ObjectHashSHA1.ZeroOID,
+						OldOID:    gittest.DefaultObjectHash.ZeroOID,
 						NewOID:    commit,
 						Reference: git.ReferenceName(fmt.Sprintf("refs/heads/branch-%d", i)),
 					}
@@ -131,7 +129,7 @@ func TestPerformHTTPPush(t *testing.T) {
 				oldOID := gittest.WriteCommit(t, cfg, targetRepoPath, gittest.WithBranch("feature"))
 
 				return []PushCommand{
-					{OldOID: oldOID, NewOID: git.ObjectHashSHA1.ZeroOID, Reference: "refs/heads/feature"},
+					{OldOID: oldOID, NewOID: gittest.DefaultObjectHash.ZeroOID, Reference: "refs/heads/feature"},
 				}, nil
 			},
 			expectedTimings: []string{
@@ -158,10 +156,10 @@ func TestPerformHTTPPush(t *testing.T) {
 			preparePush: func(t *testing.T, cfg config.Cfg) ([]PushCommand, io.Reader) {
 				gittest.WriteCommit(t, cfg, targetRepoPath, gittest.WithBranch("master"))
 
-				oldOID := git.ObjectID(strings.Repeat("1", 40))
+				oldOID := git.ObjectID(strings.Repeat("1", gittest.DefaultObjectHash.EncodedLen()))
 
 				return []PushCommand{
-					{OldOID: oldOID, NewOID: git.ObjectHashSHA1.ZeroOID, Reference: "refs/heads/master"},
+					{OldOID: oldOID, NewOID: gittest.DefaultObjectHash.ZeroOID, Reference: "refs/heads/master"},
 				}, nil
 			},
 			expectedErr: fmt.Errorf("parsing packfile response: %w",
