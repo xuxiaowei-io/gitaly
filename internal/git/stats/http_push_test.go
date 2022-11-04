@@ -16,15 +16,20 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 )
 
 func TestPerformHTTPPush(t *testing.T) {
-	cfg, _, targetRepoPath := testcfg.BuildWithRepo(t)
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+
+	_, targetRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+	})
 
 	serverPort, stopGitServer := gittest.HTTPServer(t, ctx, gitCmdFactory, targetRepoPath, nil)
 	defer func() {
@@ -44,7 +49,6 @@ func TestPerformHTTPPush(t *testing.T) {
 			preparePush: func(t *testing.T, cfg config.Cfg) ([]PushCommand, io.Reader) {
 				_, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
-					Seed:                   gittest.SeedGitLabTest,
 				})
 
 				commit := gittest.WriteCommit(t, cfg, repoPath)
@@ -81,7 +85,6 @@ func TestPerformHTTPPush(t *testing.T) {
 			preparePush: func(t *testing.T, cfg config.Cfg) ([]PushCommand, io.Reader) {
 				_, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
-					Seed:                   gittest.SeedGitLabTest,
 				})
 
 				commands := make([]PushCommand, 1000)
@@ -125,8 +128,7 @@ func TestPerformHTTPPush(t *testing.T) {
 		{
 			desc: "branch deletion",
 			preparePush: func(t *testing.T, cfg config.Cfg) ([]PushCommand, io.Reader) {
-				commit := gittest.Exec(t, cfg, "-C", targetRepoPath, "rev-parse", "refs/heads/feature")
-				oldOID := git.ObjectID(text.ChompBytes(commit))
+				oldOID := gittest.WriteCommit(t, cfg, targetRepoPath, gittest.WithBranch("feature"))
 
 				return []PushCommand{
 					{OldOID: oldOID, NewOID: git.ObjectHashSHA1.ZeroOID, Reference: "refs/heads/feature"},
@@ -154,6 +156,8 @@ func TestPerformHTTPPush(t *testing.T) {
 		{
 			desc: "failing delete",
 			preparePush: func(t *testing.T, cfg config.Cfg) ([]PushCommand, io.Reader) {
+				gittest.WriteCommit(t, cfg, targetRepoPath, gittest.WithBranch("master"))
+
 				oldOID := git.ObjectID(strings.Repeat("1", 40))
 
 				return []PushCommand{

@@ -40,8 +40,8 @@ func TestIsMissingBloomFilters(t *testing.T) {
 
 			_, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				SkipCreationViaService: true,
-				Seed:                   gittest.SeedGitLabTest,
 			})
+			gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 
 			if len(tc.args) > 0 {
 				gittest.Exec(t, cfg, append([]string{"-C", repoPath}, tc.args...)...)
