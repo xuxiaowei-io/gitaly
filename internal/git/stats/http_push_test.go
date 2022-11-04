@@ -169,7 +169,7 @@ func TestPerformHTTPPush(t *testing.T) {
 
 			start := time.Now()
 
-			stats, err := PerformHTTPPush(ctx, url, "", "", commands, packfile, false)
+			stats, err := PerformHTTPPush(ctx, url, "", "", gittest.DefaultObjectHash, commands, packfile, false)
 			require.Equal(t, tc.expectedErr, err)
 			if err != nil {
 				return

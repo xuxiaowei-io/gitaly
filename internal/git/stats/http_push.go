@@ -28,6 +28,7 @@ type PushCommand struct {
 func PerformHTTPPush(
 	ctx context.Context,
 	url, user, password string,
+	objectHash git.ObjectHash,
 	commands []PushCommand,
 	packfile io.Reader,
 	interactive bool,
@@ -40,7 +41,7 @@ func PerformHTTPPush(
 		}
 	}
 
-	sendPack, err := performHTTPSendPack(ctx, url, user, password,
+	sendPack, err := performHTTPSendPack(ctx, url, user, password, objectHash,
 		commands, packfile, printInteractive)
 	if err != nil {
 		return HTTPPush{}, ctxErr(ctx, err)

@@ -196,6 +196,16 @@ func (b Blackbox) push(probe Probe) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	objectFormat := probe.Push.ObjectFormat
+	if objectFormat == "" {
+		objectFormat = git.ObjectHashSHA1.Format
+	}
+
+	objectHash, err := git.ObjectHashByFormat(objectFormat)
+	if err != nil {
+		return fmt.Errorf("looking up object format: %w", err)
+	}
+
 	commands := make([]stats.PushCommand, len(probe.Push.Commands))
 	for i, command := range probe.Push.Commands {
 		oldOID, err := git.ObjectHashSHA1.FromHex(command.OldOID)
@@ -222,7 +232,7 @@ func (b Blackbox) push(probe Probe) error {
 	defer packfile.Close()
 
 	clone, err := stats.PerformHTTPPush(
-		ctx, probe.URL, probe.User, probe.Password, commands, packfile, false)
+		ctx, probe.URL, probe.User, probe.Password, objectHash, commands, packfile, false)
 	if err != nil {
 		return err
 	}
