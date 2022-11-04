@@ -901,6 +901,108 @@ func TestSubtransaction_cancelNodeVoter(t *testing.T) {
 	}
 }
 
+func TestSubtransaction_getPropagatedVoters(t *testing.T) {
+	t.Parallel()
+
+	threshold := uint(2)
+
+	for _, tc := range []struct {
+		desc      string
+		voters    []Voter
+		subVoters []Voter
+		expVoters []Voter
+		expErrMsg string
+	}{
+		{
+			desc: "No voters to propagate",
+			voters: []Voter{
+				{Name: "1", Votes: 1, result: VoteUndecided},
+				{Name: "2", Votes: 1, result: VoteUndecided},
+				{Name: "3", Votes: 1, result: VoteUndecided},
+			},
+			subVoters: []Voter{
+				{Name: "1", Votes: 1, result: VoteUndecided},
+				{Name: "2", Votes: 1, result: VoteUndecided},
+				{Name: "3", Votes: 1, result: VoteUndecided},
+			},
+			expVoters: []Voter{
+				{Name: "1", Votes: 1, result: VoteUndecided},
+				{Name: "2", Votes: 1, result: VoteUndecided},
+				{Name: "3", Votes: 1, result: VoteUndecided},
+			},
+			expErrMsg: "",
+		},
+		{
+			desc: "Canceled voter propagates",
+			voters: []Voter{
+				{Name: "1", Votes: 1, result: VoteUndecided},
+				{Name: "2", Votes: 1, result: VoteUndecided},
+				{Name: "3", Votes: 1, result: VoteUndecided},
+			},
+			subVoters: []Voter{
+				{Name: "1", Votes: 1, result: VoteCanceled},
+				{Name: "2", Votes: 1, result: VoteUndecided},
+				{Name: "3", Votes: 1, result: VoteUndecided},
+			},
+			expVoters: []Voter{
+				{Name: "1", Votes: 1, result: VoteCanceled},
+				{Name: "2", Votes: 1, result: VoteUndecided},
+				{Name: "3", Votes: 1, result: VoteUndecided},
+			},
+			expErrMsg: "",
+		},
+		{
+			desc: "Only canceled voters propagate",
+			voters: []Voter{
+				{Name: "1", Votes: 1, result: VoteUndecided},
+				{Name: "2", Votes: 1, result: VoteUndecided},
+				{Name: "3", Votes: 1, result: VoteUndecided},
+			},
+			subVoters: []Voter{
+				{Name: "1", Votes: 1, result: VoteFailed},
+				{Name: "2", Votes: 1, result: VoteUndecided},
+				{Name: "3", Votes: 1, result: VoteUndecided},
+			},
+			expVoters: []Voter{
+				{Name: "1", Votes: 1, result: VoteUndecided},
+				{Name: "2", Votes: 1, result: VoteUndecided},
+				{Name: "3", Votes: 1, result: VoteUndecided},
+			},
+			expErrMsg: "",
+		},
+		{
+			desc: "Transaction/subtransaction voter mismatch",
+			voters: []Voter{
+				{Name: "1", Votes: 1, result: VoteUndecided},
+				{Name: "2", Votes: 1, result: VoteUndecided},
+				{Name: "3", Votes: 1, result: VoteUndecided},
+				{Name: "4", Votes: 1, result: VoteUndecided},
+			},
+			subVoters: []Voter{
+				{Name: "1", Votes: 1, result: VoteUndecided},
+				{Name: "2", Votes: 1, result: VoteUndecided},
+				{Name: "3", Votes: 1, result: VoteUndecided},
+			},
+			expVoters: nil,
+			expErrMsg: "subtransaction missing voter",
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			subtransaction, err := newSubtransaction(tc.subVoters, threshold)
+			require.NoError(t, err)
+
+			propagatedVoters, err := subtransaction.getPropagatedVoters(tc.voters)
+			if err != nil {
+				require.EqualError(t, err, tc.expErrMsg)
+				require.Nil(t, propagatedVoters)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tc.expVoters, propagatedVoters)
+			}
+		})
+	}
+}
+
 func newVote(t *testing.T, s string) voting.Vote {
 	hash := sha1.Sum([]byte(s))
 	vote, err := voting.VoteFromHash(hash[:])

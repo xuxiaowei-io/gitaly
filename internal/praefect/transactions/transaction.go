@@ -293,35 +293,16 @@ func (t *transaction) getPendingNodeSubtransactions(node string) ([]*subtransact
 // subtransactions do not wait for an impossible quorum due to canceled
 // voters.
 func (t *transaction) createSubtransaction() (*subtransaction, error) {
-	// If there are no subtransactions propagation can be skipped
+	// If there are no subtransactions propagation can be skipped.
 	if len(t.subtransactions) == 0 {
 		return newSubtransaction(t.voters, t.threshold)
 	}
 
+	// Propagate canceled voters from previous subtransaction.
 	prevSub := t.subtransactions[len(t.subtransactions)-1]
-
-	// Check previous voters state and propagate canceled voters.
-	var propagatedVoters []Voter
-	for _, voter := range t.voters {
-		prevVoter := prevSub.votersByNode[voter.Name]
-		if prevVoter == nil {
-			// This error should in theory never be reached. When a
-			// subtransaction is created it receives all voters from
-			// the parent transaction. The parent transaction voters
-			// are not mutated throughout the lifespan of the
-			// transaction meaning that all voters in a transaction
-			// should be present in a subtransaction.
-			return nil, errors.New("subtransaction missing previous voter")
-		}
-
-		// Only canceled voters need to be propagated since a node voter
-		// can be canceled and the transaction continue. Other terminal
-		// results are applied to voters and end the transaction.
-		if prevVoter.result == VoteCanceled {
-			voter.result = VoteCanceled
-		}
-
-		propagatedVoters = append(propagatedVoters, voter)
+	propagatedVoters, err := prevSub.getPropagatedVoters(t.voters)
+	if err != nil {
+		return nil, err
 	}
 
 	return newSubtransaction(propagatedVoters, t.threshold)

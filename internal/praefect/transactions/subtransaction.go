@@ -404,3 +404,39 @@ func (t *subtransaction) cancelNodeVoter(node string) error {
 
 	return nil
 }
+
+// getPropagatedVoters returns provided voters with voter result state
+// matching canceled subtransaction voters. This is used because newly
+// created subtransactions need to propagate previously canceled voters.
+func (t *subtransaction) getPropagatedVoters(voters []Voter) ([]Voter, error) {
+	// Lock subtransaction to prevent concurrent writes to voter
+	// result state from `updateVoterState()`.
+	t.lock.RLock()
+	defer t.lock.RUnlock()
+
+	// Check subtransaction voters state and propagate canceled voters.
+	var propagatedVoters []Voter
+	for _, voter := range voters {
+		subVoter := t.votersByNode[voter.Name]
+		if subVoter == nil {
+			// This error should in theory never be reached. When a
+			// subtransaction is created it receives all voters from
+			// the parent transaction. The parent transaction voters
+			// are not mutated throughout the lifespan of the
+			// transaction meaning that all voters in a transaction
+			// should be present in a subtransaction.
+			return nil, errors.New("subtransaction missing voter")
+		}
+
+		// Only canceled voters need to be propagated since a node voter
+		// can be canceled and the transaction continue. Other terminal
+		// results are applied to voters and end the transaction.
+		if subVoter.result == VoteCanceled {
+			voter.result = VoteCanceled
+		}
+
+		propagatedVoters = append(propagatedVoters, voter)
+	}
+
+	return propagatedVoters, nil
+}
