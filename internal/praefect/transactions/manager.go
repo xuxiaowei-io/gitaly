@@ -244,7 +244,7 @@ func (mgr *Manager) CancelTransactionNodeVoter(transactionID uint64, node string
 	}
 
 	if err := transaction.cancelNodeVoter(node); err != nil {
-		return err
+		return fmt.Errorf("canceling transaction node voter: %w", err)
 	}
 
 	return nil
