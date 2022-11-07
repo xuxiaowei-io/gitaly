@@ -36,10 +36,10 @@ type catfileObjectRequest struct {
 // be fully consumed by the caller.
 func CatfileObject(
 	ctx context.Context,
-	objectReader catfile.ObjectReader,
+	objectReader catfile.ObjectContentReader,
 	it ObjectIterator,
 ) (CatfileObjectIterator, error) {
-	queue, queueCleanup, err := objectReader.ObjectQueue(ctx)
+	queue, queueCleanup, err := objectReader.ObjectContentQueue(ctx)
 	if err != nil {
 		return nil, err
 	}

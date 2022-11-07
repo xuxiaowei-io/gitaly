@@ -63,7 +63,7 @@ func (s *server) filterShasWithSignatures(bidi gitalypb.CommitService_FilterShas
 	}
 }
 
-func filterCommitShasWithSignatures(ctx context.Context, objectReader catfile.ObjectReader, shas [][]byte) ([][]byte, error) {
+func filterCommitShasWithSignatures(ctx context.Context, objectReader catfile.ObjectContentReader, shas [][]byte) ([][]byte, error) {
 	var foundShas [][]byte
 	for _, sha := range shas {
 		commit, err := catfile.GetCommit(ctx, objectReader, git.Revision(sha))

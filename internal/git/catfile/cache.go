@@ -34,7 +34,7 @@ const (
 type Cache interface {
 	// ObjectReader either creates a new object reader or returns a cached one for the given
 	// repository.
-	ObjectReader(context.Context, git.RepositoryExecutor) (ObjectReader, func(), error)
+	ObjectReader(context.Context, git.RepositoryExecutor) (ObjectContentReader, func(), error)
 	// ObjectInfoReader either creates a new object info reader or returns a cached one for the
 	// given repository.
 	ObjectInfoReader(context.Context, git.RepositoryExecutor) (ObjectInfoReader, func(), error)
@@ -170,15 +170,15 @@ func (c *ProcessCache) Stop() {
 }
 
 // ObjectReader creates a new ObjectReader process for the given repository.
-func (c *ProcessCache) ObjectReader(ctx context.Context, repo git.RepositoryExecutor) (ObjectReader, func(), error) {
+func (c *ProcessCache) ObjectReader(ctx context.Context, repo git.RepositoryExecutor) (ObjectContentReader, func(), error) {
 	cacheable, cancel, err := c.getOrCreateProcess(ctx, repo, &c.objectReaders, func(ctx context.Context) (cacheable, error) {
-		return newObjectReader(ctx, repo, c.catfileLookupCounter)
+		return newObjectContentReader(ctx, repo, c.catfileLookupCounter)
 	}, "catfile.ObjectReader")
 	if err != nil {
 		return nil, nil, err
 	}
 
-	objectReader, ok := cacheable.(ObjectReader)
+	objectReader, ok := cacheable.(ObjectContentReader)
 	if !ok {
 		return nil, nil, fmt.Errorf("expected object reader, got %T", cacheable)
 	}

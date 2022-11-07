@@ -23,7 +23,7 @@ import (
 
 const attributesFileMode os.FileMode = 0o644
 
-func (s *server) applyGitattributes(ctx context.Context, repo *localrepo.Repo, objectReader catfile.ObjectReader, repoPath string, revision []byte) (returnedErr error) {
+func (s *server) applyGitattributes(ctx context.Context, repo *localrepo.Repo, objectReader catfile.ObjectContentReader, repoPath string, revision []byte) (returnedErr error) {
 	infoPath := filepath.Join(repoPath, "info")
 	attributesPath := filepath.Join(infoPath, "attributes")
 

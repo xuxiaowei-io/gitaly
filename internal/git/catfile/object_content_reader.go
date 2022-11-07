@@ -12,27 +12,27 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 )
 
-// ObjectReader is a reader for Git objects.
-type ObjectReader interface {
+// ObjectContentReader is a reader for Git objects.
+type ObjectContentReader interface {
 	cacheable
 
 	// Reader returns a new Object for the given revision. The Object must be fully consumed
 	// before another object is requested.
 	Object(context.Context, git.Revision) (*Object, error)
 
-	// ObjectQueue returns an ObjectQueue that can be used to batch multiple object requests.
+	// ObjectContentQueue returns an ObjectContentQueue that can be used to batch multiple object requests.
 	// Using the queue is more efficient than using `Object()` when requesting a bunch of
-	// objects. The returned function must be executed after use of the ObjectQueue has
+	// objects. The returned function must be executed after use of the ObjectContentQueue has
 	// finished.
-	ObjectQueue(context.Context) (ObjectQueue, func(), error)
+	ObjectContentQueue(context.Context) (ObjectContentQueue, func(), error)
 }
 
-// ObjectQueue allows for requesting and reading objects independently of each other. The number of
+// ObjectContentQueue allows for requesting and reading objects independently of each other. The number of
 // RequestObject and ReadObject calls must match. ReadObject must be executed after the object has
 // been requested already. The order of objects returned by ReadObject is the same as the order in
 // which objects have been requested. Users of this interface must call `Flush()` after all requests
 // have been queued up such that all requested objects will be readable.
-type ObjectQueue interface {
+type ObjectContentQueue interface {
 	// RequestObject requests the given revision from git-cat-file(1).
 	RequestObject(git.Revision) error
 	// ReadObject reads an object which has previously been requested.
@@ -42,10 +42,10 @@ type ObjectQueue interface {
 	Flush() error
 }
 
-// objectReader is a reader for Git objects. Reading is implemented via a long-lived `git cat-file
+// objectContentReader is a reader for Git objects. Reading is implemented via a long-lived `git cat-file
 // --batch` process such that we do not have to spawn a new process for each object we are about to
 // read.
-type objectReader struct {
+type objectContentReader struct {
 	cmd *command.Command
 
 	counter *prometheus.CounterVec
@@ -54,11 +54,11 @@ type objectReader struct {
 	queueInUse int32
 }
 
-func newObjectReader(
+func newObjectContentReader(
 	ctx context.Context,
 	repo git.RepositoryExecutor,
 	counter *prometheus.CounterVec,
-) (*objectReader, error) {
+) (*objectContentReader, error) {
 	batchCmd, err := repo.Exec(ctx,
 		git.SubCmd{
 			Name: "cat-file",
@@ -78,7 +78,7 @@ func newObjectReader(
 		return nil, fmt.Errorf("detecting object hash: %w", err)
 	}
 
-	objectReader := &objectReader{
+	objectReader := &objectContentReader{
 		cmd:     batchCmd,
 		counter: counter,
 		queue: requestQueue{
@@ -92,20 +92,20 @@ func newObjectReader(
 	return objectReader, nil
 }
 
-func (o *objectReader) close() {
+func (o *objectContentReader) close() {
 	o.queue.close()
 	_ = o.cmd.Wait()
 }
 
-func (o *objectReader) isClosed() bool {
+func (o *objectContentReader) isClosed() bool {
 	return o.queue.isClosed()
 }
 
-func (o *objectReader) isDirty() bool {
+func (o *objectContentReader) isDirty() bool {
 	return o.queue.isDirty()
 }
 
-func (o *objectReader) objectQueue(ctx context.Context, tracedMethod string) (*requestQueue, func(), error) {
+func (o *objectContentReader) objectQueue(ctx context.Context, tracedMethod string) (*requestQueue, func(), error) {
 	if !atomic.CompareAndSwapInt32(&o.queueInUse, 0, 1) {
 		return nil, nil, fmt.Errorf("object queue already in use")
 	}
@@ -119,7 +119,7 @@ func (o *objectReader) objectQueue(ctx context.Context, tracedMethod string) (*r
 	}, nil
 }
 
-func (o *objectReader) Object(ctx context.Context, revision git.Revision) (*Object, error) {
+func (o *objectContentReader) Object(ctx context.Context, revision git.Revision) (*Object, error) {
 	queue, finish, err := o.objectQueue(ctx, "catfile.Object")
 	if err != nil {
 		return nil, err
@@ -142,7 +142,7 @@ func (o *objectReader) Object(ctx context.Context, revision git.Revision) (*Obje
 	return object, nil
 }
 
-func (o *objectReader) ObjectQueue(ctx context.Context) (ObjectQueue, func(), error) {
+func (o *objectContentReader) ObjectContentQueue(ctx context.Context) (ObjectContentQueue, func(), error) {
 	queue, finish, err := o.objectQueue(ctx, "catfile.ObjectQueue")
 	if err != nil {
 		return nil, nil, err
