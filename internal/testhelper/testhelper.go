@@ -204,6 +204,9 @@ func ContextWithoutCancel(opts ...ContextOpt) context.Context {
 	// Let's randomly select which connection we use so both sets of connections get tested somewhat.
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.PraefectUseYamuxConfigurationForGitaly, rnd.Int()%2 == 0)
 
+	// Randomly enable the use of the catfile cache in localrepo.ReadObject.
+	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.LocalrepoReadObjectCached, rnd.Int()%2 == 0)
+
 	for _, opt := range opts {
 		ctx = opt(ctx)
 	}
