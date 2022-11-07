@@ -20,10 +20,7 @@ func TestClone(t *testing.T) {
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 	ctx := testhelper.Context(t)
 
-	serverPort, stopGitServer := gittest.HTTPServer(t, ctx, gitCmdFactory, repoPath, nil)
-	defer func() {
-		require.NoError(t, stopGitServer())
-	}()
+	serverPort := gittest.HTTPServer(t, ctx, gitCmdFactory, repoPath, nil)
 
 	clone, err := PerformHTTPClone(ctx, fmt.Sprintf("http://localhost:%d/%s", serverPort, filepath.Base(repoPath)), "", "", false)
 	require.NoError(t, err, "perform analysis clone")
@@ -86,7 +83,7 @@ func TestCloneWithAuth(t *testing.T) {
 
 	authWasChecked := false
 
-	serverPort, stopGitServer := gittest.HTTPServer(t, ctx, gitCmdFactory, repoPath, func(w http.ResponseWriter, r *http.Request, next http.Handler) {
+	serverPort := gittest.HTTPServer(t, ctx, gitCmdFactory, repoPath, func(w http.ResponseWriter, r *http.Request, next http.Handler) {
 		authWasChecked = true
 
 		actualUser, actualPassword, ok := r.BasicAuth()
@@ -96,9 +93,6 @@ func TestCloneWithAuth(t *testing.T) {
 
 		next.ServeHTTP(w, r)
 	})
-	defer func() {
-		require.NoError(t, stopGitServer())
-	}()
 
 	_, err := PerformHTTPClone(
 		ctx,

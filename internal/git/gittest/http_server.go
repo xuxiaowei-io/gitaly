@@ -17,7 +17,7 @@ import (
 // HTTPServer starts an HTTP server with git-http-backend(1) as CGI handler. The repository is
 // prepared such that git-http-backend(1) will serve it by creating the "git-daemon-export-ok" magic
 // file.
-func HTTPServer(tb testing.TB, ctx context.Context, gitCmdFactory git.CommandFactory, repoPath string, middleware func(http.ResponseWriter, *http.Request, http.Handler)) (int, func() error) {
+func HTTPServer(tb testing.TB, ctx context.Context, gitCmdFactory git.CommandFactory, repoPath string, middleware func(http.ResponseWriter, *http.Request, http.Handler)) int {
 	require.NoError(tb, os.WriteFile(filepath.Join(repoPath, "git-daemon-export-ok"), nil, 0o644))
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -36,7 +36,11 @@ func HTTPServer(tb testing.TB, ctx context.Context, gitCmdFactory git.CommandFac
 			"GIT_CONFIG_VALUE_0=true",
 		}, gitExecEnv.EnvironmentVariables...),
 	}
-	s := http.Server{Handler: gitHTTPBackend}
+
+	s := &http.Server{Handler: gitHTTPBackend}
+	tb.Cleanup(func() {
+		testhelper.MustClose(tb, s)
+	})
 
 	if middleware != nil {
 		s.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -44,7 +48,7 @@ func HTTPServer(tb testing.TB, ctx context.Context, gitCmdFactory git.CommandFac
 		})
 	}
 
-	go testhelper.MustServe(tb, &s, listener)
+	go testhelper.MustServe(tb, s, listener)
 
-	return listener.Addr().(*net.TCPAddr).Port, s.Close
+	return listener.Addr().(*net.TCPAddr).Port
 }

@@ -31,8 +31,7 @@ func TestFindRemoteRootRefSuccess(t *testing.T) {
 		secret = "mysecret"
 	)
 
-	port, stopGitServer := gittest.HTTPServer(t, ctx, gitCmdFactory, repoPath, newGitRequestValidationMiddleware(host, secret))
-	defer func() { require.NoError(t, stopGitServer()) }()
+	port := gittest.HTTPServer(t, ctx, gitCmdFactory, repoPath, newGitRequestValidationMiddleware(host, secret))
 
 	originURL := fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(repoPath))
 
@@ -164,65 +163,65 @@ func TestServer_findRemoteRootRefCmd(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 
-	s := server{gitCmdFactory: gittest.NewCommandFactory(t, cfg)}
+	port := gittest.HTTPServer(t, ctx, gitCmdFactory, repoPath, nil)
+
+	s := server{gitCmdFactory: gitCmdFactory}
+
+	originalURL := fmt.Sprintf("http://example.com:%d/%s", port, filepath.Base(repoPath))
+	resolvedURL := fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(repoPath))
 
 	for _, tc := range []struct {
-		desc             string
-		request          *gitalypb.FindRemoteRootRefRequest
-		expectedErrorStr string
-		expectedConfig   []string
+		desc           string
+		request        *gitalypb.FindRemoteRootRefRequest
+		expectedErr    error
+		expectedConfig []string
 	}{
 		{
 			desc: "no resolved address is present",
 			request: &gitalypb.FindRemoteRootRefRequest{
-				RemoteUrl:       "git@gitlab.com:foo/bar.git",
+				RemoteUrl:       resolvedURL,
 				ResolvedAddress: "",
 				Repository:      repo,
 			},
 			expectedConfig: []string{
 				"GIT_CONFIG_KEY_0=remote.inmemory.url",
-				"GIT_CONFIG_VALUE_0=git@gitlab.com:foo/bar.git",
+				"GIT_CONFIG_VALUE_0=" + resolvedURL,
 			},
 		},
 		{
 			desc: "resolved address is present",
 			request: &gitalypb.FindRemoteRootRefRequest{
-				RemoteUrl:       "https://gitlab.com/foo/bar.git",
-				ResolvedAddress: "192.168.0.1",
+				RemoteUrl:       originalURL,
+				ResolvedAddress: "127.0.0.1",
 				Repository:      repo,
 			},
 			expectedConfig: []string{
 				"GIT_CONFIG_KEY_0=http.curloptResolve",
-				"GIT_CONFIG_VALUE_0=*:443:192.168.0.1",
+				fmt.Sprintf("GIT_CONFIG_VALUE_0=*:%d:127.0.0.1", port),
+				"GIT_CONFIG_KEY_1=remote.inmemory.url",
+				"GIT_CONFIG_VALUE_1=" + originalURL,
 			},
 		},
 		{
 			desc: "corrupt resolved address is present",
 			request: &gitalypb.FindRemoteRootRefRequest{
-				RemoteUrl:       "git@gitlab.com:foo/bar.git",
+				RemoteUrl:       originalURL,
 				ResolvedAddress: "foo/bar",
 				Repository:      repo,
 			},
-			expectedErrorStr: "resolved address has invalid IPv4/IPv6 address",
+			expectedErr: helper.ErrInvalidArgumentf("couldn't get curloptResolve config: %w", fmt.Errorf("resolved address has invalid IPv4/IPv6 address")),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			cmd, err := s.findRemoteRootRefCmd(ctx, tc.request)
+			require.Equal(t, tc.expectedErr, err)
 			if err == nil {
-				defer func() {
-					err := cmd.Wait()
-					require.Error(t, err)
-				}()
-			}
-
-			if tc.expectedErrorStr != "" {
-				require.Error(t, err, tc.expectedErrorStr)
-			} else {
-				require.NoError(t, err)
+				require.NoError(t, cmd.Wait())
 				require.Subset(t, cmd.Env(), tc.expectedConfig)
 			}
 		})

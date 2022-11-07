@@ -193,8 +193,7 @@ func TestFetchRemote_withDefaultRefmaps(t *testing.T) {
 	})
 	targetRepo := localrepo.NewTestRepo(t, cfg, targetRepoProto)
 
-	port, stopGitServer := gittest.HTTPServer(t, ctx, gitCmdFactory, sourceRepoPath, nil)
-	defer func() { require.NoError(t, stopGitServer()) }()
+	port := gittest.HTTPServer(t, ctx, gitCmdFactory, sourceRepoPath, nil)
 
 	require.NoError(t, sourceRepo.UpdateRef(ctx, "refs/heads/foobar", "refs/heads/master", ""))
 
@@ -236,8 +235,7 @@ func TestFetchRemote_transaction(t *testing.T) {
 	targetCfg, targetRepoProto, targetRepoPath := testcfg.BuildWithRepo(t)
 	targetGitCmdFactory := gittest.NewCommandFactory(t, targetCfg)
 
-	port, stopGitServer := gittest.HTTPServer(t, ctx, targetGitCmdFactory, targetRepoPath, nil)
-	defer func() { require.NoError(t, stopGitServer()) }()
+	port := gittest.HTTPServer(t, ctx, targetGitCmdFactory, targetRepoPath, nil)
 
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)
@@ -263,8 +261,7 @@ func TestFetchRemote_prune(t *testing.T) {
 	cfg, _, sourceRepoPath, client := setupRepositoryService(t, ctx)
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 
-	port, stopGitServer := gittest.HTTPServer(t, ctx, gitCmdFactory, sourceRepoPath, nil)
-	defer func() { require.NoError(t, stopGitServer()) }()
+	port := gittest.HTTPServer(t, ctx, gitCmdFactory, sourceRepoPath, nil)
 
 	remoteURL := fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(sourceRepoPath))
 
@@ -349,8 +346,7 @@ func TestFetchRemote_force(t *testing.T) {
 	divergingBranchOID := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("b1"))
 	divergingTagOID := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("b2"))
 
-	port, stopGitServer := gittest.HTTPServer(t, ctx, gitCmdFactory, sourceRepoPath, nil)
-	defer func() { require.NoError(t, stopGitServer()) }()
+	port := gittest.HTTPServer(t, ctx, gitCmdFactory, sourceRepoPath, nil)
 
 	remoteURL := fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(sourceRepoPath))
 
@@ -836,7 +832,7 @@ func TestFetchRemote_pooledRepository(t *testing.T) {
 			// can observe the reference negotiation and check whether alternate refs
 			// are announced or not.
 			var requestBuffer bytes.Buffer
-			port, stop := gittest.HTTPServer(t, ctx, gitCmdFactory, remoteRepoPath, func(responseWriter http.ResponseWriter, request *http.Request, handler http.Handler) {
+			port := gittest.HTTPServer(t, ctx, gitCmdFactory, remoteRepoPath, func(responseWriter http.ResponseWriter, request *http.Request, handler http.Handler) {
 				closer := request.Body
 				defer testhelper.MustClose(t, closer)
 
@@ -844,9 +840,6 @@ func TestFetchRemote_pooledRepository(t *testing.T) {
 
 				handler.ServeHTTP(responseWriter, request)
 			})
-			defer func() {
-				require.NoError(t, stop())
-			}()
 
 			// Perform the fetch.
 			_, err := client.FetchRemote(ctx, &gitalypb.FetchRemoteRequest{
