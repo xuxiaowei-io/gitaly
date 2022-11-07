@@ -29,6 +29,13 @@ BUILD_DIR        := ${SOURCE_DIR}/_build
 DEPENDENCY_DIR   := ${BUILD_DIR}/deps
 TOOLS_DIR        := ${BUILD_DIR}/tools
 GITALY_RUBY_DIR  := ${SOURCE_DIR}/ruby
+# This file is used as a dependency for running `bundle install`: when its
+# mtime is older than that of either `Gemfile` or `Gemfile.lock` we will
+# execute the command. There is not typically any need to change the location,
+# but we need this for our unprivileged CI so that it can be moved into the
+# `_build` directory. Just moving the file completely doesn't work, as both CNG
+# and Omnibus depend on it to inhibit re-bundling Ruby Gems.
+RUBY_BUNDLE_FILE ?= ${SOURCE_DIR}/.ruby-bundle
 
 # These variables may be overridden at runtime by top-level make
 ## The prefix where Gitaly binaries will be installed to. Binaries will end up
@@ -312,7 +319,7 @@ help:
 
 .PHONY: build
 ## Build Go binaries and install required Ruby Gems.
-build: ${SOURCE_DIR}/.ruby-bundle ${GITALY_INSTALLED_EXECUTABLES}
+build: ${RUBY_BUNDLE_FILE} ${GITALY_INSTALLED_EXECUTABLES}
 
 .PHONY: install
 ## Install Gitaly binaries. The target directory can be modified by setting PREFIX and DESTDIR.
@@ -347,10 +354,7 @@ export GITALY_TESTING_GIT_BINARY ?= ${DEPENDENCY_DIR}/git-distribution/bin-wrapp
 endif
 
 .PHONY: prepare-tests
-prepare-tests: libgit2 prepare-test-repos ${SOURCE_DIR}/.ruby-bundle ${GOTESTSUM}
-ifndef UNPRIVILEGED_CI_SKIP
-prepare-tests: ${GITALY_PACKED_EXECUTABLES}
-endif
+prepare-tests: libgit2 prepare-test-repos ${RUBY_BUNDLE_FILE} ${GOTESTSUM} ${GITALY_PACKED_EXECUTABLES}
 	${Q}mkdir -p "$(dir ${TEST_REPORT})"
 
 .PHONY: prepare-debug
@@ -399,16 +403,8 @@ race-go: test-go
 
 .PHONY: rspec
 ## Run Ruby tests.
-rspec: prepare-tests
+rspec: build prepare-tests
 	${Q}cd ${GITALY_RUBY_DIR} && PATH='${SOURCE_DIR}/internal/testhelper/testdata/home/bin:${PATH}' bundle exec rspec
-
-# This is a workaround for our unprivileged CI builds. We manually execute the
-# build target as privileged user, but then run other targets unprivileged.
-# We thus cannot rebuild binaries there given that we have no permissions to
-# write into the build directory.
-ifndef UNPRIVILEGED_CI_SKIP
-rspec: build
-endif
 
 .PHONY: verify
 ## Verify that various files conform to our expectations.
@@ -465,7 +461,7 @@ clean-ruby-vendor-go:
 
 .PHONY: rubocop
 ## Run Rubocop.
-rubocop: ${SOURCE_DIR}/.ruby-bundle
+rubocop: ${RUBY_BUNDLE_FILE}
 	${Q}cd ${GITALY_RUBY_DIR} && bundle exec rubocop --parallel --config ${GITALY_RUBY_DIR}/.rubocop.yml ${GITALY_RUBY_DIR} ${SOURCE_DIR}/_support/test-boot
 
 .PHONY: cover
@@ -538,9 +534,13 @@ upgrade-module:
 # This target is deprecated and will eventually be removed.
 git: install-git
 
+.PHONY: build-git
+## Build Git distribution.
+build-git: ${DEPENDENCY_DIR}/git-distribution/git
+
 .PHONY: install-git
-## Install Git.
-install-git: ${DEPENDENCY_DIR}/git-distribution/Makefile
+## Install Git distribution.
+install-git: build-git
 	${Q}env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C "${DEPENDENCY_DIR}/git-distribution" -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} install
 
 .PHONY: libgit2
@@ -550,7 +550,7 @@ libgit2: ${LIBGIT2_INSTALL_DIR}/lib/libgit2.a
 # This file is used by Omnibus and CNG to skip the "bundle install"
 # step. Both Omnibus and CNG assume it is in the Gitaly root, not in
 # _build. Hence the '../' in front.
-${SOURCE_DIR}/.ruby-bundle: ${GITALY_RUBY_DIR}/Gemfile.lock ${GITALY_RUBY_DIR}/Gemfile
+${RUBY_BUNDLE_FILE}: ${GITALY_RUBY_DIR}/Gemfile.lock ${GITALY_RUBY_DIR}/Gemfile
 	${Q}cd ${GITALY_RUBY_DIR} && bundle install
 	${Q}touch $@
 
