@@ -1,11 +1,8 @@
-//go:build !gitaly_test_sha256
-
 package stats
 
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -79,17 +76,14 @@ func TestRepositoryProfile(t *testing.T) {
 }
 
 func TestLogObjectInfo(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
-	repo1, repoPath1 := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
-	})
-	repo2, repoPath2 := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
-	})
+	locator := config.NewLocator(cfg)
+	storagePath, err := locator.GetStorageByName(cfg.Storages[0].Name)
+	require.NoError(t, err)
 
 	requireObjectsInfo := func(entries []*logrus.Entry) ObjectsInfo {
 		for _, entry := range entries {
@@ -106,42 +100,58 @@ func TestLogObjectInfo(t *testing.T) {
 	}
 
 	t.Run("shared repo with multiple alternates", func(t *testing.T) {
-		locator := config.NewLocator(cfg)
-		storagePath, err := locator.GetStorageByName(repo1.GetStorageName())
-		require.NoError(t, err)
-
-		tmpDir, err := os.MkdirTemp(storagePath, "")
-		require.NoError(t, err)
-		defer func() { require.NoError(t, os.RemoveAll(tmpDir)) }()
-
-		// clone existing local repo with two alternates
-		gittest.Exec(t, cfg, "clone", "--shared", repoPath1, "--reference", repoPath1, "--reference", repoPath2, tmpDir)
+		t.Parallel()
 
 		logger, hook := test.NewNullLogger()
-		testCtx := ctxlogrus.ToContext(ctx, logger.WithField("test", "logging"))
+		ctx := ctxlogrus.ToContext(ctx, logger.WithField("test", "logging"))
 
-		LogObjectsInfo(testCtx, localrepo.NewTestRepo(t, cfg, &gitalypb.Repository{
-			StorageName:  repo1.StorageName,
-			RelativePath: filepath.Join(strings.TrimPrefix(tmpDir, storagePath), ".git"),
+		_, repoPath1 := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			SkipCreationViaService: true,
+		})
+		gittest.WriteCommit(t, cfg, repoPath1, gittest.WithMessage("repo1"), gittest.WithBranch("main"))
+
+		_, repoPath2 := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			SkipCreationViaService: true,
+		})
+		gittest.WriteCommit(t, cfg, repoPath2, gittest.WithMessage("repo2"), gittest.WithBranch("main"))
+
+		// clone existing local repo with two alternates
+		targetRepoName := gittest.NewRepositoryName(t, true)
+		targetRepoPath := filepath.Join(storagePath, targetRepoName)
+		gittest.Exec(t, cfg, "clone", "--bare", "--shared", repoPath1, "--reference", repoPath1, "--reference", repoPath2, targetRepoPath)
+
+		LogObjectsInfo(ctx, localrepo.NewTestRepo(t, cfg, &gitalypb.Repository{
+			StorageName:  cfg.Storages[0].Name,
+			RelativePath: targetRepoName,
 		}))
 
 		objectsInfo := requireObjectsInfo(hook.AllEntries())
-		require.Equal(t, []string{repoPath1 + "/objects", repoPath2 + "/objects"}, objectsInfo.Alternates)
+		require.Equal(t, ObjectsInfo{
+			Alternates: []string{
+				filepath.Join(repoPath1, "/objects"),
+				filepath.Join(repoPath2, "/objects"),
+			},
+		}, objectsInfo)
 	})
 
 	t.Run("repo without alternates", func(t *testing.T) {
-		logger, hook := test.NewNullLogger()
-		testCtx := ctxlogrus.ToContext(ctx, logger.WithField("test", "logging"))
+		t.Parallel()
 
-		LogObjectsInfo(testCtx, localrepo.NewTestRepo(t, cfg, repo2))
+		logger, hook := test.NewNullLogger()
+		ctx := ctxlogrus.ToContext(ctx, logger.WithField("test", "logging"))
+
+		repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			SkipCreationViaService: true,
+		})
+		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+
+		LogObjectsInfo(ctx, localrepo.NewTestRepo(t, cfg, repo))
 
 		objectsInfo := requireObjectsInfo(hook.AllEntries())
-		require.NotZero(t, objectsInfo.LooseObjects)
-		require.NotZero(t, objectsInfo.LooseObjectsSize)
-		require.NotZero(t, objectsInfo.PackedObjects)
-		require.NotZero(t, objectsInfo.Packfiles)
-		require.NotZero(t, objectsInfo.PackfilesSize)
-		require.Nil(t, objectsInfo.Alternates)
+		require.Equal(t, ObjectsInfo{
+			LooseObjects:     2,
+			LooseObjectsSize: 8,
+		}, objectsInfo)
 	})
 }
 

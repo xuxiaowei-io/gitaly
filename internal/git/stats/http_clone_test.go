@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package stats
 
 import (
@@ -16,18 +14,24 @@ import (
 )
 
 func TestClone(t *testing.T) {
-	cfg, _, repoPath := testcfg.BuildWithRepo(t)
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+
+	_, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+	})
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+	gittest.WriteTag(t, cfg, repoPath, "some-tag", "refs/heads/main")
 
 	serverPort := gittest.HTTPServer(t, ctx, gitCmdFactory, repoPath, nil)
 
 	clone, err := PerformHTTPClone(ctx, fmt.Sprintf("http://localhost:%d/%s", serverPort, filepath.Base(repoPath)), "", "", false)
 	require.NoError(t, err, "perform analysis clone")
 
-	const expectedRequests = 90 // based on contents of _support/gitlab-test.git-packed-refs
-	require.Greater(t, clone.FetchPack.RefsWanted(), expectedRequests, "number of wanted refs")
-
+	require.Equal(t, 2, clone.FetchPack.RefsWanted(), "number of wanted refs")
 	require.Equal(t, 200, clone.ReferenceDiscovery.HTTPStatus(), "get status")
 	require.Greater(t, clone.ReferenceDiscovery.Packets(), 0, "number of get packets")
 	require.Greater(t, clone.ReferenceDiscovery.PayloadSize(), int64(0), "get payload size")
@@ -72,9 +76,16 @@ func TestClone(t *testing.T) {
 }
 
 func TestCloneWithAuth(t *testing.T) {
-	cfg, _, repoPath := testcfg.BuildWithRepo(t)
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+
+	_, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+	})
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 
 	const (
 		user     = "test-user"

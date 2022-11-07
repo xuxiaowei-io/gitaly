@@ -21,6 +21,7 @@ var (
 		Hash:         sha1.New,
 		EmptyTreeOID: ObjectID("4b825dc642cb6eb9a060e54bf8d69288fbee4904"),
 		ZeroOID:      ObjectID("0000000000000000000000000000000000000000"),
+		Format:       "sha1",
 	}
 
 	// ObjectHashSHA256 is the implementation of an object ID via SHA256.
@@ -29,6 +30,7 @@ var (
 		Hash:         sha256.New,
 		EmptyTreeOID: ObjectID("6ef19b41225c5369f1c104d45d8d85efa9b057b53b14b4b9b939dd74decc5321"),
 		ZeroOID:      ObjectID("0000000000000000000000000000000000000000000000000000000000000000"),
+		Format:       "sha256",
 	}
 
 	// ErrInvalidObjectID is returned in case an object ID's string
@@ -45,6 +47,20 @@ type ObjectHash struct {
 	EmptyTreeOID ObjectID
 	// ZeroOID is the special value that Git uses to signal a ref or object does not exist
 	ZeroOID ObjectID
+	// Format is the name of the object hash.
+	Format string
+}
+
+// ObjectHashByFormat looks up the ObjectHash by its format name.
+func ObjectHashByFormat(format string) (ObjectHash, error) {
+	switch format {
+	case ObjectHashSHA1.Format:
+		return ObjectHashSHA1, nil
+	case ObjectHashSHA256.Format:
+		return ObjectHashSHA256, nil
+	default:
+		return ObjectHash{}, fmt.Errorf("unknown object format: %q", format)
+	}
 }
 
 // DetectObjectHash detects the object-hash used by the given repository.
@@ -60,15 +76,7 @@ func DetectObjectHash(ctx context.Context, repoExecutor RepositoryExecutor) (Obj
 		return ObjectHash{}, fmt.Errorf("reading object format: %w, stderr: %q", err, stderr.String())
 	}
 
-	objectFormat := text.ChompBytes(stdout.Bytes())
-	switch objectFormat {
-	case "sha1":
-		return ObjectHashSHA1, nil
-	case "sha256":
-		return ObjectHashSHA256, nil
-	default:
-		return ObjectHash{}, fmt.Errorf("unknown object format: %q", objectFormat)
-	}
+	return ObjectHashByFormat(text.ChompBytes(stdout.Bytes()))
 }
 
 // EncodedLen returns the length of the hex-encoded string of a full object ID.

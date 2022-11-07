@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/pktline"
 )
 
@@ -33,6 +34,7 @@ type HTTPSendPack struct {
 func buildSendPackRequest(
 	ctx context.Context,
 	url, user, password string,
+	objectHash git.ObjectHash,
 	commands []PushCommand,
 	packfile io.Reader,
 ) (*http.Request, error) {
@@ -42,7 +44,7 @@ func buildSendPackRequest(
 	for i, command := range commands {
 		c := fmt.Sprintf("%s %s %s", command.OldOID, command.NewOID, command.Reference)
 		if i == 0 {
-			c += "\x00side-band-64k report-status delete-refs"
+			c += "\x00side-band-64k report-status delete-refs object-format=" + objectHash.Format
 		}
 
 		if _, err := pktline.WriteString(zipper, c); err != nil {
@@ -89,11 +91,12 @@ func buildSendPackRequest(
 func performHTTPSendPack(
 	ctx context.Context,
 	url, user, password string,
+	objectHash git.ObjectHash,
 	commands []PushCommand,
 	packfile io.Reader,
 	reportProgress func(string, ...interface{}),
 ) (HTTPSendPack, error) {
-	request, err := buildSendPackRequest(ctx, url, user, password, commands, packfile)
+	request, err := buildSendPackRequest(ctx, url, user, password, objectHash, commands, packfile)
 	if err != nil {
 		return HTTPSendPack{}, err
 	}

@@ -49,6 +49,9 @@ type PushCommand struct {
 
 // PushConfig is the configuration for a Push-type probe.
 type PushConfig struct {
+	// ObjectFormat is the object format that is used on the remote side. This can either be
+	// "sha1" or "sha256". Defaults to "sha1".
+	ObjectFormat string `toml:"object_format"`
 	// Commands is the list of commands which should be executed as part of the push.
 	Commands []PushCommand `toml:"commands"`
 	// Packfile is the path to the packfile that shall be sent as part of the push.

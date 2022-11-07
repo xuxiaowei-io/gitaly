@@ -20,6 +20,38 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
+func TestObjectHashByFormat(t *testing.T) {
+	for _, tc := range []struct {
+		format             string
+		expectedErr        error
+		expectedObjectHash git.ObjectHash
+	}{
+		{
+			format:             "sha1",
+			expectedObjectHash: git.ObjectHashSHA1,
+		},
+		{
+			format:             "sha256",
+			expectedObjectHash: git.ObjectHashSHA256,
+		},
+		{
+			format:      "invalid",
+			expectedErr: fmt.Errorf("unknown object format: %q", "invalid"),
+		},
+	} {
+		t.Run(tc.format, func(t *testing.T) {
+			objectHash, err := git.ObjectHashByFormat(tc.format)
+			require.Equal(t, tc.expectedErr, err)
+
+			// Function pointers cannot be compared, so we need to unset them.
+			objectHash.Hash = nil
+			tc.expectedObjectHash.Hash = nil
+
+			require.Equal(t, tc.expectedObjectHash, objectHash)
+		})
+	}
+}
+
 func TestDetectObjectHash(t *testing.T) {
 	cfg := testcfg.Build(t)
 	ctx := testhelper.Context(t)
