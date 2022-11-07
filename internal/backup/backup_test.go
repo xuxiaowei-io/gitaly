@@ -81,7 +81,7 @@ func TestManager_Create(t *testing.T) {
 			setup: func(tb testing.TB) (*gitalypb.Repository, string) {
 				emptyRepo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 				nonexistentRepo := proto.Clone(emptyRepo).(*gitalypb.Repository)
-				nonexistentRepo.RelativePath = gittest.NewRepositoryName(t, true)
+				nonexistentRepo.RelativePath = gittest.NewRepositoryName(t)
 				return nonexistentRepo, repoPath
 			},
 			createsBundle:      false,
@@ -286,7 +286,7 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 
 		repo := &gitalypb.Repository{
 			StorageName:  "default",
-			RelativePath: gittest.NewRepositoryName(tb, true),
+			RelativePath: gittest.NewRepositoryName(tb),
 		}
 
 		_, err := repoClient.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: repo})
@@ -378,7 +378,7 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 			setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
 				repo := &gitalypb.Repository{
 					StorageName:  "default",
-					RelativePath: gittest.NewRepositoryName(tb, true),
+					RelativePath: gittest.NewRepositoryName(tb),
 				}
 
 				relativePath := stripRelativePath(tb, repo)

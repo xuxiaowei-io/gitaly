@@ -784,7 +784,7 @@ func TestStreamDirector_maintenanceRPCs(t *testing.T) {
 
 	repository := &gitalypb.Repository{
 		StorageName:  "default",
-		RelativePath: gittest.NewRepositoryName(t, true),
+		RelativePath: gittest.NewRepositoryName(t),
 	}
 	primaryRepository := &gitalypb.Repository{
 		StorageName:  primaryStorage,

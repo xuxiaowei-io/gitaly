@@ -84,7 +84,7 @@ func TestCreateFork_successful(t *testing.T) {
 			ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
 			forkedRepo := &gitalypb.Repository{
-				RelativePath: gittest.NewRepositoryName(t, true),
+				RelativePath: gittest.NewRepositoryName(t),
 				StorageName:  repo.GetStorageName(),
 			}
 
@@ -135,7 +135,7 @@ func TestCreateFork_refs(t *testing.T) {
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
 	targetRepo := &gitalypb.Repository{
-		RelativePath: gittest.NewRepositoryName(t, true),
+		RelativePath: gittest.NewRepositoryName(t),
 		StorageName:  sourceRepo.GetStorageName(),
 	}
 
@@ -193,7 +193,7 @@ func TestCreateFork_fsck(t *testing.T) {
 	)
 
 	forkedRepo := &gitalypb.Repository{
-		RelativePath: gittest.NewRepositoryName(t, true),
+		RelativePath: gittest.NewRepositoryName(t),
 		StorageName:  repo.GetStorageName(),
 	}
 

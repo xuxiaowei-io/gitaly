@@ -60,14 +60,9 @@ func NewObjectPoolName(tb testing.TB) string {
 }
 
 // NewRepositoryName returns a random repository hash
-// in format '@hashed/[0-9a-f]{2}/[0-9a-f]{2}/[0-9a-f]{64}(.git)?'.
-func NewRepositoryName(tb testing.TB, bare bool) string {
-	suffix := ""
-	if bare {
-		suffix = ".git"
-	}
-
-	return filepath.Join("@hashed", newDiskHash(tb)+suffix)
+// in format '@hashed/[0-9a-f]{2}/[0-9a-f]{2}/[0-9a-f]{64}.git'.
+func NewRepositoryName(tb testing.TB) string {
+	return filepath.Join("@hashed", newDiskHash(tb)+".git")
 }
 
 // newDiskHash generates a random directory path following the Rails app's
@@ -136,7 +131,7 @@ func CreateRepository(tb testing.TB, ctx context.Context, cfg config.Cfg, config
 		storage = opts.Storage
 	}
 
-	relativePath := NewRepositoryName(tb, true)
+	relativePath := NewRepositoryName(tb)
 	if opts.RelativePath != "" {
 		relativePath = opts.RelativePath
 	}

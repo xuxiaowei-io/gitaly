@@ -258,7 +258,7 @@ func TestCreateRepository(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			repo := &gitalypb.Repository{
 				StorageName:  cfg.Storages[0].Name,
-				RelativePath: gittest.NewRepositoryName(t, true),
+				RelativePath: gittest.NewRepositoryName(t),
 			}
 
 			if tc.transactional {

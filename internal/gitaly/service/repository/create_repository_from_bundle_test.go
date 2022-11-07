@@ -132,7 +132,7 @@ func TestCreateRepositoryFromBundle_transactional(t *testing.T) {
 
 	createdRepo := &gitalypb.Repository{
 		StorageName:  repoProto.GetStorageName(),
-		RelativePath: gittest.NewRepositoryName(t, true),
+		RelativePath: gittest.NewRepositoryName(t),
 	}
 
 	require.NoError(t, stream.Send(&gitalypb.CreateRepositoryFromBundleRequest{

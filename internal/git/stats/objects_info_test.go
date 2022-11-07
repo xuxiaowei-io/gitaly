@@ -116,7 +116,7 @@ func TestLogObjectInfo(t *testing.T) {
 		gittest.WriteCommit(t, cfg, repoPath2, gittest.WithMessage("repo2"), gittest.WithBranch("main"))
 
 		// clone existing local repo with two alternates
-		targetRepoName := gittest.NewRepositoryName(t, true)
+		targetRepoName := gittest.NewRepositoryName(t)
 		targetRepoPath := filepath.Join(storagePath, targetRepoName)
 		gittest.Exec(t, cfg, "clone", "--bare", "--shared", repoPath1, "--reference", repoPath1, "--reference", repoPath2, targetRepoPath)
 
