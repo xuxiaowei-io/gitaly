@@ -404,7 +404,7 @@ func TestRequestQueue_RequestInfo(t *testing.T) {
 	})
 }
 
-func newInterceptedObjectQueue(t *testing.T, ctx context.Context, script string) (ObjectReader, *requestQueue) {
+func newInterceptedObjectQueue(t *testing.T, ctx context.Context, script string) (ObjectContentReader, *requestQueue) {
 	cfg := testcfg.Build(t)
 	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
@@ -418,7 +418,7 @@ func newInterceptedObjectQueue(t *testing.T, ctx context.Context, script string)
 		gitCmdFactory: commandFactory,
 	}
 
-	reader, err := newObjectReader(ctx, &repoExecutor, nil)
+	reader, err := newObjectContentReader(ctx, &repoExecutor, nil)
 	require.NoError(t, err)
 	t.Cleanup(reader.close)
 
