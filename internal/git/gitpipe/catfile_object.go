@@ -39,7 +39,7 @@ func CatfileObject(
 	objectReader catfile.ObjectContentReader,
 	it ObjectIterator,
 ) (CatfileObjectIterator, error) {
-	queue, queueCleanup, err := objectReader.ObjectContentQueue(ctx)
+	queue, queueCleanup, err := objectReader.ObjectQueue(ctx)
 	if err != nil {
 		return nil, err
 	}

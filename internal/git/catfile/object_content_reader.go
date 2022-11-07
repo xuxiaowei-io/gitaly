@@ -20,26 +20,11 @@ type ObjectContentReader interface {
 	// before another object is requested.
 	Object(context.Context, git.Revision) (*Object, error)
 
-	// ObjectContentQueue returns an ObjectContentQueue that can be used to batch multiple object requests.
+	// ObjectQueue returns an ObjectQueue that can be used to batch multiple object requests.
 	// Using the queue is more efficient than using `Object()` when requesting a bunch of
-	// objects. The returned function must be executed after use of the ObjectContentQueue has
+	// objects. The returned function must be executed after use of the ObjectQueue has
 	// finished.
-	ObjectContentQueue(context.Context) (ObjectContentQueue, func(), error)
-}
-
-// ObjectContentQueue allows for requesting and reading objects independently of each other. The number of
-// RequestObject and ReadObject calls must match. ReadObject must be executed after the object has
-// been requested already. The order of objects returned by ReadObject is the same as the order in
-// which objects have been requested. Users of this interface must call `Flush()` after all requests
-// have been queued up such that all requested objects will be readable.
-type ObjectContentQueue interface {
-	// RequestObject requests the given revision from git-cat-file(1).
-	RequestObject(git.Revision) error
-	// ReadObject reads an object which has previously been requested.
-	ReadObject() (*Object, error)
-	// Flush flushes all queued requests and asks git-cat-file(1) to print all objects which
-	// have been requested up to this point.
-	Flush() error
+	ObjectQueue(context.Context) (ObjectQueue, func(), error)
 }
 
 // objectContentReader is a reader for Git objects. Reading is implemented via a long-lived `git cat-file
@@ -142,7 +127,7 @@ func (o *objectContentReader) Object(ctx context.Context, revision git.Revision)
 	return object, nil
 }
 
-func (o *objectContentReader) ObjectContentQueue(ctx context.Context) (ObjectContentQueue, func(), error) {
+func (o *objectContentReader) ObjectQueue(ctx context.Context) (ObjectQueue, func(), error) {
 	queue, finish, err := o.objectQueue(ctx, "catfile.ObjectQueue")
 	if err != nil {
 		return nil, nil, err
