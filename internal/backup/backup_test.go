@@ -286,7 +286,7 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 
 		repo := &gitalypb.Repository{
 			StorageName:  "default",
-			RelativePath: gittest.NewRepositoryName(tb, false),
+			RelativePath: gittest.NewRepositoryName(tb, true),
 		}
 
 		_, err := repoClient.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: repo})
@@ -305,7 +305,7 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 	})
 	repoChecksum := gittest.ChecksumRepo(t, cfg, repoPath)
 
-	path := testhelper.TempDir(t)
+	backupRoot := testhelper.TempDir(t)
 
 	for _, tc := range []struct {
 		desc          string
@@ -321,8 +321,10 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 			locators: []string{"legacy", "pointer"},
 			setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
 				repo := createRepo(tb)
-				require.NoError(tb, os.MkdirAll(filepath.Join(path, repo.RelativePath), os.ModePerm))
-				bundlePath := filepath.Join(path, repo.RelativePath+".bundle")
+
+				relativePath := stripRelativePath(tb, repo)
+				require.NoError(tb, os.MkdirAll(filepath.Join(backupRoot, relativePath), os.ModePerm))
+				bundlePath := filepath.Join(backupRoot, relativePath+".bundle")
 				gittest.BundleRepo(tb, cfg, repoPath, bundlePath)
 
 				return repo, repoChecksum
@@ -334,9 +336,11 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 			locators: []string{"legacy", "pointer"},
 			setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
 				repo := createRepo(tb)
-				bundlePath := filepath.Join(path, repo.RelativePath+".bundle")
-				customHooksPath := filepath.Join(path, repo.RelativePath, "custom_hooks.tar")
-				require.NoError(tb, os.MkdirAll(filepath.Join(path, repo.RelativePath), os.ModePerm))
+
+				relativePath := stripRelativePath(tb, repo)
+				bundlePath := filepath.Join(backupRoot, relativePath+".bundle")
+				customHooksPath := filepath.Join(backupRoot, relativePath, "custom_hooks.tar")
+				require.NoError(tb, os.MkdirAll(filepath.Join(backupRoot, relativePath), os.ModePerm))
 				gittest.BundleRepo(tb, cfg, repoPath, bundlePath)
 				testhelper.CopyFile(tb, "../gitaly/service/repository/testdata/custom_hooks.tar", customHooksPath)
 
@@ -374,11 +378,12 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 			setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
 				repo := &gitalypb.Repository{
 					StorageName:  "default",
-					RelativePath: gittest.NewRepositoryName(tb, false),
+					RelativePath: gittest.NewRepositoryName(tb, true),
 				}
 
-				require.NoError(tb, os.MkdirAll(filepath.Dir(filepath.Join(path, repo.RelativePath)), os.ModePerm))
-				bundlePath := filepath.Join(path, repo.RelativePath+".bundle")
+				relativePath := stripRelativePath(tb, repo)
+				require.NoError(tb, os.MkdirAll(filepath.Dir(filepath.Join(backupRoot, relativePath)), os.ModePerm))
+				bundlePath := filepath.Join(backupRoot, relativePath+".bundle")
 				gittest.BundleRepo(tb, cfg, repoPath, bundlePath)
 
 				return repo, repoChecksum
@@ -391,7 +396,7 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 			setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
 				const backupID = "abc123"
 				repo := createRepo(tb)
-				repoBackupPath := filepath.Join(path, repo.RelativePath)
+				repoBackupPath := joinBackupPath(tb, backupRoot, repo)
 				backupPath := filepath.Join(repoBackupPath, backupID)
 				require.NoError(tb, os.MkdirAll(backupPath, os.ModePerm))
 				require.NoError(tb, os.WriteFile(filepath.Join(repoBackupPath, "LATEST"), []byte(backupID), os.ModePerm))
@@ -413,7 +418,7 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 				expectedRepoPath := filepath.Join(cfg.Storages[0].Path, expected.RelativePath)
 
 				repo := createRepo(tb)
-				repoBackupPath := filepath.Join(path, repo.RelativePath)
+				repoBackupPath := joinBackupPath(tb, backupRoot, repo)
 				backupPath := filepath.Join(repoBackupPath, backupID)
 				require.NoError(tb, os.MkdirAll(backupPath, os.ModePerm))
 				require.NoError(tb, os.WriteFile(filepath.Join(repoBackupPath, "LATEST"), []byte(backupID), os.ModePerm))
@@ -471,7 +476,7 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 					pool := client.NewPool()
 					defer testhelper.MustClose(t, pool)
 
-					sink := NewFilesystemSink(path)
+					sink := NewFilesystemSink(backupRoot)
 					locator, err := ResolveLocator(locatorName, sink)
 					require.NoError(t, err)
 
@@ -645,6 +650,10 @@ func TestResolveLocator(t *testing.T) {
 func joinBackupPath(tb testing.TB, backupRoot string, repo *gitalypb.Repository, elements ...string) string {
 	return filepath.Join(append([]string{
 		backupRoot,
-		strings.TrimSuffix(repo.GetRelativePath(), ".git"),
+		stripRelativePath(tb, repo),
 	}, elements...)...)
+}
+
+func stripRelativePath(tb testing.TB, repo *gitalypb.Repository) string {
+	return strings.TrimSuffix(repo.GetRelativePath(), ".git")
 }
