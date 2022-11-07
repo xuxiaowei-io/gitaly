@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/labkit/correlation"
@@ -203,7 +204,12 @@ func TestCache_autoExpiry(t *testing.T) {
 }
 
 func TestCache_ObjectReader(t *testing.T) {
-	ctx := testhelper.Context(t)
+	t.Parallel()
+
+	testhelper.NewFeatureSets(featureflag.CatfileBatchCommand, featureflag.GitV238).Run(t, testCacheObjectReader)
+}
+
+func testCacheObjectReader(t *testing.T, ctx context.Context) {
 	cfg := testcfg.Build(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
@@ -303,7 +309,12 @@ func TestCache_ObjectReader(t *testing.T) {
 }
 
 func TestCache_ObjectInfoReader(t *testing.T) {
-	ctx := testhelper.Context(t)
+	t.Parallel()
+
+	testhelper.NewFeatureSets(featureflag.CatfileBatchCommand, featureflag.GitV238).Run(t, testCacheObjectInfoReader)
+}
+
+func testCacheObjectInfoReader(t *testing.T, ctx context.Context) {
 	cfg := testcfg.Build(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{

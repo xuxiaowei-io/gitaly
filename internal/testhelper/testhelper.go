@@ -205,6 +205,9 @@ func ContextWithoutCancel(opts ...ContextOpt) context.Context {
 	// PraefectUseYamuxConfigurationForGitaly gets tested in Praefect when routing RPCs and thus it affects many tests.
 	// Let's randomly select which connection we use so both sets of connections get tested somewhat.
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.PraefectUseYamuxConfigurationForGitaly, rnd.Int()%2 == 0)
+	// CatfileBatchCommand affects many tests since most of them rely on catfile for content/info
+	// information about objects.
+	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.CatfileBatchCommand, rnd.Int()%2 == 0)
 
 	for _, opt := range opts {
 		ctx = opt(ctx)
