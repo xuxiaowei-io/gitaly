@@ -97,56 +97,6 @@ func TestExecCommandFactory_globalGitConfigIgnored(t *testing.T) {
 	}
 }
 
-func TestExecCommandFactory_NewWithDir(t *testing.T) {
-	cfg := testcfg.Build(t)
-
-	gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg)
-	require.NoError(t, err)
-	defer cleanup()
-
-	t.Run("no dir specified", func(t *testing.T) {
-		ctx := testhelper.Context(t)
-
-		_, err := gitCmdFactory.NewWithDir(ctx, "", nil, nil)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "no 'dir' provided")
-	})
-
-	t.Run("runs in dir", func(t *testing.T) {
-		repoPath := testhelper.TempDir(t)
-
-		gittest.Exec(t, cfg, "init", repoPath)
-		gittest.Exec(t, cfg, "-C", repoPath, "commit", "--allow-empty", "-m", "initial commit")
-		ctx := testhelper.Context(t)
-
-		var stderr bytes.Buffer
-		cmd, err := gitCmdFactory.NewWithDir(ctx, repoPath, git.SubCmd{
-			Name: "rev-parse",
-			Args: []string{"master"},
-		}, git.WithStderr(&stderr))
-		require.NoError(t, err)
-
-		revData, err := io.ReadAll(cmd)
-		require.NoError(t, err)
-
-		require.NoError(t, cmd.Wait(), stderr.String())
-
-		require.Equal(t, "99ed180822d96f70810847eba6d0d168c582258d", text.ChompBytes(revData))
-	})
-
-	t.Run("doesn't runs in non existing dir", func(t *testing.T) {
-		ctx := testhelper.Context(t)
-
-		var stderr bytes.Buffer
-		_, err := gitCmdFactory.NewWithDir(ctx, "non-existing-dir", git.SubCmd{
-			Name: "rev-parse",
-			Args: []string{"master"},
-		}, git.WithStderr(&stderr))
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "no such file or directory")
-	})
-}
-
 func TestCommandFactory_ExecutionEnvironment(t *testing.T) {
 	testhelper.Unsetenv(t, "GITALY_TESTING_GIT_BINARY")
 	testhelper.Unsetenv(t, "GITALY_TESTING_BUNDLED_GIT_PATH")

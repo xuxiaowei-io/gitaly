@@ -33,17 +33,6 @@ func TestInterceptingCommandFactory(t *testing.T) {
 		require.Equal(t, expectedString, stdout.String())
 	})
 
-	t.Run("NewWithDir", func(t *testing.T) {
-		var stdout bytes.Buffer
-		cmd, err := factory.NewWithDir(ctx, repoPath, git.SubCmd{
-			Name: "rev-parse",
-			Args: []string{"something"},
-		}, git.WithStdout(&stdout))
-		require.NoError(t, err)
-		require.NoError(t, cmd.Wait())
-		require.Equal(t, expectedString, stdout.String())
-	})
-
 	t.Run("NewWithoutRepo", func(t *testing.T) {
 		var stdout bytes.Buffer
 		cmd, err := factory.NewWithoutRepo(ctx, git.SubCmd{

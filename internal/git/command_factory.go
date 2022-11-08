@@ -25,8 +25,6 @@ type CommandFactory interface {
 	New(ctx context.Context, repo repository.GitRepo, sc Cmd, opts ...CmdOpt) (*command.Command, error)
 	// NewWithoutRepo creates a command without a target repository.
 	NewWithoutRepo(ctx context.Context, sc Cmd, opts ...CmdOpt) (*command.Command, error)
-	// NewWithDir creates a command without a target repository that would be executed in dir directory.
-	NewWithDir(ctx context.Context, dir string, sc Cmd, opts ...CmdOpt) (*command.Command, error)
 	// GetExecutionEnvironment returns parameters required to execute Git commands.
 	GetExecutionEnvironment(context.Context) ExecutionEnvironment
 	// HooksPath returns the path where Gitaly's Git hooks reside.
@@ -240,23 +238,12 @@ func (cf *ExecCommandFactory) Collect(metrics chan<- prometheus.Metric) {
 
 // New creates a new command for the repo repository.
 func (cf *ExecCommandFactory) New(ctx context.Context, repo repository.GitRepo, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
-	return cf.newCommand(ctx, repo, "", sc, opts...)
+	return cf.newCommand(ctx, repo, sc, opts...)
 }
 
 // NewWithoutRepo creates a command without a target repository.
 func (cf *ExecCommandFactory) NewWithoutRepo(ctx context.Context, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
-	return cf.newCommand(ctx, nil, "", sc, opts...)
-}
-
-// NewWithDir creates a new command.Command whose working directory is set
-// to dir. Arguments are validated before the command is being run. It is
-// invalid to use an empty directory.
-func (cf *ExecCommandFactory) NewWithDir(ctx context.Context, dir string, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
-	if dir == "" {
-		return nil, errors.New("no 'dir' provided")
-	}
-
-	return cf.newCommand(ctx, nil, dir, sc, opts...)
+	return cf.newCommand(ctx, nil, sc, opts...)
 }
 
 // GetExecutionEnvironment returns parameters required to execute Git commands.
@@ -387,7 +374,7 @@ func (cf *ExecCommandFactory) GitVersion(ctx context.Context) (Version, error) {
 // command will be run in the context of that repository. Note that this sets up arguments and
 // environment variables for git, but doesn't run in the directory itself. If a directory
 // is given, then the command will be run in that directory.
-func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo repository.GitRepo, dir string, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
+func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo repository.GitRepo, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
 	config, err := cf.combineOpts(ctx, sc, opts)
 	if err != nil {
 		return nil, err
@@ -428,7 +415,6 @@ func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo repository.Gi
 
 	command, err := command.New(ctx, append([]string{execEnv.BinaryPath}, args...), append(
 		config.commandOpts,
-		command.WithDir(dir),
 		command.WithEnvironment(env),
 		command.WithCommandName("git", sc.Subcommand()),
 		command.WithCgroup(cf.cgroupsManager, repo),
