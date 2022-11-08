@@ -182,6 +182,26 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gital
 					LicenseNickname:  "GNU GPLv2",
 				},
 			},
+			{
+				desc: "license in subdir",
+				setup: func(t *testing.T, repoPath string) {
+					subTree := gittest.WriteTree(t, cfg, repoPath,
+						[]gittest.TreeEntry{{
+							Mode:    "100644",
+							Path:    "LICENSE",
+							Content: mitLicense,
+						}})
+
+					gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"),
+						gittest.WithTreeEntries(
+							gittest.TreeEntry{
+								Mode: "040000",
+								Path: "legal",
+								OID:  subTree,
+							}))
+				},
+				expectedLicenseRuby: &gitalypb.FindLicenseResponse{},
+			},
 		} {
 			t.Run(tc.desc, func(t *testing.T) {
 				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)

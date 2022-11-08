@@ -186,13 +186,10 @@ func (f *gitFiler) ReadFile(path string) ([]byte, error) {
 }
 
 func (f *gitFiler) ReadDir(string) ([]filer.File, error) {
-	// We're doing a recursive listing returning all files at once such that we do not have to
-	// call git-ls-tree(1) multiple times.
 	var stderr bytes.Buffer
 	cmd, err := f.repo.Exec(f.ctx, git.SubCmd{
 		Name: "ls-tree",
 		Flags: []git.Option{
-			git.Flag{Name: "--full-tree"},
 			git.Flag{Name: "-z"},
 		},
 		Args: []string{f.treeishID.String()},
@@ -213,8 +210,6 @@ func (f *gitFiler) ReadDir(string) ([]filer.File, error) {
 			return nil, err
 		}
 
-		// Given that we're doing a recursive listing, we skip over all types which aren't
-		// blobs.
 		if entry.Type != lstree.Blob {
 			continue
 		}
