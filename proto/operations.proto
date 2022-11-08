@@ -228,6 +228,14 @@ message UserDeleteBranchRequest {
   // perform access checks against the Rails `/internal/allowed` API. This user is also exposed to
   // any custom hooks executed as part of this RPC call.
   User user = 3;
+  // expected_old_oid is the object ID which branch is expected to point to.
+  // This is used as a safety guard to avoid races when branch has been
+  // updated meanwhile to point to a different object ID.
+  //
+  // If unset, the target branch will be deleted regardless of its current
+  // state. If set, it must either contain a valid, full object ID. Otherwise, this
+  // RPC will return an error.
+  string expected_old_oid = 4;
 }
 
 // UserDeleteBranchResponse is a response for the UserDeleteBranch RPC.
@@ -260,6 +268,14 @@ message UserDeleteTagRequest {
   bytes tag_name = 2;
   // This comment is left unintentionally blank.
   User user = 3;
+  // expected_old_oid is the object ID which tag is expected to point to.
+  // This is used as a safety guard to avoid races when tag has been
+  // updated meanwhile to point to a different object ID.
+  //
+  // If unset, the target tag will be deleted regardless of its current
+  // state. If set, it must either contain a valid, full object ID. Otherwise,
+  // this RPC will return an error.
+  string expected_old_oid = 4;
 }
 
 // This comment is left unintentionally blank.
@@ -341,6 +357,15 @@ message UserMergeBranchRequest {
   // timestamp is the optional timestamp to use for the merge commit. If it's
   // not set, the current time will be used.
   google.protobuf.Timestamp timestamp = 7;
+  // expected_old_oid is the object ID which branch is expected to point to.
+  // This is used as a safety guard to avoid races when branch has been
+  // updated meanwhile to point to a different object ID.
+  //
+  // If unset, the target branch will be overwritten regardless of its current
+  // state. If set, it must either contain a valid, full object ID  or the
+  // zero object ID in case the branch should be created. Otherwise, this RPC
+  // will return an error.
+  string expected_old_oid = 8;
 
   // apply must only be set in the second message. Only if this second message
   // is sent and if apply is set to true will the branch be updated to point to
@@ -449,6 +474,15 @@ message UserFFBranchRequest {
   // branch name only and not a fully qualified reference, e.g. "master"
   // instead of "refs/heads/master".
   bytes branch = 4;
+  // expected_old_oid is the object ID which branch is expected to point to.
+  // This is used as a safety guard to avoid races when branch has been
+  // updated meanwhile to point to a different object ID.
+  //
+  // If unset, the target branch will be overwritten regardless of its current
+  // state. If set, it must either contain a valid, full object ID  or the
+  // zero object ID in case the branch should be created. Otherwise, this RPC
+  // will return an error.
+  string expected_old_oid = 5;
 }
 
 // This comment is left unintentionally blank.
@@ -486,6 +520,16 @@ message UserCherryPickRequest {
   // timestamp is the optional timestamp to use for the created cherry-picked
   // commit's committer date. If it's not set, the current time will be used.
   google.protobuf.Timestamp timestamp = 9;
+  // expected_old_oid is the object ID which branch is expected to point to.
+  // This is used as a safety guard to avoid races when branch has been
+  // updated meanwhile to point to a different object ID. Only applicable when
+  // branch_name is set.
+  //
+  // If unset, the target branch will be overwritten regardless of its current
+  // state. If set, it must either contain a valid, full object ID  or the
+  // zero object ID in case the branch should be created. Otherwise, this RPC
+  // will return an error.
+  string expected_old_oid = 10;
 }
 
 // This comment is left unintentionally blank.
@@ -566,6 +610,16 @@ message UserRevertRequest {
   // timestamp is the optional timestamp to use for the created cherry-picked
   // commit's committer date. If it's not set, the current time will be used.
   google.protobuf.Timestamp timestamp = 9;
+  // expected_old_oid is the object ID which branch is expected to point to.
+  // This is used as a safety guard to avoid races when branch has been
+  // updated meanwhile to point to a different object ID. Only applicable when
+  // branch_name is set.
+  //
+  // If unset, the target branch will be overwritten regardless of its current
+  // state. If set, it must either contain a valid, full object ID  or the
+  // zero object ID in case the branch should be created. Otherwise, this RPC
+  // will return an error.
+  string expected_old_oid = 10;
 }
 
 // This comment is left unintentionally blank.
@@ -687,6 +741,16 @@ message UserCommitFilesRequestHeader {
   // timestamp is the optional timestamp to use for the commits as author and
   // committer date. If it's not set, the current time will be used.
   google.protobuf.Timestamp timestamp = 11;
+  // expected_old_oid is the object ID which branch is expected to point to.
+  // This is used as a safety guard to avoid races when branch has been
+  // updated meanwhile to point to a different object ID. Only applicable when
+  // branch_name is set.
+  //
+  // If unset, the target branch will be overwritten regardless of its current
+  // state. If set, it must either contain a valid, full object ID  or the
+  // zero object ID in case the branch should be created. Otherwise, this RPC
+  // will return an error.
+  string expected_old_oid = 12;
 }
 
 // UserCommitFiles is the request of UserCommitFiles.
@@ -866,6 +930,15 @@ message UserApplyPatchRequest {
     // timestamp is the optional timestamp to use for the squashed commit as
     // committer date. If it's not set, the current time will be used.
     google.protobuf.Timestamp timestamp = 4;
+    // expected_old_oid is the object ID which branch is expected to point to.
+    // This is used as a safety guard to avoid races when branch has been
+    // updated meanwhile to point to a different object ID.
+    //
+    // If unset, the target branch will be overwritten regardless of its current
+    // state. If set, it must either contain a valid, full object ID  or the
+    // zero object ID in case the branch should be created. Otherwise, this RPC
+    // will return an error.
+    string expected_old_oid = 5;
   }
 
   oneof user_apply_patch_request_payload {
@@ -903,6 +976,15 @@ message UserUpdateSubmoduleRequest {
   // submodule as committer date. If it's not set, the current time will be
   // used.
   google.protobuf.Timestamp timestamp = 7;
+  // expected_old_oid is the object ID which branch is expected to point to.
+  // This is used as a safety guard to avoid races when branch has been
+  // updated meanwhile to point to a different object ID.
+  //
+  // If unset, the target branch will be overwritten regardless of its current
+  // state. If set, it must either contain a valid, full object ID  or the
+  // zero object ID in case the branch should be created. Otherwise, this RPC
+  // will return an error.
+  string expected_old_oid = 8;
 }
 
 // This comment is left unintentionally blank.
