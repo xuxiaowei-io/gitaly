@@ -159,12 +159,9 @@ type gitFiler struct {
 }
 
 func (f *gitFiler) ReadFile(path string) ([]byte, error) {
-	var stdout, stderr bytes.Buffer
-	if err := f.repo.ExecAndWait(f.ctx, git.SubCmd{
-		Name: "cat-file",
-		Args: []string{"blob", fmt.Sprintf("%s:%s", f.treeishID, path)},
-	}, git.WithStdout(&stdout), git.WithStderr(&stderr)); err != nil {
-		return nil, fmt.Errorf("cat-file failed: %w, stderr: %q", err, stderr.String())
+	data, err := f.repo.ReadObject(f.ctx, git.ObjectID(fmt.Sprintf("%s:%s", f.treeishID, path)))
+	if err != nil {
+		return nil, fmt.Errorf("read file: %w", err)
 	}
 
 	// `licensedb.Detect` only opens files that look like licenses. Failing that, it will
@@ -182,7 +179,7 @@ func (f *gitFiler) ReadFile(path string) ([]byte, error) {
 		}
 	}
 
-	return stdout.Bytes(), nil
+	return data, nil
 }
 
 func (f *gitFiler) ReadDir(string) ([]filer.File, error) {
