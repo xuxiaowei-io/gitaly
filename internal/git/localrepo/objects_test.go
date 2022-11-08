@@ -261,10 +261,6 @@ func TestRepo_ReadObject(t *testing.T) {
 }
 
 func TestRepo_ReadCommit(t *testing.T) {
-	if gittest.ObjectHashIsSHA256() {
-		t.Skip("this test is hash-agnostic, but depends on the `git/catfile` package that has not yet been converted")
-	}
-
 	ctx := testhelper.Context(t)
 
 	cfg, repo, repoPath := setupRepo(t)
