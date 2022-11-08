@@ -275,7 +275,29 @@ func run(cfg config.Cfg) error {
 		limithandler.LimitConcurrencyByRepo,
 		limithandler.WithRateLimiters(ctx),
 	)
+
+	packObjectsMonitor := limithandler.NewPackObjectsConcurrencyMonitor(
+		string(cfg.PackObjectsLimiting.Key),
+		cfg.Prometheus.GRPCLatencyBuckets,
+	)
+	packObjectsConcurrencyLimit := cfg.PackObjectsLimiting.MaxConcurrency
+	if packObjectsConcurrencyLimit == 0 {
+		// TODO: remove this default setting when we remove the feature
+		// flags PackObjectsLimitingRepo and PackObjectsLimitingUser
+		// feature flag issue:  https://gitlab.com/gitlab-org/gitaly/-/issues/4413
+		packObjectsConcurrencyLimit = 200
+	}
+	packObjectsLimiter := limithandler.NewConcurrencyLimiter(
+		packObjectsConcurrencyLimit,
+		0,
+		func() helper.Ticker {
+			return helper.NewTimerTicker(cfg.PackObjectsLimiting.MaxQueueWait.Duration())
+		},
+		packObjectsMonitor,
+	)
+
 	prometheus.MustRegister(concurrencyLimitHandler, rateLimitHandler)
+	prometheus.MustRegister(packObjectsMonitor)
 
 	gitalyServerFactory := server.NewGitalyServerFactory(
 		cfg,
@@ -335,6 +357,7 @@ func run(cfg config.Cfg) error {
 			DiskCache:                     diskCache,
 			PackObjectsCache:              streamCache,
 			PackObjectsConcurrencyTracker: concurrencyTracker,
+			PackObjectsLimiter:            packObjectsLimiter,
 			Git2goExecutor:                git2goExecutor,
 			UpdaterWithHooks:              updaterWithHooks,
 			HousekeepingManager:           housekeepingManager,

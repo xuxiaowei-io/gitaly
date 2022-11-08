@@ -244,6 +244,7 @@ type gitalyServerDeps struct {
 	diskCache                     cache.Cache
 	packObjectsCache              streamcache.Cache
 	packObjectsConcurrencyTracker *hook.ConcurrencyTracker
+	packObjectsLimiter            limithandler.Limiter
 	limitHandler                  *limithandler.LimiterMiddleware
 	git2goExecutor                *git2go.Executor
 	updaterWithHooks              *updateref.UpdaterWithHooks
@@ -304,6 +305,15 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg, r
 		gsd.packObjectsConcurrencyTracker = hook.NewConcurrencyTracker()
 	}
 
+	if gsd.packObjectsLimiter == nil {
+		gsd.packObjectsLimiter = limithandler.NewConcurrencyLimiter(
+			0,
+			0,
+			nil,
+			limithandler.NewNoopConcurrencyMonitor(),
+		)
+	}
+
 	if gsd.limitHandler == nil {
 		gsd.limitHandler = limithandler.New(cfg, limithandler.LimitConcurrencyByRepo, limithandler.WithConcurrencyLimiters)
 	}
@@ -333,6 +343,7 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg, r
 		CatfileCache:                  gsd.catfileCache,
 		DiskCache:                     gsd.diskCache,
 		PackObjectsCache:              gsd.packObjectsCache,
+		PackObjectsLimiter:            gsd.packObjectsLimiter,
 		PackObjectsConcurrencyTracker: gsd.packObjectsConcurrencyTracker,
 		LimitHandler:                  gsd.limitHandler,
 		Git2goExecutor:                gsd.git2goExecutor,
@@ -422,6 +433,15 @@ func WithDiskCache(diskCache cache.Cache) GitalyServerOpt {
 func WithConcurrencyTracker(tracker *hook.ConcurrencyTracker) GitalyServerOpt {
 	return func(deps gitalyServerDeps) gitalyServerDeps {
 		deps.packObjectsConcurrencyTracker = tracker
+		return deps
+	}
+}
+
+// WithPackObjectsLimiter sets the PackObjectsLimiter that will be
+// used for gitaly services initialization.
+func WithPackObjectsLimiter(limiter *limithandler.ConcurrencyLimiter) GitalyServerOpt {
+	return func(deps gitalyServerDeps) gitalyServerDeps {
+		deps.packObjectsLimiter = limiter
 		return deps
 	}
 }

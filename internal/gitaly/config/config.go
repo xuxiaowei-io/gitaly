@@ -44,28 +44,29 @@ type DailyJob struct {
 
 // Cfg is a container for all config derived from config.toml.
 type Cfg struct {
-	SocketPath             string            `toml:"socket_path" split_words:"true"`
-	ListenAddr             string            `toml:"listen_addr" split_words:"true"`
-	TLSListenAddr          string            `toml:"tls_listen_addr" split_words:"true"`
-	PrometheusListenAddr   string            `toml:"prometheus_listen_addr" split_words:"true"`
-	BinDir                 string            `toml:"bin_dir"`
-	RuntimeDir             string            `toml:"runtime_dir"`
-	Git                    Git               `toml:"git" envconfig:"git"`
-	Storages               []Storage         `toml:"storage" envconfig:"storage"`
-	Logging                Logging           `toml:"logging" envconfig:"logging"`
-	Prometheus             prometheus.Config `toml:"prometheus"`
-	Auth                   auth.Config       `toml:"auth"`
-	TLS                    TLS               `toml:"tls"`
-	Ruby                   Ruby              `toml:"gitaly-ruby"`
-	Gitlab                 Gitlab            `toml:"gitlab"`
-	GitlabShell            GitlabShell       `toml:"gitlab-shell"`
-	Hooks                  Hooks             `toml:"hooks"`
-	Concurrency            []Concurrency     `toml:"concurrency"`
-	RateLimiting           []RateLimiting    `toml:"rate_limiting"`
-	GracefulRestartTimeout duration.Duration `toml:"graceful_restart_timeout"`
-	DailyMaintenance       DailyJob          `toml:"daily_maintenance"`
-	Cgroups                cgroups.Config    `toml:"cgroups"`
-	PackObjectsCache       StreamCacheConfig `toml:"pack_objects_cache"`
+	SocketPath             string              `toml:"socket_path" split_words:"true"`
+	ListenAddr             string              `toml:"listen_addr" split_words:"true"`
+	TLSListenAddr          string              `toml:"tls_listen_addr" split_words:"true"`
+	PrometheusListenAddr   string              `toml:"prometheus_listen_addr" split_words:"true"`
+	BinDir                 string              `toml:"bin_dir"`
+	RuntimeDir             string              `toml:"runtime_dir"`
+	Git                    Git                 `toml:"git" envconfig:"git"`
+	Storages               []Storage           `toml:"storage" envconfig:"storage"`
+	Logging                Logging             `toml:"logging" envconfig:"logging"`
+	Prometheus             prometheus.Config   `toml:"prometheus"`
+	Auth                   auth.Config         `toml:"auth"`
+	TLS                    TLS                 `toml:"tls"`
+	Ruby                   Ruby                `toml:"gitaly-ruby"`
+	Gitlab                 Gitlab              `toml:"gitlab"`
+	GitlabShell            GitlabShell         `toml:"gitlab-shell"`
+	Hooks                  Hooks               `toml:"hooks"`
+	Concurrency            []Concurrency       `toml:"concurrency"`
+	RateLimiting           []RateLimiting      `toml:"rate_limiting"`
+	GracefulRestartTimeout duration.Duration   `toml:"graceful_restart_timeout"`
+	DailyMaintenance       DailyJob            `toml:"daily_maintenance"`
+	Cgroups                cgroups.Config      `toml:"cgroups"`
+	PackObjectsCache       StreamCacheConfig   `toml:"pack_objects_cache"`
+	PackObjectsLimiting    PackObjectsLimiting `toml:"pack_objects_limiting"`
 }
 
 // TLS configuration
@@ -165,6 +166,56 @@ type RateLimiting struct {
 	Interval duration.Duration `toml:"interval"`
 	// Burst sets the capacity of the token bucket (see above).
 	Burst int `toml:"burst"`
+}
+
+// PackObjectsLimitingKey is the key for limiting pack objects concurrency
+type PackObjectsLimitingKey string
+
+const (
+	// PackObjectsLimitingKeyUser will limit the pack objects concurrency
+	// by user
+	PackObjectsLimitingKeyUser = PackObjectsLimitingKey("user")
+	// PackObjectsLimitingKeyRepository will limit the pack objects concurrency
+	// by repository
+	PackObjectsLimitingKeyRepository = PackObjectsLimitingKey("repository")
+)
+
+// ParsePackObjectsLimitingKey checks if the key is a valid
+// PackObjectsLimitingKey
+func ParsePackObjectsLimitingKey(k string) (PackObjectsLimitingKey, error) {
+	switch PackObjectsLimitingKey(k) {
+	case PackObjectsLimitingKeyUser:
+		return PackObjectsLimitingKeyUser, nil
+	case PackObjectsLimitingKeyRepository:
+		return PackObjectsLimitingKeyRepository, nil
+	default:
+		return "", fmt.Errorf("unsupported pack objects limiting key: %s", k)
+	}
+}
+
+// UnmarshalText unmarshals a key into a ParsePackObjectsLimitingKey
+func (p *PackObjectsLimitingKey) UnmarshalText(text []byte) error {
+	v, err := ParsePackObjectsLimitingKey(string(text))
+	if err != nil {
+		return err
+	}
+	*p = v
+	return nil
+}
+
+// PackObjectsLimiting allows the concurrency of pack objects processes to be limited
+// Requests that come in after the maximum number of concurrent pack objects
+// processes have been reached will wait.
+type PackObjectsLimiting struct {
+	// Key is the key by which concurrency will be limited. Supported keys
+	// are: user_id, repository.
+	Key PackObjectsLimitingKey `toml:"key,omitempty"`
+	// MaxConcurrency is the maximum number of concurrent pack objects processes
+	// for a given key.
+	MaxConcurrency int `toml:"max_concurrency,omitempty"`
+	// MaxQueueWait is the maximum time a request can remain in the concurrency queue
+	// waiting to be picked up by Gitaly.
+	MaxQueueWait duration.Duration `toml:"max_queue_wait,omitempty"`
 }
 
 // StreamCacheConfig contains settings for a streamcache instance.

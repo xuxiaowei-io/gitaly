@@ -143,6 +143,7 @@ func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 		deps.GetGitCmdFactory(),
 		deps.GetPackObjectsCache(),
 		deps.GetPackObjectsConcurrencyTracker(),
+		deps.GetPackObjectsLimiter(),
 	))
 	gitalypb.RegisterInternalGitalyServer(srv, internalgitaly.NewServer(deps.GetCfg().Storages))
 
