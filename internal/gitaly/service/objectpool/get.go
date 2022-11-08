@@ -2,27 +2,28 @@ package objectpool
 
 import (
 	"context"
-	"errors"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/objectpool"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
 func (s *server) GetObjectPool(ctx context.Context, in *gitalypb.GetObjectPoolRequest) (*gitalypb.GetObjectPoolResponse, error) {
-	if in.GetRepository() == nil {
-		return nil, helper.ErrInternal(errors.New("repository is empty"))
+	repository := in.GetRepository()
+	if err := service.ValidateRepository(repository); err != nil {
+		return nil, helper.ErrInvalidArgument(err)
 	}
 
-	repo := s.localrepo(in.GetRepository())
+	repo := s.localrepo(repository)
 
 	objectPool, err := objectpool.FromRepo(s.locator, s.gitCmdFactory, s.catfileCache, s.txManager, s.housekeepingManager, repo)
 	if err != nil {
 		ctxlogrus.Extract(ctx).
 			WithError(err).
-			WithField("storage", in.GetRepository().GetStorageName()).
-			WithField("storage", in.GetRepository().GetRelativePath()).
+			WithField("storage", repository.GetStorageName()).
+			WithField("relative_path", repository.GetRelativePath()).
 			Warn("alternates file does not point to valid git repository")
 	}
 

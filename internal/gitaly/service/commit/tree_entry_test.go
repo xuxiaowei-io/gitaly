@@ -168,7 +168,7 @@ func TestFailedTreeEntry(t *testing.T) {
 		{
 			name: "Repository doesn't exist",
 			req:  &gitalypb.TreeEntryRequest{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, Revision: revision, Path: path},
-			expectedErr: helper.ErrInvalidArgumentf(gitalyOrPraefect(
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefectMessage(
 				"GetStorageByName: no such storage: \"fake\"",
 				"repo scoped: invalid Repository",
 			)),
@@ -176,8 +176,8 @@ func TestFailedTreeEntry(t *testing.T) {
 		{
 			name: "Repository is nil",
 			req:  &gitalypb.TreeEntryRequest{Repository: nil, Revision: revision, Path: path},
-			expectedErr: helper.ErrInvalidArgumentf(gitalyOrPraefect(
-				"GetStorageByName: no such storage: \"\"",
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefectMessage(
+				"TreeEntry: empty Repository",
 				"repo scoped: empty Repository",
 			)),
 		},

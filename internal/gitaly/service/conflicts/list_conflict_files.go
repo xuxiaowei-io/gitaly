@@ -9,6 +9,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
@@ -126,8 +127,8 @@ func (s *server) ListConflictFiles(request *gitalypb.ListConflictFilesRequest, s
 }
 
 func validateListConflictFilesRequest(in *gitalypb.ListConflictFilesRequest) error {
-	if in.GetRepository() == nil {
-		return fmt.Errorf("empty Repository")
+	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+		return err
 	}
 	if in.GetOurCommitOid() == "" {
 		return fmt.Errorf("empty OurCommitOid")

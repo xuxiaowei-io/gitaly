@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/sidechannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/stream"
@@ -182,6 +183,9 @@ func (s *server) sshUploadPack(rpcContext context.Context, req sshUploadPackRequ
 }
 
 func validateFirstUploadPackRequest(req *gitalypb.SSHUploadPackRequest) error {
+	if err := service.ValidateRepository(req.GetRepository()); err != nil {
+		return err
+	}
 	if req.Stdin != nil {
 		return errors.New("non-empty stdin in first request")
 	}

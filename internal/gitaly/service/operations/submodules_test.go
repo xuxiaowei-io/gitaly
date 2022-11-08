@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -194,9 +195,9 @@ func TestFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T) {
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
 	testCases := []struct {
-		desc    string
-		request *gitalypb.UserUpdateSubmoduleRequest
-		code    codes.Code
+		desc        string
+		request     *gitalypb.UserUpdateSubmoduleRequest
+		expectedErr error
 	}{
 		{
 			desc: "empty Repository",
@@ -208,7 +209,10 @@ func TestFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T) {
 				Branch:        []byte("some-branch"),
 				CommitMessage: []byte("Update Submodule message"),
 			},
-			code: codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+				"UserUpdateSubmodule: empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 		{
 			desc: "empty User",
@@ -220,7 +224,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T) {
 				Branch:        []byte("some-branch"),
 				CommitMessage: []byte("Update Submodule message"),
 			},
-			code: codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, "UserUpdateSubmodule: empty User"),
 		},
 		{
 			desc: "empty Submodule",
@@ -232,7 +236,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T) {
 				Branch:        []byte("some-branch"),
 				CommitMessage: []byte("Update Submodule message"),
 			},
-			code: codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, "UserUpdateSubmodule: empty Submodule"),
 		},
 		{
 			desc: "empty CommitSha",
@@ -244,7 +248,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T) {
 				Branch:        []byte("some-branch"),
 				CommitMessage: []byte("Update Submodule message"),
 			},
-			code: codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, "UserUpdateSubmodule: empty CommitSha"),
 		},
 		{
 			desc: "invalid CommitSha",
@@ -256,7 +260,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T) {
 				Branch:        []byte("some-branch"),
 				CommitMessage: []byte("Update Submodule message"),
 			},
-			code: codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, "UserUpdateSubmodule: invalid CommitSha"),
 		},
 		{
 			desc: "invalid CommitSha",
@@ -268,7 +272,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T) {
 				Branch:        []byte("some-branch"),
 				CommitMessage: []byte("Update Submodule message"),
 			},
-			code: codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, "UserUpdateSubmodule: invalid CommitSha"),
 		},
 		{
 			desc: "empty Branch",
@@ -280,7 +284,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T) {
 				Branch:        nil,
 				CommitMessage: []byte("Update Submodule message"),
 			},
-			code: codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, "UserUpdateSubmodule: empty Branch"),
 		},
 		{
 			desc: "empty CommitMessage",
@@ -292,15 +296,14 @@ func TestFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T) {
 				Branch:        []byte("some-branch"),
 				CommitMessage: nil,
 			},
-			code: codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, "UserUpdateSubmodule: empty CommitMessage"),
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			_, err := client.UserUpdateSubmodule(ctx, testCase.request)
-			testhelper.RequireGrpcCode(t, err, testCase.code)
-			require.Contains(t, err.Error(), testCase.desc)
+			testhelper.RequireGrpcError(t, testCase.expectedErr, err)
 		})
 	}
 }

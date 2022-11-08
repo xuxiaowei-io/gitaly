@@ -32,6 +32,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -376,24 +378,18 @@ func TestPostReceivePack_requestValidation(t *testing.T) {
 				},
 				GlId: "user-123",
 			},
-			expectedErr: func() error {
-				if testhelper.IsPraefectEnabled() {
-					return helper.ErrInvalidArgumentf("repo scoped: invalid Repository")
-				}
-
-				return helper.ErrInvalidArgumentf(`GetStorageByName: no such storage: "fake"`)
-			}(),
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+				`GetStorageByName: no such storage: "fake"`,
+				"repo scoped: invalid Repository",
+			)),
 		},
 		{
 			desc:    "Repository is nil",
 			request: &gitalypb.PostReceivePackRequest{Repository: nil, GlId: "user-123"},
-			expectedErr: func() error {
-				if testhelper.IsPraefectEnabled() {
-					return helper.ErrInvalidArgumentf("repo scoped: empty Repository")
-				}
-
-				return helper.ErrInvalidArgumentf("empty Repository")
-			}(),
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 		{
 			desc: "Empty GlId",

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/lines"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -47,8 +48,8 @@ func (s *server) ListRefs(in *gitalypb.ListRefsRequest, stream gitalypb.RefServi
 }
 
 func validateListRefsRequest(in *gitalypb.ListRefsRequest) error {
-	if in.GetRepository() == nil {
-		return errors.New("repository is empty")
+	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+		return err
 	}
 	if len(in.GetPatterns()) < 1 {
 		return errors.New("patterns must have at least one entry")

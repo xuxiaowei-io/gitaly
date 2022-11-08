@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/remoterepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -419,8 +420,8 @@ func (s *Server) fetchMissingCommit(
 }
 
 func validateUserCommitFilesHeader(header *gitalypb.UserCommitFilesRequestHeader) error {
-	if header.GetRepository() == nil {
-		return fmt.Errorf("empty Repository")
+	if err := service.ValidateRepository(header.GetRepository()); err != nil {
+		return err
 	}
 	if header.GetUser() == nil {
 		return fmt.Errorf("empty User")

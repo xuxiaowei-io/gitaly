@@ -12,6 +12,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestFindChangedPathsRequest_success(t *testing.T) {
@@ -477,6 +479,12 @@ func TestFindChangedPathsRequest_failing(t *testing.T) {
 		requests []*gitalypb.FindChangedPathsRequest_Request
 		err      error
 	}{
+		{
+			desc:    "Repository not provided",
+			repo:    nil,
+			commits: []string{"e4003da16c1c2c3fc4567700121b17bf8e591c6c", "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"},
+			err:     status.Error(codes.InvalidArgument, "empty Repository"),
+		},
 		{
 			desc:    "Repo not found",
 			repo:    &gitalypb.Repository{StorageName: repo.GetStorageName(), RelativePath: "bar.git"},

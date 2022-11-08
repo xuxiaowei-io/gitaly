@@ -11,6 +11,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/voting"
@@ -143,9 +144,5 @@ func validateFirstReceivePackRequest(req *gitalypb.SSHReceivePackRequest) error 
 	if req.Stdin != nil {
 		return errors.New("non-empty data in first request")
 	}
-	if req.Repository == nil {
-		return errors.New("repository is empty")
-	}
-
-	return nil
+	return service.ValidateRepository(req.GetRepository())
 }

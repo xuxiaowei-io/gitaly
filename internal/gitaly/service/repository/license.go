@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/lstree"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/rubyserver"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -40,8 +41,12 @@ var nicknameByLicenseIdentifier = map[string]string{
 }
 
 func (s *server) FindLicense(ctx context.Context, req *gitalypb.FindLicenseRequest) (*gitalypb.FindLicenseResponse, error) {
+	repository := req.GetRepository()
+	if err := service.ValidateRepository(repository); err != nil {
+		return nil, helper.ErrInvalidArgument(err)
+	}
 	if featureflag.GoFindLicense.IsEnabled(ctx) {
-		repo := localrepo.New(s.locator, s.gitCmdFactory, s.catfileCache, req.GetRepository())
+		repo := localrepo.New(s.locator, s.gitCmdFactory, s.catfileCache, repository)
 
 		hasHeadRevision, err := repo.HasRevision(ctx, "HEAD")
 		if err != nil {
@@ -128,7 +133,7 @@ func (s *server) FindLicense(ctx context.Context, req *gitalypb.FindLicenseReque
 	if err != nil {
 		return nil, err
 	}
-	clientCtx, err := rubyserver.SetHeaders(ctx, s.locator, req.GetRepository())
+	clientCtx, err := rubyserver.SetHeaders(ctx, s.locator, repository)
 	if err != nil {
 		return nil, err
 	}

@@ -156,12 +156,22 @@ func TestCreateRepository_invalidArguments(t *testing.T) {
 	_, client := setupRepositoryServiceWithoutRepo(t)
 
 	testCases := []struct {
-		repo *gitalypb.Repository
-		code codes.Code
+		repo        *gitalypb.Repository
+		expectedErr error
 	}{
 		{
+			repo: nil,
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
+		{
 			repo: &gitalypb.Repository{StorageName: "does not exist", RelativePath: "foobar.git"},
-			code: codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+				`creating repository: locate repository: GetStorageByName: no such storage: "does not exist"`,
+				"repo scoped: invalid Repository",
+			)),
 		},
 	}
 
@@ -170,7 +180,7 @@ func TestCreateRepository_invalidArguments(t *testing.T) {
 			_, err := client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: tc.repo})
 
 			require.Error(t, err)
-			testhelper.RequireGrpcCode(t, err, tc.code)
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
 	}
 }

@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -18,15 +18,16 @@ func (s *server) SetFullPath(
 	ctx context.Context,
 	request *gitalypb.SetFullPathRequest,
 ) (*gitalypb.SetFullPathResponse, error) {
-	if request.GetRepository() == nil {
-		return nil, helper.ErrInvalidArgumentf("empty Repository")
+	repository := request.GetRepository()
+	if err := service.ValidateRepository(repository); err != nil {
+		return nil, helper.ErrInvalidArgument(err)
 	}
 
 	if len(request.GetPath()) == 0 {
 		return nil, helper.ErrInvalidArgumentf("no path provided")
 	}
 
-	repo := s.localrepo(request.GetRepository())
+	repo := s.localrepo(repository)
 
 	if err := repo.SetConfig(ctx, fullPathKey, request.GetPath(), s.txManager); err != nil {
 		return nil, helper.ErrInternalf("setting config: %w", err)
@@ -38,11 +39,12 @@ func (s *server) SetFullPath(
 // FullPath reads the path from the repository's gitconfig under the
 // "gitlab.fullpath" key.
 func (s *server) FullPath(ctx context.Context, request *gitalypb.FullPathRequest) (*gitalypb.FullPathResponse, error) {
-	if request.GetRepository() == nil {
-		return nil, helper.ErrInvalidArgument(errors.ErrEmptyRepository)
+	repository := request.GetRepository()
+	if err := service.ValidateRepository(repository); err != nil {
+		return nil, helper.ErrInvalidArgument(err)
 	}
 
-	repo := s.localrepo(request.GetRepository())
+	repo := s.localrepo(repository)
 	var stdout strings.Builder
 	err := repo.ExecAndWait(ctx, git.SubCmd{
 		Name: "config",

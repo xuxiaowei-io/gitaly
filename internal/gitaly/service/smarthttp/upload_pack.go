@@ -10,6 +10,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/sidechannel"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -36,7 +37,7 @@ func (s *server) PostUploadPack(stream gitalypb.SmartHTTPService_PostUploadPackS
 
 	repoPath, gitConfig, err := s.validateUploadPackRequest(ctx, req)
 	if err != nil {
-		return err
+		return helper.ErrInvalidArgument(err)
 	}
 
 	stdin := streamio.NewReader(func() ([]byte, error) {
@@ -54,7 +55,7 @@ func (s *server) PostUploadPack(stream gitalypb.SmartHTTPService_PostUploadPackS
 func (s *server) PostUploadPackWithSidechannel(ctx context.Context, req *gitalypb.PostUploadPackWithSidechannelRequest) (*gitalypb.PostUploadPackWithSidechannelResponse, error) {
 	repoPath, gitConfig, err := s.validateUploadPackRequest(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, helper.ErrInvalidArgument(err)
 	}
 
 	conn, err := sidechannel.OpenSidechannel(ctx)
@@ -108,16 +109,20 @@ func (s *server) runStatsCollector(ctx context.Context, r io.Reader) (io.Reader,
 }
 
 func (s *server) validateUploadPackRequest(ctx context.Context, req basicPostUploadPackRequest) (string, []git.ConfigPair, error) {
-	repoPath, err := s.locator.GetRepoPath(req.GetRepository())
+	repository := req.GetRepository()
+	if err := service.ValidateRepository(repository); err != nil {
+		return "", nil, err
+	}
+	repoPath, err := s.locator.GetRepoPath(repository)
 	if err != nil {
-		return "", nil, helper.ErrInvalidArgument(err)
+		return "", nil, err
 	}
 
-	git.WarnIfTooManyBitmaps(ctx, s.locator, req.GetRepository().GetStorageName(), repoPath)
+	git.WarnIfTooManyBitmaps(ctx, s.locator, repository.GetStorageName(), repoPath)
 
 	config, err := git.ConvertConfigOptions(req.GetGitConfigOptions())
 	if err != nil {
-		return "", nil, helper.ErrInvalidArgument(err)
+		return "", nil, err
 	}
 
 	return repoPath, config, nil

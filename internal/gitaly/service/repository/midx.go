@@ -11,11 +11,11 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	log "github.com/sirupsen/logrus"
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/status"
@@ -27,12 +27,12 @@ const (
 )
 
 func (s *server) MidxRepack(ctx context.Context, in *gitalypb.MidxRepackRequest) (*gitalypb.MidxRepackResponse, error) {
-	repoProto := in.GetRepository()
-	if repoProto == nil {
-		return nil, helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
+	repository := in.GetRepository()
+	if err := service.ValidateRepository(repository); err != nil {
+		return nil, helper.ErrInvalidArgument(err)
 	}
 
-	repo := s.localrepo(repoProto)
+	repo := s.localrepo(repository)
 
 	if err := repo.SetConfig(ctx, "core.multiPackIndex", "true", s.txManager); err != nil {
 		if _, ok := status.FromError(err); ok {
@@ -42,7 +42,7 @@ func (s *server) MidxRepack(ctx context.Context, in *gitalypb.MidxRepackRequest)
 	}
 
 	for _, cmd := range []midxSubCommand{s.midxWrite, s.midxExpire, s.midxRepack} {
-		if err := s.safeMidxCommand(ctx, repoProto, cmd); err != nil {
+		if err := s.safeMidxCommand(ctx, repository, cmd); err != nil {
 			if git.IsInvalidArgErr(err) {
 				return nil, helper.ErrInvalidArgumentf("MidxRepack: %w", err)
 			}

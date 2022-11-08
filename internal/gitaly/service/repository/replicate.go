@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/remoterepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
@@ -90,8 +91,8 @@ func (s *server) ReplicateRepository(ctx context.Context, in *gitalypb.Replicate
 }
 
 func validateReplicateRepository(in *gitalypb.ReplicateRepositoryRequest) error {
-	if in.GetRepository() == nil {
-		return errors.New("repository cannot be empty")
+	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+		return err
 	}
 
 	if in.GetSource() == nil {

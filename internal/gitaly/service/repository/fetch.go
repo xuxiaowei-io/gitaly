@@ -8,16 +8,26 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/remoterepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
-func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourceBranchRequest) (*gitalypb.FetchSourceBranchResponse, error) {
-	if err := git.ValidateRevision(req.GetSourceBranch()); err != nil {
-		return nil, helper.ErrInvalidArgument(err)
+func validateFetchSourceBranchRequest(in *gitalypb.FetchSourceBranchRequest) error {
+	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+		return err
 	}
+	if err := git.ValidateRevision(in.GetSourceBranch()); err != nil {
+		return err
+	}
+	if err := git.ValidateRevision(in.GetTargetRef()); err != nil {
+		return err
+	}
+	return nil
+}
 
-	if err := git.ValidateRevision(req.GetTargetRef()); err != nil {
+func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourceBranchRequest) (*gitalypb.FetchSourceBranchResponse, error) {
+	if err := validateFetchSourceBranchRequest(req); err != nil {
 		return nil, helper.ErrInvalidArgument(err)
 	}
 

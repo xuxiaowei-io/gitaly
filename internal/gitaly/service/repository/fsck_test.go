@@ -12,6 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestFsckSuccess(t *testing.T) {
@@ -60,4 +62,15 @@ func TestFsckFailureSlightlyBrokenRepo(t *testing.T) {
 	assert.NotNil(t, c)
 	assert.NotEmpty(t, string(c.GetError()))
 	assert.Contains(t, string(c.GetError()), "error: HEAD: invalid sha1 pointer")
+}
+
+func TestFsck_validate(t *testing.T) {
+	t.Parallel()
+	ctx := testhelper.Context(t)
+
+	_, client := setupRepositoryServiceWithoutRepo(t)
+
+	_, err := client.Fsck(ctx, &gitalypb.FsckRequest{Repository: nil})
+	msg := testhelper.GitalyOrPraefectMessage("empty Repository", "repo scoped: empty Repository")
+	testhelper.RequireGrpcError(t, status.Error(codes.InvalidArgument, msg), err)
 }

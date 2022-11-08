@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -13,11 +14,7 @@ import (
 )
 
 func validateReferenceTransactionHookRequest(in *gitalypb.ReferenceTransactionHookRequest) error {
-	if in.GetRepository() == nil {
-		return errors.New("repository is empty")
-	}
-
-	return nil
+	return service.ValidateRepository(in.GetRepository())
 }
 
 func (s *server) ReferenceTransactionHook(stream gitalypb.HookService_ReferenceTransactionHookServer) error {

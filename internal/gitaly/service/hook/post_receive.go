@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"sync"
 
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
@@ -66,9 +67,5 @@ func (s *server) PostReceiveHook(stream gitalypb.HookService_PostReceiveHookServ
 }
 
 func validatePostReceiveHookRequest(in *gitalypb.PostReceiveHookRequest) error {
-	if in.GetRepository() == nil {
-		return errors.New("repository is empty")
-	}
-
-	return nil
+	return service.ValidateRepository(in.GetRepository())
 }

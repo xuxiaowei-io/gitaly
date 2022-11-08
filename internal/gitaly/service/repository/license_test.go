@@ -13,7 +13,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gitalypb.RepositoryServiceClient, rubySrv *rubyserver.Server) {
@@ -187,4 +190,15 @@ func testFindLicenseRequestEmptyRepo(t *testing.T, cfg config.Cfg, client gitaly
 
 		require.Empty(t, resp.GetLicenseShortName())
 	})
+}
+
+func TestFindLicense_validate(t *testing.T) {
+	t.Parallel()
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+	client, serverSocketPath := runRepositoryService(t, cfg, nil)
+	cfg.SocketPath = serverSocketPath
+	_, err := client.FindLicense(ctx, &gitalypb.FindLicenseRequest{Repository: nil})
+	msg := testhelper.GitalyOrPraefectMessage("empty Repository", "repo scoped: empty Repository")
+	testhelper.RequireGrpcError(t, status.Error(codes.InvalidArgument, msg), err)
 }

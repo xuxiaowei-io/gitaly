@@ -10,6 +10,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/lstree"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
@@ -30,13 +31,8 @@ func (s *server) SearchFilesByContent(req *gitalypb.SearchFilesByContentRequest,
 		return helper.ErrInvalidArgument(err)
 	}
 
-	repo := req.GetRepository()
-	if repo == nil {
-		return helper.ErrInvalidArgumentf("SearchFilesByContent: empty Repository")
-	}
-
 	ctx := stream.Context()
-	cmd, err := s.gitCmdFactory.New(ctx, repo,
+	cmd, err := s.gitCmdFactory.New(ctx, req.GetRepository(),
 		git.SubCmd{Name: "grep", Flags: []git.Option{
 			git.Flag{Name: "--ignore-case"},
 			git.Flag{Name: "-I"},
@@ -117,15 +113,10 @@ func (s *server) SearchFilesByName(req *gitalypb.SearchFilesByNameRequest, strea
 		}
 	}
 
-	repo := req.GetRepository()
-	if repo == nil {
-		return helper.ErrInvalidArgumentf("SearchFilesByName: empty Repository")
-	}
-
 	ctx := stream.Context()
 	cmd, err := s.gitCmdFactory.New(
 		ctx,
-		repo,
+		req.GetRepository(),
 		git.SubCmd{Name: "ls-tree", Flags: []git.Option{
 			git.Flag{Name: "--full-tree"},
 			git.Flag{Name: "--name-status"},
@@ -149,11 +140,16 @@ func (s *server) SearchFilesByName(req *gitalypb.SearchFilesByNameRequest, strea
 }
 
 type searchFilesRequest interface {
+	GetRepository() *gitalypb.Repository
 	GetRef() []byte
 	GetQuery() string
 }
 
 func validateSearchFilesRequest(req searchFilesRequest) error {
+	if err := service.ValidateRepository(req.GetRepository()); err != nil {
+		return err
+	}
+
 	if len(req.GetQuery()) == 0 {
 		return errors.New("no query given")
 	}

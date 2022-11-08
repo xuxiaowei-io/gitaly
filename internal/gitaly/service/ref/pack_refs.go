@@ -3,9 +3,9 @@ package ref
 import (
 	"context"
 
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -23,10 +23,7 @@ func (s *server) PackRefs(ctx context.Context, in *gitalypb.PackRefsRequest) (*g
 }
 
 func validatePackRefsRequest(in *gitalypb.PackRefsRequest) error {
-	if in.GetRepository() == nil {
-		return gitalyerrors.ErrEmptyRepository
-	}
-	return nil
+	return service.ValidateRepository(in.GetRepository())
 }
 
 func (s *server) packRefs(ctx context.Context, repository repository.GitRepo) error {

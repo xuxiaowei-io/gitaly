@@ -12,11 +12,16 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
 func validateMergeBranchRequest(request *gitalypb.UserMergeBranchRequest) error {
+	if err := service.ValidateRepository(request.GetRepository()); err != nil {
+		return err
+	}
+
 	if request.User == nil {
 		return fmt.Errorf("empty user")
 	}
@@ -224,8 +229,8 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 }
 
 func validateFFRequest(in *gitalypb.UserFFBranchRequest) error {
-	if in.Repository == nil {
-		return fmt.Errorf("empty repository")
+	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+		return err
 	}
 
 	if len(in.Branch) == 0 {
@@ -304,6 +309,10 @@ func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequ
 }
 
 func validateUserMergeToRefRequest(in *gitalypb.UserMergeToRefRequest) error {
+	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+		return err
+	}
+
 	if len(in.FirstParentRef) == 0 && len(in.Branch) == 0 {
 		return fmt.Errorf("empty first parent ref and branch name")
 	}

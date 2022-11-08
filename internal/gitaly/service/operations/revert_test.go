@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -370,10 +371,20 @@ func TestServer_UserRevert_failuedDueToValidations(t *testing.T) {
 	destinationBranch := "revert-dst"
 
 	testCases := []struct {
-		desc    string
-		request *gitalypb.UserRevertRequest
-		code    codes.Code
+		desc        string
+		request     *gitalypb.UserRevertRequest
+		expectedErr error
 	}{
+		{
+			desc: "no repository provided",
+			request: &gitalypb.UserRevertRequest{
+				Repository: nil,
+			},
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
 		{
 			desc: "empty user",
 			request: &gitalypb.UserRevertRequest{
@@ -383,7 +394,7 @@ func TestServer_UserRevert_failuedDueToValidations(t *testing.T) {
 				BranchName: []byte(destinationBranch),
 				Message:    []byte("Reverting " + revertedCommit.Id),
 			},
-			code: codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, "empty User"),
 		},
 		{
 			desc: "empty commit",
@@ -394,7 +405,7 @@ func TestServer_UserRevert_failuedDueToValidations(t *testing.T) {
 				BranchName: []byte(destinationBranch),
 				Message:    []byte("Reverting " + revertedCommit.Id),
 			},
-			code: codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, "empty Commit"),
 		},
 		{
 			desc: "empty branch name",
@@ -405,7 +416,7 @@ func TestServer_UserRevert_failuedDueToValidations(t *testing.T) {
 				BranchName: nil,
 				Message:    []byte("Reverting " + revertedCommit.Id),
 			},
-			code: codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, "empty BranchName"),
 		},
 		{
 			desc: "empty message",
@@ -416,14 +427,14 @@ func TestServer_UserRevert_failuedDueToValidations(t *testing.T) {
 				BranchName: []byte(destinationBranch),
 				Message:    nil,
 			},
-			code: codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, "empty Message"),
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			_, err := client.UserRevert(ctx, testCase.request)
-			testhelper.RequireGrpcCode(t, err, testCase.code)
+			testhelper.RequireGrpcError(t, testCase.expectedErr, err)
 		})
 	}
 }

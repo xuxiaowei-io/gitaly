@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/protobuf/proto"
@@ -69,6 +70,10 @@ func (s *server) commitsByMessage(in *gitalypb.CommitsByMessageRequest, stream g
 }
 
 func validateCommitsByMessageRequest(in *gitalypb.CommitsByMessageRequest) error {
+	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+		return err
+	}
+
 	if err := git.ValidateRevisionAllowEmpty(in.Revision); err != nil {
 		return err
 	}

@@ -13,7 +13,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -251,10 +253,18 @@ func TestFailedFindCommitRequest(t *testing.T) {
 		expectedErr error
 	}{
 		{
+			desc: "Repository is nil",
+			repo: nil,
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
+		{
 			desc:     "Invalid repo",
 			repo:     invalidRepo,
 			revision: []byte("master"),
-			expectedErr: helper.ErrInvalidArgumentf(gitalyOrPraefect(
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefectMessage(
 				"GetStorageByName: no such storage: \"fake\"",
 				"repo scoped: invalid Repository",
 			)),

@@ -4,13 +4,14 @@ import (
 	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
 func (s *server) FindAllCommits(in *gitalypb.FindAllCommitsRequest, stream gitalypb.CommitService_FindAllCommitsServer) error {
 	if err := validateFindAllCommitsRequest(in); err != nil {
-		return err
+		return helper.ErrInvalidArgument(err)
 	}
 
 	ctx := stream.Context()
@@ -39,8 +40,12 @@ func (s *server) FindAllCommits(in *gitalypb.FindAllCommitsRequest, stream gital
 }
 
 func validateFindAllCommitsRequest(in *gitalypb.FindAllCommitsRequest) error {
+	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+		return err
+	}
+
 	if err := git.ValidateRevisionAllowEmpty(in.Revision); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return err
 	}
 
 	return nil

@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 	"google.golang.org/grpc/codes"
@@ -12,7 +14,11 @@ import (
 )
 
 func (s *server) GetInfoAttributes(in *gitalypb.GetInfoAttributesRequest, stream gitalypb.RepositoryService_GetInfoAttributesServer) error {
-	repoPath, err := s.locator.GetRepoPath(in.GetRepository())
+	repository := in.GetRepository()
+	if err := service.ValidateRepository(repository); err != nil {
+		return helper.ErrInvalidArgument(err)
+	}
+	repoPath, err := s.locator.GetRepoPath(repository)
 	if err != nil {
 		return err
 	}

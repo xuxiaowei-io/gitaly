@@ -10,23 +10,22 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestCommitIsAncestorFailure(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
+	cfg, repo, _, client := setupCommitServiceWithRepo(t, ctx)
 
 	queries := []struct {
-		Request   *gitalypb.CommitIsAncestorRequest
-		ErrorCode codes.Code
-		ErrMsg    string
+		Request     *gitalypb.CommitIsAncestorRequest
+		expectedErr error
 	}{
 		{
 			Request: &gitalypb.CommitIsAncestorRequest{
@@ -34,8 +33,10 @@ func TestCommitIsAncestorFailure(t *testing.T) {
 				AncestorId: "b83d6e391c22777fca1ed3012fce84f633d7fed0",
 				ChildId:    "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
 			},
-			ErrorCode: codes.InvalidArgument,
-			ErrMsg:    "Expected to throw invalid argument got: %s",
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 		{
 			Request: &gitalypb.CommitIsAncestorRequest{
@@ -43,8 +44,7 @@ func TestCommitIsAncestorFailure(t *testing.T) {
 				AncestorId: "",
 				ChildId:    "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
 			},
-			ErrorCode: codes.InvalidArgument,
-			ErrMsg:    "Expected to throw invalid argument got: %s",
+			expectedErr: status.Error(codes.InvalidArgument, "Bad Request (empty ancestor sha)"),
 		},
 		{
 			Request: &gitalypb.CommitIsAncestorRequest{
@@ -52,8 +52,7 @@ func TestCommitIsAncestorFailure(t *testing.T) {
 				AncestorId: "b83d6e391c22777fca1ed3012fce84f633d7fed0",
 				ChildId:    "",
 			},
-			ErrorCode: codes.InvalidArgument,
-			ErrMsg:    "Expected to throw invalid argument got: %s",
+			expectedErr: status.Error(codes.InvalidArgument, "Bad Request (empty child sha)"),
 		},
 		{
 			Request: &gitalypb.CommitIsAncestorRequest{
@@ -61,18 +60,17 @@ func TestCommitIsAncestorFailure(t *testing.T) {
 				AncestorId: "b83d6e391c22777fca1ed3012fce84f633d7fed0",
 				ChildId:    "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
 			},
-			ErrorCode: codes.NotFound,
-			ErrMsg:    "Expected to throw internal got: %s",
+			expectedErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefectMessage(
+				`GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/fake-path"`,
+				`accessor call: route repository accessor: consistent storages: repository "default"/"fake-path" not found`,
+			)),
 		},
 	}
 
 	for _, v := range queries {
 		t.Run(fmt.Sprintf("%v", v.Request), func(t *testing.T) {
-			if _, err := client.CommitIsAncestor(ctx, v.Request); err == nil {
-				t.Error("Expected to throw an error")
-			} else if helper.GrpcCode(err) != v.ErrorCode {
-				t.Errorf(v.ErrMsg, err)
-			}
+			_, err := client.CommitIsAncestor(ctx, v.Request)
+			testhelper.RequireGrpcError(t, v.expectedErr, err)
 		})
 	}
 }

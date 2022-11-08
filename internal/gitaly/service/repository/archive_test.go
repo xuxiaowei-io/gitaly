@@ -26,6 +26,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 	"gitlab.com/gitlab-org/labkit/correlation"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -287,15 +288,15 @@ func TestGetArchive_inputValidation(t *testing.T) {
 	commitID := "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"
 
 	testCases := []struct {
-		desc      string
-		repo      *gitalypb.Repository
-		prefix    string
-		commitID  string
-		format    gitalypb.GetArchiveRequest_Format
-		path      []byte
-		exclude   [][]byte
-		elidePath bool
-		code      codes.Code
+		desc        string
+		repo        *gitalypb.Repository
+		prefix      string
+		commitID    string
+		format      gitalypb.GetArchiveRequest_Format
+		path        []byte
+		exclude     [][]byte
+		elidePath   bool
+		expectedErr error
 	}{
 		{
 			desc:     "Repository doesn't exist",
@@ -303,7 +304,10 @@ func TestGetArchive_inputValidation(t *testing.T) {
 			prefix:   "",
 			commitID: commitID,
 			format:   gitalypb.GetArchiveRequest_ZIP,
-			code:     codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+				`GetStorageByName: no such storage: "fake"`,
+				"repo scoped: invalid Repository",
+			)),
 		},
 		{
 			desc:     "Repository is nil",
@@ -311,59 +315,62 @@ func TestGetArchive_inputValidation(t *testing.T) {
 			prefix:   "",
 			commitID: commitID,
 			format:   gitalypb.GetArchiveRequest_ZIP,
-			code:     codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 		{
-			desc:     "CommitId is empty",
-			repo:     repo,
-			prefix:   "",
-			commitID: "",
-			format:   gitalypb.GetArchiveRequest_ZIP,
-			code:     codes.InvalidArgument,
+			desc:        "CommitId is empty",
+			repo:        repo,
+			prefix:      "",
+			commitID:    "",
+			format:      gitalypb.GetArchiveRequest_ZIP,
+			expectedErr: status.Error(codes.InvalidArgument, "invalid commitId: empty revision"),
 		},
 		{
-			desc:     "Format is invalid",
-			repo:     repo,
-			prefix:   "",
-			commitID: "",
-			format:   gitalypb.GetArchiveRequest_Format(-1),
-			code:     codes.InvalidArgument,
+			desc:        "Format is invalid",
+			repo:        repo,
+			prefix:      "",
+			commitID:    "stub",
+			format:      gitalypb.GetArchiveRequest_Format(-1),
+			expectedErr: status.Error(codes.InvalidArgument, "invalid format"),
 		},
 		{
-			desc:     "Non-existing path in repository",
-			repo:     repo,
-			prefix:   "",
-			commitID: "1e292f8fedd741b75372e19097c76d327140c312",
-			format:   gitalypb.GetArchiveRequest_ZIP,
-			path:     []byte("unknown-path"),
-			code:     codes.FailedPrecondition,
+			desc:        "Non-existing path in repository",
+			repo:        repo,
+			prefix:      "",
+			commitID:    "1e292f8fedd741b75372e19097c76d327140c312",
+			format:      gitalypb.GetArchiveRequest_ZIP,
+			path:        []byte("unknown-path"),
+			expectedErr: status.Error(codes.FailedPrecondition, "path doesn't exist"),
 		},
 		{
-			desc:     "Non-existing path in repository on commit ID",
-			repo:     repo,
-			prefix:   "",
-			commitID: commitID,
-			format:   gitalypb.GetArchiveRequest_ZIP,
-			path:     []byte("files/"),
-			code:     codes.FailedPrecondition,
+			desc:        "Non-existing path in repository on commit ID",
+			repo:        repo,
+			prefix:      "",
+			commitID:    commitID,
+			format:      gitalypb.GetArchiveRequest_ZIP,
+			path:        []byte("files/"),
+			expectedErr: status.Error(codes.FailedPrecondition, "path doesn't exist"),
 		},
 		{
-			desc:     "Non-existing exclude path in repository on commit ID",
-			repo:     repo,
-			prefix:   "",
-			commitID: commitID,
-			format:   gitalypb.GetArchiveRequest_ZIP,
-			exclude:  [][]byte{[]byte("files/")},
-			code:     codes.FailedPrecondition,
+			desc:        "Non-existing exclude path in repository on commit ID",
+			repo:        repo,
+			prefix:      "",
+			commitID:    commitID,
+			format:      gitalypb.GetArchiveRequest_ZIP,
+			exclude:     [][]byte{[]byte("files/")},
+			expectedErr: status.Error(codes.FailedPrecondition, "exclude[0] doesn't exist"),
 		},
 		{
-			desc:     "path contains directory traversal outside repository root",
-			repo:     repo,
-			prefix:   "",
-			commitID: "1e292f8fedd741b75372e19097c76d327140c312",
-			format:   gitalypb.GetArchiveRequest_ZIP,
-			path:     []byte("../../foo"),
-			code:     codes.InvalidArgument,
+			desc:        "path contains directory traversal outside repository root",
+			repo:        repo,
+			prefix:      "",
+			commitID:    "1e292f8fedd741b75372e19097c76d327140c312",
+			format:      gitalypb.GetArchiveRequest_ZIP,
+			path:        []byte("../../foo"),
+			expectedErr: status.Error(codes.InvalidArgument, "relative path escapes root directory"),
 		},
 		{
 			desc:     "repo missing fields",
@@ -372,16 +379,20 @@ func TestGetArchive_inputValidation(t *testing.T) {
 			commitID: "sadf",
 			format:   gitalypb.GetArchiveRequest_TAR,
 			path:     []byte("Here is a string...."),
-			code:     codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+				"empty RelativePath",
+				"repo scoped: invalid Repository",
+			)),
 		},
 		{
-			desc:      "with path is file and path elision",
-			repo:      repo,
-			commitID:  "1e292f8fedd741b75372e19097c76d327140c312",
-			prefix:    "my-prefix",
-			elidePath: true,
-			path:      []byte("files/html/500.html"),
-			code:      codes.Unknown,
+			desc:        "with path is file and path elision",
+			repo:        repo,
+			commitID:    "1e292f8fedd741b75372e19097c76d327140c312",
+			prefix:      "my-prefix",
+			elidePath:   true,
+			path:        []byte("files/html/500.html"),
+			exclude:     [][]byte{[]byte("files/html")},
+			expectedErr: status.Error(codes.InvalidArgument, `invalid exclude: "files/html" is not a subdirectory of "files/html/500.html"`),
 		},
 	}
 
@@ -400,7 +411,7 @@ func TestGetArchive_inputValidation(t *testing.T) {
 			require.NoError(t, err)
 
 			_, err = consumeArchive(stream)
-			testhelper.RequireGrpcCode(t, err, tc.code)
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
 	}
 }

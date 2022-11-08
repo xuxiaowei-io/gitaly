@@ -11,6 +11,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -312,6 +314,43 @@ func TestListCommits(t *testing.T) {
 			}
 
 			testhelper.ProtoEqual(t, tc.expectedCommits, commits)
+		})
+	}
+}
+
+func TestListCommits_verify(t *testing.T) {
+	t.Parallel()
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
+	for _, tc := range []struct {
+		desc        string
+		req         *gitalypb.ListCommitsRequest
+		expectedErr error
+	}{
+		{
+			desc: "no repository provided",
+			req:  &gitalypb.ListCommitsRequest{Repository: nil},
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
+		{
+			desc:        "no revisions",
+			req:         &gitalypb.ListCommitsRequest{Repository: repo},
+			expectedErr: status.Error(codes.InvalidArgument, "missing revisions"),
+		},
+		{
+			desc:        "invalid revision",
+			req:         &gitalypb.ListCommitsRequest{Repository: repo, Revisions: []string{"asdf", "-invalid"}},
+			expectedErr: status.Error(codes.InvalidArgument, `invalid revision: "-invalid"`),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			stream, err := client.ListCommits(ctx, tc.req)
+			require.NoError(t, err)
+			_, err = stream.Recv()
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
 	}
 }

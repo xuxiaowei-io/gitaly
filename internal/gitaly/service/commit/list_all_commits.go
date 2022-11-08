@@ -1,22 +1,19 @@
 package commit
 
 import (
-	"errors"
 	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gitpipe"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
 func verifyListAllCommitsRequest(request *gitalypb.ListAllCommitsRequest) error {
-	if request.GetRepository() == nil {
-		return errors.New("empty repository")
-	}
-	return nil
+	return service.ValidateRepository(request.GetRepository())
 }
 
 func (s *server) ListAllCommits(

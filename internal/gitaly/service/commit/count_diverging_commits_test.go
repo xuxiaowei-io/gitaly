@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func createRepoWithDivergentBranches(t *testing.T, ctx context.Context, cfg config.Cfg, leftCommits, rightCommits int, leftBranchName, rightBranchName string) *gitalypb.Repository {
@@ -165,17 +166,46 @@ func TestFailedCountDivergentCommitsRequestDueToValidationError(t *testing.T) {
 
 	revision := []byte("d42783470dc29fde2cf459eb3199ee1d7e3f3a72")
 
-	rpcRequests := []*gitalypb.CountDivergingCommitsRequest{
-		{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, From: []byte("abcdef"), To: []byte("12345")}, // Repository doesn't exist
-		{Repository: repo, From: nil, To: revision}, // From is empty
-		{Repository: repo, From: revision, To: nil}, // To is empty
-		{Repository: repo, From: nil, To: nil},      // From and To are empty
-	}
-
-	for _, rpcRequest := range rpcRequests {
-		t.Run(fmt.Sprintf("%v", rpcRequest), func(t *testing.T) {
-			_, err := client.CountDivergingCommits(ctx, rpcRequest)
-			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
+	for _, tc := range []struct {
+		desc        string
+		req         *gitalypb.CountDivergingCommitsRequest
+		expectedErr error
+	}{
+		{
+			desc: "Repository not provided",
+			req:  &gitalypb.CountDivergingCommitsRequest{Repository: nil, From: []byte("abcdef"), To: []byte("12345")},
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
+		{
+			desc: "Repository doesn't exist",
+			req:  &gitalypb.CountDivergingCommitsRequest{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, From: []byte("abcdef"), To: []byte("12345")},
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+				`repository not valid: GetStorageByName: no such storage: "fake"`,
+				"repo scoped: invalid Repository",
+			)),
+		},
+		{
+			desc:        "From is empty",
+			req:         &gitalypb.CountDivergingCommitsRequest{Repository: repo, From: nil, To: revision},
+			expectedErr: status.Error(codes.InvalidArgument, "from and to are both required"),
+		},
+		{
+			desc:        "To is empty",
+			req:         &gitalypb.CountDivergingCommitsRequest{Repository: repo, From: revision, To: nil},
+			expectedErr: status.Error(codes.InvalidArgument, "from and to are both required"),
+		},
+		{
+			desc:        "From and To are empty",
+			req:         &gitalypb.CountDivergingCommitsRequest{Repository: repo, From: nil, To: nil},
+			expectedErr: status.Error(codes.InvalidArgument, "from and to are both required"),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			_, err := client.CountDivergingCommits(ctx, tc.req)
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
 	}
 }

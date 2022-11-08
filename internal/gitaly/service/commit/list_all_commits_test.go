@@ -13,6 +13,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestListAllCommits(t *testing.T) {
@@ -134,6 +136,36 @@ func TestListAllCommits(t *testing.T) {
 			Committer: gittest.DefaultCommitAuthor,
 		}}, receiveCommits(t, stream))
 	})
+}
+
+func TestListAllCommits_validate(t *testing.T) {
+	t.Parallel()
+	ctx := testhelper.Context(t)
+	_, client := setupCommitService(t, ctx)
+
+	for _, tc := range []struct {
+		desc        string
+		req         *gitalypb.ListAllCommitsRequest
+		expectedErr error
+	}{
+		{
+			desc: "no repository provided",
+			req: &gitalypb.ListAllCommitsRequest{
+				Repository: nil,
+			},
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			stream, err := client.ListAllCommits(ctx, tc.req)
+			require.NoError(t, err)
+			_, err = stream.Recv()
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
+		})
+	}
 }
 
 func BenchmarkListAllCommits(b *testing.B) {

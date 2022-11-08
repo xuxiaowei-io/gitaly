@@ -21,6 +21,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/pktline"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/stream"
@@ -369,8 +370,8 @@ func bufferStdin(r io.Reader, h hash.Hash) (_ io.ReadCloser, err error) {
 }
 
 func (s *server) PackObjectsHookWithSidechannel(ctx context.Context, req *gitalypb.PackObjectsHookWithSidechannelRequest) (*gitalypb.PackObjectsHookWithSidechannelResponse, error) {
-	if req.GetRepository() == nil {
-		return nil, helper.ErrInvalidArgument(errors.New("repository is empty"))
+	if err := service.ValidateRepository(req.GetRepository()); err != nil {
+		return nil, helper.ErrInvalidArgument(err)
 	}
 
 	args, err := parsePackObjectsArgs(req.Args)

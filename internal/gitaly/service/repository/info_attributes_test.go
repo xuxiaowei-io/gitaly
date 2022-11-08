@@ -13,6 +13,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestGetInfoAttributesExisting(t *testing.T) {
@@ -59,4 +61,15 @@ func TestGetInfoAttributesNonExisting(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Empty(t, message.GetAttributes())
+}
+
+func TestGetInfoAttributes_validate(t *testing.T) {
+	t.Parallel()
+	ctx := testhelper.Context(t)
+	_, client := setupRepositoryServiceWithoutRepo(t)
+	response, err := client.GetInfoAttributes(ctx, &gitalypb.GetInfoAttributesRequest{Repository: nil})
+	require.NoError(t, err)
+	_, err = response.Recv()
+	msg := testhelper.GitalyOrPraefectMessage("empty Repository", "repo scoped: empty Repository")
+	testhelper.RequireGrpcError(t, status.Error(codes.InvalidArgument, msg), err)
 }

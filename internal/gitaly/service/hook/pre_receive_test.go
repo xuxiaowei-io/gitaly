@@ -27,6 +27,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestPreReceiveInvalidArgument(t *testing.T) {
@@ -38,7 +39,7 @@ func TestPreReceiveInvalidArgument(t *testing.T) {
 	require.NoError(t, stream.Send(&gitalypb.PreReceiveHookRequest{}))
 	_, err = stream.Recv()
 
-	testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
+	testhelper.RequireGrpcError(t, status.Error(codes.InvalidArgument, "empty Repository"), err)
 }
 
 func sendPreReceiveHookRequest(t *testing.T, stream gitalypb.HookService_PreReceiveHookClient, stdin io.Reader) ([]byte, []byte, int32, error) {

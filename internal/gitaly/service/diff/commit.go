@@ -8,12 +8,14 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/diff"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
 type requestWithLeftRightCommitIds interface {
+	GetRepository() *gitalypb.Repository
 	GetLeftCommitId() string
 	GetRightCommitId() string
 }
@@ -197,6 +199,9 @@ func (s *server) CommitDelta(in *gitalypb.CommitDeltaRequest, stream gitalypb.Di
 }
 
 func validateRequest(in requestWithLeftRightCommitIds) error {
+	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+		return err
+	}
 	if in.GetLeftCommitId() == "" {
 		return fmt.Errorf("empty LeftCommitId")
 	}

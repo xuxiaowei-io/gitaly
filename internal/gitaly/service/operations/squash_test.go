@@ -24,6 +24,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -523,9 +524,9 @@ func TestUserSquash_validation(t *testing.T) {
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
 	testCases := []struct {
-		desc    string
-		request *gitalypb.UserSquashRequest
-		code    codes.Code
+		desc        string
+		request     *gitalypb.UserSquashRequest
+		expectedErr error
 	}{
 		{
 			desc: "empty Repository",
@@ -537,7 +538,10 @@ func TestUserSquash_validation(t *testing.T) {
 				StartSha:      startSha,
 				EndSha:        endSha,
 			},
-			code: codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+				"UserSquash: empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 		{
 			desc: "empty User",
@@ -549,7 +553,7 @@ func TestUserSquash_validation(t *testing.T) {
 				StartSha:      startSha,
 				EndSha:        endSha,
 			},
-			code: codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, "UserSquash: empty User"),
 		},
 		{
 			desc: "empty StartSha",
@@ -561,7 +565,7 @@ func TestUserSquash_validation(t *testing.T) {
 				StartSha:      "",
 				EndSha:        endSha,
 			},
-			code: codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, "UserSquash: empty StartSha"),
 		},
 		{
 			desc: "empty EndSha",
@@ -573,7 +577,7 @@ func TestUserSquash_validation(t *testing.T) {
 				StartSha:      startSha,
 				EndSha:        "",
 			},
-			code: codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, "UserSquash: empty EndSha"),
 		},
 		{
 			desc: "empty Author",
@@ -585,7 +589,7 @@ func TestUserSquash_validation(t *testing.T) {
 				StartSha:      startSha,
 				EndSha:        endSha,
 			},
-			code: codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, "UserSquash: empty Author"),
 		},
 		{
 			desc: "empty CommitMessage",
@@ -597,15 +601,14 @@ func TestUserSquash_validation(t *testing.T) {
 				StartSha:      startSha,
 				EndSha:        endSha,
 			},
-			code: codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, "UserSquash: empty CommitMessage"),
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			_, err := client.UserSquash(ctx, testCase.request)
-			testhelper.RequireGrpcCode(t, err, testCase.code)
-			require.Contains(t, err.Error(), testCase.desc)
+			testhelper.RequireGrpcError(t, testCase.expectedErr, err)
 		})
 	}
 }

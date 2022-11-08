@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestLanguages(t *testing.T) {
@@ -118,7 +119,7 @@ func testInvalidCommitLanguagesRequestRevisionFeatured(t *testing.T, ctx context
 		Repository: repo,
 		Revision:   []byte("--output=/meow"),
 	})
-	testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
+	testhelper.RequireGrpcError(t, status.Error(codes.InvalidArgument, "revision can't start with '-'"), err)
 }
 
 func TestAmbiguousRefCommitLanguagesRequestRevision(t *testing.T) {
@@ -139,4 +140,39 @@ func testAmbiguousRefCommitLanguagesRequestRevisionFeatured(t *testing.T, ctx co
 		Revision:   []byte("v1.1.0"),
 	})
 	require.NoError(t, err)
+}
+
+func TestCommitLanguages_validateRequest(t *testing.T) {
+	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.GoLanguageStats).Run(t, func(t *testing.T, ctx context.Context) {
+		_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
+
+		for _, tc := range []struct {
+			desc        string
+			req         *gitalypb.CommitLanguagesRequest
+			expectedErr error
+		}{
+			{
+				desc: "no repository provided",
+				req:  &gitalypb.CommitLanguagesRequest{Repository: nil},
+				expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+					"empty Repository",
+					"repo scoped: empty Repository",
+				)),
+			},
+			{
+				desc: "invalid revision provided",
+				req: &gitalypb.CommitLanguagesRequest{
+					Repository: repo,
+					Revision:   []byte("invalid revision"),
+				},
+				expectedErr: status.Error(codes.InvalidArgument, "revision can't contain whitespace"),
+			},
+		} {
+			t.Run(tc.desc, func(t *testing.T) {
+				_, err := client.CommitLanguages(ctx, tc.req)
+				testhelper.RequireGrpcError(t, tc.expectedErr, err)
+			})
+		}
+	})
 }

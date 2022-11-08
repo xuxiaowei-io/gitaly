@@ -7,9 +7,9 @@ import (
 	"os"
 	"path/filepath"
 
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -26,8 +26,8 @@ func (s *server) FetchBundle(stream gitalypb.RepositoryService_FetchBundleServer
 		return helper.ErrInternalf("first request: %v", err)
 	}
 
-	if firstRequest.GetRepository() == nil {
-		return helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
+	if err := service.ValidateRepository(firstRequest.GetRepository()); err != nil {
+		return helper.ErrInvalidArgument(err)
 	}
 
 	firstRead := true

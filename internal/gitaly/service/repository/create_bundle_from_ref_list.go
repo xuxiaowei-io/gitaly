@@ -6,6 +6,8 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 	"google.golang.org/grpc/codes"
@@ -18,13 +20,14 @@ func (s *server) CreateBundleFromRefList(stream gitalypb.RepositoryService_Creat
 		return err
 	}
 
-	if firstRequest.GetRepository() == nil {
-		return status.Errorf(codes.InvalidArgument, "empty Repository")
+	repository := firstRequest.GetRepository()
+	if err := service.ValidateRepository(repository); err != nil {
+		return helper.ErrInvalidArgument(err)
 	}
 
 	ctx := stream.Context()
 
-	if _, err := s.Cleanup(ctx, &gitalypb.CleanupRequest{Repository: firstRequest.GetRepository()}); err != nil {
+	if _, err := s.Cleanup(ctx, &gitalypb.CleanupRequest{Repository: repository}); err != nil {
 		return err
 	}
 
@@ -46,7 +49,7 @@ func (s *server) CreateBundleFromRefList(stream gitalypb.RepositoryService_Creat
 
 	var stderr bytes.Buffer
 
-	repo := s.localrepo(firstRequest.GetRepository())
+	repo := s.localrepo(repository)
 	cmd, err := repo.Exec(ctx,
 		git.SubSubCmd{
 			Name:   "bundle",

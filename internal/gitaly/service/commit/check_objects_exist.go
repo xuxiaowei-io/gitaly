@@ -6,6 +6,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -28,13 +29,14 @@ func (s *server) CheckObjectsExist(
 		return helper.ErrInternalf("receiving initial request: %w", err)
 	}
 
-	if request.GetRepository() == nil {
-		return helper.ErrInvalidArgumentf("empty Repository")
+	repository := request.GetRepository()
+	if err := service.ValidateRepository(repository); err != nil {
+		return helper.ErrInvalidArgument(err)
 	}
 
 	objectInfoReader, cancel, err := s.catfileCache.ObjectInfoReader(
 		ctx,
-		s.localrepo(request.GetRepository()),
+		s.localrepo(repository),
 	)
 	if err != nil {
 		return helper.ErrInternalf("creating object info reader: %w", err)

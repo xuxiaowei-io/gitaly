@@ -8,12 +8,23 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
-func (s *server) CommitStats(ctx context.Context, in *gitalypb.CommitStatsRequest) (*gitalypb.CommitStatsResponse, error) {
+func validateCommitStatsRequest(in *gitalypb.CommitStatsRequest) error {
+	if err := service.ValidateRepository(in.GetRepository()); err != nil {
+		return err
+	}
 	if err := git.ValidateRevision(in.Revision); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *server) CommitStats(ctx context.Context, in *gitalypb.CommitStatsRequest) (*gitalypb.CommitStatsResponse, error) {
+	if err := validateCommitStatsRequest(in); err != nil {
 		return nil, helper.ErrInvalidArgument(err)
 	}
 

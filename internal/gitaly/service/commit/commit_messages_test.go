@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestSuccessfulGetCommitMessagesRequest(t *testing.T) {
@@ -66,15 +67,18 @@ func TestFailedGetCommitMessagesRequest(t *testing.T) {
 	testCases := []struct {
 		desc    string
 		request *gitalypb.GetCommitMessagesRequest
-		code    codes.Code
+		err     error
 	}{
 		{
-			desc: "empty Repository",
+			desc: "no repository provided",
 			request: &gitalypb.GetCommitMessagesRequest{
 				Repository: nil,
 				CommitIds:  []string{"5937ac0a7beb003549fc5fd26fc247adbce4a52e"},
 			},
-			code: codes.InvalidArgument,
+			err: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 	}
 
@@ -90,7 +94,7 @@ func TestFailedGetCommitMessagesRequest(t *testing.T) {
 				}
 			}
 
-			testhelper.RequireGrpcCode(t, err, testCase.code)
+			testhelper.RequireGrpcError(t, testCase.err, err)
 		})
 	}
 }

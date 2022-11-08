@@ -5,6 +5,8 @@ import (
 	"io"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -12,6 +14,10 @@ import (
 )
 
 func (s *server) FindMergeBase(ctx context.Context, req *gitalypb.FindMergeBaseRequest) (*gitalypb.FindMergeBaseResponse, error) {
+	repository := req.GetRepository()
+	if err := service.ValidateRepository(repository); err != nil {
+		return nil, helper.ErrInvalidArgument(err)
+	}
 	var revisions []string
 	for _, rev := range req.GetRevisions() {
 		revisions = append(revisions, string(rev))
@@ -21,7 +27,7 @@ func (s *server) FindMergeBase(ctx context.Context, req *gitalypb.FindMergeBaseR
 		return nil, status.Errorf(codes.InvalidArgument, "FindMergeBase: at least 2 revisions are required")
 	}
 
-	cmd, err := s.gitCmdFactory.New(ctx, req.GetRepository(),
+	cmd, err := s.gitCmdFactory.New(ctx, repository,
 		git.SubCmd{
 			Name: "merge-base",
 			Args: revisions,

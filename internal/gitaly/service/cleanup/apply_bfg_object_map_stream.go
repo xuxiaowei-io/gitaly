@@ -1,9 +1,9 @@
 package cleanup
 
 import (
-	"fmt"
 	"io"
 
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/cleanup/internalrefs"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/cleanup/notifier"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
@@ -65,11 +65,7 @@ func (s *server) ApplyBfgObjectMapStream(server gitalypb.CleanupService_ApplyBfg
 }
 
 func validateFirstRequest(req *gitalypb.ApplyBfgObjectMapStreamRequest) error {
-	if repo := req.GetRepository(); repo == nil {
-		return fmt.Errorf("first request: repository not set")
-	}
-
-	return nil
+	return service.ValidateRepository(req.GetRepository())
 }
 
 func (r *bfgStreamReader) readOne() ([]byte, error) {

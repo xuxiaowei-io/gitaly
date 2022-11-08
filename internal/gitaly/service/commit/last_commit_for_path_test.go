@@ -92,7 +92,7 @@ func TestFailedLastCommitForPathRequest(t *testing.T) {
 				Repository: invalidRepo,
 				Revision:   []byte("some-branch"),
 			},
-			expectedErr: helper.ErrInvalidArgumentf(gitalyOrPraefect(
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefectMessage(
 				"GetStorageByName: no such storage: \"fake\"",
 				"repo scoped: invalid Repository",
 			)),
@@ -102,8 +102,8 @@ func TestFailedLastCommitForPathRequest(t *testing.T) {
 			request: &gitalypb.LastCommitForPathRequest{
 				Revision: []byte("some-branch"),
 			},
-			expectedErr: helper.ErrInvalidArgumentf(gitalyOrPraefect(
-				"GetStorageByName: no such storage: \"\"",
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefectMessage(
+				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
 		},

@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"time"
 
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type cherryPickOrRevertRequest interface {
+	GetRepository() *gitalypb.Repository
 	GetUser() *gitalypb.User
 	GetCommit() *gitalypb.GitCommit
 	GetBranchName() []byte
@@ -16,6 +18,10 @@ type cherryPickOrRevertRequest interface {
 }
 
 func validateCherryPickOrRevertRequest(req cherryPickOrRevertRequest) error {
+	if err := service.ValidateRepository(req.GetRepository()); err != nil {
+		return err
+	}
+
 	if req.GetUser() == nil {
 		return fmt.Errorf("empty User")
 	}

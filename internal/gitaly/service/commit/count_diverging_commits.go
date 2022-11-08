@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -35,11 +36,12 @@ func (s *server) validateCountDivergingCommitsRequest(req *gitalypb.CountDivergi
 		return errors.New("from and to are both required")
 	}
 
-	if req.GetRepository() == nil {
-		return errors.New("repository is empty")
+	repository := req.GetRepository()
+	if err := service.ValidateRepository(repository); err != nil {
+		return err
 	}
 
-	if _, err := s.locator.GetRepoPath(req.GetRepository()); err != nil {
+	if _, err := s.locator.GetRepoPath(repository); err != nil {
 		return fmt.Errorf("repository not valid: %v", err)
 	}
 

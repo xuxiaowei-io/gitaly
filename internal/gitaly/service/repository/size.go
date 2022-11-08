@@ -15,8 +15,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/objectpool"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -32,7 +34,11 @@ import (
 // flag can be enabled to return the alternative repository size calculation
 // instead of the size derived from the disk usage command.
 func (s *server) RepositorySize(ctx context.Context, in *gitalypb.RepositorySizeRequest) (*gitalypb.RepositorySizeResponse, error) {
-	repo := s.localrepo(in.GetRepository())
+	repository := in.GetRepository()
+	if err := service.ValidateRepository(repository); err != nil {
+		return nil, helper.ErrInvalidArgument(err)
+	}
+	repo := s.localrepo(repository)
 
 	path, err := repo.Path()
 	if err != nil {
@@ -160,7 +166,11 @@ func calculateSizeWithRevlist(ctx context.Context, repo *localrepo.Repo) (int64,
 }
 
 func (s *server) GetObjectDirectorySize(ctx context.Context, in *gitalypb.GetObjectDirectorySizeRequest) (*gitalypb.GetObjectDirectorySizeResponse, error) {
-	repo := s.localrepo(in.GetRepository())
+	repository := in.GetRepository()
+	if err := service.ValidateRepository(repository); err != nil {
+		return nil, helper.ErrInvalidArgument(err)
+	}
+	repo := s.localrepo(repository)
 
 	path, err := repo.ObjectDirectoryPath()
 	if err != nil {

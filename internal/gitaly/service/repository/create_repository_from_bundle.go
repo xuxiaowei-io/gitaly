@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -23,9 +24,9 @@ func (s *server) CreateRepositoryFromBundle(stream gitalypb.RepositoryService_Cr
 		return status.Errorf(codes.Internal, "CreateRepositoryFromBundle: first request failed: %v", err)
 	}
 
-	repo := firstRequest.GetRepository()
-	if repo == nil {
-		return status.Errorf(codes.InvalidArgument, "CreateRepositoryFromBundle: empty Repository")
+	repository := firstRequest.GetRepository()
+	if err := service.ValidateRepository(repository); err != nil {
+		return helper.ErrInvalidArgumentf("CreateRepositoryFromBundle: %w", err)
 	}
 
 	ctx := stream.Context()
@@ -41,6 +42,7 @@ func (s *server) CreateRepositoryFromBundle(stream gitalypb.RepositoryService_Cr
 		return request.GetData(), err
 	})
 
+	repo := repository
 	bundleDir, err := tempdir.New(ctx, repo.GetStorageName(), s.locator)
 	if err != nil {
 		return helper.ErrInternalf("creating bundle directory: %w", err)

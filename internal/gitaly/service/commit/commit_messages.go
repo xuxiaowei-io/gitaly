@@ -7,6 +7,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
@@ -55,9 +56,5 @@ func (s *server) getAndStreamCommitMessages(request *gitalypb.GetCommitMessagesR
 }
 
 func validateGetCommitMessagesRequest(request *gitalypb.GetCommitMessagesRequest) error {
-	if request.GetRepository() == nil {
-		return fmt.Errorf("empty Repository")
-	}
-
-	return nil
+	return service.ValidateRepository(request.GetRepository())
 }

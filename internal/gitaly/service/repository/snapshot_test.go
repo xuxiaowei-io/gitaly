@@ -286,6 +286,22 @@ func TestGetSnapshotFailsIfRepositoryMissing(t *testing.T) {
 	require.Empty(t, data)
 }
 
+func TestGetSnapshot_validate(t *testing.T) {
+	t.Parallel()
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	repo := &gitalypb.Repository{
+		StorageName:   cfg.Storages[0].Name,
+		RelativePath:  t.Name(),
+		GlRepository:  gittest.GlRepository,
+		GlProjectPath: gittest.GlProjectPath,
+	}
+
+	req := &gitalypb.GetSnapshotRequest{Repository: repo}
+	data, err := getSnapshot(t, client, req)
+	testhelper.RequireGrpcCode(t, err, codes.NotFound)
+	require.Empty(t, data)
+}
+
 func TestGetSnapshotFailsIfRepositoryContainsSymlink(t *testing.T) {
 	t.Parallel()
 	_, repo, repoPath, client := setupRepositoryService(t, testhelper.Context(t))

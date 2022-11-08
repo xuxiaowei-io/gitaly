@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/prometheus/client_golang/prometheus"
-	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -24,11 +24,12 @@ func init() {
 }
 
 func (s *server) RepackFull(ctx context.Context, in *gitalypb.RepackFullRequest) (*gitalypb.RepackFullResponse, error) {
-	if in.GetRepository() == nil {
-		return nil, helper.ErrInvalidArgument(gitalyerrors.ErrEmptyRepository)
+	repository := in.GetRepository()
+	if err := service.ValidateRepository(repository); err != nil {
+		return nil, helper.ErrInvalidArgument(err)
 	}
 
-	repo := s.localrepo(in.GetRepository())
+	repo := s.localrepo(repository)
 	cfg := housekeeping.RepackObjectsConfig{
 		FullRepack:  true,
 		WriteBitmap: in.GetCreateBitmap(),
@@ -53,11 +54,12 @@ func (s *server) RepackFull(ctx context.Context, in *gitalypb.RepackFullRequest)
 }
 
 func (s *server) RepackIncremental(ctx context.Context, in *gitalypb.RepackIncrementalRequest) (*gitalypb.RepackIncrementalResponse, error) {
-	if in.GetRepository() == nil {
-		return nil, helper.ErrInvalidArgumentf("empty repository")
+	repository := in.GetRepository()
+	if err := service.ValidateRepository(repository); err != nil {
+		return nil, helper.ErrInvalidArgument(err)
 	}
 
-	repo := s.localrepo(in.GetRepository())
+	repo := s.localrepo(repository)
 	cfg := housekeeping.RepackObjectsConfig{
 		FullRepack:  false,
 		WriteBitmap: false,

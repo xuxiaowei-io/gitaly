@@ -19,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/remoterepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -79,8 +80,8 @@ func validateResolveConflictsHeader(header *gitalypb.ResolveConflictsRequestHead
 	if header.GetOurCommitOid() == "" {
 		return fmt.Errorf("empty OurCommitOid")
 	}
-	if header.GetRepository() == nil {
-		return fmt.Errorf("empty Repository")
+	if err := service.ValidateRepository(header.GetRepository()); err != nil {
+		return err
 	}
 	if header.GetTargetRepository() == nil {
 		return fmt.Errorf("empty TargetRepository")

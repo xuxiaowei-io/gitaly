@@ -12,6 +12,7 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -196,8 +197,8 @@ func (s *Server) userApplyPatch(ctx context.Context, header *gitalypb.UserApplyP
 }
 
 func validateUserApplyPatchHeader(header *gitalypb.UserApplyPatchRequest_Header) error {
-	if header.GetRepository() == nil {
-		return fmt.Errorf("missing Repository")
+	if err := service.ValidateRepository(header.GetRepository()); err != nil {
+		return err
 	}
 
 	if header.GetUser() == nil {

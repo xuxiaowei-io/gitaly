@@ -10,6 +10,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gitpipe"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -165,11 +166,12 @@ func (s *server) findAllTags(ctx context.Context, repo *localrepo.Repo, sortFiel
 }
 
 func (s *server) validateFindAllTagsRequest(request *gitalypb.FindAllTagsRequest) error {
-	if request.GetRepository() == nil {
-		return errors.New("empty Repository")
+	repository := request.GetRepository()
+	if err := service.ValidateRepository(repository); err != nil {
+		return err
 	}
 
-	if _, err := s.locator.GetRepoPath(request.GetRepository()); err != nil {
+	if _, err := s.locator.GetRepoPath(repository); err != nil {
 		return fmt.Errorf("invalid git directory: %v", err)
 	}
 

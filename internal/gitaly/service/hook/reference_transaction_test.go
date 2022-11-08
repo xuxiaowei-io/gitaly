@@ -22,6 +22,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 )
 
 type testTransactionServer struct {
@@ -49,7 +50,7 @@ func TestReferenceTransactionHookInvalidArgument(t *testing.T) {
 	require.NoError(t, stream.Send(&gitalypb.ReferenceTransactionHookRequest{}))
 	_, err = stream.Recv()
 
-	testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
+	testhelper.RequireGrpcError(t, status.Error(codes.InvalidArgument, "empty Repository"), err)
 }
 
 func TestReferenceTransactionHook(t *testing.T) {

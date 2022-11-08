@@ -8,14 +8,15 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gitpipe"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
 func verifyListCommitsRequest(request *gitalypb.ListCommitsRequest) error {
-	if request.GetRepository() == nil {
-		return errors.New("empty repository")
+	if err := service.ValidateRepository(request.GetRepository()); err != nil {
+		return err
 	}
 	if len(request.GetRevisions()) == 0 {
 		return errors.New("missing revisions")

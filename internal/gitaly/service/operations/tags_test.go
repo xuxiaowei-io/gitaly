@@ -949,19 +949,27 @@ func TestUserDeleteTag_invalidArgument(t *testing.T) {
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
 	testCases := []struct {
-		desc     string
-		request  *gitalypb.UserDeleteTagRequest
-		response *gitalypb.UserDeleteTagResponse
-		err      error
+		desc    string
+		request *gitalypb.UserDeleteTagRequest
+		err     error
 	}{
+		{
+			desc: "no repository provided",
+			request: &gitalypb.UserDeleteTagRequest{
+				Repository: nil,
+			},
+			err: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
 		{
 			desc: "empty user",
 			request: &gitalypb.UserDeleteTagRequest{
 				Repository: repo,
 				TagName:    []byte("does-matter-the-name-if-user-is-empty"),
 			},
-			response: nil,
-			err:      status.Error(codes.InvalidArgument, "empty user"),
+			err: status.Error(codes.InvalidArgument, "empty user"),
 		},
 		{
 			desc: "empty tag name",
@@ -969,8 +977,7 @@ func TestUserDeleteTag_invalidArgument(t *testing.T) {
 				Repository: repo,
 				User:       gittest.TestUser,
 			},
-			response: nil,
-			err:      status.Error(codes.InvalidArgument, "empty tag name"),
+			err: status.Error(codes.InvalidArgument, "empty tag name"),
 		},
 		{
 			desc: "non-existent tag name",
@@ -979,8 +986,7 @@ func TestUserDeleteTag_invalidArgument(t *testing.T) {
 				User:       gittest.TestUser,
 				TagName:    []byte("i-do-not-exist"),
 			},
-			response: nil,
-			err:      status.Errorf(codes.FailedPrecondition, "tag not found: %s", "i-do-not-exist"),
+			err: status.Errorf(codes.FailedPrecondition, "tag not found: %s", "i-do-not-exist"),
 		},
 		{
 			desc: "space in tag name",
@@ -989,8 +995,7 @@ func TestUserDeleteTag_invalidArgument(t *testing.T) {
 				User:       gittest.TestUser,
 				TagName:    []byte("a tag"),
 			},
-			response: nil,
-			err:      status.Errorf(codes.FailedPrecondition, "tag not found: %s", "a tag"),
+			err: status.Errorf(codes.FailedPrecondition, "tag not found: %s", "a tag"),
 		},
 		{
 			desc: "newline in tag name",
@@ -999,16 +1004,14 @@ func TestUserDeleteTag_invalidArgument(t *testing.T) {
 				User:       gittest.TestUser,
 				TagName:    []byte("a\ntag"),
 			},
-			response: nil,
-			err:      status.Errorf(codes.FailedPrecondition, "tag not found: %s", "a\ntag"),
+			err: status.Errorf(codes.FailedPrecondition, "tag not found: %s", "a\ntag"),
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			response, err := client.UserDeleteTag(ctx, testCase.request)
+			_, err := client.UserDeleteTag(ctx, testCase.request)
 			testhelper.RequireGrpcError(t, testCase.err, err)
-			testhelper.ProtoEqual(t, testCase.response, response)
 		})
 	}
 }
@@ -1165,6 +1168,7 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 
 	for _, tc := range []struct {
 		desc           string
+		repo           *gitalypb.Repository
 		tagName        string
 		targetRevision string
 		message        string
@@ -1172,7 +1176,19 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 		expectedErr    error
 	}{
 		{
+			desc:           "no repository provided",
+			repo:           nil,
+			tagName:        "shiny-new-tag",
+			targetRevision: "main",
+			user:           gittest.TestUser,
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+				"validating request: empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
+		{
 			desc:           "empty target revision",
+			repo:           repo,
 			tagName:        "shiny-new-tag",
 			targetRevision: "",
 			user:           gittest.TestUser,
@@ -1180,6 +1196,7 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 		},
 		{
 			desc:           "empty user",
+			repo:           repo,
 			tagName:        "shiny-new-tag",
 			targetRevision: "main",
 			user:           nil,
@@ -1187,6 +1204,7 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 		},
 		{
 			desc:           "empty starting point",
+			repo:           repo,
 			tagName:        "new-tag",
 			targetRevision: "",
 			user:           gittest.TestUser,
@@ -1194,6 +1212,7 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 		},
 		{
 			desc:           "non-existing starting point",
+			repo:           repo,
 			tagName:        "new-tag",
 			targetRevision: "i-dont-exist",
 			user:           gittest.TestUser,
@@ -1201,6 +1220,7 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 		},
 		{
 			desc:           "space in lightweight tag name",
+			repo:           repo,
 			tagName:        "a tag",
 			targetRevision: "main",
 			user:           gittest.TestUser,
@@ -1208,6 +1228,7 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 		},
 		{
 			desc:           "space in annotated tag name",
+			repo:           repo,
 			tagName:        "a tag",
 			targetRevision: "main",
 			message:        "a message",
@@ -1216,6 +1237,7 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 		},
 		{
 			desc:           "newline in lightweight tag name",
+			repo:           repo,
 			tagName:        "a\ntag",
 			targetRevision: "main",
 			user:           gittest.TestUser,
@@ -1223,6 +1245,7 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 		},
 		{
 			desc:           "newline in annotated tag name",
+			repo:           repo,
 			tagName:        "a\ntag",
 			targetRevision: "main",
 			message:        "a message",
@@ -1231,6 +1254,7 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 		},
 		{
 			desc:           "injection in lightweight tag name",
+			repo:           repo,
 			tagName:        injectedTag,
 			targetRevision: "main",
 			user:           gittest.TestUser,
@@ -1238,6 +1262,7 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 		},
 		{
 			desc:           "injection in annotated tag name",
+			repo:           repo,
 			tagName:        injectedTag,
 			targetRevision: "main",
 			message:        "a message",
@@ -1247,7 +1272,7 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			request := &gitalypb.UserCreateTagRequest{
-				Repository:     repo,
+				Repository:     tc.repo,
 				TagName:        []byte(tc.tagName),
 				TargetRevision: []byte(tc.targetRevision),
 				User:           tc.user,

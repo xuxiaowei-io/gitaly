@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestFetchSourceBranchSourceRepositorySuccess(t *testing.T) {
@@ -129,7 +130,7 @@ func TestFetchSourceBranchBranchNotFound(t *testing.T) {
 	}
 }
 
-func TestFetchSourceBranchWrongRef(t *testing.T) {
+func TestFetchSourceBranch_validate(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
@@ -148,9 +149,18 @@ func TestFetchSourceBranchWrongRef(t *testing.T) {
 	targetRef := "refs/tmp/fetch-source-branch-test"
 
 	testCases := []struct {
-		req  *gitalypb.FetchSourceBranchRequest
-		desc string
+		desc        string
+		req         *gitalypb.FetchSourceBranchRequest
+		expectedErr error
 	}{
+		{
+			desc: "no repository provided",
+			req:  &gitalypb.FetchSourceBranchRequest{Repository: nil},
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
 		{
 			desc: "source branch empty",
 			req: &gitalypb.FetchSourceBranchRequest{
@@ -159,6 +169,7 @@ func TestFetchSourceBranchWrongRef(t *testing.T) {
 				SourceBranch:     []byte(""),
 				TargetRef:        []byte(targetRef),
 			},
+			expectedErr: status.Error(codes.InvalidArgument, "empty revision"),
 		},
 		{
 			desc: "source branch blank",
@@ -168,6 +179,7 @@ func TestFetchSourceBranchWrongRef(t *testing.T) {
 				SourceBranch:     []byte("   "),
 				TargetRef:        []byte(targetRef),
 			},
+			expectedErr: status.Error(codes.InvalidArgument, "revision can't contain whitespace"),
 		},
 		{
 			desc: "source branch starts with -",
@@ -177,6 +189,7 @@ func TestFetchSourceBranchWrongRef(t *testing.T) {
 				SourceBranch:     []byte("-ref"),
 				TargetRef:        []byte(targetRef),
 			},
+			expectedErr: status.Error(codes.InvalidArgument, "revision can't start with '-'"),
 		},
 		{
 			desc: "source branch with :",
@@ -186,6 +199,7 @@ func TestFetchSourceBranchWrongRef(t *testing.T) {
 				SourceBranch:     []byte("some:ref"),
 				TargetRef:        []byte(targetRef),
 			},
+			expectedErr: status.Error(codes.InvalidArgument, "revision can't contain ':'"),
 		},
 		{
 			desc: "source branch with NULL",
@@ -195,6 +209,7 @@ func TestFetchSourceBranchWrongRef(t *testing.T) {
 				SourceBranch:     []byte("some\x00ref"),
 				TargetRef:        []byte(targetRef),
 			},
+			expectedErr: status.Error(codes.InvalidArgument, "revision can't contain NUL"),
 		},
 		{
 			desc: "target branch empty",
@@ -204,6 +219,7 @@ func TestFetchSourceBranchWrongRef(t *testing.T) {
 				SourceBranch:     []byte(sourceBranch),
 				TargetRef:        []byte(""),
 			},
+			expectedErr: status.Error(codes.InvalidArgument, "empty revision"),
 		},
 		{
 			desc: "target branch blank",
@@ -213,6 +229,7 @@ func TestFetchSourceBranchWrongRef(t *testing.T) {
 				SourceBranch:     []byte(sourceBranch),
 				TargetRef:        []byte("   "),
 			},
+			expectedErr: status.Error(codes.InvalidArgument, "revision can't contain whitespace"),
 		},
 		{
 			desc: "target branch starts with -",
@@ -222,6 +239,7 @@ func TestFetchSourceBranchWrongRef(t *testing.T) {
 				SourceBranch:     []byte(sourceBranch),
 				TargetRef:        []byte("-ref"),
 			},
+			expectedErr: status.Error(codes.InvalidArgument, "revision can't start with '-'"),
 		},
 		{
 			desc: "target branch with :",
@@ -231,6 +249,7 @@ func TestFetchSourceBranchWrongRef(t *testing.T) {
 				SourceBranch:     []byte(sourceBranch),
 				TargetRef:        []byte("some:ref"),
 			},
+			expectedErr: status.Error(codes.InvalidArgument, "revision can't contain ':'"),
 		},
 		{
 			desc: "target branch with NULL",
@@ -240,13 +259,14 @@ func TestFetchSourceBranchWrongRef(t *testing.T) {
 				SourceBranch:     []byte(sourceBranch),
 				TargetRef:        []byte("some\x00ref"),
 			},
+			expectedErr: status.Error(codes.InvalidArgument, "revision can't contain NUL"),
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			_, err := client.FetchSourceBranch(ctx, tc.req)
-			testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
 	}
 }

@@ -4,17 +4,18 @@ import (
 	"context"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func (s *server) ReduplicateRepository(ctx context.Context, req *gitalypb.ReduplicateRepositoryRequest) (*gitalypb.ReduplicateRepositoryResponse, error) {
-	if req.GetRepository() == nil {
-		return nil, status.Errorf(codes.InvalidArgument, "ReduplicateRepository: no repository")
+	repository := req.GetRepository()
+	if err := service.ValidateRepository(repository); err != nil {
+		return nil, helper.ErrInternalf("ReduplicateRepository: %w", err)
 	}
 
-	cmd, err := s.gitCmdFactory.New(ctx, req.GetRepository(), git.SubCmd{
+	cmd, err := s.gitCmdFactory.New(ctx, repository, git.SubCmd{
 		Name: "repack",
 		Flags: []git.Option{
 			git.Flag{Name: "--quiet"},

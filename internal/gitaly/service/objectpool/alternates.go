@@ -2,7 +2,6 @@ package objectpool
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
@@ -28,11 +28,12 @@ import (
 // in a broken state until an administrator intervenes and restores the
 // backed-up copy of objects/info/alternates.
 func (s *server) DisconnectGitAlternates(ctx context.Context, req *gitalypb.DisconnectGitAlternatesRequest) (*gitalypb.DisconnectGitAlternatesResponse, error) {
-	if req.GetRepository() == nil {
-		return nil, helper.ErrInvalidArgument(errors.New("no repository"))
+	repository := req.GetRepository()
+	if err := service.ValidateRepository(repository); err != nil {
+		return nil, helper.ErrInvalidArgument(err)
 	}
 
-	repo := s.localrepo(req.GetRepository())
+	repo := s.localrepo(repository)
 
 	if err := s.disconnectAlternates(ctx, repo); err != nil {
 		return nil, helper.ErrInternal(err)

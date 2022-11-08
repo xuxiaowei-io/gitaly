@@ -8,6 +8,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -160,8 +161,8 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 var ErrInvalidBranch = errors.New("invalid branch name")
 
 func validateUserRebaseConfirmableHeader(header *gitalypb.UserRebaseConfirmableRequest_Header) error {
-	if header.GetRepository() == nil {
-		return errors.New("empty Repository")
+	if err := service.ValidateRepository(header.GetRepository()); err != nil {
+		return err
 	}
 
 	if header.GetUser() == nil {

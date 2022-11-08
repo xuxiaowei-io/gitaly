@@ -5,17 +5,23 @@ import (
 	"errors"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
 func (s *server) FindBranch(ctx context.Context, req *gitalypb.FindBranchRequest) (*gitalypb.FindBranchResponse, error) {
+	repository := req.GetRepository()
+	if err := service.ValidateRepository(repository); err != nil {
+		return nil, helper.ErrInvalidArgument(err)
+	}
 	if len(req.GetName()) == 0 {
 		return nil, status.Errorf(codes.InvalidArgument, "Branch name cannot be empty")
 	}
 
-	repo := s.localrepo(req.GetRepository())
+	repo := s.localrepo(repository)
 
 	branchName := git.NewReferenceNameFromBranchName(string(req.GetName()))
 	branchRef, err := repo.GetReference(ctx, branchName)

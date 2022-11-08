@@ -2,11 +2,11 @@ package commit
 
 import (
 	"context"
-	"errors"
 	"io"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -28,10 +28,7 @@ func (s *server) FilterShasWithSignatures(bidi gitalypb.CommitService_FilterShas
 }
 
 func validateFirstFilterShasWithSignaturesRequest(in *gitalypb.FilterShasWithSignaturesRequest) error {
-	if in.Repository == nil {
-		return errors.New("no repository given")
-	}
-	return nil
+	return service.ValidateRepository(in.GetRepository())
 }
 
 func (s *server) filterShasWithSignatures(bidi gitalypb.CommitService_FilterShasWithSignaturesServer, firstRequest *gitalypb.FilterShasWithSignaturesRequest) error {

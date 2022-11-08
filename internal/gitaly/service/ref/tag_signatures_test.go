@@ -180,3 +180,36 @@ func TestGetTagSignatures(t *testing.T) {
 		})
 	}
 }
+
+func TestGetTagSignatures_validate(t *testing.T) {
+	t.Parallel()
+	ctx := testhelper.Context(t)
+	_, repoProto, _, client := setupRefService(t, ctx)
+
+	for _, tc := range []struct {
+		desc        string
+		req         *gitalypb.GetTagSignaturesRequest
+		expectedErr error
+	}{
+		{
+			desc: "repository not provided",
+			req:  &gitalypb.GetTagSignaturesRequest{Repository: nil},
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
+		{
+			desc:        "no tag revisions",
+			req:         &gitalypb.GetTagSignaturesRequest{Repository: repoProto, TagRevisions: nil},
+			expectedErr: status.Error(codes.InvalidArgument, "missing revisions"),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			stream, err := client.GetTagSignatures(ctx, tc.req)
+			require.NoError(t, err)
+			_, err = stream.Recv()
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
+		})
+	}
+}

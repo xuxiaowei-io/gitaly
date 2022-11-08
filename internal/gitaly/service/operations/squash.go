@@ -7,6 +7,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/voting"
@@ -33,8 +34,8 @@ func (s *Server) UserSquash(ctx context.Context, req *gitalypb.UserSquashRequest
 }
 
 func validateUserSquashRequest(req *gitalypb.UserSquashRequest) error {
-	if req.GetRepository() == nil {
-		return errors.New("empty Repository")
+	if err := service.ValidateRepository(req.GetRepository()); err != nil {
+		return err
 	}
 
 	if req.GetUser() == nil {

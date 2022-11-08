@@ -82,19 +82,25 @@ func TestPackRefs_invalidRequest(t *testing.T) {
 		{
 			desc: "nil repo",
 			repo: nil,
-			err:  status.Error(codes.InvalidArgument, gitalyOrPraefect("empty Repository", "repo scoped: empty Repository")),
+			err: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 		{
 			desc: "invalid storage name",
-			repo: &gitalypb.Repository{StorageName: "foo"},
-			err:  status.Error(codes.InvalidArgument, gitalyOrPraefect(`GetStorageByName: no such storage: "foo"`, "repo scoped: invalid Repository")),
+			repo: &gitalypb.Repository{RelativePath: "stub", StorageName: "foo"},
+			err: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+				`GetStorageByName: no such storage: "foo"`,
+				"repo scoped: invalid Repository",
+			)),
 		},
 		{
 			desc: "non-existing repo",
 			repo: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "bar"},
 			err: status.Error(
 				codes.NotFound,
-				gitalyOrPraefect(
+				testhelper.GitalyOrPraefectMessage(
 					fmt.Sprintf(`GetRepoPath: not a git repository: "%s/bar"`, cfg.Storages[0].Path),
 					`routing repository maintenance: getting repository metadata: repository not found`,
 				),
