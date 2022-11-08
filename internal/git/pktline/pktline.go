@@ -1,7 +1,7 @@
+// Package pktline implements utility functions for working with the Git
+// pkt-line format. See
+// https://git-scm.com/docs/protocol-common#_pkt_line_format
 package pktline
-
-// Utility functions for working with the Git pkt-line format. See
-// https://github.com/git/git/blob/master/Documentation/technical/protocol-common.txt
 
 import (
 	"bufio"
