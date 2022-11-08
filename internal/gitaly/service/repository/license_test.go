@@ -19,39 +19,8 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gitalypb.RepositoryServiceClient, rubySrv *rubyserver.Server) {
-	testhelper.NewFeatureSets(featureflag.GoFindLicense).Run(t, func(t *testing.T, ctx context.Context) {
-		deprecatedLicenseData := testhelper.MustReadFile(t, "testdata/gnu_license.deprecated.txt")
-		licenseText := testhelper.MustReadFile(t, "testdata/gpl-2.0_license.txt")
-		for _, tc := range []struct {
-			desc                  string
-			nonExistentRepository bool
-			files                 map[string]string
-			// expectedLicenseRuby is used to verify the response received from the Ruby side-car.
-			// Also is it used if expectedLicenseGo is not set. Because the Licensee gem and
-			// the github.com/go-enry/go-license-detector go package use different license databases
-			// and different methods to detect the license, they will not always return the
-			// same result. So we need to provide different expected results in some cases.
-			expectedLicenseRuby *gitalypb.FindLicenseResponse
-			expectedLicenseGo   *gitalypb.FindLicenseResponse
-			errorContains       string
-		}{
-			{
-				desc:                  "repository does not exist",
-				nonExistentRepository: true,
-				errorContains:         "GetRepoPath: not a git repository",
-			},
-			{
-				desc: "empty if no license file in repo",
-				files: map[string]string{
-					"README.md": "readme content",
-				},
-				expectedLicenseRuby: &gitalypb.FindLicenseResponse{},
-			},
-			{
-				desc: "high confidence mit result and less confident mit-0 result",
-				files: map[string]string{
-					"LICENSE": `MIT License
+const (
+	mitLicense = `MIT License
 
 Copyright (c) [year] [fullname]
 
@@ -71,7 +40,54 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.`,
+SOFTWARE.`
+)
+
+func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gitalypb.RepositoryServiceClient, rubySrv *rubyserver.Server) {
+	testhelper.NewFeatureSets(featureflag.GoFindLicense).Run(t, func(t *testing.T, ctx context.Context) {
+		for _, tc := range []struct {
+			desc                  string
+			nonExistentRepository bool
+			setup                 func(t *testing.T, repoPath string)
+			// expectedLicenseRuby is used to verify the response received from the Ruby side-car.
+			// Also is it used if expectedLicenseGo is not set. Because the Licensee gem and
+			// the github.com/go-enry/go-license-detector go package use different license databases
+			// and different methods to detect the license, they will not always return the
+			// same result. So we need to provide different expected results in some cases.
+			expectedLicenseRuby *gitalypb.FindLicenseResponse
+			expectedLicenseGo   *gitalypb.FindLicenseResponse
+			errorContains       string
+		}{
+			{
+				desc: "repository does not exist",
+				setup: func(t *testing.T, repoPath string) {
+					require.NoError(t, os.RemoveAll(repoPath))
+				},
+				errorContains: "GetRepoPath: not a git repository",
+			},
+			{
+				desc: "empty if no license file in repo",
+				setup: func(t *testing.T, repoPath string) {
+					gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"),
+						gittest.WithTreeEntries(
+							gittest.TreeEntry{
+								Mode:    "100644",
+								Path:    "README.md",
+								Content: "readme content",
+							}))
+				},
+				expectedLicenseRuby: &gitalypb.FindLicenseResponse{},
+			},
+			{
+				desc: "high confidence mit result and less confident mit-0 result",
+				setup: func(t *testing.T, repoPath string) {
+					gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"),
+						gittest.WithTreeEntries(
+							gittest.TreeEntry{
+								Mode:    "100644",
+								Path:    "LICENSE",
+								Content: mitLicense,
+							}))
 				},
 				expectedLicenseRuby: &gitalypb.FindLicenseResponse{
 					LicenseShortName: "mit",
@@ -88,8 +104,14 @@ SOFTWARE.`,
 			},
 			{
 				desc: "unknown license",
-				files: map[string]string{
-					"LICENSE.md": "this doesn't match any known license",
+				setup: func(t *testing.T, repoPath string) {
+					gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"),
+						gittest.WithTreeEntries(
+							gittest.TreeEntry{
+								Mode:    "100644",
+								Path:    "LICENSE.md",
+								Content: "this doesn't match any known license",
+							}))
 				},
 				expectedLicenseRuby: &gitalypb.FindLicenseResponse{
 					LicenseShortName: "other",
@@ -106,8 +128,16 @@ SOFTWARE.`,
 			},
 			{
 				desc: "deprecated license",
-				files: map[string]string{
-					"LICENSE": string(deprecatedLicenseData),
+				setup: func(t *testing.T, repoPath string) {
+					deprecatedLicenseData := testhelper.MustReadFile(t, "testdata/gnu_license.deprecated.txt")
+
+					gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"),
+						gittest.WithTreeEntries(
+							gittest.TreeEntry{
+								Mode:    "100644",
+								Path:    "LICENSE",
+								Content: string(deprecatedLicenseData),
+							}))
 				},
 				expectedLicenseRuby: &gitalypb.FindLicenseResponse{
 					LicenseShortName: "gpl-3.0",
@@ -126,8 +156,16 @@ SOFTWARE.`,
 			},
 			{
 				desc: "license with nickname",
-				files: map[string]string{
-					"LICENSE": string(licenseText),
+				setup: func(t *testing.T, repoPath string) {
+					licenseText := testhelper.MustReadFile(t, "testdata/gpl-2.0_license.txt")
+
+					gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"),
+						gittest.WithTreeEntries(
+							gittest.TreeEntry{
+								Mode:    "100644",
+								Path:    "LICENSE",
+								Content: string(licenseText),
+							}))
 				},
 				expectedLicenseRuby: &gitalypb.FindLicenseResponse{
 					LicenseShortName: "gpl-2.0",
@@ -147,20 +185,10 @@ SOFTWARE.`,
 		} {
 			t.Run(tc.desc, func(t *testing.T) {
 				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				tc.setup(t, repoPath)
 
-				var treeEntries []gittest.TreeEntry
-				for file, content := range tc.files {
-					treeEntries = append(treeEntries, gittest.TreeEntry{
-						Mode:    "100644",
-						Path:    file,
-						Content: content,
-					})
-				}
-
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithTreeEntries(treeEntries...))
-
-				if tc.nonExistentRepository {
-					require.NoError(t, os.RemoveAll(repoPath))
+				if _, err := os.Stat(repoPath); !os.IsNotExist(err) {
+					gittest.Exec(t, cfg, "-C", repoPath, "symbolic-ref", "HEAD", "refs/heads/main")
 				}
 
 				resp, err := client.FindLicense(ctx, &gitalypb.FindLicenseRequest{Repository: repo})
