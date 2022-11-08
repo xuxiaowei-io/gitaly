@@ -8,15 +8,24 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/pktline"
+	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
-func monitorStdinCommand(ctx context.Context, gitCmdFactory git.CommandFactory, stdin io.Reader, stdout, stderr io.Writer, sc git.SubCmd, opts ...git.CmdOpt) (*command.Command, *pktline.ReadMonitor, error) {
+func monitorStdinCommand(
+	ctx context.Context,
+	gitCmdFactory git.CommandFactory,
+	repo *gitalypb.Repository,
+	stdin io.Reader,
+	stdout, stderr io.Writer,
+	sc git.SubCmd,
+	opts ...git.CmdOpt,
+) (*command.Command, *pktline.ReadMonitor, error) {
 	stdinPipe, monitor, cleanup, err := pktline.NewReadMonitor(ctx, stdin)
 	if err != nil {
 		return nil, nil, fmt.Errorf("create monitor: %w", err)
 	}
 
-	cmd, err := gitCmdFactory.NewWithoutRepo(ctx, sc, append([]git.CmdOpt{
+	cmd, err := gitCmdFactory.New(ctx, repo, sc, append([]git.CmdOpt{
 		git.WithStdin(stdinPipe),
 		git.WithStdout(stdout),
 		git.WithStderr(stderr),

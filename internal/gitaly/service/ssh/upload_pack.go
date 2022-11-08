@@ -128,7 +128,7 @@ func (s *server) sshUploadPack(rpcContext context.Context, req sshUploadPackRequ
 	var stderrBuilder strings.Builder
 	stderr = io.MultiWriter(stderr, &stderrBuilder)
 
-	cmd, monitor, err := monitorStdinCommand(ctx, s.gitCmdFactory, stdin, stdout, stderr, git.SubCmd{
+	cmd, monitor, err := monitorStdinCommand(ctx, s.gitCmdFactory, repo, stdin, stdout, stderr, git.SubCmd{
 		Name: "upload-pack",
 		Args: []string{repoPath},
 	}, commandOpts...)
