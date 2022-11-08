@@ -4,6 +4,7 @@ package repository
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,11 +15,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func getNewestPackfileModtime(t *testing.T, repoPath string) time.Time {
@@ -155,48 +158,135 @@ func TestOptimizeRepository(t *testing.T) {
 	require.NoFileExists(t, mrRefs)
 }
 
-func TestOptimizeRepositoryValidation(t *testing.T) {
+type mockHousekeepingManager struct {
+	housekeeping.Manager
+	cfgCh chan housekeeping.OptimizeRepositoryConfig
+}
+
+func (m mockHousekeepingManager) OptimizeRepository(_ context.Context, _ *localrepo.Repo, opts ...housekeeping.OptimizeRepositoryOption) error {
+	var cfg housekeeping.OptimizeRepositoryConfig
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
+	m.cfgCh <- cfg
+	return nil
+}
+
+func TestOptimizeRepository_strategy(t *testing.T) {
+	t.Parallel()
+
+	housekeepingManager := mockHousekeepingManager{
+		cfgCh: make(chan housekeeping.OptimizeRepositoryConfig, 1),
+	}
+
+	ctx := testhelper.Context(t)
+	cfg, client := setupRepositoryServiceWithoutRepo(t, testserver.WithHousekeepingManager(housekeepingManager))
+
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+
+	for _, tc := range []struct {
+		desc        string
+		request     *gitalypb.OptimizeRepositoryRequest
+		expectedCfg housekeeping.OptimizeRepositoryConfig
+	}{
+		{
+			desc: "no strategy",
+			request: &gitalypb.OptimizeRepositoryRequest{
+				Repository: repoProto,
+			},
+			expectedCfg: housekeeping.OptimizeRepositoryConfig{
+				Strategy: housekeeping.HeuristicalOptimizationStrategy{},
+			},
+		},
+		{
+			desc: "heuristical strategy",
+			request: &gitalypb.OptimizeRepositoryRequest{
+				Repository: repoProto,
+				Strategy:   gitalypb.OptimizeRepositoryRequest_STRATEGY_HEURISTICAL,
+			},
+			expectedCfg: housekeeping.OptimizeRepositoryConfig{
+				Strategy: housekeeping.HeuristicalOptimizationStrategy{},
+			},
+		},
+		{
+			desc: "eager strategy",
+			request: &gitalypb.OptimizeRepositoryRequest{
+				Repository: repoProto,
+				Strategy:   gitalypb.OptimizeRepositoryRequest_STRATEGY_EAGER,
+			},
+			expectedCfg: housekeeping.OptimizeRepositoryConfig{
+				Strategy: housekeeping.EagerOptimizationStrategy{},
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			response, err := client.OptimizeRepository(ctx, tc.request)
+			require.NoError(t, err)
+			testhelper.ProtoEqual(t, &gitalypb.OptimizeRepositoryResponse{}, response)
+
+			require.Equal(t, tc.expectedCfg, <-housekeepingManager.cfgCh)
+		})
+	}
+}
+
+func TestOptimizeRepository_validation(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
 	cfg, repo, _, client := setupRepositoryService(t, ctx)
 
-	testCases := []struct {
-		desc string
-		repo *gitalypb.Repository
-		exp  error
+	for _, tc := range []struct {
+		desc        string
+		request     *gitalypb.OptimizeRepositoryRequest
+		expectedErr error
 	}{
 		{
-			desc: "empty repository",
-			repo: nil,
-			exp:  status.Error(codes.InvalidArgument, gitalyOrPraefect("empty Repository", "repo scoped: empty Repository")),
+			desc:    "empty repository",
+			request: &gitalypb.OptimizeRepositoryRequest{},
+			expectedErr: helper.ErrInvalidArgumentf(gitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 		{
 			desc: "invalid repository storage",
-			repo: &gitalypb.Repository{StorageName: "non-existent", RelativePath: repo.GetRelativePath()},
-			exp:  status.Error(codes.InvalidArgument, gitalyOrPraefect(`GetStorageByName: no such storage: "non-existent"`, "repo scoped: invalid Repository")),
+			request: &gitalypb.OptimizeRepositoryRequest{
+				Repository: &gitalypb.Repository{
+					StorageName:  "non-existent",
+					RelativePath: repo.GetRelativePath(),
+				},
+			},
+			expectedErr: helper.ErrInvalidArgumentf(gitalyOrPraefect(
+				`GetStorageByName: no such storage: "non-existent"`,
+				"repo scoped: invalid Repository"),
+			),
 		},
 		{
 			desc: "invalid repository path",
-			repo: &gitalypb.Repository{StorageName: repo.GetStorageName(), RelativePath: "path/not/exist"},
-			exp: status.Error(
-				codes.NotFound,
-				gitalyOrPraefect(
-					fmt.Sprintf(`GetRepoPath: not a git repository: "%s/path/not/exist"`, cfg.Storages[0].Path),
-					`routing repository maintenance: getting repository metadata: repository not found`,
-				),
-			),
+			request: &gitalypb.OptimizeRepositoryRequest{
+				Repository: &gitalypb.Repository{
+					StorageName:  repo.GetStorageName(),
+					RelativePath: "path/not/exist",
+				},
+			},
+			expectedErr: helper.ErrNotFoundf(gitalyOrPraefect(
+				fmt.Sprintf(`GetRepoPath: not a git repository: "%s/path/not/exist"`, cfg.Storages[0].Path),
+				`routing repository maintenance: getting repository metadata: repository not found`,
+			)),
 		},
-	}
-
-	for _, tc := range testCases {
+		{
+			desc: "invalid optimization strategy",
+			request: &gitalypb.OptimizeRepositoryRequest{
+				Repository: repo,
+				Strategy:   12,
+			},
+			expectedErr: helper.ErrInvalidArgumentf("unsupported optimization strategy 12"),
+		},
+	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			_, err := client.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{Repository: tc.repo})
-			require.Error(t, err)
-			testhelper.RequireGrpcError(t, tc.exp, err)
+			_, err := client.OptimizeRepository(ctx, tc.request)
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
 	}
-
-	_, err := client.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{Repository: repo})
-	require.NoError(t, err)
 }

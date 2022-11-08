@@ -424,3 +424,57 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackReferences() bool {
 
 	return true
 }
+
+// EagerOptimizationStrategy is a strategy that will eagerly perform optimizations. All of the data
+// structures will be optimized regardless of whether they already are in an optimal state or not.
+type EagerOptimizationStrategy struct {
+	hasAlternate bool
+	isObjectPool bool
+}
+
+// NewEagerOptimizationStrategy creates a new EagerOptimizationStrategy.
+func NewEagerOptimizationStrategy(ctx context.Context, repo *localrepo.Repo) (EagerOptimizationStrategy, error) {
+	altFile, err := repo.InfoAlternatesPath()
+	if err != nil {
+		return EagerOptimizationStrategy{}, fmt.Errorf("getting alternates path: %w", err)
+	}
+
+	hasAlternate := true
+	if _, err := os.Stat(altFile); os.IsNotExist(err) {
+		hasAlternate = false
+	}
+
+	return EagerOptimizationStrategy{
+		hasAlternate: hasAlternate,
+		isObjectPool: IsPoolRepository(repo),
+	}, nil
+}
+
+// ShouldRepackObjects always instructs the caller to repack objects. The strategy will always be to
+// repack all objects into a single packfile. The bitmap will be written in case the repository does
+// not have any alterantes.
+func (s EagerOptimizationStrategy) ShouldRepackObjects() (bool, RepackObjectsConfig) {
+	return true, RepackObjectsConfig{
+		FullRepack:  true,
+		WriteBitmap: !s.hasAlternate,
+	}
+}
+
+// ShouldWriteCommitGraph always instructs the caller to write the commit-graph. The strategy will
+// always be to completely rewrite the commit-graph chain.
+func (s EagerOptimizationStrategy) ShouldWriteCommitGraph() (bool, WriteCommitGraphConfig) {
+	return true, WriteCommitGraphConfig{
+		ReplaceChain: true,
+	}
+}
+
+// ShouldPruneObjects always instructs the caller to prune objects, unless the repository is an
+// object pool.
+func (s EagerOptimizationStrategy) ShouldPruneObjects() bool {
+	return !s.isObjectPool
+}
+
+// ShouldRepackReferences always instructs the caller to repack references.
+func (s EagerOptimizationStrategy) ShouldRepackReferences() bool {
+	return true
+}

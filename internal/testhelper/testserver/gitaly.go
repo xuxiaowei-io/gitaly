@@ -445,3 +445,12 @@ func WithPackObjectsLimiter(limiter *limithandler.ConcurrencyLimiter) GitalyServ
 		return deps
 	}
 }
+
+// WithHousekeepingManager sets the housekeeping.Manager that will be used for Gitaly services
+// initialization.
+func WithHousekeepingManager(manager housekeeping.Manager) GitalyServerOpt {
+	return func(deps gitalyServerDeps) gitalyServerDeps {
+		deps.housekeepingManager = manager
+		return deps
+	}
+}
