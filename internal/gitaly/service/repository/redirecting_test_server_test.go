@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -46,21 +45,11 @@ func TestRedirectingServerRedirects(t *testing.T) {
 	dir := testhelper.TempDir(t)
 
 	httpServerState, redirectingServer := StartRedirectingTestServer()
-	ctx := testhelper.Context(t)
 
 	var stderr bytes.Buffer
-	cmd, err := gittest.NewCommandFactory(t, cfg).NewWithoutRepo(ctx, git.SubCmd{
-		Name: "clone",
-		Flags: []git.Option{
-			git.Flag{Name: "--bare"},
-		},
-		Args: []string{
-			redirectingServer.URL, dir,
-		},
-	}, git.WithConfig(git.ConfigPair{Key: "http.followRedirects", Value: "true"}), git.WithDisabledHooks(), git.WithStderr(&stderr))
-	require.NoError(t, err)
-
-	require.Error(t, cmd.Wait())
+	cloneCmd := gittest.NewCommand(t, cfg, "clone", "--bare", redirectingServer.URL, dir)
+	cloneCmd.Stderr = &stderr
+	require.Error(t, cloneCmd.Run())
 	require.Contains(t, stderr.String(), "unable to update url base from redirection")
 
 	redirectingServer.Close()
