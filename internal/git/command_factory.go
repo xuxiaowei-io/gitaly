@@ -41,8 +41,9 @@ type CommandFactory interface {
 }
 
 type execCommandFactoryConfig struct {
-	hooksPath     string
-	gitBinaryPath string
+	hooksPath      string
+	gitBinaryPath  string
+	cgroupsManager cgroups.Manager
 }
 
 // ExecCommandFactoryOption is an option that can be passed to NewExecCommandFactory.
@@ -66,6 +67,13 @@ func WithHooksPath(hooksPath string) ExecCommandFactoryOption {
 func WithGitBinaryPath(path string) ExecCommandFactoryOption {
 	return func(cfg *execCommandFactoryConfig) {
 		cfg.gitBinaryPath = path
+	}
+}
+
+// WithCgroupsManager overrides the Cgroups manager used by the command factory.
+func WithCgroupsManager(cgroupsManager cgroups.Manager) ExecCommandFactoryOption {
+	return func(cfg *execCommandFactoryConfig) {
+		cfg.cgroupsManager = cgroupsManager
 	}
 }
 
@@ -124,11 +132,16 @@ func NewExecCommandFactory(cfg config.Cfg, opts ...ExecCommandFactoryOption) (_ 
 	}
 	cleanups = append(cleanups, cleanup)
 
+	cgroupsManager := factoryCfg.cgroupsManager
+	if cgroupsManager == nil {
+		cgroupsManager = cgroups.NewManager(cfg.Cgroups, os.Getpid())
+	}
+
 	gitCmdFactory := &ExecCommandFactory{
 		cfg:            cfg,
 		execEnvs:       execEnvs,
 		locator:        config.NewLocator(cfg),
-		cgroupsManager: cgroups.NewManager(cfg.Cgroups, os.Getpid()),
+		cgroupsManager: cgroupsManager,
 		invalidCommandsMetric: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "gitaly_invalid_commands_total",

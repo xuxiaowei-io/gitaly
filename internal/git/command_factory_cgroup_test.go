@@ -1,21 +1,19 @@
 //go:build !gitaly_test_sha256
 
-package git
+package git_test
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 )
 
 type mockCgroupsManager struct {
@@ -39,30 +37,16 @@ func (m *mockCgroupsManager) Collect(ch chan<- prometheus.Metric) {}
 func (m *mockCgroupsManager) Describe(ch chan<- *prometheus.Desc) {}
 
 func TestNewCommandAddsToCgroup(t *testing.T) {
-	root := testhelper.TempDir(t)
+	t.Parallel()
 
-	cfg := config.Cfg{
-		BinDir:     filepath.Join(root, "bin.d"),
-		SocketPath: "/path/to/socket",
-		Git: config.Git{
-			IgnoreGitconfig: true,
-		},
-		Cgroups: cgroups.Config{
-			Repositories: cgroups.Repositories{
-				Count: 1,
-			},
-		},
-		Storages: []config.Storage{{
-			Name: "storage-1",
-			Path: root,
-		}},
-	}
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
 
-	require.NoError(t, os.MkdirAll(cfg.BinDir, 0o755))
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+	})
 
-	gitCmdFactory := newCommandFactory(t, cfg, WithSkipHooks())
-
-	testCases := []struct {
+	for _, tc := range []struct {
 		desc      string
 		cgroupsFF bool
 	}{
@@ -74,28 +58,25 @@ func TestNewCommandAddsToCgroup(t *testing.T) {
 			desc:      "cgroups feature flag off",
 			cgroupsFF: false,
 		},
-	}
-
-	for _, tc := range testCases {
+	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			dir := testhelper.TempDir(t)
+			ctx := featureflag.IncomingCtxWithFeatureFlag(ctx, featureflag.RunCommandsInCGroup, tc.cgroupsFF)
 
 			var manager mockCgroupsManager
-			gitCmdFactory.cgroupsManager = &manager
-			ctx := testhelper.Context(t)
+			gitCmdFactory := gittest.NewCommandFactory(t, cfg, git.WithCgroupsManager(&manager))
 
-			ctx = featureflag.IncomingCtxWithFeatureFlag(ctx, featureflag.RunCommandsInCGroup, tc.cgroupsFF)
-
-			cmd := SubCmd{
-				Name: "hash-object",
-			}
-
-			_, err := gitCmdFactory.NewWithDir(ctx, dir, &cmd)
+			cmd, err := gitCmdFactory.New(ctx, repo, &git.SubCmd{
+				Name: "rev-parse",
+				Flags: []git.Option{
+					git.Flag{Name: "--is-bare-repository"},
+				},
+			})
 			require.NoError(t, err)
+			require.NoError(t, cmd.Wait())
 
 			if tc.cgroupsFF {
 				require.Len(t, manager.commands, 1)
-				assert.Contains(t, manager.commands[0].Args(), "hash-object")
+				require.Contains(t, manager.commands[0].Args(), "rev-parse")
 				return
 			}
 
