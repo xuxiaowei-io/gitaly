@@ -170,6 +170,7 @@ type cmdCfg struct {
 	globals         []GlobalOption
 	commandOpts     []command.Option
 	hooksConfigured bool
+	worktreePath    string
 }
 
 // CmdOpt is an option for running a command
@@ -317,6 +318,14 @@ func withInternalFetch(req repoScopedRequest, withSidechannel bool) func(ctx con
 func WithFinalizer(finalizer func(*command.Command)) CmdOpt {
 	return func(_ context.Context, _ config.Cfg, _ CommandFactory, c *cmdCfg) error {
 		c.commandOpts = append(c.commandOpts, command.WithFinalizer(finalizer))
+		return nil
+	}
+}
+
+// WithWorktree sets up the Git command to run in the given worktree path by using the `-C` switch.
+func WithWorktree(worktreePath string) CmdOpt {
+	return func(_ context.Context, _ config.Cfg, _ CommandFactory, c *cmdCfg) error {
+		c.worktreePath = worktreePath
 		return nil
 	}
 }

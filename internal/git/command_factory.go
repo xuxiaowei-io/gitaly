@@ -400,13 +400,20 @@ func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo repository.Gi
 
 	env := config.env
 
+	var repoPath string
 	if repo != nil {
-		repoPath, err := cf.locator.GetRepoPath(repo)
+		var err error
+		repoPath, err = cf.locator.GetRepoPath(repo)
 		if err != nil {
 			return nil, err
 		}
 
 		env = append(alternates.Env(repoPath, repo.GetGitObjectDirectory(), repo.GetGitAlternateObjectDirectories()), env...)
+	}
+
+	if config.worktreePath != "" {
+		args = append([]string{"-C", config.worktreePath}, args...)
+	} else if repoPath != "" {
 		args = append([]string{"--git-dir", repoPath}, args...)
 	}
 
