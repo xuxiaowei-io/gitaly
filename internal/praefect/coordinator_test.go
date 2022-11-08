@@ -1805,7 +1805,7 @@ func TestCoordinatorEnqueueFailure(t *testing.T) {
 	errQ <- errors.New(expectErrMsg)
 	_, err = mcli.RepoMutatorUnary(ctx, repoReq)
 	require.Error(t, err)
-	require.Equal(t, err.Error(), "rpc error: code = Unknown desc = enqueue replication event: "+expectErrMsg)
+	require.Equal(t, err.Error(), "rpc error: code = Internal desc = enqueue replication event: "+expectErrMsg)
 }
 
 func TestStreamDirectorStorageScope(t *testing.T) {
@@ -2098,7 +2098,7 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 			errByNode: map[string]error{
 				"primary": errors.New("foo"),
 			},
-			expectedErr: status.Error(codes.Unknown, "foo"),
+			expectedErr: status.Error(codes.Internal, "foo"),
 		},
 		{
 			desc: "secondary error gets ignored",
@@ -2113,7 +2113,7 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 				"secondary-1": errors.New("secondary-1"),
 				"secondary-2": errors.New("secondary-2"),
 			},
-			expectedErr: status.Error(codes.Unknown, "primary"),
+			expectedErr: status.Error(codes.Internal, "primary"),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

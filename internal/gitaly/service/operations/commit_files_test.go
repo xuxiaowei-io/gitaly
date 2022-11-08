@@ -808,7 +808,7 @@ func TestUserCommitFiles(t *testing.T) {
 							},
 						}),
 					},
-					error: status.Error(codes.Unknown, "NoMethodError: undefined method `downcase' for -1:Integer"),
+					error: status.Error(codes.Internal, "NoMethodError: undefined method `downcase' for -1:Integer"),
 				},
 			},
 		},
