@@ -38,9 +38,10 @@ const (
 	Fatal = "fatal"
 )
 
-// Check is a struct representing a check on the health of a Gitaly cluster's setup. These are separate from the "healthcheck"
-// concept which is more concerned with the health of the praefect service. These checks are meant to diagnose any issues with
-// the praefect cluster setup itself and will be run on startup/restarts.
+// Check represents a check to be performed to validate Gitaly cluster health.
+// Checks are used to diagnose issues with Praefect cluster setup through the
+// Praefect CLI `check` subcommand and also performed through the invoking of
+// the readiness RPC.
 type Check struct {
 	Run         func(ctx context.Context) error
 	Name        string
@@ -59,6 +60,16 @@ func AllChecks() []CheckFunc {
 		NewPostgresReadWriteCheck,
 		NewUnavailableReposCheck,
 		NewClockSyncCheck(helper.CheckClockSync),
+	}
+}
+
+// ReadinessChecks returns the checks invoked by the Praefect readiness RPC.
+func ReadinessChecks() []CheckFunc {
+	return []CheckFunc{
+		NewPraefectMigrationCheck,
+		NewGitalyNodeConnectivityCheck,
+		NewPostgresReadWriteCheck,
+		NewUnavailableReposCheck,
 	}
 }
 
@@ -204,7 +215,7 @@ func NewUnavailableReposCheck(conf config.Config, w io.Writer, quiet bool) *Chec
 }
 
 // NewClockSyncCheck returns a function that returns a check that verifies if system clock is in sync.
-func NewClockSyncCheck(clockDriftCheck func(ntpHost string, driftThreshold time.Duration) (bool, error)) func(_ config.Config, _ io.Writer, _ bool) *Check {
+func NewClockSyncCheck(clockDriftCheck func(ntpHost string, driftThreshold time.Duration) (bool, error)) CheckFunc {
 	return func(conf config.Config, w io.Writer, quite bool) *Check {
 		return &Check{
 			Name: "clock synchronization",
