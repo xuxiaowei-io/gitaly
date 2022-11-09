@@ -12,34 +12,33 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/grpc-proxy/proxy"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/mock"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/nodes/tracker"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-type simpleService struct {
-	mock.UnimplementedSimpleServiceServer
+type repositoryService struct {
+	gitalypb.UnimplementedRepositoryServiceServer
 }
 
-func (s *simpleService) RepoAccessorUnary(ctx context.Context, in *mock.RepoRequest) (*emptypb.Empty, error) {
-	if in.GetRepo() == nil {
+func (s *repositoryService) RepositoryExists(ctx context.Context, req *gitalypb.RepositoryExistsRequest) (*gitalypb.RepositoryExistsResponse, error) {
+	if req.GetRepository() == nil {
 		return nil, helper.ErrInternalf("error")
 	}
 
-	return &emptypb.Empty{}, nil
+	return &gitalypb.RepositoryExistsResponse{}, nil
 }
 
-func (s *simpleService) RepoMutatorUnary(ctx context.Context, in *mock.RepoRequest) (*emptypb.Empty, error) {
-	if in.GetRepo() == nil {
+func (s *repositoryService) WriteRef(ctx context.Context, req *gitalypb.WriteRefRequest) (*gitalypb.WriteRefResponse, error) {
+	if req.GetRepository() == nil {
 		return nil, helper.ErrInternalf("error")
 	}
 
-	return &emptypb.Empty{}, nil
+	return &gitalypb.WriteRefResponse{}, nil
 }
 
 func TestStreamInterceptor(t *testing.T) {
@@ -59,10 +58,7 @@ func TestStreamInterceptor(t *testing.T) {
 	lis, err := net.Listen("unix", internalServerSocketPath)
 	require.NoError(t, err)
 
-	registry, err := protoregistry.NewFromPaths("praefect/mock/mock.proto")
-	require.NoError(t, err)
-
-	mock.RegisterSimpleServiceServer(internalSrv, &simpleService{})
+	gitalypb.RegisterRepositoryServiceServer(internalSrv, &repositoryService{})
 
 	go testhelper.MustServe(t, internalSrv, lis)
 	defer internalSrv.Stop()
@@ -76,7 +72,7 @@ func TestStreamInterceptor(t *testing.T) {
 			cc, err := grpc.Dial("unix://"+internalServerSocketPath,
 				grpc.WithDefaultCallOptions(grpc.ForceCodec(proxy.NewCodec())),
 				grpc.WithTransportCredentials(insecure.NewCredentials()),
-				grpc.WithStreamInterceptor(StreamErrorHandler(registry, errTracker, nodeName)),
+				grpc.WithStreamInterceptor(StreamErrorHandler(protoregistry.GitalyProtoPreregistered, errTracker, nodeName)),
 			)
 			require.NoError(t, err)
 			t.Cleanup(func() { testhelper.MustClose(t, cc) })
@@ -98,17 +94,17 @@ func TestStreamInterceptor(t *testing.T) {
 	defer testhelper.MustClose(t, praefectCC)
 	require.NoError(t, err)
 
-	simpleClient := mock.NewSimpleServiceClient(praefectCC)
+	client := gitalypb.NewRepositoryServiceClient(praefectCC)
 
 	_, repo, _ := testcfg.BuildWithRepo(t)
 
 	for i := 0; i < threshold; i++ {
-		_, err = simpleClient.RepoAccessorUnary(ctx, &mock.RepoRequest{
-			Repo: repo,
+		_, err = client.RepositoryExists(ctx, &gitalypb.RepositoryExistsRequest{
+			Repository: repo,
 		})
 		require.NoError(t, err)
-		_, err = simpleClient.RepoMutatorUnary(ctx, &mock.RepoRequest{
-			Repo: repo,
+		_, err = client.WriteRef(ctx, &gitalypb.WriteRefRequest{
+			Repository: repo,
 		})
 		require.NoError(t, err)
 	}
@@ -117,12 +113,12 @@ func TestStreamInterceptor(t *testing.T) {
 	assert.False(t, errTracker.ReadThresholdReached(nodeName))
 
 	for i := 0; i < threshold; i++ {
-		_, err = simpleClient.RepoAccessorUnary(ctx, &mock.RepoRequest{
-			Repo: nil,
+		_, err = client.RepositoryExists(ctx, &gitalypb.RepositoryExistsRequest{
+			Repository: nil,
 		})
 		require.Error(t, err)
-		_, err = simpleClient.RepoMutatorUnary(ctx, &mock.RepoRequest{
-			Repo: nil,
+		_, err = client.WriteRef(ctx, &gitalypb.WriteRefRequest{
+			Repository: nil,
 		})
 		require.Error(t, err)
 	}
@@ -133,12 +129,12 @@ func TestStreamInterceptor(t *testing.T) {
 	isInErrorWindow = false
 
 	for i := 0; i < threshold; i++ {
-		_, err = simpleClient.RepoAccessorUnary(ctx, &mock.RepoRequest{
-			Repo: repo,
+		_, err = client.RepositoryExists(ctx, &gitalypb.RepositoryExistsRequest{
+			Repository: repo,
 		})
 		require.NoError(t, err)
-		_, err = simpleClient.RepoMutatorUnary(ctx, &mock.RepoRequest{
-			Repo: repo,
+		_, err = client.WriteRef(ctx, &gitalypb.WriteRefRequest{
+			Repository: repo,
 		})
 		require.NoError(t, err)
 	}
