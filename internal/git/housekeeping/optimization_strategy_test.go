@@ -74,7 +74,7 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 				// ... and one stale object.
 				staleObjectPath := filepath.Join(shard, "5678")
 				require.NoError(t, os.WriteFile(staleObjectPath, nil, 0o644))
-				twoWeeksAgo := time.Now().Add(-1 * 2 * 7 * 24 * time.Hour)
+				twoWeeksAgo := time.Now().Add(CutOffTime)
 				require.NoError(t, os.Chtimes(staleObjectPath, twoWeeksAgo, twoWeeksAgo))
 
 				return repoProto
