@@ -16,7 +16,7 @@ variables:
   UBI_VERSION: "8.6"
   # We use Gitaly's Git version by default.
   GIT_VERSION: "default"
-  GO_VERSION: "1.18"
+  GO_VERSION: "1.19"
   RUBY_VERSION: "2.7"
   POSTGRES_VERSION: "12.6-alpine"
   PGBOUNCER_VERSION: "1.16.1"
@@ -155,7 +155,7 @@ build:
     - _support/test-boot . ${TEST_BOOT_ARGS}
   parallel:
     matrix:
-      - GO_VERSION: [ "1.18" ]
+      - GO_VERSION: [ "1.18", "1.19" ]
         TEST_BOOT_ARGS: "--bundled-git"
       - GIT_VERSION: "v2.37.0"
 
@@ -180,7 +180,7 @@ build:binaries:
     expire_in: 6 months
   parallel:
     matrix:
-      - GO_VERSION: [ "1.18" ]
+      - GO_VERSION: [ "1.18", "1.19" ]
 
 test:
   <<: *test_definition
@@ -188,7 +188,7 @@ test:
     matrix:
       # The following jobs all test with our default Git version, which is
       # using bundled Git binaries.
-      - GO_VERSION: [ "1.18" ]
+      - GO_VERSION: [ "1.18", "1.19" ]
         TEST_TARGET: test
       - TEST_TARGET: [ test-with-proxies, test-with-praefect, race-go ]
       # We also verify that things work as expected with a non-bundled Git
@@ -285,6 +285,8 @@ test:fips:
     matrix:
       - TEST_TARGET: [ test, test-with-praefect ]
         FIPS_MODE: "YesPlease"
+        # There is no Go 1.19 release yet for the FIPS-based images.
+        GO_VERSION: "1.18"
   rules:
     # When running in a fork of Gitaly we don't have the runners available, and
     # consequentially this job would fail anyway. So we configure the job to be

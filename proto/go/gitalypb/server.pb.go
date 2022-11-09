@@ -380,6 +380,7 @@ type ReadinessCheckResponse struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to Result:
+	//
 	//	*ReadinessCheckResponse_OkResponse
 	//	*ReadinessCheckResponse_FailureResponse
 	Result isReadinessCheckResponse_Result `protobuf_oneof:"Result"`
