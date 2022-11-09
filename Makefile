@@ -484,8 +484,6 @@ proto: ${PROTOC} ${PROTOC_GEN_GO} ${PROTOC_GEN_GO_GRPC} ${PROTOC_GEN_GITALY_PROT
 	${Q}rm -f ${SOURCE_DIR}/proto/go/gitalypb/*.pb.go
 	${PROTOC} ${SHARED_PROTOC_OPTS} -I ${SOURCE_DIR}/proto -I ${PROTOC_INSTALL_DIR}/include --go_out=${SOURCE_DIR}/proto/go/gitalypb --gitaly-protolist_out=proto_dir=${SOURCE_DIR}/proto,gitalypb_dir=${SOURCE_DIR}/proto/go/gitalypb:${SOURCE_DIR} --go-grpc_out=${SOURCE_DIR}/proto/go/gitalypb ${SOURCE_DIR}/proto/*.proto
 	@ # this part is related to the generation of sources from testing proto files
-	${PROTOC} ${SHARED_PROTOC_OPTS} -I ${SOURCE_DIR}/proto -I ${SOURCE_DIR}/internal -I ${PROTOC_INSTALL_DIR}/include --go_out=${SOURCE_DIR}/internal --go-grpc_out=${SOURCE_DIR}/internal \
-		${SOURCE_DIR}/internal/middleware/cache/testdata/stream.proto
 	${PROTOC} ${SHARED_PROTOC_OPTS} -I ${SOURCE_DIR}/proto -I ${SOURCE_DIR}/tools -I ${PROTOC_INSTALL_DIR}/include --go_out=${SOURCE_DIR}/tools --go-grpc_out=${SOURCE_DIR}/tools ${SOURCE_DIR}/tools/protoc-gen-gitaly-lint/testdata/*.proto
 
 .PHONY: check-proto

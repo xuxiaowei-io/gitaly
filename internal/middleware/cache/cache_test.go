@@ -11,7 +11,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	diskcache "gitlab.com/gitlab-org/gitaly/v15/internal/cache"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/middleware/cache/testdata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -42,20 +41,8 @@ func TestInvalidators(t *testing.T) {
 		{
 			desc: "streaming accessor does not invalidate cache",
 			invokeRPC: func(t *testing.T, conn *grpc.ClientConn) {
-				stream, err := testdata.NewTestServiceClient(conn).ClientStreamRepoAccessor(ctx, &testdata.Request{
-					Destination: repo,
-				})
-				require.NoError(t, err)
-
-				_, err = stream.Recv()
-				require.Equal(t, err, io.EOF)
-			},
-		},
-		{
-			desc: "streaming maintainer does not invalidate cache",
-			invokeRPC: func(t *testing.T, conn *grpc.ClientConn) {
-				stream, err := testdata.NewTestServiceClient(conn).ClientStreamRepoMaintainer(ctx, &testdata.Request{
-					Destination: repo,
+				stream, err := gitalypb.NewRepositoryServiceClient(conn).GetConfig(ctx, &gitalypb.GetConfigRequest{
+					Repository: repo,
 				})
 				require.NoError(t, err)
 
@@ -66,10 +53,11 @@ func TestInvalidators(t *testing.T) {
 		{
 			desc: "streaming mutator invalidates cache",
 			invokeRPC: func(t *testing.T, conn *grpc.ClientConn) {
-				stream, err := testdata.NewTestServiceClient(conn).ClientStreamRepoMutator(ctx, &testdata.Request{
-					Destination: repo,
-				})
+				stream, err := gitalypb.NewSSHServiceClient(conn).SSHReceivePack(ctx)
 				require.NoError(t, err)
+				require.NoError(t, stream.Send(&gitalypb.SSHReceivePackRequest{
+					Repository: repo,
+				}))
 
 				_, err = stream.Recv()
 				require.Equal(t, err, io.EOF)
@@ -79,8 +67,8 @@ func TestInvalidators(t *testing.T) {
 		{
 			desc: "unary accessor does not invalidate cache",
 			invokeRPC: func(t *testing.T, conn *grpc.ClientConn) {
-				_, err := testdata.NewTestServiceClient(conn).ClientUnaryRepoAccessor(ctx, &testdata.Request{
-					Destination: repo,
+				_, err := gitalypb.NewRepositoryServiceClient(conn).RepositoryExists(ctx, &gitalypb.RepositoryExistsRequest{
+					Repository: repo,
 				})
 				require.NoError(t, err)
 			},
@@ -88,8 +76,8 @@ func TestInvalidators(t *testing.T) {
 		{
 			desc: "unary maintainer does not invalidate cache",
 			invokeRPC: func(t *testing.T, conn *grpc.ClientConn) {
-				_, err := testdata.NewTestServiceClient(conn).ClientUnaryRepoMaintainer(ctx, &testdata.Request{
-					Destination: repo,
+				_, err := gitalypb.NewRepositoryServiceClient(conn).OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{
+					Repository: repo,
 				})
 				require.NoError(t, err)
 			},
@@ -97,8 +85,8 @@ func TestInvalidators(t *testing.T) {
 		{
 			desc: "unary mutator invalidates cache",
 			invokeRPC: func(t *testing.T, conn *grpc.ClientConn) {
-				_, err := testdata.NewTestServiceClient(conn).ClientUnaryRepoMutator(ctx, &testdata.Request{
-					Destination: repo,
+				_, err := gitalypb.NewRepositoryServiceClient(conn).WriteRef(ctx, &gitalypb.WriteRefRequest{
+					Repository: repo,
 				})
 				require.NoError(t, err)
 			},
@@ -116,26 +104,25 @@ func TestInvalidators(t *testing.T) {
 		{
 			desc: "intercepted method does not invalidate cache",
 			invokeRPC: func(t *testing.T, conn *grpc.ClientConn) {
-				_, err := testdata.NewInterceptedServiceClient(conn).IgnoredMethod(ctx, &testdata.Request{})
+				_, err := gitalypb.NewPraefectInfoServiceClient(conn).GetRepositoryMetadata(ctx, &gitalypb.GetRepositoryMetadataRequest{})
 				require.NoError(t, err)
 			},
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			mockCache := newMockCache()
-			registry, err := protoregistry.NewFromPaths("middleware/cache/testdata/stream.proto")
-			require.NoError(t, err)
 
 			server := grpc.NewServer(
-				grpc.StreamInterceptor(StreamInvalidator(mockCache, registry)),
-				grpc.UnaryInterceptor(UnaryInvalidator(mockCache, registry)),
+				grpc.StreamInterceptor(StreamInvalidator(mockCache, protoregistry.GitalyProtoPreregistered)),
+				grpc.UnaryInterceptor(UnaryInvalidator(mockCache, protoregistry.GitalyProtoPreregistered)),
 			)
 
 			service := &testService{
 				requestCh: make(chan bool, 1),
 			}
-			testdata.RegisterTestServiceServer(server, service)
-			testdata.RegisterInterceptedServiceServer(server, service)
+			gitalypb.RegisterSSHServiceServer(server, service)
+			gitalypb.RegisterRepositoryServiceServer(server, service)
+			gitalypb.RegisterPraefectInfoServiceServer(server, service)
 			grpc_health_v1.RegisterHealthServer(server, service)
 
 			listener, err := net.Listen("tcp", ":0")
@@ -200,40 +187,37 @@ func (mc *mockCache) StartLease(repo *gitalypb.Repository) (diskcache.LeaseEnder
 }
 
 type testService struct {
-	testdata.UnimplementedTestServiceServer
-	testdata.UnimplementedInterceptedServiceServer
+	gitalypb.UnimplementedSSHServiceServer
+	gitalypb.UnimplementedRepositoryServiceServer
+	gitalypb.UnimplementedPraefectInfoServiceServer
 	grpc_health_v1.UnimplementedHealthServer
 	requestCh chan bool
 }
 
-func (ts *testService) ClientStreamRepoMutator(*testdata.Request, testdata.TestService_ClientStreamRepoMutatorServer) error {
+func (ts *testService) SSHReceivePack(server gitalypb.SSHService_SSHReceivePackServer) error {
+	_, err := server.Recv()
+	ts.requestCh <- true
+	return err
+}
+
+func (ts *testService) GetConfig(*gitalypb.GetConfigRequest, gitalypb.RepositoryService_GetConfigServer) error {
 	ts.requestCh <- true
 	return nil
 }
 
-func (ts *testService) ClientStreamRepoAccessor(*testdata.Request, testdata.TestService_ClientStreamRepoAccessorServer) error {
+func (ts *testService) WriteRef(context.Context, *gitalypb.WriteRefRequest) (*gitalypb.WriteRefResponse, error) {
 	ts.requestCh <- true
-	return nil
+	return &gitalypb.WriteRefResponse{}, nil
 }
 
-func (ts *testService) ClientStreamRepoMaintainer(*testdata.Request, testdata.TestService_ClientStreamRepoMaintainerServer) error {
+func (ts *testService) RepositoryExists(context.Context, *gitalypb.RepositoryExistsRequest) (*gitalypb.RepositoryExistsResponse, error) {
 	ts.requestCh <- true
-	return nil
+	return &gitalypb.RepositoryExistsResponse{}, nil
 }
 
-func (ts *testService) ClientUnaryRepoMutator(context.Context, *testdata.Request) (*testdata.Response, error) {
+func (ts *testService) OptimizeRepository(context.Context, *gitalypb.OptimizeRepositoryRequest) (*gitalypb.OptimizeRepositoryResponse, error) {
 	ts.requestCh <- true
-	return &testdata.Response{}, nil
-}
-
-func (ts *testService) ClientUnaryRepoAccessor(context.Context, *testdata.Request) (*testdata.Response, error) {
-	ts.requestCh <- true
-	return &testdata.Response{}, nil
-}
-
-func (ts *testService) ClientUnaryRepoMaintainer(context.Context, *testdata.Request) (*testdata.Response, error) {
-	ts.requestCh <- true
-	return &testdata.Response{}, nil
+	return &gitalypb.OptimizeRepositoryResponse{}, nil
 }
 
 func (ts *testService) Check(context.Context, *grpc_health_v1.HealthCheckRequest) (*grpc_health_v1.HealthCheckResponse, error) {
@@ -241,7 +225,7 @@ func (ts *testService) Check(context.Context, *grpc_health_v1.HealthCheckRequest
 	return &grpc_health_v1.HealthCheckResponse{}, nil
 }
 
-func (ts *testService) IgnoredMethod(context.Context, *testdata.Request) (*testdata.Response, error) {
+func (ts *testService) GetRepositoryMetadata(context.Context, *gitalypb.GetRepositoryMetadataRequest) (*gitalypb.GetRepositoryMetadataResponse, error) {
 	ts.requestCh <- true
-	return &testdata.Response{}, nil
+	return &gitalypb.GetRepositoryMetadataResponse{}, nil
 }
