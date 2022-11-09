@@ -53,7 +53,7 @@ func TestChecksum(t *testing.T) {
 		{
 			desc:         "zero",
 			expectedZero: true,
-			expected:     ObjectHashSHA1.ZeroOID.String(),
+			expected:     ZeroChecksum,
 		},
 		{
 			desc: "single ref",

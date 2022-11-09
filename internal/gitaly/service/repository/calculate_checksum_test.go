@@ -51,7 +51,7 @@ func TestEmptyRepositoryCalculateChecksum(t *testing.T) {
 
 	response, err := client.CalculateChecksum(ctx, request)
 	require.NoError(t, err)
-	require.Equal(t, git.ObjectHashSHA1.ZeroOID.String(), response.Checksum)
+	require.Equal(t, git.ZeroChecksum, response.Checksum)
 }
 
 func TestBrokenRepositoryCalculateChecksum(t *testing.T) {
@@ -125,5 +125,5 @@ func TestInvalidRefsCalculateChecksum(t *testing.T) {
 
 	response, err := client.CalculateChecksum(ctx, request)
 	require.NoError(t, err)
-	require.Equal(t, git.ObjectHashSHA1.ZeroOID.String(), response.Checksum)
+	require.Equal(t, git.ZeroChecksum, response.Checksum)
 }
