@@ -253,7 +253,7 @@ type gitalyServerDeps struct {
 
 func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server) *service.Dependencies {
 	if gsd.logger == nil {
-		gsd.logger = testhelper.NewDiscardingLogger(tb)
+		gsd.logger = testhelper.NewGitalyServerLogger(tb)
 	}
 
 	if gsd.conns == nil {
