@@ -76,7 +76,7 @@ func (s *server) sshReceivePack(stream gitalypb.SSHService_SSHReceivePackServer,
 		return err
 	}
 
-	cmd, err := s.gitCmdFactory.NewWithoutRepo(ctx,
+	cmd, err := s.gitCmdFactory.New(ctx, req.GetRepository(),
 		git.SubCmd{
 			Name: "receive-pack",
 			Args: []string{repoPath},

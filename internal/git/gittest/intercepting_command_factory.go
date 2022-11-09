@@ -119,13 +119,6 @@ func (f *InterceptingCommandFactory) NewWithoutRepo(ctx context.Context, sc git.
 	)...)
 }
 
-// NewWithDir creates a new Git command in the given directory using the intercepting script.
-func (f *InterceptingCommandFactory) NewWithDir(ctx context.Context, dir string, sc git.Cmd, opts ...git.CmdOpt) (*command.Command, error) {
-	return f.interceptingCommandFactory.NewWithDir(ctx, dir, sc, append(
-		opts, git.WithEnv(f.realCommandFactory.GetExecutionEnvironment(ctx).EnvironmentVariables...),
-	)...)
-}
-
 // GetExecutionEnvironment returns the execution environment of the intercetping command factory.
 // The Git binary path will point to the intercepting script, while environment variables will
 // point to the intercepted Git installation.

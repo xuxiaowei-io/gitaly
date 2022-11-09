@@ -111,7 +111,7 @@ func (s *Server) userApplyPatch(ctx context.Context, header *gitalypb.UserApplyP
 	}()
 
 	var stdout, stderr bytes.Buffer
-	cmd, err := s.gitCmdFactory.NewWithDir(ctx, worktreePath,
+	if err := repo.ExecAndWait(ctx,
 		git.SubCmd{
 			Name: "am",
 			Flags: []git.Option{
@@ -131,12 +131,8 @@ func (s *Server) userApplyPatch(ctx context.Context, header *gitalypb.UserApplyP
 		git.WithStdout(&stdout),
 		git.WithStderr(&stderr),
 		git.WithRefTxHook(header.Repository),
-	)
-	if err != nil {
-		return fmt.Errorf("create git am: %w", err)
-	}
-
-	if err := cmd.Wait(); err != nil {
+		git.WithWorktree(worktreePath),
+	); err != nil {
 		// The Ruby implementation doesn't include stderr in errors, which makes
 		// it difficult to determine the cause of an error. This special cases the
 		// user facing patching error which is returned usually to maintain test
@@ -150,7 +146,7 @@ func (s *Server) userApplyPatch(ctx context.Context, header *gitalypb.UserApplyP
 	}
 
 	var revParseStdout, revParseStderr bytes.Buffer
-	revParseCmd, err := s.gitCmdFactory.NewWithDir(ctx, worktreePath,
+	if err := repo.ExecAndWait(ctx,
 		git.SubCmd{
 			Name: "rev-parse",
 			Flags: []git.Option{
@@ -161,12 +157,8 @@ func (s *Server) userApplyPatch(ctx context.Context, header *gitalypb.UserApplyP
 		},
 		git.WithStdout(&revParseStdout),
 		git.WithStderr(&revParseStderr),
-	)
-	if err != nil {
-		return fmt.Errorf("create git rev-parse: %w", gitError{ErrMsg: revParseStderr.String(), Err: err})
-	}
-
-	if err := revParseCmd.Wait(); err != nil {
+		git.WithWorktree(worktreePath),
+	); err != nil {
 		return fmt.Errorf("get patched commit: %w", gitError{ErrMsg: revParseStderr.String(), Err: err})
 	}
 

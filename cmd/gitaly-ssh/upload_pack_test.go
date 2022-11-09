@@ -3,7 +3,6 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"testing"
@@ -40,7 +39,6 @@ func TestVisibilityOfHiddenRefs(t *testing.T) {
 	existingSha := git.ObjectID("1e292f8fedd741b75372e19097c76d327140c312")
 	keepAroundRef := fmt.Sprintf("%s/%s", keepAroundNamespace, existingSha)
 
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 	localRepo := localrepo.NewTestRepo(t, cfg, repo)
 	updater, err := updateref.New(ctx, localRepo)
 
@@ -81,31 +79,20 @@ func TestVisibilityOfHiddenRefs(t *testing.T) {
 
 			require.NoError(t, err)
 
-			env := []string{
-				fmt.Sprintf("GITALY_PAYLOAD=%s", payload),
-				fmt.Sprintf("GITALY_ADDRESS=unix:%s", socketPath),
-				fmt.Sprintf("GITALY_WD=%s", wd),
-				fmt.Sprintf("PATH=.:%s", os.Getenv("PATH")),
-				fmt.Sprintf("GIT_SSH_COMMAND=%s upload-pack", cfg.BinaryPath("gitaly-ssh")),
-			}
-
-			stdout := &bytes.Buffer{}
-			cmd, err := gitCmdFactory.NewWithoutRepo(ctx, git.SubCmd{
-				Name: "ls-remote",
-				Args: []string{
-					fmt.Sprintf("%s:%s", "git@localhost", repoPath),
-					keepAroundRef,
+			stdout := gittest.ExecOpts(t, cfg, gittest.ExecConfig{
+				Env: []string{
+					fmt.Sprintf("GITALY_PAYLOAD=%s", payload),
+					fmt.Sprintf("GITALY_ADDRESS=unix:%s", socketPath),
+					fmt.Sprintf("GITALY_WD=%s", wd),
+					fmt.Sprintf("PATH=.:%s", os.Getenv("PATH")),
+					fmt.Sprintf("GIT_SSH_COMMAND=%s upload-pack", cfg.BinaryPath("gitaly-ssh")),
 				},
-			}, git.WithEnv(env...), git.WithStdout(stdout))
-			require.NoError(t, err)
-
-			err = cmd.Wait()
-			require.NoError(t, err)
+			}, "ls-remote", fmt.Sprintf("%s:%s", "git@localhost", repoPath), keepAroundRef)
 
 			if test.HiddenRefFound {
-				require.Equal(t, fmt.Sprintf("%s\t%s\n", existingSha, keepAroundRef), stdout.String())
+				require.Equal(t, fmt.Sprintf("%s\t%s\n", existingSha, keepAroundRef), string(stdout))
 			} else {
-				require.NotEqual(t, fmt.Sprintf("%s\t%s\n", existingSha, keepAroundRef), stdout.String())
+				require.NotEqual(t, fmt.Sprintf("%s\t%s\n", existingSha, keepAroundRef), string(stdout))
 			}
 		})
 	}
