@@ -202,6 +202,36 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gital
 				},
 				expectedLicenseRuby: &gitalypb.FindLicenseResponse{},
 			},
+			{
+				desc: "license pointing to license file",
+				setup: func(t *testing.T, repoPath string) {
+					gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"),
+						gittest.WithTreeEntries(
+							gittest.TreeEntry{
+								Mode:    "100644",
+								Path:    "mit.txt",
+								Content: mitLicense,
+							},
+							gittest.TreeEntry{
+								Mode:    "100644",
+								Path:    "LICENSE",
+								Content: "mit.txt",
+							},
+						))
+				},
+				expectedLicenseRuby: &gitalypb.FindLicenseResponse{
+					LicenseShortName: "other",
+					LicenseName:      "Other",
+					LicenseNickname:  "LICENSE",
+					LicensePath:      "LICENSE",
+				},
+				expectedLicenseGo: &gitalypb.FindLicenseResponse{
+					LicenseShortName: "mit",
+					LicenseUrl:       "https://opensource.org/licenses/MIT",
+					LicenseName:      "MIT License",
+					LicensePath:      "mit.txt",
+				},
+			},
 		} {
 			t.Run(tc.desc, func(t *testing.T) {
 				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
