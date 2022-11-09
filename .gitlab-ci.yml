@@ -313,7 +313,7 @@ test:macos:
   needs: []
   stage: test
   image: macos-12-xcode-14
-  script:
+  before_script:
     - brew uninstall go
     - brew install cmake go@${GO_VERSION}
     # Older Go versions may be keg-only and thus aren't linked into `PATH` by
@@ -328,7 +328,9 @@ test:macos:
     - pg_ctl status
     - createdb -U $PGUSER $POSTGRES_DB
     - make -j$(nproc) build prepare-tests
+  script:
     - make test-go
+  after_script:
     - *test_after_script
   tags:
     - shared-macos-amd64
