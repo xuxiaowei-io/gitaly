@@ -21,6 +21,16 @@ func (e *ErrAlreadyLocked) Error() string {
 	return fmt.Sprintf("reference is already locked: %q", e.Ref)
 }
 
+// ErrInvalidReferenceFormat indicates a reference name was invalid.
+type ErrInvalidReferenceFormat struct {
+	// ReferenceName is the invalid reference name.
+	ReferenceName string
+}
+
+func (e ErrInvalidReferenceFormat) Error() string {
+	return fmt.Sprintf("invalid reference format: %q", e.ReferenceName)
+}
+
 // Updater wraps a `git update-ref --stdin` process, presenting an interface
 // that allows references to be easily updated in bulk. It is not suitable for
 // concurrent use.
@@ -122,7 +132,10 @@ func (u *Updater) Delete(reference git.ReferenceName) error {
 	return u.Update(reference, u.objectHash.ZeroOID, "")
 }
 
-var refLockedRegex = regexp.MustCompile("cannot lock ref '(.+?)'")
+var (
+	refLockedRegex        = regexp.MustCompile("cannot lock ref '(.+?)'")
+	refInvalidFormatRegex = regexp.MustCompile(`invalid ref format: (.*)\\n"`)
+)
 
 // Prepare prepares the reference transaction by locking all references and determining their
 // current values. The updates are not yet committed and will be rolled back in case there is no
@@ -132,6 +145,11 @@ func (u *Updater) Prepare() error {
 		matches := refLockedRegex.FindSubmatch([]byte(err.Error()))
 		if len(matches) > 1 {
 			return &ErrAlreadyLocked{Ref: string(matches[1])}
+		}
+
+		matches = refInvalidFormatRegex.FindSubmatch([]byte(err.Error()))
+		if len(matches) > 1 {
+			return ErrInvalidReferenceFormat{ReferenceName: string(matches[1])}
 		}
 
 		return err

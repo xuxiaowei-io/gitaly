@@ -207,7 +207,7 @@ func testDeleteRefsInvalidRefFormat(t *testing.T, ctx context.Context) {
 		testhelper.RequireGrpcError(t, detailedErr, err)
 	} else {
 		require.NoError(t, err)
-		assert.Contains(t, response.GitError, "invalid ref format")
+		require.Equal(t, response.GitError, `unable to delete refs: invalid reference format: "refs invalid-ref-format"`)
 	}
 }
 
