@@ -21,7 +21,7 @@ func (s *server) FindAllBranchNames(in *gitalypb.FindAllBranchNamesRequest, stre
 
 	chunker := chunk.New(&findAllBranchNamesSender{stream: stream})
 
-	return s.listRefNames(stream.Context(), chunker, "refs/heads", in.Repository, nil)
+	return helper.ErrInternal(s.listRefNames(stream.Context(), chunker, "refs/heads", in.Repository, nil))
 }
 
 type findAllBranchNamesSender struct {
@@ -45,8 +45,7 @@ func (s *server) FindAllTagNames(in *gitalypb.FindAllTagNamesRequest, stream git
 	}
 
 	chunker := chunk.New(&findAllTagNamesSender{stream: stream})
-
-	return s.listRefNames(stream.Context(), chunker, "refs/tags", in.Repository, nil)
+	return helper.ErrInternal(s.listRefNames(stream.Context(), chunker, "refs/tags", in.Repository, nil))
 }
 
 type findAllTagNamesSender struct {
