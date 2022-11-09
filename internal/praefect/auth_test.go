@@ -13,7 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/auth"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/mock"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/transactions"
@@ -61,9 +60,9 @@ func TestAuthFailures(t *testing.T) {
 			require.NoError(t, err, tc.desc)
 			defer conn.Close()
 
-			cli := mock.NewSimpleServiceClient(conn)
+			cli := gitalypb.NewRepositoryServiceClient(conn)
 
-			_, err = cli.RepoAccessorUnary(ctx, &mock.RepoRequest{})
+			_, err = cli.RepositoryExists(ctx, &gitalypb.RepositoryExistsRequest{})
 			testhelper.RequireGrpcCode(t, err, tc.code)
 		})
 	}
@@ -133,7 +132,7 @@ func dial(serverSocketPath string, opts []grpc.DialOption) (*grpc.ClientConn, er
 func runServer(t *testing.T, token string, required bool) (*grpc.Server, string, func()) {
 	backendToken := "abcxyz"
 	backend, cleanup := newMockDownstream(t, backendToken, func(srv *grpc.Server) {
-		mock.RegisterSimpleServiceServer(srv, &mockSvc{})
+		gitalypb.RegisterRepositoryServiceServer(srv, &gitalypb.UnimplementedRepositoryServiceServer{})
 	})
 
 	conf := config.Config{
@@ -160,12 +159,9 @@ func runServer(t *testing.T, token string, required bool) (*grpc.Server, string,
 
 	txMgr := transactions.NewManager(conf)
 
-	registry, err := protoregistry.NewFromPaths("praefect/mock/mock.proto")
-	require.NoError(t, err)
+	coordinator := NewCoordinator(queue, nil, NewNodeManagerRouter(nodeMgr, nil), txMgr, conf, protoregistry.GitalyProtoPreregistered)
 
-	coordinator := NewCoordinator(queue, nil, NewNodeManagerRouter(nodeMgr, nil), txMgr, conf, registry)
-
-	srv := NewGRPCServer(conf, logEntry, registry, coordinator.StreamDirector, txMgr, nil, nil, nil, nil, nil, nil)
+	srv := NewGRPCServer(conf, logEntry, protoregistry.GitalyProtoPreregistered, coordinator.StreamDirector, txMgr, nil, nil, nil, nil, nil, nil)
 
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
