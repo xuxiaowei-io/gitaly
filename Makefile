@@ -26,6 +26,7 @@ ARCH := $(shell uname -m)
 # Directories
 SOURCE_DIR       := $(abspath $(dir $(lastword ${MAKEFILE_LIST})))
 BUILD_DIR        := ${SOURCE_DIR}/_build
+PROTO_DEST_DIR   := ${SOURCE_DIR}/proto/go
 DEPENDENCY_DIR   := ${BUILD_DIR}/deps
 TOOLS_DIR        := ${BUILD_DIR}/tools
 GITALY_RUBY_DIR  := ${SOURCE_DIR}/ruby
@@ -480,9 +481,8 @@ cover: prepare-tests libgit2 ${GOCOVER_COBERTURA}
 ## Regenerate protobuf definitions.
 proto: SHARED_PROTOC_OPTS = --plugin=${PROTOC_GEN_GO} --plugin=${PROTOC_GEN_GO_GRPC} --plugin=${PROTOC_GEN_GITALY_PROTOLIST} --go_opt=paths=source_relative --go-grpc_opt=paths=source_relative
 proto: ${PROTOC} ${PROTOC_GEN_GO} ${PROTOC_GEN_GO_GRPC} ${PROTOC_GEN_GITALY_PROTOLIST}
-	${Q}mkdir -p ${SOURCE_DIR}/proto/go/gitalypb
-	${Q}rm -f ${SOURCE_DIR}/proto/go/gitalypb/*.pb.go
-	${Q}${PROTOC} ${SHARED_PROTOC_OPTS} -I ${SOURCE_DIR}/proto -I ${PROTOC_INSTALL_DIR}/include --go_out=${SOURCE_DIR}/proto/go/gitalypb --gitaly-protolist_out=proto_dir=${SOURCE_DIR}/proto,gitalypb_dir=${SOURCE_DIR}/proto/go/gitalypb:${SOURCE_DIR} --go-grpc_out=${SOURCE_DIR}/proto/go/gitalypb ${SOURCE_DIR}/proto/*.proto ${SOURCE_DIR}/proto/testproto/*.proto
+	${Q}rm -rf ${PROTO_DEST_DIR} && mkdir -p ${PROTO_DEST_DIR}/gitalypb
+	${Q}${PROTOC} ${SHARED_PROTOC_OPTS} -I ${SOURCE_DIR}/proto -I ${PROTOC_INSTALL_DIR}/include --go_out=${PROTO_DEST_DIR}/gitalypb --gitaly-protolist_out=proto_dir=${SOURCE_DIR}/proto,gitalypb_dir=${PROTO_DEST_DIR}/gitalypb:${SOURCE_DIR} --go-grpc_out=${PROTO_DEST_DIR}/gitalypb ${SOURCE_DIR}/proto/*.proto ${SOURCE_DIR}/proto/testproto/*.proto
 
 .PHONY: check-proto
 check-proto: no-proto-changes lint-proto
