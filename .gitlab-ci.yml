@@ -313,9 +313,17 @@ test:fips:
       allow_failure: true
 
 test:macos:
+  image: macos-12-xcode-14
+  tags:
+    - shared-macos-amd64
   needs: []
   stage: test
-  image: macos-12-xcode-14
+  variables:
+    <<: *test_variables
+    PGDATA: /usr/local/var/postgres
+    PGHOST: localhost
+    PGUSER: gitlab
+    TEST_OPTIONS: "-timeout=20m" # a number of tests may exceed the default 10m
   before_script:
     - brew uninstall go
     - brew install cmake go@${GO_VERSION}
@@ -335,19 +343,11 @@ test:macos:
     - make test-go
   after_script:
     - *test_after_script
-  tags:
-    - shared-macos-amd64
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
       allow_failure: true
     - when: manual
       allow_failure: true
-  variables:
-    <<: *test_variables
-    PGDATA: /usr/local/var/postgres
-    PGHOST: localhost
-    PGUSER: gitlab
-    TEST_OPTIONS: "-timeout=20m" # a number of tests may exceed the default 10m
   artifacts:
     <<: *test_artifacts
 
