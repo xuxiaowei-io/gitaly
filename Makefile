@@ -239,7 +239,7 @@ GITALY_PACKED_EXECUTABLES    = $(filter %gitaly-hooks %gitaly-git2go %gitaly-ssh
 # All executables that should be installed.
 GITALY_INSTALLED_EXECUTABLES = $(filter-out ${GITALY_PACKED_EXECUTABLES}, ${GITALY_EXECUTABLES})
 # Find all Go source files.
-find_go_sources              = $(shell find ${SOURCE_DIR} -type d \( -name ruby -o -name vendor -o -name testdata -o -name '_*' -o -path '*/proto/go/gitalypb' \) -prune -o -type f -name '*.go' -not -name '*.pb.go' -print | sort -u)
+find_go_sources              = $(shell find ${SOURCE_DIR} -type d \( -path "${SOURCE_DIR}/_*" -o -path "${SOURCE_DIR}/ruby" -o -path "${SOURCE_DIR}/proto" \) -prune -o -type f -name '*.go' -print | sort -u)
 
 # run_go_tests will execute Go tests with all required parameters. Its
 # behaviour can be modified via the following variables:
