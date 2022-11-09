@@ -30,7 +30,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/grpc-proxy/proxy"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/mock"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/nodes/tracker"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/protoregistry"
@@ -53,7 +52,6 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func TestNewBackchannelServerFactory(t *testing.T) {
@@ -895,34 +893,34 @@ func TestErrorThreshold(t *testing.T) {
 	t.Parallel()
 	backendToken := ""
 	backend, cleanup := newMockDownstream(t, backendToken, func(srv *grpc.Server) {
-		service := &mockSvc{
-			repoMutatorUnary: func(ctx context.Context, req *mock.RepoRequest) (*emptypb.Empty, error) {
+		service := &mockRepositoryService{
+			ReplicateRepositoryFunc: func(ctx context.Context, req *gitalypb.ReplicateRepositoryRequest) (*gitalypb.ReplicateRepositoryResponse, error) {
 				md, ok := metadata.FromIncomingContext(ctx)
 				if !ok {
-					return &emptypb.Empty{}, errors.New("couldn't read metadata")
+					return nil, errors.New("couldn't read metadata")
 				}
 
 				if md.Get("bad-header")[0] == "true" {
-					return &emptypb.Empty{}, helper.ErrInternalf("something went wrong")
+					return nil, helper.ErrInternalf("something went wrong")
 				}
 
-				return &emptypb.Empty{}, nil
+				return &gitalypb.ReplicateRepositoryResponse{}, nil
 			},
-			repoAccessorUnary: func(ctx context.Context, req *mock.RepoRequest) (*emptypb.Empty, error) {
+			RepositoryExistsFunc: func(ctx context.Context, req *gitalypb.RepositoryExistsRequest) (*gitalypb.RepositoryExistsResponse, error) {
 				md, ok := metadata.FromIncomingContext(ctx)
 				if !ok {
-					return &emptypb.Empty{}, errors.New("couldn't read metadata")
+					return nil, errors.New("couldn't read metadata")
 				}
 
 				if md.Get("bad-header")[0] == "true" {
-					return &emptypb.Empty{}, helper.ErrInternalf("something went wrong")
+					return nil, helper.ErrInternalf("something went wrong")
 				}
 
-				return &emptypb.Empty{}, nil
+				return &gitalypb.RepositoryExistsResponse{}, nil
 			},
 		}
 
-		mock.RegisterSimpleServiceServer(srv, service)
+		gitalypb.RegisterRepositoryServiceServer(srv, service)
 	})
 	defer cleanup()
 
@@ -964,9 +962,6 @@ func TestErrorThreshold(t *testing.T) {
 		},
 	}
 
-	registry, err := protoregistry.NewFromPaths("praefect/mock/mock.proto")
-	require.NoError(t, err)
-
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			readThreshold := uint32(5000)
@@ -980,7 +975,7 @@ func TestErrorThreshold(t *testing.T) {
 			require.NoError(t, err)
 
 			rs := datastore.MockRepositoryStore{}
-			nodeMgr, err := nodes.NewManager(entry, conf, nil, rs, promtest.NewMockHistogramVec(), registry, errorTracker, nil, nil)
+			nodeMgr, err := nodes.NewManager(entry, conf, nil, rs, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, errorTracker, nil, nil)
 			require.NoError(t, err)
 			defer nodeMgr.Stop()
 
@@ -988,9 +983,9 @@ func TestErrorThreshold(t *testing.T) {
 				queue,
 				rs,
 				NewNodeManagerRouter(nodeMgr, rs),
-				nil,
+				transactions.NewManager(conf),
 				conf,
-				registry,
+				protoregistry.GitalyProtoPreregistered,
 			)
 
 			server := grpc.NewServer(
@@ -1008,7 +1003,7 @@ func TestErrorThreshold(t *testing.T) {
 			conn, err := dial("unix://"+socket, []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())})
 			require.NoError(t, err)
 			defer testhelper.MustClose(t, conn)
-			cli := mock.NewSimpleServiceClient(conn)
+			cli := gitalypb.NewRepositoryServiceClient(conn)
 
 			_, repo, _ := testcfg.BuildWithRepo(t)
 
@@ -1026,16 +1021,19 @@ func TestErrorThreshold(t *testing.T) {
 			for i := 0; i < 5; i++ {
 				ctx := metadata.AppendToOutgoingContext(ctx, "bad-header", "true")
 
-				handler := cli.RepoMutatorUnary
-				if tc.accessor {
-					handler = cli.RepoAccessorUnary
-				}
-
 				healthy, err := node.CheckHealth(ctx)
 				require.NoError(t, err)
 				require.True(t, healthy)
 
-				_, err = handler(ctx, &mock.RepoRequest{Repo: repo})
+				if tc.accessor {
+					_, err = cli.RepositoryExists(ctx, &gitalypb.RepositoryExistsRequest{
+						Repository: repo,
+					})
+				} else {
+					_, err = cli.ReplicateRepository(ctx, &gitalypb.ReplicateRepositoryRequest{
+						Repository: repo,
+					})
+				}
 				testhelper.RequireGrpcError(t, status.Error(codes.Internal, "something went wrong"), err)
 			}
 
