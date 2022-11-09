@@ -32,7 +32,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/grpc-proxy/proxy"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/mock"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/transactions"
@@ -52,7 +51,6 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 var testLogger = logrus.New()
@@ -639,9 +637,6 @@ func TestStreamDirector_maintenance(t *testing.T) {
 
 	testdb.SetHealthyNodes(t, ctx, tx, map[string]map[string][]string{"praefect": cfg.StorageNames()})
 
-	registry, err := protoregistry.NewFromPaths("praefect/mock/mock.proto")
-	require.NoError(t, err)
-
 	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewPostgresReplicationEventQueue(tx))
 
 	coordinator := NewCoordinator(
@@ -659,15 +654,15 @@ func TestStreamDirector_maintenance(t *testing.T) {
 		),
 		nil,
 		cfg,
-		registry,
+		protoregistry.GitalyProtoPreregistered,
 	)
 
-	message, err := proto.Marshal(&mock.RepoRequest{
-		Repo: &repo,
+	message, err := proto.Marshal(&gitalypb.OptimizeRepositoryRequest{
+		Repository: &repo,
 	})
 	require.NoError(t, err)
 
-	methodInfo, err := registry.LookupMethod("/mock.SimpleService/RepoMaintenanceUnary")
+	methodInfo, err := protoregistry.GitalyProtoPreregistered.LookupMethod("/gitaly.RepositoryService/OptimizeRepository")
 	require.NoError(t, err)
 
 	for _, tc := range []struct {
@@ -1769,21 +1764,18 @@ func TestCoordinatorEnqueueFailure(t *testing.T) {
 		return nil, nil
 	})
 
-	ms := &mockSvc{
-		repoMutatorUnary: func(context.Context, *mock.RepoRequest) (*emptypb.Empty, error) {
-			return &emptypb.Empty{}, nil // always succeeds
-		},
-	}
 	registrar := func(srv *grpc.Server) {
-		mock.RegisterSimpleServiceServer(srv, ms)
+		gitalypb.RegisterRepositoryServiceServer(srv, &mockRepositoryService{
+			ReplicateRepositoryFunc: func(context.Context, *gitalypb.ReplicateRepositoryRequest) (*gitalypb.ReplicateRepositoryResponse, error) {
+				return &gitalypb.ReplicateRepositoryResponse{}, nil
+			},
+		})
 	}
 
-	r, err := protoregistry.NewFromPaths("praefect/mock/mock.proto")
-	require.NoError(t, err)
 	ctx := testhelper.Context(t)
 
 	cc, _, cleanup := RunPraefectServer(t, ctx, conf, BuildOptions{
-		WithAnnotations: r,
+		WithAnnotations: protoregistry.GitalyProtoPreregistered,
 		WithQueue:       queueInterceptor,
 		WithBackends: WithMockBackends(t, map[string]func(*grpc.Server){
 			conf.VirtualStorages[0].Nodes[0].Storage: registrar,
@@ -1792,21 +1784,21 @@ func TestCoordinatorEnqueueFailure(t *testing.T) {
 	})
 	defer cleanup()
 
-	mcli := mock.NewSimpleServiceClient(cc)
+	mcli := gitalypb.NewRepositoryServiceClient(cc)
 
 	errQ <- nil
-	repoReq := &mock.RepoRequest{
-		Repo: &gitalypb.Repository{
+	repoReq := &gitalypb.ReplicateRepositoryRequest{
+		Repository: &gitalypb.Repository{
 			RelativePath: "meow",
 			StorageName:  conf.VirtualStorages[0].Name,
 		},
 	}
-	_, err = mcli.RepoMutatorUnary(ctx, repoReq)
+	_, err := mcli.ReplicateRepository(ctx, repoReq)
 	require.NoError(t, err)
 
 	expectErrMsg := "enqueue failed"
 	errQ <- errors.New(expectErrMsg)
-	_, err = mcli.RepoMutatorUnary(ctx, repoReq)
+	_, err = mcli.ReplicateRepository(ctx, repoReq)
 	require.Error(t, err)
 	require.Equal(t, err.Error(), "rpc error: code = Internal desc = enqueue replication event: "+expectErrMsg)
 }
