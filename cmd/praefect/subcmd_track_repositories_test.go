@@ -75,6 +75,7 @@ func TestAddRepositories_Exec_invalidInput(t *testing.T) {
 	rs := datastore.NewPostgresRepositoryStore(db, nil)
 	ctx := testhelper.Context(t)
 	inputFile := "input_file"
+	logger := testhelper.NewDiscardingLogger(t)
 
 	trackRepo := func(relativePath string) error {
 		repositoryID, err := rs.ReserveRepositoryID(ctx, virtualStorageName, relativePath)

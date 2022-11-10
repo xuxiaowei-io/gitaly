@@ -24,7 +24,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestNoConfigFlag(t *testing.T) {
-	_, err := initConfig()
+	_, err := initConfig(testhelper.NewDiscardingLogEntry(t))
 
 	assert.Equal(t, err, errNoConfigFile)
 }
@@ -227,7 +227,8 @@ func TestExcludeDatabaseMetricsFromDefaultMetrics(t *testing.T) {
 			metricRegisterer, dbMetricsRegisterer := newMockRegisterer(), newMockRegisterer()
 			go func() {
 				defer close(stopped)
-				assert.NoError(t, run(starterConfigs, conf, bootstrapper, metricRegisterer, dbMetricsRegisterer))
+				logger := testhelper.NewDiscardingLogEntry(t)
+				assert.NoError(t, run(starterConfigs, conf, logger, bootstrapper, metricRegisterer, dbMetricsRegisterer))
 			}()
 
 			bootstrapper.Terminate()
