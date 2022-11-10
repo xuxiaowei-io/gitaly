@@ -1774,6 +1774,9 @@ func TestCoordinatorEnqueueFailure(t *testing.T) {
 			return &emptypb.Empty{}, nil // always succeeds
 		},
 	}
+	registrar := func(srv *grpc.Server) {
+		mock.RegisterSimpleServiceServer(srv, ms)
+	}
 
 	r, err := protoregistry.NewFromPaths("praefect/mock/mock.proto")
 	require.NoError(t, err)
@@ -1782,9 +1785,9 @@ func TestCoordinatorEnqueueFailure(t *testing.T) {
 	cc, _, cleanup := RunPraefectServer(t, ctx, conf, BuildOptions{
 		WithAnnotations: r,
 		WithQueue:       queueInterceptor,
-		WithBackends: WithMockBackends(t, map[string]mock.SimpleServiceServer{
-			conf.VirtualStorages[0].Nodes[0].Storage: ms,
-			conf.VirtualStorages[0].Nodes[1].Storage: ms,
+		WithBackends: WithMockBackends(t, map[string]func(*grpc.Server){
+			conf.VirtualStorages[0].Nodes[0].Storage: registrar,
+			conf.VirtualStorages[0].Nodes[1].Storage: registrar,
 		}),
 	})
 	defer cleanup()

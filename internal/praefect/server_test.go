@@ -894,31 +894,35 @@ func TestProxyWrites(t *testing.T) {
 func TestErrorThreshold(t *testing.T) {
 	t.Parallel()
 	backendToken := ""
-	backend, cleanup := newMockDownstream(t, backendToken, &mockSvc{
-		repoMutatorUnary: func(ctx context.Context, req *mock.RepoRequest) (*emptypb.Empty, error) {
-			md, ok := metadata.FromIncomingContext(ctx)
-			if !ok {
-				return &emptypb.Empty{}, errors.New("couldn't read metadata")
-			}
+	backend, cleanup := newMockDownstream(t, backendToken, func(srv *grpc.Server) {
+		service := &mockSvc{
+			repoMutatorUnary: func(ctx context.Context, req *mock.RepoRequest) (*emptypb.Empty, error) {
+				md, ok := metadata.FromIncomingContext(ctx)
+				if !ok {
+					return &emptypb.Empty{}, errors.New("couldn't read metadata")
+				}
 
-			if md.Get("bad-header")[0] == "true" {
-				return &emptypb.Empty{}, helper.ErrInternalf("something went wrong")
-			}
+				if md.Get("bad-header")[0] == "true" {
+					return &emptypb.Empty{}, helper.ErrInternalf("something went wrong")
+				}
 
-			return &emptypb.Empty{}, nil
-		},
-		repoAccessorUnary: func(ctx context.Context, req *mock.RepoRequest) (*emptypb.Empty, error) {
-			md, ok := metadata.FromIncomingContext(ctx)
-			if !ok {
-				return &emptypb.Empty{}, errors.New("couldn't read metadata")
-			}
+				return &emptypb.Empty{}, nil
+			},
+			repoAccessorUnary: func(ctx context.Context, req *mock.RepoRequest) (*emptypb.Empty, error) {
+				md, ok := metadata.FromIncomingContext(ctx)
+				if !ok {
+					return &emptypb.Empty{}, errors.New("couldn't read metadata")
+				}
 
-			if md.Get("bad-header")[0] == "true" {
-				return &emptypb.Empty{}, helper.ErrInternalf("something went wrong")
-			}
+				if md.Get("bad-header")[0] == "true" {
+					return &emptypb.Empty{}, helper.ErrInternalf("something went wrong")
+				}
 
-			return &emptypb.Empty{}, nil
-		},
+				return &emptypb.Empty{}, nil
+			},
+		}
+
+		mock.RegisterSimpleServiceServer(srv, service)
 	})
 	defer cleanup()
 
