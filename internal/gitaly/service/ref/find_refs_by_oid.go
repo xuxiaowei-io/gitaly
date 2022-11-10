@@ -43,7 +43,7 @@ func (s *server) FindRefsByOID(ctx context.Context, in *gitalypb.FindRefsByOIDRe
 		if strings.Contains(err.Error(), "exit status 129") {
 			return nil, helper.ErrInvalidArgument(err)
 		}
-		return nil, helper.ErrInternal(err)
+		return nil, err
 	}
 
 	return &gitalypb.FindRefsByOIDResponse{

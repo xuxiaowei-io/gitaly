@@ -15,11 +15,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest) (*gitalypb.DeleteRefsResponse, error) {
 	if err := validateDeleteRefRequest(in); err != nil {
-		return nil, helper.ErrInvalidArgument(err)
+		return nil, status.Errorf(codes.InvalidArgument, "DeleteRefs: %v", err)
 	}
 
 	repo := s.localrepo(in.GetRepository())
@@ -77,7 +79,7 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 		}
 
 		if _, err := voteHash.Write([]byte(ref.String() + "\n")); err != nil {
-			return nil, helper.ErrInternalf("could not update vote hash: %w", err)
+			return nil, helper.ErrInternalf("could not update vote hash: %v", err)
 		}
 	}
 
@@ -112,7 +114,7 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 
 	vote, err := voteHash.Vote()
 	if err != nil {
-		return nil, helper.ErrInternalf("could not compute vote: %w", err)
+		return nil, helper.ErrInternalf("could not compute vote: %v", err)
 	}
 
 	// All deletes we're doing in this RPC are force deletions. Because we're required to filter
@@ -185,22 +187,22 @@ func validateDeleteRefRequest(req *gitalypb.DeleteRefsRequest) error {
 	}
 
 	if len(req.ExceptWithPrefix) > 0 && len(req.Refs) > 0 {
-		return errors.New("ExceptWithPrefix and Refs are mutually exclusive")
+		return fmt.Errorf("ExceptWithPrefix and Refs are mutually exclusive")
 	}
 
 	if len(req.ExceptWithPrefix) == 0 && len(req.Refs) == 0 { // You can't delete all refs
-		return errors.New("empty ExceptWithPrefix and Refs")
+		return fmt.Errorf("empty ExceptWithPrefix and Refs")
 	}
 
 	for _, prefix := range req.ExceptWithPrefix {
 		if len(prefix) == 0 {
-			return errors.New("empty prefix for exclusion")
+			return fmt.Errorf("empty prefix for exclusion")
 		}
 	}
 
 	for _, ref := range req.Refs {
 		if len(ref) == 0 {
-			return errors.New("empty ref")
+			return fmt.Errorf("empty ref")
 		}
 	}
 

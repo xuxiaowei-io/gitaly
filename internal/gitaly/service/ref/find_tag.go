@@ -48,7 +48,7 @@ func parseTagLine(ctx context.Context, objectReader catfile.ObjectReader, tagLin
 	case "tag":
 		tag, err := catfile.GetTag(ctx, objectReader, git.Revision(tagID), refName)
 		if err != nil {
-			return nil, fmt.Errorf("getting annotated tag: %w", err)
+			return nil, fmt.Errorf("getting annotated tag: %v", err)
 		}
 		catfile.TrimTagMessage(tag)
 
@@ -56,7 +56,7 @@ func parseTagLine(ctx context.Context, objectReader catfile.ObjectReader, tagLin
 	case "commit":
 		commit, err := catfile.GetCommit(ctx, objectReader, git.Revision(tagID))
 		if err != nil {
-			return nil, fmt.Errorf("getting commit catfile: %w", err)
+			return nil, fmt.Errorf("getting commit catfile: %v", err)
 		}
 		tag.TargetCommit = commit
 		return tag, nil
@@ -77,12 +77,12 @@ func (s *server) findTag(ctx context.Context, repo git.RepositoryExecutor, tagNa
 		git.WithRefTxHook(repo),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("for-each-ref error: %w", err)
+		return nil, fmt.Errorf("for-each-ref error: %v", err)
 	}
 
 	objectReader, cancel, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
-		return nil, fmt.Errorf("creating object reader: %w", err)
+		return nil, err
 	}
 	defer cancel()
 
@@ -92,7 +92,7 @@ func (s *server) findTag(ctx context.Context, repo git.RepositoryExecutor, tagNa
 	if scanner.Scan() {
 		tag, err = parseTagLine(ctx, objectReader, scanner.Text())
 		if err != nil {
-			return nil, fmt.Errorf("parsing tag: %w", err)
+			return nil, err
 		}
 	} else {
 		detailedErr, err := helper.ErrWithDetails(
@@ -126,7 +126,7 @@ func (s *server) validateFindTagRequest(in *gitalypb.FindTagRequest) error {
 	}
 
 	if _, err := s.locator.GetRepoPath(repository); err != nil {
-		return fmt.Errorf("invalid git directory: %w", err)
+		return fmt.Errorf("invalid git directory: %v", err)
 	}
 
 	if in.GetTagName() == nil {

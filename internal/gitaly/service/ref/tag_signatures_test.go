@@ -60,7 +60,7 @@ func TestGetTagSignatures(t *testing.T) {
 			revisions: []string{
 				"b10ff336f3fbfb131431c4959915cdfd1b49c635",
 			},
-			expectedErr: status.Error(codes.Internal, "cat-file iterator stop: rev-list pipeline command: exit status 128, stderr: \"fatal: bad object b10ff336f3fbfb131431c4959915cdfd1b49c635\\n\""),
+			expectedErr: status.Error(codes.Internal, "rev-list pipeline command: exit status 128, stderr: \"fatal: bad object b10ff336f3fbfb131431c4959915cdfd1b49c635\\n\""),
 		},
 		{
 			desc: "commit id",

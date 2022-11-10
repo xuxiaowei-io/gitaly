@@ -115,7 +115,7 @@ func (s *server) findLocalBranches(in *gitalypb.FindLocalBranchesRequest, stream
 
 	objectReader, cancel, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
-		return fmt.Errorf("creating object reader: %w", err)
+		return err
 	}
 	defer cancel()
 
@@ -127,10 +127,7 @@ func (s *server) findLocalBranches(in *gitalypb.FindLocalBranchesRequest, stream
 		git.Flag{Name: "--sort=" + parseSortKey(in.GetSortBy())},
 	}
 
-	if err := s.findRefs(ctx, writer, repo, []string{"refs/heads"}, opts); err != nil {
-		return fmt.Errorf("finding refs: %w", err)
-	}
-	return nil
+	return s.findRefs(ctx, writer, repo, []string{"refs/heads"}, opts)
 }
 
 func (s *server) FindAllBranches(in *gitalypb.FindAllBranchesRequest, stream gitalypb.RefService_FindAllBranchesServer) error {
@@ -157,7 +154,7 @@ func (s *server) findAllBranches(in *gitalypb.FindAllBranchesRequest, stream git
 	if in.MergedOnly {
 		defaultBranch, err := repo.GetDefaultBranch(stream.Context())
 		if err != nil {
-			return fmt.Errorf("default branch name: %w", err)
+			return err
 		}
 
 		args = append(args, git.Flag{Name: fmt.Sprintf("--merged=%s", defaultBranch.String())})
@@ -174,7 +171,7 @@ func (s *server) findAllBranches(in *gitalypb.FindAllBranchesRequest, stream git
 	ctx := stream.Context()
 	objectReader, cancel, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
-		return fmt.Errorf("creating object reader: %w", err)
+		return err
 	}
 	defer cancel()
 
@@ -183,10 +180,7 @@ func (s *server) findAllBranches(in *gitalypb.FindAllBranchesRequest, stream git
 
 	writer := newFindAllBranchesWriter(stream, objectReader)
 
-	if err = s.findRefs(ctx, writer, repo, patterns, opts); err != nil {
-		return fmt.Errorf("finding refs: %w", err)
-	}
-	return nil
+	return s.findRefs(ctx, writer, repo, patterns, opts)
 }
 
 func buildPaginationOpts(ctx context.Context, p *gitalypb.PaginationParameter) *paginationOpts {
