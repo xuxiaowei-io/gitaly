@@ -277,7 +277,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 				// We set the object's mtime to be almost two weeks ago. Given that
 				// our timeout is at exactly two weeks this shouldn't caused them to
 				// get pruned.
-				almostTwoWeeksAgo := time.Now().AddDate(0, 0, -14).Add(time.Minute)
+				almostTwoWeeksAgo := time.Now().Add(CutOffTime).Add(time.Minute)
 
 				for i := 0; i < 10; i++ {
 					blobPath := filepath.Join(repoPath, "objects", "17", fmt.Sprintf("%d", i))
@@ -309,7 +309,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 				// broken, and thus we'll retry to prune them afterwards.
 				require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "objects", "17"), 0o755))
 
-				moreThanTwoWeeksAgo := time.Now().AddDate(0, 0, -14).Add(-time.Minute)
+				moreThanTwoWeeksAgo := time.Now().Add(CutOffTime).Add(-time.Minute)
 
 				for i := 0; i < 10; i++ {
 					blobPath := filepath.Join(repoPath, "objects", "17", fmt.Sprintf("%d", i))
