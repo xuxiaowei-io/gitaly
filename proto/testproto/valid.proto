@@ -1,11 +1,11 @@
 syntax = "proto3";
 
-package test;
+package testproto;
 
 import "lint.proto";
 import "shared.proto";
 
-option go_package = "gitlab.com/gitlab-org/gitaly/v15/tools/protoc-gen-gitaly-lint/testdata";
+option go_package = "gitlab.com/gitlab-org/gitaly/v15/proto/testproto";
 
 message ValidRequest {
   gitaly.Repository destination = 1 [(gitaly.target_repository)=true];
