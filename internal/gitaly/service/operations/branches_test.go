@@ -398,7 +398,7 @@ func TestUserCreateBranch_Failure(t *testing.T) {
 			branchName: "improve",
 			startPoint: "master",
 			user:       gittest.TestUser,
-			err:        status.Errorf(codes.FailedPrecondition, `Could not update refs/heads/improve. Please refresh and try again.`),
+			err:        status.Errorf(codes.FailedPrecondition, "Could not update refs/heads/improve. Please refresh and try again."),
 		},
 	}
 

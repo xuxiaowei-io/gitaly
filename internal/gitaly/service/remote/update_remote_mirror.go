@@ -163,7 +163,7 @@ func (s *server) updateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMi
 		if firstRequest.GetKeepDivergentRefs() {
 			isAncestor, err := repo.IsAncestor(ctx, git.Revision(remoteTarget), git.Revision(localRef.Target))
 			if err != nil && !errors.Is(err, localrepo.InvalidCommitError(remoteTarget)) {
-				return fmt.Errorf("is %q an ancestor of %q: %w", remoteTarget, localRef.Target, err)
+				return fmt.Errorf("checking for ancestry: %w", err)
 			}
 
 			if !isAncestor {
@@ -193,7 +193,7 @@ func (s *server) updateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMi
 	for remoteRef, remoteCommitOID := range toDelete {
 		isAncestor, err := repo.IsAncestor(ctx, git.Revision(remoteCommitOID), git.Revision(defaultBranch))
 		if err != nil && !errors.Is(err, localrepo.InvalidCommitError(remoteCommitOID)) {
-			return fmt.Errorf("is %q an ancestor of %q: %w", remoteCommitOID, defaultBranch, err)
+			return fmt.Errorf("checking for ancestry: %w", err)
 		}
 
 		if isAncestor {
