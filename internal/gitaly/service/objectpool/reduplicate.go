@@ -12,7 +12,7 @@ import (
 func (s *server) ReduplicateRepository(ctx context.Context, req *gitalypb.ReduplicateRepositoryRequest) (*gitalypb.ReduplicateRepositoryResponse, error) {
 	repository := req.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
-		return nil, helper.ErrInternalf("ReduplicateRepository: %w", err)
+		return nil, helper.ErrInvalidArgument(err)
 	}
 
 	cmd, err := s.gitCmdFactory.New(ctx, repository, git.SubCmd{
