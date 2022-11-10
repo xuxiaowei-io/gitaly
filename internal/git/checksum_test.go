@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package git
 
 import (
@@ -53,7 +51,7 @@ func TestChecksum(t *testing.T) {
 		{
 			desc:         "zero",
 			expectedZero: true,
-			expected:     ObjectHashSHA1.ZeroOID.String(),
+			expected:     ZeroChecksum,
 		},
 		{
 			desc: "single ref",

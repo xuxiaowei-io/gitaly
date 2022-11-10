@@ -8,6 +8,9 @@ import (
 	"regexp"
 )
 
+// ZeroChecksum is the hex representation of a checksum with no references added.
+const ZeroChecksum = "0000000000000000000000000000000000000000"
+
 var refsAllowed = regexp.MustCompile(`HEAD|(refs/(heads|tags|keep-around|merge-requests|environments|notes)/)`)
 
 // Checksum is a hash representation of all references in a repository.
@@ -65,7 +68,7 @@ func (c *Checksum) Bytes() []byte {
 // String returns the checksum as a hex encoded string.
 func (c *Checksum) String() string {
 	if c.IsZero() {
-		return ObjectHashSHA1.ZeroOID.String()
+		return ZeroChecksum
 	}
 	return hex.EncodeToString(c.Bytes())
 }
