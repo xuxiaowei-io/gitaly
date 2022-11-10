@@ -37,9 +37,8 @@ func TestAddRepositories_FlagSet(t *testing.T) {
 	require.Equal(t, true, cmd.replicateImmediately)
 }
 
-// Cannot be run with t.Parallel() due to races on global logger
-// Cleanup tracked under https://gitlab.com/gitlab-org/gitaly/-/issues/4500
 func TestAddRepositories_Exec_invalidInput(t *testing.T) {
+	t.Parallel()
 	g1Cfg := testcfg.Build(t, testcfg.WithStorages("gitaly-1"))
 	g2Cfg := testcfg.Build(t, testcfg.WithStorages("gitaly-2"))
 
@@ -196,9 +195,8 @@ func TestAddRepositories_Exec_invalidInput(t *testing.T) {
 	}
 }
 
-// Cannot be run with t.Parallel() due to races on global logger
-// Cleanup tracked under https://gitlab.com/gitlab-org/gitaly/-/issues/4500
 func TestAddRepositories_Exec(t *testing.T) {
+	t.Parallel()
 	g1Cfg := testcfg.Build(t, testcfg.WithStorages("gitaly-1"))
 	g2Cfg := testcfg.Build(t, testcfg.WithStorages("gitaly-2"))
 	testcfg.BuildGitalyHooks(t, g2Cfg)
