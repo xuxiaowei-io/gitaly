@@ -473,7 +473,7 @@ func TestFindLocalBranchesPaginationWithIncorrectToken(t *testing.T) {
 
 	_, err = c.Recv()
 	require.NotEqual(t, err, io.EOF)
-	testhelper.RequireGrpcError(t, helper.ErrInternalf("finding refs: could not find page token"), err)
+	testhelper.RequireGrpcError(t, helper.ErrInternalf("could not find page token"), err)
 }
 
 // Test that `s` contains the elements in `relativeOrder` in that order
@@ -571,7 +571,7 @@ func TestFindLocalBranches_validate(t *testing.T) {
 			desc: "repository doesn't exist on disk",
 			repo: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "made/up/path"},
 			expectedErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefectMessage(
-				`creating object reader: GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/made/up/path"`,
+				`GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/made/up/path"`,
 				`accessor call: route repository accessor: consistent storages: repository "default"/"made/up/path" not found`,
 			)),
 		},
@@ -579,7 +579,7 @@ func TestFindLocalBranches_validate(t *testing.T) {
 			desc: "unknown storage",
 			repo: &gitalypb.Repository{StorageName: "invalid", RelativePath: repo.GetRelativePath()},
 			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
-				`creating object reader: GetStorageByName: no such storage: "invalid"`,
+				`GetStorageByName: no such storage: "invalid"`,
 				"repo scoped: invalid Repository",
 			)),
 		},
@@ -754,7 +754,7 @@ func TestInvalidFindAllBranchesRequest(t *testing.T) {
 				},
 			},
 			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefectMessage(
-				"creating object reader: GetStorageByName: no such storage: \"fake\"",
+				"GetStorageByName: no such storage: \"fake\"",
 				"repo scoped: invalid Repository",
 			)),
 		},
