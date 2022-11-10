@@ -124,6 +124,28 @@ func TestUpdater_prepareLocksTransaction(t *testing.T) {
 	require.Contains(t, err.Error(), "fatal: prepared transactions can only be closed")
 }
 
+func TestUpdater_invalidReferenceName(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+
+	cfg := testcfg.Build(t)
+
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+	})
+	repo := localrepo.NewTestRepo(t, cfg, repoProto, git.WithSkipHooks())
+	commitID := gittest.WriteCommit(t, cfg, repoPath)
+
+	updater, err := New(ctx, repo)
+	require.NoError(t, err)
+	defer func() { require.ErrorContains(t, updater.Cancel(), "canceling update: exit status 128") }()
+
+	const referenceName = "./refs/heads/master"
+	require.NoError(t, updater.Update(referenceName, commitID, ""))
+	require.Equal(t, ErrInvalidReferenceFormat{ReferenceName: referenceName}, updater.Prepare())
+}
+
 func TestUpdater_concurrentLocking(t *testing.T) {
 	t.Parallel()
 
