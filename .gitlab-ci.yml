@@ -296,10 +296,15 @@ test:fips:
     - if: $CI_PROJECT_PATH != "gitlab-org/gitaly"
       when: manual
       allow_failure: true
-    # Otherwise, we automatically run the job when either merging to the
-    # default branch or when the merge request has a FIPS label.
+    # Automatically run the job when the default branch is changing, e.g. due
+    # to a direct push.
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    # Automatically run the job when a merge request gets queued for merge.
+    - if: $CI_MERGE_REQUEST_EVENT_TYPE == "merge_train"
+    # Automatically run the job when the FIPS label is set.
     - if: $CI_MERGE_REQUEST_LABELS =~ /FIPS/
+    # Otherwise, allow for manually scheduling the job in the context of a
+    # merge request.
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       when: manual
       allow_failure: true
