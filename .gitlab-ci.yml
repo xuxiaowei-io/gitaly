@@ -297,12 +297,11 @@ test:fips:
       when: manual
       allow_failure: true
     # Otherwise, we automatically run the job when either merging to the
-    # default branch or when the merge request has a FIPS label.
+    # default branch or when the merge request receives the first approval
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    - if: $CI_MERGE_REQUEST_LABELS =~ /FIPS/
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      when: manual
-      allow_failure: true
+    - if: $CI_MERGE_REQUEST_IID && $CI_MERGE_REQUEST_APPROVED == "true"
+      when: always
+      allow_failure: false
 
 test:macos:
   needs: []
