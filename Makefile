@@ -132,24 +132,15 @@ GIT_EXECUTABLES += git-http-backend
 ## WITH_BUNDLED_GIT=YesPlease. Can be set to an arbitrary Git revision with
 ## tags, branches, and commit ids.
 GIT_VERSION ?=
+## The Git version used for bundled Git v2.37.
+GIT_VERSION_2_37_1 ?= v2.37.1.gl1
+## The Git version used for bundled Git v2.38.
+GIT_VERSION_2_38 ?= v2.38.1.gl0
 
 # The default version is used in case the caller does not set the variable or
 # if it is either set to the empty string or "default".
 ifeq (${GIT_VERSION:default=},)
-    override GIT_VERSION := v2.37.1
-
-    # This extra version has two intentions: first, it allows us to detect
-    # capabilities of the command at runtime. Second, it helps admins to
-    # discover which version is currently in use. As such, this version must be
-    # incremented whenever a new patch is added above. When no patches exist,
-    # then this should be undefined. Otherwise, it must be set to at least
-    # `gl1` given that `0` is the "default" GitLab patch level.
-    GIT_EXTRA_VERSION := gl1
-
-    # Before adding custom patches, please read doc/PROCESS.md#Patching-git
-    # first to make sure your patches meet our acceptance criteria. Patches
-    # must be put into `_support/git-patches`.
-    GIT_PATCHES := $(sort $(wildcard ${SOURCE_DIR}/_support/git-patches/v2.37.1.gl1/*))
+    override GIT_VERSION := v2.37.1.gl1
 else
     # Support both vX.Y.Z and X.Y.Z version patterns, since callers across GitLab
     # use both.
@@ -582,14 +573,11 @@ ${DEPENDENCY_DIR}/git-distribution/git: ${DEPENDENCY_DIR}/git-distribution/Makef
 	${Q}env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C "$(<D)" -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS}
 	${Q}touch $@
 
-${BUILD_DIR}/bin/gitaly-%-v2.37.1.gl1: override GIT_PATCHES := $(sort $(wildcard ${SOURCE_DIR}/_support/git-patches/v2.37.1.gl1/*))
-${BUILD_DIR}/bin/gitaly-%-v2.37.1.gl1: override GIT_VERSION = v2.37.1
-${BUILD_DIR}/bin/gitaly-%-v2.37.1.gl1: override GIT_EXTRA_VERSION = gl1
+${BUILD_DIR}/bin/gitaly-%-v2.37.1.gl1: override GIT_VERSION = ${GIT_VERSION_2_37_1}
 ${BUILD_DIR}/bin/gitaly-%-v2.37.1.gl1: ${DEPENDENCY_DIR}/git-v2.37.1.gl1/% | ${BUILD_DIR}/bin
 	${Q}install $< $@
 
-${BUILD_DIR}/bin/gitaly-%-v2.38: override GIT_VERSION = v2.38.1
-${BUILD_DIR}/bin/gitaly-%-v2.38: override GIT_EXTRA_VERSION = gl0
+${BUILD_DIR}/bin/gitaly-%-v2.38: override GIT_VERSION = ${GIT_VERSION_2_38}
 ${BUILD_DIR}/bin/gitaly-%-v2.38: ${DEPENDENCY_DIR}/git-v2.38/% | ${BUILD_DIR}/bin
 	${Q}install $< $@
 
@@ -643,7 +631,7 @@ ${BUILD_DIR}/intermediate/%:                 clear-go-build-cache-if-needed .FOR
 ${DEPENDENCY_DIR}/libgit2.version: dependency-version | ${DEPENDENCY_DIR}
 	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${LIBGIT2_VERSION} ${LIBGIT2_BUILD_OPTIONS}" ] || >$@ echo -n "${LIBGIT2_VERSION} ${LIBGIT2_BUILD_OPTIONS}"
 ${DEPENDENCY_DIR}/git-%.version: dependency-version | ${DEPENDENCY_DIR}
-	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${GIT_VERSION}.${GIT_EXTRA_VERSION} ${GIT_BUILD_OPTIONS} ${GIT_PATCHES}" ] || >$@ echo -n "${GIT_VERSION}.${GIT_EXTRA_VERSION} ${GIT_BUILD_OPTIONS} ${GIT_PATCHES}"
+	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${GIT_VERSION} ${GIT_BUILD_OPTIONS}" ] || >$@ echo -n "${GIT_VERSION} ${GIT_BUILD_OPTIONS}"
 ${DEPENDENCY_DIR}/protoc.version: dependency-version | ${DEPENDENCY_DIR}
 	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${PROTOC_VERSION} ${PROTOC_BUILD_OPTIONS}" ] || >$@ echo -n "${PROTOC_VERSION} ${PROTOC_BUILD_OPTIONS}"
 
@@ -672,11 +660,10 @@ ${DEPENDENCY_DIR}/git-%/Makefile: ${DEPENDENCY_DIR}/git-%.version
 	${Q}${GIT} -C "${@D}" fetch --depth 1 ${GIT_QUIET} origin ${GIT_VERSION}
 	${Q}${GIT} -C "${@D}" reset --hard
 	${Q}${GIT} -C "${@D}" checkout ${GIT_QUIET} --detach FETCH_HEAD
-	${Q}if test -n "${GIT_PATCHES}"; then ${GIT} -C "${@D}" apply ${GIT_PATCHES}; fi
 	@ # We're writing the version into the "version" file in Git's own source
 	@ # directory. If it exists, Git's Makefile will pick it up and use it as
 	@ # the version instead of auto-detecting via git-describe(1).
-	${Q}if test -n "${GIT_EXTRA_VERSION}"; then echo ${GIT_VERSION}.${GIT_EXTRA_VERSION} >"${@D}"/version; else rm -f "${@D}"/version; fi
+	${Q}echo ${GIT_VERSION} >"${@D}"/version
 	${Q}touch $@
 
 $(patsubst %,${DEPENDENCY_DIR}/git-\%/%,${GIT_EXECUTABLES}): ${DEPENDENCY_DIR}/git-%/Makefile
