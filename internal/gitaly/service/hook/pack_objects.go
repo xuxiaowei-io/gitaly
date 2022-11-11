@@ -381,7 +381,10 @@ func (s *server) PackObjectsHookWithSidechannel(ctx context.Context, req *gitaly
 
 	c, err := gitalyhook.GetSidechannel(ctx)
 	if err != nil {
-		return nil, err
+		if errors.As(err, &gitalyhook.ErrInvalidSidechannelAddress{}) {
+			return nil, helper.ErrInvalidArgument(err)
+		}
+		return nil, helper.ErrInternalf("get side-channel: %w", err)
 	}
 	defer c.Close()
 
@@ -392,11 +395,11 @@ func (s *server) PackObjectsHookWithSidechannel(ctx context.Context, req *gitaly
 			// errors caused by the client disconnecting with the Canceled gRPC code.
 			err = helper.ErrCanceled(err)
 		}
-		return nil, err
+		return nil, helper.ErrInternalf("pack objects hook: %w", err)
 	}
 
 	if err := c.Close(); err != nil {
-		return nil, err
+		return nil, helper.ErrInternalf("close side-channel: %w", err)
 	}
 
 	return &gitalypb.PackObjectsHookWithSidechannelResponse{}, nil

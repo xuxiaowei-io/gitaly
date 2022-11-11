@@ -522,6 +522,11 @@ func TestServer_PackObjectsHookWithSidechannel_invalidArgument(t *testing.T) {
 			req:         &gitalypb.PackObjectsHookWithSidechannelRequest{Repository: repo, Args: []string{"rm", "-rf"}},
 			expectedErr: status.Error(codes.InvalidArgument, "invalid pack-objects command: [rm -rf]: missing pack-objects"),
 		},
+		{
+			desc:        "no side-channel address",
+			req:         &gitalypb.PackObjectsHookWithSidechannelRequest{Repository: repo, Args: []string{"pack-objects", "--revs", "--stdout"}},
+			expectedErr: status.Error(codes.InvalidArgument, `invalid side channel address: ""`),
+		},
 	}
 
 	for _, tc := range testCases {

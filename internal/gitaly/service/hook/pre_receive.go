@@ -65,7 +65,7 @@ func preReceiveHookResponse(stream gitalypb.HookService_PreReceiveHookServer, co
 		ExitStatus: &gitalypb.ExitStatus{Value: code},
 		Stderr:     []byte(stderr),
 	}); err != nil {
-		return helper.ErrInternalf("sending response: %v", err)
+		return helper.ErrInternalf("sending response: %w", err)
 	}
 
 	return nil

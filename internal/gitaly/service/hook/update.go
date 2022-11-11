@@ -53,7 +53,7 @@ func updateHookResponse(stream gitalypb.HookService_UpdateHookServer, code int32
 	if err := stream.Send(&gitalypb.UpdateHookResponse{
 		ExitStatus: &gitalypb.ExitStatus{Value: code},
 	}); err != nil {
-		return helper.ErrInternalf("sending response: %v", err)
+		return helper.ErrInternalf("sending response: %w", err)
 	}
 
 	return nil
