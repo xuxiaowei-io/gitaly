@@ -258,7 +258,7 @@ func TestServer_CloneFromURLCommand(t *testing.T) {
 			expectedAuthHeader:           fmt.Sprintf("Authorization: %s", "some-token"),
 			resolvedAddress:              "192.0.1.1",
 			expectedURL:                  "https://gitlab.com/secretrepo.git",
-			expectedCurloptResolveHeader: "*:443:192.0.1.1",
+			expectedCurloptResolveHeader: "gitlab.com:443:192.0.1.1",
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

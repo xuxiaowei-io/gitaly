@@ -100,6 +100,6 @@ func getURLAndResolveConfigForURL(remoteURL, resolvedAddress string) (string, []
 	}
 
 	return remoteURL, []ConfigPair{
-		{Key: "http.curloptResolve", Value: fmt.Sprintf("*:%s:%s", port, resolvedAddress)},
+		{Key: "http.curloptResolve", Value: fmt.Sprintf("%s:%s:%s", u.Hostname(), port, resolvedAddress)},
 	}, nil
 }

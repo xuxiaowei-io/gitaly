@@ -203,7 +203,7 @@ func TestServer_findRemoteRootRefCmd(t *testing.T) {
 			},
 			expectedConfig: []string{
 				"GIT_CONFIG_KEY_0=http.curloptResolve",
-				fmt.Sprintf("GIT_CONFIG_VALUE_0=*:%d:127.0.0.1", port),
+				fmt.Sprintf("GIT_CONFIG_VALUE_0=example.com:%d:127.0.0.1", port),
 				"GIT_CONFIG_KEY_1=remote.inmemory.url",
 				"GIT_CONFIG_VALUE_1=" + originalURL,
 			},

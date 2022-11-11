@@ -77,7 +77,7 @@ func TestGetUrlAndResolveConfig(t *testing.T) {
 				resolvedAddress: "192.168.0.1",
 			},
 			expectedURL:        "http://gitlab.com/gitlab-org/gitaly.git",
-			expectedConfigPair: []ConfigPair{{Key: "http.curloptResolve", Value: "*:80:192.168.0.1"}},
+			expectedConfigPair: []ConfigPair{{Key: "http.curloptResolve", Value: "gitlab.com:80:192.168.0.1"}},
 			expectedErrString:  "",
 		},
 		{
@@ -87,7 +87,7 @@ func TestGetUrlAndResolveConfig(t *testing.T) {
 				resolvedAddress: "192.168.0.1",
 			},
 			expectedURL:        "https://gitlab.com/gitlab-org/gitaly.git",
-			expectedConfigPair: []ConfigPair{{Key: "http.curloptResolve", Value: "*:443:192.168.0.1"}},
+			expectedConfigPair: []ConfigPair{{Key: "http.curloptResolve", Value: "gitlab.com:443:192.168.0.1"}},
 			expectedErrString:  "",
 		},
 		{
@@ -97,7 +97,7 @@ func TestGetUrlAndResolveConfig(t *testing.T) {
 				resolvedAddress: "192.168.0.1",
 			},
 			expectedURL:        "https://gitlab.com:1234/gitlab-org/gitaly.git",
-			expectedConfigPair: []ConfigPair{{Key: "http.curloptResolve", Value: "*:1234:192.168.0.1"}},
+			expectedConfigPair: []ConfigPair{{Key: "http.curloptResolve", Value: "gitlab.com:1234:192.168.0.1"}},
 			expectedErrString:  "",
 		},
 		{
@@ -187,7 +187,7 @@ func TestGetUrlAndResolveConfig(t *testing.T) {
 				resolvedAddress: "192.168.0.1",
 			},
 			expectedURL:        "git://www.gitlab.com/foo/bar",
-			expectedConfigPair: []ConfigPair{{Key: "http.curloptResolve", Value: "*:9418:192.168.0.1"}},
+			expectedConfigPair: []ConfigPair{{Key: "http.curloptResolve", Value: "www.gitlab.com:9418:192.168.0.1"}},
 			expectedErrString:  "",
 		},
 		{
