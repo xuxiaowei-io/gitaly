@@ -4,6 +4,7 @@ package operations
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"path/filepath"
 	"testing"
@@ -14,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/lstree"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -22,7 +24,11 @@ import (
 func TestUserUpdateSubmodule(t *testing.T) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(featureflag.SubmoduleInGit).
+		Run(t, testUserUpdateSubmodule)
+}
+
+func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	type setupData struct {
@@ -454,6 +460,38 @@ func TestUserUpdateSubmodule(t *testing.T) {
 			},
 		},
 		{
+			desc:    "failure due to invalid submodule path",
+			subPath: "sub",
+			branch:  "master",
+			setup: func(repoPath, subRepoPath string, repoProto, subRepoProto *gitalypb.Repository) setupData {
+				subCommitID := gittest.WriteCommit(t, cfg, subRepoPath)
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithTreeEntries(
+					gittest.TreeEntry{
+						Mode:    "100644",
+						Path:    ".gitmodules",
+						Content: fmt.Sprintf(`[submodule "%s"]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
+					},
+					gittest.TreeEntry{OID: subCommitID, Mode: "160000", Path: "sub"},
+				))
+				commitID := gittest.WriteCommit(t, cfg, subRepoPath, gittest.WithParents(subCommitID))
+
+				return setupData{
+					request: &gitalypb.UserUpdateSubmoduleRequest{
+						User:          gittest.TestUser,
+						CommitSha:     string(commitID),
+						Branch:        []byte("master"),
+						Repository:    repoProto,
+						Submodule:     []byte("foobar/does/not/exist"),
+						CommitMessage: []byte("Updating Submodule: sub"),
+					},
+					expectedResponse: &gitalypb.UserUpdateSubmoduleResponse{
+						CommitError: "Invalid submodule path",
+					},
+					verify: func(t *testing.T) {},
+				}
+			},
+		},
+		{
 			desc:    "failure due to same submodule reference",
 			subPath: "sub",
 			branch:  "master",
@@ -479,6 +517,35 @@ func TestUserUpdateSubmodule(t *testing.T) {
 					},
 					expectedResponse: &gitalypb.UserUpdateSubmoduleResponse{
 						CommitError: fmt.Sprintf("The submodule sub is already at %s", subCommitID),
+					},
+					verify: func(t *testing.T) {},
+				}
+			},
+		},
+		{
+			desc:    "failure due to submodule path not pointing to a submodule",
+			subPath: "sub",
+			branch:  "master",
+			setup: func(repoPath, subRepoPath string, repoProto, subRepoProto *gitalypb.Repository) setupData {
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithTreeEntries(
+					gittest.TreeEntry{
+						Mode:    "100644",
+						Path:    "VERSION",
+						Content: "version string",
+					},
+				))
+
+				return setupData{
+					request: &gitalypb.UserUpdateSubmoduleRequest{
+						Repository:    repoProto,
+						User:          gittest.TestUser,
+						CommitSha:     commitID.String(),
+						Branch:        []byte("master"),
+						Submodule:     []byte("VERSION"),
+						CommitMessage: []byte("Updating Submodule: sub"),
+					},
+					expectedResponse: &gitalypb.UserUpdateSubmoduleResponse{
+						CommitError: "Invalid submodule path",
 					},
 					verify: func(t *testing.T) {},
 				}
