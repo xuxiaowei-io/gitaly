@@ -1,6 +1,6 @@
 //go:build !gitaly_test_sha256
 
-package commit
+package localrepo
 
 import (
 	"bytes"
@@ -22,13 +22,13 @@ func TestMain(m *testing.M) {
 	testhelper.Run(m)
 }
 
-func TestWrite(t *testing.T) {
+func TestWriteCommit(t *testing.T) {
 	t.Helper()
 
 	cfg := testcfg.Build(t)
 	ctx := testhelper.Context(t)
 
-	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryWriteCommitConfig{
 		SkipCreationViaService: true,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -42,14 +42,14 @@ func TestWrite(t *testing.T) {
 	treeA, err := tree.Write(ctx, repo, []*tree.Entry{treeEntryA})
 	require.NoError(t, err)
 
-	treeB, err := tree.Write(ctx, repo, []*tree.Entry{
+	treeB, err := repo.WriteTree(ctx, []*git.TreeEntry{
 		{Path: "file", Mode: []byte("100644"), ObjectID: changedBlobID, Type: tree.Blob},
 	})
 	require.NoError(t, err)
 	commitA, err := Write(
 		ctx,
 		repo,
-		Config{
+		WriteCommitConfig{
 			AuthorName:     "Tazmanian Devil",
 			AuthorEmail:    "taz@devils.org",
 			CommitterName:  "Tazmanian Devil",
@@ -59,10 +59,9 @@ func TestWrite(t *testing.T) {
 		},
 	)
 	require.NoError(t, err)
-	commitB, err := Write(
+	commitB, err := repo.WriteCommit(
 		ctx,
-		repo,
-		Config{
+		WriteCommitConfig{
 			AuthorName:     "Daffy Duck",
 			AuthorEmail:    "daffy@ducks.org",
 			CommitterName:  "Daffy Duck",
@@ -77,7 +76,7 @@ func TestWrite(t *testing.T) {
 
 	for _, tc := range []struct {
 		desc              string
-		cfg               Config
+		cfg               WriteCommitConfig
 		expectedError     error
 		expectedCommit    string
 		expectedRevUpdate git.Revision
@@ -89,14 +88,14 @@ func TestWrite(t *testing.T) {
 		{
 			desc:          "missing author",
 			expectedError: ErrMissingAuthor,
-			cfg: Config{
+			cfg: WriteCommitConfig{
 				TreeID: treeA,
 			},
 		},
 		{
 			desc:          "missing committer",
 			expectedError: ErrMissingCommitter,
-			cfg: Config{
+			cfg: WriteCommitConfig{
 				TreeID:     treeA,
 				AuthorName: "Scrooge Mcduck",
 			},
@@ -104,7 +103,7 @@ func TestWrite(t *testing.T) {
 		{
 			desc:          "missing author email",
 			expectedError: ErrMissingAuthorEmail,
-			cfg: Config{
+			cfg: WriteCommitConfig{
 				TreeID:        treeA,
 				AuthorName:    "Scrooge Mcduck",
 				CommitterName: "Mickey Mouse",
@@ -113,7 +112,7 @@ func TestWrite(t *testing.T) {
 		{
 			desc:          "missing committer email",
 			expectedError: ErrMissingCommitterEmail,
-			cfg: Config{
+			cfg: WriteCommitConfig{
 				TreeID:        treeA,
 				AuthorName:    "Scrooge Mcduck",
 				AuthorEmail:   "chief@ducks.org",
@@ -122,7 +121,7 @@ func TestWrite(t *testing.T) {
 		},
 		{
 			desc: "with commit message",
-			cfg: Config{
+			cfg: WriteCommitConfig{
 				TreeID:         treeA,
 				AuthorName:     "Scrooge Mcduck",
 				AuthorEmail:    "chief@ducks.org",
@@ -152,7 +151,7 @@ func TestWrite(t *testing.T) {
 		},
 		{
 			desc: "with multiple parents",
-			cfg: Config{
+			cfg: WriteCommitConfig{
 				TreeID:         treeA,
 				Parents:        []git.ObjectID{commitA, commitB},
 				AuthorName:     "Scrooge Mcduck",
@@ -183,7 +182,7 @@ func TestWrite(t *testing.T) {
 		},
 		{
 			desc: "with reference",
-			cfg: Config{
+			cfg: WriteCommitConfig{
 				TreeID:         treeA,
 				Parents:        []git.ObjectID{commitA, commitB},
 				AuthorName:     "Scrooge Mcduck",
@@ -216,7 +215,7 @@ func TestWrite(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			oid, err := Write(ctx, repo, tc.cfg)
+			oid, err := repo.WriteCommit(ctx, tc.cfg)
 			require.Equal(t, tc.expectedError, err)
 			if err != nil {
 				return

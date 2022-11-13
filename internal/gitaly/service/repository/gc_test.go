@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -558,7 +559,8 @@ func TestGarbageCollectDeltaIslands(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
-	git.TestDeltaIslands(t, cfg, repoPath, repoPath, false, func() error {
+	localRepo := localrepo.NewTestRepo(t, cfg, repo)
+	git.TestDeltaIslands(t, cfg, repo, repo, false, func() error {
 		//nolint:staticcheck
 		_, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: repo})
 		return err

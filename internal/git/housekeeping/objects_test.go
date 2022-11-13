@@ -64,9 +64,10 @@ func TestRepackObjects(t *testing.T) {
 			SkipCreationViaService: true,
 			RelativePath:           relativePath,
 		})
+
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-		git.TestDeltaIslands(t, cfg, repoPath, repoPath, IsPoolRepository(repoProto), func() error {
+		git.TestDeltaIslands(t, cfg, repo, repo, IsPoolRepository(repoProto), func() error {
 			return RepackObjects(ctx, repo, RepackObjectsConfig{
 				FullRepack: true,
 			})

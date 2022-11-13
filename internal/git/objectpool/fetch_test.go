@@ -13,6 +13,7 @@ import (
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
@@ -118,7 +119,7 @@ func TestFetchFromOrigin_deltaIslands(t *testing.T) {
 	// The setup of delta islands is done in the normal repository, and thus we pass `false`
 	// for `isPoolRepo`. Verification whether we correctly handle repacking though happens in
 	// the pool repository.
-	git.TestDeltaIslands(t, cfg, repoPath, poolPath, false, func() error {
+	git.TestDeltaIslands(t, cfg, repo, pool, false, func() error {
 		return pool.FetchFromOrigin(ctx, repo)
 	})
 }
@@ -291,7 +292,7 @@ func TestObjectPool_logStats(t *testing.T) {
 			desc: "dangling reference",
 			setup: func(t *testing.T) *ObjectPool {
 				cfg, pool, _ := setupObjectPool(t, ctx)
-				git.WriteTestCommit(t, cfg, git.RepositoryPath(t, pool), git.WithReference("refs/dangling/commit"))
+				pool.WriteTestCommit(t, localrepo.WithReference("refs/dangling/commit"))
 				return pool
 			},
 			expectedFields: logrus.Fields{

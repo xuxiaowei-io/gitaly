@@ -9,9 +9,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 )
 
-// Write writes a new tree object to the given path. This function does not verify whether OIDs
+// WriteTree writes a new tree object to the given path. This function does not verify whether OIDs
 // referred to by tree entries actually exist in the repository.
-func (r *localrepo) Write(ctx context.Context, entries []*git.TreeEntry) (git.ObjectID, error) {
+func (r *localrepo) WriteTree(ctx context.Context, entries []*git.TreeEntry) (git.ObjectID, error) {
 	var tree bytes.Buffer
 	for _, entry := range entries {
 		var entryType string

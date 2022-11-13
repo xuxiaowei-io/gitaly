@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/cmd/gitaly-git2go/git2goutil"
-	gitalygit "gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -79,9 +79,9 @@ func TestCherryPick_validation(t *testing.T) {
 func TestCherryPick(t *testing.T) {
 	testcases := []struct {
 		desc             string
-		base             []gitalygit.TreeEntry
-		ours             []gitalygit.TreeEntry
-		commit           []gitalygit.TreeEntry
+		base             []localrepo.TreeEntry
+		ours             []localrepo.TreeEntry
+		commit           []localrepo.TreeEntry
 		expected         map[string]string
 		expectedCommitID string
 		expectedErrAs    interface{}
@@ -89,13 +89,13 @@ func TestCherryPick(t *testing.T) {
 	}{
 		{
 			desc: "trivial cherry-pick succeeds",
-			base: []gitalygit.TreeEntry{
+			base: []localrepo.TreeEntry{
 				{Path: "file", Content: "foo", Mode: "100644"},
 			},
-			ours: []gitalygit.TreeEntry{
+			ours: []localrepo.TreeEntry{
 				{Path: "file", Content: "foo", Mode: "100644"},
 			},
-			commit: []gitalygit.TreeEntry{
+			commit: []localrepo.TreeEntry{
 				{Path: "file", Content: "foobar", Mode: "100644"},
 			},
 			expected: map[string]string{
@@ -105,13 +105,13 @@ func TestCherryPick(t *testing.T) {
 		},
 		{
 			desc: "conflicting cherry-pick fails",
-			base: []gitalygit.TreeEntry{
+			base: []localrepo.TreeEntry{
 				{Path: "file", Content: "foo", Mode: "100644"},
 			},
-			ours: []gitalygit.TreeEntry{
+			ours: []localrepo.TreeEntry{
 				{Path: "file", Content: "fooqux", Mode: "100644"},
 			},
-			commit: []gitalygit.TreeEntry{
+			commit: []localrepo.TreeEntry{
 				{Path: "file", Content: "foobar", Mode: "100644"},
 			},
 			expectedErrAs:  &git2go.ConflictingFilesError{},
@@ -119,13 +119,13 @@ func TestCherryPick(t *testing.T) {
 		},
 		{
 			desc: "empty cherry-pick fails",
-			base: []gitalygit.TreeEntry{
+			base: []localrepo.TreeEntry{
 				{Path: "file", Content: "foo", Mode: "100644"},
 			},
-			ours: []gitalygit.TreeEntry{
+			ours: []localrepo.TreeEntry{
 				{Path: "file", Content: "fooqux", Mode: "100644"},
 			},
-			commit: []gitalygit.TreeEntry{
+			commit: []localrepo.TreeEntry{
 				{Path: "file", Content: "fooqux", Mode: "100644"},
 			},
 			expectedErrAs:  &git2go.EmptyError{},
@@ -138,7 +138,7 @@ func TestCherryPick(t *testing.T) {
 		},
 		{
 			desc: "fails on nonexistent cherry-pick commit",
-			ours: []gitalygit.TreeEntry{
+			ours: []localrepo.TreeEntry{
 				{Path: "file", Content: "fooqux", Mode: "100644"},
 			},
 			expectedErrAs:  &git2go.CommitNotFoundError{},
@@ -150,14 +150,16 @@ func TestCherryPick(t *testing.T) {
 		testcfg.BuildGitalyGit2Go(t, cfg)
 		executor := buildExecutor(t, cfg)
 
-		base := gitalygit.WriteTestCommit(t, cfg, repoPath, gitalygit.WithTreeEntries(tc.base...))
+		localRepo := localrepo.NewTestRepo(t, cfg, repo)
+
+		base := localrepo.WriteTestCommit(t, localrepo.WithTreeEntries(tc.base...))
 
 		ours, commit := "nonexistent", "nonexistent"
 		if len(tc.ours) > 0 {
-			ours = gitalygit.WriteTestCommit(t, cfg, repoPath, gitalygit.WithParents(base), gitalygit.WithTreeEntries(tc.ours...)).String()
+			ours = localrepo.WriteTestCommit(t, localrepo.WithParents(base), localrepo.WithTreeEntries(tc.ours...)).String()
 		}
 		if len(tc.commit) > 0 {
-			commit = gitalygit.WriteTestCommit(t, cfg, repoPath, gitalygit.WithParents(base), gitalygit.WithTreeEntries(tc.commit...)).String()
+			commit = localrepo.WriteTestCommit(t, localrepo.WithParents(base), localrepo.WithTreeEntries(tc.commit...)).String()
 		}
 
 		t.Run(tc.desc, func(t *testing.T) {
@@ -224,33 +226,29 @@ func TestCherryPickStructuredErrors(t *testing.T) {
 
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
+	localRepo := localrepo.NewTestRepo(t, cfg, repo)
+
 	testcfg.BuildGitalyGit2Go(t, cfg)
 	executor := buildExecutor(t, cfg)
 
-	base := gitalygit.WriteTestCommit(
+	base := localRepo.WriteTestCommit(
 		t,
-		cfg,
-		repoPath,
-		gitalygit.WithTreeEntries(gitalygit.TreeEntry{
+		localrepo.WithTreeEntries(localrepo.TreeEntry{
 			Path: "file", Content: "foo", Mode: "100644",
 		}))
 
-	ours := gitalygit.WriteTestCommit(
+	ours := localrepo.WriteTestCommit(
 		t,
-		cfg,
-		repoPath,
-		gitalygit.WithParents(base),
-		gitalygit.WithTreeEntries(
-			gitalygit.TreeEntry{Path: "file", Content: "fooqux", Mode: "100644"},
+		localrepo.WithParents(base),
+		localrepo.WithTreeEntries(
+			localrepo.TreeEntry{Path: "file", Content: "fooqux", Mode: "100644"},
 		)).String()
 
-	commit := gitalygit.WriteTestCommit(
+	commit := localrepo.WriteTestCommit(
 		t,
-		cfg,
-		repoPath,
-		gitalygit.WithParents(base),
-		gitalygit.WithTreeEntries(
-			gitalygit.TreeEntry{Path: "file", Content: "foobar", Mode: "100644"},
+		localrepo.WithParents(base),
+		localrepo.WithTreeEntries(
+			localrepo.TreeEntry{Path: "file", Content: "foobar", Mode: "100644"},
 		)).String()
 
 	committer := git.Signature{

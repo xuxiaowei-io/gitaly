@@ -1,10 +1,12 @@
 package git
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 )
@@ -18,8 +20,8 @@ import (
 func TestDeltaIslands(
 	t *testing.T,
 	cfg config.Cfg,
-	repoPathToModify string,
-	repoPathToRepack string,
+	repoToModify *localrepo.Repo,
+	repoToRepack *localrepo.Repo,
 	isPoolRepo bool,
 	repack func() error,
 ) {
@@ -63,16 +65,20 @@ func TestDeltaIslands(
 	require.Equal(t, DefaultObjectHash.ZeroOID.String(), deltaBase(t, cfg, repoPathToRepack, blob2ID), "blob 2 should not be delta compressed after repack")
 }
 
-func commitBlob(t *testing.T, cfg config.Cfg, repoPath, ref string, content string) string {
-	blobID := WriteBlob(t, cfg, repoPath, []byte(content))
+func commitBlob(t *testing.T, cfg config.Cfg, repo *localrepo.Repo, ref string, content string) string {
+	blobID, err := repo.WriteBlob(helper.Context(t), "path", bytes.NewBufferString(content))
+	require.NoError(t, err)
 
 	// No parent, that means this will be an initial commit. Not very
 	// realistic but it doesn't matter for delta compression.
-	commitID := WriteTestCommit(t, cfg, repoPath,
-		WithTreeEntries(TreeEntry{
+	commitID := repo.WriteTestCommit(t,
+		localrepo.WithTreeEntries(TreeEntry{
 			Mode: "100644", OID: blobID, Path: "file",
 		}),
 	)
+
+	repoPath, err := repo.Path()
+	require.NoError(t, err)
 
 	Exec(t, cfg, "-C", repoPath, "update-ref", ref, commitID.String())
 

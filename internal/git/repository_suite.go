@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -44,9 +45,11 @@ func testRepositoryResolveRevision(t *testing.T, cfg config.Cfg, getRepository G
 
 	repo, repoPath := getRepository(t, ctx)
 
-	firstParentCommitID := WriteTestCommit(t, cfg, repoPath, WithMessage("first parent"))
-	secondParentCommitID := WriteTestCommit(t, cfg, repoPath, WithMessage("second parent"))
-	masterCommitID := WriteTestCommit(t, cfg, repoPath, WithBranch("master"), WithParents(firstParentCommitID, secondParentCommitID))
+	localRepo := localrepo.NewTestRepo(t, cfg, repo)
+
+	firstParentCommitID := localRepo.WriteTestCommit(t, localrepo.WithMessage("first parent"))
+	secondParentCommitID := localRepo.WriteTestCommit(t, localrepo.WithMessage("second parent"))
+	masterCommitID := localRepo.WriteTestCommit(t, localrepo.WithBranch("master"), localrepo.WithParents(firstParentCommitID, secondParentCommitID))
 
 	for _, tc := range []struct {
 		desc     string
@@ -127,8 +130,9 @@ func testRepositoryGetDefaultBranch(t *testing.T, cfg config.Cfg, getRepository 
 			desc: "default ref",
 			repo: func(t *testing.T) Repository {
 				repo, repoPath := getRepository(t, ctx)
-				oid := WriteTestCommit(t, cfg, repoPath, WithBranch("apple"))
-				WriteTestCommit(t, cfg, repoPath, WithParents(oid), WithBranch("main"))
+				localRepo := localrepo.NewTestRepo(t, cfg, repo)
+				oid := localRepo.WriteTestCommit(t, localrepo.WithBranch("apple"))
+				localrepo.WriteTestCommit(t, localrepo.WithParents(oid), localrepo.WithBranch("main"))
 				return repo
 			},
 			expectedName: DefaultRef,
@@ -137,8 +141,9 @@ func testRepositoryGetDefaultBranch(t *testing.T, cfg config.Cfg, getRepository 
 			desc: "legacy default ref",
 			repo: func(t *testing.T) Repository {
 				repo, repoPath := getRepository(t, ctx)
-				oid := WriteTestCommit(t, cfg, repoPath, WithBranch("apple"))
-				WriteTestCommit(t, cfg, repoPath, WithParents(oid), WithBranch("master"))
+				localRepo := localrepo.NewTestRepo(t, cfg, repo)
+				oid := localRepo.WriteTestCommit(t, localrepo.WithBranch("apple"))
+				localRepo.WriteTestCommit(t, localrepo.WithParents(oid), localrepo.WithBranch("master"))
 				return repo
 			},
 			expectedName: LegacyDefaultRef,
@@ -154,7 +159,8 @@ func testRepositoryGetDefaultBranch(t *testing.T, cfg config.Cfg, getRepository 
 			desc: "one branch",
 			repo: func(t *testing.T) Repository {
 				repo, repoPath := getRepository(t, ctx)
-				WriteTestCommit(t, cfg, repoPath, WithBranch("apple"))
+				localRepo := localrepo.NewTestRepo(t, cfg, repo)
+				localRepo.WriteTestCommit(t, localrepo.WithBranch("apple"))
 				return repo
 			},
 			expectedName: NewReferenceNameFromBranchName("apple"),
@@ -163,8 +169,9 @@ func testRepositoryGetDefaultBranch(t *testing.T, cfg config.Cfg, getRepository 
 			desc: "no default branches",
 			repo: func(t *testing.T) Repository {
 				repo, repoPath := getRepository(t, ctx)
-				oid := WriteTestCommit(t, cfg, repoPath, WithBranch("apple"))
-				WriteTestCommit(t, cfg, repoPath, WithParents(oid), WithBranch("banana"))
+				localRepo := localrepo.NewTestRepo(t, cfg, repo)
+				oid := localRepo.WriteTestCommit(t, localrepo.WithBranch("apple"))
+				localRepo.WriteTestCommit(t, localrepo.WithParents(oid), localrepo.WithBranch("banana"))
 				return repo
 			},
 			expectedName: NewReferenceNameFromBranchName("apple"),
@@ -173,8 +180,9 @@ func testRepositoryGetDefaultBranch(t *testing.T, cfg config.Cfg, getRepository 
 			desc: "test repo HEAD set",
 			repo: func(t *testing.T) Repository {
 				repo, repoPath := getRepository(t, ctx)
+				localRepo := localrepo.NewTestRepo(t, cfg, repo)
 
-				WriteTestCommit(t, cfg, repoPath, WithBranch("feature"))
+				localRepo.WriteTestCommit(t, localrepo.WithBranch("feature"))
 				Exec(t, cfg, "-C", repoPath, "symbolic-ref", "HEAD", "refs/heads/feature")
 
 				return repo

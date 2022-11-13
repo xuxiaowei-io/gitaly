@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/cmd/gitaly-git2go/git2goutil"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -288,9 +289,11 @@ func TestMerge_trees(t *testing.T) {
 		testcfg.BuildGitalyGit2Go(t, cfg)
 		executor := buildExecutor(t, cfg)
 
-		base := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(tc.base...))
-		ours := git.WriteTestCommit(t, cfg, repoPath, git.WithParents(base), git.WithTreeEntries(tc.ours...))
-		theirs := git.WriteTestCommit(t, cfg, repoPath, git.WithParents(base), git.WithTreeEntries(tc.theirs...))
+		localRepo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+		base := localRepo.WriteTestCommit(t, localrepo.WithTreeEntries(tc.base...))
+		ours := localRepo.WriteTestCommit(t, localrepo.WithParents(base), localrepo.WithTreeEntries(tc.ours...))
+		theirs := localRepo.WriteTestCommit(t, localrepo.WithParents(base), localrepo.WithTreeEntries(tc.theirs...))
 
 		authorDate := time.Date(2020, 7, 30, 7, 45, 50, 0, time.FixedZone("UTC+2", +2*60*60))
 		committerDate := time.Date(2021, 7, 30, 7, 45, 50, 0, time.FixedZone("UTC+2", +2*60*60))
@@ -356,15 +359,17 @@ func TestMerge_squash(t *testing.T) {
 	testcfg.BuildGitalyGit2Go(t, cfg)
 	executor := buildExecutor(t, cfg)
 
+	localRepo := localrepo.NewTestRepo(t, cfg, repoProto)
+
 	baseFile := git.TreeEntry{Path: "file.txt", Content: "b\nc", Mode: "100644"}
 	ourFile := git.TreeEntry{Path: "file.txt", Content: "a\nb\nc", Mode: "100644"}
 	theirFile1 := git.TreeEntry{Path: "file.txt", Content: "b\nc\nd", Mode: "100644"}
 	theirFile2 := git.TreeEntry{Path: "file.txt", Content: "b\nc\nd\ne", Mode: "100644"}
 
-	base := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(baseFile))
-	ours := git.WriteTestCommit(t, cfg, repoPath, git.WithParents(base), git.WithTreeEntries(ourFile))
-	theirs1 := git.WriteTestCommit(t, cfg, repoPath, git.WithParents(base), git.WithTreeEntries(theirFile1))
-	theirs2 := git.WriteTestCommit(t, cfg, repoPath, git.WithParents(theirs1), git.WithTreeEntries(theirFile2))
+	base := localRepo.WriteTestCommit(t, localrepo.WithTreeEntries(baseFile))
+	ours := localRepo.WriteTestCommit(t, localrepo.WithParents(base), localrepo.WithTreeEntries(ourFile))
+	theirs1 := localRepo.WriteTestCommit(t, localrepo.WithParents(base), localrepo.WithTreeEntries(theirFile1))
+	theirs2 := localRepo.WriteTestCommit(t, localrepo.WithParents(theirs1), localrepo.WithTreeEntries(theirFile2))
 
 	date := time.Date(2020, 7, 30, 7, 45, 50, 0, time.FixedZone("UTC+2", +2*60*60))
 	response, err := executor.Merge(ctx, repoProto, git2go.MergeCommand{
@@ -421,20 +426,22 @@ func TestMerge_recursive(t *testing.T) {
 		SkipCreationViaService: true,
 	})
 
-	base := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
-		git.TreeEntry{Path: "base", Content: "base\n", Mode: "100644"},
+	localRepo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+	base := localRepo.WriteTestCommit(t, localrepo.WithTreeEntries(
+		localrepo.TreeEntry{Path: "base", Content: "base\n", Mode: "100644"},
 	))
 
-	ours := make([]git.ObjectID, git2go.MergeRecursionLimit)
-	ours[0] = git.WriteTestCommit(t, cfg, repoPath, git.WithParents(base), git.WithTreeEntries(
-		git.TreeEntry{Path: "base", Content: "base\n", Mode: "100644"},
-		git.TreeEntry{Path: "ours", Content: "ours-0\n", Mode: "100644"},
+	ours := make([]localrepo.ObjectID, git2go.MergeRecursionLimit)
+	ours[0] = localRepo.WriteTestCommit(t, localrepo.WithParents(base), localrepo.WithTreeEntries(
+		localrepo.TreeEntry{Path: "base", Content: "base\n", Mode: "100644"},
+		localrepo.TreeEntry{Path: "ours", Content: "ours-0\n", Mode: "100644"},
 	))
 
-	theirs := make([]git.ObjectID, git2go.MergeRecursionLimit)
-	theirs[0] = git.WriteTestCommit(t, cfg, repoPath, git.WithParents(base), git.WithTreeEntries(
-		git.TreeEntry{Path: "base", Content: "base\n", Mode: "100644"},
-		git.TreeEntry{Path: "theirs", Content: "theirs-0\n", Mode: "100644"},
+	theirs := make([]localrepo.ObjectID, git2go.MergeRecursionLimit)
+	theirs[0] = localRepo.WriteTestCommit(t, localrepo.WithParents(base), localrepo.WithTreeEntries(
+		localrepo.TreeEntry{Path: "base", Content: "base\n", Mode: "100644"},
+		localrepo.TreeEntry{Path: "theirs", Content: "theirs-0\n", Mode: "100644"},
 	))
 
 	// We're now creating a set of criss-cross merges which look like the following graph:
@@ -449,13 +456,13 @@ func TestMerge_recursive(t *testing.T) {
 	// is not unique, and as a result the merge will generate virtual merge bases for each of
 	// the criss-cross merges. This operation may thus be heavily expensive to perform.
 	for i := 1; i < git2go.MergeRecursionLimit; i++ {
-		ours[i] = git.WriteTestCommit(t, cfg, repoPath, git.WithParents(ours[i-1], theirs[i-1]), git.WithTreeEntries(
+		ours[i] = localrepo.WriteTestCommit(t, localrepo.WithParents(ours[i-1], theirs[i-1]), localrepo.WithTreeEntries(
 			git.TreeEntry{Path: "base", Content: "base\n", Mode: "100644"},
 			git.TreeEntry{Path: "ours", Content: fmt.Sprintf("ours-%d\n", i), Mode: "100644"},
 			git.TreeEntry{Path: "theirs", Content: fmt.Sprintf("theirs-%d\n", i-1), Mode: "100644"},
 		))
 
-		theirs[i] = git.WriteTestCommit(t, cfg, repoPath, git.WithParents(theirs[i-1], ours[i-1]), git.WithTreeEntries(
+		theirs[i] = localRepo.WriteTestCommit(t, cfg, repoPath, localrepo.WithParents(theirs[i-1], ours[i-1]), localrepo.WithTreeEntries(
 			git.TreeEntry{Path: "base", Content: "base\n", Mode: "100644"},
 			git.TreeEntry{Path: "ours", Content: fmt.Sprintf("ours-%d\n", i-1), Mode: "100644"},
 			git.TreeEntry{Path: "theirs", Content: fmt.Sprintf("theirs-%d\n", i), Mode: "100644"},

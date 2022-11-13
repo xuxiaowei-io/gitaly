@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
@@ -304,8 +305,9 @@ func TestRepackFullDeltaIslands(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
+	localRepo := localrepo.NewTestRepo(t, cfg, repo)
 
-	git.TestDeltaIslands(t, cfg, repoPath, repoPath, false, func() error {
+	git.TestDeltaIslands(t, cfg, repo, repo, false, func() error {
 		//nolint:staticcheck
 		_, err := client.RepackFull(ctx, &gitalypb.RepackFullRequest{Repository: repo})
 		return err

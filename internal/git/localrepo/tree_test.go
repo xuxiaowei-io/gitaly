@@ -143,7 +143,7 @@ func TestWriteTree(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			oid, err := Write(ctx, repo, tc.entries)
+			oid, err := repo.WriteTree(ctx, tc.entries)
 			require.NoError(t, err)
 
 			if tc.expectedEntries == nil {
