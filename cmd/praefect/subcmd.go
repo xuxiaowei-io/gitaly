@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
 	"gitlab.com/gitlab-org/gitaly/v15/client"
 	internalclient "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/client"
@@ -31,27 +32,29 @@ const (
 	paramAuthoritativeStorage = "authoritative-storage"
 )
 
-var subcommands = map[string]subcmd{
-	sqlPingCmdName:                &sqlPingSubcommand{},
-	sqlMigrateCmdName:             newSQLMigrateSubCommand(os.Stdout),
-	dialNodesCmdName:              newDialNodesSubcommand(os.Stdout),
-	sqlMigrateDownCmdName:         &sqlMigrateDownSubcommand{},
-	sqlMigrateStatusCmdName:       &sqlMigrateStatusSubcommand{},
-	datalossCmdName:               newDatalossSubcommand(),
-	acceptDatalossCmdName:         &acceptDatalossSubcommand{},
-	setReplicationFactorCmdName:   newSetReplicatioFactorSubcommand(os.Stdout),
-	removeRepositoryCmdName:       newRemoveRepository(logger, os.Stdout),
-	trackRepositoryCmdName:        newTrackRepository(logger, os.Stdout),
-	trackRepositoriesCmdName:      newTrackRepositories(logger, os.Stdout),
-	listUntrackedRepositoriesName: newListUntrackedRepositories(logger, os.Stdout),
-	checkCmdName:                  newCheckSubcommand(os.Stdout, service.AllChecks()...),
-	metadataCmdName:               newMetadataSubcommand(os.Stdout),
-	verifyCmdName:                 newVerifySubcommand(os.Stdout),
-	listStoragesCmdName:           newListStorages(os.Stdout),
+func subcommands(logger *logrus.Entry) map[string]subcmd {
+	return map[string]subcmd{
+		sqlPingCmdName:                &sqlPingSubcommand{},
+		sqlMigrateCmdName:             newSQLMigrateSubCommand(os.Stdout),
+		dialNodesCmdName:              newDialNodesSubcommand(os.Stdout),
+		sqlMigrateDownCmdName:         &sqlMigrateDownSubcommand{},
+		sqlMigrateStatusCmdName:       &sqlMigrateStatusSubcommand{},
+		datalossCmdName:               newDatalossSubcommand(),
+		acceptDatalossCmdName:         &acceptDatalossSubcommand{},
+		setReplicationFactorCmdName:   newSetReplicatioFactorSubcommand(os.Stdout),
+		removeRepositoryCmdName:       newRemoveRepository(logger, os.Stdout),
+		trackRepositoryCmdName:        newTrackRepository(logger, os.Stdout),
+		trackRepositoriesCmdName:      newTrackRepositories(logger, os.Stdout),
+		listUntrackedRepositoriesName: newListUntrackedRepositories(logger, os.Stdout),
+		checkCmdName:                  newCheckSubcommand(os.Stdout, service.AllChecks()...),
+		metadataCmdName:               newMetadataSubcommand(os.Stdout),
+		verifyCmdName:                 newVerifySubcommand(os.Stdout),
+		listStoragesCmdName:           newListStorages(os.Stdout),
+	}
 }
 
 // subCommand returns an exit code, to be fed into os.Exit.
-func subCommand(conf config.Config, arg0 string, argRest []string) int {
+func subCommand(conf config.Config, logger *logrus.Entry, arg0 string, argRest []string) int {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 
@@ -60,7 +63,7 @@ func subCommand(conf config.Config, arg0 string, argRest []string) int {
 		os.Exit(130) // indicates program was interrupted
 	}()
 
-	subcmd, ok := subcommands[arg0]
+	subcmd, ok := subcommands(logger)[arg0]
 	if !ok {
 		printfErr("%s: unknown subcommand: %q\n", progname, arg0)
 		return 1

@@ -160,7 +160,7 @@ func (req *trackRepositoryRequest) execRequest(ctx context.Context,
 		}
 	}
 
-	authoritativeRepoExists, err := req.authoritativeRepositoryExists(ctx, cfg, w, primary)
+	authoritativeRepoExists, err := req.authoritativeRepositoryExists(ctx, cfg, logger, w, primary)
 	if err != nil {
 		return fmt.Errorf("%s: %w", trackRepoErrorPrefix, err)
 	}
@@ -300,7 +300,7 @@ func repositoryExists(ctx context.Context, repo *gitalypb.Repository, addr, toke
 	return res.GetExists(), nil
 }
 
-func (req *trackRepositoryRequest) authoritativeRepositoryExists(ctx context.Context, cfg config.Config, w io.Writer, nodeName string) (bool, error) {
+func (req *trackRepositoryRequest) authoritativeRepositoryExists(ctx context.Context, cfg config.Config, logger logrus.FieldLogger, w io.Writer, nodeName string) (bool, error) {
 	for _, vs := range cfg.VirtualStorages {
 		if vs.Name != req.VirtualStorage {
 			continue

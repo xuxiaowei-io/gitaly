@@ -76,7 +76,7 @@ func (cmd trackRepositories) Exec(flags *flag.FlagSet, cfg config.Config) error 
 	}
 
 	ctx := correlation.ContextWithCorrelation(context.Background(), correlation.SafeRandomID())
-	logger = cmd.logger.WithField("correlation_id", correlation.ExtractFromContext(ctx))
+	logger := cmd.logger.WithField("correlation_id", correlation.ExtractFromContext(ctx))
 
 	openDBCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
@@ -164,7 +164,7 @@ func (cmd trackRepositories) Exec(flags *flag.FlagSet, cfg config.Config) error 
 			continue
 		}
 
-		authoritativeRepoExists, err := request.authoritativeRepositoryExists(ctx, cfg, cmd.w, request.AuthoritativeStorage)
+		authoritativeRepoExists, err := request.authoritativeRepositoryExists(ctx, cfg, logger, cmd.w, request.AuthoritativeStorage)
 		if err != nil {
 			badReq.errs = append(badReq.errs, fmt.Errorf("checking repository on disk: %w", err))
 		} else if !authoritativeRepoExists {

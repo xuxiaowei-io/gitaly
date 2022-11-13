@@ -100,7 +100,6 @@ import (
 var (
 	flagConfig  = flag.String("config", "", "Location for the config.toml")
 	flagVersion = flag.Bool("version", false, "Print version and exit")
-	logger      = log.Default()
 
 	errNoConfigFile = errors.New("the config flag must be passed")
 )
@@ -108,9 +107,10 @@ var (
 const progname = "praefect"
 
 func main() {
+	logger := log.Default()
 	flag.Usage = func() {
 		cmds := []string{}
-		for k := range subcommands {
+		for k := range subcommands(logger) {
 			cmds = append(cmds, k)
 		}
 
@@ -127,7 +127,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	conf, err := initConfig()
+	conf, err := initConfig(logger)
 	if err != nil {
 		printfErr("%s: configuration error: %v\n", progname, err)
 		os.Exit(1)
@@ -136,7 +136,7 @@ func main() {
 	conf.ConfigureLogger()
 
 	if args := flag.Args(); len(args) > 0 {
-		os.Exit(subCommand(conf, args[0], args[1:]))
+		os.Exit(subCommand(conf, logger, args[0], args[1:]))
 	}
 
 	configure(conf)
@@ -162,12 +162,12 @@ func main() {
 
 	dbPromRegistry := prometheus.NewRegistry()
 
-	if err := run(starterConfigs, conf, b, promreg, dbPromRegistry); err != nil {
+	if err := run(starterConfigs, conf, logger, b, promreg, dbPromRegistry); err != nil {
 		logger.Fatalf("%v", err)
 	}
 }
 
-func initConfig() (config.Config, error) {
+func initConfig(logger *logrus.Entry) (config.Config, error) {
 	var conf config.Config
 
 	if *flagConfig == "" {
@@ -208,6 +208,7 @@ func configure(conf config.Config) {
 func run(
 	cfgs []starter.Config,
 	conf config.Config,
+	logger *logrus.Entry,
 	b bootstrap.Listener,
 	promreg prometheus.Registerer,
 	dbPromRegistry interface {
