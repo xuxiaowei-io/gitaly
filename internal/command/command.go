@@ -396,10 +396,10 @@ func (c *Command) logProcessComplete() {
 		"path":                   cmd.Path,
 		"args":                   cmd.Args,
 		"command.exitCode":       exitCode,
-		"command.system_time_ms": systemTime.Seconds() * 1000,
-		"command.user_time_ms":   userTime.Seconds() * 1000,
-		"command.cpu_time_ms":    (systemTime.Seconds() + userTime.Seconds()) * 1000,
-		"command.real_time_ms":   realTime.Seconds() * 1000,
+		"command.system_time_ms": systemTime.Milliseconds(),
+		"command.user_time_ms":   userTime.Milliseconds(),
+		"command.cpu_time_ms":    systemTime.Milliseconds() + userTime.Milliseconds(),
+		"command.real_time_ms":   realTime.Milliseconds(),
 	}
 
 	if c.cgroupPath != "" {
@@ -424,10 +424,10 @@ func (c *Command) logProcessComplete() {
 
 	if stats := StatsFromContext(ctx); stats != nil {
 		stats.RecordSum("command.count", 1)
-		stats.RecordSum("command.system_time_ms", int(systemTime.Seconds()*1000))
-		stats.RecordSum("command.user_time_ms", int(userTime.Seconds()*1000))
-		stats.RecordSum("command.cpu_time_ms", int((systemTime.Seconds()+userTime.Seconds())*1000))
-		stats.RecordSum("command.real_time_ms", int(realTime.Seconds()*1000))
+		stats.RecordSum("command.system_time_ms", int(systemTime.Milliseconds()))
+		stats.RecordSum("command.user_time_ms", int(userTime.Milliseconds()))
+		stats.RecordSum("command.cpu_time_ms", int(systemTime.Milliseconds()+userTime.Milliseconds()))
+		stats.RecordSum("command.real_time_ms", int(realTime.Milliseconds()))
 
 		if ok {
 			stats.RecordMax("command.maxrss", int(rusage.Maxrss))
@@ -457,9 +457,9 @@ func (c *Command) logProcessComplete() {
 	c.span.LogKV(
 		"pid", cmd.ProcessState.Pid(),
 		"exit_code", exitCode,
-		"system_time_ms", int(systemTime.Seconds()*1000),
-		"user_time_ms", int(userTime.Seconds()*1000),
-		"real_time_ms", int(realTime.Seconds()*1000),
+		"system_time_ms", systemTime.Milliseconds(),
+		"user_time_ms", userTime.Milliseconds(),
+		"real_time_ms", realTime.Milliseconds(),
 	)
 	if ok {
 		c.span.LogKV(
