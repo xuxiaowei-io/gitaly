@@ -21,7 +21,11 @@ func (s *server) FindAllBranchNames(in *gitalypb.FindAllBranchNamesRequest, stre
 
 	chunker := chunk.New(&findAllBranchNamesSender{stream: stream})
 
-	return s.listRefNames(stream.Context(), chunker, "refs/heads", in.Repository, nil)
+	if err := s.listRefNames(stream.Context(), chunker, "refs/heads", in.Repository, nil); err != nil {
+		return helper.ErrInternal(err)
+	}
+
+	return nil
 }
 
 type findAllBranchNamesSender struct {
@@ -45,8 +49,11 @@ func (s *server) FindAllTagNames(in *gitalypb.FindAllTagNamesRequest, stream git
 	}
 
 	chunker := chunk.New(&findAllTagNamesSender{stream: stream})
+	if err := s.listRefNames(stream.Context(), chunker, "refs/tags", in.Repository, nil); err != nil {
+		return helper.ErrInternal(err)
+	}
 
-	return s.listRefNames(stream.Context(), chunker, "refs/tags", in.Repository, nil)
+	return nil
 }
 
 type findAllTagNamesSender struct {

@@ -1,6 +1,7 @@
 package ref
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -34,7 +35,7 @@ func (s *server) findAllRemoteBranches(req *gitalypb.FindAllRemoteBranchesReques
 	ctx := stream.Context()
 	objectReader, cancel, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
-		return err
+		return fmt.Errorf("creating object reader: %w", err)
 	}
 	defer cancel()
 
@@ -42,7 +43,11 @@ func (s *server) findAllRemoteBranches(req *gitalypb.FindAllRemoteBranchesReques
 	opts.cmdArgs = args
 	writer := newFindAllRemoteBranchesWriter(stream, objectReader)
 
-	return s.findRefs(ctx, writer, repo, patterns, opts)
+	if err = s.findRefs(ctx, writer, repo, patterns, opts); err != nil {
+		return fmt.Errorf("finding refs: %w", err)
+	}
+
+	return nil
 }
 
 func validateFindAllRemoteBranchesRequest(req *gitalypb.FindAllRemoteBranchesRequest) error {
@@ -51,7 +56,7 @@ func validateFindAllRemoteBranchesRequest(req *gitalypb.FindAllRemoteBranchesReq
 	}
 
 	if len(req.GetRemoteName()) == 0 {
-		return fmt.Errorf("empty RemoteName")
+		return errors.New("empty RemoteName")
 	}
 
 	return nil
