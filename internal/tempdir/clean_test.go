@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package tempdir
 
 import (
@@ -59,10 +57,11 @@ func TestCleanTempDir(t *testing.T) {
 	cfg := testcfg.Build(t, testcfg.WithStorages("first", "second"))
 	locator := config.NewLocator(cfg)
 
-	gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	_, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
+
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
 
 	logrus.SetLevel(logrus.InfoLevel)
 	logrus.SetOutput(io.Discard)
