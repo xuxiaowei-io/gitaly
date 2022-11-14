@@ -290,6 +290,19 @@ size 12345`
 			},
 		}, receivePointers(t, stream))
 	})
+
+	t.Run("no repository provided", func(t *testing.T) {
+		_, _, _, client := setup(t, ctx)
+		stram, err := client.ListAllLFSPointers(ctx, &gitalypb.ListAllLFSPointersRequest{
+			Repository: nil,
+		})
+		require.NoError(t, err)
+		_, err = stram.Recv()
+		testhelper.RequireGrpcError(t, status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			"empty Repository",
+			"repo scoped: empty Repository",
+		)), err)
+	})
 }
 
 func TestSuccessfulGetLFSPointersRequest(t *testing.T) {

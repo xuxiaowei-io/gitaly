@@ -82,7 +82,7 @@ func (s *server) ListAllLFSPointers(in *gitalypb.ListAllLFSPointersRequest, stre
 
 	repository := in.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
-		return err
+		return helper.ErrInvalidArgument(err)
 	}
 
 	repo := s.localrepo(repository)
@@ -222,7 +222,7 @@ func sendLFSPointers(chunker *chunk.Chunker, iter gitpipe.CatfileObjectIterator,
 		// is 200 bytes in size. So it's not much of a problem to read this into memory
 		// completely.
 		if _, err := io.Copy(buffer, lfsPointer); err != nil {
-			return helper.ErrInternal(fmt.Errorf("reading LFS pointer data: %w", err))
+			return helper.ErrInternalf("reading LFS pointer data: %w", err)
 		}
 
 		if !git.IsLFSPointer(buffer.Bytes()) {
@@ -237,7 +237,7 @@ func sendLFSPointers(chunker *chunk.Chunker, iter gitpipe.CatfileObjectIterator,
 			Size: int64(len(objectData)),
 			Oid:  lfsPointer.ObjectID().String(),
 		}); err != nil {
-			return helper.ErrInternal(fmt.Errorf("sending LFS pointer chunk: %w", err))
+			return helper.ErrInternalf("sending LFS pointer chunk: %w", err)
 		}
 
 		i++
