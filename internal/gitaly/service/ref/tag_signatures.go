@@ -63,7 +63,7 @@ func (s *server) GetTagSignatures(req *gitalypb.GetTagSignaturesRequest, stream 
 
 	catfileObjectIter, err := gitpipe.CatfileObject(ctx, objectReader, revlistIter)
 	if err != nil {
-		return err
+		return helper.ErrInternalf("creating cat-file object iterator: %w", err)
 	}
 
 	for catfileObjectIter.Next() {
@@ -71,7 +71,7 @@ func (s *server) GetTagSignatures(req *gitalypb.GetTagSignaturesRequest, stream 
 
 		raw, err := io.ReadAll(tag)
 		if err != nil {
-			return helper.ErrInternal(err)
+			return helper.ErrInternalf("reading tag: %w", err)
 		}
 
 		signatureKey, tagText := catfile.ExtractTagSignature(raw)
@@ -81,16 +81,16 @@ func (s *server) GetTagSignatures(req *gitalypb.GetTagSignaturesRequest, stream 
 			Signature: signatureKey,
 			Content:   tagText,
 		}); err != nil {
-			return helper.ErrInternal(fmt.Errorf("sending tag signature chunk: %w", err))
+			return helper.ErrInternalf("sending tag signature chunk: %w", err)
 		}
 	}
 
 	if err := catfileObjectIter.Err(); err != nil {
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("cat-file iterator stop: %w", err)
 	}
 
 	if err := chunker.Flush(); err != nil {
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("flushing chunker: %w", err)
 	}
 
 	return nil

@@ -43,7 +43,7 @@ func (s *server) FindAllTags(in *gitalypb.FindAllTagsRequest, stream gitalypb.Re
 func (s *server) findAllTags(ctx context.Context, repo *localrepo.Repo, sortField string, stream gitalypb.RefService_FindAllTagsServer, opts *paginationOpts) error {
 	objectReader, cancel, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
-		return fmt.Errorf("error creating object reader: %v", err)
+		return fmt.Errorf("creating object reader: %w", err)
 	}
 	defer cancel()
 
@@ -57,7 +57,7 @@ func (s *server) findAllTags(ctx context.Context, repo *localrepo.Repo, sortFiel
 
 	catfileObjectsIter, err := gitpipe.CatfileObject(ctx, objectReader, forEachRefIter)
 	if err != nil {
-		return err
+		return fmt.Errorf("creating cat-file object iterator: %w", err)
 	}
 
 	chunker := chunk.New(&tagSender{stream: stream})
@@ -172,7 +172,7 @@ func (s *server) validateFindAllTagsRequest(request *gitalypb.FindAllTagsRequest
 	}
 
 	if _, err := s.locator.GetRepoPath(repository); err != nil {
-		return fmt.Errorf("invalid git directory: %v", err)
+		return fmt.Errorf("invalid git directory: %w", err)
 	}
 
 	return nil
