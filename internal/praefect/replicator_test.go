@@ -46,10 +46,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func TestMain(m *testing.M) {
-	testhelper.Run(m)
-}
-
 func TestReplMgr_ProcessBacklog(t *testing.T) {
 	t.Parallel()
 

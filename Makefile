@@ -26,6 +26,7 @@ ARCH := $(shell uname -m)
 # Directories
 SOURCE_DIR       := $(abspath $(dir $(lastword ${MAKEFILE_LIST})))
 BUILD_DIR        := ${SOURCE_DIR}/_build
+PROTO_DEST_DIR   := ${SOURCE_DIR}/proto/go
 DEPENDENCY_DIR   := ${BUILD_DIR}/deps
 TOOLS_DIR        := ${BUILD_DIR}/tools
 GITALY_RUBY_DIR  := ${SOURCE_DIR}/ruby
@@ -239,7 +240,7 @@ GITALY_PACKED_EXECUTABLES    = $(filter %gitaly-hooks %gitaly-git2go %gitaly-ssh
 # All executables that should be installed.
 GITALY_INSTALLED_EXECUTABLES = $(filter-out ${GITALY_PACKED_EXECUTABLES}, ${GITALY_EXECUTABLES})
 # Find all Go source files.
-find_go_sources              = $(shell find ${SOURCE_DIR} -type d \( -name ruby -o -name vendor -o -name testdata -o -name '_*' -o -path '*/proto/go/gitalypb' \) -prune -o -type f -name '*.go' -not -name '*.pb.go' -print | sort -u)
+find_go_sources              = $(shell find ${SOURCE_DIR} -type d \( -path "${SOURCE_DIR}/_*" -o -path "${SOURCE_DIR}/ruby" -o -path "${SOURCE_DIR}/proto" \) -prune -o -type f -name '*.go' -print | sort -u)
 
 # run_go_tests will execute Go tests with all required parameters. Its
 # behaviour can be modified via the following variables:
@@ -480,16 +481,8 @@ cover: prepare-tests libgit2 ${GOCOVER_COBERTURA}
 ## Regenerate protobuf definitions.
 proto: SHARED_PROTOC_OPTS = --plugin=${PROTOC_GEN_GO} --plugin=${PROTOC_GEN_GO_GRPC} --plugin=${PROTOC_GEN_GITALY_PROTOLIST} --go_opt=paths=source_relative --go-grpc_opt=paths=source_relative
 proto: ${PROTOC} ${PROTOC_GEN_GO} ${PROTOC_GEN_GO_GRPC} ${PROTOC_GEN_GITALY_PROTOLIST}
-	${Q}mkdir -p ${SOURCE_DIR}/proto/go/gitalypb
-	${Q}rm -f ${SOURCE_DIR}/proto/go/gitalypb/*.pb.go
-	${PROTOC} ${SHARED_PROTOC_OPTS} -I ${SOURCE_DIR}/proto -I ${PROTOC_INSTALL_DIR}/include --go_out=${SOURCE_DIR}/proto/go/gitalypb --gitaly-protolist_out=proto_dir=${SOURCE_DIR}/proto,gitalypb_dir=${SOURCE_DIR}/proto/go/gitalypb:${SOURCE_DIR} --go-grpc_out=${SOURCE_DIR}/proto/go/gitalypb ${SOURCE_DIR}/proto/*.proto
-	@ # this part is related to the generation of sources from testing proto files
-	${PROTOC} ${SHARED_PROTOC_OPTS} -I ${SOURCE_DIR}/proto -I ${SOURCE_DIR}/internal -I ${PROTOC_INSTALL_DIR}/include --go_out=${SOURCE_DIR}/internal --go-grpc_out=${SOURCE_DIR}/internal \
-		${SOURCE_DIR}/internal/praefect/mock/mock.proto \
-		${SOURCE_DIR}/internal/middleware/cache/testdata/stream.proto \
-		${SOURCE_DIR}/internal/helper/chunk/testdata/test.proto \
-		${SOURCE_DIR}/internal/middleware/limithandler/testdata/test.proto
-	${PROTOC} ${SHARED_PROTOC_OPTS} -I ${SOURCE_DIR}/proto -I ${SOURCE_DIR}/tools -I ${PROTOC_INSTALL_DIR}/include --go_out=${SOURCE_DIR}/tools --go-grpc_out=${SOURCE_DIR}/tools ${SOURCE_DIR}/tools/protoc-gen-gitaly-lint/testdata/*.proto
+	${Q}rm -rf ${PROTO_DEST_DIR} && mkdir -p ${PROTO_DEST_DIR}/gitalypb
+	${Q}${PROTOC} ${SHARED_PROTOC_OPTS} -I ${SOURCE_DIR}/proto -I ${PROTOC_INSTALL_DIR}/include --go_out=${PROTO_DEST_DIR}/gitalypb --gitaly-protolist_out=proto_dir=${SOURCE_DIR}/proto,gitalypb_dir=${PROTO_DEST_DIR}/gitalypb:${SOURCE_DIR} --go-grpc_out=${PROTO_DEST_DIR}/gitalypb ${SOURCE_DIR}/proto/*.proto ${SOURCE_DIR}/proto/testproto/*.proto
 
 .PHONY: check-proto
 check-proto: no-proto-changes lint-proto
@@ -497,7 +490,7 @@ check-proto: no-proto-changes lint-proto
 .PHONY: lint-proto
 lint-proto: ${PROTOC} ${PROTOLINT} ${PROTOC_GEN_GITALY_LINT}
 	${Q}${PROTOC} -I ${SOURCE_DIR}/proto -I ${PROTOC_INSTALL_DIR}/include --plugin=${PROTOC_GEN_GITALY_LINT} --gitaly-lint_out=${SOURCE_DIR} ${SOURCE_DIR}/proto/*.proto
-	${Q}${PROTOLINT} lint -config_dir_path=${SOURCE_DIR}/proto ${SOURCE_DIR}/proto
+	${Q}${PROTOLINT} lint -config_dir_path=${SOURCE_DIR}/proto ${SOURCE_DIR}/proto/*.proto
 
 .PHONY: build-proto-gem
 ## Build the Ruby Gem that contains Gitaly's Protobuf definitons.
@@ -514,8 +507,9 @@ no-changes:
 	${Q}${GIT} diff --exit-code
 
 .PHONY: no-proto-changes
+no-proto-changes: PROTO_DEST_DIR := ${BUILD_DIR}/proto-changes
 no-proto-changes: proto | ${BUILD_DIR}
-	${Q}${GIT} diff --exit-code -- '*.pb.go'
+	${Q}${GIT} diff --no-index --exit-code -- "${PROTO_DEST_DIR}" "${SOURCE_DIR}/proto/go"
 
 .PHONY: dump-database-schema
 ## Dump the clean database schema of Praefect into a file.

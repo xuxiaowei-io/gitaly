@@ -16,7 +16,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/grpc-proxy/proxy"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/mock"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/service"
@@ -58,20 +57,21 @@ type BuildOptions struct {
 	WithChecks []service.CheckFunc
 }
 
-// WithMockBackends mocks backends with a set of passed in stubs.
-func WithMockBackends(tb testing.TB, backends map[string]mock.SimpleServiceServer) func([]*config.VirtualStorage) []testhelper.Cleanup {
+// WithMockBackends mocks backends with a set of passed in functions that know to register a gRPC
+// server.
+func WithMockBackends(tb testing.TB, backendRegistrars map[string]func(*grpc.Server)) func([]*config.VirtualStorage) []testhelper.Cleanup {
 	return func(virtualStorages []*config.VirtualStorage) []testhelper.Cleanup {
 		var cleanups []testhelper.Cleanup
 
 		for _, vs := range virtualStorages {
-			require.Equal(tb, len(backends), len(vs.Nodes),
+			require.Equal(tb, len(backendRegistrars), len(vs.Nodes),
 				"mock server count doesn't match config nodes")
 
 			for i, node := range vs.Nodes {
-				backend, ok := backends[node.Storage]
-				require.True(tb, ok, "missing backend server for node %s", node.Storage)
+				backendRegistrar, ok := backendRegistrars[node.Storage]
+				require.True(tb, ok, "missing server registrator for node %s", node.Storage)
 
-				backendAddr, cleanup := newMockDownstream(tb, node.Token, backend)
+				backendAddr, cleanup := newMockDownstream(tb, node.Token, backendRegistrar)
 				cleanups = append(cleanups, cleanup)
 
 				node.Address = backendAddr
@@ -132,9 +132,9 @@ func dialLocalPort(tb testing.TB, port int, backend bool) *grpc.ClientConn {
 	return cc
 }
 
-func newMockDownstream(tb testing.TB, token string, m mock.SimpleServiceServer) (string, func()) {
+func newMockDownstream(tb testing.TB, token string, registerService func(*grpc.Server)) (string, func()) {
 	srv := grpc.NewServer(grpc.UnaryInterceptor(auth.UnaryServerInterceptor(gitalycfgauth.Config{Token: token})))
-	mock.RegisterSimpleServiceServer(srv, m)
+	registerService(srv)
 	healthpb.RegisterHealthServer(srv, health.NewServer())
 
 	// client to backend service

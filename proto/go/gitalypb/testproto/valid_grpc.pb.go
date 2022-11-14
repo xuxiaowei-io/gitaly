@@ -2,9 +2,9 @@
 // versions:
 // - protoc-gen-go-grpc v1.2.0
 // - protoc             v3.21.7
-// source: protoc-gen-gitaly-lint/testdata/valid.proto
+// source: testproto/valid.proto
 
-package testdata
+package testproto
 
 import (
 	context "context"
@@ -35,7 +35,7 @@ func NewInterceptedServiceClient(cc grpc.ClientConnInterface) InterceptedService
 
 func (c *interceptedServiceClient) TestMethod(ctx context.Context, in *ValidRequest, opts ...grpc.CallOption) (*ValidResponse, error) {
 	out := new(ValidResponse)
-	err := c.cc.Invoke(ctx, "/test.InterceptedService/TestMethod", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testproto.InterceptedService/TestMethod", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +80,7 @@ func _InterceptedService_TestMethod_Handler(srv interface{}, ctx context.Context
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/test.InterceptedService/TestMethod",
+		FullMethod: "/testproto.InterceptedService/TestMethod",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(InterceptedServiceServer).TestMethod(ctx, req.(*ValidRequest))
@@ -92,7 +92,7 @@ func _InterceptedService_TestMethod_Handler(srv interface{}, ctx context.Context
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var InterceptedService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "test.InterceptedService",
+	ServiceName: "testproto.InterceptedService",
 	HandlerType: (*InterceptedServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -101,7 +101,7 @@ var InterceptedService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "protoc-gen-gitaly-lint/testdata/valid.proto",
+	Metadata: "testproto/valid.proto",
 }
 
 // ValidServiceClient is the client API for ValidService service.
@@ -135,7 +135,7 @@ func NewValidServiceClient(cc grpc.ClientConnInterface) ValidServiceClient {
 
 func (c *validServiceClient) TestMethod(ctx context.Context, in *ValidRequest, opts ...grpc.CallOption) (*ValidResponse, error) {
 	out := new(ValidResponse)
-	err := c.cc.Invoke(ctx, "/test.ValidService/TestMethod", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testproto.ValidService/TestMethod", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +144,7 @@ func (c *validServiceClient) TestMethod(ctx context.Context, in *ValidRequest, o
 
 func (c *validServiceClient) TestMethod2(ctx context.Context, in *ValidRequest, opts ...grpc.CallOption) (*ValidResponse, error) {
 	out := new(ValidResponse)
-	err := c.cc.Invoke(ctx, "/test.ValidService/TestMethod2", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testproto.ValidService/TestMethod2", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +153,7 @@ func (c *validServiceClient) TestMethod2(ctx context.Context, in *ValidRequest, 
 
 func (c *validServiceClient) TestMethod3(ctx context.Context, in *ValidRequest, opts ...grpc.CallOption) (*ValidResponse, error) {
 	out := new(ValidResponse)
-	err := c.cc.Invoke(ctx, "/test.ValidService/TestMethod3", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testproto.ValidService/TestMethod3", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +162,7 @@ func (c *validServiceClient) TestMethod3(ctx context.Context, in *ValidRequest, 
 
 func (c *validServiceClient) TestMethod5(ctx context.Context, in *ValidNestedRequest, opts ...grpc.CallOption) (*ValidResponse, error) {
 	out := new(ValidResponse)
-	err := c.cc.Invoke(ctx, "/test.ValidService/TestMethod5", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testproto.ValidService/TestMethod5", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -171,7 +171,7 @@ func (c *validServiceClient) TestMethod5(ctx context.Context, in *ValidNestedReq
 
 func (c *validServiceClient) TestMethod6(ctx context.Context, in *ValidNestedSharedRequest, opts ...grpc.CallOption) (*ValidResponse, error) {
 	out := new(ValidResponse)
-	err := c.cc.Invoke(ctx, "/test.ValidService/TestMethod6", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testproto.ValidService/TestMethod6", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +180,7 @@ func (c *validServiceClient) TestMethod6(ctx context.Context, in *ValidNestedSha
 
 func (c *validServiceClient) TestMethod7(ctx context.Context, in *ValidInnerNestedRequest, opts ...grpc.CallOption) (*ValidResponse, error) {
 	out := new(ValidResponse)
-	err := c.cc.Invoke(ctx, "/test.ValidService/TestMethod7", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testproto.ValidService/TestMethod7", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -189,7 +189,7 @@ func (c *validServiceClient) TestMethod7(ctx context.Context, in *ValidInnerNest
 
 func (c *validServiceClient) TestMethod8(ctx context.Context, in *ValidStorageRequest, opts ...grpc.CallOption) (*ValidResponse, error) {
 	out := new(ValidResponse)
-	err := c.cc.Invoke(ctx, "/test.ValidService/TestMethod8", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testproto.ValidService/TestMethod8", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -198,7 +198,7 @@ func (c *validServiceClient) TestMethod8(ctx context.Context, in *ValidStorageRe
 
 func (c *validServiceClient) TestMethod9(ctx context.Context, in *ValidStorageNestedRequest, opts ...grpc.CallOption) (*ValidResponse, error) {
 	out := new(ValidResponse)
-	err := c.cc.Invoke(ctx, "/test.ValidService/TestMethod9", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testproto.ValidService/TestMethod9", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -207,7 +207,7 @@ func (c *validServiceClient) TestMethod9(ctx context.Context, in *ValidStorageNe
 
 func (c *validServiceClient) TestMethod10(ctx context.Context, in *ValidStorageRequest, opts ...grpc.CallOption) (*ValidResponse, error) {
 	out := new(ValidResponse)
-	err := c.cc.Invoke(ctx, "/test.ValidService/TestMethod10", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testproto.ValidService/TestMethod10", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -216,7 +216,7 @@ func (c *validServiceClient) TestMethod10(ctx context.Context, in *ValidStorageR
 
 func (c *validServiceClient) TestMaintenance(ctx context.Context, in *ValidRequest, opts ...grpc.CallOption) (*ValidResponse, error) {
 	out := new(ValidResponse)
-	err := c.cc.Invoke(ctx, "/test.ValidService/TestMaintenance", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testproto.ValidService/TestMaintenance", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -225,7 +225,7 @@ func (c *validServiceClient) TestMaintenance(ctx context.Context, in *ValidReque
 
 func (c *validServiceClient) TestMaintenanceWithExplicitScope(ctx context.Context, in *ValidRequest, opts ...grpc.CallOption) (*ValidResponse, error) {
 	out := new(ValidResponse)
-	err := c.cc.Invoke(ctx, "/test.ValidService/TestMaintenanceWithExplicitScope", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testproto.ValidService/TestMaintenanceWithExplicitScope", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -234,7 +234,7 @@ func (c *validServiceClient) TestMaintenanceWithExplicitScope(ctx context.Contex
 
 func (c *validServiceClient) TestMaintenanceWithNestedRequest(ctx context.Context, in *ValidNestedRequest, opts ...grpc.CallOption) (*ValidResponse, error) {
 	out := new(ValidResponse)
-	err := c.cc.Invoke(ctx, "/test.ValidService/TestMaintenanceWithNestedRequest", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testproto.ValidService/TestMaintenanceWithNestedRequest", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -243,7 +243,7 @@ func (c *validServiceClient) TestMaintenanceWithNestedRequest(ctx context.Contex
 
 func (c *validServiceClient) TestMaintenanceWithNestedSharedRequest(ctx context.Context, in *ValidNestedSharedRequest, opts ...grpc.CallOption) (*ValidResponse, error) {
 	out := new(ValidResponse)
-	err := c.cc.Invoke(ctx, "/test.ValidService/TestMaintenanceWithNestedSharedRequest", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testproto.ValidService/TestMaintenanceWithNestedSharedRequest", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +252,7 @@ func (c *validServiceClient) TestMaintenanceWithNestedSharedRequest(ctx context.
 
 func (c *validServiceClient) TestMutatorWithInnerNestedRequest(ctx context.Context, in *ValidInnerNestedRequest, opts ...grpc.CallOption) (*ValidResponse, error) {
 	out := new(ValidResponse)
-	err := c.cc.Invoke(ctx, "/test.ValidService/TestMutatorWithInnerNestedRequest", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testproto.ValidService/TestMutatorWithInnerNestedRequest", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -350,7 +350,7 @@ func _ValidService_TestMethod_Handler(srv interface{}, ctx context.Context, dec 
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/test.ValidService/TestMethod",
+		FullMethod: "/testproto.ValidService/TestMethod",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ValidServiceServer).TestMethod(ctx, req.(*ValidRequest))
@@ -368,7 +368,7 @@ func _ValidService_TestMethod2_Handler(srv interface{}, ctx context.Context, dec
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/test.ValidService/TestMethod2",
+		FullMethod: "/testproto.ValidService/TestMethod2",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ValidServiceServer).TestMethod2(ctx, req.(*ValidRequest))
@@ -386,7 +386,7 @@ func _ValidService_TestMethod3_Handler(srv interface{}, ctx context.Context, dec
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/test.ValidService/TestMethod3",
+		FullMethod: "/testproto.ValidService/TestMethod3",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ValidServiceServer).TestMethod3(ctx, req.(*ValidRequest))
@@ -404,7 +404,7 @@ func _ValidService_TestMethod5_Handler(srv interface{}, ctx context.Context, dec
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/test.ValidService/TestMethod5",
+		FullMethod: "/testproto.ValidService/TestMethod5",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ValidServiceServer).TestMethod5(ctx, req.(*ValidNestedRequest))
@@ -422,7 +422,7 @@ func _ValidService_TestMethod6_Handler(srv interface{}, ctx context.Context, dec
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/test.ValidService/TestMethod6",
+		FullMethod: "/testproto.ValidService/TestMethod6",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ValidServiceServer).TestMethod6(ctx, req.(*ValidNestedSharedRequest))
@@ -440,7 +440,7 @@ func _ValidService_TestMethod7_Handler(srv interface{}, ctx context.Context, dec
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/test.ValidService/TestMethod7",
+		FullMethod: "/testproto.ValidService/TestMethod7",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ValidServiceServer).TestMethod7(ctx, req.(*ValidInnerNestedRequest))
@@ -458,7 +458,7 @@ func _ValidService_TestMethod8_Handler(srv interface{}, ctx context.Context, dec
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/test.ValidService/TestMethod8",
+		FullMethod: "/testproto.ValidService/TestMethod8",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ValidServiceServer).TestMethod8(ctx, req.(*ValidStorageRequest))
@@ -476,7 +476,7 @@ func _ValidService_TestMethod9_Handler(srv interface{}, ctx context.Context, dec
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/test.ValidService/TestMethod9",
+		FullMethod: "/testproto.ValidService/TestMethod9",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ValidServiceServer).TestMethod9(ctx, req.(*ValidStorageNestedRequest))
@@ -494,7 +494,7 @@ func _ValidService_TestMethod10_Handler(srv interface{}, ctx context.Context, de
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/test.ValidService/TestMethod10",
+		FullMethod: "/testproto.ValidService/TestMethod10",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ValidServiceServer).TestMethod10(ctx, req.(*ValidStorageRequest))
@@ -512,7 +512,7 @@ func _ValidService_TestMaintenance_Handler(srv interface{}, ctx context.Context,
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/test.ValidService/TestMaintenance",
+		FullMethod: "/testproto.ValidService/TestMaintenance",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ValidServiceServer).TestMaintenance(ctx, req.(*ValidRequest))
@@ -530,7 +530,7 @@ func _ValidService_TestMaintenanceWithExplicitScope_Handler(srv interface{}, ctx
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/test.ValidService/TestMaintenanceWithExplicitScope",
+		FullMethod: "/testproto.ValidService/TestMaintenanceWithExplicitScope",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ValidServiceServer).TestMaintenanceWithExplicitScope(ctx, req.(*ValidRequest))
@@ -548,7 +548,7 @@ func _ValidService_TestMaintenanceWithNestedRequest_Handler(srv interface{}, ctx
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/test.ValidService/TestMaintenanceWithNestedRequest",
+		FullMethod: "/testproto.ValidService/TestMaintenanceWithNestedRequest",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ValidServiceServer).TestMaintenanceWithNestedRequest(ctx, req.(*ValidNestedRequest))
@@ -566,7 +566,7 @@ func _ValidService_TestMaintenanceWithNestedSharedRequest_Handler(srv interface{
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/test.ValidService/TestMaintenanceWithNestedSharedRequest",
+		FullMethod: "/testproto.ValidService/TestMaintenanceWithNestedSharedRequest",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ValidServiceServer).TestMaintenanceWithNestedSharedRequest(ctx, req.(*ValidNestedSharedRequest))
@@ -584,7 +584,7 @@ func _ValidService_TestMutatorWithInnerNestedRequest_Handler(srv interface{}, ct
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/test.ValidService/TestMutatorWithInnerNestedRequest",
+		FullMethod: "/testproto.ValidService/TestMutatorWithInnerNestedRequest",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ValidServiceServer).TestMutatorWithInnerNestedRequest(ctx, req.(*ValidInnerNestedRequest))
@@ -596,7 +596,7 @@ func _ValidService_TestMutatorWithInnerNestedRequest_Handler(srv interface{}, ct
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var ValidService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "test.ValidService",
+	ServiceName: "testproto.ValidService",
 	HandlerType: (*ValidServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -657,5 +657,5 @@ var ValidService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "protoc-gen-gitaly-lint/testdata/valid.proto",
+	Metadata: "testproto/valid.proto",
 }

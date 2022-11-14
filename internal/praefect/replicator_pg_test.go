@@ -19,15 +19,6 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-type mockRepositoryService struct {
-	gitalypb.UnimplementedRepositoryServiceServer
-	ReplicateRepositoryFunc func(context.Context, *gitalypb.ReplicateRepositoryRequest) (*gitalypb.ReplicateRepositoryResponse, error)
-}
-
-func (m *mockRepositoryService) ReplicateRepository(ctx context.Context, r *gitalypb.ReplicateRepositoryRequest) (*gitalypb.ReplicateRepositoryResponse, error) {
-	return m.ReplicateRepositoryFunc(ctx, r)
-}
-
 func TestReplicatorInvalidSourceRepository(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)

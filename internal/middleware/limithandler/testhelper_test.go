@@ -7,11 +7,11 @@ import (
 	"io"
 	"sync/atomic"
 
-	pb "gitlab.com/gitlab-org/gitaly/v15/internal/middleware/limithandler/testdata"
+	"google.golang.org/grpc/test/grpc_testing"
 )
 
 type server struct {
-	pb.UnimplementedTestServer
+	grpc_testing.UnimplementedTestServiceServer
 	requestCount uint64
 	blockCh      chan struct{}
 }
@@ -24,23 +24,37 @@ func (s *server) getRequestCount() int {
 	return int(atomic.LoadUint64(&s.requestCount))
 }
 
-func (s *server) Unary(ctx context.Context, in *pb.UnaryRequest) (*pb.UnaryResponse, error) {
+func (s *server) UnaryCall(
+	ctx context.Context,
+	in *grpc_testing.SimpleRequest,
+) (*grpc_testing.SimpleResponse, error) {
 	s.registerRequest()
 
 	<-s.blockCh // Block to ensure concurrency
 
-	return &pb.UnaryResponse{Ok: true}, nil
+	return &grpc_testing.SimpleResponse{
+		Payload: &grpc_testing.Payload{
+			Body: []byte("success"),
+		},
+	}, nil
 }
 
-func (s *server) StreamOutput(in *pb.StreamOutputRequest, stream pb.Test_StreamOutputServer) error {
+func (s *server) StreamingOutputCall(
+	in *grpc_testing.StreamingOutputCallRequest,
+	stream grpc_testing.TestService_StreamingOutputCallServer,
+) error {
 	s.registerRequest()
 
 	<-s.blockCh // Block to ensure concurrency
 
-	return stream.Send(&pb.StreamOutputResponse{Ok: true})
+	return stream.Send(&grpc_testing.StreamingOutputCallResponse{
+		Payload: &grpc_testing.Payload{
+			Body: []byte("success"),
+		},
+	})
 }
 
-func (s *server) StreamInput(stream pb.Test_StreamInputServer) error {
+func (s *server) StreamingInputCall(stream grpc_testing.TestService_StreamingInputCallServer) error {
 	// Read all the input
 	for {
 		if _, err := stream.Recv(); err != nil {
@@ -55,10 +69,12 @@ func (s *server) StreamInput(stream pb.Test_StreamInputServer) error {
 
 	<-s.blockCh // Block to ensure concurrency
 
-	return stream.SendAndClose(&pb.StreamInputResponse{Ok: true})
+	return stream.SendAndClose(&grpc_testing.StreamingInputCallResponse{
+		AggregatedPayloadSize: 9000,
+	})
 }
 
-func (s *server) Bidirectional(stream pb.Test_BidirectionalServer) error {
+func (s *server) FullDuplexCall(stream grpc_testing.TestService_FullDuplexCallServer) error {
 	// Read all the input
 	for {
 		if _, err := stream.Recv(); err != nil {
@@ -73,5 +89,9 @@ func (s *server) Bidirectional(stream pb.Test_BidirectionalServer) error {
 
 	<-s.blockCh // Block to ensure concurrency
 
-	return stream.Send(&pb.BidirectionalResponse{Ok: true})
+	return stream.Send(&grpc_testing.StreamingOutputCallResponse{
+		Payload: &grpc_testing.Payload{
+			Body: []byte("success"),
+		},
+	})
 }

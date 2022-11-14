@@ -5,15 +5,15 @@ package chunk
 import (
 	"io"
 	"net"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	test "gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk/testdata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/test/grpc_testing"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 func TestMain(m *testing.M) {
@@ -21,18 +21,20 @@ func TestMain(m *testing.M) {
 }
 
 type testSender struct {
-	stream test.Test_StreamOutputServer
-	output [][]byte
+	stream grpc_testing.TestService_StreamingOutputCallServer
+	body   []byte
 }
 
-func (ts *testSender) Reset() { ts.output = nil }
+func (ts *testSender) Reset() { ts.body = ts.body[:0] }
 func (ts *testSender) Append(m proto.Message) {
-	ts.output = append(ts.output, m.(*wrapperspb.BytesValue).Value)
+	ts.body = append(ts.body, m.(*grpc_testing.Payload).Body...)
 }
 
 func (ts *testSender) Send() error {
-	return ts.stream.Send(&test.StreamOutputResponse{
-		Msg: ts.output,
+	return ts.stream.Send(&grpc_testing.StreamingOutputCallResponse{
+		Payload: &grpc_testing.Payload{
+			Body: ts.body,
+		},
 	})
 }
 
@@ -45,7 +47,11 @@ func TestChunker(t *testing.T) {
 	defer conn.Close()
 	ctx := testhelper.Context(t)
 
-	stream, err := client.StreamOutput(ctx, &test.StreamOutputRequest{BytesToReturn: 3.5 * maxMessageSize})
+	stream, err := client.StreamingOutputCall(ctx, &grpc_testing.StreamingOutputCallRequest{
+		Payload: &grpc_testing.Payload{
+			Body: []byte(strconv.FormatInt(3.5*maxMessageSize, 10)),
+		},
+	})
 	require.NoError(t, err)
 
 	for {
@@ -58,15 +64,20 @@ func TestChunker(t *testing.T) {
 }
 
 type server struct {
-	test.UnimplementedTestServer
+	grpc_testing.UnimplementedTestServiceServer
 }
 
-func (s *server) StreamOutput(req *test.StreamOutputRequest, srv test.Test_StreamOutputServer) error {
+func (s *server) StreamingOutputCall(req *grpc_testing.StreamingOutputCallRequest, stream grpc_testing.TestService_StreamingOutputCallServer) error {
 	const kilobyte = 1024
 
-	c := New(&testSender{stream: srv})
-	for numBytes := 0; numBytes < int(req.GetBytesToReturn()); numBytes += kilobyte {
-		if err := c.Send(&wrapperspb.BytesValue{Value: make([]byte, kilobyte)}); err != nil {
+	bytesToSend, err := strconv.ParseInt(string(req.GetPayload().GetBody()), 10, 64)
+	if err != nil {
+		return err
+	}
+
+	c := New(&testSender{stream: stream})
+	for numBytes := int64(0); numBytes < bytesToSend; numBytes += kilobyte {
+		if err := c.Send(&grpc_testing.Payload{Body: make([]byte, kilobyte)}); err != nil {
 			return err
 		}
 	}
@@ -80,7 +91,7 @@ func (s *server) StreamOutput(req *test.StreamOutputRequest, srv test.Test_Strea
 func runServer(t *testing.T, s *server, opt ...grpc.ServerOption) (*grpc.Server, string) {
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 	grpcServer := grpc.NewServer(opt...)
-	test.RegisterTestServer(grpcServer, s)
+	grpc_testing.RegisterTestServiceServer(grpcServer, s)
 
 	lis, err := net.Listen("unix", serverSocketPath)
 	require.NoError(t, err)
@@ -90,7 +101,7 @@ func runServer(t *testing.T, s *server, opt ...grpc.ServerOption) (*grpc.Server,
 	return grpcServer, "unix://" + serverSocketPath
 }
 
-func newClient(t *testing.T, serverSocketPath string) (test.TestClient, *grpc.ClientConn) {
+func newClient(t *testing.T, serverSocketPath string) (grpc_testing.TestServiceClient, *grpc.ClientConn) {
 	connOpts := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
@@ -99,5 +110,5 @@ func newClient(t *testing.T, serverSocketPath string) (test.TestClient, *grpc.Cl
 		t.Fatal(err)
 	}
 
-	return test.NewTestClient(conn), conn
+	return grpc_testing.NewTestServiceClient(conn), conn
 }

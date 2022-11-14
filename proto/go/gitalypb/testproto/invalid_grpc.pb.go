@@ -2,9 +2,9 @@
 // versions:
 // - protoc-gen-go-grpc v1.2.0
 // - protoc             v3.21.7
-// source: protoc-gen-gitaly-lint/testdata/invalid.proto
+// source: testproto/invalid.proto
 
-package testdata
+package testproto
 
 import (
 	context "context"
@@ -36,7 +36,7 @@ func NewInterceptedWithOperationTypeClient(cc grpc.ClientConnInterface) Intercep
 
 func (c *interceptedWithOperationTypeClient) InvalidMethod(ctx context.Context, in *InvalidMethodRequest, opts ...grpc.CallOption) (*InvalidMethodResponse, error) {
 	out := new(InvalidMethodResponse)
-	err := c.cc.Invoke(ctx, "/test.InterceptedWithOperationType/InvalidMethod", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testproto.InterceptedWithOperationType/InvalidMethod", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +83,7 @@ func _InterceptedWithOperationType_InvalidMethod_Handler(srv interface{}, ctx co
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/test.InterceptedWithOperationType/InvalidMethod",
+		FullMethod: "/testproto.InterceptedWithOperationType/InvalidMethod",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(InterceptedWithOperationTypeServer).InvalidMethod(ctx, req.(*InvalidMethodRequest))
@@ -95,7 +95,7 @@ func _InterceptedWithOperationType_InvalidMethod_Handler(srv interface{}, ctx co
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var InterceptedWithOperationType_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "test.InterceptedWithOperationType",
+	ServiceName: "testproto.InterceptedWithOperationType",
 	HandlerType: (*InterceptedWithOperationTypeServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -104,7 +104,7 @@ var InterceptedWithOperationType_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "protoc-gen-gitaly-lint/testdata/invalid.proto",
+	Metadata: "testproto/invalid.proto",
 }
 
 // InvalidServiceClient is the client API for InvalidService service.
@@ -159,7 +159,7 @@ func NewInvalidServiceClient(cc grpc.ClientConnInterface) InvalidServiceClient {
 
 func (c *invalidServiceClient) InvalidMethod0(ctx context.Context, in *InvalidMethodRequest, opts ...grpc.CallOption) (*InvalidMethodResponse, error) {
 	out := new(InvalidMethodResponse)
-	err := c.cc.Invoke(ctx, "/test.InvalidService/InvalidMethod0", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testproto.InvalidService/InvalidMethod0", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -168,7 +168,7 @@ func (c *invalidServiceClient) InvalidMethod0(ctx context.Context, in *InvalidMe
 
 func (c *invalidServiceClient) InvalidMethod1(ctx context.Context, in *InvalidMethodRequest, opts ...grpc.CallOption) (*InvalidMethodResponse, error) {
 	out := new(InvalidMethodResponse)
-	err := c.cc.Invoke(ctx, "/test.InvalidService/InvalidMethod1", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testproto.InvalidService/InvalidMethod1", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +177,7 @@ func (c *invalidServiceClient) InvalidMethod1(ctx context.Context, in *InvalidMe
 
 func (c *invalidServiceClient) InvalidMethod2(ctx context.Context, in *InvalidMethodRequest, opts ...grpc.CallOption) (*InvalidMethodResponse, error) {
 	out := new(InvalidMethodResponse)
-	err := c.cc.Invoke(ctx, "/test.InvalidService/InvalidMethod2", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testproto.InvalidService/InvalidMethod2", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -186,7 +186,7 @@ func (c *invalidServiceClient) InvalidMethod2(ctx context.Context, in *InvalidMe
 
 func (c *invalidServiceClient) InvalidMethod4(ctx context.Context, in *InvalidMethodRequest, opts ...grpc.CallOption) (*InvalidMethodResponse, error) {
 	out := new(InvalidMethodResponse)
-	err := c.cc.Invoke(ctx, "/test.InvalidService/InvalidMethod4", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testproto.InvalidService/InvalidMethod4", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +195,7 @@ func (c *invalidServiceClient) InvalidMethod4(ctx context.Context, in *InvalidMe
 
 func (c *invalidServiceClient) InvalidMethod5(ctx context.Context, in *RequestWithWrongTypeRepository, opts ...grpc.CallOption) (*InvalidMethodResponse, error) {
 	out := new(InvalidMethodResponse)
-	err := c.cc.Invoke(ctx, "/test.InvalidService/InvalidMethod5", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testproto.InvalidService/InvalidMethod5", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +204,7 @@ func (c *invalidServiceClient) InvalidMethod5(ctx context.Context, in *RequestWi
 
 func (c *invalidServiceClient) InvalidMethod6(ctx context.Context, in *RequestWithNestedRepoNotFlagged, opts ...grpc.CallOption) (*InvalidMethodResponse, error) {
 	out := new(InvalidMethodResponse)
-	err := c.cc.Invoke(ctx, "/test.InvalidService/InvalidMethod6", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testproto.InvalidService/InvalidMethod6", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -213,7 +213,7 @@ func (c *invalidServiceClient) InvalidMethod6(ctx context.Context, in *RequestWi
 
 func (c *invalidServiceClient) InvalidMethod7(ctx context.Context, in *InvalidTargetType, opts ...grpc.CallOption) (*InvalidMethodResponse, error) {
 	out := new(InvalidMethodResponse)
-	err := c.cc.Invoke(ctx, "/test.InvalidService/InvalidMethod7", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testproto.InvalidService/InvalidMethod7", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -222,7 +222,7 @@ func (c *invalidServiceClient) InvalidMethod7(ctx context.Context, in *InvalidTa
 
 func (c *invalidServiceClient) InvalidMethod8(ctx context.Context, in *InvalidNestedRequest, opts ...grpc.CallOption) (*InvalidMethodResponse, error) {
 	out := new(InvalidMethodResponse)
-	err := c.cc.Invoke(ctx, "/test.InvalidService/InvalidMethod8", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testproto.InvalidService/InvalidMethod8", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -231,7 +231,7 @@ func (c *invalidServiceClient) InvalidMethod8(ctx context.Context, in *InvalidNe
 
 func (c *invalidServiceClient) InvalidMethod9(ctx context.Context, in *InvalidMethodRequestWithRepo, opts ...grpc.CallOption) (*InvalidMethodResponse, error) {
 	out := new(InvalidMethodResponse)
-	err := c.cc.Invoke(ctx, "/test.InvalidService/InvalidMethod9", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testproto.InvalidService/InvalidMethod9", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -240,7 +240,7 @@ func (c *invalidServiceClient) InvalidMethod9(ctx context.Context, in *InvalidMe
 
 func (c *invalidServiceClient) InvalidMethod10(ctx context.Context, in *RequestWithStorageAndRepo, opts ...grpc.CallOption) (*InvalidMethodResponse, error) {
 	out := new(InvalidMethodResponse)
-	err := c.cc.Invoke(ctx, "/test.InvalidService/InvalidMethod10", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testproto.InvalidService/InvalidMethod10", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -249,7 +249,7 @@ func (c *invalidServiceClient) InvalidMethod10(ctx context.Context, in *RequestW
 
 func (c *invalidServiceClient) InvalidMethod11(ctx context.Context, in *RequestWithNestedStorageAndRepo, opts ...grpc.CallOption) (*InvalidMethodResponse, error) {
 	out := new(InvalidMethodResponse)
-	err := c.cc.Invoke(ctx, "/test.InvalidService/InvalidMethod11", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testproto.InvalidService/InvalidMethod11", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -258,7 +258,7 @@ func (c *invalidServiceClient) InvalidMethod11(ctx context.Context, in *RequestW
 
 func (c *invalidServiceClient) InvalidMethod13(ctx context.Context, in *InvalidTargetType, opts ...grpc.CallOption) (*InvalidMethodResponse, error) {
 	out := new(InvalidMethodResponse)
-	err := c.cc.Invoke(ctx, "/test.InvalidService/InvalidMethod13", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testproto.InvalidService/InvalidMethod13", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -267,7 +267,7 @@ func (c *invalidServiceClient) InvalidMethod13(ctx context.Context, in *InvalidT
 
 func (c *invalidServiceClient) InvalidMethod14(ctx context.Context, in *RequestWithMultipleNestedStorage, opts ...grpc.CallOption) (*InvalidMethodResponse, error) {
 	out := new(InvalidMethodResponse)
-	err := c.cc.Invoke(ctx, "/test.InvalidService/InvalidMethod14", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testproto.InvalidService/InvalidMethod14", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -276,7 +276,7 @@ func (c *invalidServiceClient) InvalidMethod14(ctx context.Context, in *RequestW
 
 func (c *invalidServiceClient) InvalidMethod15(ctx context.Context, in *RequestWithStorageAndRepo, opts ...grpc.CallOption) (*InvalidMethodResponse, error) {
 	out := new(InvalidMethodResponse)
-	err := c.cc.Invoke(ctx, "/test.InvalidService/InvalidMethod15", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testproto.InvalidService/InvalidMethod15", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -285,7 +285,7 @@ func (c *invalidServiceClient) InvalidMethod15(ctx context.Context, in *RequestW
 
 func (c *invalidServiceClient) MaintenanceWithMissingRepository(ctx context.Context, in *InvalidMethodRequest, opts ...grpc.CallOption) (*InvalidMethodResponse, error) {
 	out := new(InvalidMethodResponse)
-	err := c.cc.Invoke(ctx, "/test.InvalidService/MaintenanceWithMissingRepository", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testproto.InvalidService/MaintenanceWithMissingRepository", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -294,7 +294,7 @@ func (c *invalidServiceClient) MaintenanceWithMissingRepository(ctx context.Cont
 
 func (c *invalidServiceClient) MaintenanceWithUnflaggedRepository(ctx context.Context, in *RequestWithNestedRepoNotFlagged, opts ...grpc.CallOption) (*InvalidMethodResponse, error) {
 	out := new(InvalidMethodResponse)
-	err := c.cc.Invoke(ctx, "/test.InvalidService/MaintenanceWithUnflaggedRepository", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testproto.InvalidService/MaintenanceWithUnflaggedRepository", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -303,7 +303,7 @@ func (c *invalidServiceClient) MaintenanceWithUnflaggedRepository(ctx context.Co
 
 func (c *invalidServiceClient) MaintenanceWithWrongNestedRepositoryType(ctx context.Context, in *RequestWithWrongTypeRepository, opts ...grpc.CallOption) (*InvalidMethodResponse, error) {
 	out := new(InvalidMethodResponse)
-	err := c.cc.Invoke(ctx, "/test.InvalidService/MaintenanceWithWrongNestedRepositoryType", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testproto.InvalidService/MaintenanceWithWrongNestedRepositoryType", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -312,7 +312,7 @@ func (c *invalidServiceClient) MaintenanceWithWrongNestedRepositoryType(ctx cont
 
 func (c *invalidServiceClient) MaintenanceWithInvalidTargetType(ctx context.Context, in *InvalidTargetType, opts ...grpc.CallOption) (*InvalidMethodResponse, error) {
 	out := new(InvalidMethodResponse)
-	err := c.cc.Invoke(ctx, "/test.InvalidService/MaintenanceWithInvalidTargetType", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testproto.InvalidService/MaintenanceWithInvalidTargetType", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -321,7 +321,7 @@ func (c *invalidServiceClient) MaintenanceWithInvalidTargetType(ctx context.Cont
 
 func (c *invalidServiceClient) MaintenanceWithInvalidNestedRequest(ctx context.Context, in *InvalidNestedRequest, opts ...grpc.CallOption) (*InvalidMethodResponse, error) {
 	out := new(InvalidMethodResponse)
-	err := c.cc.Invoke(ctx, "/test.InvalidService/MaintenanceWithInvalidNestedRequest", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testproto.InvalidService/MaintenanceWithInvalidNestedRequest", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -330,7 +330,7 @@ func (c *invalidServiceClient) MaintenanceWithInvalidNestedRequest(ctx context.C
 
 func (c *invalidServiceClient) MaintenanceWithStorageAndRepository(ctx context.Context, in *RequestWithStorageAndRepo, opts ...grpc.CallOption) (*InvalidMethodResponse, error) {
 	out := new(InvalidMethodResponse)
-	err := c.cc.Invoke(ctx, "/test.InvalidService/MaintenanceWithStorageAndRepository", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testproto.InvalidService/MaintenanceWithStorageAndRepository", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -339,7 +339,7 @@ func (c *invalidServiceClient) MaintenanceWithStorageAndRepository(ctx context.C
 
 func (c *invalidServiceClient) MaintenanceWithNestedStorageAndRepository(ctx context.Context, in *RequestWithNestedStorageAndRepo, opts ...grpc.CallOption) (*InvalidMethodResponse, error) {
 	out := new(InvalidMethodResponse)
-	err := c.cc.Invoke(ctx, "/test.InvalidService/MaintenanceWithNestedStorageAndRepository", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testproto.InvalidService/MaintenanceWithNestedStorageAndRepository", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -348,7 +348,7 @@ func (c *invalidServiceClient) MaintenanceWithNestedStorageAndRepository(ctx con
 
 func (c *invalidServiceClient) MaintenanceWithStorageScope(ctx context.Context, in *InvalidMethodRequestWithRepo, opts ...grpc.CallOption) (*InvalidMethodResponse, error) {
 	out := new(InvalidMethodResponse)
-	err := c.cc.Invoke(ctx, "/test.InvalidService/MaintenanceWithStorageScope", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testproto.InvalidService/MaintenanceWithStorageScope", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -491,7 +491,7 @@ func _InvalidService_InvalidMethod0_Handler(srv interface{}, ctx context.Context
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/test.InvalidService/InvalidMethod0",
+		FullMethod: "/testproto.InvalidService/InvalidMethod0",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(InvalidServiceServer).InvalidMethod0(ctx, req.(*InvalidMethodRequest))
@@ -509,7 +509,7 @@ func _InvalidService_InvalidMethod1_Handler(srv interface{}, ctx context.Context
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/test.InvalidService/InvalidMethod1",
+		FullMethod: "/testproto.InvalidService/InvalidMethod1",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(InvalidServiceServer).InvalidMethod1(ctx, req.(*InvalidMethodRequest))
@@ -527,7 +527,7 @@ func _InvalidService_InvalidMethod2_Handler(srv interface{}, ctx context.Context
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/test.InvalidService/InvalidMethod2",
+		FullMethod: "/testproto.InvalidService/InvalidMethod2",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(InvalidServiceServer).InvalidMethod2(ctx, req.(*InvalidMethodRequest))
@@ -545,7 +545,7 @@ func _InvalidService_InvalidMethod4_Handler(srv interface{}, ctx context.Context
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/test.InvalidService/InvalidMethod4",
+		FullMethod: "/testproto.InvalidService/InvalidMethod4",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(InvalidServiceServer).InvalidMethod4(ctx, req.(*InvalidMethodRequest))
@@ -563,7 +563,7 @@ func _InvalidService_InvalidMethod5_Handler(srv interface{}, ctx context.Context
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/test.InvalidService/InvalidMethod5",
+		FullMethod: "/testproto.InvalidService/InvalidMethod5",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(InvalidServiceServer).InvalidMethod5(ctx, req.(*RequestWithWrongTypeRepository))
@@ -581,7 +581,7 @@ func _InvalidService_InvalidMethod6_Handler(srv interface{}, ctx context.Context
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/test.InvalidService/InvalidMethod6",
+		FullMethod: "/testproto.InvalidService/InvalidMethod6",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(InvalidServiceServer).InvalidMethod6(ctx, req.(*RequestWithNestedRepoNotFlagged))
@@ -599,7 +599,7 @@ func _InvalidService_InvalidMethod7_Handler(srv interface{}, ctx context.Context
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/test.InvalidService/InvalidMethod7",
+		FullMethod: "/testproto.InvalidService/InvalidMethod7",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(InvalidServiceServer).InvalidMethod7(ctx, req.(*InvalidTargetType))
@@ -617,7 +617,7 @@ func _InvalidService_InvalidMethod8_Handler(srv interface{}, ctx context.Context
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/test.InvalidService/InvalidMethod8",
+		FullMethod: "/testproto.InvalidService/InvalidMethod8",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(InvalidServiceServer).InvalidMethod8(ctx, req.(*InvalidNestedRequest))
@@ -635,7 +635,7 @@ func _InvalidService_InvalidMethod9_Handler(srv interface{}, ctx context.Context
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/test.InvalidService/InvalidMethod9",
+		FullMethod: "/testproto.InvalidService/InvalidMethod9",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(InvalidServiceServer).InvalidMethod9(ctx, req.(*InvalidMethodRequestWithRepo))
@@ -653,7 +653,7 @@ func _InvalidService_InvalidMethod10_Handler(srv interface{}, ctx context.Contex
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/test.InvalidService/InvalidMethod10",
+		FullMethod: "/testproto.InvalidService/InvalidMethod10",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(InvalidServiceServer).InvalidMethod10(ctx, req.(*RequestWithStorageAndRepo))
@@ -671,7 +671,7 @@ func _InvalidService_InvalidMethod11_Handler(srv interface{}, ctx context.Contex
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/test.InvalidService/InvalidMethod11",
+		FullMethod: "/testproto.InvalidService/InvalidMethod11",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(InvalidServiceServer).InvalidMethod11(ctx, req.(*RequestWithNestedStorageAndRepo))
@@ -689,7 +689,7 @@ func _InvalidService_InvalidMethod13_Handler(srv interface{}, ctx context.Contex
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/test.InvalidService/InvalidMethod13",
+		FullMethod: "/testproto.InvalidService/InvalidMethod13",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(InvalidServiceServer).InvalidMethod13(ctx, req.(*InvalidTargetType))
@@ -707,7 +707,7 @@ func _InvalidService_InvalidMethod14_Handler(srv interface{}, ctx context.Contex
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/test.InvalidService/InvalidMethod14",
+		FullMethod: "/testproto.InvalidService/InvalidMethod14",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(InvalidServiceServer).InvalidMethod14(ctx, req.(*RequestWithMultipleNestedStorage))
@@ -725,7 +725,7 @@ func _InvalidService_InvalidMethod15_Handler(srv interface{}, ctx context.Contex
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/test.InvalidService/InvalidMethod15",
+		FullMethod: "/testproto.InvalidService/InvalidMethod15",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(InvalidServiceServer).InvalidMethod15(ctx, req.(*RequestWithStorageAndRepo))
@@ -743,7 +743,7 @@ func _InvalidService_MaintenanceWithMissingRepository_Handler(srv interface{}, c
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/test.InvalidService/MaintenanceWithMissingRepository",
+		FullMethod: "/testproto.InvalidService/MaintenanceWithMissingRepository",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(InvalidServiceServer).MaintenanceWithMissingRepository(ctx, req.(*InvalidMethodRequest))
@@ -761,7 +761,7 @@ func _InvalidService_MaintenanceWithUnflaggedRepository_Handler(srv interface{},
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/test.InvalidService/MaintenanceWithUnflaggedRepository",
+		FullMethod: "/testproto.InvalidService/MaintenanceWithUnflaggedRepository",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(InvalidServiceServer).MaintenanceWithUnflaggedRepository(ctx, req.(*RequestWithNestedRepoNotFlagged))
@@ -779,7 +779,7 @@ func _InvalidService_MaintenanceWithWrongNestedRepositoryType_Handler(srv interf
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/test.InvalidService/MaintenanceWithWrongNestedRepositoryType",
+		FullMethod: "/testproto.InvalidService/MaintenanceWithWrongNestedRepositoryType",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(InvalidServiceServer).MaintenanceWithWrongNestedRepositoryType(ctx, req.(*RequestWithWrongTypeRepository))
@@ -797,7 +797,7 @@ func _InvalidService_MaintenanceWithInvalidTargetType_Handler(srv interface{}, c
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/test.InvalidService/MaintenanceWithInvalidTargetType",
+		FullMethod: "/testproto.InvalidService/MaintenanceWithInvalidTargetType",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(InvalidServiceServer).MaintenanceWithInvalidTargetType(ctx, req.(*InvalidTargetType))
@@ -815,7 +815,7 @@ func _InvalidService_MaintenanceWithInvalidNestedRequest_Handler(srv interface{}
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/test.InvalidService/MaintenanceWithInvalidNestedRequest",
+		FullMethod: "/testproto.InvalidService/MaintenanceWithInvalidNestedRequest",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(InvalidServiceServer).MaintenanceWithInvalidNestedRequest(ctx, req.(*InvalidNestedRequest))
@@ -833,7 +833,7 @@ func _InvalidService_MaintenanceWithStorageAndRepository_Handler(srv interface{}
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/test.InvalidService/MaintenanceWithStorageAndRepository",
+		FullMethod: "/testproto.InvalidService/MaintenanceWithStorageAndRepository",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(InvalidServiceServer).MaintenanceWithStorageAndRepository(ctx, req.(*RequestWithStorageAndRepo))
@@ -851,7 +851,7 @@ func _InvalidService_MaintenanceWithNestedStorageAndRepository_Handler(srv inter
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/test.InvalidService/MaintenanceWithNestedStorageAndRepository",
+		FullMethod: "/testproto.InvalidService/MaintenanceWithNestedStorageAndRepository",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(InvalidServiceServer).MaintenanceWithNestedStorageAndRepository(ctx, req.(*RequestWithNestedStorageAndRepo))
@@ -869,7 +869,7 @@ func _InvalidService_MaintenanceWithStorageScope_Handler(srv interface{}, ctx co
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/test.InvalidService/MaintenanceWithStorageScope",
+		FullMethod: "/testproto.InvalidService/MaintenanceWithStorageScope",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(InvalidServiceServer).MaintenanceWithStorageScope(ctx, req.(*InvalidMethodRequestWithRepo))
@@ -881,7 +881,7 @@ func _InvalidService_MaintenanceWithStorageScope_Handler(srv interface{}, ctx co
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var InvalidService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "test.InvalidService",
+	ServiceName: "testproto.InvalidService",
 	HandlerType: (*InvalidServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -974,5 +974,5 @@ var InvalidService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "protoc-gen-gitaly-lint/testdata/invalid.proto",
+	Metadata: "testproto/invalid.proto",
 }

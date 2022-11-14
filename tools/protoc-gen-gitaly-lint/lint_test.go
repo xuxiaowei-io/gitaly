@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	_ "gitlab.com/gitlab-org/gitaly/v15/tools/protoc-gen-gitaly-lint/testdata"
+	_ "gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb/testproto"
 	"google.golang.org/protobuf/reflect/protodesc"
 	protoreg "google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/descriptorpb"
@@ -20,35 +20,35 @@ func TestLintFile(t *testing.T) {
 		errs      []error
 	}{
 		{
-			protoPath: "protoc-gen-gitaly-lint/testdata/valid.proto",
+			protoPath: "testproto/valid.proto",
 			errs:      nil,
 		},
 		{
-			protoPath: "protoc-gen-gitaly-lint/testdata/invalid.proto",
+			protoPath: "testproto/invalid.proto",
 			errs: []error{
-				formatError("protoc-gen-gitaly-lint/testdata/invalid.proto", "InterceptedWithOperationType", "InvalidMethod", errors.New("operation type defined on an intercepted method")),
-				formatError("protoc-gen-gitaly-lint/testdata/invalid.proto", "InvalidService", "InvalidMethod0", errors.New("missing op_type extension")),
-				formatError("protoc-gen-gitaly-lint/testdata/invalid.proto", "InvalidService", "InvalidMethod1", errors.New("op set to UNKNOWN")),
-				formatError("protoc-gen-gitaly-lint/testdata/invalid.proto", "InvalidService", "InvalidMethod2", errors.New("unexpected count of target_repository fields 0, expected 1, found target_repository label at: []")),
-				formatError("protoc-gen-gitaly-lint/testdata/invalid.proto", "InvalidService", "InvalidMethod4", errors.New("unexpected count of target_repository fields 0, expected 1, found target_repository label at: []")),
-				formatError("protoc-gen-gitaly-lint/testdata/invalid.proto", "InvalidService", "InvalidMethod5", errors.New("wrong type of field RequestWithWrongTypeRepository.header.repository, expected .gitaly.Repository, got .test.InvalidMethodResponse")),
-				formatError("protoc-gen-gitaly-lint/testdata/invalid.proto", "InvalidService", "InvalidMethod6", errors.New("unexpected count of target_repository fields 0, expected 1, found target_repository label at: []")),
-				formatError("protoc-gen-gitaly-lint/testdata/invalid.proto", "InvalidService", "InvalidMethod7", errors.New("unexpected count of target_repository fields 0, expected 1, found target_repository label at: []")),
-				formatError("protoc-gen-gitaly-lint/testdata/invalid.proto", "InvalidService", "InvalidMethod8", errors.New("unexpected count of target_repository fields 0, expected 1, found target_repository label at: []")),
-				formatError("protoc-gen-gitaly-lint/testdata/invalid.proto", "InvalidService", "InvalidMethod9", errors.New("unexpected count of target_repository fields 1, expected 0, found target_repository label at: [InvalidMethodRequestWithRepo.destination]")),
-				formatError("protoc-gen-gitaly-lint/testdata/invalid.proto", "InvalidService", "InvalidMethod10", errors.New("unexpected count of storage field 1, expected 0, found storage label at: [RequestWithStorageAndRepo.storage_name]")),
-				formatError("protoc-gen-gitaly-lint/testdata/invalid.proto", "InvalidService", "InvalidMethod11", errors.New("unexpected count of storage field 1, expected 0, found storage label at: [RequestWithNestedStorageAndRepo.inner_message.storage_name]")),
-				formatError("protoc-gen-gitaly-lint/testdata/invalid.proto", "InvalidService", "InvalidMethod13", errors.New("unexpected count of storage field 0, expected 1, found storage label at: []")),
-				formatError("protoc-gen-gitaly-lint/testdata/invalid.proto", "InvalidService", "InvalidMethod14", errors.New("unexpected count of storage field 2, expected 1, found storage label at: [RequestWithMultipleNestedStorage.inner_message.storage_name RequestWithMultipleNestedStorage.storage_name]")),
-				formatError("protoc-gen-gitaly-lint/testdata/invalid.proto", "InvalidService", "InvalidMethod15", errors.New("operation type defined on an intercepted method")),
-				formatError("protoc-gen-gitaly-lint/testdata/invalid.proto", "InvalidService", "MaintenanceWithMissingRepository", errors.New("unexpected count of target_repository fields 0, expected 1, found target_repository label at: []")),
-				formatError("protoc-gen-gitaly-lint/testdata/invalid.proto", "InvalidService", "MaintenanceWithUnflaggedRepository", errors.New("unexpected count of target_repository fields 0, expected 1, found target_repository label at: []")),
-				formatError("protoc-gen-gitaly-lint/testdata/invalid.proto", "InvalidService", "MaintenanceWithWrongNestedRepositoryType", errors.New("wrong type of field RequestWithWrongTypeRepository.header.repository, expected .gitaly.Repository, got .test.InvalidMethodResponse")),
-				formatError("protoc-gen-gitaly-lint/testdata/invalid.proto", "InvalidService", "MaintenanceWithInvalidTargetType", errors.New("unexpected count of target_repository fields 0, expected 1, found target_repository label at: []")),
-				formatError("protoc-gen-gitaly-lint/testdata/invalid.proto", "InvalidService", "MaintenanceWithInvalidNestedRequest", errors.New("unexpected count of target_repository fields 0, expected 1, found target_repository label at: []")),
-				formatError("protoc-gen-gitaly-lint/testdata/invalid.proto", "InvalidService", "MaintenanceWithStorageAndRepository", errors.New("unexpected count of storage field 1, expected 0, found storage label at: [RequestWithStorageAndRepo.storage_name]")),
-				formatError("protoc-gen-gitaly-lint/testdata/invalid.proto", "InvalidService", "MaintenanceWithNestedStorageAndRepository", errors.New("unexpected count of storage field 1, expected 0, found storage label at: [RequestWithNestedStorageAndRepo.inner_message.storage_name]")),
-				formatError("protoc-gen-gitaly-lint/testdata/invalid.proto", "InvalidService", "MaintenanceWithStorageScope", errors.New("unknown operation scope level 2")),
+				formatError("testproto/invalid.proto", "InterceptedWithOperationType", "InvalidMethod", errors.New("operation type defined on an intercepted method")),
+				formatError("testproto/invalid.proto", "InvalidService", "InvalidMethod0", errors.New("missing op_type extension")),
+				formatError("testproto/invalid.proto", "InvalidService", "InvalidMethod1", errors.New("op set to UNKNOWN")),
+				formatError("testproto/invalid.proto", "InvalidService", "InvalidMethod2", errors.New("unexpected count of target_repository fields 0, expected 1, found target_repository label at: []")),
+				formatError("testproto/invalid.proto", "InvalidService", "InvalidMethod4", errors.New("unexpected count of target_repository fields 0, expected 1, found target_repository label at: []")),
+				formatError("testproto/invalid.proto", "InvalidService", "InvalidMethod5", errors.New("wrong type of field RequestWithWrongTypeRepository.header.repository, expected .gitaly.Repository, got .testproto.InvalidMethodResponse")),
+				formatError("testproto/invalid.proto", "InvalidService", "InvalidMethod6", errors.New("unexpected count of target_repository fields 0, expected 1, found target_repository label at: []")),
+				formatError("testproto/invalid.proto", "InvalidService", "InvalidMethod7", errors.New("unexpected count of target_repository fields 0, expected 1, found target_repository label at: []")),
+				formatError("testproto/invalid.proto", "InvalidService", "InvalidMethod8", errors.New("unexpected count of target_repository fields 0, expected 1, found target_repository label at: []")),
+				formatError("testproto/invalid.proto", "InvalidService", "InvalidMethod9", errors.New("unexpected count of target_repository fields 1, expected 0, found target_repository label at: [InvalidMethodRequestWithRepo.destination]")),
+				formatError("testproto/invalid.proto", "InvalidService", "InvalidMethod10", errors.New("unexpected count of storage field 1, expected 0, found storage label at: [RequestWithStorageAndRepo.storage_name]")),
+				formatError("testproto/invalid.proto", "InvalidService", "InvalidMethod11", errors.New("unexpected count of storage field 1, expected 0, found storage label at: [RequestWithNestedStorageAndRepo.inner_message.storage_name]")),
+				formatError("testproto/invalid.proto", "InvalidService", "InvalidMethod13", errors.New("unexpected count of storage field 0, expected 1, found storage label at: []")),
+				formatError("testproto/invalid.proto", "InvalidService", "InvalidMethod14", errors.New("unexpected count of storage field 2, expected 1, found storage label at: [RequestWithMultipleNestedStorage.inner_message.storage_name RequestWithMultipleNestedStorage.storage_name]")),
+				formatError("testproto/invalid.proto", "InvalidService", "InvalidMethod15", errors.New("operation type defined on an intercepted method")),
+				formatError("testproto/invalid.proto", "InvalidService", "MaintenanceWithMissingRepository", errors.New("unexpected count of target_repository fields 0, expected 1, found target_repository label at: []")),
+				formatError("testproto/invalid.proto", "InvalidService", "MaintenanceWithUnflaggedRepository", errors.New("unexpected count of target_repository fields 0, expected 1, found target_repository label at: []")),
+				formatError("testproto/invalid.proto", "InvalidService", "MaintenanceWithWrongNestedRepositoryType", errors.New("wrong type of field RequestWithWrongTypeRepository.header.repository, expected .gitaly.Repository, got .testproto.InvalidMethodResponse")),
+				formatError("testproto/invalid.proto", "InvalidService", "MaintenanceWithInvalidTargetType", errors.New("unexpected count of target_repository fields 0, expected 1, found target_repository label at: []")),
+				formatError("testproto/invalid.proto", "InvalidService", "MaintenanceWithInvalidNestedRequest", errors.New("unexpected count of target_repository fields 0, expected 1, found target_repository label at: []")),
+				formatError("testproto/invalid.proto", "InvalidService", "MaintenanceWithStorageAndRepository", errors.New("unexpected count of storage field 1, expected 0, found storage label at: [RequestWithStorageAndRepo.storage_name]")),
+				formatError("testproto/invalid.proto", "InvalidService", "MaintenanceWithNestedStorageAndRepository", errors.New("unexpected count of storage field 1, expected 0, found storage label at: [RequestWithNestedStorageAndRepo.inner_message.storage_name]")),
+				formatError("testproto/invalid.proto", "InvalidService", "MaintenanceWithStorageScope", errors.New("unknown operation scope level 2")),
 			},
 		},
 	} {

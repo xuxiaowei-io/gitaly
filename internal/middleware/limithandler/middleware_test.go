@@ -18,13 +18,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/duration"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/middleware/limithandler"
-	pb "gitlab.com/gitlab-org/gitaly/v15/internal/middleware/limithandler/testdata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
+	"google.golang.org/grpc/test/grpc_testing"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
@@ -43,7 +43,7 @@ func TestUnaryLimitHandler(t *testing.T) {
 
 	cfg := config.Cfg{
 		Concurrency: []config.Concurrency{
-			{RPC: "/test.limithandler.Test/Unary", MaxPerRepo: 2},
+			{RPC: "/grpc.testing.TestService/UnaryCall", MaxPerRepo: 2},
 		},
 	}
 
@@ -56,20 +56,17 @@ func TestUnaryLimitHandler(t *testing.T) {
 	defer conn.Close()
 	ctx := testhelper.Context(t)
 
-	wg := &sync.WaitGroup{}
+	var wg sync.WaitGroup
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 
-			resp, err := client.Unary(ctx, &pb.UnaryRequest{})
-			if !assert.NoError(t, err) {
-				return
-			}
-			if !assert.NotNil(t, resp) {
-				return
-			}
-			assert.True(t, resp.Ok)
+			response, err := client.UnaryCall(ctx, &grpc_testing.SimpleRequest{})
+			require.NoError(t, err)
+			testhelper.ProtoEqual(t, grpc_testing.SimpleResponse{
+				Payload: &grpc_testing.Payload{Body: []byte("success")},
+			}, response)
 		}()
 	}
 
@@ -87,7 +84,7 @@ func TestStreamLimitHandler(t *testing.T) {
 	testCases := []struct {
 		desc                  string
 		fullname              string
-		f                     func(*testing.T, context.Context, pb.TestClient, chan interface{}, chan error)
+		f                     func(*testing.T, context.Context, grpc_testing.TestServiceClient, chan interface{}, chan error)
 		maxConcurrency        int
 		expectedRequestCount  int
 		expectedResponseCount int
@@ -100,9 +97,9 @@ func TestStreamLimitHandler(t *testing.T) {
 		// processed once we close the blockCh.
 		{
 			desc:     "Single request, multiple responses",
-			fullname: "/test.limithandler.Test/StreamOutput",
-			f: func(t *testing.T, ctx context.Context, client pb.TestClient, respCh chan interface{}, errCh chan error) {
-				stream, err := client.StreamOutput(ctx, &pb.StreamOutputRequest{})
+			fullname: "/grpc.testing.TestService/StreamOutputCall",
+			f: func(t *testing.T, ctx context.Context, client grpc_testing.TestServiceClient, respCh chan interface{}, errCh chan error) {
+				stream, err := client.StreamingOutputCall(ctx, &grpc_testing.StreamingOutputCallRequest{})
 				require.NoError(t, err)
 				require.NotNil(t, stream)
 
@@ -111,8 +108,10 @@ func TestStreamLimitHandler(t *testing.T) {
 					errCh <- err
 					return
 				}
-				require.NotNil(t, r)
-				require.True(t, r.Ok)
+
+				testhelper.ProtoEqual(t, &grpc_testing.StreamingOutputCallResponse{
+					Payload: &grpc_testing.Payload{Body: []byte("success")},
+				}, r)
 				respCh <- r
 			},
 			maxConcurrency:        3,
@@ -121,20 +120,22 @@ func TestStreamLimitHandler(t *testing.T) {
 		},
 		{
 			desc:     "Multiple requests, single response",
-			fullname: "/test.limithandler.Test/StreamInput",
-			f: func(t *testing.T, ctx context.Context, client pb.TestClient, respCh chan interface{}, errCh chan error) {
-				stream, err := client.StreamInput(ctx)
+			fullname: "/grpc.testing.TestService/StreamInputCall",
+			f: func(t *testing.T, ctx context.Context, client grpc_testing.TestServiceClient, respCh chan interface{}, errCh chan error) {
+				stream, err := client.StreamingInputCall(ctx)
 				require.NoError(t, err)
 				require.NotNil(t, stream)
 
-				require.NoError(t, stream.Send(&pb.StreamInputRequest{}))
+				require.NoError(t, stream.Send(&grpc_testing.StreamingInputCallRequest{}))
 				r, err := stream.CloseAndRecv()
 				if err != nil {
 					errCh <- err
 					return
 				}
-				require.NotNil(t, r)
-				require.True(t, r.Ok)
+
+				testhelper.ProtoEqual(t, &grpc_testing.StreamingOutputCallResponse{
+					Payload: &grpc_testing.Payload{Body: []byte("success")},
+				}, r)
 				respCh <- r
 			},
 			maxConcurrency:        3,
@@ -143,13 +144,13 @@ func TestStreamLimitHandler(t *testing.T) {
 		},
 		{
 			desc:     "Multiple requests, multiple responses",
-			fullname: "/test.limithandler.Test/Bidirectional",
-			f: func(t *testing.T, ctx context.Context, client pb.TestClient, respCh chan interface{}, errCh chan error) {
-				stream, err := client.Bidirectional(ctx)
+			fullname: "/grpc.testing.TestService/FullDuplexCall",
+			f: func(t *testing.T, ctx context.Context, client grpc_testing.TestServiceClient, respCh chan interface{}, errCh chan error) {
+				stream, err := client.FullDuplexCall(ctx)
 				require.NoError(t, err)
 				require.NotNil(t, stream)
 
-				require.NoError(t, stream.Send(&pb.BidirectionalRequest{}))
+				require.NoError(t, stream.Send(&grpc_testing.StreamingOutputCallRequest{}))
 				require.NoError(t, stream.CloseSend())
 
 				r, err := stream.Recv()
@@ -157,8 +158,10 @@ func TestStreamLimitHandler(t *testing.T) {
 					errCh <- err
 					return
 				}
-				require.NotNil(t, r)
-				require.True(t, r.Ok)
+
+				testhelper.ProtoEqual(t, &grpc_testing.StreamingOutputCallResponse{
+					Payload: &grpc_testing.Payload{Body: []byte("success")},
+				}, r)
 				respCh <- r
 			},
 			maxConcurrency:        3,
@@ -169,9 +172,9 @@ func TestStreamLimitHandler(t *testing.T) {
 			// Make sure that _streams_ are limited but that _requests_ on each
 			// allowed stream are not limited.
 			desc:     "Multiple requests with same id, multiple responses",
-			fullname: "/test.limithandler.Test/Bidirectional",
-			f: func(t *testing.T, ctx context.Context, client pb.TestClient, respCh chan interface{}, errCh chan error) {
-				stream, err := client.Bidirectional(ctx)
+			fullname: "/grpc.testing.TestService/FullDuplexCall",
+			f: func(t *testing.T, ctx context.Context, client grpc_testing.TestServiceClient, respCh chan interface{}, errCh chan error) {
+				stream, err := client.FullDuplexCall(ctx)
 				require.NoError(t, err)
 				require.NotNil(t, stream)
 
@@ -179,7 +182,7 @@ func TestStreamLimitHandler(t *testing.T) {
 				// id, but subsequent requests in a stream, even with the same
 				// id, should bypass the concurrency limiter
 				for i := 0; i < 10; i++ {
-					require.NoError(t, stream.Send(&pb.BidirectionalRequest{}))
+					require.NoError(t, stream.Send(&grpc_testing.StreamingOutputCallRequest{}))
 				}
 				require.NoError(t, stream.CloseSend())
 
@@ -188,8 +191,10 @@ func TestStreamLimitHandler(t *testing.T) {
 					errCh <- err
 					return
 				}
-				require.NotNil(t, r)
-				require.True(t, r.Ok)
+
+				testhelper.ProtoEqual(t, &grpc_testing.StreamingOutputCallResponse{
+					Payload: &grpc_testing.Payload{Body: []byte("success")},
+				}, r)
 				respCh <- r
 			},
 			maxConcurrency: 3,
@@ -200,9 +205,9 @@ func TestStreamLimitHandler(t *testing.T) {
 		},
 		{
 			desc:     "With a max concurrency of 0",
-			fullname: "/test.limithandler.Test/StreamOutput",
-			f: func(t *testing.T, ctx context.Context, client pb.TestClient, respCh chan interface{}, errCh chan error) {
-				stream, err := client.StreamOutput(ctx, &pb.StreamOutputRequest{})
+			fullname: "/grpc.testing.TestService/StreamingOutputCall",
+			f: func(t *testing.T, ctx context.Context, client grpc_testing.TestServiceClient, respCh chan interface{}, errCh chan error) {
+				stream, err := client.StreamingOutputCall(ctx, &grpc_testing.StreamingOutputCallRequest{})
 				require.NoError(t, err)
 				require.NotNil(t, stream)
 
@@ -211,8 +216,10 @@ func TestStreamLimitHandler(t *testing.T) {
 					errCh <- err
 					return
 				}
-				require.NotNil(t, r)
-				require.True(t, r.Ok)
+
+				testhelper.ProtoEqual(t, &grpc_testing.StreamingOutputCallResponse{
+					Payload: &grpc_testing.Payload{Body: []byte("success")},
+				}, r)
 				respCh <- r
 			},
 			maxConcurrency:        0,
@@ -287,7 +294,7 @@ func TestStreamLimitHandler_error(t *testing.T) {
 
 	cfg := config.Cfg{
 		Concurrency: []config.Concurrency{
-			{RPC: "/test.limithandler.Test/Bidirectional", MaxPerRepo: 1, MaxQueueSize: 1},
+			{RPC: "/grpc.testing.TestService/FullDuplexCall", MaxPerRepo: 1, MaxQueueSize: 1},
 		},
 	}
 
@@ -301,11 +308,11 @@ func TestStreamLimitHandler_error(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	respChan := make(chan *pb.BidirectionalResponse)
+	respChan := make(chan *grpc_testing.StreamingOutputCallResponse)
 	go func() {
-		stream, err := client.Bidirectional(ctx)
+		stream, err := client.FullDuplexCall(ctx)
 		require.NoError(t, err)
-		require.NoError(t, stream.Send(&pb.BidirectionalRequest{}))
+		require.NoError(t, stream.Send(&grpc_testing.StreamingOutputCallRequest{}))
 		require.NoError(t, stream.CloseSend())
 		resp, err := stream.Recv()
 		require.NoError(t, err)
@@ -320,10 +327,10 @@ func TestStreamLimitHandler_error(t *testing.T) {
 	errChan := make(chan error)
 	for i := 0; i < 2; i++ {
 		go func() {
-			stream, err := client.Bidirectional(ctx)
+			stream, err := client.FullDuplexCall(ctx)
 			require.NoError(t, err)
 			require.NotNil(t, stream)
-			require.NoError(t, stream.Send(&pb.BidirectionalRequest{}))
+			require.NoError(t, stream.Send(&grpc_testing.StreamingOutputCallRequest{}))
 			require.NoError(t, stream.CloseSend())
 			resp, err := stream.Recv()
 
@@ -364,16 +371,20 @@ type queueTestServer struct {
 	reqArrivedCh chan struct{}
 }
 
-func (q *queueTestServer) Unary(ctx context.Context, in *pb.UnaryRequest) (*pb.UnaryResponse, error) {
+func (q *queueTestServer) UnaryCall(ctx context.Context, in *grpc_testing.SimpleRequest) (*grpc_testing.SimpleResponse, error) {
 	q.registerRequest()
 
 	q.reqArrivedCh <- struct{}{} // We need a way to know when a request got to the middleware
 	<-q.blockCh                  // Block to ensure concurrency
 
-	return &pb.UnaryResponse{Ok: true}, nil
+	return &grpc_testing.SimpleResponse{
+		Payload: &grpc_testing.Payload{
+			Body: []byte("success"),
+		},
+	}, nil
 }
 
-func (q *queueTestServer) Bidirectional(stream pb.Test_BidirectionalServer) error {
+func (q *queueTestServer) FullDuplexCall(stream grpc_testing.TestService_FullDuplexCallServer) error {
 	// Read all the input
 	for {
 		if _, err := stream.Recv(); err != nil {
@@ -389,14 +400,18 @@ func (q *queueTestServer) Bidirectional(stream pb.Test_BidirectionalServer) erro
 	}
 	<-q.blockCh // Block to ensure concurrency
 
-	return stream.Send(&pb.BidirectionalResponse{Ok: true})
+	return stream.Send(&grpc_testing.StreamingOutputCallResponse{
+		Payload: &grpc_testing.Payload{
+			Body: []byte("success"),
+		},
+	})
 }
 
 func TestConcurrencyLimitHandlerMetrics(t *testing.T) {
 	s := &queueTestServer{reqArrivedCh: make(chan struct{})}
 	s.blockCh = make(chan struct{})
 
-	methodName := "/test.limithandler.Test/Unary"
+	methodName := "/grpc.testing.TestService/UnaryCall"
 	cfg := config.Cfg{
 		Concurrency: []config.Concurrency{
 			{RPC: methodName, MaxPerRepo: 1, MaxQueueSize: 1},
@@ -413,9 +428,9 @@ func TestConcurrencyLimitHandlerMetrics(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	respCh := make(chan *pb.UnaryResponse)
+	respCh := make(chan *grpc_testing.SimpleResponse)
 	go func() {
-		resp, err := client.Unary(ctx, &pb.UnaryRequest{})
+		resp, err := client.UnaryCall(ctx, &grpc_testing.SimpleRequest{})
 		respCh <- resp
 		require.NoError(t, err)
 	}()
@@ -427,7 +442,7 @@ func TestConcurrencyLimitHandlerMetrics(t *testing.T) {
 	// an error
 	for i := 0; i < 10; i++ {
 		go func() {
-			resp, err := client.Unary(ctx, &pb.UnaryRequest{})
+			resp, err := client.UnaryCall(ctx, &grpc_testing.SimpleRequest{})
 			if err != nil {
 				errChan <- err
 			} else {
@@ -458,14 +473,14 @@ func TestConcurrencyLimitHandlerMetrics(t *testing.T) {
 	expectedMetrics := `# HELP gitaly_concurrency_limiting_in_progress Gauge of number of concurrent in-progress calls
 # TYPE gitaly_concurrency_limiting_in_progress gauge
 gitaly_concurrency_limiting_in_progress{grpc_method="ReplicateRepository",grpc_service="gitaly.RepositoryService",system="gitaly"} 0
-gitaly_concurrency_limiting_in_progress{grpc_method="Unary",grpc_service="test.limithandler.Test",system="gitaly"} 1
+gitaly_concurrency_limiting_in_progress{grpc_method="UnaryCall",grpc_service="grpc.testing.TestService",system="gitaly"} 1
 # HELP gitaly_concurrency_limiting_queued Gauge of number of queued calls
 # TYPE gitaly_concurrency_limiting_queued gauge
 gitaly_concurrency_limiting_queued{grpc_method="ReplicateRepository",grpc_service="gitaly.RepositoryService",system="gitaly"} 0
-gitaly_concurrency_limiting_queued{grpc_method="Unary",grpc_service="test.limithandler.Test",system="gitaly"} 1
+gitaly_concurrency_limiting_queued{grpc_method="UnaryCall",grpc_service="grpc.testing.TestService",system="gitaly"} 1
 # HELP gitaly_requests_dropped_total Number of requests dropped from the queue
 # TYPE gitaly_requests_dropped_total counter
-gitaly_requests_dropped_total{grpc_method="Unary",grpc_service="test.limithandler.Test",reason="max_size",system="gitaly"} 9
+gitaly_requests_dropped_total{grpc_method="UnaryCall",grpc_service="grpc.testing.TestService",reason="max_size",system="gitaly"} 9
 `
 	assert.NoError(t, promtest.CollectAndCompare(lh, bytes.NewBufferString(expectedMetrics),
 		"gitaly_concurrency_limiting_queued",
@@ -485,7 +500,7 @@ func TestRateLimitHandler(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	methodName := "/test.limithandler.Test/Unary"
+	methodName := "/grpc.testing.TestService/UnaryCall"
 	cfg := config.Cfg{
 		RateLimiting: []config.RateLimiting{
 			{RPC: methodName, Interval: duration.Duration(1 * time.Hour), Burst: 1},
@@ -507,7 +522,7 @@ func TestRateLimitHandler(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			_, err := client.Unary(ctx, &pb.UnaryRequest{})
+			_, err := client.UnaryCall(ctx, &grpc_testing.SimpleRequest{})
 			require.NoError(t, err)
 		}()
 		// wait until the first request is being processed so we know the rate
@@ -516,7 +531,7 @@ func TestRateLimitHandler(t *testing.T) {
 		close(s.blockCh)
 
 		for i := 0; i < 10; i++ {
-			_, err := client.Unary(ctx, &pb.UnaryRequest{})
+			_, err := client.UnaryCall(ctx, &grpc_testing.SimpleRequest{})
 
 			s, ok := status.FromError(err)
 			require.True(t, ok)
@@ -532,7 +547,7 @@ func TestRateLimitHandler(t *testing.T) {
 
 		expectedMetrics := `# HELP gitaly_requests_dropped_total Number of requests dropped from the queue
 # TYPE gitaly_requests_dropped_total counter
-gitaly_requests_dropped_total{grpc_method="Unary",grpc_service="test.limithandler.Test",reason="rate",system="gitaly"} 10
+gitaly_requests_dropped_total{grpc_method="UnaryCall",grpc_service="grpc.testing.TestService",reason="rate",system="gitaly"} 10
 `
 		assert.NoError(t, promtest.CollectAndCompare(lh, bytes.NewBufferString(expectedMetrics),
 			"gitaly_requests_dropped_total"))
@@ -552,22 +567,22 @@ gitaly_requests_dropped_total{grpc_method="Unary",grpc_service="test.limithandle
 		defer testhelper.MustClose(t, conn)
 
 		close(s.blockCh)
-		_, err := client.Unary(ctx, &pb.UnaryRequest{})
+		_, err := client.UnaryCall(ctx, &grpc_testing.SimpleRequest{})
 		require.NoError(t, err)
 
 		expectedMetrics := `# HELP gitaly_requests_dropped_total Number of requests dropped from the queue
 # TYPE gitaly_requests_dropped_total counter
-gitaly_requests_dropped_total{grpc_method="Unary",grpc_service="test.limithandler.Test",reason="rate",system="gitaly"} 0
+gitaly_requests_dropped_total{grpc_method="UnaryCall",grpc_service="grpc.testing.TestService",reason="rate",system="gitaly"} 0
 `
 		assert.NoError(t, promtest.CollectAndCompare(lh, bytes.NewBufferString(expectedMetrics),
 			"gitaly_requests_dropped_total"))
 	})
 }
 
-func runServer(t *testing.T, s pb.TestServer, opt ...grpc.ServerOption) (*grpc.Server, string) {
+func runServer(t *testing.T, s grpc_testing.TestServiceServer, opt ...grpc.ServerOption) (*grpc.Server, string) {
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 	grpcServer := grpc.NewServer(opt...)
-	pb.RegisterTestServer(grpcServer, s)
+	grpc_testing.RegisterTestServiceServer(grpcServer, s)
 
 	lis, err := net.Listen("unix", serverSocketPath)
 	require.NoError(t, err)
@@ -577,7 +592,7 @@ func runServer(t *testing.T, s pb.TestServer, opt ...grpc.ServerOption) (*grpc.S
 	return grpcServer, "unix://" + serverSocketPath
 }
 
-func newClient(t *testing.T, serverSocketPath string) (pb.TestClient, *grpc.ClientConn) {
+func newClient(t *testing.T, serverSocketPath string) (grpc_testing.TestServiceClient, *grpc.ClientConn) {
 	connOpts := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
@@ -586,5 +601,5 @@ func newClient(t *testing.T, serverSocketPath string) (pb.TestClient, *grpc.Clie
 		t.Fatal(err)
 	}
 
-	return pb.NewTestClient(conn), conn
+	return grpc_testing.NewTestServiceClient(conn), conn
 }
