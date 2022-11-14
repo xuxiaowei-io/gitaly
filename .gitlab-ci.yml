@@ -250,6 +250,9 @@ test:pgbouncer:
 
 test:nightly:
   <<: *test_definition
+  variables:
+    <<: *test_variables
+    SKIP_OVERRIDING_GIT_VERSION: "YesPlease"
   parallel:
     matrix:
       - GIT_VERSION: [ "master", "next" ]
