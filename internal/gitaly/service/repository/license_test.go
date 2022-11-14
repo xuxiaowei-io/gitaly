@@ -7,6 +7,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/go-enry/go-license-detector/v4/licensedb"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
@@ -279,4 +280,97 @@ func TestFindLicense_validate(t *testing.T) {
 	_, err := client.FindLicense(ctx, &gitalypb.FindLicenseRequest{Repository: nil})
 	msg := testhelper.GitalyOrPraefectMessage("empty Repository", "repo scoped: empty Repository")
 	testhelper.RequireGrpcError(t, status.Error(codes.InvalidArgument, msg), err)
+}
+
+func BenchmarkFindLicense(b *testing.B) {
+	cfg := testcfg.Build(b)
+	ctx := testhelper.Context(b)
+	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.GoFindLicense, true)
+
+	client, serverSocketPath := runRepositoryService(b, cfg, nil)
+	cfg.SocketPath = serverSocketPath
+
+	// Warm up the license database
+	licensedb.Preload()
+
+	repoGitLab, _ := gittest.CreateRepository(b, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   "benchmark.git",
+	})
+
+	repoStress, repoStressPath := gittest.CreateRepository(b, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+	})
+
+	// Based on https://github.com/go-enry/go-license-detector/blob/18a439e5437cd46905b074ac24c27cbb6cac4347/licensedb/internal/investigation.go#L28-L38
+	fileNames := []string{
+		"licence",
+		"lisence", //nolint:misspell
+		"lisense", //nolint:misspell
+		"license",
+		"licences",
+		"lisences",
+		"lisenses",
+		"licenses",
+		"legal",
+		"copyleft",
+		"copyright",
+		"copying",
+		"unlicense",
+		"gpl-v1",
+		"gpl-v2",
+		"gpl-v3",
+		"lgpl-v1",
+		"lgpl-v2",
+		"lgpl-v3",
+		"bsd",
+		"mit",
+		"apache",
+	}
+	fileExtensions := []string{
+		"",
+		".md",
+		".rst",
+		".html",
+		".txt",
+	}
+
+	treeEntries := make([]gittest.TreeEntry, 0, len(fileNames)*len(fileExtensions))
+
+	for _, name := range fileNames {
+		for _, ext := range fileExtensions {
+			treeEntries = append(treeEntries,
+				gittest.TreeEntry{
+					Mode:    "100644",
+					Path:    name + ext,
+					Content: mitLicense + "\n" + name, // grain of salt
+				})
+		}
+	}
+
+	gittest.WriteCommit(b, cfg, repoStressPath, gittest.WithBranch("main"),
+		gittest.WithTreeEntries(treeEntries...))
+	gittest.Exec(b, cfg, "-C", repoStressPath, "symbolic-ref", "HEAD", "refs/heads/main")
+
+	for _, tc := range []struct {
+		desc string
+		repo *gitalypb.Repository
+	}{
+		{
+			desc: "gitlab-org/gitlab.git",
+			repo: repoGitLab,
+		},
+		{
+			desc: "stress.git",
+			repo: repoStress,
+		},
+	} {
+		b.Run(tc.desc, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				resp, err := client.FindLicense(ctx, &gitalypb.FindLicenseRequest{Repository: tc.repo})
+				require.NoError(b, err)
+				require.Equal(b, "mit", resp.GetLicenseShortName())
+			}
+		})
+	}
 }
