@@ -131,6 +131,11 @@ GIT_VERSION_2_35_1 ?= v2.35.1.gl1
 ## The Git version used for bundled Git v2.37.
 GIT_VERSION_2_37_1 ?= v2.37.1.gl1
 
+## Skip overriding the Git version and instead use the Git version as specified
+## in the Git sources. This is required when building Git from a version that
+## cannot be parsed by Gitaly.
+SKIP_OVERRIDING_GIT_VERSION ?=
+
 # The default version is used in case the caller does not set the variable or
 # if it is either set to the empty string or "default".
 ifeq (${GIT_VERSION:default=},)
@@ -651,10 +656,14 @@ ${DEPENDENCY_DIR}/git-%/Makefile: ${DEPENDENCY_DIR}/git-%.version
 	${Q}${GIT} -C "${@D}" fetch --depth 1 ${GIT_QUIET} origin ${GIT_VERSION}
 	${Q}${GIT} -C "${@D}" reset --hard
 	${Q}${GIT} -C "${@D}" checkout ${GIT_QUIET} --detach FETCH_HEAD
+ifdef SKIP_OVERRIDING_GIT_VERSION
+	${Q}rm -f "${@D}"/version
+else
 	@ # We're writing the version into the "version" file in Git's own source
 	@ # directory. If it exists, Git's Makefile will pick it up and use it as
 	@ # the version instead of auto-detecting via git-describe(1).
 	${Q}echo ${GIT_VERSION} >"${@D}"/version
+endif
 	${Q}touch $@
 
 $(patsubst %,${DEPENDENCY_DIR}/git-\%/%,${GIT_EXECUTABLES}): ${DEPENDENCY_DIR}/git-%/Makefile
