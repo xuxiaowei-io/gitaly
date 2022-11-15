@@ -436,7 +436,7 @@ func run(
 			protoregistry.GitalyProtoPreregistered,
 			nodeSet.Connections(),
 			primaryGetter,
-			service.AllChecks(),
+			service.ReadinessChecks(),
 		)
 	)
 	metricsCollectors = append(metricsCollectors, transactionManager, coordinator, repl)
