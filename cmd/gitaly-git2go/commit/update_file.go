@@ -11,7 +11,7 @@ func applyUpdateFile(action git2go.UpdateFile, index *git.Index) error {
 	entry, err := index.EntryByPath(action.Path, 0)
 	if err != nil {
 		if git.IsErrorCode(err, git.ErrorCodeNotFound) {
-			return git2go.FileNotFoundError(action.Path)
+			return git2go.IndexError{Type: git2go.ErrFileNotFound, Path: action.Path}
 		}
 
 		return err
