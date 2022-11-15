@@ -85,6 +85,15 @@ func (s *Server) userApplyPatch(ctx context.Context, header *gitalypb.UserApplyP
 		}
 	}
 
+	// If the client provides an expected old object ID, we should use that to prevent any race
+	// conditions wherein the ref was concurrently updated by different processes.
+	if expectedOldOID := header.GetExpectedOldOid(); !branchCreated && expectedOldOID != "" {
+		parentCommitID, err = repo.ResolveRevision(ctx, git.Revision(expectedOldOID))
+		if err != nil {
+			return fmt.Errorf("object id: %s: %w", expectedOldOID, err)
+		}
+	}
+
 	committerTime := time.Now()
 	if header.Timestamp != nil {
 		committerTime, err = dateFromProto(header)

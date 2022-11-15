@@ -91,8 +91,11 @@ To restore the original branch and stop patching, run "git am --abort".
 		baseReference git.ReferenceName
 		// notSentByAuthor marks the patch as being sent by someone else than the author.
 		notSentByAuthor bool
-		// targetBranch is the branch where the patched commit goes
+		// targetBranch is the branch where the patched commit goes.
 		targetBranch string
+		// expectedOldOID is a function which provides the expectedOldOID give the list of
+		// commitOIDs for the target branch (chronologically ordered).
+		expectedOldOID func(commitOIDs []string) string
 		// extraBranches are created with empty commits for verifying the correct base branch
 		// gets selected.
 		extraBranches []string
@@ -146,6 +149,23 @@ To restore the original branch and stop patching, run "git am --abort".
 			},
 		},
 		{
+			desc:           "creating a new branch from HEAD works even with wrong expectedOldOID",
+			baseCommit:     commitActions{createFile("file", "base-content")},
+			baseReference:  "HEAD",
+			extraBranches:  []string{"refs/heads/master", "refs/heads/some-extra-branch"},
+			targetBranch:   "new-branch",
+			expectedOldOID: func(commitOIDs []string) string { return "foo" },
+			patches: []commitActions{
+				{
+					updateFile("file", "patch 1"),
+				},
+			},
+			branchCreated: true,
+			tree: []gittest.TreeEntry{
+				{Mode: "100644", Path: "file", Content: "patch 1"},
+			},
+		},
+		{
 			desc:          "creating a new branch from the first listed branch works",
 			baseCommit:    commitActions{createFile("file", "base-content")},
 			baseReference: "refs/heads/a",
@@ -160,6 +180,52 @@ To restore the original branch and stop patching, run "git am --abort".
 			tree: []gittest.TreeEntry{
 				{Mode: "100644", Path: "file", Content: "patch 1"},
 			},
+		},
+		{
+			desc:          "patch applied with correct expectedOldOID",
+			baseCommit:    commitActions{createFile("file", "base-content")},
+			baseReference: "refs/heads/master",
+			targetBranch:  "master",
+			expectedOldOID: func(commitOIDs []string) string {
+				return commitOIDs[len(commitOIDs)-1]
+			},
+			patches: []commitActions{
+				{
+					updateFile("file", "patch 1"),
+				},
+			},
+			tree: []gittest.TreeEntry{
+				{Mode: "100644", Path: "file", Content: "patch 1"},
+			},
+		},
+		{
+			desc:           "patch fails with invalid expectedOldOID",
+			baseCommit:     commitActions{createFile("file", "base-content")},
+			baseReference:  "refs/heads/master",
+			targetBranch:   "master",
+			expectedOldOID: func(commitOIDs []string) string { return "foobar" },
+			patches: []commitActions{
+				{
+					updateFile("file", "patch 1"),
+				},
+			},
+			error: status.Error(codes.Internal, "object id: foobar: reference not found"),
+		},
+		{
+			desc: "patch fails with expectedOldOID set to an old commit OID",
+			baseCommit: commitActions{
+				createFile("file", "base-content"),
+				createFile("file2", "more-content"),
+			},
+			baseReference:  "refs/heads/master",
+			targetBranch:   "master",
+			expectedOldOID: func(commitOIDs []string) string { return commitOIDs[0] },
+			patches: []commitActions{
+				{
+					updateFile("file", "patch 1"),
+				},
+			},
+			error: status.Error(codes.Internal, "update reference: Could not update refs/heads/master. Please refresh and try again."),
 		},
 		{
 			desc:          "multiple patches apply cleanly",
@@ -290,6 +356,7 @@ To restore the original branch and stop patching, run "git am --abort".
 			commitMessage := "commit subject\n\n\ncommit message body\n\n\n"
 
 			var baseCommit git.ObjectID
+			var commitOIDs []string
 			for _, action := range tc.baseCommit {
 				var err error
 				baseCommit, err = executor.Commit(ctx, rewrittenRepo, git2go.CommitCommand{
@@ -301,6 +368,8 @@ To restore the original branch and stop patching, run "git am --abort".
 					Actions:    []git2go.Action{action(t, repo)},
 				})
 				require.NoError(t, err)
+
+				commitOIDs = append(commitOIDs, baseCommit.Revision().String())
 			}
 
 			if baseCommit != "" {
@@ -321,6 +390,11 @@ To restore the original branch and stop patching, run "git am --abort".
 						git.NewReferenceNameFromBranchName(extraBranch), emptyCommit, git.ObjectHashSHA1.ZeroOID),
 					)
 				}
+			}
+
+			expectedOldOID := ""
+			if tc.expectedOldOID != nil {
+				expectedOldOID = tc.expectedOldOID(commitOIDs)
 			}
 
 			var patches [][]byte
@@ -366,10 +440,11 @@ To restore the original branch and stop patching, run "git am --abort".
 			require.NoError(t, stream.Send(&gitalypb.UserApplyPatchRequest{
 				UserApplyPatchRequestPayload: &gitalypb.UserApplyPatchRequest_Header_{
 					Header: &gitalypb.UserApplyPatchRequest_Header{
-						Repository:   repoPb,
-						User:         gittest.TestUser,
-						TargetBranch: []byte(tc.targetBranch),
-						Timestamp:    requestTimestamp,
+						Repository:     repoPb,
+						User:           gittest.TestUser,
+						TargetBranch:   []byte(tc.targetBranch),
+						ExpectedOldOid: expectedOldOID,
+						Timestamp:      requestTimestamp,
 					},
 				},
 			}))
