@@ -424,17 +424,17 @@ func (c *Command) logProcessComplete() {
 
 	if stats := StatsFromContext(ctx); stats != nil {
 		stats.RecordSum("command.count", 1)
-		stats.RecordSum("command.system_time_ms", int(systemTime.Milliseconds()))
-		stats.RecordSum("command.user_time_ms", int(userTime.Milliseconds()))
-		stats.RecordSum("command.cpu_time_ms", int(systemTime.Milliseconds()+userTime.Milliseconds()))
-		stats.RecordSum("command.real_time_ms", int(realTime.Milliseconds()))
+		stats.RecordSum("command.system_time_ms", systemTime.Milliseconds())
+		stats.RecordSum("command.user_time_ms", userTime.Milliseconds())
+		stats.RecordSum("command.cpu_time_ms", systemTime.Milliseconds()+userTime.Milliseconds())
+		stats.RecordSum("command.real_time_ms", realTime.Milliseconds())
 
 		if ok {
-			stats.RecordMax("command.maxrss", int(rusage.Maxrss))
-			stats.RecordSum("command.inblock", int(rusage.Inblock))
-			stats.RecordSum("command.oublock", int(rusage.Oublock))
-			stats.RecordSum("command.minflt", int(rusage.Minflt))
-			stats.RecordSum("command.majflt", int(rusage.Majflt))
+			stats.RecordMax("command.maxrss", rusage.Maxrss)
+			stats.RecordSum("command.inblock", rusage.Inblock)
+			stats.RecordSum("command.oublock", rusage.Oublock)
+			stats.RecordSum("command.minflt", rusage.Minflt)
+			stats.RecordSum("command.majflt", rusage.Majflt)
 		}
 	}
 

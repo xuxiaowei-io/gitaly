@@ -11,12 +11,12 @@ type requestStatsKey struct{}
 
 //nolint:revive // This is unintentionally missing documentation.
 type Stats struct {
-	registry map[string]int
+	registry map[string]int64
 	sync.Mutex
 }
 
 //nolint:revive // This is unintentionally missing documentation.
-func (stats *Stats) RecordSum(key string, value int) {
+func (stats *Stats) RecordSum(key string, value int64) {
 	stats.Lock()
 	defer stats.Unlock()
 
@@ -28,7 +28,7 @@ func (stats *Stats) RecordSum(key string, value int) {
 }
 
 //nolint:revive // This is unintentionally missing documentation.
-func (stats *Stats) RecordMax(key string, value int) {
+func (stats *Stats) RecordMax(key string, value int64) {
 	stats.Lock()
 	defer stats.Unlock()
 
@@ -62,6 +62,6 @@ func StatsFromContext(ctx context.Context) *Stats {
 //nolint:revive // This is unintentionally missing documentation.
 func InitContextStats(ctx context.Context) context.Context {
 	return context.WithValue(ctx, requestStatsKey{}, &Stats{
-		registry: make(map[string]int),
+		registry: make(map[string]int64),
 	})
 }
