@@ -202,7 +202,7 @@ func TestCreateRepositoryFromURL_fsck(t *testing.T) {
 	)
 
 	targetRepoProto := &gitalypb.Repository{
-		RelativePath: gittest.NewRepositoryName(t, true),
+		RelativePath: gittest.NewRepositoryName(t),
 		StorageName:  cfg.Storages[0].Name,
 	}
 

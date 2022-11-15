@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -45,8 +46,7 @@ func TestManager_Create(t *testing.T) {
 			desc: "no hooks",
 			setup: func(tb testing.TB) (*gitalypb.Repository, string) {
 				noHooksRepo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
-					RelativePath: "no-hooks",
-					Seed:         gittest.SeedGitLabTest,
+					Seed: gittest.SeedGitLabTest,
 				})
 				return noHooksRepo, repoPath
 			},
@@ -57,8 +57,7 @@ func TestManager_Create(t *testing.T) {
 			desc: "hooks",
 			setup: func(tb testing.TB) (*gitalypb.Repository, string) {
 				hooksRepo, hooksRepoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
-					RelativePath: "hooks",
-					Seed:         gittest.SeedGitLabTest,
+					Seed: gittest.SeedGitLabTest,
 				})
 				require.NoError(tb, os.Mkdir(filepath.Join(hooksRepoPath, "custom_hooks"), os.ModePerm))
 				require.NoError(tb, os.WriteFile(filepath.Join(hooksRepoPath, "custom_hooks/pre-commit.sample"), []byte("Some hooks"), os.ModePerm))
@@ -82,7 +81,7 @@ func TestManager_Create(t *testing.T) {
 			setup: func(tb testing.TB) (*gitalypb.Repository, string) {
 				emptyRepo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 				nonexistentRepo := proto.Clone(emptyRepo).(*gitalypb.Repository)
-				nonexistentRepo.RelativePath = "nonexistent"
+				nonexistentRepo.RelativePath = gittest.NewRepositoryName(t)
 				return nonexistentRepo, repoPath
 			},
 			createsBundle:      false,
@@ -92,15 +91,16 @@ func TestManager_Create(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			repo, repoPath := tc.setup(t)
-			path := testhelper.TempDir(t)
-			refsPath := filepath.Join(path, repo.RelativePath, backupID, "001.refs")
-			bundlePath := filepath.Join(path, repo.RelativePath, backupID, "001.bundle")
-			customHooksPath := filepath.Join(path, repo.RelativePath, backupID, "001.custom_hooks.tar")
+			backupRoot := testhelper.TempDir(t)
+
+			refsPath := joinBackupPath(t, backupRoot, repo, backupID, "001.refs")
+			bundlePath := joinBackupPath(t, backupRoot, repo, backupID, "001.bundle")
+			customHooksPath := joinBackupPath(t, backupRoot, repo, backupID, "001.custom_hooks.tar")
 
 			pool := client.NewPool()
 			defer testhelper.MustClose(t, pool)
 
-			sink := NewFilesystemSink(path)
+			sink := NewFilesystemSink(backupRoot)
 			locator, err := ResolveLocator("pointer", sink)
 			require.NoError(t, err)
 
@@ -166,8 +166,7 @@ func TestManager_Create_incremental(t *testing.T) {
 			desc: "no previous backup",
 			setup: func(tb testing.TB, backupRoot string) (*gitalypb.Repository, string) {
 				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
-					RelativePath: "repo",
-					Seed:         gittest.SeedGitLabTest,
+					Seed: gittest.SeedGitLabTest,
 				})
 				return repo, repoPath
 			},
@@ -177,11 +176,10 @@ func TestManager_Create_incremental(t *testing.T) {
 			desc: "previous backup, no updates",
 			setup: func(tb testing.TB, backupRoot string) (*gitalypb.Repository, string) {
 				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
-					RelativePath: "repo",
-					Seed:         gittest.SeedGitLabTest,
+					Seed: gittest.SeedGitLabTest,
 				})
 
-				backupRepoPath := filepath.Join(backupRoot, repo.RelativePath)
+				backupRepoPath := joinBackupPath(tb, backupRoot, repo)
 				backupPath := filepath.Join(backupRepoPath, backupID)
 				bundlePath := filepath.Join(backupPath, "001.bundle")
 				refsPath := filepath.Join(backupPath, "001.refs")
@@ -203,11 +201,10 @@ func TestManager_Create_incremental(t *testing.T) {
 			desc: "previous backup, updates",
 			setup: func(tb testing.TB, backupRoot string) (*gitalypb.Repository, string) {
 				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
-					RelativePath: "repo",
-					Seed:         gittest.SeedGitLabTest,
+					Seed: gittest.SeedGitLabTest,
 				})
 
-				backupRepoPath := filepath.Join(backupRoot, repo.RelativePath)
+				backupRepoPath := joinBackupPath(tb, backupRoot, repo)
 				backupPath := filepath.Join(backupRepoPath, backupID)
 				bundlePath := filepath.Join(backupPath, "001.bundle")
 				refsPath := filepath.Join(backupPath, "001.refs")
@@ -229,16 +226,16 @@ func TestManager_Create_incremental(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			path := testhelper.TempDir(t)
-			repo, repoPath := tc.setup(t, path)
+			backupRoot := testhelper.TempDir(t)
+			repo, repoPath := tc.setup(t, backupRoot)
 
-			refsPath := filepath.Join(path, repo.RelativePath, backupID, tc.expectedIncrement+".refs")
-			bundlePath := filepath.Join(path, repo.RelativePath, backupID, tc.expectedIncrement+".bundle")
+			refsPath := joinBackupPath(t, backupRoot, repo, backupID, tc.expectedIncrement+".refs")
+			bundlePath := joinBackupPath(t, backupRoot, repo, backupID, tc.expectedIncrement+".bundle")
 
 			pool := client.NewPool()
 			defer testhelper.MustClose(t, pool)
 
-			sink := NewFilesystemSink(path)
+			sink := NewFilesystemSink(backupRoot)
 			locator, err := ResolveLocator("pointer", sink)
 			require.NoError(t, err)
 
@@ -289,7 +286,7 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 
 		repo := &gitalypb.Repository{
 			StorageName:  "default",
-			RelativePath: gittest.NewRepositoryName(tb, false),
+			RelativePath: gittest.NewRepositoryName(tb),
 		}
 
 		_, err := repoClient.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: repo})
@@ -308,7 +305,7 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 	})
 	repoChecksum := gittest.ChecksumRepo(t, cfg, repoPath)
 
-	path := testhelper.TempDir(t)
+	backupRoot := testhelper.TempDir(t)
 
 	for _, tc := range []struct {
 		desc          string
@@ -324,8 +321,10 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 			locators: []string{"legacy", "pointer"},
 			setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
 				repo := createRepo(tb)
-				require.NoError(tb, os.MkdirAll(filepath.Join(path, repo.RelativePath), os.ModePerm))
-				bundlePath := filepath.Join(path, repo.RelativePath+".bundle")
+
+				relativePath := stripRelativePath(tb, repo)
+				require.NoError(tb, os.MkdirAll(filepath.Join(backupRoot, relativePath), os.ModePerm))
+				bundlePath := filepath.Join(backupRoot, relativePath+".bundle")
 				gittest.BundleRepo(tb, cfg, repoPath, bundlePath)
 
 				return repo, repoChecksum
@@ -337,9 +336,11 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 			locators: []string{"legacy", "pointer"},
 			setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
 				repo := createRepo(tb)
-				bundlePath := filepath.Join(path, repo.RelativePath+".bundle")
-				customHooksPath := filepath.Join(path, repo.RelativePath, "custom_hooks.tar")
-				require.NoError(tb, os.MkdirAll(filepath.Join(path, repo.RelativePath), os.ModePerm))
+
+				relativePath := stripRelativePath(tb, repo)
+				bundlePath := filepath.Join(backupRoot, relativePath+".bundle")
+				customHooksPath := filepath.Join(backupRoot, relativePath, "custom_hooks.tar")
+				require.NoError(tb, os.MkdirAll(filepath.Join(backupRoot, relativePath), os.ModePerm))
 				gittest.BundleRepo(tb, cfg, repoPath, bundlePath)
 				testhelper.CopyFile(tb, "../gitaly/service/repository/testdata/custom_hooks.tar", customHooksPath)
 
@@ -377,11 +378,12 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 			setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
 				repo := &gitalypb.Repository{
 					StorageName:  "default",
-					RelativePath: gittest.NewRepositoryName(tb, false),
+					RelativePath: gittest.NewRepositoryName(tb),
 				}
 
-				require.NoError(tb, os.MkdirAll(filepath.Dir(filepath.Join(path, repo.RelativePath)), os.ModePerm))
-				bundlePath := filepath.Join(path, repo.RelativePath+".bundle")
+				relativePath := stripRelativePath(tb, repo)
+				require.NoError(tb, os.MkdirAll(filepath.Dir(filepath.Join(backupRoot, relativePath)), os.ModePerm))
+				bundlePath := filepath.Join(backupRoot, relativePath+".bundle")
 				gittest.BundleRepo(tb, cfg, repoPath, bundlePath)
 
 				return repo, repoChecksum
@@ -394,7 +396,7 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 			setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
 				const backupID = "abc123"
 				repo := createRepo(tb)
-				repoBackupPath := filepath.Join(path, repo.RelativePath)
+				repoBackupPath := joinBackupPath(tb, backupRoot, repo)
 				backupPath := filepath.Join(repoBackupPath, backupID)
 				require.NoError(tb, os.MkdirAll(backupPath, os.ModePerm))
 				require.NoError(tb, os.WriteFile(filepath.Join(repoBackupPath, "LATEST"), []byte(backupID), os.ModePerm))
@@ -416,7 +418,7 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 				expectedRepoPath := filepath.Join(cfg.Storages[0].Path, expected.RelativePath)
 
 				repo := createRepo(tb)
-				repoBackupPath := filepath.Join(path, repo.RelativePath)
+				repoBackupPath := joinBackupPath(tb, backupRoot, repo)
 				backupPath := filepath.Join(repoBackupPath, backupID)
 				require.NoError(tb, os.MkdirAll(backupPath, os.ModePerm))
 				require.NoError(tb, os.WriteFile(filepath.Join(repoBackupPath, "LATEST"), []byte(backupID), os.ModePerm))
@@ -474,7 +476,7 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 					pool := client.NewPool()
 					defer testhelper.MustClose(t, pool)
 
-					sink := NewFilesystemSink(path)
+					sink := NewFilesystemSink(backupRoot)
 					locator, err := ResolveLocator(locatorName, sink)
 					require.NoError(t, err)
 
@@ -643,4 +645,15 @@ func TestResolveLocator(t *testing.T) {
 			require.NotNil(t, l)
 		})
 	}
+}
+
+func joinBackupPath(tb testing.TB, backupRoot string, repo *gitalypb.Repository, elements ...string) string {
+	return filepath.Join(append([]string{
+		backupRoot,
+		stripRelativePath(tb, repo),
+	}, elements...)...)
+}
+
+func stripRelativePath(tb testing.TB, repo *gitalypb.Repository) string {
+	return strings.TrimSuffix(repo.GetRelativePath(), ".git")
 }

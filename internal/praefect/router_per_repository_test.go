@@ -459,7 +459,7 @@ func TestPerRepositoryRouter_RouteRepositoryMaintenance(t *testing.T) {
 
 	var (
 		virtualStorage = "virtual-storage-1"
-		relativePath   = gittest.NewRepositoryName(t, true)
+		relativePath   = gittest.NewRepositoryName(t)
 	)
 
 	configuredStorages := []string{"primary", "secondary-1", "secondary-2"}

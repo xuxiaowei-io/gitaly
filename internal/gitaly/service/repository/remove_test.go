@@ -25,7 +25,7 @@ func TestRemoveRepository(t *testing.T) {
 
 	repo := &gitalypb.Repository{
 		StorageName:  cfg.Storages[0].Name,
-		RelativePath: gittest.NewRepositoryName(t, true),
+		RelativePath: gittest.NewRepositoryName(t),
 	}
 
 	_, err := client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{

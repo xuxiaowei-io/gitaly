@@ -52,7 +52,7 @@ func TestIsPoolRepository(t *testing.T) {
 		{
 			desc: "normal repos dont match",
 			repo: &gitalypb.Repository{
-				RelativePath: "@hashed/" + gittest.NewRepositoryName(t, true),
+				RelativePath: "@hashed/" + gittest.NewRepositoryName(t),
 			},
 		},
 	} {

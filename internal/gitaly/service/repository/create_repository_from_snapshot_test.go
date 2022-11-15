@@ -162,7 +162,7 @@ func TestCreateRepositoryFromSnapshot_badURL(t *testing.T) {
 	req := &gitalypb.CreateRepositoryFromSnapshotRequest{
 		Repository: &gitalypb.Repository{
 			StorageName:  cfg.Storages[0].Name,
-			RelativePath: gittest.NewRepositoryName(t, true),
+			RelativePath: gittest.NewRepositoryName(t),
 		},
 		HttpUrl: "invalid!scheme://invalid.invalid",
 	}
@@ -228,7 +228,7 @@ func TestCreateRepositoryFromSnapshot_invalidArguments(t *testing.T) {
 			req := &gitalypb.CreateRepositoryFromSnapshotRequest{
 				Repository: &gitalypb.Repository{
 					StorageName:  cfg.Storages[0].Name,
-					RelativePath: gittest.NewRepositoryName(t, true),
+					RelativePath: gittest.NewRepositoryName(t),
 				},
 				HttpUrl:         srv.URL + tc.url,
 				HttpAuth:        tc.auth,
@@ -305,7 +305,7 @@ func TestCreateRepositoryFromSnapshot_resolvedAddressSuccess(t *testing.T) {
 	srv := httptest.NewServer(&tarTesthandler{tarData: bytes.NewReader(data), secret: secret, host: host})
 	defer srv.Close()
 
-	repoRelativePath := gittest.NewRepositoryName(t, true)
+	repoRelativePath := gittest.NewRepositoryName(t)
 
 	repo := &gitalypb.Repository{
 		StorageName:  cfg.Storages[0].Name,
