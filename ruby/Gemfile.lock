@@ -134,7 +134,7 @@ GEM
       ffi (>= 1.0.6)
       msgpack (>= 0.4.3)
       optimist (>= 3.0.0)
-    redis (4.7.1)
+    redis (4.8.0)
     regexp_parser (1.8.1)
     reverse_markdown (1.4.0)
       nokogiri
@@ -214,6 +214,7 @@ DEPENDENCIES
   licensee (~> 9.15)
   pry (~> 0.12.2)
   rbtrace
+  redis (~> 4.8.0)
   rspec
   rspec-parameterized
   rubocop (~> 0.69)

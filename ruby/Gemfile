@@ -21,6 +21,11 @@ gem 'licensee', '~> 9.15'
 
 gem 'google-protobuf', '~> 3.21.9'
 
+# Rails is currently blocked on the upgrade to the new major version for Redis,
+# so we don't upgrade either until the issue is resolved. This is an indirect
+# dependency and can thus be removed when the version constraint is gone.
+gem 'redis', '~> 4.8.0'
+
 group :development, :test do
   gem 'rubocop', '~> 0.69', require: false
   gem 'rspec', require: false
