@@ -261,26 +261,48 @@ func TestConfigure(t *testing.T) {
 func TestMessageProducer(t *testing.T) {
 	triggered := false
 
-	var infoFromCtx struct{}
-	ctx := createContext()
-	ctx = context.WithValue(ctx, infoFromCtx, "world")
-	MessageProducer(func(c context.Context, format string, level logrus.Level, code codes.Code, err error, fields logrus.Fields) {
-		require.Equal(t, ctx, c)
+	attachedFields := logrus.Fields{"e": "stub"}
+	msgProducer := MessageProducer(func(c context.Context, format string, level logrus.Level, code codes.Code, err error, fields logrus.Fields) {
+		require.Equal(t, createContext(), c)
 		require.Equal(t, "format-stub", format)
 		require.Equal(t, logrus.DebugLevel, level)
 		require.Equal(t, codes.OutOfRange, code)
 		require.Equal(t, assert.AnError, err)
-		require.Equal(t, logrus.Fields{"a": 1, "b": "test", "c": "stub", "d": err.Error(), "e": "world"}, fields)
+		require.Equal(t, attachedFields, fields)
 		triggered = true
-	}, func(context.Context, error) logrus.Fields {
+	})
+	msgProducer(createContext(), "format-stub", logrus.DebugLevel, codes.OutOfRange, assert.AnError, attachedFields)
+
+	require.True(t, triggered)
+}
+
+func TestMessageProducerWithFieldsProducers(t *testing.T) {
+	triggered := false
+
+	var infoFromCtx struct{}
+	ctx := createContext()
+	ctx = context.WithValue(ctx, infoFromCtx, "world")
+
+	fieldsProducer1 := func(context.Context, error) logrus.Fields {
 		return logrus.Fields{"a": 1}
-	}, func(context.Context, error) logrus.Fields {
+	}
+	fieldsProducer2 := func(context.Context, error) logrus.Fields {
 		return logrus.Fields{"b": "test"}
-	}, func(ctx context.Context, err error) logrus.Fields {
-		return logrus.Fields{"d": err.Error()}
-	}, func(ctx context.Context, err error) logrus.Fields {
-		return logrus.Fields{"e": ctx.Value(infoFromCtx)}
-	})(ctx, "format-stub", logrus.DebugLevel, codes.OutOfRange, assert.AnError, logrus.Fields{"c": "stub"})
+	}
+	fieldsProducer3 := func(ctx context.Context, err error) logrus.Fields {
+		return logrus.Fields{"c": err.Error()}
+	}
+	fieldsProducer4 := func(ctx context.Context, err error) logrus.Fields {
+		return logrus.Fields{"d": ctx.Value(infoFromCtx)}
+	}
+	attachedFields := logrus.Fields{"e": "stub"}
+
+	msgProducer := MessageProducer(func(c context.Context, format string, level logrus.Level, code codes.Code, err error, fields logrus.Fields) {
+		require.Equal(t, logrus.Fields{"a": 1, "b": "test", "c": err.Error(), "d": "world", "e": "stub"}, fields)
+		triggered = true
+	}, fieldsProducer1, fieldsProducer2, fieldsProducer3, fieldsProducer4)
+	msgProducer(ctx, "format-stub", logrus.InfoLevel, codes.OK, assert.AnError, attachedFields)
+
 	require.True(t, triggered)
 }
 

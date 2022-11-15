@@ -5,34 +5,36 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
-	"google.golang.org/grpc"
 )
 
-// UnaryInterceptor returns a Unary Interceptor
-func UnaryInterceptor(ctx context.Context, req interface{}, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-	track(ctx)
-	return handler(ctx, req)
-}
-
-// StreamInterceptor returns a Stream Interceptor
-func StreamInterceptor(srv interface{}, stream grpc.ServerStream, _ *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-	track(stream.Context())
-	return handler(srv, stream)
-}
-
-// track adds the list of the feature flags into the logging context.
-// The list is sorted by feature flag name to produce consistent output.
-func track(ctx context.Context) {
-	var flagsWithValue []string
-	for flag, value := range featureflag.FromContext(ctx) {
-		flagsWithValue = append(flagsWithValue, flag.FormatWithValue(value))
+// FieldsProducer adds feature_flags logging fields to gRPC logs. Only enabled flags are available.
+// The log field looks something like following.
+//
+//	{
+//	   "feature_flags": "feature_a feature_b feature_c"
+//	}
+func FieldsProducer(ctx context.Context, err error) logrus.Fields {
+	// By default, we log feature flags for gRPC failures only. This is due to the potential
+	// huge logging volume. The log aggregator may have a hard time processing them. As a
+	// result, we only put the logs in failed RPCs only.
+	if err == nil && featureflag.AlwaysLogFeatureFlags.IsDisabled(ctx) {
+		return nil
 	}
-	sort.Strings(flagsWithValue)
 
-	if len(flagsWithValue) != 0 {
-		ctxlogrus.AddFields(ctx, logrus.Fields{"feature_flags": strings.Join(flagsWithValue, " ")})
+	var enabledFlags []string
+	for flag, value := range featureflag.FromContext(ctx) {
+		if value {
+			enabledFlags = append(enabledFlags, flag.Name)
+		}
+	}
+	if len(enabledFlags) == 0 {
+		return nil
+	}
+
+	sort.Strings(enabledFlags)
+	return logrus.Fields{
+		"feature_flags": strings.Join(enabledFlags, " "),
 	}
 }

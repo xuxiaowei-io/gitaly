@@ -194,9 +194,10 @@ func ContextWithoutCancel(opts ...ContextOpt) context.Context {
 	ctx = featureflag.ContextWithExplicitFeatureFlags(ctx)
 	// There are some feature flags we need to enable in this function because they end up very
 	// deep in the call stack, so almost every test function would have to inject it into its
-	// context.
+	// context. The values of these flags should be randomized to increase the test coverage.
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RunCommandsInCGroup, true)
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.ConvertErrToStatus, true)
+	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.AlwaysLogFeatureFlags, rnd.Int()%2 == 0)
 	// NodeErrorCancelsVoter affect many tests as it changes Praefect coordinator transaction logic.
 	// Randomly enable the flag to exercise both paths to some extent.
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.NodeErrorCancelsVoter, rnd.Int()%2 == 0)

@@ -4,89 +4,129 @@ package featureflag
 
 import (
 	"context"
-	"io"
 	"testing"
 
-	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
-	"google.golang.org/grpc"
 )
 
-func TestUnaryInterceptor(t *testing.T) {
-	t.Run("no feature flags", func(t *testing.T) {
-		ctx, hook := setupContext()
-		callUnary(ctx)
-		require.Len(t, hook.AllEntries(), 1)
-		require.Empty(t, hook.LastEntry().Data)
-	})
+// This test doesn't use testhelper.NewFeatureSets intentionally.
+func TestFeatureFlagLogsWithoutAlwaysLogFeatureFlags(t *testing.T) {
+	t.Parallel()
 
-	t.Run("multiple feature flags", func(t *testing.T) {
-		ctx, hook := setup()
-		callUnary(ctx)
-		verify(t, hook)
-	})
+	featureA := featureflag.FeatureFlag{Name: "feature_a"}
+	featureB := featureflag.FeatureFlag{Name: "feature_b"}
+	featureC := featureflag.FeatureFlag{Name: "feature_c"}
+	testCases := []struct {
+		desc           string
+		featureFlags   map[featureflag.FeatureFlag]bool
+		expectedErr    error
+		expectedFields logrus.Fields
+	}{
+		{
+			desc:           "empty feature flags in successful RPC",
+			expectedFields: nil,
+		},
+		{
+			desc:           "empty feature flags in failed RPC",
+			expectedErr:    helper.ErrInternalf("something goes wrong"),
+			expectedFields: nil,
+		},
+		{
+			desc: "all feature flags are disabled in successful RPC",
+			featureFlags: map[featureflag.FeatureFlag]bool{
+				featureA: false,
+				featureB: false,
+				featureC: false,
+			},
+			expectedFields: nil,
+		},
+		{
+			desc: "all feature flags are disabled in failed RPC",
+			featureFlags: map[featureflag.FeatureFlag]bool{
+				featureA: false,
+				featureB: false,
+				featureC: false,
+			},
+			expectedErr:    helper.ErrInternalf("something goes wrong"),
+			expectedFields: nil,
+		},
+		{
+			desc: "some feature flags are enabled in successful RPC",
+			featureFlags: map[featureflag.FeatureFlag]bool{
+				featureA: true,
+				featureB: false,
+				featureC: true,
+			},
+			expectedFields: nil, // Not log flags for successful RPC by default
+		},
+		{
+			desc: "some feature flags are enabled in failed RPC",
+			featureFlags: map[featureflag.FeatureFlag]bool{
+				featureA: true,
+				featureB: false,
+				featureC: true,
+			},
+			expectedErr:    helper.ErrInternalf("something goes wrong"),
+			expectedFields: logrus.Fields{"feature_flags": "feature_a feature_c"},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			fields := FieldsProducer(featureFlagContext(tc.featureFlags, false), tc.expectedErr)
+			require.Equal(t, tc.expectedFields, fields)
+		})
+	}
 }
 
-func TestStreamInterceptor(t *testing.T) {
-	t.Run("no feature flags", func(t *testing.T) {
-		ctx, hook := setupContext()
-		callStream(ctx)
-		require.Len(t, hook.AllEntries(), 1)
-		require.Empty(t, hook.LastEntry().Data)
-	})
+// This test doesn't use testhelper.NewFeatureSets intentionally.
+func TestFeatureFlagLogsWithAlwaysLogFeatureFlags(t *testing.T) {
+	t.Parallel()
 
-	t.Run("multiple feature flags", func(t *testing.T) {
-		ctx, hook := setup()
-		callStream(ctx)
-		verify(t, hook)
-	})
+	featureA := featureflag.FeatureFlag{Name: "feature_a"}
+	featureB := featureflag.FeatureFlag{Name: "feature_b"}
+	featureC := featureflag.FeatureFlag{Name: "feature_c"}
+	testCases := []struct {
+		desc           string
+		featureFlags   map[featureflag.FeatureFlag]bool
+		expectedErr    error
+		expectedFields logrus.Fields
+	}{
+		{
+			desc: "some feature flags, including AlwaysLogFeatureFlags, are enabled in successful RPC",
+			featureFlags: map[featureflag.FeatureFlag]bool{
+				featureA: true,
+				featureB: false,
+				featureC: true,
+			},
+			expectedFields: logrus.Fields{"feature_flags": "always_log_feature_flags feature_a feature_c"},
+		},
+		{
+			desc: "some feature flags, including AlwaysLogFeatureFlags, are enabled in failed RPC",
+			featureFlags: map[featureflag.FeatureFlag]bool{
+				featureA: true,
+				featureB: false,
+				featureC: true,
+			},
+			expectedErr:    helper.ErrInternalf("something goes wrong"),
+			expectedFields: logrus.Fields{"feature_flags": "always_log_feature_flags feature_a feature_c"},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			fields := FieldsProducer(featureFlagContext(tc.featureFlags, true), tc.expectedErr)
+			require.Equal(t, tc.expectedFields, fields)
+		})
+	}
 }
 
-func callUnary(ctx context.Context) {
-	//nolint:errcheck
-	UnaryInterceptor(ctx, nil, nil, func(context.Context, interface{}) (interface{}, error) {
-		ctxlogrus.Extract(ctx).Info("verify")
-		return nil, nil
-	})
-}
-
-func callStream(ctx context.Context) {
-	//nolint:errcheck
-	StreamInterceptor(ctx, &grpcmw.WrappedServerStream{WrappedContext: ctx}, nil, func(interface{}, grpc.ServerStream) error {
-		ctxlogrus.Extract(ctx).Info("verify")
-		return nil
-	})
-}
-
-func setup() (context.Context, *test.Hook) {
-	ctx, hook := setupContext()
-	ff1 := featureflag.FeatureFlag{Name: "ff1"}
-	ff2 := featureflag.FeatureFlag{Name: "ff2"}
-	ctx = featureflag.IncomingCtxWithFeatureFlag(ctx, ff1, false)
-	ctx = featureflag.IncomingCtxWithFeatureFlag(ctx, ff2, true)
-
-	return ctx, hook
-}
-
-func setupContext() (context.Context, *test.Hook) {
-	//nolint:forbidigo // We don't want to set up the feature flags which `testhelper.Context()`
-	// would inject here.
+func featureFlagContext(flags map[featureflag.FeatureFlag]bool, alwaysLogFeatureFlags bool) context.Context {
+	//nolint:forbidigo // This test tests feature flags. We want context to be in a clean state
 	ctx := context.Background()
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
-
-	hook := test.NewLocal(logger)
-	ctx = ctxlogrus.ToContext(ctx, logrus.NewEntry(logger))
-	return ctx, hook
-}
-
-func verify(t *testing.T, hook *test.Hook) {
-	t.Helper()
-
-	require.Len(t, hook.AllEntries(), 1)
-	require.Equal(t, logrus.Fields{"feature_flags": "ff1:false ff2:true"}, hook.LastEntry().Data)
+	for flag, value := range flags {
+		ctx = featureflag.IncomingCtxWithFeatureFlag(ctx, flag, value)
+	}
+	return featureflag.IncomingCtxWithFeatureFlag(ctx, featureflag.AlwaysLogFeatureFlags, alwaysLogFeatureFlags)
 }
