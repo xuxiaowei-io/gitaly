@@ -336,6 +336,9 @@ func (c *Command) Write(p []byte) (int, error) {
 // blocks until the command has finished and reports the command exit
 // status via the error return value. Use ExitStatus to get the integer
 // exit status from the error returned by Wait().
+//
+// Wait returns a wrapped context error if the process was reaped due to
+// the context being done.
 func (c *Command) Wait() error {
 	c.waitOnce.Do(c.wait)
 
@@ -357,6 +360,16 @@ func (c *Command) wait() {
 	}
 
 	c.waitError = c.cmd.Wait()
+
+	// If the context is done, the process was likely terminated due to it. If so,
+	// we return the context error to correctly report the reason.
+	if c.context.Err() != nil {
+		// The standard library sets exit status -1 if the process was terminated by a signal,
+		// such as the SIGTERM sent when context is done.
+		if exitCode, ok := ExitStatus(c.waitError); ok && exitCode == -1 {
+			c.waitError = fmt.Errorf("%s: %w", c.waitError, c.context.Err())
+		}
+	}
 
 	inFlightCommandGauge.Dec()
 
