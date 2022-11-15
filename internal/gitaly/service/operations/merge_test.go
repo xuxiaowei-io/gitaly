@@ -22,6 +22,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -41,8 +42,16 @@ var (
 
 func TestUserMergeBranch(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.MergeTreeMerge).Run(
+		t,
+		testUserMergeBranch,
+	)
+}
 
-	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, testhelper.Context(t))
+func testUserMergeBranch(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	type setupData struct {
 		commitToMerge string
@@ -465,8 +474,14 @@ func TestUserMergeBranch_failure(t *testing.T) {
 
 func TestUserMergeBranch_quarantine(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.MergeTreeMerge).Run(
+		t,
+		testUserMergeBranchQuarantine,
+	)
+}
 
-	ctx := testhelper.Context(t)
+func testUserMergeBranchQuarantine(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -522,8 +537,14 @@ func TestUserMergeBranch_quarantine(t *testing.T) {
 
 func TestUserMergeBranch_stableMergeIDs(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.MergeTreeMerge).Run(
+		t,
+		testUserMergeBranchStableMergeIDs,
+	)
+}
 
-	ctx := testhelper.Context(t)
+func testUserMergeBranchStableMergeIDs(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -590,8 +611,14 @@ func TestUserMergeBranch_stableMergeIDs(t *testing.T) {
 
 func TestUserMergeBranch_abort(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.MergeTreeMerge).Run(
+		t,
+		testUserMergeBranchAbort,
+	)
+}
 
-	ctx := testhelper.Context(t)
+func testUserMergeBranchAbort(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -650,8 +677,14 @@ func TestUserMergeBranch_abort(t *testing.T) {
 
 func TestUserMergeBranch_concurrentUpdate(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.MergeTreeMerge).Run(
+		t,
+		testUserMergeBranchConcurrentUpdate,
+	)
+}
 
-	ctx := testhelper.Context(t)
+func testUserMergeBranchConcurrentUpdate(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -705,8 +738,14 @@ func TestUserMergeBranch_concurrentUpdate(t *testing.T) {
 
 func TestUserMergeBranch_ambiguousReference(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.MergeTreeMerge).Run(
+		t,
+		testUserMergeBranchAmbiguousReference,
+	)
+}
 
-	ctx := testhelper.Context(t)
+func testUserMergeBranchAmbiguousReference(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -767,8 +806,14 @@ func TestUserMergeBranch_ambiguousReference(t *testing.T) {
 
 func TestUserMergeBranch_failingHooks(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.MergeTreeMerge).Run(
+		t,
+		testUserMergeBranchFailingHooks,
+	)
+}
 
-	ctx := testhelper.Context(t)
+func testUserMergeBranchFailingHooks(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
@@ -857,28 +902,49 @@ func TestUserMergeBranch_failingHooks(t *testing.T) {
 
 func TestUserMergeBranch_conflict(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.MergeTreeMerge).Run(
+		t,
+		testUserMergeBranchConflict,
+	)
+}
 
-	ctx := testhelper.Context(t)
+func testUserMergeBranchConflict(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
+	const baseBranch = "base"
 	const mergeIntoBranch = "mergeIntoBranch"
 	const mergeFromBranch = "mergeFromBranch"
 	const conflictingFile = "file"
 
-	baseCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(mergeIntoBranch), gittest.WithTreeEntries(gittest.TreeEntry{
+	baseCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(baseBranch), gittest.WithTreeEntries(gittest.TreeEntry{
 		Mode: "100644", Path: conflictingFile, Content: "data",
 	}))
 
 	gittest.Exec(t, cfg, "-C", repoPath, "branch", mergeFromBranch, baseCommit.String())
 
-	divergedInto := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(mergeIntoBranch), gittest.WithTreeEntries(gittest.TreeEntry{
-		Mode: "100644", Path: conflictingFile, Content: "data-1",
-	}))
+	divergedInto := gittest.WriteCommit(
+		t,
+		cfg,
+		repoPath,
+		gittest.WithBranch(mergeIntoBranch),
+		gittest.WithParents(baseCommit),
+		gittest.WithTreeEntries(gittest.TreeEntry{
+			Mode: "100644", Path: conflictingFile, Content: "data-1",
+		}),
+	)
 
-	divergedFrom := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(mergeFromBranch), gittest.WithTreeEntries(gittest.TreeEntry{
-		Mode: "100644", Path: conflictingFile, Content: "data-2",
-	}))
+	divergedFrom := gittest.WriteCommit(
+		t,
+		cfg,
+		repoPath,
+		gittest.WithBranch(mergeFromBranch),
+		gittest.WithParents(baseCommit),
+		gittest.WithTreeEntries(gittest.TreeEntry{
+			Mode: "100644", Path: conflictingFile, Content: "data-2",
+		}),
+	)
 
 	mergeBidi, err := client.UserMergeBranch(ctx)
 	require.NoError(t, err)
@@ -912,8 +978,14 @@ func TestUserMergeBranch_conflict(t *testing.T) {
 
 func TestUserMergeBranch_allowed(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.MergeTreeMerge).Run(
+		t,
+		testUserMergeBranchAllowed,
+	)
+}
 
-	ctx := testhelper.Context(t)
+func testUserMergeBranchAllowed(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	mergeBranchHeadAfter := "ff0ac4dfa30d6b26fd14aa83a75650355270bf76"
 
