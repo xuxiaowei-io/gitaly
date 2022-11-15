@@ -145,7 +145,7 @@ func TestNew_unexportedEnv(t *testing.T) {
 func TestNew_rejectContextWithoutDone(t *testing.T) {
 	t.Parallel()
 
-	require.PanicsWithValue(t, contextWithoutDonePanic("command spawned with context without Done() channel"), func() {
+	require.PanicsWithValue(t, "command spawned with context without Done() channel", func() {
 		_, err := New(testhelper.ContextWithoutCancel(), []string{"true"})
 		require.NoError(t, err)
 	})

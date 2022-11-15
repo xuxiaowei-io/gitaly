@@ -155,7 +155,7 @@ type Command struct {
 // reaped automatically.
 func New(ctx context.Context, nameAndArgs []string, opts ...Option) (*Command, error) {
 	if ctx.Done() == nil {
-		panic(contextWithoutDonePanic("command spawned with context without Done() channel"))
+		panic("command spawned with context without Done() channel")
 	}
 
 	if len(nameAndArgs) == 0 {
@@ -487,8 +487,6 @@ func (c *Command) Env() []string {
 func (c *Command) Pid() int {
 	return c.cmd.Process.Pid
 }
-
-type contextWithoutDonePanic string
 
 var getSpawnTokenAcquiringSeconds = func(t time.Time) float64 {
 	return time.Since(t).Seconds()
