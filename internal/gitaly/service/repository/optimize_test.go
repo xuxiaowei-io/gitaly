@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"os"
 	"path/filepath"
 	"strings"
@@ -35,12 +36,14 @@ func getNewestPackfileModtime(t *testing.T, repoPath string) time.Time {
 
 	var newestPackfileModtime time.Time
 
+	logrus.Warnf("=== getNewestPackfileModtime")
 	for _, packFile := range packFiles {
 		info, err := os.Stat(packFile)
 		require.NoError(t, err)
 		if info.ModTime().After(newestPackfileModtime) {
 			newestPackfileModtime = info.ModTime()
 		}
+		logrus.Warnf("%s %v", packFile, info.ModTime())
 	}
 
 	return newestPackfileModtime
@@ -48,6 +51,8 @@ func getNewestPackfileModtime(t *testing.T, repoPath string) time.Time {
 
 func TestOptimizeRepository(t *testing.T) {
 	t.Parallel()
+
+	logrus.SetOutput(os.Stdout)
 
 	ctx := testhelper.Context(t)
 	cfg, repoProto, repoPath, client := setupRepositoryService(t, ctx)
@@ -95,6 +100,7 @@ func TestOptimizeRepository(t *testing.T) {
 	require.False(t, bytes.Contains(confFileData, []byte("http://extraHeader/extraheader/EXTRAHEADER.git.extraHeader")))
 	require.True(t, bytes.Contains(confFileData, []byte("https://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c5.git")))
 
+	logrus.Warn("=== Before comparison")
 	require.Equal(t, getNewestPackfileModtime(t, repoPath), newestsPackfileTime, "there should not have been a new packfile created")
 
 	testRepoProto, testRepoPath := gittest.CreateRepository(t, ctx, cfg)
