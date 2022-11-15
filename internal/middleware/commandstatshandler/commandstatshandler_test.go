@@ -166,5 +166,5 @@ func TestFieldsProducer(t *testing.T) {
 	stats := command.StatsFromContext(ctx)
 	stats.RecordMax("stub", 42)
 
-	require.Equal(t, logrus.Fields{"stub": 42}, FieldsProducer(ctx))
+	require.Equal(t, logrus.Fields{"stub": 42}, FieldsProducer(ctx, nil))
 }

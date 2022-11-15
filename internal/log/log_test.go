@@ -260,19 +260,27 @@ func TestConfigure(t *testing.T) {
 
 func TestMessageProducer(t *testing.T) {
 	triggered := false
-	MessageProducer(func(ctx context.Context, format string, level logrus.Level, code codes.Code, err error, fields logrus.Fields) {
-		require.Equal(t, createContext(), ctx)
+
+	var infoFromCtx struct{}
+	ctx := createContext()
+	ctx = context.WithValue(ctx, infoFromCtx, "world")
+	MessageProducer(func(c context.Context, format string, level logrus.Level, code codes.Code, err error, fields logrus.Fields) {
+		require.Equal(t, ctx, c)
 		require.Equal(t, "format-stub", format)
 		require.Equal(t, logrus.DebugLevel, level)
 		require.Equal(t, codes.OutOfRange, code)
 		require.Equal(t, assert.AnError, err)
-		require.Equal(t, logrus.Fields{"a": 1, "b": "test", "c": "stub"}, fields)
+		require.Equal(t, logrus.Fields{"a": 1, "b": "test", "c": "stub", "d": err.Error(), "e": "world"}, fields)
 		triggered = true
-	}, func(context.Context) logrus.Fields {
+	}, func(context.Context, error) logrus.Fields {
 		return logrus.Fields{"a": 1}
-	}, func(context.Context) logrus.Fields {
+	}, func(context.Context, error) logrus.Fields {
 		return logrus.Fields{"b": "test"}
-	})(createContext(), "format-stub", logrus.DebugLevel, codes.OutOfRange, assert.AnError, logrus.Fields{"c": "stub"})
+	}, func(ctx context.Context, err error) logrus.Fields {
+		return logrus.Fields{"d": err.Error()}
+	}, func(ctx context.Context, err error) logrus.Fields {
+		return logrus.Fields{"e": ctx.Value(infoFromCtx)}
+	})(ctx, "format-stub", logrus.DebugLevel, codes.OutOfRange, assert.AnError, logrus.Fields{"c": "stub"})
 	require.True(t, triggered)
 }
 
@@ -307,8 +315,9 @@ func TestPerRPCLogHandler(t *testing.T) {
 	lh := PerRPCLogHandler{
 		Underlying: msh,
 		FieldProducers: []FieldsProducer{
-			func(ctx context.Context) logrus.Fields { return logrus.Fields{"a": 1} },
-			func(ctx context.Context) logrus.Fields { return logrus.Fields{"b": "2"} },
+			func(ctx context.Context, err error) logrus.Fields { return logrus.Fields{"a": 1} },
+			func(ctx context.Context, err error) logrus.Fields { return logrus.Fields{"b": "2"} },
+			func(ctx context.Context, err error) logrus.Fields { return logrus.Fields{"c": err.Error()} },
 		},
 	}
 
@@ -346,7 +355,7 @@ func TestPerRPCLogHandler(t *testing.T) {
 			assert.Equal(t, logrus.InfoLevel, level)
 			assert.Equal(t, codes.InvalidArgument, code)
 			assert.Equal(t, assert.AnError, err)
-			assert.Equal(t, logrus.Fields{"a": 1, "b": "2"}, mpp.fields)
+			assert.Equal(t, logrus.Fields{"a": 1, "b": "2", "c": mpp.err.Error()}, mpp.fields)
 		}
 		lh.HandleRPC(ctx, &stats.End{})
 	})
