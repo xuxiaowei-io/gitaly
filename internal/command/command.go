@@ -523,12 +523,7 @@ func ExitStatus(err error) (int, bool) {
 		return 0, false
 	}
 
-	waitStatus, ok := exitError.Sys().(syscall.WaitStatus)
-	if !ok {
-		return 0, false
-	}
-
-	return waitStatus.ExitStatus(), true
+	return exitError.ExitCode(), true
 }
 
 func methodFromContext(ctx context.Context) (service string, method string) {
