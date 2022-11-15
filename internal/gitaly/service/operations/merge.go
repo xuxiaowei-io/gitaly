@@ -51,6 +51,8 @@ func validateMergeBranchRequest(request *gitalypb.UserMergeBranchRequest) error 
 	return nil
 }
 
+// TODO: remove this function once we roll out the feature flag
+// to use the git implementation.
 func (s *Server) mergeWithGit2Go(
 	ctx context.Context,
 	repoPath string,
