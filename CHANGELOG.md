@@ -48,6 +48,10 @@ No changes.
 
 - [Fix CVE-2022-32149 in dependencies](gitlab-org/gitaly@1f49b2de36c84c429031ef60ff0189d1a5c3f2d5) ([merge request](gitlab-org/gitaly!4937))
 
+## 15.4.5 (2022-11-15)
+
+No changes.
+
 ## 15.4.4 (2022-11-02)
 
 ### Security (1 change)
