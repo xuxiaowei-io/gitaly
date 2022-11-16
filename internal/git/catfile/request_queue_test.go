@@ -22,14 +22,6 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 
 	oid := git.ObjectID(strings.Repeat("1", gittest.DefaultObjectHash.EncodedLen()))
 
-	t.Run("ReadInfo on ReadObject queue", func(t *testing.T) {
-		_, queue := newInterceptedQueue(t, ctx, "#!/bin/sh\nread\n")
-
-		require.PanicsWithValue(t, "object queue used to read object info", func() {
-			_, _ = queue.ReadInfo()
-		})
-	})
-
 	t.Run("read without request", func(t *testing.T) {
 		_, queue := newInterceptedQueue(t, ctx, "#!/bin/sh\nread\n")
 		_, err := queue.ReadObject()
@@ -39,7 +31,7 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 	t.Run("read on closed reader", func(t *testing.T) {
 		reader, queue := newInterceptedQueue(t, ctx, "#!/bin/sh\nread\n")
 
-		require.NoError(t, queue.RequestRevision("foo"))
+		require.NoError(t, queue.RequestObject("foo"))
 		require.True(t, queue.isDirty())
 
 		reader.close()
@@ -55,8 +47,8 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 		`, oid))
 
 		// We queue two revisions...
-		require.NoError(t, queue.RequestRevision("foo"))
-		require.NoError(t, queue.RequestRevision("foo"))
+		require.NoError(t, queue.RequestObject("foo"))
+		require.NoError(t, queue.RequestObject("foo"))
 
 		// .. and only unqueue one object. This object isn't read though, ...
 		_, err := queue.ReadObject()
@@ -74,7 +66,7 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 			echo "something something"
 		`)
 
-		require.NoError(t, queue.RequestRevision("foo"))
+		require.NoError(t, queue.RequestObject("foo"))
 
 		_, err := queue.ReadObject()
 		require.Equal(t, fmt.Errorf("invalid info line: %q", "something something"), err)
@@ -88,7 +80,7 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 			exit 1
 		`)
 
-		require.NoError(t, queue.RequestRevision("foo"))
+		require.NoError(t, queue.RequestObject("foo"))
 
 		_, err := queue.ReadObject()
 		require.Equal(t, fmt.Errorf("read info line: %w", io.EOF), err)
@@ -102,7 +94,7 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 			echo "%s missing"
 		`, oid))
 
-		require.NoError(t, queue.RequestRevision("foo"))
+		require.NoError(t, queue.RequestObject("foo"))
 
 		_, err := queue.ReadObject()
 		require.Equal(t, NotFoundError{error: fmt.Errorf("object not found")}, err)
@@ -118,7 +110,7 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 			echo "1234567890"
 		`, oid))
 
-		require.NoError(t, queue.RequestRevision("foo"))
+		require.NoError(t, queue.RequestObject("foo"))
 		require.True(t, queue.isDirty())
 
 		object, err := queue.ReadObject()
@@ -146,8 +138,8 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 			echo "0987654321"
 		`, oid, secondOID))
 
-		require.NoError(t, queue.RequestRevision("foo"))
-		require.NoError(t, queue.RequestRevision("foo"))
+		require.NoError(t, queue.RequestObject("foo"))
+		require.NoError(t, queue.RequestObject("foo"))
 		require.True(t, queue.isDirty())
 
 		for _, expectedObject := range []struct {
@@ -191,7 +183,7 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 			printf "123"
 		`, oid))
 
-		require.NoError(t, queue.RequestRevision("foo"))
+		require.NoError(t, queue.RequestObject("foo"))
 		require.True(t, queue.isDirty())
 
 		object, err := queue.ReadObject()
@@ -219,7 +211,7 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 	})
 }
 
-func TestRequestQueue_RequestRevision(t *testing.T) {
+func TestRequestQueue_RequestObject(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
@@ -239,7 +231,7 @@ func TestRequestQueue_RequestRevision(t *testing.T) {
 		_, queue := newInterceptedQueue(t, ctx, "#!/bin/sh")
 		queue.close()
 
-		require.Equal(t, fmt.Errorf("cannot request revision: %w", os.ErrClosed), queue.RequestRevision("foo"))
+		require.Equal(t, fmt.Errorf("cannot request revision: %w", os.ErrClosed), queue.RequestObject("foo"))
 	})
 
 	t.Run("requesting revision on closed process", func(t *testing.T) {
@@ -247,7 +239,7 @@ func TestRequestQueue_RequestRevision(t *testing.T) {
 
 		process.close()
 
-		require.Equal(t, fmt.Errorf("cannot request revision: %w", os.ErrClosed), queue.RequestRevision("foo"))
+		require.Equal(t, fmt.Errorf("cannot request revision: %w", os.ErrClosed), queue.RequestObject("foo"))
 	})
 
 	t.Run("single request", func(t *testing.T) {
@@ -257,10 +249,10 @@ func TestRequestQueue_RequestRevision(t *testing.T) {
 			echo "${revision}"
 		`, oid))
 
-		require.NoError(t, queue.RequestRevision("foo"))
+		require.NoError(t, queue.RequestObject("foo"))
 		require.NoError(t, queue.Flush())
 
-		requireRevision(t, queue, "foo")
+		requireRevision(t, queue, "contents foo")
 	})
 
 	t.Run("multiple request", func(t *testing.T) {
@@ -272,16 +264,16 @@ func TestRequestQueue_RequestRevision(t *testing.T) {
 			done
 		`, oid))
 
-		require.NoError(t, queue.RequestRevision("foo"))
-		require.NoError(t, queue.RequestRevision("bar"))
-		require.NoError(t, queue.RequestRevision("baz"))
-		require.NoError(t, queue.RequestRevision("qux"))
+		require.NoError(t, queue.RequestObject("foo"))
+		require.NoError(t, queue.RequestObject("bar"))
+		require.NoError(t, queue.RequestObject("baz"))
+		require.NoError(t, queue.RequestObject("qux"))
 		require.NoError(t, queue.Flush())
 
-		requireRevision(t, queue, "foo")
-		requireRevision(t, queue, "bar")
-		requireRevision(t, queue, "baz")
-		requireRevision(t, queue, "qux")
+		requireRevision(t, queue, "contents foo")
+		requireRevision(t, queue, "contents bar")
+		requireRevision(t, queue, "contents baz")
+		requireRevision(t, queue, "contents qux")
 	})
 
 	t.Run("multiple request with intermediate flushing", func(t *testing.T) {
@@ -289,7 +281,7 @@ func TestRequestQueue_RequestRevision(t *testing.T) {
 			while read revision
 			do
 				read flush
-				if test "$flush" != "FLUSH"
+				if test "$flush" != "flush"
 				then
 					echo "expected a flush"
 					exit 1
@@ -306,9 +298,100 @@ func TestRequestQueue_RequestRevision(t *testing.T) {
 			"foo",
 			"qux",
 		} {
-			require.NoError(t, queue.RequestRevision(revision))
+			require.NoError(t, queue.RequestObject(revision))
 			require.NoError(t, queue.Flush())
-			requireRevision(t, queue, revision)
+			requireRevision(t, queue, "contents "+revision)
+		}
+	})
+}
+
+func TestRequestQueue_RequestInfo(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+
+	oid := git.ObjectID(strings.Repeat("1", gittest.DefaultObjectHash.EncodedLen()))
+	expectedInfo := &ObjectInfo{oid, "blob", 955}
+
+	requireRevision := func(t *testing.T, queue *requestQueue) {
+		info, err := queue.ReadInfo()
+		require.NoError(t, err)
+
+		require.NoError(t, err)
+		require.Equal(t, info, expectedInfo)
+	}
+
+	t.Run("requesting revision on closed queue", func(t *testing.T) {
+		_, queue := newInterceptedQueue(t, ctx, "#!/bin/sh")
+		queue.close()
+
+		require.Equal(t, fmt.Errorf("cannot request revision: %w", os.ErrClosed), queue.RequestInfo("foo"))
+	})
+
+	t.Run("requesting revision on closed process", func(t *testing.T) {
+		process, queue := newInterceptedQueue(t, ctx, "#!/bin/sh")
+
+		process.close()
+
+		require.Equal(t, fmt.Errorf("cannot request revision: %w", os.ErrClosed), queue.RequestInfo("foo"))
+	})
+
+	t.Run("single request", func(t *testing.T) {
+		_, queue := newInterceptedQueue(t, ctx, fmt.Sprintf(`#!/bin/sh
+			read revision
+			echo "%s blob 955"
+		`, oid))
+
+		require.NoError(t, queue.RequestInfo("foo"))
+		require.NoError(t, queue.Flush())
+
+		requireRevision(t, queue)
+	})
+
+	t.Run("multiple request", func(t *testing.T) {
+		_, queue := newInterceptedQueue(t, ctx, fmt.Sprintf(`#!/bin/sh
+			while read revision
+			do
+				echo "%s blob 955"
+			done
+		`, oid))
+
+		require.NoError(t, queue.RequestInfo("foo"))
+		require.NoError(t, queue.RequestInfo("bar"))
+		require.NoError(t, queue.RequestInfo("baz"))
+		require.NoError(t, queue.RequestInfo("qux"))
+		require.NoError(t, queue.Flush())
+
+		requireRevision(t, queue)
+		requireRevision(t, queue)
+		requireRevision(t, queue)
+		requireRevision(t, queue)
+	})
+
+	t.Run("multiple request with intermediate flushing", func(t *testing.T) {
+		_, queue := newInterceptedQueue(t, ctx, fmt.Sprintf(`#!/bin/sh
+			while read revision
+			do
+				read flush
+				if test "$flush" != "flush"
+				then
+					echo "expected a flush"
+					exit 1
+				fi
+
+				echo "%s blob 955"
+			done
+		`, oid))
+
+		for _, revision := range []git.Revision{
+			"foo",
+			"bar",
+			"foo",
+			"qux",
+		} {
+			require.NoError(t, queue.RequestInfo(revision))
+			require.NoError(t, queue.Flush())
+			requireRevision(t, queue)
 		}
 	})
 }

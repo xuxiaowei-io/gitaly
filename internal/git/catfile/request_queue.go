@@ -11,13 +11,22 @@ import (
 )
 
 const (
-	// flushCommand is the command we send to git-cat-file(1) to cause it to flush its stdout.
+	// contentsCommand is the command expected by the `--batch-command` mode of git-cat-file(1)
+	// for reading an objects contents.
+	contentsCommand = "contents"
+	// infoCommand is the command expected by the `--batch-command` mode of git-cat-file(1)
+	// for reading an objects info.
+	infoCommand = "info"
+	// flushCommand is the command expected by the `--batch-command` mode of git-cat-file(1)
+	// for flushing out to stdout.
+	flushCommand = "flush"
+	// flushCommandHack is the command we send to git-cat-file(1) to cause it to flush its stdout.
 	// Note that this is a hack: git-cat-file(1) doesn't really support flushing, but it will
 	// flush whenever it encounters an object it doesn't know. The flush command we use is thus
 	// chosen such that it cannot ever refer to a valid object: refs may not contain whitespace,
 	// so this command cannot refer to a ref. Adding "FLUSH" is just for the sake of making it
 	// easier to spot what's going on in case we ever mistakenly see this output in the wild.
-	flushCommand = "\tFLUSH\t"
+	flushCommandHack = "\tFLUSH\t"
 )
 
 type requestQueue struct {
@@ -48,6 +57,10 @@ type requestQueue struct {
 
 	// trace is the current tracing span.
 	trace *trace
+
+	// isBatchCommand indicates whether `--batch-command` is used. We use this to determine if
+	// commands need to be passed to git-cat-file(1).
+	isBatchCommand bool
 }
 
 // isDirty returns true either if there are outstanding requests for objects or if the current
@@ -72,14 +85,31 @@ func (q *requestQueue) close() {
 	atomic.StoreInt32(&q.closed, 1)
 }
 
-func (q *requestQueue) RequestRevision(revision git.Revision) error {
+// RequestObject requests the contents for the given revision. A subsequent call has
+// to be made to ReadObject to read the contents.
+func (q *requestQueue) RequestObject(revision git.Revision) error {
+	return q.requestRevision(contentsCommand, revision)
+}
+
+// RequestObject requests the info for the given revision. A subsequent call has to
+// be made to ReadInfo read the info.
+func (q *requestQueue) RequestInfo(revision git.Revision) error {
+	return q.requestRevision(infoCommand, revision)
+}
+
+func (q *requestQueue) requestRevision(cmd string, revision git.Revision) error {
 	if q.isClosed() {
 		return fmt.Errorf("cannot request revision: %w", os.ErrClosed)
 	}
 
 	atomic.AddInt64(&q.outstandingRequests, 1)
 
-	if _, err := q.stdin.WriteString(revision.String()); err != nil {
+	input := revision.String()
+	if q.isBatchCommand {
+		input = cmd + " " + input
+	}
+
+	if _, err := q.stdin.WriteString(input); err != nil {
 		atomic.AddInt64(&q.outstandingRequests, -1)
 		return fmt.Errorf("writing object request: %w", err)
 	}
@@ -97,7 +127,12 @@ func (q *requestQueue) Flush() error {
 		return fmt.Errorf("cannot flush: %w", os.ErrClosed)
 	}
 
-	if _, err := q.stdin.WriteString(flushCommand); err != nil {
+	cmd := flushCommandHack
+	if q.isBatchCommand {
+		cmd = flushCommand
+	}
+
+	if _, err := q.stdin.WriteString(cmd); err != nil {
 		return fmt.Errorf("writing flush command: %w", err)
 	}
 
@@ -117,7 +152,7 @@ type readerFunc func([]byte) (int, error)
 func (fn readerFunc) Read(buf []byte) (int, error) { return fn(buf) }
 
 func (q *requestQueue) ReadObject() (*Object, error) {
-	if !q.isObjectQueue {
+	if !q.isObjectQueue && !q.isBatchCommand {
 		panic("object queue used to read object info")
 	}
 
@@ -183,7 +218,7 @@ func (q *requestQueue) ReadObject() (*Object, error) {
 }
 
 func (q *requestQueue) ReadInfo() (*ObjectInfo, error) {
-	if q.isObjectQueue {
+	if q.isObjectQueue && !q.isBatchCommand {
 		panic("object queue used to read object info")
 	}
 

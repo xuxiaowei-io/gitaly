@@ -14,7 +14,7 @@ import (
 // GetTag looks up a commit by tagID using an existing catfile.Batch instance. Note: we pass
 // in the tagName because the tag name from refs/tags may be different than the name found in the
 // actual tag object. We want to use the tagName found in refs/tags
-func GetTag(ctx context.Context, objectReader ObjectReader, tagID git.Revision, tagName string) (*gitalypb.Tag, error) {
+func GetTag(ctx context.Context, objectReader ObjectContentReader, tagID git.Revision, tagName string) (*gitalypb.Tag, error) {
 	object, err := objectReader.Object(ctx, tagID)
 	if err != nil {
 		return nil, err
@@ -51,7 +51,7 @@ func ExtractTagSignature(content []byte) ([]byte, []byte) {
 	return nil, content
 }
 
-func buildAnnotatedTag(ctx context.Context, objectReader ObjectReader, object git.Object, name []byte) (*gitalypb.Tag, error) {
+func buildAnnotatedTag(ctx context.Context, objectReader ObjectContentReader, object git.Object, name []byte) (*gitalypb.Tag, error) {
 	tag, tagged, err := newParser().parseTag(object, name)
 	if err != nil {
 		return nil, err
@@ -77,7 +77,7 @@ func buildAnnotatedTag(ctx context.Context, objectReader ObjectReader, object gi
 // dereferenceTag recursively dereferences annotated tags until it finds a non-tag object. If it is
 // a commit, then it will parse and return this commit. Otherwise, if the tagged object is not a
 // commit, it will simply discard the object and not return an error.
-func dereferenceTag(ctx context.Context, objectReader ObjectReader, oid git.Revision) (*gitalypb.GitCommit, error) {
+func dereferenceTag(ctx context.Context, objectReader ObjectContentReader, oid git.Revision) (*gitalypb.GitCommit, error) {
 	object, err := objectReader.Object(ctx, oid+"^{}")
 	if err != nil {
 		return nil, fmt.Errorf("peeling tag: %w", err)

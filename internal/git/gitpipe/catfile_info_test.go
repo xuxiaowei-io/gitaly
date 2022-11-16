@@ -268,7 +268,7 @@ func TestCatfileInfo(t *testing.T) {
 
 		// Reusing the queue is not allowed, so we should get an error here.
 		_, err = CatfileInfo(ctx, objectInfoReader, NewRevisionIterator(ctx, input))
-		require.Equal(t, fmt.Errorf("object info queue already in use"), err)
+		require.Equal(t, fmt.Errorf("object queue already in use"), err)
 
 		// We now consume all the input of the iterator.
 		require.True(t, it.Next())

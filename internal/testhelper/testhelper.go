@@ -202,6 +202,9 @@ func ContextWithoutCancel(opts ...ContextOpt) context.Context {
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.NodeErrorCancelsVoter, rnd.Int()%2 == 0)
 
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.GitV238, rnd.Int()%2 == 0)
+	// CatfileBatchCommand affects many tests since most of them rely on catfile for content/info
+	// information about objects.
+	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.CatfileBatchCommand, rnd.Int()%2 == 0)
 
 	for _, opt := range opts {
 		ctx = opt(ctx)

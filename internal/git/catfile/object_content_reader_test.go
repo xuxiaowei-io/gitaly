@@ -17,9 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 )
 
-func TestObjectReader_reader(t *testing.T) {
-	t.Parallel()
-
+func TestObjectContentReader_reader(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
@@ -36,131 +34,51 @@ func TestObjectReader_reader(t *testing.T) {
 		Message: "annotated tag",
 	})
 
-	oiByRevision := make(map[string]*ObjectInfo)
-	contentByRevision := make(map[string][]byte)
-	for _, revision := range []string{
-		"refs/heads/main",
-		"refs/heads/main^{tree}",
-		"refs/heads/main:README",
-		"refs/tags/v1.1.1",
-	} {
-		revParseOutput := gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", revision)
-		objectID, err := gittest.DefaultObjectHash.FromHex(text.ChompBytes(revParseOutput))
+	commitContents := gittest.Exec(t, cfg, "-C", repoPath, "cat-file", "-p", commitID.String())
+
+	t.Run("read existing object by ref", func(t *testing.T) {
+		reader, err := newObjectContentReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
 		require.NoError(t, err)
 
-		objectType := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "cat-file", "-t", revision))
-		objectContents := gittest.Exec(t, cfg, "-C", repoPath, "cat-file", objectType, revision)
+		object, err := reader.Object(ctx, "refs/heads/main")
+		require.NoError(t, err)
 
-		oiByRevision[revision] = &ObjectInfo{
-			Oid:  objectID,
-			Type: objectType,
-			Size: int64(len(objectContents)),
-		}
-		contentByRevision[revision] = objectContents
-	}
-
-	for _, tc := range []struct {
-		desc            string
-		revision        git.Revision
-		expectedErr     error
-		expectedInfo    *ObjectInfo
-		expectedContent []byte
-	}{
-		{
-			desc:            "commit by ref",
-			revision:        "refs/heads/main",
-			expectedInfo:    oiByRevision["refs/heads/main"],
-			expectedContent: contentByRevision["refs/heads/main"],
-		},
-		{
-			desc:            "commit by ID",
-			revision:        oiByRevision["refs/heads/main"].Oid.Revision(),
-			expectedInfo:    oiByRevision["refs/heads/main"],
-			expectedContent: contentByRevision["refs/heads/main"],
-		},
-		{
-			desc:            "tree",
-			revision:        oiByRevision["refs/heads/main^{tree}"].Oid.Revision(),
-			expectedInfo:    oiByRevision["refs/heads/main^{tree}"],
-			expectedContent: contentByRevision["refs/heads/main^{tree}"],
-		},
-		{
-			desc:            "blob",
-			revision:        oiByRevision["refs/heads/main:README"].Oid.Revision(),
-			expectedInfo:    oiByRevision["refs/heads/main:README"],
-			expectedContent: contentByRevision["refs/heads/main:README"],
-		},
-		{
-			desc:            "tag",
-			revision:        oiByRevision["refs/tags/v1.1.1"].Oid.Revision(),
-			expectedInfo:    oiByRevision["refs/tags/v1.1.1"],
-			expectedContent: contentByRevision["refs/tags/v1.1.1"],
-		},
-		{
-			desc:        "nonexistent ref",
-			revision:    "refs/heads/does-not-exist",
-			expectedErr: NotFoundError{fmt.Errorf("object not found")},
-		},
-	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			counter := prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"type"})
-
-			reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), counter)
-			require.NoError(t, err)
-
-			require.Equal(t, float64(0), testutil.ToFloat64(counter.WithLabelValues("info")))
-
-			// Check for object info
-			info, err := reader.Info(ctx, tc.revision)
-			require.Equal(t, tc.expectedErr, err)
-			require.Equal(t, tc.expectedInfo, info)
-
-			// Check for object contents
-			object, err := reader.Object(ctx, tc.revision)
-			require.Equal(t, tc.expectedErr, err)
-			if err == nil {
-				data, err := io.ReadAll(object)
-				require.NoError(t, err)
-				require.Equal(t, tc.expectedContent, data)
-			}
-
-			expectedRequests := 0
-			if tc.expectedErr == nil {
-				expectedRequests = 1
-			}
-			require.Equal(t, float64(expectedRequests), testutil.ToFloat64(counter.WithLabelValues("info")))
-
-			// Verify that we do another request no matter whether the previous call
-			// succeeded or failed.
-			_, err = reader.Info(ctx, "refs/heads/main")
-			require.NoError(t, err)
-
-			require.Equal(t, float64(expectedRequests+1), testutil.ToFloat64(counter.WithLabelValues("info")))
-		})
-	}
-}
-
-func TestObjectReader_object(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-
-	cfg := testcfg.Build(t)
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		SkipCreationViaService: true,
+		data, err := io.ReadAll(object)
+		require.NoError(t, err)
+		require.Equal(t, commitContents, data)
 	})
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithBranch("main"),
-		gittest.WithMessage("commit message"),
-		gittest.WithTreeEntries(gittest.TreeEntry{Path: "README", Mode: "100644", Content: "something"}),
-	)
-	gittest.WriteTag(t, cfg, repoPath, "v1.1.1", commitID.Revision(), gittest.WriteTagConfig{
-		Message: "annotated tag",
+	t.Run("read existing object by object ID", func(t *testing.T) {
+		reader, err := newObjectContentReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		require.NoError(t, err)
+
+		object, err := reader.Object(ctx, commitID.Revision())
+		require.NoError(t, err)
+
+		data, err := io.ReadAll(object)
+		require.NoError(t, err)
+		require.Equal(t, data, commitContents)
+	})
+
+	t.Run("read missing ref", func(t *testing.T) {
+		reader, err := newObjectContentReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		require.NoError(t, err)
+
+		_, err = reader.Object(ctx, "refs/heads/does-not-exist")
+		require.EqualError(t, err, "object not found")
+
+		// Verify that we're still able to read a commit after the previous read has failed.
+		object, err := reader.Object(ctx, commitID.Revision())
+		require.NoError(t, err)
+
+		data, err := io.ReadAll(object)
+		require.NoError(t, err)
+
+		require.Equal(t, commitContents, data)
 	})
 
 	t.Run("read fails when not consuming previous object", func(t *testing.T) {
-		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		reader, err := newObjectContentReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
 		require.NoError(t, err)
 
 		_, err = reader.Object(ctx, commitID.Revision())
@@ -172,7 +90,7 @@ func TestObjectReader_object(t *testing.T) {
 	})
 
 	t.Run("read fails when partially consuming previous object", func(t *testing.T) {
-		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		reader, err := newObjectContentReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
 		require.NoError(t, err)
 
 		object, err := reader.Object(ctx, commitID.Revision())
@@ -189,7 +107,7 @@ func TestObjectReader_object(t *testing.T) {
 	t.Run("read increments Prometheus counter", func(t *testing.T) {
 		counter := prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"type"})
 
-		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), counter)
+		reader, err := newObjectContentReader(ctx, newRepoExecutor(t, cfg, repoProto), counter)
 		require.NoError(t, err)
 
 		for objectType, revision := range map[string]git.Revision{
@@ -211,9 +129,7 @@ func TestObjectReader_object(t *testing.T) {
 	})
 }
 
-func TestObjectReader_queue(t *testing.T) {
-	t.Parallel()
-
+func TestObjectContentReader_queue(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
@@ -225,7 +141,7 @@ func TestObjectReader_queue(t *testing.T) {
 	barfooBlob := gittest.WriteBlob(t, cfg, repoPath, []byte("barfoo"))
 
 	t.Run("read single object", func(t *testing.T) {
-		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		reader, err := newObjectContentReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
 		require.NoError(t, err)
 
 		queue, cleanup, err := reader.objectQueue(ctx, "trace")
@@ -244,7 +160,7 @@ func TestObjectReader_queue(t *testing.T) {
 	})
 
 	t.Run("read multiple objects", func(t *testing.T) {
-		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		reader, err := newObjectContentReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
 		require.NoError(t, err)
 
 		queue, cleanup, err := reader.objectQueue(ctx, "trace")
@@ -268,7 +184,7 @@ func TestObjectReader_queue(t *testing.T) {
 	})
 
 	t.Run("request multiple objects", func(t *testing.T) {
-		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		reader, err := newObjectContentReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
 		require.NoError(t, err)
 
 		queue, cleanup, err := reader.objectQueue(ctx, "trace")
@@ -289,55 +205,8 @@ func TestObjectReader_queue(t *testing.T) {
 		}
 	})
 
-	t.Run("request multiple info", func(t *testing.T) {
-		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
-		require.NoError(t, err)
-
-		queue, cleanup, err := reader.objectQueue(ctx, "trace")
-		require.NoError(t, err)
-		defer cleanup()
-
-		require.NoError(t, queue.RequestInfo(foobarBlob.Revision()))
-		require.NoError(t, queue.RequestInfo(barfooBlob.Revision()))
-		require.NoError(t, queue.Flush())
-
-		for _, blob := range []git.ObjectID{foobarBlob, barfooBlob} {
-			info, err := queue.ReadInfo()
-			require.NoError(t, err)
-			require.Equal(t, &ObjectInfo{Oid: git.ObjectID(blob.Revision()), Type: "blob", Size: 6}, info)
-		}
-	})
-
-	t.Run("request info and object together", func(t *testing.T) {
-		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
-		require.NoError(t, err)
-
-		queue, cleanup, err := reader.objectQueue(ctx, "trace")
-		require.NoError(t, err)
-		defer cleanup()
-
-		require.NoError(t, queue.RequestObject(foobarBlob.Revision()))
-		require.NoError(t, queue.RequestInfo(barfooBlob.Revision()))
-		require.NoError(t, queue.Flush())
-
-		object, err := queue.ReadObject()
-		require.NoError(t, err)
-
-		contents, err := io.ReadAll(object)
-		require.NoError(t, err)
-		require.Equal(t, "foobar", string(contents))
-
-		info, err := queue.ReadInfo()
-		require.NoError(t, err)
-		require.Equal(t, &ObjectInfo{
-			Oid:  git.ObjectID(barfooBlob.Revision()),
-			Type: "blob",
-			Size: int64(len("barfoo")),
-		}, info)
-	})
-
 	t.Run("read without request", func(t *testing.T) {
-		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		reader, err := newObjectContentReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
 		require.NoError(t, err)
 
 		queue, cleanup, err := reader.objectQueue(ctx, "trace")
@@ -349,7 +218,7 @@ func TestObjectReader_queue(t *testing.T) {
 	})
 
 	t.Run("flush with single request", func(t *testing.T) {
-		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		reader, err := newObjectContentReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
 		require.NoError(t, err)
 
 		queue, cleanup, err := reader.objectQueue(ctx, "trace")
@@ -371,7 +240,7 @@ func TestObjectReader_queue(t *testing.T) {
 	})
 
 	t.Run("flush with multiple requests", func(t *testing.T) {
-		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		reader, err := newObjectContentReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
 		require.NoError(t, err)
 
 		queue, cleanup, err := reader.objectQueue(ctx, "trace")
@@ -394,7 +263,7 @@ func TestObjectReader_queue(t *testing.T) {
 	})
 
 	t.Run("flush without request", func(t *testing.T) {
-		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		reader, err := newObjectContentReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
 		require.NoError(t, err)
 
 		queue, cleanup, err := reader.objectQueue(ctx, "trace")
@@ -408,7 +277,7 @@ func TestObjectReader_queue(t *testing.T) {
 	})
 
 	t.Run("request invalid object", func(t *testing.T) {
-		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		reader, err := newObjectContentReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
 		require.NoError(t, err)
 
 		queue, cleanup, err := reader.objectQueue(ctx, "trace")
@@ -423,7 +292,7 @@ func TestObjectReader_queue(t *testing.T) {
 	})
 
 	t.Run("can continue reading after NotFoundError", func(t *testing.T) {
-		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		reader, err := newObjectContentReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
 		require.NoError(t, err)
 
 		queue, cleanup, err := reader.objectQueue(ctx, "trace")
@@ -449,7 +318,7 @@ func TestObjectReader_queue(t *testing.T) {
 	})
 
 	t.Run("requesting multiple queues fails", func(t *testing.T) {
-		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		reader, err := newObjectContentReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
 		require.NoError(t, err)
 
 		_, cleanup, err := reader.objectQueue(ctx, "trace")
@@ -468,7 +337,7 @@ func TestObjectReader_queue(t *testing.T) {
 	})
 
 	t.Run("requesting object dirties reader", func(t *testing.T) {
-		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		reader, err := newObjectContentReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
 		require.NoError(t, err)
 
 		queue, cleanup, err := reader.objectQueue(ctx, "trace")
@@ -499,7 +368,7 @@ func TestObjectReader_queue(t *testing.T) {
 	})
 
 	t.Run("closing queue blocks request", func(t *testing.T) {
-		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		reader, err := newObjectContentReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
 		require.NoError(t, err)
 
 		queue, cleanup, err := reader.objectQueue(ctx, "trace")
@@ -515,7 +384,7 @@ func TestObjectReader_queue(t *testing.T) {
 	})
 
 	t.Run("closing queue blocks read", func(t *testing.T) {
-		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		reader, err := newObjectContentReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
 		require.NoError(t, err)
 
 		queue, cleanup, err := reader.objectQueue(ctx, "trace")
@@ -536,7 +405,7 @@ func TestObjectReader_queue(t *testing.T) {
 	})
 
 	t.Run("closing queue blocks consuming", func(t *testing.T) {
-		reader, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		reader, err := newObjectContentReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
 		require.NoError(t, err)
 
 		queue, cleanup, err := reader.objectQueue(ctx, "trace")
@@ -558,4 +427,34 @@ func TestObjectReader_queue(t *testing.T) {
 		_, err = io.ReadAll(object)
 		require.Equal(t, os.ErrClosed, err)
 	})
+}
+
+func TestObjectContentReader_replaceRefs(t *testing.T) {
+	ctx := testhelper.Context(t)
+
+	cfg := testcfg.Build(t)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+	})
+
+	originalOID := gittest.WriteBlob(t, cfg, repoPath, []byte("original"))
+	replacedOID := gittest.WriteBlob(t, cfg, repoPath, []byte("replaced"))
+
+	gittest.WriteRef(t, cfg, repoPath, git.ReferenceName("refs/replace/"+originalOID.String()), replacedOID)
+
+	// Reading the object via our testhelper should result in the object having been replaced.
+	require.Equal(t, "replaced", text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "cat-file", "-p", originalOID.String())))
+
+	reader, err := newObjectContentReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+	require.NoError(t, err)
+
+	object, err := reader.Object(ctx, originalOID.Revision())
+	require.NoError(t, err)
+
+	contents, err := io.ReadAll(object)
+	require.NoError(t, err)
+
+	// But using our "normal" Git command execution code path, we still want to see the original
+	// content of the blob.
+	require.Equal(t, "original", string(contents))
 }

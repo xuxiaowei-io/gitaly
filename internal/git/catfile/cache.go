@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/labkit/correlation"
 )
 
@@ -34,7 +35,7 @@ const (
 type Cache interface {
 	// ObjectReader either creates a new object reader or returns a cached one for the given
 	// repository.
-	ObjectReader(context.Context, git.RepositoryExecutor) (ObjectReader, func(), error)
+	ObjectReader(context.Context, git.RepositoryExecutor) (ObjectContentReader, func(), error)
 	// ObjectInfoReader either creates a new object info reader or returns a cached one for the
 	// given repository.
 	ObjectInfoReader(context.Context, git.RepositoryExecutor) (ObjectInfoReader, func(), error)
@@ -170,17 +171,27 @@ func (c *ProcessCache) Stop() {
 }
 
 // ObjectReader creates a new ObjectReader process for the given repository.
-func (c *ProcessCache) ObjectReader(ctx context.Context, repo git.RepositoryExecutor) (ObjectReader, func(), error) {
-	cacheable, cancel, err := c.getOrCreateProcess(ctx, repo, &c.objectReaders, func(ctx context.Context) (cacheable, error) {
-		return newObjectReader(ctx, repo, c.catfileLookupCounter)
-	}, "catfile.ObjectReader")
+func (c *ProcessCache) ObjectReader(ctx context.Context, repo git.RepositoryExecutor) (ObjectContentReader, func(), error) {
+	var cached cacheable
+	var err error
+	var cancel func()
+
+	if featureflag.CatfileBatchCommand.IsEnabled(ctx) {
+		cached, cancel, err = c.getOrCreateProcess(ctx, repo, &c.objectReaders, func(ctx context.Context) (cacheable, error) {
+			return newObjectReader(ctx, repo, c.catfileLookupCounter)
+		}, "catfile.ObjectReader")
+	} else {
+		cached, cancel, err = c.getOrCreateProcess(ctx, repo, &c.objectReaders, func(ctx context.Context) (cacheable, error) {
+			return newObjectContentReader(ctx, repo, c.catfileLookupCounter)
+		}, "catfile.ObjectContentReader")
+	}
 	if err != nil {
 		return nil, nil, err
 	}
 
-	objectReader, ok := cacheable.(ObjectReader)
+	objectReader, ok := cached.(ObjectContentReader)
 	if !ok {
-		return nil, nil, fmt.Errorf("expected object reader, got %T", cacheable)
+		return nil, nil, fmt.Errorf("expected object reader, got %T", cached)
 	}
 
 	return objectReader, cancel, nil
@@ -188,16 +199,26 @@ func (c *ProcessCache) ObjectReader(ctx context.Context, repo git.RepositoryExec
 
 // ObjectInfoReader creates a new ObjectInfoReader process for the given repository.
 func (c *ProcessCache) ObjectInfoReader(ctx context.Context, repo git.RepositoryExecutor) (ObjectInfoReader, func(), error) {
-	cacheable, cancel, err := c.getOrCreateProcess(ctx, repo, &c.objectInfoReaders, func(ctx context.Context) (cacheable, error) {
-		return newObjectInfoReader(ctx, repo, c.catfileLookupCounter)
-	}, "catfile.ObjectInfoReader")
+	var cached cacheable
+	var err error
+	var cancel func()
+
+	if featureflag.CatfileBatchCommand.IsEnabled(ctx) {
+		cached, cancel, err = c.getOrCreateProcess(ctx, repo, &c.objectInfoReaders, func(ctx context.Context) (cacheable, error) {
+			return newObjectReader(ctx, repo, c.catfileLookupCounter)
+		}, "catfile.ObjectReader")
+	} else {
+		cached, cancel, err = c.getOrCreateProcess(ctx, repo, &c.objectInfoReaders, func(ctx context.Context) (cacheable, error) {
+			return newObjectInfoReader(ctx, repo, c.catfileLookupCounter)
+		}, "catfile.ObjectInfoReader")
+	}
 	if err != nil {
 		return nil, nil, err
 	}
 
-	objectInfoReader, ok := cacheable.(ObjectInfoReader)
+	objectInfoReader, ok := cached.(ObjectInfoReader)
 	if !ok {
-		return nil, nil, fmt.Errorf("expected object info reader, got %T", cacheable)
+		return nil, nil, fmt.Errorf("expected object info reader, got %T", cached)
 	}
 
 	return objectInfoReader, cancel, nil
