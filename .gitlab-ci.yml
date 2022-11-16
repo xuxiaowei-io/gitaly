@@ -5,14 +5,14 @@ stages:
   - qa
 
 default:
-  image: registry.gitlab.com/gitlab-org/gitlab-build-images/debian-${DEBIAN_VERSION}-ruby-${RUBY_VERSION}-golang-${GO_VERSION}:git-2.36
+  image: registry.gitlab.com/gitlab-org/gitlab-build-images/${OS_VERSION}-ruby-${RUBY_VERSION}-golang-${GO_VERSION}:git-2.36
   tags:
     - gitlab-org
 
 variables:
   FF_USE_FASTZIP: "true"
   FF_NETWORK_PER_BUILD: "true"
-  DEBIAN_VERSION: "bullseye"
+  OS_VERSION: "debian-bullseye"
   UBI_VERSION: "8.6"
   # We use Gitaly's Git version by default.
   GIT_VERSION: "default"
@@ -53,7 +53,7 @@ include:
       files:
         - .gitlab-ci.yml
         - Makefile
-      prefix: git-${GIT_VERSION}
+      prefix: ${OS_VERSION}-git-${GIT_VERSION}
     paths:
       - _build/deps
       - _build/tools
@@ -65,7 +65,7 @@ include:
       files:
         - .gitlab-ci.yml
         - ruby/Gemfile.lock
-      prefix: debian-${DEBIAN_VERSION}-ruby-${RUBY_VERSION}
+      prefix: ${OS_VERSION}-ruby-${RUBY_VERSION}
     paths:
       - ${BUNDLE_PATH}
     policy: pull
@@ -76,7 +76,7 @@ include:
       files:
         - .gitlab-ci.yml
         - go.sum
-      prefix: go-${GO_VERSION}
+      prefix: ${OS_VERSION}-go-${GO_VERSION}
     paths:
       - ${GOCACHE}
       - ${GOMODCACHE}
@@ -318,8 +318,14 @@ test:macos:
     - shared-macos-amd64
   needs: []
   stage: test
+  cache:
+    - <<: *cache_deps_configuration
+      policy: pull-push
+    - <<: *cache_gems_configuration
+      policy: pull-push
   variables:
     <<: *test_variables
+    OS_VERSION: "macos-12-xcode-14"
     PGDATA: /usr/local/var/postgres
     PGHOST: localhost
     PGUSER: gitlab
@@ -338,7 +344,6 @@ test:macos:
     - pg_ctl -D /usr/local/var/postgres start > /tmp/postgres.log
     - pg_ctl status
     - createdb -U $PGUSER $POSTGRES_DB
-    - make -j$(nproc) build prepare-tests
   script:
     - make test-go
   after_script:
