@@ -47,28 +47,6 @@ func TestLanguages(t *testing.T) {
 	testhelper.ProtoEqual(t, expectedLanguages, resp.Languages)
 }
 
-func TestFileCountIsZeroWhenFeatureIsDisabled(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
-
-	request := &gitalypb.CommitLanguagesRequest{
-		Repository: repo,
-		Revision:   []byte("cb19058ecc02d01f8e4290b7e79cafd16a8839b6"),
-	}
-
-	resp, err := client.CommitLanguages(ctx, request)
-	require.NoError(t, err)
-
-	require.NotZero(t, len(resp.Languages), "number of languages in response")
-
-	for i := range resp.Languages {
-		actualLanguage := resp.Languages[i]
-		require.Equal(t, uint32(0), actualLanguage.FileCount)
-	}
-}
-
 func TestLanguagesEmptyRevision(t *testing.T) {
 	t.Parallel()
 
