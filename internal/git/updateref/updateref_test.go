@@ -213,7 +213,7 @@ func TestUpdater_bulkOperation(t *testing.T) {
 	for i := 0; i < 2; i++ {
 		require.NoError(t, updater.Start())
 
-		for j := 0; j < 1000; j++ {
+		for j := 0; j < 2; j++ {
 			reference := git.Reference{
 				Name:   git.ReferenceName(fmt.Sprintf("refs/head/test_%d_%d", j, i)),
 				Target: commitID.String(),
