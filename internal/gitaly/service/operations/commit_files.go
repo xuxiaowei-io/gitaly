@@ -19,7 +19,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -63,67 +62,29 @@ func (s *Server) UserCommitFiles(stream gitalypb.OperationService_UserCommitFile
 
 		var (
 			response      gitalypb.UserCommitFilesResponse
-			unknownErr    git2go.UnknownIndexError
-			indexErr      git2go.IndexError
+			indexError    git2go.IndexError
 			customHookErr updateref.CustomHookError
 		)
 
-		if featureflag.UserCommitFilesStructuredErrors.IsEnabled(ctx) {
-			switch {
-			case errors.As(err, &unknownErr):
-				// Problems that occur within git2go itself will still be returned
-				// as UnknownIndexErrors. The most common case of this would be
-				// creating an invalid path, e.g. '.git' but there are many other
-				// potential, if unusual, issues that could occur.
-				return unknownErr
-			case errors.As(err, &indexErr):
-				detailedErr, err := helper.ErrWithDetails(
-					indexErr.GrpcError(),
-					&gitalypb.UserCommitFilesError{
-						Error: &gitalypb.UserCommitFilesError_IndexUpdate{
-							IndexUpdate: indexErr.Proto(),
-						},
-					},
-				)
-				if err != nil {
-					return helper.ErrInternalf("error details: %w", err)
-				}
-				return detailedErr
-			case errors.As(err, &customHookErr):
-				detailedErr, err := helper.ErrWithDetails(
-					helper.ErrPermissionDeniedf("denied by custom hooks"),
-					&gitalypb.UserCommitFilesError{
-						Error: &gitalypb.UserCommitFilesError_CustomHook{
-							CustomHook: customHookErr.Proto(),
-						},
-					},
-				)
-				if err != nil {
-					return helper.ErrInternalf("error details: %w", err)
-				}
-				return detailedErr
-			case errors.As(err, new(git2go.InvalidArgumentError)):
-				return helper.ErrInvalidArgument(err)
-			default:
-				return err
-			}
-		} else {
-			switch {
-			case errors.As(err, &unknownErr):
-				response = gitalypb.UserCommitFilesResponse{IndexError: unknownErr.Error()}
-			case errors.As(err, &indexErr):
-				response = gitalypb.UserCommitFilesResponse{IndexError: indexErr.Error()}
-			case errors.As(err, &customHookErr):
-				response = gitalypb.UserCommitFilesResponse{PreReceiveError: customHookErr.Error()}
-			case errors.As(err, new(git2go.InvalidArgumentError)):
-				return helper.ErrInvalidArgument(err)
-			default:
-				return err
-			}
-
-			ctxlogrus.Extract(ctx).WithError(err).Error("user commit files failed")
-			return stream.SendAndClose(&response)
+		switch {
+		case errors.As(err, &indexError):
+			response = gitalypb.UserCommitFilesResponse{IndexError: indexError.Error()}
+		case errors.As(err, new(git2go.DirectoryExistsError)):
+			response = gitalypb.UserCommitFilesResponse{IndexError: "A directory with this name already exists"}
+		case errors.As(err, new(git2go.FileExistsError)):
+			response = gitalypb.UserCommitFilesResponse{IndexError: "A file with this name already exists"}
+		case errors.As(err, new(git2go.FileNotFoundError)):
+			response = gitalypb.UserCommitFilesResponse{IndexError: "A file with this name doesn't exist"}
+		case errors.As(err, &customHookErr):
+			response = gitalypb.UserCommitFilesResponse{PreReceiveError: customHookErr.Error()}
+		case errors.As(err, new(git2go.InvalidArgumentError)):
+			return helper.ErrInvalidArgument(err)
+		default:
+			return err
 		}
+
+		ctxlogrus.Extract(ctx).WithError(err).Error("user commit files failed")
+		return stream.SendAndClose(&response)
 	}
 
 	return nil
@@ -131,7 +92,7 @@ func (s *Server) UserCommitFiles(stream gitalypb.OperationService_UserCommitFile
 
 func validatePath(rootPath, relPath string) (string, error) {
 	if relPath == "" {
-		return "", git2go.IndexError{Type: git2go.ErrEmptyPath}
+		return "", git2go.IndexError("You must provide a file path")
 	} else if strings.Contains(relPath, "//") {
 		// This is a workaround to address a quirk in porting the RPC from Ruby to Go.
 		// GitLab's QA pipeline runs tests with filepath 'invalid://file/name/here'.
@@ -142,13 +103,13 @@ func validatePath(rootPath, relPath string) (string, error) {
 		//
 		// The Rails code expects to receive an error prefixed with 'invalid path', which is done
 		// here to retain compatibility.
-		return "", git2go.IndexError{Type: git2go.ErrInvalidPath, Path: relPath}
+		return "", git2go.IndexError(fmt.Sprintf("invalid path: '%s'", relPath))
 	}
 
 	path, err := storage.ValidateRelativePath(rootPath, relPath)
 	if err != nil {
 		if errors.Is(err, storage.ErrRelativePathEscapesRoot) {
-			return "", git2go.IndexError{Type: git2go.ErrDirectoryTraversal, Path: relPath}
+			return "", git2go.IndexError("Path cannot include directory traversal")
 		}
 
 		return "", err

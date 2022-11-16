@@ -15,10 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -32,12 +29,7 @@ var commitFilesMessage = []byte("Change files")
 
 func TestUserCommitFiles(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCommitFilesStructuredErrors).Run(t,
-		testUserCommitFiles)
-}
-
-func testUserCommitFiles(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
@@ -51,16 +43,14 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 	startRepo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	type step struct {
-		actions           []*gitalypb.UserCommitFilesRequest
-		startRepository   *gitalypb.Repository
-		startBranch       string
-		error             error
-		indexError        string
-		structError       *git2go.IndexError
-		unknownIndexError error
-		repoCreated       bool
-		branchCreated     bool
-		treeEntries       []gittest.TreeEntry
+		actions         []*gitalypb.UserCommitFilesRequest
+		startRepository *gitalypb.Repository
+		startBranch     string
+		error           error
+		indexError      string
+		repoCreated     bool
+		branchCreated   bool
+		treeEntries     []gittest.TreeEntry
 	}
 
 	for _, tc := range []struct {
@@ -75,8 +65,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 						createFileHeaderRequest(".git/hooks/pre-commit"),
 						actionContentRequest("content-1"),
 					},
-					indexError:        "invalid path: '.git/hooks/pre-commit'",
-					unknownIndexError: status.Error(codes.Internal, "invalid path: '.git/hooks/pre-commit'"),
+					indexError: "invalid path: '.git/hooks/pre-commit'",
 				},
 			},
 		},
@@ -128,8 +117,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 						createDirHeaderRequest("directory-1"),
 						createDirHeaderRequest("directory-1"),
 					},
-					indexError:  "A directory with this name already exists",
-					structError: &git2go.IndexError{Path: "directory-1", Type: git2go.ErrDirectoryExists},
+					indexError: "A directory with this name already exists",
 				},
 			},
 		},
@@ -140,8 +128,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					actions: []*gitalypb.UserCommitFilesRequest{
 						createDirHeaderRequest("../directory-1"),
 					},
-					indexError:  "Path cannot include directory traversal",
-					structError: &git2go.IndexError{Path: "../directory-1", Type: git2go.ErrDirectoryTraversal},
+					indexError: "Path cannot include directory traversal",
 				},
 			},
 		},
@@ -162,8 +149,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					actions: []*gitalypb.UserCommitFilesRequest{
 						createDirHeaderRequest("directory-1"),
 					},
-					indexError:  "A directory with this name already exists",
-					structError: &git2go.IndexError{Path: "directory-1", Type: git2go.ErrDirectoryExists},
+					indexError: "A directory with this name already exists",
 				},
 			},
 		},
@@ -185,8 +171,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					actions: []*gitalypb.UserCommitFilesRequest{
 						createDirHeaderRequest("file-1"),
 					},
-					indexError:  "A file with this name already exists",
-					structError: &git2go.IndexError{Path: "file-1", Type: git2go.ErrFileExists},
+					indexError: "A file with this name already exists",
 				},
 			},
 		},
@@ -198,8 +183,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 						createFileHeaderRequest("../file-1"),
 						actionContentRequest("content-1"),
 					},
-					indexError:  "Path cannot include directory traversal",
-					structError: &git2go.IndexError{Path: "../file-1", Type: git2go.ErrDirectoryTraversal},
+					indexError: "Path cannot include directory traversal",
 				},
 			},
 		},
@@ -211,8 +195,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 						createFileHeaderRequest("invalid://file/name/here"),
 						actionContentRequest("content-1"),
 					},
-					indexError:  "invalid path: 'invalid://file/name/here'",
-					structError: &git2go.IndexError{Path: "invalid://file/name/here", Type: git2go.ErrInvalidPath},
+					indexError: "invalid path: 'invalid://file/name/here'",
 				},
 			},
 		},
@@ -307,8 +290,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 						actionContentRequest("content-1"),
 						createFileHeaderRequest("file-1"),
 					},
-					indexError:  "A file with this name already exists",
-					structError: &git2go.IndexError{Path: "file-1", Type: git2go.ErrFileExists},
+					indexError: "A file with this name already exists",
 				},
 			},
 		},
@@ -442,8 +424,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 						updateFileHeaderRequest("non-existing"),
 						actionContentRequest("content"),
 					},
-					indexError:  "A file with this name doesn't exist",
-					structError: &git2go.IndexError{Path: "non-existing", Type: git2go.ErrFileNotFound},
+					indexError: "A file with this name doesn't exist",
 				},
 			},
 		},
@@ -454,8 +435,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					actions: []*gitalypb.UserCommitFilesRequest{
 						moveFileHeaderRequest("../original-file", "moved-file", true),
 					},
-					indexError:  "Path cannot include directory traversal",
-					structError: &git2go.IndexError{Path: "../original-file", Type: git2go.ErrDirectoryTraversal},
+					indexError: "Path cannot include directory traversal",
 				},
 			},
 		},
@@ -466,8 +446,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					actions: []*gitalypb.UserCommitFilesRequest{
 						moveFileHeaderRequest("original-file", "../moved-file", true),
 					},
-					indexError:  "Path cannot include directory traversal",
-					structError: &git2go.IndexError{Path: "../moved-file", Type: git2go.ErrDirectoryTraversal},
+					indexError: "Path cannot include directory traversal",
 				},
 			},
 		},
@@ -523,8 +502,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 						createDirHeaderRequest("directory"),
 						moveFileHeaderRequest("directory", "moved-directory", true),
 					},
-					indexError:  "A file with this name doesn't exist",
-					structError: &git2go.IndexError{Path: "directory", Type: git2go.ErrFileNotFound},
+					indexError: "A file with this name doesn't exist",
 				},
 			},
 		},
@@ -560,8 +538,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					actions: []*gitalypb.UserCommitFilesRequest{
 						moveFileHeaderRequest("non-existing", "destination-file", true),
 					},
-					indexError:  "A file with this name doesn't exist",
-					structError: &git2go.IndexError{Path: "non-existing", Type: git2go.ErrFileNotFound},
+					indexError: "A file with this name doesn't exist",
 				},
 			},
 		},
@@ -574,8 +551,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 						createFileHeaderRequest("already-existing"),
 						moveFileHeaderRequest("source-file", "already-existing", true),
 					},
-					indexError:  "A file with this name already exists",
-					structError: &git2go.IndexError{Path: "already-existing", Type: git2go.ErrFileExists},
+					indexError: "A file with this name already exists",
 				},
 			},
 		},
@@ -656,8 +632,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					actions: []*gitalypb.UserCommitFilesRequest{
 						chmodFileHeaderRequest("file-1", true),
 					},
-					indexError:  "A file with this name doesn't exist",
-					structError: &git2go.IndexError{Path: "file-1", Type: git2go.ErrFileNotFound},
+					indexError: "A file with this name doesn't exist",
 				},
 			},
 		},
@@ -692,8 +667,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					actions: []*gitalypb.UserCommitFilesRequest{
 						chmodFileHeaderRequest("../file-1", true),
 					},
-					indexError:  "Path cannot include directory traversal",
-					structError: &git2go.IndexError{Path: "../file-1", Type: git2go.ErrDirectoryTraversal},
+					indexError: "Path cannot include directory traversal",
 				},
 			},
 		},
@@ -745,8 +719,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					actions: []*gitalypb.UserCommitFilesRequest{
 						moveFileHeaderRequest("non-existing", "should-not-be-created", true),
 					},
-					indexError:  "A file with this name doesn't exist",
-					structError: &git2go.IndexError{Path: "non-existing", Type: git2go.ErrFileNotFound},
+					indexError: "A file with this name doesn't exist",
 				},
 			},
 		},
@@ -761,8 +734,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 						actionContentRequest("content-2"),
 						moveFileHeaderRequest("file-1", "file-2", true),
 					},
-					indexError:  "A file with this name already exists",
-					structError: &git2go.IndexError{Path: "file-2", Type: git2go.ErrFileExists},
+					indexError: "A file with this name already exists",
 				},
 			},
 		},
@@ -773,8 +745,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					actions: []*gitalypb.UserCommitFilesRequest{
 						deleteFileHeaderRequest("non-existing"),
 					},
-					indexError:  "A file with this name doesn't exist",
-					structError: &git2go.IndexError{Path: "non-existing", Type: git2go.ErrFileNotFound},
+					indexError: "A file with this name doesn't exist",
 				},
 			},
 		},
@@ -785,8 +756,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					actions: []*gitalypb.UserCommitFilesRequest{
 						deleteFileHeaderRequest("../file-1"),
 					},
-					indexError:  "Path cannot include directory traversal",
-					structError: &git2go.IndexError{Path: "../file-1", Type: git2go.ErrDirectoryTraversal},
+					indexError: "Path cannot include directory traversal",
 				},
 			},
 		},
@@ -932,39 +902,14 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 				}
 
 				resp, err := stream.CloseAndRecv()
+				testhelper.RequireGrpcError(t, step.error, err)
+				if step.error != nil {
+					continue
+				}
 
-				if featureflag.UserCommitFilesStructuredErrors.IsEnabled(ctx) {
-					if step.error != nil {
-						testhelper.RequireGrpcError(t, step.error, err)
-						continue
-					}
-
-					if step.unknownIndexError != nil {
-						require.Equal(t, step.unknownIndexError, err)
-						continue
-					}
-
-					if step.structError != nil {
-						testhelper.RequireGrpcError(t, errWithDetails(t,
-							step.structError.GrpcError(),
-							&gitalypb.UserCommitFilesError{
-								Error: &gitalypb.UserCommitFilesError_IndexUpdate{
-									IndexUpdate: step.structError.Proto(),
-								},
-							},
-						), err)
-						continue
-					}
-				} else {
-					testhelper.RequireGrpcError(t, step.error, err)
-					if step.error != nil {
-						continue
-					}
-
-					require.Equal(t, step.indexError, resp.IndexError, "step %d", i+1)
-					if step.indexError != "" {
-						continue
-					}
+				require.Equal(t, step.indexError, resp.IndexError, "step %d", i+1)
+				if step.indexError != "" {
+					continue
 				}
 
 				require.Equal(t, step.branchCreated, resp.BranchUpdate.BranchCreated, "step %d", i+1)
@@ -980,12 +925,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 
 func TestUserCommitFilesStableCommitID(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCommitFilesStructuredErrors).Run(t,
-		testUserCommitFilesStableCommitID)
-}
-
-func testUserCommitFilesStableCommitID(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
@@ -1043,12 +983,7 @@ func testUserCommitFilesStableCommitID(t *testing.T, ctx context.Context) {
 
 func TestUserCommitFilesQuarantine(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCommitFilesStructuredErrors).Run(t,
-		testUserCommitFilesQuarantine)
-}
-
-func testUserCommitFilesQuarantine(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
@@ -1078,39 +1013,20 @@ func testUserCommitFilesQuarantine(t *testing.T, ctx context.Context) {
 	require.NoError(t, stream.Send(createFileHeaderRequest("file.txt")))
 	require.NoError(t, stream.Send(actionContentRequest("content")))
 	_, err = stream.CloseAndRecv()
-
-	if featureflag.UserCommitFilesStructuredErrors.IsEnabled(ctx) {
-		testhelper.RequireGrpcError(t, errWithDetails(t,
-			helper.ErrPermissionDeniedf("denied by custom hooks"),
-			&gitalypb.UserCommitFilesError{
-				Error: &gitalypb.UserCommitFilesError_CustomHook{
-					CustomHook: &gitalypb.CustomHookError{
-						HookType: gitalypb.CustomHookError_HOOK_TYPE_PRERECEIVE,
-						Stdout:   []byte(""),
-					},
-				},
-			},
-		), err)
-	} else {
-		require.NoError(t, err)
-	}
+	require.NoError(t, err)
 
 	hookOutput := testhelper.MustReadFile(t, outputPath)
 	oid, err := git.ObjectHashSHA1.FromHex(text.ChompBytes(hookOutput))
 	require.NoError(t, err)
 	exists, err := repo.HasRevision(ctx, oid.Revision()+"^{commit}")
 	require.NoError(t, err)
+
 	require.False(t, exists, "quarantined commit should have been discarded")
 }
 
-func TestSuccessfulUserCommitFilesFilesRequest(t *testing.T) {
+func TestSuccessfulUserCommitFilesRequest(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCommitFilesStructuredErrors).Run(t,
-		testSuccessfulUserCommitFilesRequest)
-}
-
-func testSuccessfulUserCommitFilesRequest(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
@@ -1217,14 +1133,9 @@ func testSuccessfulUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 	}
 }
 
-func TestSuccessUserCommitFilesRequestMove(t *testing.T) {
+func TestSuccessfulUserCommitFilesRequestMove(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCommitFilesStructuredErrors).Run(t,
-		testSuccessfulUserCommitFilesRequestMove)
-}
-
-func testSuccessfulUserCommitFilesRequestMove(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
@@ -1280,14 +1191,9 @@ func testSuccessfulUserCommitFilesRequestMove(t *testing.T, ctx context.Context)
 	}
 }
 
-func TestSuccessUserCommitFilesRequestForceCommit(t *testing.T) {
+func TestSuccessfulUserCommitFilesRequestForceCommit(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCommitFilesStructuredErrors).Run(t,
-		testSuccessfulUserCommitFilesRequestForceCommit)
-}
-
-func testSuccessfulUserCommitFilesRequestForceCommit(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -1330,14 +1236,9 @@ func testSuccessfulUserCommitFilesRequestForceCommit(t *testing.T, ctx context.C
 	require.Equal(t, newTargetBranchCommit.ParentIds, []string{startBranchCommit.Id})
 }
 
-func TestSuccessUserCommitFilesRequestStartSha(t *testing.T) {
+func TestSuccessfulUserCommitFilesRequestStartSha(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCommitFilesStructuredErrors).Run(t,
-		testSuccessfulUserCommitFilesRequestStartSha)
-}
-
-func testSuccessfulUserCommitFilesRequestStartSha(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
 
@@ -1368,13 +1269,7 @@ func testSuccessfulUserCommitFilesRequestStartSha(t *testing.T, ctx context.Cont
 	require.Equal(t, newTargetBranchCommit.ParentIds, []string{startCommit.Id})
 }
 
-func TestSuccessUserCommitFilesRequestStartShaRemoteRepository(t *testing.T) {
-	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCommitFilesStructuredErrors).Run(t,
-		testSuccessfulUserCommitFilesRequestStartShaRemoteRepository)
-}
-
-func testSuccessfulUserCommitFilesRequestStartShaRemoteRepository(t *testing.T, ctx context.Context) {
+func TestSuccessfulUserCommitFilesRequestStartShaRemoteRepository(t *testing.T) {
 	t.Parallel()
 
 	testSuccessfulUserCommitFilesRemoteRepositoryRequest(func(header *gitalypb.UserCommitFilesRequest) {
@@ -1382,13 +1277,7 @@ func testSuccessfulUserCommitFilesRequestStartShaRemoteRepository(t *testing.T, 
 	})
 }
 
-func TestSuccessUserCommitFilesRequestStartBranchRemoteRepository(t *testing.T) {
-	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCommitFilesStructuredErrors).Run(t,
-		testSuccessfulUserCommitFilesRequestStartBranchRemoteRepository)
-}
-
-func testSuccessfulUserCommitFilesRequestStartBranchRemoteRepository(t *testing.T, ctx context.Context) {
+func TestSuccessfulUserCommitFilesRequestStartBranchRemoteRepository(t *testing.T) {
 	t.Parallel()
 
 	testSuccessfulUserCommitFilesRemoteRepositoryRequest(func(header *gitalypb.UserCommitFilesRequest) {
@@ -1436,12 +1325,7 @@ func testSuccessfulUserCommitFilesRemoteRepositoryRequest(setHeader func(header 
 
 func TestSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCommitFilesStructuredErrors).Run(t,
-		testSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature)
-}
-
-func testSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
@@ -1492,12 +1376,7 @@ func testSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *tes
 
 func TestFailedUserCommitFilesRequestDueToHooks(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCommitFilesStructuredErrors).Run(t,
-		testFailedUserCommitFilesRequestDueToHooks)
-}
-
-func testFailedUserCommitFilesRequestDueToHooks(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 
 	ctx, _, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
@@ -1506,7 +1385,7 @@ func testFailedUserCommitFilesRequestDueToHooks(t *testing.T, ctx context.Contex
 	headerRequest := headerRequest(repoProto, gittest.TestUser, branchName, commitFilesMessage, "")
 	actionsRequest1 := createFileHeaderRequest(filePath)
 	actionsRequest2 := actionContentRequest("My content")
-	hookContent := []byte("#!/bin/sh\nprintenv | grep -e GL_ID -e GL_USERNAME | sort | paste -sd ' ' -\nexit 1")
+	hookContent := []byte("#!/bin/sh\nprintenv | paste -sd ' ' -\nexit 1")
 
 	for _, hookName := range GitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
@@ -1519,53 +1398,24 @@ func testFailedUserCommitFilesRequestDueToHooks(t *testing.T, ctx context.Contex
 			require.NoError(t, stream.Send(actionsRequest2))
 
 			resp, err := stream.CloseAndRecv()
+			require.NoError(t, err)
 
-			if featureflag.UserCommitFilesStructuredErrors.IsEnabled(ctx) {
-				var hookT gitalypb.CustomHookError_HookType
-				if hookName == "pre-receive" {
-					hookT = gitalypb.CustomHookError_HOOK_TYPE_PRERECEIVE
-				} else {
-					hookT = gitalypb.CustomHookError_HOOK_TYPE_UPDATE
-				}
-
-				expectedOut := fmt.Sprintf("GL_ID=%s GL_USERNAME=%s\n",
-					gittest.TestUser.GlId, gittest.TestUser.GlUsername)
-
-				testhelper.RequireGrpcError(t, errWithDetails(t,
-					helper.ErrPermissionDeniedf("denied by custom hooks"),
-					&gitalypb.UserCommitFilesError{
-						Error: &gitalypb.UserCommitFilesError_CustomHook{
-							CustomHook: &gitalypb.CustomHookError{
-								HookType: hookT,
-								Stdout:   []byte(expectedOut),
-							},
-						},
-					},
-				), err)
-			} else {
-				require.Contains(t, resp.PreReceiveError, "GL_ID="+gittest.TestUser.GlId)
-				require.Contains(t, resp.PreReceiveError, "GL_USERNAME="+gittest.TestUser.GlUsername)
-			}
+			require.Contains(t, resp.PreReceiveError, "GL_ID="+gittest.TestUser.GlId)
+			require.Contains(t, resp.PreReceiveError, "GL_USERNAME="+gittest.TestUser.GlUsername)
 		})
 	}
 }
 
 func TestFailedUserCommitFilesRequestDueToIndexError(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCommitFilesStructuredErrors).Run(t,
-		testFailedUserCommitFilesRequestDueToIndexError)
-}
-
-func testFailedUserCommitFilesRequestDueToIndexError(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
 	testCases := []struct {
-		desc        string
-		requests    []*gitalypb.UserCommitFilesRequest
-		indexError  string
-		structError *git2go.IndexError
+		desc       string
+		requests   []*gitalypb.UserCommitFilesRequest
+		indexError string
 	}{
 		{
 			desc: "file already exists",
@@ -1574,8 +1424,7 @@ func testFailedUserCommitFilesRequestDueToIndexError(t *testing.T, ctx context.C
 				createFileHeaderRequest("README.md"),
 				actionContentRequest("This file already exists"),
 			},
-			indexError:  "A file with this name already exists",
-			structError: &git2go.IndexError{Path: "README.md", Type: git2go.ErrFileExists},
+			indexError: "A file with this name already exists",
 		},
 		{
 			desc: "file doesn't exists",
@@ -1583,8 +1432,7 @@ func testFailedUserCommitFilesRequestDueToIndexError(t *testing.T, ctx context.C
 				headerRequest(repo, gittest.TestUser, "feature", commitFilesMessage, ""),
 				chmodFileHeaderRequest("documents/story.txt", true),
 			},
-			indexError:  "A file with this name doesn't exist",
-			structError: &git2go.IndexError{Path: "documents/story.txt", Type: git2go.ErrFileNotFound},
+			indexError: "A file with this name doesn't exist",
 		},
 		{
 			desc: "dir already exists",
@@ -1601,8 +1449,7 @@ func testFailedUserCommitFilesRequestDueToIndexError(t *testing.T, ctx context.C
 				}),
 				actionContentRequest("This file already exists, as a directory"),
 			},
-			indexError:  "A directory with this name already exists",
-			structError: &git2go.IndexError{Path: "héllo", Type: git2go.ErrDirectoryExists},
+			indexError: "A directory with this name already exists",
 		},
 	}
 
@@ -1616,31 +1463,15 @@ func testFailedUserCommitFilesRequestDueToIndexError(t *testing.T, ctx context.C
 			}
 
 			resp, err := stream.CloseAndRecv()
-			if featureflag.UserCommitFilesStructuredErrors.IsEnabled(ctx) {
-				testhelper.RequireGrpcError(t, errWithDetails(t,
-					tc.structError.GrpcError(),
-					&gitalypb.UserCommitFilesError{
-						Error: &gitalypb.UserCommitFilesError_IndexUpdate{
-							IndexUpdate: tc.structError.Proto(),
-						},
-					},
-				), err)
-			} else {
-				require.NoError(t, err)
-				require.Equal(t, tc.indexError, resp.GetIndexError())
-			}
+			require.NoError(t, err)
+			require.Equal(t, tc.indexError, resp.GetIndexError())
 		})
 	}
 }
 
 func TestFailedUserCommitFilesRequest(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCommitFilesStructuredErrors).Run(t,
-		testFailedUserCommitFilesRequest)
-}
-
-func testFailedUserCommitFilesRequest(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
@@ -1721,12 +1552,7 @@ func testFailedUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 
 func TestUserCommitFilesFailsIfRepositoryMissing(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCommitFilesStructuredErrors).Run(t,
-		testUserCommitFilesFailsIfRepositoryMissing)
-}
-
-func testUserCommitFilesFailsIfRepositoryMissing(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 	repo := &gitalypb.Repository{
 		StorageName:   cfg.Storages[0].Name,
