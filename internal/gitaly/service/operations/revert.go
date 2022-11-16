@@ -32,7 +32,7 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 
 	repoHadBranches, err := quarantineRepo.HasBranches(ctx)
 	if err != nil {
-		return nil, err
+		return nil, helper.ErrInternalf("has branches: %w", err)
 	}
 
 	repoPath, err := quarantineRepo.Path()
@@ -96,7 +96,7 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 	if !branchCreated {
 		ancestor, err := quarantineRepo.IsAncestor(ctx, oldrev.Revision(), newrev.Revision())
 		if err != nil {
-			return nil, err
+			return nil, helper.ErrInternalf("checking for ancestry: %w", err)
 		}
 		if !ancestor {
 			return &gitalypb.UserRevertResponse{

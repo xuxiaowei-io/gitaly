@@ -4,6 +4,7 @@ package operations
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -389,7 +390,7 @@ func TestUserCreateBranch_Failure(t *testing.T) {
 			branchName: "master",
 			startPoint: "master",
 			user:       gittest.TestUser,
-			err:        status.Errorf(codes.FailedPrecondition, "Could not update %s. Please refresh and try again.", "refs/heads/master"),
+			err:        status.Errorf(codes.FailedPrecondition, "Could not update refs/heads/master. Please refresh and try again."),
 		},
 		{
 			desc:       "conflicting with refs/heads/improve/awesome",
@@ -397,7 +398,7 @@ func TestUserCreateBranch_Failure(t *testing.T) {
 			branchName: "improve",
 			startPoint: "master",
 			user:       gittest.TestUser,
-			err:        status.Errorf(codes.FailedPrecondition, "Could not update %s. Please refresh and try again.", "refs/heads/improve"),
+			err:        status.Errorf(codes.FailedPrecondition, "Could not update refs/heads/improve. Please refresh and try again."),
 		},
 	}
 
@@ -514,7 +515,7 @@ func TestUserDeleteBranch_allowed(t *testing.T) {
 		{
 			desc: "error",
 			allowed: func(context.Context, gitlab.AllowedParams) (bool, string, error) {
-				return false, "something something", fmt.Errorf("something else")
+				return false, "something something", errors.New("something else")
 			},
 			expectedErr: errWithDetails(t,
 				helper.ErrPermissionDeniedf("deletion denied by access checks: running pre-receive hooks: GitLab: something else"),

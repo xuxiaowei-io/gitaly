@@ -11,8 +11,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 //nolint:revive // This is unintentionally missing documentation.
@@ -24,11 +22,11 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 
 	header := firstRequest.GetHeader()
 	if header == nil {
-		return helper.ErrInvalidArgument(errors.New("UserRebaseConfirmable: empty UserRebaseConfirmableRequest.Header"))
+		return helper.ErrInvalidArgument(errors.New("empty UserRebaseConfirmableRequest.Header"))
 	}
 
 	if err := validateUserRebaseConfirmableHeader(header); err != nil {
-		return helper.ErrInvalidArgumentf("UserRebaseConfirmable: %v", err)
+		return helper.ErrInvalidArgument(err)
 	}
 
 	ctx := stream.Context()
@@ -52,7 +50,7 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 	remoteFetch := rebaseRemoteFetch{header: header}
 	startRevision, err := s.fetchStartRevision(ctx, quarantineRepo, remoteFetch)
 	if err != nil {
-		return status.Error(codes.Internal, err.Error())
+		return helper.ErrInternal(err)
 	}
 
 	committer := git2go.NewSignature(string(header.User.Name), string(header.User.Email), time.Now())
@@ -104,7 +102,7 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 			RebaseSha: newrev.String(),
 		},
 	}); err != nil {
-		return fmt.Errorf("send rebase sha: %w", err)
+		return helper.ErrInternalf("send rebase sha: %w", err)
 	}
 
 	secondRequest, err := stream.Recv()
@@ -147,7 +145,7 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 			return fmt.Errorf("update ref: %w", err)
 		}
 
-		return err
+		return helper.ErrInternalf("updating ref with hooks: %w", err)
 	}
 
 	return stream.Send(&gitalypb.UserRebaseConfirmableResponse{

@@ -17,8 +17,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 var errNoDefaultBranch = errors.New("no default branch")
@@ -43,11 +41,11 @@ func (s *Server) UserApplyPatch(stream gitalypb.OperationService_UserApplyPatchS
 
 	header := firstRequest.GetHeader()
 	if header == nil {
-		return status.Errorf(codes.InvalidArgument, "UserApplyPatch: empty UserApplyPatch_Header")
+		return helper.ErrInvalidArgumentf("empty UserApplyPatch_Header")
 	}
 
 	if err := validateUserApplyPatchHeader(header); err != nil {
-		return status.Errorf(codes.InvalidArgument, "UserApplyPatch: %v", err)
+		return helper.ErrInvalidArgument(err)
 	}
 
 	if err := s.userApplyPatch(stream.Context(), header, stream); err != nil {
@@ -139,7 +137,7 @@ func (s *Server) userApplyPatch(ctx context.Context, header *gitalypb.UserApplyP
 		// compatibility but returns the error and stderr otherwise. Once the Ruby
 		// implementation is removed, this should probably be dropped.
 		if bytes.HasPrefix(stdout.Bytes(), []byte("Patch failed at")) {
-			return status.Error(codes.FailedPrecondition, stdout.String())
+			return helper.ErrFailedPreconditionf(stdout.String())
 		}
 
 		return fmt.Errorf("apply patch: %w, stderr: %q", err, &stderr)
@@ -194,11 +192,11 @@ func validateUserApplyPatchHeader(header *gitalypb.UserApplyPatchRequest_Header)
 	}
 
 	if header.GetUser() == nil {
-		return fmt.Errorf("missing User")
+		return errors.New("missing User")
 	}
 
 	if len(header.GetTargetBranch()) == 0 {
-		return fmt.Errorf("missing Branch")
+		return errors.New("missing Branch")
 	}
 
 	return nil
