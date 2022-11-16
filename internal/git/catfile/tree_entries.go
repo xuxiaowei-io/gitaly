@@ -19,13 +19,13 @@ type revisionPath struct{ revision, path string }
 
 // TreeEntryFinder is a struct for searching through a tree with caching.
 type TreeEntryFinder struct {
-	objectReader     ObjectContentReader
+	objectReader     ObjectReader
 	objectInfoReader ObjectInfoReader
 	treeCache        map[revisionPath][]*gitalypb.TreeEntry
 }
 
 // NewTreeEntryFinder initializes a TreeEntryFinder with an empty tree cache.
-func NewTreeEntryFinder(objectReader ObjectContentReader, objectInfoReader ObjectInfoReader) *TreeEntryFinder {
+func NewTreeEntryFinder(objectReader ObjectReader, objectInfoReader ObjectInfoReader) *TreeEntryFinder {
 	return &TreeEntryFinder{
 		objectReader:     objectReader,
 		objectInfoReader: objectInfoReader,
@@ -107,7 +107,7 @@ func extractEntryInfoFromTreeData(treeData io.Reader, commitOid, rootOid, rootPa
 // TreeEntries returns the entries of a tree in given revision and path.
 func TreeEntries(
 	ctx context.Context,
-	objectReader ObjectContentReader,
+	objectReader ObjectReader,
 	objectInfoReader ObjectInfoReader,
 	revision, path string,
 ) (_ []*gitalypb.TreeEntry, returnedErr error) {

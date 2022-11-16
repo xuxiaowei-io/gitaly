@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"sync/atomic"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -11,12 +12,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 )
 
-// ObjectReader returns information about an object referenced by a given revision.
+// ObjectReader is a reader for Git objects.
 type ObjectReader interface {
 	cacheable
-
-	// Info requests information about the revision pointed to by the given revision.
-	Info(context.Context, git.Revision) (*ObjectInfo, error)
 
 	// Reader returns a new Object for the given revision. The Object must be fully consumed
 	// before another object is requested.
@@ -25,34 +23,28 @@ type ObjectReader interface {
 	// ObjectQueue returns an ObjectQueue that can be used to batch multiple object requests.
 	// Using the queue is more efficient than using `Object()` when requesting a bunch of
 	// objects. The returned function must be executed after use of the ObjectQueue has
-	// finished. Object Content and information can be requested from the queue but their
-	// respective ordering must be maintained.
+	// finished.
 	ObjectQueue(context.Context) (ObjectQueue, func(), error)
 }
 
 // ObjectQueue allows for requesting and reading objects independently of each other. The number of
-// RequestObject+RequestInfo and ReadObject+RequestInfo calls must match and their ordering must be
-// maintained. ReadObject/ReadInfo must be executed after the object has been requested already.
-// The order of objects returned by ReadObject/ReadInfo is the same as the order in
+// RequestObject and ReadObject calls must match. ReadObject must be executed after the object has
+// been requested already. The order of objects returned by ReadObject is the same as the order in
 // which objects have been requested. Users of this interface must call `Flush()` after all requests
 // have been queued up such that all requested objects will be readable.
 type ObjectQueue interface {
-	// RequestObject requests the given revision from git-cat-file(1).
-	RequestObject(git.Revision) error
+	// RequestRevision requests the given revision from git-cat-file(1).
+	RequestRevision(git.Revision) error
 	// ReadObject reads an object which has previously been requested.
 	ReadObject() (*Object, error)
-	// RequestInfo requests the given revision from git-cat-file(1).
-	RequestInfo(git.Revision) error
-	// ReadInfo reads object info which has previously been requested.
-	ReadInfo() (*ObjectInfo, error)
 	// Flush flushes all queued requests and asks git-cat-file(1) to print all objects which
 	// have been requested up to this point.
 	Flush() error
 }
 
 // objectReader is a reader for Git objects. Reading is implemented via a long-lived `git cat-file
-// --batch-command` process such that we do not have to spawn a new process for each object we
-// are about to read.
+// --batch` process such that we do not have to spawn a new process for each object we are about to
+// read.
 type objectReader struct {
 	cmd *command.Command
 
@@ -71,7 +63,7 @@ func newObjectReader(
 		git.SubCmd{
 			Name: "cat-file",
 			Flags: []git.Option{
-				git.Flag{Name: "--batch-command"},
+				git.Flag{Name: "--batch"},
 				git.Flag{Name: "--buffer"},
 			},
 		},
@@ -90,10 +82,10 @@ func newObjectReader(
 		cmd:     batchCmd,
 		counter: counter,
 		queue: requestQueue{
-			objectHash:     objectHash,
-			stdout:         bufio.NewReader(batchCmd),
-			stdin:          bufio.NewWriter(batchCmd),
-			isBatchCommand: true,
+			objectHash:    objectHash,
+			isObjectQueue: true,
+			stdout:        bufio.NewReader(batchCmd),
+			stdin:         bufio.NewWriter(batchCmd),
 		},
 	}
 
@@ -134,7 +126,7 @@ func (o *objectReader) Object(ctx context.Context, revision git.Revision) (*Obje
 	}
 	defer finish()
 
-	if err := queue.RequestObject(revision); err != nil {
+	if err := queue.RequestRevision(revision); err != nil {
 		return nil, err
 	}
 
@@ -158,25 +150,23 @@ func (o *objectReader) ObjectQueue(ctx context.Context) (ObjectQueue, func(), er
 	return queue, finish, nil
 }
 
-func (o *objectReader) Info(ctx context.Context, revision git.Revision) (*ObjectInfo, error) {
-	queue, cleanup, err := o.objectQueue(ctx, "catfile.Info")
-	if err != nil {
-		return nil, err
-	}
-	defer cleanup()
+// Object represents data returned by `git cat-file --batch`
+type Object struct {
+	// ObjectInfo represents main information about object
+	ObjectInfo
 
-	if err := queue.RequestInfo(revision); err != nil {
-		return nil, err
-	}
+	// dataReader is reader which has all the object data.
+	dataReader io.Reader
+}
 
-	if err := queue.Flush(); err != nil {
-		return nil, err
-	}
+func (o *Object) Read(p []byte) (int, error) {
+	return o.dataReader.Read(p)
+}
 
-	objectInfo, err := queue.ReadInfo()
-	if err != nil {
-		return nil, err
-	}
-
-	return objectInfo, nil
+// WriteTo implements the io.WriterTo interface. It defers the write to the embedded object reader
+// via `io.Copy()`, which in turn will use `WriteTo()` or `ReadFrom()` in case these interfaces are
+// implemented by the respective reader or writer.
+func (o *Object) WriteTo(w io.Writer) (int64, error) {
+	// `io.Copy()` will make use of `ReadFrom()` in case the writer implements it.
+	return io.Copy(w, o.dataReader)
 }

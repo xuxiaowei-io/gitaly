@@ -71,7 +71,7 @@ func CatfileInfo(
 		opt(&cfg)
 	}
 
-	queue, queueCleanup, err := objectInfoReader.ObjectQueue(ctx)
+	queue, queueCleanup, err := objectInfoReader.InfoQueue(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +88,7 @@ func CatfileInfo(
 
 		var i int64
 		for it.Next() {
-			if err := queue.RequestInfo(it.ObjectID().Revision()); err != nil {
+			if err := queue.RequestRevision(it.ObjectID().Revision()); err != nil {
 				sendCatfileInfoRequest(ctx, requestChan, catfileInfoRequest{err: err})
 				return
 			}
