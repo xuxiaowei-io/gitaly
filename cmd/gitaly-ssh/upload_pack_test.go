@@ -41,8 +41,10 @@ func TestVisibilityOfHiddenRefs(t *testing.T) {
 
 	localRepo := localrepo.NewTestRepo(t, cfg, repo)
 	updater, err := updateref.New(ctx, localRepo)
+	defer func() { require.NoError(t, updater.Cancel()) }()
 
 	require.NoError(t, err)
+	require.NoError(t, updater.Start())
 	require.NoError(t, updater.Create(git.ReferenceName(keepAroundRef), existingSha))
 	require.NoError(t, updater.Commit())
 

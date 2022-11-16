@@ -4,12 +4,15 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 )
+
+var errTransactionNotStarted = errors.New("transaction hasn't been started")
 
 // ErrAlreadyLocked indicates a reference cannot be locked because another
 // process has already locked it.
@@ -34,12 +37,22 @@ func (e ErrInvalidReferenceFormat) Error() string {
 // Updater wraps a `git update-ref --stdin` process, presenting an interface
 // that allows references to be easily updated in bulk. It is not suitable for
 // concurrent use.
+//
+// The caller needs to start a reference transaction with Start prior to staging
+// any changes. The changes are performed only if Commit is called at the end.
+// The caller is responsible for closing the Updater once it is finished with it
+// by calling Cancel.
 type Updater struct {
 	repo       git.RepositoryExecutor
 	cmd        *command.Command
 	stdout     *bufio.Reader
 	stderr     *bytes.Buffer
 	objectHash git.ObjectHash
+
+	// activeTransaction tracks whether the there is an open
+	// transaction going. This is used for erroring on incorrect
+	// usage of the updater.
+	activeTransaction bool
 }
 
 // UpdaterOpt is a type representing options for the Updater.
@@ -93,41 +106,53 @@ func New(ctx context.Context, repo git.RepositoryExecutor, opts ...UpdaterOpt) (
 		return nil, fmt.Errorf("detecting object hash: %w", err)
 	}
 
-	updater := &Updater{
+	return &Updater{
 		repo:       repo,
 		cmd:        cmd,
 		stderr:     &stderr,
 		stdout:     bufio.NewReader(cmd),
 		objectHash: objectHash,
+	}, nil
+}
+
+// Start begins a new reference transaction. The reference changes are not perfromed until Commit
+// is explicitly called.
+func (u *Updater) Start() error {
+	if u.activeTransaction {
+		return errors.New("transaction already open")
 	}
 
-	// By writing an explicit "start" to the command, we enable
-	// transactional behaviour. Which effectively means that without an
-	// explicit "commit", no changes will be inadvertently committed to
-	// disk.
-	if err := updater.setState("start"); err != nil {
-		return nil, err
-	}
+	u.activeTransaction = true
 
-	return updater, nil
+	return u.setState("start")
 }
 
 // Update commands the reference to be updated to point at the object ID specified in newOID. If
 // newOID is the zero OID, then the branch will be deleted. If oldOID is a non-empty string, then
 // the reference will only be updated if its current value matches the old value. If the old value
 // is the zero OID, then the branch must not exist.
+//
+// A reference transaction must be started before calling Update.
 func (u *Updater) Update(reference git.ReferenceName, newOID, oldOID git.ObjectID) error {
+	if !u.activeTransaction {
+		return errTransactionNotStarted
+	}
+
 	_, err := fmt.Fprintf(u.cmd, "update %s\x00%s\x00%s\x00", reference.String(), newOID, oldOID)
 	return err
 }
 
 // Create commands the reference to be created with the given object ID. The ref must not exist.
+//
+// A reference transaction must be started before calling Create.
 func (u *Updater) Create(reference git.ReferenceName, oid git.ObjectID) error {
 	return u.Update(reference, oid, u.objectHash.ZeroOID)
 }
 
 // Delete commands the reference to be removed from the repository. This command will ignore any old
 // state of the reference and just force-remove it.
+//
+// A reference transaction must be started before calling Delete.
 func (u *Updater) Delete(reference git.ReferenceName) error {
 	return u.Update(reference, u.objectHash.ZeroOID, "")
 }
@@ -141,6 +166,10 @@ var (
 // current values. The updates are not yet committed and will be rolled back in case there is no
 // call to `Commit()`. This call is optional.
 func (u *Updater) Prepare() error {
+	if !u.activeTransaction {
+		return errTransactionNotStarted
+	}
+
 	if err := u.setState("prepare"); err != nil {
 		matches := refLockedRegex.FindSubmatch([]byte(err.Error()))
 		if len(matches) > 1 {
@@ -158,21 +187,24 @@ func (u *Updater) Prepare() error {
 	return nil
 }
 
-// Commit applies the commands specified in other calls to the Updater
+// Commit applies the commands specified in other calls to the Updater. Commit finishes the
+// reference transaction and another one must be started before further changes can be staged.
 func (u *Updater) Commit() error {
+	if !u.activeTransaction {
+		return errTransactionNotStarted
+	}
+
 	if err := u.setState("commit"); err != nil {
 		return err
 	}
 
-	if err := u.cmd.Wait(); err != nil {
-		return fmt.Errorf("git update-ref: %v, stderr: %q", err, u.stderr)
-	}
+	u.activeTransaction = false
 
 	return nil
 }
 
-// Cancel aborts the transaction. No changes will be written to disk, all lockfiles will be cleaned
-// up and the process will exit.
+// Cancel closes the updater and aborts a possible open transaction. No changes will be written
+// to disk, all lockfiles will be cleaned up and the process will exit.
 func (u *Updater) Cancel() error {
 	if err := u.cmd.Wait(); err != nil {
 		return fmt.Errorf("canceling update: %w", err)

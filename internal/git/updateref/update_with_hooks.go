@@ -242,6 +242,14 @@ func (u *UpdaterWithHooks) UpdateReference(
 		return fmt.Errorf("creating updater: %w", err)
 	}
 
+	// We need to explicitly cancel the update here such that we release the lock when this
+	// function exits if there is any error between locking and committing.
+	defer func() { _ = updater.Cancel() }()
+
+	if err := updater.Start(); err != nil {
+		return fmt.Errorf("start reference transaction: %w", err)
+	}
+
 	if err := updater.Update(reference, newrev, oldrev); err != nil {
 		return fmt.Errorf("queueing ref update: %w", err)
 	}
@@ -255,9 +263,6 @@ func (u *UpdaterWithHooks) UpdateReference(
 			NewOID:    newrev,
 		}
 	}
-	// We need to explicitly cancel the update here such that we release the lock when this
-	// function exits if there is any error between locking and committing.
-	defer func() { _ = updater.Cancel() }()
 
 	if err := u.hookManager.ReferenceTransactionHook(ctx, hook.ReferenceTransactionPrepared, []string{hooksPayload}, strings.NewReader(changes)); err != nil {
 		return fmt.Errorf("executing preparatory reference-transaction hook: %w", err)

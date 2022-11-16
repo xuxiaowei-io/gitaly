@@ -38,7 +38,7 @@ func (s *server) writeRef(ctx context.Context, req *gitalypb.WriteRefRequest) er
 	return updateRef(ctx, repo, req)
 }
 
-func updateRef(ctx context.Context, repo *localrepo.Repo, req *gitalypb.WriteRefRequest) error {
+func updateRef(ctx context.Context, repo *localrepo.Repo, req *gitalypb.WriteRefRequest) (returnedErr error) {
 	var newObjectID git.ObjectID
 	if git.ObjectHashSHA1.IsZeroOID(git.ObjectID(req.GetRevision())) {
 		// Passing the all-zeroes object ID as new value means that we should delete the
@@ -74,6 +74,15 @@ func updateRef(ctx context.Context, repo *localrepo.Repo, req *gitalypb.WriteRef
 	u, err := updateref.New(ctx, repo)
 	if err != nil {
 		return fmt.Errorf("error when running creating new updater: %v", err)
+	}
+	defer func() {
+		if err := u.Cancel(); err != nil && returnedErr == nil {
+			returnedErr = fmt.Errorf("cancel updater: %w", err)
+		}
+	}()
+
+	if err := u.Start(); err != nil {
+		return fmt.Errorf("start reference transaction: %w", err)
 	}
 
 	if err = u.Update(git.ReferenceName(req.GetRef()), newObjectID, oldObjectID); err != nil {

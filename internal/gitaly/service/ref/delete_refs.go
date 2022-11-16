@@ -17,7 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
-func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest) (*gitalypb.DeleteRefsResponse, error) {
+func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest) (_ *gitalypb.DeleteRefsResponse, returnedErr error) {
 	if err := validateDeleteRefRequest(in); err != nil {
 		return nil, helper.ErrInvalidArgument(err)
 	}
@@ -36,6 +36,17 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 		}
 		return nil, helper.ErrInternal(err)
 	}
+	defer func() {
+		if err := updater.Cancel(); err != nil && returnedErr == nil {
+			// Only return the error if the feature flag is active. Traditionally
+			// the error was packed into the response body so this would start
+			// returning a real error. With structured errors, an actual error
+			// is returned so this would not override it.
+			if featureflag.DeleteRefsStructuredErrors.IsEnabled(ctx) {
+				returnedErr = fmt.Errorf("cancel updater: %w", err)
+			}
+		}
+	}()
 
 	voteHash := voting.NewVoteHash()
 
@@ -65,6 +76,10 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 
 			return nil, detailedErr
 		}
+	}
+
+	if err := updater.Start(); err != nil {
+		return nil, helper.ErrInternalf("start reference transaction: %w", err)
 	}
 
 	for _, ref := range refnames {
