@@ -156,7 +156,7 @@ func (o *ObjectPool) pruneReferences(ctx context.Context, origin *localrepo.Repo
 		return fmt.Errorf("spawning updater: %w", err)
 	}
 	defer func() {
-		if err := updater.Cancel(); err != nil && returnedErr == nil {
+		if err := updater.Close(); err != nil && returnedErr == nil {
 			returnedErr = fmt.Errorf("cancel updater: %w", err)
 		}
 	}()
@@ -262,7 +262,7 @@ func (o *ObjectPool) rescueDanglingObjects(ctx context.Context) (returnedErr err
 		return err
 	}
 	defer func() {
-		if err := updater.Cancel(); err != nil && returnedErr == nil {
+		if err := updater.Close(); err != nil && returnedErr == nil {
 			returnedErr = fmt.Errorf("cancel updater: %w", err)
 		}
 	}()

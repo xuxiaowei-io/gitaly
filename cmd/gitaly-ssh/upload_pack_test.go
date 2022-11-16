@@ -41,7 +41,7 @@ func TestVisibilityOfHiddenRefs(t *testing.T) {
 
 	localRepo := localrepo.NewTestRepo(t, cfg, repo)
 	updater, err := updateref.New(ctx, localRepo)
-	defer func() { require.NoError(t, updater.Cancel()) }()
+	defer testhelper.MustClose(t, updater)
 
 	require.NoError(t, err)
 	require.NoError(t, updater.Start())

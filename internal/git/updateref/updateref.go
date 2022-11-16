@@ -41,7 +41,7 @@ func (e ErrInvalidReferenceFormat) Error() string {
 // The caller needs to start a reference transaction with Start prior to staging
 // any changes. The changes are performed only if Commit is called at the end.
 // The caller is responsible for closing the Updater once it is finished with it
-// by calling Cancel.
+// by calling Close.
 type Updater struct {
 	repo       git.RepositoryExecutor
 	cmd        *command.Command
@@ -203,11 +203,11 @@ func (u *Updater) Commit() error {
 	return nil
 }
 
-// Cancel closes the updater and aborts a possible open transaction. No changes will be written
+// Close closes the updater and aborts a possible open transaction. No changes will be written
 // to disk, all lockfiles will be cleaned up and the process will exit.
-func (u *Updater) Cancel() error {
+func (u *Updater) Close() error {
 	if err := u.cmd.Wait(); err != nil {
-		return fmt.Errorf("canceling update: %w", err)
+		return fmt.Errorf("closing updater: %w", err)
 	}
 	return nil
 }
@@ -217,7 +217,7 @@ func (u *Updater) setState(state string) error {
 	if err != nil {
 		// We need to explicitly cancel the command here and wait for it to terminate such
 		// that we can retrieve the command's stderr in a race-free manner.
-		_ = u.Cancel()
+		_ = u.Close()
 		return fmt.Errorf("updating state to %q: %w, stderr: %q", state, err, u.stderr)
 	}
 
@@ -231,7 +231,7 @@ func (u *Updater) setState(state string) error {
 		// We need to explicitly cancel the command here and wait for it to
 		// terminate such that we can retrieve the command's stderr in a race-free
 		// manner.
-		_ = u.Cancel()
+		_ = u.Close()
 
 		return fmt.Errorf("state update to %q failed: %w, stderr: %q", state, err, u.stderr)
 	}

@@ -34,7 +34,7 @@ func setupUpdater(t *testing.T, ctx context.Context) (config.Cfg, *localrepo.Rep
 	t.Cleanup(func() {
 		// This is just to clean up so we ignore the error here. Cancel may or may not
 		// return an error depending on the test.
-		_ = updater.Cancel()
+		_ = updater.Close()
 	})
 
 	return cfg, repo, repoPath, updater
@@ -46,7 +46,7 @@ func TestUpdater_create(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg, _, repoPath, updater := setupUpdater(t, ctx)
-	defer func() { require.NoError(t, updater.Cancel()) }()
+	defer testhelper.MustClose(t, updater)
 
 	commitID := gittest.WriteCommit(t, cfg, repoPath)
 
@@ -69,7 +69,7 @@ func TestUpdater_update(t *testing.T) {
 
 	// The updater cancel should fail at the end of the test as the final operation is an error,
 	// which results in closing the updater.
-	defer func() { require.ErrorContains(t, updater.Cancel(), "canceling update: exit status 128") }()
+	defer func() { require.ErrorContains(t, updater.Close(), "closing updater: exit status 128") }()
 
 	oldCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 	newCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(oldCommitID))
@@ -102,7 +102,7 @@ func TestUpdater_delete(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg, repo, repoPath, updater := setupUpdater(t, ctx)
-	defer func() { require.NoError(t, updater.Cancel()) }()
+	defer testhelper.MustClose(t, updater)
 
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 
@@ -121,7 +121,7 @@ func TestUpdater_prepareLocksTransaction(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg, _, repoPath, updater := setupUpdater(t, ctx)
-	defer func() { require.ErrorContains(t, updater.Cancel(), "canceling update: exit status 128") }()
+	defer func() { require.ErrorContains(t, updater.Close(), "closing updater: exit status 128") }()
 
 	commitID := gittest.WriteCommit(t, cfg, repoPath)
 
@@ -150,7 +150,7 @@ func TestUpdater_invalidReferenceName(t *testing.T) {
 
 	updater, err := New(ctx, repo)
 	require.NoError(t, err)
-	defer func() { require.ErrorContains(t, updater.Cancel(), "canceling update: exit status 128") }()
+	defer func() { require.ErrorContains(t, updater.Close(), "closing updater: exit status 128") }()
 
 	const referenceName = "./refs/heads/master"
 	require.NoError(t, updater.Start())
@@ -205,7 +205,7 @@ func TestUpdater_bulkOperation(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg, repo, repoPath, updater := setupUpdater(t, ctx)
-	defer func() { require.NoError(t, updater.Cancel()) }()
+	defer testhelper.MustClose(t, updater)
 
 	commitID := gittest.WriteCommit(t, cfg, repoPath)
 
@@ -265,7 +265,7 @@ func TestUpdater_cancel(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg, repo, repoPath, firstUpdater := setupUpdater(t, ctx)
-	defer func() { require.NoError(t, firstUpdater.Cancel()) }()
+	defer testhelper.MustClose(t, firstUpdater)
 
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 
@@ -278,7 +278,7 @@ func TestUpdater_cancel(t *testing.T) {
 	// because the reference is locked already.
 	failingUpdater, err := New(ctx, repo)
 	require.NoError(t, err)
-	defer func() { require.ErrorContains(t, failingUpdater.Cancel(), "canceling update: exit status 128") }()
+	defer func() { require.ErrorContains(t, failingUpdater.Close(), "closing updater: exit status 128") }()
 
 	require.NoError(t, failingUpdater.Start())
 	require.NoError(t, failingUpdater.Delete(git.ReferenceName("refs/heads/main")))
@@ -286,11 +286,11 @@ func TestUpdater_cancel(t *testing.T) {
 
 	// We now cancel the initial updater. Afterwards, it should be possible again to update the
 	// ref because locks should have been released.
-	require.NoError(t, firstUpdater.Cancel())
+	require.NoError(t, firstUpdater.Close())
 
 	secondUpdater, err := New(ctx, repo)
 	require.NoError(t, err)
-	defer func() { require.NoError(t, secondUpdater.Cancel()) }()
+	defer testhelper.MustClose(t, secondUpdater)
 
 	require.NoError(t, secondUpdater.Start())
 	require.NoError(t, secondUpdater.Delete(git.ReferenceName("refs/heads/main")))
@@ -303,7 +303,7 @@ func TestUpdater_closingStdinAbortsChanges(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg, repo, repoPath, updater := setupUpdater(t, ctx)
-	defer func() { require.NoError(t, updater.Cancel()) }()
+	defer testhelper.MustClose(t, updater)
 
 	commitID := gittest.WriteCommit(t, cfg, repoPath)
 
@@ -329,7 +329,7 @@ func TestUpdater_capturesStderr(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	_, _, _, updater := setupUpdater(t, ctx)
-	defer func() { require.ErrorContains(t, updater.Cancel(), "canceling update: exit status 128") }()
+	defer func() { require.ErrorContains(t, updater.Close(), "closing updater: exit status 128") }()
 
 	newValue := git.ObjectID(strings.Repeat("1", gittest.DefaultObjectHash.EncodedLen()))
 	oldValue := gittest.DefaultObjectHash.ZeroOID

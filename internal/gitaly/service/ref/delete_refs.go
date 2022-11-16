@@ -37,13 +37,13 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 		return nil, helper.ErrInternal(err)
 	}
 	defer func() {
-		if err := updater.Cancel(); err != nil && returnedErr == nil {
+		if err := updater.Close(); err != nil && returnedErr == nil {
 			// Only return the error if the feature flag is active. Traditionally
 			// the error was packed into the response body so this would start
 			// returning a real error. With structured errors, an actual error
 			// is returned so this would not override it.
 			if featureflag.DeleteRefsStructuredErrors.IsEnabled(ctx) {
-				returnedErr = fmt.Errorf("cancel updater: %w", err)
+				returnedErr = fmt.Errorf("close updater: %w", err)
 			}
 		}
 	}()

@@ -76,8 +76,8 @@ func updateRef(ctx context.Context, repo *localrepo.Repo, req *gitalypb.WriteRef
 		return fmt.Errorf("error when running creating new updater: %v", err)
 	}
 	defer func() {
-		if err := u.Cancel(); err != nil && returnedErr == nil {
-			returnedErr = fmt.Errorf("cancel updater: %w", err)
+		if err := u.Close(); err != nil && returnedErr == nil {
+			returnedErr = fmt.Errorf("close updater: %w", err)
 		}
 	}()
 

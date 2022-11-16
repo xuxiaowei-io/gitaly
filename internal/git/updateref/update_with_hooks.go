@@ -244,7 +244,7 @@ func (u *UpdaterWithHooks) UpdateReference(
 
 	// We need to explicitly cancel the update here such that we release the lock when this
 	// function exits if there is any error between locking and committing.
-	defer func() { _ = updater.Cancel() }()
+	defer func() { _ = updater.Close() }()
 
 	if err := updater.Start(); err != nil {
 		return fmt.Errorf("start reference transaction: %w", err)

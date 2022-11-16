@@ -235,7 +235,7 @@ func testDeleteRefsRefLocked(t *testing.T, ctx context.Context) {
 
 	updater, err := updateref.New(ctx, repo)
 	require.NoError(t, err)
-	defer func() { require.NoError(t, updater.Cancel()) }()
+	defer testhelper.MustClose(t, updater)
 
 	require.NoError(t, updater.Start())
 	require.NoError(t, updater.Update(

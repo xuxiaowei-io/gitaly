@@ -64,7 +64,7 @@ func TestFindAllBranchNamesVeryLargeResponse(t *testing.T) {
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	updater, err := updateref.New(ctx, repo)
 	require.NoError(t, err)
-	defer func() { require.NoError(t, updater.Cancel()) }()
+	defer testhelper.MustClose(t, updater)
 
 	// We want to create enough refs to overflow the default bufio.Scanner
 	// buffer. Such an overflow will cause scanner.Bytes() to become invalid

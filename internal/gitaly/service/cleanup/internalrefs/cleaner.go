@@ -54,8 +54,8 @@ func (c *Cleaner) ApplyObjectMap(ctx context.Context, reader io.Reader) (returne
 		return fmt.Errorf("new updater: %w", err)
 	}
 	defer func() {
-		if err := updater.Cancel(); err != nil && returnedErr == nil {
-			returnedErr = fmt.Errorf("cancel updater: %w", err)
+		if err := updater.Close(); err != nil && returnedErr == nil {
+			returnedErr = fmt.Errorf("close updater: %w", err)
 		}
 	}()
 
