@@ -52,6 +52,47 @@ func TestObjectHashByFormat(t *testing.T) {
 	}
 }
 
+func TestObjectHashByProto(t *testing.T) {
+	for _, tc := range []struct {
+		desc               string
+		objectFormat       gitalypb.ObjectFormat
+		expectedErr        error
+		expectedObjectHash git.ObjectHash
+	}{
+		{
+			desc:               "unspecified object format",
+			objectFormat:       gitalypb.ObjectFormat_OBJECT_FORMAT_UNSPECIFIED,
+			expectedObjectHash: git.ObjectHashSHA1,
+		},
+		{
+			desc:               "SHA1 object format",
+			objectFormat:       gitalypb.ObjectFormat_OBJECT_FORMAT_SHA1,
+			expectedObjectHash: git.ObjectHashSHA1,
+		},
+		{
+			desc:               "SHA256 object format",
+			objectFormat:       gitalypb.ObjectFormat_OBJECT_FORMAT_SHA256,
+			expectedObjectHash: git.ObjectHashSHA256,
+		},
+		{
+			desc:         "invalid object format",
+			objectFormat: 3,
+			expectedErr:  fmt.Errorf("unknown object format: \"3\""),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			objectHash, err := git.ObjectHashByProto(tc.objectFormat)
+			require.Equal(t, tc.expectedErr, err)
+
+			// Function pointers cannot be compared, so we need to unset them.
+			objectHash.Hash = nil
+			tc.expectedObjectHash.Hash = nil
+
+			require.Equal(t, tc.expectedObjectHash, objectHash)
+		})
+	}
+}
+
 func TestDetectObjectHash(t *testing.T) {
 	cfg := testcfg.Build(t)
 	ctx := testhelper.Context(t)

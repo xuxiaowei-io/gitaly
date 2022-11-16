@@ -12,6 +12,7 @@ import (
 	"regexp"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
 var (
@@ -22,6 +23,7 @@ var (
 		EmptyTreeOID: ObjectID("4b825dc642cb6eb9a060e54bf8d69288fbee4904"),
 		ZeroOID:      ObjectID("0000000000000000000000000000000000000000"),
 		Format:       "sha1",
+		ProtoFormat:  gitalypb.ObjectFormat_OBJECT_FORMAT_SHA1,
 	}
 
 	// ObjectHashSHA256 is the implementation of an object ID via SHA256.
@@ -31,6 +33,7 @@ var (
 		EmptyTreeOID: ObjectID("6ef19b41225c5369f1c104d45d8d85efa9b057b53b14b4b9b939dd74decc5321"),
 		ZeroOID:      ObjectID("0000000000000000000000000000000000000000000000000000000000000000"),
 		Format:       "sha256",
+		ProtoFormat:  gitalypb.ObjectFormat_OBJECT_FORMAT_SHA256,
 	}
 
 	// ErrInvalidObjectID is returned in case an object ID's string
@@ -49,6 +52,8 @@ type ObjectHash struct {
 	ZeroOID ObjectID
 	// Format is the name of the object hash.
 	Format string
+	// ProtoFormat is the Protobuf representation of the object format.
+	ProtoFormat gitalypb.ObjectFormat
 }
 
 // ObjectHashByFormat looks up the ObjectHash by its format name.
@@ -57,6 +62,19 @@ func ObjectHashByFormat(format string) (ObjectHash, error) {
 	case ObjectHashSHA1.Format:
 		return ObjectHashSHA1, nil
 	case ObjectHashSHA256.Format:
+		return ObjectHashSHA256, nil
+	default:
+		return ObjectHash{}, fmt.Errorf("unknown object format: %q", format)
+	}
+}
+
+// ObjectHashByProto looks up the ObjectHash by its Protobuf representation `gitalypb.ObjectFormat`.
+// Returns an error in case the object format is not known.
+func ObjectHashByProto(format gitalypb.ObjectFormat) (ObjectHash, error) {
+	switch format {
+	case gitalypb.ObjectFormat_OBJECT_FORMAT_UNSPECIFIED, gitalypb.ObjectFormat_OBJECT_FORMAT_SHA1:
+		return ObjectHashSHA1, nil
+	case gitalypb.ObjectFormat_OBJECT_FORMAT_SHA256:
 		return ObjectHashSHA256, nil
 	default:
 		return ObjectHash{}, fmt.Errorf("unknown object format: %q", format)
