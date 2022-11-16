@@ -1,7 +1,6 @@
 package catfile
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -10,18 +9,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
 func TestGetTag(t *testing.T) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 
-	testhelper.NewFeatureSets(featureflag.CatfileBatchCommand).Run(t, testGetTag)
-}
-
-func testGetTag(t *testing.T, ctx context.Context) {
 	cfg, objectReader, _, repoPath := setupObjectReader(t, ctx)
 	commitID := gittest.WriteCommit(t, cfg, repoPath)
 

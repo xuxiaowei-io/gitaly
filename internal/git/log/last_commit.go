@@ -16,7 +16,7 @@ import (
 func LastCommitForPath(
 	ctx context.Context,
 	gitCmdFactory git.CommandFactory,
-	objectReader catfile.ObjectContentReader,
+	objectReader catfile.ObjectReader,
 	repo repository.GitRepo,
 	revision git.Revision,
 	path string,

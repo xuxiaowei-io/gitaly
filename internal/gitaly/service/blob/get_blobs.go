@@ -23,7 +23,7 @@ var treeEntryToObjectType = map[gitalypb.TreeEntry_EntryType]gitalypb.ObjectType
 func sendGetBlobsResponse(
 	req *gitalypb.GetBlobsRequest,
 	stream gitalypb.BlobService_GetBlobsServer,
-	objectReader catfile.ObjectContentReader,
+	objectReader catfile.ObjectReader,
 	objectInfoReader catfile.ObjectInfoReader,
 ) error {
 	ctx := stream.Context()
@@ -99,7 +99,7 @@ func sendGetBlobsResponse(
 func sendBlobTreeEntry(
 	response *gitalypb.GetBlobsResponse,
 	stream gitalypb.BlobService_GetBlobsServer,
-	objectReader catfile.ObjectContentReader,
+	objectReader catfile.ObjectReader,
 	limit int64,
 ) (returnedErr error) {
 	ctx := stream.Context()

@@ -13,7 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/labkit/correlation"
@@ -204,12 +203,7 @@ func TestCache_autoExpiry(t *testing.T) {
 }
 
 func TestCache_ObjectReader(t *testing.T) {
-	t.Parallel()
-
-	testhelper.NewFeatureSets(featureflag.CatfileBatchCommand).Run(t, testCacheObjectReader)
-}
-
-func testCacheObjectReader(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
@@ -309,12 +303,7 @@ func testCacheObjectReader(t *testing.T, ctx context.Context) {
 }
 
 func TestCache_ObjectInfoReader(t *testing.T) {
-	t.Parallel()
-
-	testhelper.NewFeatureSets(featureflag.CatfileBatchCommand).Run(t, testCacheObjectInfoReader)
-}
-
-func testCacheObjectInfoReader(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
@@ -402,7 +391,7 @@ func mustCreateCacheable(t *testing.T, cfg config.Cfg, repo repository.GitRepo) 
 
 	ctx, cancel := context.WithCancel(testhelper.Context(t))
 
-	batch, err := newObjectContentReader(ctx, newRepoExecutor(t, cfg, repo), nil)
+	batch, err := newObjectReader(ctx, newRepoExecutor(t, cfg, repo), nil)
 	require.NoError(t, err)
 
 	return batch, cancel

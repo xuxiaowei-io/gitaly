@@ -36,7 +36,7 @@ type catfileObjectRequest struct {
 // be fully consumed by the caller.
 func CatfileObject(
 	ctx context.Context,
-	objectReader catfile.ObjectContentReader,
+	objectReader catfile.ObjectReader,
 	it ObjectIterator,
 ) (CatfileObjectIterator, error) {
 	queue, queueCleanup, err := objectReader.ObjectQueue(ctx)
@@ -72,7 +72,7 @@ func CatfileObject(
 
 		var i int64
 		for it.Next() {
-			if err := queue.RequestObject(it.ObjectID().Revision()); err != nil {
+			if err := queue.RequestRevision(it.ObjectID().Revision()); err != nil {
 				sendRequest(catfileObjectRequest{err: err})
 				return
 			}
