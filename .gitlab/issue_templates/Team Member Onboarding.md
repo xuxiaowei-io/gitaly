@@ -16,6 +16,7 @@ Please complete all but the "Reading material" section in your first few working
   - [ ] be added to the weekly team meeting and [meeting notes](https://docs.google.com/document/d/1k1hY0ZdeFUnSqF6GUToFaJEtVIN_SjWeaRdx1V0i25E/edit)
   - [ ] be added to [Geekbot](https://app.geekbot.com/dashboard) for daily Slack standup updates
   - [ ] get Maintainer access to the [Gitaly Retrospective](https://gitlab.com/gl-retrospectives/enablement-section/gitaly) respository
+  - [ ] get access to the [Gitaly Group calendar](https://calendar.google.com/calendar/embed?src=gitlab.com_mc911ncuk38bfngud133tjb4m8%40group.calendar.google.com&ctz=Europe%2FZurich), then add it by clicking [here](https://calendar.google.com/calendar/u/0?cid=Z2l0bGFiLmNvbV9tYzkxMW5jdWszOGJmbmd1ZDEzM3RqYjRtOEBncm91cC5jYWxlbmRhci5nb29nbGUuY29t)
 - Open issues / Access Requests to:
   - [ ] join the @gitalyteam Slack group ([example](https://gitlab.com/gitlab-com/team-member-epics/access-requests/-/issues/15868))
   - [ ] get access to [Stackdriver](https://about.gitlab.com/handbook/engineering/monitoring/#go-services)
