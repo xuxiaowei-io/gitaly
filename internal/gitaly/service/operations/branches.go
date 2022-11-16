@@ -186,9 +186,19 @@ func (s *Server) UserDeleteBranch(ctx context.Context, req *gitalypb.UserDeleteB
 	}
 	referenceName := git.NewReferenceNameFromBranchName(string(req.BranchName))
 
-	referenceValue, err := s.localrepo(req.GetRepository()).ResolveRevision(ctx, referenceName.Revision())
-	if err != nil {
-		return nil, helper.ErrFailedPreconditionf("branch not found: %q", req.BranchName)
+	var err error
+	var referenceValue git.ObjectID
+
+	if expectedOldOID := req.GetExpectedOldOid(); expectedOldOID != "" {
+		referenceValue, err = s.localrepo(req.GetRepository()).ResolveRevision(ctx, git.Revision(expectedOldOID))
+		if err != nil {
+			return nil, helper.ErrFailedPreconditionf("object id: %s: %w", expectedOldOID, err)
+		}
+	} else {
+		referenceValue, err = s.localrepo(req.GetRepository()).ResolveRevision(ctx, referenceName.Revision())
+		if err != nil {
+			return nil, helper.ErrFailedPreconditionf("branch not found: %q", req.BranchName)
+		}
 	}
 
 	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, nil, referenceName, git.ObjectHashSHA1.ZeroOID, referenceValue); err != nil {

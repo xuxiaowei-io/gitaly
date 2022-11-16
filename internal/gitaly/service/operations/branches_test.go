@@ -18,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -418,57 +419,111 @@ func TestUserCreateBranch_Failure(t *testing.T) {
 	}
 }
 
-func TestUserDeleteBranch_success(t *testing.T) {
+func TestUserDeleteBranch(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
+	newCommit := gittest.WriteCommit(t, cfg, repoPath)
+	olderCommit := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD~1"))
+
 	testCases := []struct {
 		desc            string
 		branchNameInput string
-		branchCommit    string
+		branchCommit    git.ObjectID
+		expectedOldOID  git.ObjectID
 		user            *gitalypb.User
 		response        *gitalypb.UserDeleteBranchResponse
-		err             error
+		expectedErr     error
 	}{
+		{
+			desc:            "simple successful deletion without ExpectedOldOID",
+			branchNameInput: "to-attempt-to-delete-soon-branch",
+			branchCommit:    newCommit,
+			user:            gittest.TestUser,
+			response:        &gitalypb.UserDeleteBranchResponse{},
+		},
+		{
+			desc:            "simple successful deletion with ExpectedOldOID",
+			branchNameInput: "to-attempt-to-delete-soon-branch",
+			branchCommit:    newCommit,
+			expectedOldOID:  newCommit,
+			user:            gittest.TestUser,
+			response:        &gitalypb.UserDeleteBranchResponse{},
+		},
 		{
 			desc:            "simple successful deletion",
 			branchNameInput: "to-attempt-to-delete-soon-branch",
-			branchCommit:    "c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd",
+			branchCommit:    newCommit,
 			user:            gittest.TestUser,
 			response:        &gitalypb.UserDeleteBranchResponse{},
 		},
 		{
 			desc:            "partially prefixed successful deletion",
 			branchNameInput: "heads/to-attempt-to-delete-soon-branch",
-			branchCommit:    "9a944d90955aaf45f6d0c88f30e27f8d2c41cec0",
+			branchCommit:    newCommit,
 			user:            gittest.TestUser,
 			response:        &gitalypb.UserDeleteBranchResponse{},
 		},
 		{
 			desc:            "branch with refs/heads/ prefix",
 			branchNameInput: "refs/heads/branch",
-			branchCommit:    "9a944d90955aaf45f6d0c88f30e27f8d2c41cec0",
+			branchCommit:    newCommit,
 			user:            gittest.TestUser,
 			response:        &gitalypb.UserDeleteBranchResponse{},
+		},
+		{
+			desc:            "invalid ExpectedOldOID",
+			branchNameInput: "branch-1",
+			branchCommit:    newCommit,
+			expectedOldOID:  "foobar",
+			user:            gittest.TestUser,
+			expectedErr:     status.Error(codes.FailedPrecondition, "object id: foobar: reference not found"),
+		},
+		{
+			desc:            "valid but incorrect ExpectedOldOID",
+			branchNameInput: "branch-2",
+			branchCommit:    newCommit,
+			expectedOldOID:  git.ObjectID(olderCommit),
+			user:            gittest.TestUser,
+			expectedErr: errWithDetails(t,
+				helper.ErrFailedPreconditionf("reference update failed: Could not update refs/heads/branch-2. Please refresh and try again."),
+				&gitalypb.UserDeleteBranchError{
+					Error: &gitalypb.UserDeleteBranchError_ReferenceUpdate{
+						ReferenceUpdate: &gitalypb.ReferenceUpdateError{
+							ReferenceName: []byte("refs/heads/branch-2"),
+							OldOid:        olderCommit,
+							NewOid:        gittest.DefaultObjectHash.ZeroOID.String(),
+						},
+					},
+				},
+			),
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			gittest.Exec(t, cfg, "-C", repoPath, "branch", testCase.branchNameInput, testCase.branchCommit)
+			gittest.Exec(t, cfg, "-C", repoPath, "branch", testCase.branchNameInput, testCase.branchCommit.Revision().String())
 
 			response, err := client.UserDeleteBranch(ctx, &gitalypb.UserDeleteBranchRequest{
-				Repository: repo,
-				BranchName: []byte(testCase.branchNameInput),
-				User:       testCase.user,
+				Repository:     repo,
+				BranchName:     []byte(testCase.branchNameInput),
+				ExpectedOldOid: testCase.expectedOldOID.Revision().String(),
+				User:           testCase.user,
 			})
-			require.NoError(t, err)
-			testhelper.ProtoEqual(t, testCase.response, response)
+			if testCase.expectedErr != nil {
+				testhelper.RequireGrpcError(t, testCase.expectedErr, err)
 
-			refs := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs/heads/"+testCase.branchNameInput)
-			require.NotContains(t, string(refs), testCase.branchCommit, "branch deleted from refs")
+				refs := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs/heads/"+testCase.branchNameInput)
+				require.Contains(t, string(refs), testCase.branchCommit, "branch deleted from refs")
+			} else {
+				require.NoError(t, err)
+				testhelper.ProtoEqual(t, testCase.response, response)
+
+				refs := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs/heads/"+testCase.branchNameInput)
+				require.NotContains(t, string(refs), testCase.branchCommit, "branch deleted from refs")
+			}
 		})
 	}
 }
