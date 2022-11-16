@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/auth"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
@@ -122,6 +123,70 @@ func TestCreateRepository_withDefaultBranch(t *testing.T) {
 					"symbolic-ref", "HEAD"))
 				require.Equal(t, tc.expected, symRef)
 			}
+		})
+	}
+}
+
+func TestCreateRepository_withObjectFormat(t *testing.T) {
+	t.Parallel()
+
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	ctx := testhelper.Context(t)
+
+	for _, tc := range []struct {
+		desc               string
+		objectFormat       gitalypb.ObjectFormat
+		expectedResponse   *gitalypb.CreateRepositoryResponse
+		expectedObjectHash git.ObjectHash
+		expectedErr        error
+	}{
+		{
+			desc:               "unspecified object format",
+			objectFormat:       gitalypb.ObjectFormat_OBJECT_FORMAT_UNSPECIFIED,
+			expectedResponse:   &gitalypb.CreateRepositoryResponse{},
+			expectedObjectHash: git.ObjectHashSHA1,
+		},
+		{
+			desc:               "SHA1",
+			objectFormat:       gitalypb.ObjectFormat_OBJECT_FORMAT_SHA1,
+			expectedResponse:   &gitalypb.CreateRepositoryResponse{},
+			expectedObjectHash: git.ObjectHashSHA1,
+		},
+		{
+			desc:               "SHA256",
+			objectFormat:       gitalypb.ObjectFormat_OBJECT_FORMAT_SHA256,
+			expectedResponse:   &gitalypb.CreateRepositoryResponse{},
+			expectedObjectHash: git.ObjectHashSHA256,
+		},
+		{
+			desc:         "invalid object format",
+			objectFormat: 3,
+			expectedErr:  helper.ErrInvalidArgumentf("unknown object format: \"3\""),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			repoProto := &gitalypb.Repository{
+				StorageName:  cfg.Storages[0].Name,
+				RelativePath: gittest.NewRepositoryName(t),
+			}
+
+			response, err := client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{
+				Repository:   repoProto,
+				ObjectFormat: tc.objectFormat,
+			})
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
+			testhelper.ProtoEqual(t, tc.expectedResponse, response)
+
+			if err != nil {
+				return
+			}
+
+			// If the repository was created we can check whether the object format of
+			// the created repository matches our expectations.
+			repo := localrepo.NewTestRepo(t, cfg, repoProto)
+			objectHash, err := git.DetectObjectHash(ctx, repo)
+			require.NoError(t, err)
+			require.Equal(t, tc.expectedObjectHash.Format, objectHash.Format)
 		})
 	}
 }

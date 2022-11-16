@@ -43,6 +43,12 @@ func withBranchName(branch string) createRepositoryOption {
 	}
 }
 
+func withObjectHash(hash git.ObjectHash) createRepositoryOption {
+	return func(options *[]git.Option) {
+		*options = append(*options, git.ValueFlag{Name: "--object-format", Value: hash.Format})
+	}
+}
+
 // createRepository will create a new repository in a race-free way with proper transactional
 // semantics. The repository will only be created if it doesn't yet exist and if nodes which take
 // part in the transaction reach quorum. Otherwise, the target path of the new repository will not
