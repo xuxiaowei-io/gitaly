@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package blob
 
 import (
@@ -10,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -20,9 +19,16 @@ func TestGetBlob_successful(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setup(t, ctx)
+	cfg, client := setupWithoutRepo(t, ctx)
 
-	maintenanceMdBlobData := testhelper.MustReadFile(t, "testdata/maintenance-md-blob.txt")
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+	smallBlobContents := []byte("small blob")
+	smallBlobLen := int64(len(smallBlobContents))
+	smallBlobID := gittest.WriteBlob(t, cfg, repoPath, smallBlobContents)
+
+	largeBlobContents := bytes.Repeat([]byte{1}, 1024*1024)
+	largeBlobID := gittest.WriteBlob(t, cfg, repoPath, largeBlobContents)
 
 	for _, tc := range []struct {
 		desc            string
@@ -33,37 +39,37 @@ func TestGetBlob_successful(t *testing.T) {
 	}{
 		{
 			desc:            "unlimited fetch",
-			oid:             "95d9f0a5e7bb054e9dd3975589b8dfc689e20e88",
+			oid:             smallBlobID.String(),
 			limit:           -1,
-			expectedContent: maintenanceMdBlobData,
-			expectedSize:    int64(len(maintenanceMdBlobData)),
+			expectedContent: smallBlobContents,
+			expectedSize:    smallBlobLen,
 		},
 		{
 			desc:            "limit larger than blob size",
-			oid:             "95d9f0a5e7bb054e9dd3975589b8dfc689e20e88",
-			limit:           int64(len(maintenanceMdBlobData) + 1),
-			expectedContent: maintenanceMdBlobData,
-			expectedSize:    int64(len(maintenanceMdBlobData)),
+			oid:             smallBlobID.String(),
+			limit:           smallBlobLen + 1,
+			expectedContent: smallBlobContents,
+			expectedSize:    smallBlobLen,
 		},
 		{
 			desc:         "limit zero",
-			oid:          "95d9f0a5e7bb054e9dd3975589b8dfc689e20e88",
+			oid:          smallBlobID.String(),
 			limit:        0,
-			expectedSize: int64(len(maintenanceMdBlobData)),
+			expectedSize: smallBlobLen,
 		},
 		{
 			desc:            "limit greater than zero, less than blob size",
-			oid:             "95d9f0a5e7bb054e9dd3975589b8dfc689e20e88",
+			oid:             smallBlobID.String(),
 			limit:           10,
-			expectedContent: maintenanceMdBlobData[:10],
-			expectedSize:    int64(len(maintenanceMdBlobData)),
+			expectedContent: smallBlobContents[:10],
+			expectedSize:    smallBlobLen,
 		},
 		{
 			desc:            "large blob",
-			oid:             "08cf843fd8fe1c50757df0a13fcc44661996b4df",
+			oid:             largeBlobID.String(),
 			limit:           10,
-			expectedContent: []byte{0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46},
-			expectedSize:    111803,
+			expectedContent: largeBlobContents[:10],
+			expectedSize:    int64(len(largeBlobContents)),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -89,7 +95,8 @@ func TestGetBlob_notFound(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setup(t, ctx)
+	cfg, client := setupWithoutRepo(t, ctx)
+	repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	stream, err := client.GetBlob(ctx, &gitalypb.GetBlobRequest{
 		Repository: repo,
@@ -135,9 +142,10 @@ func TestGetBlob_invalidRequest(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, _, client := setup(t, ctx)
+	cfg, client := setupWithoutRepo(t, ctx)
 
-	oid := "d42783470dc29fde2cf459eb3199ee1d7e3f3a72"
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	oid := gittest.WriteBlob(t, cfg, repoPath, []byte("something")).String()
 
 	for _, tc := range []struct {
 		desc        string
