@@ -3,12 +3,10 @@
 package commit
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -17,13 +15,10 @@ import (
 )
 
 func TestLanguages(t *testing.T) {
-	testhelper.NewFeatureSets(featureflag.GoLanguageStats).
-		Run(t, testLanguagesFeatured)
-}
-
-func testLanguagesFeatured(t *testing.T, ctx context.Context) {
 	t.Parallel()
+
 	cfg := testcfg.Build(t)
+	ctx := testhelper.Context(t)
 
 	cfg.SocketPath = startTestServices(t, cfg)
 
@@ -53,13 +48,9 @@ func testLanguagesFeatured(t *testing.T, ctx context.Context) {
 }
 
 func TestFileCountIsZeroWhenFeatureIsDisabled(t *testing.T) {
-	testhelper.NewFeatureSets(featureflag.GoLanguageStats).
-		Run(t, testFileCountIsZeroWhenFeatureIsDisabled)
-}
-
-func testFileCountIsZeroWhenFeatureIsDisabled(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
+	ctx := testhelper.Context(t)
 	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
 
 	request := &gitalypb.CommitLanguagesRequest{
@@ -79,13 +70,9 @@ func testFileCountIsZeroWhenFeatureIsDisabled(t *testing.T, ctx context.Context)
 }
 
 func TestLanguagesEmptyRevision(t *testing.T) {
-	testhelper.NewFeatureSets(featureflag.GoLanguageStats).
-		Run(t, testLanguagesEmptyRevisionFeatured)
-}
-
-func testLanguagesEmptyRevisionFeatured(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
+	ctx := testhelper.Context(t)
 	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
 
 	request := &gitalypb.CommitLanguagesRequest{
@@ -106,13 +93,9 @@ func testLanguagesEmptyRevisionFeatured(t *testing.T, ctx context.Context) {
 }
 
 func TestInvalidCommitLanguagesRequestRevision(t *testing.T) {
-	testhelper.NewFeatureSets(featureflag.GoLanguageStats).
-		Run(t, testInvalidCommitLanguagesRequestRevisionFeatured)
-}
-
-func testInvalidCommitLanguagesRequestRevisionFeatured(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
+	ctx := testhelper.Context(t)
 	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
 
 	_, err := client.CommitLanguages(ctx, &gitalypb.CommitLanguagesRequest{
@@ -123,13 +106,9 @@ func testInvalidCommitLanguagesRequestRevisionFeatured(t *testing.T, ctx context
 }
 
 func TestAmbiguousRefCommitLanguagesRequestRevision(t *testing.T) {
-	testhelper.NewFeatureSets(featureflag.GoLanguageStats).
-		Run(t, testAmbiguousRefCommitLanguagesRequestRevisionFeatured)
-}
-
-func testAmbiguousRefCommitLanguagesRequestRevisionFeatured(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
+	ctx := testhelper.Context(t)
 	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
 
 	// gitlab-test repo has both a branch and a tag named 'v1.1.0'
@@ -144,35 +123,35 @@ func testAmbiguousRefCommitLanguagesRequestRevisionFeatured(t *testing.T, ctx co
 
 func TestCommitLanguages_validateRequest(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.GoLanguageStats).Run(t, func(t *testing.T, ctx context.Context) {
-		_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
 
-		for _, tc := range []struct {
-			desc        string
-			req         *gitalypb.CommitLanguagesRequest
-			expectedErr error
-		}{
-			{
-				desc: "no repository provided",
-				req:  &gitalypb.CommitLanguagesRequest{Repository: nil},
-				expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
-					"empty Repository",
-					"repo scoped: empty Repository",
-				)),
+	ctx := testhelper.Context(t)
+	_, repo, _, client := setupCommitServiceWithRepo(t, ctx)
+
+	for _, tc := range []struct {
+		desc        string
+		req         *gitalypb.CommitLanguagesRequest
+		expectedErr error
+	}{
+		{
+			desc: "no repository provided",
+			req:  &gitalypb.CommitLanguagesRequest{Repository: nil},
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
+		},
+		{
+			desc: "invalid revision provided",
+			req: &gitalypb.CommitLanguagesRequest{
+				Repository: repo,
+				Revision:   []byte("invalid revision"),
 			},
-			{
-				desc: "invalid revision provided",
-				req: &gitalypb.CommitLanguagesRequest{
-					Repository: repo,
-					Revision:   []byte("invalid revision"),
-				},
-				expectedErr: status.Error(codes.InvalidArgument, "revision can't contain whitespace"),
-			},
-		} {
-			t.Run(tc.desc, func(t *testing.T) {
-				_, err := client.CommitLanguages(ctx, tc.req)
-				testhelper.RequireGrpcError(t, tc.expectedErr, err)
-			})
-		}
-	})
+			expectedErr: status.Error(codes.InvalidArgument, "revision can't contain whitespace"),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			_, err := client.CommitLanguages(ctx, tc.req)
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
+		})
+	}
 }

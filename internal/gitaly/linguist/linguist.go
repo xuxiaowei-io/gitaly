@@ -3,11 +3,8 @@ package linguist
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 	"io"
-	"os"
-	"os/exec"
 
 	"github.com/go-enry/go-enry/v2"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
@@ -18,8 +15,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gitpipe"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/env"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 )
 
 // ByteCountPerLanguage represents a counter value (bytes) per language.
@@ -42,34 +37,6 @@ func New(cfg config.Cfg, catfileCache catfile.Cache, repo *localrepo.Repo) *Inst
 	}
 }
 
-// Stats returns the repository's language stats as reported by 'git-linguist'.
-func (inst *Instance) Stats(ctx context.Context, commitID string) (ByteCountPerLanguage, error) {
-	if featureflag.GoLanguageStats.IsEnabled(ctx) {
-		return inst.enryStats(ctx, commitID)
-	}
-
-	cmd, err := inst.startGitLinguist(ctx, commitID)
-	if err != nil {
-		return nil, fmt.Errorf("starting linguist: %w", err)
-	}
-
-	data, err := io.ReadAll(cmd)
-	if err != nil {
-		return nil, fmt.Errorf("reading linguist output: %w", err)
-	}
-
-	if err := cmd.Wait(); err != nil {
-		return nil, fmt.Errorf("waiting for linguist: %w", err)
-	}
-
-	stats := make(ByteCountPerLanguage)
-	if err := json.Unmarshal(data, &stats); err != nil {
-		return nil, fmt.Errorf("unmarshaling stats: %w", err)
-	}
-
-	return stats, nil
-}
-
 // Color returns the color Linguist has assigned to language.
 func Color(language string) string {
 	if color := enry.GetColor(language); color != "#cccccc" {
@@ -80,32 +47,8 @@ func Color(language string) string {
 	return fmt.Sprintf("#%x", colorSha[0:3])
 }
 
-func (inst *Instance) startGitLinguist(ctx context.Context, commitID string) (*command.Command, error) {
-	repoPath, err := inst.repo.Path()
-	if err != nil {
-		return nil, fmt.Errorf("get repo path: %w", err)
-	}
-
-	bundle, err := exec.LookPath("bundle")
-	if err != nil {
-		return nil, fmt.Errorf("finding bundle executable: %w", err)
-	}
-
-	cmd := []string{bundle, "exec", "bin/gitaly-linguist", "--repository=" + repoPath, "--commit=" + commitID}
-
-	internalCmd, err := command.New(ctx, cmd,
-		command.WithDir(inst.cfg.Ruby.Dir),
-		command.WithEnvironment(env.AllowedRubyEnvironment(os.Environ())),
-		command.WithCommandName("git-linguist", "stats"),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("creating command: %w", err)
-	}
-
-	return internalCmd, nil
-}
-
-func (inst *Instance) enryStats(ctx context.Context, commitID string) (ByteCountPerLanguage, error) {
+// Stats returns the repository's language statistics.
+func (inst *Instance) Stats(ctx context.Context, commitID string) (ByteCountPerLanguage, error) {
 	stats, err := initLanguageStats(inst.repo)
 	if err != nil {
 		ctxlogrus.Extract(ctx).WithError(err).Info("linguist load from cache")
@@ -158,12 +101,17 @@ func (inst *Instance) enryStats(ctx context.Context, commitID string) (ByteCount
 		// Stats are cached for one commit, so get the git-diff-tree(1)
 		// between that commit and the one we're calculating stats for.
 
+		hash, err := git.DetectObjectHash(ctx, inst.repo)
+		if err != nil {
+			return nil, fmt.Errorf("linguist: detect object hash: %w", err)
+		}
+
 		skipFunc := func(result *gitpipe.RevisionResult) (bool, error) {
 			var skip bool
 
 			// Skip files that are deleted, or
 			// an excluded filetype based on filename.
-			if git.ObjectHashSHA1.IsZeroOID(result.OID) {
+			if hash.IsZeroOID(result.OID) {
 				skip = true
 			} else {
 				f, err := newFileInstance(string(result.ObjectName), checkAttr)
