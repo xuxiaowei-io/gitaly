@@ -60,6 +60,30 @@ func TestUpdater_create(t *testing.T) {
 	require.Equal(t, gittest.ResolveRevision(t, cfg, repoPath, "refs/heads/_create"), commitID)
 }
 
+func TestUpdater_invalidStateTransitions(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+
+	cfg, repo, repoPath, updater := setupUpdater(t, ctx)
+	defer testhelper.MustClose(t, updater)
+
+	commitID := gittest.WriteCommit(t, cfg, repoPath)
+
+	require.Equal(t, invalidStateTransitionError{expected: stateStarted, actual: stateIdle}, updater.Update("refs/heads/main", commitID, ""))
+	require.Equal(t, invalidStateTransitionError{expected: stateStarted, actual: stateClosed}, updater.Create("refs/heads/main", commitID))
+	require.Equal(t, invalidStateTransitionError{expected: stateStarted, actual: stateClosed}, updater.Delete("refs/heads/main"))
+	require.Equal(t, invalidStateTransitionError{expected: stateStarted, actual: stateClosed}, updater.Prepare())
+	require.Equal(t, invalidStateTransitionError{expected: stateStarted, actual: stateClosed}, updater.Commit())
+	require.Equal(t, invalidStateTransitionError{expected: stateIdle, actual: stateClosed}, updater.Start())
+	require.NoError(t, updater.Close())
+
+	// Verify no references were created.
+	refs, err := repo.GetReferences(ctx)
+	require.NoError(t, err)
+	require.Empty(t, refs)
+}
+
 func TestUpdater_update(t *testing.T) {
 	t.Parallel()
 
@@ -92,6 +116,7 @@ func TestUpdater_update(t *testing.T) {
 	require.NoError(t, updater.Start())
 	require.NoError(t, updater.Update("refs/heads/main", newCommitID, otherCommitID))
 	require.ErrorContains(t, updater.Commit(), fmt.Sprintf("fatal: commit: cannot lock ref 'refs/heads/main': is at %s but expected %s", oldCommitID, otherCommitID))
+	require.Equal(t, invalidStateTransitionError{expected: stateIdle, actual: stateClosed}, updater.Start())
 
 	require.Equal(t, gittest.ResolveRevision(t, cfg, repoPath, "refs/heads/main"), oldCommitID)
 }
@@ -121,18 +146,16 @@ func TestUpdater_prepareLocksTransaction(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg, _, repoPath, updater := setupUpdater(t, ctx)
-	defer func() { require.ErrorContains(t, updater.Close(), "closing updater: exit status 128") }()
+	defer testhelper.MustClose(t, updater)
 
 	commitID := gittest.WriteCommit(t, cfg, repoPath)
 
 	require.NoError(t, updater.Start())
 	require.NoError(t, updater.Update("refs/heads/feature", commitID, ""))
 	require.NoError(t, updater.Prepare())
-	require.NoError(t, updater.Update("refs/heads/feature", commitID, ""))
 
-	err := updater.Commit()
-	require.Error(t, err, "cannot update after prepare")
-	require.Contains(t, err.Error(), "fatal: prepared transactions can only be closed")
+	require.Equal(t, invalidStateTransitionError{expected: stateStarted, actual: statePrepared}, updater.Update("refs/heads/feature", commitID, ""))
+	require.Equal(t, invalidStateTransitionError{expected: stateStarted, actual: stateClosed}, updater.Commit())
 }
 
 func TestUpdater_invalidReferenceName(t *testing.T) {
