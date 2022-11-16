@@ -17,7 +17,7 @@ import (
 // unusedErrorCode is any error code that we don't have any wrapping functions for yet. This is used
 // to verify that we correctly wrap errors that already have a different gRPC error code than the
 // one under test.
-const unusedErrorCode = codes.Unauthenticated
+const unusedErrorCode = codes.OutOfRange
 
 func TestError(t *testing.T) {
 	errorMessage := "sentinel error"
@@ -74,6 +74,11 @@ func TestError(t *testing.T) {
 			desc:   "Aborted",
 			errorf: ErrAborted,
 			code:   codes.Aborted,
+		},
+		{
+			desc:   "Unauthenticated",
+			errorf: ErrUnauthenticated,
+			code:   codes.Unauthenticated,
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -182,6 +187,11 @@ func TestErrorf(t *testing.T) {
 			desc:         "ErrUnimplementedf",
 			errorf:       ErrUnimplementedf,
 			expectedCode: codes.Unimplemented,
+		},
+		{
+			desc:         "ErrUnauthenticatedf",
+			errorf:       ErrUnauthenticatedf,
+			expectedCode: codes.Unauthenticated,
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

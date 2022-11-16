@@ -54,6 +54,9 @@ func ErrAlreadyExists(err error) error { return wrapError(codes.AlreadyExists, e
 // ErrAborted wraps err with codes.Aborted, unless err is already a gRPC error.
 func ErrAborted(err error) error { return wrapError(codes.Aborted, err) }
 
+// ErrUnauthenticated wraps err with codes.Unauthenticated, unless err is already a gRPC error.
+func ErrUnauthenticated(err error) error { return wrapError(codes.Unauthenticated, err) }
+
 // wrapError wraps the given error with the error code unless it's already a gRPC error. If given
 // nil it will return nil.
 func wrapError(code codes.Code, err error) error {
@@ -149,6 +152,12 @@ func ErrUnknownf(format string, a ...interface{}) error {
 // gRPC error.
 func ErrUnimplementedf(format string, a ...interface{}) error {
 	return formatError(codes.Unimplemented, format, a...)
+}
+
+// ErrUnauthenticatedf wraps a formatted error with codes.Unauthenticated, unless the formatted error is a wrapped
+// gRPC error.
+func ErrUnauthenticatedf(format string, a ...interface{}) error {
+	return formatError(codes.Unauthenticated, format, a...)
 }
 
 // grpcErrorMessageWrapper is used to wrap a gRPC `status.Status`-style error such that it behaves
