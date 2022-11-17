@@ -145,7 +145,7 @@ func TestNew_unexportedEnv(t *testing.T) {
 func TestNew_rejectContextWithoutDone(t *testing.T) {
 	t.Parallel()
 
-	require.PanicsWithValue(t, contextWithoutDonePanic("command spawned with context without Done() channel"), func() {
+	require.PanicsWithValue(t, "command spawned with context without Done() channel", func() {
 		_, err := New(testhelper.ContextWithoutCancel(), []string{"true"})
 		require.NoError(t, err)
 	})
@@ -191,17 +191,19 @@ func TestCommand_Wait_contextCancellationKillsCommand(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(testhelper.Context(t))
 
-	cmd, err := New(ctx, []string{"sleep", "1h"})
+	cmd, err := New(ctx, []string{"cat", "/dev/urandom"})
 	require.NoError(t, err)
 
-	// Cancel the command early.
+	// Read one byte to ensure the process is running.
+	n, err := cmd.Read(make([]byte, 1))
+	require.NoError(t, err)
+	require.Equal(t, 1, n)
+
 	cancel()
 
 	err = cmd.Wait()
-	require.Error(t, err)
-	s, ok := ExitStatus(err)
-	require.True(t, ok)
-	require.Equal(t, -1, s)
+	require.Equal(t, err, fmt.Errorf("signal: terminated: %w", context.Canceled))
+	require.ErrorIs(t, err, context.Canceled)
 }
 
 func TestNew_setupStdin(t *testing.T) {

@@ -113,7 +113,7 @@ func TestInterceptor(t *testing.T) {
 				//
 				// This test will break again as soon as we bump the minimum Git
 				// version and thus remove the version check.
-				"command.count": 2,
+				"command.count": int64(2),
 			},
 		},
 		{
@@ -133,7 +133,7 @@ func TestInterceptor(t *testing.T) {
 				}
 			},
 			expectedLogData: map[string]interface{}{
-				"command.count": 1,
+				"command.count": int64(1),
 			},
 		},
 	}
@@ -166,5 +166,5 @@ func TestFieldsProducer(t *testing.T) {
 	stats := command.StatsFromContext(ctx)
 	stats.RecordMax("stub", 42)
 
-	require.Equal(t, logrus.Fields{"stub": 42}, FieldsProducer(ctx))
+	require.Equal(t, logrus.Fields{"stub": int64(42)}, FieldsProducer(ctx))
 }

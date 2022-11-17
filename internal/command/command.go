@@ -155,7 +155,7 @@ type Command struct {
 // reaped automatically.
 func New(ctx context.Context, nameAndArgs []string, opts ...Option) (*Command, error) {
 	if ctx.Done() == nil {
-		panic(contextWithoutDonePanic("command spawned with context without Done() channel"))
+		panic("command spawned with context without Done() channel")
 	}
 
 	if len(nameAndArgs) == 0 {
@@ -336,6 +336,9 @@ func (c *Command) Write(p []byte) (int, error) {
 // blocks until the command has finished and reports the command exit
 // status via the error return value. Use ExitStatus to get the integer
 // exit status from the error returned by Wait().
+//
+// Wait returns a wrapped context error if the process was reaped due to
+// the context being done.
 func (c *Command) Wait() error {
 	c.waitOnce.Do(c.wait)
 
@@ -357,6 +360,16 @@ func (c *Command) wait() {
 	}
 
 	c.waitError = c.cmd.Wait()
+
+	// If the context is done, the process was likely terminated due to it. If so,
+	// we return the context error to correctly report the reason.
+	if c.context.Err() != nil {
+		// The standard library sets exit status -1 if the process was terminated by a signal,
+		// such as the SIGTERM sent when context is done.
+		if exitCode, ok := ExitStatus(c.waitError); ok && exitCode == -1 {
+			c.waitError = fmt.Errorf("%s: %w", c.waitError, c.context.Err())
+		}
+	}
 
 	inFlightCommandGauge.Dec()
 
@@ -396,10 +409,10 @@ func (c *Command) logProcessComplete() {
 		"path":                   cmd.Path,
 		"args":                   cmd.Args,
 		"command.exitCode":       exitCode,
-		"command.system_time_ms": systemTime.Seconds() * 1000,
-		"command.user_time_ms":   userTime.Seconds() * 1000,
-		"command.cpu_time_ms":    (systemTime.Seconds() + userTime.Seconds()) * 1000,
-		"command.real_time_ms":   realTime.Seconds() * 1000,
+		"command.system_time_ms": systemTime.Milliseconds(),
+		"command.user_time_ms":   userTime.Milliseconds(),
+		"command.cpu_time_ms":    systemTime.Milliseconds() + userTime.Milliseconds(),
+		"command.real_time_ms":   realTime.Milliseconds(),
 	}
 
 	if c.cgroupPath != "" {
@@ -424,17 +437,17 @@ func (c *Command) logProcessComplete() {
 
 	if stats := StatsFromContext(ctx); stats != nil {
 		stats.RecordSum("command.count", 1)
-		stats.RecordSum("command.system_time_ms", int(systemTime.Seconds()*1000))
-		stats.RecordSum("command.user_time_ms", int(userTime.Seconds()*1000))
-		stats.RecordSum("command.cpu_time_ms", int((systemTime.Seconds()+userTime.Seconds())*1000))
-		stats.RecordSum("command.real_time_ms", int(realTime.Seconds()*1000))
+		stats.RecordSum("command.system_time_ms", systemTime.Milliseconds())
+		stats.RecordSum("command.user_time_ms", userTime.Milliseconds())
+		stats.RecordSum("command.cpu_time_ms", systemTime.Milliseconds()+userTime.Milliseconds())
+		stats.RecordSum("command.real_time_ms", realTime.Milliseconds())
 
 		if ok {
-			stats.RecordMax("command.maxrss", int(rusage.Maxrss))
-			stats.RecordSum("command.inblock", int(rusage.Inblock))
-			stats.RecordSum("command.oublock", int(rusage.Oublock))
-			stats.RecordSum("command.minflt", int(rusage.Minflt))
-			stats.RecordSum("command.majflt", int(rusage.Majflt))
+			stats.RecordMax("command.maxrss", rusage.Maxrss)
+			stats.RecordSum("command.inblock", rusage.Inblock)
+			stats.RecordSum("command.oublock", rusage.Oublock)
+			stats.RecordSum("command.minflt", rusage.Minflt)
+			stats.RecordSum("command.majflt", rusage.Majflt)
 		}
 	}
 
@@ -457,9 +470,9 @@ func (c *Command) logProcessComplete() {
 	c.span.LogKV(
 		"pid", cmd.ProcessState.Pid(),
 		"exit_code", exitCode,
-		"system_time_ms", int(systemTime.Seconds()*1000),
-		"user_time_ms", int(userTime.Seconds()*1000),
-		"real_time_ms", int(realTime.Seconds()*1000),
+		"system_time_ms", systemTime.Milliseconds(),
+		"user_time_ms", userTime.Milliseconds(),
+		"real_time_ms", realTime.Milliseconds(),
 	)
 	if ok {
 		c.span.LogKV(
@@ -487,8 +500,6 @@ func (c *Command) Env() []string {
 func (c *Command) Pid() int {
 	return c.cmd.Process.Pid
 }
-
-type contextWithoutDonePanic string
 
 var getSpawnTokenAcquiringSeconds = func(t time.Time) float64 {
 	return time.Since(t).Seconds()
@@ -525,12 +536,7 @@ func ExitStatus(err error) (int, bool) {
 		return 0, false
 	}
 
-	waitStatus, ok := exitError.Sys().(syscall.WaitStatus)
-	if !ok {
-		return 0, false
-	}
-
-	return waitStatus.ExitStatus(), true
+	return exitError.ExitCode(), true
 }
 
 func methodFromContext(ctx context.Context) (service string, method string) {
