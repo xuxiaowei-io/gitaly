@@ -637,8 +637,11 @@ message CommitLanguagesResponse {
     float share = 2;
     // Color specifies the associated color for this language, for example #3fd5e0.
     string color = 3;
-    // FileCount tells how many files with this language are found.
-    uint32 file_count = 4;
+    // FileCount was a uint32 that stored how many files with this language were found.
+    // However, it was never used and there is no client demand for it.
+    // See: https://gitlab.com/gitlab-org/gitaly/-/issues/4293.
+    reserved 4;
+    reserved "file_count";
     // Bytes is the total amount of bytes written in this language
     uint64 bytes = 5;
   }
