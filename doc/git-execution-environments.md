@@ -103,14 +103,19 @@ issues we have observed.
 While we backport patches that have been accepted in the upstream Git project,
 we do not plan to apply patches that will not eventually end up in Git itself.
 
-To use Gitaly's Git distribution, run `make git`. This Make target automatically
-fetches, builds, and installs Git into a specific directory that is configurable
-with the `GIT_PREFIX` environment variable. For example, to install the Git
-distribution into `/usr/local`:
+To use Gitaly's Git distribution, run `make install-git`. This Make target
+automatically fetches, builds, and installs Git into a specific directory that
+is configurable with the `GIT_PREFIX` environment variable. The version of Git
+is configurable using the `GIT_VERSION` environment variable. For example, to
+install the Git version 2.37.3 into `/usr/local`:
 
-```shell
-make git GIT_PREFIX=/usr/local
+1. Run the command `make GIT_VERSION=2.37.3 GIT_PREFIX=/usr/local install-git`
+   to build Git v2.37.3 and install it in `/usr/local`.
+1. Configure Gitaly to use the Git distribution:
+
+```toml
+# Git settings
+[git]
+use_bundled_binaries = false
+bin_path = "/usr/local/bin/git"
 ```
-
-Then configure the Git distribution the same way as an external Git
-distribution.
