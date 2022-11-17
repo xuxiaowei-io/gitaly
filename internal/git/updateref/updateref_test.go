@@ -175,7 +175,7 @@ func TestUpdater_invalidReferenceName(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { require.ErrorContains(t, updater.Close(), "closing updater: exit status 128") }()
 
-	const referenceName = "./refs/heads/master"
+	const referenceName = `refs/heads\master`
 	require.NoError(t, updater.Start())
 	require.NoError(t, updater.Update(referenceName, commitID, ""))
 	require.Equal(t, ErrInvalidReferenceFormat{ReferenceName: referenceName}, updater.Prepare())
