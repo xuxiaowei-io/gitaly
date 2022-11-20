@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/praefectutil"
@@ -310,12 +311,15 @@ func (r *PerRepositoryRouter) RouteRepositoryCreation(ctx context.Context, virtu
 		return RepositoryMutatorRoute{}, fmt.Errorf("reserve repository id: %w", err)
 	}
 
-	replicaPath := praefectutil.DeriveReplicaPath(id)
-	if housekeeping.IsRailsPoolRepository(&gitalypb.Repository{
-		StorageName:  virtualStorage,
-		RelativePath: relativePath,
-	}) {
-		replicaPath = praefectutil.DerivePoolPath(id)
+	replicaPath := relativePath
+	if featureflag.PraefectGeneratedReplicaPaths.IsEnabled(ctx) {
+		replicaPath = praefectutil.DeriveReplicaPath(id)
+		if housekeeping.IsRailsPoolRepository(&gitalypb.Repository{
+			StorageName:  virtualStorage,
+			RelativePath: relativePath,
+		}) {
+			replicaPath = praefectutil.DerivePoolPath(id)
+		}
 	}
 
 	replicationFactor := r.defaultReplicationFactors[virtualStorage]

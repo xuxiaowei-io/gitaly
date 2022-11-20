@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/nodes"
@@ -664,10 +665,12 @@ func TestPerRepositoryRouter_RouteRepositoryMaintenance(t *testing.T) {
 	}
 }
 
-func TestPerRepositoryRouterRouteRepositoryCreation(t *testing.T) {
-	t.Parallel()
+func TestPerRepositoryRouter_RouteRepositoryCreation(t *testing.T) {
+	testhelper.NewFeatureSets(featureflag.PraefectGeneratedReplicaPaths).Run(t, testPerRepositoryRouterRouteRepositoryCreation)
+}
 
-	ctx := testhelper.Context(t)
+func testPerRepositoryRouterRouteRepositoryCreation(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	configuredNodes := map[string][]string{
 		"virtual-storage-1": {"primary", "secondary-1", "secondary-2"},
@@ -697,7 +700,10 @@ func TestPerRepositoryRouterRouteRepositoryCreation(t *testing.T) {
 		additionalReplicaPath  = "additional-replica-path"
 	)
 
-	replicaPath := praefectutil.DeriveReplicaPath(1)
+	replicaPath := relativePath
+	if featureflag.PraefectGeneratedReplicaPaths.IsEnabled(ctx) {
+		replicaPath = praefectutil.DeriveReplicaPath(1)
+	}
 
 	for _, tc := range []struct {
 		desc                   string
