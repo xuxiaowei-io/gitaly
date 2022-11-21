@@ -176,16 +176,6 @@ func TestConfigValidation(t *testing.T) {
 			errMsg: `virtual storage "secondary": no primary gitaly backends configured`,
 		},
 		{
-			desc: "Node storage has address duplicate",
-			changeConfig: func(cfg *Config) {
-				cfg.VirtualStorages = []*VirtualStorage{
-					{Name: "default", Nodes: vs1Nodes},
-					{Name: "secondary", Nodes: append(vs2Nodes, vs1Nodes[1])},
-				}
-			},
-			errMsg: `multiple storages have the same address`,
-		},
-		{
 			desc: "default replication factor too high",
 			changeConfig: func(cfg *Config) {
 				cfg.VirtualStorages = []*VirtualStorage{
