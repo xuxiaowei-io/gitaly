@@ -443,11 +443,12 @@ func (c *Command) logProcessComplete() {
 		stats.RecordSum("command.real_time_ms", realTime.Milliseconds())
 
 		if ok {
-			stats.RecordMax("command.maxrss", rusage.Maxrss)
-			stats.RecordSum("command.inblock", rusage.Inblock)
-			stats.RecordSum("command.oublock", rusage.Oublock)
-			stats.RecordSum("command.minflt", rusage.Minflt)
-			stats.RecordSum("command.majflt", rusage.Majflt)
+			// Cast to int64 is necessary for 32-bit platforms
+			stats.RecordMax("command.maxrss", int64(rusage.Maxrss))
+			stats.RecordSum("command.inblock", int64(rusage.Inblock))
+			stats.RecordSum("command.oublock", int64(rusage.Oublock))
+			stats.RecordSum("command.minflt", int64(rusage.Minflt))
+			stats.RecordSum("command.majflt", int64(rusage.Majflt))
 		}
 	}
 
