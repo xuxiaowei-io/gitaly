@@ -284,7 +284,7 @@ func addPackFiles(
 
 func TestMidxRepack_validationChecks(t *testing.T) {
 	t.Parallel()
-	cfg, client := setupRepositoryServiceWithoutRepo(t, testserver.WithDisablePraefect())
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
@@ -293,19 +293,28 @@ func TestMidxRepack_validationChecks(t *testing.T) {
 		expectedErr error
 	}{
 		{
-			desc:        "no repository",
-			req:         &gitalypb.MidxRepackRequest{},
-			expectedErr: status.Error(codes.InvalidArgument, "empty Repository"),
+			desc: "no repository",
+			req:  &gitalypb.MidxRepackRequest{},
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 		{
-			desc:        "invalid storage",
-			req:         &gitalypb.MidxRepackRequest{Repository: &gitalypb.Repository{RelativePath: "stub", StorageName: "invalid"}},
-			expectedErr: status.Error(codes.InvalidArgument, `GetStorageByName: no such storage: "invalid"`),
+			desc: "invalid storage",
+			req:  &gitalypb.MidxRepackRequest{Repository: &gitalypb.Repository{RelativePath: "stub", StorageName: "invalid"}},
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+				`GetStorageByName: no such storage: "invalid"`,
+				"repo scoped: invalid Repository",
+			)),
 		},
 		{
-			desc:        "not existing repository",
-			req:         &gitalypb.MidxRepackRequest{Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "invalid"}},
-			expectedErr: status.Error(codes.NotFound, fmt.Sprintf(`GetRepoPath: not a git repository: "%s/invalid"`, cfg.Storages[0].Path)),
+			desc: "not existing repository",
+			req:  &gitalypb.MidxRepackRequest{Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "invalid"}},
+			expectedErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefectMessage(
+				fmt.Sprintf(`GetRepoPath: not a git repository: "%s/invalid"`, cfg.Storages[0].Path),
+				"routing repository maintenance: getting repository metadata: repository not found",
+			)),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
