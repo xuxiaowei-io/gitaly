@@ -208,7 +208,6 @@ var (
 	errNoGitalyServers          = errors.New("no primary gitaly backends configured")
 	errNoListener               = errors.New("no listen address or socket path configured")
 	errNoVirtualStorages        = errors.New("no virtual storages configured")
-	errStorageAddressDuplicate  = errors.New("multiple storages have the same address")
 	errVirtualStoragesNotUnique = errors.New("virtual storages must have unique names")
 	errVirtualStorageUnnamed    = errors.New("virtual storages must have a name")
 )
@@ -231,7 +230,6 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("replication batch size was %d but must be >=1", c.Replication.BatchSize)
 	}
 
-	allAddresses := make(map[string]struct{})
 	virtualStorages := make(map[string]struct{}, len(c.VirtualStorages))
 
 	for _, virtualStorage := range c.VirtualStorages {
@@ -262,11 +260,6 @@ func (c *Config) Validate() error {
 				return fmt.Errorf("virtual storage %q: %w", virtualStorage.Name, errDuplicateStorage)
 			}
 			storages[node.Storage] = struct{}{}
-
-			if _, found := allAddresses[node.Address]; found {
-				return fmt.Errorf("virtual storage %q: address %q : %w", virtualStorage.Name, node.Address, errStorageAddressDuplicate)
-			}
-			allAddresses[node.Address] = struct{}{}
 		}
 
 		if virtualStorage.DefaultReplicationFactor > len(virtualStorage.Nodes) {
