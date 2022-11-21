@@ -34,6 +34,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -47,7 +48,7 @@ func TestReplicateRepository(t *testing.T) {
 	testcfg.BuildGitalyHooks(t, cfg)
 	testcfg.BuildGitalySSH(t, cfg)
 
-	client, serverSocketPath := runRepositoryService(t, cfg, nil, testserver.WithDisablePraefect())
+	client, serverSocketPath := runRepositoryService(t, cfg, nil)
 	cfg.SocketPath = serverSocketPath
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
@@ -81,6 +82,11 @@ func TestReplicateRepository(t *testing.T) {
 		Repository: targetRepo,
 		Source:     repo,
 	})
+	if testhelper.IsPraefectEnabled() {
+		require.Equal(t, status.Error(codes.InvalidArgument, "both source and repository should have the same relative path"), err)
+		return
+	}
+
 	require.NoError(t, err)
 
 	targetRepoPath := filepath.Join(cfg.Storages[1].Path, targetRepo.GetRelativePath())
@@ -120,7 +126,7 @@ func TestReplicateRepository_hiddenRefs(t *testing.T) {
 	testcfg.BuildGitalyHooks(t, cfg)
 	testcfg.BuildGitalySSH(t, cfg)
 
-	client, serverSocketPath := runRepositoryService(t, cfg, nil, testserver.WithDisablePraefect())
+	client, serverSocketPath := runRepositoryService(t, cfg, nil)
 	cfg.SocketPath = serverSocketPath
 
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
@@ -145,6 +151,11 @@ func TestReplicateRepository_hiddenRefs(t *testing.T) {
 			Repository: targetRepo,
 			Source:     sourceRepo,
 		})
+		if testhelper.IsPraefectEnabled() {
+			require.Equal(t, status.Error(codes.InvalidArgument, "both source and repository should have the same relative path"), err)
+			return
+		}
+
 		require.NoError(t, err)
 
 		require.ElementsMatch(t, expectedRefs, strings.Split(text.ChompBytes(gittest.Exec(t, cfg, "-C", targetRepoPath, "for-each-ref")), "\n"))
@@ -183,6 +194,11 @@ func TestReplicateRepository_hiddenRefs(t *testing.T) {
 			Repository: targetRepo,
 			Source:     sourceRepo,
 		})
+		if testhelper.IsPraefectEnabled() {
+			require.Equal(t, status.Error(codes.InvalidArgument, "both source and repository should have the same relative path"), err)
+			return
+		}
+
 		require.NoError(t, err)
 
 		// Verify that the references for both repositories match.
@@ -243,6 +259,7 @@ func TestReplicateRepositoryTransactional(t *testing.T) {
 		Repository: targetRepo,
 		Source:     sourceRepo,
 	})
+
 	require.NoError(t, err)
 
 	// There is no gitattributes file, so we vote on the empty contents of that file.
@@ -414,7 +431,7 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 			testcfg.BuildGitalyHooks(t, cfg)
 			testcfg.BuildGitalySSH(t, cfg)
 
-			client, serverSocketPath := runRepositoryService(t, cfg, nil, testserver.WithDisablePraefect())
+			client, serverSocketPath := runRepositoryService(t, cfg, nil)
 			cfg.SocketPath = serverSocketPath
 
 			sourceRepo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
@@ -450,6 +467,11 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 				Repository: targetRepo,
 				Source:     sourceRepo,
 			})
+			if testhelper.IsPraefectEnabled() {
+				require.Equal(t, status.Error(codes.InvalidArgument, "both source and repository should have the same relative path"), err)
+				return
+			}
+
 			if tc.error != nil {
 				tc.error(t, err)
 				return
@@ -469,9 +491,7 @@ func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 	testcfg.BuildGitalyHooks(t, cfg)
 	testcfg.BuildGitalySSH(t, cfg)
 
-	// Our test setup does not allow for Praefects with multiple storages. We thus have to
-	// disable Praefect here.
-	client, socketPath := runRepositoryService(t, cfg, nil, testserver.WithDisablePraefect())
+	client, socketPath := runRepositoryService(t, cfg, nil)
 	cfg.SocketPath = socketPath
 
 	targetRepo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
@@ -497,6 +517,11 @@ func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 		Repository: targetRepo,
 		Source:     sourceRepo,
 	})
+	if testhelper.IsPraefectEnabled() {
+		require.Equal(t, status.Error(codes.InvalidArgument, "both source and repository should have the same relative path"), err)
+		return
+	}
+
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "fetch: exit status 128")
 }
@@ -573,7 +598,7 @@ func TestFetchInternalRemote_successful(t *testing.T) {
 			referenceTransactionHookCalled++
 			return nil
 		}),
-	), testserver.WithDisablePraefect())
+	))
 
 	ctx, err := storage.InjectGitalyServers(ctx, remoteRepo.GetStorageName(), remoteAddr, remoteCfg.Auth.Token)
 	require.NoError(t, err)
