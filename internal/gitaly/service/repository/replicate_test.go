@@ -34,7 +34,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -82,14 +81,10 @@ func TestReplicateRepository(t *testing.T) {
 		Repository: targetRepo,
 		Source:     repo,
 	})
-	if testhelper.IsPraefectEnabled() {
-		require.Equal(t, status.Error(codes.InvalidArgument, "both source and repository should have the same relative path"), err)
-		return
-	}
 
 	require.NoError(t, err)
 
-	targetRepoPath := filepath.Join(cfg.Storages[1].Path, targetRepo.GetRelativePath())
+	targetRepoPath := filepath.Join(cfg.Storages[1].Path, gittest.GetReplicaPath(ctx, t, cfg, targetRepo))
 	gittest.Exec(t, cfg, "-C", targetRepoPath, "fsck")
 
 	replicatedAttrFilePath := filepath.Join(targetRepoPath, "info", "attributes")
@@ -145,19 +140,14 @@ func TestReplicateRepository_hiddenRefs(t *testing.T) {
 
 		targetRepo := proto.Clone(sourceRepo).(*gitalypb.Repository)
 		targetRepo.StorageName = cfg.Storages[1].Name
-		targetRepoPath := filepath.Join(cfg.Storages[1].Path, targetRepo.GetRelativePath())
 
 		_, err := client.ReplicateRepository(ctx, &gitalypb.ReplicateRepositoryRequest{
 			Repository: targetRepo,
 			Source:     sourceRepo,
 		})
-		if testhelper.IsPraefectEnabled() {
-			require.Equal(t, status.Error(codes.InvalidArgument, "both source and repository should have the same relative path"), err)
-			return
-		}
-
 		require.NoError(t, err)
 
+		targetRepoPath := filepath.Join(cfg.Storages[1].Path, gittest.GetReplicaPath(ctx, t, cfg, targetRepo))
 		require.ElementsMatch(t, expectedRefs, strings.Split(text.ChompBytes(gittest.Exec(t, cfg, "-C", targetRepoPath, "for-each-ref")), "\n"))
 
 		// Perform another sanity-check to verify that source and target repository have the
@@ -194,10 +184,6 @@ func TestReplicateRepository_hiddenRefs(t *testing.T) {
 			Repository: targetRepo,
 			Source:     sourceRepo,
 		})
-		if testhelper.IsPraefectEnabled() {
-			require.Equal(t, status.Error(codes.InvalidArgument, "both source and repository should have the same relative path"), err)
-			return
-		}
 
 		require.NoError(t, err)
 
@@ -354,20 +340,6 @@ func TestReplicateRepositoryInvalidArguments(t *testing.T) {
 			expectedError: "repository cannot be empty",
 		},
 		{
-			description: "source and repository have different relative paths",
-			input: &gitalypb.ReplicateRepositoryRequest{
-				Repository: &gitalypb.Repository{
-					StorageName:  "praefect-internal-0",
-					RelativePath: "/ab/cd/abcdef1234",
-				},
-				Source: &gitalypb.Repository{
-					StorageName:  "praefect-internal-1",
-					RelativePath: "/ab/cd/abcdef4321",
-				},
-			},
-			expectedError: "both source and repository should have the same relative path",
-		},
-		{
 			description: "source and repository have the same storage",
 			input: &gitalypb.ReplicateRepositoryRequest{
 				Repository: &gitalypb.Repository{
@@ -412,6 +384,15 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 			desc:          "source invalid",
 			invalidSource: true,
 			error: func(tb testing.TB, actual error) {
+				if testhelper.IsPraefectEnabled() {
+					// ReplicateRepository uses RepositoryExists to check whether the source repository exists on the target
+					// Gitaly. Gitaly returns NotFound if accessing a corrupt repository. Praefect relies on the metadata
+					// and returns that the repository still exists, causing this test to hit a different code path and diverge
+					// in behavior.
+					require.ErrorContains(t, actual, "synchronizing gitattributes: GetRepoPath: not a git repository: ")
+					return
+				}
+
 				testhelper.RequireGrpcError(tb, ErrInvalidSourceRepository, actual)
 			},
 		},
@@ -452,9 +433,10 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 
 			locator := config.NewLocator(cfg)
 			for _, invalidRepo := range invalidRepos {
-				invalidRepoPath, err := locator.GetPath(invalidRepo)
+				storagePath, err := locator.GetStorageByName(invalidRepo.StorageName)
 				require.NoError(t, err)
 
+				invalidRepoPath := filepath.Join(storagePath, gittest.GetReplicaPath(ctx, t, cfg, invalidRepo))
 				// delete git data so make the repo invalid
 				for _, path := range []string{"refs", "objects", "HEAD"} {
 					require.NoError(t, os.RemoveAll(filepath.Join(invalidRepoPath, path)))
@@ -467,11 +449,6 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 				Repository: targetRepo,
 				Source:     sourceRepo,
 			})
-			if testhelper.IsPraefectEnabled() {
-				require.Equal(t, status.Error(codes.InvalidArgument, "both source and repository should have the same relative path"), err)
-				return
-			}
-
 			if tc.error != nil {
 				tc.error(t, err)
 				return
@@ -498,29 +475,19 @@ func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 		Storage: cfg.Storages[1],
 	})
 
-	// The source repository must be at the same path as the target repository, and it must be a
-	// real repository. In order to still have the fetch fail, we corrupt the repository by
-	// writing garbage into HEAD.
-	sourceRepo := &gitalypb.Repository{
-		StorageName:  "default",
-		RelativePath: targetRepo.RelativePath,
-	}
-	sourceRepoPath, err := config.NewLocator(cfg).GetPath(sourceRepo)
-	require.NoError(t, err)
-	require.NoError(t, os.MkdirAll(sourceRepoPath, 0o777))
-	gittest.Exec(t, cfg, "init", "--bare", sourceRepoPath)
+	sourceRepo, sourceRepoPath := gittest.CreateRepository(ctx, t, cfg, gittest.CreateRepositoryConfig{
+		Storage: cfg.Storages[0],
+	})
+
+	// We corrupt the repository by writing garbage into HEAD.
 	require.NoError(t, os.WriteFile(filepath.Join(sourceRepoPath, "HEAD"), []byte("garbage"), 0o666))
 
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
-	_, err = client.ReplicateRepository(ctx, &gitalypb.ReplicateRepositoryRequest{
+	_, err := client.ReplicateRepository(ctx, &gitalypb.ReplicateRepositoryRequest{
 		Repository: targetRepo,
 		Source:     sourceRepo,
 	})
-	if testhelper.IsPraefectEnabled() {
-		require.Equal(t, status.Error(codes.InvalidArgument, "both source and repository should have the same relative path"), err)
-		return
-	}
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "fetch: exit status 128")
