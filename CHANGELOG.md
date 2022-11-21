@@ -1,5 +1,53 @@
 # Gitaly changelog
 
+## 15.6.0 (2022-11-21)
+
+### Added (2 changes)
+
+- [repository: Introduce "eager" optimization strategy](gitlab-org/gitaly@b8feaaca43ea8757a23ee1492187973da5c8802d) ([merge request](gitlab-org/gitaly!4996))
+- [stats: Implement support for SHA256 object format in push probes](gitlab-org/gitaly@cf06896a6e55947c2ff01cec482d7215636c196f) ([merge request](gitlab-org/gitaly!5017))
+
+### Fixed (11 changes)
+
+- [operations: Structured errors for UserCommitFiles](gitlab-org/gitaly@063a8f5863daeb310608b778c5855643faa5a25d) ([merge request](gitlab-org/gitaly!4988))
+- [praefect: Make add-repositories tests parallel](gitlab-org/gitaly@3adc6953cd9545d1608e40df1a023e3c5f02487a) ([merge request](gitlab-org/gitaly!5041))
+- [operations: Stop using `NewWithDir()` for worktrees](gitlab-org/gitaly@55dc1422fe58525f9607c8c08e2f105be4717442) ([merge request](gitlab-org/gitaly!5025))
+- [global: Fix use of different cgroups when serving repos](gitlab-org/gitaly@6b32a64bbd4567122643505bdb93a748f2417da4) ([merge request](gitlab-org/gitaly!5025))
+- [Update pg_query to 2.2.0](gitlab-org/gitaly@0582850be0059b9ce24a97d793284e1fa08ed937) ([merge request](gitlab-org/gitaly!5007))
+- [objectpool: Revert error if object does not exist on fetch](gitlab-org/gitaly@5cdd7d49c5367a13a08f0a4a2c8204c387496bf2) ([merge request](gitlab-org/gitaly!5003))
+- [Fix openssl conflicts with FIPS](gitlab-org/gitaly@03adc194418153f892fcd7381cb710fbc1c90453) ([merge request](gitlab-org/gitaly!4984))
+- [objectpool: Raise error if object pool does not exist on fetch](gitlab-org/gitaly@3bfe68576b79fb7aec4974b4e5bf176cf81a3b13) ([merge request](gitlab-org/gitaly!4978))
+- [linguist: Use git.CheckAttr instead of go-git](gitlab-org/gitaly@adad8efbc270ba08c1ada2e91809eee2793a5c1f) ([merge request](gitlab-org/gitaly!4936))
+- [git: Extend config validation to allow URL keys](gitlab-org/gitaly@9b1fc6c5e43dbabba42a775a2b727dc106d47bc2) ([merge request](gitlab-org/gitaly!4952))
+- [housekeeping: Clean up stale alternates and gitattributes locks](gitlab-org/gitaly@38de5e1a289558d02e9bc356d426c266a724d9d7) ([merge request](gitlab-org/gitaly!4944))
+
+### Deprecated (1 change)
+
+- [go: Drop support for Go 1.17](gitlab-org/gitaly@04af331b09732d8a6d4af4e38e28f0a86d3e6a36) ([merge request](gitlab-org/gitaly!4999))
+
+### Removed (4 changes)
+
+- [Remove Praefect-generated replica paths feature flag](gitlab-org/gitaly@3c4a506c4c204207823eeb51334549da652d1b8f) ([merge request](gitlab-org/gitaly!4941))
+- [Remove Wiki-related code paths in Ruby sidecar](gitlab-org/gitaly@9aafd67bb602d29d0de3e83461fbf39f207deaaa) ([merge request](gitlab-org/gitaly!4954))
+- [Remove Wiki* RPC handlers](gitlab-org/gitaly@148203405e801469f98956af96e03d0694f47fd8) ([merge request](gitlab-org/gitaly!4955))
+- [Remove secret from HTTP request headers](gitlab-org/gitaly@dacf3e319262f96e069435cef3d27d9c11088f5d) ([merge request](gitlab-org/gitaly!4947))
+
+### Security (2 changes)
+
+- [proto: Add resolved_address along remote URLs](gitlab-org/gitaly@5735004a2e51f19154385543125710d223ab08c5) ([merge request](gitlab-org/gitaly!5006))
+- [proto: Add resolved_address along remote URLs](gitlab-org/gitaly@07926a7cdf6bfac8fcc839661543c4265904930c) ([merge request](gitlab-org/gitaly!5010))
+
+### Other (8 changes)
+
+- [Expose logs as artifacts when running tests on CI](gitlab-org/gitaly@d07b20bab4d192aa366100b0487fefdbe5e61a84) ([merge request](gitlab-org/gitaly!5002))
+- [ruby: Clean up gems and test configurations](gitlab-org/gitaly@0d2baa826945678103c49f76645e276e3cd1633b) ([merge request](gitlab-org/gitaly!4992))
+- [ruby: Remove RuggedInterceptor](gitlab-org/gitaly@fe3f065666a393561a6a6a4b0a32df914b017918) ([merge request](gitlab-org/gitaly!4992))
+- [ruby: Remove supporting methods and logger classes](gitlab-org/gitaly@443964112b728193ac2796debcf5477826bc7876) ([merge request](gitlab-org/gitaly!4992))
+- [ruby: Remove ruby/lib/gitlab/git/*](gitlab-org/gitaly@a238cbfb8fd039b2fed350aa81f0c0154d9a01f5) ([merge request](gitlab-org/gitaly!4992))
+- [ruby: Remove HooksService and OperationService](gitlab-org/gitaly@4440aae1c028c263b37ee6f149f11179d22147f8) ([merge request](gitlab-org/gitaly!4992))
+- [ruby: Remove FeatureFlags](gitlab-org/gitaly@63b206dd21eac0e7f573b099f6bd4154ca44ae3a) ([merge request](gitlab-org/gitaly!4992))
+- [Remove rubyserver redundant clients](gitlab-org/gitaly@2a76a2615d8b1c6d611d0623e4d0925a4b9f914e) ([merge request](gitlab-org/gitaly!4992))
+
 ## 15.5.4 (2022-11-11)
 
 No changes.
