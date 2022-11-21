@@ -37,7 +37,7 @@ func TestStatsFromContext_RecordSum(t *testing.T) {
 	stats.RecordSum("foo", 1)
 
 	require.NotNil(t, stats)
-	require.Equal(t, stats.Fields(), logrus.Fields{"foo": int64(2)})
+	require.Equal(t, stats.Fields(), logrus.Fields{"foo": 2})
 }
 
 func TestStatsFromContext_RecordSumByRef(t *testing.T) {
@@ -53,7 +53,7 @@ func TestStatsFromContext_RecordSumByRef(t *testing.T) {
 	stats2 := StatsFromContext(ctx)
 
 	require.NotNil(t, stats2)
-	require.Equal(t, stats2.Fields(), logrus.Fields{"foo": int64(2)})
+	require.Equal(t, stats2.Fields(), logrus.Fields{"foo": 2})
 }
 
 func TestStatsFromContext_RecordMax(t *testing.T) {
@@ -68,5 +68,5 @@ func TestStatsFromContext_RecordMax(t *testing.T) {
 	stats.RecordMax("foo", 512)
 
 	require.NotNil(t, stats)
-	require.Equal(t, stats.Fields(), logrus.Fields{"foo": int64(1024)})
+	require.Equal(t, stats.Fields(), logrus.Fields{"foo": 1024})
 }
