@@ -14,11 +14,15 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// unusedErrorCode is any error code that we don't have any wrapping functions for yet. This is used
+// to verify that we correctly wrap errors that already have a different gRPC error code than the
+// one under test.
+const unusedErrorCode = codes.OutOfRange
+
 func TestError(t *testing.T) {
 	errorMessage := "sentinel error"
 	input := errors.New(errorMessage)
-	inputGRPCCode := codes.Unauthenticated
-	inputGRPC := status.Error(inputGRPCCode, errorMessage)
+	inputGRPC := status.Error(unusedErrorCode, errorMessage)
 	inputInternalGRPC := ErrAbortedf(errorMessage)
 
 	for _, tc := range []struct {
@@ -71,11 +75,16 @@ func TestError(t *testing.T) {
 			errorf: ErrAborted,
 			code:   codes.Aborted,
 		},
+		{
+			desc:   "Unauthenticated",
+			errorf: ErrUnauthenticated,
+			code:   codes.Unauthenticated,
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			// tc.code and our canary test code must not
 			// clash!
-			require.NotEqual(t, tc.code, inputGRPCCode)
+			require.NotEqual(t, tc.code, unusedErrorCode)
 
 			// When not re-throwing an error we get the
 			// GRPC error code corresponding to the
@@ -92,7 +101,7 @@ func TestError(t *testing.T) {
 			err = tc.errorf(inputGRPC)
 			require.True(t, errors.Is(err, inputGRPC))
 			require.False(t, errors.Is(err, input))
-			require.Equal(t, inputGRPCCode, status.Code(err))
+			require.Equal(t, unusedErrorCode, status.Code(err))
 			require.NotEqual(t, tc.code, status.Code(inputGRPC))
 
 			// Wrapped gRPC error (internal.status.Error) code will get
@@ -101,7 +110,7 @@ func TestError(t *testing.T) {
 			err = tc.errorf(fmt.Errorf("outer: %w", inputGRPC))
 			require.True(t, errors.Is(err, inputGRPC))
 			require.False(t, errors.Is(err, input))
-			require.Equal(t, inputGRPCCode, status.Code(err))
+			require.Equal(t, unusedErrorCode, status.Code(err))
 			require.NotEqual(t, tc.code, status.Code(inputGRPC))
 
 			if tc.code != codes.Aborted {
@@ -179,6 +188,11 @@ func TestErrorf(t *testing.T) {
 			errorf:       ErrUnimplementedf,
 			expectedCode: codes.Unimplemented,
 		},
+		{
+			desc:         "ErrUnauthenticatedf",
+			errorf:       ErrUnauthenticatedf,
+			expectedCode: codes.Unauthenticated,
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Run("with non-gRPC error", func(t *testing.T) {
@@ -192,9 +206,9 @@ func TestErrorf(t *testing.T) {
 			})
 
 			t.Run("with status.Errorf error and %v", func(t *testing.T) {
-				require.NotEqual(t, tc.expectedCode, codes.Unauthenticated)
+				require.NotEqual(t, tc.expectedCode, unusedErrorCode)
 
-				err := tc.errorf("top-level: %v", status.Errorf(codes.Unauthenticated, "deeply: %s", "nested"))
+				err := tc.errorf("top-level: %v", status.Errorf(unusedErrorCode, "deeply: %s", "nested"))
 				require.EqualError(t, err, "top-level: deeply: nested")
 
 				// The error code of the nested error should be discarded.
@@ -205,22 +219,22 @@ func TestErrorf(t *testing.T) {
 			})
 
 			t.Run("with status.Errorf error and %w", func(t *testing.T) {
-				require.NotEqual(t, tc.expectedCode, codes.Unauthenticated)
+				require.NotEqual(t, tc.expectedCode, unusedErrorCode)
 
-				err := tc.errorf("top-level: %w", status.Errorf(codes.Unauthenticated, "deeply: %s", "nested"))
+				err := tc.errorf("top-level: %w", status.Errorf(unusedErrorCode, "deeply: %s", "nested"))
 				require.EqualError(t, err, "top-level: deeply: nested")
 
 				// We should be reporting the error code of the nested error.
-				require.Equal(t, codes.Unauthenticated, status.Code(err))
+				require.Equal(t, unusedErrorCode, status.Code(err))
 				s, ok := status.FromError(err)
 				require.True(t, ok)
-				require.Equal(t, status.New(codes.Unauthenticated, "top-level: deeply: nested"), s)
+				require.Equal(t, status.New(unusedErrorCode, "top-level: deeply: nested"), s)
 			})
 
 			t.Run("with status.Error error and %v", func(t *testing.T) {
-				require.NotEqual(t, tc.expectedCode, codes.Unauthenticated)
+				require.NotEqual(t, tc.expectedCode, unusedErrorCode)
 
-				err := tc.errorf("top-level: %v", status.Error(codes.Unauthenticated, "nested"))
+				err := tc.errorf("top-level: %v", status.Error(unusedErrorCode, "nested"))
 				require.EqualError(t, err, "top-level: nested")
 
 				// The error code of the nested error should be discarded.
@@ -231,50 +245,50 @@ func TestErrorf(t *testing.T) {
 			})
 
 			t.Run("with status.Error error and %w", func(t *testing.T) {
-				require.NotEqual(t, tc.expectedCode, codes.Unauthenticated)
+				require.NotEqual(t, tc.expectedCode, unusedErrorCode)
 
-				err := tc.errorf("top-level: %w", status.Error(codes.Unauthenticated, "nested"))
+				err := tc.errorf("top-level: %w", status.Error(unusedErrorCode, "nested"))
 				require.EqualError(t, err, "top-level: nested")
 
 				// We should be reporting the error code of the nested error.
-				require.Equal(t, codes.Unauthenticated, status.Code(err))
+				require.Equal(t, unusedErrorCode, status.Code(err))
 				s, ok := status.FromError(err)
 				require.True(t, ok)
-				require.Equal(t, status.New(codes.Unauthenticated, "top-level: nested"), s)
+				require.Equal(t, status.New(unusedErrorCode, "top-level: nested"), s)
 			})
 
 			t.Run("multi-nesting gRPC errors", func(t *testing.T) {
-				require.NotEqual(t, tc.expectedCode, codes.Unauthenticated)
+				require.NotEqual(t, tc.expectedCode, unusedErrorCode)
 
 				err := tc.errorf("first: %w",
 					ErrInternalf("second: %w",
-						status.Error(codes.Unauthenticated, "third"),
+						status.Error(unusedErrorCode, "third"),
 					),
 				)
 				require.EqualError(t, err, "first: second: third")
 
 				// We should be reporting the error code of the nested error.
-				require.Equal(t, codes.Unauthenticated, status.Code(err))
+				require.Equal(t, unusedErrorCode, status.Code(err))
 				s, ok := status.FromError(err)
 				require.True(t, ok)
-				require.Equal(t, status.New(codes.Unauthenticated, "first: second: third"), s)
+				require.Equal(t, status.New(unusedErrorCode, "first: second: third"), s)
 			})
 
 			t.Run("multi-nesting with standard error wrapping", func(t *testing.T) {
-				require.NotEqual(t, tc.expectedCode, codes.Unauthenticated)
+				require.NotEqual(t, tc.expectedCode, unusedErrorCode)
 
 				err := tc.errorf("first: %w",
 					fmt.Errorf("second: %w",
-						formatError(codes.Unauthenticated, "third"),
+						formatError(unusedErrorCode, "third"),
 					),
 				)
 				require.EqualError(t, err, "first: second: third")
 
 				// We should be reporting the error code of the nested error.
-				require.Equal(t, codes.Unauthenticated, status.Code(err))
+				require.Equal(t, unusedErrorCode, status.Code(err))
 				s, ok := status.FromError(err)
 				require.True(t, ok)
-				require.Equal(t, status.New(codes.Unauthenticated, "first: second: third"), s)
+				require.Equal(t, status.New(unusedErrorCode, "first: second: third"), s)
 			})
 		})
 	}

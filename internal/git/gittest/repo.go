@@ -123,7 +123,6 @@ func CreateRepository(tb testing.TB, ctx context.Context, cfg config.Cfg, config
 
 	if ObjectHashIsSHA256() || opts.ObjectFormat != "" {
 		require.Empty(tb, opts.Seed, "seeded repository creation not supported with non-default object format")
-		require.True(tb, opts.SkipCreationViaService, "repository creation via service not supported with non-default object format")
 	}
 
 	storage := cfg.Storages[0]
@@ -161,7 +160,8 @@ func CreateRepository(tb testing.TB, ctx context.Context, cfg config.Cfg, config
 			require.NoError(tb, err)
 		} else {
 			_, err := client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{
-				Repository: repository,
+				Repository:   repository,
+				ObjectFormat: DefaultObjectHash.ProtoFormat,
 			})
 			require.NoError(tb, err)
 		}

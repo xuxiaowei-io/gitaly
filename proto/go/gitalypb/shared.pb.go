@@ -82,6 +82,60 @@ func (ObjectType) EnumDescriptor() ([]byte, []int) {
 	return file_shared_proto_rawDescGZIP(), []int{0}
 }
 
+// ObjectFormat is the object format that a Git repository can use.
+type ObjectFormat int32
+
+const (
+	// OBJECT_FORMAT_UNSPECIFIED is the default object type when it has not been explicitly requested
+	// by the client. Defaults to OBJECT_FORMAT_SHA1.
+	ObjectFormat_OBJECT_FORMAT_UNSPECIFIED ObjectFormat = 0
+	// OBJECT_FORMAT_SHA1 is the object format based on the SHA1 hash.
+	ObjectFormat_OBJECT_FORMAT_SHA1 ObjectFormat = 1
+	// OBJECT_FORMAT_SHA256 is the object format based on the SHA256 hash. This is experimental.
+	ObjectFormat_OBJECT_FORMAT_SHA256 ObjectFormat = 2
+)
+
+// Enum value maps for ObjectFormat.
+var (
+	ObjectFormat_name = map[int32]string{
+		0: "OBJECT_FORMAT_UNSPECIFIED",
+		1: "OBJECT_FORMAT_SHA1",
+		2: "OBJECT_FORMAT_SHA256",
+	}
+	ObjectFormat_value = map[string]int32{
+		"OBJECT_FORMAT_UNSPECIFIED": 0,
+		"OBJECT_FORMAT_SHA1":        1,
+		"OBJECT_FORMAT_SHA256":      2,
+	}
+)
+
+func (x ObjectFormat) Enum() *ObjectFormat {
+	p := new(ObjectFormat)
+	*p = x
+	return p
+}
+
+func (x ObjectFormat) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ObjectFormat) Descriptor() protoreflect.EnumDescriptor {
+	return file_shared_proto_enumTypes[1].Descriptor()
+}
+
+func (ObjectFormat) Type() protoreflect.EnumType {
+	return &file_shared_proto_enumTypes[1]
+}
+
+func (x ObjectFormat) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ObjectFormat.Descriptor instead.
+func (ObjectFormat) EnumDescriptor() ([]byte, []int) {
+	return file_shared_proto_rawDescGZIP(), []int{1}
+}
+
 // This comment is left unintentionally blank.
 type SignatureType int32
 
@@ -123,11 +177,11 @@ func (x SignatureType) String() string {
 }
 
 func (SignatureType) Descriptor() protoreflect.EnumDescriptor {
-	return file_shared_proto_enumTypes[1].Descriptor()
+	return file_shared_proto_enumTypes[2].Descriptor()
 }
 
 func (SignatureType) Type() protoreflect.EnumType {
-	return &file_shared_proto_enumTypes[1]
+	return &file_shared_proto_enumTypes[2]
 }
 
 func (x SignatureType) Number() protoreflect.EnumNumber {
@@ -136,7 +190,7 @@ func (x SignatureType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use SignatureType.Descriptor instead.
 func (SignatureType) EnumDescriptor() ([]byte, []int) {
-	return file_shared_proto_rawDescGZIP(), []int{1}
+	return file_shared_proto_rawDescGZIP(), []int{2}
 }
 
 // SortDirection defines the sort direction.
@@ -172,11 +226,11 @@ func (x SortDirection) String() string {
 }
 
 func (SortDirection) Descriptor() protoreflect.EnumDescriptor {
-	return file_shared_proto_enumTypes[2].Descriptor()
+	return file_shared_proto_enumTypes[3].Descriptor()
 }
 
 func (SortDirection) Type() protoreflect.EnumType {
-	return &file_shared_proto_enumTypes[2]
+	return &file_shared_proto_enumTypes[3]
 }
 
 func (x SortDirection) Number() protoreflect.EnumNumber {
@@ -185,7 +239,7 @@ func (x SortDirection) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use SortDirection.Descriptor instead.
 func (SortDirection) EnumDescriptor() ([]byte, []int) {
-	return file_shared_proto_rawDescGZIP(), []int{2}
+	return file_shared_proto_rawDescGZIP(), []int{3}
 }
 
 // This comment is left unintentionally blank.
@@ -1277,17 +1331,24 @@ var file_shared_proto_rawDesc = []byte{
 	0x74, 0x54, 0x79, 0x70, 0x65, 0x12, 0x0b, 0x0a, 0x07, 0x55, 0x4e, 0x4b, 0x4e, 0x4f, 0x57, 0x4e,
 	0x10, 0x00, 0x12, 0x0a, 0x0a, 0x06, 0x43, 0x4f, 0x4d, 0x4d, 0x49, 0x54, 0x10, 0x01, 0x12, 0x08,
 	0x0a, 0x04, 0x42, 0x4c, 0x4f, 0x42, 0x10, 0x02, 0x12, 0x08, 0x0a, 0x04, 0x54, 0x52, 0x45, 0x45,
-	0x10, 0x03, 0x12, 0x07, 0x0a, 0x03, 0x54, 0x41, 0x47, 0x10, 0x04, 0x2a, 0x35, 0x0a, 0x0d, 0x53,
-	0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x54, 0x79, 0x70, 0x65, 0x12, 0x08, 0x0a, 0x04,
-	0x4e, 0x4f, 0x4e, 0x45, 0x10, 0x00, 0x12, 0x07, 0x0a, 0x03, 0x50, 0x47, 0x50, 0x10, 0x01, 0x12,
-	0x08, 0x0a, 0x04, 0x58, 0x35, 0x30, 0x39, 0x10, 0x02, 0x12, 0x07, 0x0a, 0x03, 0x53, 0x53, 0x48,
-	0x10, 0x03, 0x2a, 0x2e, 0x0a, 0x0d, 0x53, 0x6f, 0x72, 0x74, 0x44, 0x69, 0x72, 0x65, 0x63, 0x74,
-	0x69, 0x6f, 0x6e, 0x12, 0x0d, 0x0a, 0x09, 0x41, 0x53, 0x43, 0x45, 0x4e, 0x44, 0x49, 0x4e, 0x47,
-	0x10, 0x00, 0x12, 0x0e, 0x0a, 0x0a, 0x44, 0x45, 0x53, 0x43, 0x45, 0x4e, 0x44, 0x49, 0x4e, 0x47,
-	0x10, 0x01, 0x42, 0x34, 0x5a, 0x32, 0x67, 0x69, 0x74, 0x6c, 0x61, 0x62, 0x2e, 0x63, 0x6f, 0x6d,
-	0x2f, 0x67, 0x69, 0x74, 0x6c, 0x61, 0x62, 0x2d, 0x6f, 0x72, 0x67, 0x2f, 0x67, 0x69, 0x74, 0x61,
-	0x6c, 0x79, 0x2f, 0x76, 0x31, 0x35, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x67, 0x6f, 0x2f,
-	0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x70, 0x62, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x10, 0x03, 0x12, 0x07, 0x0a, 0x03, 0x54, 0x41, 0x47, 0x10, 0x04, 0x2a, 0x5f, 0x0a, 0x0c, 0x4f,
+	0x62, 0x6a, 0x65, 0x63, 0x74, 0x46, 0x6f, 0x72, 0x6d, 0x61, 0x74, 0x12, 0x1d, 0x0a, 0x19, 0x4f,
+	0x42, 0x4a, 0x45, 0x43, 0x54, 0x5f, 0x46, 0x4f, 0x52, 0x4d, 0x41, 0x54, 0x5f, 0x55, 0x4e, 0x53,
+	0x50, 0x45, 0x43, 0x49, 0x46, 0x49, 0x45, 0x44, 0x10, 0x00, 0x12, 0x16, 0x0a, 0x12, 0x4f, 0x42,
+	0x4a, 0x45, 0x43, 0x54, 0x5f, 0x46, 0x4f, 0x52, 0x4d, 0x41, 0x54, 0x5f, 0x53, 0x48, 0x41, 0x31,
+	0x10, 0x01, 0x12, 0x18, 0x0a, 0x14, 0x4f, 0x42, 0x4a, 0x45, 0x43, 0x54, 0x5f, 0x46, 0x4f, 0x52,
+	0x4d, 0x41, 0x54, 0x5f, 0x53, 0x48, 0x41, 0x32, 0x35, 0x36, 0x10, 0x02, 0x2a, 0x35, 0x0a, 0x0d,
+	0x53, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x54, 0x79, 0x70, 0x65, 0x12, 0x08, 0x0a,
+	0x04, 0x4e, 0x4f, 0x4e, 0x45, 0x10, 0x00, 0x12, 0x07, 0x0a, 0x03, 0x50, 0x47, 0x50, 0x10, 0x01,
+	0x12, 0x08, 0x0a, 0x04, 0x58, 0x35, 0x30, 0x39, 0x10, 0x02, 0x12, 0x07, 0x0a, 0x03, 0x53, 0x53,
+	0x48, 0x10, 0x03, 0x2a, 0x2e, 0x0a, 0x0d, 0x53, 0x6f, 0x72, 0x74, 0x44, 0x69, 0x72, 0x65, 0x63,
+	0x74, 0x69, 0x6f, 0x6e, 0x12, 0x0d, 0x0a, 0x09, 0x41, 0x53, 0x43, 0x45, 0x4e, 0x44, 0x49, 0x4e,
+	0x47, 0x10, 0x00, 0x12, 0x0e, 0x0a, 0x0a, 0x44, 0x45, 0x53, 0x43, 0x45, 0x4e, 0x44, 0x49, 0x4e,
+	0x47, 0x10, 0x01, 0x42, 0x34, 0x5a, 0x32, 0x67, 0x69, 0x74, 0x6c, 0x61, 0x62, 0x2e, 0x63, 0x6f,
+	0x6d, 0x2f, 0x67, 0x69, 0x74, 0x6c, 0x61, 0x62, 0x2d, 0x6f, 0x72, 0x67, 0x2f, 0x67, 0x69, 0x74,
+	0x61, 0x6c, 0x79, 0x2f, 0x76, 0x31, 0x35, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x67, 0x6f,
+	0x2f, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x70, 0x62, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f,
+	0x33,
 }
 
 var (
@@ -1302,39 +1363,40 @@ func file_shared_proto_rawDescGZIP() []byte {
 	return file_shared_proto_rawDescData
 }
 
-var file_shared_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_shared_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
 var file_shared_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_shared_proto_goTypes = []interface{}{
 	(ObjectType)(0),               // 0: gitaly.ObjectType
-	(SignatureType)(0),            // 1: gitaly.SignatureType
-	(SortDirection)(0),            // 2: gitaly.SortDirection
-	(*Repository)(nil),            // 3: gitaly.Repository
-	(*CommitTrailer)(nil),         // 4: gitaly.CommitTrailer
-	(*CommitStatInfo)(nil),        // 5: gitaly.CommitStatInfo
-	(*GitCommit)(nil),             // 6: gitaly.GitCommit
-	(*CommitAuthor)(nil),          // 7: gitaly.CommitAuthor
-	(*ExitStatus)(nil),            // 8: gitaly.ExitStatus
-	(*Branch)(nil),                // 9: gitaly.Branch
-	(*Tag)(nil),                   // 10: gitaly.Tag
-	(*User)(nil),                  // 11: gitaly.User
-	(*ObjectPool)(nil),            // 12: gitaly.ObjectPool
-	(*PaginationParameter)(nil),   // 13: gitaly.PaginationParameter
-	(*PaginationCursor)(nil),      // 14: gitaly.PaginationCursor
-	(*GlobalOptions)(nil),         // 15: gitaly.GlobalOptions
-	(*timestamppb.Timestamp)(nil), // 16: google.protobuf.Timestamp
+	(ObjectFormat)(0),             // 1: gitaly.ObjectFormat
+	(SignatureType)(0),            // 2: gitaly.SignatureType
+	(SortDirection)(0),            // 3: gitaly.SortDirection
+	(*Repository)(nil),            // 4: gitaly.Repository
+	(*CommitTrailer)(nil),         // 5: gitaly.CommitTrailer
+	(*CommitStatInfo)(nil),        // 6: gitaly.CommitStatInfo
+	(*GitCommit)(nil),             // 7: gitaly.GitCommit
+	(*CommitAuthor)(nil),          // 8: gitaly.CommitAuthor
+	(*ExitStatus)(nil),            // 9: gitaly.ExitStatus
+	(*Branch)(nil),                // 10: gitaly.Branch
+	(*Tag)(nil),                   // 11: gitaly.Tag
+	(*User)(nil),                  // 12: gitaly.User
+	(*ObjectPool)(nil),            // 13: gitaly.ObjectPool
+	(*PaginationParameter)(nil),   // 14: gitaly.PaginationParameter
+	(*PaginationCursor)(nil),      // 15: gitaly.PaginationCursor
+	(*GlobalOptions)(nil),         // 16: gitaly.GlobalOptions
+	(*timestamppb.Timestamp)(nil), // 17: google.protobuf.Timestamp
 }
 var file_shared_proto_depIdxs = []int32{
-	7,  // 0: gitaly.GitCommit.author:type_name -> gitaly.CommitAuthor
-	7,  // 1: gitaly.GitCommit.committer:type_name -> gitaly.CommitAuthor
-	1,  // 2: gitaly.GitCommit.signature_type:type_name -> gitaly.SignatureType
-	4,  // 3: gitaly.GitCommit.trailers:type_name -> gitaly.CommitTrailer
-	5,  // 4: gitaly.GitCommit.short_stats:type_name -> gitaly.CommitStatInfo
-	16, // 5: gitaly.CommitAuthor.date:type_name -> google.protobuf.Timestamp
-	6,  // 6: gitaly.Branch.target_commit:type_name -> gitaly.GitCommit
-	6,  // 7: gitaly.Tag.target_commit:type_name -> gitaly.GitCommit
-	7,  // 8: gitaly.Tag.tagger:type_name -> gitaly.CommitAuthor
-	1,  // 9: gitaly.Tag.signature_type:type_name -> gitaly.SignatureType
-	3,  // 10: gitaly.ObjectPool.repository:type_name -> gitaly.Repository
+	8,  // 0: gitaly.GitCommit.author:type_name -> gitaly.CommitAuthor
+	8,  // 1: gitaly.GitCommit.committer:type_name -> gitaly.CommitAuthor
+	2,  // 2: gitaly.GitCommit.signature_type:type_name -> gitaly.SignatureType
+	5,  // 3: gitaly.GitCommit.trailers:type_name -> gitaly.CommitTrailer
+	6,  // 4: gitaly.GitCommit.short_stats:type_name -> gitaly.CommitStatInfo
+	17, // 5: gitaly.CommitAuthor.date:type_name -> google.protobuf.Timestamp
+	7,  // 6: gitaly.Branch.target_commit:type_name -> gitaly.GitCommit
+	7,  // 7: gitaly.Tag.target_commit:type_name -> gitaly.GitCommit
+	8,  // 8: gitaly.Tag.tagger:type_name -> gitaly.CommitAuthor
+	2,  // 9: gitaly.Tag.signature_type:type_name -> gitaly.SignatureType
+	4,  // 10: gitaly.ObjectPool.repository:type_name -> gitaly.Repository
 	11, // [11:11] is the sub-list for method output_type
 	11, // [11:11] is the sub-list for method input_type
 	11, // [11:11] is the sub-list for extension type_name
@@ -1511,7 +1573,7 @@ func file_shared_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_shared_proto_rawDesc,
-			NumEnums:      3,
+			NumEnums:      4,
 			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   0,

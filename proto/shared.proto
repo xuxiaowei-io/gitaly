@@ -21,6 +21,17 @@ enum ObjectType {
   TAG = 4; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
 }
 
+// ObjectFormat is the object format that a Git repository can use.
+enum ObjectFormat {
+  // OBJECT_FORMAT_UNSPECIFIED is the default object type when it has not been explicitly requested
+  // by the client. Defaults to OBJECT_FORMAT_SHA1.
+  OBJECT_FORMAT_UNSPECIFIED = 0;
+  // OBJECT_FORMAT_SHA1 is the object format based on the SHA1 hash.
+  OBJECT_FORMAT_SHA1 = 1;
+  // OBJECT_FORMAT_SHA256 is the object format based on the SHA256 hash. This is experimental.
+  OBJECT_FORMAT_SHA256 = 2;
+}
+
 // This comment is left unintentionally blank.
 enum SignatureType {
   // This comment is left unintentionally blank.

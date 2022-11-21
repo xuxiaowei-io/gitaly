@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package blob
 
 import (
@@ -24,6 +22,16 @@ func TestMain(m *testing.M) {
 }
 
 func setup(tb testing.TB, ctx context.Context) (config.Cfg, *gitalypb.Repository, string, gitalypb.BlobServiceClient) {
+	cfg, client := setupWithoutRepo(tb, ctx)
+
+	repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
+		Seed: gittest.SeedGitLabTest,
+	})
+
+	return cfg, repo, repoPath, client
+}
+
+func setupWithoutRepo(tb testing.TB, ctx context.Context) (config.Cfg, gitalypb.BlobServiceClient) {
 	cfg := testcfg.Build(tb)
 
 	addr := testserver.RunGitalyServer(tb, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
@@ -50,9 +58,5 @@ func setup(tb testing.TB, ctx context.Context) (config.Cfg, *gitalypb.Repository
 	require.NoError(tb, err)
 	tb.Cleanup(func() { conn.Close() })
 
-	repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
-
-	return cfg, repo, repoPath, gitalypb.NewBlobServiceClient(conn)
+	return cfg, gitalypb.NewBlobServiceClient(conn)
 }

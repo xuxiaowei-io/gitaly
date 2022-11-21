@@ -12,9 +12,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/auth"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/praefectutil"
@@ -24,35 +26,35 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"golang.org/x/sys/unix"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func TestCreateRepository_missingAuth(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
 
+	ctx := testhelper.Context(t)
 	cfg, repo, _ := testcfg.BuildWithRepo(t, testcfg.WithBase(config.Cfg{Auth: auth.Config{Token: "some"}}))
 
 	_, serverSocketPath := runRepositoryService(t, cfg, nil)
 	client := newRepositoryClient(t, config.Cfg{Auth: auth.Config{Token: ""}}, serverSocketPath)
 
 	_, err := client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: repo})
-
-	testhelper.RequireGrpcCode(t, err, codes.Unauthenticated)
+	testhelper.RequireGrpcError(t, helper.ErrUnauthenticatedf("authentication required"), err)
 }
 
 func TestCreateRepository_successful(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
 
+	ctx := testhelper.Context(t)
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	relativePath := "create-repository-test.git"
+	repo := &gitalypb.Repository{
+		StorageName:  cfg.Storages[0].Name,
+		RelativePath: gittest.NewRepositoryName(t),
+	}
 
-	repo := &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: relativePath}
-	req := &gitalypb.CreateRepositoryRequest{Repository: repo}
-	_, err := client.CreateRepository(ctx, req)
+	_, err := client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{
+		Repository: repo,
+	})
 	require.NoError(t, err)
 
 	repoDir := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(t, ctx, cfg, repo))
@@ -76,36 +78,35 @@ func TestCreateRepository_successful(t *testing.T) {
 }
 
 func TestCreateRepository_withDefaultBranch(t *testing.T) {
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	t.Parallel()
 
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 	ctx := testhelper.Context(t)
 
-	testCases := []struct {
-		name              string
+	for _, tc := range []struct {
+		desc              string
 		defaultBranch     string
 		expected          string
 		expectedErrString string
 	}{
 		{
-			name:          "valid default branch",
+			desc:          "valid default branch",
 			defaultBranch: "develop",
 			expected:      "refs/heads/develop",
 		},
 		{
-			name:          "empty branch name",
+			desc:          "empty branch name",
 			defaultBranch: "",
 			expected:      "refs/heads/main",
 		},
 		{
-			name:              "invalid branch name",
+			desc:              "invalid branch name",
 			defaultBranch:     "./.lock",
 			expected:          "refs/heads/main",
 			expectedErrString: `creating repository: exit status 128, stderr: "fatal: invalid initial branch name: './.lock'\n"`,
 		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
 			repo := &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: gittest.NewRepositoryName(t)}
 
 			req := &gitalypb.CreateRepositoryRequest{Repository: repo, DefaultBranch: []byte(tc.defaultBranch)}
@@ -126,59 +127,119 @@ func TestCreateRepository_withDefaultBranch(t *testing.T) {
 	}
 }
 
-func TestCreateRepository_failure(t *testing.T) {
+func TestCreateRepository_withObjectFormat(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
 
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	ctx := testhelper.Context(t)
 
-	// This tests what happens if a file already exists at the path of the repository. In order to have
-	// the test working with Praefect, we use the relative path to ensure the directory conflicts with
-	// the repository as Praefect would create it.
-	replicaPath := praefectutil.DeriveReplicaPath(1)
-	storagePath := cfg.Storages[0].Path
-	fullPath := filepath.Join(storagePath, replicaPath)
+	for _, tc := range []struct {
+		desc               string
+		objectFormat       gitalypb.ObjectFormat
+		expectedResponse   *gitalypb.CreateRepositoryResponse
+		expectedObjectHash git.ObjectHash
+		expectedErr        error
+	}{
+		{
+			desc:               "unspecified object format",
+			objectFormat:       gitalypb.ObjectFormat_OBJECT_FORMAT_UNSPECIFIED,
+			expectedResponse:   &gitalypb.CreateRepositoryResponse{},
+			expectedObjectHash: git.ObjectHashSHA1,
+		},
+		{
+			desc:               "SHA1",
+			objectFormat:       gitalypb.ObjectFormat_OBJECT_FORMAT_SHA1,
+			expectedResponse:   &gitalypb.CreateRepositoryResponse{},
+			expectedObjectHash: git.ObjectHashSHA1,
+		},
+		{
+			desc:               "SHA256",
+			objectFormat:       gitalypb.ObjectFormat_OBJECT_FORMAT_SHA256,
+			expectedResponse:   &gitalypb.CreateRepositoryResponse{},
+			expectedObjectHash: git.ObjectHashSHA256,
+		},
+		{
+			desc:         "invalid object format",
+			objectFormat: 3,
+			expectedErr:  helper.ErrInvalidArgumentf("unknown object format: \"3\""),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			repoProto := &gitalypb.Repository{
+				StorageName:  cfg.Storages[0].Name,
+				RelativePath: gittest.NewRepositoryName(t),
+			}
 
-	require.NoError(t, os.MkdirAll(filepath.Dir(fullPath), os.ModePerm))
-	_, err := os.Create(fullPath)
-	require.NoError(t, err)
+			response, err := client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{
+				Repository:   repoProto,
+				ObjectFormat: tc.objectFormat,
+			})
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
+			testhelper.ProtoEqual(t, tc.expectedResponse, response)
 
-	_, err = client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{
-		Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: replicaPath},
-	})
-	testhelper.RequireGrpcCode(t, err, codes.AlreadyExists)
+			if err != nil {
+				return
+			}
+
+			// If the repository was created we can check whether the object format of
+			// the created repository matches our expectations.
+			repo := localrepo.NewTestRepo(t, cfg, repoProto)
+			objectHash, err := git.DetectObjectHash(ctx, repo)
+			require.NoError(t, err)
+			require.Equal(t, tc.expectedObjectHash.Format, objectHash.Format)
+		})
+	}
 }
 
 func TestCreateRepository_invalidArguments(t *testing.T) {
 	t.Parallel()
+
 	ctx := testhelper.Context(t)
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	_, client := setupRepositoryServiceWithoutRepo(t)
+	preexistingRepo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		// This creates the first repository on the server. As this test can run with
+		// Praefect in front of it, we'll use the next replica path Praefect will assign in
+		// order to ensure this repository creation conflicts even with Praefect in front of
+		// it.
+		RelativePath: praefectutil.DeriveReplicaPath(1),
+	})
 
-	testCases := []struct {
+	for _, tc := range []struct {
+		desc        string
 		repo        *gitalypb.Repository
 		expectedErr error
 	}{
 		{
+			desc: "missing repository",
 			repo: nil,
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefectMessage(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
 		},
 		{
-			repo: &gitalypb.Repository{StorageName: "does not exist", RelativePath: "foobar.git"},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			desc: "invalid storage",
+			repo: &gitalypb.Repository{
+				StorageName:  "does not exist",
+				RelativePath: "foobar.git",
+			},
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefectMessage(
 				`creating repository: locate repository: GetStorageByName: no such storage: "does not exist"`,
 				"repo scoped: invalid Repository",
 			)),
 		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(fmt.Sprintf("%+v", tc.repo), func(t *testing.T) {
+		{
+			desc: "preexisting repository",
+			repo: preexistingRepo,
+			expectedErr: helper.ErrAlreadyExistsf(testhelper.GitalyOrPraefectMessage(
+				"creating repository: repository exists already",
+				"route repository creation: reserve repository id: repository already exists",
+			)),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
 			_, err := client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: tc.repo})
-
 			require.Error(t, err)
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
@@ -187,73 +248,22 @@ func TestCreateRepository_invalidArguments(t *testing.T) {
 
 func TestCreateRepository_transactional(t *testing.T) {
 	t.Parallel()
+
 	ctx := testhelper.Context(t)
-
 	txManager := transaction.NewTrackingManager()
-
 	cfg, client := setupRepositoryServiceWithoutRepo(t, testserver.WithTransactionManager(txManager))
 
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)
 	ctx = metadata.IncomingToOutgoing(ctx)
 
-	t.Run("initial creation without refs", func(t *testing.T) {
-		txManager.Reset()
-
-		repo := &gitalypb.Repository{
-			StorageName:  cfg.Storages[0].Name,
-			RelativePath: "repo.git",
-		}
-		_, err = client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: repo})
-		require.NoError(t, err)
-
-		require.DirExists(t, filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(t, ctx, cfg, repo)))
-		require.Equal(t, 2, len(txManager.Votes()), "expected transactional vote")
-	})
-
-	t.Run("idempotent creation with preexisting refs", func(t *testing.T) {
-		txManager.Reset()
-
-		// The above test creates the second repository on the server. As this test can run with Praefect in front of it,
-		// we'll use the next replica path Praefect will assign in order to ensure this repository creation conflicts even
-		// with Praefect in front of it.
-		repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-			RelativePath: praefectutil.DeriveReplicaPath(2),
-		})
-
-		_, err = client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{
-			Repository: repo,
-		})
-		if testhelper.IsPraefectEnabled() {
-			testhelper.ProtoEqual(t, status.Error(codes.AlreadyExists, "route repository creation: reserve repository id: repository already exists"), err)
-		} else {
-			testhelper.ProtoEqual(t, status.Error(codes.AlreadyExists, "creating repository: repository exists already"), err)
-		}
-	})
-}
-
-func TestCreateRepository_idempotent(t *testing.T) {
-	t.Parallel()
-	ctx := testhelper.Context(t)
-
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
-
 	repo := &gitalypb.Repository{
-		StorageName: cfg.Storages[0].Name,
-		// This creates the first repository on the server. As this test can run with Praefect in front of it,
-		// we'll use the next replica path Praefect will assign in order to ensure this repository creation
-		// conflicts even with Praefect in front of it.
-		RelativePath: praefectutil.DeriveReplicaPath(1),
+		StorageName:  cfg.Storages[0].Name,
+		RelativePath: "repo.git",
 	}
-	gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		RelativePath: repo.RelativePath,
-	})
+	_, err = client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: repo})
+	require.NoError(t, err)
 
-	req := &gitalypb.CreateRepositoryRequest{Repository: repo}
-	_, err := client.CreateRepository(ctx, req)
-	if testhelper.IsPraefectEnabled() {
-		testhelper.ProtoEqual(t, status.Error(codes.AlreadyExists, "route repository creation: reserve repository id: repository already exists"), err)
-	} else {
-		testhelper.ProtoEqual(t, status.Error(codes.AlreadyExists, "creating repository: repository exists already"), err)
-	}
+	require.DirExists(t, filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(t, ctx, cfg, repo)))
+	require.Equal(t, 2, len(txManager.Votes()), "expected transactional vote")
 }

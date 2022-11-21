@@ -517,6 +517,10 @@ message CreateRepositoryRequest {
   // repository. Note, this will be treated as the branch name and not a
   // fully qualified reference.
   bytes default_branch = 2;
+  // ObjectFormat is the object format the repository should be created with. Note that this is
+  // experimental and should not be used by callers yet. It is mostly intended for internal testing
+  // purposes in Gitaly right now.
+  ObjectFormat object_format = 3;
 }
 
 // This comment is left unintentionally blank.
