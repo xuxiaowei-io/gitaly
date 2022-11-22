@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -72,26 +71,22 @@ func TestParseObjectInfo_errors(t *testing.T) {
 		{
 			desc:        "too few words",
 			input:       fmt.Sprintf("%s commit\n", oid),
-			expectedErr: fmt.Errorf("invalid info line: %q", oid+" commit"),
+			expectedErr: fmt.Errorf("read info line: %w", io.EOF),
 		},
 		{
 			desc:        "too many words",
 			input:       fmt.Sprintf("%s commit 222 bla\n", oid),
-			expectedErr: fmt.Errorf("invalid info line: %q", oid+" commit 222 bla"),
+			expectedErr: fmt.Errorf("read info line: %w", io.EOF),
 		},
 		{
 			desc:        "invalid object hash",
 			input:       "7c9373883988204e5a9f72c4 commit 222 bla\n",
-			expectedErr: fmt.Errorf("invalid info line: %q", "7c9373883988204e5a9f72c4 commit 222 bla"),
+			expectedErr: fmt.Errorf("read info line: %w", io.EOF),
 		},
 		{
-			desc:  "parse object size",
-			input: fmt.Sprintf("%s commit bla\n", oid),
-			expectedErr: fmt.Errorf("parse object size: %w", &strconv.NumError{
-				Func: "ParseInt",
-				Num:  "bla",
-				Err:  strconv.ErrSyntax,
-			}),
+			desc:        "parse object size",
+			input:       fmt.Sprintf("%s commit bla\n", oid),
+			expectedErr: fmt.Errorf("read info line: %w", io.EOF),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

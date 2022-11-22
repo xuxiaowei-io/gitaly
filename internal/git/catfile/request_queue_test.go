@@ -49,6 +49,84 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 		require.Equal(t, fmt.Errorf("cannot read object info: %w", fmt.Errorf("file already closed")), err)
 	})
 
+	t.Run("read pathname with newline", func(t *testing.T) {
+		_, queue := newInterceptedObjectQueue(t, ctx, `#!/bin/sh
+			cat << EOF
+HEAD:foo
+bar.txt missing
+EOF
+		`)
+
+		require.NoError(t, queue.RequestObject("foo"))
+
+		_, err := queue.ReadObject()
+		require.Equal(t, NotFoundError{error: fmt.Errorf("object not found")}, err)
+
+		require.False(t, queue.isDirty())
+	})
+
+	t.Run("read pathname with newline and mimicking git-cat-file output", func(t *testing.T) {
+		_, queue := newInterceptedObjectQueue(t, ctx, fmt.Sprintf(`#!/bin/sh
+cat << EOF
+%s commit 245
+missing
+EOF
+		`, oid))
+
+		require.NoError(t, queue.RequestObject("foo"))
+
+		_, err := queue.ReadObject()
+		require.NoError(t, err)
+
+		require.True(t, queue.isDirty())
+	})
+
+	t.Run("read with ambiguous object ID", func(t *testing.T) {
+		_, queue := newInterceptedObjectQueue(t, ctx, `#!/bin/sh
+cat << EOF
+fca500 ambiguous
+EOF
+		`)
+
+		require.NoError(t, queue.RequestObject("foo"))
+
+		_, err := queue.ReadObject()
+		require.EqualError(t, err, "ambiguous object ID")
+
+		require.True(t, queue.isDirty())
+	})
+
+	t.Run("read with ambiguous object ID + path without newline", func(t *testing.T) {
+		_, queue := newInterceptedObjectQueue(t, ctx, `#!/bin/sh
+cat << EOF
+fca500:foobar missing
+EOF
+		`)
+
+		require.NoError(t, queue.RequestObject("foo"))
+
+		_, err := queue.ReadObject()
+		require.EqualError(t, err, "object not found")
+
+		require.False(t, queue.isDirty())
+	})
+
+	t.Run("read with ambiguous object ID + path with newline", func(t *testing.T) {
+		_, queue := newInterceptedObjectQueue(t, ctx, `#!/bin/sh
+cat << EOF
+fca500:foo
+bar.txt missing
+EOF
+		`)
+
+		require.NoError(t, queue.RequestObject("foo"))
+
+		_, err := queue.ReadObject()
+		require.EqualError(t, err, "object not found")
+
+		require.False(t, queue.isDirty())
+	})
+
 	t.Run("read with unconsumed object", func(t *testing.T) {
 		_, queue := newInterceptedObjectQueue(t, ctx, fmt.Sprintf(`#!/bin/sh
 			echo "%s commit 464"
@@ -77,7 +155,7 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 		require.NoError(t, queue.RequestObject("foo"))
 
 		_, err := queue.ReadObject()
-		require.Equal(t, fmt.Errorf("invalid info line: %q", "something something"), err)
+		require.Equal(t, fmt.Errorf("read info line: %w", io.EOF), err)
 
 		// The queue must be dirty when we failed due to an unexpected error.
 		require.True(t, queue.isDirty())
@@ -401,6 +479,25 @@ func TestRequestQueue_RequestInfo(t *testing.T) {
 			require.NoError(t, queue.Flush())
 			requireRevision(t, queue)
 		}
+	})
+
+	t.Run("read pathname with newline and mimicking git-cat-file output", func(t *testing.T) {
+		_, queue := newInterceptedInfoQueue(t, ctx, fmt.Sprintf(`#!/bin/sh
+cat << EOF
+%s commit 245
+missing
+EOF
+		`, oid))
+
+		require.NoError(t, queue.RequestInfo("foo"))
+
+		_, err := queue.ReadInfo()
+		require.NoError(t, err)
+
+		// TODO: This should be dirty because we don't parse `missing` part of the data!
+		// This can be recreated via `printf "info 3197a80f22fc0e8ac7fd734f374dd3ba3219056f
+		// commit 245\n" | git cat-file --batch-command --buffer -z`
+		require.False(t, queue.isDirty())
 	})
 }
 

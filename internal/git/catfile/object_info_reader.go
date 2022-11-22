@@ -52,6 +52,10 @@ func IsNotFound(err error) bool {
 // ParseObjectInfo reads from a reader and parses the data into an ObjectInfo struct with the given
 // object hash.
 func ParseObjectInfo(objectHash git.ObjectHash, stdout *bufio.Reader) (*ObjectInfo, error) {
+	// We keep track of errors so that in case we encounter multi-line data, which
+	// isn't a pathname with multi-line, we throw an error instead of returning an object
+	var prevError error
+
 restart:
 	infoLine, err := stdout.ReadString('\n')
 	if err != nil {
@@ -71,19 +75,33 @@ restart:
 		return nil, NotFoundError{fmt.Errorf("object not found")}
 	}
 
+	if strings.HasSuffix(infoLine, "ambiguous") {
+		return nil, fmt.Errorf("ambiguous object ID")
+	}
+
+	// The below three errors should only happen when the pathname is taking over multiple lines.
+	// In such a scenario we want to keep reading till we hit the `missing` param, so we goto
+	// the start.
 	info := strings.Split(infoLine, " ")
 	if len(info) != 3 {
-		return nil, fmt.Errorf("invalid info line: %q", infoLine)
+		prevError = fmt.Errorf("invalid info line: %q", infoLine)
+		goto restart
 	}
 
 	oid, err := objectHash.FromHex(info[0])
 	if err != nil {
-		return nil, fmt.Errorf("parse object ID: %w", err)
+		prevError = fmt.Errorf("parse object ID: %w", err)
+		goto restart
 	}
 
 	objectSize, err := strconv.ParseInt(info[2], 10, 64)
 	if err != nil {
-		return nil, fmt.Errorf("parse object size: %w", err)
+		prevError = fmt.Errorf("parse object size: %w", err)
+		goto restart
+	}
+
+	if prevError != nil {
+		return nil, prevError
 	}
 
 	return &ObjectInfo{
