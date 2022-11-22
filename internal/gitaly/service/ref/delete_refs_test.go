@@ -140,7 +140,7 @@ func testDeleteRefsTransaction(t *testing.T, ctx context.Context) {
 	cfg.SocketPath = addr
 
 	client, conn := newRefServiceClient(t, addr)
-	t.Cleanup(func() { conn.Close() })
+	t.Cleanup(func() { require.NoError(t, conn.Close()) })
 
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)
