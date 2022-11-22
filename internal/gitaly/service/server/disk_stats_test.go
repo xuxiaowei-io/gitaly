@@ -26,7 +26,22 @@ func TestStorageDiskStatistics(t *testing.T) {
 	c, err := client.DiskStatistics(ctx, &gitalypb.DiskStatisticsRequest{})
 	require.NoError(t, err)
 
-	require.Len(t, c.GetStorageStatuses(), len(cfg.Storages))
+	expectedStorages := len(cfg.Storages)
+	if testhelper.IsPraefectEnabled() {
+		// Praefect does not virtualize StorageDiskStatistics correctly. It proxies the call to each Gitaly
+		// and returns the results of all of their storages. However, not all storages on a Gitaly node are
+		// necessarily part of a virtual storage. Likewise, Praefect should not expose the individual storages
+		// that make up a virtual storage externally but should instead provide a single result for a virtual
+		// storage.
+		//
+		// In our test setup, we have two storages on a single Gitaly node. Both of the storages are the only
+		// storage in their own virtual storages. Praefect returns statistics for all storages on a Gitaly node
+		// that is part of a virtual storage, so it ends up returning both results for both physical storages
+		// twice.
+		expectedStorages = 2 * len(cfg.Storages)
+	}
+
+	require.Len(t, c.GetStorageStatuses(), expectedStorages)
 
 	// used and available space may change so we check if it roughly matches (+/- 1GB)
 	avail, used := getSpaceStats(t, cfg.Storages[0].Path)
@@ -37,6 +52,17 @@ func TestStorageDiskStatistics(t *testing.T) {
 	require.Equal(t, int64(0), c.GetStorageStatuses()[1].Available)
 	require.Equal(t, int64(0), c.GetStorageStatuses()[1].Used)
 	require.Equal(t, cfg.Storages[1].Name, c.GetStorageStatuses()[1].StorageName)
+
+	if testhelper.IsPraefectEnabled() {
+		// This is incorrect behavior caused by the bug explained above.
+		approxEqual(t, c.GetStorageStatuses()[2].Available, avail)
+		approxEqual(t, c.GetStorageStatuses()[2].Used, used)
+		require.Equal(t, cfg.Storages[0].Name, c.GetStorageStatuses()[2].StorageName)
+
+		require.Equal(t, int64(0), c.GetStorageStatuses()[3].Available)
+		require.Equal(t, int64(0), c.GetStorageStatuses()[3].Used)
+		require.Equal(t, cfg.Storages[1].Name, c.GetStorageStatuses()[3].StorageName)
+	}
 }
 
 func approxEqual(t *testing.T, a, b int64) {
