@@ -337,11 +337,27 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 		return fmt.Errorf("was repo created: %w", err)
 	}
 
-	oldRevision := parentCommitOID
-	if targetBranchCommit == "" {
-		oldRevision = git.ObjectHashSHA1.ZeroOID
-	} else if header.Force {
-		oldRevision = targetBranchCommit
+	var oldRevision git.ObjectID
+	if expectedOldOID := header.GetExpectedOldOid(); expectedOldOID != "" {
+		oldRevision, err = git.ObjectHashSHA1.FromHex(expectedOldOID)
+		if err != nil {
+			return structerr.NewInvalidArgument("invalid expected old object ID: %w", err).WithMetadata("old_object_id", expectedOldOID)
+		}
+
+		oldRevision, err = s.localrepo(header.GetRepository()).ResolveRevision(
+			ctx, git.Revision(fmt.Sprintf("%s^{object}", oldRevision)),
+		)
+		if err != nil {
+			return structerr.NewInvalidArgument("cannot resolve expected old object ID: %w", err).
+				WithMetadata("old_object_id", expectedOldOID)
+		}
+	} else {
+		oldRevision = parentCommitOID
+		if targetBranchCommit == "" {
+			oldRevision = git.ObjectHashSHA1.ZeroOID
+		} else if header.Force {
+			oldRevision = targetBranchCommit
+		}
 	}
 
 	if err := s.updateReferenceWithHooks(ctx, header.GetRepository(), header.User, quarantineDir, targetBranchName, commitID, oldRevision); err != nil {
