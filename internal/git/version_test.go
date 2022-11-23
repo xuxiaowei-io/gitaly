@@ -124,3 +124,30 @@ func TestVersion_IsSupported(t *testing.T) {
 		})
 	}
 }
+
+func TestIsCatfileBatchCommandSupported(t *testing.T) {
+	for _, tc := range []struct {
+		version   string
+		supported bool
+	}{
+		{"2.20.0", false},
+		{"2.24.0-rc0", false},
+		{"2.24.0", false},
+		{"2.25.0", false},
+		{"2.32.0", false},
+		{"2.37.0-rc0", false},
+		{"2.37.0", false},
+		{"2.37.1", false},
+		{"2.38.0", true},
+		{"2.38.1", true},
+		{"2.38.0-rc0", true},
+		{"3.0.0", true},
+		{"3.0.0.gl5", true},
+	} {
+		t.Run(tc.version, func(t *testing.T) {
+			version, err := parseVersion(tc.version)
+			require.NoError(t, err)
+			require.Equal(t, tc.supported, version.IsCatfileBatchCommandSupported())
+		})
+	}
+}

@@ -159,3 +159,16 @@ func parseVersion(versionStr string) (Version, error) {
 
 	return ver, nil
 }
+
+// IsCatfileBatchCommandSupported checks if a version of git contains the
+// git-cat-tree(1)'s `-z` flag
+func (v Version) IsCatfileBatchCommandSupported() bool {
+	return !v.LessThan(Version{
+		versionString: "2.38.0",
+		major:         2,
+		minor:         38,
+		patch:         0,
+		rc:            true,
+		gl:            0,
+	})
+}
