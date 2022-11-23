@@ -73,12 +73,20 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 
 	referenceName := git.NewReferenceNameFromBranchName(string(firstRequest.Branch))
 
-	revision, err := quarantineRepo.ResolveRevision(ctx, referenceName.Revision())
-	if err != nil {
-		if errors.Is(err, git.ErrReferenceNotFound) {
-			return helper.ErrNotFound(err)
+	var revision git.ObjectID
+	if expectedOldOID := firstRequest.GetExpectedOldOid(); expectedOldOID != "" {
+		revision, err = quarantineRepo.ResolveRevision(ctx, git.Revision(expectedOldOID))
+		if err != nil {
+			return helper.ErrFailedPreconditionf("resolve object ID: %s: %w", expectedOldOID, err)
 		}
-		return helper.ErrInternal(err)
+	} else {
+		revision, err = quarantineRepo.ResolveRevision(ctx, referenceName.Revision())
+		if err != nil {
+			if errors.Is(err, git.ErrReferenceNotFound) {
+				return helper.ErrNotFound(err)
+			}
+			return helper.ErrInternal(err)
+		}
 	}
 
 	authorDate, err := dateFromProto(firstRequest)
