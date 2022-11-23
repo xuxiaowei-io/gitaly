@@ -567,11 +567,11 @@ func TestUserDeleteBranch_concurrentUpdate(t *testing.T) {
 	// writes to the same reference.
 	updater, err := updateref.New(ctx, localrepo.NewTestRepo(t, cfg, repo))
 	require.NoError(t, err)
+	defer testhelper.MustClose(t, updater)
+
+	require.NoError(t, updater.Start())
 	require.NoError(t, updater.Delete("refs/heads/concurrent-update"))
 	require.NoError(t, updater.Prepare())
-	defer func() {
-		require.NoError(t, updater.Cancel())
-	}()
 
 	response, err := client.UserDeleteBranch(ctx, &gitalypb.UserDeleteBranchRequest{
 		Repository: repo,

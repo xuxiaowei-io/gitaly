@@ -212,6 +212,9 @@ func TestFindTag_nestedTag(t *testing.T) {
 
 			updater, err := updateref.New(ctx, repo)
 			require.NoError(t, err)
+			defer testhelper.MustClose(t, updater)
+
+			require.NoError(t, updater.Start())
 			for _, tag := range tags {
 				require.NoError(t, updater.Delete(tag.Name))
 			}

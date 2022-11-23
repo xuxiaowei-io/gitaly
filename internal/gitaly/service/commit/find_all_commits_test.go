@@ -29,7 +29,9 @@ func TestSuccessfulFindAllCommitsRequest(t *testing.T) {
 	// known state.
 	updater, err := updateref.New(ctx, repo, updateref.WithDisabledTransactions())
 	require.NoError(t, err)
+	defer testhelper.MustClose(t, updater)
 
+	require.NoError(t, updater.Start())
 	for _, ref := range refs {
 		if ref.Name == "refs/heads/few-commits" || ref.Name == "refs/heads/two-commits" {
 			continue

@@ -119,7 +119,7 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *localrepo.Repo
 }
 
 // pruneReferences prunes any references that have been deleted in the origin repository.
-func (o *ObjectPool) pruneReferences(ctx context.Context, origin *localrepo.Repo) error {
+func (o *ObjectPool) pruneReferences(ctx context.Context, origin *localrepo.Repo) (returnedErr error) {
 	originPath, err := origin.Path()
 	if err != nil {
 		return fmt.Errorf("computing origin repo's path: %w", err)
@@ -154,6 +154,15 @@ func (o *ObjectPool) pruneReferences(ctx context.Context, origin *localrepo.Repo
 	updater, err := updateref.New(ctx, o.Repo)
 	if err != nil {
 		return fmt.Errorf("spawning updater: %w", err)
+	}
+	defer func() {
+		if err := updater.Close(); err != nil && returnedErr == nil {
+			returnedErr = fmt.Errorf("cancel updater: %w", err)
+		}
+	}()
+
+	if err := updater.Start(); err != nil {
+		return fmt.Errorf("start reference transaction: %w", err)
 	}
 
 	// We need to manually compute a vote because all deletions we queue up here are
@@ -239,7 +248,7 @@ const danglingObjectNamespace = "refs/dangling/"
 // relies on. There is currently no way for us to reliably determine if
 // an object is still used anywhere, so the only safe thing to do is to
 // assume that every object _is_ used.
-func (o *ObjectPool) rescueDanglingObjects(ctx context.Context) error {
+func (o *ObjectPool) rescueDanglingObjects(ctx context.Context) (returnedErr error) {
 	fsck, err := o.Repo.Exec(ctx, git.SubCmd{
 		Name:  "fsck",
 		Flags: []git.Option{git.Flag{Name: "--connectivity-only"}, git.Flag{Name: "--dangling"}},
@@ -251,6 +260,15 @@ func (o *ObjectPool) rescueDanglingObjects(ctx context.Context) error {
 	updater, err := updateref.New(ctx, o.Repo, updateref.WithDisabledTransactions())
 	if err != nil {
 		return err
+	}
+	defer func() {
+		if err := updater.Close(); err != nil && returnedErr == nil {
+			returnedErr = fmt.Errorf("cancel updater: %w", err)
+		}
+	}()
+
+	if err := updater.Start(); err != nil {
+		return fmt.Errorf("start reference transaction: %w", err)
 	}
 
 	scanner := bufio.NewScanner(fsck)
