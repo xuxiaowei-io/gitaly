@@ -8,7 +8,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	lru "github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore/glsql"
@@ -28,7 +28,7 @@ var errNotExistingVirtualStorage = errors.New("virtual storage does not exist")
 type CachingConsistentStoragesGetter struct {
 	csg ConsistentStoragesGetter
 	// caches is per virtual storage cache. It is initialized once on construction.
-	caches map[string]*lru.Cache
+	caches map[string]*lru.Cache[string, interface{}]
 	// access is access method to use: 0 - without caching; 1 - with caching.
 	access int32
 	// syncer allows to sync retrieval operations to omit unnecessary runs.
@@ -42,7 +42,7 @@ type CachingConsistentStoragesGetter struct {
 func NewCachingConsistentStoragesGetter(logger logrus.FieldLogger, csg ConsistentStoragesGetter, virtualStorages []string) (*CachingConsistentStoragesGetter, error) {
 	cached := &CachingConsistentStoragesGetter{
 		csg:            csg,
-		caches:         make(map[string]*lru.Cache, len(virtualStorages)),
+		caches:         make(map[string]*lru.Cache[string, interface{}], len(virtualStorages)),
 		syncer:         syncer{inflight: map[string]chan struct{}{}},
 		callbackLogger: logger.WithField("component", "caching_storage_provider"),
 		cacheAccessTotal: prometheus.NewCounterVec(
@@ -56,7 +56,7 @@ func NewCachingConsistentStoragesGetter(logger logrus.FieldLogger, csg Consisten
 
 	for _, virtualStorage := range virtualStorages {
 		virtualStorage := virtualStorage
-		cache, err := lru.NewWithEvict(2<<20, func(key interface{}, value interface{}) {
+		cache, err := lru.NewWithEvict(2<<20, func(key string, value interface{}) {
 			cached.cacheAccessTotal.WithLabelValues(virtualStorage, "evict").Inc()
 		})
 		if err != nil {
@@ -128,7 +128,7 @@ func (c *CachingConsistentStoragesGetter) disableCaching() {
 	}
 }
 
-func (c *CachingConsistentStoragesGetter) getCache(virtualStorage string) (*lru.Cache, bool) {
+func (c *CachingConsistentStoragesGetter) getCache(virtualStorage string) (*lru.Cache[string, interface{}], bool) {
 	val, found := c.caches[virtualStorage]
 	return val, found
 }
@@ -138,7 +138,7 @@ func (c *CachingConsistentStoragesGetter) cacheMiss(ctx context.Context, virtual
 	return c.csg.GetConsistentStorages(ctx, virtualStorage, relativePath)
 }
 
-func (c *CachingConsistentStoragesGetter) tryCache(virtualStorage, relativePath string) (func(), *lru.Cache, cacheValue, bool) {
+func (c *CachingConsistentStoragesGetter) tryCache(virtualStorage, relativePath string) (func(), *lru.Cache[string, interface{}], cacheValue, bool) {
 	populateDone := func() {} // should be called AFTER any cache population is done
 
 	cache, found := c.getCache(virtualStorage)
@@ -166,7 +166,7 @@ func (c *CachingConsistentStoragesGetter) isCacheEnabled() bool {
 
 // GetConsistentStorages returns the replica path and the set of up to date storages for the given repository keyed by virtual storage and relative path.
 func (c *CachingConsistentStoragesGetter) GetConsistentStorages(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error) {
-	var cache *lru.Cache
+	var cache *lru.Cache[string, interface{}]
 
 	if c.isCacheEnabled() {
 		var value cacheValue
@@ -194,7 +194,7 @@ type cacheValue struct {
 	storages    map[string]struct{}
 }
 
-func getKey(cache *lru.Cache, key string) (cacheValue, bool) {
+func getKey(cache *lru.Cache[string, interface{}], key string) (cacheValue, bool) {
 	val, found := cache.Get(key)
 	vals, _ := val.(cacheValue)
 	return vals, found
