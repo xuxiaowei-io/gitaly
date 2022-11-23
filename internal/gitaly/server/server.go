@@ -22,6 +22,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/logsanitizer"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/middleware/cache"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/middleware/commandstatshandler"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/middleware/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/middleware/limithandler"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/middleware/panichandler"
@@ -92,6 +93,7 @@ func New(
 			gitalylog.PropagationMessageProducer(grpcmwlogrus.DefaultMessageProducer),
 			commandstatshandler.FieldsProducer,
 			grpcstats.FieldsProducer,
+			featureflag.FieldsProducer,
 		),
 	)
 

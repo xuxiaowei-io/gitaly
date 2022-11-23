@@ -32,7 +32,7 @@ func StreamInterceptor(srv interface{}, stream grpc.ServerStream, info *grpc.Str
 }
 
 // FieldsProducer extracts stats info from the context and returns it as a logging fields.
-func FieldsProducer(ctx context.Context) logrus.Fields {
+func FieldsProducer(ctx context.Context, _ error) logrus.Fields {
 	if stats := command.StatsFromContext(ctx); stats != nil {
 		return stats.Fields()
 	}

@@ -14,7 +14,7 @@ func TestPayloadBytes_TagRPC(t *testing.T) {
 	ctx = (&PayloadBytes{}).TagRPC(ctx, nil)
 	require.Equal(t,
 		logrus.Fields{"grpc.request.payload_bytes": int64(0), "grpc.response.payload_bytes": int64(0)},
-		FieldsProducer(ctx),
+		FieldsProducer(ctx, nil),
 	)
 }
 
@@ -27,22 +27,22 @@ func TestPayloadBytes_HandleRPC(t *testing.T) {
 	handler.HandleRPC(ctx, &stats.InPayload{Length: 42})
 	require.Equal(t,
 		logrus.Fields{"grpc.request.payload_bytes": int64(42), "grpc.response.payload_bytes": int64(0)},
-		FieldsProducer(ctx),
+		FieldsProducer(ctx, nil),
 	)
 	handler.HandleRPC(ctx, &stats.OutPayload{Length: 24})
 	require.Equal(t,
 		logrus.Fields{"grpc.request.payload_bytes": int64(42), "grpc.response.payload_bytes": int64(24)},
-		FieldsProducer(ctx),
+		FieldsProducer(ctx, nil),
 	)
 	handler.HandleRPC(ctx, &stats.InPayload{Length: 38})
 	require.Equal(t,
 		logrus.Fields{"grpc.request.payload_bytes": int64(80), "grpc.response.payload_bytes": int64(24)},
-		FieldsProducer(ctx),
+		FieldsProducer(ctx, nil),
 	)
 	handler.HandleRPC(ctx, &stats.OutPayload{Length: 66})
 	require.Equal(t,
 		logrus.Fields{"grpc.request.payload_bytes": int64(80), "grpc.response.payload_bytes": int64(90)},
-		FieldsProducer(ctx),
+		FieldsProducer(ctx, nil),
 	)
 }
 
@@ -65,10 +65,10 @@ func TestFieldsProducer(t *testing.T) {
 		require.Equal(t, logrus.Fields{
 			"grpc.request.payload_bytes":  int64(42),
 			"grpc.response.payload_bytes": int64(24),
-		}, FieldsProducer(ctx))
+		}, FieldsProducer(ctx, nil))
 	})
 
 	t.Run("no data", func(t *testing.T) {
-		require.Nil(t, FieldsProducer(ctx))
+		require.Nil(t, FieldsProducer(ctx, nil))
 	})
 }

@@ -171,15 +171,16 @@ func Default() *logrus.Entry { return defaultLogger.WithField("pid", os.Getpid()
 // to control the library's chattiness.
 func GrpcGo() *logrus.Entry { return grpcGo.WithField("pid", os.Getpid()) }
 
-// FieldsProducer returns fields that need to be added into the logging context.
-type FieldsProducer func(context.Context) logrus.Fields
+// FieldsProducer returns fields that need to be added into the logging context. error argument is
+// the result of RPC handling.
+type FieldsProducer func(context.Context, error) logrus.Fields
 
 // MessageProducer returns a wrapper that extends passed mp to accept additional fields generated
 // by each of the fieldsProducers.
 func MessageProducer(mp grpcmwlogrus.MessageProducer, fieldsProducers ...FieldsProducer) grpcmwlogrus.MessageProducer {
 	return func(ctx context.Context, format string, level logrus.Level, code codes.Code, err error, fields logrus.Fields) {
 		for _, fieldsProducer := range fieldsProducers {
-			for key, val := range fieldsProducer(ctx) {
+			for key, val := range fieldsProducer(ctx, err) {
 				fields[key] = val
 			}
 		}
@@ -269,7 +270,7 @@ func (lh PerRPCLogHandler) HandleRPC(ctx context.Context, rs stats.RPCStats) {
 			mpp.fields = logrus.Fields{}
 		}
 		for _, fp := range lh.FieldProducers {
-			for k, v := range fp(ctx) {
+			for k, v := range fp(ctx, mpp.err) {
 				mpp.fields[k] = v
 			}
 		}

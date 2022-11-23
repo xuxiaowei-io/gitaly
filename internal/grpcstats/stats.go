@@ -58,7 +58,7 @@ func (s *PayloadBytesStats) Fields() logrus.Fields {
 }
 
 // FieldsProducer extracts stats info from the context and returns it as a logging fields.
-func FieldsProducer(ctx context.Context) logrus.Fields {
+func FieldsProducer(ctx context.Context, _ error) logrus.Fields {
 	payloadBytesStats := payloadBytesStatsFromContext(ctx)
 	if payloadBytesStats != nil {
 		return payloadBytesStats.Fields()
