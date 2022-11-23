@@ -48,7 +48,7 @@ func (e *repoExecutor) ExecAndWait(ctx context.Context, cmd git.Cmd, opts ...git
 }
 
 func (e *repoExecutor) GitVersion(ctx context.Context) (git.Version, error) {
-	return git.Version{}, nil
+	return e.gitCmdFactory.GitVersion(ctx)
 }
 
 func (e *repoExecutor) ObjectHash(ctx context.Context) (git.ObjectHash, error) {
