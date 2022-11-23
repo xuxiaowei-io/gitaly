@@ -274,9 +274,17 @@ func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequ
 		return nil, err
 	}
 
-	revision, err := quarantineRepo.ResolveRevision(ctx, referenceName.Revision())
-	if err != nil {
-		return nil, helper.ErrInvalidArgument(err)
+	var revision git.ObjectID
+	if expectedOldOID := in.GetExpectedOldOid(); expectedOldOID != "" {
+		revision, err = quarantineRepo.ResolveRevision(ctx, git.Revision(expectedOldOID))
+		if err != nil {
+			return nil, helper.ErrInvalidArgumentf("resolve object ID: %s: %w", expectedOldOID, err)
+		}
+	} else {
+		revision, err = quarantineRepo.ResolveRevision(ctx, referenceName.Revision())
+		if err != nil {
+			return nil, helper.ErrInvalidArgument(err)
+		}
 	}
 
 	commitID, err := git.ObjectHashSHA1.FromHex(in.CommitId)

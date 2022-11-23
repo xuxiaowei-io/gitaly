@@ -955,7 +955,7 @@ func TestUserFFBranch_successful(t *testing.T) {
 	require.Equal(t, commitID, text.ChompBytes(newBranchHead), "branch head not updated")
 }
 
-func TestUserFFBranch_failure(t *testing.T) {
+func TestUserFFBranch_expectedOldOID(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
@@ -966,13 +966,49 @@ func TestUserFFBranch_failure(t *testing.T) {
 
 	gittest.Exec(t, cfg, "-C", repoPath, "branch", "-f", branchName, "6d394385cf567f80a8fd85055db1ab4c5295806f")
 
+	request := &gitalypb.UserFFBranchRequest{
+		Repository:     repo,
+		CommitId:       commitID,
+		Branch:         []byte(branchName),
+		User:           gittest.TestUser,
+		ExpectedOldOid: text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", branchName)),
+	}
+	expectedResponse := &gitalypb.UserFFBranchResponse{
+		BranchUpdate: &gitalypb.OperationBranchUpdate{
+			RepoCreated:   false,
+			BranchCreated: false,
+			CommitId:      commitID,
+		},
+	}
+
+	resp, err := client.UserFFBranch(ctx, request)
+	require.NoError(t, err)
+	testhelper.ProtoEqual(t, expectedResponse, resp)
+	newBranchHead := gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", branchName)
+	require.Equal(t, commitID, text.ChompBytes(newBranchHead), "branch head not updated")
+}
+
+func TestUserFFBranch_failure(t *testing.T) {
+	t.Parallel()
+	ctx := testhelper.Context(t)
+
+	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
+
+	commitID := "cfe32cf61b73a0d5e9f13e774abde7ff789b1660"
+	branchName := "test-ff-target-branch"
+	branchCommitID := "6d394385cf567f80a8fd85055db1ab4c5295806f"
+
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", "-f", branchName, branchCommitID)
+
 	testCases := []struct {
-		desc     string
-		user     *gitalypb.User
-		branch   []byte
-		commitID string
-		repo     *gitalypb.Repository
-		code     codes.Code
+		desc           string
+		user           *gitalypb.User
+		branch         []byte
+		commitID       string
+		expectedOldOID string
+		repo           *gitalypb.Repository
+		code           codes.Code
+		emptyResponse  bool
 	}{
 		{
 			desc:     "empty repository",
@@ -1026,18 +1062,42 @@ func TestUserFFBranch_failure(t *testing.T) {
 			commitID: "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863",
 			code:     codes.FailedPrecondition,
 		},
+		{
+			desc:           "invalid expectedOldOID",
+			repo:           repo,
+			user:           gittest.TestUser,
+			branch:         []byte(branchName),
+			commitID:       commitID,
+			expectedOldOID: "foobar",
+			code:           codes.InvalidArgument,
+		},
+		{
+			desc:           "incorrect expectedOldOID",
+			repo:           repo,
+			user:           gittest.TestUser,
+			branch:         []byte(branchName),
+			commitID:       commitID,
+			expectedOldOID: text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", branchCommitID+"~1")),
+			emptyResponse:  true,
+		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			request := &gitalypb.UserFFBranchRequest{
-				Repository: testCase.repo,
-				User:       testCase.user,
-				Branch:     testCase.branch,
-				CommitId:   testCase.commitID,
+				Repository:     testCase.repo,
+				User:           testCase.user,
+				Branch:         testCase.branch,
+				CommitId:       testCase.commitID,
+				ExpectedOldOid: testCase.expectedOldOID,
 			}
-			_, err := client.UserFFBranch(ctx, request)
-			testhelper.RequireGrpcCode(t, err, testCase.code)
+			resp, err := client.UserFFBranch(ctx, request)
+
+			if testCase.emptyResponse {
+				testhelper.ProtoEqual(t, gitalypb.UserFFBranchResponse{}, resp)
+			} else {
+				testhelper.RequireGrpcCode(t, err, testCase.code)
+			}
 		})
 	}
 }
