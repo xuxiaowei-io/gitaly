@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/hashicorp/yamux"
 	"github.com/pelletier/go-toml/v2"
 	promclient "github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
@@ -155,6 +156,40 @@ type Config struct {
 	MemoryQueueEnabled  bool                `toml:"memory_queue_enabled,omitempty"`
 	GracefulStopTimeout duration.Duration   `toml:"graceful_stop_timeout,omitempty"`
 	RepositoriesCleanup RepositoriesCleanup `toml:"repositories_cleanup,omitempty"`
+	Yamux               Yamux               `toml:"yamux,omitempty"`
+}
+
+// Yamux contains Yamux related configuration values.
+type Yamux struct {
+	// MaximumStreamWindowSizeBytes sets the maximum window size in bytes used for yamux streams.
+	// Higher value can increase throughput at the cost of more memory usage.
+	MaximumStreamWindowSizeBytes uint32 `toml:"maximum_stream_window_size_bytes,omitempty"`
+	// AcceptBacklog sets the maximum number of stream openings in-flight before further openings
+	// block.
+	AcceptBacklog int `toml:"accept_backlog,omitempty"`
+}
+
+func (cfg Yamux) validate() error {
+	if cfg.MaximumStreamWindowSizeBytes < 262144 {
+		// Yamux requires the stream window size to be at minimum 256KiB.
+		return fmt.Errorf("yamux.maximum_stream_window_size_bytes must be at least 262144 but it was %d", cfg.MaximumStreamWindowSizeBytes)
+	}
+
+	if cfg.AcceptBacklog < 1 {
+		// Yamux requires accept backlog to be at least 1
+		return fmt.Errorf("yamux.accept_backlog must be at least 1 but it was %d", cfg.AcceptBacklog)
+	}
+
+	return nil
+}
+
+// DefaultYamuxConfig returns the default Yamux configuration values.
+func DefaultYamuxConfig() Yamux {
+	defaultCfg := yamux.DefaultConfig()
+	return Yamux{
+		MaximumStreamWindowSizeBytes: defaultCfg.MaxStreamWindowSize,
+		AcceptBacklog:                defaultCfg.AcceptBacklog,
+	}
 }
 
 // VirtualStorage represents a set of nodes for a storage
@@ -185,6 +220,7 @@ func FromFile(filePath string) (Config, error) {
 		// Sets the default Failover, to be overwritten when deserializing the TOML
 		Failover:            Failover{Enabled: true, ElectionStrategy: ElectionStrategyPerRepository},
 		RepositoriesCleanup: DefaultRepositoriesCleanup(),
+		Yamux:               DefaultYamuxConfig(),
 	}
 	if err := toml.Unmarshal(b, conf); err != nil {
 		return Config{}, err
@@ -277,6 +313,10 @@ func (c *Config) Validate() error {
 		if c.RepositoriesCleanup.RunInterval.Duration() < minimalSyncRunInterval {
 			return fmt.Errorf("repositories_cleanup.run_interval is less then %s, which could lead to a database performance problem", minimalSyncRunInterval.String())
 		}
+	}
+
+	if err := c.Yamux.validate(); err != nil {
+		return err
 	}
 
 	return nil

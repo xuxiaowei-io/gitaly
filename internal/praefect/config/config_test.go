@@ -207,6 +207,20 @@ func TestConfigValidation(t *testing.T) {
 			},
 			errMsg: `repositories_cleanup.run_interval is less then 1m0s, which could lead to a database performance problem`,
 		},
+		{
+			desc: "yamux.maximum_stream_window_size_bytes is too low",
+			changeConfig: func(cfg *Config) {
+				cfg.Yamux.MaximumStreamWindowSizeBytes = 16
+			},
+			errMsg: `yamux.maximum_stream_window_size_bytes must be at least 262144 but it was 16`,
+		},
+		{
+			desc: "yamux.maximum_stream_window_size_bytes is too low",
+			changeConfig: func(cfg *Config) {
+				cfg.Yamux.AcceptBacklog = 0
+			},
+			errMsg: `yamux.accept_backlog must be at least 1 but it was 0`,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -220,6 +234,7 @@ func TestConfigValidation(t *testing.T) {
 				},
 				Failover:            Failover{ElectionStrategy: ElectionStrategySQL},
 				RepositoriesCleanup: DefaultRepositoriesCleanup(),
+				Yamux:               DefaultYamuxConfig(),
 			}
 
 			tc.changeConfig(&config)
@@ -332,6 +347,10 @@ func TestConfigParsing(t *testing.T) {
 					VerificationInterval: duration.Duration(24 * time.Hour),
 					DeleteInvalidRecords: true,
 				},
+				Yamux: Yamux{
+					MaximumStreamWindowSizeBytes: 1000,
+					AcceptBacklog:                2000,
+				},
 			},
 		},
 		{
@@ -358,6 +377,7 @@ func TestConfigParsing(t *testing.T) {
 					RepositoriesInBatch: 11,
 				},
 				BackgroundVerification: DefaultBackgroundVerificationConfig(),
+				Yamux:                  DefaultYamuxConfig(),
 			},
 		},
 		{
@@ -381,6 +401,7 @@ func TestConfigParsing(t *testing.T) {
 					RepositoriesInBatch: 16,
 				},
 				BackgroundVerification: DefaultBackgroundVerificationConfig(),
+				Yamux:                  DefaultYamuxConfig(),
 			},
 		},
 		{

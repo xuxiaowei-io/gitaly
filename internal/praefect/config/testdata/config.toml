@@ -81,3 +81,7 @@ read_error_threshold_count = 100
 check_interval = "1s"
 run_interval = "3s"
 repositories_in_batch = 10
+
+[yamux]
+maximum_stream_window_size_bytes = 1000
+accept_backlog = 2000
