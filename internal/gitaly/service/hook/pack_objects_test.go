@@ -751,7 +751,7 @@ gitaly_pack_objects_in_progress{type="%s"} 1
 		testhelper.RequireGrpcCode(
 			t,
 			err,
-			codes.Unavailable,
+			codes.ResourceExhausted,
 		)
 
 		close(blockCh)

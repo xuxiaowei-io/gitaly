@@ -48,6 +48,9 @@ func ErrUnavailable(err error) error { return wrapError(codes.Unavailable, err) 
 // ErrPermissionDenied wraps err with codes.PermissionDenied, unless err is already a gRPC error.
 func ErrPermissionDenied(err error) error { return wrapError(codes.PermissionDenied, err) }
 
+// ErrResourceExhausted wraps err with codes.ResourceExhausted, unless err is already a gRPC error.
+func ErrResourceExhausted(err error) error { return wrapError(codes.ResourceExhausted, err) }
+
 // ErrAlreadyExists wraps err with codes.AlreadyExists, unless err is already a gRPC error.
 func ErrAlreadyExists(err error) error { return wrapError(codes.AlreadyExists, err) }
 

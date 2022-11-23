@@ -150,7 +150,7 @@ func (c *ConcurrencyLimiter) Limit(ctx context.Context, lockKey string, f Limite
 	if err := c.queueInc(ctx); err != nil {
 		if errors.Is(err, ErrMaxQueueSize) {
 			detailedErr, errGeneratingDetailedErr := helper.ErrWithDetails(
-				helper.ErrUnavailable(ErrMaxQueueSize),
+				helper.ErrResourceExhausted(ErrMaxQueueSize),
 				&gitalypb.LimitError{
 					ErrorMessage: err.Error(),
 					RetryAfter:   durationpb.New(0),
@@ -161,7 +161,7 @@ func (c *ConcurrencyLimiter) Limit(ctx context.Context, lockKey string, f Limite
 					WithError(errGeneratingDetailedErr).
 					Error("failed to generate detailed error")
 
-				return nil, helper.ErrUnavailable(ErrMaxQueueSize)
+				return nil, helper.ErrResourceExhausted(ErrMaxQueueSize)
 			}
 
 			return nil, detailedErr
@@ -187,7 +187,7 @@ func (c *ConcurrencyLimiter) Limit(ctx context.Context, lockKey string, f Limite
 			c.monitor.Dropped(ctx, "max_time")
 
 			detailedErr, errGeneratingDetailedErr := helper.ErrWithDetails(
-				helper.ErrUnavailable(ErrMaxQueueTime),
+				helper.ErrResourceExhausted(ErrMaxQueueTime),
 				&gitalypb.LimitError{
 					ErrorMessage: err.Error(),
 					RetryAfter:   durationpb.New(0),
@@ -198,7 +198,7 @@ func (c *ConcurrencyLimiter) Limit(ctx context.Context, lockKey string, f Limite
 					WithError(errGeneratingDetailedErr).
 					Error("failed to generate detailed error")
 
-				return nil, helper.ErrUnavailable(ErrMaxQueueTime)
+				return nil, helper.ErrResourceExhausted(ErrMaxQueueTime)
 			}
 
 			return nil, detailedErr
