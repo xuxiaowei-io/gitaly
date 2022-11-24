@@ -75,12 +75,20 @@ func (s *Server) userUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpda
 
 	referenceName := git.NewReferenceNameFromBranchName(string(req.GetBranch()))
 
-	branchOID, err := quarantineRepo.ResolveRevision(ctx, referenceName.Revision())
-	if err != nil {
-		if errors.Is(err, git.ErrReferenceNotFound) {
-			return nil, helper.ErrInvalidArgumentf("Cannot find branch")
+	var branchOID git.ObjectID
+	if expectedOldOID := req.GetExpectedOldOid(); expectedOldOID != "" {
+		branchOID, err = s.localrepo(req.GetRepository()).ResolveRevision(ctx, git.Revision(expectedOldOID))
+		if err != nil {
+			return nil, helper.ErrInvalidArgumentf("resolve object ID: %s: %w", expectedOldOID, err)
 		}
-		return nil, helper.ErrInternalf("resolving revision: %w", err)
+	} else {
+		branchOID, err = quarantineRepo.ResolveRevision(ctx, referenceName.Revision())
+		if err != nil {
+			if errors.Is(err, git.ErrReferenceNotFound) {
+				return nil, helper.ErrInvalidArgumentf("Cannot find branch")
+			}
+			return nil, helper.ErrInternalf("resolving revision: %w", err)
+		}
 	}
 
 	repoPath, err := quarantineRepo.Path()

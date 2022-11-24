@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/lstree"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -34,6 +35,7 @@ func TestSuccessfulUserUpdateSubmoduleRequest(t *testing.T) {
 	currentOID, err := repo.ResolveRevision(ctx, "refs/heads/master")
 	require.NoError(t, err)
 	require.NoError(t, repo.UpdateRef(ctx, "refs/heads/refs/heads/master", currentOID, git.ObjectHashSHA1.ZeroOID))
+	require.NoError(t, repo.UpdateRef(ctx, "refs/heads/branch2", currentOID, git.ObjectHashSHA1.ZeroOID))
 
 	// If something uses the branch name as an unqualified reference, then
 	// git would return the tag instead of the branch. We thus create a tag
@@ -45,16 +47,24 @@ func TestSuccessfulUserUpdateSubmoduleRequest(t *testing.T) {
 	commitMessage := []byte("Update Submodule message")
 
 	testCases := []struct {
-		desc      string
-		submodule string
-		commitSha string
-		branch    string
+		desc           string
+		submodule      string
+		commitSha      string
+		branch         string
+		expectedOldOID string
 	}{
 		{
 			desc:      "Update submodule",
 			submodule: "gitlab-grack",
 			commitSha: "41fa1bc9e0f0630ced6a8a211d60c2af425ecc2d",
 			branch:    "master",
+		},
+		{
+			desc:           "Update submodule + expectedOldOID",
+			submodule:      "gitlab-grack",
+			commitSha:      "41fa1bc9e0f0630ced6a8a211d60c2af425ecc2d",
+			branch:         "branch2",
+			expectedOldOID: currentOID.Revision().String(),
 		},
 		{
 			desc:      "Update submodule on weird branch",
@@ -73,12 +83,13 @@ func TestSuccessfulUserUpdateSubmoduleRequest(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			request := &gitalypb.UserUpdateSubmoduleRequest{
-				Repository:    repoProto,
-				User:          gittest.TestUser,
-				Submodule:     []byte(testCase.submodule),
-				CommitSha:     testCase.commitSha,
-				Branch:        []byte(testCase.branch),
-				CommitMessage: commitMessage,
+				Repository:     repoProto,
+				User:           gittest.TestUser,
+				Submodule:      []byte(testCase.submodule),
+				CommitSha:      testCase.commitSha,
+				Branch:         []byte(testCase.branch),
+				CommitMessage:  commitMessage,
+				ExpectedOldOid: testCase.expectedOldOID,
 			}
 
 			response, err := client.UserUpdateSubmodule(ctx, request)
@@ -391,4 +402,66 @@ func TestFailedUserUpdateSubmoduleRequestDueToRepositoryEmpty(t *testing.T) {
 	response, err := client.UserUpdateSubmodule(ctx, request)
 	require.NoError(t, err)
 	require.Equal(t, response.CommitError, "Repository is empty")
+}
+
+func TestUserUpdateSubmodule_expectedOldOID(t *testing.T) {
+	t.Parallel()
+	ctx := testhelper.Context(t)
+
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+
+	_ = localrepo.NewTestRepo(t, cfg, repoProto)
+
+	commitMessage := []byte("Update Submodule message")
+
+	testCases := []struct {
+		expectedErr      error
+		expectedResponse *gitalypb.UserUpdateSubmoduleResponse
+		desc             string
+		submodule        string
+		commitSha        string
+		branch           string
+		expectedOldOID   string
+	}{
+		{
+			desc:           "invalid expectedOldOID",
+			submodule:      "gitlab-grack",
+			commitSha:      "41fa1bc9e0f0630ced6a8a211d60c2af425ecc2d",
+			branch:         "master",
+			expectedOldOID: "foobar",
+			expectedErr:    helper.ErrInvalidArgumentf("resolve object ID: foobar: reference not found"),
+		},
+		{
+			expectedErr: nil,
+			expectedResponse: &gitalypb.UserUpdateSubmoduleResponse{
+				CommitError: "Could not update refs/heads/master. Please refresh and try again.",
+			},
+			desc:           "incorrect expectedOldOID",
+			submodule:      "gitlab-grack",
+			commitSha:      "41fa1bc9e0f0630ced6a8a211d60c2af425ecc2d",
+			branch:         "master",
+			expectedOldOID: text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "master~1")),
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.desc, func(t *testing.T) {
+			request := &gitalypb.UserUpdateSubmoduleRequest{
+				Repository:     repoProto,
+				User:           gittest.TestUser,
+				Submodule:      []byte(testCase.submodule),
+				CommitSha:      testCase.commitSha,
+				Branch:         []byte(testCase.branch),
+				CommitMessage:  commitMessage,
+				ExpectedOldOid: testCase.expectedOldOID,
+			}
+
+			resp, err := client.UserUpdateSubmodule(ctx, request)
+			if testCase.expectedResponse != nil {
+				testhelper.ProtoEqual(t, testCase.expectedResponse, resp)
+			} else {
+				testhelper.RequireGrpcError(t, testCase.expectedErr, err)
+			}
+		})
+	}
 }
