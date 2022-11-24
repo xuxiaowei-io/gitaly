@@ -48,15 +48,15 @@ func (s *server) FindLicense(ctx context.Context, req *gitalypb.FindLicenseReque
 	if featureflag.GoFindLicense.IsEnabled(ctx) {
 		repo := localrepo.New(s.locator, s.gitCmdFactory, s.catfileCache, repository)
 
-		hasHeadRevision, err := repo.HasRevision(ctx, "HEAD")
+		headOID, err := repo.ResolveRevision(ctx, "HEAD")
 		if err != nil {
-			return nil, helper.ErrInternalf("cannot check HEAD revision: %v", err)
-		}
-		if !hasHeadRevision {
-			return &gitalypb.FindLicenseResponse{}, nil
+			if errors.Is(err, git.ErrReferenceNotFound) {
+				return &gitalypb.FindLicenseResponse{}, nil
+			}
+			return nil, helper.ErrInternalf("cannot find HEAD revision: %v", err)
 		}
 
-		repoFiler := &gitFiler{ctx: ctx, repo: repo}
+		repoFiler := &gitFiler{ctx: ctx, repo: repo, treeishID: headOID}
 		detectedLicenses, err := licensedb.Detect(repoFiler)
 		if err != nil {
 			if errors.Is(err, licensedb.ErrNoLicenseFound) {
@@ -155,15 +155,13 @@ type gitFiler struct {
 	repo         *localrepo.Repo
 	foundLicense bool
 	path         string
+	treeishID    git.ObjectID
 }
 
 func (f *gitFiler) ReadFile(path string) ([]byte, error) {
-	var stdout, stderr bytes.Buffer
-	if err := f.repo.ExecAndWait(f.ctx, git.SubCmd{
-		Name: "cat-file",
-		Args: []string{"blob", fmt.Sprintf("HEAD:%s", path)},
-	}, git.WithStdout(&stdout), git.WithStderr(&stderr)); err != nil {
-		return nil, fmt.Errorf("cat-file failed: %w, stderr: %q", err, stderr.String())
+	data, err := f.repo.ReadObject(f.ctx, git.ObjectID(fmt.Sprintf("%s:%s", f.treeishID, path)))
+	if err != nil {
+		return nil, fmt.Errorf("read file: %w", err)
 	}
 
 	// `licensedb.Detect` only opens files that look like licenses. Failing that, it will
@@ -181,20 +179,17 @@ func (f *gitFiler) ReadFile(path string) ([]byte, error) {
 		}
 	}
 
-	return stdout.Bytes(), nil
+	return data, nil
 }
 
 func (f *gitFiler) ReadDir(string) ([]filer.File, error) {
-	// We're doing a recursive listing returning all files at once such that we do not have to
-	// call git-ls-tree(1) multiple times.
 	var stderr bytes.Buffer
 	cmd, err := f.repo.Exec(f.ctx, git.SubCmd{
 		Name: "ls-tree",
 		Flags: []git.Option{
-			git.Flag{Name: "--full-tree"},
 			git.Flag{Name: "-z"},
 		},
-		Args: []string{"HEAD"},
+		Args: []string{f.treeishID.String()},
 	}, git.WithStderr(&stderr))
 	if err != nil {
 		return nil, err
@@ -212,8 +207,6 @@ func (f *gitFiler) ReadDir(string) ([]filer.File, error) {
 			return nil, err
 		}
 
-		// Given that we're doing a recursive listing, we skip over all types which aren't
-		// blobs.
 		if entry.Type != lstree.Blob {
 			continue
 		}

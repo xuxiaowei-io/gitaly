@@ -79,7 +79,8 @@ type RepositoryServiceClient interface {
 	// GetConfig reads the target repository's gitconfig and streams its contents
 	// back. Returns a NotFound error in case no gitconfig was found.
 	GetConfig(ctx context.Context, in *GetConfigRequest, opts ...grpc.CallOption) (RepositoryService_GetConfigClient, error)
-	// This comment is left unintentionally blank.
+	// FindLicense looks in the given repository and attempts to detect all the
+	// details about the license used in the repository.
 	FindLicense(ctx context.Context, in *FindLicenseRequest, opts ...grpc.CallOption) (*FindLicenseResponse, error)
 	// This comment is left unintentionally blank.
 	GetInfoAttributes(ctx context.Context, in *GetInfoAttributesRequest, opts ...grpc.CallOption) (RepositoryService_GetInfoAttributesClient, error)
@@ -898,7 +899,8 @@ type RepositoryServiceServer interface {
 	// GetConfig reads the target repository's gitconfig and streams its contents
 	// back. Returns a NotFound error in case no gitconfig was found.
 	GetConfig(*GetConfigRequest, RepositoryService_GetConfigServer) error
-	// This comment is left unintentionally blank.
+	// FindLicense looks in the given repository and attempts to detect all the
+	// details about the license used in the repository.
 	FindLicense(context.Context, *FindLicenseRequest) (*FindLicenseResponse, error)
 	// This comment is left unintentionally blank.
 	GetInfoAttributes(*GetInfoAttributesRequest, RepositoryService_GetInfoAttributesServer) error

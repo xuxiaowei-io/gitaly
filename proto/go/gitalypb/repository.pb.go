@@ -3072,13 +3072,13 @@ func (*CreateRepositoryFromBundleResponse) Descriptor() ([]byte, []int) {
 	return file_repository_proto_rawDescGZIP(), []int{51}
 }
 
-// This comment is left unintentionally blank.
+// FindLicenseRequest asks to detect the license for the given repository.
 type FindLicenseRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// Repository is repository where to detect the license.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -3138,6 +3138,8 @@ type FindLicenseResponse struct {
 	// LicenseUrl is a URL to the license on the internet.
 	LicenseUrl string `protobuf:"bytes,3,opt,name=license_url,json=licenseUrl,proto3" json:"license_url,omitempty"`
 	// LicensePath is a path to the file that contains the text of the license.
+	// When a LICENSE file is found containing the filename of another file,
+	// that filename will be returned, for example "mit.txt".
 	LicensePath string `protobuf:"bytes,4,opt,name=license_path,json=licensePath,proto3" json:"license_path,omitempty"`
 	// LicenseNickname is a shortened full name for better readability.
 	// It exists only for a small set of licenses and an empty value is returned in most cases.
