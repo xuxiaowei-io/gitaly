@@ -206,11 +206,6 @@ func (u *Updater) Delete(reference git.ReferenceName) error {
 	return u.Update(reference, u.objectHash.ZeroOID, "")
 }
 
-var (
-	refLockedRegex        = regexp.MustCompile("cannot lock ref '(.+?)'")
-	refInvalidFormatRegex = regexp.MustCompile(`invalid ref format: (.*)\\n"`)
-)
-
 // Prepare prepares the reference transaction by locking all references and determining their
 // current values. The updates are not yet committed and will be rolled back in case there is no
 // call to `Commit()`. This call is optional.
@@ -221,21 +216,7 @@ func (u *Updater) Prepare() error {
 
 	u.state = statePrepared
 
-	if err := u.setState("prepare"); err != nil {
-		matches := refLockedRegex.FindSubmatch([]byte(err.Error()))
-		if len(matches) > 1 {
-			return &ErrAlreadyLocked{Ref: string(matches[1])}
-		}
-
-		matches = refInvalidFormatRegex.FindSubmatch([]byte(err.Error()))
-		if len(matches) > 1 {
-			return ErrInvalidReferenceFormat{ReferenceName: string(matches[1])}
-		}
-
-		return err
-	}
-
-	return nil
+	return u.setState("prepare")
 }
 
 // Commit applies the commands specified in other calls to the Updater. Commit finishes the
@@ -279,6 +260,11 @@ func (u *Updater) write(format string, args ...interface{}) error {
 	return nil
 }
 
+var (
+	refLockedRegex        = regexp.MustCompile(`^fatal: prepare: cannot lock ref '(.+?)': Unable to create '.*': File exists.`)
+	refInvalidFormatRegex = regexp.MustCompile(`^fatal: invalid ref format: (.*)\n$`)
+)
+
 func (u *Updater) setState(state string) error {
 	if err := u.write("%s\x00", state); err != nil {
 		return fmt.Errorf("updating state to %q: %w", state, err)
@@ -295,6 +281,17 @@ func (u *Updater) setState(state string) error {
 		// terminate such that we can retrieve the command's stderr in a race-free
 		// manner.
 		_ = u.Close()
+
+		matches := refLockedRegex.FindSubmatch(u.stderr.Bytes())
+		if len(matches) > 1 {
+			return &ErrAlreadyLocked{Ref: string(matches[1])}
+		}
+
+		matches = refInvalidFormatRegex.FindSubmatch(u.stderr.Bytes())
+		if len(matches) > 1 {
+			return ErrInvalidReferenceFormat{ReferenceName: string(matches[1])}
+		}
+
 		return fmt.Errorf("state update to %q failed: %w, stderr: %q", state, err, u.stderr)
 	}
 
