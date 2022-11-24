@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -29,6 +30,9 @@ func TestServer_UserRevert_successful(t *testing.T) {
 
 	destinationBranch := "revert-dst"
 	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, "master")
+
+	destinationBranch2 := "revert-dst2"
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch2, "master")
 
 	masterHeadCommit, err := repo.ReadCommit(ctx, "master")
 	require.NoError(t, err)
@@ -55,6 +59,18 @@ func TestServer_UserRevert_successful(t *testing.T) {
 				Commit:     revertedCommit,
 				BranchName: []byte(destinationBranch),
 				Message:    []byte("Reverting " + revertedCommit.Id),
+			},
+			branchUpdate: &gitalypb.OperationBranchUpdate{},
+		},
+		{
+			desc: "branch exists + expectedOldOID",
+			request: &gitalypb.UserRevertRequest{
+				Repository:     repoProto,
+				User:           gittest.TestUser,
+				Commit:         revertedCommit,
+				BranchName:     []byte(destinationBranch2),
+				ExpectedOldOid: text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", destinationBranch)),
+				Message:        []byte("Reverting " + revertedCommit.Id),
 			},
 			branchUpdate: &gitalypb.OperationBranchUpdate{},
 		},
@@ -429,6 +445,18 @@ func TestServer_UserRevert_failuedDueToValidations(t *testing.T) {
 			},
 			expectedErr: status.Error(codes.InvalidArgument, "empty Message"),
 		},
+		{
+			desc: "invalid expectedOldOID",
+			request: &gitalypb.UserRevertRequest{
+				Repository:     repoProto,
+				User:           gittest.TestUser,
+				Commit:         revertedCommit,
+				BranchName:     []byte(destinationBranch),
+				Message:        []byte("Reverting " + revertedCommit.Id),
+				ExpectedOldOid: "foobar",
+			},
+			expectedErr: status.Error(codes.InvalidArgument, "resolve start ref: reference not found"),
+		},
 	}
 
 	for _, testCase := range testCases {
@@ -437,6 +465,33 @@ func TestServer_UserRevert_failuedDueToValidations(t *testing.T) {
 			testhelper.RequireGrpcError(t, testCase.expectedErr, err)
 		})
 	}
+}
+
+func TestServer_UserRevert_failedDueToWrongExpectedOldOID(t *testing.T) {
+	t.Parallel()
+	ctx := testhelper.Context(t)
+
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+	destinationBranch := "revert-dst"
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, "master")
+
+	revertedCommit, err := repo.ReadCommit(ctx, "d59c60028b053793cecfb4022de34602e1a9218e")
+	require.NoError(t, err)
+
+	request := &gitalypb.UserRevertRequest{
+		Repository:     repoProto,
+		User:           gittest.TestUser,
+		Commit:         revertedCommit,
+		BranchName:     []byte(destinationBranch),
+		Message:        []byte("Reverting " + revertedCommit.Id),
+		ExpectedOldOid: text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", destinationBranch+"~1")),
+	}
+
+	_, err = client.UserRevert(ctx, request)
+	testhelper.RequireGrpcError(t, helper.ErrInternalf("update reference with hooks: Could not update refs/heads/revert-dst. Please refresh and try again."), err)
 }
 
 func TestServer_UserRevert_failedDueToPreReceiveError(t *testing.T) {

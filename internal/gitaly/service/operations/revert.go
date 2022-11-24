@@ -81,12 +81,21 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 	referenceName := git.NewReferenceNameFromBranchName(string(req.BranchName))
 
 	branchCreated := false
-	oldrev, err := quarantineRepo.ResolveRevision(ctx, referenceName.Revision()+"^{commit}")
-	if errors.Is(err, git.ErrReferenceNotFound) {
-		branchCreated = true
-		oldrev = git.ObjectHashSHA1.ZeroOID
-	} else if err != nil {
-		return nil, helper.ErrInvalidArgumentf("resolve ref: %w", err)
+
+	var oldrev git.ObjectID
+	if expectedOldOID := req.GetExpectedOldOid(); expectedOldOID != "" {
+		oldrev, err = quarantineRepo.ResolveRevision(ctx, git.Revision(expectedOldOID))
+		if err != nil {
+			return nil, helper.ErrInvalidArgumentf("resolve object ID: %s: %w", expectedOldOID, err)
+		}
+	} else {
+		oldrev, err = quarantineRepo.ResolveRevision(ctx, referenceName.Revision()+"^{commit}")
+		if errors.Is(err, git.ErrReferenceNotFound) {
+			branchCreated = true
+			oldrev = git.ObjectHashSHA1.ZeroOID
+		} else if err != nil {
+			return nil, helper.ErrInvalidArgumentf("resolve ref: %w", err)
+		}
 	}
 
 	if req.DryRun {
