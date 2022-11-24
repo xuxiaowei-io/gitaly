@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
@@ -19,10 +20,12 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func TestSuccessfullBackupCustomHooksRequest(t *testing.T) {
+func TestBackupCustomHooks_successful(t *testing.T) {
 	t.Parallel()
+
 	ctx := testhelper.Context(t)
-	_, repo, repoPath, client := setupRepositoryService(t, ctx)
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	expectedTarResponse := []string{
 		"custom_hooks/",
@@ -57,10 +60,12 @@ func TestSuccessfullBackupCustomHooksRequest(t *testing.T) {
 	require.Equal(t, fileLength, len(expectedTarResponse))
 }
 
-func TestSuccessfullBackupCustomHooksSymlink(t *testing.T) {
+func TestBackupCustomHooks_symlink(t *testing.T) {
 	t.Parallel()
+
 	ctx := testhelper.Context(t)
-	_, repo, repoPath, client := setupRepositoryService(t, ctx)
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	linkTarget := "/var/empty"
 	require.NoError(t, os.Symlink(linkTarget, filepath.Join(repoPath, "custom_hooks")), "Could not create custom_hooks symlink")
@@ -85,10 +90,12 @@ func TestSuccessfullBackupCustomHooksSymlink(t *testing.T) {
 	require.Equal(t, io.EOF, err, "custom_hooks should have been the only entry")
 }
 
-func TestSuccessfullBackupCustomHooksRequestWithNoHooks(t *testing.T) {
+func TestBackupCustomHooks_nonexistentHooks(t *testing.T) {
 	t.Parallel()
+
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRepositoryService(t, ctx)
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	backupRequest := &gitalypb.BackupCustomHooksRequest{Repository: repo}
 	backupStream, err := client.BackupCustomHooks(ctx, backupRequest)
@@ -108,8 +115,10 @@ func TestSuccessfullBackupCustomHooksRequestWithNoHooks(t *testing.T) {
 
 func TestBackupCustomHooks_validate(t *testing.T) {
 	t.Parallel()
+
 	ctx := testhelper.Context(t)
-	_, _, _, client := setupRepositoryService(t, ctx)
+	_, client := setupRepositoryServiceWithoutRepo(t)
+
 	for _, tc := range []struct {
 		desc        string
 		req         *gitalypb.BackupCustomHooksRequest

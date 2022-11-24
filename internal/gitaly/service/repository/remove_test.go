@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package repository
 
 import (
@@ -66,10 +64,11 @@ func TestRemoveRepository_validate(t *testing.T) {
 
 func TestRemoveRepository_locking(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
 
+	ctx := testhelper.Context(t)
 	// Praefect does not acquire a lock on repository deletion so disable the test case for Praefect.
-	_, repo, repoPath, client := setupRepositoryService(t, ctx, testserver.WithDisablePraefect())
+	cfg, client := setupRepositoryServiceWithoutRepo(t, testserver.WithDisablePraefect())
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	// Simulate a concurrent RPC holding the repository lock.
 	lockPath := repoPath + ".lock"
