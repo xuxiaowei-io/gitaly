@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package repository
 
 import (
@@ -12,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -26,7 +25,14 @@ func TestApplyGitattributes_successful(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, repoPath, client := setupRepositoryService(t, ctx)
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	gitattributesContent := "pattern attr=value"
+	commitWithGitattributes := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: gitattributesContent},
+	))
+	commitWithoutGitattributes := gittest.WriteCommit(t, cfg, repoPath)
 
 	infoPath := filepath.Join(repoPath, "info")
 	attributesPath := filepath.Join(infoPath, "attributes")
@@ -38,12 +44,12 @@ func TestApplyGitattributes_successful(t *testing.T) {
 	}{
 		{
 			desc:            "With a .gitattributes file",
-			revision:        []byte("e63f41fe459e62e1228fcef60d7189127aeba95a"),
-			expectedContent: []byte("/custom-highlighting/*.gitlab-custom gitlab-language=ruby\n"),
+			revision:        []byte(commitWithGitattributes),
+			expectedContent: []byte(gitattributesContent),
 		},
 		{
 			desc:            "Without a .gitattributes file",
-			revision:        []byte("7efb185dd22fd5c51ef044795d62b7847900c341"),
+			revision:        []byte(commitWithoutGitattributes),
 			expectedContent: nil,
 		},
 	} {
@@ -85,7 +91,16 @@ func TestApplyGitattributes_transactional(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+	})
+	gitattributesContent := "pattern attr=value"
+	commitWithGitattributes := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: gitattributesContent},
+	))
+	commitWithoutGitattributes := gittest.WriteCommit(t, cfg, repoPath)
 
 	transactionServer := &testTransactionServer{}
 	runRepositoryService(t, cfg, nil)
@@ -113,9 +128,9 @@ func TestApplyGitattributes_transactional(t *testing.T) {
 	}{
 		{
 			desc:     "successful vote writes gitattributes",
-			revision: []byte("e63f41fe459e62e1228fcef60d7189127aeba95a"),
+			revision: []byte(commitWithGitattributes),
 			voteFn: func(t *testing.T, request *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
-				vote := voting.VoteFromData([]byte("/custom-highlighting/*.gitlab-custom gitlab-language=ruby\n"))
+				vote := voting.VoteFromData([]byte(gitattributesContent))
 				expectedHash := vote.Bytes()
 
 				require.Equal(t, expectedHash, request.ReferenceUpdatesHash)
@@ -128,7 +143,7 @@ func TestApplyGitattributes_transactional(t *testing.T) {
 		},
 		{
 			desc:     "aborted vote does not write gitattributes",
-			revision: []byte("e63f41fe459e62e1228fcef60d7189127aeba95a"),
+			revision: []byte(commitWithGitattributes),
 			voteFn: func(t *testing.T, request *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
 				return &gitalypb.VoteTransactionResponse{
 					State: gitalypb.VoteTransactionResponse_ABORT,
@@ -142,7 +157,7 @@ func TestApplyGitattributes_transactional(t *testing.T) {
 		},
 		{
 			desc:     "failing vote does not write gitattributes",
-			revision: []byte("e63f41fe459e62e1228fcef60d7189127aeba95a"),
+			revision: []byte(commitWithGitattributes),
 			voteFn: func(t *testing.T, request *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
 				return nil, errors.New("foobar")
 			},
@@ -154,7 +169,7 @@ func TestApplyGitattributes_transactional(t *testing.T) {
 		},
 		{
 			desc:     "commit without gitattributes performs vote",
-			revision: []byte("7efb185dd22fd5c51ef044795d62b7847900c341"),
+			revision: []byte(commitWithoutGitattributes),
 			voteFn: func(t *testing.T, request *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
 				require.Equal(t, bytes.Repeat([]byte{0x00}, 20), request.ReferenceUpdatesHash)
 				return &gitalypb.VoteTransactionResponse{
@@ -188,7 +203,7 @@ func TestApplyGitattributes_transactional(t *testing.T) {
 			path := filepath.Join(infoPath, "attributes")
 			if tc.shouldExist {
 				content := testhelper.MustReadFile(t, path)
-				require.Equal(t, []byte("/custom-highlighting/*.gitlab-custom gitlab-language=ruby\n"), content)
+				require.Equal(t, []byte(gitattributesContent), content)
 			} else {
 				require.NoFileExists(t, path)
 			}
@@ -201,7 +216,8 @@ func TestApplyGitattributes_failure(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, _, client := setupRepositoryService(t, ctx)
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	for _, tc := range []struct {
 		desc        string
