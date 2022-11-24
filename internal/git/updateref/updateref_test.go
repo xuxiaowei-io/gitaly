@@ -19,19 +19,19 @@ func TestMain(m *testing.M) {
 	testhelper.Run(m)
 }
 
-func setupUpdater(t *testing.T, ctx context.Context) (config.Cfg, *localrepo.Repo, string, *Updater) {
-	t.Helper()
+func setupUpdater(tb testing.TB, ctx context.Context) (config.Cfg, *localrepo.Repo, string, *Updater) {
+	tb.Helper()
 
-	cfg := testcfg.Build(t)
+	cfg := testcfg.Build(tb)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
-	repo := localrepo.NewTestRepo(t, cfg, repoProto, git.WithSkipHooks())
+	repo := localrepo.NewTestRepo(tb, cfg, repoProto, git.WithSkipHooks())
 
 	updater, err := New(ctx, repo)
-	require.NoError(t, err)
-	t.Cleanup(func() {
+	require.NoError(tb, err)
+	tb.Cleanup(func() {
 		// This is just to clean up so we ignore the error here. Cancel may or may not
 		// return an error depending on the test.
 		_ = updater.Close()
