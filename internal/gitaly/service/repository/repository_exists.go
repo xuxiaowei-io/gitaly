@@ -20,16 +20,3 @@ func (s *server) RepositoryExists(ctx context.Context, in *gitalypb.RepositoryEx
 
 	return &gitalypb.RepositoryExistsResponse{Exists: storage.IsGitDirectory(path)}, nil
 }
-
-func (s *server) HasLocalBranches(ctx context.Context, in *gitalypb.HasLocalBranchesRequest) (*gitalypb.HasLocalBranchesResponse, error) {
-	repository := in.GetRepository()
-	if err := service.ValidateRepository(repository); err != nil {
-		return nil, helper.ErrInvalidArgument(err)
-	}
-	hasBranches, err := s.localrepo(repository).HasBranches(ctx)
-	if err != nil {
-		return nil, helper.ErrInternal(err)
-	}
-
-	return &gitalypb.HasLocalBranchesResponse{Value: hasBranches}, nil
-}
