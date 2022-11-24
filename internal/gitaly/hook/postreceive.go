@@ -31,17 +31,6 @@ const (
 	maxMessageTextWidth = maxMessageWidth - 2*terminalMessagePadding
 )
 
-func getEnvVar(key string, vars []string) string {
-	for _, varPair := range vars {
-		kv := strings.SplitN(varPair, "=", 2)
-		if kv[0] == key {
-			return kv[1]
-		}
-	}
-
-	return ""
-}
-
 func printMessages(messages []gitlab.PostReceiveMessage, w io.Writer) error {
 	for _, message := range messages {
 		if _, err := w.Write([]byte("\n")); err != nil {
