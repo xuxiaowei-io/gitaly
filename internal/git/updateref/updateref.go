@@ -267,6 +267,16 @@ var (
 
 func (u *Updater) setState(state string) error {
 	if err := u.write("%s\x00", state); err != nil {
+		// It can happen that Git already dies while we're still trying to write to it,
+		// which seems to happen when the machine is really busy. As a result, we try to
+		// write to the now-broken pipe and get Git's error message here already. This
+		// seems to only happen for invalid reference format errors, we have not yet
+		// observed early errors for updating already-locked references.
+		matches := refInvalidFormatRegex.FindSubmatch(u.stderr.Bytes())
+		if len(matches) > 1 {
+			return ErrInvalidReferenceFormat{ReferenceName: string(matches[1])}
+		}
+
 		return fmt.Errorf("updating state to %q: %w", state, err)
 	}
 
