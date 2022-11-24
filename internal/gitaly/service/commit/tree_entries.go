@@ -44,7 +44,7 @@ func validateGetTreeEntriesRequest(in *gitalypb.GetTreeEntriesRequest) error {
 
 func populateFlatPath(
 	ctx context.Context,
-	objectReader catfile.ObjectReader,
+	objectReader catfile.ObjectContentReader,
 	objectInfoReader catfile.ObjectInfoReader,
 	entries []*gitalypb.TreeEntry,
 ) error {
@@ -86,7 +86,7 @@ func (s *server) sendTreeEntries(
 	var entries []*gitalypb.TreeEntry
 
 	var (
-		objectReader     catfile.ObjectReader
+		objectReader     catfile.ObjectContentReader
 		objectInfoReader catfile.ObjectInfoReader
 	)
 

@@ -11,6 +11,12 @@ import (
 )
 
 const (
+	// contentsCommand is the command expected by the `--batch-command` mode of git-cat-file(1)
+	// for reading an objects contents.
+	contentsCommand = "contents"
+	// infoCommand is the command expected by the `--batch-command` mode of git-cat-file(1)
+	// for reading an objects info.
+	infoCommand = "info"
 	// flushCommand is the command we send to git-cat-file(1) to cause it to flush its stdout.
 	// Note that this is a hack: git-cat-file(1) doesn't really support flushing, but it will
 	// flush whenever it encounters an object it doesn't know. The flush command we use is thus
@@ -72,7 +78,19 @@ func (q *requestQueue) close() {
 	atomic.StoreInt32(&q.closed, 1)
 }
 
-func (q *requestQueue) RequestRevision(revision git.Revision) error {
+// RequestObject requests the contents for the given revision. A subsequent call has
+// to be made to ReadObject to read the contents.
+func (q *requestQueue) RequestObject(revision git.Revision) error {
+	return q.requestRevision(contentsCommand, revision)
+}
+
+// RequestObject requests the info for the given revision. A subsequent call has to
+// be made to ReadInfo read the info.
+func (q *requestQueue) RequestInfo(revision git.Revision) error {
+	return q.requestRevision(infoCommand, revision)
+}
+
+func (q *requestQueue) requestRevision(cmd string, revision git.Revision) error {
 	if q.isClosed() {
 		return fmt.Errorf("cannot request revision: %w", os.ErrClosed)
 	}

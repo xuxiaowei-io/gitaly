@@ -55,7 +55,7 @@ func (e *repoExecutor) ObjectHash(ctx context.Context) (git.ObjectHash, error) {
 	return gittest.DefaultObjectHash, nil
 }
 
-func setupObjectReader(t *testing.T, ctx context.Context) (config.Cfg, ObjectReader, *gitalypb.Repository, string) {
+func setupObjectReader(t *testing.T, ctx context.Context) (config.Cfg, ObjectContentReader, *gitalypb.Repository, string) {
 	t.Helper()
 
 	cfg := testcfg.Build(t)

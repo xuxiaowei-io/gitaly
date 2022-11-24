@@ -58,7 +58,7 @@ func buildLocalBranch(name []byte, target *gitalypb.GitCommit) *gitalypb.FindLoc
 	return response
 }
 
-func buildAllBranchesBranch(ctx context.Context, objectReader catfile.ObjectReader, elements [][]byte) (*gitalypb.FindAllBranchesResponse_Branch, error) {
+func buildAllBranchesBranch(ctx context.Context, objectReader catfile.ObjectContentReader, elements [][]byte) (*gitalypb.FindAllBranchesResponse_Branch, error) {
 	target, err := catfile.GetCommit(ctx, objectReader, git.Revision(elements[1]))
 	if err != nil {
 		return nil, err
@@ -70,7 +70,7 @@ func buildAllBranchesBranch(ctx context.Context, objectReader catfile.ObjectRead
 	}, nil
 }
 
-func buildBranch(ctx context.Context, objectReader catfile.ObjectReader, elements [][]byte) (*gitalypb.Branch, error) {
+func buildBranch(ctx context.Context, objectReader catfile.ObjectContentReader, elements [][]byte) (*gitalypb.Branch, error) {
 	target, err := catfile.GetCommit(ctx, objectReader, git.Revision(elements[1]))
 	if err != nil {
 		return nil, err
@@ -82,7 +82,7 @@ func buildBranch(ctx context.Context, objectReader catfile.ObjectReader, element
 	}, nil
 }
 
-func newFindLocalBranchesWriter(stream gitalypb.RefService_FindLocalBranchesServer, objectReader catfile.ObjectReader) lines.Sender {
+func newFindLocalBranchesWriter(stream gitalypb.RefService_FindLocalBranchesServer, objectReader catfile.ObjectContentReader) lines.Sender {
 	return func(refs [][]byte) error {
 		ctx := stream.Context()
 		var response *gitalypb.FindLocalBranchesResponse
@@ -109,7 +109,7 @@ func newFindLocalBranchesWriter(stream gitalypb.RefService_FindLocalBranchesServ
 	}
 }
 
-func newFindAllBranchesWriter(stream gitalypb.RefService_FindAllBranchesServer, objectReader catfile.ObjectReader) lines.Sender {
+func newFindAllBranchesWriter(stream gitalypb.RefService_FindAllBranchesServer, objectReader catfile.ObjectContentReader) lines.Sender {
 	return func(refs [][]byte) error {
 		var branches []*gitalypb.FindAllBranchesResponse_Branch
 		ctx := stream.Context()
@@ -129,7 +129,7 @@ func newFindAllBranchesWriter(stream gitalypb.RefService_FindAllBranchesServer, 
 	}
 }
 
-func newFindAllRemoteBranchesWriter(stream gitalypb.RefService_FindAllRemoteBranchesServer, objectReader catfile.ObjectReader) lines.Sender {
+func newFindAllRemoteBranchesWriter(stream gitalypb.RefService_FindAllRemoteBranchesServer, objectReader catfile.ObjectContentReader) lines.Sender {
 	return func(refs [][]byte) error {
 		var branches []*gitalypb.Branch
 		ctx := stream.Context()

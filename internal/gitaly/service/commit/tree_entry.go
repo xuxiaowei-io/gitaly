@@ -15,7 +15,7 @@ import (
 
 func sendTreeEntry(
 	stream gitalypb.CommitService_TreeEntryServer,
-	objectReader catfile.ObjectReader,
+	objectReader catfile.ObjectContentReader,
 	objectInfoReader catfile.ObjectInfoReader,
 	revision, path string,
 	limit, maxSize int64,

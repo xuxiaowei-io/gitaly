@@ -19,7 +19,7 @@ type Parser struct {
 	scanner       *bufio.Scanner
 	currentCommit *gitalypb.GitCommit
 	err           error
-	objectReader  catfile.ObjectReader
+	objectReader  catfile.ObjectContentReader
 }
 
 // NewParser returns a new Parser
