@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -20,54 +20,51 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
-func TestApplyGitattributesSuccess(t *testing.T) {
+func TestApplyGitattributes_successful(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
 
+	ctx := testhelper.Context(t)
 	_, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	infoPath := filepath.Join(repoPath, "info")
 	attributesPath := filepath.Join(infoPath, "attributes")
 
-	tests := []struct {
-		desc     string
-		revision []byte
-		contents []byte
+	for _, tc := range []struct {
+		desc            string
+		revision        []byte
+		expectedContent []byte
 	}{
 		{
-			desc:     "With a .gitattributes file",
-			revision: []byte("e63f41fe459e62e1228fcef60d7189127aeba95a"),
-			contents: []byte("/custom-highlighting/*.gitlab-custom gitlab-language=ruby\n"),
+			desc:            "With a .gitattributes file",
+			revision:        []byte("e63f41fe459e62e1228fcef60d7189127aeba95a"),
+			expectedContent: []byte("/custom-highlighting/*.gitlab-custom gitlab-language=ruby\n"),
 		},
 		{
-			desc:     "Without a .gitattributes file",
-			revision: []byte("7efb185dd22fd5c51ef044795d62b7847900c341"),
-			contents: nil,
+			desc:            "Without a .gitattributes file",
+			revision:        []byte("7efb185dd22fd5c51ef044795d62b7847900c341"),
+			expectedContent: nil,
 		},
-	}
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Run("without 'info' directory", func(t *testing.T) {
+				require.NoError(t, os.RemoveAll(infoPath))
+				requireApplyGitattributes(t, ctx, client, repo, attributesPath, tc.revision, tc.expectedContent)
+			})
 
-	for _, test := range tests {
-		t.Run(test.desc, func(t *testing.T) {
-			// Test when no /info folder exists
-			if err := os.RemoveAll(infoPath); err != nil {
-				t.Fatal(err)
-			}
-			assertGitattributesApplied(t, ctx, client, repo, attributesPath, test.revision, test.contents)
+			t.Run("without 'info/attributes' directory", func(t *testing.T) {
+				require.NoError(t, os.RemoveAll(infoPath))
+				require.NoError(t, os.Mkdir(infoPath, 0o755))
+				requireApplyGitattributes(t, ctx, client, repo, attributesPath, tc.revision, tc.expectedContent)
+			})
 
-			// Test when no git attributes file exists
-			if err := os.Remove(attributesPath); err != nil && !os.IsNotExist(err) {
-				t.Fatal(err)
-			}
-			assertGitattributesApplied(t, ctx, client, repo, attributesPath, test.revision, test.contents)
-
-			// Test when a git attributes file already exists
-			require.NoError(t, os.MkdirAll(infoPath, 0o755))
-			require.NoError(t, os.WriteFile(attributesPath, []byte("*.docx diff=word"), 0o644))
-			assertGitattributesApplied(t, ctx, client, repo, attributesPath, test.revision, test.contents)
+			t.Run("with preexisting 'info/attributes'", func(t *testing.T) {
+				require.NoError(t, os.RemoveAll(infoPath))
+				require.NoError(t, os.Mkdir(infoPath, 0o755))
+				require.NoError(t, os.WriteFile(attributesPath, []byte("*.docx diff=word"), 0o644))
+				requireApplyGitattributes(t, ctx, client, repo, attributesPath, tc.revision, tc.expectedContent)
+			})
 		})
 	}
 }
@@ -84,10 +81,10 @@ func (s *testTransactionServer) VoteTransaction(ctx context.Context, in *gitalyp
 	return nil, nil
 }
 
-func TestApplyGitattributesWithTransaction(t *testing.T) {
+func TestApplyGitattributes_transactional(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
 
+	ctx := testhelper.Context(t)
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	transactionServer := &testTransactionServer{}
@@ -139,7 +136,7 @@ func TestApplyGitattributesWithTransaction(t *testing.T) {
 			},
 			shouldExist: false,
 			expectedErr: func() error {
-				return status.Error(codes.Internal, "committing gitattributes: voting on locked file: preimage vote: transaction was aborted")
+				return helper.ErrInternalf("committing gitattributes: voting on locked file: preimage vote: transaction was aborted")
 			}(),
 			expectedVotes: 1,
 		},
@@ -151,7 +148,7 @@ func TestApplyGitattributesWithTransaction(t *testing.T) {
 			},
 			shouldExist: false,
 			expectedErr: func() error {
-				return status.Error(codes.Internal, "committing gitattributes: voting on locked file: preimage vote: rpc error: code = Unknown desc = foobar")
+				return helper.ErrInternalf("committing gitattributes: voting on locked file: preimage vote: rpc error: code = Unknown desc = foobar")
 			}(),
 			expectedVotes: 1,
 		},
@@ -190,9 +187,8 @@ func TestApplyGitattributesWithTransaction(t *testing.T) {
 
 			path := filepath.Join(infoPath, "attributes")
 			if tc.shouldExist {
-				require.FileExists(t, path)
-				contents := testhelper.MustReadFile(t, path)
-				require.Equal(t, []byte("/custom-highlighting/*.gitlab-custom gitlab-language=ruby\n"), contents)
+				content := testhelper.MustReadFile(t, path)
+				require.Equal(t, []byte("/custom-highlighting/*.gitlab-custom gitlab-language=ruby\n"), content)
 			} else {
 				require.NoFileExists(t, path)
 			}
@@ -201,13 +197,13 @@ func TestApplyGitattributesWithTransaction(t *testing.T) {
 	}
 }
 
-func TestApplyGitattributesFailure(t *testing.T) {
+func TestApplyGitattributes_failure(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
 
+	ctx := testhelper.Context(t)
 	cfg, repo, _, client := setupRepositoryService(t, ctx)
 
-	tests := []struct {
+	for _, tc := range []struct {
 		desc        string
 		repo        *gitalypb.Repository
 		revision    []byte
@@ -217,34 +213,42 @@ func TestApplyGitattributesFailure(t *testing.T) {
 			desc:     "no repository provided",
 			repo:     nil,
 			revision: nil,
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefectMessage(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
 		},
 		{
-			desc:     "unknown storage provided",
-			repo:     &gitalypb.Repository{RelativePath: "stub", StorageName: "foo"},
+			desc: "unknown storage provided",
+			repo: &gitalypb.Repository{
+				RelativePath: "stub",
+				StorageName:  "foo",
+			},
 			revision: []byte("master"),
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefectMessage(
 				`GetStorageByName: no such storage: "foo"`,
 				"repo scoped: invalid Repository",
 			)),
 		},
 		{
-			desc:     "storage not provided",
-			repo:     &gitalypb.Repository{RelativePath: repo.GetRelativePath()},
+			desc: "storage not provided",
+			repo: &gitalypb.Repository{
+				RelativePath: repo.GetRelativePath(),
+			},
 			revision: []byte("master"),
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefectMessage(
 				"empty StorageName",
 				"repo scoped: invalid Repository",
 			)),
 		},
 		{
-			desc:     "repository doesn't exist on disk",
-			repo:     &gitalypb.Repository{StorageName: repo.GetStorageName(), RelativePath: "bar"},
+			desc: "repository doesn't exist on disk",
+			repo: &gitalypb.Repository{
+				StorageName:  repo.GetStorageName(),
+				RelativePath: "bar",
+			},
 			revision: []byte("master"),
-			expectedErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefectMessage(
+			expectedErr: helper.ErrNotFoundf(testhelper.GitalyOrPraefectMessage(
 				`GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/bar"`,
 				`mutator call: route repository mutator: get repository id: repository "default"/"bar" not found`,
 			)),
@@ -253,55 +257,55 @@ func TestApplyGitattributesFailure(t *testing.T) {
 			desc:        "no revision provided",
 			repo:        repo,
 			revision:    []byte(""),
-			expectedErr: status.Error(codes.InvalidArgument, "revision: empty revision"),
+			expectedErr: helper.ErrInvalidArgumentf("revision: empty revision"),
 		},
 		{
 			desc:        "unknown revision",
 			repo:        repo,
 			revision:    []byte("not-existing-ref"),
-			expectedErr: status.Error(codes.InvalidArgument, "revision does not exist"),
+			expectedErr: helper.ErrInvalidArgumentf("revision does not exist"),
 		},
 		{
 			desc:        "invalid revision",
 			repo:        repo,
 			revision:    []byte("--output=/meow"),
-			expectedErr: status.Error(codes.InvalidArgument, "revision: revision can't start with '-'"),
+			expectedErr: helper.ErrInvalidArgumentf("revision: revision can't start with '-'"),
 		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.desc, func(t *testing.T) {
-			req := &gitalypb.ApplyGitattributesRequest{Repository: test.repo, Revision: test.revision}
-			_, err := client.ApplyGitattributes(ctx, req)
-			testhelper.RequireGrpcError(t, test.expectedErr, err)
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			_, err := client.ApplyGitattributes(ctx, &gitalypb.ApplyGitattributesRequest{
+				Repository: tc.repo,
+				Revision:   tc.revision,
+			})
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
 	}
 }
 
-func assertGitattributesApplied(t *testing.T, ctx context.Context, client gitalypb.RepositoryServiceClient, testRepo *gitalypb.Repository, attributesPath string, revision, expectedContents []byte) {
+func requireApplyGitattributes(
+	t *testing.T,
+	ctx context.Context,
+	client gitalypb.RepositoryServiceClient,
+	repo *gitalypb.Repository,
+	attributesPath string,
+	revision, expectedContent []byte,
+) {
 	t.Helper()
 
-	req := &gitalypb.ApplyGitattributesRequest{Repository: testRepo, Revision: revision}
-	c, err := client.ApplyGitattributes(ctx, req)
+	response, err := client.ApplyGitattributes(ctx, &gitalypb.ApplyGitattributesRequest{
+		Repository: repo,
+		Revision:   revision,
+	})
+	require.NoError(t, err)
+	testhelper.ProtoEqual(t, &gitalypb.ApplyGitattributesResponse{}, response)
 
-	assert.NoError(t, err)
-	assert.NotNil(t, c)
-
-	contents, err := os.ReadFile(attributesPath)
-	if expectedContents == nil {
-		if !os.IsNotExist(err) {
-			t.Error(err)
-		}
+	if expectedContent == nil {
+		require.NoFileExists(t, attributesPath)
 	} else {
-		if err != nil {
-			t.Error(err)
-		}
+		require.Equal(t, expectedContent, testhelper.MustReadFile(t, attributesPath))
 
-		if info, err := os.Stat(attributesPath); err == nil {
-			actualFileMode := info.Mode()
-			assert.Equal(t, attributesFileMode, actualFileMode)
-		}
-
-		assert.Equal(t, expectedContents, contents)
+		info, err := os.Stat(attributesPath)
+		require.NoError(t, err)
+		require.Equal(t, attributesFileMode, info.Mode())
 	}
 }
