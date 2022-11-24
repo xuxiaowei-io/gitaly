@@ -33,16 +33,27 @@ func validateUserDeleteTagRequest(in *gitalypb.UserDeleteTagRequest) error {
 
 //nolint:revive // This is unintentionally missing documentation.
 func (s *Server) UserDeleteTag(ctx context.Context, req *gitalypb.UserDeleteTagRequest) (*gitalypb.UserDeleteTagResponse, error) {
-	if err := validateUserDeleteTagRequest(req); err != nil {
+	var err error
+
+	if err = validateUserDeleteTagRequest(req); err != nil {
 		return nil, helper.ErrInvalidArgument(err)
 	}
 	referenceName := git.ReferenceName(fmt.Sprintf("refs/tags/%s", req.TagName))
-	revision, err := s.localrepo(req.GetRepository()).ResolveRevision(ctx, referenceName.Revision())
-	if err != nil {
-		if errors.Is(err, git.ErrReferenceNotFound) {
-			return nil, helper.ErrFailedPreconditionf("tag not found: %s", req.TagName)
+
+	var revision git.ObjectID
+	if expectedOldOID := req.GetExpectedOldOid(); expectedOldOID != "" {
+		revision, err = s.localrepo(req.GetRepository()).ResolveRevision(ctx, git.Revision(expectedOldOID))
+		if err != nil {
+			return nil, helper.ErrFailedPreconditionf("resolve object ID: %s: %w", expectedOldOID, err)
 		}
-		return nil, helper.ErrInternalf("resolving revision %q: %w", referenceName, err)
+	} else {
+		revision, err = s.localrepo(req.GetRepository()).ResolveRevision(ctx, referenceName.Revision())
+		if err != nil {
+			if errors.Is(err, git.ErrReferenceNotFound) {
+				return nil, helper.ErrFailedPreconditionf("tag not found: %s", req.TagName)
+			}
+			return nil, helper.ErrInternalf("resolving revision %q: %w", referenceName, err)
+		}
 	}
 
 	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, nil, referenceName, git.ObjectHashSHA1.ZeroOID, revision); err != nil {

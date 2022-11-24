@@ -51,6 +51,76 @@ func TestUserDeleteTag_successful(t *testing.T) {
 	require.NotContains(t, string(tags), tagNameInput, "tag name still exists in tags list")
 }
 
+func TestUserDeleteTag_successfulWithExpectedOldOID(t *testing.T) {
+	t.Parallel()
+	ctx := testhelper.Context(t)
+
+	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
+
+	tagNameInput := "to-be-deleted-soon-tag"
+
+	gittest.Exec(t, cfg, "-C", repoPath, "tag", tagNameInput)
+
+	request := &gitalypb.UserDeleteTagRequest{
+		Repository:     repo,
+		TagName:        []byte(tagNameInput),
+		User:           gittest.TestUser,
+		ExpectedOldOid: text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", tagNameInput)),
+	}
+
+	response, err := client.UserDeleteTag(ctx, request)
+	require.NoError(t, err)
+	require.Empty(t, response.PreReceiveError)
+
+	tags := gittest.Exec(t, cfg, "-C", repoPath, "tag")
+	require.NotContains(t, string(tags), tagNameInput, "tag name still exists in tags list")
+}
+
+func TestUserDeleteTag_failureWithExpectedOldOID(t *testing.T) {
+	t.Parallel()
+	ctx := testhelper.Context(t)
+
+	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
+
+	tagNameInput := "to-be-deleted-soon-tag"
+
+	gittest.Exec(t, cfg, "-C", repoPath, "tag", tagNameInput)
+
+	testCases := []struct {
+		desc        string
+		request     *gitalypb.UserDeleteTagRequest
+		expectedErr error
+	}{
+		{
+			desc: "invalid expectedOldOID",
+			request: &gitalypb.UserDeleteTagRequest{
+				Repository:     repo,
+				TagName:        []byte(tagNameInput),
+				User:           gittest.TestUser,
+				ExpectedOldOid: "foobar",
+			},
+			expectedErr: helper.ErrFailedPreconditionf(`resolve object ID: foobar: reference not found`),
+		},
+		{
+			desc: "incorrect expectedOldOID",
+			request: &gitalypb.UserDeleteTagRequest{
+				Repository:     repo,
+				TagName:        []byte(tagNameInput),
+				User:           gittest.TestUser,
+				ExpectedOldOid: text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", tagNameInput+"~1")),
+			},
+			expectedErr: helper.ErrFailedPreconditionf(`Could not update refs/tags/to-be-deleted-soon-tag. Please refresh and try again.`),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			_, err := client.UserDeleteTag(ctx, tc.request)
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
+		})
+	}
+}
+
 func TestUserDeleteTag_hooks(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
