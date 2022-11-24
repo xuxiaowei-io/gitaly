@@ -3,6 +3,8 @@ package updateref
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -371,7 +373,9 @@ func BenchmarkUpdater(b *testing.B) {
 	ctx := testhelper.Context(b)
 
 	getReferenceName := func(id int) git.ReferenceName {
-		return git.ReferenceName(fmt.Sprintf("refs/heads/branch-%d", id))
+		// Pad the numbers so the references are sorted when they are written
+		// out into a packed-refs file.
+		return git.ReferenceName(fmt.Sprintf("refs/heads/branch-%09d", id))
 	}
 
 	createReferences := func(tb testing.TB, repository git.RepositoryExecutor, referenceCount int, commitOID git.ObjectID) {
@@ -426,6 +430,102 @@ func BenchmarkUpdater(b *testing.B) {
 
 				elapsed := time.Since(began)
 				b.ReportMetric(float64(b.N*tc.transactionSize)/elapsed.Seconds(), "reference_updates/s")
+			})
+		}
+	})
+
+	b.Run("delete", func(b *testing.B) {
+		for _, tc := range []struct {
+			// referenceCount controls the number of references in the repository. This becomes important
+			// when the references are packed as it impacts the size of the packed-refs file.
+			referenceCount int
+			// referencesPacked controls whether the references are packed or loose.
+			referencesPacked bool
+			// transactionSize determines how many references are deleted in one reference transaction.
+			transactionSize int
+		}{
+			{referenceCount: 100, referencesPacked: false, transactionSize: 1},
+			{referenceCount: 100, referencesPacked: true, transactionSize: 1},
+			{referenceCount: 100, referencesPacked: false, transactionSize: 10},
+			{referenceCount: 100, referencesPacked: true, transactionSize: 10},
+			{referenceCount: 100, referencesPacked: false, transactionSize: 100},
+			{referenceCount: 100, referencesPacked: true, transactionSize: 100},
+			{referenceCount: 1_000_000, referencesPacked: true, transactionSize: 1},
+			{referenceCount: 1_000_000, referencesPacked: true, transactionSize: 10},
+			{referenceCount: 1_000_000, referencesPacked: true, transactionSize: 100},
+			{referenceCount: 1_000_000, referencesPacked: true, transactionSize: 1000},
+		} {
+			desc := fmt.Sprintf("reference count %d/references packed %v/transaction size %d",
+				tc.referenceCount, tc.referencesPacked, tc.transactionSize,
+			)
+
+			b.Run(desc, func(b *testing.B) {
+				require.GreaterOrEqual(b, tc.referenceCount, tc.transactionSize,
+					"Reference count must be greater than or equal to transaction size to have enough references to delete",
+				)
+
+				ctx := testhelper.Context(b)
+
+				cfg, repo, repoPath, updater := setupUpdater(b, ctx)
+				defer testhelper.MustClose(b, updater)
+
+				commitOID := gittest.WriteCommit(b, cfg, repoPath)
+
+				// createPackedReferences writes out a packed-refs file into the repository. We do this
+				// manually as creating millions of references with update-ref and packing them is slow.
+				// It overwrites a possible existing file.
+				createPackedReferences := func(tb testing.TB) {
+					tb.Helper()
+
+					packedRefs, err := os.Create(filepath.Join(repoPath, "packed-refs"))
+					require.NoError(tb, err)
+
+					defer testhelper.MustClose(tb, packedRefs)
+
+					_, err = fmt.Fprintf(packedRefs, "# pack-refs with: peeled fully-peeled sorted\n")
+					require.NoError(tb, err)
+
+					for i := 0; i < tc.referenceCount; i++ {
+						_, err := fmt.Fprintf(packedRefs, "%s %s\n", commitOID, getReferenceName(i))
+						require.NoError(tb, err)
+					}
+				}
+
+				if tc.referencesPacked {
+					// The pack file is always fully written out.
+					createPackedReferences(b)
+				} else {
+					// Create all of the references initially.
+					createReferences(b, repo, tc.referenceCount, commitOID)
+				}
+
+				var elapsed time.Duration
+				b.ReportAllocs()
+				b.ResetTimer()
+				for n := 0; n < b.N; n++ {
+					began := time.Now()
+
+					require.NoError(b, updater.Start())
+					for i := 0; i < tc.transactionSize; i++ {
+						require.NoError(b, updater.Delete(getReferenceName(i)))
+					}
+					require.NoError(b, updater.Commit())
+
+					b.StopTimer()
+
+					elapsed += time.Since(began)
+					// restore the deleted references
+					if tc.referencesPacked {
+						createPackedReferences(b)
+					} else {
+						// Only create the deleted references.
+						createReferences(b, repo, tc.transactionSize, commitOID)
+					}
+
+					b.StartTimer()
+				}
+
+				b.ReportMetric(float64(b.N*tc.transactionSize)/elapsed.Seconds(), "reference_deletions/s")
 			})
 		}
 	})
