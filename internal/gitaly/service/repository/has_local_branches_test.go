@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package repository
 
 import (
@@ -16,7 +14,10 @@ func TestHasLocalBranches_successful(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, _, client := setupRepositoryService(t, ctx)
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
+
+	populatedRepo, populatedRepoPath := gittest.CreateRepository(t, ctx, cfg)
+	gittest.WriteCommit(t, cfg, populatedRepoPath, gittest.WithBranch("main"))
 
 	emptyRepo, _ := gittest.CreateRepository(t, ctx, cfg)
 
@@ -28,7 +29,7 @@ func TestHasLocalBranches_successful(t *testing.T) {
 		{
 			desc: "repository has branches",
 			request: &gitalypb.HasLocalBranchesRequest{
-				Repository: repo,
+				Repository: populatedRepo,
 			},
 			expectedResponse: &gitalypb.HasLocalBranchesResponse{
 				Value: true,
