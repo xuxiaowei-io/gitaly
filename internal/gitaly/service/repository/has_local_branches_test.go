@@ -10,11 +10,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
-func TestSuccessfulHasLocalBranches(t *testing.T) {
+func TestHasLocalBranches_successful(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
@@ -22,45 +20,45 @@ func TestSuccessfulHasLocalBranches(t *testing.T) {
 
 	emptyRepo, _ := gittest.CreateRepository(t, ctx, cfg)
 
-	testCases := []struct {
-		desc      string
-		request   *gitalypb.HasLocalBranchesRequest
-		value     bool
-		errorCode codes.Code
+	for _, tc := range []struct {
+		desc             string
+		request          *gitalypb.HasLocalBranchesRequest
+		expectedResponse *gitalypb.HasLocalBranchesResponse
 	}{
 		{
-			desc:    "repository has branches",
-			request: &gitalypb.HasLocalBranchesRequest{Repository: repo},
-			value:   true,
+			desc: "repository has branches",
+			request: &gitalypb.HasLocalBranchesRequest{
+				Repository: repo,
+			},
+			expectedResponse: &gitalypb.HasLocalBranchesResponse{
+				Value: true,
+			},
 		},
 		{
 			desc: "repository doesn't have branches",
 			request: &gitalypb.HasLocalBranchesRequest{
 				Repository: emptyRepo,
 			},
-			value: false,
+			expectedResponse: &gitalypb.HasLocalBranchesResponse{
+				Value: false,
+			},
 		},
-	}
-
-	for _, tc := range testCases {
+	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			response, err := client.HasLocalBranches(ctx, tc.request)
-
-			require.Equal(t, tc.errorCode, helper.GrpcCode(err))
-			if err != nil {
-				return
-			}
-
-			require.Equal(t, tc.value, response.Value)
+			require.NoError(t, err)
+			testhelper.ProtoEqual(t, tc.expectedResponse, response)
 		})
 	}
 }
 
-func TestFailedHasLocalBranches(t *testing.T) {
+func TestHasLocalBranches_failure(t *testing.T) {
 	t.Parallel()
+
+	ctx := testhelper.Context(t)
 	_, client := setupRepositoryServiceWithoutRepo(t)
 
-	testCases := []struct {
+	for _, tc := range []struct {
 		desc        string
 		repository  *gitalypb.Repository
 		expectedErr error
@@ -68,24 +66,24 @@ func TestFailedHasLocalBranches(t *testing.T) {
 		{
 			desc:       "repository nil",
 			repository: nil,
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefectMessage(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
 		},
 		{
-			desc:       "repository doesn't exist",
-			repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			desc: "repository doesn't exist",
+			repository: &gitalypb.Repository{
+				StorageName:  "fake",
+				RelativePath: "path",
+			},
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefectMessage(
 				`GetStorageByName: no such storage: "fake"`,
 				"repo scoped: invalid Repository",
 			)),
 		},
-	}
-
-	for _, tc := range testCases {
+	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
 			request := &gitalypb.HasLocalBranchesRequest{Repository: tc.repository}
 			_, err := client.HasLocalBranches(ctx, request)
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
