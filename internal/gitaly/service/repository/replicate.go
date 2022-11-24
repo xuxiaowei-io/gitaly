@@ -98,10 +98,6 @@ func validateReplicateRepository(in *gitalypb.ReplicateRepositoryRequest) error 
 		return errors.New("source repository cannot be empty")
 	}
 
-	if in.GetRepository().GetRelativePath() != in.GetSource().GetRelativePath() {
-		return errors.New("both source and repository should have the same relative path")
-	}
-
 	if in.GetRepository().GetStorageName() == in.GetSource().GetStorageName() {
 		return errors.New("repository and source have the same storage")
 	}

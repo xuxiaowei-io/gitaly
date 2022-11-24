@@ -73,6 +73,20 @@ func StartGitalyServer(tb testing.TB, cfg config.Cfg, rubyServer *rubyserver.Ser
 }
 
 func runPraefectProxy(tb testing.TB, gitalyCfg config.Cfg, gitalyAddr string) PraefectServer {
+	var virtualStorages []*praefectconfig.VirtualStorage
+	for _, storage := range gitalyCfg.Storages {
+		virtualStorages = append(virtualStorages, &praefectconfig.VirtualStorage{
+			Name: storage.Name,
+			Nodes: []*praefectconfig.Node{
+				{
+					Storage: storage.Name,
+					Address: gitalyAddr,
+					Token:   gitalyCfg.Auth.Token,
+				},
+			},
+		})
+	}
+
 	return StartPraefect(tb, praefectconfig.Config{
 		SocketPath: testhelper.GetTemporaryGitalySocketFileName(tb),
 		Auth: auth.Config{
@@ -88,21 +102,7 @@ func runPraefectProxy(tb testing.TB, gitalyCfg config.Cfg, gitalyAddr string) Pr
 			Format: "json",
 			Level:  "info",
 		},
-		VirtualStorages: []*praefectconfig.VirtualStorage{
-			{
-				// Only single storage will be served by the Praefect instance. We
-				// can't include more as it is invalid to use same address for
-				// different storages.
-				Name: gitalyCfg.Storages[0].Name,
-				Nodes: []*praefectconfig.Node{
-					{
-						Storage: gitalyCfg.Storages[0].Name,
-						Address: gitalyAddr,
-						Token:   gitalyCfg.Auth.Token,
-					},
-				},
-			},
-		},
+		VirtualStorages: virtualStorages,
 	})
 }
 
