@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
@@ -364,4 +365,68 @@ func TestUpdater_capturesStderr(t *testing.T) {
 		"trying to write ref '%[1]s' with nonexistent object %[2]s\\n\"", "refs/heads/main", newValue)
 
 	require.ErrorContains(t, updater.Commit(), expectedErr)
+}
+
+func BenchmarkUpdater(b *testing.B) {
+	ctx := testhelper.Context(b)
+
+	getReferenceName := func(id int) git.ReferenceName {
+		return git.ReferenceName(fmt.Sprintf("refs/heads/branch-%d", id))
+	}
+
+	createReferences := func(tb testing.TB, repository git.RepositoryExecutor, referenceCount int, commitOID git.ObjectID) {
+		tb.Helper()
+
+		updater, err := New(ctx, repository)
+		require.NoError(tb, err)
+		defer testhelper.MustClose(tb, updater)
+
+		require.NoError(tb, updater.Start())
+		for i := 0; i < referenceCount; i++ {
+			require.NoError(b, updater.Create(getReferenceName(i), commitOID))
+		}
+		require.NoError(tb, updater.Commit())
+	}
+
+	b.Run("update", func(b *testing.B) {
+		for _, tc := range []struct {
+			// transactionSize determines how many references are updated in a single reference
+			// transaction.
+			transactionSize int
+		}{
+			{transactionSize: 1},
+			{transactionSize: 10},
+			{transactionSize: 100},
+		} {
+			b.Run(fmt.Sprintf("transaction size %d", tc.transactionSize), func(b *testing.B) {
+				ctx := testhelper.Context(b)
+
+				cfg, repo, repoPath, updater := setupUpdater(b, ctx)
+				defer testhelper.MustClose(b, updater)
+
+				commitOID1 := gittest.WriteCommit(b, cfg, repoPath)
+				commitOID2 := gittest.WriteCommit(b, cfg, repoPath, gittest.WithParents(commitOID1))
+
+				createReferences(b, repo, tc.transactionSize, commitOID1)
+
+				old, new := commitOID1, commitOID2
+
+				b.ReportAllocs()
+				b.ResetTimer()
+				began := time.Now()
+				for n := 0; n < b.N; n++ {
+					require.NoError(b, updater.Start())
+					for i := 0; i < tc.transactionSize; i++ {
+						require.NoError(b, updater.Update(getReferenceName(i), new, old))
+					}
+					require.NoError(b, updater.Commit())
+
+					old, new = new, old
+				}
+
+				elapsed := time.Since(began)
+				b.ReportMetric(float64(b.N*tc.transactionSize)/elapsed.Seconds(), "reference_updates/s")
+			})
+		}
+	})
 }
