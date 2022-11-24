@@ -47,7 +47,7 @@ func TestReplicateRepository(t *testing.T) {
 	testcfg.BuildGitalyHooks(t, cfg)
 	testcfg.BuildGitalySSH(t, cfg)
 
-	client, serverSocketPath := runRepositoryService(t, cfg, nil, testserver.WithDisablePraefect())
+	client, serverSocketPath := runRepositoryService(t, cfg, nil)
 	cfg.SocketPath = serverSocketPath
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
@@ -81,9 +81,10 @@ func TestReplicateRepository(t *testing.T) {
 		Repository: targetRepo,
 		Source:     repo,
 	})
+
 	require.NoError(t, err)
 
-	targetRepoPath := filepath.Join(cfg.Storages[1].Path, targetRepo.GetRelativePath())
+	targetRepoPath := filepath.Join(cfg.Storages[1].Path, gittest.GetReplicaPath(t, ctx, cfg, targetRepo))
 	gittest.Exec(t, cfg, "-C", targetRepoPath, "fsck")
 
 	replicatedAttrFilePath := filepath.Join(targetRepoPath, "info", "attributes")
@@ -120,7 +121,7 @@ func TestReplicateRepository_hiddenRefs(t *testing.T) {
 	testcfg.BuildGitalyHooks(t, cfg)
 	testcfg.BuildGitalySSH(t, cfg)
 
-	client, serverSocketPath := runRepositoryService(t, cfg, nil, testserver.WithDisablePraefect())
+	client, serverSocketPath := runRepositoryService(t, cfg, nil)
 	cfg.SocketPath = serverSocketPath
 
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
@@ -139,7 +140,6 @@ func TestReplicateRepository_hiddenRefs(t *testing.T) {
 
 		targetRepo := proto.Clone(sourceRepo).(*gitalypb.Repository)
 		targetRepo.StorageName = cfg.Storages[1].Name
-		targetRepoPath := filepath.Join(cfg.Storages[1].Path, targetRepo.GetRelativePath())
 
 		_, err := client.ReplicateRepository(ctx, &gitalypb.ReplicateRepositoryRequest{
 			Repository: targetRepo,
@@ -147,6 +147,7 @@ func TestReplicateRepository_hiddenRefs(t *testing.T) {
 		})
 		require.NoError(t, err)
 
+		targetRepoPath := filepath.Join(cfg.Storages[1].Path, gittest.GetReplicaPath(t, ctx, cfg, targetRepo))
 		require.ElementsMatch(t, expectedRefs, strings.Split(text.ChompBytes(gittest.Exec(t, cfg, "-C", targetRepoPath, "for-each-ref")), "\n"))
 
 		// Perform another sanity-check to verify that source and target repository have the
@@ -183,6 +184,7 @@ func TestReplicateRepository_hiddenRefs(t *testing.T) {
 			Repository: targetRepo,
 			Source:     sourceRepo,
 		})
+
 		require.NoError(t, err)
 
 		// Verify that the references for both repositories match.
@@ -243,6 +245,7 @@ func TestReplicateRepositoryTransactional(t *testing.T) {
 		Repository: targetRepo,
 		Source:     sourceRepo,
 	})
+
 	require.NoError(t, err)
 
 	// There is no gitattributes file, so we vote on the empty contents of that file.
@@ -337,20 +340,6 @@ func TestReplicateRepositoryInvalidArguments(t *testing.T) {
 			expectedError: "repository cannot be empty",
 		},
 		{
-			description: "source and repository have different relative paths",
-			input: &gitalypb.ReplicateRepositoryRequest{
-				Repository: &gitalypb.Repository{
-					StorageName:  "praefect-internal-0",
-					RelativePath: "/ab/cd/abcdef1234",
-				},
-				Source: &gitalypb.Repository{
-					StorageName:  "praefect-internal-1",
-					RelativePath: "/ab/cd/abcdef4321",
-				},
-			},
-			expectedError: "both source and repository should have the same relative path",
-		},
-		{
 			description: "source and repository have the same storage",
 			input: &gitalypb.ReplicateRepositoryRequest{
 				Repository: &gitalypb.Repository{
@@ -395,6 +384,15 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 			desc:          "source invalid",
 			invalidSource: true,
 			error: func(tb testing.TB, actual error) {
+				if testhelper.IsPraefectEnabled() {
+					// ReplicateRepository uses RepositoryExists to check whether the source repository exists on the target
+					// Gitaly. Gitaly returns NotFound if accessing a corrupt repository. Praefect relies on the metadata
+					// and returns that the repository still exists, causing this test to hit a different code path and diverge
+					// in behavior.
+					require.ErrorContains(t, actual, "synchronizing gitattributes: GetRepoPath: not a git repository: ")
+					return
+				}
+
 				testhelper.RequireGrpcError(tb, ErrInvalidSourceRepository, actual)
 			},
 		},
@@ -414,7 +412,7 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 			testcfg.BuildGitalyHooks(t, cfg)
 			testcfg.BuildGitalySSH(t, cfg)
 
-			client, serverSocketPath := runRepositoryService(t, cfg, nil, testserver.WithDisablePraefect())
+			client, serverSocketPath := runRepositoryService(t, cfg, nil)
 			cfg.SocketPath = serverSocketPath
 
 			sourceRepo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
@@ -435,9 +433,10 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 
 			locator := config.NewLocator(cfg)
 			for _, invalidRepo := range invalidRepos {
-				invalidRepoPath, err := locator.GetPath(invalidRepo)
+				storagePath, err := locator.GetStorageByName(invalidRepo.StorageName)
 				require.NoError(t, err)
 
+				invalidRepoPath := filepath.Join(storagePath, gittest.GetReplicaPath(t, ctx, cfg, invalidRepo))
 				// delete git data so make the repo invalid
 				for _, path := range []string{"refs", "objects", "HEAD"} {
 					require.NoError(t, os.RemoveAll(filepath.Join(invalidRepoPath, path)))
@@ -469,34 +468,27 @@ func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 	testcfg.BuildGitalyHooks(t, cfg)
 	testcfg.BuildGitalySSH(t, cfg)
 
-	// Our test setup does not allow for Praefects with multiple storages. We thus have to
-	// disable Praefect here.
-	client, socketPath := runRepositoryService(t, cfg, nil, testserver.WithDisablePraefect())
+	client, socketPath := runRepositoryService(t, cfg, nil)
 	cfg.SocketPath = socketPath
 
 	targetRepo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Storage: cfg.Storages[1],
 	})
 
-	// The source repository must be at the same path as the target repository, and it must be a
-	// real repository. In order to still have the fetch fail, we corrupt the repository by
-	// writing garbage into HEAD.
-	sourceRepo := &gitalypb.Repository{
-		StorageName:  "default",
-		RelativePath: targetRepo.RelativePath,
-	}
-	sourceRepoPath, err := config.NewLocator(cfg).GetPath(sourceRepo)
-	require.NoError(t, err)
-	require.NoError(t, os.MkdirAll(sourceRepoPath, 0o777))
-	gittest.Exec(t, cfg, "init", "--bare", sourceRepoPath)
+	sourceRepo, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		Storage: cfg.Storages[0],
+	})
+
+	// We corrupt the repository by writing garbage into HEAD.
 	require.NoError(t, os.WriteFile(filepath.Join(sourceRepoPath, "HEAD"), []byte("garbage"), 0o666))
 
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
-	_, err = client.ReplicateRepository(ctx, &gitalypb.ReplicateRepositoryRequest{
+	_, err := client.ReplicateRepository(ctx, &gitalypb.ReplicateRepositoryRequest{
 		Repository: targetRepo,
 		Source:     sourceRepo,
 	})
+
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "fetch: exit status 128")
 }
@@ -573,7 +565,7 @@ func TestFetchInternalRemote_successful(t *testing.T) {
 			referenceTransactionHookCalled++
 			return nil
 		}),
-	), testserver.WithDisablePraefect())
+	))
 
 	ctx, err := storage.InjectGitalyServers(ctx, remoteRepo.GetStorageName(), remoteAddr, remoteCfg.Auth.Token)
 	require.NoError(t, err)
