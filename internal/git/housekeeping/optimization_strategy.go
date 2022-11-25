@@ -39,16 +39,16 @@ const CutOffTime = -14 * 24 * time.Hour
 // HeuristicalOptimizationStrategy is an optimization strategy that is based on a set of
 // heuristics.
 type HeuristicalOptimizationStrategy struct {
-	largestPackfileSizeInMB int64
-	packfileCount           int64
-	looseObjectCount        uint64
-	oldLooseObjectCount     uint64
-	looseRefsCount          int64
-	packedRefsSize          int64
-	hasAlternate            bool
-	hasBitmap               bool
-	hasBloomFilters         bool
-	isObjectPool            bool
+	packfileSize        uint64
+	packfileCount       uint64
+	looseObjectCount    uint64
+	oldLooseObjectCount uint64
+	looseRefsCount      int64
+	packedRefsSize      int64
+	hasAlternate        bool
+	hasBitmap           bool
+	hasBloomFilters     bool
+	isObjectPool        bool
 }
 
 // NewHeuristicalOptimizationStrategy constructs a heuristicalOptimizationStrategy for the given
@@ -85,7 +85,7 @@ func NewHeuristicalOptimizationStrategy(ctx context.Context, repo *localrepo.Rep
 	}
 	strategy.hasBloomFilters = !missingBloomFilters
 
-	strategy.largestPackfileSizeInMB, strategy.packfileCount, err = packfileSizeAndCount(repo)
+	strategy.packfileSize, strategy.packfileCount, err = packfileSizeAndCount(repo)
 	if err != nil {
 		return strategy, fmt.Errorf("checking largest packfile size: %w", err)
 	}
@@ -143,23 +143,23 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects() (bool, RepackObje
 	// Instead, we determine whether the repository has "too many" packfiles. "Too many" is
 	// relative though: for small repositories it's fine to do full repacks regularly, but for
 	// large repositories we need to be more careful. We thus use a heuristic of "repository
-	// largeness": we take the biggest packfile that exists, and then the maximum allowed number
-	// of packfiles is `log(largestpackfile_size_in_mb) / log(1.3)` for normal repositories and
-	// `log(largestpackfile_size_in_mb) / log(10.0)` for pools. This gives the following allowed
-	// number of packfiles:
+	// largeness": we take the total size of all packfiles, and then the maximum allowed number
+	// of packfiles is `log(total_packfile_size) / log(1.3)` for normal repositories and
+	// `log(total_packfile_size) / log(10.0)` for pools. This gives the following allowed number
+	// of packfiles:
 	//
-	// -------------------------------------------------------------------------------------
-	// | largest packfile size | allowed packfiles for repos | allowed packfiles for pools |
-	// -------------------------------------------------------------------------------------
-	// | none or <10MB         | 5                           | 2                           |
-	// | 10MB                  | 8                           | 2                           |
-	// | 100MB                 | 17                          | 2                           |
-	// | 500MB                 | 23                          | 2                           |
-	// | 1GB                   | 26                          | 3                           |
-	// | 5GB                   | 32                          | 3                           |
-	// | 10GB                  | 35                          | 4                           |
-	// | 100GB                 | 43                          | 5                           |
-	// -------------------------------------------------------------------------------------
+	// -----------------------------------------------------------------------------------
+	// | total packfile size | allowed packfiles for repos | allowed packfiles for pools |
+	// -----------------------------------------------------------------------------------
+	// | none or <10MB         | 5                           | 2                         |
+	// | 10MB                  | 8                           | 2                         |
+	// | 100MB                 | 17                          | 2                         |
+	// | 500MB                 | 23                          | 2                         |
+	// | 1GB                   | 26                          | 3                         |
+	// | 5GB                   | 32                          | 3                         |
+	// | 10GB                  | 35                          | 4                         |
+	// | 100GB                 | 43                          | 5                         |
+	// -----------------------------------------------------------------------------------
 	//
 	// The goal is to have a comparatively quick ramp-up of allowed packfiles as the repository
 	// size grows, but then slow down such that we're effectively capped and don't end up with
@@ -173,7 +173,7 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects() (bool, RepackObje
 		lowerLimit, log = 2.0, 10.0
 	}
 
-	if int64(math.Max(lowerLimit, math.Log(float64(s.largestPackfileSizeInMB))/math.Log(log))) <= s.packfileCount {
+	if uint64(math.Max(lowerLimit, math.Log(float64(s.packfileSize/1024/1024))/math.Log(log))) <= s.packfileCount {
 		return true, RepackObjectsConfig{
 			FullRepack:  true,
 			WriteBitmap: !s.hasAlternate,
@@ -203,13 +203,13 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects() (bool, RepackObje
 	return false, RepackObjectsConfig{}
 }
 
-func packfileSizeAndCount(repo *localrepo.Repo) (int64, int64, error) {
+func packfileSizeAndCount(repo *localrepo.Repo) (uint64, uint64, error) {
 	repoPath, err := repo.Path()
 	if err != nil {
 		return 0, 0, fmt.Errorf("getting repository path: %w", err)
 	}
 
-	entries, err := os.ReadDir(filepath.Join(repoPath, "objects/pack"))
+	entries, err := os.ReadDir(filepath.Join(repoPath, "objects", "pack"))
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return 0, 0, nil
@@ -218,8 +218,8 @@ func packfileSizeAndCount(repo *localrepo.Repo) (int64, int64, error) {
 		return 0, 0, err
 	}
 
-	largestSize := int64(0)
-	count := int64(0)
+	var totalSize uint64
+	var count uint64
 
 	for _, entry := range entries {
 		if !strings.HasSuffix(entry.Name(), ".pack") {
@@ -235,14 +235,13 @@ func packfileSizeAndCount(repo *localrepo.Repo) (int64, int64, error) {
 			return 0, 0, fmt.Errorf("getting packfile info: %w", err)
 		}
 
-		if entryInfo.Size() > largestSize {
-			largestSize = entryInfo.Size()
-		}
-
 		count++
+		if entryInfo.Size() > 0 {
+			totalSize += uint64(entryInfo.Size())
+		}
 	}
 
-	return largestSize / 1024 / 1024, count, nil
+	return totalSize, count, nil
 }
 
 // countLooseObjects counts the number of loose objects in the repository. If a cutoff date is

@@ -347,52 +347,52 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 	}
 
 	for _, outerTC := range []struct {
-		largestPackfileSizeInMB  int64
-		requiredPackfiles        int64
-		requiredPackfilesForPool int64
+		packfileSizeInMB         uint64
+		requiredPackfiles        uint64
+		requiredPackfilesForPool uint64
 	}{
 		{
-			largestPackfileSizeInMB:  1,
+			packfileSizeInMB:         1,
 			requiredPackfiles:        5,
 			requiredPackfilesForPool: 2,
 		},
 		{
-			largestPackfileSizeInMB:  5,
+			packfileSizeInMB:         5,
 			requiredPackfiles:        6,
 			requiredPackfilesForPool: 2,
 		},
 		{
-			largestPackfileSizeInMB:  10,
+			packfileSizeInMB:         10,
 			requiredPackfiles:        8,
 			requiredPackfilesForPool: 2,
 		},
 		{
-			largestPackfileSizeInMB:  50,
+			packfileSizeInMB:         50,
 			requiredPackfiles:        14,
 			requiredPackfilesForPool: 2,
 		},
 		{
-			largestPackfileSizeInMB:  100,
+			packfileSizeInMB:         100,
 			requiredPackfiles:        17,
 			requiredPackfilesForPool: 2,
 		},
 		{
-			largestPackfileSizeInMB:  500,
+			packfileSizeInMB:         500,
 			requiredPackfiles:        23,
 			requiredPackfilesForPool: 2,
 		},
 		{
-			largestPackfileSizeInMB:  1001,
+			packfileSizeInMB:         1001,
 			requiredPackfiles:        26,
 			requiredPackfilesForPool: 3,
 		},
 	} {
-		t.Run(fmt.Sprintf("packfile with %dMB", outerTC.largestPackfileSizeInMB), func(t *testing.T) {
+		t.Run(fmt.Sprintf("packfile with %dMB", outerTC.packfileSizeInMB), func(t *testing.T) {
 			for _, tc := range []struct {
 				desc              string
 				isPool            bool
 				hasAlternate      bool
-				requiredPackfiles int64
+				requiredPackfiles uint64
 			}{
 				{
 					desc:              "normal repository",
@@ -413,11 +413,11 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 			} {
 				t.Run(tc.desc, func(t *testing.T) {
 					strategy := HeuristicalOptimizationStrategy{
-						largestPackfileSizeInMB: outerTC.largestPackfileSizeInMB,
-						packfileCount:           tc.requiredPackfiles - 1,
-						isObjectPool:            tc.isPool,
-						hasAlternate:            tc.hasAlternate,
-						hasBitmap:               true,
+						packfileSize:  outerTC.packfileSizeInMB * 1024 * 1024,
+						packfileCount: tc.requiredPackfiles - 1,
+						isObjectPool:  tc.isPool,
+						hasAlternate:  tc.hasAlternate,
+						hasBitmap:     true,
 					}
 
 					repackNeeded, _ := strategy.ShouldRepackObjects()
