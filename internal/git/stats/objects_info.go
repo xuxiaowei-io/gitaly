@@ -15,6 +15,7 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 )
 
 // StaleObjectsGracePeriod is time delta that is used to indicate cutoff wherein an object would be
@@ -142,8 +143,6 @@ func ObjectsInfoForRepository(ctx context.Context, repo *localrepo.Repo) (Object
 			info.PackedObjects, err = strconv.ParseUint(parts[1], 10, 64)
 		case "prune-packable":
 			info.PruneableObjects, err = strconv.ParseUint(parts[1], 10, 64)
-		case "alternate":
-			info.Alternates = append(info.Alternates, strings.Trim(parts[1], "\" \t\n"))
 		}
 
 		if err != nil {
@@ -172,6 +171,11 @@ func ObjectsInfoForRepository(ctx context.Context, repo *localrepo.Repo) (Object
 	info.CommitGraph, err = CommitGraphInfoForRepository(repoPath)
 	if err != nil {
 		return ObjectsInfo{}, fmt.Errorf("checking commit-graph info: %w", err)
+	}
+
+	info.Alternates, err = readAlternates(repo)
+	if err != nil {
+		return ObjectsInfo{}, fmt.Errorf("reading alterantes: %w", err)
 	}
 
 	return info, nil
@@ -324,4 +328,32 @@ func PackfilesInfoForRepository(repo *localrepo.Repo) (PackfilesInfo, error) {
 	}
 
 	return info, nil
+}
+
+func readAlternates(repo *localrepo.Repo) ([]string, error) {
+	repoPath, err := repo.Path()
+	if err != nil {
+		return nil, fmt.Errorf("getting repository path: %w", err)
+	}
+
+	contents, err := os.ReadFile(filepath.Join(repoPath, "objects", "info", "alternates"))
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, nil
+		}
+
+		return nil, fmt.Errorf("reading alternates: %w", err)
+	}
+
+	relativeAlternatePaths := strings.Split(text.ChompBytes(contents), "\n")
+	alternatePaths := make([]string, 0, len(relativeAlternatePaths))
+	for _, relativeAlternatePath := range relativeAlternatePaths {
+		if filepath.IsAbs(relativeAlternatePath) {
+			alternatePaths = append(alternatePaths, relativeAlternatePath)
+		} else {
+			alternatePaths = append(alternatePaths, filepath.Join(repoPath, "objects", relativeAlternatePath))
+		}
+	}
+
+	return alternatePaths, nil
 }
