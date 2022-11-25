@@ -12,6 +12,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 )
 
 // HasBitmap returns whether or not the repository contains an object bitmap.
@@ -52,7 +53,7 @@ func GetPackfiles(repoPath string) ([]fs.DirEntry, error) {
 }
 
 // LooseObjects returns the number of loose objects that are not in a packfile.
-func LooseObjects(ctx context.Context, repo git.RepositoryExecutor) (uint64, error) {
+func LooseObjects(ctx context.Context, repo *localrepo.Repo) (uint64, error) {
 	objectsInfo, err := ObjectsInfoForRepository(ctx, repo)
 	if err != nil {
 		return 0, err
@@ -63,7 +64,7 @@ func LooseObjects(ctx context.Context, repo git.RepositoryExecutor) (uint64, err
 
 // LogObjectsInfo read statistics of the git repo objects
 // and logs it under 'objects_info' key as structured entry.
-func LogObjectsInfo(ctx context.Context, repo git.RepositoryExecutor) {
+func LogObjectsInfo(ctx context.Context, repo *localrepo.Repo) {
 	logger := ctxlogrus.Extract(ctx)
 
 	objectsInfo, err := ObjectsInfoForRepository(ctx, repo)
@@ -100,7 +101,7 @@ type ObjectsInfo struct {
 }
 
 // ObjectsInfoForRepository computes the ObjectsInfo for a repository.
-func ObjectsInfoForRepository(ctx context.Context, repo git.RepositoryExecutor) (ObjectsInfo, error) {
+func ObjectsInfoForRepository(ctx context.Context, repo *localrepo.Repo) (ObjectsInfo, error) {
 	countObjects, err := repo.Exec(ctx, git.SubCmd{
 		Name:  "count-objects",
 		Flags: []git.Option{git.Flag{Name: "--verbose"}},
