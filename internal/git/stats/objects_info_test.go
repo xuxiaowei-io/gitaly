@@ -340,12 +340,15 @@ func TestCountLooseObjects(t *testing.T) {
 		return localrepo.NewTestRepo(t, cfg, repoProto), repoPath
 	}
 
+	requireLooseObjectsInfo := func(t *testing.T, repo *localrepo.Repo, cutoff time.Time, expectedInfo LooseObjectsInfo) {
+		info, err := LooseObjectsInfoForRepository(repo, cutoff)
+		require.NoError(t, err)
+		require.Equal(t, expectedInfo, info)
+	}
+
 	t.Run("empty repository", func(t *testing.T) {
 		repo, _ := createRepo(t)
-
-		looseObjects, err := CountLooseObjects(repo, time.Now())
-		require.NoError(t, err)
-		require.Zero(t, looseObjects)
+		requireLooseObjectsInfo(t, repo, time.Now(), LooseObjectsInfo{})
 	})
 
 	t.Run("object in random shard", func(t *testing.T) {
@@ -353,31 +356,27 @@ func TestCountLooseObjects(t *testing.T) {
 
 		differentShard := filepath.Join(repoPath, "objects", "a0")
 		require.NoError(t, os.MkdirAll(differentShard, 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join(differentShard, "123456"), []byte("foobar"), 0o644))
 
-		object, err := os.Create(filepath.Join(differentShard, "123456"))
-		require.NoError(t, err)
-		testhelper.MustClose(t, object)
-
-		looseObjects, err := CountLooseObjects(repo, time.Now())
-		require.NoError(t, err)
-		require.EqualValues(t, 1, looseObjects)
+		requireLooseObjectsInfo(t, repo, time.Now(), LooseObjectsInfo{
+			Count: 1,
+			Size:  6,
+		})
 	})
 
 	t.Run("objects in multiple shards", func(t *testing.T) {
 		repo, repoPath := createRepo(t)
 
-		for _, shard := range []string{"00", "17", "32", "ff"} {
+		for i, shard := range []string{"00", "17", "32", "ff"} {
 			shardPath := filepath.Join(repoPath, "objects", shard)
 			require.NoError(t, os.MkdirAll(shardPath, 0o755))
-
-			object, err := os.Create(filepath.Join(shardPath, "123456"))
-			require.NoError(t, err)
-			testhelper.MustClose(t, object)
+			require.NoError(t, os.WriteFile(filepath.Join(shardPath, "123456"), make([]byte, i), 0o644))
 		}
 
-		looseObjects, err := CountLooseObjects(repo, time.Now())
-		require.NoError(t, err)
-		require.EqualValues(t, 4, looseObjects)
+		requireLooseObjectsInfo(t, repo, time.Now(), LooseObjectsInfo{
+			Count: 4,
+			Size:  6,
+		})
 	})
 
 	t.Run("object in shard with grace period", func(t *testing.T) {
@@ -396,22 +395,21 @@ func TestCountLooseObjects(t *testing.T) {
 		beforeCutoffDate := cutoffDate.Add(-1 * time.Minute)
 
 		for _, objectPath := range objectPaths {
-			require.NoError(t, os.WriteFile(objectPath, nil, 0o644))
+			require.NoError(t, os.WriteFile(objectPath, []byte("1"), 0o644))
 			require.NoError(t, os.Chtimes(objectPath, afterCutoffDate, afterCutoffDate))
 		}
 
 		// Objects are recent, so with the cutoff-date they shouldn't be counted.
-		looseObjects, err := CountLooseObjects(repo, cutoffDate)
-		require.NoError(t, err)
-		require.EqualValues(t, 0, looseObjects)
+		requireLooseObjectsInfo(t, repo, time.Now(), LooseObjectsInfo{})
 
 		for i, objectPath := range objectPaths {
 			// Modify the object's mtime should cause it to be counted.
 			require.NoError(t, os.Chtimes(objectPath, beforeCutoffDate, beforeCutoffDate))
 
-			looseObjects, err = CountLooseObjects(repo, cutoffDate)
-			require.NoError(t, err)
-			require.EqualValues(t, i+1, looseObjects)
+			requireLooseObjectsInfo(t, repo, time.Now(), LooseObjectsInfo{
+				Count: uint64(i) + 1,
+				Size:  uint64(i) + 1,
+			})
 		}
 	})
 
@@ -425,9 +423,9 @@ func TestCountLooseObjects(t *testing.T) {
 			require.NoError(t, os.WriteFile(filepath.Join(shard, objectName), nil, 0o644))
 		}
 
-		looseObjects, err := CountLooseObjects(repo, time.Now())
-		require.NoError(t, err)
-		require.EqualValues(t, 1, looseObjects)
+		requireLooseObjectsInfo(t, repo, time.Now(), LooseObjectsInfo{
+			Count: 1,
+		})
 	})
 }
 
@@ -447,7 +445,7 @@ func BenchmarkCountLooseObjects(b *testing.B) {
 
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			_, err := CountLooseObjects(repo, time.Now())
+			_, err := LooseObjectsInfoForRepository(repo, time.Now())
 			require.NoError(b, err)
 		}
 	})
@@ -461,7 +459,7 @@ func BenchmarkCountLooseObjects(b *testing.B) {
 
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			_, err := CountLooseObjects(repo, time.Now())
+			_, err := LooseObjectsInfoForRepository(repo, time.Now())
 			require.NoError(b, err)
 		}
 	})
@@ -477,7 +475,7 @@ func BenchmarkCountLooseObjects(b *testing.B) {
 
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			_, err := CountLooseObjects(repo, time.Now())
+			_, err := LooseObjectsInfoForRepository(repo, time.Now())
 			require.NoError(b, err)
 		}
 	})
@@ -507,7 +505,7 @@ func BenchmarkCountLooseObjects(b *testing.B) {
 
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			_, err := CountLooseObjects(repo, time.Now())
+			_, err := LooseObjectsInfoForRepository(repo, time.Now())
 			require.NoError(b, err)
 		}
 	})
@@ -527,7 +525,7 @@ func BenchmarkCountLooseObjects(b *testing.B) {
 
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			_, err := CountLooseObjects(repo, time.Now())
+			_, err := LooseObjectsInfoForRepository(repo, time.Now())
 			require.NoError(b, err)
 		}
 	})

@@ -190,16 +190,24 @@ func ObjectsInfoForRepository(ctx context.Context, repo *localrepo.Repo) (Object
 	return info, nil
 }
 
-// CountLooseObjects counts the number of loose objects in the repository. If a cutoff date is
-// given, then this function will only take into account objects which are older than the given
-// point in time.
-func CountLooseObjects(repo *localrepo.Repo, cutoffDate time.Time) (uint64, error) {
+// LooseObjectsInfo contains information about loose objects.
+type LooseObjectsInfo struct {
+	// Count is the number of loose objects.
+	Count uint64 `json:"count"`
+	// Size is the total size of all loose objects in bytes.
+	Size uint64 `json:"size"`
+}
+
+// LooseObjectsInfoForRepository derives information about loose objects in the repository. If a
+// cutoff date is given, then this function will only take into account objects which are older than
+// the given point in time.
+func LooseObjectsInfoForRepository(repo *localrepo.Repo, cutoffDate time.Time) (LooseObjectsInfo, error) {
 	repoPath, err := repo.Path()
 	if err != nil {
-		return 0, fmt.Errorf("getting repository path: %w", err)
+		return LooseObjectsInfo{}, fmt.Errorf("getting repository path: %w", err)
 	}
 
-	var looseObjects uint64
+	var info LooseObjectsInfo
 	for i := 0; i <= 0xFF; i++ {
 		entries, err := os.ReadDir(filepath.Join(repoPath, "objects", fmt.Sprintf("%02x", i)))
 		if err != nil {
@@ -207,7 +215,7 @@ func CountLooseObjects(repo *localrepo.Repo, cutoffDate time.Time) (uint64, erro
 				continue
 			}
 
-			return 0, fmt.Errorf("reading loose object shard: %w", err)
+			return LooseObjectsInfo{}, fmt.Errorf("reading loose object shard: %w", err)
 		}
 
 		for _, entry := range entries {
@@ -221,18 +229,19 @@ func CountLooseObjects(repo *localrepo.Repo, cutoffDate time.Time) (uint64, erro
 					continue
 				}
 
-				return 0, fmt.Errorf("reading object info: %w", err)
+				return LooseObjectsInfo{}, fmt.Errorf("reading object info: %w", err)
 			}
 
 			if entryInfo.ModTime().After(cutoffDate) {
 				continue
 			}
 
-			looseObjects++
+			info.Count++
+			info.Size += uint64(entryInfo.Size())
 		}
 	}
 
-	return looseObjects, nil
+	return info, nil
 }
 
 func isValidLooseObjectName(s string) bool {

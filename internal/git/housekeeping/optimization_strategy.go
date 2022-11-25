@@ -97,15 +97,17 @@ func NewHeuristicalOptimizationStrategy(ctx context.Context, repo *localrepo.Rep
 	strategy.packfileCount = packfilesInfo.Count
 	strategy.packfileSize = packfilesInfo.Size
 
-	strategy.looseObjectCount, err = stats.CountLooseObjects(repo, time.Now())
+	looseObjectsInfo, err := stats.LooseObjectsInfoForRepository(repo, time.Now())
 	if err != nil {
 		return strategy, fmt.Errorf("estimating loose object count: %w", err)
 	}
+	strategy.looseObjectCount = looseObjectsInfo.Count
 
-	strategy.oldLooseObjectCount, err = stats.CountLooseObjects(repo, time.Now().Add(CutOffTime))
+	oldLooseObjectsInfo, err := stats.LooseObjectsInfoForRepository(repo, time.Now().Add(CutOffTime))
 	if err != nil {
 		return strategy, fmt.Errorf("estimating old loose object count: %w", err)
 	}
+	strategy.oldLooseObjectCount = oldLooseObjectsInfo.Count
 
 	strategy.looseRefsCount, strategy.packedRefsSize, err = countLooseAndPackedRefs(ctx, repo)
 	if err != nil {
