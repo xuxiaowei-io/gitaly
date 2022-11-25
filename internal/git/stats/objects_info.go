@@ -173,6 +173,10 @@ type PackfilesInfo struct {
 	Count uint64 `json:"count"`
 	// Size is the total size of all loose objects in bytes, including stale ones.
 	Size uint64 `json:"size"`
+	// GarbageCount is the number of garbage files.
+	GarbageCount uint64 `json:"garbage_count"`
+	// GarbageSize is the total size of all garbage files in bytes.
+	GarbageSize uint64 `json:"garbage_size"`
 }
 
 // PackfilesInfoForRepository derives various information about packfiles for the given repository.
@@ -193,10 +197,6 @@ func PackfilesInfoForRepository(repo *localrepo.Repo) (PackfilesInfo, error) {
 
 	var info PackfilesInfo
 	for _, entry := range entries {
-		if !strings.HasSuffix(entry.Name(), ".pack") {
-			continue
-		}
-
 		entryInfo, err := entry.Info()
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
@@ -204,6 +204,23 @@ func PackfilesInfoForRepository(repo *localrepo.Repo) (PackfilesInfo, error) {
 			}
 
 			return PackfilesInfo{}, fmt.Errorf("getting packfile info: %w", err)
+		}
+
+		// We're overly lenient here and only verify for known prefixes. This would already
+		// catch things like temporary packfiles, but it wouldn't catch other bogus files.
+		// This is on purpose though because Git has grown more and more metadata-style file
+		// formats, and we don't want to copy the list here.
+		if !strings.HasPrefix(entry.Name(), "pack-") {
+			info.GarbageCount++
+			if entryInfo.Size() > 0 {
+				info.GarbageSize += uint64(entryInfo.Size())
+			}
+
+			continue
+		}
+
+		if !strings.HasSuffix(entry.Name(), ".pack") {
+			continue
 		}
 
 		info.Count++

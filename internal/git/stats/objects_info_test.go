@@ -363,8 +363,10 @@ func TestPackfileInfoForRepository(t *testing.T) {
 		}
 
 		requirePackfilesInfo(t, repo, PackfilesInfo{
-			Count: 2,
-			Size:  2,
+			Count:        2,
+			Size:         2,
+			GarbageCount: 1,
+			GarbageSize:  1,
 		})
 	})
 }
