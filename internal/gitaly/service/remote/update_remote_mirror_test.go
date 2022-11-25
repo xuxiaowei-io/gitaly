@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -15,8 +14,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	repositorysvc "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
@@ -499,8 +496,8 @@ func TestUpdateRemoteMirror(t *testing.T) {
 			t.Parallel()
 
 			ctx := testhelper.Context(t)
-
 			cfg := testcfg.Build(t)
+
 			addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 				cmdFactory := deps.GetGitCmdFactory()
 				if tc.wrapCommandFactory != nil {
@@ -528,50 +525,37 @@ func TestUpdateRemoteMirror(t *testing.T) {
 			})
 			cfg.SocketPath = addr
 
-			testcfg.BuildGitalyGit2Go(t, cfg)
-
-			mirrorRepoPb, mirrorRepoPath := gittest.CreateRepository(t, ctx, cfg)
-
+			_, mirrorRepoPath := gittest.CreateRepository(t, ctx, cfg)
 			sourceRepoPb, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
-
-			// create identical commits in both repositories so we can use them for
-			// the references
-			commitSignature := git2go.NewSignature("Test Author", "author@example.com", time.Now())
-			executor := git2go.NewExecutor(cfg, gittest.NewCommandFactory(t, cfg), config.NewLocator(cfg))
 
 			// construct the starting state of the repositories
 			for _, c := range []struct {
-				repoProto  *gitalypb.Repository
 				repoPath   string
 				references refs
 			}{
 				{
-					repoProto:  sourceRepoPb,
 					repoPath:   sourceRepoPath,
 					references: tc.sourceRefs,
 				},
 				{
-					repoProto:  mirrorRepoPb,
 					repoPath:   mirrorRepoPath,
 					references: tc.mirrorRefs,
 				},
 			} {
 				for reference, commits := range c.references {
 					var commitOID git.ObjectID
-					for _, commit := range commits {
-						var err error
-						commitOID, err = executor.Commit(ctx, gittest.RewrittenRepository(t, ctx, cfg, c.repoProto),
-							git2go.CommitCommand{
-								Repository: c.repoPath,
-								Author:     commitSignature,
-								Committer:  commitSignature,
-								Message:    commit,
-								Parent:     commitOID.String(),
-							})
-						require.NoError(t, err)
-					}
+					for i, commit := range commits {
+						var parents []git.ObjectID
+						if i != 0 {
+							parents = []git.ObjectID{commitOID}
+						}
 
-					gittest.Exec(t, cfg, "-C", c.repoPath, "update-ref", reference, commitOID.String())
+						commitOID = gittest.WriteCommit(t, cfg, c.repoPath,
+							gittest.WithMessage(commit),
+							gittest.WithParents(parents...),
+							gittest.WithReference(reference),
+						)
+					}
 				}
 			}
 			for repoPath, symRefs := range map[string]map[string]string{
