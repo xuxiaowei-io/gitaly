@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
@@ -187,6 +188,60 @@ func ObjectsInfoForRepository(ctx context.Context, repo *localrepo.Repo) (Object
 	}
 
 	return info, nil
+}
+
+// CountLooseObjects counts the number of loose objects in the repository. If a cutoff date is
+// given, then this function will only take into account objects which are older than the given
+// point in time.
+func CountLooseObjects(repo *localrepo.Repo, cutoffDate time.Time) (uint64, error) {
+	repoPath, err := repo.Path()
+	if err != nil {
+		return 0, fmt.Errorf("getting repository path: %w", err)
+	}
+
+	var looseObjects uint64
+	for i := 0; i <= 0xFF; i++ {
+		entries, err := os.ReadDir(filepath.Join(repoPath, "objects", fmt.Sprintf("%02x", i)))
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				continue
+			}
+
+			return 0, fmt.Errorf("reading loose object shard: %w", err)
+		}
+
+		for _, entry := range entries {
+			if !isValidLooseObjectName(entry.Name()) {
+				continue
+			}
+
+			entryInfo, err := entry.Info()
+			if err != nil {
+				if errors.Is(err, fs.ErrNotExist) {
+					continue
+				}
+
+				return 0, fmt.Errorf("reading object info: %w", err)
+			}
+
+			if entryInfo.ModTime().After(cutoffDate) {
+				continue
+			}
+
+			looseObjects++
+		}
+	}
+
+	return looseObjects, nil
+}
+
+func isValidLooseObjectName(s string) bool {
+	for _, c := range []byte(s) {
+		if strings.IndexByte("0123456789abcdef", c) < 0 {
+			return false
+		}
+	}
+	return true
 }
 
 // PackfilesInfo contains information about packfiles.
