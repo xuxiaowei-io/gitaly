@@ -95,6 +95,9 @@ type ObjectsInfo struct {
 	// packfiles.
 	PackfileBitmapExists bool `json:"packfile_bitmap_exists"`
 
+	// CommitGraph contains information about the repository's commit-graphs.
+	CommitGraph CommitGraphInfo `json:"commit_graph"`
+
 	// Garbage is the count of files in the object database that are neither a valid loose
 	// object nor a valid packfile.
 	Garbage uint64 `json:"garbage"`
@@ -175,6 +178,11 @@ func ObjectsInfoForRepository(ctx context.Context, repo *localrepo.Repo) (Object
 
 	if info.PackfileBitmapExists, err = HasBitmap(repoPath); err != nil {
 		return ObjectsInfo{}, fmt.Errorf("checking for bitmap: %w", err)
+	}
+
+	info.CommitGraph, err = CommitGraphInfoForRepository(repoPath)
+	if err != nil {
+		return ObjectsInfo{}, fmt.Errorf("checking commit-graph info: %w", err)
 	}
 
 	return info, nil

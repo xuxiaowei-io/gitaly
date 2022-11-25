@@ -247,6 +247,35 @@ func TestObjectsInfoForRepository(t *testing.T) {
 			},
 		},
 		{
+			desc: "non-split commit-graph without bloom filter",
+			setup: func(t *testing.T, repoPath string) {
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable")
+			},
+			expectedObjectsInfo: ObjectsInfo{
+				LooseObjects:     2,
+				LooseObjectsSize: 8,
+				CommitGraph: CommitGraphInfo{
+					Exists: true,
+				},
+			},
+		},
+		{
+			desc: "non-split commit-graph with bloom filter",
+			setup: func(t *testing.T, repoPath string) {
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--changed-paths")
+			},
+			expectedObjectsInfo: ObjectsInfo{
+				LooseObjects:     2,
+				LooseObjectsSize: 8,
+				CommitGraph: CommitGraphInfo{
+					Exists:          true,
+					HasBloomFilters: true,
+				},
+			},
+		},
+		{
 			desc: "all together",
 			setup: func(t *testing.T, repoPath string) {
 				infoAlternatesPath := filepath.Join(repoPath, "objects", "info", "alternates")

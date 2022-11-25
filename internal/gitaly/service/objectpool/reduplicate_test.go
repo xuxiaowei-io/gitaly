@@ -38,6 +38,9 @@ func TestReduplicate(t *testing.T) {
 	objectsInfo, err := stats.ObjectsInfoForRepository(ctx, repo)
 	require.NoError(t, err)
 	require.Equal(t, stats.ObjectsInfo{
+		CommitGraph: stats.CommitGraphInfo{
+			Exists: true,
+		},
 		Alternates: []string{filepath.Join(pool.FullPath(), "objects")},
 	}, objectsInfo)
 
