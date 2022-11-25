@@ -3,10 +3,6 @@ package housekeeping
 import (
 	"bytes"
 	"context"
-	"errors"
-	"fmt"
-	"os"
-	"path/filepath"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
@@ -34,28 +30,21 @@ func WriteCommitGraphConfigForRepository(ctx context.Context, repo *localrepo.Re
 
 	var replaceChain bool
 
-	// Check whether the commit-graph-chain exists. If it doesn't, the repository either has no
-	// commit-graph at all, or it has a monolithic commit-graph. In both cases we'd need to
-	// rewrite the complete commit-graph, so it's not worth checking whether the monolithic
-	// commit-graph exists.
-	if _, err := os.Stat(filepath.Join(repoPath, stats.CommitGraphChainRelPath)); err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			return WriteCommitGraphConfig{}, helper.ErrInternal(fmt.Errorf("statting commit-graph-chain: %w", err))
-		}
+	commitGraphInfo, err := stats.CommitGraphInfoForRepository(repoPath)
+	if err != nil {
+		return WriteCommitGraphConfig{}, helper.ErrInternalf("getting commit-graph info: %w", err)
+	}
 
-		// The commit-graph-chain doesn't exist, so we want to rewrite any potentially
-		// existing monolithic commit-graph.
+	if commitGraphInfo.CommitGraphChainLength == 0 {
+		// The repository does not have a commit-graph chain. This either indicates we ain't
+		// got no commit-graph at all, or that it's monolithic. In both cases we want to
+		// replace the commit-graph chain.
 		replaceChain = true
-	} else {
+	} else if !commitGraphInfo.HasBloomFilters {
 		// If the commit-graph-chain exists, we want to rewrite it in case we see that it
 		// ain't got bloom filters enabled. This is because Git will refuse to write any
 		// bloom filters as long as any of the commit-graph slices is missing this info.
-		missingBloomFilters, err := stats.IsMissingBloomFilters(repoPath)
-		if err != nil {
-			return WriteCommitGraphConfig{}, helper.ErrInternal(fmt.Errorf("checking for missing bloom-filters: %w", err))
-		}
-
-		replaceChain = missingBloomFilters
+		replaceChain = true
 	}
 
 	return WriteCommitGraphConfig{

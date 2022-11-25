@@ -80,20 +80,15 @@ func NewHeuristicalOptimizationStrategy(ctx context.Context, repo *localrepo.Rep
 		return strategy, fmt.Errorf("checking for bitmap: %w", err)
 	}
 
-	if _, err := os.Stat(filepath.Join(repoPath, stats.CommitGraphChainRelPath)); err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			return strategy, fmt.Errorf("statting commit-graph-chain: %w", err)
-		}
-
+	commitGraphInfo, err := stats.CommitGraphInfoForRepository(repoPath)
+	if err != nil {
+		return strategy, fmt.Errorf("checking commit-graph info: %w", err)
+	}
+	if commitGraphInfo.CommitGraphChainLength == 0 {
 		strategy.hasSplitCommitGraph = false
 	} else {
 		strategy.hasSplitCommitGraph = true
-
-		missingBloomFilters, err := stats.IsMissingBloomFilters(repoPath)
-		if err != nil {
-			return strategy, fmt.Errorf("checking for bloom filters: %w", err)
-		}
-		strategy.hasBloomFilters = !missingBloomFilters
+		strategy.hasBloomFilters = commitGraphInfo.HasBloomFilters
 	}
 
 	strategy.packfileSize, strategy.packfileCount, err = packfileSizeAndCount(repo)

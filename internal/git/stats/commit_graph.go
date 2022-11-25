@@ -18,32 +18,72 @@ const (
 	CommitGraphChainRelPath = CommitGraphsRelPath + "/commit-graph-chain"
 )
 
-// IsMissingBloomFilters checks if the commit graph chain exists and has a Bloom filters indicators.
-// If the chain contains multiple files, each one is checked until at least one is missing a Bloom filter
-// indicator or until there are no more files to check.
-// https://git-scm.com/docs/commit-graph#_file_layout
-func IsMissingBloomFilters(repoPath string) (bool, error) {
+// CommitGraphInfo returns information about the commit-graph of a repository.
+type CommitGraphInfo struct {
+	// Exists tells whether a commit-graph exists.
+	Exists bool `json:"exists"`
+	// HasBloomFilters tells whether the commit-graph has bloom filters.
+	HasBloomFilters bool `json:"has_bloom_filters"`
+	// CommitGraphChainLength is the length of the commit-graph chain, if it exists. If the
+	// repository does not have a commit-graph chain but a monolithic commit-graph, then this
+	// field will be set to 0.
+	CommitGraphChainLength uint64 `json:"commit_graph_chain_length"`
+}
+
+// CommitGraphInfoForRepository derives information about commit-graphs in the repository.
+//
+// Please refer to https://git-scm.com/docs/commit-graph#_file_layout for further information about
+// the commit-graph format.
+func CommitGraphInfoForRepository(repoPath string) (CommitGraphInfo, error) {
 	const chunkTableEntrySize = 12
 
-	commitGraphsPath := filepath.Join(repoPath, CommitGraphChainRelPath)
-	commitGraphsData, err := os.ReadFile(commitGraphsPath)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return true, nil
+	var info CommitGraphInfo
+
+	var commitGraphPaths []string
+	// We first try to read the commit-graphs-chain in the repository.
+	if chainData, err := os.ReadFile(filepath.Join(repoPath, CommitGraphChainRelPath)); err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return CommitGraphInfo{}, fmt.Errorf("reading commit-graphs chain: %w", err)
 		}
-		return false, err
+
+		// If we couldn't find it, we check whether the monolithic commit-graph file exists
+		// and use that instead.
+		commitGraphPath := filepath.Join(repoPath, CommitGraphRelPath)
+		if _, err := os.Stat(commitGraphPath); err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				return CommitGraphInfo{Exists: false}, nil
+			}
+
+			return CommitGraphInfo{}, fmt.Errorf("statting commit-graph: %w", err)
+		}
+
+		commitGraphPaths = []string{commitGraphPath}
+
+		info.Exists = true
+	} else {
+		// Otherwise, if we have found the commit-graph-chain, we use the IDs it contains as
+		// the set of commit-graphs to check further down below.
+		ids := bytes.Split(bytes.TrimSpace(chainData), []byte{'\n'})
+
+		commitGraphPaths = make([]string, 0, len(ids))
+		for _, id := range ids {
+			commitGraphPaths = append(commitGraphPaths,
+				filepath.Join(repoPath, CommitGraphsRelPath, fmt.Sprintf("graph-%s.graph", id)),
+			)
+		}
+
+		info.Exists = true
+		info.CommitGraphChainLength = uint64(len(commitGraphPaths))
 	}
 
-	ids := bytes.Split(bytes.TrimSpace(commitGraphsData), []byte{'\n'})
-	for _, id := range ids {
-		graphFilePath := filepath.Join(repoPath, filepath.Dir(CommitGraphChainRelPath), fmt.Sprintf("graph-%s.graph", id))
+	for _, graphFilePath := range commitGraphPaths {
 		graphFile, err := os.Open(graphFilePath)
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
 				// concurrently modified
 				continue
 			}
-			return false, fmt.Errorf("read commit graph chain file: %w", err)
+			return CommitGraphInfo{}, fmt.Errorf("read commit graph chain file: %w", err)
 		}
 		defer graphFile.Close()
 
@@ -58,34 +98,35 @@ func IsMissingBloomFilters(repoPath string) (bool, error) {
 		}
 
 		if n, err := reader.Read(header); err != nil {
-			return false, fmt.Errorf("read commit graph file %q header: %w", graphFilePath, err)
+			return CommitGraphInfo{}, fmt.Errorf("read commit graph file %q header: %w", graphFilePath, err)
 		} else if n != len(header) {
-			return false, fmt.Errorf("commit graph file %q is too small, no header", graphFilePath)
+			return CommitGraphInfo{}, fmt.Errorf("commit graph file %q is too small, no header", graphFilePath)
 		}
 
 		if !bytes.Equal(header[:4], []byte("CGPH")) {
-			return false, fmt.Errorf("commit graph file %q doesn't have signature", graphFilePath)
+			return CommitGraphInfo{}, fmt.Errorf("commit graph file %q doesn't have signature", graphFilePath)
 		}
 		if header[4] != 1 {
-			return false, fmt.Errorf("commit graph file %q has unsupported version number: %v", graphFilePath, header[4])
+			return CommitGraphInfo{}, fmt.Errorf("commit graph file %q has unsupported version number: %v", graphFilePath, header[4])
 		}
 
 		C := header[6] // number (C) of "chunks"
 		table := make([]byte, (C+1)*chunkTableEntrySize)
 		if n, err := reader.Read(table); err != nil {
-			return false, fmt.Errorf("read commit graph file %q table of contents for the chunks: %w", graphFilePath, err)
+			return CommitGraphInfo{}, fmt.Errorf("read commit graph file %q table of contents for the chunks: %w", graphFilePath, err)
 		} else if n != len(table) {
-			return false, fmt.Errorf("commit graph file %q is too small, no table of contents", graphFilePath)
-		}
-
-		if !bytes.Contains(table, []byte("BIDX")) && !bytes.Contains(table, []byte("BDAT")) {
-			return true, nil
+			return CommitGraphInfo{}, fmt.Errorf("commit graph file %q is too small, no table of contents", graphFilePath)
 		}
 
 		if err := graphFile.Close(); err != nil {
-			return false, fmt.Errorf("commit graph file %q close: %w", graphFilePath, err)
+			return CommitGraphInfo{}, fmt.Errorf("commit graph file %q close: %w", graphFilePath, err)
+		}
+
+		info.HasBloomFilters = bytes.Contains(table, []byte("BIDX")) || bytes.Contains(table, []byte("BDAT"))
+		if info.HasBloomFilters {
+			break
 		}
 	}
 
-	return false, nil
+	return info, nil
 }
