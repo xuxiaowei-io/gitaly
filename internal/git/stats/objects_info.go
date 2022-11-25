@@ -3,6 +3,7 @@ package stats
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 )
 
 // HasBitmap returns whether or not the repository contains an object bitmap.
@@ -163,4 +165,47 @@ func ObjectsInfoForRepository(ctx context.Context, repo git.RepositoryExecutor) 
 	}
 
 	return info, nil
+}
+
+// PackfileSizeAndCount reports the total size of packfiles as well as how many exist in a
+// repository.
+func PackfileSizeAndCount(repo *localrepo.Repo) (uint64, uint64, error) {
+	repoPath, err := repo.Path()
+	if err != nil {
+		return 0, 0, fmt.Errorf("getting repository path: %w", err)
+	}
+
+	entries, err := os.ReadDir(filepath.Join(repoPath, "objects", "pack"))
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return 0, 0, nil
+		}
+
+		return 0, 0, err
+	}
+
+	var totalSize uint64
+	var count uint64
+
+	for _, entry := range entries {
+		if !strings.HasSuffix(entry.Name(), ".pack") {
+			continue
+		}
+
+		entryInfo, err := entry.Info()
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				continue
+			}
+
+			return 0, 0, fmt.Errorf("getting packfile info: %w", err)
+		}
+
+		count++
+		if entryInfo.Size() > 0 {
+			totalSize += uint64(entryInfo.Size())
+		}
+	}
+
+	return totalSize, count, nil
 }
