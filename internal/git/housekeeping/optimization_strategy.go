@@ -41,8 +41,8 @@ const CutOffTime = -14 * 24 * time.Hour
 type HeuristicalOptimizationStrategy struct {
 	largestPackfileSizeInMB int64
 	packfileCount           int64
-	looseObjectCount        int64
-	oldLooseObjectCount     int64
+	looseObjectCount        uint64
+	oldLooseObjectCount     uint64
 	looseRefsCount          int64
 	packedRefsSize          int64
 	hasAlternate            bool
@@ -90,12 +90,12 @@ func NewHeuristicalOptimizationStrategy(ctx context.Context, repo *localrepo.Rep
 		return strategy, fmt.Errorf("checking largest packfile size: %w", err)
 	}
 
-	strategy.looseObjectCount, err = estimateLooseObjectCount(repo, time.Now())
+	strategy.looseObjectCount, err = countLooseObjects(repo, time.Now())
 	if err != nil {
 		return strategy, fmt.Errorf("estimating loose object count: %w", err)
 	}
 
-	strategy.oldLooseObjectCount, err = estimateLooseObjectCount(repo, time.Now().Add(CutOffTime))
+	strategy.oldLooseObjectCount, err = countLooseObjects(repo, time.Now().Add(CutOffTime))
 	if err != nil {
 		return strategy, fmt.Errorf("estimating old loose object count: %w", err)
 	}
@@ -245,53 +245,49 @@ func packfileSizeAndCount(repo *localrepo.Repo) (int64, int64, error) {
 	return largestSize / 1024 / 1024, count, nil
 }
 
-// estimateLooseObjectCount estimates the number of loose objects in the repository. Due to the
-// object name being derived via a cryptographic hash we know that in the general case, objects are
-// evenly distributed across their sharding directories. We can thus estimate the number of loose
-// objects by opening a single sharding directory and counting its entries.
-//
-// If a cutoff date is given, then this function will only take into account objects which are
-// older than the given point in time.
-func estimateLooseObjectCount(repo *localrepo.Repo, cutoffDate time.Time) (int64, error) {
+// countLooseObjects counts the number of loose objects in the repository. If a cutoff date is
+// given, then this function will only take into account objects which are older than the given
+// point in time.
+func countLooseObjects(repo *localrepo.Repo, cutoffDate time.Time) (uint64, error) {
 	repoPath, err := repo.Path()
 	if err != nil {
 		return 0, fmt.Errorf("getting repository path: %w", err)
 	}
 
-	// We use the same sharding directory as git-gc(1) does for its estimation.
-	entries, err := os.ReadDir(filepath.Join(repoPath, "objects/17"))
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return 0, nil
-		}
-
-		return 0, fmt.Errorf("reading loose object shard: %w", err)
-	}
-
-	looseObjects := int64(0)
-	for _, entry := range entries {
-		if strings.LastIndexAny(entry.Name(), "0123456789abcdef") != len(entry.Name())-1 {
-			continue
-		}
-
-		entryInfo, err := entry.Info()
+	var looseObjects uint64
+	for i := 0; i <= 0xFF; i++ {
+		entries, err := os.ReadDir(filepath.Join(repoPath, "objects", fmt.Sprintf("%02x", i)))
 		if err != nil {
-			if errors.Is(err, fs.ErrNotExist) {
+			if errors.Is(err, os.ErrNotExist) {
 				continue
 			}
 
-			return 0, fmt.Errorf("reading object info: %w", err)
+			return 0, fmt.Errorf("reading loose object shard: %w", err)
 		}
 
-		if entryInfo.ModTime().After(cutoffDate) {
-			continue
-		}
+		for _, entry := range entries {
+			if strings.LastIndexAny(entry.Name(), "0123456789abcdef") != len(entry.Name())-1 {
+				continue
+			}
 
-		looseObjects++
+			entryInfo, err := entry.Info()
+			if err != nil {
+				if errors.Is(err, fs.ErrNotExist) {
+					continue
+				}
+
+				return 0, fmt.Errorf("reading object info: %w", err)
+			}
+
+			if entryInfo.ModTime().After(cutoffDate) {
+				continue
+			}
+
+			looseObjects++
+		}
 	}
 
-	// Scale up found loose objects by the number of sharding directories.
-	return looseObjects * 256, nil
+	return looseObjects, nil
 }
 
 // ShouldWriteCommitGraph determines whether we need to write the commit-graph and how it should be
