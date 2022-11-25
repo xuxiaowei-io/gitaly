@@ -7,11 +7,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -26,25 +26,23 @@ func TestRepositoryExists(t *testing.T) {
 
 	require.NoError(t, os.RemoveAll(cfg.Storages[2].Path), "third storage needs to be invalid")
 
-	client, socketPath := runRepositoryService(t, cfg, nil, testserver.WithDisablePraefect())
+	client, socketPath := runRepositoryService(t, cfg, nil)
 	cfg.SocketPath = socketPath
 
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{})
 
 	queries := []struct {
-		desc      string
-		request   *gitalypb.RepositoryExistsRequest
-		errorCode codes.Code
-		exists    bool
+		desc        string
+		request     *gitalypb.RepositoryExistsRequest
+		expectedErr error
+		exists      bool
 	}{
 		{
 			desc: "repository nil",
 			request: &gitalypb.RepositoryExistsRequest{
 				Repository: nil,
 			},
-			errorCode: codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(gitalyerrors.ErrEmptyRepository.Error(), "missing repository")),
 		},
 		{
 			desc: "storage name empty",
@@ -54,7 +52,7 @@ func TestRepositoryExists(t *testing.T) {
 					RelativePath: repo.GetRelativePath(),
 				},
 			},
-			errorCode: codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(gitalyerrors.ErrEmptyStorageName.Error(), "repository missing storage name")),
 		},
 		{
 			desc: "relative path empty",
@@ -64,7 +62,7 @@ func TestRepositoryExists(t *testing.T) {
 					RelativePath: "",
 				},
 			},
-			errorCode: codes.InvalidArgument,
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(gitalyerrors.ErrEmptyRelativePath.Error(), "repository missing relative path")),
 		},
 		{
 			desc: "exists true",
@@ -87,6 +85,23 @@ func TestRepositoryExists(t *testing.T) {
 			exists: false,
 		},
 		{
+			desc: "storage not configured",
+			request: &gitalypb.RepositoryExistsRequest{
+				Repository: &gitalypb.Repository{
+					StorageName:  "unconfigured",
+					RelativePath: "foobar.git",
+				},
+			},
+			expectedErr: func() error {
+				if testhelper.IsPraefectEnabled() {
+					// Praefect doesn't check for storage existence but just returns that the repository doesn't exist.
+					return nil
+				}
+
+				return status.Errorf(codes.InvalidArgument, `GetStorageByName: no such storage: "unconfigured"`)
+			}(),
+		},
+		{
 			desc: "storage directory does not exist",
 			request: &gitalypb.RepositoryExistsRequest{
 				Repository: &gitalypb.Repository{
@@ -94,16 +109,22 @@ func TestRepositoryExists(t *testing.T) {
 					RelativePath: "foobar.git",
 				},
 			},
-			errorCode: codes.NotFound,
+			expectedErr: func() error {
+				if testhelper.IsPraefectEnabled() {
+					// Praefect checks repository existence from the database so it can't encounter an error where a storage is configured
+					// but doesn't exist.
+					return nil
+				}
+
+				return status.Errorf(codes.NotFound, "GetPath: does not exist: stat %s: no such file or directory", cfg.Storages[2].Path)
+			}(),
 		},
 	}
 
 	for _, tc := range queries {
 		t.Run(tc.desc, func(t *testing.T) {
 			response, err := client.RepositoryExists(ctx, tc.request)
-
-			require.Equal(t, tc.errorCode, helper.GrpcCode(err))
-
+			testhelper.ProtoEqual(t, tc.expectedErr, err)
 			if err != nil {
 				// Ignore the response message if there was an error
 				return

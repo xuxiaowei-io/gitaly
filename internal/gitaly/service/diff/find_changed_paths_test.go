@@ -3,6 +3,7 @@
 package diff
 
 import (
+	"fmt"
 	"io"
 	"path/filepath"
 	"testing"
@@ -10,10 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func TestFindChangedPathsRequest_success(t *testing.T) {
@@ -470,7 +468,7 @@ func TestFindChangedPathsRequest_success(t *testing.T) {
 
 func TestFindChangedPathsRequest_failing(t *testing.T) {
 	ctx := testhelper.Context(t)
-	cfg, repo, _, client := setupDiffService(t, ctx, testserver.WithDisablePraefect())
+	cfg, repo, _, client := setupDiffService(t, ctx)
 
 	tests := []struct {
 		desc     string
@@ -483,19 +481,28 @@ func TestFindChangedPathsRequest_failing(t *testing.T) {
 			desc:    "Repository not provided",
 			repo:    nil,
 			commits: []string{"e4003da16c1c2c3fc4567700121b17bf8e591c6c", "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"},
-			err:     status.Error(codes.InvalidArgument, "empty Repository"),
+			err: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefectMessage(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 		{
 			desc:    "Repo not found",
 			repo:    &gitalypb.Repository{StorageName: repo.GetStorageName(), RelativePath: "bar.git"},
 			commits: []string{"e4003da16c1c2c3fc4567700121b17bf8e591c6c", "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"},
-			err:     helper.ErrNotFoundf("GetRepoPath: not a git repository: %q", filepath.Join(cfg.Storages[0].Path, "bar.git")),
+			err: helper.ErrNotFoundf(testhelper.GitalyOrPraefectMessage(
+				fmt.Sprintf("GetRepoPath: not a git repository: %q", filepath.Join(cfg.Storages[0].Path, "bar.git")),
+				`accessor call: route repository accessor: consistent storages: repository "default"/"bar.git" not found`,
+			)),
 		},
 		{
 			desc:    "Storage not found",
 			repo:    &gitalypb.Repository{StorageName: "foo", RelativePath: "bar.git"},
 			commits: []string{"e4003da16c1c2c3fc4567700121b17bf8e591c6c", "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"},
-			err:     helper.ErrInvalidArgumentf("GetStorageByName: no such storage: \"foo\""),
+			err: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefectMessage(
+				`GetStorageByName: no such storage: "foo"`,
+				"repo scoped: invalid Repository",
+			)),
 		},
 		{
 			desc:    "Commits cannot contain an empty commit",

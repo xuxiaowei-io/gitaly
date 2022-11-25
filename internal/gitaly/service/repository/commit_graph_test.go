@@ -14,7 +14,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -121,7 +120,7 @@ func TestWriteCommitGraph_validationChecks(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, _, client := setupRepositoryService(t, ctx, testserver.WithDisablePraefect())
+	cfg, repo, _, client := setupRepositoryService(t, ctx)
 
 	for _, tc := range []struct {
 		desc        string
@@ -137,19 +136,28 @@ func TestWriteCommitGraph_validationChecks(t *testing.T) {
 			expectedErr: status.Error(codes.InvalidArgument, "unsupported split strategy: 42"),
 		},
 		{
-			desc:        "no repository",
-			req:         &gitalypb.WriteCommitGraphRequest{},
-			expectedErr: status.Error(codes.InvalidArgument, "empty Repository"),
+			desc: "no repository",
+			req:  &gitalypb.WriteCommitGraphRequest{},
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 		{
-			desc:        "invalid storage",
-			req:         &gitalypb.WriteCommitGraphRequest{Repository: &gitalypb.Repository{RelativePath: "stub", StorageName: "invalid"}},
-			expectedErr: status.Error(codes.InvalidArgument, `getting commit-graph config: GetStorageByName: no such storage: "invalid"`),
+			desc: "invalid storage",
+			req:  &gitalypb.WriteCommitGraphRequest{Repository: &gitalypb.Repository{RelativePath: "stub", StorageName: "invalid"}},
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+				`getting commit-graph config: GetStorageByName: no such storage: "invalid"`,
+				"repo scoped: invalid Repository",
+			)),
 		},
 		{
-			desc:        "not existing repository",
-			req:         &gitalypb.WriteCommitGraphRequest{Repository: &gitalypb.Repository{StorageName: repo.StorageName, RelativePath: "invalid"}},
-			expectedErr: status.Error(codes.NotFound, fmt.Sprintf(`getting commit-graph config: GetRepoPath: not a git repository: "%s/invalid"`, cfg.Storages[0].Path)),
+			desc: "not existing repository",
+			req:  &gitalypb.WriteCommitGraphRequest{Repository: &gitalypb.Repository{StorageName: repo.StorageName, RelativePath: "invalid"}},
+			expectedErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefectMessage(
+				fmt.Sprintf(`getting commit-graph config: GetRepoPath: not a git repository: "%s/invalid"`, cfg.Storages[0].Path),
+				"routing repository maintenance: getting repository metadata: repository not found",
+			)),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

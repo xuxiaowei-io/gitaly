@@ -4,7 +4,6 @@ package repository
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -14,7 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -25,22 +23,38 @@ func TestRenameRepositorySuccess(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	// Praefect does not move repositories on the disk so this test case is not run with Praefect.
-	cfg, repo, _, client := setupRepositoryService(t, ctx, testserver.WithDisablePraefect())
+	cfg, originalRepo, originalPath, client := setupRepositoryService(t, ctx)
 
 	const targetPath = "a-new-location"
 	_, err := client.RenameRepository(ctx, &gitalypb.RenameRepositoryRequest{
-		Repository:   repo,
+		Repository:   originalRepo,
 		RelativePath: targetPath,
 	})
 	require.NoError(t, err)
 
+	// A repository should not exist with the previous relative path
+	exists, err := client.RepositoryExists(ctx, &gitalypb.RepositoryExistsRequest{
+		Repository: originalRepo,
+	})
+	require.NoError(t, err)
+	testhelper.ProtoEqual(t, &gitalypb.RepositoryExistsResponse{Exists: false}, exists)
+
+	// A repository should exist with the new relative path
+	renamedRepo := &gitalypb.Repository{StorageName: originalRepo.StorageName, RelativePath: targetPath}
+	exists, err = client.RepositoryExists(ctx, &gitalypb.RepositoryExistsRequest{
+		Repository: renamedRepo,
+	})
+	require.NoError(t, err)
+	testhelper.ProtoEqual(t, &gitalypb.RepositoryExistsResponse{Exists: true}, exists)
+
 	newDirectory := filepath.Join(cfg.Storages[0].Path, targetPath)
+	if testhelper.IsPraefectEnabled() {
+		// Praefect does not move repositories on the disk.
+		newDirectory = originalPath
+	}
+
 	require.DirExists(t, newDirectory)
-	defer func() { require.NoError(t, os.RemoveAll(newDirectory)) }()
-
 	require.True(t, storage.IsGitDirectory(newDirectory), "moved Git repository has been corrupted")
-
 	// ensure the git directory that got renamed contains a sha in the seed repo
 	gittest.RequireObjectExists(t, cfg, newDirectory, git.ObjectID("913c66a37b4a45b9769037c55c2d238bd0942d2e"))
 }
