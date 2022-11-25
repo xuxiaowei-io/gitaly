@@ -167,26 +167,31 @@ func ObjectsInfoForRepository(ctx context.Context, repo git.RepositoryExecutor) 
 	return info, nil
 }
 
-// PackfileSizeAndCount reports the total size of packfiles as well as how many exist in a
-// repository.
-func PackfileSizeAndCount(repo *localrepo.Repo) (uint64, uint64, error) {
+// PackfilesInfo contains information about packfiles.
+type PackfilesInfo struct {
+	// Count is the number of loose objects, including stale ones.
+	Count uint64 `json:"count"`
+	// Size is the total size of all loose objects in bytes, including stale ones.
+	Size uint64 `json:"size"`
+}
+
+// PackfilesInfoForRepository derives various information about packfiles for the given repository.
+func PackfilesInfoForRepository(repo *localrepo.Repo) (PackfilesInfo, error) {
 	repoPath, err := repo.Path()
 	if err != nil {
-		return 0, 0, fmt.Errorf("getting repository path: %w", err)
+		return PackfilesInfo{}, fmt.Errorf("getting repository path: %w", err)
 	}
 
 	entries, err := os.ReadDir(filepath.Join(repoPath, "objects", "pack"))
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return 0, 0, nil
+			return PackfilesInfo{}, nil
 		}
 
-		return 0, 0, err
+		return PackfilesInfo{}, err
 	}
 
-	var totalSize uint64
-	var count uint64
-
+	var info PackfilesInfo
 	for _, entry := range entries {
 		if !strings.HasSuffix(entry.Name(), ".pack") {
 			continue
@@ -198,14 +203,14 @@ func PackfileSizeAndCount(repo *localrepo.Repo) (uint64, uint64, error) {
 				continue
 			}
 
-			return 0, 0, fmt.Errorf("getting packfile info: %w", err)
+			return PackfilesInfo{}, fmt.Errorf("getting packfile info: %w", err)
 		}
 
-		count++
+		info.Count++
 		if entryInfo.Size() > 0 {
-			totalSize += uint64(entryInfo.Size())
+			info.Size += uint64(entryInfo.Size())
 		}
 	}
 
-	return totalSize, count, nil
+	return info, nil
 }

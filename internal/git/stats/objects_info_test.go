@@ -294,7 +294,7 @@ func TestObjectsInfoForRepository(t *testing.T) {
 	}
 }
 
-func TestPackfileSizeAndCount(t *testing.T) {
+func TestPackfileInfoForRepository(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
@@ -307,16 +307,15 @@ func TestPackfileSizeAndCount(t *testing.T) {
 		return localrepo.NewTestRepo(t, cfg, repoProto), repoPath
 	}
 
-	requirePackfileSizeAndCount := func(t *testing.T, repo *localrepo.Repo, expectedSize, expectedCount uint64) {
-		size, count, err := PackfileSizeAndCount(repo)
+	requirePackfilesInfo := func(t *testing.T, repo *localrepo.Repo, expectedInfo PackfilesInfo) {
+		info, err := PackfilesInfoForRepository(repo)
 		require.NoError(t, err)
-		require.Equal(t, expectedSize, size)
-		require.Equal(t, expectedCount, count)
+		require.Equal(t, expectedInfo, info)
 	}
 
 	t.Run("empty repository", func(t *testing.T) {
 		repo, _ := createRepo(t)
-		requirePackfileSizeAndCount(t, repo, 0, 0)
+		requirePackfilesInfo(t, repo, PackfilesInfo{})
 	})
 
 	t.Run("single packfile", func(t *testing.T) {
@@ -326,7 +325,10 @@ func TestPackfileSizeAndCount(t *testing.T) {
 		require.NoError(t, os.MkdirAll(packfileDir, 0o755))
 		require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "pack-foo.pack"), []byte("foobar"), 0o644))
 
-		requirePackfileSizeAndCount(t, repo, 6, 1)
+		requirePackfilesInfo(t, repo, PackfilesInfo{
+			Count: 1,
+			Size:  6,
+		})
 	})
 
 	t.Run("multiple packfiles", func(t *testing.T) {
@@ -337,7 +339,10 @@ func TestPackfileSizeAndCount(t *testing.T) {
 		require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "pack-foo.pack"), []byte("foobar"), 0o644))
 		require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "pack-bar.pack"), []byte("123"), 0o644))
 
-		requirePackfileSizeAndCount(t, repo, 9, 2)
+		requirePackfilesInfo(t, repo, PackfilesInfo{
+			Count: 2,
+			Size:  9,
+		})
 	})
 
 	t.Run("multiple packfiles with other data structures", func(t *testing.T) {
@@ -357,6 +362,9 @@ func TestPackfileSizeAndCount(t *testing.T) {
 			require.NoError(t, os.WriteFile(filepath.Join(packfileDir, file), []byte("1"), 0o644))
 		}
 
-		requirePackfileSizeAndCount(t, repo, 2, 2)
+		requirePackfilesInfo(t, repo, PackfilesInfo{
+			Count: 2,
+			Size:  2,
+		})
 	})
 }

@@ -85,10 +85,12 @@ func NewHeuristicalOptimizationStrategy(ctx context.Context, repo *localrepo.Rep
 	}
 	strategy.hasBloomFilters = !missingBloomFilters
 
-	strategy.packfileSize, strategy.packfileCount, err = stats.PackfileSizeAndCount(repo)
+	packfilesInfo, err := stats.PackfilesInfoForRepository(repo)
 	if err != nil {
 		return strategy, fmt.Errorf("checking largest packfile size: %w", err)
 	}
+	strategy.packfileCount = packfilesInfo.Count
+	strategy.packfileSize = packfilesInfo.Size
 
 	strategy.looseObjectCount, err = countLooseObjects(repo, time.Now())
 	if err != nil {
