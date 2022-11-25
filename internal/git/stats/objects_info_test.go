@@ -359,8 +359,10 @@ func TestCountLooseObjects(t *testing.T) {
 		require.NoError(t, os.WriteFile(filepath.Join(differentShard, "123456"), []byte("foobar"), 0o644))
 
 		requireLooseObjectsInfo(t, repo, time.Now(), LooseObjectsInfo{
-			Count: 1,
-			Size:  6,
+			Count:      1,
+			Size:       6,
+			StaleCount: 1,
+			StaleSize:  6,
 		})
 	})
 
@@ -374,8 +376,10 @@ func TestCountLooseObjects(t *testing.T) {
 		}
 
 		requireLooseObjectsInfo(t, repo, time.Now(), LooseObjectsInfo{
-			Count: 4,
-			Size:  6,
+			Count:      4,
+			Size:       6,
+			StaleCount: 4,
+			StaleSize:  6,
 		})
 	})
 
@@ -400,15 +404,20 @@ func TestCountLooseObjects(t *testing.T) {
 		}
 
 		// Objects are recent, so with the cutoff-date they shouldn't be counted.
-		requireLooseObjectsInfo(t, repo, time.Now(), LooseObjectsInfo{})
+		requireLooseObjectsInfo(t, repo, time.Now(), LooseObjectsInfo{
+			Count: 2,
+			Size:  2,
+		})
 
 		for i, objectPath := range objectPaths {
 			// Modify the object's mtime should cause it to be counted.
 			require.NoError(t, os.Chtimes(objectPath, beforeCutoffDate, beforeCutoffDate))
 
 			requireLooseObjectsInfo(t, repo, time.Now(), LooseObjectsInfo{
-				Count: uint64(i) + 1,
-				Size:  uint64(i) + 1,
+				Count:      2,
+				Size:       2,
+				StaleCount: uint64(i) + 1,
+				StaleSize:  uint64(i) + 1,
 			})
 		}
 	})
@@ -424,7 +433,8 @@ func TestCountLooseObjects(t *testing.T) {
 		}
 
 		requireLooseObjectsInfo(t, repo, time.Now(), LooseObjectsInfo{
-			Count: 1,
+			Count:      1,
+			StaleCount: 1,
 		})
 	})
 }

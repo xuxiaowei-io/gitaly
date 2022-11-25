@@ -196,6 +196,12 @@ type LooseObjectsInfo struct {
 	Count uint64 `json:"count"`
 	// Size is the total size of all loose objects in bytes.
 	Size uint64 `json:"size"`
+	// StaleCount is the number of stale loose objects when taking into account the specified cutoff
+	// date.
+	StaleCount uint64 `json:"stale_count"`
+	// StaleSize is the total size of stale loose objects when taking into account the specified
+	// cutoff date.
+	StaleSize uint64 `json:"stale_size"`
 }
 
 // LooseObjectsInfoForRepository derives information about loose objects in the repository. If a
@@ -232,8 +238,11 @@ func LooseObjectsInfoForRepository(repo *localrepo.Repo, cutoffDate time.Time) (
 				return LooseObjectsInfo{}, fmt.Errorf("reading object info: %w", err)
 			}
 
-			if entryInfo.ModTime().After(cutoffDate) {
-				continue
+			// Note: we don't `continue` here as we count stale objects into the total
+			// number of objects.
+			if entryInfo.ModTime().Before(cutoffDate) {
+				info.StaleCount++
+				info.StaleSize += uint64(entryInfo.Size())
 			}
 
 			info.Count++
