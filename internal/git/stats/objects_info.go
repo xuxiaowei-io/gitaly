@@ -17,6 +17,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 )
 
+// StaleObjectsGracePeriod is time delta that is used to indicate cutoff wherein an object would be
+// considered old. Currently this is set to being 2 weeks (2 * 7days * 24hours).
+const StaleObjectsGracePeriod = -14 * 24 * time.Hour
+
 // HasBitmap returns whether or not the repository contains an object bitmap.
 func HasBitmap(repoPath string) (bool, error) {
 	bitmaps, err := filepath.Glob(filepath.Join(repoPath, "objects", "pack", "*.bitmap"))
@@ -61,7 +65,7 @@ func LooseObjects(ctx context.Context, repo *localrepo.Repo) (uint64, error) {
 		return 0, err
 	}
 
-	return objectsInfo.LooseObjects, nil
+	return objectsInfo.LooseObjects.Count, nil
 }
 
 // LogObjectsInfo read statistics of the git repo objects
@@ -79,20 +83,17 @@ func LogObjectsInfo(ctx context.Context, repo *localrepo.Repo) {
 
 // ObjectsInfo contains information on the object database.
 type ObjectsInfo struct {
-	// LooseObjects is the count of loose objects.
-	LooseObjects uint64 `json:"loose_objects"`
-	// LooseObjectsSize is the accumulated on-disk size of all loose objects in KiB.
-	LooseObjectsSize uint64 `json:"loose_objects_size"`
+	// LooseObjects contains information about loose objects.
+	LooseObjects LooseObjectsInfo `json:"loose_objects"`
+	// Packfiles contains information about packfiles.
+	Packfiles PackfilesInfo `json:"packfiles"`
+
 	// PrunableObjects is the number of objects that exist both as loose and as packed objects.
 	// The loose objects may be pruned in that case.
 	PruneableObjects uint64 `json:"prunable_objects"`
 
 	// PackedObjects is the count of packed objects.
 	PackedObjects uint64 `json:"packed_objects"`
-	// Packfiles is the number of packfiles.
-	Packfiles uint64 `json:"packfiles"`
-	// PackfilesSize is the accumulated on-disk size of all packfiles in KiB.
-	PackfilesSize uint64 `json:"packfiles_size"`
 	// PackfileBitmapExists indicates whether the repository has a bitmap for one of its
 	// packfiles.
 	PackfileBitmapExists bool `json:"packfile_bitmap_exists"`
@@ -100,11 +101,6 @@ type ObjectsInfo struct {
 	// CommitGraph contains information about the repository's commit-graphs.
 	CommitGraph CommitGraphInfo `json:"commit_graph"`
 
-	// Garbage is the count of files in the object database that are neither a valid loose
-	// object nor a valid packfile.
-	Garbage uint64 `json:"garbage"`
-	// GarbageSize is the accumulated on-disk size of garbage files.
-	GarbageSize uint64 `json:"garbage_size"`
 	// Alternates is the list of absolute paths of alternate object databases this repository is
 	// connected to.
 	Alternates []string `json:"alternates"`
@@ -145,22 +141,10 @@ func ObjectsInfoForRepository(ctx context.Context, repo *localrepo.Repo) (Object
 
 		var err error
 		switch parts[0] {
-		case "count":
-			info.LooseObjects, err = strconv.ParseUint(parts[1], 10, 64)
-		case "size":
-			info.LooseObjectsSize, err = strconv.ParseUint(parts[1], 10, 64)
 		case "in-pack":
 			info.PackedObjects, err = strconv.ParseUint(parts[1], 10, 64)
-		case "packs":
-			info.Packfiles, err = strconv.ParseUint(parts[1], 10, 64)
-		case "size-pack":
-			info.PackfilesSize, err = strconv.ParseUint(parts[1], 10, 64)
 		case "prune-packable":
 			info.PruneableObjects, err = strconv.ParseUint(parts[1], 10, 64)
-		case "garbage":
-			info.Garbage, err = strconv.ParseUint(parts[1], 10, 64)
-		case "size-garbage":
-			info.GarbageSize, err = strconv.ParseUint(parts[1], 10, 64)
 		case "alternate":
 			info.Alternates = append(info.Alternates, strings.Trim(parts[1], "\" \t\n"))
 		}
@@ -180,6 +164,16 @@ func ObjectsInfoForRepository(ctx context.Context, repo *localrepo.Repo) (Object
 
 	if info.PackfileBitmapExists, err = HasBitmap(repoPath); err != nil {
 		return ObjectsInfo{}, fmt.Errorf("checking for bitmap: %w", err)
+	}
+
+	info.LooseObjects, err = LooseObjectsInfoForRepository(repo, time.Now().Add(StaleObjectsGracePeriod))
+	if err != nil {
+		return ObjectsInfo{}, fmt.Errorf("counting loose objects: %w", err)
+	}
+
+	info.Packfiles, err = PackfilesInfoForRepository(repo)
+	if err != nil {
+		return ObjectsInfo{}, fmt.Errorf("counting packfiles: %w", err)
 	}
 
 	info.CommitGraph, err = CommitGraphInfoForRepository(repoPath)

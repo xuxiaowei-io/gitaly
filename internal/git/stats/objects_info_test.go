@@ -73,7 +73,7 @@ func TestRepositoryProfile(t *testing.T) {
 
 	looseObjects, err = LooseObjects(ctx, repo)
 	require.NoError(t, err)
-	require.Equal(t, uint64(2), looseObjects)
+	require.EqualValues(t, 2, looseObjects)
 }
 
 func TestLogObjectInfo(t *testing.T) {
@@ -150,8 +150,10 @@ func TestLogObjectInfo(t *testing.T) {
 
 		objectsInfo := requireObjectsInfo(hook.AllEntries())
 		require.Equal(t, ObjectsInfo{
-			LooseObjects:     2,
-			LooseObjectsSize: 8,
+			LooseObjects: LooseObjectsInfo{
+				Count: 2,
+				Size:  hashDependentSize(142, 158),
+			},
 		}, objectsInfo)
 	})
 }
@@ -184,8 +186,10 @@ func TestObjectsInfoForRepository(t *testing.T) {
 				gittest.WriteBlob(t, cfg, repoPath, []byte("x"))
 			},
 			expectedObjectsInfo: ObjectsInfo{
-				LooseObjects:     1,
-				LooseObjectsSize: 4,
+				LooseObjects: LooseObjectsInfo{
+					Count: 1,
+					Size:  16,
+				},
 			},
 		},
 		{
@@ -197,9 +201,11 @@ func TestObjectsInfoForRepository(t *testing.T) {
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
 			},
 			expectedObjectsInfo: ObjectsInfo{
-				PackedObjects:        1,
-				Packfiles:            1,
-				PackfilesSize:        1,
+				PackedObjects: 1,
+				Packfiles: PackfilesInfo{
+					Count: 1,
+					Size:  hashDependentSize(42, 54),
+				},
 				PackfileBitmapExists: true,
 			},
 		},
@@ -213,11 +219,15 @@ func TestObjectsInfoForRepository(t *testing.T) {
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-a")
 			},
 			expectedObjectsInfo: ObjectsInfo{
-				LooseObjects:         1,
-				LooseObjectsSize:     4,
-				PackedObjects:        1,
-				Packfiles:            1,
-				PackfilesSize:        1,
+				PackedObjects: 1,
+				LooseObjects: LooseObjectsInfo{
+					Count: 1,
+					Size:  16,
+				},
+				Packfiles: PackfilesInfo{
+					Count: 1,
+					Size:  hashDependentSize(42, 54),
+				},
 				PackfileBitmapExists: true,
 				PruneableObjects:     1,
 			},
@@ -229,10 +239,10 @@ func TestObjectsInfoForRepository(t *testing.T) {
 				require.NoError(t, os.WriteFile(garbagePath, []byte("x"), 0o600))
 			},
 			expectedObjectsInfo: ObjectsInfo{
-				Garbage: 1,
-				// git-count-objects(1) somehow does not count this file's size,
-				// which I've verified manually.
-				GarbageSize: 0,
+				Packfiles: PackfilesInfo{
+					GarbageCount: 1,
+					GarbageSize:  1,
+				},
 			},
 		},
 		{
@@ -254,8 +264,10 @@ func TestObjectsInfoForRepository(t *testing.T) {
 				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable")
 			},
 			expectedObjectsInfo: ObjectsInfo{
-				LooseObjects:     2,
-				LooseObjectsSize: 8,
+				LooseObjects: LooseObjectsInfo{
+					Count: 2,
+					Size:  hashDependentSize(142, 158),
+				},
 				CommitGraph: CommitGraphInfo{
 					Exists: true,
 				},
@@ -268,8 +280,10 @@ func TestObjectsInfoForRepository(t *testing.T) {
 				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--changed-paths")
 			},
 			expectedObjectsInfo: ObjectsInfo{
-				LooseObjects:     2,
-				LooseObjectsSize: 8,
+				LooseObjects: LooseObjectsInfo{
+					Count: 2,
+					Size:  hashDependentSize(142, 158),
+				},
 				CommitGraph: CommitGraphInfo{
 					Exists:          true,
 					HasBloomFilters: true,
@@ -299,13 +313,18 @@ func TestObjectsInfoForRepository(t *testing.T) {
 				}
 			},
 			expectedObjectsInfo: ObjectsInfo{
-				LooseObjects:         2,
-				LooseObjectsSize:     8,
-				PackedObjects:        1,
-				Packfiles:            1,
-				PackfilesSize:        1,
+				LooseObjects: LooseObjectsInfo{
+					Count: 2,
+					Size:  32,
+				},
+				PackedObjects: 1,
+				Packfiles: PackfilesInfo{
+					Count:        1,
+					Size:         hashDependentSize(42, 54),
+					GarbageCount: 3,
+					GarbageSize:  3,
+				},
 				PackfileBitmapExists: true,
-				Garbage:              3,
 				Alternates: []string{
 					alternatePath,
 				},
@@ -619,4 +638,11 @@ func TestPackfileInfoForRepository(t *testing.T) {
 			GarbageSize:  1,
 		})
 	})
+}
+
+func hashDependentSize(sha1, sha256 uint64) uint64 {
+	if gittest.DefaultObjectHash.Format == "sha1" {
+		return sha1
+	}
+	return sha256
 }
