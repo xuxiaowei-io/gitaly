@@ -266,7 +266,7 @@ func countLooseObjects(repo *localrepo.Repo, cutoffDate time.Time) (uint64, erro
 		}
 
 		for _, entry := range entries {
-			if strings.LastIndexAny(entry.Name(), "0123456789abcdef") != len(entry.Name())-1 {
+			if !isValidLooseObjectName(entry.Name()) {
 				continue
 			}
 
@@ -288,6 +288,15 @@ func countLooseObjects(repo *localrepo.Repo, cutoffDate time.Time) (uint64, erro
 	}
 
 	return looseObjects, nil
+}
+
+func isValidLooseObjectName(s string) bool {
+	for _, c := range []byte(s) {
+		if strings.IndexByte("0123456789abcdef", c) < 0 {
+			return false
+		}
+	}
+	return true
 }
 
 // ShouldWriteCommitGraph determines whether we need to write the commit-graph and how it should be

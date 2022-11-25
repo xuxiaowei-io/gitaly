@@ -763,6 +763,21 @@ func TestCountLooseObjects(t *testing.T) {
 			require.EqualValues(t, i+1, looseObjects)
 		}
 	})
+
+	t.Run("shard with garbage", func(t *testing.T) {
+		repo, repoPath := createRepo(t)
+
+		shard := filepath.Join(repoPath, "objects", "17")
+		require.NoError(t, os.MkdirAll(shard, 0o755))
+
+		for _, objectName := range []string{"garbage", "012345"} {
+			require.NoError(t, os.WriteFile(filepath.Join(shard, objectName), nil, 0o644))
+		}
+
+		looseObjects, err := countLooseObjects(repo, time.Now())
+		require.NoError(t, err)
+		require.EqualValues(t, 1, looseObjects)
+	})
 }
 
 func BenchmarkCountLooseObjects(b *testing.B) {
