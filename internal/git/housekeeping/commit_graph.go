@@ -32,24 +32,34 @@ func WriteCommitGraphConfigForRepository(ctx context.Context, repo *localrepo.Re
 		return WriteCommitGraphConfig{}, err
 	}
 
-	missingBloomFilters := true
-	if _, err := os.Stat(filepath.Join(repoPath, stats.CommitGraphRelPath)); err != nil {
+	var replaceChain bool
+
+	// Check whether the commit-graph-chain exists. If it doesn't, the repository either has no
+	// commit-graph at all, or it has a monolithic commit-graph. In both cases we'd need to
+	// rewrite the complete commit-graph, so it's not worth checking whether the monolithic
+	// commit-graph exists.
+	if _, err := os.Stat(filepath.Join(repoPath, stats.CommitGraphChainRelPath)); err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
-			return WriteCommitGraphConfig{}, helper.ErrInternal(fmt.Errorf("statting commit-graph: %w", err))
+			return WriteCommitGraphConfig{}, helper.ErrInternal(fmt.Errorf("statting commit-graph-chain: %w", err))
 		}
 
-		if missingBloomFilters, err = stats.IsMissingBloomFilters(repoPath); err != nil {
+		// The commit-graph-chain doesn't exist, so we want to rewrite any potentially
+		// existing monolithic commit-graph.
+		replaceChain = true
+	} else {
+		// If the commit-graph-chain exists, we want to rewrite it in case we see that it
+		// ain't got bloom filters enabled. This is because Git will refuse to write any
+		// bloom filters as long as any of the commit-graph slices is missing this info.
+		missingBloomFilters, err := stats.IsMissingBloomFilters(repoPath)
+		if err != nil {
 			return WriteCommitGraphConfig{}, helper.ErrInternal(fmt.Errorf("checking for missing bloom-filters: %w", err))
 		}
+
+		replaceChain = missingBloomFilters
 	}
 
 	return WriteCommitGraphConfig{
-		// If the commit-graph doesn't use bloom filters then an incremental update to the
-		// commit-graphs will _not_ write bloom filters for the newly added slice. Because
-		// this is an important optimization for us that speeds up computation of changed
-		// paths we thus rewrite the complete commit-graph chain if bloom filters do not yet
-		// exist.
-		ReplaceChain: missingBloomFilters,
+		ReplaceChain: replaceChain,
 	}, nil
 }
 
