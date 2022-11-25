@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
@@ -376,6 +377,7 @@ func TestLimitConcurrency_queueWaitTime(t *testing.T) {
 	limitErr, ok := details[0].(*gitalypb.LimitError)
 	require.True(t, ok)
 
+	testhelper.RequireGrpcCode(t, err, codes.ResourceExhausted)
 	assert.Equal(t, ErrMaxQueueTime.Error(), limitErr.ErrorMessage)
 	assert.Equal(t, durationpb.New(0), limitErr.RetryAfter)
 
