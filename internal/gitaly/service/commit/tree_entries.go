@@ -16,7 +16,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/lstree"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -338,16 +337,12 @@ func paginateTreeEntries(ctx context.Context, entries []*gitalypb.TreeEntry, p *
 
 	paginated := entries[index : index+limit]
 
-	if featureflag.TreeEntriesNewPageTokenFormat.IsEnabled(ctx) {
-		newPageToken, err := encodePageToken(paginated[len(paginated)-1])
-		if err != nil {
-			return nil, "", fmt.Errorf("encode page token: %w", err)
-		}
-
-		return paginated, newPageToken, nil
+	newPageToken, err := encodePageToken(paginated[len(paginated)-1])
+	if err != nil {
+		return nil, "", fmt.Errorf("encode page token: %w", err)
 	}
 
-	return paginated, paginated[len(paginated)-1].GetOid(), nil
+	return paginated, newPageToken, nil
 }
 
 func buildEntryToken(entry *gitalypb.TreeEntry, tokenType pageTokenType) string {
