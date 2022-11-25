@@ -54,7 +54,12 @@ func testDeleteRefSuccessful(t *testing.T, ctx context.Context) {
 		{
 			desc: "delete certain refs",
 			request: &gitalypb.DeleteRefsRequest{
-				Refs: [][]byte{[]byte("refs/delete/a"), []byte("refs/also-delete/b")},
+				Refs: [][]byte{
+					[]byte("refs/delete/a"),
+					[]byte("refs/also-delete/b"),
+					[]byte("refs/delete/symbolic-a"),
+					[]byte("refs/delete/symbolic-c"),
+				},
 			},
 		},
 	}
@@ -69,6 +74,8 @@ func testDeleteRefSuccessful(t *testing.T, ctx context.Context) {
 			gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/also-delete/b", "1b12f15a11fc6e62177bef08f47bc7b5ce50b141")
 			gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/keep/c", "498214de67004b1da3d820901307bed2a68a8ef6")
 			gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/also-keep/d", "b83d6e391c22777fca1ed3012fce84f633d7fed0")
+			gittest.Exec(t, cfg, "-C", repoPath, "symbolic-ref", "refs/delete/symbolic-a", "refs/delete/a")
+			gittest.Exec(t, cfg, "-C", repoPath, "symbolic-ref", "refs/delete/symbolic-c", "refs/keep/c")
 
 			testCase.request.Repository = repo
 			_, err := client.DeleteRefs(ctx, testCase.request)
@@ -85,6 +92,8 @@ func testDeleteRefSuccessful(t *testing.T, ctx context.Context) {
 
 			require.NotContains(t, refNames, "refs/delete/a")
 			require.NotContains(t, refNames, "refs/also-delete/b")
+			require.NotContains(t, refNames, "refs/delete/symbolic-a")
+			require.NotContains(t, refNames, "refs/delete/symbolic-c")
 			require.Contains(t, refNames, "refs/keep/c")
 			require.Contains(t, refNames, "refs/also-keep/d")
 			require.Contains(t, refNames, "refs/heads/master")
