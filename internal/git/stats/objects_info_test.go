@@ -428,13 +428,16 @@ func TestCountLooseObjects(t *testing.T) {
 		shard := filepath.Join(repoPath, "objects", "17")
 		require.NoError(t, os.MkdirAll(shard, 0o755))
 
-		for _, objectName := range []string{"garbage", "012345"} {
-			require.NoError(t, os.WriteFile(filepath.Join(shard, objectName), nil, 0o644))
-		}
+		require.NoError(t, os.WriteFile(filepath.Join(shard, "012345"), []byte("valid"), 0o644))
+		require.NoError(t, os.WriteFile(filepath.Join(shard, "garbage"), []byte("garbage"), 0o644))
 
 		requireLooseObjectsInfo(t, repo, time.Now(), LooseObjectsInfo{
-			Count:      1,
-			StaleCount: 1,
+			Count:        1,
+			Size:         5,
+			StaleCount:   1,
+			StaleSize:    5,
+			GarbageCount: 1,
+			GarbageSize:  7,
 		})
 	})
 }

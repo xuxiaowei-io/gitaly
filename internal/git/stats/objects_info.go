@@ -202,6 +202,10 @@ type LooseObjectsInfo struct {
 	// StaleSize is the total size of stale loose objects when taking into account the specified
 	// cutoff date.
 	StaleSize uint64 `json:"stale_size"`
+	// GarbageCount is the number of garbage files in the loose-objects shards.
+	GarbageCount uint64 `json:"garbage_count"`
+	// GarbageSize is the total size of garbage in the loose-objects shards.
+	GarbageSize uint64 `json:"garbage_size"`
 }
 
 // LooseObjectsInfoForRepository derives information about loose objects in the repository. If a
@@ -225,10 +229,6 @@ func LooseObjectsInfoForRepository(repo *localrepo.Repo, cutoffDate time.Time) (
 		}
 
 		for _, entry := range entries {
-			if !isValidLooseObjectName(entry.Name()) {
-				continue
-			}
-
 			entryInfo, err := entry.Info()
 			if err != nil {
 				if errors.Is(err, fs.ErrNotExist) {
@@ -236,6 +236,12 @@ func LooseObjectsInfoForRepository(repo *localrepo.Repo, cutoffDate time.Time) (
 				}
 
 				return LooseObjectsInfo{}, fmt.Errorf("reading object info: %w", err)
+			}
+
+			if !isValidLooseObjectName(entry.Name()) {
+				info.GarbageCount++
+				info.GarbageSize += uint64(entryInfo.Size())
+				continue
 			}
 
 			// Note: we don't `continue` here as we count stale objects into the total
