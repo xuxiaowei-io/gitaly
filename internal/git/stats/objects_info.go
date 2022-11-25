@@ -81,15 +81,20 @@ type ObjectsInfo struct {
 	LooseObjects uint64 `json:"loose_objects"`
 	// LooseObjectsSize is the accumulated on-disk size of all loose objects in KiB.
 	LooseObjectsSize uint64 `json:"loose_objects_size"`
+	// PrunableObjects is the number of objects that exist both as loose and as packed objects.
+	// The loose objects may be pruned in that case.
+	PruneableObjects uint64 `json:"prunable_objects"`
+
 	// PackedObjects is the count of packed objects.
 	PackedObjects uint64 `json:"packed_objects"`
 	// Packfiles is the number of packfiles.
 	Packfiles uint64 `json:"packfiles"`
 	// PackfilesSize is the accumulated on-disk size of all packfiles in KiB.
 	PackfilesSize uint64 `json:"packfiles_size"`
-	// PrunableObjects is the number of objects that exist both as loose and as packed objects.
-	// The loose objects may be pruned in that case.
-	PruneableObjects uint64 `json:"prunable_objects"`
+	// PackfileBitmapExists indicates whether the repository has a bitmap for one of its
+	// packfiles.
+	PackfileBitmapExists bool `json:"packfile_bitmap_exists"`
+
 	// Garbage is the count of files in the object database that are neither a valid loose
 	// object nor a valid packfile.
 	Garbage uint64 `json:"garbage"`
@@ -102,6 +107,11 @@ type ObjectsInfo struct {
 
 // ObjectsInfoForRepository computes the ObjectsInfo for a repository.
 func ObjectsInfoForRepository(ctx context.Context, repo *localrepo.Repo) (ObjectsInfo, error) {
+	repoPath, err := repo.Path()
+	if err != nil {
+		return ObjectsInfo{}, err
+	}
+
 	countObjects, err := repo.Exec(ctx, git.SubCmd{
 		Name:  "count-objects",
 		Flags: []git.Option{git.Flag{Name: "--verbose"}},
@@ -161,6 +171,10 @@ func ObjectsInfoForRepository(ctx context.Context, repo *localrepo.Repo) (Object
 
 	if err := countObjects.Wait(); err != nil {
 		return ObjectsInfo{}, fmt.Errorf("counting objects: %w", err)
+	}
+
+	if info.PackfileBitmapExists, err = HasBitmap(repoPath); err != nil {
+		return ObjectsInfo{}, fmt.Errorf("checking for bitmap: %w", err)
 	}
 
 	return info, nil

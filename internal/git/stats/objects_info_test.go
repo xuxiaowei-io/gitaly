@@ -196,9 +196,10 @@ func TestObjectsInfoForRepository(t *testing.T) {
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
 			},
 			expectedObjectsInfo: ObjectsInfo{
-				PackedObjects: 1,
-				Packfiles:     1,
-				PackfilesSize: 1,
+				PackedObjects:        1,
+				Packfiles:            1,
+				PackfilesSize:        1,
+				PackfileBitmapExists: true,
 			},
 		},
 		{
@@ -211,12 +212,13 @@ func TestObjectsInfoForRepository(t *testing.T) {
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-a")
 			},
 			expectedObjectsInfo: ObjectsInfo{
-				LooseObjects:     1,
-				LooseObjectsSize: 4,
-				PackedObjects:    1,
-				Packfiles:        1,
-				PackfilesSize:    1,
-				PruneableObjects: 1,
+				LooseObjects:         1,
+				LooseObjectsSize:     4,
+				PackedObjects:        1,
+				Packfiles:            1,
+				PackfilesSize:        1,
+				PackfileBitmapExists: true,
+				PruneableObjects:     1,
 			},
 		},
 		{
@@ -267,12 +269,13 @@ func TestObjectsInfoForRepository(t *testing.T) {
 				}
 			},
 			expectedObjectsInfo: ObjectsInfo{
-				LooseObjects:     2,
-				LooseObjectsSize: 8,
-				PackedObjects:    1,
-				Packfiles:        1,
-				PackfilesSize:    1,
-				Garbage:          3,
+				LooseObjects:         2,
+				LooseObjectsSize:     8,
+				PackedObjects:        1,
+				Packfiles:            1,
+				PackfilesSize:        1,
+				PackfileBitmapExists: true,
+				Garbage:              3,
 				Alternates: []string{
 					alternatePath,
 				},
