@@ -1,7 +1,6 @@
 $:.unshift(File.expand_path('../proto', __dir__))
 require 'gitaly'
 
-require 'linguist/blob_helper'
 require 'securerandom'
 require 'gitlab-labkit'
 require 'rugged'
