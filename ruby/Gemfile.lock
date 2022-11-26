@@ -53,7 +53,7 @@ GEM
       escape_utils (~> 1.2.0)
       mini_mime (~> 1.0)
       rugged (~> 1.0)
-    gitlab-labkit (0.28.0)
+    gitlab-labkit (0.29.0)
       actionpack (>= 5.0.0, < 8.0.0)
       activesupport (>= 5.0.0, < 8.0.0)
       grpc (>= 1.37)
@@ -206,7 +206,7 @@ DEPENDENCIES
   factory_bot
   gitaly (~> 15.5.0)
   github-linguist (~> 7.20.0)
-  gitlab-labkit (~> 0.28)
+  gitlab-labkit (~> 0.29)
   gitlab-license_finder
   gitlab-markup (~> 1.7.1)
   google-protobuf (~> 3.21.9)
@@ -223,4 +223,4 @@ DEPENDENCIES
   timecop
 
 BUNDLED WITH
-   2.3.24
+   2.3.26
