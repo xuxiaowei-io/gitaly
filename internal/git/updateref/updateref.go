@@ -90,6 +90,7 @@ type UpdaterOpt func(*updaterConfig)
 
 type updaterConfig struct {
 	disableTransactions bool
+	noDeref             bool
 }
 
 // WithDisabledTransactions disables hooks such that no reference-transactions
@@ -97,6 +98,14 @@ type updaterConfig struct {
 func WithDisabledTransactions() UpdaterOpt {
 	return func(cfg *updaterConfig) {
 		cfg.disableTransactions = true
+	}
+}
+
+// WithNoDeref disables de-reference while updating ref. If this option is turned on,
+// <ref> itself is overwritten, rather than the result of following the symbolic ref.
+func WithNoDeref() UpdaterOpt {
+	return func(cfg *updaterConfig) {
+		cfg.noDeref = true
 	}
 }
 
@@ -117,11 +126,16 @@ func New(ctx context.Context, repo git.RepositoryExecutor, opts ...UpdaterOpt) (
 		txOption = git.WithDisabledHooks()
 	}
 
+	cmdFlags := []git.Option{git.Flag{Name: "-z"}, git.Flag{Name: "--stdin"}}
+	if cfg.noDeref {
+		cmdFlags = append(cmdFlags, git.Flag{Name: "--no-deref"})
+	}
+
 	var stderr bytes.Buffer
 	cmd, err := repo.Exec(ctx,
 		git.SubCmd{
 			Name:  "update-ref",
-			Flags: []git.Option{git.Flag{Name: "-z"}, git.Flag{Name: "--stdin"}},
+			Flags: cmdFlags,
 		},
 		txOption,
 		git.WithSetupStdin(),
