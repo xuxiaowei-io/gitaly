@@ -11,6 +11,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/env"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"golang.org/x/sys/unix"
 )
@@ -150,7 +151,7 @@ func (m *GitLabHookManager) customHooksEnv(ctx context.Context, payload git.Hook
 
 	customEnvs := append(command.AllowedEnvironment(envs), pushOptionsEnv(pushOptions)...)
 
-	objectDirectory := getEnvVar("GIT_OBJECT_DIRECTORY", envs)
+	objectDirectory := env.ExtractValue(envs, "GIT_OBJECT_DIRECTORY")
 	if objectDirectory == "" && payload.Repo.GetGitObjectDirectory() != "" {
 		objectDirectory = filepath.Join(repoPath, payload.Repo.GetGitObjectDirectory())
 	}
@@ -158,7 +159,7 @@ func (m *GitLabHookManager) customHooksEnv(ctx context.Context, payload git.Hook
 		customEnvs = append(customEnvs, "GIT_OBJECT_DIRECTORY="+objectDirectory)
 	}
 
-	alternateObjectDirectories := getEnvVar("GIT_ALTERNATE_OBJECT_DIRECTORIES", envs)
+	alternateObjectDirectories := env.ExtractValue(envs, "GIT_ALTERNATE_OBJECT_DIRECTORIES")
 	if alternateObjectDirectories == "" && len(payload.Repo.GetGitAlternateObjectDirectories()) != 0 {
 		var absolutePaths []string
 		for _, alternateObjectDirectory := range payload.Repo.GetGitAlternateObjectDirectories() {
@@ -176,7 +177,7 @@ func (m *GitLabHookManager) customHooksEnv(ctx context.Context, payload git.Hook
 		// By default, we should take PATH from the given set of environment variables, if
 		// it's contained in there. Otherwise, we need to take the current process's PATH
 		// environment, which would also be the default injected by the command package.
-		currentPath := getEnvVar("PATH", envs)
+		currentPath := env.ExtractValue(envs, "PATH")
 		if currentPath == "" {
 			currentPath = os.Getenv("PATH")
 		}
