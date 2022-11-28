@@ -170,10 +170,6 @@ var commandDescriptions = map[string]commandDescription{
 			ConfigPair{Key: "init.templateDir", Value: ""},
 		},
 	},
-	"linguist": {
-		// linguist is not a native Git command, so we cannot use --end-of-options.
-		flags: scNoEndOfOptions,
-	},
 	"log": {
 		flags: scNoRefUpdates,
 	},
