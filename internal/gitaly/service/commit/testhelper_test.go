@@ -28,33 +28,40 @@ func TestMain(m *testing.M) {
 }
 
 // setupCommitService makes a basic configuration and starts the service with the client.
-func setupCommitService(tb testing.TB, ctx context.Context) (config.Cfg, gitalypb.CommitServiceClient) {
+func setupCommitService(
+	tb testing.TB,
+	ctx context.Context,
+	opts ...testserver.GitalyServerOpt,
+) (config.Cfg, gitalypb.CommitServiceClient) {
 	cfg, _, _, client := setupCommitServiceCreateRepo(tb, ctx, func(tb testing.TB, ctx context.Context, cfg config.Cfg) (*gitalypb.Repository, string) {
 		return nil, ""
-	})
+	}, opts...)
 	return cfg, client
 }
 
 // setupCommitServiceWithRepo makes a basic configuration, creates a test repository and starts the service with the client.
 func setupCommitServiceWithRepo(
-	tb testing.TB, ctx context.Context,
+	tb testing.TB,
+	ctx context.Context,
+	opts ...testserver.GitalyServerOpt,
 ) (config.Cfg, *gitalypb.Repository, string, gitalypb.CommitServiceClient) {
 	return setupCommitServiceCreateRepo(tb, ctx, func(tb testing.TB, ctx context.Context, cfg config.Cfg) (*gitalypb.Repository, string) {
 		repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
 			Seed: gittest.SeedGitLabTest,
 		})
 		return repo, repoPath
-	})
+	}, opts...)
 }
 
 func setupCommitServiceCreateRepo(
 	tb testing.TB,
 	ctx context.Context,
 	createRepo func(testing.TB, context.Context, config.Cfg) (*gitalypb.Repository, string),
+	opts ...testserver.GitalyServerOpt,
 ) (config.Cfg, *gitalypb.Repository, string, gitalypb.CommitServiceClient) {
 	cfg := testcfg.Build(tb)
 
-	cfg.SocketPath = startTestServices(tb, cfg)
+	cfg.SocketPath = startTestServices(tb, cfg, opts...)
 	client := newCommitServiceClient(tb, cfg.SocketPath)
 
 	repo, repoPath := createRepo(tb, ctx, cfg)
@@ -62,7 +69,7 @@ func setupCommitServiceCreateRepo(
 	return cfg, repo, repoPath, client
 }
 
-func startTestServices(tb testing.TB, cfg config.Cfg) string {
+func startTestServices(tb testing.TB, cfg config.Cfg, opts ...testserver.GitalyServerOpt) string {
 	tb.Helper()
 	return testserver.RunGitalyServer(tb, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterCommitServiceServer(srv, NewServer(
@@ -82,7 +89,7 @@ func startTestServices(tb testing.TB, cfg config.Cfg) string {
 			deps.GetGit2goExecutor(),
 			deps.GetHousekeepingManager(),
 		))
-	})
+	}, opts...)
 }
 
 func newCommitServiceClient(tb testing.TB, serviceSocketPath string) gitalypb.CommitServiceClient {

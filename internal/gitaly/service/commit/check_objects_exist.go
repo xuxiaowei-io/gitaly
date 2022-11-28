@@ -9,6 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/protobuf/proto"
 )
@@ -49,7 +50,8 @@ func (s *server) CheckObjectsExist(
 		// so we only fetch the next request at the end of this loop.
 		for _, revision := range request.GetRevisions() {
 			if err := git.ValidateRevision(revision); err != nil {
-				return helper.ErrInvalidArgumentf("invalid revision %q: %w", revision, err)
+				return structerr.NewInvalidArgument("invalid revision: %w", err).
+					WithMetadata("revision", string(revision))
 			}
 		}
 
