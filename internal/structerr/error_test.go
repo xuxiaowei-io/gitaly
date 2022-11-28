@@ -173,3 +173,125 @@ func TestNew(t *testing.T) {
 		})
 	}
 }
+
+func TestError_Metadata(t *testing.T) {
+	t.Parallel()
+
+	t.Run("without metadata", func(t *testing.T) {
+		err := New("message")
+		require.Equal(t, Error{
+			err:  errors.New("message"),
+			code: codes.Internal,
+		}, err)
+		require.Equal(t, map[string]any{}, err.Metadata())
+	})
+
+	t.Run("single metadata key", func(t *testing.T) {
+		err := New("message").WithMetadata("key", "value")
+		require.Equal(t, Error{
+			err:  errors.New("message"),
+			code: codes.Internal,
+			metadata: []metadataItem{
+				{key: "key", value: "value"},
+			},
+		}, err)
+		require.Equal(t, map[string]any{
+			"key": "value",
+		}, err.Metadata())
+	})
+
+	t.Run("multiple metadata keys", func(t *testing.T) {
+		err := New("message").WithMetadata("first", 1).WithMetadata("second", 2)
+		require.Equal(t, Error{
+			err:  errors.New("message"),
+			code: codes.Internal,
+			metadata: []metadataItem{
+				{key: "first", value: 1},
+				{key: "second", value: 2},
+			},
+		}, err)
+		require.Equal(t, map[string]any{
+			"first":  1,
+			"second": 2,
+		}, err.Metadata())
+	})
+
+	t.Run("overriding metadata keys", func(t *testing.T) {
+		err := New("message").WithMetadata("first", "initial").WithMetadata("first", "overridden")
+		require.Equal(t, Error{
+			err:  errors.New("message"),
+			code: codes.Internal,
+			metadata: []metadataItem{
+				{key: "first", value: "overridden"},
+			},
+		}, err)
+		require.Equal(t, map[string]any{
+			"first": "overridden",
+		}, err.Metadata())
+	})
+
+	t.Run("chained metadata", func(t *testing.T) {
+		nestedErr := New("nested").WithMetadata("nested", "value")
+		toplevelErr := New("top-level: %w", nestedErr).WithMetadata("toplevel", "value")
+		require.Equal(t, Error{
+			err:  fmt.Errorf("top-level: %w", nestedErr),
+			code: codes.Internal,
+			metadata: []metadataItem{
+				{key: "toplevel", value: "value"},
+			},
+		}, toplevelErr)
+		require.Equal(t, map[string]any{
+			"nested":   "value",
+			"toplevel": "value",
+		}, toplevelErr.Metadata())
+	})
+
+	t.Run("chained metadata overriding each other", func(t *testing.T) {
+		nestedErr := New("nested").WithMetadata("key", "nested")
+		toplevelErr := New("top-level: %w", nestedErr).WithMetadata("key", "top-level")
+		require.Equal(t, Error{
+			err:  fmt.Errorf("top-level: %w", nestedErr),
+			code: codes.Internal,
+			metadata: []metadataItem{
+				{key: "key", value: "top-level"},
+			},
+		}, toplevelErr)
+		require.Equal(t, map[string]any{
+			"key": "top-level",
+		}, toplevelErr.Metadata())
+	})
+
+	t.Run("chained metadata with internal overrides", func(t *testing.T) {
+		nestedErr := New("nested").WithMetadata("nested", "initial").WithMetadata("nested", "overridden")
+		toplevelErr := New("top-level: %w", nestedErr).WithMetadata("toplevel", "initial").WithMetadata("toplevel", "overridden")
+		require.Equal(t, Error{
+			err:  fmt.Errorf("top-level: %w", nestedErr),
+			code: codes.Internal,
+			metadata: []metadataItem{
+				{key: "toplevel", value: "overridden"},
+			},
+		}, toplevelErr)
+		require.Equal(t, map[string]any{
+			"toplevel": "overridden",
+			"nested":   "overridden",
+		}, toplevelErr.Metadata())
+	})
+
+	t.Run("chained metadata with mixed error types", func(t *testing.T) {
+		bottomErr := New("bottom").WithMetadata("bottom", "value")
+		midlevelErr := fmt.Errorf("mid: %w", bottomErr)
+		toplevelErr := New("top: %w", midlevelErr).WithMetadata("toplevel", "value")
+
+		require.Equal(t, Error{
+			err:  fmt.Errorf("top: %w", midlevelErr),
+			code: codes.Internal,
+			metadata: []metadataItem{
+				{key: "toplevel", value: "value"},
+			},
+		}, toplevelErr)
+		require.Equal(t, map[string]any{
+			"bottom":   "value",
+			"toplevel": "value",
+		}, toplevelErr.Metadata())
+	})
+}

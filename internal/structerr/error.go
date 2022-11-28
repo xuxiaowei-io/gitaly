@@ -8,10 +8,19 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+type metadataItem struct {
+	key   string
+	value any
+}
+
 // Error is a structured error that contains additional details.
 type Error struct {
 	err  error
 	code codes.Code
+	// metadata is the array of metadata items added to this error. Note that we explicitly
+	// don't use a map here so that we don't have any allocation overhead here in the general
+	// case where there is no metadata.
+	metadata []metadataItem
 }
 
 func newError(code codes.Code, format string, a ...any) Error {
@@ -166,4 +175,55 @@ func (e Error) Code() codes.Code {
 // GRPCStatus returns the gRPC status of this error.
 func (e Error) GRPCStatus() *status.Status {
 	return status.New(e.Code(), e.Error())
+}
+
+// errorChain returns the complete chain of `structerr.Error`s wrapped by this error, including the
+// error itself.
+func (e Error) errorChain() []Error {
+	var result []Error
+	for err := error(e); err != nil; err = errors.Unwrap(err) {
+		if structErr, ok := err.(Error); ok {
+			result = append(result, structErr)
+		}
+	}
+	return result
+}
+
+// Metadata returns the Error's metadata. The metadata will contain the combination of all added
+// metadata of this error as well as any wrapped Errors.
+//
+// When the same metada key exists multiple times in the error chain, then the value that is
+// highest up the callchain will be returned. This is done because in general, the higher up the
+// callchain one is the more context is available.
+func (e Error) Metadata() map[string]any {
+	result := map[string]any{}
+
+	for _, err := range e.errorChain() {
+		for _, m := range err.metadata {
+			if _, exists := result[m.key]; !exists {
+				result[m.key] = m.value
+			}
+		}
+	}
+
+	return result
+}
+
+// WithMetadata adds an additional metadata item to the Error. The metadata has the intent to
+// provide more context around errors to the consumer of the Error. Calling this function multiple
+// times with the same key will override any previous values.
+func (e Error) WithMetadata(key string, value any) Error {
+	for i, metadataItem := range e.metadata {
+		// In case the key already exists we override it.
+		if metadataItem.key == key {
+			e.metadata[i].value = value
+			return e
+		}
+	}
+
+	// Otherwise we append a new metadata item.
+	e.metadata = append(e.metadata, metadataItem{
+		key: key, value: value,
+	})
+	return e
 }
