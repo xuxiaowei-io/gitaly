@@ -4,6 +4,7 @@ package limithandler
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"sync"
 	"testing"
@@ -12,10 +13,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
@@ -296,9 +297,9 @@ func TestConcurrencyLimiter_queueLimit(t *testing.T) {
 	err := <-errChan
 	assert.Error(t, err)
 
-	s, ok := status.FromError(err)
-	require.True(t, ok)
-	details := s.Details()
+	var structErr structerr.Error
+	require.True(t, errors.As(err, &structErr))
+	details := structErr.Details()
 	require.Len(t, details, 1)
 
 	limitErr, ok := details[0].(*gitalypb.LimitError)
@@ -369,9 +370,9 @@ func TestLimitConcurrency_queueWaitTime(t *testing.T) {
 	<-dequeuedCh
 	err := <-errChan
 
-	s, ok := status.FromError(err)
-	require.True(t, ok)
-	details := s.Details()
+	var structErr structerr.Error
+	require.True(t, errors.As(err, &structErr))
+	details := structErr.Details()
 	require.Len(t, details, 1)
 
 	limitErr, ok := details[0].(*gitalypb.LimitError)
