@@ -29,7 +29,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
@@ -173,7 +172,7 @@ func testServerPostUploadPackGitConfigOptions(t *testing.T, ctx context.Context,
 			},
 		}
 		response, err := makeRequest(t, ctx, cfg.SocketPath, cfg.Auth.Token, rpcRequest, bytes.NewReader(requestBody.Bytes()))
-		testhelper.RequireGrpcCode(t, err, codes.Unavailable)
+		testhelper.RequireGrpcError(t, helper.ErrUnavailablef("running upload-pack: waiting for upload-pack: exit status 128"), err)
 
 		// The failure message proves that upload-pack failed because of
 		// GitConfigOptions, and that proves that passing GitConfigOptions works.
