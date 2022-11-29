@@ -3,9 +3,9 @@
 package repository
 
 import (
-	"bytes"
 	"context"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,153 +13,203 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
-func getNewestPackfileModtime(t *testing.T, repoPath string) time.Time {
-	t.Helper()
-
-	packFiles, err := filepath.Glob(filepath.Join(repoPath, "objects", "pack", "*.pack"))
-	require.NoError(t, err)
-	if len(packFiles) == 0 {
-		t.Error("no packfiles exist")
-	}
-
-	var newestPackfileModtime time.Time
-
-	for _, packFile := range packFiles {
-		info, err := os.Stat(packFile)
-		require.NoError(t, err)
-		if info.ModTime().After(newestPackfileModtime) {
-			newestPackfileModtime = info.ModTime()
-		}
-	}
-
-	return newestPackfileModtime
-}
-
 func TestOptimizeRepository(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repoProto, repoPath, client := setupRepositoryService(t, ctx)
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
-	gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-b")
-	gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--size-multiple=4", "--split=replace", "--reachable", "--changed-paths")
+	t.Run("gitconfig credentials get pruned", func(t *testing.T) {
+		t.Parallel()
 
-	hasBitmap, err := stats.HasBitmap(repoPath)
-	require.NoError(t, err)
-	require.True(t, hasBitmap, "expect a bitmap since we just repacked with -b")
+		repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+		gitconfigPath := filepath.Join(repoPath, "config")
 
-	commitGraphInfo, err := stats.CommitGraphInfoForRepository(repoPath)
-	require.NoError(t, err)
-	require.Equal(t, stats.CommitGraphInfo{
-		Exists: true, HasBloomFilters: true, CommitGraphChainLength: 1,
-	}, commitGraphInfo)
+		readConfig := func() []string {
+			return strings.Split(text.ChompBytes(gittest.Exec(t, cfg, "config", "--file", gitconfigPath, "--list")), "\n")
+		}
 
-	// get timestamp of latest packfile
-	newestsPackfileTime := getNewestPackfileModtime(t, repoPath)
+		configWithSecrets := readConfig()
+		configWithStrippedSecrets := readConfig()
 
-	gittest.Exec(t, cfg, "-C", repoPath, "config", "http.http://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c1.git.extraHeader", "Authorization: Basic secret-password")
-	gittest.Exec(t, cfg, "-C", repoPath, "config", "http.http://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c2.git.extraHeader", "Authorization: Basic secret-password")
-	gittest.Exec(t, cfg, "-C", repoPath, "config", "randomStart-http.http://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c3.git.extraHeader", "Authorization: Basic secret-password")
-	gittest.Exec(t, cfg, "-C", repoPath, "config", "http.http://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c4.git.extraHeader-randomEnd", "Authorization: Basic secret-password")
-	gittest.Exec(t, cfg, "-C", repoPath, "config", "hTTp.http://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c5.git.ExtrAheaDeR", "Authorization: Basic secret-password")
-	gittest.Exec(t, cfg, "-C", repoPath, "config", "http.http://extraHeader/extraheader/EXTRAHEADER.git.extraHeader", "Authorization: Basic secret-password")
-	gittest.Exec(t, cfg, "-C", repoPath, "config", "https.https://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c5.git.extraHeader", "Authorization: Basic secret-password")
-	confFileData := testhelper.MustReadFile(t, filepath.Join(repoPath, "config"))
-	require.True(t, bytes.Contains(confFileData, []byte("http://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c1.git")))
-	require.True(t, bytes.Contains(confFileData, []byte("http://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c2.git")))
-	require.True(t, bytes.Contains(confFileData, []byte("http://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c3")))
-	require.True(t, bytes.Contains(confFileData, []byte("http://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c4.git")))
-	require.True(t, bytes.Contains(confFileData, []byte("http://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c5.git")))
-	require.True(t, bytes.Contains(confFileData, []byte("http://extraHeader/extraheader/EXTRAHEADER.git")))
-	require.True(t, bytes.Contains(confFileData, []byte("https://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c5.git")))
+		// Set up a gitconfig with all sorts of credentials.
+		for key, shouldBeStripped := range map[string]bool{
+			"http.http://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c1.git.extraHeader": true,
+			"http.http://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c2.git.extraHeader": true,
+			"hTTp.http://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c5.git.ExtrAheaDeR": true,
+			"http.http://extraheader/extraheader/extraheader.git.extraHeader":                                              true,
+			// This line should not get stripped as Git wouldn't even know how to
+			// interpret it due to the `https` prefix. Git only knows about `http`.
+			"https.https://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c5.git.extraHeader": false,
+			// This one should not get stripped as its prefix is wrong.
+			"randomStart-http.http://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c3.git.extraHeader": false,
+			// Same here, this one should not get stripped because its suffix is wrong.
+			"http.http://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c4.git.extraHeader-randomEnd": false,
+		} {
+			value := "Authorization: Basic secret-password"
+			line := fmt.Sprintf("%s=%s", strings.ToLower(key), value)
 
-	_, err = client.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{Repository: repoProto})
-	require.NoError(t, err)
+			gittest.Exec(t, cfg, "config", "--file", gitconfigPath, key, value)
 
-	confFileData = testhelper.MustReadFile(t, filepath.Join(repoPath, "config"))
-	require.False(t, bytes.Contains(confFileData, []byte("http://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c1.git")))
-	require.False(t, bytes.Contains(confFileData, []byte("http://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c2.git")))
-	require.True(t, bytes.Contains(confFileData, []byte("http://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c3")))
-	require.True(t, bytes.Contains(confFileData, []byte("http://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c4.git")))
-	require.False(t, bytes.Contains(confFileData, []byte("http://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c5.git")))
-	require.False(t, bytes.Contains(confFileData, []byte("http://extraHeader/extraheader/EXTRAHEADER.git.extraHeader")))
-	require.True(t, bytes.Contains(confFileData, []byte("https://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c5.git")))
+			configWithSecrets = append(configWithSecrets, line)
+			if !shouldBeStripped {
+				configWithStrippedSecrets = append(configWithStrippedSecrets, line)
+			}
+		}
+		require.Equal(t, configWithSecrets, readConfig())
 
-	require.Equal(t, getNewestPackfileModtime(t, repoPath), newestsPackfileTime, "there should not have been a new packfile created")
+		// Calling OptimizeRepository should cause us to strip any of the added creds from
+		// the gitconfig.
+		_, err := client.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{
+			Repository: repo,
+		})
+		require.NoError(t, err)
+		// The gitconfig should not contain any of the stripped gitconfig values anymore.
+		require.Equal(t, configWithStrippedSecrets, readConfig())
+	})
 
-	testRepoProto, testRepoPath := gittest.CreateRepository(t, ctx, cfg)
+	t.Run("up-to-date packfile does not get repacked", func(t *testing.T) {
+		t.Parallel()
 
-	blobs := 10
-	blobIDs := gittest.WriteBlobs(t, cfg, testRepoPath, blobs)
+		repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
-	for _, blobID := range blobIDs {
-		gittest.WriteCommit(t, cfg, testRepoPath,
-			gittest.WithTreeEntries(gittest.TreeEntry{
-				OID: git.ObjectID(blobID), Mode: "100644", Path: "blob",
-			}),
-			gittest.WithBranch(blobID),
-		)
-	}
+		// Write a commit and force-repack the whole repository. This is to ensure that the
+		// repository is in a state where it shouldn't need to be repacked.
+		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
+		_, err := client.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{
+			Repository: repo,
+			Strategy:   gitalypb.OptimizeRepositoryRequest_STRATEGY_EAGER,
+		})
+		require.NoError(t, err)
+		// We should have a single packfile now.
+		packfiles, err := filepath.Glob(filepath.Join(repoPath, "objects", "pack", "pack-*.pack"))
+		require.NoError(t, err)
+		require.Len(t, packfiles, 1)
 
-	// Write a blob whose OID is known to have a "17" prefix, which is required such that
-	// OptimizeRepository would try to repack at all.
-	blobOIDWith17Prefix := gittest.WriteBlob(t, cfg, testRepoPath, []byte("32"))
-	require.True(t, strings.HasPrefix(blobOIDWith17Prefix.String(), "17"))
+		// Now we do a second, lazy optimization of the repository. This time around we
+		// should see that the repository was in a well-defined state already, so we should
+		// not perform any optimization.
+		_, err = client.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{
+			Repository: repo,
+		})
+		require.NoError(t, err)
 
-	bitmaps, err := filepath.Glob(filepath.Join(testRepoPath, "objects", "pack", "*.bitmap"))
-	require.NoError(t, err)
-	require.Empty(t, bitmaps)
+		// The packfile should not have changed.
+		updatedPackfiles, err := filepath.Glob(filepath.Join(repoPath, "objects", "pack", "pack-*.pack"))
+		require.NoError(t, err)
+		require.Equal(t, packfiles, updatedPackfiles)
+	})
 
-	mrRefs := filepath.Join(testRepoPath, "refs/merge-requests")
-	emptyRef := filepath.Join(mrRefs, "1")
-	require.NoError(t, os.MkdirAll(emptyRef, 0o755))
-	require.DirExists(t, emptyRef, "sanity check for empty ref dir existence")
+	t.Run("missing bitmap causes full repack", func(t *testing.T) {
+		t.Parallel()
 
-	// optimize repository on a repository without a bitmap should call repack full
-	_, err = client.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{Repository: testRepoProto})
-	require.NoError(t, err)
+		repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
 
-	bitmaps, err = filepath.Glob(filepath.Join(testRepoPath, "objects", "pack", "*.bitmap"))
-	require.NoError(t, err)
-	require.NotEmpty(t, bitmaps)
+		bitmaps, err := filepath.Glob(filepath.Join(repoPath, "objects", "pack", "*.bitmap"))
+		require.NoError(t, err)
+		require.Empty(t, bitmaps)
 
-	commitGraphInfo, err = stats.CommitGraphInfoForRepository(repoPath)
-	require.NoError(t, err)
-	require.Equal(t, stats.CommitGraphInfo{
-		Exists: true, HasBloomFilters: true, CommitGraphChainLength: 1,
-	}, commitGraphInfo)
+		// Even though the repository doesn't have a lot of objects and we're not performing
+		// an eager optimization, we should still see that the optimization decides to write
+		// out a new bitmap via a full repack. This is so that all repositories will have a
+		// bitmap available.
+		_, err = client.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{
+			Repository: repo,
+		})
+		require.NoError(t, err)
 
-	// Empty directories should exist because they're too recent.
-	require.DirExists(t, emptyRef)
-	require.DirExists(t, mrRefs)
-	require.FileExists(t,
-		filepath.Join(testRepoPath, "refs/heads", blobIDs[0]),
-		"unpacked refs should never be removed",
-	)
+		bitmaps, err = filepath.Glob(filepath.Join(repoPath, "objects", "pack", "*.bitmap"))
+		require.NoError(t, err)
+		require.NotEmpty(t, bitmaps)
+	})
 
-	// Change the modification time to me older than a day and retry the call. Empty
-	// directories must now be deleted.
-	oneDayAgo := time.Now().Add(-24 * time.Hour)
-	require.NoError(t, os.Chtimes(emptyRef, oneDayAgo, oneDayAgo))
-	require.NoError(t, os.Chtimes(mrRefs, oneDayAgo, oneDayAgo))
+	t.Run("optimizing repository without commit-graph bloom filters", func(t *testing.T) {
+		t.Parallel()
 
-	_, err = client.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{Repository: testRepoProto})
-	require.NoError(t, err)
+		repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
 
-	require.NoFileExists(t, emptyRef)
-	require.NoFileExists(t, mrRefs)
+		// Prepare the repository so that it has a commit-graph, but that commit-graph is
+		// missing bloom filters.
+		gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--split", "--reachable")
+		commitGraphInfo, err := stats.CommitGraphInfoForRepository(repoPath)
+		require.NoError(t, err)
+		require.Equal(t, stats.CommitGraphInfo{
+			Exists:                 true,
+			HasBloomFilters:        false,
+			CommitGraphChainLength: 1,
+		}, commitGraphInfo)
+		// TODO: Due to a bug we also need to repack the repository, or otherwise we would
+		// not rewrite the commit-graph.
+		gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Adb")
+
+		// As a result, OptimizeRepository should rewrite the commit-graph.
+		_, err = client.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{
+			Repository: repo,
+		})
+		require.NoError(t, err)
+
+		// Which means that we now should see that bloom filters exist.
+		commitGraphInfo, err = stats.CommitGraphInfoForRepository(repoPath)
+		require.NoError(t, err)
+		require.Equal(t, stats.CommitGraphInfo{
+			Exists:                 true,
+			HasBloomFilters:        true,
+			CommitGraphChainLength: 1,
+		}, commitGraphInfo)
+	})
+
+	t.Run("empty ref directories get pruned after grace period", func(t *testing.T) {
+		t.Parallel()
+
+		repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+		// Git will leave behind empty refs directories at times. In order to not slow down
+		// enumerating refs we want to make sure that they get cleaned up properly.
+		emptyRefsDir := filepath.Join(repoPath, "refs", "merge-requests", "1")
+		require.NoError(t, os.MkdirAll(emptyRefsDir, 0o755))
+
+		// But we don't expect the first call to OptimizeRepository to do anything. This is
+		// because we have a grace period so that we don't delete empty ref directories that
+		// have just been created by a concurrently running Git process.
+		_, err := client.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{
+			Repository: repo,
+		})
+		require.NoError(t, err)
+		require.DirExists(t, emptyRefsDir)
+
+		// Change the modification time of the complete repository to be older than a day.
+		require.NoError(t, filepath.WalkDir(repoPath, func(path string, _ fs.DirEntry, err error) error {
+			require.NoError(t, err)
+			oneDayAgo := time.Now().Add(-24 * time.Hour)
+			require.NoError(t, os.Chtimes(path, oneDayAgo, oneDayAgo))
+			return nil
+		}))
+
+		// Now the second call to OptimizeRepository should indeed clean up the empty refs
+		// directories.
+		_, err = client.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{
+			Repository: repo,
+		})
+		require.NoError(t, err)
+		// We shouldn't have removed the top-level "refs" directory.
+		require.DirExists(t, filepath.Join(repoPath, "refs"))
+		// But the other two directories should be gone.
+		require.NoDirExists(t, filepath.Join(repoPath, "refs", "merge-requests"))
+		require.NoDirExists(t, filepath.Join(repoPath, "refs", "merge-requests", "1"))
+	})
 }
 
 type mockHousekeepingManager struct {
