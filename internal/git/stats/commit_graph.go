@@ -9,15 +9,6 @@ import (
 	"path/filepath"
 )
 
-const (
-	// CommitGraphRelPath is the path to the file that stores info about commit graph.
-	CommitGraphRelPath = "objects/info/commit-graph"
-	// CommitGraphsRelPath is the path to the folder that stores commit graph chain files.
-	CommitGraphsRelPath = "objects/info/commit-graphs"
-	// CommitGraphChainRelPath is the path to the file that stores info about commit graph chain files.
-	CommitGraphChainRelPath = CommitGraphsRelPath + "/commit-graph-chain"
-)
-
 // CommitGraphInfo returns information about the commit-graph of a repository.
 type CommitGraphInfo struct {
 	// Exists tells whether a commit-graph exists.
@@ -39,16 +30,18 @@ func CommitGraphInfoForRepository(repoPath string) (CommitGraphInfo, error) {
 
 	var info CommitGraphInfo
 
+	commitGraphChainPath := filepath.Join(repoPath, "objects", "info", "commit-graphs", "commit-graph-chain")
+
 	var commitGraphPaths []string
 	// We first try to read the commit-graphs-chain in the repository.
-	if chainData, err := os.ReadFile(filepath.Join(repoPath, CommitGraphChainRelPath)); err != nil {
+	if chainData, err := os.ReadFile(commitGraphChainPath); err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
 			return CommitGraphInfo{}, fmt.Errorf("reading commit-graphs chain: %w", err)
 		}
 
 		// If we couldn't find it, we check whether the monolithic commit-graph file exists
 		// and use that instead.
-		commitGraphPath := filepath.Join(repoPath, CommitGraphRelPath)
+		commitGraphPath := filepath.Join(repoPath, "objects", "info", "commit-graph")
 		if _, err := os.Stat(commitGraphPath); err != nil {
 			if errors.Is(err, os.ErrNotExist) {
 				return CommitGraphInfo{Exists: false}, nil
@@ -68,7 +61,7 @@ func CommitGraphInfoForRepository(repoPath string) (CommitGraphInfo, error) {
 		commitGraphPaths = make([]string, 0, len(ids))
 		for _, id := range ids {
 			commitGraphPaths = append(commitGraphPaths,
-				filepath.Join(repoPath, CommitGraphsRelPath, fmt.Sprintf("graph-%s.graph", id)),
+				filepath.Join(repoPath, "objects", "info", "commit-graphs", fmt.Sprintf("graph-%s.graph", id)),
 			)
 		}
 

@@ -15,6 +15,7 @@ import (
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
 	gclient "gitlab.com/gitlab-org/gitaly/v15/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	internalclient "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/rubyserver"
@@ -192,4 +193,12 @@ func setupRepositoryServiceWithoutRepo(tb testing.TB, opts ...testserver.GitalyS
 	cfg.SocketPath = serverSocketPath
 
 	return cfg, client
+}
+
+func requireCommitGraphInfo(tb testing.TB, repoPath string, expectedInfo stats.CommitGraphInfo) {
+	tb.Helper()
+
+	commitGraphInfo, err := stats.CommitGraphInfoForRepository(repoPath)
+	require.NoError(tb, err)
+	require.Equal(tb, expectedInfo, commitGraphInfo)
 }

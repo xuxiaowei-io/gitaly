@@ -42,10 +42,9 @@ func TestRepackIncrementalSuccess(t *testing.T) {
 	// Entire `path`-folder gets updated so this is fine :D
 	assertModTimeAfter(t, testTime, packPath)
 
-	assert.FileExistsf(t,
-		filepath.Join(repoPath, stats.CommitGraphChainRelPath),
-		"pre-computed commit-graph should exist after running incremental repack",
-	)
+	requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{
+		Exists: true, HasBloomFilters: true, CommitGraphChainLength: 1,
+	})
 }
 
 func TestRepackIncrementalCollectLogStatistics(t *testing.T) {
@@ -206,10 +205,9 @@ func TestRepackFullSuccess(t *testing.T) {
 				}
 			}
 
-			assert.FileExistsf(t,
-				filepath.Join(repoPath, stats.CommitGraphChainRelPath),
-				"pre-computed commit-graph should exist after running full repack",
-			)
+			requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{
+				Exists: true, HasBloomFilters: true, CommitGraphChainLength: 1,
+			})
 		})
 	}
 }

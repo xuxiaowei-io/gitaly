@@ -3,12 +3,8 @@
 package repository
 
 import (
-	"bytes"
 	"fmt"
-	"os"
-	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
@@ -25,15 +21,13 @@ func TestWriteCommitGraph_withExistingCommitGraphCreatedWithDefaults(t *testing.
 	ctx := testhelper.Context(t)
 	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
-	commitGraphPath := filepath.Join(repoPath, stats.CommitGraphRelPath)
-	require.NoError(t, os.RemoveAll(commitGraphPath))
-
-	chainPath := filepath.Join(repoPath, stats.CommitGraphChainRelPath)
-	require.NoFileExists(t, chainPath, "sanity check no commit graph chain exists")
+	requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{})
 
 	// write commit graph using an old approach
 	gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable")
-	require.FileExists(t, commitGraphPath)
+	requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{
+		Exists: true,
+	})
 
 	treeEntry := gittest.TreeEntry{Mode: "100644", Path: "file.txt", Content: "something"}
 	gittest.WriteCommit(
@@ -52,9 +46,9 @@ func TestWriteCommitGraph_withExistingCommitGraphCreatedWithDefaults(t *testing.
 	require.NoError(t, err)
 	require.NotNil(t, res)
 
-	require.FileExists(t, chainPath, "commit graph chain should be created")
-	requireBloomFilterUsed(t, repoPath)
-	require.NoFileExists(t, commitGraphPath, "commit-graph file should be replaced with commit graph chain")
+	requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{
+		Exists: true, HasBloomFilters: true, CommitGraphChainLength: 1,
+	})
 }
 
 func TestWriteCommitGraph_withExistingCommitGraphCreatedWithSplit(t *testing.T) {
@@ -63,15 +57,15 @@ func TestWriteCommitGraph_withExistingCommitGraphCreatedWithSplit(t *testing.T) 
 	ctx := testhelper.Context(t)
 	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
-	commitGraphPath := filepath.Join(repoPath, stats.CommitGraphRelPath)
-	require.NoError(t, os.RemoveAll(commitGraphPath))
-
-	chainPath := filepath.Join(repoPath, stats.CommitGraphChainRelPath)
-	require.NoFileExists(t, chainPath, "sanity check no commit graph chain exists")
+	// Assert that no commit-graph exists.
+	requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{})
 
 	// write commit graph chain
 	gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split")
-	require.FileExists(t, chainPath)
+	requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{
+		Exists:                 true,
+		CommitGraphChainLength: 1,
+	})
 
 	treeEntry := gittest.TreeEntry{Mode: "100644", Path: "file.txt", Content: "something"}
 	gittest.WriteCommit(
@@ -90,9 +84,11 @@ func TestWriteCommitGraph_withExistingCommitGraphCreatedWithSplit(t *testing.T) 
 	require.NoError(t, err)
 	require.NotNil(t, res)
 
-	require.FileExists(t, chainPath, "commit graph chain should be created")
-	requireBloomFilterUsed(t, repoPath)
-	require.NoFileExists(t, commitGraphPath, "commit-graph file should not be created")
+	requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{
+		Exists:                 true,
+		HasBloomFilters:        true,
+		CommitGraphChainLength: 1,
+	})
 }
 
 func TestWriteCommitGraph(t *testing.T) {
@@ -101,9 +97,7 @@ func TestWriteCommitGraph(t *testing.T) {
 	ctx := testhelper.Context(t)
 	_, repo, repoPath, client := setupRepositoryService(t, ctx)
 
-	chainPath := filepath.Join(repoPath, stats.CommitGraphChainRelPath)
-
-	require.NoFileExists(t, chainPath)
+	requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{})
 
 	//nolint:staticcheck
 	res, err := client.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{
@@ -113,7 +107,9 @@ func TestWriteCommitGraph(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, res)
 
-	require.FileExists(t, chainPath)
+	requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{
+		Exists: true, HasBloomFilters: true, CommitGraphChainLength: 1,
+	})
 }
 
 func TestWriteCommitGraph_validationChecks(t *testing.T) {
@@ -174,8 +170,7 @@ func TestUpdateCommitGraph(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
-	chainPath := filepath.Join(repoPath, stats.CommitGraphChainRelPath)
-	require.NoFileExists(t, chainPath)
+	requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{})
 
 	//nolint:staticcheck
 	res, err := client.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{
@@ -184,14 +179,12 @@ func TestUpdateCommitGraph(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotNil(t, res)
-	require.FileExists(t, chainPath)
 
-	// Reset the mtime of commit-graph-chain file to use
-	// as basis to detect changes
-	require.NoError(t, os.Chtimes(chainPath, time.Time{}, time.Time{}))
-	info, err := os.Stat(chainPath)
-	require.NoError(t, err)
-	mt := info.ModTime()
+	requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{
+		Exists:                 true,
+		HasBloomFilters:        true,
+		CommitGraphChainLength: 1,
+	})
 
 	treeEntry := gittest.TreeEntry{Mode: "100644", Path: "file.txt", Content: "something"}
 	gittest.WriteCommit(
@@ -209,26 +202,10 @@ func TestUpdateCommitGraph(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotNil(t, res)
-	require.FileExists(t, chainPath)
 
-	assertModTimeAfter(t, mt, chainPath)
-}
-
-func requireBloomFilterUsed(tb testing.TB, repoPath string) {
-	tb.Helper()
-
-	commitGraphsPath := filepath.Join(repoPath, stats.CommitGraphChainRelPath)
-	ids := bytes.Split(testhelper.MustReadFile(tb, commitGraphsPath), []byte{'\n'})
-
-	for _, id := range ids {
-		if len(id) == 0 {
-			continue
-		}
-		graphFilePath := filepath.Join(repoPath, filepath.Dir(stats.CommitGraphChainRelPath), fmt.Sprintf("graph-%s.graph", id))
-		graphFileData := testhelper.MustReadFile(tb, graphFilePath)
-
-		require.True(tb, bytes.HasPrefix(graphFileData, []byte("CGPH")), "4-byte signature of the commit graph file")
-		require.True(tb, bytes.Contains(graphFileData, []byte("BIDX")), "Bloom Filter Index")
-		require.True(tb, bytes.Contains(graphFileData, []byte("BDAT")), "Bloom Filter Data")
-	}
+	requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{
+		Exists:                 true,
+		HasBloomFilters:        true,
+		CommitGraphChainLength: 2,
+	})
 }
