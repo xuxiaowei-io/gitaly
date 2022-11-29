@@ -4,6 +4,7 @@ package housekeeping
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"testing"
@@ -54,7 +55,7 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 				return repoProto
 			},
 			expectedStrategy: HeuristicalOptimizationStrategy{
-				looseObjectCount: 256,
+				looseObjectCount: 1,
 			},
 		},
 		{
@@ -80,8 +81,8 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 				return repoProto
 			},
 			expectedStrategy: HeuristicalOptimizationStrategy{
-				looseObjectCount:    512,
-				oldLooseObjectCount: 256,
+				looseObjectCount:    2,
+				oldLooseObjectCount: 1,
 			},
 		},
 		{
@@ -151,7 +152,8 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 				return repoProto
 			},
 			expectedStrategy: HeuristicalOptimizationStrategy{
-				looseRefsCount: 1,
+				looseObjectCount: 2,
+				looseRefsCount:   1,
 			},
 		},
 		{
@@ -170,7 +172,8 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 				return repoProto
 			},
 			expectedStrategy: HeuristicalOptimizationStrategy{
-				looseRefsCount: 1,
+				looseObjectCount: 2,
+				looseRefsCount:   1,
 			},
 		},
 		{
@@ -189,8 +192,9 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 				return repoProto
 			},
 			expectedStrategy: HeuristicalOptimizationStrategy{
-				looseRefsCount:  1,
-				hasBloomFilters: true,
+				looseObjectCount: 2,
+				looseRefsCount:   1,
+				hasBloomFilters:  true,
 			},
 		},
 	} {
@@ -222,26 +226,26 @@ func TestNewHeuristicalOptimizationStrategy_looseObjectCount(t *testing.T) {
 	for _, tc := range []struct {
 		desc                     string
 		looseObjects             []string
-		expectedLooneObjectCount int64
+		expectedLooseObjectCount uint64
 	}{
 		{
 			desc:                     "no objects",
 			looseObjects:             nil,
-			expectedLooneObjectCount: 0,
+			expectedLooseObjectCount: 0,
 		},
 		{
 			desc: "object not in 17 shard",
 			looseObjects: []string{
 				filepath.Join("ab/12345"),
 			},
-			expectedLooneObjectCount: 0,
+			expectedLooseObjectCount: 1,
 		},
 		{
 			desc: "object in 17 shard",
 			looseObjects: []string{
 				filepath.Join("17/12345"),
 			},
-			expectedLooneObjectCount: 256,
+			expectedLooseObjectCount: 1,
 		},
 		{
 			desc: "objects in different shards",
@@ -251,7 +255,7 @@ func TestNewHeuristicalOptimizationStrategy_looseObjectCount(t *testing.T) {
 				filepath.Join("12/12345"),
 				filepath.Join("17/12345"),
 			},
-			expectedLooneObjectCount: 256,
+			expectedLooseObjectCount: 4,
 		},
 		{
 			desc: "multiple objects in 17 shard",
@@ -261,7 +265,7 @@ func TestNewHeuristicalOptimizationStrategy_looseObjectCount(t *testing.T) {
 				filepath.Join("17/3"),
 				filepath.Join("17/4"),
 			},
-			expectedLooneObjectCount: 1024,
+			expectedLooseObjectCount: 4,
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -282,7 +286,7 @@ func TestNewHeuristicalOptimizationStrategy_looseObjectCount(t *testing.T) {
 			strategy, err := NewHeuristicalOptimizationStrategy(ctx, repo)
 			require.NoError(t, err)
 			require.Equal(t, HeuristicalOptimizationStrategy{
-				looseObjectCount: tc.expectedLooneObjectCount,
+				looseObjectCount: tc.expectedLooseObjectCount,
 			}, strategy)
 		})
 	}
@@ -343,52 +347,52 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 	}
 
 	for _, outerTC := range []struct {
-		largestPackfileSizeInMB  int64
-		requiredPackfiles        int64
-		requiredPackfilesForPool int64
+		packfileSizeInMB         uint64
+		requiredPackfiles        uint64
+		requiredPackfilesForPool uint64
 	}{
 		{
-			largestPackfileSizeInMB:  1,
+			packfileSizeInMB:         1,
 			requiredPackfiles:        5,
 			requiredPackfilesForPool: 2,
 		},
 		{
-			largestPackfileSizeInMB:  5,
+			packfileSizeInMB:         5,
 			requiredPackfiles:        6,
 			requiredPackfilesForPool: 2,
 		},
 		{
-			largestPackfileSizeInMB:  10,
+			packfileSizeInMB:         10,
 			requiredPackfiles:        8,
 			requiredPackfilesForPool: 2,
 		},
 		{
-			largestPackfileSizeInMB:  50,
+			packfileSizeInMB:         50,
 			requiredPackfiles:        14,
 			requiredPackfilesForPool: 2,
 		},
 		{
-			largestPackfileSizeInMB:  100,
+			packfileSizeInMB:         100,
 			requiredPackfiles:        17,
 			requiredPackfilesForPool: 2,
 		},
 		{
-			largestPackfileSizeInMB:  500,
+			packfileSizeInMB:         500,
 			requiredPackfiles:        23,
 			requiredPackfilesForPool: 2,
 		},
 		{
-			largestPackfileSizeInMB:  1001,
+			packfileSizeInMB:         1001,
 			requiredPackfiles:        26,
 			requiredPackfilesForPool: 3,
 		},
 	} {
-		t.Run(fmt.Sprintf("packfile with %dMB", outerTC.largestPackfileSizeInMB), func(t *testing.T) {
+		t.Run(fmt.Sprintf("packfile with %dMB", outerTC.packfileSizeInMB), func(t *testing.T) {
 			for _, tc := range []struct {
 				desc              string
 				isPool            bool
 				hasAlternate      bool
-				requiredPackfiles int64
+				requiredPackfiles uint64
 			}{
 				{
 					desc:              "normal repository",
@@ -409,11 +413,11 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 			} {
 				t.Run(tc.desc, func(t *testing.T) {
 					strategy := HeuristicalOptimizationStrategy{
-						largestPackfileSizeInMB: outerTC.largestPackfileSizeInMB,
-						packfileCount:           tc.requiredPackfiles - 1,
-						isObjectPool:            tc.isPool,
-						hasAlternate:            tc.hasAlternate,
-						hasBitmap:               true,
+						packfileSize:  outerTC.packfileSizeInMB * 1024 * 1024,
+						packfileCount: tc.requiredPackfiles - 1,
+						isObjectPool:  tc.isPool,
+						hasAlternate:  tc.hasAlternate,
+						hasBitmap:     true,
 					}
 
 					repackNeeded, _ := strategy.ShouldRepackObjects()
@@ -436,7 +440,7 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 
 	for _, outerTC := range []struct {
 		desc           string
-		looseObjects   int64
+		looseObjects   uint64
 		expectedRepack bool
 	}{
 		{
@@ -672,24 +676,30 @@ func TestHeuristicalOptimizationStrategy_NeedsWriteCommitGraph(t *testing.T) {
 	}
 }
 
-func TestEstimateLooseObjectCount(t *testing.T) {
+func TestCountLooseObjects(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		SkipCreationViaService: true,
-	})
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	createRepo := func(t *testing.T) (*localrepo.Repo, string) {
+		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			SkipCreationViaService: true,
+		})
+		return localrepo.NewTestRepo(t, cfg, repoProto), repoPath
+	}
 
 	t.Run("empty repository", func(t *testing.T) {
-		looseObjects, err := estimateLooseObjectCount(repo, time.Now())
+		repo, _ := createRepo(t)
+
+		looseObjects, err := countLooseObjects(repo, time.Now())
 		require.NoError(t, err)
 		require.Zero(t, looseObjects)
 	})
 
-	t.Run("object in different shard", func(t *testing.T) {
+	t.Run("object in random shard", func(t *testing.T) {
+		repo, repoPath := createRepo(t)
+
 		differentShard := filepath.Join(repoPath, "objects", "a0")
 		require.NoError(t, os.MkdirAll(differentShard, 0o755))
 
@@ -697,40 +707,37 @@ func TestEstimateLooseObjectCount(t *testing.T) {
 		require.NoError(t, err)
 		testhelper.MustClose(t, object)
 
-		looseObjects, err := estimateLooseObjectCount(repo, time.Now())
+		looseObjects, err := countLooseObjects(repo, time.Now())
 		require.NoError(t, err)
-		require.Zero(t, looseObjects)
+		require.EqualValues(t, 1, looseObjects)
 	})
 
-	t.Run("object in estimation shard", func(t *testing.T) {
-		estimationShard := filepath.Join(repoPath, "objects", "17")
-		require.NoError(t, os.MkdirAll(estimationShard, 0o755))
+	t.Run("objects in multiple shards", func(t *testing.T) {
+		repo, repoPath := createRepo(t)
 
-		object, err := os.Create(filepath.Join(estimationShard, "123456"))
-		require.NoError(t, err)
-		testhelper.MustClose(t, object)
+		for _, shard := range []string{"00", "17", "32", "ff"} {
+			shardPath := filepath.Join(repoPath, "objects", shard)
+			require.NoError(t, os.MkdirAll(shardPath, 0o755))
 
-		looseObjects, err := estimateLooseObjectCount(repo, time.Now())
-		require.NoError(t, err)
-		require.Equal(t, int64(256), looseObjects)
+			object, err := os.Create(filepath.Join(shardPath, "123456"))
+			require.NoError(t, err)
+			testhelper.MustClose(t, object)
+		}
 
-		// Create a second object in there.
-		object, err = os.Create(filepath.Join(estimationShard, "654321"))
+		looseObjects, err := countLooseObjects(repo, time.Now())
 		require.NoError(t, err)
-		testhelper.MustClose(t, object)
-
-		looseObjects, err = estimateLooseObjectCount(repo, time.Now())
-		require.NoError(t, err)
-		require.Equal(t, int64(512), looseObjects)
+		require.EqualValues(t, 4, looseObjects)
 	})
 
-	t.Run("object in estimation shard with grace period", func(t *testing.T) {
-		estimationShard := filepath.Join(repoPath, "objects", "17")
-		require.NoError(t, os.MkdirAll(estimationShard, 0o755))
+	t.Run("object in shard with grace period", func(t *testing.T) {
+		repo, repoPath := createRepo(t)
+
+		shard := filepath.Join(repoPath, "objects", "17")
+		require.NoError(t, os.MkdirAll(shard, 0o755))
 
 		objectPaths := []string{
-			filepath.Join(estimationShard, "123456"),
-			filepath.Join(estimationShard, "654321"),
+			filepath.Join(shard, "123456"),
+			filepath.Join(shard, "654321"),
 		}
 
 		cutoffDate := time.Now()
@@ -743,17 +750,130 @@ func TestEstimateLooseObjectCount(t *testing.T) {
 		}
 
 		// Objects are recent, so with the cutoff-date they shouldn't be counted.
-		looseObjects, err := estimateLooseObjectCount(repo, cutoffDate)
+		looseObjects, err := countLooseObjects(repo, cutoffDate)
 		require.NoError(t, err)
-		require.Equal(t, int64(0), looseObjects)
+		require.EqualValues(t, 0, looseObjects)
 
 		for i, objectPath := range objectPaths {
 			// Modify the object's mtime should cause it to be counted.
 			require.NoError(t, os.Chtimes(objectPath, beforeCutoffDate, beforeCutoffDate))
 
-			looseObjects, err = estimateLooseObjectCount(repo, cutoffDate)
+			looseObjects, err = countLooseObjects(repo, cutoffDate)
 			require.NoError(t, err)
-			require.Equal(t, int64((i+1)*256), looseObjects)
+			require.EqualValues(t, i+1, looseObjects)
+		}
+	})
+
+	t.Run("shard with garbage", func(t *testing.T) {
+		repo, repoPath := createRepo(t)
+
+		shard := filepath.Join(repoPath, "objects", "17")
+		require.NoError(t, os.MkdirAll(shard, 0o755))
+
+		for _, objectName := range []string{"garbage", "012345"} {
+			require.NoError(t, os.WriteFile(filepath.Join(shard, objectName), nil, 0o644))
+		}
+
+		looseObjects, err := countLooseObjects(repo, time.Now())
+		require.NoError(t, err)
+		require.EqualValues(t, 1, looseObjects)
+	})
+}
+
+func BenchmarkCountLooseObjects(b *testing.B) {
+	ctx := testhelper.Context(b)
+	cfg := testcfg.Build(b)
+
+	createRepo := func(b *testing.B) (*localrepo.Repo, string) {
+		repoProto, repoPath := gittest.CreateRepository(b, ctx, cfg, gittest.CreateRepositoryConfig{
+			SkipCreationViaService: true,
+		})
+		return localrepo.NewTestRepo(b, cfg, repoProto), repoPath
+	}
+
+	b.Run("empty repository", func(b *testing.B) {
+		repo, _ := createRepo(b)
+
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_, err := countLooseObjects(repo, time.Now())
+			require.NoError(b, err)
+		}
+	})
+
+	b.Run("repository with single object", func(b *testing.B) {
+		repo, repoPath := createRepo(b)
+
+		objectPath := filepath.Join(repoPath, "objects", "17", "12345")
+		require.NoError(b, os.Mkdir(filepath.Dir(objectPath), 0o755))
+		require.NoError(b, os.WriteFile(objectPath, nil, 0o644))
+
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_, err := countLooseObjects(repo, time.Now())
+			require.NoError(b, err)
+		}
+	})
+
+	b.Run("repository with single object in each shard", func(b *testing.B) {
+		repo, repoPath := createRepo(b)
+
+		for i := 0; i < 256; i++ {
+			objectPath := filepath.Join(repoPath, "objects", fmt.Sprintf("%02x", i), "12345")
+			require.NoError(b, os.Mkdir(filepath.Dir(objectPath), 0o755))
+			require.NoError(b, os.WriteFile(objectPath, nil, 0o644))
+		}
+
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_, err := countLooseObjects(repo, time.Now())
+			require.NoError(b, err)
+		}
+	})
+
+	b.Run("repository hitting loose object limit", func(b *testing.B) {
+		repo, repoPath := createRepo(b)
+
+		// Usually we shouldn't have a lot more than `looseObjectCount` objects in the
+		// repository because we'd repack as soon as we hit that limit. So this benchmark
+		// case tries to estimate the usual upper limit for loose objects we'd typically
+		// have.
+		looseObjectCount := int(math.Ceil(looseObjectLimit / 256))
+
+		for i := 0; i < 256; i++ {
+			shardPath := filepath.Join(repoPath, "objects", fmt.Sprintf("%02x", i))
+			require.NoError(b, os.Mkdir(shardPath, 0o755))
+
+			for j := 0; j < looseObjectCount; j++ {
+				objectPath := filepath.Join(shardPath, fmt.Sprintf("%d", j))
+				require.NoError(b, os.WriteFile(objectPath, nil, 0o644))
+			}
+		}
+
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_, err := countLooseObjects(repo, time.Now())
+			require.NoError(b, err)
+		}
+	})
+
+	b.Run("repository with lots of objects", func(b *testing.B) {
+		repo, repoPath := createRepo(b)
+
+		for i := 0; i < 256; i++ {
+			shardPath := filepath.Join(repoPath, "objects", fmt.Sprintf("%02x", i))
+			require.NoError(b, os.Mkdir(shardPath, 0o755))
+
+			for j := 0; j < 1000; j++ {
+				objectPath := filepath.Join(shardPath, fmt.Sprintf("%d", j))
+				require.NoError(b, os.WriteFile(objectPath, nil, 0o644))
+			}
+		}
+
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_, err := countLooseObjects(repo, time.Now())
+			require.NoError(b, err)
 		}
 	})
 }

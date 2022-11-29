@@ -279,7 +279,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 				// get pruned.
 				almostTwoWeeksAgo := time.Now().Add(CutOffTime).Add(time.Minute)
 
-				for i := 0; i < 10; i++ {
+				for i := 0; i < looseObjectLimit+1; i++ {
 					blobPath := filepath.Join(repoPath, "objects", "17", fmt.Sprintf("%d", i))
 					require.NoError(t, os.WriteFile(blobPath, nil, 0o644))
 					require.NoError(t, os.Chtimes(blobPath, almostTwoWeeksAgo, almostTwoWeeksAgo))
@@ -311,7 +311,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 
 				moreThanTwoWeeksAgo := time.Now().Add(CutOffTime).Add(-time.Minute)
 
-				for i := 0; i < 10; i++ {
+				for i := 0; i < looseObjectLimit+1; i++ {
 					blobPath := filepath.Join(repoPath, "objects", "17", fmt.Sprintf("%d", i))
 					require.NoError(t, os.WriteFile(blobPath, nil, 0o644))
 					require.NoError(t, os.Chtimes(blobPath, moreThanTwoWeeksAgo, moreThanTwoWeeksAgo))
