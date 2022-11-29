@@ -10135,7 +10135,7 @@ func BenchmarkGenerateUUIDWithReader(b *testing.B) {
 }
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-ci.yml - github.com/hashicorp/golang-lru/.github/workflows
+ci.yml - github.com/hashicorp/golang-lru/v2/.github/workflows
 name: build
 
 on:
@@ -10170,7 +10170,7 @@ jobs:
         run: $GITHUB_WORKSPACE/golangci-lint run --out-format=github-actions
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-.gitignore - github.com/hashicorp/golang-lru
+.gitignore - github.com/hashicorp/golang-lru/v2
 # Compiled Object files, Static and Dynamic libs (Shared Objects)
 *.o
 *.a
@@ -10196,7 +10196,7 @@ _testmain.go
 *.test
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-.golangci.yml - github.com/hashicorp/golang-lru
+.golangci.yml - github.com/hashicorp/golang-lru/v2
 linters:
   enable:
     - megacheck
@@ -10229,14 +10229,14 @@ issues:
   exclude-use-default: false
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-2q.go - github.com/hashicorp/golang-lru
+2q.go - github.com/hashicorp/golang-lru/v2
 package lru
 
 import (
 	"fmt"
 	"sync"
 
-	"github.com/hashicorp/golang-lru/simplelru"
+	"github.com/hashicorp/golang-lru/v2/simplelru"
 )
 
 const (
@@ -10258,25 +10258,25 @@ const (
 // computationally about 2x the cost, and adds some metadata over
 // head. The ARCCache is similar, but does not require setting any
 // parameters.
-type TwoQueueCache struct {
+type TwoQueueCache[K comparable, V any] struct {
 	size       int
 	recentSize int
 
-	recent      simplelru.LRUCache
-	frequent    simplelru.LRUCache
-	recentEvict simplelru.LRUCache
+	recent      simplelru.LRUCache[K, V]
+	frequent    simplelru.LRUCache[K, V]
+	recentEvict simplelru.LRUCache[K, V]
 	lock        sync.RWMutex
 }
 
 // New2Q creates a new TwoQueueCache using the default
 // values for the parameters.
-func New2Q(size int) (*TwoQueueCache, error) {
-	return New2QParams(size, Default2QRecentRatio, Default2QGhostEntries)
+func New2Q[K comparable, V any](size int) (*TwoQueueCache[K, V], error) {
+	return New2QParams[K, V](size, Default2QRecentRatio, Default2QGhostEntries)
 }
 
 // New2QParams creates a new TwoQueueCache using the provided
 // parameter values.
-func New2QParams(size int, recentRatio, ghostRatio float64) (*TwoQueueCache, error) {
+func New2QParams[K comparable, V any](size int, recentRatio, ghostRatio float64) (*TwoQueueCache[K, V], error) {
 	if size <= 0 {
 		return nil, fmt.Errorf("invalid size")
 	}
@@ -10292,21 +10292,21 @@ func New2QParams(size int, recentRatio, ghostRatio float64) (*TwoQueueCache, err
 	evictSize := int(float64(size) * ghostRatio)
 
 	// Allocate the LRUs
-	recent, err := simplelru.NewLRU(size, nil)
+	recent, err := simplelru.NewLRU[K, V](size, nil)
 	if err != nil {
 		return nil, err
 	}
-	frequent, err := simplelru.NewLRU(size, nil)
+	frequent, err := simplelru.NewLRU[K, V](size, nil)
 	if err != nil {
 		return nil, err
 	}
-	recentEvict, err := simplelru.NewLRU(evictSize, nil)
+	recentEvict, err := simplelru.NewLRU[K, V](evictSize, nil)
 	if err != nil {
 		return nil, err
 	}
 
 	// Initialize the cache
-	c := &TwoQueueCache{
+	c := &TwoQueueCache[K, V]{
 		size:        size,
 		recentSize:  recentSize,
 		recent:      recent,
@@ -10317,7 +10317,7 @@ func New2QParams(size int, recentRatio, ghostRatio float64) (*TwoQueueCache, err
 }
 
 // Get looks up a key's value from the cache.
-func (c *TwoQueueCache) Get(key interface{}) (value interface{}, ok bool) {
+func (c *TwoQueueCache[K, V]) Get(key K) (value V, ok bool) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -10335,11 +10335,11 @@ func (c *TwoQueueCache) Get(key interface{}) (value interface{}, ok bool) {
 	}
 
 	// No hit
-	return nil, false
+	return
 }
 
 // Add adds a value to the cache.
-func (c *TwoQueueCache) Add(key, value interface{}) {
+func (c *TwoQueueCache[K, V]) Add(key K, value V) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -10373,7 +10373,7 @@ func (c *TwoQueueCache) Add(key, value interface{}) {
 }
 
 // ensureSpace is used to ensure we have space in the cache
-func (c *TwoQueueCache) ensureSpace(recentEvict bool) {
+func (c *TwoQueueCache[K, V]) ensureSpace(recentEvict bool) {
 	// If we have space, nothing to do
 	recentLen := c.recent.Len()
 	freqLen := c.frequent.Len()
@@ -10385,7 +10385,8 @@ func (c *TwoQueueCache) ensureSpace(recentEvict bool) {
 	// the target, evict from there
 	if recentLen > 0 && (recentLen > c.recentSize || (recentLen == c.recentSize && !recentEvict)) {
 		k, _, _ := c.recent.RemoveOldest()
-		c.recentEvict.Add(k, nil)
+		var empty V
+		c.recentEvict.Add(k, empty)
 		return
 	}
 
@@ -10394,7 +10395,7 @@ func (c *TwoQueueCache) ensureSpace(recentEvict bool) {
 }
 
 // Len returns the number of items in the cache.
-func (c *TwoQueueCache) Len() int {
+func (c *TwoQueueCache[K, V]) Len() int {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 	return c.recent.Len() + c.frequent.Len()
@@ -10402,7 +10403,7 @@ func (c *TwoQueueCache) Len() int {
 
 // Keys returns a slice of the keys in the cache.
 // The frequently used keys are first in the returned slice.
-func (c *TwoQueueCache) Keys() []interface{} {
+func (c *TwoQueueCache[K, V]) Keys() []K {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 	k1 := c.frequent.Keys()
@@ -10411,7 +10412,7 @@ func (c *TwoQueueCache) Keys() []interface{} {
 }
 
 // Remove removes the provided key from the cache.
-func (c *TwoQueueCache) Remove(key interface{}) {
+func (c *TwoQueueCache[K, V]) Remove(key K) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	if c.frequent.Remove(key) {
@@ -10426,7 +10427,7 @@ func (c *TwoQueueCache) Remove(key interface{}) {
 }
 
 // Purge is used to completely clear the cache.
-func (c *TwoQueueCache) Purge() {
+func (c *TwoQueueCache[K, V]) Purge() {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	c.recent.Purge()
@@ -10436,7 +10437,7 @@ func (c *TwoQueueCache) Purge() {
 
 // Contains is used to check if the cache contains a key
 // without updating recency or frequency.
-func (c *TwoQueueCache) Contains(key interface{}) bool {
+func (c *TwoQueueCache[K, V]) Contains(key K) bool {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 	return c.frequent.Contains(key) || c.recent.Contains(key)
@@ -10444,7 +10445,7 @@ func (c *TwoQueueCache) Contains(key interface{}) bool {
 
 // Peek is used to inspect the cache value of a key
 // without updating recency or frequency.
-func (c *TwoQueueCache) Peek(key interface{}) (value interface{}, ok bool) {
+func (c *TwoQueueCache[K, V]) Peek(key K) (value V, ok bool) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 	if val, ok := c.frequent.Peek(key); ok {
@@ -10454,7 +10455,7 @@ func (c *TwoQueueCache) Peek(key interface{}) (value interface{}, ok bool) {
 }
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-2q_test.go - github.com/hashicorp/golang-lru
+2q_test.go - github.com/hashicorp/golang-lru/v2
 package lru
 
 import (
@@ -10462,7 +10463,7 @@ import (
 )
 
 func Benchmark2Q_Rand(b *testing.B) {
-	l, err := New2Q(8192)
+	l, err := New2Q[int64, int64](8192)
 	if err != nil {
 		b.Fatalf("err: %v", err)
 	}
@@ -10491,7 +10492,7 @@ func Benchmark2Q_Rand(b *testing.B) {
 }
 
 func Benchmark2Q_Freq(b *testing.B) {
-	l, err := New2Q(8192)
+	l, err := New2Q[int64, int64](8192)
 	if err != nil {
 		b.Fatalf("err: %v", err)
 	}
@@ -10524,7 +10525,7 @@ func Benchmark2Q_Freq(b *testing.B) {
 
 func Test2Q_RandomOps(t *testing.T) {
 	size := 128
-	l, err := New2Q(128)
+	l, err := New2Q[int64, int64](128)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -10550,7 +10551,7 @@ func Test2Q_RandomOps(t *testing.T) {
 }
 
 func Test2Q_Get_RecentToFrequent(t *testing.T) {
-	l, err := New2Q(128)
+	l, err := New2Q[int, int](128)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -10596,7 +10597,7 @@ func Test2Q_Get_RecentToFrequent(t *testing.T) {
 }
 
 func Test2Q_Add_RecentToFrequent(t *testing.T) {
-	l, err := New2Q(128)
+	l, err := New2Q[int, int](128)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -10630,7 +10631,7 @@ func Test2Q_Add_RecentToFrequent(t *testing.T) {
 }
 
 func Test2Q_Add_RecentEvict(t *testing.T) {
-	l, err := New2Q(4)
+	l, err := New2Q[int, int](4)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -10677,7 +10678,7 @@ func Test2Q_Add_RecentEvict(t *testing.T) {
 }
 
 func Test2Q(t *testing.T) {
-	l, err := New2Q(128)
+	l, err := New2Q[int, int](128)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -10725,7 +10726,7 @@ func Test2Q(t *testing.T) {
 
 // Test that Contains doesn't update recent-ness
 func Test2Q_Contains(t *testing.T) {
-	l, err := New2Q(2)
+	l, err := New2Q[int, int](2)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -10744,7 +10745,7 @@ func Test2Q_Contains(t *testing.T) {
 
 // Test that Peek doesn't update recent-ness
 func Test2Q_Peek(t *testing.T) {
-	l, err := New2Q(2)
+	l, err := New2Q[int, int](2)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -10762,7 +10763,7 @@ func Test2Q_Peek(t *testing.T) {
 }
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-LICENSE - github.com/hashicorp/golang-lru
+LICENSE - github.com/hashicorp/golang-lru/v2
 Copyright (c) 2014 HashiCorp, Inc.
 
 Mozilla Public License, version 2.0
@@ -11129,7 +11130,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
       the Mozilla Public License, v. 2.0.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-README.md - github.com/hashicorp/golang-lru
+README.md - github.com/hashicorp/golang-lru/v2
 golang-lru
 ==========
 
@@ -11139,7 +11140,7 @@ thread safe LRU cache. It is based on the cache in Groupcache.
 Documentation
 =============
 
-Full docs are available on [Godoc](https://pkg.go.dev/github.com/hashicorp/golang-lru)
+Full docs are available on [Go Packages](https://pkg.go.dev/github.com/hashicorp/golang-lru/v2)
 
 Example
 =======
@@ -11157,13 +11158,13 @@ if l.Len() != 128 {
 ```
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-arc.go - github.com/hashicorp/golang-lru
+arc.go - github.com/hashicorp/golang-lru/v2
 package lru
 
 import (
 	"sync"
 
-	"github.com/hashicorp/golang-lru/simplelru"
+	"github.com/hashicorp/golang-lru/v2/simplelru"
 )
 
 // ARCCache is a thread-safe fixed size Adaptive Replacement Cache (ARC).
@@ -11174,41 +11175,41 @@ import (
 // it is roughly 2x the cost, and the extra memory overhead is linear
 // with the size of the cache. ARC has been patented by IBM, but is
 // similar to the TwoQueueCache (2Q) which requires setting parameters.
-type ARCCache struct {
+type ARCCache[K comparable, V any] struct {
 	size int // Size is the total capacity of the cache
 	p    int // P is the dynamic preference towards T1 or T2
 
-	t1 simplelru.LRUCache // T1 is the LRU for recently accessed items
-	b1 simplelru.LRUCache // B1 is the LRU for evictions from t1
+	t1 simplelru.LRUCache[K, V] // T1 is the LRU for recently accessed items
+	b1 simplelru.LRUCache[K, V] // B1 is the LRU for evictions from t1
 
-	t2 simplelru.LRUCache // T2 is the LRU for frequently accessed items
-	b2 simplelru.LRUCache // B2 is the LRU for evictions from t2
+	t2 simplelru.LRUCache[K, V] // T2 is the LRU for frequently accessed items
+	b2 simplelru.LRUCache[K, V] // B2 is the LRU for evictions from t2
 
 	lock sync.RWMutex
 }
 
 // NewARC creates an ARC of the given size
-func NewARC(size int) (*ARCCache, error) {
+func NewARC[K comparable, V any](size int) (*ARCCache[K, V], error) {
 	// Create the sub LRUs
-	b1, err := simplelru.NewLRU(size, nil)
+	b1, err := simplelru.NewLRU[K, V](size, nil)
 	if err != nil {
 		return nil, err
 	}
-	b2, err := simplelru.NewLRU(size, nil)
+	b2, err := simplelru.NewLRU[K, V](size, nil)
 	if err != nil {
 		return nil, err
 	}
-	t1, err := simplelru.NewLRU(size, nil)
+	t1, err := simplelru.NewLRU[K, V](size, nil)
 	if err != nil {
 		return nil, err
 	}
-	t2, err := simplelru.NewLRU(size, nil)
+	t2, err := simplelru.NewLRU[K, V](size, nil)
 	if err != nil {
 		return nil, err
 	}
 
 	// Initialize the ARC
-	c := &ARCCache{
+	c := &ARCCache[K, V]{
 		size: size,
 		p:    0,
 		t1:   t1,
@@ -11220,7 +11221,7 @@ func NewARC(size int) (*ARCCache, error) {
 }
 
 // Get looks up a key's value from the cache.
-func (c *ARCCache) Get(key interface{}) (value interface{}, ok bool) {
+func (c *ARCCache[K, V]) Get(key K) (value V, ok bool) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -11238,11 +11239,11 @@ func (c *ARCCache) Get(key interface{}) (value interface{}, ok bool) {
 	}
 
 	// No hit
-	return nil, false
+	return
 }
 
 // Add adds a value to the cache.
-func (c *ARCCache) Add(key, value interface{}) {
+func (c *ARCCache[K, V]) Add(key K, value V) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -11337,30 +11338,32 @@ func (c *ARCCache) Add(key, value interface{}) {
 
 // replace is used to adaptively evict from either T1 or T2
 // based on the current learned value of P
-func (c *ARCCache) replace(b2ContainsKey bool) {
+func (c *ARCCache[K, V]) replace(b2ContainsKey bool) {
 	t1Len := c.t1.Len()
 	if t1Len > 0 && (t1Len > c.p || (t1Len == c.p && b2ContainsKey)) {
 		k, _, ok := c.t1.RemoveOldest()
 		if ok {
-			c.b1.Add(k, nil)
+			var empty V
+			c.b1.Add(k, empty)
 		}
 	} else {
 		k, _, ok := c.t2.RemoveOldest()
 		if ok {
-			c.b2.Add(k, nil)
+			var empty V
+			c.b2.Add(k, empty)
 		}
 	}
 }
 
 // Len returns the number of cached entries
-func (c *ARCCache) Len() int {
+func (c *ARCCache[K, V]) Len() int {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 	return c.t1.Len() + c.t2.Len()
 }
 
 // Keys returns all the cached keys
-func (c *ARCCache) Keys() []interface{} {
+func (c *ARCCache[K, V]) Keys() []K {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 	k1 := c.t1.Keys()
@@ -11369,7 +11372,7 @@ func (c *ARCCache) Keys() []interface{} {
 }
 
 // Remove is used to purge a key from the cache
-func (c *ARCCache) Remove(key interface{}) {
+func (c *ARCCache[K, V]) Remove(key K) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	if c.t1.Remove(key) {
@@ -11387,7 +11390,7 @@ func (c *ARCCache) Remove(key interface{}) {
 }
 
 // Purge is used to clear the cache
-func (c *ARCCache) Purge() {
+func (c *ARCCache[K, V]) Purge() {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	c.t1.Purge()
@@ -11398,7 +11401,7 @@ func (c *ARCCache) Purge() {
 
 // Contains is used to check if the cache contains a key
 // without updating recency or frequency.
-func (c *ARCCache) Contains(key interface{}) bool {
+func (c *ARCCache[K, V]) Contains(key K) bool {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 	return c.t1.Contains(key) || c.t2.Contains(key)
@@ -11406,7 +11409,7 @@ func (c *ARCCache) Contains(key interface{}) bool {
 
 // Peek is used to inspect the cache value of a key
 // without updating recency or frequency.
-func (c *ARCCache) Peek(key interface{}) (value interface{}, ok bool) {
+func (c *ARCCache[K, V]) Peek(key K) (value V, ok bool) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 	if val, ok := c.t1.Peek(key); ok {
@@ -11416,7 +11419,7 @@ func (c *ARCCache) Peek(key interface{}) (value interface{}, ok bool) {
 }
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-arc_test.go - github.com/hashicorp/golang-lru
+arc_test.go - github.com/hashicorp/golang-lru/v2
 package lru
 
 import (
@@ -11430,7 +11433,7 @@ func init() {
 }
 
 func BenchmarkARC_Rand(b *testing.B) {
-	l, err := NewARC(8192)
+	l, err := NewARC[int64, int64](8192)
 	if err != nil {
 		b.Fatalf("err: %v", err)
 	}
@@ -11459,7 +11462,7 @@ func BenchmarkARC_Rand(b *testing.B) {
 }
 
 func BenchmarkARC_Freq(b *testing.B) {
-	l, err := NewARC(8192)
+	l, err := NewARC[int64, int64](8192)
 	if err != nil {
 		b.Fatalf("err: %v", err)
 	}
@@ -11492,7 +11495,7 @@ func BenchmarkARC_Freq(b *testing.B) {
 
 func TestARC_RandomOps(t *testing.T) {
 	size := 128
-	l, err := NewARC(128)
+	l, err := NewARC[int64, int64](128)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -11522,7 +11525,7 @@ func TestARC_RandomOps(t *testing.T) {
 }
 
 func TestARC_Get_RecentToFrequent(t *testing.T) {
-	l, err := NewARC(128)
+	l, err := NewARC[int, int](128)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -11568,7 +11571,7 @@ func TestARC_Get_RecentToFrequent(t *testing.T) {
 }
 
 func TestARC_Add_RecentToFrequent(t *testing.T) {
-	l, err := NewARC(128)
+	l, err := NewARC[int, int](128)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -11602,7 +11605,7 @@ func TestARC_Add_RecentToFrequent(t *testing.T) {
 }
 
 func TestARC_Adaptive(t *testing.T) {
-	l, err := NewARC(4)
+	l, err := NewARC[int, int](4)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -11711,7 +11714,7 @@ func TestARC_Adaptive(t *testing.T) {
 }
 
 func TestARC(t *testing.T) {
-	l, err := NewARC(128)
+	l, err := NewARC[int, int](128)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -11759,7 +11762,7 @@ func TestARC(t *testing.T) {
 
 // Test that Contains doesn't update recent-ness
 func TestARC_Contains(t *testing.T) {
-	l, err := NewARC(2)
+	l, err := NewARC[int, int](2)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -11778,7 +11781,7 @@ func TestARC_Contains(t *testing.T) {
 
 // Test that Peek doesn't update recent-ness
 func TestARC_Peek(t *testing.T) {
-	l, err := NewARC(2)
+	l, err := NewARC[int, int](2)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -11796,7 +11799,7 @@ func TestARC_Peek(t *testing.T) {
 }
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-doc.go - github.com/hashicorp/golang-lru
+doc.go - github.com/hashicorp/golang-lru/v2
 // Package lru provides three different LRU caches of varying sophistication.
 //
 // Cache is a simple LRU cache. It is based on the
@@ -11820,19 +11823,19 @@ doc.go - github.com/hashicorp/golang-lru
 package lru
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-go.mod - github.com/hashicorp/golang-lru
-module github.com/hashicorp/golang-lru
+go.mod - github.com/hashicorp/golang-lru/v2
+module github.com/hashicorp/golang-lru/v2
 
-go 1.12
+go 1.18
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-lru.go - github.com/hashicorp/golang-lru
+lru.go - github.com/hashicorp/golang-lru/v2
 package lru
 
 import (
 	"sync"
 
-	"github.com/hashicorp/golang-lru/simplelru"
+	"github.com/hashicorp/golang-lru/v2/simplelru"
 )
 
 const (
@@ -11841,23 +11844,24 @@ const (
 )
 
 // Cache is a thread-safe fixed size LRU cache.
-type Cache struct {
-	lru                      *simplelru.LRU
-	evictedKeys, evictedVals []interface{}
-	onEvictedCB              func(k, v interface{})
-	lock                     sync.RWMutex
+type Cache[K comparable, V any] struct {
+	lru         *simplelru.LRU[K, V]
+	evictedKeys []K
+	evictedVals []V
+	onEvictedCB func(k K, v V)
+	lock        sync.RWMutex
 }
 
 // New creates an LRU of the given size.
-func New(size int) (*Cache, error) {
-	return NewWithEvict(size, nil)
+func New[K comparable, V any](size int) (*Cache[K, V], error) {
+	return NewWithEvict[K, V](size, nil)
 }
 
 // NewWithEvict constructs a fixed size cache with the given eviction
 // callback.
-func NewWithEvict(size int, onEvicted func(key, value interface{})) (c *Cache, err error) {
+func NewWithEvict[K comparable, V any](size int, onEvicted func(key K, value V)) (c *Cache[K, V], err error) {
 	// create a cache with default settings
-	c = &Cache{
+	c = &Cache[K, V]{
 		onEvictedCB: onEvicted,
 	}
 	if onEvicted != nil {
@@ -11868,21 +11872,22 @@ func NewWithEvict(size int, onEvicted func(key, value interface{})) (c *Cache, e
 	return
 }
 
-func (c *Cache) initEvictBuffers() {
-	c.evictedKeys = make([]interface{}, 0, DefaultEvictedBufferSize)
-	c.evictedVals = make([]interface{}, 0, DefaultEvictedBufferSize)
+func (c *Cache[K, V]) initEvictBuffers() {
+	c.evictedKeys = make([]K, 0, DefaultEvictedBufferSize)
+	c.evictedVals = make([]V, 0, DefaultEvictedBufferSize)
 }
 
 // onEvicted save evicted key/val and sent in externally registered callback
 // outside of critical section
-func (c *Cache) onEvicted(k, v interface{}) {
+func (c *Cache[K, V]) onEvicted(k K, v V) {
 	c.evictedKeys = append(c.evictedKeys, k)
 	c.evictedVals = append(c.evictedVals, v)
 }
 
 // Purge is used to completely clear the cache.
-func (c *Cache) Purge() {
-	var ks, vs []interface{}
+func (c *Cache[K, V]) Purge() {
+	var ks []K
+	var vs []V
 	c.lock.Lock()
 	c.lru.Purge()
 	if c.onEvictedCB != nil && len(c.evictedKeys) > 0 {
@@ -11899,8 +11904,9 @@ func (c *Cache) Purge() {
 }
 
 // Add adds a value to the cache. Returns true if an eviction occurred.
-func (c *Cache) Add(key, value interface{}) (evicted bool) {
-	var k, v interface{}
+func (c *Cache[K, V]) Add(key K, value V) (evicted bool) {
+	var k K
+	var v V
 	c.lock.Lock()
 	evicted = c.lru.Add(key, value)
 	if c.onEvictedCB != nil && evicted {
@@ -11915,7 +11921,7 @@ func (c *Cache) Add(key, value interface{}) (evicted bool) {
 }
 
 // Get looks up a key's value from the cache.
-func (c *Cache) Get(key interface{}) (value interface{}, ok bool) {
+func (c *Cache[K, V]) Get(key K) (value V, ok bool) {
 	c.lock.Lock()
 	value, ok = c.lru.Get(key)
 	c.lock.Unlock()
@@ -11924,7 +11930,7 @@ func (c *Cache) Get(key interface{}) (value interface{}, ok bool) {
 
 // Contains checks if a key is in the cache, without updating the
 // recent-ness or deleting it for being stale.
-func (c *Cache) Contains(key interface{}) bool {
+func (c *Cache[K, V]) Contains(key K) bool {
 	c.lock.RLock()
 	containKey := c.lru.Contains(key)
 	c.lock.RUnlock()
@@ -11933,7 +11939,7 @@ func (c *Cache) Contains(key interface{}) bool {
 
 // Peek returns the key value (or undefined if not found) without updating
 // the "recently used"-ness of the key.
-func (c *Cache) Peek(key interface{}) (value interface{}, ok bool) {
+func (c *Cache[K, V]) Peek(key K) (value V, ok bool) {
 	c.lock.RLock()
 	value, ok = c.lru.Peek(key)
 	c.lock.RUnlock()
@@ -11943,8 +11949,9 @@ func (c *Cache) Peek(key interface{}) (value interface{}, ok bool) {
 // ContainsOrAdd checks if a key is in the cache without updating the
 // recent-ness or deleting it for being stale, and if not, adds the value.
 // Returns whether found and whether an eviction occurred.
-func (c *Cache) ContainsOrAdd(key, value interface{}) (ok, evicted bool) {
-	var k, v interface{}
+func (c *Cache[K, V]) ContainsOrAdd(key K, value V) (ok, evicted bool) {
+	var k K
+	var v V
 	c.lock.Lock()
 	if c.lru.Contains(key) {
 		c.lock.Unlock()
@@ -11965,8 +11972,9 @@ func (c *Cache) ContainsOrAdd(key, value interface{}) (ok, evicted bool) {
 // PeekOrAdd checks if a key is in the cache without updating the
 // recent-ness or deleting it for being stale, and if not, adds the value.
 // Returns whether found and whether an eviction occurred.
-func (c *Cache) PeekOrAdd(key, value interface{}) (previous interface{}, ok, evicted bool) {
-	var k, v interface{}
+func (c *Cache[K, V]) PeekOrAdd(key K, value V) (previous V, ok, evicted bool) {
+	var k K
+	var v V
 	c.lock.Lock()
 	previous, ok = c.lru.Peek(key)
 	if ok {
@@ -11982,12 +11990,13 @@ func (c *Cache) PeekOrAdd(key, value interface{}) (previous interface{}, ok, evi
 	if c.onEvictedCB != nil && evicted {
 		c.onEvictedCB(k, v)
 	}
-	return nil, false, evicted
+	return
 }
 
 // Remove removes the provided key from the cache.
-func (c *Cache) Remove(key interface{}) (present bool) {
-	var k, v interface{}
+func (c *Cache[K, V]) Remove(key K) (present bool) {
+	var k K
+	var v V
 	c.lock.Lock()
 	present = c.lru.Remove(key)
 	if c.onEvictedCB != nil && present {
@@ -12002,8 +12011,9 @@ func (c *Cache) Remove(key interface{}) (present bool) {
 }
 
 // Resize changes the cache size.
-func (c *Cache) Resize(size int) (evicted int) {
-	var ks, vs []interface{}
+func (c *Cache[K, V]) Resize(size int) (evicted int) {
+	var ks []K
+	var vs []V
 	c.lock.Lock()
 	evicted = c.lru.Resize(size)
 	if c.onEvictedCB != nil && evicted > 0 {
@@ -12020,8 +12030,9 @@ func (c *Cache) Resize(size int) (evicted int) {
 }
 
 // RemoveOldest removes the oldest item from the cache.
-func (c *Cache) RemoveOldest() (key, value interface{}, ok bool) {
-	var k, v interface{}
+func (c *Cache[K, V]) RemoveOldest() (key K, value V, ok bool) {
+	var k K
+	var v V
 	c.lock.Lock()
 	key, value, ok = c.lru.RemoveOldest()
 	if c.onEvictedCB != nil && ok {
@@ -12036,7 +12047,7 @@ func (c *Cache) RemoveOldest() (key, value interface{}, ok bool) {
 }
 
 // GetOldest returns the oldest entry
-func (c *Cache) GetOldest() (key, value interface{}, ok bool) {
+func (c *Cache[K, V]) GetOldest() (key K, value V, ok bool) {
 	c.lock.RLock()
 	key, value, ok = c.lru.GetOldest()
 	c.lock.RUnlock()
@@ -12044,7 +12055,7 @@ func (c *Cache) GetOldest() (key, value interface{}, ok bool) {
 }
 
 // Keys returns a slice of the keys in the cache, from oldest to newest.
-func (c *Cache) Keys() []interface{} {
+func (c *Cache[K, V]) Keys() []K {
 	c.lock.RLock()
 	keys := c.lru.Keys()
 	c.lock.RUnlock()
@@ -12052,7 +12063,7 @@ func (c *Cache) Keys() []interface{} {
 }
 
 // Len returns the number of items in the cache.
-func (c *Cache) Len() int {
+func (c *Cache[K, V]) Len() int {
 	c.lock.RLock()
 	length := c.lru.Len()
 	c.lock.RUnlock()
@@ -12060,7 +12071,7 @@ func (c *Cache) Len() int {
 }
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-lru_test.go - github.com/hashicorp/golang-lru
+lru_test.go - github.com/hashicorp/golang-lru/v2
 package lru
 
 import (
@@ -12068,7 +12079,7 @@ import (
 )
 
 func BenchmarkLRU_Rand(b *testing.B) {
-	l, err := New(8192)
+	l, err := New[int64, int64](8192)
 	if err != nil {
 		b.Fatalf("err: %v", err)
 	}
@@ -12097,7 +12108,7 @@ func BenchmarkLRU_Rand(b *testing.B) {
 }
 
 func BenchmarkLRU_Freq(b *testing.B) {
-	l, err := New(8192)
+	l, err := New[int64, int64](8192)
 	if err != nil {
 		b.Fatalf("err: %v", err)
 	}
@@ -12130,7 +12141,7 @@ func BenchmarkLRU_Freq(b *testing.B) {
 
 func TestLRU(t *testing.T) {
 	evictCounter := 0
-	onEvicted := func(k interface{}, v interface{}) {
+	onEvicted := func(k int, v int) {
 		if k != v {
 			t.Fatalf("Evict values not equal (%v!=%v)", k, v)
 		}
@@ -12197,7 +12208,7 @@ func TestLRU(t *testing.T) {
 // test that Add returns true/false if an eviction occurred
 func TestLRUAdd(t *testing.T) {
 	evictCounter := 0
-	onEvicted := func(k interface{}, v interface{}) {
+	onEvicted := func(k int, v int) {
 		evictCounter++
 	}
 
@@ -12216,7 +12227,7 @@ func TestLRUAdd(t *testing.T) {
 
 // test that Contains doesn't update recent-ness
 func TestLRUContains(t *testing.T) {
-	l, err := New(2)
+	l, err := New[int, int](2)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -12235,7 +12246,7 @@ func TestLRUContains(t *testing.T) {
 
 // test that ContainsOrAdd doesn't update recent-ness
 func TestLRUContainsOrAdd(t *testing.T) {
-	l, err := New(2)
+	l, err := New[int, int](2)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -12265,7 +12276,7 @@ func TestLRUContainsOrAdd(t *testing.T) {
 
 // test that PeekOrAdd doesn't update recent-ness
 func TestLRUPeekOrAdd(t *testing.T) {
-	l, err := New(2)
+	l, err := New[int, int](2)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -12298,7 +12309,7 @@ func TestLRUPeekOrAdd(t *testing.T) {
 
 // test that Peek doesn't update recent-ness
 func TestLRUPeek(t *testing.T) {
-	l, err := New(2)
+	l, err := New[int, int](2)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -12318,7 +12329,7 @@ func TestLRUPeek(t *testing.T) {
 // test that Resize can upsize and downsize
 func TestLRUResize(t *testing.T) {
 	onEvictCounter := 0
-	onEvicted := func(k interface{}, v interface{}) {
+	onEvicted := func(k int, v int) {
 		onEvictCounter++
 	}
 	l, err := NewWithEvict(2, onEvicted)
@@ -12355,71 +12366,227 @@ func TestLRUResize(t *testing.T) {
 }
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-lru.go - github.com/hashicorp/golang-lru/simplelru
+LICENSE_list - github.com/hashicorp/golang-lru/v2/simplelru
+This license applies to simplelru/list.go
+
+Copyright (c) 2009 The Go Authors. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+   * Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+   * Redistributions in binary form must reproduce the above
+copyright notice, this list of conditions and the following disclaimer
+in the documentation and/or other materials provided with the
+distribution.
+   * Neither the name of Google Inc. nor the names of its
+contributors may be used to endorse or promote products derived from
+this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+list.go - github.com/hashicorp/golang-lru/v2/simplelru
+// Copyright 2009 The Go Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE_list file.
+
+package simplelru
+
+// entry is an LRU entry
+type entry[K comparable, V any] struct {
+	// Next and previous pointers in the doubly-linked list of elements.
+	// To simplify the implementation, internally a list l is implemented
+	// as a ring, such that &l.root is both the next element of the last
+	// list element (l.Back()) and the previous element of the first list
+	// element (l.Front()).
+	next, prev *entry[K, V]
+
+	// The list to which this element belongs.
+	list *lruList[K, V]
+
+	// The LRU key of this element.
+	key K
+
+	// The value stored with this element.
+	value V
+}
+
+// prevEntry returns the previous list element or nil.
+func (e *entry[K, V]) prevEntry() *entry[K, V] {
+	if p := e.prev; e.list != nil && p != &e.list.root {
+		return p
+	}
+	return nil
+}
+
+// lruList represents a doubly linked list.
+// The zero value for lruList is an empty list ready to use.
+type lruList[K comparable, V any] struct {
+	root entry[K, V] // sentinel list element, only &root, root.prev, and root.next are used
+	len  int         // current list length excluding (this) sentinel element
+}
+
+// init initializes or clears list l.
+func (l *lruList[K, V]) init() *lruList[K, V] {
+	l.root.next = &l.root
+	l.root.prev = &l.root
+	l.len = 0
+	return l
+}
+
+// newList returns an initialized list.
+func newList[K comparable, V any]() *lruList[K, V] { return new(lruList[K, V]).init() }
+
+// length returns the number of elements of list l.
+// The complexity is O(1).
+func (l *lruList[K, V]) length() int { return l.len }
+
+// back returns the last element of list l or nil if the list is empty.
+func (l *lruList[K, V]) back() *entry[K, V] {
+	if l.len == 0 {
+		return nil
+	}
+	return l.root.prev
+}
+
+// lazyInit lazily initializes a zero List value.
+func (l *lruList[K, V]) lazyInit() {
+	if l.root.next == nil {
+		l.init()
+	}
+}
+
+// insert inserts e after at, increments l.len, and returns e.
+func (l *lruList[K, V]) insert(e, at *entry[K, V]) *entry[K, V] {
+	e.prev = at
+	e.next = at.next
+	e.prev.next = e
+	e.next.prev = e
+	e.list = l
+	l.len++
+	return e
+}
+
+// insertValue is a convenience wrapper for insert(&Element{Value: v}, at).
+func (l *lruList[K, V]) insertValue(k K, v V, at *entry[K, V]) *entry[K, V] {
+	return l.insert(&entry[K, V]{value: v, key: k}, at)
+}
+
+// remove removes e from its list, decrements l.len
+func (l *lruList[K, V]) remove(e *entry[K, V]) V {
+	e.prev.next = e.next
+	e.next.prev = e.prev
+	e.next = nil // avoid memory leaks
+	e.prev = nil // avoid memory leaks
+	e.list = nil
+	l.len--
+
+	return e.value
+}
+
+// move moves e to next to at.
+func (l *lruList[K, V]) move(e, at *entry[K, V]) {
+	if e == at {
+		return
+	}
+	e.prev.next = e.next
+	e.next.prev = e.prev
+
+	e.prev = at
+	e.next = at.next
+	e.prev.next = e
+	e.next.prev = e
+}
+
+// pushFront inserts a new element e with value v at the front of list l and returns e.
+func (l *lruList[K, V]) pushFront(k K, v V) *entry[K, V] {
+	l.lazyInit()
+	return l.insertValue(k, v, &l.root)
+}
+
+// moveToFront moves element e to the front of list l.
+// If e is not an element of l, the list is not modified.
+// The element must not be nil.
+func (l *lruList[K, V]) moveToFront(e *entry[K, V]) {
+	if e.list != l || l.root.next == e {
+		return
+	}
+	// see comment in List.Remove about initialization of l
+	l.move(e, &l.root)
+}
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+lru.go - github.com/hashicorp/golang-lru/v2/simplelru
 package simplelru
 
 import (
-	"container/list"
 	"errors"
 )
 
 // EvictCallback is used to get a callback when a cache entry is evicted
-type EvictCallback func(key interface{}, value interface{})
+type EvictCallback[K comparable, V any] func(key K, value V)
 
 // LRU implements a non-thread safe fixed size LRU cache
-type LRU struct {
+type LRU[K comparable, V any] struct {
 	size      int
-	evictList *list.List
-	items     map[interface{}]*list.Element
-	onEvict   EvictCallback
-}
-
-// entry is used to hold a value in the evictList
-type entry struct {
-	key   interface{}
-	value interface{}
+	evictList *lruList[K, V]
+	items     map[K]*entry[K, V]
+	onEvict   EvictCallback[K, V]
 }
 
 // NewLRU constructs an LRU of the given size
-func NewLRU(size int, onEvict EvictCallback) (*LRU, error) {
+func NewLRU[K comparable, V any](size int, onEvict EvictCallback[K, V]) (*LRU[K, V], error) {
 	if size <= 0 {
 		return nil, errors.New("must provide a positive size")
 	}
-	c := &LRU{
+
+	c := &LRU[K, V]{
 		size:      size,
-		evictList: list.New(),
-		items:     make(map[interface{}]*list.Element),
+		evictList: newList[K, V](),
+		items:     make(map[K]*entry[K, V]),
 		onEvict:   onEvict,
 	}
 	return c, nil
 }
 
 // Purge is used to completely clear the cache.
-func (c *LRU) Purge() {
+func (c *LRU[K, V]) Purge() {
 	for k, v := range c.items {
 		if c.onEvict != nil {
-			c.onEvict(k, v.Value.(*entry).value)
+			c.onEvict(k, v.value)
 		}
 		delete(c.items, k)
 	}
-	c.evictList.Init()
+	c.evictList.init()
 }
 
 // Add adds a value to the cache.  Returns true if an eviction occurred.
-func (c *LRU) Add(key, value interface{}) (evicted bool) {
+func (c *LRU[K, V]) Add(key K, value V) (evicted bool) {
 	// Check for existing item
 	if ent, ok := c.items[key]; ok {
-		c.evictList.MoveToFront(ent)
-		ent.Value.(*entry).value = value
+		c.evictList.moveToFront(ent)
+		ent.value = value
 		return false
 	}
 
 	// Add new item
-	ent := &entry{key, value}
-	entry := c.evictList.PushFront(ent)
-	c.items[key] = entry
+	ent := c.evictList.pushFront(key, value)
+	c.items[key] = ent
 
-	evict := c.evictList.Len() > c.size
+	evict := c.evictList.length() > c.size
 	// Verify size not exceeded
 	if evict {
 		c.removeOldest()
@@ -12428,37 +12595,34 @@ func (c *LRU) Add(key, value interface{}) (evicted bool) {
 }
 
 // Get looks up a key's value from the cache.
-func (c *LRU) Get(key interface{}) (value interface{}, ok bool) {
+func (c *LRU[K, V]) Get(key K) (value V, ok bool) {
 	if ent, ok := c.items[key]; ok {
-		c.evictList.MoveToFront(ent)
-		if ent.Value.(*entry) == nil {
-			return nil, false
-		}
-		return ent.Value.(*entry).value, true
+		c.evictList.moveToFront(ent)
+		return ent.value, true
 	}
 	return
 }
 
 // Contains checks if a key is in the cache, without updating the recent-ness
 // or deleting it for being stale.
-func (c *LRU) Contains(key interface{}) (ok bool) {
+func (c *LRU[K, V]) Contains(key K) (ok bool) {
 	_, ok = c.items[key]
 	return ok
 }
 
 // Peek returns the key value (or undefined if not found) without updating
 // the "recently used"-ness of the key.
-func (c *LRU) Peek(key interface{}) (value interface{}, ok bool) {
-	var ent *list.Element
+func (c *LRU[K, V]) Peek(key K) (value V, ok bool) {
+	var ent *entry[K, V]
 	if ent, ok = c.items[key]; ok {
-		return ent.Value.(*entry).value, true
+		return ent.value, true
 	}
-	return nil, ok
+	return
 }
 
 // Remove removes the provided key from the cache, returning if the
 // key was contained.
-func (c *LRU) Remove(key interface{}) (present bool) {
+func (c *LRU[K, V]) Remove(key K) (present bool) {
 	if ent, ok := c.items[key]; ok {
 		c.removeElement(ent)
 		return true
@@ -12467,44 +12631,42 @@ func (c *LRU) Remove(key interface{}) (present bool) {
 }
 
 // RemoveOldest removes the oldest item from the cache.
-func (c *LRU) RemoveOldest() (key, value interface{}, ok bool) {
-	ent := c.evictList.Back()
+func (c *LRU[K, V]) RemoveOldest() (key K, value V, ok bool) {
+	ent := c.evictList.back()
 	if ent != nil {
 		c.removeElement(ent)
-		kv := ent.Value.(*entry)
-		return kv.key, kv.value, true
+		return ent.key, ent.value, true
 	}
-	return nil, nil, false
+	return
 }
 
 // GetOldest returns the oldest entry
-func (c *LRU) GetOldest() (key, value interface{}, ok bool) {
-	ent := c.evictList.Back()
+func (c *LRU[K, V]) GetOldest() (key K, value V, ok bool) {
+	ent := c.evictList.back()
 	if ent != nil {
-		kv := ent.Value.(*entry)
-		return kv.key, kv.value, true
+		return ent.key, ent.value, true
 	}
-	return nil, nil, false
+	return
 }
 
 // Keys returns a slice of the keys in the cache, from oldest to newest.
-func (c *LRU) Keys() []interface{} {
-	keys := make([]interface{}, len(c.items))
+func (c *LRU[K, V]) Keys() []K {
+	keys := make([]K, c.evictList.length())
 	i := 0
-	for ent := c.evictList.Back(); ent != nil; ent = ent.Prev() {
-		keys[i] = ent.Value.(*entry).key
+	for ent := c.evictList.back(); ent != nil; ent = ent.prevEntry() {
+		keys[i] = ent.key
 		i++
 	}
 	return keys
 }
 
 // Len returns the number of items in the cache.
-func (c *LRU) Len() int {
-	return c.evictList.Len()
+func (c *LRU[K, V]) Len() int {
+	return c.evictList.length()
 }
 
 // Resize changes the cache size.
-func (c *LRU) Resize(size int) (evicted int) {
+func (c *LRU[K, V]) Resize(size int) (evicted int) {
 	diff := c.Len() - size
 	if diff < 0 {
 		diff = 0
@@ -12517,55 +12679,54 @@ func (c *LRU) Resize(size int) (evicted int) {
 }
 
 // removeOldest removes the oldest item from the cache.
-func (c *LRU) removeOldest() {
-	ent := c.evictList.Back()
+func (c *LRU[K, V]) removeOldest() {
+	ent := c.evictList.back()
 	if ent != nil {
 		c.removeElement(ent)
 	}
 }
 
 // removeElement is used to remove a given list element from the cache
-func (c *LRU) removeElement(e *list.Element) {
-	c.evictList.Remove(e)
-	kv := e.Value.(*entry)
-	delete(c.items, kv.key)
+func (c *LRU[K, V]) removeElement(e *entry[K, V]) {
+	c.evictList.remove(e)
+	delete(c.items, e.key)
 	if c.onEvict != nil {
-		c.onEvict(kv.key, kv.value)
+		c.onEvict(e.key, e.value)
 	}
 }
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-lru_interface.go - github.com/hashicorp/golang-lru/simplelru
+lru_interface.go - github.com/hashicorp/golang-lru/v2/simplelru
 // Package simplelru provides simple LRU implementation based on build-in container/list.
 package simplelru
 
 // LRUCache is the interface for simple LRU cache.
-type LRUCache interface {
+type LRUCache[K comparable, V any] interface {
 	// Adds a value to the cache, returns true if an eviction occurred and
 	// updates the "recently used"-ness of the key.
-	Add(key, value interface{}) bool
+	Add(key K, value V) bool
 
 	// Returns key's value from the cache and
 	// updates the "recently used"-ness of the key. #value, isFound
-	Get(key interface{}) (value interface{}, ok bool)
+	Get(key K) (value V, ok bool)
 
 	// Checks if a key exists in cache without updating the recent-ness.
-	Contains(key interface{}) (ok bool)
+	Contains(key K) (ok bool)
 
 	// Returns key's value without updating the "recently used"-ness of the key.
-	Peek(key interface{}) (value interface{}, ok bool)
+	Peek(key K) (value V, ok bool)
 
 	// Removes a key from the cache.
-	Remove(key interface{}) bool
+	Remove(key K) bool
 
 	// Removes the oldest entry from cache.
-	RemoveOldest() (interface{}, interface{}, bool)
+	RemoveOldest() (K, V, bool)
 
 	// Returns the oldest entry from the cache. #key, value, isFound
-	GetOldest() (interface{}, interface{}, bool)
+	GetOldest() (K, V, bool)
 
 	// Returns a slice of the keys in the cache, from oldest to newest.
-	Keys() []interface{}
+	Keys() []K
 
 	// Returns the number of items in the cache.
 	Len() int
@@ -12578,14 +12739,14 @@ type LRUCache interface {
 }
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-lru_test.go - github.com/hashicorp/golang-lru/simplelru
+lru_test.go - github.com/hashicorp/golang-lru/v2/simplelru
 package simplelru
 
 import "testing"
 
 func TestLRU(t *testing.T) {
 	evictCounter := 0
-	onEvicted := func(k interface{}, v interface{}) {
+	onEvicted := func(k int, v int) {
 		if k != v {
 			t.Fatalf("Evict values not equal (%v!=%v)", k, v)
 		}
@@ -12657,7 +12818,7 @@ func TestLRU(t *testing.T) {
 }
 
 func TestLRU_GetOldest_RemoveOldest(t *testing.T) {
-	l, err := NewLRU(128, nil)
+	l, err := NewLRU[int, int](128, nil)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -12668,7 +12829,7 @@ func TestLRU_GetOldest_RemoveOldest(t *testing.T) {
 	if !ok {
 		t.Fatalf("missing")
 	}
-	if k.(int) != 128 {
+	if k != 128 {
 		t.Fatalf("bad: %v", k)
 	}
 
@@ -12676,7 +12837,7 @@ func TestLRU_GetOldest_RemoveOldest(t *testing.T) {
 	if !ok {
 		t.Fatalf("missing")
 	}
-	if k.(int) != 128 {
+	if k != 128 {
 		t.Fatalf("bad: %v", k)
 	}
 
@@ -12684,7 +12845,7 @@ func TestLRU_GetOldest_RemoveOldest(t *testing.T) {
 	if !ok {
 		t.Fatalf("missing")
 	}
-	if k.(int) != 129 {
+	if k != 129 {
 		t.Fatalf("bad: %v", k)
 	}
 }
@@ -12692,7 +12853,7 @@ func TestLRU_GetOldest_RemoveOldest(t *testing.T) {
 // Test that Add returns true/false if an eviction occurred
 func TestLRU_Add(t *testing.T) {
 	evictCounter := 0
-	onEvicted := func(k interface{}, v interface{}) {
+	onEvicted := func(k int, v int) {
 		evictCounter++
 	}
 
@@ -12711,7 +12872,7 @@ func TestLRU_Add(t *testing.T) {
 
 // Test that Contains doesn't update recent-ness
 func TestLRU_Contains(t *testing.T) {
-	l, err := NewLRU(2, nil)
+	l, err := NewLRU[int, int](2, nil)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -12730,7 +12891,7 @@ func TestLRU_Contains(t *testing.T) {
 
 // Test that Peek doesn't update recent-ness
 func TestLRU_Peek(t *testing.T) {
-	l, err := NewLRU(2, nil)
+	l, err := NewLRU[int, int](2, nil)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -12750,7 +12911,7 @@ func TestLRU_Peek(t *testing.T) {
 // Test that Resize can upsize and downsize
 func TestLRU_Resize(t *testing.T) {
 	onEvictCounter := 0
-	onEvicted := func(k interface{}, v interface{}) {
+	onEvicted := func(k int, v int) {
 		onEvictCounter++
 	}
 	l, err := NewLRU(2, onEvicted)
@@ -12787,7 +12948,7 @@ func TestLRU_Resize(t *testing.T) {
 }
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-testing.go - github.com/hashicorp/golang-lru
+testing.go - github.com/hashicorp/golang-lru/v2
 package lru
 
 import (
