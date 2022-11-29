@@ -12,7 +12,7 @@ customers, an [HTTP API is available][ff-api].
 In order to roll out feature flags to `gitlab.com`, you should follow
 the documented rollout process below.
 
-Once you have [developed your feature][feature-development] you [start
+Once you have [developed your feature][#development-with-feature-flags] you [start
 by creating an issue for the rollout][issue-for-feature-rollout].
 
 The "Feature Flag Roll Out" [template for the
@@ -20,11 +20,127 @@ issue][feature-issue-template] has a checklist for the rest of the
 steps.
 
 [ff-api]: https://docs.gitlab.com/ee/api/features.html#features-flags-api
-[feature-development]: https://docs.gitlab.com/ee/development/feature_flags/index.html
 [issue-for-feature-rollout]: https://gitlab.com/gitlab-org/gitaly/-/issues/new?issuable_template=Feature%20Flag%20Roll%20Out
 [feature-issue-template]: https://gitlab.com/gitlab-org/gitaly/-/blob/master/.gitlab/issue_templates/Feature%20Flag%20Roll%20Out.md
 
-### Use and limitations
+### Development with feature flags
+
+It's quite common that a change in Gitaly needs some changes in the clients,
+especially GitLab Rails. There is a clear distinction between using feature
+flags in GitLab Rails and Gitaly.
+
+#### Feature flags in GitLab Rails
+
+GitLab defines a very clear and strict [workflow for development][rails-feature-development].
+Because the flag evaluation is invoked in Rails, we have the flexibility of picking the desired
+actors for a feature flag.
+
+[rails-feature-development]: https://docs.gitlab.com/ee/development/feature_flags/index.html
+
+#### Feature flags in Gitaly
+
+Feature flag definitions and their feature gates are
+managed by GitLab Rails. Gitaly doesn't have direct access to feature flags.
+Instead, Rails is responsible for pre-evaluating feature flags relevant to Gitaly
+and propagating the evaluation result to Gitaly through gRPC metadata. Other Gitaly
+consumers, such as GitLab Shell or Workhorse, follow the same mechanism. They
+propagate the flag evaluation extracted from responses of internal authentication APIs.
+
+After Gitaly receives the flags, it continues to pass feature flags between its
+internal components using either:
+
+- Environment variables.
+- Its gRPC calls.
+
+```mermaid
+graph TD
+    GL[GitLab Rails]
+    GS[GitLab Shell]
+    W[Workhorse]
+    G[Gitaly]:::Gitaly
+    GH[Gitaly Hooks]
+
+    W -- extract features from auth APIs --> GL
+    GS -- extract features from auth APIs --> GL
+    GS -- "RPC(gitaly-feature-a: true)" --> G
+    W -- "RPC(gitaly-feature-a: true)" --> G
+    GL -- "RPC(gitaly-feature-a: true)" --> G
+    G -- Encode flags to env --> GH
+    GH -- "RPC(gitaly-feature-a: true)" --> G
+    G -- "RPC(gitaly-feature-a: true)" --> G
+
+    classDef Gitaly fill:#f96;
+```
+
+> WARNING: This architecture imposes some limitations on how Gitaly uses feature flags
+> - All Gitaly feature flags must start with the `gitaly_` prefix. Otherwise, they are
+>   not propagated to Gitaly. This prefix is stripped when used in Gitaly internally.
+> - Feature flags are not available if an operation does not contact Rails. It
+>   means Gitaly background jobs, such as repository maintenance, cannot use feature flags.
+feature flags.
+
+To check feature flags in the source code, that flag must be defined in
+[internal/metadatta/featureflag][gitaly-featureflag-folder] folder. For example:
+
+```go
+package featureflag
+
+// GoFindLicense enables Go implementation of FindLicense
+var GoFindLicense = NewFeatureFlag(
+	// Snake-cased name of the flag. This is the name used to control the flag
+	// via chatops or admin API. The `gitaly_` prefix is stripped.
+	"go_find_license",
+	// Target version of the flag
+	"v14.3.0",
+	// Rollout Issue
+	"https://gitlab.com/gitlab-org/gitaly/-/issues/3759",
+	// Default value
+	false,
+)
+```
+
+The flag definition is exported and used to evaluate the flag. The evaluation
+is then extracted from the context (essentially the gRPC context). One important note
+here. As feature flags may be turned on/off randomly, the code should work well
+in both states. The flag should not introduce one-way data transformation that
+makes it impossible to switch back. In addition, Gitaly should be backward-compatible
+with the consumers regardless of the current flag state.
+
+```go
+func (s *server) FindLicense(ctx context.Context, req *gitalypb.FindLicenseRequest) (*gitalypb.FindLicenseResponse, error) {
+	// Blah blah
+	if featureflag.GoFindLicense.IsEnabled(ctx) {
+    }
+}
+```
+
+In the test suite, it's recommended to use the [NewFeatureSets][test-featureset] helper.
+This helper repeats the test twice for each on/off state of the flag.
+
+```go
+func TestSuccessfulFindLicenseRequest(t *testing.T) {
+    testhelper.NewFeatureSets(featureflag.GoFindLicense).Run(t, func (t *testing.T, ctx context.Context) {
+        if featureflag.GoFindLicense.IsEnabled(ctx) {
+            // Test the enabled case
+        } else {
+            // Test the disabled case
+        }
+    })
+}
+```
+
+After the code associated with the flag is deployed, we now can turn on the flag
+using chatops. Please note the `gitaly_` prefix. The rollout process is described
+in detail in the following sections.
+
+```shell
+/chatops run feature set gitaly_go_find_license true --staging
+```
+
+[gitaly-featureflag-folder]: https://gitlab.com/gitlab-org/gitaly/-/tree/master/internal/metadata/featureflag
+[test-featureset]: https://gitlab.com/gitlab-org/gitaly/blob/c6fb49b9c6e854c0a2803f53106af501d6006cb8/internal/testhelper/featureset.go#L55-55
+
+### Flag management with chatops
 
 Feature flags are [enabled through chatops][enable-flags] (which is
 just a consumer [of the API][ff-api]). In
@@ -46,17 +162,10 @@ run:
 /chatops run feature get gitaly_go_user_delete_tag --staging
 ```
 
-Note that the full set of chatops features for the Rails environment
-does not work in Gitaly. E.g. the [`--user` argument does
-not][bug-user-argument], neither does [enabling by group or
-project][bug-project-argument].
-
 [enable-flags]: https://docs.gitlab.com/ee/development/feature_flags/controls.html
 [chan-chat-ops-test]: https://gitlab.slack.com/archives/CB2S7NNDP
 [production-request-acl]: https://gitlab.slack.com/archives/C101F3796
 [chan-production]: https://gitlab.com/gitlab-org/gitaly/-/issues/3371
-[bug-user-argument]: https://gitlab.com/gitlab-org/gitaly/-/issues/3385
-[bug-project-argument]: https://gitlab.com/gitlab-org/gitaly/-/issues/3386
 
 ## Feature flags issue checklist
 
@@ -109,13 +218,13 @@ details on the tagging and release process.
 [gitlab-git]: https://gitlab.com/gitlab-org/gitlab/
 [gitaly-git]: https://gitlab.com/gitlab-org/gitaly/
 
-### Do we need a change management issue?
-
 ### Enable on staging
 
 #### Prerequisites
 
-You'll need chatops access. See [above](#use-and-limitations).
+You'll need chatops access. See [ChatOps on GitLab.com][chatops-access].
+
+[chatops-access]: https://docs.gitlab.com/ee/development/chatops_on_gitlabcom.html#requesting-access
 
 #### Steps
 
@@ -177,20 +286,88 @@ environment? Good!
 #### Steps
 
 Feature flags must be rolled out in production systems gradually to
-reduce risk of incidents. Use percentage based actors instead of enabling a
+reduce risk of incidents. Use percentage rollout instead of enabling a
 feature flag fully. The concrete percentages depend on the scope of the feature
 flag as well as its inherent risk. In general, add more fine-grained steps the
 higher the risk and the broader the scope of the gated feature.
 
-To enable your `X` feature at 5/25/50 percent, run the following in the
-`#production` Slack channel. As Gitaly does not reliably support feature
-flag actors, you need to do a fully-randomized rollout:
+The following chatops commands must run in the `#production` channel.
+
+After the [Improve feature flags in Gitaly][improve-flag-epic] epic is addressed,
+Gitaly will support various strategies for us to pick from.
+
+[improve-flag-epic]: https://gitlab.com/groups/gitlab-org/-/epics/8005
+
+#### Rollout to a set of users
+
+It's very common that we want to perform testing on production without affecting
+our customers. Gitaly supports enabling a flag for a set of users by running
+the following command in chatops channels.
+
+```shell
+/chatops run feature set --user=qmnguyen0711,toon gitaly_X
+```
+
+After enabling, the flag is turned on for the users listed when performing an
+action. One caveat of this strategy is that actions without authentication, such as
+cloning a public repository, are not affected.
+
+#### Rollout to a set of repositories
+
+Typically, Git repositories are the main objects that Gitaly takes care of. Nearly
+all operations in Gitaly is done inside the scope of Git repositories. Some
+repositories have a huge impact on a particular Gitaly node. So, it's natural to
+roll out the flags for a set of repositories, typically internal ones.
+
+```shell
+/chatops run feature set --repository=gitlab-org/gitlab.git,gitlab-com/www-gitlab-com.git gitaly_X
+```
+
+The `--repository` flag supports all repository types, such as Wiki or Snippet.
+
+```shell
+/chatops run feature set --repository=snippets/2427310.git gitaly_X
+/chatops run feature set --repository=gitlab-org.wiki.git gitaly_X
+```
+
+#### Rollout to a set of groups
+
+`gitlab-org` and `gitlab-com` are some of the largest groups on GitLab.com. It also
+makes a lot of sense for a feature to be visible to us for verification. Therefore,
+to enable a flag for a set of groups, run the following command in chatops channels:
+
+```shell
+/chatops run feature set --group=gitlab-org,gitlab-com gitaly_X
+```
+
+#### Rollout to a percentage of repositories
+
+To enable your `X` feature at 5/25/50 percentage of repositories, run the following
+command in chatops channels.
+
+```shell
+/chatops run feature set gitaly_X 5 --actors
+/chatops run feature set gitaly_X 25 --actors
+/chatops run feature set gitaly_X 50 --actors
+```
+
+Due to the pre-evaluation architecture, we could not choose the actor types for
+percentage-based rollout. The result of this strategy is persistent between
+evaluations of the same repository. That brings the predictability and ease of
+debugging if something goes wrong.
+
+#### Rollout to a percentage of time
+
+In some less common cases, we may need a fully-randomized percentage-base rollout.
+You need to use `--random` tag in chatops commands:
 
 ```shell
 /chatops run feature set gitaly_X 5 --random
 /chatops run feature set gitaly_X 25 --random
 /chatops run feature set gitaly_X 50 --random
 ```
+
+#### Final steps
 
 And then finally when you're happy it works properly do:
 
