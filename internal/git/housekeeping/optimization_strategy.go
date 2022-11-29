@@ -47,6 +47,7 @@ type HeuristicalOptimizationStrategy struct {
 	packedRefsSize      int64
 	hasAlternate        bool
 	hasBitmap           bool
+	hasSplitCommitGraph bool
 	hasBloomFilters     bool
 	isObjectPool        bool
 }
@@ -79,11 +80,16 @@ func NewHeuristicalOptimizationStrategy(ctx context.Context, repo *localrepo.Rep
 		return strategy, fmt.Errorf("checking for bitmap: %w", err)
 	}
 
-	missingBloomFilters, err := stats.IsMissingBloomFilters(repoPath)
+	commitGraphInfo, err := stats.CommitGraphInfoForRepository(repoPath)
 	if err != nil {
-		return strategy, fmt.Errorf("checking for bloom filters: %w", err)
+		return strategy, fmt.Errorf("checking commit-graph info: %w", err)
 	}
-	strategy.hasBloomFilters = !missingBloomFilters
+	if commitGraphInfo.CommitGraphChainLength == 0 {
+		strategy.hasSplitCommitGraph = false
+	} else {
+		strategy.hasSplitCommitGraph = true
+		strategy.hasBloomFilters = commitGraphInfo.HasBloomFilters
+	}
 
 	strategy.packfileSize, strategy.packfileCount, err = packfileSizeAndCount(repo)
 	if err != nil {
@@ -332,7 +338,7 @@ func (s HeuristicalOptimizationStrategy) ShouldWriteCommitGraph() (bool, WriteCo
 	// paths have been modified in a given commit without having to look into the object
 	// database. In the past we didn't compute bloom filters at all, so we want to rewrite the
 	// whole commit-graph to generate them.
-	if !s.hasBloomFilters {
+	if !s.hasSplitCommitGraph || !s.hasBloomFilters {
 		return true, WriteCommitGraphConfig{
 			ReplaceChain: true,
 		}

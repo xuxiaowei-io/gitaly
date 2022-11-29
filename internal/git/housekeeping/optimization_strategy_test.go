@@ -172,8 +172,9 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 				return repoProto
 			},
 			expectedStrategy: HeuristicalOptimizationStrategy{
-				looseObjectCount: 2,
-				looseRefsCount:   1,
+				looseObjectCount:    2,
+				looseRefsCount:      1,
+				hasSplitCommitGraph: true,
 			},
 		},
 		{
@@ -192,9 +193,10 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 				return repoProto
 			},
 			expectedStrategy: HeuristicalOptimizationStrategy{
-				looseObjectCount: 2,
-				looseRefsCount:   1,
-				hasBloomFilters:  true,
+				looseObjectCount:    2,
+				looseRefsCount:      1,
+				hasSplitCommitGraph: true,
+				hasBloomFilters:     true,
 			},
 		},
 	} {
@@ -632,8 +634,9 @@ func TestHeuristicalOptimizationStrategy_NeedsWriteCommitGraph(t *testing.T) {
 		{
 			desc: "repository with split commit-graph with bitmap without repack",
 			strategy: HeuristicalOptimizationStrategy{
-				looseRefsCount:  1,
-				hasBloomFilters: true,
+				looseRefsCount:      1,
+				hasSplitCommitGraph: true,
+				hasBloomFilters:     true,
 			},
 			// We use the information about whether we repacked objects as an indicator
 			// whether something has changed in the repository. If it didn't, then we

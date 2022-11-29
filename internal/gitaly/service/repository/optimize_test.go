@@ -60,9 +60,11 @@ func TestOptimizeRepository(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, hasBitmap, "expect a bitmap since we just repacked with -b")
 
-	missingBloomFilters, err := stats.IsMissingBloomFilters(repoPath)
+	commitGraphInfo, err := stats.CommitGraphInfoForRepository(repoPath)
 	require.NoError(t, err)
-	require.False(t, missingBloomFilters)
+	require.Equal(t, stats.CommitGraphInfo{
+		Exists: true, HasBloomFilters: true, CommitGraphChainLength: 1,
+	}, commitGraphInfo)
 
 	// get timestamp of latest packfile
 	newestsPackfileTime := getNewestPackfileModtime(t, repoPath)
@@ -133,9 +135,11 @@ func TestOptimizeRepository(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, bitmaps)
 
-	missingBloomFilters, err = stats.IsMissingBloomFilters(testRepoPath)
+	commitGraphInfo, err = stats.CommitGraphInfoForRepository(repoPath)
 	require.NoError(t, err)
-	require.False(t, missingBloomFilters)
+	require.Equal(t, stats.CommitGraphInfo{
+		Exists: true, HasBloomFilters: true, CommitGraphChainLength: 1,
+	}, commitGraphInfo)
 
 	// Empty directories should exist because they're too recent.
 	require.DirExists(t, emptyRef)

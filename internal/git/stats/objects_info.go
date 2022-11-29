@@ -12,6 +12,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 )
 
 // HasBitmap returns whether or not the repository contains an object bitmap.
@@ -52,7 +53,7 @@ func GetPackfiles(repoPath string) ([]fs.DirEntry, error) {
 }
 
 // LooseObjects returns the number of loose objects that are not in a packfile.
-func LooseObjects(ctx context.Context, repo git.RepositoryExecutor) (uint64, error) {
+func LooseObjects(ctx context.Context, repo *localrepo.Repo) (uint64, error) {
 	objectsInfo, err := ObjectsInfoForRepository(ctx, repo)
 	if err != nil {
 		return 0, err
@@ -63,7 +64,7 @@ func LooseObjects(ctx context.Context, repo git.RepositoryExecutor) (uint64, err
 
 // LogObjectsInfo read statistics of the git repo objects
 // and logs it under 'objects_info' key as structured entry.
-func LogObjectsInfo(ctx context.Context, repo git.RepositoryExecutor) {
+func LogObjectsInfo(ctx context.Context, repo *localrepo.Repo) {
 	logger := ctxlogrus.Extract(ctx)
 
 	objectsInfo, err := ObjectsInfoForRepository(ctx, repo)
@@ -80,15 +81,23 @@ type ObjectsInfo struct {
 	LooseObjects uint64 `json:"loose_objects"`
 	// LooseObjectsSize is the accumulated on-disk size of all loose objects in KiB.
 	LooseObjectsSize uint64 `json:"loose_objects_size"`
+	// PrunableObjects is the number of objects that exist both as loose and as packed objects.
+	// The loose objects may be pruned in that case.
+	PruneableObjects uint64 `json:"prunable_objects"`
+
 	// PackedObjects is the count of packed objects.
 	PackedObjects uint64 `json:"packed_objects"`
 	// Packfiles is the number of packfiles.
 	Packfiles uint64 `json:"packfiles"`
 	// PackfilesSize is the accumulated on-disk size of all packfiles in KiB.
 	PackfilesSize uint64 `json:"packfiles_size"`
-	// PrunableObjects is the number of objects that exist both as loose and as packed objects.
-	// The loose objects may be pruned in that case.
-	PruneableObjects uint64 `json:"prunable_objects"`
+	// PackfileBitmapExists indicates whether the repository has a bitmap for one of its
+	// packfiles.
+	PackfileBitmapExists bool `json:"packfile_bitmap_exists"`
+
+	// CommitGraph contains information about the repository's commit-graphs.
+	CommitGraph CommitGraphInfo `json:"commit_graph"`
+
 	// Garbage is the count of files in the object database that are neither a valid loose
 	// object nor a valid packfile.
 	Garbage uint64 `json:"garbage"`
@@ -100,7 +109,12 @@ type ObjectsInfo struct {
 }
 
 // ObjectsInfoForRepository computes the ObjectsInfo for a repository.
-func ObjectsInfoForRepository(ctx context.Context, repo git.RepositoryExecutor) (ObjectsInfo, error) {
+func ObjectsInfoForRepository(ctx context.Context, repo *localrepo.Repo) (ObjectsInfo, error) {
+	repoPath, err := repo.Path()
+	if err != nil {
+		return ObjectsInfo{}, err
+	}
+
 	countObjects, err := repo.Exec(ctx, git.SubCmd{
 		Name:  "count-objects",
 		Flags: []git.Option{git.Flag{Name: "--verbose"}},
@@ -160,6 +174,15 @@ func ObjectsInfoForRepository(ctx context.Context, repo git.RepositoryExecutor) 
 
 	if err := countObjects.Wait(); err != nil {
 		return ObjectsInfo{}, fmt.Errorf("counting objects: %w", err)
+	}
+
+	if info.PackfileBitmapExists, err = HasBitmap(repoPath); err != nil {
+		return ObjectsInfo{}, fmt.Errorf("checking for bitmap: %w", err)
+	}
+
+	info.CommitGraph, err = CommitGraphInfoForRepository(repoPath)
+	if err != nil {
+		return ObjectsInfo{}, fmt.Errorf("checking commit-graph info: %w", err)
 	}
 
 	return info, nil

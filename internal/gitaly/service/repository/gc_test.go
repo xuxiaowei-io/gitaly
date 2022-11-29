@@ -42,8 +42,9 @@ func TestGarbageCollectCommitGraph(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, c)
 
-	chainPath := filepath.Join(repoPath, stats.CommitGraphChainRelPath)
-	require.FileExists(t, chainPath, "pre-computed commit-graph should exist after running garbage collect")
+	requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{
+		Exists: true, HasBloomFilters: true, CommitGraphChainLength: 1,
+	})
 }
 
 func TestGarbageCollectSuccess(t *testing.T) {
