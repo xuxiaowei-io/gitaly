@@ -31,7 +31,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/status"
 )
 
 const (
@@ -342,18 +341,18 @@ func testServerPostUploadPackValidation(t *testing.T, ctx context.Context, makeR
 			request: &gitalypb.PostUploadPackRequest{
 				Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"},
 			},
-			expectedErr: testhelper.GitalyOrPraefect(
-				helper.ErrInvalidArgumentf("GetStorageByName: no such storage: %q", "fake"),
-				helper.ErrInvalidArgumentf("repo scoped: invalid Repository"),
-			),
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+				fmt.Sprintf("GetStorageByName: no such storage: %q", "fake"),
+				"repo scoped: invalid Repository",
+			)),
 		},
 		{
 			desc:    "unset repository",
 			request: &gitalypb.PostUploadPackRequest{Repository: nil},
-			expectedErr: testhelper.GitalyOrPraefect(
-				helper.ErrInvalidArgumentf("empty Repository"),
-				helper.ErrInvalidArgumentf("repo scoped: empty Repository"),
-			),
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 		{
 			desc: "data on first request",
@@ -389,7 +388,7 @@ func testServerPostUploadPackWithSideChannelValidation(t *testing.T, ctx context
 		{
 			desc: "Repository doesn't exist",
 			req:  &gitalypb.PostUploadPackRequest{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
 				`GetStorageByName: no such storage: "fake"`,
 				"repo scoped: invalid Repository",
 			)),
@@ -397,7 +396,7 @@ func testServerPostUploadPackWithSideChannelValidation(t *testing.T, ctx context
 		{
 			desc: "Repository no provided",
 			req:  &gitalypb.PostUploadPackRequest{Repository: nil},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
