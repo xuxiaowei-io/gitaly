@@ -785,7 +785,7 @@ func TestUserRebaseConfirmable_failedWithCode(t *testing.T) {
 			buildHeaderRequest: func() *gitalypb.UserRebaseConfirmableRequest {
 				return buildHeaderRequest(nil, gittest.TestUser, "1", rebaseBranchName, branchCommitID, nil, "master")
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -798,7 +798,7 @@ func TestUserRebaseConfirmable_failedWithCode(t *testing.T) {
 
 				return buildHeaderRequest(repo, gittest.TestUser, "1", rebaseBranchName, branchCommitID, repo, "master")
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				`creating repo quarantine: creating object quarantine: getting repo path: GetStorageByName: no such storage: "@this-storage-does-not-exist"`,
 				"repo scoped: invalid Repository",
 			)),
@@ -811,7 +811,7 @@ func TestUserRebaseConfirmable_failedWithCode(t *testing.T) {
 
 				return buildHeaderRequest(repo, gittest.TestUser, "1", rebaseBranchName, branchCommitID, repo, "master")
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				"empty RelativePath",
 				"repo scoped: invalid Repository",
 			)),

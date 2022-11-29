@@ -114,7 +114,7 @@ func TestRepackIncrementalFailure(t *testing.T) {
 		{
 			desc: "nil repo",
 			repo: nil,
-			err: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			err: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -122,7 +122,7 @@ func TestRepackIncrementalFailure(t *testing.T) {
 		{
 			desc: "invalid storage name",
 			repo: &gitalypb.Repository{RelativePath: "stub", StorageName: "foo"},
-			err: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			err: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				`repacking objects: GetStorageByName: no such storage: "foo"`,
 				"repo scoped: invalid Repository",
 			)),
@@ -130,7 +130,7 @@ func TestRepackIncrementalFailure(t *testing.T) {
 		{
 			desc: "no storage name",
 			repo: &gitalypb.Repository{RelativePath: "bar"},
-			err: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			err: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				"empty StorageName",
 				"repo scoped: invalid Repository",
 			)),
@@ -140,7 +140,7 @@ func TestRepackIncrementalFailure(t *testing.T) {
 			repo: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "bar"},
 			err: status.Error(
 				codes.NotFound,
-				testhelper.GitalyOrPraefectMessage(
+				testhelper.GitalyOrPraefect(
 					fmt.Sprintf(`repacking objects: GetRepoPath: not a git repository: "%s/bar"`, cfg.Storages[0].Path),
 					praefectErr,
 				),
@@ -264,24 +264,24 @@ func TestRepackFullFailure(t *testing.T) {
 		{
 			desc: "nil repo",
 			repo: nil,
-			err:  status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage("empty Repository", "repo scoped: empty Repository")),
+			err:  status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect("empty Repository", "repo scoped: empty Repository")),
 		},
 		{
 			desc: "invalid storage name",
 			repo: &gitalypb.Repository{RelativePath: "stub", StorageName: "foo"},
-			err:  status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(`repacking objects: GetStorageByName: no such storage: "foo"`, "repo scoped: invalid Repository")),
+			err:  status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(`repacking objects: GetStorageByName: no such storage: "foo"`, "repo scoped: invalid Repository")),
 		},
 		{
 			desc: "no storage name",
 			repo: &gitalypb.Repository{RelativePath: "bar"},
-			err:  status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage("empty StorageName", "repo scoped: invalid Repository")),
+			err:  status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect("empty StorageName", "repo scoped: invalid Repository")),
 		},
 		{
 			desc: "non-existing repo",
 			repo: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "bar"},
 			err: status.Error(
 				codes.NotFound,
-				testhelper.GitalyOrPraefectMessage(
+				testhelper.GitalyOrPraefect(
 					fmt.Sprintf(`repacking objects: GetRepoPath: not a git repository: "%s/bar"`, cfg.Storages[0].Path),
 					praefectErr,
 				),

@@ -337,7 +337,7 @@ func TestReplicateRepositoryInvalidArguments(t *testing.T) {
 				},
 				Source: nil,
 			},
-			expectedError: testhelper.GitalyOrPraefectMessage(
+			expectedError: testhelper.GitalyOrPraefect(
 				"source repository cannot be empty",
 				"repo scoped: invalid Repository",
 			),
@@ -354,7 +354,7 @@ func TestReplicateRepositoryInvalidArguments(t *testing.T) {
 					RelativePath: "/ab/cd/abcdef1234",
 				},
 			},
-			expectedError: testhelper.GitalyOrPraefectMessage(
+			expectedError: testhelper.GitalyOrPraefect(
 				"repository and source have the same storage",
 				"repo scoped: invalid Repository",
 			),

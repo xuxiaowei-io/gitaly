@@ -298,7 +298,7 @@ size 12345`
 		})
 		require.NoError(t, err)
 		_, err = stram.Recv()
-		testhelper.RequireGrpcError(t, status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+		testhelper.RequireGrpcError(t, status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 			"empty Repository",
 			"repo scoped: empty Repository",
 		)), err)

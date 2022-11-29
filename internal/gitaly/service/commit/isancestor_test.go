@@ -33,7 +33,7 @@ func TestCommitIsAncestorFailure(t *testing.T) {
 				AncestorId: "b83d6e391c22777fca1ed3012fce84f633d7fed0",
 				ChildId:    "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -60,7 +60,7 @@ func TestCommitIsAncestorFailure(t *testing.T) {
 				AncestorId: "b83d6e391c22777fca1ed3012fce84f633d7fed0",
 				ChildId:    "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
 			},
-			expectedErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefect(
 				`GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/fake-path"`,
 				`accessor call: route repository accessor: consistent storages: repository "default"/"fake-path" not found`,
 			)),

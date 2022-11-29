@@ -298,7 +298,7 @@ func TestOptimizeRepository_validation(t *testing.T) {
 		{
 			desc:    "empty repository",
 			request: &gitalypb.OptimizeRepositoryRequest{},
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefectMessage(
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -311,7 +311,7 @@ func TestOptimizeRepository_validation(t *testing.T) {
 					RelativePath: repo.GetRelativePath(),
 				},
 			},
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefectMessage(
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
 				`GetStorageByName: no such storage: "non-existent"`,
 				"repo scoped: invalid Repository"),
 			),
@@ -324,7 +324,7 @@ func TestOptimizeRepository_validation(t *testing.T) {
 					RelativePath: "path/not/exist",
 				},
 			},
-			expectedErr: helper.ErrNotFoundf(testhelper.GitalyOrPraefectMessage(
+			expectedErr: helper.ErrNotFoundf(testhelper.GitalyOrPraefect(
 				fmt.Sprintf(`GetRepoPath: not a git repository: "%s/path/not/exist"`, cfg.Storages[0].Path),
 				`routing repository maintenance: getting repository metadata: repository not found`,
 			)),

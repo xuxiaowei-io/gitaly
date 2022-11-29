@@ -481,7 +481,7 @@ func TestFindChangedPathsRequest_failing(t *testing.T) {
 			desc:    "Repository not provided",
 			repo:    nil,
 			commits: []string{"e4003da16c1c2c3fc4567700121b17bf8e591c6c", "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"},
-			err: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefectMessage(
+			err: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -490,7 +490,7 @@ func TestFindChangedPathsRequest_failing(t *testing.T) {
 			desc:    "Repo not found",
 			repo:    &gitalypb.Repository{StorageName: repo.GetStorageName(), RelativePath: "bar.git"},
 			commits: []string{"e4003da16c1c2c3fc4567700121b17bf8e591c6c", "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"},
-			err: helper.ErrNotFoundf(testhelper.GitalyOrPraefectMessage(
+			err: helper.ErrNotFoundf(testhelper.GitalyOrPraefect(
 				fmt.Sprintf("GetRepoPath: not a git repository: %q", filepath.Join(cfg.Storages[0].Path, "bar.git")),
 				`accessor call: route repository accessor: consistent storages: repository "default"/"bar.git" not found`,
 			)),
@@ -499,7 +499,7 @@ func TestFindChangedPathsRequest_failing(t *testing.T) {
 			desc:    "Storage not found",
 			repo:    &gitalypb.Repository{StorageName: "foo", RelativePath: "bar.git"},
 			commits: []string{"e4003da16c1c2c3fc4567700121b17bf8e591c6c", "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"},
-			err: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefectMessage(
+			err: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
 				`GetStorageByName: no such storage: "foo"`,
 				"repo scoped: invalid Repository",
 			)),

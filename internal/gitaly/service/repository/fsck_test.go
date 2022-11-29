@@ -71,6 +71,6 @@ func TestFsck_validate(t *testing.T) {
 	_, client := setupRepositoryServiceWithoutRepo(t)
 
 	_, err := client.Fsck(ctx, &gitalypb.FsckRequest{Repository: nil})
-	msg := testhelper.GitalyOrPraefectMessage("empty Repository", "repo scoped: empty Repository")
+	msg := testhelper.GitalyOrPraefect("empty Repository", "repo scoped: empty Repository")
 	testhelper.RequireGrpcError(t, status.Error(codes.InvalidArgument, msg), err)
 }

@@ -74,7 +74,7 @@ func TestFailedUploadArchiveRequestDueToValidationError(t *testing.T) {
 		{
 			Desc: "Repository.RelativePath is empty",
 			Req:  &gitalypb.SSHUploadArchiveRequest{Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: ""}},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				"empty RelativePath",
 				"repo scoped: invalid Repository",
 			)),
@@ -82,7 +82,7 @@ func TestFailedUploadArchiveRequestDueToValidationError(t *testing.T) {
 		{
 			Desc: "Repository is nil",
 			Req:  &gitalypb.SSHUploadArchiveRequest{Repository: nil},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),

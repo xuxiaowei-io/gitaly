@@ -134,7 +134,7 @@ func TestWriteCommitGraph_validationChecks(t *testing.T) {
 		{
 			desc: "no repository",
 			req:  &gitalypb.WriteCommitGraphRequest{},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -142,7 +142,7 @@ func TestWriteCommitGraph_validationChecks(t *testing.T) {
 		{
 			desc: "invalid storage",
 			req:  &gitalypb.WriteCommitGraphRequest{Repository: &gitalypb.Repository{RelativePath: "stub", StorageName: "invalid"}},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				`getting commit-graph config: GetStorageByName: no such storage: "invalid"`,
 				"repo scoped: invalid Repository",
 			)),
@@ -150,7 +150,7 @@ func TestWriteCommitGraph_validationChecks(t *testing.T) {
 		{
 			desc: "not existing repository",
 			req:  &gitalypb.WriteCommitGraphRequest{Repository: &gitalypb.Repository{StorageName: repo.StorageName, RelativePath: "invalid"}},
-			expectedErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefect(
 				fmt.Sprintf(`getting commit-graph config: GetRepoPath: not a git repository: "%s/invalid"`, cfg.Storages[0].Path),
 				"routing repository maintenance: getting repository metadata: repository not found",
 			)),

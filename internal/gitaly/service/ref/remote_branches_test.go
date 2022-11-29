@@ -93,7 +93,7 @@ func TestInvalidFindAllRemoteBranchesRequest(t *testing.T) {
 				},
 				RemoteName: "stub",
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				`creating object reader: GetStorageByName: no such storage: "fake"`,
 				"repo scoped: invalid Repository",
 			)),
@@ -101,7 +101,7 @@ func TestInvalidFindAllRemoteBranchesRequest(t *testing.T) {
 		{
 			description: "Empty repo",
 			request:     &gitalypb.FindAllRemoteBranchesRequest{RemoteName: "myRemote"},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),

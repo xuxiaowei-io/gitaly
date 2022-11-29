@@ -92,7 +92,7 @@ func TestFailedRawBlameRequest(t *testing.T) {
 		{
 			description: "No repository provided",
 			repo:        nil,
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				"RawBlame: empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -103,7 +103,7 @@ func TestFailedRawBlameRequest(t *testing.T) {
 			revision:    []byte("master"),
 			path:        []byte("a/b/c"),
 			blameRange:  []byte{},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				`GetStorageByName: no such storage: "fake"`,
 				"repo scoped: invalid Repository",
 			)),

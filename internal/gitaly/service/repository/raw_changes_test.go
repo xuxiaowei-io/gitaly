@@ -184,7 +184,7 @@ func TestGetRawChangesFailures(t *testing.T) {
 				FromRevision: "cfe32cf61b73a0d5e9f13e774abde7ff789b1660",
 				ToRevision:   "913c66a37b4a45b9769037c55c2d238bd0942d2e",
 			},
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefectMessage(
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),

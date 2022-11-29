@@ -278,7 +278,7 @@ func TestFindLicense_validate(t *testing.T) {
 	client, serverSocketPath := runRepositoryService(t, cfg, nil)
 	cfg.SocketPath = serverSocketPath
 	_, err := client.FindLicense(ctx, &gitalypb.FindLicenseRequest{Repository: nil})
-	msg := testhelper.GitalyOrPraefectMessage("empty Repository", "repo scoped: empty Repository")
+	msg := testhelper.GitalyOrPraefect("empty Repository", "repo scoped: empty Repository")
 	testhelper.RequireGrpcError(t, status.Error(codes.InvalidArgument, msg), err)
 }
 

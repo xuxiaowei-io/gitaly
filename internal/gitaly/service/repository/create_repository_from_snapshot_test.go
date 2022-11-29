@@ -361,7 +361,7 @@ func TestServer_CreateRepositoryFromSnapshot_validate(t *testing.T) {
 		{
 			desc: "no repository provided",
 			req:  &gitalypb.CreateRepositoryFromSnapshotRequest{Repository: nil},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),

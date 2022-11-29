@@ -144,7 +144,7 @@ func TestInfoRefsUploadPack_validate(t *testing.T) {
 		{
 			desc: "repository not provided",
 			req:  &gitalypb.InfoRefsRequest{Repository: nil},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -155,7 +155,7 @@ func TestInfoRefsUploadPack_validate(t *testing.T) {
 				StorageName:  cfg.Storages[0].Name,
 				RelativePath: "doesnt/exist",
 			}},
-			expectedErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefect(
 				`GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/doesnt/exist"`,
 				`accessor call: route repository accessor: consistent storages: repository "default"/"doesnt/exist" not found`,
 			)),
@@ -357,7 +357,7 @@ func TestInfoRefsReceivePack_validate(t *testing.T) {
 		{
 			desc: "repository not provided",
 			req:  &gitalypb.InfoRefsRequest{Repository: nil},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -368,7 +368,7 @@ func TestInfoRefsReceivePack_validate(t *testing.T) {
 				StorageName:  cfg.Storages[0].Name,
 				RelativePath: "testdata/scratch/another_repo",
 			}},
-			expectedErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefect(
 				`GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/testdata/scratch/another_repo"`,
 				`accessor call: route repository accessor: consistent storages: repository "default"/"testdata/scratch/another_repo" not found`,
 			)),

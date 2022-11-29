@@ -158,7 +158,7 @@ func TestGetBlob_invalidRequest(t *testing.T) {
 				Repository: nil,
 				Oid:        oid,
 			},
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefectMessage(
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -172,7 +172,7 @@ func TestGetBlob_invalidRequest(t *testing.T) {
 				},
 				Oid: oid,
 			},
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefectMessage(
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
 				fmt.Sprintf("create object reader: GetStorageByName: no such storage: %q", "fake"),
 				"repo scoped: invalid Repository",
 			)),
@@ -186,7 +186,7 @@ func TestGetBlob_invalidRequest(t *testing.T) {
 				},
 				Oid: oid,
 			},
-			expectedErr: helper.ErrNotFoundf(testhelper.GitalyOrPraefectMessage(
+			expectedErr: helper.ErrNotFoundf(testhelper.GitalyOrPraefect(
 				fmt.Sprintf("create object reader: GetRepoPath: not a git repository: %q", filepath.Join(cfg.Storages[0].Path, "path")),
 				fmt.Sprintf("accessor call: route repository accessor: consistent storages: repository %q/%q not found", cfg.Storages[0].Name, "path"),
 			)),

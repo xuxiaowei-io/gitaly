@@ -294,7 +294,7 @@ func TestCreateFork_validate(t *testing.T) {
 		{
 			desc: "repository not provided",
 			req:  &gitalypb.CreateForkRequest{Repository: nil, SourceRepository: repo},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				"CreateFork: empty Repository",
 				"repo scoped: empty Repository",
 			)),

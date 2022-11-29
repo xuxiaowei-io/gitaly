@@ -212,7 +212,7 @@ func TestListFiles_failure(t *testing.T) {
 		{
 			desc: "nil repo",
 			repo: nil,
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -220,7 +220,7 @@ func TestListFiles_failure(t *testing.T) {
 		{
 			desc: "empty repo object",
 			repo: &gitalypb.Repository{},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				"empty StorageName",
 				"repo scoped: invalid Repository",
 			)),
@@ -228,7 +228,7 @@ func TestListFiles_failure(t *testing.T) {
 		{
 			desc: "non-existing repo",
 			repo: &gitalypb.Repository{StorageName: "foo", RelativePath: "bar"},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				`GetStorageByName: no such storage: "foo"`,
 				"repo scoped: invalid Repository",
 			)),

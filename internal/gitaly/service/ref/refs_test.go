@@ -137,7 +137,7 @@ func TestFindAllBranchNames_validate(t *testing.T) {
 		{
 			desc: "repository not provided",
 			repo: nil,
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -145,7 +145,7 @@ func TestFindAllBranchNames_validate(t *testing.T) {
 		{
 			desc: "repository doesn't exist on disk",
 			repo: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "made/up/path"},
-			expectedErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefect(
 				`GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/made/up/path"`,
 				`accessor call: route repository accessor: consistent storages: repository "default"/"made/up/path" not found`,
 			)),
@@ -153,7 +153,7 @@ func TestFindAllBranchNames_validate(t *testing.T) {
 		{
 			desc: "unknown storage",
 			repo: &gitalypb.Repository{StorageName: "invalid", RelativePath: repo.GetRelativePath()},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				`GetStorageByName: no such storage: "invalid"`,
 				"repo scoped: invalid Repository",
 			)),
@@ -204,7 +204,7 @@ func TestFindAllTagNames_validate(t *testing.T) {
 		{
 			desc: "repository not provided",
 			repo: nil,
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -212,7 +212,7 @@ func TestFindAllTagNames_validate(t *testing.T) {
 		{
 			desc: "repository doesn't exist on disk",
 			repo: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "made/up/path"},
-			expectedErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefect(
 				`GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/made/up/path"`,
 				`accessor call: route repository accessor: consistent storages: repository "default"/"made/up/path" not found`,
 			)),
@@ -220,7 +220,7 @@ func TestFindAllTagNames_validate(t *testing.T) {
 		{
 			desc: "unknown storage",
 			repo: &gitalypb.Repository{StorageName: "invalid", RelativePath: repo.GetRelativePath()},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				`GetStorageByName: no such storage: "invalid"`,
 				"repo scoped: invalid Repository",
 			)),
@@ -282,7 +282,7 @@ func TestFindDefaultBranchName_validate(t *testing.T) {
 		{
 			desc: "repository not provided",
 			repo: nil,
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -290,7 +290,7 @@ func TestFindDefaultBranchName_validate(t *testing.T) {
 		{
 			desc: "repository doesn't exist on disk",
 			repo: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "made/up/path"},
-			expectedErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefect(
 				`GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/made/up/path"`,
 				`accessor call: route repository accessor: consistent storages: repository "default"/"made/up/path" not found`,
 			)),
@@ -298,7 +298,7 @@ func TestFindDefaultBranchName_validate(t *testing.T) {
 		{
 			desc: "unknown storage",
 			repo: &gitalypb.Repository{StorageName: "invalid", RelativePath: repo.GetRelativePath()},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				`GetStorageByName: no such storage: "invalid"`,
 				"repo scoped: invalid Repository",
 			)),
@@ -565,7 +565,7 @@ func TestFindLocalBranches_validate(t *testing.T) {
 		{
 			desc: "repository not provided",
 			repo: nil,
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -573,7 +573,7 @@ func TestFindLocalBranches_validate(t *testing.T) {
 		{
 			desc: "repository doesn't exist on disk",
 			repo: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "made/up/path"},
-			expectedErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.NotFound, testhelper.GitalyOrPraefect(
 				`creating object reader: GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/made/up/path"`,
 				`accessor call: route repository accessor: consistent storages: repository "default"/"made/up/path" not found`,
 			)),
@@ -581,7 +581,7 @@ func TestFindLocalBranches_validate(t *testing.T) {
 		{
 			desc: "unknown storage",
 			repo: &gitalypb.Repository{StorageName: "invalid", RelativePath: repo.GetRelativePath()},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				`creating object reader: GetStorageByName: no such storage: "invalid"`,
 				"repo scoped: invalid Repository",
 			)),
@@ -743,7 +743,7 @@ func TestInvalidFindAllBranchesRequest(t *testing.T) {
 		{
 			description: "Empty request",
 			request:     &gitalypb.FindAllBranchesRequest{},
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefectMessage(
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -756,7 +756,7 @@ func TestInvalidFindAllBranchesRequest(t *testing.T) {
 					RelativePath: "repo",
 				},
 			},
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefectMessage(
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
 				"creating object reader: GetStorageByName: no such storage: \"fake\"",
 				"repo scoped: invalid Repository",
 			)),
@@ -872,7 +872,7 @@ func TestListTagNamesContainingCommit_validate(t *testing.T) {
 		{
 			desc: "repository not provided",
 			req:  &gitalypb.ListTagNamesContainingCommitRequest{Repository: nil},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -990,7 +990,7 @@ func TestListBranchNamesContainingCommit_validate(t *testing.T) {
 		{
 			desc: "repository not provided",
 			req:  &gitalypb.ListBranchNamesContainingCommitRequest{Repository: nil},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),

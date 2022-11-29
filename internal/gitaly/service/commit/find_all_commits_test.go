@@ -176,7 +176,7 @@ func TestFailedFindAllCommitsRequest(t *testing.T) {
 		{
 			desc:    "Invalid repository",
 			request: &gitalypb.FindAllCommitsRequest{Repository: invalidRepo},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				`GetStorageByName: no such storage: "fake"`,
 				"repo scoped: invalid Repository",
 			)),
@@ -184,7 +184,7 @@ func TestFailedFindAllCommitsRequest(t *testing.T) {
 		{
 			desc:    "Repository is nil",
 			request: &gitalypb.FindAllCommitsRequest{},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
