@@ -21,6 +21,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/pktline"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/sidechannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -323,47 +324,49 @@ func TestServer_PostUploadPack_validation(t *testing.T) {
 }
 
 func testServerPostUploadPackValidation(t *testing.T, ctx context.Context, makeRequest requestMaker, opts ...testcfg.Option) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t, opts...)
 	serverSocketPath := runSmartHTTPServer(t, cfg)
+	cfg.SocketPath = serverSocketPath
+
+	repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	for _, tc := range []struct {
-		desc    string
-		request *gitalypb.PostUploadPackRequest
-		code    codes.Code
+		desc        string
+		request     *gitalypb.PostUploadPackRequest
+		expectedErr error
 	}{
 		{
-			desc: "Repository doesn't exist",
+			desc: "nonexistent repository",
 			request: &gitalypb.PostUploadPackRequest{
 				Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"},
 			},
-			code: codes.InvalidArgument,
+			expectedErr: testhelper.GitalyOrPraefect(
+				helper.ErrInvalidArgumentf("GetStorageByName: no such storage: %q", "fake"),
+				helper.ErrInvalidArgumentf("repo scoped: invalid Repository"),
+			),
 		},
 		{
-			desc:    "Repository is nil",
+			desc:    "unset repository",
 			request: &gitalypb.PostUploadPackRequest{Repository: nil},
-			code:    codes.InvalidArgument,
+			expectedErr: testhelper.GitalyOrPraefect(
+				helper.ErrInvalidArgumentf("empty Repository"),
+				helper.ErrInvalidArgumentf("repo scoped: empty Repository"),
+			),
 		},
 		{
-			desc: "Data exists on first request",
+			desc: "data on first request",
 			request: &gitalypb.PostUploadPackRequest{
-				Repository: &gitalypb.Repository{
-					StorageName:  cfg.Storages[0].Name,
-					RelativePath: "path/to/repo",
-				},
-				Data: []byte("Fail"),
+				Repository: repo,
+				Data:       []byte("Fail"),
 			},
-			code: func() codes.Code {
-				if testhelper.IsPraefectEnabled() {
-					return codes.NotFound
-				}
-
-				return codes.InvalidArgument
-			}(),
+			expectedErr: helper.ErrInvalidArgumentf("non-empty Data"),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			_, err := makeRequest(t, ctx, serverSocketPath, cfg.Auth.Token, tc.request, bytes.NewBuffer(nil))
-			testhelper.RequireGrpcCode(t, err, tc.code)
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
 	}
 }
