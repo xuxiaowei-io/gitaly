@@ -18,7 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/voting"
 )
 
@@ -26,14 +25,8 @@ var objectPoolRefspec = fmt.Sprintf("+refs/*:%s/*", git.ObjectPoolRefNamespace)
 
 // FetchFromOrigin initializes the pool and fetches the objects from its origin repository
 func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *localrepo.Repo) error {
-	if featureflag.ObjectPoolDontInitOnFetch.IsDisabled(ctx) {
-		if err := o.Init(ctx); err != nil {
-			return fmt.Errorf("initializing object pool: %w", err)
-		}
-	} else {
-		if !o.Exists() {
-			return helper.ErrInvalidArgumentf("object pool does not exist")
-		}
+	if !o.Exists() {
+		return helper.ErrInvalidArgumentf("object pool does not exist")
 	}
 
 	originPath, err := origin.Path()

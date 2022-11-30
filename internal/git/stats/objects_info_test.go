@@ -325,3 +325,80 @@ func TestObjectsInfoForRepository(t *testing.T) {
 		})
 	}
 }
+
+func TestPackfileInfoForRepository(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	createRepo := func(t *testing.T) (*localrepo.Repo, string) {
+		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			SkipCreationViaService: true,
+		})
+		return localrepo.NewTestRepo(t, cfg, repoProto), repoPath
+	}
+
+	requirePackfilesInfo := func(t *testing.T, repo *localrepo.Repo, expectedInfo PackfilesInfo) {
+		info, err := PackfilesInfoForRepository(repo)
+		require.NoError(t, err)
+		require.Equal(t, expectedInfo, info)
+	}
+
+	t.Run("empty repository", func(t *testing.T) {
+		repo, _ := createRepo(t)
+		requirePackfilesInfo(t, repo, PackfilesInfo{})
+	})
+
+	t.Run("single packfile", func(t *testing.T) {
+		repo, repoPath := createRepo(t)
+
+		packfileDir := filepath.Join(repoPath, "objects", "pack")
+		require.NoError(t, os.MkdirAll(packfileDir, 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "pack-foo.pack"), []byte("foobar"), 0o644))
+
+		requirePackfilesInfo(t, repo, PackfilesInfo{
+			Count: 1,
+			Size:  6,
+		})
+	})
+
+	t.Run("multiple packfiles", func(t *testing.T) {
+		repo, repoPath := createRepo(t)
+
+		packfileDir := filepath.Join(repoPath, "objects", "pack")
+		require.NoError(t, os.MkdirAll(packfileDir, 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "pack-foo.pack"), []byte("foobar"), 0o644))
+		require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "pack-bar.pack"), []byte("123"), 0o644))
+
+		requirePackfilesInfo(t, repo, PackfilesInfo{
+			Count: 2,
+			Size:  9,
+		})
+	})
+
+	t.Run("multiple packfiles with other data structures", func(t *testing.T) {
+		repo, repoPath := createRepo(t)
+
+		packfileDir := filepath.Join(repoPath, "objects", "pack")
+		require.NoError(t, os.MkdirAll(packfileDir, 0o755))
+		for _, file := range []string{
+			"pack-bar.bar",
+			"pack-bar.pack",
+			"pack-bar.idx",
+			"pack-foo.bar",
+			"pack-foo.pack",
+			"pack-foo.idx",
+			"garbage",
+		} {
+			require.NoError(t, os.WriteFile(filepath.Join(packfileDir, file), []byte("1"), 0o644))
+		}
+
+		requirePackfilesInfo(t, repo, PackfilesInfo{
+			Count:        2,
+			Size:         2,
+			GarbageCount: 1,
+			GarbageSize:  1,
+		})
+	})
+}

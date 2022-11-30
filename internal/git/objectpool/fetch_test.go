@@ -3,7 +3,6 @@
 package objectpool
 
 import (
-	"context"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -16,18 +15,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
 
 func TestFetchFromOrigin_dangling(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.ObjectPoolDontInitOnFetch).Run(t, testFetchFromOriginDangling)
-}
 
-func testFetchFromOriginDangling(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg, pool, repoProto := setupObjectPool(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	repoPath, err := repo.Path()
@@ -88,12 +82,8 @@ func testFetchFromOriginDangling(t *testing.T, ctx context.Context) {
 
 func TestFetchFromOrigin_fsck(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.ObjectPoolDontInitOnFetch).Run(t, testFetchFromOriginFsck)
-}
 
-func testFetchFromOriginFsck(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg, pool, repoProto := setupObjectPool(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -120,12 +110,8 @@ func testFetchFromOriginFsck(t *testing.T, ctx context.Context) {
 
 func TestFetchFromOrigin_deltaIslands(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.ObjectPoolDontInitOnFetch).Run(t, testFetchFromOriginDeltaIslands)
-}
 
-func testFetchFromOriginDeltaIslands(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg, pool, repoProto := setupObjectPool(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -146,12 +132,8 @@ func testFetchFromOriginDeltaIslands(t *testing.T, ctx context.Context) {
 
 func TestFetchFromOrigin_bitmapHashCache(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.ObjectPoolDontInitOnFetch).Run(t, testFetchFromOriginBitmapHashCache)
-}
 
-func testFetchFromOriginBitmapHashCache(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg, pool, repoProto := setupObjectPool(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -171,12 +153,8 @@ func testFetchFromOriginBitmapHashCache(t *testing.T, ctx context.Context) {
 
 func TestFetchFromOrigin_refUpdates(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.ObjectPoolDontInitOnFetch).Run(t, testFetchFromOriginRefUpdates)
-}
 
-func testFetchFromOriginRefUpdates(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg, pool, repoProto := setupObjectPool(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -225,12 +203,8 @@ func testFetchFromOriginRefUpdates(t *testing.T, ctx context.Context) {
 
 func TestFetchFromOrigin_refs(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.ObjectPoolDontInitOnFetch).Run(t, testFetchFromOriginRefs)
-}
 
-func testFetchFromOriginRefs(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg, pool, repoProto := setupObjectPool(t, ctx)
 
 	// Initialize the object pool and verify that it ain't yet got any references.
@@ -271,21 +245,11 @@ func testFetchFromOriginRefs(t *testing.T, ctx context.Context) {
 
 func TestFetchFromOrigin_missingPool(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.ObjectPoolDontInitOnFetch).Run(t, testFetchFromOriginMissingPool)
-}
 
-func testFetchFromOriginMissingPool(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg, pool, repoProto := setupObjectPool(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	err := pool.FetchFromOrigin(ctx, repo)
-	if featureflag.ObjectPoolDontInitOnFetch.IsEnabled(ctx) {
-		require.Equal(t, helper.ErrInvalidArgumentf("object pool does not exist"), err)
-		require.False(t, pool.Exists())
-	} else {
-		require.NoError(t, err)
-		require.True(t, pool.Exists())
-	}
+	require.Equal(t, helper.ErrInvalidArgumentf("object pool does not exist"), pool.FetchFromOrigin(ctx, repo))
+	require.False(t, pool.Exists())
 }

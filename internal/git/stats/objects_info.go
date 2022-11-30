@@ -3,6 +3,7 @@ package stats
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -183,6 +184,71 @@ func ObjectsInfoForRepository(ctx context.Context, repo *localrepo.Repo) (Object
 	info.CommitGraph, err = CommitGraphInfoForRepository(repoPath)
 	if err != nil {
 		return ObjectsInfo{}, fmt.Errorf("checking commit-graph info: %w", err)
+	}
+
+	return info, nil
+}
+
+// PackfilesInfo contains information about packfiles.
+type PackfilesInfo struct {
+	// Count is the number of loose objects, including stale ones.
+	Count uint64 `json:"count"`
+	// Size is the total size of all loose objects in bytes, including stale ones.
+	Size uint64 `json:"size"`
+	// GarbageCount is the number of garbage files.
+	GarbageCount uint64 `json:"garbage_count"`
+	// GarbageSize is the total size of all garbage files in bytes.
+	GarbageSize uint64 `json:"garbage_size"`
+}
+
+// PackfilesInfoForRepository derives various information about packfiles for the given repository.
+func PackfilesInfoForRepository(repo *localrepo.Repo) (PackfilesInfo, error) {
+	repoPath, err := repo.Path()
+	if err != nil {
+		return PackfilesInfo{}, fmt.Errorf("getting repository path: %w", err)
+	}
+
+	entries, err := os.ReadDir(filepath.Join(repoPath, "objects", "pack"))
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return PackfilesInfo{}, nil
+		}
+
+		return PackfilesInfo{}, err
+	}
+
+	var info PackfilesInfo
+	for _, entry := range entries {
+		entryInfo, err := entry.Info()
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				continue
+			}
+
+			return PackfilesInfo{}, fmt.Errorf("getting packfile info: %w", err)
+		}
+
+		// We're overly lenient here and only verify for known prefixes. This would already
+		// catch things like temporary packfiles, but it wouldn't catch other bogus files.
+		// This is on purpose though because Git has grown more and more metadata-style file
+		// formats, and we don't want to copy the list here.
+		if !strings.HasPrefix(entry.Name(), "pack-") {
+			info.GarbageCount++
+			if entryInfo.Size() > 0 {
+				info.GarbageSize += uint64(entryInfo.Size())
+			}
+
+			continue
+		}
+
+		if !strings.HasSuffix(entry.Name(), ".pack") {
+			continue
+		}
+
+		info.Count++
+		if entryInfo.Size() > 0 {
+			info.Size += uint64(entryInfo.Size())
+		}
 	}
 
 	return info, nil
