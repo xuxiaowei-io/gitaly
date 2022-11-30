@@ -91,10 +91,12 @@ func NewHeuristicalOptimizationStrategy(ctx context.Context, repo *localrepo.Rep
 		strategy.hasBloomFilters = commitGraphInfo.HasBloomFilters
 	}
 
-	strategy.packfileSize, strategy.packfileCount, err = packfileSizeAndCount(repo)
+	packfilesInfo, err := stats.PackfilesInfoForRepository(repo)
 	if err != nil {
 		return strategy, fmt.Errorf("checking largest packfile size: %w", err)
 	}
+	strategy.packfileCount = packfilesInfo.Count
+	strategy.packfileSize = packfilesInfo.Size
 
 	strategy.looseObjectCount, err = countLooseObjects(repo, time.Now())
 	if err != nil {
@@ -207,47 +209,6 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects() (bool, RepackObje
 	}
 
 	return false, RepackObjectsConfig{}
-}
-
-func packfileSizeAndCount(repo *localrepo.Repo) (uint64, uint64, error) {
-	repoPath, err := repo.Path()
-	if err != nil {
-		return 0, 0, fmt.Errorf("getting repository path: %w", err)
-	}
-
-	entries, err := os.ReadDir(filepath.Join(repoPath, "objects", "pack"))
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return 0, 0, nil
-		}
-
-		return 0, 0, err
-	}
-
-	var totalSize uint64
-	var count uint64
-
-	for _, entry := range entries {
-		if !strings.HasSuffix(entry.Name(), ".pack") {
-			continue
-		}
-
-		entryInfo, err := entry.Info()
-		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				continue
-			}
-
-			return 0, 0, fmt.Errorf("getting packfile info: %w", err)
-		}
-
-		count++
-		if entryInfo.Size() > 0 {
-			totalSize += uint64(entryInfo.Size())
-		}
-	}
-
-	return totalSize, count, nil
 }
 
 // countLooseObjects counts the number of loose objects in the repository. If a cutoff date is
