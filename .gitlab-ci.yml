@@ -122,7 +122,7 @@ include:
         ruby -e "require 'json'; f = File.read(ENV['TEST_FULL_OUTPUT']); f.lines.each do |l| out = JSON.parse(l); puts out['Output']; end" | awk '/^panic/ || /goroutine/,/^\s*$/'
         echo -e "\e[0Ksection_end:`date +%s`:panic_stack_traces\r\e[0K"
       fi
-  artifacts:
+  artifacts: &test_artifacts
     paths:
       - ${CI_PROJECT_DIR}/ruby/tmp/gitaly-rspec-test.log
       - ${TEST_LOG_DIR}
@@ -130,6 +130,18 @@ include:
       junit: ${TEST_REPORT}
     when: always
     expire_in: 1 week
+
+.rules_run_on_merge: &rules_run_on_merge
+    # Automatically run the job when the default branch is changing, e.g. due
+    # to a direct push.
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    # Automatically run the job when a merge request gets queued for merge.
+    - if: $CI_MERGE_REQUEST_EVENT_TYPE == "merge_train"
+    # Otherwise, allow for manually scheduling the job in the context of a
+    # merge request.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: manual
+      allow_failure: true
 
 danger-review:
   needs: []
@@ -299,24 +311,23 @@ test:fips:
     - if: $CI_PROJECT_PATH != "gitlab-org/gitaly"
       when: manual
       allow_failure: true
-    # Automatically run the job when the default branch is changing, e.g. due
-    # to a direct push.
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    # Automatically run the job when a merge request gets queued for merge.
-    - if: $CI_MERGE_REQUEST_EVENT_TYPE == "merge_train"
     # Automatically run the job when the FIPS label is set.
     - if: $CI_MERGE_REQUEST_LABELS =~ /FIPS/
-    # Otherwise, allow for manually scheduling the job in the context of a
-    # merge request.
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      when: manual
-      allow_failure: true
+    - *rules_run_on_merge
 
 test:macos:
+  image: macos-12-xcode-14
+  tags:
+    - shared-macos-amd64
   needs: []
   stage: test
-  image: macos-12-xcode-14
-  script:
+  variables:
+    <<: *test_variables
+    PGDATA: /usr/local/var/postgres
+    PGHOST: localhost
+    PGUSER: gitlab
+    TEST_OPTIONS: "-timeout=20m" # a number of tests may exceed the default 10m
+  before_script:
     - brew uninstall go
     - brew install cmake go@${GO_VERSION}
     # Older Go versions may be keg-only and thus aren't linked into `PATH` by
@@ -331,29 +342,14 @@ test:macos:
     - pg_ctl status
     - createdb -U $PGUSER $POSTGRES_DB
     - make -j$(nproc) build prepare-tests
+  script:
     - make test-go
+  after_script:
     - *test_after_script
-  tags:
-    - shared-macos-amd64
   rules:
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-      allow_failure: true
-    - when: manual
-      allow_failure: true
-  variables:
-    <<: *test_variables
-    PGDATA: /usr/local/var/postgres
-    PGHOST: localhost
-    PGUSER: gitlab
-    TEST_OPTIONS: "-timeout=20m" # a number of tests may exceed the default 10m
+    - *rules_run_on_merge
   artifacts:
-    paths:
-      - ${CI_PROJECT_DIR}/ruby/tmp/gitaly-rspec-test.log
-      - ${TEST_LOG_DIR}
-    reports:
-      junit: ${TEST_REPORT}
-    when: always
-    expire_in: 1 week
+    <<: *test_artifacts
 
 verify:docs:
   image: registry.gitlab.com/gitlab-org/gitlab-docs/lint-markdown:alpine-3.16-vale-2.20.2-markdownlint-0.32.2-markdownlint2-0.5.1
