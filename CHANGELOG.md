@@ -110,6 +110,13 @@ No changes.
 
 - [Fix CVE-2022-32149 in dependencies](gitlab-org/gitaly@1f49b2de36c84c429031ef60ff0189d1a5c3f2d5) ([merge request](gitlab-org/gitaly!4937))
 
+## 15.4.6 (2022-11-30)
+
+### Fixed (2 changes)
+
+- [Allow differing relative paths in ReplicateRepository](gitlab-org/security/gitaly@2875608d6c90d6c9f0bee86414a645b067478b5b)
+- [Allow non-unique addresses for storages in Praefect](gitlab-org/security/gitaly@0f9dac730dfa7cffeb283edaf229e215de7024b5)
+
 ## 15.4.5 (2022-11-15)
 
 No changes.
