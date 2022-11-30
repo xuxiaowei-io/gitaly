@@ -1,19 +1,16 @@
 package stats
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 )
@@ -88,17 +85,8 @@ type ObjectsInfo struct {
 	LooseObjects LooseObjectsInfo `json:"loose_objects"`
 	// Packfiles contains information about packfiles.
 	Packfiles PackfilesInfo `json:"packfiles"`
-
-	// PrunableObjects is the number of objects that exist both as loose and as packed objects.
-	// The loose objects may be pruned in that case.
-	PruneableObjects uint64 `json:"prunable_objects"`
-
-	// PackedObjects is the count of packed objects.
-	PackedObjects uint64 `json:"packed_objects"`
-
 	// CommitGraph contains information about the repository's commit-graphs.
 	CommitGraph CommitGraphInfo `json:"commit_graph"`
-
 	// Alternates is the list of absolute paths of alternate object databases this repository is
 	// connected to.
 	Alternates []string `json:"alternates"`
@@ -106,56 +94,12 @@ type ObjectsInfo struct {
 
 // ObjectsInfoForRepository computes the ObjectsInfo for a repository.
 func ObjectsInfoForRepository(ctx context.Context, repo *localrepo.Repo) (ObjectsInfo, error) {
+	var info ObjectsInfo
+	var err error
+
 	repoPath, err := repo.Path()
 	if err != nil {
 		return ObjectsInfo{}, err
-	}
-
-	countObjects, err := repo.Exec(ctx, git.SubCmd{
-		Name:  "count-objects",
-		Flags: []git.Option{git.Flag{Name: "--verbose"}},
-	})
-	if err != nil {
-		return ObjectsInfo{}, fmt.Errorf("running git-count-objects: %w", err)
-	}
-
-	var info ObjectsInfo
-
-	// The expected format is:
-	//
-	//	count: 12
-	//	packs: 2
-	//	size-garbage: 934
-	//	alternate: /some/path/to/.git/objects
-	//	alternate: "/some/other path/to/.git/objects"
-	scanner := bufio.NewScanner(countObjects)
-	for scanner.Scan() {
-		line := scanner.Text()
-
-		parts := strings.SplitN(line, ": ", 2)
-		if len(parts) != 2 {
-			continue
-		}
-
-		var err error
-		switch parts[0] {
-		case "in-pack":
-			info.PackedObjects, err = strconv.ParseUint(parts[1], 10, 64)
-		case "prune-packable":
-			info.PruneableObjects, err = strconv.ParseUint(parts[1], 10, 64)
-		}
-
-		if err != nil {
-			return ObjectsInfo{}, fmt.Errorf("parsing %q: %w", parts[0], err)
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return ObjectsInfo{}, fmt.Errorf("scanning object info: %w", err)
-	}
-
-	if err := countObjects.Wait(); err != nil {
-		return ObjectsInfo{}, fmt.Errorf("counting objects: %w", err)
 	}
 
 	info.LooseObjects, err = LooseObjectsInfoForRepository(repo, time.Now().Add(StaleObjectsGracePeriod))

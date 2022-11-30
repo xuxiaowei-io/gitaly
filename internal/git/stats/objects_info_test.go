@@ -201,7 +201,6 @@ func TestObjectsInfoForRepository(t *testing.T) {
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
 			},
 			expectedObjectsInfo: ObjectsInfo{
-				PackedObjects: 1,
 				Packfiles: PackfilesInfo{
 					Count:     1,
 					Size:      hashDependentSize(42, 54),
@@ -219,7 +218,6 @@ func TestObjectsInfoForRepository(t *testing.T) {
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-a")
 			},
 			expectedObjectsInfo: ObjectsInfo{
-				PackedObjects: 1,
 				LooseObjects: LooseObjectsInfo{
 					Count: 1,
 					Size:  16,
@@ -229,7 +227,6 @@ func TestObjectsInfoForRepository(t *testing.T) {
 					Size:      hashDependentSize(42, 54),
 					HasBitmap: true,
 				},
-				PruneableObjects: 1,
 			},
 		},
 		{
@@ -317,7 +314,6 @@ func TestObjectsInfoForRepository(t *testing.T) {
 					Count: 2,
 					Size:  32,
 				},
-				PackedObjects: 1,
 				Packfiles: PackfilesInfo{
 					Count:        1,
 					Size:         hashDependentSize(42, 54),
