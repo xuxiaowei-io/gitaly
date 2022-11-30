@@ -1,5 +1,12 @@
 # Gitaly changelog
 
+## 15.6.1 (2022-11-30)
+
+### Fixed (2 changes)
+
+- [Allow differing relative paths in ReplicateRepository](gitlab-org/security/gitaly@0372437b1ac7519b768a1811fcd71c1e2238d2a2)
+- [Allow non-unique addresses for storages in Praefect](gitlab-org/security/gitaly@edd97b614a7c1edf6fd4b030bdf92f194657bce2)
+
 ## 15.6.0 (2022-11-21)
 
 ### Added (2 changes)
@@ -48,6 +55,13 @@
 - [ruby: Remove FeatureFlags](gitlab-org/gitaly@63b206dd21eac0e7f573b099f6bd4154ca44ae3a) ([merge request](gitlab-org/gitaly!4992))
 - [Remove rubyserver redundant clients](gitlab-org/gitaly@2a76a2615d8b1c6d611d0623e4d0925a4b9f914e) ([merge request](gitlab-org/gitaly!4992))
 
+## 15.5.5 (2022-11-30)
+
+### Fixed (2 changes)
+
+- [Allow differing relative paths in ReplicateRepository](gitlab-org/security/gitaly@d3d6f2fce1bf714944590e0aa7a00d75e62bb736)
+- [Allow non-unique addresses for storages in Praefect](gitlab-org/security/gitaly@03c135ec0c00891b8fd68071b4dbba6bd7c7803a)
+
 ## 15.5.4 (2022-11-11)
 
 No changes.
@@ -95,6 +109,13 @@ No changes.
 ### Security (1 change)
 
 - [Fix CVE-2022-32149 in dependencies](gitlab-org/gitaly@1f49b2de36c84c429031ef60ff0189d1a5c3f2d5) ([merge request](gitlab-org/gitaly!4937))
+
+## 15.4.6 (2022-11-30)
+
+### Fixed (2 changes)
+
+- [Allow differing relative paths in ReplicateRepository](gitlab-org/security/gitaly@2875608d6c90d6c9f0bee86414a645b067478b5b)
+- [Allow non-unique addresses for storages in Praefect](gitlab-org/security/gitaly@0f9dac730dfa7cffeb283edaf229e215de7024b5)
 
 ## 15.4.5 (2022-11-15)
 
