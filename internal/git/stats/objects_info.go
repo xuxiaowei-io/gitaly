@@ -94,9 +94,6 @@ type ObjectsInfo struct {
 
 	// PackedObjects is the count of packed objects.
 	PackedObjects uint64 `json:"packed_objects"`
-	// PackfileBitmapExists indicates whether the repository has a bitmap for one of its
-	// packfiles.
-	PackfileBitmapExists bool `json:"packfile_bitmap_exists"`
 
 	// CommitGraph contains information about the repository's commit-graphs.
 	CommitGraph CommitGraphInfo `json:"commit_graph"`
@@ -160,10 +157,6 @@ func ObjectsInfoForRepository(ctx context.Context, repo *localrepo.Repo) (Object
 
 	if err := countObjects.Wait(); err != nil {
 		return ObjectsInfo{}, fmt.Errorf("counting objects: %w", err)
-	}
-
-	if info.PackfileBitmapExists, err = HasBitmap(repoPath); err != nil {
-		return ObjectsInfo{}, fmt.Errorf("checking for bitmap: %w", err)
 	}
 
 	info.LooseObjects, err = LooseObjectsInfoForRepository(repo, time.Now().Add(StaleObjectsGracePeriod))
@@ -272,6 +265,8 @@ type PackfilesInfo struct {
 	GarbageCount uint64 `json:"garbage_count"`
 	// GarbageSize is the total size of all garbage files in bytes.
 	GarbageSize uint64 `json:"garbage_size"`
+	// HasBitmap indicates whether the packfiles have a bitmap.
+	HasBitmap bool `json:"has_bitmap"`
 }
 
 // PackfilesInfoForRepository derives various information about packfiles for the given repository.
@@ -322,6 +317,10 @@ func PackfilesInfoForRepository(repo *localrepo.Repo) (PackfilesInfo, error) {
 		if entryInfo.Size() > 0 {
 			info.Size += uint64(entryInfo.Size())
 		}
+	}
+
+	if info.HasBitmap, err = HasBitmap(repoPath); err != nil {
+		return PackfilesInfo{}, fmt.Errorf("checking for bitmap: %w", err)
 	}
 
 	return info, nil

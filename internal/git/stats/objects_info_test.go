@@ -203,10 +203,10 @@ func TestObjectsInfoForRepository(t *testing.T) {
 			expectedObjectsInfo: ObjectsInfo{
 				PackedObjects: 1,
 				Packfiles: PackfilesInfo{
-					Count: 1,
-					Size:  hashDependentSize(42, 54),
+					Count:     1,
+					Size:      hashDependentSize(42, 54),
+					HasBitmap: true,
 				},
-				PackfileBitmapExists: true,
 			},
 		},
 		{
@@ -225,11 +225,11 @@ func TestObjectsInfoForRepository(t *testing.T) {
 					Size:  16,
 				},
 				Packfiles: PackfilesInfo{
-					Count: 1,
-					Size:  hashDependentSize(42, 54),
+					Count:     1,
+					Size:      hashDependentSize(42, 54),
+					HasBitmap: true,
 				},
-				PackfileBitmapExists: true,
-				PruneableObjects:     1,
+				PruneableObjects: 1,
 			},
 		},
 		{
@@ -323,8 +323,8 @@ func TestObjectsInfoForRepository(t *testing.T) {
 					Size:         hashDependentSize(42, 54),
 					GarbageCount: 3,
 					GarbageSize:  3,
+					HasBitmap:    true,
 				},
-				PackfileBitmapExists: true,
 				Alternates: []string{
 					alternatePath,
 				},
