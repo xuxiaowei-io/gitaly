@@ -20,7 +20,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 )
@@ -170,7 +169,7 @@ func TestCommandFactory_ExecutionEnvironment(t *testing.T) {
 	})
 
 	t.Run("set using GITALY_TESTING_BUNDLED_GIT_PATH", func(t *testing.T) {
-		suffixes := []string{"-v2.37.1.gl1", "-v2.38"}
+		suffixes := []string{"-v2.38"}
 		bundledGitDir := testhelper.TempDir(t)
 
 		var bundledGitConstructors []git.BundledGitEnvironmentConstructor
@@ -228,10 +227,7 @@ func TestCommandFactory_ExecutionEnvironment(t *testing.T) {
 		})
 
 		t.Run("bin_dir with executables", func(t *testing.T) {
-			expectedSuffix := "-v2.37.1.gl1"
-			if featureflag.GitV238.IsEnabled(ctx) {
-				expectedSuffix = "-v2.38"
-			}
+			expectedSuffix := "-v2.38"
 
 			for _, bundledGitConstructor := range bundledGitConstructors {
 				for _, gitBinary := range []string{"gitaly-git", "gitaly-git-remote-http", "gitaly-git-http-backend"} {
