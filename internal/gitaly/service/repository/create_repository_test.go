@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package repository
 
 import (
@@ -32,12 +30,17 @@ func TestCreateRepository_missingAuth(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, _ := testcfg.BuildWithRepo(t, testcfg.WithBase(config.Cfg{Auth: auth.Config{Token: "some"}}))
+	cfg := testcfg.Build(t, testcfg.WithBase(config.Cfg{Auth: auth.Config{Token: "some"}}))
 
 	_, serverSocketPath := runRepositoryService(t, cfg, nil)
 	client := newRepositoryClient(t, config.Cfg{Auth: auth.Config{Token: ""}}, serverSocketPath)
 
-	_, err := client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: repo})
+	_, err := client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{
+		Repository: &gitalypb.Repository{
+			StorageName:  cfg.Storages[0].Name,
+			RelativePath: gittest.NewRepositoryName(t),
+		},
+	})
 	testhelper.RequireGrpcError(t, helper.ErrUnauthenticatedf("authentication required"), err)
 }
 

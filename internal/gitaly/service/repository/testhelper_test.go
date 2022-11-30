@@ -1,12 +1,8 @@
-//go:build !gitaly_test_sha256
-
 package repository
 
 import (
 	"context"
 	"os"
-	"reflect"
-	"runtime"
 	"testing"
 	"time"
 
@@ -40,31 +36,6 @@ var testTime = time.Date(2006, 1, 2, 15, 4, 5, 0, time.UTC)
 
 func TestMain(m *testing.M) {
 	testhelper.Run(m)
-}
-
-func TestWithRubySidecar(t *testing.T) {
-	t.Parallel()
-	cfg := testcfg.Build(t)
-
-	rubySrv := rubyserver.New(cfg, gittest.NewCommandFactory(t, cfg))
-	require.NoError(t, rubySrv.Start())
-	t.Cleanup(rubySrv.Stop)
-
-	client, serverSocketPath := runRepositoryService(t, cfg, rubySrv)
-	cfg.SocketPath = serverSocketPath
-
-	testcfg.BuildGitalyHooks(t, cfg)
-	testcfg.BuildGitalyGit2Go(t, cfg)
-
-	fs := []func(t *testing.T, cfg config.Cfg, client gitalypb.RepositoryServiceClient, rubySrv *rubyserver.Server){
-		testSuccessfulFindLicenseRequest,
-		testFindLicenseRequestEmptyRepo,
-	}
-	for _, f := range fs {
-		t.Run(runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name(), func(t *testing.T) {
-			f(t, cfg, client, rubySrv)
-		})
-	}
 }
 
 func newRepositoryClient(tb testing.TB, cfg config.Cfg, serverSocketPath string) gitalypb.RepositoryServiceClient {
