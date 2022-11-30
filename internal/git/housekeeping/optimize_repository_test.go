@@ -192,7 +192,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 			expectedMetrics: `# HELP gitaly_housekeeping_tasks_total Total number of housekeeping tasks performed in the repository
 # TYPE gitaly_housekeeping_tasks_total counter
 gitaly_housekeeping_tasks_total{housekeeping_task="packed_objects_full", status="success"} 1
-gitaly_housekeeping_tasks_total{housekeeping_task="written_commit_graph_incremental", status="success"} 1
+gitaly_housekeeping_tasks_total{housekeeping_task="written_commit_graph_full", status="success"} 1
 gitaly_housekeeping_tasks_total{housekeeping_task="written_bitmap", status="success"} 1
 gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 `,

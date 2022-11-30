@@ -328,12 +328,6 @@ func (s HeuristicalOptimizationStrategy) ShouldWriteCommitGraph() (bool, WriteCo
 		}
 	}
 
-	// When we repacked the repository then chances are high that we have accumulated quite some
-	// objects since the last time we wrote a commit-graph.
-	if needsRepacking, _ := s.ShouldRepackObjects(); needsRepacking {
-		return true, WriteCommitGraphConfig{}
-	}
-
 	// Bloom filters are part of the commit-graph and allow us to efficiently determine which
 	// paths have been modified in a given commit without having to look into the object
 	// database. In the past we didn't compute bloom filters at all, so we want to rewrite the
@@ -342,6 +336,12 @@ func (s HeuristicalOptimizationStrategy) ShouldWriteCommitGraph() (bool, WriteCo
 		return true, WriteCommitGraphConfig{
 			ReplaceChain: true,
 		}
+	}
+
+	// When we repacked the repository then chances are high that we have accumulated quite some
+	// objects since the last time we wrote a commit-graph.
+	if needsRepacking, _ := s.ShouldRepackObjects(); needsRepacking {
+		return true, WriteCommitGraphConfig{}
 	}
 
 	return false, WriteCommitGraphConfig{}
