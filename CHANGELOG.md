@@ -55,6 +55,13 @@
 - [ruby: Remove FeatureFlags](gitlab-org/gitaly@63b206dd21eac0e7f573b099f6bd4154ca44ae3a) ([merge request](gitlab-org/gitaly!4992))
 - [Remove rubyserver redundant clients](gitlab-org/gitaly@2a76a2615d8b1c6d611d0623e4d0925a4b9f914e) ([merge request](gitlab-org/gitaly!4992))
 
+## 15.5.5 (2022-11-30)
+
+### Fixed (2 changes)
+
+- [Allow differing relative paths in ReplicateRepository](gitlab-org/security/gitaly@d3d6f2fce1bf714944590e0aa7a00d75e62bb736)
+- [Allow non-unique addresses for storages in Praefect](gitlab-org/security/gitaly@03c135ec0c00891b8fd68071b4dbba6bd7c7803a)
+
 ## 15.5.4 (2022-11-11)
 
 No changes.
