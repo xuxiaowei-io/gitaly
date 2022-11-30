@@ -11,7 +11,7 @@ require (
 	github.com/cloudflare/tableflip v1.2.3
 	github.com/containerd/cgroups v1.0.4
 	github.com/getsentry/sentry-go v0.15.0
-	github.com/git-lfs/git-lfs/v3 v3.2.0
+	github.com/git-lfs/git-lfs/v3 v3.3.0
 	github.com/go-enry/go-enry/v2 v2.8.3
 	github.com/go-enry/go-license-detector/v4 v4.3.0
 	github.com/golang-jwt/jwt/v4 v4.4.2
@@ -100,7 +100,7 @@ require (
 	github.com/dpotapov/go-spnego v0.0.0-20220426193508-b7f82e4507db // indirect
 	github.com/ekzhu/minhash-lsh v0.0.0-20171225071031-5c06ee8586a1 // indirect
 	github.com/emirpasic/gods v1.12.0 // indirect
-	github.com/git-lfs/gitobj/v2 v2.1.0 // indirect
+	github.com/git-lfs/gitobj/v2 v2.1.1 // indirect
 	github.com/git-lfs/go-netrc v0.0.0-20210914205454-f0c862dd687a // indirect
 	github.com/git-lfs/pktline v0.0.0-20210330133718-06e9096e2825 // indirect
 	github.com/git-lfs/wildmatch/v2 v2.0.1 // indirect

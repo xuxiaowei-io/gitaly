@@ -597,10 +597,10 @@ github.com/ghodss/yaml v0.0.0-20150909031657-73d445a93680/go.mod h1:4dBDuWmgqj2H
 github.com/ghodss/yaml v1.0.0/go.mod h1:4dBDuWmgqj2HViK6kFavaiC9ZROes6MMH2rRYeMEF04=
 github.com/gin-contrib/sse v0.1.0/go.mod h1:RHrZQHXnP2xjPF+u1gW/2HnVO7nvIa9PG3Gm+fLHvGI=
 github.com/gin-gonic/gin v1.7.7/go.mod h1:axIBovoeJpVj8S3BwE0uPMTeReE4+AfFtqpqaZ1qq1U=
-github.com/git-lfs/git-lfs/v3 v3.2.0 h1:pQQ1GYjxGJE92TqlWASyTAvNig1vS8mDWdWcXgSP3GA=
-github.com/git-lfs/git-lfs/v3 v3.2.0/go.mod h1:GZZO3jw2Yn3/1KFV4nRoXUzH+yPzGypIdTeQpkzxEvQ=
-github.com/git-lfs/gitobj/v2 v2.1.0 h1:5BUDAMga0Sv9msMXolrn6xplkiG5RaVEkOir2HSznog=
-github.com/git-lfs/gitobj/v2 v2.1.0/go.mod h1:q6aqxl6Uu3gWsip5GEKpw+7459F97er8COmU45ncAxw=
+github.com/git-lfs/git-lfs/v3 v3.3.0 h1:cbRy9akD9/hDD7BaVifyNkWkURwC8RSPLzX9+siS+OE=
+github.com/git-lfs/git-lfs/v3 v3.3.0/go.mod h1:5y2vfVQpxUmceMlraOmmaQ83pYptQYCvPl32ybO2IVw=
+github.com/git-lfs/gitobj/v2 v2.1.1 h1:tf/VU6zL1kxa3he+nf6FO/syX+LGkm6WGDsMpfuXV7Q=
+github.com/git-lfs/gitobj/v2 v2.1.1/go.mod h1:q6aqxl6Uu3gWsip5GEKpw+7459F97er8COmU45ncAxw=
 github.com/git-lfs/go-netrc v0.0.0-20210914205454-f0c862dd687a h1:6pskVZacdMUL93pCpMAYnMDLjH1yDFhssPYGe32sjdk=
 github.com/git-lfs/go-netrc v0.0.0-20210914205454-f0c862dd687a/go.mod h1:70O4NAtvWn1jW8V8V+OKrJJYcxDLTmIozfi2fmSz5SI=
 github.com/git-lfs/pktline v0.0.0-20210330133718-06e9096e2825 h1:riQhgheTL7tMF4d5raz9t3+IzoR1i1wqxE1kZC6dY+U=
