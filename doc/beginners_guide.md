@@ -56,6 +56,8 @@ frequently used targets:
 
 - `clean`: Remove all generated build artifacts.
 
+- `help`: Print a list of available Makefile targets and variables.
+
 You can modify some parts of the build process by setting up various variables.
 For example, by executing `make V=1` you can do a verbose build or by overriding
 the `PROTOC_VERSION` and `PROTOC_HASH` a different protobuf compiler version
