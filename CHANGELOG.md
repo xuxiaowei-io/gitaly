@@ -1,5 +1,12 @@
 # Gitaly changelog
 
+## 15.6.1 (2022-11-30)
+
+### Fixed (2 changes)
+
+- [Allow differing relative paths in ReplicateRepository](gitlab-org/security/gitaly@0372437b1ac7519b768a1811fcd71c1e2238d2a2)
+- [Allow non-unique addresses for storages in Praefect](gitlab-org/security/gitaly@edd97b614a7c1edf6fd4b030bdf92f194657bce2)
+
 ## 15.6.0 (2022-11-21)
 
 ### Added (2 changes)
