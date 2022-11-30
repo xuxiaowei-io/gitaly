@@ -31,6 +31,33 @@ func (e ErrInvalidReferenceFormat) Error() string {
 	return fmt.Sprintf("invalid reference format: %q", e.ReferenceName)
 }
 
+// ErrFileDirectoryConflict is returned when an operation would causes a file-directory conflict
+// in the reference store.
+type ErrFileDirectoryConflict struct {
+	// ConflictingReferenceName is the name of the reference that would have conflicted.
+	ConflictingReferenceName string
+	// ExistingReferenceName is the name of the already existing reference.
+	ExistingReferenceName string
+}
+
+func (e ErrFileDirectoryConflict) Error() string {
+	return fmt.Sprintf("%q conflicts with %q", e.ConflictingReferenceName, e.ExistingReferenceName)
+}
+
+// ErrInTransactionConflict is returned when attempting to modify two references in the same transaction
+// in a manner that is not allowed. For example, modifying 'refs/heads/parent' and creating
+// 'refs/heads/parent/child' is not allowed.
+type ErrInTransactionConflict struct {
+	// FirstReferenceName is the name of the first reference that was modified.
+	FirstReferenceName string
+	// SecondReferenceName is the name of the second reference that was modified.
+	SecondReferenceName string
+}
+
+func (e ErrInTransactionConflict) Error() string {
+	return fmt.Sprintf("%q and %q conflict in the same transaction", e.FirstReferenceName, e.SecondReferenceName)
+}
+
 // state represents a possible state the updater can be in.
 type state string
 
@@ -275,8 +302,10 @@ func (u *Updater) write(format string, args ...interface{}) error {
 }
 
 var (
-	refLockedRegex        = regexp.MustCompile(`^fatal: prepare: cannot lock ref '(.+?)': Unable to create '.*': File exists.`)
-	refInvalidFormatRegex = regexp.MustCompile(`^fatal: invalid ref format: (.*)\n$`)
+	refLockedRegex               = regexp.MustCompile(`^fatal: prepare: cannot lock ref '(.+?)': Unable to create '.*': File exists.`)
+	refInvalidFormatRegex        = regexp.MustCompile(`^fatal: invalid ref format: (.*)\n$`)
+	referenceExistsConflictRegex = regexp.MustCompile(`^fatal: .*: cannot lock ref '(.*)': '(.*)' exists; cannot create '.*'\n$`)
+	inTransactionConflictRegex   = regexp.MustCompile(`^fatal: .*: cannot lock ref '.*': cannot process '(.*)' and '(.*)' at the same time\n$`)
 )
 
 func (u *Updater) setState(state string) error {
@@ -314,6 +343,22 @@ func (u *Updater) setState(state string) error {
 		matches = refInvalidFormatRegex.FindSubmatch(u.stderr.Bytes())
 		if len(matches) > 1 {
 			return ErrInvalidReferenceFormat{ReferenceName: string(matches[1])}
+		}
+
+		matches = referenceExistsConflictRegex.FindSubmatch(u.stderr.Bytes())
+		if len(matches) > 1 {
+			return ErrFileDirectoryConflict{
+				ExistingReferenceName:    string(matches[2]),
+				ConflictingReferenceName: string(matches[1]),
+			}
+		}
+
+		matches = inTransactionConflictRegex.FindSubmatch(u.stderr.Bytes())
+		if len(matches) > 1 {
+			return ErrInTransactionConflict{
+				FirstReferenceName:  string(matches[1]),
+				SecondReferenceName: string(matches[2]),
+			}
 		}
 
 		return fmt.Errorf("state update to %q failed: %w, stderr: %q", state, err, u.stderr)

@@ -63,6 +63,76 @@ func TestUpdater_create(t *testing.T) {
 	require.Equal(t, gittest.ResolveRevision(t, cfg, repoPath, "refs/heads/_create"), commitID)
 }
 
+func TestUpdater_fileDirectoryConflict(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+
+	for _, tc := range []struct {
+		desc            string
+		firstReference  git.ReferenceName
+		secondReference git.ReferenceName
+	}{
+		{
+			desc:            "directory-file",
+			firstReference:  "refs/heads/directory",
+			secondReference: "refs/heads/directory/file",
+		},
+		{
+			desc:            "file-directory",
+			firstReference:  "refs/heads/directory/file",
+			secondReference: "refs/heads/directory",
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			for _, method := range []struct {
+				desc   string
+				finish func(*Updater) error
+			}{
+				{desc: "prepare", finish: func(updater *Updater) error { return updater.Prepare() }},
+				{desc: "commit", finish: func(updater *Updater) error { return updater.Commit() }},
+			} {
+				t.Run(method.desc, func(t *testing.T) {
+					t.Run("different transaction", func(t *testing.T) {
+						cfg, _, repoPath, updater := setupUpdater(t, ctx)
+						defer func() { require.ErrorContains(t, updater.Close(), "closing updater: exit status 128") }()
+
+						commitID := gittest.WriteCommit(t, cfg, repoPath)
+
+						require.NoError(t, updater.Start())
+						require.NoError(t, updater.Create(tc.firstReference, commitID))
+						require.NoError(t, updater.Commit())
+
+						require.NoError(t, updater.Start())
+						require.NoError(t, updater.Create(tc.secondReference, commitID))
+
+						require.Equal(t, ErrFileDirectoryConflict{
+							ExistingReferenceName:    tc.firstReference.String(),
+							ConflictingReferenceName: tc.secondReference.String(),
+						}, method.finish(updater))
+					})
+
+					t.Run("same transaction", func(t *testing.T) {
+						cfg, _, repoPath, updater := setupUpdater(t, ctx)
+						defer func() { require.ErrorContains(t, updater.Close(), "closing updater: exit status 128") }()
+
+						commitID := gittest.WriteCommit(t, cfg, repoPath)
+
+						require.NoError(t, updater.Start())
+						require.NoError(t, updater.Create(tc.firstReference, commitID))
+						require.NoError(t, updater.Create(tc.secondReference, commitID))
+
+						require.Equal(t, ErrInTransactionConflict{
+							FirstReferenceName:  tc.firstReference.String(),
+							SecondReferenceName: tc.secondReference.String(),
+						}, method.finish(updater))
+					})
+				})
+			}
+		})
+	}
+}
+
 func TestUpdater_invalidStateTransitions(t *testing.T) {
 	t.Parallel()
 
