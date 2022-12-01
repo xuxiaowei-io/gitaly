@@ -11,6 +11,20 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 )
 
+// Create will create a pool for a repository and pull the required data to this
+// pool. `repo` that is passed also joins the repository.
+func (o *ObjectPool) Create(ctx context.Context, repo *localrepo.Repo) (err error) {
+	if err := o.clone(ctx, repo); err != nil {
+		return fmt.Errorf("clone: %v", err)
+	}
+
+	if err := o.removeHooksDir(); err != nil {
+		return fmt.Errorf("remove hooks: %v", err)
+	}
+
+	return nil
+}
+
 // clone a repository to a pool, without setting the alternates, is not the
 // responsibility of this function.
 func (o *ObjectPool) clone(ctx context.Context, repo *localrepo.Repo) error {

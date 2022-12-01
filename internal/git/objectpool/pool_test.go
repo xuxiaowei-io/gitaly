@@ -11,7 +11,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 )
@@ -102,47 +101,6 @@ func TestFromRepo_failures(t *testing.T) {
 			require.NoError(t, os.Remove(alternateFilePath))
 		})
 	}
-}
-
-func TestCreate(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-
-	cfg, pool, repo := setupObjectPool(t, ctx)
-	repoPath, err := repo.Path()
-	require.NoError(t, err)
-
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
-
-	require.NoError(t, pool.Create(ctx, repo))
-	require.True(t, pool.IsValid())
-
-	// There should not be a "hooks" directory in the pool.
-	require.NoDirExists(t, filepath.Join(pool.FullPath(), "hooks"))
-	// The "origin" remote of the pool points to the pool member.
-	require.Equal(t, repoPath, text.ChompBytes(gittest.Exec(t, cfg, "-C", pool.FullPath(), "remote", "get-url", "origin")))
-	// The "master" branch points to the same commit as in the pool member.
-	require.Equal(t, commitID, gittest.ResolveRevision(t, cfg, pool.FullPath(), "refs/heads/master"))
-	// Objects exist in the pool repository.
-	gittest.RequireObjectExists(t, cfg, pool.FullPath(), commitID)
-}
-
-func TestCreate_subdirsExist(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-
-	_, pool, repo := setupObjectPool(t, ctx)
-
-	err := pool.Create(ctx, repo)
-	require.NoError(t, err)
-
-	require.NoError(t, pool.Remove(ctx))
-
-	// Recreate pool so the subdirs exist already
-	err = pool.Create(ctx, repo)
-	require.NoError(t, err)
 }
 
 func TestRemove(t *testing.T) {
