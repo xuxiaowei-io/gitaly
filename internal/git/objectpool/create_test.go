@@ -59,19 +59,6 @@ func TestCreate_subdirsExist(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestCreate_successful(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-
-	_, pool, repo := setupObjectPool(t, ctx)
-
-	require.NoError(t, pool.Create(ctx, repo))
-
-	require.DirExists(t, pool.FullPath())
-	require.DirExists(t, filepath.Join(pool.FullPath(), "objects"))
-}
-
 func TestCreate_existingPool(t *testing.T) {
 	t.Parallel()
 
