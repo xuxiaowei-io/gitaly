@@ -41,7 +41,7 @@ func TestRepositoryExists(t *testing.T) {
 			request: &gitalypb.RepositoryExistsRequest{
 				Repository: nil,
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(gitalyerrors.ErrEmptyRepository.Error(), "missing repository")),
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(gitalyerrors.ErrEmptyRepository.Error(), "missing repository")),
 		},
 		{
 			desc: "storage name empty",
@@ -51,7 +51,7 @@ func TestRepositoryExists(t *testing.T) {
 					RelativePath: repo.GetRelativePath(),
 				},
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(gitalyerrors.ErrEmptyStorageName.Error(), "repository missing storage name")),
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(gitalyerrors.ErrEmptyStorageName.Error(), "repository missing storage name")),
 		},
 		{
 			desc: "relative path empty",
@@ -61,7 +61,7 @@ func TestRepositoryExists(t *testing.T) {
 					RelativePath: "",
 				},
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(gitalyerrors.ErrEmptyRelativePath.Error(), "repository missing relative path")),
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(gitalyerrors.ErrEmptyRelativePath.Error(), "repository missing relative path")),
 		},
 		{
 			desc: "exists true",

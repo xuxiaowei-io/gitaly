@@ -304,7 +304,7 @@ func TestGetArchive_inputValidation(t *testing.T) {
 			prefix:   "",
 			commitID: commitID,
 			format:   gitalypb.GetArchiveRequest_ZIP,
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				`GetStorageByName: no such storage: "fake"`,
 				"repo scoped: invalid Repository",
 			)),
@@ -315,7 +315,7 @@ func TestGetArchive_inputValidation(t *testing.T) {
 			prefix:   "",
 			commitID: commitID,
 			format:   gitalypb.GetArchiveRequest_ZIP,
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -379,7 +379,7 @@ func TestGetArchive_inputValidation(t *testing.T) {
 			commitID: "sadf",
 			format:   gitalypb.GetArchiveRequest_TAR,
 			path:     []byte("Here is a string...."),
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				"empty RelativePath",
 				"repo scoped: invalid Repository",
 			)),

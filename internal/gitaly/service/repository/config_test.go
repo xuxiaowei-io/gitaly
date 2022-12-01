@@ -78,7 +78,7 @@ func TestGetConfig(t *testing.T) {
 
 	t.Run("no repository provided", func(t *testing.T) {
 		_, err := getConfig(t, client, nil)
-		msg := testhelper.GitalyOrPraefectMessage("empty Repository", "repo scoped: empty Repository")
+		msg := testhelper.GitalyOrPraefect("empty Repository", "repo scoped: empty Repository")
 		expectedErr := status.Errorf(codes.InvalidArgument, msg)
 		testhelper.RequireGrpcError(t, expectedErr, err)
 	})

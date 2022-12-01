@@ -67,7 +67,7 @@ func TestFailedGetTagMessagesRequest(t *testing.T) {
 				Repository: nil,
 				TagIds:     []string{"5937ac0a7beb003549fc5fd26fc247adbce4a52e"},
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),

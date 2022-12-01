@@ -229,7 +229,7 @@ func TestApplyGitattributes_failure(t *testing.T) {
 			desc:     "no repository provided",
 			repo:     nil,
 			revision: nil,
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefectMessage(
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -241,7 +241,7 @@ func TestApplyGitattributes_failure(t *testing.T) {
 				StorageName:  "foo",
 			},
 			revision: []byte("master"),
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefectMessage(
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
 				`GetStorageByName: no such storage: "foo"`,
 				"repo scoped: invalid Repository",
 			)),
@@ -252,7 +252,7 @@ func TestApplyGitattributes_failure(t *testing.T) {
 				RelativePath: repo.GetRelativePath(),
 			},
 			revision: []byte("master"),
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefectMessage(
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
 				"empty StorageName",
 				"repo scoped: invalid Repository",
 			)),
@@ -264,7 +264,7 @@ func TestApplyGitattributes_failure(t *testing.T) {
 				RelativePath: "bar",
 			},
 			revision: []byte("master"),
-			expectedErr: helper.ErrNotFoundf(testhelper.GitalyOrPraefectMessage(
+			expectedErr: helper.ErrNotFoundf(testhelper.GitalyOrPraefect(
 				`GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/bar"`,
 				`mutator call: route repository mutator: get repository id: repository "default"/"bar" not found`,
 			)),

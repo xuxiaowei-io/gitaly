@@ -113,7 +113,7 @@ func TestCommitLanguages_validateRequest(t *testing.T) {
 		{
 			desc: "no repository provided",
 			req:  &gitalypb.CommitLanguagesRequest{Repository: nil},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),

@@ -958,7 +958,7 @@ func TestUserDeleteTag_invalidArgument(t *testing.T) {
 			request: &gitalypb.UserDeleteTagRequest{
 				Repository: nil,
 			},
-			err: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			err: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -1181,7 +1181,7 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 			tagName:        "shiny-new-tag",
 			targetRevision: "main",
 			user:           gittest.TestUser,
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				"validating request: empty Repository",
 				"repo scoped: empty Repository",
 			)),

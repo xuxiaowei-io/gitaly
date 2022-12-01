@@ -166,7 +166,7 @@ func TestCleanup_invalidRequest(t *testing.T) {
 	}{
 		{
 			desc: "no repository provided",
-			err: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			err: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -174,7 +174,7 @@ func TestCleanup_invalidRequest(t *testing.T) {
 		{
 			desc: "storage doesn't exist",
 			in:   &gitalypb.Repository{RelativePath: "stub", StorageName: "stub"},
-			err: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			err: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				`GetStorageByName: no such storage: "stub"`,
 				"repo scoped: invalid Repository",
 			)),
@@ -184,7 +184,7 @@ func TestCleanup_invalidRequest(t *testing.T) {
 			in:   &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "so/me/some.git"},
 			err: status.Error(
 				codes.NotFound,
-				testhelper.GitalyOrPraefectMessage(
+				testhelper.GitalyOrPraefect(
 					fmt.Sprintf(`GetRepoPath: not a git repository: %q`, filepath.Join(cfg.Storages[0].Path, "so/me/some.git")),
 					`routing repository maintenance: getting repository metadata: repository not found`,
 				),

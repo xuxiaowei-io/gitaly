@@ -255,7 +255,7 @@ func TestFailedFindCommitRequest(t *testing.T) {
 		{
 			desc: "Repository is nil",
 			repo: nil,
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -264,7 +264,7 @@ func TestFailedFindCommitRequest(t *testing.T) {
 			desc:     "Invalid repo",
 			repo:     invalidRepo,
 			revision: []byte("master"),
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefectMessage(
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
 				"GetStorageByName: no such storage: \"fake\"",
 				"repo scoped: invalid Repository",
 			)),

@@ -153,7 +153,7 @@ func TestListAllCommits_validate(t *testing.T) {
 			req: &gitalypb.ListAllCommitsRequest{
 				Repository: nil,
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),

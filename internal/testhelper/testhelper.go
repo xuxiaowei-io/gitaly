@@ -375,11 +375,11 @@ func GenerateCerts(tb testing.TB) (string, string) {
 	return certFile.Name(), keyFile.Name()
 }
 
-// GitalyOrPraefectMessage returns gitalyMsg if GITALY_TEST_WITH_PRAEFECT env var is not set and
-// praefectMsg otherwise.
-func GitalyOrPraefectMessage(gitalyMsg, praefectMsg string) string {
+// GitalyOrPraefect returns either the Gitaly- or Praefect-specific object depending on whether
+// tests are running with Praefect as a proxy or not.
+func GitalyOrPraefect[Type any](gitaly, praefect Type) Type {
 	if IsPraefectEnabled() {
-		return praefectMsg
+		return praefect
 	}
-	return gitalyMsg
+	return gitaly
 }

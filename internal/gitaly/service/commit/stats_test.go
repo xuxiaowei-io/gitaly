@@ -94,7 +94,7 @@ func TestCommitStatsFailure(t *testing.T) {
 		{
 			desc:    "no repository provided",
 			request: &gitalypb.CommitStatsRequest{Repository: nil},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefectMessage(
+			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -108,7 +108,7 @@ func TestCommitStatsFailure(t *testing.T) {
 				},
 				Revision: []byte("test-do-not-touch"),
 			},
-			expectedErr: helper.ErrNotFoundf(testhelper.GitalyOrPraefectMessage(
+			expectedErr: helper.ErrNotFoundf(testhelper.GitalyOrPraefect(
 				fmt.Sprintf("GetRepoPath: not a git repository: %q", filepath.Join(cfg.Storages[0].Path, "bar.git")),
 				"accessor call: route repository accessor: consistent storages: repository \"default\"/\"bar.git\" not found",
 			)),
@@ -122,7 +122,7 @@ func TestCommitStatsFailure(t *testing.T) {
 				},
 				Revision: []byte("test-do-not-touch"),
 			},
-			expectedErr: helper.ErrNotFoundf(testhelper.GitalyOrPraefectMessage(
+			expectedErr: helper.ErrNotFoundf(testhelper.GitalyOrPraefect(
 				fmt.Sprintf("GetRepoPath: not a git repository: %q", filepath.Join(cfg.Storages[0].Path, "bar.git")),
 				"accessor call: route repository accessor: consistent storages: repository \"default\"/\"bar.git\" not found",
 			)),
@@ -136,7 +136,7 @@ func TestCommitStatsFailure(t *testing.T) {
 				},
 				Revision: []byte("test-do-not-touch"),
 			},
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefectMessage(
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
 				"GetStorageByName: no such storage: \"foo\"",
 				"repo scoped: invalid Repository",
 			)),

@@ -67,7 +67,7 @@ func TestHasLocalBranches_failure(t *testing.T) {
 		{
 			desc:       "repository nil",
 			repository: nil,
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefectMessage(
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -78,7 +78,7 @@ func TestHasLocalBranches_failure(t *testing.T) {
 				StorageName:  "fake",
 				RelativePath: "path",
 			},
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefectMessage(
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
 				`GetStorageByName: no such storage: "fake"`,
 				"repo scoped: invalid Repository",
 			)),
