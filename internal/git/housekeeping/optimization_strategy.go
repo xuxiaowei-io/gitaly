@@ -2,12 +2,9 @@ package housekeeping
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"io/fs"
 	"math"
 	"os"
-	"path/filepath"
 	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
@@ -100,7 +97,7 @@ func NewHeuristicalOptimizationStrategy(ctx context.Context, repo *localrepo.Rep
 	strategy.looseObjectCount = looseObjectsInfo.Count
 	strategy.oldLooseObjectCount = looseObjectsInfo.StaleCount
 
-	strategy.looseRefsCount, strategy.packedRefsSize, err = countLooseAndPackedRefs(ctx, repo)
+	strategy.looseRefsCount, strategy.packedRefsSize, err = stats.CountLooseAndPackedRefs(ctx, repo)
 	if err != nil {
 		return strategy, fmt.Errorf("counting refs: %w", err)
 	}
@@ -263,42 +260,6 @@ func (s HeuristicalOptimizationStrategy) ShouldPruneObjects() bool {
 	}
 
 	return true
-}
-
-// countLooseAndPackedRefs counts the number of loose references that exist in the repository and
-// returns the size of the packed-refs file.
-func countLooseAndPackedRefs(ctx context.Context, repo *localrepo.Repo) (int64, int64, error) {
-	repoPath, err := repo.Path()
-	if err != nil {
-		return 0, 0, fmt.Errorf("getting repository path: %w", err)
-	}
-	refsPath := filepath.Join(repoPath, "refs")
-
-	looseRefs := int64(0)
-	if err := filepath.WalkDir(refsPath, func(path string, entry fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if !entry.IsDir() {
-			looseRefs++
-		}
-
-		return nil
-	}); err != nil {
-		return 0, 0, fmt.Errorf("counting loose refs: %w", err)
-	}
-
-	packedRefsSize := int64(0)
-	if stat, err := os.Stat(filepath.Join(repoPath, "packed-refs")); err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			return 0, 0, fmt.Errorf("getting packed-refs size: %w", err)
-		}
-	} else {
-		packedRefsSize = stat.Size()
-	}
-
-	return looseRefs, packedRefsSize, nil
 }
 
 // ShouldRepackReferences determines whether the repository's references need to be repacked based

@@ -342,6 +342,75 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 	}
 }
 
+func TestCountLooseAndPackedRefs(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	for _, tc := range []struct {
+		desc                   string
+		setup                  func(*testing.T, *localrepo.Repo, string)
+		expectedLooseRefs      int64
+		expectedPackedRefsSize int64
+	}{
+		{
+			desc: "empty repository",
+			setup: func(*testing.T, *localrepo.Repo, string) {
+			},
+		},
+		{
+			desc: "single unpacked reference",
+			setup: func(t *testing.T, _ *localrepo.Repo, repoPath string) {
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+			},
+			expectedLooseRefs: 1,
+		},
+		{
+			desc: "packed reference",
+			setup: func(t *testing.T, _ *localrepo.Repo, repoPath string) {
+				// We just write some random garbage -- we don't verify contents
+				// anyway, but just the size. And testing like that is at least
+				// deterministic as we don't have to special-case hash sizes.
+				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "packed-refs"), []byte("content"), 0o644))
+			},
+			expectedPackedRefsSize: 7,
+		},
+		{
+			desc: "multiple unpacked and packed refs",
+			setup: func(t *testing.T, _ *localrepo.Repo, repoPath string) {
+				for _, ref := range []string{
+					"refs/heads/main",
+					"refs/something",
+					"refs/merge-requests/1/HEAD",
+				} {
+					gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference(ref))
+				}
+
+				// We just write some random garbage -- we don't verify contents
+				// anyway, but just the size. And testing like that is at least
+				// deterministic as we don't have to special-case hash sizes.
+				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "packed-refs"), []byte("content"), 0o644))
+			},
+			expectedLooseRefs:      3,
+			expectedPackedRefsSize: 7,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				SkipCreationViaService: true,
+			})
+			repo := localrepo.NewTestRepo(t, cfg, repoProto)
+			tc.setup(t, repo, repoPath)
+
+			looseRefs, packedRefsSize, err := CountLooseAndPackedRefs(ctx, repo)
+			require.NoError(t, err)
+			require.Equal(t, tc.expectedLooseRefs, looseRefs)
+			require.Equal(t, tc.expectedPackedRefsSize, packedRefsSize)
+		})
+	}
+}
+
 func TestCountLooseObjects(t *testing.T) {
 	t.Parallel()
 
