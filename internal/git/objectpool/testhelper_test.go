@@ -12,18 +12,18 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
-	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
 func TestMain(m *testing.M) {
 	testhelper.Run(m)
 }
 
-func setupObjectPool(t *testing.T, ctx context.Context) (config.Cfg, *ObjectPool, *gitalypb.Repository) {
+func setupObjectPool(t *testing.T, ctx context.Context) (config.Cfg, *ObjectPool, *localrepo.Repo) {
 	t.Helper()
 
 	cfg := testcfg.Build(t)
@@ -48,11 +48,5 @@ func setupObjectPool(t *testing.T, ctx context.Context) (config.Cfg, *ObjectPool
 	)
 	require.NoError(t, err)
 
-	t.Cleanup(func() {
-		if err := pool.Remove(ctx); err != nil {
-			panic(err)
-		}
-	})
-
-	return cfg, pool, repo
+	return cfg, pool, localrepo.NewTestRepo(t, cfg, repo)
 }

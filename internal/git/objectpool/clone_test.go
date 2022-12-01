@@ -10,7 +10,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
 
@@ -19,8 +18,7 @@ func TestClone_successful(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, pool, repoProto := setupObjectPool(t, ctx)
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	_, pool, repo := setupObjectPool(t, ctx)
 
 	require.NoError(t, pool.clone(ctx, repo))
 
@@ -33,8 +31,7 @@ func TestClone_existingPool(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, pool, repoProto := setupObjectPool(t, ctx)
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	_, pool, repo := setupObjectPool(t, ctx)
 
 	// The first time around cloning should succeed, but ...
 	require.NoError(t, pool.clone(ctx, repo))
@@ -52,9 +49,7 @@ func TestClone_fsck(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, pool, repoProto := setupObjectPool(t, ctx)
-
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	cfg, pool, repo := setupObjectPool(t, ctx)
 	repoPath, err := repo.Path()
 	require.NoError(t, err)
 

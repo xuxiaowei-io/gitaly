@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -22,8 +21,7 @@ func TestFetchFromOrigin_dangling(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, pool, repoProto := setupObjectPool(t, ctx)
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	cfg, pool, repo := setupObjectPool(t, ctx)
 	repoPath, err := repo.Path()
 	require.NoError(t, err)
 
@@ -84,9 +82,7 @@ func TestFetchFromOrigin_fsck(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, pool, repoProto := setupObjectPool(t, ctx)
-
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	cfg, pool, repo := setupObjectPool(t, ctx)
 	repoPath, err := repo.Path()
 	require.NoError(t, err)
 
@@ -112,9 +108,7 @@ func TestFetchFromOrigin_deltaIslands(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, pool, repoProto := setupObjectPool(t, ctx)
-
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	cfg, pool, repo := setupObjectPool(t, ctx)
 	repoPath, err := repo.Path()
 	require.NoError(t, err)
 
@@ -134,11 +128,10 @@ func TestFetchFromOrigin_bitmapHashCache(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, pool, repoProto := setupObjectPool(t, ctx)
-
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	cfg, pool, repo := setupObjectPool(t, ctx)
 	repoPath, err := repo.Path()
 	require.NoError(t, err)
+
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
 
 	require.NoError(t, pool.Init(ctx))
@@ -155,9 +148,7 @@ func TestFetchFromOrigin_refUpdates(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, pool, repoProto := setupObjectPool(t, ctx)
-
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	cfg, pool, repo := setupObjectPool(t, ctx)
 	repoPath, err := repo.Path()
 	require.NoError(t, err)
 
@@ -205,16 +196,14 @@ func TestFetchFromOrigin_refs(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, pool, repoProto := setupObjectPool(t, ctx)
+	cfg, pool, repo := setupObjectPool(t, ctx)
+	repoPath, err := repo.Path()
+	require.NoError(t, err)
 
 	// Initialize the object pool and verify that it ain't yet got any references.
 	poolPath := pool.FullPath()
 	require.NoError(t, pool.Init(ctx))
 	require.Empty(t, gittest.Exec(t, cfg, "-C", poolPath, "for-each-ref", "--format=%(refname)"))
-
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-	repoPath, err := repo.Path()
-	require.NoError(t, err)
 
 	// Initialize the repository with a bunch of references.
 	commitID := gittest.WriteCommit(t, cfg, repoPath)
@@ -247,8 +236,7 @@ func TestFetchFromOrigin_missingPool(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, pool, repoProto := setupObjectPool(t, ctx)
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	_, pool, repo := setupObjectPool(t, ctx)
 
 	require.Equal(t, helper.ErrInvalidArgumentf("object pool does not exist"), pool.FetchFromOrigin(ctx, repo))
 	require.False(t, pool.Exists())

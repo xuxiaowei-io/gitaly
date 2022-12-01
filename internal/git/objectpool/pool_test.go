@@ -9,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
@@ -40,8 +39,7 @@ func TestFromRepo_successful(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, pool, repoProto := setupObjectPool(t, ctx)
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	cfg, pool, repo := setupObjectPool(t, ctx)
 	locator := config.NewLocator(cfg)
 
 	require.NoError(t, pool.Create(ctx, repo))
@@ -59,9 +57,8 @@ func TestFromRepo_failures(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	t.Run("without alternates file", func(t *testing.T) {
-		cfg, pool, repoProto := setupObjectPool(t, ctx)
+		cfg, pool, repo := setupObjectPool(t, ctx)
 		locator := config.NewLocator(cfg)
-		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 		poolFromRepo, err := FromRepo(locator, pool.gitCmdFactory, nil, nil, nil, repo)
 		require.Equal(t, ErrAlternateObjectDirNotExist, err)
@@ -90,10 +87,8 @@ func TestFromRepo_failures(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			cfg, pool, repoProto := setupObjectPool(t, ctx)
+			cfg, pool, repo := setupObjectPool(t, ctx)
 			locator := config.NewLocator(cfg)
-
-			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 			repoPath, err := repo.Path()
 			require.NoError(t, err)
 
@@ -114,9 +109,7 @@ func TestCreate(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, pool, repoProto := setupObjectPool(t, ctx)
-
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	cfg, pool, repo := setupObjectPool(t, ctx)
 	repoPath, err := repo.Path()
 	require.NoError(t, err)
 
@@ -140,8 +133,7 @@ func TestCreate_subdirsExist(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, pool, repoProto := setupObjectPool(t, ctx)
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	_, pool, repo := setupObjectPool(t, ctx)
 
 	err := pool.Create(ctx, repo)
 	require.NoError(t, err)
@@ -158,8 +150,7 @@ func TestRemove(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, pool, repoProto := setupObjectPool(t, ctx)
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	_, pool, repo := setupObjectPool(t, ctx)
 
 	err := pool.Create(ctx, repo)
 	require.NoError(t, err)
