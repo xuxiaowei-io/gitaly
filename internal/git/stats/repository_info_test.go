@@ -126,8 +126,14 @@ func TestLogObjectInfo(t *testing.T) {
 			RelativePath: targetRepoName,
 		}))
 
+		packedRefsStat, err := os.Stat(filepath.Join(targetRepoPath, "packed-refs"))
+		require.NoError(t, err)
+
 		repoInfo := requireRepositoryInfo(hook.AllEntries())
 		require.Equal(t, RepositoryInfo{
+			References: ReferencesInfo{
+				PackedReferencesSize: uint64(packedRefsStat.Size()),
+			},
 			Alternates: []string{
 				filepath.Join(repoPath1, "/objects"),
 				filepath.Join(repoPath2, "/objects"),
@@ -153,6 +159,9 @@ func TestLogObjectInfo(t *testing.T) {
 			LooseObjects: LooseObjectsInfo{
 				Count: 2,
 				Size:  hashDependentSize(142, 158),
+			},
+			References: ReferencesInfo{
+				LooseReferencesCount: 1,
 			},
 		}, objectsInfo)
 	})
@@ -206,6 +215,9 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 					Size:      hashDependentSize(42, 54),
 					HasBitmap: true,
 				},
+				References: ReferencesInfo{
+					LooseReferencesCount: 1,
+				},
 			},
 		},
 		{
@@ -226,6 +238,9 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 					Count:     1,
 					Size:      hashDependentSize(42, 54),
 					HasBitmap: true,
+				},
+				References: ReferencesInfo{
+					LooseReferencesCount: 1,
 				},
 			},
 		},
@@ -265,6 +280,9 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 					Count: 2,
 					Size:  hashDependentSize(142, 158),
 				},
+				References: ReferencesInfo{
+					LooseReferencesCount: 1,
+				},
 				CommitGraph: CommitGraphInfo{
 					Exists: true,
 				},
@@ -280,6 +298,9 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 				LooseObjects: LooseObjectsInfo{
 					Count: 2,
 					Size:  hashDependentSize(142, 158),
+				},
+				References: ReferencesInfo{
+					LooseReferencesCount: 1,
 				},
 				CommitGraph: CommitGraphInfo{
 					Exists:          true,
@@ -320,6 +341,9 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 					GarbageCount: 3,
 					GarbageSize:  3,
 					HasBitmap:    true,
+				},
+				References: ReferencesInfo{
+					LooseReferencesCount: 1,
 				},
 				Alternates: []string{
 					alternatePath,

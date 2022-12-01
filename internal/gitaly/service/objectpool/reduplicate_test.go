@@ -34,10 +34,15 @@ func TestReduplicate(t *testing.T) {
 	// objects.
 	require.NoError(t, pool.Link(ctx, repo))
 	gittest.Exec(t, cfg, "-C", repoPath, "gc")
+	packedRefsStat, err := os.Stat(filepath.Join(repoPath, "packed-refs"))
+	require.NoError(t, err)
 	// Verify that the pool member has no objects on its own anymore.
 	repoInfo, err := stats.RepositoryInfoForRepository(ctx, repo)
 	require.NoError(t, err)
 	require.Equal(t, stats.RepositoryInfo{
+		References: stats.ReferencesInfo{
+			PackedReferencesSize: uint64(packedRefsStat.Size()),
+		},
 		CommitGraph: stats.CommitGraphInfo{
 			Exists: true,
 		},

@@ -85,6 +85,8 @@ type RepositoryInfo struct {
 	LooseObjects LooseObjectsInfo `json:"loose_objects"`
 	// Packfiles contains information about packfiles.
 	Packfiles PackfilesInfo `json:"packfiles"`
+	// References contains information about the repository's references.
+	References ReferencesInfo `json:"references"`
 	// CommitGraph contains information about the repository's commit-graphs.
 	CommitGraph CommitGraphInfo `json:"commit_graph"`
 	// Alternates is the list of absolute paths of alternate object databases this repository is
@@ -110,6 +112,11 @@ func RepositoryInfoForRepository(ctx context.Context, repo *localrepo.Repo) (Rep
 	info.Packfiles, err = PackfilesInfoForRepository(repo)
 	if err != nil {
 		return RepositoryInfo{}, fmt.Errorf("counting packfiles: %w", err)
+	}
+
+	info.References, err = ReferencesInfoForRepository(ctx, repo)
+	if err != nil {
+		return RepositoryInfo{}, fmt.Errorf("checking references: %w", err)
 	}
 
 	info.CommitGraph, err = CommitGraphInfoForRepository(repoPath)
