@@ -308,13 +308,13 @@ func Revlist(
 			line := make([]byte, len(scanner.Bytes()))
 			copy(line, scanner.Bytes())
 
-			oidAndName := bytes.SplitN(line, []byte{' '}, 2)
+			oid, name, ok := bytes.Cut(line, []byte{' '})
 
 			result := RevisionResult{
-				OID: git.ObjectID(oidAndName[0]),
+				OID: git.ObjectID(oid),
 			}
-			if len(oidAndName) == 2 && len(oidAndName[1]) > 0 {
-				result.ObjectName = oidAndName[1]
+			if ok && len(name) > 0 {
+				result.ObjectName = name
 			}
 
 			if cfg.skipResult != nil && cfg.skipResult(&result) {
@@ -440,8 +440,8 @@ func ForEachRef(
 		for scanner.Scan() {
 			line := scanner.Text()
 
-			oidAndRef := strings.SplitN(line, " ", 2)
-			if len(oidAndRef) != 2 {
+			oid, objectName, ok := strings.Cut(line, " ")
+			if !ok {
 				sendRevisionResult(ctx, resultChan, RevisionResult{
 					err: fmt.Errorf("invalid for-each-ref format: %q", line),
 				})
@@ -449,8 +449,8 @@ func ForEachRef(
 			}
 
 			if isDone := sendRevisionResult(ctx, resultChan, RevisionResult{
-				OID:        git.ObjectID(oidAndRef[0]),
-				ObjectName: []byte(oidAndRef[1]),
+				OID:        git.ObjectID(oid),
+				ObjectName: []byte(objectName),
 			}); isDone {
 				return
 			}

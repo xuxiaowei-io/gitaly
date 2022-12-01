@@ -95,15 +95,15 @@ func DiffTree(
 			line := make([]byte, len(scanner.Bytes()))
 			copy(line, scanner.Bytes())
 
-			attrsAndFile := bytes.SplitN(line, []byte{'\t'}, 2)
-			if len(attrsAndFile) != 2 {
+			rawAttrs, objectName, ok := bytes.Cut(line, []byte{'\t'})
+			if !ok {
 				sendRevisionResult(ctx, resultChan, RevisionResult{
 					err: fmt.Errorf("splitting diff-tree attributes and file"),
 				})
 				return
 			}
 
-			attrs := bytes.SplitN(attrsAndFile[0], []byte{' '}, 5)
+			attrs := bytes.SplitN(rawAttrs, []byte{' '}, 5)
 			if len(attrs) != 5 {
 				sendRevisionResult(ctx, resultChan, RevisionResult{
 					err: fmt.Errorf("splitting diff-tree attributes"),
@@ -113,7 +113,7 @@ func DiffTree(
 
 			result := RevisionResult{
 				OID:        git.ObjectID(attrs[3]),
-				ObjectName: attrsAndFile[1],
+				ObjectName: objectName,
 			}
 
 			if cfg.skipResult != nil {
