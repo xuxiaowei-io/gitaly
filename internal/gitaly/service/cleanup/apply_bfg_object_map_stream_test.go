@@ -14,11 +14,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func TestApplyBfgObjectMapStreamSuccess(t *testing.T) {
@@ -112,15 +111,15 @@ func TestApplyBfgObjectMapStreamFailsOnInvalidInput(t *testing.T) {
 	_, repoProto, _, client := setupCleanupService(t, ctx)
 
 	t.Run("invalid object map", func(t *testing.T) {
-		entries, err := doStreamingRequest(t, ctx, repoProto, client, "invalid-data here as you can see")
-		require.Empty(t, entries)
-		testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
+		response, err := doStreamingRequest(t, ctx, repoProto, client, "invalid-data here as you can see")
+		require.Nil(t, response)
+		testhelper.RequireGrpcError(t, helper.ErrInvalidArgumentf("object map invalid at line 0"), err)
 	})
 
 	t.Run("no repository provided", func(t *testing.T) {
-		entries, err := doStreamingRequest(t, ctx, nil, client, "does not matter")
-		require.Empty(t, entries)
-		testhelper.RequireGrpcError(t, status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+		response, err := doStreamingRequest(t, ctx, nil, client, "does not matter")
+		require.Nil(t, response)
+		testhelper.RequireGrpcError(t, helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
 			"empty Repository",
 			"repo scoped: empty Repository",
 		)), err)
