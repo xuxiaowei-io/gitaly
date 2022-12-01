@@ -30,6 +30,8 @@ func TestCleanupDeletesStaleWorktrees(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
+	now := time.Now()
+
 	testCases := []struct {
 		desc         string
 		worktreeTime time.Time
@@ -37,17 +39,17 @@ func TestCleanupDeletesStaleWorktrees(t *testing.T) {
 	}{
 		{
 			desc:         "with a recent worktree",
-			worktreeTime: freshTime,
+			worktreeTime: now,
 			shouldExist:  true,
 		},
 		{
 			desc:         "with a slightly old worktree",
-			worktreeTime: oldTime,
+			worktreeTime: now.Add(offsetUntilOld),
 			shouldExist:  true,
 		},
 		{
 			desc:         "with an old worktree",
-			worktreeTime: oldTreeTime,
+			worktreeTime: now.Add(offsetUntilOldWorktree),
 			shouldExist:  false,
 		},
 	}
@@ -93,12 +95,14 @@ func TestCleanupDeletesOrphanedWorktrees(t *testing.T) {
 	ctx := testhelper.Context(t)
 	_, repo, repoPath, client := setupRepositoryService(t, ctx)
 
+	oldWorktreeTime := time.Now().Add(offsetUntilOldWorktree)
+
 	worktreeCheckoutPath := filepath.Join(repoPath, worktreePrefix, "test-worktree")
 	basePath := filepath.Join(repoPath, "worktrees")
 	worktreePath := filepath.Join(basePath, "test-worktree")
 
 	require.NoError(t, os.MkdirAll(worktreeCheckoutPath, os.ModePerm))
-	require.NoError(t, os.Chtimes(worktreeCheckoutPath, oldTreeTime, oldTreeTime))
+	require.NoError(t, os.Chtimes(worktreeCheckoutPath, oldWorktreeTime, oldWorktreeTime))
 
 	//nolint:staticcheck
 	c, err := client.Cleanup(ctx, &gitalypb.CleanupRequest{Repository: repo})

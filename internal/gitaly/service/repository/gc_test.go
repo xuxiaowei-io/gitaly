@@ -26,9 +26,8 @@ import (
 )
 
 var (
-	freshTime   = time.Now()
-	oldTime     = freshTime.Add(-2 * time.Hour)
-	oldTreeTime = freshTime.Add(-7 * time.Hour)
+	offsetUntilOld         = -2 * time.Hour
+	offsetUntilOldWorktree = -7 * time.Hour
 )
 
 func TestGarbageCollectCommitGraph(t *testing.T) {
@@ -166,22 +165,25 @@ func TestGarbageCollectDeletesRefsLocks(t *testing.T) {
 	req := &gitalypb.GarbageCollectRequest{Repository: repo}
 	refsPath := filepath.Join(repoPath, "refs")
 
+	now := time.Now()
+	old := now.Add(offsetUntilOld)
+
 	// Note: Creating refs this way makes `git gc` crash but this actually works
 	// in our favor for this test since we can ensure that the files kept and
 	// deleted are all due to our *.lock cleanup step before gc runs (since
 	// `git gc` also deletes files from /refs when packing).
 	keepRefPath := filepath.Join(refsPath, "heads", "keepthis")
-	mustCreateFileWithTimes(t, keepRefPath, freshTime)
+	mustCreateFileWithTimes(t, keepRefPath, now)
 	keepOldRefPath := filepath.Join(refsPath, "heads", "keepthisalso")
-	mustCreateFileWithTimes(t, keepOldRefPath, oldTime)
+	mustCreateFileWithTimes(t, keepOldRefPath, old)
 	keepDeceitfulRef := filepath.Join(refsPath, "heads", " .lock.not-actually-a-lock.lock ")
-	mustCreateFileWithTimes(t, keepDeceitfulRef, oldTime)
+	mustCreateFileWithTimes(t, keepDeceitfulRef, old)
 
 	keepLockPath := filepath.Join(refsPath, "heads", "keepthis.lock")
-	mustCreateFileWithTimes(t, keepLockPath, freshTime)
+	mustCreateFileWithTimes(t, keepLockPath, now)
 
 	deleteLockPath := filepath.Join(refsPath, "heads", "deletethis.lock")
-	mustCreateFileWithTimes(t, deleteLockPath, oldTime)
+	mustCreateFileWithTimes(t, deleteLockPath, old)
 
 	//nolint:staticcheck
 	c, err := client.GarbageCollect(ctx, req)
@@ -207,22 +209,25 @@ func TestGarbageCollectDeletesPackedRefsLock(t *testing.T) {
 
 	testCases := []struct {
 		desc        string
-		lockTime    *time.Time
+		createLock  func(t *testing.T, lockfilePath string)
 		shouldExist bool
 	}{
 		{
-			desc:        "with a recent lock",
-			lockTime:    &freshTime,
+			desc: "with a recent lock",
+			createLock: func(t *testing.T, lockfilePath string) {
+				mustCreateFileWithTimes(t, lockfilePath, time.Now())
+			},
 			shouldExist: true,
 		},
 		{
-			desc:        "with an old lock",
-			lockTime:    &oldTime,
+			desc: "with an old lock",
+			createLock: func(t *testing.T, lockfilePath string) {
+				mustCreateFileWithTimes(t, lockfilePath, time.Now().Add(offsetUntilOld))
+			},
 			shouldExist: false,
 		},
 		{
 			desc:        "with a non-existing lock",
-			lockTime:    nil,
 			shouldExist: false,
 		},
 	}
@@ -236,13 +241,14 @@ func TestGarbageCollectDeletesPackedRefsLock(t *testing.T) {
 			// Force the packed-refs file to have an old time to test that even
 			// in that case it doesn't get deleted
 			packedRefsPath := filepath.Join(repoPath, "packed-refs")
-			require.NoError(t, os.Chtimes(packedRefsPath, oldTime, oldTime))
+			ancient := time.Now().Add(-7 * 24 * time.Hour)
+			require.NoError(t, os.Chtimes(packedRefsPath, ancient, ancient))
 
 			req := &gitalypb.GarbageCollectRequest{Repository: repo}
 			lockPath := filepath.Join(repoPath, "packed-refs.lock")
 
-			if tc.lockTime != nil {
-				mustCreateFileWithTimes(t, lockPath, *tc.lockTime)
+			if tc.createLock != nil {
+				tc.createLock(t, lockPath)
 			}
 
 			//nolint:staticcheck
@@ -304,7 +310,7 @@ func TestGarbageCollectDeletesFileLocks(t *testing.T) {
 				})
 
 				lockPath := filepath.Join(repoPath, tc.lockfile)
-				mustCreateFileWithTimes(t, lockPath, freshTime)
+				mustCreateFileWithTimes(t, lockPath, time.Now())
 
 				//nolint:staticcheck
 				_, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{
@@ -327,7 +333,7 @@ func TestGarbageCollectDeletesFileLocks(t *testing.T) {
 				})
 
 				lockPath := filepath.Join(repoPath, tc.lockfile)
-				mustCreateFileWithTimes(t, lockPath, oldTime)
+				mustCreateFileWithTimes(t, lockPath, time.Now().Add(offsetUntilOld))
 
 				//nolint:staticcheck
 				_, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{
@@ -347,18 +353,22 @@ func TestGarbageCollectDeletesPackedRefsNew(t *testing.T) {
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	testCases := []struct {
-		desc        string
-		lockTime    *time.Time
-		shouldExist bool
+		desc           string
+		createLockfile func(t *testing.T, lockfilePath string)
+		shouldExist    bool
 	}{
 		{
-			desc:        "created recently",
-			lockTime:    &freshTime,
+			desc: "created recently",
+			createLockfile: func(t *testing.T, lockfilePath string) {
+				mustCreateFileWithTimes(t, lockfilePath, time.Now())
+			},
 			shouldExist: true,
 		},
 		{
-			desc:        "exists for too long",
-			lockTime:    &oldTime,
+			desc: "exists for too long",
+			createLockfile: func(t *testing.T, lockfilePath string) {
+				mustCreateFileWithTimes(t, lockfilePath, time.Now().Add(offsetUntilOld))
+			},
 			shouldExist: false,
 		},
 		{
@@ -374,8 +384,8 @@ func TestGarbageCollectDeletesPackedRefsNew(t *testing.T) {
 			req := &gitalypb.GarbageCollectRequest{Repository: repo}
 			packedRefsNewPath := filepath.Join(repoPath, "packed-refs.new")
 
-			if tc.lockTime != nil {
-				mustCreateFileWithTimes(t, packedRefsNewPath, *tc.lockTime)
+			if tc.createLockfile != nil {
+				tc.createLockfile(t, packedRefsNewPath)
 			}
 
 			//nolint:staticcheck
