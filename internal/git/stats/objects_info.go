@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
@@ -187,6 +188,84 @@ func ObjectsInfoForRepository(ctx context.Context, repo *localrepo.Repo) (Object
 	}
 
 	return info, nil
+}
+
+// LooseObjectsInfo contains information about loose objects.
+type LooseObjectsInfo struct {
+	// Count is the number of loose objects.
+	Count uint64 `json:"count"`
+	// Size is the total size of all loose objects in bytes.
+	Size uint64 `json:"size"`
+	// StaleCount is the number of stale loose objects when taking into account the specified cutoff
+	// date.
+	StaleCount uint64 `json:"stale_count"`
+	// StaleSize is the total size of stale loose objects when taking into account the specified
+	// cutoff date.
+	StaleSize uint64 `json:"stale_size"`
+	// GarbageCount is the number of garbage files in the loose-objects shards.
+	GarbageCount uint64 `json:"garbage_count"`
+	// GarbageSize is the total size of garbage in the loose-objects shards.
+	GarbageSize uint64 `json:"garbage_size"`
+}
+
+// LooseObjectsInfoForRepository derives information about loose objects in the repository. If a
+// cutoff date is given, then this function will only take into account objects which are older than
+// the given point in time.
+func LooseObjectsInfoForRepository(repo *localrepo.Repo, cutoffDate time.Time) (LooseObjectsInfo, error) {
+	repoPath, err := repo.Path()
+	if err != nil {
+		return LooseObjectsInfo{}, fmt.Errorf("getting repository path: %w", err)
+	}
+
+	var info LooseObjectsInfo
+	for i := 0; i <= 0xFF; i++ {
+		entries, err := os.ReadDir(filepath.Join(repoPath, "objects", fmt.Sprintf("%02x", i)))
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				continue
+			}
+
+			return LooseObjectsInfo{}, fmt.Errorf("reading loose object shard: %w", err)
+		}
+
+		for _, entry := range entries {
+			entryInfo, err := entry.Info()
+			if err != nil {
+				if errors.Is(err, fs.ErrNotExist) {
+					continue
+				}
+
+				return LooseObjectsInfo{}, fmt.Errorf("reading object info: %w", err)
+			}
+
+			if !isValidLooseObjectName(entry.Name()) {
+				info.GarbageCount++
+				info.GarbageSize += uint64(entryInfo.Size())
+				continue
+			}
+
+			// Note: we don't `continue` here as we count stale objects into the total
+			// number of objects.
+			if entryInfo.ModTime().Before(cutoffDate) {
+				info.StaleCount++
+				info.StaleSize += uint64(entryInfo.Size())
+			}
+
+			info.Count++
+			info.Size += uint64(entryInfo.Size())
+		}
+	}
+
+	return info, nil
+}
+
+func isValidLooseObjectName(s string) bool {
+	for _, c := range []byte(s) {
+		if strings.IndexByte("0123456789abcdef", c) < 0 {
+			return false
+		}
+	}
+	return true
 }
 
 // PackfilesInfo contains information about packfiles.

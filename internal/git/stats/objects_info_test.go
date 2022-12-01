@@ -1,6 +1,7 @@
 package stats
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -324,6 +325,223 @@ func TestObjectsInfoForRepository(t *testing.T) {
 			require.Equal(t, tc.expectedObjectsInfo, objectsInfo)
 		})
 	}
+}
+
+func TestCountLooseObjects(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	createRepo := func(t *testing.T) (*localrepo.Repo, string) {
+		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			SkipCreationViaService: true,
+		})
+		return localrepo.NewTestRepo(t, cfg, repoProto), repoPath
+	}
+
+	requireLooseObjectsInfo := func(t *testing.T, repo *localrepo.Repo, cutoff time.Time, expectedInfo LooseObjectsInfo) {
+		info, err := LooseObjectsInfoForRepository(repo, cutoff)
+		require.NoError(t, err)
+		require.Equal(t, expectedInfo, info)
+	}
+
+	t.Run("empty repository", func(t *testing.T) {
+		repo, _ := createRepo(t)
+		requireLooseObjectsInfo(t, repo, time.Now(), LooseObjectsInfo{})
+	})
+
+	t.Run("object in random shard", func(t *testing.T) {
+		repo, repoPath := createRepo(t)
+
+		differentShard := filepath.Join(repoPath, "objects", "a0")
+		require.NoError(t, os.MkdirAll(differentShard, 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join(differentShard, "123456"), []byte("foobar"), 0o644))
+
+		requireLooseObjectsInfo(t, repo, time.Now(), LooseObjectsInfo{
+			Count:      1,
+			Size:       6,
+			StaleCount: 1,
+			StaleSize:  6,
+		})
+	})
+
+	t.Run("objects in multiple shards", func(t *testing.T) {
+		repo, repoPath := createRepo(t)
+
+		for i, shard := range []string{"00", "17", "32", "ff"} {
+			shardPath := filepath.Join(repoPath, "objects", shard)
+			require.NoError(t, os.MkdirAll(shardPath, 0o755))
+			require.NoError(t, os.WriteFile(filepath.Join(shardPath, "123456"), make([]byte, i), 0o644))
+		}
+
+		requireLooseObjectsInfo(t, repo, time.Now(), LooseObjectsInfo{
+			Count:      4,
+			Size:       6,
+			StaleCount: 4,
+			StaleSize:  6,
+		})
+	})
+
+	t.Run("object in shard with grace period", func(t *testing.T) {
+		repo, repoPath := createRepo(t)
+
+		shard := filepath.Join(repoPath, "objects", "17")
+		require.NoError(t, os.MkdirAll(shard, 0o755))
+
+		objectPaths := []string{
+			filepath.Join(shard, "123456"),
+			filepath.Join(shard, "654321"),
+		}
+
+		cutoffDate := time.Now()
+		afterCutoffDate := cutoffDate.Add(1 * time.Minute)
+		beforeCutoffDate := cutoffDate.Add(-1 * time.Minute)
+
+		for _, objectPath := range objectPaths {
+			require.NoError(t, os.WriteFile(objectPath, []byte("1"), 0o644))
+			require.NoError(t, os.Chtimes(objectPath, afterCutoffDate, afterCutoffDate))
+		}
+
+		// Objects are recent, so with the cutoff-date they shouldn't be counted.
+		requireLooseObjectsInfo(t, repo, time.Now(), LooseObjectsInfo{
+			Count: 2,
+			Size:  2,
+		})
+
+		for i, objectPath := range objectPaths {
+			// Modify the object's mtime should cause it to be counted.
+			require.NoError(t, os.Chtimes(objectPath, beforeCutoffDate, beforeCutoffDate))
+
+			requireLooseObjectsInfo(t, repo, time.Now(), LooseObjectsInfo{
+				Count:      2,
+				Size:       2,
+				StaleCount: uint64(i) + 1,
+				StaleSize:  uint64(i) + 1,
+			})
+		}
+	})
+
+	t.Run("shard with garbage", func(t *testing.T) {
+		repo, repoPath := createRepo(t)
+
+		shard := filepath.Join(repoPath, "objects", "17")
+		require.NoError(t, os.MkdirAll(shard, 0o755))
+
+		require.NoError(t, os.WriteFile(filepath.Join(shard, "012345"), []byte("valid"), 0o644))
+		require.NoError(t, os.WriteFile(filepath.Join(shard, "garbage"), []byte("garbage"), 0o644))
+
+		requireLooseObjectsInfo(t, repo, time.Now(), LooseObjectsInfo{
+			Count:        1,
+			Size:         5,
+			StaleCount:   1,
+			StaleSize:    5,
+			GarbageCount: 1,
+			GarbageSize:  7,
+		})
+	})
+}
+
+func BenchmarkCountLooseObjects(b *testing.B) {
+	ctx := testhelper.Context(b)
+	cfg := testcfg.Build(b)
+
+	createRepo := func(b *testing.B) (*localrepo.Repo, string) {
+		repoProto, repoPath := gittest.CreateRepository(b, ctx, cfg, gittest.CreateRepositoryConfig{
+			SkipCreationViaService: true,
+		})
+		return localrepo.NewTestRepo(b, cfg, repoProto), repoPath
+	}
+
+	b.Run("empty repository", func(b *testing.B) {
+		repo, _ := createRepo(b)
+
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_, err := LooseObjectsInfoForRepository(repo, time.Now())
+			require.NoError(b, err)
+		}
+	})
+
+	b.Run("repository with single object", func(b *testing.B) {
+		repo, repoPath := createRepo(b)
+
+		objectPath := filepath.Join(repoPath, "objects", "17", "12345")
+		require.NoError(b, os.Mkdir(filepath.Dir(objectPath), 0o755))
+		require.NoError(b, os.WriteFile(objectPath, nil, 0o644))
+
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_, err := LooseObjectsInfoForRepository(repo, time.Now())
+			require.NoError(b, err)
+		}
+	})
+
+	b.Run("repository with single object in each shard", func(b *testing.B) {
+		repo, repoPath := createRepo(b)
+
+		for i := 0; i < 256; i++ {
+			objectPath := filepath.Join(repoPath, "objects", fmt.Sprintf("%02x", i), "12345")
+			require.NoError(b, os.Mkdir(filepath.Dir(objectPath), 0o755))
+			require.NoError(b, os.WriteFile(objectPath, nil, 0o644))
+		}
+
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_, err := LooseObjectsInfoForRepository(repo, time.Now())
+			require.NoError(b, err)
+		}
+	})
+
+	b.Run("repository hitting loose object limit", func(b *testing.B) {
+		repo, repoPath := createRepo(b)
+
+		// Usually we shouldn't have a lot more than `looseObjectCount` objects in the
+		// repository because we'd repack as soon as we hit that limit. So this benchmark
+		// case tries to estimate the usual upper limit for loose objects we'd typically
+		// have.
+		//
+		// Note that we should ideally just use `housekeeping.looseObjectsLimit` here to
+		// derive that value. But due to a cyclic dependency that's not possible, so we
+		// just use a hard-coded value instead.
+		looseObjectCount := 5
+
+		for i := 0; i < 256; i++ {
+			shardPath := filepath.Join(repoPath, "objects", fmt.Sprintf("%02x", i))
+			require.NoError(b, os.Mkdir(shardPath, 0o755))
+
+			for j := 0; j < looseObjectCount; j++ {
+				objectPath := filepath.Join(shardPath, fmt.Sprintf("%d", j))
+				require.NoError(b, os.WriteFile(objectPath, nil, 0o644))
+			}
+		}
+
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_, err := LooseObjectsInfoForRepository(repo, time.Now())
+			require.NoError(b, err)
+		}
+	})
+
+	b.Run("repository with lots of objects", func(b *testing.B) {
+		repo, repoPath := createRepo(b)
+
+		for i := 0; i < 256; i++ {
+			shardPath := filepath.Join(repoPath, "objects", fmt.Sprintf("%02x", i))
+			require.NoError(b, os.Mkdir(shardPath, 0o755))
+
+			for j := 0; j < 1000; j++ {
+				objectPath := filepath.Join(shardPath, fmt.Sprintf("%d", j))
+				require.NoError(b, os.WriteFile(objectPath, nil, 0o644))
+			}
+		}
+
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_, err := LooseObjectsInfoForRepository(repo, time.Now())
+			require.NoError(b, err)
+		}
+	})
 }
 
 func TestPackfileInfoForRepository(t *testing.T) {

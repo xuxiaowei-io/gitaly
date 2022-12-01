@@ -8,7 +8,6 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
@@ -98,15 +97,12 @@ func NewHeuristicalOptimizationStrategy(ctx context.Context, repo *localrepo.Rep
 	strategy.packfileCount = packfilesInfo.Count
 	strategy.packfileSize = packfilesInfo.Size
 
-	strategy.looseObjectCount, err = countLooseObjects(repo, time.Now())
+	looseObjectsInfo, err := stats.LooseObjectsInfoForRepository(repo, time.Now().Add(CutOffTime))
 	if err != nil {
 		return strategy, fmt.Errorf("estimating loose object count: %w", err)
 	}
-
-	strategy.oldLooseObjectCount, err = countLooseObjects(repo, time.Now().Add(CutOffTime))
-	if err != nil {
-		return strategy, fmt.Errorf("estimating old loose object count: %w", err)
-	}
+	strategy.looseObjectCount = looseObjectsInfo.Count
+	strategy.oldLooseObjectCount = looseObjectsInfo.StaleCount
 
 	strategy.looseRefsCount, strategy.packedRefsSize, err = countLooseAndPackedRefs(ctx, repo)
 	if err != nil {
@@ -209,60 +205,6 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects() (bool, RepackObje
 	}
 
 	return false, RepackObjectsConfig{}
-}
-
-// countLooseObjects counts the number of loose objects in the repository. If a cutoff date is
-// given, then this function will only take into account objects which are older than the given
-// point in time.
-func countLooseObjects(repo *localrepo.Repo, cutoffDate time.Time) (uint64, error) {
-	repoPath, err := repo.Path()
-	if err != nil {
-		return 0, fmt.Errorf("getting repository path: %w", err)
-	}
-
-	var looseObjects uint64
-	for i := 0; i <= 0xFF; i++ {
-		entries, err := os.ReadDir(filepath.Join(repoPath, "objects", fmt.Sprintf("%02x", i)))
-		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				continue
-			}
-
-			return 0, fmt.Errorf("reading loose object shard: %w", err)
-		}
-
-		for _, entry := range entries {
-			if !isValidLooseObjectName(entry.Name()) {
-				continue
-			}
-
-			entryInfo, err := entry.Info()
-			if err != nil {
-				if errors.Is(err, fs.ErrNotExist) {
-					continue
-				}
-
-				return 0, fmt.Errorf("reading object info: %w", err)
-			}
-
-			if entryInfo.ModTime().After(cutoffDate) {
-				continue
-			}
-
-			looseObjects++
-		}
-	}
-
-	return looseObjects, nil
-}
-
-func isValidLooseObjectName(s string) bool {
-	for _, c := range []byte(s) {
-		if strings.IndexByte("0123456789abcdef", c) < 0 {
-			return false
-		}
-	}
-	return true
 }
 
 // ShouldWriteCommitGraph determines whether we need to write the commit-graph and how it should be
