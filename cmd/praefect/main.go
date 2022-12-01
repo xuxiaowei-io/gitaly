@@ -68,6 +68,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/yamux"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -78,6 +79,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/sentry"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/log"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore"
@@ -308,7 +310,16 @@ func run(
 
 	transactionManager := transactions.NewManager(conf)
 	sidechannelRegistry := sidechannel.NewRegistry()
-	clientHandshaker := backchannel.NewClientHandshaker(logger, praefect.NewBackchannelServerFactory(logger, transaction.NewServer(transactionManager), sidechannelRegistry))
+
+	newClientHandshaker := func(config func(*yamux.Config)) backchannel.ClientHandshaker {
+		return backchannel.NewClientHandshakerWithYamuxConfig(
+			logger,
+			praefect.NewBackchannelServerFactory(logger, transaction.NewServer(transactionManager), sidechannelRegistry),
+			config,
+		)
+	}
+
+	clientHandshaker := newClientHandshaker(nil)
 	assignmentStore := praefect.NewDisabledAssignmentStore(conf.StorageNames())
 	var (
 		nodeManager   nodes.Manager
@@ -318,38 +329,73 @@ func run(
 		primaryGetter praefect.PrimaryGetter
 	)
 	if conf.Failover.ElectionStrategy == config.ElectionStrategyPerRepository {
-		nodeSet, err = praefect.DialNodes(ctx, conf.VirtualStorages, protoregistry.GitalyProtoPreregistered, errTracker, clientHandshaker, sidechannelRegistry)
+		dialNodes := func(clientHandshaker backchannel.ClientHandshaker) (praefect.NodeSet, error) {
+			return praefect.DialNodes(ctx, conf.VirtualStorages, protoregistry.GitalyProtoPreregistered, errTracker, clientHandshaker, sidechannelRegistry)
+		}
+
+		nodeSet, err = dialNodes(clientHandshaker)
 		if err != nil {
 			return fmt.Errorf("dial nodes: %w", err)
 		}
 		defer nodeSet.Close()
 
-		hm := nodes.NewHealthManager(logger, db, nodes.GeneratePraefectName(conf, logger), nodeSet.HealthClients())
-		go func() {
-			if err := hm.Run(ctx, helper.NewTimerTicker(time.Second)); err != nil {
-				logger.WithError(err).Error("health manager exited")
-			}
-		}()
-		healthChecker = hm
+		// Dial a second set of connections to each storage with a different Yamux config
+		// so we can use a feature flag to gradually test the new configuration.
+		nodeSetWithCustomConfig, err := dialNodes(newClientHandshaker(func(cfg *yamux.Config) {
+			cfg.AcceptBacklog = conf.Yamux.AcceptBacklog
+			cfg.MaxStreamWindowSize = conf.Yamux.MaximumStreamWindowSizeBytes
+		}))
+		if err != nil {
+			return fmt.Errorf("dial nodes reduced window: %w", err)
+		}
+		defer nodeSetWithCustomConfig.Close()
+
+		runHealthManager := func(db glsql.Querier, nodeSet praefect.NodeSet) *nodes.HealthManager {
+			hm := nodes.NewHealthManager(logger, db, nodes.GeneratePraefectName(conf, logger), nodeSet.HealthClients())
+			go func() {
+				if err := hm.Run(ctx, helper.NewTimerTicker(time.Second)); err != nil {
+					logger.WithError(err).Error("health manager exited")
+				}
+			}()
+
+			return hm
+		}
+
+		nodeSetHealthManager := runHealthManager(db, nodeSet)
+		healthChecker = nodeSetHealthManager
+
+		nodeSetWithCustomConfigHealthManager := runHealthManager(nil, nodeSetWithCustomConfig)
 
 		// Wait for the first health check to complete so the Praefect doesn't start serving RPC
 		// before the router is ready with the health status of the nodes.
-		<-hm.Updated()
+		<-nodeSetHealthManager.Updated()
+		<-nodeSetWithCustomConfigHealthManager.Updated()
 
 		elector := nodes.NewPerRepositoryElector(db)
 
 		primaryGetter = elector
 		assignmentStore = datastore.NewAssignmentStore(db, conf.StorageNames())
 
-		router = praefect.NewPerRepositoryRouter(
-			nodeSet.Connections(),
-			elector,
-			hm,
-			praefect.NewLockedRandom(rand.New(rand.NewSource(time.Now().UnixNano()))),
-			csg,
-			assignmentStore,
-			rs,
-			conf.DefaultReplicationFactors(),
+		newPerRepositoryRouter := func(healthManager *nodes.HealthManager, nodeSet praefect.NodeSet) *praefect.PerRepositoryRouter {
+			return praefect.NewPerRepositoryRouter(
+				nodeSet.Connections(),
+				elector,
+				healthManager,
+				praefect.NewLockedRandom(rand.New(rand.NewSource(time.Now().UnixNano()))),
+				csg,
+				assignmentStore,
+				rs,
+				conf.DefaultReplicationFactors(),
+			)
+		}
+
+		// Configure a router that uses a feature flag to switch between two different sets of connections.
+		// This way we can toggle the feature flag to use a different set of connections for proxied
+		// RPC calls.
+		router = praefect.NewFeatureFlaggedRouter(
+			featureflag.PraefectUseYamuxConfigurationForGitaly,
+			newPerRepositoryRouter(nodeSetWithCustomConfigHealthManager, nodeSetWithCustomConfig),
+			newPerRepositoryRouter(nodeSetHealthManager, nodeSet),
 		)
 
 		if conf.BackgroundVerification.VerificationInterval > 0 {
@@ -358,7 +404,7 @@ func run(
 				logger,
 				db,
 				nodeSet.Connections(),
-				hm,
+				nodeSetHealthManager,
 				conf.BackgroundVerification.VerificationInterval.Duration(),
 				conf.BackgroundVerification.DeleteInvalidRecords,
 			)

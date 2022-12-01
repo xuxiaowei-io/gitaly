@@ -5,6 +5,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"google.golang.org/grpc"
 )
 
@@ -143,4 +144,52 @@ type Router interface {
 	// whether the repository hosted by them is up-to-date or not. Maintenance tasks should
 	// never be replicated.
 	RouteRepositoryMaintenance(ctx context.Context, virtualStorage, relativePath string) (RepositoryMaintenanceRoute, error)
+}
+
+type featureFlaggedRouter struct {
+	flag     featureflag.FeatureFlag
+	enabled  Router
+	disabled Router
+}
+
+// NewFeatureFlaggedRouter returns a Router that decides switches router implementation depending
+// on a feature flag's status.
+func NewFeatureFlaggedRouter(flag featureflag.FeatureFlag, enabledRouter, disabledRouter Router) Router {
+	return featureFlaggedRouter{
+		flag:     flag,
+		enabled:  enabledRouter,
+		disabled: disabledRouter,
+	}
+}
+
+func (r featureFlaggedRouter) router(ctx context.Context) Router {
+	if r.flag.IsEnabled(ctx) {
+		return r.enabled
+	}
+
+	return r.disabled
+}
+
+func (r featureFlaggedRouter) RouteStorageAccessor(ctx context.Context, virtualStorage string) (RouterNode, error) {
+	return r.router(ctx).RouteStorageAccessor(ctx, virtualStorage)
+}
+
+func (r featureFlaggedRouter) RouteStorageMutator(ctx context.Context, virtualStorage string) (StorageMutatorRoute, error) {
+	return r.router(ctx).RouteStorageMutator(ctx, virtualStorage)
+}
+
+func (r featureFlaggedRouter) RouteRepositoryAccessor(ctx context.Context, virtualStorage, relativePath string, forcePrimary bool) (RepositoryAccessorRoute, error) {
+	return r.router(ctx).RouteRepositoryAccessor(ctx, virtualStorage, relativePath, forcePrimary)
+}
+
+func (r featureFlaggedRouter) RouteRepositoryMutator(ctx context.Context, virtualStorage, relativePath, additionalRepoRelativePath string) (RepositoryMutatorRoute, error) {
+	return r.router(ctx).RouteRepositoryMutator(ctx, virtualStorage, relativePath, additionalRepoRelativePath)
+}
+
+func (r featureFlaggedRouter) RouteRepositoryCreation(ctx context.Context, virtualStorage, relativePath, additionalRepoRelativePath string) (RepositoryMutatorRoute, error) {
+	return r.router(ctx).RouteRepositoryCreation(ctx, virtualStorage, relativePath, additionalRepoRelativePath)
+}
+
+func (r featureFlaggedRouter) RouteRepositoryMaintenance(ctx context.Context, virtualStorage, relativePath string) (RepositoryMaintenanceRoute, error) {
+	return r.router(ctx).RouteRepositoryMaintenance(ctx, virtualStorage, relativePath)
 }
