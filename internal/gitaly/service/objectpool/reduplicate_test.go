@@ -35,14 +35,14 @@ func TestReduplicate(t *testing.T) {
 	require.NoError(t, pool.Link(ctx, repo))
 	gittest.Exec(t, cfg, "-C", repoPath, "gc")
 	// Verify that the pool member has no objects on its own anymore.
-	objectsInfo, err := stats.ObjectsInfoForRepository(ctx, repo)
+	repoInfo, err := stats.RepositoryInfoForRepository(ctx, repo)
 	require.NoError(t, err)
-	require.Equal(t, stats.ObjectsInfo{
+	require.Equal(t, stats.RepositoryInfo{
 		CommitGraph: stats.CommitGraphInfo{
 			Exists: true,
 		},
 		Alternates: []string{filepath.Join(pool.FullPath(), "objects")},
-	}, objectsInfo)
+	}, repoInfo)
 
 	// git-repack(1) generates these files. Manually remove them so that we can assert further
 	// down that repository reduplication doesn't regenerate those paths.

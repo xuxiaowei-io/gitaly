@@ -35,7 +35,7 @@ func TestRepackIfNeeded(t *testing.T) {
 	requirePackfilesAndLooseObjects := func(t *testing.T, repo *localrepo.Repo, expectedPackfiles, expectedLooseObjects uint64) {
 		t.Helper()
 
-		info, err := stats.ObjectsInfoForRepository(ctx, repo)
+		info, err := stats.RepositoryInfoForRepository(ctx, repo)
 		require.NoError(t, err)
 
 		require.Equal(t, expectedPackfiles, info.Packfiles.Count)

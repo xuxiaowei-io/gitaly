@@ -52,7 +52,7 @@ func RepackObjects(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsC
 		return err
 	}
 
-	stats.LogObjectsInfo(ctx, repo)
+	stats.LogRepositoryInfo(ctx, repo)
 
 	return nil
 }

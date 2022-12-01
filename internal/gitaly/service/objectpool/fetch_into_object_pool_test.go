@@ -257,8 +257,8 @@ func TestFetchIntoObjectPool_CollectLogStatistics(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, logEntry := range hook.AllEntries() {
-		if objectsInfo, ok := logEntry.Data["objects_info"]; ok {
-			require.IsType(t, stats.ObjectsInfo{}, objectsInfo)
+		if repoInfo, ok := logEntry.Data["repository_info"]; ok {
+			require.IsType(t, stats.RepositoryInfo{}, repoInfo)
 			return
 		}
 	}
