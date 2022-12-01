@@ -409,23 +409,13 @@ func TestUserRebaseConfirmable_abortViaClose(t *testing.T) {
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
 	testCases := []struct {
-		req       *gitalypb.UserRebaseConfirmableRequest
-		closeSend bool
-		desc      string
-		code      codes.Code
+		desc        string
+		req         *gitalypb.UserRebaseConfirmableRequest
+		closeSend   bool
+		expectedErr error
 	}{
 		{
-			req: &gitalypb.UserRebaseConfirmableRequest{
-				UserRebaseConfirmableRequestPayload: &gitalypb.UserRebaseConfirmableRequest_Header_{
-					Header: &gitalypb.UserRebaseConfirmableRequest_Header{
-						Repository: &gitalypb.Repository{},
-					},
-				},
-			},
 			desc: "empty request, don't close",
-			code: codes.FailedPrecondition,
-		},
-		{
 			req: &gitalypb.UserRebaseConfirmableRequest{
 				UserRebaseConfirmableRequestPayload: &gitalypb.UserRebaseConfirmableRequest_Header_{
 					Header: &gitalypb.UserRebaseConfirmableRequest_Header{
@@ -433,14 +423,24 @@ func TestUserRebaseConfirmable_abortViaClose(t *testing.T) {
 					},
 				},
 			},
-			closeSend: true,
-			desc:      "empty request and close",
-			code:      codes.FailedPrecondition,
+			expectedErr: helper.ErrFailedPreconditionf("rebase aborted by client"),
 		},
 		{
-			closeSend: true,
-			desc:      "no request just close",
-			code:      codes.Internal,
+			desc: "empty request and close",
+			req: &gitalypb.UserRebaseConfirmableRequest{
+				UserRebaseConfirmableRequestPayload: &gitalypb.UserRebaseConfirmableRequest_Header_{
+					Header: &gitalypb.UserRebaseConfirmableRequest_Header{
+						Repository: &gitalypb.Repository{},
+					},
+				},
+			},
+			closeSend:   true,
+			expectedErr: helper.ErrFailedPreconditionf("rebase aborted by client"),
+		},
+		{
+			desc:        "no request just close",
+			closeSend:   true,
+			expectedErr: helper.ErrInternalf("recv: EOF"),
 		},
 	}
 
@@ -472,9 +472,8 @@ func TestUserRebaseConfirmable_abortViaClose(t *testing.T) {
 			}
 
 			secondResponse, err := rebaseStream.Recv()
-			require.Error(t, err)
-			testhelper.RequireGrpcCode(t, err, tc.code)
-			require.False(t, secondResponse.GetRebaseApplied(), "rebase should not have been applied")
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
+			require.Nil(t, secondResponse)
 
 			newBranchCommitID := gittest.ResolveRevision(t, cfg, testRepoPath, rebaseBranchName)
 			require.Equal(t, newBranchCommitID, branchCommitID, "branch should not change when the rebase is aborted")
