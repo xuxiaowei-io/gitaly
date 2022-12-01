@@ -342,17 +342,16 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 	}
 }
 
-func TestCountLooseAndPackedRefs(t *testing.T) {
+func TestReferencesInfoForRepository(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
 	for _, tc := range []struct {
-		desc                   string
-		setup                  func(*testing.T, *localrepo.Repo, string)
-		expectedLooseRefs      int64
-		expectedPackedRefsSize int64
+		desc         string
+		setup        func(*testing.T, *localrepo.Repo, string)
+		expectedInfo ReferencesInfo
 	}{
 		{
 			desc: "empty repository",
@@ -364,7 +363,9 @@ func TestCountLooseAndPackedRefs(t *testing.T) {
 			setup: func(t *testing.T, _ *localrepo.Repo, repoPath string) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 			},
-			expectedLooseRefs: 1,
+			expectedInfo: ReferencesInfo{
+				LooseReferencesCount: 1,
+			},
 		},
 		{
 			desc: "packed reference",
@@ -374,7 +375,9 @@ func TestCountLooseAndPackedRefs(t *testing.T) {
 				// deterministic as we don't have to special-case hash sizes.
 				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "packed-refs"), []byte("content"), 0o644))
 			},
-			expectedPackedRefsSize: 7,
+			expectedInfo: ReferencesInfo{
+				PackedReferencesSize: 7,
+			},
 		},
 		{
 			desc: "multiple unpacked and packed refs",
@@ -392,8 +395,10 @@ func TestCountLooseAndPackedRefs(t *testing.T) {
 				// deterministic as we don't have to special-case hash sizes.
 				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "packed-refs"), []byte("content"), 0o644))
 			},
-			expectedLooseRefs:      3,
-			expectedPackedRefsSize: 7,
+			expectedInfo: ReferencesInfo{
+				LooseReferencesCount: 3,
+				PackedReferencesSize: 7,
+			},
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -403,10 +408,9 @@ func TestCountLooseAndPackedRefs(t *testing.T) {
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 			tc.setup(t, repo, repoPath)
 
-			looseRefs, packedRefsSize, err := CountLooseAndPackedRefs(ctx, repo)
+			info, err := ReferencesInfoForRepository(ctx, repo)
 			require.NoError(t, err)
-			require.Equal(t, tc.expectedLooseRefs, looseRefs)
-			require.Equal(t, tc.expectedPackedRefsSize, packedRefsSize)
+			require.Equal(t, tc.expectedInfo, info)
 		})
 	}
 }

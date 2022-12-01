@@ -554,8 +554,8 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackReferences(t *testing.T) {
 	const kiloByte = 1024
 
 	for _, tc := range []struct {
-		packedRefsSize int64
-		requiredRefs   int64
+		packedRefsSize uint64
+		requiredRefs   uint64
 	}{
 		{
 			packedRefsSize: 1,

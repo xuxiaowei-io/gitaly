@@ -35,8 +35,8 @@ type HeuristicalOptimizationStrategy struct {
 	packfileCount       uint64
 	looseObjectCount    uint64
 	oldLooseObjectCount uint64
-	looseRefsCount      int64
-	packedRefsSize      int64
+	looseRefsCount      uint64
+	packedRefsSize      uint64
 	hasAlternate        bool
 	hasBitmap           bool
 	hasSplitCommitGraph bool
@@ -97,10 +97,12 @@ func NewHeuristicalOptimizationStrategy(ctx context.Context, repo *localrepo.Rep
 	strategy.looseObjectCount = looseObjectsInfo.Count
 	strategy.oldLooseObjectCount = looseObjectsInfo.StaleCount
 
-	strategy.looseRefsCount, strategy.packedRefsSize, err = stats.CountLooseAndPackedRefs(ctx, repo)
+	referencesInfo, err := stats.ReferencesInfoForRepository(ctx, repo)
 	if err != nil {
 		return strategy, fmt.Errorf("counting refs: %w", err)
 	}
+	strategy.looseRefsCount = referencesInfo.LooseReferencesCount
+	strategy.packedRefsSize = referencesInfo.PackedReferencesSize
 
 	return strategy, nil
 }
@@ -292,7 +294,7 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackReferences() bool {
 	//
 	// This heuristic may likely need tweaking in the future, but should serve as a good first
 	// iteration.
-	if int64(math.Max(16, math.Log(float64(s.packedRefsSize)/100)/math.Log(1.15))) > s.looseRefsCount {
+	if uint64(math.Max(16, math.Log(float64(s.packedRefsSize)/100)/math.Log(1.15))) > s.looseRefsCount {
 		return false
 	}
 

@@ -125,40 +125,46 @@ func RepositoryInfoForRepository(ctx context.Context, repo *localrepo.Repo) (Rep
 	return info, nil
 }
 
-// CountLooseAndPackedRefs counts the number of loose references that exist in the repository and
-// returns the size of the packed-refs file.
-func CountLooseAndPackedRefs(ctx context.Context, repo *localrepo.Repo) (int64, int64, error) {
+// ReferencesInfo contains information about references.
+type ReferencesInfo struct {
+	// LooseReferencesCount is the number of unpacked, loose references that exist.
+	LooseReferencesCount uint64 `json:"loose_references_count"`
+	// PackedReferencesSize is the size of the packed-refs file in bytes.
+	PackedReferencesSize uint64 `json:"packed_references_size"`
+}
+
+// ReferencesInfoForRepository derives information about references in the repository.
+func ReferencesInfoForRepository(ctx context.Context, repo *localrepo.Repo) (ReferencesInfo, error) {
 	repoPath, err := repo.Path()
 	if err != nil {
-		return 0, 0, fmt.Errorf("getting repository path: %w", err)
+		return ReferencesInfo{}, fmt.Errorf("getting repository path: %w", err)
 	}
 	refsPath := filepath.Join(repoPath, "refs")
 
-	looseRefs := int64(0)
+	var info ReferencesInfo
 	if err := filepath.WalkDir(refsPath, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 
 		if !entry.IsDir() {
-			looseRefs++
+			info.LooseReferencesCount++
 		}
 
 		return nil
 	}); err != nil {
-		return 0, 0, fmt.Errorf("counting loose refs: %w", err)
+		return ReferencesInfo{}, fmt.Errorf("counting loose refs: %w", err)
 	}
 
-	packedRefsSize := int64(0)
 	if stat, err := os.Stat(filepath.Join(repoPath, "packed-refs")); err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
-			return 0, 0, fmt.Errorf("getting packed-refs size: %w", err)
+			return ReferencesInfo{}, fmt.Errorf("getting packed-refs size: %w", err)
 		}
 	} else {
-		packedRefsSize = stat.Size()
+		info.PackedReferencesSize = uint64(stat.Size())
 	}
 
-	return looseRefs, packedRefsSize, nil
+	return info, nil
 }
 
 // LooseObjectsInfo contains information about loose objects.
