@@ -106,27 +106,19 @@ func requireEntry(t *testing.T, entry *gitalypb.ApplyBfgObjectMapStreamResponse_
 }
 
 func TestApplyBfgObjectMapStreamFailsOnInvalidInput(t *testing.T) {
-	ctx := testhelper.Context(t)
+	t.Parallel()
 
-	cfg, protoRepo, _, client := setupCleanupService(t, ctx)
+	ctx := testhelper.Context(t)
+	_, repoProto, _, client := setupCleanupService(t, ctx)
 
 	t.Run("invalid object map", func(t *testing.T) {
-		entries, err := doStreamingRequest(t, ctx, protoRepo, client, "invalid-data here as you can see")
+		entries, err := doStreamingRequest(t, ctx, repoProto, client, "invalid-data here as you can see")
 		require.Empty(t, entries)
 		testhelper.RequireGrpcCode(t, err, codes.InvalidArgument)
 	})
 
-	repo := localrepo.NewTestRepo(t, cfg, protoRepo)
-	headCommit, err := repo.ReadCommit(ctx, "HEAD")
-	require.NoError(t, err)
-
-	objectMapData := fmt.Sprintf(
-		"old                                      new\n%s %s\n",
-		headCommit.Id, git.ObjectHashSHA1.ZeroOID.String(),
-	)
-
 	t.Run("no repository provided", func(t *testing.T) {
-		entries, err := doStreamingRequest(t, ctx, nil, client, objectMapData)
+		entries, err := doStreamingRequest(t, ctx, nil, client, "does not matter")
 		require.Empty(t, entries)
 		testhelper.RequireGrpcError(t, status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 			"empty Repository",
