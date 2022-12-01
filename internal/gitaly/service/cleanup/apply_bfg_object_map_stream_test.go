@@ -64,7 +64,18 @@ func TestApplyBfgObjectMapStreamSuccess(t *testing.T) {
 		tagID, tagID,
 	)
 
-	entries, err := doStreamingRequest(t, ctx, protoRepo, client, objectMapData)
+	entries, err := doStreamingRequest(t, ctx, client,
+		&gitalypb.ApplyBfgObjectMapStreamRequest{
+			Repository: protoRepo,
+			ObjectMap:  []byte(objectMapData[:10]),
+		},
+		&gitalypb.ApplyBfgObjectMapStreamRequest{
+			ObjectMap: []byte(objectMapData[10:20]),
+		},
+		&gitalypb.ApplyBfgObjectMapStreamRequest{
+			ObjectMap: []byte(objectMapData[20:]),
+		},
+	)
 	require.NoError(t, err)
 
 	// Ensure that the internal refs are gone, but the others still exist
@@ -111,13 +122,19 @@ func TestApplyBfgObjectMapStreamFailsOnInvalidInput(t *testing.T) {
 	_, repoProto, _, client := setupCleanupService(t, ctx)
 
 	t.Run("invalid object map", func(t *testing.T) {
-		response, err := doStreamingRequest(t, ctx, repoProto, client, "invalid-data here as you can see")
+		response, err := doStreamingRequest(t, ctx, client, &gitalypb.ApplyBfgObjectMapStreamRequest{
+			Repository: repoProto,
+			ObjectMap:  []byte("invalid-data here as you can see"),
+		})
 		require.Nil(t, response)
 		testhelper.RequireGrpcError(t, helper.ErrInvalidArgumentf("object map invalid at line 0"), err)
 	})
 
 	t.Run("no repository provided", func(t *testing.T) {
-		response, err := doStreamingRequest(t, ctx, nil, client, "does not matter")
+		response, err := doStreamingRequest(t, ctx, client, &gitalypb.ApplyBfgObjectMapStreamRequest{
+			Repository: nil,
+			ObjectMap:  []byte("does not matter"),
+		})
 		require.Nil(t, response)
 		testhelper.RequireGrpcError(t, helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
 			"empty Repository",
@@ -126,24 +143,21 @@ func TestApplyBfgObjectMapStreamFailsOnInvalidInput(t *testing.T) {
 	})
 }
 
-func doStreamingRequest(t *testing.T, ctx context.Context, repo *gitalypb.Repository, client gitalypb.CleanupServiceClient, objectMap string) ([]*gitalypb.ApplyBfgObjectMapStreamResponse_Entry, error) {
+func doStreamingRequest(
+	t *testing.T,
+	ctx context.Context,
+	client gitalypb.CleanupServiceClient,
+	requests ...*gitalypb.ApplyBfgObjectMapStreamRequest,
+) ([]*gitalypb.ApplyBfgObjectMapStreamResponse_Entry, error) {
 	t.Helper()
-
-	// Split the data across multiple requests
-	parts := strings.SplitN(objectMap, " ", 2)
-	req1 := &gitalypb.ApplyBfgObjectMapStreamRequest{
-		Repository: repo,
-		ObjectMap:  []byte(parts[0] + " "),
-	}
-	req2 := &gitalypb.ApplyBfgObjectMapStreamRequest{ObjectMap: []byte(parts[1])}
 
 	server, err := client.ApplyBfgObjectMapStream(ctx)
 	require.NoError(t, err)
-	require.NoError(t, server.Send(req1))
-	require.NoError(t, server.Send(req2))
+	for _, request := range requests {
+		require.NoError(t, server.Send(request))
+	}
 	require.NoError(t, server.CloseSend())
 
-	// receive all responses in a loop
 	var entries []*gitalypb.ApplyBfgObjectMapStreamResponse_Entry
 	for {
 		rsp, err := server.Recv()
