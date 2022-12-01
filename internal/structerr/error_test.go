@@ -6,8 +6,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/grpc/test/grpc_testing"
+	"google.golang.org/protobuf/proto"
 )
 
 // unusedErrorCode is any error code that we don't have any constructors for yet. This is used
@@ -294,4 +297,101 @@ func TestError_Metadata(t *testing.T) {
 			"toplevel": "value",
 		}, toplevelErr.Metadata())
 	})
+}
+
+func TestError_Details(t *testing.T) {
+	t.Parallel()
+
+	initialPayload := &grpc_testing.Payload{
+		Body: []byte("bottom"),
+	}
+	overridingPayload := &grpc_testing.Payload{
+		Body: []byte("top"),
+	}
+
+	for _, tc := range []struct {
+		desc            string
+		createError     func() Error
+		expectedErr     error
+		expectedDetails []proto.Message
+		expectedMessage string
+	}{
+		{
+			desc: "without details",
+			createError: func() Error {
+				return New("message")
+			},
+			expectedErr: Error{
+				err:  errors.New("message"),
+				code: codes.Internal,
+			},
+			expectedMessage: "message",
+		},
+		{
+			desc: "single detail",
+			createError: func() Error {
+				return New("message").WithDetail(initialPayload)
+			},
+			expectedErr: Error{
+				err:    errors.New("message"),
+				code:   codes.Internal,
+				detail: initialPayload,
+			},
+			expectedDetails: []proto.Message{
+				initialPayload,
+			},
+			expectedMessage: "message",
+		},
+		{
+			desc: "overridden detail",
+			createError: func() Error {
+				return New("message").WithDetail(initialPayload).WithDetail(overridingPayload)
+			},
+			expectedErr: Error{
+				err:    errors.New("message"),
+				code:   codes.Internal,
+				detail: overridingPayload,
+			},
+			expectedDetails: []proto.Message{
+				overridingPayload,
+			},
+			expectedMessage: "message",
+		},
+		{
+			desc: "chained details",
+			createError: func() Error {
+				nestedErr := New("nested").WithDetail(initialPayload)
+				return New("top-level: %w", nestedErr).WithDetail(overridingPayload)
+			},
+			expectedErr: Error{
+				err:    fmt.Errorf("top-level: %w", New("nested").WithDetail(initialPayload)),
+				code:   codes.Internal,
+				detail: overridingPayload,
+			},
+			expectedDetails: []proto.Message{
+				overridingPayload,
+				initialPayload,
+			},
+			expectedMessage: "top-level: nested",
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			err := tc.createError()
+			require.Equal(t, tc.expectedErr, err)
+			testhelper.ProtoEqual(t, tc.expectedDetails, err.Details())
+
+			// `proto.Details()` returns an `[]any` slice, so we need to convert here or
+			// otherwise the comparison would fail.
+			anyDetails := make([]any, 0, len(tc.expectedDetails))
+			for _, detail := range tc.expectedDetails {
+				anyDetails = append(anyDetails, detail)
+			}
+
+			s, ok := status.FromError(err)
+			require.True(t, ok)
+			require.Equal(t, codes.Internal, s.Code())
+			require.Equal(t, tc.expectedMessage, s.Message())
+			testhelper.ProtoEqual(t, anyDetails, s.Details())
+		})
+	}
 }
