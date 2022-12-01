@@ -59,20 +59,20 @@ func TestCreate_subdirsExist(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestClone_successful(t *testing.T) {
+func TestCreate_successful(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
 
 	_, pool, repo := setupObjectPool(t, ctx)
 
-	require.NoError(t, pool.clone(ctx, repo))
+	require.NoError(t, pool.Create(ctx, repo))
 
 	require.DirExists(t, pool.FullPath())
 	require.DirExists(t, filepath.Join(pool.FullPath(), "objects"))
 }
 
-func TestClone_existingPool(t *testing.T) {
+func TestCreate_existingPool(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
@@ -80,17 +80,17 @@ func TestClone_existingPool(t *testing.T) {
 	_, pool, repo := setupObjectPool(t, ctx)
 
 	// The first time around cloning should succeed, but ...
-	require.NoError(t, pool.clone(ctx, repo))
+	require.NoError(t, pool.Create(ctx, repo))
 
 	// ... when we try to clone the same pool a second time we should get an error because the
 	// destination exists already.
-	require.EqualError(t, pool.clone(ctx, repo), fmt.Sprintf(
+	require.EqualError(t, pool.Create(ctx, repo), fmt.Sprintf(
 		"cloning to pool: exit status 128, stderr: \"fatal: destination path '%s' already exists and is not an empty directory.\\n\"",
 		pool.FullPath(),
 	))
 }
 
-func TestClone_fsck(t *testing.T) {
+func TestCreate_fsck(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
@@ -118,7 +118,7 @@ func TestClone_fsck(t *testing.T) {
 	//
 	// Note: this works because we use `git clone --local`, which only creates a copy of the
 	// repository without performing consistency checks.
-	require.NoError(t, pool.clone(ctx, repo))
+	require.NoError(t, pool.Create(ctx, repo))
 
 	// Verify that the broken tree is indeed in the pool repository and that it is reported as
 	// broken by git-fsck(1).
