@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
@@ -472,14 +471,10 @@ func TestUserRebaseConfirmable_abortViaClose(t *testing.T) {
 				require.NoError(t, rebaseStream.CloseSend(), "close request stream from client")
 			}
 
-			secondResponse, err := rebaseRecvTimeout(rebaseStream, 1*time.Second)
-			if err == errRecvTimeout {
-				t.Fatal(err)
-			}
-
-			require.False(t, secondResponse.GetRebaseApplied(), "rebase should not have been applied")
+			secondResponse, err := rebaseStream.Recv()
 			require.Error(t, err)
 			testhelper.RequireGrpcCode(t, err, tc.code)
+			require.False(t, secondResponse.GetRebaseApplied(), "rebase should not have been applied")
 
 			newBranchCommitID := gittest.ResolveRevision(t, cfg, testRepoPath, rebaseBranchName)
 			require.Equal(t, newBranchCommitID, branchCommitID, "branch should not change when the rebase is aborted")
@@ -829,26 +824,6 @@ func TestUserRebaseConfirmable_failedWithCode(t *testing.T) {
 			_, err = rebaseStream.Recv()
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
-	}
-}
-
-func rebaseRecvTimeout(bidi gitalypb.OperationService_UserRebaseConfirmableClient, timeout time.Duration) (*gitalypb.UserRebaseConfirmableResponse, error) {
-	type responseError struct {
-		response *gitalypb.UserRebaseConfirmableResponse
-		err      error
-	}
-	responseCh := make(chan responseError, 1)
-
-	go func() {
-		resp, err := bidi.Recv()
-		responseCh <- responseError{resp, err}
-	}()
-
-	select {
-	case respErr := <-responseCh:
-		return respErr.response, respErr.err
-	case <-time.After(timeout):
-		return nil, errRecvTimeout
 	}
 }
 
