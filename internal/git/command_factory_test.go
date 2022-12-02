@@ -97,6 +97,124 @@ func TestExecCommandFactory_globalGitConfigIgnored(t *testing.T) {
 	}
 }
 
+func TestExecCommandFactory_gitConfiguration(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+	})
+	require.NoError(t, os.Remove(filepath.Join(repoPath, "config")))
+
+	defaultConfig := func() []string {
+		commandFactory, cleanup, err := git.NewExecCommandFactory(cfg)
+		require.NoError(t, err)
+		defer cleanup()
+
+		globalConfig, err := commandFactory.GlobalConfiguration(ctx)
+		require.NoError(t, err)
+
+		var configEntries []string
+		for _, config := range globalConfig {
+			configEntries = append(configEntries, fmt.Sprintf(
+				"%s=%s", strings.ToLower(config.Key), config.Value,
+			))
+		}
+		return configEntries
+	}
+
+	for _, tc := range []struct {
+		desc           string
+		config         []config.GitConfig
+		options        []git.CmdOpt
+		expectedConfig []string
+	}{
+		{
+			desc:           "without config",
+			expectedConfig: defaultConfig(),
+		},
+		{
+			desc: "config with simple entry",
+			config: []config.GitConfig{
+				{Key: "core.foo", Value: "bar"},
+			},
+			expectedConfig: append(defaultConfig(), "core.foo=bar"),
+		},
+		{
+			desc: "config with empty value",
+			config: []config.GitConfig{
+				{Key: "core.empty", Value: ""},
+			},
+			expectedConfig: append(defaultConfig(), "core.empty="),
+		},
+		{
+			desc: "config with subsection",
+			config: []config.GitConfig{
+				{Key: "http.http://example.com.proxy", Value: "http://proxy.example.com"},
+			},
+			expectedConfig: append(defaultConfig(), "http.http://example.com.proxy=http://proxy.example.com"),
+		},
+		{
+			desc: "config with multiple keys",
+			config: []config.GitConfig{
+				{Key: "core.foo", Value: "initial"},
+				{Key: "core.foo", Value: "second"},
+			},
+			expectedConfig: append(defaultConfig(), "core.foo=initial", "core.foo=second"),
+		},
+		{
+			desc: "option",
+			options: []git.CmdOpt{
+				git.WithConfig(git.ConfigPair{Key: "core.foo", Value: "bar"}),
+			},
+			expectedConfig: append(defaultConfig(), "core.foo=bar"),
+		},
+		{
+			desc: "multiple options",
+			options: []git.CmdOpt{
+				git.WithConfig(
+					git.ConfigPair{Key: "core.foo", Value: "initial"},
+					git.ConfigPair{Key: "core.foo", Value: "second"},
+				),
+			},
+			expectedConfig: append(defaultConfig(), "core.foo=initial", "core.foo=second"),
+		},
+		{
+			desc: "config comes after options",
+			config: []config.GitConfig{
+				{Key: "from.config", Value: "value"},
+			},
+			options: []git.CmdOpt{
+				git.WithConfig(
+					git.ConfigPair{Key: "from.option", Value: "value"},
+				),
+			},
+			expectedConfig: append(defaultConfig(), "from.option=value", "from.config=value"),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			cfg.Git.Config = tc.config
+
+			commandFactory, cleanup, err := git.NewExecCommandFactory(cfg)
+			require.NoError(t, err)
+			defer cleanup()
+
+			var stdout bytes.Buffer
+			cmd, err := commandFactory.New(ctx, repo, git.SubCmd{
+				Name: "config",
+				Flags: []git.Option{
+					git.Flag{Name: "--list"},
+				},
+			}, append(tc.options, git.WithStdout(&stdout))...)
+			require.NoError(t, err)
+			require.NoError(t, cmd.Wait())
+			require.Equal(t, tc.expectedConfig, strings.Split(text.ChompBytes(stdout.Bytes()), "\n"))
+		})
+	}
+}
+
 func TestCommandFactory_ExecutionEnvironment(t *testing.T) {
 	testhelper.Unsetenv(t, "GITALY_TESTING_GIT_BINARY")
 	testhelper.Unsetenv(t, "GITALY_TESTING_BUNDLED_GIT_PATH")
