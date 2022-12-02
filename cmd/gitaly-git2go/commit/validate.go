@@ -12,7 +12,7 @@ import (
 func validateFileExists(index *git.Index, path string) error {
 	if _, err := index.Find(path); err != nil {
 		if git.IsErrorCode(err, git.ErrorCodeNotFound) {
-			return git2go.FileNotFoundError(path)
+			return git2go.IndexError{Type: git2go.ErrFileNotFound, Path: path}
 		}
 
 		return err
@@ -24,7 +24,7 @@ func validateFileExists(index *git.Index, path string) error {
 func validateFileDoesNotExist(index *git.Index, path string) error {
 	_, err := index.Find(path)
 	if err == nil {
-		return git2go.FileExistsError(path)
+		return git2go.IndexError{Type: git2go.ErrFileExists, Path: path}
 	}
 
 	if !git.IsErrorCode(err, git.ErrorCodeNotFound) {
@@ -37,7 +37,7 @@ func validateFileDoesNotExist(index *git.Index, path string) error {
 func validateDirectoryDoesNotExist(index *git.Index, path string) error {
 	_, err := index.FindPrefix(path + string(os.PathSeparator))
 	if err == nil {
-		return git2go.DirectoryExistsError(path)
+		return git2go.IndexError{Type: git2go.ErrDirectoryExists, Path: path}
 	}
 
 	if !git.IsErrorCode(err, git.ErrorCodeNotFound) {
