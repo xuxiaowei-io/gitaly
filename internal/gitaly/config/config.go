@@ -486,9 +486,6 @@ func (cfg *Cfg) validateGit() error {
 		if err := validateGitConfigKey(configPair.Key); err != nil {
 			return fmt.Errorf("invalid configuration key %q: %w", configPair.Key, err)
 		}
-		if configPair.Value == "" {
-			return fmt.Errorf("invalid configuration value: %q", configPair.Value)
-		}
 	}
 
 	return nil
