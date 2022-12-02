@@ -281,9 +281,9 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 
 	repoClient := gitalypb.NewRepositoryServiceClient(cc)
 
-	_, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
+	_, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+	gittest.WriteTag(t, cfg, repoPath, "v1.0.0", commitID.Revision())
 	repoChecksum := gittest.ChecksumRepo(t, cfg, repoPath)
 
 	backupRoot := testhelper.TempDir(t)
