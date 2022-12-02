@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -74,7 +75,7 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 				// ... and one stale object.
 				staleObjectPath := filepath.Join(shard, "5678")
 				require.NoError(t, os.WriteFile(staleObjectPath, nil, 0o644))
-				twoWeeksAgo := time.Now().Add(CutOffTime)
+				twoWeeksAgo := time.Now().Add(stats.StaleObjectsGracePeriod)
 				require.NoError(t, os.Chtimes(staleObjectPath, twoWeeksAgo, twoWeeksAgo))
 
 				return repoProto

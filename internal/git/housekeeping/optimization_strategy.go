@@ -31,10 +31,6 @@ type OptimizationStrategy interface {
 	ShouldWriteCommitGraph() (bool, WriteCommitGraphConfig)
 }
 
-// CutOffTime is time delta that is used to indicate cutoff wherein an object would be considered
-// old. Currently this is set to being 2 weeks (2 * 7days * 24hours).
-const CutOffTime = -14 * 24 * time.Hour
-
 // HeuristicalOptimizationStrategy is an optimization strategy that is based on a set of
 // heuristics.
 type HeuristicalOptimizationStrategy struct {
@@ -97,7 +93,7 @@ func NewHeuristicalOptimizationStrategy(ctx context.Context, repo *localrepo.Rep
 	strategy.packfileCount = packfilesInfo.Count
 	strategy.packfileSize = packfilesInfo.Size
 
-	looseObjectsInfo, err := stats.LooseObjectsInfoForRepository(repo, time.Now().Add(CutOffTime))
+	looseObjectsInfo, err := stats.LooseObjectsInfoForRepository(repo, time.Now().Add(stats.StaleObjectsGracePeriod))
 	if err != nil {
 		return strategy, fmt.Errorf("estimating loose object count: %w", err)
 	}
