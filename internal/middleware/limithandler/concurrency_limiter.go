@@ -11,6 +11,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
@@ -149,22 +150,12 @@ func (c *ConcurrencyLimiter) Limit(ctx context.Context, lockKey string, f Limite
 	log := ctxlogrus.Extract(ctx).WithField("limiting_key", lockKey)
 	if err := c.queueInc(ctx); err != nil {
 		if errors.Is(err, ErrMaxQueueSize) {
-			detailedErr, errGeneratingDetailedErr := helper.ErrWithDetails(
-				helper.ErrResourceExhausted(ErrMaxQueueSize),
+			return nil, structerr.NewResourceExhausted("%w", ErrMaxQueueSize).WithDetail(
 				&gitalypb.LimitError{
 					ErrorMessage: err.Error(),
 					RetryAfter:   durationpb.New(0),
 				},
 			)
-			if errGeneratingDetailedErr != nil {
-				log.WithField("max_queue_size_error", err).
-					WithError(errGeneratingDetailedErr).
-					Error("failed to generate detailed error")
-
-				return nil, helper.ErrResourceExhausted(ErrMaxQueueSize)
-			}
-
-			return nil, detailedErr
 		}
 
 		log.WithError(err).Error("unexpected error when queueing request")
@@ -186,22 +177,10 @@ func (c *ConcurrencyLimiter) Limit(ctx context.Context, lockKey string, f Limite
 		if errors.Is(err, ErrMaxQueueTime) {
 			c.monitor.Dropped(ctx, "max_time")
 
-			detailedErr, errGeneratingDetailedErr := helper.ErrWithDetails(
-				helper.ErrResourceExhausted(ErrMaxQueueTime),
-				&gitalypb.LimitError{
-					ErrorMessage: err.Error(),
-					RetryAfter:   durationpb.New(0),
-				},
-			)
-			if errGeneratingDetailedErr != nil {
-				log.WithField("max_queue_wait_error", err).
-					WithError(errGeneratingDetailedErr).
-					Error("failed to generate detailed error")
-
-				return nil, helper.ErrResourceExhausted(ErrMaxQueueTime)
-			}
-
-			return nil, detailedErr
+			return nil, structerr.NewResourceExhausted("%w", ErrMaxQueueTime).WithDetail(&gitalypb.LimitError{
+				ErrorMessage: err.Error(),
+				RetryAfter:   durationpb.New(0),
+			})
 		}
 
 		log.WithError(err).Error("unexpected error when dequeueing request")
