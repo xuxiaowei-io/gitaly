@@ -13,7 +13,7 @@ import (
 )
 
 // This test doesn't use testhelper.NewFeatureSets intentionally.
-func TestFeatureFlagLogsWithoutAlwaysLogFeatureFlags(t *testing.T) {
+func TestFeatureFlagLogs(t *testing.T) {
 	t.Parallel()
 
 	featureA := featureflag.FeatureFlag{Name: "feature_a"}
@@ -26,43 +26,14 @@ func TestFeatureFlagLogsWithoutAlwaysLogFeatureFlags(t *testing.T) {
 		expectedFields logrus.Fields
 	}{
 		{
-			desc:           "empty feature flags in successful RPC",
-			expectedFields: nil,
-		},
-		{
-			desc:           "empty feature flags in failed RPC",
-			expectedErr:    helper.ErrInternalf("something goes wrong"),
-			expectedFields: nil,
-		},
-		{
-			desc: "all feature flags are disabled in successful RPC",
-			featureFlags: map[featureflag.FeatureFlag]bool{
-				featureA: false,
-				featureB: false,
-				featureC: false,
-			},
-			expectedFields: nil,
-		},
-		{
-			desc: "all feature flags are disabled in failed RPC",
-			featureFlags: map[featureflag.FeatureFlag]bool{
-				featureA: false,
-				featureB: false,
-				featureC: false,
-			},
-			expectedErr:    helper.ErrInternalf("something goes wrong"),
-			expectedFields: nil,
-		},
-		{
 			desc: "some feature flags are enabled in successful RPC",
 			featureFlags: map[featureflag.FeatureFlag]bool{
 				featureA: true,
 				featureB: false,
 				featureC: true,
 			},
-			expectedFields: nil, // Not log flags for successful RPC by default
-		},
-		{
+			expectedFields: logrus.Fields{"feature_flags": "feature_a feature_c"},
+		}, {
 			desc: "some feature flags are enabled in failed RPC",
 			featureFlags: map[featureflag.FeatureFlag]bool{
 				featureA: true,
@@ -75,58 +46,12 @@ func TestFeatureFlagLogsWithoutAlwaysLogFeatureFlags(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			fields := FieldsProducer(featureFlagContext(tc.featureFlags, false), tc.expectedErr)
+			ctx := context.Background()
+			for flag, value := range tc.featureFlags {
+				ctx = featureflag.IncomingCtxWithFeatureFlag(ctx, flag, value)
+			}
+			fields := FieldsProducer(ctx, tc.expectedErr)
 			require.Equal(t, tc.expectedFields, fields)
 		})
 	}
-}
-
-// This test doesn't use testhelper.NewFeatureSets intentionally.
-func TestFeatureFlagLogsWithAlwaysLogFeatureFlags(t *testing.T) {
-	t.Parallel()
-
-	featureA := featureflag.FeatureFlag{Name: "feature_a"}
-	featureB := featureflag.FeatureFlag{Name: "feature_b"}
-	featureC := featureflag.FeatureFlag{Name: "feature_c"}
-	testCases := []struct {
-		desc           string
-		featureFlags   map[featureflag.FeatureFlag]bool
-		expectedErr    error
-		expectedFields logrus.Fields
-	}{
-		{
-			desc: "some feature flags, including AlwaysLogFeatureFlags, are enabled in successful RPC",
-			featureFlags: map[featureflag.FeatureFlag]bool{
-				featureA: true,
-				featureB: false,
-				featureC: true,
-			},
-			expectedFields: logrus.Fields{"feature_flags": "always_log_feature_flags feature_a feature_c"},
-		},
-		{
-			desc: "some feature flags, including AlwaysLogFeatureFlags, are enabled in failed RPC",
-			featureFlags: map[featureflag.FeatureFlag]bool{
-				featureA: true,
-				featureB: false,
-				featureC: true,
-			},
-			expectedErr:    helper.ErrInternalf("something goes wrong"),
-			expectedFields: logrus.Fields{"feature_flags": "always_log_feature_flags feature_a feature_c"},
-		},
-	}
-	for _, tc := range testCases {
-		t.Run(tc.desc, func(t *testing.T) {
-			fields := FieldsProducer(featureFlagContext(tc.featureFlags, true), tc.expectedErr)
-			require.Equal(t, tc.expectedFields, fields)
-		})
-	}
-}
-
-func featureFlagContext(flags map[featureflag.FeatureFlag]bool, alwaysLogFeatureFlags bool) context.Context {
-	//nolint:forbidigo // This test tests feature flags. We want context to be in a clean state
-	ctx := context.Background()
-	for flag, value := range flags {
-		ctx = featureflag.IncomingCtxWithFeatureFlag(ctx, flag, value)
-	}
-	return featureflag.IncomingCtxWithFeatureFlag(ctx, featureflag.AlwaysLogFeatureFlags, alwaysLogFeatureFlags)
 }
