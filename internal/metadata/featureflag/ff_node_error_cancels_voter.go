@@ -7,5 +7,5 @@ var NodeErrorCancelsVoter = NewFeatureFlag(
 	"node_error_cancels_voter",
 	"v15.6.0",
 	"https://gitlab.com/gitlab-org/gitaly/-/issues/4552",
-	false,
+	true,
 )
