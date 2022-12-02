@@ -11,7 +11,6 @@ import (
 	"regexp"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
@@ -404,11 +403,7 @@ func TestUserMergeBranch_abort(t *testing.T) {
 				require.NoError(t, mergeBidi.CloseSend(), "close request stream from client")
 			}
 
-			secondResponse, err := recvTimeout(mergeBidi, 1*time.Second)
-			if err == errRecvTimeout {
-				t.Fatal(err)
-			}
-
+			secondResponse, err := mergeBidi.Recv()
 			require.Equal(t, "", secondResponse.GetBranchUpdate().GetCommitId(), "merge should not have been applied")
 			require.Error(t, err)
 
@@ -1413,28 +1408,5 @@ func TestUserMergeToRef_ignoreHooksRequest(t *testing.T) {
 			_, err := client.UserMergeToRef(ctx, request)
 			require.NoError(t, err)
 		})
-	}
-}
-
-// This error is used as a sentinel value
-var errRecvTimeout = errors.New("timeout waiting for response")
-
-func recvTimeout(bidi gitalypb.OperationService_UserMergeBranchClient, timeout time.Duration) (*gitalypb.UserMergeBranchResponse, error) {
-	type responseError struct {
-		response *gitalypb.UserMergeBranchResponse
-		err      error
-	}
-	responseCh := make(chan responseError, 1)
-
-	go func() {
-		resp, err := bidi.Recv()
-		responseCh <- responseError{resp, err}
-	}()
-
-	select {
-	case respErr := <-responseCh:
-		return respErr.response, respErr.err
-	case <-time.After(timeout):
-		return nil, errRecvTimeout
 	}
 }

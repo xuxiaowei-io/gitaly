@@ -103,6 +103,7 @@ include:
     TEST_COVERAGE_DIR: "${CI_PROJECT_DIR}/_build/reports/coverage"
     TEST_FULL_OUTPUT: "${CI_PROJECT_DIR}/_build/reports/test-output.log"
     TEST_LOG_DIR: "${CI_PROJECT_DIR}/_build/reports/test-logs"
+    TEST_OPTIONS: "-count=1 -timeout=20m" # a number of tests may exceed the default 10m
   before_script: &test_before_script
     - go version
   script:
@@ -326,7 +327,6 @@ test:macos:
     PGDATA: /usr/local/var/postgres
     PGHOST: localhost
     PGUSER: gitlab
-    TEST_OPTIONS: "-timeout=20m" # a number of tests may exceed the default 10m
   before_script:
     - brew uninstall go
     - brew install cmake go@${GO_VERSION}
