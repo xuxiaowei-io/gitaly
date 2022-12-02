@@ -21,6 +21,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/pktline"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/sidechannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -28,9 +29,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/status"
 )
 
 const (
@@ -173,7 +172,7 @@ func testServerPostUploadPackGitConfigOptions(t *testing.T, ctx context.Context,
 			},
 		}
 		response, err := makeRequest(t, ctx, cfg.SocketPath, cfg.Auth.Token, rpcRequest, bytes.NewReader(requestBody.Bytes()))
-		testhelper.RequireGrpcCode(t, err, codes.Unavailable)
+		testhelper.RequireGrpcError(t, helper.ErrUnavailablef("running upload-pack: waiting for upload-pack: exit status 128"), err)
 
 		// The failure message proves that upload-pack failed because of
 		// GitConfigOptions, and that proves that passing GitConfigOptions works.
@@ -323,47 +322,49 @@ func TestServer_PostUploadPack_validation(t *testing.T) {
 }
 
 func testServerPostUploadPackValidation(t *testing.T, ctx context.Context, makeRequest requestMaker, opts ...testcfg.Option) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t, opts...)
 	serverSocketPath := runSmartHTTPServer(t, cfg)
+	cfg.SocketPath = serverSocketPath
+
+	repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	for _, tc := range []struct {
-		desc    string
-		request *gitalypb.PostUploadPackRequest
-		code    codes.Code
+		desc        string
+		request     *gitalypb.PostUploadPackRequest
+		expectedErr error
 	}{
 		{
-			desc: "Repository doesn't exist",
+			desc: "nonexistent repository",
 			request: &gitalypb.PostUploadPackRequest{
 				Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"},
 			},
-			code: codes.InvalidArgument,
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+				fmt.Sprintf("GetStorageByName: no such storage: %q", "fake"),
+				"repo scoped: invalid Repository",
+			)),
 		},
 		{
-			desc:    "Repository is nil",
+			desc:    "unset repository",
 			request: &gitalypb.PostUploadPackRequest{Repository: nil},
-			code:    codes.InvalidArgument,
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 		{
-			desc: "Data exists on first request",
+			desc: "data on first request",
 			request: &gitalypb.PostUploadPackRequest{
-				Repository: &gitalypb.Repository{
-					StorageName:  cfg.Storages[0].Name,
-					RelativePath: "path/to/repo",
-				},
-				Data: []byte("Fail"),
+				Repository: repo,
+				Data:       []byte("Fail"),
 			},
-			code: func() codes.Code {
-				if testhelper.IsPraefectEnabled() {
-					return codes.NotFound
-				}
-
-				return codes.InvalidArgument
-			}(),
+			expectedErr: helper.ErrInvalidArgumentf("non-empty Data"),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			_, err := makeRequest(t, ctx, serverSocketPath, cfg.Auth.Token, tc.request, bytes.NewBuffer(nil))
-			testhelper.RequireGrpcCode(t, err, tc.code)
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
 	}
 }
@@ -386,7 +387,7 @@ func testServerPostUploadPackWithSideChannelValidation(t *testing.T, ctx context
 		{
 			desc: "Repository doesn't exist",
 			req:  &gitalypb.PostUploadPackRequest{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
 				`GetStorageByName: no such storage: "fake"`,
 				"repo scoped: invalid Repository",
 			)),
@@ -394,7 +395,7 @@ func testServerPostUploadPackWithSideChannelValidation(t *testing.T, ctx context
 		{
 			desc: "Repository no provided",
 			req:  &gitalypb.PostUploadPackRequest{Repository: nil},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),

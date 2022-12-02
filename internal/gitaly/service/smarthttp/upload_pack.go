@@ -49,7 +49,11 @@ func (s *server) PostUploadPack(stream gitalypb.SmartHTTPService_PostUploadPackS
 		return stream.Send(&gitalypb.PostUploadPackResponse{Data: p})
 	})
 
-	return s.runUploadPack(ctx, req, repoPath, gitConfig, stdin, stdout)
+	if err := s.runUploadPack(ctx, req, repoPath, gitConfig, stdin, stdout); err != nil {
+		return helper.ErrInternalf("running upload-pack: %w", err)
+	}
+
+	return nil
 }
 
 func (s *server) PostUploadPackWithSidechannel(ctx context.Context, req *gitalypb.PostUploadPackWithSidechannelRequest) (*gitalypb.PostUploadPackWithSidechannelResponse, error) {
@@ -65,7 +69,7 @@ func (s *server) PostUploadPackWithSidechannel(ctx context.Context, req *gitalyp
 	defer conn.Close()
 
 	if err := s.runUploadPack(ctx, req, repoPath, gitConfig, conn, conn); err != nil {
-		return nil, err
+		return nil, helper.ErrInternalf("running upload-pack: %w", err)
 	}
 
 	if err := conn.Close(); err != nil {
@@ -148,13 +152,13 @@ func (s *server) runUploadPack(ctx context.Context, req basicPostUploadPackReque
 		Args:  []string{repoPath},
 	}, commandOpts...)
 	if err != nil {
-		return helper.ErrUnavailablef("cmd: %w", err)
+		return helper.ErrUnavailablef("spawning upload-pack: %w", err)
 	}
 
 	// Use a custom buffer size to minimize the number of system calls.
 	respBytes, err := io.CopyBuffer(stdout, cmd, make([]byte, 64*1024))
 	if err != nil {
-		return helper.ErrUnavailablef("Fail to transfer git data: %w", err)
+		return helper.ErrUnavailablef("copying stdout from upload-pack: %w", err)
 	}
 
 	if err := cmd.Wait(); err != nil {
@@ -167,7 +171,7 @@ func (s *server) runUploadPack(ctx context.Context, req basicPostUploadPackReque
 			return nil
 		}
 
-		return helper.ErrUnavailable(err)
+		return helper.ErrUnavailablef("waiting for upload-pack: %w", err)
 	}
 
 	ctxlogrus.Extract(ctx).WithField("request_sha", fmt.Sprintf("%x", h.Sum(nil))).WithField("response_bytes", respBytes).Info("request details")
