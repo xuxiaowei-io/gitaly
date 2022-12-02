@@ -11,10 +11,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 )
 
-// clone a repository to a pool, without setting the alternates, is not the
-// responsibility of this function.
-func (o *ObjectPool) clone(ctx context.Context, repo *localrepo.Repo) error {
-	repoPath, err := repo.Path()
+// Create creates an object pool for the given source repository. This is done by creating a local
+// clone of the source repository where source and target repository will then have the same
+// references afterwards.
+//
+// The source repository will not join the object pool. Thus, its objects won't get deduplicated.
+func (o *ObjectPool) Create(ctx context.Context, sourceRepo *localrepo.Repo) (err error) {
+	sourceRepoPath, err := sourceRepo.Path()
 	if err != nil {
 		return err
 	}
@@ -28,9 +31,9 @@ func (o *ObjectPool) clone(ctx context.Context, repo *localrepo.Repo) error {
 				git.Flag{Name: "--bare"},
 				git.Flag{Name: "--local"},
 			},
-			Args: []string{repoPath, o.FullPath()},
+			Args: []string{sourceRepoPath, o.FullPath()},
 		},
-		git.WithRefTxHook(repo),
+		git.WithRefTxHook(sourceRepo),
 		git.WithStderr(&stderr),
 	)
 	if err != nil {
@@ -41,9 +44,9 @@ func (o *ObjectPool) clone(ctx context.Context, repo *localrepo.Repo) error {
 		return fmt.Errorf("cloning to pool: %w, stderr: %q", err, stderr.String())
 	}
 
-	return nil
-}
+	if err := os.RemoveAll(filepath.Join(o.FullPath(), "hooks")); err != nil {
+		return fmt.Errorf("removing hooks: %v", err)
+	}
 
-func (o *ObjectPool) removeHooksDir() error {
-	return os.RemoveAll(filepath.Join(o.FullPath(), "hooks"))
+	return nil
 }

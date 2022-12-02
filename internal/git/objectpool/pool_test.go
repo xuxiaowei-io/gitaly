@@ -9,10 +9,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 )
@@ -40,8 +38,7 @@ func TestFromRepo_successful(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, pool, repoProto := setupObjectPool(t, ctx)
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	cfg, pool, repo := setupObjectPool(t, ctx)
 	locator := config.NewLocator(cfg)
 
 	require.NoError(t, pool.Create(ctx, repo))
@@ -59,9 +56,8 @@ func TestFromRepo_failures(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	t.Run("without alternates file", func(t *testing.T) {
-		cfg, pool, repoProto := setupObjectPool(t, ctx)
+		cfg, pool, repo := setupObjectPool(t, ctx)
 		locator := config.NewLocator(cfg)
-		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 		poolFromRepo, err := FromRepo(locator, pool.gitCmdFactory, nil, nil, nil, repo)
 		require.Equal(t, ErrAlternateObjectDirNotExist, err)
@@ -90,10 +86,8 @@ func TestFromRepo_failures(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			cfg, pool, repoProto := setupObjectPool(t, ctx)
+			cfg, pool, repo := setupObjectPool(t, ctx)
 			locator := config.NewLocator(cfg)
-
-			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 			repoPath, err := repo.Path()
 			require.NoError(t, err)
 
@@ -109,57 +103,12 @@ func TestFromRepo_failures(t *testing.T) {
 	}
 }
 
-func TestCreate(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-
-	cfg, pool, repoProto := setupObjectPool(t, ctx)
-
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-	repoPath, err := repo.Path()
-	require.NoError(t, err)
-
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
-
-	require.NoError(t, pool.Create(ctx, repo))
-	require.True(t, pool.IsValid())
-
-	// There should not be a "hooks" directory in the pool.
-	require.NoDirExists(t, filepath.Join(pool.FullPath(), "hooks"))
-	// The "origin" remote of the pool points to the pool member.
-	require.Equal(t, repoPath, text.ChompBytes(gittest.Exec(t, cfg, "-C", pool.FullPath(), "remote", "get-url", "origin")))
-	// The "master" branch points to the same commit as in the pool member.
-	require.Equal(t, commitID, gittest.ResolveRevision(t, cfg, pool.FullPath(), "refs/heads/master"))
-	// Objects exist in the pool repository.
-	gittest.RequireObjectExists(t, cfg, pool.FullPath(), commitID)
-}
-
-func TestCreate_subdirsExist(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-
-	cfg, pool, repoProto := setupObjectPool(t, ctx)
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-	err := pool.Create(ctx, repo)
-	require.NoError(t, err)
-
-	require.NoError(t, pool.Remove(ctx))
-
-	// Recreate pool so the subdirs exist already
-	err = pool.Create(ctx, repo)
-	require.NoError(t, err)
-}
-
 func TestRemove(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
 
-	cfg, pool, repoProto := setupObjectPool(t, ctx)
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	_, pool, repo := setupObjectPool(t, ctx)
 
 	err := pool.Create(ctx, repo)
 	require.NoError(t, err)

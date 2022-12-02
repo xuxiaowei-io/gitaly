@@ -106,20 +106,6 @@ func (o *ObjectPool) IsValid() bool {
 	return storage.IsGitDirectory(o.FullPath())
 }
 
-// Create will create a pool for a repository and pull the required data to this
-// pool. `repo` that is passed also joins the repository.
-func (o *ObjectPool) Create(ctx context.Context, repo *localrepo.Repo) (err error) {
-	if err := o.clone(ctx, repo); err != nil {
-		return fmt.Errorf("clone: %v", err)
-	}
-
-	if err := o.removeHooksDir(); err != nil {
-		return fmt.Errorf("remove hooks: %v", err)
-	}
-
-	return nil
-}
-
 // Remove will remove the pool, and all its contents without preparing and/or
 // updating the repositories depending on this object pool
 // Subdirectories will remain to exist, and will never be cleaned up, even when

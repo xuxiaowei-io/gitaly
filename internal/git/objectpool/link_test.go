@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -24,8 +23,7 @@ func TestLink(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, pool, repoProto := setupObjectPool(t, ctx)
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	cfg, pool, repo := setupObjectPool(t, ctx)
 
 	require.NoError(t, pool.Remove(ctx), "make sure pool does not exist prior to creation")
 	require.NoError(t, pool.Create(ctx, repo), "create pool")
@@ -46,7 +44,7 @@ func TestLink(t *testing.T) {
 	newContent := testhelper.MustReadFile(t, altPath)
 	require.Equal(t, content, newContent)
 
-	require.False(t, gittest.RemoteExists(t, cfg, pool.FullPath(), repoProto.GetGlRepository()), "pool remotes should not include %v", repo)
+	require.Equal(t, []byte("origin\n"), gittest.Exec(t, cfg, "-C", pool.FullPath(), "remote"))
 }
 
 func TestLink_transactional(t *testing.T) {
@@ -54,14 +52,13 @@ func TestLink_transactional(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, pool, poolMemberProto := setupObjectPool(t, ctx)
-	poolMember := localrepo.NewTestRepo(t, cfg, poolMemberProto)
-	require.NoError(t, pool.Create(ctx, poolMember))
+	_, pool, repo := setupObjectPool(t, ctx)
+	require.NoError(t, pool.Create(ctx, repo))
 
 	txManager := transaction.NewTrackingManager()
 	pool.txManager = txManager
 
-	alternatesPath, err := poolMember.InfoAlternatesPath()
+	alternatesPath, err := repo.InfoAlternatesPath()
 	require.NoError(t, err)
 	require.NoFileExists(t, alternatesPath)
 
@@ -71,7 +68,7 @@ func TestLink_transactional(t *testing.T) {
 		AuthInfo: backchannel.WithID(nil, 1234),
 	})
 
-	require.NoError(t, pool.Link(ctx, poolMember))
+	require.NoError(t, pool.Link(ctx, repo))
 
 	require.Equal(t, 2, len(txManager.Votes()))
 }
@@ -81,9 +78,7 @@ func TestLink_removeBitmap(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, pool, repoProto := setupObjectPool(t, ctx)
-
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	cfg, pool, repo := setupObjectPool(t, ctx)
 	repoPath, err := repo.Path()
 	require.NoError(t, err)
 
@@ -121,9 +116,7 @@ func TestLink_absoluteLinkExists(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, pool, repoProto := setupObjectPool(t, ctx)
-
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	cfg, pool, repo := setupObjectPool(t, ctx)
 	repoPath, err := repo.Path()
 	require.NoError(t, err)
 
@@ -147,5 +140,5 @@ func TestLink_absoluteLinkExists(t *testing.T) {
 	repoObjectsPath := filepath.Join(repoPath, "objects")
 	require.Equal(t, fullPath, filepath.Join(repoObjectsPath, string(content)), "the content of the alternates file should be the relative version of the absolute pat")
 
-	require.True(t, gittest.RemoteExists(t, cfg, pool.FullPath(), "origin"), "pool remotes should include %v", repo)
+	require.Equal(t, []byte("origin\n"), gittest.Exec(t, cfg, "-C", pool.FullPath(), "remote"))
 }
