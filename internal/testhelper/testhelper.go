@@ -201,7 +201,6 @@ func ContextWithoutCancel(opts ...ContextOpt) context.Context {
 	// NodeErrorCancelsVoter affect many tests as it changes Praefect coordinator transaction logic.
 	// Randomly enable the flag to exercise both paths to some extent.
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.NodeErrorCancelsVoter, rnd.Int()%2 == 0)
-	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.GitV238, rnd.Int()%2 == 0)
 	// PraefectUseYamuxConfigurationForGitaly gets tested in Praefect when routing RPCs and thus it affects many tests.
 	// Let's randomly select which connection we use so both sets of connections get tested somewhat.
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.PraefectUseYamuxConfigurationForGitaly, rnd.Int()%2 == 0)
