@@ -281,25 +281,6 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 
 	repoClient := gitalypb.NewRepositoryServiceClient(cc)
 
-	createRepo := func(tb testing.TB) *gitalypb.Repository {
-		tb.Helper()
-
-		repo := &gitalypb.Repository{
-			StorageName:  "default",
-			RelativePath: gittest.NewRepositoryName(tb),
-		}
-
-		_, err := repoClient.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: repo})
-		require.NoError(tb, err)
-
-		// The repository might be created through Praefect and the tests reach into the repository directly
-		// on the filesystem. To ensure the test accesses correct directory, we need to rewrite the relative
-		// path if the repository creation went through Praefect.
-		repo.RelativePath = gittest.GetReplicaPath(tb, ctx, cfg, repo)
-
-		return repo
-	}
-
 	_, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
@@ -320,7 +301,7 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 			desc:     "existing repo, without hooks",
 			locators: []string{"legacy", "pointer"},
 			setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
-				repo := createRepo(tb)
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 				relativePath := stripRelativePath(tb, repo)
 				require.NoError(tb, os.MkdirAll(filepath.Join(backupRoot, relativePath), os.ModePerm))
@@ -335,7 +316,7 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 			desc:     "existing repo, with hooks",
 			locators: []string{"legacy", "pointer"},
 			setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
-				repo := createRepo(tb)
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 				relativePath := stripRelativePath(tb, repo)
 				bundlePath := filepath.Join(backupRoot, relativePath+".bundle")
@@ -357,7 +338,7 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 			desc:     "missing bundle",
 			locators: []string{"legacy", "pointer"},
 			setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
-				repo := createRepo(tb)
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
 				return repo, nil
 			},
 			expectedErrAs: ErrSkipped,
@@ -366,7 +347,7 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 			desc:     "missing bundle, always create",
 			locators: []string{"legacy", "pointer"},
 			setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
-				repo := createRepo(tb)
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
 				return repo, new(git.Checksum)
 			},
 			alwaysCreate: true,
@@ -395,7 +376,7 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 			locators: []string{"pointer"},
 			setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
 				const backupID = "abc123"
-				repo := createRepo(tb)
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
 				repoBackupPath := joinBackupPath(tb, backupRoot, repo)
 				backupPath := filepath.Join(repoBackupPath, backupID)
 				require.NoError(tb, os.MkdirAll(backupPath, os.ModePerm))
@@ -414,10 +395,9 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 			setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
 				const backupID = "abc123"
 
-				expected := createRepo(tb)
-				expectedRepoPath := filepath.Join(cfg.Storages[0].Path, expected.RelativePath)
+				_, expectedRepoPath := gittest.CreateRepository(t, ctx, cfg)
 
-				repo := createRepo(tb)
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
 				repoBackupPath := joinBackupPath(tb, backupRoot, repo)
 				backupPath := filepath.Join(repoBackupPath, backupID)
 				require.NoError(tb, os.MkdirAll(backupPath, os.ModePerm))
