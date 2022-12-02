@@ -462,11 +462,15 @@ func (cf *ExecCommandFactory) combineArgs(ctx context.Context, gitConfig []confi
 		return nil, fmt.Errorf("invalid sub command name %q: %w", sc.Subcommand(), ErrInvalidArg)
 	}
 
-	combinedGlobals, err := cf.globalConfiguration(ctx)
+	globalConfig, err := cf.GlobalConfiguration(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("getting global Git configuration: %w", err)
 	}
 
+	combinedGlobals := make([]GlobalOption, 0, len(globalConfig)+len(commandDescription.opts)+len(cc.globals)+len(gitConfig))
+	for _, configPair := range globalConfig {
+		combinedGlobals = append(combinedGlobals, configPair)
+	}
 	combinedGlobals = append(combinedGlobals, commandDescription.opts...)
 	combinedGlobals = append(combinedGlobals, cc.globals...)
 	for _, configPair := range gitConfig {
@@ -492,9 +496,9 @@ func (cf *ExecCommandFactory) combineArgs(ctx context.Context, gitConfig []confi
 	return append(args, scArgs...), nil
 }
 
-// globalConfiguration returns the global Git configuration that should be applied to every Git
+// GlobalConfiguration returns the global Git configuration that should be applied to every Git
 // command.
-func (cf *ExecCommandFactory) globalConfiguration(ctx context.Context) ([]GlobalOption, error) {
+func (cf *ExecCommandFactory) GlobalConfiguration(ctx context.Context) ([]ConfigPair, error) {
 	// As global options may cancel out each other, we have a clearly defined order in which
 	// globals get applied. The order is similar to how git handles configuration options from
 	// most general to most specific. This allows callsites to override options which would
@@ -507,23 +511,23 @@ func (cf *ExecCommandFactory) globalConfiguration(ctx context.Context) ([]Global
 	// 3. Globals passed via command options, e.g. as set up by
 	//    `WithReftxHook()`.
 	// 4. Configuration as provided by the admin in Gitaly's config.toml.
-	config := []GlobalOption{
+	config := []ConfigPair{
 		// Disable automatic garbage collection as we handle scheduling
 		// of it ourselves.
-		ConfigPair{Key: "gc.auto", Value: "0"},
+		{Key: "gc.auto", Value: "0"},
 
 		// CRLF line endings will get replaced with LF line endings
 		// when writing blobs to the object database. No conversion is
 		// done when reading blobs from the object database. This is
 		// required for the web editor.
-		ConfigPair{Key: "core.autocrlf", Value: "input"},
+		{Key: "core.autocrlf", Value: "input"},
 
 		// Git allows the use of replace refs, where a given object ID can be replaced with a
 		// different one. The result is that Git commands would use the new object instead of the
 		// old one in almost all contexts. This is a security threat: an adversary may use this
 		// mechanism to replace malicious commits with seemingly benign ones. We thus globally
 		// disable this mechanism.
-		ConfigPair{Key: "core.useReplaceRefs", Value: "false"},
+		{Key: "core.useReplaceRefs", Value: "false"},
 
 		// Commit-graphs are used as an optimization to speed up reading commits and to be
 		// able to perform certain commit-related queries faster. One property that these
@@ -551,17 +555,14 @@ func (cf *ExecCommandFactory) globalConfiguration(ctx context.Context) ([]Global
 		//
 		// Let's disable reading and writing corrected committer dates for now until the fix
 		// to this issue is upstream.
-		ConfigPair{Key: "commitGraph.generationVersion", Value: "1"},
-	}
+		{Key: "commitGraph.generationVersion", Value: "1"},
 
-	// We configure for what data should be fsynced and how that should happen.
-	// Synchronize object files, packed-refs and loose refs to disk to lessen the likelihood
-	// of repository corruption in case the server crashes.
-	config = append(
-		config,
-		ConfigPair{Key: "core.fsync", Value: "objects,derived-metadata,reference"},
-		ConfigPair{Key: "core.fsyncMethod", Value: "fsync"},
-	)
+		// We configure for what data should be fsynced and how that should happen.
+		// Synchronize object files, packed-refs and loose refs to disk to lessen the
+		// likelihood of repository corruption in case the server crashes.
+		{Key: "core.fsync", Value: "objects,derived-metadata,reference"},
+		{Key: "core.fsyncMethod", Value: "fsync"},
+	}
 
 	return config, nil
 }
@@ -573,9 +574,14 @@ func (cf *ExecCommandFactory) globalConfiguration(ctx context.Context) ([]Global
 // This function should not be used for anything else but the Ruby sidecar.
 func (cf *ExecCommandFactory) SidecarGitConfiguration(ctx context.Context) ([]ConfigPair, error) {
 	// Collect the global configuration that is specific to the current Git version...
-	options, err := cf.globalConfiguration(ctx)
+	globalConfig, err := cf.GlobalConfiguration(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("getting global config: %w", err)
+	}
+
+	var options []GlobalOption
+	for _, configPair := range globalConfig {
+		options = append(options, configPair)
 	}
 
 	// ... as well as all configuration that exists for specific Git subcommands. The sidecar
