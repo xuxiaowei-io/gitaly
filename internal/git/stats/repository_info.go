@@ -58,33 +58,35 @@ func GetPackfiles(repoPath string) ([]fs.DirEntry, error) {
 
 // LooseObjects returns the number of loose objects that are not in a packfile.
 func LooseObjects(ctx context.Context, repo *localrepo.Repo) (uint64, error) {
-	objectsInfo, err := ObjectsInfoForRepository(ctx, repo)
+	repoInfo, err := RepositoryInfoForRepository(ctx, repo)
 	if err != nil {
 		return 0, err
 	}
 
-	return objectsInfo.LooseObjects.Count, nil
+	return repoInfo.LooseObjects.Count, nil
 }
 
-// LogObjectsInfo read statistics of the git repo objects
-// and logs it under 'objects_info' key as structured entry.
-func LogObjectsInfo(ctx context.Context, repo *localrepo.Repo) {
+// LogRepositoryInfo read statistics of the git repo objects
+// and logs it under 'repository_info' key as structured entry.
+func LogRepositoryInfo(ctx context.Context, repo *localrepo.Repo) {
 	logger := ctxlogrus.Extract(ctx)
 
-	objectsInfo, err := ObjectsInfoForRepository(ctx, repo)
+	repoInfo, err := RepositoryInfoForRepository(ctx, repo)
 	if err != nil {
-		logger.WithError(err).Warn("failed reading objects info")
+		logger.WithError(err).Warn("failed reading repository info")
 	} else {
-		logger.WithField("objects_info", objectsInfo).Info("repository objects info")
+		logger.WithField("repository_info", repoInfo).Info("repository info")
 	}
 }
 
-// ObjectsInfo contains information on the object database.
-type ObjectsInfo struct {
+// RepositoryInfo contains information about the repository.
+type RepositoryInfo struct {
 	// LooseObjects contains information about loose objects.
 	LooseObjects LooseObjectsInfo `json:"loose_objects"`
 	// Packfiles contains information about packfiles.
 	Packfiles PackfilesInfo `json:"packfiles"`
+	// References contains information about the repository's references.
+	References ReferencesInfo `json:"references"`
 	// CommitGraph contains information about the repository's commit-graphs.
 	CommitGraph CommitGraphInfo `json:"commit_graph"`
 	// Alternates is the list of absolute paths of alternate object databases this repository is
@@ -92,34 +94,81 @@ type ObjectsInfo struct {
 	Alternates []string `json:"alternates"`
 }
 
-// ObjectsInfoForRepository computes the ObjectsInfo for a repository.
-func ObjectsInfoForRepository(ctx context.Context, repo *localrepo.Repo) (ObjectsInfo, error) {
-	var info ObjectsInfo
+// RepositoryInfoForRepository computes the RepositoryInfo for a repository.
+func RepositoryInfoForRepository(ctx context.Context, repo *localrepo.Repo) (RepositoryInfo, error) {
+	var info RepositoryInfo
 	var err error
 
 	repoPath, err := repo.Path()
 	if err != nil {
-		return ObjectsInfo{}, err
+		return RepositoryInfo{}, err
 	}
 
 	info.LooseObjects, err = LooseObjectsInfoForRepository(repo, time.Now().Add(StaleObjectsGracePeriod))
 	if err != nil {
-		return ObjectsInfo{}, fmt.Errorf("counting loose objects: %w", err)
+		return RepositoryInfo{}, fmt.Errorf("counting loose objects: %w", err)
 	}
 
 	info.Packfiles, err = PackfilesInfoForRepository(repo)
 	if err != nil {
-		return ObjectsInfo{}, fmt.Errorf("counting packfiles: %w", err)
+		return RepositoryInfo{}, fmt.Errorf("counting packfiles: %w", err)
+	}
+
+	info.References, err = ReferencesInfoForRepository(ctx, repo)
+	if err != nil {
+		return RepositoryInfo{}, fmt.Errorf("checking references: %w", err)
 	}
 
 	info.CommitGraph, err = CommitGraphInfoForRepository(repoPath)
 	if err != nil {
-		return ObjectsInfo{}, fmt.Errorf("checking commit-graph info: %w", err)
+		return RepositoryInfo{}, fmt.Errorf("checking commit-graph info: %w", err)
 	}
 
 	info.Alternates, err = readAlternates(repo)
 	if err != nil {
-		return ObjectsInfo{}, fmt.Errorf("reading alterantes: %w", err)
+		return RepositoryInfo{}, fmt.Errorf("reading alterantes: %w", err)
+	}
+
+	return info, nil
+}
+
+// ReferencesInfo contains information about references.
+type ReferencesInfo struct {
+	// LooseReferencesCount is the number of unpacked, loose references that exist.
+	LooseReferencesCount uint64 `json:"loose_references_count"`
+	// PackedReferencesSize is the size of the packed-refs file in bytes.
+	PackedReferencesSize uint64 `json:"packed_references_size"`
+}
+
+// ReferencesInfoForRepository derives information about references in the repository.
+func ReferencesInfoForRepository(ctx context.Context, repo *localrepo.Repo) (ReferencesInfo, error) {
+	repoPath, err := repo.Path()
+	if err != nil {
+		return ReferencesInfo{}, fmt.Errorf("getting repository path: %w", err)
+	}
+	refsPath := filepath.Join(repoPath, "refs")
+
+	var info ReferencesInfo
+	if err := filepath.WalkDir(refsPath, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if !entry.IsDir() {
+			info.LooseReferencesCount++
+		}
+
+		return nil
+	}); err != nil {
+		return ReferencesInfo{}, fmt.Errorf("counting loose refs: %w", err)
+	}
+
+	if stat, err := os.Stat(filepath.Join(repoPath, "packed-refs")); err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return ReferencesInfo{}, fmt.Errorf("getting packed-refs size: %w", err)
+		}
+	} else {
+		info.PackedReferencesSize = uint64(stat.Size())
 	}
 
 	return info, nil

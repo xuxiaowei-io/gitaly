@@ -229,13 +229,13 @@ func TestRepackFullCollectLogStatistics(t *testing.T) {
 func mustCountObjectLog(tb testing.TB, entries ...*logrus.Entry) {
 	tb.Helper()
 
-	const key = "objects_info"
+	const key = "repository_info"
 	for _, entry := range entries {
-		if entry.Message == "repository objects info" {
+		if entry.Message == "repository info" {
 			require.Contains(tb, entry.Data, "grpc.request.glProjectPath")
 			require.Contains(tb, entry.Data, "grpc.request.glRepository")
 			require.Contains(tb, entry.Data, key, "objects info not found")
-			require.IsType(tb, stats.ObjectsInfo{}, entry.Data[key])
+			require.IsType(tb, stats.RepositoryInfo{}, entry.Data[key])
 			return
 		}
 	}

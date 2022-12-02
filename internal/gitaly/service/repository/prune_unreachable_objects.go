@@ -49,7 +49,7 @@ func (s *server) PruneUnreachableObjects(
 		return nil, helper.ErrInternalf("rewriting commit-graph: %w", err)
 	}
 
-	stats.LogObjectsInfo(ctx, repo)
+	stats.LogRepositoryInfo(ctx, repo)
 
 	return &gitalypb.PruneUnreachableObjectsResponse{}, nil
 }

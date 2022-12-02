@@ -86,18 +86,18 @@ func TestLogObjectInfo(t *testing.T) {
 	storagePath, err := locator.GetStorageByName(cfg.Storages[0].Name)
 	require.NoError(t, err)
 
-	requireObjectsInfo := func(entries []*logrus.Entry) ObjectsInfo {
+	requireRepositoryInfo := func(entries []*logrus.Entry) RepositoryInfo {
 		for _, entry := range entries {
-			if entry.Message == "repository objects info" {
-				objectsInfo, ok := entry.Data["objects_info"]
+			if entry.Message == "repository info" {
+				repoInfo, ok := entry.Data["repository_info"]
 				require.True(t, ok)
-				require.IsType(t, ObjectsInfo{}, objectsInfo)
-				return objectsInfo.(ObjectsInfo)
+				require.IsType(t, RepositoryInfo{}, repoInfo)
+				return repoInfo.(RepositoryInfo)
 			}
 		}
 
 		require.FailNow(t, "no objects info log entry found")
-		return ObjectsInfo{}
+		return RepositoryInfo{}
 	}
 
 	t.Run("shared repo with multiple alternates", func(t *testing.T) {
@@ -121,18 +121,24 @@ func TestLogObjectInfo(t *testing.T) {
 		targetRepoPath := filepath.Join(storagePath, targetRepoName)
 		gittest.Exec(t, cfg, "clone", "--bare", "--shared", repoPath1, "--reference", repoPath1, "--reference", repoPath2, targetRepoPath)
 
-		LogObjectsInfo(ctx, localrepo.NewTestRepo(t, cfg, &gitalypb.Repository{
+		LogRepositoryInfo(ctx, localrepo.NewTestRepo(t, cfg, &gitalypb.Repository{
 			StorageName:  cfg.Storages[0].Name,
 			RelativePath: targetRepoName,
 		}))
 
-		objectsInfo := requireObjectsInfo(hook.AllEntries())
-		require.Equal(t, ObjectsInfo{
+		packedRefsStat, err := os.Stat(filepath.Join(targetRepoPath, "packed-refs"))
+		require.NoError(t, err)
+
+		repoInfo := requireRepositoryInfo(hook.AllEntries())
+		require.Equal(t, RepositoryInfo{
+			References: ReferencesInfo{
+				PackedReferencesSize: uint64(packedRefsStat.Size()),
+			},
 			Alternates: []string{
 				filepath.Join(repoPath1, "/objects"),
 				filepath.Join(repoPath2, "/objects"),
 			},
-		}, objectsInfo)
+		}, repoInfo)
 	})
 
 	t.Run("repo without alternates", func(t *testing.T) {
@@ -146,19 +152,22 @@ func TestLogObjectInfo(t *testing.T) {
 		})
 		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 
-		LogObjectsInfo(ctx, localrepo.NewTestRepo(t, cfg, repo))
+		LogRepositoryInfo(ctx, localrepo.NewTestRepo(t, cfg, repo))
 
-		objectsInfo := requireObjectsInfo(hook.AllEntries())
-		require.Equal(t, ObjectsInfo{
+		objectsInfo := requireRepositoryInfo(hook.AllEntries())
+		require.Equal(t, RepositoryInfo{
 			LooseObjects: LooseObjectsInfo{
 				Count: 2,
 				Size:  hashDependentSize(142, 158),
+			},
+			References: ReferencesInfo{
+				LooseReferencesCount: 1,
 			},
 		}, objectsInfo)
 	})
 }
 
-func TestObjectsInfoForRepository(t *testing.T) {
+func TestRepositoryInfoForRepository(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
@@ -170,10 +179,10 @@ func TestObjectsInfoForRepository(t *testing.T) {
 	alternatePath = filepath.Join(alternatePath, "objects")
 
 	for _, tc := range []struct {
-		desc                string
-		setup               func(t *testing.T, repoPath string)
-		expectedErr         error
-		expectedObjectsInfo ObjectsInfo
+		desc         string
+		setup        func(t *testing.T, repoPath string)
+		expectedErr  error
+		expectedInfo RepositoryInfo
 	}{
 		{
 			desc: "empty repository",
@@ -185,7 +194,7 @@ func TestObjectsInfoForRepository(t *testing.T) {
 			setup: func(t *testing.T, repoPath string) {
 				gittest.WriteBlob(t, cfg, repoPath, []byte("x"))
 			},
-			expectedObjectsInfo: ObjectsInfo{
+			expectedInfo: RepositoryInfo{
 				LooseObjects: LooseObjectsInfo{
 					Count: 1,
 					Size:  16,
@@ -200,11 +209,14 @@ func TestObjectsInfoForRepository(t *testing.T) {
 				// We use `-d`, which also prunes objects that have been packed.
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
 			},
-			expectedObjectsInfo: ObjectsInfo{
+			expectedInfo: RepositoryInfo{
 				Packfiles: PackfilesInfo{
 					Count:     1,
 					Size:      hashDependentSize(42, 54),
 					HasBitmap: true,
+				},
+				References: ReferencesInfo{
+					LooseReferencesCount: 1,
 				},
 			},
 		},
@@ -217,7 +229,7 @@ func TestObjectsInfoForRepository(t *testing.T) {
 				// loose and packed form.
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-a")
 			},
-			expectedObjectsInfo: ObjectsInfo{
+			expectedInfo: RepositoryInfo{
 				LooseObjects: LooseObjectsInfo{
 					Count: 1,
 					Size:  16,
@@ -227,6 +239,9 @@ func TestObjectsInfoForRepository(t *testing.T) {
 					Size:      hashDependentSize(42, 54),
 					HasBitmap: true,
 				},
+				References: ReferencesInfo{
+					LooseReferencesCount: 1,
+				},
 			},
 		},
 		{
@@ -235,7 +250,7 @@ func TestObjectsInfoForRepository(t *testing.T) {
 				garbagePath := filepath.Join(repoPath, "objects", "pack", "garbage")
 				require.NoError(t, os.WriteFile(garbagePath, []byte("x"), 0o600))
 			},
-			expectedObjectsInfo: ObjectsInfo{
+			expectedInfo: RepositoryInfo{
 				Packfiles: PackfilesInfo{
 					GarbageCount: 1,
 					GarbageSize:  1,
@@ -248,7 +263,7 @@ func TestObjectsInfoForRepository(t *testing.T) {
 				infoAlternatesPath := filepath.Join(repoPath, "objects", "info", "alternates")
 				require.NoError(t, os.WriteFile(infoAlternatesPath, []byte(alternatePath), 0o600))
 			},
-			expectedObjectsInfo: ObjectsInfo{
+			expectedInfo: RepositoryInfo{
 				Alternates: []string{
 					alternatePath,
 				},
@@ -260,10 +275,13 @@ func TestObjectsInfoForRepository(t *testing.T) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable")
 			},
-			expectedObjectsInfo: ObjectsInfo{
+			expectedInfo: RepositoryInfo{
 				LooseObjects: LooseObjectsInfo{
 					Count: 2,
 					Size:  hashDependentSize(142, 158),
+				},
+				References: ReferencesInfo{
+					LooseReferencesCount: 1,
 				},
 				CommitGraph: CommitGraphInfo{
 					Exists: true,
@@ -276,10 +294,13 @@ func TestObjectsInfoForRepository(t *testing.T) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--changed-paths")
 			},
-			expectedObjectsInfo: ObjectsInfo{
+			expectedInfo: RepositoryInfo{
 				LooseObjects: LooseObjectsInfo{
 					Count: 2,
 					Size:  hashDependentSize(142, 158),
+				},
+				References: ReferencesInfo{
+					LooseReferencesCount: 1,
 				},
 				CommitGraph: CommitGraphInfo{
 					Exists:          true,
@@ -309,7 +330,7 @@ func TestObjectsInfoForRepository(t *testing.T) {
 					require.NoError(t, os.WriteFile(garbagePath, []byte("x"), 0o600))
 				}
 			},
-			expectedObjectsInfo: ObjectsInfo{
+			expectedInfo: RepositoryInfo{
 				LooseObjects: LooseObjectsInfo{
 					Count: 2,
 					Size:  32,
@@ -320,6 +341,9 @@ func TestObjectsInfoForRepository(t *testing.T) {
 					GarbageCount: 3,
 					GarbageSize:  3,
 					HasBitmap:    true,
+				},
+				References: ReferencesInfo{
+					LooseReferencesCount: 1,
 				},
 				Alternates: []string{
 					alternatePath,
@@ -335,9 +359,82 @@ func TestObjectsInfoForRepository(t *testing.T) {
 
 			tc.setup(t, repoPath)
 
-			objectsInfo, err := ObjectsInfoForRepository(ctx, repo)
+			repoInfo, err := RepositoryInfoForRepository(ctx, repo)
 			require.Equal(t, tc.expectedErr, err)
-			require.Equal(t, tc.expectedObjectsInfo, objectsInfo)
+			require.Equal(t, tc.expectedInfo, repoInfo)
+		})
+	}
+}
+
+func TestReferencesInfoForRepository(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	for _, tc := range []struct {
+		desc         string
+		setup        func(*testing.T, *localrepo.Repo, string)
+		expectedInfo ReferencesInfo
+	}{
+		{
+			desc: "empty repository",
+			setup: func(*testing.T, *localrepo.Repo, string) {
+			},
+		},
+		{
+			desc: "single unpacked reference",
+			setup: func(t *testing.T, _ *localrepo.Repo, repoPath string) {
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+			},
+			expectedInfo: ReferencesInfo{
+				LooseReferencesCount: 1,
+			},
+		},
+		{
+			desc: "packed reference",
+			setup: func(t *testing.T, _ *localrepo.Repo, repoPath string) {
+				// We just write some random garbage -- we don't verify contents
+				// anyway, but just the size. And testing like that is at least
+				// deterministic as we don't have to special-case hash sizes.
+				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "packed-refs"), []byte("content"), 0o644))
+			},
+			expectedInfo: ReferencesInfo{
+				PackedReferencesSize: 7,
+			},
+		},
+		{
+			desc: "multiple unpacked and packed refs",
+			setup: func(t *testing.T, _ *localrepo.Repo, repoPath string) {
+				for _, ref := range []string{
+					"refs/heads/main",
+					"refs/something",
+					"refs/merge-requests/1/HEAD",
+				} {
+					gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference(ref))
+				}
+
+				// We just write some random garbage -- we don't verify contents
+				// anyway, but just the size. And testing like that is at least
+				// deterministic as we don't have to special-case hash sizes.
+				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "packed-refs"), []byte("content"), 0o644))
+			},
+			expectedInfo: ReferencesInfo{
+				LooseReferencesCount: 3,
+				PackedReferencesSize: 7,
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				SkipCreationViaService: true,
+			})
+			repo := localrepo.NewTestRepo(t, cfg, repoProto)
+			tc.setup(t, repo, repoPath)
+
+			info, err := ReferencesInfoForRepository(ctx, repo)
+			require.NoError(t, err)
+			require.Equal(t, tc.expectedInfo, info)
 		})
 	}
 }

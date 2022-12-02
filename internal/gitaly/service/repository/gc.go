@@ -57,7 +57,7 @@ func (s *server) GarbageCollect(ctx context.Context, in *gitalypb.GarbageCollect
 		return nil, err
 	}
 
-	stats.LogObjectsInfo(ctx, repo)
+	stats.LogRepositoryInfo(ctx, repo)
 
 	return &gitalypb.GarbageCollectResponse{}, nil
 }
