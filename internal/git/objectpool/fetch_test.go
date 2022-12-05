@@ -34,7 +34,6 @@ func TestFetchFromOrigin_dangling(t *testing.T) {
 		gittest.WithTree(treeID),
 		gittest.WithBranch("master"),
 	)
-	require.NoError(t, pool.Init(ctx))
 	require.NoError(t, pool.FetchFromOrigin(ctx, repo))
 
 	// We now write a bunch of objects into the object pool that are not referenced by anything.
@@ -86,7 +85,6 @@ func TestFetchFromOrigin_fsck(t *testing.T) {
 	repoPath, err := repo.Path()
 	require.NoError(t, err)
 
-	require.NoError(t, pool.Init(ctx))
 	require.NoError(t, pool.FetchFromOrigin(ctx, repo), "seed pool")
 
 	// We're creating a new commit which has a root tree with duplicate entries. git-mktree(1)
@@ -112,7 +110,6 @@ func TestFetchFromOrigin_deltaIslands(t *testing.T) {
 	repoPath, err := repo.Path()
 	require.NoError(t, err)
 
-	require.NoError(t, pool.Init(ctx))
 	require.NoError(t, pool.FetchFromOrigin(ctx, repo), "seed pool")
 	require.NoError(t, pool.Link(ctx, repo))
 
@@ -134,7 +131,6 @@ func TestFetchFromOrigin_bitmapHashCache(t *testing.T) {
 
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
 
-	require.NoError(t, pool.Init(ctx))
 	require.NoError(t, pool.FetchFromOrigin(ctx, repo))
 
 	bitmaps, err := filepath.Glob(filepath.Join(pool.FullPath(), "objects", "pack", "*.bitmap"))
@@ -160,7 +156,6 @@ func TestFetchFromOrigin_refUpdates(t *testing.T) {
 	oldRefs["tags/v1.1.0"] = gittest.WriteTag(t, cfg, repoPath, "v1.1.0", oldRefs["heads/csv"].Revision())
 
 	// We now fetch that data into the object pool and verify that it exists as expected.
-	require.NoError(t, pool.Init(ctx))
 	require.NoError(t, pool.FetchFromOrigin(ctx, repo))
 	for ref, oid := range oldRefs {
 		require.Equal(t, oid, gittest.ResolveRevision(t, cfg, poolPath, "refs/remotes/origin/"+ref))
@@ -200,9 +195,8 @@ func TestFetchFromOrigin_refs(t *testing.T) {
 	repoPath, err := repo.Path()
 	require.NoError(t, err)
 
-	// Initialize the object pool and verify that it ain't yet got any references.
+	// Verify that the object pool ain't yet got any references.
 	poolPath := pool.FullPath()
-	require.NoError(t, pool.Init(ctx))
 	require.Empty(t, gittest.Exec(t, cfg, "-C", poolPath, "for-each-ref", "--format=%(refname)"))
 
 	// Initialize the repository with a bunch of references.
@@ -237,6 +231,10 @@ func TestFetchFromOrigin_missingPool(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	_, pool, repo := setupObjectPool(t, ctx)
+
+	// Remove the object pool to assert that we raise an error when fetching into a non-existent
+	// object pool.
+	require.NoError(t, pool.Remove(ctx))
 
 	require.Equal(t, helper.ErrInvalidArgumentf("object pool does not exist"), pool.FetchFromOrigin(ctx, repo))
 	require.False(t, pool.Exists())

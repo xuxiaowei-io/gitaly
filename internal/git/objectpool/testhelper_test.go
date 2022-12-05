@@ -28,9 +28,10 @@ func setupObjectPool(t *testing.T, ctx context.Context) (config.Cfg, *ObjectPool
 	t.Helper()
 
 	cfg := testcfg.Build(t)
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	gitCommandFactory := gittest.NewCommandFactory(t, cfg, git.WithSkipHooks())
 
@@ -52,6 +53,7 @@ func setupObjectPool(t *testing.T, ctx context.Context) (config.Cfg, *ObjectPool
 		},
 	)
 	require.NoError(t, err)
+	require.NoError(t, pool.Create(ctx, repo))
 
-	return cfg, pool, localrepo.NewTestRepo(t, cfg, repo)
+	return cfg, pool, repo
 }

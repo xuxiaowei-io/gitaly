@@ -52,7 +52,6 @@ func TestFromRepo_successful(t *testing.T) {
 	cfg, pool, repo := setupObjectPool(t, ctx)
 	locator := config.NewLocator(cfg)
 
-	require.NoError(t, pool.Create(ctx, repo))
 	require.NoError(t, pool.Link(ctx, repo))
 
 	poolFromRepo, err := FromRepo(locator, pool.gitCmdFactory, nil, nil, nil, repo)
@@ -119,10 +118,7 @@ func TestRemove(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	_, pool, repo := setupObjectPool(t, ctx)
-
-	err := pool.Create(ctx, repo)
-	require.NoError(t, err)
+	_, pool, _ := setupObjectPool(t, ctx)
 
 	require.True(t, pool.Exists())
 	require.NoError(t, pool.Remove(ctx))

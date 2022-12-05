@@ -25,9 +25,6 @@ func TestLink(t *testing.T) {
 
 	cfg, pool, repo := setupObjectPool(t, ctx)
 
-	require.NoError(t, pool.Remove(ctx), "make sure pool does not exist prior to creation")
-	require.NoError(t, pool.Create(ctx, repo), "create pool")
-
 	altPath, err := repo.InfoAlternatesPath()
 	require.NoError(t, err)
 	require.NoFileExists(t, altPath)
@@ -53,7 +50,6 @@ func TestLink_transactional(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	_, pool, repo := setupObjectPool(t, ctx)
-	require.NoError(t, pool.Create(ctx, repo))
 
 	txManager := transaction.NewTrackingManager()
 	pool.txManager = txManager
@@ -84,8 +80,7 @@ func TestLink_removeBitmap(t *testing.T) {
 
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
 
-	// Initialize the pool and pull in all references from the repository.
-	require.NoError(t, pool.Init(ctx))
+	// Pull in all references from the repository.
 	poolPath := pool.FullPath()
 	gittest.Exec(t, cfg, "-C", poolPath, "fetch", repoPath, "+refs/*:refs/*")
 
@@ -119,9 +114,6 @@ func TestLink_absoluteLinkExists(t *testing.T) {
 	cfg, pool, repo := setupObjectPool(t, ctx)
 	repoPath, err := repo.Path()
 	require.NoError(t, err)
-
-	require.NoError(t, pool.Remove(ctx), "make sure pool does not exist prior to creation")
-	require.NoError(t, pool.Create(ctx, repo), "create pool")
 
 	altPath, err := repo.InfoAlternatesPath()
 	require.NoError(t, err)
