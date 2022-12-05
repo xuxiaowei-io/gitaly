@@ -57,8 +57,8 @@ func TestFromRepo_successful(t *testing.T) {
 
 	poolFromRepo, err := FromRepo(locator, pool.gitCmdFactory, nil, nil, nil, repo)
 	require.NoError(t, err)
-	require.Equal(t, pool.relativePath, poolFromRepo.relativePath)
-	require.Equal(t, pool.storageName, poolFromRepo.storageName)
+	require.Equal(t, pool.GetRelativePath(), poolFromRepo.GetRelativePath())
+	require.Equal(t, pool.GetStorageName(), poolFromRepo.GetStorageName())
 }
 
 func TestFromRepo_failures(t *testing.T) {

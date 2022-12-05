@@ -30,15 +30,13 @@ const ErrInvalidPoolDir errString = "invalid object pool directory"
 // live in a pool in a distinct repository which is used as an alternate object
 // store for other repositories.
 type ObjectPool struct {
-	Repo *localrepo.Repo
+	*localrepo.Repo
 
 	gitCmdFactory       git.CommandFactory
 	txManager           transaction.Manager
 	housekeepingManager housekeeping.Manager
 
-	storageName  string
-	storagePath  string
-	relativePath string
+	storagePath string
 }
 
 // FromProto returns an object pool object from its Protobuf representation.
@@ -55,21 +53,17 @@ func FromProto(
 		return nil, err
 	}
 
-	pool := &ObjectPool{
-		gitCmdFactory:       gitCmdFactory,
-		txManager:           txManager,
-		housekeepingManager: housekeepingManager,
-		storageName:         proto.GetRepository().GetStorageName(),
-		storagePath:         storagePath,
-		relativePath:        proto.GetRepository().GetRelativePath(),
-	}
-	pool.Repo = localrepo.New(locator, gitCmdFactory, catfileCache, pool)
-
-	if !housekeeping.IsPoolRepository(pool) {
+	if !housekeeping.IsPoolRepository(proto.GetRepository()) {
 		return nil, ErrInvalidPoolDir
 	}
 
-	return pool, nil
+	return &ObjectPool{
+		Repo:                localrepo.New(locator, gitCmdFactory, catfileCache, proto.GetRepository()),
+		gitCmdFactory:       gitCmdFactory,
+		txManager:           txManager,
+		housekeepingManager: housekeepingManager,
+		storagePath:         storagePath,
+	}, nil
 }
 
 // ToProto returns a new struct that is the protobuf definition of the ObjectPool
@@ -80,19 +74,6 @@ func (o *ObjectPool) ToProto() *gitalypb.ObjectPool {
 			RelativePath: o.GetRelativePath(),
 		},
 	}
-}
-
-// GetGitAlternateObjectDirectories for object pools are empty, given pools are
-// never a member of another pool, nor do they share Alternate objects with other
-// repositories which the pool doesn't contain itself
-func (o *ObjectPool) GetGitAlternateObjectDirectories() []string {
-	return []string{}
-}
-
-// GetGitObjectDirectory satisfies the repository.GitRepo interface, but is not
-// used for ObjectPools
-func (o *ObjectPool) GetGitObjectDirectory() string {
-	return ""
 }
 
 // Exists will return true if the pool path exists and is a directory
