@@ -153,7 +153,7 @@ func TestGarbageCollectLogStatistics(t *testing.T) {
 	_, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: repo})
 	require.NoError(t, err)
 
-	mustCountObjectLog(t, hook.AllEntries()...)
+	requireRepositoryInfoLog(t, hook.AllEntries()...)
 }
 
 func TestGarbageCollectDeletesRefsLocks(t *testing.T) {
