@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
 type errString string
@@ -40,19 +41,16 @@ type ObjectPool struct {
 	relativePath string
 }
 
-// NewObjectPool will initialize the object with the required data on the storage
-// shard. Relative path is validated to match the expected naming and directory
-// structure. If the shard cannot be found, this function returns an error.
-func NewObjectPool(
+// FromProto returns an object pool object from its Protobuf representation.
+func FromProto(
 	locator storage.Locator,
 	gitCmdFactory git.CommandFactory,
 	catfileCache catfile.Cache,
 	txManager transaction.Manager,
 	housekeepingManager housekeeping.Manager,
-	storageName,
-	relativePath string,
+	proto *gitalypb.ObjectPool,
 ) (*ObjectPool, error) {
-	storagePath, err := locator.GetStorageByName(storageName)
+	storagePath, err := locator.GetStorageByName(proto.GetRepository().GetStorageName())
 	if err != nil {
 		return nil, err
 	}
@@ -61,9 +59,9 @@ func NewObjectPool(
 		gitCmdFactory:       gitCmdFactory,
 		txManager:           txManager,
 		housekeepingManager: housekeepingManager,
-		storageName:         storageName,
+		storageName:         proto.GetRepository().GetStorageName(),
 		storagePath:         storagePath,
-		relativePath:        relativePath,
+		relativePath:        proto.GetRepository().GetRelativePath(),
 	}
 	pool.Repo = localrepo.New(locator, gitCmdFactory, catfileCache, pool)
 
@@ -72,6 +70,16 @@ func NewObjectPool(
 	}
 
 	return pool, nil
+}
+
+// ToProto returns a new struct that is the protobuf definition of the ObjectPool
+func (o *ObjectPool) ToProto() *gitalypb.ObjectPool {
+	return &gitalypb.ObjectPool{
+		Repository: &gitalypb.Repository{
+			StorageName:  o.GetStorageName(),
+			RelativePath: o.GetRelativePath(),
+		},
+	}
 }
 
 // GetGitAlternateObjectDirectories for object pools are empty, given pools are
@@ -167,7 +175,14 @@ func FromRepo(
 		return nil, err
 	}
 
-	return NewObjectPool(locator, gitCmdFactory, catfileCache, txManager, housekeepingManager, repo.GetStorageName(), filepath.Dir(altPathRelativeToStorage))
+	objectPoolProto := &gitalypb.ObjectPool{
+		Repository: &gitalypb.Repository{
+			StorageName:  repo.GetStorageName(),
+			RelativePath: filepath.Dir(altPathRelativeToStorage),
+		},
+	}
+
+	return FromProto(locator, gitCmdFactory, catfileCache, txManager, housekeepingManager, objectPoolProto)
 }
 
 var (

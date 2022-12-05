@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
 func TestMain(m *testing.M) {
@@ -37,14 +38,18 @@ func setupObjectPool(t *testing.T, ctx context.Context) (config.Cfg, *ObjectPool
 	t.Cleanup(catfileCache.Stop)
 	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
 
-	pool, err := NewObjectPool(
+	pool, err := FromProto(
 		config.NewLocator(cfg),
 		gitCommandFactory,
 		catfileCache,
 		txManager,
 		housekeeping.NewManager(cfg.Prometheus, txManager),
-		repo.GetStorageName(),
-		gittest.NewObjectPoolName(t),
+		&gitalypb.ObjectPool{
+			Repository: &gitalypb.Repository{
+				StorageName:  repo.GetStorageName(),
+				RelativePath: gittest.NewObjectPoolName(t),
+			},
+		},
 	)
 	require.NoError(t, err)
 

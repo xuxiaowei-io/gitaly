@@ -30,12 +30,7 @@ func ExtractPool(req PoolRequest) (*gitalypb.Repository, error) {
 }
 
 func (s *server) poolForRequest(req PoolRequest) (*objectpool.ObjectPool, error) {
-	poolRepo, err := ExtractPool(req)
-	if err != nil {
-		return nil, err
-	}
-
-	pool, err := objectpool.NewObjectPool(s.locator, s.gitCmdFactory, s.catfileCache, s.txManager, s.housekeepingManager, poolRepo.GetStorageName(), poolRepo.GetRelativePath())
+	pool, err := objectpool.FromProto(s.locator, s.gitCmdFactory, s.catfileCache, s.txManager, s.housekeepingManager, req.GetObjectPool())
 	if err != nil {
 		if err == objectpool.ErrInvalidPoolDir {
 			return nil, errInvalidPoolDir

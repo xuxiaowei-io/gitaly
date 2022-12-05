@@ -69,14 +69,18 @@ func testSuccessfulRepositorySizeRequestPoolMember(t *testing.T, ctx context.Con
 
 	// create an object pool
 	gittest.InitRepoDir(t, storage.Path, relativePath)
-	pool, err := objectpool.NewObjectPool(
+	pool, err := objectpool.FromProto(
 		config.NewLocator(cfg),
 		gittest.NewCommandFactory(t, cfg),
 		catfileCache,
 		nil,
 		nil,
-		storage.Name,
-		relativePath,
+		&gitalypb.ObjectPool{
+			Repository: &gitalypb.Repository{
+				StorageName:  storage.Name,
+				RelativePath: relativePath,
+			},
+		},
 	)
 	require.NoError(t, err)
 

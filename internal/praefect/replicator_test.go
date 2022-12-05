@@ -82,14 +82,18 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 
 	// create object pool on the source
 	objectPoolPath := gittest.NewObjectPoolName(t)
-	pool, err := objectpool.NewObjectPool(
+	pool, err := objectpool.FromProto(
 		gconfig.NewLocator(primaryCfg),
 		gittest.NewCommandFactory(t, primaryCfg),
 		nil,
 		txManager,
 		housekeeping.NewManager(primaryCfg.Prometheus, txManager),
-		testRepoProto.GetStorageName(),
-		objectPoolPath,
+		&gitalypb.ObjectPool{
+			Repository: &gitalypb.Repository{
+				StorageName:  testRepoProto.GetStorageName(),
+				RelativePath: objectPoolPath,
+			},
+		},
 	)
 	require.NoError(t, err)
 

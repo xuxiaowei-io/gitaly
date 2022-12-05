@@ -97,14 +97,18 @@ func newObjectPool(tb testing.TB, cfg config.Cfg, storage, relativePath string) 
 
 	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
 
-	pool, err := objectpool.NewObjectPool(
+	pool, err := objectpool.FromProto(
 		config.NewLocator(cfg),
 		gittest.NewCommandFactory(tb, cfg),
 		catfileCache,
 		txManager,
 		housekeeping.NewManager(cfg.Prometheus, txManager),
-		storage,
-		relativePath,
+		&gitalypb.ObjectPool{
+			Repository: &gitalypb.Repository{
+				StorageName:  storage,
+				RelativePath: relativePath,
+			},
+		},
 	)
 	require.NoError(tb, err)
 

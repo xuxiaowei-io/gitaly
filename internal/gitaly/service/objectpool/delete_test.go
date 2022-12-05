@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -37,9 +38,12 @@ func TestDelete(t *testing.T) {
 		expectedErr  error
 	}{
 		{
-			desc:        "no pool in request fails",
-			noPool:      true,
-			expectedErr: errMissingPool,
+			desc:   "no pool in request fails",
+			noPool: true,
+			expectedErr: testhelper.GitalyOrPraefect(
+				helper.ErrInvalidArgumentf("GetStorageByName: no such storage: %q", ""),
+				helper.ErrInvalidArgumentf("no object pool repository"),
+			),
 		},
 		{
 			desc:         "deleting outside pools directory fails",

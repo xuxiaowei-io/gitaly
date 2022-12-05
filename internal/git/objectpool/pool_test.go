@@ -13,9 +13,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
-func TestNewObjectPool(t *testing.T) {
+func TestFromProto(t *testing.T) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
@@ -23,12 +24,22 @@ func TestNewObjectPool(t *testing.T) {
 	locator := config.NewLocator(cfg)
 
 	t.Run("successful", func(t *testing.T) {
-		_, err := NewObjectPool(locator, nil, nil, nil, nil, cfg.Storages[0].Name, gittest.NewObjectPoolName(t))
+		_, err := FromProto(locator, nil, nil, nil, nil, &gitalypb.ObjectPool{
+			Repository: &gitalypb.Repository{
+				StorageName:  cfg.Storages[0].Name,
+				RelativePath: gittest.NewObjectPoolName(t),
+			},
+		})
 		require.NoError(t, err)
 	})
 
 	t.Run("unknown storage", func(t *testing.T) {
-		_, err := NewObjectPool(locator, nil, nil, nil, nil, "mepmep", gittest.NewObjectPoolName(t))
+		_, err := FromProto(locator, nil, nil, nil, nil, &gitalypb.ObjectPool{
+			Repository: &gitalypb.Repository{
+				StorageName:  "mepmep",
+				RelativePath: gittest.NewObjectPoolName(t),
+			},
+		})
 		require.Equal(t, helper.ErrInvalidArgumentf("GetStorageByName: no such storage: %q", "mepmep"), err)
 	})
 }
