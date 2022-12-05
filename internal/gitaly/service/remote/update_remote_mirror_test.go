@@ -13,7 +13,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	repositorysvc "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
@@ -525,39 +527,66 @@ func TestUpdateRemoteMirror(t *testing.T) {
 			})
 			cfg.SocketPath = addr
 
-			_, mirrorRepoPath := gittest.CreateRepository(t, ctx, cfg)
+			mirrorRepoPb, mirrorRepoPath := gittest.CreateRepository(t, ctx, cfg)
+			mirrorRepo := localrepo.NewTestRepo(t, cfg, mirrorRepoPb)
 			sourceRepoPb, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
+			sourceRepo := localrepo.NewTestRepo(t, cfg, sourceRepoPb)
 
 			// construct the starting state of the repositories
 			for _, c := range []struct {
-				repoPath   string
+				repo       *localrepo.Repo
 				references refs
 			}{
 				{
-					repoPath:   sourceRepoPath,
+					repo:       sourceRepo,
 					references: tc.sourceRefs,
 				},
 				{
-					repoPath:   mirrorRepoPath,
+					repo:       mirrorRepo,
 					references: tc.mirrorRefs,
 				},
 			} {
-				for reference, commits := range c.references {
+				repoPath, err := c.repo.Path()
+				require.NoError(t, err)
+
+				// We compute the commits in a separate step as many of the tests
+				// use a small handful of commits and then update many references to
+				// point to that small set. So by precomputing commits we save a few
+				// hundred invocations of git-hash-object(1), git-write-tree(1) and
+				// git-commit-tree(1) each.
+				commitsByMessage := map[string]git.ObjectID{}
+				for _, commits := range c.references {
 					var commitOID git.ObjectID
 					for i, commit := range commits {
+						if _, ok := commitsByMessage[commit]; ok {
+							continue
+						}
+
 						var parents []git.ObjectID
 						if i != 0 {
 							parents = []git.ObjectID{commitOID}
 						}
 
-						commitOID = gittest.WriteCommit(t, cfg, c.repoPath,
+						commitsByMessage[commit] = gittest.WriteCommit(t, cfg, repoPath,
 							gittest.WithMessage(commit),
 							gittest.WithParents(parents...),
-							gittest.WithReference(reference),
 						)
 					}
 				}
+
+				// And then finally we update the references via a single call to
+				// the updateref package instead of spawning hundreds of them.
+				updater, err := updateref.New(ctx, c.repo, updateref.WithDisabledTransactions())
+				require.NoError(t, err)
+				defer testhelper.MustClose(t, updater)
+
+				require.NoError(t, updater.Start())
+				for reference, commits := range c.references {
+					require.NoError(t, updater.Create(git.ReferenceName(reference), commitsByMessage[commits[len(commits)-1]]))
+				}
+				require.NoError(t, updater.Commit())
 			}
+
 			for repoPath, symRefs := range map[string]map[string]string{
 				sourceRepoPath: tc.sourceSymRefs,
 				mirrorRepoPath: tc.mirrorSymRefs,
