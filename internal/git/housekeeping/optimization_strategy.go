@@ -46,6 +46,7 @@ func NewHeuristicalOptimizationStrategy(ctx context.Context, repo *localrepo.Rep
 	if err != nil {
 		return HeuristicalOptimizationStrategy{}, fmt.Errorf("deriving repository info: %w", err)
 	}
+	strategy.info.Log(ctx)
 
 	return strategy, nil
 }
