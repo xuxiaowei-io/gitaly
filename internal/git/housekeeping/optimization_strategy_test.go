@@ -55,7 +55,11 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 				return repoProto
 			},
 			expectedStrategy: HeuristicalOptimizationStrategy{
-				looseObjectCount: 1,
+				info: stats.RepositoryInfo{
+					LooseObjects: stats.LooseObjectsInfo{
+						Count: 1,
+					},
+				},
 			},
 		},
 		{
@@ -81,8 +85,12 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 				return repoProto
 			},
 			expectedStrategy: HeuristicalOptimizationStrategy{
-				looseObjectCount:    2,
-				oldLooseObjectCount: 1,
+				info: stats.RepositoryInfo{
+					LooseObjects: stats.LooseObjectsInfo{
+						Count:      2,
+						StaleCount: 1,
+					},
+				},
 			},
 		},
 		{
@@ -98,7 +106,11 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 				return repoProto
 			},
 			expectedStrategy: HeuristicalOptimizationStrategy{
-				packfileCount: 1,
+				info: stats.RepositoryInfo{
+					Packfiles: stats.PackfilesInfo{
+						Count: 1,
+					},
+				},
 			},
 		},
 		{
@@ -109,12 +121,14 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 					RelativePath:           relativePath,
 				})
 
-				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "objects", "info", "alternates"), nil, 0o644))
+				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "objects", "info", "alternates"), []byte("/path/to/alternate"), 0o644))
 
 				return repoProto
 			},
 			expectedStrategy: HeuristicalOptimizationStrategy{
-				hasAlternate: true,
+				info: stats.RepositoryInfo{
+					Alternates: []string{"/path/to/alternate"},
+				},
 			},
 		},
 		{
@@ -130,7 +144,11 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 				return repoProto
 			},
 			expectedStrategy: HeuristicalOptimizationStrategy{
-				hasBitmap: true,
+				info: stats.RepositoryInfo{
+					Packfiles: stats.PackfilesInfo{
+						HasBitmap: true,
+					},
+				},
 			},
 		},
 		{
@@ -152,8 +170,19 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 				return repoProto
 			},
 			expectedStrategy: HeuristicalOptimizationStrategy{
-				looseObjectCount: 2,
-				looseRefsCount:   1,
+				info: stats.RepositoryInfo{
+					LooseObjects: stats.LooseObjectsInfo{
+						Count: 2,
+						Size:  hashDependentObjectSize(142, 156),
+					},
+					References: stats.ReferencesInfo{
+						LooseReferencesCount: 1,
+					},
+					CommitGraph: stats.CommitGraphInfo{
+						Exists:          true,
+						HasBloomFilters: true,
+					},
+				},
 			},
 		},
 		{
@@ -172,9 +201,19 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 				return repoProto
 			},
 			expectedStrategy: HeuristicalOptimizationStrategy{
-				looseObjectCount:    2,
-				looseRefsCount:      1,
-				hasSplitCommitGraph: true,
+				info: stats.RepositoryInfo{
+					LooseObjects: stats.LooseObjectsInfo{
+						Count: 2,
+						Size:  hashDependentObjectSize(142, 156),
+					},
+					References: stats.ReferencesInfo{
+						LooseReferencesCount: 1,
+					},
+					CommitGraph: stats.CommitGraphInfo{
+						Exists:                 true,
+						CommitGraphChainLength: 1,
+					},
+				},
 			},
 		},
 		{
@@ -193,10 +232,20 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 				return repoProto
 			},
 			expectedStrategy: HeuristicalOptimizationStrategy{
-				looseObjectCount:    2,
-				looseRefsCount:      1,
-				hasSplitCommitGraph: true,
-				hasBloomFilters:     true,
+				info: stats.RepositoryInfo{
+					LooseObjects: stats.LooseObjectsInfo{
+						Count: 2,
+						Size:  hashDependentObjectSize(142, 156),
+					},
+					References: stats.ReferencesInfo{
+						LooseReferencesCount: 1,
+					},
+					CommitGraph: stats.CommitGraphInfo{
+						Exists:                 true,
+						CommitGraphChainLength: 1,
+						HasBloomFilters:        true,
+					},
+				},
 			},
 		},
 	} {
@@ -235,9 +284,13 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 		{
 			desc: "missing bitmap",
 			strategy: HeuristicalOptimizationStrategy{
-				hasBitmap:     false,
-				hasAlternate:  false,
-				packfileCount: 1,
+				info: stats.RepositoryInfo{
+					Packfiles: stats.PackfilesInfo{
+						HasBitmap: false,
+						Count:     1,
+					},
+					Alternates: []string{},
+				},
 			},
 			expectedNeeded: true,
 			expectedConfig: RepackObjectsConfig{
@@ -248,9 +301,13 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 		{
 			desc: "missing bitmap with alternate",
 			strategy: HeuristicalOptimizationStrategy{
-				hasBitmap:     false,
-				hasAlternate:  true,
-				packfileCount: 1,
+				info: stats.RepositoryInfo{
+					Packfiles: stats.PackfilesInfo{
+						HasBitmap: false,
+						Count:     1,
+					},
+					Alternates: []string{"something"},
+				},
 			},
 			// If we have no bitmap in the repository we'd normally want to fully repack
 			// the repository. But because we have an alternates file we know that the
@@ -260,8 +317,12 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 		{
 			desc: "no repack needed",
 			strategy: HeuristicalOptimizationStrategy{
-				hasBitmap:     true,
-				packfileCount: 1,
+				info: stats.RepositoryInfo{
+					Packfiles: stats.PackfilesInfo{
+						HasBitmap: true,
+						Count:     1,
+					},
+				},
 			},
 			expectedNeeded: false,
 		},
@@ -318,7 +379,7 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 			for _, tc := range []struct {
 				desc              string
 				isPool            bool
-				hasAlternate      bool
+				alternates        []string
 				requiredPackfiles uint64
 			}{
 				{
@@ -329,7 +390,7 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 				{
 					desc:              "pooled repository",
 					isPool:            false,
-					hasAlternate:      true,
+					alternates:        []string{"something"},
 					requiredPackfiles: outerTC.requiredPackfiles,
 				},
 				{
@@ -340,11 +401,15 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 			} {
 				t.Run(tc.desc, func(t *testing.T) {
 					strategy := HeuristicalOptimizationStrategy{
-						packfileSize:  outerTC.packfileSizeInMB * 1024 * 1024,
-						packfileCount: tc.requiredPackfiles - 1,
-						isObjectPool:  tc.isPool,
-						hasAlternate:  tc.hasAlternate,
-						hasBitmap:     true,
+						info: stats.RepositoryInfo{
+							Packfiles: stats.PackfilesInfo{
+								Size:      outerTC.packfileSizeInMB * 1024 * 1024,
+								Count:     tc.requiredPackfiles - 1,
+								HasBitmap: true,
+							},
+							Alternates: tc.alternates,
+						},
+						isObjectPool: tc.isPool,
 					}
 
 					repackNeeded, _ := strategy.ShouldRepackObjects()
@@ -352,13 +417,13 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 
 					// Now we add the last packfile that should bring us across
 					// the boundary of having to repack.
-					strategy.packfileCount++
+					strategy.info.Packfiles.Count++
 
 					repackNeeded, repackCfg := strategy.ShouldRepackObjects()
 					require.True(t, repackNeeded)
 					require.Equal(t, RepackObjectsConfig{
 						FullRepack:  true,
-						WriteBitmap: !tc.hasAlternate,
+						WriteBitmap: len(tc.alternates) == 0,
 					}, repackCfg)
 				})
 			}
@@ -406,11 +471,17 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 		} {
 			t.Run(tc.desc, func(t *testing.T) {
 				strategy := HeuristicalOptimizationStrategy{
-					looseObjectCount: outerTC.looseObjects,
-					isObjectPool:     tc.isPool,
-					// We need to pretend that we have a bitmap, otherwise we
-					// aways do a full repack.
-					hasBitmap: true,
+					info: stats.RepositoryInfo{
+						LooseObjects: stats.LooseObjectsInfo{
+							Count: outerTC.looseObjects,
+						},
+						Packfiles: stats.PackfilesInfo{
+							// We need to pretend that we have a bitmap,
+							// otherwise we aways do a full repack.
+							HasBitmap: true,
+						},
+					},
+					isObjectPool: tc.isPool,
 				}
 
 				repackNeeded, repackCfg := strategy.ShouldRepackObjects()
@@ -440,21 +511,33 @@ func TestHeuristicalOptimizationStrategy_ShouldPruneObjects(t *testing.T) {
 		{
 			desc: "only recent object",
 			strategy: HeuristicalOptimizationStrategy{
-				looseObjectCount: 10000,
+				info: stats.RepositoryInfo{
+					LooseObjects: stats.LooseObjectsInfo{
+						Count: 10000,
+					},
+				},
 			},
 			expectedShouldPruneObjects: false,
 		},
 		{
 			desc: "few stale objects",
 			strategy: HeuristicalOptimizationStrategy{
-				oldLooseObjectCount: 1000,
+				info: stats.RepositoryInfo{
+					LooseObjects: stats.LooseObjectsInfo{
+						StaleCount: 1000,
+					},
+				},
 			},
 			expectedShouldPruneObjects: false,
 		},
 		{
 			desc: "too many stale objects",
 			strategy: HeuristicalOptimizationStrategy{
-				oldLooseObjectCount: 1025,
+				info: stats.RepositoryInfo{
+					LooseObjects: stats.LooseObjectsInfo{
+						StaleCount: 1025,
+					},
+				},
 			},
 			expectedShouldPruneObjects: true,
 		},
@@ -513,13 +596,17 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackReferences(t *testing.T) {
 	} {
 		t.Run("packed-refs with %d bytes", func(t *testing.T) {
 			strategy := HeuristicalOptimizationStrategy{
-				packedRefsSize: tc.packedRefsSize,
-				looseRefsCount: tc.requiredRefs - 1,
+				info: stats.RepositoryInfo{
+					References: stats.ReferencesInfo{
+						PackedReferencesSize: tc.packedRefsSize,
+						LooseReferencesCount: tc.requiredRefs - 1,
+					},
+				},
 			}
 
 			require.False(t, strategy.ShouldRepackReferences())
 
-			strategy.looseRefsCount++
+			strategy.info.References.LooseReferencesCount++
 
 			require.True(t, strategy.ShouldRepackReferences())
 		})
@@ -542,14 +629,22 @@ func TestHeuristicalOptimizationStrategy_NeedsWriteCommitGraph(t *testing.T) {
 		{
 			desc: "repository with objects but no refs",
 			strategy: HeuristicalOptimizationStrategy{
-				looseObjectCount: 9000,
+				info: stats.RepositoryInfo{
+					LooseObjects: stats.LooseObjectsInfo{
+						Count: 9000,
+					},
+				},
 			},
 			expectedNeeded: false,
 		},
 		{
 			desc: "repository without bloom filters",
 			strategy: HeuristicalOptimizationStrategy{
-				looseRefsCount: 1,
+				info: stats.RepositoryInfo{
+					References: stats.ReferencesInfo{
+						LooseReferencesCount: 1,
+					},
+				},
 			},
 			expectedNeeded: true,
 			expectedCfg: WriteCommitGraphConfig{
@@ -559,8 +654,14 @@ func TestHeuristicalOptimizationStrategy_NeedsWriteCommitGraph(t *testing.T) {
 		{
 			desc: "repository without bloom filters with repack",
 			strategy: HeuristicalOptimizationStrategy{
-				looseRefsCount:   1,
-				looseObjectCount: 9000,
+				info: stats.RepositoryInfo{
+					References: stats.ReferencesInfo{
+						LooseReferencesCount: 1,
+					},
+					LooseObjects: stats.LooseObjectsInfo{
+						Count: 9000,
+					},
+				},
 			},
 			// When we have a valid commit-graph, but objects have been repacked, we
 			// assume that there are new objects in the repository. So consequentially,
@@ -573,9 +674,15 @@ func TestHeuristicalOptimizationStrategy_NeedsWriteCommitGraph(t *testing.T) {
 		{
 			desc: "repository with split commit-graph with bitmap without repack",
 			strategy: HeuristicalOptimizationStrategy{
-				looseRefsCount:      1,
-				hasSplitCommitGraph: true,
-				hasBloomFilters:     true,
+				info: stats.RepositoryInfo{
+					References: stats.ReferencesInfo{
+						LooseReferencesCount: 1,
+					},
+					CommitGraph: stats.CommitGraphInfo{
+						CommitGraphChainLength: 1,
+						HasBloomFilters:        true,
+					},
+				},
 			},
 			// We use the information about whether we repacked objects as an indicator
 			// whether something has changed in the repository. If it didn't, then we
@@ -585,9 +692,17 @@ func TestHeuristicalOptimizationStrategy_NeedsWriteCommitGraph(t *testing.T) {
 		{
 			desc: "repository with monolithic commit-graph with bloom filters with repack",
 			strategy: HeuristicalOptimizationStrategy{
-				looseRefsCount:   1,
-				hasBloomFilters:  true,
-				looseObjectCount: 9000,
+				info: stats.RepositoryInfo{
+					LooseObjects: stats.LooseObjectsInfo{
+						Count: 9000,
+					},
+					References: stats.ReferencesInfo{
+						LooseReferencesCount: 1,
+					},
+					CommitGraph: stats.CommitGraphInfo{
+						HasBloomFilters: true,
+					},
+				},
 			},
 			// When we have a valid commit-graph, but objects have been repacked, we
 			// assume that there are new objects in the repository. So consequentially,
@@ -600,9 +715,17 @@ func TestHeuristicalOptimizationStrategy_NeedsWriteCommitGraph(t *testing.T) {
 		{
 			desc: "repository with monolithic commit-graph with bloom filters with pruned objects",
 			strategy: HeuristicalOptimizationStrategy{
-				looseRefsCount:      1,
-				hasBloomFilters:     true,
-				oldLooseObjectCount: 9000,
+				info: stats.RepositoryInfo{
+					LooseObjects: stats.LooseObjectsInfo{
+						StaleCount: 9000,
+					},
+					References: stats.ReferencesInfo{
+						LooseReferencesCount: 1,
+					},
+					CommitGraph: stats.CommitGraphInfo{
+						HasBloomFilters: true,
+					},
+				},
 			},
 			// When we have a valid commit-graph, but objects have been repacked, we
 			// assume that there are new objects in the repository. So consequentially,
@@ -759,4 +882,11 @@ func (m mockOptimizationStrategy) ShouldRepackReferences() bool {
 
 func (m mockOptimizationStrategy) ShouldWriteCommitGraph() (bool, WriteCommitGraphConfig) {
 	return m.shouldWriteCommitGraph, m.writeCommitGraphCfg
+}
+
+func hashDependentObjectSize(sha1Size, sha256Size uint64) uint64 {
+	if gittest.ObjectHashIsSHA256() {
+		return sha256Size
+	}
+	return sha1Size
 }

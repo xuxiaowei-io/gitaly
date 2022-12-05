@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
@@ -31,17 +30,8 @@ type OptimizationStrategy interface {
 // HeuristicalOptimizationStrategy is an optimization strategy that is based on a set of
 // heuristics.
 type HeuristicalOptimizationStrategy struct {
-	packfileSize        uint64
-	packfileCount       uint64
-	looseObjectCount    uint64
-	oldLooseObjectCount uint64
-	looseRefsCount      uint64
-	packedRefsSize      uint64
-	hasAlternate        bool
-	hasBitmap           bool
-	hasSplitCommitGraph bool
-	hasBloomFilters     bool
-	isObjectPool        bool
+	info         stats.RepositoryInfo
+	isObjectPool bool
 }
 
 // NewHeuristicalOptimizationStrategy constructs a heuristicalOptimizationStrategy for the given
@@ -49,60 +39,13 @@ type HeuristicalOptimizationStrategy struct {
 // repository can be decided without further disk reads.
 func NewHeuristicalOptimizationStrategy(ctx context.Context, repo *localrepo.Repo) (HeuristicalOptimizationStrategy, error) {
 	var strategy HeuristicalOptimizationStrategy
-
-	repoPath, err := repo.Path()
-	if err != nil {
-		return strategy, fmt.Errorf("getting repository path: %w", err)
-	}
-
-	altFile, err := repo.InfoAlternatesPath()
-	if err != nil {
-		return strategy, fmt.Errorf("getting alternates path: %w", err)
-	}
-
-	strategy.hasAlternate = true
-	if _, err := os.Stat(altFile); os.IsNotExist(err) {
-		strategy.hasAlternate = false
-	}
+	var err error
 
 	strategy.isObjectPool = IsPoolRepository(repo)
-
-	strategy.hasBitmap, err = stats.HasBitmap(repoPath)
+	strategy.info, err = stats.RepositoryInfoForRepository(ctx, repo)
 	if err != nil {
-		return strategy, fmt.Errorf("checking for bitmap: %w", err)
+		return HeuristicalOptimizationStrategy{}, fmt.Errorf("deriving repository info: %w", err)
 	}
-
-	commitGraphInfo, err := stats.CommitGraphInfoForRepository(repoPath)
-	if err != nil {
-		return strategy, fmt.Errorf("checking commit-graph info: %w", err)
-	}
-	if commitGraphInfo.CommitGraphChainLength == 0 {
-		strategy.hasSplitCommitGraph = false
-	} else {
-		strategy.hasSplitCommitGraph = true
-		strategy.hasBloomFilters = commitGraphInfo.HasBloomFilters
-	}
-
-	packfilesInfo, err := stats.PackfilesInfoForRepository(repo)
-	if err != nil {
-		return strategy, fmt.Errorf("checking largest packfile size: %w", err)
-	}
-	strategy.packfileCount = packfilesInfo.Count
-	strategy.packfileSize = packfilesInfo.Size
-
-	looseObjectsInfo, err := stats.LooseObjectsInfoForRepository(repo, time.Now().Add(stats.StaleObjectsGracePeriod))
-	if err != nil {
-		return strategy, fmt.Errorf("estimating loose object count: %w", err)
-	}
-	strategy.looseObjectCount = looseObjectsInfo.Count
-	strategy.oldLooseObjectCount = looseObjectsInfo.StaleCount
-
-	referencesInfo, err := stats.ReferencesInfoForRepository(ctx, repo)
-	if err != nil {
-		return strategy, fmt.Errorf("counting refs: %w", err)
-	}
-	strategy.looseRefsCount = referencesInfo.LooseReferencesCount
-	strategy.packedRefsSize = referencesInfo.PackedReferencesSize
 
 	return strategy, nil
 }
@@ -113,7 +56,7 @@ func NewHeuristicalOptimizationStrategy(ctx context.Context, repo *localrepo.Rep
 func (s HeuristicalOptimizationStrategy) ShouldRepackObjects() (bool, RepackObjectsConfig) {
 	// If there are neither packfiles nor loose objects in this repository then there is no need
 	// to repack anything.
-	if s.packfileCount == 0 && s.looseObjectCount == 0 {
+	if s.info.Packfiles.Count == 0 && s.info.LooseObjects.Count == 0 {
 		return false, RepackObjectsConfig{}
 	}
 
@@ -127,7 +70,7 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects() (bool, RepackObje
 	// a bitmap on their own. We do not yet use multi-pack indices, and in that case Git can
 	// only use one bitmap. We already generate this bitmap in the pool, so member of it
 	// shouldn't have another bitmap on their own.
-	if !s.hasBitmap && !s.hasAlternate {
+	if !s.info.Packfiles.HasBitmap && len(s.info.Alternates) == 0 {
 		return true, RepackObjectsConfig{
 			FullRepack:  true,
 			WriteBitmap: true,
@@ -172,10 +115,11 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects() (bool, RepackObje
 		lowerLimit, log = 2.0, 10.0
 	}
 
-	if uint64(math.Max(lowerLimit, math.Log(float64(s.packfileSize/1024/1024))/math.Log(log))) <= s.packfileCount {
+	if uint64(math.Max(lowerLimit,
+		math.Log(float64(s.info.Packfiles.Size/1024/1024))/math.Log(log))) <= s.info.Packfiles.Count {
 		return true, RepackObjectsConfig{
 			FullRepack:  true,
-			WriteBitmap: !s.hasAlternate,
+			WriteBitmap: len(s.info.Alternates) == 0,
 		}
 	}
 
@@ -192,7 +136,7 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects() (bool, RepackObje
 	//
 	// In our case we typically want to ensure that our repositories are much better packed than
 	// it is necessary on the client side. We thus take a much stricter limit of 1024 objects.
-	if s.looseObjectCount > looseObjectLimit {
+	if s.info.LooseObjects.Count > looseObjectLimit {
 		return true, RepackObjectsConfig{
 			FullRepack:  false,
 			WriteBitmap: false,
@@ -208,7 +152,7 @@ func (s HeuristicalOptimizationStrategy) ShouldWriteCommitGraph() (bool, WriteCo
 	// If the repository doesn't have any references at all then there is no point in writing
 	// commit-graphs given that it would only contain reachable objects, of which there are
 	// none.
-	if s.looseRefsCount == 0 && s.packedRefsSize == 0 {
+	if s.info.References.LooseReferencesCount == 0 && s.info.References.PackedReferencesSize == 0 {
 		return false, WriteCommitGraphConfig{}
 	}
 
@@ -230,7 +174,7 @@ func (s HeuristicalOptimizationStrategy) ShouldWriteCommitGraph() (bool, WriteCo
 	// paths have been modified in a given commit without having to look into the object
 	// database. In the past we didn't compute bloom filters at all, so we want to rewrite the
 	// whole commit-graph to generate them.
-	if !s.hasSplitCommitGraph || !s.hasBloomFilters {
+	if s.info.CommitGraph.CommitGraphChainLength == 0 || !s.info.CommitGraph.HasBloomFilters {
 		return true, WriteCommitGraphConfig{
 			ReplaceChain: true,
 		}
@@ -257,7 +201,7 @@ func (s HeuristicalOptimizationStrategy) ShouldPruneObjects() bool {
 
 	// When we have a number of loose objects that is older than two weeks then they have
 	// surpassed the grace period and may thus be pruned.
-	if s.oldLooseObjectCount <= looseObjectLimit {
+	if s.info.LooseObjects.StaleCount <= looseObjectLimit {
 		return false
 	}
 
@@ -269,7 +213,7 @@ func (s HeuristicalOptimizationStrategy) ShouldPruneObjects() bool {
 // packed again.
 func (s HeuristicalOptimizationStrategy) ShouldRepackReferences() bool {
 	// If there aren't any loose refs then there is nothing we need to do.
-	if s.looseRefsCount == 0 {
+	if s.info.References.LooseReferencesCount == 0 {
 		return false
 	}
 
@@ -294,7 +238,7 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackReferences() bool {
 	//
 	// This heuristic may likely need tweaking in the future, but should serve as a good first
 	// iteration.
-	if uint64(math.Max(16, math.Log(float64(s.packedRefsSize)/100)/math.Log(1.15))) > s.looseRefsCount {
+	if uint64(math.Max(16, math.Log(float64(s.info.References.PackedReferencesSize)/100)/math.Log(1.15))) > s.info.References.LooseReferencesCount {
 		return false
 	}
 
