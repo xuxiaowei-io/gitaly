@@ -3,6 +3,7 @@ package repository
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
@@ -33,7 +34,13 @@ func (s *server) BackupCustomHooks(in *gitalypb.BackupCustomHooksRequest, stream
 	}
 
 	ctx := stream.Context()
-	tar := []string{"tar", "-c", "-f", "-", "-C", repoPath, customHooksDir}
+
+	var tar []string
+	if runtime.GOOS == "darwin" {
+		tar = []string{"tar", "--no-mac-metadata", "-c", "-f", "-", "-C", repoPath, customHooksDir}
+	} else {
+		tar = []string{"tar", "-c", "-f", "-", "-C", repoPath, customHooksDir}
+	}
 	cmd, err := command.New(ctx, tar, command.WithStdout(writer))
 	if err != nil {
 		return status.Errorf(codes.Internal, "%v", err)

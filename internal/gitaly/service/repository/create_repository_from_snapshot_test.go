@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -62,7 +63,12 @@ func (h *tarTesthandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // Create a tar file for the repo in memory, without relying on TarBuilder
 func generateTarFile(t *testing.T, path string) ([]byte, []string) {
-	data := testhelper.MustRunCommand(t, nil, "tar", "-C", path, "-cf", "-", ".")
+	var data []byte
+	if runtime.GOOS == "darwin" {
+		data = testhelper.MustRunCommand(t, nil, "tar", "-C", path, "--no-mac-metadata", "-cf", "-", ".")
+	} else {
+		data = testhelper.MustRunCommand(t, nil, "tar", "-C", path, "-cf", "-", ".")
+	}
 
 	entries, err := archive.TarEntries(bytes.NewReader(data))
 	require.NoError(t, err)
