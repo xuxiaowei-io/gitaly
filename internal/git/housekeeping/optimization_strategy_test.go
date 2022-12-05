@@ -632,6 +632,20 @@ func TestHeuristicalOptimizationStrategy_NeedsWriteCommitGraph(t *testing.T) {
 			},
 		},
 		{
+			desc: "repository without bloom filters with repack",
+			strategy: HeuristicalOptimizationStrategy{
+				looseRefsCount:   1,
+				looseObjectCount: 9000,
+			},
+			// When we have a valid commit-graph, but objects have been repacked, we
+			// assume that there are new objects in the repository. So consequentially,
+			// we should write the commit-graphs.
+			expectedNeeded: true,
+			expectedCfg: WriteCommitGraphConfig{
+				ReplaceChain: true,
+			},
+		},
+		{
 			desc: "repository with split commit-graph with bitmap without repack",
 			strategy: HeuristicalOptimizationStrategy{
 				looseRefsCount:      1,
@@ -644,7 +658,7 @@ func TestHeuristicalOptimizationStrategy_NeedsWriteCommitGraph(t *testing.T) {
 			expectedNeeded: false,
 		},
 		{
-			desc: "repository with split commit-graph with bitmap with repack",
+			desc: "repository with monolithic commit-graph with bloom filters with repack",
 			strategy: HeuristicalOptimizationStrategy{
 				looseRefsCount:   1,
 				hasBloomFilters:  true,
@@ -654,9 +668,12 @@ func TestHeuristicalOptimizationStrategy_NeedsWriteCommitGraph(t *testing.T) {
 			// assume that there are new objects in the repository. So consequentially,
 			// we should write the commit-graphs.
 			expectedNeeded: true,
+			expectedCfg: WriteCommitGraphConfig{
+				ReplaceChain: true,
+			},
 		},
 		{
-			desc: "repository with split commit-graph with bitmap with pruned objects",
+			desc: "repository with monolithic commit-graph with bloom filters with pruned objects",
 			strategy: HeuristicalOptimizationStrategy{
 				looseRefsCount:      1,
 				hasBloomFilters:     true,

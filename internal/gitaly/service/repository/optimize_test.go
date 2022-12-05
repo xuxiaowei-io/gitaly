@@ -151,9 +151,6 @@ func TestOptimizeRepository(t *testing.T) {
 			HasBloomFilters:        false,
 			CommitGraphChainLength: 1,
 		}, commitGraphInfo)
-		// TODO: Due to a bug we also need to repack the repository, or otherwise we would
-		// not rewrite the commit-graph.
-		gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Adb")
 
 		// As a result, OptimizeRepository should rewrite the commit-graph.
 		_, err = client.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{
