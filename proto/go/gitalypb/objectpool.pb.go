@@ -20,16 +20,16 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Creates an object pool from the repository. The client is responsible for
-// joining this pool later with this repository.
+// CreatesObjectPoolRequest is a request for the CreateObjectPool RPC.
 type CreateObjectPoolRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// ObjectPool is the object pool to create. This field controls where exactly the object pool will
+	// be created.
 	ObjectPool *ObjectPool `protobuf:"bytes,1,opt,name=object_pool,json=objectPool,proto3" json:"object_pool,omitempty"`
-	// This comment is left unintentionally blank.
+	// Origin is the repository from which the object pool shall be created.
 	Origin *Repository `protobuf:"bytes,2,opt,name=origin,proto3" json:"origin,omitempty"`
 }
 
@@ -79,7 +79,7 @@ func (x *CreateObjectPoolRequest) GetOrigin() *Repository {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// CreateObjectPoolResponse is a response for the CreateObjectPool RPC.
 type CreateObjectPoolResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -118,14 +118,13 @@ func (*CreateObjectPoolResponse) Descriptor() ([]byte, []int) {
 	return file_objectpool_proto_rawDescGZIP(), []int{1}
 }
 
-// Removes the directory from disk, caller is responsible for leaving the object
-// pool before calling this RPC
+// DeleteObjectPoolRequest is a request for the DeleteObjectPool RPC.
 type DeleteObjectPoolRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// ObjectPool is the object pool that shall be deleted.
 	ObjectPool *ObjectPool `protobuf:"bytes,1,opt,name=object_pool,json=objectPool,proto3" json:"object_pool,omitempty"`
 }
 
@@ -168,7 +167,7 @@ func (x *DeleteObjectPoolRequest) GetObjectPool() *ObjectPool {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// DeleteObjectPoolResponse is a response for the DeleteObjectPool RPC.
 type DeleteObjectPoolResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -207,15 +206,15 @@ func (*DeleteObjectPoolResponse) Descriptor() ([]byte, []int) {
 	return file_objectpool_proto_rawDescGZIP(), []int{3}
 }
 
-// This comment is left unintentionally blank.
+// LinkRepositoryToObjectPoolRequest is a request for the LinkRepositoryToObjectPool RPC.
 type LinkRepositoryToObjectPoolRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// ObjectPool is the object pool to which the repository shall be linked to.
 	ObjectPool *ObjectPool `protobuf:"bytes,1,opt,name=object_pool,json=objectPool,proto3" json:"object_pool,omitempty"`
-	// This comment is left unintentionally blank.
+	// Repository is the repository that shall be linked to the object pool.
 	Repository *Repository `protobuf:"bytes,2,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -265,7 +264,7 @@ func (x *LinkRepositoryToObjectPoolRequest) GetRepository() *Repository {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// LinkRepositoryToObjectPoolResponse is a response for the LinkRepositoryToObjectPool RPC.
 type LinkRepositoryToObjectPoolResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -304,13 +303,13 @@ func (*LinkRepositoryToObjectPoolResponse) Descriptor() ([]byte, []int) {
 	return file_objectpool_proto_rawDescGZIP(), []int{5}
 }
 
-// This comment is left unintentionally blank.
+// ReduplicateRepositoryRequest is a request for the ReduplicateRepository RPC.
 type ReduplicateRepositoryRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// Repository is the repository whose objects shall be reduplicated.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -353,7 +352,7 @@ func (x *ReduplicateRepositoryRequest) GetRepository() *Repository {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// ReduplicateRepositoryResponse is a response for the ReduplicateRepository RPC.
 type ReduplicateRepositoryResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -392,13 +391,13 @@ func (*ReduplicateRepositoryResponse) Descriptor() ([]byte, []int) {
 	return file_objectpool_proto_rawDescGZIP(), []int{7}
 }
 
-// This comment is left unintentionally blank.
+// DisconnectGitAlternatesRequest is a request for the DisconnectGitAlternates RPC.
 type DisconnectGitAlternatesRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// Repository is th repository that shall be disconnected from its object pool.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -441,7 +440,7 @@ func (x *DisconnectGitAlternatesRequest) GetRepository() *Repository {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// DisconnectGitAlternatesResponse is a response for the DisconnectGitAlternates RPC.
 type DisconnectGitAlternatesResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -577,13 +576,13 @@ func (*FetchIntoObjectPoolResponse) Descriptor() ([]byte, []int) {
 	return file_objectpool_proto_rawDescGZIP(), []int{11}
 }
 
-// This comment is left unintentionally blank.
+// GetObjectPoolRequest is a request for the GetObjectPool RPC.
 type GetObjectPoolRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// Repository is the repository for which the object pool shall be retrieved.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -626,13 +625,14 @@ func (x *GetObjectPoolRequest) GetRepository() *Repository {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// GetObjectDirectorySizeResponse is a response for the GetObjectPool RPC.
 type GetObjectPoolResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// ObjectPool is the object pool the repository is connected to. If the repository is not
+	// connected to any object pool, then this field will be empty.
 	ObjectPool *ObjectPool `protobuf:"bytes,1,opt,name=object_pool,json=objectPool,proto3" json:"object_pool,omitempty"`
 }
 

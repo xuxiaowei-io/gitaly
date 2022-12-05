@@ -22,22 +22,44 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ObjectPoolServiceClient interface {
-	// This comment is left unintentionally blank.
+	// CreateObjectPool creates an object pool from a specific source repository. It will create the
+	// object pool by cloning all contents from that source repository. The source repository will not
+	// automatically be linked to the object pool, you need to call LinkRepositoryToObjectPool for
+	// this. If the object pool exists already this RPC returns an error with the FailedPrecondition
+	// gRPC error code.
 	CreateObjectPool(ctx context.Context, in *CreateObjectPoolRequest, opts ...grpc.CallOption) (*CreateObjectPoolResponse, error)
-	// This comment is left unintentionally blank.
+	// DeleteObjectPool deletes the object pool. There are no safety checks in place, so if any
+	// repository is still using this object pool it will become corrupted.
 	DeleteObjectPool(ctx context.Context, in *DeleteObjectPoolRequest, opts ...grpc.CallOption) (*DeleteObjectPoolResponse, error)
-	// Repositories are assumed to be stored on the same disk
+	// LinkRepositoryToObjectPool links the specified repository to the object pool. Objects contained
+	// in the object pool will be deduplicated for this repository when repacking objects.
 	LinkRepositoryToObjectPool(ctx context.Context, in *LinkRepositoryToObjectPoolRequest, opts ...grpc.CallOption) (*LinkRepositoryToObjectPoolResponse, error)
-	// This comment is left unintentionally blank.
+	// ReduplicateRepository will repack the objects in the object pool member so that the repository
+	// does not depend on the pool member anymore and can be removed from it. Note that this function
+	// is not safe for use. Please use DisconnectGitAlternates instead.
 	ReduplicateRepository(ctx context.Context, in *ReduplicateRepositoryRequest, opts ...grpc.CallOption) (*ReduplicateRepositoryResponse, error)
-	// This comment is left unintentionally blank.
+	// DisconnectGitAlternates will disconnect the object pool member from its object pool. It will:
+	//
+	//  1. Link all objects from the object pool into the member repository. This essenitally
+	//     reduplicates previously-duplicated objects so that the repository will continue to function
+	//     after being unlinked.
+	//  2. Remove the alternates link to the object pool.
+	//  3. Perform a consistency check to assert that the repository is indeed fully functional after
+	//     unlinking it from its pool. If the consistency check fails the alternates link is restored
+	//     an the RPC fails.
+	//
+	// If successful, the object pool member is disconnected from the object pool and does not depend
+	// on it anymore.
+	//
+	// This RPC does not return an error in case the repository is not linked to any object pool.
 	DisconnectGitAlternates(ctx context.Context, in *DisconnectGitAlternatesRequest, opts ...grpc.CallOption) (*DisconnectGitAlternatesResponse, error)
 	// FetchIntoObjectPool fetches all references from a pool member into an object pool so that
 	// objects shared between this repository and other pool members can be deduplicated. This RPC
 	// will perform housekeeping tasks after the object pool has been updated to ensure that the pool
 	// is in an optimal state.
 	FetchIntoObjectPool(ctx context.Context, in *FetchIntoObjectPoolRequest, opts ...grpc.CallOption) (*FetchIntoObjectPoolResponse, error)
-	// This comment is left unintentionally blank.
+	// GetObjectPool returns the object pool a repository is connected to. If the repository is not
+	// connected to a pool then this RPC returns successfully with an empty response.
 	GetObjectPool(ctx context.Context, in *GetObjectPoolRequest, opts ...grpc.CallOption) (*GetObjectPoolResponse, error)
 }
 
@@ -116,22 +138,44 @@ func (c *objectPoolServiceClient) GetObjectPool(ctx context.Context, in *GetObje
 // All implementations must embed UnimplementedObjectPoolServiceServer
 // for forward compatibility
 type ObjectPoolServiceServer interface {
-	// This comment is left unintentionally blank.
+	// CreateObjectPool creates an object pool from a specific source repository. It will create the
+	// object pool by cloning all contents from that source repository. The source repository will not
+	// automatically be linked to the object pool, you need to call LinkRepositoryToObjectPool for
+	// this. If the object pool exists already this RPC returns an error with the FailedPrecondition
+	// gRPC error code.
 	CreateObjectPool(context.Context, *CreateObjectPoolRequest) (*CreateObjectPoolResponse, error)
-	// This comment is left unintentionally blank.
+	// DeleteObjectPool deletes the object pool. There are no safety checks in place, so if any
+	// repository is still using this object pool it will become corrupted.
 	DeleteObjectPool(context.Context, *DeleteObjectPoolRequest) (*DeleteObjectPoolResponse, error)
-	// Repositories are assumed to be stored on the same disk
+	// LinkRepositoryToObjectPool links the specified repository to the object pool. Objects contained
+	// in the object pool will be deduplicated for this repository when repacking objects.
 	LinkRepositoryToObjectPool(context.Context, *LinkRepositoryToObjectPoolRequest) (*LinkRepositoryToObjectPoolResponse, error)
-	// This comment is left unintentionally blank.
+	// ReduplicateRepository will repack the objects in the object pool member so that the repository
+	// does not depend on the pool member anymore and can be removed from it. Note that this function
+	// is not safe for use. Please use DisconnectGitAlternates instead.
 	ReduplicateRepository(context.Context, *ReduplicateRepositoryRequest) (*ReduplicateRepositoryResponse, error)
-	// This comment is left unintentionally blank.
+	// DisconnectGitAlternates will disconnect the object pool member from its object pool. It will:
+	//
+	//  1. Link all objects from the object pool into the member repository. This essenitally
+	//     reduplicates previously-duplicated objects so that the repository will continue to function
+	//     after being unlinked.
+	//  2. Remove the alternates link to the object pool.
+	//  3. Perform a consistency check to assert that the repository is indeed fully functional after
+	//     unlinking it from its pool. If the consistency check fails the alternates link is restored
+	//     an the RPC fails.
+	//
+	// If successful, the object pool member is disconnected from the object pool and does not depend
+	// on it anymore.
+	//
+	// This RPC does not return an error in case the repository is not linked to any object pool.
 	DisconnectGitAlternates(context.Context, *DisconnectGitAlternatesRequest) (*DisconnectGitAlternatesResponse, error)
 	// FetchIntoObjectPool fetches all references from a pool member into an object pool so that
 	// objects shared between this repository and other pool members can be deduplicated. This RPC
 	// will perform housekeeping tasks after the object pool has been updated to ensure that the pool
 	// is in an optimal state.
 	FetchIntoObjectPool(context.Context, *FetchIntoObjectPoolRequest) (*FetchIntoObjectPoolResponse, error)
-	// This comment is left unintentionally blank.
+	// GetObjectPool returns the object pool a repository is connected to. If the repository is not
+	// connected to a pool then this RPC returns successfully with an empty response.
 	GetObjectPool(context.Context, *GetObjectPoolRequest) (*GetObjectPoolResponse, error)
 	mustEmbedUnimplementedObjectPoolServiceServer()
 }
