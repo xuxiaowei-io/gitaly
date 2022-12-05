@@ -41,17 +41,16 @@ func TestCreate(t *testing.T) {
 		t.Cleanup(catfileCache.Stop)
 		txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
 
-		pool, err := FromProto(
+		return Create(
+			ctx,
 			config.NewLocator(cfg),
 			gittest.NewCommandFactory(t, cfg, git.WithSkipHooks()),
 			catfileCache,
 			txManager,
 			housekeeping.NewManager(cfg.Prometheus, txManager),
 			poolProto,
+			repo,
 		)
-		require.NoError(t, err)
-
-		return pool, pool.Create(ctx, repo)
 	}
 
 	t.Run("successful", func(t *testing.T) {

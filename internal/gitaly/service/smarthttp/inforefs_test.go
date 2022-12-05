@@ -316,7 +316,8 @@ func TestInfoRefsReceivePack_hiddenRefs(t *testing.T) {
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
 
-	pool, err := objectpool.FromProto(
+	pool, err := objectpool.Create(
+		ctx,
 		config.NewLocator(cfg),
 		gittest.NewCommandFactory(t, cfg),
 		nil,
@@ -328,13 +329,9 @@ func TestInfoRefsReceivePack_hiddenRefs(t *testing.T) {
 				RelativePath: gittest.NewObjectPoolName(t),
 			},
 		},
+		repo,
 	)
 	require.NoError(t, err)
-
-	require.NoError(t, pool.Create(ctx, repo))
-	defer func() {
-		require.NoError(t, pool.Remove(ctx))
-	}()
 
 	commitID := gittest.WriteCommit(t, cfg, pool.FullPath(), gittest.WithBranch(t.Name()))
 

@@ -39,7 +39,8 @@ func setupObjectPool(t *testing.T, ctx context.Context) (config.Cfg, *ObjectPool
 	t.Cleanup(catfileCache.Stop)
 	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
 
-	pool, err := FromProto(
+	pool, err := Create(
+		ctx,
 		config.NewLocator(cfg),
 		gitCommandFactory,
 		catfileCache,
@@ -51,9 +52,9 @@ func setupObjectPool(t *testing.T, ctx context.Context) (config.Cfg, *ObjectPool
 				RelativePath: gittest.NewObjectPoolName(t),
 			},
 		},
+		repo,
 	)
 	require.NoError(t, err)
-	require.NoError(t, pool.Create(ctx, repo))
 
 	return cfg, pool, repo
 }
