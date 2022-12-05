@@ -133,6 +133,12 @@ include:
     expire_in: 1 week
 
 .rules_run_on_merge: &rules_run_on_merge
+    # We only execute these rules in the main Gitaly repository. This is
+    # because jobs which run conditionally when being merged may depend on
+    # specific runners that aren't available in any other repository.
+    - if: $CI_PROJECT_PATH != "gitlab-org/gitaly"
+      when: manual
+      allow_failure: true
     # Automatically run the job when the default branch is changing, e.g. due
     # to a direct push.
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
@@ -306,12 +312,6 @@ test:fips:
         # There is no Go 1.19 release yet for the FIPS-based images.
         GO_VERSION: "1.18"
   rules:
-    # When running in a fork of Gitaly we don't have the runners available, and
-    # consequentially this job would fail anyway. So we configure the job to be
-    # a manual one in that case.
-    - if: $CI_PROJECT_PATH != "gitlab-org/gitaly"
-      when: manual
-      allow_failure: true
     # Automatically run the job when the FIPS label is set.
     - if: $CI_MERGE_REQUEST_LABELS =~ /FIPS/
     - *rules_run_on_merge
