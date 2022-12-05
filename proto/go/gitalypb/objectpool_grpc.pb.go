@@ -34,9 +34,12 @@ type ObjectPoolServiceClient interface {
 	// LinkRepositoryToObjectPool links the specified repository to the object pool. Objects contained
 	// in the object pool will be deduplicated for this repository when repacking objects.
 	LinkRepositoryToObjectPool(ctx context.Context, in *LinkRepositoryToObjectPoolRequest, opts ...grpc.CallOption) (*LinkRepositoryToObjectPoolResponse, error)
+	// Deprecated: Do not use.
 	// ReduplicateRepository will repack the objects in the object pool member so that the repository
 	// does not depend on the pool member anymore and can be removed from it. Note that this function
-	// is not safe for use. Please use DisconnectGitAlternates instead.
+	// is not safe for use.
+	//
+	// This RPC is deprecated. Please use DisconnectGitAlternates instead.
 	ReduplicateRepository(ctx context.Context, in *ReduplicateRepositoryRequest, opts ...grpc.CallOption) (*ReduplicateRepositoryResponse, error)
 	// DisconnectGitAlternates will disconnect the object pool member from its object pool. It will:
 	//
@@ -51,7 +54,8 @@ type ObjectPoolServiceClient interface {
 	// If successful, the object pool member is disconnected from the object pool and does not depend
 	// on it anymore.
 	//
-	// This RPC does not return an error in case the repository is not linked to any object pool.
+	// This RPC does not return an error in case the repository is not linked to any object pool. It
+	// will be removed in Gitaly v16.0, refer to https://gitlab.com/gitlab-org/gitaly/-/issues/4655.
 	DisconnectGitAlternates(ctx context.Context, in *DisconnectGitAlternatesRequest, opts ...grpc.CallOption) (*DisconnectGitAlternatesResponse, error)
 	// FetchIntoObjectPool fetches all references from a pool member into an object pool so that
 	// objects shared between this repository and other pool members can be deduplicated. This RPC
@@ -98,6 +102,7 @@ func (c *objectPoolServiceClient) LinkRepositoryToObjectPool(ctx context.Context
 	return out, nil
 }
 
+// Deprecated: Do not use.
 func (c *objectPoolServiceClient) ReduplicateRepository(ctx context.Context, in *ReduplicateRepositoryRequest, opts ...grpc.CallOption) (*ReduplicateRepositoryResponse, error) {
 	out := new(ReduplicateRepositoryResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.ObjectPoolService/ReduplicateRepository", in, out, opts...)
@@ -150,9 +155,12 @@ type ObjectPoolServiceServer interface {
 	// LinkRepositoryToObjectPool links the specified repository to the object pool. Objects contained
 	// in the object pool will be deduplicated for this repository when repacking objects.
 	LinkRepositoryToObjectPool(context.Context, *LinkRepositoryToObjectPoolRequest) (*LinkRepositoryToObjectPoolResponse, error)
+	// Deprecated: Do not use.
 	// ReduplicateRepository will repack the objects in the object pool member so that the repository
 	// does not depend on the pool member anymore and can be removed from it. Note that this function
-	// is not safe for use. Please use DisconnectGitAlternates instead.
+	// is not safe for use.
+	//
+	// This RPC is deprecated. Please use DisconnectGitAlternates instead.
 	ReduplicateRepository(context.Context, *ReduplicateRepositoryRequest) (*ReduplicateRepositoryResponse, error)
 	// DisconnectGitAlternates will disconnect the object pool member from its object pool. It will:
 	//
@@ -167,7 +175,8 @@ type ObjectPoolServiceServer interface {
 	// If successful, the object pool member is disconnected from the object pool and does not depend
 	// on it anymore.
 	//
-	// This RPC does not return an error in case the repository is not linked to any object pool.
+	// This RPC does not return an error in case the repository is not linked to any object pool. It
+	// will be removed in Gitaly v16.0, refer to https://gitlab.com/gitlab-org/gitaly/-/issues/4655.
 	DisconnectGitAlternates(context.Context, *DisconnectGitAlternatesRequest) (*DisconnectGitAlternatesResponse, error)
 	// FetchIntoObjectPool fetches all references from a pool member into an object pool so that
 	// objects shared between this repository and other pool members can be deduplicated. This RPC

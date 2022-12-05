@@ -64,6 +64,7 @@ func TestReduplicate(t *testing.T) {
 	// Re-link the repository to the pool and reduplicate the objects. This should cause us to
 	// pull all objects into the repository again.
 	require.NoError(t, pool.Link(ctx, repo))
+	//nolint:staticcheck
 	_, err = client.ReduplicateRepository(ctx, &gitalypb.ReduplicateRepositoryRequest{Repository: repoProto})
 	require.NoError(t, err)
 
