@@ -66,22 +66,22 @@ func (p *parser) ParseCommit(object git.Object) (*gitalypb.GitCommit, error) {
 			line = line[:len(line)-1]
 		}
 
-		headerSplit := strings.SplitN(line, " ", 2)
-		if len(headerSplit) != 2 {
+		key, value, ok := strings.Cut(line, " ")
+		if !ok {
 			continue
 		}
 
-		switch headerSplit[0] {
+		switch key {
 		case "parent":
-			commit.ParentIds = append(commit.ParentIds, headerSplit[1])
+			commit.ParentIds = append(commit.ParentIds, value)
 		case "author":
-			commit.Author = parseCommitAuthor(headerSplit[1])
+			commit.Author = parseCommitAuthor(value)
 		case "committer":
-			commit.Committer = parseCommitAuthor(headerSplit[1])
+			commit.Committer = parseCommitAuthor(value)
 		case "gpgsig":
-			commit.SignatureType = detectSignatureType(headerSplit[1])
+			commit.SignatureType = detectSignatureType(value)
 		case "tree":
-			commit.TreeId = headerSplit[1]
+			commit.TreeId = value
 		}
 	}
 
@@ -133,22 +133,21 @@ var fallbackTimeValue = time.Unix(1<<63-62135596801, 999999999)
 func parseCommitAuthor(line string) *gitalypb.CommitAuthor {
 	author := &gitalypb.CommitAuthor{}
 
-	splitName := strings.SplitN(line, "<", 2)
-	author.Name = []byte(strings.TrimSuffix(splitName[0], " "))
+	name, line, ok := strings.Cut(line, "<")
+	author.Name = []byte(strings.TrimSuffix(name, " "))
 
-	if len(splitName) < 2 {
+	if !ok {
 		return author
 	}
 
-	line = splitName[1]
-	splitEmail := strings.SplitN(line, ">", 2)
-	if len(splitEmail) < 2 {
+	email, line, ok := strings.Cut(line, ">")
+	if !ok {
 		return author
 	}
 
-	author.Email = []byte(splitEmail[0])
+	author.Email = []byte(email)
 
-	secSplit := strings.Fields(splitEmail[1])
+	secSplit := strings.Fields(line)
 	if len(secSplit) < 1 {
 		return author
 	}
@@ -168,7 +167,8 @@ func parseCommitAuthor(line string) *gitalypb.CommitAuthor {
 }
 
 func subjectFromBody(body []byte) []byte {
-	return bytes.TrimRight(bytes.SplitN(body, []byte("\n"), 2)[0], "\r\n")
+	subject, _, _ := bytes.Cut(body, []byte("\n"))
+	return bytes.TrimRight(subject, "\r\n")
 }
 
 func detectSignatureType(line string) gitalypb.SignatureType {
@@ -230,12 +230,11 @@ func (p *parser) parseTag(object git.Object, name []byte) (*gitalypb.Tag, tagged
 			line = line[:len(line)-1]
 		}
 
-		headerSplit := strings.SplitN(line, " ", 2)
-		if len(headerSplit) != 2 {
+		key, value, ok := strings.Cut(line, " ")
+		if !ok {
 			continue
 		}
 
-		key, value := headerSplit[0], headerSplit[1]
 		switch key {
 		case "object":
 			tagged.objectID = value

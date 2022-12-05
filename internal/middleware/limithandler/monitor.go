@@ -130,10 +130,11 @@ func (p *PromMonitor) Describe(descs chan<- *prometheus.Desc) {
 
 func splitMethodName(fullMethodName string) (string, string) {
 	fullMethodName = strings.TrimPrefix(fullMethodName, "/") // remove leading slash
-	if i := strings.Index(fullMethodName, "/"); i >= 0 {
-		return fullMethodName[:i], fullMethodName[i+1:]
+	service, method, ok := strings.Cut(fullMethodName, "/")
+	if !ok {
+		return "unknown", "unknown"
 	}
-	return "unknown", "unknown"
+	return service, method
 }
 
 // NewPackObjectsConcurrencyMonitor returns a concurrency monitor for use

@@ -157,10 +157,11 @@ func addMetadataTags(ctx context.Context, grpcMethodType string) metadataTags {
 
 func extractServiceAndMethodName(fullMethodName string) (string, string) {
 	fullMethodName = strings.TrimPrefix(fullMethodName, "/") // remove leading slash
-	if i := strings.Index(fullMethodName, "/"); i >= 0 {
-		return fullMethodName[:i], fullMethodName[i+1:]
+	service, method, ok := strings.Cut(fullMethodName, "/")
+	if !ok {
+		return unknownValue, unknownValue
 	}
-	return unknownValue, unknownValue
+	return service, method
 }
 
 func streamRPCType(info *grpc.StreamServerInfo) string {

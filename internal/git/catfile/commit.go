@@ -86,13 +86,7 @@ func splitRawCommit(object git.Object) ([]byte, []byte, error) {
 		return nil, nil, err
 	}
 
-	split := bytes.SplitN(raw, []byte("\n\n"), 2)
-
-	header := split[0]
-	var body []byte
-	if len(split) == 2 {
-		body = split[1]
-	}
+	header, body, _ := bytes.Cut(raw, []byte("\n\n"))
 
 	return header, body, nil
 }
