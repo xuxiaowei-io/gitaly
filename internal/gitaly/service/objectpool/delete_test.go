@@ -22,14 +22,8 @@ func TestDelete(t *testing.T) {
 
 	repositoryClient := gitalypb.NewRepositoryServiceClient(extractConn(client))
 
-	pool := initObjectPool(t, cfg, cfg.Storages[0])
-	_, err := client.CreateObjectPool(ctx, &gitalypb.CreateObjectPoolRequest{
-		ObjectPool: pool.ToProto(),
-		Origin:     repoProto,
-	})
-	require.NoError(t, err)
-
-	validPoolPath := pool.GetRelativePath()
+	poolProto, _ := createObjectPool(t, ctx, cfg, client, repoProto)
+	validPoolPath := poolProto.GetRepository().GetRelativePath()
 
 	for _, tc := range []struct {
 		desc         string
@@ -105,7 +99,7 @@ func TestDelete(t *testing.T) {
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 
 			response, err := repositoryClient.RepositoryExists(ctx, &gitalypb.RepositoryExistsRequest{
-				Repository: pool.ToProto().GetRepository(),
+				Repository: poolProto.GetRepository(),
 			})
 			require.NoError(t, err)
 			require.Equal(t, tc.expectedErr != nil, response.GetExists())

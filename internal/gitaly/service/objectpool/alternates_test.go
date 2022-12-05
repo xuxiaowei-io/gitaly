@@ -37,8 +37,7 @@ func testDisconnectGitAlternates(t *testing.T, ctx context.Context) {
 	// We create the object pool, link the original repository to it and then repack the pool
 	// member. As the linking step should've pulled all objects into the pool, the repack should
 	// get rid of the now-duplicate objects in the repository in favor of the pooled ones.
-	pool := initObjectPool(t, cfg, cfg.Storages[0])
-	require.NoError(t, pool.Create(ctx, repo))
+	_, pool := createObjectPool(t, ctx, cfg, client, repoProto)
 	require.NoError(t, pool.Link(ctx, repo))
 	gittest.Exec(t, cfg, "-C", repoPath, "gc")
 
