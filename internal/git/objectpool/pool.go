@@ -103,31 +103,6 @@ func (o *ObjectPool) Remove(ctx context.Context) (err error) {
 	return os.RemoveAll(o.FullPath())
 }
 
-// Init will initialize an empty pool repository
-// if one already exists, it will do nothing
-func (o *ObjectPool) Init(ctx context.Context) (err error) {
-	targetDir := o.FullPath()
-
-	if storage.IsGitDirectory(targetDir) {
-		return nil
-	}
-
-	cmd, err := o.gitCmdFactory.NewWithoutRepo(ctx,
-		git.SubCmd{
-			Name: "init",
-			Flags: []git.Option{
-				git.Flag{Name: "--bare"},
-			},
-			Args: []string{targetDir},
-		},
-	)
-	if err != nil {
-		return err
-	}
-
-	return cmd.Wait()
-}
-
 // FromRepo returns an instance of ObjectPool that the repository points to
 func FromRepo(
 	locator storage.Locator,
