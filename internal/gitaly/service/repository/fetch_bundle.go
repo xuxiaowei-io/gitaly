@@ -23,7 +23,7 @@ const (
 func (s *server) FetchBundle(stream gitalypb.RepositoryService_FetchBundleServer) error {
 	firstRequest, err := stream.Recv()
 	if err != nil {
-		return helper.ErrInternalf("first request: %v", err)
+		return helper.ErrInternalf("first request: %w", err)
 	}
 
 	if err := service.ValidateRepository(firstRequest.GetRepository()); err != nil {

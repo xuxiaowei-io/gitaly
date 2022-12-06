@@ -22,10 +22,10 @@ import (
 func (s *server) removeOriginInRepo(ctx context.Context, repository *gitalypb.Repository) error {
 	cmd, err := s.gitCmdFactory.New(ctx, repository, git.SubCmd{Name: "remote", Args: []string{"remove", "origin"}}, git.WithRefTxHook(repository))
 	if err != nil {
-		return fmt.Errorf("remote cmd start: %v", err)
+		return fmt.Errorf("remote cmd start: %w", err)
 	}
 	if err := cmd.Wait(); err != nil {
-		return fmt.Errorf("remote cmd wait: %v", err)
+		return fmt.Errorf("remote cmd wait: %w", err)
 	}
 
 	return nil

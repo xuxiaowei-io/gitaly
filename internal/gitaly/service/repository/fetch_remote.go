@@ -15,8 +15,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteRequest) (*gitalypb.FetchRemoteResponse, error) {
@@ -93,18 +91,12 @@ func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteReque
 	}
 
 	if err := repo.FetchRemote(ctx, remoteName, opts); err != nil {
-		if _, ok := status.FromError(err); ok {
-			// this check is used because of internal call to alternates.PathAndEnv
-			// which may return gRPC status as an error result
-			return nil, err
-		}
-
 		errMsg := stderr.String()
 		if errMsg != "" {
-			return nil, fmt.Errorf("fetch remote: %q: %w", errMsg, err)
+			return nil, helper.ErrInternalf("fetch remote: %q: %w", errMsg, err)
 		}
 
-		return nil, fmt.Errorf("fetch remote: %w", err)
+		return nil, helper.ErrInternalf("fetch remote: %w", err)
 	}
 
 	// Ideally, we'd do the voting process via git-fetch(1) using the reference-transaction
@@ -133,7 +125,7 @@ func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteReque
 
 		return s.txManager.Vote(ctx, tx, vote, voting.UnknownPhase)
 	}); err != nil {
-		return nil, status.Errorf(codes.Aborted, "failed vote on refs: %v", err)
+		return nil, helper.ErrAbortedf("failed vote on refs: %w", err)
 	}
 
 	out := &gitalypb.FetchRemoteResponse{TagsChanged: true}

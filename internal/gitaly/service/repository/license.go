@@ -72,7 +72,7 @@ func (s *server) FindLicense(ctx context.Context, req *gitalypb.FindLicenseReque
 				}
 				return &gitalypb.FindLicenseResponse{}, nil
 			}
-			return nil, helper.ErrInternal(fmt.Errorf("FindLicense: Err: %w", err))
+			return nil, helper.ErrInternalf("detect licenses: %w", err)
 		}
 
 		// This should not happen as the error must be returned, but let's keep it safe to avoid panics.
@@ -103,12 +103,12 @@ func (s *server) FindLicense(ctx context.Context, req *gitalypb.FindLicenseReque
 
 		name, err := licensedb.LicenseName(shortName)
 		if err != nil {
-			return nil, helper.ErrInternal(fmt.Errorf("license name by id %q: %w", shortName, err))
+			return nil, helper.ErrInternalf("license name by id %q: %w", shortName, err)
 		}
 
 		urls, err := licensedb.LicenseURLs(shortName)
 		if err != nil {
-			return nil, helper.ErrInternal(fmt.Errorf("license URLs by id %q: %w", shortName, err))
+			return nil, helper.ErrInternalf("license URLs by id %q: %w", shortName, err)
 		}
 		var url string
 		if len(urls) > 0 {

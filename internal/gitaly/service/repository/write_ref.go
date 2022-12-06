@@ -29,7 +29,7 @@ func (s *server) writeRef(ctx context.Context, req *gitalypb.WriteRefRequest) er
 
 	if string(req.Ref) == "HEAD" {
 		if err := repo.SetDefaultBranch(ctx, s.txManager, git.ReferenceName(req.GetRevision())); err != nil {
-			return fmt.Errorf("setting default branch: %v", err)
+			return fmt.Errorf("setting default branch: %w", err)
 		}
 
 		return nil

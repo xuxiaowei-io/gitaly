@@ -18,7 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/status"
 )
 
 func (s *server) GarbageCollect(ctx context.Context, in *gitalypb.GarbageCollectRequest) (*gitalypb.GarbageCollectResponse, error) {
@@ -76,17 +75,14 @@ func (s *server) gc(ctx context.Context, in *gitalypb.GarbageCollectRequest) err
 	)
 	if err != nil {
 		if git.IsInvalidArgErr(err) {
-			return helper.ErrInvalidArgumentf("GarbageCollect: gitCommand: %v", err)
+			return helper.ErrInvalidArgumentf("gitCommand: %w", err)
 		}
 
-		if _, ok := status.FromError(err); ok {
-			return err
-		}
-		return helper.ErrInternal(fmt.Errorf("GarbageCollect: gitCommand: %v", err))
+		return helper.ErrInternalf("gitCommand: %w", err)
 	}
 
 	if err := cmd.Wait(); err != nil {
-		return helper.ErrInternal(fmt.Errorf("GarbageCollect: cmd wait: %v", err))
+		return helper.ErrInternalf("cmd wait: %w", err)
 	}
 
 	return nil

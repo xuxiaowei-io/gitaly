@@ -114,7 +114,7 @@ func parseArchiveFormat(format gitalypb.GetArchiveRequest_Format) ([]string, str
 
 func validateGetArchiveRequest(in *gitalypb.GetArchiveRequest, format string) error {
 	if err := git.ValidateRevision([]byte(in.GetCommitId())); err != nil {
-		return helper.ErrInvalidArgumentf("invalid commitId: %v", err)
+		return helper.ErrInvalidArgumentf("invalid commitId: %w", err)
 	}
 
 	if len(format) == 0 {

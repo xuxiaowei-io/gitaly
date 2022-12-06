@@ -9,8 +9,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 const customHooksDir = "custom_hooks"
@@ -21,7 +19,7 @@ func (s *server) BackupCustomHooks(in *gitalypb.BackupCustomHooksRequest, stream
 	}
 	repoPath, err := s.locator.GetPath(in.Repository)
 	if err != nil {
-		return status.Errorf(codes.Internal, "BackupCustomHooks: getting repo path failed %v", err)
+		return helper.ErrInternalf("getting repo path failed %w", err)
 	}
 
 	writer := streamio.NewWriter(func(p []byte) error {
@@ -36,11 +34,11 @@ func (s *server) BackupCustomHooks(in *gitalypb.BackupCustomHooksRequest, stream
 	tar := []string{"tar", "-c", "-f", "-", "-C", repoPath, customHooksDir}
 	cmd, err := command.New(ctx, tar, command.WithStdout(writer))
 	if err != nil {
-		return status.Errorf(codes.Internal, "%v", err)
+		return helper.ErrInternal(err)
 	}
 
 	if err := cmd.Wait(); err != nil {
-		return status.Errorf(codes.Internal, "%v", err)
+		return helper.ErrInternal(err)
 	}
 
 	return nil
