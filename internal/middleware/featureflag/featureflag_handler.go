@@ -16,13 +16,6 @@ import (
 //	   "feature_flags": "feature_a feature_b feature_c"
 //	}
 func FieldsProducer(ctx context.Context, err error) logrus.Fields {
-	// By default, we log feature flags for gRPC failures only. This is due to the potential
-	// huge logging volume. The log aggregator may have a hard time processing them. As a
-	// result, we only put the logs in failed RPCs only.
-	if err == nil && featureflag.AlwaysLogFeatureFlags.IsDisabled(ctx) {
-		return nil
-	}
-
 	var enabledFlags []string
 	for flag, value := range featureflag.FromContext(ctx) {
 		if value {

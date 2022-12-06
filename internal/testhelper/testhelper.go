@@ -197,7 +197,6 @@ func ContextWithoutCancel(opts ...ContextOpt) context.Context {
 	// context. The values of these flags should be randomized to increase the test coverage.
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RunCommandsInCGroup, true)
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.ConvertErrToStatus, true)
-	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.AlwaysLogFeatureFlags, rnd.Int()%2 == 0)
 	// NodeErrorCancelsVoter affect many tests as it changes Praefect coordinator transaction logic.
 	// Randomly enable the flag to exercise both paths to some extent.
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.NodeErrorCancelsVoter, rnd.Int()%2 == 0)
