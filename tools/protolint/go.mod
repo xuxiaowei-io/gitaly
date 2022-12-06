@@ -2,7 +2,7 @@ module gitlab.com/gitlab-org/gitaly/tools/protolint
 
 go 1.17
 
-require github.com/yoheimuta/protolint v0.41.0
+require github.com/yoheimuta/protolint v0.42.0
 
 require (
 	github.com/fatih/color v1.13.0 // indirect
