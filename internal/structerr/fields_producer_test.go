@@ -11,7 +11,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/grpcstats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"google.golang.org/grpc"
@@ -44,15 +43,12 @@ func TestFieldsProducer(t *testing.T) {
 
 	service := &mockService{}
 	server := grpc.NewServer(
-		grpc.StatsHandler(log.PerRPCLogHandler{
-			Underlying: &grpcstats.PayloadBytes{},
-		}),
 		grpcmw.WithUnaryServerChain(
 			grpcmwlogrus.UnaryServerInterceptor(
 				logrus.NewEntry(logger),
 				grpcmwlogrus.WithMessageProducer(
 					log.MessageProducer(
-						log.PropagationMessageProducer(grpcmwlogrus.DefaultMessageProducer),
+						grpcmwlogrus.DefaultMessageProducer,
 						FieldsProducer,
 					),
 				),
