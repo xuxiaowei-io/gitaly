@@ -19,19 +19,24 @@ service RefService {
     };
   }
 
-  // This comment is left unintentionally blank.
+  // FindAllBranchNames is deprecated in favor of ListRefs
+  //
+  // https://gitlab.com/gitlab-org/gitaly/-/issues/3966
   rpc FindAllBranchNames(FindAllBranchNamesRequest) returns (stream FindAllBranchNamesResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
-
+    option deprecated = true;
   }
 
-  // This comment is left unintentionally blank.
+  // FindAllTagNames is deprecated in favor of ListRefs
+  //
+  // https://gitlab.com/gitlab-org/gitaly/-/issues/3966
   rpc FindAllTagNames(FindAllTagNamesRequest) returns (stream FindAllTagNamesResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
+    option deprecated = true;
   }
 
   // Return a stream so we can divide the response in chunks of branches

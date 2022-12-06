@@ -24,9 +24,15 @@ const _ = grpc.SupportPackageIsVersion7
 type RefServiceClient interface {
 	// This comment is left unintentionally blank.
 	FindDefaultBranchName(ctx context.Context, in *FindDefaultBranchNameRequest, opts ...grpc.CallOption) (*FindDefaultBranchNameResponse, error)
-	// This comment is left unintentionally blank.
+	// Deprecated: Do not use.
+	// FindAllBranchNames is deprecated in favor of ListRefs
+	//
+	// https://gitlab.com/gitlab-org/gitaly/-/issues/3966
 	FindAllBranchNames(ctx context.Context, in *FindAllBranchNamesRequest, opts ...grpc.CallOption) (RefService_FindAllBranchNamesClient, error)
-	// This comment is left unintentionally blank.
+	// Deprecated: Do not use.
+	// FindAllTagNames is deprecated in favor of ListRefs
+	//
+	// https://gitlab.com/gitlab-org/gitaly/-/issues/3966
 	FindAllTagNames(ctx context.Context, in *FindAllTagNamesRequest, opts ...grpc.CallOption) (RefService_FindAllTagNamesClient, error)
 	// Return a stream so we can divide the response in chunks of branches
 	FindLocalBranches(ctx context.Context, in *FindLocalBranchesRequest, opts ...grpc.CallOption) (RefService_FindLocalBranchesClient, error)
@@ -88,6 +94,7 @@ func (c *refServiceClient) FindDefaultBranchName(ctx context.Context, in *FindDe
 	return out, nil
 }
 
+// Deprecated: Do not use.
 func (c *refServiceClient) FindAllBranchNames(ctx context.Context, in *FindAllBranchNamesRequest, opts ...grpc.CallOption) (RefService_FindAllBranchNamesClient, error) {
 	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[0], "/gitaly.RefService/FindAllBranchNames", opts...)
 	if err != nil {
@@ -120,6 +127,7 @@ func (x *refServiceFindAllBranchNamesClient) Recv() (*FindAllBranchNamesResponse
 	return m, nil
 }
 
+// Deprecated: Do not use.
 func (c *refServiceClient) FindAllTagNames(ctx context.Context, in *FindAllTagNamesRequest, opts ...grpc.CallOption) (RefService_FindAllTagNamesClient, error) {
 	stream, err := c.cc.NewStream(ctx, &RefService_ServiceDesc.Streams[1], "/gitaly.RefService/FindAllTagNames", opts...)
 	if err != nil {
@@ -501,9 +509,15 @@ func (c *refServiceClient) FindRefsByOID(ctx context.Context, in *FindRefsByOIDR
 type RefServiceServer interface {
 	// This comment is left unintentionally blank.
 	FindDefaultBranchName(context.Context, *FindDefaultBranchNameRequest) (*FindDefaultBranchNameResponse, error)
-	// This comment is left unintentionally blank.
+	// Deprecated: Do not use.
+	// FindAllBranchNames is deprecated in favor of ListRefs
+	//
+	// https://gitlab.com/gitlab-org/gitaly/-/issues/3966
 	FindAllBranchNames(*FindAllBranchNamesRequest, RefService_FindAllBranchNamesServer) error
-	// This comment is left unintentionally blank.
+	// Deprecated: Do not use.
+	// FindAllTagNames is deprecated in favor of ListRefs
+	//
+	// https://gitlab.com/gitlab-org/gitaly/-/issues/3966
 	FindAllTagNames(*FindAllTagNamesRequest, RefService_FindAllTagNamesServer) error
 	// Return a stream so we can divide the response in chunks of branches
 	FindLocalBranches(*FindLocalBranchesRequest, RefService_FindLocalBranchesServer) error

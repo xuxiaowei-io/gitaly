@@ -32,6 +32,7 @@ func containsRef(refs [][]byte, ref string) bool {
 	return false
 }
 
+//nolint:staticcheck
 func TestSuccessfulFindAllBranchNames(t *testing.T) {
 	ctx := testhelper.Context(t)
 	_, repo, _, client := setupRefService(t, ctx)
@@ -57,6 +58,7 @@ func TestSuccessfulFindAllBranchNames(t *testing.T) {
 	}
 }
 
+//nolint:staticcheck
 func TestFindAllBranchNamesVeryLargeResponse(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, repoProto, _, client := setupRefService(t, ctx)
@@ -108,6 +110,7 @@ func TestFindAllBranchNamesVeryLargeResponse(t *testing.T) {
 	}
 }
 
+//nolint:staticcheck
 func TestEmptyFindAllBranchNamesRequest(t *testing.T) {
 	_, client := setupRefServiceWithoutRepo(t)
 
@@ -126,6 +129,7 @@ func TestEmptyFindAllBranchNamesRequest(t *testing.T) {
 	}
 }
 
+//nolint:staticcheck
 func TestFindAllBranchNames_validate(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, repo, _, client := setupRefService(t, ctx)
@@ -168,6 +172,7 @@ func TestFindAllBranchNames_validate(t *testing.T) {
 	}
 }
 
+//nolint:staticcheck
 func TestSuccessfulFindAllTagNames(t *testing.T) {
 	ctx := testhelper.Context(t)
 	_, repo, _, client := setupRefService(t, ctx)
@@ -193,6 +198,7 @@ func TestSuccessfulFindAllTagNames(t *testing.T) {
 	}
 }
 
+//nolint:staticcheck
 func TestFindAllTagNames_validate(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, repo, _, client := setupRefService(t, ctx)
