@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
@@ -340,4 +341,20 @@ func TestOptimizeRepository_validation(t *testing.T) {
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
 	}
+}
+
+func TestOptimizeRepository_logStatistics(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	logger, hook := test.NewNullLogger()
+	cfg, client := setupRepositoryServiceWithoutRepo(t, testserver.WithLogger(logger))
+
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+	_, err := client.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{
+		Repository: repoProto,
+	})
+	require.NoError(t, err)
+
+	requireRepositoryInfoLog(t, hook.AllEntries()...)
 }

@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
@@ -172,4 +173,20 @@ func requireCommitGraphInfo(tb testing.TB, repoPath string, expectedInfo stats.C
 	commitGraphInfo, err := stats.CommitGraphInfoForRepository(repoPath)
 	require.NoError(tb, err)
 	require.Equal(tb, expectedInfo, commitGraphInfo)
+}
+
+func requireRepositoryInfoLog(tb testing.TB, entries ...*logrus.Entry) {
+	tb.Helper()
+
+	const key = "repository_info"
+	for _, entry := range entries {
+		if entry.Message == "repository info" {
+			require.Contains(tb, entry.Data, "grpc.request.glProjectPath")
+			require.Contains(tb, entry.Data, "grpc.request.glRepository")
+			require.Contains(tb, entry.Data, key, "objects info not found")
+			require.IsType(tb, stats.RepositoryInfo{}, entry.Data[key])
+			return
+		}
+	}
+	require.FailNow(tb, "no info about statistics")
 }

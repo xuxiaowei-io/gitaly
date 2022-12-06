@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -58,7 +57,7 @@ func TestRepackIncrementalCollectLogStatistics(t *testing.T) {
 	_, err := client.RepackIncremental(ctx, &gitalypb.RepackIncrementalRequest{Repository: repo})
 	assert.NoError(t, err)
 
-	mustCountObjectLog(t, hook.AllEntries()...)
+	requireRepositoryInfoLog(t, hook.AllEntries()...)
 }
 
 func TestRepackLocal(t *testing.T) {
@@ -223,23 +222,7 @@ func TestRepackFullCollectLogStatistics(t *testing.T) {
 	_, err := client.RepackFull(ctx, &gitalypb.RepackFullRequest{Repository: repo})
 	require.NoError(t, err)
 
-	mustCountObjectLog(t, hook.AllEntries()...)
-}
-
-func mustCountObjectLog(tb testing.TB, entries ...*logrus.Entry) {
-	tb.Helper()
-
-	const key = "repository_info"
-	for _, entry := range entries {
-		if entry.Message == "repository info" {
-			require.Contains(tb, entry.Data, "grpc.request.glProjectPath")
-			require.Contains(tb, entry.Data, "grpc.request.glRepository")
-			require.Contains(tb, entry.Data, key, "objects info not found")
-			require.IsType(tb, stats.RepositoryInfo{}, entry.Data[key])
-			return
-		}
-	}
-	require.FailNow(tb, "no info about statistics")
+	requireRepositoryInfoLog(t, hook.AllEntries()...)
 }
 
 func doBitmapsContainHashCache(t *testing.T, bitmapPaths []string) {
