@@ -46,15 +46,21 @@ func NewGitalyServerLogger(tb testing.TB) *logrus.Logger {
 	return logger
 }
 
-// CreateTestLogDir creates the log directory specified in the `TEST_LOG_DIR` environment variable.
-// If the variable is unset, then no directory will be created. This method returns the path to
-// the log dir if TEST_LOG_DIR is set.
+// CreateTestLogDir creates a new log directory for testing purposes if the environment variable
+// `TEST_LOG_DIR` is set. The log directory will then be created as a subdirectory of the value that
+// `TEST_LOG_DIR` points to. The name of the subdirectory will match the executing test's name.
+//
+// Returns the name of the created log directory. If the environment variable is not set then this
+// functions returns an empty string.
 func CreateTestLogDir(tb testing.TB) string {
 	testLogDir := os.Getenv("TEST_LOG_DIR")
 	if len(testLogDir) == 0 {
 		return ""
 	}
-	require.NoError(tb, os.MkdirAll(testLogDir, 0o755))
 
-	return testLogDir
+	logDir := filepath.Join(testLogDir, tb.Name())
+
+	require.NoError(tb, os.MkdirAll(logDir, 0o755))
+
+	return logDir
 }
