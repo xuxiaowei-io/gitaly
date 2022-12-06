@@ -1,0 +1,10 @@
+{
+  "repository": {
+    "storageName": "default",
+    "relativePath": "homebrew-core.git",
+    "gitAlternateObjectDirectories": [],
+    "glRepository": "homebrew",
+    "glProjectPath": "homebrew/homebrew-core"
+  },
+  "revision": "bWFzdGVy"
+}

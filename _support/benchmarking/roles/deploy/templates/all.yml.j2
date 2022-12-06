@@ -1,0 +1,21 @@
+---
+gitaly_revision: "{{ gitaly_revision }}"
+repos:
+  - git.git
+  - linux.git
+  - gitlab.git
+  - homebrew-core.git
+  - chromium.git
+rpcs:
+  - find_commit:
+    rpc: FindCommit
+    service: gitaly.CommitService
+    proto: commit.proto
+  - get_blobs:
+    rpc: GetBlobs
+    service: gitaly.BlobService
+    proto: blob.proto
+  - list_commits_by_oid:
+    rpc: ListCommitsByOid
+    service: gitaly.CommitService
+    proto: commit.proto

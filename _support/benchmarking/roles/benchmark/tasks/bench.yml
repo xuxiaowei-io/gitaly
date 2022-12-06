@@ -1,0 +1,78 @@
+---
+- name: Show repo and RPC being benched
+  debug:
+    msg: "Benchmarking {{ item.0.rpc }} against {{ item.1 }}"
+
+- name: Create benchmark results directory on Gitaly node
+  file:
+    path: "{{ output_dir }}"
+    state: directory
+    mode: '0755'
+    owner: git
+    group: git
+
+- name: Create benchmark results directory on client node
+  file:
+    path: "{{ output_dir }}"
+    state: directory
+    mode: '0755'
+    owner: git
+    group: git
+  delegate_to: "{{ groups['client'][0] }}"
+
+- name: Clear kernel page cache
+  shell: sync && echo 3 > /proc/sys/vm/drop_caches
+  when: clear_page_cache | bool
+
+# Create new Gitaly process for each run for easy log collection
+- name: Start Gitaly service
+  systemd:
+    name: gitaly
+    state: started
+  notify: stop gitaly
+
+- name: Pause for Gitaly to start up
+  pause:
+    seconds: 5
+
+- name: Run ghz
+  command:
+    argv:
+      - /usr/local/bin/benchmark-gitaly
+      - "-a{{ hostvars[groups['gitaly'][0]]['internal'] }}"
+      - "-d{{ bench_duration }}"
+      - "-o{{ output_dir }}"
+      - "-p{{ item.0.proto }}"
+      - "-s{{ item.0.service }}"
+      - "-r{{ item.0.rpc }}"
+      - "-g{{ item.1 }}"
+  async: "{{ ghz_wait_duration }}"
+  poll: 0
+  register: ghz_wait
+  delegate_to: "{{ groups['client'][0] }}"
+
+- name: Profile system with perf and libbpf-tools
+  command:
+    argv:
+      - /usr/local/bin/profile-gitaly
+      - "-d{{ profile_duration }}"
+      - "-o{{ output_dir }}"
+      - "-r{{ item.0.rpc }}"
+      - "-g{{ item.1 }}"
+  when: profile | bool
+
+- name: Wait for ghz to exit
+  async_status:
+    jid: "{{ ghz_wait.ansible_job_id }}"
+  register: ghz_result
+  until: ghz_result.finished
+  retries: 100
+  delay: 10
+  delegate_to: "{{ groups['client'][0] }}"
+
+- name: Copy ghz data to Gitaly node
+  synchronize:
+    src: "{{ output_dir }}/ghz.json"
+    dest: "{{ output_dir }}/"
+    private_key: /root/.ssh/id_ed25519
+  delegate_to: "{{ groups['client'][0] }}"

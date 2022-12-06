@@ -1,0 +1,12 @@
+{
+  "repository": {
+    "gitAlternateObjectDirectories": [
+      "../gitlab-pool.git"
+    ],
+    "storageName": "default",
+    "relativePath": "gitlab.git",
+    "glRepository": "gitlab",
+    "glProjectPath": "gitlab-org/gitlab"
+  },
+  "revision": "bWFzdGVy"
+}

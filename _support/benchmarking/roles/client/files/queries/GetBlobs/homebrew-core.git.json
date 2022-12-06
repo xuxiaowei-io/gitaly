@@ -1,0 +1,67 @@
+{
+  "revisionPaths": [
+    {
+    	"revision": "bfafc58ebb4bf952bb3293d68f14e56b8e9810d9",
+    	"path": "LmdpdGh1Yg=="
+    },
+    {
+    	"revision": "bfafc58ebb4bf952bb3293d68f14e56b8e9810d9",
+    	"path": "QWxpYXNlcw=="
+    },
+    {
+    	"revision": "bfafc58ebb4bf952bb3293d68f14e56b8e9810d9",
+    	"path": "Q09ERU9XTkVSUw=="
+    },
+    {
+    	"revision": "bfafc58ebb4bf952bb3293d68f14e56b8e9810d9",
+    	"path": "Q09OVFJJQlVUSU5HLm1k"
+    },
+    {
+    	"revision": "bfafc58ebb4bf952bb3293d68f14e56b8e9810d9",
+    	"path": "Rm9ybXVsYQ=="
+    },
+    {
+    	"revision": "bfafc58ebb4bf952bb3293d68f14e56b8e9810d9",
+    	"path": "TElDRU5TRS50eHQ="
+    },
+    {
+    	"revision": "bfafc58ebb4bf952bb3293d68f14e56b8e9810d9",
+    	"path": "UkVBRE1FLm1k"
+    },
+    {
+    	"revision": "bfafc58ebb4bf952bb3293d68f14e56b8e9810d9",
+    	"path": "YXVkaXRfZXhjZXB0aW9ucw=="
+    },
+    {
+    	"revision": "bfafc58ebb4bf952bb3293d68f14e56b8e9810d9",
+    	"path": "Y21k"
+    },
+    {
+    	"revision": "bfafc58ebb4bf952bb3293d68f14e56b8e9810d9",
+    	"path": "Zm9ybXVsYV9yZW5hbWVzLmpzb24="
+    },
+    {
+    	"revision": "bfafc58ebb4bf952bb3293d68f14e56b8e9810d9",
+    	"path": "cHlwaV9mb3JtdWxhX21hcHBpbmdzLmpzb24="
+    },
+    {
+    	"revision": "bfafc58ebb4bf952bb3293d68f14e56b8e9810d9",
+    	"path": "c3R5bGVfZXhjZXB0aW9ucw=="
+    },
+    {
+    	"revision": "bfafc58ebb4bf952bb3293d68f14e56b8e9810d9",
+    	"path": "c3luY2VkX3ZlcnNpb25zX2Zvcm11bGFlLmpzb24="
+    },
+    {
+    	"revision": "bfafc58ebb4bf952bb3293d68f14e56b8e9810d9",
+    	"path": "dGFwX21pZ3JhdGlvbnMuanNvbg=="
+    }
+  ],
+  "repository": {
+    "storageName": "default",
+    "relativePath": "homebrew-core.git",
+    "gitAlternateObjectDirectories": [],
+    "glRepository": "homebrew",
+    "glProjectPath": "homebrew/homebrew-core"
+  }
+}

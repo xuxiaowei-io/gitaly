@@ -1,0 +1,10 @@
+{
+  "repository": {
+    "storageName": "default",
+    "relativePath": "linux.git",
+    "gitAlternateObjectDirectories": [],
+    "glRepository": "linux",
+    "glProjectPath": "torvalds/linux"
+  },
+  "revision": "bWFzdGVy"
+}

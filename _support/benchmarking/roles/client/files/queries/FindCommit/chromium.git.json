@@ -1,0 +1,10 @@
+{
+  "repository": {
+    "storageName": "default",
+    "relativePath": "chromium.git",
+    "gitAlternateObjectDirectories": [],
+    "glRepository": "chromium",
+    "glProjectPath": "google/chromium"
+  },
+  "revision": "bWFpbg=="
+}

@@ -1,0 +1,87 @@
+---
+- name: Install perf
+  apt:
+    name:
+      - linux-tools-common
+      - "linux-tools-{{ ansible_kernel }}"
+      - "linux-headers-{{ ansible_kernel }}"
+    state: present
+
+- name: Install bcc dependencies
+  apt:
+    name:
+      - bison
+      - build-essential
+      - cmake
+      - clang
+      - flex
+      - git
+      - libedit-dev
+      - libllvm14
+      - llvm-14-dev
+      - libclang-14-dev
+      - python3
+      - zlib1g-dev
+      - libelf-dev
+      - libfl-dev
+      - python3-distutils
+    state: present
+
+- name: Clone bcc
+  git:
+    repo: https://github.com/iovisor/bcc.git
+    dest: /src/bcc
+    version: "{{ bcc_revision }}"
+  become_user: git
+
+# Required to build libbpf-tools
+- name: Symlink /usr/include/asm-generic to asm
+  file:
+    src: /usr/include/asm-generic
+    dest: /usr/include/asm
+    state: link
+
+# Required to build libbpf-tools
+- name: Symlink /usr/bin/llvm-strip-14 to llvm-strip
+  file:
+    src: /usr/bin/llvm-strip-14
+    dest: /usr/bin/llvm-strip
+    state: link
+
+- name: Make libbpf-tools
+  make:
+    chdir: /src/bcc/libbpf-tools
+  become_user: git
+
+- name: Install libbpf-tools
+  make:
+    target: install
+    chdir: /src/bcc/libbpf-tools
+
+- name: Clone Flamegraph
+  git:
+    repo: https://github.com/brendangregg/flamegraph.git
+    dest: /src/flamegraph
+  become_user: git
+
+- name: Install stackcollapse-perf.pl as stackcollapse
+  copy:
+    src: /src/flamegraph/stackcollapse-perf.pl
+    dest: /usr/local/bin/stackcollapse
+    mode: 0755
+    remote_src: true
+
+- name: Install flamegraph.pl as flamegraph
+  copy:
+    src: /src/flamegraph/flamegraph.pl
+    dest: /usr/local/bin/flamegraph
+    mode: 0755
+    remote_src: true
+
+- name: Install profile-gitaly.sh as profile-gitaly
+  copy:
+    src: profile-gitaly.sh
+    dest: /usr/local/bin/profile-gitaly
+    owner: root
+    group: root
+    mode: '0755'
