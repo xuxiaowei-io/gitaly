@@ -23,6 +23,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
@@ -796,8 +797,10 @@ func TestUserMergeBranch_allowed(t *testing.T) {
 }
 
 func errWithDetails(tb testing.TB, err error, details ...proto.Message) error {
-	detailedErr, err := helper.ErrWithDetails(err, details...)
-	require.NoError(tb, err)
+	detailedErr := structerr.New("%w", err)
+	for _, detail := range details {
+		detailedErr = detailedErr.WithDetail(detail)
+	}
 	return detailedErr
 }
 

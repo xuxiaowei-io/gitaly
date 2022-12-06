@@ -9,6 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -61,24 +62,18 @@ func (s *Server) UserCreateBranch(ctx context.Context, req *gitalypb.UserCreateB
 		var customHookErr updateref.CustomHookError
 
 		if errors.As(err, &customHookErr) {
-			detailedErr, err := helper.ErrWithDetails(
-				// We explicitly don't include the custom hook error itself
-				// in the returned error because that would also contain the
-				// standard output or standard error in the error message.
-				// It's thus needlessly verbose and duplicates information
-				// we have available in the structured error anyway.
-				helper.ErrPermissionDeniedf("creation denied by custom hooks"),
+			// We explicitly don't include the custom hook error itself
+			// in the returned error because that would also contain the
+			// standard output or standard error in the error message.
+			// It's thus needlessly verbose and duplicates information
+			// we have available in the structured error anyway.
+			return nil, structerr.NewPermissionDenied("creation denied by custom hooks").WithDetail(
 				&gitalypb.UserCreateBranchError{
 					Error: &gitalypb.UserCreateBranchError_CustomHook{
 						CustomHook: customHookErr.Proto(),
 					},
 				},
 			)
-			if err != nil {
-				return nil, helper.ErrInternalf("error details: %w", err)
-			}
-
-			return nil, detailedErr
 		}
 
 		var updateRefError updateref.Error
@@ -197,8 +192,7 @@ func (s *Server) UserDeleteBranch(ctx context.Context, req *gitalypb.UserDeleteB
 		var updateRefError updateref.Error
 
 		if errors.As(err, &notAllowedError) {
-			detailedErr, err := helper.ErrWithDetails(
-				helper.ErrPermissionDeniedf("deletion denied by access checks: %w", err),
+			return nil, structerr.NewPermissionDenied("deletion denied by access checks: %w", err).WithDetail(
 				&gitalypb.UserDeleteBranchError{
 					Error: &gitalypb.UserDeleteBranchError_AccessCheck{
 						AccessCheck: &gitalypb.AccessCheckError{
@@ -210,28 +204,16 @@ func (s *Server) UserDeleteBranch(ctx context.Context, req *gitalypb.UserDeleteB
 					},
 				},
 			)
-			if err != nil {
-				return nil, helper.ErrInternalf("error details: %w", err)
-			}
-
-			return nil, detailedErr
 		} else if errors.As(err, &customHookErr) {
-			detailedErr, err := helper.ErrWithDetails(
-				helper.ErrPermissionDeniedf("deletion denied by custom hooks: %w", err),
+			return nil, structerr.NewPermissionDenied("deletion denied by custom hooks: %w", err).WithDetail(
 				&gitalypb.UserDeleteBranchError{
 					Error: &gitalypb.UserDeleteBranchError_CustomHook{
 						CustomHook: customHookErr.Proto(),
 					},
 				},
 			)
-			if err != nil {
-				return nil, helper.ErrInternalf("error details: %w", err)
-			}
-
-			return nil, detailedErr
 		} else if errors.As(err, &updateRefError) {
-			detailedErr, err := helper.ErrWithDetails(
-				helper.ErrFailedPreconditionf("reference update failed: %w", updateRefError),
+			return nil, structerr.NewFailedPrecondition("reference update failed: %w", updateRefError).WithDetail(
 				&gitalypb.UserDeleteBranchError{
 					Error: &gitalypb.UserDeleteBranchError_ReferenceUpdate{
 						ReferenceUpdate: &gitalypb.ReferenceUpdateError{
@@ -242,11 +224,6 @@ func (s *Server) UserDeleteBranch(ctx context.Context, req *gitalypb.UserDeleteB
 					},
 				},
 			)
-			if err != nil {
-				return nil, helper.ErrInternalf("error details: %w", err)
-			}
-
-			return nil, detailedErr
 		}
 
 		return nil, helper.ErrInternalf("deleting reference: %w", err)

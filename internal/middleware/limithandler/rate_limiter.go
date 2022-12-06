@@ -9,8 +9,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"gitlab.com/gitlab-org/labkit/log"
 	"golang.org/x/time/rate"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
@@ -43,24 +43,12 @@ func (r *RateLimiter) Limit(ctx context.Context, lockKey string, f LimitedFunc) 
 		// of traffic.
 		r.requestsDroppedMetric.Inc()
 
-		err := helper.ErrUnavailable(ErrRateLimit)
-
-		detailedErr, errGeneratingDetailedErr := helper.ErrWithDetails(
-			err,
+		return nil, structerr.NewUnavailable("%w", ErrRateLimit).WithDetail(
 			&gitalypb.LimitError{
 				ErrorMessage: ErrRateLimit.Error(),
 				RetryAfter:   durationpb.New(0),
 			},
 		)
-		if errGeneratingDetailedErr != nil {
-			log.WithField("rate_limit_error", err).
-				WithError(errGeneratingDetailedErr).
-				Error("failed to generate detailed error")
-
-			return nil, err
-		}
-
-		return nil, detailedErr
 	}
 
 	return f()

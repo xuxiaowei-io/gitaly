@@ -20,6 +20,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -88,18 +89,13 @@ func (s *Server) UserCommitFiles(stream gitalypb.OperationService_UserCommitFile
 				}
 				return detailedErr
 			case errors.As(err, &customHookErr):
-				detailedErr, err := helper.ErrWithDetails(
-					helper.ErrPermissionDeniedf("denied by custom hooks"),
+				return structerr.NewPermissionDenied("denied by custom hooks").WithDetail(
 					&gitalypb.UserCommitFilesError{
 						Error: &gitalypb.UserCommitFilesError_CustomHook{
 							CustomHook: customHookErr.Proto(),
 						},
 					},
 				)
-				if err != nil {
-					return helper.ErrInternalf("error details: %w", err)
-				}
-				return detailedErr
 			case errors.As(err, new(git2go.InvalidArgumentError)):
 				return helper.ErrInvalidArgument(err)
 			default:

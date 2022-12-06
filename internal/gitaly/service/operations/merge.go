@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -107,8 +108,7 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 				conflictingFiles = append(conflictingFiles, []byte(conflictingFile))
 			}
 
-			detailedErr, err := helper.ErrWithDetails(
-				helper.ErrFailedPreconditionf("merging commits: %w", err),
+			return structerr.NewFailedPrecondition("merging commits: %w", err).WithDetail(
 				&gitalypb.UserMergeBranchError{
 					Error: &gitalypb.UserMergeBranchError_MergeConflict{
 						MergeConflict: &gitalypb.MergeConflictError{
@@ -121,11 +121,6 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 					},
 				},
 			)
-			if err != nil {
-				return helper.ErrInternalf("error details: %w", err)
-			}
-
-			return detailedErr
 		}
 
 		return helper.ErrInternal(err)
@@ -156,8 +151,7 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 		var updateRefError updateref.Error
 
 		if errors.As(err, &notAllowedError) {
-			detailedErr, err := helper.ErrWithDetails(
-				helper.ErrPermissionDenied(notAllowedError),
+			return structerr.NewPermissionDenied("%w", notAllowedError).WithDetail(
 				&gitalypb.UserMergeBranchError{
 					Error: &gitalypb.UserMergeBranchError_AccessCheck{
 						AccessCheck: &gitalypb.AccessCheckError{
@@ -169,34 +163,22 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 					},
 				},
 			)
-			if err != nil {
-				return helper.ErrInternalf("error details: %w", err)
-			}
-
-			return detailedErr
 		} else if errors.As(err, &customHookErr) {
 			// When an error happens updating the reference, e.g. because of a
 			// race with another update, then we should tell the user that a
 			// precondition failed. A retry may fix this.
-			detailedErr, err := helper.ErrWithDetails(
-				helper.ErrPermissionDenied(customHookErr),
+			return structerr.NewPermissionDenied("%w", customHookErr).WithDetail(
 				&gitalypb.UserMergeBranchError{
 					Error: &gitalypb.UserMergeBranchError_CustomHook{
 						CustomHook: customHookErr.Proto(),
 					},
 				},
 			)
-			if err != nil {
-				return helper.ErrInternalf("error details: %w", err)
-			}
-
-			return detailedErr
 		} else if errors.As(err, &updateRefError) {
 			// When an error happens updating the reference, e.g. because of a
 			// race with another update, then we should tell the user that a
 			// precondition failed. A retry may fix this.
-			detailedErr, err := helper.ErrWithDetails(
-				helper.ErrFailedPrecondition(updateRefError),
+			return structerr.NewFailedPrecondition("%w", updateRefError).WithDetail(
 				&gitalypb.UserMergeBranchError{
 					Error: &gitalypb.UserMergeBranchError_ReferenceUpdate{
 						ReferenceUpdate: &gitalypb.ReferenceUpdateError{
@@ -207,11 +189,6 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 					},
 				},
 			)
-			if err != nil {
-				return helper.ErrInternalf("error details: %w", err)
-			}
-
-			return detailedErr
 		}
 
 		return helper.ErrInternal(err)
