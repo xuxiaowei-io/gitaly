@@ -76,18 +76,13 @@ func (s *Server) UserCommitFiles(stream gitalypb.OperationService_UserCommitFile
 				// potential, if unusual, issues that could occur.
 				return unknownErr
 			case errors.As(err, &indexErr):
-				detailedErr, err := helper.ErrWithDetails(
-					indexErr.GrpcError(),
+				return indexErr.StructuredError().WithDetail(
 					&gitalypb.UserCommitFilesError{
 						Error: &gitalypb.UserCommitFilesError_IndexUpdate{
 							IndexUpdate: indexErr.Proto(),
 						},
 					},
 				)
-				if err != nil {
-					return helper.ErrInternalf("error details: %w", err)
-				}
-				return detailedErr
 			case errors.As(err, &customHookErr):
 				return structerr.NewPermissionDenied("denied by custom hooks").WithDetail(
 					&gitalypb.UserCommitFilesError{

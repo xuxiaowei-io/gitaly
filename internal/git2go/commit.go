@@ -7,7 +7,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -85,18 +85,18 @@ func (err IndexError) Proto() *gitalypb.IndexError {
 	}
 }
 
-// GrpcError returns the error wrapped with a gRPC code.
-func (err IndexError) GrpcError() error {
+// StructuredError returns the structured error.
+func (err IndexError) StructuredError() structerr.Error {
 	e := errors.New(err.Error())
 	switch err.Type {
 	case ErrDirectoryExists, ErrFileExists:
-		return helper.ErrAlreadyExists(e)
+		return structerr.NewAlreadyExists("%w", e)
 	case ErrDirectoryTraversal, ErrEmptyPath, ErrInvalidPath:
-		return helper.ErrInvalidArgument(e)
+		return structerr.NewInvalidArgument("%w", e)
 	case ErrFileNotFound:
-		return helper.ErrNotFound(e)
+		return structerr.NewNotFound("%w", e)
 	default:
-		return helper.ErrInternal(e)
+		return structerr.NewInternal("%w", e)
 	}
 }
 
