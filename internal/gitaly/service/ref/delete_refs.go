@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -60,8 +61,7 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 		}
 
 		if len(invalidRefnames) > 0 {
-			detailedErr, err := helper.ErrWithDetails(
-				helper.ErrInvalidArgumentf("invalid references"),
+			return nil, structerr.NewInvalidArgument("invalid references").WithDetail(
 				&gitalypb.DeleteRefsError{
 					Error: &gitalypb.DeleteRefsError_InvalidFormat{
 						InvalidFormat: &gitalypb.InvalidRefFormatError{
@@ -70,11 +70,6 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 					},
 				},
 			)
-			if err != nil {
-				return nil, helper.ErrInternalf("error details: %w", err)
-			}
-
-			return nil, detailedErr
 		}
 	}
 
@@ -100,8 +95,7 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 		if featureflag.DeleteRefsStructuredErrors.IsEnabled(ctx) {
 			var errAlreadyLocked *updateref.ErrAlreadyLocked
 			if errors.As(err, &errAlreadyLocked) {
-				detailedErr, err := helper.ErrWithDetails(
-					helper.ErrFailedPreconditionf("cannot lock references"),
+				return nil, structerr.NewFailedPrecondition("cannot lock references").WithDetail(
 					&gitalypb.DeleteRefsError{
 						Error: &gitalypb.DeleteRefsError_ReferencesLocked{
 							ReferencesLocked: &gitalypb.ReferencesLockedError{
@@ -110,11 +104,6 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 						},
 					},
 				)
-				if err != nil {
-					return nil, helper.ErrInternalf("error details: %w", err)
-				}
-
-				return nil, detailedErr
 			}
 
 			return nil, helper.ErrInternalf("unable to prepare: %w", err)

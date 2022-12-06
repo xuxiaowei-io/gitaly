@@ -10,6 +10,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -73,8 +74,7 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 				conflictingFiles = append(conflictingFiles, []byte(conflictingFile))
 			}
 
-			detailedErr, err := helper.ErrWithDetails(
-				helper.ErrFailedPreconditionf("rebasing commits: %w", err),
+			return structerr.NewFailedPrecondition("rebasing commits: %w", err).WithDetail(
 				&gitalypb.UserRebaseConfirmableError{
 					Error: &gitalypb.UserRebaseConfirmableError_RebaseConflict{
 						RebaseConflict: &gitalypb.MergeConflictError{
@@ -87,11 +87,6 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 					},
 				},
 			)
-			if err != nil {
-				return helper.ErrInternalf("error details: %w", err)
-			}
-
-			return detailedErr
 		}
 
 		return helper.ErrInternalf("rebasing commits: %w", err)
@@ -127,8 +122,7 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 		var customHookErr updateref.CustomHookError
 		switch {
 		case errors.As(err, &customHookErr):
-			detailedErr, err := helper.ErrWithDetails(
-				helper.ErrPermissionDeniedf("access check: %q", err),
+			return structerr.NewPermissionDenied("access check: %q", err).WithDetail(
 				&gitalypb.UserRebaseConfirmableError{
 					Error: &gitalypb.UserRebaseConfirmableError_AccessCheck{
 						AccessCheck: &gitalypb.AccessCheckError{
@@ -137,10 +131,6 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 					},
 				},
 			)
-			if err != nil {
-				return helper.ErrInternalf("error details: %w", err)
-			}
-			return detailedErr
 		case errors.Is(err, git2go.ErrInvalidArgument):
 			return fmt.Errorf("update ref: %w", err)
 		}

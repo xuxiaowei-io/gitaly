@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -276,8 +277,7 @@ func TestFindTag_notFound(t *testing.T) {
 	})
 	require.Nil(t, response)
 
-	expectedErr, errGeneratingDetails := helper.ErrWithDetails(
-		helper.ErrNotFoundf("tag does not exist"),
+	expectedErr := structerr.NewNotFound("tag does not exist").WithDetail(
 		&gitalypb.FindTagError{
 			Error: &gitalypb.FindTagError_TagNotFound{
 				TagNotFound: &gitalypb.ReferenceNotFoundError{
@@ -286,7 +286,6 @@ func TestFindTag_notFound(t *testing.T) {
 			},
 		},
 	)
-	require.NoError(t, errGeneratingDetails)
 	testhelper.RequireGrpcError(t, expectedErr, err)
 }
 

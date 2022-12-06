@@ -946,7 +946,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 
 					if step.structError != nil {
 						testhelper.RequireGrpcError(t, errWithDetails(t,
-							step.structError.GrpcError(),
+							step.structError.StructuredError(),
 							&gitalypb.UserCommitFilesError{
 								Error: &gitalypb.UserCommitFilesError_IndexUpdate{
 									IndexUpdate: step.structError.Proto(),
@@ -1618,7 +1618,7 @@ func testFailedUserCommitFilesRequestDueToIndexError(t *testing.T, ctx context.C
 			resp, err := stream.CloseAndRecv()
 			if featureflag.UserCommitFilesStructuredErrors.IsEnabled(ctx) {
 				testhelper.RequireGrpcError(t, errWithDetails(t,
-					tc.structError.GrpcError(),
+					tc.structError.StructuredError(),
 					&gitalypb.UserCommitFilesError{
 						Error: &gitalypb.UserCommitFilesError_IndexUpdate{
 							IndexUpdate: tc.structError.Proto(),

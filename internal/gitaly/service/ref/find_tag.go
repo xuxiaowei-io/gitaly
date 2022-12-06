@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -95,8 +96,7 @@ func (s *server) findTag(ctx context.Context, repo git.RepositoryExecutor, tagNa
 			return nil, fmt.Errorf("parsing tag: %w", err)
 		}
 	} else {
-		detailedErr, err := helper.ErrWithDetails(
-			helper.ErrNotFoundf("tag does not exist"),
+		return nil, structerr.NewNotFound("tag does not exist").WithDetail(
 			&gitalypb.FindTagError{
 				Error: &gitalypb.FindTagError_TagNotFound{
 					TagNotFound: &gitalypb.ReferenceNotFoundError{
@@ -105,11 +105,6 @@ func (s *server) findTag(ctx context.Context, repo git.RepositoryExecutor, tagNa
 				},
 			},
 		)
-		if err != nil {
-			return nil, helper.ErrInternalf("generating detailed error: %w", err)
-		}
-
-		return nil, detailedErr
 	}
 
 	if err = tagCmd.Wait(); err != nil {

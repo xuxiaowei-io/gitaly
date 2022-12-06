@@ -10,6 +10,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -94,8 +95,7 @@ func (s *Server) userSquash(ctx context.Context, req *gitalypb.UserSquashRequest
 	// all parents of the start commit.
 	startCommit, err := quarantineRepo.ResolveRevision(ctx, git.Revision(req.GetStartSha()+"^{commit}"))
 	if err != nil {
-		detailedErr, err := helper.ErrWithDetails(
-			helper.ErrInvalidArgumentf("resolving start revision: %w", err),
+		return "", structerr.NewInvalidArgument("resolving start revision: %w", err).WithDetail(
 			&gitalypb.UserSquashError{
 				Error: &gitalypb.UserSquashError_ResolveRevision{
 					ResolveRevision: &gitalypb.ResolveRevisionError{
@@ -104,18 +104,12 @@ func (s *Server) userSquash(ctx context.Context, req *gitalypb.UserSquashRequest
 				},
 			},
 		)
-		if err != nil {
-			return "", helper.ErrInternalf("error details: %w", err)
-		}
-
-		return "", detailedErr
 	}
 
 	// And we need to take the tree of the end commit. This tree already is the result
 	endCommit, err := quarantineRepo.ResolveRevision(ctx, git.Revision(req.GetEndSha()+"^{commit}"))
 	if err != nil {
-		detailedErr, err := helper.ErrWithDetails(
-			helper.ErrInvalidArgumentf("resolving end revision: %w", err),
+		return "", structerr.NewInvalidArgument("resolving end revision: %w", err).WithDetail(
 			&gitalypb.UserSquashError{
 				Error: &gitalypb.UserSquashError_ResolveRevision{
 					ResolveRevision: &gitalypb.ResolveRevisionError{
@@ -124,11 +118,6 @@ func (s *Server) userSquash(ctx context.Context, req *gitalypb.UserSquashRequest
 				},
 			},
 		)
-		if err != nil {
-			return "", helper.ErrInternalf("error details: %w", err)
-		}
-
-		return "", detailedErr
 	}
 
 	commitDate, err := dateFromProto(req)
@@ -168,8 +157,7 @@ func (s *Server) userSquash(ctx context.Context, req *gitalypb.UserSquashRequest
 				conflictingFiles = append(conflictingFiles, []byte(conflictingFile))
 			}
 
-			detailedErr, err := helper.ErrWithDetails(
-				helper.ErrFailedPreconditionf("squashing commits: %w", err),
+			return "", structerr.NewFailedPrecondition("squashing commits: %w", err).WithDetail(
 				&gitalypb.UserSquashError{
 					// Note: this is actually a merge conflict, but we've kept
 					// the old "rebase" name for compatibility reasons.
@@ -184,11 +172,6 @@ func (s *Server) userSquash(ctx context.Context, req *gitalypb.UserSquashRequest
 					},
 				},
 			)
-			if err != nil {
-				return "", helper.ErrInternalf("error details: %w", err)
-			}
-
-			return "", detailedErr
 		}
 	}
 

@@ -16,9 +16,9 @@ import (
 	hookservice "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
@@ -204,16 +204,15 @@ func testDeleteRefsInvalidRefFormat(t *testing.T, ctx context.Context) {
 
 	if featureflag.DeleteRefsStructuredErrors.IsEnabled(ctx) {
 		require.Nil(t, response)
-		detailedErr, errGeneratingDetailedErr := helper.ErrWithDetails(
-			helper.ErrInvalidArgumentf("invalid references"),
+		detailedErr := structerr.NewInvalidArgument("invalid references").WithDetail(
 			&gitalypb.DeleteRefsError{
 				Error: &gitalypb.DeleteRefsError_InvalidFormat{
 					InvalidFormat: &gitalypb.InvalidRefFormatError{
 						Refs: request.Refs,
 					},
 				},
-			})
-		require.NoError(t, errGeneratingDetailedErr)
+			},
+		)
 		testhelper.RequireGrpcError(t, detailedErr, err)
 	} else {
 		require.NoError(t, err)
@@ -258,16 +257,15 @@ func testDeleteRefsRefLocked(t *testing.T, ctx context.Context) {
 
 	if featureflag.DeleteRefsStructuredErrors.IsEnabled(ctx) {
 		require.Nil(t, response)
-		detailedErr, errGeneratingDetailedErr := helper.ErrWithDetails(
-			helper.ErrFailedPreconditionf("cannot lock references"),
+		detailedErr := structerr.NewFailedPrecondition("cannot lock references").WithDetail(
 			&gitalypb.DeleteRefsError{
 				Error: &gitalypb.DeleteRefsError_ReferencesLocked{
 					ReferencesLocked: &gitalypb.ReferencesLockedError{
 						Refs: [][]byte{[]byte("refs/heads/master")},
 					},
 				},
-			})
-		require.NoError(t, errGeneratingDetailedErr)
+			},
+		)
 		testhelper.RequireGrpcError(t, detailedErr, err)
 	} else {
 		require.NoError(t, err)

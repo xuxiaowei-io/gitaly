@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -130,8 +131,7 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 		// When resolving the revision succeeds the tag reference exists already.
 		// Because we don't want to overwrite preexisting references in this RPC we
 		// thus return an error and alert the caller of this condition.
-		detailedErr, err := helper.ErrWithDetails(
-			helper.ErrAlreadyExistsf("tag reference exists already"),
+		return nil, structerr.NewAlreadyExists("tag reference exists already").WithDetail(
 			&gitalypb.UserCreateTagError{
 				Error: &gitalypb.UserCreateTagError_ReferenceExists{
 					ReferenceExists: &gitalypb.ReferenceExistsError{
@@ -141,11 +141,6 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 				},
 			},
 		)
-		if err != nil {
-			return nil, helper.ErrInternalf("creating detailed error: %w", err)
-		}
-
-		return nil, detailedErr
 	}
 
 	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, quarantineDir, referenceName, tagID, git.ObjectHashSHA1.ZeroOID); err != nil {
@@ -154,8 +149,7 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 		var updateRefError updateref.Error
 
 		if errors.As(err, &notAllowedError) {
-			detailedErr, err := helper.ErrWithDetails(
-				helper.ErrPermissionDeniedf("reference update denied by access checks: %w", err),
+			return nil, structerr.NewPermissionDenied("reference update denied by access checks: %w", err).WithDetail(
 				&gitalypb.UserCreateTagError{
 					Error: &gitalypb.UserCreateTagError_AccessCheck{
 						AccessCheck: &gitalypb.AccessCheckError{
@@ -167,33 +161,21 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 					},
 				},
 			)
-			if err != nil {
-				return nil, helper.ErrInternalf("error details: %w", err)
-			}
-
-			return nil, detailedErr
 		} else if errors.As(err, &customHookErr) {
-			detailedErr, err := helper.ErrWithDetails(
-				// We explicitly don't include the custom hook error itself
-				// in the returned error because that would also contain the
-				// standard output or standard error in the error message.
-				// It's thus needlessly verbose and duplicates information
-				// we have available in the structured error anyway.
-				helper.ErrPermissionDeniedf("reference update denied by custom hooks"),
+			// We explicitly don't include the custom hook error itself
+			// in the returned error because that would also contain the
+			// standard output or standard error in the error message.
+			// It's thus needlessly verbose and duplicates information
+			// we have available in the structured error anyway.
+			return nil, structerr.NewPermissionDenied("reference update denied by custom hooks").WithDetail(
 				&gitalypb.UserCreateTagError{
 					Error: &gitalypb.UserCreateTagError_CustomHook{
 						CustomHook: customHookErr.Proto(),
 					},
 				},
 			)
-			if err != nil {
-				return nil, helper.ErrInternalf("error details: %w", err)
-			}
-
-			return nil, detailedErr
 		} else if errors.As(err, &updateRefError) {
-			detailedErr, err := helper.ErrWithDetails(
-				helper.ErrFailedPreconditionf("reference update failed: %w", err),
+			return nil, structerr.NewFailedPrecondition("reference update failed: %w", err).WithDetail(
 				&gitalypb.UserCreateTagError{
 					Error: &gitalypb.UserCreateTagError_ReferenceUpdate{
 						ReferenceUpdate: &gitalypb.ReferenceUpdateError{
@@ -204,11 +186,6 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 					},
 				},
 			)
-			if err != nil {
-				return nil, helper.ErrInternalf("error details: %w", err)
-			}
-
-			return nil, detailedErr
 		}
 
 		return nil, helper.ErrInternalf("updating reference: %w", err)
