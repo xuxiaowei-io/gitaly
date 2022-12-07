@@ -110,7 +110,7 @@ func testFailedRestoreCustomHooksDueToValidations(t *testing.T, ctx context.Cont
 
 	_, err = stream.CloseAndRecv()
 	testhelper.RequireGrpcError(t, err, status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-		"RestoreCustomHooks: empty Repository",
+		"empty Repository",
 		"repo scoped: empty Repository",
 	)))
 }

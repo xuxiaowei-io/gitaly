@@ -115,7 +115,7 @@ func (s *server) create(ctx context.Context, in *gitalypb.ReplicateRepositoryReq
 		}
 
 		if err = os.Rename(repoPath, filepath.Join(tempDir.Path(), filepath.Base(repoPath))); err != nil {
-			return fmt.Errorf("error deleting invalid repo: %v", err)
+			return fmt.Errorf("error deleting invalid repo: %w", err)
 		}
 
 		ctxlogrus.Extract(ctx).WithField("repo_path", repoPath).Warn("removed invalid repository")
@@ -161,10 +161,8 @@ func (s *server) extractSnapshot(ctx context.Context, source, target *gitalypb.R
 	// platforms.
 	firstBytes, err := stream.Recv()
 	if err != nil {
-		if st, ok := status.FromError(err); ok {
-			if st.Code() == codes.NotFound && strings.HasPrefix(st.Message(), "GetRepoPath: not a git repository:") {
-				return ErrInvalidSourceRepository
-			}
+		if helper.GrpcCode(err) == codes.NotFound && strings.Contains(err.Error(), "GetRepoPath: not a git repository:") {
+			return ErrInvalidSourceRepository
 		}
 
 		return fmt.Errorf("first snapshot read: %w", err)

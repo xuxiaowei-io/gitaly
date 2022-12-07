@@ -8,8 +8,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func (s *server) CreateBundle(req *gitalypb.CreateBundleRequest, stream gitalypb.RepositoryService_CreateBundleServer) error {
@@ -30,7 +28,7 @@ func (s *server) CreateBundle(req *gitalypb.CreateBundleRequest, stream gitalypb
 		Flags:  []git.Option{git.OutputToStdout, git.Flag{Name: "--all"}},
 	})
 	if err != nil {
-		return status.Errorf(codes.Internal, "CreateBundle: cmd start failed: %v", err)
+		return helper.ErrInternalf("cmd start failed: %w", err)
 	}
 
 	writer := streamio.NewWriter(func(p []byte) error {
@@ -39,11 +37,11 @@ func (s *server) CreateBundle(req *gitalypb.CreateBundleRequest, stream gitalypb
 
 	_, err = io.Copy(writer, cmd)
 	if err != nil {
-		return status.Errorf(codes.Internal, "CreateBundle: stream writer failed: %v", err)
+		return helper.ErrInternalf("stream writer failed: %w", err)
 	}
 
 	if err := cmd.Wait(); err != nil {
-		return status.Errorf(codes.Internal, "CreateBundle: cmd wait failed: %v", err)
+		return helper.ErrInternalf("cmd wait failed: %w", err)
 	}
 
 	return nil

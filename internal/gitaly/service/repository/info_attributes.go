@@ -9,8 +9,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func (s *server) GetInfoAttributes(in *gitalypb.GetInfoAttributesRequest, stream gitalypb.RepositoryService_GetInfoAttributesServer) error {
@@ -30,7 +28,7 @@ func (s *server) GetInfoAttributes(in *gitalypb.GetInfoAttributesRequest, stream
 			return stream.Send(&gitalypb.GetInfoAttributesResponse{})
 		}
 
-		return status.Errorf(codes.Internal, "GetInfoAttributes failure to read info attributes: %v", err)
+		return helper.ErrInternalf("failure to read info attributes: %w", err)
 	}
 
 	sw := streamio.NewWriter(func(p []byte) error {

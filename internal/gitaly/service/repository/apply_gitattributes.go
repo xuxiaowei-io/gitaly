@@ -140,7 +140,7 @@ func (s *server) ApplyGitattributes(ctx context.Context, in *gitalypb.ApplyGitat
 	}
 
 	if err := git.ValidateRevision(in.GetRevision()); err != nil {
-		return nil, helper.ErrInvalidArgumentf("revision: %v", err)
+		return nil, helper.ErrInvalidArgumentf("revision: %w", err)
 	}
 
 	objectReader, cancel, err := s.catfileCache.ObjectReader(ctx, repo)

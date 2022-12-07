@@ -188,7 +188,7 @@ func TestGarbageCollectDeletesRefsLocks(t *testing.T) {
 	//nolint:staticcheck
 	c, err := client.GarbageCollect(ctx, req)
 	testhelper.RequireGrpcCode(t, err, codes.Internal)
-	require.Contains(t, err.Error(), "GarbageCollect: cmd wait")
+	require.Contains(t, err.Error(), "cmd wait")
 	assert.Nil(t, c)
 
 	// Sanity checks

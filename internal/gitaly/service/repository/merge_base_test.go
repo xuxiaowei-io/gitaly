@@ -104,7 +104,7 @@ func TestFailedFindMergeBaseRequestDueToValidations(t *testing.T) {
 				Repository: repo,
 				Revisions:  [][]byte{[]byte("372ab6950519549b14d220271ee2322caa44d4eb")},
 			},
-			expectedErr: status.Error(codes.InvalidArgument, "FindMergeBase: at least 2 revisions are required"),
+			expectedErr: status.Error(codes.InvalidArgument, "at least 2 revisions are required"),
 		},
 	} {
 		_, err := client.FindMergeBase(ctx, tc.req)

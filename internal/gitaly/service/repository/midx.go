@@ -18,7 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/status"
 )
 
 const (
@@ -35,19 +34,16 @@ func (s *server) MidxRepack(ctx context.Context, in *gitalypb.MidxRepackRequest)
 	repo := s.localrepo(repository)
 
 	if err := repo.SetConfig(ctx, "core.multiPackIndex", "true", s.txManager); err != nil {
-		if _, ok := status.FromError(err); ok {
-			return nil, err
-		}
 		return nil, helper.ErrInternalf("setting config: %w", err)
 	}
 
 	for _, cmd := range []midxSubCommand{s.midxWrite, s.midxExpire, s.midxRepack} {
 		if err := s.safeMidxCommand(ctx, repository, cmd); err != nil {
 			if git.IsInvalidArgErr(err) {
-				return nil, helper.ErrInvalidArgumentf("MidxRepack: %w", err)
+				return nil, helper.ErrInvalidArgument(err)
 			}
 
-			return nil, helper.ErrInternal(fmt.Errorf("...%v", err))
+			return nil, helper.ErrInternalf("...%w", err)
 		}
 	}
 

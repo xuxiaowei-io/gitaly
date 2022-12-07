@@ -81,7 +81,7 @@ func (s *server) RemoveRepository(ctx context.Context, in *gitalypb.RemoveReposi
 	}
 
 	if err := s.voteOnAction(ctx, repository, voting.Prepared); err != nil {
-		return nil, helper.ErrInternalf("vote on rename: %v", err)
+		return nil, helper.ErrInternalf("vote on rename: %w", err)
 	}
 
 	// We move the repository into our temporary directory first before we start to
@@ -96,7 +96,7 @@ func (s *server) RemoveRepository(ctx context.Context, in *gitalypb.RemoveReposi
 	}
 
 	if err := s.voteOnAction(ctx, repository, voting.Committed); err != nil {
-		return nil, helper.ErrInternalf("vote on finalizing: %v", err)
+		return nil, helper.ErrInternalf("vote on finalizing: %w", err)
 	}
 
 	return &gitalypb.RemoveRepositoryResponse{}, nil
