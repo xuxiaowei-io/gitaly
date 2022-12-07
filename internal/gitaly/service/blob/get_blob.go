@@ -30,13 +30,20 @@ func (s *server) GetBlob(in *gitalypb.GetBlobRequest, stream gitalypb.BlobServic
 	blob, err := objectReader.Object(ctx, git.Revision(in.Oid))
 	if err != nil {
 		if catfile.IsNotFound(err) {
-			return helper.ErrUnavailable(stream.Send(&gitalypb.GetBlobResponse{}))
+			if err := stream.Send(&gitalypb.GetBlobResponse{}); err != nil {
+				return helper.ErrUnavailablef("sending empty response: %w", err)
+			}
+			return nil
 		}
 		return helper.ErrInternalf("read object: %w", err)
 	}
 
 	if blob.Type != "blob" {
-		return helper.ErrUnavailable(stream.Send(&gitalypb.GetBlobResponse{}))
+		if err := stream.Send(&gitalypb.GetBlobResponse{}); err != nil {
+			return helper.ErrUnavailablef("sending empty response: %w", err)
+		}
+
+		return nil
 	}
 
 	readLimit := blob.Size
@@ -49,7 +56,11 @@ func (s *server) GetBlob(in *gitalypb.GetBlobRequest, stream gitalypb.BlobServic
 	}
 
 	if readLimit == 0 {
-		return helper.ErrUnavailable(stream.Send(firstMessage))
+		if err := stream.Send(firstMessage); err != nil {
+			return helper.ErrUnavailablef("sending empty blob: %w", err)
+		}
+
+		return nil
 	}
 
 	sw := streamio.NewWriter(func(p []byte) error {

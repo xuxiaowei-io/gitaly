@@ -53,11 +53,6 @@ func TestError(t *testing.T) {
 			code:   codes.NotFound,
 		},
 		{
-			desc:   "Unavailable",
-			errorf: ErrUnavailable,
-			code:   codes.Unavailable,
-		},
-		{
 			desc:   "AlreadyExists",
 			errorf: ErrAlreadyExists,
 			code:   codes.AlreadyExists,

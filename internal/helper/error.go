@@ -37,9 +37,6 @@ func ErrNotFound(err error) error { return wrapError(codes.NotFound, err) }
 // error.
 func ErrFailedPrecondition(err error) error { return wrapError(codes.FailedPrecondition, err) }
 
-// ErrUnavailable wraps err with codes.Unavailable, unless err is already a gRPC error.
-func ErrUnavailable(err error) error { return wrapError(codes.Unavailable, err) }
-
 // ErrAlreadyExists wraps err with codes.AlreadyExists, unless err is already a gRPC error.
 func ErrAlreadyExists(err error) error { return wrapError(codes.AlreadyExists, err) }
 

@@ -56,7 +56,12 @@ func sendTreeEntry(
 			Size: treeInfo.Size,
 			Mode: treeEntry.Mode,
 		}
-		return helper.ErrUnavailable(stream.Send(response))
+
+		if err := stream.Send(response); err != nil {
+			return helper.ErrUnavailablef("sending response: %w", err)
+		}
+
+		return nil
 	}
 
 	objectInfo, err := objectInfoReader.Info(ctx, git.Revision(treeEntry.Oid))
@@ -91,7 +96,11 @@ func sendTreeEntry(
 		Mode: treeEntry.Mode,
 	}
 	if dataLength == 0 {
-		return helper.ErrUnavailable(stream.Send(response))
+		if err := stream.Send(response); err != nil {
+			return helper.ErrUnavailablef("sending response: %w", err)
+		}
+
+		return nil
 	}
 
 	blobObj, err := objectReader.Object(ctx, git.Revision(objectInfo.Oid))
