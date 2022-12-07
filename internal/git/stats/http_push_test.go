@@ -83,10 +83,9 @@ func TestPerformHTTPPush(t *testing.T) {
 				})
 
 				commands := make([]PushCommand, 1000)
-				commits := make([]string, len(commands))
+				commit := gittest.WriteCommit(t, cfg, repoPath)
+
 				for i := 0; i < len(commands); i++ {
-					commit := gittest.WriteCommit(t, cfg, repoPath)
-					commits[i] = commit.String()
 					commands[i] = PushCommand{
 						OldOID:    gittest.DefaultObjectHash.ZeroOID,
 						NewOID:    commit,
@@ -94,7 +93,7 @@ func TestPerformHTTPPush(t *testing.T) {
 					}
 				}
 
-				revisions := strings.NewReader(strings.Join(commits, "\n"))
+				revisions := strings.NewReader(strings.Repeat(commit.String()+"\n", 1000))
 				pack := gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: revisions},
 					"-C", repoPath, "pack-objects", "--stdout", "--revs", "--thin", "--delta-base-offset", "-q",
 				)
