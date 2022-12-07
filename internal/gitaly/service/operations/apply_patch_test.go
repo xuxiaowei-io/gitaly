@@ -16,8 +16,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -37,41 +35,6 @@ func TestUserApplyPatch(t *testing.T) {
 	ctx := testhelper.Context(t)
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
-	type actionFunc func(testing.TB, *localrepo.Repo) git2go.Action
-
-	createFile := func(filepath string, content string) actionFunc {
-		return func(tb testing.TB, repo *localrepo.Repo) git2go.Action {
-			fileOID, err := repo.WriteBlob(ctx, filepath, strings.NewReader(content))
-			require.NoError(tb, err)
-
-			return git2go.CreateFile{Path: filepath, OID: fileOID.String()}
-		}
-	}
-
-	updateFile := func(filepath string, content string) actionFunc {
-		return func(tb testing.TB, repo *localrepo.Repo) git2go.Action {
-			fileOID, err := repo.WriteBlob(ctx, filepath, strings.NewReader(content))
-			require.NoError(tb, err)
-
-			return git2go.UpdateFile{Path: filepath, OID: fileOID.String()}
-		}
-	}
-
-	moveFile := func(oldPath, newPath string) actionFunc {
-		return func(testing.TB, *localrepo.Repo) git2go.Action {
-			return git2go.MoveFile{Path: oldPath, NewPath: newPath}
-		}
-	}
-
-	deleteFile := func(filepath string) actionFunc {
-		return func(testing.TB, *localrepo.Repo) git2go.Action {
-			return git2go.DeleteFile{Path: filepath}
-		}
-	}
-
-	// commitActions represents actions taken to build a commit.
-	type commitActions []actionFunc
-
 	errPatchingFailed := status.Error(
 		codes.FailedPrecondition,
 		`Patch failed at 0002 commit subject
@@ -80,12 +43,22 @@ If you prefer to skip this patch, run "git am --skip" instead.
 To restore the original branch and stop patching, run "git am --abort".
 `)
 
+	// patchDescription is the description of a patch that gets derived from diffing the old
+	// tree with the new tree.
+	type patchDescription struct {
+		// oldTree is the old tree to compare against. If unset, we will instead us the base
+		// tree.
+		oldTree []gittest.TreeEntry
+		// newTree is the tree with the changes applied.
+		newTree []gittest.TreeEntry
+	}
+
 	for _, tc := range []struct {
 		desc string
 		// sends a request to a non-existent repository
 		nonExistentRepository bool
-		// baseCommit is the commit which the patch commitActions are applied against.
-		baseCommit commitActions
+		// baseTree contanis the tree entry that form the tree of the base commit.
+		baseTree []gittest.TreeEntry
 		// baseReference is the branch where baseCommit is, by default "master"
 		baseReference git.ReferenceName
 		// notSentByAuthor marks the patch as being sent by someone else than the author.
@@ -101,7 +74,7 @@ To restore the original branch and stop patching, run "git am --abort".
 		// in the series to its parent.
 		//
 		// After the patches are generated, they are applied sequentially on the base commit.
-		patches                []commitActions
+		patches                []patchDescription
 		expectedErr            error
 		expectedBranchCreation bool
 		expectedTree           []gittest.TreeEntry
@@ -121,22 +94,28 @@ To restore the original branch and stop patching, run "git am --abort".
 		{
 			desc:         "creating the first branch does not work",
 			targetBranch: "master",
-			patches: []commitActions{
+			patches: []patchDescription{
 				{
-					createFile("file", "base-content"),
+					newTree: []gittest.TreeEntry{
+						{Path: "file", Mode: "100644", Content: "base-content"},
+					},
 				},
 			},
 			expectedErr: status.Error(codes.Internal, "no default branch"),
 		},
 		{
-			desc:          "creating a new branch from HEAD works",
-			baseCommit:    commitActions{createFile("file", "base-content")},
+			desc: "creating a new branch from HEAD works",
+			baseTree: []gittest.TreeEntry{
+				{Path: "file", Mode: "100644", Content: "base-content"},
+			},
 			baseReference: "HEAD",
 			extraBranches: []string{"refs/heads/master", "refs/heads/some-extra-branch"},
 			targetBranch:  "new-branch",
-			patches: []commitActions{
+			patches: []patchDescription{
 				{
-					updateFile("file", "patch 1"),
+					newTree: []gittest.TreeEntry{
+						{Path: "file", Mode: "100644", Content: "patch 1"},
+					},
 				},
 			},
 			expectedBranchCreation: true,
@@ -145,14 +124,18 @@ To restore the original branch and stop patching, run "git am --abort".
 			},
 		},
 		{
-			desc:          "creating a new branch from the first listed branch works",
-			baseCommit:    commitActions{createFile("file", "base-content")},
+			desc: "creating a new branch from the first listed branch works",
+			baseTree: []gittest.TreeEntry{
+				{Path: "file", Mode: "100644", Content: "base-content"},
+			},
 			baseReference: "refs/heads/a",
 			extraBranches: []string{"refs/heads/b"},
 			targetBranch:  "new-branch",
-			patches: []commitActions{
+			patches: []patchDescription{
 				{
-					updateFile("file", "patch 1"),
+					newTree: []gittest.TreeEntry{
+						{Path: "file", Mode: "100644", Content: "patch 1"},
+					},
 				},
 			},
 			expectedBranchCreation: true,
@@ -161,17 +144,25 @@ To restore the original branch and stop patching, run "git am --abort".
 			},
 		},
 		{
-			desc:          "multiple patches apply cleanly",
-			baseCommit:    commitActions{createFile("file", "base-content")},
+			desc: "multiple patches apply cleanly",
+			baseTree: []gittest.TreeEntry{
+				{Path: "file", Mode: "100644", Content: "base-content"},
+			},
 			baseReference: "refs/heads/master",
 			targetBranch:  "master",
-			patches: []commitActions{
+			patches: []patchDescription{
 				{
-					updateFile("file", "patch 1"),
+					newTree: []gittest.TreeEntry{
+						{Path: "file", Mode: "100644", Content: "patch 1"},
+					},
 				},
 				{
-					updateFile("file", "patch 1"),
-					updateFile("file", "patch 2"),
+					oldTree: []gittest.TreeEntry{
+						{Path: "file", Mode: "100644", Content: "patch 1"},
+					},
+					newTree: []gittest.TreeEntry{
+						{Path: "file", Mode: "100644", Content: "patch 2"},
+					},
 				},
 			},
 			expectedTree: []gittest.TreeEntry{
@@ -179,14 +170,18 @@ To restore the original branch and stop patching, run "git am --abort".
 			},
 		},
 		{
-			desc:            "author in from field in body set correctly",
-			baseCommit:      commitActions{createFile("file", "base-content")},
+			desc: "author in from field in body set correctly",
+			baseTree: []gittest.TreeEntry{
+				{Path: "file", Mode: "100644", Content: "base-content"},
+			},
 			baseReference:   "refs/heads/master",
 			notSentByAuthor: true,
 			targetBranch:    "master",
-			patches: []commitActions{
+			patches: []patchDescription{
 				{
-					updateFile("file", "patch 1"),
+					newTree: []gittest.TreeEntry{
+						{Path: "file", Mode: "100644", Content: "patch 1"},
+					},
 				},
 			},
 			expectedTree: []gittest.TreeEntry{
@@ -194,17 +189,25 @@ To restore the original branch and stop patching, run "git am --abort".
 			},
 		},
 		{
-			desc:          "multiple patches apply via fallback three-way merge",
-			baseCommit:    commitActions{createFile("file", "base-content")},
+			desc: "multiple patches apply via fallback three-way merge",
+			baseTree: []gittest.TreeEntry{
+				{Path: "file", Mode: "100644", Content: "base-content"},
+			},
 			baseReference: "refs/heads/master",
 			targetBranch:  "master",
-			patches: []commitActions{
+			patches: []patchDescription{
 				{
-					updateFile("file", "patch 1"),
+					newTree: []gittest.TreeEntry{
+						{Path: "file", Mode: "100644", Content: "patch 1"},
+					},
 				},
 				{
-					updateFile("file", "patch 2"),
-					updateFile("file", "patch 1"),
+					oldTree: []gittest.TreeEntry{
+						{Path: "file", Mode: "100644", Content: "patch 2"},
+					},
+					newTree: []gittest.TreeEntry{
+						{Path: "file", Mode: "100644", Content: "patch 1"},
+					},
 				},
 			},
 			expectedTree: []gittest.TreeEntry{
@@ -212,46 +215,64 @@ To restore the original branch and stop patching, run "git am --abort".
 			},
 		},
 		{
-			desc:          "patching fails due to modify-modify conflict",
-			baseCommit:    commitActions{createFile("file", "base-content")},
+			desc: "patching fails due to modify-modify conflict",
+			baseTree: []gittest.TreeEntry{
+				{Path: "file", Mode: "100644", Content: "base-content"},
+			},
 			baseReference: "refs/heads/master",
 			targetBranch:  "master",
-			patches: []commitActions{
+			patches: []patchDescription{
 				{
-					updateFile("file", "patch 1"),
+					newTree: []gittest.TreeEntry{
+						{Path: "file", Mode: "100644", Content: "patch 1"},
+					},
 				},
 				{
-					updateFile("file", "patch 2"),
+					newTree: []gittest.TreeEntry{
+						{Path: "file", Mode: "100644", Content: "patch 2"},
+					},
 				},
 			},
 			expectedErr: errPatchingFailed,
 		},
 		{
-			desc:          "patching fails due to add-add conflict",
-			baseCommit:    commitActions{createFile("file", "base-content")},
+			desc: "patching fails due to add-add conflict",
+			baseTree: []gittest.TreeEntry{
+				{Path: "file", Mode: "100644", Content: "base-content"},
+			},
 			baseReference: "refs/heads/master",
 			targetBranch:  "master",
-			patches: []commitActions{
+			patches: []patchDescription{
 				{
-					createFile("added-file", "content-1"),
+					newTree: []gittest.TreeEntry{
+						{Path: "added-file", Mode: "100644", Content: "content-1"},
+					},
 				},
 				{
-					createFile("added-file", "content-2"),
+					newTree: []gittest.TreeEntry{
+						{Path: "added-file", Mode: "100644", Content: "content-2"},
+					},
 				},
 			},
 			expectedErr: errPatchingFailed,
 		},
 		{
-			desc:          "patch applies using rename detection",
-			baseCommit:    commitActions{createFile("file", "line 1\nline 2\nline 3\nline 4\n")},
+			desc: "patch applies using rename detection",
+			baseTree: []gittest.TreeEntry{
+				{Path: "file", Mode: "100644", Content: "line 1\nline 2\nline 3\nline 4\n"},
+			},
 			baseReference: "refs/heads/master",
 			targetBranch:  "master",
-			patches: []commitActions{
+			patches: []patchDescription{
 				{
-					moveFile("file", "moved-file"),
+					newTree: []gittest.TreeEntry{
+						{Path: "moved-file", Mode: "100644", Content: "line 1\nline 2\nline 3\nline 4\n"},
+					},
 				},
 				{
-					updateFile("file", "line 1\nline 2\nline 3\nline 4\nadded\n"),
+					newTree: []gittest.TreeEntry{
+						{Path: "file", Mode: "100644", Content: "line 1\nline 2\nline 3\nline 4\nadded\n"},
+					},
 				},
 			},
 			expectedTree: []gittest.TreeEntry{
@@ -259,16 +280,20 @@ To restore the original branch and stop patching, run "git am --abort".
 			},
 		},
 		{
-			desc:          "patching fails due to delete-modify conflict",
-			baseCommit:    commitActions{createFile("file", "base-content")},
+			desc: "patching fails due to delete-modify conflict",
+			baseTree: []gittest.TreeEntry{
+				{Path: "file", Mode: "100644", Content: "base-content"},
+			},
 			baseReference: "refs/heads/master",
 			targetBranch:  "master",
-			patches: []commitActions{
+			patches: []patchDescription{
 				{
-					deleteFile("file"),
+					newTree: []gittest.TreeEntry{},
 				},
 				{
-					updateFile("file", "updated content"),
+					newTree: []gittest.TreeEntry{
+						{Path: "file", Mode: "100644", Content: "updated content"},
+					},
 				},
 			},
 			expectedErr: errPatchingFailed,
@@ -278,34 +303,18 @@ To restore the original branch and stop patching, run "git am --abort".
 			t.Parallel()
 
 			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
-
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
-			rewrittenRepo := gittest.RewrittenRepository(t, ctx, cfg, repoProto)
-
-			executor := git2go.NewExecutor(cfg, gittest.NewCommandFactory(t, cfg), config.NewLocator(cfg))
 
 			authorTime := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
 			committerTime := authorTime.Add(time.Hour)
-			author := git2go.NewSignature("Test Author", "author@example.com", authorTime)
-			committer := git2go.NewSignature("Overridden By Request User", "overridden@example.com", committerTime)
-			commitMessage := "commit subject\n\n\ncommit message body\n\n\n"
+			commitMessage := "commit subject\n\ncommit message body\n\n\n"
 
 			var baseCommit git.ObjectID
-			for _, action := range tc.baseCommit {
-				var err error
-				baseCommit, err = executor.Commit(ctx, rewrittenRepo, git2go.CommitCommand{
-					Repository: repoPath,
-					Author:     author,
-					Committer:  committer,
-					Message:    commitMessage,
-					Parent:     baseCommit.String(),
-					Actions:    []git2go.Action{action(t, repo)},
-				})
-				require.NoError(t, err)
-			}
-
-			if baseCommit != "" {
-				require.NoError(t, repo.UpdateRef(ctx, tc.baseReference, baseCommit, git.ObjectHashSHA1.ZeroOID))
+			if tc.baseTree != nil {
+				baseCommit = gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithTreeEntries(tc.baseTree...),
+					gittest.WithReference(string(tc.baseReference)),
+				)
 			}
 
 			if tc.extraBranches != nil {
@@ -316,20 +325,20 @@ To restore the original branch and stop patching, run "git am --abort".
 			}
 
 			var patches [][]byte
-			for _, commitActions := range tc.patches {
-				commit := baseCommit
-				for _, action := range commitActions {
-					var err error
-					commit, err = executor.Commit(ctx, rewrittenRepo, git2go.CommitCommand{
-						Repository: repoPath,
-						Author:     author,
-						Committer:  committer,
-						Message:    commitMessage,
-						Parent:     commit.String(),
-						Actions:    []git2go.Action{action(t, repo)},
-					})
-					require.NoError(t, err)
+			for _, patch := range tc.patches {
+				oldCommit := baseCommit
+
+				if patch.oldTree != nil {
+					oldCommit = gittest.WriteCommit(t, cfg, repoPath,
+						gittest.WithTreeEntries(patch.oldTree...),
+					)
 				}
+
+				newCommit := gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithMessage(commitMessage),
+					gittest.WithTreeEntries(patch.newTree...),
+					gittest.WithParents(oldCommit),
+				)
 
 				formatPatchArgs := []string{"-C", repoPath, "format-patch", "--stdout"}
 				if tc.notSentByAuthor {
@@ -337,9 +346,9 @@ To restore the original branch and stop patching, run "git am --abort".
 				}
 
 				if baseCommit == "" {
-					formatPatchArgs = append(formatPatchArgs, "--root", commit.String())
+					formatPatchArgs = append(formatPatchArgs, "--root", newCommit.String())
 				} else {
-					formatPatchArgs = append(formatPatchArgs, commit.String()+"~1.."+commit.String())
+					formatPatchArgs = append(formatPatchArgs, oldCommit.String()+".."+newCommit.String())
 				}
 
 				patches = append(patches, gittest.Exec(t, cfg, formatPatchArgs...))
@@ -427,12 +436,7 @@ To restore the original branch and stop patching, run "git am --abort".
 					Id:      commitID,
 					Subject: []byte("commit subject"),
 					Body:    expectedBody,
-					Author: &gitalypb.CommitAuthor{
-						Name:     []byte("Test Author"),
-						Email:    []byte("author@example.com"),
-						Date:     timestamppb.New(authorTime),
-						Timezone: []byte("+0000"),
-					},
+					Author:  gittest.DefaultCommitAuthor,
 					Committer: &gitalypb.CommitAuthor{
 						Name:     gittest.TestUser.Name,
 						Email:    gittest.TestUser.Email,
