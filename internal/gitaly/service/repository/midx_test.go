@@ -4,8 +4,11 @@ package repository
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"io/fs"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"testing"
@@ -257,12 +260,18 @@ func addPackFiles(
 	// Do a full repack to ensure we start with 1 pack.
 	gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
 
+	randomReader := rand.New(rand.NewSource(1))
+
 	// Create some pack files with different sizes.
 	for i := 0; i < packCount; i++ {
-		for y := packCount + 1 - i; y > 0; y-- {
-			branch := fmt.Sprintf("branch-%d-%d", i, y)
-			gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage(branch), gittest.WithBranch(branch))
-		}
+		buf := make([]byte, (packCount+1)*100)
+		_, err := io.ReadFull(randomReader, buf)
+		require.NoError(t, err)
+
+		gittest.WriteCommit(t, cfg, repoPath,
+			gittest.WithMessage(hex.EncodeToString(buf)),
+			gittest.WithBranch(fmt.Sprintf("branch-%d", i)),
+		)
 
 		gittest.Exec(t, cfg, "-C", repoPath, "repack", "-d")
 	}
