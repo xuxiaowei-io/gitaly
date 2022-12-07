@@ -334,7 +334,7 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 
 				return nil
 			},
-			expectedErr: helper.ErrCanceled(context.Canceled),
+			expectedErr: helper.ErrCanceledf("%w", context.Canceled),
 		},
 		{
 			desc: "cancellation and close",
@@ -351,7 +351,7 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 
 				return nil
 			},
-			expectedErr: helper.ErrCanceled(context.Canceled),
+			expectedErr: helper.ErrCanceledf("%w", context.Canceled),
 		},
 		{
 			desc: "cancellation without close",
@@ -367,7 +367,7 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 
 				return nil
 			},
-			expectedErr: helper.ErrCanceled(context.Canceled),
+			expectedErr: helper.ErrCanceledf("%w", context.Canceled),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

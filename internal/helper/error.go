@@ -21,9 +21,6 @@ func (sw statusWrapper) Unwrap() error {
 	return sw.error
 }
 
-// ErrCanceled wraps err with codes.Canceled, unless err is already a gRPC error.
-func ErrCanceled(err error) error { return wrapError(codes.Canceled, err) }
-
 // ErrInternal wraps err with codes.Internal, unless err is already a gRPC error.
 func ErrInternal(err error) error { return wrapError(codes.Internal, err) }
 

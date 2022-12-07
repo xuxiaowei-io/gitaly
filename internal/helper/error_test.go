@@ -28,11 +28,6 @@ func TestError(t *testing.T) {
 		code   codes.Code
 	}{
 		{
-			desc:   "Canceled",
-			errorf: ErrCanceled,
-			code:   codes.Canceled,
-		},
-		{
 			desc:   "Internal",
 			errorf: ErrInternal,
 			code:   codes.Internal,

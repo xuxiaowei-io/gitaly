@@ -37,7 +37,7 @@ func (s *Server) VoteTransaction(ctx context.Context, in *gitalypb.VoteTransacti
 		case errors.Is(err, transactions.ErrNotFound):
 			return nil, helper.ErrNotFound(err)
 		case errors.Is(err, transactions.ErrTransactionCanceled):
-			return nil, helper.ErrCanceled(err)
+			return nil, helper.ErrCanceledf("%w", err)
 		case errors.Is(err, transactions.ErrTransactionStopped):
 			return &gitalypb.VoteTransactionResponse{
 				State: gitalypb.VoteTransactionResponse_STOP,
@@ -66,7 +66,7 @@ func (s *Server) StopTransaction(ctx context.Context, in *gitalypb.StopTransacti
 		case errors.Is(err, transactions.ErrNotFound):
 			return nil, helper.ErrNotFound(err)
 		case errors.Is(err, transactions.ErrTransactionCanceled):
-			return nil, helper.ErrCanceled(err)
+			return nil, helper.ErrCanceledf("%w", err)
 		case errors.Is(err, transactions.ErrTransactionStopped):
 			return &gitalypb.StopTransactionResponse{}, nil
 		default:
