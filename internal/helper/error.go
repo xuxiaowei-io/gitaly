@@ -27,9 +27,6 @@ func ErrInternal(err error) error { return wrapError(codes.Internal, err) }
 // ErrInvalidArgument wraps err with codes.InvalidArgument, unless err is already a gRPC error.
 func ErrInvalidArgument(err error) error { return wrapError(codes.InvalidArgument, err) }
 
-// ErrNotFound wraps error with codes.NotFound, unless err is already a gRPC error.
-func ErrNotFound(err error) error { return wrapError(codes.NotFound, err) }
-
 // wrapError wraps the given error with the error code unless it's already a gRPC error. If given
 // nil it will return nil.
 func wrapError(code codes.Code, err error) error {

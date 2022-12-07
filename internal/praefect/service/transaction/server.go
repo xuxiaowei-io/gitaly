@@ -35,7 +35,7 @@ func (s *Server) VoteTransaction(ctx context.Context, in *gitalypb.VoteTransacti
 	if err := s.txMgr.VoteTransaction(ctx, in.TransactionId, in.Node, vote); err != nil {
 		switch {
 		case errors.Is(err, transactions.ErrNotFound):
-			return nil, helper.ErrNotFound(err)
+			return nil, helper.ErrNotFoundf("%w", err)
 		case errors.Is(err, transactions.ErrTransactionCanceled):
 			return nil, helper.ErrCanceledf("%w", err)
 		case errors.Is(err, transactions.ErrTransactionStopped):
@@ -64,7 +64,7 @@ func (s *Server) StopTransaction(ctx context.Context, in *gitalypb.StopTransacti
 	if err := s.txMgr.StopTransaction(ctx, in.TransactionId); err != nil {
 		switch {
 		case errors.Is(err, transactions.ErrNotFound):
-			return nil, helper.ErrNotFound(err)
+			return nil, helper.ErrNotFoundf("%w", err)
 		case errors.Is(err, transactions.ErrTransactionCanceled):
 			return nil, helper.ErrCanceledf("%w", err)
 		case errors.Is(err, transactions.ErrTransactionStopped):

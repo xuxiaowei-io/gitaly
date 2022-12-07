@@ -266,11 +266,11 @@ func (c *Coordinator) directRepositoryScopedMessage(ctx context.Context, call gr
 
 	if err != nil {
 		if errors.As(err, new(commonerr.RepositoryNotFoundError)) {
-			return nil, helper.ErrNotFound(err)
+			return nil, helper.ErrNotFoundf("%w", err)
 		}
 
 		if errors.Is(err, commonerr.ErrRepositoryNotFound) {
-			return nil, helper.ErrNotFound(err)
+			return nil, helper.ErrNotFoundf("%w", err)
 		}
 
 		return nil, err

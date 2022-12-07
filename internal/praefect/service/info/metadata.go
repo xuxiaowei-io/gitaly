@@ -30,7 +30,7 @@ func (s *Server) GetRepositoryMetadata(ctx context.Context, req *gitalypb.GetRep
 	metadata, err := getMetadata()
 	if err != nil {
 		if errors.Is(err, commonerr.ErrRepositoryNotFound) {
-			return nil, helper.ErrNotFound(err)
+			return nil, helper.ErrNotFoundf("%w", err)
 		}
 
 		return nil, helper.ErrInternalf("get metadata: %w", err)

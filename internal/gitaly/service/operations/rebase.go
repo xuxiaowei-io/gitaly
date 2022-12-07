@@ -45,7 +45,7 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 	branch := git.NewReferenceNameFromBranchName(string(header.Branch))
 	oldrev, err := git.ObjectHashSHA1.FromHex(header.BranchSha)
 	if err != nil {
-		return helper.ErrNotFound(err)
+		return helper.ErrNotFoundf("%w", err)
 	}
 
 	remoteFetch := rebaseRemoteFetch{header: header}

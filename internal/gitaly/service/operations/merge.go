@@ -77,7 +77,7 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 	revision, err := quarantineRepo.ResolveRevision(ctx, referenceName.Revision())
 	if err != nil {
 		if errors.Is(err, git.ErrReferenceNotFound) {
-			return helper.ErrNotFound(err)
+			return helper.ErrNotFoundf("%w", err)
 		}
 		return helper.ErrInternal(err)
 	}

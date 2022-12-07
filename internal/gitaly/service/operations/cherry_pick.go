@@ -88,7 +88,7 @@ func (s *Server) UserCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 				},
 			)
 		case errors.As(err, &git2go.CommitNotFoundError{}):
-			return nil, helper.ErrNotFound(err)
+			return nil, helper.ErrNotFoundf("%w", err)
 		case errors.Is(err, git2go.ErrInvalidArgument):
 			return nil, helper.ErrInvalidArgument(err)
 		default:

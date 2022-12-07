@@ -37,11 +37,6 @@ func TestError(t *testing.T) {
 			errorf: ErrInvalidArgument,
 			code:   codes.InvalidArgument,
 		},
-		{
-			desc:   "NotFound",
-			errorf: ErrNotFound,
-			code:   codes.NotFound,
-		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			// tc.code and our canary test code must not
