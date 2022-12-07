@@ -84,7 +84,7 @@ func TestMidxRepack(t *testing.T) {
 
 	// add some pack files with different sizes
 	packsAdded := 5
-	addPackFiles(t, ctx, cfg, client, repo, repoPath, packsAdded, true)
+	addPackFiles(t, ctx, cfg, repoPath, packsAdded, true)
 
 	// record pack count
 	actualCount, err := stats.PackfilesCount(repoPath)
@@ -160,7 +160,7 @@ func TestMidxRepackExpire(t *testing.T) {
 				})
 
 				// add some pack files with different sizes
-				addPackFiles(t, ctx, cfg, client, repo, repoPath, packsAdded, false)
+				addPackFiles(t, ctx, cfg, repoPath, packsAdded, false)
 
 				// record pack count
 				actualCount, err := stats.PackfilesCount(repoPath)
@@ -243,33 +243,26 @@ func addPackFiles(
 	t *testing.T,
 	ctx context.Context,
 	cfg config.Cfg,
-	client gitalypb.RepositoryServiceClient,
-	repo *gitalypb.Repository,
 	repoPath string,
 	packCount int,
 	resetModTime bool,
 ) {
 	t.Helper()
 
-	// do a full repack to ensure we start with 1 pack
-	//nolint:staticcheck
-	_, err := client.RepackFull(ctx, &gitalypb.RepackFullRequest{Repository: repo, CreateBitmap: true})
-	require.NoError(t, err)
+	// Do a full repack to ensure we start with 1 pack.
+	gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
 
-	// create some pack files with different sizes
+	// Create some pack files with different sizes.
 	for i := 0; i < packCount; i++ {
 		for y := packCount + 1 - i; y > 0; y-- {
 			branch := fmt.Sprintf("branch-%d-%d", i, y)
 			gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage(branch), gittest.WithBranch(branch))
 		}
 
-		//nolint:staticcheck
-		_, err = client.RepackIncremental(ctx, &gitalypb.RepackIncrementalRequest{Repository: repo})
-		require.NoError(t, err)
+		gittest.Exec(t, cfg, "-C", repoPath, "repack", "-d")
 	}
 
-	// reset mtime of packfile to mark them separately
-	// for comparison purpose
+	// Reset mtime of packfile to mark them separately for comparison purpose.
 	if resetModTime {
 		packDir := filepath.Join(repoPath, "objects/pack/")
 
