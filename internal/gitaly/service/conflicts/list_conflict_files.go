@@ -60,7 +60,7 @@ func (s *server) ListConflictFiles(request *gitalypb.ListConflictFilesRequest, s
 		}
 
 		if !utf8.Valid(conflict.Content) {
-			return helper.ErrFailedPrecondition(errors.New("unsupported encoding"))
+			return helper.ErrFailedPreconditionf("unsupported encoding")
 		}
 
 		conflictFiles = append(conflictFiles, &gitalypb.ConflictFile{

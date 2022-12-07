@@ -38,11 +38,6 @@ func TestError(t *testing.T) {
 			code:   codes.InvalidArgument,
 		},
 		{
-			desc:   "FailedPrecondition",
-			errorf: ErrFailedPrecondition,
-			code:   codes.FailedPrecondition,
-		},
-		{
 			desc:   "NotFound",
 			errorf: ErrNotFound,
 			code:   codes.NotFound,

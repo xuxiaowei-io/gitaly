@@ -30,10 +30,6 @@ func ErrInvalidArgument(err error) error { return wrapError(codes.InvalidArgumen
 // ErrNotFound wraps error with codes.NotFound, unless err is already a gRPC error.
 func ErrNotFound(err error) error { return wrapError(codes.NotFound, err) }
 
-// ErrFailedPrecondition wraps err with codes.FailedPrecondition, unless err is already a gRPC
-// error.
-func ErrFailedPrecondition(err error) error { return wrapError(codes.FailedPrecondition, err) }
-
 // ErrAlreadyExists wraps err with codes.AlreadyExists, unless err is already a gRPC error.
 func ErrAlreadyExists(err error) error { return wrapError(codes.AlreadyExists, err) }
 
