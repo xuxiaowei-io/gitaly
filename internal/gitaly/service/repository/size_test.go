@@ -44,8 +44,9 @@ func TestRepositorySize_SuccessfulRequest(t *testing.T) {
 }
 
 func testSuccessfulRepositorySizeRequestPoolMember(t *testing.T, ctx context.Context) {
-	cfg := testcfg.Build(t)
+	t.Parallel()
 
+	cfg := testcfg.Build(t)
 	repoClient, serverSocketPath := runRepositoryService(t, cfg, nil)
 	cfg.SocketPath = serverSocketPath
 
@@ -103,6 +104,8 @@ func testSuccessfulRepositorySizeRequestPoolMember(t *testing.T, ctx context.Con
 }
 
 func testSuccessfulRepositorySizeRequest(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	logger, hook := test.NewNullLogger()
 	cfg, repo, repoPath, client := setupRepositoryService(t, ctx, testserver.WithLogger(logger))
 
