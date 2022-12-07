@@ -59,6 +59,10 @@ No changes.
 - [ruby: Remove FeatureFlags](gitlab-org/gitaly@63b206dd21eac0e7f573b099f6bd4154ca44ae3a) ([merge request](gitlab-org/gitaly!4992))
 - [Remove rubyserver redundant clients](gitlab-org/gitaly@2a76a2615d8b1c6d611d0623e4d0925a4b9f914e) ([merge request](gitlab-org/gitaly!4992))
 
+## 15.5.6 (2022-12-07)
+
+No changes.
+
 ## 15.5.5 (2022-11-30)
 
 ### Fixed (2 changes)
