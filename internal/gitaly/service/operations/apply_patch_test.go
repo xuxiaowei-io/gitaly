@@ -309,18 +309,9 @@ To restore the original branch and stop patching, run "git am --abort".
 			}
 
 			if tc.extraBranches != nil {
-				emptyCommit, err := executor.Commit(ctx, rewrittenRepo, git2go.CommitCommand{
-					Repository: repoPath,
-					Author:     author,
-					Committer:  committer,
-					Message:    "empty commit",
-				})
-				require.NoError(t, err)
-
+				emptyCommit := gittest.WriteCommit(t, cfg, repoPath)
 				for _, extraBranch := range tc.extraBranches {
-					require.NoError(t, repo.UpdateRef(ctx,
-						git.NewReferenceNameFromBranchName(extraBranch), emptyCommit, git.ObjectHashSHA1.ZeroOID),
-					)
+					gittest.WriteRef(t, cfg, repoPath, git.NewReferenceNameFromBranchName(extraBranch), emptyCommit)
 				}
 			}
 
