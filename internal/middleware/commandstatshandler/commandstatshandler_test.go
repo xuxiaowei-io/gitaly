@@ -119,9 +119,9 @@ func TestInterceptor(t *testing.T) {
 		{
 			name: "Stream",
 			performRPC: func(ctx context.Context, client gitalypb.RefServiceClient) {
-				req := &gitalypb.FindAllBranchNamesRequest{Repository: repo}
+				req := &gitalypb.ListRefsRequest{Repository: repo, Patterns: [][]byte{[]byte("refs/heads/")}}
 
-				stream, err := client.FindAllBranchNames(ctx, req)
+				stream, err := client.ListRefs(ctx, req)
 				require.NoError(t, err)
 
 				for {
