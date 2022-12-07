@@ -100,10 +100,10 @@ github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/
 github.com/stretchr/testify v1.7.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.8.0 h1:pSgiaMZlXftHpm5L7V1+rVB+AZJydKsMxsQBIJw4PKk=
 github.com/stretchr/testify v1.8.0/go.mod h1:yNjHg4UonilssWZ8iaSj1OCr/vHnekPRkoO+kdMU+MU=
-github.com/yoheimuta/go-protoparser/v4 v4.6.0 h1:uvz1e9/5Ihsm4Ku8AJeDImTpirKmIxubZdSn0QJNdnw=
-github.com/yoheimuta/go-protoparser/v4 v4.6.0/go.mod h1:AHNNnSWnb0UoL4QgHPiOAg2BniQceFscPI5X/BZNHl8=
-github.com/yoheimuta/protolint v0.42.0 h1:k9E+e+5yEowERctvWJV7ogrXS/RTvWxMBq0lEnWW0TA=
-github.com/yoheimuta/protolint v0.42.0/go.mod h1:m01Dh5Hab5PqJ476KILWPNp/BmTAamlcthnBEkNjRKo=
+github.com/yoheimuta/go-protoparser/v4 v4.7.0 h1:80LGfVM25sCoNDD08hv9O0ShQMjoTrIE76j5ON+gq3U=
+github.com/yoheimuta/go-protoparser/v4 v4.7.0/go.mod h1:AHNNnSWnb0UoL4QgHPiOAg2BniQceFscPI5X/BZNHl8=
+github.com/yoheimuta/protolint v0.42.2 h1:33YdAicLnLc7G4QNVyLkTsRxmqZJbu4/dhgWlZvVU9M=
+github.com/yoheimuta/protolint v0.42.2/go.mod h1:ITsA7YWFaZqTSAzx4jmt3SQ+BlAOqbFVUhtwWeAK1U0=
 go.opentelemetry.io/proto/otlp v0.7.0/go.mod h1:PqfVotwruBrMGOCsRd/89rSnXhoiJIqeYNgFYFoEGnI=
 golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=
 golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9/go.mod h1:LzIPMQfyMNhhGPhUkYOs5KpL4U8rLKemX1yGLhDgUto=
