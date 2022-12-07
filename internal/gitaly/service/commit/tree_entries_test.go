@@ -684,7 +684,7 @@ func TestGetTreeEntries_validation(t *testing.T) {
 				Path:       path,
 			},
 			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
-				"TreeEntry: empty Repository",
+				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
 		},
@@ -695,7 +695,7 @@ func TestGetTreeEntries_validation(t *testing.T) {
 				Revision:   nil,
 				Path:       path,
 			},
-			expectedErr: helper.ErrInvalidArgumentf("TreeEntry: empty revision"),
+			expectedErr: helper.ErrInvalidArgumentf("empty revision"),
 		},
 		{
 			desc: "path is empty",
@@ -703,7 +703,7 @@ func TestGetTreeEntries_validation(t *testing.T) {
 				Repository: repo,
 				Revision:   revision,
 			},
-			expectedErr: helper.ErrInvalidArgumentf("TreeEntry: empty Path"),
+			expectedErr: helper.ErrInvalidArgumentf("empty Path"),
 		},
 		{
 			desc: "revision is invalid",
@@ -712,7 +712,7 @@ func TestGetTreeEntries_validation(t *testing.T) {
 				Revision:   []byte("--output=/meow"),
 				Path:       path,
 			},
-			expectedErr: helper.ErrInvalidArgumentf("TreeEntry: revision can't start with '-'"),
+			expectedErr: helper.ErrInvalidArgumentf("revision can't start with '-'"),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

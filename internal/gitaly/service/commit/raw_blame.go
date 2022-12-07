@@ -8,17 +8,16 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 var validBlameRange = regexp.MustCompile(`\A\d+,\d+\z`)
 
 func (s *server) RawBlame(in *gitalypb.RawBlameRequest, stream gitalypb.CommitService_RawBlameServer) error {
 	if err := validateRawBlameRequest(in); err != nil {
-		return status.Errorf(codes.InvalidArgument, "RawBlame: %v", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	ctx := stream.Context()
@@ -38,10 +37,7 @@ func (s *server) RawBlame(in *gitalypb.RawBlameRequest, stream gitalypb.CommitSe
 		PostSepArgs: []string{path},
 	})
 	if err != nil {
-		if _, ok := status.FromError(err); ok {
-			return err
-		}
-		return status.Errorf(codes.Internal, "RawBlame: cmd: %v", err)
+		return structerr.NewInternal("cmd: %w", err)
 	}
 
 	sw := streamio.NewWriter(func(p []byte) error {
@@ -50,7 +46,7 @@ func (s *server) RawBlame(in *gitalypb.RawBlameRequest, stream gitalypb.CommitSe
 
 	_, err = io.Copy(sw, cmd)
 	if err != nil {
-		return status.Errorf(codes.Unavailable, "RawBlame: send: %v", err)
+		return structerr.NewUnavailable("send: %w", err)
 	}
 
 	if err := cmd.Wait(); err != nil {

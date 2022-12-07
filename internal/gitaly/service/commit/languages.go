@@ -126,7 +126,7 @@ func (s *server) checkRevision(ctx context.Context, repo git.RepositoryExecutor,
 
 	if err = revParse.Wait(); err != nil {
 		errMsg := strings.Split(stderr.String(), "\n")[0]
-		return "", fmt.Errorf("%v: %v", err, errMsg)
+		return "", fmt.Errorf("%w: %v", err, errMsg)
 	}
 
 	if strings.HasSuffix(stderr.String(), "refname '"+revision+"' is ambiguous.\n") {

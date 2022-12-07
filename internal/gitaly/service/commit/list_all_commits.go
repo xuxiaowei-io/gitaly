@@ -1,14 +1,13 @@
 package commit
 
 import (
-	"fmt"
-
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gitpipe"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -78,20 +77,20 @@ func (s *server) ListAllCommits(
 
 		commit, err := parser.ParseCommit(object)
 		if err != nil {
-			return helper.ErrInternal(fmt.Errorf("parsing commit: %w", err))
+			return structerr.NewInternal("parsing commit: %w", err)
 		}
 
 		if err := chunker.Send(commit); err != nil {
-			return helper.ErrInternal(fmt.Errorf("sending commit: %w", err))
+			return structerr.NewInternal("sending commit: %w", err)
 		}
 	}
 
 	if err := catfileObjectIter.Err(); err != nil {
-		return helper.ErrInternal(fmt.Errorf("iterating objects: %w", err))
+		return structerr.NewInternal("iterating objects: %w", err)
 	}
 
 	if err := chunker.Flush(); err != nil {
-		return helper.ErrInternal(fmt.Errorf("flushing commits: %w", err))
+		return structerr.NewInternal("flushing commits: %w", err)
 	}
 
 	return nil

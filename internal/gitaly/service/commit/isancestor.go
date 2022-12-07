@@ -9,9 +9,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func validateCommitIsAncestorRequest(in *gitalypb.CommitIsAncestorRequest) error {
@@ -19,10 +18,10 @@ func validateCommitIsAncestorRequest(in *gitalypb.CommitIsAncestorRequest) error
 		return err
 	}
 	if in.GetAncestorId() == "" {
-		return errors.New("Bad Request (empty ancestor sha)") //nolint:stylecheck
+		return errors.New("empty ancestor sha")
 	}
 	if in.GetChildId() == "" {
-		return errors.New("Bad Request (empty child sha)") //nolint:stylecheck
+		return errors.New("empty child sha")
 	}
 	return nil
 }
@@ -48,10 +47,7 @@ func (s *server) commitIsAncestorName(ctx context.Context, repo *gitalypb.Reposi
 		Flags: []git.Option{git.Flag{Name: "--is-ancestor"}}, Args: []string{ancestorID, childID},
 	})
 	if err != nil {
-		if _, ok := status.FromError(err); ok {
-			return false, err
-		}
-		return false, status.Errorf(codes.Internal, err.Error())
+		return false, structerr.NewInternal("%w", err)
 	}
 
 	return cmd.Wait() == nil, nil

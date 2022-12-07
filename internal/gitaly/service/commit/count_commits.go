@@ -11,14 +11,13 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func (s *server) CountCommits(ctx context.Context, in *gitalypb.CountCommitsRequest) (*gitalypb.CountCommitsResponse, error) {
 	if err := validateCountCommitsRequest(in); err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "CountCommits: %v", err)
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
 	subCmd := git.SubCmd{Name: "rev-list", Flags: []git.Option{git.Flag{Name: "--count"}}}
@@ -48,10 +47,7 @@ func (s *server) CountCommits(ctx context.Context, in *gitalypb.CountCommitsRequ
 	opts := git.ConvertGlobalOptions(in.GetGlobalOptions())
 	cmd, err := s.gitCmdFactory.New(ctx, in.Repository, subCmd, opts...)
 	if err != nil {
-		if _, ok := status.FromError(err); ok {
-			return nil, err
-		}
-		return nil, status.Errorf(codes.Internal, "CountCommits: cmd: %v", err)
+		return nil, structerr.NewInternal("cmd: %w", err)
 	}
 
 	var count int64
@@ -69,7 +65,7 @@ func (s *server) CountCommits(ctx context.Context, in *gitalypb.CountCommitsRequ
 		count, err = strconv.ParseInt(string(countStr), 10, 0)
 
 		if err != nil {
-			return nil, status.Errorf(codes.Internal, "CountCommits: parse count: %v", err)
+			return nil, structerr.NewInternal("parse count: %w", err)
 		}
 	}
 
