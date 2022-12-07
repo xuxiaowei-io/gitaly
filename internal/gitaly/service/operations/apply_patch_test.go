@@ -35,7 +35,6 @@ func TestUserApplyPatch(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
 	type actionFunc func(testing.TB, *localrepo.Repo) git2go.Action
@@ -102,16 +101,16 @@ To restore the original branch and stop patching, run "git am --abort".
 		// in the series to its parent.
 		//
 		// After the patches are generated, they are applied sequentially on the base commit.
-		patches       []commitActions
-		error         error
-		branchCreated bool
-		tree          []gittest.TreeEntry
+		patches                []commitActions
+		expectedErr            error
+		expectedBranchCreation bool
+		expectedTree           []gittest.TreeEntry
 	}{
 		{
 			desc:                  "non-existent repository",
 			targetBranch:          "master",
 			nonExistentRepository: true,
-			error: func() error {
+			expectedErr: func() error {
 				if testhelper.IsPraefectEnabled() {
 					return status.Errorf(codes.NotFound, "mutator call: route repository mutator: get repository id: repository %q/%q not found", cfg.Storages[0].Name, "doesnt-exist")
 				}
@@ -127,7 +126,7 @@ To restore the original branch and stop patching, run "git am --abort".
 					createFile("file", "base-content"),
 				},
 			},
-			error: status.Error(codes.Internal, "no default branch"),
+			expectedErr: status.Error(codes.Internal, "no default branch"),
 		},
 		{
 			desc:          "creating a new branch from HEAD works",
@@ -140,8 +139,8 @@ To restore the original branch and stop patching, run "git am --abort".
 					updateFile("file", "patch 1"),
 				},
 			},
-			branchCreated: true,
-			tree: []gittest.TreeEntry{
+			expectedBranchCreation: true,
+			expectedTree: []gittest.TreeEntry{
 				{Mode: "100644", Path: "file", Content: "patch 1"},
 			},
 		},
@@ -156,8 +155,8 @@ To restore the original branch and stop patching, run "git am --abort".
 					updateFile("file", "patch 1"),
 				},
 			},
-			branchCreated: true,
-			tree: []gittest.TreeEntry{
+			expectedBranchCreation: true,
+			expectedTree: []gittest.TreeEntry{
 				{Mode: "100644", Path: "file", Content: "patch 1"},
 			},
 		},
@@ -175,7 +174,7 @@ To restore the original branch and stop patching, run "git am --abort".
 					updateFile("file", "patch 2"),
 				},
 			},
-			tree: []gittest.TreeEntry{
+			expectedTree: []gittest.TreeEntry{
 				{Mode: "100644", Path: "file", Content: "patch 2"},
 			},
 		},
@@ -190,7 +189,7 @@ To restore the original branch and stop patching, run "git am --abort".
 					updateFile("file", "patch 1"),
 				},
 			},
-			tree: []gittest.TreeEntry{
+			expectedTree: []gittest.TreeEntry{
 				{Mode: "100644", Path: "file", Content: "patch 1"},
 			},
 		},
@@ -208,7 +207,7 @@ To restore the original branch and stop patching, run "git am --abort".
 					updateFile("file", "patch 1"),
 				},
 			},
-			tree: []gittest.TreeEntry{
+			expectedTree: []gittest.TreeEntry{
 				{Mode: "100644", Path: "file", Content: "patch 1"},
 			},
 		},
@@ -225,7 +224,7 @@ To restore the original branch and stop patching, run "git am --abort".
 					updateFile("file", "patch 2"),
 				},
 			},
-			error: errPatchingFailed,
+			expectedErr: errPatchingFailed,
 		},
 		{
 			desc:          "patching fails due to add-add conflict",
@@ -240,7 +239,7 @@ To restore the original branch and stop patching, run "git am --abort".
 					createFile("added-file", "content-2"),
 				},
 			},
-			error: errPatchingFailed,
+			expectedErr: errPatchingFailed,
 		},
 		{
 			desc:          "patch applies using rename detection",
@@ -255,7 +254,7 @@ To restore the original branch and stop patching, run "git am --abort".
 					updateFile("file", "line 1\nline 2\nline 3\nline 4\nadded\n"),
 				},
 			},
-			tree: []gittest.TreeEntry{
+			expectedTree: []gittest.TreeEntry{
 				{Mode: "100644", Path: "moved-file", Content: "line 1\nline 2\nline 3\nline 4\nadded\n"},
 			},
 		},
@@ -272,14 +271,16 @@ To restore the original branch and stop patching, run "git am --abort".
 					updateFile("file", "updated content"),
 				},
 			},
-			error: errPatchingFailed,
+			expectedErr: errPatchingFailed,
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			repoPb, repoPath := gittest.CreateRepository(t, ctx, cfg)
+			t.Parallel()
 
-			repo := localrepo.NewTestRepo(t, cfg, repoPb)
-			rewrittenRepo := gittest.RewrittenRepository(t, ctx, cfg, repoPb)
+			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+			repo := localrepo.NewTestRepo(t, cfg, repoProto)
+			rewrittenRepo := gittest.RewrittenRepository(t, ctx, cfg, repoProto)
 
 			executor := git2go.NewExecutor(cfg, gittest.NewCommandFactory(t, cfg), config.NewLocator(cfg))
 
@@ -360,13 +361,13 @@ To restore the original branch and stop patching, run "git am --abort".
 			requestTimestamp := timestamppb.New(requestTime)
 
 			if tc.nonExistentRepository {
-				repoPb.RelativePath = "doesnt-exist"
+				repoProto.RelativePath = "doesnt-exist"
 			}
 
 			require.NoError(t, stream.Send(&gitalypb.UserApplyPatchRequest{
 				UserApplyPatchRequestPayload: &gitalypb.UserApplyPatchRequest_Header_{
 					Header: &gitalypb.UserApplyPatchRequest_Header{
-						Repository:   repoPb,
+						Repository:   repoProto,
 						User:         gittest.TestUser,
 						TargetBranch: []byte(tc.targetBranch),
 						Timestamp:    requestTimestamp,
@@ -402,8 +403,8 @@ To restore the original branch and stop patching, run "git am --abort".
 			}
 
 			actualResponse, err := stream.CloseAndRecv()
-			if tc.error != nil {
-				testhelper.RequireGrpcError(t, tc.error, err)
+			if tc.expectedErr != nil {
+				testhelper.RequireGrpcError(t, tc.expectedErr, err)
 				return
 			}
 
@@ -414,7 +415,7 @@ To restore the original branch and stop patching, run "git am --abort".
 			testhelper.ProtoEqual(t, &gitalypb.UserApplyPatchResponse{
 				BranchUpdate: &gitalypb.OperationBranchUpdate{
 					RepoCreated:   false,
-					BranchCreated: tc.branchCreated,
+					BranchCreated: tc.expectedBranchCreation,
 				},
 			}, actualResponse)
 
@@ -452,7 +453,7 @@ To restore the original branch and stop patching, run "git am --abort".
 				actualCommit,
 			)
 
-			gittest.RequireTree(t, cfg, repoPath, commitID, tc.tree)
+			gittest.RequireTree(t, cfg, repoPath, commitID, tc.expectedTree)
 		})
 	}
 }
