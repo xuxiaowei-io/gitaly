@@ -42,11 +42,6 @@ func TestError(t *testing.T) {
 			errorf: ErrNotFound,
 			code:   codes.NotFound,
 		},
-		{
-			desc:   "AlreadyExists",
-			errorf: ErrAlreadyExists,
-			code:   codes.AlreadyExists,
-		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			// tc.code and our canary test code must not

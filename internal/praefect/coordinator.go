@@ -686,7 +686,7 @@ func (c *Coordinator) StreamDirector(ctx context.Context, fullMethodName string,
 			}
 
 			if errors.Is(err, commonerr.ErrRepositoryAlreadyExists) {
-				return nil, helper.ErrAlreadyExists(err)
+				return nil, helper.ErrAlreadyExistsf("%w", err)
 			}
 
 			return nil, err
