@@ -24,9 +24,6 @@ func (sw statusWrapper) Unwrap() error {
 // ErrCanceled wraps err with codes.Canceled, unless err is already a gRPC error.
 func ErrCanceled(err error) error { return wrapError(codes.Canceled, err) }
 
-// ErrDeadlineExceeded wraps err with codes.DeadlineExceeded, unless err is already a gRPC error.
-func ErrDeadlineExceeded(err error) error { return wrapError(codes.DeadlineExceeded, err) }
-
 // ErrInternal wraps err with codes.Internal, unless err is already a gRPC error.
 func ErrInternal(err error) error { return wrapError(codes.Internal, err) }
 
@@ -43,20 +40,8 @@ func ErrFailedPrecondition(err error) error { return wrapError(codes.FailedPreco
 // ErrUnavailable wraps err with codes.Unavailable, unless err is already a gRPC error.
 func ErrUnavailable(err error) error { return wrapError(codes.Unavailable, err) }
 
-// ErrPermissionDenied wraps err with codes.PermissionDenied, unless err is already a gRPC error.
-func ErrPermissionDenied(err error) error { return wrapError(codes.PermissionDenied, err) }
-
-// ErrResourceExhausted wraps err with codes.ResourceExhausted, unless err is already a gRPC error.
-func ErrResourceExhausted(err error) error { return wrapError(codes.ResourceExhausted, err) }
-
 // ErrAlreadyExists wraps err with codes.AlreadyExists, unless err is already a gRPC error.
 func ErrAlreadyExists(err error) error { return wrapError(codes.AlreadyExists, err) }
-
-// ErrAborted wraps err with codes.Aborted, unless err is already a gRPC error.
-func ErrAborted(err error) error { return wrapError(codes.Aborted, err) }
-
-// ErrUnauthenticated wraps err with codes.Unauthenticated, unless err is already a gRPC error.
-func ErrUnauthenticated(err error) error { return wrapError(codes.Unauthenticated, err) }
 
 // wrapError wraps the given error with the error code unless it's already a gRPC error. If given
 // nil it will return nil.
