@@ -58,6 +58,19 @@ func (e ErrInTransactionConflict) Error() string {
 	return fmt.Sprintf("%q and %q conflict in the same transaction", e.FirstReferenceName, e.SecondReferenceName)
 }
 
+// NonExistentObjectError is returned when attempting to point a reference to an object that does not
+// exist in the object database.
+type NonExistentObjectError struct {
+	// ReferenceName is the name of the reference that was being updated.
+	ReferenceName string
+	// ObjectID is the object ID of the non-existent object.
+	ObjectID string
+}
+
+func (e NonExistentObjectError) Error() string {
+	return fmt.Sprintf("pointed reference %q to a non-existent object %q", e.ReferenceName, e.ObjectID)
+}
+
 // state represents a possible state the updater can be in.
 type state string
 
@@ -306,6 +319,7 @@ var (
 	refInvalidFormatRegex        = regexp.MustCompile(`^fatal: invalid ref format: (.*)\n$`)
 	referenceExistsConflictRegex = regexp.MustCompile(`^fatal: .*: cannot lock ref '(.*)': '(.*)' exists; cannot create '.*'\n$`)
 	inTransactionConflictRegex   = regexp.MustCompile(`^fatal: .*: cannot lock ref '.*': cannot process '(.*)' and '(.*)' at the same time\n$`)
+	nonExistentObjectRegex       = regexp.MustCompile(`^fatal: .*: cannot update ref '.*': trying to write ref '(.*)' with nonexistent object (.*)\n$`)
 )
 
 func (u *Updater) setState(state string) error {
@@ -358,6 +372,14 @@ func (u *Updater) setState(state string) error {
 			return ErrInTransactionConflict{
 				FirstReferenceName:  string(matches[1]),
 				SecondReferenceName: string(matches[2]),
+			}
+		}
+
+		matches = nonExistentObjectRegex.FindSubmatch(u.stderr.Bytes())
+		if len(matches) > 1 {
+			return NonExistentObjectError{
+				ReferenceName: string(matches[1]),
+				ObjectID:      string(matches[2]),
 			}
 		}
 
