@@ -43,11 +43,13 @@ func newError(code codes.Code, format string, a ...any) Error {
 			continue
 		}
 
-		// If we see any wrapped gRPC error, then we retain its error code. Note that we
-		// cannot use `status.FromError()` here, as that would only return an error in case
-		// the immediate error is a gRPC status error.
+		// If we see any wrapped gRPC error, then we retain its error code and details.
+		// Note that we cannot use `status.FromError()` here, as that would only return an
+		// error in case the immediate error is a gRPC status error.
 		var wrappedGRPCStatus grpcStatuser
 		if errors.As(err, &wrappedGRPCStatus) {
+			grpcStatus := wrappedGRPCStatus.GRPCStatus()
+
 			// The error message from gRPC errors is awkward because they include
 			// RPC-specific constructs. This is awkward especially in the case where
 			// these are embedded in the middle of an error message.
@@ -60,9 +62,17 @@ func newError(code codes.Code, format string, a ...any) Error {
 				message = st.Message()
 			}
 
+			var details []proto.Message
+			for _, detail := range grpcStatus.Details() {
+				if detailProto, ok := detail.(proto.Message); ok {
+					details = append(details, detailProto)
+				}
+			}
+
 			a[i] = Error{
-				err:  errors.New(message),
-				code: wrappedGRPCStatus.GRPCStatus().Code(),
+				err:     errors.New(message),
+				code:    grpcStatus.Code(),
+				details: details,
 			}
 		}
 	}

@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/grpc_testing"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 // unusedErrorCode is any error code that we don't have any constructors for yet. This is used
@@ -185,6 +186,33 @@ func TestNew(t *testing.T) {
 				s, ok := status.FromError(err)
 				require.True(t, ok)
 				require.Equal(t, status.New(unusedErrorCode, "first: second: third"), s)
+			})
+
+			t.Run("wrapping formatted gRPC error with details", func(t *testing.T) {
+				marshaledDetail, err := anypb.New(&grpc_testing.Payload{
+					Body: []byte("contents"),
+				})
+				require.NoError(t, err)
+
+				proto := status.New(unusedErrorCode, "details").Proto()
+				proto.Details = []*anypb.Any{marshaledDetail}
+				errWithDetails := status.ErrorProto(proto)
+
+				err = tc.constructor("top: %w", fmt.Errorf("detailed: %w", errWithDetails))
+				// We can't do anything about the "rpc error:" part in the middle as
+				// this is put there by `fmt.Errorf()` already.
+				require.EqualError(t, err, "top: detailed: rpc error: code = OutOfRange desc = details")
+				// We should be reporting the error code of the wrapped gRPC status.
+				require.Equal(t, unusedErrorCode, status.Code(err))
+
+				expectedErr, marshallingErr := status.New(unusedErrorCode, "top: detailed: rpc error: code = OutOfRange desc = details").WithDetails(&grpc_testing.Payload{
+					Body: []byte("contents"),
+				})
+				require.NoError(t, marshallingErr)
+
+				s, ok := status.FromError(err)
+				require.True(t, ok)
+				require.Equal(t, expectedErr, s)
 			})
 		})
 	}
