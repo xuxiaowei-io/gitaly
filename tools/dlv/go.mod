@@ -2,7 +2,7 @@ module gitlab.com/gitlab-org/gitaly/tools/dlv
 
 go 1.17
 
-require github.com/go-delve/delve v1.9.1
+require github.com/go-delve/delve v1.20.0
 
 require (
 	github.com/cilium/ebpf v0.7.0 // indirect
@@ -28,7 +28,6 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	go.starlark.net v0.0.0-20220816155156-cfacd8902214 // indirect
 	golang.org/x/arch v0.0.0-20190927153633-4e8777c89be4 // indirect
-	golang.org/x/sys v0.0.0-20220829200755-d48e67d00261 // indirect
-	golang.org/x/tools v0.1.12 // indirect
+	golang.org/x/sys v0.0.0-20220908164124-27713097b956 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
