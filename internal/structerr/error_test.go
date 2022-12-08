@@ -163,6 +163,19 @@ func TestNew(t *testing.T) {
 				require.Equal(t, status.New(unusedErrorCode, "top-level: nested"), s)
 			})
 
+			t.Run("wrapping formatted gRPC error", func(t *testing.T) {
+				err := tc.constructor("top: %w", fmt.Errorf("middle: %w", status.Error(unusedErrorCode, "bottom")))
+				// We can't do anything about the "rpc error:" part in the middle as
+				// this is put there by `fmt.Errorf()` already.
+				require.EqualError(t, err, "top: middle: rpc error: code = OutOfRange desc = bottom")
+				// We should be reporting the error code of the wrapped gRPC status.
+				require.Equal(t, unusedErrorCode, status.Code(err))
+
+				s, ok := status.FromError(err)
+				require.True(t, ok)
+				require.Equal(t, status.New(unusedErrorCode, "top: middle: rpc error: code = OutOfRange desc = bottom"), s)
+			})
+
 			t.Run("mixed normal and structerr chain", func(t *testing.T) {
 				err := tc.constructor("first: %w", fmt.Errorf("second: %w", newError(unusedErrorCode, "third")))
 				require.EqualError(t, err, "first: second: third")

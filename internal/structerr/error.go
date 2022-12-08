@@ -26,6 +26,10 @@ type Error struct {
 	metadata []metadataItem
 }
 
+type grpcStatuser interface {
+	GRPCStatus() *status.Status
+}
+
 func newError(code codes.Code, format string, a ...any) Error {
 	for i, arg := range a {
 		err, ok := arg.(error)
@@ -39,11 +43,26 @@ func newError(code codes.Code, format string, a ...any) Error {
 			continue
 		}
 
-		// Convert any gRPC status we see here to an `Error`.
-		if st, ok := status.FromError(err); ok {
+		// If we see any wrapped gRPC error, then we retain its error code. Note that we
+		// cannot use `status.FromError()` here, as that would only return an error in case
+		// the immediate error is a gRPC status error.
+		var wrappedGRPCStatus grpcStatuser
+		if errors.As(err, &wrappedGRPCStatus) {
+			// The error message from gRPC errors is awkward because they include
+			// RPC-specific constructs. This is awkward especially in the case where
+			// these are embedded in the middle of an error message.
+			//
+			// So if we see that the top-level error is a gRPC error, then we only use
+			// the status message as error message. But otherwise, we use the top-level
+			// error message.
+			message := err.Error()
+			if st, ok := status.FromError(err); ok {
+				message = st.Message()
+			}
+
 			a[i] = Error{
-				err:  errors.New(st.Message()),
-				code: st.Code(),
+				err:  errors.New(message),
+				code: wrappedGRPCStatus.GRPCStatus().Code(),
 			}
 		}
 	}
