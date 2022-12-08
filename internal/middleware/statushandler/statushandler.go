@@ -3,8 +3,8 @@ package statushandler
 import (
 	"context"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -53,10 +53,10 @@ func wrapCtxErr(ctx context.Context, err error) error {
 	case err == nil:
 		return nil
 	case ctx.Err() == context.DeadlineExceeded:
-		return status.Errorf(codes.DeadlineExceeded, "%v", err)
+		return structerr.NewDeadlineExceeded("%v", err)
 	case ctx.Err() == context.Canceled:
-		return status.Errorf(codes.Canceled, "%v", err)
+		return structerr.NewCanceled("%v", err)
 	default:
-		return helper.ErrInternal(err)
+		return structerr.NewInternal("%w", err)
 	}
 }
