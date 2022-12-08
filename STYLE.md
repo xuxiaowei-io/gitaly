@@ -55,49 +55,101 @@ interpolating strings. The `%q` operator quotes strings and escapes
 spaces and non-printable characters. This can save a lot of debugging
 time.
 
-### Use [helper](internal/helper/error.go) for error creation
+### Use [structerr](internal/structerr/error.go) for error creation
 
-[gRPC](https://grpc.io/) is the only transport supported by Gitaly and Praefect.
+Gitaly is using its own small error framework that can be used to generate
+errors with the `structerr` package. This package handles:
 
-To return proper error codes, you must use the
-[`status.Error()`](https://pkg.go.dev/google.golang.org/grpc@v1.50.1/status#Error)
-function, otherwise the `Unknown` status code is returned that doesn't provide much
-information about what happened on the server.
+- Propagation of the correct [gRPC error code](https://grpc.github.io/grpc/core/md_doc_statuscodes.html)
+  so that clients can see a rough classification of why an error happens.
+- Handling of error metadata that makes details about the error's context
+  available via logs.
+- Handling of the extended gRPC error model by attaching structured Protobuf
+  message to an error.
 
-However, using `status.Error()` everywhere may be too much of dependency for Gitaly.
-Therefore, you can use a set of helper functions to create statuses with
-proper codes. The benefit of using these is that you can wrap errors
-without losing initial status code that should be returned to the caller.
-
-The example below uses helpers with the standard `fmt.Errorf()` function that
-adds additional context to the error on the intermediate step. The result of the RPC
-call is:
-
-- `codes.InvalidArgument` code.
-- `action crashed: validation: condition` message.
-
-This means it fairly safe to use error wrapping in combination with helper functions.
-That said, pay attention when using a helper wrapper on the transport layer, otherwise
-the `Unknown` code may be returned by the RPC.
+It is thus the preferred way to generate errors in Gitaly both in the context of
+gRPC services and for low-level code. The following is an example for how the
+`structerr` package can be used:
 
 ```golang
-// We have declaration of some `service`
-type service struct {}
-
-func (s service) Action() error {
-	if err := s.validation(); err != nil {
-        return fmt.Errorf("validation: %w", err)
+func CheckFrobnicated(s string) error {
+    if s != "frobnicated" {
+        return structerr.NewInvalidArgument("input is not frobnicated").
+            WithMetadata("input", s).
+            WithDetail(&gitalypb.NotFrobnicatedError{
+                Input: s,
+            })
     }
+
     return nil
 }
+```
 
-func (service) validation() error {
-	return helper.ErrInvalidArgumentf("condition")
+### Error wrapping
+
+It is recommended to use wrapping directives `"%w"` to wrap errors. This will
+cause the `structerr` package to:
+
+- Propagate the gRPC error in case the wrapped error already contains an error
+  code.
+- Merge metadata of any wrapped `structerr` with the newly created error's
+  metadata, if any.
+- Merge error details so that the returned gRPC error will have all structured
+  errors attached to it.
+
+```golang
+func ValidateArguments(s string) error {
+    if err := CheckFrobnicated(s); err != nil {
+        return structerr.ErrInvalidArgumentf("checking frobnication: %w", err)
+    }
+
+    return nil
+}
+```
+
+### Error metadata
+
+Error metadata serves the purpose to attach dynamic data to errors that give the
+consumer of logs additional context around why an error has happened. This may
+include:
+
+- Parameters controlled by the caller, assuming they don't leak any secrets,
+  like an object ID.
+- The standard error output of a command spawned by Gitaly.
+
+Attaching such data as metadata is preferred over embedding it into the error
+message. This makes errors easier to follow and allows us to deduplicate errors
+by their now-static message in tools like Sentry.
+
+### Error details
+
+By default, the gRPC framework will only propagate an error code and the error
+message to clients. This information is inadequate for a client to decide how a
+specific error shall be handled:
+
+- Error codes are too broad, so different errors will end up with the same code.
+- Parsing error messages is fragile and heavily discouraged.
+
+The gRPC framework allows for a [richer error model](https://grpc.io/docs/guides/error/#richer-error-model).
+With this error model, the server can attach structured Protobuf messages to
+errors returned to the client. These Protobuf messages can be extracted on the
+client-side to allow more fine-grained error handling. Error details should be
+added to an error when it is known that the client-side will need to base its
+behaviour on the specific error that has happened.
+
+For an RPC `Frobnicate()`, the error details should be of the message type
+`FrobnicateError`. The different error cases should then be wrapped into a
+`oneof` field:
+
+```proto
+service FrobnicationService {
+    rpc Frobnicate(FrobnicateRequest) returns (FrobnicateResponse);
 }
 
-// Somewhere at the transport layer:
-if err := srv.Action(); err != nil {
-    return helper.ErrInternalf("action crashed: %w", err)
+message FrobnicateError {
+  oneof error {
+    VerificationError verification_error = 1;
+  }
 }
 ```
 
