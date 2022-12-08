@@ -346,9 +346,11 @@ func TestError_Details(t *testing.T) {
 				return New("message").WithDetail(initialPayload)
 			},
 			expectedErr: Error{
-				err:    errors.New("message"),
-				code:   codes.Internal,
-				detail: initialPayload,
+				err:  errors.New("message"),
+				code: codes.Internal,
+				details: []proto.Message{
+					initialPayload,
+				},
 			},
 			expectedDetails: []proto.Message{
 				initialPayload,
@@ -361,11 +363,15 @@ func TestError_Details(t *testing.T) {
 				return New("message").WithDetail(initialPayload).WithDetail(overridingPayload)
 			},
 			expectedErr: Error{
-				err:    errors.New("message"),
-				code:   codes.Internal,
-				detail: overridingPayload,
+				err:  errors.New("message"),
+				code: codes.Internal,
+				details: []proto.Message{
+					initialPayload,
+					overridingPayload,
+				},
 			},
 			expectedDetails: []proto.Message{
+				initialPayload,
 				overridingPayload,
 			},
 			expectedMessage: "message",
@@ -377,9 +383,11 @@ func TestError_Details(t *testing.T) {
 				return New("top-level: %w", nestedErr).WithDetail(overridingPayload)
 			},
 			expectedErr: Error{
-				err:    fmt.Errorf("top-level: %w", New("nested").WithDetail(initialPayload)),
-				code:   codes.Internal,
-				detail: overridingPayload,
+				err:  fmt.Errorf("top-level: %w", New("nested").WithDetail(initialPayload)),
+				code: codes.Internal,
+				details: []proto.Message{
+					overridingPayload,
+				},
 			},
 			expectedDetails: []proto.Message{
 				overridingPayload,

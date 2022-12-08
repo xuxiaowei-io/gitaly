@@ -17,9 +17,9 @@ type metadataItem struct {
 
 // Error is a structured error that contains additional details.
 type Error struct {
-	err    error
-	code   codes.Code
-	detail proto.Message
+	err     error
+	code    codes.Code
+	details []proto.Message
 	// metadata is the array of metadata items added to this error. Note that we explicitly
 	// don't use a map here so that we don't have any allocation overhead here in the general
 	// case where there is no metadata.
@@ -271,19 +271,15 @@ func (e Error) WithMetadata(key string, value any) Error {
 // contains error details ordered from top-level error details to bottom-level error details.
 func (e Error) Details() []proto.Message {
 	var details []proto.Message
-
 	for _, err := range e.errorChain() {
-		if err.detail != nil {
-			details = append(details, err.detail)
-		}
+		details = append(details, err.details...)
 	}
-
 	return details
 }
 
 // WithDetail sets the Error detail that provides additional structured information about the error
 // via gRPC so that callers can programmatically determine the exact circumstances of an error.
 func (e Error) WithDetail(detail proto.Message) Error {
-	e.detail = detail
+	e.details = append(e.details, detail)
 	return e
 }
