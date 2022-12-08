@@ -71,6 +71,18 @@ func (e NonExistentObjectError) Error() string {
 	return fmt.Sprintf("pointed reference %q to a non-existent object %q", e.ReferenceName, e.ObjectID)
 }
 
+// NonCommitObjectError is returned when attempting to point a branch to an object that is not an object.
+type NonCommitObjectError struct {
+	// ReferenceName is the name of the branch that was being updated.
+	ReferenceName string
+	// ObjectID is the object ID of the non-commit object.
+	ObjectID string
+}
+
+func (e NonCommitObjectError) Error() string {
+	return fmt.Sprintf("pointed branch %q to a non-commit object %q", e.ReferenceName, e.ObjectID)
+}
+
 // state represents a possible state the updater can be in.
 type state string
 
@@ -320,6 +332,7 @@ var (
 	referenceExistsConflictRegex = regexp.MustCompile(`^fatal: .*: cannot lock ref '(.*)': '(.*)' exists; cannot create '.*'\n$`)
 	inTransactionConflictRegex   = regexp.MustCompile(`^fatal: .*: cannot lock ref '.*': cannot process '(.*)' and '(.*)' at the same time\n$`)
 	nonExistentObjectRegex       = regexp.MustCompile(`^fatal: .*: cannot update ref '.*': trying to write ref '(.*)' with nonexistent object (.*)\n$`)
+	nonCommitObjectRegex         = regexp.MustCompile(`^fatal: .*: cannot update ref '.*': trying to write non-commit object (.*) to branch '(.*)'\n`)
 )
 
 func (u *Updater) setState(state string) error {
@@ -380,6 +393,14 @@ func (u *Updater) setState(state string) error {
 			return NonExistentObjectError{
 				ReferenceName: string(matches[1]),
 				ObjectID:      string(matches[2]),
+			}
+		}
+
+		matches = nonCommitObjectRegex.FindSubmatch(u.stderr.Bytes())
+		if len(matches) > 1 {
+			return NonCommitObjectError{
+				ReferenceName: string(matches[2]),
+				ObjectID:      string(matches[1]),
 			}
 		}
 

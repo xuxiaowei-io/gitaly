@@ -63,6 +63,50 @@ func TestUpdater_create(t *testing.T) {
 	require.Equal(t, gittest.ResolveRevision(t, cfg, repoPath, "refs/heads/_create"), commitID)
 }
 
+func TestUpdater_nonCommitObject(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+
+	for _, tc := range []struct {
+		desc          string
+		referenceName git.ReferenceName
+		expectedError error
+	}{
+		{
+			desc:          "non-branch",
+			referenceName: "refs/tags/v1.0.0",
+		},
+		{
+			desc:          "branch",
+			referenceName: "refs/heads/main",
+			expectedError: NonCommitObjectError{
+				ReferenceName: "refs/heads/main",
+				ObjectID:      gittest.DefaultObjectHash.EmptyTreeOID.String(),
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			for _, method := range []struct {
+				desc   string
+				finish func(*Updater) error
+			}{
+				{desc: "prepare", finish: func(updater *Updater) error { return updater.Prepare() }},
+				{desc: "commit", finish: func(updater *Updater) error { return updater.Commit() }},
+			} {
+				t.Run(method.desc, func(t *testing.T) {
+					_, _, _, updater := setupUpdater(t, ctx)
+
+					require.NoError(t, updater.Start())
+					require.NoError(t, updater.Create(tc.referenceName, gittest.DefaultObjectHash.EmptyTreeOID))
+
+					require.Equal(t, tc.expectedError, method.finish(updater))
+				})
+			}
+		})
+	}
+}
+
 func TestUpdater_nonExistentObject(t *testing.T) {
 	t.Parallel()
 
