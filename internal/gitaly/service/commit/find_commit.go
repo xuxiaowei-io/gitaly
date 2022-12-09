@@ -23,7 +23,7 @@ func validateFindCommitRequest(in *gitalypb.FindCommitRequest) error {
 
 func (s *server) FindCommit(ctx context.Context, in *gitalypb.FindCommitRequest) (*gitalypb.FindCommitResponse, error) {
 	if err := validateFindCommitRequest(in); err != nil {
-		return nil, helper.ErrInvalidArgument(err)
+		return nil, helper.ErrInvalidArgumentf("%w", err)
 	}
 	repo := s.localrepo(in.GetRepository())
 

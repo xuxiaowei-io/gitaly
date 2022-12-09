@@ -12,7 +12,7 @@ import (
 
 func (s *server) PackRefs(ctx context.Context, in *gitalypb.PackRefsRequest) (*gitalypb.PackRefsResponse, error) {
 	if err := validatePackRefsRequest(in); err != nil {
-		return nil, helper.ErrInvalidArgument(err)
+		return nil, helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	if err := s.packRefs(ctx, in.GetRepository()); err != nil {

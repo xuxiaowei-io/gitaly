@@ -16,7 +16,7 @@ func (s *server) WriteCommitGraph(
 ) (*gitalypb.WriteCommitGraphResponse, error) {
 	repository := in.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
-		return nil, helper.ErrInvalidArgument(err)
+		return nil, helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	repo := s.localrepo(repository)

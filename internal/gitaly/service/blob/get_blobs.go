@@ -156,7 +156,7 @@ func sendBlobTreeEntry(
 
 func (s *server) GetBlobs(req *gitalypb.GetBlobsRequest, stream gitalypb.BlobService_GetBlobsServer) error {
 	if err := validateGetBlobsRequest(req); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	repo := s.localrepo(req.GetRepository())

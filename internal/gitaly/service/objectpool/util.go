@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	errInvalidPoolDir = helper.ErrInvalidArgument(objectpool.ErrInvalidPoolDir)
+	errInvalidPoolDir = helper.ErrInvalidArgumentf("%w", objectpool.ErrInvalidPoolDir)
 
 	// errMissingPool is returned when the request is missing the object pool.
 	errMissingPool = helper.ErrInvalidArgumentf("no object pool repository")

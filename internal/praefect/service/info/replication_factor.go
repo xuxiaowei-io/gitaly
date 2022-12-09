@@ -16,7 +16,7 @@ func (s *Server) SetReplicationFactor(ctx context.Context, req *gitalypb.SetRepl
 	if err != nil {
 		var invalidArg datastore.InvalidArgumentError
 		if errors.As(err, &invalidArg) {
-			return nil, helper.ErrInvalidArgument(err)
+			return nil, helper.ErrInvalidArgumentf("%w", err)
 		}
 
 		return nil, helper.ErrInternal(err)

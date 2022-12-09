@@ -21,12 +21,12 @@ func (s *server) FindAllTags(in *gitalypb.FindAllTagsRequest, stream gitalypb.Re
 	ctx := stream.Context()
 
 	if err := s.validateFindAllTagsRequest(in); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	sortField, err := getTagSortField(in.GetSortBy())
 	if err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	opts := buildPaginationOpts(ctx, in.GetPaginationParams())

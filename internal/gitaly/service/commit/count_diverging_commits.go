@@ -18,7 +18,7 @@ import (
 // accurate because --max-count is applied before it does the rev walk.
 func (s *server) CountDivergingCommits(ctx context.Context, req *gitalypb.CountDivergingCommitsRequest) (*gitalypb.CountDivergingCommitsResponse, error) {
 	if err := s.validateCountDivergingCommitsRequest(req); err != nil {
-		return nil, helper.ErrInvalidArgument(err)
+		return nil, helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	from, to := string(req.GetFrom()), string(req.GetTo())

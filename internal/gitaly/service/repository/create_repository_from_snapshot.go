@@ -126,7 +126,7 @@ func untar(ctx context.Context, path string, in *gitalypb.CreateRepositoryFromSn
 func (s *server) CreateRepositoryFromSnapshot(ctx context.Context, in *gitalypb.CreateRepositoryFromSnapshotRequest) (*gitalypb.CreateRepositoryFromSnapshotResponse, error) {
 	repository := in.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
-		return nil, helper.ErrInvalidArgument(err)
+		return nil, helper.ErrInvalidArgumentf("%w", err)
 	}
 	if err := s.createRepository(ctx, repository, func(repo *gitalypb.Repository) error {
 		path, err := s.locator.GetPath(repo)

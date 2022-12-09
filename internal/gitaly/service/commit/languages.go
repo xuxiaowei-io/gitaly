@@ -31,7 +31,7 @@ func (s *server) validateCommitLanguagesRequest(req *gitalypb.CommitLanguagesReq
 
 func (s *server) CommitLanguages(ctx context.Context, req *gitalypb.CommitLanguagesRequest) (*gitalypb.CommitLanguagesResponse, error) {
 	if err := s.validateCommitLanguagesRequest(req); err != nil {
-		return nil, helper.ErrInvalidArgument(err)
+		return nil, helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	repo := s.localrepo(req.GetRepository())

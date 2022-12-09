@@ -37,7 +37,7 @@ func (s *server) GetArchive(in *gitalypb.GetArchiveRequest, stream gitalypb.Repo
 	ctx := stream.Context()
 	repository := in.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 	compressArgs, format := parseArchiveFormat(in.GetFormat())
 	repo := s.localrepo(repository)
@@ -49,14 +49,14 @@ func (s *server) GetArchive(in *gitalypb.GetArchiveRequest, stream gitalypb.Repo
 
 	path, err := storage.ValidateRelativePath(repoRoot, string(in.GetPath()))
 	if err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	exclude := make([]string, len(in.GetExclude()))
 	for i, ex := range in.GetExclude() {
 		exclude[i], err = storage.ValidateRelativePath(repoRoot, string(ex))
 		if err != nil {
-			return helper.ErrInvalidArgument(err)
+			return helper.ErrInvalidArgumentf("%w", err)
 		}
 	}
 

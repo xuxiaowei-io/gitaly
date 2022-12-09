@@ -15,7 +15,7 @@ import (
 
 func (s *server) WriteRef(ctx context.Context, req *gitalypb.WriteRefRequest) (*gitalypb.WriteRefResponse, error) {
 	if err := validateWriteRefRequest(req); err != nil {
-		return nil, helper.ErrInvalidArgument(err)
+		return nil, helper.ErrInvalidArgumentf("%w", err)
 	}
 	if err := s.writeRef(ctx, req); err != nil {
 		return nil, helper.ErrInternal(err)

@@ -25,7 +25,7 @@ func validateCommitStatsRequest(in *gitalypb.CommitStatsRequest) error {
 
 func (s *server) CommitStats(ctx context.Context, in *gitalypb.CommitStatsRequest) (*gitalypb.CommitStatsResponse, error) {
 	if err := validateCommitStatsRequest(in); err != nil {
-		return nil, helper.ErrInvalidArgument(err)
+		return nil, helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	resp, err := s.commitStats(ctx, in)

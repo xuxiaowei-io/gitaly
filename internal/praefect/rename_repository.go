@@ -18,7 +18,7 @@ func validateRenameRepositoryRequest(req *gitalypb.RenameRepositoryRequest, virt
 	// Gitaly's tested behavior.
 	repository := req.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	} else if req.GetRelativePath() == "" {
 		return helper.ErrInvalidArgumentf("destination relative path is empty")
 	} else if _, ok := virtualStorages[repository.GetStorageName()]; !ok {

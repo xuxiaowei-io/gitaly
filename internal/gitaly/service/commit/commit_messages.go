@@ -15,7 +15,7 @@ import (
 
 func (s *server) GetCommitMessages(request *gitalypb.GetCommitMessagesRequest, stream gitalypb.CommitService_GetCommitMessagesServer) error {
 	if err := validateGetCommitMessagesRequest(request); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 	if err := s.getAndStreamCommitMessages(request, stream); err != nil {
 		return helper.ErrInternal(err)

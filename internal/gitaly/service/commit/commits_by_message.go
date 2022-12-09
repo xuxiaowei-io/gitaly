@@ -26,7 +26,7 @@ func (sender *commitsByMessageSender) Send() error {
 
 func (s *server) CommitsByMessage(in *gitalypb.CommitsByMessageRequest, stream gitalypb.CommitService_CommitsByMessageServer) error {
 	if err := validateCommitsByMessageRequest(in); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	if err := s.commitsByMessage(in, stream); err != nil {

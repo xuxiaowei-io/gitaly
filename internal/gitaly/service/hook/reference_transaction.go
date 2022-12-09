@@ -22,7 +22,7 @@ func (s *server) ReferenceTransactionHook(stream gitalypb.HookService_ReferenceT
 	}
 
 	if err := validateReferenceTransactionHookRequest(request); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	var state hook.ReferenceTransactionState
@@ -34,7 +34,7 @@ func (s *server) ReferenceTransactionHook(stream gitalypb.HookService_ReferenceT
 	case gitalypb.ReferenceTransactionHookRequest_ABORTED:
 		state = hook.ReferenceTransactionAborted
 	default:
-		return helper.ErrInvalidArgument(errors.New("invalid hook state"))
+		return helper.ErrInvalidArgumentf("invalid hook state")
 	}
 
 	stdin := streamio.NewReader(func() ([]byte, error) {

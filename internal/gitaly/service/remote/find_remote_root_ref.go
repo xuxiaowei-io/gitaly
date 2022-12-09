@@ -92,7 +92,7 @@ func (s *server) FindRemoteRootRef(ctx context.Context, in *gitalypb.FindRemoteR
 		return nil, helper.ErrInvalidArgumentf("missing remote URL")
 	}
 	if err := service.ValidateRepository(in.GetRepository()); err != nil {
-		return nil, helper.ErrInvalidArgument(err)
+		return nil, helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	ref, err := s.findRemoteRootRef(ctx, in)

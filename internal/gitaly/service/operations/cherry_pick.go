@@ -18,7 +18,7 @@ import (
 // branch. See the protobuf documentation for details.
 func (s *Server) UserCherryPick(ctx context.Context, req *gitalypb.UserCherryPickRequest) (*gitalypb.UserCherryPickResponse, error) {
 	if err := validateCherryPickOrRevertRequest(req); err != nil {
-		return nil, helper.ErrInvalidArgument(err)
+		return nil, helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	quarantineDir, quarantineRepo, err := s.quarantinedRepo(ctx, req.GetRepository())
@@ -90,7 +90,7 @@ func (s *Server) UserCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 		case errors.As(err, &git2go.CommitNotFoundError{}):
 			return nil, helper.ErrNotFoundf("%w", err)
 		case errors.Is(err, git2go.ErrInvalidArgument):
-			return nil, helper.ErrInvalidArgument(err)
+			return nil, helper.ErrInvalidArgumentf("%w", err)
 		default:
 			return nil, helper.ErrInternalf("cherry-pick command: %w", err)
 		}

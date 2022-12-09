@@ -102,7 +102,7 @@ func validateReceivePackRequest(req *gitalypb.PostReceivePackRequest) error {
 		return helper.ErrInvalidArgumentf("non-empty Data")
 	}
 	if err := service.ValidateRepository(req.GetRepository()); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	return nil

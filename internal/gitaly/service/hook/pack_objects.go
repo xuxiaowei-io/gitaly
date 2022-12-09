@@ -371,7 +371,7 @@ func bufferStdin(r io.Reader, h hash.Hash) (_ io.ReadCloser, err error) {
 
 func (s *server) PackObjectsHookWithSidechannel(ctx context.Context, req *gitalypb.PackObjectsHookWithSidechannelRequest) (*gitalypb.PackObjectsHookWithSidechannelResponse, error) {
 	if err := service.ValidateRepository(req.GetRepository()); err != nil {
-		return nil, helper.ErrInvalidArgument(err)
+		return nil, helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	args, err := parsePackObjectsArgs(req.Args)
@@ -382,7 +382,7 @@ func (s *server) PackObjectsHookWithSidechannel(ctx context.Context, req *gitaly
 	c, err := gitalyhook.GetSidechannel(ctx)
 	if err != nil {
 		if errors.As(err, &gitalyhook.ErrInvalidSidechannelAddress{}) {
-			return nil, helper.ErrInvalidArgument(err)
+			return nil, helper.ErrInvalidArgumentf("%w", err)
 		}
 		return nil, helper.ErrInternalf("get side-channel: %w", err)
 	}

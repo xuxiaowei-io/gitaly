@@ -21,7 +21,7 @@ func (s *server) SSHUploadArchive(stream gitalypb.SSHService_SSHUploadArchiveSer
 		return helper.ErrInternal(err)
 	}
 	if err = validateFirstUploadArchiveRequest(req); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	if err = s.sshUploadArchive(stream, req); err != nil {

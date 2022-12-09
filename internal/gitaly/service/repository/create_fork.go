@@ -20,7 +20,7 @@ func (s *server) CreateFork(ctx context.Context, req *gitalypb.CreateForkRequest
 		return nil, helper.ErrInvalidArgumentf("empty SourceRepository")
 	}
 	if err := service.ValidateRepository(req.GetRepository()); err != nil {
-		return nil, helper.ErrInvalidArgument(err)
+		return nil, helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	if err := s.createRepository(ctx, targetRepository, func(repo *gitalypb.Repository) error {

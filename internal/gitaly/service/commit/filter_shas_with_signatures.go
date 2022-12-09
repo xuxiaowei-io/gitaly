@@ -18,7 +18,7 @@ func (s *server) FilterShasWithSignatures(bidi gitalypb.CommitService_FilterShas
 	}
 
 	if err = validateFirstFilterShasWithSignaturesRequest(firstRequest); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	if err := s.filterShasWithSignatures(bidi, firstRequest); err != nil {

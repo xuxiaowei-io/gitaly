@@ -56,12 +56,12 @@ func testUnary(t *testing.T, ctx context.Context) {
 		},
 		"wrapped error": {
 			ctx:         ctx,
-			err:         helper.ErrInvalidArgument(assert.AnError),
+			err:         helper.ErrInvalidArgumentf("%w", assert.AnError),
 			expectedErr: status.Error(codes.InvalidArgument, assert.AnError.Error()),
 		},
 		"formatted wrapped error": {
 			ctx: ctx,
-			err: fmt.Errorf("cause: %w", helper.ErrInvalidArgument(assert.AnError)),
+			err: fmt.Errorf("cause: %w", helper.ErrInvalidArgumentf("%w", assert.AnError)),
 			expectedErr: func(ff bool) error {
 				if ff {
 					return status.Error(codes.InvalidArgument, "cause: "+assert.AnError.Error())
@@ -141,12 +141,12 @@ func testStream(t *testing.T, ctx context.Context) {
 		},
 		"wrapped error": {
 			ctx:         ctx,
-			err:         helper.ErrInvalidArgument(assert.AnError),
+			err:         helper.ErrInvalidArgumentf("%w", assert.AnError),
 			expectedErr: status.Error(codes.InvalidArgument, assert.AnError.Error()),
 		},
 		"formatted wrapped error": {
 			ctx: ctx,
-			err: fmt.Errorf("cause: %w", helper.ErrInvalidArgument(assert.AnError)),
+			err: fmt.Errorf("cause: %w", helper.ErrInvalidArgumentf("%w", assert.AnError)),
 			expectedErr: func(ff bool) error {
 				if ff {
 					return status.Error(codes.InvalidArgument, "cause: "+assert.AnError.Error())

@@ -15,7 +15,7 @@ import (
 
 func (s *server) GetTagMessages(request *gitalypb.GetTagMessagesRequest, stream gitalypb.RefService_GetTagMessagesServer) error {
 	if err := validateGetTagMessagesRequest(request); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 	if err := s.getAndStreamTagMessages(request, stream); err != nil {
 		return helper.ErrInternal(err)

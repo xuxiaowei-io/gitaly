@@ -34,7 +34,7 @@ var ErrInvalidSourceRepository = status.Error(codes.NotFound, "invalid source re
 
 func (s *server) ReplicateRepository(ctx context.Context, in *gitalypb.ReplicateRepositoryRequest) (*gitalypb.ReplicateRepositoryResponse, error) {
 	if err := validateReplicateRepository(in); err != nil {
-		return nil, helper.ErrInvalidArgument(err)
+		return nil, helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	repoPath, err := s.locator.GetPath(in.GetRepository())
