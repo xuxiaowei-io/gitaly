@@ -145,6 +145,10 @@ func (e grpcErrorMessageWrapper) Unwrap() error {
 	return e.Status.Err()
 }
 
+type grpcStatuser interface {
+	GRPCStatus() *status.Status
+}
+
 // formatError will create a new error from the given format string. If the error string contains a
 // %w verb and its corresponding error has a gRPC error code, then the returned error will keep this
 // gRPC error code instead of using the one provided as an argument.
@@ -176,7 +180,20 @@ func formatError(code codes.Code, format string, a ...interface{}) error {
 		}
 	}
 
-	return statusWrapper{err, status.New(code, err.Error())}
+	st := status.New(code, err.Error())
+
+	var wrappedGRPCStatus grpcStatuser
+	if errors.As(err, &wrappedGRPCStatus) {
+		wrappedProto := wrappedGRPCStatus.GRPCStatus().Proto()
+
+		if len(wrappedProto.Details) > 0 {
+			proto := st.Proto()
+			proto.Details = wrappedProto.Details
+			st = status.FromProto(proto)
+		}
+	}
+
+	return statusWrapper{err, st}
 }
 
 // GrpcCode translates errors into codes.Code values.
