@@ -12,7 +12,7 @@ import (
 
 func (s *server) FetchIntoObjectPool(ctx context.Context, req *gitalypb.FetchIntoObjectPoolRequest) (*gitalypb.FetchIntoObjectPoolResponse, error) {
 	if err := validateFetchIntoObjectPoolRequest(req); err != nil {
-		return nil, helper.ErrInvalidArgument(err)
+		return nil, helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	objectPool, err := objectpool.FromProto(s.locator, s.gitCmdFactory, s.catfileCache, s.txManager, s.housekeepingManager, req.GetObjectPool())

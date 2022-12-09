@@ -46,7 +46,7 @@ func (s *server) OptimizeRepository(ctx context.Context, in *gitalypb.OptimizeRe
 func (s *server) validateOptimizeRepositoryRequest(in *gitalypb.OptimizeRepositoryRequest) error {
 	repository := in.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	_, err := s.locator.GetRepoPath(repository)

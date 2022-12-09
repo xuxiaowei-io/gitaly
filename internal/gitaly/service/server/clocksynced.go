@@ -10,7 +10,7 @@ import (
 // ClockSynced returns whether the system clock has an acceptable time drift when compared to NTP service.
 func (s *server) ClockSynced(_ context.Context, req *gitalypb.ClockSyncedRequest) (*gitalypb.ClockSyncedResponse, error) {
 	if err := req.DriftThreshold.CheckValid(); err != nil {
-		return nil, helper.ErrInvalidArgument(err)
+		return nil, helper.ErrInvalidArgumentf("%w", err)
 	}
 	synced, err := helper.CheckClockSync(req.NtpHost, req.DriftThreshold.AsDuration())
 	if err != nil {

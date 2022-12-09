@@ -14,7 +14,7 @@ import (
 func (s *server) GetInfoAttributes(in *gitalypb.GetInfoAttributesRequest, stream gitalypb.RepositoryService_GetInfoAttributesServer) error {
 	repository := in.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 	repoPath, err := s.locator.GetRepoPath(repository)
 	if err != nil {

@@ -12,12 +12,12 @@ import (
 func (s *server) CreateRepository(ctx context.Context, req *gitalypb.CreateRepositoryRequest) (*gitalypb.CreateRepositoryResponse, error) {
 	repository := req.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
-		return nil, helper.ErrInvalidArgument(err)
+		return nil, helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	hash, err := git.ObjectHashByProto(req.GetObjectFormat())
 	if err != nil {
-		return nil, helper.ErrInvalidArgument(err)
+		return nil, helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	if err := s.createRepository(

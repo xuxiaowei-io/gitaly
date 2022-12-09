@@ -37,7 +37,7 @@ func (s *server) PostUploadPack(stream gitalypb.SmartHTTPService_PostUploadPackS
 
 	repoPath, gitConfig, err := s.validateUploadPackRequest(ctx, req)
 	if err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	stdin := streamio.NewReader(func() ([]byte, error) {
@@ -59,7 +59,7 @@ func (s *server) PostUploadPack(stream gitalypb.SmartHTTPService_PostUploadPackS
 func (s *server) PostUploadPackWithSidechannel(ctx context.Context, req *gitalypb.PostUploadPackWithSidechannelRequest) (*gitalypb.PostUploadPackWithSidechannelResponse, error) {
 	repoPath, gitConfig, err := s.validateUploadPackRequest(ctx, req)
 	if err != nil {
-		return nil, helper.ErrInvalidArgument(err)
+		return nil, helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	conn, err := sidechannel.OpenSidechannel(ctx)

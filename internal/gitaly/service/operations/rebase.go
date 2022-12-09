@@ -23,11 +23,11 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 
 	header := firstRequest.GetHeader()
 	if header == nil {
-		return helper.ErrInvalidArgument(errors.New("empty UserRebaseConfirmableRequest.Header"))
+		return helper.ErrInvalidArgumentf("empty UserRebaseConfirmableRequest.Header")
 	}
 
 	if err := validateUserRebaseConfirmableHeader(header); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	ctx := stream.Context()

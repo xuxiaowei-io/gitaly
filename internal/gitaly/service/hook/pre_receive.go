@@ -19,7 +19,7 @@ func (s *server) PreReceiveHook(stream gitalypb.HookService_PreReceiveHookServer
 	}
 
 	if err := validatePreReceiveHookRequest(firstRequest); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 	repository := firstRequest.GetRepository()
 

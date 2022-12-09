@@ -27,7 +27,7 @@ func (s *server) FetchBundle(stream gitalypb.RepositoryService_FetchBundleServer
 	}
 
 	if err := service.ValidateRepository(firstRequest.GetRepository()); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	firstRead := true

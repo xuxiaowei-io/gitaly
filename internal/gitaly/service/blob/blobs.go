@@ -37,7 +37,7 @@ func verifyListBlobsRequest(req *gitalypb.ListBlobsRequest) error {
 // revisions.
 func (s *server) ListBlobs(req *gitalypb.ListBlobsRequest, stream gitalypb.BlobService_ListBlobsServer) error {
 	if err := verifyListBlobsRequest(req); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	ctx := stream.Context()

@@ -17,7 +17,7 @@ import (
 //nolint:revive // This is unintentionally missing documentation.
 func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest) (*gitalypb.UserRevertResponse, error) {
 	if err := validateCherryPickOrRevertRequest(req); err != nil {
-		return nil, helper.ErrInvalidArgument(err)
+		return nil, helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	quarantineDir, quarantineRepo, err := s.quarantinedRepo(ctx, req.GetRepository())
@@ -47,7 +47,7 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 
 	authorDate, err := dateFromProto(req)
 	if err != nil {
-		return nil, helper.ErrInvalidArgument(err)
+		return nil, helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	newrev, err := s.git2goExecutor.Revert(ctx, quarantineRepo, git2go.RevertCommand{
@@ -72,7 +72,7 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 				CreateTreeErrorCode: gitalypb.UserRevertResponse_EMPTY,
 			}, nil
 		} else if errors.Is(err, git2go.ErrInvalidArgument) {
-			return nil, helper.ErrInvalidArgument(err)
+			return nil, helper.ErrInvalidArgumentf("%w", err)
 		} else {
 			return nil, helper.ErrInternalf("revert command: %w", err)
 		}

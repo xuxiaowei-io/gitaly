@@ -23,7 +23,7 @@ var objectFiles = []*regexp.Regexp{
 
 func (s *server) GetSnapshot(in *gitalypb.GetSnapshotRequest, stream gitalypb.RepositoryService_GetSnapshotServer) error {
 	if err := service.ValidateRepository(in.GetRepository()); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	path, err := s.locator.GetRepoPath(in.Repository)

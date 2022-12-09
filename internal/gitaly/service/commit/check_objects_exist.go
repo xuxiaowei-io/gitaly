@@ -32,7 +32,7 @@ func (s *server) CheckObjectsExist(
 
 	repository := request.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	objectInfoReader, cancel, err := s.catfileCache.ObjectInfoReader(

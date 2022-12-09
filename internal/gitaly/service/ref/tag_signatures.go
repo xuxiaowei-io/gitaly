@@ -34,7 +34,7 @@ func verifyGetTagSignaturesRequest(req *gitalypb.GetTagSignaturesRequest) error 
 
 func (s *server) GetTagSignatures(req *gitalypb.GetTagSignaturesRequest, stream gitalypb.RefService_GetTagSignaturesServer) error {
 	if err := verifyGetTagSignaturesRequest(req); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	ctx := stream.Context()

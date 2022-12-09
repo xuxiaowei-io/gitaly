@@ -19,7 +19,7 @@ func (s *server) ListConflictFiles(request *gitalypb.ListConflictFilesRequest, s
 	ctx := stream.Context()
 
 	if err := validateListConflictFilesRequest(request); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	repo := s.localrepo(request.GetRepository())
@@ -46,7 +46,7 @@ func (s *server) ListConflictFiles(request *gitalypb.ListConflictFilesRequest, s
 	})
 	if err != nil {
 		if errors.Is(err, git2go.ErrInvalidArgument) {
-			return helper.ErrInvalidArgument(err)
+			return helper.ErrInvalidArgumentf("%w", err)
 		}
 		return helper.ErrInternal(err)
 	}

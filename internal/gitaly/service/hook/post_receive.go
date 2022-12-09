@@ -30,7 +30,7 @@ func (s *server) PostReceiveHook(stream gitalypb.HookService_PostReceiveHookServ
 	}
 
 	if err := validatePostReceiveHookRequest(firstRequest); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	stdin := streamio.NewReader(func() ([]byte, error) {

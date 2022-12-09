@@ -16,7 +16,7 @@ import (
 // FindAllBranchNames creates a stream of ref names for all branches in the given repository
 func (s *server) FindAllBranchNames(in *gitalypb.FindAllBranchNamesRequest, stream gitalypb.RefService_FindAllBranchNamesServer) error {
 	if err := service.ValidateRepository(in.GetRepository()); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	chunker := chunk.New(&findAllBranchNamesSender{stream: stream})
@@ -45,7 +45,7 @@ func (ts *findAllBranchNamesSender) Send() error {
 // FindAllTagNames creates a stream of ref names for all tags in the given repository
 func (s *server) FindAllTagNames(in *gitalypb.FindAllTagNamesRequest, stream gitalypb.RefService_FindAllTagNamesServer) error {
 	if err := service.ValidateRepository(in.GetRepository()); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	chunker := chunk.New(&findAllTagNamesSender{stream: stream})

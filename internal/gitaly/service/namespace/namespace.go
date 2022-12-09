@@ -73,7 +73,7 @@ func (s *server) validateRenameNamespaceRequest(ctx context.Context, in *gitalyp
 
 func (s *server) RenameNamespace(ctx context.Context, in *gitalypb.RenameNamespaceRequest) (*gitalypb.RenameNamespaceResponse, error) {
 	if err := s.validateRenameNamespaceRequest(ctx, in); err != nil {
-		return nil, helper.ErrInvalidArgument(err)
+		return nil, helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	storagePath, err := s.locator.GetStorageByName(in.GetStorageName())

@@ -20,7 +20,7 @@ func (s *server) SetFullPath(
 ) (*gitalypb.SetFullPathResponse, error) {
 	repository := request.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
-		return nil, helper.ErrInvalidArgument(err)
+		return nil, helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	if len(request.GetPath()) == 0 {
@@ -41,7 +41,7 @@ func (s *server) SetFullPath(
 func (s *server) FullPath(ctx context.Context, request *gitalypb.FullPathRequest) (*gitalypb.FullPathResponse, error) {
 	repository := request.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
-		return nil, helper.ErrInvalidArgument(err)
+		return nil, helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	repo := s.localrepo(repository)

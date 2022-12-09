@@ -17,7 +17,7 @@ func validateUpdateHookRequest(in *gitalypb.UpdateHookRequest) error {
 
 func (s *server) UpdateHook(in *gitalypb.UpdateHookRequest, stream gitalypb.HookService_UpdateHookServer) error {
 	if err := validateUpdateHookRequest(in); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	var m sync.Mutex

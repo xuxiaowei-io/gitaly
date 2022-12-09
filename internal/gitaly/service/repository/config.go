@@ -18,7 +18,7 @@ func (s *server) GetConfig(
 ) error {
 	repository := request.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 	repoPath, err := s.locator.GetPath(repository)
 	if err != nil {

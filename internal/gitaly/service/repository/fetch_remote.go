@@ -155,7 +155,7 @@ func didTagsChange(r io.Reader) bool {
 
 func (s *server) validateFetchRemoteRequest(req *gitalypb.FetchRemoteRequest) error {
 	if err := service.ValidateRepository(req.GetRepository()); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	if req.GetRemoteParams() == nil {

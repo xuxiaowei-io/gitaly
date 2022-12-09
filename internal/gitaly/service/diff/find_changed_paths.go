@@ -197,7 +197,7 @@ func resolveObjectWithType(ctx context.Context, repo *localrepo.Repo, revision s
 func (s *server) validateFindChangedPathsRequestParams(ctx context.Context, in *gitalypb.FindChangedPathsRequest) error {
 	repository := in.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 	if _, err := s.locator.GetRepoPath(repository); err != nil {
 		return err

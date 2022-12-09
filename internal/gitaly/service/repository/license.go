@@ -43,7 +43,7 @@ var nicknameByLicenseIdentifier = map[string]string{
 func (s *server) FindLicense(ctx context.Context, req *gitalypb.FindLicenseRequest) (*gitalypb.FindLicenseResponse, error) {
 	repository := req.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
-		return nil, helper.ErrInvalidArgument(err)
+		return nil, helper.ErrInvalidArgumentf("%w", err)
 	}
 	if featureflag.GoFindLicense.IsEnabled(ctx) {
 		repo := localrepo.New(s.locator, s.gitCmdFactory, s.catfileCache, repository)

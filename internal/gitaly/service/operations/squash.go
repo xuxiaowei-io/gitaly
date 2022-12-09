@@ -23,7 +23,7 @@ const (
 // commit whose single parent is the start revision.
 func (s *Server) UserSquash(ctx context.Context, req *gitalypb.UserSquashRequest) (*gitalypb.UserSquashResponse, error) {
 	if err := validateUserSquashRequest(req); err != nil {
-		return nil, helper.ErrInvalidArgument(err)
+		return nil, helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	sha, err := s.userSquash(ctx, req)
@@ -122,7 +122,7 @@ func (s *Server) userSquash(ctx context.Context, req *gitalypb.UserSquashRequest
 
 	commitDate, err := dateFromProto(req)
 	if err != nil {
-		return "", helper.ErrInvalidArgument(err)
+		return "", helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	message := string(req.GetCommitMessage())

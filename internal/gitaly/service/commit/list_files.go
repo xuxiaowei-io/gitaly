@@ -20,7 +20,7 @@ func (s *server) ListFiles(in *gitalypb.ListFilesRequest, stream gitalypb.Commit
 	}).Debug("ListFiles")
 
 	if err := validateListFilesRequest(in); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	repo := s.localrepo(in.GetRepository())

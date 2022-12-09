@@ -37,7 +37,7 @@ func (s *server) FindCommits(req *gitalypb.FindCommitsRequest, stream gitalypb.C
 	ctx := stream.Context()
 
 	if err := validateFindCommitsRequest(req); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	repo := s.localrepo(req.GetRepository())
@@ -54,7 +54,7 @@ func (s *server) FindCommits(req *gitalypb.FindCommitsRequest, stream gitalypb.C
 	// Clients might send empty paths. That is an error
 	for _, path := range req.Paths {
 		if len(path) == 0 {
-			return helper.ErrInvalidArgument(errors.New("path is empty string"))
+			return helper.ErrInvalidArgumentf("path is empty string")
 		}
 	}
 

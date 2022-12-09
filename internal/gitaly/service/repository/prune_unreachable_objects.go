@@ -21,7 +21,7 @@ func (s *server) PruneUnreachableObjects(
 ) (*gitalypb.PruneUnreachableObjectsResponse, error) {
 	repository := request.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
-		return nil, helper.ErrInvalidArgument(err)
+		return nil, helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	repo := s.localrepo(repository)

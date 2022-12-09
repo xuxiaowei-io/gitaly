@@ -21,7 +21,7 @@ func (s *server) ListAllCommits(
 	stream gitalypb.CommitService_ListAllCommitsServer,
 ) error {
 	if err := verifyListAllCommitsRequest(request); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	ctx := stream.Context()

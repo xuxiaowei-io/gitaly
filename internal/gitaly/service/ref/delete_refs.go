@@ -20,7 +20,7 @@ import (
 
 func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest) (_ *gitalypb.DeleteRefsResponse, returnedErr error) {
 	if err := validateDeleteRefRequest(in); err != nil {
-		return nil, helper.ErrInvalidArgument(err)
+		return nil, helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	repo := s.localrepo(in.GetRepository())
@@ -33,7 +33,7 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 	updater, err := updateref.New(ctx, repo, updateref.WithNoDeref())
 	if err != nil {
 		if errors.Is(err, git.ErrInvalidArg) {
-			return nil, helper.ErrInvalidArgument(err)
+			return nil, helper.ErrInvalidArgumentf("%w", err)
 		}
 		return nil, helper.ErrInternal(err)
 	}

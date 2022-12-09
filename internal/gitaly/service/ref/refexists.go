@@ -14,7 +14,7 @@ import (
 // RefExists returns true if the given reference exists. The ref must start with the string `ref/`
 func (s *server) RefExists(ctx context.Context, in *gitalypb.RefExistsRequest) (*gitalypb.RefExistsResponse, error) {
 	if err := service.ValidateRepository(in.GetRepository()); err != nil {
-		return nil, helper.ErrInvalidArgument(err)
+		return nil, helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	ref := string(in.Ref)

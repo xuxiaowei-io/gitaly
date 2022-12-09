@@ -31,7 +31,7 @@ func (s *server) UpdateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMi
 	}
 
 	if err = validateUpdateRemoteMirrorRequest(stream.Context(), firstRequest); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	if err := s.updateRemoteMirror(stream, firstRequest); err != nil {

@@ -13,7 +13,7 @@ import (
 
 func (s *server) FindAllRemoteBranches(req *gitalypb.FindAllRemoteBranchesRequest, stream gitalypb.RefService_FindAllRemoteBranchesServer) error {
 	if err := validateFindAllRemoteBranchesRequest(req); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	if err := s.findAllRemoteBranches(req, stream); err != nil {

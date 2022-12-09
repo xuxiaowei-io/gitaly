@@ -17,10 +17,10 @@ import (
 // which contain the SHA1 passed as argument
 func (s *server) ListBranchNamesContainingCommit(in *gitalypb.ListBranchNamesContainingCommitRequest, stream gitalypb.RefService_ListBranchNamesContainingCommitServer) error {
 	if err := service.ValidateRepository(in.GetRepository()); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 	if err := git.ObjectHashSHA1.ValidateHex(in.GetCommitId()); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	chunker := chunk.New(&branchNamesContainingCommitSender{stream: stream})
@@ -63,10 +63,10 @@ func (bs *branchNamesContainingCommitSender) Send() error {
 // which contain the SHA1 passed as argument
 func (s *server) ListTagNamesContainingCommit(in *gitalypb.ListTagNamesContainingCommitRequest, stream gitalypb.RefService_ListTagNamesContainingCommitServer) error {
 	if err := service.ValidateRepository(in.GetRepository()); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 	if err := git.ObjectHashSHA1.ValidateHex(in.GetCommitId()); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	chunker := chunk.New(&tagNamesContainingCommitSender{stream: stream})

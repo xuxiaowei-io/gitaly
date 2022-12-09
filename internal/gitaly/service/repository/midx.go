@@ -28,7 +28,7 @@ const (
 func (s *server) MidxRepack(ctx context.Context, in *gitalypb.MidxRepackRequest) (*gitalypb.MidxRepackResponse, error) {
 	repository := in.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
-		return nil, helper.ErrInvalidArgument(err)
+		return nil, helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	repo := s.localrepo(repository)
@@ -40,7 +40,7 @@ func (s *server) MidxRepack(ctx context.Context, in *gitalypb.MidxRepackRequest)
 	for _, cmd := range []midxSubCommand{s.midxWrite, s.midxExpire, s.midxRepack} {
 		if err := s.safeMidxCommand(ctx, repository, cmd); err != nil {
 			if git.IsInvalidArgErr(err) {
-				return nil, helper.ErrInvalidArgument(err)
+				return nil, helper.ErrInvalidArgumentf("%w", err)
 			}
 
 			return nil, helper.ErrInternalf("...%w", err)

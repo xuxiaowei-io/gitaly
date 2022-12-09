@@ -29,7 +29,7 @@ func validateCommitIsAncestorRequest(in *gitalypb.CommitIsAncestorRequest) error
 
 func (s *server) CommitIsAncestor(ctx context.Context, in *gitalypb.CommitIsAncestorRequest) (*gitalypb.CommitIsAncestorResponse, error) {
 	if err := validateCommitIsAncestorRequest(in); err != nil {
-		return nil, helper.ErrInvalidArgument(err)
+		return nil, helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	ret, err := s.commitIsAncestorName(ctx, in.Repository, in.AncestorId, in.ChildId)

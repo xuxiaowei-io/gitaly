@@ -188,7 +188,7 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 	})
 	if err != nil {
 		if errors.Is(err, git2go.ErrInvalidArgument) {
-			return helper.ErrInvalidArgument(err)
+			return helper.ErrInvalidArgumentf("%w", err)
 		}
 		return err
 	}

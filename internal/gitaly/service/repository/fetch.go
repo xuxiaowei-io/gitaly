@@ -28,7 +28,7 @@ func validateFetchSourceBranchRequest(in *gitalypb.FetchSourceBranchRequest) err
 
 func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourceBranchRequest) (*gitalypb.FetchSourceBranchResponse, error) {
 	if err := validateFetchSourceBranchRequest(req); err != nil {
-		return nil, helper.ErrInvalidArgument(err)
+		return nil, helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	targetRepo := s.localrepo(req.GetRepository())

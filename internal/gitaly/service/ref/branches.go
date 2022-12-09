@@ -13,7 +13,7 @@ import (
 func (s *server) FindBranch(ctx context.Context, req *gitalypb.FindBranchRequest) (*gitalypb.FindBranchResponse, error) {
 	repository := req.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
-		return nil, helper.ErrInvalidArgument(err)
+		return nil, helper.ErrInvalidArgumentf("%w", err)
 	}
 	if len(req.GetName()) == 0 {
 		return nil, helper.ErrInvalidArgumentf("Branch name cannot be empty")

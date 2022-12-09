@@ -16,7 +16,7 @@ import (
 
 func (s *server) RenameRepository(ctx context.Context, in *gitalypb.RenameRepositoryRequest) (*gitalypb.RenameRepositoryResponse, error) {
 	if err := validateRenameRepositoryRequest(in); err != nil {
-		return nil, helper.ErrInvalidArgument(err)
+		return nil, helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	targetRepo := &gitalypb.Repository{
@@ -34,12 +34,12 @@ func (s *server) RenameRepository(ctx context.Context, in *gitalypb.RenameReposi
 func (s *server) renameRepository(ctx context.Context, sourceRepo, targetRepo *gitalypb.Repository) error {
 	sourcePath, err := s.locator.GetRepoPath(sourceRepo)
 	if err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	targetPath, err := s.locator.GetPath(targetRepo)
 	if err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	// Check up front whether the target path exists already. If it does, we can avoid going
@@ -98,7 +98,7 @@ func (s *server) renameRepository(ctx context.Context, sourceRepo, targetRepo *g
 
 func validateRenameRepositoryRequest(in *gitalypb.RenameRepositoryRequest) error {
 	if err := service.ValidateRepository(in.GetRepository()); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	if in.GetRelativePath() == "" {

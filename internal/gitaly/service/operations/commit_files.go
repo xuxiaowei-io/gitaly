@@ -38,7 +38,7 @@ func (s *Server) UserCommitFiles(stream gitalypb.OperationService_UserCommitFile
 	}
 
 	if err = validateUserCommitFilesHeader(header); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	ctx := stream.Context()
@@ -92,7 +92,7 @@ func (s *Server) UserCommitFiles(stream gitalypb.OperationService_UserCommitFile
 					},
 				)
 			case errors.As(err, new(git2go.InvalidArgumentError)):
-				return helper.ErrInvalidArgument(err)
+				return helper.ErrInvalidArgumentf("%w", err)
 			default:
 				return err
 			}
@@ -105,7 +105,7 @@ func (s *Server) UserCommitFiles(stream gitalypb.OperationService_UserCommitFile
 			case errors.As(err, &customHookErr):
 				response = gitalypb.UserCommitFilesResponse{PreReceiveError: customHookErr.Error()}
 			case errors.As(err, new(git2go.InvalidArgumentError)):
-				return helper.ErrInvalidArgument(err)
+				return helper.ErrInvalidArgumentf("%w", err)
 			default:
 				return helper.ErrInternal(err)
 			}
@@ -311,7 +311,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 
 	now, err := dateFromProto(header)
 	if err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	committer := git2go.NewSignature(string(header.User.Name), string(header.User.Email), now)

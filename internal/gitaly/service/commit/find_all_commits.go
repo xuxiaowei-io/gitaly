@@ -11,7 +11,7 @@ import (
 
 func (s *server) FindAllCommits(in *gitalypb.FindAllCommitsRequest, stream gitalypb.CommitService_FindAllCommitsServer) error {
 	if err := validateFindAllCommitsRequest(in); err != nil {
-		return helper.ErrInvalidArgument(err)
+		return helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	ctx := stream.Context()
@@ -22,7 +22,7 @@ func (s *server) FindAllCommits(in *gitalypb.FindAllCommitsRequest, stream gital
 	if len(in.GetRevision()) == 0 {
 		refs, err := repo.GetReferences(ctx, "refs/heads")
 		if err != nil {
-			return helper.ErrInvalidArgument(err)
+			return helper.ErrInvalidArgumentf("%w", err)
 		}
 
 		for _, ref := range refs {
