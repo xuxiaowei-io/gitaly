@@ -18,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -104,11 +105,7 @@ func TestCreate(t *testing.T) {
 				RelativePath: relativePath,
 			},
 		})
-		require.Error(t, err)
-		require.EqualError(t, err, fmt.Sprintf(
-			`cloning to pool: exit status 128, stderr: "fatal: destination path '%s' already exists and is not an empty directory.\n"`,
-			fullPath,
-		))
+		testhelper.RequireGrpcError(t, helper.ErrFailedPreconditionf("target path exists already and is not an empty directory"), err)
 	})
 
 	t.Run("consistency check", func(t *testing.T) {
