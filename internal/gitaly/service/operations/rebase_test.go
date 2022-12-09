@@ -3,7 +3,6 @@
 package operations
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"testing"
@@ -607,7 +606,7 @@ func TestUserRebaseConfirmable_gitError(t *testing.T) {
 	response, err := rebaseStream.Recv()
 	require.Nil(t, response)
 	testhelper.RequireGrpcError(t, errWithDetails(t,
-		helper.ErrFailedPrecondition(errors.New(`rebasing commits: rebase: commit "eb8f5fb9523b868cef583e09d4bf70b99d2dd404": there are conflicting files`)),
+		helper.ErrFailedPreconditionf(`rebasing commits: rebase: commit "eb8f5fb9523b868cef583e09d4bf70b99d2dd404": there are conflicting files`),
 		&gitalypb.UserRebaseConfirmableError{
 			Error: &gitalypb.UserRebaseConfirmableError_RebaseConflict{
 				RebaseConflict: &gitalypb.MergeConflictError{

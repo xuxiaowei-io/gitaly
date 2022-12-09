@@ -181,7 +181,7 @@ func TestStreamDirectorMutator(t *testing.T) {
 		},
 		{
 			desc:  "repository not found",
-			error: helper.ErrNotFound(fmt.Errorf("mutator call: route repository mutator: %w", fmt.Errorf("get repository id: %w", commonerr.NewRepositoryNotFoundError(targetRepo.StorageName, targetRepo.RelativePath)))),
+			error: helper.ErrNotFoundf("%w", fmt.Errorf("mutator call: route repository mutator: %w", fmt.Errorf("get repository id: %w", commonerr.NewRepositoryNotFoundError(targetRepo.StorageName, targetRepo.RelativePath)))),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -1108,7 +1108,7 @@ func TestStreamDirectorAccessor(t *testing.T) {
 					return RepositoryAccessorRoute{}, commonerr.NewRepositoryNotFoundError(virtualStorage, relativePath)
 				},
 			},
-			error: helper.ErrNotFound(fmt.Errorf("accessor call: route repository accessor: %w", commonerr.NewRepositoryNotFoundError(targetRepo.StorageName, targetRepo.RelativePath))),
+			error: helper.ErrNotFoundf("%w", fmt.Errorf("accessor call: route repository accessor: %w", commonerr.NewRepositoryNotFoundError(targetRepo.StorageName, targetRepo.RelativePath))),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

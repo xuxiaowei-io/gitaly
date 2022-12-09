@@ -78,7 +78,7 @@ func (s *Server) UserCreateBranch(ctx context.Context, req *gitalypb.UserCreateB
 
 		var updateRefError updateref.Error
 		if errors.As(err, &updateRefError) {
-			return nil, helper.ErrFailedPrecondition(err)
+			return nil, helper.ErrFailedPreconditionf("%w", err)
 		}
 
 		return nil, err

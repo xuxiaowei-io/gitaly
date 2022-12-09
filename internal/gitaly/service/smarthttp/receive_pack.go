@@ -63,11 +63,11 @@ func (s *server) PostReceivePack(stream gitalypb.SmartHTTPService_PostReceivePac
 		git.WithConfig(config...),
 	)
 	if err != nil {
-		return helper.ErrUnavailable(err)
+		return helper.ErrUnavailablef("spawning receive-pack: %w", err)
 	}
 
 	if err := cmd.Wait(); err != nil {
-		return helper.ErrUnavailable(err)
+		return helper.ErrUnavailablef("waiting for receive-pack: %w", err)
 	}
 
 	// In cases where all reference updates are rejected by git-receive-pack(1), we would end up

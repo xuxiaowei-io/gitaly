@@ -56,7 +56,7 @@ func (s *Server) UserDeleteTag(ctx context.Context, req *gitalypb.UserDeleteTagR
 
 		var updateRefError updateref.Error
 		if errors.As(err, &updateRefError) {
-			return nil, helper.ErrFailedPrecondition(err)
+			return nil, helper.ErrFailedPreconditionf("%w", err)
 		}
 
 		return nil, helper.ErrInternal(err)

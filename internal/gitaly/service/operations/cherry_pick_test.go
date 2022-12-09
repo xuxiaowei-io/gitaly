@@ -3,7 +3,6 @@
 package operations
 
 import (
-	"errors"
 	"fmt"
 	"path/filepath"
 	"testing"
@@ -400,9 +399,7 @@ func TestServer_UserCherryPick_failedWithPreReceiveError(t *testing.T) {
 			response, err := client.UserCherryPick(ctx, request)
 			require.Nil(t, response)
 			testhelper.RequireGrpcError(t, errWithDetails(t,
-				helper.ErrFailedPrecondition(
-					errors.New("access check failed"),
-				),
+				helper.ErrFailedPreconditionf("access check failed"),
 				&gitalypb.UserCherryPickError{
 					Error: &gitalypb.UserCherryPickError_AccessCheck{
 						AccessCheck: &gitalypb.AccessCheckError{
@@ -440,9 +437,7 @@ func TestServer_UserCherryPick_failedWithCreateTreeError(t *testing.T) {
 	response, err := client.UserCherryPick(ctx, request)
 	require.Nil(t, response)
 	testhelper.RequireGrpcError(t, errWithDetails(t,
-		helper.ErrFailedPrecondition(
-			errors.New("cherry-pick: could not apply because the result was empty"),
-		),
+		helper.ErrFailedPreconditionf("cherry-pick: could not apply because the result was empty"),
 		&gitalypb.UserCherryPickError{
 			Error: &gitalypb.UserCherryPickError_ChangesAlreadyApplied{},
 		},

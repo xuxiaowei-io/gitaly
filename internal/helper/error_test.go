@@ -28,16 +28,6 @@ func TestError(t *testing.T) {
 		code   codes.Code
 	}{
 		{
-			desc:   "Canceled",
-			errorf: ErrCanceled,
-			code:   codes.Canceled,
-		},
-		{
-			desc:   "DeadlineExceeded",
-			errorf: ErrDeadlineExceeded,
-			code:   codes.DeadlineExceeded,
-		},
-		{
 			desc:   "Internal",
 			errorf: ErrInternal,
 			code:   codes.Internal,
@@ -46,41 +36,6 @@ func TestError(t *testing.T) {
 			desc:   "InvalidArgument",
 			errorf: ErrInvalidArgument,
 			code:   codes.InvalidArgument,
-		},
-		{
-			desc:   "FailedPrecondition",
-			errorf: ErrFailedPrecondition,
-			code:   codes.FailedPrecondition,
-		},
-		{
-			desc:   "NotFound",
-			errorf: ErrNotFound,
-			code:   codes.NotFound,
-		},
-		{
-			desc:   "Unavailable",
-			errorf: ErrUnavailable,
-			code:   codes.Unavailable,
-		},
-		{
-			desc:   "AlreadyExists",
-			errorf: ErrAlreadyExists,
-			code:   codes.AlreadyExists,
-		},
-		{
-			desc:   "Aborted",
-			errorf: ErrAborted,
-			code:   codes.Aborted,
-		},
-		{
-			desc:   "Unauthenticated",
-			errorf: ErrUnauthenticated,
-			code:   codes.Unauthenticated,
-		},
-		{
-			desc:   "ResourceExhausted",
-			errorf: ErrResourceExhausted,
-			code:   codes.ResourceExhausted,
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
