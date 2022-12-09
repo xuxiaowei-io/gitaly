@@ -8,7 +8,12 @@ import (
 	"path/filepath"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
 // Create creates an object pool for the given source repository. This is done by creating a local
@@ -16,14 +21,28 @@ import (
 // references afterwards.
 //
 // The source repository will not join the object pool. Thus, its objects won't get deduplicated.
-func (o *ObjectPool) Create(ctx context.Context, sourceRepo *localrepo.Repo) (err error) {
+func Create(
+	ctx context.Context,
+	locator storage.Locator,
+	gitCmdFactory git.CommandFactory,
+	catfileCache catfile.Cache,
+	txManager transaction.Manager,
+	housekeepingManager housekeeping.Manager,
+	proto *gitalypb.ObjectPool,
+	sourceRepo *localrepo.Repo,
+) (*ObjectPool, error) {
+	objectPoolPath, err := locator.GetPath(proto.GetRepository())
+	if err != nil {
+		return nil, err
+	}
+
 	sourceRepoPath, err := sourceRepo.Path()
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("getting source repository path: %w", err)
 	}
 
 	var stderr bytes.Buffer
-	cmd, err := o.gitCmdFactory.NewWithoutRepo(ctx,
+	cmd, err := gitCmdFactory.NewWithoutRepo(ctx,
 		git.SubCmd{
 			Name: "clone",
 			Flags: []git.Option{
@@ -31,22 +50,27 @@ func (o *ObjectPool) Create(ctx context.Context, sourceRepo *localrepo.Repo) (er
 				git.Flag{Name: "--bare"},
 				git.Flag{Name: "--local"},
 			},
-			Args: []string{sourceRepoPath, o.FullPath()},
+			Args: []string{sourceRepoPath, objectPoolPath},
 		},
 		git.WithRefTxHook(sourceRepo),
 		git.WithStderr(&stderr),
 	)
 	if err != nil {
-		return fmt.Errorf("spawning clone: %w", err)
+		return nil, fmt.Errorf("spawning clone: %w", err)
 	}
 
 	if err := cmd.Wait(); err != nil {
-		return fmt.Errorf("cloning to pool: %w, stderr: %q", err, stderr.String())
+		return nil, fmt.Errorf("cloning to pool: %w, stderr: %q", err, stderr.String())
 	}
 
-	if err := os.RemoveAll(filepath.Join(o.FullPath(), "hooks")); err != nil {
-		return fmt.Errorf("removing hooks: %v", err)
+	if err := os.RemoveAll(filepath.Join(objectPoolPath, "hooks")); err != nil {
+		return nil, fmt.Errorf("removing hooks: %v", err)
 	}
 
-	return nil
+	objectPool, err := FromProto(locator, gitCmdFactory, catfileCache, txManager, housekeepingManager, proto)
+	if err != nil {
+		return nil, err
+	}
+
+	return objectPool, nil
 }

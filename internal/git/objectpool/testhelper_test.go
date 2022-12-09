@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
 func TestMain(m *testing.M) {
@@ -27,9 +28,10 @@ func setupObjectPool(t *testing.T, ctx context.Context) (config.Cfg, *ObjectPool
 	t.Helper()
 
 	cfg := testcfg.Build(t)
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	gitCommandFactory := gittest.NewCommandFactory(t, cfg, git.WithSkipHooks())
 
@@ -37,16 +39,22 @@ func setupObjectPool(t *testing.T, ctx context.Context) (config.Cfg, *ObjectPool
 	t.Cleanup(catfileCache.Stop)
 	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
 
-	pool, err := NewObjectPool(
+	pool, err := Create(
+		ctx,
 		config.NewLocator(cfg),
 		gitCommandFactory,
 		catfileCache,
 		txManager,
 		housekeeping.NewManager(cfg.Prometheus, txManager),
-		repo.GetStorageName(),
-		gittest.NewObjectPoolName(t),
+		&gitalypb.ObjectPool{
+			Repository: &gitalypb.Repository{
+				StorageName:  repo.GetStorageName(),
+				RelativePath: gittest.NewObjectPoolName(t),
+			},
+		},
+		repo,
 	)
 	require.NoError(t, err)
 
-	return cfg, pool, localrepo.NewTestRepo(t, cfg, repo)
+	return cfg, pool, repo
 }

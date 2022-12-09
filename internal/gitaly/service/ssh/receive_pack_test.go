@@ -429,17 +429,22 @@ func TestReceivePack_hidesObjectPoolReferences(t *testing.T) {
 	stream, err := client.SSHReceivePack(ctx)
 	require.NoError(t, err)
 
-	pool, err := objectpool.NewObjectPool(
+	pool, err := objectpool.Create(
+		ctx,
 		config.NewLocator(cfg),
 		gittest.NewCommandFactory(t, cfg),
 		nil,
 		txManager,
 		housekeeping.NewManager(cfg.Prometheus, txManager),
-		repo.GetStorageName(),
-		gittest.NewObjectPoolName(t),
+		&gitalypb.ObjectPool{
+			Repository: &gitalypb.Repository{
+				StorageName:  repo.GetStorageName(),
+				RelativePath: gittest.NewObjectPoolName(t),
+			},
+		},
+		repo,
 	)
 	require.NoError(t, err)
-	require.NoError(t, pool.Create(ctx, repo))
 	require.NoError(t, pool.Link(ctx, repo))
 
 	commitID := gittest.WriteCommit(t, cfg, pool.FullPath(), gittest.WithBranch(t.Name()))

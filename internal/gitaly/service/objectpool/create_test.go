@@ -8,7 +8,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/objectpool"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -19,20 +25,39 @@ func TestCreate(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg, repo, repoPath, _, client := setup(t, ctx)
-
 	commitID := gittest.WriteCommit(t, cfg, repoPath)
 
-	pool := initObjectPool(t, cfg, cfg.Storages[0])
+	txManager := transaction.NewManager(cfg, nil)
+	catfileCache := catfile.NewCache(cfg)
+	t.Cleanup(catfileCache.Stop)
 
-	poolReq := &gitalypb.CreateObjectPoolRequest{
-		ObjectPool: pool.ToProto(),
-		Origin:     repo,
+	poolProto := &gitalypb.ObjectPool{
+		Repository: &gitalypb.Repository{
+			StorageName:  cfg.Storages[0].Name,
+			RelativePath: gittest.NewObjectPoolName(t),
+		},
 	}
 
-	_, err := client.CreateObjectPool(ctx, poolReq)
+	_, err := client.CreateObjectPool(ctx, &gitalypb.CreateObjectPoolRequest{
+		ObjectPool: poolProto,
+		Origin:     repo,
+	})
 	require.NoError(t, err)
 
-	pool = rewrittenObjectPool(t, ctx, cfg, pool)
+	pool, err := objectpool.FromProto(
+		config.NewLocator(cfg),
+		gittest.NewCommandFactory(t, cfg),
+		catfileCache,
+		txManager,
+		housekeeping.NewManager(cfg.Prometheus, txManager),
+		&gitalypb.ObjectPool{
+			Repository: &gitalypb.Repository{
+				StorageName:  cfg.Storages[0].Name,
+				RelativePath: gittest.GetReplicaPath(t, ctx, cfg, poolProto.GetRepository()),
+			},
+		},
+	)
+	require.NoError(t, err)
 
 	// Assert that the now-created object pool exists and is valid.
 	require.True(t, pool.IsValid())
@@ -40,7 +65,10 @@ func TestCreate(t *testing.T) {
 	gittest.RequireObjectExists(t, cfg, pool.FullPath(), commitID)
 
 	// Making the same request twice should result in an error.
-	_, err = client.CreateObjectPool(ctx, poolReq)
+	_, err = client.CreateObjectPool(ctx, &gitalypb.CreateObjectPoolRequest{
+		ObjectPool: poolProto,
+		Origin:     repo,
+	})
 	require.Error(t, err)
 	require.True(t, pool.IsValid())
 }
@@ -51,11 +79,7 @@ func TestCreate_unsuccessful(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, repo, _, _, client := setup(t, ctx, testserver.WithDisablePraefect())
 
-	storageName := repo.GetStorageName()
-	pool := initObjectPool(t, cfg, cfg.Storages[0])
-	validPoolPath := pool.GetRelativePath()
-
-	testCases := []struct {
+	for _, tc := range []struct {
 		desc        string
 		request     *gitalypb.CreateObjectPoolRequest
 		expectedErr error
@@ -63,7 +87,12 @@ func TestCreate_unsuccessful(t *testing.T) {
 		{
 			desc: "no origin repository",
 			request: &gitalypb.CreateObjectPoolRequest{
-				ObjectPool: pool.ToProto(),
+				ObjectPool: &gitalypb.ObjectPool{
+					Repository: &gitalypb.Repository{
+						StorageName:  cfg.Storages[0].Name,
+						RelativePath: gittest.NewObjectPoolName(t),
+					},
+				},
 			},
 			expectedErr: errMissingOriginRepository,
 		},
@@ -72,7 +101,7 @@ func TestCreate_unsuccessful(t *testing.T) {
 			request: &gitalypb.CreateObjectPoolRequest{
 				Origin: repo,
 			},
-			expectedErr: errMissingPool,
+			expectedErr: helper.ErrInvalidArgumentf("GetStorageByName: no such storage: %q", ""),
 		},
 		{
 			desc: "outside pools directory",
@@ -80,7 +109,7 @@ func TestCreate_unsuccessful(t *testing.T) {
 				Origin: repo,
 				ObjectPool: &gitalypb.ObjectPool{
 					Repository: &gitalypb.Repository{
-						StorageName:  storageName,
+						StorageName:  cfg.Storages[0].Name,
 						RelativePath: "outside-pools",
 					},
 				},
@@ -93,8 +122,8 @@ func TestCreate_unsuccessful(t *testing.T) {
 				Origin: repo,
 				ObjectPool: &gitalypb.ObjectPool{
 					Repository: &gitalypb.Repository{
-						StorageName:  storageName,
-						RelativePath: strings.ToUpper(validPoolPath),
+						StorageName:  cfg.Storages[0].Name,
+						RelativePath: strings.ToUpper(gittest.NewObjectPoolName(t)),
 					},
 				},
 			},
@@ -106,7 +135,7 @@ func TestCreate_unsuccessful(t *testing.T) {
 				Origin: repo,
 				ObjectPool: &gitalypb.ObjectPool{
 					Repository: &gitalypb.Repository{
-						StorageName:  storageName,
+						StorageName:  cfg.Storages[0].Name,
 						RelativePath: "@pools/aa/bb/ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff.git",
 					},
 				},
@@ -119,16 +148,14 @@ func TestCreate_unsuccessful(t *testing.T) {
 				Origin: repo,
 				ObjectPool: &gitalypb.ObjectPool{
 					Repository: &gitalypb.Repository{
-						StorageName:  storageName,
-						RelativePath: validPoolPath + "/..",
+						StorageName:  cfg.Storages[0].Name,
+						RelativePath: gittest.NewObjectPoolName(t) + "/..",
 					},
 				},
 			},
 			expectedErr: errInvalidPoolDir,
 		},
-	}
-
-	for _, tc := range testCases {
+	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			_, err := client.CreateObjectPool(ctx, tc.request)
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)

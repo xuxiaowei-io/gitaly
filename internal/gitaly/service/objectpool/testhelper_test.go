@@ -4,13 +4,10 @@ package objectpool
 
 import (
 	"context"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
@@ -91,46 +88,48 @@ func runObjectPoolServer(t *testing.T, cfg config.Cfg, locator storage.Locator, 
 	}, append(opts, testserver.WithLocator(locator), testserver.WithLogger(logger))...)
 }
 
-func newObjectPool(tb testing.TB, cfg config.Cfg, storage, relativePath string) *objectpool.ObjectPool {
+// createObjectPool creates a new object pool from the given source repository. It returns the
+// Protobuf representation used for gRPC calls and the rewritten ObjectPool used for direct access.
+func createObjectPool(
+	tb testing.TB,
+	ctx context.Context,
+	cfg config.Cfg,
+	client gitalypb.ObjectPoolServiceClient,
+	source *gitalypb.Repository,
+) (*gitalypb.ObjectPool, *objectpool.ObjectPool) {
+	tb.Helper()
+
+	poolProto := &gitalypb.ObjectPool{
+		Repository: &gitalypb.Repository{
+			StorageName:  source.GetStorageName(),
+			RelativePath: gittest.NewObjectPoolName(tb),
+		},
+	}
+
+	_, err := client.CreateObjectPool(ctx, &gitalypb.CreateObjectPoolRequest{
+		ObjectPool: poolProto,
+		Origin:     source,
+	})
+	require.NoError(tb, err)
+
+	txManager := transaction.NewManager(cfg, nil)
 	catfileCache := catfile.NewCache(cfg)
 	tb.Cleanup(catfileCache.Stop)
 
-	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
-
-	pool, err := objectpool.NewObjectPool(
+	pool, err := objectpool.FromProto(
 		config.NewLocator(cfg),
 		gittest.NewCommandFactory(tb, cfg),
 		catfileCache,
 		txManager,
 		housekeeping.NewManager(cfg.Prometheus, txManager),
-		storage,
-		relativePath,
+		&gitalypb.ObjectPool{
+			Repository: &gitalypb.Repository{
+				StorageName:  cfg.Storages[0].Name,
+				RelativePath: gittest.GetReplicaPath(tb, ctx, cfg, poolProto.GetRepository()),
+			},
+		},
 	)
 	require.NoError(tb, err)
 
-	return pool
-}
-
-// initObjectPool creates a new empty object pool in the given storage.
-func initObjectPool(tb testing.TB, cfg config.Cfg, storage config.Storage) *objectpool.ObjectPool {
-	tb.Helper()
-
-	relativePath := gittest.NewObjectPoolName(tb)
-	gittest.InitRepoDir(tb, storage.Path, relativePath)
-	catfileCache := catfile.NewCache(cfg)
-	tb.Cleanup(catfileCache.Stop)
-
-	pool := newObjectPool(tb, cfg, storage.Name, relativePath)
-
-	poolPath := filepath.Join(storage.Path, relativePath)
-	tb.Cleanup(func() { require.NoError(tb, os.RemoveAll(poolPath)) })
-
-	return pool
-}
-
-// rewrittenObjectPool returns a pool that is rewritten as if it was passed through Praefect. This should be used
-// to access the pool on the disk if the tests are running with Praefect in front of them.
-func rewrittenObjectPool(tb testing.TB, ctx context.Context, cfg config.Cfg, pool *objectpool.ObjectPool) *objectpool.ObjectPool {
-	replicaPath := gittest.GetReplicaPath(tb, ctx, cfg, pool)
-	return newObjectPool(tb, cfg, pool.GetStorageName(), replicaPath)
+	return poolProto, pool
 }

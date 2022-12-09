@@ -2,7 +2,9 @@ package objectpool
 
 import (
 	"context"
+	"errors"
 
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -16,17 +18,20 @@ func (s *server) CreateObjectPool(ctx context.Context, in *gitalypb.CreateObject
 		return nil, errMissingOriginRepository
 	}
 
-	pool, err := s.poolForRequest(in)
-	if err != nil {
-		return nil, err
-	}
+	if _, err := objectpool.Create(
+		ctx,
+		s.locator,
+		s.gitCmdFactory,
+		s.catfileCache,
+		s.txManager,
+		s.housekeepingManager,
+		in.GetObjectPool(),
+		s.localrepo(in.GetOrigin()),
+	); err != nil {
+		if errors.Is(err, objectpool.ErrInvalidPoolDir) {
+			return nil, errInvalidPoolDir
+		}
 
-	if pool.Exists() {
-		return nil, helper.ErrFailedPreconditionf("pool already exists at: %v", pool.GetRelativePath())
-	}
-
-	origin := s.localrepo(in.GetOrigin())
-	if err := pool.Create(ctx, origin); err != nil {
 		return nil, helper.ErrInternal(err)
 	}
 

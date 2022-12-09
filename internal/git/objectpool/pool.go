@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
 type errString string
@@ -29,62 +30,50 @@ const ErrInvalidPoolDir errString = "invalid object pool directory"
 // live in a pool in a distinct repository which is used as an alternate object
 // store for other repositories.
 type ObjectPool struct {
-	Repo *localrepo.Repo
+	*localrepo.Repo
 
 	gitCmdFactory       git.CommandFactory
 	txManager           transaction.Manager
 	housekeepingManager housekeeping.Manager
 
-	storageName  string
-	storagePath  string
-	relativePath string
+	storagePath string
 }
 
-// NewObjectPool will initialize the object with the required data on the storage
-// shard. Relative path is validated to match the expected naming and directory
-// structure. If the shard cannot be found, this function returns an error.
-func NewObjectPool(
+// FromProto returns an object pool object from its Protobuf representation.
+func FromProto(
 	locator storage.Locator,
 	gitCmdFactory git.CommandFactory,
 	catfileCache catfile.Cache,
 	txManager transaction.Manager,
 	housekeepingManager housekeeping.Manager,
-	storageName,
-	relativePath string,
+	proto *gitalypb.ObjectPool,
 ) (*ObjectPool, error) {
-	storagePath, err := locator.GetStorageByName(storageName)
+	storagePath, err := locator.GetStorageByName(proto.GetRepository().GetStorageName())
 	if err != nil {
 		return nil, err
 	}
 
-	pool := &ObjectPool{
-		gitCmdFactory:       gitCmdFactory,
-		txManager:           txManager,
-		housekeepingManager: housekeepingManager,
-		storageName:         storageName,
-		storagePath:         storagePath,
-		relativePath:        relativePath,
-	}
-	pool.Repo = localrepo.New(locator, gitCmdFactory, catfileCache, pool)
-
-	if !housekeeping.IsPoolRepository(pool) {
+	if !housekeeping.IsPoolRepository(proto.GetRepository()) {
 		return nil, ErrInvalidPoolDir
 	}
 
-	return pool, nil
+	return &ObjectPool{
+		Repo:                localrepo.New(locator, gitCmdFactory, catfileCache, proto.GetRepository()),
+		gitCmdFactory:       gitCmdFactory,
+		txManager:           txManager,
+		housekeepingManager: housekeepingManager,
+		storagePath:         storagePath,
+	}, nil
 }
 
-// GetGitAlternateObjectDirectories for object pools are empty, given pools are
-// never a member of another pool, nor do they share Alternate objects with other
-// repositories which the pool doesn't contain itself
-func (o *ObjectPool) GetGitAlternateObjectDirectories() []string {
-	return []string{}
-}
-
-// GetGitObjectDirectory satisfies the repository.GitRepo interface, but is not
-// used for ObjectPools
-func (o *ObjectPool) GetGitObjectDirectory() string {
-	return ""
+// ToProto returns a new struct that is the protobuf definition of the ObjectPool
+func (o *ObjectPool) ToProto() *gitalypb.ObjectPool {
+	return &gitalypb.ObjectPool{
+		Repository: &gitalypb.Repository{
+			StorageName:  o.GetStorageName(),
+			RelativePath: o.GetRelativePath(),
+		},
+	}
 }
 
 // Exists will return true if the pool path exists and is a directory
@@ -112,31 +101,6 @@ func (o *ObjectPool) IsValid() bool {
 // these are empty.
 func (o *ObjectPool) Remove(ctx context.Context) (err error) {
 	return os.RemoveAll(o.FullPath())
-}
-
-// Init will initialize an empty pool repository
-// if one already exists, it will do nothing
-func (o *ObjectPool) Init(ctx context.Context) (err error) {
-	targetDir := o.FullPath()
-
-	if storage.IsGitDirectory(targetDir) {
-		return nil
-	}
-
-	cmd, err := o.gitCmdFactory.NewWithoutRepo(ctx,
-		git.SubCmd{
-			Name: "init",
-			Flags: []git.Option{
-				git.Flag{Name: "--bare"},
-			},
-			Args: []string{targetDir},
-		},
-	)
-	if err != nil {
-		return err
-	}
-
-	return cmd.Wait()
 }
 
 // FromRepo returns an instance of ObjectPool that the repository points to
@@ -167,7 +131,14 @@ func FromRepo(
 		return nil, err
 	}
 
-	return NewObjectPool(locator, gitCmdFactory, catfileCache, txManager, housekeepingManager, repo.GetStorageName(), filepath.Dir(altPathRelativeToStorage))
+	objectPoolProto := &gitalypb.ObjectPool{
+		Repository: &gitalypb.Repository{
+			StorageName:  repo.GetStorageName(),
+			RelativePath: filepath.Dir(altPathRelativeToStorage),
+		},
+	}
+
+	return FromProto(locator, gitCmdFactory, catfileCache, txManager, housekeepingManager, objectPoolProto)
 }
 
 var (

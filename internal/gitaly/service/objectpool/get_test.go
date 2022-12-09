@@ -18,17 +18,13 @@ import (
 func TestGetObjectPoolSuccess(t *testing.T) {
 	t.Parallel()
 
-	poolCtx := testhelper.Context(t)
-	cfg, repoProto, _, _, client := setup(t, poolCtx)
+	ctx := testhelper.Context(t)
+	cfg, repoProto, _, _, client := setup(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	pool := initObjectPool(t, cfg, cfg.Storages[0])
+	_, pool := createObjectPool(t, ctx, cfg, client, repoProto)
 	relativePoolPath := pool.GetRelativePath()
-
-	require.NoError(t, pool.Create(poolCtx, repo))
-	require.NoError(t, pool.Link(poolCtx, repo))
-
-	ctx := testhelper.Context(t)
+	require.NoError(t, pool.Link(ctx, repo))
 
 	resp, err := client.GetObjectPool(ctx, &gitalypb.GetObjectPoolRequest{
 		Repository: repoProto,

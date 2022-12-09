@@ -81,20 +81,24 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 	txManager := transaction.NewManager(primaryCfg, backchannel.NewRegistry())
 
 	// create object pool on the source
+	poolCtx := testhelper.Context(t)
 	objectPoolPath := gittest.NewObjectPoolName(t)
-	pool, err := objectpool.NewObjectPool(
+	pool, err := objectpool.Create(
+		poolCtx,
 		gconfig.NewLocator(primaryCfg),
 		gittest.NewCommandFactory(t, primaryCfg),
 		nil,
 		txManager,
 		housekeeping.NewManager(primaryCfg.Prometheus, txManager),
-		testRepoProto.GetStorageName(),
-		objectPoolPath,
+		&gitalypb.ObjectPool{
+			Repository: &gitalypb.Repository{
+				StorageName:  testRepoProto.GetStorageName(),
+				RelativePath: objectPoolPath,
+			},
+		},
+		testRepo,
 	)
 	require.NoError(t, err)
-
-	poolCtx := testhelper.Context(t)
-	require.NoError(t, pool.Create(poolCtx, testRepo))
 	require.NoError(t, pool.Link(poolCtx, testRepo))
 
 	// replicate object pool repository to target node

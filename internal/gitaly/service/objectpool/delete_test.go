@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -21,14 +22,8 @@ func TestDelete(t *testing.T) {
 
 	repositoryClient := gitalypb.NewRepositoryServiceClient(extractConn(client))
 
-	pool := initObjectPool(t, cfg, cfg.Storages[0])
-	_, err := client.CreateObjectPool(ctx, &gitalypb.CreateObjectPoolRequest{
-		ObjectPool: pool.ToProto(),
-		Origin:     repoProto,
-	})
-	require.NoError(t, err)
-
-	validPoolPath := pool.GetRelativePath()
+	poolProto, _ := createObjectPool(t, ctx, cfg, client, repoProto)
+	validPoolPath := poolProto.GetRepository().GetRelativePath()
 
 	for _, tc := range []struct {
 		desc         string
@@ -37,9 +32,12 @@ func TestDelete(t *testing.T) {
 		expectedErr  error
 	}{
 		{
-			desc:        "no pool in request fails",
-			noPool:      true,
-			expectedErr: errMissingPool,
+			desc:   "no pool in request fails",
+			noPool: true,
+			expectedErr: testhelper.GitalyOrPraefect(
+				helper.ErrInvalidArgumentf("GetStorageByName: no such storage: %q", ""),
+				helper.ErrInvalidArgumentf("no object pool repository"),
+			),
 		},
 		{
 			desc:         "deleting outside pools directory fails",
@@ -101,7 +99,7 @@ func TestDelete(t *testing.T) {
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 
 			response, err := repositoryClient.RepositoryExists(ctx, &gitalypb.RepositoryExistsRequest{
-				Repository: pool.ToProto().GetRepository(),
+				Repository: poolProto.GetRepository(),
 			})
 			require.NoError(t, err)
 			require.Equal(t, tc.expectedErr != nil, response.GetExists())

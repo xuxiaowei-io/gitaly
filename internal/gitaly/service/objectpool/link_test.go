@@ -25,11 +25,7 @@ func TestLink(t *testing.T) {
 	cfg, repo, _, _, client := setup(t, ctx, testserver.WithDisablePraefect())
 
 	localRepo := localrepo.NewTestRepo(t, cfg, repo)
-
-	pool := initObjectPool(t, cfg, cfg.Storages[0])
-
-	require.NoError(t, pool.Remove(ctx), "make sure pool does not exist at start of test")
-	require.NoError(t, pool.Create(ctx, localRepo), "create pool")
+	poolProto, pool := createObjectPool(t, ctx, cfg, client, repo)
 
 	// Mock object in the pool, which should be available to the pool members
 	// after linking
@@ -45,7 +41,7 @@ func TestLink(t *testing.T) {
 			desc: "Repository does not exist",
 			req: &gitalypb.LinkRepositoryToObjectPoolRequest{
 				Repository: nil,
-				ObjectPool: pool.ToProto(),
+				ObjectPool: poolProto,
 			},
 			code: codes.InvalidArgument,
 		},
@@ -61,7 +57,7 @@ func TestLink(t *testing.T) {
 			desc: "Successful request",
 			req: &gitalypb.LinkRepositoryToObjectPoolRequest{
 				Repository: repo,
-				ObjectPool: pool.ToProto(),
+				ObjectPool: poolProto,
 			},
 			code: codes.OK,
 		},
@@ -93,19 +89,14 @@ func TestLink_idempotent(t *testing.T) {
 
 	cfg, repoProto, _, _, client := setup(t, ctx)
 
-	pool := initObjectPool(t, cfg, cfg.Storages[0])
-	_, err := client.CreateObjectPool(ctx, &gitalypb.CreateObjectPoolRequest{
-		ObjectPool: pool.ToProto(),
-		Origin:     repoProto,
-	})
-	require.NoError(t, err)
+	poolProto, _ := createObjectPool(t, ctx, cfg, client, repoProto)
 
 	request := &gitalypb.LinkRepositoryToObjectPoolRequest{
 		Repository: repoProto,
-		ObjectPool: pool.ToProto(),
+		ObjectPool: poolProto,
 	}
 
-	_, err = client.LinkRepositoryToObjectPool(ctx, request)
+	_, err := client.LinkRepositoryToObjectPool(ctx, request)
 	require.NoError(t, err)
 
 	_, err = client.LinkRepositoryToObjectPool(ctx, request)
@@ -117,10 +108,7 @@ func TestLink_noClobber(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg, repoProto, repoPath, _, client := setup(t, ctx)
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-	pool := initObjectPool(t, cfg, cfg.Storages[0])
-	require.NoError(t, pool.Create(ctx, repo))
+	poolProto, _ := createObjectPool(t, ctx, cfg, client, repoProto)
 
 	alternatesFile := filepath.Join(repoPath, "objects/info/alternates")
 	require.NoFileExists(t, alternatesFile)
@@ -130,7 +118,7 @@ func TestLink_noClobber(t *testing.T) {
 
 	request := &gitalypb.LinkRepositoryToObjectPoolRequest{
 		Repository: repoProto,
-		ObjectPool: pool.ToProto(),
+		ObjectPool: poolProto,
 	}
 
 	_, err := client.LinkRepositoryToObjectPool(ctx, request)
@@ -147,24 +135,15 @@ func TestLink_noPool(t *testing.T) {
 
 	cfg, repo, _, _, client := setup(t, ctx)
 
-	pool := initObjectPool(t, cfg, cfg.Storages[0])
-	_, err := client.CreateObjectPool(ctx, &gitalypb.CreateObjectPoolRequest{
-		ObjectPool: pool.ToProto(),
-		Origin:     repo,
-	})
-	require.NoError(t, err)
-
-	_, err = client.DeleteObjectPool(ctx, &gitalypb.DeleteObjectPoolRequest{
-		ObjectPool: pool.ToProto(),
-	})
-	require.NoError(t, err)
-
-	request := &gitalypb.LinkRepositoryToObjectPoolRequest{
+	_, err := client.LinkRepositoryToObjectPool(ctx, &gitalypb.LinkRepositoryToObjectPoolRequest{
 		Repository: repo,
-		ObjectPool: pool.ToProto(),
-	}
-
-	_, err = client.LinkRepositoryToObjectPool(ctx, request)
+		ObjectPool: &gitalypb.ObjectPool{
+			Repository: &gitalypb.Repository{
+				StorageName:  cfg.Storages[0].Name,
+				RelativePath: gittest.NewObjectPoolName(t),
+			},
+		},
+	})
 	testhelper.RequireGrpcCode(t, err, codes.NotFound)
 	require.Error(t, err, "GetRepoPath: not a git repository:")
 }
