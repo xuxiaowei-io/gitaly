@@ -17,13 +17,17 @@ type metadataItem struct {
 
 // Error is a structured error that contains additional details.
 type Error struct {
-	err    error
-	code   codes.Code
-	detail proto.Message
+	err     error
+	code    codes.Code
+	details []proto.Message
 	// metadata is the array of metadata items added to this error. Note that we explicitly
 	// don't use a map here so that we don't have any allocation overhead here in the general
 	// case where there is no metadata.
 	metadata []metadataItem
+}
+
+type grpcStatuser interface {
+	GRPCStatus() *status.Status
 }
 
 func newError(code codes.Code, format string, a ...any) Error {
@@ -39,11 +43,36 @@ func newError(code codes.Code, format string, a ...any) Error {
 			continue
 		}
 
-		// Convert any gRPC status we see here to an `Error`.
-		if st, ok := status.FromError(err); ok {
+		// If we see any wrapped gRPC error, then we retain its error code and details.
+		// Note that we cannot use `status.FromError()` here, as that would only return an
+		// error in case the immediate error is a gRPC status error.
+		var wrappedGRPCStatus grpcStatuser
+		if errors.As(err, &wrappedGRPCStatus) {
+			grpcStatus := wrappedGRPCStatus.GRPCStatus()
+
+			// The error message from gRPC errors is awkward because they include
+			// RPC-specific constructs. This is awkward especially in the case where
+			// these are embedded in the middle of an error message.
+			//
+			// So if we see that the top-level error is a gRPC error, then we only use
+			// the status message as error message. But otherwise, we use the top-level
+			// error message.
+			message := err.Error()
+			if st, ok := status.FromError(err); ok {
+				message = st.Message()
+			}
+
+			var details []proto.Message
+			for _, detail := range grpcStatus.Details() {
+				if detailProto, ok := detail.(proto.Message); ok {
+					details = append(details, detailProto)
+				}
+			}
+
 			a[i] = Error{
-				err:  errors.New(st.Message()),
-				code: st.Code(),
+				err:     errors.New(message),
+				code:    grpcStatus.Code(),
+				details: details,
 			}
 		}
 	}
@@ -252,19 +281,15 @@ func (e Error) WithMetadata(key string, value any) Error {
 // contains error details ordered from top-level error details to bottom-level error details.
 func (e Error) Details() []proto.Message {
 	var details []proto.Message
-
 	for _, err := range e.errorChain() {
-		if err.detail != nil {
-			details = append(details, err.detail)
-		}
+		details = append(details, err.details...)
 	}
-
 	return details
 }
 
 // WithDetail sets the Error detail that provides additional structured information about the error
 // via gRPC so that callers can programmatically determine the exact circumstances of an error.
 func (e Error) WithDetail(detail proto.Message) Error {
-	e.detail = detail
+	e.details = append(e.details, detail)
 	return e
 }

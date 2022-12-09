@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/grpc_testing"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 // unusedErrorCode is any error code that we don't have any constructors for yet. This is used
@@ -163,6 +164,19 @@ func TestNew(t *testing.T) {
 				require.Equal(t, status.New(unusedErrorCode, "top-level: nested"), s)
 			})
 
+			t.Run("wrapping formatted gRPC error", func(t *testing.T) {
+				err := tc.constructor("top: %w", fmt.Errorf("middle: %w", status.Error(unusedErrorCode, "bottom")))
+				// We can't do anything about the "rpc error:" part in the middle as
+				// this is put there by `fmt.Errorf()` already.
+				require.EqualError(t, err, "top: middle: rpc error: code = OutOfRange desc = bottom")
+				// We should be reporting the error code of the wrapped gRPC status.
+				require.Equal(t, unusedErrorCode, status.Code(err))
+
+				s, ok := status.FromError(err)
+				require.True(t, ok)
+				require.Equal(t, status.New(unusedErrorCode, "top: middle: rpc error: code = OutOfRange desc = bottom"), s)
+			})
+
 			t.Run("mixed normal and structerr chain", func(t *testing.T) {
 				err := tc.constructor("first: %w", fmt.Errorf("second: %w", newError(unusedErrorCode, "third")))
 				require.EqualError(t, err, "first: second: third")
@@ -172,6 +186,33 @@ func TestNew(t *testing.T) {
 				s, ok := status.FromError(err)
 				require.True(t, ok)
 				require.Equal(t, status.New(unusedErrorCode, "first: second: third"), s)
+			})
+
+			t.Run("wrapping formatted gRPC error with details", func(t *testing.T) {
+				marshaledDetail, err := anypb.New(&grpc_testing.Payload{
+					Body: []byte("contents"),
+				})
+				require.NoError(t, err)
+
+				proto := status.New(unusedErrorCode, "details").Proto()
+				proto.Details = []*anypb.Any{marshaledDetail}
+				errWithDetails := status.ErrorProto(proto)
+
+				err = tc.constructor("top: %w", fmt.Errorf("detailed: %w", errWithDetails))
+				// We can't do anything about the "rpc error:" part in the middle as
+				// this is put there by `fmt.Errorf()` already.
+				require.EqualError(t, err, "top: detailed: rpc error: code = OutOfRange desc = details")
+				// We should be reporting the error code of the wrapped gRPC status.
+				require.Equal(t, unusedErrorCode, status.Code(err))
+
+				expectedErr, marshallingErr := status.New(unusedErrorCode, "top: detailed: rpc error: code = OutOfRange desc = details").WithDetails(&grpc_testing.Payload{
+					Body: []byte("contents"),
+				})
+				require.NoError(t, marshallingErr)
+
+				s, ok := status.FromError(err)
+				require.True(t, ok)
+				require.Equal(t, expectedErr, s)
 			})
 		})
 	}
@@ -333,9 +374,11 @@ func TestError_Details(t *testing.T) {
 				return New("message").WithDetail(initialPayload)
 			},
 			expectedErr: Error{
-				err:    errors.New("message"),
-				code:   codes.Internal,
-				detail: initialPayload,
+				err:  errors.New("message"),
+				code: codes.Internal,
+				details: []proto.Message{
+					initialPayload,
+				},
 			},
 			expectedDetails: []proto.Message{
 				initialPayload,
@@ -348,11 +391,15 @@ func TestError_Details(t *testing.T) {
 				return New("message").WithDetail(initialPayload).WithDetail(overridingPayload)
 			},
 			expectedErr: Error{
-				err:    errors.New("message"),
-				code:   codes.Internal,
-				detail: overridingPayload,
+				err:  errors.New("message"),
+				code: codes.Internal,
+				details: []proto.Message{
+					initialPayload,
+					overridingPayload,
+				},
 			},
 			expectedDetails: []proto.Message{
+				initialPayload,
 				overridingPayload,
 			},
 			expectedMessage: "message",
@@ -364,9 +411,11 @@ func TestError_Details(t *testing.T) {
 				return New("top-level: %w", nestedErr).WithDetail(overridingPayload)
 			},
 			expectedErr: Error{
-				err:    fmt.Errorf("top-level: %w", New("nested").WithDetail(initialPayload)),
-				code:   codes.Internal,
-				detail: overridingPayload,
+				err:  fmt.Errorf("top-level: %w", New("nested").WithDetail(initialPayload)),
+				code: codes.Internal,
+				details: []proto.Message{
+					overridingPayload,
+				},
 			},
 			expectedDetails: []proto.Message{
 				overridingPayload,

@@ -163,7 +163,7 @@ func TestApplyGitattributes_transactional(t *testing.T) {
 			},
 			shouldExist: false,
 			expectedErr: func() error {
-				return helper.ErrInternalf("committing gitattributes: voting on locked file: preimage vote: rpc error: code = Unknown desc = foobar")
+				return helper.ErrUnknownf("committing gitattributes: voting on locked file: preimage vote: rpc error: code = Unknown desc = foobar")
 			}(),
 			expectedVotes: 1,
 		},
