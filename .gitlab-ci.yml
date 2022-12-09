@@ -14,6 +14,7 @@ variables:
   FF_NETWORK_PER_BUILD: "true"
   DEBIAN_VERSION: "bullseye"
   UBI_VERSION: "8.6"
+  CACHE_PREFIX: "debian-${DEBIAN_VERSION}"
   # We use Gitaly's Git version by default.
   GIT_VERSION: "default"
   GO_VERSION: "1.19"
@@ -53,7 +54,7 @@ include:
       files:
         - .gitlab-ci.yml
         - Makefile
-      prefix: git-${GIT_VERSION}
+      prefix: ${CACHE_PREFIX}-git-${GIT_VERSION}
     paths:
       - _build/deps
       - _build/tools
@@ -65,7 +66,7 @@ include:
       files:
         - .gitlab-ci.yml
         - ruby/Gemfile.lock
-      prefix: debian-${DEBIAN_VERSION}-ruby-${RUBY_VERSION}
+      prefix: ${CACHE_PREFIX}-ruby-${RUBY_VERSION}
     paths:
       - ${BUNDLE_PATH}
     policy: pull
@@ -76,7 +77,7 @@ include:
       files:
         - .gitlab-ci.yml
         - go.sum
-      prefix: go-${GO_VERSION}
+      prefix: ${CACHE_PREFIX}-go-${GO_VERSION}
     paths:
       - ${GOCACHE}
       - ${GOMODCACHE}
