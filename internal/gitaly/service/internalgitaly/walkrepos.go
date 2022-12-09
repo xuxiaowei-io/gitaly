@@ -17,7 +17,11 @@ func (s *server) WalkRepos(req *gitalypb.WalkReposRequest, stream gitalypb.Inter
 		return err
 	}
 
-	return helper.ErrInternal(walkStorage(stream.Context(), sPath, stream))
+	if err := walkStorage(stream.Context(), sPath, stream); err != nil {
+		return helper.ErrInternalf("%w", err)
+	}
+
+	return nil
 }
 
 func (s *server) storagePath(storageName string) (string, error) {

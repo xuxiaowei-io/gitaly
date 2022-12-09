@@ -61,7 +61,11 @@ func (s *server) ApplyBfgObjectMapStream(server gitalypb.CleanupService_ApplyBfg
 		return helper.ErrInternal(err)
 	}
 
-	return helper.ErrInternal(chunker.Flush())
+	if err := chunker.Flush(); err != nil {
+		return helper.ErrInternalf("%w", err)
+	}
+
+	return nil
 }
 
 func validateFirstRequest(req *gitalypb.ApplyBfgObjectMapStreamRequest) error {
