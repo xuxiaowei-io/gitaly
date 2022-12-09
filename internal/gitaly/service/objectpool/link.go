@@ -5,15 +5,14 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func (s *server) LinkRepositoryToObjectPool(ctx context.Context, req *gitalypb.LinkRepositoryToObjectPoolRequest) (*gitalypb.LinkRepositoryToObjectPoolResponse, error) {
 	repository := req.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
 	pool, err := s.poolForRequest(req)
