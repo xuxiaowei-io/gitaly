@@ -18,14 +18,14 @@ import (
 func (s *server) SSHUploadArchive(stream gitalypb.SSHService_SSHUploadArchiveServer) error {
 	req, err := stream.Recv() // First request contains Repository only
 	if err != nil {
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("%w", err)
 	}
 	if err = validateFirstUploadArchiveRequest(req); err != nil {
 		return helper.ErrInvalidArgumentf("%w", err)
 	}
 
 	if err = s.sshUploadArchive(stream, req); err != nil {
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("%w", err)
 	}
 
 	return nil

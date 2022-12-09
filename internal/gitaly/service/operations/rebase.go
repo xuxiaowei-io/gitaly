@@ -51,7 +51,7 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 	remoteFetch := rebaseRemoteFetch{header: header}
 	startRevision, err := s.fetchStartRevision(ctx, quarantineRepo, remoteFetch)
 	if err != nil {
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("%w", err)
 	}
 
 	committer := git2go.NewSignature(string(header.User.Name), string(header.User.Email), time.Now())

@@ -33,7 +33,7 @@ func (s *server) FindAllCommits(in *gitalypb.FindAllCommitsRequest, stream gital
 	}
 
 	if err := s.findAllCommits(repo, in, stream, revisions); err != nil {
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("%w", err)
 	}
 
 	return nil

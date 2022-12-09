@@ -79,7 +79,7 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 		if errors.Is(err, git.ErrReferenceNotFound) {
 			return helper.ErrNotFoundf("%w", err)
 		}
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("%w", err)
 	}
 
 	authorDate, err := dateFromProto(firstRequest)
@@ -123,7 +123,7 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 			)
 		}
 
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("%w", err)
 	}
 
 	mergeOID, err := git.ObjectHashSHA1.FromHex(merge.CommitID)
@@ -191,7 +191,7 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 			)
 		}
 
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("%w", err)
 	}
 
 	if err := stream.Send(&gitalypb.UserMergeBranchResponse{

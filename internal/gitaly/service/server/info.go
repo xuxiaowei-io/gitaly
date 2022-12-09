@@ -16,7 +16,7 @@ import (
 func (s *server) ServerInfo(ctx context.Context, in *gitalypb.ServerInfoRequest) (*gitalypb.ServerInfoResponse, error) {
 	gitVersion, err := s.gitCmdFactory.GitVersion(ctx)
 	if err != nil {
-		return nil, helper.ErrInternal(err)
+		return nil, helper.ErrInternalf("%w", err)
 	}
 
 	var storageStatuses []*gitalypb.ServerInfoResponse_StorageStatus

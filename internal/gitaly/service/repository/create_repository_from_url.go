@@ -32,7 +32,7 @@ func (s *server) cloneFromURLCommand(
 
 	u, err := url.Parse(repoURL)
 	if err != nil {
-		return nil, helper.ErrInternal(err)
+		return nil, helper.ErrInternalf("%w", err)
 	}
 
 	var config []git.ConfigPair

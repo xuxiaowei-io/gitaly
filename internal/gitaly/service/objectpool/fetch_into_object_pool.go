@@ -23,7 +23,7 @@ func (s *server) FetchIntoObjectPool(ctx context.Context, req *gitalypb.FetchInt
 	origin := s.localrepo(req.GetOrigin())
 
 	if err := objectPool.FetchFromOrigin(ctx, origin); err != nil {
-		return nil, helper.ErrInternal(err)
+		return nil, helper.ErrInternalf("%w", err)
 	}
 
 	stats.LogRepositoryInfo(ctx, objectPool.Repo)

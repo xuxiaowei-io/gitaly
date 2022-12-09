@@ -43,7 +43,7 @@ func (s *server) UpdateHook(in *gitalypb.UpdateHookRequest, stream gitalypb.Hook
 			return updateHookResponse(stream, int32(exitError.ExitCode()))
 		}
 
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("%w", err)
 	}
 
 	return updateHookResponse(stream, 0)

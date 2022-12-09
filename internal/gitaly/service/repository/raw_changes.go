@@ -27,7 +27,7 @@ func (s *server) GetRawChanges(req *gitalypb.GetRawChangesRequest, stream gitaly
 
 	objectInfoReader, cancel, err := s.catfileCache.ObjectInfoReader(stream.Context(), repo)
 	if err != nil {
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("%w", err)
 	}
 	defer cancel()
 
@@ -36,7 +36,7 @@ func (s *server) GetRawChanges(req *gitalypb.GetRawChangesRequest, stream gitaly
 	}
 
 	if err := s.getRawChanges(stream, repo, objectInfoReader, req.GetFromRevision(), req.GetToRevision()); err != nil {
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("%w", err)
 	}
 
 	return nil

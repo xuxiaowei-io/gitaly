@@ -97,7 +97,7 @@ func (s *server) FindRemoteRootRef(ctx context.Context, in *gitalypb.FindRemoteR
 
 	ref, err := s.findRemoteRootRef(ctx, in)
 	if err != nil {
-		return nil, helper.ErrInternal(err)
+		return nil, helper.ErrInternalf("%w", err)
 	}
 
 	return &gitalypb.FindRemoteRootRefResponse{Ref: ref}, nil

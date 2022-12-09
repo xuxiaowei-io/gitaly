@@ -20,7 +20,7 @@ func (s *server) ListCommitsByRefName(in *gitalypb.ListCommitsByRefNameRequest, 
 
 	objectReader, cancel, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("%w", err)
 	}
 	defer cancel()
 
@@ -32,7 +32,7 @@ func (s *server) ListCommitsByRefName(in *gitalypb.ListCommitsByRefNameRequest, 
 			continue
 		}
 		if err != nil {
-			return helper.ErrInternal(err)
+			return helper.ErrInternalf("%w", err)
 		}
 
 		commitByRef := &gitalypb.ListCommitsByRefNameResponse_CommitForRef{
@@ -40,7 +40,7 @@ func (s *server) ListCommitsByRefName(in *gitalypb.ListCommitsByRefNameRequest, 
 		}
 
 		if err := sender.Send(commitByRef); err != nil {
-			return helper.ErrInternal(err)
+			return helper.ErrInternalf("%w", err)
 		}
 	}
 

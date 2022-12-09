@@ -22,7 +22,7 @@ func (s *server) DeleteObjectPool(ctx context.Context, in *gitalypb.DeleteObject
 	}
 
 	if err := pool.Remove(ctx); err != nil {
-		return nil, helper.ErrInternal(err)
+		return nil, helper.ErrInternalf("%w", err)
 	}
 
 	return &gitalypb.DeleteObjectPoolResponse{}, nil

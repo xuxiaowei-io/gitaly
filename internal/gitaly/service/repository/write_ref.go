@@ -18,7 +18,7 @@ func (s *server) WriteRef(ctx context.Context, req *gitalypb.WriteRefRequest) (*
 		return nil, helper.ErrInvalidArgumentf("%w", err)
 	}
 	if err := s.writeRef(ctx, req); err != nil {
-		return nil, helper.ErrInternal(err)
+		return nil, helper.ErrInternalf("%w", err)
 	}
 
 	return &gitalypb.WriteRefResponse{}, nil

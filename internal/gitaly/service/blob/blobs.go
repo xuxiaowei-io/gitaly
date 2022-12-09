@@ -72,11 +72,11 @@ func (s *server) ListBlobs(req *gitalypb.ListBlobsRequest, stream gitalypb.BlobS
 			})
 		},
 	); err != nil {
-		return helper.ErrInternal(fmt.Errorf("processing blobs: %w", err))
+		return helper.ErrInternalf("processing blobs: %w", err)
 	}
 
 	if err := chunker.Flush(); err != nil {
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("%w", err)
 	}
 
 	return nil
@@ -101,7 +101,7 @@ func (s *server) processBlobs(
 		if catfileInfoIter == nil {
 			objectInfoReader, cancel, err := s.catfileCache.ObjectInfoReader(ctx, repo)
 			if err != nil {
-				return helper.ErrInternal(fmt.Errorf("creating object info reader: %w", err))
+				return helper.ErrInternalf("creating object info reader: %w", err)
 			}
 			defer cancel()
 
@@ -121,7 +121,7 @@ func (s *server) processBlobs(
 				nil,
 				blob.ObjectName,
 			); err != nil {
-				return helper.ErrInternal(fmt.Errorf("sending blob chunk: %w", err))
+				return helper.ErrInternalf("sending blob chunk: %w", err)
 			}
 
 			i++
@@ -131,12 +131,12 @@ func (s *server) processBlobs(
 		}
 
 		if err := catfileInfoIter.Err(); err != nil {
-			return helper.ErrInternal(err)
+			return helper.ErrInternalf("%w", err)
 		}
 	} else {
 		objectReader, cancel, err := s.catfileCache.ObjectReader(ctx, repo)
 		if err != nil {
-			return helper.ErrInternal(fmt.Errorf("creating object reader: %w", err))
+			return helper.ErrInternalf("creating object reader: %w", err)
 		}
 		defer cancel()
 
@@ -161,7 +161,7 @@ func (s *server) processBlobs(
 				}
 
 				if err := callback(oid, size, p, blob.ObjectName); err != nil {
-					return helper.ErrInternal(fmt.Errorf("sending blob chunk: %w", err))
+					return helper.ErrInternalf("sending blob chunk: %w", err)
 				}
 
 				return nil
@@ -174,7 +174,7 @@ func (s *server) processBlobs(
 
 			_, err := io.CopyN(dataChunker, blob, readLimit)
 			if err != nil && !errors.Is(err, io.EOF) {
-				return helper.ErrInternal(fmt.Errorf("sending blob data: %w", err))
+				return helper.ErrInternalf("sending blob data: %w", err)
 			}
 
 			// Discard trailing blob data in case the blob is bigger than the read
@@ -183,7 +183,7 @@ func (s *server) processBlobs(
 			if !errors.Is(err, io.EOF) {
 				_, err = io.Copy(io.Discard, blob)
 				if err != nil {
-					return helper.ErrInternal(fmt.Errorf("discarding blob data: %w", err))
+					return helper.ErrInternalf("discarding blob data: %w", err)
 				}
 			}
 
@@ -197,7 +197,7 @@ func (s *server) processBlobs(
 					nil,
 					blob.ObjectName,
 				); err != nil {
-					return helper.ErrInternal(fmt.Errorf("sending blob chunk: %w", err))
+					return helper.ErrInternalf("sending blob chunk: %w", err)
 				}
 			}
 
@@ -208,7 +208,7 @@ func (s *server) processBlobs(
 		}
 
 		if err := catfileObjectIter.Err(); err != nil {
-			return helper.ErrInternal(err)
+			return helper.ErrInternalf("%w", err)
 		}
 	}
 
@@ -267,11 +267,11 @@ func (s *server) ListAllBlobs(req *gitalypb.ListAllBlobsRequest, stream gitalypb
 			})
 		},
 	); err != nil {
-		return helper.ErrInternal(fmt.Errorf("processing blobs: %w", err))
+		return helper.ErrInternalf("processing blobs: %w", err)
 	}
 
 	if err := chunker.Flush(); err != nil {
-		return helper.ErrInternal(fmt.Errorf("flushing blobs: %w", err))
+		return helper.ErrInternalf("flushing blobs: %w", err)
 	}
 
 	return nil

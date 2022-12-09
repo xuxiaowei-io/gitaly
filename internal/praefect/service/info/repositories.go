@@ -56,7 +56,7 @@ func (s *Server) RepositoryReplicas(ctx context.Context, in *gitalypb.Repository
 	var resp gitalypb.RepositoryReplicasResponse
 
 	if resp.Primary, err = s.getRepositoryDetails(ctx, virtualStorage, primary, relativePath, replicaPath); err != nil {
-		return nil, helper.ErrInternal(err)
+		return nil, helper.ErrInternalf("%w", err)
 	}
 
 	resp.Replicas = make([]*gitalypb.RepositoryReplicasResponse_RepositoryDetails, len(secondaries))
@@ -74,7 +74,7 @@ func (s *Server) RepositoryReplicas(ctx context.Context, in *gitalypb.Repository
 	}
 
 	if err := g.Wait(); err != nil {
-		return nil, helper.ErrInternal(err)
+		return nil, helper.ErrInternalf("%w", err)
 	}
 
 	return &resp, nil

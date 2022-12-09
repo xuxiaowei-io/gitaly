@@ -39,7 +39,7 @@ func (s *server) ReplicateRepository(ctx context.Context, in *gitalypb.Replicate
 
 	repoPath, err := s.locator.GetPath(in.GetRepository())
 	if err != nil {
-		return nil, helper.ErrInternal(err)
+		return nil, helper.ErrInternalf("%w", err)
 	}
 
 	if !storage.IsGitDirectory(repoPath) {
@@ -48,7 +48,7 @@ func (s *server) ReplicateRepository(ctx context.Context, in *gitalypb.Replicate
 				return nil, ErrInvalidSourceRepository
 			}
 
-			return nil, helper.ErrInternal(err)
+			return nil, helper.ErrInternalf("%w", err)
 		}
 	}
 
@@ -236,7 +236,7 @@ func fetchInternalRemote(
 
 	remoteRepo, err := remoterepo.New(ctx, remoteRepoProto, conns)
 	if err != nil {
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("%w", err)
 	}
 
 	remoteDefaultBranch, err := remoteRepo.GetDefaultBranch(ctx)

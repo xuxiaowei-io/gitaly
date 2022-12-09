@@ -24,7 +24,7 @@ func (s *server) RemoveRepository(ctx context.Context, in *gitalypb.RemoveReposi
 	}
 	path, err := s.locator.GetPath(repository)
 	if err != nil {
-		return nil, helper.ErrInternal(err)
+		return nil, helper.ErrInternalf("%w", err)
 	}
 
 	tempDir, err := s.locator.TempDir(repository.GetStorageName())
@@ -33,7 +33,7 @@ func (s *server) RemoveRepository(ctx context.Context, in *gitalypb.RemoveReposi
 	}
 
 	if err := os.MkdirAll(tempDir, 0o755); err != nil {
-		return nil, helper.ErrInternal(err)
+		return nil, helper.ErrInternalf("%w", err)
 	}
 
 	base := filepath.Base(path)

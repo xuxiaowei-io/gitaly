@@ -30,7 +30,7 @@ func (s *server) CommitStats(ctx context.Context, in *gitalypb.CommitStatsReques
 
 	resp, err := s.commitStats(ctx, in)
 	if err != nil {
-		return nil, helper.ErrInternal(err)
+		return nil, helper.ErrInternalf("%w", err)
 	}
 
 	return resp, nil

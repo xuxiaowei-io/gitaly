@@ -37,7 +37,7 @@ func (s *server) OptimizeRepository(ctx context.Context, in *gitalypb.OptimizeRe
 	}
 
 	if err := s.housekeepingManager.OptimizeRepository(ctx, repo, strategyOpt); err != nil {
-		return nil, helper.ErrInternal(err)
+		return nil, helper.ErrInternalf("%w", err)
 	}
 
 	return &gitalypb.OptimizeRepositoryResponse{}, nil

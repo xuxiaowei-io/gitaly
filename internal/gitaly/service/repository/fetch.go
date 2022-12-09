@@ -35,7 +35,7 @@ func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourc
 
 	sourceRepo, err := remoterepo.New(ctx, req.GetSourceRepository(), s.conns)
 	if err != nil {
-		return nil, helper.ErrInternal(err)
+		return nil, helper.ErrInternalf("%w", err)
 	}
 
 	var sourceOid git.ObjectID
@@ -53,7 +53,7 @@ func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourc
 			if errors.Is(err, git.ErrReferenceNotFound) {
 				return &gitalypb.FetchSourceBranchResponse{Result: false}, nil
 			}
-			return nil, helper.ErrInternal(err)
+			return nil, helper.ErrInternalf("%w", err)
 		}
 
 		containsObject = true
@@ -65,7 +65,7 @@ func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourc
 			if errors.Is(err, git.ErrReferenceNotFound) {
 				return &gitalypb.FetchSourceBranchResponse{Result: false}, nil
 			}
-			return nil, helper.ErrInternal(err)
+			return nil, helper.ErrInternalf("%w", err)
 		}
 
 		// Otherwise, if the source is a remote repository, we check
@@ -73,7 +73,7 @@ func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourc
 		// If so, we can skip the fetch.
 		containsObject, err = targetRepo.HasRevision(ctx, sourceOid.Revision()+"^{commit}")
 		if err != nil {
-			return nil, helper.ErrInternal(err)
+			return nil, helper.ErrInternalf("%w", err)
 		}
 	}
 

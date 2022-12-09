@@ -17,7 +17,7 @@ func (s *server) FindAllRemoteBranches(req *gitalypb.FindAllRemoteBranchesReques
 	}
 
 	if err := s.findAllRemoteBranches(req, stream); err != nil {
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("%w", err)
 	}
 
 	return nil

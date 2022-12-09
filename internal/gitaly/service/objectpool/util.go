@@ -42,7 +42,7 @@ func (s *server) poolForRequest(req PoolRequest) (*objectpool.ObjectPool, error)
 			return nil, helper.ErrFailedPreconditionf("%w", err)
 		}
 
-		return nil, helper.ErrInternal(err)
+		return nil, helper.ErrInternalf("%w", err)
 	}
 
 	return pool, nil

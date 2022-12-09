@@ -31,7 +31,7 @@ func (s *server) getCommitSignatures(request *gitalypb.GetCommitSignaturesReques
 
 	objectReader, cancel, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("%w", err)
 	}
 	defer cancel()
 
@@ -41,16 +41,16 @@ func (s *server) getCommitSignatures(request *gitalypb.GetCommitSignaturesReques
 			if catfile.IsNotFound(err) {
 				continue
 			}
-			return helper.ErrInternal(err)
+			return helper.ErrInternalf("%w", err)
 		}
 
 		signatureKey, commitText, err := extractSignature(commitObj)
 		if err != nil {
-			return helper.ErrInternal(err)
+			return helper.ErrInternalf("%w", err)
 		}
 
 		if err = sendResponse(commitID, signatureKey, commitText, stream); err != nil {
-			return helper.ErrInternal(err)
+			return helper.ErrInternalf("%w", err)
 		}
 	}
 

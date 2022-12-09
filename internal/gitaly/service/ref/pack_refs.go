@@ -16,7 +16,7 @@ func (s *server) PackRefs(ctx context.Context, in *gitalypb.PackRefsRequest) (*g
 	}
 
 	if err := s.packRefs(ctx, in.GetRepository()); err != nil {
-		return nil, helper.ErrInternal(err)
+		return nil, helper.ErrInternalf("%w", err)
 	}
 
 	return &gitalypb.PackRefsResponse{}, nil

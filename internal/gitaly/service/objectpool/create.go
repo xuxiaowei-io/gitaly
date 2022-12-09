@@ -32,7 +32,7 @@ func (s *server) CreateObjectPool(ctx context.Context, in *gitalypb.CreateObject
 			return nil, errInvalidPoolDir
 		}
 
-		return nil, helper.ErrInternal(err)
+		return nil, helper.ErrInternalf("%w", err)
 	}
 
 	return &gitalypb.CreateObjectPoolResponse{}, nil

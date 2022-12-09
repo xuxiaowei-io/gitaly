@@ -22,7 +22,7 @@ import (
 func (s *server) SSHReceivePack(stream gitalypb.SSHService_SSHReceivePackServer) error {
 	req, err := stream.Recv() // First request contains only Repository, GlId, and GlUsername
 	if err != nil {
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("%w", err)
 	}
 
 	ctxlogrus.Extract(stream.Context()).WithFields(log.Fields{
@@ -38,7 +38,7 @@ func (s *server) SSHReceivePack(stream gitalypb.SSHService_SSHReceivePackServer)
 	}
 
 	if err := s.sshReceivePack(stream, req); err != nil {
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("%w", err)
 	}
 
 	return nil

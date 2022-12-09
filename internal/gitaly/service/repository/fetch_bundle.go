@@ -47,13 +47,13 @@ func (s *server) FetchBundle(stream gitalypb.RepositoryService_FetchBundleServer
 
 	tmpDir, err := tempdir.New(ctx, repo.GetStorageName(), s.locator)
 	if err != nil {
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("%w", err)
 	}
 
 	bundlePath := filepath.Join(tmpDir.Path(), "repo.bundle")
 	file, err := os.Create(bundlePath)
 	if err != nil {
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("%w", err)
 	}
 
 	_, err = io.Copy(file, reader)
@@ -70,12 +70,12 @@ func (s *server) FetchBundle(stream gitalypb.RepositoryService_FetchBundleServer
 	}
 
 	if err := repo.FetchRemote(ctx, "inmemory", opts); err != nil {
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("%w", err)
 	}
 
 	if updateHead {
 		if err := s.updateHeadFromBundle(ctx, repo, bundlePath); err != nil {
-			return helper.ErrInternal(err)
+			return helper.ErrInternalf("%w", err)
 		}
 	}
 

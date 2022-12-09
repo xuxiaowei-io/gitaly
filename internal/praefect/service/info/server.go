@@ -84,7 +84,7 @@ func (s *Server) SetAuthoritativeStorage(ctx context.Context, req *gitalypb.SetA
 			return nil, helper.ErrInvalidArgumentf("repository %q does not exist on virtual storage %q", req.RelativePath, req.VirtualStorage)
 		}
 
-		return nil, helper.ErrInternal(err)
+		return nil, helper.ErrInternalf("%w", err)
 	}
 
 	return &gitalypb.SetAuthoritativeStorageResponse{}, nil

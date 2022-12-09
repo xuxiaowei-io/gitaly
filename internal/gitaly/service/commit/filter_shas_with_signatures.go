@@ -22,7 +22,7 @@ func (s *server) FilterShasWithSignatures(bidi gitalypb.CommitService_FilterShas
 	}
 
 	if err := s.filterShasWithSignatures(bidi, firstRequest); err != nil {
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("%w", err)
 	}
 	return nil
 }
