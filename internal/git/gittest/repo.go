@@ -322,3 +322,17 @@ func AddWorktreeArgs(repoPath, worktreeName string) []string {
 func AddWorktree(tb testing.TB, cfg config.Cfg, repoPath string, worktreeName string) {
 	Exec(tb, cfg, AddWorktreeArgs(repoPath, worktreeName)...)
 }
+
+// RepositoryPather is an interface for repositories that know about their path.
+type RepositoryPather interface {
+	Path() (string, error)
+}
+
+// RepositoryPath returns the path of the given RepositoryPather. If any components are given, then
+// the repository path and components are joined together.
+func RepositoryPath(tb testing.TB, pather RepositoryPather, components ...string) string {
+	tb.Helper()
+	path, err := pather.Path()
+	require.NoError(tb, err)
+	return filepath.Join(append([]string{path}, components...)...)
+}
