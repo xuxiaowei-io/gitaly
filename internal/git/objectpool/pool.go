@@ -39,8 +39,6 @@ type ObjectPool struct {
 	gitCmdFactory       git.CommandFactory
 	txManager           transaction.Manager
 	housekeepingManager housekeeping.Manager
-
-	storagePath string
 }
 
 // FromProto returns an object pool object from its Protobuf representation. This function verifies
@@ -53,8 +51,10 @@ func FromProto(
 	housekeepingManager housekeeping.Manager,
 	proto *gitalypb.ObjectPool,
 ) (*ObjectPool, error) {
-	storagePath, err := locator.GetStorageByName(proto.GetRepository().GetStorageName())
-	if err != nil {
+	// TODO: this is retained for backwards compatibility for now. We should eventually amend
+	// `FromProto()` to always return an error if the Protobuf representation is invalid, the
+	// pool directory doesn't exist, or if the directory does not contain a valid repository.
+	if _, err := locator.GetStorageByName(proto.GetRepository().GetStorageName()); err != nil {
 		return nil, err
 	}
 
@@ -67,7 +67,6 @@ func FromProto(
 		gitCmdFactory:       gitCmdFactory,
 		txManager:           txManager,
 		housekeepingManager: housekeepingManager,
-		storagePath:         storagePath,
 	}
 
 	if !pool.IsValid() {
