@@ -32,11 +32,6 @@ func TestError(t *testing.T) {
 			errorf: ErrInternal,
 			code:   codes.Internal,
 		},
-		{
-			desc:   "InvalidArgument",
-			errorf: ErrInvalidArgument,
-			code:   codes.InvalidArgument,
-		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			// tc.code and our canary test code must not
