@@ -121,12 +121,17 @@ func getBitmaps(repoPath string) ([]string, error) {
 }
 
 func (o *ObjectPool) getRelativeObjectPath(repo *localrepo.Repo) (string, error) {
-	repoPath, err := repo.Path()
+	poolPath, err := o.Path()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("getting object pool path: %w", err)
 	}
 
-	relPath, err := filepath.Rel(filepath.Join(repoPath, "objects"), o.FullPath())
+	repoPath, err := repo.Path()
+	if err != nil {
+		return "", fmt.Errorf("getting repository path: %w", err)
+	}
+
+	relPath, err := filepath.Rel(filepath.Join(repoPath, "objects"), poolPath)
 	if err != nil {
 		return "", err
 	}
@@ -136,6 +141,11 @@ func (o *ObjectPool) getRelativeObjectPath(repo *localrepo.Repo) (string, error)
 
 // LinkedToRepository tests if a repository is linked to an object pool
 func (o *ObjectPool) LinkedToRepository(repo *localrepo.Repo) (bool, error) {
+	poolPath, err := o.Path()
+	if err != nil {
+		return false, fmt.Errorf("getting object pool path: %w", err)
+	}
+
 	relPath, err := getAlternateObjectDir(repo)
 	if err != nil {
 		if err == ErrAlternateObjectDirNotExist {
@@ -153,7 +163,7 @@ func (o *ObjectPool) LinkedToRepository(repo *localrepo.Repo) (bool, error) {
 		return true, nil
 	}
 
-	if filepath.Clean(relPath) != filepath.Join(o.FullPath(), "objects") {
+	if filepath.Clean(relPath) != filepath.Join(poolPath, "objects") {
 		return false, fmt.Errorf("unexpected alternates content: %q", relPath)
 	}
 
