@@ -25,8 +25,8 @@ func TestFetchFromOrigin_dangling(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg, pool, repo := setupObjectPool(t, ctx)
-	repoPath, err := repo.Path()
-	require.NoError(t, err)
+	poolPath := gittest.RepositoryPath(t, pool)
+	repoPath := gittest.RepositoryPath(t, repo)
 
 	// Write some reachable objects into the object pool member and fetch them into the pool.
 	blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("contents"))
@@ -41,23 +41,23 @@ func TestFetchFromOrigin_dangling(t *testing.T) {
 
 	// We now write a bunch of objects into the object pool that are not referenced by anything.
 	// These are thus "dangling".
-	unreachableBlob := gittest.WriteBlob(t, cfg, pool.FullPath(), []byte("unreachable"))
-	unreachableTree := gittest.WriteTree(t, cfg, pool.FullPath(), []gittest.TreeEntry{
+	unreachableBlob := gittest.WriteBlob(t, cfg, poolPath, []byte("unreachable"))
+	unreachableTree := gittest.WriteTree(t, cfg, poolPath, []gittest.TreeEntry{
 		{Mode: "100644", OID: blobID, Path: "unreachable"},
 	})
-	unreachableCommit := gittest.WriteCommit(t, cfg, pool.FullPath(),
+	unreachableCommit := gittest.WriteCommit(t, cfg, poolPath,
 		gittest.WithMessage("unreachable"),
 		gittest.WithTree(treeID),
 	)
-	unreachableTag := gittest.WriteTag(t, cfg, pool.FullPath(), "unreachable", commitID.Revision(), gittest.WriteTagConfig{
+	unreachableTag := gittest.WriteTag(t, cfg, poolPath, "unreachable", commitID.Revision(), gittest.WriteTagConfig{
 		Message: "unreachable",
 	})
 	// `WriteTag()` automatically creates a reference and thus makes the annotated tag
 	// reachable. We thus delete the reference here again.
-	gittest.Exec(t, cfg, "-C", pool.FullPath(), "update-ref", "-d", "refs/tags/unreachable")
+	gittest.Exec(t, cfg, "-C", poolPath, "update-ref", "-d", "refs/tags/unreachable")
 
 	// git-fsck(1) should report the newly created unreachable objects as dangling.
-	fsckBefore := gittest.Exec(t, cfg, "-C", pool.FullPath(), "fsck", "--connectivity-only", "--dangling")
+	fsckBefore := gittest.Exec(t, cfg, "-C", poolPath, "fsck", "--connectivity-only", "--dangling")
 	require.Equal(t, strings.Join([]string{
 		fmt.Sprintf("dangling blob %s", unreachableBlob),
 		fmt.Sprintf("dangling tag %s", unreachableTag),
@@ -69,7 +69,7 @@ func TestFetchFromOrigin_dangling(t *testing.T) {
 	require.NoError(t, pool.FetchFromOrigin(ctx, repo))
 
 	// Each of the dangling objects should have gotten a new dangling reference.
-	danglingRefs := gittest.Exec(t, cfg, "-C", pool.FullPath(), "for-each-ref", "--format=%(refname) %(objectname)", "refs/dangling/")
+	danglingRefs := gittest.Exec(t, cfg, "-C", poolPath, "for-each-ref", "--format=%(refname) %(objectname)", "refs/dangling/")
 	require.Equal(t, strings.Join([]string{
 		fmt.Sprintf("refs/dangling/%[1]s %[1]s", unreachableBlob),
 		fmt.Sprintf("refs/dangling/%[1]s %[1]s", unreachableTree),
@@ -77,7 +77,7 @@ func TestFetchFromOrigin_dangling(t *testing.T) {
 		fmt.Sprintf("refs/dangling/%[1]s %[1]s", unreachableCommit),
 	}, "\n"), text.ChompBytes(danglingRefs))
 	// And git-fsck(1) shouldn't report the objects as dangling anymore.
-	require.Empty(t, gittest.Exec(t, cfg, "-C", pool.FullPath(), "fsck", "--connectivity-only", "--dangling"))
+	require.Empty(t, gittest.Exec(t, cfg, "-C", poolPath, "fsck", "--connectivity-only", "--dangling"))
 }
 
 func TestFetchFromOrigin_fsck(t *testing.T) {
@@ -110,8 +110,8 @@ func TestFetchFromOrigin_deltaIslands(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg, pool, repo := setupObjectPool(t, ctx)
-	repoPath, err := repo.Path()
-	require.NoError(t, err)
+	poolPath := gittest.RepositoryPath(t, pool)
+	repoPath := gittest.RepositoryPath(t, repo)
 
 	require.NoError(t, pool.FetchFromOrigin(ctx, repo), "seed pool")
 	require.NoError(t, pool.Link(ctx, repo))
@@ -119,7 +119,7 @@ func TestFetchFromOrigin_deltaIslands(t *testing.T) {
 	// The setup of delta islands is done in the normal repository, and thus we pass `false`
 	// for `isPoolRepo`. Verification whether we correctly handle repacking though happens in
 	// the pool repository.
-	gittest.TestDeltaIslands(t, cfg, repoPath, pool.FullPath(), false, func() error {
+	gittest.TestDeltaIslands(t, cfg, repoPath, poolPath, false, func() error {
 		return pool.FetchFromOrigin(ctx, repo)
 	})
 }
@@ -136,7 +136,7 @@ func TestFetchFromOrigin_bitmapHashCache(t *testing.T) {
 
 	require.NoError(t, pool.FetchFromOrigin(ctx, repo))
 
-	bitmaps, err := filepath.Glob(filepath.Join(pool.FullPath(), "objects", "pack", "*.bitmap"))
+	bitmaps, err := filepath.Glob(gittest.RepositoryPath(t, pool, "objects", "pack", "*.bitmap"))
 	require.NoError(t, err)
 	require.Len(t, bitmaps, 1)
 
@@ -151,7 +151,7 @@ func TestFetchFromOrigin_refUpdates(t *testing.T) {
 	repoPath, err := repo.Path()
 	require.NoError(t, err)
 
-	poolPath := pool.FullPath()
+	poolPath := gittest.RepositoryPath(t, pool)
 
 	// Seed the pool member with some preliminary data.
 	oldRefs := map[string]git.ObjectID{}
@@ -199,7 +199,7 @@ func TestFetchFromOrigin_refs(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify that the object pool ain't yet got any references.
-	poolPath := pool.FullPath()
+	poolPath := gittest.RepositoryPath(t, pool)
 	require.Empty(t, gittest.Exec(t, cfg, "-C", poolPath, "for-each-ref", "--format=%(refname)"))
 
 	// Initialize the repository with a bunch of references.
@@ -269,7 +269,7 @@ func TestObjectPool_logStats(t *testing.T) {
 			desc: "normal reference",
 			setup: func(t *testing.T) *ObjectPool {
 				cfg, pool, _ := setupObjectPool(t, ctx)
-				gittest.WriteCommit(t, cfg, pool.FullPath(), gittest.WithBranch("main"))
+				gittest.WriteCommit(t, cfg, gittest.RepositoryPath(t, pool), gittest.WithBranch("main"))
 				return pool
 			},
 			expectedFields: logrus.Fields{
@@ -292,7 +292,7 @@ func TestObjectPool_logStats(t *testing.T) {
 			desc: "dangling reference",
 			setup: func(t *testing.T) *ObjectPool {
 				cfg, pool, _ := setupObjectPool(t, ctx)
-				gittest.WriteCommit(t, cfg, pool.FullPath(), gittest.WithReference("refs/dangling/commit"))
+				gittest.WriteCommit(t, cfg, gittest.RepositoryPath(t, pool), gittest.WithReference("refs/dangling/commit"))
 				return pool
 			},
 			expectedFields: logrus.Fields{

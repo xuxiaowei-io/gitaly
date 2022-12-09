@@ -41,7 +41,7 @@ func TestLink(t *testing.T) {
 	newContent := testhelper.MustReadFile(t, altPath)
 	require.Equal(t, content, newContent)
 
-	require.Equal(t, []byte("origin\n"), gittest.Exec(t, cfg, "-C", pool.FullPath(), "remote"))
+	require.Equal(t, []byte("origin\n"), gittest.Exec(t, cfg, "-C", gittest.RepositoryPath(t, pool), "remote"))
 }
 
 func TestLink_transactional(t *testing.T) {
@@ -75,13 +75,12 @@ func TestLink_removeBitmap(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg, pool, repo := setupObjectPool(t, ctx)
-	repoPath, err := repo.Path()
-	require.NoError(t, err)
+	poolPath := gittest.RepositoryPath(t, pool)
+	repoPath := gittest.RepositoryPath(t, repo)
 
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
 
 	// Pull in all references from the repository.
-	poolPath := pool.FullPath()
 	gittest.Exec(t, cfg, "-C", poolPath, "fetch", repoPath, "+refs/*:refs/*")
 
 	// Repack both the object pool and the pool member such that they both have bitmaps.
@@ -112,15 +111,14 @@ func TestLink_absoluteLinkExists(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg, pool, repo := setupObjectPool(t, ctx)
-	repoPath, err := repo.Path()
-	require.NoError(t, err)
+	poolPath := gittest.RepositoryPath(t, pool)
+	poolObjectsPath := gittest.RepositoryPath(t, pool, "objects")
+	repoPath := gittest.RepositoryPath(t, repo)
 
 	altPath, err := repo.InfoAlternatesPath()
 	require.NoError(t, err)
 
-	fullPath := filepath.Join(pool.FullPath(), "objects")
-
-	require.NoError(t, os.WriteFile(altPath, []byte(fullPath), 0o644))
+	require.NoError(t, os.WriteFile(altPath, []byte(poolObjectsPath), 0o644))
 
 	require.NoError(t, pool.Link(ctx, repo), "we expect this call to change the absolute link to a relative link")
 
@@ -130,7 +128,7 @@ func TestLink_absoluteLinkExists(t *testing.T) {
 	require.False(t, filepath.IsAbs(string(content)), "expected %q to be relative path", content)
 
 	repoObjectsPath := filepath.Join(repoPath, "objects")
-	require.Equal(t, fullPath, filepath.Join(repoObjectsPath, string(content)), "the content of the alternates file should be the relative version of the absolute pat")
+	require.Equal(t, poolObjectsPath, filepath.Join(repoObjectsPath, string(content)), "the content of the alternates file should be the relative version of the absolute pat")
 
-	require.Equal(t, []byte("origin\n"), gittest.Exec(t, cfg, "-C", pool.FullPath(), "remote"))
+	require.Equal(t, []byte("origin\n"), gittest.Exec(t, cfg, "-C", poolPath, "remote"))
 }
