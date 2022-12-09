@@ -2,10 +2,10 @@ package updateref
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -61,6 +61,87 @@ func TestUpdater_create(t *testing.T) {
 	// Verify that the reference was created as expected and that it points to the correct
 	// commit.
 	require.Equal(t, gittest.ResolveRevision(t, cfg, repoPath, "refs/heads/_create"), commitID)
+}
+
+func TestUpdater_nonCommitObject(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+
+	for _, tc := range []struct {
+		desc          string
+		referenceName git.ReferenceName
+		expectedError error
+	}{
+		{
+			desc:          "non-branch",
+			referenceName: "refs/tags/v1.0.0",
+		},
+		{
+			desc:          "branch",
+			referenceName: "refs/heads/main",
+			expectedError: NonCommitObjectError{
+				ReferenceName: "refs/heads/main",
+				ObjectID:      gittest.DefaultObjectHash.EmptyTreeOID.String(),
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			for _, method := range []struct {
+				desc   string
+				finish func(*Updater) error
+			}{
+				{desc: "prepare", finish: func(updater *Updater) error { return updater.Prepare() }},
+				{desc: "commit", finish: func(updater *Updater) error { return updater.Commit() }},
+			} {
+				t.Run(method.desc, func(t *testing.T) {
+					_, _, _, updater := setupUpdater(t, ctx)
+
+					require.NoError(t, updater.Start())
+					require.NoError(t, updater.Create(tc.referenceName, gittest.DefaultObjectHash.EmptyTreeOID))
+
+					require.Equal(t, tc.expectedError, method.finish(updater))
+				})
+			}
+		})
+	}
+}
+
+func TestUpdater_nonExistentObject(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+
+	for _, tc := range []struct {
+		desc   string
+		finish func(*Updater) error
+	}{
+		{desc: "prepare", finish: func(updater *Updater) error { return updater.Prepare() }},
+		{desc: "commit", finish: func(updater *Updater) error { return updater.Commit() }},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			_, repo, _, updater := setupUpdater(t, ctx)
+
+			objectHash, err := repo.ObjectHash(ctx)
+			require.NoError(t, err)
+
+			hasher := objectHash.Hash()
+			_, err = hasher.Write([]byte("content does not matter"))
+			require.NoError(t, err)
+			nonExistentOID, err := objectHash.FromHex(hex.EncodeToString(hasher.Sum(nil)))
+			require.NoError(t, err)
+
+			require.NoError(t, updater.Start())
+			require.NoError(t, updater.Create("refs/heads/main", nonExistentOID))
+			require.Equal(t,
+				NonExistentObjectError{
+					ReferenceName: "refs/heads/main",
+					ObjectID:      nonExistentOID.String(),
+				},
+				tc.finish(updater),
+			)
+		})
+	}
 }
 
 func TestUpdater_fileDirectoryConflict(t *testing.T) {
@@ -427,16 +508,12 @@ func TestUpdater_capturesStderr(t *testing.T) {
 	_, _, _, updater := setupUpdater(t, ctx)
 	defer func() { require.ErrorContains(t, updater.Close(), "closing updater: exit status 128") }()
 
-	newValue := git.ObjectID(strings.Repeat("1", gittest.DefaultObjectHash.EncodedLen()))
-	oldValue := gittest.DefaultObjectHash.ZeroOID
-
 	require.NoError(t, updater.Start())
-	require.NoError(t, updater.Update("refs/heads/main", newValue, oldValue))
+	// fail the process by writing bad input
+	_, err := updater.cmd.Write([]byte("garbage input"))
+	require.NoError(t, err)
 
-	expectedErr := fmt.Sprintf("state update to \"commit\" failed: EOF, stderr: \"fatal: commit: cannot update ref '%[1]s': "+
-		"trying to write ref '%[1]s' with nonexistent object %[2]s\\n\"", "refs/heads/main", newValue)
-
-	require.ErrorContains(t, updater.Commit(), expectedErr)
+	require.EqualError(t, updater.Commit(), `state update to "commit" failed: EOF, stderr: "fatal: unknown command: garbage inputcommit\n"`)
 }
 
 func BenchmarkUpdater(b *testing.B) {
