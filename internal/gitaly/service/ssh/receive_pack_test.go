@@ -446,8 +446,9 @@ func TestReceivePack_hidesObjectPoolReferences(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.NoError(t, pool.Link(ctx, repo))
+	poolPath := gittest.RepositoryPath(t, pool)
 
-	commitID := gittest.WriteCommit(t, cfg, pool.FullPath(), gittest.WithBranch(t.Name()))
+	commitID := gittest.WriteCommit(t, cfg, poolPath, gittest.WithBranch(t.Name()))
 
 	// First request
 	require.NoError(t, stream.Send(&gitalypb.SSHReceivePackRequest{Repository: repoProto, GlId: "user-123"}))
