@@ -21,28 +21,6 @@ func (sw statusWrapper) Unwrap() error {
 	return sw.error
 }
 
-// ErrInternal wraps err with codes.Internal, unless err is already a gRPC error.
-func ErrInternal(err error) error { return wrapError(codes.Internal, err) }
-
-// wrapError wraps the given error with the error code unless it's already a gRPC error. If given
-// nil it will return nil.
-func wrapError(code codes.Code, err error) error {
-	if err == nil {
-		return nil
-	}
-
-	_, ok := status.FromError(err)
-	if ok {
-		return err
-	}
-
-	if foundCode := GrpcCode(err); foundCode != codes.OK && foundCode != codes.Unknown {
-		code = foundCode
-	}
-
-	return statusWrapper{error: err, status: status.New(code, err.Error())}
-}
-
 // ErrCanceledf wraps a formatted error with codes.Canceled, unless the formatted error is a
 // wrapped gRPC error.
 func ErrCanceledf(format string, a ...interface{}) error {
