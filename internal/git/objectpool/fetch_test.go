@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -261,8 +262,7 @@ func TestObjectPool_logStats(t *testing.T) {
 			expectedFields: logrus.Fields{
 				"references.dangling": referencedObjectTypes{},
 				"references.normal":   referencedObjectTypes{},
-				"poolObjectsSize":     int64(0),
-				"poolRefsSize":        int64(0),
+				"repository_info":     stats.RepositoryInfo{},
 			},
 		},
 		{
@@ -277,8 +277,15 @@ func TestObjectPool_logStats(t *testing.T) {
 				"references.normal": referencedObjectTypes{
 					Commits: 1,
 				},
-				"poolObjectsSize": int64(8192),
-				"poolRefsSize":    int64(4096),
+				"repository_info": stats.RepositoryInfo{
+					LooseObjects: stats.LooseObjectsInfo{
+						Count: 2,
+						Size:  142,
+					},
+					References: stats.ReferencesInfo{
+						LooseReferencesCount: 1,
+					},
+				},
 			},
 		},
 		{
@@ -293,8 +300,15 @@ func TestObjectPool_logStats(t *testing.T) {
 					Commits: 1,
 				},
 				"references.normal": referencedObjectTypes{},
-				"poolObjectsSize":   int64(8192),
-				"poolRefsSize":      int64(4096),
+				"repository_info": stats.RepositoryInfo{
+					LooseObjects: stats.LooseObjectsInfo{
+						Count: 2,
+						Size:  142,
+					},
+					References: stats.ReferencesInfo{
+						LooseReferencesCount: 1,
+					},
+				},
 			},
 		},
 	} {

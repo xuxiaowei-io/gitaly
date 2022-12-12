@@ -6,15 +6,13 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
@@ -309,16 +307,11 @@ type referencedObjectTypes struct {
 func (o *ObjectPool) logStats(ctx context.Context, logger *logrus.Entry) error {
 	fields := logrus.Fields{}
 
-	for key, dir := range map[string]string{
-		"poolObjectsSize": "objects",
-		"poolRefsSize":    "refs",
-	} {
-		var err error
-		fields[key], err = sizeDir(ctx, filepath.Join(o.FullPath(), dir))
-		if err != nil {
-			return fmt.Errorf("determining %s size: %w", dir, err)
-		}
+	repoInfo, err := stats.RepositoryInfoForRepository(ctx, o.Repo)
+	if err != nil {
+		return fmt.Errorf("deriving repository info: %w", err)
 	}
+	fields["repository_info"] = repoInfo
 
 	forEachRef, err := o.Repo.Exec(ctx, git.SubCmd{
 		Name:  "for-each-ref",
@@ -367,34 +360,4 @@ func (o *ObjectPool) logStats(ctx context.Context, logger *logrus.Entry) error {
 	logger.WithFields(fields).Info("pool dangling ref stats")
 
 	return nil
-}
-
-func sizeDir(ctx context.Context, dir string) (int64, error) {
-	// du -k reports size in KB
-	cmd, err := command.New(ctx, []string{"du", "-sk", dir})
-	if err != nil {
-		return 0, err
-	}
-
-	sizeLine, err := io.ReadAll(cmd)
-	if err != nil {
-		return 0, err
-	}
-
-	if err := cmd.Wait(); err != nil {
-		return 0, err
-	}
-
-	sizeParts := bytes.Split(sizeLine, []byte("\t"))
-	if len(sizeParts) != 2 {
-		return 0, fmt.Errorf("malformed du output: %q", sizeLine)
-	}
-
-	size, err := strconv.ParseInt(string(sizeParts[0]), 10, 0)
-	if err != nil {
-		return 0, err
-	}
-
-	// Convert KB to B
-	return size * 1024, nil
 }
