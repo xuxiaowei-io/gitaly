@@ -139,7 +139,7 @@ The gRPC framework allows for a [richer error model](https://grpc.io/docs/guides
 With this error model, the server can attach structured Protobuf messages to
 errors returned to the client. These Protobuf messages can be extracted on the
 client side to allow more fine-grained error handling. Error details should be
-added to an error when it is known that the client side needs to base its
+added to an error when you know that the client side needs to base its
 behavior on the specific error that has occured.
 
 For an RPC `Frobnicate()`, the error details should be of the message type
