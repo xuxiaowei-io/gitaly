@@ -44,11 +44,6 @@ func TestErrorf(t *testing.T) {
 			errorf:       ErrNotFoundf,
 			expectedCode: codes.NotFound,
 		},
-		{
-			desc:         "ErrUnauthenticatedf",
-			errorf:       ErrUnauthenticatedf,
-			expectedCode: codes.Unauthenticated,
-		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Run("with non-gRPC error", func(t *testing.T) {
