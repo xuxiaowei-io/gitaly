@@ -9,6 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 )
@@ -46,7 +47,7 @@ func sendGetBlobsResponse(
 
 		if treeEntry == nil || len(treeEntry.Oid) == 0 {
 			if err := stream.Send(response); err != nil {
-				return helper.ErrUnavailablef("send: %w", err)
+				return structerr.NewUnavailable("send: %w", err)
 			}
 
 			continue
@@ -60,7 +61,7 @@ func sendGetBlobsResponse(
 			response.Type = gitalypb.ObjectType_COMMIT
 
 			if err := stream.Send(response); err != nil {
-				return helper.ErrUnavailablef("send: %w", err)
+				return structerr.NewUnavailable("send: %w", err)
 			}
 
 			continue
@@ -82,7 +83,7 @@ func sendGetBlobsResponse(
 
 		if response.Type != gitalypb.ObjectType_BLOB {
 			if err := stream.Send(response); err != nil {
-				return helper.ErrUnavailablef("send: %w", err)
+				return structerr.NewUnavailable("send: %w", err)
 			}
 			continue
 		}
@@ -115,7 +116,7 @@ func sendBlobTreeEntry(
 	// blobObj.
 	if readLimit == 0 {
 		if err := stream.Send(response); err != nil {
-			return helper.ErrUnavailablef("send: %w", err)
+			return structerr.NewUnavailable("send: %w", err)
 		}
 		return nil
 	}
@@ -147,7 +148,7 @@ func sendBlobTreeEntry(
 
 	_, err = io.CopyN(sw, blobObj, readLimit)
 	if err != nil {
-		return helper.ErrUnavailablef("send: %w", err)
+		return structerr.NewUnavailable("send: %w", err)
 	}
 
 	return nil

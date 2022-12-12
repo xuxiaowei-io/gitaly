@@ -9,6 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
@@ -63,11 +64,11 @@ func (s *server) PostReceivePack(stream gitalypb.SmartHTTPService_PostReceivePac
 		git.WithConfig(config...),
 	)
 	if err != nil {
-		return helper.ErrUnavailablef("spawning receive-pack: %w", err)
+		return structerr.NewUnavailable("spawning receive-pack: %w", err)
 	}
 
 	if err := cmd.Wait(); err != nil {
-		return helper.ErrUnavailablef("waiting for receive-pack: %w", err)
+		return structerr.NewUnavailable("waiting for receive-pack: %w", err)
 	}
 
 	// In cases where all reference updates are rejected by git-receive-pack(1), we would end up

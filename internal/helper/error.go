@@ -45,12 +45,6 @@ func ErrFailedPreconditionf(format string, a ...interface{}) error {
 	return formatError(codes.FailedPrecondition, format, a...)
 }
 
-// ErrUnavailablef wraps a formatted error with codes.Unavailable, unless the
-// formatted error is a wrapped gRPC error.
-func ErrUnavailablef(format string, a ...interface{}) error {
-	return formatError(codes.Unavailable, format, a...)
-}
-
 // ErrPermissionDeniedf wraps a formatted error with codes.PermissionDenied, unless the formatted
 // error is a wrapped gRPC error.
 func ErrPermissionDeniedf(format string, a ...interface{}) error {

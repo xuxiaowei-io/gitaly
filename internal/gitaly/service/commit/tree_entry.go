@@ -59,7 +59,7 @@ func sendTreeEntry(
 		}
 
 		if err := stream.Send(response); err != nil {
-			return helper.ErrUnavailablef("sending response: %w", err)
+			return structerr.NewUnavailable("sending response: %w", err)
 		}
 
 		return nil
@@ -98,7 +98,7 @@ func sendTreeEntry(
 	}
 	if dataLength == 0 {
 		if err := stream.Send(response); err != nil {
-			return helper.ErrUnavailablef("sending response: %w", err)
+			return structerr.NewUnavailable("sending response: %w", err)
 		}
 
 		return nil

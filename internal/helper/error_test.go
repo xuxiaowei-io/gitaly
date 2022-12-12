@@ -45,11 +45,6 @@ func TestErrorf(t *testing.T) {
 			expectedCode: codes.NotFound,
 		},
 		{
-			desc:         "ErrUnavailablef",
-			errorf:       ErrUnavailablef,
-			expectedCode: codes.Unavailable,
-		},
-		{
 			desc:         "ErrAbortedf",
 			errorf:       ErrAbortedf,
 			expectedCode: codes.Aborted,
