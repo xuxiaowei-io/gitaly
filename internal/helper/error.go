@@ -57,12 +57,6 @@ func ErrAlreadyExistsf(format string, a ...interface{}) error {
 	return formatError(codes.AlreadyExists, format, a...)
 }
 
-// ErrDataLossf wraps a formatted error with codes.DataLoss, unless the formatted error is a wrapped
-// gRPC error.
-func ErrDataLossf(format string, a ...interface{}) error {
-	return formatError(codes.DataLoss, format, a...)
-}
-
 // ErrUnknownf wraps a formatted error with codes.Unknown, unless the formatted error is a wrapped
 // gRPC error.
 func ErrUnknownf(format string, a ...interface{}) error {

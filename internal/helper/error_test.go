@@ -45,11 +45,6 @@ func TestErrorf(t *testing.T) {
 			expectedCode: codes.NotFound,
 		},
 		{
-			desc:         "ErrDataLossf",
-			errorf:       ErrDataLossf,
-			expectedCode: codes.DataLoss,
-		},
-		{
 			desc:         "ErrUnknownf",
 			errorf:       ErrUnknownf,
 			expectedCode: codes.Unknown,
