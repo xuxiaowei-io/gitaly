@@ -13,12 +13,14 @@ import (
 type CommitGraphInfo struct {
 	// Exists tells whether a commit-graph exists.
 	Exists bool `json:"exists"`
-	// HasBloomFilters tells whether the commit-graph has bloom filters.
-	HasBloomFilters bool `json:"has_bloom_filters"`
 	// CommitGraphChainLength is the length of the commit-graph chain, if it exists. If the
 	// repository does not have a commit-graph chain but a monolithic commit-graph, then this
 	// field will be set to 0.
 	CommitGraphChainLength uint64 `json:"commit_graph_chain_length"`
+	// HasBloomFilters tells whether the commit-graph has bloom filters. Bloom filters are used
+	// to answer the question whether a certain path has been changed in the commit the bloom
+	// filter applies to.
+	HasBloomFilters bool `json:"has_bloom_filters"`
 }
 
 // CommitGraphInfoForRepository derives information about commit-graphs in the repository.

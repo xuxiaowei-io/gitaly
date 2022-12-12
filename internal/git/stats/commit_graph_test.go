@@ -54,8 +54,8 @@ func TestCommitGraphInfoForRepository(t *testing.T) {
 			args: []string{"commit-graph", "write", "--reachable", "--split", "--changed-paths"},
 			expectedInfo: CommitGraphInfo{
 				Exists:                 true,
-				HasBloomFilters:        true,
 				CommitGraphChainLength: 1,
+				HasBloomFilters:        true,
 			},
 		},
 	} {
