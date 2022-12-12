@@ -7,9 +7,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/diff"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 var maxNumStatBatchSize = 1000
@@ -26,10 +25,7 @@ func (s *server) DiffStats(in *gitalypb.DiffStatsRequest, stream gitalypb.DiffSe
 		Args:  []string{in.LeftCommitId, in.RightCommitId},
 	})
 	if err != nil {
-		if _, ok := status.FromError(err); ok {
-			return err
-		}
-		return status.Errorf(codes.Internal, "%s: cmd: %v", "DiffStats", err)
+		return structerr.NewInternal("cmd: %w", err)
 	}
 
 	parser := diff.NewDiffNumStatParser(cmd)
@@ -63,7 +59,7 @@ func (s *server) DiffStats(in *gitalypb.DiffStatsRequest, stream gitalypb.DiffSe
 	}
 
 	if err := cmd.Wait(); err != nil {
-		return status.Errorf(codes.Unavailable, "%s: %v", "DiffStats", err)
+		return structerr.NewUnavailable("%w", err)
 	}
 
 	return sendStats(batch, stream)
@@ -75,7 +71,7 @@ func sendStats(batch []*gitalypb.DiffStats, stream gitalypb.DiffService_DiffStat
 	}
 
 	if err := stream.Send(&gitalypb.DiffStatsResponse{Stats: batch}); err != nil {
-		return status.Errorf(codes.Unavailable, "DiffStats: send: %v", err)
+		return structerr.NewUnavailable("send: %w", err)
 	}
 
 	return nil
@@ -91,7 +87,7 @@ func (s *server) validateDiffStatsRequestParams(in *gitalypb.DiffStatsRequest) e
 	}
 
 	if err := validateRequest(in); err != nil {
-		return status.Errorf(codes.InvalidArgument, "DiffStats: %v", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	return nil

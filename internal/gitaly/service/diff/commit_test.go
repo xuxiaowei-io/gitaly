@@ -806,7 +806,7 @@ func TestFailedCommitDiffRequestDueToValidationError(t *testing.T) {
 			desc: "Repository doesn't exist",
 			req:  &gitalypb.CommitDiffRequest{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, RightCommitId: rightCommit, LeftCommitId: leftCommit},
 			exrErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				`GetStorageByName: no such storage: "fake"`,
+				`cmd: GetStorageByName: no such storage: "fake"`,
 				"repo scoped: invalid Repository",
 			)),
 		},
@@ -814,19 +814,19 @@ func TestFailedCommitDiffRequestDueToValidationError(t *testing.T) {
 			desc: "Repository is nil",
 			req:  &gitalypb.CommitDiffRequest{Repository: nil, RightCommitId: rightCommit, LeftCommitId: leftCommit},
 			exrErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"CommitDiff: empty Repository",
+				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
 		},
 		{
 			desc:   "RightCommitId is empty",
 			req:    &gitalypb.CommitDiffRequest{Repository: repo, RightCommitId: "", LeftCommitId: leftCommit},
-			exrErr: status.Error(codes.InvalidArgument, "CommitDiff: empty RightCommitId"),
+			exrErr: status.Error(codes.InvalidArgument, "empty RightCommitId"),
 		},
 		{
 			desc:   "LeftCommitId is empty",
 			req:    &gitalypb.CommitDiffRequest{Repository: repo, RightCommitId: rightCommit, LeftCommitId: ""},
-			exrErr: status.Error(codes.InvalidArgument, "CommitDiff: empty LeftCommitId"),
+			exrErr: status.Error(codes.InvalidArgument, "empty LeftCommitId"),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
