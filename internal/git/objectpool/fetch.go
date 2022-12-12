@@ -309,7 +309,7 @@ func (o *ObjectPool) logStats(ctx context.Context, logger *logrus.Entry) error {
 		var err error
 		fields[key], err = sizeDir(ctx, filepath.Join(o.FullPath(), dir))
 		if err != nil {
-			return err
+			return fmt.Errorf("determining %s size: %w", dir, err)
 		}
 	}
 
@@ -319,7 +319,7 @@ func (o *ObjectPool) logStats(ctx context.Context, logger *logrus.Entry) error {
 		Args:  []string{"refs/"},
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("spawning for-each-ref: %w", err)
 	}
 
 	danglingRefsByType := map[string]int{}
@@ -340,10 +340,10 @@ func (o *ObjectPool) logStats(ctx context.Context, logger *logrus.Entry) error {
 	}
 
 	if err := scanner.Err(); err != nil {
-		return err
+		return fmt.Errorf("scanning references: %w", err)
 	}
 	if err := forEachRef.Wait(); err != nil {
-		return err
+		return fmt.Errorf("waiting for for-each-ref: %w", err)
 	}
 
 	for _, key := range []string{"blob", "commit", "tag", "tree"} {
