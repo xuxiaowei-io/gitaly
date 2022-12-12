@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -18,7 +19,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
@@ -418,57 +421,217 @@ func TestUserCreateBranch_Failure(t *testing.T) {
 	}
 }
 
-func TestUserDeleteBranch_success(t *testing.T) {
+func TestUserDeleteBranch(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
+
+	type setupResponse struct {
+		request          *gitalypb.UserDeleteBranchRequest
+		expectedResponse *gitalypb.UserDeleteBranchResponse
+		repoPath         string
+		expectedErr      error
+		expectedRefs     []string
+	}
 
 	testCases := []struct {
-		desc            string
-		branchNameInput string
-		branchCommit    string
-		user            *gitalypb.User
-		response        *gitalypb.UserDeleteBranchResponse
-		err             error
+		desc  string
+		setup func() setupResponse
 	}{
 		{
-			desc:            "simple successful deletion",
-			branchNameInput: "to-attempt-to-delete-soon-branch",
-			branchCommit:    "c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd",
-			user:            gittest.TestUser,
-			response:        &gitalypb.UserDeleteBranchResponse{},
+			desc: "simple successful deletion without ExpectedOldOID",
+			setup: func() setupResponse {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				firstCommit := gittest.WriteCommit(t, cfg, repoPath)
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithParents(firstCommit))
+
+				gittest.Exec(t, cfg, "-C", repoPath, "branch", "to-attempt-to-delete-soon-branch", "master")
+
+				return setupResponse{
+					request: &gitalypb.UserDeleteBranchRequest{
+						User:       gittest.TestUser,
+						Repository: repoProto,
+						BranchName: []byte("to-attempt-to-delete-soon-branch"),
+					},
+					repoPath:         repoPath,
+					expectedResponse: &gitalypb.UserDeleteBranchResponse{},
+					expectedRefs:     []string{"master"},
+				}
+			},
 		},
 		{
-			desc:            "partially prefixed successful deletion",
-			branchNameInput: "heads/to-attempt-to-delete-soon-branch",
-			branchCommit:    "9a944d90955aaf45f6d0c88f30e27f8d2c41cec0",
-			user:            gittest.TestUser,
-			response:        &gitalypb.UserDeleteBranchResponse{},
+			desc: "simple successful deletion with ExpectedOldOID",
+			setup: func() setupResponse {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				firstCommit := gittest.WriteCommit(t, cfg, repoPath)
+				headCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithParents(firstCommit))
+
+				gittest.Exec(t, cfg, "-C", repoPath, "branch", "to-attempt-to-delete-soon-branch", "master")
+
+				return setupResponse{
+					request: &gitalypb.UserDeleteBranchRequest{
+						User:           gittest.TestUser,
+						Repository:     repoProto,
+						BranchName:     []byte("to-attempt-to-delete-soon-branch"),
+						ExpectedOldOid: headCommit.String(),
+					},
+					repoPath:         repoPath,
+					expectedResponse: &gitalypb.UserDeleteBranchResponse{},
+					expectedRefs:     []string{"master"},
+				}
+			},
 		},
 		{
-			desc:            "branch with refs/heads/ prefix",
-			branchNameInput: "refs/heads/branch",
-			branchCommit:    "9a944d90955aaf45f6d0c88f30e27f8d2c41cec0",
-			user:            gittest.TestUser,
-			response:        &gitalypb.UserDeleteBranchResponse{},
+			desc: "partially prefixed successful deletion",
+			setup: func() setupResponse {
+				branchName := "heads/to-attempt-to-delete-soon-branch"
+
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				firstCommit := gittest.WriteCommit(t, cfg, repoPath)
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithParents(firstCommit))
+
+				gittest.Exec(t, cfg, "-C", repoPath, "branch", branchName, "master")
+
+				return setupResponse{
+					request: &gitalypb.UserDeleteBranchRequest{
+						User:       gittest.TestUser,
+						Repository: repoProto,
+						BranchName: []byte(branchName),
+					},
+					repoPath:         repoPath,
+					expectedResponse: &gitalypb.UserDeleteBranchResponse{},
+					expectedRefs:     []string{"master"},
+				}
+			},
+		},
+		{
+			desc: "branch with refs/heads/ prefix",
+			setup: func() setupResponse {
+				branchName := "refs/heads/branch"
+
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				firstCommit := gittest.WriteCommit(t, cfg, repoPath)
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithParents(firstCommit))
+
+				gittest.Exec(t, cfg, "-C", repoPath, "branch", branchName, "master")
+
+				return setupResponse{
+					request: &gitalypb.UserDeleteBranchRequest{
+						User:       gittest.TestUser,
+						Repository: repoProto,
+						BranchName: []byte(branchName),
+					},
+					repoPath:         repoPath,
+					expectedResponse: &gitalypb.UserDeleteBranchResponse{},
+					expectedRefs:     []string{"master"},
+				}
+			},
+		},
+		{
+			desc: "invalid ExpectedOldOID",
+			setup: func() setupResponse {
+				branchName := "random-branch"
+
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				firstCommit := gittest.WriteCommit(t, cfg, repoPath)
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithParents(firstCommit))
+
+				gittest.Exec(t, cfg, "-C", repoPath, "branch", branchName, "master")
+
+				return setupResponse{
+					request: &gitalypb.UserDeleteBranchRequest{
+						User:           gittest.TestUser,
+						Repository:     repoProto,
+						BranchName:     []byte(branchName),
+						ExpectedOldOid: "foobar",
+					},
+					repoPath:     repoPath,
+					expectedErr:  structerr.NewInvalidArgument("invalid expected old object ID: invalid object ID: \"foobar\""),
+					expectedRefs: []string{"master", branchName},
+				}
+			},
+		},
+		{
+			desc: "valid ExpectedOldOID but not present in repo",
+			setup: func() setupResponse {
+				branchName := "random-branch"
+
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				firstCommit := gittest.WriteCommit(t, cfg, repoPath)
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithParents(firstCommit))
+
+				gittest.Exec(t, cfg, "-C", repoPath, "branch", branchName, "master")
+
+				return setupResponse{
+					request: &gitalypb.UserDeleteBranchRequest{
+						User:           gittest.TestUser,
+						Repository:     repoProto,
+						BranchName:     []byte(branchName),
+						ExpectedOldOid: gittest.DefaultObjectHash.ZeroOID.String(),
+					},
+					repoPath:     repoPath,
+					expectedErr:  structerr.NewInvalidArgument("cannot resolve expected old object ID: reference not found"),
+					expectedRefs: []string{"master", branchName},
+				}
+			},
+		},
+		{
+			desc: "valid but incorrect ExpectedOldOID",
+			setup: func() setupResponse {
+				branchName := "random-branch"
+
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				firstCommit := gittest.WriteCommit(t, cfg, repoPath)
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithParents(firstCommit))
+
+				gittest.Exec(t, cfg, "-C", repoPath, "branch", branchName, "master")
+
+				return setupResponse{
+					request: &gitalypb.UserDeleteBranchRequest{
+						User:           gittest.TestUser,
+						Repository:     repoProto,
+						BranchName:     []byte(branchName),
+						ExpectedOldOid: firstCommit.String(),
+					},
+					repoPath: repoPath,
+					expectedErr: structerr.NewFailedPrecondition("reference update failed: Could not update refs/heads/random-branch. Please refresh and try again.").
+						WithDetail(&gitalypb.UserDeleteBranchError{
+							Error: &gitalypb.UserDeleteBranchError_ReferenceUpdate{
+								ReferenceUpdate: &gitalypb.ReferenceUpdateError{
+									ReferenceName: []byte("refs/heads/" + branchName),
+									OldOid:        firstCommit.String(),
+									NewOid:        gittest.DefaultObjectHash.ZeroOID.String(),
+								},
+							},
+						}),
+					expectedRefs: []string{"master", branchName},
+				}
+			},
 		},
 	}
 
-	for _, testCase := range testCases {
-		t.Run(testCase.desc, func(t *testing.T) {
-			gittest.Exec(t, cfg, "-C", repoPath, "branch", testCase.branchNameInput, testCase.branchCommit)
+	for _, tc := range testCases {
+		tc := tc
 
-			response, err := client.UserDeleteBranch(ctx, &gitalypb.UserDeleteBranchRequest{
-				Repository: repo,
-				BranchName: []byte(testCase.branchNameInput),
-				User:       testCase.user,
-			})
-			require.NoError(t, err)
-			testhelper.ProtoEqual(t, testCase.response, response)
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
 
-			refs := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs/heads/"+testCase.branchNameInput)
-			require.NotContains(t, string(refs), testCase.branchCommit, "branch deleted from refs")
+			data := tc.setup()
+
+			response, err := client.UserDeleteBranch(ctx, data.request)
+			testhelper.RequireGrpcError(t, data.expectedErr, err)
+			testhelper.ProtoEqual(t, data.expectedResponse, response)
+
+			refs := text.ChompBytes(gittest.Exec(t, cfg, "-C", data.repoPath, "for-each-ref", "--format=%(refname:short)", "--", "refs/heads/"))
+			require.ElementsMatch(t, strings.Split(refs, "\n"), data.expectedRefs)
 		})
 	}
 }

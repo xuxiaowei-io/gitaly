@@ -3,6 +3,7 @@ package operations
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
@@ -181,9 +182,26 @@ func (s *Server) UserDeleteBranch(ctx context.Context, req *gitalypb.UserDeleteB
 	}
 	referenceName := git.NewReferenceNameFromBranchName(string(req.BranchName))
 
-	referenceValue, err := s.localrepo(req.GetRepository()).ResolveRevision(ctx, referenceName.Revision())
-	if err != nil {
-		return nil, helper.ErrFailedPreconditionf("branch not found: %q", req.BranchName)
+	var err error
+	var referenceValue git.ObjectID
+
+	if expectedOldOID := req.GetExpectedOldOid(); expectedOldOID != "" {
+		referenceValue, err = git.ObjectHashSHA1.FromHex(expectedOldOID)
+		if err != nil {
+			return nil, structerr.NewInvalidArgument("invalid expected old object ID: %w", err).WithMetadata("old_object_id", expectedOldOID)
+		}
+		referenceValue, err = s.localrepo(req.GetRepository()).ResolveRevision(
+			ctx, git.Revision(fmt.Sprintf("%s^{object}", referenceValue)),
+		)
+		if err != nil {
+			return nil, structerr.NewInvalidArgument("cannot resolve expected old object ID: %w", err).
+				WithMetadata("old_object_id", expectedOldOID)
+		}
+	} else {
+		referenceValue, err = s.localrepo(req.GetRepository()).ResolveRevision(ctx, referenceName.Revision())
+		if err != nil {
+			return nil, helper.ErrFailedPreconditionf("branch not found: %q", req.BranchName)
+		}
 	}
 
 	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, nil, referenceName, git.ObjectHashSHA1.ZeroOID, referenceValue); err != nil {
