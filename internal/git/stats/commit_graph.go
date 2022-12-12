@@ -21,6 +21,15 @@ type CommitGraphInfo struct {
 	// to answer the question whether a certain path has been changed in the commit the bloom
 	// filter applies to.
 	HasBloomFilters bool `json:"has_bloom_filters"`
+	// HasGenerationData tells whether the commit-graph has generation data. Generation
+	// data is stored as the corrected committer date, which is defined as the maximum
+	// of the commit's own committer date or the corrected committer date of any of its
+	// parents. This data can be used to determine whether a commit A comes after a
+	// certain commit B.
+	HasGenerationData bool `json:"has_generation_data"`
+	// HasGenerationDataOverflow stores overflow data in case the corrected committer
+	// date takes more than 31 bits to represent.
+	HasGenerationDataOverflow bool `json:"has_generation_data_overflow"`
 }
 
 // CommitGraphInfoForRepository derives information about commit-graphs in the repository.
@@ -117,9 +126,16 @@ func CommitGraphInfoForRepository(repoPath string) (CommitGraphInfo, error) {
 			return CommitGraphInfo{}, fmt.Errorf("commit graph file %q close: %w", graphFilePath, err)
 		}
 
-		info.HasBloomFilters = bytes.Contains(table, []byte("BIDX")) && bytes.Contains(table, []byte("BDAT"))
-		if info.HasBloomFilters {
-			break
+		if !info.HasBloomFilters {
+			info.HasBloomFilters = bytes.Contains(table, []byte("BIDX")) && bytes.Contains(table, []byte("BDAT"))
+		}
+
+		if !info.HasGenerationData {
+			info.HasGenerationData = bytes.Contains(table, []byte("GDA2"))
+		}
+
+		if !info.HasGenerationDataOverflow {
+			info.HasGenerationDataOverflow = bytes.Contains(table, []byte("GDO2"))
 		}
 	}
 
