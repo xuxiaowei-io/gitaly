@@ -25,6 +25,8 @@ var objectPoolRefspec = fmt.Sprintf("+refs/*:%s/*", git.ObjectPoolRefNamespace)
 
 // FetchFromOrigin initializes the pool and fetches the objects from its origin repository
 func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *localrepo.Repo) error {
+	logger := ctxlogrus.Extract(ctx)
+
 	if !o.Exists() {
 		return helper.ErrInvalidArgumentf("object pool does not exist")
 	}
@@ -38,7 +40,7 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *localrepo.Repo
 		return fmt.Errorf("cleaning stale data: %w", err)
 	}
 
-	if err := o.logStats(ctx, "before fetch"); err != nil {
+	if err := o.logStats(ctx, logger.WithField("when", "before fetch")); err != nil {
 		return fmt.Errorf("computing stats before fetch: %w", err)
 	}
 
@@ -100,7 +102,7 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *localrepo.Repo
 		return fmt.Errorf("rescuing dangling objects: %w", err)
 	}
 
-	if err := o.logStats(ctx, "after fetch"); err != nil {
+	if err := o.logStats(ctx, logger.WithField("when", "after fetch")); err != nil {
 		return fmt.Errorf("computing stats after fetch: %w", err)
 	}
 
@@ -297,10 +299,8 @@ func (o *ObjectPool) rescueDanglingObjects(ctx context.Context) (returnedErr err
 	return updater.Commit()
 }
 
-func (o *ObjectPool) logStats(ctx context.Context, when string) error {
-	fields := logrus.Fields{
-		"when": when,
-	}
+func (o *ObjectPool) logStats(ctx context.Context, logger *logrus.Entry) error {
+	fields := logrus.Fields{}
 
 	for key, dir := range map[string]string{
 		"poolObjectsSize": "objects",
@@ -354,7 +354,7 @@ func (o *ObjectPool) logStats(ctx context.Context, when string) error {
 		fields["normal."+key+".ref"] = normalRefsByType[key]
 	}
 
-	ctxlogrus.Extract(ctx).WithFields(fields).Info("pool dangling ref stats")
+	logger.WithFields(fields).Info("pool dangling ref stats")
 
 	return nil
 }
