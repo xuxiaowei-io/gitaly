@@ -299,6 +299,13 @@ func (o *ObjectPool) rescueDanglingObjects(ctx context.Context) (returnedErr err
 	return updater.Commit()
 }
 
+type referencedObjectTypes struct {
+	Blobs   uint64 `json:"blobs"`
+	Commits uint64 `json:"commits"`
+	Tags    uint64 `json:"tags"`
+	Trees   uint64 `json:"trees"`
+}
+
 func (o *ObjectPool) logStats(ctx context.Context, logger *logrus.Entry) error {
 	fields := logrus.Fields{}
 
@@ -322,9 +329,7 @@ func (o *ObjectPool) logStats(ctx context.Context, logger *logrus.Entry) error {
 		return fmt.Errorf("spawning for-each-ref: %w", err)
 	}
 
-	danglingRefsByType := map[string]int{}
-	normalRefsByType := map[string]int{}
-
+	var danglingTypes, normalTypes referencedObjectTypes
 	scanner := bufio.NewScanner(forEachRef)
 	for scanner.Scan() {
 		objectType, refname, found := bytes.Cut(scanner.Bytes(), []byte{0})
@@ -332,10 +337,20 @@ func (o *ObjectPool) logStats(ctx context.Context, logger *logrus.Entry) error {
 			continue
 		}
 
+		types := &normalTypes
 		if bytes.HasPrefix(refname, []byte(danglingObjectNamespace)) {
-			danglingRefsByType[string(objectType)]++
-		} else {
-			normalRefsByType[string(objectType)]++
+			types = &danglingTypes
+		}
+
+		switch {
+		case bytes.Equal(objectType, []byte("blob")):
+			types.Blobs++
+		case bytes.Equal(objectType, []byte("commit")):
+			types.Commits++
+		case bytes.Equal(objectType, []byte("tag")):
+			types.Tags++
+		case bytes.Equal(objectType, []byte("tree")):
+			types.Trees++
 		}
 	}
 
@@ -346,10 +361,8 @@ func (o *ObjectPool) logStats(ctx context.Context, logger *logrus.Entry) error {
 		return fmt.Errorf("waiting for for-each-ref: %w", err)
 	}
 
-	for _, key := range []string{"blob", "commit", "tag", "tree"} {
-		fields["dangling."+key+".ref"] = danglingRefsByType[key]
-		fields["normal."+key+".ref"] = normalRefsByType[key]
-	}
+	fields["references.dangling"] = danglingTypes
+	fields["references.normal"] = normalTypes
 
 	logger.WithFields(fields).Info("pool dangling ref stats")
 

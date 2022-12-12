@@ -259,14 +259,8 @@ func TestObjectPool_logStats(t *testing.T) {
 				return pool
 			},
 			expectedFields: logrus.Fields{
-				"dangling.blob.ref":   0,
-				"dangling.commit.ref": 0,
-				"dangling.tag.ref":    0,
-				"dangling.tree.ref":   0,
-				"normal.blob.ref":     0,
-				"normal.commit.ref":   0,
-				"normal.tag.ref":      0,
-				"normal.tree.ref":     0,
+				"references.dangling": referencedObjectTypes{},
+				"references.normal":   referencedObjectTypes{},
 				"poolObjectsSize":     int64(0),
 				"poolRefsSize":        int64(0),
 			},
@@ -279,16 +273,12 @@ func TestObjectPool_logStats(t *testing.T) {
 				return pool
 			},
 			expectedFields: logrus.Fields{
-				"dangling.blob.ref":   0,
-				"dangling.commit.ref": 0,
-				"dangling.tag.ref":    0,
-				"dangling.tree.ref":   0,
-				"normal.blob.ref":     0,
-				"normal.commit.ref":   1,
-				"normal.tag.ref":      0,
-				"normal.tree.ref":     0,
-				"poolObjectsSize":     int64(8192),
-				"poolRefsSize":        int64(4096),
+				"references.dangling": referencedObjectTypes{},
+				"references.normal": referencedObjectTypes{
+					Commits: 1,
+				},
+				"poolObjectsSize": int64(8192),
+				"poolRefsSize":    int64(4096),
 			},
 		},
 		{
@@ -299,16 +289,12 @@ func TestObjectPool_logStats(t *testing.T) {
 				return pool
 			},
 			expectedFields: logrus.Fields{
-				"dangling.blob.ref":   0,
-				"dangling.commit.ref": 1,
-				"dangling.tag.ref":    0,
-				"dangling.tree.ref":   0,
-				"normal.blob.ref":     0,
-				"normal.commit.ref":   0,
-				"normal.tag.ref":      0,
-				"normal.tree.ref":     0,
-				"poolObjectsSize":     int64(8192),
-				"poolRefsSize":        int64(4096),
+				"references.dangling": referencedObjectTypes{
+					Commits: 1,
+				},
+				"references.normal": referencedObjectTypes{},
+				"poolObjectsSize":   int64(8192),
+				"poolRefsSize":      int64(4096),
 			},
 		},
 	} {
