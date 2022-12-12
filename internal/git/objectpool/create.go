@@ -14,7 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -38,16 +38,12 @@ func Create(
 		return nil, err
 	}
 
-	if entries, err := os.ReadDir(objectPoolPath); err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			return nil, helper.ErrInternalf("reading object pool directory: %w", err)
-		}
-
-		// This is the happy path as the target directory does not yet exist.
-	} else if len(entries) > 0 {
-		// TODO: we should eventually start to fail if the target exists even if it is an
-		// empty directory.
-		return nil, helper.ErrFailedPreconditionf("target path exists already and is not an empty directory")
+	if _, err := os.Stat(objectPoolPath); err == nil {
+		return nil, structerr.NewFailedPrecondition("target path exists already").
+			WithMetadata("object_pool_path", objectPoolPath)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return nil, structerr.NewInternal("checking object pool existence: %w", err).
+			WithMetadata("object_pool_path", objectPoolPath)
 	}
 
 	sourceRepoPath, err := sourceRepo.Path()
