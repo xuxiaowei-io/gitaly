@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
@@ -73,14 +74,17 @@ func createCommand(tb testing.TB, cfg config.Cfg, execCfg ExecConfig, args ...st
 
 	ctx := testhelper.Context(tb)
 
-	execEnv := NewCommandFactory(tb, cfg).GetExecutionEnvironment(ctx)
+	factory := NewCommandFactory(tb, cfg)
+	execEnv := factory.GetExecutionEnvironment(ctx)
 
-	gitConfig := []git.ConfigPair{
-		{Key: "init.defaultBranch", Value: "master"},
-		{Key: "init.templateDir", Value: ""},
-		{Key: "user.name", Value: "Your Name"},
-		{Key: "user.email", Value: "you@example.com"},
-	}
+	gitConfig, err := factory.GlobalConfiguration(ctx)
+	require.NoError(tb, err)
+	gitConfig = append(gitConfig,
+		git.ConfigPair{Key: "init.defaultBranch", Value: "master"},
+		git.ConfigPair{Key: "init.templateDir", Value: ""},
+		git.ConfigPair{Key: "user.name", Value: "Your Name"},
+		git.ConfigPair{Key: "user.email", Value: "you@example.com"},
+	)
 
 	cmd := exec.CommandContext(ctx, execEnv.BinaryPath, args...)
 	cmd.Env = command.AllowedEnvironment(os.Environ())
