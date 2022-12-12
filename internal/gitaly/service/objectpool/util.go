@@ -1,6 +1,8 @@
 package objectpool
 
 import (
+	"errors"
+
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -34,6 +36,10 @@ func (s *server) poolForRequest(req PoolRequest) (*objectpool.ObjectPool, error)
 	if err != nil {
 		if err == objectpool.ErrInvalidPoolDir {
 			return nil, errInvalidPoolDir
+		}
+
+		if errors.Is(err, objectpool.ErrInvalidPoolRepository) {
+			return nil, helper.ErrFailedPreconditionf("%w", err)
 		}
 
 		return nil, helper.ErrInternal(err)

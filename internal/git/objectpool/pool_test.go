@@ -19,18 +19,26 @@ import (
 func TestFromProto(t *testing.T) {
 	t.Parallel()
 
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
-
 	locator := config.NewLocator(cfg)
 
 	t.Run("successful", func(t *testing.T) {
+		cfg, pool, _ := setupObjectPool(t, ctx)
+		locator := config.NewLocator(cfg)
+
+		_, err := FromProto(locator, nil, nil, nil, nil, pool.ToProto())
+		require.NoError(t, err)
+	})
+
+	t.Run("nonexistent", func(t *testing.T) {
 		_, err := FromProto(locator, nil, nil, nil, nil, &gitalypb.ObjectPool{
 			Repository: &gitalypb.Repository{
 				StorageName:  cfg.Storages[0].Name,
 				RelativePath: gittest.NewObjectPoolName(t),
 			},
 		})
-		require.NoError(t, err)
+		require.Equal(t, ErrInvalidPoolRepository, err)
 	})
 
 	t.Run("unknown storage", func(t *testing.T) {

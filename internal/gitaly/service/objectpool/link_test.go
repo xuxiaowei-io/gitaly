@@ -11,10 +11,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
 )
 
 func TestLink(t *testing.T) {
@@ -32,47 +32,41 @@ func TestLink(t *testing.T) {
 	poolCommitID := gittest.WriteCommit(t, cfg, pool.FullPath(),
 		gittest.WithBranch("pool-test-branch"))
 
-	testCases := []struct {
-		desc string
-		req  *gitalypb.LinkRepositoryToObjectPoolRequest
-		code codes.Code
+	for _, tc := range []struct {
+		desc        string
+		request     *gitalypb.LinkRepositoryToObjectPoolRequest
+		expectedErr error
 	}{
 		{
-			desc: "Repository does not exist",
-			req: &gitalypb.LinkRepositoryToObjectPoolRequest{
+			desc: "unset repository",
+			request: &gitalypb.LinkRepositoryToObjectPoolRequest{
 				Repository: nil,
 				ObjectPool: poolProto,
 			},
-			code: codes.InvalidArgument,
+			expectedErr: helper.ErrInvalidArgumentf("empty Repository"),
 		},
 		{
-			desc: "Pool does not exist",
-			req: &gitalypb.LinkRepositoryToObjectPoolRequest{
+			desc: "unset object pool",
+			request: &gitalypb.LinkRepositoryToObjectPoolRequest{
 				Repository: repo,
 				ObjectPool: nil,
 			},
-			code: codes.InvalidArgument,
+			expectedErr: helper.ErrInvalidArgumentf("GetStorageByName: no such storage: %q", ""),
 		},
 		{
-			desc: "Successful request",
-			req: &gitalypb.LinkRepositoryToObjectPoolRequest{
+			desc: "successful",
+			request: &gitalypb.LinkRepositoryToObjectPoolRequest{
 				Repository: repo,
 				ObjectPool: poolProto,
 			},
-			code: codes.OK,
 		},
-	}
-
-	for _, tc := range testCases {
+	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			_, err := client.LinkRepositoryToObjectPool(ctx, tc.req)
-
-			if tc.code != codes.OK {
-				testhelper.RequireGrpcCode(t, err, tc.code)
+			_, err := client.LinkRepositoryToObjectPool(ctx, tc.request)
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
+			if tc.expectedErr != nil {
 				return
 			}
-
-			require.NoError(t, err, "error from LinkRepositoryToObjectPool")
 
 			commit, err := localRepo.ReadCommit(ctx, git.Revision(poolCommitID))
 			require.NoError(t, err)
@@ -122,7 +116,7 @@ func TestLink_noClobber(t *testing.T) {
 	}
 
 	_, err := client.LinkRepositoryToObjectPool(ctx, request)
-	require.Error(t, err)
+	testhelper.RequireGrpcError(t, helper.ErrInternalf("unexpected alternates content: %q", "mock/objects"), err)
 
 	contentAfter := testhelper.MustReadFile(t, alternatesFile)
 	require.Equal(t, contentBefore, string(contentAfter), "contents of existing alternates file should not have changed")
@@ -132,18 +126,25 @@ func TestLink_noPool(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-
 	cfg, repo, _, _, client := setup(t, ctx)
+
+	poolRelativePath := gittest.NewObjectPoolName(t)
 
 	_, err := client.LinkRepositoryToObjectPool(ctx, &gitalypb.LinkRepositoryToObjectPoolRequest{
 		Repository: repo,
 		ObjectPool: &gitalypb.ObjectPool{
 			Repository: &gitalypb.Repository{
 				StorageName:  cfg.Storages[0].Name,
-				RelativePath: gittest.NewObjectPoolName(t),
+				RelativePath: poolRelativePath,
 			},
 		},
 	})
-	testhelper.RequireGrpcCode(t, err, codes.NotFound)
-	require.Error(t, err, "GetRepoPath: not a git repository:")
+	testhelper.RequireGrpcError(t, testhelper.GitalyOrPraefect(
+		helper.ErrFailedPreconditionf("object pool is not a valid git repository"),
+		helper.ErrNotFoundf(
+			"mutator call: route repository mutator: resolve additional replica path: get additional repository id: repository %q/%q not found",
+			cfg.Storages[0].Name,
+			poolRelativePath,
+		),
+	), err)
 }
