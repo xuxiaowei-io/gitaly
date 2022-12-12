@@ -115,7 +115,7 @@ func CommitGraphInfoForRepository(repoPath string) (CommitGraphInfo, error) {
 			return CommitGraphInfo{}, fmt.Errorf("commit graph file %q close: %w", graphFilePath, err)
 		}
 
-		info.HasBloomFilters = bytes.Contains(table, []byte("BIDX")) || bytes.Contains(table, []byte("BDAT"))
+		info.HasBloomFilters = bytes.Contains(table, []byte("BIDX")) && bytes.Contains(table, []byte("BDAT"))
 		if info.HasBloomFilters {
 			break
 		}
