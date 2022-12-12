@@ -19,8 +19,16 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
-// ErrInvalidPoolDir is returned when the object pool relative path is malformed.
-var ErrInvalidPoolDir = errors.New("invalid object pool directory")
+var (
+	// ErrInvalidPoolDir is returned when the object pool relative path is malformed.
+	ErrInvalidPoolDir = errors.New("invalid object pool directory")
+
+	// ErrInvalidPoolRepository indicates the directory the alternates file points to is not a valid git repository
+	ErrInvalidPoolRepository = errors.New("object pool is not a valid git repository")
+
+	// ErrAlternateObjectDirNotExist indicates a repository does not have an alternates file
+	ErrAlternateObjectDirNotExist = errors.New("no alternates directory exists")
+)
 
 // ObjectPool are a way to de-dupe objects between repositories, where the objects
 // live in a pool in a distinct repository which is used as an alternate object
@@ -136,14 +144,6 @@ func FromRepo(
 
 	return FromProto(locator, gitCmdFactory, catfileCache, txManager, housekeepingManager, objectPoolProto)
 }
-
-var (
-	// ErrInvalidPoolRepository indicates the directory the alternates file points to is not a valid git repository
-	ErrInvalidPoolRepository = errors.New("object pool is not a valid git repository")
-
-	// ErrAlternateObjectDirNotExist indicates a repository does not have an alternates file
-	ErrAlternateObjectDirNotExist = errors.New("no alternates directory exists")
-)
 
 // getAlternateObjectDir returns the entry in the objects/info/attributes file if it exists
 // it will only return the first line of the file if there are multiple lines.
