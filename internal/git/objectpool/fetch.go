@@ -322,23 +322,20 @@ func (o *ObjectPool) logStats(ctx context.Context, logger *logrus.Entry) error {
 		return err
 	}
 
-	danglingRefsByType := make(map[string]int)
-	normalRefsByType := make(map[string]int)
+	danglingRefsByType := map[string]int{}
+	normalRefsByType := map[string]int{}
 
 	scanner := bufio.NewScanner(forEachRef)
 	for scanner.Scan() {
-		line := bytes.SplitN(scanner.Bytes(), []byte{0}, 2)
-		if len(line) != 2 {
+		objectType, refname, found := bytes.Cut(scanner.Bytes(), []byte{0})
+		if !found {
 			continue
 		}
 
-		objectType := string(line[0])
-		refname := string(line[1])
-
-		if strings.HasPrefix(refname, danglingObjectNamespace) {
-			danglingRefsByType[objectType]++
+		if bytes.HasPrefix(refname, []byte(danglingObjectNamespace)) {
+			danglingRefsByType[string(objectType)]++
 		} else {
-			normalRefsByType[objectType]++
+			normalRefsByType[string(objectType)]++
 		}
 	}
 
