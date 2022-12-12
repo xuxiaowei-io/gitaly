@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 )
@@ -80,7 +81,7 @@ func (s *server) sshUploadArchive(stream gitalypb.SSHService_SSHUploadArchiveSer
 		// We thus need to special-case the situation where we cancel our own context in
 		// order to provide that information and return a proper gRPC error code.
 		if ctx.Err() != nil && stream.Context().Err() == nil {
-			return helper.ErrDeadlineExceededf("waiting for packfile negotiation: %w", ctx.Err())
+			return structerr.NewDeadlineExceeded("waiting for packfile negotiation: %w", ctx.Err())
 		}
 
 		if status, ok := command.ExitStatus(err); ok {

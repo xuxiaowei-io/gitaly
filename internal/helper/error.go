@@ -21,12 +21,6 @@ func (sw statusWrapper) Unwrap() error {
 	return sw.error
 }
 
-// ErrDeadlineExceededf wraps a formatted error with codes.DeadlineExceeded, unless the formatted
-// error is a wrapped gRPC error.
-func ErrDeadlineExceededf(format string, a ...interface{}) error {
-	return formatError(codes.DeadlineExceeded, format, a...)
-}
-
 // ErrInternalf wraps a formatted error with codes.Internal, unless the formatted error is a
 // wrapped gRPC error.
 func ErrInternalf(format string, a ...interface{}) error {

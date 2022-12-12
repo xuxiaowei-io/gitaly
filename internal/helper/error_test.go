@@ -25,11 +25,6 @@ func TestErrorf(t *testing.T) {
 		expectedCode codes.Code
 	}{
 		{
-			desc:         "DeadlineExceededf",
-			errorf:       ErrDeadlineExceededf,
-			expectedCode: codes.DeadlineExceeded,
-		},
-		{
 			desc:         "Internalf",
 			errorf:       ErrInternalf,
 			expectedCode: codes.Internal,

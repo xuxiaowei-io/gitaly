@@ -159,7 +159,7 @@ func (s *server) sshUploadPack(rpcContext context.Context, req sshUploadPackRequ
 		// We thus need to special-case the situation where we cancel our own context in
 		// order to provide that information and return a proper gRPC error code.
 		if ctx.Err() != nil && rpcContext.Err() == nil {
-			return status, helper.ErrDeadlineExceededf("waiting for packfile negotiation: %w", ctx.Err())
+			return status, structerr.NewDeadlineExceeded("waiting for packfile negotiation: %w", ctx.Err())
 		}
 
 		// A common error case is that the client is terminating the request prematurely,
