@@ -14,7 +14,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/quarantine"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
@@ -62,32 +61,20 @@ func testSuccessfulRepositorySizeRequestPoolMember(t *testing.T, ctx context.Con
 
 	sizeBeforePool := response.GetSize()
 
-	storage := cfg.Storages[0]
-	relativePath := gittest.NewObjectPoolName(t)
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
 
-	// create an object pool
-	gittest.InitRepoDir(t, storage.Path, relativePath)
-	pool, err := objectpool.FromProto(
-		config.NewLocator(cfg),
-		gittest.NewCommandFactory(t, cfg),
-		catfileCache,
-		nil,
-		nil,
-		&gitalypb.ObjectPool{
-			Repository: &gitalypb.Repository{
-				StorageName:  storage.Name,
-				RelativePath: relativePath,
-			},
+	poolProto := &gitalypb.ObjectPool{
+		Repository: &gitalypb.Repository{
+			StorageName:  cfg.Storages[0].Name,
+			RelativePath: gittest.NewObjectPoolName(t),
 		},
-	)
-	require.NoError(t, err)
+	}
 
 	_, err = objectPoolClient.CreateObjectPool(
 		ctx,
 		&gitalypb.CreateObjectPoolRequest{
-			ObjectPool: pool.ToProto(),
+			ObjectPool: poolProto,
 			Origin:     repo,
 		})
 	require.NoError(t, err)
@@ -96,7 +83,7 @@ func testSuccessfulRepositorySizeRequestPoolMember(t *testing.T, ctx context.Con
 		ctx,
 		&gitalypb.LinkRepositoryToObjectPoolRequest{
 			Repository: repo,
-			ObjectPool: pool.ToProto(),
+			ObjectPool: poolProto,
 		},
 	)
 	require.NoError(t, err)
