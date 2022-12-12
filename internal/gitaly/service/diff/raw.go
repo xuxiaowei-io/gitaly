@@ -5,15 +5,14 @@ import (
 	"io"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func (s *server) RawDiff(in *gitalypb.RawDiffRequest, stream gitalypb.DiffService_RawDiffServer) error {
 	if err := validateRequest(in); err != nil {
-		return status.Errorf(codes.InvalidArgument, "RawDiff: %v", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	subCmd := git.SubCmd{
@@ -26,12 +25,12 @@ func (s *server) RawDiff(in *gitalypb.RawDiffRequest, stream gitalypb.DiffServic
 		return stream.Send(&gitalypb.RawDiffResponse{Data: p})
 	})
 
-	return sendRawOutput(stream.Context(), s.gitCmdFactory, "RawDiff", in.Repository, sw, subCmd)
+	return sendRawOutput(stream.Context(), s.gitCmdFactory, in.Repository, sw, subCmd)
 }
 
 func (s *server) RawPatch(in *gitalypb.RawPatchRequest, stream gitalypb.DiffService_RawPatchServer) error {
 	if err := validateRequest(in); err != nil {
-		return status.Errorf(codes.InvalidArgument, "RawPatch: %v", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	subCmd := git.SubCmd{
@@ -44,20 +43,17 @@ func (s *server) RawPatch(in *gitalypb.RawPatchRequest, stream gitalypb.DiffServ
 		return stream.Send(&gitalypb.RawPatchResponse{Data: p})
 	})
 
-	return sendRawOutput(stream.Context(), s.gitCmdFactory, "RawPatch", in.Repository, sw, subCmd)
+	return sendRawOutput(stream.Context(), s.gitCmdFactory, in.Repository, sw, subCmd)
 }
 
-func sendRawOutput(ctx context.Context, gitCmdFactory git.CommandFactory, rpc string, repo *gitalypb.Repository, sender io.Writer, subCmd git.SubCmd) error {
+func sendRawOutput(ctx context.Context, gitCmdFactory git.CommandFactory, repo *gitalypb.Repository, sender io.Writer, subCmd git.SubCmd) error {
 	cmd, err := gitCmdFactory.New(ctx, repo, subCmd)
 	if err != nil {
-		if _, ok := status.FromError(err); ok {
-			return err
-		}
-		return status.Errorf(codes.Internal, "%s: cmd: %v", rpc, err)
+		return structerr.NewInternal("cmd: %w", err)
 	}
 
 	if _, err := io.Copy(sender, cmd); err != nil {
-		return status.Errorf(codes.Unavailable, "%s: send: %v", rpc, err)
+		return structerr.NewUnavailable("send: %w", err)
 	}
 
 	return cmd.Wait()

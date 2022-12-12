@@ -2,16 +2,15 @@ package diff
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/diff"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 type requestWithLeftRightCommitIds interface {
@@ -29,7 +28,7 @@ func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.Diff
 	}).Debug("CommitDiff")
 
 	if err := validateRequest(in); err != nil {
-		return status.Errorf(codes.InvalidArgument, "CommitDiff: %v", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	leftSha := in.LeftCommitId
@@ -74,7 +73,7 @@ func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.Diff
 	limits.SafeMaxLines = int(in.SafeMaxLines)
 	limits.SafeMaxBytes = int(in.SafeMaxBytes)
 
-	return s.eachDiff(stream.Context(), "CommitDiff", in.Repository, cmd, limits, func(diff *diff.Diff) error {
+	return s.eachDiff(stream.Context(), in.Repository, cmd, limits, func(diff *diff.Diff) error {
 		response := &gitalypb.CommitDiffResponse{
 			FromPath:       diff.FromPath,
 			ToPath:         diff.ToPath,
@@ -93,7 +92,7 @@ func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.Diff
 			response.EndOfPatch = true
 
 			if err := stream.Send(response); err != nil {
-				return status.Errorf(codes.Unavailable, "CommitDiff: send: %v", err)
+				return structerr.NewUnavailable("send: %w", err)
 			}
 		} else {
 			patch := diff.Patch
@@ -109,7 +108,7 @@ func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.Diff
 				}
 
 				if err := stream.Send(response); err != nil {
-					return status.Errorf(codes.Unavailable, "CommitDiff: send: %v", err)
+					return structerr.NewUnavailable("send: %w", err)
 				}
 
 				// Use a new response so we don't send other fields (FromPath, ...) over and over
@@ -129,7 +128,7 @@ func (s *server) CommitDelta(in *gitalypb.CommitDeltaRequest, stream gitalypb.Di
 	}).Debug("CommitDelta")
 
 	if err := validateRequest(in); err != nil {
-		return status.Errorf(codes.InvalidArgument, "CommitDelta: %v", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	leftSha := in.LeftCommitId
@@ -161,13 +160,13 @@ func (s *server) CommitDelta(in *gitalypb.CommitDeltaRequest, stream gitalypb.Di
 		}
 
 		if err := stream.Send(&gitalypb.CommitDeltaResponse{Deltas: batch}); err != nil {
-			return status.Errorf(codes.Unavailable, "CommitDelta: send: %v", err)
+			return structerr.NewUnavailable("send: %w", err)
 		}
 
 		return nil
 	}
 
-	err := s.eachDiff(stream.Context(), "CommitDelta", in.Repository, cmd, diff.Limits{}, func(diff *diff.Diff) error {
+	err := s.eachDiff(stream.Context(), in.Repository, cmd, diff.Limits{}, func(diff *diff.Diff) error {
 		delta := &gitalypb.CommitDelta{
 			FromPath: diff.FromPath,
 			ToPath:   diff.ToPath,
@@ -203,24 +202,21 @@ func validateRequest(in requestWithLeftRightCommitIds) error {
 		return err
 	}
 	if in.GetLeftCommitId() == "" {
-		return fmt.Errorf("empty LeftCommitId")
+		return errors.New("empty LeftCommitId")
 	}
 	if in.GetRightCommitId() == "" {
-		return fmt.Errorf("empty RightCommitId")
+		return errors.New("empty RightCommitId")
 	}
 
 	return nil
 }
 
-func (s *server) eachDiff(ctx context.Context, rpc string, repo *gitalypb.Repository, subCmd git.Cmd, limits diff.Limits, callback func(*diff.Diff) error) error {
+func (s *server) eachDiff(ctx context.Context, repo *gitalypb.Repository, subCmd git.Cmd, limits diff.Limits, callback func(*diff.Diff) error) error {
 	diffConfig := git.ConfigPair{Key: "diff.noprefix", Value: "false"}
 
 	cmd, err := s.gitCmdFactory.New(ctx, repo, subCmd, git.WithConfig(diffConfig))
 	if err != nil {
-		if _, ok := status.FromError(err); ok {
-			return err
-		}
-		return status.Errorf(codes.Internal, "%s: cmd: %v", rpc, err)
+		return structerr.NewInternal("cmd: %w", err)
 	}
 
 	diffParser := diff.NewDiffParser(cmd, limits)
@@ -232,11 +228,11 @@ func (s *server) eachDiff(ctx context.Context, rpc string, repo *gitalypb.Reposi
 	}
 
 	if err := diffParser.Err(); err != nil {
-		return status.Errorf(codes.Internal, "%s: parse failure: %v", rpc, err)
+		return structerr.NewInternal("parse failure: %w", err)
 	}
 
 	if err := cmd.Wait(); err != nil {
-		return status.Errorf(codes.Unavailable, "%s: %v", rpc, err)
+		return structerr.NewUnavailable("%w", err)
 	}
 
 	return nil

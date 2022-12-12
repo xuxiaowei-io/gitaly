@@ -15,8 +15,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -67,10 +67,7 @@ func (s *server) FindChangedPaths(in *gitalypb.FindChangedPathsRequest, stream g
 		},
 	}, git.WithStdin(strings.NewReader(strings.Join(requests, "\n")+"\n")))
 	if err != nil {
-		if _, ok := status.FromError(err); ok {
-			return fmt.Errorf("stdin err: %w", err)
-		}
-		return helper.ErrInternalf("cmd err: %v", err)
+		return structerr.NewInternal("cmd err: %w", err)
 	}
 
 	if err := parsePaths(bufio.NewReader(cmd), diffChunker); err != nil {
@@ -78,7 +75,7 @@ func (s *server) FindChangedPaths(in *gitalypb.FindChangedPathsRequest, stream g
 	}
 
 	if err := cmd.Wait(); err != nil {
-		return helper.ErrUnavailablef("cmd wait err: %v", err)
+		return structerr.NewUnavailable("cmd wait err: %w", err)
 	}
 
 	return diffChunker.Flush()
