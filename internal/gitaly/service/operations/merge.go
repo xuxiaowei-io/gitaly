@@ -258,9 +258,31 @@ func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequ
 		return nil, err
 	}
 
-	revision, err := quarantineRepo.ResolveRevision(ctx, referenceName.Revision())
-	if err != nil {
-		return nil, structerr.NewInvalidArgument("%w", err)
+	var revision git.ObjectID
+	if expectedOldOID := in.GetExpectedOldOid(); expectedOldOID != "" {
+		objectHash, err := quarantineRepo.ObjectHash(ctx)
+		if err != nil {
+			return nil, structerr.NewInternal("detecting object hash: %w", err)
+		}
+
+		revision, err = objectHash.FromHex(expectedOldOID)
+		if err != nil {
+			return nil, structerr.NewInvalidArgument("invalid expected old object ID: %w", err).
+				WithMetadata("old_object_id", expectedOldOID)
+		}
+
+		revision, err = quarantineRepo.ResolveRevision(
+			ctx, git.Revision(fmt.Sprintf("%s^{object}", revision)),
+		)
+		if err != nil {
+			return nil, structerr.NewInvalidArgument("cannot resolve expected old object ID: %w", err).
+				WithMetadata("old_object_id", expectedOldOID)
+		}
+	} else {
+		revision, err = quarantineRepo.ResolveRevision(ctx, referenceName.Revision())
+		if err != nil {
+			return nil, structerr.NewInvalidArgument("%w", err)
+		}
 	}
 
 	commitID, err := git.ObjectHashSHA1.FromHex(in.CommitId)
