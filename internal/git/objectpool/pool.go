@@ -19,12 +19,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
-type errString string
-
-func (err errString) Error() string { return string(err) }
-
 // ErrInvalidPoolDir is returned when the object pool relative path is malformed.
-const ErrInvalidPoolDir errString = "invalid object pool directory"
+var ErrInvalidPoolDir = errors.New("invalid object pool directory")
 
 // ObjectPool are a way to de-dupe objects between repositories, where the objects
 // live in a pool in a distinct repository which is used as an alternate object
