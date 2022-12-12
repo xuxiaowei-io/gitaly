@@ -45,11 +45,6 @@ func TestErrorf(t *testing.T) {
 			expectedCode: codes.NotFound,
 		},
 		{
-			desc:         "ErrUnknownf",
-			errorf:       ErrUnknownf,
-			expectedCode: codes.Unknown,
-		},
-		{
 			desc:         "ErrUnauthenticatedf",
 			errorf:       ErrUnauthenticatedf,
 			expectedCode: codes.Unauthenticated,

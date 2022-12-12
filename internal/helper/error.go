@@ -57,12 +57,6 @@ func ErrAlreadyExistsf(format string, a ...interface{}) error {
 	return formatError(codes.AlreadyExists, format, a...)
 }
 
-// ErrUnknownf wraps a formatted error with codes.Unknown, unless the formatted error is a wrapped
-// gRPC error.
-func ErrUnknownf(format string, a ...interface{}) error {
-	return formatError(codes.Unknown, format, a...)
-}
-
 // ErrUnauthenticatedf wraps a formatted error with codes.Unauthenticated, unless the formatted error is a wrapped
 // gRPC error.
 func ErrUnauthenticatedf(format string, a ...interface{}) error {

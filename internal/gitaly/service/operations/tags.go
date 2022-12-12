@@ -266,7 +266,7 @@ func (s *Server) createTag(
 		if err != nil {
 			var FormatTagError localrepo.FormatTagError
 			if errors.As(err, &FormatTagError) {
-				return nil, "", helper.ErrUnknownf("Rugged::InvalidError: failed to parse signature - expected prefix doesn't match actual")
+				return nil, "", structerr.NewUnknown("Rugged::InvalidError: failed to parse signature - expected prefix doesn't match actual")
 			}
 
 			var MktagError localrepo.MktagError
