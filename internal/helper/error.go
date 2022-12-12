@@ -93,12 +93,6 @@ func ErrUnknownf(format string, a ...interface{}) error {
 	return formatError(codes.Unknown, format, a...)
 }
 
-// ErrUnimplementedf wraps a formatted error with codes.Unimplemented, unless the formatted error is a wrapped
-// gRPC error.
-func ErrUnimplementedf(format string, a ...interface{}) error {
-	return formatError(codes.Unimplemented, format, a...)
-}
-
 // ErrUnauthenticatedf wraps a formatted error with codes.Unauthenticated, unless the formatted error is a wrapped
 // gRPC error.
 func ErrUnauthenticatedf(format string, a ...interface{}) error {
