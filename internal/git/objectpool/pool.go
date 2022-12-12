@@ -39,7 +39,8 @@ type ObjectPool struct {
 	storagePath string
 }
 
-// FromProto returns an object pool object from its Protobuf representation.
+// FromProto returns an object pool object from its Protobuf representation. This function verifies
+// that the object pool exists and is a valid pool repository.
 func FromProto(
 	locator storage.Locator,
 	gitCmdFactory git.CommandFactory,
@@ -57,13 +58,19 @@ func FromProto(
 		return nil, ErrInvalidPoolDir
 	}
 
-	return &ObjectPool{
+	pool := &ObjectPool{
 		Repo:                localrepo.New(locator, gitCmdFactory, catfileCache, proto.GetRepository()),
 		gitCmdFactory:       gitCmdFactory,
 		txManager:           txManager,
 		housekeepingManager: housekeepingManager,
 		storagePath:         storagePath,
-	}, nil
+	}
+
+	if !pool.IsValid() {
+		return nil, ErrInvalidPoolRepository
+	}
+
+	return pool, nil
 }
 
 // ToProto returns a new struct that is the protobuf definition of the ObjectPool

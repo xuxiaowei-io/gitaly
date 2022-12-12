@@ -129,7 +129,6 @@ func TestLink_noPool(t *testing.T) {
 	cfg, repo, _, _, client := setup(t, ctx)
 
 	poolRelativePath := gittest.NewObjectPoolName(t)
-	poolPath := filepath.Join(cfg.Storages[0].Path, poolRelativePath)
 
 	_, err := client.LinkRepositoryToObjectPool(ctx, &gitalypb.LinkRepositoryToObjectPoolRequest{
 		Repository: repo,
@@ -141,7 +140,7 @@ func TestLink_noPool(t *testing.T) {
 		},
 	})
 	testhelper.RequireGrpcError(t, testhelper.GitalyOrPraefect(
-		helper.ErrNotFoundf("GetRepoPath: not a git repository: %q", poolPath),
+		helper.ErrFailedPreconditionf("object pool is not a valid git repository"),
 		helper.ErrNotFoundf(
 			"mutator call: route repository mutator: resolve additional replica path: get additional repository id: repository %q/%q not found",
 			cfg.Storages[0].Name,
