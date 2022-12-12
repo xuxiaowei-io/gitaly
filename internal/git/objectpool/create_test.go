@@ -18,8 +18,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -73,7 +73,7 @@ func TestCreate(t *testing.T) {
 		gittest.RequireObjectExists(t, cfg, pool.FullPath(), commitID)
 	})
 
-	t.Run("target is an empty directory", func(t *testing.T) {
+	t.Run("target exists", func(t *testing.T) {
 		relativePath := gittest.NewObjectPoolName(t)
 		fullPath := filepath.Join(cfg.Storages[0].Path, relativePath)
 
@@ -87,25 +87,7 @@ func TestCreate(t *testing.T) {
 				RelativePath: relativePath,
 			},
 		})
-		require.NoError(t, err)
-	})
-
-	t.Run("target exists", func(t *testing.T) {
-		relativePath := gittest.NewObjectPoolName(t)
-		fullPath := filepath.Join(cfg.Storages[0].Path, relativePath)
-
-		// Same as before, but this time we make sure that the target is a non-empty
-		// directory to trigger an error.
-		require.NoError(t, os.MkdirAll(fullPath, 0o755))
-		require.NoError(t, os.WriteFile(filepath.Join(fullPath, "something"), nil, 0o644))
-
-		_, err := createPool(t, &gitalypb.ObjectPool{
-			Repository: &gitalypb.Repository{
-				StorageName:  cfg.Storages[0].Name,
-				RelativePath: relativePath,
-			},
-		})
-		testhelper.RequireGrpcError(t, helper.ErrFailedPreconditionf("target path exists already and is not an empty directory"), err)
+		testhelper.RequireGrpcError(t, structerr.NewFailedPrecondition("target path exists already"), err)
 	})
 
 	t.Run("consistency check", func(t *testing.T) {
