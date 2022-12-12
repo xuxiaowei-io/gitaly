@@ -29,7 +29,7 @@ variables:
   # Git's `safe.directory` protections, and that in turns breaks the Go
   # build. We work around this by telling Go to not embed VCS information in
   # the binaries.
-  GOFLAGS: "-buildvcs=false"
+  GOFLAGS: "-buildvcs=false -modcacherw"
   # Run tests with an intercepted home directory so that we detect cases where
   # Gitaly picks up the gitconfig even though it ought not to.
   GITALY_TESTING_INTERCEPT_HOME: "YesPlease"
