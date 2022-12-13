@@ -6,15 +6,13 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
@@ -25,6 +23,8 @@ var objectPoolRefspec = fmt.Sprintf("+refs/*:%s/*", git.ObjectPoolRefNamespace)
 
 // FetchFromOrigin initializes the pool and fetches the objects from its origin repository
 func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *localrepo.Repo) error {
+	logger := ctxlogrus.Extract(ctx)
+
 	if !o.Exists() {
 		return helper.ErrInvalidArgumentf("object pool does not exist")
 	}
@@ -38,7 +38,7 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *localrepo.Repo
 		return fmt.Errorf("cleaning stale data: %w", err)
 	}
 
-	if err := o.logStats(ctx, "before fetch"); err != nil {
+	if err := o.logStats(ctx, logger.WithField("when", "before fetch")); err != nil {
 		return fmt.Errorf("computing stats before fetch: %w", err)
 	}
 
@@ -100,7 +100,7 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *localrepo.Repo
 		return fmt.Errorf("rescuing dangling objects: %w", err)
 	}
 
-	if err := o.logStats(ctx, "after fetch"); err != nil {
+	if err := o.logStats(ctx, logger.WithField("when", "after fetch")); err != nil {
 		return fmt.Errorf("computing stats after fetch: %w", err)
 	}
 
@@ -297,21 +297,21 @@ func (o *ObjectPool) rescueDanglingObjects(ctx context.Context) (returnedErr err
 	return updater.Commit()
 }
 
-func (o *ObjectPool) logStats(ctx context.Context, when string) error {
-	fields := logrus.Fields{
-		"when": when,
-	}
+type referencedObjectTypes struct {
+	Blobs   uint64 `json:"blobs"`
+	Commits uint64 `json:"commits"`
+	Tags    uint64 `json:"tags"`
+	Trees   uint64 `json:"trees"`
+}
 
-	for key, dir := range map[string]string{
-		"poolObjectsSize": "objects",
-		"poolRefsSize":    "refs",
-	} {
-		var err error
-		fields[key], err = sizeDir(ctx, filepath.Join(o.FullPath(), dir))
-		if err != nil {
-			return err
-		}
+func (o *ObjectPool) logStats(ctx context.Context, logger *logrus.Entry) error {
+	fields := logrus.Fields{}
+
+	repoInfo, err := stats.RepositoryInfoForRepository(ctx, o.Repo)
+	if err != nil {
+		return fmt.Errorf("deriving repository info: %w", err)
 	}
+	fields["repository_info"] = repoInfo
 
 	forEachRef, err := o.Repo.Exec(ctx, git.SubCmd{
 		Name:  "for-each-ref",
@@ -319,72 +319,45 @@ func (o *ObjectPool) logStats(ctx context.Context, when string) error {
 		Args:  []string{"refs/"},
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("spawning for-each-ref: %w", err)
 	}
 
-	danglingRefsByType := make(map[string]int)
-	normalRefsByType := make(map[string]int)
-
+	var danglingTypes, normalTypes referencedObjectTypes
 	scanner := bufio.NewScanner(forEachRef)
 	for scanner.Scan() {
-		line := bytes.SplitN(scanner.Bytes(), []byte{0}, 2)
-		if len(line) != 2 {
+		objectType, refname, found := bytes.Cut(scanner.Bytes(), []byte{0})
+		if !found {
 			continue
 		}
 
-		objectType := string(line[0])
-		refname := string(line[1])
+		types := &normalTypes
+		if bytes.HasPrefix(refname, []byte(danglingObjectNamespace)) {
+			types = &danglingTypes
+		}
 
-		if strings.HasPrefix(refname, danglingObjectNamespace) {
-			danglingRefsByType[objectType]++
-		} else {
-			normalRefsByType[objectType]++
+		switch {
+		case bytes.Equal(objectType, []byte("blob")):
+			types.Blobs++
+		case bytes.Equal(objectType, []byte("commit")):
+			types.Commits++
+		case bytes.Equal(objectType, []byte("tag")):
+			types.Tags++
+		case bytes.Equal(objectType, []byte("tree")):
+			types.Trees++
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
-		return err
+		return fmt.Errorf("scanning references: %w", err)
 	}
 	if err := forEachRef.Wait(); err != nil {
-		return err
+		return fmt.Errorf("waiting for for-each-ref: %w", err)
 	}
 
-	for _, key := range []string{"blob", "commit", "tag", "tree"} {
-		fields["dangling."+key+".ref"] = danglingRefsByType[key]
-		fields["normal."+key+".ref"] = normalRefsByType[key]
-	}
+	fields["references.dangling"] = danglingTypes
+	fields["references.normal"] = normalTypes
 
-	ctxlogrus.Extract(ctx).WithFields(fields).Info("pool dangling ref stats")
+	logger.WithFields(fields).Info("pool dangling ref stats")
 
 	return nil
-}
-
-func sizeDir(ctx context.Context, dir string) (int64, error) {
-	// du -k reports size in KB
-	cmd, err := command.New(ctx, []string{"du", "-sk", dir})
-	if err != nil {
-		return 0, err
-	}
-
-	sizeLine, err := io.ReadAll(cmd)
-	if err != nil {
-		return 0, err
-	}
-
-	if err := cmd.Wait(); err != nil {
-		return 0, err
-	}
-
-	sizeParts := bytes.Split(sizeLine, []byte("\t"))
-	if len(sizeParts) != 2 {
-		return 0, fmt.Errorf("malformed du output: %q", sizeLine)
-	}
-
-	size, err := strconv.ParseInt(string(sizeParts[0]), 10, 0)
-	if err != nil {
-		return 0, err
-	}
-
-	// Convert KB to B
-	return size * 1024, nil
 }

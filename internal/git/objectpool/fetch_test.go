@@ -9,9 +9,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -238,4 +241,87 @@ func TestFetchFromOrigin_missingPool(t *testing.T) {
 
 	require.Equal(t, helper.ErrInvalidArgumentf("object pool does not exist"), pool.FetchFromOrigin(ctx, repo))
 	require.False(t, pool.Exists())
+}
+
+func TestObjectPool_logStats(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+
+	for _, tc := range []struct {
+		desc           string
+		setup          func(t *testing.T) *ObjectPool
+		expectedFields logrus.Fields
+	}{
+		{
+			desc: "empty object pool",
+			setup: func(t *testing.T) *ObjectPool {
+				_, pool, _ := setupObjectPool(t, ctx)
+				return pool
+			},
+			expectedFields: logrus.Fields{
+				"references.dangling": referencedObjectTypes{},
+				"references.normal":   referencedObjectTypes{},
+				"repository_info":     stats.RepositoryInfo{},
+			},
+		},
+		{
+			desc: "normal reference",
+			setup: func(t *testing.T) *ObjectPool {
+				cfg, pool, _ := setupObjectPool(t, ctx)
+				gittest.WriteCommit(t, cfg, pool.FullPath(), gittest.WithBranch("main"))
+				return pool
+			},
+			expectedFields: logrus.Fields{
+				"references.dangling": referencedObjectTypes{},
+				"references.normal": referencedObjectTypes{
+					Commits: 1,
+				},
+				"repository_info": stats.RepositoryInfo{
+					LooseObjects: stats.LooseObjectsInfo{
+						Count: 2,
+						Size:  142,
+					},
+					References: stats.ReferencesInfo{
+						LooseReferencesCount: 1,
+					},
+				},
+			},
+		},
+		{
+			desc: "dangling reference",
+			setup: func(t *testing.T) *ObjectPool {
+				cfg, pool, _ := setupObjectPool(t, ctx)
+				gittest.WriteCommit(t, cfg, pool.FullPath(), gittest.WithReference("refs/dangling/commit"))
+				return pool
+			},
+			expectedFields: logrus.Fields{
+				"references.dangling": referencedObjectTypes{
+					Commits: 1,
+				},
+				"references.normal": referencedObjectTypes{},
+				"repository_info": stats.RepositoryInfo{
+					LooseObjects: stats.LooseObjectsInfo{
+						Count: 2,
+						Size:  142,
+					},
+					References: stats.ReferencesInfo{
+						LooseReferencesCount: 1,
+					},
+				},
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			logger, hook := test.NewNullLogger()
+			pool := tc.setup(t)
+
+			require.NoError(t, pool.logStats(ctx, logrus.NewEntry(logger)))
+
+			logEntries := hook.AllEntries()
+			require.Len(t, logEntries, 1)
+			require.Equal(t, "pool dangling ref stats", logEntries[0].Message)
+			require.Equal(t, tc.expectedFields, logEntries[0].Data)
+		})
+	}
 }
