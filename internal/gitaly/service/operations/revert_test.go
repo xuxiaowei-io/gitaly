@@ -12,168 +12,300 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func TestServer_UserRevert_successful(t *testing.T) {
+func TestUserRevert(t *testing.T) {
 	t.Parallel()
+
 	ctx := testhelper.Context(t)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	branchName := "revert-branch"
 
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-	destinationBranch := "revert-dst"
-	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, "master")
-
-	masterHeadCommit, err := repo.ReadCommit(ctx, "master")
-	require.NoError(t, err)
-
-	revertedCommit, err := repo.ReadCommit(ctx, "d59c60028b053793cecfb4022de34602e1a9218e")
-	require.NoError(t, err)
-
-	testRepoCopy, testRepoCopyPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	}) // read-only repo
-
-	gittest.Exec(t, cfg, "-C", testRepoCopyPath, "branch", destinationBranch, "master")
+	type setupData struct {
+		expectedCommitID string
+		repoPath         string
+		request          *gitalypb.UserRevertRequest
+	}
 
 	testCases := []struct {
-		desc         string
-		request      *gitalypb.UserRevertRequest
-		branchUpdate *gitalypb.OperationBranchUpdate
+		desc             string
+		setup            func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData
+		expectedResponse *gitalypb.UserRevertResponse
+		expectedErr      error
 	}{
 		{
-			desc: "branch exists",
-			request: &gitalypb.UserRevertRequest{
-				Repository: repoProto,
-				User:       gittest.TestUser,
-				Commit:     revertedCommit,
-				BranchName: []byte(destinationBranch),
-				Message:    []byte("Reverting " + revertedCommit.Id),
+			desc: "successful",
+			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
+				firstCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(branchName), gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
+				))
+				firstCommit, err := repo.ReadCommit(ctx, firstCommitID.Revision())
+				require.NoError(t, err)
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.UserRevertRequest{
+						Repository: repoProto,
+						User:       gittest.TestUser,
+						Commit:     firstCommit,
+						BranchName: []byte(branchName),
+						Message:    []byte("Reverting " + firstCommitID),
+					},
+				}
 			},
-			branchUpdate: &gitalypb.OperationBranchUpdate{},
+			expectedResponse: &gitalypb.UserRevertResponse{BranchUpdate: &gitalypb.OperationBranchUpdate{}},
+			expectedErr:      nil,
 		},
 		{
 			desc: "nonexistent branch + start_repository == repository",
-			request: &gitalypb.UserRevertRequest{
-				Repository:      repoProto,
-				User:            gittest.TestUser,
-				Commit:          revertedCommit,
-				BranchName:      []byte("to-be-reverted-into-1"),
-				Message:         []byte("Reverting " + revertedCommit.Id),
-				StartBranchName: []byte("master"),
+			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
+				firstCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
+				))
+				firstCommit, err := repo.ReadCommit(ctx, firstCommitID.Revision())
+				require.NoError(t, err)
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.UserRevertRequest{
+						Repository:      repoProto,
+						User:            gittest.TestUser,
+						Commit:          firstCommit,
+						BranchName:      []byte(branchName),
+						StartBranchName: []byte("master"),
+						Message:         []byte("Reverting " + firstCommitID),
+					},
+				}
 			},
-			branchUpdate: &gitalypb.OperationBranchUpdate{BranchCreated: true},
+			expectedResponse: &gitalypb.UserRevertResponse{BranchUpdate: &gitalypb.OperationBranchUpdate{
+				BranchCreated: true,
+			}},
+			expectedErr: nil,
 		},
 		{
 			desc: "nonexistent branch + start_repository != repository",
-			request: &gitalypb.UserRevertRequest{
-				Repository:      repoProto,
-				User:            gittest.TestUser,
-				Commit:          revertedCommit,
-				BranchName:      []byte("to-be-reverted-into-2"),
-				Message:         []byte("Reverting " + revertedCommit.Id),
-				StartRepository: testRepoCopy,
-				StartBranchName: []byte("master"),
+			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
+				startRepoProto, startRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				startRepo := localrepo.NewTestRepo(t, cfg, startRepoProto)
+
+				firstCommitID := gittest.WriteCommit(t, cfg, startRepoPath, gittest.WithBranch("master"), gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
+				))
+				firstCommit, err := startRepo.ReadCommit(ctx, firstCommitID.Revision())
+				require.NoError(t, err)
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.UserRevertRequest{
+						Repository:      repoProto,
+						User:            gittest.TestUser,
+						Commit:          firstCommit,
+						BranchName:      []byte(branchName),
+						StartBranchName: []byte("master"),
+						StartRepository: startRepoProto,
+						Message:         []byte("Reverting " + firstCommitID),
+					},
+				}
 			},
-			branchUpdate: &gitalypb.OperationBranchUpdate{BranchCreated: true},
+			expectedResponse: &gitalypb.UserRevertResponse{BranchUpdate: &gitalypb.OperationBranchUpdate{BranchCreated: true, RepoCreated: true}},
+			expectedErr:      nil,
 		},
 		{
-			desc: "nonexistent branch + empty start_repository",
-			request: &gitalypb.UserRevertRequest{
-				Repository:      repoProto,
-				User:            gittest.TestUser,
-				Commit:          revertedCommit,
-				BranchName:      []byte("to-be-reverted-into-3"),
-				Message:         []byte("Reverting " + revertedCommit.Id),
-				StartBranchName: []byte("master"),
+			desc: "successful with dry run",
+			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
+				firstCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(branchName), gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
+				))
+				firstCommit, err := repo.ReadCommit(ctx, firstCommitID.Revision())
+				require.NoError(t, err)
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.UserRevertRequest{
+						Repository: repoProto,
+						User:       gittest.TestUser,
+						Commit:     firstCommit,
+						BranchName: []byte(branchName),
+						Message:    []byte("Reverting " + firstCommitID),
+						DryRun:     true,
+					},
+					expectedCommitID: firstCommit.Id,
+				}
+
 			},
-			branchUpdate: &gitalypb.OperationBranchUpdate{BranchCreated: true},
-		},
-		{
-			desc: "branch exists with dry run",
-			request: &gitalypb.UserRevertRequest{
-				Repository: testRepoCopy,
-				User:       gittest.TestUser,
-				Commit:     revertedCommit,
-				BranchName: []byte(destinationBranch),
-				Message:    []byte("Reverting " + revertedCommit.Id),
-				DryRun:     true,
-			},
-			branchUpdate: &gitalypb.OperationBranchUpdate{},
+			expectedResponse: &gitalypb.UserRevertResponse{BranchUpdate: &gitalypb.OperationBranchUpdate{}},
+			expectedErr:      nil,
 		},
 		{
 			desc: "nonexistent branch + start_repository == repository with dry run",
-			request: &gitalypb.UserRevertRequest{
-				Repository:      testRepoCopy,
-				User:            gittest.TestUser,
-				Commit:          revertedCommit,
-				BranchName:      []byte("to-be-reverted-into-1"),
-				Message:         []byte("Reverting " + revertedCommit.Id),
-				StartBranchName: []byte("master"),
-				DryRun:          true,
+			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
+				firstCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
+				))
+				firstCommit, err := repo.ReadCommit(ctx, firstCommitID.Revision())
+				require.NoError(t, err)
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.UserRevertRequest{
+						Repository:      repoProto,
+						User:            gittest.TestUser,
+						Commit:          firstCommit,
+						BranchName:      []byte(branchName),
+						StartBranchName: []byte("master"),
+						Message:         []byte("Reverting " + firstCommitID),
+						DryRun:          true,
+					},
+					expectedCommitID: firstCommit.Id,
+				}
 			},
-			branchUpdate: &gitalypb.OperationBranchUpdate{BranchCreated: true},
+			expectedResponse: &gitalypb.UserRevertResponse{BranchUpdate: &gitalypb.OperationBranchUpdate{
+				BranchCreated: true,
+			}},
+			expectedErr: nil,
 		},
 		{
 			desc: "nonexistent branch + start_repository != repository with dry run",
-			request: &gitalypb.UserRevertRequest{
-				Repository:      testRepoCopy,
-				User:            gittest.TestUser,
-				Commit:          revertedCommit,
-				BranchName:      []byte("to-be-reverted-into-2"),
-				Message:         []byte("Reverting " + revertedCommit.Id),
-				StartRepository: testRepoCopy,
-				StartBranchName: []byte("master"),
-				DryRun:          true,
+			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
+				startRepoProto, startRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				startRepo := localrepo.NewTestRepo(t, cfg, startRepoProto)
+
+				firstCommitID := gittest.WriteCommit(t, cfg, startRepoPath, gittest.WithBranch("master"), gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
+				))
+				firstCommit, err := startRepo.ReadCommit(ctx, firstCommitID.Revision())
+				require.NoError(t, err)
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.UserRevertRequest{
+						Repository:      repoProto,
+						User:            gittest.TestUser,
+						Commit:          firstCommit,
+						BranchName:      []byte(branchName),
+						StartBranchName: []byte("master"),
+						StartRepository: startRepoProto,
+						Message:         []byte("Reverting " + firstCommitID),
+						DryRun:          true,
+					},
+					expectedCommitID: firstCommitID.String(),
+				}
 			},
-			branchUpdate: &gitalypb.OperationBranchUpdate{BranchCreated: true},
+			expectedResponse: &gitalypb.UserRevertResponse{BranchUpdate: &gitalypb.OperationBranchUpdate{BranchCreated: true, RepoCreated: true}},
+			expectedErr:      nil,
+		},
+
+		{
+			desc: "no repository provided",
+			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
+				return setupData{
+					request: &gitalypb.UserRevertRequest{
+						Repository: nil,
+					},
+				}
+			},
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 		{
-			desc: "nonexistent branch + empty start_repository with dry run",
-			request: &gitalypb.UserRevertRequest{
-				Repository:      testRepoCopy,
-				User:            gittest.TestUser,
-				Commit:          revertedCommit,
-				BranchName:      []byte("to-be-reverted-into-3"),
-				Message:         []byte("Reverting " + revertedCommit.Id),
-				StartBranchName: []byte("master"),
-				DryRun:          true,
+			desc: "empty user",
+			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
+				return setupData{
+					request: &gitalypb.UserRevertRequest{
+						Repository: repoProto,
+					},
+				}
 			},
-			branchUpdate: &gitalypb.OperationBranchUpdate{BranchCreated: true},
+			expectedErr: structerr.NewInvalidArgument("empty User"),
+		},
+		{
+			desc: "empty commit",
+			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
+				return setupData{
+					request: &gitalypb.UserRevertRequest{
+						Repository: repoProto,
+						User:       gittest.TestUser,
+					},
+				}
+			},
+			expectedErr: structerr.NewInvalidArgument("empty Commit"),
+		},
+		{
+			desc: "empty branch name",
+			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
+				firstCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(branchName), gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
+				))
+				firstCommit, err := repo.ReadCommit(ctx, firstCommitID.Revision())
+				require.NoError(t, err)
+
+				return setupData{
+					request: &gitalypb.UserRevertRequest{
+						Repository: repoProto,
+						User:       gittest.TestUser,
+						Commit:     firstCommit,
+						Message:    []byte("Reverting " + firstCommitID),
+					},
+				}
+			},
+			expectedErr: structerr.NewInvalidArgument("empty BranchName"),
+		},
+		{
+			desc: "empty message",
+			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
+				firstCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(branchName), gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
+				))
+				firstCommit, err := repo.ReadCommit(ctx, firstCommitID.Revision())
+				require.NoError(t, err)
+
+				return setupData{
+					request: &gitalypb.UserRevertRequest{
+						Repository: repoProto,
+						User:       gittest.TestUser,
+						Commit:     firstCommit,
+						BranchName: []byte(branchName),
+					},
+				}
+			},
+			expectedErr: structerr.NewInvalidArgument("empty Message"),
 		},
 	}
 
-	for _, testCase := range testCases {
-		t.Run(testCase.desc, func(t *testing.T) {
-			response, err := client.UserRevert(ctx, testCase.request)
-			require.NoError(t, err)
+	for _, tc := range testCases {
+		tc := tc
 
-			testCaseRepo := localrepo.NewTestRepo(t, cfg, testCase.request.Repository)
-			headCommit, err := testCaseRepo.ReadCommit(ctx, git.Revision(testCase.request.BranchName))
-			require.NoError(t, err)
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
 
-			expectedBranchUpdate := testCase.branchUpdate
-			expectedBranchUpdate.CommitId = headCommit.Id
+			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-			require.Equal(t, expectedBranchUpdate, response.BranchUpdate)
-			require.Empty(t, response.CreateTreeError)
-			require.Empty(t, response.CreateTreeErrorCode)
+			data := tc.setup(t, repoPath, repoProto, repo)
 
-			if testCase.request.DryRun {
-				require.Equal(t, masterHeadCommit.Subject, headCommit.Subject)
-				require.Equal(t, masterHeadCommit.Id, headCommit.Id)
-			} else {
-				require.Equal(t, testCase.request.Message, headCommit.Subject)
-				require.Equal(t, masterHeadCommit.Id, headCommit.ParentIds[0])
-				require.Equal(t, gittest.TimezoneOffset, string(headCommit.Committer.Timezone))
-				require.Equal(t, gittest.TimezoneOffset, string(headCommit.Author.Timezone))
+			response, err := client.UserRevert(ctx, data.request)
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
+
+			if data.repoPath != "" {
+				branchCommitID := text.ChompBytes(gittest.Exec(t, cfg, "-C", data.repoPath, "rev-parse", branchName))
+				tc.expectedResponse.BranchUpdate.CommitId = branchCommitID
+
+				// For dry-run, we only skip the `update-ref` section, so a non-existent branch
+				// will be created by `UserRevert`. But, we need to ensure that the
+				// expectedCommitID of the branch on which we requested revert doesn't change.
+				if data.expectedCommitID != "" {
+					require.Equal(t, data.expectedCommitID, branchCommitID, "dry run should point at expected commit")
+				}
 			}
+
+			testhelper.ProtoEqual(t, tc.expectedResponse, response)
 		})
 	}
 }
@@ -354,88 +486,6 @@ func TestServer_UserRevert_successfulGitHooks(t *testing.T) {
 	for _, file := range hookOutputFiles {
 		output := string(testhelper.MustReadFile(t, file))
 		require.Contains(t, output, "GL_USERNAME="+gittest.TestUser.GlUsername)
-	}
-}
-
-func TestServer_UserRevert_failuedDueToValidations(t *testing.T) {
-	t.Parallel()
-	ctx := testhelper.Context(t)
-
-	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
-
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-	revertedCommit, err := repo.ReadCommit(ctx, "d59c60028b053793cecfb4022de34602e1a9218e")
-	require.NoError(t, err)
-
-	destinationBranch := "revert-dst"
-
-	testCases := []struct {
-		desc        string
-		request     *gitalypb.UserRevertRequest
-		expectedErr error
-	}{
-		{
-			desc: "no repository provided",
-			request: &gitalypb.UserRevertRequest{
-				Repository: nil,
-			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"empty Repository",
-				"repo scoped: empty Repository",
-			)),
-		},
-		{
-			desc: "empty user",
-			request: &gitalypb.UserRevertRequest{
-				Repository: repoProto,
-				User:       nil,
-				Commit:     revertedCommit,
-				BranchName: []byte(destinationBranch),
-				Message:    []byte("Reverting " + revertedCommit.Id),
-			},
-			expectedErr: status.Error(codes.InvalidArgument, "empty User"),
-		},
-		{
-			desc: "empty commit",
-			request: &gitalypb.UserRevertRequest{
-				Repository: repoProto,
-				User:       gittest.TestUser,
-				Commit:     nil,
-				BranchName: []byte(destinationBranch),
-				Message:    []byte("Reverting " + revertedCommit.Id),
-			},
-			expectedErr: status.Error(codes.InvalidArgument, "empty Commit"),
-		},
-		{
-			desc: "empty branch name",
-			request: &gitalypb.UserRevertRequest{
-				Repository: repoProto,
-				User:       gittest.TestUser,
-				Commit:     revertedCommit,
-				BranchName: nil,
-				Message:    []byte("Reverting " + revertedCommit.Id),
-			},
-			expectedErr: status.Error(codes.InvalidArgument, "empty BranchName"),
-		},
-		{
-			desc: "empty message",
-			request: &gitalypb.UserRevertRequest{
-				Repository: repoProto,
-				User:       gittest.TestUser,
-				Commit:     revertedCommit,
-				BranchName: []byte(destinationBranch),
-				Message:    nil,
-			},
-			expectedErr: status.Error(codes.InvalidArgument, "empty Message"),
-		},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.desc, func(t *testing.T) {
-			_, err := client.UserRevert(ctx, testCase.request)
-			testhelper.RequireGrpcError(t, testCase.expectedErr, err)
-		})
 	}
 }
 
