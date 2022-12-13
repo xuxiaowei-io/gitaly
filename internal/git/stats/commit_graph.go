@@ -83,7 +83,7 @@ func CommitGraphInfoForRepository(repoPath string) (CommitGraphInfo, error) {
 		defer graphFile.Close()
 
 		reader := bufio.NewReader(graphFile)
-		// https://github.com/git/git/blob/a43a2e6/Documentation/technical/commit-graph-format.txt#L123
+		// The header format is defined in gitformat-commit-graph(5).
 		header := []byte{
 			0, 0, 0, 0, // 4-byte signature: The signature is: {'C', 'G', 'P', 'H'}
 			0, // 1-byte version number: Currently, the only valid version is 1.
