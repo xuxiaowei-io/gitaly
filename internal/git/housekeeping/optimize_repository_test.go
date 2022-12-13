@@ -182,11 +182,11 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 		{
 			desc: "repository without bitmap repacks objects",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
-					Seed:                   gittest.SeedGitLabTest,
 					RelativePath:           relativePath,
 				})
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 				return repo
 			},
 			expectedMetrics: `# HELP gitaly_housekeeping_tasks_total Total number of housekeeping tasks performed in the repository
@@ -202,9 +202,9 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
 				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
-					Seed:                   gittest.SeedGitLabTest,
 					RelativePath:           relativePath,
 				})
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "--write-bitmap-index")
 				return repo
 			},
@@ -219,13 +219,17 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
 				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
-					Seed:                   gittest.SeedGitLabTest,
 					RelativePath:           relativePath,
 				})
 
-				// Note: git-repack(1) without "-d" will _not_ delete the old
-				// packfile and thus end up with two packfiles.
+				// Create two packfiles by creating two objects and then packing
+				// twice. Note that the second git-repack(1) is incremental so that
+				// we don't remove the first packfile.
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("first"))
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "--write-bitmap-index")
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("second"), gittest.WithMessage("second"))
+				gittest.Exec(t, cfg, "-C", repoPath, "repack")
+
 				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 
 				return repo
@@ -247,9 +251,9 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
 				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
-					Seed:                   gittest.SeedGitLabTest,
 					RelativePath:           relativePath,
 				})
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "--write-bitmap-index")
 				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 				return repo
@@ -264,9 +268,9 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
 				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
-					Seed:                   gittest.SeedGitLabTest,
 					RelativePath:           relativePath,
 				})
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "--write-bitmap-index")
 				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 
@@ -299,9 +303,9 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
 				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
-					Seed:                   gittest.SeedGitLabTest,
 					RelativePath:           relativePath,
 				})
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "--write-bitmap-index")
 				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 
@@ -393,7 +397,6 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 
 		repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,
-			Seed:                   gittest.SeedGitLabTest,
 		})
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -424,12 +427,10 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 
 		repoProtoFirst, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,
-			Seed:                   gittest.SeedGitLabTest,
 		})
 		repoFirst := localrepo.NewTestRepo(t, cfg, repoProtoFirst)
 		repoProtoSecond, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,
-			Seed:                   gittest.SeedGitLabTest,
 		})
 		repoSecond := localrepo.NewTestRepo(t, cfg, repoProtoSecond)
 
@@ -469,7 +470,6 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 		reqReceivedCh, ch := make(chan struct{}), make(chan struct{})
 		repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,
-			Seed:                   gittest.SeedGitLabTest,
 		})
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 		var optimizations int
