@@ -17,25 +17,29 @@ func TestCommitGraphInfoForRepository(t *testing.T) {
 
 	for _, tc := range []struct {
 		desc         string
-		args         []string
+		setup        func(t *testing.T, repoPath string)
 		expectedErr  error
 		expectedInfo CommitGraphInfo
 	}{
 		{
 			desc:         "no commit graph filter",
-			args:         nil,
+			setup:        func(*testing.T, string) {},
 			expectedInfo: CommitGraphInfo{},
 		},
 		{
 			desc: "single commit graph without bloom filter",
-			args: []string{"commit-graph", "write", "--reachable"},
+			setup: func(t *testing.T, repoPath string) {
+				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable")
+			},
 			expectedInfo: CommitGraphInfo{
 				Exists: true,
 			},
 		},
 		{
 			desc: "single commit graph with bloom filter",
-			args: []string{"commit-graph", "write", "--reachable", "--changed-paths"},
+			setup: func(t *testing.T, repoPath string) {
+				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--changed-paths")
+			},
 			expectedInfo: CommitGraphInfo{
 				Exists:          true,
 				HasBloomFilters: true,
@@ -43,7 +47,9 @@ func TestCommitGraphInfoForRepository(t *testing.T) {
 		},
 		{
 			desc: "split commit graph without bloom filter",
-			args: []string{"commit-graph", "write", "--reachable", "--split"},
+			setup: func(t *testing.T, repoPath string) {
+				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split")
+			},
 			expectedInfo: CommitGraphInfo{
 				Exists:                 true,
 				CommitGraphChainLength: 1,
@@ -51,7 +57,9 @@ func TestCommitGraphInfoForRepository(t *testing.T) {
 		},
 		{
 			desc: "split commit graph with bloom filter",
-			args: []string{"commit-graph", "write", "--reachable", "--split", "--changed-paths"},
+			setup: func(t *testing.T, repoPath string) {
+				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split", "--changed-paths")
+			},
 			expectedInfo: CommitGraphInfo{
 				Exists:                 true,
 				CommitGraphChainLength: 1,
@@ -64,10 +72,7 @@ func TestCommitGraphInfoForRepository(t *testing.T) {
 				SkipCreationViaService: true,
 			})
 			gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
-
-			if len(tc.args) > 0 {
-				gittest.Exec(t, cfg, append([]string{"-C", repoPath}, tc.args...)...)
-			}
+			tc.setup(t, repoPath)
 
 			info, err := CommitGraphInfoForRepository(repoPath)
 			require.Equal(t, tc.expectedErr, err)
