@@ -13,12 +13,23 @@ import (
 type CommitGraphInfo struct {
 	// Exists tells whether a commit-graph exists.
 	Exists bool `json:"exists"`
-	// HasBloomFilters tells whether the commit-graph has bloom filters.
-	HasBloomFilters bool `json:"has_bloom_filters"`
 	// CommitGraphChainLength is the length of the commit-graph chain, if it exists. If the
 	// repository does not have a commit-graph chain but a monolithic commit-graph, then this
 	// field will be set to 0.
 	CommitGraphChainLength uint64 `json:"commit_graph_chain_length"`
+	// HasBloomFilters tells whether the commit-graph has bloom filters. Bloom filters are used
+	// to answer the question whether a certain path has been changed in the commit the bloom
+	// filter applies to.
+	HasBloomFilters bool `json:"has_bloom_filters"`
+	// HasGenerationData tells whether the commit-graph has generation data. Generation
+	// data is stored as the corrected committer date, which is defined as the maximum
+	// of the commit's own committer date or the corrected committer date of any of its
+	// parents. This data can be used to determine whether a commit A comes after a
+	// certain commit B.
+	HasGenerationData bool `json:"has_generation_data"`
+	// HasGenerationDataOverflow stores overflow data in case the corrected committer
+	// date takes more than 31 bits to represent.
+	HasGenerationDataOverflow bool `json:"has_generation_data_overflow"`
 }
 
 // CommitGraphInfoForRepository derives information about commit-graphs in the repository.
@@ -81,7 +92,7 @@ func CommitGraphInfoForRepository(repoPath string) (CommitGraphInfo, error) {
 		defer graphFile.Close()
 
 		reader := bufio.NewReader(graphFile)
-		// https://github.com/git/git/blob/a43a2e6/Documentation/technical/commit-graph-format.txt#L123
+		// The header format is defined in gitformat-commit-graph(5).
 		header := []byte{
 			0, 0, 0, 0, // 4-byte signature: The signature is: {'C', 'G', 'P', 'H'}
 			0, // 1-byte version number: Currently, the only valid version is 1.
@@ -115,9 +126,16 @@ func CommitGraphInfoForRepository(repoPath string) (CommitGraphInfo, error) {
 			return CommitGraphInfo{}, fmt.Errorf("commit graph file %q close: %w", graphFilePath, err)
 		}
 
-		info.HasBloomFilters = bytes.Contains(table, []byte("BIDX")) || bytes.Contains(table, []byte("BDAT"))
-		if info.HasBloomFilters {
-			break
+		if !info.HasBloomFilters {
+			info.HasBloomFilters = bytes.Contains(table, []byte("BIDX")) && bytes.Contains(table, []byte("BDAT"))
+		}
+
+		if !info.HasGenerationData {
+			info.HasGenerationData = bytes.Contains(table, []byte("GDA2"))
+		}
+
+		if !info.HasGenerationDataOverflow {
+			info.HasGenerationDataOverflow = bytes.Contains(table, []byte("GDO2"))
 		}
 	}
 

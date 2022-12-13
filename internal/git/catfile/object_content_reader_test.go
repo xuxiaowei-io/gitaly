@@ -443,7 +443,9 @@ func TestObjectContentReader_replaceRefs(t *testing.T) {
 	gittest.WriteRef(t, cfg, repoPath, git.ReferenceName("refs/replace/"+originalOID.String()), replacedOID)
 
 	// Reading the object via our testhelper should result in the object having been replaced.
-	require.Equal(t, "replaced", text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "cat-file", "-p", originalOID.String())))
+	require.Equal(t, "replaced", text.ChompBytes(
+		gittest.Exec(t, cfg, "-c", "core.useReplaceRefs=true", "-C", repoPath, "cat-file", "-p", originalOID.String()),
+	))
 
 	reader, err := newObjectContentReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
 	require.NoError(t, err)

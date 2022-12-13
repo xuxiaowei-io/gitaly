@@ -6,7 +6,9 @@ import (
 	"os/exec"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
@@ -72,23 +74,22 @@ func createCommand(tb testing.TB, cfg config.Cfg, execCfg ExecConfig, args ...st
 
 	ctx := testhelper.Context(tb)
 
-	execEnv := NewCommandFactory(tb, cfg).GetExecutionEnvironment(ctx)
+	factory := NewCommandFactory(tb, cfg)
+	execEnv := factory.GetExecutionEnvironment(ctx)
+
+	gitConfig, err := factory.GlobalConfiguration(ctx)
+	require.NoError(tb, err)
+	gitConfig = append(gitConfig,
+		git.ConfigPair{Key: "init.defaultBranch", Value: "master"},
+		git.ConfigPair{Key: "init.templateDir", Value: ""},
+		git.ConfigPair{Key: "user.name", Value: "Your Name"},
+		git.ConfigPair{Key: "user.email", Value: "you@example.com"},
+	)
 
 	cmd := exec.CommandContext(ctx, execEnv.BinaryPath, args...)
 	cmd.Env = command.AllowedEnvironment(os.Environ())
-	cmd.Env = append(cmd.Env,
-		"GIT_AUTHOR_DATE=1572776879 +0100",
-		"GIT_COMMITTER_DATE=1572776879 +0100",
-		"GIT_CONFIG_COUNT=4",
-		"GIT_CONFIG_KEY_0=init.defaultBranch",
-		"GIT_CONFIG_VALUE_0=master",
-		"GIT_CONFIG_KEY_1=init.templateDir",
-		"GIT_CONFIG_VALUE_1=",
-		"GIT_CONFIG_KEY_2=user.name",
-		"GIT_CONFIG_VALUE_2=Your Name",
-		"GIT_CONFIG_KEY_3=user.email",
-		"GIT_CONFIG_VALUE_3=you@example.com",
-	)
+	cmd.Env = append(cmd.Env, "GIT_AUTHOR_DATE=1572776879 +0100", "GIT_COMMITTER_DATE=1572776879 +0100")
+	cmd.Env = append(cmd.Env, git.ConfigPairsToGitEnvironment(gitConfig)...)
 	cmd.Env = append(cmd.Env, execEnv.EnvironmentVariables...)
 	cmd.Env = append(cmd.Env, execCfg.Env...)
 

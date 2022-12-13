@@ -2,6 +2,7 @@ package stats
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
@@ -17,33 +18,53 @@ func TestCommitGraphInfoForRepository(t *testing.T) {
 
 	for _, tc := range []struct {
 		desc         string
-		args         []string
+		setup        func(t *testing.T, repoPath string)
 		expectedErr  error
 		expectedInfo CommitGraphInfo
 	}{
 		{
 			desc:         "no commit graph filter",
-			args:         nil,
+			setup:        func(*testing.T, string) {},
 			expectedInfo: CommitGraphInfo{},
 		},
 		{
 			desc: "single commit graph without bloom filter",
-			args: []string{"commit-graph", "write", "--reachable"},
+			setup: func(t *testing.T, repoPath string) {
+				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable")
+			},
 			expectedInfo: CommitGraphInfo{
 				Exists: true,
 			},
 		},
 		{
 			desc: "single commit graph with bloom filter",
-			args: []string{"commit-graph", "write", "--reachable", "--changed-paths"},
+			setup: func(t *testing.T, repoPath string) {
+				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--changed-paths")
+			},
 			expectedInfo: CommitGraphInfo{
 				Exists:          true,
 				HasBloomFilters: true,
 			},
 		},
 		{
+			desc: "single commit graph with generation numbers",
+			setup: func(t *testing.T, repoPath string) {
+				gittest.Exec(t, cfg, "-C", repoPath,
+					"-c", "commitGraph.generationVersion=2",
+					"commit-graph", "write", "--reachable", "--changed-paths",
+				)
+			},
+			expectedInfo: CommitGraphInfo{
+				Exists:            true,
+				HasBloomFilters:   true,
+				HasGenerationData: true,
+			},
+		},
+		{
 			desc: "split commit graph without bloom filter",
-			args: []string{"commit-graph", "write", "--reachable", "--split"},
+			setup: func(t *testing.T, repoPath string) {
+				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split")
+			},
 			expectedInfo: CommitGraphInfo{
 				Exists:                 true,
 				CommitGraphChainLength: 1,
@@ -51,11 +72,58 @@ func TestCommitGraphInfoForRepository(t *testing.T) {
 		},
 		{
 			desc: "split commit graph with bloom filter",
-			args: []string{"commit-graph", "write", "--reachable", "--split", "--changed-paths"},
+			setup: func(t *testing.T, repoPath string) {
+				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split", "--changed-paths")
+			},
 			expectedInfo: CommitGraphInfo{
 				Exists:                 true,
-				HasBloomFilters:        true,
 				CommitGraphChainLength: 1,
+				HasBloomFilters:        true,
+			},
+		},
+		{
+			desc: "split commit-graph with generation numbers",
+			setup: func(t *testing.T, repoPath string) {
+				gittest.Exec(t, cfg, "-C", repoPath,
+					"-c", "commitGraph.generationVersion=2",
+					"commit-graph", "write", "--reachable", "--split", "--changed-paths",
+				)
+			},
+			expectedInfo: CommitGraphInfo{
+				Exists:                 true,
+				CommitGraphChainLength: 1,
+				HasBloomFilters:        true,
+				HasGenerationData:      true,
+			},
+		},
+		{
+			desc: "split commit-graph with generation data overflow",
+			setup: func(t *testing.T, repoPath string) {
+				// We write two commits, where the parent commit is far away in the
+				// future and its child commit is in the past. This means we'll have
+				// to write a corrected committer date, and because the corrected
+				// date is longer than 31 bits we'll have to also write overflow
+				// data.
+				futureParent := gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithCommitterDate(time.Date(2077, 1, 1, 0, 0, 0, 0, time.UTC)),
+				)
+				gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithBranch("overflow"),
+					gittest.WithParents(futureParent),
+					gittest.WithCommitterDate(time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)),
+				)
+
+				gittest.Exec(t, cfg, "-C", repoPath,
+					"-c", "commitGraph.generationVersion=2",
+					"commit-graph", "write", "--reachable", "--split", "--changed-paths",
+				)
+			},
+			expectedInfo: CommitGraphInfo{
+				Exists:                    true,
+				CommitGraphChainLength:    1,
+				HasBloomFilters:           true,
+				HasGenerationData:         true,
+				HasGenerationDataOverflow: true,
 			},
 		},
 	} {
@@ -64,10 +132,7 @@ func TestCommitGraphInfoForRepository(t *testing.T) {
 				SkipCreationViaService: true,
 			})
 			gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
-
-			if len(tc.args) > 0 {
-				gittest.Exec(t, cfg, append([]string{"-C", repoPath}, tc.args...)...)
-			}
+			tc.setup(t, repoPath)
 
 			info, err := CommitGraphInfoForRepository(repoPath)
 			require.Equal(t, tc.expectedErr, err)

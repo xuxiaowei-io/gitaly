@@ -309,6 +309,34 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 			},
 		},
 		{
+			desc: "non-split commit-graph with bloom filters and generation data",
+			setup: func(t *testing.T, repoPath string) {
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+				gittest.Exec(t, cfg, "-C", repoPath,
+					"-c",
+					"commitGraph.generationVersion=2",
+					"commit-graph",
+					"write",
+					"--reachable",
+					"--changed-paths",
+				)
+			},
+			expectedInfo: RepositoryInfo{
+				LooseObjects: LooseObjectsInfo{
+					Count: 2,
+					Size:  hashDependentSize(142, 158),
+				},
+				References: ReferencesInfo{
+					LooseReferencesCount: 1,
+				},
+				CommitGraph: CommitGraphInfo{
+					Exists:            true,
+					HasBloomFilters:   true,
+					HasGenerationData: true,
+				},
+			},
+		},
+		{
 			desc: "all together",
 			setup: func(t *testing.T, repoPath string) {
 				infoAlternatesPath := filepath.Join(repoPath, "objects", "info", "alternates")
