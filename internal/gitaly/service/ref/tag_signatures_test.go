@@ -19,6 +19,8 @@ import (
 )
 
 func TestGetTagSignatures(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	cfg, repoProto, repoPath, client := setupRefService(t, ctx)
@@ -156,7 +158,11 @@ func TestGetTagSignatures(t *testing.T) {
 			expectedSignatures: nil,
 		},
 	} {
+		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
 			stream, err := client.GetTagSignatures(ctx, &gitalypb.GetTagSignaturesRequest{
 				Repository:   repoProto,
 				TagRevisions: tc.revisions,

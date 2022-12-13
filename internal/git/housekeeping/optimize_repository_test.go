@@ -362,7 +362,11 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 `,
 		},
 	} {
+		tc := tc
+
 		testRepoAndPool(t, tc.desc, func(t *testing.T, relativePath string) {
+			t.Parallel()
+
 			ctx := testhelper.Context(t)
 
 			repoProto := tc.setup(t, relativePath)
@@ -570,6 +574,8 @@ func TestWriteCommitGraphIfNeeded(t *testing.T) {
 	cfg := testcfg.Build(t)
 
 	t.Run("strategy does not update commit-graph", func(t *testing.T) {
+		t.Parallel()
+
 		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 		})
@@ -589,6 +595,8 @@ func TestWriteCommitGraphIfNeeded(t *testing.T) {
 	})
 
 	t.Run("strategy does update commit-graph", func(t *testing.T) {
+		t.Parallel()
+
 		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 		})
@@ -608,6 +616,8 @@ func TestWriteCommitGraphIfNeeded(t *testing.T) {
 	})
 
 	t.Run("commit-graph with pruned objects", func(t *testing.T) {
+		t.Parallel()
+
 		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 		})

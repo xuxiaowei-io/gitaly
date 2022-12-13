@@ -17,6 +17,8 @@ import (
 )
 
 func TestSuccessfulGetTagMessagesRequest(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg, repo, repoPath, client := setupRefService(t, ctx)
 

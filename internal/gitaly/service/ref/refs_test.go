@@ -35,6 +35,8 @@ func containsRef(refs [][]byte, ref string) bool {
 
 //nolint:staticcheck
 func TestSuccessfulFindAllBranchNames(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	_, repo, _, client := setupRefService(t, ctx)
 
@@ -61,6 +63,8 @@ func TestSuccessfulFindAllBranchNames(t *testing.T) {
 
 //nolint:staticcheck
 func TestFindAllBranchNamesVeryLargeResponse(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg, client := setupRefServiceWithoutRepo(t)
 
@@ -109,6 +113,8 @@ func TestFindAllBranchNamesVeryLargeResponse(t *testing.T) {
 
 //nolint:staticcheck
 func TestEmptyFindAllBranchNamesRequest(t *testing.T) {
+	t.Parallel()
+
 	_, client := setupRefServiceWithoutRepo(t)
 
 	rpcRequest := &gitalypb.FindAllBranchNamesRequest{}
@@ -128,8 +134,11 @@ func TestEmptyFindAllBranchNamesRequest(t *testing.T) {
 
 //nolint:staticcheck
 func TestFindAllBranchNames_validate(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg, repo, _, client := setupRefService(t, ctx)
+
 	for _, tc := range []struct {
 		desc        string
 		repo        *gitalypb.Repository
@@ -171,6 +180,8 @@ func TestFindAllBranchNames_validate(t *testing.T) {
 
 //nolint:staticcheck
 func TestSuccessfulFindAllTagNames(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	_, repo, _, client := setupRefService(t, ctx)
 
@@ -197,8 +208,11 @@ func TestSuccessfulFindAllTagNames(t *testing.T) {
 
 //nolint:staticcheck
 func TestFindAllTagNames_validate(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg, repo, _, client := setupRefService(t, ctx)
+
 	for _, tc := range []struct {
 		desc        string
 		repo        *gitalypb.Repository
@@ -239,6 +253,8 @@ func TestFindAllTagNames_validate(t *testing.T) {
 }
 
 func TestSuccessfulFindDefaultBranchName(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg, repo, repoPath, client := setupRefService(t, ctx)
 	rpcRequest := &gitalypb.FindDefaultBranchNameRequest{Repository: repo}
@@ -254,8 +270,11 @@ func TestSuccessfulFindDefaultBranchName(t *testing.T) {
 }
 
 func TestSuccessfulFindDefaultBranchNameLegacy(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	_, repo, _, client := setupRefService(t, ctx)
+
 	rpcRequest := &gitalypb.FindDefaultBranchNameRequest{Repository: repo}
 	r, err := client.FindDefaultBranchName(ctx, rpcRequest)
 	require.NoError(t, err)
@@ -264,6 +283,8 @@ func TestSuccessfulFindDefaultBranchNameLegacy(t *testing.T) {
 }
 
 func TestEmptyFindDefaultBranchNameRequest(t *testing.T) {
+	t.Parallel()
+
 	_, client := setupRefServiceWithoutRepo(t)
 	rpcRequest := &gitalypb.FindDefaultBranchNameRequest{}
 	ctx := testhelper.Context(t)
@@ -275,8 +296,11 @@ func TestEmptyFindDefaultBranchNameRequest(t *testing.T) {
 }
 
 func TestFindDefaultBranchName_validate(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg, repo, _, client := setupRefService(t, ctx)
+
 	for _, tc := range []struct {
 		desc        string
 		repo        *gitalypb.Repository
@@ -600,6 +624,8 @@ func TestFindLocalBranches_validate(t *testing.T) {
 }
 
 func TestSuccessfulFindAllBranchesRequest(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg, repo, repoPath, client := setupRefService(t, ctx)
 
@@ -650,6 +676,8 @@ func TestSuccessfulFindAllBranchesRequest(t *testing.T) {
 }
 
 func TestSuccessfulFindAllBranchesRequestWithMergedBranches(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg, repoProto, repoPath, client := setupRefService(t, ctx)
 
@@ -736,6 +764,8 @@ func TestSuccessfulFindAllBranchesRequestWithMergedBranches(t *testing.T) {
 }
 
 func TestInvalidFindAllBranchesRequest(t *testing.T) {
+	t.Parallel()
+
 	_, client := setupRefServiceWithoutRepo(t)
 
 	for _, tc := range []struct {
@@ -795,6 +825,8 @@ func readFindAllBranchesResponsesFromClient(t *testing.T, c gitalypb.RefService_
 }
 
 func TestListTagNamesContainingCommit(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	_, repoProto, _, client := setupRefService(t, ctx)
 
@@ -896,6 +928,8 @@ func TestListTagNamesContainingCommit_validate(t *testing.T) {
 }
 
 func TestListBranchNamesContainingCommit(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	_, repo, _, client := setupRefService(t, ctx)
 

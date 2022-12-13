@@ -273,7 +273,11 @@ func TestRepositoryManager_CleanStaleData(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
+		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 			ctx := testhelper.Context(t)
@@ -371,7 +375,11 @@ func TestRepositoryManager_CleanStaleData_references(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
+		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
 			cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -495,7 +503,11 @@ func TestRepositoryManager_CleanStaleData_emptyRefDirs(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
+		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 			ctx := testhelper.Context(t)

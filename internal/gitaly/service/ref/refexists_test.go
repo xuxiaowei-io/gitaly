@@ -13,6 +13,8 @@ import (
 )
 
 func TestRefExists(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	_, repo, _, client := setupRefService(t, ctx)
 

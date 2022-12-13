@@ -11,6 +11,8 @@ import (
 )
 
 func TestBuildLocalBranch(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		desc string
 		in   *gitalypb.GitCommit
@@ -175,7 +177,11 @@ func TestBuildLocalBranch(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
+		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
 			testhelper.ProtoEqual(t, tc.out, buildLocalBranch([]byte("my-branch"), tc.in))
 		})
 	}
