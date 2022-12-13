@@ -164,7 +164,7 @@ func WriteCommit(tb testing.TB, cfg config.Cfg, repoPath string, opts ...WriteCo
 	}
 
 	var tree string
-	if len(writeCommitConfig.treeEntries) > 0 {
+	if writeCommitConfig.treeEntries != nil {
 		tree = WriteTree(tb, cfg, repoPath, writeCommitConfig.treeEntries).String()
 	} else if writeCommitConfig.treeID != "" {
 		tree = writeCommitConfig.treeID.String()

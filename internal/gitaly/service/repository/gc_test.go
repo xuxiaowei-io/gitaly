@@ -301,13 +301,15 @@ func TestGarbageCollectDeletesFileLocks(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
 			// Create a lockfile and run GarbageCollect. Because the lock has been
 			// freshly created GarbageCollect shouldn't remove the not-yet-stale
 			// lockfile.
 			t.Run("with recent lockfile", func(t *testing.T) {
-				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-					Seed: gittest.SeedGitLabTest,
-				})
+				t.Parallel()
+
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 				lockPath := filepath.Join(repoPath, tc.lockfile)
 				mustCreateFileWithTimes(t, lockPath, time.Now())
@@ -328,9 +330,9 @@ func TestGarbageCollectDeletesFileLocks(t *testing.T) {
 			// Redo the same test, but this time we create the lockfile so that it is
 			// considered stale. GarbageCollect should know to remove it.
 			t.Run("with stale lockfile", func(t *testing.T) {
-				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-					Seed: gittest.SeedGitLabTest,
-				})
+				t.Parallel()
+
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 				lockPath := filepath.Join(repoPath, tc.lockfile)
 				mustCreateFileWithTimes(t, lockPath, time.Now().Add(offsetUntilOld))

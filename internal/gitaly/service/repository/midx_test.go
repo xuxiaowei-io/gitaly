@@ -4,8 +4,11 @@ package repository
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"io/fs"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"testing"
@@ -14,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
@@ -80,11 +84,13 @@ func TestMidxRepack(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 
 	// add some pack files with different sizes
 	packsAdded := 5
-	addPackFiles(t, ctx, cfg, client, repo, repoPath, packsAdded, true)
+	addPackFiles(t, ctx, cfg, repoPath, packsAdded, true)
 
 	// record pack count
 	actualCount, err := stats.PackfilesCount(repoPath)
@@ -122,7 +128,10 @@ func TestMidxRepack_transactional(t *testing.T) {
 	ctx := testhelper.Context(t)
 	txManager := transaction.NewTrackingManager()
 
-	cfg, repo, repoPath, client := setupRepositoryService(t, ctx, testserver.WithTransactionManager(txManager))
+	cfg, client := setupRepositoryServiceWithoutRepo(t, testserver.WithTransactionManager(txManager))
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
+	gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
 
 	// Reset the votes after creating the test repository.
 	txManager.Reset()
@@ -155,12 +164,11 @@ func TestMidxRepackExpire(t *testing.T) {
 	for _, packsAdded := range []int{3, 5, 11, 20} {
 		t.Run(fmt.Sprintf("Test repack expire with %d added packs", packsAdded),
 			func(t *testing.T) {
-				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-					Seed: gittest.SeedGitLabTest,
-				})
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 
 				// add some pack files with different sizes
-				addPackFiles(t, ctx, cfg, client, repo, repoPath, packsAdded, false)
+				addPackFiles(t, ctx, cfg, repoPath, packsAdded, false)
 
 				// record pack count
 				actualCount, err := stats.PackfilesCount(repoPath)
@@ -243,33 +251,32 @@ func addPackFiles(
 	t *testing.T,
 	ctx context.Context,
 	cfg config.Cfg,
-	client gitalypb.RepositoryServiceClient,
-	repo *gitalypb.Repository,
 	repoPath string,
 	packCount int,
 	resetModTime bool,
 ) {
 	t.Helper()
 
-	// do a full repack to ensure we start with 1 pack
-	//nolint:staticcheck
-	_, err := client.RepackFull(ctx, &gitalypb.RepackFullRequest{Repository: repo, CreateBitmap: true})
-	require.NoError(t, err)
+	// Do a full repack to ensure we start with 1 pack.
+	gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
 
-	// create some pack files with different sizes
+	randomReader := rand.New(rand.NewSource(1))
+
+	// Create some pack files with different sizes.
 	for i := 0; i < packCount; i++ {
-		for y := packCount + 1 - i; y > 0; y-- {
-			branch := fmt.Sprintf("branch-%d-%d", i, y)
-			gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage(branch), gittest.WithBranch(branch))
-		}
-
-		//nolint:staticcheck
-		_, err = client.RepackIncremental(ctx, &gitalypb.RepackIncrementalRequest{Repository: repo})
+		buf := make([]byte, (packCount+1)*100)
+		_, err := io.ReadFull(randomReader, buf)
 		require.NoError(t, err)
+
+		gittest.WriteCommit(t, cfg, repoPath,
+			gittest.WithMessage(hex.EncodeToString(buf)),
+			gittest.WithBranch(fmt.Sprintf("branch-%d", i)),
+		)
+
+		gittest.Exec(t, cfg, "-C", repoPath, "repack", "-d")
 	}
 
-	// reset mtime of packfile to mark them separately
-	// for comparison purpose
+	// Reset mtime of packfile to mark them separately for comparison purpose.
 	if resetModTime {
 		packDir := filepath.Join(repoPath, "objects/pack/")
 
