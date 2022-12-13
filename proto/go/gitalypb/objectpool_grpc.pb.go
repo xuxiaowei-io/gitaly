@@ -39,7 +39,8 @@ type ObjectPoolServiceClient interface {
 	// does not depend on the pool member anymore and can be removed from it. Note that this function
 	// is not safe for use.
 	//
-	// This RPC is deprecated. Please use DisconnectGitAlternates instead.
+	// This RPC is deprecated. Please use DisconnectGitAlternates instead.  It will be removed in
+	// Gitaly v16.0, refer to https://gitlab.com/gitlab-org/gitaly/-/issues/4655.
 	ReduplicateRepository(ctx context.Context, in *ReduplicateRepositoryRequest, opts ...grpc.CallOption) (*ReduplicateRepositoryResponse, error)
 	// DisconnectGitAlternates will disconnect the object pool member from its object pool. It will:
 	//
@@ -54,8 +55,7 @@ type ObjectPoolServiceClient interface {
 	// If successful, the object pool member is disconnected from the object pool and does not depend
 	// on it anymore.
 	//
-	// This RPC does not return an error in case the repository is not linked to any object pool. It
-	// will be removed in Gitaly v16.0, refer to https://gitlab.com/gitlab-org/gitaly/-/issues/4655.
+	// This RPC does not return an error in case the repository is not linked to any object pool.
 	DisconnectGitAlternates(ctx context.Context, in *DisconnectGitAlternatesRequest, opts ...grpc.CallOption) (*DisconnectGitAlternatesResponse, error)
 	// FetchIntoObjectPool fetches all references from a pool member into an object pool so that
 	// objects shared between this repository and other pool members can be deduplicated. This RPC
@@ -160,7 +160,8 @@ type ObjectPoolServiceServer interface {
 	// does not depend on the pool member anymore and can be removed from it. Note that this function
 	// is not safe for use.
 	//
-	// This RPC is deprecated. Please use DisconnectGitAlternates instead.
+	// This RPC is deprecated. Please use DisconnectGitAlternates instead.  It will be removed in
+	// Gitaly v16.0, refer to https://gitlab.com/gitlab-org/gitaly/-/issues/4655.
 	ReduplicateRepository(context.Context, *ReduplicateRepositoryRequest) (*ReduplicateRepositoryResponse, error)
 	// DisconnectGitAlternates will disconnect the object pool member from its object pool. It will:
 	//
@@ -175,8 +176,7 @@ type ObjectPoolServiceServer interface {
 	// If successful, the object pool member is disconnected from the object pool and does not depend
 	// on it anymore.
 	//
-	// This RPC does not return an error in case the repository is not linked to any object pool. It
-	// will be removed in Gitaly v16.0, refer to https://gitlab.com/gitlab-org/gitaly/-/issues/4655.
+	// This RPC does not return an error in case the repository is not linked to any object pool.
 	DisconnectGitAlternates(context.Context, *DisconnectGitAlternatesRequest) (*DisconnectGitAlternatesResponse, error)
 	// FetchIntoObjectPool fetches all references from a pool member into an object pool so that
 	// objects shared between this repository and other pool members can be deduplicated. This RPC
