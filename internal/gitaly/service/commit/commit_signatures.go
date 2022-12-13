@@ -120,7 +120,7 @@ func sendResponse(commitID string, signatureKey []byte, commitText []byte, strea
 
 	_, err = io.Copy(streamWriter, msgReader)
 	if err != nil {
-		return fmt.Errorf("failed to send response: %v", err)
+		return fmt.Errorf("failed to send response: %w", err)
 	}
 
 	return nil

@@ -173,7 +173,7 @@ func TestFailedCountCommitsRequestDueToValidationError(t *testing.T) {
 			desc: "Repository doesn't exist",
 			req:  &gitalypb.CountCommitsRequest{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, Revision: revision},
 			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				`GetStorageByName: no such storage: "fake"`,
+				`cmd: GetStorageByName: no such storage: "fake"`,
 				"repo scoped: invalid Repository",
 			)),
 		},
@@ -181,19 +181,19 @@ func TestFailedCountCommitsRequestDueToValidationError(t *testing.T) {
 			desc: "Repository is nil",
 			req:  &gitalypb.CountCommitsRequest{Repository: nil, Revision: revision},
 			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"CountCommits: empty Repository",
+				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
 		},
 		{
 			desc:        "Revision is empty and All is false",
 			req:         &gitalypb.CountCommitsRequest{Repository: repo, Revision: nil, All: false},
-			expectedErr: status.Error(codes.InvalidArgument, "CountCommits: empty Revision and false All"),
+			expectedErr: status.Error(codes.InvalidArgument, "empty Revision and false All"),
 		},
 		{
 			desc:        "Revision is invalid",
 			req:         &gitalypb.CountCommitsRequest{Repository: repo, Revision: []byte("--output=/meow"), All: false},
-			expectedErr: status.Error(codes.InvalidArgument, "CountCommits: revision can't start with '-'"),
+			expectedErr: status.Error(codes.InvalidArgument, "revision can't start with '-'"),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

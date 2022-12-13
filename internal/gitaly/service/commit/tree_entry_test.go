@@ -177,39 +177,39 @@ func TestFailedTreeEntry(t *testing.T) {
 			name: "Repository is nil",
 			req:  &gitalypb.TreeEntryRequest{Repository: nil, Revision: revision, Path: path},
 			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
-				"TreeEntry: empty Repository",
+				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
 		},
 		{
 			name:        "Revision is empty",
 			req:         &gitalypb.TreeEntryRequest{Repository: repo, Revision: nil, Path: path},
-			expectedErr: helper.ErrInvalidArgumentf("TreeEntry: empty revision"),
+			expectedErr: helper.ErrInvalidArgumentf("empty revision"),
 		},
 		{
 			name:        "Path is empty",
 			req:         &gitalypb.TreeEntryRequest{Repository: repo, Revision: revision},
-			expectedErr: helper.ErrInvalidArgumentf("TreeEntry: empty Path"),
+			expectedErr: helper.ErrInvalidArgumentf("empty Path"),
 		},
 		{
 			name:        "Revision is invalid",
 			req:         &gitalypb.TreeEntryRequest{Repository: repo, Revision: []byte("--output=/meow"), Path: path},
-			expectedErr: helper.ErrInvalidArgumentf("TreeEntry: revision can't start with '-'"),
+			expectedErr: helper.ErrInvalidArgumentf("revision can't start with '-'"),
 		},
 		{
 			name:        "Limit is negative",
 			req:         &gitalypb.TreeEntryRequest{Repository: repo, Revision: revision, Path: path, Limit: -1},
-			expectedErr: helper.ErrInvalidArgumentf("TreeEntry: negative Limit"),
+			expectedErr: helper.ErrInvalidArgumentf("negative Limit"),
 		},
 		{
 			name:        "MaximumSize is negative",
 			req:         &gitalypb.TreeEntryRequest{Repository: repo, Revision: revision, Path: path, MaxSize: -1},
-			expectedErr: helper.ErrInvalidArgumentf("TreeEntry: negative MaxSize"),
+			expectedErr: helper.ErrInvalidArgumentf("negative MaxSize"),
 		},
 		{
 			name:        "Object bigger than MaxSize",
 			req:         &gitalypb.TreeEntryRequest{Repository: repo, Revision: []byte("913c66a37b4a45b9769037c55c2d238bd0942d2e"), Path: []byte("MAINTENANCE.md"), MaxSize: 10},
-			expectedErr: helper.ErrFailedPreconditionf("TreeEntry: object size (1367) is bigger than the maximum allowed size (10)"),
+			expectedErr: helper.ErrFailedPreconditionf("object size (1367) is bigger than the maximum allowed size (10)"),
 		},
 		{
 			name:        "Path is outside of repository",

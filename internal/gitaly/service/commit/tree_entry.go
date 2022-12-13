@@ -9,6 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 )
@@ -38,7 +39,7 @@ func sendTreeEntry(
 			Oid:  treeEntry.Oid,
 		}
 		if err := stream.Send(response); err != nil {
-			return helper.ErrUnavailablef("TreeEntry: send: %v", err)
+			return structerr.NewUnavailable("send: %w", err)
 		}
 
 		return nil
@@ -66,12 +67,12 @@ func sendTreeEntry(
 
 	objectInfo, err := objectInfoReader.Info(ctx, git.Revision(treeEntry.Oid))
 	if err != nil {
-		return helper.ErrInternalf("TreeEntry: %v", err)
+		return helper.ErrInternal(err)
 	}
 
 	if strings.ToLower(treeEntry.Type.String()) != objectInfo.Type {
-		return helper.ErrInternalf(
-			"TreeEntry: mismatched object type: tree-oid=%s object-oid=%s entry-type=%s object-type=%s",
+		return structerr.NewInternal(
+			"mismatched object type: tree-oid=%s object-oid=%s entry-type=%s object-type=%s",
 			treeEntry.Oid, objectInfo.Oid, treeEntry.Type.String(), objectInfo.Type,
 		)
 	}
@@ -79,8 +80,8 @@ func sendTreeEntry(
 	dataLength := objectInfo.Size
 
 	if maxSize > 0 && dataLength > maxSize {
-		return helper.ErrFailedPreconditionf(
-			"TreeEntry: object size (%d) is bigger than the maximum allowed size (%d)",
+		return structerr.NewFailedPrecondition(
+			"object size (%d) is bigger than the maximum allowed size (%d)",
 			dataLength, maxSize,
 		)
 	}
@@ -115,7 +116,7 @@ func sendTreeEntry(
 		response.Data = p
 
 		if err := stream.Send(response); err != nil {
-			return helper.ErrUnavailablef("TreeEntry: send: %v", err)
+			return structerr.NewUnavailable("send: %w", err)
 		}
 
 		// Use a new response so we don't send other fields (Size, ...) over and over
@@ -130,7 +131,7 @@ func sendTreeEntry(
 
 func (s *server) TreeEntry(in *gitalypb.TreeEntryRequest, stream gitalypb.CommitService_TreeEntryServer) error {
 	if err := validateRequest(in); err != nil {
-		return helper.ErrInvalidArgumentf("TreeEntry: %v", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	repo := s.localrepo(in.GetRepository())
