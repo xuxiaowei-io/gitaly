@@ -61,7 +61,8 @@ service ObjectPoolService {
   // does not depend on the pool member anymore and can be removed from it. Note that this function
   // is not safe for use.
   //
-  // This RPC is deprecated. Please use DisconnectGitAlternates instead.
+  // This RPC is deprecated. Please use DisconnectGitAlternates instead.  It will be removed in
+  // Gitaly v16.0, refer to https://gitlab.com/gitlab-org/gitaly/-/issues/4655.
   rpc ReduplicateRepository(ReduplicateRepositoryRequest) returns (ReduplicateRepositoryResponse) {
     option deprecated = true;
     option (op_type) = {
@@ -82,8 +83,7 @@ service ObjectPoolService {
   // If successful, the object pool member is disconnected from the object pool and does not depend
   // on it anymore.
   //
-  // This RPC does not return an error in case the repository is not linked to any object pool. It
-  // will be removed in Gitaly v16.0, refer to https://gitlab.com/gitlab-org/gitaly/-/issues/4655.
+  // This RPC does not return an error in case the repository is not linked to any object pool.
   rpc DisconnectGitAlternates(DisconnectGitAlternatesRequest) returns (DisconnectGitAlternatesResponse) {
     option (op_type) = {
       op: MUTATOR
