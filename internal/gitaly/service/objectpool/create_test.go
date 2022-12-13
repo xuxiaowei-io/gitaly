@@ -58,11 +58,12 @@ func TestCreate(t *testing.T) {
 		},
 	)
 	require.NoError(t, err)
+	poolPath := gittest.RepositoryPath(t, pool)
 
 	// Assert that the now-created object pool exists and is valid.
 	require.True(t, pool.IsValid())
-	require.NoDirExists(t, filepath.Join(pool.FullPath(), "hooks"))
-	gittest.RequireObjectExists(t, cfg, pool.FullPath(), commitID)
+	require.NoDirExists(t, filepath.Join(poolPath, "hooks"))
+	gittest.RequireObjectExists(t, cfg, poolPath, commitID)
 
 	// Making the same request twice should result in an error.
 	_, err = client.CreateObjectPool(ctx, &gitalypb.CreateObjectPoolRequest{

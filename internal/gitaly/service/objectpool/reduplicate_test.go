@@ -26,8 +26,8 @@ func TestReduplicate(t *testing.T) {
 
 	// Create the object pool and repack it. This is required for our test setup as Git won't
 	// deduplicate objects in the pool member when they're not in a packfile in the object pool.
-	_, pool := createObjectPool(t, ctx, cfg, client, repoProto)
-	gittest.Exec(t, cfg, "-C", pool.FullPath(), "repack", "-Ad")
+	_, pool, poolPath := createObjectPool(t, ctx, cfg, client, repoProto)
+	gittest.Exec(t, cfg, "-C", poolPath, "repack", "-Ad")
 
 	// Link the repository to the pool and garbage collect it to get rid of the duplicate
 	// objects.
@@ -45,7 +45,7 @@ func TestReduplicate(t *testing.T) {
 		CommitGraph: stats.CommitGraphInfo{
 			Exists: true,
 		},
-		Alternates: []string{filepath.Join(pool.FullPath(), "objects")},
+		Alternates: []string{filepath.Join(poolPath, "objects")},
 	}, repoInfo)
 
 	// git-repack(1) generates these files. Manually remove them so that we can assert further

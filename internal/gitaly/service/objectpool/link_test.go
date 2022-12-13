@@ -25,11 +25,11 @@ func TestLink(t *testing.T) {
 	cfg, repo, _, _, client := setup(t, ctx, testserver.WithDisablePraefect())
 
 	localRepo := localrepo.NewTestRepo(t, cfg, repo)
-	poolProto, pool := createObjectPool(t, ctx, cfg, client, repo)
+	poolProto, _, poolPath := createObjectPool(t, ctx, cfg, client, repo)
 
 	// Mock object in the pool, which should be available to the pool members
 	// after linking
-	poolCommitID := gittest.WriteCommit(t, cfg, pool.FullPath(),
+	poolCommitID := gittest.WriteCommit(t, cfg, poolPath,
 		gittest.WithBranch("pool-test-branch"))
 
 	for _, tc := range []struct {
@@ -83,7 +83,7 @@ func TestLink_idempotent(t *testing.T) {
 
 	cfg, repoProto, _, _, client := setup(t, ctx)
 
-	poolProto, _ := createObjectPool(t, ctx, cfg, client, repoProto)
+	poolProto, _, _ := createObjectPool(t, ctx, cfg, client, repoProto)
 
 	request := &gitalypb.LinkRepositoryToObjectPoolRequest{
 		Repository: repoProto,
@@ -102,7 +102,7 @@ func TestLink_noClobber(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg, repoProto, repoPath, _, client := setup(t, ctx)
-	poolProto, _ := createObjectPool(t, ctx, cfg, client, repoProto)
+	poolProto, _, _ := createObjectPool(t, ctx, cfg, client, repoProto)
 
 	alternatesFile := filepath.Join(repoPath, "objects/info/alternates")
 	require.NoFileExists(t, alternatesFile)

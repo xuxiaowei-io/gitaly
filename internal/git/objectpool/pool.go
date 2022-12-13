@@ -39,8 +39,6 @@ type ObjectPool struct {
 	gitCmdFactory       git.CommandFactory
 	txManager           transaction.Manager
 	housekeepingManager housekeeping.Manager
-
-	storagePath string
 }
 
 // FromProto returns an object pool object from its Protobuf representation. This function verifies
@@ -53,8 +51,10 @@ func FromProto(
 	housekeepingManager housekeeping.Manager,
 	proto *gitalypb.ObjectPool,
 ) (*ObjectPool, error) {
-	storagePath, err := locator.GetStorageByName(proto.GetRepository().GetStorageName())
-	if err != nil {
+	// TODO: this is retained for backwards compatibility for now. We should eventually amend
+	// `FromProto()` to always return an error if the Protobuf representation is invalid, the
+	// pool directory doesn't exist, or if the directory does not contain a valid repository.
+	if _, err := locator.GetStorageByName(proto.GetRepository().GetStorageName()); err != nil {
 		return nil, err
 	}
 
@@ -67,7 +67,6 @@ func FromProto(
 		gitCmdFactory:       gitCmdFactory,
 		txManager:           txManager,
 		housekeepingManager: housekeepingManager,
-		storagePath:         storagePath,
 	}
 
 	if !pool.IsValid() {
@@ -89,7 +88,12 @@ func (o *ObjectPool) ToProto() *gitalypb.ObjectPool {
 
 // Exists will return true if the pool path exists and is a directory
 func (o *ObjectPool) Exists() bool {
-	fi, err := os.Stat(o.FullPath())
+	path, err := o.Path()
+	if err != nil {
+		return false
+	}
+
+	fi, err := os.Stat(path)
 	if os.IsNotExist(err) || err != nil {
 		return false
 	}
@@ -99,11 +103,12 @@ func (o *ObjectPool) Exists() bool {
 
 // IsValid checks if a repository exists, and if its valid.
 func (o *ObjectPool) IsValid() bool {
-	if !o.Exists() {
+	path, err := o.Path()
+	if err != nil {
 		return false
 	}
 
-	return storage.IsGitDirectory(o.FullPath())
+	return storage.IsGitDirectory(path)
 }
 
 // Remove will remove the pool, and all its contents without preparing and/or
@@ -111,7 +116,12 @@ func (o *ObjectPool) IsValid() bool {
 // Subdirectories will remain to exist, and will never be cleaned up, even when
 // these are empty.
 func (o *ObjectPool) Remove(ctx context.Context) (err error) {
-	return os.RemoveAll(o.FullPath())
+	path, err := o.Path()
+	if err != nil {
+		return nil
+	}
+
+	return os.RemoveAll(path)
 }
 
 // FromRepo returns an instance of ObjectPool that the repository points to

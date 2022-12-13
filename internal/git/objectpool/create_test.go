@@ -37,12 +37,12 @@ func TestCreate(t *testing.T) {
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
 
-	createPool := func(t *testing.T, poolProto *gitalypb.ObjectPool) (*ObjectPool, error) {
+	createPool := func(t *testing.T, poolProto *gitalypb.ObjectPool) (*ObjectPool, string, error) {
 		catfileCache := catfile.NewCache(cfg)
 		t.Cleanup(catfileCache.Stop)
 		txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
 
-		return Create(
+		pool, err := Create(
 			ctx,
 			config.NewLocator(cfg),
 			gittest.NewCommandFactory(t, cfg, git.WithSkipHooks()),
@@ -52,10 +52,15 @@ func TestCreate(t *testing.T) {
 			poolProto,
 			repo,
 		)
+		if err != nil {
+			return nil, "", err
+		}
+
+		return pool, gittest.RepositoryPath(t, pool), nil
 	}
 
 	t.Run("successful", func(t *testing.T) {
-		pool, err := createPool(t, &gitalypb.ObjectPool{
+		_, poolPath, err := createPool(t, &gitalypb.ObjectPool{
 			Repository: &gitalypb.Repository{
 				StorageName:  cfg.Storages[0].Name,
 				RelativePath: gittest.NewObjectPoolName(t),
@@ -64,13 +69,13 @@ func TestCreate(t *testing.T) {
 		require.NoError(t, err)
 
 		// There should not be a "hooks" directory in the pool.
-		require.NoDirExists(t, filepath.Join(pool.FullPath(), "hooks"))
+		require.NoDirExists(t, filepath.Join(poolPath, "hooks"))
 		// The "origin" remote of the pool points to the pool member.
-		require.Equal(t, repoPath, text.ChompBytes(gittest.Exec(t, cfg, "-C", pool.FullPath(), "remote", "get-url", "origin")))
+		require.Equal(t, repoPath, text.ChompBytes(gittest.Exec(t, cfg, "-C", poolPath, "remote", "get-url", "origin")))
 		// The "master" branch points to the same commit as in the pool member.
-		require.Equal(t, commitID, gittest.ResolveRevision(t, cfg, pool.FullPath(), "refs/heads/master"))
+		require.Equal(t, commitID, gittest.ResolveRevision(t, cfg, poolPath, "refs/heads/master"))
 		// Objects exist in the pool repository.
-		gittest.RequireObjectExists(t, cfg, pool.FullPath(), commitID)
+		gittest.RequireObjectExists(t, cfg, poolPath, commitID)
 	})
 
 	t.Run("target exists", func(t *testing.T) {
@@ -81,7 +86,7 @@ func TestCreate(t *testing.T) {
 		// directory. This can be considered a bug, but for now we abide.
 		require.NoError(t, os.MkdirAll(fullPath, 0o755))
 
-		_, err := createPool(t, &gitalypb.ObjectPool{
+		_, _, err := createPool(t, &gitalypb.ObjectPool{
 			Repository: &gitalypb.Repository{
 				StorageName:  cfg.Storages[0].Name,
 				RelativePath: relativePath,
@@ -109,7 +114,7 @@ func TestCreate(t *testing.T) {
 		//
 		// Note: this works because we use `git clone --local`, which only creates a copy of
 		// the repository without performing consistency checks.
-		pool, err := createPool(t, &gitalypb.ObjectPool{
+		_, poolPath, err := createPool(t, &gitalypb.ObjectPool{
 			Repository: &gitalypb.Repository{
 				StorageName:  cfg.Storages[0].Name,
 				RelativePath: gittest.NewObjectPoolName(t),
@@ -120,7 +125,7 @@ func TestCreate(t *testing.T) {
 		// Verify that the broken tree is indeed in the pool repository and that it is
 		// reported as broken by git-fsck(1).
 		var stderr bytes.Buffer
-		fsckCmd := gittest.NewCommand(t, cfg, "-C", pool.FullPath(), "fsck")
+		fsckCmd := gittest.NewCommand(t, cfg, "-C", poolPath, "fsck")
 		fsckCmd.Stderr = &stderr
 
 		require.EqualError(t, fsckCmd.Run(), "exit status 1")

@@ -96,7 +96,7 @@ func createObjectPool(
 	cfg config.Cfg,
 	client gitalypb.ObjectPoolServiceClient,
 	source *gitalypb.Repository,
-) (*gitalypb.ObjectPool, *objectpool.ObjectPool) {
+) (*gitalypb.ObjectPool, *objectpool.ObjectPool, string) {
 	tb.Helper()
 
 	poolProto := &gitalypb.ObjectPool{
@@ -131,5 +131,5 @@ func createObjectPool(
 	)
 	require.NoError(tb, err)
 
-	return poolProto, pool
+	return poolProto, pool, gittest.RepositoryPath(tb, pool)
 }

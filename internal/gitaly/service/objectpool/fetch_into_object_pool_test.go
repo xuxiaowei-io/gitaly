@@ -43,13 +43,13 @@ func TestFetchIntoObjectPool_Success(t *testing.T) {
 
 	parentID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 
-	poolProto, pool := createObjectPool(t, ctx, cfg, client, repo)
+	poolProto, _, poolPath := createObjectPool(t, ctx, cfg, client, repo)
 
 	// Create a new commit after having created the object pool. This commit exists only in the
 	// pool member, but not in the pool itself.
 	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(parentID), gittest.WithBranch("main"))
 	gittest.RequireObjectExists(t, cfg, repoPath, commitID)
-	gittest.RequireObjectNotExists(t, cfg, pool.FullPath(), commitID)
+	gittest.RequireObjectNotExists(t, cfg, poolPath, commitID)
 
 	req := &gitalypb.FetchIntoObjectPoolRequest{
 		ObjectPool: poolProto,
@@ -61,8 +61,8 @@ func TestFetchIntoObjectPool_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify that the object pool is still consistent and that it's got the new commit now.
-	gittest.Exec(t, cfg, "-C", pool.FullPath(), "fsck")
-	gittest.RequireObjectExists(t, cfg, pool.FullPath(), commitID)
+	gittest.Exec(t, cfg, "-C", poolPath, "fsck")
+	gittest.RequireObjectExists(t, cfg, poolPath, commitID)
 
 	// Re-fetching the pool should be just fine.
 	_, err = client.FetchIntoObjectPool(ctx, req)
@@ -71,7 +71,7 @@ func TestFetchIntoObjectPool_Success(t *testing.T) {
 	// We now create a broken reference that is all-empty and stale. Normally, such references
 	// break many Git commands, including git-fetch(1). We should know to prune stale broken
 	// references though and thus be able to recover.
-	brokenRef := filepath.Join(pool.FullPath(), "refs", "heads", "broken")
+	brokenRef := filepath.Join(poolPath, "refs", "heads", "broken")
 	require.NoError(t, os.MkdirAll(filepath.Dir(brokenRef), 0o755))
 	require.NoError(t, os.WriteFile(brokenRef, []byte{}, 0o777))
 	oldTime := time.Now().Add(-25 * time.Hour)
@@ -118,14 +118,14 @@ func TestFetchIntoObjectPool_transactional(t *testing.T) {
 
 	client := gitalypb.NewObjectPoolServiceClient(conn)
 
-	poolProto, pool := createObjectPool(t, ctx, cfg, client, repo)
+	poolProto, pool, poolPath := createObjectPool(t, ctx, cfg, client, repo)
 
 	// CreateObjectPool has a bug because it will leave the configuration of the origin remote
 	// in the gitconfig. This will get cleaned up at a later point by our housekeeping logic, so
 	// it doesn't hurt much in the first place to have it. But the cleanup logic would trigger
 	// another transactional vote which we want to avoid, so we simply unset the configuration
 	// here.
-	gittest.Exec(t, cfg, "-C", pool.FullPath(), "config", "--unset", "remote.origin.url")
+	gittest.Exec(t, cfg, "-C", poolPath, "config", "--unset", "remote.origin.url")
 
 	// Inject transaction information so that FetchInotObjectPool knows to perform
 	// transactional voting.
@@ -183,7 +183,7 @@ func TestFetchIntoObjectPool_transactional(t *testing.T) {
 
 		// Create a commit in the pool repository itself. Right now, we don't touch this
 		// commit at all, but this will change in one of the next commits.
-		gittest.WriteCommit(t, cfg, pool.FullPath(), gittest.WithParents(), gittest.WithReference(reference))
+		gittest.WriteCommit(t, cfg, poolPath, gittest.WithParents(), gittest.WithReference(reference))
 
 		_, err = client.FetchIntoObjectPool(ctx, &gitalypb.FetchIntoObjectPoolRequest{
 			ObjectPool: poolProto,
@@ -225,7 +225,7 @@ func TestFetchIntoObjectPool_CollectLogStatistics(t *testing.T) {
 	t.Cleanup(func() { testhelper.MustClose(t, conn) })
 	client := gitalypb.NewObjectPoolServiceClient(conn)
 
-	poolProto, _ := createObjectPool(t, ctx, cfg, client, repo)
+	poolProto, _, _ := createObjectPool(t, ctx, cfg, client, repo)
 
 	req := &gitalypb.FetchIntoObjectPoolRequest{
 		ObjectPool: poolProto,
@@ -250,7 +250,7 @@ func TestFetchIntoObjectPool_Failure(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, repo, _, _, client := setup(t, ctx, testserver.WithDisablePraefect())
 
-	poolProto, _ := createObjectPool(t, ctx, cfg, client, repo)
+	poolProto, _, _ := createObjectPool(t, ctx, cfg, client, repo)
 
 	poolWithDifferentStorage := proto.Clone(poolProto).(*gitalypb.ObjectPool)
 	poolWithDifferentStorage.Repository.StorageName = "some other storage"
@@ -301,7 +301,7 @@ func TestFetchIntoObjectPool_dfConflict(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg, repo, repoPath, _, client := setup(t, ctx)
-	poolProto, pool := createObjectPool(t, ctx, cfg, client, repo)
+	poolProto, _, poolPath := createObjectPool(t, ctx, cfg, client, repo)
 
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"))
 
@@ -328,5 +328,5 @@ func TestFetchIntoObjectPool_dfConflict(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify that the conflicting reference exists now.
-	gittest.Exec(t, cfg, "-C", pool.FullPath(), "rev-parse", "refs/remotes/origin/heads/branch/conflict")
+	gittest.Exec(t, cfg, "-C", poolPath, "rev-parse", "refs/remotes/origin/heads/branch/conflict")
 }

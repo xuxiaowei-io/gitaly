@@ -332,8 +332,9 @@ func TestInfoRefsReceivePack_hiddenRefs(t *testing.T) {
 		repo,
 	)
 	require.NoError(t, err)
+	poolPath := gittest.RepositoryPath(t, pool)
 
-	commitID := gittest.WriteCommit(t, cfg, pool.FullPath(), gittest.WithBranch(t.Name()))
+	commitID := gittest.WriteCommit(t, cfg, poolPath, gittest.WithBranch(t.Name()))
 
 	require.NoError(t, pool.Link(ctx, repo))
 
