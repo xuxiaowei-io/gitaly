@@ -593,44 +593,17 @@ func TestExecCommandFactory_SidecarGitConfiguration(t *testing.T) {
 		{Key: "custom.key", Value: "injected"},
 	}
 
-	commonHead := []git.ConfigPair{
+	configPairs, err := gittest.NewCommandFactory(t, cfg).SidecarGitConfiguration(ctx)
+	require.NoError(t, err)
+	require.Equal(t, []git.ConfigPair{
 		{Key: "gc.auto", Value: "0"},
 		{Key: "core.autocrlf", Value: "input"},
 		{Key: "core.useReplaceRefs", Value: "false"},
 		{Key: "commitGraph.generationVersion", Value: "1"},
-	}
-
-	commonTail := []git.ConfigPair{
+		{Key: "core.fsync", Value: "objects,derived-metadata,reference"},
+		{Key: "core.fsyncMethod", Value: "fsync"},
 		{Key: "custom.key", Value: "injected"},
-	}
-
-	for _, tc := range []struct {
-		desc           string
-		version        string
-		expectedConfig []git.ConfigPair
-	}{
-		{
-			desc:    "with core.fsync",
-			version: "2.36.0",
-			expectedConfig: append(append(commonHead,
-				git.ConfigPair{Key: "core.fsync", Value: "objects,derived-metadata,reference"},
-				git.ConfigPair{Key: "core.fsyncMethod", Value: "fsync"},
-			), commonTail...),
-		},
-	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			factory := gittest.NewInterceptingCommandFactory(t, ctx, cfg, func(git.ExecutionEnvironment) string {
-				return fmt.Sprintf(
-					`#!/usr/bin/env bash
-					echo "git version %s"
-				`, tc.version)
-			}, gittest.WithInterceptedVersion())
-
-			configPairs, err := factory.SidecarGitConfiguration(ctx)
-			require.NoError(t, err)
-			require.Equal(t, tc.expectedConfig, configPairs)
-		})
-	}
+	}, configPairs)
 }
 
 // TestFsckConfiguration tests the hardcoded configuration of the
