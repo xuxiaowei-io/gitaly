@@ -202,6 +202,9 @@ var commandDescriptions = map[string]commandDescription{
 		flags: scNoRefUpdates,
 		opts:  packConfiguration(),
 	},
+	"patch-id": {
+		flags: scNoRefUpdates | scNoEndOfOptions,
+	},
 	"prune": {
 		flags: scNoRefUpdates,
 	},
