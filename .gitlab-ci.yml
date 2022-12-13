@@ -14,6 +14,7 @@ variables:
   FF_NETWORK_PER_BUILD: "true"
   DEBIAN_VERSION: "bullseye"
   UBI_VERSION: "8.6"
+  CACHE_PREFIX: "debian-${DEBIAN_VERSION}"
   # We use Gitaly's Git version by default.
   GIT_VERSION: "default"
   GO_VERSION: "1.19"
@@ -28,7 +29,7 @@ variables:
   # Git's `safe.directory` protections, and that in turns breaks the Go
   # build. We work around this by telling Go to not embed VCS information in
   # the binaries.
-  GOFLAGS: "-buildvcs=false"
+  GOFLAGS: "-buildvcs=false -modcacherw"
   # Run tests with an intercepted home directory so that we detect cases where
   # Gitaly picks up the gitconfig even though it ought not to.
   GITALY_TESTING_INTERCEPT_HOME: "YesPlease"
@@ -53,7 +54,7 @@ include:
       files:
         - .gitlab-ci.yml
         - Makefile
-      prefix: git-${GIT_VERSION}
+      prefix: ${CACHE_PREFIX}-git-${GIT_VERSION}
     paths:
       - _build/deps
       - _build/tools
@@ -65,7 +66,7 @@ include:
       files:
         - .gitlab-ci.yml
         - ruby/Gemfile.lock
-      prefix: debian-${DEBIAN_VERSION}-ruby-${RUBY_VERSION}
+      prefix: ${CACHE_PREFIX}-ruby-${RUBY_VERSION}
     paths:
       - ${BUNDLE_PATH}
     policy: pull
@@ -76,7 +77,7 @@ include:
       files:
         - .gitlab-ci.yml
         - go.sum
-      prefix: go-${GO_VERSION}
+      prefix: ${CACHE_PREFIX}-go-${GO_VERSION}
     paths:
       - ${GOCACHE}
       - ${GOMODCACHE}
@@ -298,9 +299,19 @@ test:sha256:
 
 test:fips:
   <<: *test_definition
+  image: registry.gitlab.com/gitlab-org/gitlab-build-images/ubi-${UBI_VERSION}-ruby-${RUBY_VERSION}-golang-${GO_VERSION}:git-2.36
   tags:
     - fips
-  image: registry.gitlab.com/gitlab-org/gitlab-build-images/ubi-${UBI_VERSION}-ruby-${RUBY_VERSION}-golang-${GO_VERSION}:git-2.36
+  cache:
+    - <<: *cache_deps_configuration
+      policy: pull-push
+    - <<: *cache_gems_configuration
+      policy: pull-push
+    - <<: *cache_go_configuration
+      policy: pull-push
+  variables:
+    <<: *test_variables
+    CACHE_PREFIX: ubi-${UBI_VERSION}
   before_script:
     - test "$(cat /proc/sys/crypto/fips_enabled)" = "1" || (echo "System is not running in FIPS mode" && exit 1)
     - chmod +t /tmp
@@ -322,8 +333,16 @@ test:macos:
     - shared-macos-amd64
   needs: []
   stage: test
+  cache:
+    - <<: *cache_deps_configuration
+      policy: pull-push
+    - <<: *cache_gems_configuration
+      policy: pull-push
+    - <<: *cache_go_configuration
+      policy: pull-push
   variables:
     <<: *test_variables
+    CACHE_PREFIX: macos-12-xcode-14
     PGDATA: /usr/local/var/postgres
     PGHOST: localhost
     PGUSER: gitlab
