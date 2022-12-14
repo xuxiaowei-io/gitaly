@@ -274,18 +274,18 @@ func TestUpdateRemoteMirror(t *testing.T) {
 			desc: "overwrites diverged references without KeepDivergentRefs",
 			sourceRefs: refs{
 				"refs/heads/non-diverged": {"commit 1", "commit 2"},
-				"refs/heads/master":       {"commit 2"},
+				"refs/heads/master":       {"commit 3"},
 				"refs/tags/tag-1":         {"commit 1"},
 			},
 			mirrorRefs: refs{
 				"refs/heads/non-diverged": {"commit 1"},
-				"refs/heads/master":       {"commit 2", "ahead"},
+				"refs/heads/master":       {"commit 3", "ahead"},
 				"refs/tags/tag-1":         {"commit 2"},
 			},
 			response: &gitalypb.UpdateRemoteMirrorResponse{},
 			expectedMirrorRefs: map[string]string{
 				"refs/heads/non-diverged": "commit 2",
-				"refs/heads/master":       "commit 2",
+				"refs/heads/master":       "commit 3",
 				"refs/tags/tag-1":         "commit 1",
 			},
 		},
@@ -294,12 +294,12 @@ func TestUpdateRemoteMirror(t *testing.T) {
 			desc: "keeps diverged references with KeepDivergentRefs",
 			sourceRefs: refs{
 				"refs/heads/non-diverged": {"commit 1", "commit 2"},
-				"refs/heads/master":       {"commit 2"},
+				"refs/heads/master":       {"commit 3"},
 				"refs/tags/tag-1":         {"commit 1"},
 			},
 			mirrorRefs: refs{
 				"refs/heads/non-diverged": {"commit 1"},
-				"refs/heads/master":       {"commit 2", "ahead"},
+				"refs/heads/master":       {"commit 3", "ahead"},
 				"refs/tags/tag-1":         {"commit 2"},
 			},
 			keepDivergentRefs: true,
@@ -494,6 +494,8 @@ func TestUpdateRemoteMirror(t *testing.T) {
 			}(),
 		},
 	} {
+		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
@@ -558,19 +560,22 @@ func TestUpdateRemoteMirror(t *testing.T) {
 				for _, commits := range c.references {
 					var commitOID git.ObjectID
 					for i, commit := range commits {
-						if _, ok := commitsByMessage[commit]; ok {
+						if existingOID, ok := commitsByMessage[commit]; ok {
+							commitOID = existingOID
 							continue
 						}
 
 						var parents []git.ObjectID
-						if i != 0 {
+						if i != 0 && commitOID != "" {
 							parents = []git.ObjectID{commitOID}
 						}
 
-						commitsByMessage[commit] = gittest.WriteCommit(t, cfg, repoPath,
+						commitOID = gittest.WriteCommit(t, cfg, repoPath,
 							gittest.WithMessage(commit),
 							gittest.WithParents(parents...),
 						)
+
+						commitsByMessage[commit] = commitOID
 					}
 				}
 
@@ -582,6 +587,7 @@ func TestUpdateRemoteMirror(t *testing.T) {
 
 				require.NoError(t, updater.Start())
 				for reference, commits := range c.references {
+					// Set the reference to the last commit in the list
 					require.NoError(t, updater.Create(git.ReferenceName(reference), commitsByMessage[commits[len(commits)-1]]))
 				}
 				require.NoError(t, updater.Commit())
