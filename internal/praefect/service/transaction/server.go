@@ -6,6 +6,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/transactions"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -37,7 +38,7 @@ func (s *Server) VoteTransaction(ctx context.Context, in *gitalypb.VoteTransacti
 		case errors.Is(err, transactions.ErrNotFound):
 			return nil, helper.ErrNotFoundf("%w", err)
 		case errors.Is(err, transactions.ErrTransactionCanceled):
-			return nil, helper.ErrCanceledf("%w", err)
+			return nil, structerr.NewCanceled("%w", err)
 		case errors.Is(err, transactions.ErrTransactionStopped):
 			return &gitalypb.VoteTransactionResponse{
 				State: gitalypb.VoteTransactionResponse_STOP,
@@ -66,7 +67,7 @@ func (s *Server) StopTransaction(ctx context.Context, in *gitalypb.StopTransacti
 		case errors.Is(err, transactions.ErrNotFound):
 			return nil, helper.ErrNotFoundf("%w", err)
 		case errors.Is(err, transactions.ErrTransactionCanceled):
-			return nil, helper.ErrCanceledf("%w", err)
+			return nil, structerr.NewCanceled("%w", err)
 		case errors.Is(err, transactions.ErrTransactionStopped):
 			return &gitalypb.StopTransactionResponse{}, nil
 		default:

@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/txinfo"
@@ -163,7 +164,7 @@ func TestApplyGitattributes_transactional(t *testing.T) {
 			},
 			shouldExist: false,
 			expectedErr: func() error {
-				return helper.ErrUnknownf("committing gitattributes: voting on locked file: preimage vote: rpc error: code = Unknown desc = foobar")
+				return structerr.NewUnknown("committing gitattributes: voting on locked file: preimage vote: rpc error: code = Unknown desc = foobar")
 			}(),
 			expectedVotes: 1,
 		},

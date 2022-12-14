@@ -7,6 +7,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 )
@@ -50,7 +51,7 @@ func (s *server) ReferenceTransactionHook(stream gitalypb.HookService_ReferenceT
 	); err != nil {
 		switch {
 		case errors.Is(err, transaction.ErrTransactionAborted):
-			return helper.ErrAbortedf("reference-transaction hook: %w", err)
+			return structerr.NewAborted("reference-transaction hook: %w", err)
 		case errors.Is(err, transaction.ErrTransactionStopped):
 			return helper.ErrFailedPreconditionf("reference-transaction hook: %w", err)
 		default:

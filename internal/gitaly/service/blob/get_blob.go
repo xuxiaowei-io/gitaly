@@ -8,6 +8,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 )
@@ -31,7 +32,7 @@ func (s *server) GetBlob(in *gitalypb.GetBlobRequest, stream gitalypb.BlobServic
 	if err != nil {
 		if catfile.IsNotFound(err) {
 			if err := stream.Send(&gitalypb.GetBlobResponse{}); err != nil {
-				return helper.ErrUnavailablef("sending empty response: %w", err)
+				return structerr.NewUnavailable("sending empty response: %w", err)
 			}
 			return nil
 		}
@@ -40,7 +41,7 @@ func (s *server) GetBlob(in *gitalypb.GetBlobRequest, stream gitalypb.BlobServic
 
 	if blob.Type != "blob" {
 		if err := stream.Send(&gitalypb.GetBlobResponse{}); err != nil {
-			return helper.ErrUnavailablef("sending empty response: %w", err)
+			return structerr.NewUnavailable("sending empty response: %w", err)
 		}
 
 		return nil
@@ -57,7 +58,7 @@ func (s *server) GetBlob(in *gitalypb.GetBlobRequest, stream gitalypb.BlobServic
 
 	if readLimit == 0 {
 		if err := stream.Send(firstMessage); err != nil {
-			return helper.ErrUnavailablef("sending empty blob: %w", err)
+			return structerr.NewUnavailable("sending empty blob: %w", err)
 		}
 
 		return nil
@@ -75,7 +76,7 @@ func (s *server) GetBlob(in *gitalypb.GetBlobRequest, stream gitalypb.BlobServic
 
 	_, err = io.CopyN(sw, blob, readLimit)
 	if err != nil {
-		return helper.ErrUnavailablef("send: %w", err)
+		return structerr.NewUnavailable("send: %w", err)
 	}
 
 	return nil

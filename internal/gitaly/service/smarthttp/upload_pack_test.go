@@ -23,6 +23,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/sidechannel"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
@@ -172,7 +173,7 @@ func testServerPostUploadPackGitConfigOptions(t *testing.T, ctx context.Context,
 			},
 		}
 		response, err := makeRequest(t, ctx, cfg.SocketPath, cfg.Auth.Token, rpcRequest, bytes.NewReader(requestBody.Bytes()))
-		testhelper.RequireGrpcError(t, helper.ErrUnavailablef("running upload-pack: waiting for upload-pack: exit status 128"), err)
+		testhelper.RequireGrpcError(t, structerr.NewUnavailable("running upload-pack: waiting for upload-pack: exit status 128"), err)
 
 		// The failure message proves that upload-pack failed because of
 		// GitConfigOptions, and that proves that passing GitConfigOptions works.

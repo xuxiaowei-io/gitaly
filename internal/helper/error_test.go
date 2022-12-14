@@ -25,16 +25,6 @@ func TestErrorf(t *testing.T) {
 		expectedCode codes.Code
 	}{
 		{
-			desc:         "Canceledf",
-			errorf:       ErrCanceledf,
-			expectedCode: codes.Canceled,
-		},
-		{
-			desc:         "DeadlineExceededf",
-			errorf:       ErrDeadlineExceededf,
-			expectedCode: codes.DeadlineExceeded,
-		},
-		{
 			desc:         "Internalf",
 			errorf:       ErrInternalf,
 			expectedCode: codes.Internal,
@@ -53,36 +43,6 @@ func TestErrorf(t *testing.T) {
 			desc:         "NotFoundf",
 			errorf:       ErrNotFoundf,
 			expectedCode: codes.NotFound,
-		},
-		{
-			desc:         "ErrUnavailablef",
-			errorf:       ErrUnavailablef,
-			expectedCode: codes.Unavailable,
-		},
-		{
-			desc:         "ErrAbortedf",
-			errorf:       ErrAbortedf,
-			expectedCode: codes.Aborted,
-		},
-		{
-			desc:         "ErrDataLossf",
-			errorf:       ErrDataLossf,
-			expectedCode: codes.DataLoss,
-		},
-		{
-			desc:         "ErrUnknownf",
-			errorf:       ErrUnknownf,
-			expectedCode: codes.Unknown,
-		},
-		{
-			desc:         "ErrUnimplementedf",
-			errorf:       ErrUnimplementedf,
-			expectedCode: codes.Unimplemented,
-		},
-		{
-			desc:         "ErrUnauthenticatedf",
-			errorf:       ErrUnauthenticatedf,
-			expectedCode: codes.Unauthenticated,
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -241,7 +201,7 @@ func TestGrpcCode(t *testing.T) {
 			exp: codes.NotFound,
 		},
 		"double helper wrapped status": {
-			in:  ErrAbortedf("outer: %w", fmt.Errorf("context: %w", ErrNotFoundf(""))),
+			in:  ErrFailedPreconditionf("outer: %w", fmt.Errorf("context: %w", ErrNotFoundf(""))),
 			exp: codes.NotFound,
 		},
 		"nil input": {

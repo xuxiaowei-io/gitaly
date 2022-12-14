@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -125,7 +126,7 @@ func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteReque
 
 		return s.txManager.Vote(ctx, tx, vote, voting.UnknownPhase)
 	}); err != nil {
-		return nil, helper.ErrAbortedf("failed vote on refs: %w", err)
+		return nil, structerr.NewAborted("failed vote on refs: %w", err)
 	}
 
 	out := &gitalypb.FetchRemoteResponse{TagsChanged: true}

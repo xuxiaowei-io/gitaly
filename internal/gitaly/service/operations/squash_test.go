@@ -18,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/txinfo"
@@ -133,7 +134,7 @@ func TestUserSquash_transactional(t *testing.T) {
 			voteFn: func(ctx context.Context, tx txinfo.Transaction, vote voting.Vote, phase voting.Phase) error {
 				return errors.New("vote failed")
 			},
-			expectedErr: helper.ErrAbortedf("preparatory vote on squashed commit: vote failed"),
+			expectedErr: structerr.NewAborted("preparatory vote on squashed commit: vote failed"),
 			expectedVotes: []voting.Vote{
 				squashedCommitVote,
 			},
@@ -147,7 +148,7 @@ func TestUserSquash_transactional(t *testing.T) {
 				}
 				return nil
 			},
-			expectedErr: helper.ErrAbortedf("committing vote on squashed commit: vote failed"),
+			expectedErr: structerr.NewAborted("committing vote on squashed commit: vote failed"),
 			expectedVotes: []voting.Vote{
 				squashedCommitVote,
 				squashedCommitVote,

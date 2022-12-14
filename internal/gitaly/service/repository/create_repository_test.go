@@ -18,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/praefectutil"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
@@ -41,7 +42,7 @@ func TestCreateRepository_missingAuth(t *testing.T) {
 			RelativePath: gittest.NewRepositoryName(t),
 		},
 	})
-	testhelper.RequireGrpcError(t, helper.ErrUnauthenticatedf("authentication required"), err)
+	testhelper.RequireGrpcError(t, structerr.NewUnauthenticated("authentication required"), err)
 }
 
 func TestCreateRepository_successful(t *testing.T) {

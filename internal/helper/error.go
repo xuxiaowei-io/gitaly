@@ -21,18 +21,6 @@ func (sw statusWrapper) Unwrap() error {
 	return sw.error
 }
 
-// ErrCanceledf wraps a formatted error with codes.Canceled, unless the formatted error is a
-// wrapped gRPC error.
-func ErrCanceledf(format string, a ...interface{}) error {
-	return formatError(codes.Canceled, format, a...)
-}
-
-// ErrDeadlineExceededf wraps a formatted error with codes.DeadlineExceeded, unless the formatted
-// error is a wrapped gRPC error.
-func ErrDeadlineExceededf(format string, a ...interface{}) error {
-	return formatError(codes.DeadlineExceeded, format, a...)
-}
-
 // ErrInternalf wraps a formatted error with codes.Internal, unless the formatted error is a
 // wrapped gRPC error.
 func ErrInternalf(format string, a ...interface{}) error {
@@ -57,12 +45,6 @@ func ErrFailedPreconditionf(format string, a ...interface{}) error {
 	return formatError(codes.FailedPrecondition, format, a...)
 }
 
-// ErrUnavailablef wraps a formatted error with codes.Unavailable, unless the
-// formatted error is a wrapped gRPC error.
-func ErrUnavailablef(format string, a ...interface{}) error {
-	return formatError(codes.Unavailable, format, a...)
-}
-
 // ErrPermissionDeniedf wraps a formatted error with codes.PermissionDenied, unless the formatted
 // error is a wrapped gRPC error.
 func ErrPermissionDeniedf(format string, a ...interface{}) error {
@@ -73,36 +55,6 @@ func ErrPermissionDeniedf(format string, a ...interface{}) error {
 // a wrapped gRPC error.
 func ErrAlreadyExistsf(format string, a ...interface{}) error {
 	return formatError(codes.AlreadyExists, format, a...)
-}
-
-// ErrAbortedf wraps a formatted error with codes.Aborted, unless the formatted error is a wrapped
-// gRPC error.
-func ErrAbortedf(format string, a ...interface{}) error {
-	return formatError(codes.Aborted, format, a...)
-}
-
-// ErrDataLossf wraps a formatted error with codes.DataLoss, unless the formatted error is a wrapped
-// gRPC error.
-func ErrDataLossf(format string, a ...interface{}) error {
-	return formatError(codes.DataLoss, format, a...)
-}
-
-// ErrUnknownf wraps a formatted error with codes.Unknown, unless the formatted error is a wrapped
-// gRPC error.
-func ErrUnknownf(format string, a ...interface{}) error {
-	return formatError(codes.Unknown, format, a...)
-}
-
-// ErrUnimplementedf wraps a formatted error with codes.Unimplemented, unless the formatted error is a wrapped
-// gRPC error.
-func ErrUnimplementedf(format string, a ...interface{}) error {
-	return formatError(codes.Unimplemented, format, a...)
-}
-
-// ErrUnauthenticatedf wraps a formatted error with codes.Unauthenticated, unless the formatted error is a wrapped
-// gRPC error.
-func ErrUnauthenticatedf(format string, a ...interface{}) error {
-	return formatError(codes.Unauthenticated, format, a...)
 }
 
 // grpcErrorMessageWrapper is used to wrap a gRPC `status.Status`-style error such that it behaves

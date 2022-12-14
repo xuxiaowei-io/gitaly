@@ -18,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/sidechannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/stream"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 )
@@ -158,7 +159,7 @@ func (s *server) sshUploadPack(rpcContext context.Context, req sshUploadPackRequ
 		// We thus need to special-case the situation where we cancel our own context in
 		// order to provide that information and return a proper gRPC error code.
 		if ctx.Err() != nil && rpcContext.Err() == nil {
-			return status, helper.ErrDeadlineExceededf("waiting for packfile negotiation: %w", ctx.Err())
+			return status, structerr.NewDeadlineExceeded("waiting for packfile negotiation: %w", ctx.Err())
 		}
 
 		// A common error case is that the client is terminating the request prematurely,
@@ -171,7 +172,7 @@ func (s *server) sshUploadPack(rpcContext context.Context, req sshUploadPackRequ
 		// Note that we're being quite strict with how we match the error for now. We may
 		// have to make it more lenient in case we see that this doesn't catch all cases.
 		if stderrBuilder.String() == "fatal: the remote end hung up unexpectedly\n" {
-			return status, helper.ErrCanceledf("user canceled the fetch")
+			return status, structerr.NewCanceled("user canceled the fetch")
 		}
 
 		return status, fmt.Errorf("cmd wait: %w, stderr: %q", err, stderrBuilder.String())
@@ -204,7 +205,7 @@ func (rf *largeBufferReaderFrom) ReadFrom(r io.Reader) (int64, error) {
 func (s *server) SSHUploadPackWithSidechannel(ctx context.Context, req *gitalypb.SSHUploadPackWithSidechannelRequest) (*gitalypb.SSHUploadPackWithSidechannelResponse, error) {
 	conn, err := sidechannel.OpenSidechannel(ctx)
 	if err != nil {
-		return nil, helper.ErrUnavailablef("opennig sidechannel: %w", err)
+		return nil, structerr.NewUnavailable("opennig sidechannel: %w", err)
 	}
 	defer conn.Close()
 

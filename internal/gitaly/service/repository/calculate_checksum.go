@@ -10,6 +10,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -45,7 +46,7 @@ func (s *server) CalculateChecksum(ctx context.Context, in *gitalypb.CalculateCh
 			return &gitalypb.CalculateChecksumResponse{Checksum: git.ZeroChecksum}, nil
 		}
 
-		return nil, helper.ErrDataLossf("not a git repository '%s'", repoPath)
+		return nil, structerr.NewDataLoss("not a git repository '%s'", repoPath)
 	}
 
 	return &gitalypb.CalculateChecksumResponse{Checksum: hex.EncodeToString(checksum.Bytes())}, nil

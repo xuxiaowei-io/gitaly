@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/sidechannel"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 )
@@ -152,13 +153,13 @@ func (s *server) runUploadPack(ctx context.Context, req basicPostUploadPackReque
 		Args:  []string{repoPath},
 	}, commandOpts...)
 	if err != nil {
-		return helper.ErrUnavailablef("spawning upload-pack: %w", err)
+		return structerr.NewUnavailable("spawning upload-pack: %w", err)
 	}
 
 	// Use a custom buffer size to minimize the number of system calls.
 	respBytes, err := io.CopyBuffer(stdout, cmd, make([]byte, 64*1024))
 	if err != nil {
-		return helper.ErrUnavailablef("copying stdout from upload-pack: %w", err)
+		return structerr.NewUnavailable("copying stdout from upload-pack: %w", err)
 	}
 
 	if err := cmd.Wait(); err != nil {
@@ -171,7 +172,7 @@ func (s *server) runUploadPack(ctx context.Context, req basicPostUploadPackReque
 			return nil
 		}
 
-		return helper.ErrUnavailablef("waiting for upload-pack: %w", err)
+		return structerr.NewUnavailable("waiting for upload-pack: %w", err)
 	}
 
 	ctxlogrus.Extract(ctx).WithField("request_sha", fmt.Sprintf("%x", h.Sum(nil))).WithField("response_bytes", respBytes).Info("request details")
