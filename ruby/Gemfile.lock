@@ -62,7 +62,7 @@ GEM
       with_env (= 1.1.0)
       xml-simple (~> 1.1.5)
     gitlab-markup (1.7.1)
-    google-protobuf (3.21.11)
+    google-protobuf (3.21.12)
     googleapis-common-protos-types (1.4.0)
       google-protobuf (~> 3.14)
     grpc (1.42.0)
@@ -200,7 +200,7 @@ DEPENDENCIES
   gitlab-labkit (~> 0.29)
   gitlab-license_finder
   gitlab-markup (~> 1.7.1)
-  google-protobuf (~> 3.21.11)
+  google-protobuf (~> 3.21.12)
   grpc (~> 1.42.0)
   licensee (~> 9.15)
   pry (~> 0.12.2)
