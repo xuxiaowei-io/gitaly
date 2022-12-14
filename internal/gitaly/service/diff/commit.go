@@ -211,7 +211,7 @@ func validateRequest(in requestWithLeftRightCommitIds) error {
 	return nil
 }
 
-func (s *server) eachDiff(ctx context.Context, repo *gitalypb.Repository, subCmd git.Cmd, limits diff.Limits, callback func(*diff.Diff) error) error {
+func (s *server) eachDiff(ctx context.Context, repo *gitalypb.Repository, subCmd git.SubCmd, limits diff.Limits, callback func(*diff.Diff) error) error {
 	diffConfig := git.ConfigPair{Key: "diff.noprefix", Value: "false"}
 
 	cmd, err := s.gitCmdFactory.New(ctx, repo, subCmd, git.WithConfig(diffConfig))

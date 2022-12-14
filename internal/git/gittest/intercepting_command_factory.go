@@ -106,14 +106,14 @@ func NewInterceptingCommandFactory(
 }
 
 // New creates a new Git command for the given repository using the intercepting script.
-func (f *InterceptingCommandFactory) New(ctx context.Context, repo repository.GitRepo, sc git.Cmd, opts ...git.CmdOpt) (*command.Command, error) {
+func (f *InterceptingCommandFactory) New(ctx context.Context, repo repository.GitRepo, sc git.SubCmd, opts ...git.CmdOpt) (*command.Command, error) {
 	return f.interceptingCommandFactory.New(ctx, repo, sc, append(
 		opts, git.WithEnv(f.realCommandFactory.GetExecutionEnvironment(ctx).EnvironmentVariables...),
 	)...)
 }
 
 // NewWithoutRepo creates a new Git command using the intercepting script.
-func (f *InterceptingCommandFactory) NewWithoutRepo(ctx context.Context, sc git.Cmd, opts ...git.CmdOpt) (*command.Command, error) {
+func (f *InterceptingCommandFactory) NewWithoutRepo(ctx context.Context, sc git.SubCmd, opts ...git.CmdOpt) (*command.Command, error) {
 	return f.interceptingCommandFactory.NewWithoutRepo(ctx, sc, append(
 		opts, git.WithEnv(f.realCommandFactory.GetExecutionEnvironment(ctx).EnvironmentVariables...),
 	)...)

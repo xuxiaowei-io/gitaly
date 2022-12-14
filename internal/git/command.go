@@ -16,12 +16,6 @@ var (
 	actionRegex = regexp.MustCompile(`^[[:alnum:]]+[-[:alnum:]]*$`)
 )
 
-// Cmd is an interface for safe git commands
-type Cmd interface {
-	CommandArgs() ([]string, error)
-	Subcommand() string
-}
-
 // SubCmd represents a specific git command
 type SubCmd struct {
 	// Name is the name of the Git command to run, e.g. "log", "cat-flie" or "worktree".

@@ -30,10 +30,10 @@ import (
 
 type commandFactoryWrapper struct {
 	git.CommandFactory
-	newFunc func(context.Context, repository.GitRepo, git.Cmd, ...git.CmdOpt) (*command.Command, error)
+	newFunc func(context.Context, repository.GitRepo, git.SubCmd, ...git.CmdOpt) (*command.Command, error)
 }
 
-func (w commandFactoryWrapper) New(ctx context.Context, repo repository.GitRepo, sc git.Cmd, opts ...git.CmdOpt) (*command.Command, error) {
+func (w commandFactoryWrapper) New(ctx context.Context, repo repository.GitRepo, sc git.SubCmd, opts ...git.CmdOpt) (*command.Command, error) {
 	return w.newFunc(ctx, repo, sc, opts...)
 }
 
@@ -329,17 +329,14 @@ func TestUpdateRemoteMirror(t *testing.T) {
 			wrapCommandFactory: func(tb testing.TB, original git.CommandFactory) git.CommandFactory {
 				return commandFactoryWrapper{
 					CommandFactory: original,
-					newFunc: func(ctx context.Context, repo repository.GitRepo, sc git.Cmd, opts ...git.CmdOpt) (*command.Command, error) {
-						if sc.Subcommand() == "push" {
-							subCmd, ok := sc.(git.SubCmd)
-							require.True(tb, ok)
-
+					newFunc: func(ctx context.Context, repo repository.GitRepo, sc git.SubCmd, opts ...git.CmdOpt) (*command.Command, error) {
+						if sc.Name == "push" {
 							// This is really hacky: we extract the
 							// remote name from the subcommands
 							// arguments. But honestly, the whole way of
 							// how we hijack the command factory is kind
 							// of hacky in the first place.
-							remoteName := subCmd.Args[0]
+							remoteName := sc.Args[0]
 							require.Contains(tb, remoteName, "inmemory-")
 
 							// Make the branch diverge on the remote before actually performing the pushes the RPC
@@ -431,7 +428,7 @@ func TestUpdateRemoteMirror(t *testing.T) {
 				firstPush := true
 				return commandFactoryWrapper{
 					CommandFactory: original,
-					newFunc: func(ctx context.Context, repo repository.GitRepo, sc git.Cmd, opts ...git.CmdOpt) (*command.Command, error) {
+					newFunc: func(ctx context.Context, repo repository.GitRepo, sc git.SubCmd, opts ...git.CmdOpt) (*command.Command, error) {
 						if sc.Subcommand() == "push" && firstPush {
 							firstPush = false
 							args, err := sc.CommandArgs()

@@ -35,11 +35,11 @@ func newRepoExecutor(t *testing.T, cfg config.Cfg, repo repository.GitRepo) git.
 	}
 }
 
-func (e *repoExecutor) Exec(ctx context.Context, cmd git.Cmd, opts ...git.CmdOpt) (*command.Command, error) {
+func (e *repoExecutor) Exec(ctx context.Context, cmd git.SubCmd, opts ...git.CmdOpt) (*command.Command, error) {
 	return e.gitCmdFactory.New(ctx, e.GitRepo, cmd, opts...)
 }
 
-func (e *repoExecutor) ExecAndWait(ctx context.Context, cmd git.Cmd, opts ...git.CmdOpt) error {
+func (e *repoExecutor) ExecAndWait(ctx context.Context, cmd git.SubCmd, opts ...git.CmdOpt) error {
 	command, err := e.Exec(ctx, cmd, opts...)
 	if err != nil {
 		return err
