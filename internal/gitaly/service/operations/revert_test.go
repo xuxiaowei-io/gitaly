@@ -136,7 +136,6 @@ func TestUserRevert(t *testing.T) {
 					},
 					expectedCommitID: firstCommit.Id,
 				}
-
 			},
 			expectedResponse: &gitalypb.UserRevertResponse{BranchUpdate: &gitalypb.OperationBranchUpdate{}},
 			expectedErr:      nil,
@@ -277,6 +276,99 @@ func TestUserRevert(t *testing.T) {
 			},
 			expectedErr: structerr.NewInvalidArgument("empty Message"),
 		},
+		{
+			desc: "successful + expectedOldOID",
+			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
+				firstCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(branchName), gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
+				))
+				firstCommit, err := repo.ReadCommit(ctx, firstCommitID.Revision())
+				require.NoError(t, err)
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.UserRevertRequest{
+						Repository:     repoProto,
+						User:           gittest.TestUser,
+						Commit:         firstCommit,
+						BranchName:     []byte(branchName),
+						Message:        []byte("Reverting " + firstCommitID),
+						ExpectedOldOid: firstCommitID.String(),
+					},
+				}
+			},
+			expectedResponse: &gitalypb.UserRevertResponse{BranchUpdate: &gitalypb.OperationBranchUpdate{}},
+			expectedErr:      nil,
+		},
+		{
+			desc: "successful + invalid expectedOldOID",
+			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
+				firstCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(branchName), gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
+				))
+				firstCommit, err := repo.ReadCommit(ctx, firstCommitID.Revision())
+				require.NoError(t, err)
+
+				return setupData{
+					request: &gitalypb.UserRevertRequest{
+						Repository:     repoProto,
+						User:           gittest.TestUser,
+						Commit:         firstCommit,
+						BranchName:     []byte(branchName),
+						Message:        []byte("Reverting " + firstCommitID),
+						ExpectedOldOid: "foobar",
+					},
+				}
+			},
+			expectedErr: structerr.NewInvalidArgument(`invalid expected old object ID: invalid object ID: "foobar"`),
+		},
+		{
+			desc: "expectedOldOID with valid SHA, but not present in repo",
+			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
+				firstCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(branchName), gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
+				))
+				firstCommit, err := repo.ReadCommit(ctx, firstCommitID.Revision())
+				require.NoError(t, err)
+
+				return setupData{
+					request: &gitalypb.UserRevertRequest{
+						Repository:     repoProto,
+						User:           gittest.TestUser,
+						Commit:         firstCommit,
+						BranchName:     []byte(branchName),
+						Message:        []byte("Reverting " + firstCommitID),
+						ExpectedOldOid: gittest.DefaultObjectHash.ZeroOID.String(),
+					},
+				}
+			},
+			expectedErr: structerr.NewInvalidArgument("cannot resolve expected old object ID: reference not found"),
+		},
+		{
+			desc: "expectedOldOID pointing to old commit",
+			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
+				firstCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "blob", Mode: "100644", Content: "bar"},
+				))
+				secondCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(firstCommitID), gittest.WithBranch(branchName), gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "bolb", Mode: "100644", Content: "foo"},
+				))
+				secondCommit, err := repo.ReadCommit(ctx, secondCommitID.Revision())
+				require.NoError(t, err)
+
+				return setupData{
+					request: &gitalypb.UserRevertRequest{
+						Repository:     repoProto,
+						User:           gittest.TestUser,
+						Commit:         secondCommit,
+						BranchName:     []byte(branchName),
+						Message:        []byte("Reverting " + secondCommitID),
+						ExpectedOldOid: firstCommitID.String(),
+					},
+				}
+			},
+			expectedErr: structerr.NewInternal("update reference with hooks: Could not update refs/heads/%s. Please refresh and try again.", branchName),
+		},
 	}
 
 	for _, tc := range testCases {
@@ -293,16 +385,18 @@ func TestUserRevert(t *testing.T) {
 			response, err := client.UserRevert(ctx, data.request)
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 
-			if data.repoPath != "" {
-				branchCommitID := text.ChompBytes(gittest.Exec(t, cfg, "-C", data.repoPath, "rev-parse", branchName))
-				tc.expectedResponse.BranchUpdate.CommitId = branchCommitID
+			if tc.expectedErr != nil {
+				return
+			}
 
-				// For dry-run, we only skip the `update-ref` section, so a non-existent branch
-				// will be created by `UserRevert`. But, we need to ensure that the
-				// expectedCommitID of the branch on which we requested revert doesn't change.
-				if data.expectedCommitID != "" {
-					require.Equal(t, data.expectedCommitID, branchCommitID, "dry run should point at expected commit")
-				}
+			branchCommitID := text.ChompBytes(gittest.Exec(t, cfg, "-C", data.repoPath, "rev-parse", branchName))
+			tc.expectedResponse.BranchUpdate.CommitId = branchCommitID
+
+			// For dry-run, we only skip the `update-ref` section, so a non-existent branch
+			// will be created by `UserRevert`. But, we need to ensure that the
+			// expectedCommitID of the branch on which we requested revert doesn't change.
+			if data.expectedCommitID != "" {
+				require.Equal(t, data.expectedCommitID, branchCommitID, "dry run should point at expected commit")
 			}
 
 			testhelper.ProtoEqual(t, tc.expectedResponse, response)
