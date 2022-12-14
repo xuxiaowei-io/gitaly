@@ -12,10 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
-	"github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
@@ -180,9 +177,6 @@ func TestMetrics(t *testing.T) {
 	require.NoError(t, v1Manager1.Setup())
 
 	ctx := testhelper.Context(t)
-	logger, hook := test.NewNullLogger()
-	logger.SetLevel(logrus.DebugLevel)
-	ctx = ctxlogrus.ToContext(ctx, logrus.NewEntry(logger))
 
 	cmd, err := command.New(ctx, []string{"ls", "-hal", "."}, command.WithCgroup(v1Manager1, repo))
 	require.NoError(t, err)
@@ -226,14 +220,6 @@ gitaly_cgroup_procs_total{path="%s",subsystem="memory"} 1
 					v1Manager1,
 					bytes.NewBufferString("")))
 			}
-
-			logEntry := hook.LastEntry()
-			assert.Contains(
-				t,
-				logEntry.Data["command.cgroup_path"],
-				repoCgroupPath,
-				"log field includes a cgroup path that is a subdirectory of the current process' cgroup path",
-			)
 		})
 	}
 }
