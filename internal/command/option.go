@@ -3,6 +3,7 @@ package command
 import (
 	"io"
 
+	"gitlab.com/gitlab-org/gitaly/v15/internal/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 )
 
@@ -19,7 +20,7 @@ type config struct {
 	subcommandName string
 	gitVersion     string
 
-	cgroupsManager CgroupsManager
+	cgroupsManager cgroups.Manager
 	cgroupsRepo    repository.GitRepo
 }
 
@@ -86,15 +87,9 @@ func WithCommandGitVersion(gitCmdVersion string) Option {
 	}
 }
 
-// CgroupsManager is a subset of the `cgroups.Manager` interface. We need to replicate it here to
-// avoid a cyclic dependency between both packages.
-type CgroupsManager interface {
-	AddCommand(*Command, repository.GitRepo) (string, error)
-}
-
 // WithCgroup adds the spawned command to a Cgroup. The bucket used will be derived from the
 // command's arguments and/or from the repository.
-func WithCgroup(cgroupsManager CgroupsManager, repo repository.GitRepo) Option {
+func WithCgroup(cgroupsManager cgroups.Manager, repo repository.GitRepo) Option {
 	return func(cfg *config) {
 		cfg.cgroupsManager = cgroupsManager
 		cfg.cgroupsRepo = repo

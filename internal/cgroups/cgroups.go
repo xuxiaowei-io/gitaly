@@ -1,11 +1,11 @@
 package cgroups
 
 import (
+	"os/exec"
 	"path/filepath"
 
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/cgroups"
@@ -17,8 +17,8 @@ type Manager interface {
 	// It is expected to be called once at Gitaly startup from any
 	// instance of the Manager.
 	Setup() error
-	// AddCommand adds a Command to a cgroup.
-	AddCommand(*command.Command, repository.GitRepo) (string, error)
+	// AddCommand adds a Cmd to a cgroup.
+	AddCommand(*exec.Cmd, repository.GitRepo) (string, error)
 	// Cleanup cleans up cgroups created in Setup.
 	// It is expected to be called once at Gitaly shutdown from any
 	// instance of the Manager.

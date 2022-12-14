@@ -301,7 +301,7 @@ func New(ctx context.Context, nameAndArgs []string, opts ...Option) (*Command, e
 	}()
 
 	if featureflag.RunCommandsInCGroup.IsEnabled(ctx) && cfg.cgroupsManager != nil {
-		cgroupPath, err := cfg.cgroupsManager.AddCommand(command, cfg.cgroupsRepo)
+		cgroupPath, err := cfg.cgroupsManager.AddCommand(command.cmd, cfg.cgroupsRepo)
 		if err != nil {
 			return nil, err
 		}

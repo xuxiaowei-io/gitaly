@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"hash/crc32"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -15,7 +16,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -82,9 +82,8 @@ func TestAddCommand(t *testing.T) {
 	require.NoError(t, v1Manager1.Setup())
 	ctx := testhelper.Context(t)
 
-	cmd2, err := command.New(ctx, []string{"ls", "-hal", "."})
-	require.NoError(t, err)
-	require.NoError(t, cmd2.Wait())
+	cmd2 := exec.CommandContext(ctx, "ls", "-hal", ".")
+	require.NoError(t, cmd2.Run())
 
 	v1Manager2 := &CGroupV1Manager{
 		cfg:       config,
@@ -96,7 +95,7 @@ func TestAddCommand(t *testing.T) {
 		_, err := v1Manager2.AddCommand(cmd2, nil)
 		require.NoError(t, err)
 
-		checksum := crc32.ChecksumIEEE([]byte(strings.Join(cmd2.Args(), "/")))
+		checksum := crc32.ChecksumIEEE([]byte(strings.Join(cmd2.Args, "/")))
 		groupID := uint(checksum) % config.Repositories.Count
 
 		for _, s := range mock.subsystems {
@@ -107,7 +106,7 @@ func TestAddCommand(t *testing.T) {
 			cmdPid, err := strconv.Atoi(string(content))
 			require.NoError(t, err)
 
-			require.Equal(t, cmd2.Pid(), cmdPid)
+			require.Equal(t, cmd2.Process.Pid, cmdPid)
 		}
 	})
 
@@ -129,7 +128,7 @@ func TestAddCommand(t *testing.T) {
 			cmdPid, err := strconv.Atoi(string(content))
 			require.NoError(t, err)
 
-			require.Equal(t, cmd2.Pid(), cmdPid)
+			require.Equal(t, cmd2.Process.Pid, cmdPid)
 		}
 	})
 }
@@ -178,17 +177,24 @@ func TestMetrics(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cmd, err := command.New(ctx, []string{"ls", "-hal", "."}, command.WithCgroup(v1Manager1, repo))
+	cmd := exec.CommandContext(ctx, "ls", "-hal", ".")
+	require.NoError(t, cmd.Start())
+	_, err := v1Manager1.AddCommand(cmd, repo)
 	require.NoError(t, err)
-	gitCmd1, err := command.New(ctx, []string{"ls", "-hal", "."}, command.WithCgroup(v1Manager1, repo))
+
+	gitCmd1 := exec.CommandContext(ctx, "ls", "-hal", ".")
+	require.NoError(t, gitCmd1.Start())
+	_, err = v1Manager1.AddCommand(gitCmd1, repo)
 	require.NoError(t, err)
-	gitCmd2, err := command.New(ctx, []string{"ls", "-hal", "."}, command.WithCgroup(v1Manager1, repo))
+
+	gitCmd2 := exec.CommandContext(ctx, "ls", "-hal", ".")
+	require.NoError(t, gitCmd2.Start())
+	_, err = v1Manager1.AddCommand(gitCmd2, repo)
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, gitCmd2.Wait())
 	}()
 
-	require.NoError(t, err)
 	require.NoError(t, cmd.Wait())
 	require.NoError(t, gitCmd1.Wait())
 
