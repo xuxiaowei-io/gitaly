@@ -70,7 +70,7 @@ func (s *server) gc(ctx context.Context, in *gitalypb.GarbageCollectRequest) err
 	}
 
 	cmd, err := s.gitCmdFactory.New(ctx, in.GetRepository(),
-		git.SubCmd{Name: "gc", Flags: flags},
+		git.Command{Name: "gc", Flags: flags},
 		git.WithConfig(config...),
 	)
 	if err != nil {
@@ -165,7 +165,7 @@ func (s *server) fixRef(ctx context.Context, repo *localrepo.Repo, objectInfoRea
 	}
 
 	// The name is a valid sha, recreate the ref
-	return repo.ExecAndWait(ctx, git.SubCmd{
+	return repo.ExecAndWait(ctx, git.Command{
 		Name: "update-ref",
 		Args: []string{name, sha},
 	}, git.WithRefTxHook(repo))

@@ -83,7 +83,7 @@ func LsTree(
 
 		var stderr strings.Builder
 		cmd, err := repo.Exec(ctx,
-			git.SubCmd{
+			git.Command{
 				Name:  "ls-tree",
 				Flags: flags,
 				Args:  []string{revision},

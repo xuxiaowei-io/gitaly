@@ -106,7 +106,7 @@ func (s *server) updateHeadFromBundle(ctx context.Context, repo *localrepo.Repo,
 // findBundleHead tries to extract HEAD and its target from a bundle. Returns
 // nil when HEAD is not found.
 func (s *server) findBundleHead(ctx context.Context, repo git.RepositoryExecutor, bundlePath string) (*git.Reference, error) {
-	cmd, err := repo.Exec(ctx, git.SubCmd{
+	cmd, err := repo.Exec(ctx, git.Command{
 		Name:   "bundle",
 		Action: "list-heads",
 		Args:   []string{bundlePath, "HEAD"},

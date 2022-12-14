@@ -130,7 +130,7 @@ func NewSymbolicReference(name ReferenceName, target string) Reference {
 // well-formed using git-check-ref-format
 func CheckRefFormat(ctx context.Context, gitCmdFactory CommandFactory, refName string) (bool, error) {
 	cmd, err := gitCmdFactory.NewWithoutRepo(ctx,
-		SubCmd{
+		Command{
 			Name: "check-ref-format",
 			Args: []string{refName},
 		},

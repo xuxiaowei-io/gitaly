@@ -46,7 +46,7 @@ func (s *server) FullPath(ctx context.Context, request *gitalypb.FullPathRequest
 
 	repo := s.localrepo(repository)
 	var stdout strings.Builder
-	err := repo.ExecAndWait(ctx, git.SubCmd{
+	err := repo.ExecAndWait(ctx, git.Command{
 		Name: "config",
 		Args: []string{fullPathKey},
 	}, git.WithStdout(&stdout))

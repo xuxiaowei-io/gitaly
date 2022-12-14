@@ -85,7 +85,7 @@ func ObjectHashByProto(format gitalypb.ObjectFormat) (ObjectHash, error) {
 func DetectObjectHash(ctx context.Context, repoExecutor RepositoryExecutor) (ObjectHash, error) {
 	var stdout, stderr bytes.Buffer
 
-	if err := repoExecutor.ExecAndWait(ctx, SubCmd{
+	if err := repoExecutor.ExecAndWait(ctx, Command{
 		Name: "rev-parse",
 		Flags: []Option{
 			Flag{"--show-object-format"},

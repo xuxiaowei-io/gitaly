@@ -68,7 +68,7 @@ func parseTagLine(ctx context.Context, objectReader catfile.ObjectContentReader,
 
 func (s *server) findTag(ctx context.Context, repo git.RepositoryExecutor, tagName []byte) (*gitalypb.Tag, error) {
 	tagCmd, err := repo.Exec(ctx,
-		git.SubCmd{
+		git.Command{
 			Name: "tag",
 			Flags: []git.Option{
 				git.Flag{Name: "-l"}, git.ValueFlag{Name: "--format", Value: tagFormat},

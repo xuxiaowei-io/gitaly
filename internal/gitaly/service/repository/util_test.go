@@ -74,7 +74,7 @@ func TestCreateRepository(t *testing.T) {
 			seed: func(t *testing.T, repo *gitalypb.Repository, _ string) error {
 				// We're using the command factory on purpose here to assert that we
 				// can execute regular Git commands on the temporary repository.
-				cmd, err := gitCmdFactory.New(ctx, repo, git.SubCmd{
+				cmd, err := gitCmdFactory.New(ctx, repo, git.Command{
 					Name: "config",
 					Args: []string{"custom.key", "value"},
 				})

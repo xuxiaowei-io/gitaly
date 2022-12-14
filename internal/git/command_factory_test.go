@@ -44,7 +44,7 @@ func TestGitCommandProxy(t *testing.T) {
 	require.NoError(t, err)
 	defer cleanup()
 
-	cmd, err := gitCmdFactory.NewWithoutRepo(ctx, git.SubCmd{
+	cmd, err := gitCmdFactory.NewWithoutRepo(ctx, git.Command{
 		Name: "clone",
 		Args: []string{"http://gitlab.com/bogus-repo", dir},
 	}, git.WithDisabledHooks())
@@ -82,7 +82,7 @@ func TestExecCommandFactory_globalGitConfigIgnored(t *testing.T) {
 		{desc: "system", filter: "--system"},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			cmd, err := gitCmdFactory.NewWithoutRepo(ctx, git.SubCmd{
+			cmd, err := gitCmdFactory.NewWithoutRepo(ctx, git.Command{
 				Name:  "config",
 				Flags: []git.Option{git.Flag{Name: "--list"}, git.Flag{Name: tc.filter}},
 			}, git.WithEnv("HOME="+tmpHome))
@@ -201,7 +201,7 @@ func TestExecCommandFactory_gitConfiguration(t *testing.T) {
 			defer cleanup()
 
 			var stdout bytes.Buffer
-			cmd, err := commandFactory.New(ctx, repo, git.SubCmd{
+			cmd, err := commandFactory.New(ctx, repo, git.Command{
 				Name: "config",
 				Flags: []git.Option{
 					git.Flag{Name: "--list"},
@@ -571,7 +571,7 @@ func TestExecCommandFactory_config(t *testing.T) {
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 
 	var stdout bytes.Buffer
-	cmd, err := gitCmdFactory.New(ctx, repo, git.SubCmd{
+	cmd, err := gitCmdFactory.New(ctx, repo, git.Command{
 		Name: "config",
 		Flags: []git.Option{
 			git.Flag{Name: "--list"},
@@ -693,7 +693,7 @@ func TestFsckConfiguration(t *testing.T) {
 
 			// Create fsck command with configured ignore rules options.
 			cmd, err := gitCmdFactory.New(ctx, repoProto,
-				git.SubCmd{Name: "fsck"},
+				git.Command{Name: "fsck"},
 			)
 			require.NoError(t, err)
 

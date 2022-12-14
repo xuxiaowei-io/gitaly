@@ -287,7 +287,7 @@ func Revlist(
 
 		var stderr strings.Builder
 		revlist, err := repo.Exec(ctx,
-			git.SubCmd{
+			git.Command{
 				Name:  "rev-list",
 				Flags: flags,
 				Args:  revisions,
@@ -426,7 +426,7 @@ func ForEachRef(
 			flags = append(flags, git.ValueFlag{Name: "--count", Value: strconv.Itoa(cfg.count)})
 		}
 
-		forEachRef, err := repo.Exec(ctx, git.SubCmd{
+		forEachRef, err := repo.Exec(ctx, git.Command{
 			Name:  "for-each-ref",
 			Flags: flags,
 			Args:  patterns,

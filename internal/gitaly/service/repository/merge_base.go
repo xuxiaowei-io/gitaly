@@ -26,7 +26,7 @@ func (s *server) FindMergeBase(ctx context.Context, req *gitalypb.FindMergeBaseR
 	}
 
 	cmd, err := s.gitCmdFactory.New(ctx, repository,
-		git.SubCmd{
+		git.Command{
 			Name: "merge-base",
 			Args: revisions,
 		},

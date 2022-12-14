@@ -42,7 +42,7 @@ func (repo *Repo) ResolveRevision(ctx context.Context, revision git.Revision) (g
 
 	var stdout bytes.Buffer
 	if err := repo.ExecAndWait(ctx,
-		git.SubCmd{
+		git.Command{
 			Name:  "rev-parse",
 			Flags: []git.Option{git.Flag{Name: "--verify"}},
 			Args:  []string{revision.String()},
@@ -107,7 +107,7 @@ func (repo *Repo) getReferences(ctx context.Context, limit uint, patterns ...str
 		flags = append(flags, git.Flag{Name: fmt.Sprintf("--count=%d", limit)})
 	}
 
-	cmd, err := repo.Exec(ctx, git.SubCmd{
+	cmd, err := repo.Exec(ctx, git.Command{
 		Name:  "for-each-ref",
 		Flags: flags,
 		Args:  patterns,
@@ -155,7 +155,7 @@ func (repo *Repo) UpdateRef(ctx context.Context, reference git.ReferenceName, ne
 	var stderr bytes.Buffer
 
 	if err := repo.ExecAndWait(ctx,
-		git.SubCmd{
+		git.Command{
 			Name:  "update-ref",
 			Flags: []git.Option{git.Flag{Name: "-z"}, git.Flag{Name: "--stdin"}},
 		},
@@ -264,7 +264,7 @@ func (repo *Repo) GetRemoteReferences(ctx context.Context, remote string, opts .
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 	if err := repo.ExecAndWait(ctx,
-		git.SubCmd{
+		git.Command{
 			Name: "ls-remote",
 			Flags: []git.Option{
 				git.Flag{Name: "--refs"},
@@ -374,7 +374,7 @@ func (repo *Repo) GetDefaultBranch(ctx context.Context) (git.ReferenceName, erro
 func (repo *Repo) headReference(ctx context.Context) (git.ReferenceName, error) {
 	var headRef []byte
 
-	cmd, err := repo.Exec(ctx, git.SubCmd{
+	cmd, err := repo.Exec(ctx, git.Command{
 		Name:  "rev-parse",
 		Flags: []git.Option{git.Flag{Name: "--symbolic-full-name"}},
 		Args:  []string{"HEAD"},

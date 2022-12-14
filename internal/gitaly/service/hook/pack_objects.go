@@ -331,8 +331,8 @@ func (p *packObjectsArgs) globals() []git.GlobalOption {
 	return globals
 }
 
-func (p *packObjectsArgs) subcmd() git.SubCmd {
-	sc := git.SubCmd{
+func (p *packObjectsArgs) subcmd() git.Command {
+	sc := git.Command{
 		Name:  "pack-objects",
 		Flags: []git.Option{git.Flag{Name: "--stdout"}},
 	}

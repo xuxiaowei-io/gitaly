@@ -199,7 +199,7 @@ func pruneEmptyConfigSections(ctx context.Context, repo *localrepo.Repo) (_ int,
 	var configOutputs []string
 	for _, path := range []string{configPath, configWriter.Path()} {
 		var configOutput bytes.Buffer
-		if err := repo.ExecAndWait(ctx, git.SubCmd{
+		if err := repo.ExecAndWait(ctx, git.Command{
 			Name: "config",
 			Flags: []git.Option{
 				git.ValueFlag{Name: "-f", Value: path},

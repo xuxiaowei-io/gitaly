@@ -458,7 +458,7 @@ func TestResolveConflictsIdenticalContent(t *testing.T) {
 	}
 
 	var conflictContents bytes.Buffer
-	err = repo.ExecAndWait(ctx, git.SubCmd{
+	err = repo.ExecAndWait(ctx, git.Command{
 		Name: "merge-file",
 		Flags: []git.Option{
 			git.Flag{Name: "--quiet"},

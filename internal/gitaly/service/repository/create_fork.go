@@ -40,7 +40,7 @@ func (s *server) CreateFork(ctx context.Context, req *gitalypb.CreateForkRequest
 		// no easy choice but to use git-clone(1).
 		var stderr strings.Builder
 		cmd, err := s.gitCmdFactory.NewWithoutRepo(ctx,
-			git.SubCmd{
+			git.Command{
 				Name: "clone",
 				Flags: []git.Option{
 					git.Flag{Name: "--bare"},

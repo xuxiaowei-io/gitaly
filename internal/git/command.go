@@ -16,8 +16,8 @@ var (
 	actionRegex = regexp.MustCompile(`^[[:alnum:]]+[-[:alnum:]]*$`)
 )
 
-// SubCmd represents a specific git command
-type SubCmd struct {
+// Command represent a Git command.
+type Command struct {
 	// Name is the name of the Git command to run, e.g. "log", "cat-flie" or "worktree".
 	Name string
 	// Action is the action of the Git command, e.g. "set-url" in `git remote set-url`
@@ -39,23 +39,23 @@ type SubCmd struct {
 }
 
 // CommandArgs checks all arguments in the sub command and validates them
-func (sc SubCmd) CommandArgs() ([]string, error) {
+func (c Command) CommandArgs() ([]string, error) {
 	var safeArgs []string
 
-	commandDescription, ok := commandDescriptions[sc.Name]
+	commandDescription, ok := commandDescriptions[c.Name]
 	if !ok {
-		return nil, fmt.Errorf("invalid sub command name %q: %w", sc.Name, ErrInvalidArg)
+		return nil, fmt.Errorf("invalid sub command name %q: %w", c.Name, ErrInvalidArg)
 	}
-	safeArgs = append(safeArgs, sc.Name)
+	safeArgs = append(safeArgs, c.Name)
 
-	if sc.Action != "" {
-		if !actionRegex.MatchString(sc.Action) {
-			return nil, fmt.Errorf("invalid action %q: %w", sc.Action, ErrInvalidArg)
+	if c.Action != "" {
+		if !actionRegex.MatchString(c.Action) {
+			return nil, fmt.Errorf("invalid action %q: %w", c.Action, ErrInvalidArg)
 		}
-		safeArgs = append(safeArgs, sc.Action)
+		safeArgs = append(safeArgs, c.Action)
 	}
 
-	commandArgs, err := commandDescription.args(sc.Flags, sc.Args, sc.PostSepArgs)
+	commandArgs, err := commandDescription.args(c.Flags, c.Args, c.PostSepArgs)
 	if err != nil {
 		return nil, err
 	}

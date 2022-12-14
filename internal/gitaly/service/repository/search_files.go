@@ -33,7 +33,7 @@ func (s *server) SearchFilesByContent(req *gitalypb.SearchFilesByContentRequest,
 
 	ctx := stream.Context()
 	cmd, err := s.gitCmdFactory.New(ctx, req.GetRepository(),
-		git.SubCmd{Name: "grep", Flags: []git.Option{
+		git.Command{Name: "grep", Flags: []git.Option{
 			git.Flag{Name: "--ignore-case"},
 			git.Flag{Name: "-I"},
 			git.Flag{Name: "--line-number"},
@@ -117,7 +117,7 @@ func (s *server) SearchFilesByName(req *gitalypb.SearchFilesByNameRequest, strea
 	cmd, err := s.gitCmdFactory.New(
 		ctx,
 		req.GetRepository(),
-		git.SubCmd{Name: "ls-tree", Flags: []git.Option{
+		git.Command{Name: "ls-tree", Flags: []git.Option{
 			git.Flag{Name: "--full-tree"},
 			git.Flag{Name: "--name-status"},
 			git.Flag{Name: "-r"},

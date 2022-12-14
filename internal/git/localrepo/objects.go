@@ -27,7 +27,7 @@ func (repo *Repo) WriteBlob(ctx context.Context, path string, content io.Reader)
 	stderr := &bytes.Buffer{}
 
 	cmd, err := repo.Exec(ctx,
-		git.SubCmd{
+		git.Command{
 			Name: "hash-object",
 			Flags: []git.Option{
 				git.ValueFlag{Name: "--path", Value: path},
@@ -149,7 +149,7 @@ func (repo *Repo) WriteTag(
 	content := strings.NewReader(tagBuf)
 
 	cmd, err := repo.Exec(ctx,
-		git.SubCmd{
+		git.Command{
 			Name: "mktag",
 		},
 		git.WithStdin(content),
@@ -190,7 +190,7 @@ func (repo *Repo) ReadObject(ctx context.Context, oid git.ObjectID) ([]byte, err
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 	cmd, err := repo.Exec(ctx,
-		git.SubCmd{
+		git.Command{
 			Name:  "cat-file",
 			Flags: []git.Option{git.Flag{Name: "-p"}},
 			Args:  []string{oid.String()},
@@ -273,7 +273,7 @@ func (repo *Repo) IsAncestor(ctx context.Context, parent, child git.Revision) (b
 
 	stderr := &bytes.Buffer{}
 	if err := repo.ExecAndWait(ctx,
-		git.SubCmd{
+		git.Command{
 			Name:  "merge-base",
 			Flags: []git.Option{git.Flag{Name: "--is-ancestor"}},
 			Args:  []string{parent.String(), child.String()},

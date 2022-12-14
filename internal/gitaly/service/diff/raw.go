@@ -15,7 +15,7 @@ func (s *server) RawDiff(in *gitalypb.RawDiffRequest, stream gitalypb.DiffServic
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
-	subCmd := git.SubCmd{
+	subCmd := git.Command{
 		Name:  "diff",
 		Flags: []git.Option{git.Flag{Name: "--full-index"}},
 		Args:  []string{in.LeftCommitId, in.RightCommitId},
@@ -33,7 +33,7 @@ func (s *server) RawPatch(in *gitalypb.RawPatchRequest, stream gitalypb.DiffServ
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
-	subCmd := git.SubCmd{
+	subCmd := git.Command{
 		Name:  "format-patch",
 		Flags: []git.Option{git.Flag{Name: "--stdout"}, git.ValueFlag{Name: "--signature", Value: "GitLab"}},
 		Args:  []string{in.LeftCommitId + ".." + in.RightCommitId},
@@ -46,7 +46,7 @@ func (s *server) RawPatch(in *gitalypb.RawPatchRequest, stream gitalypb.DiffServ
 	return sendRawOutput(stream.Context(), s.gitCmdFactory, in.Repository, sw, subCmd)
 }
 
-func sendRawOutput(ctx context.Context, gitCmdFactory git.CommandFactory, repo *gitalypb.Repository, sender io.Writer, subCmd git.SubCmd) error {
+func sendRawOutput(ctx context.Context, gitCmdFactory git.CommandFactory, repo *gitalypb.Repository, sender io.Writer, subCmd git.Command) error {
 	cmd, err := gitCmdFactory.New(ctx, repo, subCmd)
 	if err != nil {
 		return structerr.NewInternal("cmd: %w", err)

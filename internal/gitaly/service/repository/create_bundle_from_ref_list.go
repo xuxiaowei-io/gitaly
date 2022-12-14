@@ -49,7 +49,7 @@ func (s *server) CreateBundleFromRefList(stream gitalypb.RepositoryService_Creat
 
 	repo := s.localrepo(repository)
 	cmd, err := repo.Exec(ctx,
-		git.SubCmd{
+		git.Command{
 			Name:   "bundle",
 			Action: "create",
 			Flags: []git.Option{

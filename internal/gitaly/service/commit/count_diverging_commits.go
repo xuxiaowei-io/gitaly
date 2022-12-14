@@ -48,8 +48,8 @@ func (s *server) validateCountDivergingCommitsRequest(req *gitalypb.CountDivergi
 	return nil
 }
 
-func buildRevListCountCmd(from, to string, maxCount int) git.SubCmd {
-	subCmd := git.SubCmd{
+func buildRevListCountCmd(from, to string, maxCount int) git.Command {
+	subCmd := git.Command{
 		Name:  "rev-list",
 		Flags: []git.Option{git.Flag{Name: "--count"}, git.Flag{Name: "--left-right"}},
 		Args:  []string{fmt.Sprintf("%s...%s", from, to)},

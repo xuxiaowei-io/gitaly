@@ -54,7 +54,7 @@ func (s *server) FindChangedPaths(in *gitalypb.FindChangedPathsRequest, stream g
 		requests[i] = str
 	}
 
-	cmd, err := s.gitCmdFactory.New(stream.Context(), in.Repository, git.SubCmd{
+	cmd, err := s.gitCmdFactory.New(stream.Context(), in.Repository, git.Command{
 		Name: "diff-tree",
 		Flags: []git.Option{
 			git.Flag{Name: "-z"},

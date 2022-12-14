@@ -17,7 +17,7 @@ func monitorStdinCommand(
 	repo *gitalypb.Repository,
 	stdin io.Reader,
 	stdout, stderr io.Writer,
-	sc git.SubCmd,
+	sc git.Command,
 	opts ...git.CmdOpt,
 ) (*command.Command, *pktline.ReadMonitor, error) {
 	stdinPipe, monitor, cleanup, err := pktline.NewReadMonitor(ctx, stdin)

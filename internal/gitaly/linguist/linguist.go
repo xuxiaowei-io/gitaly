@@ -188,7 +188,7 @@ func (inst *Instance) needsFullRecalculation(ctx context.Context, cachedID, comm
 		return true, nil
 	}
 
-	err := inst.repo.ExecAndWait(ctx, git.SubCmd{
+	err := inst.repo.ExecAndWait(ctx, git.Command{
 		Name:        "diff",
 		Flags:       []git.Option{git.Flag{Name: "--quiet"}},
 		Args:        []string{fmt.Sprintf("%v..%v", cachedID, commitID)},

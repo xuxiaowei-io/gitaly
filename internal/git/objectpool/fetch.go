@@ -64,7 +64,7 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *localrepo.Repo
 
 	var stderr bytes.Buffer
 	if err := o.Repo.ExecAndWait(ctx,
-		git.SubCmd{
+		git.Command{
 			Name: "fetch",
 			Flags: []git.Option{
 				git.Flag{Name: "--quiet"},
@@ -127,7 +127,7 @@ func (o *ObjectPool) pruneReferences(ctx context.Context, origin *localrepo.Repo
 	// Instead we ask for a dry-run, parse the output and queue up every reference into a
 	// git-update-ref(1) process. While ugly, it works around the performance issues.
 	prune, err := o.Repo.Exec(ctx,
-		git.SubCmd{
+		git.Command{
 			Name:   "remote",
 			Action: "prune",
 			Args:   []string{"origin"},
@@ -242,7 +242,7 @@ const danglingObjectNamespace = "refs/dangling/"
 // an object is still used anywhere, so the only safe thing to do is to
 // assume that every object _is_ used.
 func (o *ObjectPool) rescueDanglingObjects(ctx context.Context) (returnedErr error) {
-	fsck, err := o.Repo.Exec(ctx, git.SubCmd{
+	fsck, err := o.Repo.Exec(ctx, git.Command{
 		Name:  "fsck",
 		Flags: []git.Option{git.Flag{Name: "--connectivity-only"}, git.Flag{Name: "--dangling"}},
 	})
@@ -313,7 +313,7 @@ func (o *ObjectPool) logStats(ctx context.Context, logger *logrus.Entry) error {
 	}
 	fields["repository_info"] = repoInfo
 
-	forEachRef, err := o.Repo.Exec(ctx, git.SubCmd{
+	forEachRef, err := o.Repo.Exec(ctx, git.Command{
 		Name:  "for-each-ref",
 		Flags: []git.Option{git.Flag{Name: "--format=%(objecttype)%00%(refname)"}},
 		Args:  []string{"refs/"},

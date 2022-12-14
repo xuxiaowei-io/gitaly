@@ -24,7 +24,7 @@ func TestInterceptingCommandFactory(t *testing.T) {
 
 	t.Run("New", func(t *testing.T) {
 		var stdout bytes.Buffer
-		cmd, err := factory.New(ctx, repoProto, git.SubCmd{
+		cmd, err := factory.New(ctx, repoProto, git.Command{
 			Name: "rev-parse",
 			Args: []string{"something"},
 		}, git.WithStdout(&stdout))
@@ -35,7 +35,7 @@ func TestInterceptingCommandFactory(t *testing.T) {
 
 	t.Run("NewWithoutRepo", func(t *testing.T) {
 		var stdout bytes.Buffer
-		cmd, err := factory.NewWithoutRepo(ctx, git.SubCmd{
+		cmd, err := factory.NewWithoutRepo(ctx, git.Command{
 			Name: "rev-parse",
 			Args: []string{"something"},
 			Flags: []git.Option{

@@ -192,7 +192,7 @@ func pruneIfNeeded(ctx context.Context, repo *localrepo.Repo, strategy Optimizat
 		return false, nil
 	}
 
-	if err := repo.ExecAndWait(ctx, git.SubCmd{
+	if err := repo.ExecAndWait(ctx, git.Command{
 		Name: "prune",
 		Flags: []git.Option{
 			// By default, this prunes all unreachable objects regardless of when they
@@ -215,7 +215,7 @@ func packRefsIfNeeded(ctx context.Context, repo *localrepo.Repo, strategy Optimi
 	}
 
 	var stderr bytes.Buffer
-	if err := repo.ExecAndWait(ctx, git.SubCmd{
+	if err := repo.ExecAndWait(ctx, git.Command{
 		Name: "pack-refs",
 		Flags: []git.Option{
 			git.Flag{Name: "--all"},

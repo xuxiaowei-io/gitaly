@@ -30,10 +30,10 @@ import (
 
 type commandFactoryWrapper struct {
 	git.CommandFactory
-	newFunc func(context.Context, repository.GitRepo, git.SubCmd, ...git.CmdOpt) (*command.Command, error)
+	newFunc func(context.Context, repository.GitRepo, git.Command, ...git.CmdOpt) (*command.Command, error)
 }
 
-func (w commandFactoryWrapper) New(ctx context.Context, repo repository.GitRepo, sc git.SubCmd, opts ...git.CmdOpt) (*command.Command, error) {
+func (w commandFactoryWrapper) New(ctx context.Context, repo repository.GitRepo, sc git.Command, opts ...git.CmdOpt) (*command.Command, error) {
 	return w.newFunc(ctx, repo, sc, opts...)
 }
 
@@ -329,7 +329,7 @@ func TestUpdateRemoteMirror(t *testing.T) {
 			wrapCommandFactory: func(tb testing.TB, original git.CommandFactory) git.CommandFactory {
 				return commandFactoryWrapper{
 					CommandFactory: original,
-					newFunc: func(ctx context.Context, repo repository.GitRepo, sc git.SubCmd, opts ...git.CmdOpt) (*command.Command, error) {
+					newFunc: func(ctx context.Context, repo repository.GitRepo, sc git.Command, opts ...git.CmdOpt) (*command.Command, error) {
 						if sc.Name == "push" {
 							// This is really hacky: we extract the
 							// remote name from the subcommands
@@ -342,7 +342,7 @@ func TestUpdateRemoteMirror(t *testing.T) {
 							// Make the branch diverge on the remote before actually performing the pushes the RPC
 							// is attempting to perform to simulate a ref diverging after the RPC has performed
 							// its checks.
-							cmd, err := original.New(ctx, repo, git.SubCmd{
+							cmd, err := original.New(ctx, repo, git.Command{
 								Name:  "push",
 								Flags: []git.Option{git.Flag{Name: "--force"}},
 								Args:  []string{remoteName, "refs/heads/non-diverging:refs/heads/diverging"},
@@ -428,7 +428,7 @@ func TestUpdateRemoteMirror(t *testing.T) {
 				firstPush := true
 				return commandFactoryWrapper{
 					CommandFactory: original,
-					newFunc: func(ctx context.Context, repo repository.GitRepo, sc git.SubCmd, opts ...git.CmdOpt) (*command.Command, error) {
+					newFunc: func(ctx context.Context, repo repository.GitRepo, sc git.Command, opts ...git.CmdOpt) (*command.Command, error) {
 						if sc.Name == "push" && firstPush {
 							firstPush = false
 							args, err := sc.CommandArgs()

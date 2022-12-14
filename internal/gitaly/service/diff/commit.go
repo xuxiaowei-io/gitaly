@@ -36,7 +36,7 @@ func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.Diff
 	ignoreWhitespaceChange := in.GetIgnoreWhitespaceChange()
 	paths := in.GetPaths()
 
-	cmd := git.SubCmd{
+	cmd := git.Command{
 		Name: "diff",
 		Flags: []git.Option{
 			git.Flag{Name: "--patch"},
@@ -135,7 +135,7 @@ func (s *server) CommitDelta(in *gitalypb.CommitDeltaRequest, stream gitalypb.Di
 	rightSha := in.RightCommitId
 	paths := in.GetPaths()
 
-	cmd := git.SubCmd{
+	cmd := git.Command{
 		Name: "diff",
 		Flags: []git.Option{
 			git.Flag{Name: "--raw"},
@@ -211,7 +211,7 @@ func validateRequest(in requestWithLeftRightCommitIds) error {
 	return nil
 }
 
-func (s *server) eachDiff(ctx context.Context, repo *gitalypb.Repository, subCmd git.SubCmd, limits diff.Limits, callback func(*diff.Diff) error) error {
+func (s *server) eachDiff(ctx context.Context, repo *gitalypb.Repository, subCmd git.Command, limits diff.Limits, callback func(*diff.Diff) error) error {
 	diffConfig := git.ConfigPair{Key: "diff.noprefix", Value: "false"}
 
 	cmd, err := s.gitCmdFactory.New(ctx, repo, subCmd, git.WithConfig(diffConfig))

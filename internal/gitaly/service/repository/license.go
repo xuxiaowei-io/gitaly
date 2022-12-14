@@ -184,7 +184,7 @@ func (f *gitFiler) ReadFile(path string) ([]byte, error) {
 
 func (f *gitFiler) ReadDir(string) ([]filer.File, error) {
 	var stderr bytes.Buffer
-	cmd, err := f.repo.Exec(f.ctx, git.SubCmd{
+	cmd, err := f.repo.Exec(f.ctx, git.Command{
 		Name: "ls-tree",
 		Flags: []git.Option{
 			git.Flag{Name: "-z"},

@@ -38,7 +38,7 @@ func RepackObjects(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsC
 		)
 	}
 
-	if err := repo.ExecAndWait(ctx, git.SubCmd{
+	if err := repo.ExecAndWait(ctx, git.Command{
 		Name: "repack",
 		Flags: append([]git.Option{
 			git.Flag{Name: "-d"},

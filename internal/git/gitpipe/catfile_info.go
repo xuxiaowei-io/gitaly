@@ -210,7 +210,7 @@ func CatfileInfoAllObjects(
 		}
 
 		var stderr bytes.Buffer
-		cmd, err := repo.Exec(ctx, git.SubCmd{
+		cmd, err := repo.Exec(ctx, git.Command{
 			Name: "cat-file",
 			Flags: []git.Option{
 				batchCheckOption,

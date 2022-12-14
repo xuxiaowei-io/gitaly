@@ -51,7 +51,7 @@ func ListEntries(
 	}
 
 	var stderr bytes.Buffer
-	cmd, err := repo.Exec(ctx, git.SubCmd{
+	cmd, err := repo.Exec(ctx, git.Command{
 		Name:  "ls-tree",
 		Args:  []string{fmt.Sprintf("%s:%s", treeish, cfg.RelativePath)},
 		Flags: flags,

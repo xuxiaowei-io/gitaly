@@ -22,7 +22,7 @@ func LastCommitForPath(
 	path string,
 	options *gitalypb.GlobalOptions,
 ) (*gitalypb.GitCommit, error) {
-	cmd, err := gitCmdFactory.New(ctx, repo, git.SubCmd{
+	cmd, err := gitCmdFactory.New(ctx, repo, git.Command{
 		Name:        "log",
 		Flags:       []git.Option{git.Flag{Name: "--format=%H"}, git.Flag{Name: "--max-count=1"}},
 		Args:        []string{revision.String()},
@@ -47,7 +47,7 @@ func GitLogCommand(ctx context.Context, gitCmdFactory git.CommandFactory, repo r
 		args[i] = revision.String()
 	}
 
-	return gitCmdFactory.New(ctx, repo, git.SubCmd{
+	return gitCmdFactory.New(ctx, repo, git.Command{
 		Name:        "log",
 		Flags:       append([]git.Option{git.Flag{Name: "--pretty=%H"}}, extraArgs...),
 		Args:        args,

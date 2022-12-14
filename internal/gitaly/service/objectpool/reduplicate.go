@@ -15,7 +15,7 @@ func (s *server) ReduplicateRepository(ctx context.Context, req *gitalypb.Redupl
 		return nil, helper.ErrInvalidArgumentf("%w", err)
 	}
 
-	cmd, err := s.gitCmdFactory.New(ctx, repository, git.SubCmd{
+	cmd, err := s.gitCmdFactory.New(ctx, repository, git.Command{
 		Name: "repack",
 		Flags: []git.Option{
 			git.Flag{Name: "--quiet"},
