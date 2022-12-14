@@ -24,22 +24,28 @@ func TestRepackIncrementalSuccess(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, repoPath, client := setupRepositoryService(t, ctx)
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
-	packPath := filepath.Join(repoPath, "objects", "pack")
+	// Bring the repository into a known-good state with a single packfile, only.
+	initialCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+	gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
+	oldPackfileCount, err := stats.PackfilesCount(repoPath)
+	require.NoError(t, err)
+	require.Equal(t, 1, oldPackfileCount)
 
-	// Reset mtime to a long while ago since some filesystems don't have sub-second
-	// precision on `mtime`.
-	// Stamp taken from https://golang.org/pkg/time/#pkg-constants
-	testhelper.MustRunCommand(t, nil, "touch", "-t", testTimeString, filepath.Join(packPath, "*"))
-	testTime := time.Date(2006, 0o1, 0o2, 15, 0o4, 0o5, 0, time.UTC)
+	// Write a second commit into the repository so that we have something to repack.
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(initialCommit), gittest.WithBranch("main"))
+
 	//nolint:staticcheck
 	c, err := client.RepackIncremental(ctx, &gitalypb.RepackIncrementalRequest{Repository: repo})
 	assert.NoError(t, err)
 	assert.NotNil(t, c)
 
-	// Entire `path`-folder gets updated so this is fine :D
-	assertModTimeAfter(t, testTime, packPath)
+	// As we have done an incremental repack we expect to see one more packfile than before now.
+	newPackfileCount, err := stats.PackfilesCount(repoPath)
+	require.NoError(t, err)
+	require.Equal(t, oldPackfileCount+1, newPackfileCount)
 
 	requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{
 		Exists: true, HasBloomFilters: true, CommitGraphChainLength: 1,
