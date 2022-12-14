@@ -3,6 +3,7 @@ package operations
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -97,14 +98,29 @@ func (s *Server) UserCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 	}
 
 	referenceName := git.NewReferenceNameFromBranchName(string(req.BranchName))
-
 	branchCreated := false
-	oldrev, err := quarantineRepo.ResolveRevision(ctx, referenceName.Revision()+"^{commit}")
-	if errors.Is(err, git.ErrReferenceNotFound) {
-		branchCreated = true
-		oldrev = git.ObjectHashSHA1.ZeroOID
-	} else if err != nil {
-		return nil, helper.ErrInvalidArgumentf("resolve ref: %w", err)
+	var oldrev git.ObjectID
+	if expectedOldOID := req.GetExpectedOldOid(); expectedOldOID != "" {
+		oldrev, err = git.ObjectHashSHA1.FromHex(expectedOldOID)
+		if err != nil {
+			return nil, structerr.NewInvalidArgument("invalid expected old object ID: %w", err).
+				WithMetadata("old_object_id", expectedOldOID)
+		}
+		oldrev, err = s.localrepo(req.GetRepository()).ResolveRevision(
+			ctx, git.Revision(fmt.Sprintf("%s^{object}", oldrev)),
+		)
+		if err != nil {
+			return nil, structerr.NewInvalidArgument("cannot resolve expected old object ID: %w", err).
+				WithMetadata("old_object_id", expectedOldOID)
+		}
+	} else {
+		oldrev, err = quarantineRepo.ResolveRevision(ctx, referenceName.Revision()+"^{commit}")
+		if errors.Is(err, git.ErrReferenceNotFound) {
+			branchCreated = true
+			oldrev = git.ObjectHashSHA1.ZeroOID
+		} else if err != nil {
+			return nil, structerr.NewInvalidArgument("resolve ref: %w", err)
+		}
 	}
 
 	if req.DryRun {

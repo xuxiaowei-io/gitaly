@@ -12,8 +12,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -21,160 +23,293 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func TestServer_UserCherryPick_successful(t *testing.T) {
+func TestUserCherryPick(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
 
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, testhelper.Context(t))
 
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	destinationBranch := "dst-branch"
 
-	destinationBranch := "cherry-picking-dst"
-	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, "master")
-
-	masterHeadCommit, err := repo.ReadCommit(ctx, "master")
-	require.NoError(t, err)
-
-	cherryPickedCommit, err := repo.ReadCommit(ctx, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
-	require.NoError(t, err)
-
-	testRepoCopy, testRepoCopyPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	}) // read-only repo
-
-	gittest.Exec(t, cfg, "-C", testRepoCopyPath, "branch", destinationBranch, "master")
+	type setupData struct {
+		cfg                    config.Cfg
+		repoPath               string
+		repoProto              *gitalypb.Repository
+		cherryPickedCommit     *gitalypb.GitCommit
+		copyRepoPath           string
+		copyRepoProto          *gitalypb.Repository
+		copyCherryPickedCommit *gitalypb.GitCommit
+		masterCommit           string
+	}
 
 	testCases := []struct {
-		desc         string
-		request      *gitalypb.UserCherryPickRequest
-		branchUpdate *gitalypb.OperationBranchUpdate
+		desc        string
+		setup       func(data setupData) (*gitalypb.UserCherryPickRequest, *gitalypb.UserCherryPickResponse)
+		expectedErr error
 	}{
 		{
 			desc: "branch exists",
-			request: &gitalypb.UserCherryPickRequest{
-				Repository: repoProto,
-				User:       gittest.TestUser,
-				Commit:     cherryPickedCommit,
-				BranchName: []byte(destinationBranch),
-				Message:    []byte("Cherry-picking " + cherryPickedCommit.Id),
+			setup: func(data setupData) (*gitalypb.UserCherryPickRequest, *gitalypb.UserCherryPickResponse) {
+				gittest.Exec(t, data.cfg, "-C", data.repoPath, "branch", destinationBranch, "master")
+
+				return &gitalypb.UserCherryPickRequest{
+						Repository: data.repoProto,
+						User:       gittest.TestUser,
+						Commit:     data.cherryPickedCommit,
+						BranchName: []byte(destinationBranch),
+						Message:    []byte("Cherry-picking " + data.cherryPickedCommit.Id),
+					}, &gitalypb.UserCherryPickResponse{
+						BranchUpdate: &gitalypb.OperationBranchUpdate{},
+					}
 			},
-			branchUpdate: &gitalypb.OperationBranchUpdate{},
+		},
+		{
+			desc: "branch exists + expectedOldOID",
+			setup: func(data setupData) (*gitalypb.UserCherryPickRequest, *gitalypb.UserCherryPickResponse) {
+				gittest.Exec(t, data.cfg, "-C", data.repoPath, "branch", destinationBranch, "master")
+
+				return &gitalypb.UserCherryPickRequest{
+						Repository:     data.repoProto,
+						User:           gittest.TestUser,
+						Commit:         data.cherryPickedCommit,
+						BranchName:     []byte(destinationBranch),
+						Message:        []byte("Cherry-picking " + data.cherryPickedCommit.Id),
+						ExpectedOldOid: data.masterCommit,
+					}, &gitalypb.UserCherryPickResponse{
+						BranchUpdate: &gitalypb.OperationBranchUpdate{},
+					}
+			},
 		},
 		{
 			desc: "nonexistent branch + start_repository == repository",
-			request: &gitalypb.UserCherryPickRequest{
-				Repository:      repoProto,
-				User:            gittest.TestUser,
-				Commit:          cherryPickedCommit,
-				BranchName:      []byte("to-be-cherry-picked-into-1"),
-				Message:         []byte("Cherry-picking " + cherryPickedCommit.Id),
-				StartBranchName: []byte("master"),
+			setup: func(data setupData) (*gitalypb.UserCherryPickRequest, *gitalypb.UserCherryPickResponse) {
+				return &gitalypb.UserCherryPickRequest{
+						Repository:      data.repoProto,
+						User:            gittest.TestUser,
+						Commit:          data.cherryPickedCommit,
+						BranchName:      []byte(destinationBranch),
+						Message:         []byte("Cherry-picking " + data.cherryPickedCommit.Id),
+						StartBranchName: []byte("master"),
+					}, &gitalypb.UserCherryPickResponse{
+						BranchUpdate: &gitalypb.OperationBranchUpdate{BranchCreated: true},
+					}
 			},
-			branchUpdate: &gitalypb.OperationBranchUpdate{BranchCreated: true},
 		},
 		{
 			desc: "nonexistent branch + start_repository != repository",
-			request: &gitalypb.UserCherryPickRequest{
-				Repository:      repoProto,
-				User:            gittest.TestUser,
-				Commit:          cherryPickedCommit,
-				BranchName:      []byte("to-be-cherry-picked-into-2"),
-				Message:         []byte("Cherry-picking " + cherryPickedCommit.Id),
-				StartRepository: testRepoCopy,
-				StartBranchName: []byte("master"),
+			setup: func(data setupData) (*gitalypb.UserCherryPickRequest, *gitalypb.UserCherryPickResponse) {
+				return &gitalypb.UserCherryPickRequest{
+						Repository:      data.repoProto,
+						User:            gittest.TestUser,
+						Commit:          data.cherryPickedCommit,
+						BranchName:      []byte(destinationBranch),
+						Message:         []byte("Cherry-picking " + data.cherryPickedCommit.Id),
+						StartBranchName: []byte("master"),
+						StartRepository: data.copyRepoProto,
+					}, &gitalypb.UserCherryPickResponse{
+						BranchUpdate: &gitalypb.OperationBranchUpdate{BranchCreated: true},
+					}
 			},
-			branchUpdate: &gitalypb.OperationBranchUpdate{BranchCreated: true},
 		},
 		{
 			desc: "nonexistent branch + empty start_repository",
-			request: &gitalypb.UserCherryPickRequest{
-				Repository:      repoProto,
-				User:            gittest.TestUser,
-				Commit:          cherryPickedCommit,
-				BranchName:      []byte("to-be-cherry-picked-into-3"),
-				Message:         []byte("Cherry-picking " + cherryPickedCommit.Id),
-				StartBranchName: []byte("master"),
+			setup: func(data setupData) (*gitalypb.UserCherryPickRequest, *gitalypb.UserCherryPickResponse) {
+				return &gitalypb.UserCherryPickRequest{
+						Repository:      data.repoProto,
+						User:            gittest.TestUser,
+						Commit:          data.cherryPickedCommit,
+						BranchName:      []byte(destinationBranch),
+						Message:         []byte("Cherry-picking " + data.cherryPickedCommit.Id),
+						StartBranchName: []byte("master"),
+					}, &gitalypb.UserCherryPickResponse{
+						BranchUpdate: &gitalypb.OperationBranchUpdate{BranchCreated: true},
+					}
 			},
-			branchUpdate: &gitalypb.OperationBranchUpdate{BranchCreated: true},
 		},
 		{
 			desc: "branch exists with dry run",
-			request: &gitalypb.UserCherryPickRequest{
-				Repository: testRepoCopy,
-				User:       gittest.TestUser,
-				Commit:     cherryPickedCommit,
-				BranchName: []byte(destinationBranch),
-				Message:    []byte("Cherry-picking " + cherryPickedCommit.Id),
-				DryRun:     true,
+			setup: func(data setupData) (*gitalypb.UserCherryPickRequest, *gitalypb.UserCherryPickResponse) {
+				gittest.Exec(t, data.cfg, "-C", data.repoPath, "branch", destinationBranch, "master")
+
+				return &gitalypb.UserCherryPickRequest{
+						Repository:      data.repoProto,
+						User:            gittest.TestUser,
+						Commit:          data.cherryPickedCommit,
+						BranchName:      []byte(destinationBranch),
+						Message:         []byte("Cherry-picking " + data.cherryPickedCommit.Id),
+						StartBranchName: []byte("master"),
+						DryRun:          true,
+					}, &gitalypb.UserCherryPickResponse{
+						BranchUpdate: &gitalypb.OperationBranchUpdate{},
+					}
 			},
-			branchUpdate: &gitalypb.OperationBranchUpdate{},
 		},
 		{
 			desc: "nonexistent branch + start_repository == repository with dry run",
-			request: &gitalypb.UserCherryPickRequest{
-				Repository:      testRepoCopy,
-				User:            gittest.TestUser,
-				Commit:          cherryPickedCommit,
-				BranchName:      []byte("to-be-cherry-picked-into-1"),
-				Message:         []byte("Cherry-picking " + cherryPickedCommit.Id),
-				StartBranchName: []byte("master"),
-				DryRun:          true,
+			setup: func(data setupData) (*gitalypb.UserCherryPickRequest, *gitalypb.UserCherryPickResponse) {
+				return &gitalypb.UserCherryPickRequest{
+						Repository:      data.repoProto,
+						User:            gittest.TestUser,
+						Commit:          data.cherryPickedCommit,
+						BranchName:      []byte(destinationBranch),
+						Message:         []byte("Cherry-picking " + data.cherryPickedCommit.Id),
+						StartBranchName: []byte("master"),
+						DryRun:          true,
+					}, &gitalypb.UserCherryPickResponse{
+						BranchUpdate: &gitalypb.OperationBranchUpdate{BranchCreated: true},
+					}
 			},
-			branchUpdate: &gitalypb.OperationBranchUpdate{BranchCreated: true},
 		},
 		{
 			desc: "nonexistent branch + start_repository != repository with dry run",
-			request: &gitalypb.UserCherryPickRequest{
-				Repository:      testRepoCopy,
-				User:            gittest.TestUser,
-				Commit:          cherryPickedCommit,
-				BranchName:      []byte("to-be-cherry-picked-into-2"),
-				Message:         []byte("Cherry-picking " + cherryPickedCommit.Id),
-				StartRepository: testRepoCopy,
-				StartBranchName: []byte("master"),
-				DryRun:          true,
+			setup: func(data setupData) (*gitalypb.UserCherryPickRequest, *gitalypb.UserCherryPickResponse) {
+				return &gitalypb.UserCherryPickRequest{
+						Repository:      data.repoProto,
+						User:            gittest.TestUser,
+						Commit:          data.cherryPickedCommit,
+						BranchName:      []byte(destinationBranch),
+						Message:         []byte("Cherry-picking " + data.cherryPickedCommit.Id),
+						StartBranchName: []byte("master"),
+						StartRepository: data.copyRepoProto,
+						DryRun:          true,
+					}, &gitalypb.UserCherryPickResponse{
+						BranchUpdate: &gitalypb.OperationBranchUpdate{BranchCreated: true},
+					}
 			},
-			branchUpdate: &gitalypb.OperationBranchUpdate{BranchCreated: true},
 		},
 		{
 			desc: "nonexistent branch + empty start_repository with dry run",
-			request: &gitalypb.UserCherryPickRequest{
-				Repository:      testRepoCopy,
-				User:            gittest.TestUser,
-				Commit:          cherryPickedCommit,
-				BranchName:      []byte("to-be-cherry-picked-into-3"),
-				Message:         []byte("Cherry-picking " + cherryPickedCommit.Id),
-				StartBranchName: []byte("master"),
-				DryRun:          true,
+			setup: func(data setupData) (*gitalypb.UserCherryPickRequest, *gitalypb.UserCherryPickResponse) {
+				return &gitalypb.UserCherryPickRequest{
+						Repository:      data.repoProto,
+						User:            gittest.TestUser,
+						Commit:          data.cherryPickedCommit,
+						BranchName:      []byte(destinationBranch),
+						Message:         []byte("Cherry-picking " + data.cherryPickedCommit.Id),
+						StartBranchName: []byte("master"),
+						DryRun:          true,
+					}, &gitalypb.UserCherryPickResponse{
+						BranchUpdate: &gitalypb.OperationBranchUpdate{BranchCreated: true},
+					}
 			},
-			branchUpdate: &gitalypb.OperationBranchUpdate{BranchCreated: true},
+		},
+		{
+			desc: "invalid expectedOldOID",
+			setup: func(data setupData) (*gitalypb.UserCherryPickRequest, *gitalypb.UserCherryPickResponse) {
+				gittest.Exec(t, data.cfg, "-C", data.repoPath, "branch", destinationBranch, "master")
+
+				return &gitalypb.UserCherryPickRequest{
+					Repository:     data.repoProto,
+					User:           gittest.TestUser,
+					Commit:         data.cherryPickedCommit,
+					BranchName:     []byte(destinationBranch),
+					Message:        []byte("Cherry-picking " + data.cherryPickedCommit.Id),
+					ExpectedOldOid: "foobar",
+				}, &gitalypb.UserCherryPickResponse{}
+			},
+			expectedErr: structerr.NewInvalidArgument("invalid expected old object ID: invalid object ID: \"foobar\""),
+		},
+		{
+			desc: "valid but non-existent expectedOldOID",
+			setup: func(data setupData) (*gitalypb.UserCherryPickRequest, *gitalypb.UserCherryPickResponse) {
+				gittest.Exec(t, data.cfg, "-C", data.repoPath, "branch", destinationBranch, "master")
+
+				return &gitalypb.UserCherryPickRequest{
+					Repository:     data.repoProto,
+					User:           gittest.TestUser,
+					Commit:         data.cherryPickedCommit,
+					BranchName:     []byte(destinationBranch),
+					Message:        []byte("Cherry-picking " + data.cherryPickedCommit.Id),
+					ExpectedOldOid: gittest.DefaultObjectHash.ZeroOID.String(),
+				}, &gitalypb.UserCherryPickResponse{}
+			},
+			expectedErr: structerr.NewInvalidArgument("cannot resolve expected old object ID: reference not found"),
+		},
+		{
+			desc: "incorrect expectedOldOID",
+			setup: func(data setupData) (*gitalypb.UserCherryPickRequest, *gitalypb.UserCherryPickResponse) {
+				gittest.Exec(t, data.cfg, "-C", data.repoPath, "branch", destinationBranch, "master")
+
+				gittest.WriteCommit(t, data.cfg, data.repoPath,
+					gittest.WithParents(git.ObjectID(data.masterCommit)),
+					gittest.WithBranch("master"),
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
+					),
+				)
+
+				return &gitalypb.UserCherryPickRequest{
+					Repository:     data.repoProto,
+					User:           gittest.TestUser,
+					Commit:         data.cherryPickedCommit,
+					BranchName:     []byte("master"),
+					Message:        []byte("Cherry-picking " + data.cherryPickedCommit.Id),
+					ExpectedOldOid: data.masterCommit,
+				}, &gitalypb.UserCherryPickResponse{}
+			},
+			expectedErr: structerr.NewInternal("update reference with hooks: Could not update refs/heads/master. Please refresh and try again."),
 		},
 	}
 
-	for _, testCase := range testCases {
-		t.Run(testCase.desc, func(t *testing.T) {
-			response, err := client.UserCherryPick(ctx, testCase.request)
+	for _, tc := range testCases {
+		tc := tc
+
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+			masterCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"),
+				gittest.WithTreeEntries(
+					gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
+				),
+			)
+			cherryPickCommitID := gittest.WriteCommit(t, cfg, repoPath,
+				gittest.WithParents(masterCommitID),
+				gittest.WithTreeEntries(
+					gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
+					gittest.TreeEntry{Mode: "100644", Path: "foo", Content: "bar"},
+				))
+			repo := localrepo.NewTestRepo(t, cfg, repoProto)
+			cherryPickedCommit, err := repo.ReadCommit(ctx, cherryPickCommitID.Revision())
 			require.NoError(t, err)
 
-			testRepo := localrepo.NewTestRepo(t, cfg, testCase.request.Repository)
-			headCommit, err := testRepo.ReadCommit(ctx, git.Revision(testCase.request.BranchName))
+			copyRepoProto, copyRepoPath := gittest.CreateRepository(t, ctx, cfg)
+			masterCommitCopyID := gittest.WriteCommit(t, cfg, copyRepoPath, gittest.WithBranch("master"),
+				gittest.WithTreeEntries(
+					gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
+				),
+			)
+			cherryPickCommitCopyID := gittest.WriteCommit(t, cfg, copyRepoPath,
+				gittest.WithParents(masterCommitCopyID),
+				gittest.WithTreeEntries(
+					gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
+					gittest.TreeEntry{Mode: "100644", Path: "foo", Content: "bar"},
+				))
+			copyRepo := localrepo.NewTestRepo(t, cfg, repoProto)
+			copyCherryPickedCommit, err := copyRepo.ReadCommit(ctx, cherryPickCommitCopyID.Revision())
 			require.NoError(t, err)
 
-			expectedBranchUpdate := testCase.branchUpdate
-			expectedBranchUpdate.CommitId = headCommit.Id
+			req, expectedResp := tc.setup(setupData{
+				cfg:                    cfg,
+				repoPath:               repoPath,
+				repoProto:              repoProto,
+				cherryPickedCommit:     cherryPickedCommit,
+				copyRepoPath:           copyRepoPath,
+				copyRepoProto:          copyRepoProto,
+				copyCherryPickedCommit: copyCherryPickedCommit,
+				masterCommit:           masterCommitCopyID.String(),
+			})
 
-			require.Equal(t, expectedBranchUpdate, response.BranchUpdate)
-			//nolint:staticcheck
-			require.Empty(t, response.CreateTreeError)
-			//nolint:staticcheck
-			require.Empty(t, response.CreateTreeErrorCode)
-
-			if testCase.request.DryRun {
-				testhelper.ProtoEqual(t, masterHeadCommit, headCommit)
-			} else {
-				require.Equal(t, testCase.request.Message, headCommit.Subject)
-				require.Equal(t, masterHeadCommit.Id, headCommit.ParentIds[0])
+			resp, err := client.UserCherryPick(ctx, req)
+			if tc.expectedErr != nil || err != nil {
+				testhelper.RequireGrpcError(t, tc.expectedErr, err)
+				return
 			}
+
+			headCommit, err := repo.ReadCommit(ctx, git.Revision(destinationBranch))
+			require.NoError(t, err)
+			expectedResp.BranchUpdate.CommitId = headCommit.Id
+
+			testhelper.ProtoEqual(t, expectedResp, resp)
 		})
 	}
 }
