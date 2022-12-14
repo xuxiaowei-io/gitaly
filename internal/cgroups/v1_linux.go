@@ -10,7 +10,6 @@ import (
 	"github.com/containerd/cgroups"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/prometheus/client_golang/prometheus"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	cgroupscfg "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/log"
@@ -104,13 +103,16 @@ func (cg *CGroupV1Manager) Setup() error {
 // exited.
 func (cg *CGroupV1Manager) AddCommand(
 	cmd *exec.Cmd,
-	repo repository.GitRepo,
+	opts ...AddCommandOption,
 ) (string, error) {
-	var key string
-	if repo == nil {
+	var cfg addCommandCfg
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
+	key := cfg.cgroupKey
+	if key == "" {
 		key = strings.Join(cmd.Args, "/")
-	} else {
-		key = repo.GetStorageName() + "/" + repo.GetRelativePath()
 	}
 
 	checksum := crc32.ChecksumIEEE(

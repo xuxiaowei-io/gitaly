@@ -10,7 +10,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -21,7 +20,7 @@ type mockCgroupsManager struct {
 	commands []*exec.Cmd
 }
 
-func (m *mockCgroupsManager) AddCommand(c *exec.Cmd, repo repository.GitRepo) (string, error) {
+func (m *mockCgroupsManager) AddCommand(c *exec.Cmd, _ ...cgroups.AddCommandOption) (string, error) {
 	m.commands = append(m.commands, c)
 	return "", nil
 }

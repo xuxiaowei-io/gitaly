@@ -20,7 +20,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/cgroups"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
 
@@ -405,7 +404,7 @@ type mockCgroupManager struct {
 	path string
 }
 
-func (m mockCgroupManager) AddCommand(*exec.Cmd, repository.GitRepo) (string, error) {
+func (m mockCgroupManager) AddCommand(*exec.Cmd, ...cgroups.AddCommandOption) (string, error) {
 	return m.path, nil
 }
 

@@ -4,7 +4,6 @@ import (
 	"io"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/cgroups"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 )
 
 type config struct {
@@ -20,8 +19,8 @@ type config struct {
 	subcommandName string
 	gitVersion     string
 
-	cgroupsManager cgroups.Manager
-	cgroupsRepo    repository.GitRepo
+	cgroupsManager        cgroups.Manager
+	cgroupsAddCommandOpts []cgroups.AddCommandOption
 }
 
 // Option is an option that can be passed to `New()` for controlling how the command is being
@@ -89,10 +88,10 @@ func WithCommandGitVersion(gitCmdVersion string) Option {
 
 // WithCgroup adds the spawned command to a Cgroup. The bucket used will be derived from the
 // command's arguments and/or from the repository.
-func WithCgroup(cgroupsManager cgroups.Manager, repo repository.GitRepo) Option {
+func WithCgroup(cgroupsManager cgroups.Manager, opts ...cgroups.AddCommandOption) Option {
 	return func(cfg *config) {
 		cfg.cgroupsManager = cgroupsManager
-		cfg.cgroupsRepo = repo
+		cfg.cgroupsAddCommandOpts = opts
 	}
 }
 
