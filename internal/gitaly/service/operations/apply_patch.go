@@ -171,6 +171,27 @@ func (s *Server) userApplyPatch(ctx context.Context, header *gitalypb.UserApplyP
 		currentCommit = git.ObjectHashSHA1.ZeroOID
 	}
 
+	// If the client provides an expected old object ID, we should use that to prevent any race
+	// conditions wherein the ref was concurrently updated by different processes.
+	if expectedOldOID := header.GetExpectedOldOid(); expectedOldOID != "" {
+		objectHash, err := repo.ObjectHash(ctx)
+		if err != nil {
+			return fmt.Errorf("detecting object hash: %w", err)
+		}
+
+		currentCommit, err = objectHash.FromHex(expectedOldOID)
+		if err != nil {
+			return fmt.Errorf("expected old object id not expected SHA format: %w", err)
+		}
+
+		currentCommit, err = repo.ResolveRevision(
+			ctx, git.Revision(fmt.Sprintf("%s^{object}", currentCommit)),
+		)
+		if err != nil {
+			return fmt.Errorf("expected old object cannot be resolved: %w", err)
+		}
+	}
+
 	if err := s.updateReferenceWithHooks(ctx, header.Repository, header.User, nil, targetBranch, patchedCommit, currentCommit); err != nil {
 		return fmt.Errorf("update reference: %w", err)
 	}
