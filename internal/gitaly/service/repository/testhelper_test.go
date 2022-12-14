@@ -145,16 +145,6 @@ func setupRepositoryService(tb testing.TB, ctx context.Context, opts ...testserv
 	return cfg, repo, repoPath, client
 }
 
-// Sets up a repository that has been cloned using `--mirror` which contains GitLab internal references
-func setupRepositoryServiceFromMirror(tb testing.TB, ctx context.Context, opts ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, gitalypb.RepositoryServiceClient) {
-	cfg, client := setupRepositoryServiceWithoutRepo(tb, opts...)
-
-	repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTestMirror,
-	})
-	return cfg, repo, repoPath, client
-}
-
 func setupRepositoryServiceWithoutRepo(tb testing.TB, opts ...testserver.GitalyServerOpt) (config.Cfg, gitalypb.RepositoryServiceClient) {
 	cfg := testcfg.Build(tb)
 

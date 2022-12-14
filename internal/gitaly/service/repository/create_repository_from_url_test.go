@@ -65,12 +65,16 @@ func TestCreateRepositoryFromURL_successfulWithOptionalParameters(t *testing.T) 
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, _, repoPath, client := setupRepositoryServiceFromMirror(t, ctx)
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+
+	_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+	gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch(git.DefaultBranch))
+	gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithReference("refs/merge-requests/1/head"))
 
 	user := "username123"
 	password := "password321localhost"
-	port := gitServerWithBasicAuth(t, ctx, gitCmdFactory, user, password, repoPath)
+	port := gitServerWithBasicAuth(t, ctx, gitCmdFactory, user, password, remoteRepoPath)
 
 	importedRepo := &gitalypb.Repository{
 		RelativePath: "imports/test-repo-imported-mirror.git",
@@ -79,7 +83,7 @@ func TestCreateRepositoryFromURL_successfulWithOptionalParameters(t *testing.T) 
 
 	_, err := client.CreateRepositoryFromURL(ctx, &gitalypb.CreateRepositoryFromURLRequest{
 		Repository:              importedRepo,
-		Url:                     fmt.Sprintf("http://%s:%s@localhost:%d/%s", user, password, port, filepath.Base(repoPath)),
+		Url:                     fmt.Sprintf("http://%s:%s@localhost:%d/%s", user, password, port, filepath.Base(remoteRepoPath)),
 		HttpHost:                "www.example.com",
 		HttpAuthorizationHeader: "GL-Geo EhEhKSUk_385GSLnS7BI:eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjoie1wic2NvcGVcIjpcInJvb3QvZ2l0bGFiLWNlXCJ9IiwianRpIjoiNmQ4ZDM1NGQtZjUxYS00MDQ5LWExZjctMjUyMjk4YmQwMTI4IiwiaWF0IjoxNjQyMDk1MzY5LCJuYmYiOjE2NDIwOTUzNjQsImV4cCI6MTY0MjA5NTk2OX0.YEpfzg8305dUqkYOiB7_dhbL0FVSaUPgpSpMuKrgNrg",
 		Mirror:                  true,
@@ -89,10 +93,10 @@ func TestCreateRepositoryFromURL_successfulWithOptionalParameters(t *testing.T) 
 	importedRepoPath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(t, ctx, cfg, importedRepo))
 	gittest.Exec(t, cfg, "-C", importedRepoPath, "fsck")
 	require.Empty(t, gittest.Exec(t, cfg, "-C", importedRepoPath, "remote"))
-
-	references := strings.Split(text.ChompBytes(gittest.Exec(t, cfg, "-C", importedRepoPath, "for-each-ref", "--format=%(refname)")), "\n")
-	require.Contains(t, references, "refs/merge-requests/1/head")
-
+	require.Equal(t,
+		[]string{"refs/heads/" + git.DefaultBranch, "refs/merge-requests/1/head"},
+		strings.Split(text.ChompBytes(gittest.Exec(t, cfg, "-C", importedRepoPath, "for-each-ref", "--format=%(refname)")), "\n"),
+	)
 	require.NoDirExists(t, filepath.Join(importedRepoPath, "hooks"))
 }
 
