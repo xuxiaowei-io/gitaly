@@ -21,12 +21,6 @@ func (sw statusWrapper) Unwrap() error {
 	return sw.error
 }
 
-// ErrCanceledf wraps a formatted error with codes.Canceled, unless the formatted error is a
-// wrapped gRPC error.
-func ErrCanceledf(format string, a ...interface{}) error {
-	return formatError(codes.Canceled, format, a...)
-}
-
 // ErrDeadlineExceededf wraps a formatted error with codes.DeadlineExceeded, unless the formatted
 // error is a wrapped gRPC error.
 func ErrDeadlineExceededf(format string, a ...interface{}) error {

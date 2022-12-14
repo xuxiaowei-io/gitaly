@@ -25,6 +25,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/stream"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/protobuf/encoding/protojson"
 )
@@ -393,7 +394,7 @@ func (s *server) PackObjectsHookWithSidechannel(ctx context.Context, req *gitaly
 			// EPIPE is the error we get if we try to write to c after the client has
 			// closed its side of the connection. By convention, we label server side
 			// errors caused by the client disconnecting with the Canceled gRPC code.
-			err = helper.ErrCanceledf("%w", err)
+			err = structerr.NewCanceled("%w", err)
 		}
 		return nil, helper.ErrInternalf("pack objects hook: %w", err)
 	}

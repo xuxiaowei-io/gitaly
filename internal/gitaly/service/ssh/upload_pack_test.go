@@ -25,6 +25,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/sidechannel"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
@@ -304,7 +305,7 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 
 				return nil
 			},
-			expectedErr: helper.ErrCanceledf("user canceled the fetch"),
+			expectedErr: structerr.NewCanceled("user canceled the fetch"),
 		},
 		{
 			desc: "garbage",
@@ -334,7 +335,7 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 
 				return nil
 			},
-			expectedErr: helper.ErrCanceledf("%w", context.Canceled),
+			expectedErr: structerr.NewCanceled("%w", context.Canceled),
 		},
 		{
 			desc: "cancellation and close",
@@ -351,7 +352,7 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 
 				return nil
 			},
-			expectedErr: helper.ErrCanceledf("%w", context.Canceled),
+			expectedErr: structerr.NewCanceled("%w", context.Canceled),
 		},
 		{
 			desc: "cancellation without close",
@@ -367,7 +368,7 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 
 				return nil
 			},
-			expectedErr: helper.ErrCanceledf("%w", context.Canceled),
+			expectedErr: structerr.NewCanceled("%w", context.Canceled),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

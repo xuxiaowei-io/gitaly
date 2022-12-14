@@ -18,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/sidechannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/stream"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 )
@@ -171,7 +172,7 @@ func (s *server) sshUploadPack(rpcContext context.Context, req sshUploadPackRequ
 		// Note that we're being quite strict with how we match the error for now. We may
 		// have to make it more lenient in case we see that this doesn't catch all cases.
 		if stderrBuilder.String() == "fatal: the remote end hung up unexpectedly\n" {
-			return status, helper.ErrCanceledf("user canceled the fetch")
+			return status, structerr.NewCanceled("user canceled the fetch")
 		}
 
 		return status, fmt.Errorf("cmd wait: %w, stderr: %q", err, stderrBuilder.String())

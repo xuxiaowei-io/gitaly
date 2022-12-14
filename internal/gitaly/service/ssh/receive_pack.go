@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
@@ -111,7 +112,7 @@ func (s *server) sshReceivePack(stream gitalypb.SSHService_SSHReceivePackServer,
 		// gRPC error code. We can't do anything about this error anyway and it is a totally
 		// valid outcome.
 		if stderrBuilder.String() == "fatal: the remote end hung up unexpectedly\n" {
-			return helper.ErrCanceledf("user canceled the push")
+			return structerr.NewCanceled("user canceled the push")
 		}
 
 		return fmt.Errorf("cmd wait: %w", err)

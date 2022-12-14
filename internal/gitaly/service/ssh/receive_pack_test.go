@@ -28,6 +28,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
@@ -235,7 +236,7 @@ func TestReceivePack_client(t *testing.T) {
 			writeRequest: func(t *testing.T, stdin io.Writer) {
 				gittest.WritePktlinef(t, stdin, "%[1]s %[1]s refs/heads/main", gittest.DefaultObjectHash.ZeroOID)
 			},
-			expectedErr:       helper.ErrCanceledf("user canceled the push"),
+			expectedErr:       structerr.NewCanceled("user canceled the push"),
 			expectedErrorCode: 128,
 			expectedStderr:    "fatal: the remote end hung up unexpectedly\n",
 		},
