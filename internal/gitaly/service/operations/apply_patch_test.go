@@ -92,7 +92,10 @@ To restore the original branch and stop patching, run "git am --abort".
 			}(),
 		},
 		{
-			desc:         "creating the first branch does not work",
+			desc: "creating the first branch does not work",
+			baseTree: []gittest.TreeEntry{
+				{Path: "file", Mode: "100644", Content: "base-content"},
+			},
 			targetBranch: "master",
 			patches: []patchDescription{
 				{
@@ -299,6 +302,8 @@ To restore the original branch and stop patching, run "git am --abort".
 			expectedErr: errPatchingFailed,
 		},
 	} {
+		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
