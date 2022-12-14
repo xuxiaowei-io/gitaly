@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/safe"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/txinfo"
@@ -111,7 +112,7 @@ func TestCreateRepository(t *testing.T) {
 				require.NoError(t, err)
 				require.Empty(t, dirEntries, "directory should not have been modified")
 			},
-			expectedErr: helper.ErrAlreadyExistsf("repository exists already"),
+			expectedErr: structerr.NewAlreadyExists("repository exists already"),
 		},
 		{
 			desc: "locked",

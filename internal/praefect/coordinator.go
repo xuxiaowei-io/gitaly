@@ -23,6 +23,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/transactions"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/correlation"
@@ -686,7 +687,7 @@ func (c *Coordinator) StreamDirector(ctx context.Context, fullMethodName string,
 			}
 
 			if errors.Is(err, commonerr.ErrRepositoryAlreadyExists) {
-				return nil, helper.ErrAlreadyExistsf("%w", err)
+				return nil, structerr.NewAlreadyExists("%w", err)
 			}
 
 			return nil, err

@@ -1200,8 +1200,7 @@ func TestUserCreateTag_preexisting(t *testing.T) {
 			tagName:        "v1.1.0",
 			targetRevision: commitID.String(),
 			user:           gittest.TestUser,
-			expectedErr: errWithDetails(t,
-				helper.ErrAlreadyExistsf("tag reference exists already"),
+			expectedErr: structerr.NewAlreadyExists("tag reference exists already").WithDetail(
 				&gitalypb.UserCreateTagError{
 					Error: &gitalypb.UserCreateTagError_ReferenceExists{
 						ReferenceExists: &gitalypb.ReferenceExistsError{

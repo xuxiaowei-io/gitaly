@@ -36,6 +36,7 @@ import (
 	serversvc "gitlab.com/gitlab-org/gitaly/v15/internal/praefect/service/server"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/service/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/transactions"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/promtest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -649,7 +650,7 @@ func TestRenameRepository(t *testing.T) {
 		RelativePath: virtualRepo2.RelativePath,
 	})
 
-	expectedErr := helper.ErrAlreadyExistsf("target repo exists already")
+	expectedErr := structerr.NewAlreadyExists("target repo exists already")
 	testhelper.RequireGrpcError(t, expectedErr, err)
 
 	_, err = repoServiceClient.RenameRepository(ctx, &gitalypb.RenameRepositoryRequest{
