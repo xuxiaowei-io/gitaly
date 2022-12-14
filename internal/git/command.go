@@ -22,10 +22,22 @@ type Cmd interface {
 
 // SubCmd represents a specific git command
 type SubCmd struct {
-	Name        string   // e.g. "log", or "cat-file", or "worktree"
-	Flags       []Option // optional flags before the positional args
-	Args        []string // positional args after all flags
-	PostSepArgs []string // post separator (i.e. "--") positional args
+	// Name is the name of the Git command to run, e.g. "log", "cat-flie" or "worktree".
+	Name string
+	// Flags is the number of optional flags to pass before positional arguments, e.g.
+	// `--oneline` or `--format=fuller`.
+	Flags []Option
+	// Args is the arguments that shall be passed after all flags. These arguments must not be
+	// flags and thus cannot start with `-`. Note that it may be unsafe to use this field in the
+	// case where arguments are directly user-controlled. In that case it is advisable to use
+	// `PostSepArgs` instead.
+	Args []string
+	// PostSepArgs is the arguments that shall be passed as positional arguments after the `--`
+	// separator. Git recognizes that separator as the point where it should stop expecting any
+	// options and treat the remaining arguments as positionals. This should be used when
+	// passing user-controlled input of arbitrary form like for example paths, which may start
+	// with a `-`.
+	PostSepArgs []string
 }
 
 // Subcommand returns the subcommand name
