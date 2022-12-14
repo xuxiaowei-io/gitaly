@@ -131,7 +131,7 @@ func (s *server) sshReceivePack(stream gitalypb.SSHService_SSHReceivePackServer,
 		// To avoid this error being presented to the end user, ignore it when the
 		// transaction was stopped.
 		if !errors.Is(err, transaction.ErrTransactionStopped) {
-			return helper.ErrAbortedf("final transactional vote: %w", err)
+			return structerr.NewAborted("final transactional vote: %w", err)
 		}
 	}
 

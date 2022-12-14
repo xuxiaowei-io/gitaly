@@ -45,11 +45,6 @@ func TestErrorf(t *testing.T) {
 			expectedCode: codes.NotFound,
 		},
 		{
-			desc:         "ErrAbortedf",
-			errorf:       ErrAbortedf,
-			expectedCode: codes.Aborted,
-		},
-		{
 			desc:         "ErrDataLossf",
 			errorf:       ErrDataLossf,
 			expectedCode: codes.DataLoss,
@@ -221,7 +216,7 @@ func TestGrpcCode(t *testing.T) {
 			exp: codes.NotFound,
 		},
 		"double helper wrapped status": {
-			in:  ErrAbortedf("outer: %w", fmt.Errorf("context: %w", ErrNotFoundf(""))),
+			in:  ErrFailedPreconditionf("outer: %w", fmt.Errorf("context: %w", ErrNotFoundf(""))),
 			exp: codes.NotFound,
 		},
 		"nil input": {

@@ -188,7 +188,7 @@ func (s *Server) userSquash(ctx context.Context, req *gitalypb.UserSquashRequest
 		voting.VoteFromData([]byte(commitID)),
 		voting.Prepared,
 	); err != nil {
-		return "", helper.ErrAbortedf("preparatory vote on squashed commit: %w", err)
+		return "", structerr.NewAborted("preparatory vote on squashed commit: %w", err)
 	}
 
 	if err := quarantineDir.Migrate(); err != nil {
@@ -201,7 +201,7 @@ func (s *Server) userSquash(ctx context.Context, req *gitalypb.UserSquashRequest
 		voting.VoteFromData([]byte(commitID)),
 		voting.Committed,
 	); err != nil {
-		return "", helper.ErrAbortedf("committing vote on squashed commit: %w", err)
+		return "", structerr.NewAborted("committing vote on squashed commit: %w", err)
 	}
 
 	return commitID, nil
