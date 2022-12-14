@@ -27,7 +27,7 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 
 	refnames, err := s.refsToRemove(ctx, repo, in)
 	if err != nil {
-		return nil, helper.ErrInternal(err)
+		return nil, helper.ErrInternalf("%w", err)
 	}
 
 	updater, err := updateref.New(ctx, repo, updateref.WithNoDeref())
@@ -35,7 +35,7 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 		if errors.Is(err, git.ErrInvalidArg) {
 			return nil, helper.ErrInvalidArgumentf("%w", err)
 		}
-		return nil, helper.ErrInternal(err)
+		return nil, helper.ErrInternalf("%w", err)
 	}
 	defer func() {
 		if err := updater.Close(); err != nil && returnedErr == nil {

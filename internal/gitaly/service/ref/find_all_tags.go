@@ -34,7 +34,7 @@ func (s *server) FindAllTags(in *gitalypb.FindAllTagsRequest, stream gitalypb.Re
 	repo := s.localrepo(in.GetRepository())
 
 	if err := s.findAllTags(ctx, repo, sortField, stream, opts); err != nil {
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("%w", err)
 	}
 
 	return nil

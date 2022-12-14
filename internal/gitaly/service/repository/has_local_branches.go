@@ -15,7 +15,7 @@ func (s *server) HasLocalBranches(ctx context.Context, in *gitalypb.HasLocalBran
 	}
 	hasBranches, err := s.localrepo(repository).HasBranches(ctx)
 	if err != nil {
-		return nil, helper.ErrInternal(err)
+		return nil, helper.ErrInternalf("%w", err)
 	}
 
 	return &gitalypb.HasLocalBranchesResponse{Value: hasBranches}, nil

@@ -9,75 +9,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/grpc/test/grpc_testing"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 // unusedErrorCode is any error code that we don't have any wrapping functions for yet. This is used
 // to verify that we correctly wrap errors that already have a different gRPC error code than the
 // one under test.
 const unusedErrorCode = codes.OutOfRange
-
-func TestError(t *testing.T) {
-	errorMessage := "sentinel error"
-	input := errors.New(errorMessage)
-	inputGRPC := status.Error(unusedErrorCode, errorMessage)
-	inputInternalGRPC := ErrAbortedf(errorMessage)
-
-	for _, tc := range []struct {
-		desc   string
-		errorf func(err error) error
-		code   codes.Code
-	}{
-		{
-			desc:   "Internal",
-			errorf: ErrInternal,
-			code:   codes.Internal,
-		},
-	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			// tc.code and our canary test code must not
-			// clash!
-			require.NotEqual(t, tc.code, unusedErrorCode)
-
-			// When not re-throwing an error we get the
-			// GRPC error code corresponding to the
-			// function's name.
-			err := tc.errorf(input)
-			require.EqualError(t, err, errorMessage)
-			require.False(t, errors.Is(err, inputGRPC))
-			require.Equal(t, tc.code, status.Code(err))
-
-			// When re-throwing an error an existing GRPC
-			// error code will get preserved, instead of
-			// the one corresponding to the function's
-			// name.
-			err = tc.errorf(inputGRPC)
-			require.True(t, errors.Is(err, inputGRPC))
-			require.False(t, errors.Is(err, input))
-			require.Equal(t, unusedErrorCode, status.Code(err))
-			require.NotEqual(t, tc.code, status.Code(inputGRPC))
-
-			// Wrapped gRPC error (internal.status.Error) code will get
-			// preserved, instead of the one corresponding to the function's
-			// name.
-			err = tc.errorf(fmt.Errorf("outer: %w", inputGRPC))
-			require.True(t, errors.Is(err, inputGRPC))
-			require.False(t, errors.Is(err, input))
-			require.Equal(t, unusedErrorCode, status.Code(err))
-			require.NotEqual(t, tc.code, status.Code(inputGRPC))
-
-			if tc.code != codes.Aborted {
-				// Wrapped gRPC error code constructed with helpers will get
-				// preserved, instead of the one corresponding to the function's
-				// name.
-				err = tc.errorf(fmt.Errorf("outer: %w", inputInternalGRPC))
-				require.True(t, errors.Is(err, inputInternalGRPC))
-				require.False(t, errors.Is(err, input))
-				require.Equal(t, codes.Aborted, status.Code(err))
-				require.NotEqual(t, tc.code, status.Code(inputInternalGRPC))
-			}
-		})
-	}
-}
 
 func TestErrorf(t *testing.T) {
 	for _, tc := range []struct {
@@ -241,6 +180,35 @@ func TestErrorf(t *testing.T) {
 				s, ok := status.FromError(err)
 				require.True(t, ok)
 				require.Equal(t, status.New(unusedErrorCode, "first: second: third"), s)
+			})
+
+			t.Run("wrapping formatted gRPC error with details", func(t *testing.T) {
+				require.NotEqual(t, tc.expectedCode, unusedErrorCode)
+
+				marshaledDetail, err := anypb.New(&grpc_testing.Payload{
+					Body: []byte("contents"),
+				})
+				require.NoError(t, err)
+
+				proto := status.New(unusedErrorCode, "details").Proto()
+				proto.Details = []*anypb.Any{marshaledDetail}
+				errWithDetails := status.ErrorProto(proto)
+
+				err = tc.errorf("top: %w", fmt.Errorf("detailed: %w", errWithDetails))
+				// We can't do anything about the "rpc error:" part in the middle as
+				// this is put there by `fmt.Errorf()` already.
+				require.EqualError(t, err, "top: detailed: rpc error: code = OutOfRange desc = details")
+				// We should be reporting the error code of the wrapped gRPC status.
+				require.Equal(t, unusedErrorCode, status.Code(err))
+
+				expectedErr, marshallingErr := status.New(unusedErrorCode, "top: detailed: rpc error: code = OutOfRange desc = details").WithDetails(&grpc_testing.Payload{
+					Body: []byte("contents"),
+				})
+				require.NoError(t, marshallingErr)
+
+				s, ok := status.FromError(err)
+				require.True(t, ok)
+				require.Equal(t, expectedErr, s)
 			})
 		})
 	}

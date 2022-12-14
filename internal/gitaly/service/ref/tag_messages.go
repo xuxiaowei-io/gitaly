@@ -18,7 +18,7 @@ func (s *server) GetTagMessages(request *gitalypb.GetTagMessagesRequest, stream 
 		return helper.ErrInvalidArgumentf("%w", err)
 	}
 	if err := s.getAndStreamTagMessages(request, stream); err != nil {
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("%w", err)
 	}
 
 	return nil

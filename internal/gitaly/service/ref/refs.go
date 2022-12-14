@@ -78,7 +78,7 @@ func (s *server) FindDefaultBranchName(ctx context.Context, in *gitalypb.FindDef
 
 	defaultBranch, err := repo.GetDefaultBranch(ctx)
 	if err != nil {
-		return nil, helper.ErrInternal(err)
+		return nil, helper.ErrInternalf("%w", err)
 	}
 
 	return &gitalypb.FindDefaultBranchNameResponse{Name: []byte(defaultBranch)}, nil
@@ -103,7 +103,7 @@ func (s *server) FindLocalBranches(in *gitalypb.FindLocalBranchesRequest, stream
 		return helper.ErrInvalidArgumentf("%w", err)
 	}
 	if err := s.findLocalBranches(in, stream); err != nil {
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("%w", err)
 	}
 
 	return nil
@@ -139,7 +139,7 @@ func (s *server) FindAllBranches(in *gitalypb.FindAllBranchesRequest, stream git
 		return helper.ErrInvalidArgumentf("%w", err)
 	}
 	if err := s.findAllBranches(in, stream); err != nil {
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("%w", err)
 	}
 
 	return nil

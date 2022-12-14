@@ -44,7 +44,7 @@ func (s *server) ListFiles(in *gitalypb.ListFilesRequest, stream gitalypb.Commit
 
 	contained, err := s.localrepo(repo).HasRevision(stream.Context(), git.Revision(revision))
 	if err != nil {
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("%w", err)
 	}
 
 	if !contained {
@@ -52,7 +52,7 @@ func (s *server) ListFiles(in *gitalypb.ListFilesRequest, stream gitalypb.Commit
 	}
 
 	if err := s.listFiles(repo, revision, stream); err != nil {
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("%w", err)
 	}
 
 	return nil

@@ -17,7 +17,7 @@ func (s *server) LastCommitForPath(ctx context.Context, in *gitalypb.LastCommitF
 
 	resp, err := s.lastCommitForPath(ctx, in)
 	if err != nil {
-		return nil, helper.ErrInternal(err)
+		return nil, helper.ErrInternalf("%w", err)
 	}
 
 	return resp, nil

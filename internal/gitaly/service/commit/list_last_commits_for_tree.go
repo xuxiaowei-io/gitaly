@@ -22,7 +22,7 @@ func (s *server) ListLastCommitsForTree(in *gitalypb.ListLastCommitsForTreeReque
 	}
 
 	if err := s.listLastCommitsForTree(in, stream); err != nil {
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("%w", err)
 	}
 
 	return nil

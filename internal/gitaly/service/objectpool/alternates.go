@@ -36,7 +36,7 @@ func (s *server) DisconnectGitAlternates(ctx context.Context, req *gitalypb.Disc
 	repo := s.localrepo(repository)
 
 	if err := s.disconnectAlternates(ctx, repo); err != nil {
-		return nil, helper.ErrInternal(err)
+		return nil, helper.ErrInternalf("%w", err)
 	}
 
 	return &gitalypb.DisconnectGitAlternatesResponse{}, nil

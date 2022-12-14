@@ -26,7 +26,7 @@ func postReceiveHookResponse(stream gitalypb.HookService_PostReceiveHookServer, 
 func (s *server) PostReceiveHook(stream gitalypb.HookService_PostReceiveHookServer) error {
 	firstRequest, err := stream.Recv()
 	if err != nil {
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("%w", err)
 	}
 
 	if err := validatePostReceiveHookRequest(firstRequest); err != nil {

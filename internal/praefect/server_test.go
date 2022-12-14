@@ -734,11 +734,11 @@ func (m *mockSmartHTTP) PostReceivePack(stream gitalypb.SmartHTTPService_PostRec
 			if errors.Is(err, io.EOF) {
 				break
 			}
-			return helper.ErrInternal(err)
+			return helper.ErrInternalf("%w", err)
 		}
 
 		if err := stream.Send(&gitalypb.PostReceivePackResponse{Data: req.GetData()}); err != nil {
-			return helper.ErrInternal(err)
+			return helper.ErrInternalf("%w", err)
 		}
 	}
 
@@ -746,12 +746,12 @@ func (m *mockSmartHTTP) PostReceivePack(stream gitalypb.SmartHTTPService_PostRec
 
 	tx, err := txinfo.TransactionFromContext(ctx)
 	if err != nil {
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("%w", err)
 	}
 
 	vote := voting.VoteFromData([]byte{})
 	if err := m.txMgr.VoteTransaction(ctx, tx.ID, tx.Node, vote); err != nil {
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("%w", err)
 	}
 
 	return nil

@@ -30,7 +30,7 @@ func (s *server) CommitsByMessage(in *gitalypb.CommitsByMessageRequest, stream g
 	}
 
 	if err := s.commitsByMessage(in, stream); err != nil {
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("%w", err)
 	}
 
 	return nil

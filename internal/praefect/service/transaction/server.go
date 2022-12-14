@@ -47,7 +47,7 @@ func (s *Server) VoteTransaction(ctx context.Context, in *gitalypb.VoteTransacti
 				State: gitalypb.VoteTransactionResponse_ABORT,
 			}, nil
 		default:
-			return nil, helper.ErrInternal(err)
+			return nil, helper.ErrInternalf("%w", err)
 		}
 	}
 
@@ -70,7 +70,7 @@ func (s *Server) StopTransaction(ctx context.Context, in *gitalypb.StopTransacti
 		case errors.Is(err, transactions.ErrTransactionStopped):
 			return &gitalypb.StopTransactionResponse{}, nil
 		default:
-			return nil, helper.ErrInternal(err)
+			return nil, helper.ErrInternalf("%w", err)
 		}
 	}
 

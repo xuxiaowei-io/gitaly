@@ -25,7 +25,7 @@ func (s *server) CountDivergingCommits(ctx context.Context, req *gitalypb.CountD
 	maxCount := int(req.GetMaxCount())
 	left, right, err := s.findLeftRightCount(ctx, req.GetRepository(), from, to, maxCount)
 	if err != nil {
-		return nil, helper.ErrInternal(err)
+		return nil, helper.ErrInternalf("%w", err)
 	}
 
 	return &gitalypb.CountDivergingCommitsResponse{LeftCount: left, RightCount: right}, nil

@@ -59,7 +59,7 @@ func (s *Server) UserDeleteTag(ctx context.Context, req *gitalypb.UserDeleteTagR
 			return nil, helper.ErrFailedPreconditionf("%w", err)
 		}
 
-		return nil, helper.ErrInternal(err)
+		return nil, helper.ErrInternalf("%w", err)
 	}
 
 	return &gitalypb.UserDeleteTagResponse{}, nil

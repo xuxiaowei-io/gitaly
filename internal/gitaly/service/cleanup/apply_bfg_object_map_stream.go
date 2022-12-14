@@ -28,7 +28,7 @@ type bfgStreamWriter struct {
 func (s *server) ApplyBfgObjectMapStream(server gitalypb.CleanupService_ApplyBfgObjectMapStreamServer) error {
 	firstRequest, err := server.Recv()
 	if err != nil {
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("%w", err)
 	}
 
 	if err := validateFirstRequest(firstRequest); err != nil {
@@ -42,7 +42,7 @@ func (s *server) ApplyBfgObjectMapStream(server gitalypb.CleanupService_ApplyBfg
 
 	notifier, cancel, err := notifier.New(ctx, s.catfileCache, repo, chunker)
 	if err != nil {
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("%w", err)
 	}
 	defer cancel()
 
@@ -50,7 +50,7 @@ func (s *server) ApplyBfgObjectMapStream(server gitalypb.CleanupService_ApplyBfg
 	// starts running - they shouldn't point to the objects removed by the BFG
 	cleaner, err := internalrefs.NewCleaner(ctx, repo, notifier.Notify)
 	if err != nil {
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("%w", err)
 	}
 
 	if err := cleaner.ApplyObjectMap(ctx, reader.streamReader()); err != nil {
@@ -58,10 +58,14 @@ func (s *server) ApplyBfgObjectMapStream(server gitalypb.CleanupService_ApplyBfg
 			return helper.ErrInvalidArgumentf("%w", invalidErr)
 		}
 
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("%w", err)
 	}
 
-	return helper.ErrInternal(chunker.Flush())
+	if err := chunker.Flush(); err != nil {
+		return helper.ErrInternalf("%w", err)
+	}
+
+	return nil
 }
 
 func validateFirstRequest(req *gitalypb.ApplyBfgObjectMapStreamRequest) error {

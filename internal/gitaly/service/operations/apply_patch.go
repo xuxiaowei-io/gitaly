@@ -49,7 +49,7 @@ func (s *Server) UserApplyPatch(stream gitalypb.OperationService_UserApplyPatchS
 	}
 
 	if err := s.userApplyPatch(stream.Context(), header, stream); err != nil {
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("%w", err)
 	}
 
 	return nil

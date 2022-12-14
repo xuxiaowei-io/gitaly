@@ -28,7 +28,7 @@ func (s *Server) UserSquash(ctx context.Context, req *gitalypb.UserSquashRequest
 
 	sha, err := s.userSquash(ctx, req)
 	if err != nil {
-		return nil, helper.ErrInternal(err)
+		return nil, helper.ErrInternalf("%w", err)
 	}
 
 	return &gitalypb.UserSquashResponse{SquashSha: sha}, nil

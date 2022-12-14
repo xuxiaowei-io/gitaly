@@ -19,7 +19,7 @@ func (s *Server) SetReplicationFactor(ctx context.Context, req *gitalypb.SetRepl
 			return nil, helper.ErrInvalidArgumentf("%w", err)
 		}
 
-		return nil, helper.ErrInternal(err)
+		return nil, helper.ErrInternalf("%w", err)
 	}
 
 	return resp, nil

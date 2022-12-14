@@ -37,7 +37,7 @@ func (s *server) CalculateChecksum(ctx context.Context, in *gitalypb.CalculateCh
 	}
 
 	if err := scanner.Err(); err != nil {
-		return nil, helper.ErrInternal(err)
+		return nil, helper.ErrInternalf("%w", err)
 	}
 
 	if err := cmd.Wait(); checksum.IsZero() || err != nil {

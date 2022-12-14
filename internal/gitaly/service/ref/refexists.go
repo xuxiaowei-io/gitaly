@@ -25,7 +25,7 @@ func (s *server) RefExists(ctx context.Context, in *gitalypb.RefExistsRequest) (
 
 	exists, err := s.refExists(ctx, in.Repository, ref)
 	if err != nil {
-		return nil, helper.ErrInternal(err)
+		return nil, helper.ErrInternalf("%w", err)
 	}
 
 	return &gitalypb.RefExistsResponse{Value: exists}, nil

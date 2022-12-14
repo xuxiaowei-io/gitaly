@@ -48,7 +48,7 @@ func (s *server) ListConflictFiles(request *gitalypb.ListConflictFilesRequest, s
 		if errors.Is(err, git2go.ErrInvalidArgument) {
 			return helper.ErrInvalidArgumentf("%w", err)
 		}
-		return helper.ErrInternal(err)
+		return helper.ErrInternalf("%w", err)
 	}
 
 	var conflictFiles []*gitalypb.ConflictFile
@@ -80,7 +80,7 @@ func (s *server) ListConflictFiles(request *gitalypb.ListConflictFilesRequest, s
 			chunk := make([]byte, streamio.WriteBufferSize-msgSize)
 			bytesRead, err := contentReader.Read(chunk)
 			if err != nil && err != io.EOF {
-				return helper.ErrInternal(err)
+				return helper.ErrInternalf("%w", err)
 			}
 
 			if bytesRead > 0 {
@@ -106,7 +106,7 @@ func (s *server) ListConflictFiles(request *gitalypb.ListConflictFilesRequest, s
 			if err := stream.Send(&gitalypb.ListConflictFilesResponse{
 				Files: conflictFiles,
 			}); err != nil {
-				return helper.ErrInternal(err)
+				return helper.ErrInternalf("%w", err)
 			}
 
 			conflictFiles = conflictFiles[:0]
@@ -119,7 +119,7 @@ func (s *server) ListConflictFiles(request *gitalypb.ListConflictFilesRequest, s
 		if err := stream.Send(&gitalypb.ListConflictFilesResponse{
 			Files: conflictFiles,
 		}); err != nil {
-			return helper.ErrInternal(err)
+			return helper.ErrInternalf("%w", err)
 		}
 	}
 

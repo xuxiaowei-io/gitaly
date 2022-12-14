@@ -146,7 +146,7 @@ func (s *Server) fetchStartRevision(
 		var err error
 		remoteRepo, err = remoterepo.New(ctx, startRepository, s.conns)
 		if err != nil {
-			return "", helper.ErrInternal(err)
+			return "", helper.ErrInternalf("%w", err)
 		}
 	}
 
