@@ -36,6 +36,7 @@ const (
 // ChangeType indicates what kind of change the replication is propagating
 type ChangeType string
 
+// Any fields added here should also be added below to GetAllChangeTypes
 const (
 	// UpdateRepo is when a replication updates a repository in place
 	UpdateRepo = ChangeType("update")
@@ -48,6 +49,12 @@ const (
 	// RenameRepo is when a replication renames repo
 	RenameRepo = ChangeType("rename")
 )
+
+// GetAllChangeTypes is used to define and provide all the various ChangeType
+// constants. This is useful to iterate over and set labels in metrics.
+func GetAllChangeTypes() []ChangeType {
+	return []ChangeType{UpdateRepo, CreateRepo, DeleteRepo, DeleteReplica, RenameRepo}
+}
 
 func (ct ChangeType) String() string {
 	return string(ct)

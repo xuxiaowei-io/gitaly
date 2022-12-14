@@ -1,9 +1,12 @@
 package metrics
 
 import (
+	"fmt"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	gitalycfgprom "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/prometheus"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/prometheus/metrics"
 )
 
@@ -20,6 +23,15 @@ func RegisterReplicationDelay(conf gitalycfgprom.Config, registerer prometheus.R
 		[]string{"type"},
 	)
 
+	for _, changeType := range datastore.GetAllChangeTypes() {
+		// We don't care about the observer here, we only want to initialize the
+		// metric with the various label values
+		_, err := replicationDelay.GetMetricWithLabelValues(changeType.String())
+		if err != nil {
+			return replicationDelay, fmt.Errorf("adding default label value %s failed: %w", changeType, err)
+		}
+	}
+
 	return replicationDelay, registerer.Register(replicationDelay)
 }
 
@@ -35,6 +47,15 @@ func RegisterReplicationLatency(conf gitalycfgprom.Config, registerer prometheus
 		},
 		[]string{"type"},
 	)
+
+	for _, changeType := range datastore.GetAllChangeTypes() {
+		// We don't care about the observer here, we only want to initialize the
+		// metric with the various label values
+		_, err := replicationLatency.GetMetricWithLabelValues(changeType.String())
+		if err != nil {
+			return replicationLatency, fmt.Errorf("adding default label value %s failed: %w", changeType, err)
+		}
+	}
 
 	return replicationLatency, registerer.Register(replicationLatency)
 }
