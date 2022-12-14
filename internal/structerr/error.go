@@ -199,6 +199,17 @@ func (e Error) Unwrap() error {
 	return errors.Unwrap(e.err)
 }
 
+// Is checks whether the error is equivalent to the target error. Errors are only considered
+// equivalent if the GRPC representation of this error is the same.
+func (e Error) Is(targetErr error) bool {
+	target, ok := targetErr.(Error)
+	if !ok {
+		return false
+	}
+
+	return errors.Is(e.GRPCStatus().Err(), target.GRPCStatus().Err())
+}
+
 // Code returns the error code of the Error.
 func (e Error) Code() codes.Code {
 	return e.code
