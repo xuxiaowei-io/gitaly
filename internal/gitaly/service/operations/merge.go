@@ -3,6 +3,7 @@ package operations
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
@@ -74,12 +75,27 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 
 	referenceName := git.NewReferenceNameFromBranchName(string(firstRequest.Branch))
 
-	revision, err := quarantineRepo.ResolveRevision(ctx, referenceName.Revision())
-	if err != nil {
-		if errors.Is(err, git.ErrReferenceNotFound) {
-			return helper.ErrNotFoundf("%w", err)
+	var revision git.ObjectID
+	if expectedOldOID := firstRequest.GetExpectedOldOid(); expectedOldOID != "" {
+		revision, err = git.ObjectHashSHA1.FromHex(expectedOldOID)
+		if err != nil {
+			return structerr.NewInvalidArgument("invalid expected old object ID: %w", err).WithMetadata("old_object_id", expectedOldOID)
 		}
-		return helper.ErrInternalf("%w", err)
+		revision, err = quarantineRepo.ResolveRevision(
+			ctx, git.Revision(fmt.Sprintf("%s^{object}", revision)),
+		)
+		if err != nil {
+			return structerr.NewInvalidArgument("cannot resolve expected old object ID: %w", err).
+				WithMetadata("old_object_id", expectedOldOID)
+		}
+	} else {
+		revision, err = quarantineRepo.ResolveRevision(ctx, referenceName.Revision())
+		if err != nil {
+			if errors.Is(err, git.ErrReferenceNotFound) {
+				return structerr.NewNotFound("%w", err)
+			}
+			return structerr.NewInternal("%w", err)
+		}
 	}
 
 	authorDate, err := dateFromProto(firstRequest)
