@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
@@ -168,48 +167,61 @@ func TestRepackFullSuccess(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	tests := []struct {
-		req  *gitalypb.RepackFullRequest
-		desc string
+	for _, tc := range []struct {
+		desc         string
+		createBitmap bool
 	}{
-		{req: &gitalypb.RepackFullRequest{CreateBitmap: true}, desc: "with bitmap"},
-		{req: &gitalypb.RepackFullRequest{CreateBitmap: false}, desc: "without bitmap"},
-	}
+		{
+			desc:         "with bitmap",
+			createBitmap: true,
+		},
+		{
+			desc:         "without bitmap",
+			createBitmap: false,
+		},
+	} {
+		tc := tc
 
-	for _, test := range tests {
-		t.Run(test.desc, func(t *testing.T) {
-			var repoPath string
-			test.req.Repository, repoPath = gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-				Seed: gittest.SeedGitLabTest,
-			})
-			// Reset mtime to a long while ago since some filesystems don't have sub-second
-			// precision on `mtime`.
-			packPath := filepath.Join(repoPath, "objects", "pack")
-			testhelper.MustRunCommand(t, nil, "touch", "-t", testTimeString, packPath)
-			testTime := time.Date(2006, 0o1, 0o2, 15, 0o4, 0o5, 0, time.UTC)
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+			// Bring the repository into a known state with two packfiles.
+			gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("first"), gittest.WithBranch("first"))
+			gittest.Exec(t, cfg, "-C", repoPath, "repack")
+			gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("second"), gittest.WithBranch("second"))
+			gittest.Exec(t, cfg, "-C", repoPath, "repack")
+			oldPackfileCount, err := stats.PackfilesCount(repoPath)
+			require.NoError(t, err)
+			require.Equal(t, 2, oldPackfileCount)
+
 			//nolint:staticcheck
-			c, err := client.RepackFull(ctx, test.req)
-			assert.NoError(t, err)
-			assert.NotNil(t, c)
+			response, err := client.RepackFull(ctx, &gitalypb.RepackFullRequest{
+				Repository:   repo,
+				CreateBitmap: tc.createBitmap,
+			})
+			require.NoError(t, err)
+			testhelper.ProtoEqual(t, &gitalypb.RepackFullResponse{}, response)
 
-			// Entire `path`-folder gets updated so this is fine :D
-			assertModTimeAfter(t, testTime, packPath)
+			// After the full repack we should see that all packfiles have been repacked
+			// into a single one.
+			newPackfileCount, err := stats.PackfilesCount(repoPath)
+			require.NoError(t, err)
+			require.Equal(t, 1, newPackfileCount)
 
-			bmPath, err := filepath.Glob(filepath.Join(packPath, "pack-*.bitmap"))
-			if err != nil {
-				t.Fatalf("Error globbing bitmaps: %v", err)
-			}
-			if test.req.GetCreateBitmap() {
-				if len(bmPath) == 0 {
-					t.Errorf("No bitmaps found")
-				}
-				doBitmapsContainHashCache(t, bmPath)
+			// We should also see that the bitmap has been generated if requested.
+			bitmaps, err := filepath.Glob(filepath.Join(repoPath, "objects", "pack", "pack-*.bitmap"))
+			require.NoError(t, err)
+			if tc.createBitmap {
+				require.Len(t, bitmaps, 1)
+				doBitmapsContainHashCache(t, bitmaps)
 			} else {
-				if len(bmPath) != 0 {
-					t.Errorf("Bitmap found: %v", bmPath)
-				}
+				require.Empty(t, bitmaps)
 			}
 
+			// And last but not least the commit-graph must've been written. This is
+			// important because the commit-graph might otherwise be stale.
 			requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{
 				Exists: true, HasBloomFilters: true, CommitGraphChainLength: 1,
 			})
