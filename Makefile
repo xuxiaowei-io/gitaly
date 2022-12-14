@@ -234,8 +234,6 @@ TEST_TMP_DIR      ?=
 TEST_LOG_DIR	  ?=
 TEST_REPO_DIR     := ${BUILD_DIR}/testrepos
 TEST_REPO         := ${TEST_REPO_DIR}/gitlab-test.git
-TEST_REPO_MIRROR  := ${TEST_REPO_DIR}/gitlab-test-mirror.git
-TEST_REPO_GIT     := ${TEST_REPO_DIR}/gitlab-git-test.git
 BENCHMARK_REPO    := ${TEST_REPO_DIR}/benchmark.git
 
 # All executables provided by Gitaly.
@@ -362,7 +360,7 @@ prepare-tests: libgit2 prepare-test-repos ${RUBY_BUNDLE_FILE} ${GOTESTSUM} ${GIT
 prepare-debug: ${DELVE}
 
 .PHONY: prepare-test-repos
-prepare-test-repos: ${TEST_REPO_MIRROR} ${TEST_REPO} ${TEST_REPO_GIT}
+prepare-test-repos: ${TEST_REPO}
 
 .PHONY: test
 ## Run Go and Ruby tests.
@@ -710,9 +708,6 @@ ${PROTOC_GEN_GO}:     TOOL_PACKAGE = google.golang.org/protobuf/cmd/protoc-gen-g
 ${PROTOC_GEN_GO_GRPC}:TOOL_PACKAGE = google.golang.org/grpc/cmd/protoc-gen-go-grpc
 ${DELVE}:             TOOL_PACKAGE = github.com/go-delve/delve/cmd/dlv
 
-${TEST_REPO_MIRROR}:
-	${GIT} clone --mirror ${GIT_QUIET} https://gitlab.com/gitlab-org/gitlab-test.git $@
-
 ${TEST_REPO}:
 	${GIT} clone --bare ${GIT_QUIET} https://gitlab.com/gitlab-org/gitlab-test.git $@
 	@ # Git notes aren't fetched by default with git clone
@@ -720,13 +715,6 @@ ${TEST_REPO}:
 	${Q}rm -rf $@/refs
 	${Q}mkdir -p $@/refs/heads $@/refs/tags
 	${Q}cp ${SOURCE_DIR}/_support/gitlab-test.git-packed-refs $@/packed-refs
-	${Q}${GIT} -C $@ fsck --no-progress --no-dangling
-
-${TEST_REPO_GIT}:
-	${GIT} clone --bare ${GIT_QUIET} https://gitlab.com/gitlab-org/gitlab-git-test.git $@
-	${Q}rm -rf $@/refs
-	${Q}mkdir -p $@/refs/heads $@/refs/tags
-	${Q}cp ${SOURCE_DIR}/_support/gitlab-git-test.git-packed-refs $@/packed-refs
 	${Q}${GIT} -C $@ fsck --no-progress --no-dangling
 
 ${BENCHMARK_REPO}:

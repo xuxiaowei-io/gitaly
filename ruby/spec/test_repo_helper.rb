@@ -29,8 +29,6 @@ DEFAULT_STORAGE_DIR = File.join(TMP_DIR, 'repositories', __dir__)
 DEFAULT_STORAGE_NAME = 'default'.freeze
 TEST_REPO_PATH = File.join(DEFAULT_STORAGE_DIR, 'gitlab-test.git')
 TEST_REPO_ORIGIN = '../_build/testrepos/gitlab-test.git'.freeze
-GIT_TEST_REPO_PATH = File.join(DEFAULT_STORAGE_DIR, 'gitlab-git-test.git')
-GIT_TEST_REPO_ORIGIN = '../_build/testrepos/gitlab-git-test.git'.freeze
 
 module TestRepo
   def self.prepare_test_repository
@@ -39,8 +37,7 @@ module TestRepo
     FileUtils.mkdir_p(DEFAULT_STORAGE_DIR)
 
     {
-      TEST_REPO_ORIGIN => TEST_REPO_PATH,
-      GIT_TEST_REPO_ORIGIN => GIT_TEST_REPO_PATH
+      TEST_REPO_ORIGIN => TEST_REPO_PATH
     }.each do |origin, path|
       next if File.directory?(path)
 
