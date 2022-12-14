@@ -38,12 +38,30 @@ func (s *Server) UserDeleteTag(ctx context.Context, req *gitalypb.UserDeleteTagR
 		return nil, helper.ErrInvalidArgumentf("%w", err)
 	}
 	referenceName := git.ReferenceName(fmt.Sprintf("refs/tags/%s", req.TagName))
-	revision, err := s.localrepo(req.GetRepository()).ResolveRevision(ctx, referenceName.Revision())
-	if err != nil {
-		if errors.Is(err, git.ErrReferenceNotFound) {
-			return nil, helper.ErrFailedPreconditionf("tag not found: %s", req.TagName)
+
+	var revision git.ObjectID
+	var err error
+	if expectedOldOID := req.GetExpectedOldOid(); expectedOldOID != "" {
+		revision, err = git.ObjectHashSHA1.FromHex(expectedOldOID)
+		if err != nil {
+			return nil, structerr.NewInvalidArgument("invalid expected old object ID: %w", err).WithMetadata("old_object_id", expectedOldOID)
 		}
-		return nil, helper.ErrInternalf("resolving revision %q: %w", referenceName, err)
+
+		revision, err = s.localrepo(req.GetRepository()).ResolveRevision(
+			ctx, git.Revision(fmt.Sprintf("%s^{object}", revision)),
+		)
+		if err != nil {
+			return nil, structerr.NewInvalidArgument("cannot resolve expected old object ID: %w", err).
+				WithMetadata("old_object_id", expectedOldOID)
+		}
+	} else {
+		revision, err = s.localrepo(req.GetRepository()).ResolveRevision(ctx, referenceName.Revision())
+		if err != nil {
+			if errors.Is(err, git.ErrReferenceNotFound) {
+				return nil, helper.ErrFailedPreconditionf("tag not found: %s", req.TagName)
+			}
+			return nil, structerr.NewInternal("resolving revision %q: %w", referenceName, err).WithMetadata("tag", req.TagName)
+		}
 	}
 
 	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, nil, referenceName, git.ObjectHashSHA1.ZeroOID, revision); err != nil {
