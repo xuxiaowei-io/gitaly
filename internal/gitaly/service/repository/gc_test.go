@@ -72,8 +72,7 @@ func TestGarbageCollectSuccess(t *testing.T) {
 		t.Run(test.desc, func(t *testing.T) {
 			// Reset mtime to a long while ago since some filesystems don't have sub-second
 			// precision on `mtime`.
-			// Stamp taken from https://golang.org/pkg/time/#pkg-constants
-			testhelper.MustRunCommand(t, nil, "touch", "-t", testTimeString, packPath)
+			require.NoError(t, os.Chtimes(packPath, testTime, testTime))
 			//nolint:staticcheck
 			c, err := client.GarbageCollect(ctx, test.req)
 			assert.NoError(t, err)
