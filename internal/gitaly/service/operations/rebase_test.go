@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/txinfo"
@@ -558,8 +559,7 @@ func TestUserRebaseConfirmable_preReceiveError(t *testing.T) {
 			secondResponse, err := rebaseStream.Recv()
 			require.Nil(t, secondResponse)
 
-			testhelper.RequireGrpcError(t, errWithDetails(t,
-				helper.ErrPermissionDeniedf(`access check: "running %s hooks: failure\n"`, hookName),
+			testhelper.RequireGrpcError(t, structerr.NewPermissionDenied(`access check: "running %s hooks: failure\n"`, hookName).WithDetail(
 				&gitalypb.UserRebaseConfirmableError{
 					Error: &gitalypb.UserRebaseConfirmableError_AccessCheck{
 						AccessCheck: &gitalypb.AccessCheckError{

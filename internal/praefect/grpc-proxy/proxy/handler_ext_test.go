@@ -20,9 +20,9 @@ import (
 	"github.com/getsentry/sentry-go"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/client"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/grpc-proxy/proxy"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -152,7 +152,7 @@ func TestHandler_directorErrorIsPropagated(t *testing.T) {
 
 	_, err := client.UnaryCall(ctx, &grpc_testing.SimpleRequest{})
 	require.Error(t, err)
-	testhelper.RequireGrpcError(t, helper.ErrPermissionDeniedf("testing rejection"), err)
+	testhelper.RequireGrpcError(t, structerr.NewPermissionDenied("testing rejection"), err)
 }
 
 func TestHandler_fullDuplex(t *testing.T) {

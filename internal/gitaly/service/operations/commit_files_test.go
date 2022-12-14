@@ -16,7 +16,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
@@ -1082,8 +1081,7 @@ func testUserCommitFilesQuarantine(t *testing.T, ctx context.Context) {
 	_, err = stream.CloseAndRecv()
 
 	if featureflag.UserCommitFilesStructuredErrors.IsEnabled(ctx) {
-		testhelper.RequireGrpcError(t, errWithDetails(t,
-			helper.ErrPermissionDeniedf("denied by custom hooks"),
+		testhelper.RequireGrpcError(t, structerr.NewPermissionDenied("denied by custom hooks").WithDetail(
 			&gitalypb.UserCommitFilesError{
 				Error: &gitalypb.UserCommitFilesError_CustomHook{
 					CustomHook: &gitalypb.CustomHookError{
@@ -1571,8 +1569,7 @@ func testFailedUserCommitFilesRequestDueToHooks(t *testing.T, ctx context.Contex
 				expectedOut := fmt.Sprintf("GL_ID=%s GL_USERNAME=%s\n",
 					gittest.TestUser.GlId, gittest.TestUser.GlUsername)
 
-				testhelper.RequireGrpcError(t, errWithDetails(t,
-					helper.ErrPermissionDeniedf("denied by custom hooks"),
+				testhelper.RequireGrpcError(t, structerr.NewPermissionDenied("denied by custom hooks").WithDetail(
 					&gitalypb.UserCommitFilesError{
 						Error: &gitalypb.UserCommitFilesError_CustomHook{
 							CustomHook: &gitalypb.CustomHookError{

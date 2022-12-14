@@ -45,12 +45,6 @@ func ErrFailedPreconditionf(format string, a ...interface{}) error {
 	return formatError(codes.FailedPrecondition, format, a...)
 }
 
-// ErrPermissionDeniedf wraps a formatted error with codes.PermissionDenied, unless the formatted
-// error is a wrapped gRPC error.
-func ErrPermissionDeniedf(format string, a ...interface{}) error {
-	return formatError(codes.PermissionDenied, format, a...)
-}
-
 // grpcErrorMessageWrapper is used to wrap a gRPC `status.Status`-style error such that it behaves
 // like a `status.Status`, except that it generates a readable error message.
 type grpcErrorMessageWrapper struct {

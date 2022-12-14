@@ -499,8 +499,7 @@ func TestUserMergeBranch_quarantine(t *testing.T) {
 
 	require.NoError(t, stream.Send(&gitalypb.UserMergeBranchRequest{Apply: true}), "apply merge")
 	secondResponse, err := stream.Recv()
-	testhelper.RequireGrpcError(t, errWithDetails(t,
-		helper.ErrPermissionDeniedf("%s\n", firstResponse.CommitId),
+	testhelper.RequireGrpcError(t, structerr.NewPermissionDenied("%s\n", firstResponse.CommitId).WithDetail(
 		&gitalypb.UserMergeBranchError{
 			Error: &gitalypb.UserMergeBranchError_CustomHook{
 				CustomHook: &gitalypb.CustomHookError{
@@ -826,8 +825,7 @@ func TestUserMergeBranch_failingHooks(t *testing.T) {
 
 			secondResponse, err := mergeBidi.Recv()
 			if tc.shouldFail {
-				testhelper.RequireGrpcError(t, errWithDetails(t,
-					helper.ErrPermissionDeniedf("stderr\n"),
+				testhelper.RequireGrpcError(t, structerr.NewPermissionDenied("stderr\n").WithDetail(
 					&gitalypb.UserMergeBranchError{
 						Error: &gitalypb.UserMergeBranchError_CustomHook{
 							CustomHook: &gitalypb.CustomHookError{
@@ -942,8 +940,7 @@ func TestUserMergeBranch_allowed(t *testing.T) {
 			desc:           "disallowed",
 			allowed:        false,
 			allowedMessage: "you shall not pass",
-			expectedErr: errWithDetails(t,
-				helper.ErrPermissionDeniedf("GitLab: you shall not pass"),
+			expectedErr: structerr.NewPermissionDenied("GitLab: you shall not pass").WithDetail(
 				&gitalypb.UserMergeBranchError{
 					Error: &gitalypb.UserMergeBranchError_AccessCheck{
 						AccessCheck: &gitalypb.AccessCheckError{
@@ -959,8 +956,7 @@ func TestUserMergeBranch_allowed(t *testing.T) {
 		{
 			desc:       "failing",
 			allowedErr: errors.New("failure"),
-			expectedErr: errWithDetails(t,
-				helper.ErrPermissionDeniedf("GitLab: failure"),
+			expectedErr: structerr.NewPermissionDenied("GitLab: failure").WithDetail(
 				&gitalypb.UserMergeBranchError{
 					Error: &gitalypb.UserMergeBranchError_AccessCheck{
 						AccessCheck: &gitalypb.AccessCheckError{
