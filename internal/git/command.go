@@ -38,9 +38,6 @@ type SubCmd struct {
 	PostSepArgs []string
 }
 
-// Subcommand returns the subcommand name
-func (sc SubCmd) Subcommand() string { return sc.Name }
-
 // CommandArgs checks all arguments in the sub command and validates them
 func (sc SubCmd) CommandArgs() ([]string, error) {
 	var safeArgs []string

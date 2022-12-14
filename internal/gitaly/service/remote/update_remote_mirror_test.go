@@ -429,7 +429,7 @@ func TestUpdateRemoteMirror(t *testing.T) {
 				return commandFactoryWrapper{
 					CommandFactory: original,
 					newFunc: func(ctx context.Context, repo repository.GitRepo, sc git.SubCmd, opts ...git.CmdOpt) (*command.Command, error) {
-						if sc.Subcommand() == "push" && firstPush {
+						if sc.Name == "push" && firstPush {
 							firstPush = false
 							args, err := sc.CommandArgs()
 							assert.NoError(tb, err)

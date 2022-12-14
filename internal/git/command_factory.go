@@ -416,7 +416,7 @@ func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo repository.Gi
 	command, err := command.New(ctx, append([]string{execEnv.BinaryPath}, args...), append(
 		config.commandOpts,
 		command.WithEnvironment(env),
-		command.WithCommandName("git", sc.Subcommand()),
+		command.WithCommandName("git", sc.Name),
 		command.WithCgroup(cf.cgroupsManager, repo),
 		command.WithCommandGitVersion(cmdGitVersion.String()),
 	)...)
@@ -430,9 +430,9 @@ func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo repository.Gi
 func (cf *ExecCommandFactory) combineOpts(ctx context.Context, sc SubCmd, opts []CmdOpt) (cmdCfg, error) {
 	var config cmdCfg
 
-	commandDescription, ok := commandDescriptions[sc.Subcommand()]
+	commandDescription, ok := commandDescriptions[sc.Name]
 	if !ok {
-		return cmdCfg{}, fmt.Errorf("invalid sub command name %q: %w", sc.Subcommand(), ErrInvalidArg)
+		return cmdCfg{}, fmt.Errorf("invalid sub command name %q: %w", sc.Name, ErrInvalidArg)
 	}
 
 	for _, opt := range opts {
@@ -442,7 +442,7 @@ func (cf *ExecCommandFactory) combineOpts(ctx context.Context, sc SubCmd, opts [
 	}
 
 	if !config.hooksConfigured && commandDescription.mayUpdateRef() {
-		return cmdCfg{}, fmt.Errorf("subcommand %q: %w", sc.Subcommand(), ErrHookPayloadRequired)
+		return cmdCfg{}, fmt.Errorf("subcommand %q: %w", sc.Name, ErrHookPayloadRequired)
 	}
 
 	return config, nil
@@ -453,13 +453,13 @@ func (cf *ExecCommandFactory) combineArgs(ctx context.Context, gitConfig []confi
 
 	defer func() {
 		if err != nil && IsInvalidArgErr(err) && len(args) > 0 {
-			cf.invalidCommandsMetric.WithLabelValues(sc.Subcommand()).Inc()
+			cf.invalidCommandsMetric.WithLabelValues(sc.Name).Inc()
 		}
 	}()
 
-	commandDescription, ok := commandDescriptions[sc.Subcommand()]
+	commandDescription, ok := commandDescriptions[sc.Name]
 	if !ok {
-		return nil, fmt.Errorf("invalid sub command name %q: %w", sc.Subcommand(), ErrInvalidArg)
+		return nil, fmt.Errorf("invalid sub command name %q: %w", sc.Name, ErrInvalidArg)
 	}
 
 	globalConfig, err := cf.GlobalConfiguration(ctx)
