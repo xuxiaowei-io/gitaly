@@ -58,7 +58,7 @@ func (s *Server) UserDeleteTag(ctx context.Context, req *gitalypb.UserDeleteTagR
 		revision, err = s.localrepo(req.GetRepository()).ResolveRevision(ctx, referenceName.Revision())
 		if err != nil {
 			if errors.Is(err, git.ErrReferenceNotFound) {
-				return nil, helper.ErrFailedPreconditionf("tag not found: %s", req.TagName)
+				return nil, structerr.NewFailedPrecondition("tag not found: %s", req.TagName)
 			}
 			return nil, structerr.NewInternal("resolving revision %q: %w", referenceName, err).WithMetadata("tag", req.TagName)
 		}
@@ -74,7 +74,7 @@ func (s *Server) UserDeleteTag(ctx context.Context, req *gitalypb.UserDeleteTagR
 
 		var updateRefError updateref.Error
 		if errors.As(err, &updateRefError) {
-			return nil, helper.ErrFailedPreconditionf("%w", err)
+			return nil, structerr.NewFailedPrecondition("%w", err)
 		}
 
 		return nil, helper.ErrInternalf("%w", err)
@@ -239,7 +239,7 @@ func (s *Server) createTag(
 	// supports, not just OID. Resolve it.
 	targetInfo, err := objectInfoReader.Info(ctx, targetRevision)
 	if err != nil {
-		return nil, "", helper.ErrFailedPreconditionf("revspec '%s' not found", targetRevision)
+		return nil, "", structerr.NewFailedPrecondition("revspec '%s' not found", targetRevision)
 	}
 	targetObjectID, targetObjectType := targetInfo.Oid, targetInfo.Type
 

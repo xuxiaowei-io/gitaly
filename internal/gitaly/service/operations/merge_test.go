@@ -182,8 +182,7 @@ func TestUserMergeBranch(t *testing.T) {
 					secondRequest:          &gitalypb.UserMergeBranchRequest{Apply: true},
 					secondExpectedResponse: &gitalypb.OperationBranchUpdate{},
 					secondExpectedErr: func(response *gitalypb.UserMergeBranchResponse) error {
-						return errWithDetails(t,
-							helper.ErrFailedPreconditionf("Could not update refs/heads/master. Please refresh and try again."),
+						return structerr.NewFailedPrecondition("Could not update refs/heads/master. Please refresh and try again.").WithDetail(
 							&gitalypb.UserMergeBranchError{
 								Error: &gitalypb.UserMergeBranchError_ReferenceUpdate{
 									ReferenceUpdate: &gitalypb.ReferenceUpdateError{
@@ -685,8 +684,7 @@ func TestUserMergeBranch_concurrentUpdate(t *testing.T) {
 	require.NoError(t, mergeBidi.CloseSend(), "close send")
 
 	secondResponse, err := mergeBidi.Recv()
-	testhelper.RequireGrpcError(t, errWithDetails(t,
-		helper.ErrFailedPreconditionf("Could not update refs/heads/gitaly-merge-test-branch. Please refresh and try again."),
+	testhelper.RequireGrpcError(t, structerr.NewFailedPrecondition("Could not update refs/heads/gitaly-merge-test-branch. Please refresh and try again.").WithDetail(
 		&gitalypb.UserMergeBranchError{
 			Error: &gitalypb.UserMergeBranchError_ReferenceUpdate{
 				ReferenceUpdate: &gitalypb.ReferenceUpdateError{
@@ -893,8 +891,7 @@ func TestUserMergeBranch_conflict(t *testing.T) {
 	}), "send first request")
 
 	firstResponse, err := mergeBidi.Recv()
-	testhelper.RequireGrpcError(t, errWithDetails(t,
-		helper.ErrFailedPreconditionf("merging commits: merge: there are conflicting files"),
+	testhelper.RequireGrpcError(t, structerr.NewFailedPrecondition("merging commits: merge: there are conflicting files").WithDetail(
 		&gitalypb.UserMergeBranchError{
 			Error: &gitalypb.UserMergeBranchError_MergeConflict{
 				MergeConflict: &gitalypb.MergeConflictError{

@@ -205,7 +205,7 @@ func (s *server) createRepository(
 	}
 
 	if err := transaction.VoteOnContext(ctx, s.txManager, vote, voting.Prepared); err != nil {
-		return helper.ErrFailedPreconditionf("preparatory vote: %w", err)
+		return structerr.NewFailedPrecondition("preparatory vote: %w", err)
 	}
 
 	// Now that we have locked the repository and all Gitalies have agreed that they
@@ -215,7 +215,7 @@ func (s *server) createRepository(
 	}
 
 	if err := transaction.VoteOnContext(ctx, s.txManager, vote, voting.Committed); err != nil {
-		return helper.ErrFailedPreconditionf("committing vote: %w", err)
+		return structerr.NewFailedPrecondition("committing vote: %w", err)
 	}
 
 	// We unlock the repository implicitly via the deferred `Close()` call.

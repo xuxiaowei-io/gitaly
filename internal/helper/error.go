@@ -39,12 +39,6 @@ func ErrNotFoundf(format string, a ...interface{}) error {
 	return formatError(codes.NotFound, format, a...)
 }
 
-// ErrFailedPreconditionf wraps a formatted error with codes.FailedPrecondition, unless the
-// formatted error is a wrapped gRPC error.
-func ErrFailedPreconditionf(format string, a ...interface{}) error {
-	return formatError(codes.FailedPrecondition, format, a...)
-}
-
 // grpcErrorMessageWrapper is used to wrap a gRPC `status.Status`-style error such that it behaves
 // like a `status.Status`, except that it generates a readable error message.
 type grpcErrorMessageWrapper struct {

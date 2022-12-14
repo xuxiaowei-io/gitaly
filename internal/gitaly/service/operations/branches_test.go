@@ -18,7 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
@@ -738,8 +737,7 @@ func TestUserDeleteBranch_concurrentUpdate(t *testing.T) {
 		BranchName: []byte("concurrent-update"),
 		User:       gittest.TestUser,
 	})
-	testhelper.RequireGrpcError(t, errWithDetails(t,
-		helper.ErrFailedPreconditionf("reference update failed: Could not update refs/heads/concurrent-update. Please refresh and try again."),
+	testhelper.RequireGrpcError(t, structerr.NewFailedPrecondition("reference update failed: Could not update refs/heads/concurrent-update. Please refresh and try again.").WithDetail(
 		&gitalypb.UserDeleteBranchError{
 			Error: &gitalypb.UserDeleteBranchError_ReferenceUpdate{
 				ReferenceUpdate: &gitalypb.ReferenceUpdateError{

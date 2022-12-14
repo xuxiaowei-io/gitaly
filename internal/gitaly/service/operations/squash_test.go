@@ -644,10 +644,7 @@ func TestUserSquash_conflicts(t *testing.T) {
 		EndSha:        ours.String(),
 	})
 
-	testhelper.RequireGrpcError(t, errWithDetails(t,
-		helper.ErrFailedPreconditionf(
-			"squashing commits: merge: there are conflicting files",
-		),
+	testhelper.RequireGrpcError(t, structerr.NewFailedPrecondition("squashing commits: merge: there are conflicting files").WithDetail(
 		&gitalypb.UserSquashError{
 			Error: &gitalypb.UserSquashError_RebaseConflict{
 				RebaseConflict: &gitalypb.MergeConflictError{

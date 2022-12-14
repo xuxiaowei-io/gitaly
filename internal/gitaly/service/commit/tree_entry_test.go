@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -209,7 +210,7 @@ func TestFailedTreeEntry(t *testing.T) {
 		{
 			name:        "Object bigger than MaxSize",
 			req:         &gitalypb.TreeEntryRequest{Repository: repo, Revision: []byte("913c66a37b4a45b9769037c55c2d238bd0942d2e"), Path: []byte("MAINTENANCE.md"), MaxSize: 10},
-			expectedErr: helper.ErrFailedPreconditionf("object size (1367) is bigger than the maximum allowed size (10)"),
+			expectedErr: structerr.NewFailedPrecondition("object size (1367) is bigger than the maximum allowed size (10)"),
 		},
 		{
 			name:        "Path is outside of repository",

@@ -423,7 +423,7 @@ func TestUserRebaseConfirmable_abortViaClose(t *testing.T) {
 					},
 				},
 			},
-			expectedErr: helper.ErrFailedPreconditionf("rebase aborted by client"),
+			expectedErr: structerr.NewFailedPrecondition("rebase aborted by client"),
 		},
 		{
 			desc: "empty request and close",
@@ -435,7 +435,7 @@ func TestUserRebaseConfirmable_abortViaClose(t *testing.T) {
 				},
 			},
 			closeSend:   true,
-			expectedErr: helper.ErrFailedPreconditionf("rebase aborted by client"),
+			expectedErr: structerr.NewFailedPrecondition("rebase aborted by client"),
 		},
 		{
 			desc:        "no request just close",
@@ -605,8 +605,7 @@ func TestUserRebaseConfirmable_gitError(t *testing.T) {
 
 	response, err := rebaseStream.Recv()
 	require.Nil(t, response)
-	testhelper.RequireGrpcError(t, errWithDetails(t,
-		helper.ErrFailedPreconditionf(`rebasing commits: rebase: commit "eb8f5fb9523b868cef583e09d4bf70b99d2dd404": there are conflicting files`),
+	testhelper.RequireGrpcError(t, structerr.NewFailedPrecondition(`rebasing commits: rebase: commit "eb8f5fb9523b868cef583e09d4bf70b99d2dd404": there are conflicting files`).WithDetail(
 		&gitalypb.UserRebaseConfirmableError{
 			Error: &gitalypb.UserRebaseConfirmableError_RebaseConflict{
 				RebaseConflict: &gitalypb.MergeConflictError{

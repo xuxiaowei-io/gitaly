@@ -5,6 +5,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -39,7 +40,7 @@ func (s *server) poolForRequest(req PoolRequest) (*objectpool.ObjectPool, error)
 		}
 
 		if errors.Is(err, objectpool.ErrInvalidPoolRepository) {
-			return nil, helper.ErrFailedPreconditionf("%w", err)
+			return nil, structerr.NewFailedPrecondition("%w", err)
 		}
 
 		return nil, helper.ErrInternalf("%w", err)

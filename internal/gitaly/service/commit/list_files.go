@@ -10,6 +10,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/protobuf/proto"
 )
@@ -36,7 +37,7 @@ func (s *server) ListFiles(in *gitalypb.ListFilesRequest, stream gitalypb.Commit
 		}
 
 		if len(defaultBranch) == 0 {
-			return helper.ErrFailedPreconditionf("repository does not have a default branch")
+			return structerr.NewFailedPrecondition("repository does not have a default branch")
 		}
 
 		revision = defaultBranch.String()

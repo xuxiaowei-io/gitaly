@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 )
@@ -26,12 +27,12 @@ func (s *server) ListConflictFiles(request *gitalypb.ListConflictFilesRequest, s
 
 	ours, err := repo.ResolveRevision(ctx, git.Revision(request.OurCommitOid+"^{commit}"))
 	if err != nil {
-		return helper.ErrFailedPreconditionf("could not lookup 'our' OID: %s", err)
+		return structerr.NewFailedPrecondition("could not lookup 'our' OID: %s", err)
 	}
 
 	theirs, err := repo.ResolveRevision(ctx, git.Revision(request.TheirCommitOid+"^{commit}"))
 	if err != nil {
-		return helper.ErrFailedPreconditionf("could not lookup 'their' OID: %s", err)
+		return structerr.NewFailedPrecondition("could not lookup 'their' OID: %s", err)
 	}
 
 	repoPath, err := s.locator.GetPath(request.Repository)
@@ -56,11 +57,11 @@ func (s *server) ListConflictFiles(request *gitalypb.ListConflictFilesRequest, s
 
 	for _, conflict := range conflicts.Conflicts {
 		if !request.AllowTreeConflicts && (conflict.Their.Path == "" || conflict.Our.Path == "") {
-			return helper.ErrFailedPreconditionf("conflict side missing")
+			return structerr.NewFailedPrecondition("conflict side missing")
 		}
 
 		if !utf8.Valid(conflict.Content) {
-			return helper.ErrFailedPreconditionf("unsupported encoding")
+			return structerr.NewFailedPrecondition("unsupported encoding")
 		}
 
 		conflictFiles = append(conflictFiles, &gitalypb.ConflictFile{

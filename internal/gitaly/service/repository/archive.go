@@ -18,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/log"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 	"google.golang.org/protobuf/proto"
@@ -148,7 +149,7 @@ func (s *server) validateGetArchivePrecondition(
 		if ok, err := findGetArchivePath(ctx, f, commitID, path); err != nil {
 			return err
 		} else if !ok {
-			return helper.ErrFailedPreconditionf("path doesn't exist")
+			return structerr.NewFailedPrecondition("path doesn't exist")
 		}
 	}
 
@@ -156,7 +157,7 @@ func (s *server) validateGetArchivePrecondition(
 		if ok, err := findGetArchivePath(ctx, f, commitID, exclude); err != nil {
 			return err
 		} else if !ok {
-			return helper.ErrFailedPreconditionf("exclude[%d] doesn't exist", i)
+			return structerr.NewFailedPrecondition("exclude[%d] doesn't exist", i)
 		}
 	}
 

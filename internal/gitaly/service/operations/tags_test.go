@@ -1214,7 +1214,7 @@ func TestUserCreateTag_preexisting(t *testing.T) {
 			tagName:        "v1.1.0",
 			targetRevision: "does-not-exist",
 			user:           gittest.TestUser,
-			expectedErr:    helper.ErrFailedPreconditionf("revspec 'does-not-exist' not found"),
+			expectedErr:    structerr.NewFailedPrecondition("revspec 'does-not-exist' not found"),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -1291,7 +1291,7 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 			tagName:        "new-tag",
 			targetRevision: "i-dont-exist",
 			user:           gittest.TestUser,
-			expectedErr:    helper.ErrFailedPreconditionf("revspec '%s' not found", "i-dont-exist"),
+			expectedErr:    structerr.NewFailedPrecondition("revspec '%s' not found", "i-dont-exist"),
 		},
 		{
 			desc:           "space in lightweight tag name",

@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/safe"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -65,7 +66,7 @@ func (s *server) RemoveRepository(ctx context.Context, in *gitalypb.RemoveReposi
 	// RPC call.
 	if err := locker.Lock(); err != nil {
 		if errors.Is(err, safe.ErrFileAlreadyLocked) {
-			return nil, helper.ErrFailedPreconditionf("repository is already locked")
+			return nil, structerr.NewFailedPrecondition("repository is already locked")
 		}
 		return nil, helper.ErrInternalf("locking repository for removal: %w", err)
 	}

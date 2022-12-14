@@ -13,7 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -533,8 +532,7 @@ func TestServer_UserCherryPick_failedWithPreReceiveError(t *testing.T) {
 
 			response, err := client.UserCherryPick(ctx, request)
 			require.Nil(t, response)
-			testhelper.RequireGrpcError(t, errWithDetails(t,
-				helper.ErrFailedPreconditionf("access check failed"),
+			testhelper.RequireGrpcError(t, structerr.NewFailedPrecondition("access check failed").WithDetail(
 				&gitalypb.UserCherryPickError{
 					Error: &gitalypb.UserCherryPickError_AccessCheck{
 						AccessCheck: &gitalypb.AccessCheckError{
@@ -571,8 +569,7 @@ func TestServer_UserCherryPick_failedWithCreateTreeError(t *testing.T) {
 
 	response, err := client.UserCherryPick(ctx, request)
 	require.Nil(t, response)
-	testhelper.RequireGrpcError(t, errWithDetails(t,
-		helper.ErrFailedPreconditionf("cherry-pick: could not apply because the result was empty"),
+	testhelper.RequireGrpcError(t, structerr.NewFailedPrecondition("cherry-pick: could not apply because the result was empty").WithDetail(
 		&gitalypb.UserCherryPickError{
 			Error: &gitalypb.UserCherryPickError_ChangesAlreadyApplied{},
 		},

@@ -49,7 +49,7 @@ func (s *Server) UserCreateBranch(ctx context.Context, req *gitalypb.UserCreateB
 	startPointCommit, err := quarantineRepo.ReadCommit(ctx, git.Revision(req.StartPoint))
 	// END TODO
 	if err != nil {
-		return nil, helper.ErrFailedPreconditionf("revspec '%s' not found", req.StartPoint)
+		return nil, structerr.NewFailedPrecondition("revspec '%s' not found", req.StartPoint)
 	}
 
 	startPointOID, err := git.ObjectHashSHA1.FromHex(startPointCommit.Id)
@@ -79,7 +79,7 @@ func (s *Server) UserCreateBranch(ctx context.Context, req *gitalypb.UserCreateB
 
 		var updateRefError updateref.Error
 		if errors.As(err, &updateRefError) {
-			return nil, helper.ErrFailedPreconditionf("%w", err)
+			return nil, structerr.NewFailedPrecondition("%w", err)
 		}
 
 		return nil, err
@@ -155,7 +155,7 @@ func (s *Server) UserUpdateBranch(ctx context.Context, req *gitalypb.UserUpdateB
 		// say "branch-name", not
 		// "refs/heads/branch-name". See the
 		// "Gitlab::Git::CommitError" case in the Ruby code.
-		return nil, helper.ErrFailedPreconditionf("Could not update %s. Please refresh and try again.", req.BranchName)
+		return nil, structerr.NewFailedPrecondition("Could not update %s. Please refresh and try again.", req.BranchName)
 	}
 
 	return &gitalypb.UserUpdateBranchResponse{}, nil
@@ -200,7 +200,7 @@ func (s *Server) UserDeleteBranch(ctx context.Context, req *gitalypb.UserDeleteB
 	} else {
 		referenceValue, err = s.localrepo(req.GetRepository()).ResolveRevision(ctx, referenceName.Revision())
 		if err != nil {
-			return nil, helper.ErrFailedPreconditionf("branch not found: %q", req.BranchName)
+			return nil, structerr.NewFailedPrecondition("branch not found: %q", req.BranchName)
 		}
 	}
 
