@@ -69,7 +69,7 @@ func WriteCommitGraph(ctx context.Context, repo *localrepo.Repo, cfg WriteCommit
 	}
 
 	var stderr bytes.Buffer
-	if err := repo.ExecAndWait(ctx, git.SubSubCmd{
+	if err := repo.ExecAndWait(ctx, git.SubCmd{
 		Name:   "commit-graph",
 		Action: "write",
 		Flags:  flags,

@@ -65,7 +65,7 @@ func (s *server) safeMidxCommand(ctx context.Context, repo repository.GitRepo, c
 
 func (s *server) midxWrite(ctx context.Context, repo repository.GitRepo) error {
 	cmd, err := s.gitCmdFactory.New(ctx, repo,
-		git.SubSubCmd{
+		git.SubCmd{
 			Name:   "multi-pack-index",
 			Action: "write",
 		},
@@ -100,7 +100,7 @@ func (s *server) midxVerify(ctx context.Context, repo repository.GitRepo) error 
 	ctxlogger := ctxlogrus.Extract(ctx)
 
 	cmd, err := s.gitCmdFactory.New(ctx, repo,
-		git.SubSubCmd{
+		git.SubCmd{
 			Name:   "multi-pack-index",
 			Action: "verify",
 		},
@@ -136,7 +136,7 @@ func (s *server) midxRewrite(ctx context.Context, repo repository.GitRepo) error
 
 func (s *server) midxExpire(ctx context.Context, repo repository.GitRepo) error {
 	cmd, err := s.gitCmdFactory.New(ctx, repo,
-		git.SubSubCmd{
+		git.SubCmd{
 			Name:   "multi-pack-index",
 			Action: "expire",
 		},
@@ -177,7 +177,7 @@ func (s *server) midxRepack(ctx context.Context, repo repository.GitRepo) error 
 	// will only be respected if git version is >=2.28.0.
 	// Bitmap index 'repack.writeBitmaps' is not yet supported.
 	cmd, err := s.gitCmdFactory.New(ctx, repo,
-		git.SubSubCmd{
+		git.SubCmd{
 			Name:   "multi-pack-index",
 			Action: "repack",
 			Flags: []git.Option{

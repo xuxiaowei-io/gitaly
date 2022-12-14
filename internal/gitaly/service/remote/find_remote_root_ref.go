@@ -46,7 +46,7 @@ func (s *server) findRemoteRootRefCmd(ctx context.Context, request *gitalypb.Fin
 	}
 
 	return s.gitCmdFactory.New(ctx, request.Repository,
-		git.SubSubCmd{
+		git.SubCmd{
 			Name:   "remote",
 			Action: "show",
 			Args:   []string{"inmemory"},

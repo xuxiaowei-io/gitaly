@@ -127,7 +127,7 @@ func (o *ObjectPool) pruneReferences(ctx context.Context, origin *localrepo.Repo
 	// Instead we ask for a dry-run, parse the output and queue up every reference into a
 	// git-update-ref(1) process. While ugly, it works around the performance issues.
 	prune, err := o.Repo.Exec(ctx,
-		git.SubSubCmd{
+		git.SubCmd{
 			Name:   "remote",
 			Action: "prune",
 			Args:   []string{"origin"},

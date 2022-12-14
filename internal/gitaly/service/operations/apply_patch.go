@@ -212,7 +212,7 @@ func (s *Server) addWorktree(ctx context.Context, repo *localrepo.Repo, worktree
 	}
 
 	var stderr bytes.Buffer
-	if err := repo.ExecAndWait(ctx, git.SubSubCmd{
+	if err := repo.ExecAndWait(ctx, git.SubCmd{
 		Name:   "worktree",
 		Action: "add",
 		Flags:  flags,
@@ -226,7 +226,7 @@ func (s *Server) addWorktree(ctx context.Context, repo *localrepo.Repo, worktree
 
 func (s *Server) removeWorktree(ctx context.Context, repo *gitalypb.Repository, worktreeName string) error {
 	cmd, err := s.gitCmdFactory.New(ctx, repo,
-		git.SubSubCmd{
+		git.SubCmd{
 			Name:   "worktree",
 			Action: "remove",
 			Flags:  []git.Option{git.Flag{Name: "--force"}},
