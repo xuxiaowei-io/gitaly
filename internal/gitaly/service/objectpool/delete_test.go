@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -72,7 +73,10 @@ func TestDelete(t *testing.T) {
 		{
 			desc:         "path traversing fails",
 			relativePath: validPoolPath + "/../../../../..",
-			expectedErr:  errInvalidPoolDir,
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("GetRepoPath: %w", storage.ErrRelativePathEscapesRoot),
+				errInvalidPoolDir,
+			),
 		},
 		{
 			desc:         "deleting pool succeeds",

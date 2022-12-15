@@ -51,10 +51,8 @@ func FromProto(
 	housekeepingManager housekeeping.Manager,
 	proto *gitalypb.ObjectPool,
 ) (*ObjectPool, error) {
-	// TODO: this is retained for backwards compatibility for now. We should eventually amend
-	// `FromProto()` to always return an error if the Protobuf representation is invalid, the
-	// pool directory doesn't exist, or if the directory does not contain a valid repository.
-	if _, err := locator.GetStorageByName(proto.GetRepository().GetStorageName()); err != nil {
+	_, err := locator.GetPath(proto.GetRepository())
+	if err != nil {
 		return nil, err
 	}
 
