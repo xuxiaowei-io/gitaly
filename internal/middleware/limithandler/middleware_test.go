@@ -15,9 +15,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/duration"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/middleware/limithandler"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc"
@@ -88,6 +88,7 @@ func TestStreamLimitHandler(t *testing.T) {
 		maxConcurrency        int
 		expectedRequestCount  int
 		expectedResponseCount int
+		expectedErr           error
 	}{
 		// The max queue size is set at 1, which means 1 request
 		// will be queued while the later ones will return with
@@ -97,7 +98,7 @@ func TestStreamLimitHandler(t *testing.T) {
 		// processed once we close the blockCh.
 		{
 			desc:     "Single request, multiple responses",
-			fullname: "/grpc.testing.TestService/StreamOutputCall",
+			fullname: "/grpc.testing.TestService/StreamingOutputCall",
 			f: func(t *testing.T, ctx context.Context, client grpc_testing.TestServiceClient, respCh chan interface{}, errCh chan error) {
 				stream, err := client.StreamingOutputCall(ctx, &grpc_testing.StreamingOutputCallRequest{})
 				require.NoError(t, err)
@@ -117,10 +118,16 @@ func TestStreamLimitHandler(t *testing.T) {
 			maxConcurrency:        3,
 			expectedRequestCount:  4,
 			expectedResponseCount: 4,
+			expectedErr: structerr.NewResourceExhausted("%w", limithandler.ErrMaxQueueSize).WithDetail(
+				&gitalypb.LimitError{
+					ErrorMessage: "maximum queue size reached",
+					RetryAfter:   durationpb.New(0),
+				},
+			),
 		},
 		{
 			desc:     "Multiple requests, single response",
-			fullname: "/grpc.testing.TestService/StreamInputCall",
+			fullname: "/grpc.testing.TestService/StreamingInputCall",
 			f: func(t *testing.T, ctx context.Context, client grpc_testing.TestServiceClient, respCh chan interface{}, errCh chan error) {
 				stream, err := client.StreamingInputCall(ctx)
 				require.NoError(t, err)
@@ -133,14 +140,20 @@ func TestStreamLimitHandler(t *testing.T) {
 					return
 				}
 
-				testhelper.ProtoEqual(t, &grpc_testing.StreamingOutputCallResponse{
-					Payload: &grpc_testing.Payload{Body: []byte("success")},
+				testhelper.ProtoEqual(t, &grpc_testing.StreamingInputCallResponse{
+					AggregatedPayloadSize: 9000,
 				}, r)
 				respCh <- r
 			},
 			maxConcurrency:        3,
 			expectedRequestCount:  4,
 			expectedResponseCount: 4,
+			expectedErr: structerr.NewResourceExhausted("%w", limithandler.ErrMaxQueueSize).WithDetail(
+				&gitalypb.LimitError{
+					ErrorMessage: "maximum queue size reached",
+					RetryAfter:   durationpb.New(0),
+				},
+			),
 		},
 		{
 			desc:     "Multiple requests, multiple responses",
@@ -167,6 +180,12 @@ func TestStreamLimitHandler(t *testing.T) {
 			maxConcurrency:        3,
 			expectedRequestCount:  4,
 			expectedResponseCount: 4,
+			expectedErr: structerr.NewResourceExhausted("%w", limithandler.ErrMaxQueueSize).WithDetail(
+				&gitalypb.LimitError{
+					ErrorMessage: "maximum queue size reached",
+					RetryAfter:   durationpb.New(0),
+				},
+			),
 		},
 		{
 			// Make sure that _streams_ are limited but that _requests_ on each
@@ -202,6 +221,12 @@ func TestStreamLimitHandler(t *testing.T) {
 			// + 1 (queued stream) * (10 requests per stream)
 			expectedRequestCount:  40,
 			expectedResponseCount: 4,
+			expectedErr: structerr.NewResourceExhausted("%w", limithandler.ErrMaxQueueSize).WithDetail(
+				&gitalypb.LimitError{
+					ErrorMessage: "maximum queue size reached",
+					RetryAfter:   durationpb.New(0),
+				},
+			),
 		},
 		{
 			desc:     "With a max concurrency of 0",
@@ -229,6 +254,8 @@ func TestStreamLimitHandler(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
+		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
@@ -268,10 +295,7 @@ func TestStreamLimitHandler(t *testing.T) {
 			if tc.maxConcurrency > 0 {
 				for i := 0; i < totalCalls-tc.maxConcurrency-maxQueueSize; i++ {
 					err := <-errChan
-					testhelper.RequireGrpcError(
-						t,
-						helper.ErrInternalf("rate limiting stream request: %w",
-							limithandler.ErrMaxQueueSize), err)
+					testhelper.RequireGrpcError(t, tc.expectedErr, err)
 				}
 			}
 
