@@ -14,7 +14,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -102,7 +101,7 @@ func TestCreate_unsuccessful(t *testing.T) {
 			request: &gitalypb.CreateObjectPoolRequest{
 				Origin: repo,
 			},
-			expectedErr: structerr.NewInvalidArgument("GetStorageByName: no such storage: %q", ""),
+			expectedErr: errMissingPool,
 		},
 		{
 			desc: "outside pools directory",
