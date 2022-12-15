@@ -3,26 +3,37 @@
 package objectpool
 
 import (
+	"context"
+	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
 func TestCreate(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.AtomicCreateObjectPool).Run(t, testCreate)
+}
 
-	ctx := testhelper.Context(t)
+func testCreate(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, repo, repoPath, _, client := setup(t, ctx)
 	commitID := gittest.WriteCommit(t, cfg, repoPath)
 
@@ -75,9 +86,20 @@ func TestCreate(t *testing.T) {
 
 func TestCreate_unsuccessful(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.AtomicCreateObjectPool).Run(t, testCreateUnsuccessful)
+}
 
-	ctx := testhelper.Context(t)
+func testCreateUnsuccessful(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, repo, _, _, client := setup(t, ctx, testserver.WithDisablePraefect())
+
+	// Precreate a stale lock for a valid object pool path so that we can verify that the lock
+	// gets honored as expected.
+	lockedRelativePath := gittest.NewObjectPoolName(t)
+	lockedFullPath := filepath.Join(cfg.Storages[0].Path, lockedRelativePath+".lock")
+	require.NoError(t, os.MkdirAll(filepath.Dir(lockedFullPath), 0o755))
+	require.NoError(t, os.WriteFile(lockedFullPath, nil, 0o644))
 
 	for _, tc := range []struct {
 		desc        string
@@ -155,10 +177,76 @@ func TestCreate_unsuccessful(t *testing.T) {
 			},
 			expectedErr: errInvalidPoolDir,
 		},
+		{
+			desc: "pool is locked",
+			request: &gitalypb.CreateObjectPoolRequest{
+				Origin: repo,
+				ObjectPool: &gitalypb.ObjectPool{
+					Repository: &gitalypb.Repository{
+						StorageName:  cfg.Storages[0].Name,
+						RelativePath: lockedRelativePath,
+					},
+				},
+			},
+			expectedErr: func() error {
+				if featureflag.AtomicCreateObjectPool.IsEnabled(ctx) {
+					return structerr.NewInternal("creating object pool: locking repository: file already locked")
+				}
+				return nil
+			}(),
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			_, err := client.CreateObjectPool(ctx, tc.request)
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
+	}
+}
+
+func TestCreate_atomic(t *testing.T) {
+	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.AtomicCreateObjectPool).Run(t, testCreateAtomic)
+}
+
+func testCreateAtomic(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
+	cfg := testcfg.Build(t)
+
+	gitCmdFactory := gittest.NewInterceptingCommandFactory(t, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
+		return fmt.Sprintf(`#!/bin/bash
+		if [[ ! "$@" =~ "clone" ]]; then
+			exec %[1]q "$@"
+		fi
+
+		# If we are cloning then this must be the object pool that we try to create. We
+		# execute the command, but then afterwards we pretend to fail. We should ultimately
+		# see that the pool does not exist.
+		%[1]q "$@" 2>/dev/null
+
+		exit 123
+		`, execEnv.BinaryPath)
+	})
+
+	cfg, repo, _, _, client := setupWithConfig(t, ctx, cfg, testserver.WithGitCommandFactory(gitCmdFactory))
+
+	objectPool := &gitalypb.ObjectPool{
+		Repository: &gitalypb.Repository{
+			StorageName:  cfg.Storages[0].Name,
+			RelativePath: gittest.NewObjectPoolName(t),
+		},
+	}
+
+	_, err := client.CreateObjectPool(ctx, &gitalypb.CreateObjectPoolRequest{
+		ObjectPool: objectPool,
+		Origin:     repo,
+	})
+	testhelper.RequireGrpcError(t, structerr.NewInternal("creating object pool: cloning to pool: exit status 123, stderr: %q", ""), err)
+
+	if featureflag.AtomicCreateObjectPool.IsEnabled(ctx) {
+		require.NoDirExists(t, filepath.Join(cfg.Storages[0].Path, objectPool.Repository.RelativePath))
+	} else {
+		poolPath := gittest.GetReplicaPath(t, ctx, cfg, objectPool.Repository)
+		require.DirExists(t, filepath.Join(cfg.Storages[0].Path, poolPath))
 	}
 }

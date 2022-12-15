@@ -43,9 +43,11 @@ func extractConn(client gitalypb.ObjectPoolServiceClient) *grpc.ClientConn {
 }
 
 func setup(t *testing.T, ctx context.Context, opts ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, storage.Locator, gitalypb.ObjectPoolServiceClient) {
-	t.Helper()
+	return setupWithConfig(t, ctx, testcfg.Build(t), opts...)
+}
 
-	cfg := testcfg.Build(t)
+func setupWithConfig(t *testing.T, ctx context.Context, cfg config.Cfg, opts ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, storage.Locator, gitalypb.ObjectPoolServiceClient) {
+	t.Helper()
 
 	testcfg.BuildGitalyHooks(t, cfg)
 

@@ -3,12 +3,14 @@
 package objectpool
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -17,8 +19,12 @@ import (
 
 func TestGetObjectPoolSuccess(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.AtomicCreateObjectPool).Run(t, testGetObjectPoolSuccess)
+}
 
-	ctx := testhelper.Context(t)
+func testGetObjectPoolSuccess(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, repoProto, _, _, client := setup(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 

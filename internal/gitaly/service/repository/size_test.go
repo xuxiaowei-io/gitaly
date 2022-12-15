@@ -34,6 +34,7 @@ func TestRepositorySize_SuccessfulRequest(t *testing.T) {
 	t.Parallel()
 
 	featureSet := testhelper.NewFeatureSets(
+		featureflag.AtomicCreateObjectPool,
 		featureflag.RevlistForRepoSize,
 		featureflag.CatfileRepoSize,
 		featureflag.UseNewRepoSize,
