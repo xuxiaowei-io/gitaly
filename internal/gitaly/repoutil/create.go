@@ -20,25 +20,29 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
+type createConfig struct {
+	gitOptions []git.Option
+}
+
 // CreateOption is an option that can be passed to Create.
-type CreateOption func(options *[]git.Option)
+type CreateOption func(cfg *createConfig)
 
 // WithBranchName overrides the default branch name that is to be used when creating the repository.
 // If called with an empty string then the default branch name will not be changed.
 func WithBranchName(branch string) CreateOption {
-	return func(options *[]git.Option) {
+	return func(cfg *createConfig) {
 		if branch == "" {
 			return
 		}
 
-		*options = append(*options, git.ValueFlag{Name: "--initial-branch", Value: branch})
+		cfg.gitOptions = append(cfg.gitOptions, git.ValueFlag{Name: "--initial-branch", Value: branch})
 	}
 }
 
 // WithObjectHash overrides the default object hash of the created repository.
 func WithObjectHash(hash git.ObjectHash) CreateOption {
-	return func(options *[]git.Option) {
-		*options = append(*options, git.ValueFlag{Name: "--object-format", Value: hash.Format})
+	return func(cfg *createConfig) {
+		cfg.gitOptions = append(cfg.gitOptions, git.ValueFlag{Name: "--object-format", Value: hash.Format})
 	}
 }
 
@@ -86,9 +90,9 @@ func Create(
 	// instead create it in a temporary directory, first. This is done such that we can
 	// guarantee atomicity and roll back the change easily in case an error happens.
 
-	gitOptions := make([]git.Option, 0, len(options))
-	for _, optionFn := range options {
-		optionFn(&gitOptions)
+	var cfg createConfig
+	for _, option := range options {
+		option(&cfg)
 	}
 
 	stderr := &bytes.Buffer{}
@@ -97,7 +101,7 @@ func Create(
 		Flags: append([]git.Option{
 			git.Flag{Name: "--bare"},
 			git.Flag{Name: "--quiet"},
-		}, gitOptions...),
+		}, cfg.gitOptions...),
 		Args: []string{newRepoDir.Path()},
 	}, git.WithStderr(stderr))
 	if err != nil {
