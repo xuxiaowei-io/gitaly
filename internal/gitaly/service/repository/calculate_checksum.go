@@ -25,7 +25,7 @@ func (s *server) CalculateChecksum(ctx context.Context, in *gitalypb.CalculateCh
 		return nil, err
 	}
 
-	cmd, err := s.gitCmdFactory.New(ctx, repo, git.SubCmd{Name: "show-ref", Flags: []git.Option{git.Flag{Name: "--head"}}})
+	cmd, err := s.gitCmdFactory.New(ctx, repo, git.Command{Name: "show-ref", Flags: []git.Option{git.Flag{Name: "--head"}}})
 	if err != nil {
 		return nil, helper.ErrInternalf("gitCommand: %w", err)
 	}
@@ -55,7 +55,7 @@ func (s *server) CalculateChecksum(ctx context.Context, in *gitalypb.CalculateCh
 func (s *server) isValidRepo(ctx context.Context, repo *gitalypb.Repository) bool {
 	stdout := &bytes.Buffer{}
 	cmd, err := s.gitCmdFactory.New(ctx, repo,
-		git.SubCmd{
+		git.Command{
 			Name: "rev-parse",
 			Flags: []git.Option{
 				git.Flag{Name: "--is-bare-repository"},

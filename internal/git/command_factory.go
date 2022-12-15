@@ -22,9 +22,9 @@ import (
 // CommandFactory is designed to create and run git commands in a protected and fully managed manner.
 type CommandFactory interface {
 	// New creates a new command for the repo repository.
-	New(ctx context.Context, repo repository.GitRepo, sc Cmd, opts ...CmdOpt) (*command.Command, error)
+	New(ctx context.Context, repo repository.GitRepo, sc Command, opts ...CmdOpt) (*command.Command, error)
 	// NewWithoutRepo creates a command without a target repository.
-	NewWithoutRepo(ctx context.Context, sc Cmd, opts ...CmdOpt) (*command.Command, error)
+	NewWithoutRepo(ctx context.Context, sc Command, opts ...CmdOpt) (*command.Command, error)
 	// GetExecutionEnvironment returns parameters required to execute Git commands.
 	GetExecutionEnvironment(context.Context) ExecutionEnvironment
 	// HooksPath returns the path where Gitaly's Git hooks reside.
@@ -237,12 +237,12 @@ func (cf *ExecCommandFactory) Collect(metrics chan<- prometheus.Metric) {
 }
 
 // New creates a new command for the repo repository.
-func (cf *ExecCommandFactory) New(ctx context.Context, repo repository.GitRepo, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
+func (cf *ExecCommandFactory) New(ctx context.Context, repo repository.GitRepo, sc Command, opts ...CmdOpt) (*command.Command, error) {
 	return cf.newCommand(ctx, repo, sc, opts...)
 }
 
 // NewWithoutRepo creates a command without a target repository.
-func (cf *ExecCommandFactory) NewWithoutRepo(ctx context.Context, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
+func (cf *ExecCommandFactory) NewWithoutRepo(ctx context.Context, sc Command, opts ...CmdOpt) (*command.Command, error) {
 	return cf.newCommand(ctx, nil, sc, opts...)
 }
 
@@ -374,7 +374,7 @@ func (cf *ExecCommandFactory) GitVersion(ctx context.Context) (Version, error) {
 // command will be run in the context of that repository. Note that this sets up arguments and
 // environment variables for git, but doesn't run in the directory itself. If a directory
 // is given, then the command will be run in that directory.
-func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo repository.GitRepo, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
+func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo repository.GitRepo, sc Command, opts ...CmdOpt) (*command.Command, error) {
 	config, err := cf.combineOpts(ctx, sc, opts)
 	if err != nil {
 		return nil, err
@@ -416,7 +416,7 @@ func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo repository.Gi
 	command, err := command.New(ctx, append([]string{execEnv.BinaryPath}, args...), append(
 		config.commandOpts,
 		command.WithEnvironment(env),
-		command.WithCommandName("git", sc.Subcommand()),
+		command.WithCommandName("git", sc.Name),
 		command.WithCgroup(cf.cgroupsManager, repo),
 		command.WithCommandGitVersion(cmdGitVersion.String()),
 	)...)
@@ -427,12 +427,12 @@ func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo repository.Gi
 	return command, nil
 }
 
-func (cf *ExecCommandFactory) combineOpts(ctx context.Context, sc Cmd, opts []CmdOpt) (cmdCfg, error) {
+func (cf *ExecCommandFactory) combineOpts(ctx context.Context, sc Command, opts []CmdOpt) (cmdCfg, error) {
 	var config cmdCfg
 
-	commandDescription, ok := commandDescriptions[sc.Subcommand()]
+	commandDescription, ok := commandDescriptions[sc.Name]
 	if !ok {
-		return cmdCfg{}, fmt.Errorf("invalid sub command name %q: %w", sc.Subcommand(), ErrInvalidArg)
+		return cmdCfg{}, fmt.Errorf("invalid sub command name %q: %w", sc.Name, ErrInvalidArg)
 	}
 
 	for _, opt := range opts {
@@ -442,24 +442,24 @@ func (cf *ExecCommandFactory) combineOpts(ctx context.Context, sc Cmd, opts []Cm
 	}
 
 	if !config.hooksConfigured && commandDescription.mayUpdateRef() {
-		return cmdCfg{}, fmt.Errorf("subcommand %q: %w", sc.Subcommand(), ErrHookPayloadRequired)
+		return cmdCfg{}, fmt.Errorf("subcommand %q: %w", sc.Name, ErrHookPayloadRequired)
 	}
 
 	return config, nil
 }
 
-func (cf *ExecCommandFactory) combineArgs(ctx context.Context, gitConfig []config.GitConfig, sc Cmd, cc cmdCfg) (_ []string, err error) {
+func (cf *ExecCommandFactory) combineArgs(ctx context.Context, gitConfig []config.GitConfig, sc Command, cc cmdCfg) (_ []string, err error) {
 	var args []string
 
 	defer func() {
 		if err != nil && IsInvalidArgErr(err) && len(args) > 0 {
-			cf.invalidCommandsMetric.WithLabelValues(sc.Subcommand()).Inc()
+			cf.invalidCommandsMetric.WithLabelValues(sc.Name).Inc()
 		}
 	}()
 
-	commandDescription, ok := commandDescriptions[sc.Subcommand()]
+	commandDescription, ok := commandDescriptions[sc.Name]
 	if !ok {
-		return nil, fmt.Errorf("invalid sub command name %q: %w", sc.Subcommand(), ErrInvalidArg)
+		return nil, fmt.Errorf("invalid sub command name %q: %w", sc.Name, ErrInvalidArg)
 	}
 
 	globalConfig, err := cf.GlobalConfiguration(ctx)

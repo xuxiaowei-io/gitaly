@@ -52,8 +52,8 @@ type Repository interface {
 // repository.
 type RepositoryExecutor interface {
 	repository.GitRepo
-	Exec(ctx context.Context, cmd Cmd, opts ...CmdOpt) (*command.Command, error)
-	ExecAndWait(ctx context.Context, cmd Cmd, opts ...CmdOpt) error
+	Exec(ctx context.Context, cmd Command, opts ...CmdOpt) (*command.Command, error)
+	ExecAndWait(ctx context.Context, cmd Command, opts ...CmdOpt) error
 	GitVersion(ctx context.Context) (Version, error)
 	ObjectHash(ctx context.Context) (ObjectHash, error)
 }

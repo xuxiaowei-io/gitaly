@@ -74,7 +74,7 @@ func (s *server) cloneFromURLCommand(
 	}
 
 	return s.gitCmdFactory.NewWithoutRepo(ctx,
-		git.SubCmd{
+		git.Command{
 			Name:  "clone",
 			Flags: cloneFlags,
 			Args:  []string{urlString, repositoryFullPath},

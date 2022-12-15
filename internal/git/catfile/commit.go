@@ -39,7 +39,7 @@ func GetCommitWithTrailers(
 
 	// We use the commit ID here instead of revision. This way we still get
 	// trailers if the revision is not a SHA but e.g. a tag name.
-	showCmd, err := gitCmdFactory.New(ctx, repo, git.SubCmd{
+	showCmd, err := gitCmdFactory.New(ctx, repo, git.Command{
 		Name: "show",
 		Args: []string{commit.Id},
 		Flags: []git.Option{

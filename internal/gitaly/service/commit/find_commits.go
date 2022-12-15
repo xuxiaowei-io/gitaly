@@ -218,7 +218,7 @@ func streamCommits(getCommits *GetCommits, stream gitalypb.CommitService_FindCom
 	return chunker.Flush()
 }
 
-func getLogCommandSubCmd(req *gitalypb.FindCommitsRequest) git.SubCmd {
+func getLogCommandSubCmd(req *gitalypb.FindCommitsRequest) git.Command {
 	logFormatOption := "--format=%H"
 	// To split the commits by '\x01' instead of '\n'
 	if req.GetIncludeShortstat() {
@@ -228,7 +228,7 @@ func getLogCommandSubCmd(req *gitalypb.FindCommitsRequest) git.SubCmd {
 		logFormatOption += "%x00%(trailers:unfold,separator=%x00)"
 	}
 
-	subCmd := git.SubCmd{Name: "log", Flags: []git.Option{git.Flag{Name: logFormatOption}}}
+	subCmd := git.Command{Name: "log", Flags: []git.Option{git.Flag{Name: logFormatOption}}}
 
 	//  We will perform the offset in Go because --follow doesn't play well with --skip.
 	//  See: https://gitlab.com/gitlab-org/gitlab-ce/issues/3574#note_3040520

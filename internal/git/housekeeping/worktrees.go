@@ -98,7 +98,7 @@ var errUnknownWorktree = errors.New("unknown worktree")
 
 func removeWorktree(ctx context.Context, repo *localrepo.Repo, name string) error {
 	var stderr bytes.Buffer
-	err := repo.ExecAndWait(ctx, git.SubSubCmd{
+	err := repo.ExecAndWait(ctx, git.Command{
 		Name:   "worktree",
 		Action: "remove",
 		Flags:  []git.Option{git.Flag{Name: "--force"}},
@@ -161,7 +161,7 @@ func cleanDisconnectedWorktrees(ctx context.Context, repo *localrepo.Repo) error
 		return nil
 	}
 
-	return repo.ExecAndWait(ctx, git.SubSubCmd{
+	return repo.ExecAndWait(ctx, git.Command{
 		Name:   "worktree",
 		Action: "prune",
 	}, git.WithRefTxHook(repo))

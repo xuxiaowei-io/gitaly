@@ -20,7 +20,7 @@ import (
 )
 
 func (s *server) removeOriginInRepo(ctx context.Context, repository *gitalypb.Repository) error {
-	cmd, err := s.gitCmdFactory.New(ctx, repository, git.SubCmd{Name: "remote", Args: []string{"remove", "origin"}}, git.WithRefTxHook(repository))
+	cmd, err := s.gitCmdFactory.New(ctx, repository, git.Command{Name: "remote", Args: []string{"remove", "origin"}}, git.WithRefTxHook(repository))
 	if err != nil {
 		return fmt.Errorf("remote cmd start: %w", err)
 	}
@@ -96,7 +96,7 @@ func (s *server) createRepository(
 	}
 
 	stderr := &bytes.Buffer{}
-	cmd, err := s.gitCmdFactory.NewWithoutRepo(ctx, git.SubCmd{
+	cmd, err := s.gitCmdFactory.NewWithoutRepo(ctx, git.Command{
 		Name: "init",
 		Flags: append([]git.Option{
 			git.Flag{Name: "--bare"},

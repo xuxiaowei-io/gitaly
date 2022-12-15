@@ -32,7 +32,7 @@ func (s *server) PruneUnreachableObjects(
 		return nil, err
 	}
 
-	if err := repo.ExecAndWait(ctx, git.SubCmd{
+	if err := repo.ExecAndWait(ctx, git.Command{
 		Name: "prune",
 		Flags: []git.Option{
 			git.ValueFlag{Name: "--expire", Value: "30.minutes.ago"},

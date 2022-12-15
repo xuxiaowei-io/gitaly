@@ -20,7 +20,7 @@ func (s *server) CountCommits(ctx context.Context, in *gitalypb.CountCommitsRequ
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
-	subCmd := git.SubCmd{Name: "rev-list", Flags: []git.Option{git.Flag{Name: "--count"}}}
+	subCmd := git.Command{Name: "rev-list", Flags: []git.Option{git.Flag{Name: "--count"}}}
 
 	if in.GetAll() {
 		subCmd.Flags = append(subCmd.Flags, git.Flag{Name: "--all"})

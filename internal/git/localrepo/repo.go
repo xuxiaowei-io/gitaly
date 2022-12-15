@@ -75,13 +75,13 @@ func NewTestRepo(tb testing.TB, cfg config.Cfg, repo repository.GitRepo, factory
 
 // Exec creates a git command with the given args and Repo, executed in the
 // Repo. It validates the arguments in the command before executing.
-func (repo *Repo) Exec(ctx context.Context, cmd git.Cmd, opts ...git.CmdOpt) (*command.Command, error) {
+func (repo *Repo) Exec(ctx context.Context, cmd git.Command, opts ...git.CmdOpt) (*command.Command, error) {
 	return repo.gitCmdFactory.New(ctx, repo, cmd, opts...)
 }
 
 // ExecAndWait is similar to Exec, but waits for the command to exit before
 // returning.
-func (repo *Repo) ExecAndWait(ctx context.Context, cmd git.Cmd, opts ...git.CmdOpt) error {
+func (repo *Repo) ExecAndWait(ctx context.Context, cmd git.Command, opts ...git.CmdOpt) error {
 	command, err := repo.Exec(ctx, cmd, opts...)
 	if err != nil {
 		return err
@@ -194,7 +194,7 @@ func (repo *Repo) Size(ctx context.Context, opts ...RepoSizeOption) (int64, erro
 	)
 
 	if err := repo.ExecAndWait(ctx,
-		git.SubCmd{
+		git.Command{
 			Name:  "rev-list",
 			Flags: options,
 		},

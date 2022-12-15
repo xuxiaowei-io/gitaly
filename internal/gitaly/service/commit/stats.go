@@ -55,7 +55,7 @@ func (s *server) commitStats(ctx context.Context, in *gitalypb.CommitStatsReques
 		args = append(args, commit.Id+"^", commit.Id)
 	}
 
-	cmd, err := repo.Exec(ctx, git.SubCmd{
+	cmd, err := repo.Exec(ctx, git.Command{
 		Name:  "diff",
 		Flags: []git.Option{git.Flag{Name: "--numstat"}},
 		Args:  args,

@@ -44,7 +44,7 @@ func (repo *Repo) SetConfig(ctx context.Context, key, value string, txManager tr
 		}
 	}()
 
-	if err := repo.ExecAndWait(ctx, git.SubCmd{
+	if err := repo.ExecAndWait(ctx, git.Command{
 		Name: "config",
 		Flags: []git.Option{
 			git.Flag{Name: "--replace-all"},
@@ -104,7 +104,7 @@ func (repo *Repo) UnsetMatchingConfig(
 	// There is no way to directly unset all keys matching a given regular expression, so we
 	// need to go the indirect route and first discover all matching keys via `--get-regex`.
 	var stdout bytes.Buffer
-	if err := repo.ExecAndWait(ctx, git.SubCmd{
+	if err := repo.ExecAndWait(ctx, git.Command{
 		Name: "config",
 		Flags: []git.Option{
 			git.Flag{Name: "--name-only"},
@@ -139,7 +139,7 @@ func (repo *Repo) UnsetMatchingConfig(
 		}
 		keySeen[key] = true
 
-		if err := repo.ExecAndWait(ctx, git.SubCmd{
+		if err := repo.ExecAndWait(ctx, git.Command{
 			Name: "config",
 			Flags: []git.Option{
 				git.Flag{Name: "--unset-all"},

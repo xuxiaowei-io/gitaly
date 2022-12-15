@@ -47,7 +47,7 @@ func (s *server) findRefs(ctx context.Context, writer lines.Sender, repo git.Rep
 		options = append(options, opts.cmdArgs...)
 	}
 
-	cmd, err := repo.Exec(ctx, git.SubCmd{
+	cmd, err := repo.Exec(ctx, git.Command{
 		Name:  "for-each-ref",
 		Flags: options,
 		Args:  patterns,

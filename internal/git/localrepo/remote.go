@@ -95,7 +95,7 @@ func (repo *Repo) FetchRemote(ctx context.Context, remoteName string, opts Fetch
 	commandOptions = append(commandOptions, opts.CommandOptions...)
 
 	cmd, err := repo.gitCmdFactory.New(ctx, repo,
-		git.SubCmd{
+		git.Command{
 			Name:  "fetch",
 			Flags: opts.buildFlags(),
 			Args:  []string{remoteName},
@@ -155,7 +155,7 @@ func (repo *Repo) FetchInternal(
 	commandOptions = append(commandOptions, opts.CommandOptions...)
 
 	if err := repo.ExecAndWait(ctx,
-		git.SubCmd{
+		git.Command{
 			Name:  "fetch",
 			Flags: opts.buildFlags(),
 			Args: append(
@@ -250,7 +250,7 @@ func (repo *Repo) Push(ctx context.Context, remote string, refspecs []string, op
 
 	stderr := &bytes.Buffer{}
 	if err := repo.ExecAndWait(ctx,
-		git.SubCmd{
+		git.Command{
 			Name:  "push",
 			Flags: flags,
 			Args:  append([]string{remote}, refspecs...),

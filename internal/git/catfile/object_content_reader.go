@@ -60,7 +60,7 @@ func newObjectContentReader(
 	counter *prometheus.CounterVec,
 ) (*objectContentReader, error) {
 	batchCmd, err := repo.Exec(ctx,
-		git.SubCmd{
+		git.Command{
 			Name: "cat-file",
 			Flags: []git.Option{
 				git.Flag{Name: "--batch"},

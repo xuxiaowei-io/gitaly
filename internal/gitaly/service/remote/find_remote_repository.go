@@ -16,7 +16,7 @@ func (s *server) FindRemoteRepository(ctx context.Context, req *gitalypb.FindRem
 	}
 
 	cmd, err := s.gitCmdFactory.NewWithoutRepo(ctx,
-		git.SubCmd{
+		git.Command{
 			Name: "ls-remote",
 			Args: []string{
 				req.GetRemote(),

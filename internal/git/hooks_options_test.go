@@ -21,7 +21,7 @@ func TestWithRefHook(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	opt := git.WithRefTxHook(repo)
-	subCmd := git.SubCmd{Name: "update-ref", Args: []string{"refs/heads/master", git.ObjectHashSHA1.ZeroOID.String()}}
+	subCmd := git.Command{Name: "update-ref", Args: []string{"refs/heads/master", git.ObjectHashSHA1.ZeroOID.String()}}
 
 	for _, tt := range []struct {
 		name string
@@ -70,7 +70,7 @@ func TestWithPackObjectsHookEnv(t *testing.T) {
 	protocol := "protocol"
 
 	opt := git.WithPackObjectsHookEnv(repo, protocol)
-	subCmd := git.SubCmd{Name: "upload-pack", Args: []string{"a/b/c"}}
+	subCmd := git.Command{Name: "upload-pack", Args: []string{"a/b/c"}}
 
 	ctx = grpcmetadata.AppendToOutgoingContext(ctx, "user_id", userID, "username", username)
 	ctx = metadata.OutgoingToIncoming(ctx)

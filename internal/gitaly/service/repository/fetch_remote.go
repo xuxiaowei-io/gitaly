@@ -113,7 +113,7 @@ func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteReque
 	if err := transaction.RunOnContext(ctx, func(tx txinfo.Transaction) error {
 		hash := voting.NewVoteHash()
 
-		if err := repo.ExecAndWait(ctx, git.SubCmd{
+		if err := repo.ExecAndWait(ctx, git.Command{
 			Name: "for-each-ref",
 		}, git.WithStdout(hash)); err != nil {
 			return fmt.Errorf("cannot compute references vote: %w", err)

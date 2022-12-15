@@ -185,7 +185,7 @@ func New(ctx context.Context, repo git.RepositoryExecutor, opts ...UpdaterOpt) (
 
 	var stderr bytes.Buffer
 	cmd, err := repo.Exec(ctx,
-		git.SubCmd{
+		git.Command{
 			Name:  "update-ref",
 			Flags: cmdFlags,
 		},

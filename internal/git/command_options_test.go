@@ -273,7 +273,7 @@ func TestWithConfig(t *testing.T) {
 
 			for expectedKey, expectedValue := range tc.expectedValues {
 				var stdout bytes.Buffer
-				configCmd, err := gitCmdFactory.NewWithoutRepo(ctx, SubCmd{
+				configCmd, err := gitCmdFactory.NewWithoutRepo(ctx, Command{
 					Name: "config",
 					Args: []string{expectedKey},
 				}, WithStdout(&stdout), option)
@@ -302,7 +302,7 @@ func TestExecCommandFactoryGitalyConfigOverrides(t *testing.T) {
 
 	var stdout bytes.Buffer
 	cmd, err := gitCmdFactory.NewWithoutRepo(ctx,
-		SubCmd{
+		Command{
 			Name: "config",
 			Args: []string{"foo.bar"},
 		},
@@ -405,7 +405,7 @@ func TestWithConfigEnv(t *testing.T) {
 
 			for expectedKey, expectedValue := range tc.expectedValues {
 				var stdout bytes.Buffer
-				configCmd, err := gitCmdFactory.NewWithoutRepo(ctx, SubCmd{
+				configCmd, err := gitCmdFactory.NewWithoutRepo(ctx, Command{
 					Name: "config",
 					Args: []string{expectedKey},
 				}, WithStdout(&stdout), option)

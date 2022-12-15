@@ -18,7 +18,7 @@ func (s *server) Fsck(ctx context.Context, req *gitalypb.FsckRequest) (*gitalypb
 
 	var stdout, stderr bytes.Buffer
 	cmd, err := s.gitCmdFactory.New(ctx, repository,
-		git.SubCmd{Name: "fsck"},
+		git.Command{Name: "fsck"},
 		git.WithStdout(&stdout),
 		git.WithStderr(&stderr),
 	)

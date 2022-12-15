@@ -613,7 +613,7 @@ func TestRepo_SetDefaultBranch_errors(t *testing.T) {
 		<-ch
 
 		var stderr bytes.Buffer
-		err = repo.ExecAndWait(ctx, git.SubCmd{
+		err = repo.ExecAndWait(ctx, git.Command{
 			Name: "symbolic-ref",
 			Args: []string{"HEAD", "refs/heads/otherbranch"},
 		}, git.WithRefTxHook(repo), git.WithStderr(&stderr))

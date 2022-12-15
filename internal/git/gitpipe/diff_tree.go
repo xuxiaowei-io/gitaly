@@ -74,7 +74,7 @@ func DiffTree(
 
 		var stderr strings.Builder
 		cmd, err := repo.Exec(ctx,
-			git.SubCmd{
+			git.Command{
 				Name:  "diff-tree",
 				Flags: flags,
 				Args:  []string{leftRevision, rightRevision},

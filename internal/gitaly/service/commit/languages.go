@@ -116,7 +116,7 @@ func (s *server) checkRevision(ctx context.Context, repo git.RepositoryExecutor,
 	var stdout, stderr bytes.Buffer
 
 	revParse, err := repo.Exec(ctx,
-		git.SubCmd{Name: "rev-parse", Args: []string{revision}},
+		git.Command{Name: "rev-parse", Args: []string{revision}},
 		git.WithStdout(&stdout),
 		git.WithStderr(&stderr),
 	)
@@ -137,7 +137,7 @@ func (s *server) checkRevision(ctx context.Context, repo git.RepositoryExecutor,
 }
 
 func (s *server) disambiguateRevision(ctx context.Context, repo git.RepositoryExecutor, revision string) (string, error) {
-	cmd, err := repo.Exec(ctx, git.SubCmd{
+	cmd, err := repo.Exec(ctx, git.Command{
 		Name:  "for-each-ref",
 		Flags: []git.Option{git.Flag{Name: "--format=%(refname)"}},
 		Args:  []string{"**/" + revision},

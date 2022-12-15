@@ -53,7 +53,7 @@ func Create(
 
 	var stderr bytes.Buffer
 	cmd, err := gitCmdFactory.NewWithoutRepo(ctx,
-		git.SubCmd{
+		git.Command{
 			Name: "clone",
 			Flags: []git.Option{
 				git.Flag{Name: "--quiet"},

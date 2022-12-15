@@ -65,7 +65,7 @@ func TestNewCommandAddsToCgroup(t *testing.T) {
 			var manager mockCgroupsManager
 			gitCmdFactory := gittest.NewCommandFactory(t, cfg, git.WithCgroupsManager(&manager))
 
-			cmd, err := gitCmdFactory.New(ctx, repo, &git.SubCmd{
+			cmd, err := gitCmdFactory.New(ctx, repo, git.Command{
 				Name: "rev-parse",
 				Flags: []git.Option{
 					git.Flag{Name: "--is-bare-repository"},

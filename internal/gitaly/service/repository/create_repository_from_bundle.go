@@ -58,7 +58,7 @@ func (s *server) CreateRepositoryFromBundle(stream gitalypb.RepositoryService_Cr
 
 	if err := s.createRepository(ctx, repo, func(repo *gitalypb.Repository) error {
 		var stderr bytes.Buffer
-		cmd, err := s.gitCmdFactory.New(ctx, repo, git.SubCmd{
+		cmd, err := s.gitCmdFactory.New(ctx, repo, git.Command{
 			Name: "fetch",
 			Flags: []git.Option{
 				git.Flag{Name: "--quiet"},

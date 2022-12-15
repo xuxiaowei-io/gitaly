@@ -54,7 +54,7 @@ func (s *server) sshUploadArchive(stream gitalypb.SSHService_SSHUploadArchiveSer
 		return stream.Send(&gitalypb.SSHUploadArchiveResponse{Stderr: p})
 	})
 
-	cmd, monitor, err := monitorStdinCommand(ctx, s.gitCmdFactory, req.GetRepository(), stdin, stdout, stderr, git.SubCmd{
+	cmd, monitor, err := monitorStdinCommand(ctx, s.gitCmdFactory, req.GetRepository(), stdin, stdout, stderr, git.Command{
 		Name: "upload-archive",
 		Args: []string{repoPath},
 	})

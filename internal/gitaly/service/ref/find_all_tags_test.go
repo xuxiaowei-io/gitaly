@@ -608,12 +608,12 @@ func TestFindAllTags_sorted(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, repo.UpdateRef(ctx, "refs/tags/annotated", annotatedTagID, git.ObjectHashSHA1.ZeroOID))
 
-	require.NoError(t, repo.ExecAndWait(ctx, git.SubCmd{
+	require.NoError(t, repo.ExecAndWait(ctx, git.Command{
 		Name: "tag",
 		Args: []string{"v1.2.0", headCommit.Id},
 	}, git.WithDisabledHooks()))
 
-	require.NoError(t, repo.ExecAndWait(ctx, git.SubCmd{
+	require.NoError(t, repo.ExecAndWait(ctx, git.Command{
 		Name: "tag",
 		Args: []string{"v1.10.0", headCommit.Id},
 	}, git.WithDisabledHooks()))

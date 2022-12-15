@@ -30,7 +30,7 @@ func (s *server) RawBlame(in *gitalypb.RawBlameRequest, stream gitalypb.CommitSe
 		flags = append(flags, git.ValueFlag{Name: "-L", Value: blameRange})
 	}
 
-	cmd, err := s.gitCmdFactory.New(ctx, in.Repository, git.SubCmd{
+	cmd, err := s.gitCmdFactory.New(ctx, in.Repository, git.Command{
 		Name:        "blame",
 		Flags:       flags,
 		Args:        []string{revision},

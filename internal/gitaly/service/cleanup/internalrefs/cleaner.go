@@ -138,7 +138,7 @@ func buildLookupTable(ctx context.Context, repo git.RepositoryExecutor) (map[str
 		internalRefPrefixes = append(internalRefPrefixes, refPrefix)
 	}
 
-	cmd, err := repo.Exec(ctx, git.SubCmd{
+	cmd, err := repo.Exec(ctx, git.Command{
 		Name:  "for-each-ref",
 		Flags: []git.Option{git.ValueFlag{Name: "--format", Value: "%(objectname) %(refname)"}},
 		Args:  internalRefPrefixes,

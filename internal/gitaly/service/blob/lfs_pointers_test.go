@@ -266,7 +266,7 @@ size 12345`
 		// repository's normal object directory.
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 		var buffer, stderr bytes.Buffer
-		err = repo.ExecAndWait(ctx, git.SubCmd{
+		err = repo.ExecAndWait(ctx, git.Command{
 			Name: "hash-object",
 			Flags: []git.Option{
 				git.Flag{Name: "-w"},

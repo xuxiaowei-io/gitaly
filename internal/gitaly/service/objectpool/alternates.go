@@ -210,7 +210,7 @@ func (s *server) removeAlternatesIfOk(ctx context.Context, repo *localrepo.Repo,
 		// The choice here of git rev-list is for performance reasons.
 		// git fsck --connectivity-only performed badly for large
 		// repositories. The reasons are detailed in https://lore.kernel.org/git/9304B938-4A59-456B-B091-DBBCAA1823B2@gmail.com/
-		cmd, err = repo.Exec(ctx, git.SubCmd{
+		cmd, err = repo.Exec(ctx, git.Command{
 			Name: "rev-list",
 			Flags: []git.Option{
 				git.Flag{Name: "--objects"},
@@ -219,7 +219,7 @@ func (s *server) removeAlternatesIfOk(ctx context.Context, repo *localrepo.Repo,
 			},
 		})
 	} else {
-		cmd, err = repo.Exec(ctx, git.SubCmd{
+		cmd, err = repo.Exec(ctx, git.Command{
 			Name:  "fsck",
 			Flags: []git.Option{git.Flag{Name: "--connectivity-only"}},
 		}, git.WithConfig(git.ConfigPair{
