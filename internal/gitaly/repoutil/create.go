@@ -22,6 +22,7 @@ import (
 
 type createConfig struct {
 	gitOptions []git.Option
+	skipInit   bool
 }
 
 // CreateOption is an option that can be passed to Create.
@@ -43,6 +44,15 @@ func WithBranchName(branch string) CreateOption {
 func WithObjectHash(hash git.ObjectHash) CreateOption {
 	return func(cfg *createConfig) {
 		cfg.gitOptions = append(cfg.gitOptions, git.ValueFlag{Name: "--object-format", Value: hash.Format})
+	}
+}
+
+// WithSkipInit causes Create to skip calling git-init(1) so that the seeding function will be
+// called with a nonexistent target directory. This can be useful when using git-clone(1) to seed
+// the repository.
+func WithSkipInit() CreateOption {
+	return func(cfg *createConfig) {
+		cfg.skipInit = true
 	}
 }
 
@@ -95,20 +105,27 @@ func Create(
 		option(&cfg)
 	}
 
-	stderr := &bytes.Buffer{}
-	cmd, err := gitCmdFactory.NewWithoutRepo(ctx, git.Command{
-		Name: "init",
-		Flags: append([]git.Option{
-			git.Flag{Name: "--bare"},
-			git.Flag{Name: "--quiet"},
-		}, cfg.gitOptions...),
-		Args: []string{newRepoDir.Path()},
-	}, git.WithStderr(stderr))
-	if err != nil {
-		return fmt.Errorf("spawning git-init: %w", err)
-	}
-	if err := cmd.Wait(); err != nil {
-		return fmt.Errorf("creating repository: %w, stderr: %q", err, stderr.String())
+	if !cfg.skipInit {
+		stderr := &bytes.Buffer{}
+		cmd, err := gitCmdFactory.NewWithoutRepo(ctx, git.Command{
+			Name: "init",
+			Flags: append([]git.Option{
+				git.Flag{Name: "--bare"},
+				git.Flag{Name: "--quiet"},
+			}, cfg.gitOptions...),
+			Args: []string{newRepoDir.Path()},
+		}, git.WithStderr(stderr))
+		if err != nil {
+			return fmt.Errorf("spawning git-init: %w", err)
+		}
+
+		if err := cmd.Wait(); err != nil {
+			return fmt.Errorf("creating repository: %w, stderr: %q", err, stderr.String())
+		}
+	} else {
+		if err := os.Remove(newRepoDir.Path()); err != nil {
+			return fmt.Errorf("removing precreated directory: %w", err)
+		}
 	}
 
 	if err := seedRepository(newRepo); err != nil {

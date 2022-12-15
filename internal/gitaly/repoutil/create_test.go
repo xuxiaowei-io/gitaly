@@ -266,6 +266,24 @@ func TestCreate(t *testing.T) {
 				require.Equal(t, "sha256", objectFormat)
 			},
 		},
+		{
+			desc: "skip initialization",
+			opts: []CreateOption{
+				WithSkipInit(),
+			},
+			seed: func(t *testing.T, repo *gitalypb.Repository, repoPath string) error {
+				require.NoDirExists(t, repoPath)
+				gittest.Exec(t, cfg, "init", "--bare", repoPath)
+				return nil
+			},
+			verify: func(t *testing.T, tempRepo *gitalypb.Repository, tempRepoPath string, realRepo *gitalypb.Repository, realRepoPath string) {
+				require.NoDirExists(t, tempRepoPath)
+
+				// But the new repository must exist.
+				isBareRepo := gittest.Exec(t, cfg, "-C", realRepoPath, "rev-parse", "--is-bare-repository")
+				require.Equal(t, "true", text.ChompBytes(isBareRepo))
+			},
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			// Make sure that we don't leak either the context or the mocked transaction
@@ -301,16 +319,16 @@ func TestCreate(t *testing.T) {
 				require.Equal(t, repo.StorageName, tempRepo.StorageName)
 				require.True(t, strings.HasPrefix(tempRepo.RelativePath, "+gitaly/tmp/repo"))
 
-				// Verify that the temporary repository exists and is a real Git
-				// repository.
-				tempRepoPath, err := locator.GetRepoPath(tempRepo)
+				tempRepoPath, err := locator.GetPath(tempRepo)
 				require.NoError(t, err)
-				isBareRepo := gittest.Exec(t, cfg, "-C", tempRepoPath, "rev-parse", "--is-bare-repository")
-				require.Equal(t, "true", text.ChompBytes(isBareRepo))
 
 				if tc.seed != nil {
 					return tc.seed(t, tempRepo, tempRepoPath)
 				}
+
+				// Verify that the repository exists now and is a real repository.
+				isBareRepo := gittest.Exec(t, cfg, "-C", tempRepoPath, "rev-parse", "--is-bare-repository")
+				require.Equal(t, "true", text.ChompBytes(isBareRepo))
 
 				return nil
 			}, tc.opts...))
