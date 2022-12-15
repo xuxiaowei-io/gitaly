@@ -669,6 +669,8 @@ func TestFindAllTags_sorted(t *testing.T) {
 			},
 		},
 	} {
+		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
 			c, err := client.FindAllTags(ctx, &gitalypb.FindAllTagsRequest{
 				Repository: repoProto,
