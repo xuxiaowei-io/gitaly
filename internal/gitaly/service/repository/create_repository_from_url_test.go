@@ -9,11 +9,13 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/praefectutil"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -61,48 +63,41 @@ func TestCreateRepositoryFromURL_successful(t *testing.T) {
 
 func TestCreateRepositoryFromURL_successfulWithOptionalParameters(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
 
-	cfg, _, repoPath, client := setupRepositoryServiceFromMirror(t, ctx)
+	ctx := testhelper.Context(t)
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+
+	_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+	gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch(git.DefaultBranch))
+	gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithReference("refs/merge-requests/1/head"))
+
+	user := "username123"
+	password := "password321localhost"
+	port := gitServerWithBasicAuth(t, ctx, gitCmdFactory, user, password, remoteRepoPath)
 
 	importedRepo := &gitalypb.Repository{
 		RelativePath: "imports/test-repo-imported-mirror.git",
 		StorageName:  cfg.Storages[0].Name,
 	}
 
-	user := "username123"
-	password := "password321localhost"
-	port := gitServerWithBasicAuth(t, ctx, gitCmdFactory, user, password, repoPath)
-
-	url := fmt.Sprintf("http://%s:%s@localhost:%d/%s", user, password, port, filepath.Base(repoPath))
-	host := "www.example.com"
-	authToken := "GL-Geo EhEhKSUk_385GSLnS7BI:eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjoie1wic2NvcGVcIjpcInJvb3QvZ2l0bGFiLWNlXCJ9IiwianRpIjoiNmQ4ZDM1NGQtZjUxYS00MDQ5LWExZjctMjUyMjk4YmQwMTI4IiwiaWF0IjoxNjQyMDk1MzY5LCJuYmYiOjE2NDIwOTUzNjQsImV4cCI6MTY0MjA5NTk2OX0.YEpfzg8305dUqkYOiB7_dhbL0FVSaUPgpSpMuKrgNrg"
-	mirror := true
-
-	req := &gitalypb.CreateRepositoryFromURLRequest{
+	_, err := client.CreateRepositoryFromURL(ctx, &gitalypb.CreateRepositoryFromURLRequest{
 		Repository:              importedRepo,
-		Url:                     url,
-		HttpHost:                host,
-		HttpAuthorizationHeader: authToken,
-		Mirror:                  mirror,
-	}
-
-	_, err := client.CreateRepositoryFromURL(ctx, req)
+		Url:                     fmt.Sprintf("http://%s:%s@localhost:%d/%s", user, password, port, filepath.Base(remoteRepoPath)),
+		HttpHost:                "www.example.com",
+		HttpAuthorizationHeader: "GL-Geo EhEhKSUk_385GSLnS7BI:eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjoie1wic2NvcGVcIjpcInJvb3QvZ2l0bGFiLWNlXCJ9IiwianRpIjoiNmQ4ZDM1NGQtZjUxYS00MDQ5LWExZjctMjUyMjk4YmQwMTI4IiwiaWF0IjoxNjQyMDk1MzY5LCJuYmYiOjE2NDIwOTUzNjQsImV4cCI6MTY0MjA5NTk2OX0.YEpfzg8305dUqkYOiB7_dhbL0FVSaUPgpSpMuKrgNrg",
+		Mirror:                  true,
+	})
 	require.NoError(t, err)
 
 	importedRepoPath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(t, ctx, cfg, importedRepo))
-
 	gittest.Exec(t, cfg, "-C", importedRepoPath, "fsck")
-
-	remotes := gittest.Exec(t, cfg, "-C", importedRepoPath, "remote")
-	require.NotContains(t, string(remotes), "origin")
-
-	references := gittest.Exec(t, cfg, "-C", importedRepoPath, "show-ref", "--abbrev")
-	require.Contains(t, string(references), "refs/merge-requests")
-
-	_, err = os.Lstat(filepath.Join(importedRepoPath, "hooks"))
-	require.True(t, os.IsNotExist(err), "hooks directory should not have been created")
+	require.Empty(t, gittest.Exec(t, cfg, "-C", importedRepoPath, "remote"))
+	require.Equal(t,
+		[]string{"refs/heads/" + git.DefaultBranch, "refs/merge-requests/1/head"},
+		strings.Split(text.ChompBytes(gittest.Exec(t, cfg, "-C", importedRepoPath, "for-each-ref", "--format=%(refname)")), "\n"),
+	)
+	require.NoDirExists(t, filepath.Join(importedRepoPath, "hooks"))
 }
 
 func TestCreateRepositoryFromURL_existingTarget(t *testing.T) {

@@ -6,7 +6,6 @@ second one for free when importing code from `gitlab-ce`.
 These repositories get cloned by `make prepare-tests`. They end up in:
 
 - `_build/testrepos/gitlab-test.git`
-- `_build/testrepos/gitlab-git-test.git`
 
 To prevent fragile tests, we use fixed `packed-refs` files for these
 repositories. They get installed by make (see `_support/makegen.go`)

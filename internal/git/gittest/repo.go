@@ -36,9 +36,6 @@ const (
 
 	// SeedGitLabTest is the path of the gitlab-test.git repository in _build/testrepos
 	SeedGitLabTest = "gitlab-test.git"
-
-	// SeedGitLabTestMirror is the path of the gitlab-test-mirror.git repository in _build/testrepos
-	SeedGitLabTestMirror = "gitlab-test-mirror.git"
 )
 
 // InitRepoDir creates a temporary directory for a repo, without initializing it
