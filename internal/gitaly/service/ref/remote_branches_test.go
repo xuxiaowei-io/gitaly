@@ -18,6 +18,8 @@ import (
 )
 
 func TestSuccessfulFindAllRemoteBranchesRequest(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	cfg, repoProto, repoPath, client := setupRefService(t, ctx)
@@ -76,6 +78,8 @@ func TestSuccessfulFindAllRemoteBranchesRequest(t *testing.T) {
 }
 
 func TestInvalidFindAllRemoteBranchesRequest(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	_, repo, _, client := setupRefService(t, ctx)
 

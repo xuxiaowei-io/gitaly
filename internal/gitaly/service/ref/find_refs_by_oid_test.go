@@ -18,8 +18,9 @@ import (
 )
 
 func TestFindRefsByOID_successful(t *testing.T) {
-	ctx := testhelper.Context(t)
+	t.Parallel()
 
+	ctx := testhelper.Context(t)
 	cfg, repo, repoPath, client := setupRefService(t, ctx)
 
 	oid := gittest.WriteCommit(t, cfg, repoPath)
@@ -118,8 +119,9 @@ func TestFindRefsByOID_successful(t *testing.T) {
 }
 
 func TestFindRefsByOID_failure(t *testing.T) {
-	ctx := testhelper.Context(t)
+	t.Parallel()
 
+	ctx := testhelper.Context(t)
 	cfg, client := setupRefServiceWithoutRepo(t)
 
 	testCases := []struct {
@@ -204,7 +206,11 @@ func TestFindRefsByOID_failure(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
+		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
 			request, expectedErr := tc.setup(t)
 
 			response, err := client.FindRefsByOID(ctx, request)
@@ -215,8 +221,9 @@ func TestFindRefsByOID_failure(t *testing.T) {
 }
 
 func TestFindRefsByOID_validation(t *testing.T) {
-	ctx := testhelper.Context(t)
+	t.Parallel()
 
+	ctx := testhelper.Context(t)
 	_, repo, _, client := setupRefService(t, ctx)
 
 	testCases := map[string]struct {

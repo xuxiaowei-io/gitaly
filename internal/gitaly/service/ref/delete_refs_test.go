@@ -39,6 +39,8 @@ func TestDeleteRefs_successful(t *testing.T) {
 }
 
 func testDeleteRefSuccessful(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, client := setupRefServiceWithoutRepo(t)
 
 	testCases := []struct {
@@ -111,6 +113,8 @@ func TestDeleteRefs_transaction(t *testing.T) {
 }
 
 func testDeleteRefsTransaction(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 
 	testcfg.BuildGitalyHooks(t, cfg)
@@ -193,6 +197,8 @@ func TestDeleteRefs_invalidRefFormat(t *testing.T) {
 }
 
 func testDeleteRefsInvalidRefFormat(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	_, repo, _, client := setupRefService(t, ctx)
 
 	request := &gitalypb.DeleteRefsRequest{
@@ -230,6 +236,8 @@ func TestDeleteRefs_refLocked(t *testing.T) {
 }
 
 func testDeleteRefsRefLocked(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, repoProto, _, client := setupRefService(t, ctx)
 
 	request := &gitalypb.DeleteRefsRequest{

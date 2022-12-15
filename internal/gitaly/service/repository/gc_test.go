@@ -72,8 +72,7 @@ func TestGarbageCollectSuccess(t *testing.T) {
 		t.Run(test.desc, func(t *testing.T) {
 			// Reset mtime to a long while ago since some filesystems don't have sub-second
 			// precision on `mtime`.
-			// Stamp taken from https://golang.org/pkg/time/#pkg-constants
-			testhelper.MustRunCommand(t, nil, "touch", "-t", testTimeString, packPath)
+			require.NoError(t, os.Chtimes(packPath, testTime, testTime))
 			//nolint:staticcheck
 			c, err := client.GarbageCollect(ctx, test.req)
 			assert.NoError(t, err)
@@ -207,7 +206,7 @@ func TestGarbageCollectDeletesPackedRefsLock(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	testCases := []struct {
+	for _, tc := range []struct {
 		desc        string
 		createLock  func(t *testing.T, lockfilePath string)
 		shouldExist bool
@@ -230,13 +229,16 @@ func TestGarbageCollectDeletesPackedRefsLock(t *testing.T) {
 			desc:        "with a non-existing lock",
 			shouldExist: false,
 		},
-	}
+	} {
+		tc := tc
 
-	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-				Seed: gittest.SeedGitLabTest,
-			})
+			t.Parallel()
+
+			repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+			gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+			gittest.Exec(t, cfg, "-C", repoPath, "pack-refs", "--all")
 
 			// Force the packed-refs file to have an old time to test that even
 			// in that case it doesn't get deleted

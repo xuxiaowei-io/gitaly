@@ -17,6 +17,8 @@ import (
 )
 
 func TestServer_ListRefs(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg, _, _, client := setupRefService(t, ctx)
 
@@ -172,6 +174,8 @@ func TestServer_ListRefs(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
 			c, err := client.ListRefs(ctx, tc.request)
 			require.NoError(t, err)
 

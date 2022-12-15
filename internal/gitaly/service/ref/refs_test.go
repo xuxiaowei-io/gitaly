@@ -7,6 +7,8 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -14,7 +16,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -34,6 +35,8 @@ func containsRef(refs [][]byte, ref string) bool {
 
 //nolint:staticcheck
 func TestSuccessfulFindAllBranchNames(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	_, repo, _, client := setupRefService(t, ctx)
 
@@ -60,13 +63,13 @@ func TestSuccessfulFindAllBranchNames(t *testing.T) {
 
 //nolint:staticcheck
 func TestFindAllBranchNamesVeryLargeResponse(t *testing.T) {
-	ctx := testhelper.Context(t)
-	cfg, repoProto, _, client := setupRefService(t, ctx)
+	t.Parallel()
 
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-	updater, err := updateref.New(ctx, repo)
-	require.NoError(t, err)
-	defer testhelper.MustClose(t, updater)
+	ctx := testhelper.Context(t)
+	cfg, client := setupRefServiceWithoutRepo(t)
+
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	commitID := gittest.WriteCommit(t, cfg, repoPath)
 
 	// We want to create enough refs to overflow the default bufio.Scanner
 	// buffer. Such an overflow will cause scanner.Bytes() to become invalid
@@ -76,25 +79,26 @@ func TestFindAllBranchNamesVeryLargeResponse(t *testing.T) {
 	refSizeLowerBound := 100
 	numRefs := 2 * bufio.MaxScanTokenSize / refSizeLowerBound
 
-	require.NoError(t, updater.Start())
-
-	var testRefs []string
-	for i := 0; i < numRefs; i++ {
-		refName := fmt.Sprintf("refs/heads/test-%0100d", i)
-		require.True(t, len(refName) > refSizeLowerBound, "ref %q must be larger than %d", refName, refSizeLowerBound)
-
-		require.NoError(t, updater.Create(git.ReferenceName(refName), "HEAD"))
-		testRefs = append(testRefs, refName)
-	}
-
-	require.NoError(t, updater.Commit())
-
-	rpcRequest := &gitalypb.FindAllBranchNamesRequest{Repository: repoProto}
-
-	c, err := client.FindAllBranchNames(ctx, rpcRequest)
+	// Instead of using git-update-ref(1) to create the thousands of references we just write
+	// our own packed-refs file, which is significantly faster.
+	packedRefs, err := os.Create(filepath.Join(repoPath, "packed-refs"))
 	require.NoError(t, err)
 
-	var names [][]byte
+	var expectedRefs [][]byte
+	for i := 0; i < numRefs; i++ {
+		refName := fmt.Sprintf("refs/heads/test-%0100d", i)
+		_, err := packedRefs.WriteString(fmt.Sprintf("%s %s\n", commitID, refName))
+		require.NoError(t, err)
+		expectedRefs = append(expectedRefs, []byte(refName))
+	}
+	testhelper.MustClose(t, packedRefs)
+
+	c, err := client.FindAllBranchNames(ctx, &gitalypb.FindAllBranchNamesRequest{
+		Repository: repoProto,
+	})
+	require.NoError(t, err)
+
+	var actualRefs [][]byte
 	for {
 		r, err := c.Recv()
 		if err == io.EOF {
@@ -102,16 +106,15 @@ func TestFindAllBranchNamesVeryLargeResponse(t *testing.T) {
 		}
 		require.NoError(t, err)
 
-		names = append(names, r.GetNames()...)
+		actualRefs = append(actualRefs, r.GetNames()...)
 	}
-
-	for _, branch := range testRefs {
-		require.Contains(t, names, []byte(branch), "branch missing from response: %q", branch)
-	}
+	require.Equal(t, expectedRefs, actualRefs)
 }
 
 //nolint:staticcheck
 func TestEmptyFindAllBranchNamesRequest(t *testing.T) {
+	t.Parallel()
+
 	_, client := setupRefServiceWithoutRepo(t)
 
 	rpcRequest := &gitalypb.FindAllBranchNamesRequest{}
@@ -131,8 +134,11 @@ func TestEmptyFindAllBranchNamesRequest(t *testing.T) {
 
 //nolint:staticcheck
 func TestFindAllBranchNames_validate(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg, repo, _, client := setupRefService(t, ctx)
+
 	for _, tc := range []struct {
 		desc        string
 		repo        *gitalypb.Repository
@@ -174,6 +180,8 @@ func TestFindAllBranchNames_validate(t *testing.T) {
 
 //nolint:staticcheck
 func TestSuccessfulFindAllTagNames(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	_, repo, _, client := setupRefService(t, ctx)
 
@@ -200,8 +208,11 @@ func TestSuccessfulFindAllTagNames(t *testing.T) {
 
 //nolint:staticcheck
 func TestFindAllTagNames_validate(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg, repo, _, client := setupRefService(t, ctx)
+
 	for _, tc := range []struct {
 		desc        string
 		repo        *gitalypb.Repository
@@ -242,6 +253,8 @@ func TestFindAllTagNames_validate(t *testing.T) {
 }
 
 func TestSuccessfulFindDefaultBranchName(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg, repo, repoPath, client := setupRefService(t, ctx)
 	rpcRequest := &gitalypb.FindDefaultBranchNameRequest{Repository: repo}
@@ -257,8 +270,11 @@ func TestSuccessfulFindDefaultBranchName(t *testing.T) {
 }
 
 func TestSuccessfulFindDefaultBranchNameLegacy(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	_, repo, _, client := setupRefService(t, ctx)
+
 	rpcRequest := &gitalypb.FindDefaultBranchNameRequest{Repository: repo}
 	r, err := client.FindDefaultBranchName(ctx, rpcRequest)
 	require.NoError(t, err)
@@ -267,6 +283,8 @@ func TestSuccessfulFindDefaultBranchNameLegacy(t *testing.T) {
 }
 
 func TestEmptyFindDefaultBranchNameRequest(t *testing.T) {
+	t.Parallel()
+
 	_, client := setupRefServiceWithoutRepo(t)
 	rpcRequest := &gitalypb.FindDefaultBranchNameRequest{}
 	ctx := testhelper.Context(t)
@@ -278,8 +296,11 @@ func TestEmptyFindDefaultBranchNameRequest(t *testing.T) {
 }
 
 func TestFindDefaultBranchName_validate(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg, repo, _, client := setupRefService(t, ctx)
+
 	for _, tc := range []struct {
 		desc        string
 		repo        *gitalypb.Repository
@@ -603,6 +624,8 @@ func TestFindLocalBranches_validate(t *testing.T) {
 }
 
 func TestSuccessfulFindAllBranchesRequest(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg, repo, repoPath, client := setupRefService(t, ctx)
 
@@ -653,6 +676,8 @@ func TestSuccessfulFindAllBranchesRequest(t *testing.T) {
 }
 
 func TestSuccessfulFindAllBranchesRequestWithMergedBranches(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg, repoProto, repoPath, client := setupRefService(t, ctx)
 
@@ -739,6 +764,8 @@ func TestSuccessfulFindAllBranchesRequestWithMergedBranches(t *testing.T) {
 }
 
 func TestInvalidFindAllBranchesRequest(t *testing.T) {
+	t.Parallel()
+
 	_, client := setupRefServiceWithoutRepo(t)
 
 	for _, tc := range []struct {
@@ -798,6 +825,8 @@ func readFindAllBranchesResponsesFromClient(t *testing.T, c gitalypb.RefService_
 }
 
 func TestListTagNamesContainingCommit(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	_, repoProto, _, client := setupRefService(t, ctx)
 
@@ -899,6 +928,8 @@ func TestListTagNamesContainingCommit_validate(t *testing.T) {
 }
 
 func TestListBranchNamesContainingCommit(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	_, repo, _, client := setupRefService(t, ctx)
 

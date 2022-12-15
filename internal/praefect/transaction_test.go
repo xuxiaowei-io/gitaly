@@ -632,7 +632,11 @@ func TestTransactionCancellation(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
+		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
 			ctx := testhelper.Context(t)
 
 			cc, txMgr, cleanup := runPraefectServerAndTxMgr(t, ctx)
@@ -704,6 +708,8 @@ func TestStopTransaction(t *testing.T) {
 	hash := sha1.Sum([]byte("foo"))
 
 	t.Run("stopping nonexisting transaction fails", func(t *testing.T) {
+		t.Parallel()
+
 		ctx := testhelper.Context(t)
 
 		cc, _, cleanup := runPraefectServerAndTxMgr(t, ctx)
@@ -718,6 +724,8 @@ func TestStopTransaction(t *testing.T) {
 	})
 
 	t.Run("stopping transaction multiple times succeeds", func(t *testing.T) {
+		t.Parallel()
+
 		ctx := testhelper.Context(t)
 
 		cc, txMgr, cleanup := runPraefectServerAndTxMgr(t, ctx)
@@ -750,6 +758,8 @@ func TestStopTransaction(t *testing.T) {
 	})
 
 	t.Run("stopping a single voter", func(t *testing.T) {
+		t.Parallel()
+
 		ctx := testhelper.Context(t)
 
 		cc, txMgr, cleanup := runPraefectServerAndTxMgr(t, ctx)
@@ -791,6 +801,8 @@ func TestStopTransaction(t *testing.T) {
 	})
 
 	t.Run("stopping in-progress transaction", func(t *testing.T) {
+		t.Parallel()
+
 		ctx := testhelper.Context(t)
 
 		cc, txMgr, cleanup := runPraefectServerAndTxMgr(t, ctx)
@@ -843,6 +855,8 @@ func TestStopTransaction(t *testing.T) {
 	})
 
 	t.Run("stopping cancelled transaction fails", func(t *testing.T) {
+		t.Parallel()
+
 		ctx := testhelper.Context(t)
 
 		cc, txMgr, cleanup := runPraefectServerAndTxMgr(t, ctx)
@@ -868,6 +882,8 @@ func TestStopTransaction(t *testing.T) {
 	})
 
 	t.Run("stopping concurrent voter", func(t *testing.T) {
+		t.Parallel()
+
 		ctx := testhelper.Context(t)
 
 		cc, txMgr, cleanup := runPraefectServerAndTxMgr(t, ctx)

@@ -30,9 +30,6 @@ import (
 	"google.golang.org/grpc"
 )
 
-// Stamp taken from https://golang.org/pkg/time/#pkg-constants
-const testTimeString = "200601021504.05"
-
 var testTime = time.Date(2006, 1, 2, 15, 4, 5, 0, time.UTC)
 
 func TestMain(m *testing.M) {

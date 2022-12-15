@@ -201,6 +201,8 @@ func TestFindAllTags_successful(t *testing.T) {
 }
 
 func TestFindAllTags_simpleNestedTags(t *testing.T) {
+	t.Parallel()
+
 	cfg, client := setupRefServiceWithoutRepo(t)
 	ctx := testhelper.Context(t)
 
@@ -239,8 +241,9 @@ func TestFindAllTags_simpleNestedTags(t *testing.T) {
 }
 
 func TestFindAllTags_duplicateAnnotatedTags(t *testing.T) {
-	cfg, client := setupRefServiceWithoutRepo(t)
+	t.Parallel()
 
+	cfg, client := setupRefServiceWithoutRepo(t)
 	ctx := testhelper.Context(t)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -315,6 +318,8 @@ func TestFindAllTags_duplicateAnnotatedTags(t *testing.T) {
 }
 
 func TestFindAllTags_nestedTags(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg, repoProto, repoPath, client := setupRefService(t, ctx)
 
@@ -428,6 +433,8 @@ func TestFindAllTags_nestedTags(t *testing.T) {
 }
 
 func TestFindAllTags_invalidRequest(t *testing.T) {
+	t.Parallel()
+
 	_, client := setupRefServiceWithoutRepo(t)
 	ctx := testhelper.Context(t)
 
@@ -475,6 +482,8 @@ func TestFindAllTags_invalidRequest(t *testing.T) {
 }
 
 func TestFindAllTags_pagination(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg, repoProto, repoPath, client := setupRefService(t, ctx)
 
@@ -549,7 +558,11 @@ func TestFindAllTags_pagination(t *testing.T) {
 			},
 		},
 	} {
+		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
 			c, err := client.FindAllTags(ctx, &gitalypb.FindAllTagsRequest{
 				Repository:       repoProto,
 				PaginationParams: tc.paginationParams,
@@ -583,6 +596,8 @@ func TestFindAllTags_pagination(t *testing.T) {
 }
 
 func TestFindAllTags_sorted(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg, repoProto, _, client := setupRefService(t, ctx)
 
@@ -670,6 +685,8 @@ func TestFindAllTags_sorted(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
 			c, err := client.FindAllTags(ctx, &gitalypb.FindAllTagsRequest{
 				Repository: repoProto,
 				SortBy:     tc.sortBy,
@@ -693,6 +710,8 @@ func TestFindAllTags_sorted(t *testing.T) {
 	}
 
 	t.Run("by unsupported key", func(t *testing.T) {
+		t.Parallel()
+
 		c, err := client.FindAllTags(ctx, &gitalypb.FindAllTagsRequest{
 			Repository: repoProto,
 			SortBy:     &gitalypb.FindAllTagsRequest_SortBy{Key: gitalypb.FindAllTagsRequest_SortBy_Key(-1)},
@@ -704,6 +723,8 @@ func TestFindAllTags_sorted(t *testing.T) {
 	})
 
 	t.Run("by unsupported direction", func(t *testing.T) {
+		t.Parallel()
+
 		c, err := client.FindAllTags(ctx, &gitalypb.FindAllTagsRequest{
 			Repository: repoProto,
 			SortBy:     &gitalypb.FindAllTagsRequest_SortBy{Key: gitalypb.FindAllTagsRequest_SortBy_REFNAME, Direction: gitalypb.SortDirection(-1)},
@@ -715,6 +736,8 @@ func TestFindAllTags_sorted(t *testing.T) {
 	})
 
 	t.Run("no tags", func(t *testing.T) {
+		t.Parallel()
+
 		repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
 		c, err := client.FindAllTags(ctx, &gitalypb.FindAllTagsRequest{
 			Repository: repoProto,

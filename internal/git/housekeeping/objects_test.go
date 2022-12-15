@@ -38,6 +38,8 @@ func TestRepackObjects(t *testing.T) {
 	cfg := testcfg.Build(t)
 
 	t.Run("no server info is written", func(t *testing.T) {
+		t.Parallel()
+
 		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 		})
@@ -58,6 +60,8 @@ func TestRepackObjects(t *testing.T) {
 	})
 
 	testRepoAndPool(t, "delta islands", func(t *testing.T, relativePath string) {
+		t.Parallel()
+
 		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 			RelativePath:           relativePath,

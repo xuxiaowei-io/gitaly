@@ -40,16 +40,15 @@ func TestUserCommitFiles(t *testing.T) {
 func testUserCommitFiles(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	const (
 		DefaultMode    = "100644"
 		ExecutableMode = "100755"
-
-		targetRelativePath = "target-repository"
 	)
 
 	startRepo, _ := gittest.CreateRepository(t, ctx, cfg)
+	targetRepoSentinel := &gitalypb.Repository{}
 
 	type step struct {
 		actions           []*gitalypb.UserCommitFilesRequest
@@ -851,12 +850,9 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 						createFileHeaderRequest("file-1"),
 						actionContentRequest("content-1"),
 					},
-					startRepository: &gitalypb.Repository{
-						StorageName:  startRepo.GetStorageName(),
-						RelativePath: targetRelativePath,
-					},
-					branchCreated: true,
-					repoCreated:   true,
+					startRepository: targetRepoSentinel,
+					branchCreated:   true,
+					repoCreated:     true,
 					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "content-1"},
 					},
@@ -899,14 +895,20 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 			},
 		},
 	} {
+		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
 			const branch = "main"
 
-			repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-				RelativePath: targetRelativePath,
-			})
+			repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 			for i, step := range tc.steps {
+				if step.startRepository == targetRepoSentinel {
+					step.startRepository = repo
+				}
+
 				headerRequest := headerRequest(
 					repo,
 					gittest.TestUser,
