@@ -39,6 +39,7 @@ func TestCreate(t *testing.T) {
 
 	for _, tc := range []struct {
 		desc   string
+		opts   []CreateOption
 		setup  func(t *testing.T, repo *gitalypb.Repository, repoPath string)
 		seed   func(t *testing.T, repo *gitalypb.Repository, repoPath string) error
 		verify func(
@@ -245,8 +246,33 @@ func TestCreate(t *testing.T) {
 				}
 			},
 		},
+		{
+			desc: "override branch",
+			opts: []CreateOption{
+				WithBranchName("default"),
+			},
+			verify: func(t *testing.T, _ *gitalypb.Repository, _ string, _ *gitalypb.Repository, realRepoPath string) {
+				defaultBranch := text.ChompBytes(gittest.Exec(t, cfg, "-C", realRepoPath, "symbolic-ref", "HEAD"))
+				require.Equal(t, "refs/heads/default", defaultBranch)
+			},
+		},
+		{
+			desc: "override hash",
+			opts: []CreateOption{
+				WithObjectHash(git.ObjectHashSHA256),
+			},
+			verify: func(t *testing.T, _ *gitalypb.Repository, _ string, _ *gitalypb.Repository, realRepoPath string) {
+				objectFormat := text.ChompBytes(gittest.Exec(t, cfg, "-C", realRepoPath, "rev-parse", "--show-object-format"))
+				require.Equal(t, "sha256", objectFormat)
+			},
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
+			// Make sure that we don't leak either the context or the mocked transaction
+			// manager's data.
+			ctx := ctx
+			*txManager = transaction.MockManager{}
+
 			repo := &gitalypb.Repository{
 				StorageName:  cfg.Storages[0].Name,
 				RelativePath: gittest.NewRepositoryName(t),
@@ -287,7 +313,7 @@ func TestCreate(t *testing.T) {
 				}
 
 				return nil
-			}))
+			}, tc.opts...))
 
 			var tempRepoPath string
 			if tempRepo != nil {
