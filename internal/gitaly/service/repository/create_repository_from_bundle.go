@@ -56,7 +56,7 @@ func (s *server) CreateRepositoryFromBundle(stream gitalypb.RepositoryService_Cr
 		return structerr.NewInternal("writing bundle file: %w", err)
 	}
 
-	if err := s.createRepository(ctx, repo, func(repo *gitalypb.Repository) error {
+	if err := createRepository(ctx, s.locator, s.gitCmdFactory, s.txManager, repo, func(repo *gitalypb.Repository) error {
 		var stderr bytes.Buffer
 		cmd, err := s.gitCmdFactory.New(ctx, repo, git.Command{
 			Name: "fetch",

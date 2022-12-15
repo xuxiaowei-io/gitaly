@@ -23,7 +23,7 @@ func (s *server) CreateFork(ctx context.Context, req *gitalypb.CreateForkRequest
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
-	if err := s.createRepository(ctx, targetRepository, func(repo *gitalypb.Repository) error {
+	if err := createRepository(ctx, s.locator, s.gitCmdFactory, s.txManager, targetRepository, func(repo *gitalypb.Repository) error {
 		targetPath, err := s.locator.GetPath(repo)
 		if err != nil {
 			return err

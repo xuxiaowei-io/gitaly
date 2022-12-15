@@ -35,13 +35,6 @@ func TestCreateRepository(t *testing.T) {
 	locator := config.NewLocator(cfg)
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 
-	server := &server{
-		cfg:           cfg,
-		locator:       locator,
-		txManager:     txManager,
-		gitCmdFactory: gitCmdFactory,
-	}
-
 	var votesByPhase map[voting.Phase]int
 
 	for _, tc := range []struct {
@@ -274,7 +267,7 @@ func TestCreateRepository(t *testing.T) {
 			}
 
 			var tempRepo *gitalypb.Repository
-			require.Equal(t, tc.expectedErr, server.createRepository(ctx, repo, func(tr *gitalypb.Repository) error {
+			require.Equal(t, tc.expectedErr, createRepository(ctx, locator, gitCmdFactory, txManager, repo, func(tr *gitalypb.Repository) error {
 				tempRepo = tr
 
 				// The temporary repository must have been created in Gitaly's

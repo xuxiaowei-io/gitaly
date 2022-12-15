@@ -20,8 +20,11 @@ func (s *server) CreateRepository(ctx context.Context, req *gitalypb.CreateRepos
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
-	if err := s.createRepository(
+	if err := createRepository(
 		ctx,
+		s.locator,
+		s.gitCmdFactory,
+		s.txManager,
 		repository,
 		func(repo *gitalypb.Repository) error {
 			// We do not want to seed the repository with any contents, so we just

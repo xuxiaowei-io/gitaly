@@ -11,6 +11,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
@@ -53,13 +54,16 @@ func withObjectHash(hash git.ObjectHash) createRepositoryOption {
 // semantics. The repository will only be created if it doesn't yet exist and if nodes which take
 // part in the transaction reach quorum. Otherwise, the target path of the new repository will not
 // be modified. The repository can optionally be seeded with contents
-func (s *server) createRepository(
+func createRepository(
 	ctx context.Context,
+	locator storage.Locator,
+	gitCmdFactory git.CommandFactory,
+	txManager transaction.Manager,
 	repository *gitalypb.Repository,
 	seedRepository func(repository *gitalypb.Repository) error,
 	options ...createRepositoryOption,
 ) error {
-	targetPath, err := s.locator.GetPath(repository)
+	targetPath, err := locator.GetPath(repository)
 	if err != nil {
 		return structerr.NewInvalidArgument("locate repository: %w", err)
 	}
@@ -75,7 +79,7 @@ func (s *server) createRepository(
 		return structerr.NewInternal("create directories: %w", err)
 	}
 
-	newRepo, newRepoDir, err := tempdir.NewRepository(ctx, repository.GetStorageName(), s.locator)
+	newRepo, newRepoDir, err := tempdir.NewRepository(ctx, repository.GetStorageName(), locator)
 	if err != nil {
 		return fmt.Errorf("creating temporary repository: %w", err)
 	}
@@ -96,7 +100,7 @@ func (s *server) createRepository(
 	}
 
 	stderr := &bytes.Buffer{}
-	cmd, err := s.gitCmdFactory.NewWithoutRepo(ctx, git.Command{
+	cmd, err := gitCmdFactory.NewWithoutRepo(ctx, git.Command{
 		Name: "init",
 		Flags: append([]git.Option{
 			git.Flag{Name: "--bare"},
@@ -203,7 +207,7 @@ func (s *server) createRepository(
 		return structerr.NewAlreadyExists("repository exists already")
 	}
 
-	if err := transaction.VoteOnContext(ctx, s.txManager, vote, voting.Prepared); err != nil {
+	if err := transaction.VoteOnContext(ctx, txManager, vote, voting.Prepared); err != nil {
 		return structerr.NewFailedPrecondition("preparatory vote: %w", err)
 	}
 
@@ -213,7 +217,7 @@ func (s *server) createRepository(
 		return fmt.Errorf("moving repository into place: %w", err)
 	}
 
-	if err := transaction.VoteOnContext(ctx, s.txManager, vote, voting.Committed); err != nil {
+	if err := transaction.VoteOnContext(ctx, txManager, vote, voting.Committed); err != nil {
 		return structerr.NewFailedPrecondition("committing vote: %w", err)
 	}
 

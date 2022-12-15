@@ -128,7 +128,8 @@ func (s *server) CreateRepositoryFromSnapshot(ctx context.Context, in *gitalypb.
 	if err := service.ValidateRepository(repository); err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
-	if err := s.createRepository(ctx, repository, func(repo *gitalypb.Repository) error {
+
+	if err := createRepository(ctx, s.locator, s.gitCmdFactory, s.txManager, repository, func(repo *gitalypb.Repository) error {
 		path, err := s.locator.GetPath(repo)
 		if err != nil {
 			return structerr.NewInternal("getting repo path: %w", err)
