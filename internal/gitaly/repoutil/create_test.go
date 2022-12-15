@@ -1,4 +1,4 @@
-package repository
+package repoutil
 
 import (
 	"context"
@@ -25,7 +25,7 @@ import (
 	"google.golang.org/grpc/peer"
 )
 
-func TestCreateRepository(t *testing.T) {
+func TestCreate(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
@@ -267,7 +267,7 @@ func TestCreateRepository(t *testing.T) {
 			}
 
 			var tempRepo *gitalypb.Repository
-			require.Equal(t, tc.expectedErr, createRepository(ctx, locator, gitCmdFactory, txManager, repo, func(tr *gitalypb.Repository) error {
+			require.Equal(t, tc.expectedErr, Create(ctx, locator, gitCmdFactory, txManager, repo, func(tr *gitalypb.Repository) error {
 				tempRepo = tr
 
 				// The temporary repository must have been created in Gitaly's

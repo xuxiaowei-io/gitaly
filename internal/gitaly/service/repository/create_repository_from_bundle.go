@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/repoutil"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/tempdir"
@@ -56,7 +57,7 @@ func (s *server) CreateRepositoryFromBundle(stream gitalypb.RepositoryService_Cr
 		return structerr.NewInternal("writing bundle file: %w", err)
 	}
 
-	if err := createRepository(ctx, s.locator, s.gitCmdFactory, s.txManager, repo, func(repo *gitalypb.Repository) error {
+	if err := repoutil.Create(ctx, s.locator, s.gitCmdFactory, s.txManager, repo, func(repo *gitalypb.Repository) error {
 		var stderr bytes.Buffer
 		cmd, err := s.gitCmdFactory.New(ctx, repo, git.Command{
 			Name: "fetch",
