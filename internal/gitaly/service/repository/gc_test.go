@@ -302,6 +302,8 @@ func TestGarbageCollectDeletesFileLocks(t *testing.T) {
 			expectedErrContains: "Another git process seems to be running in this repository",
 		},
 	} {
+		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 

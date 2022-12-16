@@ -27,6 +27,7 @@ linters:
     - misspell
     - noctx
     - nolintlint
+    - paralleltest
     - revive
     - staticcheck
     - stylecheck
@@ -84,6 +85,9 @@ linters-settings:
       # checks to verify we don't use `t.Parallel()` when setting envvars.
       - ^os.Setenv$
       - ^os.Unsetenv$
+  paralleltest:
+    # Ignore missing calls to `t.Parallel()` and only report incorrect uses of it.
+    ignore-missing: true
   revive:
     # Specifying any rule explicitly will disable the default-enabled rules.
     # Manually specify the defaults along with `context-as-argument`.
