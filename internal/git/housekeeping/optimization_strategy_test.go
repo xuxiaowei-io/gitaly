@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package housekeeping
 
 import (
@@ -173,7 +171,7 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 				info: stats.RepositoryInfo{
 					LooseObjects: stats.LooseObjectsInfo{
 						Count: 2,
-						Size:  hashDependentObjectSize(142, 156),
+						Size:  hashDependentObjectSize(142, 158),
 					},
 					References: stats.ReferencesInfo{
 						LooseReferencesCount: 1,
@@ -204,7 +202,7 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 				info: stats.RepositoryInfo{
 					LooseObjects: stats.LooseObjectsInfo{
 						Count: 2,
-						Size:  hashDependentObjectSize(142, 156),
+						Size:  hashDependentObjectSize(142, 158),
 					},
 					References: stats.ReferencesInfo{
 						LooseReferencesCount: 1,
@@ -235,7 +233,7 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 				info: stats.RepositoryInfo{
 					LooseObjects: stats.LooseObjectsInfo{
 						Count: 2,
-						Size:  hashDependentObjectSize(142, 156),
+						Size:  hashDependentObjectSize(142, 158),
 					},
 					References: stats.ReferencesInfo{
 						LooseReferencesCount: 1,
