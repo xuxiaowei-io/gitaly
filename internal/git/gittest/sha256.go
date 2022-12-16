@@ -6,9 +6,5 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 )
 
-var (
-	// DefaultObjectHash is the default hash used for running tests.
-	DefaultObjectHash = git.ObjectHashSHA256
-
-	initRepoExtraArgs = []string{"--object-format=sha256"}
-)
+// DefaultObjectHash is the default hash used for running tests.
+var DefaultObjectHash = git.ObjectHashSHA256
