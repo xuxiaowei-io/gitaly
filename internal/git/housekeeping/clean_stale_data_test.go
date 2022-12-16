@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package housekeeping
 
 import (
@@ -278,9 +276,13 @@ func TestRepositoryManager_CleanStaleData(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
-			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 			ctx := testhelper.Context(t)
+			cfg := testcfg.Build(t)
+
+			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				SkipCreationViaService: true,
+			})
+			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 			// We need to fix permissions so we don't fail to
 			// remove the temporary directory after the test.
@@ -380,7 +382,12 @@ func TestRepositoryManager_CleanStaleData_references(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
-			cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
+			ctx := testhelper.Context(t)
+			cfg := testcfg.Build(t)
+
+			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				SkipCreationViaService: true,
+			})
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 			for _, ref := range tc.refs {
@@ -391,7 +398,6 @@ func TestRepositoryManager_CleanStaleData_references(t *testing.T) {
 				filetime := time.Now().Add(-ref.age)
 				require.NoError(t, os.Chtimes(path, filetime, filetime))
 			}
-			ctx := testhelper.Context(t)
 
 			mgr := NewManager(cfg.Prometheus, nil)
 
@@ -508,9 +514,13 @@ func TestRepositoryManager_CleanStaleData_emptyRefDirs(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
-			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 			ctx := testhelper.Context(t)
+			cfg := testcfg.Build(t)
+
+			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				SkipCreationViaService: true,
+			})
+			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 			for _, e := range tc.entries {
 				e.create(t, repoPath)
@@ -635,8 +645,11 @@ func TestRepositoryManager_CleanStaleData_withSpecificFile(t *testing.T) {
 			t.Parallel()
 
 			ctx := testhelper.Context(t)
+			cfg := testcfg.Build(t)
 
-			cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
+			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				SkipCreationViaService: true,
+			})
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 			mgr := NewManager(cfg.Prometheus, nil)
 
@@ -697,9 +710,13 @@ func TestRepositoryManager_CleanStaleData_withSpecificFile(t *testing.T) {
 
 func TestRepositoryManager_CleanStaleData_serverInfo(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
 
-	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	entries := []entry{
@@ -811,7 +828,12 @@ func TestRepositoryManager_CleanStaleData_referenceLocks(t *testing.T) {
 
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
-			cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
+
+			cfg := testcfg.Build(t)
+
+			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				SkipCreationViaService: true,
+			})
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 			for _, e := range tc.entries {
@@ -930,9 +952,14 @@ func TestIsStaleTemporaryObject(t *testing.T) {
 
 func TestRepositoryManager_CleanStaleData_missingRepo(t *testing.T) {
 	t.Parallel()
-	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
 	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+	})
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	require.NoError(t, os.RemoveAll(repoPath))
 
@@ -1022,6 +1049,10 @@ func TestRepositoryManager_CleanStaleData_unsetConfigurationTransactional(t *tes
 	configKeys := gittest.Exec(t, cfg, "-C", repoPath, "config", "--list", "--local", "--name-only")
 
 	expectedConfig := "core.repositoryformatversion\ncore.filemode\ncore.bare\n"
+
+	if gittest.DefaultObjectHash.Format == "sha256" {
+		expectedConfig = expectedConfig + "extensions.objectformat\n"
+	}
 
 	if runtime.GOOS == "darwin" {
 		expectedConfig = expectedConfig + "core.ignorecase\ncore.precomposeunicode\n"
