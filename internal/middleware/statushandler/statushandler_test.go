@@ -3,6 +3,7 @@ package statushandler
 import (
 	"context"
 	"fmt"
+	"syscall"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -84,6 +85,12 @@ func testUnary(t *testing.T, ctx context.Context) {
 		"no errors": {
 			ctx:         ctx,
 			expectedErr: status.New(codes.OK, "").Err(),
+		},
+		"too many open files": {
+			ctx:                   ctx,
+			err:                   structerr.NewInternal("action: %w", fmt.Errorf("operation: %w", syscall.EMFILE)),
+			expectedErr:           status.Error(codes.ResourceExhausted, "action: operation: too many open files"),
+			skipIfFeatureDisabled: true,
 		},
 	} {
 		t.Run(desc, func(t *testing.T) {
@@ -169,6 +176,12 @@ func testStream(t *testing.T, ctx context.Context) {
 		"no errors": {
 			ctx:         ctx,
 			expectedErr: status.New(codes.OK, "").Err(),
+		},
+		"too many open files": {
+			ctx:                   ctx,
+			err:                   structerr.NewInternal("action: %w", fmt.Errorf("operation: %w", syscall.EMFILE)),
+			expectedErr:           status.Error(codes.ResourceExhausted, "action: operation: too many open files"),
+			skipIfFeatureDisabled: true,
 		},
 	} {
 		t.Run(desc, func(t *testing.T) {

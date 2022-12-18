@@ -2,6 +2,8 @@ package statushandler
 
 import (
 	"context"
+	"errors"
+	"syscall"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
@@ -56,6 +58,9 @@ func wrapCtxErr(ctx context.Context, err error) error {
 		return structerr.NewDeadlineExceeded("%v", err)
 	case ctx.Err() == context.Canceled:
 		return structerr.NewCanceled("%v", err)
+	case errors.Is(err, syscall.EMFILE) || errors.Is(err, syscall.ENFILE):
+		// Too many open file descriptors.
+		return structerr.NewResourceExhausted(err.Error())
 	default:
 		return structerr.NewInternal("%w", err)
 	}
