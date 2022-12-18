@@ -12,9 +12,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
+	"syscall"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
@@ -702,4 +705,59 @@ func TestFsckConfiguration(t *testing.T) {
 			require.NoError(t, err)
 		})
 	}
+}
+
+// TestExecCommandFactory_tooManyOpenFileDescriptors test exists to make sure the system
+// returns an expected syscall.EMFILE error when there is a problem with FD as the
+// middleware in internal/middleware/statushandler/statushandler.go heavily depends on it.
+func TestExecCommandFactory_tooManyOpenFileDescriptors(t *testing.T) {
+	// Do not run this test with t.Parallel(). The test setup affects settings of the
+	// current process and may lead to other tests failures.
+	ctx := testhelper.Context(t)
+
+	// setCur changes value of the Cur field of the Rlimit type.
+	// It is needed because on different OS this field represented by different types.
+	// Currently only by two: uint64, int64. That is why we use reflection to change the value.
+	setCur := func(t *testing.T, rl syscall.Rlimit, val int) syscall.Rlimit {
+		var cur interface{} = rl.Cur
+		switch cur.(type) {
+		case uint64:
+			reflect.ValueOf(&rl.Cur).Elem().SetUint(uint64(val))
+		case int64:
+			reflect.ValueOf(&rl.Cur).Elem().SetInt(int64(val))
+		default:
+			require.FailNowf(t, "code needs to be changed", "please add a new type: %T", rl.Cur)
+		}
+		return rl
+	}
+
+	setOpenFilesLimit := func(t *testing.T, limit int) {
+		// This is a flag for the resource to limit. In that case: open file descriptors.
+		const flag = syscall.RLIMIT_NOFILE
+		var rlim syscall.Rlimit
+		require.NoError(t, syscall.Getrlimit(flag, &rlim))
+		t.Cleanup(func() {
+			require.NoError(t, syscall.Setrlimit(flag, &rlim))
+		})
+		newRLimit := setCur(t, rlim, limit)
+		require.NoError(t, syscall.Setrlimit(flag, &newRLimit))
+	}
+
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	factory, finish, err := git.NewExecCommandFactory(cfg)
+	require.NoError(t, err)
+	t.Cleanup(finish)
+
+	setOpenFilesLimit(t, 10)
+
+	// It is enough to run whatever command usually as the limit is really low.
+	cmd, err := factory.New(ctx, repo, git.Command{
+		Name: "show",
+		Args: []string{"HEAD"},
+	})
+	if !assert.Error(t, err) {
+		_ = cmd.Wait() // we don't care about an error here as it shouldn't happen
+		return
+	}
+	require.ErrorIs(t, err, syscall.EMFILE) // too many open files
 }
