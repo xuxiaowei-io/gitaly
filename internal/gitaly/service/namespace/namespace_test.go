@@ -289,40 +289,15 @@ func TestRenameNamespaceWithNonexistentParentDir(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	testCases := []struct {
-		desc      string
-		request   *gitalypb.RenameNamespaceRequest
-		errorCode codes.Code
-	}{
-		{
-			desc: "existing source, non existing target directory",
-			request: &gitalypb.RenameNamespaceRequest{
-				From:        "existing",
-				To:          "some/other/new-path",
-				StorageName: existingStorage.Name,
-			},
-			errorCode: codes.OK,
-		},
-	}
+	_, err = client.RenameNamespace(ctx, &gitalypb.RenameNamespaceRequest{
+		From:        "existing",
+		To:          "some/other/new-path",
+		StorageName: existingStorage.Name,
+	})
+	require.NoError(t, err)
 
-	for _, tc := range testCases {
-		t.Run(tc.desc, func(t *testing.T) {
-			_, err = client.RenameNamespace(ctx, &gitalypb.RenameNamespaceRequest{
-				From:        "existing",
-				To:          "some/other/new-path",
-				StorageName: existingStorage.Name,
-			})
-			require.Equal(t, tc.errorCode, helper.GrpcCode(err))
-
-			if tc.errorCode == codes.OK {
-				storagePath := getStorageDir(t, cfg, tc.request.StorageName)
-				require.NoError(t, err)
-
-				toDir := namespacePath(storagePath, tc.request.GetTo())
-
-				require.DirExists(t, toDir)
-				require.NoError(t, os.RemoveAll(toDir))
-			}
-		})
-	}
+	storagePath := getStorageDir(t, cfg, existingStorage.Name)
+	require.NoError(t, err)
+	toDir := namespacePath(storagePath, "some/other/new-path")
+	require.DirExists(t, toDir)
 }
