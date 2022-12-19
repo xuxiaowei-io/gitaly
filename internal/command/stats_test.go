@@ -70,3 +70,19 @@ func TestStatsFromContext_RecordMax(t *testing.T) {
 	require.NotNil(t, stats)
 	require.Equal(t, stats.Fields(), logrus.Fields{"foo": 1024})
 }
+
+func TestStatsFromContext_RecordMetadata(t *testing.T) {
+	ctx := testhelper.Context(t)
+
+	ctx = InitContextStats(ctx)
+
+	stats := StatsFromContext(ctx)
+
+	stats.RecordMetadata("foo", "bar")
+	require.NotNil(t, stats)
+	require.Equal(t, stats.Fields(), logrus.Fields{"foo": "bar"})
+
+	stats.RecordMetadata("foo", "baz") // override the existing value
+	require.NotNil(t, stats)
+	require.Equal(t, stats.Fields(), logrus.Fields{"foo": "baz"})
+}
