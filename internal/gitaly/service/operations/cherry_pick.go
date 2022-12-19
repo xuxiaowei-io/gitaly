@@ -34,7 +34,7 @@ func (s *Server) UserCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 
 	repoHadBranches, err := quarantineRepo.HasBranches(ctx)
 	if err != nil {
-		return nil, helper.ErrInternalf("has branches: %w", err)
+		return nil, structerr.NewInternal("has branches: %w", err)
 	}
 
 	repoPath, err := quarantineRepo.Path()
@@ -93,7 +93,7 @@ func (s *Server) UserCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 		case errors.Is(err, git2go.ErrInvalidArgument):
 			return nil, helper.ErrInvalidArgumentf("%w", err)
 		default:
-			return nil, helper.ErrInternalf("cherry-pick command: %w", err)
+			return nil, structerr.NewInternal("cherry-pick command: %w", err)
 		}
 	}
 
@@ -130,7 +130,7 @@ func (s *Server) UserCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 	if !branchCreated {
 		ancestor, err := quarantineRepo.IsAncestor(ctx, oldrev.Revision(), newrev.Revision())
 		if err != nil {
-			return nil, helper.ErrInternalf("checking for ancestry: %w", err)
+			return nil, structerr.NewInternal("checking for ancestry: %w", err)
 		}
 		if !ancestor {
 			return nil, structerr.NewFailedPrecondition("cherry-pick: branch diverged").WithDetail(
@@ -167,7 +167,7 @@ func (s *Server) UserCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 			}, nil
 		}
 
-		return nil, helper.ErrInternalf("update reference with hooks: %w", err)
+		return nil, structerr.NewInternal("update reference with hooks: %w", err)
 	}
 
 	return &gitalypb.UserCherryPickResponse{

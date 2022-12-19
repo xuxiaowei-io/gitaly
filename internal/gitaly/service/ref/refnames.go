@@ -8,6 +8,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -22,7 +23,7 @@ func (s *server) FindAllBranchNames(in *gitalypb.FindAllBranchNamesRequest, stre
 	chunker := chunk.New(&findAllBranchNamesSender{stream: stream})
 
 	if err := s.listRefNames(stream.Context(), chunker, "refs/heads", in.Repository, nil); err != nil {
-		return helper.ErrInternalf("%w", err)
+		return structerr.NewInternal("%w", err)
 	}
 
 	return nil
@@ -50,7 +51,7 @@ func (s *server) FindAllTagNames(in *gitalypb.FindAllTagNamesRequest, stream git
 
 	chunker := chunk.New(&findAllTagNamesSender{stream: stream})
 	if err := s.listRefNames(stream.Context(), chunker, "refs/tags", in.Repository, nil); err != nil {
-		return helper.ErrInternalf("%w", err)
+		return structerr.NewInternal("%w", err)
 	}
 
 	return nil

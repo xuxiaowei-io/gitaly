@@ -6,6 +6,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/protobuf/proto"
 )
@@ -20,7 +21,7 @@ func (s *server) ListCommitsByRefName(in *gitalypb.ListCommitsByRefNameRequest, 
 
 	objectReader, cancel, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
-		return helper.ErrInternalf("%w", err)
+		return structerr.NewInternal("%w", err)
 	}
 	defer cancel()
 
@@ -32,7 +33,7 @@ func (s *server) ListCommitsByRefName(in *gitalypb.ListCommitsByRefNameRequest, 
 			continue
 		}
 		if err != nil {
-			return helper.ErrInternalf("%w", err)
+			return structerr.NewInternal("%w", err)
 		}
 
 		commitByRef := &gitalypb.ListCommitsByRefNameResponse_CommitForRef{
@@ -40,7 +41,7 @@ func (s *server) ListCommitsByRefName(in *gitalypb.ListCommitsByRefNameRequest, 
 		}
 
 		if err := sender.Send(commitByRef); err != nil {
-			return helper.ErrInternalf("%w", err)
+			return structerr.NewInternal("%w", err)
 		}
 	}
 

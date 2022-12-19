@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -65,7 +66,7 @@ func (s *Server) userUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpda
 
 	branches, err := quarantineRepo.GetBranches(ctx)
 	if err != nil {
-		return nil, helper.ErrInternalf("get branches: %w", err)
+		return nil, structerr.NewInternal("get branches: %w", err)
 	}
 	if len(branches) == 0 {
 		return &gitalypb.UserUpdateSubmoduleResponse{
@@ -80,7 +81,7 @@ func (s *Server) userUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpda
 		if errors.Is(err, git.ErrReferenceNotFound) {
 			return nil, helper.ErrInvalidArgumentf("Cannot find branch")
 		}
-		return nil, helper.ErrInternalf("resolving revision: %w", err)
+		return nil, structerr.NewInternal("resolving revision: %w", err)
 	}
 
 	repoPath, err := quarantineRepo.Path()
@@ -132,7 +133,7 @@ func (s *Server) userUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpda
 		if resp != nil {
 			return resp, nil
 		}
-		return nil, helper.ErrInternalf("submodule subcommand: %w", err)
+		return nil, structerr.NewInternal("submodule subcommand: %w", err)
 	}
 
 	commitID, err := git.ObjectHashSHA1.FromHex(result.CommitID)
@@ -163,7 +164,7 @@ func (s *Server) userUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpda
 			}, nil
 		}
 
-		return nil, helper.ErrInternalf("updating ref with hooks: %w", err)
+		return nil, structerr.NewInternal("updating ref with hooks: %w", err)
 	}
 
 	return &gitalypb.UserUpdateSubmoduleResponse{

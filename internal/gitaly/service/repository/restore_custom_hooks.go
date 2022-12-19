@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/safe"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -27,7 +28,7 @@ func (s *server) RestoreCustomHooks(stream gitalypb.RepositoryService_RestoreCus
 
 	firstRequest, err := stream.Recv()
 	if err != nil {
-		return helper.ErrInternalf("first request failed %w", err)
+		return structerr.NewInternal("first request failed %w", err)
 	}
 
 	repository := firstRequest.GetRepository()
@@ -48,7 +49,7 @@ func (s *server) RestoreCustomHooks(stream gitalypb.RepositoryService_RestoreCus
 
 	repoPath, err := s.locator.GetPath(repository)
 	if err != nil {
-		return helper.ErrInternalf("getting repo path failed %w", err)
+		return structerr.NewInternal("getting repo path failed %w", err)
 	}
 
 	cmdArgs := []string{
@@ -62,11 +63,11 @@ func (s *server) RestoreCustomHooks(stream gitalypb.RepositoryService_RestoreCus
 	ctx := stream.Context()
 	cmd, err := command.New(ctx, append([]string{"tar"}, cmdArgs...), command.WithStdin(reader))
 	if err != nil {
-		return helper.ErrInternalf("Could not untar custom hooks tar %w", err)
+		return structerr.NewInternal("Could not untar custom hooks tar %w", err)
 	}
 
 	if err := cmd.Wait(); err != nil {
-		return helper.ErrInternalf("cmd wait failed: %w", err)
+		return structerr.NewInternal("cmd wait failed: %w", err)
 	}
 
 	return stream.SendAndClose(&gitalypb.RestoreCustomHooksResponse{})
@@ -75,7 +76,7 @@ func (s *server) RestoreCustomHooks(stream gitalypb.RepositoryService_RestoreCus
 func (s *server) restoreCustomHooksWithVoting(stream gitalypb.RepositoryService_RestoreCustomHooksServer) error {
 	firstRequest, err := stream.Recv()
 	if err != nil {
-		return helper.ErrInternalf("first request failed %w", err)
+		return structerr.NewInternal("first request failed %w", err)
 	}
 
 	ctx := stream.Context()
@@ -89,22 +90,22 @@ func (s *server) restoreCustomHooksWithVoting(stream gitalypb.RepositoryService_
 
 	repoPath, err := s.locator.GetRepoPath(repository)
 	if err != nil {
-		return helper.ErrInternalf("RestoreCustomHooks: getting repo path failed %w", err)
+		return structerr.NewInternal("RestoreCustomHooks: getting repo path failed %w", err)
 	}
 
 	customHooksPath := filepath.Join(repoPath, customHooksDir)
 
 	if err = os.MkdirAll(customHooksPath, os.ModePerm); err != nil {
-		return helper.ErrInternalf("making custom hooks directory %w", err)
+		return structerr.NewInternal("making custom hooks directory %w", err)
 	}
 
 	lockDir, err := safe.NewLockingDirectory(customHooksPath)
 	if err != nil {
-		return helper.ErrInternalf("RestoreCustomHooks: creating locking directory: %w", err)
+		return structerr.NewInternal("RestoreCustomHooks: creating locking directory: %w", err)
 	}
 
 	if err := lockDir.Lock(); err != nil {
-		return helper.ErrInternalf("locking directory failed: %w", err)
+		return structerr.NewInternal("locking directory failed: %w", err)
 	}
 
 	defer func() {
@@ -149,11 +150,11 @@ func (s *server) restoreCustomHooksWithVoting(stream gitalypb.RepositoryService_
 
 	cmd, err := command.New(ctx, append([]string{"tar"}, cmdArgs...), command.WithStdin(reader))
 	if err != nil {
-		return helper.ErrInternalf("Could not untar custom hooks tar %w", err)
+		return structerr.NewInternal("Could not untar custom hooks tar %w", err)
 	}
 
 	if err := cmd.Wait(); err != nil {
-		return helper.ErrInternalf("cmd wait failed: %w", err)
+		return structerr.NewInternal("cmd wait failed: %w", err)
 	}
 
 	if err := voteCustomHooks(ctx, s.txManager, &v, voting.Committed); err != nil {
@@ -161,7 +162,7 @@ func (s *server) restoreCustomHooksWithVoting(stream gitalypb.RepositoryService_
 	}
 
 	if err := lockDir.Unlock(); err != nil {
-		return helper.ErrInternalf("committing lock dir %w", err)
+		return structerr.NewInternal("committing lock dir %w", err)
 	}
 
 	return stream.SendAndClose(&gitalypb.RestoreCustomHooksResponse{})

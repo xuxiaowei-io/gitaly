@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/lines"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -78,7 +79,7 @@ func (s *server) FindDefaultBranchName(ctx context.Context, in *gitalypb.FindDef
 
 	defaultBranch, err := repo.GetDefaultBranch(ctx)
 	if err != nil {
-		return nil, helper.ErrInternalf("%w", err)
+		return nil, structerr.NewInternal("%w", err)
 	}
 
 	return &gitalypb.FindDefaultBranchNameResponse{Name: []byte(defaultBranch)}, nil
@@ -103,7 +104,7 @@ func (s *server) FindLocalBranches(in *gitalypb.FindLocalBranchesRequest, stream
 		return helper.ErrInvalidArgumentf("%w", err)
 	}
 	if err := s.findLocalBranches(in, stream); err != nil {
-		return helper.ErrInternalf("%w", err)
+		return structerr.NewInternal("%w", err)
 	}
 
 	return nil
@@ -139,7 +140,7 @@ func (s *server) FindAllBranches(in *gitalypb.FindAllBranchesRequest, stream git
 		return helper.ErrInvalidArgumentf("%w", err)
 	}
 	if err := s.findAllBranches(in, stream); err != nil {
-		return helper.ErrInternalf("%w", err)
+		return structerr.NewInternal("%w", err)
 	}
 
 	return nil

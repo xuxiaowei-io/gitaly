@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"golang.org/x/sync/errgroup"
 )
@@ -56,7 +56,7 @@ func (s *Server) RepositoryReplicas(ctx context.Context, in *gitalypb.Repository
 	var resp gitalypb.RepositoryReplicasResponse
 
 	if resp.Primary, err = s.getRepositoryDetails(ctx, virtualStorage, primary, relativePath, replicaPath); err != nil {
-		return nil, helper.ErrInternalf("%w", err)
+		return nil, structerr.NewInternal("%w", err)
 	}
 
 	resp.Replicas = make([]*gitalypb.RepositoryReplicasResponse_RepositoryDetails, len(secondaries))
@@ -74,7 +74,7 @@ func (s *Server) RepositoryReplicas(ctx context.Context, in *gitalypb.Repository
 	}
 
 	if err := g.Wait(); err != nil {
-		return nil, helper.ErrInternalf("%w", err)
+		return nil, structerr.NewInternal("%w", err)
 	}
 
 	return &resp, nil

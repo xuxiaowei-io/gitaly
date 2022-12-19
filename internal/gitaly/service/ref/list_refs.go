@@ -9,6 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/lines"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -25,7 +26,7 @@ func (s *server) ListRefs(in *gitalypb.ListRefsRequest, stream gitalypb.RefServi
 		var err error
 		headOID, err = repo.ResolveRevision(ctx, git.Revision("HEAD"))
 		if err != nil && !errors.Is(err, git.ErrReferenceNotFound) {
-			return helper.ErrInternalf("resolving HEAD: %w", err)
+			return structerr.NewInternal("resolving HEAD: %w", err)
 		}
 	}
 
@@ -45,7 +46,7 @@ func (s *server) ListRefs(in *gitalypb.ListRefsRequest, stream gitalypb.RefServi
 	}
 
 	if err := s.findRefs(ctx, writer, repo, patterns, opts); err != nil {
-		return helper.ErrInternalf("%w", err)
+		return structerr.NewInternal("%w", err)
 	}
 
 	return nil

@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/protobuf/proto"
 )
@@ -53,7 +54,7 @@ func (s *server) ListLFSPointers(in *gitalypb.ListLFSPointersRequest, stream git
 
 	objectReader, cancel, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
-		return helper.ErrInternalf("creating object reader: %w", err)
+		return structerr.NewInternal("creating object reader: %w", err)
 	}
 	defer cancel()
 
@@ -65,7 +66,7 @@ func (s *server) ListLFSPointers(in *gitalypb.ListLFSPointersRequest, stream git
 
 	catfileObjectIter, err := gitpipe.CatfileObject(ctx, objectReader, revlistIter)
 	if err != nil {
-		return helper.ErrInternalf("creating object iterator: %w", err)
+		return structerr.NewInternal("creating object iterator: %w", err)
 	}
 
 	if err := sendLFSPointers(chunker, catfileObjectIter, int(in.Limit)); err != nil {
@@ -97,7 +98,7 @@ func (s *server) ListAllLFSPointers(in *gitalypb.ListAllLFSPointersRequest, stre
 
 	objectReader, cancel, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
-		return helper.ErrInternalf("creating object reader: %w", err)
+		return structerr.NewInternal("creating object reader: %w", err)
 	}
 	defer cancel()
 
@@ -109,7 +110,7 @@ func (s *server) ListAllLFSPointers(in *gitalypb.ListAllLFSPointersRequest, stre
 
 	catfileObjectIter, err := gitpipe.CatfileObject(ctx, objectReader, catfileInfoIter)
 	if err != nil {
-		return helper.ErrInternalf("creating object iterator: %w", err)
+		return structerr.NewInternal("creating object iterator: %w", err)
 	}
 
 	if err := sendLFSPointers(chunker, catfileObjectIter, int(in.Limit)); err != nil {
@@ -141,13 +142,13 @@ func (s *server) GetLFSPointers(req *gitalypb.GetLFSPointersRequest, stream gita
 
 	objectInfoReader, cancel, err := s.catfileCache.ObjectInfoReader(ctx, repo)
 	if err != nil {
-		return helper.ErrInternalf("creating object info reader: %w", err)
+		return structerr.NewInternal("creating object info reader: %w", err)
 	}
 	defer cancel()
 
 	objectReader, cancel, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
-		return helper.ErrInternalf("creating object reader: %w", err)
+		return structerr.NewInternal("creating object reader: %w", err)
 	}
 	defer cancel()
 
@@ -162,13 +163,13 @@ func (s *server) GetLFSPointers(req *gitalypb.GetLFSPointersRequest, stream gita
 		}),
 	)
 	if err != nil {
-		return helper.ErrInternalf("creating object info iterator: %w", err)
+		return structerr.NewInternal("creating object info iterator: %w", err)
 	}
 	defer cancel()
 
 	catfileObjectIter, err := gitpipe.CatfileObject(ctx, objectReader, catfileInfoIter)
 	if err != nil {
-		return helper.ErrInternalf("creating object iterator: %w", err)
+		return structerr.NewInternal("creating object iterator: %w", err)
 	}
 
 	if err := sendLFSPointers(chunker, catfileObjectIter, 0); err != nil {
@@ -222,7 +223,7 @@ func sendLFSPointers(chunker *chunk.Chunker, iter gitpipe.CatfileObjectIterator,
 		// is 200 bytes in size. So it's not much of a problem to read this into memory
 		// completely.
 		if _, err := io.Copy(buffer, lfsPointer); err != nil {
-			return helper.ErrInternalf("reading LFS pointer data: %w", err)
+			return structerr.NewInternal("reading LFS pointer data: %w", err)
 		}
 
 		if !git.IsLFSPointer(buffer.Bytes()) {
@@ -237,7 +238,7 @@ func sendLFSPointers(chunker *chunk.Chunker, iter gitpipe.CatfileObjectIterator,
 			Size: int64(len(objectData)),
 			Oid:  lfsPointer.ObjectID().String(),
 		}); err != nil {
-			return helper.ErrInternalf("sending LFS pointer chunk: %w", err)
+			return structerr.NewInternal("sending LFS pointer chunk: %w", err)
 		}
 
 		i++
@@ -247,11 +248,11 @@ func sendLFSPointers(chunker *chunk.Chunker, iter gitpipe.CatfileObjectIterator,
 	}
 
 	if err := iter.Err(); err != nil {
-		return helper.ErrInternalf("%w", err)
+		return structerr.NewInternal("%w", err)
 	}
 
 	if err := chunker.Flush(); err != nil {
-		return helper.ErrInternalf("%w", err)
+		return structerr.NewInternal("%w", err)
 	}
 
 	return nil

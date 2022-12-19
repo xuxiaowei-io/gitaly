@@ -94,10 +94,10 @@ func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteReque
 	if err := repo.FetchRemote(ctx, remoteName, opts); err != nil {
 		errMsg := stderr.String()
 		if errMsg != "" {
-			return nil, helper.ErrInternalf("fetch remote: %q: %w", errMsg, err)
+			return nil, structerr.NewInternal("fetch remote: %q: %w", errMsg, err)
 		}
 
-		return nil, helper.ErrInternalf("fetch remote: %w", err)
+		return nil, structerr.NewInternal("fetch remote: %w", err)
 	}
 
 	// Ideally, we'd do the voting process via git-fetch(1) using the reference-transaction

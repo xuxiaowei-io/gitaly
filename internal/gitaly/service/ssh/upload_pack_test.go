@@ -214,7 +214,7 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 
 				return nil
 			},
-			expectedErr: helper.ErrInternalf(
+			expectedErr: structerr.NewInternal(
 				"cmd wait: exit status 128, stderr: %q",
 				"fatal: unknown capability 'want 1e292f8fedd741b75372e19097c76d327140c312 multi_ack'\n",
 			),
@@ -237,7 +237,7 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 
 				return nil
 			},
-			expectedErr: helper.ErrInternalf(
+			expectedErr: structerr.NewInternal(
 				"cmd wait: exit status 128, stderr: %q",
 				"fatal: git upload-pack: protocol error, expected to get object ID, not 'command=fetch'\n",
 			),
@@ -256,7 +256,7 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 
 				return nil
 			},
-			expectedErr: helper.ErrInternalf("cmd wait: exit status 128, stderr: %q",
+			expectedErr: structerr.NewInternal("cmd wait: exit status 128, stderr: %q",
 				"fatal: git upload-pack: not our ref "+strings.Repeat("1", 40)+"\n",
 			),
 		},
@@ -274,7 +274,7 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 
 				return nil
 			},
-			expectedErr: helper.ErrInternalf("cmd wait: exit status 128, stderr: %q",
+			expectedErr: structerr.NewInternal("cmd wait: exit status 128, stderr: %q",
 				"fatal: git upload-pack: protocol error, expected to get object ID, not 'want 1111 multi_ack'\n",
 			),
 		},
@@ -318,7 +318,7 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 				require.NoError(t, clientConn.CloseWrite())
 				return nil
 			},
-			expectedErr: helper.ErrInternalf("cmd wait: exit status 128, stderr: %q", "fatal: unknown capability 'foobar'\n"),
+			expectedErr: structerr.NewInternal("cmd wait: exit status 128, stderr: %q", "fatal: unknown capability 'foobar'\n"),
 		},
 		{
 			desc: "close and cancellation",
@@ -790,7 +790,7 @@ func TestUploadPack_gitFailure(t *testing.T) {
 	require.NoError(t, stream.CloseSend())
 
 	err = recvUntilError(t, stream)
-	testhelper.RequireGrpcError(t, helper.ErrInternalf(`cmd wait: exit status 128, stderr: "fatal: bad config line 1 in file ./config\n"`), err)
+	testhelper.RequireGrpcError(t, structerr.NewInternal(`cmd wait: exit status 128, stderr: "fatal: bad config line 1 in file ./config\n"`), err)
 }
 
 func recvUntilError(t *testing.T, stream gitalypb.SSHService_SSHUploadPackClient) error {

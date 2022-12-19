@@ -227,7 +227,7 @@ func TestReceivePack_client(t *testing.T) {
 			writeRequest: func(t *testing.T, stdin io.Writer) {
 				gittest.WritePktlineString(t, stdin, "garbage")
 			},
-			expectedErr:       helper.ErrInternalf("cmd wait: exit status 128"),
+			expectedErr:       structerr.NewInternal("cmd wait: exit status 128"),
 			expectedErrorCode: 128,
 			expectedStderr:    "fatal: protocol error: expected old/new/ref, got 'garbage'\n",
 		},

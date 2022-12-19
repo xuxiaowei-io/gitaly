@@ -26,7 +26,7 @@ func (s *server) RenameRepository(ctx context.Context, in *gitalypb.RenameReposi
 	}
 
 	if err := s.renameRepository(ctx, in.GetRepository(), targetRepo); err != nil {
-		return nil, helper.ErrInternalf("%w", err)
+		return nil, structerr.NewInternal("%w", err)
 	}
 
 	return &gitalypb.RenameRepositoryResponse{}, nil

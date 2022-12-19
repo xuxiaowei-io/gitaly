@@ -24,7 +24,7 @@ func (s *server) FindTag(ctx context.Context, in *gitalypb.FindTagRequest) (*git
 
 	tag, err := s.findTag(ctx, repo, in.GetTagName())
 	if err != nil {
-		return nil, helper.ErrInternalf("%w", err)
+		return nil, structerr.NewInternal("%w", err)
 	}
 
 	return &gitalypb.FindTagResponse{Tag: tag}, nil

@@ -152,7 +152,7 @@ func TestApplyGitattributes_transactional(t *testing.T) {
 			},
 			shouldExist: false,
 			expectedErr: func() error {
-				return helper.ErrInternalf("committing gitattributes: voting on locked file: preimage vote: transaction was aborted")
+				return structerr.NewInternal("committing gitattributes: voting on locked file: preimage vote: transaction was aborted")
 			}(),
 			expectedVotes: 1,
 		},

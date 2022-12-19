@@ -7,6 +7,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -30,7 +31,7 @@ func (s *server) SetFullPath(
 	repo := s.localrepo(repository)
 
 	if err := repo.SetConfig(ctx, fullPathKey, request.GetPath(), s.txManager); err != nil {
-		return nil, helper.ErrInternalf("setting config: %w", err)
+		return nil, structerr.NewInternal("setting config: %w", err)
 	}
 
 	return &gitalypb.SetFullPathResponse{}, nil
@@ -51,7 +52,7 @@ func (s *server) FullPath(ctx context.Context, request *gitalypb.FullPathRequest
 		Args: []string{fullPathKey},
 	}, git.WithStdout(&stdout))
 	if err != nil {
-		return nil, helper.ErrInternalf("fetch config: %w", err)
+		return nil, structerr.NewInternal("fetch config: %w", err)
 	}
 
 	return &gitalypb.FullPathResponse{

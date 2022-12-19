@@ -142,7 +142,7 @@ func nextPath(reader *bufio.Reader) (*gitalypb.ChangedPaths, error) {
 
 	parsedPath, ok := statusTypeMap[string(pathStatus)]
 	if !ok {
-		return nil, helper.ErrInternalf("unknown changed paths returned: %v", string(pathStatus))
+		return nil, structerr.NewInternal("unknown changed paths returned: %v", string(pathStatus))
 	}
 
 	changedPath := &gitalypb.ChangedPaths{
@@ -224,27 +224,27 @@ func (s *server) validateFindChangedPathsRequestParams(ctx context.Context, in *
 		case *gitalypb.FindChangedPathsRequest_Request_CommitRequest_:
 			oid, err := resolveObjectWithType(ctx, gitRepo, t.CommitRequest.GetCommitRevision(), "commit")
 			if err != nil {
-				return helper.ErrInternalf("resolving commit: %w", err)
+				return structerr.NewInternal("resolving commit: %w", err)
 			}
 			t.CommitRequest.CommitRevision = oid.String()
 
 			for i, commit := range t.CommitRequest.GetParentCommitRevisions() {
 				oid, err := resolveObjectWithType(ctx, gitRepo, commit, "commit")
 				if err != nil {
-					return helper.ErrInternalf("resolving commit parent: %w", err)
+					return structerr.NewInternal("resolving commit parent: %w", err)
 				}
 				t.CommitRequest.ParentCommitRevisions[i] = oid.String()
 			}
 		case *gitalypb.FindChangedPathsRequest_Request_TreeRequest_:
 			oid, err := resolveObjectWithType(ctx, gitRepo, t.TreeRequest.GetLeftTreeRevision(), "tree")
 			if err != nil {
-				return helper.ErrInternalf("resolving left tree: %w", err)
+				return structerr.NewInternal("resolving left tree: %w", err)
 			}
 			t.TreeRequest.LeftTreeRevision = oid.String()
 
 			oid, err = resolveObjectWithType(ctx, gitRepo, t.TreeRequest.GetRightTreeRevision(), "tree")
 			if err != nil {
-				return helper.ErrInternalf("resolving right tree: %w", err)
+				return structerr.NewInternal("resolving right tree: %w", err)
 			}
 			t.TreeRequest.RightTreeRevision = oid.String()
 		}

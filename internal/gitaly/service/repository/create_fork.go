@@ -9,6 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -78,7 +79,7 @@ func (s *server) CreateFork(ctx context.Context, req *gitalypb.CreateForkRequest
 
 		return nil
 	}); err != nil {
-		return nil, helper.ErrInternalf("creating fork: %w", err)
+		return nil, structerr.NewInternal("creating fork: %w", err)
 	}
 
 	return &gitalypb.CreateForkResponse{}, nil

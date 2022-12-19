@@ -73,7 +73,7 @@ func (s *server) createRepository(
 
 	// Create the parent directory in case it doesn't exist yet.
 	if err := os.MkdirAll(filepath.Dir(targetPath), 0o770); err != nil {
-		return helper.ErrInternalf("create directories: %w", err)
+		return structerr.NewInternal("create directories: %w", err)
 	}
 
 	newRepo, newRepoDir, err := tempdir.NewRepository(ctx, repository.GetStorageName(), s.locator)

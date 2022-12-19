@@ -126,12 +126,12 @@ func (s *Server) UserUpdateBranch(ctx context.Context, req *gitalypb.UserUpdateB
 
 	newOID, err := git.ObjectHashSHA1.FromHex(string(req.Newrev))
 	if err != nil {
-		return nil, helper.ErrInternalf("could not parse newrev: %w", err)
+		return nil, structerr.NewInternal("could not parse newrev: %w", err)
 	}
 
 	oldOID, err := git.ObjectHashSHA1.FromHex(string(req.Oldrev))
 	if err != nil {
-		return nil, helper.ErrInternalf("could not parse oldrev: %w", err)
+		return nil, structerr.NewInternal("could not parse oldrev: %w", err)
 	}
 
 	referenceName := git.NewReferenceNameFromBranchName(string(req.BranchName))
@@ -244,7 +244,7 @@ func (s *Server) UserDeleteBranch(ctx context.Context, req *gitalypb.UserDeleteB
 			)
 		}
 
-		return nil, helper.ErrInternalf("deleting reference: %w", err)
+		return nil, structerr.NewInternal("deleting reference: %w", err)
 	}
 
 	return &gitalypb.UserDeleteBranchResponse{}, nil

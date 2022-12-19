@@ -12,7 +12,7 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -109,12 +109,12 @@ func printAlert(m gitlab.PostReceiveMessage, w io.Writer) error {
 func (m *GitLabHookManager) PostReceiveHook(ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	payload, err := git.HooksPayloadFromEnv(env)
 	if err != nil {
-		return helper.ErrInternalf("extracting hooks payload: %w", err)
+		return structerr.NewInternal("extracting hooks payload: %w", err)
 	}
 
 	changes, err := io.ReadAll(stdin)
 	if err != nil {
-		return helper.ErrInternalf("reading stdin from request: %w", err)
+		return structerr.NewInternal("reading stdin from request: %w", err)
 	}
 
 	if isPrimary(payload) {
@@ -136,17 +136,17 @@ func (m *GitLabHookManager) PostReceiveHook(ctx context.Context, repo *gitalypb.
 
 func (m *GitLabHookManager) postReceiveHook(ctx context.Context, payload git.HooksPayload, repo *gitalypb.Repository, pushOptions, env []string, stdin []byte, stdout, stderr io.Writer) error {
 	if len(stdin) == 0 {
-		return helper.ErrInternalf("hook got no reference updates")
+		return structerr.NewInternal("hook got no reference updates")
 	}
 
 	if payload.UserDetails == nil {
-		return helper.ErrInternalf("payload has no receive hooks info")
+		return structerr.NewInternal("payload has no receive hooks info")
 	}
 	if payload.UserDetails.UserID == "" {
-		return helper.ErrInternalf("user ID not set")
+		return structerr.NewInternal("user ID not set")
 	}
 	if repo.GetGlRepository() == "" {
-		return helper.ErrInternalf("repository not set")
+		return structerr.NewInternal("repository not set")
 	}
 
 	ok, messages, err := m.gitlabClient.PostReceive(
@@ -169,12 +169,12 @@ func (m *GitLabHookManager) postReceiveHook(ctx context.Context, payload git.Hoo
 
 	executor, err := m.newCustomHooksExecutor(repo, "post-receive")
 	if err != nil {
-		return helper.ErrInternalf("creating custom hooks executor: %v", err)
+		return structerr.NewInternal("creating custom hooks executor: %v", err)
 	}
 
 	customEnv, err := m.customHooksEnv(ctx, payload, pushOptions, env)
 	if err != nil {
-		return helper.ErrInternalf("constructing custom hook environment: %v", err)
+		return structerr.NewInternal("constructing custom hook environment: %v", err)
 	}
 
 	if err = executor(

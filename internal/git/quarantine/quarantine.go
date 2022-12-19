@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/protobuf/proto"
@@ -34,7 +34,7 @@ type Dir struct {
 func New(ctx context.Context, repo *gitalypb.Repository, locator storage.Locator) (*Dir, error) {
 	repoPath, err := locator.GetPath(repo)
 	if err != nil {
-		return nil, helper.ErrInternalf("getting repo path: %w", err)
+		return nil, structerr.NewInternal("getting repo path: %w", err)
 	}
 
 	quarantineDir, err := tempdir.NewWithPrefix(ctx, repo.GetStorageName(),

@@ -10,10 +10,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/grpc-proxy/proxy"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/nodes/tracker"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/protoregistry"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -27,7 +27,7 @@ type repositoryService struct {
 
 func (s *repositoryService) RepositoryExists(ctx context.Context, req *gitalypb.RepositoryExistsRequest) (*gitalypb.RepositoryExistsResponse, error) {
 	if req.GetRepository() == nil {
-		return nil, helper.ErrInternalf("error")
+		return nil, structerr.NewInternal("error")
 	}
 
 	return &gitalypb.RepositoryExistsResponse{}, nil
@@ -35,7 +35,7 @@ func (s *repositoryService) RepositoryExists(ctx context.Context, req *gitalypb.
 
 func (s *repositoryService) WriteRef(ctx context.Context, req *gitalypb.WriteRefRequest) (*gitalypb.WriteRefResponse, error) {
 	if req.GetRepository() == nil {
-		return nil, helper.ErrInternalf("error")
+		return nil, structerr.NewInternal("error")
 	}
 
 	return &gitalypb.WriteRefResponse{}, nil

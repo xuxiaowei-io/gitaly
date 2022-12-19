@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 )
@@ -31,7 +32,7 @@ func (s *server) getCommitSignatures(request *gitalypb.GetCommitSignaturesReques
 
 	objectReader, cancel, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
-		return helper.ErrInternalf("%w", err)
+		return structerr.NewInternal("%w", err)
 	}
 	defer cancel()
 
@@ -41,16 +42,16 @@ func (s *server) getCommitSignatures(request *gitalypb.GetCommitSignaturesReques
 			if catfile.IsNotFound(err) {
 				continue
 			}
-			return helper.ErrInternalf("%w", err)
+			return structerr.NewInternal("%w", err)
 		}
 
 		signatureKey, commitText, err := extractSignature(commitObj)
 		if err != nil {
-			return helper.ErrInternalf("%w", err)
+			return structerr.NewInternal("%w", err)
 		}
 
 		if err = sendResponse(commitID, signatureKey, commitText, stream); err != nil {
-			return helper.ErrInternalf("%w", err)
+			return structerr.NewInternal("%w", err)
 		}
 	}
 

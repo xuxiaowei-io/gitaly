@@ -117,7 +117,7 @@ func TestLink_noClobber(t *testing.T) {
 	}
 
 	_, err := client.LinkRepositoryToObjectPool(ctx, request)
-	testhelper.RequireGrpcError(t, helper.ErrInternalf("unexpected alternates content: %q", "mock/objects"), err)
+	testhelper.RequireGrpcError(t, structerr.NewInternal("unexpected alternates content: %q", "mock/objects"), err)
 
 	contentAfter := testhelper.MustReadFile(t, alternatesFile)
 	require.Equal(t, contentBefore, string(contentAfter), "contents of existing alternates file should not have changed")

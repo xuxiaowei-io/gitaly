@@ -11,9 +11,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/txinfo"
@@ -217,7 +217,7 @@ func TestWriteRef_missingRevisions(t *testing.T) {
 				Ref:        []byte("refs/heads/main"),
 				Revision:   []byte("refs/heads/missing"),
 			},
-			expectedErr: helper.ErrInternalf("resolving new revision: reference not found"),
+			expectedErr: structerr.NewInternal("resolving new revision: reference not found"),
 		},
 		{
 			desc: "revision refers to missing object",
@@ -226,7 +226,7 @@ func TestWriteRef_missingRevisions(t *testing.T) {
 				Ref:        []byte("refs/heads/main"),
 				Revision:   bytes.Repeat([]byte("1"), gittest.DefaultObjectHash.EncodedLen()),
 			},
-			expectedErr: helper.ErrInternalf("resolving new revision: reference not found"),
+			expectedErr: structerr.NewInternal("resolving new revision: reference not found"),
 		},
 		{
 			desc: "old revision refers to missing reference",
@@ -236,7 +236,7 @@ func TestWriteRef_missingRevisions(t *testing.T) {
 				Revision:    []byte(commitID),
 				OldRevision: bytes.Repeat([]byte("1"), gittest.DefaultObjectHash.EncodedLen()),
 			},
-			expectedErr: helper.ErrInternalf("resolving old revision: reference not found"),
+			expectedErr: structerr.NewInternal("resolving old revision: reference not found"),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 )
@@ -76,23 +77,23 @@ func (s *server) handleInfoRefs(ctx context.Context, service, repoPath string, r
 		Args:  []string{repoPath},
 	}, cmdOpts...)
 	if err != nil {
-		return helper.ErrInternalf("cmd: %w", err)
+		return structerr.NewInternal("cmd: %w", err)
 	}
 
 	if _, err := pktline.WriteString(w, fmt.Sprintf("# service=git-%s\n", service)); err != nil {
-		return helper.ErrInternalf("pktLine: %w", err)
+		return structerr.NewInternal("pktLine: %w", err)
 	}
 
 	if err := pktline.WriteFlush(w); err != nil {
-		return helper.ErrInternalf("pktFlush: %w", err)
+		return structerr.NewInternal("pktFlush: %w", err)
 	}
 
 	if _, err := io.Copy(w, cmd); err != nil {
-		return helper.ErrInternalf("send: %w", err)
+		return structerr.NewInternal("send: %w", err)
 	}
 
 	if err := cmd.Wait(); err != nil {
-		return helper.ErrInternalf("wait: %w", err)
+		return structerr.NewInternal("wait: %w", err)
 	}
 
 	return nil

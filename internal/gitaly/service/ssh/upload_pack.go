@@ -28,7 +28,7 @@ func (s *server) SSHUploadPack(stream gitalypb.SSHService_SSHUploadPackServer) e
 
 	req, err := stream.Recv() // First request contains Repository only
 	if err != nil {
-		return helper.ErrInternalf("%w", err)
+		return structerr.NewInternal("%w", err)
 	}
 
 	ctxlogrus.Extract(ctx).WithFields(log.Fields{
@@ -63,7 +63,7 @@ func (s *server) SSHUploadPack(stream gitalypb.SSHService_SSHUploadPackServer) e
 			ctxlogrus.Extract(ctx).WithError(errSend).Error("send final status code")
 		}
 
-		return helper.ErrInternalf("%w", err)
+		return structerr.NewInternal("%w", err)
 	}
 
 	return nil
@@ -213,10 +213,10 @@ func (s *server) SSHUploadPackWithSidechannel(ctx context.Context, req *gitalypb
 	stdout := sidebandWriter.Writer(stream.BandStdout)
 	stderr := sidebandWriter.Writer(stream.BandStderr)
 	if _, err := s.sshUploadPack(ctx, req, conn, stdout, stderr); err != nil {
-		return nil, helper.ErrInternalf("%w", err)
+		return nil, structerr.NewInternal("%w", err)
 	}
 	if err := conn.Close(); err != nil {
-		return nil, helper.ErrInternalf("close sidechannel: %w", err)
+		return nil, structerr.NewInternal("close sidechannel: %w", err)
 	}
 
 	return &gitalypb.SSHUploadPackWithSidechannelResponse{}, nil

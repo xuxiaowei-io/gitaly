@@ -146,7 +146,7 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 
 	quarantineDir, err := quarantine.New(ctx, header.GetRepository(), s.locator)
 	if err != nil {
-		return helper.ErrInternalf("creating object quarantine: %w", err)
+		return structerr.NewInternal("creating object quarantine: %w", err)
 	}
 	quarantineRepo := s.localrepo(quarantineDir.QuarantinedRepo())
 

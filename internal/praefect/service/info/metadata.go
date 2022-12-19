@@ -7,6 +7,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -24,7 +25,7 @@ func (s *Server) GetRepositoryMetadata(ctx context.Context, req *gitalypb.GetRep
 			return s.rs.GetRepositoryMetadataByPath(ctx, query.Path.VirtualStorage, query.Path.RelativePath)
 		}
 	default:
-		return nil, helper.ErrInternalf("unknown query type: %T", query)
+		return nil, structerr.NewInternal("unknown query type: %T", query)
 	}
 
 	metadata, err := getMetadata()
@@ -33,7 +34,7 @@ func (s *Server) GetRepositoryMetadata(ctx context.Context, req *gitalypb.GetRep
 			return nil, helper.ErrNotFoundf("%w", err)
 		}
 
-		return nil, helper.ErrInternalf("get metadata: %w", err)
+		return nil, structerr.NewInternal("get metadata: %w", err)
 	}
 
 	replicas := make([]*gitalypb.GetRepositoryMetadataResponse_Replica, 0, len(metadata.Replicas))

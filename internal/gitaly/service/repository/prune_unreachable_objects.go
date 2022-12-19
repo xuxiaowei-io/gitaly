@@ -8,6 +8,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -38,7 +39,7 @@ func (s *server) PruneUnreachableObjects(
 			git.ValueFlag{Name: "--expire", Value: "30.minutes.ago"},
 		},
 	}); err != nil {
-		return nil, helper.ErrInternalf("pruning objects: %w", err)
+		return nil, structerr.NewInternal("pruning objects: %w", err)
 	}
 
 	// Rewrite the commit-graph so that it doesn't contain references to pruned commits
@@ -46,7 +47,7 @@ func (s *server) PruneUnreachableObjects(
 	if err := housekeeping.WriteCommitGraph(ctx, repo, housekeeping.WriteCommitGraphConfig{
 		ReplaceChain: true,
 	}); err != nil {
-		return nil, helper.ErrInternalf("rewriting commit-graph: %w", err)
+		return nil, structerr.NewInternal("rewriting commit-graph: %w", err)
 	}
 
 	stats.LogRepositoryInfo(ctx, repo)

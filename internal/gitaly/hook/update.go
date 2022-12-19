@@ -7,7 +7,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -15,7 +15,7 @@ import (
 func (m *GitLabHookManager) UpdateHook(ctx context.Context, repo *gitalypb.Repository, ref, oldValue, newValue string, env []string, stdout, stderr io.Writer) error {
 	payload, err := git.HooksPayloadFromEnv(env)
 	if err != nil {
-		return helper.ErrInternalf("extracting hooks payload: %w", err)
+		return structerr.NewInternal("extracting hooks payload: %w", err)
 	}
 
 	if isPrimary(payload) {
@@ -37,26 +37,26 @@ func (m *GitLabHookManager) UpdateHook(ctx context.Context, repo *gitalypb.Repos
 
 func (m *GitLabHookManager) updateHook(ctx context.Context, payload git.HooksPayload, repo *gitalypb.Repository, ref, oldValue, newValue string, env []string, stdout, stderr io.Writer) error {
 	if ref == "" {
-		return helper.ErrInternalf("hook got no reference")
+		return structerr.NewInternal("hook got no reference")
 	}
 	if err := git.ObjectHashSHA1.ValidateHex(oldValue); err != nil {
-		return helper.ErrInternalf("hook got invalid old value: %w", err)
+		return structerr.NewInternal("hook got invalid old value: %w", err)
 	}
 	if err := git.ObjectHashSHA1.ValidateHex(newValue); err != nil {
-		return helper.ErrInternalf("hook got invalid new value: %w", err)
+		return structerr.NewInternal("hook got invalid new value: %w", err)
 	}
 	if payload.UserDetails == nil {
-		return helper.ErrInternalf("payload has no receive hooks info")
+		return structerr.NewInternal("payload has no receive hooks info")
 	}
 
 	executor, err := m.newCustomHooksExecutor(repo, "update")
 	if err != nil {
-		return helper.ErrInternalf("%w", err)
+		return structerr.NewInternal("%w", err)
 	}
 
 	customEnv, err := m.customHooksEnv(ctx, payload, nil, env)
 	if err != nil {
-		return helper.ErrInternalf("constructing custom hook environment: %v", err)
+		return structerr.NewInternal("constructing custom hook environment: %v", err)
 	}
 
 	if err = executor(

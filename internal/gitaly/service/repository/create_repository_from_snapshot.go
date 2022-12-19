@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/correlation"
 	"gitlab.com/gitlab-org/labkit/tracing"
@@ -107,12 +108,12 @@ func untar(ctx context.Context, path string, in *gitalypb.CreateRepositoryFromSn
 
 	rsp, err := client.Do(req)
 	if err != nil {
-		return helper.ErrInternalf("HTTP request failed: %w", err)
+		return structerr.NewInternal("HTTP request failed: %w", err)
 	}
 	defer rsp.Body.Close()
 
 	if rsp.StatusCode < http.StatusOK || rsp.StatusCode >= http.StatusMultipleChoices {
-		return helper.ErrInternalf("HTTP server: %s", rsp.Status)
+		return structerr.NewInternal("HTTP server: %s", rsp.Status)
 	}
 
 	cmd, err := command.New(ctx, []string{"tar", "-C", path, "-xvf", "-"}, command.WithStdin(rsp.Body))
@@ -131,7 +132,7 @@ func (s *server) CreateRepositoryFromSnapshot(ctx context.Context, in *gitalypb.
 	if err := s.createRepository(ctx, repository, func(repo *gitalypb.Repository) error {
 		path, err := s.locator.GetPath(repo)
 		if err != nil {
-			return helper.ErrInternalf("getting repo path: %w", err)
+			return structerr.NewInternal("getting repo path: %w", err)
 		}
 
 		// The archive contains a partial git repository, missing a config file and
@@ -142,12 +143,12 @@ func (s *server) CreateRepositoryFromSnapshot(ctx context.Context, in *gitalypb.
 		// NOTE: The received archive is trusted *a lot*. Before pointing this RPC
 		// at endpoints not under our control, it should undergo a lot of hardening.
 		if err := untar(ctx, path, in); err != nil {
-			return helper.ErrInternalf("extracting snapshot: %w", err)
+			return structerr.NewInternal("extracting snapshot: %w", err)
 		}
 
 		return nil
 	}); err != nil {
-		return nil, helper.ErrInternalf("creating repository: %w", err)
+		return nil, structerr.NewInternal("creating repository: %w", err)
 	}
 
 	return &gitalypb.CreateRepositoryFromSnapshotResponse{}, nil

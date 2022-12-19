@@ -7,6 +7,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -25,12 +26,12 @@ func (s *server) FindRemoteRepository(ctx context.Context, req *gitalypb.FindRem
 		},
 	)
 	if err != nil {
-		return nil, helper.ErrInternalf("error executing git command: %w", err)
+		return nil, structerr.NewInternal("error executing git command: %w", err)
 	}
 
 	output, err := io.ReadAll(cmd)
 	if err != nil {
-		return nil, helper.ErrInternalf("unable to read stdout: %w", err)
+		return nil, structerr.NewInternal("unable to read stdout: %w", err)
 	}
 	if err := cmd.Wait(); err != nil {
 		return &gitalypb.FindRemoteRepositoryResponse{Exists: false}, nil

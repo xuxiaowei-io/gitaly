@@ -14,7 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 )
 
 const (
@@ -29,11 +29,11 @@ func CleanupWorktrees(ctx context.Context, repo *localrepo.Repo) error {
 
 	worktreeThreshold := time.Now().Add(-6 * time.Hour)
 	if err := cleanStaleWorktrees(ctx, repo, worktreeThreshold); err != nil {
-		return helper.ErrInternalf("cleanStaleWorktrees: %w", err)
+		return structerr.NewInternal("cleanStaleWorktrees: %w", err)
 	}
 
 	if err := cleanDisconnectedWorktrees(ctx, repo); err != nil {
-		return helper.ErrInternalf("cleanDisconnectedWorktrees: %w", err)
+		return structerr.NewInternal("cleanDisconnectedWorktrees: %w", err)
 	}
 
 	return nil

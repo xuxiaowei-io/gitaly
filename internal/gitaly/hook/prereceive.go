@@ -12,8 +12,8 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/env"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -65,12 +65,12 @@ func getRelativeObjectDirs(repoPath, gitObjectDir, gitAlternateObjectDirs string
 func (m *GitLabHookManager) PreReceiveHook(ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	payload, err := git.HooksPayloadFromEnv(env)
 	if err != nil {
-		return helper.ErrInternalf("extracting hooks payload: %w", err)
+		return structerr.NewInternal("extracting hooks payload: %w", err)
 	}
 
 	changes, err := io.ReadAll(stdin)
 	if err != nil {
-		return helper.ErrInternalf("reading stdin from request: %w", err)
+		return structerr.NewInternal("reading stdin from request: %w", err)
 	}
 
 	// Only the primary should execute hooks and increment reference counters.
@@ -94,13 +94,13 @@ func (m *GitLabHookManager) PreReceiveHook(ctx context.Context, repo *gitalypb.R
 func (m *GitLabHookManager) preReceiveHook(ctx context.Context, payload git.HooksPayload, repo *gitalypb.Repository, pushOptions, envs []string, changes []byte, stdout, stderr io.Writer) error {
 	repoPath, err := m.locator.GetRepoPath(repo)
 	if err != nil {
-		return helper.ErrInternalf("getting repo path: %v", err)
+		return structerr.NewInternal("getting repo path: %v", err)
 	}
 
 	if gitObjDir, gitAltObjDirs := env.ExtractValue(envs, "GIT_OBJECT_DIRECTORY"), env.ExtractValue(envs, "GIT_ALTERNATE_OBJECT_DIRECTORIES"); gitObjDir != "" && gitAltObjDirs != "" {
 		gitObjectDirRel, gitAltObjectDirRel, err := getRelativeObjectDirs(repoPath, gitObjDir, gitAltObjDirs)
 		if err != nil {
-			return helper.ErrInternalf("getting relative git object directories: %v", err)
+			return structerr.NewInternal("getting relative git object directories: %v", err)
 		}
 
 		repo.GitObjectDirectory = gitObjectDirRel
@@ -108,20 +108,20 @@ func (m *GitLabHookManager) preReceiveHook(ctx context.Context, payload git.Hook
 	}
 
 	if len(changes) == 0 {
-		return helper.ErrInternalf("hook got no reference updates")
+		return structerr.NewInternal("hook got no reference updates")
 	}
 
 	if repo.GetGlRepository() == "" {
-		return helper.ErrInternalf("repository not set")
+		return structerr.NewInternal("repository not set")
 	}
 	if payload.UserDetails == nil {
-		return helper.ErrInternalf("payload has no receive hooks info")
+		return structerr.NewInternal("payload has no receive hooks info")
 	}
 	if payload.UserDetails.UserID == "" {
-		return helper.ErrInternalf("user ID not set")
+		return structerr.NewInternal("user ID not set")
 	}
 	if payload.UserDetails.Protocol == "" {
-		return helper.ErrInternalf("protocol not set")
+		return structerr.NewInternal("protocol not set")
 	}
 
 	params := gitlab.AllowedParams{
@@ -168,7 +168,7 @@ func (m *GitLabHookManager) preReceiveHook(ctx context.Context, payload git.Hook
 
 	customEnv, err := m.customHooksEnv(ctx, payload, pushOptions, envs)
 	if err != nil {
-		return helper.ErrInternalf("constructing custom hook environment: %v", err)
+		return structerr.NewInternal("constructing custom hook environment: %v", err)
 	}
 
 	if err = executor(
@@ -185,7 +185,7 @@ func (m *GitLabHookManager) preReceiveHook(ctx context.Context, payload git.Hook
 	// reference counter
 	ok, err := m.gitlabClient.PreReceive(ctx, repo.GetGlRepository())
 	if err != nil {
-		return helper.ErrInternalf("calling pre_receive endpoint: %v", err)
+		return structerr.NewInternal("calling pre_receive endpoint: %v", err)
 	}
 
 	if !ok {

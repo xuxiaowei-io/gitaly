@@ -51,7 +51,7 @@ func (s *server) PostUploadPack(stream gitalypb.SmartHTTPService_PostUploadPackS
 	})
 
 	if err := s.runUploadPack(ctx, req, repoPath, gitConfig, stdin, stdout); err != nil {
-		return helper.ErrInternalf("running upload-pack: %w", err)
+		return structerr.NewInternal("running upload-pack: %w", err)
 	}
 
 	return nil
@@ -65,16 +65,16 @@ func (s *server) PostUploadPackWithSidechannel(ctx context.Context, req *gitalyp
 
 	conn, err := sidechannel.OpenSidechannel(ctx)
 	if err != nil {
-		return nil, helper.ErrInternalf("open sidechannel: %w", err)
+		return nil, structerr.NewInternal("open sidechannel: %w", err)
 	}
 	defer conn.Close()
 
 	if err := s.runUploadPack(ctx, req, repoPath, gitConfig, conn, conn); err != nil {
-		return nil, helper.ErrInternalf("running upload-pack: %w", err)
+		return nil, structerr.NewInternal("running upload-pack: %w", err)
 	}
 
 	if err := conn.Close(); err != nil {
-		return nil, helper.ErrInternalf("close sidechannel connection: %w", err)
+		return nil, structerr.NewInternal("close sidechannel connection: %w", err)
 	}
 
 	return &gitalypb.PostUploadPackWithSidechannelResponse{}, nil

@@ -25,16 +25,16 @@ func (s *server) RemoveRepository(ctx context.Context, in *gitalypb.RemoveReposi
 	}
 	path, err := s.locator.GetPath(repository)
 	if err != nil {
-		return nil, helper.ErrInternalf("%w", err)
+		return nil, structerr.NewInternal("%w", err)
 	}
 
 	tempDir, err := s.locator.TempDir(repository.GetStorageName())
 	if err != nil {
-		return nil, helper.ErrInternalf("temporary directory: %w", err)
+		return nil, structerr.NewInternal("temporary directory: %w", err)
 	}
 
 	if err := os.MkdirAll(tempDir, 0o755); err != nil {
-		return nil, helper.ErrInternalf("%w", err)
+		return nil, structerr.NewInternal("%w", err)
 	}
 
 	base := filepath.Base(path)
@@ -49,12 +49,12 @@ func (s *server) RemoveRepository(ctx context.Context, in *gitalypb.RemoveReposi
 			return nil, helper.ErrNotFoundf("repository does not exist")
 		}
 
-		return nil, helper.ErrInternalf("statting repository: %w", err)
+		return nil, structerr.NewInternal("statting repository: %w", err)
 	}
 
 	locker, err := safe.NewLockingFileWriter(path)
 	if err != nil {
-		return nil, helper.ErrInternalf("creating locker: %w", err)
+		return nil, structerr.NewInternal("creating locker: %w", err)
 	}
 	defer func() {
 		if err := locker.Close(); err != nil {
@@ -68,7 +68,7 @@ func (s *server) RemoveRepository(ctx context.Context, in *gitalypb.RemoveReposi
 		if errors.Is(err, safe.ErrFileAlreadyLocked) {
 			return nil, structerr.NewFailedPrecondition("repository is already locked")
 		}
-		return nil, helper.ErrInternalf("locking repository for removal: %w", err)
+		return nil, structerr.NewInternal("locking repository for removal: %w", err)
 	}
 
 	// Recheck whether the repository still exists after we have taken the lock. It
@@ -78,26 +78,26 @@ func (s *server) RemoveRepository(ctx context.Context, in *gitalypb.RemoveReposi
 		if os.IsNotExist(err) {
 			return nil, helper.ErrNotFoundf("repository was concurrently removed")
 		}
-		return nil, helper.ErrInternalf("re-statting repository: %w", err)
+		return nil, structerr.NewInternal("re-statting repository: %w", err)
 	}
 
 	if err := s.voteOnAction(ctx, repository, voting.Prepared); err != nil {
-		return nil, helper.ErrInternalf("vote on rename: %w", err)
+		return nil, structerr.NewInternal("vote on rename: %w", err)
 	}
 
 	// We move the repository into our temporary directory first before we start to
 	// delete it. This is done such that we don't leave behind a partially-removed and
 	// thus likely corrupt repository.
 	if err := os.Rename(path, destDir); err != nil {
-		return nil, helper.ErrInternalf("staging repository for removal: %w", err)
+		return nil, structerr.NewInternal("staging repository for removal: %w", err)
 	}
 
 	if err := os.RemoveAll(destDir); err != nil {
-		return nil, helper.ErrInternalf("removing repository: %w", err)
+		return nil, structerr.NewInternal("removing repository: %w", err)
 	}
 
 	if err := s.voteOnAction(ctx, repository, voting.Committed); err != nil {
-		return nil, helper.ErrInternalf("vote on finalizing: %w", err)
+		return nil, structerr.NewInternal("vote on finalizing: %w", err)
 	}
 
 	return &gitalypb.RemoveRepositoryResponse{}, nil

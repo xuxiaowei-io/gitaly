@@ -77,7 +77,7 @@ func (s *Server) UserDeleteTag(ctx context.Context, req *gitalypb.UserDeleteTagR
 			return nil, structerr.NewFailedPrecondition("%w", err)
 		}
 
-		return nil, helper.ErrInternalf("%w", err)
+		return nil, structerr.NewInternal("%w", err)
 	}
 
 	return &gitalypb.UserDeleteTagResponse{}, nil
@@ -143,7 +143,7 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 		// If the reference wasn't found we're on the happy path, otherwise
 		// something has gone wrong.
 		if !errors.Is(err, git.ErrReferenceNotFound) {
-			return nil, helper.ErrInternalf("resolving target reference: %w", err)
+			return nil, structerr.NewInternal("resolving target reference: %w", err)
 		}
 	} else {
 		// When resolving the revision succeeds the tag reference exists already.
@@ -206,7 +206,7 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 			)
 		}
 
-		return nil, helper.ErrInternalf("updating reference: %w", err)
+		return nil, structerr.NewInternal("updating reference: %w", err)
 	}
 
 	return &gitalypb.UserCreateTagResponse{
@@ -225,13 +225,13 @@ func (s *Server) createTag(
 ) (*gitalypb.Tag, git.ObjectID, error) {
 	objectReader, cancel, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
-		return nil, "", helper.ErrInternalf("creating object reader: %w", err)
+		return nil, "", structerr.NewInternal("creating object reader: %w", err)
 	}
 	defer cancel()
 
 	objectInfoReader, cancel, err := s.catfileCache.ObjectInfoReader(ctx, repo)
 	if err != nil {
-		return nil, "", helper.ErrInternalf("creating object info reader: %w", err)
+		return nil, "", structerr.NewInternal("creating object info reader: %w", err)
 	}
 	defer cancel()
 
@@ -261,7 +261,7 @@ func (s *Server) createTag(
 	if targetObjectType == "tag" {
 		peeledTargetObjectInfo, err := objectInfoReader.Info(ctx, targetRevision+"^{}")
 		if err != nil {
-			return nil, "", helper.ErrInternalf("reading object info: %w", err)
+			return nil, "", structerr.NewInternal("reading object info: %w", err)
 		}
 		peeledTargetObjectID, peeledTargetObjectType = peeledTargetObjectInfo.Oid, peeledTargetObjectInfo.Type
 
@@ -291,12 +291,12 @@ func (s *Server) createTag(
 			if errors.As(err, &MktagError) {
 				return nil, "", helper.ErrNotFoundf("Gitlab::Git::CommitError: %s", err.Error())
 			}
-			return nil, "", helper.ErrInternalf("writing tag: %w", err)
+			return nil, "", structerr.NewInternal("writing tag: %w", err)
 		}
 
 		createdTag, err := catfile.GetTag(ctx, objectReader, tagObjectID.Revision(), string(tagName))
 		if err != nil {
-			return nil, "", helper.ErrInternalf("getting tag: %w", err)
+			return nil, "", structerr.NewInternal("getting tag: %w", err)
 		}
 
 		tagObject = &gitalypb.Tag{
@@ -321,7 +321,7 @@ func (s *Server) createTag(
 	if peeledTargetObjectType == "commit" {
 		peeledTargetCommit, err := catfile.GetCommit(ctx, objectReader, peeledTargetObjectID.Revision())
 		if err != nil {
-			return nil, "", helper.ErrInternalf("getting commit: %w", err)
+			return nil, "", structerr.NewInternal("getting commit: %w", err)
 		}
 		tagObject.TargetCommit = peeledTargetCommit
 	}

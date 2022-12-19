@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -147,7 +148,7 @@ func TestCommitStatsFailure(t *testing.T) {
 				Repository: repo,
 				Revision:   []byte("non/existing"),
 			},
-			expectedErr: helper.ErrInternalf("object not found"),
+			expectedErr: structerr.NewInternal("object not found"),
 		},
 		{
 			desc: "invalid revision",

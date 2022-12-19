@@ -8,6 +8,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 )
@@ -17,7 +18,7 @@ func postReceiveHookResponse(stream gitalypb.HookService_PostReceiveHookServer, 
 		ExitStatus: &gitalypb.ExitStatus{Value: code},
 		Stderr:     []byte(stderr),
 	}); err != nil {
-		return helper.ErrInternalf("sending response: %w", err)
+		return structerr.NewInternal("sending response: %w", err)
 	}
 
 	return nil
@@ -26,7 +27,7 @@ func postReceiveHookResponse(stream gitalypb.HookService_PostReceiveHookServer, 
 func (s *server) PostReceiveHook(stream gitalypb.HookService_PostReceiveHookServer) error {
 	firstRequest, err := stream.Recv()
 	if err != nil {
-		return helper.ErrInternalf("%w", err)
+		return structerr.NewInternal("%w", err)
 	}
 
 	if err := validatePostReceiveHookRequest(firstRequest); err != nil {

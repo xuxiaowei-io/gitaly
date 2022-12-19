@@ -7,6 +7,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 )
 
 const (
@@ -64,7 +65,7 @@ func (l *configLocator) GetPath(repo repository.GitRepo) (string, error) {
 		if os.IsNotExist(err) {
 			return "", helper.ErrNotFoundf("GetPath: does not exist: %v", err)
 		}
-		return "", helper.ErrInternalf("GetPath: storage path: %v", err)
+		return "", structerr.NewInternal("GetPath: storage path: %v", err)
 	}
 
 	relativePath := repo.GetRelativePath()

@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -32,12 +33,12 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 
 	repoHadBranches, err := quarantineRepo.HasBranches(ctx)
 	if err != nil {
-		return nil, helper.ErrInternalf("has branches: %w", err)
+		return nil, structerr.NewInternal("has branches: %w", err)
 	}
 
 	repoPath, err := quarantineRepo.Path()
 	if err != nil {
-		return nil, helper.ErrInternalf("get path: %w", err)
+		return nil, structerr.NewInternal("get path: %w", err)
 	}
 
 	var mainline uint
@@ -74,7 +75,7 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 		} else if errors.Is(err, git2go.ErrInvalidArgument) {
 			return nil, helper.ErrInvalidArgumentf("%w", err)
 		} else {
-			return nil, helper.ErrInternalf("revert command: %w", err)
+			return nil, structerr.NewInternal("revert command: %w", err)
 		}
 	}
 
@@ -96,7 +97,7 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 	if !branchCreated {
 		ancestor, err := quarantineRepo.IsAncestor(ctx, oldrev.Revision(), newrev.Revision())
 		if err != nil {
-			return nil, helper.ErrInternalf("checking for ancestry: %w", err)
+			return nil, structerr.NewInternal("checking for ancestry: %w", err)
 		}
 		if !ancestor {
 			return &gitalypb.UserRevertResponse{
@@ -146,7 +147,7 @@ func (s *Server) fetchStartRevision(
 		var err error
 		remoteRepo, err = remoterepo.New(ctx, startRepository, s.conns)
 		if err != nil {
-			return "", helper.ErrInternalf("%w", err)
+			return "", structerr.NewInternal("%w", err)
 		}
 	}
 
@@ -167,7 +168,7 @@ func (s *Server) fetchStartRevision(
 			[]string{startRevision.String()},
 			localrepo.FetchOpts{Tags: localrepo.FetchOptsTagsNone},
 		); err != nil {
-			return "", helper.ErrInternalf("fetch start: %w", err)
+			return "", structerr.NewInternal("fetch start: %w", err)
 		}
 	} else if err != nil {
 		return "", helper.ErrInvalidArgumentf("resolve start: %w", err)

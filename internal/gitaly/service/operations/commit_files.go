@@ -107,7 +107,7 @@ func (s *Server) UserCommitFiles(stream gitalypb.OperationService_UserCommitFile
 			case errors.As(err, new(git2go.InvalidArgumentError)):
 				return helper.ErrInvalidArgumentf("%w", err)
 			default:
-				return helper.ErrInternalf("%w", err)
+				return structerr.NewInternal("%w", err)
 			}
 
 			ctxlogrus.Extract(ctx).WithError(err).Error("user commit files failed")

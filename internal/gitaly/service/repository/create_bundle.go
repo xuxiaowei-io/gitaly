@@ -6,6 +6,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 )
@@ -19,7 +20,7 @@ func (s *server) CreateBundle(req *gitalypb.CreateBundleRequest, stream gitalypb
 	ctx := stream.Context()
 
 	if _, err := s.Cleanup(ctx, &gitalypb.CleanupRequest{Repository: repository}); err != nil {
-		return helper.ErrInternalf("running Cleanup on repository: %w", err)
+		return structerr.NewInternal("running Cleanup on repository: %w", err)
 	}
 
 	cmd, err := s.gitCmdFactory.New(ctx, repository, git.Command{
@@ -28,7 +29,7 @@ func (s *server) CreateBundle(req *gitalypb.CreateBundleRequest, stream gitalypb
 		Flags:  []git.Option{git.OutputToStdout, git.Flag{Name: "--all"}},
 	})
 	if err != nil {
-		return helper.ErrInternalf("cmd start failed: %w", err)
+		return structerr.NewInternal("cmd start failed: %w", err)
 	}
 
 	writer := streamio.NewWriter(func(p []byte) error {
@@ -37,11 +38,11 @@ func (s *server) CreateBundle(req *gitalypb.CreateBundleRequest, stream gitalypb
 
 	_, err = io.Copy(writer, cmd)
 	if err != nil {
-		return helper.ErrInternalf("stream writer failed: %w", err)
+		return structerr.NewInternal("stream writer failed: %w", err)
 	}
 
 	if err := cmd.Wait(); err != nil {
-		return helper.ErrInternalf("cmd wait failed: %w", err)
+		return structerr.NewInternal("cmd wait failed: %w", err)
 	}
 
 	return nil

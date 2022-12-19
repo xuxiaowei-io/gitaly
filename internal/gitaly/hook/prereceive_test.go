@@ -19,8 +19,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/txinfo"
@@ -346,7 +346,7 @@ func TestPrereceive_gitlab(t *testing.T) {
 				return false, errors.New("prereceive oops")
 			},
 			expectHookCall: true,
-			expectedErr:    helper.ErrInternalf("calling pre_receive endpoint: %v", errors.New("prereceive oops")),
+			expectedErr:    structerr.NewInternal("calling pre_receive endpoint: %v", errors.New("prereceive oops")),
 		},
 	}
 

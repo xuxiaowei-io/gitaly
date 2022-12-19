@@ -86,7 +86,7 @@ func (s *server) RenameNamespace(ctx context.Context, in *gitalypb.RenameNamespa
 
 	// Create the parent directory.
 	if err = os.MkdirAll(filepath.Dir(targetPath), 0o775); err != nil {
-		return nil, helper.ErrInternalf("create directory: %w", err)
+		return nil, structerr.NewInternal("create directory: %w", err)
 	}
 
 	err = os.Rename(namespacePath(storagePath, in.GetFrom()), targetPath)

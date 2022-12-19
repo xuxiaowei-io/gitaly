@@ -28,7 +28,7 @@ func (s *server) ListAllCommits(
 
 	objectReader, cancel, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
-		return helper.ErrInternalf("creating object reader: %w", err)
+		return structerr.NewInternal("creating object reader: %w", err)
 	}
 	defer cancel()
 

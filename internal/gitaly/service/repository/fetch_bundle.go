@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
@@ -23,7 +24,7 @@ const (
 func (s *server) FetchBundle(stream gitalypb.RepositoryService_FetchBundleServer) error {
 	firstRequest, err := stream.Recv()
 	if err != nil {
-		return helper.ErrInternalf("first request: %w", err)
+		return structerr.NewInternal("first request: %w", err)
 	}
 
 	if err := service.ValidateRepository(firstRequest.GetRepository()); err != nil {
@@ -47,18 +48,18 @@ func (s *server) FetchBundle(stream gitalypb.RepositoryService_FetchBundleServer
 
 	tmpDir, err := tempdir.New(ctx, repo.GetStorageName(), s.locator)
 	if err != nil {
-		return helper.ErrInternalf("%w", err)
+		return structerr.NewInternal("%w", err)
 	}
 
 	bundlePath := filepath.Join(tmpDir.Path(), "repo.bundle")
 	file, err := os.Create(bundlePath)
 	if err != nil {
-		return helper.ErrInternalf("%w", err)
+		return structerr.NewInternal("%w", err)
 	}
 
 	_, err = io.Copy(file, reader)
 	if err != nil {
-		return helper.ErrInternalf("copy bundle: %w", err)
+		return structerr.NewInternal("copy bundle: %w", err)
 	}
 
 	config := []git.ConfigPair{
@@ -70,12 +71,12 @@ func (s *server) FetchBundle(stream gitalypb.RepositoryService_FetchBundleServer
 	}
 
 	if err := repo.FetchRemote(ctx, "inmemory", opts); err != nil {
-		return helper.ErrInternalf("%w", err)
+		return structerr.NewInternal("%w", err)
 	}
 
 	if updateHead {
 		if err := s.updateHeadFromBundle(ctx, repo, bundlePath); err != nil {
-			return helper.ErrInternalf("%w", err)
+			return structerr.NewInternal("%w", err)
 		}
 	}
 

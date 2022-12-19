@@ -139,12 +139,12 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 			)
 		}
 
-		return helper.ErrInternalf("%w", err)
+		return structerr.NewInternal("%w", err)
 	}
 
 	mergeOID, err := git.ObjectHashSHA1.FromHex(merge.CommitID)
 	if err != nil {
-		return helper.ErrInternalf("could not parse merge ID: %w", err)
+		return structerr.NewInternal("could not parse merge ID: %w", err)
 	}
 
 	if err := stream.Send(&gitalypb.UserMergeBranchResponse{
@@ -207,7 +207,7 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 			)
 		}
 
-		return helper.ErrInternalf("%w", err)
+		return structerr.NewInternal("%w", err)
 	}
 
 	if err := stream.Send(&gitalypb.UserMergeBranchResponse{
@@ -271,7 +271,7 @@ func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequ
 
 	ancestor, err := quarantineRepo.IsAncestor(ctx, revision.Revision(), commitID.Revision())
 	if err != nil {
-		return nil, helper.ErrInternalf("checking for ancestry: %w", err)
+		return nil, structerr.NewInternal("checking for ancestry: %w", err)
 	}
 	if !ancestor {
 		return nil, structerr.NewFailedPrecondition("not fast forward")
@@ -293,7 +293,7 @@ func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequ
 			return &gitalypb.UserFFBranchResponse{}, nil
 		}
 
-		return nil, helper.ErrInternalf("updating ref with hooks: %w", err)
+		return nil, structerr.NewInternal("updating ref with hooks: %w", err)
 	}
 
 	return &gitalypb.UserFFBranchResponse{
@@ -377,14 +377,14 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 
 		oid, err := git.ObjectHashSHA1.FromHex(targetRef.Target)
 		if err != nil {
-			return nil, helper.ErrInternalf("invalid target revision: %w", err)
+			return nil, structerr.NewInternal("invalid target revision: %w", err)
 		}
 
 		oldTargetOID = oid
 	} else if errors.Is(err, git.ErrReferenceNotFound) {
 		oldTargetOID = git.ObjectHashSHA1.ZeroOID
 	} else {
-		return nil, helper.ErrInternalf("could not read target reference: %w", err)
+		return nil, structerr.NewInternal("could not read target reference: %w", err)
 	}
 
 	// Now, we create the merge commit...
@@ -416,7 +416,7 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 
 	mergeOID, err := git.ObjectHashSHA1.FromHex(merge.CommitID)
 	if err != nil {
-		return nil, helper.ErrInternalf("parsing merge commit SHA: %w", err)
+		return nil, structerr.NewInternal("parsing merge commit SHA: %w", err)
 	}
 
 	// ... and move branch from target ref to the merge commit. The Ruby
