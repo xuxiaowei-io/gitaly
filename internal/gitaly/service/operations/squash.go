@@ -28,7 +28,7 @@ func (s *Server) UserSquash(ctx context.Context, req *gitalypb.UserSquashRequest
 
 	sha, err := s.userSquash(ctx, req)
 	if err != nil {
-		return nil, helper.ErrInternalf("%w", err)
+		return nil, structerr.NewInternal("%w", err)
 	}
 
 	return &gitalypb.UserSquashResponse{SquashSha: sha}, nil
@@ -83,12 +83,12 @@ func (s *Server) userSquash(ctx context.Context, req *gitalypb.UserSquashRequest
 	// transactional voting before we commit data to disk.
 	quarantineDir, quarantineRepo, err := s.quarantinedRepo(ctx, req.GetRepository())
 	if err != nil {
-		return "", helper.ErrInternalf("creating quarantine: %w", err)
+		return "", structerr.NewInternal("creating quarantine: %w", err)
 	}
 
 	quarantineRepoPath, err := quarantineRepo.Path()
 	if err != nil {
-		return "", helper.ErrInternalf("getting quarantine path: %w", err)
+		return "", structerr.NewInternal("getting quarantine path: %w", err)
 	}
 
 	// We need to retrieve the start commit such that we can create the new commit with
@@ -192,7 +192,7 @@ func (s *Server) userSquash(ctx context.Context, req *gitalypb.UserSquashRequest
 	}
 
 	if err := quarantineDir.Migrate(); err != nil {
-		return "", helper.ErrInternalf("migrating quarantine directory: %w", err)
+		return "", structerr.NewInternal("migrating quarantine directory: %w", err)
 	}
 
 	if err := transaction.VoteOnContext(

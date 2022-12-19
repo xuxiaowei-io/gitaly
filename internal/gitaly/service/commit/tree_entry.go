@@ -67,7 +67,7 @@ func sendTreeEntry(
 
 	objectInfo, err := objectInfoReader.Info(ctx, git.Revision(treeEntry.Oid))
 	if err != nil {
-		return helper.ErrInternalf("%w", err)
+		return structerr.NewInternal("%w", err)
 	}
 
 	if strings.ToLower(treeEntry.Type.String()) != objectInfo.Type {

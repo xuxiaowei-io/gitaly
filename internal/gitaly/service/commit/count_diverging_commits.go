@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -25,7 +26,7 @@ func (s *server) CountDivergingCommits(ctx context.Context, req *gitalypb.CountD
 	maxCount := int(req.GetMaxCount())
 	left, right, err := s.findLeftRightCount(ctx, req.GetRepository(), from, to, maxCount)
 	if err != nil {
-		return nil, helper.ErrInternalf("%w", err)
+		return nil, structerr.NewInternal("%w", err)
 	}
 
 	return &gitalypb.CountDivergingCommitsResponse{LeftCount: left, RightCount: right}, nil

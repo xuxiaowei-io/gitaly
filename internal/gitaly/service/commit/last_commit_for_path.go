@@ -7,6 +7,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -17,7 +18,7 @@ func (s *server) LastCommitForPath(ctx context.Context, in *gitalypb.LastCommitF
 
 	resp, err := s.lastCommitForPath(ctx, in)
 	if err != nil {
-		return nil, helper.ErrInternalf("%w", err)
+		return nil, structerr.NewInternal("%w", err)
 	}
 
 	return resp, nil

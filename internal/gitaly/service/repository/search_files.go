@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/lstree"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 )
@@ -44,11 +45,11 @@ func (s *server) SearchFilesByContent(req *gitalypb.SearchFilesByContentRequest,
 			git.Flag{Name: "-e"},
 		}, Args: []string{req.GetQuery(), string(req.GetRef())}})
 	if err != nil {
-		return helper.ErrInternalf("cmd start failed: %w", err)
+		return structerr.NewInternal("cmd start failed: %w", err)
 	}
 
 	if err = sendSearchFilesResultChunked(cmd, stream); err != nil {
-		return helper.ErrInternalf("sending chunked response failed: %w", err)
+		return structerr.NewInternal("sending chunked response failed: %w", err)
 	}
 
 	return nil
@@ -128,7 +129,7 @@ func (s *server) SearchFilesByName(req *gitalypb.SearchFilesByNameRequest, strea
 			git.Flag{Name: "-z"},
 		}, Args: []string{string(req.GetRef()), req.GetQuery()}})
 	if err != nil {
-		return helper.ErrInternalf("cmd start failed: %w", err)
+		return structerr.NewInternal("cmd start failed: %w", err)
 	}
 
 	files, err := parseLsTree(cmd, filter, int(req.GetOffset()), int(req.GetLimit()))

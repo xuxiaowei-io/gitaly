@@ -699,7 +699,7 @@ func (c *Coordinator) StreamDirector(ctx context.Context, fullMethodName string,
 		return c.directStorageScopedMessage(ctx, mi, m)
 	}
 
-	return nil, helper.ErrInternalf("rpc with undefined scope %q", mi.Scope)
+	return nil, structerr.NewInternal("rpc with undefined scope %q", mi.Scope)
 }
 
 func (c *Coordinator) directStorageScopedMessage(ctx context.Context, mi protoregistry.MethodInfo, msg proto.Message) (*proxy.StreamParameters, error) {
@@ -730,7 +730,7 @@ func (c *Coordinator) accessorStorageStreamParameters(ctx context.Context, mi pr
 		if errors.Is(err, nodes.ErrVirtualStorageNotExist) {
 			return nil, helper.ErrInvalidArgumentf("%w", err)
 		}
-		return nil, helper.ErrInternalf("accessor storage scoped: route storage accessor %q: %w", virtualStorage, err)
+		return nil, structerr.NewInternal("accessor storage scoped: route storage accessor %q: %w", virtualStorage, err)
 	}
 
 	node.addLogFields(ctx)
@@ -758,7 +758,7 @@ func (c *Coordinator) mutatorStorageStreamParameters(ctx context.Context, mi pro
 		if errors.Is(err, nodes.ErrVirtualStorageNotExist) {
 			return nil, helper.ErrInvalidArgumentf("%w", err)
 		}
-		return nil, helper.ErrInternalf("mutator storage scoped: get shard %q: %w", virtualStorage, err)
+		return nil, structerr.NewInternal("mutator storage scoped: get shard %q: %w", virtualStorage, err)
 	}
 
 	route.addLogFields(ctx)

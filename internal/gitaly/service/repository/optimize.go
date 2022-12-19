@@ -6,6 +6,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -21,14 +22,14 @@ func (s *server) OptimizeRepository(ctx context.Context, in *gitalypb.OptimizeRe
 	case gitalypb.OptimizeRepositoryRequest_STRATEGY_UNSPECIFIED, gitalypb.OptimizeRepositoryRequest_STRATEGY_HEURISTICAL:
 		strategy, err := housekeeping.NewHeuristicalOptimizationStrategy(ctx, repo)
 		if err != nil {
-			return nil, helper.ErrInternalf("creating heuristical optimization strategy: %w", err)
+			return nil, structerr.NewInternal("creating heuristical optimization strategy: %w", err)
 		}
 
 		strategyOpt = housekeeping.WithOptimizationStrategy(strategy)
 	case gitalypb.OptimizeRepositoryRequest_STRATEGY_EAGER:
 		strategy, err := housekeeping.NewEagerOptimizationStrategy(ctx, repo)
 		if err != nil {
-			return nil, helper.ErrInternalf("creating eager optimization strategy: %w", err)
+			return nil, structerr.NewInternal("creating eager optimization strategy: %w", err)
 		}
 
 		strategyOpt = housekeeping.WithOptimizationStrategy(strategy)
@@ -37,7 +38,7 @@ func (s *server) OptimizeRepository(ctx context.Context, in *gitalypb.OptimizeRe
 	}
 
 	if err := s.housekeepingManager.OptimizeRepository(ctx, repo, strategyOpt); err != nil {
-		return nil, helper.ErrInternalf("%w", err)
+		return nil, structerr.NewInternal("%w", err)
 	}
 
 	return &gitalypb.OptimizeRepositoryResponse{}, nil

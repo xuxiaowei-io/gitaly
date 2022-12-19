@@ -8,6 +8,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -32,7 +33,7 @@ func (s *server) FindMergeBase(ctx context.Context, req *gitalypb.FindMergeBaseR
 		},
 	)
 	if err != nil {
-		return nil, helper.ErrInternalf("cmd: %w", err)
+		return nil, structerr.NewInternal("cmd: %w", err)
 	}
 
 	mergeBase, err := io.ReadAll(cmd)

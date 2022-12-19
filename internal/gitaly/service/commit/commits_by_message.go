@@ -6,6 +6,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/protobuf/proto"
 )
@@ -30,7 +31,7 @@ func (s *server) CommitsByMessage(in *gitalypb.CommitsByMessageRequest, stream g
 	}
 
 	if err := s.commitsByMessage(in, stream); err != nil {
-		return helper.ErrInternalf("%w", err)
+		return structerr.NewInternal("%w", err)
 	}
 
 	return nil

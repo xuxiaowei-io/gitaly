@@ -40,7 +40,7 @@ func sendGetBlobsResponse(
 
 		treeEntry, err := tef.FindByRevisionAndPath(ctx, revision, string(path))
 		if err != nil {
-			return helper.ErrInternalf("find by revision and path: %w", err)
+			return structerr.NewInternal("find by revision and path: %w", err)
 		}
 
 		response := &gitalypb.GetBlobsResponse{Revision: revision, Path: path}
@@ -69,7 +69,7 @@ func sendGetBlobsResponse(
 
 		objectInfo, err := objectInfoReader.Info(ctx, git.Revision(treeEntry.Oid))
 		if err != nil {
-			return helper.ErrInternalf("read object info: %w", err)
+			return structerr.NewInternal("read object info: %w", err)
 		}
 
 		response.Size = objectInfo.Size
@@ -123,15 +123,15 @@ func sendBlobTreeEntry(
 
 	blobObj, err := objectReader.Object(ctx, git.Revision(response.Oid))
 	if err != nil {
-		return helper.ErrInternalf("read object: %w", err)
+		return structerr.NewInternal("read object: %w", err)
 	}
 	defer func() {
 		if _, err := io.Copy(io.Discard, blobObj); err != nil && returnedErr == nil {
-			returnedErr = helper.ErrInternalf("discarding data: %w", err)
+			returnedErr = structerr.NewInternal("discarding data: %w", err)
 		}
 	}()
 	if blobObj.Type != "blob" {
-		return helper.ErrInternalf("blob got unexpected type %q", blobObj.Type)
+		return structerr.NewInternal("blob got unexpected type %q", blobObj.Type)
 	}
 
 	sw := streamio.NewWriter(func(p []byte) error {
@@ -163,13 +163,13 @@ func (s *server) GetBlobs(req *gitalypb.GetBlobsRequest, stream gitalypb.BlobSer
 
 	objectReader, cancel, err := s.catfileCache.ObjectReader(stream.Context(), repo)
 	if err != nil {
-		return helper.ErrInternalf("creating object reader: %w", err)
+		return structerr.NewInternal("creating object reader: %w", err)
 	}
 	defer cancel()
 
 	objectInfoReader, cancel, err := s.catfileCache.ObjectInfoReader(stream.Context(), repo)
 	if err != nil {
-		return helper.ErrInternalf("creating object info reader: %w", err)
+		return structerr.NewInternal("creating object info reader: %w", err)
 	}
 	defer cancel()
 

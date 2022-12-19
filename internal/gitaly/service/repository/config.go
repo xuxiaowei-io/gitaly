@@ -7,6 +7,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 )
@@ -32,7 +33,7 @@ func (s *server) GetConfig(
 		if os.IsNotExist(err) {
 			return helper.ErrNotFoundf("opening gitconfig: %w", err)
 		}
-		return helper.ErrInternalf("opening gitconfig: %w", err)
+		return structerr.NewInternal("opening gitconfig: %w", err)
 	}
 
 	writer := streamio.NewWriter(func(p []byte) error {
@@ -42,7 +43,7 @@ func (s *server) GetConfig(
 	})
 
 	if _, err := io.Copy(writer, gitconfig); err != nil {
-		return helper.ErrInternalf("sending config: %w", err)
+		return structerr.NewInternal("sending config: %w", err)
 	}
 
 	return nil

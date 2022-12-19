@@ -14,7 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -63,7 +63,7 @@ func (s *Server) quarantinedRepo(
 ) (*quarantine.Dir, *localrepo.Repo, error) {
 	quarantineDir, err := quarantine.New(ctx, repo, s.locator)
 	if err != nil {
-		return nil, nil, helper.ErrInternalf("creating object quarantine: %w", err)
+		return nil, nil, structerr.NewInternal("creating object quarantine: %w", err)
 	}
 
 	quarantineRepo := s.localrepo(quarantineDir.QuarantinedRepo())

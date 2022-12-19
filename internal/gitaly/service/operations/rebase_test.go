@@ -12,7 +12,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -440,7 +439,7 @@ func TestUserRebaseConfirmable_abortViaClose(t *testing.T) {
 		{
 			desc:        "no request just close",
 			closeSend:   true,
-			expectedErr: helper.ErrInternalf("recv: EOF"),
+			expectedErr: structerr.NewInternal("recv: EOF"),
 		},
 	}
 

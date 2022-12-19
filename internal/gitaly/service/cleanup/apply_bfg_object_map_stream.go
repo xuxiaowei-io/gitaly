@@ -8,6 +8,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/cleanup/notifier"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 	"google.golang.org/protobuf/proto"
@@ -28,7 +29,7 @@ type bfgStreamWriter struct {
 func (s *server) ApplyBfgObjectMapStream(server gitalypb.CleanupService_ApplyBfgObjectMapStreamServer) error {
 	firstRequest, err := server.Recv()
 	if err != nil {
-		return helper.ErrInternalf("%w", err)
+		return structerr.NewInternal("%w", err)
 	}
 
 	if err := validateFirstRequest(firstRequest); err != nil {
@@ -42,7 +43,7 @@ func (s *server) ApplyBfgObjectMapStream(server gitalypb.CleanupService_ApplyBfg
 
 	notifier, cancel, err := notifier.New(ctx, s.catfileCache, repo, chunker)
 	if err != nil {
-		return helper.ErrInternalf("%w", err)
+		return structerr.NewInternal("%w", err)
 	}
 	defer cancel()
 
@@ -50,7 +51,7 @@ func (s *server) ApplyBfgObjectMapStream(server gitalypb.CleanupService_ApplyBfg
 	// starts running - they shouldn't point to the objects removed by the BFG
 	cleaner, err := internalrefs.NewCleaner(ctx, repo, notifier.Notify)
 	if err != nil {
-		return helper.ErrInternalf("%w", err)
+		return structerr.NewInternal("%w", err)
 	}
 
 	if err := cleaner.ApplyObjectMap(ctx, reader.streamReader()); err != nil {
@@ -58,11 +59,11 @@ func (s *server) ApplyBfgObjectMapStream(server gitalypb.CleanupService_ApplyBfg
 			return helper.ErrInvalidArgumentf("%w", invalidErr)
 		}
 
-		return helper.ErrInternalf("%w", err)
+		return structerr.NewInternal("%w", err)
 	}
 
 	if err := chunker.Flush(); err != nil {
-		return helper.ErrInternalf("%w", err)
+		return structerr.NewInternal("%w", err)
 	}
 
 	return nil

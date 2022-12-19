@@ -24,7 +24,7 @@ func (s *server) GetBlob(in *gitalypb.GetBlobRequest, stream gitalypb.BlobServic
 
 	objectReader, cancel, err := s.catfileCache.ObjectReader(stream.Context(), repo)
 	if err != nil {
-		return helper.ErrInternalf("create object reader: %w", err)
+		return structerr.NewInternal("create object reader: %w", err)
 	}
 	defer cancel()
 
@@ -36,7 +36,7 @@ func (s *server) GetBlob(in *gitalypb.GetBlobRequest, stream gitalypb.BlobServic
 			}
 			return nil
 		}
-		return helper.ErrInternalf("read object: %w", err)
+		return structerr.NewInternal("read object: %w", err)
 	}
 
 	if blob.Type != "blob" {

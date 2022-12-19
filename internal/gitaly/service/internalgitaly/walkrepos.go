@@ -7,6 +7,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -18,7 +19,7 @@ func (s *server) WalkRepos(req *gitalypb.WalkReposRequest, stream gitalypb.Inter
 	}
 
 	if err := walkStorage(stream.Context(), sPath, stream); err != nil {
-		return helper.ErrInternalf("%w", err)
+		return structerr.NewInternal("%w", err)
 	}
 
 	return nil

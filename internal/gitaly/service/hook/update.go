@@ -7,6 +7,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 )
@@ -43,7 +44,7 @@ func (s *server) UpdateHook(in *gitalypb.UpdateHookRequest, stream gitalypb.Hook
 			return updateHookResponse(stream, int32(exitError.ExitCode()))
 		}
 
-		return helper.ErrInternalf("%w", err)
+		return structerr.NewInternal("%w", err)
 	}
 
 	return updateHookResponse(stream, 0)
@@ -53,7 +54,7 @@ func updateHookResponse(stream gitalypb.HookService_UpdateHookServer, code int32
 	if err := stream.Send(&gitalypb.UpdateHookResponse{
 		ExitStatus: &gitalypb.ExitStatus{Value: code},
 	}); err != nil {
-		return helper.ErrInternalf("sending response: %w", err)
+		return structerr.NewInternal("sending response: %w", err)
 	}
 
 	return nil

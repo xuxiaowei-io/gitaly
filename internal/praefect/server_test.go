@@ -735,11 +735,11 @@ func (m *mockSmartHTTP) PostReceivePack(stream gitalypb.SmartHTTPService_PostRec
 			if errors.Is(err, io.EOF) {
 				break
 			}
-			return helper.ErrInternalf("%w", err)
+			return structerr.NewInternal("%w", err)
 		}
 
 		if err := stream.Send(&gitalypb.PostReceivePackResponse{Data: req.GetData()}); err != nil {
-			return helper.ErrInternalf("%w", err)
+			return structerr.NewInternal("%w", err)
 		}
 	}
 
@@ -747,12 +747,12 @@ func (m *mockSmartHTTP) PostReceivePack(stream gitalypb.SmartHTTPService_PostRec
 
 	tx, err := txinfo.TransactionFromContext(ctx)
 	if err != nil {
-		return helper.ErrInternalf("%w", err)
+		return structerr.NewInternal("%w", err)
 	}
 
 	vote := voting.VoteFromData([]byte{})
 	if err := m.txMgr.VoteTransaction(ctx, tx.ID, tx.Node, vote); err != nil {
-		return helper.ErrInternalf("%w", err)
+		return structerr.NewInternal("%w", err)
 	}
 
 	return nil
@@ -902,7 +902,7 @@ func TestErrorThreshold(t *testing.T) {
 				}
 
 				if md.Get("bad-header")[0] == "true" {
-					return nil, helper.ErrInternalf("something went wrong")
+					return nil, structerr.NewInternal("something went wrong")
 				}
 
 				return &gitalypb.ReplicateRepositoryResponse{}, nil
@@ -914,7 +914,7 @@ func TestErrorThreshold(t *testing.T) {
 				}
 
 				if md.Get("bad-header")[0] == "true" {
-					return nil, helper.ErrInternalf("something went wrong")
+					return nil, structerr.NewInternal("something went wrong")
 				}
 
 				return &gitalypb.RepositoryExistsResponse{}, nil

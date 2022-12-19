@@ -7,6 +7,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -23,7 +24,7 @@ func (s *server) FetchIntoObjectPool(ctx context.Context, req *gitalypb.FetchInt
 	origin := s.localrepo(req.GetOrigin())
 
 	if err := objectPool.FetchFromOrigin(ctx, origin); err != nil {
-		return nil, helper.ErrInternalf("%w", err)
+		return nil, structerr.NewInternal("%w", err)
 	}
 
 	stats.LogRepositoryInfo(ctx, objectPool.Repo)

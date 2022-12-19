@@ -7,7 +7,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 )
 
 // WriteCommitGraphConfig contains configuration that can be passed to WriteCommitGraph to alter its
@@ -32,7 +32,7 @@ func WriteCommitGraphConfigForRepository(ctx context.Context, repo *localrepo.Re
 
 	commitGraphInfo, err := stats.CommitGraphInfoForRepository(repoPath)
 	if err != nil {
-		return WriteCommitGraphConfig{}, helper.ErrInternalf("getting commit-graph info: %w", err)
+		return WriteCommitGraphConfig{}, structerr.NewInternal("getting commit-graph info: %w", err)
 	}
 
 	if commitGraphInfo.CommitGraphChainLength == 0 {
@@ -74,7 +74,7 @@ func WriteCommitGraph(ctx context.Context, repo *localrepo.Repo, cfg WriteCommit
 		Action: "write",
 		Flags:  flags,
 	}, git.WithStderr(&stderr)); err != nil {
-		return helper.ErrInternalf("writing commit-graph: %w: %v", err, stderr.String())
+		return structerr.NewInternal("writing commit-graph: %w: %v", err, stderr.String())
 	}
 
 	return nil

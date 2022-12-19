@@ -27,7 +27,7 @@ func (s *server) CalculateChecksum(ctx context.Context, in *gitalypb.CalculateCh
 
 	cmd, err := s.gitCmdFactory.New(ctx, repo, git.Command{Name: "show-ref", Flags: []git.Option{git.Flag{Name: "--head"}}})
 	if err != nil {
-		return nil, helper.ErrInternalf("gitCommand: %w", err)
+		return nil, structerr.NewInternal("gitCommand: %w", err)
 	}
 
 	var checksum git.Checksum
@@ -38,7 +38,7 @@ func (s *server) CalculateChecksum(ctx context.Context, in *gitalypb.CalculateCh
 	}
 
 	if err := scanner.Err(); err != nil {
-		return nil, helper.ErrInternalf("%w", err)
+		return nil, structerr.NewInternal("%w", err)
 	}
 
 	if err := cmd.Wait(); checksum.IsZero() || err != nil {

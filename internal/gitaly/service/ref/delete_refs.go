@@ -27,7 +27,7 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 
 	refnames, err := s.refsToRemove(ctx, repo, in)
 	if err != nil {
-		return nil, helper.ErrInternalf("%w", err)
+		return nil, structerr.NewInternal("%w", err)
 	}
 
 	updater, err := updateref.New(ctx, repo, updateref.WithNoDeref())
@@ -35,7 +35,7 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 		if errors.Is(err, git.ErrInvalidArg) {
 			return nil, helper.ErrInvalidArgumentf("%w", err)
 		}
-		return nil, helper.ErrInternalf("%w", err)
+		return nil, structerr.NewInternal("%w", err)
 	}
 	defer func() {
 		if err := updater.Close(); err != nil && returnedErr == nil {
@@ -74,20 +74,20 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 	}
 
 	if err := updater.Start(); err != nil {
-		return nil, helper.ErrInternalf("start reference transaction: %w", err)
+		return nil, structerr.NewInternal("start reference transaction: %w", err)
 	}
 
 	for _, ref := range refnames {
 		if err := updater.Delete(ref); err != nil {
 			if featureflag.DeleteRefsStructuredErrors.IsEnabled(ctx) {
-				return nil, helper.ErrInternalf("unable to delete refs: %w", err)
+				return nil, structerr.NewInternal("unable to delete refs: %w", err)
 			}
 
 			return &gitalypb.DeleteRefsResponse{GitError: err.Error()}, nil
 		}
 
 		if _, err := voteHash.Write([]byte(ref.String() + "\n")); err != nil {
-			return nil, helper.ErrInternalf("could not update vote hash: %w", err)
+			return nil, structerr.NewInternal("could not update vote hash: %w", err)
 		}
 	}
 
@@ -106,7 +106,7 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 				)
 			}
 
-			return nil, helper.ErrInternalf("unable to prepare: %w", err)
+			return nil, structerr.NewInternal("unable to prepare: %w", err)
 		}
 
 		return &gitalypb.DeleteRefsResponse{
@@ -116,7 +116,7 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 
 	vote, err := voteHash.Vote()
 	if err != nil {
-		return nil, helper.ErrInternalf("could not compute vote: %w", err)
+		return nil, structerr.NewInternal("could not compute vote: %w", err)
 	}
 
 	// All deletes we're doing in this RPC are force deletions. Because we're required to filter
@@ -124,19 +124,19 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 	// reference-transaction hook here. Instead, we need to resort to a manual vote which is
 	// simply the concatenation of all reference we're about to delete.
 	if err := transaction.VoteOnContext(ctx, s.txManager, vote, voting.Prepared); err != nil {
-		return nil, helper.ErrInternalf("preparatory vote: %w", err)
+		return nil, structerr.NewInternal("preparatory vote: %w", err)
 	}
 
 	if err := updater.Commit(); err != nil {
 		if featureflag.DeleteRefsStructuredErrors.IsEnabled(ctx) {
-			return nil, helper.ErrInternalf("unable to commit: %w", err)
+			return nil, structerr.NewInternal("unable to commit: %w", err)
 		}
 
 		return &gitalypb.DeleteRefsResponse{GitError: fmt.Sprintf("unable to delete refs: %s", err.Error())}, nil
 	}
 
 	if err := transaction.VoteOnContext(ctx, s.txManager, vote, voting.Committed); err != nil {
-		return nil, helper.ErrInternalf("committing vote: %w", err)
+		return nil, structerr.NewInternal("committing vote: %w", err)
 	}
 
 	return &gitalypb.DeleteRefsResponse{}, nil

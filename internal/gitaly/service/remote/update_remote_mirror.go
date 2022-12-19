@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -27,7 +28,7 @@ const (
 func (s *server) UpdateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMirrorServer) error {
 	firstRequest, err := stream.Recv()
 	if err != nil {
-		return helper.ErrInternalf("receive first request: %w", err)
+		return structerr.NewInternal("receive first request: %w", err)
 	}
 
 	if err = validateUpdateRemoteMirrorRequest(stream.Context(), firstRequest); err != nil {
@@ -35,7 +36,7 @@ func (s *server) UpdateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMi
 	}
 
 	if err := s.updateRemoteMirror(stream, firstRequest); err != nil {
-		return helper.ErrInternalf("%w", err)
+		return structerr.NewInternal("%w", err)
 	}
 
 	return nil

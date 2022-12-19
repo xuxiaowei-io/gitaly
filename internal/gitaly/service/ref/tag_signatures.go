@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/protobuf/proto"
 )
@@ -42,7 +43,7 @@ func (s *server) GetTagSignatures(req *gitalypb.GetTagSignaturesRequest, stream 
 
 	objectReader, cancel, err := s.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
-		return helper.ErrInternalf("creating object reader: %w", err)
+		return structerr.NewInternal("creating object reader: %w", err)
 	}
 	defer cancel()
 
@@ -63,7 +64,7 @@ func (s *server) GetTagSignatures(req *gitalypb.GetTagSignaturesRequest, stream 
 
 	catfileObjectIter, err := gitpipe.CatfileObject(ctx, objectReader, revlistIter)
 	if err != nil {
-		return helper.ErrInternalf("creating cat-file object iterator: %w", err)
+		return structerr.NewInternal("creating cat-file object iterator: %w", err)
 	}
 
 	for catfileObjectIter.Next() {
@@ -71,7 +72,7 @@ func (s *server) GetTagSignatures(req *gitalypb.GetTagSignaturesRequest, stream 
 
 		raw, err := io.ReadAll(tag)
 		if err != nil {
-			return helper.ErrInternalf("reading tag: %w", err)
+			return structerr.NewInternal("reading tag: %w", err)
 		}
 
 		signatureKey, tagText := catfile.ExtractTagSignature(raw)
@@ -81,16 +82,16 @@ func (s *server) GetTagSignatures(req *gitalypb.GetTagSignaturesRequest, stream 
 			Signature: signatureKey,
 			Content:   tagText,
 		}); err != nil {
-			return helper.ErrInternalf("sending tag signature chunk: %w", err)
+			return structerr.NewInternal("sending tag signature chunk: %w", err)
 		}
 	}
 
 	if err := catfileObjectIter.Err(); err != nil {
-		return helper.ErrInternalf("cat-file iterator stop: %w", err)
+		return structerr.NewInternal("cat-file iterator stop: %w", err)
 	}
 
 	if err := chunker.Flush(); err != nil {
-		return helper.ErrInternalf("flushing chunker: %w", err)
+		return structerr.NewInternal("flushing chunker: %w", err)
 	}
 
 	return nil

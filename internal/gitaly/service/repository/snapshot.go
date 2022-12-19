@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/archive"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 )
@@ -72,11 +73,11 @@ func (s *server) GetSnapshot(in *gitalypb.GetSnapshotRequest, stream gitalypb.Re
 	_ = builder.FileIfExist("shallow")
 
 	if err := s.addAlternateFiles(stream.Context(), in.GetRepository(), builder); err != nil {
-		return helper.ErrInternalf("add alternates: %w", err)
+		return structerr.NewInternal("add alternates: %w", err)
 	}
 
 	if err := builder.Close(); err != nil {
-		return helper.ErrInternalf("building snapshot failed: %w", err)
+		return structerr.NewInternal("building snapshot failed: %w", err)
 	}
 
 	return nil

@@ -70,7 +70,7 @@ func RenameRepositoryHandler(virtualStoragesNames []string, rs datastore.Reposit
 				return structerr.NewAlreadyExists("target repo exists already")
 			}
 
-			return helper.ErrInternalf("%w", err)
+			return structerr.NewInternal("%w", err)
 		}
 
 		return stream.SendMsg(&gitalypb.RenameRepositoryResponse{})

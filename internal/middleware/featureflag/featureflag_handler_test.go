@@ -12,9 +12,9 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -101,7 +101,7 @@ func TestFeatureFlagLogs(t *testing.T) {
 				featureA: true,
 				featureB: false,
 			},
-			returnedErr:    helper.ErrInternalf("something goes wrong"),
+			returnedErr:    structerr.NewInternal("something goes wrong"),
 			expectedFields: "feature_a feature_c",
 		},
 		{
@@ -111,7 +111,7 @@ func TestFeatureFlagLogs(t *testing.T) {
 				featureA: false,
 				featureB: false,
 			},
-			returnedErr:    helper.ErrInternalf("something goes wrong"),
+			returnedErr:    structerr.NewInternal("something goes wrong"),
 			expectedFields: "",
 		},
 	}

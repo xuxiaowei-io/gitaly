@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/objectpool"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -22,7 +22,7 @@ func (s *server) DeleteObjectPool(ctx context.Context, in *gitalypb.DeleteObject
 	}
 
 	if err := pool.Remove(ctx); err != nil {
-		return nil, helper.ErrInternalf("%w", err)
+		return nil, structerr.NewInternal("%w", err)
 	}
 
 	return &gitalypb.DeleteObjectPoolResponse{}, nil

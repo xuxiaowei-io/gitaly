@@ -19,7 +19,7 @@ func validateReferenceTransactionHookRequest(in *gitalypb.ReferenceTransactionHo
 func (s *server) ReferenceTransactionHook(stream gitalypb.HookService_ReferenceTransactionHookServer) error {
 	request, err := stream.Recv()
 	if err != nil {
-		return helper.ErrInternalf("receiving first request: %w", err)
+		return structerr.NewInternal("receiving first request: %w", err)
 	}
 
 	if err := validateReferenceTransactionHookRequest(request); err != nil {
@@ -55,14 +55,14 @@ func (s *server) ReferenceTransactionHook(stream gitalypb.HookService_ReferenceT
 		case errors.Is(err, transaction.ErrTransactionStopped):
 			return structerr.NewFailedPrecondition("reference-transaction hook: %w", err)
 		default:
-			return helper.ErrInternalf("reference-transaction hook: %w", err)
+			return structerr.NewInternal("reference-transaction hook: %w", err)
 		}
 	}
 
 	if err := stream.Send(&gitalypb.ReferenceTransactionHookResponse{
 		ExitStatus: &gitalypb.ExitStatus{Value: 0},
 	}); err != nil {
-		return helper.ErrInternalf("sending response: %w", err)
+		return structerr.NewInternal("sending response: %w", err)
 	}
 
 	return nil

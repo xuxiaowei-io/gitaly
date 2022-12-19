@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/x509"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/correlation"
@@ -268,12 +269,12 @@ func withInternalFetch(req repoScopedRequest, withSidechannel bool) func(ctx con
 	return func(ctx context.Context, cfg config.Cfg, _ CommandFactory, c *cmdCfg) error {
 		payload, err := protojson.Marshal(req)
 		if err != nil {
-			return helper.ErrInternalf("marshalling payload failed: %v", err)
+			return structerr.NewInternal("marshalling payload failed: %v", err)
 		}
 
 		serversInfo, err := storage.ExtractGitalyServers(ctx)
 		if err != nil {
-			return helper.ErrInternalf("extracting Gitaly servers: %v", err)
+			return structerr.NewInternal("extracting Gitaly servers: %v", err)
 		}
 
 		storageInfo, ok := serversInfo[req.GetRepository().GetStorageName()]

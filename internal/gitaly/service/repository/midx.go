@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -34,7 +35,7 @@ func (s *server) MidxRepack(ctx context.Context, in *gitalypb.MidxRepackRequest)
 	repo := s.localrepo(repository)
 
 	if err := repo.SetConfig(ctx, "core.multiPackIndex", "true", s.txManager); err != nil {
-		return nil, helper.ErrInternalf("setting config: %w", err)
+		return nil, structerr.NewInternal("setting config: %w", err)
 	}
 
 	for _, cmd := range []midxSubCommand{s.midxWrite, s.midxExpire, s.midxRepack} {
@@ -43,7 +44,7 @@ func (s *server) MidxRepack(ctx context.Context, in *gitalypb.MidxRepackRequest)
 				return nil, helper.ErrInvalidArgumentf("%w", err)
 			}
 
-			return nil, helper.ErrInternalf("...%w", err)
+			return nil, structerr.NewInternal("...%w", err)
 		}
 	}
 

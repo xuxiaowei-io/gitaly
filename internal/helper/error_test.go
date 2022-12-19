@@ -25,11 +25,6 @@ func TestErrorf(t *testing.T) {
 		expectedCode codes.Code
 	}{
 		{
-			desc:         "Internalf",
-			errorf:       ErrInternalf,
-			expectedCode: codes.Internal,
-		},
-		{
 			desc:         "InvalidArgumentf",
 			errorf:       ErrInvalidArgumentf,
 			expectedCode: codes.InvalidArgument,
@@ -107,7 +102,7 @@ func TestErrorf(t *testing.T) {
 				require.NotEqual(t, tc.expectedCode, unusedErrorCode)
 
 				err := tc.errorf("first: %w",
-					ErrInternalf("second: %w",
+					ErrNotFoundf("second: %w",
 						status.Error(unusedErrorCode, "third"),
 					),
 				)

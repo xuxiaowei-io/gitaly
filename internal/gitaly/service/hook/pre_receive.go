@@ -8,6 +8,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 )
@@ -15,7 +16,7 @@ import (
 func (s *server) PreReceiveHook(stream gitalypb.HookService_PreReceiveHookServer) error {
 	firstRequest, err := stream.Recv()
 	if err != nil {
-		return helper.ErrInternalf("receiving first request: %w", err)
+		return structerr.NewInternal("receiving first request: %w", err)
 	}
 
 	if err := validatePreReceiveHookRequest(firstRequest); err != nil {
@@ -65,7 +66,7 @@ func preReceiveHookResponse(stream gitalypb.HookService_PreReceiveHookServer, co
 		ExitStatus: &gitalypb.ExitStatus{Value: code},
 		Stderr:     []byte(stderr),
 	}); err != nil {
-		return helper.ErrInternalf("sending response: %w", err)
+		return structerr.NewInternal("sending response: %w", err)
 	}
 
 	return nil

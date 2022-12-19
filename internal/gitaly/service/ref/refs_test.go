@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -503,7 +504,7 @@ func TestFindLocalBranchesPaginationWithIncorrectToken(t *testing.T) {
 
 	_, err = c.Recv()
 	require.NotEqual(t, err, io.EOF)
-	testhelper.RequireGrpcError(t, helper.ErrInternalf("finding refs: could not find page token"), err)
+	testhelper.RequireGrpcError(t, structerr.NewInternal("finding refs: could not find page token"), err)
 }
 
 // Test that `s` contains the elements in `relativeOrder` in that order

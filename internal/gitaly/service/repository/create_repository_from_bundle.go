@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
@@ -19,7 +20,7 @@ import (
 func (s *server) CreateRepositoryFromBundle(stream gitalypb.RepositoryService_CreateRepositoryFromBundleServer) error {
 	firstRequest, err := stream.Recv()
 	if err != nil {
-		return helper.ErrInternalf("first request failed: %w", err)
+		return structerr.NewInternal("first request failed: %w", err)
 	}
 
 	repository := firstRequest.GetRepository()
@@ -43,17 +44,17 @@ func (s *server) CreateRepositoryFromBundle(stream gitalypb.RepositoryService_Cr
 	repo := repository
 	bundleDir, err := tempdir.New(ctx, repo.GetStorageName(), s.locator)
 	if err != nil {
-		return helper.ErrInternalf("creating bundle directory: %w", err)
+		return structerr.NewInternal("creating bundle directory: %w", err)
 	}
 
 	bundlePath := filepath.Join(bundleDir.Path(), "repo.bundle")
 	bundleFile, err := os.Create(bundlePath)
 	if err != nil {
-		return helper.ErrInternalf("creating bundle file: %w", err)
+		return structerr.NewInternal("creating bundle file: %w", err)
 	}
 
 	if _, err := io.Copy(bundleFile, bundleReader); err != nil {
-		return helper.ErrInternalf("writing bundle file: %w", err)
+		return structerr.NewInternal("writing bundle file: %w", err)
 	}
 
 	if err := s.createRepository(ctx, repo, func(repo *gitalypb.Repository) error {
@@ -67,21 +68,21 @@ func (s *server) CreateRepositoryFromBundle(stream gitalypb.RepositoryService_Cr
 			Args: []string{bundlePath, "refs/*:refs/*"},
 		}, git.WithStderr(&stderr), git.WithRefTxHook(repo))
 		if err != nil {
-			return helper.ErrInternalf("spawning fetch: %w", err)
+			return structerr.NewInternal("spawning fetch: %w", err)
 		}
 
 		if err := cmd.Wait(); err != nil {
 			sanitizedStderr := sanitizedError("%s", stderr.String())
-			return helper.ErrInternalf("fetch from bundle: %w, stderr: %q", err, sanitizedStderr)
+			return structerr.NewInternal("fetch from bundle: %w, stderr: %q", err, sanitizedStderr)
 		}
 
 		if err := s.updateHeadFromBundle(ctx, s.localrepo(repo), bundlePath); err != nil {
-			return helper.ErrInternalf("%w", err)
+			return structerr.NewInternal("%w", err)
 		}
 
 		return nil
 	}); err != nil {
-		return helper.ErrInternalf("creating repository: %w", err)
+		return structerr.NewInternal("creating repository: %w", err)
 	}
 
 	return stream.SendAndClose(&gitalypb.CreateRepositoryFromBundleResponse{})

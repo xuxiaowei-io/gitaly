@@ -21,12 +21,6 @@ func (sw statusWrapper) Unwrap() error {
 	return sw.error
 }
 
-// ErrInternalf wraps a formatted error with codes.Internal, unless the formatted error is a
-// wrapped gRPC error.
-func ErrInternalf(format string, a ...interface{}) error {
-	return formatError(codes.Internal, format, a...)
-}
-
 // ErrInvalidArgumentf wraps a formatted error with codes.InvalidArgument, unless the formatted
 // error is a wrapped gRPC error.
 func ErrInvalidArgumentf(format string, a ...interface{}) error {

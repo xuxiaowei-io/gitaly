@@ -7,6 +7,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -16,7 +17,7 @@ func (s *server) PackRefs(ctx context.Context, in *gitalypb.PackRefsRequest) (*g
 	}
 
 	if err := s.packRefs(ctx, in.GetRepository()); err != nil {
-		return nil, helper.ErrInternalf("%w", err)
+		return nil, structerr.NewInternal("%w", err)
 	}
 
 	return &gitalypb.PackRefsResponse{}, nil

@@ -63,7 +63,7 @@ func (s *server) CreateBundleFromRefList(stream gitalypb.RepositoryService_Creat
 		git.WithStderr(&stderr),
 	)
 	if err != nil {
-		return helper.ErrInternalf("cmd start failed: %w", err)
+		return structerr.NewInternal("cmd start failed: %w", err)
 	}
 
 	writer := streamio.NewWriter(func(p []byte) error {
@@ -72,14 +72,14 @@ func (s *server) CreateBundleFromRefList(stream gitalypb.RepositoryService_Creat
 
 	_, err = io.Copy(writer, cmd)
 	if err != nil {
-		return helper.ErrInternalf("stream writer failed: %w", err)
+		return structerr.NewInternal("stream writer failed: %w", err)
 	}
 
 	err = cmd.Wait()
 	if isExitWithCode(err, 128) && bytes.HasPrefix(stderr.Bytes(), []byte("fatal: Refusing to create empty bundle.")) {
 		return structerr.NewFailedPrecondition("cmd wait failed: refusing to create empty bundle")
 	} else if err != nil {
-		return helper.ErrInternalf("cmd wait failed: %w, stderr: %q", err, stderr.String())
+		return structerr.NewInternal("cmd wait failed: %w, stderr: %q", err, stderr.String())
 	}
 
 	return nil

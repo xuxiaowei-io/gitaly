@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -78,11 +79,11 @@ func (s *server) gc(ctx context.Context, in *gitalypb.GarbageCollectRequest) err
 			return helper.ErrInvalidArgumentf("gitCommand: %w", err)
 		}
 
-		return helper.ErrInternalf("gitCommand: %w", err)
+		return structerr.NewInternal("gitCommand: %w", err)
 	}
 
 	if err := cmd.Wait(); err != nil {
-		return helper.ErrInternalf("cmd wait: %w", err)
+		return structerr.NewInternal("cmd wait: %w", err)
 	}
 
 	return nil

@@ -34,7 +34,7 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 
 	quarantineDir, quarantineRepo, err := s.quarantinedRepo(ctx, header.GetRepository())
 	if err != nil {
-		return helper.ErrInternalf("creating repo quarantine: %w", err)
+		return structerr.NewInternal("creating repo quarantine: %w", err)
 	}
 
 	repoPath, err := quarantineRepo.Path()
@@ -51,7 +51,7 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 	remoteFetch := rebaseRemoteFetch{header: header}
 	startRevision, err := s.fetchStartRevision(ctx, quarantineRepo, remoteFetch)
 	if err != nil {
-		return helper.ErrInternalf("%w", err)
+		return structerr.NewInternal("%w", err)
 	}
 
 	committer := git2go.NewSignature(string(header.User.Name), string(header.User.Email), time.Now())
@@ -89,7 +89,7 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 			)
 		}
 
-		return helper.ErrInternalf("rebasing commits: %w", err)
+		return structerr.NewInternal("rebasing commits: %w", err)
 	}
 
 	if err := stream.Send(&gitalypb.UserRebaseConfirmableResponse{
@@ -97,12 +97,12 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 			RebaseSha: newrev.String(),
 		},
 	}); err != nil {
-		return helper.ErrInternalf("send rebase sha: %w", err)
+		return structerr.NewInternal("send rebase sha: %w", err)
 	}
 
 	secondRequest, err := stream.Recv()
 	if err != nil {
-		return helper.ErrInternalf("recv: %w", err)
+		return structerr.NewInternal("recv: %w", err)
 	}
 
 	if !secondRequest.GetApply() {
@@ -135,7 +135,7 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 			return fmt.Errorf("update ref: %w", err)
 		}
 
-		return helper.ErrInternalf("updating ref with hooks: %w", err)
+		return structerr.NewInternal("updating ref with hooks: %w", err)
 	}
 
 	return stream.Send(&gitalypb.UserRebaseConfirmableResponse{
