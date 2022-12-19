@@ -6,19 +6,18 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
 func (s *server) FetchIntoObjectPool(ctx context.Context, req *gitalypb.FetchIntoObjectPoolRequest) (*gitalypb.FetchIntoObjectPoolResponse, error) {
 	if err := validateFetchIntoObjectPoolRequest(req); err != nil {
-		return nil, helper.ErrInvalidArgumentf("%w", err)
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
 	objectPool, err := objectpool.FromProto(s.locator, s.gitCmdFactory, s.catfileCache, s.txManager, s.housekeepingManager, req.GetObjectPool())
 	if err != nil {
-		return nil, helper.ErrInvalidArgumentf("object pool invalid: %w", err)
+		return nil, structerr.NewInvalidArgument("object pool invalid: %w", err)
 	}
 
 	origin := s.localrepo(req.GetOrigin())

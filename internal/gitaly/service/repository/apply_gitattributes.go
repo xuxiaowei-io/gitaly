@@ -14,8 +14,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/safe"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -30,7 +30,7 @@ func (s *server) applyGitattributes(ctx context.Context, repo *localrepo.Repo, o
 	_, err := repo.ResolveRevision(ctx, git.Revision(revision)+"^{commit}")
 	if err != nil {
 		if errors.Is(err, git.ErrReferenceNotFound) {
-			return helper.ErrInvalidArgumentf("revision does not exist")
+			return structerr.NewInvalidArgument("revision does not exist")
 		}
 
 		return err
@@ -131,7 +131,7 @@ func (s *server) vote(ctx context.Context, oid git.ObjectID, phase voting.Phase)
 func (s *server) ApplyGitattributes(ctx context.Context, in *gitalypb.ApplyGitattributesRequest) (*gitalypb.ApplyGitattributesResponse, error) {
 	repository := in.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
-		return nil, helper.ErrInvalidArgumentf("%w", err)
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 	repo := s.localrepo(repository)
 	repoPath, err := s.locator.GetRepoPath(repo)
@@ -140,7 +140,7 @@ func (s *server) ApplyGitattributes(ctx context.Context, in *gitalypb.ApplyGitat
 	}
 
 	if err := git.ValidateRevision(in.GetRevision()); err != nil {
-		return nil, helper.ErrInvalidArgumentf("revision: %w", err)
+		return nil, structerr.NewInvalidArgument("revision: %w", err)
 	}
 
 	objectReader, cancel, err := s.catfileCache.ObjectReader(ctx, repo)

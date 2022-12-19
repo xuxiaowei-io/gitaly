@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -48,7 +48,7 @@ func TestFromProto(t *testing.T) {
 				RelativePath: gittest.NewObjectPoolName(t),
 			},
 		})
-		require.Equal(t, helper.ErrInvalidArgumentf("GetStorageByName: no such storage: %q", "mepmep"), err)
+		require.Equal(t, structerr.NewInvalidArgument("GetStorageByName: no such storage: %q", "mepmep"), err)
 	})
 }
 

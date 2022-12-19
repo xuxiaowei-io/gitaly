@@ -8,7 +8,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
@@ -16,7 +15,7 @@ import (
 
 func (s *server) GetTagMessages(request *gitalypb.GetTagMessagesRequest, stream gitalypb.RefService_GetTagMessagesServer) error {
 	if err := validateGetTagMessagesRequest(request); err != nil {
-		return helper.ErrInvalidArgumentf("%w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 	if err := s.getAndStreamTagMessages(request, stream); err != nil {
 		return structerr.NewInternal("%w", err)

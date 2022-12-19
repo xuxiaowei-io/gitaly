@@ -18,7 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/lstree"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -44,7 +43,7 @@ var nicknameByLicenseIdentifier = map[string]string{
 func (s *server) FindLicense(ctx context.Context, req *gitalypb.FindLicenseRequest) (*gitalypb.FindLicenseResponse, error) {
 	repository := req.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
-		return nil, helper.ErrInvalidArgumentf("%w", err)
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 	if featureflag.GoFindLicense.IsEnabled(ctx) {
 		repo := localrepo.New(s.locator, s.gitCmdFactory, s.catfileCache, repository)

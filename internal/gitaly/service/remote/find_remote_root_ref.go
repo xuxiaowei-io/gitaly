@@ -9,7 +9,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -23,7 +22,7 @@ func (s *server) findRemoteRootRefCmd(ctx context.Context, request *gitalypb.Fin
 	if resolvedAddress := request.GetResolvedAddress(); resolvedAddress != "" {
 		modifiedURL, resolveConfig, err := git.GetURLAndResolveConfig(remoteURL, resolvedAddress)
 		if err != nil {
-			return nil, helper.ErrInvalidArgumentf("couldn't get curloptResolve config: %w", err)
+			return nil, structerr.NewInvalidArgument("couldn't get curloptResolve config: %w", err)
 		}
 
 		remoteURL = modifiedURL
@@ -90,10 +89,10 @@ func (s *server) findRemoteRootRef(ctx context.Context, request *gitalypb.FindRe
 // FindRemoteRootRef queries the remote to determine its HEAD
 func (s *server) FindRemoteRootRef(ctx context.Context, in *gitalypb.FindRemoteRootRefRequest) (*gitalypb.FindRemoteRootRefResponse, error) {
 	if in.GetRemoteUrl() == "" {
-		return nil, helper.ErrInvalidArgumentf("missing remote URL")
+		return nil, structerr.NewInvalidArgument("missing remote URL")
 	}
 	if err := service.ValidateRepository(in.GetRepository()); err != nil {
-		return nil, helper.ErrInvalidArgumentf("%w", err)
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
 	ref, err := s.findRemoteRootRef(ctx, in)

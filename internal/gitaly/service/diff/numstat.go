@@ -6,7 +6,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/diff"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -80,7 +79,7 @@ func sendStats(batch []*gitalypb.DiffStats, stream gitalypb.DiffService_DiffStat
 func (s *server) validateDiffStatsRequestParams(in *gitalypb.DiffStatsRequest) error {
 	repository := in.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
-		return helper.ErrInvalidArgumentf("%w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 	if _, err := s.locator.GetRepoPath(repository); err != nil {
 		return err

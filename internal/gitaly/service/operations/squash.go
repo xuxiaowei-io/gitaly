@@ -9,7 +9,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -23,7 +22,7 @@ const (
 // commit whose single parent is the start revision.
 func (s *Server) UserSquash(ctx context.Context, req *gitalypb.UserSquashRequest) (*gitalypb.UserSquashResponse, error) {
 	if err := validateUserSquashRequest(req); err != nil {
-		return nil, helper.ErrInvalidArgumentf("%w", err)
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
 	sha, err := s.userSquash(ctx, req)
@@ -122,7 +121,7 @@ func (s *Server) userSquash(ctx context.Context, req *gitalypb.UserSquashRequest
 
 	commitDate, err := dateFromProto(req)
 	if err != nil {
-		return "", helper.ErrInvalidArgumentf("%w", err)
+		return "", structerr.NewInvalidArgument("%w", err)
 	}
 
 	message := string(req.GetCommitMessage())

@@ -38,7 +38,7 @@ func (s *server) SSHUploadPack(stream gitalypb.SSHService_SSHUploadPackServer) e
 	}).Debug("SSHUploadPack")
 
 	if err = validateFirstUploadPackRequest(req); err != nil {
-		return helper.ErrInvalidArgumentf("%w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	stdin := streamio.NewReader(func() ([]byte, error) {

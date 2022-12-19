@@ -6,7 +6,6 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 )
 
@@ -70,12 +69,12 @@ func (l *configLocator) GetPath(repo repository.GitRepo) (string, error) {
 
 	relativePath := repo.GetRelativePath()
 	if len(relativePath) == 0 {
-		err := helper.ErrInvalidArgumentf("GetPath: relative path missing")
+		err := structerr.NewInvalidArgument("GetPath: relative path missing")
 		return "", err
 	}
 
 	if _, err := storage.ValidateRelativePath(storagePath, relativePath); err != nil {
-		return "", helper.ErrInvalidArgumentf("GetRepoPath: %s", err)
+		return "", structerr.NewInvalidArgument("GetRepoPath: %s", err)
 	}
 
 	return filepath.Join(storagePath, relativePath), nil
@@ -86,7 +85,7 @@ func (l *configLocator) GetPath(repo repository.GitRepo) (string, error) {
 func (l *configLocator) GetStorageByName(storageName string) (string, error) {
 	storagePath, ok := l.conf.StoragePath(storageName)
 	if !ok {
-		return "", helper.ErrInvalidArgumentf("GetStorageByName: no such storage: %q", storageName)
+		return "", structerr.NewInvalidArgument("GetStorageByName: no such storage: %q", storageName)
 	}
 
 	return storagePath, nil
@@ -110,7 +109,7 @@ func (l *configLocator) TempDir(storageName string) (string, error) {
 func (l *configLocator) getPath(storageName, prefix string) (string, error) {
 	storagePath, ok := l.conf.StoragePath(storageName)
 	if !ok {
-		return "", helper.ErrInvalidArgumentf("%s dir: no such storage: %q",
+		return "", structerr.NewInvalidArgument("%s dir: no such storage: %q",
 			filepath.Base(prefix), storageName)
 	}
 

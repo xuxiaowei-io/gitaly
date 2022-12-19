@@ -6,7 +6,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
@@ -23,7 +22,7 @@ func (s *server) ReferenceTransactionHook(stream gitalypb.HookService_ReferenceT
 	}
 
 	if err := validateReferenceTransactionHookRequest(request); err != nil {
-		return helper.ErrInvalidArgumentf("%w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	var state hook.ReferenceTransactionState
@@ -35,7 +34,7 @@ func (s *server) ReferenceTransactionHook(stream gitalypb.HookService_ReferenceT
 	case gitalypb.ReferenceTransactionHookRequest_ABORTED:
 		state = hook.ReferenceTransactionAborted
 	default:
-		return helper.ErrInvalidArgumentf("invalid hook state")
+		return structerr.NewInvalidArgument("invalid hook state")
 	}
 
 	stdin := streamio.NewReader(func() ([]byte, error) {

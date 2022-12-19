@@ -9,7 +9,6 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -17,7 +16,7 @@ import (
 
 func (s *server) RenameRepository(ctx context.Context, in *gitalypb.RenameRepositoryRequest) (*gitalypb.RenameRepositoryResponse, error) {
 	if err := validateRenameRepositoryRequest(in); err != nil {
-		return nil, helper.ErrInvalidArgumentf("%w", err)
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
 	targetRepo := &gitalypb.Repository{
@@ -35,12 +34,12 @@ func (s *server) RenameRepository(ctx context.Context, in *gitalypb.RenameReposi
 func (s *server) renameRepository(ctx context.Context, sourceRepo, targetRepo *gitalypb.Repository) error {
 	sourcePath, err := s.locator.GetRepoPath(sourceRepo)
 	if err != nil {
-		return helper.ErrInvalidArgumentf("%w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	targetPath, err := s.locator.GetPath(targetRepo)
 	if err != nil {
-		return helper.ErrInvalidArgumentf("%w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	// Check up front whether the target path exists already. If it does, we can avoid going
@@ -99,7 +98,7 @@ func (s *server) renameRepository(ctx context.Context, sourceRepo, targetRepo *g
 
 func validateRenameRepositoryRequest(in *gitalypb.RenameRepositoryRequest) error {
 	if err := service.ValidateRepository(in.GetRepository()); err != nil {
-		return helper.ErrInvalidArgumentf("%w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	if in.GetRelativePath() == "" {

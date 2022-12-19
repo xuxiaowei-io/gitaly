@@ -9,7 +9,6 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/lines"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -73,7 +72,7 @@ func (s *server) findRefs(ctx context.Context, writer lines.Sender, repo git.Rep
 func (s *server) FindDefaultBranchName(ctx context.Context, in *gitalypb.FindDefaultBranchNameRequest) (*gitalypb.FindDefaultBranchNameResponse, error) {
 	repository := in.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
-		return nil, helper.ErrInvalidArgumentf("%w", err)
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 	repo := s.localrepo(repository)
 
@@ -101,7 +100,7 @@ func parseSortKey(sortKey gitalypb.FindLocalBranchesRequest_SortBy) string {
 // FindLocalBranches creates a stream of branches for all local branches in the given repository
 func (s *server) FindLocalBranches(in *gitalypb.FindLocalBranchesRequest, stream gitalypb.RefService_FindLocalBranchesServer) error {
 	if err := service.ValidateRepository(in.GetRepository()); err != nil {
-		return helper.ErrInvalidArgumentf("%w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 	if err := s.findLocalBranches(in, stream); err != nil {
 		return structerr.NewInternal("%w", err)
@@ -137,7 +136,7 @@ func (s *server) findLocalBranches(in *gitalypb.FindLocalBranchesRequest, stream
 
 func (s *server) FindAllBranches(in *gitalypb.FindAllBranchesRequest, stream gitalypb.RefService_FindAllBranchesServer) error {
 	if err := service.ValidateRepository(in.GetRepository()); err != nil {
-		return helper.ErrInvalidArgumentf("%w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 	if err := s.findAllBranches(in, stream); err != nil {
 		return structerr.NewInternal("%w", err)

@@ -10,7 +10,7 @@ import (
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -69,9 +69,9 @@ func TestCheckObjectsExist(t *testing.T) {
 			},
 			expectedErr: func() error {
 				if testhelper.IsPraefectEnabled() {
-					return helper.ErrInvalidArgumentf("repo scoped: empty Repository")
+					return structerr.NewInvalidArgument("repo scoped: empty Repository")
 				}
-				return helper.ErrInvalidArgumentf("empty Repository")
+				return structerr.NewInvalidArgument("empty Repository")
 			}(),
 		},
 		{
@@ -170,7 +170,7 @@ func TestCheckObjectsExist(t *testing.T) {
 					},
 				},
 			},
-			expectedErr: helper.ErrInvalidArgumentf("invalid revision: revision can't start with '-'"),
+			expectedErr: structerr.NewInvalidArgument("invalid revision: revision can't start with '-'"),
 			expectedErrorMetadata: map[string]any{
 				"revision": "-not-a-rev",
 			},
@@ -185,7 +185,7 @@ func TestCheckObjectsExist(t *testing.T) {
 					},
 				},
 			},
-			expectedErr: helper.ErrInvalidArgumentf("invalid revision: revision can't contain whitespace"),
+			expectedErr: structerr.NewInvalidArgument("invalid revision: revision can't contain whitespace"),
 			expectedErrorMetadata: map[string]any{
 				"revision": fmt.Sprintf("%s\n%s", commitID1, commitID2),
 			},
@@ -205,7 +205,7 @@ func TestCheckObjectsExist(t *testing.T) {
 					},
 				},
 			},
-			expectedErr: helper.ErrInvalidArgumentf("invalid revision: revision can't start with '-'"),
+			expectedErr: structerr.NewInvalidArgument("invalid revision: revision can't start with '-'"),
 			expectedErrorMetadata: map[string]any{
 				"revision": "-not-a-rev",
 			},

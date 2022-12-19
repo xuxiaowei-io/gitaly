@@ -15,7 +15,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
@@ -719,7 +718,7 @@ func TestUserSquash_gitError(t *testing.T) {
 				EndSha:        endSha,
 			},
 			expectedErr: errWithDetails(t,
-				helper.ErrInvalidArgumentf("resolving start revision: reference not found"),
+				structerr.NewInvalidArgument("resolving start revision: reference not found"),
 				&gitalypb.UserSquashError{
 					Error: &gitalypb.UserSquashError_ResolveRevision{
 						ResolveRevision: &gitalypb.ResolveRevisionError{
@@ -740,7 +739,7 @@ func TestUserSquash_gitError(t *testing.T) {
 				EndSha:        "doesntexisting",
 			},
 			expectedErr: errWithDetails(t,
-				helper.ErrInvalidArgumentf("resolving end revision: reference not found"),
+				structerr.NewInvalidArgument("resolving end revision: reference not found"),
 				&gitalypb.UserSquashError{
 					Error: &gitalypb.UserSquashError_ResolveRevision{
 						ResolveRevision: &gitalypb.ResolveRevisionError{
@@ -760,7 +759,7 @@ func TestUserSquash_gitError(t *testing.T) {
 				StartSha:      startSha,
 				EndSha:        endSha,
 			},
-			expectedErr: helper.ErrInvalidArgumentf("empty user name"),
+			expectedErr: structerr.NewInvalidArgument("empty user name"),
 		},
 		{
 			desc: "author has no name set",
@@ -772,7 +771,7 @@ func TestUserSquash_gitError(t *testing.T) {
 				StartSha:      startSha,
 				EndSha:        endSha,
 			},
-			expectedErr: helper.ErrInvalidArgumentf("empty author name"),
+			expectedErr: structerr.NewInvalidArgument("empty author name"),
 		},
 		{
 			desc: "author has no email set",
@@ -784,7 +783,7 @@ func TestUserSquash_gitError(t *testing.T) {
 				StartSha:      startSha,
 				EndSha:        endSha,
 			},
-			expectedErr: helper.ErrInvalidArgumentf("empty author email"),
+			expectedErr: structerr.NewInvalidArgument("empty author email"),
 		},
 	}
 

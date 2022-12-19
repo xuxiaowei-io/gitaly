@@ -10,7 +10,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/remoterepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -18,7 +17,7 @@ import (
 //nolint:revive // This is unintentionally missing documentation.
 func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest) (*gitalypb.UserRevertResponse, error) {
 	if err := validateCherryPickOrRevertRequest(req); err != nil {
-		return nil, helper.ErrInvalidArgumentf("%w", err)
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
 	quarantineDir, quarantineRepo, err := s.quarantinedRepo(ctx, req.GetRepository())
@@ -48,7 +47,7 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 
 	authorDate, err := dateFromProto(req)
 	if err != nil {
-		return nil, helper.ErrInvalidArgumentf("%w", err)
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
 	newrev, err := s.git2goExecutor.Revert(ctx, quarantineRepo, git2go.RevertCommand{
@@ -73,7 +72,7 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 				CreateTreeErrorCode: gitalypb.UserRevertResponse_EMPTY,
 			}, nil
 		} else if errors.Is(err, git2go.ErrInvalidArgument) {
-			return nil, helper.ErrInvalidArgumentf("%w", err)
+			return nil, structerr.NewInvalidArgument("%w", err)
 		} else {
 			return nil, structerr.NewInternal("revert command: %w", err)
 		}
@@ -87,7 +86,7 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 		branchCreated = true
 		oldrev = git.ObjectHashSHA1.ZeroOID
 	} else if err != nil {
-		return nil, helper.ErrInvalidArgumentf("resolve ref: %w", err)
+		return nil, structerr.NewInvalidArgument("resolve ref: %w", err)
 	}
 
 	if req.DryRun {
@@ -153,7 +152,7 @@ func (s *Server) fetchStartRevision(
 
 	startRevision, err := remoteRepo.ResolveRevision(ctx, git.Revision(fmt.Sprintf("%s^{commit}", startBranchName)))
 	if err != nil {
-		return "", helper.ErrInvalidArgumentf("resolve start ref: %w", err)
+		return "", structerr.NewInvalidArgument("resolve start ref: %w", err)
 	}
 
 	if req.GetStartRepository() == nil {
@@ -171,7 +170,7 @@ func (s *Server) fetchStartRevision(
 			return "", structerr.NewInternal("fetch start: %w", err)
 		}
 	} else if err != nil {
-		return "", helper.ErrInvalidArgumentf("resolve start: %w", err)
+		return "", structerr.NewInvalidArgument("resolve start: %w", err)
 	}
 
 	return startRevision, nil

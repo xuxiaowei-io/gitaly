@@ -21,7 +21,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/sidechannel"
@@ -442,9 +441,9 @@ func TestUploadPack_validation(t *testing.T) {
 			},
 			expectedErr: func() error {
 				if testhelper.IsPraefectEnabled() {
-					return helper.ErrInvalidArgumentf("repo scoped: invalid Repository")
+					return structerr.NewInvalidArgument("repo scoped: invalid Repository")
 				}
-				return helper.ErrInvalidArgumentf("empty RelativePath")
+				return structerr.NewInvalidArgument("empty RelativePath")
 			}(),
 		},
 		{
@@ -454,9 +453,9 @@ func TestUploadPack_validation(t *testing.T) {
 			},
 			expectedErr: func() error {
 				if testhelper.IsPraefectEnabled() {
-					return helper.ErrInvalidArgumentf("repo scoped: empty Repository")
+					return structerr.NewInvalidArgument("repo scoped: empty Repository")
 				}
-				return helper.ErrInvalidArgumentf("empty Repository")
+				return structerr.NewInvalidArgument("empty Repository")
 			}(),
 		},
 		{
@@ -472,7 +471,7 @@ func TestUploadPack_validation(t *testing.T) {
 				if testhelper.IsPraefectEnabled() {
 					return structerr.NewNotFound("accessor call: route repository accessor: consistent storages: repository %q/%q not found", cfg.Storages[0].Name, "path/to/repo")
 				}
-				return helper.ErrInvalidArgumentf("non-empty stdin in first request")
+				return structerr.NewInvalidArgument("non-empty stdin in first request")
 			}(),
 		},
 	} {

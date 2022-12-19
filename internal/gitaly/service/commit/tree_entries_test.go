@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -671,7 +671,7 @@ func TestGetTreeEntries_validation(t *testing.T) {
 				Revision:   revision,
 				Path:       path,
 			},
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				"GetStorageByName: no such storage: \"fake\"",
 				"repo scoped: invalid Repository",
 			)),
@@ -683,7 +683,7 @@ func TestGetTreeEntries_validation(t *testing.T) {
 				Revision:   revision,
 				Path:       path,
 			},
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -695,7 +695,7 @@ func TestGetTreeEntries_validation(t *testing.T) {
 				Revision:   nil,
 				Path:       path,
 			},
-			expectedErr: helper.ErrInvalidArgumentf("empty revision"),
+			expectedErr: structerr.NewInvalidArgument("empty revision"),
 		},
 		{
 			desc: "path is empty",
@@ -703,7 +703,7 @@ func TestGetTreeEntries_validation(t *testing.T) {
 				Repository: repo,
 				Revision:   revision,
 			},
-			expectedErr: helper.ErrInvalidArgumentf("empty Path"),
+			expectedErr: structerr.NewInvalidArgument("empty Path"),
 		},
 		{
 			desc: "revision is invalid",
@@ -712,7 +712,7 @@ func TestGetTreeEntries_validation(t *testing.T) {
 				Revision:   []byte("--output=/meow"),
 				Path:       path,
 			},
-			expectedErr: helper.ErrInvalidArgumentf("revision can't start with '-'"),
+			expectedErr: structerr.NewInvalidArgument("revision can't start with '-'"),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

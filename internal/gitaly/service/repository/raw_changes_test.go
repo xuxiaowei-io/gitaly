@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -176,7 +176,7 @@ func TestGetRawChangesFailures(t *testing.T) {
 				FromRevision: "",
 				ToRevision:   "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863",
 			},
-			expectedErr: helper.ErrInvalidArgumentf("invalid 'from' revision: %q", ""),
+			expectedErr: structerr.NewInvalidArgument("invalid 'from' revision: %q", ""),
 		},
 		{
 			desc: "missing repository",
@@ -184,7 +184,7 @@ func TestGetRawChangesFailures(t *testing.T) {
 				FromRevision: "cfe32cf61b73a0d5e9f13e774abde7ff789b1660",
 				ToRevision:   "913c66a37b4a45b9769037c55c2d238bd0942d2e",
 			},
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -197,7 +197,7 @@ func TestGetRawChangesFailures(t *testing.T) {
 				FromRevision: "32800ed8206c0087f65e90a1a396b76d3c33f648",
 				ToRevision:   "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863",
 			},
-			expectedErr: helper.ErrInvalidArgumentf("invalid 'from' revision: %q", "32800ed8206c0087f65e90a1a396b76d3c33f648"),
+			expectedErr: structerr.NewInvalidArgument("invalid 'from' revision: %q", "32800ed8206c0087f65e90a1a396b76d3c33f648"),
 		},
 	} {
 		t.Run(fmt.Sprintf(tc.desc), func(t *testing.T) {

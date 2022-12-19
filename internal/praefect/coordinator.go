@@ -377,7 +377,7 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 
 	var additionalRepoRelativePath string
 	if additionalRepo, ok, err := call.methodInfo.AdditionalRepo(call.msg); err != nil {
-		return nil, helper.ErrInvalidArgumentf("%w", err)
+		return nil, structerr.NewInvalidArgument("%w", err)
 	} else if ok {
 		additionalRepoRelativePath = additionalRepo.GetRelativePath()
 	}
@@ -668,11 +668,11 @@ func (c *Coordinator) StreamDirector(ctx context.Context, fullMethodName string,
 	if mi.Scope == protoregistry.ScopeRepository {
 		targetRepo, err := mi.TargetRepo(m)
 		if err != nil {
-			return nil, helper.ErrInvalidArgumentf("repo scoped: %w", err)
+			return nil, structerr.NewInvalidArgument("repo scoped: %w", err)
 		}
 
 		if err := c.validateTargetRepo(targetRepo); err != nil {
-			return nil, helper.ErrInvalidArgumentf("repo scoped: %w", err)
+			return nil, structerr.NewInvalidArgument("repo scoped: %w", err)
 		}
 
 		sp, err := c.directRepositoryScopedMessage(ctx, grpcCall{
@@ -683,7 +683,7 @@ func (c *Coordinator) StreamDirector(ctx context.Context, fullMethodName string,
 		})
 		if err != nil {
 			if errors.Is(err, nodes.ErrVirtualStorageNotExist) {
-				return nil, helper.ErrInvalidArgumentf("%w", err)
+				return nil, structerr.NewInvalidArgument("%w", err)
 			}
 
 			if errors.Is(err, commonerr.ErrRepositoryAlreadyExists) {
@@ -705,11 +705,11 @@ func (c *Coordinator) StreamDirector(ctx context.Context, fullMethodName string,
 func (c *Coordinator) directStorageScopedMessage(ctx context.Context, mi protoregistry.MethodInfo, msg proto.Message) (*proxy.StreamParameters, error) {
 	virtualStorage, err := mi.Storage(msg)
 	if err != nil {
-		return nil, helper.ErrInvalidArgumentf("%w", err)
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
 	if virtualStorage == "" {
-		return nil, helper.ErrInvalidArgumentf("storage scoped: target storage is invalid")
+		return nil, structerr.NewInvalidArgument("storage scoped: target storage is invalid")
 	}
 
 	var ps *proxy.StreamParameters
@@ -728,7 +728,7 @@ func (c *Coordinator) accessorStorageStreamParameters(ctx context.Context, mi pr
 	node, err := c.router.RouteStorageAccessor(ctx, virtualStorage)
 	if err != nil {
 		if errors.Is(err, nodes.ErrVirtualStorageNotExist) {
-			return nil, helper.ErrInvalidArgumentf("%w", err)
+			return nil, structerr.NewInvalidArgument("%w", err)
 		}
 		return nil, structerr.NewInternal("accessor storage scoped: route storage accessor %q: %w", virtualStorage, err)
 	}
@@ -737,7 +737,7 @@ func (c *Coordinator) accessorStorageStreamParameters(ctx context.Context, mi pr
 
 	b, err := rewrittenStorageMessage(mi, msg, node.Storage)
 	if err != nil {
-		return nil, helper.ErrInvalidArgumentf("accessor storage scoped: %w", err)
+		return nil, structerr.NewInvalidArgument("accessor storage scoped: %w", err)
 	}
 
 	// As this is a read operation it could be routed to another storage (not only primary) if it meets constraints
@@ -756,7 +756,7 @@ func (c *Coordinator) mutatorStorageStreamParameters(ctx context.Context, mi pro
 	route, err := c.router.RouteStorageMutator(ctx, virtualStorage)
 	if err != nil {
 		if errors.Is(err, nodes.ErrVirtualStorageNotExist) {
-			return nil, helper.ErrInvalidArgumentf("%w", err)
+			return nil, structerr.NewInvalidArgument("%w", err)
 		}
 		return nil, structerr.NewInternal("mutator storage scoped: get shard %q: %w", virtualStorage, err)
 	}
@@ -765,7 +765,7 @@ func (c *Coordinator) mutatorStorageStreamParameters(ctx context.Context, mi pro
 
 	b, err := rewrittenStorageMessage(mi, msg, route.Primary.Storage)
 	if err != nil {
-		return nil, helper.ErrInvalidArgumentf("mutator storage scoped: %w", err)
+		return nil, structerr.NewInvalidArgument("mutator storage scoped: %w", err)
 	}
 
 	primaryDest := proxy.Destination{
@@ -778,7 +778,7 @@ func (c *Coordinator) mutatorStorageStreamParameters(ctx context.Context, mi pro
 	for i, secondary := range route.Secondaries {
 		b, err := rewrittenStorageMessage(mi, msg, secondary.Storage)
 		if err != nil {
-			return nil, helper.ErrInvalidArgumentf("mutator storage scoped: %w", err)
+			return nil, structerr.NewInvalidArgument("mutator storage scoped: %w", err)
 		}
 		secondaryDests[i] = proxy.Destination{Ctx: ctx, Conn: secondary.Connection, Msg: b}
 	}
@@ -792,7 +792,7 @@ func rewrittenRepositoryMessage(mi protoregistry.MethodInfo, m proto.Message, st
 	m = proto.Clone(m)
 	targetRepo, err := mi.TargetRepo(m)
 	if err != nil {
-		return nil, helper.ErrInvalidArgumentf("%w", err)
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
 	// rewrite the target repository
@@ -801,7 +801,7 @@ func rewrittenRepositoryMessage(mi protoregistry.MethodInfo, m proto.Message, st
 
 	additionalRepo, ok, err := mi.AdditionalRepo(m)
 	if err != nil {
-		return nil, helper.ErrInvalidArgumentf("%w", err)
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
 	if ok {
@@ -814,7 +814,7 @@ func rewrittenRepositoryMessage(mi protoregistry.MethodInfo, m proto.Message, st
 
 func rewrittenStorageMessage(mi protoregistry.MethodInfo, m proto.Message, storage string) ([]byte, error) {
 	if err := mi.SetStorage(m, storage); err != nil {
-		return nil, helper.ErrInvalidArgumentf("%w", err)
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
 	return proxy.NewCodec().Marshal(m)

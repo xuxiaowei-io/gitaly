@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -31,9 +30,9 @@ func TestPruneUnreachableObjects(t *testing.T) {
 	t.Run("missing repository", func(t *testing.T) {
 		_, err := client.PruneUnreachableObjects(ctx, &gitalypb.PruneUnreachableObjectsRequest{})
 		if testhelper.IsPraefectEnabled() {
-			testhelper.RequireGrpcError(t, helper.ErrInvalidArgumentf("repo scoped: empty Repository"), err)
+			testhelper.RequireGrpcError(t, structerr.NewInvalidArgument("repo scoped: empty Repository"), err)
 		} else {
-			testhelper.RequireGrpcError(t, helper.ErrInvalidArgumentf("empty Repository"), err)
+			testhelper.RequireGrpcError(t, structerr.NewInvalidArgument("empty Repository"), err)
 		}
 	})
 

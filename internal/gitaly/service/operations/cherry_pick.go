@@ -10,7 +10,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -19,7 +18,7 @@ import (
 // branch. See the protobuf documentation for details.
 func (s *Server) UserCherryPick(ctx context.Context, req *gitalypb.UserCherryPickRequest) (*gitalypb.UserCherryPickResponse, error) {
 	if err := validateCherryPickOrRevertRequest(req); err != nil {
-		return nil, helper.ErrInvalidArgumentf("%w", err)
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
 	quarantineDir, quarantineRepo, err := s.quarantinedRepo(ctx, req.GetRepository())
@@ -91,7 +90,7 @@ func (s *Server) UserCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 		case errors.As(err, &git2go.CommitNotFoundError{}):
 			return nil, structerr.NewNotFound("%w", err)
 		case errors.Is(err, git2go.ErrInvalidArgument):
-			return nil, helper.ErrInvalidArgumentf("%w", err)
+			return nil, structerr.NewInvalidArgument("%w", err)
 		default:
 			return nil, structerr.NewInternal("cherry-pick command: %w", err)
 		}

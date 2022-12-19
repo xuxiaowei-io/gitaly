@@ -12,7 +12,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -20,7 +19,7 @@ import (
 //nolint:revive // This is unintentionally missing documentation.
 func (s *Server) UserUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpdateSubmoduleRequest) (*gitalypb.UserUpdateSubmoduleResponse, error) {
 	if err := validateUserUpdateSubmoduleRequest(req); err != nil {
-		return nil, helper.ErrInvalidArgumentf("%w", err)
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
 	return s.userUpdateSubmodule(ctx, req)
@@ -79,7 +78,7 @@ func (s *Server) userUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpda
 	branchOID, err := quarantineRepo.ResolveRevision(ctx, referenceName.Revision())
 	if err != nil {
 		if errors.Is(err, git.ErrReferenceNotFound) {
-			return nil, helper.ErrInvalidArgumentf("Cannot find branch")
+			return nil, structerr.NewInvalidArgument("Cannot find branch")
 		}
 		return nil, structerr.NewInternal("resolving revision: %w", err)
 	}
@@ -91,7 +90,7 @@ func (s *Server) userUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpda
 
 	authorDate, err := dateFromProto(req)
 	if err != nil {
-		return nil, helper.ErrInvalidArgumentf("%w", err)
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
 	result, err := s.git2goExecutor.Submodule(ctx, quarantineRepo, git2go.SubmoduleCommand{
@@ -138,7 +137,7 @@ func (s *Server) userUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpda
 
 	commitID, err := git.ObjectHashSHA1.FromHex(result.CommitID)
 	if err != nil {
-		return nil, helper.ErrInvalidArgumentf("cannot parse commit ID: %w", err)
+		return nil, structerr.NewInvalidArgument("cannot parse commit ID: %w", err)
 	}
 
 	if err := s.updateReferenceWithHooks(

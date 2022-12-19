@@ -14,7 +14,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -35,7 +34,7 @@ func validateUserDeleteTagRequest(in *gitalypb.UserDeleteTagRequest) error {
 //nolint:revive // This is unintentionally missing documentation.
 func (s *Server) UserDeleteTag(ctx context.Context, req *gitalypb.UserDeleteTagRequest) (*gitalypb.UserDeleteTagResponse, error) {
 	if err := validateUserDeleteTagRequest(req); err != nil {
-		return nil, helper.ErrInvalidArgumentf("%w", err)
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 	referenceName := git.ReferenceName(fmt.Sprintf("refs/tags/%s", req.TagName))
 
@@ -114,7 +113,7 @@ func validateUserCreateTag(req *gitalypb.UserCreateTagRequest) error {
 //nolint:revive // This is unintentionally missing documentation.
 func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagRequest) (*gitalypb.UserCreateTagResponse, error) {
 	if err := validateUserCreateTag(req); err != nil {
-		return nil, helper.ErrInvalidArgumentf("validating request: %w", err)
+		return nil, structerr.NewInvalidArgument("validating request: %w", err)
 	}
 
 	targetRevision := git.Revision(req.TargetRevision)
@@ -122,7 +121,7 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 
 	committerTime, err := dateFromProto(req)
 	if err != nil {
-		return nil, helper.ErrInvalidArgumentf("%w", err)
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
 	quarantineDir, quarantineRepo, err := s.quarantinedRepo(ctx, req.GetRepository())

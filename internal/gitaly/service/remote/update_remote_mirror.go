@@ -11,7 +11,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -32,7 +31,7 @@ func (s *server) UpdateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMi
 	}
 
 	if err = validateUpdateRemoteMirrorRequest(stream.Context(), firstRequest); err != nil {
-		return helper.ErrInvalidArgumentf("%w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	if err := s.updateRemoteMirror(stream, firstRequest); err != nil {

@@ -11,7 +11,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/rawdiff"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -22,7 +21,7 @@ func (s *server) GetRawChanges(req *gitalypb.GetRawChangesRequest, stream gitaly
 	ctx := stream.Context()
 	repository := req.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
-		return helper.ErrInvalidArgumentf("%w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 	repo := s.localrepo(repository)
 
@@ -33,7 +32,7 @@ func (s *server) GetRawChanges(req *gitalypb.GetRawChangesRequest, stream gitaly
 	defer cancel()
 
 	if err := validateRawChangesRequest(ctx, req, objectInfoReader); err != nil {
-		return helper.ErrInvalidArgumentf("%w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	if err := s.getRawChanges(stream, repo, objectInfoReader, req.GetFromRevision(), req.GetToRevision()); err != nil {

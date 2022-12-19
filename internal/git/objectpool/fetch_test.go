@@ -15,8 +15,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
 
@@ -239,7 +239,7 @@ func TestFetchFromOrigin_missingPool(t *testing.T) {
 	// object pool.
 	require.NoError(t, pool.Remove(ctx))
 
-	require.Equal(t, helper.ErrInvalidArgumentf("object pool does not exist"), pool.FetchFromOrigin(ctx, repo))
+	require.Equal(t, structerr.NewInvalidArgument("object pool does not exist"), pool.FetchFromOrigin(ctx, repo))
 	require.False(t, pool.Exists())
 }
 

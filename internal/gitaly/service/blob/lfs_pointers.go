@@ -10,7 +10,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gitpipe"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -34,11 +33,11 @@ func (s *server) ListLFSPointers(in *gitalypb.ListLFSPointersRequest, stream git
 		return err
 	}
 	if len(in.Revisions) == 0 {
-		return helper.ErrInvalidArgumentf("missing revisions")
+		return structerr.NewInvalidArgument("missing revisions")
 	}
 	for _, revision := range in.Revisions {
 		if strings.HasPrefix(revision, "-") && revision != "--all" && revision != "--not" {
-			return helper.ErrInvalidArgumentf("invalid revision: %q", revision)
+			return structerr.NewInvalidArgument("invalid revision: %q", revision)
 		}
 	}
 
@@ -83,7 +82,7 @@ func (s *server) ListAllLFSPointers(in *gitalypb.ListAllLFSPointersRequest, stre
 
 	repository := in.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
-		return helper.ErrInvalidArgumentf("%w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	repo := s.localrepo(repository)
@@ -127,7 +126,7 @@ func (s *server) GetLFSPointers(req *gitalypb.GetLFSPointersRequest, stream gita
 	ctx := stream.Context()
 
 	if err := validateGetLFSPointersRequest(req); err != nil {
-		return helper.ErrInvalidArgumentf("%w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	repo := s.localrepo(req.GetRepository())

@@ -8,7 +8,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -97,13 +96,13 @@ func (s *server) PostReceivePack(stream gitalypb.SmartHTTPService_PostReceivePac
 
 func validateReceivePackRequest(req *gitalypb.PostReceivePackRequest) error {
 	if req.GlId == "" {
-		return helper.ErrInvalidArgumentf("empty GlId")
+		return structerr.NewInvalidArgument("empty GlId")
 	}
 	if req.Data != nil {
-		return helper.ErrInvalidArgumentf("non-empty Data")
+		return structerr.NewInvalidArgument("non-empty Data")
 	}
 	if err := service.ValidateRepository(req.GetRepository()); err != nil {
-		return helper.ErrInvalidArgumentf("%w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	return nil

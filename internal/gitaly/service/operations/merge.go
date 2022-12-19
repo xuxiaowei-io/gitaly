@@ -13,7 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -60,7 +59,7 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 	}
 
 	if err := validateMergeBranchRequest(firstRequest); err != nil {
-		return helper.ErrInvalidArgumentf("%w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	quarantineDir, quarantineRepo, err := s.quarantinedRepo(ctx, firstRequest.GetRepository())
@@ -100,7 +99,7 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 
 	authorDate, err := dateFromProto(firstRequest)
 	if err != nil {
-		return helper.ErrInvalidArgumentf("%w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	merge, err := s.git2goExecutor.Merge(ctx, quarantineRepo, git2go.MergeCommand{
@@ -114,7 +113,7 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 	})
 	if err != nil {
 		if errors.Is(err, git2go.ErrInvalidArgument) {
-			return helper.ErrInvalidArgumentf("%w", err)
+			return structerr.NewInvalidArgument("%w", err)
 		}
 
 		var conflictErr git2go.ConflictingFilesError
@@ -246,7 +245,7 @@ func validateFFRequest(in *gitalypb.UserFFBranchRequest) error {
 //nolint:revive // This is unintentionally missing documentation.
 func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequest) (*gitalypb.UserFFBranchResponse, error) {
 	if err := validateFFRequest(in); err != nil {
-		return nil, helper.ErrInvalidArgumentf("%w", err)
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
 	referenceName := git.NewReferenceNameFromBranchName(string(in.Branch))
@@ -261,12 +260,12 @@ func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequ
 
 	revision, err := quarantineRepo.ResolveRevision(ctx, referenceName.Revision())
 	if err != nil {
-		return nil, helper.ErrInvalidArgumentf("%w", err)
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
 	commitID, err := git.ObjectHashSHA1.FromHex(in.CommitId)
 	if err != nil {
-		return nil, helper.ErrInvalidArgumentf("cannot parse commit ID: %w", err)
+		return nil, structerr.NewInvalidArgument("cannot parse commit ID: %w", err)
 	}
 
 	ancestor, err := quarantineRepo.IsAncestor(ctx, revision.Revision(), commitID.Revision())
@@ -336,7 +335,7 @@ func validateUserMergeToRefRequest(in *gitalypb.UserMergeToRefRequest) error {
 // Branch or FirstParentRef and updates TargetRef to the merge commit.
 func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMergeToRefRequest) (*gitalypb.UserMergeToRefResponse, error) {
 	if err := validateUserMergeToRefRequest(request); err != nil {
-		return nil, helper.ErrInvalidArgumentf("%w", err)
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
 	repoPath, err := s.locator.GetPath(request.Repository)
@@ -353,17 +352,17 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 
 	oid, err := repo.ResolveRevision(ctx, revision)
 	if err != nil {
-		return nil, helper.ErrInvalidArgumentf("Invalid merge source")
+		return nil, structerr.NewInvalidArgument("Invalid merge source")
 	}
 
 	sourceOID, err := repo.ResolveRevision(ctx, git.Revision(request.SourceSha))
 	if err != nil {
-		return nil, helper.ErrInvalidArgumentf("Invalid merge source")
+		return nil, structerr.NewInvalidArgument("Invalid merge source")
 	}
 
 	authorDate, err := dateFromProto(request)
 	if err != nil {
-		return nil, helper.ErrInvalidArgumentf("%w", err)
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
 	// Resolve the current state of the target reference. We do not care whether it
@@ -408,7 +407,7 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 		).Error("unable to create merge commit")
 
 		if errors.Is(err, git2go.ErrInvalidArgument) {
-			return nil, helper.ErrInvalidArgumentf("%w", err)
+			return nil, structerr.NewInvalidArgument("%w", err)
 		}
 		return nil, structerr.NewFailedPrecondition("Failed to create merge commit for source_sha %s and target_sha %s at %s",
 			sourceOID, oid, string(request.TargetRef))

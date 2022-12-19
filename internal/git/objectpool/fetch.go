@@ -15,7 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/voting"
 )
 
@@ -26,7 +26,7 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *localrepo.Repo
 	logger := ctxlogrus.Extract(ctx)
 
 	if !o.Exists() {
-		return helper.ErrInvalidArgumentf("object pool does not exist")
+		return structerr.NewInvalidArgument("object pool does not exist")
 	}
 
 	originPath, err := origin.Path()

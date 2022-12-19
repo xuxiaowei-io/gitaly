@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
@@ -31,7 +30,7 @@ func (s *server) PostReceiveHook(stream gitalypb.HookService_PostReceiveHookServ
 	}
 
 	if err := validatePostReceiveHookRequest(firstRequest); err != nil {
-		return helper.ErrInvalidArgumentf("%w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	stdin := streamio.NewReader(func() ([]byte, error) {

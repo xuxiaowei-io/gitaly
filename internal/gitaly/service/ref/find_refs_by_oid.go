@@ -7,14 +7,13 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gitpipe"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
 func (s *server) FindRefsByOID(ctx context.Context, in *gitalypb.FindRefsByOIDRequest) (*gitalypb.FindRefsByOIDResponse, error) {
 	if err := validateFindRefsReq(in); err != nil {
-		return nil, helper.ErrInvalidArgumentf("%w", err)
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
 	repo := s.localrepo(in.GetRepository())
@@ -42,7 +41,7 @@ func (s *server) FindRefsByOID(ctx context.Context, in *gitalypb.FindRefsByOIDRe
 		// git uses exit status 129 to indicate errors in command line usage
 		// https://www.git-scm.com/docs/api-error-handling
 		if strings.Contains(err.Error(), "exit status 129") {
-			return nil, helper.ErrInvalidArgumentf("%w", err)
+			return nil, structerr.NewInvalidArgument("%w", err)
 		}
 		return nil, structerr.NewInternal("%w", err)
 	}

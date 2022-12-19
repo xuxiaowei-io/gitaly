@@ -9,7 +9,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -23,11 +22,11 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 
 	header := firstRequest.GetHeader()
 	if header == nil {
-		return helper.ErrInvalidArgumentf("empty UserRebaseConfirmableRequest.Header")
+		return structerr.NewInvalidArgument("empty UserRebaseConfirmableRequest.Header")
 	}
 
 	if err := validateUserRebaseConfirmableHeader(header); err != nil {
-		return helper.ErrInvalidArgumentf("%w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	ctx := stream.Context()

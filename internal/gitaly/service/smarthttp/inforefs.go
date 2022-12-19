@@ -10,7 +10,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
@@ -24,7 +23,7 @@ const (
 func (s *server) InfoRefsUploadPack(in *gitalypb.InfoRefsRequest, stream gitalypb.SmartHTTPService_InfoRefsUploadPackServer) error {
 	repository := in.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
-		return helper.ErrInvalidArgumentf("%w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 	repoPath, err := s.locator.GetRepoPath(repository)
 	if err != nil {
@@ -43,7 +42,7 @@ func (s *server) InfoRefsUploadPack(in *gitalypb.InfoRefsRequest, stream gitalyp
 func (s *server) InfoRefsReceivePack(in *gitalypb.InfoRefsRequest, stream gitalypb.SmartHTTPService_InfoRefsReceivePackServer) error {
 	repository := in.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
-		return helper.ErrInvalidArgumentf("%w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 	repoPath, err := s.locator.GetRepoPath(repository)
 	if err != nil {

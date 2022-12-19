@@ -20,7 +20,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -129,7 +128,7 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 		_, sectionExists := ck["sections"]
 		_, contentExists := ck["content"]
 		if !sectionExists && !contentExists {
-			return helper.ErrInvalidArgumentf("missing sections or content for a resolution")
+			return structerr.NewInvalidArgument("missing sections or content for a resolution")
 		}
 	}
 
@@ -187,7 +186,7 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 	})
 	if err != nil {
 		if errors.Is(err, git2go.ErrInvalidArgument) {
-			return helper.ErrInvalidArgumentf("%w", err)
+			return structerr.NewInvalidArgument("%w", err)
 		}
 		return err
 	}

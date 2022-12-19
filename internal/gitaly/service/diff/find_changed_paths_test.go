@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -482,7 +481,7 @@ func TestFindChangedPathsRequest_failing(t *testing.T) {
 			desc:    "Repository not provided",
 			repo:    nil,
 			commits: []string{"e4003da16c1c2c3fc4567700121b17bf8e591c6c", "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"},
-			err: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+			err: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -500,7 +499,7 @@ func TestFindChangedPathsRequest_failing(t *testing.T) {
 			desc:    "Storage not found",
 			repo:    &gitalypb.Repository{StorageName: "foo", RelativePath: "bar.git"},
 			commits: []string{"e4003da16c1c2c3fc4567700121b17bf8e591c6c", "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"},
-			err: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+			err: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				`GetStorageByName: no such storage: "foo"`,
 				"repo scoped: invalid Repository",
 			)),
@@ -509,7 +508,7 @@ func TestFindChangedPathsRequest_failing(t *testing.T) {
 			desc:    "Commits cannot contain an empty commit",
 			repo:    repo,
 			commits: []string{""},
-			err:     helper.ErrInvalidArgumentf("resolving commit: revision cannot be empty"),
+			err:     structerr.NewInvalidArgument("resolving commit: revision cannot be empty"),
 		},
 		{
 			desc:    "Specifying both commits and requests",
@@ -524,7 +523,7 @@ func TestFindChangedPathsRequest_failing(t *testing.T) {
 					},
 				},
 			},
-			err: helper.ErrInvalidArgumentf("cannot specify both commits and requests"),
+			err: structerr.NewInvalidArgument("cannot specify both commits and requests"),
 		},
 		{
 			desc:    "Invalid commit",

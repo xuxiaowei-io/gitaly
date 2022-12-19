@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -201,7 +200,7 @@ func TestFindRefsByOID_failure(t *testing.T) {
 				return &gitalypb.FindRefsByOIDRequest{
 					Repository: repo,
 					Oid:        oid.String()[:2],
-				}, helper.ErrInvalidArgumentf("for-each-ref pipeline command: exit status 129")
+				}, structerr.NewInvalidArgument("for-each-ref pipeline command: exit status 129")
 			},
 		},
 	}

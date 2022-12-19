@@ -11,7 +11,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/sidechannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -33,12 +32,12 @@ func (s *server) PostUploadPack(stream gitalypb.SmartHTTPService_PostUploadPackS
 	}
 
 	if req.Data != nil {
-		return helper.ErrInvalidArgumentf("non-empty Data")
+		return structerr.NewInvalidArgument("non-empty Data")
 	}
 
 	repoPath, gitConfig, err := s.validateUploadPackRequest(ctx, req)
 	if err != nil {
-		return helper.ErrInvalidArgumentf("%w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	stdin := streamio.NewReader(func() ([]byte, error) {
@@ -60,7 +59,7 @@ func (s *server) PostUploadPack(stream gitalypb.SmartHTTPService_PostUploadPackS
 func (s *server) PostUploadPackWithSidechannel(ctx context.Context, req *gitalypb.PostUploadPackWithSidechannelRequest) (*gitalypb.PostUploadPackWithSidechannelResponse, error) {
 	repoPath, gitConfig, err := s.validateUploadPackRequest(ctx, req)
 	if err != nil {
-		return nil, helper.ErrInvalidArgumentf("%w", err)
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
 	conn, err := sidechannel.OpenSidechannel(ctx)

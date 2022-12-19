@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -67,7 +67,7 @@ func TestHasLocalBranches_failure(t *testing.T) {
 		{
 			desc:       "repository nil",
 			repository: nil,
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -78,7 +78,7 @@ func TestHasLocalBranches_failure(t *testing.T) {
 				StorageName:  "fake",
 				RelativePath: "path",
 			},
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				`GetStorageByName: no such storage: "fake"`,
 				"repo scoped: invalid Repository",
 			)),

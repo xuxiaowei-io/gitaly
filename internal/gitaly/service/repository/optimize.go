@@ -5,7 +5,6 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -34,7 +33,7 @@ func (s *server) OptimizeRepository(ctx context.Context, in *gitalypb.OptimizeRe
 
 		strategyOpt = housekeeping.WithOptimizationStrategy(strategy)
 	default:
-		return nil, helper.ErrInvalidArgumentf("unsupported optimization strategy %d", in.GetStrategy())
+		return nil, structerr.NewInvalidArgument("unsupported optimization strategy %d", in.GetStrategy())
 	}
 
 	if err := s.housekeepingManager.OptimizeRepository(ctx, repo, strategyOpt); err != nil {
@@ -47,7 +46,7 @@ func (s *server) OptimizeRepository(ctx context.Context, in *gitalypb.OptimizeRe
 func (s *server) validateOptimizeRepositoryRequest(in *gitalypb.OptimizeRepositoryRequest) error {
 	repository := in.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
-		return helper.ErrInvalidArgumentf("%w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	_, err := s.locator.GetRepoPath(repository)

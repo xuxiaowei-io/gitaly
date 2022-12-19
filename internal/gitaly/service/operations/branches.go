@@ -9,7 +9,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -33,7 +32,7 @@ func validateUserCreateBranchRequest(in *gitalypb.UserCreateBranchRequest) error
 //nolint:revive // This is unintentionally missing documentation.
 func (s *Server) UserCreateBranch(ctx context.Context, req *gitalypb.UserCreateBranchRequest) (*gitalypb.UserCreateBranchResponse, error) {
 	if err := validateUserCreateBranchRequest(req); err != nil {
-		return nil, helper.ErrInvalidArgumentf("%w", err)
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 	quarantineDir, quarantineRepo, err := s.quarantinedRepo(ctx, req.GetRepository())
 	if err != nil {
@@ -54,7 +53,7 @@ func (s *Server) UserCreateBranch(ctx context.Context, req *gitalypb.UserCreateB
 
 	startPointOID, err := git.ObjectHashSHA1.FromHex(startPointCommit.Id)
 	if err != nil {
-		return nil, helper.ErrInvalidArgumentf("could not parse start point commit ID: %w", err)
+		return nil, structerr.NewInvalidArgument("could not parse start point commit ID: %w", err)
 	}
 
 	referenceName := git.NewReferenceNameFromBranchName(string(req.BranchName))
@@ -121,7 +120,7 @@ func validateUserUpdateBranchGo(req *gitalypb.UserUpdateBranchRequest) error {
 func (s *Server) UserUpdateBranch(ctx context.Context, req *gitalypb.UserUpdateBranchRequest) (*gitalypb.UserUpdateBranchResponse, error) {
 	// Validate the request
 	if err := validateUserUpdateBranchGo(req); err != nil {
-		return nil, helper.ErrInvalidArgumentf("%w", err)
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
 	newOID, err := git.ObjectHashSHA1.FromHex(string(req.Newrev))
@@ -178,7 +177,7 @@ func validateUserDeleteBranchRequest(in *gitalypb.UserDeleteBranchRequest) error
 // hooks and contacts Rails to verify that the user is indeed allowed to delete that branch.
 func (s *Server) UserDeleteBranch(ctx context.Context, req *gitalypb.UserDeleteBranchRequest) (*gitalypb.UserDeleteBranchResponse, error) {
 	if err := validateUserDeleteBranchRequest(req); err != nil {
-		return nil, helper.ErrInvalidArgumentf("%w", err)
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 	referenceName := git.NewReferenceNameFromBranchName(string(req.BranchName))
 

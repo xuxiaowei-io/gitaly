@@ -16,7 +16,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -29,7 +28,7 @@ func (s *server) GarbageCollect(ctx context.Context, in *gitalypb.GarbageCollect
 
 	repository := in.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
-		return nil, helper.ErrInvalidArgumentf("%w", err)
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
 	repo := s.localrepo(repository)
@@ -76,7 +75,7 @@ func (s *server) gc(ctx context.Context, in *gitalypb.GarbageCollectRequest) err
 	)
 	if err != nil {
 		if git.IsInvalidArgErr(err) {
-			return helper.ErrInvalidArgumentf("gitCommand: %w", err)
+			return structerr.NewInvalidArgument("gitCommand: %w", err)
 		}
 
 		return structerr.NewInternal("gitCommand: %w", err)

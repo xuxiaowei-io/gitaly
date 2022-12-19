@@ -7,8 +7,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/objectpool"
 	objectpoolsvc "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/objectpool"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
@@ -30,7 +30,7 @@ func DeleteObjectPoolHandler(rs datastore.RepositoryStore, conns Connections) gr
 			}
 
 			if !housekeeping.IsRailsPoolRepository(repo) {
-				return nil, helper.ErrInvalidArgumentf("%w", objectpool.ErrInvalidPoolDir)
+				return nil, structerr.NewInvalidArgument("%w", objectpool.ErrInvalidPoolDir)
 			}
 
 			return repo, nil

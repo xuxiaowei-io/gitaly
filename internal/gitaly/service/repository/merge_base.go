@@ -6,7 +6,6 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -15,7 +14,7 @@ import (
 func (s *server) FindMergeBase(ctx context.Context, req *gitalypb.FindMergeBaseRequest) (*gitalypb.FindMergeBaseResponse, error) {
 	repository := req.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
-		return nil, helper.ErrInvalidArgumentf("%w", err)
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 	var revisions []string
 	for _, rev := range req.GetRevisions() {
@@ -23,7 +22,7 @@ func (s *server) FindMergeBase(ctx context.Context, req *gitalypb.FindMergeBaseR
 	}
 
 	if len(revisions) < 2 {
-		return nil, helper.ErrInvalidArgumentf("at least 2 revisions are required")
+		return nil, structerr.NewInvalidArgument("at least 2 revisions are required")
 	}
 
 	cmd, err := s.gitCmdFactory.New(ctx, repository,

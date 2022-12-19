@@ -11,7 +11,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -60,7 +59,7 @@ func (s *server) cloneFromURLCommand(
 	if resolvedAddress != "" {
 		modifiedURL, resolveConfig, err := git.GetURLAndResolveConfig(u.String(), resolvedAddress)
 		if err != nil {
-			return nil, helper.ErrInvalidArgumentf("couldn't get curloptResolve config: %w", err)
+			return nil, structerr.NewInvalidArgument("couldn't get curloptResolve config: %w", err)
 		}
 
 		urlString = modifiedURL
@@ -86,7 +85,7 @@ func (s *server) cloneFromURLCommand(
 
 func (s *server) CreateRepositoryFromURL(ctx context.Context, req *gitalypb.CreateRepositoryFromURLRequest) (*gitalypb.CreateRepositoryFromURLResponse, error) {
 	if err := validateCreateRepositoryFromURLRequest(req); err != nil {
-		return nil, helper.ErrInvalidArgumentf("CreateRepositoryFromURL: %w", err)
+		return nil, structerr.NewInvalidArgument("CreateRepositoryFromURL: %w", err)
 	}
 
 	if err := s.createRepository(ctx, req.GetRepository(), func(repo *gitalypb.Repository) error {

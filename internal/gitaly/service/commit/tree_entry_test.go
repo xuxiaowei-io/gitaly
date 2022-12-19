@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -169,7 +168,7 @@ func TestFailedTreeEntry(t *testing.T) {
 		{
 			name: "Repository doesn't exist",
 			req:  &gitalypb.TreeEntryRequest{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, Revision: revision, Path: path},
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				"GetStorageByName: no such storage: \"fake\"",
 				"repo scoped: invalid Repository",
 			)),
@@ -177,7 +176,7 @@ func TestFailedTreeEntry(t *testing.T) {
 		{
 			name: "Repository is nil",
 			req:  &gitalypb.TreeEntryRequest{Repository: nil, Revision: revision, Path: path},
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -185,27 +184,27 @@ func TestFailedTreeEntry(t *testing.T) {
 		{
 			name:        "Revision is empty",
 			req:         &gitalypb.TreeEntryRequest{Repository: repo, Revision: nil, Path: path},
-			expectedErr: helper.ErrInvalidArgumentf("empty revision"),
+			expectedErr: structerr.NewInvalidArgument("empty revision"),
 		},
 		{
 			name:        "Path is empty",
 			req:         &gitalypb.TreeEntryRequest{Repository: repo, Revision: revision},
-			expectedErr: helper.ErrInvalidArgumentf("empty Path"),
+			expectedErr: structerr.NewInvalidArgument("empty Path"),
 		},
 		{
 			name:        "Revision is invalid",
 			req:         &gitalypb.TreeEntryRequest{Repository: repo, Revision: []byte("--output=/meow"), Path: path},
-			expectedErr: helper.ErrInvalidArgumentf("revision can't start with '-'"),
+			expectedErr: structerr.NewInvalidArgument("revision can't start with '-'"),
 		},
 		{
 			name:        "Limit is negative",
 			req:         &gitalypb.TreeEntryRequest{Repository: repo, Revision: revision, Path: path, Limit: -1},
-			expectedErr: helper.ErrInvalidArgumentf("negative Limit"),
+			expectedErr: structerr.NewInvalidArgument("negative Limit"),
 		},
 		{
 			name:        "MaximumSize is negative",
 			req:         &gitalypb.TreeEntryRequest{Repository: repo, Revision: revision, Path: path, MaxSize: -1},
-			expectedErr: helper.ErrInvalidArgumentf("negative MaxSize"),
+			expectedErr: structerr.NewInvalidArgument("negative MaxSize"),
 		},
 		{
 			name:        "Object bigger than MaxSize",

@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -264,7 +265,7 @@ func TestFailedFindCommitRequest(t *testing.T) {
 			desc:     "Invalid repo",
 			repo:     invalidRepo,
 			revision: []byte("master"),
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				"GetStorageByName: no such storage: \"fake\"",
 				"repo scoped: invalid Repository",
 			)),
@@ -273,19 +274,19 @@ func TestFailedFindCommitRequest(t *testing.T) {
 			desc:        "Empty revision",
 			repo:        repo,
 			revision:    []byte(""),
-			expectedErr: helper.ErrInvalidArgumentf("empty revision"),
+			expectedErr: structerr.NewInvalidArgument("empty revision"),
 		},
 		{
 			desc:        "Invalid revision",
 			repo:        repo,
 			revision:    []byte("-master"),
-			expectedErr: helper.ErrInvalidArgumentf("revision can't start with '-'"),
+			expectedErr: structerr.NewInvalidArgument("revision can't start with '-'"),
 		},
 		{
 			desc:        "Invalid revision",
 			repo:        repo,
 			revision:    []byte("mas:ter"),
-			expectedErr: helper.ErrInvalidArgumentf("revision can't contain ':'"),
+			expectedErr: structerr.NewInvalidArgument("revision can't contain ':'"),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

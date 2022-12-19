@@ -6,17 +6,17 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
 func (s *server) FindBranch(ctx context.Context, req *gitalypb.FindBranchRequest) (*gitalypb.FindBranchResponse, error) {
 	repository := req.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
-		return nil, helper.ErrInvalidArgumentf("%w", err)
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 	if len(req.GetName()) == 0 {
-		return nil, helper.ErrInvalidArgumentf("Branch name cannot be empty")
+		return nil, structerr.NewInvalidArgument("Branch name cannot be empty")
 	}
 
 	repo := s.localrepo(repository)
@@ -36,7 +36,7 @@ func (s *server) FindBranch(ctx context.Context, req *gitalypb.FindBranchRequest
 
 	branch, ok := branchName.Branch()
 	if !ok {
-		return nil, helper.ErrInvalidArgumentf("reference is not a branch")
+		return nil, structerr.NewInvalidArgument("reference is not a branch")
 	}
 
 	return &gitalypb.FindBranchResponse{

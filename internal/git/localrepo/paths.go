@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 )
 
@@ -25,7 +24,7 @@ func (repo *Repo) ObjectDirectoryPath() (string, error) {
 
 	objectDirectoryPath := repo.GetGitObjectDirectory()
 	if objectDirectoryPath == "" {
-		return "", helper.ErrInvalidArgumentf("object directory path is not set")
+		return "", structerr.NewInvalidArgument("object directory path is not set")
 	}
 
 	// We need to check whether the relative object directory as given by the repository is
@@ -38,14 +37,14 @@ func (repo *Repo) ObjectDirectoryPath() (string, error) {
 	if _, origError := storage.ValidateRelativePath(repoPath, objectDirectoryPath); origError != nil {
 		tempDir, err := repo.locator.TempDir(repo.GetStorageName())
 		if err != nil {
-			return "", helper.ErrInvalidArgumentf("getting storage's temporary directory: %s", err)
+			return "", structerr.NewInvalidArgument("getting storage's temporary directory: %s", err)
 		}
 
 		expectedQuarantinePrefix := filepath.Join(tempDir, storage.QuarantineDirectoryPrefix(repo))
 		absoluteObjectDirectoryPath := filepath.Join(repoPath, objectDirectoryPath)
 
 		if !strings.HasPrefix(absoluteObjectDirectoryPath, expectedQuarantinePrefix) {
-			return "", helper.ErrInvalidArgumentf("not a valid relative path: %s", origError)
+			return "", structerr.NewInvalidArgument("not a valid relative path: %s", origError)
 		}
 	}
 

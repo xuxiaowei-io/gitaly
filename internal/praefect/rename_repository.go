@@ -6,7 +6,6 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
@@ -19,11 +18,11 @@ func validateRenameRepositoryRequest(req *gitalypb.RenameRepositoryRequest, virt
 	// Gitaly's tested behavior.
 	repository := req.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
-		return helper.ErrInvalidArgumentf("%w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	} else if req.GetRelativePath() == "" {
-		return helper.ErrInvalidArgumentf("destination relative path is empty")
+		return structerr.NewInvalidArgument("destination relative path is empty")
 	} else if _, ok := virtualStorages[repository.GetStorageName()]; !ok {
-		return helper.ErrInvalidArgumentf("GetStorageByName: no such storage: %q", repository.GetStorageName())
+		return structerr.NewInvalidArgument("GetStorageByName: no such storage: %q", repository.GetStorageName())
 	} else if _, err := storage.ValidateRelativePath("/fake-root", req.GetRelativePath()); err != nil {
 		// Gitaly uses ValidateRelativePath to verify there are no traversals, so we use the same function
 		// here. Praefect is not susceptible to path traversals as it generates its own disk paths but we
@@ -31,7 +30,7 @@ func validateRenameRepositoryRequest(req *gitalypb.RenameRepositoryRequest, virt
 		// seeing whether the relative path escapes the root directory. It's not possible to traverse up
 		// from the /, so the traversals in the path wouldn't be caught. To allow for the check to work,
 		// we use the /fake-root directory simply to notice if there were traversals in the path.
-		return helper.ErrInvalidArgumentf("GetRepoPath: %s", err)
+		return structerr.NewInvalidArgument("GetRepoPath: %s", err)
 	}
 
 	return nil

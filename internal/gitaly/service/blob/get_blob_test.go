@@ -9,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -159,7 +158,7 @@ func TestGetBlob_invalidRequest(t *testing.T) {
 				Repository: nil,
 				Oid:        oid,
 			},
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -173,7 +172,7 @@ func TestGetBlob_invalidRequest(t *testing.T) {
 				},
 				Oid: oid,
 			},
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				fmt.Sprintf("create object reader: GetStorageByName: no such storage: %q", "fake"),
 				"repo scoped: invalid Repository",
 			)),
@@ -197,7 +196,7 @@ func TestGetBlob_invalidRequest(t *testing.T) {
 			request: &gitalypb.GetBlobRequest{
 				Repository: repo,
 			},
-			expectedErr: helper.ErrInvalidArgumentf("empty Oid"),
+			expectedErr: structerr.NewInvalidArgument("empty Oid"),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

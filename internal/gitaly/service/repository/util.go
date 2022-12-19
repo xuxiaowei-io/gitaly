@@ -12,7 +12,6 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/tempdir"
@@ -62,7 +61,7 @@ func (s *server) createRepository(
 ) error {
 	targetPath, err := s.locator.GetPath(repository)
 	if err != nil {
-		return helper.ErrInvalidArgumentf("locate repository: %w", err)
+		return structerr.NewInvalidArgument("locate repository: %w", err)
 	}
 
 	// The repository must not exist on disk already, or otherwise we won't be able to

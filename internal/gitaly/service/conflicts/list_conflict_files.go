@@ -10,7 +10,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
@@ -20,7 +19,7 @@ func (s *server) ListConflictFiles(request *gitalypb.ListConflictFilesRequest, s
 	ctx := stream.Context()
 
 	if err := validateListConflictFilesRequest(request); err != nil {
-		return helper.ErrInvalidArgumentf("%w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	repo := s.localrepo(request.GetRepository())
@@ -47,7 +46,7 @@ func (s *server) ListConflictFiles(request *gitalypb.ListConflictFilesRequest, s
 	})
 	if err != nil {
 		if errors.Is(err, git2go.ErrInvalidArgument) {
-			return helper.ErrInvalidArgumentf("%w", err)
+			return structerr.NewInvalidArgument("%w", err)
 		}
 		return structerr.NewInternal("%w", err)
 	}

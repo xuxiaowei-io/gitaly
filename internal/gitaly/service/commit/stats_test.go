@@ -9,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -137,7 +136,7 @@ func TestCommitStatsFailure(t *testing.T) {
 				},
 				Revision: []byte("test-do-not-touch"),
 			},
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				"GetStorageByName: no such storage: \"foo\"",
 				"repo scoped: invalid Repository",
 			)),
@@ -156,7 +155,7 @@ func TestCommitStatsFailure(t *testing.T) {
 				Repository: repo,
 				Revision:   []byte("--outpu=/meow"),
 			},
-			expectedErr: helper.ErrInvalidArgumentf("revision can't start with '-'"),
+			expectedErr: structerr.NewInvalidArgument("revision can't start with '-'"),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

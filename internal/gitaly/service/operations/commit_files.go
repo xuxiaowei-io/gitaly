@@ -18,7 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -34,11 +33,11 @@ func (s *Server) UserCommitFiles(stream gitalypb.OperationService_UserCommitFile
 
 	header := firstRequest.GetHeader()
 	if header == nil {
-		return helper.ErrInvalidArgumentf("empty UserCommitFilesRequestHeader")
+		return structerr.NewInvalidArgument("empty UserCommitFilesRequestHeader")
 	}
 
 	if err = validateUserCommitFilesHeader(header); err != nil {
-		return helper.ErrInvalidArgumentf("%w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	ctx := stream.Context()
@@ -92,7 +91,7 @@ func (s *Server) UserCommitFiles(stream gitalypb.OperationService_UserCommitFile
 					},
 				)
 			case errors.As(err, new(git2go.InvalidArgumentError)):
-				return helper.ErrInvalidArgumentf("%w", err)
+				return structerr.NewInvalidArgument("%w", err)
 			default:
 				return err
 			}
@@ -105,7 +104,7 @@ func (s *Server) UserCommitFiles(stream gitalypb.OperationService_UserCommitFile
 			case errors.As(err, &customHookErr):
 				response = gitalypb.UserCommitFilesResponse{PreReceiveError: customHookErr.Error()}
 			case errors.As(err, new(git2go.InvalidArgumentError)):
-				return helper.ErrInvalidArgumentf("%w", err)
+				return structerr.NewInvalidArgument("%w", err)
 			default:
 				return structerr.NewInternal("%w", err)
 			}
@@ -192,7 +191,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 	} else {
 		parentCommitOID, err = git.ObjectHashSHA1.FromHex(header.StartSha)
 		if err != nil {
-			return helper.ErrInvalidArgumentf("cannot resolve parent commit: %w", err)
+			return structerr.NewInvalidArgument("cannot resolve parent commit: %w", err)
 		}
 	}
 
@@ -238,12 +237,12 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 	actions := make([]git2go.Action, 0, len(pbActions))
 	for _, pbAction := range pbActions {
 		if _, ok := gitalypb.UserCommitFilesActionHeader_ActionType_name[int32(pbAction.header.Action)]; !ok {
-			return helper.ErrInvalidArgumentf("NoMethodError: undefined method `downcase' for %d:Integer", pbAction.header.Action)
+			return structerr.NewInvalidArgument("NoMethodError: undefined method `downcase' for %d:Integer", pbAction.header.Action)
 		}
 
 		path, err := validatePath(repoPath, string(pbAction.header.FilePath))
 		if err != nil {
-			return helper.ErrInvalidArgumentf("validate path: %w", err)
+			return structerr.NewInvalidArgument("validate path: %w", err)
 		}
 
 		content := io.Reader(bytes.NewReader(pbAction.content))
@@ -271,7 +270,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 		case gitalypb.UserCommitFilesActionHeader_MOVE:
 			prevPath, err := validatePath(repoPath, string(pbAction.header.PreviousPath))
 			if err != nil {
-				return helper.ErrInvalidArgumentf("validate previous path: %w", err)
+				return structerr.NewInvalidArgument("validate previous path: %w", err)
 			}
 
 			var oid git.ObjectID
@@ -311,7 +310,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 
 	now, err := dateFromProto(header)
 	if err != nil {
-		return helper.ErrInvalidArgumentf("%w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	committer := git2go.NewSignature(string(header.User.Name), string(header.User.Email), now)

@@ -14,7 +14,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/auth"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/praefectutil"
@@ -165,7 +164,7 @@ func TestCreateRepository_withObjectFormat(t *testing.T) {
 		{
 			desc:         "invalid object format",
 			objectFormat: 3,
-			expectedErr:  helper.ErrInvalidArgumentf("unknown object format: \"3\""),
+			expectedErr:  structerr.NewInvalidArgument("unknown object format: \"3\""),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -217,7 +216,7 @@ func TestCreateRepository_invalidArguments(t *testing.T) {
 		{
 			desc: "missing repository",
 			repo: nil,
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -228,7 +227,7 @@ func TestCreateRepository_invalidArguments(t *testing.T) {
 				StorageName:  "does not exist",
 				RelativePath: "foobar.git",
 			},
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				`creating repository: locate repository: GetStorageByName: no such storage: "does not exist"`,
 				"repo scoped: invalid Repository",
 			)),
