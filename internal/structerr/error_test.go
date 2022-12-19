@@ -218,6 +218,94 @@ func TestNew(t *testing.T) {
 	}
 }
 
+func TestError_Is(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		desc                string
+		err                 Error
+		targetErr           error
+		expectedIs          bool
+		expectedErrIsTarget bool
+		expectedTargetIsErr bool
+	}{
+		{
+			desc:                "same error",
+			err:                 New("same"),
+			targetErr:           New("same"),
+			expectedIs:          true,
+			expectedErrIsTarget: true,
+			expectedTargetIsErr: true,
+		},
+		{
+			desc:                "different error types",
+			err:                 New("same"),
+			targetErr:           errors.New("same"),
+			expectedIs:          false,
+			expectedErrIsTarget: false,
+			expectedTargetIsErr: false,
+		},
+		{
+			desc:                "different error codes",
+			err:                 NewInternal("same"),
+			targetErr:           NewAlreadyExists("same"),
+			expectedIs:          false,
+			expectedErrIsTarget: false,
+			expectedTargetIsErr: false,
+		},
+		{
+			desc:                "different error message",
+			err:                 New("a"),
+			targetErr:           New("b"),
+			expectedIs:          false,
+			expectedErrIsTarget: false,
+			expectedTargetIsErr: false,
+		},
+		{
+			desc: "different error details",
+			err: New("same").WithDetail(&grpc_testing.Payload{
+				Body: []byte("a"),
+			}),
+			targetErr: New("same").WithDetail(&grpc_testing.Payload{
+				Body: []byte("b"),
+			}),
+			expectedIs:          false,
+			expectedErrIsTarget: false,
+			expectedTargetIsErr: false,
+		},
+		{
+			desc:                "wrapped error",
+			err:                 New("same"),
+			targetErr:           fmt.Errorf("toplevel: %w", New("same")),
+			expectedIs:          false,
+			expectedErrIsTarget: false,
+			expectedTargetIsErr: true,
+		},
+		{
+			desc:                "wrapped structerr",
+			err:                 New("same"),
+			targetErr:           New("toplevel: %w", New("same")),
+			expectedIs:          false,
+			expectedErrIsTarget: false,
+			expectedTargetIsErr: true,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Run("direct match", func(t *testing.T) {
+				require.Equal(t, tc.expectedIs, tc.err.Is(tc.targetErr))
+			})
+
+			t.Run("err is target", func(t *testing.T) {
+				require.Equal(t, tc.expectedErrIsTarget, errors.Is(tc.err, tc.targetErr))
+			})
+
+			t.Run("target is err", func(t *testing.T) {
+				require.Equal(t, tc.expectedTargetIsErr, errors.Is(tc.targetErr, tc.err))
+			})
+		})
+	}
+}
+
 func TestError_Metadata(t *testing.T) {
 	t.Parallel()
 

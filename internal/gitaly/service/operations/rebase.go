@@ -106,7 +106,7 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 	}
 
 	if !secondRequest.GetApply() {
-		return helper.ErrFailedPreconditionf("rebase aborted by client")
+		return structerr.NewFailedPrecondition("rebase aborted by client")
 	}
 
 	if err := s.updateReferenceWithHooks(

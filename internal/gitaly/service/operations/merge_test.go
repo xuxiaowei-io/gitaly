@@ -182,8 +182,7 @@ func TestUserMergeBranch(t *testing.T) {
 					secondRequest:          &gitalypb.UserMergeBranchRequest{Apply: true},
 					secondExpectedResponse: &gitalypb.OperationBranchUpdate{},
 					secondExpectedErr: func(response *gitalypb.UserMergeBranchResponse) error {
-						return errWithDetails(t,
-							helper.ErrFailedPreconditionf("Could not update refs/heads/master. Please refresh and try again."),
+						return structerr.NewFailedPrecondition("Could not update refs/heads/master. Please refresh and try again.").WithDetail(
 							&gitalypb.UserMergeBranchError{
 								Error: &gitalypb.UserMergeBranchError_ReferenceUpdate{
 									ReferenceUpdate: &gitalypb.ReferenceUpdateError{
@@ -499,8 +498,7 @@ func TestUserMergeBranch_quarantine(t *testing.T) {
 
 	require.NoError(t, stream.Send(&gitalypb.UserMergeBranchRequest{Apply: true}), "apply merge")
 	secondResponse, err := stream.Recv()
-	testhelper.RequireGrpcError(t, errWithDetails(t,
-		helper.ErrPermissionDeniedf("%s\n", firstResponse.CommitId),
+	testhelper.RequireGrpcError(t, structerr.NewPermissionDenied("%s\n", firstResponse.CommitId).WithDetail(
 		&gitalypb.UserMergeBranchError{
 			Error: &gitalypb.UserMergeBranchError_CustomHook{
 				CustomHook: &gitalypb.CustomHookError{
@@ -686,8 +684,7 @@ func TestUserMergeBranch_concurrentUpdate(t *testing.T) {
 	require.NoError(t, mergeBidi.CloseSend(), "close send")
 
 	secondResponse, err := mergeBidi.Recv()
-	testhelper.RequireGrpcError(t, errWithDetails(t,
-		helper.ErrFailedPreconditionf("Could not update refs/heads/gitaly-merge-test-branch. Please refresh and try again."),
+	testhelper.RequireGrpcError(t, structerr.NewFailedPrecondition("Could not update refs/heads/gitaly-merge-test-branch. Please refresh and try again.").WithDetail(
 		&gitalypb.UserMergeBranchError{
 			Error: &gitalypb.UserMergeBranchError_ReferenceUpdate{
 				ReferenceUpdate: &gitalypb.ReferenceUpdateError{
@@ -826,8 +823,7 @@ func TestUserMergeBranch_failingHooks(t *testing.T) {
 
 			secondResponse, err := mergeBidi.Recv()
 			if tc.shouldFail {
-				testhelper.RequireGrpcError(t, errWithDetails(t,
-					helper.ErrPermissionDeniedf("stderr\n"),
+				testhelper.RequireGrpcError(t, structerr.NewPermissionDenied("stderr\n").WithDetail(
 					&gitalypb.UserMergeBranchError{
 						Error: &gitalypb.UserMergeBranchError_CustomHook{
 							CustomHook: &gitalypb.CustomHookError{
@@ -895,8 +891,7 @@ func TestUserMergeBranch_conflict(t *testing.T) {
 	}), "send first request")
 
 	firstResponse, err := mergeBidi.Recv()
-	testhelper.RequireGrpcError(t, errWithDetails(t,
-		helper.ErrFailedPreconditionf("merging commits: merge: there are conflicting files"),
+	testhelper.RequireGrpcError(t, structerr.NewFailedPrecondition("merging commits: merge: there are conflicting files").WithDetail(
 		&gitalypb.UserMergeBranchError{
 			Error: &gitalypb.UserMergeBranchError_MergeConflict{
 				MergeConflict: &gitalypb.MergeConflictError{
@@ -942,8 +937,7 @@ func TestUserMergeBranch_allowed(t *testing.T) {
 			desc:           "disallowed",
 			allowed:        false,
 			allowedMessage: "you shall not pass",
-			expectedErr: errWithDetails(t,
-				helper.ErrPermissionDeniedf("GitLab: you shall not pass"),
+			expectedErr: structerr.NewPermissionDenied("GitLab: you shall not pass").WithDetail(
 				&gitalypb.UserMergeBranchError{
 					Error: &gitalypb.UserMergeBranchError_AccessCheck{
 						AccessCheck: &gitalypb.AccessCheckError{
@@ -959,8 +953,7 @@ func TestUserMergeBranch_allowed(t *testing.T) {
 		{
 			desc:       "failing",
 			allowedErr: errors.New("failure"),
-			expectedErr: errWithDetails(t,
-				helper.ErrPermissionDeniedf("GitLab: failure"),
+			expectedErr: structerr.NewPermissionDenied("GitLab: failure").WithDetail(
 				&gitalypb.UserMergeBranchError{
 					Error: &gitalypb.UserMergeBranchError_AccessCheck{
 						AccessCheck: &gitalypb.AccessCheckError{

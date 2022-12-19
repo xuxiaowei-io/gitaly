@@ -158,7 +158,7 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 		return err
 	}
 	if !secondRequest.Apply {
-		return helper.ErrFailedPreconditionf("merge aborted by client")
+		return structerr.NewFailedPrecondition("merge aborted by client")
 	}
 
 	if err := s.updateReferenceWithHooks(ctx, firstRequest.GetRepository(), firstRequest.User, quarantineDir, referenceName, mergeOID, revision); err != nil {
@@ -274,7 +274,7 @@ func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequ
 		return nil, helper.ErrInternalf("checking for ancestry: %w", err)
 	}
 	if !ancestor {
-		return nil, helper.ErrFailedPreconditionf("not fast forward")
+		return nil, structerr.NewFailedPrecondition("not fast forward")
 	}
 
 	if err := s.updateReferenceWithHooks(ctx, in.GetRepository(), in.User, quarantineDir, referenceName, commitID, revision); err != nil {
@@ -372,7 +372,7 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 	var oldTargetOID git.ObjectID
 	if targetRef, err := repo.GetReference(ctx, git.ReferenceName(request.TargetRef)); err == nil {
 		if targetRef.IsSymbolic {
-			return nil, helper.ErrFailedPreconditionf("target reference is symbolic: %q", request.TargetRef)
+			return nil, structerr.NewFailedPrecondition("target reference is symbolic: %q", request.TargetRef)
 		}
 
 		oid, err := git.ObjectHashSHA1.FromHex(targetRef.Target)
@@ -410,7 +410,7 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 		if errors.Is(err, git2go.ErrInvalidArgument) {
 			return nil, helper.ErrInvalidArgumentf("%w", err)
 		}
-		return nil, helper.ErrFailedPreconditionf("Failed to create merge commit for source_sha %s and target_sha %s at %s",
+		return nil, structerr.NewFailedPrecondition("Failed to create merge commit for source_sha %s and target_sha %s at %s",
 			sourceOID, oid, string(request.TargetRef))
 	}
 
@@ -422,7 +422,7 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 	// ... and move branch from target ref to the merge commit. The Ruby
 	// implementation doesn't invoke hooks, so we don't either.
 	if err := repo.UpdateRef(ctx, git.ReferenceName(request.TargetRef), mergeOID, oldTargetOID); err != nil {
-		return nil, helper.ErrFailedPreconditionf("Could not update %s. Please refresh and try again", string(request.TargetRef))
+		return nil, structerr.NewFailedPrecondition("Could not update %s. Please refresh and try again", string(request.TargetRef))
 	}
 
 	return &gitalypb.UserMergeToRefResponse{

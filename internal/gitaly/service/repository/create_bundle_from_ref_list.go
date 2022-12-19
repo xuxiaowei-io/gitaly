@@ -8,6 +8,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 )
@@ -76,7 +77,7 @@ func (s *server) CreateBundleFromRefList(stream gitalypb.RepositoryService_Creat
 
 	err = cmd.Wait()
 	if isExitWithCode(err, 128) && bytes.HasPrefix(stderr.Bytes(), []byte("fatal: Refusing to create empty bundle.")) {
-		return helper.ErrFailedPreconditionf("cmd wait failed: refusing to create empty bundle")
+		return structerr.NewFailedPrecondition("cmd wait failed: refusing to create empty bundle")
 	} else if err != nil {
 		return helper.ErrInternalf("cmd wait failed: %w, stderr: %q", err, stderr.String())
 	}

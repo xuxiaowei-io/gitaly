@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/safe"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -67,7 +68,7 @@ func (s *server) createRepository(
 	// The repository must not exist on disk already, or otherwise we won't be able to
 	// create it with atomic semantics.
 	if _, err := os.Stat(targetPath); !os.IsNotExist(err) {
-		return helper.ErrAlreadyExistsf("repository exists already")
+		return structerr.NewAlreadyExists("repository exists already")
 	}
 
 	// Create the parent directory in case it doesn't exist yet.
@@ -200,11 +201,11 @@ func (s *server) createRepository(
 	// the repository into place, we want to be as sure as possible that the action will succeed
 	// previous to the first transactional vote.
 	if _, err := os.Stat(targetPath); !os.IsNotExist(err) {
-		return helper.ErrAlreadyExistsf("repository exists already")
+		return structerr.NewAlreadyExists("repository exists already")
 	}
 
 	if err := transaction.VoteOnContext(ctx, s.txManager, vote, voting.Prepared); err != nil {
-		return helper.ErrFailedPreconditionf("preparatory vote: %w", err)
+		return structerr.NewFailedPrecondition("preparatory vote: %w", err)
 	}
 
 	// Now that we have locked the repository and all Gitalies have agreed that they
@@ -214,7 +215,7 @@ func (s *server) createRepository(
 	}
 
 	if err := transaction.VoteOnContext(ctx, s.txManager, vote, voting.Committed); err != nil {
-		return helper.ErrFailedPreconditionf("committing vote: %w", err)
+		return structerr.NewFailedPrecondition("committing vote: %w", err)
 	}
 
 	// We unlock the repository implicitly via the deferred `Close()` call.

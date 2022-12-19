@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 )
@@ -137,7 +138,7 @@ func (s *Server) userApplyPatch(ctx context.Context, header *gitalypb.UserApplyP
 		// compatibility but returns the error and stderr otherwise. Once the Ruby
 		// implementation is removed, this should probably be dropped.
 		if bytes.HasPrefix(stdout.Bytes(), []byte("Patch failed at")) {
-			return helper.ErrFailedPreconditionf(stdout.String())
+			return structerr.NewFailedPrecondition(stdout.String())
 		}
 
 		return fmt.Errorf("apply patch: %w, stderr: %q", err, &stderr)

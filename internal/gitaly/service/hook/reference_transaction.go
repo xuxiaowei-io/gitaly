@@ -53,7 +53,7 @@ func (s *server) ReferenceTransactionHook(stream gitalypb.HookService_ReferenceT
 		case errors.Is(err, transaction.ErrTransactionAborted):
 			return structerr.NewAborted("reference-transaction hook: %w", err)
 		case errors.Is(err, transaction.ErrTransactionStopped):
-			return helper.ErrFailedPreconditionf("reference-transaction hook: %w", err)
+			return structerr.NewFailedPrecondition("reference-transaction hook: %w", err)
 		default:
 			return helper.ErrInternalf("reference-transaction hook: %w", err)
 		}

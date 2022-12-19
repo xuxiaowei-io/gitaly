@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -76,5 +77,5 @@ func TestRemoveRepository_locking(t *testing.T) {
 	defer func() { require.NoError(t, os.RemoveAll(lockPath)) }()
 
 	_, err := client.RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{Repository: repo})
-	testhelper.RequireGrpcError(t, helper.ErrFailedPreconditionf("repository is already locked"), err)
+	testhelper.RequireGrpcError(t, structerr.NewFailedPrecondition("repository is already locked"), err)
 }

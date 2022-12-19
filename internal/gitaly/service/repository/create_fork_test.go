@@ -17,9 +17,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/praefectutil"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	gitalyx509 "gitlab.com/gitlab-org/gitaly/v15/internal/x509"
@@ -234,7 +234,7 @@ func TestCreateFork_targetExists(t *testing.T) {
 			seed: func(t *testing.T, targetPath string) {
 				require.NoError(t, os.MkdirAll(targetPath, 0o770))
 			},
-			expectedErrWithAtomicCreation: helper.ErrAlreadyExistsf("creating fork: repository exists already"),
+			expectedErrWithAtomicCreation: structerr.NewAlreadyExists("creating fork: repository exists already"),
 		},
 		{
 			desc: "non-empty target directory",
@@ -246,7 +246,7 @@ func TestCreateFork_targetExists(t *testing.T) {
 					0o644,
 				))
 			},
-			expectedErrWithAtomicCreation: helper.ErrAlreadyExistsf("creating fork: repository exists already"),
+			expectedErrWithAtomicCreation: structerr.NewAlreadyExists("creating fork: repository exists already"),
 		},
 		{
 			desc: "target file",
@@ -254,7 +254,7 @@ func TestCreateFork_targetExists(t *testing.T) {
 				require.NoError(t, os.MkdirAll(filepath.Dir(targetPath), 0o770))
 				require.NoError(t, os.WriteFile(targetPath, nil, 0o644))
 			},
-			expectedErrWithAtomicCreation: helper.ErrAlreadyExistsf("creating fork: repository exists already"),
+			expectedErrWithAtomicCreation: structerr.NewAlreadyExists("creating fork: repository exists already"),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

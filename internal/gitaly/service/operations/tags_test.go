@@ -559,8 +559,7 @@ tagger Jane Doe <janedoe@gitlab.com> 1600000000 +0800
 
 message`, commitID)
 
-	testhelper.RequireGrpcError(t, errWithDetails(t,
-		helper.ErrPermissionDeniedf("reference update denied by custom hooks"),
+	testhelper.RequireGrpcError(t, structerr.NewPermissionDenied("reference update denied by custom hooks").WithDetail(
 		&gitalypb.UserCreateTagError{
 			Error: &gitalypb.UserCreateTagError_CustomHook{
 				CustomHook: &gitalypb.CustomHookError{
@@ -1159,8 +1158,7 @@ func TestUserCreateTag_hookFailure(t *testing.T) {
 				TargetRevision: []byte(commitID),
 				User:           gittest.TestUser,
 			})
-			testhelper.RequireGrpcError(t, errWithDetails(t,
-				helper.ErrPermissionDeniedf("reference update denied by custom hooks"),
+			testhelper.RequireGrpcError(t, structerr.NewPermissionDenied("reference update denied by custom hooks").WithDetail(
 				&gitalypb.UserCreateTagError{
 					Error: &gitalypb.UserCreateTagError_CustomHook{
 						CustomHook: &gitalypb.CustomHookError{
@@ -1200,8 +1198,7 @@ func TestUserCreateTag_preexisting(t *testing.T) {
 			tagName:        "v1.1.0",
 			targetRevision: commitID.String(),
 			user:           gittest.TestUser,
-			expectedErr: errWithDetails(t,
-				helper.ErrAlreadyExistsf("tag reference exists already"),
+			expectedErr: structerr.NewAlreadyExists("tag reference exists already").WithDetail(
 				&gitalypb.UserCreateTagError{
 					Error: &gitalypb.UserCreateTagError_ReferenceExists{
 						ReferenceExists: &gitalypb.ReferenceExistsError{
@@ -1217,7 +1214,7 @@ func TestUserCreateTag_preexisting(t *testing.T) {
 			tagName:        "v1.1.0",
 			targetRevision: "does-not-exist",
 			user:           gittest.TestUser,
-			expectedErr:    helper.ErrFailedPreconditionf("revspec 'does-not-exist' not found"),
+			expectedErr:    structerr.NewFailedPrecondition("revspec 'does-not-exist' not found"),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -1294,7 +1291,7 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 			tagName:        "new-tag",
 			targetRevision: "i-dont-exist",
 			user:           gittest.TestUser,
-			expectedErr:    helper.ErrFailedPreconditionf("revspec '%s' not found", "i-dont-exist"),
+			expectedErr:    structerr.NewFailedPrecondition("revspec '%s' not found", "i-dont-exist"),
 		},
 		{
 			desc:           "space in lightweight tag name",
@@ -1448,8 +1445,7 @@ func TestTagHookOutput(t *testing.T) {
 				hookFilename := gittest.WriteCustomHook(t, repoPath, hookTC.hook, []byte(tc.hookContent))
 
 				createResponse, err := client.UserCreateTag(ctx, createRequest)
-				testhelper.RequireGrpcError(t, errWithDetails(t,
-					helper.ErrPermissionDeniedf("reference update denied by custom hooks"),
+				testhelper.RequireGrpcError(t, structerr.NewPermissionDenied("reference update denied by custom hooks").WithDetail(
 					&gitalypb.UserCreateTagError{
 						Error: &gitalypb.UserCreateTagError_CustomHook{
 							CustomHook: &gitalypb.CustomHookError{

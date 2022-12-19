@@ -9,6 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc"
 )
@@ -66,7 +67,7 @@ func RenameRepositoryHandler(virtualStoragesNames []string, rs datastore.Reposit
 					req.GetRepository().GetRelativePath(),
 				)
 			} else if errors.Is(err, commonerr.ErrRepositoryAlreadyExists) {
-				return helper.ErrAlreadyExistsf("target repo exists already")
+				return structerr.NewAlreadyExists("target repo exists already")
 			}
 
 			return helper.ErrInternalf("%w", err)

@@ -23,6 +23,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/transactions"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/correlation"
@@ -34,7 +35,7 @@ import (
 
 // ErrRepositoryReadOnly is returned when the repository is in read-only mode. This happens
 // if the primary does not have the latest changes.
-var ErrRepositoryReadOnly = helper.ErrFailedPreconditionf("repository is in read-only mode")
+var ErrRepositoryReadOnly = structerr.NewFailedPrecondition("repository is in read-only mode")
 
 type transactionsCondition func(context.Context) bool
 
@@ -686,7 +687,7 @@ func (c *Coordinator) StreamDirector(ctx context.Context, fullMethodName string,
 			}
 
 			if errors.Is(err, commonerr.ErrRepositoryAlreadyExists) {
-				return nil, helper.ErrAlreadyExistsf("%w", err)
+				return nil, structerr.NewAlreadyExists("%w", err)
 			}
 
 			return nil, err

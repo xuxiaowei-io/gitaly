@@ -236,7 +236,7 @@ func TestCreateRepository_invalidArguments(t *testing.T) {
 		{
 			desc: "preexisting repository",
 			repo: preexistingRepo,
-			expectedErr: helper.ErrAlreadyExistsf(testhelper.GitalyOrPraefect(
+			expectedErr: structerr.NewAlreadyExists(testhelper.GitalyOrPraefect(
 				"creating repository: repository exists already",
 				"route repository creation: reserve repository id: repository already exists",
 			)),

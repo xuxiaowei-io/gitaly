@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/safe"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -45,7 +46,7 @@ func (s *server) renameRepository(ctx context.Context, sourceRepo, targetRepo *g
 	// Check up front whether the target path exists already. If it does, we can avoid going
 	// into the critical section altogether.
 	if _, err := os.Stat(targetPath); !os.IsNotExist(err) {
-		return helper.ErrAlreadyExistsf("target repo exists already")
+		return structerr.NewAlreadyExists("target repo exists already")
 	}
 
 	if err := os.MkdirAll(filepath.Dir(targetPath), 0o770); err != nil {
@@ -86,7 +87,7 @@ func (s *server) renameRepository(ctx context.Context, sourceRepo, targetRepo *g
 	// We need to re-check whether the target path exists in case somebody has removed it before
 	// we have taken the lock.
 	if _, err := os.Stat(targetPath); !os.IsNotExist(err) {
-		return helper.ErrAlreadyExistsf("target repo exists already")
+		return structerr.NewAlreadyExists("target repo exists already")
 	}
 
 	if err := os.Rename(sourcePath, targetPath); err != nil {

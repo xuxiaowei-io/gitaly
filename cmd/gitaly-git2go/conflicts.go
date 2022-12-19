@@ -12,7 +12,7 @@ import (
 	git "github.com/libgit2/git2go/v34"
 	"gitlab.com/gitlab-org/gitaly/v15/cmd/gitaly-git2go/git2goutil"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -114,7 +114,7 @@ func Merge(repo *git.Repository, conflict git.IndexConflict) (*git.MergeFileResu
 
 		blob, err := repo.LookupBlob(entry.Id)
 		if err != nil {
-			return nil, helper.ErrFailedPreconditionf("could not get conflicting blob: %w", err)
+			return nil, structerr.NewFailedPrecondition("could not get conflicting blob: %w", err)
 		}
 
 		input.Path = entry.Path

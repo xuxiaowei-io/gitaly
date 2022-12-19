@@ -18,7 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
@@ -323,8 +322,7 @@ func TestUserCreateBranch_hookFailure(t *testing.T) {
 
 		_, err := client.UserCreateBranch(ctx, request)
 
-		testhelper.RequireGrpcError(t, errWithDetails(t,
-			helper.ErrPermissionDeniedf("creation denied by custom hooks"),
+		testhelper.RequireGrpcError(t, structerr.NewPermissionDenied("creation denied by custom hooks").WithDetail(
 			&gitalypb.UserCreateBranchError{
 				Error: &gitalypb.UserCreateBranchError_CustomHook{
 					CustomHook: &gitalypb.CustomHookError{
@@ -659,8 +657,7 @@ func TestUserDeleteBranch_allowed(t *testing.T) {
 			allowed: func(context.Context, gitlab.AllowedParams) (bool, string, error) {
 				return false, "something something", nil
 			},
-			expectedErr: errWithDetails(t,
-				helper.ErrPermissionDeniedf("deletion denied by access checks: running pre-receive hooks: GitLab: something something"),
+			expectedErr: structerr.NewPermissionDenied("deletion denied by access checks: running pre-receive hooks: GitLab: something something").WithDetail(
 				&gitalypb.UserDeleteBranchError{
 					Error: &gitalypb.UserDeleteBranchError_AccessCheck{
 						AccessCheck: &gitalypb.AccessCheckError{
@@ -680,8 +677,7 @@ func TestUserDeleteBranch_allowed(t *testing.T) {
 			allowed: func(context.Context, gitlab.AllowedParams) (bool, string, error) {
 				return false, "something something", errors.New("something else")
 			},
-			expectedErr: errWithDetails(t,
-				helper.ErrPermissionDeniedf("deletion denied by access checks: running pre-receive hooks: GitLab: something else"),
+			expectedErr: structerr.NewPermissionDenied("deletion denied by access checks: running pre-receive hooks: GitLab: something else").WithDetail(
 				&gitalypb.UserDeleteBranchError{
 					Error: &gitalypb.UserDeleteBranchError_AccessCheck{
 						AccessCheck: &gitalypb.AccessCheckError{
@@ -741,8 +737,7 @@ func TestUserDeleteBranch_concurrentUpdate(t *testing.T) {
 		BranchName: []byte("concurrent-update"),
 		User:       gittest.TestUser,
 	})
-	testhelper.RequireGrpcError(t, errWithDetails(t,
-		helper.ErrFailedPreconditionf("reference update failed: Could not update refs/heads/concurrent-update. Please refresh and try again."),
+	testhelper.RequireGrpcError(t, structerr.NewFailedPrecondition("reference update failed: Could not update refs/heads/concurrent-update. Please refresh and try again.").WithDetail(
 		&gitalypb.UserDeleteBranchError{
 			Error: &gitalypb.UserDeleteBranchError_ReferenceUpdate{
 				ReferenceUpdate: &gitalypb.ReferenceUpdateError{
@@ -927,8 +922,7 @@ func TestUserDeleteBranch_hookFailure(t *testing.T) {
 			gittest.WriteCustomHook(t, repoPath, tc.hookName, hookContent)
 
 			response, err := client.UserDeleteBranch(ctx, request)
-			testhelper.RequireGrpcError(t, errWithDetails(t,
-				helper.ErrPermissionDeniedf("deletion denied by custom hooks: running %s hooks: %s\n", tc.hookName, "GL_ID=user-123"),
+			testhelper.RequireGrpcError(t, structerr.NewPermissionDenied("deletion denied by custom hooks: running %s hooks: %s\n", tc.hookName, "GL_ID=user-123").WithDetail(
 				&gitalypb.UserDeleteBranchError{
 					Error: &gitalypb.UserDeleteBranchError_CustomHook{
 						CustomHook: &gitalypb.CustomHookError{
@@ -1035,8 +1029,7 @@ func TestBranchHookOutput(t *testing.T) {
 
 				_, err := client.UserCreateBranch(ctx, createRequest)
 
-				testhelper.RequireGrpcError(t, errWithDetails(t,
-					helper.ErrPermissionDeniedf("creation denied by custom hooks"),
+				testhelper.RequireGrpcError(t, structerr.NewPermissionDenied("creation denied by custom hooks").WithDetail(
 					&gitalypb.UserCreateBranchError{
 						Error: &gitalypb.UserCreateBranchError_CustomHook{
 							CustomHook: &gitalypb.CustomHookError{
@@ -1052,8 +1045,7 @@ func TestBranchHookOutput(t *testing.T) {
 				defer gittest.Exec(t, cfg, "-C", repoPath, "branch", "-d", branchNameInput)
 
 				deleteResponse, err := client.UserDeleteBranch(ctx, deleteRequest)
-				testhelper.RequireGrpcError(t, errWithDetails(t,
-					helper.ErrPermissionDeniedf("deletion denied by custom hooks: running %s hooks: %s", hookTestCase.hookName, expectedError),
+				testhelper.RequireGrpcError(t, structerr.NewPermissionDenied("deletion denied by custom hooks: running %s hooks: %s", hookTestCase.hookName, expectedError).WithDetail(
 					&gitalypb.UserDeleteBranchError{
 						Error: &gitalypb.UserDeleteBranchError_CustomHook{
 							CustomHook: &gitalypb.CustomHookError{
