@@ -9,7 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/labkit/correlation"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -174,7 +174,7 @@ func streamRPCType(info *grpc.StreamServerInfo) string {
 }
 
 func reportWithPrometheusLabels(metaTags metadataTags, fullMethod string, err error) {
-	grpcCode := helper.GrpcCode(err)
+	grpcCode := structerr.GRPCCode(err)
 	serviceName, methodName := extractServiceAndMethodName(fullMethod)
 
 	requests.WithLabelValues(

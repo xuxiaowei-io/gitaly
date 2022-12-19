@@ -1,17 +1,18 @@
-package helper
+package structerr
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-func TestGrpcCode(t *testing.T) {
+func TestGRPCCode(t *testing.T) {
 	t.Parallel()
+
 	for desc, tc := range map[string]struct {
 		in  error
 		exp codes.Code
@@ -25,28 +26,32 @@ func TestGrpcCode(t *testing.T) {
 			exp: codes.NotFound,
 		},
 		"unwrapped status created by helpers": {
-			in:  structerr.NewInternal(""),
-			exp: codes.Internal,
+			in:  NewNotFound(""),
+			exp: codes.NotFound,
 		},
 		"wrapped status created by helpers": {
-			in:  fmt.Errorf("context: %w", structerr.NewInternal("")),
-			exp: codes.Internal,
+			in:  fmt.Errorf("context: %w", NewNotFound("")),
+			exp: codes.NotFound,
 		},
 		"double wrapped status created by helpers": {
-			in:  fmt.Errorf("outer: %w", fmt.Errorf("context: %w", structerr.NewInternal(""))),
-			exp: codes.Internal,
+			in:  fmt.Errorf("outer: %w", fmt.Errorf("context: %w", NewNotFound(""))),
+			exp: codes.NotFound,
+		},
+		"double helper wrapped status": {
+			in:  NewInvalidArgument("outer: %w", fmt.Errorf("context: %w", NewNotFound(""))),
+			exp: codes.NotFound,
 		},
 		"nil input": {
 			in:  nil,
 			exp: codes.OK,
 		},
 		"no code defined": {
-			in:  assert.AnError,
+			in:  errors.New("an error"),
 			exp: codes.Unknown,
 		},
 	} {
 		t.Run(desc, func(t *testing.T) {
-			assert.Equal(t, tc.exp, GrpcCode(tc.in))
+			require.Equal(t, tc.exp, GRPCCode(tc.in))
 		})
 	}
 }

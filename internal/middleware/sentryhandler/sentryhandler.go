@@ -10,7 +10,7 @@ import (
 
 	sentry "github.com/getsentry/sentry-go"
 	grpcmwtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 )
@@ -74,7 +74,7 @@ func methodToCulprit(methodName string) string {
 }
 
 func logErrorToSentry(ctx context.Context, method string, err error) (code codes.Code, bypass bool) {
-	code = helper.GrpcCode(err)
+	code = structerr.GRPCCode(err)
 
 	for _, ignoredCode := range ignoredCodes {
 		if code == ignoredCode {
