@@ -16,7 +16,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -110,27 +109,6 @@ func TestFindAllBranchNamesVeryLargeResponse(t *testing.T) {
 		actualRefs = append(actualRefs, r.GetNames()...)
 	}
 	require.Equal(t, expectedRefs, actualRefs)
-}
-
-//nolint:staticcheck
-func TestEmptyFindAllBranchNamesRequest(t *testing.T) {
-	t.Parallel()
-
-	_, client := setupRefServiceWithoutRepo(t)
-
-	rpcRequest := &gitalypb.FindAllBranchNamesRequest{}
-	ctx := testhelper.Context(t)
-	c, err := client.FindAllBranchNames(ctx, rpcRequest)
-	require.NoError(t, err)
-
-	var recvError error
-	for recvError == nil {
-		_, recvError = c.Recv()
-	}
-
-	if helper.GrpcCode(recvError) != codes.InvalidArgument {
-		t.Fatal(recvError)
-	}
 }
 
 //nolint:staticcheck
@@ -281,19 +259,6 @@ func TestSuccessfulFindDefaultBranchNameLegacy(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, git.ReferenceName(r.GetName()), git.LegacyDefaultRef)
-}
-
-func TestEmptyFindDefaultBranchNameRequest(t *testing.T) {
-	t.Parallel()
-
-	_, client := setupRefServiceWithoutRepo(t)
-	rpcRequest := &gitalypb.FindDefaultBranchNameRequest{}
-	ctx := testhelper.Context(t)
-	_, err := client.FindDefaultBranchName(ctx, rpcRequest)
-
-	if helper.GrpcCode(err) != codes.InvalidArgument {
-		t.Fatal(err)
-	}
 }
 
 func TestFindDefaultBranchName_validate(t *testing.T) {
