@@ -5,7 +5,7 @@ package ref
 import (
 	"testing"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -18,50 +18,141 @@ func TestRefExists(t *testing.T) {
 	ctx := testhelper.Context(t)
 	_, repo, _, client := setupRefService(t, ctx)
 
-	badRepo := &gitalypb.Repository{StorageName: "invalid", RelativePath: "/etc/"}
-
-	tests := []struct {
-		name    string
-		ref     string
-		want    bool
-		repo    *gitalypb.Repository
-		wantErr codes.Code
+	for _, tc := range []struct {
+		desc             string
+		request          *gitalypb.RefExistsRequest
+		expectedResponse *gitalypb.RefExistsResponse
+		expectedErr      error
 	}{
-		{"master", "refs/heads/master", true, repo, codes.OK},
-		{"v1.0.0", "refs/tags/v1.0.0", true, repo, codes.OK},
-		{"quoted", "refs/heads/'test'", true, repo, codes.OK},
-		{"unicode exists", "refs/heads/ʕ•ᴥ•ʔ", true, repo, codes.OK},
-		{"unicode missing", "refs/tags/अस्तित्वहीन", false, repo, codes.OK},
-		{"spaces", "refs/ /heads", false, repo, codes.OK},
-		{"haxxors", "refs/; rm -rf /tmp/*", false, repo, codes.OK},
-		{"dashes", "--", false, repo, codes.InvalidArgument},
-		{"blank", "", false, repo, codes.InvalidArgument},
-		{"not tags or branches", "refs/heads/remotes/origin", false, repo, codes.OK},
-		{"wildcards", "refs/heads/*", false, repo, codes.OK},
-		{"invalid repos", "refs/heads/master", false, badRepo, codes.InvalidArgument},
-	}
+		{
+			desc: "master",
+			request: &gitalypb.RefExistsRequest{
+				Repository: repo,
+				Ref:        []byte("refs/heads/master"),
+			},
+			expectedResponse: &gitalypb.RefExistsResponse{
+				Value: true,
+			},
+		},
+		{
+			desc: "v1.0.0",
+			request: &gitalypb.RefExistsRequest{
+				Repository: repo,
+				Ref:        []byte("refs/tags/v1.0.0"),
+			},
+			expectedResponse: &gitalypb.RefExistsResponse{
+				Value: true,
+			},
+		},
+		{
+			desc: "quoted",
+			request: &gitalypb.RefExistsRequest{
+				Repository: repo,
+				Ref:        []byte("refs/heads/'test'"),
+			},
+			expectedResponse: &gitalypb.RefExistsResponse{
+				Value: true,
+			},
+		},
+		{
+			desc: "unicode exists",
+			request: &gitalypb.RefExistsRequest{
+				Repository: repo,
+				Ref:        []byte("refs/heads/ʕ•ᴥ•ʔ"),
+			},
+			expectedResponse: &gitalypb.RefExistsResponse{
+				Value: true,
+			},
+		},
+		{
+			desc: "unicode missing",
+			request: &gitalypb.RefExistsRequest{
+				Repository: repo,
+				Ref:        []byte("refs/tags/अस्तित्वहीन"),
+			},
+			expectedResponse: &gitalypb.RefExistsResponse{
+				Value: false,
+			},
+		},
+		{
+			desc: "spaces",
+			request: &gitalypb.RefExistsRequest{
+				Repository: repo,
+				Ref:        []byte("refs/ /heads"),
+			},
+			expectedResponse: &gitalypb.RefExistsResponse{
+				Value: false,
+			},
+		},
+		{
+			desc: "haxxors",
+			request: &gitalypb.RefExistsRequest{
+				Repository: repo,
+				Ref:        []byte("refs/; rm -rf /tmp/*"),
+			},
+			expectedResponse: &gitalypb.RefExistsResponse{
+				Value: false,
+			},
+		},
+		{
+			desc: "dashes",
+			request: &gitalypb.RefExistsRequest{
+				Repository: repo,
+				Ref:        []byte("--"),
+			},
+			expectedErr: structerr.NewInvalidArgument("invalid refname"),
+		},
+		{
+			desc: "blank",
+			request: &gitalypb.RefExistsRequest{
+				Repository: repo,
+				Ref:        []byte(""),
+			},
+			expectedErr: structerr.NewInvalidArgument("invalid refname"),
+		},
+		{
+			desc: "not tags or branches",
+			request: &gitalypb.RefExistsRequest{
+				Repository: repo,
+				Ref:        []byte("refs/heads/remotes/origin"),
+			},
+			expectedResponse: &gitalypb.RefExistsResponse{
+				Value: false,
+			},
+		},
+		{
+			desc: "wildcards",
+			request: &gitalypb.RefExistsRequest{
+				Repository: repo,
+				Ref:        []byte("refs/heads/*"),
+			},
+			expectedResponse: &gitalypb.RefExistsResponse{
+				Value: false,
+			},
+		},
+		{
+			desc: "invalid repos",
+			request: &gitalypb.RefExistsRequest{
+				Repository: &gitalypb.Repository{
+					StorageName:  "invalid",
+					RelativePath: "/etc/",
+				},
+				Ref: []byte("refs/heads/master"),
+			},
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("GetStorageByName: no such storage: %q", "invalid"),
+				structerr.NewInvalidArgument("repo scoped: invalid Repository"),
+			),
+		},
+	} {
+		tc := tc
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			req := &gitalypb.RefExistsRequest{Repository: tt.repo, Ref: []byte(tt.ref)}
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
 
-			got, err := client.RefExists(ctx, req)
-
-			if helper.GrpcCode(err) != tt.wantErr {
-				t.Errorf("server.RefExists() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-
-			if tt.wantErr != codes.OK {
-				if got != nil {
-					t.Errorf("server.RefExists() = %v, want null", got)
-				}
-				return
-			}
-
-			if got.Value != tt.want {
-				t.Errorf("server.RefExists() = %v, want %v", got.Value, tt.want)
-			}
+			response, err := client.RefExists(ctx, tc.request)
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
+			testhelper.ProtoEqual(t, tc.expectedResponse, response)
 		})
 	}
 }
