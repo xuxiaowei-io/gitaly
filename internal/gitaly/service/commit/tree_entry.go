@@ -29,7 +29,7 @@ func sendTreeEntry(
 	}
 
 	if treeEntry == nil || len(treeEntry.Oid) == 0 {
-		return helper.ErrNotFoundf("not found: %s", path)
+		return structerr.NewNotFound("not found: %s", path)
 	}
 
 	if treeEntry.Type == gitalypb.TreeEntry_COMMIT {

@@ -289,7 +289,7 @@ func (s *Server) createTag(
 
 			var MktagError localrepo.MktagError
 			if errors.As(err, &MktagError) {
-				return nil, "", helper.ErrNotFoundf("Gitlab::Git::CommitError: %s", err.Error())
+				return nil, "", structerr.NewNotFound("Gitlab::Git::CommitError: %s", err.Error())
 			}
 			return nil, "", structerr.NewInternal("writing tag: %w", err)
 		}

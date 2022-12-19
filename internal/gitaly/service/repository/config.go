@@ -31,7 +31,7 @@ func (s *server) GetConfig(
 	gitconfig, err := os.Open(configPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return helper.ErrNotFoundf("opening gitconfig: %w", err)
+			return structerr.NewNotFound("opening gitconfig: %w", err)
 		}
 		return structerr.NewInternal("opening gitconfig: %w", err)
 	}

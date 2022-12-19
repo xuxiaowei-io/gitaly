@@ -27,12 +27,6 @@ func ErrInvalidArgumentf(format string, a ...interface{}) error {
 	return formatError(codes.InvalidArgument, format, a...)
 }
 
-// ErrNotFoundf wraps a formatted error with codes.NotFound, unless the
-// formatted error is a wrapped gRPC error.
-func ErrNotFoundf(format string, a ...interface{}) error {
-	return formatError(codes.NotFound, format, a...)
-}
-
 // grpcErrorMessageWrapper is used to wrap a gRPC `status.Status`-style error such that it behaves
 // like a `status.Status`, except that it generates a readable error message.
 type grpcErrorMessageWrapper struct {

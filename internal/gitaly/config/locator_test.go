@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
@@ -62,7 +63,7 @@ func TestConfigLocator_GetRepoPath(t *testing.T) {
 		{
 			desc:   "storage doesn't exist on disk",
 			repo:   &gitalypb.Repository{StorageName: cfg.Storages[1].Name, RelativePath: repo.RelativePath},
-			expErr: helper.ErrNotFoundf(`GetPath: does not exist: stat %s: no such file or directory`, cfg.Storages[1].Path),
+			expErr: structerr.NewNotFound(`GetPath: does not exist: stat %s: no such file or directory`, cfg.Storages[1].Path),
 		},
 		{
 			desc:   "relative path is empty",
@@ -72,12 +73,12 @@ func TestConfigLocator_GetRepoPath(t *testing.T) {
 		{
 			desc:   "unknown relative path",
 			repo:   &gitalypb.Repository{StorageName: storageName, RelativePath: "invalid"},
-			expErr: helper.ErrNotFoundf(`GetRepoPath: not a git repository: %q`, filepath.Join(cfg.Storages[0].Path, "invalid")),
+			expErr: structerr.NewNotFound(`GetRepoPath: not a git repository: %q`, filepath.Join(cfg.Storages[0].Path, "invalid")),
 		},
 		{
 			desc:   "path exists but not a git repository",
 			repo:   &gitalypb.Repository{StorageName: storageName, RelativePath: notRepositoryFolder},
-			expErr: helper.ErrNotFoundf(`GetRepoPath: not a git repository: %q`, filepath.Join(cfg.Storages[0].Path, notRepositoryFolder)),
+			expErr: structerr.NewNotFound(`GetRepoPath: not a git repository: %q`, filepath.Join(cfg.Storages[0].Path, notRepositoryFolder)),
 		},
 		{
 			desc:   "relative path escapes parent folder",
@@ -160,7 +161,7 @@ func TestConfigLocator_GetPath(t *testing.T) {
 		{
 			desc:   "storage doesn't exist on disk",
 			repo:   &gitalypb.Repository{StorageName: cfg.Storages[1].Name, RelativePath: repo.RelativePath},
-			expErr: helper.ErrNotFoundf(`GetPath: does not exist: stat %s: no such file or directory`, cfg.Storages[1].Path),
+			expErr: structerr.NewNotFound(`GetPath: does not exist: stat %s: no such file or directory`, cfg.Storages[1].Path),
 		},
 		{
 			desc:   "relative path is empty",

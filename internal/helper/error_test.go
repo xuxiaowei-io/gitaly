@@ -29,11 +29,6 @@ func TestErrorf(t *testing.T) {
 			errorf:       ErrInvalidArgumentf,
 			expectedCode: codes.InvalidArgument,
 		},
-		{
-			desc:         "NotFoundf",
-			errorf:       ErrNotFoundf,
-			expectedCode: codes.NotFound,
-		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Run("with non-gRPC error", func(t *testing.T) {
@@ -179,20 +174,20 @@ func TestGrpcCode(t *testing.T) {
 			exp: codes.NotFound,
 		},
 		"unwrapped status created by helpers": {
-			in:  ErrNotFoundf(""),
-			exp: codes.NotFound,
+			in:  ErrInternalf(""),
+			exp: codes.Internal,
 		},
 		"wrapped status created by helpers": {
-			in:  fmt.Errorf("context: %w", ErrNotFoundf("")),
-			exp: codes.NotFound,
+			in:  fmt.Errorf("context: %w", ErrInternalf("")),
+			exp: codes.Internal,
 		},
 		"double wrapped status created by helpers": {
-			in:  fmt.Errorf("outer: %w", fmt.Errorf("context: %w", ErrNotFoundf(""))),
-			exp: codes.NotFound,
+			in:  fmt.Errorf("outer: %w", fmt.Errorf("context: %w", ErrInternalf(""))),
+			exp: codes.Internal,
 		},
 		"double helper wrapped status": {
-			in:  ErrInvalidArgumentf("outer: %w", fmt.Errorf("context: %w", ErrNotFoundf(""))),
-			exp: codes.NotFound,
+			in:  ErrInvalidArgumentf("outer: %w", fmt.Errorf("context: %w", ErrInternalf(""))),
+			exp: codes.Internal,
 		},
 		"nil input": {
 			in:  nil,

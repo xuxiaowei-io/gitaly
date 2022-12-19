@@ -61,7 +61,7 @@ func RenameRepositoryHandler(virtualStoragesNames []string, rs datastore.Reposit
 			req.GetRelativePath(),
 		); err != nil {
 			if errors.Is(err, commonerr.ErrRepositoryNotFound) {
-				return helper.ErrNotFoundf(
+				return structerr.NewNotFound(
 					`GetRepoPath: not a git repository: "%s/%s"`,
 					req.GetRepository().GetStorageName(),
 					req.GetRepository().GetRelativePath(),

@@ -7,6 +7,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 )
 
 // Path returns the on-disk path of the repository.
@@ -50,7 +51,7 @@ func (repo *Repo) ObjectDirectoryPath() (string, error) {
 
 	fullPath := filepath.Join(repoPath, objectDirectoryPath)
 	if _, err := os.Stat(fullPath); os.IsNotExist(err) {
-		return "", helper.ErrNotFoundf("object directory does not exist: %q", fullPath)
+		return "", structerr.NewNotFound("object directory does not exist: %q", fullPath)
 	}
 
 	return fullPath, nil

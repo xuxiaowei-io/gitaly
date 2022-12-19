@@ -643,7 +643,7 @@ func TestRenameRepository(t *testing.T) {
 		},
 		RelativePath: virtualRepo2.RelativePath,
 	})
-	testhelper.RequireGrpcError(t, helper.ErrNotFoundf(`GetRepoPath: not a git repository: "praefect/not-found"`), err)
+	testhelper.RequireGrpcError(t, structerr.NewNotFound(`GetRepoPath: not a git repository: "praefect/not-found"`), err)
 
 	_, err = repoServiceClient.RenameRepository(ctx, &gitalypb.RenameRepositoryRequest{
 		Repository:   virtualRepo1,

@@ -70,7 +70,7 @@ func (s *server) findRemoteRootRef(ctx context.Context, request *gitalypb.FindRe
 		if strings.HasPrefix(line, headPrefix) {
 			rootRef := strings.TrimPrefix(line, headPrefix)
 			if rootRef == "(unknown)" {
-				return "", helper.ErrNotFoundf("no remote HEAD found")
+				return "", structerr.NewNotFound("no remote HEAD found")
 			}
 			return rootRef, nil
 		}
@@ -84,7 +84,7 @@ func (s *server) findRemoteRootRef(ctx context.Context, request *gitalypb.FindRe
 		return "", err
 	}
 
-	return "", helper.ErrNotFoundf("couldn't query the remote HEAD")
+	return "", structerr.NewNotFound("couldn't query the remote HEAD")
 }
 
 // FindRemoteRootRef queries the remote to determine its HEAD

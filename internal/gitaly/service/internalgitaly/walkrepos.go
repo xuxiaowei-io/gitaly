@@ -31,7 +31,7 @@ func (s *server) storagePath(storageName string) (string, error) {
 			return storage.Path, nil
 		}
 	}
-	return "", helper.ErrNotFoundf("storage name %q not found", storageName)
+	return "", structerr.NewNotFound("storage name %q not found", storageName)
 }
 
 func walkStorage(ctx context.Context, storagePath string, stream gitalypb.InternalGitaly_WalkReposServer) error {

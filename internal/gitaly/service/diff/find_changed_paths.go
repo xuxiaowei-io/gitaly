@@ -183,7 +183,7 @@ func resolveObjectWithType(ctx context.Context, repo *localrepo.Repo, revision s
 	oid, err := repo.ResolveRevision(ctx, git.Revision(fmt.Sprintf("%s^{%s}", revision, expectedType)))
 	if err != nil {
 		if errors.Is(err, git.ErrReferenceNotFound) {
-			return "", helper.ErrNotFoundf("revision can not be found: %q", revision)
+			return "", structerr.NewNotFound("revision can not be found: %q", revision)
 		}
 		return "", err
 	}

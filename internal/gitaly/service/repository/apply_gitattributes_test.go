@@ -265,7 +265,7 @@ func TestApplyGitattributes_failure(t *testing.T) {
 				RelativePath: "bar",
 			},
 			revision: []byte("master"),
-			expectedErr: helper.ErrNotFoundf(testhelper.GitalyOrPraefect(
+			expectedErr: structerr.NewNotFound(testhelper.GitalyOrPraefect(
 				`GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/bar"`,
 				`mutator call: route repository mutator: get repository id: repository "default"/"bar" not found`,
 			)),

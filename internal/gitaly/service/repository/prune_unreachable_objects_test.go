@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -43,7 +44,7 @@ func TestPruneUnreachableObjects(t *testing.T) {
 		_, err := client.PruneUnreachableObjects(ctx, &gitalypb.PruneUnreachableObjectsRequest{
 			Repository: repo,
 		})
-		testhelper.RequireGrpcError(t, helper.ErrNotFoundf("GetRepoPath: not a git repository: %q", repoPath), err)
+		testhelper.RequireGrpcError(t, structerr.NewNotFound("GetRepoPath: not a git repository: %q", repoPath), err)
 	})
 
 	t.Run("empty repository", func(t *testing.T) {

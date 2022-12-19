@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -156,7 +157,7 @@ func TestFindRefsByOID_failure(t *testing.T) {
 				return &gitalypb.FindRefsByOIDRequest{
 					Repository: repo,
 					Oid:        oid.String(),
-				}, helper.ErrNotFoundf("GetRepoPath: not a git repository: %q", repoPath)
+				}, structerr.NewNotFound("GetRepoPath: not a git repository: %q", repoPath)
 			},
 		},
 		{
@@ -171,7 +172,7 @@ func TestFindRefsByOID_failure(t *testing.T) {
 				return &gitalypb.FindRefsByOIDRequest{
 					Repository: repo,
 					Oid:        oid.String(),
-				}, helper.ErrNotFoundf("GetRepoPath: not a git repository: %q", repoPath)
+				}, structerr.NewNotFound("GetRepoPath: not a git repository: %q", repoPath)
 			},
 		},
 		{

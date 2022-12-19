@@ -215,17 +215,17 @@ func TestFailedTreeEntry(t *testing.T) {
 		{
 			name:        "Path is outside of repository",
 			req:         &gitalypb.TreeEntryRequest{Repository: repo, Revision: []byte("913c66a37b4a45b9769037c55c2d238bd0942d2e"), Path: []byte("../bar/.gitkeep")}, // Git blows up on paths like this
-			expectedErr: helper.ErrNotFoundf("not found: ../bar/.gitkeep"),
+			expectedErr: structerr.NewNotFound("not found: ../bar/.gitkeep"),
 		},
 		{
 			name:        "Missing file with space in path",
 			req:         &gitalypb.TreeEntryRequest{Repository: repo, Revision: []byte("deadfacedeadfacedeadfacedeadfacedeadface"), Path: []byte("with space/README.md")},
-			expectedErr: helper.ErrNotFoundf("not found: with space/README.md"),
+			expectedErr: structerr.NewNotFound("not found: with space/README.md"),
 		},
 		{
 			name:        "Missing file",
 			req:         &gitalypb.TreeEntryRequest{Repository: repo, Revision: []byte("e63f41fe459e62e1228fcef60d7189127aeba95a"), Path: []byte("missing.rb")},
-			expectedErr: helper.ErrNotFoundf("not found: missing.rb"),
+			expectedErr: structerr.NewNotFound("not found: missing.rb"),
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

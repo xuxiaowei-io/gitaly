@@ -7,7 +7,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
@@ -49,7 +48,7 @@ func TestRemoveRepository_doesNotExist(t *testing.T) {
 	_, err := client.RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{
 		Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "/does/not/exist"},
 	})
-	testhelper.RequireGrpcError(t, helper.ErrNotFoundf("repository does not exist"), err)
+	testhelper.RequireGrpcError(t, structerr.NewNotFound("repository does not exist"), err)
 }
 
 func TestRemoveRepository_validate(t *testing.T) {

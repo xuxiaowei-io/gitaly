@@ -470,7 +470,7 @@ func TestUploadPack_validation(t *testing.T) {
 			},
 			expectedErr: func() error {
 				if testhelper.IsPraefectEnabled() {
-					return helper.ErrNotFoundf("accessor call: route repository accessor: consistent storages: repository %q/%q not found", cfg.Storages[0].Name, "path/to/repo")
+					return structerr.NewNotFound("accessor call: route repository accessor: consistent storages: repository %q/%q not found", cfg.Storages[0].Name, "path/to/repo")
 				}
 				return helper.ErrInvalidArgumentf("non-empty stdin in first request")
 			}(),

@@ -20,6 +20,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -322,7 +323,7 @@ func TestOptimizeRepository_validation(t *testing.T) {
 					RelativePath: "path/not/exist",
 				},
 			},
-			expectedErr: helper.ErrNotFoundf(testhelper.GitalyOrPraefect(
+			expectedErr: structerr.NewNotFound(testhelper.GitalyOrPraefect(
 				fmt.Sprintf(`GetRepoPath: not a git repository: "%s/path/not/exist"`, cfg.Storages[0].Path),
 				`routing repository maintenance: getting repository metadata: repository not found`,
 			)),

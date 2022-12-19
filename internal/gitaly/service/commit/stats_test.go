@@ -109,7 +109,7 @@ func TestCommitStatsFailure(t *testing.T) {
 				},
 				Revision: []byte("test-do-not-touch"),
 			},
-			expectedErr: helper.ErrNotFoundf(testhelper.GitalyOrPraefect(
+			expectedErr: structerr.NewNotFound(testhelper.GitalyOrPraefect(
 				fmt.Sprintf("GetRepoPath: not a git repository: %q", filepath.Join(cfg.Storages[0].Path, "bar.git")),
 				"accessor call: route repository accessor: consistent storages: repository \"default\"/\"bar.git\" not found",
 			)),
@@ -123,7 +123,7 @@ func TestCommitStatsFailure(t *testing.T) {
 				},
 				Revision: []byte("test-do-not-touch"),
 			},
-			expectedErr: helper.ErrNotFoundf(testhelper.GitalyOrPraefect(
+			expectedErr: structerr.NewNotFound(testhelper.GitalyOrPraefect(
 				fmt.Sprintf("GetRepoPath: not a git repository: %q", filepath.Join(cfg.Storages[0].Path, "bar.git")),
 				"accessor call: route repository accessor: consistent storages: repository \"default\"/\"bar.git\" not found",
 			)),

@@ -49,7 +49,7 @@ func (l *configLocator) GetRepoPath(repo repository.GitRepo) (string, error) {
 		return repoPath, nil
 	}
 
-	return "", helper.ErrNotFoundf("GetRepoPath: not a git repository: %q", repoPath)
+	return "", structerr.NewNotFound("GetRepoPath: not a git repository: %q", repoPath)
 }
 
 // GetPath returns the path of the repo passed as first argument. An error is
@@ -63,7 +63,7 @@ func (l *configLocator) GetPath(repo repository.GitRepo) (string, error) {
 
 	if _, err := os.Stat(storagePath); err != nil {
 		if os.IsNotExist(err) {
-			return "", helper.ErrNotFoundf("GetPath: does not exist: %v", err)
+			return "", structerr.NewNotFound("GetPath: does not exist: %v", err)
 		}
 		return "", structerr.NewInternal("GetPath: storage path: %v", err)
 	}

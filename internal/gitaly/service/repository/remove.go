@@ -46,7 +46,7 @@ func (s *server) RemoveRepository(ctx context.Context, in *gitalypb.RemoveReposi
 	// care they may still just return `NotFound` errors.
 	if _, err := os.Stat(path); err != nil {
 		if os.IsNotExist(err) {
-			return nil, helper.ErrNotFoundf("repository does not exist")
+			return nil, structerr.NewNotFound("repository does not exist")
 		}
 
 		return nil, structerr.NewInternal("statting repository: %w", err)
@@ -76,7 +76,7 @@ func (s *server) RemoveRepository(ctx context.Context, in *gitalypb.RemoveReposi
 	// holding the lock.
 	if _, err := os.Stat(path); err != nil {
 		if os.IsNotExist(err) {
-			return nil, helper.ErrNotFoundf("repository was concurrently removed")
+			return nil, structerr.NewNotFound("repository was concurrently removed")
 		}
 		return nil, structerr.NewInternal("re-statting repository: %w", err)
 	}
