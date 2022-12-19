@@ -3,38 +3,27 @@
 package git_test
 
 import (
+	"os/exec"
 	"testing"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 )
 
 type mockCgroupsManager struct {
-	commands []*command.Command
+	cgroups.Manager
+	commands []*exec.Cmd
 }
 
-func (m *mockCgroupsManager) Setup() error {
-	return nil
-}
-
-func (m *mockCgroupsManager) AddCommand(c *command.Command, repo repository.GitRepo) (string, error) {
+func (m *mockCgroupsManager) AddCommand(c *exec.Cmd, _ ...cgroups.AddCommandOption) (string, error) {
 	m.commands = append(m.commands, c)
 	return "", nil
 }
-
-func (m *mockCgroupsManager) Cleanup() error {
-	return nil
-}
-
-func (m *mockCgroupsManager) Collect(ch chan<- prometheus.Metric) {}
-func (m *mockCgroupsManager) Describe(ch chan<- *prometheus.Desc) {}
 
 func TestNewCommandAddsToCgroup(t *testing.T) {
 	t.Parallel()
@@ -76,7 +65,7 @@ func TestNewCommandAddsToCgroup(t *testing.T) {
 
 			if tc.cgroupsFF {
 				require.Len(t, manager.commands, 1)
-				require.Contains(t, manager.commands[0].Args(), "rev-parse")
+				require.Contains(t, manager.commands[0].Args, "rev-parse")
 				return
 			}
 

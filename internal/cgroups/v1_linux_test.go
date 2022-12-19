@@ -7,21 +7,17 @@ import (
 	"fmt"
 	"hash/crc32"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
-	"github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
 func defaultCgroupsConfig() cgroups.Config {
@@ -66,11 +62,6 @@ func TestSetup(t *testing.T) {
 func TestAddCommand(t *testing.T) {
 	mock := newMock(t)
 
-	repo := &gitalypb.Repository{
-		StorageName:  "default",
-		RelativePath: "path/to/repo.git",
-	}
-
 	config := defaultCgroupsConfig()
 	config.Repositories.Count = 10
 	config.Repositories.MemoryBytes = 1024
@@ -85,9 +76,8 @@ func TestAddCommand(t *testing.T) {
 	require.NoError(t, v1Manager1.Setup())
 	ctx := testhelper.Context(t)
 
-	cmd2, err := command.New(ctx, []string{"ls", "-hal", "."})
-	require.NoError(t, err)
-	require.NoError(t, cmd2.Wait())
+	cmd2 := exec.CommandContext(ctx, "ls", "-hal", ".")
+	require.NoError(t, cmd2.Run())
 
 	v1Manager2 := &CGroupV1Manager{
 		cfg:       config,
@@ -95,11 +85,11 @@ func TestAddCommand(t *testing.T) {
 		pid:       pid,
 	}
 
-	t.Run("without a repository", func(t *testing.T) {
-		_, err := v1Manager2.AddCommand(cmd2, nil)
+	t.Run("without overridden key", func(t *testing.T) {
+		_, err := v1Manager2.AddCommand(cmd2)
 		require.NoError(t, err)
 
-		checksum := crc32.ChecksumIEEE([]byte(strings.Join(cmd2.Args(), "/")))
+		checksum := crc32.ChecksumIEEE([]byte(strings.Join(cmd2.Args, "/")))
 		groupID := uint(checksum) % config.Repositories.Count
 
 		for _, s := range mock.subsystems {
@@ -110,18 +100,15 @@ func TestAddCommand(t *testing.T) {
 			cmdPid, err := strconv.Atoi(string(content))
 			require.NoError(t, err)
 
-			require.Equal(t, cmd2.Pid(), cmdPid)
+			require.Equal(t, cmd2.Process.Pid, cmdPid)
 		}
 	})
 
-	t.Run("with a repository", func(t *testing.T) {
-		_, err := v1Manager2.AddCommand(cmd2, repo)
+	t.Run("with overridden key", func(t *testing.T) {
+		_, err := v1Manager2.AddCommand(cmd2, WithCgroupKey("foobar"))
 		require.NoError(t, err)
 
-		checksum := crc32.ChecksumIEEE([]byte(strings.Join([]string{
-			"default",
-			"path/to/repo.git",
-		}, "/")))
+		checksum := crc32.ChecksumIEEE([]byte("foobar"))
 		groupID := uint(checksum) % config.Repositories.Count
 
 		for _, s := range mock.subsystems {
@@ -132,7 +119,7 @@ func TestAddCommand(t *testing.T) {
 			cmdPid, err := strconv.Atoi(string(content))
 			require.NoError(t, err)
 
-			require.Equal(t, cmd2.Pid(), cmdPid)
+			require.Equal(t, cmd2.Process.Pid, cmdPid)
 		}
 	})
 }
@@ -162,10 +149,6 @@ func TestMetrics(t *testing.T) {
 	t.Parallel()
 
 	mock := newMock(t)
-	repo := &gitalypb.Repository{
-		StorageName:  "default",
-		RelativePath: "path/to/repo.git",
-	}
 
 	config := defaultCgroupsConfig()
 	config.Repositories.Count = 1
@@ -180,21 +163,25 @@ func TestMetrics(t *testing.T) {
 	require.NoError(t, v1Manager1.Setup())
 
 	ctx := testhelper.Context(t)
-	logger, hook := test.NewNullLogger()
-	logger.SetLevel(logrus.DebugLevel)
-	ctx = ctxlogrus.ToContext(ctx, logrus.NewEntry(logger))
 
-	cmd, err := command.New(ctx, []string{"ls", "-hal", "."}, command.WithCgroup(v1Manager1, repo))
+	cmd := exec.CommandContext(ctx, "ls", "-hal", ".")
+	require.NoError(t, cmd.Start())
+	_, err := v1Manager1.AddCommand(cmd)
 	require.NoError(t, err)
-	gitCmd1, err := command.New(ctx, []string{"ls", "-hal", "."}, command.WithCgroup(v1Manager1, repo))
+
+	gitCmd1 := exec.CommandContext(ctx, "ls", "-hal", ".")
+	require.NoError(t, gitCmd1.Start())
+	_, err = v1Manager1.AddCommand(gitCmd1)
 	require.NoError(t, err)
-	gitCmd2, err := command.New(ctx, []string{"ls", "-hal", "."}, command.WithCgroup(v1Manager1, repo))
+
+	gitCmd2 := exec.CommandContext(ctx, "ls", "-hal", ".")
+	require.NoError(t, gitCmd2.Start())
+	_, err = v1Manager1.AddCommand(gitCmd2)
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, gitCmd2.Wait())
 	}()
 
-	require.NoError(t, err)
 	require.NoError(t, cmd.Wait())
 	require.NoError(t, gitCmd1.Wait())
 
@@ -226,14 +213,6 @@ gitaly_cgroup_procs_total{path="%s",subsystem="memory"} 1
 					v1Manager1,
 					bytes.NewBufferString("")))
 			}
-
-			logEntry := hook.LastEntry()
-			assert.Contains(
-				t,
-				logEntry.Data["command.cgroup_path"],
-				repoCgroupPath,
-				"log field includes a cgroup path that is a subdirectory of the current process' cgroup path",
-			)
 		})
 	}
 }

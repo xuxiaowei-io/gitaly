@@ -3,14 +3,13 @@ package cgroups
 import (
 	"fmt"
 	"hash/crc32"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"github.com/containerd/cgroups"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/prometheus/client_golang/prometheus"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	cgroupscfg "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/log"
@@ -103,24 +102,31 @@ func (cg *CGroupV1Manager) Setup() error {
 // is determined by hashing the repository storage and path. No error is returned if the command has already
 // exited.
 func (cg *CGroupV1Manager) AddCommand(
-	cmd *command.Command,
-	repo repository.GitRepo,
+	cmd *exec.Cmd,
+	opts ...AddCommandOption,
 ) (string, error) {
-	var key string
-	if repo == nil {
-		key = strings.Join(cmd.Args(), "/")
-	} else {
-		key = repo.GetStorageName() + "/" + repo.GetRelativePath()
+	var cfg addCommandCfg
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
+	key := cfg.cgroupKey
+	if key == "" {
+		key = strings.Join(cmd.Args, "/")
 	}
 
 	checksum := crc32.ChecksumIEEE(
 		[]byte(key),
 	)
 
+	if cmd.Process == nil {
+		return "", fmt.Errorf("cannot add command that has not yet been started")
+	}
+
 	groupID := uint(checksum) % cg.cfg.Repositories.Count
 	cgroupPath := cg.repoPath(int(groupID))
 
-	return cgroupPath, cg.addToCgroup(cmd.Pid(), cgroupPath)
+	return cgroupPath, cg.addToCgroup(cmd.Process.Pid, cgroupPath)
 }
 
 func (cg *CGroupV1Manager) addToCgroup(pid int, cgroupPath string) error {

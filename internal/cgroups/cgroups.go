@@ -1,15 +1,29 @@
 package cgroups
 
 import (
+	"os/exec"
 	"path/filepath"
 
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/cgroups"
 )
+
+type addCommandCfg struct {
+	cgroupKey string
+}
+
+// AddCommandOption is an option that can be passed to AddCommand.
+type AddCommandOption func(*addCommandCfg)
+
+// WithCgroupKey overrides the key used to derive the Cgroup bucket. If not passed, then the command
+// arguments will be used as the cgroup key.
+func WithCgroupKey(cgroupKey string) AddCommandOption {
+	return func(cfg *addCommandCfg) {
+		cfg.cgroupKey = cgroupKey
+	}
+}
 
 // Manager supplies an interface for interacting with cgroups
 type Manager interface {
@@ -17,8 +31,8 @@ type Manager interface {
 	// It is expected to be called once at Gitaly startup from any
 	// instance of the Manager.
 	Setup() error
-	// AddCommand adds a Command to a cgroup.
-	AddCommand(*command.Command, repository.GitRepo) (string, error)
+	// AddCommand adds a Cmd to a cgroup.
+	AddCommand(*exec.Cmd, ...AddCommandOption) (string, error)
 	// Cleanup cleans up cgroups created in Setup.
 	// It is expected to be called once at Gitaly shutdown from any
 	// instance of the Manager.

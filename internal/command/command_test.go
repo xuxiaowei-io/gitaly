@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -18,7 +19,7 @@ import (
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
 
@@ -398,10 +399,13 @@ func TestCommand_stderrLoggingMaxBytes(t *testing.T) {
 	require.Len(t, hook.LastEntry().Message, maxStderrBytes)
 }
 
-type mockCgroupManager string
+type mockCgroupManager struct {
+	cgroups.Manager
+	path string
+}
 
-func (m mockCgroupManager) AddCommand(*Command, repository.GitRepo) (string, error) {
-	return string(m), nil
+func (m mockCgroupManager) AddCommand(*exec.Cmd, ...cgroups.AddCommandOption) (string, error) {
+	return m.path, nil
 }
 
 func TestCommand_logMessage(t *testing.T) {
@@ -413,7 +417,9 @@ func TestCommand_logMessage(t *testing.T) {
 	ctx := ctxlogrus.ToContext(testhelper.Context(t), logrus.NewEntry(logger))
 
 	cmd, err := New(ctx, []string{"echo", "hello world"},
-		WithCgroup(mockCgroupManager("/sys/fs/cgroup/1"), nil),
+		WithCgroup(mockCgroupManager{
+			path: "/sys/fs/cgroup/1",
+		}, nil),
 	)
 	require.NoError(t, err)
 
