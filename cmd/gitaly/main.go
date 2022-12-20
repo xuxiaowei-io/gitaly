@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime/debug"
 	"time"
 
 	"github.com/go-enry/go-license-detector/v4/licensedb"
@@ -375,14 +376,18 @@ func run(cfg config.Cfg) error {
 			log.WithField("address", addr).Info("starting prometheus listener")
 
 			go func() {
-				if err := monitoring.Start(
+				opts := []monitoring.Option{
 					monitoring.WithListener(l),
-					monitoring.WithBuildInformation(
-						version.GetVersion(),
-						version.GetBuildTime()),
 					monitoring.WithBuildExtraLabels(
 						map[string]string{"git_version": gitVersion.String()},
-					)); err != nil {
+					),
+				}
+
+				if buildInfo, ok := debug.ReadBuildInfo(); ok {
+					opts = append(opts, monitoring.WithGoBuildInformation(buildInfo))
+				}
+
+				if err := monitoring.Start(opts...); err != nil {
 					log.WithError(err).Error("Unable to serve prometheus")
 				}
 			}()

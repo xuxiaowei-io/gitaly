@@ -65,6 +65,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -539,10 +540,16 @@ func run(
 			serveMux.Handle("/db_metrics", promhttp.HandlerFor(dbPromRegistry, promhttp.HandlerOpts{}))
 
 			go func() {
-				if err := monitoring.Start(
+				opts := []monitoring.Option{
 					monitoring.WithListener(l),
 					monitoring.WithServeMux(serveMux),
-					monitoring.WithBuildInformation(version.GetVersion(), version.GetBuildTime())); err != nil {
+				}
+
+				if buildInfo, ok := debug.ReadBuildInfo(); ok {
+					opts = append(opts, monitoring.WithGoBuildInformation(buildInfo))
+				}
+
+				if err := monitoring.Start(opts...); err != nil {
 					logger.WithError(err).Errorf("Unable to start prometheus listener: %v", conf.PrometheusListenAddr)
 				}
 			}()
