@@ -507,6 +507,141 @@ func TestUserUpdateSubmodule(t *testing.T) {
 				}
 			},
 		},
+		{
+			desc:    "successful + expectedOldOID",
+			subPath: "sub",
+			branch:  "master",
+			setup: func(repoPath, subRepoPath string, repoProto, subRepoProto *gitalypb.Repository) setupData {
+				subCommitID := gittest.WriteCommit(t, cfg, subRepoPath)
+				expectedOldOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithTreeEntries(
+					gittest.TreeEntry{
+						Mode:    "100644",
+						Path:    ".gitmodules",
+						Content: fmt.Sprintf(`[submodule "%s"]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
+					},
+					gittest.TreeEntry{OID: subCommitID, Mode: "160000", Path: "sub"},
+				))
+				commitID := gittest.WriteCommit(t, cfg, subRepoPath, gittest.WithParents(subCommitID))
+
+				return setupData{
+					request: &gitalypb.UserUpdateSubmoduleRequest{
+						Repository:     repoProto,
+						User:           gittest.TestUser,
+						CommitSha:      commitID.String(),
+						Branch:         []byte("master"),
+						Submodule:      []byte("sub"),
+						CommitMessage:  []byte("Updating Submodule: sub"),
+						ExpectedOldOid: expectedOldOID.String(),
+					},
+					expectedResponse: &gitalypb.UserUpdateSubmoduleResponse{BranchUpdate: &gitalypb.OperationBranchUpdate{}},
+					commitID:         commitID.String(),
+				}
+			},
+		},
+		{
+			desc:    "failure due to invalid expectedOldOID",
+			subPath: "sub",
+			branch:  "master",
+			setup: func(repoPath, subRepoPath string, repoProto, subRepoProto *gitalypb.Repository) setupData {
+				subCommitID := gittest.WriteCommit(t, cfg, subRepoPath)
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithTreeEntries(
+					gittest.TreeEntry{
+						Mode:    "100644",
+						Path:    ".gitmodules",
+						Content: fmt.Sprintf(`[submodule "%s"]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
+					},
+					gittest.TreeEntry{OID: subCommitID, Mode: "160000", Path: "sub"},
+				))
+				commitID := gittest.WriteCommit(t, cfg, subRepoPath, gittest.WithParents(subCommitID))
+
+				return setupData{
+					request: &gitalypb.UserUpdateSubmoduleRequest{
+						Repository:     repoProto,
+						User:           gittest.TestUser,
+						CommitSha:      commitID.String(),
+						Branch:         []byte("master"),
+						Submodule:      []byte("sub"),
+						CommitMessage:  []byte("Updating Submodule: sub"),
+						ExpectedOldOid: "foobar",
+					},
+					commitID: commitID.String(),
+					expectedErr: structerr.NewInvalidArgument(`invalid expected old object ID: invalid object ID: "foobar"`).
+						WithInterceptedMetadata("old_object_id", "foobar"),
+					verify: func(t *testing.T) {},
+				}
+			},
+		},
+		{
+			desc:    "failure due to valid expectedOldOID SHA but not present in repo",
+			subPath: "sub",
+			branch:  "master",
+			setup: func(repoPath, subRepoPath string, repoProto, subRepoProto *gitalypb.Repository) setupData {
+				subCommitID := gittest.WriteCommit(t, cfg, subRepoPath)
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithTreeEntries(
+					gittest.TreeEntry{
+						Mode:    "100644",
+						Path:    ".gitmodules",
+						Content: fmt.Sprintf(`[submodule "%s"]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
+					},
+					gittest.TreeEntry{OID: subCommitID, Mode: "160000", Path: "sub"},
+				))
+				commitID := gittest.WriteCommit(t, cfg, subRepoPath, gittest.WithParents(subCommitID))
+
+				return setupData{
+					request: &gitalypb.UserUpdateSubmoduleRequest{
+						Repository:     repoProto,
+						User:           gittest.TestUser,
+						CommitSha:      commitID.String(),
+						Branch:         []byte("master"),
+						Submodule:      []byte("sub"),
+						CommitMessage:  []byte("Updating Submodule: sub"),
+						ExpectedOldOid: gittest.DefaultObjectHash.ZeroOID.String(),
+					},
+					commitID: commitID.String(),
+					expectedErr: structerr.NewInvalidArgument(`cannot resolve expected old object ID: reference not found`).
+						WithInterceptedMetadata("old_object_id", gittest.DefaultObjectHash.ZeroOID.String()),
+					verify: func(t *testing.T) {},
+				}
+			},
+		},
+		{
+			desc:    "failure due to expectedOldOID pointing to an old commit",
+			subPath: "sub",
+			branch:  "master",
+			setup: func(repoPath, subRepoPath string, repoProto, subRepoProto *gitalypb.Repository) setupData {
+				subCommitID := gittest.WriteCommit(t, cfg, subRepoPath)
+				firstCommit := gittest.WriteCommit(t, cfg, repoPath)
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"),
+					gittest.WithParents(firstCommit),
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{
+							Mode:    "100644",
+							Path:    ".gitmodules",
+							Content: fmt.Sprintf(`[submodule "%s"]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
+						},
+						gittest.TreeEntry{OID: subCommitID, Mode: "160000", Path: "sub"},
+					),
+				)
+				commitID := gittest.WriteCommit(t, cfg, subRepoPath, gittest.WithParents(subCommitID))
+
+				return setupData{
+					request: &gitalypb.UserUpdateSubmoduleRequest{
+						Repository:     repoProto,
+						User:           gittest.TestUser,
+						CommitSha:      commitID.String(),
+						Branch:         []byte("master"),
+						Submodule:      []byte("sub"),
+						CommitMessage:  []byte("Updating Submodule: sub"),
+						ExpectedOldOid: firstCommit.String(),
+					},
+					expectedResponse: &gitalypb.UserUpdateSubmoduleResponse{
+						CommitError: "Could not update refs/heads/master. Please refresh and try again.",
+					},
+					commitID: commitID.String(),
+					verify:   func(t *testing.T) {},
+				}
+			},
+		},
 	}
 
 	for _, tc := range testCases {
