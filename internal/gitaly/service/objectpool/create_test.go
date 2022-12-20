@@ -216,7 +216,7 @@ func testCreateUnsuccessful(t *testing.T, ctx context.Context) {
 			},
 			expectedErr: func() error {
 				if featureflag.AtomicCreateObjectPool.IsEnabled(ctx) {
-					return structerr.NewAlreadyExists("creating object pool: repository exists already")
+					return structerr.NewFailedPrecondition("creating object pool: repository exists already")
 				}
 				return structerr.NewFailedPrecondition("creating object pool: target path exists already")
 			}(),
