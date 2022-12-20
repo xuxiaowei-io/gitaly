@@ -14,7 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -127,7 +127,7 @@ func TestApplyBfgObjectMapStreamFailsOnInvalidInput(t *testing.T) {
 			ObjectMap:  []byte("invalid-data here as you can see"),
 		})
 		require.Nil(t, response)
-		testhelper.RequireGrpcError(t, helper.ErrInvalidArgumentf("object map invalid at line 0"), err)
+		testhelper.RequireGrpcError(t, structerr.NewInvalidArgument("object map invalid at line 0"), err)
 	})
 
 	t.Run("no repository provided", func(t *testing.T) {
@@ -136,7 +136,7 @@ func TestApplyBfgObjectMapStreamFailsOnInvalidInput(t *testing.T) {
 			ObjectMap:  []byte("does not matter"),
 		})
 		require.Nil(t, response)
-		testhelper.RequireGrpcError(t, helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+		testhelper.RequireGrpcError(t, structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 			"empty Repository",
 			"repo scoped: empty Repository",
 		)), err)

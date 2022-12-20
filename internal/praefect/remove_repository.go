@@ -9,9 +9,9 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
@@ -66,7 +66,7 @@ func removeRepositoryHandler(rs datastore.RepositoryStore, conns Connections, pa
 			if errors.As(err, new(commonerr.RepositoryNotFoundError)) {
 				if errorOnNotFound {
 					if errors.As(err, new(commonerr.RepositoryNotFoundError)) {
-						return helper.ErrNotFoundf("repository does not exist")
+						return structerr.NewNotFound("repository does not exist")
 					}
 				}
 

@@ -21,10 +21,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
@@ -402,10 +402,10 @@ func TestPostReceivePack_requestValidation(t *testing.T) {
 			},
 			expectedErr: func() error {
 				if testhelper.IsPraefectEnabled() {
-					return helper.ErrNotFoundf("mutator call: route repository mutator: get repository id: repository %q/%q not found", cfg.Storages[0].Name, "path/to/repo")
+					return structerr.NewNotFound("mutator call: route repository mutator: get repository id: repository %q/%q not found", cfg.Storages[0].Name, "path/to/repo")
 				}
 
-				return helper.ErrInvalidArgumentf("empty GlId")
+				return structerr.NewInvalidArgument("empty GlId")
 			}(),
 		},
 		{
@@ -420,10 +420,10 @@ func TestPostReceivePack_requestValidation(t *testing.T) {
 			},
 			expectedErr: func() error {
 				if testhelper.IsPraefectEnabled() {
-					return helper.ErrNotFoundf("mutator call: route repository mutator: get repository id: repository %q/%q not found", cfg.Storages[0].Name, "path/to/repo")
+					return structerr.NewNotFound("mutator call: route repository mutator: get repository id: repository %q/%q not found", cfg.Storages[0].Name, "path/to/repo")
 				}
 
-				return helper.ErrInvalidArgumentf("non-empty Data")
+				return structerr.NewInvalidArgument("non-empty Data")
 			}(),
 		},
 	} {

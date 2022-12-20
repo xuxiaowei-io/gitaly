@@ -6,7 +6,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/cleanup/internalrefs"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/cleanup/notifier"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -33,7 +32,7 @@ func (s *server) ApplyBfgObjectMapStream(server gitalypb.CleanupService_ApplyBfg
 	}
 
 	if err := validateFirstRequest(firstRequest); err != nil {
-		return helper.ErrInvalidArgumentf("%w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	ctx := server.Context()
@@ -56,7 +55,7 @@ func (s *server) ApplyBfgObjectMapStream(server gitalypb.CleanupService_ApplyBfg
 
 	if err := cleaner.ApplyObjectMap(ctx, reader.streamReader()); err != nil {
 		if invalidErr, ok := err.(internalrefs.ErrInvalidObjectMap); ok {
-			return helper.ErrInvalidArgumentf("%w", invalidErr)
+			return structerr.NewInvalidArgument("%w", invalidErr)
 		}
 
 		return structerr.NewInternal("%w", err)

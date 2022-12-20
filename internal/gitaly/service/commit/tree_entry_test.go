@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -169,7 +168,7 @@ func TestFailedTreeEntry(t *testing.T) {
 		{
 			name: "Repository doesn't exist",
 			req:  &gitalypb.TreeEntryRequest{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, Revision: revision, Path: path},
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				"GetStorageByName: no such storage: \"fake\"",
 				"repo scoped: invalid Repository",
 			)),
@@ -177,7 +176,7 @@ func TestFailedTreeEntry(t *testing.T) {
 		{
 			name: "Repository is nil",
 			req:  &gitalypb.TreeEntryRequest{Repository: nil, Revision: revision, Path: path},
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -185,27 +184,27 @@ func TestFailedTreeEntry(t *testing.T) {
 		{
 			name:        "Revision is empty",
 			req:         &gitalypb.TreeEntryRequest{Repository: repo, Revision: nil, Path: path},
-			expectedErr: helper.ErrInvalidArgumentf("empty revision"),
+			expectedErr: structerr.NewInvalidArgument("empty revision"),
 		},
 		{
 			name:        "Path is empty",
 			req:         &gitalypb.TreeEntryRequest{Repository: repo, Revision: revision},
-			expectedErr: helper.ErrInvalidArgumentf("empty Path"),
+			expectedErr: structerr.NewInvalidArgument("empty Path"),
 		},
 		{
 			name:        "Revision is invalid",
 			req:         &gitalypb.TreeEntryRequest{Repository: repo, Revision: []byte("--output=/meow"), Path: path},
-			expectedErr: helper.ErrInvalidArgumentf("revision can't start with '-'"),
+			expectedErr: structerr.NewInvalidArgument("revision can't start with '-'"),
 		},
 		{
 			name:        "Limit is negative",
 			req:         &gitalypb.TreeEntryRequest{Repository: repo, Revision: revision, Path: path, Limit: -1},
-			expectedErr: helper.ErrInvalidArgumentf("negative Limit"),
+			expectedErr: structerr.NewInvalidArgument("negative Limit"),
 		},
 		{
 			name:        "MaximumSize is negative",
 			req:         &gitalypb.TreeEntryRequest{Repository: repo, Revision: revision, Path: path, MaxSize: -1},
-			expectedErr: helper.ErrInvalidArgumentf("negative MaxSize"),
+			expectedErr: structerr.NewInvalidArgument("negative MaxSize"),
 		},
 		{
 			name:        "Object bigger than MaxSize",
@@ -215,17 +214,17 @@ func TestFailedTreeEntry(t *testing.T) {
 		{
 			name:        "Path is outside of repository",
 			req:         &gitalypb.TreeEntryRequest{Repository: repo, Revision: []byte("913c66a37b4a45b9769037c55c2d238bd0942d2e"), Path: []byte("../bar/.gitkeep")}, // Git blows up on paths like this
-			expectedErr: helper.ErrNotFoundf("not found: ../bar/.gitkeep"),
+			expectedErr: structerr.NewNotFound("not found: ../bar/.gitkeep"),
 		},
 		{
 			name:        "Missing file with space in path",
 			req:         &gitalypb.TreeEntryRequest{Repository: repo, Revision: []byte("deadfacedeadfacedeadfacedeadfacedeadface"), Path: []byte("with space/README.md")},
-			expectedErr: helper.ErrNotFoundf("not found: with space/README.md"),
+			expectedErr: structerr.NewNotFound("not found: with space/README.md"),
 		},
 		{
 			name:        "Missing file",
 			req:         &gitalypb.TreeEntryRequest{Repository: repo, Revision: []byte("e63f41fe459e62e1228fcef60d7189127aeba95a"), Path: []byte("missing.rb")},
-			expectedErr: helper.ErrNotFoundf("not found: missing.rb"),
+			expectedErr: structerr.NewNotFound("not found: missing.rb"),
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

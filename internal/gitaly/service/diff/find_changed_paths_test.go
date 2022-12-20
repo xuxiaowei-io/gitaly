@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -481,7 +481,7 @@ func TestFindChangedPathsRequest_failing(t *testing.T) {
 			desc:    "Repository not provided",
 			repo:    nil,
 			commits: []string{"e4003da16c1c2c3fc4567700121b17bf8e591c6c", "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"},
-			err: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+			err: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -490,7 +490,7 @@ func TestFindChangedPathsRequest_failing(t *testing.T) {
 			desc:    "Repo not found",
 			repo:    &gitalypb.Repository{StorageName: repo.GetStorageName(), RelativePath: "bar.git"},
 			commits: []string{"e4003da16c1c2c3fc4567700121b17bf8e591c6c", "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"},
-			err: helper.ErrNotFoundf(testhelper.GitalyOrPraefect(
+			err: structerr.NewNotFound(testhelper.GitalyOrPraefect(
 				fmt.Sprintf("GetRepoPath: not a git repository: %q", filepath.Join(cfg.Storages[0].Path, "bar.git")),
 				`accessor call: route repository accessor: consistent storages: repository "default"/"bar.git" not found`,
 			)),
@@ -499,7 +499,7 @@ func TestFindChangedPathsRequest_failing(t *testing.T) {
 			desc:    "Storage not found",
 			repo:    &gitalypb.Repository{StorageName: "foo", RelativePath: "bar.git"},
 			commits: []string{"e4003da16c1c2c3fc4567700121b17bf8e591c6c", "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"},
-			err: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+			err: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				`GetStorageByName: no such storage: "foo"`,
 				"repo scoped: invalid Repository",
 			)),
@@ -508,7 +508,7 @@ func TestFindChangedPathsRequest_failing(t *testing.T) {
 			desc:    "Commits cannot contain an empty commit",
 			repo:    repo,
 			commits: []string{""},
-			err:     helper.ErrInvalidArgumentf("resolving commit: revision cannot be empty"),
+			err:     structerr.NewInvalidArgument("resolving commit: revision cannot be empty"),
 		},
 		{
 			desc:    "Specifying both commits and requests",
@@ -523,19 +523,19 @@ func TestFindChangedPathsRequest_failing(t *testing.T) {
 					},
 				},
 			},
-			err: helper.ErrInvalidArgumentf("cannot specify both commits and requests"),
+			err: structerr.NewInvalidArgument("cannot specify both commits and requests"),
 		},
 		{
 			desc:    "Invalid commit",
 			repo:    repo,
 			commits: []string{"invalidinvalidinvalid", "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"},
-			err:     helper.ErrNotFoundf(`resolving commit: revision can not be found: "invalidinvalidinvalid"`),
+			err:     structerr.NewNotFound(`resolving commit: revision can not be found: "invalidinvalidinvalid"`),
 		},
 		{
 			desc:    "Commit not found",
 			repo:    repo,
 			commits: []string{"z4003da16c1c2c3fc4567700121b17bf8e591c6c", "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"},
-			err:     helper.ErrNotFoundf(`resolving commit: revision can not be found: "z4003da16c1c2c3fc4567700121b17bf8e591c6c"`),
+			err:     structerr.NewNotFound(`resolving commit: revision can not be found: "z4003da16c1c2c3fc4567700121b17bf8e591c6c"`),
 		},
 		{
 			desc: "Tree object as commit",
@@ -549,7 +549,7 @@ func TestFindChangedPathsRequest_failing(t *testing.T) {
 					},
 				},
 			},
-			err: helper.ErrNotFoundf(`resolving commit: revision can not be found: "07f8147e8e73aab6c935c296e8cdc5194dee729b"`),
+			err: structerr.NewNotFound(`resolving commit: revision can not be found: "07f8147e8e73aab6c935c296e8cdc5194dee729b"`),
 		},
 		{
 			desc: "Tree object as parent commit",
@@ -566,7 +566,7 @@ func TestFindChangedPathsRequest_failing(t *testing.T) {
 					},
 				},
 			},
-			err: helper.ErrNotFoundf(`resolving commit parent: revision can not be found: "07f8147e8e73aab6c935c296e8cdc5194dee729b"`),
+			err: structerr.NewNotFound(`resolving commit parent: revision can not be found: "07f8147e8e73aab6c935c296e8cdc5194dee729b"`),
 		},
 		{
 			desc: "Blob object as left tree",
@@ -581,7 +581,7 @@ func TestFindChangedPathsRequest_failing(t *testing.T) {
 					},
 				},
 			},
-			err: helper.ErrNotFoundf(`resolving left tree: revision can not be found: "50b27c6518be44c42c4d87966ae2481ce895624c"`),
+			err: structerr.NewNotFound(`resolving left tree: revision can not be found: "50b27c6518be44c42c4d87966ae2481ce895624c"`),
 		},
 		{
 			desc: "Blob object as right tree",
@@ -596,7 +596,7 @@ func TestFindChangedPathsRequest_failing(t *testing.T) {
 					},
 				},
 			},
-			err: helper.ErrNotFoundf(`resolving right tree: revision can not be found: "50b27c6518be44c42c4d87966ae2481ce895624c"`),
+			err: structerr.NewNotFound(`resolving right tree: revision can not be found: "50b27c6518be44c42c4d87966ae2481ce895624c"`),
 		},
 	}
 

@@ -42,11 +42,11 @@ func (s *Server) UserApplyPatch(stream gitalypb.OperationService_UserApplyPatchS
 
 	header := firstRequest.GetHeader()
 	if header == nil {
-		return helper.ErrInvalidArgumentf("empty UserApplyPatch_Header")
+		return structerr.NewInvalidArgument("empty UserApplyPatch_Header")
 	}
 
 	if err := validateUserApplyPatchHeader(header); err != nil {
-		return helper.ErrInvalidArgumentf("%w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	if err := s.userApplyPatch(stream.Context(), header, stream); err != nil {
@@ -90,7 +90,7 @@ func (s *Server) userApplyPatch(ctx context.Context, header *gitalypb.UserApplyP
 	if header.Timestamp != nil {
 		committerTime, err = dateFromProto(header)
 		if err != nil {
-			return helper.ErrInvalidArgumentf("%w", err)
+			return structerr.NewInvalidArgument("%w", err)
 		}
 	}
 

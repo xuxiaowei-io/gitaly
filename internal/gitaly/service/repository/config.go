@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
@@ -19,7 +18,7 @@ func (s *server) GetConfig(
 ) error {
 	repository := request.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
-		return helper.ErrInvalidArgumentf("%w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 	repoPath, err := s.locator.GetPath(repository)
 	if err != nil {
@@ -31,7 +30,7 @@ func (s *server) GetConfig(
 	gitconfig, err := os.Open(configPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return helper.ErrNotFoundf("opening gitconfig: %w", err)
+			return structerr.NewNotFound("opening gitconfig: %w", err)
 		}
 		return structerr.NewInternal("opening gitconfig: %w", err)
 	}

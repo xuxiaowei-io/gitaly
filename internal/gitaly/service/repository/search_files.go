@@ -11,7 +11,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/lstree"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
@@ -29,7 +28,7 @@ var contentDelimiter = []byte("--\n")
 
 func (s *server) SearchFilesByContent(req *gitalypb.SearchFilesByContentRequest, stream gitalypb.RepositoryService_SearchFilesByContentServer) error {
 	if err := validateSearchFilesRequest(req); err != nil {
-		return helper.ErrInvalidArgumentf("%w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	ctx := stream.Context()
@@ -99,18 +98,18 @@ func sendSearchFilesResultChunked(cmd *command.Command, stream gitalypb.Reposito
 
 func (s *server) SearchFilesByName(req *gitalypb.SearchFilesByNameRequest, stream gitalypb.RepositoryService_SearchFilesByNameServer) error {
 	if err := validateSearchFilesRequest(req); err != nil {
-		return helper.ErrInvalidArgumentf("%w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	var filter *regexp.Regexp
 	if req.GetFilter() != "" {
 		if len(req.GetFilter()) > searchFilesFilterMaxLength {
-			return helper.ErrInvalidArgumentf("filter exceeds maximum length")
+			return structerr.NewInvalidArgument("filter exceeds maximum length")
 		}
 		var err error
 		filter, err = regexp.Compile(req.GetFilter())
 		if err != nil {
-			return helper.ErrInvalidArgumentf("filter did not compile: %w", err)
+			return structerr.NewInvalidArgument("filter did not compile: %w", err)
 		}
 	}
 

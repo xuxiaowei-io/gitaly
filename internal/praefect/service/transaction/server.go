@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/transactions"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/voting"
@@ -30,13 +29,13 @@ func NewServer(txMgr *transactions.Manager) gitalypb.RefTransactionServer {
 func (s *Server) VoteTransaction(ctx context.Context, in *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
 	vote, err := voting.VoteFromHash(in.GetReferenceUpdatesHash())
 	if err != nil {
-		return nil, helper.ErrInvalidArgumentf("invalid reference update hash: %v", err)
+		return nil, structerr.NewInvalidArgument("invalid reference update hash: %v", err)
 	}
 
 	if err := s.txMgr.VoteTransaction(ctx, in.TransactionId, in.Node, vote); err != nil {
 		switch {
 		case errors.Is(err, transactions.ErrNotFound):
-			return nil, helper.ErrNotFoundf("%w", err)
+			return nil, structerr.NewNotFound("%w", err)
 		case errors.Is(err, transactions.ErrTransactionCanceled):
 			return nil, structerr.NewCanceled("%w", err)
 		case errors.Is(err, transactions.ErrTransactionStopped):
@@ -65,7 +64,7 @@ func (s *Server) StopTransaction(ctx context.Context, in *gitalypb.StopTransacti
 	if err := s.txMgr.StopTransaction(ctx, in.TransactionId); err != nil {
 		switch {
 		case errors.Is(err, transactions.ErrNotFound):
-			return nil, helper.ErrNotFoundf("%w", err)
+			return nil, structerr.NewNotFound("%w", err)
 		case errors.Is(err, transactions.ErrTransactionCanceled):
 			return nil, structerr.NewCanceled("%w", err)
 		case errors.Is(err, transactions.ErrTransactionStopped):

@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -56,12 +56,12 @@ func testUnary(t *testing.T, ctx context.Context) {
 		},
 		"wrapped error": {
 			ctx:         ctx,
-			err:         helper.ErrInvalidArgumentf("%w", assert.AnError),
+			err:         structerr.NewInvalidArgument("%w", assert.AnError),
 			expectedErr: status.Error(codes.InvalidArgument, assert.AnError.Error()),
 		},
 		"formatted wrapped error": {
 			ctx: ctx,
-			err: fmt.Errorf("cause: %w", helper.ErrInvalidArgumentf("%w", assert.AnError)),
+			err: fmt.Errorf("cause: %w", structerr.NewInvalidArgument("%w", assert.AnError)),
 			expectedErr: func(ff bool) error {
 				if ff {
 					return status.Error(codes.InvalidArgument, "cause: "+assert.AnError.Error())
@@ -141,12 +141,12 @@ func testStream(t *testing.T, ctx context.Context) {
 		},
 		"wrapped error": {
 			ctx:         ctx,
-			err:         helper.ErrInvalidArgumentf("%w", assert.AnError),
+			err:         structerr.NewInvalidArgument("%w", assert.AnError),
 			expectedErr: status.Error(codes.InvalidArgument, assert.AnError.Error()),
 		},
 		"formatted wrapped error": {
 			ctx: ctx,
-			err: fmt.Errorf("cause: %w", helper.ErrInvalidArgumentf("%w", assert.AnError)),
+			err: fmt.Errorf("cause: %w", structerr.NewInvalidArgument("%w", assert.AnError)),
 			expectedErr: func(ff bool) error {
 				if ff {
 					return status.Error(codes.InvalidArgument, "cause: "+assert.AnError.Error())

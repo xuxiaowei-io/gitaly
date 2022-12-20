@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -31,7 +30,7 @@ func (s *server) storagePath(storageName string) (string, error) {
 			return storage.Path, nil
 		}
 	}
-	return "", helper.ErrNotFoundf("storage name %q not found", storageName)
+	return "", structerr.NewNotFound("storage name %q not found", storageName)
 }
 
 func walkStorage(ctx context.Context, storagePath string, stream gitalypb.InternalGitaly_WalkReposServer) error {

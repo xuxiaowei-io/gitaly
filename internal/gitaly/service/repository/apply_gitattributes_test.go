@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -230,7 +229,7 @@ func TestApplyGitattributes_failure(t *testing.T) {
 			desc:     "no repository provided",
 			repo:     nil,
 			revision: nil,
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -242,7 +241,7 @@ func TestApplyGitattributes_failure(t *testing.T) {
 				StorageName:  "foo",
 			},
 			revision: []byte("master"),
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				`GetStorageByName: no such storage: "foo"`,
 				"repo scoped: invalid Repository",
 			)),
@@ -253,7 +252,7 @@ func TestApplyGitattributes_failure(t *testing.T) {
 				RelativePath: repo.GetRelativePath(),
 			},
 			revision: []byte("master"),
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				"empty StorageName",
 				"repo scoped: invalid Repository",
 			)),
@@ -265,7 +264,7 @@ func TestApplyGitattributes_failure(t *testing.T) {
 				RelativePath: "bar",
 			},
 			revision: []byte("master"),
-			expectedErr: helper.ErrNotFoundf(testhelper.GitalyOrPraefect(
+			expectedErr: structerr.NewNotFound(testhelper.GitalyOrPraefect(
 				`GetRepoPath: not a git repository: "`+cfg.Storages[0].Path+`/bar"`,
 				`mutator call: route repository mutator: get repository id: repository "default"/"bar" not found`,
 			)),
@@ -274,19 +273,19 @@ func TestApplyGitattributes_failure(t *testing.T) {
 			desc:        "no revision provided",
 			repo:        repo,
 			revision:    []byte(""),
-			expectedErr: helper.ErrInvalidArgumentf("revision: empty revision"),
+			expectedErr: structerr.NewInvalidArgument("revision: empty revision"),
 		},
 		{
 			desc:        "unknown revision",
 			repo:        repo,
 			revision:    []byte("not-existing-ref"),
-			expectedErr: helper.ErrInvalidArgumentf("revision does not exist"),
+			expectedErr: structerr.NewInvalidArgument("revision does not exist"),
 		},
 		{
 			desc:        "invalid revision",
 			repo:        repo,
 			revision:    []byte("--output=/meow"),
-			expectedErr: helper.ErrInvalidArgumentf("revision: revision can't start with '-'"),
+			expectedErr: structerr.NewInvalidArgument("revision: revision can't start with '-'"),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

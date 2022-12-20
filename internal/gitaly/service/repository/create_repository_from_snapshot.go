@@ -10,7 +10,6 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/correlation"
@@ -50,7 +49,7 @@ var httpClient = &http.Client{
 func newResolvedHTTPClient(httpAddress, resolvedAddress string) (*http.Client, error) {
 	url, err := url.ParseRequestURI(httpAddress)
 	if err != nil {
-		return nil, helper.ErrInvalidArgumentf("parsing HTTP URL: %w", err)
+		return nil, structerr.NewInvalidArgument("parsing HTTP URL: %w", err)
 	}
 
 	port := url.Port()
@@ -61,13 +60,13 @@ func newResolvedHTTPClient(httpAddress, resolvedAddress string) (*http.Client, e
 		case "https":
 			port = "443"
 		default:
-			return nil, helper.ErrInvalidArgumentf("unsupported schema %q", url.Scheme)
+			return nil, structerr.NewInvalidArgument("unsupported schema %q", url.Scheme)
 		}
 	}
 
 	// Sanity-check whether the resolved address is a valid IP address.
 	if net.ParseIP(resolvedAddress) == nil {
-		return nil, helper.ErrInvalidArgumentf("invalid resolved address %q", resolvedAddress)
+		return nil, structerr.NewInvalidArgument("invalid resolved address %q", resolvedAddress)
 	}
 
 	transport := httpTransport.Clone()
@@ -87,14 +86,14 @@ func newResolvedHTTPClient(httpAddress, resolvedAddress string) (*http.Client, e
 func untar(ctx context.Context, path string, in *gitalypb.CreateRepositoryFromSnapshotRequest) error {
 	req, err := http.NewRequestWithContext(ctx, "GET", in.HttpUrl, nil)
 	if err != nil {
-		return helper.ErrInvalidArgumentf("Bad HTTP URL: %w", err)
+		return structerr.NewInvalidArgument("Bad HTTP URL: %w", err)
 	}
 
 	client := httpClient
 	if resolvedAddress := in.GetResolvedAddress(); resolvedAddress != "" {
 		client, err = newResolvedHTTPClient(in.HttpUrl, resolvedAddress)
 		if err != nil {
-			return helper.ErrInvalidArgumentf("creating resolved HTTP client: %w", err)
+			return structerr.NewInvalidArgument("creating resolved HTTP client: %w", err)
 		}
 	}
 
@@ -127,7 +126,7 @@ func untar(ctx context.Context, path string, in *gitalypb.CreateRepositoryFromSn
 func (s *server) CreateRepositoryFromSnapshot(ctx context.Context, in *gitalypb.CreateRepositoryFromSnapshotRequest) (*gitalypb.CreateRepositoryFromSnapshotResponse, error) {
 	repository := in.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
-		return nil, helper.ErrInvalidArgumentf("%w", err)
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 	if err := s.createRepository(ctx, repository, func(repo *gitalypb.Repository) error {
 		path, err := s.locator.GetPath(repo)

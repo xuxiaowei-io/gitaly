@@ -19,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -547,14 +548,14 @@ func TestFindAllTags_pagination(t *testing.T) {
 			desc:             "with page token only",
 			paginationParams: &gitalypb.PaginationParameter{PageToken: "refs/tags/v1.1.0"},
 			expected: func(context.Context) ([]string, error) {
-				return nil, helper.ErrInvalidArgumentf("could not find page token")
+				return nil, structerr.NewInvalidArgument("could not find page token")
 			},
 		},
 		{
 			desc:             "with invalid page token",
 			paginationParams: &gitalypb.PaginationParameter{Limit: 3, PageToken: "refs/tags/invalid"},
 			expected: func(ctx context.Context) ([]string, error) {
-				return nil, helper.ErrInvalidArgumentf("could not find page token")
+				return nil, structerr.NewInvalidArgument("could not find page token")
 			},
 		},
 	} {

@@ -11,7 +11,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
@@ -44,7 +43,7 @@ func TestLink(t *testing.T) {
 				Repository: nil,
 				ObjectPool: poolProto,
 			},
-			expectedErr: helper.ErrInvalidArgumentf("empty Repository"),
+			expectedErr: structerr.NewInvalidArgument("empty Repository"),
 		},
 		{
 			desc: "unset object pool",
@@ -52,7 +51,7 @@ func TestLink(t *testing.T) {
 				Repository: repo,
 				ObjectPool: nil,
 			},
-			expectedErr: helper.ErrInvalidArgumentf("GetStorageByName: no such storage: %q", ""),
+			expectedErr: structerr.NewInvalidArgument("GetStorageByName: no such storage: %q", ""),
 		},
 		{
 			desc: "successful",
@@ -141,8 +140,8 @@ func TestLink_noPool(t *testing.T) {
 		},
 	})
 	testhelper.RequireGrpcError(t, testhelper.GitalyOrPraefect(
-		error(structerr.NewFailedPrecondition("object pool is not a valid git repository")),
-		helper.ErrNotFoundf(
+		structerr.NewFailedPrecondition("object pool is not a valid git repository"),
+		structerr.NewNotFound(
 			"mutator call: route repository mutator: resolve additional replica path: get additional repository id: repository %q/%q not found",
 			cfg.Storages[0].Name,
 			poolRelativePath,

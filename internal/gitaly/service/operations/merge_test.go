@@ -21,7 +21,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -363,7 +362,7 @@ func TestUserMergeBranch_failure(t *testing.T) {
 					Message:    []byte("sample-message"),
 				}
 			},
-			expectedErr: helper.ErrInvalidArgumentf("empty user"),
+			expectedErr: structerr.NewInvalidArgument("empty user"),
 		},
 		{
 			desc: "empty user name",
@@ -381,7 +380,7 @@ func TestUserMergeBranch_failure(t *testing.T) {
 					Message:  []byte("sample-message"),
 				}
 			},
-			expectedErr: helper.ErrInvalidArgumentf("empty user name"),
+			expectedErr: structerr.NewInvalidArgument("empty user name"),
 		},
 		{
 			desc: "empty user email",
@@ -399,7 +398,7 @@ func TestUserMergeBranch_failure(t *testing.T) {
 					Message:  []byte("sample-message"),
 				}
 			},
-			expectedErr: helper.ErrInvalidArgumentf("empty user email"),
+			expectedErr: structerr.NewInvalidArgument("empty user email"),
 		},
 		{
 			desc: "empty commit",
@@ -411,7 +410,7 @@ func TestUserMergeBranch_failure(t *testing.T) {
 					Message:    []byte("sample-message"),
 				}
 			},
-			expectedErr: helper.ErrInvalidArgumentf("empty commit ID"),
+			expectedErr: structerr.NewInvalidArgument("empty commit ID"),
 		},
 		{
 			desc: "empty branch",
@@ -423,7 +422,7 @@ func TestUserMergeBranch_failure(t *testing.T) {
 					Message:    []byte("sample-message"),
 				}
 			},
-			expectedErr: helper.ErrInvalidArgumentf("empty branch name"),
+			expectedErr: structerr.NewInvalidArgument("empty branch name"),
 		},
 		{
 			desc: "empty message",
@@ -435,7 +434,7 @@ func TestUserMergeBranch_failure(t *testing.T) {
 					Branch:     []byte(branchToMerge),
 				}
 			},
-			expectedErr: helper.ErrInvalidArgumentf("empty message"),
+			expectedErr: structerr.NewInvalidArgument("empty message"),
 		},
 	}
 

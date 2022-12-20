@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -40,7 +40,7 @@ func TestSetFullPath(t *testing.T) {
 			Path:       "",
 		})
 		require.Nil(t, response)
-		testhelper.RequireGrpcError(t, helper.ErrInvalidArgumentf("no path provided"), err)
+		testhelper.RequireGrpcError(t, structerr.NewInvalidArgument("no path provided"), err)
 	})
 
 	t.Run("invalid storage", func(t *testing.T) {

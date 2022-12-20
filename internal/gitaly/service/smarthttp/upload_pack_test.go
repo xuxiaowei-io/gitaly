@@ -21,7 +21,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/pktline"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/sidechannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -341,7 +340,7 @@ func testServerPostUploadPackValidation(t *testing.T, ctx context.Context, makeR
 			request: &gitalypb.PostUploadPackRequest{
 				Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"},
 			},
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				fmt.Sprintf("GetStorageByName: no such storage: %q", "fake"),
 				"repo scoped: invalid Repository",
 			)),
@@ -349,7 +348,7 @@ func testServerPostUploadPackValidation(t *testing.T, ctx context.Context, makeR
 		{
 			desc:    "unset repository",
 			request: &gitalypb.PostUploadPackRequest{Repository: nil},
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -360,7 +359,7 @@ func testServerPostUploadPackValidation(t *testing.T, ctx context.Context, makeR
 				Repository: repo,
 				Data:       []byte("Fail"),
 			},
-			expectedErr: helper.ErrInvalidArgumentf("non-empty Data"),
+			expectedErr: structerr.NewInvalidArgument("non-empty Data"),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -388,7 +387,7 @@ func testServerPostUploadPackWithSideChannelValidation(t *testing.T, ctx context
 		{
 			desc: "Repository doesn't exist",
 			req:  &gitalypb.PostUploadPackRequest{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}},
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				`GetStorageByName: no such storage: "fake"`,
 				"repo scoped: invalid Repository",
 			)),
@@ -396,7 +395,7 @@ func testServerPostUploadPackWithSideChannelValidation(t *testing.T, ctx context
 		{
 			desc: "Repository no provided",
 			req:  &gitalypb.PostUploadPackRequest{Repository: nil},
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),

@@ -13,7 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -177,13 +176,13 @@ func (t *findChangedPathsSender) Send() error {
 
 func resolveObjectWithType(ctx context.Context, repo *localrepo.Repo, revision string, expectedType string) (git.ObjectID, error) {
 	if revision == "" {
-		return "", helper.ErrInvalidArgumentf("revision cannot be empty")
+		return "", structerr.NewInvalidArgument("revision cannot be empty")
 	}
 
 	oid, err := repo.ResolveRevision(ctx, git.Revision(fmt.Sprintf("%s^{%s}", revision, expectedType)))
 	if err != nil {
 		if errors.Is(err, git.ErrReferenceNotFound) {
-			return "", helper.ErrNotFoundf("revision can not be found: %q", revision)
+			return "", structerr.NewNotFound("revision can not be found: %q", revision)
 		}
 		return "", err
 	}
@@ -194,7 +193,7 @@ func resolveObjectWithType(ctx context.Context, repo *localrepo.Repo, revision s
 func (s *server) validateFindChangedPathsRequestParams(ctx context.Context, in *gitalypb.FindChangedPathsRequest) error {
 	repository := in.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
-		return helper.ErrInvalidArgumentf("%w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 	if _, err := s.locator.GetRepoPath(repository); err != nil {
 		return err
@@ -204,7 +203,7 @@ func (s *server) validateFindChangedPathsRequestParams(ctx context.Context, in *
 
 	if len(in.GetCommits()) > 0 { //nolint:staticcheck
 		if len(in.GetRequests()) > 0 {
-			return helper.ErrInvalidArgumentf("cannot specify both commits and requests")
+			return structerr.NewInvalidArgument("cannot specify both commits and requests")
 		}
 
 		in.Requests = make([]*gitalypb.FindChangedPathsRequest_Request, len(in.GetCommits())) //nolint:staticcheck

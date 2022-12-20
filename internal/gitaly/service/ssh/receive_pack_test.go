@@ -24,7 +24,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
@@ -65,10 +64,10 @@ func TestReceivePack_validation(t *testing.T) {
 			},
 			expectedErr: func() error {
 				if testhelper.IsPraefectEnabled() {
-					return helper.ErrInvalidArgumentf("repo scoped: invalid Repository")
+					return structerr.NewInvalidArgument("repo scoped: invalid Repository")
 				}
 
-				return helper.ErrInvalidArgumentf("empty RelativePath")
+				return structerr.NewInvalidArgument("empty RelativePath")
 			}(),
 		},
 		{
@@ -79,10 +78,10 @@ func TestReceivePack_validation(t *testing.T) {
 			},
 			expectedErr: func() error {
 				if testhelper.IsPraefectEnabled() {
-					return helper.ErrInvalidArgumentf("repo scoped: empty Repository")
+					return structerr.NewInvalidArgument("repo scoped: empty Repository")
 				}
 
-				return helper.ErrInvalidArgumentf("empty Repository")
+				return structerr.NewInvalidArgument("empty Repository")
 			}(),
 		},
 		{
@@ -94,7 +93,7 @@ func TestReceivePack_validation(t *testing.T) {
 				},
 				GlId: "",
 			},
-			expectedErr: helper.ErrInvalidArgumentf("empty GlId"),
+			expectedErr: structerr.NewInvalidArgument("empty GlId"),
 		},
 		{
 			desc: "stdin on first request",
@@ -106,7 +105,7 @@ func TestReceivePack_validation(t *testing.T) {
 				GlId:  "user-123",
 				Stdin: []byte("Fail"),
 			},
-			expectedErr: helper.ErrInvalidArgumentf("non-empty data in first request"),
+			expectedErr: structerr.NewInvalidArgument("non-empty data in first request"),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -333,16 +332,16 @@ func TestReceivePack_failure(t *testing.T) {
 		require.Error(t, err)
 
 		if testhelper.IsPraefectEnabled() {
-			require.Contains(t, err.Error(), helper.ErrInvalidArgumentf("repo scoped: invalid Repository").Error())
+			require.Contains(t, err.Error(), structerr.NewInvalidArgument("repo scoped: invalid Repository").Error())
 		} else {
-			require.Contains(t, err.Error(), helper.ErrInvalidArgumentf("GetStorageByName: no such storage: \\\"foobar\\\"\\n").Error())
+			require.Contains(t, err.Error(), structerr.NewInvalidArgument("GetStorageByName: no such storage: \\\"foobar\\\"\\n").Error())
 		}
 	})
 
 	t.Run("clone with invalid GlId", func(t *testing.T) {
 		_, _, err := testCloneAndPush(t, ctx, cfg, cfg.SocketPath, repo, repoPath, pushParams{storageName: cfg.Storages[0].Name, glID: ""})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), helper.ErrInvalidArgumentf("empty GlId").Error())
+		require.Contains(t, err.Error(), structerr.NewInvalidArgument("empty GlId").Error())
 	})
 }
 

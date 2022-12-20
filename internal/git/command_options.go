@@ -11,7 +11,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/x509"
@@ -279,11 +278,11 @@ func withInternalFetch(req repoScopedRequest, withSidechannel bool) func(ctx con
 
 		storageInfo, ok := serversInfo[req.GetRepository().GetStorageName()]
 		if !ok {
-			return helper.ErrInvalidArgumentf("no storage info for %q", req.GetRepository().GetStorageName())
+			return structerr.NewInvalidArgument("no storage info for %q", req.GetRepository().GetStorageName())
 		}
 
 		if storageInfo.Address == "" {
-			return helper.ErrInvalidArgumentf("empty Gitaly address")
+			return structerr.NewInvalidArgument("empty Gitaly address")
 		}
 
 		var flagsWithValue []string

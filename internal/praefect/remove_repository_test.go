@@ -11,11 +11,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/setup"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/grpc-proxy/proxy"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/protoregistry"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testdb"
@@ -49,7 +49,7 @@ func TestRemoveRepositoryHandler(t *testing.T) {
 		{
 			desc:       "repository not found",
 			repository: &gitalypb.Repository{StorageName: "virtual-storage", RelativePath: "doesn't exist"},
-			error:      helper.ErrNotFoundf("repository does not exist"),
+			error:      structerr.NewNotFound("repository does not exist"),
 		},
 		{
 			desc:        "repository found",

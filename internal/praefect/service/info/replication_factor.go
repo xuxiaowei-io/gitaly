@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -17,7 +16,7 @@ func (s *Server) SetReplicationFactor(ctx context.Context, req *gitalypb.SetRepl
 	if err != nil {
 		var invalidArg datastore.InvalidArgumentError
 		if errors.As(err, &invalidArg) {
-			return nil, helper.ErrInvalidArgumentf("%w", err)
+			return nil, structerr.NewInvalidArgument("%w", err)
 		}
 
 		return nil, structerr.NewInternal("%w", err)

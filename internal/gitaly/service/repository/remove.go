@@ -10,7 +10,6 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/txinfo"
@@ -21,7 +20,7 @@ import (
 func (s *server) RemoveRepository(ctx context.Context, in *gitalypb.RemoveRepositoryRequest) (*gitalypb.RemoveRepositoryResponse, error) {
 	repository := in.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
-		return nil, helper.ErrInvalidArgumentf("%w", err)
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 	path, err := s.locator.GetPath(repository)
 	if err != nil {
@@ -46,7 +45,7 @@ func (s *server) RemoveRepository(ctx context.Context, in *gitalypb.RemoveReposi
 	// care they may still just return `NotFound` errors.
 	if _, err := os.Stat(path); err != nil {
 		if os.IsNotExist(err) {
-			return nil, helper.ErrNotFoundf("repository does not exist")
+			return nil, structerr.NewNotFound("repository does not exist")
 		}
 
 		return nil, structerr.NewInternal("statting repository: %w", err)
@@ -76,7 +75,7 @@ func (s *server) RemoveRepository(ctx context.Context, in *gitalypb.RemoveReposi
 	// holding the lock.
 	if _, err := os.Stat(path); err != nil {
 		if os.IsNotExist(err) {
-			return nil, helper.ErrNotFoundf("repository was concurrently removed")
+			return nil, structerr.NewNotFound("repository was concurrently removed")
 		}
 		return nil, structerr.NewInternal("re-statting repository: %w", err)
 	}

@@ -8,7 +8,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
@@ -29,7 +28,7 @@ func sendTreeEntry(
 	}
 
 	if treeEntry == nil || len(treeEntry.Oid) == 0 {
-		return helper.ErrNotFoundf("not found: %s", path)
+		return structerr.NewNotFound("not found: %s", path)
 	}
 
 	if treeEntry.Type == gitalypb.TreeEntry_COMMIT {

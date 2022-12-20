@@ -7,7 +7,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -15,13 +14,13 @@ import (
 // RefExists returns true if the given reference exists. The ref must start with the string `ref/`
 func (s *server) RefExists(ctx context.Context, in *gitalypb.RefExistsRequest) (*gitalypb.RefExistsResponse, error) {
 	if err := service.ValidateRepository(in.GetRepository()); err != nil {
-		return nil, helper.ErrInvalidArgumentf("%w", err)
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
 	ref := string(in.Ref)
 
 	if !isValidRefName(ref) {
-		return nil, helper.ErrInvalidArgumentf("invalid refname")
+		return nil, structerr.NewInvalidArgument("invalid refname")
 	}
 
 	exists, err := s.refExists(ctx, in.Repository, ref)

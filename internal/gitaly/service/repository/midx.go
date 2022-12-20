@@ -16,7 +16,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -29,7 +28,7 @@ const (
 func (s *server) MidxRepack(ctx context.Context, in *gitalypb.MidxRepackRequest) (*gitalypb.MidxRepackResponse, error) {
 	repository := in.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
-		return nil, helper.ErrInvalidArgumentf("%w", err)
+		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
 	repo := s.localrepo(repository)
@@ -41,7 +40,7 @@ func (s *server) MidxRepack(ctx context.Context, in *gitalypb.MidxRepackRequest)
 	for _, cmd := range []midxSubCommand{s.midxWrite, s.midxExpire, s.midxRepack} {
 		if err := s.safeMidxCommand(ctx, repository, cmd); err != nil {
 			if git.IsInvalidArgErr(err) {
-				return nil, helper.ErrInvalidArgumentf("%w", err)
+				return nil, structerr.NewInvalidArgument("%w", err)
 			}
 
 			return nil, structerr.NewInternal("...%w", err)

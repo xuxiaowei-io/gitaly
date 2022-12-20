@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -92,7 +92,7 @@ func TestFindRemoteRootRefFailedDueToValidation(t *testing.T) {
 				Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"},
 				RemoteUrl:  "remote-url",
 			},
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				`GetStorageByName: no such storage: "fake"`,
 				"repo scoped: invalid Repository",
 			)),
@@ -102,7 +102,7 @@ func TestFindRemoteRootRefFailedDueToValidation(t *testing.T) {
 			request: &gitalypb.FindRemoteRootRefRequest{
 				RemoteUrl: "remote-url",
 			},
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -112,7 +112,7 @@ func TestFindRemoteRootRefFailedDueToValidation(t *testing.T) {
 			request: &gitalypb.FindRemoteRootRefRequest{
 				Repository: repo,
 			},
-			expectedErr: helper.ErrInvalidArgumentf("missing remote URL"),
+			expectedErr: structerr.NewInvalidArgument("missing remote URL"),
 		},
 	}
 
@@ -215,7 +215,7 @@ func TestServer_findRemoteRootRefCmd(t *testing.T) {
 				ResolvedAddress: "foo/bar",
 				Repository:      repo,
 			},
-			expectedErr: helper.ErrInvalidArgumentf("couldn't get curloptResolve config: %w", fmt.Errorf("resolved address has invalid IPv4/IPv6 address")),
+			expectedErr: structerr.NewInvalidArgument("couldn't get curloptResolve config: %w", fmt.Errorf("resolved address has invalid IPv4/IPv6 address")),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

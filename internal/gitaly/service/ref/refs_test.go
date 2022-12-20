@@ -777,7 +777,7 @@ func TestInvalidFindAllBranchesRequest(t *testing.T) {
 		{
 			description: "Empty request",
 			request:     &gitalypb.FindAllBranchesRequest{},
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -790,7 +790,7 @@ func TestInvalidFindAllBranchesRequest(t *testing.T) {
 					RelativePath: "repo",
 				},
 			},
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				"creating object reader: GetStorageByName: no such storage: \"fake\"",
 				"repo scoped: invalid Repository",
 			)),

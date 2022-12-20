@@ -18,8 +18,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -296,7 +296,7 @@ func TestOptimizeRepository_validation(t *testing.T) {
 		{
 			desc:    "empty repository",
 			request: &gitalypb.OptimizeRepositoryRequest{},
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -309,7 +309,7 @@ func TestOptimizeRepository_validation(t *testing.T) {
 					RelativePath: repo.GetRelativePath(),
 				},
 			},
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				`GetStorageByName: no such storage: "non-existent"`,
 				"repo scoped: invalid Repository"),
 			),
@@ -322,7 +322,7 @@ func TestOptimizeRepository_validation(t *testing.T) {
 					RelativePath: "path/not/exist",
 				},
 			},
-			expectedErr: helper.ErrNotFoundf(testhelper.GitalyOrPraefect(
+			expectedErr: structerr.NewNotFound(testhelper.GitalyOrPraefect(
 				fmt.Sprintf(`GetRepoPath: not a git repository: "%s/path/not/exist"`, cfg.Storages[0].Path),
 				`routing repository maintenance: getting repository metadata: repository not found`,
 			)),
@@ -333,7 +333,7 @@ func TestOptimizeRepository_validation(t *testing.T) {
 				Repository: repo,
 				Strategy:   12,
 			},
-			expectedErr: helper.ErrInvalidArgumentf("unsupported optimization strategy 12"),
+			expectedErr: structerr.NewInvalidArgument("unsupported optimization strategy 12"),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

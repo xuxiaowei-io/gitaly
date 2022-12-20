@@ -4,16 +4,15 @@ import (
 	"errors"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/objectpool"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
 var (
-	errInvalidPoolDir = helper.ErrInvalidArgumentf("%w", objectpool.ErrInvalidPoolDir)
+	errInvalidPoolDir = structerr.NewInvalidArgument("%w", objectpool.ErrInvalidPoolDir)
 
 	// errMissingPool is returned when the request is missing the object pool.
-	errMissingPool = helper.ErrInvalidArgumentf("no object pool repository")
+	errMissingPool = structerr.NewInvalidArgument("no object pool repository")
 )
 
 // PoolRequest is the interface of a gRPC request that carries an object pool.

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore"
@@ -65,7 +64,7 @@ func NewServer(
 func (s *Server) SetAuthoritativeStorage(ctx context.Context, req *gitalypb.SetAuthoritativeStorageRequest) (*gitalypb.SetAuthoritativeStorageResponse, error) {
 	storages := s.conf.StorageNames()[req.VirtualStorage]
 	if storages == nil {
-		return nil, helper.ErrInvalidArgumentf("unknown virtual storage: %q", req.VirtualStorage)
+		return nil, structerr.NewInvalidArgument("unknown virtual storage: %q", req.VirtualStorage)
 	}
 
 	foundStorage := false
@@ -77,12 +76,12 @@ func (s *Server) SetAuthoritativeStorage(ctx context.Context, req *gitalypb.SetA
 	}
 
 	if !foundStorage {
-		return nil, helper.ErrInvalidArgumentf("unknown authoritative storage: %q", req.AuthoritativeStorage)
+		return nil, structerr.NewInvalidArgument("unknown authoritative storage: %q", req.AuthoritativeStorage)
 	}
 
 	if err := s.rs.SetAuthoritativeReplica(ctx, req.VirtualStorage, req.RelativePath, req.AuthoritativeStorage); err != nil {
 		if errors.As(err, &commonerr.RepositoryNotFoundError{}) {
-			return nil, helper.ErrInvalidArgumentf("repository %q does not exist on virtual storage %q", req.RelativePath, req.VirtualStorage)
+			return nil, structerr.NewInvalidArgument("repository %q does not exist on virtual storage %q", req.RelativePath, req.VirtualStorage)
 		}
 
 		return nil, structerr.NewInternal("%w", err)

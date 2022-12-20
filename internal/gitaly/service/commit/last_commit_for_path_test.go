@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -92,7 +92,7 @@ func TestFailedLastCommitForPathRequest(t *testing.T) {
 				Repository: invalidRepo,
 				Revision:   []byte("some-branch"),
 			},
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				"GetStorageByName: no such storage: \"fake\"",
 				"repo scoped: invalid Repository",
 			)),
@@ -102,7 +102,7 @@ func TestFailedLastCommitForPathRequest(t *testing.T) {
 			request: &gitalypb.LastCommitForPathRequest{
 				Revision: []byte("some-branch"),
 			},
-			expectedErr: helper.ErrInvalidArgumentf(testhelper.GitalyOrPraefect(
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
@@ -112,7 +112,7 @@ func TestFailedLastCommitForPathRequest(t *testing.T) {
 			request: &gitalypb.LastCommitForPathRequest{
 				Repository: repo, Path: []byte("foo/bar"),
 			},
-			expectedErr: helper.ErrInvalidArgumentf("empty revision"),
+			expectedErr: structerr.NewInvalidArgument("empty revision"),
 		},
 		{
 			desc: "Revision is invalid",
@@ -121,7 +121,7 @@ func TestFailedLastCommitForPathRequest(t *testing.T) {
 				Path:       []byte("foo/bar"),
 				Revision:   []byte("--output=/meow"),
 			},
-			expectedErr: helper.ErrInvalidArgumentf("revision can't start with '-'"),
+			expectedErr: structerr.NewInvalidArgument("revision can't start with '-'"),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

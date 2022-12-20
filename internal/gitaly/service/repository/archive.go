@@ -16,7 +16,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/smudge"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -38,7 +37,7 @@ func (s *server) GetArchive(in *gitalypb.GetArchiveRequest, stream gitalypb.Repo
 	ctx := stream.Context()
 	repository := in.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
-		return helper.ErrInvalidArgumentf("%w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 	compressArgs, format := parseArchiveFormat(in.GetFormat())
 	repo := s.localrepo(repository)
@@ -50,14 +49,14 @@ func (s *server) GetArchive(in *gitalypb.GetArchiveRequest, stream gitalypb.Repo
 
 	path, err := storage.ValidateRelativePath(repoRoot, string(in.GetPath()))
 	if err != nil {
-		return helper.ErrInvalidArgumentf("%w", err)
+		return structerr.NewInvalidArgument("%w", err)
 	}
 
 	exclude := make([]string, len(in.GetExclude()))
 	for i, ex := range in.GetExclude() {
 		exclude[i], err = storage.ValidateRelativePath(repoRoot, string(ex))
 		if err != nil {
-			return helper.ErrInvalidArgumentf("%w", err)
+			return structerr.NewInvalidArgument("%w", err)
 		}
 	}
 
@@ -74,7 +73,7 @@ func (s *server) GetArchive(in *gitalypb.GetArchiveRequest, stream gitalypb.Repo
 		pathSlash := path + string(os.PathSeparator)
 		for i := range exclude {
 			if !strings.HasPrefix(exclude[i], pathSlash) {
-				return helper.ErrInvalidArgumentf("invalid exclude: %q is not a subdirectory of %q", exclude[i], path)
+				return structerr.NewInvalidArgument("invalid exclude: %q is not a subdirectory of %q", exclude[i], path)
 			}
 
 			exclude[i] = exclude[i][len(pathSlash):]
@@ -115,11 +114,11 @@ func parseArchiveFormat(format gitalypb.GetArchiveRequest_Format) ([]string, str
 
 func validateGetArchiveRequest(in *gitalypb.GetArchiveRequest, format string) error {
 	if err := git.ValidateRevision([]byte(in.GetCommitId())); err != nil {
-		return helper.ErrInvalidArgumentf("invalid commitId: %w", err)
+		return structerr.NewInvalidArgument("invalid commitId: %w", err)
 	}
 
 	if len(format) == 0 {
-		return helper.ErrInvalidArgumentf("invalid format")
+		return structerr.NewInvalidArgument("invalid format")
 	}
 
 	return nil

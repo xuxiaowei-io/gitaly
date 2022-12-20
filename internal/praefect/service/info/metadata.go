@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
@@ -31,7 +30,7 @@ func (s *Server) GetRepositoryMetadata(ctx context.Context, req *gitalypb.GetRep
 	metadata, err := getMetadata()
 	if err != nil {
 		if errors.Is(err, commonerr.ErrRepositoryNotFound) {
-			return nil, helper.ErrNotFoundf("%w", err)
+			return nil, structerr.NewNotFound("%w", err)
 		}
 
 		return nil, structerr.NewInternal("get metadata: %w", err)

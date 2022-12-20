@@ -6,14 +6,13 @@ import (
 	"io"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
 func (s *server) FindRemoteRepository(ctx context.Context, req *gitalypb.FindRemoteRepositoryRequest) (*gitalypb.FindRemoteRepositoryResponse, error) {
 	if req.GetRemote() == "" {
-		return nil, helper.ErrInvalidArgumentf("empty remote can't be checked.")
+		return nil, structerr.NewInvalidArgument("empty remote can't be checked.")
 	}
 
 	cmd, err := s.gitCmdFactory.NewWithoutRepo(ctx,

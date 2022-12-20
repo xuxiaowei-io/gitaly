@@ -24,7 +24,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	gconfig "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	gitaly_metadata "gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/middleware/metadatahandler"
@@ -35,6 +34,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/transactions"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/promtest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -181,7 +181,7 @@ func TestStreamDirectorMutator(t *testing.T) {
 		},
 		{
 			desc:  "repository not found",
-			error: helper.ErrNotFoundf("%w", fmt.Errorf("mutator call: route repository mutator: %w", fmt.Errorf("get repository id: %w", commonerr.NewRepositoryNotFoundError(targetRepo.StorageName, targetRepo.RelativePath)))),
+			error: structerr.NewNotFound("%w", fmt.Errorf("mutator call: route repository mutator: %w", fmt.Errorf("get repository id: %w", commonerr.NewRepositoryNotFoundError(targetRepo.StorageName, targetRepo.RelativePath)))),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -676,19 +676,19 @@ func TestStreamDirector_maintenance(t *testing.T) {
 		},
 		{
 			desc:        "primary returns an error",
-			primaryErr:  helper.ErrNotFoundf("primary error"),
-			expectedErr: helper.ErrNotFoundf("primary error"),
+			primaryErr:  structerr.NewNotFound("primary error"),
+			expectedErr: structerr.NewNotFound("primary error"),
 		},
 		{
 			desc:         "secondary returns an error",
-			secondaryErr: helper.ErrNotFoundf("secondary error"),
-			expectedErr:  helper.ErrNotFoundf("secondary error"),
+			secondaryErr: structerr.NewNotFound("secondary error"),
+			expectedErr:  structerr.NewNotFound("secondary error"),
 		},
 		{
 			desc:         "primary error preferred",
-			primaryErr:   helper.ErrNotFoundf("primary error"),
-			secondaryErr: helper.ErrNotFoundf("secondary error"),
-			expectedErr:  helper.ErrNotFoundf("primary error"),
+			primaryErr:   structerr.NewNotFound("primary error"),
+			secondaryErr: structerr.NewNotFound("secondary error"),
+			expectedErr:  structerr.NewNotFound("primary error"),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -1108,7 +1108,7 @@ func TestStreamDirectorAccessor(t *testing.T) {
 					return RepositoryAccessorRoute{}, commonerr.NewRepositoryNotFoundError(virtualStorage, relativePath)
 				},
 			},
-			error: helper.ErrNotFoundf("%w", fmt.Errorf("accessor call: route repository accessor: %w", commonerr.NewRepositoryNotFoundError(targetRepo.StorageName, targetRepo.RelativePath))),
+			error: structerr.NewNotFound("%w", fmt.Errorf("accessor call: route repository accessor: %w", commonerr.NewRepositoryNotFoundError(targetRepo.StorageName, targetRepo.RelativePath))),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

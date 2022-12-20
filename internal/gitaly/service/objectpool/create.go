@@ -5,14 +5,13 @@ import (
 	"errors"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/objectpool"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
 // errMissingOriginRepository is returned when the request is missing the
 // origin repository.
-var errMissingOriginRepository = helper.ErrInvalidArgumentf("no origin repository")
+var errMissingOriginRepository = structerr.NewInvalidArgument("no origin repository")
 
 func (s *server) CreateObjectPool(ctx context.Context, in *gitalypb.CreateObjectPoolRequest) (*gitalypb.CreateObjectPoolResponse, error) {
 	if in.GetOrigin() == nil {
