@@ -3,14 +3,18 @@
 package repository
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -360,6 +364,54 @@ func TestFetchSourceBranch(t *testing.T) {
 				}
 			},
 			expectedErr: structerr.NewInvalidArgument("revision can't contain NUL"),
+		},
+		{
+			desc: "failure during/after fetch doesn't clean out fetched objects",
+			setup: func(t *testing.T) setupData {
+				cfg := testcfg.Build(t)
+
+				testcfg.BuildGitalyHooks(t, cfg)
+				testcfg.BuildGitalySSH(t, cfg)
+
+				// We simulate a failed fetch where we actually fetch but just exit
+				// with status 1, this will actually fetch the refs but gitaly will think
+				// git failed.
+				gitCmdFactory := gittest.NewInterceptingCommandFactory(t, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
+					return fmt.Sprintf(`#!/bin/bash
+						if [[ "$@" =~ "fetch" ]]; then
+							%q "$@"
+							exit 1
+						fi
+						exec %q "$@"`, execEnv.BinaryPath, execEnv.BinaryPath)
+				})
+
+				client, serverSocketPath := runRepositoryService(t, cfg, nil, testserver.WithGitCommandFactory(gitCmdFactory))
+				cfg.SocketPath = serverSocketPath
+
+				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				commitID := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("master"))
+				repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					cfg:    cfg,
+					client: client,
+					request: &gitalypb.FetchSourceBranchRequest{
+						Repository:       repoProto,
+						SourceRepository: sourceRepoProto,
+						SourceBranch:     []byte("master"),
+						TargetRef:        []byte("refs/tmp/fetch-source-branch-test"),
+					},
+					verify: func() {
+						repo := localrepo.NewTestRepo(t, cfg, repoProto)
+						exists, err := repo.HasRevision(ctx, commitID.Revision()+"^{commit}")
+						require.NoError(t, err)
+						// TODO: This should be fixed in:
+						// https://gitlab.com/gitlab-org/gitaly/-/issues/4520
+						require.True(t, exists, "fetched commit isn't discarded")
+					},
+				}
+			},
+			expectedResponse: &gitalypb.FetchSourceBranchResponse{Result: false},
 		},
 	} {
 		tc := tc
