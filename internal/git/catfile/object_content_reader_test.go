@@ -11,7 +11,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -21,20 +20,20 @@ func TestObjectContentReader_reader(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithBranch("main"),
-		gittest.WithMessage("commit message"),
-		gittest.WithTreeEntries(gittest.TreeEntry{Path: "README", Mode: "100644", Content: "something"}),
+	commitID := git.WriteTestCommit(t, cfg, repoPath,
+		git.WithBranch("main"),
+		git.WithMessage("commit message"),
+		git.WithTreeEntries(git.TreeEntry{Path: "README", Mode: "100644", Content: "something"}),
 	)
-	gittest.WriteTag(t, cfg, repoPath, "v1.1.1", commitID.Revision(), gittest.WriteTagConfig{
+	git.WriteTag(t, cfg, repoPath, "v1.1.1", commitID.Revision(), git.WriteTagConfig{
 		Message: "annotated tag",
 	})
 
-	commitContents := gittest.Exec(t, cfg, "-C", repoPath, "cat-file", "-p", commitID.String())
+	commitContents := git.Exec(t, cfg, "-C", repoPath, "cat-file", "-p", commitID.String())
 
 	t.Run("read existing object by ref", func(t *testing.T) {
 		reader, err := newObjectContentReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
@@ -133,12 +132,12 @@ func TestObjectContentReader_queue(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 
-	foobarBlob := gittest.WriteBlob(t, cfg, repoPath, []byte("foobar"))
-	barfooBlob := gittest.WriteBlob(t, cfg, repoPath, []byte("barfoo"))
+	foobarBlob := git.WriteBlob(t, cfg, repoPath, []byte("foobar"))
+	barfooBlob := git.WriteBlob(t, cfg, repoPath, []byte("barfoo"))
 
 	t.Run("read single object", func(t *testing.T) {
 		reader, err := newObjectContentReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
@@ -433,18 +432,18 @@ func TestObjectContentReader_replaceRefs(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 
-	originalOID := gittest.WriteBlob(t, cfg, repoPath, []byte("original"))
-	replacedOID := gittest.WriteBlob(t, cfg, repoPath, []byte("replaced"))
+	originalOID := git.WriteBlob(t, cfg, repoPath, []byte("original"))
+	replacedOID := git.WriteBlob(t, cfg, repoPath, []byte("replaced"))
 
-	gittest.WriteRef(t, cfg, repoPath, git.ReferenceName("refs/replace/"+originalOID.String()), replacedOID)
+	git.WriteRef(t, cfg, repoPath, git.ReferenceName("refs/replace/"+originalOID.String()), replacedOID)
 
 	// Reading the object via our testhelper should result in the object having been replaced.
 	require.Equal(t, "replaced", text.ChompBytes(
-		gittest.Exec(t, cfg, "-c", "core.useReplaceRefs=true", "-C", repoPath, "cat-file", "-p", originalOID.String()),
+		git.Exec(t, cfg, "-c", "core.useReplaceRefs=true", "-C", repoPath, "cat-file", "-p", originalOID.String()),
 	))
 
 	reader, err := newObjectContentReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)

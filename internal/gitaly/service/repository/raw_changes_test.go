@@ -10,7 +10,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -289,13 +288,13 @@ func TestGetRawChangesInvalidUTF8Paths(t *testing.T) {
 	)
 	require.False(t, utf8.ValidString(nonUTF8Filename)) // sanity check
 
-	fromCommitID := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithTreeEntries(gittest.TreeEntry{
+	fromCommitID := git.WriteTestCommit(t, cfg, repoPath,
+		git.WithTreeEntries(git.TreeEntry{
 			OID: blobID1, Path: nonUTF8Filename, Mode: "100644",
 		}),
 	)
-	toCommitID := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithTreeEntries(gittest.TreeEntry{
+	toCommitID := git.WriteTestCommit(t, cfg, repoPath,
+		git.WithTreeEntries(git.TreeEntry{
 			OID: blobID2, Path: nonUTF8Filename, Mode: "100644",
 		}),
 	)

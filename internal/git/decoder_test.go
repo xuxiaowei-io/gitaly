@@ -8,8 +8,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -19,9 +17,9 @@ func TestShowRefDecoder(t *testing.T) {
 	cfg := testcfg.Build(t)
 	ctx := testhelper.Context(t)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := CreateRepository(t, ctx, cfg, CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
+		Seed:                   SeedGitLabTest,
 		RelativePath:           "repo.git",
 	})
 
@@ -30,14 +28,14 @@ func TestShowRefDecoder(t *testing.T) {
 	expectedRefs, err := repo.GetReferences(ctx, "refs/")
 	require.NoError(t, err)
 
-	output := gittest.Exec(t, cfg, "-C", repoPath, "show-ref")
+	output := Exec(t, cfg, "-C", repoPath, "show-ref")
 	stream := bytes.NewBuffer(output)
 
-	d := git.NewShowRefDecoder(stream)
+	d := NewShowRefDecoder(stream)
 
-	var refs []git.Reference
+	var refs []Reference
 	for {
-		var ref git.Reference
+		var ref Reference
 
 		err := d.Decode(&ref)
 		if err == io.EOF {

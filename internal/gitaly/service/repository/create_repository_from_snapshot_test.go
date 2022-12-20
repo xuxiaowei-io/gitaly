@@ -16,7 +16,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/archive"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/praefectutil"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -85,8 +85,8 @@ func TestCreateRepositoryFromSnapshot_success(t *testing.T) {
 	client, socketPath := runRepositoryService(t, cfg, nil)
 	cfg.SocketPath = socketPath
 
-	_, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	_, sourceRepoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	// Ensure these won't be in the archive
@@ -116,7 +116,7 @@ func TestCreateRepositoryFromSnapshot_success(t *testing.T) {
 	require.NoError(t, err)
 	testhelper.ProtoEqual(t, rsp, &gitalypb.CreateRepositoryFromSnapshotResponse{})
 
-	repoAbsolutePath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(t, ctx, cfg, repo))
+	repoAbsolutePath := filepath.Join(cfg.Storages[0].Path, git.GetReplicaPath(t, ctx, cfg, repo))
 	require.DirExists(t, repoAbsolutePath)
 	for _, entry := range entries {
 		if strings.HasSuffix(entry, "/") {
@@ -141,9 +141,9 @@ func TestCreateRepositoryFromSnapshot_repositoryExists(t *testing.T) {
 	// This creates the first repository on the server. As this test can run with Praefect in front of it,
 	// we'll use the next replica path Praefect will assign in order to ensure this repository creation
 	// conflicts even with Praefect in front of it.
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repo, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		RelativePath: praefectutil.DeriveReplicaPath(1),
-		Seed:         gittest.SeedGitLabTest,
+		Seed:         git.SeedGitLabTest,
 	})
 
 	req := &gitalypb.CreateRepositoryFromSnapshotRequest{Repository: repo}
@@ -168,7 +168,7 @@ func TestCreateRepositoryFromSnapshot_badURL(t *testing.T) {
 	req := &gitalypb.CreateRepositoryFromSnapshotRequest{
 		Repository: &gitalypb.Repository{
 			StorageName:  cfg.Storages[0].Name,
-			RelativePath: gittest.NewRepositoryName(t),
+			RelativePath: git.NewRepositoryName(t),
 		},
 		HttpUrl: "invalid!scheme://invalid.invalid",
 	}
@@ -234,7 +234,7 @@ func TestCreateRepositoryFromSnapshot_invalidArguments(t *testing.T) {
 			req := &gitalypb.CreateRepositoryFromSnapshotRequest{
 				Repository: &gitalypb.Repository{
 					StorageName:  cfg.Storages[0].Name,
-					RelativePath: gittest.NewRepositoryName(t),
+					RelativePath: git.NewRepositoryName(t),
 				},
 				HttpUrl:         srv.URL + tc.url,
 				HttpAuth:        tc.auth,
@@ -258,8 +258,8 @@ func TestCreateRepositoryFromSnapshot_malformedResponse(t *testing.T) {
 	client, socketPath := runRepositoryService(t, cfg, nil)
 	cfg.SocketPath = socketPath
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	require.NoError(t, os.Remove(filepath.Join(repoPath, "config")))
@@ -299,7 +299,7 @@ func TestCreateRepositoryFromSnapshot_resolvedAddressSuccess(t *testing.T) {
 	client, socketPath := runRepositoryService(t, cfg, nil)
 	cfg.SocketPath = socketPath
 
-	_, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
+	_, sourceRepoPath := git.CreateRepository(t, ctx, cfg)
 
 	// Ensure these won't be in the archive
 	require.NoError(t, os.Remove(filepath.Join(sourceRepoPath, "config")))
@@ -311,7 +311,7 @@ func TestCreateRepositoryFromSnapshot_resolvedAddressSuccess(t *testing.T) {
 	srv := httptest.NewServer(&tarTesthandler{tarData: bytes.NewReader(data), secret: secret, host: host})
 	defer srv.Close()
 
-	repoRelativePath := gittest.NewRepositoryName(t)
+	repoRelativePath := git.NewRepositoryName(t)
 
 	repo := &gitalypb.Repository{
 		StorageName:  cfg.Storages[0].Name,
@@ -339,7 +339,7 @@ func TestCreateRepositoryFromSnapshot_resolvedAddressSuccess(t *testing.T) {
 	require.NoError(t, err)
 	testhelper.ProtoEqual(t, rsp, &gitalypb.CreateRepositoryFromSnapshotResponse{})
 
-	repoAbsolutePath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(t, ctx, cfg, repo))
+	repoAbsolutePath := filepath.Join(cfg.Storages[0].Path, git.GetReplicaPath(t, ctx, cfg, repo))
 	require.DirExists(t, repoAbsolutePath)
 	for _, entry := range entries {
 		if strings.HasSuffix(entry, "/") {

@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/repository"
@@ -50,8 +50,8 @@ func setupDiffService(tb testing.TB, ctx context.Context, opt ...testserver.Gita
 	require.NoError(tb, err)
 	tb.Cleanup(func() { testhelper.MustClose(tb, conn) })
 
-	repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repo, repoPath := git.CreateRepository(tb, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	return cfg, repo, repoPath, gitalypb.NewDiffServiceClient(conn)

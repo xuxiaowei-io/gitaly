@@ -13,7 +13,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
@@ -46,7 +45,6 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 		ExecutableMode = "100755"
 	)
 
-	startRepo, _ := gittest.CreateRepository(t, ctx, cfg)
 	targetRepoSentinel := &gitalypb.Repository{}
 
 	type step struct {
@@ -59,7 +57,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 		unknownIndexError error
 		repoCreated       bool
 		branchCreated     bool
-		treeEntries       []gittest.TreeEntry
+		treeEntries       []git.TreeEntry
 	}
 
 	for _, tc := range []struct {
@@ -88,7 +86,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "directory-1/.gitkeep"},
 					},
 				},
@@ -113,7 +111,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "directory-1/.gitkeep"},
 					},
 				},
@@ -153,7 +151,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "directory-1/.gitkeep"},
 					},
 				},
@@ -176,7 +174,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "content-1"},
 					},
 				},
@@ -224,7 +222,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1"},
 					},
 				},
@@ -241,7 +239,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "content-1 content-2"},
 					},
 				},
@@ -257,7 +255,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "content-1"},
 					},
 				},
@@ -274,7 +272,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "content-1 content-2"},
 					},
 				},
@@ -291,7 +289,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "content-1\n content-2\n"},
 					},
 				},
@@ -322,7 +320,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "content-1"},
 					},
 				},
@@ -340,7 +338,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "content-2"},
 					},
 				},
@@ -358,7 +356,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "content-2\n"},
 					},
 				},
@@ -376,7 +374,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "content-2"},
 					},
 				},
@@ -402,7 +400,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "content-2"},
 					},
 				},
@@ -418,7 +416,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "content-1"},
 					},
 				},
@@ -427,7 +425,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 						updateFileHeaderRequest("file-1"),
 						actionContentRequest("content-2"),
 					},
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "content-2"},
 					},
 				},
@@ -481,7 +479,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "moved-file", Content: "content-1"},
 					},
 				},
@@ -508,7 +506,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "moved-file", Content: "content-1"},
 					},
 				},
@@ -537,7 +535,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "original-file", Content: "original-content"},
 					},
 				},
@@ -546,7 +544,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 						moveFileHeaderRequest("original-file", "moved-file", true),
 						actionContentRequest("ignored-content"),
 					},
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "moved-file", Content: "original-content"},
 					},
 				},
@@ -592,7 +590,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "already-existing", Content: "source-content"},
 					},
 				},
@@ -608,7 +606,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "original-file", Content: "original-content"},
 					},
 				},
@@ -617,7 +615,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 						moveFileHeaderRequest("original-file", "moved-file", false),
 						actionContentRequest("new-content"),
 					},
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "moved-file", Content: "new-content"},
 					},
 				},
@@ -633,7 +631,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "original-file", Content: "original-content"},
 					},
 				},
@@ -642,7 +640,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 						moveFileHeaderRequest("original-file", "moved-file", false),
 						actionContentRequest("new-content\r\n"),
 					},
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "moved-file", Content: "new-content\n"},
 					},
 				},
@@ -670,7 +668,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: ExecutableMode, Path: "file-1"},
 					},
 				},
@@ -678,7 +676,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					actions: []*gitalypb.UserCommitFilesRequest{
 						chmodFileHeaderRequest("file-1", true),
 					},
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: ExecutableMode, Path: "file-1"},
 					},
 				},
@@ -707,7 +705,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: ExecutableMode, Path: "file-1", Content: "content-1"},
 					},
 				},
@@ -723,7 +721,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "content-1"},
 					},
 				},
@@ -731,7 +729,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					actions: []*gitalypb.UserCommitFilesRequest{
 						chmodFileHeaderRequest("file-1", true),
 					},
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: ExecutableMode, Path: "file-1", Content: "content-1"},
 					},
 				},
@@ -813,7 +811,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					branchCreated: true,
 					repoCreated:   true,
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "content-1"},
 					},
 				},
@@ -852,7 +850,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					startRepository: targetRepoSentinel,
 					branchCreated:   true,
 					repoCreated:     true,
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "content-1"},
 					},
 				},
@@ -869,7 +867,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					startBranch:   "master",
 					branchCreated: true,
 					repoCreated:   true,
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "content-1"},
 					},
 				},
@@ -887,7 +885,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					startRepository: startRepo,
 					branchCreated:   true,
 					repoCreated:     true,
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "content-1"},
 					},
 				},
@@ -901,7 +899,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 
 			const branch = "main"
 
-			repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+			repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
 			for i, step := range tc.steps {
 				if step.startRepository == targetRepoSentinel {
@@ -910,7 +908,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 
 				headerRequest := headerRequest(
 					repo,
-					gittest.TestUser,
+					git.TestUser,
 					branch,
 					[]byte("commit message"),
 					"",
@@ -972,10 +970,10 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 
 				require.Equal(t, step.branchCreated, resp.BranchUpdate.BranchCreated, "step %d", i+1)
 				require.Equal(t, step.repoCreated, resp.BranchUpdate.RepoCreated, "step %d", i+1)
-				gittest.RequireTree(t, cfg, repoPath, branch, step.treeEntries)
+				git.RequireTree(t, cfg, repoPath, branch, step.treeEntries)
 
-				authorDate := gittest.Exec(t, cfg, "-C", repoPath, "log", "--pretty='format:%ai'", "-1")
-				require.Contains(t, string(authorDate), gittest.TimezoneOffset)
+				authorDate := git.Exec(t, cfg, "-C", repoPath, "log", "--pretty='format:%ai'", "-1")
+				require.Contains(t, string(authorDate), git.TimezoneOffset)
 			}
 		})
 	}
@@ -992,7 +990,7 @@ func testUserCommitFilesStableCommitID(t *testing.T, ctx context.Context) {
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	for key, values := range testcfg.GitalyServersMetadataFromCfg(t, cfg) {
@@ -1004,7 +1002,7 @@ func testUserCommitFilesStableCommitID(t *testing.T, ctx context.Context) {
 	stream, err := client.UserCommitFiles(ctx)
 	require.NoError(t, err)
 
-	headerRequest := headerRequest(repoProto, gittest.TestUser, "master", []byte("commit message"), "", "")
+	headerRequest := headerRequest(repoProto, git.TestUser, "master", []byte("commit message"), "", "")
 	setAuthorAndEmail(headerRequest, []byte("Author Name"), []byte("author.email@example.com"))
 	setTimestamp(headerRequest, time.Unix(12345, 0))
 	require.NoError(t, stream.Send(headerRequest))
@@ -1017,7 +1015,7 @@ func testUserCommitFilesStableCommitID(t *testing.T, ctx context.Context) {
 	require.Equal(t, resp.BranchUpdate.CommitId, "23ec4ccd7fcc6ecf39431805bbff1cbcb6c23b9d")
 	require.True(t, resp.BranchUpdate.BranchCreated)
 	require.True(t, resp.BranchUpdate.RepoCreated)
-	gittest.RequireTree(t, cfg, repoPath, "refs/heads/master", []gittest.TreeEntry{
+	git.RequireTree(t, cfg, repoPath, "refs/heads/master", []git.TreeEntry{
 		{Mode: "100644", Path: "file.txt", Content: "content"},
 	})
 
@@ -1033,13 +1031,13 @@ func testUserCommitFilesStableCommitID(t *testing.T, ctx context.Context) {
 			Name:     []byte("Author Name"),
 			Email:    []byte("author.email@example.com"),
 			Date:     &timestamppb.Timestamp{Seconds: 12345},
-			Timezone: []byte(gittest.TimezoneOffset),
+			Timezone: []byte(git.TimezoneOffset),
 		},
 		Committer: &gitalypb.CommitAuthor{
-			Name:     gittest.TestUser.Name,
-			Email:    gittest.TestUser.Email,
+			Name:     git.TestUser.Name,
+			Email:    git.TestUser.Email,
 			Date:     &timestamppb.Timestamp{Seconds: 12345},
-			Timezone: []byte(gittest.TimezoneOffset),
+			Timezone: []byte(git.TimezoneOffset),
 		},
 	}, commit)
 }
@@ -1055,7 +1053,7 @@ func testUserCommitFilesQuarantine(t *testing.T, ctx context.Context) {
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
@@ -1063,7 +1061,7 @@ func testUserCommitFilesQuarantine(t *testing.T, ctx context.Context) {
 	// Set up a hook that parses the new object and then aborts the update. Like this, we can
 	// assert that the object does not end up in the main repository.
 	outputPath := filepath.Join(testhelper.TempDir(t), "output")
-	gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte(fmt.Sprintf(
+	git.WriteCustomHook(t, repoPath, "pre-receive", []byte(fmt.Sprintf(
 		`#!/bin/sh
 		read oldval newval ref &&
 		git rev-parse $newval^{commit} >%s &&
@@ -1073,7 +1071,7 @@ func testUserCommitFilesQuarantine(t *testing.T, ctx context.Context) {
 	stream, err := client.UserCommitFiles(ctx)
 	require.NoError(t, err)
 
-	headerRequest := headerRequest(repoProto, gittest.TestUser, "master", []byte("commit message"), "", "")
+	headerRequest := headerRequest(repoProto, git.TestUser, "master", []byte("commit message"), "", "")
 	setAuthorAndEmail(headerRequest, []byte("Author Name"), []byte("author.email@example.com"))
 	setTimestamp(headerRequest, time.Unix(12345, 0))
 	require.NoError(t, stream.Send(headerRequest))
@@ -1116,7 +1114,7 @@ func testSuccessfulUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
-	newRepo, newRepoPath := gittest.CreateRepository(t, ctx, cfg)
+	newRepo, newRepoPath := git.CreateRepository(t, ctx, cfg)
 
 	filePath := "héllo/wörld"
 	authorName := []byte("Jane Doe")
@@ -1146,7 +1144,7 @@ func testSuccessfulUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 			repo:           repo,
 			repoPath:       repoPath,
 			branchName:     "wip",
-			expectedOldOID: text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/wip")),
+			expectedOldOID: text.ChompBytes(git.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/wip")),
 		},
 		{
 			desc:           "existing repo and branch + invalid expectedOldOID",
@@ -1161,7 +1159,7 @@ func testSuccessfulUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 			repo:           repo,
 			repoPath:       repoPath,
 			branchName:     "few-commits",
-			expectedOldOID: gittest.DefaultObjectHash.ZeroOID.String(),
+			expectedOldOID: git.DefaultObjectHash.ZeroOID.String(),
 			expectedError:  structerr.NewInvalidArgument("cannot resolve expected old object ID: reference not found"),
 		},
 		{
@@ -1169,7 +1167,7 @@ func testSuccessfulUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 			repo:           repo,
 			repoPath:       repoPath,
 			branchName:     "few-commits",
-			expectedOldOID: text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/few-commits~1")),
+			expectedOldOID: text.ChompBytes(git.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/few-commits~1")),
 			expectedError:  structerr.NewFailedPrecondition("Could not update refs/heads/few-commits. Please refresh and try again."),
 		},
 		{
@@ -1210,7 +1208,7 @@ func testSuccessfulUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			headerRequest := headerRequest(tc.repo, gittest.TestUser, tc.branchName, commitFilesMessage, tc.startBranchName, tc.expectedOldOID)
+			headerRequest := headerRequest(tc.repo, git.TestUser, tc.branchName, commitFilesMessage, tc.startBranchName, tc.expectedOldOID)
 			setAuthorAndEmail(headerRequest, authorName, authorEmail)
 
 			actionsRequest1 := createFileHeaderRequest(filePath)
@@ -1239,15 +1237,15 @@ func testSuccessfulUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 			headCommit, err := localrepo.NewTestRepo(t, cfg, tc.repo).ReadCommit(ctx, git.Revision(tc.branchName))
 			require.NoError(t, err)
 			require.Equal(t, authorName, headCommit.Author.Name)
-			require.Equal(t, gittest.TestUser.Name, headCommit.Committer.Name)
+			require.Equal(t, git.TestUser.Name, headCommit.Committer.Name)
 			require.Equal(t, authorEmail, headCommit.Author.Email)
-			require.Equal(t, gittest.TestUser.Email, headCommit.Committer.Email)
+			require.Equal(t, git.TestUser.Email, headCommit.Committer.Email)
 			require.Equal(t, commitFilesMessage, headCommit.Subject)
 
-			fileContent := gittest.Exec(t, cfg, "-C", tc.repoPath, "show", headCommit.GetId()+":"+filePath)
+			fileContent := git.Exec(t, cfg, "-C", tc.repoPath, "show", headCommit.GetId()+":"+filePath)
 			require.Equal(t, "My content", string(fileContent))
 
-			commitInfo := gittest.Exec(t, cfg, "-C", tc.repoPath, "show", headCommit.GetId())
+			commitInfo := git.Exec(t, cfg, "-C", tc.repoPath, "show", headCommit.GetId())
 			expectedFilemode := "100644"
 			if tc.executeFilemode {
 				expectedFilemode = "100755"
@@ -1284,12 +1282,12 @@ func testSuccessfulUserCommitFilesRequestMove(t *testing.T, ctx context.Context)
 		{content: "foo", infer: true},
 	} {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			testRepo, testRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-				Seed: gittest.SeedGitLabTest,
+			testRepo, testRepoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+				Seed: git.SeedGitLabTest,
 			})
 
-			origFileContent := gittest.Exec(t, cfg, "-C", testRepoPath, "show", branchName+":"+previousFilePath)
-			headerRequest := headerRequest(testRepo, gittest.TestUser, branchName, commitFilesMessage, "", "")
+			origFileContent := git.Exec(t, cfg, "-C", testRepoPath, "show", branchName+":"+previousFilePath)
+			headerRequest := headerRequest(testRepo, git.TestUser, branchName, commitFilesMessage, "", "")
 			setAuthorAndEmail(headerRequest, authorName, authorEmail)
 			actionsRequest1 := moveFileHeaderRequest(previousFilePath, filePath, tc.infer)
 
@@ -1309,7 +1307,7 @@ func testSuccessfulUserCommitFilesRequestMove(t *testing.T, ctx context.Context)
 			update := resp.GetBranchUpdate()
 			require.NotNil(t, update)
 
-			fileContent := gittest.Exec(t, cfg, "-C", testRepoPath, "show", update.CommitId+":"+filePath)
+			fileContent := git.Exec(t, cfg, "-C", testRepoPath, "show", update.CommitId+":"+filePath)
 
 			if tc.infer {
 				require.Equal(t, string(origFileContent), string(fileContent))
@@ -1344,11 +1342,11 @@ func testSuccessfulUserCommitFilesRequestForceCommit(t *testing.T, ctx context.C
 	targetBranchCommit, err := repo.ReadCommit(ctx, git.Revision(targetBranchName))
 	require.NoError(t, err)
 
-	mergeBaseOut := gittest.Exec(t, cfg, "-C", repoPath, "merge-base", targetBranchCommit.Id, startBranchCommit.Id)
+	mergeBaseOut := git.Exec(t, cfg, "-C", repoPath, "merge-base", targetBranchCommit.Id, startBranchCommit.Id)
 	mergeBaseID := text.ChompBytes(mergeBaseOut)
 	require.NotEqual(t, mergeBaseID, targetBranchCommit.Id, "expected %s not to be an ancestor of %s", targetBranchCommit.Id, startBranchCommit.Id)
 
-	headerRequest := headerRequest(repoProto, gittest.TestUser, targetBranchName, commitFilesMessage, "", "")
+	headerRequest := headerRequest(repoProto, git.TestUser, targetBranchName, commitFilesMessage, "", "")
 	setAuthorAndEmail(headerRequest, authorName, authorEmail)
 	setStartBranchName(headerRequest, startBranchName)
 	setForce(headerRequest, true)
@@ -1388,7 +1386,7 @@ func testSuccessfulUserCommitFilesRequestStartSha(t *testing.T, ctx context.Cont
 	startCommit, err := repo.ReadCommit(ctx, "master")
 	require.NoError(t, err)
 
-	headerRequest := headerRequest(repoProto, gittest.TestUser, targetBranchName, commitFilesMessage, "", "")
+	headerRequest := headerRequest(repoProto, git.TestUser, targetBranchName, commitFilesMessage, "", "")
 	setStartSha(headerRequest, startCommit.Id)
 
 	stream, err := client.UserCommitFiles(ctx)
@@ -1444,7 +1442,7 @@ func testSuccessfulUserCommitFilesRemoteRepositoryRequest(setHeader func(header 
 
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-		newRepoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+		newRepoProto, _ := git.CreateRepository(t, ctx, cfg)
 		newRepo := localrepo.NewTestRepo(t, cfg, newRepoProto)
 
 		targetBranchName := "new"
@@ -1452,7 +1450,7 @@ func testSuccessfulUserCommitFilesRemoteRepositoryRequest(setHeader func(header 
 		startCommit, err := repo.ReadCommit(ctx, "master")
 		require.NoError(t, err)
 
-		headerRequest := headerRequest(newRepoProto, gittest.TestUser, targetBranchName, commitFilesMessage, "", "")
+		headerRequest := headerRequest(newRepoProto, git.TestUser, targetBranchName, commitFilesMessage, "", "")
 		setHeader(headerRequest)
 		setStartRepository(headerRequest, repoProto)
 
@@ -1485,7 +1483,7 @@ func testSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *tes
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
-	repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+	repoProto, _ := git.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	targetBranchName := "master"
@@ -1497,12 +1495,12 @@ func testSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *tes
 	}{
 		{
 			desc:   "special characters at start and end",
-			user:   &gitalypb.User{Name: []byte(".,:;<>\"'\nJane Doe.,:;<>'\"\n"), Email: []byte(".,:;<>'\"\njanedoe@gitlab.com.,:;<>'\"\n"), GlId: gittest.GlID},
+			user:   &gitalypb.User{Name: []byte(".,:;<>\"'\nJane Doe.,:;<>'\"\n"), Email: []byte(".,:;<>'\"\njanedoe@gitlab.com.,:;<>'\"\n"), GlId: git.GlID},
 			author: &gitalypb.CommitAuthor{Name: []byte("Jane Doe"), Email: []byte("janedoe@gitlab.com")},
 		},
 		{
 			desc:   "special characters in the middle",
-			user:   &gitalypb.User{Name: []byte("Ja<ne\n D>oe"), Email: []byte("ja<ne\ndoe>@gitlab.com"), GlId: gittest.GlID},
+			user:   &gitalypb.User{Name: []byte("Ja<ne\n D>oe"), Email: []byte("ja<ne\ndoe>@gitlab.com"), GlId: git.GlID},
 			author: &gitalypb.CommitAuthor{Name: []byte("Jane Doe"), Email: []byte("janedoe@gitlab.com")},
 		},
 	}
@@ -1543,14 +1541,14 @@ func testFailedUserCommitFilesRequestDueToHooks(t *testing.T, ctx context.Contex
 
 	branchName := "feature"
 	filePath := "my/file.txt"
-	headerRequest := headerRequest(repoProto, gittest.TestUser, branchName, commitFilesMessage, "", "")
+	headerRequest := headerRequest(repoProto, git.TestUser, branchName, commitFilesMessage, "", "")
 	actionsRequest1 := createFileHeaderRequest(filePath)
 	actionsRequest2 := actionContentRequest("My content")
 	hookContent := []byte("#!/bin/sh\nprintenv | grep -e GL_ID -e GL_USERNAME | sort | paste -sd ' ' -\nexit 1")
 
 	for _, hookName := range GitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
-			gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
+			git.WriteCustomHook(t, repoPath, hookName, hookContent)
 
 			stream, err := client.UserCommitFiles(ctx)
 			require.NoError(t, err)
@@ -1569,7 +1567,7 @@ func testFailedUserCommitFilesRequestDueToHooks(t *testing.T, ctx context.Contex
 				}
 
 				expectedOut := fmt.Sprintf("GL_ID=%s GL_USERNAME=%s\n",
-					gittest.TestUser.GlId, gittest.TestUser.GlUsername)
+					git.TestUser.GlId, git.TestUser.GlUsername)
 
 				testhelper.RequireGrpcError(t, structerr.NewPermissionDenied("denied by custom hooks").WithDetail(
 					&gitalypb.UserCommitFilesError{
@@ -1582,8 +1580,8 @@ func testFailedUserCommitFilesRequestDueToHooks(t *testing.T, ctx context.Contex
 					},
 				), err)
 			} else {
-				require.Contains(t, resp.PreReceiveError, "GL_ID="+gittest.TestUser.GlId)
-				require.Contains(t, resp.PreReceiveError, "GL_USERNAME="+gittest.TestUser.GlUsername)
+				require.Contains(t, resp.PreReceiveError, "GL_ID="+git.TestUser.GlId)
+				require.Contains(t, resp.PreReceiveError, "GL_USERNAME="+git.TestUser.GlUsername)
 			}
 		})
 	}
@@ -1609,7 +1607,7 @@ func testFailedUserCommitFilesRequestDueToIndexError(t *testing.T, ctx context.C
 		{
 			desc: "file already exists",
 			requests: []*gitalypb.UserCommitFilesRequest{
-				headerRequest(repo, gittest.TestUser, "feature", commitFilesMessage, "", ""),
+				headerRequest(repo, git.TestUser, "feature", commitFilesMessage, "", ""),
 				createFileHeaderRequest("README.md"),
 				actionContentRequest("This file already exists"),
 			},
@@ -1619,7 +1617,7 @@ func testFailedUserCommitFilesRequestDueToIndexError(t *testing.T, ctx context.C
 		{
 			desc: "file doesn't exists",
 			requests: []*gitalypb.UserCommitFilesRequest{
-				headerRequest(repo, gittest.TestUser, "feature", commitFilesMessage, "", ""),
+				headerRequest(repo, git.TestUser, "feature", commitFilesMessage, "", ""),
 				chmodFileHeaderRequest("documents/story.txt", true),
 			},
 			indexError:  "A file with this name doesn't exist",
@@ -1628,7 +1626,7 @@ func testFailedUserCommitFilesRequestDueToIndexError(t *testing.T, ctx context.C
 		{
 			desc: "dir already exists",
 			requests: []*gitalypb.UserCommitFilesRequest{
-				headerRequest(repo, gittest.TestUser, "utf-dir", commitFilesMessage, "", ""),
+				headerRequest(repo, git.TestUser, "utf-dir", commitFilesMessage, "", ""),
 				actionRequest(&gitalypb.UserCommitFilesAction{
 					UserCommitFilesActionPayload: &gitalypb.UserCommitFilesAction_Header{
 						Header: &gitalypb.UserCommitFilesActionHeader{
@@ -1692,7 +1690,7 @@ func testFailedUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 	}{
 		{
 			desc: "empty Repository",
-			req:  headerRequest(nil, gittest.TestUser, branchName, commitFilesMessage, "", ""),
+			req:  headerRequest(nil, git.TestUser, branchName, commitFilesMessage, "", ""),
 			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
@@ -1705,17 +1703,17 @@ func testFailedUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 		},
 		{
 			desc:        "empty BranchName",
-			req:         headerRequest(repo, gittest.TestUser, "", commitFilesMessage, "", ""),
+			req:         headerRequest(repo, git.TestUser, "", commitFilesMessage, "", ""),
 			expectedErr: status.Error(codes.InvalidArgument, "empty BranchName"),
 		},
 		{
 			desc:        "empty CommitMessage",
-			req:         headerRequest(repo, gittest.TestUser, branchName, nil, "", ""),
+			req:         headerRequest(repo, git.TestUser, branchName, nil, "", ""),
 			expectedErr: status.Error(codes.InvalidArgument, "empty CommitMessage"),
 		},
 		{
 			desc:        "invalid object ID: \"foobar\"",
-			req:         setStartSha(headerRequest(repo, gittest.TestUser, branchName, commitFilesMessage, "", ""), "foobar"),
+			req:         setStartSha(headerRequest(repo, git.TestUser, branchName, commitFilesMessage, "", ""), "foobar"),
 			expectedErr: status.Error(codes.InvalidArgument, `invalid object ID: "foobar"`),
 		},
 		{
@@ -1770,12 +1768,12 @@ func testUserCommitFilesFailsIfRepositoryMissing(t *testing.T, ctx context.Conte
 	repo := &gitalypb.Repository{
 		StorageName:   cfg.Storages[0].Name,
 		RelativePath:  t.Name(),
-		GlRepository:  gittest.GlRepository,
-		GlProjectPath: gittest.GlProjectPath,
+		GlRepository:  git.GlRepository,
+		GlProjectPath: git.GlProjectPath,
 	}
 
 	branchName := "feature"
-	req := headerRequest(repo, gittest.TestUser, branchName, commitFilesMessage, "", "")
+	req := headerRequest(repo, git.TestUser, branchName, commitFilesMessage, "", "")
 
 	stream, err := client.UserCommitFiles(ctx)
 	require.NoError(t, err)

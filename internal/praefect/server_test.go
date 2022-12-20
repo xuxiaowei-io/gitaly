@@ -20,7 +20,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	gconfig "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/setup"
@@ -161,7 +161,7 @@ func TestGitalyServerInfo(t *testing.T) {
 		})
 		t.Cleanup(cleanup)
 
-		gitVersion, err := gittest.NewCommandFactory(t, firstCfg).GitVersion(ctx)
+		gitVersion, err := git.NewCommandFactory(t, firstCfg).GitVersion(ctx)
 		require.NoError(t, err)
 
 		expected := &gitalypb.ServerInfoResponse{
@@ -623,13 +623,13 @@ func TestRenameRepository(t *testing.T) {
 	})
 	t.Cleanup(cleanup)
 
-	virtualRepo1, _ := gittest.CreateRepository(t, ctx, gconfig.Cfg{
+	virtualRepo1, _ := git.CreateRepository(t, ctx, gconfig.Cfg{
 		Storages: []gconfig.Storage{{Name: "praefect"}},
-	}, gittest.CreateRepositoryConfig{ClientConn: cc})
+	}, git.CreateRepositoryConfig{ClientConn: cc})
 
-	virtualRepo2, _ := gittest.CreateRepository(t, ctx, gconfig.Cfg{
+	virtualRepo2, _ := git.CreateRepository(t, ctx, gconfig.Cfg{
 		Storages: []gconfig.Storage{{Name: "praefect"}},
-	}, gittest.CreateRepositoryConfig{ClientConn: cc})
+	}, git.CreateRepositoryConfig{ClientConn: cc})
 
 	const newRelativePath = "unused-relative-path"
 

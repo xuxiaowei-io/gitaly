@@ -16,7 +16,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
@@ -53,7 +52,7 @@ func NewTestRepo(tb testing.TB, cfg config.Cfg, repo repository.GitRepo, factory
 	tb.Helper()
 
 	if cfg.SocketPath != testcfg.UnconfiguredSocketPath {
-		repo = gittest.RewrittenRepository(tb, testhelper.Context(tb), cfg, &gitalypb.Repository{
+		repo = git.RewrittenRepository(tb, testhelper.Context(tb), cfg, &gitalypb.Repository{
 			StorageName:                   repo.GetStorageName(),
 			RelativePath:                  repo.GetRelativePath(),
 			GitObjectDirectory:            repo.GetGitObjectDirectory(),

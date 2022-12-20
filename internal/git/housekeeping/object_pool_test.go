@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/praefectutil"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -19,7 +19,7 @@ func TestIsPoolRepository(t *testing.T) {
 		{
 			desc: "rails pool directory",
 			repo: &gitalypb.Repository{
-				RelativePath: gittest.NewObjectPoolName(t),
+				RelativePath: git.NewObjectPoolName(t),
 			},
 			isPoolPath: true,
 		},
@@ -52,7 +52,7 @@ func TestIsPoolRepository(t *testing.T) {
 		{
 			desc: "normal repos dont match",
 			repo: &gitalypb.Repository{
-				RelativePath: "@hashed/" + gittest.NewRepositoryName(t),
+				RelativePath: "@hashed/" + git.NewRepositoryName(t),
 			},
 		},
 	} {

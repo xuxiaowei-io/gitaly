@@ -14,7 +14,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -68,8 +67,8 @@ func TestFindAllBranchNamesVeryLargeResponse(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, client := setupRefServiceWithoutRepo(t)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
-	commitID := gittest.WriteCommit(t, cfg, repoPath)
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
+	commitID := git.WriteTestCommit(t, cfg, repoPath)
 
 	// We want to create enough refs to overflow the default bufio.Scanner
 	// buffer. Such an overflow will cause scanner.Bytes() to become invalid
@@ -240,8 +239,8 @@ func TestSuccessfulFindDefaultBranchName(t *testing.T) {
 
 	// The testing repository has no main branch, so we create it and update
 	// HEAD to it
-	gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/main", "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863")
-	gittest.Exec(t, cfg, "-C", repoPath, "symbolic-ref", "HEAD", "refs/heads/main")
+	git.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/main", "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863")
+	git.Exec(t, cfg, "-C", repoPath, "symbolic-ref", "HEAD", "refs/heads/main")
 	r, err := client.FindDefaultBranchName(ctx, rpcRequest)
 	require.NoError(t, err)
 
@@ -340,9 +339,9 @@ func TestFindLocalBranchesHugeCommitter(t *testing.T) {
 
 	cfg, repo, repoPath, client := setupRefService(t, ctx)
 
-	gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithBranch("refs/heads/improve/awesome"),
-		gittest.WithCommitterName(strings.Repeat("A", 100000)),
+	git.WriteTestCommit(t, cfg, repoPath,
+		git.WithBranch("refs/heads/improve/awesome"),
+		git.WithCommitterName(strings.Repeat("A", 100000)),
 	)
 
 	rpcRequest := &gitalypb.FindLocalBranchesRequest{Repository: repo}
@@ -620,7 +619,7 @@ func TestSuccessfulFindAllBranchesRequest(t *testing.T) {
 		},
 	}
 
-	gittest.WriteRef(t, cfg, repoPath, "refs/remotes/origin/fake-remote-branch", git.ObjectID(remoteBranch.Target.Id))
+	git.WriteRef(t, cfg, repoPath, "refs/remotes/origin/fake-remote-branch", git.ObjectID(remoteBranch.Target.Id))
 
 	request := &gitalypb.FindAllBranchesRequest{Repository: repo}
 	c, err := client.FindAllBranches(ctx, request)
@@ -649,13 +648,13 @@ func TestSuccessfulFindAllBranchesRequestWithMergedBranches(t *testing.T) {
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	localRefs := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--format=%(refname:strip=2)", "refs/heads")
+	localRefs := git.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--format=%(refname:strip=2)", "refs/heads")
 	for _, ref := range strings.Split(string(localRefs), "\n") {
 		ref = strings.TrimSpace(ref)
 		if _, ok := localBranches["refs/heads/"+ref]; ok || ref == "master" || ref == "" {
 			continue
 		}
-		gittest.Exec(t, cfg, "-C", repoPath, "branch", "-D", ref)
+		git.Exec(t, cfg, "-C", repoPath, "branch", "-D", ref)
 	}
 
 	expectedRefs := []string{"refs/heads/100%branch", "refs/heads/improve/awesome", "refs/heads/'test'"}

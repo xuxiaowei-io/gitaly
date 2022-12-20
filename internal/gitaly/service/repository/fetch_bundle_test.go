@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -32,11 +32,11 @@ func TestServer_FetchBundle_success(t *testing.T) {
 	tmp := testhelper.TempDir(t)
 	bundlePath := filepath.Join(tmp, "test.bundle")
 
-	gittest.Exec(t, cfg, "-C", repoPath, "symbolic-ref", "HEAD", "refs/heads/feature")
-	gittest.Exec(t, cfg, "-C", repoPath, "bundle", "create", bundlePath, "--all")
-	expectedRefs := gittest.Exec(t, cfg, "-C", repoPath, "show-ref", "--head")
+	git.Exec(t, cfg, "-C", repoPath, "symbolic-ref", "HEAD", "refs/heads/feature")
+	git.Exec(t, cfg, "-C", repoPath, "bundle", "create", bundlePath, "--all")
+	expectedRefs := git.Exec(t, cfg, "-C", repoPath, "show-ref", "--head")
 
-	targetRepo, targetRepoPath := gittest.CreateRepository(t, ctx, cfg)
+	targetRepo, targetRepoPath := git.CreateRepository(t, ctx, cfg)
 
 	stream, err := client.FetchBundle(ctx)
 	require.NoError(t, err)
@@ -64,7 +64,7 @@ func TestServer_FetchBundle_success(t *testing.T) {
 	_, err = stream.CloseAndRecv()
 	require.NoError(t, err)
 
-	refs := gittest.Exec(t, cfg, "-C", targetRepoPath, "show-ref", "--head")
+	refs := git.Exec(t, cfg, "-C", targetRepoPath, "show-ref", "--head")
 	require.Equal(t, string(expectedRefs), string(refs))
 }
 
@@ -80,7 +80,7 @@ func TestServer_FetchBundle_transaction(t *testing.T) {
 
 	tmp := testhelper.TempDir(t)
 	bundlePath := filepath.Join(tmp, "test.bundle")
-	gittest.BundleRepo(t, cfg, repoPath, bundlePath)
+	git.BundleRepo(t, cfg, repoPath, bundlePath)
 
 	hookManager.Reset()
 

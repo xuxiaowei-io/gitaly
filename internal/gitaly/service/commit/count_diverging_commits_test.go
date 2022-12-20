@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -30,7 +30,7 @@ func createRepoWithDivergentBranches(t *testing.T, ctx context.Context, cfg conf
 		 f   h
 	*/
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
 	mainCommitOID := createCommits(t, cfg, repoPath, "main", 2, "")
 	createCommits(t, cfg, repoPath, leftBranchName, leftCommits, mainCommitOID)

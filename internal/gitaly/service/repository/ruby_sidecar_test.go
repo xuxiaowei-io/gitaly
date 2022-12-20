@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -19,7 +18,7 @@ func TestWithRubySidecar(t *testing.T) {
 	t.Parallel()
 	cfg := testcfg.Build(t)
 
-	rubySrv := rubyserver.New(cfg, gittest.NewCommandFactory(t, cfg))
+	rubySrv := rubyserver.New(cfg, git.NewCommandFactory(t, cfg))
 	require.NoError(t, rubySrv.Start())
 	t.Cleanup(rubySrv.Stop)
 

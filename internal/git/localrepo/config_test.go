@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/safe"
@@ -78,14 +77,14 @@ func TestRepo_SetConfig(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg,
-				gittest.CreateRepositoryConfig{
+			repoProto, repoPath := git.CreateRepository(t, ctx, cfg,
+				git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 			repo := NewTestRepo(t, cfg, repoProto)
 
 			for _, entry := range tc.preexistingEntries {
-				gittest.Exec(t, cfg, "-C", repoPath, "config", "--add", entry.key, entry.value)
+				git.Exec(t, cfg, "-C", repoPath, "config", "--add", entry.key, entry.value)
 			}
 
 			if tc.locked {
@@ -101,7 +100,7 @@ func TestRepo_SetConfig(t *testing.T) {
 				"core.filemode=true",
 				"core.bare=true",
 			}
-			if gittest.ObjectHashIsSHA256() {
+			if git.ObjectHashIsSHA256() {
 				standardEntries = append(standardEntries, "core.repositoryformatversion=1")
 				standardEntries = append(standardEntries, "extensions.objectformat=sha256")
 			} else {
@@ -115,7 +114,7 @@ func TestRepo_SetConfig(t *testing.T) {
 				)
 			}
 
-			output := gittest.Exec(t, cfg, "-C", repoPath, "config", "--list", "--local")
+			output := git.Exec(t, cfg, "-C", repoPath, "config", "--list", "--local")
 			require.ElementsMatch(t,
 				append(standardEntries, tc.expectedEntries...),
 				strings.Split(text.ChompBytes(output), "\n"),
@@ -124,7 +123,7 @@ func TestRepo_SetConfig(t *testing.T) {
 	}
 
 	t.Run("transactional", func(t *testing.T) {
-		repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		repoProto, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 		})
 		repo := NewTestRepo(t, cfg, repoProto)
@@ -158,7 +157,7 @@ func TestRepo_UnsetMatchingConfig(t *testing.T) {
 	if runtime.GOOS == "darwin" {
 		standardKeys = append(standardKeys, "core.ignorecase", "core.precomposeunicode")
 	}
-	if gittest.ObjectHashIsSHA256() {
+	if git.ObjectHashIsSHA256() {
 		standardKeys = append(standardKeys, "extensions.objectformat")
 	}
 
@@ -233,13 +232,13 @@ func TestRepo_UnsetMatchingConfig(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 				SkipCreationViaService: true,
 			})
 			repo := NewTestRepo(t, cfg, repoProto)
 
 			for key, value := range tc.addEntries {
-				gittest.Exec(t, cfg, "-C", repoPath, "config", "--add", key, value)
+				git.Exec(t, cfg, "-C", repoPath, "config", "--add", key, value)
 			}
 
 			if tc.locked {
@@ -251,18 +250,18 @@ func TestRepo_UnsetMatchingConfig(t *testing.T) {
 
 			require.Equal(t, tc.expectedErr, repo.UnsetMatchingConfig(ctx, tc.regex, &transaction.MockManager{}))
 
-			output := gittest.Exec(t, cfg, "-C", repoPath, "config", "--list", "--name-only", "--local")
+			output := git.Exec(t, cfg, "-C", repoPath, "config", "--list", "--name-only", "--local")
 			require.ElementsMatch(t, tc.expectedKeys, strings.Split(text.ChompBytes(output), "\n"))
 		})
 	}
 
 	t.Run("transactional", func(t *testing.T) {
-		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 		})
 		repo := NewTestRepo(t, cfg, repoProto)
 
-		gittest.Exec(t, cfg, "-C", repoPath, "config", "--add", "some.key", "value")
+		git.Exec(t, cfg, "-C", repoPath, "config", "--add", "some.key", "value")
 
 		backchannelPeer := &peer.Peer{
 			AuthInfo: backchannel.WithID(nil, 1234),

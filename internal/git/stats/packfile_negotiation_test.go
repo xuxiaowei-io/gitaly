@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 )
 
 const (
@@ -25,11 +25,11 @@ func requireParses(t *testing.T, reader io.Reader, expected PackfileNegotiation)
 
 func TestPackNegoWithInvalidPktline(t *testing.T) {
 	buf := &bytes.Buffer{}
-	gittest.WritePktlineString(t, buf, "want "+oid1+" cap")
-	gittest.WritePktlineFlush(t, buf)
+	git.WritePktlineString(t, buf, "want "+oid1+" cap")
+	git.WritePktlineFlush(t, buf)
 	// Write string with invalid length
 	buf.WriteString("0002xyz")
-	gittest.WritePktlineString(t, buf, "done")
+	git.WritePktlineString(t, buf, "done")
 
 	_, err := ParsePackfileNegotiation(buf)
 	require.Error(t, err, "invalid pktlines should be rejected")
@@ -37,9 +37,9 @@ func TestPackNegoWithInvalidPktline(t *testing.T) {
 
 func TestPackNegoWithSingleWant(t *testing.T) {
 	buf := &bytes.Buffer{}
-	gittest.WritePktlineString(t, buf, "want "+oid1+" cap")
-	gittest.WritePktlineFlush(t, buf)
-	gittest.WritePktlineString(t, buf, "done")
+	git.WritePktlineString(t, buf, "want "+oid1+" cap")
+	git.WritePktlineFlush(t, buf)
+	git.WritePktlineString(t, buf, "done")
 
 	requireParses(t, buf, PackfileNegotiation{
 		Wants: 1, Caps: []string{"cap"},
@@ -48,9 +48,9 @@ func TestPackNegoWithSingleWant(t *testing.T) {
 
 func TestPackNegoWithMissingCaps(t *testing.T) {
 	buf := &bytes.Buffer{}
-	gittest.WritePktlineString(t, buf, "want "+oid1)
-	gittest.WritePktlineFlush(t, buf)
-	gittest.WritePktlineString(t, buf, "done")
+	git.WritePktlineString(t, buf, "want "+oid1)
+	git.WritePktlineFlush(t, buf)
+	git.WritePktlineString(t, buf, "done")
 
 	requireParses(t, buf, PackfileNegotiation{
 		Wants: 1,
@@ -59,8 +59,8 @@ func TestPackNegoWithMissingCaps(t *testing.T) {
 
 func TestPackNegoWithMissingWant(t *testing.T) {
 	buf := &bytes.Buffer{}
-	gittest.WritePktlineString(t, buf, "have "+oid2)
-	gittest.WritePktlineString(t, buf, "done")
+	git.WritePktlineString(t, buf, "have "+oid2)
+	git.WritePktlineString(t, buf, "done")
 
 	_, err := ParsePackfileNegotiation(buf)
 	require.Error(t, err, "packfile negotiation with missing 'want' is invalid")
@@ -68,10 +68,10 @@ func TestPackNegoWithMissingWant(t *testing.T) {
 
 func TestPackNegoWithHave(t *testing.T) {
 	buf := &bytes.Buffer{}
-	gittest.WritePktlineString(t, buf, "want "+oid1+" cap")
-	gittest.WritePktlineFlush(t, buf)
-	gittest.WritePktlineString(t, buf, "have "+oid2)
-	gittest.WritePktlineString(t, buf, "done")
+	git.WritePktlineString(t, buf, "want "+oid1+" cap")
+	git.WritePktlineFlush(t, buf)
+	git.WritePktlineString(t, buf, "have "+oid2)
+	git.WritePktlineString(t, buf, "done")
 
 	requireParses(t, buf, PackfileNegotiation{
 		Wants: 1, Haves: 1, Caps: []string{"cap"},
@@ -80,13 +80,13 @@ func TestPackNegoWithHave(t *testing.T) {
 
 func TestPackNegoWithMultipleHaveRoundds(t *testing.T) {
 	buf := &bytes.Buffer{}
-	gittest.WritePktlineString(t, buf, "want "+oid1+" cap")
-	gittest.WritePktlineFlush(t, buf)
-	gittest.WritePktlineString(t, buf, "have "+oid2)
-	gittest.WritePktlineFlush(t, buf)
-	gittest.WritePktlineString(t, buf, "have "+oid1)
-	gittest.WritePktlineFlush(t, buf)
-	gittest.WritePktlineString(t, buf, "done")
+	git.WritePktlineString(t, buf, "want "+oid1+" cap")
+	git.WritePktlineFlush(t, buf)
+	git.WritePktlineString(t, buf, "have "+oid2)
+	git.WritePktlineFlush(t, buf)
+	git.WritePktlineString(t, buf, "have "+oid1)
+	git.WritePktlineFlush(t, buf)
+	git.WritePktlineString(t, buf, "done")
 
 	requireParses(t, buf, PackfileNegotiation{
 		Wants: 1,
@@ -97,10 +97,10 @@ func TestPackNegoWithMultipleHaveRoundds(t *testing.T) {
 
 func TestPackNegoWithMultipleWants(t *testing.T) {
 	buf := &bytes.Buffer{}
-	gittest.WritePktlineString(t, buf, "want "+oid1+" cap")
-	gittest.WritePktlineString(t, buf, "want "+oid2)
-	gittest.WritePktlineFlush(t, buf)
-	gittest.WritePktlineString(t, buf, "done")
+	git.WritePktlineString(t, buf, "want "+oid1+" cap")
+	git.WritePktlineString(t, buf, "want "+oid2)
+	git.WritePktlineFlush(t, buf)
+	git.WritePktlineString(t, buf, "done")
 
 	requireParses(t, buf, PackfileNegotiation{
 		Wants: 2, Caps: []string{"cap"},
@@ -109,10 +109,10 @@ func TestPackNegoWithMultipleWants(t *testing.T) {
 
 func TestPackNegoWithMultipleCapLines(t *testing.T) {
 	buf := &bytes.Buffer{}
-	gittest.WritePktlineString(t, buf, "want "+oid1+" cap1")
-	gittest.WritePktlineString(t, buf, "want "+oid2+" cap2")
-	gittest.WritePktlineFlush(t, buf)
-	gittest.WritePktlineString(t, buf, "done")
+	git.WritePktlineString(t, buf, "want "+oid1+" cap1")
+	git.WritePktlineString(t, buf, "want "+oid2+" cap2")
+	git.WritePktlineFlush(t, buf)
+	git.WritePktlineString(t, buf, "done")
 
 	_, err := ParsePackfileNegotiation(buf)
 	require.Error(t, err, "multiple capability announcements should fail to parse")
@@ -120,10 +120,10 @@ func TestPackNegoWithMultipleCapLines(t *testing.T) {
 
 func TestPackNegoWithDeepen(t *testing.T) {
 	buf := &bytes.Buffer{}
-	gittest.WritePktlineString(t, buf, "want "+oid1+" cap")
-	gittest.WritePktlineString(t, buf, "deepen 1")
-	gittest.WritePktlineFlush(t, buf)
-	gittest.WritePktlineString(t, buf, "done")
+	git.WritePktlineString(t, buf, "want "+oid1+" cap")
+	git.WritePktlineString(t, buf, "deepen 1")
+	git.WritePktlineFlush(t, buf)
+	git.WritePktlineString(t, buf, "done")
 
 	requireParses(t, buf, PackfileNegotiation{
 		Wants:  1,
@@ -134,12 +134,12 @@ func TestPackNegoWithDeepen(t *testing.T) {
 
 func TestPackNegoWithMultipleDeepens(t *testing.T) {
 	buf := &bytes.Buffer{}
-	gittest.WritePktlineString(t, buf, "want "+oid1+" cap")
-	gittest.WritePktlineFlush(t, buf)
-	gittest.WritePktlineString(t, buf, "deepen 1")
-	gittest.WritePktlineString(t, buf, "deepen-not "+oid2)
-	gittest.WritePktlineFlush(t, buf)
-	gittest.WritePktlineString(t, buf, "done")
+	git.WritePktlineString(t, buf, "want "+oid1+" cap")
+	git.WritePktlineFlush(t, buf)
+	git.WritePktlineString(t, buf, "deepen 1")
+	git.WritePktlineString(t, buf, "deepen-not "+oid2)
+	git.WritePktlineFlush(t, buf)
+	git.WritePktlineString(t, buf, "done")
 
 	requireParses(t, buf, PackfileNegotiation{
 		Wants:  1,
@@ -150,10 +150,10 @@ func TestPackNegoWithMultipleDeepens(t *testing.T) {
 
 func TestPackNegoWithShallow(t *testing.T) {
 	buf := &bytes.Buffer{}
-	gittest.WritePktlineString(t, buf, "want "+oid1+" cap")
-	gittest.WritePktlineString(t, buf, "shallow "+oid1)
-	gittest.WritePktlineFlush(t, buf)
-	gittest.WritePktlineString(t, buf, "done")
+	git.WritePktlineString(t, buf, "want "+oid1+" cap")
+	git.WritePktlineString(t, buf, "shallow "+oid1)
+	git.WritePktlineFlush(t, buf)
+	git.WritePktlineString(t, buf, "done")
 
 	requireParses(t, buf, PackfileNegotiation{
 		Wants:    1,
@@ -164,11 +164,11 @@ func TestPackNegoWithShallow(t *testing.T) {
 
 func TestPackNegoWithMultipleShallows(t *testing.T) {
 	buf := &bytes.Buffer{}
-	gittest.WritePktlineString(t, buf, "want "+oid1+" cap")
-	gittest.WritePktlineString(t, buf, "shallow "+oid1)
-	gittest.WritePktlineString(t, buf, "shallow "+oid2)
-	gittest.WritePktlineFlush(t, buf)
-	gittest.WritePktlineString(t, buf, "done")
+	git.WritePktlineString(t, buf, "want "+oid1+" cap")
+	git.WritePktlineString(t, buf, "shallow "+oid1)
+	git.WritePktlineString(t, buf, "shallow "+oid2)
+	git.WritePktlineFlush(t, buf)
+	git.WritePktlineString(t, buf, "done")
 
 	requireParses(t, buf, PackfileNegotiation{
 		Wants:    1,
@@ -179,10 +179,10 @@ func TestPackNegoWithMultipleShallows(t *testing.T) {
 
 func TestPackNegoWithFilter(t *testing.T) {
 	buf := &bytes.Buffer{}
-	gittest.WritePktlineString(t, buf, "want "+oid1+" cap")
-	gittest.WritePktlineString(t, buf, "filter blob:none")
-	gittest.WritePktlineFlush(t, buf)
-	gittest.WritePktlineString(t, buf, "done")
+	git.WritePktlineString(t, buf, "want "+oid1+" cap")
+	git.WritePktlineString(t, buf, "filter blob:none")
+	git.WritePktlineFlush(t, buf)
+	git.WritePktlineString(t, buf, "done")
 
 	requireParses(t, buf, PackfileNegotiation{
 		Wants:  1,
@@ -193,11 +193,11 @@ func TestPackNegoWithFilter(t *testing.T) {
 
 func TestPackNegoWithMultipleFilters(t *testing.T) {
 	buf := &bytes.Buffer{}
-	gittest.WritePktlineString(t, buf, "want "+oid1+" cap")
-	gittest.WritePktlineString(t, buf, "filter blob:none")
-	gittest.WritePktlineString(t, buf, "filter blob:limit=1m")
-	gittest.WritePktlineFlush(t, buf)
-	gittest.WritePktlineString(t, buf, "done")
+	git.WritePktlineString(t, buf, "want "+oid1+" cap")
+	git.WritePktlineString(t, buf, "filter blob:none")
+	git.WritePktlineString(t, buf, "filter blob:limit=1m")
+	git.WritePktlineFlush(t, buf)
+	git.WritePktlineString(t, buf, "done")
 
 	requireParses(t, buf, PackfileNegotiation{
 		Wants:  1,
@@ -208,18 +208,18 @@ func TestPackNegoWithMultipleFilters(t *testing.T) {
 
 func TestPackNegoFullBlown(t *testing.T) {
 	buf := &bytes.Buffer{}
-	gittest.WritePktlineString(t, buf, "want "+oid1+" cap1 cap2")
-	gittest.WritePktlineString(t, buf, "want "+oid2)
-	gittest.WritePktlineString(t, buf, "shallow "+oid2)
-	gittest.WritePktlineString(t, buf, "shallow "+oid1)
-	gittest.WritePktlineString(t, buf, "deepen 1")
-	gittest.WritePktlineString(t, buf, "filter blob:none")
-	gittest.WritePktlineFlush(t, buf)
-	gittest.WritePktlineString(t, buf, "have "+oid2)
-	gittest.WritePktlineFlush(t, buf)
-	gittest.WritePktlineString(t, buf, "have "+oid1)
-	gittest.WritePktlineFlush(t, buf)
-	gittest.WritePktlineString(t, buf, "done")
+	git.WritePktlineString(t, buf, "want "+oid1+" cap1 cap2")
+	git.WritePktlineString(t, buf, "want "+oid2)
+	git.WritePktlineString(t, buf, "shallow "+oid2)
+	git.WritePktlineString(t, buf, "shallow "+oid1)
+	git.WritePktlineString(t, buf, "deepen 1")
+	git.WritePktlineString(t, buf, "filter blob:none")
+	git.WritePktlineFlush(t, buf)
+	git.WritePktlineString(t, buf, "have "+oid2)
+	git.WritePktlineFlush(t, buf)
+	git.WritePktlineString(t, buf, "have "+oid1)
+	git.WritePktlineFlush(t, buf)
+	git.WritePktlineString(t, buf, "done")
 
 	requireParses(t, buf, PackfileNegotiation{
 		Wants:    2,

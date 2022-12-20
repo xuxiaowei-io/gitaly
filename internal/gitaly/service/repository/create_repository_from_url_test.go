@@ -14,7 +14,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/praefectutil"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -29,7 +28,7 @@ func TestCreateRepositoryFromURL_successful(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg, _, repoPath, client := setupRepositoryService(t, ctx)
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+	gitCmdFactory := git.NewCommandFactory(t, cfg)
 
 	importedRepo := &gitalypb.Repository{
 		RelativePath: "imports/test-repo-imported.git",
@@ -50,11 +49,11 @@ func TestCreateRepositoryFromURL_successful(t *testing.T) {
 	_, err := client.CreateRepositoryFromURL(ctx, req)
 	require.NoError(t, err)
 
-	importedRepoPath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(t, ctx, cfg, importedRepo))
+	importedRepoPath := filepath.Join(cfg.Storages[0].Path, git.GetReplicaPath(t, ctx, cfg, importedRepo))
 
-	gittest.Exec(t, cfg, "-C", importedRepoPath, "fsck")
+	git.Exec(t, cfg, "-C", importedRepoPath, "fsck")
 
-	remotes := gittest.Exec(t, cfg, "-C", importedRepoPath, "remote")
+	remotes := git.Exec(t, cfg, "-C", importedRepoPath, "remote")
 	require.NotContains(t, string(remotes), "origin")
 
 	_, err = os.Lstat(filepath.Join(importedRepoPath, "hooks"))
@@ -66,11 +65,11 @@ func TestCreateRepositoryFromURL_successfulWithOptionalParameters(t *testing.T) 
 
 	ctx := testhelper.Context(t)
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+	gitCmdFactory := git.NewCommandFactory(t, cfg)
 
-	_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
-	gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch(git.DefaultBranch))
-	gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithReference("refs/merge-requests/1/head"))
+	_, remoteRepoPath := git.CreateRepository(t, ctx, cfg)
+	git.WriteTestCommit(t, cfg, remoteRepoPath, git.WithBranch(git.DefaultBranch))
+	git.WriteTestCommit(t, cfg, remoteRepoPath, git.WithReference("refs/merge-requests/1/head"))
 
 	user := "username123"
 	password := "password321localhost"
@@ -90,12 +89,12 @@ func TestCreateRepositoryFromURL_successfulWithOptionalParameters(t *testing.T) 
 	})
 	require.NoError(t, err)
 
-	importedRepoPath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(t, ctx, cfg, importedRepo))
-	gittest.Exec(t, cfg, "-C", importedRepoPath, "fsck")
-	require.Empty(t, gittest.Exec(t, cfg, "-C", importedRepoPath, "remote"))
+	importedRepoPath := filepath.Join(cfg.Storages[0].Path, git.GetReplicaPath(t, ctx, cfg, importedRepo))
+	git.Exec(t, cfg, "-C", importedRepoPath, "fsck")
+	require.Empty(t, git.Exec(t, cfg, "-C", importedRepoPath, "remote"))
 	require.Equal(t,
 		[]string{"refs/heads/" + git.DefaultBranch, "refs/merge-requests/1/head"},
-		strings.Split(text.ChompBytes(gittest.Exec(t, cfg, "-C", importedRepoPath, "for-each-ref", "--format=%(refname)")), "\n"),
+		strings.Split(text.ChompBytes(git.Exec(t, cfg, "-C", importedRepoPath, "for-each-ref", "--format=%(refname)")), "\n"),
 	)
 	require.NoDirExists(t, filepath.Join(importedRepoPath, "hooks"))
 }
@@ -183,21 +182,21 @@ func TestCreateRepositoryFromURL_fsck(t *testing.T) {
 
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	_, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
+	_, sourceRepoPath := git.CreateRepository(t, ctx, cfg)
 
 	// We're creating a new commit which has a root tree with duplicate entries. git-mktree(1)
 	// allows us to create these trees just fine, but git-fsck(1) complains.
-	gittest.WriteCommit(t, cfg, sourceRepoPath,
-		gittest.WithParents(),
-		gittest.WithBranch("main"),
-		gittest.WithTreeEntries(
-			gittest.TreeEntry{Content: "content", Path: "dup", Mode: "100644"},
-			gittest.TreeEntry{Content: "content", Path: "dup", Mode: "100644"},
+	git.WriteTestCommit(t, cfg, sourceRepoPath,
+		git.WithParents(),
+		git.WithBranch("main"),
+		git.WithTreeEntries(
+			git.TreeEntry{Content: "content", Path: "dup", Mode: "100644"},
+			git.TreeEntry{Content: "content", Path: "dup", Mode: "100644"},
 		),
 	)
 
 	targetRepoProto := &gitalypb.Repository{
-		RelativePath: gittest.NewRepositoryName(t),
+		RelativePath: git.NewRepositoryName(t),
 		StorageName:  cfg.Storages[0].Name,
 	}
 
@@ -214,7 +213,7 @@ func TestServer_CloneFromURLCommand(t *testing.T) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
-	s := server{cfg: cfg, gitCmdFactory: gittest.NewCommandFactory(t, cfg)}
+	s := server{cfg: cfg, gitCmdFactory: git.NewCommandFactory(t, cfg)}
 
 	user, password := "example_user", "pass%21%3F%40"
 
@@ -317,7 +316,7 @@ func TestServer_CloneFromURLCommand_withMirror(t *testing.T) {
 	url := "https://www.example.com/secretrepo.git"
 
 	cfg := testcfg.Build(t)
-	s := server{cfg: cfg, gitCmdFactory: gittest.NewCommandFactory(t, cfg)}
+	s := server{cfg: cfg, gitCmdFactory: git.NewCommandFactory(t, cfg)}
 	cmd, err := s.cloneFromURLCommand(ctx, url, "", "", repositoryFullPath, "", true, git.WithDisabledHooks())
 	require.NoError(t, err)
 
@@ -362,7 +361,7 @@ func TestServer_CloneFromURLCommand_validate(t *testing.T) {
 }
 
 func gitServerWithBasicAuth(tb testing.TB, ctx context.Context, gitCmdFactory git.CommandFactory, user, pass, repoPath string) int {
-	return gittest.HTTPServer(tb, ctx, gitCmdFactory, repoPath, basicAuthMiddleware(tb, user, pass))
+	return git.HTTPServer(tb, ctx, gitCmdFactory, repoPath, basicAuthMiddleware(tb, user, pass))
 }
 
 func basicAuthMiddleware(tb testing.TB, user, pass string) func(http.ResponseWriter, *http.Request, http.Handler) {

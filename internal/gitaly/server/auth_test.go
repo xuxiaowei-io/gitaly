@@ -18,8 +18,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/cache"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/auth"
@@ -196,7 +196,7 @@ func runServer(t *testing.T, cfg config.Cfg) string {
 	t.Cleanup(func() { conns.Close() })
 	locator := config.NewLocator(cfg)
 	txManager := transaction.NewManager(cfg, registry)
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+	gitCmdFactory := git.NewCommandFactory(t, cfg)
 	hookManager := hook.NewManager(cfg, locator, gitCmdFactory, txManager, gitlab.NewMockClient(
 		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
 	))
@@ -318,7 +318,7 @@ func TestAuthBeforeLimit(t *testing.T) {
 
 	gitlabURL, cleanup := gitlab.SetupAndStartGitlabServer(t, cfg.GitlabShell.Dir, &gitlab.TestServerOptions{
 		SecretToken:                 "secretToken",
-		GLID:                        gittest.GlID,
+		GLID:                        git.GlID,
 		GLRepository:                repo.GetGlRepository(),
 		PostReceiveCounterDecreased: true,
 		Protocol:                    "web",
@@ -336,7 +336,7 @@ func TestAuthBeforeLimit(t *testing.T) {
 	}(gitalyauth.TokenValidityDuration())
 	gitalyauth.SetTokenValidityDuration(5 * time.Second)
 
-	gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte(fmt.Sprintf(`#!/bin/bash
+	git.WriteCustomHook(t, repoPath, "pre-receive", []byte(fmt.Sprintf(`#!/bin/bash
 sleep %v
 `, gitalyauth.TokenValidityDuration().Seconds())))
 
@@ -349,7 +349,7 @@ sleep %v
 				Repository:     repo,
 				TagName:        []byte(fmt.Sprintf("tag-name-%d", i)),
 				TargetRevision: []byte("c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd"),
-				User:           gittest.TestUser,
+				User:           git.TestUser,
 				Message:        []byte("a new tag!"),
 			})
 			errChan <- err

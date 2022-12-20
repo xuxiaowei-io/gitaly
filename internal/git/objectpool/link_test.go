@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -41,7 +41,7 @@ func TestLink(t *testing.T) {
 	newContent := testhelper.MustReadFile(t, altPath)
 	require.Equal(t, content, newContent)
 
-	require.Empty(t, gittest.Exec(t, cfg, "-C", gittest.RepositoryPath(t, pool), "remote"))
+	require.Empty(t, git.Exec(t, cfg, "-C", git.RepositoryPath(t, pool), "remote"))
 }
 
 func TestLink_transactional(t *testing.T) {
@@ -75,18 +75,18 @@ func TestLink_removeBitmap(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg, pool, repo := setupObjectPool(t, ctx)
-	poolPath := gittest.RepositoryPath(t, pool)
-	repoPath := gittest.RepositoryPath(t, repo)
+	poolPath := git.RepositoryPath(t, pool)
+	repoPath := git.RepositoryPath(t, repo)
 
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
+	git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("master"))
 
 	// Pull in all references from the repository.
-	gittest.Exec(t, cfg, "-C", poolPath, "fetch", repoPath, "+refs/*:refs/*")
+	git.Exec(t, cfg, "-C", poolPath, "fetch", repoPath, "+refs/*:refs/*")
 
 	// Repack both the object pool and the pool member such that they both have bitmaps.
-	gittest.Exec(t, cfg, "-C", poolPath, "repack", "-adb")
+	git.Exec(t, cfg, "-C", poolPath, "repack", "-adb")
 	requireHasBitmap(t, poolPath, true)
-	gittest.Exec(t, cfg, "-C", repoPath, "repack", "-adb")
+	git.Exec(t, cfg, "-C", repoPath, "repack", "-adb")
 	requireHasBitmap(t, repoPath, true)
 
 	// After linking the repository to its pool it should not have a bitmap anymore as Git does
@@ -96,7 +96,7 @@ func TestLink_removeBitmap(t *testing.T) {
 	requireHasBitmap(t, repoPath, false)
 
 	// Sanity-check that the repository is still consistent.
-	gittest.Exec(t, cfg, "-C", repoPath, "fsck")
+	git.Exec(t, cfg, "-C", repoPath, "fsck")
 }
 
 func requireHasBitmap(t *testing.T, repoPath string, expected bool) {
@@ -111,9 +111,9 @@ func TestLink_absoluteLinkExists(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg, pool, repo := setupObjectPool(t, ctx)
-	poolPath := gittest.RepositoryPath(t, pool)
-	poolObjectsPath := gittest.RepositoryPath(t, pool, "objects")
-	repoPath := gittest.RepositoryPath(t, repo)
+	poolPath := git.RepositoryPath(t, pool)
+	poolObjectsPath := git.RepositoryPath(t, pool, "objects")
+	repoPath := git.RepositoryPath(t, repo)
 
 	altPath, err := repo.InfoAlternatesPath()
 	require.NoError(t, err)
@@ -130,5 +130,5 @@ func TestLink_absoluteLinkExists(t *testing.T) {
 	repoObjectsPath := filepath.Join(repoPath, "objects")
 	require.Equal(t, poolObjectsPath, filepath.Join(repoObjectsPath, string(content)), "the content of the alternates file should be the relative version of the absolute pat")
 
-	require.Empty(t, gittest.Exec(t, cfg, "-C", poolPath, "remote"))
+	require.Empty(t, git.Exec(t, cfg, "-C", poolPath, "remote"))
 }

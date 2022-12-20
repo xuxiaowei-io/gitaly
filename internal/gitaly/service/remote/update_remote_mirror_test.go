@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
@@ -526,9 +525,9 @@ func TestUpdateRemoteMirror(t *testing.T) {
 			})
 			cfg.SocketPath = addr
 
-			mirrorRepoPb, mirrorRepoPath := gittest.CreateRepository(t, ctx, cfg)
+			mirrorRepoPb, mirrorRepoPath := git.CreateRepository(t, ctx, cfg)
 			mirrorRepo := localrepo.NewTestRepo(t, cfg, mirrorRepoPb)
-			sourceRepoPb, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
+			sourceRepoPb, sourceRepoPath := git.CreateRepository(t, ctx, cfg)
 			sourceRepo := localrepo.NewTestRepo(t, cfg, sourceRepoPb)
 
 			// construct the starting state of the repositories
@@ -567,9 +566,9 @@ func TestUpdateRemoteMirror(t *testing.T) {
 							parents = []git.ObjectID{commitOID}
 						}
 
-						commitOID = gittest.WriteCommit(t, cfg, repoPath,
-							gittest.WithMessage(commit),
-							gittest.WithParents(parents...),
+						commitOID = git.WriteTestCommit(t, cfg, repoPath,
+							git.WithMessage(commit),
+							git.WithParents(parents...),
 						)
 
 						commitsByMessage[commit] = commitOID
@@ -595,7 +594,7 @@ func TestUpdateRemoteMirror(t *testing.T) {
 				mirrorRepoPath: tc.mirrorSymRefs,
 			} {
 				for symRef, targetRef := range symRefs {
-					gittest.Exec(t, cfg, "-C", repoPath, "symbolic-ref", symRef, targetRef)
+					git.Exec(t, cfg, "-C", repoPath, "symbolic-ref", symRef, targetRef)
 				}
 			}
 
@@ -634,7 +633,7 @@ func TestUpdateRemoteMirror(t *testing.T) {
 			// the same.
 			actualMirrorRefs := map[string]string{}
 
-			refLines := strings.Split(text.ChompBytes(gittest.Exec(t, cfg, "-C", mirrorRepoPath, "for-each-ref", "--format=%(refname)%00%(contents:subject)")), "\n")
+			refLines := strings.Split(text.ChompBytes(git.Exec(t, cfg, "-C", mirrorRepoPath, "for-each-ref", "--format=%(refname)%00%(contents:subject)")), "\n")
 			for _, line := range refLines {
 				if line == "" {
 					continue
@@ -654,18 +653,18 @@ func TestSuccessfulUpdateRemoteMirrorRequest(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg, testRepo, testRepoPath, client := setupRemoteService(t, ctx)
-	_, mirrorPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	_, mirrorPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
-	gittest.WriteTag(t, cfg, mirrorPath, "v0.0.1", "master") // I needed another tag for the tests
-	gittest.WriteTag(t, cfg, testRepoPath, "new-tag", "60ecb67744cb56576c30214ff52294f8ce2def98")
-	gittest.WriteTag(t, cfg, testRepoPath, "v1.0.0", "0b4bc9a49b562e85de7cc9e834518ea6828729b9", gittest.WriteTagConfig{
+	git.WriteTag(t, cfg, mirrorPath, "v0.0.1", "master") // I needed another tag for the tests
+	git.WriteTag(t, cfg, testRepoPath, "new-tag", "60ecb67744cb56576c30214ff52294f8ce2def98")
+	git.WriteTag(t, cfg, testRepoPath, "v1.0.0", "0b4bc9a49b562e85de7cc9e834518ea6828729b9", git.WriteTagConfig{
 		Message: "Overriding tag", Force: true,
 	})
 
 	// Create a commit that only exists in the mirror
-	mirrorOnlyCommitOid := gittest.WriteCommit(t, cfg, mirrorPath, gittest.WithBranch("master"))
+	mirrorOnlyCommitOid := git.WriteTestCommit(t, cfg, mirrorPath, git.WithBranch("master"))
 	require.NotEmpty(t, mirrorOnlyCommitOid)
 
 	setupCommands := [][]string{
@@ -687,10 +686,10 @@ func TestSuccessfulUpdateRemoteMirrorRequest(t *testing.T) {
 	for _, args := range setupCommands {
 		gitArgs := []string{"-C", testRepoPath}
 		gitArgs = append(gitArgs, args...)
-		gittest.Exec(t, cfg, gitArgs...)
+		git.Exec(t, cfg, gitArgs...)
 	}
 
-	newTagOid := string(gittest.Exec(t, cfg, "-C", testRepoPath, "rev-parse", "v1.0.0"))
+	newTagOid := string(git.Exec(t, cfg, "-C", testRepoPath, "rev-parse", "v1.0.0"))
 	newTagOid = strings.TrimSpace(newTagOid)
 	require.NotEqual(t, newTagOid, "f4e6814c3e4e7a0de82a9e7cd20c626cc963a2f8") // Sanity check that the tag did in fact change
 
@@ -719,10 +718,10 @@ func TestSuccessfulUpdateRemoteMirrorRequest(t *testing.T) {
 	require.Empty(t, response.DivergentRefs)
 
 	// Ensure the local repository still has no reference to the mirror-only commit
-	localRefs := string(gittest.Exec(t, cfg, "-C", testRepoPath, "for-each-ref"))
+	localRefs := string(git.Exec(t, cfg, "-C", testRepoPath, "for-each-ref"))
 	require.NotContains(t, localRefs, mirrorOnlyCommitOid)
 
-	mirrorRefs := string(gittest.Exec(t, cfg, "-C", mirrorPath, "for-each-ref"))
+	mirrorRefs := string(git.Exec(t, cfg, "-C", mirrorPath, "for-each-ref"))
 
 	require.Contains(t, mirrorRefs, mirrorOnlyCommitOid)
 	require.Contains(t, mirrorRefs, "60ecb67744cb56576c30214ff52294f8ce2def98 commit\trefs/heads/new-branch")
@@ -742,8 +741,8 @@ func TestSuccessfulUpdateRemoteMirrorRequestWithWildcards(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, testRepo, testRepoPath, client := setupRemoteService(t, ctx)
 
-	_, mirrorPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	_, mirrorPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	setupCommands := [][]string{
@@ -760,21 +759,21 @@ func TestSuccessfulUpdateRemoteMirrorRequestWithWildcards(t *testing.T) {
 		{"tag", "--delete", "v1.1.0"},         // v1.1.0 is ambiguous, maps to a branch and a tag in gitlab-test repository
 	}
 
-	gittest.WriteTag(t, cfg, testRepoPath, "new-tag", "60ecb67744cb56576c30214ff52294f8ce2def98") // Add tag
-	gittest.WriteTag(t, cfg, testRepoPath, "v1.0.0", "0b4bc9a49b562e85de7cc9e834518ea6828729b9",
-		gittest.WriteTagConfig{Message: "Overriding tag", Force: true}) // Update tag
+	git.WriteTag(t, cfg, testRepoPath, "new-tag", "60ecb67744cb56576c30214ff52294f8ce2def98") // Add tag
+	git.WriteTag(t, cfg, testRepoPath, "v1.0.0", "0b4bc9a49b562e85de7cc9e834518ea6828729b9",
+		git.WriteTagConfig{Message: "Overriding tag", Force: true}) // Update tag
 
 	for _, args := range setupCommands {
 		gitArgs := []string{"-C", testRepoPath}
 		gitArgs = append(gitArgs, args...)
-		gittest.Exec(t, cfg, gitArgs...)
+		git.Exec(t, cfg, gitArgs...)
 	}
 
 	// Workaround for https://gitlab.com/gitlab-org/gitaly/issues/1439
 	// Create a tag on the remote to ensure it gets deleted later
-	gittest.WriteTag(t, cfg, mirrorPath, "v1.2.0", "master")
+	git.WriteTag(t, cfg, mirrorPath, "v1.2.0", "master")
 
-	newTagOid := string(gittest.Exec(t, cfg, "-C", testRepoPath, "rev-parse", "v1.0.0"))
+	newTagOid := string(git.Exec(t, cfg, "-C", testRepoPath, "rev-parse", "v1.0.0"))
 	newTagOid = strings.TrimSpace(newTagOid)
 	require.NotEqual(t, newTagOid, "f4e6814c3e4e7a0de82a9e7cd20c626cc963a2f8") // Sanity check that the tag did in fact change
 	firstRequest := &gitalypb.UpdateRemoteMirrorRequest{
@@ -793,7 +792,7 @@ func TestSuccessfulUpdateRemoteMirrorRequestWithWildcards(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, response.DivergentRefs)
 
-	mirrorRefs := string(gittest.Exec(t, cfg, "-C", mirrorPath, "for-each-ref"))
+	mirrorRefs := string(git.Exec(t, cfg, "-C", mirrorPath, "for-each-ref"))
 	require.Contains(t, mirrorRefs, "60ecb67744cb56576c30214ff52294f8ce2def98 commit\trefs/heads/11-0-stable")
 	require.Contains(t, mirrorRefs, "60ecb67744cb56576c30214ff52294f8ce2def98 commit\trefs/heads/11-1-stable")
 	require.Contains(t, mirrorRefs, "0b4bc9a49b562e85de7cc9e834518ea6828729b9 commit\trefs/heads/feature")
@@ -812,10 +811,10 @@ func TestUpdateRemoteMirrorInmemory(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg, localRepo, localPath, client := setupRemoteService(t, ctx)
-	gittest.WriteCommit(t, cfg, localPath)
+	git.WriteTestCommit(t, cfg, localPath)
 
-	_, remotePath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	_, remotePath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	stream, err := client.UpdateRemoteMirror(ctx)
@@ -832,8 +831,8 @@ func TestUpdateRemoteMirrorInmemory(t *testing.T) {
 	require.NoError(t, err)
 	testhelper.ProtoEqual(t, &gitalypb.UpdateRemoteMirrorResponse{}, response)
 
-	localRefs := string(gittest.Exec(t, cfg, "-C", localPath, "for-each-ref"))
-	remoteRefs := string(gittest.Exec(t, cfg, "-C", remotePath, "for-each-ref"))
+	localRefs := string(git.Exec(t, cfg, "-C", localPath, "for-each-ref"))
+	remoteRefs := string(git.Exec(t, cfg, "-C", remotePath, "for-each-ref"))
 	require.Equal(t, localRefs, remoteRefs)
 }
 
@@ -842,11 +841,11 @@ func TestSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefs(t *testing.T) 
 
 	ctx := testhelper.Context(t)
 	cfg, testRepo, testRepoPath, client := setupRemoteService(t, ctx)
-	_, mirrorPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	_, mirrorPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
-	gittest.WriteTag(t, cfg, mirrorPath, "v2.0.0", "master")
+	git.WriteTag(t, cfg, mirrorPath, "v2.0.0", "master")
 
 	setupCommands := [][]string{
 		// Preconditions
@@ -863,7 +862,7 @@ func TestSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefs(t *testing.T) 
 	for _, args := range setupCommands {
 		gitArgs := []string{"-C", testRepoPath}
 		gitArgs = append(gitArgs, args...)
-		gittest.Exec(t, cfg, gitArgs...)
+		git.Exec(t, cfg, gitArgs...)
 	}
 	firstRequest := &gitalypb.UpdateRemoteMirrorRequest{
 		Repository: testRepo,
@@ -881,7 +880,7 @@ func TestSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefs(t *testing.T) 
 	require.NoError(t, err)
 	require.ElementsMatch(t, response.DivergentRefs, [][]byte{[]byte("refs/heads/master")})
 
-	mirrorRefs := string(gittest.Exec(t, cfg, "-C", mirrorPath, "for-each-ref"))
+	mirrorRefs := string(git.Exec(t, cfg, "-C", mirrorPath, "for-each-ref"))
 
 	// Verify `master` didn't get updated, since its HEAD is no longer an ancestor of remote's version
 	require.Contains(t, mirrorRefs, "1e292f8fedd741b75372e19097c76d327140c312 commit\trefs/heads/master")
@@ -900,7 +899,7 @@ func TestSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefs(t *testing.T) 
 	_, err = stream.CloseAndRecv()
 	require.NoError(t, err)
 
-	mirrorRefs = string(gittest.Exec(t, cfg, "-C", mirrorPath, "for-each-ref"))
+	mirrorRefs = string(git.Exec(t, cfg, "-C", mirrorPath, "for-each-ref"))
 
 	// Verify `master` gets overwritten with the value from the source
 	require.Contains(t, mirrorRefs, "ba3faa7dbecdb555c748b36e8bc0f427e69de5e7 commit\trefs/heads/master")

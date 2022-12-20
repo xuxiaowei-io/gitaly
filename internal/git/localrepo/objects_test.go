@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
@@ -112,7 +111,7 @@ func TestFormatTag(t *testing.T) {
 		// internal/gitaly/service/operations/tags_test.go
 		{
 			desc:       "basic signature",
-			objectID:   gittest.DefaultObjectHash.ZeroOID,
+			objectID:   git.DefaultObjectHash.ZeroOID,
 			objectType: "commit",
 			tagName:    []byte("my-tag"),
 			author: &gitalypb.User{
@@ -123,7 +122,7 @@ func TestFormatTag(t *testing.T) {
 		},
 		{
 			desc:       "basic signature",
-			objectID:   gittest.DefaultObjectHash.ZeroOID,
+			objectID:   git.DefaultObjectHash.ZeroOID,
 			objectType: "commit",
 			tagName:    []byte("my-tag\ninjection"),
 			tagBody:    []byte(""),
@@ -135,7 +134,7 @@ func TestFormatTag(t *testing.T) {
 		},
 		{
 			desc:       "signature with fixed time",
-			objectID:   gittest.DefaultObjectHash.ZeroOID,
+			objectID:   git.DefaultObjectHash.ZeroOID,
 			objectType: "commit",
 			tagName:    []byte("my-tag"),
 			tagBody:    []byte(""),
@@ -168,7 +167,7 @@ func TestRepo_WriteTag(t *testing.T) {
 
 	cfg, repo, repoPath := setupRepo(t)
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath)
+	commitID := git.WriteTestCommit(t, cfg, repoPath)
 
 	for _, tc := range []struct {
 		desc        string
@@ -232,11 +231,11 @@ tagger root <root@localhost> 12345 -0100
 			tagObjID, err := repo.WriteTag(ctx, tc.objectID, tc.objectType, tc.tagName, tc.tagBody, tc.author, tc.authorDate)
 			require.NoError(t, err)
 
-			repoTagObjID := gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", tagObjID.String())
+			repoTagObjID := git.Exec(t, cfg, "-C", repoPath, "rev-parse", tagObjID.String())
 			require.Equal(t, text.ChompBytes(repoTagObjID), tagObjID.String())
 
 			if tc.expectedTag != "" {
-				tag := gittest.Exec(t, cfg, "-C", repoPath, "cat-file", "-p", tagObjID.String())
+				tag := git.Exec(t, cfg, "-C", repoPath, "cat-file", "-p", tagObjID.String())
 				require.Equal(t, tc.expectedTag, text.ChompBytes(tag))
 			}
 		})
@@ -251,7 +250,7 @@ func TestRepo_ReadObject(t *testing.T) {
 
 func testRepoReadObject(t *testing.T, ctx context.Context) {
 	cfg, repo, repoPath := setupRepo(t)
-	blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("content"))
+	blobID := git.WriteBlob(t, cfg, repoPath, []byte("content"))
 
 	for _, tc := range []struct {
 		desc    string
@@ -261,8 +260,8 @@ func testRepoReadObject(t *testing.T, ctx context.Context) {
 	}{
 		{
 			desc:  "invalid object",
-			oid:   gittest.DefaultObjectHash.ZeroOID,
-			error: InvalidObjectError(gittest.DefaultObjectHash.ZeroOID.String()),
+			oid:   git.DefaultObjectHash.ZeroOID,
+			error: InvalidObjectError(git.DefaultObjectHash.ZeroOID.String()),
 		},
 		{
 			desc:    "valid object",
@@ -287,7 +286,7 @@ func TestRepo_ReadObject_catfileCount(t *testing.T) {
 func testRepoReadObjectCatfileCount(t *testing.T, ctx context.Context) {
 	cfg := testcfg.Build(t)
 
-	gitCmdFactory := gittest.NewCountingCommandFactory(t, cfg)
+	gitCmdFactory := git.NewCountingCommandFactory(t, cfg)
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
 
@@ -296,12 +295,12 @@ func testRepoReadObjectCatfileCount(t *testing.T, ctx context.Context) {
 		metadata.Pairs(catfile.SessionIDField, "1"),
 	)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := New(config.NewLocator(cfg), gitCmdFactory, catfileCache, repoProto)
 
-	blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("content"))
+	blobID := git.WriteBlob(t, cfg, repoPath, []byte("content"))
 
 	expected := 10
 	for i := 0; i < expected; i++ {
@@ -323,26 +322,26 @@ func TestRepo_ReadCommit(t *testing.T) {
 
 	cfg, repo, repoPath := setupRepo(t)
 
-	firstParentID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("first parent"))
-	secondParentID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("second parent"))
+	firstParentID := git.WriteTestCommit(t, cfg, repoPath, git.WithMessage("first parent"))
+	secondParentID := git.WriteTestCommit(t, cfg, repoPath, git.WithMessage("second parent"))
 
-	treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+	treeID := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 		{Path: "file", Mode: "100644", Content: "content"},
 	})
-	commitWithoutTrailers := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithParents(firstParentID, secondParentID),
-		gittest.WithTree(treeID),
-		gittest.WithMessage("subject\n\nbody\n"),
-		gittest.WithBranch("main"),
+	commitWithoutTrailers := git.WriteTestCommit(t, cfg, repoPath,
+		git.WithParents(firstParentID, secondParentID),
+		git.WithTree(treeID),
+		git.WithMessage("subject\n\nbody\n"),
+		git.WithBranch("main"),
 	)
-	commitWithTrailers := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithParents(commitWithoutTrailers),
-		gittest.WithTree(treeID),
-		gittest.WithMessage("with trailers\n\ntrailers\n\nSigned-off-by: John Doe <john.doe@example.com>"),
+	commitWithTrailers := git.WriteTestCommit(t, cfg, repoPath,
+		git.WithParents(commitWithoutTrailers),
+		git.WithTree(treeID),
+		git.WithMessage("with trailers\n\ntrailers\n\nSigned-off-by: John Doe <john.doe@example.com>"),
 	)
 
 	// We can't use git-commit-tree(1) directly, but have to manually write signed commits.
-	signedCommit := text.ChompBytes(gittest.ExecOpts(t, cfg, gittest.ExecConfig{
+	signedCommit := text.ChompBytes(git.ExecOpts(t, cfg, git.ExecConfig{
 		Stdin: strings.NewReader(fmt.Sprintf(
 			`tree %s
 parent %s
@@ -355,7 +354,7 @@ some faked pgp-signature
 signed commit subject
 
 signed commit body
-`, treeID, firstParentID, gittest.DefaultCommitterSignature)),
+`, treeID, firstParentID, git.DefaultCommitterSignature)),
 	}, "-C", repoPath, "hash-object", "-t", "commit", "-w", "--stdin"))
 
 	for _, tc := range []struct {
@@ -367,12 +366,12 @@ signed commit body
 	}{
 		{
 			desc:        "invalid commit",
-			revision:    gittest.DefaultObjectHash.ZeroOID.Revision(),
+			revision:    git.DefaultObjectHash.ZeroOID.Revision(),
 			expectedErr: ErrObjectNotFound,
 		},
 		{
 			desc:        "invalid commit with trailers",
-			revision:    gittest.DefaultObjectHash.ZeroOID.Revision(),
+			revision:    git.DefaultObjectHash.ZeroOID.Revision(),
 			expectedErr: ErrObjectNotFound,
 			opts:        []ReadCommitOpt{WithTrailers()},
 		},
@@ -389,8 +388,8 @@ signed commit body
 				Subject:   []byte("subject"),
 				Body:      []byte("subject\n\nbody\n"),
 				BodySize:  14,
-				Author:    gittest.DefaultCommitAuthor,
-				Committer: gittest.DefaultCommitAuthor,
+				Author:    git.DefaultCommitAuthor,
+				Committer: git.DefaultCommitAuthor,
 			},
 		},
 		{
@@ -405,8 +404,8 @@ signed commit body
 				Subject:   []byte("with trailers"),
 				Body:      []byte("with trailers\n\ntrailers\n\nSigned-off-by: John Doe <john.doe@example.com>"),
 				BodySize:  71,
-				Author:    gittest.DefaultCommitAuthor,
-				Committer: gittest.DefaultCommitAuthor,
+				Author:    git.DefaultCommitAuthor,
+				Committer: git.DefaultCommitAuthor,
 			},
 		},
 		{
@@ -422,8 +421,8 @@ signed commit body
 				Subject:   []byte("with trailers"),
 				Body:      []byte("with trailers\n\ntrailers\n\nSigned-off-by: John Doe <john.doe@example.com>"),
 				BodySize:  71,
-				Author:    gittest.DefaultCommitAuthor,
-				Committer: gittest.DefaultCommitAuthor,
+				Author:    git.DefaultCommitAuthor,
+				Committer: git.DefaultCommitAuthor,
 				Trailers: []*gitalypb.CommitTrailer{
 					{
 						Key:   []byte("Signed-off-by"),
@@ -445,8 +444,8 @@ signed commit body
 				Subject:       []byte("signed commit subject"),
 				Body:          []byte("signed commit subject\n\nsigned commit body\n"),
 				BodySize:      42,
-				Author:        gittest.DefaultCommitAuthor,
-				Committer:     gittest.DefaultCommitAuthor,
+				Author:        git.DefaultCommitAuthor,
+				Committer:     git.DefaultCommitAuthor,
 				SignatureType: gitalypb.SignatureType_PGP,
 			},
 		},
@@ -471,8 +470,8 @@ func TestRepo_IsAncestor(t *testing.T) {
 
 	cfg, repo, repoPath := setupRepo(t)
 
-	parentCommitID := gittest.WriteCommit(t, cfg, repoPath)
-	childCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(parentCommitID))
+	parentCommitID := git.WriteTestCommit(t, cfg, repoPath)
+	childCommitID := git.WriteTestCommit(t, cfg, repoPath, git.WithParents(parentCommitID))
 
 	for _, tc := range []struct {
 		desc         string
@@ -495,18 +494,18 @@ func TestRepo_IsAncestor(t *testing.T) {
 		},
 		{
 			desc:   "parent is not valid commit",
-			parent: gittest.DefaultObjectHash.ZeroOID.Revision(),
+			parent: git.DefaultObjectHash.ZeroOID.Revision(),
 			child:  childCommitID.Revision(),
 			errorMatcher: func(tb testing.TB, err error) {
-				require.Equal(tb, InvalidCommitError(gittest.DefaultObjectHash.ZeroOID), err)
+				require.Equal(tb, InvalidCommitError(git.DefaultObjectHash.ZeroOID), err)
 			},
 		},
 		{
 			desc:   "child is not valid commit",
 			parent: childCommitID.Revision(),
-			child:  gittest.DefaultObjectHash.ZeroOID.Revision(),
+			child:  git.DefaultObjectHash.ZeroOID.Revision(),
 			errorMatcher: func(tb testing.TB, err error) {
-				require.Equal(tb, InvalidCommitError(gittest.DefaultObjectHash.ZeroOID), err)
+				require.Equal(tb, InvalidCommitError(git.DefaultObjectHash.ZeroOID), err)
 			},
 		},
 		{

@@ -9,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
@@ -103,7 +102,7 @@ func TestWriteRef_successful(t *testing.T) {
 				return
 			}
 
-			revParseCmd := gittest.NewCommand(t, cfg, "-C", repoPath, "rev-parse", "--verify", string(tc.req.Ref))
+			revParseCmd := git.NewCommand(t, cfg, "-C", repoPath, "rev-parse", "--verify", string(tc.req.Ref))
 			output, err := revParseCmd.CombinedOutput()
 
 			if git.ObjectHashSHA1.IsZeroOID(git.ObjectID(tc.req.GetRevision())) {
@@ -202,8 +201,8 @@ func TestWriteRef_missingRevisions(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
-	commitID := gittest.WriteCommit(t, cfg, repoPath)
+	repo, repoPath := git.CreateRepository(t, ctx, cfg)
+	commitID := git.WriteTestCommit(t, cfg, repoPath)
 
 	for _, tc := range []struct {
 		desc        string
@@ -224,7 +223,7 @@ func TestWriteRef_missingRevisions(t *testing.T) {
 			request: &gitalypb.WriteRefRequest{
 				Repository: repo,
 				Ref:        []byte("refs/heads/main"),
-				Revision:   bytes.Repeat([]byte("1"), gittest.DefaultObjectHash.EncodedLen()),
+				Revision:   bytes.Repeat([]byte("1"), git.DefaultObjectHash.EncodedLen()),
 			},
 			expectedErr: structerr.NewInternal("resolving new revision: reference not found"),
 		},
@@ -234,7 +233,7 @@ func TestWriteRef_missingRevisions(t *testing.T) {
 				Repository:  repo,
 				Ref:         []byte("refs/heads/main"),
 				Revision:    []byte(commitID),
-				OldRevision: bytes.Repeat([]byte("1"), gittest.DefaultObjectHash.EncodedLen()),
+				OldRevision: bytes.Repeat([]byte("1"), git.DefaultObjectHash.EncodedLen()),
 			},
 			expectedErr: structerr.NewInternal("resolving old revision: reference not found"),
 		},

@@ -13,7 +13,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/client"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -95,13 +95,13 @@ func TestListUntrackedRepositories_Exec(t *testing.T) {
 	require.NoError(t, fs.Parse([]string{"-older-than", "4h"}))
 
 	// Repositories not managed by praefect.
-	repo1, repo1Path := gittest.CreateRepository(t, ctx, g1Cfg, gittest.CreateRepositoryConfig{
+	repo1, repo1Path := git.CreateRepository(t, ctx, g1Cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
-	repo2, repo2Path := gittest.CreateRepository(t, ctx, g1Cfg, gittest.CreateRepositoryConfig{
+	repo2, repo2Path := git.CreateRepository(t, ctx, g1Cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
-	_, _ = gittest.CreateRepository(t, ctx, g2Cfg, gittest.CreateRepositoryConfig{
+	_, _ = git.CreateRepository(t, ctx, g2Cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 

@@ -10,7 +10,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -27,12 +26,12 @@ func TestApplyGitattributes_successful(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repo, repoPath := git.CreateRepository(t, ctx, cfg)
 	gitattributesContent := "pattern attr=value"
-	commitWithGitattributes := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-		gittest.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: gitattributesContent},
+	commitWithGitattributes := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+		git.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: gitattributesContent},
 	))
-	commitWithoutGitattributes := gittest.WriteCommit(t, cfg, repoPath)
+	commitWithoutGitattributes := git.WriteTestCommit(t, cfg, repoPath)
 
 	infoPath := filepath.Join(repoPath, "info")
 	attributesPath := filepath.Join(infoPath, "attributes")
@@ -93,14 +92,14 @@ func TestApplyGitattributes_transactional(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	gitattributesContent := "pattern attr=value"
-	commitWithGitattributes := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-		gittest.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: gitattributesContent},
+	commitWithGitattributes := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+		git.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: gitattributesContent},
 	))
-	commitWithoutGitattributes := gittest.WriteCommit(t, cfg, repoPath)
+	commitWithoutGitattributes := git.WriteTestCommit(t, cfg, repoPath)
 
 	transactionServer := &testTransactionServer{}
 	runRepositoryService(t, cfg, nil)
@@ -217,7 +216,7 @@ func TestApplyGitattributes_failure(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
-	repo, _ := gittest.CreateRepository(t, ctx, cfg)
+	repo, _ := git.CreateRepository(t, ctx, cfg)
 
 	for _, tc := range []struct {
 		desc        string

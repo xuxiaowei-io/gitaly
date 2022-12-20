@@ -6,7 +6,7 @@ import (
 	"context"
 	"testing"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/repository"
@@ -49,8 +49,8 @@ func setupRemoteService(t *testing.T, ctx context.Context, opts ...testserver.Gi
 	}, opts...)
 	cfg.SocketPath = addr
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	client, conn := newRemoteClient(t, addr)

@@ -7,7 +7,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -28,11 +27,11 @@ func TestLsTree(t *testing.T) {
 		{
 			desc: "initial commit",
 			setup: func(t *testing.T, repoPath string) (git.Revision, []RevisionResult) {
-				blobA := gittest.WriteBlob(t, cfg, repoPath, []byte("a"))
-				blobB := gittest.WriteBlob(t, cfg, repoPath, []byte("b"))
-				blobC := gittest.WriteBlob(t, cfg, repoPath, []byte("c"))
+				blobA := git.WriteBlob(t, cfg, repoPath, []byte("a"))
+				blobB := git.WriteBlob(t, cfg, repoPath, []byte("b"))
+				blobC := git.WriteBlob(t, cfg, repoPath, []byte("c"))
 
-				tree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				tree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{Path: ".gitignore", Mode: "100644", OID: blobA},
 					{Path: "LICENSE", Mode: "100644", OID: blobB},
 					{Path: "README.md", Mode: "100644", OID: blobC},
@@ -48,10 +47,10 @@ func TestLsTree(t *testing.T) {
 		{
 			desc: "includes submodule",
 			setup: func(t *testing.T, repoPath string) (git.Revision, []RevisionResult) {
-				blob := gittest.WriteBlob(t, cfg, repoPath, []byte("a"))
-				commit := gittest.WriteCommit(t, cfg, repoPath)
+				blob := git.WriteBlob(t, cfg, repoPath, []byte("a"))
+				commit := git.WriteTestCommit(t, cfg, repoPath)
 
-				tree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				tree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{Path: "blob", Mode: "100644", OID: blob},
 					{Path: "submodule", Mode: "160000", OID: commit},
 				})
@@ -65,10 +64,10 @@ func TestLsTree(t *testing.T) {
 		{
 			desc: "filter blobs only",
 			setup: func(t *testing.T, repoPath string) (git.Revision, []RevisionResult) {
-				blob := gittest.WriteBlob(t, cfg, repoPath, []byte("a"))
-				commit := gittest.WriteCommit(t, cfg, repoPath)
+				blob := git.WriteBlob(t, cfg, repoPath, []byte("a"))
+				commit := git.WriteTestCommit(t, cfg, repoPath)
 
-				tree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				tree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{
 						Path: "blob",
 						Mode: "100644",
@@ -82,7 +81,7 @@ func TestLsTree(t *testing.T) {
 					{
 						Path: "subtree",
 						Mode: "040000",
-						OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+						OID: git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 							{Path: "blob-in-subtree", Mode: "100644", Content: "something"},
 						}),
 					},
@@ -99,18 +98,18 @@ func TestLsTree(t *testing.T) {
 		{
 			desc: "empty tree",
 			setup: func(t *testing.T, repoPath string) (git.Revision, []RevisionResult) {
-				return gittest.DefaultObjectHash.EmptyTreeOID.Revision(), nil
+				return git.DefaultObjectHash.EmptyTreeOID.Revision(), nil
 			},
 		},
 		{
 			desc: "non-recursive",
 			setup: func(t *testing.T, repoPath string) (git.Revision, []RevisionResult) {
-				blob := gittest.WriteBlob(t, cfg, repoPath, []byte("a"))
-				subtree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				blob := git.WriteBlob(t, cfg, repoPath, []byte("a"))
+				subtree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{Path: "blob-in-subtree", Mode: "100644", Content: "something"},
 				})
 
-				tree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				tree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{Path: "blob", Mode: "100644", OID: blob},
 					{Path: "subtree", Mode: "040000", OID: subtree},
 				})
@@ -124,10 +123,10 @@ func TestLsTree(t *testing.T) {
 		{
 			desc: "recursive",
 			setup: func(t *testing.T, repoPath string) (git.Revision, []RevisionResult) {
-				blob := gittest.WriteBlob(t, cfg, repoPath, []byte("a"))
-				blobInSubtree := gittest.WriteBlob(t, cfg, repoPath, []byte("b"))
+				blob := git.WriteBlob(t, cfg, repoPath, []byte("a"))
+				blobInSubtree := git.WriteBlob(t, cfg, repoPath, []byte("b"))
 
-				tree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				tree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{
 						Path: "blob",
 						Mode: "100644",
@@ -136,7 +135,7 @@ func TestLsTree(t *testing.T) {
 					{
 						Path: "subtree",
 						Mode: "040000",
-						OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+						OID: git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 							{Path: "blob-in-subtree", Mode: "100644", OID: blobInSubtree},
 						}),
 					},
@@ -154,11 +153,11 @@ func TestLsTree(t *testing.T) {
 		{
 			desc: "with skip function",
 			setup: func(t *testing.T, repoPath string) (git.Revision, []RevisionResult) {
-				blobA := gittest.WriteBlob(t, cfg, repoPath, []byte("a"))
-				blobB := gittest.WriteBlob(t, cfg, repoPath, []byte("b"))
-				blobC := gittest.WriteBlob(t, cfg, repoPath, []byte("c"))
+				blobA := git.WriteBlob(t, cfg, repoPath, []byte("a"))
+				blobB := git.WriteBlob(t, cfg, repoPath, []byte("b"))
+				blobC := git.WriteBlob(t, cfg, repoPath, []byte("c"))
 
-				tree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				tree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{Path: ".gitignore", Mode: "100644", OID: blobA},
 					{Path: "LICENSE", Mode: "100644", OID: blobB},
 					{Path: "README.md", Mode: "100644", OID: blobC},
@@ -178,7 +177,7 @@ func TestLsTree(t *testing.T) {
 		{
 			desc: "with skip failure",
 			setup: func(t *testing.T, repoPath string) (git.Revision, []RevisionResult) {
-				tree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				tree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{Path: "README.md", Mode: "100644", Content: "Hello world"},
 				})
 
@@ -201,7 +200,7 @@ func TestLsTree(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 				SkipCreationViaService: true,
 			})
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)

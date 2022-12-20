@@ -9,8 +9,8 @@ import (
 
 	"github.com/go-enry/go-license-detector/v4/licensedb"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
@@ -73,9 +73,9 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gital
 			{
 				desc: "empty if no license file in repo",
 				setup: func(t *testing.T, repoPath string) {
-					gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"),
-						gittest.WithTreeEntries(
-							gittest.TreeEntry{
+					git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"),
+						git.WithTreeEntries(
+							git.TreeEntry{
 								Mode:    "100644",
 								Path:    "README.md",
 								Content: "readme content",
@@ -86,9 +86,9 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gital
 			{
 				desc: "high confidence mit result and less confident mit-0 result",
 				setup: func(t *testing.T, repoPath string) {
-					gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"),
-						gittest.WithTreeEntries(
-							gittest.TreeEntry{
+					git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"),
+						git.WithTreeEntries(
+							git.TreeEntry{
 								Mode:    "100644",
 								Path:    "LICENSE",
 								Content: mitLicense,
@@ -110,9 +110,9 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gital
 			{
 				desc: "unknown license",
 				setup: func(t *testing.T, repoPath string) {
-					gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"),
-						gittest.WithTreeEntries(
-							gittest.TreeEntry{
+					git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"),
+						git.WithTreeEntries(
+							git.TreeEntry{
 								Mode:    "100644",
 								Path:    "LICENSE.md",
 								Content: "this doesn't match any known license",
@@ -136,9 +136,9 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gital
 				setup: func(t *testing.T, repoPath string) {
 					deprecatedLicenseData := testhelper.MustReadFile(t, "testdata/gnu_license.deprecated.txt")
 
-					gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"),
-						gittest.WithTreeEntries(
-							gittest.TreeEntry{
+					git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"),
+						git.WithTreeEntries(
+							git.TreeEntry{
 								Mode:    "100644",
 								Path:    "LICENSE",
 								Content: string(deprecatedLicenseData),
@@ -164,9 +164,9 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gital
 				setup: func(t *testing.T, repoPath string) {
 					licenseText := testhelper.MustReadFile(t, "testdata/gpl-2.0_license.txt")
 
-					gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"),
-						gittest.WithTreeEntries(
-							gittest.TreeEntry{
+					git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"),
+						git.WithTreeEntries(
+							git.TreeEntry{
 								Mode:    "100644",
 								Path:    "LICENSE",
 								Content: string(licenseText),
@@ -190,16 +190,16 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gital
 			{
 				desc: "license in subdir",
 				setup: func(t *testing.T, repoPath string) {
-					subTree := gittest.WriteTree(t, cfg, repoPath,
-						[]gittest.TreeEntry{{
+					subTree := git.WriteTree(t, cfg, repoPath,
+						[]git.TreeEntry{{
 							Mode:    "100644",
 							Path:    "LICENSE",
 							Content: mitLicense,
 						}})
 
-					gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"),
-						gittest.WithTreeEntries(
-							gittest.TreeEntry{
+					git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"),
+						git.WithTreeEntries(
+							git.TreeEntry{
 								Mode: "040000",
 								Path: "legal",
 								OID:  subTree,
@@ -210,14 +210,14 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gital
 			{
 				desc: "license pointing to license file",
 				setup: func(t *testing.T, repoPath string) {
-					gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"),
-						gittest.WithTreeEntries(
-							gittest.TreeEntry{
+					git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"),
+						git.WithTreeEntries(
+							git.TreeEntry{
 								Mode:    "100644",
 								Path:    "mit.txt",
 								Content: mitLicense,
 							},
-							gittest.TreeEntry{
+							git.TreeEntry{
 								Mode:    "100644",
 								Path:    "LICENSE",
 								Content: "mit.txt",
@@ -239,11 +239,11 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gital
 			},
 		} {
 			t.Run(tc.desc, func(t *testing.T) {
-				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				repo, repoPath := git.CreateRepository(t, ctx, cfg)
 				tc.setup(t, repoPath)
 
 				if _, err := os.Stat(repoPath); !os.IsNotExist(err) {
-					gittest.Exec(t, cfg, "-C", repoPath, "symbolic-ref", "HEAD", "refs/heads/main")
+					git.Exec(t, cfg, "-C", repoPath, "symbolic-ref", "HEAD", "refs/heads/main")
 				}
 
 				resp, err := client.FindLicense(ctx, &gitalypb.FindLicenseRequest{Repository: repo})
@@ -266,7 +266,7 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gital
 
 func testFindLicenseRequestEmptyRepo(t *testing.T, cfg config.Cfg, client gitalypb.RepositoryServiceClient, rubySrv *rubyserver.Server) {
 	testhelper.NewFeatureSets(featureflag.GoFindLicense).Run(t, func(t *testing.T, ctx context.Context) {
-		repo, _ := gittest.CreateRepository(t, ctx, cfg)
+		repo, _ := git.CreateRepository(t, ctx, cfg)
 
 		resp, err := client.FindLicense(ctx, &gitalypb.FindLicenseRequest{Repository: repo})
 		require.NoError(t, err)
@@ -291,7 +291,7 @@ func BenchmarkFindLicense(b *testing.B) {
 	ctx := testhelper.Context(b)
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.GoFindLicense, true)
 
-	gitCmdFactory := gittest.NewCountingCommandFactory(b, cfg)
+	gitCmdFactory := git.NewCountingCommandFactory(b, cfg)
 	client, serverSocketPath := runRepositoryService(
 		b,
 		cfg,
@@ -303,12 +303,12 @@ func BenchmarkFindLicense(b *testing.B) {
 	// Warm up the license database
 	licensedb.Preload()
 
-	repoGitLab, _ := gittest.CreateRepository(b, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoGitLab, _ := git.CreateRepository(b, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 		Seed:                   "benchmark.git",
 	})
 
-	repoStress, repoStressPath := gittest.CreateRepository(b, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoStress, repoStressPath := git.CreateRepository(b, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 
@@ -345,12 +345,12 @@ func BenchmarkFindLicense(b *testing.B) {
 		".txt",
 	}
 
-	treeEntries := make([]gittest.TreeEntry, 0, len(fileNames)*len(fileExtensions))
+	treeEntries := make([]git.TreeEntry, 0, len(fileNames)*len(fileExtensions))
 
 	for _, name := range fileNames {
 		for _, ext := range fileExtensions {
 			treeEntries = append(treeEntries,
-				gittest.TreeEntry{
+				git.TreeEntry{
 					Mode:    "100644",
 					Path:    name + ext,
 					Content: mitLicense + "\n" + name, // grain of salt
@@ -358,9 +358,9 @@ func BenchmarkFindLicense(b *testing.B) {
 		}
 	}
 
-	gittest.WriteCommit(b, cfg, repoStressPath, gittest.WithBranch("main"),
-		gittest.WithTreeEntries(treeEntries...))
-	gittest.Exec(b, cfg, "-C", repoStressPath, "symbolic-ref", "HEAD", "refs/heads/main")
+	git.WriteTestCommit(b, cfg, repoStressPath, git.WithBranch("main"),
+		git.WithTreeEntries(treeEntries...))
+	git.Exec(b, cfg, "-C", repoStressPath, "symbolic-ref", "HEAD", "refs/heads/main")
 
 	testhelper.NewFeatureSets(featureflag.LocalrepoReadObjectCached).Bench(b, func(b *testing.B, ctx context.Context) {
 		ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.GoFindLicense, true)

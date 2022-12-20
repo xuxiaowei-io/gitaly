@@ -11,7 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
@@ -144,12 +144,12 @@ func TestPruneIfNeeded(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
-			createRepoCfg := gittest.CreateRepositoryConfig{}
+			createRepoCfg := git.CreateRepositoryConfig{}
 			if tc.isPool {
-				createRepoCfg.RelativePath = gittest.NewObjectPoolName(t)
+				createRepoCfg.RelativePath = git.NewObjectPoolName(t)
 			}
 
-			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, createRepoCfg)
+			repoProto, repoPath := git.CreateRepository(t, ctx, cfg, createRepoCfg)
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 			for _, looseObjectPath := range tc.looseObjects {

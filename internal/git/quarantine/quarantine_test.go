@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -88,10 +88,10 @@ func TestQuarantine_Migrate(t *testing.T) {
 	t.Run("no changes", func(t *testing.T) {
 		ctx := testhelper.Context(t)
 
-		repo, repoPath := gittest.CreateRepository(t, ctx, cfg,
-			gittest.CreateRepositoryConfig{
+		repo, repoPath := git.CreateRepository(t, ctx, cfg,
+			git.CreateRepositoryConfig{
 				SkipCreationViaService: true,
-				Seed:                   gittest.SeedGitLabTest,
+				Seed:                   git.SeedGitLabTest,
 			})
 
 		oldContents := listEntries(t, repoPath)
@@ -107,9 +107,9 @@ func TestQuarantine_Migrate(t *testing.T) {
 	t.Run("simple change", func(t *testing.T) {
 		ctx := testhelper.Context(t)
 
-		repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 			SkipCreationViaService: true,
-			Seed:                   gittest.SeedGitLabTest,
+			Seed:                   git.SeedGitLabTest,
 		})
 
 		oldContents := listEntries(t, repoPath)

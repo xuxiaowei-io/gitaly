@@ -8,8 +8,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/cgroups"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -31,7 +29,7 @@ func TestNewCommandAddsToCgroup(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repo, _ := CreateRepository(t, ctx, cfg, CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 
@@ -52,12 +50,12 @@ func TestNewCommandAddsToCgroup(t *testing.T) {
 			ctx := featureflag.IncomingCtxWithFeatureFlag(ctx, featureflag.RunCommandsInCGroup, tc.cgroupsFF)
 
 			var manager mockCgroupsManager
-			gitCmdFactory := gittest.NewCommandFactory(t, cfg, git.WithCgroupsManager(&manager))
+			gitCmdFactory := NewCommandFactory(t, cfg, WithCgroupsManager(&manager))
 
-			cmd, err := gitCmdFactory.New(ctx, repo, git.Command{
+			cmd, err := gitCmdFactory.New(ctx, repo, Command{
 				Name: "rev-parse",
-				Flags: []git.Option{
-					git.Flag{Name: "--is-bare-repository"},
+				Flags: []Option{
+					Flag{Name: "--is-bare-repository"},
 				},
 			})
 			require.NoError(t, err)

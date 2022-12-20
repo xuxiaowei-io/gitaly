@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -152,11 +152,11 @@ func (gc *GitalyCfgBuilder) BuildWithRepoAt(tb testing.TB, relativePath string) 
 	// clone the test repo to the each storage
 	repos := make([]*gitalypb.Repository, len(cfg.Storages))
 	for i, gitalyStorage := range cfg.Storages {
-		repo, _ := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
+		repo, _ := git.CreateRepository(tb, ctx, cfg, git.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 			Storage:                gitalyStorage,
 			RelativePath:           relativePath,
-			Seed:                   gittest.SeedGitLabTest,
+			Seed:                   git.SeedGitLabTest,
 		})
 
 		repos[i] = repo

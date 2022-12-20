@@ -10,7 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -57,7 +57,7 @@ func TestDeleteObjectPoolHandler(t *testing.T) {
 
 	repo := &gitalypb.Repository{
 		StorageName:  "virtual-storage",
-		RelativePath: gittest.NewObjectPoolName(t),
+		RelativePath: git.NewObjectPoolName(t),
 	}
 
 	require.NoError(t,

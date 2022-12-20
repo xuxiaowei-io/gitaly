@@ -15,7 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/cache"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/server"
@@ -134,7 +134,7 @@ func TestConnectivity(t *testing.T) {
 				)
 			}
 
-			output := gittest.ExecOpts(t, cfg, gittest.ExecConfig{
+			output := git.ExecOpts(t, cfg, git.ExecConfig{
 				Env: env,
 			}, "ls-remote", "git@localhost:test/test.git", "refs/heads/master")
 			require.True(t, strings.HasSuffix(strings.TrimSpace(string(output)), "refs/heads/master"))
@@ -147,7 +147,7 @@ func runServer(t *testing.T, secure bool, cfg config.Cfg, connectionType string,
 	locator := config.NewLocator(cfg)
 	registry := backchannel.NewRegistry()
 	txManager := transaction.NewManager(cfg, registry)
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+	gitCmdFactory := git.NewCommandFactory(t, cfg)
 	hookManager := hook.NewManager(cfg, locator, gitCmdFactory, txManager, gitlab.NewMockClient(
 		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
 	))

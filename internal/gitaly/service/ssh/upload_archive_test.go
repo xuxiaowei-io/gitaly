@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -27,8 +27,8 @@ func TestFailedUploadArchiveRequestDueToTimeout(t *testing.T) {
 	cfg.SocketPath = runSSHServerWithOptions(t, cfg, []ServerOpt{WithArchiveRequestTimeout(100 * time.Microsecond)})
 
 	ctx := testhelper.Context(t)
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repo, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	client := newSSHClient(t, cfg.SocketPath)
@@ -128,8 +128,8 @@ func TestUploadArchiveSuccess(t *testing.T) {
 	cfg.SocketPath = runSSHServer(t, cfg)
 
 	ctx := testhelper.Context(t)
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repo, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	payload, err := protojson.Marshal(&gitalypb.SSHUploadArchiveRequest{
@@ -137,7 +137,7 @@ func TestUploadArchiveSuccess(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	gittest.ExecOpts(t, cfg, gittest.ExecConfig{
+	git.ExecOpts(t, cfg, git.ExecConfig{
 		Env: []string{
 			fmt.Sprintf("GITALY_ADDRESS=%s", cfg.SocketPath),
 			fmt.Sprintf("GITALY_PAYLOAD=%s", payload),

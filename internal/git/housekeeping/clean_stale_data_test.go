@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -279,7 +279,7 @@ func TestRepositoryManager_CleanStaleData(t *testing.T) {
 			ctx := testhelper.Context(t)
 			cfg := testcfg.Build(t)
 
-			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 				SkipCreationViaService: true,
 			})
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -385,7 +385,7 @@ func TestRepositoryManager_CleanStaleData_references(t *testing.T) {
 			ctx := testhelper.Context(t)
 			cfg := testcfg.Build(t)
 
-			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 				SkipCreationViaService: true,
 			})
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -517,7 +517,7 @@ func TestRepositoryManager_CleanStaleData_emptyRefDirs(t *testing.T) {
 			ctx := testhelper.Context(t)
 			cfg := testcfg.Build(t)
 
-			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 				SkipCreationViaService: true,
 			})
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -647,7 +647,7 @@ func TestRepositoryManager_CleanStaleData_withSpecificFile(t *testing.T) {
 			ctx := testhelper.Context(t)
 			cfg := testcfg.Build(t)
 
-			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 				SkipCreationViaService: true,
 			})
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -714,7 +714,7 @@ func TestRepositoryManager_CleanStaleData_serverInfo(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -831,7 +831,7 @@ func TestRepositoryManager_CleanStaleData_referenceLocks(t *testing.T) {
 
 			cfg := testcfg.Build(t)
 
-			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 				SkipCreationViaService: true,
 			})
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -956,7 +956,7 @@ func TestRepositoryManager_CleanStaleData_missingRepo(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -971,7 +971,7 @@ func TestRepositoryManager_CleanStaleData_unsetConfiguration(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -1028,12 +1028,12 @@ func TestRepositoryManager_CleanStaleData_unsetConfigurationTransactional(t *tes
 	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	gittest.Exec(t, cfg, "-C", repoPath, "config", "http.some.extraHeader", "value")
+	git.Exec(t, cfg, "-C", repoPath, "config", "http.some.extraHeader", "value")
 
 	txManager := transaction.NewTrackingManager()
 
@@ -1046,11 +1046,11 @@ func TestRepositoryManager_CleanStaleData_unsetConfigurationTransactional(t *tes
 	require.NoError(t, NewManager(cfg.Prometheus, txManager).CleanStaleData(ctx, repo))
 	require.Equal(t, 2, len(txManager.Votes()))
 
-	configKeys := gittest.Exec(t, cfg, "-C", repoPath, "config", "--list", "--local", "--name-only")
+	configKeys := git.Exec(t, cfg, "-C", repoPath, "config", "--list", "--local", "--name-only")
 
 	expectedConfig := "core.repositoryformatversion\ncore.filemode\ncore.bare\n"
 
-	if gittest.DefaultObjectHash.Format == "sha256" {
+	if git.DefaultObjectHash.Format == "sha256" {
 		expectedConfig = expectedConfig + "extensions.objectformat\n"
 	}
 
@@ -1066,7 +1066,7 @@ func TestRepositoryManager_CleanStaleData_pruneEmptyConfigSections(t *testing.T)
 	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -1116,7 +1116,7 @@ func TestPruneEmptyConfigSections(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)

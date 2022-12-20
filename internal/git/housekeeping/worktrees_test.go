@@ -7,7 +7,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -20,13 +19,13 @@ func TestCleanupDisconnectedWorktrees_doesNothingWithoutWorktrees(t *testing.T) 
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
+	git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("master"))
 	worktreePath := filepath.Join(testhelper.TempDir(t), "worktree")
 
-	failingGitCmdFactory := gittest.NewInterceptingCommandFactory(t, ctx, cfg, func(git.ExecutionEnvironment) string {
+	failingGitCmdFactory := git.NewInterceptingCommandFactory(t, ctx, cfg, func(git.ExecutionEnvironment) string {
 		return `#!/usr/bin/env bash
 		exit 15
 		`
@@ -38,7 +37,7 @@ func TestCleanupDisconnectedWorktrees_doesNothingWithoutWorktrees(t *testing.T) 
 	// detects that there aren't any worktrees at all.
 	require.NoError(t, cleanDisconnectedWorktrees(ctx, repo))
 
-	gittest.AddWorktree(t, cfg, repoPath, worktreePath)
+	git.AddWorktree(t, cfg, repoPath, worktreePath)
 
 	// We have now added a worktree now, so it should detect that there are worktrees and thus
 	// spawn the Git command. We thus expect the error code we inject via the failing Git
@@ -52,17 +51,17 @@ func TestRemoveWorktree(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
+	git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("master"))
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	existingWorktreePath := filepath.Join(repoPath, worktreePrefix, "existing")
-	gittest.AddWorktree(t, cfg, repoPath, existingWorktreePath)
+	git.AddWorktree(t, cfg, repoPath, existingWorktreePath)
 
 	disconnectedWorktreePath := filepath.Join(repoPath, worktreePrefix, "disconnected")
-	gittest.AddWorktree(t, cfg, repoPath, disconnectedWorktreePath)
+	git.AddWorktree(t, cfg, repoPath, disconnectedWorktreePath)
 	require.NoError(t, os.RemoveAll(disconnectedWorktreePath))
 
 	orphanedWorktreePath := filepath.Join(repoPath, worktreePrefix, "orphaned")

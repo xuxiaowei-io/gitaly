@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
@@ -35,34 +34,34 @@ func TestFindTag_successful(t *testing.T) {
 
 	gitCommit := testhelper.GitLabTestCommit(commitID.String())
 
-	bigCommitID := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithBranch("local-big-commits"),
-		gittest.WithMessage("An empty commit with REALLY BIG message\n\n"+strings.Repeat("a", helper.MaxCommitOrTagMessageSize+1)),
-		gittest.WithParents("60ecb67744cb56576c30214ff52294f8ce2def98"),
+	bigCommitID := git.WriteTestCommit(t, cfg, repoPath,
+		git.WithBranch("local-big-commits"),
+		git.WithMessage("An empty commit with REALLY BIG message\n\n"+strings.Repeat("a", helper.MaxCommitOrTagMessageSize+1)),
+		git.WithParents("60ecb67744cb56576c30214ff52294f8ce2def98"),
 	)
 	bigCommit, err := repo.ReadCommit(ctx, git.Revision(bigCommitID))
 	require.NoError(t, err)
 
-	annotatedTagID := gittest.WriteTag(t, cfg, repoPath, "v1.2.0", blobID.Revision(), gittest.WriteTagConfig{Message: "Blob tag"})
+	annotatedTagID := git.WriteTag(t, cfg, repoPath, "v1.2.0", blobID.Revision(), git.WriteTagConfig{Message: "Blob tag"})
 
-	gittest.WriteTag(t, cfg, repoPath, "v1.3.0", commitID.Revision())
-	gittest.WriteTag(t, cfg, repoPath, "v1.4.0", blobID.Revision())
+	git.WriteTag(t, cfg, repoPath, "v1.3.0", commitID.Revision())
+	git.WriteTag(t, cfg, repoPath, "v1.4.0", blobID.Revision())
 
 	// To test recursive resolving to a commit
-	gittest.WriteTag(t, cfg, repoPath, "v1.5.0", "v1.3.0")
+	git.WriteTag(t, cfg, repoPath, "v1.5.0", "v1.3.0")
 
 	// A tag to commit with a big message
-	gittest.WriteTag(t, cfg, repoPath, "v1.6.0", bigCommitID.Revision())
+	git.WriteTag(t, cfg, repoPath, "v1.6.0", bigCommitID.Revision())
 
 	// A tag with a big message
 	bigMessage := strings.Repeat("a", 11*1024)
-	bigMessageTag1ID := gittest.WriteTag(t, cfg, repoPath, "v1.7.0", commitID.Revision(), gittest.WriteTagConfig{Message: bigMessage})
+	bigMessageTag1ID := git.WriteTag(t, cfg, repoPath, "v1.7.0", commitID.Revision(), git.WriteTagConfig{Message: bigMessage})
 
 	// A tag with a commit id as its name
-	commitTagID := gittest.WriteTag(t, cfg, repoPath, commitID.String(), commitID.Revision(), gittest.WriteTagConfig{Message: "commit tag with a commit sha as the name"})
+	commitTagID := git.WriteTag(t, cfg, repoPath, commitID.String(), commitID.Revision(), git.WriteTagConfig{Message: "commit tag with a commit sha as the name"})
 
 	// a tag of a tag
-	tagOfTagID := gittest.WriteTag(t, cfg, repoPath, "tag-of-tag", commitTagID.Revision(), gittest.WriteTagConfig{Message: "tag of a tag"})
+	tagOfTagID := git.WriteTag(t, cfg, repoPath, "tag-of-tag", commitTagID.Revision(), git.WriteTagConfig{Message: "tag of a tag"})
 
 	expectedTags := []*gitalypb.Tag{
 		{
@@ -71,7 +70,7 @@ func TestFindTag_successful(t *testing.T) {
 			TargetCommit: gitCommit,
 			Message:      []byte("commit tag with a commit sha as the name"),
 			MessageSize:  40,
-			Tagger:       gittest.DefaultCommitAuthor,
+			Tagger:       git.DefaultCommitAuthor,
 		},
 		{
 			Name:         []byte("tag-of-tag"),
@@ -79,7 +78,7 @@ func TestFindTag_successful(t *testing.T) {
 			TargetCommit: gitCommit,
 			Message:      []byte("tag of a tag"),
 			MessageSize:  12,
-			Tagger:       gittest.DefaultCommitAuthor,
+			Tagger:       git.DefaultCommitAuthor,
 		},
 		{
 			Name:         []byte("v1.0.0"),
@@ -127,7 +126,7 @@ func TestFindTag_successful(t *testing.T) {
 			Id:          annotatedTagID.String(),
 			Message:     []byte("Blob tag"),
 			MessageSize: 8,
-			Tagger:      gittest.DefaultCommitAuthor,
+			Tagger:      git.DefaultCommitAuthor,
 		},
 		{
 			Name:         []byte("v1.3.0"),
@@ -154,7 +153,7 @@ func TestFindTag_successful(t *testing.T) {
 			Message:      []byte(bigMessage[:helper.MaxCommitOrTagMessageSize]),
 			MessageSize:  int64(len(bigMessage)),
 			TargetCommit: gitCommit,
-			Tagger:       gittest.DefaultCommitAuthor,
+			Tagger:       git.DefaultCommitAuthor,
 		},
 	}
 
@@ -241,14 +240,14 @@ func TestFindTag_nestedTag(t *testing.T) {
 			for depth := 0; depth < tc.depth; depth++ {
 				tagName = fmt.Sprintf("tag-depth-%d", depth)
 				tagMessage = fmt.Sprintf("a commit %d deep", depth)
-				tagID = gittest.WriteTag(t, cfg, repoPath, tagName, tagID.Revision(), gittest.WriteTagConfig{Message: tagMessage})
+				tagID = git.WriteTag(t, cfg, repoPath, tagName, tagID.Revision(), git.WriteTagConfig{Message: tagMessage})
 			}
 			expectedTag := &gitalypb.Tag{
 				Name:        []byte(tagName),
 				Id:          tagID.String(),
 				Message:     []byte(tagMessage),
 				MessageSize: int64(len([]byte(tagMessage))),
-				Tagger:      gittest.DefaultCommitAuthor,
+				Tagger:      git.DefaultCommitAuthor,
 			}
 			if info.Type == "commit" {
 				commit, err := catfile.GetCommit(ctx, objectReader, git.Revision(tc.originalOid))
@@ -269,7 +268,7 @@ func TestFindTag_notFound(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg, client := setupRefServiceWithoutRepo(t)
-	repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+	repoProto, _ := git.CreateRepository(t, ctx, cfg)
 
 	response, err := client.FindTag(ctx, &gitalypb.FindTagRequest{
 		Repository: repoProto,

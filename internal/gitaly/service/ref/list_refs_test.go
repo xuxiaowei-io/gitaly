@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -22,12 +22,12 @@ func TestServer_ListRefs(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, _, _, client := setupRefService(t, ctx)
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
-	oldCommitID := gittest.WriteCommit(t, cfg, repoPath)
-	newCommitID := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithParents(oldCommitID),
-		gittest.WithAuthorDate(time.Date(2011, 2, 16, 14, 1, 0, 0, time.FixedZone("UTC+1", +1*60*60))),
+	oldCommitID := git.WriteTestCommit(t, cfg, repoPath)
+	newCommitID := git.WriteTestCommit(t, cfg, repoPath,
+		git.WithParents(oldCommitID),
+		git.WithAuthorDate(time.Date(2011, 2, 16, 14, 1, 0, 0, time.FixedZone("UTC+1", +1*60*60))),
 	)
 
 	for _, cmd := range [][]string{
@@ -39,10 +39,10 @@ func TestServer_ListRefs(t *testing.T) {
 		{"symbolic-ref", "HEAD", "refs/heads/main"},
 		{"update-ref", "refs/heads/old", oldCommitID.String()},
 	} {
-		gittest.Exec(t, cfg, append([]string{"-C", repoPath}, cmd...)...)
+		git.Exec(t, cfg, append([]string{"-C", repoPath}, cmd...)...)
 	}
 
-	annotatedTagOID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "annotated-tag"))
+	annotatedTagOID := text.ChompBytes(git.Exec(t, cfg, "-C", repoPath, "rev-parse", "annotated-tag"))
 
 	for _, tc := range []struct {
 		desc              string

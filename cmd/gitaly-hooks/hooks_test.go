@@ -18,7 +18,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/auth"
 	internallog "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/log"
@@ -174,7 +173,7 @@ func testHooksPrePostReceive(t *testing.T, cfg config.Cfg, repo *gitalypb.Reposi
 
 	for _, hookName := range hookNames {
 		t.Run(fmt.Sprintf("hookName: %s", hookName), func(t *testing.T) {
-			customHookOutputPath := gittest.WriteEnvToCustomHook(t, repoPath, hookName)
+			customHookOutputPath := git.WriteEnvToCustomHook(t, repoPath, hookName)
 
 			var stderr, stdout bytes.Buffer
 			stdin := bytes.NewBuffer([]byte(changes))
@@ -273,7 +272,7 @@ func TestHooksUpdate(t *testing.T) {
 }
 
 func testHooksUpdate(t *testing.T, ctx context.Context, cfg config.Cfg, glValues glHookValues) {
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 
@@ -289,7 +288,7 @@ func testHooksUpdate(t *testing.T, ctx context.Context, cfg config.Cfg, glValues
 	)
 
 	// ... and a second custom hook that dumps the environment variables.
-	customHookEnvPath := gittest.WriteEnvToCustomHook(t, repoPath, "update")
+	customHookEnvPath := git.WriteEnvToCustomHook(t, repoPath, "update")
 
 	var stdout, stderr bytes.Buffer
 	cmd := exec.Command(cfg.BinaryPath("gitaly-hooks"))
@@ -355,7 +354,7 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 
 	runHookServiceWithGitlabClient(t, cfg, gitlabClient)
 
-	customHookOutputPath := gittest.WriteEnvToCustomHook(t, repoPath, "post-receive")
+	customHookOutputPath := git.WriteEnvToCustomHook(t, repoPath, "post-receive")
 
 	var stdout, stderr bytes.Buffer
 
@@ -459,7 +458,7 @@ func TestHooksNotAllowed(t *testing.T) {
 	cfg.Gitlab.URL = serverURL
 	cfg.Gitlab.SecretFile = gitlab.WriteShellSecretFile(t, cfg.GitlabShell.Dir, "the wrong token")
 
-	customHookOutputPath := gittest.WriteEnvToCustomHook(t, repoPath, "post-receive")
+	customHookOutputPath := git.WriteEnvToCustomHook(t, repoPath, "post-receive")
 
 	gitlabClient, err := gitlab.NewHTTPClient(logger, cfg.Gitlab, cfg.TLS, prometheus.Config{})
 	require.NoError(t, err)
@@ -588,7 +587,7 @@ func TestGitalyHooksPackObjects(t *testing.T) {
 			args := append(baseArgs, tc.extraArgs...)
 			args = append(args, repoPath, tempDir)
 
-			gittest.ExecOpts(t, cfg, gittest.ExecConfig{
+			git.ExecOpts(t, cfg, git.ExecConfig{
 				Env: (envForHooks(t, ctx, cfg, repo, glHookValues{}, proxyValues{})),
 			}, args...)
 		})

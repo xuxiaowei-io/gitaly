@@ -14,7 +14,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/smudge"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
@@ -192,8 +191,8 @@ func TestGetArchive_includeLfsBlobs(t *testing.T) {
 	client, serverSocketPath := runRepositoryService(t, cfg, nil)
 	cfg.SocketPath = serverSocketPath
 
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repo, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	testcfg.BuildGitalyLFSSmudge(t, cfg)
@@ -433,10 +432,10 @@ func TestGetArchive_pathInjection(t *testing.T) {
 	// a path and does not interpret it as an option.
 	outputPath := "/non/existent"
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
-		{Path: "--output=", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
-			{Path: "non", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
-				{Path: "existent", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+	commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTree(git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
+		{Path: "--output=", Mode: "040000", OID: git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
+			{Path: "non", Mode: "040000", OID: git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
+				{Path: "existent", Mode: "040000", OID: git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{Path: "injected file", Mode: "100644", Content: "injected content"},
 				})},
 			})},
@@ -479,7 +478,7 @@ func TestGetArchive_environment(t *testing.T) {
 
 	// Intercept commands to git-archive(1) to print the environment. Note that we continue to
 	// execute any other Git commands so that the command factory behaves as expected.
-	gitCmdFactory := gittest.NewInterceptingCommandFactory(t, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
+	gitCmdFactory := git.NewInterceptingCommandFactory(t, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
 		return fmt.Sprintf(`#!/bin/bash
 		if [[ ! "$@" =~ "archive" ]]; then
 			exec %q "$@"
@@ -493,8 +492,8 @@ func TestGetArchive_environment(t *testing.T) {
 	client, serverSocketPath := runRepositoryService(t, cfg, nil, testserver.WithGitCommandFactory(gitCmdFactory))
 	cfg.SocketPath = serverSocketPath
 
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repo, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	commitID := "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"
@@ -503,7 +502,7 @@ func TestGetArchive_environment(t *testing.T) {
 	ctx = correlation.ContextWithCorrelation(ctx, correlationID)
 
 	smudgeCfg := smudge.Config{
-		GlRepository: gittest.GlRepository,
+		GlRepository: git.GlRepository,
 		Gitlab:       cfg.Gitlab,
 		TLS:          cfg.TLS,
 		DriverType:   smudge.DriverTypeProcess,

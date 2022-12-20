@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -21,7 +21,7 @@ func TestSuccessfulCountCommitsRequest(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, repo1, _, client := setupCommitServiceWithRepo(t, ctx)
 
-	repo2, repo2Path := gittest.CreateRepository(t, ctx, cfg)
+	repo2, repo2Path := git.CreateRepository(t, ctx, cfg)
 
 	commitOID := createCommits(t, cfg, repo2Path, "master", 5, "")
 	createCommits(t, cfg, repo2Path, "another-branch", 3, commitOID)

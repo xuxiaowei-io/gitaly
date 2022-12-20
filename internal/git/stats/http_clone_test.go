@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 )
@@ -18,15 +18,15 @@ func TestClone(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+	gitCmdFactory := git.NewCommandFactory(t, cfg)
 
-	_, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	_, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
-	gittest.WriteTag(t, cfg, repoPath, "some-tag", "refs/heads/main")
+	git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+	git.WriteTag(t, cfg, repoPath, "some-tag", "refs/heads/main")
 
-	serverPort := gittest.HTTPServer(t, ctx, gitCmdFactory, repoPath, nil)
+	serverPort := git.HTTPServer(t, ctx, gitCmdFactory, repoPath, nil)
 
 	clone, err := PerformHTTPClone(ctx, fmt.Sprintf("http://localhost:%d/%s", serverPort, filepath.Base(repoPath)), "", "", false)
 	require.NoError(t, err, "perform analysis clone")
@@ -80,12 +80,12 @@ func TestCloneWithAuth(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+	gitCmdFactory := git.NewCommandFactory(t, cfg)
 
-	_, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	_, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+	git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
 
 	const (
 		user     = "test-user"
@@ -94,7 +94,7 @@ func TestCloneWithAuth(t *testing.T) {
 
 	authWasChecked := false
 
-	serverPort := gittest.HTTPServer(t, ctx, gitCmdFactory, repoPath, func(w http.ResponseWriter, r *http.Request, next http.Handler) {
+	serverPort := git.HTTPServer(t, ctx, gitCmdFactory, repoPath, func(w http.ResponseWriter, r *http.Request, next http.Handler) {
 		authWasChecked = true
 
 		actualUser, actualPassword, ok := r.BasicAuth()

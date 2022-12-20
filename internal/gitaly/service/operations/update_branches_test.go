@@ -9,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -81,7 +80,7 @@ func TestSuccessfulUserUpdateBranchRequest(t *testing.T) {
 				BranchName: []byte(testCase.updateBranchName),
 				Newrev:     testCase.newRev,
 				Oldrev:     testCase.oldRev,
-				User:       gittest.TestUser,
+				User:       git.TestUser,
 			}
 			response, err := client.UserUpdateBranch(ctx, request)
 			require.NoError(t, err)
@@ -92,7 +91,7 @@ func TestSuccessfulUserUpdateBranchRequest(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, string(testCase.newRev), branchCommit.Id)
 
-			branches := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs/heads/"+branchName)
+			branches := git.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs/heads/"+branchName)
 			require.Contains(t, string(branches), "refs/heads/"+branchName)
 		})
 	}
@@ -143,7 +142,7 @@ func TestSuccessfulUserUpdateBranchRequestToDelete(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			if testCase.createBranch {
-				gittest.Exec(t, cfg, "-C", repoPath, "branch", "--", testCase.updateBranchName, string(testCase.oldRev))
+				git.Exec(t, cfg, "-C", repoPath, "branch", "--", testCase.updateBranchName, string(testCase.oldRev))
 			}
 
 			responseOk := &gitalypb.UserUpdateBranchResponse{}
@@ -152,7 +151,7 @@ func TestSuccessfulUserUpdateBranchRequestToDelete(t *testing.T) {
 				BranchName: []byte(testCase.updateBranchName),
 				Newrev:     testCase.newRev,
 				Oldrev:     testCase.oldRev,
-				User:       gittest.TestUser,
+				User:       git.TestUser,
 			}
 			response, err := client.UserUpdateBranch(ctx, request)
 			require.NoError(t, err)
@@ -161,7 +160,7 @@ func TestSuccessfulUserUpdateBranchRequestToDelete(t *testing.T) {
 			_, err = repo.ReadCommit(ctx, git.Revision(testCase.updateBranchName))
 			require.Equal(t, localrepo.ErrObjectNotFound, err, "expected 'not found' error got %v", err)
 
-			refs := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs/heads/"+testCase.updateBranchName)
+			refs := git.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs/heads/"+testCase.updateBranchName)
 			require.NotContains(t, string(refs), testCase.oldRev, "branch deleted from refs")
 		})
 	}
@@ -175,18 +174,18 @@ func TestSuccessfulGitHooksForUserUpdateBranchRequest(t *testing.T) {
 
 	for _, hookName := range GitlabHooks {
 		t.Run(hookName, func(t *testing.T) {
-			testRepo, testRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-				Seed: gittest.SeedGitLabTest,
+			testRepo, testRepoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+				Seed: git.SeedGitLabTest,
 			})
 
-			hookOutputTempPath := gittest.WriteEnvToCustomHook(t, testRepoPath, hookName)
+			hookOutputTempPath := git.WriteEnvToCustomHook(t, testRepoPath, hookName)
 
 			request := &gitalypb.UserUpdateBranchRequest{
 				Repository: testRepo,
 				BranchName: []byte(updateBranchName),
 				Newrev:     newrev,
 				Oldrev:     oldrev,
-				User:       gittest.TestUser,
+				User:       git.TestUser,
 			}
 
 			responseOk := &gitalypb.UserUpdateBranchResponse{}
@@ -196,7 +195,7 @@ func TestSuccessfulGitHooksForUserUpdateBranchRequest(t *testing.T) {
 
 			testhelper.ProtoEqual(t, responseOk, response)
 			output := string(testhelper.MustReadFile(t, hookOutputTempPath))
-			require.Contains(t, output, "GL_USERNAME="+gittest.TestUser.GlUsername)
+			require.Contains(t, output, "GL_USERNAME="+git.TestUser.GlUsername)
 		})
 	}
 }
@@ -212,18 +211,18 @@ func TestFailedUserUpdateBranchDueToHooks(t *testing.T) {
 		BranchName: []byte(updateBranchName),
 		Newrev:     newrev,
 		Oldrev:     oldrev,
-		User:       gittest.TestUser,
+		User:       git.TestUser,
 	}
 	// Write a hook that will fail with the environment as the error message
 	// so we can check that string for our env variables.
 	hookContent := []byte("#!/bin/sh\nprintenv | paste -sd ' ' - >&2\nexit 1")
 
 	for _, hookName := range gitlabPreHooks {
-		gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
+		git.WriteCustomHook(t, repoPath, hookName, hookContent)
 
 		response, err := client.UserUpdateBranch(ctx, request)
 		require.NoError(t, err)
-		require.Contains(t, response.PreReceiveError, "GL_USERNAME="+gittest.TestUser.GlUsername)
+		require.Contains(t, response.PreReceiveError, "GL_USERNAME="+git.TestUser.GlUsername)
 		require.Contains(t, response.PreReceiveError, "PWD="+repoPath)
 
 		responseOk := &gitalypb.UserUpdateBranchResponse{
@@ -258,7 +257,7 @@ func TestFailedUserUpdateBranchRequest(t *testing.T) {
 			newrev:              newrev,
 			oldrev:              oldrev,
 			expectNotFoundError: true,
-			user:                gittest.TestUser,
+			user:                git.TestUser,
 			err:                 status.Error(codes.InvalidArgument, "empty branch name"),
 		},
 		{
@@ -266,7 +265,7 @@ func TestFailedUserUpdateBranchRequest(t *testing.T) {
 			branchName: updateBranchName,
 			newrev:     nil,
 			oldrev:     oldrev,
-			user:       gittest.TestUser,
+			user:       git.TestUser,
 			err:        status.Error(codes.InvalidArgument, "empty newrev"),
 		},
 		{
@@ -275,7 +274,7 @@ func TestFailedUserUpdateBranchRequest(t *testing.T) {
 			newrev:     newrev,
 			oldrev:     nil,
 			gotrev:     oldrev,
-			user:       gittest.TestUser,
+			user:       git.TestUser,
 			err:        status.Error(codes.InvalidArgument, "empty oldrev"),
 		},
 		{
@@ -292,7 +291,7 @@ func TestFailedUserUpdateBranchRequest(t *testing.T) {
 			newrev:              newrev,
 			oldrev:              oldrev,
 			expectNotFoundError: true,
-			user:                gittest.TestUser,
+			user:                git.TestUser,
 			err:                 status.Errorf(codes.FailedPrecondition, "Could not update %v. Please refresh and try again.", "i-dont-exist"),
 		},
 		{
@@ -301,7 +300,7 @@ func TestFailedUserUpdateBranchRequest(t *testing.T) {
 			newrev:     []byte(git.ObjectHashSHA1.ZeroOID.String()),
 			oldrev:     oldrev,
 			gotrev:     []byte("3dd08961455abf80ef9115f4afdc1c6f968b503c"),
-			user:       gittest.TestUser,
+			user:       git.TestUser,
 			err:        status.Errorf(codes.FailedPrecondition, "Could not update %v. Please refresh and try again.", "csv"),
 		},
 		{
@@ -309,7 +308,7 @@ func TestFailedUserUpdateBranchRequest(t *testing.T) {
 			branchName: updateBranchName,
 			newrev:     []byte(revDoesntExist),
 			oldrev:     oldrev,
-			user:       gittest.TestUser,
+			user:       git.TestUser,
 			err:        status.Errorf(codes.FailedPrecondition, "Could not update %v. Please refresh and try again.", updateBranchName),
 		},
 		{
@@ -318,7 +317,7 @@ func TestFailedUserUpdateBranchRequest(t *testing.T) {
 			newrev:     newrev,
 			oldrev:     []byte(revDoesntExist),
 			gotrev:     oldrev,
-			user:       gittest.TestUser,
+			user:       git.TestUser,
 			err:        status.Errorf(codes.FailedPrecondition, "Could not update %v. Please refresh and try again.", updateBranchName),
 		},
 		{
@@ -326,7 +325,7 @@ func TestFailedUserUpdateBranchRequest(t *testing.T) {
 			branchName: "heads/feature",
 			newrev:     []byte("1a35b5a77cf6af7edf6703f88e82f6aff613666f"),
 			oldrev:     []byte("0b4bc9a49b562e85de7cc9e834518ea6828729b9"),
-			user:       gittest.TestUser,
+			user:       git.TestUser,
 			err:        status.Errorf(codes.FailedPrecondition, "Could not update %v. Please refresh and try again.", "heads/feature"),
 		},
 		{
@@ -334,7 +333,7 @@ func TestFailedUserUpdateBranchRequest(t *testing.T) {
 			branchName: "refs/heads/crlf-diff",
 			newrev:     []byte(git.ObjectHashSHA1.ZeroOID.String()),
 			oldrev:     []byte("593890758a6f845c600f38ffa05be2749211caee"),
-			user:       gittest.TestUser,
+			user:       git.TestUser,
 			err:        status.Errorf(codes.FailedPrecondition, "Could not update %v. Please refresh and try again.", "refs/heads/crlf-diff"),
 		},
 		{
@@ -343,7 +342,7 @@ func TestFailedUserUpdateBranchRequest(t *testing.T) {
 			oldrev:              []byte("3dd08961455abf80ef9115f4afdc1c6f968b503c"),
 			newrev:              []byte(git.ObjectHashSHA1.ZeroOID.String()),
 			expectNotFoundError: true,
-			user:                gittest.TestUser,
+			user:                git.TestUser,
 			err:                 nil,
 			response:            &gitalypb.UserUpdateBranchResponse{},
 		},

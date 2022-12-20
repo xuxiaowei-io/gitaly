@@ -9,7 +9,7 @@ import (
 
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
@@ -25,16 +25,16 @@ func TestCheckObjectsExist(t *testing.T) {
 	logger, hook := test.NewNullLogger()
 	cfg, client := setupCommitService(t, ctx, testserver.WithLogger(logger))
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
-	commitID1 := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithBranch("master"), gittest.WithMessage("commit-1"),
+	commitID1 := git.WriteTestCommit(t, cfg, repoPath,
+		git.WithBranch("master"), git.WithMessage("commit-1"),
 	)
-	commitID2 := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithBranch("feature"), gittest.WithMessage("commit-2"), gittest.WithParents(commitID1),
+	commitID2 := git.WriteTestCommit(t, cfg, repoPath,
+		git.WithBranch("feature"), git.WithMessage("commit-2"), git.WithParents(commitID1),
 	)
-	commitID3 := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithMessage("commit-3"), gittest.WithParents(commitID1),
+	commitID3 := git.WriteTestCommit(t, cfg, repoPath,
+		git.WithMessage("commit-3"), git.WithParents(commitID1),
 	)
 
 	for _, tc := range []struct {

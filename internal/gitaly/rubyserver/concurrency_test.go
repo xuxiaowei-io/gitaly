@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"google.golang.org/grpc/codes"
@@ -30,7 +30,7 @@ func BenchmarkConcurrency(b *testing.B) {
 
 	cfg.Ruby.NumWorkers = 2
 
-	s := New(cfg, gittest.NewCommandFactory(b, cfg))
+	s := New(cfg, git.NewCommandFactory(b, cfg))
 	require.NoError(b, s.Start())
 	defer s.Stop()
 

@@ -9,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -19,7 +18,7 @@ func TestParser_ParseCommit(t *testing.T) {
 	t.Parallel()
 
 	info := &ObjectInfo{
-		Oid:  gittest.DefaultObjectHash.EmptyTreeOID,
+		Oid:  git.DefaultObjectHash.EmptyTreeOID,
 		Type: "commit",
 	}
 
@@ -181,7 +180,7 @@ func TestParseCommitAuthor(t *testing.T) {
 func TestParser_ParseTag(t *testing.T) {
 	t.Parallel()
 
-	oid := gittest.DefaultObjectHash.EmptyTreeOID.String()
+	oid := git.DefaultObjectHash.EmptyTreeOID.String()
 
 	for _, tc := range []struct {
 		desc           string

@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -43,7 +42,7 @@ func TestApplyBfgObjectMapStreamSuccess(t *testing.T) {
 		"refs/environments/1", "refs/keep-around/1", "refs/merge-requests/1", "refs/pipelines/1",
 		"refs/heads/_keep", "refs/tags/_keep", "refs/notes/_keep",
 	} {
-		gittest.Exec(t, cfg, "-C", repoPath, "update-ref", ref, headCommit.Id)
+		git.Exec(t, cfg, "-C", repoPath, "update-ref", ref, headCommit.Id)
 	}
 
 	// Create some refs pointing to ref/tags/v1.0.0, simulating an unmodified
@@ -51,7 +50,7 @@ func TestApplyBfgObjectMapStreamSuccess(t *testing.T) {
 	for _, ref := range []string{
 		"refs/environments/_keep", "refs/keep-around/_keep", "refs/merge-requests/_keep", "refs/pipelines/_keep",
 	} {
-		gittest.Exec(t, cfg, "-C", repoPath, "update-ref", ref, tagID)
+		git.Exec(t, cfg, "-C", repoPath, "update-ref", ref, tagID)
 	}
 
 	const filterRepoCommitMapHeader = "old                                      new\n"

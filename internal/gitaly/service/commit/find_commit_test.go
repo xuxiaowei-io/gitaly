@@ -9,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -28,9 +27,9 @@ func TestSuccessfulFindCommitRequest(t *testing.T) {
 	cfg, repoProto, repoPath, client := setupCommitServiceWithRepo(t, ctx)
 
 	bigMessage := "An empty commit with REALLY BIG message\n\n" + strings.Repeat("MOAR!\n", 20*1024)
-	bigCommitID := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithBranch("local-big-commits"), gittest.WithMessage(bigMessage),
-		gittest.WithParents("60ecb67744cb56576c30214ff52294f8ce2def98"),
+	bigCommitID := git.WriteTestCommit(t, cfg, repoPath,
+		git.WithBranch("local-big-commits"), git.WithMessage(bigMessage),
+		git.WithParents("60ecb67744cb56576c30214ff52294f8ce2def98"),
 	)
 
 	testCases := []struct {
@@ -198,8 +197,8 @@ func TestSuccessfulFindCommitRequest(t *testing.T) {
 			commit: &gitalypb.GitCommit{
 				Id:        bigCommitID.String(),
 				Subject:   []byte("An empty commit with REALLY BIG message"),
-				Author:    gittest.DefaultCommitAuthor,
-				Committer: gittest.DefaultCommitAuthor,
+				Author:    git.DefaultCommitAuthor,
+				Committer: git.DefaultCommitAuthor,
 				ParentIds: []string{"60ecb67744cb56576c30214ff52294f8ce2def98"},
 				Body:      []byte(bigMessage[:helper.MaxCommitOrTagMessageSize]),
 				BodySize:  int64(len(bigMessage)),
@@ -315,7 +314,7 @@ func benchmarkFindCommit(b *testing.B, withCache bool) {
 	cfg, repo, _, client := setupCommitServiceWithRepo(b, ctx)
 
 	// get a list of revisions
-	gitCmdFactory := gittest.NewCommandFactory(b, cfg)
+	gitCmdFactory := git.NewCommandFactory(b, cfg)
 	logCmd, err := gitCmdFactory.New(ctx, repo,
 		git.Command{Name: "log", Flags: []git.Option{git.Flag{Name: "--format=format:%H"}}})
 	require.NoError(b, err)
@@ -354,8 +353,8 @@ func TestFindCommitWithCache(t *testing.T) {
 
 	// get a list of revisions
 
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
-	logCmd, err := gitCmdFactory.New(ctx, gittest.RewrittenRepository(t, ctx, cfg, repo),
+	gitCmdFactory := git.NewCommandFactory(t, cfg)
+	logCmd, err := gitCmdFactory.New(ctx, git.RewrittenRepository(t, ctx, cfg, repo),
 		git.Command{Name: "log", Flags: []git.Option{git.Flag{Name: "--format=format:%H"}}})
 	require.NoError(t, err)
 

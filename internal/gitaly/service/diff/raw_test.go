@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -25,7 +25,7 @@ func TestRawDiff_successful(t *testing.T) {
 	cfg, repoProto, repoPath, client := setupDiffService(t, ctx)
 	testcfg.BuildGitalyGit2Go(t, cfg)
 
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+	gitCmdFactory := git.NewCommandFactory(t, cfg)
 	locator := config.NewLocator(cfg)
 	git2goExecutor := git2go.NewExecutor(cfg, gitCmdFactory, locator)
 
@@ -46,14 +46,14 @@ func TestRawDiff_successful(t *testing.T) {
 	require.NoError(t, err)
 
 	signature := git2go.Signature{
-		Name:  gittest.DefaultCommitterName,
-		Email: gittest.DefaultCommitterMail,
-		When:  gittest.DefaultCommitTime,
+		Name:  git.DefaultCommitterName,
+		Email: git.DefaultCommitterMail,
+		When:  git.DefaultCommitTime,
 	}
 
 	// Now that we have read the patch in we verify that it indeed round-trips to the same tree
 	// as the right commit is referring to by reapplying the diff on top of the left commit.
-	patchedCommitID, err := git2goExecutor.Apply(ctx, gittest.RewrittenRepository(t, ctx, cfg, repoProto), git2go.ApplyParams{
+	patchedCommitID, err := git2goExecutor.Apply(ctx, git.RewrittenRepository(t, ctx, cfg, repoProto), git2go.ApplyParams{
 		Repository:   repoPath,
 		Committer:    signature,
 		ParentCommit: leftCommit,
@@ -68,8 +68,8 @@ func TestRawDiff_successful(t *testing.T) {
 	// Peel both right commit and patched commit to their trees and assert that they refer to
 	// the same one.
 	require.Equal(t,
-		gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", rightCommit+"^{tree}"),
-		gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", patchedCommitID.String()+"^{tree}"),
+		git.Exec(t, cfg, "-C", repoPath, "rev-parse", rightCommit+"^{tree}"),
+		git.Exec(t, cfg, "-C", repoPath, "rev-parse", patchedCommitID.String()+"^{tree}"),
 	)
 }
 
@@ -128,7 +128,7 @@ func TestRawPatch_successful(t *testing.T) {
 	cfg, repoProto, repoPath, client := setupDiffService(t, ctx)
 	testcfg.BuildGitalyGit2Go(t, cfg)
 
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+	gitCmdFactory := git.NewCommandFactory(t, cfg)
 	locator := config.NewLocator(cfg)
 	git2goExecutor := git2go.NewExecutor(cfg, gitCmdFactory, locator)
 
@@ -149,14 +149,14 @@ func TestRawPatch_successful(t *testing.T) {
 	require.NoError(t, err)
 
 	signature := git2go.Signature{
-		Name:  gittest.DefaultCommitterName,
-		Email: gittest.DefaultCommitterMail,
-		When:  gittest.DefaultCommitTime,
+		Name:  git.DefaultCommitterName,
+		Email: git.DefaultCommitterMail,
+		When:  git.DefaultCommitTime,
 	}
 
 	// Now that we have read the patch in we verify that it indeed round-trips to the same tree
 	// as the right commit is referring to by reapplying the diff on top of the left commit.
-	patchedCommitID, err := git2goExecutor.Apply(ctx, gittest.RewrittenRepository(t, ctx, cfg, repoProto), git2go.ApplyParams{
+	patchedCommitID, err := git2goExecutor.Apply(ctx, git.RewrittenRepository(t, ctx, cfg, repoProto), git2go.ApplyParams{
 		Repository:   repoPath,
 		Committer:    signature,
 		ParentCommit: leftCommit,
@@ -171,8 +171,8 @@ func TestRawPatch_successful(t *testing.T) {
 	// Peel both right commit and patched commit to their trees and assert that they refer to
 	// the same one.
 	require.Equal(t,
-		gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", rightCommit+"^{tree}"),
-		gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", patchedCommitID.String()+"^{tree}"),
+		git.Exec(t, cfg, "-C", repoPath, "rev-parse", rightCommit+"^{tree}"),
+		git.Exec(t, cfg, "-C", repoPath, "rev-parse", patchedCommitID.String()+"^{tree}"),
 	)
 }
 

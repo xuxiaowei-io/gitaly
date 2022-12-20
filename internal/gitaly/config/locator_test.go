@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
@@ -25,7 +25,7 @@ func TestConfigLocator_GetRepoPath(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t, testcfg.WithStorages(storageName, "removed"))
 	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repo, repoPath := git.CreateRepository(t, ctx, cfg)
 	locator := config.NewLocator(cfg)
 
 	t.Run("proper repository path", func(t *testing.T) {
@@ -99,7 +99,7 @@ func TestConfigLocator_GetPath(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t, testcfg.WithStorages(storageName, "removed"))
 	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
-	repo, _ := gittest.CreateRepository(t, ctx, cfg)
+	repo, _ := git.CreateRepository(t, ctx, cfg)
 
 	// The storage name still present in the storages list, but not on the disk.
 	require.NoError(t, os.RemoveAll(cfg.Storages[1].Path))

@@ -9,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -24,7 +23,7 @@ func TestSuccessfulGetCommitSignaturesRequest(t *testing.T) {
 	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, ctx)
 
 	commitData := testhelper.MustReadFile(t, "testdata/dc00eb001f41dfac08192ead79c2377c588b82ee.commit")
-	commit := text.ChompBytes(gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: bytes.NewReader(commitData)},
+	commit := text.ChompBytes(git.ExecOpts(t, cfg, git.ExecConfig{Stdin: bytes.NewReader(commitData)},
 		"-C", repoPath, "hash-object", "-w", "-t", "commit", "--stdin", "--literally",
 	))
 	require.Equal(t, "dc00eb001f41dfac08192ead79c2377c588b82ee", commit)

@@ -6,7 +6,7 @@ import (
 	"context"
 	"testing"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
@@ -37,8 +37,8 @@ func setupConflictsService(tb testing.TB, ctx context.Context, hookManager hook.
 	client, conn := NewConflictsClient(tb, serverSocketPath)
 	tb.Cleanup(func() { conn.Close() })
 
-	repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repo, repoPath := git.CreateRepository(tb, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	return cfg, repo, repoPath, client

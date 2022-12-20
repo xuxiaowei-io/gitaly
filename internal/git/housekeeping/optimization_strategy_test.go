@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -30,7 +30,7 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 		{
 			desc: "empty repo",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
 				})
@@ -41,7 +41,7 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 		{
 			desc: "object in 17 shard",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
 				})
@@ -63,7 +63,7 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 		{
 			desc: "old object in 17 shard",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
 				})
@@ -94,7 +94,7 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 		{
 			desc: "packfile",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
 				})
@@ -114,7 +114,7 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 		{
 			desc: "alternate",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
 				})
@@ -132,7 +132,7 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 		{
 			desc: "bitmap",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
 				})
@@ -152,10 +152,10 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 		{
 			desc: "existing unsplit commit-graph with bloom filters",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+				git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
 
 				// Write a non-split commit-graph with bloom filters. We should
 				// always rewrite the commit-graphs when we're not using a split
@@ -163,7 +163,7 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 				// `--changed-paths` given that it would otherwise cause us to
 				// rewrite the graph regardless of whether the graph is split or not
 				// if they were missing.
-				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--changed-paths")
+				git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--changed-paths")
 
 				return repoProto
 			},
@@ -186,15 +186,15 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 		{
 			desc: "existing split commit-graph without bloom filters",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+				git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
 
 				// Generate a split commit-graph, but don't enable computation of
 				// changed paths. This should trigger a rewrite so that we can
 				// recompute all graphs and generate the changed paths.
-				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split")
+				git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split")
 
 				return repoProto
 			},
@@ -217,15 +217,15 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 		{
 			desc: "existing split commit-graph with bloom filters",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+				git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
 
 				// Write a split commit-graph with bitmaps. This is the state we
 				// want to be in, so there is no write required if we didn't also
 				// repack objects.
-				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split", "--changed-paths")
+				git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split", "--changed-paths")
 
 				return repoProto
 			},
@@ -756,7 +756,7 @@ func TestNewEagerOptimizationStrategy(t *testing.T) {
 		{
 			desc: "empty repo",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
 				})
@@ -767,7 +767,7 @@ func TestNewEagerOptimizationStrategy(t *testing.T) {
 		{
 			desc: "alternate",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
 				})
@@ -883,7 +883,7 @@ func (m mockOptimizationStrategy) ShouldWriteCommitGraph() (bool, WriteCommitGra
 }
 
 func hashDependentObjectSize(sha1Size, sha256Size uint64) uint64 {
-	if gittest.ObjectHashIsSHA256() {
+	if git.ObjectHashIsSHA256() {
 		return sha256Size
 	}
 	return sha1Size

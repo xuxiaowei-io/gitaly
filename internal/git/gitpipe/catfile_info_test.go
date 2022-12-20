@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -22,18 +22,18 @@ func TestCatfileInfo(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	blobA := gittest.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("a"), 133))
-	blobB := gittest.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("b"), 127))
-	blobC := gittest.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("c"), 127))
-	blobD := gittest.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("d"), 129))
+	blobA := git.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("a"), 133))
+	blobB := git.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("b"), 127))
+	blobC := git.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("c"), 127))
+	blobD := git.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("d"), 129))
 
-	blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("contents"))
-	treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+	blobID := git.WriteBlob(t, cfg, repoPath, []byte("contents"))
+	treeID := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 		{Path: "branch-test.txt", Mode: "100644", OID: blobID},
 	})
 
@@ -286,22 +286,22 @@ func TestCatfileInfoAllObjects(t *testing.T) {
 	cfg := testcfg.Build(t)
 	ctx := testhelper.Context(t)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	blob1 := gittest.WriteBlob(t, cfg, repoPath, []byte("foobar"))
-	blob2 := gittest.WriteBlob(t, cfg, repoPath, []byte("barfoo"))
-	tree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+	blob1 := git.WriteBlob(t, cfg, repoPath, []byte("foobar"))
+	blob2 := git.WriteBlob(t, cfg, repoPath, []byte("barfoo"))
+	tree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 		{Path: "foobar", Mode: "100644", OID: blob1},
 	})
-	commit := gittest.WriteCommit(t, cfg, repoPath)
+	commit := git.WriteTestCommit(t, cfg, repoPath)
 
 	actualObjects := []CatfileInfoResult{
 		{ObjectInfo: &catfile.ObjectInfo{Oid: blob1, Type: "blob", Size: 6}},
 		{ObjectInfo: &catfile.ObjectInfo{Oid: blob2, Type: "blob", Size: 6}},
-		{ObjectInfo: &catfile.ObjectInfo{Oid: gittest.DefaultObjectHash.EmptyTreeOID, Type: "tree", Size: 0}},
+		{ObjectInfo: &catfile.ObjectInfo{Oid: git.DefaultObjectHash.EmptyTreeOID, Type: "tree", Size: 0}},
 		{ObjectInfo: &catfile.ObjectInfo{Oid: tree, Type: "tree", Size: hashDependentObjectSize(34, 46)}},
 		{ObjectInfo: &catfile.ObjectInfo{Oid: commit, Type: "commit", Size: hashDependentObjectSize(177, 201)}},
 	}
@@ -343,41 +343,41 @@ func TestCatfileInfo_WithDiskUsageSize(t *testing.T) {
 	cfg := testcfg.Build(t)
 	ctx := testhelper.Context(t)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	tree1 := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+	tree1 := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 		{
 			Path: "foobar",
 			Mode: "100644",
-			OID:  gittest.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("a"), 100)),
+			OID:  git.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("a"), 100)),
 		},
 	})
-	initialCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(tree1))
+	initialCommitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTree(tree1))
 
-	tree2 := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+	tree2 := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 		{
 			Path: "foobar",
 			Mode: "100644",
 			// take advantage of compression
-			OID: gittest.WriteBlob(t, cfg, repoPath, append(bytes.Repeat([]byte("a"), 100),
+			OID: git.WriteBlob(t, cfg, repoPath, append(bytes.Repeat([]byte("a"), 100),
 				'\n',
 				'b',
 			)),
 		},
 	})
-	gittest.WriteCommit(
+	git.WriteTestCommit(
 		t,
 		cfg,
 		repoPath,
-		gittest.WithTree(tree2),
-		gittest.WithParents(initialCommitID),
-		gittest.WithBranch("master"),
+		git.WithTree(tree2),
+		git.WithParents(initialCommitID),
+		git.WithBranch("master"),
 	)
 
-	gittest.Exec(t, cfg, "-C", repoPath, "gc")
+	git.Exec(t, cfg, "-C", repoPath, "gc")
 
 	itWithoutDiskSize := CatfileInfoAllObjects(ctx, repo)
 	itWithDiskSize := CatfileInfoAllObjects(ctx, repo, WithDiskUsageSize())

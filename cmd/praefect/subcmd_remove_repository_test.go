@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/client"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	gitalycfg "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
@@ -120,7 +120,7 @@ func TestRemoveRepository_Exec(t *testing.T) {
 	t.Run("dry run", func(t *testing.T) {
 		var out bytes.Buffer
 		repo := createRepo(t, ctx, repoClient, praefectStorage, t.Name())
-		replicaPath := gittest.GetReplicaPath(t, ctx, gitalycfg.Cfg{SocketPath: praefectServer.Address()}, repo)
+		replicaPath := git.GetReplicaPath(t, ctx, gitalycfg.Cfg{SocketPath: praefectServer.Address()}, repo)
 
 		cmd := &removeRepository{
 			logger:         testhelper.NewDiscardingLogger(t),
@@ -143,7 +143,7 @@ func TestRemoveRepository_Exec(t *testing.T) {
 	t.Run("ok", func(t *testing.T) {
 		var out bytes.Buffer
 		repo := createRepo(t, ctx, repoClient, praefectStorage, t.Name())
-		replicaPath := gittest.GetReplicaPath(t, ctx, gitalycfg.Cfg{SocketPath: praefectServer.Address()}, repo)
+		replicaPath := git.GetReplicaPath(t, ctx, gitalycfg.Cfg{SocketPath: praefectServer.Address()}, repo)
 		require.DirExists(t, filepath.Join(g1Cfg.Storages[0].Path, replicaPath))
 		require.DirExists(t, filepath.Join(g2Cfg.Storages[0].Path, replicaPath))
 
@@ -169,7 +169,7 @@ func TestRemoveRepository_Exec(t *testing.T) {
 	t.Run("db only", func(t *testing.T) {
 		var out bytes.Buffer
 		repo := createRepo(t, ctx, repoClient, praefectStorage, t.Name())
-		replicaPath := gittest.GetReplicaPath(t, ctx, gitalycfg.Cfg{SocketPath: praefectServer.Address()}, repo)
+		replicaPath := git.GetReplicaPath(t, ctx, gitalycfg.Cfg{SocketPath: praefectServer.Address()}, repo)
 
 		cmd := &removeRepository{
 			logger:         testhelper.NewDiscardingLogger(t),
@@ -197,7 +197,7 @@ func TestRemoveRepository_Exec(t *testing.T) {
 	t.Run("repository doesnt exist on one gitaly", func(t *testing.T) {
 		var out bytes.Buffer
 		repo := createRepo(t, ctx, repoClient, praefectStorage, t.Name())
-		replicaPath := gittest.GetReplicaPath(t, ctx, gitalycfg.Cfg{SocketPath: praefectServer.Address()}, repo)
+		replicaPath := git.GetReplicaPath(t, ctx, gitalycfg.Cfg{SocketPath: praefectServer.Address()}, repo)
 
 		require.DirExists(t, filepath.Join(g2Cfg.Storages[0].Path, replicaPath))
 		require.DirExists(t, filepath.Join(g1Cfg.Storages[0].Path, replicaPath))
@@ -225,7 +225,7 @@ func TestRemoveRepository_Exec(t *testing.T) {
 	t.Run("no info about repository on praefect", func(t *testing.T) {
 		var out bytes.Buffer
 		repo := createRepo(t, ctx, repoClient, praefectStorage, t.Name())
-		replicaPath := gittest.GetReplicaPath(t, ctx, gitalycfg.Cfg{SocketPath: praefectServer.Address()}, repo)
+		replicaPath := git.GetReplicaPath(t, ctx, gitalycfg.Cfg{SocketPath: praefectServer.Address()}, repo)
 
 		repoStore := datastore.NewPostgresRepositoryStore(db.DB, nil)
 		_, _, err = repoStore.DeleteRepository(ctx, repo.StorageName, repo.RelativePath)
@@ -251,7 +251,7 @@ func TestRemoveRepository_Exec(t *testing.T) {
 		repo := createRepo(t, ctx, repoClient, praefectStorage, t.Name())
 		g2Srv.Shutdown()
 
-		replicaPath := gittest.GetReplicaPath(t, ctx, gitalycfg.Cfg{SocketPath: praefectServer.Address()}, repo)
+		replicaPath := git.GetReplicaPath(t, ctx, gitalycfg.Cfg{SocketPath: praefectServer.Address()}, repo)
 		require.DirExists(t, filepath.Join(g1Cfg.Storages[0].Path, replicaPath))
 		require.DirExists(t, filepath.Join(g2Cfg.Storages[0].Path, replicaPath))
 

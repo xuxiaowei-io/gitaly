@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
@@ -45,8 +44,8 @@ func TestManager_Create(t *testing.T) {
 		{
 			desc: "no hooks",
 			setup: func(tb testing.TB) (*gitalypb.Repository, string) {
-				noHooksRepo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
-					Seed: gittest.SeedGitLabTest,
+				noHooksRepo, repoPath := git.CreateRepository(tb, ctx, cfg, git.CreateRepositoryConfig{
+					Seed: git.SeedGitLabTest,
 				})
 				return noHooksRepo, repoPath
 			},
@@ -56,8 +55,8 @@ func TestManager_Create(t *testing.T) {
 		{
 			desc: "hooks",
 			setup: func(tb testing.TB) (*gitalypb.Repository, string) {
-				hooksRepo, hooksRepoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
-					Seed: gittest.SeedGitLabTest,
+				hooksRepo, hooksRepoPath := git.CreateRepository(tb, ctx, cfg, git.CreateRepositoryConfig{
+					Seed: git.SeedGitLabTest,
 				})
 				require.NoError(tb, os.Mkdir(filepath.Join(hooksRepoPath, "custom_hooks"), os.ModePerm))
 				require.NoError(tb, os.WriteFile(filepath.Join(hooksRepoPath, "custom_hooks/pre-commit.sample"), []byte("Some hooks"), os.ModePerm))
@@ -69,7 +68,7 @@ func TestManager_Create(t *testing.T) {
 		{
 			desc: "empty repo",
 			setup: func(tb testing.TB) (*gitalypb.Repository, string) {
-				emptyRepo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
+				emptyRepo, repoPath := git.CreateRepository(tb, ctx, cfg)
 				return emptyRepo, repoPath
 			},
 			createsBundle:      false,
@@ -79,9 +78,9 @@ func TestManager_Create(t *testing.T) {
 		{
 			desc: "nonexistent repo",
 			setup: func(tb testing.TB) (*gitalypb.Repository, string) {
-				emptyRepo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
+				emptyRepo, repoPath := git.CreateRepository(tb, ctx, cfg)
 				nonexistentRepo := proto.Clone(emptyRepo).(*gitalypb.Repository)
-				nonexistentRepo.RelativePath = gittest.NewRepositoryName(t)
+				nonexistentRepo.RelativePath = git.NewRepositoryName(t)
 				return nonexistentRepo, repoPath
 			},
 			createsBundle:      false,
@@ -127,10 +126,10 @@ func TestManager_Create(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, os.FileMode(0o600), bundleInfo.Mode().Perm(), "expecting restricted file permissions")
 
-				output := gittest.Exec(t, cfg, "-C", repoPath, "bundle", "verify", bundlePath)
+				output := git.Exec(t, cfg, "-C", repoPath, "bundle", "verify", bundlePath)
 				require.Contains(t, string(output), "The bundle records a complete history")
 
-				expectedRefs := gittest.Exec(t, cfg, "-C", repoPath, "show-ref", "--head")
+				expectedRefs := git.Exec(t, cfg, "-C", repoPath, "show-ref", "--head")
 				actualRefs := testhelper.MustReadFile(t, refsPath)
 				require.Equal(t, string(expectedRefs), string(actualRefs))
 			} else {
@@ -165,8 +164,8 @@ func TestManager_Create_incremental(t *testing.T) {
 		{
 			desc: "no previous backup",
 			setup: func(tb testing.TB, backupRoot string) (*gitalypb.Repository, string) {
-				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
-					Seed: gittest.SeedGitLabTest,
+				repo, repoPath := git.CreateRepository(tb, ctx, cfg, git.CreateRepositoryConfig{
+					Seed: git.SeedGitLabTest,
 				})
 				return repo, repoPath
 			},
@@ -175,8 +174,8 @@ func TestManager_Create_incremental(t *testing.T) {
 		{
 			desc: "previous backup, no updates",
 			setup: func(tb testing.TB, backupRoot string) (*gitalypb.Repository, string) {
-				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
-					Seed: gittest.SeedGitLabTest,
+				repo, repoPath := git.CreateRepository(tb, ctx, cfg, git.CreateRepositoryConfig{
+					Seed: git.SeedGitLabTest,
 				})
 
 				backupRepoPath := joinBackupPath(tb, backupRoot, repo)
@@ -185,9 +184,9 @@ func TestManager_Create_incremental(t *testing.T) {
 				refsPath := filepath.Join(backupPath, "001.refs")
 
 				require.NoError(tb, os.MkdirAll(backupPath, os.ModePerm))
-				gittest.Exec(tb, cfg, "-C", repoPath, "bundle", "create", bundlePath, "--all")
+				git.Exec(tb, cfg, "-C", repoPath, "bundle", "create", bundlePath, "--all")
 
-				refs := gittest.Exec(tb, cfg, "-C", repoPath, "show-ref", "--head")
+				refs := git.Exec(tb, cfg, "-C", repoPath, "show-ref", "--head")
 				require.NoError(tb, os.WriteFile(refsPath, refs, os.ModePerm))
 
 				require.NoError(tb, os.WriteFile(filepath.Join(backupRepoPath, "LATEST"), []byte(backupID), os.ModePerm))
@@ -200,8 +199,8 @@ func TestManager_Create_incremental(t *testing.T) {
 		{
 			desc: "previous backup, updates",
 			setup: func(tb testing.TB, backupRoot string) (*gitalypb.Repository, string) {
-				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
-					Seed: gittest.SeedGitLabTest,
+				repo, repoPath := git.CreateRepository(tb, ctx, cfg, git.CreateRepositoryConfig{
+					Seed: git.SeedGitLabTest,
 				})
 
 				backupRepoPath := joinBackupPath(tb, backupRoot, repo)
@@ -210,15 +209,15 @@ func TestManager_Create_incremental(t *testing.T) {
 				refsPath := filepath.Join(backupPath, "001.refs")
 
 				require.NoError(tb, os.MkdirAll(backupPath, os.ModePerm))
-				gittest.Exec(tb, cfg, "-C", repoPath, "bundle", "create", bundlePath, "--all")
+				git.Exec(tb, cfg, "-C", repoPath, "bundle", "create", bundlePath, "--all")
 
-				refs := gittest.Exec(tb, cfg, "-C", repoPath, "show-ref", "--head")
+				refs := git.Exec(tb, cfg, "-C", repoPath, "show-ref", "--head")
 				require.NoError(tb, os.WriteFile(refsPath, refs, os.ModePerm))
 
 				require.NoError(tb, os.WriteFile(filepath.Join(backupRepoPath, "LATEST"), []byte(backupID), os.ModePerm))
 				require.NoError(tb, os.WriteFile(filepath.Join(backupPath, "LATEST"), []byte("001"), os.ModePerm))
 
-				gittest.WriteCommit(tb, cfg, repoPath, gittest.WithBranch("master"))
+				git.WriteTestCommit(tb, cfg, repoPath, git.WithBranch("master"))
 
 				return repo, repoPath
 			},
@@ -255,7 +254,7 @@ func TestManager_Create_incremental(t *testing.T) {
 			require.FileExists(t, refsPath)
 			require.FileExists(t, bundlePath)
 
-			expectedRefs := gittest.Exec(t, cfg, "-C", repoPath, "show-ref", "--head")
+			expectedRefs := git.Exec(t, cfg, "-C", repoPath, "show-ref", "--head")
 			actualRefs := testhelper.MustReadFile(t, refsPath)
 			require.Equal(t, string(expectedRefs), string(actualRefs))
 		})
@@ -281,12 +280,12 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 
 	repoClient := gitalypb.NewRepositoryServiceClient(cc)
 
-	_, repoPath := gittest.CreateRepository(t, ctx, cfg)
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
-	gittest.WriteTag(t, cfg, repoPath, "v1.0.0", commitID.Revision())
-	repoChecksum := gittest.ChecksumRepo(t, cfg, repoPath)
-
 	backupRoot := testhelper.TempDir(t)
+
+	_, repoPath := git.CreateRepository(t, ctx, cfg)
+	commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+	git.WriteTag(t, cfg, repoPath, "v1.0.0", commitID.Revision())
+	repoChecksum := git.ChecksumRepo(t, cfg, repoPath)
 
 	for _, tc := range []struct {
 		desc          string
@@ -301,12 +300,12 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 			desc:     "existing repo, without hooks",
 			locators: []string{"legacy", "pointer"},
 			setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
-				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+				repo, _ := git.CreateRepository(t, ctx, cfg)
 
 				relativePath := stripRelativePath(tb, repo)
 				require.NoError(tb, os.MkdirAll(filepath.Join(backupRoot, relativePath), os.ModePerm))
 				bundlePath := filepath.Join(backupRoot, relativePath+".bundle")
-				gittest.BundleRepo(tb, cfg, repoPath, bundlePath)
+				git.BundleRepo(tb, cfg, repoPath, bundlePath)
 
 				return repo, repoChecksum
 			},
@@ -316,13 +315,13 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 			desc:     "existing repo, with hooks",
 			locators: []string{"legacy", "pointer"},
 			setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
-				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+				repo, _ := git.CreateRepository(t, ctx, cfg)
 
 				relativePath := stripRelativePath(tb, repo)
 				bundlePath := filepath.Join(backupRoot, relativePath+".bundle")
 				customHooksPath := filepath.Join(backupRoot, relativePath, "custom_hooks.tar")
 				require.NoError(tb, os.MkdirAll(filepath.Join(backupRoot, relativePath), os.ModePerm))
-				gittest.BundleRepo(tb, cfg, repoPath, bundlePath)
+				git.BundleRepo(tb, cfg, repoPath, bundlePath)
 				testhelper.CopyFile(tb, "../gitaly/service/repository/testdata/custom_hooks.tar", customHooksPath)
 
 				return repo, repoChecksum
@@ -338,7 +337,7 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 			desc:     "missing bundle",
 			locators: []string{"legacy", "pointer"},
 			setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
-				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+				repo, _ := git.CreateRepository(t, ctx, cfg)
 				return repo, nil
 			},
 			expectedErrAs: ErrSkipped,
@@ -347,7 +346,7 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 			desc:     "missing bundle, always create",
 			locators: []string{"legacy", "pointer"},
 			setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
-				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+				repo, _ := git.CreateRepository(t, ctx, cfg)
 				return repo, new(git.Checksum)
 			},
 			alwaysCreate: true,
@@ -359,13 +358,13 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 			setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
 				repo := &gitalypb.Repository{
 					StorageName:  "default",
-					RelativePath: gittest.NewRepositoryName(tb),
+					RelativePath: git.NewRepositoryName(tb),
 				}
 
 				relativePath := stripRelativePath(tb, repo)
 				require.NoError(tb, os.MkdirAll(filepath.Dir(filepath.Join(backupRoot, relativePath)), os.ModePerm))
 				bundlePath := filepath.Join(backupRoot, relativePath+".bundle")
-				gittest.BundleRepo(tb, cfg, repoPath, bundlePath)
+				git.BundleRepo(tb, cfg, repoPath, bundlePath)
 
 				return repo, repoChecksum
 			},
@@ -376,14 +375,14 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 			locators: []string{"pointer"},
 			setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
 				const backupID = "abc123"
-				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+				repo, _ := git.CreateRepository(t, ctx, cfg)
 				repoBackupPath := joinBackupPath(tb, backupRoot, repo)
 				backupPath := filepath.Join(repoBackupPath, backupID)
 				require.NoError(tb, os.MkdirAll(backupPath, os.ModePerm))
 				require.NoError(tb, os.WriteFile(filepath.Join(repoBackupPath, "LATEST"), []byte(backupID), os.ModePerm))
 				require.NoError(tb, os.WriteFile(filepath.Join(backupPath, "LATEST"), []byte("001"), os.ModePerm))
 				bundlePath := filepath.Join(backupPath, "001.bundle")
-				gittest.BundleRepo(tb, cfg, repoPath, bundlePath)
+				git.BundleRepo(tb, cfg, repoPath, bundlePath)
 
 				return repo, repoChecksum
 			},
@@ -395,40 +394,40 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 			setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
 				const backupID = "abc123"
 
-				_, expectedRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				_, expectedRepoPath := git.CreateRepository(t, ctx, cfg)
 
-				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+				repo, _ := git.CreateRepository(t, ctx, cfg)
 				repoBackupPath := joinBackupPath(tb, backupRoot, repo)
 				backupPath := filepath.Join(repoBackupPath, backupID)
 				require.NoError(tb, os.MkdirAll(backupPath, os.ModePerm))
 				require.NoError(tb, os.WriteFile(filepath.Join(repoBackupPath, "LATEST"), []byte(backupID), os.ModePerm))
 				require.NoError(tb, os.WriteFile(filepath.Join(backupPath, "LATEST"), []byte("002"), os.ModePerm))
 
-				root := gittest.WriteCommit(tb, cfg, expectedRepoPath,
-					gittest.WithBranch("master"),
+				root := git.WriteTestCommit(tb, cfg, expectedRepoPath,
+					git.WithBranch("master"),
 				)
-				master1 := gittest.WriteCommit(tb, cfg, expectedRepoPath,
-					gittest.WithBranch("master"),
-					gittest.WithParents(root),
+				master1 := git.WriteTestCommit(tb, cfg, expectedRepoPath,
+					git.WithBranch("master"),
+					git.WithParents(root),
 				)
-				other := gittest.WriteCommit(tb, cfg, expectedRepoPath,
-					gittest.WithBranch("other"),
-					gittest.WithParents(root),
+				other := git.WriteTestCommit(tb, cfg, expectedRepoPath,
+					git.WithBranch("other"),
+					git.WithParents(root),
 				)
-				gittest.Exec(tb, cfg, "-C", expectedRepoPath, "symbolic-ref", "HEAD", "refs/heads/master")
+				git.Exec(tb, cfg, "-C", expectedRepoPath, "symbolic-ref", "HEAD", "refs/heads/master")
 				bundlePath1 := filepath.Join(backupPath, "001.bundle")
-				gittest.Exec(tb, cfg, "-C", expectedRepoPath, "bundle", "create", bundlePath1,
+				git.Exec(tb, cfg, "-C", expectedRepoPath, "bundle", "create", bundlePath1,
 					"HEAD",
 					"refs/heads/master",
 					"refs/heads/other",
 				)
 
-				master2 := gittest.WriteCommit(tb, cfg, expectedRepoPath,
-					gittest.WithBranch("master"),
-					gittest.WithParents(master1),
+				master2 := git.WriteTestCommit(tb, cfg, expectedRepoPath,
+					git.WithBranch("master"),
+					git.WithParents(master1),
 				)
 				bundlePath2 := filepath.Join(backupPath, "002.bundle")
-				gittest.Exec(tb, cfg, "-C", expectedRepoPath, "bundle", "create", bundlePath2,
+				git.Exec(tb, cfg, "-C", expectedRepoPath, "bundle", "create", bundlePath2,
 					"HEAD",
 					"^"+master1.String(),
 					"^"+other.String(),
@@ -491,7 +490,7 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 						// Restore has to use the rewritten path as the relative path due to the test creating
 						// the repository through Praefect. In order to get to the correct disk paths, we need
 						// to get the replica path of the rewritten repository.
-						repoPath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(t, ctx, cfg, repo))
+						repoPath := filepath.Join(cfg.Storages[0].Path, git.GetReplicaPath(t, ctx, cfg, repo))
 						for _, p := range tc.expectedPaths {
 							require.FileExists(t, filepath.Join(repoPath, p))
 						}

@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -28,14 +28,14 @@ func TestSuccessfulCreateBundleRequest(t *testing.T) {
 
 	// Create a work tree with a HEAD pointing to a commit that is missing. CreateBundle should
 	// clean this up before creating the bundle.
-	sha := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"))
+	sha := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("branch"))
 
 	require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "gitlab-worktree"), 0o755))
 
-	gittest.Exec(t, cfg, "-C", repoPath, "worktree", "add", "gitlab-worktree/worktree1", sha.String())
+	git.Exec(t, cfg, "-C", repoPath, "worktree", "add", "gitlab-worktree/worktree1", sha.String())
 	require.NoError(t, os.Chtimes(filepath.Join(repoPath, "gitlab-worktree", "worktree1"), time.Now().Add(-7*time.Hour), time.Now().Add(-7*time.Hour)))
 
-	gittest.Exec(t, cfg, "-C", repoPath, "branch", "-D", "branch")
+	git.Exec(t, cfg, "-C", repoPath, "branch", "-D", "branch")
 	require.NoError(t, os.Remove(filepath.Join(repoPath, "objects", sha.String()[0:2], sha.String()[2:])))
 
 	request := &gitalypb.CreateBundleRequest{Repository: repo}
@@ -58,7 +58,7 @@ func TestSuccessfulCreateBundleRequest(t *testing.T) {
 	_, err = io.Copy(dstFile, reader)
 	require.NoError(t, err)
 
-	output := gittest.Exec(t, cfg, "-C", repoPath, "bundle", "verify", dstFile.Name())
+	output := git.Exec(t, cfg, "-C", repoPath, "bundle", "verify", dstFile.Name())
 	// Extra sanity; running verify should fail on bad bundles
 	require.Contains(t, string(output), "The bundle records a complete history")
 }

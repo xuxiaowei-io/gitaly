@@ -6,7 +6,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
@@ -23,7 +24,7 @@ func TestRemoveRepository(t *testing.T) {
 
 	repo := &gitalypb.Repository{
 		StorageName:  cfg.Storages[0].Name,
-		RelativePath: gittest.NewRepositoryName(t),
+		RelativePath: git.NewRepositoryName(t),
 	}
 
 	_, err := client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{
@@ -68,7 +69,7 @@ func TestRemoveRepository_locking(t *testing.T) {
 	ctx := testhelper.Context(t)
 	// Praefect does not acquire a lock on repository deletion so disable the test case for Praefect.
 	cfg, client := setupRepositoryServiceWithoutRepo(t, testserver.WithDisablePraefect())
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
 	// Simulate a concurrent RPC holding the repository lock.
 	lockPath := repoPath + ".lock"

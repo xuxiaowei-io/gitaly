@@ -17,7 +17,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -114,19 +113,19 @@ func TestSuccessfulResolveConflictsRequestHelper(t *testing.T) {
 	commitConflict := func(parentCommitID, branch, blob string) string {
 		blobID, err := repo.WriteBlob(ctx, "", strings.NewReader(blob))
 		require.NoError(t, err)
-		gittest.Exec(t, cfg, "-C", repoPath, "read-tree", branch)
-		gittest.Exec(t, cfg, "-C", repoPath,
+		git.Exec(t, cfg, "-C", repoPath, "read-tree", branch)
+		git.Exec(t, cfg, "-C", repoPath,
 			"update-index", "--add", "--cacheinfo", "100644", blobID.String(), missingAncestorPath,
 		)
 		treeID := bytes.TrimSpace(
-			gittest.Exec(t, cfg, "-C", repoPath, "write-tree"),
+			git.Exec(t, cfg, "-C", repoPath, "write-tree"),
 		)
 		commitID := bytes.TrimSpace(
-			gittest.Exec(t, cfg, "-C", repoPath,
+			git.Exec(t, cfg, "-C", repoPath,
 				"commit-tree", string(treeID), "-p", parentCommitID,
 			),
 		)
-		gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/"+branch, string(commitID))
+		git.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/"+branch, string(commitID))
 		return string(commitID)
 	}
 
@@ -208,24 +207,24 @@ func TestResolveConflictsWithRemoteRepo(t *testing.T) {
 	testcfg.BuildGitalySSH(t, cfg)
 	testcfg.BuildGitalyHooks(t, cfg)
 
-	sourceBlobOID := gittest.WriteBlob(t, cfg, sourceRepoPath, []byte("contents-1\n"))
-	sourceCommitOID := gittest.WriteCommit(t, cfg, sourceRepoPath,
-		gittest.WithTreeEntries(gittest.TreeEntry{
+	sourceBlobOID := git.WriteBlob(t, cfg, sourceRepoPath, []byte("contents-1\n"))
+	sourceCommitOID := git.WriteTestCommit(t, cfg, sourceRepoPath,
+		git.WithTreeEntries(git.TreeEntry{
 			Path: "file.txt", OID: sourceBlobOID, Mode: "100644",
 		}),
 	)
-	gittest.Exec(t, cfg, "-C", sourceRepoPath, "update-ref", "refs/heads/source", sourceCommitOID.String())
+	git.Exec(t, cfg, "-C", sourceRepoPath, "update-ref", "refs/heads/source", sourceCommitOID.String())
 
-	targetRepo, targetRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	targetRepo, targetRepoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
-	targetBlobOID := gittest.WriteBlob(t, cfg, targetRepoPath, []byte("contents-2\n"))
-	targetCommitOID := gittest.WriteCommit(t, cfg, targetRepoPath,
-		gittest.WithTreeEntries(gittest.TreeEntry{
+	targetBlobOID := git.WriteBlob(t, cfg, targetRepoPath, []byte("contents-2\n"))
+	targetCommitOID := git.WriteTestCommit(t, cfg, targetRepoPath,
+		git.WithTreeEntries(git.TreeEntry{
 			OID: targetBlobOID, Path: "file.txt", Mode: "100644",
 		}),
 	)
-	gittest.Exec(t, cfg, "-C", targetRepoPath, "update-ref", "refs/heads/target", targetCommitOID.String())
+	git.Exec(t, cfg, "-C", targetRepoPath, "update-ref", "refs/heads/target", targetCommitOID.String())
 
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
@@ -267,7 +266,7 @@ func TestResolveConflictsWithRemoteRepo(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, response.GetResolutionError())
 
-	require.Equal(t, []byte("contents-2\n"), gittest.Exec(t, cfg, "-C", sourceRepoPath, "cat-file", "-p", "refs/heads/source:file.txt"))
+	require.Equal(t, []byte("contents-2\n"), git.Exec(t, cfg, "-C", sourceRepoPath, "cat-file", "-p", "refs/heads/source:file.txt"))
 }
 
 func TestResolveConflictsLineEndings(t *testing.T) {
@@ -338,21 +337,21 @@ func TestResolveConflictsLineEndings(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ourOID := gittest.WriteBlob(t, cfg, repoPath, []byte(tc.ourContent))
-			ourCommit := gittest.WriteCommit(t, cfg, repoPath,
-				gittest.WithTreeEntries(gittest.TreeEntry{
+			ourOID := git.WriteBlob(t, cfg, repoPath, []byte(tc.ourContent))
+			ourCommit := git.WriteTestCommit(t, cfg, repoPath,
+				git.WithTreeEntries(git.TreeEntry{
 					OID: ourOID, Path: "file.txt", Mode: "100644",
 				}),
 			)
-			gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/ours", ourCommit.String())
+			git.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/ours", ourCommit.String())
 
-			theirOID := gittest.WriteBlob(t, cfg, repoPath, []byte(tc.theirContent))
-			theirCommit := gittest.WriteCommit(t, cfg, repoPath,
-				gittest.WithTreeEntries(gittest.TreeEntry{
+			theirOID := git.WriteBlob(t, cfg, repoPath, []byte(tc.theirContent))
+			theirCommit := git.WriteTestCommit(t, cfg, repoPath,
+				git.WithTreeEntries(git.TreeEntry{
 					OID: theirOID, Path: "file.txt", Mode: "100644",
 				}),
 			)
-			gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/theirs", theirCommit.String())
+			git.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/theirs", theirCommit.String())
 
 			stream, err := client.ResolveConflicts(ctx)
 			require.NoError(t, err)
@@ -384,7 +383,7 @@ func TestResolveConflictsLineEndings(t *testing.T) {
 			require.NoError(t, err)
 			require.Empty(t, response.GetResolutionError())
 
-			oursFile := gittest.Exec(t, cfg, "-C", repoPath, "cat-file", "-p", "refs/heads/ours:file.txt")
+			oursFile := git.Exec(t, cfg, "-C", repoPath, "cat-file", "-p", "refs/heads/ours:file.txt")
 			require.Equal(t, []byte(tc.expectedContents), oursFile)
 		})
 	}
@@ -451,7 +450,7 @@ func TestResolveConflictsIdenticalContent(t *testing.T) {
 		"6907208d755b60ebeacb2e9dfea74c92c3449a1f",
 		targetOID.String(),
 	} {
-		contents := gittest.Exec(t, cfg, "-C", repoPath, "cat-file", "-p", rev+":files/ruby/popen.rb")
+		contents := git.Exec(t, cfg, "-C", repoPath, "cat-file", "-p", rev+":files/ruby/popen.rb")
 		path := filepath.Join(tempDir, rev)
 		require.NoError(t, os.WriteFile(path, contents, 0o644))
 		conflictingPaths = append(conflictingPaths, path)
@@ -813,19 +812,19 @@ func TestResolveConflictsQuarantine(t *testing.T) {
 	testcfg.BuildGitalySSH(t, cfg)
 	testcfg.BuildGitalyHooks(t, cfg)
 
-	sourceBlobOID := gittest.WriteBlob(t, cfg, sourceRepoPath, []byte("contents-1\n"))
-	sourceCommitOID := gittest.WriteCommit(t, cfg, sourceRepoPath,
-		gittest.WithParents("1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"),
-		gittest.WithTreeEntries(gittest.TreeEntry{
+	sourceBlobOID := git.WriteBlob(t, cfg, sourceRepoPath, []byte("contents-1\n"))
+	sourceCommitOID := git.WriteTestCommit(t, cfg, sourceRepoPath,
+		git.WithParents("1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"),
+		git.WithTreeEntries(git.TreeEntry{
 			Path: "file.txt", OID: sourceBlobOID, Mode: "100644",
 		}),
 	)
-	gittest.Exec(t, cfg, "-C", sourceRepoPath, "update-ref", "refs/heads/source", sourceCommitOID.String())
+	git.Exec(t, cfg, "-C", sourceRepoPath, "update-ref", "refs/heads/source", sourceCommitOID.String())
 
 	// We set up a custom "pre-receive" hook which simply prints the new commit to stdout and
 	// then exits with an error. Like this, we can both assert that the hook can see the
 	// quarantined tag, and it allows us to fail the RPC before we migrate quarantined objects.
-	gittest.WriteCustomHook(t, sourceRepoPath, "pre-receive", []byte(
+	git.WriteCustomHook(t, sourceRepoPath, "pre-receive", []byte(
 		`#!/bin/sh
 		read oldval newval ref &&
 		echo $newval &&
@@ -833,17 +832,17 @@ func TestResolveConflictsQuarantine(t *testing.T) {
 		exit 1
 	`))
 
-	targetRepoProto, targetRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	targetRepoProto, targetRepoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
-	targetBlobOID := gittest.WriteBlob(t, cfg, targetRepoPath, []byte("contents-2\n"))
-	targetCommitOID := gittest.WriteCommit(t, cfg, targetRepoPath,
-		gittest.WithParents("1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"),
-		gittest.WithTreeEntries(gittest.TreeEntry{
+	targetBlobOID := git.WriteBlob(t, cfg, targetRepoPath, []byte("contents-2\n"))
+	targetCommitOID := git.WriteTestCommit(t, cfg, targetRepoPath,
+		git.WithParents("1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"),
+		git.WithTreeEntries(git.TreeEntry{
 			Path: "file.txt", OID: targetBlobOID, Mode: "100644",
 		}),
 	)
-	gittest.Exec(t, cfg, "-C", targetRepoPath, "update-ref", "refs/heads/target", targetCommitOID.String())
+	git.Exec(t, cfg, "-C", targetRepoPath, "update-ref", "refs/heads/target", targetCommitOID.String())
 
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
@@ -895,7 +894,7 @@ Solve conflicts`)
 
 	// The file shouldn't have been updated and is thus expected to still have the same old
 	// contents.
-	require.Equal(t, []byte("contents-1\n"), gittest.Exec(t, cfg, "-C", sourceRepoPath, "cat-file", "-p", "refs/heads/source:file.txt"))
+	require.Equal(t, []byte("contents-1\n"), git.Exec(t, cfg, "-C", sourceRepoPath, "cat-file", "-p", "refs/heads/source:file.txt"))
 
 	// In case we use an object quarantine directory, the tag should not exist in the target
 	// repository because the RPC failed to update the revision.

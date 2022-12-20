@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -25,8 +25,8 @@ func TestSuccessfulGetTagMessagesRequest(t *testing.T) {
 	message1 := strings.Repeat("a", helper.MaxCommitOrTagMessageSize*2)
 	message2 := strings.Repeat("b", helper.MaxCommitOrTagMessageSize)
 
-	tag1ID := gittest.WriteTag(t, cfg, repoPath, "big-tag-1", "master", gittest.WriteTagConfig{Message: message1})
-	tag2ID := gittest.WriteTag(t, cfg, repoPath, "big-tag-2", "master~", gittest.WriteTagConfig{Message: message2})
+	tag1ID := git.WriteTag(t, cfg, repoPath, "big-tag-1", "master", git.WriteTagConfig{Message: message1})
+	tag2ID := git.WriteTag(t, cfg, repoPath, "big-tag-2", "master~", git.WriteTagConfig{Message: message2})
 
 	request := &gitalypb.GetTagMessagesRequest{
 		Repository: repo,

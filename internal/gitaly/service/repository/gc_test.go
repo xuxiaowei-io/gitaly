@@ -15,7 +15,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -104,14 +103,14 @@ func TestGarbageCollectWithPrune(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
-	blobHashes := gittest.WriteBlobs(t, cfg, repoPath, 3)
+	blobHashes := git.WriteBlobs(t, cfg, repoPath, 3)
 	oldDanglingObjFile := filepath.Join(repoPath, "objects", blobHashes[0][:2], blobHashes[0][2:])
 	newDanglingObjFile := filepath.Join(repoPath, "objects", blobHashes[1][:2], blobHashes[1][2:])
 	oldReferencedObjFile := filepath.Join(repoPath, "objects", blobHashes[2][:2], blobHashes[2][2:])
 
 	// create a reference to the blob, so it should not be removed by gc
-	gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithTreeEntries(gittest.TreeEntry{
+	git.WriteTestCommit(t, cfg, repoPath,
+		git.WithTreeEntries(git.TreeEntry{
 			OID: git.ObjectID(blobHashes[2]), Path: "blob-name", Mode: "100644",
 		}),
 	)
@@ -235,10 +234,10 @@ func TestGarbageCollectDeletesPackedRefsLock(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
-			repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+			repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
-			gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
-			gittest.Exec(t, cfg, "-C", repoPath, "pack-refs", "--all")
+			git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+			git.Exec(t, cfg, "-C", repoPath, "pack-refs", "--all")
 
 			// Force the packed-refs file to have an old time to test that even
 			// in that case it doesn't get deleted
@@ -313,7 +312,7 @@ func TestGarbageCollectDeletesFileLocks(t *testing.T) {
 			t.Run("with recent lockfile", func(t *testing.T) {
 				t.Parallel()
 
-				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
 				lockPath := filepath.Join(repoPath, tc.lockfile)
 				mustCreateFileWithTimes(t, lockPath, time.Now())
@@ -336,7 +335,7 @@ func TestGarbageCollectDeletesFileLocks(t *testing.T) {
 			t.Run("with stale lockfile", func(t *testing.T) {
 				t.Parallel()
 
-				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
 				lockPath := filepath.Join(repoPath, tc.lockfile)
 				mustCreateFileWithTimes(t, lockPath, time.Now().Add(offsetUntilOld))
@@ -385,7 +384,7 @@ func TestGarbageCollectDeletesPackedRefsNew(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+			repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
 			req := &gitalypb.GarbageCollectRequest{Repository: repo}
 			packedRefsNewPath := filepath.Join(repoPath, "packed-refs.new")
@@ -510,7 +509,7 @@ func TestCleanupInvalidKeepAroundRefs(t *testing.T) {
 			// Create a proper keep-around loose ref
 			existingSha := "1e292f8fedd741b75372e19097c76d327140c312"
 			existingRefName := fmt.Sprintf("refs/keep-around/%s", existingSha)
-			gittest.Exec(t, cfg, "-C", repoPath, "update-ref", existingRefName, existingSha)
+			git.Exec(t, cfg, "-C", repoPath, "update-ref", existingRefName, existingSha)
 
 			// Create an invalid ref that should should be removed with the testcase
 			bogusSha := "b3f5e4adf6277b571b7943a4f0405a6dd7ee7e15"
@@ -528,7 +527,7 @@ func TestCleanupInvalidKeepAroundRefs(t *testing.T) {
 			require.NoError(t, err)
 
 			// The existing keeparound still exists
-			commitSha := gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", existingRefName)
+			commitSha := git.Exec(t, cfg, "-C", repoPath, "rev-parse", existingRefName)
 			require.Equal(t, existingSha, text.ChompBytes(commitSha))
 
 			// The invalid one was removed
@@ -536,7 +535,7 @@ func TestCleanupInvalidKeepAroundRefs(t *testing.T) {
 
 			if testcase.shouldExist {
 				keepAroundName := fmt.Sprintf("refs/keep-around/%s", testcase.refName)
-				commitSha := gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", keepAroundName)
+				commitSha := git.Exec(t, cfg, "-C", repoPath, "rev-parse", keepAroundName)
 				require.Equal(t, testcase.refName, text.ChompBytes(commitSha))
 			} else {
 				require.NoFileExists(t, refPath)
@@ -559,7 +558,7 @@ func TestGarbageCollectDeltaIslands(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
-	gittest.TestDeltaIslands(t, cfg, repoPath, repoPath, false, func() error {
+	git.TestDeltaIslands(t, cfg, repoPath, repoPath, false, func() error {
 		//nolint:staticcheck
 		_, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: repo})
 		return err
@@ -572,26 +571,26 @@ func TestGarbageCollect_commitGraphsWithPrunedObjects(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
 
 	// Write a first commit-graph that contains the root commit, only.
-	rootCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
-	gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split", "--changed-paths")
+	rootCommitID := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+	git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split", "--changed-paths")
 
 	// Write a second, incremental commit-graph that contains a commit we're about to
 	// make unreachable and then prune.
-	unreachableCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(rootCommitID), gittest.WithBranch("main"))
-	gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split=no-merge", "--changed-paths")
+	unreachableCommitID := git.WriteTestCommit(t, cfg, repoPath, git.WithParents(rootCommitID), git.WithBranch("main"))
+	git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split=no-merge", "--changed-paths")
 
 	// Reset the "main" branch back to the initial root commit ID and prune the now
 	// unreachable second commit.
-	gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/main", rootCommitID.String())
-	gittest.Exec(t, cfg, "-C", repoPath, "prune", "--expire", "now")
+	git.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/main", rootCommitID.String())
+	git.Exec(t, cfg, "-C", repoPath, "prune", "--expire", "now")
 
 	// The commit-graph chain now refers to the pruned commit, and git-commit-graph(1)
 	// should complain about that.
 	var stderr bytes.Buffer
-	verifyCmd := gittest.NewCommand(t, cfg, "-C", repoPath, "commit-graph", "verify")
+	verifyCmd := git.NewCommand(t, cfg, "-C", repoPath, "commit-graph", "verify")
 	verifyCmd.Stderr = &stderr
 	require.EqualError(t, verifyCmd.Run(), "exit status 1")
 	require.Equal(t, stderr.String(), fmt.Sprintf("error: Could not read %[1]s\nfailed to parse commit %[1]s from object database for commit-graph\n", unreachableCommitID))
@@ -603,5 +602,5 @@ func TestGarbageCollect_commitGraphsWithPrunedObjects(t *testing.T) {
 	require.NoError(t, err)
 
 	// ... and it does.
-	gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "verify")
+	git.Exec(t, cfg, "-C", repoPath, "commit-graph", "verify")
 }

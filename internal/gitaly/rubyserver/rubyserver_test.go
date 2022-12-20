@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/auth"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/log"
@@ -188,7 +187,7 @@ func TestServer_gitconfig(t *testing.T) {
 			ctx := testhelper.Context(t)
 			cfg, expectedPath := tc.setup(t)
 
-			gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+			gitCmdFactory := git.NewCommandFactory(t, cfg)
 			locator := config.NewLocator(cfg)
 
 			rubyServer := New(cfg, gitCmdFactory)
@@ -199,7 +198,7 @@ func TestServer_gitconfig(t *testing.T) {
 			gitconfigContents := testhelper.MustReadFile(t, expectedPath)
 			require.Equal(t, tc.expectedGitconfig, string(gitconfigContents))
 
-			repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			repo, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 				SkipCreationViaService: true,
 			})
 

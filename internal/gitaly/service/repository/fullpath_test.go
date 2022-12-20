@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
@@ -33,7 +33,7 @@ func TestSetFullPath(t *testing.T) {
 	})
 
 	t.Run("missing path", func(t *testing.T) {
-		repo, _ := gittest.CreateRepository(t, ctx, cfg)
+		repo, _ := git.CreateRepository(t, ctx, cfg)
 
 		response, err := client.SetFullPath(ctx, &gitalypb.SetFullPathRequest{
 			Repository: repo,
@@ -44,7 +44,7 @@ func TestSetFullPath(t *testing.T) {
 	})
 
 	t.Run("invalid storage", func(t *testing.T) {
-		repo, _ := gittest.CreateRepository(t, ctx, cfg)
+		repo, _ := git.CreateRepository(t, ctx, cfg)
 		repo.StorageName = ""
 
 		response, err := client.SetFullPath(ctx, &gitalypb.SetFullPathRequest{
@@ -81,7 +81,7 @@ func TestSetFullPath(t *testing.T) {
 	})
 
 	t.Run("normal repo", func(t *testing.T) {
-		repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+		repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
 		response, err := client.SetFullPath(ctx, &gitalypb.SetFullPathRequest{
 			Repository: repo,
@@ -90,12 +90,12 @@ func TestSetFullPath(t *testing.T) {
 		require.NoError(t, err)
 		testhelper.ProtoEqual(t, &gitalypb.SetFullPathResponse{}, response)
 
-		fullPath := gittest.Exec(t, cfg, "-C", repoPath, "config", fullPathKey)
+		fullPath := git.Exec(t, cfg, "-C", repoPath, "config", fullPathKey)
 		require.Equal(t, "foo/bar", text.ChompBytes(fullPath))
 	})
 
 	t.Run("missing config", func(t *testing.T) {
-		repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+		repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
 		configPath := filepath.Join(repoPath, "config")
 		require.NoError(t, os.Remove(configPath))
@@ -107,12 +107,12 @@ func TestSetFullPath(t *testing.T) {
 		require.NoError(t, err)
 		testhelper.ProtoEqual(t, &gitalypb.SetFullPathResponse{}, response)
 
-		fullPath := gittest.Exec(t, cfg, "-C", repoPath, "config", fullPathKey)
+		fullPath := git.Exec(t, cfg, "-C", repoPath, "config", fullPathKey)
 		require.Equal(t, "foo/bar", text.ChompBytes(fullPath))
 	})
 
 	t.Run("multiple times", func(t *testing.T) {
-		repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+		repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
 		for i := 0; i < 5; i++ {
 			response, err := client.SetFullPath(ctx, &gitalypb.SetFullPathRequest{
@@ -123,15 +123,15 @@ func TestSetFullPath(t *testing.T) {
 			testhelper.ProtoEqual(t, &gitalypb.SetFullPathResponse{}, response)
 		}
 
-		fullPath := gittest.Exec(t, cfg, "-C", repoPath, "config", "--get-all", fullPathKey)
+		fullPath := git.Exec(t, cfg, "-C", repoPath, "config", "--get-all", fullPathKey)
 		require.Equal(t, "foo/4", text.ChompBytes(fullPath))
 	})
 
 	t.Run("multiple preexisting paths", func(t *testing.T) {
-		repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+		repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
 		for i := 0; i < 5; i++ {
-			gittest.Exec(t, cfg, "-C", repoPath, "config", "--add", fullPathKey, fmt.Sprintf("foo/%d", i))
+			git.Exec(t, cfg, "-C", repoPath, "config", "--add", fullPathKey, fmt.Sprintf("foo/%d", i))
 		}
 
 		response, err := client.SetFullPath(ctx, &gitalypb.SetFullPathRequest{
@@ -141,7 +141,7 @@ func TestSetFullPath(t *testing.T) {
 		require.NoError(t, err)
 		testhelper.ProtoEqual(t, &gitalypb.SetFullPathResponse{}, response)
 
-		fullPath := gittest.Exec(t, cfg, "-C", repoPath, "config", "--get-all", fullPathKey)
+		fullPath := git.Exec(t, cfg, "-C", repoPath, "config", "--get-all", fullPathKey)
 		require.Equal(t, "replace", text.ChompBytes(fullPath))
 	})
 }
@@ -185,7 +185,7 @@ func TestFullPath(t *testing.T) {
 	})
 
 	t.Run("missing config", func(t *testing.T) {
-		repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+		repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
 		configPath := filepath.Join(repoPath, "config")
 		require.NoError(t, os.Remove(configPath))
@@ -199,9 +199,9 @@ func TestFullPath(t *testing.T) {
 	})
 
 	t.Run("existing config", func(t *testing.T) {
-		repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+		repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
-		gittest.Exec(t, cfg, "-C", repoPath, "config", "--add", fullPathKey, "foo/bar")
+		git.Exec(t, cfg, "-C", repoPath, "config", "--add", fullPathKey, "foo/bar")
 
 		response, err := client.FullPath(ctx, &gitalypb.FullPathRequest{
 			Repository: repo,

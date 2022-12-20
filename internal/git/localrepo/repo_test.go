@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -22,14 +21,14 @@ import (
 func TestRepo(t *testing.T) {
 	cfg := testcfg.Build(t)
 
-	gittest.TestRepository(t, cfg, func(tb testing.TB, ctx context.Context) (git.Repository, string) {
+	git.TestRepository(t, cfg, func(tb testing.TB, ctx context.Context) (git.Repository, string) {
 		tb.Helper()
 
-		repoProto, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
+		repoProto, repoPath := git.CreateRepository(tb, ctx, cfg, git.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 		})
 
-		gitCmdFactory := gittest.NewCommandFactory(tb, cfg)
+		gitCmdFactory := git.NewCommandFactory(tb, cfg)
 		catfileCache := catfile.NewCache(cfg)
 		tb.Cleanup(catfileCache.Stop)
 		return New(config.NewLocator(cfg), gitCmdFactory, catfileCache, repoProto), repoPath
@@ -46,7 +45,7 @@ func TestSize(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	commandArgFile := filepath.Join(testhelper.TempDir(t), "args")
-	interceptingFactory := gittest.NewInterceptingCommandFactory(t, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
+	interceptingFactory := git.NewInterceptingCommandFactory(t, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
 		return fmt.Sprintf(`#!/bin/bash
 			echo "$@" >%q
 			exec %q "$@"
@@ -54,7 +53,7 @@ func TestSize(t *testing.T) {
 	})
 
 	hashDependentSize := func(sha1Size, sha256Size int64) int64 {
-		if gittest.ObjectHashIsSHA256() {
+		if git.ObjectHashIsSHA256() {
 			return sha256Size
 		}
 		return sha1Size
@@ -71,7 +70,7 @@ func TestSize(t *testing.T) {
 			desc:         "empty repository",
 			expectedSize: 0,
 			setup: func(t *testing.T) *gitalypb.Repository {
-				repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 				return repoProto
@@ -81,15 +80,15 @@ func TestSize(t *testing.T) {
 		{
 			desc: "referenced commit",
 			setup: func(t *testing.T) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
-				gittest.WriteCommit(t, cfg, repoPath,
-					gittest.WithTreeEntries(
-						gittest.TreeEntry{Path: "file", Mode: "100644", Content: strings.Repeat("a", 1000)},
+				git.WriteTestCommit(t, cfg, repoPath,
+					git.WithTreeEntries(
+						git.TreeEntry{Path: "file", Mode: "100644", Content: strings.Repeat("a", 1000)},
 					),
-					gittest.WithBranch("main"),
+					git.WithBranch("main"),
 				)
 
 				return repoProto
@@ -100,13 +99,13 @@ func TestSize(t *testing.T) {
 		{
 			desc: "unreferenced commit",
 			setup: func(t *testing.T) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
-				gittest.WriteCommit(t, cfg, repoPath,
-					gittest.WithTreeEntries(
-						gittest.TreeEntry{Path: "file", Mode: "100644", Content: strings.Repeat("a", 1000)},
+				git.WriteTestCommit(t, cfg, repoPath,
+					git.WithTreeEntries(
+						git.TreeEntry{Path: "file", Mode: "100644", Content: strings.Repeat("a", 1000)},
 					),
 				)
 
@@ -118,23 +117,23 @@ func TestSize(t *testing.T) {
 		{
 			desc: "modification to blob without repack",
 			setup: func(t *testing.T) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
-				rootCommitID := gittest.WriteCommit(t, cfg, repoPath,
-					gittest.WithTreeEntries(
-						gittest.TreeEntry{Path: "file", Mode: "100644", Content: strings.Repeat("a", 1000)},
+				rootCommitID := git.WriteTestCommit(t, cfg, repoPath,
+					git.WithTreeEntries(
+						git.TreeEntry{Path: "file", Mode: "100644", Content: strings.Repeat("a", 1000)},
 					),
 				)
 
-				gittest.WriteCommit(t, cfg, repoPath,
-					gittest.WithParents(rootCommitID),
-					gittest.WithTreeEntries(
-						gittest.TreeEntry{Path: "file", Mode: "100644", Content: strings.Repeat("a", 1001)},
+				git.WriteTestCommit(t, cfg, repoPath,
+					git.WithParents(rootCommitID),
+					git.WithTreeEntries(
+						git.TreeEntry{Path: "file", Mode: "100644", Content: strings.Repeat("a", 1001)},
 					),
-					gittest.WithMessage("modification"),
-					gittest.WithBranch("main"),
+					git.WithMessage("modification"),
+					git.WithBranch("main"),
 				)
 
 				return repoProto
@@ -145,26 +144,26 @@ func TestSize(t *testing.T) {
 		{
 			desc: "modification to blob after repack",
 			setup: func(t *testing.T) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
-				rootCommitID := gittest.WriteCommit(t, cfg, repoPath,
-					gittest.WithTreeEntries(
-						gittest.TreeEntry{Path: "file", Mode: "100644", Content: strings.Repeat("a", 1000)},
+				rootCommitID := git.WriteTestCommit(t, cfg, repoPath,
+					git.WithTreeEntries(
+						git.TreeEntry{Path: "file", Mode: "100644", Content: strings.Repeat("a", 1000)},
 					),
 				)
 
-				gittest.WriteCommit(t, cfg, repoPath,
-					gittest.WithParents(rootCommitID),
-					gittest.WithTreeEntries(
-						gittest.TreeEntry{Path: "file", Mode: "100644", Content: strings.Repeat("a", 1001)},
+				git.WriteTestCommit(t, cfg, repoPath,
+					git.WithParents(rootCommitID),
+					git.WithTreeEntries(
+						git.TreeEntry{Path: "file", Mode: "100644", Content: strings.Repeat("a", 1001)},
 					),
-					gittest.WithMessage("modification"),
-					gittest.WithBranch("main"),
+					git.WithMessage("modification"),
+					git.WithBranch("main"),
 				)
 
-				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-a", "-d")
+				git.Exec(t, cfg, "-C", repoPath, "repack", "-a", "-d")
 
 				return repoProto
 			},
@@ -174,22 +173,22 @@ func TestSize(t *testing.T) {
 		{
 			desc: "excluded single ref",
 			setup: func(t *testing.T) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
-				gittest.WriteCommit(t, cfg, repoPath,
-					gittest.WithTreeEntries(
-						gittest.TreeEntry{Path: "1kbblob", Mode: "100644", Content: strings.Repeat("a", 1000)},
+				git.WriteTestCommit(t, cfg, repoPath,
+					git.WithTreeEntries(
+						git.TreeEntry{Path: "1kbblob", Mode: "100644", Content: strings.Repeat("a", 1000)},
 					),
-					gittest.WithBranch("exclude-me"),
+					git.WithBranch("exclude-me"),
 				)
 
-				gittest.WriteCommit(t, cfg, repoPath,
-					gittest.WithTreeEntries(
-						gittest.TreeEntry{Path: "1kbblob", Mode: "100644", Content: strings.Repeat("x", 2000)},
+				git.WriteTestCommit(t, cfg, repoPath,
+					git.WithTreeEntries(
+						git.TreeEntry{Path: "1kbblob", Mode: "100644", Content: strings.Repeat("x", 2000)},
 					),
-					gittest.WithBranch("include-me"),
+					git.WithBranch("include-me"),
 				)
 
 				return repoProto
@@ -203,15 +202,15 @@ func TestSize(t *testing.T) {
 		{
 			desc: "excluded everything",
 			setup: func(t *testing.T) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
-				gittest.WriteCommit(t, cfg, repoPath,
-					gittest.WithTreeEntries(
-						gittest.TreeEntry{Path: "1kbblob", Mode: "100644", Content: strings.Repeat("a", 1000)},
+				git.WriteTestCommit(t, cfg, repoPath,
+					git.WithTreeEntries(
+						git.TreeEntry{Path: "1kbblob", Mode: "100644", Content: strings.Repeat("a", 1000)},
 					),
-					gittest.WithBranch("exclude-me"),
+					git.WithBranch("exclude-me"),
 				)
 
 				return repoProto
@@ -225,10 +224,10 @@ func TestSize(t *testing.T) {
 		{
 			desc: "repo with alternate",
 			setup: func(t *testing.T) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
-				_, poolPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				_, poolPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
@@ -239,11 +238,11 @@ func TestSize(t *testing.T) {
 				))
 
 				for _, path := range []string{repoPath, poolPath} {
-					gittest.WriteCommit(t, cfg, path,
-						gittest.WithTreeEntries(
-							gittest.TreeEntry{Path: "1kbblob", Mode: "100644", Content: strings.Repeat("a", 1000)},
+					git.WriteTestCommit(t, cfg, path,
+						git.WithTreeEntries(
+							git.TreeEntry{Path: "1kbblob", Mode: "100644", Content: strings.Repeat("a", 1000)},
 						),
-						gittest.WithBranch("main"),
+						git.WithBranch("main"),
 					)
 				}
 
@@ -259,10 +258,10 @@ func TestSize(t *testing.T) {
 		{
 			desc: "exclude alternate with identical contents",
 			setup: func(t *testing.T) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
-				_, poolPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				_, poolPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
@@ -275,11 +274,11 @@ func TestSize(t *testing.T) {
 				// We write the same object into both repositories, so we should
 				// exclude it from our size calculations.
 				for _, path := range []string{repoPath, poolPath} {
-					gittest.WriteCommit(t, cfg, path,
-						gittest.WithTreeEntries(
-							gittest.TreeEntry{Path: "1kbblob", Mode: "100644", Content: strings.Repeat("a", 1000)},
+					git.WriteTestCommit(t, cfg, path,
+						git.WithTreeEntries(
+							git.TreeEntry{Path: "1kbblob", Mode: "100644", Content: strings.Repeat("a", 1000)},
 						),
-						gittest.WithBranch("main"),
+						git.WithBranch("main"),
 					)
 				}
 
@@ -294,10 +293,10 @@ func TestSize(t *testing.T) {
 		{
 			desc: "exclude alternate with additional contents",
 			setup: func(t *testing.T) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
-				_, poolPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				_, poolPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
@@ -310,21 +309,21 @@ func TestSize(t *testing.T) {
 				for i, path := range []string{repoPath, poolPath} {
 					// We first write one blob into the repo that is the same
 					// across both repositories.
-					rootCommitID := gittest.WriteCommit(t, cfg, path,
-						gittest.WithTreeEntries(
-							gittest.TreeEntry{Path: "1kbblob", Mode: "100644", Content: strings.Repeat("a", 1000)},
+					rootCommitID := git.WriteTestCommit(t, cfg, path,
+						git.WithTreeEntries(
+							git.TreeEntry{Path: "1kbblob", Mode: "100644", Content: strings.Repeat("a", 1000)},
 						),
 					)
 
 					// But this time we also write a second commit into each of
 					// the repositories that is not the same to simulate history
 					// that has diverged.
-					gittest.WriteCommit(t, cfg, path,
-						gittest.WithParents(rootCommitID),
-						gittest.WithTreeEntries(
-							gittest.TreeEntry{Path: "1kbblob", Mode: "100644", Content: fmt.Sprintf("%d", i)},
+					git.WriteTestCommit(t, cfg, path,
+						git.WithParents(rootCommitID),
+						git.WithTreeEntries(
+							git.TreeEntry{Path: "1kbblob", Mode: "100644", Content: fmt.Sprintf("%d", i)},
 						),
-						gittest.WithBranch("main"),
+						git.WithBranch("main"),
 					)
 				}
 
@@ -363,12 +362,12 @@ func TestRepo_StorageTempDir(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+	gitCmdFactory := git.NewCommandFactory(t, cfg)
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
 	locator := config.NewLocator(cfg)
 
-	repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := New(locator, gitCmdFactory, catfileCache, repoProto)
@@ -398,20 +397,20 @@ func TestRepo_ObjectHash(t *testing.T) {
 	// We create an intercepting command factory that detects when we run our object hash
 	// detection logic and, if so, writes a sentinel value into our output file. Like this we
 	// can test how often the logic runs.
-	gitCmdFactory := gittest.NewInterceptingCommandFactory(t, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
+	gitCmdFactory := git.NewInterceptingCommandFactory(t, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
 		return fmt.Sprintf(`#!/bin/sh
 		( echo "$@" | grep --silent -- '--show-object-format' ) && echo detection-logic >>%q
 		exec %q "$@"`, outputFile, execEnv.BinaryPath)
 	})
 
-	repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := New(locator, gitCmdFactory, catfileCache, repoProto)
 
 	objectHash, err := repo.ObjectHash(ctx)
 	require.NoError(t, err)
-	require.Equal(t, gittest.DefaultObjectHash.EmptyTreeOID, objectHash.EmptyTreeOID)
+	require.Equal(t, git.DefaultObjectHash.EmptyTreeOID, objectHash.EmptyTreeOID)
 
 	// We should see that the detection logic has been executed once.
 	require.Equal(t, "detection-logic\n", string(testhelper.MustReadFile(t, outputFile)))
@@ -420,7 +419,7 @@ func TestRepo_ObjectHash(t *testing.T) {
 	// regardless of the cache.
 	objectHash, err = repo.ObjectHash(ctx)
 	require.NoError(t, err)
-	require.Equal(t, gittest.DefaultObjectHash.EmptyTreeOID, objectHash.EmptyTreeOID)
+	require.Equal(t, git.DefaultObjectHash.EmptyTreeOID, objectHash.EmptyTreeOID)
 
 	// But the detection logic should not have been executed a second time.
 	require.Equal(t, "detection-logic\n", string(testhelper.MustReadFile(t, outputFile)))

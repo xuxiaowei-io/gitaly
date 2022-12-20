@@ -9,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -48,9 +47,9 @@ func TestVisibilityOfHiddenRefs(t *testing.T) {
 	require.NoError(t, updater.Create(git.ReferenceName(keepAroundRef), existingSha))
 	require.NoError(t, updater.Commit())
 
-	gittest.Exec(t, cfg, "-C", repoPath, "config", "transfer.hideRefs", keepAroundNamespace)
+	git.Exec(t, cfg, "-C", repoPath, "config", "transfer.hideRefs", keepAroundNamespace)
 
-	output := gittest.Exec(t, cfg, "ls-remote", repoPath, keepAroundNamespace)
+	output := git.Exec(t, cfg, "ls-remote", repoPath, keepAroundNamespace)
 	require.Empty(t, output, "there should be no keep-around refs in normal ls-remote output")
 
 	wd, err := os.Getwd()
@@ -81,7 +80,7 @@ func TestVisibilityOfHiddenRefs(t *testing.T) {
 
 			require.NoError(t, err)
 
-			stdout := gittest.ExecOpts(t, cfg, gittest.ExecConfig{
+			stdout := git.ExecOpts(t, cfg, git.ExecConfig{
 				Env: []string{
 					fmt.Sprintf("GITALY_PAYLOAD=%s", payload),
 					fmt.Sprintf("GITALY_ADDRESS=unix:%s", socketPath),

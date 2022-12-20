@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -21,14 +20,14 @@ func TestGetBlob_successful(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, client := setupWithoutRepo(t, ctx)
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
 	smallBlobContents := []byte("small blob")
 	smallBlobLen := int64(len(smallBlobContents))
-	smallBlobID := gittest.WriteBlob(t, cfg, repoPath, smallBlobContents)
+	smallBlobID := git.WriteBlob(t, cfg, repoPath, smallBlobContents)
 
 	largeBlobContents := bytes.Repeat([]byte{1}, 1024*1024)
-	largeBlobID := gittest.WriteBlob(t, cfg, repoPath, largeBlobContents)
+	largeBlobID := git.WriteBlob(t, cfg, repoPath, largeBlobContents)
 
 	for _, tc := range []struct {
 		desc            string
@@ -96,7 +95,7 @@ func TestGetBlob_notFound(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg, client := setupWithoutRepo(t, ctx)
-	repo, _ := gittest.CreateRepository(t, ctx, cfg)
+	repo, _ := git.CreateRepository(t, ctx, cfg)
 
 	stream, err := client.GetBlob(ctx, &gitalypb.GetBlobRequest{
 		Repository: repo,
@@ -144,8 +143,8 @@ func TestGetBlob_invalidRequest(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, client := setupWithoutRepo(t, ctx)
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
-	oid := gittest.WriteBlob(t, cfg, repoPath, []byte("something")).String()
+	repo, repoPath := git.CreateRepository(t, ctx, cfg)
+	oid := git.WriteBlob(t, cfg, repoPath, []byte("something")).String()
 
 	for _, tc := range []struct {
 		desc        string

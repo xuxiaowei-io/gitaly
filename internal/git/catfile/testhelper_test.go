@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
@@ -31,7 +30,7 @@ type repoExecutor struct {
 func newRepoExecutor(t *testing.T, cfg config.Cfg, repo repository.GitRepo) git.RepositoryExecutor {
 	return &repoExecutor{
 		GitRepo:       repo,
-		gitCmdFactory: gittest.NewCommandFactory(t, cfg),
+		gitCmdFactory: git.NewCommandFactory(t, cfg),
 	}
 }
 
@@ -52,14 +51,14 @@ func (e *repoExecutor) GitVersion(ctx context.Context) (git.Version, error) {
 }
 
 func (e *repoExecutor) ObjectHash(ctx context.Context) (git.ObjectHash, error) {
-	return gittest.DefaultObjectHash, nil
+	return git.DefaultObjectHash, nil
 }
 
 func setupObjectReader(t *testing.T, ctx context.Context) (config.Cfg, ObjectContentReader, *gitalypb.Repository, string) {
 	t.Helper()
 
 	cfg := testcfg.Build(t)
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repoExecutor := newRepoExecutor(t, cfg, repo)

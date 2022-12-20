@@ -15,7 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
@@ -47,15 +46,15 @@ func TestPostReceivePack_successful(t *testing.T) {
 
 	cfg := testcfg.Build(t)
 	cfg.GitlabShell.Dir = "/foo/bar/gitlab-shell"
-	gitCmdFactory, hookOutputFile := gittest.CaptureHookEnv(t, cfg)
+	gitCmdFactory, hookOutputFile := git.CaptureHookEnv(t, cfg)
 
 	server := startSmartHTTPServerWithOptions(t, cfg, nil, []testserver.GitalyServerOpt{
 		testserver.WithGitCommandFactory(gitCmdFactory),
 	})
 	cfg.SocketPath = server.Address()
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 	repo.GlProjectPath = "project/path"
 
@@ -92,7 +91,7 @@ func TestPostReceivePack_successful(t *testing.T) {
 
 	// The fact that this command succeeds means that we got the commit correctly, no further
 	// checks should be needed.
-	gittest.Exec(t, cfg, "-C", repoPath, "show", newCommitID.String())
+	git.Exec(t, cfg, "-C", repoPath, "show", newCommitID.String())
 
 	envData := testhelper.MustReadFile(t, hookOutputFile)
 	payload, err := git.HooksPayloadFromEnv(strings.Split(string(envData), "\n"))
@@ -100,7 +99,7 @@ func TestPostReceivePack_successful(t *testing.T) {
 
 	// Compare the repository up front so that we can use require.Equal for
 	// the remaining values.
-	testhelper.ProtoEqual(t, gittest.RewrittenRepository(t, ctx, cfg, repo), payload.Repo)
+	testhelper.ProtoEqual(t, git.RewrittenRepository(t, ctx, cfg, repo), payload.Repo)
 	payload.Repo = nil
 
 	// If running tests with Praefect, then the transaction would be set, but we have no way of
@@ -140,8 +139,8 @@ func TestPostReceivePack_hiddenRefs(t *testing.T) {
 	cfg := testcfg.Build(t)
 	cfg.SocketPath = runSmartHTTPServer(t, cfg)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 	repoProto.GlProjectPath = "project/path"
 
@@ -164,12 +163,12 @@ func TestPostReceivePack_hiddenRefs(t *testing.T) {
 	} {
 		t.Run(ref, func(t *testing.T) {
 			var request bytes.Buffer
-			gittest.WritePktlinef(t, &request, "%s %s %s\x00 %s", oldHead, newHead, ref, uploadPackCapabilities)
-			gittest.WritePktlineFlush(t, &request)
+			git.WritePktlinef(t, &request, "%s %s %s\x00 %s", oldHead, newHead, ref, uploadPackCapabilities)
+			git.WritePktlineFlush(t, &request)
 
 			// The options passed are the same ones used when doing an actual push.
 			revisions := strings.NewReader(fmt.Sprintf("^%s\n%s\n", oldHead, newHead))
-			gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: revisions, Stdout: &request},
+			git.ExecOpts(t, cfg, git.ExecConfig{Stdin: revisions, Stdout: &request},
 				"-C", repoPath, "pack-objects", "--stdout", "--revs", "--thin", "--delta-base-offset", "-q",
 			)
 
@@ -196,15 +195,15 @@ func TestPostReceivePack_protocolV2(t *testing.T) {
 	cfg := testcfg.Build(t)
 	testcfg.BuildGitalyHooks(t, cfg)
 
-	protocolDetectingFactory := gittest.NewProtocolDetectingCommandFactory(t, ctx, cfg)
+	protocolDetectingFactory := git.NewProtocolDetectingCommandFactory(t, ctx, cfg)
 
 	server := startSmartHTTPServerWithOptions(t, cfg, nil, []testserver.GitalyServerOpt{
 		testserver.WithGitCommandFactory(protocolDetectingFactory),
 	})
 	cfg.SocketPath = server.Address()
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	client, conn := newSmartHTTPClient(t, server.Address(), cfg.Auth.Token)
@@ -225,7 +224,7 @@ func TestPostReceivePack_protocolV2(t *testing.T) {
 	require.Equal(t, fmt.Sprintf("GIT_PROTOCOL=%s\n", git.ProtocolV2), envData)
 
 	// The fact that this command succeeds means that we got the commit correctly, no further checks should be needed.
-	gittest.Exec(t, cfg, "-C", repoPath, "show", newCommitID.String())
+	git.Exec(t, cfg, "-C", repoPath, "show", newCommitID.String())
 }
 
 func TestPostReceivePack_packfiles(t *testing.T) {
@@ -240,8 +239,8 @@ func TestPostReceivePack_packfiles(t *testing.T) {
 	client, conn := newSmartHTTPClient(t, cfg.SocketPath, cfg.Auth.Token)
 	defer conn.Close()
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	stream, err := client.PostReceivePack(ctx)
@@ -293,8 +292,8 @@ func TestPostReceivePack_rejectViaGitConfigOptions(t *testing.T) {
 	cfg := testcfg.Build(t)
 	cfg.SocketPath = runSmartHTTPServer(t, cfg)
 
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repo, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	client, conn := newSmartHTTPClient(t, cfg.SocketPath, cfg.Auth.Token)
@@ -323,7 +322,7 @@ func TestPostReceivePack_rejectViaHooks(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg, git.WithHooksPath(testhelper.TempDir(t)))
+	gitCmdFactory := git.NewCommandFactory(t, cfg, git.WithHooksPath(testhelper.TempDir(t)))
 
 	testhelper.WriteExecutable(t, filepath.Join(gitCmdFactory.HooksPath(ctx), "pre-receive"), []byte("#!/bin/sh\nexit 1"))
 
@@ -332,8 +331,8 @@ func TestPostReceivePack_rejectViaHooks(t *testing.T) {
 	})
 	cfg.SocketPath = server.Address()
 
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repo, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	client, conn := newSmartHTTPClient(t, server.Address(), cfg.Auth.Token)
@@ -448,26 +447,26 @@ func TestPostReceivePack_invalidObjects(t *testing.T) {
 
 	cfg := testcfg.Build(t)
 
-	gitCmdFactory, _ := gittest.CaptureHookEnv(t, cfg)
+	gitCmdFactory, _ := git.CaptureHookEnv(t, cfg)
 	server := startSmartHTTPServerWithOptions(t, cfg, nil, []testserver.GitalyServerOpt{
 		testserver.WithGitCommandFactory(gitCmdFactory),
 	})
 	cfg.SocketPath = server.Address()
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-	_, localRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	_, localRepoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	client, conn := newSmartHTTPClient(t, server.Address(), cfg.Auth.Token)
 	defer conn.Close()
 
-	head := text.ChompBytes(gittest.Exec(t, cfg, "-C", localRepoPath, "rev-parse", "HEAD"))
-	tree := text.ChompBytes(gittest.Exec(t, cfg, "-C", localRepoPath, "rev-parse", "HEAD^{tree}"))
+	head := text.ChompBytes(git.Exec(t, cfg, "-C", localRepoPath, "rev-parse", "HEAD"))
+	tree := text.ChompBytes(git.Exec(t, cfg, "-C", localRepoPath, "rev-parse", "HEAD^{tree}"))
 
 	for _, tc := range []struct {
 		desc             string
@@ -512,7 +511,7 @@ func TestPostReceivePack_invalidObjects(t *testing.T) {
 		{
 			desc: "zero-padded file mode",
 			prepareCommit: func(t *testing.T, repoPath string) bytes.Buffer {
-				subtree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				subtree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{Mode: "100644", Path: "file", Content: "content"},
 				})
 				subtreeID, err := subtree.Bytes()
@@ -522,7 +521,7 @@ func TestPostReceivePack_invalidObjects(t *testing.T) {
 				treeContents.WriteString("040000 subdir\x00")
 				treeContents.Write(subtreeID)
 
-				brokenTree := gittest.ExecOpts(t, cfg, gittest.ExecConfig{
+				brokenTree := git.ExecOpts(t, cfg, git.ExecConfig{
 					Stdin: &treeContents,
 				}, "-C", repoPath, "hash-object", "-w", "-t", "tree", "--stdin")
 
@@ -543,14 +542,14 @@ func TestPostReceivePack_invalidObjects(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			commitBuffer := tc.prepareCommit(t, localRepoPath)
-			commitID := text.ChompBytes(gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: &commitBuffer},
+			commitID := text.ChompBytes(git.ExecOpts(t, cfg, git.ExecConfig{Stdin: &commitBuffer},
 				"-C", localRepoPath, "hash-object", "-t", "commit", "--stdin", "-w",
 			))
 
-			currentHead := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD"))
+			currentHead := text.ChompBytes(git.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD"))
 
 			stdin := strings.NewReader(fmt.Sprintf("^%s\n%s\n", currentHead, commitID))
-			pack := gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: stdin},
+			pack := git.ExecOpts(t, cfg, git.ExecConfig{Stdin: stdin},
 				"-C", localRepoPath, "pack-objects", "--stdout", "--revs", "--thin", "--delta-base-offset", "-q",
 			)
 
@@ -584,29 +583,29 @@ func TestPostReceivePack_fsck(t *testing.T) {
 	cfg := testcfg.Build(t)
 	cfg.SocketPath = runSmartHTTPServer(t, cfg)
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	testcfg.BuildGitalyHooks(t, cfg)
 
-	head := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD"))
+	head := text.ChompBytes(git.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD"))
 
 	// We're creating a new commit which has a root tree with duplicate entries. git-mktree(1)
 	// allows us to create these trees just fine, but git-fsck(1) complains.
-	commit := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithTreeEntries(
-			gittest.TreeEntry{OID: "4b825dc642cb6eb9a060e54bf8d69288fbee4904", Path: "dup", Mode: "040000"},
-			gittest.TreeEntry{OID: "4b825dc642cb6eb9a060e54bf8d69288fbee4904", Path: "dup", Mode: "040000"},
+	commit := git.WriteTestCommit(t, cfg, repoPath,
+		git.WithTreeEntries(
+			git.TreeEntry{OID: "4b825dc642cb6eb9a060e54bf8d69288fbee4904", Path: "dup", Mode: "040000"},
+			git.TreeEntry{OID: "4b825dc642cb6eb9a060e54bf8d69288fbee4904", Path: "dup", Mode: "040000"},
 		),
 	)
 
 	var body bytes.Buffer
-	gittest.WritePktlineString(t, &body, fmt.Sprintf("%s %s refs/heads/master\x00 %s", head, commit, "report-status side-band-64k agent=git/2.12.0"))
-	gittest.WritePktlineFlush(t, &body)
+	git.WritePktlineString(t, &body, fmt.Sprintf("%s %s refs/heads/master\x00 %s", head, commit, "report-status side-band-64k agent=git/2.12.0"))
+	git.WritePktlineFlush(t, &body)
 
 	stdin := strings.NewReader(fmt.Sprintf("^%s\n%s\n", head, commit))
-	gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: stdin, Stdout: &body},
+	git.ExecOpts(t, cfg, git.ExecConfig{Stdin: stdin, Stdout: &body},
 		"-C", repoPath, "pack-objects", "--stdout", "--revs", "--thin", "--delta-base-offset", "-q",
 	)
 
@@ -635,8 +634,8 @@ func TestPostReceivePack_hooks(t *testing.T) {
 
 	testcfg.BuildGitalyHooks(t, cfg)
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	const (
@@ -651,7 +650,7 @@ func TestPostReceivePack_hooks(t *testing.T) {
 	cfg.Gitlab.SecretFile = gitlab.WriteShellSecretFile(t, cfg.GitlabShell.Dir, secretToken)
 
 	_, newCommitID, request := createPushRequest(t, cfg)
-	oldHead := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD"))
+	oldHead := text.ChompBytes(git.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD"))
 
 	changes := fmt.Sprintf("%s %s refs/heads/master\n", oldHead, newCommitID)
 
@@ -668,7 +667,7 @@ func TestPostReceivePack_hooks(t *testing.T) {
 	})
 	defer cleanup()
 
-	gittest.WriteCheckNewObjectExistsHook(t, repoPath)
+	git.WriteCheckNewObjectExistsHook(t, repoPath)
 
 	client, conn := newSmartHTTPClient(t, cfg.SocketPath, cfg.Auth.Token)
 	defer conn.Close()
@@ -696,8 +695,8 @@ func TestPostReceivePack_transactionsViaPraefect(t *testing.T) {
 	cfg := testcfg.Build(t)
 	cfg.SocketPath = runSmartHTTPServer(t, cfg)
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	testcfg.BuildGitalyHooks(t, cfg)
@@ -781,8 +780,8 @@ func TestPostReceivePack_referenceTransactionHook(t *testing.T) {
 		stream, err := client.PostReceivePack(ctx)
 		require.NoError(t, err)
 
-		repo, _ := gittest.CreateRepository(t, ctxWithoutTransaction, cfg, gittest.CreateRepositoryConfig{
-			Seed: gittest.SeedGitLabTest,
+		repo, _ := git.CreateRepository(t, ctxWithoutTransaction, cfg, git.CreateRepositoryConfig{
+			Seed: git.SeedGitLabTest,
 		})
 
 		_, _, pushRequest := createPushRequest(t, cfg)
@@ -804,22 +803,22 @@ func TestPostReceivePack_referenceTransactionHook(t *testing.T) {
 		stream, err := client.PostReceivePack(ctx)
 		require.NoError(t, err)
 
-		repo, repoPath := gittest.CreateRepository(t, ctxWithoutTransaction, cfg,
-			gittest.CreateRepositoryConfig{
-				Seed: gittest.SeedGitLabTest,
+		repo, repoPath := git.CreateRepository(t, ctxWithoutTransaction, cfg,
+			git.CreateRepositoryConfig{
+				Seed: git.SeedGitLabTest,
 			})
 
 		// Create a new branch which we're about to delete. We also pack references because
 		// this used to generate two transactions: one for the packed-refs file and one for
 		// the loose ref. We only expect a single transaction though, given that the
 		// packed-refs transaction should get filtered out.
-		gittest.Exec(t, cfg, "-C", repoPath, "branch", "delete-me")
-		gittest.Exec(t, cfg, "-C", repoPath, "pack-refs", "--all")
-		branchOID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/delete-me"))
+		git.Exec(t, cfg, "-C", repoPath, "branch", "delete-me")
+		git.Exec(t, cfg, "-C", repoPath, "pack-refs", "--all")
+		branchOID := text.ChompBytes(git.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/delete-me"))
 
 		uploadPackData := &bytes.Buffer{}
-		gittest.WritePktlineString(t, uploadPackData, fmt.Sprintf("%s %s refs/heads/delete-me\x00 %s", branchOID, git.ObjectHashSHA1.ZeroOID.String(), uploadPackCapabilities))
-		gittest.WritePktlineFlush(t, uploadPackData)
+		git.WritePktlineString(t, uploadPackData, fmt.Sprintf("%s %s refs/heads/delete-me\x00 %s", branchOID, git.ObjectHashSHA1.ZeroOID.String(), uploadPackCapabilities))
+		git.WritePktlineFlush(t, uploadPackData)
 
 		response := performPush(t, stream, &gitalypb.PostReceivePackRequest{
 			Repository:   repo,
@@ -878,8 +877,8 @@ func TestPostReceivePack_notAllowed(t *testing.T) {
 	stream, err := client.PostReceivePack(ctx)
 	require.NoError(t, err)
 
-	repo, _ := gittest.CreateRepository(t, ctxWithoutTransaction, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repo, _ := git.CreateRepository(t, ctxWithoutTransaction, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	_, _, pushRequest := createPushRequest(t, cfg)
@@ -892,20 +891,20 @@ func TestPostReceivePack_notAllowed(t *testing.T) {
 func createPushRequest(t *testing.T, cfg config.Cfg) (git.ObjectID, git.ObjectID, io.Reader) {
 	ctx := testhelper.Context(t)
 
-	_, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	_, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
-	oldCommitID := git.ObjectID(text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD")))
-	newCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(oldCommitID))
+	oldCommitID := git.ObjectID(text.ChompBytes(git.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD")))
+	newCommitID := git.WriteTestCommit(t, cfg, repoPath, git.WithParents(oldCommitID))
 
 	// ReceivePack request is a packet line followed by a packet flush, then the pack file of the objects we want to push.
 	// This is explained a bit in https://git-scm.com/book/en/v2/Git-Internals-Transfer-Protocols#_uploading_data
 	// We form the packet line the same way git executable does: https://github.com/git/git/blob/d1a13d3fcb252631361a961cb5e2bf10ed467cba/send-pack.c#L524-L527
 	var request bytes.Buffer
-	gittest.WritePktlinef(t, &request, "%s %s refs/heads/master\x00 %s", oldCommitID, newCommitID, uploadPackCapabilities)
-	gittest.WritePktlinef(t, &request, "%s %s refs/heads/branch", git.ObjectHashSHA1.ZeroOID, newCommitID)
-	gittest.WritePktlineFlush(t, &request)
+	git.WritePktlinef(t, &request, "%s %s refs/heads/master\x00 %s", oldCommitID, newCommitID, uploadPackCapabilities)
+	git.WritePktlinef(t, &request, "%s %s refs/heads/branch", git.ObjectHashSHA1.ZeroOID, newCommitID)
+	git.WritePktlineFlush(t, &request)
 
 	// We need to get a pack file containing the objects we want to push, so we use git pack-objects
 	// which expects a list of revisions passed through standard input. The list format means
@@ -914,7 +913,7 @@ func createPushRequest(t *testing.T, cfg config.Cfg) (git.ObjectID, git.ObjectID
 	stdin := strings.NewReader(fmt.Sprintf("^%s\n%s\n", oldCommitID, newCommitID))
 
 	// The options passed are the same ones used when doing an actual push.
-	gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: stdin, Stdout: &request},
+	git.ExecOpts(t, cfg, git.ExecConfig{Stdin: stdin, Stdout: &request},
 		"-C", repoPath, "pack-objects", "--stdout", "--revs", "--thin", "--delta-base-offset", "-q",
 	)
 

@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
@@ -36,44 +35,44 @@ func TestFindAllTags_successful(t *testing.T) {
 	// with partial PGP block
 	truncatedPGPTagMsg := testhelper.MustReadFile(t, "testdata/truncated_pgp_msg.patch")
 
-	truncatedPGPTagID := text.ChompBytes(gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: bytes.NewBuffer(truncatedPGPTagMsg)},
+	truncatedPGPTagID := text.ChompBytes(git.ExecOpts(t, cfg, git.ExecConfig{Stdin: bytes.NewBuffer(truncatedPGPTagMsg)},
 		"-C", repoPath, "mktag",
 	))
-	gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/tags/pgp-long-tag-message", truncatedPGPTagID)
+	git.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/tags/pgp-long-tag-message", truncatedPGPTagID)
 
 	blobID := git.ObjectID("faaf198af3a36dbf41961466703cc1d47c61d051")
 	commitID := git.ObjectID("6f6d7e7ed97bb5f0054f2b1df789b39ca89b6ff9")
 
 	gitCommit := testhelper.GitLabTestCommit(commitID.String())
 
-	bigCommitID := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithBranch("local-big-commits"),
-		gittest.WithMessage("An empty commit with REALLY BIG message\n\n"+strings.Repeat("a", helper.MaxCommitOrTagMessageSize+1)),
-		gittest.WithParents("60ecb67744cb56576c30214ff52294f8ce2def98"),
+	bigCommitID := git.WriteTestCommit(t, cfg, repoPath,
+		git.WithBranch("local-big-commits"),
+		git.WithMessage("An empty commit with REALLY BIG message\n\n"+strings.Repeat("a", helper.MaxCommitOrTagMessageSize+1)),
+		git.WithParents("60ecb67744cb56576c30214ff52294f8ce2def98"),
 	)
 	bigCommit, err := repo.ReadCommit(ctx, git.Revision(bigCommitID))
 	require.NoError(t, err)
 
-	annotatedTagID := gittest.WriteTag(t, cfg, repoPath, "v1.2.0", blobID.Revision(), gittest.WriteTagConfig{Message: "Blob tag"})
+	annotatedTagID := git.WriteTag(t, cfg, repoPath, "v1.2.0", blobID.Revision(), git.WriteTagConfig{Message: "Blob tag"})
 
-	gittest.WriteTag(t, cfg, repoPath, "v1.3.0", commitID.Revision())
-	gittest.WriteTag(t, cfg, repoPath, "v1.4.0", blobID.Revision())
+	git.WriteTag(t, cfg, repoPath, "v1.3.0", commitID.Revision())
+	git.WriteTag(t, cfg, repoPath, "v1.4.0", blobID.Revision())
 
 	// To test recursive resolving to a commit
-	gittest.WriteTag(t, cfg, repoPath, "v1.5.0", "v1.3.0")
+	git.WriteTag(t, cfg, repoPath, "v1.5.0", "v1.3.0")
 
 	// A tag to commit with a big message
-	gittest.WriteTag(t, cfg, repoPath, "v1.6.0", bigCommitID.Revision())
+	git.WriteTag(t, cfg, repoPath, "v1.6.0", bigCommitID.Revision())
 
 	// A tag with a big message
 	bigMessage := strings.Repeat("a", 11*1024)
-	bigMessageTag1ID := gittest.WriteTag(t, cfg, repoPath, "v1.7.0", commitID.Revision(), gittest.WriteTagConfig{Message: bigMessage})
+	bigMessageTag1ID := git.WriteTag(t, cfg, repoPath, "v1.7.0", commitID.Revision(), git.WriteTagConfig{Message: bigMessage})
 
 	// A tag with a commit id as its name
-	commitTagID := gittest.WriteTag(t, cfg, repoPath, commitID.String(), commitID.Revision(), gittest.WriteTagConfig{Message: "commit tag with a commit sha as the name"})
+	commitTagID := git.WriteTag(t, cfg, repoPath, commitID.String(), commitID.Revision(), git.WriteTagConfig{Message: "commit tag with a commit sha as the name"})
 
 	// a tag of a tag
-	tagOfTagID := gittest.WriteTag(t, cfg, repoPath, "tag-of-tag", commitTagID.Revision(), gittest.WriteTagConfig{Message: "tag of a tag"})
+	tagOfTagID := git.WriteTag(t, cfg, repoPath, "tag-of-tag", commitTagID.Revision(), git.WriteTagConfig{Message: "tag of a tag"})
 
 	rpcRequest := &gitalypb.FindAllTagsRequest{Repository: repoProto}
 
@@ -97,7 +96,7 @@ func TestFindAllTags_successful(t *testing.T) {
 			TargetCommit: gitCommit,
 			Message:      []byte("commit tag with a commit sha as the name"),
 			MessageSize:  40,
-			Tagger:       gittest.DefaultCommitAuthor,
+			Tagger:       git.DefaultCommitAuthor,
 		},
 		{
 			Name:         []byte("tag-of-tag"),
@@ -105,7 +104,7 @@ func TestFindAllTags_successful(t *testing.T) {
 			TargetCommit: gitCommit,
 			Message:      []byte("tag of a tag"),
 			MessageSize:  12,
-			Tagger:       gittest.DefaultCommitAuthor,
+			Tagger:       git.DefaultCommitAuthor,
 		},
 		{
 			Name:         []byte("v1.0.0"),
@@ -154,8 +153,8 @@ func TestFindAllTags_successful(t *testing.T) {
 			Message:      truncatedPGPTagMsg[146:10386], // first 10240 bytes of tag message
 			MessageSize:  11148,
 			Tagger: &gitalypb.CommitAuthor{
-				Name:     []byte(gittest.DefaultCommitterName),
-				Email:    []byte(gittest.DefaultCommitterMail),
+				Name:     []byte(git.DefaultCommitterName),
+				Email:    []byte(git.DefaultCommitterMail),
 				Date:     &timestamppb.Timestamp{Seconds: 1393491261},
 				Timezone: []byte("+0100"),
 			},
@@ -166,7 +165,7 @@ func TestFindAllTags_successful(t *testing.T) {
 			Id:          annotatedTagID.String(),
 			Message:     []byte("Blob tag"),
 			MessageSize: 8,
-			Tagger:      gittest.DefaultCommitAuthor,
+			Tagger:      git.DefaultCommitAuthor,
 		},
 		{
 			Name:         []byte("v1.3.0"),
@@ -193,7 +192,7 @@ func TestFindAllTags_successful(t *testing.T) {
 			Message:      []byte(bigMessage[:helper.MaxCommitOrTagMessageSize]),
 			MessageSize:  int64(len(bigMessage)),
 			TargetCommit: gitCommit,
-			Tagger:       gittest.DefaultCommitAuthor,
+			Tagger:       git.DefaultCommitAuthor,
 		},
 	}
 
@@ -207,11 +206,11 @@ func TestFindAllTags_simpleNestedTags(t *testing.T) {
 	cfg, client := setupRefServiceWithoutRepo(t)
 	ctx := testhelper.Context(t)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath)
+	commitID := git.WriteTestCommit(t, cfg, repoPath)
 
-	tagID := gittest.WriteTag(t, cfg, repoPath, "my/nested/tag", commitID.Revision())
+	tagID := git.WriteTag(t, cfg, repoPath, "my/nested/tag", commitID.Revision())
 
 	stream, err := client.FindAllTags(ctx, &gitalypb.FindAllTagsRequest{Repository: repoProto})
 	require.NoError(t, err)
@@ -229,8 +228,8 @@ func TestFindAllTags_simpleNestedTags(t *testing.T) {
 					BodySize:  7,
 					Subject:   []byte("message"),
 					TreeId:    git.ObjectHashSHA1.EmptyTreeOID.String(),
-					Author:    gittest.DefaultCommitAuthor,
-					Committer: gittest.DefaultCommitAuthor,
+					Author:    git.DefaultCommitAuthor,
+					Committer: git.DefaultCommitAuthor,
 				},
 			},
 		},
@@ -247,15 +246,15 @@ func TestFindAllTags_duplicateAnnotatedTags(t *testing.T) {
 	cfg, client := setupRefServiceWithoutRepo(t)
 	ctx := testhelper.Context(t)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath)
+	commitID := git.WriteTestCommit(t, cfg, repoPath)
 	date := time.Unix(12345, 0)
 	dateOffset := date.Format("-0700")
 
 	tagID, err := repo.WriteTag(ctx, commitID, "commit", []byte("annotated"), []byte("message"),
-		gittest.TestUser, date)
+		git.TestUser, date)
 	require.NoError(t, err)
 
 	require.NoError(t, repo.UpdateRef(ctx, "refs/tags/annotated", tagID, git.ObjectHashSHA1.ZeroOID))
@@ -282,8 +281,8 @@ func TestFindAllTags_duplicateAnnotatedTags(t *testing.T) {
 		Body:      []byte("message"),
 		BodySize:  7,
 		Subject:   []byte("message"),
-		Author:    gittest.DefaultCommitAuthor,
-		Committer: gittest.DefaultCommitAuthor,
+		Author:    git.DefaultCommitAuthor,
+		Committer: git.DefaultCommitAuthor,
 	}
 
 	testhelper.ProtoEqual(t, []*gitalypb.Tag{
@@ -293,8 +292,8 @@ func TestFindAllTags_duplicateAnnotatedTags(t *testing.T) {
 			Message:     []byte("message"),
 			MessageSize: 7,
 			Tagger: &gitalypb.CommitAuthor{
-				Name:     gittest.TestUser.Name,
-				Email:    gittest.TestUser.Email,
+				Name:     git.TestUser.Name,
+				Email:    git.TestUser.Email,
 				Date:     timestamppb.New(date),
 				Timezone: []byte(dateOffset),
 			},
@@ -306,8 +305,8 @@ func TestFindAllTags_duplicateAnnotatedTags(t *testing.T) {
 			Message:     []byte("message"),
 			MessageSize: 7,
 			Tagger: &gitalypb.CommitAuthor{
-				Name:     gittest.TestUser.Name,
-				Email:    gittest.TestUser.Email,
+				Name:     git.TestUser.Name,
+				Email:    git.TestUser.Email,
 				Date:     timestamppb.New(date),
 				Timezone: []byte(dateOffset),
 			},
@@ -391,14 +390,14 @@ func TestFindAllTags_nestedTags(t *testing.T) {
 			for depth := 0; depth < tc.depth; depth++ {
 				tagName := fmt.Sprintf("tag-depth-%d", depth)
 				tagMessage := fmt.Sprintf("a commit %d deep", depth)
-				tagID = gittest.WriteTag(t, cfg, repoPath, tagName, tagID.Revision(), gittest.WriteTagConfig{Message: tagMessage})
+				tagID = git.WriteTag(t, cfg, repoPath, tagName, tagID.Revision(), git.WriteTagConfig{Message: tagMessage})
 
 				expectedTag := &gitalypb.Tag{
 					Name:        []byte(tagName),
 					Id:          tagID.String(),
 					Message:     []byte(tagMessage),
 					MessageSize: int64(len([]byte(tagMessage))),
-					Tagger:      gittest.DefaultCommitAuthor,
+					Tagger:      git.DefaultCommitAuthor,
 				}
 
 				if info.Type == "commit" {
@@ -491,7 +490,7 @@ func TestFindAllTags_pagination(t *testing.T) {
 	catfileCache := catfile.NewCache(cfg)
 	defer catfileCache.Stop()
 
-	annotatedTagID := gittest.WriteTag(t, cfg, repoPath, "annotated", "HEAD", gittest.WriteTagConfig{
+	annotatedTagID := git.WriteTag(t, cfg, repoPath, "annotated", "HEAD", git.WriteTagConfig{
 		Message: "message",
 	})
 
@@ -605,7 +604,7 @@ func TestFindAllTags_sorted(t *testing.T) {
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	headCommit, err := repo.ReadCommit(ctx, "HEAD")
 	require.NoError(t, err)
-	annotatedTagID, err := repo.WriteTag(ctx, git.ObjectID(headCommit.Id), "commit", []byte("annotated"), []byte("message"), gittest.TestUser, time.Now())
+	annotatedTagID, err := repo.WriteTag(ctx, git.ObjectID(headCommit.Id), "commit", []byte("annotated"), []byte("message"), git.TestUser, time.Now())
 	require.NoError(t, err)
 	require.NoError(t, repo.UpdateRef(ctx, "refs/tags/annotated", annotatedTagID, git.ObjectHashSHA1.ZeroOID))
 
@@ -741,7 +740,7 @@ func TestFindAllTags_sorted(t *testing.T) {
 	t.Run("no tags", func(t *testing.T) {
 		t.Parallel()
 
-		repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+		repoProto, _ := git.CreateRepository(t, ctx, cfg)
 		c, err := client.FindAllTags(ctx, &gitalypb.FindAllTagsRequest{
 			Repository: repoProto,
 			SortBy:     &gitalypb.FindAllTagsRequest_SortBy{Key: gitalypb.FindAllTagsRequest_SortBy_REFNAME},
@@ -760,12 +759,12 @@ func BenchmarkFindAllTags(b *testing.B) {
 
 	cfg, client := setupRefServiceWithoutRepo(b)
 
-	repoProto, repoPath := gittest.CreateRepository(b, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repoProto, repoPath := git.CreateRepository(b, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	for i := 0; i < 1000; i++ {
-		gittest.WriteTag(b, cfg, repoPath, fmt.Sprintf("%d", i), "HEAD", gittest.WriteTagConfig{
+		git.WriteTag(b, cfg, repoPath, fmt.Sprintf("%d", i), "HEAD", git.WriteTagConfig{
 			Message: strings.Repeat("abcdefghijk", i),
 		})
 	}

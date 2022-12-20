@@ -18,7 +18,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
@@ -48,7 +47,7 @@ func TestMidxWrite(t *testing.T) {
 		"multi-pack-index should exist after running MidxRepack",
 	)
 
-	configEntries := gittest.Exec(t, cfg, "-C", repoPath, "config", "--local", "--list")
+	configEntries := git.Exec(t, cfg, "-C", repoPath, "config", "--local", "--list")
 	require.NotContains(t, configEntries, "core.muiltipackindex")
 }
 
@@ -85,8 +84,8 @@ func TestMidxRepack(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+	repo, repoPath := git.CreateRepository(t, ctx, cfg)
+	git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
 
 	// add some pack files with different sizes
 	packsAdded := 5
@@ -129,9 +128,9 @@ func TestMidxRepack_transactional(t *testing.T) {
 	txManager := transaction.NewTrackingManager()
 
 	cfg, client := setupRepositoryServiceWithoutRepo(t, testserver.WithTransactionManager(txManager))
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
-	gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
+	repo, repoPath := git.CreateRepository(t, ctx, cfg)
+	git.WriteTestCommit(t, cfg, repoPath, git.WithBranch(git.DefaultBranch))
+	git.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
 
 	// Reset the votes after creating the test repository.
 	txManager.Reset()
@@ -151,7 +150,7 @@ func TestMidxRepack_transactional(t *testing.T) {
 
 	require.Equal(t, 2, len(txManager.Votes()))
 
-	multiPackIndex := gittest.Exec(t, cfg, "-C", repoPath, "config", "core.multiPackIndex")
+	multiPackIndex := git.Exec(t, cfg, "-C", repoPath, "config", "core.multiPackIndex")
 	require.Equal(t, "true", text.ChompBytes(multiPackIndex))
 }
 
@@ -164,8 +163,8 @@ func TestMidxRepackExpire(t *testing.T) {
 	for _, packsAdded := range []int{3, 5, 11, 20} {
 		t.Run(fmt.Sprintf("Test repack expire with %d added packs", packsAdded),
 			func(t *testing.T) {
-				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+				repo, repoPath := git.CreateRepository(t, ctx, cfg)
+				git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
 
 				// add some pack files with different sizes
 				addPackFiles(t, ctx, cfg, repoPath, packsAdded, false)
@@ -258,7 +257,7 @@ func addPackFiles(
 	t.Helper()
 
 	// Do a full repack to ensure we start with 1 pack.
-	gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
+	git.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
 
 	randomReader := rand.New(rand.NewSource(1))
 
@@ -268,12 +267,12 @@ func addPackFiles(
 		_, err := io.ReadFull(randomReader, buf)
 		require.NoError(t, err)
 
-		gittest.WriteCommit(t, cfg, repoPath,
-			gittest.WithMessage(hex.EncodeToString(buf)),
-			gittest.WithBranch(fmt.Sprintf("branch-%d", i)),
+		git.WriteTestCommit(t, cfg, repoPath,
+			git.WithMessage(hex.EncodeToString(buf)),
+			git.WithBranch(fmt.Sprintf("branch-%d", i)),
 		)
 
-		gittest.Exec(t, cfg, "-C", repoPath, "repack", "-d")
+		git.Exec(t, cfg, "-C", repoPath, "repack", "-d")
 	}
 
 	// Reset mtime of packfile to mark them separately for comparison purpose.

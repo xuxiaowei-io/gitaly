@@ -11,7 +11,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
@@ -32,7 +31,7 @@ var (
 	author = &gitalypb.User{
 		Name:     []byte("John Doe"),
 		Email:    []byte("johndoe@gitlab.com"),
-		Timezone: gittest.Timezone,
+		Timezone: git.Timezone,
 	}
 	branchName    = "not-merged-branch"
 	startSha      = "b83d6e391c22777fca1ed3012fce84f633d7fed0"
@@ -67,7 +66,7 @@ func TestUserSquash_successful(t *testing.T) {
 
 			request := &gitalypb.UserSquashRequest{
 				Repository:    repoProto,
-				User:          gittest.TestUser,
+				User:          git.TestUser,
 				Author:        author,
 				CommitMessage: commitMessage,
 				StartSha:      tc.startOID,
@@ -82,13 +81,13 @@ func TestUserSquash_successful(t *testing.T) {
 			require.Equal(t, []string{tc.startOID}, commit.ParentIds)
 			require.Equal(t, author.Name, commit.Author.Name)
 			require.Equal(t, author.Email, commit.Author.Email)
-			require.Equal(t, gittest.TestUser.Name, commit.Committer.Name)
-			require.Equal(t, gittest.TestUser.Email, commit.Committer.Email)
-			require.Equal(t, gittest.TimezoneOffset, string(commit.Committer.Timezone))
-			require.Equal(t, gittest.TimezoneOffset, string(commit.Author.Timezone))
+			require.Equal(t, git.TestUser.Name, commit.Committer.Name)
+			require.Equal(t, git.TestUser.Email, commit.Committer.Email)
+			require.Equal(t, git.TimezoneOffset, string(commit.Committer.Timezone))
+			require.Equal(t, git.TimezoneOffset, string(commit.Author.Timezone))
 			require.Equal(t, commitMessage, commit.Subject)
 
-			treeData := gittest.Exec(t, cfg, "-C", repoPath, "ls-tree", "--name-only", response.SquashSha)
+			treeData := git.Exec(t, cfg, "-C", repoPath, "ls-tree", "--name-only", response.SquashSha)
 			files := strings.Fields(text.ChompBytes(treeData))
 			require.Subset(t, files, []string{"VERSION", "README", "files", ".gitattributes"}, "ensure the files remain on their places")
 		})
@@ -169,8 +168,8 @@ func TestUserSquash_transactional(t *testing.T) {
 				return nil
 			}
 
-			repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-				Seed: gittest.SeedGitLabTest,
+			repoProto, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+				Seed: git.SeedGitLabTest,
 			})
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -182,7 +181,7 @@ func TestUserSquash_transactional(t *testing.T) {
 
 			response, err := client.UserSquash(ctx, &gitalypb.UserSquashRequest{
 				Repository:    repoProto,
-				User:          gittest.TestUser,
+				User:          git.TestUser,
 				Author:        author,
 				CommitMessage: []byte("Squashed commit"),
 				StartSha:      startSha,
@@ -219,7 +218,7 @@ func TestUserSquash_stableID(t *testing.T) {
 
 	response, err := client.UserSquash(ctx, &gitalypb.UserSquashRequest{
 		Repository:    repoProto,
-		User:          gittest.TestUser,
+		User:          git.TestUser,
 		Author:        author,
 		CommitMessage: []byte("Squashed commit"),
 		StartSha:      startSha,
@@ -240,7 +239,7 @@ func TestUserSquash_stableID(t *testing.T) {
 		Body:      []byte("Squashed commit\n"),
 		BodySize:  16,
 		Author:    authorFromUser(author, 1234512345),
-		Committer: authorFromUser(gittest.TestUser, 1234512345),
+		Committer: authorFromUser(git.TestUser, 1234512345),
 	}, commit)
 }
 
@@ -249,12 +248,12 @@ func authorFromUser(user *gitalypb.User, seconds int64) *gitalypb.CommitAuthor {
 		Name:     user.Name,
 		Email:    user.Email,
 		Date:     &timestamppb.Timestamp{Seconds: seconds},
-		Timezone: []byte(gittest.TimezoneOffset),
+		Timezone: []byte(git.TimezoneOffset),
 	}
 }
 
 func ensureSplitIndexExists(t *testing.T, cfg config.Cfg, repoDir string) bool {
-	gittest.Exec(t, cfg, "-C", repoDir, "update-index", "--add")
+	git.Exec(t, cfg, "-C", repoDir, "update-index", "--add")
 
 	fis, err := os.ReadDir(repoDir)
 	require.NoError(t, err)
@@ -276,7 +275,7 @@ func TestUserSquash_threeWayMerge(t *testing.T) {
 
 	request := &gitalypb.UserSquashRequest{
 		Repository:    repoProto,
-		User:          gittest.TestUser,
+		User:          git.TestUser,
 		Author:        author,
 		CommitMessage: commitMessage,
 		// The diff between two of these commits results in some changes to files/ruby/popen.rb
@@ -292,10 +291,10 @@ func TestUserSquash_threeWayMerge(t *testing.T) {
 	require.Equal(t, []string{"6f6d7e7ed97bb5f0054f2b1df789b39ca89b6ff9"}, commit.ParentIds)
 	require.Equal(t, author.Name, commit.Author.Name)
 	require.Equal(t, author.Email, commit.Author.Email)
-	require.Equal(t, gittest.TestUser.Name, commit.Committer.Name)
-	require.Equal(t, gittest.TimezoneOffset, string(commit.Committer.Timezone))
-	require.Equal(t, gittest.TimezoneOffset, string(commit.Author.Timezone))
-	require.Equal(t, gittest.TestUser.Email, commit.Committer.Email)
+	require.Equal(t, git.TestUser.Name, commit.Committer.Name)
+	require.Equal(t, git.TimezoneOffset, string(commit.Committer.Timezone))
+	require.Equal(t, git.TimezoneOffset, string(commit.Author.Timezone))
+	require.Equal(t, git.TestUser.Email, commit.Committer.Email)
 	require.Equal(t, commitMessage, commit.Subject)
 }
 
@@ -309,7 +308,7 @@ func TestUserSquash_splitIndex(t *testing.T) {
 
 	request := &gitalypb.UserSquashRequest{
 		Repository:    repo,
-		User:          gittest.TestUser,
+		User:          git.TestUser,
 		Author:        author,
 		CommitMessage: commitMessage,
 		StartSha:      startSha,
@@ -327,45 +326,45 @@ func TestUserSquash_renames(t *testing.T) {
 	ctx := testhelper.Context(t)
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
 
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+	git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	originalFilename := "original-file.txt"
 	renamedFilename := "renamed-file.txt"
 
-	rootCommitID := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithTreeEntries(
-			gittest.TreeEntry{Path: originalFilename, Mode: "100644", Content: "This is a test"},
+	rootCommitID := git.WriteTestCommit(t, cfg, repoPath,
+		git.WithTreeEntries(
+			git.TreeEntry{Path: originalFilename, Mode: "100644", Content: "This is a test"},
 		),
 	)
 
-	startCommitID := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithParents(rootCommitID),
-		gittest.WithTreeEntries(
-			gittest.TreeEntry{Path: renamedFilename, Mode: "100644", Content: "This is a test"},
+	startCommitID := git.WriteTestCommit(t, cfg, repoPath,
+		git.WithParents(rootCommitID),
+		git.WithTreeEntries(
+			git.TreeEntry{Path: renamedFilename, Mode: "100644", Content: "This is a test"},
 		),
 	)
 
-	changedCommitID := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithParents(rootCommitID),
-		gittest.WithTreeEntries(
-			gittest.TreeEntry{Path: originalFilename, Mode: "100644", Content: "This is a change"},
+	changedCommitID := git.WriteTestCommit(t, cfg, repoPath,
+		git.WithParents(rootCommitID),
+		git.WithTreeEntries(
+			git.TreeEntry{Path: originalFilename, Mode: "100644", Content: "This is a change"},
 		),
 	)
 
-	endCommitID := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithParents(changedCommitID),
-		gittest.WithTreeEntries(
-			gittest.TreeEntry{Path: originalFilename, Mode: "100644", Content: "This is another change"},
+	endCommitID := git.WriteTestCommit(t, cfg, repoPath,
+		git.WithParents(changedCommitID),
+		git.WithTreeEntries(
+			git.TreeEntry{Path: originalFilename, Mode: "100644", Content: "This is another change"},
 		),
 	)
 
 	request := &gitalypb.UserSquashRequest{
 		Repository:    repoProto,
-		User:          gittest.TestUser,
+		User:          git.TestUser,
 		Author:        author,
 		CommitMessage: commitMessage,
 		StartSha:      startCommitID.String(),
@@ -380,13 +379,13 @@ func TestUserSquash_renames(t *testing.T) {
 	require.Equal(t, []string{startCommitID.String()}, commit.ParentIds)
 	require.Equal(t, author.Name, commit.Author.Name)
 	require.Equal(t, author.Email, commit.Author.Email)
-	require.Equal(t, gittest.TestUser.Name, commit.Committer.Name)
-	require.Equal(t, gittest.TestUser.Email, commit.Committer.Email)
-	require.Equal(t, gittest.TimezoneOffset, string(commit.Committer.Timezone))
-	require.Equal(t, gittest.TimezoneOffset, string(commit.Author.Timezone))
+	require.Equal(t, git.TestUser.Name, commit.Committer.Name)
+	require.Equal(t, git.TestUser.Email, commit.Committer.Email)
+	require.Equal(t, git.TimezoneOffset, string(commit.Committer.Timezone))
+	require.Equal(t, git.TimezoneOffset, string(commit.Author.Timezone))
 	require.Equal(t, commitMessage, commit.Subject)
 
-	gittest.RequireTree(t, cfg, repoPath, response.SquashSha, []gittest.TreeEntry{
+	git.RequireTree(t, cfg, repoPath, response.SquashSha, []git.TreeEntry{
 		{Path: renamedFilename, Mode: "100644", Content: "This is another change", OID: "1b2ae89cca65f0d514f677981f012d708df651fc"},
 	})
 }
@@ -401,7 +400,7 @@ func TestUserSquash_missingFileOnTargetBranch(t *testing.T) {
 
 	request := &gitalypb.UserSquashRequest{
 		Repository:    repo,
-		User:          gittest.TestUser,
+		User:          git.TestUser,
 		Author:        author,
 		CommitMessage: commitMessage,
 		StartSha:      conflictingStartSha,
@@ -421,32 +420,32 @@ func TestUserSquash_emptyCommit(t *testing.T) {
 
 	// Set up history with two diverging lines of branches, where both sides have implemented
 	// the same changes. During merge, the diff will thus become empty.
-	base := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithTreeEntries(
-			gittest.TreeEntry{Path: "a", Content: "base", Mode: "100644"},
+	base := git.WriteTestCommit(t, cfg, repoPath,
+		git.WithTreeEntries(
+			git.TreeEntry{Path: "a", Content: "base", Mode: "100644"},
 		),
 	)
-	theirs := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("theirs"),
-		gittest.WithParents(base), gittest.WithTreeEntries(
-			gittest.TreeEntry{Path: "a", Content: "changed", Mode: "100644"},
+	theirs := git.WriteTestCommit(t, cfg, repoPath, git.WithMessage("theirs"),
+		git.WithParents(base), git.WithTreeEntries(
+			git.TreeEntry{Path: "a", Content: "changed", Mode: "100644"},
 		),
 	)
-	ours := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("ours"),
-		gittest.WithParents(base), gittest.WithTreeEntries(
-			gittest.TreeEntry{Path: "a", Content: "changed", Mode: "100644"},
+	ours := git.WriteTestCommit(t, cfg, repoPath, git.WithMessage("ours"),
+		git.WithParents(base), git.WithTreeEntries(
+			git.TreeEntry{Path: "a", Content: "changed", Mode: "100644"},
 		),
 	)
-	oursWithAdditionalChanges := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("ours"),
-		gittest.WithParents(ours), gittest.WithTreeEntries(
-			gittest.TreeEntry{Path: "a", Content: "changed", Mode: "100644"},
-			gittest.TreeEntry{Path: "ours", Content: "ours", Mode: "100644"},
+	oursWithAdditionalChanges := git.WriteTestCommit(t, cfg, repoPath, git.WithMessage("ours"),
+		git.WithParents(ours), git.WithTreeEntries(
+			git.TreeEntry{Path: "a", Content: "changed", Mode: "100644"},
+			git.TreeEntry{Path: "ours", Content: "ours", Mode: "100644"},
 		),
 	)
 
 	for _, tc := range []struct {
 		desc                      string
 		ours, theirs, expectedOID git.ObjectID
-		expectedTreeEntries       []gittest.TreeEntry
+		expectedTreeEntries       []git.TreeEntry
 		expectedCommit            *gitalypb.GitCommit
 	}{
 		{
@@ -454,7 +453,7 @@ func TestUserSquash_emptyCommit(t *testing.T) {
 			ours:        ours,
 			theirs:      theirs,
 			expectedOID: "0c097018ea50a9c036ba7e98db2b12495e912884",
-			expectedTreeEntries: []gittest.TreeEntry{
+			expectedTreeEntries: []git.TreeEntry{
 				{Path: "a", Content: "changed", Mode: "100644"},
 			},
 			expectedCommit: &gitalypb.GitCommit{
@@ -467,7 +466,7 @@ func TestUserSquash_emptyCommit(t *testing.T) {
 				Body:      []byte("squashed\n"),
 				BodySize:  9,
 				Author:    authorFromUser(author, 1234512345),
-				Committer: authorFromUser(gittest.TestUser, 1234512345),
+				Committer: authorFromUser(git.TestUser, 1234512345),
 			},
 		},
 		{
@@ -475,7 +474,7 @@ func TestUserSquash_emptyCommit(t *testing.T) {
 			ours:        oursWithAdditionalChanges,
 			theirs:      theirs,
 			expectedOID: "1589b6ee8b29e193b6648f75b7289d95e90dbce1",
-			expectedTreeEntries: []gittest.TreeEntry{
+			expectedTreeEntries: []git.TreeEntry{
 				{Path: "a", Content: "changed", Mode: "100644"},
 				{Path: "ours", Content: "ours", Mode: "100644"},
 			},
@@ -489,14 +488,14 @@ func TestUserSquash_emptyCommit(t *testing.T) {
 				Body:      []byte("squashed\n"),
 				BodySize:  9,
 				Author:    authorFromUser(author, 1234512345),
-				Committer: authorFromUser(gittest.TestUser, 1234512345),
+				Committer: authorFromUser(git.TestUser, 1234512345),
 			},
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			response, err := client.UserSquash(ctx, &gitalypb.UserSquashRequest{
 				Repository:    repoProto,
-				User:          gittest.TestUser,
+				User:          git.TestUser,
 				Author:        author,
 				CommitMessage: []byte("squashed"),
 				StartSha:      tc.theirs.String(),
@@ -508,7 +507,7 @@ func TestUserSquash_emptyCommit(t *testing.T) {
 				SquashSha: tc.expectedOID.String(),
 			}, response)
 
-			gittest.RequireTree(t, cfg, repoPath, tc.expectedOID.String(), tc.expectedTreeEntries)
+			git.RequireTree(t, cfg, repoPath, tc.expectedOID.String(), tc.expectedTreeEntries)
 
 			commit, err := repo.ReadCommit(ctx, tc.expectedOID.Revision())
 			require.NoError(t, err)
@@ -532,8 +531,8 @@ func TestUserSquash_validation(t *testing.T) {
 			desc: "empty Repository",
 			request: &gitalypb.UserSquashRequest{
 				Repository:    nil,
-				User:          gittest.TestUser,
-				Author:        gittest.TestUser,
+				User:          git.TestUser,
+				Author:        git.TestUser,
 				CommitMessage: commitMessage,
 				StartSha:      startSha,
 				EndSha:        endSha,
@@ -548,7 +547,7 @@ func TestUserSquash_validation(t *testing.T) {
 			request: &gitalypb.UserSquashRequest{
 				Repository:    repo,
 				User:          nil,
-				Author:        gittest.TestUser,
+				Author:        git.TestUser,
 				CommitMessage: commitMessage,
 				StartSha:      startSha,
 				EndSha:        endSha,
@@ -559,8 +558,8 @@ func TestUserSquash_validation(t *testing.T) {
 			desc: "empty StartSha",
 			request: &gitalypb.UserSquashRequest{
 				Repository:    repo,
-				User:          gittest.TestUser,
-				Author:        gittest.TestUser,
+				User:          git.TestUser,
+				Author:        git.TestUser,
 				CommitMessage: commitMessage,
 				StartSha:      "",
 				EndSha:        endSha,
@@ -571,8 +570,8 @@ func TestUserSquash_validation(t *testing.T) {
 			desc: "empty EndSha",
 			request: &gitalypb.UserSquashRequest{
 				Repository:    repo,
-				User:          gittest.TestUser,
-				Author:        gittest.TestUser,
+				User:          git.TestUser,
+				Author:        git.TestUser,
 				CommitMessage: commitMessage,
 				StartSha:      startSha,
 				EndSha:        "",
@@ -583,7 +582,7 @@ func TestUserSquash_validation(t *testing.T) {
 			desc: "empty Author",
 			request: &gitalypb.UserSquashRequest{
 				Repository:    repo,
-				User:          gittest.TestUser,
+				User:          git.TestUser,
 				Author:        nil,
 				CommitMessage: commitMessage,
 				StartSha:      startSha,
@@ -595,8 +594,8 @@ func TestUserSquash_validation(t *testing.T) {
 			desc: "empty CommitMessage",
 			request: &gitalypb.UserSquashRequest{
 				Repository:    repo,
-				User:          gittest.TestUser,
-				Author:        gittest.TestUser,
+				User:          git.TestUser,
+				Author:        git.TestUser,
 				CommitMessage: nil,
 				StartSha:      startSha,
 				EndSha:        endSha,
@@ -619,25 +618,25 @@ func TestUserSquash_conflicts(t *testing.T) {
 	ctx := testhelper.Context(t)
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
-	base := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-		gittest.TreeEntry{Path: "a", Mode: "100644", Content: "unchanged"},
-		gittest.TreeEntry{Path: "b", Mode: "100644", Content: "base"},
+	base := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+		git.TreeEntry{Path: "a", Mode: "100644", Content: "unchanged"},
+		git.TreeEntry{Path: "b", Mode: "100644", Content: "base"},
 	))
 
-	ours := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(base), gittest.WithTreeEntries(
-		gittest.TreeEntry{Path: "a", Mode: "100644", Content: "unchanged"},
-		gittest.TreeEntry{Path: "b", Mode: "100644", Content: "ours"},
+	ours := git.WriteTestCommit(t, cfg, repoPath, git.WithParents(base), git.WithTreeEntries(
+		git.TreeEntry{Path: "a", Mode: "100644", Content: "unchanged"},
+		git.TreeEntry{Path: "b", Mode: "100644", Content: "ours"},
 	))
 
-	theirs := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(base), gittest.WithTreeEntries(
-		gittest.TreeEntry{Path: "a", Mode: "100644", Content: "unchanged"},
-		gittest.TreeEntry{Path: "b", Mode: "100644", Content: "theirs"},
+	theirs := git.WriteTestCommit(t, cfg, repoPath, git.WithParents(base), git.WithTreeEntries(
+		git.TreeEntry{Path: "a", Mode: "100644", Content: "unchanged"},
+		git.TreeEntry{Path: "b", Mode: "100644", Content: "theirs"},
 	))
 
 	response, err := client.UserSquash(ctx, &gitalypb.UserSquashRequest{
 		Repository:    repo,
-		User:          gittest.TestUser,
-		Author:        gittest.TestUser,
+		User:          git.TestUser,
+		Author:        git.TestUser,
 		CommitMessage: commitMessage,
 		StartSha:      theirs.String(),
 		EndSha:        ours.String(),
@@ -669,20 +668,20 @@ func TestUserSquash_ancestry(t *testing.T) {
 
 	// We create an empty parent commit and two commits which both branch off from it. As a
 	// result, they are not direct ancestors of each other.
-	parent := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("p"), gittest.WithTreeEntries())
-	commit1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("1"),
-		gittest.WithTreeEntries(gittest.TreeEntry{Path: "a", Mode: "100644", Content: "a-content"}),
-		gittest.WithParents(parent),
+	parent := git.WriteTestCommit(t, cfg, repoPath, git.WithMessage("p"), git.WithTreeEntries())
+	commit1 := git.WriteTestCommit(t, cfg, repoPath, git.WithMessage("1"),
+		git.WithTreeEntries(git.TreeEntry{Path: "a", Mode: "100644", Content: "a-content"}),
+		git.WithParents(parent),
 	)
-	commit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("2"),
-		gittest.WithTreeEntries(gittest.TreeEntry{Path: "b", Mode: "100644", Content: "b-content"}),
-		gittest.WithParents(parent),
+	commit2 := git.WriteTestCommit(t, cfg, repoPath, git.WithMessage("2"),
+		git.WithTreeEntries(git.TreeEntry{Path: "b", Mode: "100644", Content: "b-content"}),
+		git.WithParents(parent),
 	)
 
 	response, err := client.UserSquash(ctx, &gitalypb.UserSquashRequest{
 		Repository:    repo,
-		User:          gittest.TestUser,
-		Author:        gittest.TestUser,
+		User:          git.TestUser,
+		Author:        git.TestUser,
 		CommitMessage: commitMessage,
 		StartSha:      commit1.String(),
 		EndSha:        commit2.String(),
@@ -711,8 +710,8 @@ func TestUserSquash_gitError(t *testing.T) {
 			desc: "not existing start SHA",
 			request: &gitalypb.UserSquashRequest{
 				Repository:    repo,
-				User:          gittest.TestUser,
-				Author:        gittest.TestUser,
+				User:          git.TestUser,
+				Author:        git.TestUser,
 				CommitMessage: commitMessage,
 				StartSha:      "doesntexisting",
 				EndSha:        endSha,
@@ -732,8 +731,8 @@ func TestUserSquash_gitError(t *testing.T) {
 			desc: "not existing end SHA",
 			request: &gitalypb.UserSquashRequest{
 				Repository:    repo,
-				User:          gittest.TestUser,
-				Author:        gittest.TestUser,
+				User:          git.TestUser,
+				Author:        git.TestUser,
 				CommitMessage: commitMessage,
 				StartSha:      startSha,
 				EndSha:        "doesntexisting",
@@ -753,8 +752,8 @@ func TestUserSquash_gitError(t *testing.T) {
 			desc: "user has no name set",
 			request: &gitalypb.UserSquashRequest{
 				Repository:    repo,
-				User:          &gitalypb.User{Email: gittest.TestUser.Email},
-				Author:        gittest.TestUser,
+				User:          &gitalypb.User{Email: git.TestUser.Email},
+				Author:        git.TestUser,
 				CommitMessage: commitMessage,
 				StartSha:      startSha,
 				EndSha:        endSha,
@@ -765,8 +764,8 @@ func TestUserSquash_gitError(t *testing.T) {
 			desc: "author has no name set",
 			request: &gitalypb.UserSquashRequest{
 				Repository:    repo,
-				User:          gittest.TestUser,
-				Author:        &gitalypb.User{Email: gittest.TestUser.Email},
+				User:          git.TestUser,
+				Author:        &gitalypb.User{Email: git.TestUser.Email},
 				CommitMessage: commitMessage,
 				StartSha:      startSha,
 				EndSha:        endSha,
@@ -777,8 +776,8 @@ func TestUserSquash_gitError(t *testing.T) {
 			desc: "author has no email set",
 			request: &gitalypb.UserSquashRequest{
 				Repository:    repo,
-				User:          gittest.TestUser,
-				Author:        &gitalypb.User{Name: gittest.TestUser.Name},
+				User:          git.TestUser,
+				Author:        &gitalypb.User{Name: git.TestUser.Name},
 				CommitMessage: commitMessage,
 				StartSha:      startSha,
 				EndSha:        endSha,
@@ -802,27 +801,27 @@ func TestUserSquash_squashingMerge(t *testing.T) {
 	ctx := testhelper.Context(t)
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
-	base := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("base"),
-		gittest.WithTreeEntries(gittest.TreeEntry{Path: "a", Mode: "100644", Content: "base-content"}),
+	base := git.WriteTestCommit(t, cfg, repoPath, git.WithMessage("base"),
+		git.WithTreeEntries(git.TreeEntry{Path: "a", Mode: "100644", Content: "base-content"}),
 	)
-	ours := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("ours"),
-		gittest.WithTreeEntries(gittest.TreeEntry{Path: "a", Mode: "100644", Content: "ours-content"}),
-		gittest.WithParents(base),
+	ours := git.WriteTestCommit(t, cfg, repoPath, git.WithMessage("ours"),
+		git.WithTreeEntries(git.TreeEntry{Path: "a", Mode: "100644", Content: "ours-content"}),
+		git.WithParents(base),
 	)
-	theirs := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("theirs"),
-		gittest.WithTreeEntries(gittest.TreeEntry{Path: "a", Mode: "100644", Content: "theirs-content"}),
-		gittest.WithParents(base),
+	theirs := git.WriteTestCommit(t, cfg, repoPath, git.WithMessage("theirs"),
+		git.WithTreeEntries(git.TreeEntry{Path: "a", Mode: "100644", Content: "theirs-content"}),
+		git.WithParents(base),
 	)
-	oursMergedIntoTheirs := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("merge ours into theirs"),
-		gittest.WithTreeEntries(gittest.TreeEntry{Path: "a", Mode: "100644", Content: "ours-content\ntheirs-content"}),
-		gittest.WithParents(theirs, ours),
+	oursMergedIntoTheirs := git.WriteTestCommit(t, cfg, repoPath, git.WithMessage("merge ours into theirs"),
+		git.WithTreeEntries(git.TreeEntry{Path: "a", Mode: "100644", Content: "ours-content\ntheirs-content"}),
+		git.WithParents(theirs, ours),
 	)
-	ours2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("ours 2"),
-		gittest.WithTreeEntries(
-			gittest.TreeEntry{Path: "a", Mode: "100644", Content: "ours-content"},
-			gittest.TreeEntry{Path: "ours-file", Mode: "100644", Content: "new-content"},
+	ours2 := git.WriteTestCommit(t, cfg, repoPath, git.WithMessage("ours 2"),
+		git.WithTreeEntries(
+			git.TreeEntry{Path: "a", Mode: "100644", Content: "ours-content"},
+			git.TreeEntry{Path: "ours-file", Mode: "100644", Content: "new-content"},
 		),
-		gittest.WithParents(ours),
+		git.WithParents(ours),
 	)
 
 	// We had conflicting commit on "ours" and on "theirs",
@@ -838,8 +837,8 @@ func TestUserSquash_squashingMerge(t *testing.T) {
 	// We're now squashing both commits from "theirs" onto "ours".
 	response, err := client.UserSquash(ctx, &gitalypb.UserSquashRequest{
 		Repository:    repo,
-		User:          gittest.TestUser,
-		Author:        gittest.TestUser,
+		User:          git.TestUser,
+		Author:        git.TestUser,
 		CommitMessage: commitMessage,
 		StartSha:      ours2.String(),
 		EndSha:        oursMergedIntoTheirs.String(),
@@ -857,7 +856,7 @@ func TestUserSquash_squashingMerge(t *testing.T) {
 	testhelper.ProtoEqual(t, &gitalypb.UserSquashResponse{
 		SquashSha: "69d8db2439502c18b9c17c2d1bddb122a82bd448",
 	}, response)
-	gittest.RequireTree(t, cfg, repoPath, "69d8db2439502c18b9c17c2d1bddb122a82bd448", []gittest.TreeEntry{
+	git.RequireTree(t, cfg, repoPath, "69d8db2439502c18b9c17c2d1bddb122a82bd448", []git.TreeEntry{
 		{
 			// It should use the version from commit "oursMergedIntoTheirs",
 			// as it resolves the pre-existing conflict.

@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/quarantine"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
@@ -53,8 +52,8 @@ func testSuccessfulRepositorySizeRequestPoolMember(t *testing.T, ctx context.Con
 
 	objectPoolClient := newObjectPoolClient(t, cfg, serverSocketPath)
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	sizeRequest := &gitalypb.RepositorySizeRequest{Repository: repo}
@@ -69,7 +68,7 @@ func testSuccessfulRepositorySizeRequestPoolMember(t *testing.T, ctx context.Con
 	poolProto := &gitalypb.ObjectPool{
 		Repository: &gitalypb.Repository{
 			StorageName:  cfg.Storages[0].Name,
-			RelativePath: gittest.NewObjectPoolName(t),
+			RelativePath: git.NewObjectPoolName(t),
 		},
 	}
 
@@ -90,7 +89,7 @@ func testSuccessfulRepositorySizeRequestPoolMember(t *testing.T, ctx context.Con
 	)
 	require.NoError(t, err)
 
-	gittest.Exec(t, cfg, "-C", repoPath, "gc")
+	git.Exec(t, cfg, "-C", repoPath, "gc")
 
 	response, err = repoClient.RepositorySize(ctx, sizeRequest)
 	require.NoError(t, err)
@@ -120,20 +119,20 @@ func testSuccessfulRepositorySizeRequest(t *testing.T, ctx context.Context) {
 	)
 
 	blob := bytes.Repeat([]byte("a"), 1000)
-	blobOID := gittest.WriteBlob(t, cfg, repoPath, blob)
-	treeOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+	blobOID := git.WriteBlob(t, cfg, repoPath, blob)
+	treeOID := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 		{
 			OID:  blobOID,
 			Mode: "100644",
 			Path: "1kbblob",
 		},
 	})
-	commitOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(treeOID))
+	commitOID := git.WriteTestCommit(t, cfg, repoPath, git.WithTree(treeOID))
 
-	gittest.WriteRef(t, cfg, repoPath, git.ReferenceName("refs/keep-around/keep1"), commitOID)
-	gittest.WriteRef(t, cfg, repoPath, git.ReferenceName("refs/merge-requests/1123"), commitOID)
-	gittest.WriteRef(t, cfg, repoPath, git.ReferenceName("refs/pipelines/pipeline2"), commitOID)
-	gittest.WriteRef(t, cfg, repoPath, git.ReferenceName("refs/environments/env1"), commitOID)
+	git.WriteRef(t, cfg, repoPath, git.ReferenceName("refs/keep-around/keep1"), commitOID)
+	git.WriteRef(t, cfg, repoPath, git.ReferenceName("refs/merge-requests/1123"), commitOID)
+	git.WriteRef(t, cfg, repoPath, git.ReferenceName("refs/pipelines/pipeline2"), commitOID)
+	git.WriteRef(t, cfg, repoPath, git.ReferenceName("refs/environments/env1"), commitOID)
 
 	responseAfterRefs, err := client.RepositorySize(ctx, request)
 	require.NoError(t, err)
@@ -260,11 +259,11 @@ func testGetObjectDirectorySizeQuarantine(t *testing.T, ctx context.Context) {
 	locator := config.NewLocator(cfg)
 
 	t.Run("quarantined repo", func(t *testing.T) {
-		repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-			Seed: gittest.SeedGitLabTest,
+		repo, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+			Seed: git.SeedGitLabTest,
 		})
 
-		quarantine, err := quarantine.New(ctx, gittest.RewrittenRepository(t, ctx, cfg, repo), locator)
+		quarantine, err := quarantine.New(ctx, git.RewrittenRepository(t, ctx, cfg, repo), locator)
 		require.NoError(t, err)
 
 		// quarantine.New in Gitaly would receive an already rewritten repository. Gitaly would then calculate
@@ -288,16 +287,16 @@ func testGetObjectDirectorySizeQuarantine(t *testing.T, ctx context.Context) {
 	})
 
 	t.Run("quarantined repo with different relative path", func(t *testing.T) {
-		repo1, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-			Seed: gittest.SeedGitLabTest,
+		repo1, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+			Seed: git.SeedGitLabTest,
 		})
-		quarantine1, err := quarantine.New(ctx, gittest.RewrittenRepository(t, ctx, cfg, repo1), locator)
+		quarantine1, err := quarantine.New(ctx, git.RewrittenRepository(t, ctx, cfg, repo1), locator)
 		require.NoError(t, err)
 
-		repo2, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-			Seed: gittest.SeedGitLabTest,
+		repo2, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+			Seed: git.SeedGitLabTest,
 		})
-		quarantine2, err := quarantine.New(ctx, gittest.RewrittenRepository(t, ctx, cfg, repo2), locator)
+		quarantine2, err := quarantine.New(ctx, git.RewrittenRepository(t, ctx, cfg, repo2), locator)
 		require.NoError(t, err)
 
 		// We swap out the the object directories of both quarantines. So while both are

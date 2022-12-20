@@ -9,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
@@ -34,23 +33,23 @@ func TestUserRebaseConfirmable_successful(t *testing.T) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	pushOptions := []string{"ci.skip", "test=value"}
-	cfg.Gitlab.URL = setupAndStartGitlabServer(t, gittest.GlID, "project-1", cfg, pushOptions...)
+	cfg.Gitlab.URL = setupAndStartGitlabServer(t, git.GlID, "project-1", cfg, pushOptions...)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	repoCopyProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repoCopyProto, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
-	branchOID := gittest.ResolveRevision(t, cfg, repoPath, rebaseBranchName)
+	branchOID := git.ResolveRevision(t, cfg, repoPath, rebaseBranchName)
 
 	rebaseStream, err := client.UserRebaseConfirmable(ctx)
 	require.NoError(t, err)
 
-	preReceiveHookOutputPath := gittest.WriteEnvToCustomHook(t, repoPath, "pre-receive")
-	postReceiveHookOutputPath := gittest.WriteEnvToCustomHook(t, repoPath, "post-receive")
+	preReceiveHookOutputPath := git.WriteEnvToCustomHook(t, repoPath, "pre-receive")
+	postReceiveHookOutputPath := git.WriteEnvToCustomHook(t, repoPath, "post-receive")
 
-	headerRequest := buildHeaderRequest(repoProto, gittest.TestUser, "1", rebaseBranchName, branchOID, repoCopyProto, "master")
+	headerRequest := buildHeaderRequest(repoProto, git.TestUser, "1", rebaseBranchName, branchOID, repoCopyProto, "master")
 	headerRequest.GetHeader().GitPushOptions = pushOptions
 	require.NoError(t, rebaseStream.Send(headerRequest), "send header")
 
@@ -72,7 +71,7 @@ func TestUserRebaseConfirmable_successful(t *testing.T) {
 	_, err = repo.ReadCommit(ctx, git.Revision(firstResponse.GetRebaseSha()))
 	require.NoError(t, err)
 
-	newBranchCommit := gittest.ResolveRevision(t, cfg, repoPath, rebaseBranchName)
+	newBranchCommit := git.ResolveRevision(t, cfg, repoPath, rebaseBranchName)
 
 	require.NotEqual(t, newBranchCommit, branchOID)
 	require.Equal(t, newBranchCommit.String(), firstResponse.GetRebaseSha())
@@ -95,39 +94,39 @@ func TestUserRebaseConfirmable_skipEmptyCommits(t *testing.T) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	// This is the base commit from which both "theirs" and "ours" branch from".
-	baseCommit := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithTreeEntries(
-			gittest.TreeEntry{Mode: "100644", Path: "README", Content: "a\nb\nc\nd\ne\nf\n"},
+	baseCommit := git.WriteTestCommit(t, cfg, repoPath,
+		git.WithTreeEntries(
+			git.TreeEntry{Mode: "100644", Path: "README", Content: "a\nb\nc\nd\ne\nf\n"},
 		),
 	)
 
 	// "theirs" changes the first line of the file to contain a "1".
-	theirs := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithParents(baseCommit),
-		gittest.WithTreeEntries(
-			gittest.TreeEntry{Mode: "100644", Path: "README", Content: "1\nb\nc\nd\ne\nf\n"},
+	theirs := git.WriteTestCommit(t, cfg, repoPath,
+		git.WithParents(baseCommit),
+		git.WithTreeEntries(
+			git.TreeEntry{Mode: "100644", Path: "README", Content: "1\nb\nc\nd\ne\nf\n"},
 		),
-		gittest.WithMessage("theirs"),
-		gittest.WithBranch("theirs"),
+		git.WithMessage("theirs"),
+		git.WithBranch("theirs"),
 	)
 
 	// We create two commits on "ours": the first one does the same changes as "theirs", but
 	// with a different commit ID. It is expected to become empty. And the second commit is an
 	// independent change which modifies the last line.
-	oursBecomingEmpty := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithParents(baseCommit),
-		gittest.WithTreeEntries(
-			gittest.TreeEntry{Mode: "100644", Path: "README", Content: "1\nb\nc\nd\ne\nf\n"},
+	oursBecomingEmpty := git.WriteTestCommit(t, cfg, repoPath,
+		git.WithParents(baseCommit),
+		git.WithTreeEntries(
+			git.TreeEntry{Mode: "100644", Path: "README", Content: "1\nb\nc\nd\ne\nf\n"},
 		),
-		gittest.WithMessage("ours but same change as theirs"),
+		git.WithMessage("ours but same change as theirs"),
 	)
-	ours := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithParents(oursBecomingEmpty),
-		gittest.WithTreeEntries(
-			gittest.TreeEntry{Mode: "100644", Path: "README", Content: "1\nb\nc\nd\ne\n6\n"},
+	ours := git.WriteTestCommit(t, cfg, repoPath,
+		git.WithParents(oursBecomingEmpty),
+		git.WithTreeEntries(
+			git.TreeEntry{Mode: "100644", Path: "README", Content: "1\nb\nc\nd\ne\n6\n"},
 		),
-		gittest.WithMessage("ours with additional changes"),
-		gittest.WithBranch("ours"),
+		git.WithMessage("ours with additional changes"),
+		git.WithBranch("ours"),
 	)
 
 	stream, err := client.UserRebaseConfirmable(ctx)
@@ -136,7 +135,7 @@ func TestUserRebaseConfirmable_skipEmptyCommits(t *testing.T) {
 		UserRebaseConfirmableRequestPayload: &gitalypb.UserRebaseConfirmableRequest_Header_{
 			Header: &gitalypb.UserRebaseConfirmableRequest_Header{
 				Repository: repoProto,
-				User:       gittest.TestUser,
+				User:       git.TestUser,
 				RebaseId:   "something",
 				// Note: the way UserRebaseConfirmable handles BranchSha and
 				// RemoteBranch is really weird. What we're doing is to rebase
@@ -172,10 +171,10 @@ func TestUserRebaseConfirmable_skipEmptyCommits(t *testing.T) {
 		Id:        "ef7f98be1f753f1a9fa895d999a855611d691629",
 		ParentIds: []string{theirs.String()},
 		TreeId:    "b68aeb18813d7f2e180f2cc0bccc128511438b29",
-		Author:    gittest.DefaultCommitAuthor,
+		Author:    git.DefaultCommitAuthor,
 		Committer: &gitalypb.CommitAuthor{
-			Name:     gittest.TestUser.Name,
-			Email:    gittest.TestUser.Email,
+			Name:     git.TestUser.Name,
+			Email:    git.TestUser.Email,
 			Date:     &timestamppb.Timestamp{Seconds: 123456},
 			Timezone: []byte("+0000"),
 		},
@@ -194,7 +193,7 @@ func TestUserRebaseConfirmable_transaction(t *testing.T) {
 		testserver.WithDisablePraefect(),
 		testserver.WithTransactionManager(txManager),
 	)
-	cfg.Gitlab.URL = setupAndStartGitlabServer(t, gittest.GlID, "project-1", cfg)
+	cfg.Gitlab.URL = setupAndStartGitlabServer(t, git.GlID, "project-1", cfg)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -226,7 +225,7 @@ func TestUserRebaseConfirmable_transaction(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			preReceiveHookOutputPath := gittest.WriteEnvToCustomHook(t, repoPath, "pre-receive")
+			preReceiveHookOutputPath := git.WriteEnvToCustomHook(t, repoPath, "pre-receive")
 
 			txManager.Reset()
 
@@ -246,7 +245,7 @@ func TestUserRebaseConfirmable_transaction(t *testing.T) {
 			rebaseStream, err := client.UserRebaseConfirmable(ctx)
 			require.NoError(t, err)
 
-			headerRequest := buildHeaderRequest(repoProto, gittest.TestUser, "1", rebaseBranchName, branchCommitID, repoProto, "master")
+			headerRequest := buildHeaderRequest(repoProto, git.TestUser, "1", rebaseBranchName, branchCommitID, repoProto, "master")
 			require.NoError(t, rebaseStream.Send(headerRequest))
 			_, err = rebaseStream.Recv()
 			require.NoError(t, err)
@@ -275,7 +274,7 @@ func TestUserRebaseConfirmable_stableCommitIDs(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
-	cfg.Gitlab.URL = setupAndStartGitlabServer(t, gittest.GlID, "project-1", cfg)
+	cfg.Gitlab.URL = setupAndStartGitlabServer(t, git.GlID, "project-1", cfg)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -283,16 +282,16 @@ func TestUserRebaseConfirmable_stableCommitIDs(t *testing.T) {
 	require.NoError(t, err)
 
 	committerDate := &timestamppb.Timestamp{Seconds: 100000000}
-	parentSha := gittest.ResolveRevision(t, cfg, repoPath, "master")
+	parentSha := git.ResolveRevision(t, cfg, repoPath, "master")
 
 	require.NoError(t, rebaseStream.Send(&gitalypb.UserRebaseConfirmableRequest{
 		UserRebaseConfirmableRequestPayload: &gitalypb.UserRebaseConfirmableRequest_Header_{
 			Header: &gitalypb.UserRebaseConfirmableRequest_Header{
 				Repository:       repoProto,
-				User:             gittest.TestUser,
+				User:             git.TestUser,
 				RebaseId:         "1",
 				Branch:           []byte(rebaseBranchName),
-				BranchSha:        gittest.ResolveRevision(t, cfg, repoPath, rebaseBranchName).String(),
+				BranchSha:        git.ResolveRevision(t, cfg, repoPath, rebaseBranchName).String(),
 				RemoteRepository: repoProto,
 				RemoteBranch:     []byte("master"),
 				Timestamp:        committerDate,
@@ -331,8 +330,8 @@ func TestUserRebaseConfirmable_stableCommitIDs(t *testing.T) {
 			Timezone: []byte("-0600"),
 		},
 		Committer: &gitalypb.CommitAuthor{
-			Name:  gittest.TestUser.Name,
-			Email: gittest.TestUser.Email,
+			Name:  git.TestUser.Name,
+			Email: git.TestUser.Email,
 			// Nanoseconds get ignored because commit timestamps aren't that granular.
 			Date:     committerDate,
 			Timezone: []byte("+0000"),
@@ -346,11 +345,11 @@ func TestUserRebaseConfirmable_inputValidation(t *testing.T) {
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
-	repoCopy, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repoCopy, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
-	branchCommitID := gittest.ResolveRevision(t, cfg, repoPath, rebaseBranchName)
+	branchCommitID := git.ResolveRevision(t, cfg, repoPath, rebaseBranchName)
 
 	testCases := []struct {
 		desc string
@@ -358,7 +357,7 @@ func TestUserRebaseConfirmable_inputValidation(t *testing.T) {
 	}{
 		{
 			desc: "empty Repository",
-			req:  buildHeaderRequest(nil, gittest.TestUser, "1", rebaseBranchName, branchCommitID, repoCopy, "master"),
+			req:  buildHeaderRequest(nil, git.TestUser, "1", rebaseBranchName, branchCommitID, repoCopy, "master"),
 		},
 		{
 			desc: "empty User",
@@ -366,23 +365,23 @@ func TestUserRebaseConfirmable_inputValidation(t *testing.T) {
 		},
 		{
 			desc: "empty Branch",
-			req:  buildHeaderRequest(repo, gittest.TestUser, "1", "", branchCommitID, repoCopy, "master"),
+			req:  buildHeaderRequest(repo, git.TestUser, "1", "", branchCommitID, repoCopy, "master"),
 		},
 		{
 			desc: "empty BranchSha",
-			req:  buildHeaderRequest(repo, gittest.TestUser, "1", rebaseBranchName, "", repoCopy, "master"),
+			req:  buildHeaderRequest(repo, git.TestUser, "1", rebaseBranchName, "", repoCopy, "master"),
 		},
 		{
 			desc: "empty RemoteRepository",
-			req:  buildHeaderRequest(repo, gittest.TestUser, "1", rebaseBranchName, branchCommitID, nil, "master"),
+			req:  buildHeaderRequest(repo, git.TestUser, "1", rebaseBranchName, branchCommitID, nil, "master"),
 		},
 		{
 			desc: "empty RemoteBranch",
-			req:  buildHeaderRequest(repo, gittest.TestUser, "1", rebaseBranchName, branchCommitID, repoCopy, ""),
+			req:  buildHeaderRequest(repo, git.TestUser, "1", rebaseBranchName, branchCommitID, repoCopy, ""),
 		},
 		{
 			desc: "invalid branch name",
-			req:  buildHeaderRequest(repo, gittest.TestUser, "1", rebaseBranchName, branchCommitID, repoCopy, "+dev:master"),
+			req:  buildHeaderRequest(repo, git.TestUser, "1", rebaseBranchName, branchCommitID, repoCopy, "+dev:master"),
 		},
 	}
 
@@ -445,13 +444,13 @@ func TestUserRebaseConfirmable_abortViaClose(t *testing.T) {
 
 	for i, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			createRepoOpts := gittest.CreateRepositoryConfig{Seed: gittest.SeedGitLabTest}
-			testRepo, testRepoPath := gittest.CreateRepository(t, ctx, cfg, createRepoOpts)
-			testRepoCopy, _ := gittest.CreateRepository(t, ctx, cfg, createRepoOpts)
+			createRepoOpts := git.CreateRepositoryConfig{Seed: git.SeedGitLabTest}
+			testRepo, testRepoPath := git.CreateRepository(t, ctx, cfg, createRepoOpts)
+			testRepoCopy, _ := git.CreateRepository(t, ctx, cfg, createRepoOpts)
 
-			branchCommitID := gittest.ResolveRevision(t, cfg, testRepoPath, rebaseBranchName)
+			branchCommitID := git.ResolveRevision(t, cfg, testRepoPath, rebaseBranchName)
 
-			headerRequest := buildHeaderRequest(testRepo, gittest.TestUser, fmt.Sprintf("%v", i), rebaseBranchName, branchCommitID, testRepoCopy, "master")
+			headerRequest := buildHeaderRequest(testRepo, git.TestUser, fmt.Sprintf("%v", i), rebaseBranchName, branchCommitID, testRepoCopy, "master")
 
 			rebaseStream, err := client.UserRebaseConfirmable(ctx)
 			require.NoError(t, err)
@@ -474,7 +473,7 @@ func TestUserRebaseConfirmable_abortViaClose(t *testing.T) {
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 			require.Nil(t, secondResponse)
 
-			newBranchCommitID := gittest.ResolveRevision(t, cfg, testRepoPath, rebaseBranchName)
+			newBranchCommitID := git.ResolveRevision(t, cfg, testRepoPath, rebaseBranchName)
 			require.Equal(t, newBranchCommitID, branchCommitID, "branch should not change when the rebase is aborted")
 		})
 	}
@@ -488,16 +487,16 @@ func TestUserRebaseConfirmable_abortViaApply(t *testing.T) {
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	testRepoCopy, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	testRepoCopy, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
-	branchCommitID := gittest.ResolveRevision(t, cfg, repoPath, rebaseBranchName)
+	branchCommitID := git.ResolveRevision(t, cfg, repoPath, rebaseBranchName)
 
 	rebaseStream, err := client.UserRebaseConfirmable(ctx)
 	require.NoError(t, err)
 
-	headerRequest := buildHeaderRequest(repoProto, gittest.TestUser, "1", rebaseBranchName, branchCommitID, testRepoCopy, "master")
+	headerRequest := buildHeaderRequest(repoProto, git.TestUser, "1", rebaseBranchName, branchCommitID, testRepoCopy, "master")
 	require.NoError(t, rebaseStream.Send(headerRequest), "send header")
 
 	firstResponse, err := rebaseStream.Recv()
@@ -517,7 +516,7 @@ func TestUserRebaseConfirmable_abortViaApply(t *testing.T) {
 	_, err = repo.ReadCommit(ctx, git.Revision(firstResponse.GetRebaseSha()))
 	require.Equal(t, localrepo.ErrObjectNotFound, err, "commit should have been discarded")
 
-	newBranchCommitID := gittest.ResolveRevision(t, cfg, repoPath, rebaseBranchName)
+	newBranchCommitID := git.ResolveRevision(t, cfg, repoPath, rebaseBranchName)
 	require.Equal(t, branchCommitID, newBranchCommitID, "branch should not change when the rebase is not applied")
 	require.NotEqual(t, newBranchCommitID, firstResponse.GetRebaseSha(), "branch should not be the sha returned when the rebase is not applied")
 }
@@ -528,22 +527,22 @@ func TestUserRebaseConfirmable_preReceiveError(t *testing.T) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, testhelper.Context(t))
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	repoCopyProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repoCopyProto, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
-	branchCommitID := gittest.ResolveRevision(t, cfg, repoPath, rebaseBranchName)
+	branchCommitID := git.ResolveRevision(t, cfg, repoPath, rebaseBranchName)
 
 	hookContent := []byte("#!/bin/sh\necho 'failure'\nexit 1")
 
 	for i, hookName := range GitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
-			gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
+			git.WriteCustomHook(t, repoPath, hookName, hookContent)
 
 			rebaseStream, err := client.UserRebaseConfirmable(ctx)
 			require.NoError(t, err)
 
-			headerRequest := buildHeaderRequest(repoProto, gittest.TestUser, fmt.Sprintf("%v", i), rebaseBranchName, branchCommitID, repoCopyProto, "master")
+			headerRequest := buildHeaderRequest(repoProto, git.TestUser, fmt.Sprintf("%v", i), rebaseBranchName, branchCommitID, repoCopyProto, "master")
 			require.NoError(t, rebaseStream.Send(headerRequest), "send header")
 
 			firstResponse, err := rebaseStream.Recv()
@@ -575,7 +574,7 @@ func TestUserRebaseConfirmable_preReceiveError(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			newBranchCommitID := gittest.ResolveRevision(t, cfg, repoPath, rebaseBranchName)
+			newBranchCommitID := git.ResolveRevision(t, cfg, repoPath, rebaseBranchName)
 			require.Equal(t, branchCommitID, newBranchCommitID, "branch should not change when the rebase fails due to PreReceiveError")
 			require.NotEqual(t, newBranchCommitID, firstResponse.GetRebaseSha(), "branch should not be the sha returned when the rebase fails due to PreReceiveError")
 		})
@@ -587,18 +586,18 @@ func TestUserRebaseConfirmable_gitError(t *testing.T) {
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, testhelper.Context(t))
 
-	repoCopyProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repoCopyProto, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	targetBranch := "rebase-encoding-failure-trigger"
-	targetBranchCommitID := gittest.ResolveRevision(t, cfg, repoPath, targetBranch)
-	sourceBranchCommitID := gittest.ResolveRevision(t, cfg, repoPath, "master")
+	targetBranchCommitID := git.ResolveRevision(t, cfg, repoPath, targetBranch)
+	sourceBranchCommitID := git.ResolveRevision(t, cfg, repoPath, "master")
 
 	rebaseStream, err := client.UserRebaseConfirmable(ctx)
 	require.NoError(t, err)
 
-	headerRequest := buildHeaderRequest(repoProto, gittest.TestUser, "1", targetBranch, targetBranchCommitID, repoCopyProto, "master")
+	headerRequest := buildHeaderRequest(repoProto, git.TestUser, "1", targetBranch, targetBranchCommitID, repoCopyProto, "master")
 
 	require.NoError(t, rebaseStream.Send(headerRequest), "send header")
 
@@ -620,7 +619,7 @@ func TestUserRebaseConfirmable_gitError(t *testing.T) {
 		},
 	), err)
 
-	newBranchCommitID := gittest.ResolveRevision(t, cfg, repoPath, targetBranch)
+	newBranchCommitID := git.ResolveRevision(t, cfg, repoPath, targetBranch)
 	require.Equal(t, targetBranchCommitID, newBranchCommitID, "branch should not change when the rebase fails due to GitError")
 }
 
@@ -630,46 +629,46 @@ func TestUserRebaseConfirmable_deletedFileInLocalRepo(t *testing.T) {
 
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
-	localRepoProto, localRepoPath := gittest.CreateRepository(t, ctx, cfg)
+	localRepoProto, localRepoPath := git.CreateRepository(t, ctx, cfg)
 	localRepo := localrepo.NewTestRepo(t, cfg, localRepoProto)
 
-	remoteRepoProto, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+	remoteRepoProto, remoteRepoPath := git.CreateRepository(t, ctx, cfg)
 
 	// Write the root commit into both repositories as common history.
 	var rootCommitID git.ObjectID
 	for _, path := range []string{localRepoPath, remoteRepoPath} {
-		rootCommitID = gittest.WriteCommit(t, cfg, path,
-			gittest.WithTreeEntries(
-				gittest.TreeEntry{Path: "change-me", Mode: "100644", Content: "unchanged contents"},
-				gittest.TreeEntry{Path: "delete-me", Mode: "100644", Content: "useless stuff"},
+		rootCommitID = git.WriteTestCommit(t, cfg, path,
+			git.WithTreeEntries(
+				git.TreeEntry{Path: "change-me", Mode: "100644", Content: "unchanged contents"},
+				git.TreeEntry{Path: "delete-me", Mode: "100644", Content: "useless stuff"},
 			),
 		)
 	}
 
 	// Write a commit into the local repository that deletes a single file.
-	localCommitID := gittest.WriteCommit(t, cfg, localRepoPath,
-		gittest.WithParents(rootCommitID),
-		gittest.WithTreeEntries(
-			gittest.TreeEntry{Path: "change-me", Mode: "100644", Content: "unchanged contents"},
+	localCommitID := git.WriteTestCommit(t, cfg, localRepoPath,
+		git.WithParents(rootCommitID),
+		git.WithTreeEntries(
+			git.TreeEntry{Path: "change-me", Mode: "100644", Content: "unchanged contents"},
 		),
-		gittest.WithBranch("local"),
+		git.WithBranch("local"),
 	)
 
 	// And then finally write a commit into the remote repository that changes a different file.
-	gittest.WriteCommit(t, cfg, remoteRepoPath,
-		gittest.WithParents(rootCommitID),
-		gittest.WithTreeEntries(
-			gittest.TreeEntry{Path: "change-me", Mode: "100644", Content: "modified contents"},
-			gittest.TreeEntry{Path: "delete-me", Mode: "100644", Content: "useless stuff"},
+	git.WriteTestCommit(t, cfg, remoteRepoPath,
+		git.WithParents(rootCommitID),
+		git.WithTreeEntries(
+			git.TreeEntry{Path: "change-me", Mode: "100644", Content: "modified contents"},
+			git.TreeEntry{Path: "delete-me", Mode: "100644", Content: "useless stuff"},
 		),
-		gittest.WithBranch("remote"),
+		git.WithBranch("remote"),
 	)
 
 	// Send the first request to tell the server to perform the rebase.
 	stream, err := client.UserRebaseConfirmable(ctx)
 	require.NoError(t, err)
 	require.NoError(t, stream.Send(buildHeaderRequest(
-		localRepoProto, gittest.TestUser, "1", "local", localCommitID, remoteRepoProto, "remote",
+		localRepoProto, git.TestUser, "1", "local", localCommitID, remoteRepoProto, "remote",
 	)))
 	firstResponse, err := stream.Recv()
 	require.NoError(t, err)
@@ -686,7 +685,7 @@ func TestUserRebaseConfirmable_deletedFileInLocalRepo(t *testing.T) {
 	_, err = stream.Recv()
 	require.Equal(t, io.EOF, err)
 
-	newBranchCommitID := gittest.ResolveRevision(t, cfg, localRepoPath, "local")
+	newBranchCommitID := git.ResolveRevision(t, cfg, localRepoPath, "local")
 
 	_, err = localRepo.ReadCommit(ctx, git.Revision(firstResponse.GetRebaseSha()))
 	require.NoError(t, err)
@@ -700,30 +699,30 @@ func TestUserRebaseConfirmable_deletedFileInRemoteRepo(t *testing.T) {
 	ctx := testhelper.Context(t)
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
-	localRepoProto, localRepoPath := gittest.CreateRepository(t, ctx, cfg)
+	localRepoProto, localRepoPath := git.CreateRepository(t, ctx, cfg)
 	localRepo := localrepo.NewTestRepo(t, cfg, localRepoProto)
 
-	remoteRepoProto, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+	remoteRepoProto, remoteRepoPath := git.CreateRepository(t, ctx, cfg)
 
 	// Write the root commit into both repositories as common history.
 	var rootCommitID git.ObjectID
 	for _, path := range []string{localRepoPath, remoteRepoPath} {
-		rootCommitID = gittest.WriteCommit(t, cfg, path,
-			gittest.WithTreeEntries(
-				gittest.TreeEntry{Path: "unchanged", Mode: "100644", Content: "unchanged contents"},
-				gittest.TreeEntry{Path: "delete-me", Mode: "100644", Content: "useless stuff"},
+		rootCommitID = git.WriteTestCommit(t, cfg, path,
+			git.WithTreeEntries(
+				git.TreeEntry{Path: "unchanged", Mode: "100644", Content: "unchanged contents"},
+				git.TreeEntry{Path: "delete-me", Mode: "100644", Content: "useless stuff"},
 			),
-			gittest.WithBranch("local"),
+			git.WithBranch("local"),
 		)
 	}
 
 	// Write a commit into the remote repository that deletes a file.
-	remoteCommitID := gittest.WriteCommit(t, cfg, remoteRepoPath,
-		gittest.WithParents(rootCommitID),
-		gittest.WithTreeEntries(
-			gittest.TreeEntry{Path: "unchanged", Mode: "100644", Content: "unchanged contents"},
+	remoteCommitID := git.WriteTestCommit(t, cfg, remoteRepoPath,
+		git.WithParents(rootCommitID),
+		git.WithTreeEntries(
+			git.TreeEntry{Path: "unchanged", Mode: "100644", Content: "unchanged contents"},
 		),
-		gittest.WithBranch("remote"),
+		git.WithBranch("remote"),
 	)
 
 	_, err := localRepo.ReadCommit(ctx, remoteCommitID.Revision())
@@ -733,7 +732,7 @@ func TestUserRebaseConfirmable_deletedFileInRemoteRepo(t *testing.T) {
 	rebaseStream, err := client.UserRebaseConfirmable(ctx)
 	require.NoError(t, err)
 	require.NoError(t, rebaseStream.Send(buildHeaderRequest(
-		localRepoProto, gittest.TestUser, "1", "local", rootCommitID, remoteRepoProto, "remote",
+		localRepoProto, git.TestUser, "1", "local", rootCommitID, remoteRepoProto, "remote",
 	)))
 	firstResponse, err := rebaseStream.Recv()
 	require.NoError(t, err)
@@ -753,7 +752,7 @@ func TestUserRebaseConfirmable_deletedFileInRemoteRepo(t *testing.T) {
 	_, err = localRepo.ReadCommit(ctx, remoteCommitID.Revision())
 	require.NoError(t, err)
 
-	rebasedBranchCommitID := gittest.ResolveRevision(t, cfg, localRepoPath, "local")
+	rebasedBranchCommitID := git.ResolveRevision(t, cfg, localRepoPath, "local")
 	require.NotEqual(t, rebasedBranchCommitID, rootCommitID)
 	require.Equal(t, rebasedBranchCommitID.String(), firstResponse.GetRebaseSha())
 }
@@ -764,7 +763,7 @@ func TestUserRebaseConfirmable_failedWithCode(t *testing.T) {
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	branchCommitID := gittest.ResolveRevision(t, cfg, repoPath, rebaseBranchName)
+	branchCommitID := git.ResolveRevision(t, cfg, repoPath, rebaseBranchName)
 
 	testCases := []struct {
 		desc               string
@@ -774,7 +773,7 @@ func TestUserRebaseConfirmable_failedWithCode(t *testing.T) {
 		{
 			desc: "no repository provided",
 			buildHeaderRequest: func() *gitalypb.UserRebaseConfirmableRequest {
-				return buildHeaderRequest(nil, gittest.TestUser, "1", rebaseBranchName, branchCommitID, nil, "master")
+				return buildHeaderRequest(nil, git.TestUser, "1", rebaseBranchName, branchCommitID, nil, "master")
 			},
 			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				"empty Repository",
@@ -787,7 +786,7 @@ func TestUserRebaseConfirmable_failedWithCode(t *testing.T) {
 				repo := proto.Clone(repoProto).(*gitalypb.Repository)
 				repo.StorageName = "@this-storage-does-not-exist"
 
-				return buildHeaderRequest(repo, gittest.TestUser, "1", rebaseBranchName, branchCommitID, repo, "master")
+				return buildHeaderRequest(repo, git.TestUser, "1", rebaseBranchName, branchCommitID, repo, "master")
 			},
 			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				`creating repo quarantine: creating object quarantine: getting repo path: GetStorageByName: no such storage: "@this-storage-does-not-exist"`,
@@ -800,7 +799,7 @@ func TestUserRebaseConfirmable_failedWithCode(t *testing.T) {
 				repo := proto.Clone(repoProto).(*gitalypb.Repository)
 				repo.RelativePath = ""
 
-				return buildHeaderRequest(repo, gittest.TestUser, "1", rebaseBranchName, branchCommitID, repo, "master")
+				return buildHeaderRequest(repo, git.TestUser, "1", rebaseBranchName, branchCommitID, repo, "master")
 			},
 			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				"empty RelativePath",

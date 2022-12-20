@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/objectpool"
@@ -82,11 +82,11 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 
 	// create object pool on the source
 	poolCtx := testhelper.Context(t)
-	objectPoolPath := gittest.NewObjectPoolName(t)
+	objectPoolPath := git.NewObjectPoolName(t)
 	pool, err := objectpool.Create(
 		poolCtx,
 		gconfig.NewLocator(primaryCfg),
-		gittest.NewCommandFactory(t, primaryCfg),
+		git.NewCommandFactory(t, primaryCfg),
 		nil,
 		txManager,
 		housekeeping.NewManager(primaryCfg.Prometheus, txManager),
@@ -146,7 +146,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 	}
 	require.Len(t, events, 1)
 
-	commitID := gittest.WriteCommit(t, primaryCfg, testRepoPath, gittest.WithBranch("master"))
+	commitID := git.WriteTestCommit(t, primaryCfg, testRepoPath, git.WithBranch("master"))
 
 	var mockReplicationLatencyHistogramVec promtest.MockHistogramVec
 	var mockReplicationDelayHistogramVec promtest.MockHistogramVec
@@ -210,9 +210,9 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 
 	replicatedPath := filepath.Join(backupCfg.Storages[0].Path, testRepo.GetRelativePath())
 
-	gittest.Exec(t, backupCfg, "-C", replicatedPath, "cat-file", "-e", commitID.String())
-	gittest.Exec(t, backupCfg, "-C", replicatedPath, "gc")
-	require.Less(t, gittest.GetGitPackfileDirSize(t, replicatedPath), int64(100), "expect a small pack directory")
+	git.Exec(t, backupCfg, "-C", replicatedPath, "cat-file", "-e", commitID.String())
+	git.Exec(t, backupCfg, "-C", replicatedPath, "gc")
+	require.Less(t, git.GetGitPackfileDirSize(t, replicatedPath), int64(100), "expect a small pack directory")
 
 	require.Equal(t, mockReplicationLatencyHistogramVec.LabelsCalled(), [][]string{{"update"}})
 	require.Equal(t, mockReplicationDelayHistogramVec.LabelsCalled(), [][]string{{"update"}})
@@ -285,9 +285,9 @@ func TestConfirmReplication(t *testing.T) {
 	cfg, testRepoA, testRepoAPath := testcfg.BuildWithRepo(t)
 	srvSocketPath := testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 
-	testRepoB, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	testRepoB, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
+		Seed:                   git.SeedGitLabTest,
 	})
 
 	connOpts := []grpc.DialOption{
@@ -302,7 +302,7 @@ func TestConfirmReplication(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, equal)
 
-	gittest.WriteCommit(t, cfg, testRepoAPath, gittest.WithBranch("master"))
+	git.WriteTestCommit(t, cfg, testRepoAPath, git.WithBranch("master"))
 
 	equal, err = confirmChecksums(ctx, testhelper.NewDiscardingLogger(t), gitalypb.NewRepositoryServiceClient(conn), gitalypb.NewRepositoryServiceClient(conn), testRepoA, testRepoB)
 	require.NoError(t, err)

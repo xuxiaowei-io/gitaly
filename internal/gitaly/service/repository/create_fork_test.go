@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
 	"gitlab.com/gitlab-org/gitaly/v15/client"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/praefectutil"
@@ -56,10 +56,10 @@ func TestCreateFork_successful(t *testing.T) {
 			testcfg.BuildGitalyHooks(t, cfg)
 			testcfg.BuildGitalySSH(t, cfg)
 
-			createRepoConfig := gittest.CreateRepositoryConfig{
-				Seed: gittest.SeedGitLabTest,
+			createRepoConfig := git.CreateRepositoryConfig{
+				Seed: git.SeedGitLabTest,
 			}
-			getReplicaPathConfig := gittest.GetReplicaPathConfig{}
+			getReplicaPathConfig := git.GetReplicaPathConfig{}
 
 			var client gitalypb.RepositoryServiceClient
 			if tt.secure {
@@ -79,12 +79,12 @@ func TestCreateFork_successful(t *testing.T) {
 				client, cfg.SocketPath = runRepositoryService(t, cfg, nil)
 			}
 
-			repo, _ := gittest.CreateRepository(t, ctx, cfg, createRepoConfig)
+			repo, _ := git.CreateRepository(t, ctx, cfg, createRepoConfig)
 
 			ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
 			forkedRepo := &gitalypb.Repository{
-				RelativePath: gittest.NewRepositoryName(t),
+				RelativePath: git.NewRepositoryName(t),
 				StorageName:  repo.GetStorageName(),
 			}
 
@@ -94,11 +94,11 @@ func TestCreateFork_successful(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			replicaPath := gittest.GetReplicaPath(t, ctx, cfg, forkedRepo, getReplicaPathConfig)
+			replicaPath := git.GetReplicaPath(t, ctx, cfg, forkedRepo, getReplicaPathConfig)
 			forkedRepoPath := filepath.Join(cfg.Storages[0].Path, replicaPath)
 
-			gittest.Exec(t, cfg, "-C", forkedRepoPath, "fsck")
-			require.Empty(t, gittest.Exec(t, cfg, "-C", forkedRepoPath, "remote"))
+			git.Exec(t, cfg, "-C", forkedRepoPath, "fsck")
+			require.Empty(t, git.Exec(t, cfg, "-C", forkedRepoPath, "remote"))
 
 			_, err = os.Lstat(filepath.Join(forkedRepoPath, "hooks"))
 			require.True(t, os.IsNotExist(err), "hooks directory should not have been created")
@@ -117,25 +117,25 @@ func TestCreateFork_refs(t *testing.T) {
 	client, socketPath := runRepositoryService(t, cfg, nil)
 	cfg.SocketPath = socketPath
 
-	sourceRepo, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
+	sourceRepo, sourceRepoPath := git.CreateRepository(t, ctx, cfg)
 
 	// Prepare the source repository with a bunch of refs and a non-default HEAD ref so we can
 	// assert that the target repo gets created with the correct set of refs.
-	commitID := gittest.WriteCommit(t, cfg, sourceRepoPath)
+	commitID := git.WriteTestCommit(t, cfg, sourceRepoPath)
 	for _, ref := range []string{
 		"refs/environments/something",
 		"refs/heads/something",
 		"refs/remotes/origin/something",
 		"refs/tags/something",
 	} {
-		gittest.Exec(t, cfg, "-C", sourceRepoPath, "update-ref", ref, commitID.String())
+		git.Exec(t, cfg, "-C", sourceRepoPath, "update-ref", ref, commitID.String())
 	}
-	gittest.Exec(t, cfg, "-C", sourceRepoPath, "symbolic-ref", "HEAD", "refs/heads/something")
+	git.Exec(t, cfg, "-C", sourceRepoPath, "symbolic-ref", "HEAD", "refs/heads/something")
 
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
 	targetRepo := &gitalypb.Repository{
-		RelativePath: gittest.NewRepositoryName(t),
+		RelativePath: git.NewRepositoryName(t),
 		StorageName:  sourceRepo.GetStorageName(),
 	}
 
@@ -148,19 +148,19 @@ func TestCreateFork_refs(t *testing.T) {
 	storagePath, err := config.NewLocator(cfg).GetStorageByName(targetRepo.GetStorageName())
 	require.NoError(t, err)
 
-	targetRepoPath := filepath.Join(storagePath, gittest.GetReplicaPath(t, ctx, cfg, targetRepo))
+	targetRepoPath := filepath.Join(storagePath, git.GetReplicaPath(t, ctx, cfg, targetRepo))
 
 	require.Equal(t,
 		[]string{
 			commitID.String() + " refs/heads/something",
 			commitID.String() + " refs/tags/something",
 		},
-		strings.Split(text.ChompBytes(gittest.Exec(t, cfg, "-C", targetRepoPath, "show-ref")), "\n"),
+		strings.Split(text.ChompBytes(git.Exec(t, cfg, "-C", targetRepoPath, "show-ref")), "\n"),
 	)
 
 	require.Equal(t,
-		string(gittest.Exec(t, cfg, "-C", sourceRepoPath, "symbolic-ref", "HEAD")),
-		string(gittest.Exec(t, cfg, "-C", targetRepoPath, "symbolic-ref", "HEAD")),
+		string(git.Exec(t, cfg, "-C", sourceRepoPath, "symbolic-ref", "HEAD")),
+		string(git.Exec(t, cfg, "-C", targetRepoPath, "symbolic-ref", "HEAD")),
 	)
 }
 
@@ -178,22 +178,22 @@ func TestCreateFork_fsck(t *testing.T) {
 	ctx := testhelper.Context(t)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
 	// Write a tree into the repository that's known-broken.
-	treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+	treeID := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 		{Content: "content", Path: "dup", Mode: "100644"},
 		{Content: "content", Path: "dup", Mode: "100644"},
 	})
 
-	gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithParents(),
-		gittest.WithBranch("main"),
-		gittest.WithTree(treeID),
+	git.WriteTestCommit(t, cfg, repoPath,
+		git.WithParents(),
+		git.WithBranch("main"),
+		git.WithTree(treeID),
 	)
 
 	forkedRepo := &gitalypb.Repository{
-		RelativePath: gittest.NewRepositoryName(t),
+		RelativePath: git.NewRepositoryName(t),
 		StorageName:  repo.GetStorageName(),
 	}
 
@@ -208,12 +208,12 @@ func TestCreateFork_fsck(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	forkedRepoPath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(t, ctx, cfg, forkedRepo))
+	forkedRepoPath := filepath.Join(cfg.Storages[0].Path, git.GetReplicaPath(t, ctx, cfg, forkedRepo))
 
 	// Verify that the broken tree is indeed in the fork and that it is reported as broken by
 	// git-fsck(1).
 	var stderr bytes.Buffer
-	fsckCmd := gittest.NewCommand(t, cfg, "-C", forkedRepoPath, "fsck")
+	fsckCmd := git.NewCommand(t, cfg, "-C", forkedRepoPath, "fsck")
 	fsckCmd.Stderr = &stderr
 
 	require.EqualError(t, fsckCmd.Run(), "exit status 4")

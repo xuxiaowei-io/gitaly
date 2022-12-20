@@ -16,7 +16,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
@@ -46,15 +45,15 @@ func testFetchIntoObjectPoolSuccess(t *testing.T, ctx context.Context) {
 
 	cfg, repo, repoPath, _, client := setup(t, ctx)
 
-	parentID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+	parentID := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
 
 	poolProto, _, poolPath := createObjectPool(t, ctx, cfg, client, repo)
 
 	// Create a new commit after having created the object pool. This commit exists only in the
 	// pool member, but not in the pool itself.
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(parentID), gittest.WithBranch("main"))
-	gittest.RequireObjectExists(t, cfg, repoPath, commitID)
-	gittest.RequireObjectNotExists(t, cfg, poolPath, commitID)
+	commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithParents(parentID), git.WithBranch("main"))
+	git.RequireObjectExists(t, cfg, repoPath, commitID)
+	git.RequireObjectNotExists(t, cfg, poolPath, commitID)
 
 	req := &gitalypb.FetchIntoObjectPoolRequest{
 		ObjectPool: poolProto,
@@ -66,8 +65,8 @@ func testFetchIntoObjectPoolSuccess(t *testing.T, ctx context.Context) {
 	require.NoError(t, err)
 
 	// Verify that the object pool is still consistent and that it's got the new commit now.
-	gittest.Exec(t, cfg, "-C", poolPath, "fsck")
-	gittest.RequireObjectExists(t, cfg, poolPath, commitID)
+	git.Exec(t, cfg, "-C", poolPath, "fsck")
+	git.RequireObjectExists(t, cfg, poolPath, commitID)
 
 	// Re-fetching the pool should be just fine.
 	_, err = client.FetchIntoObjectPool(ctx, req)
@@ -119,7 +118,7 @@ func testFetchIntoObjectPooltransactional(t *testing.T, ctx context.Context) {
 	)
 	testcfg.BuildGitalyHooks(t, cfg)
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
 	conn, err := grpc.Dial(cfg.SocketPath, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, err)
@@ -158,7 +157,7 @@ func testFetchIntoObjectPooltransactional(t *testing.T, ctx context.Context) {
 
 		// Create a new reference that we'd in fact fetch into the object pool so that we
 		// know that something will be voted on.
-		repoCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(), gittest.WithBranch("new-branch"))
+		repoCommit := git.WriteTestCommit(t, cfg, repoPath, git.WithParents(), git.WithBranch("new-branch"))
 
 		_, err = client.FetchIntoObjectPool(ctx, &gitalypb.FetchIntoObjectPoolRequest{
 			ObjectPool: poolProto,
@@ -185,7 +184,7 @@ func testFetchIntoObjectPooltransactional(t *testing.T, ctx context.Context) {
 
 		// Create a commit in the pool repository itself. Right now, we don't touch this
 		// commit at all, but this will change in one of the next commits.
-		gittest.WriteCommit(t, cfg, poolPath, gittest.WithParents(), gittest.WithReference(reference))
+		git.WriteTestCommit(t, cfg, poolPath, git.WithParents(), git.WithReference(reference))
 
 		_, err = client.FetchIntoObjectPool(ctx, &gitalypb.FetchIntoObjectPoolRequest{
 			ObjectPool: poolProto,
@@ -222,8 +221,8 @@ func testFetchIntoObjectPoolCollectLogStatistics(t *testing.T, ctx context.Conte
 	cfg.SocketPath = runObjectPoolServer(t, cfg, locator, logger)
 
 	ctx = ctxlogrus.ToContext(ctx, log.WithField("test", "logging"))
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repo, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	conn, err := grpc.Dial(cfg.SocketPath, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -316,7 +315,7 @@ func testFetchIntoObjectPoolDfConflict(t *testing.T, ctx context.Context) {
 	cfg, repo, repoPath, _, client := setup(t, ctx)
 	poolProto, _, poolPath := createObjectPool(t, ctx, cfg, client, repo)
 
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"))
+	git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("branch"))
 
 	// Perform an initial fetch into the object pool with the given object that exists in the
 	// pool member's repository.
@@ -328,8 +327,8 @@ func testFetchIntoObjectPoolDfConflict(t *testing.T, ctx context.Context) {
 
 	// Now we delete the reference in the pool member and create a new reference that has the
 	// same prefix, but is stored in a subdirectory. This will create a D/F conflict.
-	gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "-d", "refs/heads/branch")
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch/conflict"))
+	git.Exec(t, cfg, "-C", repoPath, "update-ref", "-d", "refs/heads/branch")
+	git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("branch/conflict"))
 
 	// Verify that we can still fetch into the object pool regardless of the D/F conflict. While
 	// it is not possible to store both references at the same time due to the conflict, we
@@ -341,5 +340,5 @@ func testFetchIntoObjectPoolDfConflict(t *testing.T, ctx context.Context) {
 	require.NoError(t, err)
 
 	// Verify that the conflicting reference exists now.
-	gittest.Exec(t, cfg, "-C", poolPath, "rev-parse", "refs/remotes/origin/heads/branch/conflict")
+	git.Exec(t, cfg, "-C", poolPath, "rev-parse", "refs/remotes/origin/heads/branch/conflict")
 }

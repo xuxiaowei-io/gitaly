@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/cmd/gitaly-git2go/git2goutil"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -112,9 +111,9 @@ func TestMerge_trees(t *testing.T) {
 
 	testcases := []struct {
 		desc             string
-		base             []gittest.TreeEntry
-		ours             []gittest.TreeEntry
-		theirs           []gittest.TreeEntry
+		base             []git.TreeEntry
+		ours             []git.TreeEntry
+		theirs           []git.TreeEntry
 		expected         map[string]string
 		withCommitter    bool
 		squash           bool
@@ -123,13 +122,13 @@ func TestMerge_trees(t *testing.T) {
 	}{
 		{
 			desc: "trivial merge succeeds",
-			base: []gittest.TreeEntry{
+			base: []git.TreeEntry{
 				{Path: "file", Content: "a", Mode: "100644"},
 			},
-			ours: []gittest.TreeEntry{
+			ours: []git.TreeEntry{
 				{Path: "file", Content: "a", Mode: "100644"},
 			},
-			theirs: []gittest.TreeEntry{
+			theirs: []git.TreeEntry{
 				{Path: "file", Content: "a", Mode: "100644"},
 			},
 			expected: map[string]string{
@@ -141,13 +140,13 @@ func TestMerge_trees(t *testing.T) {
 		},
 		{
 			desc: "trivial merge with different committer succeeds",
-			base: []gittest.TreeEntry{
+			base: []git.TreeEntry{
 				{Path: "file", Content: "a", Mode: "100644"},
 			},
-			ours: []gittest.TreeEntry{
+			ours: []git.TreeEntry{
 				{Path: "file", Content: "a", Mode: "100644"},
 			},
-			theirs: []gittest.TreeEntry{
+			theirs: []git.TreeEntry{
 				{Path: "file", Content: "a", Mode: "100644"},
 			},
 			expected: map[string]string{
@@ -160,13 +159,13 @@ func TestMerge_trees(t *testing.T) {
 		},
 		{
 			desc: "trivial squash succeeds",
-			base: []gittest.TreeEntry{
+			base: []git.TreeEntry{
 				{Path: "file", Content: "a", Mode: "100644"},
 			},
-			ours: []gittest.TreeEntry{
+			ours: []git.TreeEntry{
 				{Path: "file", Content: "a", Mode: "100644"},
 			},
-			theirs: []gittest.TreeEntry{
+			theirs: []git.TreeEntry{
 				{Path: "file", Content: "a", Mode: "100644"},
 			},
 			expected: map[string]string{
@@ -179,13 +178,13 @@ func TestMerge_trees(t *testing.T) {
 		},
 		{
 			desc: "non-trivial merge succeeds",
-			base: []gittest.TreeEntry{
+			base: []git.TreeEntry{
 				{Path: "file", Content: "a\nb\nc\nd\ne\nf\n", Mode: "100644"},
 			},
-			ours: []gittest.TreeEntry{
+			ours: []git.TreeEntry{
 				{Path: "file", Content: "0\na\nb\nc\nd\ne\nf\n", Mode: "100644"},
 			},
-			theirs: []gittest.TreeEntry{
+			theirs: []git.TreeEntry{
 				{Path: "file", Content: "a\nb\nc\nd\ne\nf\n0\n", Mode: "100644"},
 			},
 			expected: map[string]string{
@@ -197,13 +196,13 @@ func TestMerge_trees(t *testing.T) {
 		},
 		{
 			desc: "non-trivial squash succeeds",
-			base: []gittest.TreeEntry{
+			base: []git.TreeEntry{
 				{Path: "file", Content: "a\nb\nc\nd\ne\nf\n", Mode: "100644"},
 			},
-			ours: []gittest.TreeEntry{
+			ours: []git.TreeEntry{
 				{Path: "file", Content: "0\na\nb\nc\nd\ne\nf\n", Mode: "100644"},
 			},
-			theirs: []gittest.TreeEntry{
+			theirs: []git.TreeEntry{
 				{Path: "file", Content: "a\nb\nc\nd\ne\nf\n0\n", Mode: "100644"},
 			},
 			expected: map[string]string{
@@ -216,17 +215,17 @@ func TestMerge_trees(t *testing.T) {
 		},
 		{
 			desc: "multiple files succeed",
-			base: []gittest.TreeEntry{
+			base: []git.TreeEntry{
 				{Path: "1", Content: "foo", Mode: "100644"},
 				{Path: "2", Content: "bar", Mode: "100644"},
 				{Path: "3", Content: "qux", Mode: "100644"},
 			},
-			ours: []gittest.TreeEntry{
+			ours: []git.TreeEntry{
 				{Path: "1", Content: "foo", Mode: "100644"},
 				{Path: "2", Content: "modified", Mode: "100644"},
 				{Path: "3", Content: "qux", Mode: "100644"},
 			},
-			theirs: []gittest.TreeEntry{
+			theirs: []git.TreeEntry{
 				{Path: "1", Content: "modified", Mode: "100644"},
 				{Path: "2", Content: "bar", Mode: "100644"},
 				{Path: "3", Content: "qux", Mode: "100644"},
@@ -242,17 +241,17 @@ func TestMerge_trees(t *testing.T) {
 		},
 		{
 			desc: "multiple files squash succeed",
-			base: []gittest.TreeEntry{
+			base: []git.TreeEntry{
 				{Path: "1", Content: "foo", Mode: "100644"},
 				{Path: "2", Content: "bar", Mode: "100644"},
 				{Path: "3", Content: "qux", Mode: "100644"},
 			},
-			ours: []gittest.TreeEntry{
+			ours: []git.TreeEntry{
 				{Path: "1", Content: "foo", Mode: "100644"},
 				{Path: "2", Content: "modified", Mode: "100644"},
 				{Path: "3", Content: "qux", Mode: "100644"},
 			},
-			theirs: []gittest.TreeEntry{
+			theirs: []git.TreeEntry{
 				{Path: "1", Content: "modified", Mode: "100644"},
 				{Path: "2", Content: "bar", Mode: "100644"},
 				{Path: "3", Content: "qux", Mode: "100644"},
@@ -269,13 +268,13 @@ func TestMerge_trees(t *testing.T) {
 		},
 		{
 			desc: "conflicting merge fails",
-			base: []gittest.TreeEntry{
+			base: []git.TreeEntry{
 				{Path: "1", Content: "foo", Mode: "100644"},
 			},
-			ours: []gittest.TreeEntry{
+			ours: []git.TreeEntry{
 				{Path: "1", Content: "bar", Mode: "100644"},
 			},
-			theirs: []gittest.TreeEntry{
+			theirs: []git.TreeEntry{
 				{Path: "1", Content: "qux", Mode: "100644"},
 			},
 			expectedErr: fmt.Errorf("merge: %w", git2go.ConflictingFilesError{
@@ -289,9 +288,9 @@ func TestMerge_trees(t *testing.T) {
 		testcfg.BuildGitalyGit2Go(t, cfg)
 		executor := buildExecutor(t, cfg)
 
-		base := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(tc.base...))
-		ours := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(base), gittest.WithTreeEntries(tc.ours...))
-		theirs := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(base), gittest.WithTreeEntries(tc.theirs...))
+		base := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(tc.base...))
+		ours := git.WriteTestCommit(t, cfg, repoPath, git.WithParents(base), git.WithTreeEntries(tc.ours...))
+		theirs := git.WriteTestCommit(t, cfg, repoPath, git.WithParents(base), git.WithTreeEntries(tc.theirs...))
 
 		authorDate := time.Date(2020, 7, 30, 7, 45, 50, 0, time.FixedZone("UTC+2", +2*60*60))
 		committerDate := time.Date(2021, 7, 30, 7, 45, 50, 0, time.FixedZone("UTC+2", +2*60*60))
@@ -357,15 +356,15 @@ func TestMerge_squash(t *testing.T) {
 	testcfg.BuildGitalyGit2Go(t, cfg)
 	executor := buildExecutor(t, cfg)
 
-	baseFile := gittest.TreeEntry{Path: "file.txt", Content: "b\nc", Mode: "100644"}
-	ourFile := gittest.TreeEntry{Path: "file.txt", Content: "a\nb\nc", Mode: "100644"}
-	theirFile1 := gittest.TreeEntry{Path: "file.txt", Content: "b\nc\nd", Mode: "100644"}
-	theirFile2 := gittest.TreeEntry{Path: "file.txt", Content: "b\nc\nd\ne", Mode: "100644"}
+	baseFile := git.TreeEntry{Path: "file.txt", Content: "b\nc", Mode: "100644"}
+	ourFile := git.TreeEntry{Path: "file.txt", Content: "a\nb\nc", Mode: "100644"}
+	theirFile1 := git.TreeEntry{Path: "file.txt", Content: "b\nc\nd", Mode: "100644"}
+	theirFile2 := git.TreeEntry{Path: "file.txt", Content: "b\nc\nd\ne", Mode: "100644"}
 
-	base := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(baseFile))
-	ours := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(base), gittest.WithTreeEntries(ourFile))
-	theirs1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(base), gittest.WithTreeEntries(theirFile1))
-	theirs2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(theirs1), gittest.WithTreeEntries(theirFile2))
+	base := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(baseFile))
+	ours := git.WriteTestCommit(t, cfg, repoPath, git.WithParents(base), git.WithTreeEntries(ourFile))
+	theirs1 := git.WriteTestCommit(t, cfg, repoPath, git.WithParents(base), git.WithTreeEntries(theirFile1))
+	theirs2 := git.WriteTestCommit(t, cfg, repoPath, git.WithParents(theirs1), git.WithTreeEntries(theirFile2))
 
 	date := time.Date(2020, 7, 30, 7, 45, 50, 0, time.FixedZone("UTC+2", +2*60*60))
 	response, err := executor.Merge(ctx, repoProto, git2go.MergeCommand{
@@ -418,24 +417,24 @@ func TestMerge_recursive(t *testing.T) {
 	testcfg.BuildGitalyGit2Go(t, cfg)
 	executor := buildExecutor(t, cfg)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 
-	base := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-		gittest.TreeEntry{Path: "base", Content: "base\n", Mode: "100644"},
+	base := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+		git.TreeEntry{Path: "base", Content: "base\n", Mode: "100644"},
 	))
 
 	ours := make([]git.ObjectID, git2go.MergeRecursionLimit)
-	ours[0] = gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(base), gittest.WithTreeEntries(
-		gittest.TreeEntry{Path: "base", Content: "base\n", Mode: "100644"},
-		gittest.TreeEntry{Path: "ours", Content: "ours-0\n", Mode: "100644"},
+	ours[0] = git.WriteTestCommit(t, cfg, repoPath, git.WithParents(base), git.WithTreeEntries(
+		git.TreeEntry{Path: "base", Content: "base\n", Mode: "100644"},
+		git.TreeEntry{Path: "ours", Content: "ours-0\n", Mode: "100644"},
 	))
 
 	theirs := make([]git.ObjectID, git2go.MergeRecursionLimit)
-	theirs[0] = gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(base), gittest.WithTreeEntries(
-		gittest.TreeEntry{Path: "base", Content: "base\n", Mode: "100644"},
-		gittest.TreeEntry{Path: "theirs", Content: "theirs-0\n", Mode: "100644"},
+	theirs[0] = git.WriteTestCommit(t, cfg, repoPath, git.WithParents(base), git.WithTreeEntries(
+		git.TreeEntry{Path: "base", Content: "base\n", Mode: "100644"},
+		git.TreeEntry{Path: "theirs", Content: "theirs-0\n", Mode: "100644"},
 	))
 
 	// We're now creating a set of criss-cross merges which look like the following graph:
@@ -450,16 +449,16 @@ func TestMerge_recursive(t *testing.T) {
 	// is not unique, and as a result the merge will generate virtual merge bases for each of
 	// the criss-cross merges. This operation may thus be heavily expensive to perform.
 	for i := 1; i < git2go.MergeRecursionLimit; i++ {
-		ours[i] = gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(ours[i-1], theirs[i-1]), gittest.WithTreeEntries(
-			gittest.TreeEntry{Path: "base", Content: "base\n", Mode: "100644"},
-			gittest.TreeEntry{Path: "ours", Content: fmt.Sprintf("ours-%d\n", i), Mode: "100644"},
-			gittest.TreeEntry{Path: "theirs", Content: fmt.Sprintf("theirs-%d\n", i-1), Mode: "100644"},
+		ours[i] = git.WriteTestCommit(t, cfg, repoPath, git.WithParents(ours[i-1], theirs[i-1]), git.WithTreeEntries(
+			git.TreeEntry{Path: "base", Content: "base\n", Mode: "100644"},
+			git.TreeEntry{Path: "ours", Content: fmt.Sprintf("ours-%d\n", i), Mode: "100644"},
+			git.TreeEntry{Path: "theirs", Content: fmt.Sprintf("theirs-%d\n", i-1), Mode: "100644"},
 		))
 
-		theirs[i] = gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(theirs[i-1], ours[i-1]), gittest.WithTreeEntries(
-			gittest.TreeEntry{Path: "base", Content: "base\n", Mode: "100644"},
-			gittest.TreeEntry{Path: "ours", Content: fmt.Sprintf("ours-%d\n", i-1), Mode: "100644"},
-			gittest.TreeEntry{Path: "theirs", Content: fmt.Sprintf("theirs-%d\n", i), Mode: "100644"},
+		theirs[i] = git.WriteTestCommit(t, cfg, repoPath, git.WithParents(theirs[i-1], ours[i-1]), git.WithTreeEntries(
+			git.TreeEntry{Path: "base", Content: "base\n", Mode: "100644"},
+			git.TreeEntry{Path: "ours", Content: fmt.Sprintf("ours-%d\n", i-1), Mode: "100644"},
+			git.TreeEntry{Path: "theirs", Content: fmt.Sprintf("theirs-%d\n", i), Mode: "100644"},
 		))
 	}
 

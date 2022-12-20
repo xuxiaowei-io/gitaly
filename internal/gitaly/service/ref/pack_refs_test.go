@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -49,7 +48,7 @@ func TestPackRefsSuccessfulRequest(t *testing.T) {
 
 	// ensure all refs are reachable
 	for i := 0; i < newBranches; i++ {
-		gittest.Exec(t, cfg, "-C", repoPath, "show-ref", fmt.Sprintf("refs/heads/new-ref-%d", i))
+		git.Exec(t, cfg, "-C", repoPath, "show-ref", fmt.Sprintf("refs/heads/new-ref-%d", i))
 	}
 }
 

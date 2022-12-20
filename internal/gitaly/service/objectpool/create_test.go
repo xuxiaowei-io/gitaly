@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
@@ -35,7 +34,7 @@ func testCreate(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
 	cfg, repo, repoPath, _, client := setup(t, ctx)
-	commitID := gittest.WriteCommit(t, cfg, repoPath)
+	commitID := git.WriteTestCommit(t, cfg, repoPath)
 
 	txManager := transaction.NewManager(cfg, nil)
 	catfileCache := catfile.NewCache(cfg)
@@ -44,7 +43,7 @@ func testCreate(t *testing.T, ctx context.Context) {
 	poolProto := &gitalypb.ObjectPool{
 		Repository: &gitalypb.Repository{
 			StorageName:  cfg.Storages[0].Name,
-			RelativePath: gittest.NewObjectPoolName(t),
+			RelativePath: git.NewObjectPoolName(t),
 		},
 	}
 
@@ -56,24 +55,24 @@ func testCreate(t *testing.T, ctx context.Context) {
 
 	pool, err := objectpool.FromProto(
 		config.NewLocator(cfg),
-		gittest.NewCommandFactory(t, cfg),
+		git.NewCommandFactory(t, cfg),
 		catfileCache,
 		txManager,
 		housekeeping.NewManager(cfg.Prometheus, txManager),
 		&gitalypb.ObjectPool{
 			Repository: &gitalypb.Repository{
 				StorageName:  cfg.Storages[0].Name,
-				RelativePath: gittest.GetReplicaPath(t, ctx, cfg, poolProto.GetRepository()),
+				RelativePath: git.GetReplicaPath(t, ctx, cfg, poolProto.GetRepository()),
 			},
 		},
 	)
 	require.NoError(t, err)
-	poolPath := gittest.RepositoryPath(t, pool)
+	poolPath := git.RepositoryPath(t, pool)
 
 	// Assert that the now-created object pool exists and is valid.
 	require.True(t, pool.IsValid())
 	require.NoDirExists(t, filepath.Join(poolPath, "hooks"))
-	gittest.RequireObjectExists(t, cfg, poolPath, commitID)
+	git.RequireObjectExists(t, cfg, poolPath, commitID)
 
 	// Making the same request twice should result in an error.
 	_, err = client.CreateObjectPool(ctx, &gitalypb.CreateObjectPoolRequest{
@@ -96,7 +95,7 @@ func testCreateUnsuccessful(t *testing.T, ctx context.Context) {
 
 	// Precreate a stale lock for a valid object pool path so that we can verify that the lock
 	// gets honored as expected.
-	lockedRelativePath := gittest.NewObjectPoolName(t)
+	lockedRelativePath := git.NewObjectPoolName(t)
 	lockedFullPath := filepath.Join(cfg.Storages[0].Path, lockedRelativePath+".lock")
 	require.NoError(t, os.MkdirAll(filepath.Dir(lockedFullPath), 0o755))
 	require.NoError(t, os.WriteFile(lockedFullPath, nil, 0o644))
@@ -105,7 +104,7 @@ func testCreateUnsuccessful(t *testing.T, ctx context.Context) {
 	preexistingPool := &gitalypb.ObjectPool{
 		Repository: &gitalypb.Repository{
 			StorageName:  cfg.Storages[0].Name,
-			RelativePath: gittest.NewObjectPoolName(t),
+			RelativePath: git.NewObjectPoolName(t),
 		},
 	}
 	_, err := client.CreateObjectPool(ctx, &gitalypb.CreateObjectPoolRequest{
@@ -125,7 +124,7 @@ func testCreateUnsuccessful(t *testing.T, ctx context.Context) {
 				ObjectPool: &gitalypb.ObjectPool{
 					Repository: &gitalypb.Repository{
 						StorageName:  cfg.Storages[0].Name,
-						RelativePath: gittest.NewObjectPoolName(t),
+						RelativePath: git.NewObjectPoolName(t),
 					},
 				},
 			},
@@ -158,7 +157,7 @@ func testCreateUnsuccessful(t *testing.T, ctx context.Context) {
 				ObjectPool: &gitalypb.ObjectPool{
 					Repository: &gitalypb.Repository{
 						StorageName:  cfg.Storages[0].Name,
-						RelativePath: strings.ToUpper(gittest.NewObjectPoolName(t)),
+						RelativePath: strings.ToUpper(git.NewObjectPoolName(t)),
 					},
 				},
 			},
@@ -184,7 +183,7 @@ func testCreateUnsuccessful(t *testing.T, ctx context.Context) {
 				ObjectPool: &gitalypb.ObjectPool{
 					Repository: &gitalypb.Repository{
 						StorageName:  cfg.Storages[0].Name,
-						RelativePath: gittest.NewObjectPoolName(t) + "/..",
+						RelativePath: git.NewObjectPoolName(t) + "/..",
 					},
 				},
 			},
@@ -239,7 +238,7 @@ func testCreateAtomic(t *testing.T, ctx context.Context) {
 
 	cfg := testcfg.Build(t)
 
-	gitCmdFactory := gittest.NewInterceptingCommandFactory(t, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
+	gitCmdFactory := git.NewInterceptingCommandFactory(t, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
 		return fmt.Sprintf(`#!/bin/bash
 		if [[ ! "$@" =~ "clone" ]]; then
 			exec %[1]q "$@"
@@ -259,7 +258,7 @@ func testCreateAtomic(t *testing.T, ctx context.Context) {
 	objectPool := &gitalypb.ObjectPool{
 		Repository: &gitalypb.Repository{
 			StorageName:  cfg.Storages[0].Name,
-			RelativePath: gittest.NewObjectPoolName(t),
+			RelativePath: git.NewObjectPoolName(t),
 		},
 	}
 
@@ -272,7 +271,7 @@ func testCreateAtomic(t *testing.T, ctx context.Context) {
 	if featureflag.AtomicCreateObjectPool.IsEnabled(ctx) {
 		require.NoDirExists(t, filepath.Join(cfg.Storages[0].Path, objectPool.Repository.RelativePath))
 	} else {
-		poolPath := gittest.GetReplicaPath(t, ctx, cfg, objectPool.Repository)
+		poolPath := git.GetReplicaPath(t, ctx, cfg, objectPool.Repository)
 		require.DirExists(t, filepath.Join(cfg.Storages[0].Path, poolPath))
 	}
 }

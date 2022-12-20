@@ -17,7 +17,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
@@ -38,12 +37,12 @@ func TestFetchRemote_checkTagsChanged(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+	_, remoteRepoPath := git.CreateRepository(t, ctx, cfg)
 
-	gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch("main"))
+	git.WriteTestCommit(t, cfg, remoteRepoPath, git.WithBranch("main"))
 
 	t.Run("check tags without tags", func(t *testing.T) {
-		repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+		repoProto, _ := git.CreateRepository(t, ctx, cfg)
 
 		response, err := client.FetchRemote(ctx, &gitalypb.FetchRemoteRequest{
 			Repository: repoProto,
@@ -56,10 +55,10 @@ func TestFetchRemote_checkTagsChanged(t *testing.T) {
 		testhelper.ProtoEqual(t, &gitalypb.FetchRemoteResponse{}, response)
 	})
 
-	gittest.WriteTag(t, cfg, remoteRepoPath, "testtag", "main")
+	git.WriteTag(t, cfg, remoteRepoPath, "testtag", "main")
 
 	t.Run("check tags with tags", func(t *testing.T) {
-		repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+		repoProto, _ := git.CreateRepository(t, ctx, cfg)
 
 		// The first fetch should report that the tags have changed, ...
 		response, err := client.FetchRemote(ctx, &gitalypb.FetchRemoteRequest{
@@ -88,7 +87,7 @@ func TestFetchRemote_checkTagsChanged(t *testing.T) {
 	})
 
 	t.Run("without checking for changed tags", func(t *testing.T) {
-		repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+		repoProto, _ := git.CreateRepository(t, ctx, cfg)
 
 		// We fetch into the same repository multiple times to assert that `TagsChanged` is
 		// `true` regardless of whether we have the tag locally already or not.
@@ -120,7 +119,7 @@ func TestFetchRemote_sshCommand(t *testing.T) {
 
 	// We ain't got a nice way to intercept the SSH call, so we just write a custom git command
 	// which simply prints the GIT_SSH_COMMAND environment variable.
-	gitCmdFactory := gittest.NewInterceptingCommandFactory(t, ctx, cfg, func(git.ExecutionEnvironment) string {
+	gitCmdFactory := git.NewInterceptingCommandFactory(t, ctx, cfg, func(git.ExecutionEnvironment) string {
 		return fmt.Sprintf(
 			`#!/bin/sh
 			for arg in $GIT_SSH_COMMAND
@@ -184,16 +183,16 @@ func TestFetchRemote_withDefaultRefmaps(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg, sourceRepoProto, sourceRepoPath, client := setupRepositoryService(t, ctx)
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+	gitCmdFactory := git.NewCommandFactory(t, cfg)
 
 	sourceRepo := localrepo.NewTestRepo(t, cfg, sourceRepoProto)
 
-	targetRepoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	targetRepoProto, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 	targetRepo := localrepo.NewTestRepo(t, cfg, targetRepoProto)
 
-	port := gittest.HTTPServer(t, ctx, gitCmdFactory, sourceRepoPath, nil)
+	port := git.HTTPServer(t, ctx, gitCmdFactory, sourceRepoPath, nil)
 
 	require.NoError(t, sourceRepo.UpdateRef(ctx, "refs/heads/foobar", "refs/heads/master", ""))
 
@@ -225,17 +224,17 @@ func TestFetchRemote_transaction(t *testing.T) {
 	sourceCfg.SocketPath = addr
 
 	ctx := testhelper.Context(t)
-	repo, _ := gittest.CreateRepository(t, ctx, sourceCfg, gittest.CreateRepositoryConfig{
+	repo, _ := git.CreateRepository(t, ctx, sourceCfg, git.CreateRepositoryConfig{
 		RelativePath: t.Name(),
-		Seed:         gittest.SeedGitLabTest,
+		Seed:         git.SeedGitLabTest,
 	})
 	// Reset the manager as creating the repository casts some votes.
 	txManager.Reset()
 
 	targetCfg, targetRepoProto, targetRepoPath := testcfg.BuildWithRepo(t)
-	targetGitCmdFactory := gittest.NewCommandFactory(t, targetCfg)
+	targetGitCmdFactory := git.NewCommandFactory(t, targetCfg)
 
-	port := gittest.HTTPServer(t, ctx, targetGitCmdFactory, targetRepoPath, nil)
+	port := git.HTTPServer(t, ctx, targetGitCmdFactory, targetRepoPath, nil)
 
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)
@@ -259,9 +258,9 @@ func TestFetchRemote_prune(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg, _, sourceRepoPath, client := setupRepositoryService(t, ctx)
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+	gitCmdFactory := git.NewCommandFactory(t, cfg)
 
-	port := gittest.HTTPServer(t, ctx, gitCmdFactory, sourceRepoPath, nil)
+	port := git.HTTPServer(t, ctx, gitCmdFactory, sourceRepoPath, nil)
 
 	remoteURL := fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(sourceRepoPath))
 
@@ -309,8 +308,8 @@ func TestFetchRemote_prune(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			targetRepoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-				Seed: gittest.SeedGitLabTest,
+			targetRepoProto, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+				Seed: git.SeedGitLabTest,
 			})
 			targetRepo := localrepo.NewTestRepo(t, cfg, targetRepoProto)
 
@@ -333,7 +332,7 @@ func TestFetchRemote_force(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg, sourceRepoProto, sourceRepoPath, client := setupRepositoryService(t, ctx)
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+	gitCmdFactory := git.NewCommandFactory(t, cfg)
 
 	sourceRepo := localrepo.NewTestRepo(t, cfg, sourceRepoProto)
 
@@ -343,10 +342,10 @@ func TestFetchRemote_force(t *testing.T) {
 	tagOID, err := sourceRepo.ResolveRevision(ctx, "refs/tags/v1.0.0")
 	require.NoError(t, err)
 
-	divergingBranchOID := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("b1"))
-	divergingTagOID := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("b2"))
+	divergingBranchOID := git.WriteTestCommit(t, cfg, sourceRepoPath, git.WithBranch("b1"))
+	divergingTagOID := git.WriteTestCommit(t, cfg, sourceRepoPath, git.WithBranch("b2"))
 
-	port := gittest.HTTPServer(t, ctx, gitCmdFactory, sourceRepoPath, nil)
+	port := git.HTTPServer(t, ctx, gitCmdFactory, sourceRepoPath, nil)
 
 	remoteURL := fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(sourceRepoPath))
 
@@ -435,8 +434,8 @@ func TestFetchRemote_force(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			targetRepoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-				Seed: gittest.SeedGitLabTest,
+			targetRepoProto, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+				Seed: git.SeedGitLabTest,
 			})
 
 			targetRepo := localrepo.NewTestRepo(t, cfg, targetRepoProto)
@@ -613,7 +612,7 @@ func remoteHTTPServer(t *testing.T, repoName, httpHost, httpToken string) (*http
 }
 
 func getRefnames(t *testing.T, cfg config.Cfg, repoPath string) []string {
-	result := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--format", "%(refname:lstrip=2)")
+	result := git.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--format", "%(refname:lstrip=2)")
 	return strings.Split(text.ChompBytes(result), "\n")
 }
 
@@ -640,8 +639,8 @@ func TestFetchRemote_http(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
-			forkedRepo, forkedRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-				Seed: gittest.SeedGitLabTest,
+			forkedRepo, forkedRepoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+				Seed: git.SeedGitLabTest,
 			})
 
 			s, remoteURL := remoteHTTPServer(t, "my-repo", httpHost, tc.httpToken)
@@ -681,8 +680,8 @@ func TestFetchRemote_localPath(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, _, sourceRepoPath, client := setupRepositoryService(t, ctx)
 
-	mirrorRepo, mirrorRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	mirrorRepo, mirrorRepoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	_, err := client.FetchRemote(ctx, &gitalypb.FetchRemoteRequest{
@@ -766,7 +765,7 @@ func TestFetchRemote_pooledRepository(t *testing.T) {
 	// Note that we're using a separate command factory here just to ease the setup because we
 	// need to recreate the other command factory with the Git configuration specified by the
 	// test.
-	alternateRefsCommandFactory := gittest.NewCommandFactory(t, testcfg.Build(t))
+	alternateRefsCommandFactory := git.NewCommandFactory(t, testcfg.Build(t))
 	exec := testhelper.WriteExecutable(t,
 		filepath.Join(testhelper.TempDir(t), "alternate-refs"),
 		[]byte(fmt.Sprintf(`#!/bin/sh
@@ -799,7 +798,7 @@ func TestFetchRemote_pooledRepository(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			cfg := testcfg.Build(t, testcfg.WithBase(tc.cfg))
-			gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+			gitCmdFactory := git.NewCommandFactory(t, cfg)
 
 			client, swocketPath := runRepositoryService(t, cfg, nil, testserver.WithGitCommandFactory(gitCmdFactory))
 			cfg.SocketPath = swocketPath
@@ -808,31 +807,31 @@ func TestFetchRemote_pooledRepository(t *testing.T) {
 			// single reference with an object that is neither in the pool member nor in
 			// the remote. If alternate refs are used, then Git will announce it to the
 			// remote as "have".
-			_, poolRepoPath := gittest.CreateRepository(t, ctx, cfg)
-			poolCommitID := gittest.WriteCommit(t, cfg, poolRepoPath,
-				gittest.WithBranch("pooled"),
-				gittest.WithTreeEntries(gittest.TreeEntry{Path: "pool", Mode: "100644", Content: "pool contents"}),
+			_, poolRepoPath := git.CreateRepository(t, ctx, cfg)
+			poolCommitID := git.WriteTestCommit(t, cfg, poolRepoPath,
+				git.WithBranch("pooled"),
+				git.WithTreeEntries(git.TreeEntry{Path: "pool", Mode: "100644", Content: "pool contents"}),
 			)
 
 			// Create the pooled repository and link it to its pool. This is the
 			// repository we're fetching into.
-			pooledRepoProto, pooledRepoPath := gittest.CreateRepository(t, ctx, cfg)
+			pooledRepoProto, pooledRepoPath := git.CreateRepository(t, ctx, cfg)
 			require.NoError(t, os.WriteFile(filepath.Join(pooledRepoPath, "objects", "info", "alternates"), []byte(filepath.Join(poolRepoPath, "objects")), 0o644))
 
 			// And then finally create a third repository that emulates the remote side
 			// we're fetching from. We need to create at least one reference so that Git
 			// would actually try to fetch objects.
-			_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
-			gittest.WriteCommit(t, cfg, remoteRepoPath,
-				gittest.WithBranch("remote"),
-				gittest.WithTreeEntries(gittest.TreeEntry{Path: "remote", Mode: "100644", Content: "remote contents"}),
+			_, remoteRepoPath := git.CreateRepository(t, ctx, cfg)
+			git.WriteTestCommit(t, cfg, remoteRepoPath,
+				git.WithBranch("remote"),
+				git.WithTreeEntries(git.TreeEntry{Path: "remote", Mode: "100644", Content: "remote contents"}),
 			)
 
 			// Set up an HTTP server and intercept the request. This is done so that we
 			// can observe the reference negotiation and check whether alternate refs
 			// are announced or not.
 			var requestBuffer bytes.Buffer
-			port := gittest.HTTPServer(t, ctx, gitCmdFactory, remoteRepoPath, func(responseWriter http.ResponseWriter, request *http.Request, handler http.Handler) {
+			port := git.HTTPServer(t, ctx, gitCmdFactory, remoteRepoPath, func(responseWriter http.ResponseWriter, request *http.Request, handler http.Handler) {
 				closer := request.Body
 				defer testhelper.MustClose(t, closer)
 
@@ -853,8 +852,8 @@ func TestFetchRemote_pooledRepository(t *testing.T) {
 			// This should result in the "remote" branch having been fetched into the
 			// pooled repository.
 			require.Equal(t,
-				gittest.ResolveRevision(t, cfg, pooledRepoPath, "refs/heads/remote"),
-				gittest.ResolveRevision(t, cfg, remoteRepoPath, "refs/heads/remote"),
+				git.ResolveRevision(t, cfg, pooledRepoPath, "refs/heads/remote"),
+				git.ResolveRevision(t, cfg, remoteRepoPath, "refs/heads/remote"),
 			)
 
 			// Verify whether alternate refs have been announced as part of the

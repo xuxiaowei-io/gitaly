@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -20,8 +19,8 @@ func TestWithRefHook(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 	ctx := testhelper.Context(t)
 
-	opt := git.WithRefTxHook(repo)
-	subCmd := git.Command{Name: "update-ref", Args: []string{"refs/heads/master", git.ObjectHashSHA1.ZeroOID.String()}}
+	opt := WithRefTxHook(repo)
+	subCmd := Command{Name: "update-ref", Args: []string{"refs/heads/master", ObjectHashSHA1.ZeroOID.String()}}
 
 	for _, tt := range []struct {
 		name string
@@ -30,7 +29,7 @@ func TestWithRefHook(t *testing.T) {
 		{
 			name: "NewCommand",
 			fn: func() (*command.Command, error) {
-				return gittest.NewCommandFactory(t, cfg, git.WithSkipHooks()).New(ctx, repo, subCmd, opt)
+				return NewCommandFactory(t, cfg, WithSkipHooks()).New(ctx, repo, subCmd, opt)
 			},
 		},
 	} {
@@ -69,16 +68,16 @@ func TestWithPackObjectsHookEnv(t *testing.T) {
 	username := "username"
 	protocol := "protocol"
 
-	opt := git.WithPackObjectsHookEnv(repo, protocol)
-	subCmd := git.Command{Name: "upload-pack", Args: []string{"a/b/c"}}
+	opt := WithPackObjectsHookEnv(repo, protocol)
+	subCmd := Command{Name: "upload-pack", Args: []string{"a/b/c"}}
 
 	ctx = grpcmetadata.AppendToOutgoingContext(ctx, "user_id", userID, "username", username)
 	ctx = metadata.OutgoingToIncoming(ctx)
 
-	cmd, err := gittest.NewCommandFactory(t, cfg, git.WithSkipHooks()).New(ctx, repo, subCmd, opt)
+	cmd, err := NewCommandFactory(t, cfg, WithSkipHooks()).New(ctx, repo, subCmd, opt)
 	require.NoError(t, err)
 
-	payload, err := git.HooksPayloadFromEnv(cmd.Env())
+	payload, err := HooksPayloadFromEnv(cmd.Env())
 	require.NoError(t, err)
 
 	require.Equal(t, userID, payload.UserDetails.UserID)

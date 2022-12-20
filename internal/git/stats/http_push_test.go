@@ -12,7 +12,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -23,13 +22,13 @@ func TestPerformHTTPPush(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+	gitCmdFactory := git.NewCommandFactory(t, cfg)
 
-	_, targetRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	_, targetRepoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 
-	serverPort := gittest.HTTPServer(t, ctx, gitCmdFactory, targetRepoPath, nil)
+	serverPort := git.HTTPServer(t, ctx, gitCmdFactory, targetRepoPath, nil)
 	url := fmt.Sprintf("http://localhost:%d/%s", serverPort, filepath.Base(targetRepoPath))
 
 	for _, tc := range []struct {
@@ -42,18 +41,18 @@ func TestPerformHTTPPush(t *testing.T) {
 		{
 			desc: "single revision",
 			preparePush: func(t *testing.T, cfg config.Cfg) ([]PushCommand, io.Reader) {
-				_, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				_, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
-				commit := gittest.WriteCommit(t, cfg, repoPath)
+				commit := git.WriteTestCommit(t, cfg, repoPath)
 				revisions := strings.NewReader(commit.String())
-				pack := gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: revisions},
+				pack := git.ExecOpts(t, cfg, git.ExecConfig{Stdin: revisions},
 					"-C", repoPath, "pack-objects", "--stdout", "--revs", "--thin", "--delta-base-offset", "-q",
 				)
 
 				return []PushCommand{
-					{OldOID: gittest.DefaultObjectHash.ZeroOID, NewOID: commit, Reference: "refs/heads/foobar"},
+					{OldOID: git.DefaultObjectHash.ZeroOID, NewOID: commit, Reference: "refs/heads/foobar"},
 				}, bytes.NewReader(pack)
 			},
 			expectedTimings: []string{
@@ -78,23 +77,23 @@ func TestPerformHTTPPush(t *testing.T) {
 		{
 			desc: "many revisions",
 			preparePush: func(t *testing.T, cfg config.Cfg) ([]PushCommand, io.Reader) {
-				_, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				_, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
 				commands := make([]PushCommand, 1000)
-				commit := gittest.WriteCommit(t, cfg, repoPath)
+				commit := git.WriteTestCommit(t, cfg, repoPath)
 
 				for i := 0; i < len(commands); i++ {
 					commands[i] = PushCommand{
-						OldOID:    gittest.DefaultObjectHash.ZeroOID,
+						OldOID:    git.DefaultObjectHash.ZeroOID,
 						NewOID:    commit,
 						Reference: git.ReferenceName(fmt.Sprintf("refs/heads/branch-%d", i)),
 					}
 				}
 
 				revisions := strings.NewReader(strings.Repeat(commit.String()+"\n", 1000))
-				pack := gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: revisions},
+				pack := git.ExecOpts(t, cfg, git.ExecConfig{Stdin: revisions},
 					"-C", repoPath, "pack-objects", "--stdout", "--revs", "--thin", "--delta-base-offset", "-q",
 				)
 
@@ -122,10 +121,10 @@ func TestPerformHTTPPush(t *testing.T) {
 		{
 			desc: "branch deletion",
 			preparePush: func(t *testing.T, cfg config.Cfg) ([]PushCommand, io.Reader) {
-				oldOID := gittest.WriteCommit(t, cfg, targetRepoPath, gittest.WithBranch("feature"))
+				oldOID := git.WriteTestCommit(t, cfg, targetRepoPath, git.WithBranch("feature"))
 
 				return []PushCommand{
-					{OldOID: oldOID, NewOID: gittest.DefaultObjectHash.ZeroOID, Reference: "refs/heads/feature"},
+					{OldOID: oldOID, NewOID: git.DefaultObjectHash.ZeroOID, Reference: "refs/heads/feature"},
 				}, nil
 			},
 			expectedTimings: []string{
@@ -150,12 +149,12 @@ func TestPerformHTTPPush(t *testing.T) {
 		{
 			desc: "failing delete",
 			preparePush: func(t *testing.T, cfg config.Cfg) ([]PushCommand, io.Reader) {
-				gittest.WriteCommit(t, cfg, targetRepoPath, gittest.WithBranch("master"))
+				git.WriteTestCommit(t, cfg, targetRepoPath, git.WithBranch("master"))
 
-				oldOID := git.ObjectID(strings.Repeat("1", gittest.DefaultObjectHash.EncodedLen()))
+				oldOID := git.ObjectID(strings.Repeat("1", git.DefaultObjectHash.EncodedLen()))
 
 				return []PushCommand{
-					{OldOID: oldOID, NewOID: gittest.DefaultObjectHash.ZeroOID, Reference: "refs/heads/master"},
+					{OldOID: oldOID, NewOID: git.DefaultObjectHash.ZeroOID, Reference: "refs/heads/master"},
 				}, nil
 			},
 			expectedErr: fmt.Errorf("parsing packfile response: %w",
@@ -167,7 +166,7 @@ func TestPerformHTTPPush(t *testing.T) {
 
 			start := time.Now()
 
-			stats, err := PerformHTTPPush(ctx, url, "", "", gittest.DefaultObjectHash, commands, packfile, false)
+			stats, err := PerformHTTPPush(ctx, url, "", "", git.DefaultObjectHash, commands, packfile, false)
 			require.Equal(t, tc.expectedErr, err)
 			if err != nil {
 				return

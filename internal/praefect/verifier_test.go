@@ -16,7 +16,7 @@ import (
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	gitalyconfig "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/repository"
@@ -552,12 +552,12 @@ func TestVerifier(t *testing.T) {
 			for virtualStorage, relativePaths := range tc.replicas {
 				for relativePath, storages := range relativePaths {
 					// Create the expected repository. This creates all of the replicas transactionally.
-					repo, _ := gittest.CreateRepository(t, ctx,
+					repo, _ := git.CreateRepository(t, ctx,
 						gitalyconfig.Cfg{Storages: []gitalyconfig.Storage{{Name: virtualStorage}}},
-						gittest.CreateRepositoryConfig{ClientConn: conn, RelativePath: relativePath},
+						git.CreateRepositoryConfig{ClientConn: conn, RelativePath: relativePath},
 					)
 
-					replicaPath := gittest.GetReplicaPath(t, ctx, gitalyconfig.Cfg{}, repo, gittest.GetReplicaPathConfig{ClientConn: conn})
+					replicaPath := git.GetReplicaPath(t, ctx, gitalyconfig.Cfg{}, repo, git.GetReplicaPathConfig{ClientConn: conn})
 
 					// Now remove the replicas that were created in the transaction but the test case
 					// expects not to exist. We remove them directly from the Gitalys so the metadata
@@ -609,9 +609,9 @@ func TestVerifier(t *testing.T) {
 			}
 
 			// Create a repository and lock its records to assert the dequeuer does not wait on row locks.
-			gittest.CreateRepository(t, ctx,
+			git.CreateRepository(t, ctx,
 				gitalyconfig.Cfg{Storages: []gitalyconfig.Storage{{Name: "virtual-storage"}}},
-				gittest.CreateRepositoryConfig{ClientConn: conn, RelativePath: "locked-repository"},
+				git.CreateRepositoryConfig{ClientConn: conn, RelativePath: "locked-repository"},
 			)
 
 			rowLockTx := db.Begin(t)

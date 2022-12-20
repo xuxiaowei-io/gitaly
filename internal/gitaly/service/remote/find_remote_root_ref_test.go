@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -23,14 +23,14 @@ func TestFindRemoteRootRefSuccess(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg, repo, repoPath, client := setupRemoteService(t, ctx)
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+	gitCmdFactory := git.NewCommandFactory(t, cfg)
 
 	const (
 		host   = "example.com"
 		secret = "mysecret"
 	)
 
-	port := gittest.HTTPServer(t, ctx, gitCmdFactory, repoPath, newGitRequestValidationMiddleware(host, secret))
+	port := git.HTTPServer(t, ctx, gitCmdFactory, repoPath, newGitRequestValidationMiddleware(host, secret))
 
 	originURL := fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(repoPath))
 
@@ -64,8 +64,8 @@ func TestFindRemoteRootRefWithUnbornRemoteHead(t *testing.T) {
 
 	// We're creating an empty repository. Empty repositories do have a HEAD set up, but they
 	// point to an unborn branch because the default branch hasn't yet been created.
-	_, clientRepoPath := gittest.CreateRepository(t, ctx, cfg)
-	gittest.Exec(t, cfg, "-C", remoteRepoPath, "remote", "add", "foo", "file://"+clientRepoPath)
+	_, clientRepoPath := git.CreateRepository(t, ctx, cfg)
+	git.Exec(t, cfg, "-C", remoteRepoPath, "remote", "add", "foo", "file://"+clientRepoPath)
 	response, err := client.FindRemoteRootRef(ctx, &gitalypb.FindRemoteRootRefRequest{
 		Repository: remoteRepo,
 		RemoteUrl:  "file://" + clientRepoPath,
@@ -164,12 +164,12 @@ func TestServer_findRemoteRootRefCmd(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	gitCmdFactory := git.NewCommandFactory(t, cfg)
+	repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 
-	port := gittest.HTTPServer(t, ctx, gitCmdFactory, repoPath, nil)
+	port := git.HTTPServer(t, ctx, gitCmdFactory, repoPath, nil)
 
 	s := server{gitCmdFactory: gitCmdFactory}
 

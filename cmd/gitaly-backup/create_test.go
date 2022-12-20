@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -30,8 +30,8 @@ func TestCreateSubcommand(t *testing.T) {
 
 	var repos []*gitalypb.Repository
 	for i := 0; i < 5; i++ {
-		repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-			Seed:         gittest.SeedGitLabTest,
+		repo, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+			Seed:         git.SeedGitLabTest,
 			RelativePath: fmt.Sprintf("repo-%d", i),
 		})
 		repos = append(repos, repo)

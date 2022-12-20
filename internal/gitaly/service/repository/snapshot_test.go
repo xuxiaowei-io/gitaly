@@ -14,7 +14,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/archive"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
@@ -54,7 +54,7 @@ func TestGetSnapshotSuccess(t *testing.T) {
 
 	// Ensure certain files exist in the test repo.
 	// WriteCommit produces a loose object with the given sha
-	sha := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
+	sha := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("master"))
 	zeroes := strings.Repeat("0", 40)
 	require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "hooks"), 0o755))
 	require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "objects/pack"), 0o755))
@@ -98,14 +98,14 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 		{
 			desc: "absolute path",
 			alternatePathFunc: func(t *testing.T, storageDir, objDir string) string {
-				return filepath.Join(storageDir, gittest.NewObjectPoolName(t), "objects")
+				return filepath.Join(storageDir, git.NewObjectPoolName(t), "objects")
 			},
 		},
 		{
 			desc: "relative path",
 			alternatePathFunc: func(t *testing.T, storageDir, objDir string) string {
 				altObjDir, err := filepath.Rel(objDir, filepath.Join(
-					storageDir, gittest.NewObjectPoolName(t), "objects",
+					storageDir, git.NewObjectPoolName(t), "objects",
 				))
 				require.NoError(t, err)
 				return altObjDir
@@ -122,16 +122,16 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 				absoluteAlternateObjDir = filepath.Join(repoPath, "objects", alternateObjDir)
 			}
 
-			firstCommitID := gittest.WriteCommit(t, cfg, repoPath,
-				gittest.WithMessage("An empty commit"),
-				gittest.WithAlternateObjectDirectory(absoluteAlternateObjDir),
+			firstCommitID := git.WriteTestCommit(t, cfg, repoPath,
+				git.WithMessage("An empty commit"),
+				git.WithAlternateObjectDirectory(absoluteAlternateObjDir),
 			)
 
 			locator := config.NewLocator(cfg)
 
 			// We haven't yet written the alternates file, and thus we shouldn't be able
 			// to find this commit yet.
-			gittest.RequireObjectNotExists(t, cfg, repoPath, firstCommitID)
+			git.RequireObjectNotExists(t, cfg, repoPath, firstCommitID)
 
 			// Write alternates file to point to alt objects folder.
 			alternatesPath, err := repo.InfoAlternatesPath()
@@ -139,24 +139,24 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 			require.NoError(t, os.WriteFile(alternatesPath, []byte(fmt.Sprintf("%s\n", alternateObjDir)), 0o644))
 
 			// Write another commit into the alternate object directory.
-			secondCommitID := gittest.WriteCommit(t, cfg, repoPath,
-				gittest.WithMessage("Another empty commit"),
-				gittest.WithAlternateObjectDirectory(absoluteAlternateObjDir),
+			secondCommitID := git.WriteTestCommit(t, cfg, repoPath,
+				git.WithMessage("Another empty commit"),
+				git.WithAlternateObjectDirectory(absoluteAlternateObjDir),
 			)
 
 			// We should now be able to find both commits given that the alternates file
 			// points to the object directory we've created them in.
-			gittest.RequireObjectExists(t, cfg, repoPath, firstCommitID)
-			gittest.RequireObjectExists(t, cfg, repoPath, secondCommitID)
+			git.RequireObjectExists(t, cfg, repoPath, firstCommitID)
+			git.RequireObjectExists(t, cfg, repoPath, secondCommitID)
 
 			repoCopy, _ := copyRepoUsingSnapshot(t, ctx, cfg, client, repoProto)
-			repoCopy.RelativePath = gittest.GetReplicaPath(t, ctx, cfg, repoCopy)
+			repoCopy.RelativePath = git.GetReplicaPath(t, ctx, cfg, repoCopy)
 			repoCopyPath, err := locator.GetRepoPath(repoCopy)
 			require.NoError(t, err)
 
 			// ensure the sha committed to the alternates directory can be accessed
-			gittest.Exec(t, cfg, "-C", repoCopyPath, "cat-file", "-p", firstCommitID.String())
-			gittest.Exec(t, cfg, "-C", repoCopyPath, "fsck")
+			git.Exec(t, cfg, "-C", repoCopyPath, "cat-file", "-p", firstCommitID.String())
+			git.Exec(t, cfg, "-C", repoCopyPath, "fsck")
 		})
 	}
 }
@@ -216,11 +216,11 @@ func TestGetSnapshot_alternateObjectDirectory(t *testing.T) {
 	t.Run("valid alternate object directory", func(t *testing.T) {
 		alternateObjectDir := filepath.Join(repoPath, "valid-odb")
 
-		commitID := gittest.WriteCommit(t, cfg, repoPath,
-			gittest.WithAlternateObjectDirectory(alternateObjectDir),
+		commitID := git.WriteTestCommit(t, cfg, repoPath,
+			git.WithAlternateObjectDirectory(alternateObjectDir),
 			// Create a branch with the commit such that the snapshot would indeed treat
 			// this commit as referenced.
-			gittest.WithBranch("some-branch"),
+			git.WithBranch("some-branch"),
 		)
 
 		require.NoError(t, os.WriteFile(alternatesFile, []byte(alternateObjectDir), 0o644))
@@ -229,14 +229,14 @@ func TestGetSnapshot_alternateObjectDirectory(t *testing.T) {
 		}()
 
 		repoCopy, _ := copyRepoUsingSnapshot(t, ctx, cfg, client, repoProto)
-		repoCopy.RelativePath = gittest.GetReplicaPath(t, ctx, cfg, repoCopy)
+		repoCopy.RelativePath = git.GetReplicaPath(t, ctx, cfg, repoCopy)
 		repoCopyPath, err := locator.GetRepoPath(repoCopy)
 		require.NoError(t, err)
 
 		// Ensure the object committed to the alternates directory can be accessed and that
 		// the repository is consistent.
-		gittest.Exec(t, cfg, "-C", repoCopyPath, "cat-file", "-p", commitID.String())
-		gittest.Exec(t, cfg, "-C", repoCopyPath, "fsck")
+		git.Exec(t, cfg, "-C", repoCopyPath, "cat-file", "-p", commitID.String())
+		git.Exec(t, cfg, "-C", repoCopyPath, "fsck")
 	})
 }
 
@@ -254,7 +254,7 @@ func copyRepoUsingSnapshot(t *testing.T, ctx context.Context, cfg config.Cfg, cl
 
 	repoCopy := &gitalypb.Repository{
 		StorageName:  cfg.Storages[0].Name,
-		RelativePath: gittest.NewRepositoryName(t),
+		RelativePath: git.NewRepositoryName(t),
 	}
 
 	createRepoReq := &gitalypb.CreateRepositoryFromSnapshotRequest{
@@ -267,7 +267,7 @@ func copyRepoUsingSnapshot(t *testing.T, ctx context.Context, cfg config.Cfg, cl
 	require.NoError(t, err)
 	testhelper.ProtoEqual(t, rsp, &gitalypb.CreateRepositoryFromSnapshotResponse{})
 
-	return repoCopy, filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(t, ctx, cfg, repoCopy))
+	return repoCopy, filepath.Join(cfg.Storages[0].Path, git.GetReplicaPath(t, ctx, cfg, repoCopy))
 }
 
 func TestGetSnapshotFailsIfRepositoryMissing(t *testing.T) {
@@ -276,8 +276,8 @@ func TestGetSnapshotFailsIfRepositoryMissing(t *testing.T) {
 	repo := &gitalypb.Repository{
 		StorageName:   cfg.Storages[0].Name,
 		RelativePath:  t.Name(),
-		GlRepository:  gittest.GlRepository,
-		GlProjectPath: gittest.GlProjectPath,
+		GlRepository:  git.GlRepository,
+		GlProjectPath: git.GlProjectPath,
 	}
 
 	req := &gitalypb.GetSnapshotRequest{Repository: repo}
@@ -292,8 +292,8 @@ func TestGetSnapshot_validate(t *testing.T) {
 	repo := &gitalypb.Repository{
 		StorageName:   cfg.Storages[0].Name,
 		RelativePath:  t.Name(),
-		GlRepository:  gittest.GlRepository,
-		GlProjectPath: gittest.GlProjectPath,
+		GlRepository:  git.GlRepository,
+		GlProjectPath: git.GlProjectPath,
 	}
 
 	req := &gitalypb.GetSnapshotRequest{Repository: repo}

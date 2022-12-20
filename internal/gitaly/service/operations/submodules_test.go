@@ -10,7 +10,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/lstree"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
@@ -74,7 +73,7 @@ func TestSuccessfulUserUpdateSubmoduleRequest(t *testing.T) {
 		t.Run(testCase.desc, func(t *testing.T) {
 			request := &gitalypb.UserUpdateSubmoduleRequest{
 				Repository:    repoProto,
-				User:          gittest.TestUser,
+				User:          git.TestUser,
 				Submodule:     []byte(testCase.submodule),
 				CommitSha:     testCase.commitSha,
 				Branch:        []byte(testCase.branch),
@@ -88,12 +87,12 @@ func TestSuccessfulUserUpdateSubmoduleRequest(t *testing.T) {
 
 			commit, err := repo.ReadCommit(ctx, git.Revision(response.BranchUpdate.CommitId))
 			require.NoError(t, err)
-			require.Equal(t, gittest.TestUser.Email, commit.Author.Email)
-			require.Equal(t, gittest.TimezoneOffset, string(commit.Author.Timezone))
-			require.Equal(t, gittest.TestUser.Email, commit.Committer.Email)
+			require.Equal(t, git.TestUser.Email, commit.Author.Email)
+			require.Equal(t, git.TimezoneOffset, string(commit.Author.Timezone))
+			require.Equal(t, git.TestUser.Email, commit.Committer.Email)
 			require.Equal(t, commitMessage, commit.Subject)
 
-			entry := gittest.Exec(t, cfg, "-C", repoPath, "ls-tree", "-z", fmt.Sprintf("%s^{tree}:", response.BranchUpdate.CommitId), testCase.submodule)
+			entry := git.Exec(t, cfg, "-C", repoPath, "ls-tree", "-z", fmt.Sprintf("%s^{tree}:", response.BranchUpdate.CommitId), testCase.submodule)
 			parser := lstree.NewParser(bytes.NewReader(entry), git.ObjectHashSHA1)
 			parsedEntry, err := parser.NextEntry()
 			require.NoError(t, err)
@@ -112,7 +111,7 @@ func TestUserUpdateSubmoduleStableID(t *testing.T) {
 
 	response, err := client.UserUpdateSubmodule(ctx, &gitalypb.UserUpdateSubmoduleRequest{
 		Repository:    repoProto,
-		User:          gittest.TestUser,
+		User:          git.TestUser,
 		Submodule:     []byte("gitlab-grack"),
 		CommitSha:     "41fa1bc9e0f0630ced6a8a211d60c2af425ecc2d",
 		Branch:        []byte("master"),
@@ -135,16 +134,16 @@ func TestUserUpdateSubmoduleStableID(t *testing.T) {
 		Body:     []byte("Update Submodule message"),
 		BodySize: 24,
 		Author: &gitalypb.CommitAuthor{
-			Name:     gittest.TestUser.Name,
-			Email:    gittest.TestUser.Email,
+			Name:     git.TestUser.Name,
+			Email:    git.TestUser.Email,
 			Date:     &timestamppb.Timestamp{Seconds: 12345},
-			Timezone: []byte(gittest.TimezoneOffset),
+			Timezone: []byte(git.TimezoneOffset),
 		},
 		Committer: &gitalypb.CommitAuthor{
-			Name:     gittest.TestUser.Name,
-			Email:    gittest.TestUser.Email,
+			Name:     git.TestUser.Name,
+			Email:    git.TestUser.Email,
 			Date:     &timestamppb.Timestamp{Seconds: 12345},
-			Timezone: []byte(gittest.TimezoneOffset),
+			Timezone: []byte(git.TimezoneOffset),
 		},
 	}, commit)
 }
@@ -159,7 +158,7 @@ func TestUserUpdateSubmoduleQuarantine(t *testing.T) {
 	// Set up a hook that parses the new object and then aborts the update. Like this, we can
 	// assert that the object does not end up in the main repository.
 	outputPath := filepath.Join(testhelper.TempDir(t), "output")
-	gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte(fmt.Sprintf(
+	git.WriteCustomHook(t, repoPath, "pre-receive", []byte(fmt.Sprintf(
 		`#!/bin/sh
 		read oldval newval ref &&
 		git rev-parse $newval^{commit} >%s &&
@@ -168,7 +167,7 @@ func TestUserUpdateSubmoduleQuarantine(t *testing.T) {
 
 	response, err := client.UserUpdateSubmodule(ctx, &gitalypb.UserUpdateSubmoduleRequest{
 		Repository:    repoProto,
-		User:          gittest.TestUser,
+		User:          git.TestUser,
 		Submodule:     []byte("gitlab-grack"),
 		CommitSha:     "41fa1bc9e0f0630ced6a8a211d60c2af425ecc2d",
 		Branch:        []byte("master"),
@@ -203,7 +202,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T) {
 			desc: "empty Repository",
 			request: &gitalypb.UserUpdateSubmoduleRequest{
 				Repository:    nil,
-				User:          gittest.TestUser,
+				User:          git.TestUser,
 				Submodule:     []byte("six"),
 				CommitSha:     "db54006ff1c999fd485af44581dabe9b6c85a701",
 				Branch:        []byte("some-branch"),
@@ -230,7 +229,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T) {
 			desc: "empty Submodule",
 			request: &gitalypb.UserUpdateSubmoduleRequest{
 				Repository:    repo,
-				User:          gittest.TestUser,
+				User:          git.TestUser,
 				Submodule:     nil,
 				CommitSha:     "db54006ff1c999fd485af44581dabe9b6c85a701",
 				Branch:        []byte("some-branch"),
@@ -242,7 +241,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T) {
 			desc: "empty CommitSha",
 			request: &gitalypb.UserUpdateSubmoduleRequest{
 				Repository:    repo,
-				User:          gittest.TestUser,
+				User:          git.TestUser,
 				Submodule:     []byte("six"),
 				CommitSha:     "",
 				Branch:        []byte("some-branch"),
@@ -254,7 +253,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T) {
 			desc: "invalid CommitSha",
 			request: &gitalypb.UserUpdateSubmoduleRequest{
 				Repository:    repo,
-				User:          gittest.TestUser,
+				User:          git.TestUser,
 				Submodule:     []byte("six"),
 				CommitSha:     "foobar",
 				Branch:        []byte("some-branch"),
@@ -266,7 +265,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T) {
 			desc: "invalid CommitSha",
 			request: &gitalypb.UserUpdateSubmoduleRequest{
 				Repository:    repo,
-				User:          gittest.TestUser,
+				User:          git.TestUser,
 				Submodule:     []byte("six"),
 				CommitSha:     "db54006ff1c999fd485a",
 				Branch:        []byte("some-branch"),
@@ -278,7 +277,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T) {
 			desc: "empty Branch",
 			request: &gitalypb.UserUpdateSubmoduleRequest{
 				Repository:    repo,
-				User:          gittest.TestUser,
+				User:          git.TestUser,
 				Submodule:     []byte("six"),
 				CommitSha:     "db54006ff1c999fd485af44581dabe9b6c85a701",
 				Branch:        nil,
@@ -290,7 +289,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T) {
 			desc: "empty CommitMessage",
 			request: &gitalypb.UserUpdateSubmoduleRequest{
 				Repository:    repo,
-				User:          gittest.TestUser,
+				User:          git.TestUser,
 				Submodule:     []byte("six"),
 				CommitSha:     "db54006ff1c999fd485af44581dabe9b6c85a701",
 				Branch:        []byte("some-branch"),
@@ -316,7 +315,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToInvalidBranch(t *testing.T) {
 
 	request := &gitalypb.UserUpdateSubmoduleRequest{
 		Repository:    repo,
-		User:          gittest.TestUser,
+		User:          git.TestUser,
 		Submodule:     []byte("six"),
 		CommitSha:     "db54006ff1c999fd485af44581dabe9b6c85a701",
 		Branch:        []byte("non/existent"),
@@ -336,7 +335,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToInvalidSubmodule(t *testing.T) {
 
 	request := &gitalypb.UserUpdateSubmoduleRequest{
 		Repository:    repo,
-		User:          gittest.TestUser,
+		User:          git.TestUser,
 		Submodule:     []byte("non-existent-submodule"),
 		CommitSha:     "db54006ff1c999fd485af44581dabe9b6c85a701",
 		Branch:        []byte("master"),
@@ -356,7 +355,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToSameReference(t *testing.T) {
 
 	request := &gitalypb.UserUpdateSubmoduleRequest{
 		Repository:    repo,
-		User:          gittest.TestUser,
+		User:          git.TestUser,
 		Submodule:     []byte("six"),
 		CommitSha:     "41fa1bc9e0f0630ced6a8a211d60c2af425ecc2d",
 		Branch:        []byte("master"),
@@ -377,11 +376,11 @@ func TestFailedUserUpdateSubmoduleRequestDueToRepositoryEmpty(t *testing.T) {
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
-	repo, _ := gittest.CreateRepository(t, ctx, cfg)
+	repo, _ := git.CreateRepository(t, ctx, cfg)
 
 	request := &gitalypb.UserUpdateSubmoduleRequest{
 		Repository:    repo,
-		User:          gittest.TestUser,
+		User:          git.TestUser,
 		Submodule:     []byte("six"),
 		CommitSha:     "41fa1bc9e0f0630ced6a8a211d60c2af425ecc2d",
 		Branch:        []byte("master"),

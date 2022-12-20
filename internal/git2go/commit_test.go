@@ -17,7 +17,6 @@ import (
 	"github.com/ProtonMail/go-crypto/openpgp/packet"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -44,14 +43,14 @@ func TestExecutor_Commit(t *testing.T) {
 	type step struct {
 		actions     []Action
 		error       error
-		treeEntries []gittest.TreeEntry
+		treeEntries []git.TreeEntry
 	}
 	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
 	testcfg.BuildGitalyGit2Go(t, cfg)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 
@@ -63,7 +62,7 @@ func TestExecutor_Commit(t *testing.T) {
 	updatedFile, err := repo.WriteBlob(ctx, "file", bytes.NewBufferString("updated"))
 	require.NoError(t, err)
 
-	executor := NewExecutor(cfg, gittest.NewCommandFactory(t, cfg), config.NewLocator(cfg))
+	executor := NewExecutor(cfg, git.NewCommandFactory(t, cfg), config.NewLocator(cfg))
 
 	for _, tc := range []struct {
 		desc          string
@@ -77,7 +76,7 @@ func TestExecutor_Commit(t *testing.T) {
 					actions: []Action{
 						CreateDirectory{Path: "directory"},
 					},
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "directory/.gitkeep"},
 					},
 				},
@@ -102,7 +101,7 @@ func TestExecutor_Commit(t *testing.T) {
 					actions: []Action{
 						CreateDirectory{Path: "directory"},
 					},
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "directory/.gitkeep"},
 					},
 				},
@@ -121,7 +120,7 @@ func TestExecutor_Commit(t *testing.T) {
 					actions: []Action{
 						CreateFile{Path: "file", OID: originalFile.String()},
 					},
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "file", Content: "original"},
 					},
 				},
@@ -140,7 +139,7 @@ func TestExecutor_Commit(t *testing.T) {
 					actions: []Action{
 						CreateFile{Path: "file", OID: originalFile.String()},
 					},
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "file", Content: "original"},
 					},
 				},
@@ -166,7 +165,7 @@ func TestExecutor_Commit(t *testing.T) {
 						CreateDirectory{Path: "directory"},
 						CreateFile{Path: "directory", OID: originalFile.String()},
 					},
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "directory", Content: "original"},
 					},
 				},
@@ -180,7 +179,7 @@ func TestExecutor_Commit(t *testing.T) {
 						CreateFile{Path: "file", OID: originalFile.String()},
 						UpdateFile{Path: "file", OID: updatedFile.String()},
 					},
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "file", Content: "updated"},
 					},
 				},
@@ -193,7 +192,7 @@ func TestExecutor_Commit(t *testing.T) {
 					actions: []Action{
 						CreateFile{Path: "file", OID: originalFile.String()},
 					},
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "file", Content: "original"},
 					},
 				},
@@ -201,7 +200,7 @@ func TestExecutor_Commit(t *testing.T) {
 					actions: []Action{
 						UpdateFile{Path: "file", OID: updatedFile.String()},
 					},
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "file", Content: "updated"},
 					},
 				},
@@ -226,7 +225,7 @@ func TestExecutor_Commit(t *testing.T) {
 						CreateFile{Path: "original-file", OID: originalFile.String()},
 						MoveFile{Path: "original-file", NewPath: "moved-file", OID: originalFile.String()},
 					},
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "moved-file", Content: "original"},
 					},
 				},
@@ -251,7 +250,7 @@ func TestExecutor_Commit(t *testing.T) {
 					actions: []Action{
 						CreateFile{Path: "original-file", OID: originalFile.String()},
 					},
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "original-file", Content: "original"},
 					},
 				},
@@ -259,7 +258,7 @@ func TestExecutor_Commit(t *testing.T) {
 					actions: []Action{
 						MoveFile{Path: "original-file", NewPath: "moved-file"},
 					},
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "moved-file", Content: "original"},
 					},
 				},
@@ -300,7 +299,7 @@ func TestExecutor_Commit(t *testing.T) {
 						CreateDirectory{Path: "already-existing"},
 						MoveFile{Path: "file", NewPath: "already-existing"},
 					},
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "already-existing", Content: "original"},
 					},
 				},
@@ -313,7 +312,7 @@ func TestExecutor_Commit(t *testing.T) {
 					actions: []Action{
 						CreateFile{Path: "original-file", OID: originalFile.String()},
 					},
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "original-file", Content: "original"},
 					},
 				},
@@ -321,7 +320,7 @@ func TestExecutor_Commit(t *testing.T) {
 					actions: []Action{
 						MoveFile{Path: "original-file", NewPath: "moved-file", OID: updatedFile.String()},
 					},
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "moved-file", Content: "updated"},
 					},
 				},
@@ -346,7 +345,7 @@ func TestExecutor_Commit(t *testing.T) {
 						CreateFile{Path: "file-1", OID: originalFile.String()},
 						ChangeFileMode{Path: "file-1", ExecutableMode: true},
 					},
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: ExecutableMode, Path: "file-1", Content: "original"},
 					},
 				},
@@ -354,7 +353,7 @@ func TestExecutor_Commit(t *testing.T) {
 					actions: []Action{
 						ChangeFileMode{Path: "file-1", ExecutableMode: true},
 					},
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: ExecutableMode, Path: "file-1", Content: "original"},
 					},
 				},
@@ -368,7 +367,7 @@ func TestExecutor_Commit(t *testing.T) {
 						CreateFile{Path: "file-1", OID: originalFile.String()},
 						ChangeFileMode{Path: "file-1", ExecutableMode: true},
 					},
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: ExecutableMode, Path: "file-1", Content: "original"},
 					},
 				},
@@ -381,7 +380,7 @@ func TestExecutor_Commit(t *testing.T) {
 					actions: []Action{
 						CreateFile{Path: "file-1", OID: originalFile.String()},
 					},
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "original"},
 					},
 				},
@@ -389,7 +388,7 @@ func TestExecutor_Commit(t *testing.T) {
 					actions: []Action{
 						ChangeFileMode{Path: "file-1", ExecutableMode: true},
 					},
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: ExecutableMode, Path: "file-1", Content: "original"},
 					},
 				},
@@ -448,7 +447,7 @@ func TestExecutor_Commit(t *testing.T) {
 					actions: []Action{
 						CreateFile{Path: "file-1", OID: originalFile.String()},
 					},
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "original"},
 					},
 				},
@@ -467,7 +466,7 @@ func TestExecutor_Commit(t *testing.T) {
 						CreateFile{Path: "file", OID: originalFile.String()},
 						UpdateFile{Path: "file", OID: updatedFile.String()},
 					},
-					treeEntries: []gittest.TreeEntry{
+					treeEntries: []git.TreeEntry{
 						{Mode: DefaultMode, Path: "file", Content: "updated"},
 					},
 				},
@@ -509,7 +508,7 @@ func TestExecutor_Commit(t *testing.T) {
 					Message:   message,
 				}, getCommit(t, ctx, repo, commitID, tc.signAndVerify))
 
-				gittest.RequireTree(t, cfg, repoPath, commitID.String(), step.treeEntries)
+				git.RequireTree(t, cfg, repoPath, commitID.String(), step.treeEntries)
 				parentCommit = commitID
 			}
 		})

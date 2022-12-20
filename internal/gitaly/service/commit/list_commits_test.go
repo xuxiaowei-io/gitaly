@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -35,20 +35,20 @@ func TestListCommits(t *testing.T) {
 				},
 			},
 			expectedCommits: []*gitalypb.GitCommit{
-				gittest.CommitsByID["0031876facac3f2b2702a0e53a26e89939a42209"],
-				gittest.CommitsByID["bf6e164cac2dc32b1f391ca4290badcbe4ffc5fb"],
-				gittest.CommitsByID["48ca272b947f49eee601639d743784a176574a09"],
-				gittest.CommitsByID["9d526f87b82e2b2fd231ca44c95508e5e85624ca"],
-				gittest.CommitsByID["335bc94d5b7369b10251e612158da2e4a4aaa2a5"],
-				gittest.CommitsByID["1039376155a0d507eba0ea95c29f8f5b983ea34b"],
-				gittest.CommitsByID["54188278422b1fa877c2e71c4e37fc6640a58ad1"],
-				gittest.CommitsByID["8b9270332688d58e25206601900ee5618fab2390"],
-				gittest.CommitsByID["f9220df47bce1530e90c189064d301bfc8ceb5ab"],
-				gittest.CommitsByID["40d408f89c1fd26b7d02e891568f880afe06a9f8"],
-				gittest.CommitsByID["df914c609a1e16d7d68e4a61777ff5d6f6b6fde3"],
-				gittest.CommitsByID["6762605237fc246ae146ac64ecb467f71d609120"],
-				gittest.CommitsByID["79b06233d3dc769921576771a4e8bee4b439595d"],
-				gittest.CommitsByID["1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"],
+				git.CommitsByID["0031876facac3f2b2702a0e53a26e89939a42209"],
+				git.CommitsByID["bf6e164cac2dc32b1f391ca4290badcbe4ffc5fb"],
+				git.CommitsByID["48ca272b947f49eee601639d743784a176574a09"],
+				git.CommitsByID["9d526f87b82e2b2fd231ca44c95508e5e85624ca"],
+				git.CommitsByID["335bc94d5b7369b10251e612158da2e4a4aaa2a5"],
+				git.CommitsByID["1039376155a0d507eba0ea95c29f8f5b983ea34b"],
+				git.CommitsByID["54188278422b1fa877c2e71c4e37fc6640a58ad1"],
+				git.CommitsByID["8b9270332688d58e25206601900ee5618fab2390"],
+				git.CommitsByID["f9220df47bce1530e90c189064d301bfc8ceb5ab"],
+				git.CommitsByID["40d408f89c1fd26b7d02e891568f880afe06a9f8"],
+				git.CommitsByID["df914c609a1e16d7d68e4a61777ff5d6f6b6fde3"],
+				git.CommitsByID["6762605237fc246ae146ac64ecb467f71d609120"],
+				git.CommitsByID["79b06233d3dc769921576771a4e8bee4b439595d"],
+				git.CommitsByID["1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"],
 			},
 		},
 		{
@@ -63,8 +63,8 @@ func TestListCommits(t *testing.T) {
 				},
 			},
 			expectedCommits: []*gitalypb.GitCommit{
-				gittest.CommitsByID["0031876facac3f2b2702a0e53a26e89939a42209"],
-				gittest.CommitsByID["bf6e164cac2dc32b1f391ca4290badcbe4ffc5fb"],
+				git.CommitsByID["0031876facac3f2b2702a0e53a26e89939a42209"],
+				git.CommitsByID["bf6e164cac2dc32b1f391ca4290badcbe4ffc5fb"],
 			},
 		},
 		{
@@ -79,7 +79,7 @@ func TestListCommits(t *testing.T) {
 				},
 			},
 			expectedCommits: []*gitalypb.GitCommit{
-				gittest.CommitsByID["1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"],
+				git.CommitsByID["1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"],
 			},
 		},
 		{
@@ -92,9 +92,9 @@ func TestListCommits(t *testing.T) {
 				},
 			},
 			expectedCommits: []*gitalypb.GitCommit{
-				gittest.CommitsByID["0031876facac3f2b2702a0e53a26e89939a42209"],
-				gittest.CommitsByID["48ca272b947f49eee601639d743784a176574a09"],
-				gittest.CommitsByID["335bc94d5b7369b10251e612158da2e4a4aaa2a5"],
+				git.CommitsByID["0031876facac3f2b2702a0e53a26e89939a42209"],
+				git.CommitsByID["48ca272b947f49eee601639d743784a176574a09"],
+				git.CommitsByID["335bc94d5b7369b10251e612158da2e4a4aaa2a5"],
 			},
 		},
 		{
@@ -108,9 +108,9 @@ func TestListCommits(t *testing.T) {
 				Reverse: true,
 			},
 			expectedCommits: []*gitalypb.GitCommit{
-				gittest.CommitsByID["335bc94d5b7369b10251e612158da2e4a4aaa2a5"],
-				gittest.CommitsByID["48ca272b947f49eee601639d743784a176574a09"],
-				gittest.CommitsByID["0031876facac3f2b2702a0e53a26e89939a42209"],
+				git.CommitsByID["335bc94d5b7369b10251e612158da2e4a4aaa2a5"],
+				git.CommitsByID["48ca272b947f49eee601639d743784a176574a09"],
+				git.CommitsByID["0031876facac3f2b2702a0e53a26e89939a42209"],
 			},
 		},
 		{
@@ -126,12 +126,12 @@ func TestListCommits(t *testing.T) {
 				Order: gitalypb.ListCommitsRequest_TOPO,
 			},
 			expectedCommits: []*gitalypb.GitCommit{
-				gittest.CommitsByID["60ecb67744cb56576c30214ff52294f8ce2def98"],
-				gittest.CommitsByID["55bc176024cfa3baaceb71db584c7e5df900ea65"],
-				gittest.CommitsByID["e63f41fe459e62e1228fcef60d7189127aeba95a"],
-				gittest.CommitsByID["4a24d82dbca5c11c61556f3b35ca472b7463187e"],
+				git.CommitsByID["60ecb67744cb56576c30214ff52294f8ce2def98"],
+				git.CommitsByID["55bc176024cfa3baaceb71db584c7e5df900ea65"],
+				git.CommitsByID["e63f41fe459e62e1228fcef60d7189127aeba95a"],
+				git.CommitsByID["4a24d82dbca5c11c61556f3b35ca472b7463187e"],
 				// This commit is sorted differently compared to the following test.
-				gittest.CommitsByID["ce369011c189f62c815f5971d096b26759bab0d1"],
+				git.CommitsByID["ce369011c189f62c815f5971d096b26759bab0d1"],
 			},
 		},
 		{
@@ -147,12 +147,12 @@ func TestListCommits(t *testing.T) {
 				Order: gitalypb.ListCommitsRequest_DATE,
 			},
 			expectedCommits: []*gitalypb.GitCommit{
-				gittest.CommitsByID["60ecb67744cb56576c30214ff52294f8ce2def98"],
-				gittest.CommitsByID["55bc176024cfa3baaceb71db584c7e5df900ea65"],
+				git.CommitsByID["60ecb67744cb56576c30214ff52294f8ce2def98"],
+				git.CommitsByID["55bc176024cfa3baaceb71db584c7e5df900ea65"],
 				// This commit is sorted differently compared to the preceding test.
-				gittest.CommitsByID["ce369011c189f62c815f5971d096b26759bab0d1"],
-				gittest.CommitsByID["e63f41fe459e62e1228fcef60d7189127aeba95a"],
-				gittest.CommitsByID["4a24d82dbca5c11c61556f3b35ca472b7463187e"],
+				git.CommitsByID["ce369011c189f62c815f5971d096b26759bab0d1"],
+				git.CommitsByID["e63f41fe459e62e1228fcef60d7189127aeba95a"],
+				git.CommitsByID["4a24d82dbca5c11c61556f3b35ca472b7463187e"],
 			},
 		},
 		{
@@ -177,19 +177,19 @@ func TestListCommits(t *testing.T) {
 				MaxParents: 1,
 			},
 			expectedCommits: []*gitalypb.GitCommit{
-				gittest.CommitsByID["bf6e164cac2dc32b1f391ca4290badcbe4ffc5fb"],
-				gittest.CommitsByID["48ca272b947f49eee601639d743784a176574a09"],
-				gittest.CommitsByID["9d526f87b82e2b2fd231ca44c95508e5e85624ca"],
-				gittest.CommitsByID["335bc94d5b7369b10251e612158da2e4a4aaa2a5"],
-				gittest.CommitsByID["1039376155a0d507eba0ea95c29f8f5b983ea34b"],
-				gittest.CommitsByID["54188278422b1fa877c2e71c4e37fc6640a58ad1"],
-				gittest.CommitsByID["8b9270332688d58e25206601900ee5618fab2390"],
-				gittest.CommitsByID["f9220df47bce1530e90c189064d301bfc8ceb5ab"],
-				gittest.CommitsByID["40d408f89c1fd26b7d02e891568f880afe06a9f8"],
-				gittest.CommitsByID["df914c609a1e16d7d68e4a61777ff5d6f6b6fde3"],
-				gittest.CommitsByID["6762605237fc246ae146ac64ecb467f71d609120"],
-				gittest.CommitsByID["79b06233d3dc769921576771a4e8bee4b439595d"],
-				gittest.CommitsByID["1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"],
+				git.CommitsByID["bf6e164cac2dc32b1f391ca4290badcbe4ffc5fb"],
+				git.CommitsByID["48ca272b947f49eee601639d743784a176574a09"],
+				git.CommitsByID["9d526f87b82e2b2fd231ca44c95508e5e85624ca"],
+				git.CommitsByID["335bc94d5b7369b10251e612158da2e4a4aaa2a5"],
+				git.CommitsByID["1039376155a0d507eba0ea95c29f8f5b983ea34b"],
+				git.CommitsByID["54188278422b1fa877c2e71c4e37fc6640a58ad1"],
+				git.CommitsByID["8b9270332688d58e25206601900ee5618fab2390"],
+				git.CommitsByID["f9220df47bce1530e90c189064d301bfc8ceb5ab"],
+				git.CommitsByID["40d408f89c1fd26b7d02e891568f880afe06a9f8"],
+				git.CommitsByID["df914c609a1e16d7d68e4a61777ff5d6f6b6fde3"],
+				git.CommitsByID["6762605237fc246ae146ac64ecb467f71d609120"],
+				git.CommitsByID["79b06233d3dc769921576771a4e8bee4b439595d"],
+				git.CommitsByID["1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"],
 			},
 		},
 		{
@@ -202,7 +202,7 @@ func TestListCommits(t *testing.T) {
 				DisableWalk: true,
 			},
 			expectedCommits: []*gitalypb.GitCommit{
-				gittest.CommitsByID["0031876facac3f2b2702a0e53a26e89939a42209"],
+				git.CommitsByID["0031876facac3f2b2702a0e53a26e89939a42209"],
 			},
 		},
 		{
@@ -215,18 +215,18 @@ func TestListCommits(t *testing.T) {
 				FirstParent: true,
 			},
 			expectedCommits: []*gitalypb.GitCommit{
-				gittest.CommitsByID["0031876facac3f2b2702a0e53a26e89939a42209"],
-				gittest.CommitsByID["bf6e164cac2dc32b1f391ca4290badcbe4ffc5fb"],
-				gittest.CommitsByID["9d526f87b82e2b2fd231ca44c95508e5e85624ca"],
-				gittest.CommitsByID["1039376155a0d507eba0ea95c29f8f5b983ea34b"],
-				gittest.CommitsByID["54188278422b1fa877c2e71c4e37fc6640a58ad1"],
-				gittest.CommitsByID["8b9270332688d58e25206601900ee5618fab2390"],
-				gittest.CommitsByID["f9220df47bce1530e90c189064d301bfc8ceb5ab"],
-				gittest.CommitsByID["40d408f89c1fd26b7d02e891568f880afe06a9f8"],
-				gittest.CommitsByID["df914c609a1e16d7d68e4a61777ff5d6f6b6fde3"],
-				gittest.CommitsByID["6762605237fc246ae146ac64ecb467f71d609120"],
-				gittest.CommitsByID["79b06233d3dc769921576771a4e8bee4b439595d"],
-				gittest.CommitsByID["1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"],
+				git.CommitsByID["0031876facac3f2b2702a0e53a26e89939a42209"],
+				git.CommitsByID["bf6e164cac2dc32b1f391ca4290badcbe4ffc5fb"],
+				git.CommitsByID["9d526f87b82e2b2fd231ca44c95508e5e85624ca"],
+				git.CommitsByID["1039376155a0d507eba0ea95c29f8f5b983ea34b"],
+				git.CommitsByID["54188278422b1fa877c2e71c4e37fc6640a58ad1"],
+				git.CommitsByID["8b9270332688d58e25206601900ee5618fab2390"],
+				git.CommitsByID["f9220df47bce1530e90c189064d301bfc8ceb5ab"],
+				git.CommitsByID["40d408f89c1fd26b7d02e891568f880afe06a9f8"],
+				git.CommitsByID["df914c609a1e16d7d68e4a61777ff5d6f6b6fde3"],
+				git.CommitsByID["6762605237fc246ae146ac64ecb467f71d609120"],
+				git.CommitsByID["79b06233d3dc769921576771a4e8bee4b439595d"],
+				git.CommitsByID["1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"],
 			},
 		},
 		{
@@ -239,7 +239,7 @@ func TestListCommits(t *testing.T) {
 				Author: []byte("Dmitriy"),
 			},
 			expectedCommits: []*gitalypb.GitCommit{
-				gittest.CommitsByID["1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"],
+				git.CommitsByID["1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"],
 			},
 		},
 		{
@@ -257,7 +257,7 @@ func TestListCommits(t *testing.T) {
 				},
 			},
 			expectedCommits: []*gitalypb.GitCommit{
-				gittest.CommitsByID["1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"],
+				git.CommitsByID["1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"],
 			},
 		},
 		{
@@ -273,8 +273,8 @@ func TestListCommits(t *testing.T) {
 				},
 			},
 			expectedCommits: []*gitalypb.GitCommit{
-				gittest.CommitsByID["bf6e164cac2dc32b1f391ca4290badcbe4ffc5fb"],
-				gittest.CommitsByID["48ca272b947f49eee601639d743784a176574a09"],
+				git.CommitsByID["bf6e164cac2dc32b1f391ca4290badcbe4ffc5fb"],
+				git.CommitsByID["48ca272b947f49eee601639d743784a176574a09"],
 			},
 		},
 		{
@@ -290,8 +290,8 @@ func TestListCommits(t *testing.T) {
 				},
 			},
 			expectedCommits: []*gitalypb.GitCommit{
-				gittest.CommitsByID["bf6e164cac2dc32b1f391ca4290badcbe4ffc5fb"],
-				gittest.CommitsByID["79b06233d3dc769921576771a4e8bee4b439595d"],
+				git.CommitsByID["bf6e164cac2dc32b1f391ca4290badcbe4ffc5fb"],
+				git.CommitsByID["79b06233d3dc769921576771a4e8bee4b439595d"],
 			},
 		},
 	} {

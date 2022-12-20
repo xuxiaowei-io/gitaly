@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -28,7 +28,7 @@ func TestRepositoryExists(t *testing.T) {
 	client, socketPath := runRepositoryService(t, cfg, nil)
 	cfg.SocketPath = socketPath
 
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{})
+	repo, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{})
 
 	queries := []struct {
 		desc        string

@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -16,10 +15,10 @@ func TestHasLocalBranches_successful(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	populatedRepo, populatedRepoPath := gittest.CreateRepository(t, ctx, cfg)
-	gittest.WriteCommit(t, cfg, populatedRepoPath, gittest.WithBranch("main"))
+	populatedRepo, populatedRepoPath := git.CreateRepository(t, ctx, cfg)
+	git.WriteTestCommit(t, cfg, populatedRepoPath, git.WithBranch("main"))
 
-	emptyRepo, _ := gittest.CreateRepository(t, ctx, cfg)
+	emptyRepo, _ := git.CreateRepository(t, ctx, cfg)
 
 	for _, tc := range []struct {
 		desc             string

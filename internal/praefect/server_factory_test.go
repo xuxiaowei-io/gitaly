@@ -18,7 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/bootstrap/starter"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	gconfig "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
@@ -70,7 +70,7 @@ func TestServerFactory(t *testing.T) {
 	}
 
 	repo.StorageName = conf.VirtualStorages[0].Name // storage must be re-written to virtual to be properly redirected by praefect
-	revision := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD"))
+	revision := text.ChompBytes(git.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD"))
 
 	logger := testhelper.NewDiscardingLogEntry(t)
 	queue := datastore.NewPostgresReplicationEventQueue(testdb.New(t))
@@ -173,7 +173,7 @@ func TestServerFactory(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, waiter.Close())
 
-		gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: bytes.NewReader(pack)},
+		git.ExecOpts(t, cfg, git.ExecConfig{Stdin: bytes.NewReader(pack)},
 			"-C", repoPath, "index-pack", "--stdin", "--fix-thin",
 		)
 	}

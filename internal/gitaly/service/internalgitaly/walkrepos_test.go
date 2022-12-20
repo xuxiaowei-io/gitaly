@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -47,19 +47,19 @@ func TestWalkRepos(t *testing.T) {
 
 	// file walk happens lexicographically, so we delete repository in the middle
 	// of the sequence to ensure the walk proceeds normally
-	testRepo1, testRepo1Path := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	testRepo1, testRepo1Path := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
+		Seed:                   git.SeedGitLabTest,
 		RelativePath:           "a",
 	})
-	deletedRepo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	deletedRepo, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
+		Seed:                   git.SeedGitLabTest,
 		RelativePath:           "b",
 	})
-	testRepo2, testRepo2Path := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	testRepo2, testRepo2Path := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
+		Seed:                   git.SeedGitLabTest,
 		RelativePath:           "c",
 	})
 

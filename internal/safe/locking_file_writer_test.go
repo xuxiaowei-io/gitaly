@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -295,7 +295,7 @@ func TestLockingFileWriter_externalProcess(t *testing.T) {
 	writer, err := safe.NewLockingFileWriter(target)
 	require.NoError(t, err)
 
-	gittest.Exec(t, cfg, "config", "-f", writer.Path(), "some.config", "true")
+	git.Exec(t, cfg, "config", "-f", writer.Path(), "some.config", "true")
 	require.NoError(t, writer.Lock())
 	require.NoError(t, writer.Commit())
 

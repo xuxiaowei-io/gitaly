@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -24,18 +24,18 @@ func TestWriteCommitGraph_withExistingCommitGraphCreatedWithDefaults(t *testing.
 	requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{})
 
 	// write commit graph using an old approach
-	gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable")
+	git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable")
 	requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{
 		Exists: true,
 	})
 
-	treeEntry := gittest.TreeEntry{Mode: "100644", Path: "file.txt", Content: "something"}
-	gittest.WriteCommit(
+	treeEntry := git.TreeEntry{Mode: "100644", Path: "file.txt", Content: "something"}
+	git.WriteTestCommit(
 		t,
 		cfg,
 		repoPath,
-		gittest.WithBranch(t.Name()),
-		gittest.WithTreeEntries(treeEntry),
+		git.WithBranch(t.Name()),
+		git.WithTreeEntries(treeEntry),
 	)
 
 	//nolint:staticcheck
@@ -61,19 +61,19 @@ func TestWriteCommitGraph_withExistingCommitGraphCreatedWithSplit(t *testing.T) 
 	requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{})
 
 	// write commit graph chain
-	gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split")
+	git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split")
 	requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{
 		Exists:                 true,
 		CommitGraphChainLength: 1,
 	})
 
-	treeEntry := gittest.TreeEntry{Mode: "100644", Path: "file.txt", Content: "something"}
-	gittest.WriteCommit(
+	treeEntry := git.TreeEntry{Mode: "100644", Path: "file.txt", Content: "something"}
+	git.WriteTestCommit(
 		t,
 		cfg,
 		repoPath,
-		gittest.WithBranch(t.Name()),
-		gittest.WithTreeEntries(treeEntry),
+		git.WithBranch(t.Name()),
+		git.WithTreeEntries(treeEntry),
 	)
 
 	//nolint:staticcheck
@@ -186,13 +186,13 @@ func TestUpdateCommitGraph(t *testing.T) {
 		CommitGraphChainLength: 1,
 	})
 
-	treeEntry := gittest.TreeEntry{Mode: "100644", Path: "file.txt", Content: "something"}
-	gittest.WriteCommit(
+	treeEntry := git.TreeEntry{Mode: "100644", Path: "file.txt", Content: "something"}
+	git.WriteTestCommit(
 		t,
 		cfg,
 		repoPath,
-		gittest.WithBranch(t.Name()),
-		gittest.WithTreeEntries(treeEntry),
+		git.WithBranch(t.Name()),
+		git.WithTreeEntries(treeEntry),
 	)
 
 	//nolint:staticcheck

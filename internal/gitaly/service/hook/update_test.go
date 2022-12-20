@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -67,7 +66,7 @@ func TestUpdate_CustomHooks(t *testing.T) {
 	}
 
 	errorMsg := "error123"
-	gittest.WriteCustomHook(t, repoPath, "update", []byte(fmt.Sprintf(`#!/bin/bash
+	git.WriteCustomHook(t, repoPath, "update", []byte(fmt.Sprintf(`#!/bin/bash
 echo %s 1>&2
 exit 1
 `, errorMsg)))

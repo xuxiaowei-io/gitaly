@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
@@ -102,12 +101,12 @@ func TestUserCreateBranch_successful(t *testing.T) {
 				Repository: repoProto,
 				BranchName: []byte(branchName),
 				StartPoint: []byte(testCase.startPoint),
-				User:       gittest.TestUser,
+				User:       git.TestUser,
 			}
 
 			response, err := client.UserCreateBranch(ctx, request)
 			if testCase.expectedBranch != nil {
-				defer gittest.Exec(t, cfg, "-C", repoPath, "branch", "-D", branchName)
+				defer git.Exec(t, cfg, "-C", repoPath, "branch", "-D", branchName)
 			}
 
 			require.NoError(t, err)
@@ -115,7 +114,7 @@ func TestUserCreateBranch_successful(t *testing.T) {
 			//nolint:staticcheck
 			require.Empty(t, response.PreReceiveError)
 
-			branches := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs/heads/"+branchName)
+			branches := git.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs/heads/"+branchName)
 			require.Contains(t, string(branches), "refs/heads/"+branchName)
 		})
 	}
@@ -162,7 +161,7 @@ func TestUserCreateBranch_Transactions(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
-			defer gittest.Exec(t, cfg, "-C", repoPath, "branch", "-D", "new-branch")
+			defer git.Exec(t, cfg, "-C", repoPath, "branch", "-D", "new-branch")
 
 			ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 			require.NoError(t, err)
@@ -183,7 +182,7 @@ func TestUserCreateBranch_Transactions(t *testing.T) {
 				Repository: repo,
 				BranchName: []byte("new-branch"),
 				StartPoint: []byte("c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd"),
-				User:       gittest.TestUser,
+				User:       git.TestUser,
 			}
 
 			transactionServer.called = 0
@@ -207,14 +206,14 @@ func TestUserCreateBranch_hook(t *testing.T) {
 		Repository: repo,
 		BranchName: []byte(branchName),
 		StartPoint: []byte("c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd"),
-		User:       gittest.TestUser,
+		User:       git.TestUser,
 	}
 
 	for _, hookName := range GitlabHooks {
 		t.Run(hookName, func(t *testing.T) {
-			defer gittest.Exec(t, cfg, "-C", repoPath, "branch", "-D", branchName)
+			defer git.Exec(t, cfg, "-C", repoPath, "branch", "-D", branchName)
 
-			hookOutputTempPath := gittest.WriteEnvToCustomHook(t, repoPath, hookName)
+			hookOutputTempPath := git.WriteEnvToCustomHook(t, repoPath, hookName)
 
 			response, err := client.UserCreateBranch(ctx, request)
 			require.NoError(t, err)
@@ -222,7 +221,7 @@ func TestUserCreateBranch_hook(t *testing.T) {
 			require.Empty(t, response.PreReceiveError)
 
 			output := string(testhelper.MustReadFile(t, hookOutputTempPath))
-			require.Contains(t, output, "GL_USERNAME="+gittest.TestUser.GlUsername)
+			require.Contains(t, output, "GL_USERNAME="+git.TestUser.GlUsername)
 		})
 	}
 }
@@ -252,20 +251,20 @@ func TestUserCreateBranch_startPoint(t *testing.T) {
 			branchName:       "topic",
 			startPoint:       "heads/master",
 			startPointCommit: "9a944d90955aaf45f6d0c88f30e27f8d2c41cec0", // TODO: see below
-			user:             gittest.TestUser,
+			user:             git.TestUser,
 		},
 		{
 			desc:             "the StartPoint parameter does DWYM references (boo!) 2",
 			branchName:       "topic2",
 			startPoint:       "refs/heads/master",
 			startPointCommit: "c642fe9b8b9f28f9225d7ea953fe14e74748d53b", // TODO: see below
-			user:             gittest.TestUser,
+			user:             git.TestUser,
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/"+testCase.startPoint,
+			git.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/"+testCase.startPoint,
 				testCase.startPointCommit,
 				git.ObjectHashSHA1.ZeroOID.String(),
 			)
@@ -294,7 +293,7 @@ func TestUserCreateBranch_startPoint(t *testing.T) {
 				},
 			}
 			testhelper.ProtoEqual(t, responseOk, response)
-			branches := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs/heads/"+testCase.branchName)
+			branches := git.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs/heads/"+testCase.branchName)
 			require.Contains(t, string(branches), "refs/heads/"+testCase.branchName)
 		})
 	}
@@ -310,15 +309,15 @@ func TestUserCreateBranch_hookFailure(t *testing.T) {
 		Repository: repo,
 		BranchName: []byte("new-branch"),
 		StartPoint: []byte("c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd"),
-		User:       gittest.TestUser,
+		User:       git.TestUser,
 	}
 
 	hookContent := []byte("#!/bin/sh\necho GL_ID=$GL_ID\nexit 1")
 
-	expectedObject := "GL_ID=" + gittest.TestUser.GlId
+	expectedObject := "GL_ID=" + git.TestUser.GlId
 
 	for _, hookName := range gitlabPreHooks {
-		gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
+		git.WriteCustomHook(t, repoPath, hookName, hookContent)
 
 		_, err := client.UserCreateBranch(ctx, request)
 
@@ -355,7 +354,7 @@ func TestUserCreateBranch_Failure(t *testing.T) {
 			repo:       nil,
 			branchName: "shiny-new-branch",
 			startPoint: "",
-			user:       gittest.TestUser,
+			user:       git.TestUser,
 			err: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
@@ -366,7 +365,7 @@ func TestUserCreateBranch_Failure(t *testing.T) {
 			repo:       repo,
 			branchName: "shiny-new-branch",
 			startPoint: "",
-			user:       gittest.TestUser,
+			user:       git.TestUser,
 			err:        status.Error(codes.InvalidArgument, "empty start point"),
 		},
 		{
@@ -382,7 +381,7 @@ func TestUserCreateBranch_Failure(t *testing.T) {
 			repo:       repo,
 			branchName: "new-branch",
 			startPoint: "i-dont-exist",
-			user:       gittest.TestUser,
+			user:       git.TestUser,
 			err:        status.Errorf(codes.FailedPrecondition, "revspec '%s' not found", "i-dont-exist"),
 		},
 		{
@@ -390,7 +389,7 @@ func TestUserCreateBranch_Failure(t *testing.T) {
 			repo:       repo,
 			branchName: "master",
 			startPoint: "master",
-			user:       gittest.TestUser,
+			user:       git.TestUser,
 			err:        status.Errorf(codes.FailedPrecondition, "Could not update refs/heads/master. Please refresh and try again."),
 		},
 		{
@@ -398,7 +397,7 @@ func TestUserCreateBranch_Failure(t *testing.T) {
 			repo:       repo,
 			branchName: "improve",
 			startPoint: "master",
-			user:       gittest.TestUser,
+			user:       git.TestUser,
 			err:        status.Errorf(codes.FailedPrecondition, "Could not update refs/heads/improve. Please refresh and try again."),
 		},
 	}
@@ -440,16 +439,16 @@ func TestUserDeleteBranch(t *testing.T) {
 		{
 			desc: "simple successful deletion without ExpectedOldOID",
 			setup: func() setupResponse {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
 
-				firstCommit := gittest.WriteCommit(t, cfg, repoPath)
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithParents(firstCommit))
+				firstCommit := git.WriteTestCommit(t, cfg, repoPath)
+				git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("master"), git.WithParents(firstCommit))
 
-				gittest.Exec(t, cfg, "-C", repoPath, "branch", "to-attempt-to-delete-soon-branch", "master")
+				git.Exec(t, cfg, "-C", repoPath, "branch", "to-attempt-to-delete-soon-branch", "master")
 
 				return setupResponse{
 					request: &gitalypb.UserDeleteBranchRequest{
-						User:       gittest.TestUser,
+						User:       git.TestUser,
 						Repository: repoProto,
 						BranchName: []byte("to-attempt-to-delete-soon-branch"),
 					},
@@ -462,16 +461,16 @@ func TestUserDeleteBranch(t *testing.T) {
 		{
 			desc: "simple successful deletion with ExpectedOldOID",
 			setup: func() setupResponse {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
 
-				firstCommit := gittest.WriteCommit(t, cfg, repoPath)
-				headCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithParents(firstCommit))
+				firstCommit := git.WriteTestCommit(t, cfg, repoPath)
+				headCommit := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("master"), git.WithParents(firstCommit))
 
-				gittest.Exec(t, cfg, "-C", repoPath, "branch", "to-attempt-to-delete-soon-branch", "master")
+				git.Exec(t, cfg, "-C", repoPath, "branch", "to-attempt-to-delete-soon-branch", "master")
 
 				return setupResponse{
 					request: &gitalypb.UserDeleteBranchRequest{
-						User:           gittest.TestUser,
+						User:           git.TestUser,
 						Repository:     repoProto,
 						BranchName:     []byte("to-attempt-to-delete-soon-branch"),
 						ExpectedOldOid: headCommit.String(),
@@ -487,16 +486,16 @@ func TestUserDeleteBranch(t *testing.T) {
 			setup: func() setupResponse {
 				branchName := "heads/to-attempt-to-delete-soon-branch"
 
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
 
-				firstCommit := gittest.WriteCommit(t, cfg, repoPath)
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithParents(firstCommit))
+				firstCommit := git.WriteTestCommit(t, cfg, repoPath)
+				git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("master"), git.WithParents(firstCommit))
 
-				gittest.Exec(t, cfg, "-C", repoPath, "branch", branchName, "master")
+				git.Exec(t, cfg, "-C", repoPath, "branch", branchName, "master")
 
 				return setupResponse{
 					request: &gitalypb.UserDeleteBranchRequest{
-						User:       gittest.TestUser,
+						User:       git.TestUser,
 						Repository: repoProto,
 						BranchName: []byte(branchName),
 					},
@@ -511,16 +510,16 @@ func TestUserDeleteBranch(t *testing.T) {
 			setup: func() setupResponse {
 				branchName := "refs/heads/branch"
 
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
 
-				firstCommit := gittest.WriteCommit(t, cfg, repoPath)
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithParents(firstCommit))
+				firstCommit := git.WriteTestCommit(t, cfg, repoPath)
+				git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("master"), git.WithParents(firstCommit))
 
-				gittest.Exec(t, cfg, "-C", repoPath, "branch", branchName, "master")
+				git.Exec(t, cfg, "-C", repoPath, "branch", branchName, "master")
 
 				return setupResponse{
 					request: &gitalypb.UserDeleteBranchRequest{
-						User:       gittest.TestUser,
+						User:       git.TestUser,
 						Repository: repoProto,
 						BranchName: []byte(branchName),
 					},
@@ -535,16 +534,16 @@ func TestUserDeleteBranch(t *testing.T) {
 			setup: func() setupResponse {
 				branchName := "random-branch"
 
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
 
-				firstCommit := gittest.WriteCommit(t, cfg, repoPath)
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithParents(firstCommit))
+				firstCommit := git.WriteTestCommit(t, cfg, repoPath)
+				git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("master"), git.WithParents(firstCommit))
 
-				gittest.Exec(t, cfg, "-C", repoPath, "branch", branchName, "master")
+				git.Exec(t, cfg, "-C", repoPath, "branch", branchName, "master")
 
 				return setupResponse{
 					request: &gitalypb.UserDeleteBranchRequest{
-						User:           gittest.TestUser,
+						User:           git.TestUser,
 						Repository:     repoProto,
 						BranchName:     []byte(branchName),
 						ExpectedOldOid: "foobar",
@@ -560,19 +559,19 @@ func TestUserDeleteBranch(t *testing.T) {
 			setup: func() setupResponse {
 				branchName := "random-branch"
 
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
 
-				firstCommit := gittest.WriteCommit(t, cfg, repoPath)
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithParents(firstCommit))
+				firstCommit := git.WriteTestCommit(t, cfg, repoPath)
+				git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("master"), git.WithParents(firstCommit))
 
-				gittest.Exec(t, cfg, "-C", repoPath, "branch", branchName, "master")
+				git.Exec(t, cfg, "-C", repoPath, "branch", branchName, "master")
 
 				return setupResponse{
 					request: &gitalypb.UserDeleteBranchRequest{
-						User:           gittest.TestUser,
+						User:           git.TestUser,
 						Repository:     repoProto,
 						BranchName:     []byte(branchName),
-						ExpectedOldOid: gittest.DefaultObjectHash.ZeroOID.String(),
+						ExpectedOldOid: git.DefaultObjectHash.ZeroOID.String(),
 					},
 					repoPath:     repoPath,
 					expectedErr:  structerr.NewInvalidArgument("cannot resolve expected old object ID: reference not found"),
@@ -585,16 +584,16 @@ func TestUserDeleteBranch(t *testing.T) {
 			setup: func() setupResponse {
 				branchName := "random-branch"
 
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
 
-				firstCommit := gittest.WriteCommit(t, cfg, repoPath)
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithParents(firstCommit))
+				firstCommit := git.WriteTestCommit(t, cfg, repoPath)
+				git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("master"), git.WithParents(firstCommit))
 
-				gittest.Exec(t, cfg, "-C", repoPath, "branch", branchName, "master")
+				git.Exec(t, cfg, "-C", repoPath, "branch", branchName, "master")
 
 				return setupResponse{
 					request: &gitalypb.UserDeleteBranchRequest{
-						User:           gittest.TestUser,
+						User:           git.TestUser,
 						Repository:     repoProto,
 						BranchName:     []byte(branchName),
 						ExpectedOldOid: firstCommit.String(),
@@ -606,7 +605,7 @@ func TestUserDeleteBranch(t *testing.T) {
 								ReferenceUpdate: &gitalypb.ReferenceUpdateError{
 									ReferenceName: []byte("refs/heads/" + branchName),
 									OldOid:        firstCommit.String(),
-									NewOid:        gittest.DefaultObjectHash.ZeroOID.String(),
+									NewOid:        git.DefaultObjectHash.ZeroOID.String(),
 								},
 							},
 						}),
@@ -628,7 +627,7 @@ func TestUserDeleteBranch(t *testing.T) {
 			testhelper.RequireGrpcError(t, data.expectedErr, err)
 			testhelper.ProtoEqual(t, data.expectedResponse, response)
 
-			refs := text.ChompBytes(gittest.Exec(t, cfg, "-C", data.repoPath, "for-each-ref", "--format=%(refname:short)", "--", "refs/heads/"))
+			refs := text.ChompBytes(git.Exec(t, cfg, "-C", data.repoPath, "for-each-ref", "--format=%(refname:short)", "--", "refs/heads/"))
 			require.ElementsMatch(t, strings.Split(refs, "\n"), data.expectedRefs)
 		})
 	}
@@ -698,13 +697,13 @@ func TestUserDeleteBranch_allowed(t *testing.T) {
 				gitlab.NewMockClient(t, tc.allowed, gitlab.MockPreReceive, gitlab.MockPostReceive),
 			))
 
-			repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
-			gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"))
+			repo, repoPath := git.CreateRepository(t, ctx, cfg)
+			git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("branch"))
 
 			response, err := client.UserDeleteBranch(ctx, &gitalypb.UserDeleteBranchRequest{
 				Repository: repo,
 				BranchName: []byte("branch"),
-				User:       gittest.TestUser,
+				User:       git.TestUser,
 			})
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 			testhelper.ProtoEqual(t, tc.expectedResponse, response)
@@ -719,7 +718,7 @@ func TestUserDeleteBranch_concurrentUpdate(t *testing.T) {
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("concurrent-update"))
+	commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("concurrent-update"))
 
 	// Create a git-update-ref(1) process that's locking the "concurrent-update" branch. We do
 	// not commit the update yet though to keep the reference locked to simulate concurrent
@@ -735,7 +734,7 @@ func TestUserDeleteBranch_concurrentUpdate(t *testing.T) {
 	response, err := client.UserDeleteBranch(ctx, &gitalypb.UserDeleteBranchRequest{
 		Repository: repo,
 		BranchName: []byte("concurrent-update"),
-		User:       gittest.TestUser,
+		User:       git.TestUser,
 	})
 	testhelper.RequireGrpcError(t, structerr.NewFailedPrecondition("reference update failed: Could not update refs/heads/concurrent-update. Please refresh and try again.").WithDetail(
 		&gitalypb.UserDeleteBranchError{
@@ -763,20 +762,20 @@ func TestUserDeleteBranch_hooks(t *testing.T) {
 	request := &gitalypb.UserDeleteBranchRequest{
 		Repository: repo,
 		BranchName: []byte(branchNameInput),
-		User:       gittest.TestUser,
+		User:       git.TestUser,
 	}
 
 	for _, hookName := range GitlabHooks {
 		t.Run(hookName, func(t *testing.T) {
-			gittest.Exec(t, cfg, "-C", repoPath, "branch", branchNameInput)
+			git.Exec(t, cfg, "-C", repoPath, "branch", branchNameInput)
 
-			hookOutputTempPath := gittest.WriteEnvToCustomHook(t, repoPath, hookName)
+			hookOutputTempPath := git.WriteEnvToCustomHook(t, repoPath, hookName)
 
 			_, err := client.UserDeleteBranch(ctx, request)
 			require.NoError(t, err)
 
 			output := testhelper.MustReadFile(t, hookOutputTempPath)
-			require.Contains(t, string(output), "GL_USERNAME="+gittest.TestUser.GlUsername)
+			require.Contains(t, string(output), "GL_USERNAME="+git.TestUser.GlUsername)
 		})
 	}
 }
@@ -792,9 +791,9 @@ func TestUserDeleteBranch_transaction(t *testing.T) {
 	// delete the packed-refs reference, and one to delete the loose ref. But given that we want
 	// to be independent of how well-packed refs are, we expect to get a single transactional
 	// vote, only.
-	gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/delete-me", "master~")
-	gittest.Exec(t, cfg, "-C", repoPath, "pack-refs", "--all")
-	gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/delete-me", "master")
+	git.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/delete-me", "master~")
+	git.Exec(t, cfg, "-C", repoPath, "pack-refs", "--all")
+	git.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/delete-me", "master")
 
 	transactionServer := &testTransactionServer{}
 
@@ -829,7 +828,7 @@ func TestUserDeleteBranch_transaction(t *testing.T) {
 	_, err = client.UserDeleteBranch(ctx, &gitalypb.UserDeleteBranchRequest{
 		Repository: repo,
 		BranchName: []byte("delete-me"),
-		User:       gittest.TestUser,
+		User:       git.TestUser,
 	})
 	require.NoError(t, err)
 	require.Equal(t, 2, transactionServer.called)
@@ -861,7 +860,7 @@ func TestUserDeleteBranch_invalidArgument(t *testing.T) {
 			desc: "empty branch name",
 			request: &gitalypb.UserDeleteBranchRequest{
 				Repository: repo,
-				User:       gittest.TestUser,
+				User:       git.TestUser,
 			},
 			response: nil,
 			err:      status.Error(codes.InvalidArgument, "bad request: empty branch name"),
@@ -870,7 +869,7 @@ func TestUserDeleteBranch_invalidArgument(t *testing.T) {
 			desc: "non-existent branch name",
 			request: &gitalypb.UserDeleteBranchRequest{
 				Repository: repo,
-				User:       gittest.TestUser,
+				User:       git.TestUser,
 				BranchName: []byte("i-do-not-exist"),
 			},
 			response: nil,
@@ -895,12 +894,12 @@ func TestUserDeleteBranch_hookFailure(t *testing.T) {
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	branchNameInput := "to-be-deleted-soon-branch"
-	gittest.Exec(t, cfg, "-C", repoPath, "branch", branchNameInput)
+	git.Exec(t, cfg, "-C", repoPath, "branch", branchNameInput)
 
 	request := &gitalypb.UserDeleteBranchRequest{
 		Repository: repo,
 		BranchName: []byte(branchNameInput),
-		User:       gittest.TestUser,
+		User:       git.TestUser,
 	}
 
 	hookContent := []byte("#!/bin/sh\necho GL_ID=$GL_ID\nexit 1")
@@ -919,7 +918,7 @@ func TestUserDeleteBranch_hookFailure(t *testing.T) {
 		},
 	} {
 		t.Run(tc.hookName, func(t *testing.T) {
-			gittest.WriteCustomHook(t, repoPath, tc.hookName, hookContent)
+			git.WriteCustomHook(t, repoPath, tc.hookName, hookContent)
 
 			response, err := client.UserDeleteBranch(ctx, request)
 			testhelper.RequireGrpcError(t, structerr.NewPermissionDenied("deletion denied by custom hooks: running %s hooks: %s\n", tc.hookName, "GL_ID=user-123").WithDetail(
@@ -935,7 +934,7 @@ func TestUserDeleteBranch_hookFailure(t *testing.T) {
 
 			require.Nil(t, response)
 
-			branches := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs/heads/"+branchNameInput)
+			branches := git.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs/heads/"+branchNameInput)
 			require.Contains(t, string(branches), branchNameInput, "branch name does not exist in branches list")
 		})
 	}
@@ -1016,15 +1015,15 @@ func TestBranchHookOutput(t *testing.T) {
 					Repository: repo,
 					BranchName: []byte(branchNameInput),
 					StartPoint: []byte("master"),
-					User:       gittest.TestUser,
+					User:       git.TestUser,
 				}
 				deleteRequest := &gitalypb.UserDeleteBranchRequest{
 					Repository: repo,
 					BranchName: []byte(branchNameInput),
-					User:       gittest.TestUser,
+					User:       git.TestUser,
 				}
 
-				hookFilename := gittest.WriteCustomHook(t, repoPath, hookTestCase.hookName, []byte(testCase.hookContent))
+				hookFilename := git.WriteCustomHook(t, repoPath, hookTestCase.hookName, []byte(testCase.hookContent))
 				expectedError := testCase.output(hookFilename)
 
 				_, err := client.UserCreateBranch(ctx, createRequest)
@@ -1041,8 +1040,8 @@ func TestBranchHookOutput(t *testing.T) {
 					},
 				), err)
 
-				gittest.Exec(t, cfg, "-C", repoPath, "branch", branchNameInput)
-				defer gittest.Exec(t, cfg, "-C", repoPath, "branch", "-d", branchNameInput)
+				git.Exec(t, cfg, "-C", repoPath, "branch", branchNameInput)
+				defer git.Exec(t, cfg, "-C", repoPath, "branch", "-d", branchNameInput)
 
 				deleteResponse, err := client.UserDeleteBranch(ctx, deleteRequest)
 				testhelper.RequireGrpcError(t, structerr.NewPermissionDenied("deletion denied by custom hooks: running %s hooks: %s", hookTestCase.hookName, expectedError).WithDetail(

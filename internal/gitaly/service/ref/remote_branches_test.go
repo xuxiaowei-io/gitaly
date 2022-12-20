@@ -9,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -37,11 +36,11 @@ func TestSuccessfulFindAllRemoteBranchesRequest(t *testing.T) {
 	}
 
 	for branchName, commitID := range expectedBranches {
-		gittest.WriteRef(t, cfg, repoPath, git.ReferenceName(fmt.Sprintf("refs/remotes/%s/%s", remoteName, branchName)), commitID)
+		git.WriteRef(t, cfg, repoPath, git.ReferenceName(fmt.Sprintf("refs/remotes/%s/%s", remoteName, branchName)), commitID)
 	}
 
 	for branchName, commitID := range excludedBranches {
-		gittest.WriteRef(t, cfg, repoPath, git.ReferenceName(fmt.Sprintf("refs/remotes/%s/%s", excludedRemote, branchName)), commitID)
+		git.WriteRef(t, cfg, repoPath, git.ReferenceName(fmt.Sprintf("refs/remotes/%s/%s", excludedRemote, branchName)), commitID)
 	}
 
 	request := &gitalypb.FindAllRemoteBranchesRequest{Repository: repoProto, RemoteName: remoteName}

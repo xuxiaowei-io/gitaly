@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -25,12 +25,12 @@ func TestSuccessfulGetCommitMessagesRequest(t *testing.T) {
 	message1 := strings.Repeat("a\n", helper.MaxCommitOrTagMessageSize*2)
 	message2 := strings.Repeat("b\n", helper.MaxCommitOrTagMessageSize*2)
 
-	commit1ID := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithBranch("local-big-commits"), gittest.WithMessage(message1),
+	commit1ID := git.WriteTestCommit(t, cfg, repoPath,
+		git.WithBranch("local-big-commits"), git.WithMessage(message1),
 	)
-	commit2ID := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithBranch("local-big-commits"), gittest.WithMessage(message2),
-		gittest.WithParents(commit1ID),
+	commit2ID := git.WriteTestCommit(t, cfg, repoPath,
+		git.WithBranch("local-big-commits"), git.WithMessage(message2),
+		git.WithParents(commit1ID),
 	)
 
 	request := &gitalypb.GetCommitMessagesRequest{

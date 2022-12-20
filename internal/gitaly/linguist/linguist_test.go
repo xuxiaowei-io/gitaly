@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -40,15 +39,15 @@ func TestInstance_Stats(t *testing.T) {
 		{
 			desc: "successful",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
-				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "webpack.coffee", Mode: "100644", Content: strings.Repeat("a", 107)},
-					gittest.TreeEntry{Path: "show_user.html", Mode: "100644", Content: strings.Repeat("a", 349)},
-					gittest.TreeEntry{Path: "api.javascript", Mode: "100644", Content: strings.Repeat("a", 1014)},
-					gittest.TreeEntry{Path: "application.rb", Mode: "100644", Content: strings.Repeat("a", 2943)},
+				commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+					git.TreeEntry{Path: "webpack.coffee", Mode: "100644", Content: strings.Repeat("a", 107)},
+					git.TreeEntry{Path: "show_user.html", Mode: "100644", Content: strings.Repeat("a", 349)},
+					git.TreeEntry{Path: "api.javascript", Mode: "100644", Content: strings.Repeat("a", 1014)},
+					git.TreeEntry{Path: "application.rb", Mode: "100644", Content: strings.Repeat("a", 2943)},
 				))
 
 				return repoProto, repoPath, commitID
@@ -63,18 +62,18 @@ func TestInstance_Stats(t *testing.T) {
 		{
 			desc: "documentation is ignored",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
-				docTree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				docTree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{Path: "readme.md", Mode: "100644", Content: strings.Repeat("a", 500)},
 					{Path: "index.html", Mode: "100644", Content: strings.Repeat("a", 120)},
 					{Path: "formatter.rb", Mode: "100644", Content: strings.Repeat("a", 403)},
 				})
-				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "docs", Mode: "040000", OID: docTree},
-					gittest.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
+				commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+					git.TreeEntry{Path: "docs", Mode: "040000", OID: docTree},
+					git.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
 				))
 
 				return repoProto, repoPath, commitID
@@ -86,19 +85,19 @@ func TestInstance_Stats(t *testing.T) {
 		{
 			desc: "documentation with overrides",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
-				docTree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				docTree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{Path: "readme.md", Mode: "100644", Content: strings.Repeat("a", 500)},
 					{Path: "index.html", Mode: "100644", Content: strings.Repeat("a", 120)},
 					{Path: "formatter.rb", Mode: "100644", Content: strings.Repeat("a", 403)},
 				})
-				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "docs", Mode: "040000", OID: docTree},
-					gittest.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
-					gittest.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "formatter.rb -linguist-documentation"},
+				commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+					git.TreeEntry{Path: "docs", Mode: "040000", OID: docTree},
+					git.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
+					git.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "formatter.rb -linguist-documentation"},
 				))
 
 				return repoProto, repoPath, commitID
@@ -111,16 +110,16 @@ func TestInstance_Stats(t *testing.T) {
 		{
 			desc: "vendor is ignored",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
-				vendorTree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				vendorTree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{Path: "app.rb", Mode: "100644", Content: strings.Repeat("a", 500)},
 				})
-				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "vendor", Mode: "040000", OID: vendorTree},
-					gittest.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
+				commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+					git.TreeEntry{Path: "vendor", Mode: "040000", OID: vendorTree},
+					git.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
 				))
 
 				return repoProto, repoPath, commitID
@@ -132,17 +131,17 @@ func TestInstance_Stats(t *testing.T) {
 		{
 			desc: "vendor with overrides",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
-				vendorTree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				vendorTree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{Path: "app.rb", Mode: "100644", Content: strings.Repeat("a", 500)},
 				})
-				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "vendor", Mode: "040000", OID: vendorTree},
-					gittest.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
-					gittest.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "*.rb -linguist-vendored"},
+				commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+					git.TreeEntry{Path: "vendor", Mode: "040000", OID: vendorTree},
+					git.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
+					git.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "*.rb -linguist-vendored"},
 				))
 
 				return repoProto, repoPath, commitID
@@ -155,16 +154,16 @@ func TestInstance_Stats(t *testing.T) {
 		{
 			desc: "generated is ignored",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
-				podsTree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				podsTree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{Path: "app.swift", Mode: "100644", Content: strings.Repeat("a", 500)},
 				})
-				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "Pods", Mode: "040000", OID: podsTree},
-					gittest.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
+				commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+					git.TreeEntry{Path: "Pods", Mode: "040000", OID: podsTree},
+					git.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
 				))
 
 				return repoProto, repoPath, commitID
@@ -176,17 +175,17 @@ func TestInstance_Stats(t *testing.T) {
 		{
 			desc: "generated with overrides",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
-				podsTree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				podsTree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{Path: "app.swift", Mode: "100644", Content: strings.Repeat("a", 500)},
 				})
-				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "Pods", Mode: "040000", OID: podsTree},
-					gittest.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
-					gittest.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "Pods/* -linguist-generated"},
+				commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+					git.TreeEntry{Path: "Pods", Mode: "040000", OID: podsTree},
+					git.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
+					git.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "Pods/* -linguist-generated"},
 				))
 
 				return repoProto, repoPath, commitID
@@ -199,14 +198,14 @@ func TestInstance_Stats(t *testing.T) {
 		{
 			desc: "undetectable languages are ignored",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
-				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "config.json", Mode: "100644", Content: strings.Repeat("a", 234)},
-					gittest.TreeEntry{Path: "manual.md", Mode: "100644", Content: strings.Repeat("a", 553)},
-					gittest.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
+				commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+					git.TreeEntry{Path: "config.json", Mode: "100644", Content: strings.Repeat("a", 234)},
+					git.TreeEntry{Path: "manual.md", Mode: "100644", Content: strings.Repeat("a", 553)},
+					git.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
 				))
 
 				return repoProto, repoPath, commitID
@@ -218,15 +217,15 @@ func TestInstance_Stats(t *testing.T) {
 		{
 			desc: "undetectable languages with overrides",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
-				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "config.json", Mode: "100644", Content: strings.Repeat("a", 234)},
-					gittest.TreeEntry{Path: "manual.md", Mode: "100644", Content: strings.Repeat("a", 553)},
-					gittest.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
-					gittest.TreeEntry{
+				commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+					git.TreeEntry{Path: "config.json", Mode: "100644", Content: strings.Repeat("a", 234)},
+					git.TreeEntry{Path: "manual.md", Mode: "100644", Content: strings.Repeat("a", 553)},
+					git.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
+					git.TreeEntry{
 						Path: ".gitattributes",
 						Mode: "100644",
 						Content: "*.md linguist-detectable\n" +
@@ -245,19 +244,19 @@ func TestInstance_Stats(t *testing.T) {
 		{
 			desc: "file specific documentation override",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
-				docTree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				docTree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{Path: "readme.md", Mode: "100644", Content: strings.Repeat("a", 500)},
 					{Path: "index.html", Mode: "100644", Content: strings.Repeat("a", 120)},
 					{Path: "formatter.rb", Mode: "100644", Content: strings.Repeat("a", 403)},
 				})
 
-				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "docu", Mode: "040000", OID: docTree},
-					gittest.TreeEntry{
+				commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+					git.TreeEntry{Path: "docu", Mode: "040000", OID: docTree},
+					git.TreeEntry{
 						Path: ".gitattributes",
 						Mode: "100644",
 						Content: "docu/* linguist-documentation\n" +
@@ -274,15 +273,15 @@ func TestInstance_Stats(t *testing.T) {
 		{
 			desc: "detectable overrides",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
-				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "keeb.kicad_pcb", Mode: "100644", Content: strings.Repeat("a", 500)},
-					gittest.TreeEntry{Path: "keeb.sch", Mode: "100644", Content: strings.Repeat("a", 120)},
-					gittest.TreeEntry{Path: "export_bom.py", Mode: "100644", Content: strings.Repeat("a", 403)},
-					gittest.TreeEntry{
+				commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+					git.TreeEntry{Path: "keeb.kicad_pcb", Mode: "100644", Content: strings.Repeat("a", 500)},
+					git.TreeEntry{Path: "keeb.sch", Mode: "100644", Content: strings.Repeat("a", 120)},
+					git.TreeEntry{Path: "export_bom.py", Mode: "100644", Content: strings.Repeat("a", 403)},
+					git.TreeEntry{
 						Path: ".gitattributes",
 						Mode: "100644",
 						Content: "*.kicad_pcb linguist-detectable\n" +
@@ -301,25 +300,25 @@ func TestInstance_Stats(t *testing.T) {
 		{
 			desc: "double star file pattern documentation override",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
-				subSubTree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				subSubTree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{Path: "first.rb", Mode: "100644", Content: strings.Repeat("a", 483)},
 					{Path: "second.rb", Mode: "100644", Content: strings.Repeat("a", 888)},
 				})
 
-				subTree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				subTree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{Path: "main.rb", Mode: "100644", Content: strings.Repeat("a", 500)},
 					{Path: "formatter.rb", Mode: "100644", Content: strings.Repeat("a", 120)},
 					{Path: "example", Mode: "040000", OID: subSubTree},
 				})
 
-				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "scripts", Mode: "040000", OID: subTree},
-					gittest.TreeEntry{Path: "run.rb", Mode: "100644", Content: strings.Repeat("a", 55)},
-					gittest.TreeEntry{
+				commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+					git.TreeEntry{Path: "scripts", Mode: "040000", OID: subTree},
+					git.TreeEntry{Path: "run.rb", Mode: "100644", Content: strings.Repeat("a", 55)},
+					git.TreeEntry{
 						Path: ".gitattributes",
 						Mode: "100644",
 						Content: "scripts/** linguist-documentation\n" +
@@ -336,15 +335,15 @@ func TestInstance_Stats(t *testing.T) {
 		{
 			desc: "empty code files",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
-				emptyBlob := gittest.WriteBlob(t, cfg, repoPath, []byte{})
-				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "README.md", Mode: "100644", Content: "Hello world!"},
-					gittest.TreeEntry{Path: "index.html", Mode: "100644", OID: emptyBlob},
-					gittest.TreeEntry{Path: "app.js", Mode: "100644", OID: emptyBlob},
+				emptyBlob := git.WriteBlob(t, cfg, repoPath, []byte{})
+				commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+					git.TreeEntry{Path: "README.md", Mode: "100644", Content: "Hello world!"},
+					git.TreeEntry{Path: "index.html", Mode: "100644", OID: emptyBlob},
+					git.TreeEntry{Path: "app.js", Mode: "100644", OID: emptyBlob},
 				))
 
 				return repoProto, repoPath, commitID
@@ -354,15 +353,15 @@ func TestInstance_Stats(t *testing.T) {
 		{
 			desc: "preexisting cache",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
-				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "webpack.coffee", Mode: "100644", Content: strings.Repeat("a", 107)},
-					gittest.TreeEntry{Path: "show_user.html", Mode: "100644", Content: strings.Repeat("a", 349)},
-					gittest.TreeEntry{Path: "api.javascript", Mode: "100644", Content: strings.Repeat("a", 1014)},
-					gittest.TreeEntry{Path: "application.rb", Mode: "100644", Content: strings.Repeat("a", 2943)},
+				commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+					git.TreeEntry{Path: "webpack.coffee", Mode: "100644", Content: strings.Repeat("a", 107)},
+					git.TreeEntry{Path: "show_user.html", Mode: "100644", Content: strings.Repeat("a", 349)},
+					git.TreeEntry{Path: "api.javascript", Mode: "100644", Content: strings.Repeat("a", 1014)},
+					git.TreeEntry{Path: "application.rb", Mode: "100644", Content: strings.Repeat("a", 2943)},
 				))
 				repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -387,15 +386,15 @@ func TestInstance_Stats(t *testing.T) {
 		{
 			desc: "preexisting cache with .gitattributes modified",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
-				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "webpack.coffee", Mode: "100644", Content: strings.Repeat("a", 107)},
-					gittest.TreeEntry{Path: "show_user.html", Mode: "100644", Content: strings.Repeat("a", 349)},
-					gittest.TreeEntry{Path: "api.javascript", Mode: "100644", Content: strings.Repeat("a", 1014)},
-					gittest.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "*.html linguist-vendored"},
+				commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+					git.TreeEntry{Path: "webpack.coffee", Mode: "100644", Content: strings.Repeat("a", 107)},
+					git.TreeEntry{Path: "show_user.html", Mode: "100644", Content: strings.Repeat("a", 349)},
+					git.TreeEntry{Path: "api.javascript", Mode: "100644", Content: strings.Repeat("a", 1014)},
+					git.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "*.html linguist-vendored"},
 				))
 				repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -403,11 +402,11 @@ func TestInstance_Stats(t *testing.T) {
 				require.NoError(t, err)
 				require.FileExists(t, filepath.Join(repoPath, languageStatsFilename))
 
-				commitID = gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "webpack.coffee", Mode: "100644", Content: strings.Repeat("a", 107)},
-					gittest.TreeEntry{Path: "show_user.html", Mode: "100644", Content: strings.Repeat("a", 349)},
-					gittest.TreeEntry{Path: "api.javascript", Mode: "100644", Content: strings.Repeat("a", 1014)},
-					gittest.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "*.coffee linguist-vendored"},
+				commitID = git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+					git.TreeEntry{Path: "webpack.coffee", Mode: "100644", Content: strings.Repeat("a", 107)},
+					git.TreeEntry{Path: "show_user.html", Mode: "100644", Content: strings.Repeat("a", 349)},
+					git.TreeEntry{Path: "api.javascript", Mode: "100644", Content: strings.Repeat("a", 1014)},
+					git.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "*.coffee linguist-vendored"},
 				))
 
 				return repoProto, repoPath, commitID
@@ -420,21 +419,21 @@ func TestInstance_Stats(t *testing.T) {
 		{
 			desc: "buggy behavior",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
-				includeTree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				includeTree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{Path: "ffx_a.h", Mode: "100644", Content: "#include <stdio.h>\n"},
 				})
-				thirdPartyTree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				thirdPartyTree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{Path: "ffx_a.c", Mode: "100644", Content: "#include <include/ffx_a.h>\nstatic int something() {}"},
 					{Path: "include", Mode: "040000", OID: includeTree},
 				})
 
-				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "thirdparty", Mode: "040000", OID: thirdPartyTree},
-					gittest.TreeEntry{
+				commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+					git.TreeEntry{Path: "thirdparty", Mode: "040000", OID: thirdPartyTree},
+					git.TreeEntry{
 						Path:    ".gitattributes",
 						Mode:    "100644",
 						Content: "*.h linguist-language=cpp\nthirdparty/* linguist-vendored",
@@ -448,15 +447,15 @@ func TestInstance_Stats(t *testing.T) {
 		{
 			desc: "corrupted cache",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
-				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "webpack.coffee", Mode: "100644", Content: strings.Repeat("a", 107)},
-					gittest.TreeEntry{Path: "show_user.html", Mode: "100644", Content: strings.Repeat("a", 349)},
-					gittest.TreeEntry{Path: "api.javascript", Mode: "100644", Content: strings.Repeat("a", 1014)},
-					gittest.TreeEntry{Path: "application.rb", Mode: "100644", Content: strings.Repeat("a", 2943)},
+				commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+					git.TreeEntry{Path: "webpack.coffee", Mode: "100644", Content: strings.Repeat("a", 107)},
+					git.TreeEntry{Path: "show_user.html", Mode: "100644", Content: strings.Repeat("a", 349)},
+					git.TreeEntry{Path: "api.javascript", Mode: "100644", Content: strings.Repeat("a", 1014)},
+					git.TreeEntry{Path: "application.rb", Mode: "100644", Content: strings.Repeat("a", 2943)},
 				))
 
 				require.NoError(t, os.WriteFile(filepath.Join(repoPath, languageStatsFilename), []byte("garbage"), 0o644))
@@ -473,16 +472,16 @@ func TestInstance_Stats(t *testing.T) {
 		{
 			desc: "old cache",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 				repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-				oldCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "main.rb", Content: "require 'fileutils'", Mode: "100644"},
+				oldCommitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+					git.TreeEntry{Path: "main.rb", Content: "require 'fileutils'", Mode: "100644"},
 				))
-				newCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(oldCommitID), gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "main.go", Content: "package main", Mode: "100644"},
+				newCommitID := git.WriteTestCommit(t, cfg, repoPath, git.WithParents(oldCommitID), git.WithTreeEntries(
+					git.TreeEntry{Path: "main.go", Content: "package main", Mode: "100644"},
 				))
 
 				// Precreate the cache with the old commit. This ensures that
@@ -513,7 +512,7 @@ func TestInstance_Stats(t *testing.T) {
 		{
 			desc: "missing commit",
 			setup: func(t *testing.T) (*gitalypb.Repository, string, git.ObjectID) {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
@@ -529,7 +528,7 @@ func TestInstance_Stats(t *testing.T) {
 			// We should get rid of this with https://gitlab.com/groups/gitlab-org/-/epics/9006
 			infoPath := filepath.Join(repoPath, "info")
 			require.NoError(t, os.MkdirAll(infoPath, 0o755))
-			attrData, err := gittest.NewCommand(t, cfg, "-C", repoPath, "cat-file", "blob", objectID.String()+":.gitattributes").Output()
+			attrData, err := git.NewCommand(t, cfg, "-C", repoPath, "cat-file", "blob", objectID.String()+":.gitattributes").Output()
 			if err == nil {
 				require.NoError(t, os.WriteFile(filepath.Join(infoPath, "attributes"), attrData, 0o644))
 			}
@@ -558,7 +557,7 @@ func TestInstance_Stats_failureGitattributes(t *testing.T) {
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
 
-	gitCmdFactory := gittest.NewInterceptingCommandFactory(t, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
+	gitCmdFactory := git.NewInterceptingCommandFactory(t, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
 		return fmt.Sprintf(`#!/bin/bash
 		if [[ ! "$@" =~ "check-attr" ]]; then
 			exec %q "$@"
@@ -567,13 +566,13 @@ func TestInstance_Stats_failureGitattributes(t *testing.T) {
 		`, execEnv.BinaryPath)
 	})
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-		gittest.TreeEntry{Path: "main.rb", Mode: "100644", Content: strings.Repeat("a", 107)},
-		gittest.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "*.rb -linguist-vendored"},
+	commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+		git.TreeEntry{Path: "main.rb", Mode: "100644", Content: strings.Repeat("a", 107)},
+		git.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "*.rb -linguist-vendored"},
 	))
 
 	repo := localrepo.New(locator, gitCmdFactory, catfileCache, repoProto)
@@ -613,7 +612,7 @@ func BenchmarkInstance_Stats(b *testing.B) {
 	catfileCache := catfile.NewCache(cfg)
 	b.Cleanup(catfileCache.Stop)
 
-	repoProto, repoPath := gittest.CreateRepository(b, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := git.CreateRepository(b, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 		Seed:                   "benchmark.git",
 	})

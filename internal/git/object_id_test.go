@@ -11,8 +11,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -24,15 +22,15 @@ func TestObjectHashByFormat(t *testing.T) {
 	for _, tc := range []struct {
 		format             string
 		expectedErr        error
-		expectedObjectHash git.ObjectHash
+		expectedObjectHash ObjectHash
 	}{
 		{
 			format:             "sha1",
-			expectedObjectHash: git.ObjectHashSHA1,
+			expectedObjectHash: ObjectHashSHA1,
 		},
 		{
 			format:             "sha256",
-			expectedObjectHash: git.ObjectHashSHA256,
+			expectedObjectHash: ObjectHashSHA256,
 		},
 		{
 			format:      "invalid",
@@ -40,7 +38,7 @@ func TestObjectHashByFormat(t *testing.T) {
 		},
 	} {
 		t.Run(tc.format, func(t *testing.T) {
-			objectHash, err := git.ObjectHashByFormat(tc.format)
+			objectHash, err := ObjectHashByFormat(tc.format)
 			require.Equal(t, tc.expectedErr, err)
 
 			// Function pointers cannot be compared, so we need to unset them.
@@ -57,22 +55,22 @@ func TestObjectHashByProto(t *testing.T) {
 		desc               string
 		objectFormat       gitalypb.ObjectFormat
 		expectedErr        error
-		expectedObjectHash git.ObjectHash
+		expectedObjectHash ObjectHash
 	}{
 		{
 			desc:               "unspecified object format",
 			objectFormat:       gitalypb.ObjectFormat_OBJECT_FORMAT_UNSPECIFIED,
-			expectedObjectHash: git.ObjectHashSHA1,
+			expectedObjectHash: ObjectHashSHA1,
 		},
 		{
 			desc:               "SHA1 object format",
 			objectFormat:       gitalypb.ObjectFormat_OBJECT_FORMAT_SHA1,
-			expectedObjectHash: git.ObjectHashSHA1,
+			expectedObjectHash: ObjectHashSHA1,
 		},
 		{
 			desc:               "SHA256 object format",
 			objectFormat:       gitalypb.ObjectFormat_OBJECT_FORMAT_SHA256,
-			expectedObjectHash: git.ObjectHashSHA256,
+			expectedObjectHash: ObjectHashSHA256,
 		},
 		{
 			desc:         "invalid object format",
@@ -81,7 +79,7 @@ func TestObjectHashByProto(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			objectHash, err := git.ObjectHashByProto(tc.objectFormat)
+			objectHash, err := ObjectHashByProto(tc.objectFormat)
 			require.Equal(t, tc.expectedErr, err)
 
 			// Function pointers cannot be compared, so we need to unset them.
@@ -101,12 +99,12 @@ func TestDetectObjectHash(t *testing.T) {
 		desc         string
 		setup        func(t *testing.T) *gitalypb.Repository
 		expectedErr  error
-		expectedHash git.ObjectHash
+		expectedHash ObjectHash
 	}{
 		{
 			desc: "defaults to SHA1",
 			setup: func(t *testing.T) *gitalypb.Repository {
-				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repo, repoPath := CreateRepository(t, ctx, cfg, CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					ObjectFormat:           "sha1",
 				})
@@ -118,12 +116,12 @@ func TestDetectObjectHash(t *testing.T) {
 
 				return repo
 			},
-			expectedHash: git.ObjectHashSHA1,
+			expectedHash: ObjectHashSHA1,
 		},
 		{
 			desc: "explicitly set to SHA1",
 			setup: func(t *testing.T) *gitalypb.Repository {
-				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repo, repoPath := CreateRepository(t, ctx, cfg, CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					ObjectFormat:           "sha1",
 				})
@@ -131,39 +129,39 @@ func TestDetectObjectHash(t *testing.T) {
 				// Explicitly set the object format to SHA1. Note that setting the
 				// object format explicitly requires the repository format version
 				// to be at least `1`.
-				gittest.Exec(t, cfg, "-C", repoPath, "config", "core.repositoryFormatVersion", "1")
-				gittest.Exec(t, cfg, "-C", repoPath, "config", "extensions.objectFormat", "sha1")
+				Exec(t, cfg, "-C", repoPath, "config", "core.repositoryFormatVersion", "1")
+				Exec(t, cfg, "-C", repoPath, "config", "extensions.objectFormat", "sha1")
 
 				return repo
 			},
-			expectedHash: git.ObjectHashSHA1,
+			expectedHash: ObjectHashSHA1,
 		},
 		{
 			desc: "explicitly set to SHA256",
 			setup: func(t *testing.T) *gitalypb.Repository {
-				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repo, repoPath := CreateRepository(t, ctx, cfg, CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					ObjectFormat:           "sha256",
 				})
 
 				require.Equal(t,
 					"sha256",
-					text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "config", "extensions.objectFormat")),
+					text.ChompBytes(Exec(t, cfg, "-C", repoPath, "config", "extensions.objectFormat")),
 				)
 
 				return repo
 			},
-			expectedHash: git.ObjectHashSHA256,
+			expectedHash: ObjectHashSHA256,
 		},
 		{
 			desc: "invalid repository configuration",
 			setup: func(t *testing.T) *gitalypb.Repository {
-				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repo, repoPath := CreateRepository(t, ctx, cfg, CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					ObjectFormat:           "sha1",
 				})
 
-				gittest.Exec(t, cfg, "-C", repoPath, "config", "extensions.objectFormat", "sha1")
+				Exec(t, cfg, "-C", repoPath, "config", "extensions.objectFormat", "sha1")
 
 				return repo
 			},
@@ -175,12 +173,12 @@ func TestDetectObjectHash(t *testing.T) {
 		{
 			desc: "unknown hash",
 			setup: func(t *testing.T) *gitalypb.Repository {
-				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repo, repoPath := CreateRepository(t, ctx, cfg, CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
 				// Explicitly set the object format to something unknown.
-				gittest.Exec(t, cfg, "-C", repoPath, "config", "extensions.objectFormat", "blake2")
+				Exec(t, cfg, "-C", repoPath, "config", "extensions.objectFormat", "blake2")
 
 				return repo
 			},
@@ -193,7 +191,7 @@ func TestDetectObjectHash(t *testing.T) {
 			repoProto := tc.setup(t)
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-			hash, err := git.DetectObjectHash(ctx, repo)
+			hash, err := DetectObjectHash(ctx, repo)
 			if tc.expectedErr != nil {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), tc.expectedErr.Error())
@@ -213,17 +211,17 @@ func TestDetectObjectHash(t *testing.T) {
 func TestObjectHash_ValidateHex(t *testing.T) {
 	for _, hash := range []struct {
 		desc     string
-		hash     git.ObjectHash
+		hash     ObjectHash
 		validHex string
 	}{
 		{
 			desc:     "SHA1",
-			hash:     git.ObjectHashSHA1,
+			hash:     ObjectHashSHA1,
 			validHex: "356e7793f9654d51dfb27312a1464062bceb9fa3",
 		},
 		{
 			desc:     "SHA256",
-			hash:     git.ObjectHashSHA256,
+			hash:     ObjectHashSHA256,
 			validHex: "aec070645fe53ee3b3763059376134f058cc337247c978add178b6ccdfb0019f",
 		},
 	} {
@@ -281,17 +279,17 @@ func TestObjectHash_ValidateHex(t *testing.T) {
 func TestObjectHash_FromHex(t *testing.T) {
 	for _, hash := range []struct {
 		desc     string
-		hash     git.ObjectHash
+		hash     ObjectHash
 		validHex string
 	}{
 		{
 			desc:     "SHA1",
-			hash:     git.ObjectHashSHA1,
+			hash:     ObjectHashSHA1,
 			validHex: "356e7793f9654d51dfb27312a1464062bceb9fa3",
 		},
 		{
 			desc:     "SHA256",
-			hash:     git.ObjectHashSHA256,
+			hash:     ObjectHashSHA256,
 			validHex: "aec070645fe53ee3b3763059376134f058cc337247c978add178b6ccdfb0019f",
 		},
 	} {
@@ -348,30 +346,30 @@ func TestObjectHash_FromHex(t *testing.T) {
 
 func TestObjectHash_EncodedLen(t *testing.T) {
 	t.Parallel()
-	require.Equal(t, 40, git.ObjectHashSHA1.EncodedLen())
-	require.Equal(t, 64, git.ObjectHashSHA256.EncodedLen())
+	require.Equal(t, 40, ObjectHashSHA1.EncodedLen())
+	require.Equal(t, 64, ObjectHashSHA256.EncodedLen())
 }
 
 func TestObjectID_Bytes(t *testing.T) {
 	for _, tc := range []struct {
 		desc          string
-		oid           git.ObjectID
+		oid           ObjectID
 		expectedBytes []byte
 		expectedErr   error
 	}{
 		{
 			desc:          "zero OID",
-			oid:           git.ObjectHashSHA1.ZeroOID,
+			oid:           ObjectHashSHA1.ZeroOID,
 			expectedBytes: bytes.Repeat([]byte{0}, 20),
 		},
 		{
 			desc:          "valid object ID",
-			oid:           git.ObjectID(strings.Repeat("8", 40)),
+			oid:           ObjectID(strings.Repeat("8", 40)),
 			expectedBytes: bytes.Repeat([]byte{0x88}, 20),
 		},
 		{
 			desc:        "invalid object ID",
-			oid:         git.ObjectID(strings.Repeat("8", 39) + "x"),
+			oid:         ObjectID(strings.Repeat("8", 39) + "x"),
 			expectedErr: hex.InvalidByteError('x'),
 		},
 	} {
@@ -386,22 +384,22 @@ func TestObjectID_Bytes(t *testing.T) {
 func TestObjectHash_IsZeroOID(t *testing.T) {
 	for _, hash := range []struct {
 		desc     string
-		hash     git.ObjectHash
+		hash     ObjectHash
 		validHex string
 	}{
 		{
 			desc: "SHA1",
-			hash: git.ObjectHashSHA1,
+			hash: ObjectHashSHA1,
 		},
 		{
 			desc: "SHA256",
-			hash: git.ObjectHashSHA256,
+			hash: ObjectHashSHA256,
 		},
 	} {
 		t.Run(hash.desc, func(t *testing.T) {
 			for _, tc := range []struct {
 				desc   string
-				oid    git.ObjectID
+				oid    ObjectID
 				isZero bool
 			}{
 				{

@@ -14,7 +14,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -31,9 +30,9 @@ func TestParseObjectInfo_success(t *testing.T) {
 	}{
 		{
 			desc:  "existing object",
-			input: fmt.Sprintf("%s commit 222\n", gittest.DefaultObjectHash.EmptyTreeOID),
+			input: fmt.Sprintf("%s commit 222\n", git.DefaultObjectHash.EmptyTreeOID),
 			expectedObjectInfo: &ObjectInfo{
-				Oid:  gittest.DefaultObjectHash.EmptyTreeOID,
+				Oid:  git.DefaultObjectHash.EmptyTreeOID,
 				Type: "commit",
 				Size: 222,
 			},
@@ -47,7 +46,7 @@ func TestParseObjectInfo_success(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			reader := bufio.NewReader(strings.NewReader(tc.input))
 
-			objectInfo, err := ParseObjectInfo(gittest.DefaultObjectHash, reader)
+			objectInfo, err := ParseObjectInfo(git.DefaultObjectHash, reader)
 			require.Equal(t, tc.expectedErr, err)
 			require.Equal(t, tc.expectedObjectInfo, objectInfo)
 		})
@@ -57,7 +56,7 @@ func TestParseObjectInfo_success(t *testing.T) {
 func TestParseObjectInfo_errors(t *testing.T) {
 	t.Parallel()
 
-	oid := gittest.DefaultObjectHash.EmptyTreeOID
+	oid := git.DefaultObjectHash.EmptyTreeOID
 
 	for _, tc := range []struct {
 		desc        string
@@ -97,7 +96,7 @@ func TestParseObjectInfo_errors(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			reader := bufio.NewReader(strings.NewReader(tc.input))
 
-			_, err := ParseObjectInfo(gittest.DefaultObjectHash, reader)
+			_, err := ParseObjectInfo(git.DefaultObjectHash, reader)
 			require.Equal(t, tc.expectedErr, err)
 		})
 	}
@@ -108,16 +107,16 @@ func TestObjectInfoReader(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithBranch("main"),
-		gittest.WithMessage("commit message"),
-		gittest.WithTreeEntries(gittest.TreeEntry{Path: "README", Mode: "100644", Content: "something"}),
+	commitID := git.WriteTestCommit(t, cfg, repoPath,
+		git.WithBranch("main"),
+		git.WithMessage("commit message"),
+		git.WithTreeEntries(git.TreeEntry{Path: "README", Mode: "100644", Content: "something"}),
 	)
-	gittest.WriteTag(t, cfg, repoPath, "v1.1.1", commitID.Revision(), gittest.WriteTagConfig{
+	git.WriteTag(t, cfg, repoPath, "v1.1.1", commitID.Revision(), git.WriteTagConfig{
 		Message: "annotated tag",
 	})
 
@@ -128,12 +127,12 @@ func TestObjectInfoReader(t *testing.T) {
 		"refs/heads/main:README",
 		"refs/tags/v1.1.1",
 	} {
-		revParseOutput := gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", revision)
-		objectID, err := gittest.DefaultObjectHash.FromHex(text.ChompBytes(revParseOutput))
+		revParseOutput := git.Exec(t, cfg, "-C", repoPath, "rev-parse", revision)
+		objectID, err := git.DefaultObjectHash.FromHex(text.ChompBytes(revParseOutput))
 		require.NoError(t, err)
 
-		objectType := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "cat-file", "-t", revision))
-		objectContents := gittest.Exec(t, cfg, "-C", repoPath, "cat-file", objectType, revision)
+		objectType := text.ChompBytes(git.Exec(t, cfg, "-C", repoPath, "cat-file", "-t", revision))
+		objectContents := git.Exec(t, cfg, "-C", repoPath, "cat-file", objectType, revision)
 
 		oiByRevision[revision] = &ObjectInfo{
 			Oid:  objectID,
@@ -212,23 +211,23 @@ func TestObjectInfoReader_queue(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 
-	blobOID := gittest.WriteBlob(t, cfg, repoPath, []byte("foobar"))
+	blobOID := git.WriteBlob(t, cfg, repoPath, []byte("foobar"))
 	blobInfo := ObjectInfo{
 		Oid:  blobOID,
 		Type: "blob",
 		Size: int64(len("foobar")),
 	}
 
-	commitOID := gittest.WriteCommit(t, cfg, repoPath)
+	commitOID := git.WriteTestCommit(t, cfg, repoPath)
 	commitInfo := ObjectInfo{
 		Oid:  commitOID,
 		Type: "commit",
 		Size: func() int64 {
-			if gittest.ObjectHashIsSHA256() {
+			if git.ObjectHashIsSHA256() {
 				return 201
 			}
 			return 177

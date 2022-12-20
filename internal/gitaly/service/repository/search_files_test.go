@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
@@ -179,11 +179,11 @@ func TestSearchFilesByContentLargeFile(t *testing.T) {
 		},
 	} {
 		t.Run(tc.filename, func(t *testing.T) {
-			gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(gittest.TreeEntry{
+			git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(git.TreeEntry{
 				Path:    tc.filename,
 				Mode:    "100644",
 				Content: strings.Repeat(tc.line, tc.repeated),
-			}), gittest.WithBranch("master"))
+			}), git.WithBranch("master"))
 
 			stream, err := client.SearchFilesByContent(ctx, &gitalypb.SearchFilesByContentRequest{
 				Repository:      repo,
@@ -204,7 +204,7 @@ func TestSearchFilesByContentLargeFile(t *testing.T) {
 func TestSearchFilesByContentFailure(t *testing.T) {
 	t.Parallel()
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
-	gitCommandFactory := gittest.NewCommandFactory(t, cfg)
+	gitCommandFactory := git.NewCommandFactory(t, cfg)
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
 
@@ -354,14 +354,14 @@ func TestSearchFilesByNameUnusualFileNamesSuccessful(t *testing.T) {
 	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	ref := []byte("unusual_file_names")
-	gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithBranch(string(ref)),
-		gittest.WithMessage("commit message"),
-		gittest.WithTreeEntries(
-			gittest.TreeEntry{Path: "\"file with quote.txt", Mode: "100644", Content: "something"},
-			gittest.TreeEntry{Path: ".vimrc", Mode: "100644", Content: "something"},
-			gittest.TreeEntry{Path: "cuộc đời là những chuyến đi.md", Mode: "100644", Content: "something"},
-			gittest.TreeEntry{Path: "编码 'foo'.md", Mode: "100644", Content: "something"},
+	git.WriteTestCommit(t, cfg, repoPath,
+		git.WithBranch(string(ref)),
+		git.WithMessage("commit message"),
+		git.WithTreeEntries(
+			git.TreeEntry{Path: "\"file with quote.txt", Mode: "100644", Content: "something"},
+			git.TreeEntry{Path: ".vimrc", Mode: "100644", Content: "something"},
+			git.TreeEntry{Path: "cuộc đời là những chuyến đi.md", Mode: "100644", Content: "something"},
+			git.TreeEntry{Path: "编码 'foo'.md", Mode: "100644", Content: "something"},
 		),
 	)
 
@@ -452,18 +452,18 @@ func TestSearchFilesByNamePaginationSuccessful(t *testing.T) {
 	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	ref := []byte("pagination")
-	gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithBranch(string(ref)),
-		gittest.WithMessage("commit message"),
-		gittest.WithTreeEntries(
-			gittest.TreeEntry{Path: "file1.md", Mode: "100644", Content: "file1"},
-			gittest.TreeEntry{Path: "file2.md", Mode: "100644", Content: "file2"},
-			gittest.TreeEntry{Path: "file3.md", Mode: "100644", Content: "file3"},
-			gittest.TreeEntry{Path: "file4.md", Mode: "100644", Content: "file4"},
-			gittest.TreeEntry{Path: "file5.md", Mode: "100644", Content: "file5"},
-			gittest.TreeEntry{Path: "new_file1.md", Mode: "100644", Content: "new_file1"},
-			gittest.TreeEntry{Path: "new_file2.md", Mode: "100644", Content: "new_file2"},
-			gittest.TreeEntry{Path: "new_file3.md", Mode: "100644", Content: "new_file3"},
+	git.WriteTestCommit(t, cfg, repoPath,
+		git.WithBranch(string(ref)),
+		git.WithMessage("commit message"),
+		git.WithTreeEntries(
+			git.TreeEntry{Path: "file1.md", Mode: "100644", Content: "file1"},
+			git.TreeEntry{Path: "file2.md", Mode: "100644", Content: "file2"},
+			git.TreeEntry{Path: "file3.md", Mode: "100644", Content: "file3"},
+			git.TreeEntry{Path: "file4.md", Mode: "100644", Content: "file4"},
+			git.TreeEntry{Path: "file5.md", Mode: "100644", Content: "file5"},
+			git.TreeEntry{Path: "new_file1.md", Mode: "100644", Content: "new_file1"},
+			git.TreeEntry{Path: "new_file2.md", Mode: "100644", Content: "new_file2"},
+			git.TreeEntry{Path: "new_file3.md", Mode: "100644", Content: "new_file3"},
 		),
 	)
 
@@ -554,7 +554,7 @@ func TestSearchFilesByNamePaginationSuccessful(t *testing.T) {
 func TestSearchFilesByNameFailure(t *testing.T) {
 	t.Parallel()
 	cfg := testcfg.Build(t)
-	gitCommandFactory := gittest.NewCommandFactory(t, cfg)
+	gitCommandFactory := git.NewCommandFactory(t, cfg)
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
 

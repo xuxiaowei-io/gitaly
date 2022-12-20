@@ -14,7 +14,7 @@ import (
 
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
@@ -34,11 +34,11 @@ func TestOptimizeRepository(t *testing.T) {
 	t.Run("gitconfig credentials get pruned", func(t *testing.T) {
 		t.Parallel()
 
-		repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+		repo, repoPath := git.CreateRepository(t, ctx, cfg)
 		gitconfigPath := filepath.Join(repoPath, "config")
 
 		readConfig := func() []string {
-			return strings.Split(text.ChompBytes(gittest.Exec(t, cfg, "config", "--file", gitconfigPath, "--list")), "\n")
+			return strings.Split(text.ChompBytes(git.Exec(t, cfg, "config", "--file", gitconfigPath, "--list")), "\n")
 		}
 
 		configWithSecrets := readConfig()
@@ -60,8 +60,7 @@ func TestOptimizeRepository(t *testing.T) {
 		} {
 			value := "Authorization: Basic secret-password"
 			line := fmt.Sprintf("%s=%s", strings.ToLower(key), value)
-
-			gittest.Exec(t, cfg, "config", "--file", gitconfigPath, key, value)
+			git.Exec(t, cfg, "config", "--file", gitconfigPath, key, value)
 
 			configWithSecrets = append(configWithSecrets, line)
 			if !shouldBeStripped {
@@ -83,11 +82,11 @@ func TestOptimizeRepository(t *testing.T) {
 	t.Run("up-to-date packfile does not get repacked", func(t *testing.T) {
 		t.Parallel()
 
-		repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+		repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
 		// Write a commit and force-repack the whole repository. This is to ensure that the
 		// repository is in a state where it shouldn't need to be repacked.
-		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
+		git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("master"))
 		_, err := client.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{
 			Repository: repo,
 			Strategy:   gitalypb.OptimizeRepositoryRequest_STRATEGY_EAGER,
@@ -115,8 +114,8 @@ func TestOptimizeRepository(t *testing.T) {
 	t.Run("missing bitmap causes full repack", func(t *testing.T) {
 		t.Parallel()
 
-		repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
-		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
+		repo, repoPath := git.CreateRepository(t, ctx, cfg)
+		git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("master"))
 
 		bitmaps, err := filepath.Glob(filepath.Join(repoPath, "objects", "pack", "*.bitmap"))
 		require.NoError(t, err)
@@ -139,12 +138,12 @@ func TestOptimizeRepository(t *testing.T) {
 	t.Run("optimizing repository without commit-graph bloom filters", func(t *testing.T) {
 		t.Parallel()
 
-		repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
-		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
+		repo, repoPath := git.CreateRepository(t, ctx, cfg)
+		git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("master"))
 
 		// Prepare the repository so that it has a commit-graph, but that commit-graph is
 		// missing bloom filters.
-		gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--split", "--reachable")
+		git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--split", "--reachable")
 		commitGraphInfo, err := stats.CommitGraphInfoForRepository(repoPath)
 		require.NoError(t, err)
 		require.Equal(t, stats.CommitGraphInfo{
@@ -172,7 +171,7 @@ func TestOptimizeRepository(t *testing.T) {
 	t.Run("empty ref directories get pruned after grace period", func(t *testing.T) {
 		t.Parallel()
 
-		repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+		repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
 		// Git will leave behind empty refs directories at times. In order to not slow down
 		// enumerating refs we want to make sure that they get cleaned up properly.
@@ -235,7 +234,7 @@ func TestOptimizeRepository_strategy(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, client := setupRepositoryServiceWithoutRepo(t, testserver.WithHousekeepingManager(housekeepingManager))
 
-	repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+	repoProto, _ := git.CreateRepository(t, ctx, cfg)
 
 	for _, tc := range []struct {
 		desc        string
@@ -350,7 +349,7 @@ func TestOptimizeRepository_logStatistics(t *testing.T) {
 	logger, hook := test.NewNullLogger()
 	cfg, client := setupRepositoryServiceWithoutRepo(t, testserver.WithLogger(logger))
 
-	repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+	repoProto, _ := git.CreateRepository(t, ctx, cfg)
 	_, err := client.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{
 		Repository: repoProto,
 	})

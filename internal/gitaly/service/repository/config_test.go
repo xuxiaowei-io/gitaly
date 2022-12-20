@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
@@ -48,8 +48,8 @@ func TestGetConfig(t *testing.T) {
 	}
 
 	t.Run("normal repo", func(t *testing.T) {
-		repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-			Seed: gittest.SeedGitLabTest,
+		repo, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+			Seed: git.SeedGitLabTest,
 		})
 
 		config, err := getConfig(t, client, repo)
@@ -64,8 +64,8 @@ func TestGetConfig(t *testing.T) {
 	})
 
 	t.Run("missing config", func(t *testing.T) {
-		repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-			Seed: gittest.SeedGitLabTest,
+		repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+			Seed: git.SeedGitLabTest,
 		})
 
 		configPath := filepath.Join(repoPath, "config")

@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -38,12 +38,12 @@ func TestRepackObjects(t *testing.T) {
 	t.Run("no server info is written", func(t *testing.T) {
 		t.Parallel()
 
-		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 		})
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+		git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
 
 		requireObjectCount(t, ctx, repo, 2)
 		requirePackfileCount(t, repoPath, 0)
@@ -60,13 +60,13 @@ func TestRepackObjects(t *testing.T) {
 	testRepoAndPool(t, "delta islands", func(t *testing.T, relativePath string) {
 		t.Parallel()
 
-		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 			RelativePath:           relativePath,
 		})
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-		gittest.TestDeltaIslands(t, cfg, repoPath, repoPath, IsPoolRepository(repoProto), func() error {
+		git.TestDeltaIslands(t, cfg, repoPath, repoPath, IsPoolRepository(repoProto), func() error {
 			return RepackObjects(ctx, repo, RepackObjectsConfig{
 				FullRepack: true,
 			})

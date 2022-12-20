@@ -3,7 +3,7 @@ package housekeeping
 import (
 	"testing"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
 
@@ -15,11 +15,11 @@ func testRepoAndPool(t *testing.T, desc string, testFunc func(t *testing.T, rela
 	t.Helper()
 	t.Run(desc, func(t *testing.T) {
 		t.Run("normal repository", func(t *testing.T) {
-			testFunc(t, gittest.NewRepositoryName(t))
+			testFunc(t, git.NewRepositoryName(t))
 		})
 
 		t.Run("object pool", func(t *testing.T) {
-			testFunc(t, gittest.NewObjectPoolName(t))
+			testFunc(t, git.NewObjectPoolName(t))
 		})
 	})
 }

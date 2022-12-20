@@ -10,7 +10,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/quarantine"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
@@ -31,13 +30,13 @@ func TestUpdaterWithHooks_UpdateReference_invalidParameters(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	gitCmdFactory := git.NewCommandFactory(t, cfg)
+	repo, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 
-	revA := git.ObjectID(strings.Repeat("a", gittest.DefaultObjectHash.EncodedLen()))
-	revB := git.ObjectID(strings.Repeat("b", gittest.DefaultObjectHash.EncodedLen()))
+	revA := git.ObjectID(strings.Repeat("a", git.DefaultObjectHash.EncodedLen()))
+	revB := git.ObjectID(strings.Repeat("b", git.DefaultObjectHash.EncodedLen()))
 
 	updater := updateref.NewUpdaterWithHooks(cfg, nil, &hook.MockManager{}, gitCmdFactory, nil)
 
@@ -83,7 +82,7 @@ func TestUpdaterWithHooks_UpdateReference_invalidParameters(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			err := updater.UpdateReference(ctx, repo, gittest.TestUser, nil, tc.ref, tc.newRev, tc.oldRev)
+			err := updater.UpdateReference(ctx, repo, git.TestUser, nil, tc.ref, tc.newRev, tc.oldRev)
 			require.Equal(t, tc.expectedErr, err)
 		})
 	}
@@ -101,17 +100,17 @@ func TestUpdaterWithHooks_UpdateReference(t *testing.T) {
 		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache(), deps.GetPackObjectsConcurrencyTracker(), deps.GetPackObjectsLimiter()))
 	})
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+	commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
 
 	requirePayload := func(t *testing.T, env []string) {
 		require.Len(t, env, 1)
 
 		expectedPayload := git.NewHooksPayload(cfg, repo, nil, &git.UserDetails{
-			UserID:   gittest.TestUser.GlId,
-			Username: gittest.TestUser.GlUsername,
+			UserID:   git.TestUser.GlId,
+			Username: git.TestUser.GlUsername,
 			Protocol: "web",
 		}, git.ReceivePackHooks, featureflag.FromContext(ctx))
 
@@ -141,7 +140,7 @@ func TestUpdaterWithHooks_UpdateReference(t *testing.T) {
 			preReceive: func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
 				changes, err := io.ReadAll(stdin)
 				require.NoError(t, err)
-				require.Equal(t, fmt.Sprintf("%s %s refs/heads/main\n", commitID, gittest.DefaultObjectHash.ZeroOID.String()), string(changes))
+				require.Equal(t, fmt.Sprintf("%s %s refs/heads/main\n", commitID, git.DefaultObjectHash.ZeroOID.String()), string(changes))
 				require.Empty(t, pushOptions)
 				requirePayload(t, env)
 				return nil
@@ -149,14 +148,14 @@ func TestUpdaterWithHooks_UpdateReference(t *testing.T) {
 			update: func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, ref, oldValue, newValue string, env []string, stdout, stderr io.Writer) error {
 				require.Equal(t, "refs/heads/main", ref)
 				require.Equal(t, commitID.String(), oldValue)
-				require.Equal(t, newValue, gittest.DefaultObjectHash.ZeroOID.String())
+				require.Equal(t, newValue, git.DefaultObjectHash.ZeroOID.String())
 				requirePayload(t, env)
 				return nil
 			},
 			postReceive: func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
 				changes, err := io.ReadAll(stdin)
 				require.NoError(t, err)
-				require.Equal(t, fmt.Sprintf("%s %s refs/heads/main\n", commitID.String(), gittest.DefaultObjectHash.ZeroOID.String()), string(changes))
+				require.Equal(t, fmt.Sprintf("%s %s refs/heads/main\n", commitID.String(), git.DefaultObjectHash.ZeroOID.String()), string(changes))
 				requirePayload(t, env)
 				require.Empty(t, pushOptions)
 				return nil
@@ -164,7 +163,7 @@ func TestUpdaterWithHooks_UpdateReference(t *testing.T) {
 			referenceTransaction: func(t *testing.T, ctx context.Context, state hook.ReferenceTransactionState, env []string, stdin io.Reader) error {
 				changes, err := io.ReadAll(stdin)
 				require.NoError(t, err)
-				require.Equal(t, fmt.Sprintf("%s %s refs/heads/main\n", commitID.String(), gittest.DefaultObjectHash.ZeroOID.String()), string(changes))
+				require.Equal(t, fmt.Sprintf("%s %s refs/heads/main\n", commitID.String(), git.DefaultObjectHash.ZeroOID.String()), string(changes))
 
 				require.Less(t, referenceTransactionCalls, 2)
 				if referenceTransactionCalls == 0 {
@@ -248,10 +247,10 @@ func TestUpdaterWithHooks_UpdateReference(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			hookManager := hook.NewMockManager(t, tc.preReceive, tc.postReceive, tc.update, tc.referenceTransaction)
 
-			gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+			gitCmdFactory := git.NewCommandFactory(t, cfg)
 			updater := updateref.NewUpdaterWithHooks(cfg, config.NewLocator(cfg), hookManager, gitCmdFactory, nil)
 
-			err := updater.UpdateReference(ctx, repo, gittest.TestUser, nil, git.ReferenceName("refs/heads/main"), gittest.DefaultObjectHash.ZeroOID, commitID)
+			err := updater.UpdateReference(ctx, repo, git.TestUser, nil, git.ReferenceName("refs/heads/main"), git.DefaultObjectHash.ZeroOID, commitID)
 			if tc.expectedErr == "" {
 				require.NoError(t, err)
 			} else {
@@ -262,7 +261,7 @@ func TestUpdaterWithHooks_UpdateReference(t *testing.T) {
 				contained, err := localrepo.NewTestRepo(t, cfg, repo).HasRevision(ctx, git.Revision("refs/heads/main"))
 				require.NoError(t, err)
 				require.False(t, contained, "branch should have been deleted")
-				gittest.Exec(t, cfg, "-C", repoPath, "branch", "main", commitID.String())
+				git.Exec(t, cfg, "-C", repoPath, "branch", "main", commitID.String())
 			} else {
 				ref, err := localrepo.NewTestRepo(t, cfg, repo).GetReference(ctx, "refs/heads/main")
 				require.NoError(t, err)
@@ -277,13 +276,13 @@ func TestUpdaterWithHooks_quarantine(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+	gitCmdFactory := git.NewCommandFactory(t, cfg)
 	locator := config.NewLocator(cfg)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+	commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
 
 	unquarantinedRepo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -368,7 +367,7 @@ func TestUpdaterWithHooks_quarantine(t *testing.T) {
 		},
 		quarantine,
 		git.ReferenceName("refs/heads/main"),
-		gittest.DefaultObjectHash.ZeroOID,
+		git.DefaultObjectHash.ZeroOID,
 		commitID,
 	))
 

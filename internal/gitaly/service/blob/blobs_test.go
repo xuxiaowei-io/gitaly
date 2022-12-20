@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/quarantine"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -42,7 +42,7 @@ func TestListBlobs(t *testing.T) {
 	cfg, repoProto, repoPath, client := setup(t, ctx)
 
 	bigBlobContents := bytes.Repeat([]byte{1}, streamio.WriteBufferSize*2+1)
-	bigBlobOID := gittest.WriteBlob(t, cfg, repoPath, bigBlobContents)
+	bigBlobOID := git.WriteBlob(t, cfg, repoPath, bigBlobContents)
 
 	for _, tc := range []struct {
 		desc          string
@@ -285,7 +285,7 @@ func TestListAllBlobs(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, repo, _, client := setup(t, ctx)
 
-	quarantine, err := quarantine.New(ctx, gittest.RewrittenRepository(t, ctx, cfg, repo), config.NewLocator(cfg))
+	quarantine, err := quarantine.New(ctx, git.RewrittenRepository(t, ctx, cfg, repo), config.NewLocator(cfg))
 	require.NoError(t, err)
 
 	// quarantine.New in Gitaly would receive an already rewritten repository. Gitaly would then calculate
@@ -300,10 +300,10 @@ func TestListAllBlobs(t *testing.T) {
 	quarantineRepoWithoutAlternates := proto.Clone(quarantinedRepo).(*gitalypb.Repository)
 	quarantineRepoWithoutAlternates.GitAlternateObjectDirectories = []string{}
 
-	emptyRepo, _ := gittest.CreateRepository(t, ctx, cfg)
+	emptyRepo, _ := git.CreateRepository(t, ctx, cfg)
 
-	singleBlobRepo, singleBlobRepoPath := gittest.CreateRepository(t, ctx, cfg)
-	blobID := gittest.WriteBlob(t, cfg, singleBlobRepoPath, []byte("foobar"))
+	singleBlobRepo, singleBlobRepoPath := git.CreateRepository(t, ctx, cfg)
+	blobID := git.WriteBlob(t, cfg, singleBlobRepoPath, []byte("foobar"))
 
 	for _, tc := range []struct {
 		desc    string

@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/cmd/gitaly-git2go/git2goutil"
 	gitalygit "gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -167,8 +166,8 @@ func TestRebase_rebase(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			ctx := testhelper.Context(t)
 
-			committer := git2go.NewSignature(string(gittest.TestUser.Name),
-				string(gittest.TestUser.Email),
+			committer := git2go.NewSignature(string(gitalygit.TestUser.Name),
+				string(gitalygit.TestUser.Email),
 				time.Date(2021, 3, 1, 13, 45, 50, 0, time.FixedZone("", +2*60*60)))
 
 			cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
@@ -245,18 +244,18 @@ func TestRebase_skipEmptyCommit(t *testing.T) {
 
 	// Set up history with two diverging lines of branches, where both sides have implemented
 	// the same changes. During rebase, the diff will thus become empty.
-	base := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithTreeEntries(gittest.TreeEntry{
+	base := gitalygit.WriteTestCommit(t, cfg, repoPath,
+		gitalygit.WithTreeEntries(gitalygit.TreeEntry{
 			Path: "a", Content: "base", Mode: "100644",
 		}),
 	)
-	theirs := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("theirs"),
-		gittest.WithParents(base), gittest.WithTreeEntries(gittest.TreeEntry{
+	theirs := gitalygit.WriteTestCommit(t, cfg, repoPath, gitalygit.WithMessage("theirs"),
+		gitalygit.WithParents(base), gitalygit.WithTreeEntries(gitalygit.TreeEntry{
 			Path: "a", Content: "changed", Mode: "100644",
 		}),
 	)
-	ours := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("ours"),
-		gittest.WithParents(base), gittest.WithTreeEntries(gittest.TreeEntry{
+	ours := gitalygit.WriteTestCommit(t, cfg, repoPath, gitalygit.WithMessage("ours"),
+		gitalygit.WithParents(base), gitalygit.WithTreeEntries(gitalygit.TreeEntry{
 			Path: "a", Content: "changed", Mode: "100644",
 		}),
 	)

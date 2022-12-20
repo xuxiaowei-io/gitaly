@@ -10,7 +10,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
@@ -34,8 +33,8 @@ func testLink(t *testing.T, ctx context.Context) {
 
 	// Mock object in the pool, which should be available to the pool members
 	// after linking
-	poolCommitID := gittest.WriteCommit(t, cfg, poolPath,
-		gittest.WithBranch("pool-test-branch"))
+	poolCommitID := git.WriteTestCommit(t, cfg, poolPath,
+		git.WithBranch("pool-test-branch"))
 
 	for _, tc := range []struct {
 		desc        string
@@ -144,7 +143,7 @@ func testLinkNoPool(t *testing.T, ctx context.Context) {
 
 	cfg, repo, _, _, client := setup(t, ctx)
 
-	poolRelativePath := gittest.NewObjectPoolName(t)
+	poolRelativePath := git.NewObjectPoolName(t)
 
 	_, err := client.LinkRepositoryToObjectPool(ctx, &gitalypb.LinkRepositoryToObjectPoolRequest{
 		Repository: repo,

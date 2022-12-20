@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -35,7 +35,7 @@ func TestFromProto(t *testing.T) {
 		_, err := FromProto(locator, nil, nil, nil, nil, &gitalypb.ObjectPool{
 			Repository: &gitalypb.Repository{
 				StorageName:  cfg.Storages[0].Name,
-				RelativePath: gittest.NewObjectPoolName(t),
+				RelativePath: git.NewObjectPoolName(t),
 			},
 		})
 		require.Equal(t, ErrInvalidPoolRepository, err)
@@ -45,7 +45,7 @@ func TestFromProto(t *testing.T) {
 		_, err := FromProto(locator, nil, nil, nil, nil, &gitalypb.ObjectPool{
 			Repository: &gitalypb.Repository{
 				StorageName:  "mepmep",
-				RelativePath: gittest.NewObjectPoolName(t),
+				RelativePath: git.NewObjectPoolName(t),
 			},
 		})
 		require.Equal(t, structerr.NewInvalidArgument("GetStorageByName: no such storage: %q", "mepmep"), err)

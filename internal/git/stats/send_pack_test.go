@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 )
 
 func TestSendPack_Parse(t *testing.T) {
@@ -23,10 +23,10 @@ func TestSendPack_Parse(t *testing.T) {
 
 		startTime := time.Now()
 
-		gittest.WritePktlineString(t, &response, "\x01000eunpack ok\n0015ok refs/heads/branch\n0000")
-		gittest.WritePktlineString(t, &response, "\x010013ok refs/heads/other0000\n")
-		gittest.WritePktlineString(t, &response, "\x02progress-bytes")
-		gittest.WritePktlineFlush(t, &response)
+		git.WritePktlineString(t, &response, "\x01000eunpack ok\n0015ok refs/heads/branch\n0000")
+		git.WritePktlineString(t, &response, "\x010013ok refs/heads/other0000\n")
+		git.WritePktlineString(t, &response, "\x02progress-bytes")
+		git.WritePktlineFlush(t, &response)
 
 		err := sendPack.Parse(&response)
 		require.NoError(t, err)
@@ -61,9 +61,9 @@ func TestSendPack_Parse(t *testing.T) {
 
 	t.Run("data after flush", func(t *testing.T) {
 		var response bytes.Buffer
-		gittest.WritePktlineString(t, &response, "\x01000eunpack ok\n0000")
-		gittest.WritePktlineFlush(t, &response)
-		gittest.WritePktlineString(t, &response, "\x01somethingsomething")
+		git.WritePktlineString(t, &response, "\x01000eunpack ok\n0000")
+		git.WritePktlineFlush(t, &response)
+		git.WritePktlineString(t, &response, "\x01somethingsomething")
 
 		err := (&SendPack{}).Parse(&response)
 		require.Equal(t, errors.New("received extra packet after flush"), err)
@@ -71,7 +71,7 @@ func TestSendPack_Parse(t *testing.T) {
 
 	t.Run("unpack error", func(t *testing.T) {
 		var response bytes.Buffer
-		gittest.WritePktlineString(t, &response, "\x010011unpack error\n0000")
+		git.WritePktlineString(t, &response, "\x010011unpack error\n0000")
 
 		err := (&SendPack{}).Parse(&response)
 		require.Equal(t, errors.New("expected unpack ok, got \"unpack error\\n\""), err)
@@ -79,9 +79,9 @@ func TestSendPack_Parse(t *testing.T) {
 
 	t.Run("error sideband", func(t *testing.T) {
 		var response bytes.Buffer
-		gittest.WritePktlineString(t, &response, "\x01000eunpack ok\n0000")
-		gittest.WritePktlineString(t, &response, "\x03error-bytes")
-		gittest.WritePktlineFlush(t, &response)
+		git.WritePktlineString(t, &response, "\x01000eunpack ok\n0000")
+		git.WritePktlineString(t, &response, "\x03error-bytes")
+		git.WritePktlineFlush(t, &response)
 
 		err := (&SendPack{}).Parse(&response)
 		require.Equal(t, errors.New("received error: \"error-bytes\""), err)
@@ -89,10 +89,10 @@ func TestSendPack_Parse(t *testing.T) {
 
 	t.Run("failed reference update", func(t *testing.T) {
 		var response bytes.Buffer
-		gittest.WritePktlineString(t, &response, "\x01000eunpack ok\n0000")
-		gittest.WritePktlineString(t, &response, "\x010014ok refs/heads/branch0000")
-		gittest.WritePktlineString(t, &response, "\x010021ng refs/heads/feature failure0000")
-		gittest.WritePktlineFlush(t, &response)
+		git.WritePktlineString(t, &response, "\x01000eunpack ok\n0000")
+		git.WritePktlineString(t, &response, "\x010014ok refs/heads/branch0000")
+		git.WritePktlineString(t, &response, "\x010021ng refs/heads/feature failure0000")
+		git.WritePktlineFlush(t, &response)
 
 		err := (&SendPack{}).Parse(&response)
 		require.Equal(t, errors.New("reference update failed: \"ng refs/heads/feature failure\""), err)

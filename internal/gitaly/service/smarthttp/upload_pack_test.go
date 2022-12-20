@@ -19,7 +19,6 @@ import (
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/sidechannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
@@ -75,26 +74,26 @@ func testServerPostUpload(t *testing.T, ctx context.Context, makeRequest request
 	negotiationMetrics := prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"feature"})
 	cfg.SocketPath = runSmartHTTPServer(t, cfg, WithPackfileNegotiationMetrics(negotiationMetrics))
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
-	_, localRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	_, localRepoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	testcfg.BuildGitalyHooks(t, cfg)
 
 	oldCommit, err := git.ObjectHashSHA1.FromHex("1e292f8fedd741b75372e19097c76d327140c312") // refs/heads/master
 	require.NoError(t, err)
-	newCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithParents(oldCommit))
+	newCommit := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("master"), git.WithParents(oldCommit))
 
 	// UploadPack request is a "want" packet line followed by a packet flush, then many "have" packets followed by a packet flush.
 	// This is explained a bit in https://git-scm.com/book/en/v2/Git-Internals-Transfer-Protocols#_downloading_data
 	requestBuffer := &bytes.Buffer{}
-	gittest.WritePktlineString(t, requestBuffer, fmt.Sprintf("want %s %s\n", newCommit, clientCapabilities))
-	gittest.WritePktlineFlush(t, requestBuffer)
-	gittest.WritePktlineString(t, requestBuffer, fmt.Sprintf("have %s\n", oldCommit))
-	gittest.WritePktlineFlush(t, requestBuffer)
+	git.WritePktlineString(t, requestBuffer, fmt.Sprintf("want %s %s\n", newCommit, clientCapabilities))
+	git.WritePktlineFlush(t, requestBuffer)
+	git.WritePktlineString(t, requestBuffer, fmt.Sprintf("have %s\n", oldCommit))
+	git.WritePktlineFlush(t, requestBuffer)
 
 	req := &gitalypb.PostUploadPackRequest{Repository: repo}
 	responseBuffer, err := makeRequest(t, ctx, cfg.SocketPath, cfg.Auth.Token, req, requestBuffer)
@@ -103,11 +102,11 @@ func testServerPostUpload(t *testing.T, ctx context.Context, makeRequest request
 	pack, version, entries := extractPackDataFromResponse(t, responseBuffer)
 	require.NotEmpty(t, pack, "Expected to find a pack file in response, found none")
 
-	gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: bytes.NewReader(pack)},
+	git.ExecOpts(t, cfg, git.ExecConfig{Stdin: bytes.NewReader(pack)},
 		"-C", localRepoPath, "unpack-objects", fmt.Sprintf("--pack_header=%d,%d", version, entries),
 	)
 
-	gittest.RequireObjectExists(t, cfg, localRepoPath, newCommit)
+	git.RequireObjectExists(t, cfg, localRepoPath, newCommit)
 
 	metric, err := negotiationMetrics.GetMetricWithLabelValues("have")
 	require.NoError(t, err)
@@ -132,27 +131,27 @@ func testServerPostUploadPackGitConfigOptions(t *testing.T, ctx context.Context,
 
 	cfg.SocketPath = runSmartHTTPServer(t, cfg)
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
 	// We write two commits: the first commit is a common base commit that is available via
 	// normal refs. And the second commit is a child of the base commit, but its reference is
 	// created as `refs/hidden/csv`. This allows us to hide this reference and thus verify that
 	// the gitconfig indeed is applied because we should not be able to fetch the hidden ref.
-	baseID := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithMessage("base commit"),
-		gittest.WithBranch("main"),
+	baseID := git.WriteTestCommit(t, cfg, repoPath,
+		git.WithMessage("base commit"),
+		git.WithBranch("main"),
 	)
-	hiddenID := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithMessage("hidden commit"),
-		gittest.WithParents(baseID),
+	hiddenID := git.WriteTestCommit(t, cfg, repoPath,
+		git.WithMessage("hidden commit"),
+		git.WithParents(baseID),
 	)
-	gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/hidden/csv", hiddenID.String())
+	git.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/hidden/csv", hiddenID.String())
 
 	requestBody := &bytes.Buffer{}
-	gittest.WritePktlineString(t, requestBody, fmt.Sprintf("want %s %s\n", hiddenID, clientCapabilities))
-	gittest.WritePktlineFlush(t, requestBody)
-	gittest.WritePktlineString(t, requestBody, fmt.Sprintf("have %s\n", baseID))
-	gittest.WritePktlineFlush(t, requestBody)
+	git.WritePktlineString(t, requestBody, fmt.Sprintf("want %s %s\n", hiddenID, clientCapabilities))
+	git.WritePktlineFlush(t, requestBody)
+	git.WritePktlineString(t, requestBody, fmt.Sprintf("have %s\n", baseID))
+	git.WritePktlineFlush(t, requestBody)
 
 	t.Run("sanity check: ref exists and can be fetched", func(t *testing.T) {
 		rpcRequest := &gitalypb.PostUploadPackRequest{Repository: repo}
@@ -195,23 +194,23 @@ func TestServer_PostUploadPackWithSidechannel_gitProtocol(t *testing.T) {
 
 func testServerPostUploadPackGitProtocol(t *testing.T, ctx context.Context, makeRequest requestMaker, opts ...testcfg.Option) {
 	cfg := testcfg.Build(t, opts...)
-	protocolDetectingFactory := gittest.NewProtocolDetectingCommandFactory(t, ctx, cfg)
+	protocolDetectingFactory := git.NewProtocolDetectingCommandFactory(t, ctx, cfg)
 	server := startSmartHTTPServerWithOptions(t, cfg, nil, []testserver.GitalyServerOpt{
 		testserver.WithGitCommandFactory(protocolDetectingFactory),
 	})
 	cfg.SocketPath = server.Address()
 
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repo, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	// command=ls-refs does not exist in protocol v0, so if this succeeds, we're talking v2
 	requestBody := &bytes.Buffer{}
-	gittest.WritePktlineString(t, requestBody, "command=ls-refs\n")
-	gittest.WritePktlineDelim(t, requestBody)
-	gittest.WritePktlineString(t, requestBody, "peel\n")
-	gittest.WritePktlineString(t, requestBody, "symrefs\n")
-	gittest.WritePktlineFlush(t, requestBody)
+	git.WritePktlineString(t, requestBody, "command=ls-refs\n")
+	git.WritePktlineDelim(t, requestBody)
+	git.WritePktlineString(t, requestBody, "peel\n")
+	git.WritePktlineString(t, requestBody, "symrefs\n")
+	git.WritePktlineFlush(t, requestBody)
 
 	rpcRequest := &gitalypb.PostUploadPackRequest{
 		Repository:  repo,
@@ -244,14 +243,14 @@ func testServerPostUploadPackSuppressDeepenExitError(t *testing.T, ctx context.C
 	cfg := testcfg.Build(t, opts...)
 	cfg.SocketPath = runSmartHTTPServer(t, cfg)
 
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repo, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	requestBody := &bytes.Buffer{}
-	gittest.WritePktlineString(t, requestBody, fmt.Sprintf("want e63f41fe459e62e1228fcef60d7189127aeba95a %s\n", clientCapabilities))
-	gittest.WritePktlineString(t, requestBody, "deepen 1")
-	gittest.WritePktlineFlush(t, requestBody)
+	git.WritePktlineString(t, requestBody, fmt.Sprintf("want e63f41fe459e62e1228fcef60d7189127aeba95a %s\n", clientCapabilities))
+	git.WritePktlineString(t, requestBody, "deepen 1")
+	git.WritePktlineFlush(t, requestBody)
 
 	rpcRequest := &gitalypb.PostUploadPackRequest{Repository: repo}
 	response, err := makeRequest(t, ctx, cfg.SocketPath, cfg.Auth.Token, rpcRequest, requestBody)
@@ -293,18 +292,18 @@ func testServerPostUploadPackUsesPackObjectsHook(t *testing.T, ctx context.Conte
 
 	cfg.SocketPath = runSmartHTTPServer(t, cfg)
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
-	oldHead := bytes.TrimSpace(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "master~"))
-	newHead := bytes.TrimSpace(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "master"))
+	oldHead := bytes.TrimSpace(git.Exec(t, cfg, "-C", repoPath, "rev-parse", "master~"))
+	newHead := bytes.TrimSpace(git.Exec(t, cfg, "-C", repoPath, "rev-parse", "master"))
 
 	requestBuffer := &bytes.Buffer{}
-	gittest.WritePktlineString(t, requestBuffer, fmt.Sprintf("want %s %s\n", newHead, clientCapabilities))
-	gittest.WritePktlineFlush(t, requestBuffer)
-	gittest.WritePktlineString(t, requestBuffer, fmt.Sprintf("have %s\n", oldHead))
-	gittest.WritePktlineFlush(t, requestBuffer)
+	git.WritePktlineString(t, requestBuffer, fmt.Sprintf("want %s %s\n", newHead, clientCapabilities))
+	git.WritePktlineFlush(t, requestBuffer)
+	git.WritePktlineString(t, requestBuffer, fmt.Sprintf("have %s\n", oldHead))
+	git.WritePktlineFlush(t, requestBuffer)
 
 	_, err := makeRequest(t, ctx, cfg.SocketPath, cfg.Auth.Token, &gitalypb.PostUploadPackRequest{
 		Repository: repo,
@@ -328,7 +327,7 @@ func testServerPostUploadPackValidation(t *testing.T, ctx context.Context, makeR
 	serverSocketPath := runSmartHTTPServer(t, cfg)
 	cfg.SocketPath = serverSocketPath
 
-	repo, _ := gittest.CreateRepository(t, ctx, cfg)
+	repo, _ := git.CreateRepository(t, ctx, cfg)
 
 	for _, tc := range []struct {
 		desc        string
@@ -465,23 +464,23 @@ func testServerPostUploadPackPartialClone(t *testing.T, ctx context.Context, mak
 	negotiationMetrics := prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"feature"})
 	cfg.SocketPath = runSmartHTTPServer(t, cfg, WithPackfileNegotiationMetrics(negotiationMetrics))
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
-	_, localRepoPath := gittest.CreateRepository(t, ctx, cfg)
+	_, localRepoPath := git.CreateRepository(t, ctx, cfg)
 
 	testcfg.BuildGitalyHooks(t, cfg)
 
 	oldCommit, err := git.ObjectHashSHA1.FromHex("1e292f8fedd741b75372e19097c76d327140c312") // refs/heads/master
 	require.NoError(t, err)
-	newCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithParents(oldCommit))
+	newCommit := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("master"), git.WithParents(oldCommit))
 
 	var requestBuffer bytes.Buffer
-	gittest.WritePktlineString(t, &requestBuffer, fmt.Sprintf("want %s %s\n", newCommit, clientCapabilities))
-	gittest.WritePktlineString(t, &requestBuffer, fmt.Sprintf("filter %s\n", "blob:limit=200"))
-	gittest.WritePktlineFlush(t, &requestBuffer)
-	gittest.WritePktlineString(t, &requestBuffer, "done\n")
-	gittest.WritePktlineFlush(t, &requestBuffer)
+	git.WritePktlineString(t, &requestBuffer, fmt.Sprintf("want %s %s\n", newCommit, clientCapabilities))
+	git.WritePktlineString(t, &requestBuffer, fmt.Sprintf("filter %s\n", "blob:limit=200"))
+	git.WritePktlineFlush(t, &requestBuffer)
+	git.WritePktlineString(t, &requestBuffer, "done\n")
+	git.WritePktlineFlush(t, &requestBuffer)
 
 	req := &gitalypb.PostUploadPackRequest{Repository: repo}
 	responseBuffer, err := makeRequest(t, ctx, cfg.SocketPath, cfg.Auth.Token, req, &requestBuffer)
@@ -490,7 +489,7 @@ func testServerPostUploadPackPartialClone(t *testing.T, ctx context.Context, mak
 	pack, version, entries := extractPackDataFromResponse(t, responseBuffer)
 	require.NotEmpty(t, pack, "Expected to find a pack file in response, found none")
 
-	gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: bytes.NewReader(pack)},
+	git.ExecOpts(t, cfg, git.ExecConfig{Stdin: bytes.NewReader(pack)},
 		"-C", localRepoPath, "unpack-objects", fmt.Sprintf("--pack_header=%d,%d", version, entries),
 	)
 
@@ -500,9 +499,9 @@ func testServerPostUploadPackPartialClone(t *testing.T, ctx context.Context, mak
 	// c1788657b95998a2f177a4f86d68a60f2a80117f is CONTRIBUTING.md, which is > 200 bytes
 	blobGreaterThanLimit := git.ObjectID("c1788657b95998a2f177a4f86d68a60f2a80117f")
 
-	gittest.RequireObjectExists(t, cfg, localRepoPath, blobLessThanLimit)
-	gittest.RequireObjectExists(t, cfg, repoPath, blobGreaterThanLimit)
-	gittest.RequireObjectNotExists(t, cfg, localRepoPath, blobGreaterThanLimit)
+	git.RequireObjectExists(t, cfg, localRepoPath, blobLessThanLimit)
+	git.RequireObjectExists(t, cfg, repoPath, blobGreaterThanLimit)
+	git.RequireObjectNotExists(t, cfg, localRepoPath, blobGreaterThanLimit)
 
 	metric, err := negotiationMetrics.GetMetricWithLabelValues("filter")
 	require.NoError(t, err)
@@ -527,19 +526,19 @@ func testServerPostUploadPackAllowAnySHA1InWant(t *testing.T, ctx context.Contex
 	cfg := testcfg.Build(t, opts...)
 	cfg.SocketPath = runSmartHTTPServer(t, cfg)
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
-	_, localRepoPath := gittest.CreateRepository(t, ctx, cfg)
+	_, localRepoPath := git.CreateRepository(t, ctx, cfg)
 
 	testcfg.BuildGitalyHooks(t, cfg)
-	newCommit := gittest.WriteCommit(t, cfg, repoPath)
+	newCommit := git.WriteTestCommit(t, cfg, repoPath)
 
 	var requestBuffer bytes.Buffer
-	gittest.WritePktlineString(t, &requestBuffer, fmt.Sprintf("want %s %s\n", newCommit, clientCapabilities))
-	gittest.WritePktlineFlush(t, &requestBuffer)
-	gittest.WritePktlineString(t, &requestBuffer, "done\n")
-	gittest.WritePktlineFlush(t, &requestBuffer)
+	git.WritePktlineString(t, &requestBuffer, fmt.Sprintf("want %s %s\n", newCommit, clientCapabilities))
+	git.WritePktlineFlush(t, &requestBuffer)
+	git.WritePktlineString(t, &requestBuffer, "done\n")
+	git.WritePktlineFlush(t, &requestBuffer)
 
 	req := &gitalypb.PostUploadPackRequest{Repository: repo}
 	responseBuffer, err := makeRequest(t, ctx, cfg.SocketPath, cfg.Auth.Token, req, &requestBuffer)
@@ -548,11 +547,11 @@ func testServerPostUploadPackAllowAnySHA1InWant(t *testing.T, ctx context.Contex
 	pack, version, entries := extractPackDataFromResponse(t, responseBuffer)
 	require.NotEmpty(t, pack, "Expected to find a pack file in response, found none")
 
-	gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: bytes.NewReader(pack)},
+	git.ExecOpts(t, cfg, git.ExecConfig{Stdin: bytes.NewReader(pack)},
 		"-C", localRepoPath, "unpack-objects", fmt.Sprintf("--pack_header=%d,%d", version, entries),
 	)
 
-	gittest.RequireObjectExists(t, cfg, localRepoPath, newCommit)
+	git.RequireObjectExists(t, cfg, localRepoPath, newCommit)
 }
 
 func makePostUploadPackRequest(t *testing.T, ctx context.Context, serverSocketPath, token string, in *gitalypb.PostUploadPackRequest, body io.Reader) (*bytes.Buffer, error) {

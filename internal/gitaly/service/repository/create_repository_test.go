@@ -9,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/auth"
@@ -38,7 +37,7 @@ func TestCreateRepository_missingAuth(t *testing.T) {
 	_, err := client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{
 		Repository: &gitalypb.Repository{
 			StorageName:  cfg.Storages[0].Name,
-			RelativePath: gittest.NewRepositoryName(t),
+			RelativePath: git.NewRepositoryName(t),
 		},
 	})
 	testhelper.RequireGrpcError(t, structerr.NewUnauthenticated("authentication required"), err)
@@ -52,7 +51,7 @@ func TestCreateRepository_successful(t *testing.T) {
 
 	repo := &gitalypb.Repository{
 		StorageName:  cfg.Storages[0].Name,
-		RelativePath: gittest.NewRepositoryName(t),
+		RelativePath: git.NewRepositoryName(t),
 	}
 
 	_, err := client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{
@@ -60,7 +59,7 @@ func TestCreateRepository_successful(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	repoDir := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(t, ctx, cfg, repo))
+	repoDir := filepath.Join(cfg.Storages[0].Path, git.GetReplicaPath(t, ctx, cfg, repo))
 
 	require.NoError(t, unix.Access(repoDir, unix.R_OK))
 	require.NoError(t, unix.Access(repoDir, unix.W_OK))
@@ -110,16 +109,15 @@ func TestCreateRepository_withDefaultBranch(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			repo := &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: gittest.NewRepositoryName(t)}
-
+			repo := &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: git.NewRepositoryName(t)}
 			req := &gitalypb.CreateRepositoryRequest{Repository: repo, DefaultBranch: []byte(tc.defaultBranch)}
 			_, err := client.CreateRepository(ctx, req)
 			if tc.expectedErrString != "" {
 				require.Contains(t, err.Error(), tc.expectedErrString)
 			} else {
 				require.NoError(t, err)
-				repoPath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(t, ctx, cfg, repo))
-				symRef := text.ChompBytes(gittest.Exec(
+				repoPath := filepath.Join(cfg.Storages[0].Path, git.GetReplicaPath(t, ctx, cfg, repo))
+				symRef := text.ChompBytes(git.Exec(
 					t,
 					cfg,
 					"-C", repoPath,
@@ -170,7 +168,7 @@ func TestCreateRepository_withObjectFormat(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			repoProto := &gitalypb.Repository{
 				StorageName:  cfg.Storages[0].Name,
-				RelativePath: gittest.NewRepositoryName(t),
+				RelativePath: git.NewRepositoryName(t),
 			}
 
 			response, err := client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{
@@ -200,7 +198,7 @@ func TestCreateRepository_invalidArguments(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	preexistingRepo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	preexistingRepo, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		// This creates the first repository on the server. As this test can run with
 		// Praefect in front of it, we'll use the next replica path Praefect will assign in
 		// order to ensure this repository creation conflicts even with Praefect in front of
@@ -267,6 +265,6 @@ func TestCreateRepository_transactional(t *testing.T) {
 	_, err = client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: repo})
 	require.NoError(t, err)
 
-	require.DirExists(t, filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(t, ctx, cfg, repo)))
+	require.DirExists(t, filepath.Join(cfg.Storages[0].Path, git.GetReplicaPath(t, ctx, cfg, repo)))
 	require.Equal(t, 2, len(txManager.Votes()), "expected transactional vote")
 }

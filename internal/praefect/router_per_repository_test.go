@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/nodes"
@@ -459,7 +459,7 @@ func TestPerRepositoryRouter_RouteRepositoryMaintenance(t *testing.T) {
 
 	var (
 		virtualStorage = "virtual-storage-1"
-		relativePath   = gittest.NewRepositoryName(t)
+		relativePath   = git.NewRepositoryName(t)
 	)
 
 	configuredStorages := []string{"primary", "secondary-1", "secondary-2"}

@@ -11,7 +11,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
@@ -33,7 +32,7 @@ func TestCreate(t *testing.T) {
 
 	txManager := &transaction.MockManager{}
 	locator := config.NewLocator(cfg)
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+	gitCmdFactory := git.NewCommandFactory(t, cfg)
 
 	var votesByPhase map[voting.Phase]int
 
@@ -59,7 +58,7 @@ func TestCreate(t *testing.T) {
 				require.NoDirExists(t, tempRepoPath)
 
 				// But the new repository must exist.
-				isBareRepo := gittest.Exec(t, cfg, "-C", realRepoPath, "rev-parse", "--is-bare-repository")
+				isBareRepo := git.Exec(t, cfg, "-C", realRepoPath, "rev-parse", "--is-bare-repository")
 				require.Equal(t, "true", text.ChompBytes(isBareRepo))
 			},
 		},
@@ -77,7 +76,7 @@ func TestCreate(t *testing.T) {
 				return nil
 			},
 			verify: func(t *testing.T, tempRepo *gitalypb.Repository, tempRepoPath string, realRepo *gitalypb.Repository, realRepoPath string) {
-				value := gittest.Exec(t, cfg, "-C", realRepoPath, "config", "custom.key")
+				value := git.Exec(t, cfg, "-C", realRepoPath, "config", "custom.key")
 				require.Equal(t, "value", text.ChompBytes(value))
 			},
 		},
@@ -252,7 +251,7 @@ func TestCreate(t *testing.T) {
 				WithBranchName("default"),
 			},
 			verify: func(t *testing.T, _ *gitalypb.Repository, _ string, _ *gitalypb.Repository, realRepoPath string) {
-				defaultBranch := text.ChompBytes(gittest.Exec(t, cfg, "-C", realRepoPath, "symbolic-ref", "HEAD"))
+				defaultBranch := text.ChompBytes(git.Exec(t, cfg, "-C", realRepoPath, "symbolic-ref", "HEAD"))
 				require.Equal(t, "refs/heads/default", defaultBranch)
 			},
 		},
@@ -262,7 +261,7 @@ func TestCreate(t *testing.T) {
 				WithObjectHash(git.ObjectHashSHA256),
 			},
 			verify: func(t *testing.T, _ *gitalypb.Repository, _ string, _ *gitalypb.Repository, realRepoPath string) {
-				objectFormat := text.ChompBytes(gittest.Exec(t, cfg, "-C", realRepoPath, "rev-parse", "--show-object-format"))
+				objectFormat := text.ChompBytes(git.Exec(t, cfg, "-C", realRepoPath, "rev-parse", "--show-object-format"))
 				require.Equal(t, "sha256", objectFormat)
 			},
 		},
@@ -273,14 +272,14 @@ func TestCreate(t *testing.T) {
 			},
 			seed: func(t *testing.T, repo *gitalypb.Repository, repoPath string) error {
 				require.NoDirExists(t, repoPath)
-				gittest.Exec(t, cfg, "init", "--bare", repoPath)
+				git.Exec(t, cfg, "init", "--bare", repoPath)
 				return nil
 			},
 			verify: func(t *testing.T, tempRepo *gitalypb.Repository, tempRepoPath string, realRepo *gitalypb.Repository, realRepoPath string) {
 				require.NoDirExists(t, tempRepoPath)
 
 				// But the new repository must exist.
-				isBareRepo := gittest.Exec(t, cfg, "-C", realRepoPath, "rev-parse", "--is-bare-repository")
+				isBareRepo := git.Exec(t, cfg, "-C", realRepoPath, "rev-parse", "--is-bare-repository")
 				require.Equal(t, "true", text.ChompBytes(isBareRepo))
 			},
 		},
@@ -293,7 +292,7 @@ func TestCreate(t *testing.T) {
 
 			repo := &gitalypb.Repository{
 				StorageName:  cfg.Storages[0].Name,
-				RelativePath: gittest.NewRepositoryName(t),
+				RelativePath: git.NewRepositoryName(t),
 			}
 
 			if tc.transactional {
@@ -327,7 +326,7 @@ func TestCreate(t *testing.T) {
 				}
 
 				// Verify that the repository exists now and is a real repository.
-				isBareRepo := gittest.Exec(t, cfg, "-C", tempRepoPath, "rev-parse", "--is-bare-repository")
+				isBareRepo := git.Exec(t, cfg, "-C", tempRepoPath, "rev-parse", "--is-bare-repository")
 				require.Equal(t, "true", text.ChompBytes(isBareRepo))
 
 				return nil

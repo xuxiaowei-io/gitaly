@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -28,17 +28,17 @@ func TestCreateBundleFromRefList_success(t *testing.T) {
 
 	// Create a work tree with a HEAD pointing to a commit that is missing. CreateBundle should
 	// clean this up before creating the bundle.
-	sha := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"))
+	sha := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("branch"))
 
 	require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "gitlab-worktree"), 0o755))
 
-	gittest.Exec(t, cfg, "-C", repoPath, "worktree", "add", "gitlab-worktree/worktree1", sha.String())
+	git.Exec(t, cfg, "-C", repoPath, "worktree", "add", "gitlab-worktree/worktree1", sha.String())
 	require.NoError(t, os.Chtimes(filepath.Join(repoPath, "gitlab-worktree", "worktree1"), time.Now().Add(-7*time.Hour), time.Now().Add(-7*time.Hour)))
 
-	gittest.Exec(t, cfg, "-C", repoPath, "branch", "-D", "branch")
+	git.Exec(t, cfg, "-C", repoPath, "branch", "-D", "branch")
 	require.NoError(t, os.Remove(filepath.Join(repoPath, "objects", sha.String()[0:2], sha.String()[2:])))
 
-	masterOID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/master"))
+	masterOID := text.ChompBytes(git.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/master"))
 
 	c, err := client.CreateBundleFromRefList(ctx)
 	require.NoError(t, err)
@@ -65,7 +65,7 @@ func TestCreateBundleFromRefList_success(t *testing.T) {
 
 	require.NoError(t, bundle.Close())
 
-	output := gittest.Exec(t, cfg, "-C", repoPath, "bundle", "verify", bundle.Name())
+	output := git.Exec(t, cfg, "-C", repoPath, "bundle", "verify", bundle.Name())
 
 	require.Contains(t, string(output), fmt.Sprintf("The bundle contains this ref:\n%s refs/heads/master", masterOID))
 }
@@ -76,7 +76,7 @@ func TestCreateBundleFromRefList_missing_ref(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
-	masterOID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/master"))
+	masterOID := text.ChompBytes(git.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/master"))
 
 	c, err := client.CreateBundleFromRefList(ctx)
 	require.NoError(t, err)
@@ -103,7 +103,7 @@ func TestCreateBundleFromRefList_missing_ref(t *testing.T) {
 
 	require.NoError(t, bundle.Close())
 
-	output := gittest.Exec(t, cfg, "-C", repoPath, "bundle", "verify", bundle.Name())
+	output := git.Exec(t, cfg, "-C", repoPath, "bundle", "verify", bundle.Name())
 
 	require.Contains(t, string(output), fmt.Sprintf("The bundle contains this ref:\n%s refs/heads/master", masterOID))
 }

@@ -19,7 +19,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
@@ -50,14 +49,14 @@ func TestReplicateRepository(t *testing.T) {
 	client, serverSocketPath := runRepositoryService(t, cfg, nil)
 	cfg.SocketPath = serverSocketPath
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	// create a loose object to ensure snapshot replication is used
 	blobData, err := text.RandomHex(10)
 	require.NoError(t, err)
-	blobID := text.ChompBytes(gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: bytes.NewBuffer([]byte(blobData))},
+	blobID := text.ChompBytes(git.ExecOpts(t, cfg, git.ExecConfig{Stdin: bytes.NewBuffer([]byte(blobData))},
 		"-C", repoPath, "hash-object", "-w", "--stdin",
 	))
 
@@ -68,7 +67,7 @@ func TestReplicateRepository(t *testing.T) {
 	require.NoError(t, os.WriteFile(attrFilePath, attrData, 0o644))
 
 	// Write a modified gitconfig
-	gittest.Exec(t, cfg, "-C", repoPath, "config", "please.replicate", "me")
+	git.Exec(t, cfg, "-C", repoPath, "config", "please.replicate", "me")
 	configData := testhelper.MustReadFile(t, filepath.Join(repoPath, "config"))
 	require.Contains(t, string(configData), "[please]\n\treplicate = me\n")
 
@@ -84,8 +83,8 @@ func TestReplicateRepository(t *testing.T) {
 
 	require.NoError(t, err)
 
-	targetRepoPath := filepath.Join(cfg.Storages[1].Path, gittest.GetReplicaPath(t, ctx, cfg, targetRepo))
-	gittest.Exec(t, cfg, "-C", targetRepoPath, "fsck")
+	targetRepoPath := filepath.Join(cfg.Storages[1].Path, git.GetReplicaPath(t, ctx, cfg, targetRepo))
+	git.Exec(t, cfg, "-C", targetRepoPath, "fsck")
 
 	replicatedAttrFilePath := filepath.Join(targetRepoPath, "info", "attributes")
 	replicatedAttrData := testhelper.MustReadFile(t, replicatedAttrFilePath)
@@ -96,19 +95,19 @@ func TestReplicateRepository(t *testing.T) {
 	require.Equal(t, string(configData), string(replicatedConfigData), "config files must match")
 
 	// create another branch
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"))
+	git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("branch"))
 	_, err = client.ReplicateRepository(ctx, &gitalypb.ReplicateRepositoryRequest{
 		Repository: targetRepo,
 		Source:     repo,
 	})
 	require.NoError(t, err)
 	require.Equal(t,
-		gittest.Exec(t, cfg, "-C", repoPath, "show-ref", "--hash", "--verify", "refs/heads/branch"),
-		gittest.Exec(t, cfg, "-C", targetRepoPath, "show-ref", "--hash", "--verify", "refs/heads/branch"),
+		git.Exec(t, cfg, "-C", repoPath, "show-ref", "--hash", "--verify", "refs/heads/branch"),
+		git.Exec(t, cfg, "-C", targetRepoPath, "show-ref", "--hash", "--verify", "refs/heads/branch"),
 	)
 
 	// if an unreachable object has been replicated, that means snapshot replication was used
-	gittest.Exec(t, cfg, "-C", targetRepoPath, "cat-file", "-p", blobID)
+	git.Exec(t, cfg, "-C", targetRepoPath, "cat-file", "-p", blobID)
 }
 
 func TestReplicateRepository_hiddenRefs(t *testing.T) {
@@ -127,14 +126,14 @@ func TestReplicateRepository_hiddenRefs(t *testing.T) {
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
 	t.Run("initial seeding", func(t *testing.T) {
-		sourceRepo, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
+		sourceRepo, sourceRepoPath := git.CreateRepository(t, ctx, cfg)
 
 		// Create a bunch of internal references, regardless of whether we classify them as hidden
 		// or read-only. We should be able to replicate all of them.
 		var expectedRefs []string
 		for refPrefix := range git.InternalRefPrefixes {
-			commitID := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithParents(), gittest.WithMessage(refPrefix))
-			gittest.Exec(t, cfg, "-C", sourceRepoPath, "update-ref", refPrefix+"1", commitID.String())
+			commitID := git.WriteTestCommit(t, cfg, sourceRepoPath, git.WithParents(), git.WithMessage(refPrefix))
+			git.Exec(t, cfg, "-C", sourceRepoPath, "update-ref", refPrefix+"1", commitID.String())
 			expectedRefs = append(expectedRefs, fmt.Sprintf("%s commit\t%s", commitID, refPrefix+"1"))
 		}
 
@@ -147,34 +146,34 @@ func TestReplicateRepository_hiddenRefs(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		targetRepoPath := filepath.Join(cfg.Storages[1].Path, gittest.GetReplicaPath(t, ctx, cfg, targetRepo))
-		require.ElementsMatch(t, expectedRefs, strings.Split(text.ChompBytes(gittest.Exec(t, cfg, "-C", targetRepoPath, "for-each-ref")), "\n"))
+		targetRepoPath := filepath.Join(cfg.Storages[1].Path, git.GetReplicaPath(t, ctx, cfg, targetRepo))
+		require.ElementsMatch(t, expectedRefs, strings.Split(text.ChompBytes(git.Exec(t, cfg, "-C", targetRepoPath, "for-each-ref")), "\n"))
 
 		// Perform another sanity-check to verify that source and target repository have the
 		// same references now.
 		require.Equal(t,
-			text.ChompBytes(gittest.Exec(t, cfg, "-C", sourceRepoPath, "for-each-ref")),
-			text.ChompBytes(gittest.Exec(t, cfg, "-C", targetRepoPath, "for-each-ref")),
+			text.ChompBytes(git.Exec(t, cfg, "-C", sourceRepoPath, "for-each-ref")),
+			text.ChompBytes(git.Exec(t, cfg, "-C", targetRepoPath, "for-each-ref")),
 		)
 	})
 
 	t.Run("incremental replication", func(t *testing.T) {
-		sourceRepo, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
-		targetRepo, targetRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		sourceRepo, sourceRepoPath := git.CreateRepository(t, ctx, cfg)
+		targetRepo, targetRepoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 			RelativePath: sourceRepo.GetRelativePath(),
 			Storage:      cfg.Storages[1],
 		})
 
 		// Create the same commit in both repositories so that they're in a known-good
 		// state.
-		sourceCommitID := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithParents(), gittest.WithMessage("base"), gittest.WithBranch("main"))
-		targetCommitID := gittest.WriteCommit(t, cfg, targetRepoPath, gittest.WithParents(), gittest.WithMessage("base"), gittest.WithBranch("main"))
+		sourceCommitID := git.WriteTestCommit(t, cfg, sourceRepoPath, git.WithParents(), git.WithMessage("base"), git.WithBranch("main"))
+		targetCommitID := git.WriteTestCommit(t, cfg, targetRepoPath, git.WithParents(), git.WithMessage("base"), git.WithBranch("main"))
 		require.Equal(t, sourceCommitID, targetCommitID)
 
 		// Create the internal references now.
 		for refPrefix := range git.InternalRefPrefixes {
-			commitID := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithParents(), gittest.WithMessage(refPrefix))
-			gittest.Exec(t, cfg, "-C", sourceRepoPath, "update-ref", refPrefix+"1", commitID.String())
+			commitID := git.WriteTestCommit(t, cfg, sourceRepoPath, git.WithParents(), git.WithMessage(refPrefix))
+			git.Exec(t, cfg, "-C", sourceRepoPath, "update-ref", refPrefix+"1", commitID.String())
 		}
 
 		// And now replicate the with the new internal references having been created.
@@ -189,8 +188,8 @@ func TestReplicateRepository_hiddenRefs(t *testing.T) {
 
 		// Verify that the references for both repositories match.
 		require.Equal(t,
-			text.ChompBytes(gittest.Exec(t, cfg, "-C", sourceRepoPath, "for-each-ref")),
-			text.ChompBytes(gittest.Exec(t, cfg, "-C", targetRepoPath, "for-each-ref")),
+			text.ChompBytes(git.Exec(t, cfg, "-C", sourceRepoPath, "for-each-ref")),
+			text.ChompBytes(git.Exec(t, cfg, "-C", targetRepoPath, "for-each-ref")),
 		)
 	})
 }
@@ -208,8 +207,8 @@ func TestReplicateRepositoryTransactional(t *testing.T) {
 	_, serverSocketPath := runRepositoryService(t, cfg, nil, testserver.WithDisablePraefect())
 	cfg.SocketPath = serverSocketPath
 
-	sourceRepo, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	sourceRepo, sourceRepoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	targetRepo := proto.Clone(sourceRepo).(*gitalypb.Repository)
@@ -268,13 +267,13 @@ func TestReplicateRepositoryTransactional(t *testing.T) {
 
 	// We're about to change refs/heads/master, and thus the mirror-fetch will update it. The
 	// vote should reflect that.
-	oldOID := text.ChompBytes(gittest.Exec(t, cfg, "-C", sourceRepoPath, "rev-parse", "refs/heads/master"))
-	newOID := text.ChompBytes(gittest.Exec(t, cfg, "-C", sourceRepoPath, "rev-parse", "refs/heads/master~"))
+	oldOID := text.ChompBytes(git.Exec(t, cfg, "-C", sourceRepoPath, "rev-parse", "refs/heads/master"))
+	newOID := text.ChompBytes(git.Exec(t, cfg, "-C", sourceRepoPath, "rev-parse", "refs/heads/master~"))
 	replicationVote := sha1.Sum([]byte(fmt.Sprintf("%[1]s %[2]s refs/heads/master\n%[1]s %[2]s HEAD\n", oldOID, newOID)))
 
 	// We're now changing a reference in the source repository such that we can observe changes
 	// in the target repo.
-	gittest.Exec(t, cfg, "-C", sourceRepoPath, "update-ref", "refs/heads/master", "refs/heads/master~")
+	git.Exec(t, cfg, "-C", sourceRepoPath, "update-ref", "refs/heads/master", "refs/heads/master~")
 
 	votes = nil
 
@@ -422,10 +421,10 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 			client, serverSocketPath := runRepositoryService(t, cfg, nil)
 			cfg.SocketPath = serverSocketPath
 
-			sourceRepo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-				Seed: gittest.SeedGitLabTest,
+			sourceRepo, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+				Seed: git.SeedGitLabTest,
 			})
-			targetRepo, targetRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			targetRepo, targetRepoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 				Storage:      cfg.Storages[1],
 				RelativePath: sourceRepo.RelativePath,
 			})
@@ -443,7 +442,7 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 				storagePath, err := locator.GetStorageByName(invalidRepo.StorageName)
 				require.NoError(t, err)
 
-				invalidRepoPath := filepath.Join(storagePath, gittest.GetReplicaPath(t, ctx, cfg, invalidRepo))
+				invalidRepoPath := filepath.Join(storagePath, git.GetReplicaPath(t, ctx, cfg, invalidRepo))
 				// delete git data so make the repo invalid
 				for _, path := range []string{"refs", "objects", "HEAD"} {
 					require.NoError(t, os.RemoveAll(filepath.Join(invalidRepoPath, path)))
@@ -462,7 +461,7 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			gittest.Exec(t, cfg, "-C", targetRepoPath, "fsck")
+			git.Exec(t, cfg, "-C", targetRepoPath, "fsck")
 		})
 	}
 }
@@ -478,11 +477,11 @@ func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 	client, socketPath := runRepositoryService(t, cfg, nil)
 	cfg.SocketPath = socketPath
 
-	targetRepo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	targetRepo, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		Storage: cfg.Storages[1],
 	})
 
-	sourceRepo, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	sourceRepo, sourceRepoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		Storage: cfg.Storages[0],
 	})
 
@@ -548,7 +547,7 @@ func TestFetchInternalRemote_successful(t *testing.T) {
 	ctx := testhelper.Context(t)
 	remoteCfg, remoteRepo, remoteRepoPath := testcfg.BuildWithRepo(t)
 	testcfg.BuildGitalyHooks(t, remoteCfg)
-	gittest.WriteCommit(t, remoteCfg, remoteRepoPath, gittest.WithBranch("master"))
+	git.WriteTestCommit(t, remoteCfg, remoteRepoPath, git.WithBranch("master"))
 
 	_, remoteAddr := runRepositoryService(t, remoteCfg, nil, testserver.WithDisablePraefect())
 
@@ -556,7 +555,7 @@ func TestFetchInternalRemote_successful(t *testing.T) {
 	localRepo := localrepo.NewTestRepo(t, localCfg, localRepoProto)
 	testcfg.BuildGitalySSH(t, localCfg)
 	testcfg.BuildGitalyHooks(t, localCfg)
-	gittest.Exec(t, remoteCfg, "-C", localRepoPath, "symbolic-ref", "HEAD", "refs/heads/feature")
+	git.Exec(t, remoteCfg, "-C", localRepoPath, "symbolic-ref", "HEAD", "refs/heads/feature")
 
 	referenceTransactionHookCalled := 0
 
@@ -592,8 +591,8 @@ func TestFetchInternalRemote_successful(t *testing.T) {
 	require.Equal(t, "", string(testhelper.MustReadFile(t, hookLogs)))
 
 	require.Equal(t,
-		string(gittest.Exec(t, remoteCfg, "-C", remoteRepoPath, "show-ref", "--head")),
-		string(gittest.Exec(t, localCfg, "-C", localRepoPath, "show-ref", "--head")),
+		string(git.Exec(t, remoteCfg, "-C", remoteRepoPath, "show-ref", "--head")),
+		string(git.Exec(t, localCfg, "-C", localRepoPath, "show-ref", "--head")),
 	)
 
 	sshParams := getGitalySSHInvocationParams()

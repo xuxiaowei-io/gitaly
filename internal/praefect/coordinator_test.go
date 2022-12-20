@@ -21,7 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/cache"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	gconfig "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	gitaly_metadata "gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
@@ -784,7 +784,7 @@ func TestStreamDirector_maintenanceRPCs(t *testing.T) {
 
 	repository := &gitalypb.Repository{
 		StorageName:  "default",
-		RelativePath: gittest.NewRepositoryName(t),
+		RelativePath: git.NewRepositoryName(t),
 	}
 	primaryRepository := &gitalypb.Repository{
 		StorageName:  primaryStorage,

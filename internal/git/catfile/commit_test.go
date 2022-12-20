@@ -6,7 +6,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/metadata"
@@ -18,11 +17,11 @@ func TestGetCommit(t *testing.T) {
 
 	cfg, objectReader, _, repoPath := setupObjectReader(t, ctx)
 
-	blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("data"))
-	treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+	blobID := git.WriteBlob(t, cfg, repoPath, []byte("data"))
+	treeID := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 		{Path: "file", Mode: "100644", OID: blobID},
 	})
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("commit message\n\ncommit body"), gittest.WithTree(treeID))
+	commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithMessage("commit message\n\ncommit body"), git.WithTree(treeID))
 
 	for _, tc := range []struct {
 		desc           string
@@ -36,8 +35,8 @@ func TestGetCommit(t *testing.T) {
 			expectedCommit: &gitalypb.GitCommit{
 				Id:        commitID.String(),
 				TreeId:    treeID.String(),
-				Author:    gittest.DefaultCommitAuthor,
-				Committer: gittest.DefaultCommitAuthor,
+				Author:    git.DefaultCommitAuthor,
+				Committer: git.DefaultCommitAuthor,
 				Body:      []byte("commit message\n\ncommit body"),
 				BodySize:  27,
 				Subject:   []byte("commit message"),
@@ -68,7 +67,7 @@ func TestGetCommitWithTrailers(t *testing.T) {
 
 	cfg, objectReader, repo, repoPath := setupObjectReader(t, ctx)
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage(
+	commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithMessage(
 		"some header\n"+
 			"\n"+
 			"Commit message.\n"+
@@ -77,7 +76,7 @@ func TestGetCommitWithTrailers(t *testing.T) {
 			"Signed-off-by: Jane Doe <jane.doe@example.com>\n",
 	))
 
-	commit, err := GetCommitWithTrailers(ctx, gittest.NewCommandFactory(t, cfg), repo, objectReader, commitID.Revision())
+	commit, err := GetCommitWithTrailers(ctx, git.NewCommandFactory(t, cfg), repo, objectReader, commitID.Revision())
 
 	require.NoError(t, err)
 

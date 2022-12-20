@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -22,55 +22,55 @@ func TestRevlist(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	blobA := gittest.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("a"), 133))
-	blobB := gittest.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("b"), 127))
-	blobC := gittest.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("c"), 127))
-	blobD := gittest.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("d"), 129))
+	blobA := git.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("a"), 133))
+	blobB := git.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("b"), 127))
+	blobC := git.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("c"), 127))
+	blobD := git.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("d"), 129))
 
-	blob := gittest.WriteBlob(t, cfg, repoPath, []byte("a"))
-	subblob := gittest.WriteBlob(t, cfg, repoPath, []byte("larger blob"))
+	blob := git.WriteBlob(t, cfg, repoPath, []byte("a"))
+	subblob := git.WriteBlob(t, cfg, repoPath, []byte("larger blob"))
 
-	treeA := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+	treeA := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 		{Path: "branch-test.txt", Mode: "100644", OID: blob},
 	})
-	commitA := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithTree(treeA),
-		gittest.WithCommitterDate(time.Date(2000, 1, 1, 1, 1, 1, 1, time.UTC)),
+	commitA := git.WriteTestCommit(t, cfg, repoPath,
+		git.WithTree(treeA),
+		git.WithCommitterDate(time.Date(2000, 1, 1, 1, 1, 1, 1, time.UTC)),
 	)
 
-	subtree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+	subtree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 		{Path: "subblob", Mode: "100644", OID: subblob},
 	})
-	treeB := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+	treeB := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 		{Path: "branch-test.txt", Mode: "100644", OID: blob},
 		{Path: "subtree", Mode: "040000", OID: subtree},
 	})
-	commitB := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithParents(commitA),
-		gittest.WithTree(treeB),
-		gittest.WithCommitterDate(time.Date(1999, 1, 1, 1, 1, 1, 1, time.UTC)),
-		gittest.WithAuthorName("custom author"),
+	commitB := git.WriteTestCommit(t, cfg, repoPath,
+		git.WithParents(commitA),
+		git.WithTree(treeB),
+		git.WithCommitterDate(time.Date(1999, 1, 1, 1, 1, 1, 1, time.UTC)),
+		git.WithAuthorName("custom author"),
 	)
 
-	commitBParent := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithParents(commitB),
-		gittest.WithTree(treeB),
-		gittest.WithCommitterDate(time.Date(2001, 1, 1, 1, 1, 1, 1, time.UTC)),
+	commitBParent := git.WriteTestCommit(t, cfg, repoPath,
+		git.WithParents(commitB),
+		git.WithTree(treeB),
+		git.WithCommitterDate(time.Date(2001, 1, 1, 1, 1, 1, 1, time.UTC)),
 	)
-	commitAParent := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithParents(commitA),
-		gittest.WithTree(treeA),
-		gittest.WithCommitterDate(time.Date(2001, 1, 1, 1, 1, 1, 1, time.UTC)),
+	commitAParent := git.WriteTestCommit(t, cfg, repoPath,
+		git.WithParents(commitA),
+		git.WithTree(treeA),
+		git.WithCommitterDate(time.Date(2001, 1, 1, 1, 1, 1, 1, time.UTC)),
 	)
 
-	mergeCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(commitAParent, commitBParent))
+	mergeCommit := git.WriteTestCommit(t, cfg, repoPath, git.WithParents(commitAParent, commitBParent))
 
-	tag := gittest.WriteTag(t, cfg, repoPath, "v1.0.0", mergeCommit.Revision(), gittest.WriteTagConfig{
+	tag := git.WriteTag(t, cfg, repoPath, "v1.0.0", mergeCommit.Revision(), git.WriteTagConfig{
 		Message: "annotated tag",
 	})
 
@@ -543,14 +543,14 @@ func TestForEachRef(t *testing.T) {
 	}
 
 	cfg := testcfg.Build(t)
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	mainCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithMessage("main"))
-	featureCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("feature"), gittest.WithMessage("feature"))
-	tag := gittest.WriteTag(t, cfg, repoPath, "v1.0.0", featureCommit.Revision(), gittest.WriteTagConfig{
+	mainCommit := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"), git.WithMessage("main"))
+	featureCommit := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("feature"), git.WithMessage("feature"))
+	tag := git.WriteTag(t, cfg, repoPath, "v1.0.0", featureCommit.Revision(), git.WriteTagConfig{
 		Message: "annotated tag",
 	})
 
@@ -674,12 +674,12 @@ func TestForEachRef_options(t *testing.T) {
 		{
 			desc: "with limit",
 			prepare: func(repoPath string, cfg config.Cfg) string {
-				oid := string(gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage(t.Name())))
+				oid := string(git.WriteTestCommit(t, cfg, repoPath, git.WithMessage(t.Name())))
 
-				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/branch-1", oid)
-				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/branch-2", oid)
-				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/branch-3", oid)
-				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/branch-4", oid)
+				git.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/branch-1", oid)
+				git.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/branch-2", oid)
+				git.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/branch-3", oid)
+				git.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/branch-4", oid)
 
 				return oid
 			},
@@ -694,12 +694,12 @@ func TestForEachRef_options(t *testing.T) {
 		{
 			desc: "with sort key",
 			prepare: func(repoPath string, cfg config.Cfg) string {
-				oid := string(gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage(t.Name())))
+				oid := string(git.WriteTestCommit(t, cfg, repoPath, git.WithMessage(t.Name())))
 
-				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/branch-b", oid)
-				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/branch-a", oid)
-				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/branch-d", oid)
-				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/branch-c", oid)
+				git.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/branch-b", oid)
+				git.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/branch-a", oid)
+				git.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/branch-d", oid)
+				git.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/branch-c", oid)
 
 				return oid
 			},
@@ -716,7 +716,7 @@ func TestForEachRef_options(t *testing.T) {
 	} {
 		cfg := testcfg.Build(t)
 
-		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 		})
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)

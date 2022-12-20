@@ -10,7 +10,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -22,12 +21,12 @@ func TestExecutor_Apply(t *testing.T) {
 	cfg := testcfg.Build(t)
 	testcfg.BuildGitalyGit2Go(t, cfg)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-	executor := NewExecutor(cfg, gittest.NewCommandFactory(t, cfg), config.NewLocator(cfg))
+	executor := NewExecutor(cfg, git.NewCommandFactory(t, cfg), config.NewLocator(cfg))
 
 	oidBase, err := repo.WriteBlob(ctx, "file", strings.NewReader("base"))
 	require.NoError(t, err)
@@ -100,14 +99,14 @@ func TestExecutor_Apply(t *testing.T) {
 
 	diffBetween := func(tb testing.TB, fromCommit, toCommit git.ObjectID) []byte {
 		tb.Helper()
-		return gittest.Exec(tb, cfg, "-C", repoPath, "format-patch", "--stdout", fromCommit.String()+".."+toCommit.String())
+		return git.Exec(tb, cfg, "-C", repoPath, "format-patch", "--stdout", fromCommit.String()+".."+toCommit.String())
 	}
 
 	for _, tc := range []struct {
 		desc         string
 		patches      []Patch
 		parentCommit git.ObjectID
-		tree         []gittest.TreeEntry
+		tree         []git.TreeEntry
 		error        error
 	}{
 		{
@@ -120,7 +119,7 @@ func TestExecutor_Apply(t *testing.T) {
 				},
 			},
 			parentCommit: parentCommitSHA,
-			tree: []gittest.TreeEntry{
+			tree: []git.TreeEntry{
 				{Path: "file", Mode: "100644", Content: "a"},
 			},
 		},
@@ -139,7 +138,7 @@ func TestExecutor_Apply(t *testing.T) {
 				},
 			},
 			parentCommit: updateToA,
-			tree: []gittest.TreeEntry{
+			tree: []git.TreeEntry{
 				{Path: "file", Mode: "100644", Content: "b"},
 			},
 		},
@@ -153,7 +152,7 @@ func TestExecutor_Apply(t *testing.T) {
 				},
 			},
 			parentCommit: parentCommitSHA,
-			tree: []gittest.TreeEntry{
+			tree: []git.TreeEntry{
 				{Path: "file", Mode: "100644", Content: "base"},
 				{Path: "other-file", Mode: "100644", Content: "a"},
 			},
@@ -176,7 +175,7 @@ func TestExecutor_Apply(t *testing.T) {
 			},
 			parentCommit: parentCommitSHA,
 			// error: ErrMergeConflict, <- correct output
-			tree: []gittest.TreeEntry{
+			tree: []git.TreeEntry{
 				{Path: "file", Mode: "100644", Content: "abase"},
 			},
 		},
@@ -215,7 +214,7 @@ func TestExecutor_Apply(t *testing.T) {
 				Committer: committer,
 				Message:   tc.patches[len(tc.patches)-1].Message,
 			}, getCommit(t, ctx, repo, commitID, false))
-			gittest.RequireTree(t, cfg, repoPath, commitID.String(), tc.tree)
+			git.RequireTree(t, cfg, repoPath, commitID.String(), tc.tree)
 		})
 	}
 }

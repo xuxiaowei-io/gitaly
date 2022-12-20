@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/cmd/gitaly-git2go/git2goutil"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	gitalygit "gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -86,19 +86,19 @@ func TestRevert_trees(t *testing.T) {
 		{
 			desc: "trivial revert succeeds",
 			setupRepo: func(tb testing.TB, cfg config.Cfg, repoPath string) (ours, revert string) {
-				baseOid := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "a", Content: "apple", Mode: "100644"},
-					gittest.TreeEntry{Path: "b", Content: "banana", Mode: "100644"},
+				baseOid := gitalygit.WriteTestCommit(tb, cfg, repoPath, gitalygit.WithTreeEntries(
+					gitalygit.TreeEntry{Path: "a", Content: "apple", Mode: "100644"},
+					gitalygit.TreeEntry{Path: "b", Content: "banana", Mode: "100644"},
 				))
-				revertOid := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithParents(baseOid), gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "a", Content: "apple", Mode: "100644"},
-					gittest.TreeEntry{Path: "b", Content: "pineapple", Mode: "100644"},
+				revertOid := gitalygit.WriteTestCommit(tb, cfg, repoPath, gitalygit.WithParents(baseOid), gitalygit.WithTreeEntries(
+					gitalygit.TreeEntry{Path: "a", Content: "apple", Mode: "100644"},
+					gitalygit.TreeEntry{Path: "b", Content: "pineapple", Mode: "100644"},
 				))
-				oursOid := gittest.WriteCommit(tb, cfg, repoPath,
-					gittest.WithParents(revertOid), gittest.WithTreeEntries(
-						gittest.TreeEntry{Path: "a", Content: "apple", Mode: "100644"},
-						gittest.TreeEntry{Path: "b", Content: "pineapple", Mode: "100644"},
-						gittest.TreeEntry{Path: "c", Content: "carrot", Mode: "100644"},
+				oursOid := gitalygit.WriteTestCommit(tb, cfg, repoPath,
+					gitalygit.WithParents(revertOid), gitalygit.WithTreeEntries(
+						gitalygit.TreeEntry{Path: "a", Content: "apple", Mode: "100644"},
+						gitalygit.TreeEntry{Path: "b", Content: "pineapple", Mode: "100644"},
+						gitalygit.TreeEntry{Path: "c", Content: "carrot", Mode: "100644"},
 					))
 
 				return oursOid.String(), revertOid.String()
@@ -113,14 +113,14 @@ func TestRevert_trees(t *testing.T) {
 		{
 			desc: "conflicting revert fails",
 			setupRepo: func(tb testing.TB, cfg config.Cfg, repoPath string) (ours, revert string) {
-				baseOid := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "a", Content: "apple", Mode: "100644"},
+				baseOid := gitalygit.WriteTestCommit(tb, cfg, repoPath, gitalygit.WithTreeEntries(
+					gitalygit.TreeEntry{Path: "a", Content: "apple", Mode: "100644"},
 				))
-				revertOid := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithParents(baseOid), gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "a", Content: "pineapple", Mode: "100644"},
+				revertOid := gitalygit.WriteTestCommit(tb, cfg, repoPath, gitalygit.WithParents(baseOid), gitalygit.WithTreeEntries(
+					gitalygit.TreeEntry{Path: "a", Content: "pineapple", Mode: "100644"},
 				))
-				oursOid := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithParents(revertOid), gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "a", Content: "carrot", Mode: "100644"},
+				oursOid := gitalygit.WriteTestCommit(tb, cfg, repoPath, gitalygit.WithParents(revertOid), gitalygit.WithTreeEntries(
+					gitalygit.TreeEntry{Path: "a", Content: "carrot", Mode: "100644"},
 				))
 
 				return oursOid.String(), revertOid.String()
@@ -131,14 +131,14 @@ func TestRevert_trees(t *testing.T) {
 		{
 			desc: "empty revert fails",
 			setupRepo: func(tb testing.TB, cfg config.Cfg, repoPath string) (ours, revert string) {
-				baseOid := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "a", Content: "apple", Mode: "100644"},
+				baseOid := gitalygit.WriteTestCommit(tb, cfg, repoPath, gitalygit.WithTreeEntries(
+					gitalygit.TreeEntry{Path: "a", Content: "apple", Mode: "100644"},
 				))
-				revertOid := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithParents(baseOid), gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "a", Content: "banana", Mode: "100644"},
+				revertOid := gitalygit.WriteTestCommit(tb, cfg, repoPath, gitalygit.WithParents(baseOid), gitalygit.WithTreeEntries(
+					gitalygit.TreeEntry{Path: "a", Content: "banana", Mode: "100644"},
 				))
-				oursOid := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithParents(revertOid), gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "a", Content: "apple", Mode: "100644"},
+				oursOid := gitalygit.WriteTestCommit(tb, cfg, repoPath, gitalygit.WithParents(revertOid), gitalygit.WithTreeEntries(
+					gitalygit.TreeEntry{Path: "a", Content: "apple", Mode: "100644"},
 				))
 
 				return oursOid.String(), revertOid.String()
@@ -149,8 +149,8 @@ func TestRevert_trees(t *testing.T) {
 		{
 			desc: "nonexistent ours fails",
 			setupRepo: func(tb testing.TB, cfg config.Cfg, repoPath string) (ours, revert string) {
-				revertOid := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "a", Content: "apple", Mode: "100644"},
+				revertOid := gitalygit.WriteTestCommit(tb, cfg, repoPath, gitalygit.WithTreeEntries(
+					gitalygit.TreeEntry{Path: "a", Content: "apple", Mode: "100644"},
 				))
 
 				return "nonexistent", revertOid.String()
@@ -160,8 +160,8 @@ func TestRevert_trees(t *testing.T) {
 		{
 			desc: "nonexistent revert fails",
 			setupRepo: func(tb testing.TB, cfg config.Cfg, repoPath string) (ours, revert string) {
-				oursOid := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "a", Content: "apple", Mode: "100644"},
+				oursOid := gitalygit.WriteTestCommit(tb, cfg, repoPath, gitalygit.WithTreeEntries(
+					gitalygit.TreeEntry{Path: "a", Content: "apple", Mode: "100644"},
 				))
 
 				return oursOid.String(), "nonexistent"

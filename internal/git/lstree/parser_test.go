@@ -7,7 +7,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 )
@@ -17,18 +16,18 @@ func TestParser(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
-	_, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	_, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 
-	gitignoreBlobID := gittest.WriteBlob(t, cfg, repoPath, []byte("gitignore"))
-	gitmodulesBlobID := gittest.WriteBlob(t, cfg, repoPath, []byte("gitmodules"))
-	submoduleCommitID := gittest.WriteCommit(t, cfg, repoPath)
+	gitignoreBlobID := git.WriteBlob(t, cfg, repoPath, []byte("gitignore"))
+	gitmodulesBlobID := git.WriteBlob(t, cfg, repoPath, []byte("gitmodules"))
+	submoduleCommitID := git.WriteTestCommit(t, cfg, repoPath)
 
-	regularEntriesTreeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+	regularEntriesTreeID := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 		{Path: ".gitignore", Mode: "100644", OID: gitignoreBlobID},
 		{Path: ".gitmodules", Mode: "100644", OID: gitmodulesBlobID},
-		{Path: "entry with space", Mode: "040000", OID: gittest.DefaultObjectHash.EmptyTreeOID},
+		{Path: "entry with space", Mode: "040000", OID: git.DefaultObjectHash.EmptyTreeOID},
 		{Path: "gitlab-shell", Mode: "160000", OID: submoduleCommitID},
 	})
 
@@ -56,7 +55,7 @@ func TestParser(t *testing.T) {
 				{
 					Mode:     []byte("040000"),
 					Type:     Tree,
-					ObjectID: gittest.DefaultObjectHash.EmptyTreeOID,
+					ObjectID: git.DefaultObjectHash.EmptyTreeOID,
 					Path:     "entry with space",
 				},
 				{
@@ -69,9 +68,9 @@ func TestParser(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			treeData := gittest.Exec(t, cfg, "-C", repoPath, "ls-tree", "-z", tc.treeID.String())
+			treeData := git.Exec(t, cfg, "-C", repoPath, "ls-tree", "-z", tc.treeID.String())
 
-			parser := NewParser(bytes.NewReader(treeData), gittest.DefaultObjectHash)
+			parser := NewParser(bytes.NewReader(treeData), git.DefaultObjectHash)
 			parsedEntries := Entries{}
 			for {
 				entry, err := parser.NextEntry()
@@ -93,18 +92,18 @@ func TestParserReadEntryPath(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
-	_, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	_, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 
-	regularEntriesTreeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
-		{Path: ".gitignore", Mode: "100644", OID: gittest.WriteBlob(t, cfg, repoPath, []byte("gitignore"))},
-		{Path: ".gitmodules", Mode: "100644", OID: gittest.WriteBlob(t, cfg, repoPath, []byte("gitmodules"))},
-		{Path: "entry with space", Mode: "040000", OID: gittest.DefaultObjectHash.EmptyTreeOID},
-		{Path: "gitlab-shell", Mode: "160000", OID: gittest.WriteCommit(t, cfg, repoPath)},
-		{Path: "\"file with quote.txt", Mode: "100644", OID: gittest.WriteBlob(t, cfg, repoPath, []byte("file with quotes"))},
-		{Path: "cuộc đời là những chuyến đi.md", Mode: "100644", OID: gittest.WriteBlob(t, cfg, repoPath, []byte("file with non-ascii file name"))},
-		{Path: "编码 'foo'.md", Mode: "100644", OID: gittest.WriteBlob(t, cfg, repoPath, []byte("file with non-ascii file name"))},
+	regularEntriesTreeID := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
+		{Path: ".gitignore", Mode: "100644", OID: git.WriteBlob(t, cfg, repoPath, []byte("gitignore"))},
+		{Path: ".gitmodules", Mode: "100644", OID: git.WriteBlob(t, cfg, repoPath, []byte("gitmodules"))},
+		{Path: "entry with space", Mode: "040000", OID: git.DefaultObjectHash.EmptyTreeOID},
+		{Path: "gitlab-shell", Mode: "160000", OID: git.WriteTestCommit(t, cfg, repoPath)},
+		{Path: "\"file with quote.txt", Mode: "100644", OID: git.WriteBlob(t, cfg, repoPath, []byte("file with quotes"))},
+		{Path: "cuộc đời là những chuyến đi.md", Mode: "100644", OID: git.WriteBlob(t, cfg, repoPath, []byte("file with non-ascii file name"))},
+		{Path: "编码 'foo'.md", Mode: "100644", OID: git.WriteBlob(t, cfg, repoPath, []byte("file with non-ascii file name"))},
 	})
 	for _, tc := range []struct {
 		desc          string
@@ -126,9 +125,9 @@ func TestParserReadEntryPath(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			treeData := gittest.Exec(t, cfg, "-C", repoPath, "ls-tree", "--name-only", "-z", tc.treeID.String())
+			treeData := git.Exec(t, cfg, "-C", repoPath, "ls-tree", "--name-only", "-z", tc.treeID.String())
 
-			parser := NewParser(bytes.NewReader(treeData), gittest.DefaultObjectHash)
+			parser := NewParser(bytes.NewReader(treeData), git.DefaultObjectHash)
 			parsedPaths := [][]byte{}
 			for {
 				path, err := parser.NextEntryPath()

@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/packfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -22,15 +22,15 @@ func TestList(t *testing.T) {
 	tempDir := testhelper.TempDir(t)
 
 	emptyRepo := filepath.Join(tempDir, "empty.git")
-	gittest.Exec(t, cfg, "init", "--bare", emptyRepo)
+	git.Exec(t, cfg, "init", "--bare", emptyRepo)
 
 	populatedRepo := filepath.Join(tempDir, "populated")
-	gittest.Exec(t, cfg, "init", populatedRepo)
+	git.Exec(t, cfg, "init", populatedRepo)
 	for i := 0; i < 10; i++ {
-		gittest.Exec(t, cfg, "-C", populatedRepo, "commit",
+		git.Exec(t, cfg, "-C", populatedRepo, "commit",
 			"--allow-empty", "--message", "commit message")
 	}
-	gittest.Exec(t, cfg, "-C", populatedRepo, "repack", "-ad")
+	git.Exec(t, cfg, "-C", populatedRepo, "repack", "-ad")
 
 	testCases := []struct {
 		desc     string

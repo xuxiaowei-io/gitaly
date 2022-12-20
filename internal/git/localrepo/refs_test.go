@@ -16,7 +16,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
@@ -33,7 +32,7 @@ func TestRepo_ContainsRef(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg, repo, repoPath := setupRepo(t)
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
+	git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("master"))
 
 	testcases := []struct {
 		desc      string
@@ -70,7 +69,7 @@ func TestRepo_GetReference(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg, repo, repoPath := setupRepo(t)
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
+	commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("master"))
 
 	testcases := []struct {
 		desc        string
@@ -119,8 +118,8 @@ func TestRepo_GetReferenceWithAmbiguousRefs(t *testing.T) {
 
 	cfg, repo, repoPath := setupRepo(t, withDisabledHooks())
 
-	prevOID := gittest.WriteCommit(t, cfg, repoPath)
-	currentOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(prevOID), gittest.WithBranch("master"))
+	prevOID := git.WriteTestCommit(t, cfg, repoPath)
+	currentOID := git.WriteTestCommit(t, cfg, repoPath, git.WithParents(prevOID), git.WithBranch("master"))
 
 	for _, ref := range []git.ReferenceName{
 		"refs/heads/something/master",
@@ -131,12 +130,12 @@ func TestRepo_GetReferenceWithAmbiguousRefs(t *testing.T) {
 		"refs/master",
 		"refs/tags/master",
 	} {
-		require.NoError(t, repo.UpdateRef(ctx, ref, prevOID, gittest.DefaultObjectHash.ZeroOID))
+		require.NoError(t, repo.UpdateRef(ctx, ref, prevOID, git.DefaultObjectHash.ZeroOID))
 	}
 
 	// core.ignorecase is default-enabled on macOS, causing 'MASTER' to match 'master'
 	if runtime.GOOS != "darwin" {
-		require.NoError(t, repo.UpdateRef(ctx, "refs/heads/MASTER", prevOID, gittest.DefaultObjectHash.ZeroOID))
+		require.NoError(t, repo.UpdateRef(ctx, "refs/heads/MASTER", prevOID, git.DefaultObjectHash.ZeroOID))
 	}
 
 	ref, err := repo.GetReference(ctx, "refs/heads/master")
@@ -152,9 +151,9 @@ func TestRepo_GetReferences(t *testing.T) {
 
 	cfg, repo, repoPath := setupRepo(t)
 
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("feature"))
-	gittest.WriteTag(t, cfg, repoPath, "v1.0.0", "refs/heads/main")
+	git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+	git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("feature"))
+	git.WriteTag(t, cfg, repoPath, "v1.0.0", "refs/heads/main")
 
 	mainReference, err := repo.GetReference(ctx, "refs/heads/main")
 	require.NoError(t, err)
@@ -234,9 +233,9 @@ func TestRepo_GetRemoteReferences(t *testing.T) {
 	const relativePath = "repository-1"
 	repoPath := filepath.Join(storagePath, relativePath)
 
-	gittest.Exec(t, cfg, "init", repoPath)
-	gittest.Exec(t, cfg, "-C", repoPath, "commit", "--allow-empty", "-m", "commit message")
-	commit := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/master"))
+	git.Exec(t, cfg, "init", repoPath)
+	git.Exec(t, cfg, "-C", repoPath, "commit", "--allow-empty", "-m", "commit message")
+	commit := text.ChompBytes(git.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/master"))
 
 	for _, cmd := range [][]string{
 		{"update-ref", "refs/heads/master", commit},
@@ -245,10 +244,10 @@ func TestRepo_GetRemoteReferences(t *testing.T) {
 		{"symbolic-ref", "refs/heads/symbolic", "refs/heads/master"},
 		{"update-ref", "refs/remote/remote-name/remote-branch", commit},
 	} {
-		gittest.Exec(t, cfg, append([]string{"-C", repoPath}, cmd...)...)
+		git.Exec(t, cfg, append([]string{"-C", repoPath}, cmd...)...)
 	}
 
-	annotatedTagOID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "annotated-tag"))
+	annotatedTagOID := text.ChompBytes(git.Exec(t, cfg, "-C", repoPath, "rev-parse", "annotated-tag"))
 
 	catfileCache := catfile.NewCache(cfg)
 	defer catfileCache.Stop()
@@ -344,12 +343,12 @@ func TestRepo_GetBranches(t *testing.T) {
 
 	cfg, repo, repoPath := setupRepo(t)
 
-	mainID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithMessage("main"))
-	featureID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("feature"), gittest.WithMessage("feature"))
-	thirdID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("third"), gittest.WithMessage("third"))
+	mainID := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"), git.WithMessage("main"))
+	featureID := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("feature"), git.WithMessage("feature"))
+	thirdID := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("third"), git.WithMessage("third"))
 
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference("refs/different/namespace"))
-	gittest.WriteTag(t, cfg, repoPath, "v1.0.0", mainID.Revision())
+	git.WriteTestCommit(t, cfg, repoPath, git.WithReference("refs/different/namespace"))
+	git.WriteTag(t, cfg, repoPath, "v1.0.0", mainID.Revision())
 
 	refs, err := repo.GetBranches(ctx)
 	require.NoError(t, err)
@@ -367,16 +366,16 @@ func TestRepo_UpdateRef(t *testing.T) {
 
 	// We move this into a function so that we can re-seed the repository for each test.
 	seedRepo := func(t *testing.T, repoPath string) {
-		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithMessage("main"))
-		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("other"), gittest.WithMessage("other"))
+		git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"), git.WithMessage("main"))
+		git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("other"), git.WithMessage("other"))
 	}
 	seedRepo(t, repoPath)
 
-	mainCommitID := gittest.ResolveRevision(t, cfg, repoPath, "refs/heads/main")
+	mainCommitID := git.ResolveRevision(t, cfg, repoPath, "refs/heads/main")
 	otherRef, err := repo.GetReference(ctx, "refs/heads/other")
 	require.NoError(t, err)
 
-	nonexistentOID := git.ObjectID(strings.Repeat("1", gittest.DefaultObjectHash.EncodedLen()))
+	nonexistentOID := git.ObjectID(strings.Repeat("1", git.DefaultObjectHash.EncodedLen()))
 
 	testcases := []struct {
 		desc     string
@@ -448,7 +447,7 @@ func TestRepo_UpdateRef(t *testing.T) {
 		{
 			desc:     "deleting main succeeds",
 			ref:      "refs/heads/main",
-			newValue: gittest.DefaultObjectHash.ZeroOID,
+			newValue: git.DefaultObjectHash.ZeroOID,
 			oldValue: mainCommitID,
 			verify: func(t *testing.T, repo *Repo, err error) {
 				require.NoError(t, err)
@@ -460,7 +459,7 @@ func TestRepo_UpdateRef(t *testing.T) {
 			desc:     "creating new branch succeeds",
 			ref:      "refs/heads/new",
 			newValue: mainCommitID,
-			oldValue: gittest.DefaultObjectHash.ZeroOID,
+			oldValue: git.DefaultObjectHash.ZeroOID,
 			verify: func(t *testing.T, repo *Repo, err error) {
 				require.NoError(t, err)
 				ref, err := repo.GetReference(ctx, "refs/heads/new")
@@ -474,7 +473,7 @@ func TestRepo_UpdateRef(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			// We need to re-seed the repository every time so that we don't carry over
 			// the state.
-			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 				SkipCreationViaService: true,
 			})
 			repo := New(repo.locator, repo.gitCmdFactory, repo.catfileCache, repoProto)
@@ -490,8 +489,8 @@ func TestRepo_SetDefaultBranch(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, repo, repoPath := setupRepo(t)
 
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("feature"))
+	git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("master"))
+	git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("feature"))
 
 	txManager := transaction.NewTrackingManager()
 
@@ -653,8 +652,8 @@ func TestRepo_SetDefaultBranch_errors(t *testing.T) {
 func TestGuessHead(t *testing.T) {
 	cfg, repo, repoPath := setupRepo(t)
 
-	commit1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithMessage("main"))
-	commit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("feature"), gittest.WithMessage("feature"))
+	commit1 := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"), git.WithMessage("main"))
+	commit2 := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("feature"), git.WithMessage("feature"))
 
 	for _, tc := range []struct {
 		desc        string
@@ -733,7 +732,7 @@ func TestGuessHead(t *testing.T) {
 			ctx := testhelper.Context(t)
 
 			for _, cmd := range tc.cmds {
-				gittest.Exec(t, cfg, append([]string{"-C", repoPath}, cmd...)...)
+				git.Exec(t, cfg, append([]string{"-C", repoPath}, cmd...)...)
 			}
 
 			guess, err := repo.GuessHead(ctx, tc.head)

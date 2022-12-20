@@ -10,7 +10,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/repository"
@@ -46,8 +45,8 @@ func setupCommitServiceWithRepo(
 	opts ...testserver.GitalyServerOpt,
 ) (config.Cfg, *gitalypb.Repository, string, gitalypb.CommitServiceClient) {
 	return setupCommitServiceCreateRepo(tb, ctx, func(tb testing.TB, ctx context.Context, cfg config.Cfg) (*gitalypb.Repository, string) {
-		repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
-			Seed: gittest.SeedGitLabTest,
+		repo, repoPath := git.CreateRepository(tb, ctx, cfg, git.CreateRepositoryConfig{
+			Seed: git.SeedGitLabTest,
 		})
 		return repo, repoPath
 	}, opts...)
@@ -125,10 +124,10 @@ func createCommits(tb testing.TB, cfg config.Cfg, repoPath, branch string, commi
 			parents = append(parents, parent)
 		}
 
-		parent = gittest.WriteCommit(tb, cfg, repoPath,
-			gittest.WithBranch(branch),
-			gittest.WithMessage(fmt.Sprintf("%s branch Empty commit %d", branch, i)),
-			gittest.WithParents(parents...),
+		parent = git.WriteTestCommit(tb, cfg, repoPath,
+			git.WithBranch(branch),
+			git.WithMessage(fmt.Sprintf("%s branch Empty commit %d", branch, i)),
+			git.WithParents(parents...),
 		)
 	}
 

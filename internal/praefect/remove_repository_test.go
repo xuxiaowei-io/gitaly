@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore"
@@ -86,7 +86,7 @@ func TestRemoveRepositoryHandler(t *testing.T) {
 			}}
 
 			for _, repoPath := range []string{gitaly1RepoPath, gitaly2RepoPath} {
-				gittest.Exec(t, gitaly1Cfg, "init", "--bare", repoPath)
+				git.Exec(t, gitaly1Cfg, "init", "--bare", repoPath)
 			}
 
 			rs := datastore.NewPostgresRepositoryStore(db, cfg.StorageNames())

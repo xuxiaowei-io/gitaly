@@ -10,7 +10,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 )
@@ -20,7 +19,7 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	oid := git.ObjectID(strings.Repeat("1", gittest.DefaultObjectHash.EncodedLen()))
+	oid := git.ObjectID(strings.Repeat("1", git.DefaultObjectHash.EncodedLen()))
 
 	t.Run("ReadInfo on ReadObject queue", func(t *testing.T) {
 		_, queue := newInterceptedObjectQueue(t, ctx, "#!/bin/sh\nread\n")
@@ -137,7 +136,7 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 	})
 
 	t.Run("read multiple objects", func(t *testing.T) {
-		secondOID := git.ObjectID(strings.Repeat("2", gittest.DefaultObjectHash.EncodedLen()))
+		secondOID := git.ObjectID(strings.Repeat("2", git.DefaultObjectHash.EncodedLen()))
 
 		_, queue := newInterceptedObjectQueue(t, ctx, fmt.Sprintf(`#!/bin/sh
 			echo "%s blob 10"
@@ -224,7 +223,7 @@ func TestRequestQueue_RequestObject(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	oid := git.ObjectID(strings.Repeat("1", gittest.DefaultObjectHash.EncodedLen()))
+	oid := git.ObjectID(strings.Repeat("1", git.DefaultObjectHash.EncodedLen()))
 
 	requireRevision := func(t *testing.T, queue *requestQueue, rev git.Revision) {
 		object, err := queue.ReadObject()
@@ -318,7 +317,7 @@ func TestRequestQueue_RequestInfo(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	oid := git.ObjectID(strings.Repeat("1", gittest.DefaultObjectHash.EncodedLen()))
+	oid := git.ObjectID(strings.Repeat("1", git.DefaultObjectHash.EncodedLen()))
 	expectedInfo := &ObjectInfo{oid, "blob", 955}
 
 	requireRevision := func(t *testing.T, queue *requestQueue) {
@@ -406,11 +405,11 @@ func TestRequestQueue_RequestInfo(t *testing.T) {
 
 func newInterceptedObjectQueue(t *testing.T, ctx context.Context, script string) (ObjectContentReader, *requestQueue) {
 	cfg := testcfg.Build(t)
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repo, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 
-	commandFactory := gittest.NewInterceptingCommandFactory(t, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
+	commandFactory := git.NewInterceptingCommandFactory(t, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
 		return script
 	})
 	repoExecutor := repoExecutor{
@@ -431,11 +430,11 @@ func newInterceptedObjectQueue(t *testing.T, ctx context.Context, script string)
 
 func newInterceptedInfoQueue(t *testing.T, ctx context.Context, script string) (ObjectInfoReader, *requestQueue) {
 	cfg := testcfg.Build(t)
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repo, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 
-	commandFactory := gittest.NewInterceptingCommandFactory(t, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
+	commandFactory := git.NewInterceptingCommandFactory(t, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
 		return script
 	})
 	repoExecutor := repoExecutor{

@@ -10,8 +10,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	repo "gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
@@ -32,7 +32,7 @@ type mockOptimizer struct {
 func (mo *mockOptimizer) OptimizeRepository(ctx context.Context, repository repo.GitRepo) error {
 	mo.actual = append(mo.actual, repository)
 	l := config.NewLocator(mo.cfg)
-	gitCmdFactory := gittest.NewCommandFactory(mo.t, mo.cfg)
+	gitCmdFactory := git.NewCommandFactory(mo.t, mo.cfg)
 	catfileCache := catfile.NewCache(mo.cfg)
 	mo.t.Cleanup(catfileCache.Stop)
 	txManager := transaction.NewManager(mo.cfg, backchannel.NewRegistry())
@@ -46,8 +46,8 @@ func TestOptimizeReposRandomly(t *testing.T) {
 	cfg := cfgBuilder.Build(t)
 
 	for _, storage := range cfg.Storages {
-		gittest.Exec(t, cfg, "init", "--bare", filepath.Join(storage.Path, "a"))
-		gittest.Exec(t, cfg, "init", "--bare", filepath.Join(storage.Path, "b"))
+		git.Exec(t, cfg, "init", "--bare", filepath.Join(storage.Path, "a"))
+		git.Exec(t, cfg, "init", "--bare", filepath.Join(storage.Path, "b"))
 	}
 
 	cfg.Storages = append(cfg.Storages, config.Storage{

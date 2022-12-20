@@ -7,7 +7,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -28,13 +27,13 @@ func TestDiffTree(t *testing.T) {
 		{
 			desc: "single file",
 			setup: func(t *testing.T, repoPath string) (git.Revision, git.Revision, []RevisionResult) {
-				treeA := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				treeA := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{Path: "unchanged", Mode: "100644", Content: "unchanged"},
 					{Path: "changed", Mode: "100644", Content: "a"},
 				})
 
-				changedBlob := gittest.WriteBlob(t, cfg, repoPath, []byte("b"))
-				treeB := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				changedBlob := git.WriteBlob(t, cfg, repoPath, []byte("b"))
+				treeB := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{Path: "unchanged", Mode: "100644", Content: "unchanged"},
 					{Path: "changed", Mode: "100644", OID: changedBlob},
 				})
@@ -47,7 +46,7 @@ func TestDiffTree(t *testing.T) {
 		{
 			desc: "single file in subtree without recursive",
 			setup: func(t *testing.T, repoPath string) (git.Revision, git.Revision, []RevisionResult) {
-				treeA := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				treeA := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{
 						Path:    "unchanged",
 						Mode:    "100644",
@@ -56,16 +55,16 @@ func TestDiffTree(t *testing.T) {
 					{
 						Path: "subtree",
 						Mode: "040000",
-						OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+						OID: git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 							{Path: "changed", Mode: "100644", Content: "a"},
 						}),
 					},
 				})
 
-				changedSubtree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				changedSubtree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{Path: "changed", Mode: "100644", Content: "b"},
 				})
-				treeB := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				treeB := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{
 						Path:    "unchanged",
 						Mode:    "100644",
@@ -86,7 +85,7 @@ func TestDiffTree(t *testing.T) {
 		{
 			desc: "single file in subtree with recursive",
 			setup: func(t *testing.T, repoPath string) (git.Revision, git.Revision, []RevisionResult) {
-				treeA := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				treeA := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{
 						Path:    "unchanged",
 						Mode:    "100644",
@@ -95,14 +94,14 @@ func TestDiffTree(t *testing.T) {
 					{
 						Path: "subtree",
 						Mode: "040000",
-						OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+						OID: git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 							{Path: "changed", Mode: "100644", Content: "a"},
 						}),
 					},
 				})
 
-				changedBlob := gittest.WriteBlob(t, cfg, repoPath, []byte("b"))
-				treeB := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				changedBlob := git.WriteBlob(t, cfg, repoPath, []byte("b"))
+				treeB := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{
 						Path:    "unchanged",
 						Mode:    "100644",
@@ -111,7 +110,7 @@ func TestDiffTree(t *testing.T) {
 					{
 						Path: "subtree",
 						Mode: "040000",
-						OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+						OID: git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 							{Path: "changed", Mode: "100644", OID: changedBlob},
 						}),
 					},
@@ -128,14 +127,14 @@ func TestDiffTree(t *testing.T) {
 		{
 			desc: "with submodules",
 			setup: func(t *testing.T, repoPath string) (git.Revision, git.Revision, []RevisionResult) {
-				submodule := gittest.WriteCommit(t, cfg, repoPath)
+				submodule := git.WriteTestCommit(t, cfg, repoPath)
 
-				treeA := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				treeA := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{Path: ".gitmodules", Mode: "100644", Content: "a"},
 				})
 
-				changedGitmodules := gittest.WriteBlob(t, cfg, repoPath, []byte("b"))
-				treeB := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				changedGitmodules := git.WriteBlob(t, cfg, repoPath, []byte("b"))
+				treeB := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{Path: ".gitmodules", Mode: "100644", OID: changedGitmodules},
 					{Path: "submodule", Mode: "160000", OID: submodule},
 				})
@@ -149,14 +148,14 @@ func TestDiffTree(t *testing.T) {
 		{
 			desc: "without submodules",
 			setup: func(t *testing.T, repoPath string) (git.Revision, git.Revision, []RevisionResult) {
-				submodule := gittest.WriteCommit(t, cfg, repoPath)
+				submodule := git.WriteTestCommit(t, cfg, repoPath)
 
-				treeA := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				treeA := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{Path: ".gitmodules", Mode: "100644", Content: "a"},
 				})
 
-				changedGitmodules := gittest.WriteBlob(t, cfg, repoPath, []byte("b"))
-				treeB := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				changedGitmodules := git.WriteBlob(t, cfg, repoPath, []byte("b"))
+				treeB := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{Path: ".gitmodules", Mode: "100644", OID: changedGitmodules},
 					{Path: "submodule", Mode: "160000", OID: submodule},
 				})
@@ -172,13 +171,13 @@ func TestDiffTree(t *testing.T) {
 		{
 			desc: "with skip function",
 			setup: func(t *testing.T, repoPath string) (git.Revision, git.Revision, []RevisionResult) {
-				treeA := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				treeA := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{Path: "a", Mode: "100644", Content: "1"},
 					{Path: "b", Mode: "100644", Content: "2"},
 				})
 
-				changedBlobA := gittest.WriteBlob(t, cfg, repoPath, []byte("x"))
-				treeB := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				changedBlobA := git.WriteBlob(t, cfg, repoPath, []byte("x"))
+				treeB := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{Path: "a", Mode: "100644", OID: changedBlobA},
 					{Path: "b", Mode: "100644", Content: "y"},
 				})
@@ -196,13 +195,13 @@ func TestDiffTree(t *testing.T) {
 		{
 			desc: "with skip failure",
 			setup: func(t *testing.T, repoPath string) (git.Revision, git.Revision, []RevisionResult) {
-				treeA := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				treeA := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{Path: "a", Mode: "100644", Content: "1"},
 					{Path: "b", Mode: "100644", Content: "2"},
 				})
 
-				changedBlobA := gittest.WriteBlob(t, cfg, repoPath, []byte("x"))
-				treeB := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				changedBlobA := git.WriteBlob(t, cfg, repoPath, []byte("x"))
+				treeB := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{Path: "a", Mode: "100644", OID: changedBlobA},
 					{Path: "b", Mode: "100644", Content: "y"},
 				})
@@ -219,7 +218,7 @@ func TestDiffTree(t *testing.T) {
 		{
 			desc: "invalid revision",
 			setup: func(t *testing.T, repoPath string) (git.Revision, git.Revision, []RevisionResult) {
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+				git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
 				return "refs/heads/main", "refs/heads/does-not-exist", nil
 			},
 			expectedErr: errors.New("diff-tree pipeline command: exit status 128, stderr: " +
@@ -229,7 +228,7 @@ func TestDiffTree(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 				SkipCreationViaService: true,
 			})
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)

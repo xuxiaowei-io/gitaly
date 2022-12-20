@@ -10,7 +10,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -56,7 +55,7 @@ func TestRenameRepositorySuccess(t *testing.T) {
 	require.DirExists(t, newDirectory)
 	require.True(t, storage.IsGitDirectory(newDirectory), "moved Git repository has been corrupted")
 	// ensure the git directory that got renamed contains a sha in the seed repo
-	gittest.RequireObjectExists(t, cfg, newDirectory, git.ObjectID("913c66a37b4a45b9769037c55c2d238bd0942d2e"))
+	git.RequireObjectExists(t, cfg, newDirectory, git.ObjectID("913c66a37b4a45b9769037c55c2d238bd0942d2e"))
 }
 
 func TestRenameRepositoryDestinationExists(t *testing.T) {
@@ -74,8 +73,8 @@ func TestRenameRepositoryDestinationExists(t *testing.T) {
 	_, err = client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: renamedRepo})
 	require.NoError(t, err)
 
-	destinationRepoPath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(t, ctx, cfg, existingDestinationRepo))
-	commitID := gittest.WriteCommit(t, cfg, destinationRepoPath)
+	destinationRepoPath := filepath.Join(cfg.Storages[0].Path, git.GetReplicaPath(t, ctx, cfg, existingDestinationRepo))
+	commitID := git.WriteTestCommit(t, cfg, destinationRepoPath)
 
 	_, err = client.RenameRepository(ctx, &gitalypb.RenameRepositoryRequest{
 		Repository:   renamedRepo,
@@ -84,7 +83,7 @@ func TestRenameRepositoryDestinationExists(t *testing.T) {
 	testhelper.RequireGrpcCode(t, err, codes.AlreadyExists)
 
 	// ensure the git directory that already existed didn't get overwritten
-	gittest.RequireObjectExists(t, cfg, destinationRepoPath, commitID)
+	git.RequireObjectExists(t, cfg, destinationRepoPath, commitID)
 }
 
 func TestRenameRepositoryInvalidRequest(t *testing.T) {

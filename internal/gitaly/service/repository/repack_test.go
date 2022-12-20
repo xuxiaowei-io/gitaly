@@ -10,7 +10,7 @@ import (
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
@@ -24,17 +24,17 @@ func TestRepackIncrementalSuccess(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
 	// Bring the repository into a known-good state with a single packfile, only.
-	initialCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
-	gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
+	initialCommit := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+	git.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
 	oldPackfileCount, err := stats.PackfilesCount(repoPath)
 	require.NoError(t, err)
 	require.Equal(t, 1, oldPackfileCount)
 
 	// Write a second commit into the repository so that we have something to repack.
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(initialCommit), gittest.WithBranch("main"))
+	git.WriteTestCommit(t, cfg, repoPath, git.WithParents(initialCommit), git.WithBranch("main"))
 
 	//nolint:staticcheck
 	c, err := client.RepackIncremental(ctx, &gitalypb.RepackIncrementalRequest{Repository: repo})
@@ -72,15 +72,15 @@ func TestRepackLocal(t *testing.T) {
 	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	altObjectsDir := "./alt-objects"
-	alternateCommit := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithMessage("alternate commit"),
-		gittest.WithAlternateObjectDirectory(filepath.Join(repoPath, altObjectsDir)),
-		gittest.WithBranch("alternate-odb"),
+	alternateCommit := git.WriteTestCommit(t, cfg, repoPath,
+		git.WithMessage("alternate commit"),
+		git.WithAlternateObjectDirectory(filepath.Join(repoPath, altObjectsDir)),
+		git.WithBranch("alternate-odb"),
 	)
 
-	repoCommit := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithMessage("main commit"),
-		gittest.WithBranch("main-odb"),
+	repoCommit := git.WriteTestCommit(t, cfg, repoPath,
+		git.WithMessage("main commit"),
+		git.WithBranch("main-odb"),
 	)
 
 	// Set GIT_ALTERNATE_OBJECT_DIRECTORIES on the outgoing request. The
@@ -97,7 +97,7 @@ func TestRepackLocal(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, packFiles, 1)
 
-	packContents := gittest.Exec(t, cfg, "-C", repoPath, "verify-pack", "-v", packFiles[0])
+	packContents := git.Exec(t, cfg, "-C", repoPath, "verify-pack", "-v", packFiles[0])
 	require.NotContains(t, string(packContents), alternateCommit.String())
 	require.Contains(t, string(packContents), repoCommit.String())
 }
@@ -185,13 +185,13 @@ func TestRepackFullSuccess(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
-			repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+			repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
 			// Bring the repository into a known state with two packfiles.
-			gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("first"), gittest.WithBranch("first"))
-			gittest.Exec(t, cfg, "-C", repoPath, "repack")
-			gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("second"), gittest.WithBranch("second"))
-			gittest.Exec(t, cfg, "-C", repoPath, "repack")
+			git.WriteTestCommit(t, cfg, repoPath, git.WithMessage("first"), git.WithBranch("first"))
+			git.Exec(t, cfg, "-C", repoPath, "repack")
+			git.WriteTestCommit(t, cfg, repoPath, git.WithMessage("second"), git.WithBranch("second"))
+			git.Exec(t, cfg, "-C", repoPath, "repack")
 			oldPackfileCount, err := stats.PackfilesCount(repoPath)
 			require.NoError(t, err)
 			require.Equal(t, 2, oldPackfileCount)
@@ -247,7 +247,7 @@ func doBitmapsContainHashCache(t *testing.T, bitmapPaths []string) {
 	// for each bitmap file, check the 2-byte flag as documented in
 	// https://github.com/git/git/blob/master/Documentation/technical/bitmap-format.txt
 	for _, bitmapPath := range bitmapPaths {
-		gittest.TestBitmapHasHashcache(t, bitmapPath)
+		git.TestBitmapHasHashcache(t, bitmapPath)
 	}
 }
 
@@ -305,7 +305,7 @@ func TestRepackFullDeltaIslands(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
-	gittest.TestDeltaIslands(t, cfg, repoPath, repoPath, false, func() error {
+	git.TestDeltaIslands(t, cfg, repoPath, repoPath, false, func() error {
 		//nolint:staticcheck
 		_, err := client.RepackFull(ctx, &gitalypb.RepackFullRequest{Repository: repo})
 		return err

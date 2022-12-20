@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -62,7 +62,7 @@ func TestSuccessfulGetBlobsRequest(t *testing.T) {
 	revision := "ef16b8d2b204706bd8dc211d4011a5bffb6fc0c2"
 	limits := []int{-1, 0, 10 * 1024 * 1024}
 
-	gittest.Exec(t, cfg, "-C", repoPath, "worktree", "add", "blobs-sandbox", revision)
+	git.Exec(t, cfg, "-C", repoPath, "worktree", "add", "blobs-sandbox", revision)
 
 	var revisionPaths []*gitalypb.GetBlobsRequest_RevisionPath
 	for _, blob := range expectedBlobs {

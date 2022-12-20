@@ -10,7 +10,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -25,15 +24,15 @@ func TestGetTreeEntries_curlyBraces(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, ctx)
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(gittest.TreeEntry{
-		Path: "issue-46261", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+	commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(git.TreeEntry{
+		Path: "issue-46261", Mode: "040000", OID: git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 			{
-				Path: "folder", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				Path: "folder", Mode: "040000", OID: git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{Path: "test1.txt", Mode: "100644", Content: "test1"},
 				}),
 			},
 			{
-				Path: "{{curly}}", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				Path: "{{curly}}", Mode: "040000", OID: git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{Path: "test2.txt", Mode: "100644", Content: "test2"},
 				}),
 			},
@@ -581,18 +580,18 @@ func TestGetTreeEntries_deepFlatpath(t *testing.T) {
 	// We create a tree structure that is one deeper than the flat-tree recursion limit.
 	var treeID git.ObjectID
 	for i := nestingLevel; i >= 0; i-- {
-		var treeEntry gittest.TreeEntry
+		var treeEntry git.TreeEntry
 		if treeID == "" {
-			treeEntry = gittest.TreeEntry{Path: ".gitkeep", Mode: "100644", Content: "something"}
+			treeEntry = git.TreeEntry{Path: ".gitkeep", Mode: "100644", Content: "something"}
 		} else {
 			// We use a numbered directory name to make it easier to see when things get
 			// truncated.
-			treeEntry = gittest.TreeEntry{Path: strconv.Itoa(i), Mode: "040000", OID: treeID}
+			treeEntry = git.TreeEntry{Path: strconv.Itoa(i), Mode: "040000", OID: treeID}
 		}
 
-		treeID = gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{treeEntry})
+		treeID = git.WriteTree(t, cfg, repoPath, []git.TreeEntry{treeEntry})
 	}
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(treeID))
+	commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTree(treeID))
 
 	// We make a non-recursive request which tries to fetch tree entrie for the tree structure
 	// we have created above. This should return a single entry, which is the directory we're
@@ -626,8 +625,8 @@ func TestGetTreeEntries_file(t *testing.T) {
 
 	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, ctx)
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithTreeEntries(gittest.TreeEntry{
+	commitID := git.WriteTestCommit(t, cfg, repoPath,
+		git.WithTreeEntries(git.TreeEntry{
 			Mode:    "100644",
 			Path:    "README.md",
 			Content: "something with spaces in between",
@@ -729,7 +728,7 @@ func BenchmarkGetTreeEntries(b *testing.B) {
 	ctx := testhelper.Context(b)
 	cfg, client := setupCommitService(b, ctx)
 
-	repo, _ := gittest.CreateRepository(b, ctx, cfg, gittest.CreateRepositoryConfig{
+	repo, _ := git.CreateRepository(b, ctx, cfg, git.CreateRepositoryConfig{
 		Seed: "benchmark.git",
 	})
 

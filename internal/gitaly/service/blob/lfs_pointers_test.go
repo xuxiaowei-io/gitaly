@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -218,7 +217,7 @@ size 12345`
 	t.Run("dangling LFS pointer", func(t *testing.T) {
 		cfg, repo, repoPath, client := setup(t, ctx)
 
-		hash := gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: strings.NewReader(lfsPointerContents)},
+		hash := git.ExecOpts(t, cfg, git.ExecConfig{Stdin: strings.NewReader(lfsPointerContents)},
 			"-C", repoPath, "hash-object", "-w", "--stdin",
 		)
 		lfsPointerOID := text.ChompBytes(hash)

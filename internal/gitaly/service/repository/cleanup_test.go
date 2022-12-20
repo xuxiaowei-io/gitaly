@@ -11,7 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -56,14 +56,14 @@ func TestCleanupDeletesStaleWorktrees(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-				Seed: gittest.SeedGitLabTest,
+			repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+				Seed: git.SeedGitLabTest,
 			})
 
 			req := &gitalypb.CleanupRequest{Repository: repo}
 
 			worktreeCheckoutPath := filepath.Join(repoPath, worktreePrefix, "test-worktree")
-			gittest.AddWorktree(t, cfg, repoPath, worktreeCheckoutPath)
+			git.AddWorktree(t, cfg, repoPath, worktreeCheckoutPath)
 			basePath := filepath.Join(repoPath, "worktrees")
 			worktreePath := filepath.Join(basePath, "test-worktree")
 
@@ -133,7 +133,7 @@ func TestCleanupDisconnectedWorktrees(t *testing.T) {
 
 	req := &gitalypb.CleanupRequest{Repository: repo}
 
-	gittest.AddWorktree(t, cfg, repoPath, worktreePath)
+	git.AddWorktree(t, cfg, repoPath, worktreePath)
 
 	// removing the work tree path but leaving the administrative files in
 	// $GIT_DIR/worktrees will result in the work tree being in a
@@ -143,7 +143,7 @@ func TestCleanupDisconnectedWorktrees(t *testing.T) {
 		"disconnecting worktree by removing work tree at %s should succeed", worktreePath,
 	)
 
-	cmd := gittest.NewCommand(t, cfg, gittest.AddWorktreeArgs(repoPath, worktreePath)...)
+	cmd := git.NewCommand(t, cfg, git.AddWorktreeArgs(repoPath, worktreePath)...)
 	require.Error(t, cmd.Run(), "creating a new work tree at the same path as a disconnected work tree should fail")
 
 	// cleanup should prune the disconnected worktree administrative files
@@ -154,7 +154,7 @@ func TestCleanupDisconnectedWorktrees(t *testing.T) {
 
 	// if the worktree administrative files are pruned, then we should be able
 	// to checkout another worktree at the same path
-	gittest.AddWorktree(t, cfg, repoPath, worktreePath)
+	git.AddWorktree(t, cfg, repoPath, worktreePath)
 }
 
 func TestCleanup_invalidRequest(t *testing.T) {

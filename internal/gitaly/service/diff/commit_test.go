@@ -10,7 +10,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/diff"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -174,7 +173,7 @@ func TestSuccessfulCommitDiffRequest(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			gittest.Exec(t, cfg, "-C", repoPath, "config", "diff.noprefix", testCase.noPrefixConfig)
+			git.Exec(t, cfg, "-C", repoPath, "config", "diff.noprefix", testCase.noPrefixConfig)
 			rpcRequest := &gitalypb.CommitDiffRequest{Repository: repo, RightCommitId: rightCommit, LeftCommitId: leftCommit, IgnoreWhitespaceChange: false}
 			c, err := client.CommitDiff(ctx, rpcRequest)
 			require.NoError(t, err)
@@ -402,7 +401,7 @@ func TestSuccessfulCommitDiffRequestWithWordDiff(t *testing.T) {
 	leftCommit := "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"
 
 	var diffPatches [][]byte
-	output := gittest.Exec(t, cfg, "-C", repoPath, "diff", "--word-diff=porcelain", leftCommit, rightCommit)
+	output := git.Exec(t, cfg, "-C", repoPath, "diff", "--word-diff=porcelain", leftCommit, rightCommit)
 	diffPerFile := bytes.Split(output, []byte("diff --git"))
 
 	for _, s := range diffPerFile {
@@ -561,7 +560,7 @@ func TestSuccessfulCommitDiffRequestWithWordDiff(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			gittest.Exec(t, cfg, "-C", repoPath, "config", "diff.noprefix", testCase.noPrefixConfig)
+			git.Exec(t, cfg, "-C", repoPath, "config", "diff.noprefix", testCase.noPrefixConfig)
 			rpcRequest := &gitalypb.CommitDiffRequest{
 				Repository:             repo,
 				RightCommitId:          rightCommit,

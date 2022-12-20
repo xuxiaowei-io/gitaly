@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -29,18 +29,18 @@ func TestRestoreSubcommand(t *testing.T) {
 
 	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
 
-	existingRepo, existRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed:         gittest.SeedGitLabTest,
+	existingRepo, existRepoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed:         git.SeedGitLabTest,
 		RelativePath: "existing_repo",
 	})
 
 	path := testhelper.TempDir(t)
 	existingRepoBundlePath := filepath.Join(path, existingRepo.RelativePath+".bundle")
-	gittest.Exec(t, cfg, "-C", existRepoPath, "bundle", "create", existingRepoBundlePath, "--all")
+	git.Exec(t, cfg, "-C", existRepoPath, "bundle", "create", existingRepoBundlePath, "--all")
 
 	repos := []*gitalypb.Repository{existingRepo}
 	for i := 0; i < 2; i++ {
-		repo := gittest.InitRepoDir(t, cfg.Storages[0].Path, fmt.Sprintf("repo-%d", i))
+		repo := git.InitRepoDir(t, cfg.Storages[0].Path, fmt.Sprintf("repo-%d", i))
 		repoBundlePath := filepath.Join(path, repo.RelativePath+".bundle")
 		testhelper.CopyFile(t, existingRepoBundlePath, repoBundlePath)
 		repos = append(repos, repo)
@@ -76,10 +76,10 @@ func TestRestoreSubcommand(t *testing.T) {
 		"restore: pipeline: 1 failures encountered:\n - invalid: manager: remove repository: could not dial source: invalid connection string: \"invalid\"\n")
 
 	for _, repo := range repos {
-		repoPath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(t, ctx, cfg, repo))
+		repoPath := filepath.Join(cfg.Storages[0].Path, git.GetReplicaPath(t, ctx, cfg, repo))
 		bundlePath := filepath.Join(path, repo.RelativePath+".bundle")
 
-		output := gittest.Exec(t, cfg, "-C", repoPath, "bundle", "verify", bundlePath)
+		output := git.Exec(t, cfg, "-C", repoPath, "bundle", "verify", bundlePath)
 		require.Contains(t, string(output), "The bundle records a complete history")
 	}
 }

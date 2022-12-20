@@ -8,8 +8,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
@@ -58,7 +58,7 @@ func setupWithConfig(t *testing.T, ctx context.Context, cfg config.Cfg, opts ...
 	require.NoError(t, err)
 	t.Cleanup(func() { testhelper.MustClose(t, conn) })
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
 	return cfg, repo, repoPath, locator, clientWithConn{ObjectPoolServiceClient: gitalypb.NewObjectPoolServiceClient(conn), conn: conn}
 }
@@ -104,7 +104,7 @@ func createObjectPool(
 	poolProto := &gitalypb.ObjectPool{
 		Repository: &gitalypb.Repository{
 			StorageName:  source.GetStorageName(),
-			RelativePath: gittest.NewObjectPoolName(tb),
+			RelativePath: git.NewObjectPoolName(tb),
 		},
 	}
 
@@ -120,18 +120,18 @@ func createObjectPool(
 
 	pool, err := objectpool.FromProto(
 		config.NewLocator(cfg),
-		gittest.NewCommandFactory(tb, cfg),
+		git.NewCommandFactory(tb, cfg),
 		catfileCache,
 		txManager,
 		housekeeping.NewManager(cfg.Prometheus, txManager),
 		&gitalypb.ObjectPool{
 			Repository: &gitalypb.Repository{
 				StorageName:  cfg.Storages[0].Name,
-				RelativePath: gittest.GetReplicaPath(tb, ctx, cfg, poolProto.GetRepository()),
+				RelativePath: git.GetReplicaPath(tb, ctx, cfg, poolProto.GetRepository()),
 			},
 		},
 	)
 	require.NoError(tb, err)
 
-	return poolProto, pool, gittest.RepositoryPath(tb, pool)
+	return poolProto, pool, git.RepositoryPath(tb, pool)
 }

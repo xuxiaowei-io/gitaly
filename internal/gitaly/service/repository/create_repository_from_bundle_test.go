@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
@@ -43,13 +42,13 @@ func TestCreateRepositoryFromBundle_successful(t *testing.T) {
 	require.NoError(t, err)
 	bundlePath := filepath.Join(tmpdir.Path(), "original.bundle")
 
-	gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/custom-refs/ref1", "HEAD")
+	git.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/custom-refs/ref1", "HEAD")
 
 	// A user may use a default branch other than "main" or "master"
 	const wantDefaultBranch = "refs/heads/markdown"
-	gittest.Exec(t, cfg, "-C", repoPath, "symbolic-ref", "HEAD", wantDefaultBranch)
+	git.Exec(t, cfg, "-C", repoPath, "symbolic-ref", "HEAD", wantDefaultBranch)
 
-	gittest.Exec(t, cfg, "-C", repoPath, "bundle", "create", bundlePath, "--all")
+	git.Exec(t, cfg, "-C", repoPath, "bundle", "create", bundlePath, "--all")
 	defer func() { require.NoError(t, os.RemoveAll(bundlePath)) }()
 
 	stream, err := client.CreateRepositoryFromBundle(ctx)
@@ -84,11 +83,11 @@ func TestCreateRepositoryFromBundle_successful(t *testing.T) {
 	require.NoError(t, err)
 
 	importedRepo := localrepo.NewTestRepo(t, cfg, importedRepoProto)
-	importedRepoPath, err := locator.GetPath(gittest.RewrittenRepository(t, ctx, cfg, importedRepoProto))
+	importedRepoPath, err := locator.GetPath(git.RewrittenRepository(t, ctx, cfg, importedRepoProto))
 	require.NoError(t, err)
 	defer func() { require.NoError(t, os.RemoveAll(importedRepoPath)) }()
 
-	gittest.Exec(t, cfg, "-C", importedRepoPath, "fsck")
+	git.Exec(t, cfg, "-C", importedRepoPath, "fsck")
 
 	_, err = os.Lstat(filepath.Join(importedRepoPath, "hooks"))
 	require.True(t, os.IsNotExist(err), "hooks directory should not have been created")
@@ -113,14 +112,14 @@ func TestCreateRepositoryFromBundle_transactional(t *testing.T) {
 	// Reset the votes casted while creating the test repository.
 	txManager.Reset()
 
-	masterOID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/master"))
-	featureOID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/feature"))
+	masterOID := text.ChompBytes(git.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/master"))
+	featureOID := text.ChompBytes(git.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/feature"))
 
 	// keep-around refs are not cloned in the initial step, but are added via the second call to
 	// git-fetch(1). We thus create some of them to exercise their behaviour with regards to
 	// transactional voting.
 	for _, keepAroundRef := range []string{"refs/keep-around/1", "refs/keep-around/2"} {
-		gittest.Exec(t, cfg, "-C", repoPath, "update-ref", keepAroundRef, masterOID)
+		git.Exec(t, cfg, "-C", repoPath, "update-ref", keepAroundRef, masterOID)
 	}
 
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "primary", true)
@@ -132,14 +131,14 @@ func TestCreateRepositoryFromBundle_transactional(t *testing.T) {
 
 	createdRepo := &gitalypb.Repository{
 		StorageName:  repoProto.GetStorageName(),
-		RelativePath: gittest.NewRepositoryName(t),
+		RelativePath: git.NewRepositoryName(t),
 	}
 
 	require.NoError(t, stream.Send(&gitalypb.CreateRepositoryFromBundleRequest{
 		Repository: createdRepo,
 	}))
 
-	bundle := gittest.Exec(t, cfg, "-C", repoPath, "bundle", "create", "-",
+	bundle := git.Exec(t, cfg, "-C", repoPath, "bundle", "create", "-",
 		"refs/heads/master", "refs/heads/feature", "refs/keep-around/1", "refs/keep-around/2")
 	require.Greater(t, len(bundle), 100*1024)
 
@@ -160,7 +159,7 @@ func TestCreateRepositoryFromBundle_transactional(t *testing.T) {
 		return transaction.PhasedVote{Vote: vote, Phase: phase}
 	}
 
-	createdRepoPath, err := config.NewLocator(cfg).GetRepoPath(gittest.RewrittenRepository(t, ctx, cfg, createdRepo))
+	createdRepoPath, err := config.NewLocator(cfg).GetRepoPath(git.RewrittenRepository(t, ctx, cfg, createdRepo))
 	require.NoError(t, err)
 
 	refsVote := voting.VoteFromData([]byte(strings.Join([]string{
@@ -266,9 +265,9 @@ func TestCreateRepositoryFromBundle_existingRepository(t *testing.T) {
 	// The above test creates the second repository on the server. As this test can run with Praefect in front of it,
 	// we'll use the next replica path Praefect will assign in order to ensure this repository creation conflicts even
 	// with Praefect in front of it.
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repo, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		RelativePath: praefectutil.DeriveReplicaPath(1),
-		Seed:         gittest.SeedGitLabTest,
+		Seed:         git.SeedGitLabTest,
 	})
 
 	stream, err := client.CreateRepositoryFromBundle(ctx)

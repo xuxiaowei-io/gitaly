@@ -18,7 +18,6 @@ import (
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	hookPkg "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
@@ -101,8 +100,8 @@ func testServerPackObjectsHookSeparateContextWithRuntimeDir(t *testing.T, ctx co
 
 	ctx1, cancel := context.WithCancel(ctx)
 	defer cancel()
-	repo, repoPath := gittest.CreateRepository(t, ctx1, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repo, repoPath := git.CreateRepository(t, ctx1, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	req := &gitalypb.PackObjectsHookWithSidechannelRequest{
@@ -197,10 +196,10 @@ func testServerPackObjectsHookSeparateContextWithRuntimeDir(t *testing.T, ctx co
 	wg.Wait()
 
 	// Sanity check: second call received valid response
-	gittest.ExecOpts(
+	git.ExecOpts(
 		t,
 		cfg,
-		gittest.ExecConfig{Stdin: bytes.NewReader(stdout2)},
+		git.ExecConfig{Stdin: bytes.NewReader(stdout2)},
 		"-C", repoPath, "index-pack", "--stdin", "--fix-thin",
 	)
 }
@@ -226,8 +225,8 @@ func testServerPackObjectsHookUsesCache(t *testing.T, ctx context.Context, runti
 		s.packObjectsCache = tlc
 	}})
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	doRequest := func() {
@@ -266,10 +265,10 @@ func testServerPackObjectsHookUsesCache(t *testing.T, ctx context.Context, runti
 		require.NoError(t, err)
 		require.NoError(t, wt.Wait())
 
-		gittest.ExecOpts(
+		git.ExecOpts(
 			t,
 			cfg,
-			gittest.ExecConfig{Stdin: bytes.NewReader(stdout)},
+			git.ExecConfig{Stdin: bytes.NewReader(stdout)},
 			"-C", repoPath, "index-pack", "--stdin", "--fix-thin",
 		)
 	}
@@ -337,8 +336,8 @@ func testServerPackObjectsHookWithSidechannelWithRuntimeDir(t *testing.T, ctx co
 				testserver.WithLogger(logger),
 				testserver.WithConcurrencyTracker(concurrencyTracker),
 			)
-			repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-				Seed: gittest.SeedGitLabTest,
+			repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+				Seed: git.SeedGitLabTest,
 			})
 
 			var packets []string
@@ -390,10 +389,10 @@ func testServerPackObjectsHookWithSidechannelWithRuntimeDir(t *testing.T, ctx co
 				}
 			}
 
-			gittest.ExecOpts(
+			git.ExecOpts(
 				t,
 				cfg,
-				gittest.ExecConfig{Stdin: bytes.NewReader(packdata)},
+				git.ExecConfig{Stdin: bytes.NewReader(packdata)},
 				"-C", repoPath, "index-pack", "--stdin", "--fix-thin",
 			)
 
@@ -498,8 +497,8 @@ func TestServer_PackObjectsHookWithSidechannel_invalidArgument(t *testing.T) {
 	cfg.SocketPath = runHooksServer(t, cfg, nil)
 	ctx := testhelper.Context(t)
 
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repo, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	testCases := []struct {
@@ -571,8 +570,8 @@ func testServerPackObjectsHookWithSidechannelCanceledWithRuntimeDir(t *testing.T
 	defer testhelper.MustClose(t, wt)
 
 	cfg.SocketPath = runHooksServer(t, cfg, nil)
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repo, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	client, conn := newHooksClient(t, cfg.SocketPath)

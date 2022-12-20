@@ -17,7 +17,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/objectpool"
@@ -42,10 +41,10 @@ func TestInfoRefsUploadPack_successful(t *testing.T) {
 	cfg.SocketPath = runSmartHTTPServer(t, cfg)
 	ctx := testhelper.Context(t)
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithParents())
-	tagID := gittest.WriteTag(t, cfg, repoPath, "v1.0.0", commitID.Revision(), gittest.WriteTagConfig{
+	commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"), git.WithParents())
+	tagID := git.WriteTag(t, cfg, repoPath, "v1.0.0", commitID.Revision(), git.WriteTagConfig{
 		Message: "annotated tag",
 	})
 
@@ -111,10 +110,10 @@ func TestInfoRefsUploadPack_internalRefs(t *testing.T) {
 		},
 	} {
 		t.Run(tc.ref, func(t *testing.T) {
-			repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+			repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
-			commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithParents())
-			gittest.Exec(t, cfg, "-C", repoPath, "update-ref", tc.ref, commitID.String())
+			commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"), git.WithParents())
+			git.Exec(t, cfg, "-C", repoPath, "update-ref", tc.ref, commitID.String())
 
 			var expectedAdvertisements []string
 			for _, expectedRef := range tc.expectedAdvertisements {
@@ -174,8 +173,8 @@ func TestInfoRefsUploadPack_partialClone(t *testing.T) {
 	cfg.SocketPath = runSmartHTTPServer(t, cfg)
 	ctx := testhelper.Context(t)
 
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repo, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	request := &gitalypb.InfoRefsRequest{
@@ -200,9 +199,9 @@ func TestInfoRefsUploadPack_gitConfigOptions(t *testing.T) {
 	cfg.SocketPath = runSmartHTTPServer(t, cfg)
 
 	ctx := testhelper.Context(t)
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithParents())
+	commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"), git.WithParents())
 
 	// transfer.hideRefs=refs will hide every ref that info-refs would normally
 	// output, allowing us to test that the custom configuration is respected
@@ -223,15 +222,15 @@ func TestInfoRefsUploadPack_gitProtocol(t *testing.T) {
 	cfg := testcfg.Build(t)
 	ctx := testhelper.Context(t)
 
-	protocolDetectingFactory := gittest.NewProtocolDetectingCommandFactory(t, ctx, cfg)
+	protocolDetectingFactory := git.NewProtocolDetectingCommandFactory(t, ctx, cfg)
 
 	server := startSmartHTTPServerWithOptions(t, cfg, nil, []testserver.GitalyServerOpt{
 		testserver.WithGitCommandFactory(protocolDetectingFactory),
 	})
 	cfg.SocketPath = server.Address()
 
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repo, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	rpcRequest := &gitalypb.InfoRefsRequest{
@@ -282,10 +281,10 @@ func TestInfoRefsReceivePack_successful(t *testing.T) {
 	cfg.SocketPath = runSmartHTTPServer(t, cfg)
 	ctx := testhelper.Context(t)
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithParents())
-	tagID := gittest.WriteTag(t, cfg, repoPath, "v1.0.0", commitID.Revision(), gittest.WriteTagConfig{
+	commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"), git.WithParents())
+	tagID := git.WriteTag(t, cfg, repoPath, "v1.0.0", commitID.Revision(), git.WriteTagConfig{
 		Message: "annotated tag",
 	})
 
@@ -310,8 +309,8 @@ func TestInfoRefsReceivePack_hiddenRefs(t *testing.T) {
 	cfg.SocketPath = runSmartHTTPServer(t, cfg)
 	ctx := testhelper.Context(t)
 
-	repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repoProto, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
@@ -319,22 +318,22 @@ func TestInfoRefsReceivePack_hiddenRefs(t *testing.T) {
 	pool, err := objectpool.Create(
 		ctx,
 		config.NewLocator(cfg),
-		gittest.NewCommandFactory(t, cfg),
+		git.NewCommandFactory(t, cfg),
 		nil,
 		txManager,
 		housekeeping.NewManager(cfg.Prometheus, txManager),
 		&gitalypb.ObjectPool{
 			Repository: &gitalypb.Repository{
 				StorageName:  repo.GetStorageName(),
-				RelativePath: gittest.NewObjectPoolName(t),
+				RelativePath: git.NewObjectPoolName(t),
 			},
 		},
 		repo,
 	)
 	require.NoError(t, err)
-	poolPath := gittest.RepositoryPath(t, pool)
+	poolPath := git.RepositoryPath(t, pool)
 
-	commitID := gittest.WriteCommit(t, cfg, poolPath, gittest.WithBranch(t.Name()))
+	commitID := git.WriteTestCommit(t, cfg, poolPath, git.WithBranch(t.Name()))
 
 	require.NoError(t, pool.Link(ctx, repo))
 
@@ -407,18 +406,18 @@ func requireAdvertisedRefs(t *testing.T, responseBody, expectedService string, e
 	require.Greater(t, len(responseLines), 2)
 
 	for i, expectedRef := range expectedRefs {
-		expectedRefs[i] = gittest.Pktlinef(t, "%s", expectedRef)
+		expectedRefs[i] = git.Pktlinef(t, "%s", expectedRef)
 	}
 
 	// The first line contains the service announcement.
-	require.Equal(t, gittest.Pktlinef(t, "# service=%s\n", expectedService), responseLines[0])
+	require.Equal(t, git.Pktlinef(t, "# service=%s\n", expectedService), responseLines[0])
 
 	// The second line contains the first reference as well as the capability announcement. We
 	// thus split the string at "\x00" and ignore the capability announcement here.
 	refAndCapabilities := strings.SplitN(responseLines[1], "\x00", 2)
 	require.Len(t, refAndCapabilities, 2)
 	// We just replace the first advertised reference to make it easier to compare refs.
-	responseLines[1] = gittest.Pktlinef(t, "%s", refAndCapabilities[0][8:])
+	responseLines[1] = git.Pktlinef(t, "%s", refAndCapabilities[0][8:])
 
 	require.Equal(t, responseLines[1:len(responseLines)-1], expectedRefs)
 	require.Equal(t, "0000", responseLines[len(responseLines)-1])
@@ -454,10 +453,10 @@ func TestInfoRefsUploadPack_cache(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithParents())
-	tagID := gittest.WriteTag(t, cfg, repoPath, "v1.0.0", commitID.Revision(), gittest.WriteTagConfig{
+	commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"), git.WithParents())
+	tagID := git.WriteTag(t, cfg, repoPath, "v1.0.0", commitID.Revision(), git.WriteTagConfig{
 		Message: "annotated tag",
 	})
 
@@ -485,7 +484,7 @@ func TestInfoRefsUploadPack_cache(t *testing.T) {
 	}
 
 	assertNormalResponse(gitalyServer.Address())
-	rewrittenRequest := &gitalypb.InfoRefsRequest{Repository: gittest.RewrittenRepository(t, ctx, cfg, repo)}
+	rewrittenRequest := &gitalypb.InfoRefsRequest{Repository: git.RewrittenRepository(t, ctx, cfg, repo)}
 	require.FileExists(t, pathToCachedResponse(t, ctx, cache, rewrittenRequest))
 
 	replacedContents := []string{

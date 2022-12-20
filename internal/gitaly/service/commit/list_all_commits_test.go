@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -39,7 +39,7 @@ func TestListAllCommits(t *testing.T) {
 	t.Run("empty repo", func(t *testing.T) {
 		cfg, client := setupCommitService(t, ctx)
 
-		repo, _ := gittest.CreateRepository(t, ctx, cfg)
+		repo, _ := git.CreateRepository(t, ctx, cfg)
 
 		stream, err := client.ListAllCommits(ctx, &gitalypb.ListAllCommitsRequest{
 			Repository: repo,
@@ -76,7 +76,7 @@ func TestListAllCommits(t *testing.T) {
 			"335bc94d5b7369b10251e612158da2e4a4aaa2a5",
 			"bf6e164cac2dc32b1f391ca4290badcbe4ffc5fb",
 		} {
-			testhelper.ProtoEqual(t, gittest.CommitsByID[oid], commitsByID[oid])
+			testhelper.ProtoEqual(t, git.CommitsByID[oid], commitsByID[oid])
 		}
 	})
 
@@ -93,7 +93,7 @@ func TestListAllCommits(t *testing.T) {
 		require.NoError(t, err)
 
 		testhelper.ProtoEqual(t, []*gitalypb.GitCommit{
-			gittest.CommitsByID["54188278422b1fa877c2e71c4e37fc6640a58ad1"],
+			git.CommitsByID["54188278422b1fa877c2e71c4e37fc6640a58ad1"],
 		}, receiveCommits(t, stream))
 	})
 
@@ -116,8 +116,8 @@ func TestListAllCommits(t *testing.T) {
 
 		// We cannot easily spawn a command with an object directory, so we just do so
 		// manually here and write the commit into the quarantine object directory.
-		commitID := gittest.WriteCommit(t, cfg, repoPath,
-			gittest.WithAlternateObjectDirectory(filepath.Join(repoPath, quarantineDir)),
+		commitID := git.WriteTestCommit(t, cfg, repoPath,
+			git.WithAlternateObjectDirectory(filepath.Join(repoPath, quarantineDir)),
 		)
 
 		// We now expect only the quarantined commit to be returned.
@@ -132,8 +132,8 @@ func TestListAllCommits(t *testing.T) {
 			Body:      []byte("message"),
 			BodySize:  7,
 			TreeId:    "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
-			Author:    gittest.DefaultCommitAuthor,
-			Committer: gittest.DefaultCommitAuthor,
+			Author:    git.DefaultCommitAuthor,
+			Committer: git.DefaultCommitAuthor,
 		}}, receiveCommits(t, stream))
 	})
 }

@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -27,17 +27,17 @@ func TestGetTagSignatures(t *testing.T) {
 
 	message1 := strings.Repeat("a", helper.MaxCommitOrTagMessageSize) + "\n"
 	signature1 := string(testhelper.MustReadFile(t, "testdata/tag-1e292f8fedd741b75372e19097c76d327140c312-signature"))
-	tag1ID := gittest.WriteTag(t, cfg, repoPath, "big-tag-1", "master", gittest.WriteTagConfig{Message: message1 + signature1})
-	content1 := fmt.Sprintf("object 1e292f8fedd741b75372e19097c76d327140c312\ntype commit\ntag big-tag-1\ntagger %s\n\n%s", gittest.DefaultCommitterSignature, message1)
+	tag1ID := git.WriteTag(t, cfg, repoPath, "big-tag-1", "master", git.WriteTagConfig{Message: message1 + signature1})
+	content1 := fmt.Sprintf("object 1e292f8fedd741b75372e19097c76d327140c312\ntype commit\ntag big-tag-1\ntagger %s\n\n%s", git.DefaultCommitterSignature, message1)
 
 	message2 := strings.Repeat("b", helper.MaxCommitOrTagMessageSize) + "\n"
 	signature2 := string(testhelper.MustReadFile(t, "testdata/tag-7975be0116940bf2ad4321f79d02a55c5f7779aa-signature"))
-	tag2ID := gittest.WriteTag(t, cfg, repoPath, "big-tag-2", "master~", gittest.WriteTagConfig{Message: message2 + signature2})
-	content2 := fmt.Sprintf("object 7975be0116940bf2ad4321f79d02a55c5f7779aa\ntype commit\ntag big-tag-2\ntagger %s\n\n%s", gittest.DefaultCommitterSignature, message2)
+	tag2ID := git.WriteTag(t, cfg, repoPath, "big-tag-2", "master~", git.WriteTagConfig{Message: message2 + signature2})
+	content2 := fmt.Sprintf("object 7975be0116940bf2ad4321f79d02a55c5f7779aa\ntype commit\ntag big-tag-2\ntagger %s\n\n%s", git.DefaultCommitterSignature, message2)
 
 	message3 := "tag message\n"
-	tag3ID := gittest.WriteTag(t, cfg, repoPath, "tag-3", "master~~", gittest.WriteTagConfig{Message: message3})
-	content3 := fmt.Sprintf("object 60ecb67744cb56576c30214ff52294f8ce2def98\ntype commit\ntag tag-3\ntagger %s\n\n%s", gittest.DefaultCommitterSignature, message3)
+	tag3ID := git.WriteTag(t, cfg, repoPath, "tag-3", "master~~", git.WriteTagConfig{Message: message3})
+	content3 := fmt.Sprintf("object 60ecb67744cb56576c30214ff52294f8ce2def98\ntype commit\ntag tag-3\ntagger %s\n\n%s", git.DefaultCommitterSignature, message3)
 
 	for _, tc := range []struct {
 		desc               string

@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -22,25 +21,25 @@ func TestPipeline_revlist(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	blobA := gittest.WriteBlob(t, cfg, repoPath, []byte("blob a"))
-	blobB := gittest.WriteBlob(t, cfg, repoPath, []byte("b"))
-	blobC := gittest.WriteBlob(t, cfg, repoPath, []byte("longer blob c"))
+	blobA := git.WriteBlob(t, cfg, repoPath, []byte("blob a"))
+	blobB := git.WriteBlob(t, cfg, repoPath, []byte("b"))
+	blobC := git.WriteBlob(t, cfg, repoPath, []byte("longer blob c"))
 
-	subtree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+	subtree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 		{Path: "subblob", Mode: "100644", OID: blobA},
 	})
-	tree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+	tree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 		{Path: "blob", Mode: "100644", OID: blobB},
 		{Path: "subtree", Mode: "040000", OID: subtree},
 	})
 
-	commitA := gittest.WriteCommit(t, cfg, repoPath)
-	commitB := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(commitA), gittest.WithTree(tree), gittest.WithBranch("main"))
+	commitA := git.WriteTestCommit(t, cfg, repoPath)
+	commitB := git.WriteTestCommit(t, cfg, repoPath, git.WithParents(commitA), git.WithTree(tree), git.WithBranch("main"))
 
 	for _, tc := range []struct {
 		desc               string
@@ -391,15 +390,15 @@ func TestPipeline_forEachRef(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	keepaliveCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference("refs/keep-alive/a"), gittest.WithMessage("keepalive"))
-	mainCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithMessage("main"))
-	featureCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("feature"), gittest.WithMessage("feature"))
-	tag := gittest.WriteTag(t, cfg, repoPath, "v1.0.0", mainCommit.Revision(), gittest.WriteTagConfig{
+	keepaliveCommit := git.WriteTestCommit(t, cfg, repoPath, git.WithReference("refs/keep-alive/a"), git.WithMessage("keepalive"))
+	mainCommit := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"), git.WithMessage("main"))
+	featureCommit := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("feature"), git.WithMessage("feature"))
+	tag := git.WriteTag(t, cfg, repoPath, "v1.0.0", mainCommit.Revision(), git.WriteTagConfig{
 		Message: "annotated",
 	})
 

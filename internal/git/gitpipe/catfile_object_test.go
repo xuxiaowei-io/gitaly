@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -23,18 +23,18 @@ func TestCatfileObject(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	blobA := gittest.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("a"), 133))
-	blobB := gittest.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("b"), 127))
-	blobC := gittest.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("c"), 127))
-	blobD := gittest.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("d"), 129))
+	blobA := git.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("a"), 133))
+	blobB := git.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("b"), 127))
+	blobC := git.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("c"), 127))
+	blobD := git.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("d"), 129))
 
-	blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("contents"))
-	treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+	blobID := git.WriteBlob(t, cfg, repoPath, []byte("contents"))
+	treeID := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 		{Path: "branch-test.txt", Mode: "100644", OID: blobID},
 	})
 

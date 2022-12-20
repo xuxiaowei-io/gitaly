@@ -19,7 +19,6 @@ import (
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
@@ -63,7 +62,7 @@ func runClone(
 	}
 
 	var output bytes.Buffer
-	cloneCmd := gittest.NewCommand(t, cfg, append([]string{"clone"}, args...)...)
+	cloneCmd := git.NewCommand(t, cfg, append([]string{"clone"}, args...)...)
 	cloneCmd.Stdout = &output
 	cloneCmd.Stderr = &output
 	cloneCmd.Env = append(cloneCmd.Env,
@@ -86,8 +85,8 @@ func runClone(
 func requireRevisionsEqual(t *testing.T, cfg config.Cfg, repoPathA, repoPathB, revision string) {
 	t.Helper()
 	require.Equal(t,
-		text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPathA, "rev-parse", revision+"^{}")),
-		text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPathB, "rev-parse", revision+"^{}")),
+		text.ChompBytes(git.Exec(t, cfg, "-C", repoPathA, "rev-parse", revision+"^{}")),
+		text.ChompBytes(git.Exec(t, cfg, "-C", repoPathB, "rev-parse", revision+"^{}")),
 	)
 }
 
@@ -103,8 +102,8 @@ func testUploadPackTimeout(t *testing.T, opts ...testcfg.Option) {
 
 	cfg.SocketPath = runSSHServerWithOptions(t, cfg, []ServerOpt{WithUploadPackRequestTimeout(1)})
 
-	repo, repoPath := gittest.CreateRepository(t, testhelper.Context(t), cfg)
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+	repo, repoPath := git.CreateRepository(t, testhelper.Context(t), cfg)
+	git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
 
 	client := newSSHClient(t, cfg.SocketPath)
 
@@ -138,10 +137,10 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 	cfg := testcfg.Build(t)
 	cfg.SocketPath = runSSHServer(t, cfg)
 
-	repo, repoPath := gittest.CreateRepository(t, testhelper.Context(t), cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repo, repoPath := git.CreateRepository(t, testhelper.Context(t), cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
-	commitID := gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD^{commit}")
+	commitID := git.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD^{commit}")
 
 	registry := sidechannel.NewRegistry()
 	clientHandshaker := sidechannel.NewClientHandshaker(testhelper.NewDiscardingLogEntry(t), registry)
@@ -167,9 +166,9 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 				Repository: repo,
 			},
 			client: func(clientConn *sidechannel.ClientConn, _ func()) error {
-				gittest.WritePktlineString(t, clientConn, "want "+text.ChompBytes(commitID)+" multi_ack\n")
-				gittest.WritePktlineFlush(t, clientConn)
-				gittest.WritePktlineString(t, clientConn, "done\n")
+				git.WritePktlineString(t, clientConn, "want "+text.ChompBytes(commitID)+" multi_ack\n")
+				git.WritePktlineFlush(t, clientConn)
+				git.WritePktlineString(t, clientConn, "done\n")
 
 				require.NoError(t, clientConn.CloseWrite())
 
@@ -184,13 +183,13 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 				GitProtocol: git.ProtocolV2,
 			},
 			client: func(clientConn *sidechannel.ClientConn, _ func()) error {
-				gittest.WritePktlineString(t, clientConn, "command=fetch\n")
-				gittest.WritePktlineString(t, clientConn, "agent=git/2.36.1\n")
-				gittest.WritePktlineString(t, clientConn, "object-format=sha1\n")
-				gittest.WritePktlineDelim(t, clientConn)
-				gittest.WritePktlineString(t, clientConn, "want "+text.ChompBytes(commitID)+"\n")
-				gittest.WritePktlineString(t, clientConn, "done\n")
-				gittest.WritePktlineFlush(t, clientConn)
+				git.WritePktlineString(t, clientConn, "command=fetch\n")
+				git.WritePktlineString(t, clientConn, "agent=git/2.36.1\n")
+				git.WritePktlineString(t, clientConn, "object-format=sha1\n")
+				git.WritePktlineDelim(t, clientConn)
+				git.WritePktlineString(t, clientConn, "want "+text.ChompBytes(commitID)+"\n")
+				git.WritePktlineString(t, clientConn, "done\n")
+				git.WritePktlineFlush(t, clientConn)
 
 				require.NoError(t, clientConn.CloseWrite())
 
@@ -205,9 +204,9 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 				GitProtocol: git.ProtocolV2,
 			},
 			client: func(clientConn *sidechannel.ClientConn, _ func()) error {
-				gittest.WritePktlineString(t, clientConn, "want "+text.ChompBytes(commitID)+" multi_ack\n")
-				gittest.WritePktlineFlush(t, clientConn)
-				gittest.WritePktlineString(t, clientConn, "done\n")
+				git.WritePktlineString(t, clientConn, "want "+text.ChompBytes(commitID)+" multi_ack\n")
+				git.WritePktlineFlush(t, clientConn)
+				git.WritePktlineString(t, clientConn, "done\n")
 
 				require.NoError(t, clientConn.CloseWrite())
 
@@ -224,13 +223,13 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 				Repository: repo,
 			},
 			client: func(clientConn *sidechannel.ClientConn, _ func()) error {
-				gittest.WritePktlineString(t, clientConn, "command=fetch\n")
-				gittest.WritePktlineString(t, clientConn, "agent=git/2.36.1\n")
-				gittest.WritePktlineString(t, clientConn, "object-format=sha1\n")
-				gittest.WritePktlineDelim(t, clientConn)
-				gittest.WritePktlineString(t, clientConn, "want "+text.ChompBytes(commitID)+"\n")
-				gittest.WritePktlineString(t, clientConn, "done\n")
-				gittest.WritePktlineFlush(t, clientConn)
+				git.WritePktlineString(t, clientConn, "command=fetch\n")
+				git.WritePktlineString(t, clientConn, "agent=git/2.36.1\n")
+				git.WritePktlineString(t, clientConn, "object-format=sha1\n")
+				git.WritePktlineDelim(t, clientConn)
+				git.WritePktlineString(t, clientConn, "want "+text.ChompBytes(commitID)+"\n")
+				git.WritePktlineString(t, clientConn, "done\n")
+				git.WritePktlineFlush(t, clientConn)
 
 				require.NoError(t, clientConn.CloseWrite())
 
@@ -247,9 +246,9 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 				Repository: repo,
 			},
 			client: func(clientConn *sidechannel.ClientConn, _ func()) error {
-				gittest.WritePktlineString(t, clientConn, "want "+strings.Repeat("1", 40)+" multi_ack\n")
-				gittest.WritePktlineFlush(t, clientConn)
-				gittest.WritePktlineString(t, clientConn, "done\n")
+				git.WritePktlineString(t, clientConn, "want "+strings.Repeat("1", 40)+" multi_ack\n")
+				git.WritePktlineFlush(t, clientConn)
+				git.WritePktlineString(t, clientConn, "done\n")
 
 				require.NoError(t, clientConn.CloseWrite())
 
@@ -265,9 +264,9 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 				Repository: repo,
 			},
 			client: func(clientConn *sidechannel.ClientConn, _ func()) error {
-				gittest.WritePktlineString(t, clientConn, "want 1111 multi_ack\n")
-				gittest.WritePktlineFlush(t, clientConn)
-				gittest.WritePktlineString(t, clientConn, "done\n")
+				git.WritePktlineString(t, clientConn, "want 1111 multi_ack\n")
+				git.WritePktlineFlush(t, clientConn)
+				git.WritePktlineString(t, clientConn, "done\n")
 
 				require.NoError(t, clientConn.CloseWrite())
 
@@ -296,7 +295,7 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 				GitProtocol: git.ProtocolV2,
 			},
 			client: func(clientConn *sidechannel.ClientConn, _ func()) error {
-				gittest.WritePktlineString(t, clientConn, "command=fetch\n")
+				git.WritePktlineString(t, clientConn, "command=fetch\n")
 
 				_, err := io.WriteString(clientConn, "0011agent")
 				require.NoError(t, err)
@@ -313,7 +312,7 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 				GitProtocol: git.ProtocolV2,
 			},
 			client: func(clientConn *sidechannel.ClientConn, _ func()) error {
-				gittest.WritePktlineString(t, clientConn, "foobar")
+				git.WritePktlineString(t, clientConn, "foobar")
 				require.NoError(t, clientConn.CloseWrite())
 				return nil
 			},
@@ -326,8 +325,8 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 				GitProtocol: git.ProtocolV2,
 			},
 			client: func(clientConn *sidechannel.ClientConn, cancelContext func()) error {
-				gittest.WritePktlineString(t, clientConn, "command=fetch\n")
-				gittest.WritePktlineString(t, clientConn, "agent=git/2.36.1\n")
+				git.WritePktlineString(t, clientConn, "command=fetch\n")
+				git.WritePktlineString(t, clientConn, "agent=git/2.36.1\n")
 
 				require.NoError(t, clientConn.CloseWrite())
 				cancelContext()
@@ -343,8 +342,8 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 				GitProtocol: git.ProtocolV2,
 			},
 			client: func(clientConn *sidechannel.ClientConn, cancelContext func()) error {
-				gittest.WritePktlineString(t, clientConn, "command=fetch\n")
-				gittest.WritePktlineString(t, clientConn, "agent=git/2.36.1\n")
+				git.WritePktlineString(t, clientConn, "command=fetch\n")
+				git.WritePktlineString(t, clientConn, "agent=git/2.36.1\n")
 
 				cancelContext()
 				require.NoError(t, clientConn.CloseWrite())
@@ -360,8 +359,8 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 				GitProtocol: git.ProtocolV2,
 			},
 			client: func(clientConn *sidechannel.ClientConn, cancelContext func()) error {
-				gittest.WritePktlineString(t, clientConn, "command=fetch\n")
-				gittest.WritePktlineString(t, clientConn, "agent=git/2.36.1\n")
+				git.WritePktlineString(t, clientConn, "command=fetch\n")
+				git.WritePktlineString(t, clientConn, "agent=git/2.36.1\n")
 
 				cancelContext()
 
@@ -510,27 +509,27 @@ func testUploadPackSuccessful(t *testing.T, sidechannel bool, opts ...testcfg.Op
 	testcfg.BuildGitalySSH(t, cfg)
 
 	negotiationMetrics := prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"feature"})
-	protocolDetectingFactory := gittest.NewProtocolDetectingCommandFactory(t, ctx, cfg)
+	protocolDetectingFactory := git.NewProtocolDetectingCommandFactory(t, ctx, cfg)
 
 	cfg.SocketPath = runSSHServerWithOptions(t, cfg, []ServerOpt{
 		WithPackfileNegotiationMetrics(negotiationMetrics),
 	}, testserver.WithGitCommandFactory(protocolDetectingFactory))
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
-	smallBlobID := gittest.WriteBlob(t, cfg, repoPath, []byte("foobar"))
-	largeBlobID := gittest.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("1"), 2048))
+	smallBlobID := git.WriteBlob(t, cfg, repoPath, []byte("foobar"))
+	largeBlobID := git.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("1"), 2048))
 
 	// We set up the commits so that HEAD does not reference the above two blobs. If it did we'd
 	// fetch the blobs regardless of `--filter=blob:limit`.
-	rootCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(), gittest.WithTreeEntries(
-		gittest.TreeEntry{Path: "small", Mode: "100644", OID: smallBlobID},
-		gittest.TreeEntry{Path: "large", Mode: "100644", OID: largeBlobID},
+	rootCommitID := git.WriteTestCommit(t, cfg, repoPath, git.WithParents(), git.WithTreeEntries(
+		git.TreeEntry{Path: "small", Mode: "100644", OID: smallBlobID},
+		git.TreeEntry{Path: "large", Mode: "100644", OID: largeBlobID},
 	))
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(rootCommitID), gittest.WithBranch("main"), gittest.WithTreeEntries(
-		gittest.TreeEntry{Path: "unrelated", Mode: "100644", Content: "something"},
+	git.WriteTestCommit(t, cfg, repoPath, git.WithParents(rootCommitID), git.WithBranch("main"), git.WithTreeEntries(
+		git.TreeEntry{Path: "unrelated", Mode: "100644", Content: "something"},
 	))
-	gittest.WriteTag(t, cfg, repoPath, "v1.0.0", rootCommitID.Revision())
+	git.WriteTag(t, cfg, repoPath, "v1.0.0", rootCommitID.Revision())
 
 	for _, tc := range []struct {
 		desc             string
@@ -585,8 +584,8 @@ func testUploadPackSuccessful(t *testing.T, sidechannel bool, opts ...testcfg.Op
 				"--filter=blob:limit=1024",
 			},
 			verify: func(t *testing.T, repoPath string) {
-				gittest.RequireObjectNotExists(t, cfg, repoPath, largeBlobID)
-				gittest.RequireObjectExists(t, cfg, repoPath, smallBlobID)
+				git.RequireObjectNotExists(t, cfg, repoPath, largeBlobID)
+				git.RequireObjectExists(t, cfg, repoPath, smallBlobID)
 			},
 		},
 		{
@@ -603,11 +602,11 @@ func testUploadPackSuccessful(t *testing.T, sidechannel bool, opts ...testcfg.Op
 			verify: func(t *testing.T, localRepoPath string) {
 				// Assert that there is at least one tag that should've been cloned
 				// if refs weren't hidden as expected
-				require.NotEmpty(t, gittest.Exec(t, cfg, "-C", repoPath, "tag"))
+				require.NotEmpty(t, git.Exec(t, cfg, "-C", repoPath, "tag"))
 
 				// And then verify that we did indeed hide tags as expected, which
 				// is demonstrated by not having fetched any tags.
-				require.Empty(t, gittest.Exec(t, cfg, "-C", localRepoPath, "tag"))
+				require.Empty(t, git.Exec(t, cfg, "-C", localRepoPath, "tag"))
 			},
 		},
 	} {
@@ -671,8 +670,8 @@ func TestUploadPack_packObjectsHook(t *testing.T) {
 
 	cfg.SocketPath = runSSHServer(t, cfg)
 
-	repo, _ := gittest.CreateRepository(t, testhelper.Context(t), cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repo, _ := git.CreateRepository(t, testhelper.Context(t), cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	localRepoPath := testhelper.TempDir(t)
@@ -698,18 +697,18 @@ func testUploadPackWithoutSideband(t *testing.T, opts ...testcfg.Option) {
 
 	cfg.SocketPath = runSSHServer(t, cfg)
 
-	repo, _ := gittest.CreateRepository(t, testhelper.Context(t), cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repo, _ := git.CreateRepository(t, testhelper.Context(t), cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	// While Git knows the side-band-64 capability, some other clients don't. There is no way
 	// though to have Git not use that capability, so we're instead manually crafting a packfile
 	// negotiation without that capability and send it along.
 	negotiation := bytes.NewBuffer([]byte{})
-	gittest.WritePktlineString(t, negotiation, "want 1e292f8fedd741b75372e19097c76d327140c312 multi_ack_detailed thin-pack include-tag ofs-delta agent=git/2.29.1")
-	gittest.WritePktlineString(t, negotiation, "want 1e292f8fedd741b75372e19097c76d327140c312")
-	gittest.WritePktlineFlush(t, negotiation)
-	gittest.WritePktlineString(t, negotiation, "done")
+	git.WritePktlineString(t, negotiation, "want 1e292f8fedd741b75372e19097c76d327140c312 multi_ack_detailed thin-pack include-tag ofs-delta agent=git/2.29.1")
+	git.WritePktlineString(t, negotiation, "want 1e292f8fedd741b75372e19097c76d327140c312")
+	git.WritePktlineFlush(t, negotiation)
+	git.WritePktlineString(t, negotiation, "done")
 
 	request := &gitalypb.SSHUploadPackRequest{
 		Repository: repo,
@@ -745,8 +744,8 @@ func TestUploadPack_invalidStorage(t *testing.T) {
 
 	testcfg.BuildGitalySSH(t, cfg)
 
-	repo, _ := gittest.CreateRepository(t, testhelper.Context(t), cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repo, _ := git.CreateRepository(t, testhelper.Context(t), cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	localRepoPath := testhelper.TempDir(t)
@@ -773,8 +772,8 @@ func TestUploadPack_gitFailure(t *testing.T) {
 	cfg := testcfg.Build(t)
 	cfg.SocketPath = runSSHServer(t, cfg)
 
-	repo, repoPath := gittest.CreateRepository(t, testhelper.Context(t), cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
+	repo, repoPath := git.CreateRepository(t, testhelper.Context(t), cfg, git.CreateRepositoryConfig{
+		Seed: git.SeedGitLabTest,
 	})
 
 	client := newSSHClient(t, cfg.SocketPath)

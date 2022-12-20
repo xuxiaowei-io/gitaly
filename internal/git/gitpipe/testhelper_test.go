@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
 
@@ -52,7 +51,7 @@ func (ch *chanObjectIterator) ObjectName() []byte {
 }
 
 func hashDependentObjectSize(sha1Size, sha256Size int64) int64 {
-	if gittest.ObjectHashIsSHA256() {
+	if git.ObjectHashIsSHA256() {
 		return sha256Size
 	}
 	return sha1Size

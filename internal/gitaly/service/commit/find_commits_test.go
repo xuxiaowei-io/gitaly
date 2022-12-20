@@ -11,7 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -441,8 +441,8 @@ func TestSuccessfulFindCommitsRequestWithAltGitObjectDirs(t *testing.T) {
 	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, ctx)
 
 	altObjectsDir := "./alt-objects"
-	commitID := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithAlternateObjectDirectory(filepath.Join(repoPath, altObjectsDir)),
+	commitID := git.WriteTestCommit(t, cfg, repoPath,
+		git.WithAlternateObjectDirectory(filepath.Join(repoPath, altObjectsDir)),
 	)
 
 	testCases := []struct {
@@ -493,7 +493,7 @@ func TestSuccessfulFindCommitsRequestWithAmbiguousRef(t *testing.T) {
 	branchName := "1e292f8fedd741b75372e19097c76d327140c312"
 	commitSha := "6907208d755b60ebeacb2e9dfea74c92c3449a1f"
 
-	gittest.Exec(t, cfg, "-C", repoPath, "branch", branchName, commitSha)
+	git.Exec(t, cfg, "-C", repoPath, "branch", branchName, commitSha)
 
 	request := &gitalypb.FindCommitsRequest{
 		Repository: repo,

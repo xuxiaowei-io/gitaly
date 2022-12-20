@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -23,27 +22,27 @@ func TestRepo_FetchRemote(t *testing.T) {
 
 	cfg := testcfg.Build(t)
 
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg, git.WithSkipHooks())
+	gitCmdFactory := git.NewCommandFactory(t, cfg, git.WithSkipHooks())
 	catfileCache := catfile.NewCache(cfg)
 	defer catfileCache.Stop()
 	locator := config.NewLocator(cfg)
 
-	_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	_, remoteRepoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
-	commitID := gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch("main"))
-	tagID := gittest.WriteTag(t, cfg, remoteRepoPath, "v1.0.0", commitID.Revision(), gittest.WriteTagConfig{
+	commitID := git.WriteTestCommit(t, cfg, remoteRepoPath, git.WithBranch("main"))
+	tagID := git.WriteTag(t, cfg, remoteRepoPath, "v1.0.0", commitID.Revision(), git.WriteTagConfig{
 		Message: "annotated tag",
 	})
 
 	initBareWithRemote := func(t *testing.T, remote string) (*Repo, string) {
 		t.Helper()
 
-		clientRepo, clientRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		clientRepo, clientRepoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 		})
 
-		cmd := gittest.NewCommand(t, cfg, "-C", clientRepoPath, "remote", "add", remote, remoteRepoPath)
+		cmd := git.NewCommand(t, cfg, "-C", clientRepoPath, "remote", "add", remote, remoteRepoPath)
 		err := cmd.Run()
 		if err != nil {
 			require.NoError(t, err)
@@ -61,7 +60,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 	})
 
 	t.Run("unknown remote", func(t *testing.T) {
-		repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		repoProto, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 		})
 
@@ -93,12 +92,12 @@ func TestRepo_FetchRemote(t *testing.T) {
 	})
 
 	t.Run("with env", func(t *testing.T) {
-		testRepo, testRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		testRepo, testRepoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 		})
 
 		repo := New(locator, gitCmdFactory, catfileCache, testRepo)
-		gittest.Exec(t, cfg, "-C", testRepoPath, "remote", "add", "source", remoteRepoPath)
+		git.Exec(t, cfg, "-C", testRepoPath, "remote", "add", "source", remoteRepoPath)
 
 		var stderr bytes.Buffer
 		require.NoError(t, repo.FetchRemote(ctx, "source", FetchOpts{Stderr: &stderr, Env: []string{"GIT_TRACE=1"}}))
@@ -106,12 +105,12 @@ func TestRepo_FetchRemote(t *testing.T) {
 	})
 
 	t.Run("with disabled transactions", func(t *testing.T) {
-		testRepo, testRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		testRepo, testRepoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 		})
 
 		repo := New(locator, gitCmdFactory, catfileCache, testRepo)
-		gittest.Exec(t, cfg, "-C", testRepoPath, "remote", "add", "source", remoteRepoPath)
+		git.Exec(t, cfg, "-C", testRepoPath, "remote", "add", "source", remoteRepoPath)
 
 		var stderr bytes.Buffer
 		require.NoError(t, repo.FetchRemote(ctx, "source", FetchOpts{
@@ -123,18 +122,18 @@ func TestRepo_FetchRemote(t *testing.T) {
 	})
 
 	t.Run("with globals", func(t *testing.T) {
-		testRepo, testRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		testRepo, testRepoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 		})
 
 		repo := New(locator, gitCmdFactory, catfileCache, testRepo)
-		gittest.Exec(t, cfg, "-C", testRepoPath, "remote", "add", "source", remoteRepoPath)
+		git.Exec(t, cfg, "-C", testRepoPath, "remote", "add", "source", remoteRepoPath)
 
 		require.NoError(t, repo.FetchRemote(ctx, "source", FetchOpts{}))
 
 		// Write a commit into the remote's reference namespace that doesn't exist in the
 		// remote and that would thus be pruned.
-		gittest.WriteCommit(t, cfg, testRepoPath, gittest.WithReference("refs/remotes/source/markdown"))
+		git.WriteTestCommit(t, cfg, testRepoPath, git.WithReference("refs/remotes/source/markdown"))
 
 		require.NoError(t, repo.FetchRemote(
 			ctx,
@@ -152,17 +151,17 @@ func TestRepo_FetchRemote(t *testing.T) {
 	})
 
 	t.Run("with prune", func(t *testing.T) {
-		testRepo, testRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		testRepo, testRepoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 		})
 
 		repo := New(locator, gitCmdFactory, catfileCache, testRepo)
 
-		gittest.Exec(t, cfg, "-C", testRepoPath, "remote", "add", "source", remoteRepoPath)
+		git.Exec(t, cfg, "-C", testRepoPath, "remote", "add", "source", remoteRepoPath)
 		require.NoError(t, repo.FetchRemote(ctx, "source", FetchOpts{}))
 		// Write a commit into the remote's reference namespace that doesn't exist in the
 		// remote and that would thus be pruned.
-		gittest.WriteCommit(t, cfg, testRepoPath, gittest.WithReference("refs/remotes/source/markdown"))
+		git.WriteTestCommit(t, cfg, testRepoPath, git.WithReference("refs/remotes/source/markdown"))
 
 		require.NoError(t, repo.FetchRemote(ctx, "source", FetchOpts{Prune: true}))
 
@@ -174,12 +173,12 @@ func TestRepo_FetchRemote(t *testing.T) {
 	t.Run("with no tags", func(t *testing.T) {
 		repo, testRepoPath := initBareWithRemote(t, "origin")
 
-		tagsBefore := gittest.Exec(t, cfg, "-C", testRepoPath, "tag", "--list")
+		tagsBefore := git.Exec(t, cfg, "-C", testRepoPath, "tag", "--list")
 		require.Empty(t, tagsBefore)
 
 		require.NoError(t, repo.FetchRemote(ctx, "origin", FetchOpts{Tags: FetchOptsTagsNone, Force: true}))
 
-		tagsAfter := gittest.Exec(t, cfg, "-C", testRepoPath, "tag", "--list")
+		tagsAfter := git.Exec(t, cfg, "-C", testRepoPath, "tag", "--list")
 		require.Empty(t, tagsAfter)
 
 		containsBranches, err := repo.HasRevision(ctx, git.Revision("'test'"))
@@ -233,7 +232,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 func captureGitSSHCommand(tb testing.TB, ctx context.Context, cfg config.Cfg) (git.CommandFactory, func() ([]byte, error)) {
 	envPath := filepath.Join(testhelper.TempDir(tb), "GIT_SSH_PATH")
 
-	gitCmdFactory := gittest.NewInterceptingCommandFactory(tb, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
+	gitCmdFactory := git.NewInterceptingCommandFactory(tb, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
 		return fmt.Sprintf(
 			`#!/usr/bin/env bash
 			if test -z "${GIT_SSH_COMMAND+x}"
@@ -261,22 +260,22 @@ func TestRepo_Push(t *testing.T) {
 	t.Cleanup(catfileCache.Stop)
 	locator := config.NewLocator(cfg)
 
-	sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	sourceRepoProto, sourceRepoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	sourceRepo := New(locator, gitCmdFactory, catfileCache, sourceRepoProto)
-	gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("master"))
-	gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("feature"))
+	git.WriteTestCommit(t, cfg, sourceRepoPath, git.WithBranch("master"))
+	git.WriteTestCommit(t, cfg, sourceRepoPath, git.WithBranch("feature"))
 
 	setupPushRepo := func(tb testing.TB) (*Repo, string, []git.ConfigPair) {
-		repoProto, repopath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
+		repoProto, repopath := git.CreateRepository(tb, ctx, cfg, git.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 		})
 		return New(locator, gitCmdFactory, catfileCache, repoProto), repopath, nil
 	}
 
 	setupDivergedRepo := func(tb testing.TB) (*Repo, string, []git.ConfigPair) {
-		repoProto, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
+		repoProto, repoPath := git.CreateRepository(tb, ctx, cfg, git.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 		})
 		repo := New(locator, gitCmdFactory, catfileCache, repoProto)
@@ -286,9 +285,9 @@ func TestRepo_Push(t *testing.T) {
 		require.NoError(tb, err)
 
 		require.NoError(tb, sourceRepo.Push(ctx, repoPath, []string{"refs/*"}, PushOptions{}))
-		divergedMaster := gittest.WriteCommit(tb, cfg, repoPath,
-			gittest.WithBranch("master"),
-			gittest.WithParents(git.ObjectID(sourceMaster.Target)),
+		divergedMaster := git.WriteTestCommit(tb, cfg, repoPath,
+			git.WithBranch("master"),
+			git.WithParents(git.ObjectID(sourceMaster.Target)),
 		)
 
 		master, err := repo.GetReference(ctx, "refs/heads/master")
@@ -352,7 +351,7 @@ func TestRepo_Push(t *testing.T) {
 		{
 			desc: "invalid remote",
 			setupPushRepo: func(tb testing.TB) (*Repo, string, []git.ConfigPair) {
-				repoProto, _ := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, _ := git.CreateRepository(tb, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 				return New(locator, gitCmdFactory, catfileCache, repoProto), "", nil
@@ -363,7 +362,7 @@ func TestRepo_Push(t *testing.T) {
 		{
 			desc: "in-memory remote",
 			setupPushRepo: func(tb testing.TB) (*Repo, string, []git.ConfigPair) {
-				repoProto, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(tb, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 				return New(locator, gitCmdFactory, catfileCache, repoProto), "inmemory", []git.ConfigPair{

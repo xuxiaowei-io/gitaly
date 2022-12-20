@@ -12,7 +12,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
@@ -31,7 +30,7 @@ func TestHookManager_stopCalled(t *testing.T) {
 	}
 
 	var mockTxMgr transaction.MockManager
-	hookManager := NewManager(cfg, config.NewLocator(cfg), gittest.NewCommandFactory(t, cfg), &mockTxMgr, gitlab.NewMockClient(
+	hookManager := NewManager(cfg, config.NewLocator(cfg), git.NewCommandFactory(t, cfg), &mockTxMgr, gitlab.NewMockClient(
 		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
 	))
 
@@ -53,7 +52,7 @@ func TestHookManager_stopCalled(t *testing.T) {
 
 	hookPaths := make([]string, 3)
 	for i, hook := range []string{"pre-receive", "update", "post-receive"} {
-		hookPaths[i] = gittest.WriteCustomHook(t, repoPath, hook, []byte("#!/bin/sh\nexit 1\n"))
+		hookPaths[i] = git.WriteCustomHook(t, repoPath, hook, []byte("#!/bin/sh\nexit 1\n"))
 	}
 
 	preReceiveFunc := func(t *testing.T) error {
@@ -131,7 +130,7 @@ func TestHookManager_contextCancellationCancelsVote(t *testing.T) {
 		},
 	}
 
-	hookManager := NewManager(cfg, config.NewLocator(cfg), gittest.NewCommandFactory(t, cfg), &mockTxMgr, gitlab.NewMockClient(
+	hookManager := NewManager(cfg, config.NewLocator(cfg), git.NewCommandFactory(t, cfg), &mockTxMgr, gitlab.NewMockClient(
 		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
 	))
 

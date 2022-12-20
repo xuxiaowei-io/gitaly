@@ -5,7 +5,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -17,28 +16,28 @@ func TestListEntries(t *testing.T) {
 	cfg := testcfg.Build(t)
 	ctx := testhelper.Context(t)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("blob contents"))
-	emptyTreeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{})
-	treeWithBlob := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+	blobID := git.WriteBlob(t, cfg, repoPath, []byte("blob contents"))
+	emptyTreeID := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{})
+	treeWithBlob := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 		{OID: blobID, Mode: "100644", Path: "nonexecutable"},
 		{OID: blobID, Mode: "100755", Path: "executable"},
 	})
-	treeWithSubtree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+	treeWithSubtree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 		{OID: emptyTreeID, Mode: "040000", Path: "subdir"},
 	})
-	treeWithNestedSubtrees := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+	treeWithNestedSubtrees := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 		{OID: treeWithSubtree, Mode: "040000", Path: "nested-subdir"},
 	})
-	treeWithSubtreeAndBlob := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+	treeWithSubtreeAndBlob := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 		{OID: treeWithSubtree, Mode: "040000", Path: "subdir"},
 		{OID: blobID, Mode: "100644", Path: "blob"},
 	})
-	treeWithSubtreeContainingBlob := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+	treeWithSubtreeContainingBlob := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 		{OID: treeWithSubtreeAndBlob, Mode: "040000", Path: "subdir"},
 	})
 

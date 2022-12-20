@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	gconfig "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/repository"
@@ -122,15 +122,15 @@ func TestInfoService_RepositoryReplicas(t *testing.T) {
 
 	client := gitalypb.NewPraefectInfoServiceClient(cc)
 
-	testRepository, testRepoPath := gittest.CreateRepository(t, ctx,
+	testRepository, testRepoPath := git.CreateRepository(t, ctx,
 		// The helper was implemented with the test server in mind. Here we need use the virtual storage's name
 		// as the storage and the path of the storage we want to modify the replica in.
 		gconfig.Cfg{Storages: []gconfig.Storage{{Name: virtualStorage, Path: cfgs[1].Storages[0].Path}}},
-		gittest.CreateRepositoryConfig{Seed: gittest.SeedGitLabTest, ClientConn: cc},
+		git.CreateRepositoryConfig{Seed: git.SeedGitLabTest, ClientConn: cc},
 	)
 
 	// create a commit in the second replica so we can check that its checksum is different than the primary
-	gittest.WriteCommit(t, cfgs[1], testRepoPath, gittest.WithBranch("master"))
+	git.WriteTestCommit(t, cfgs[1], testRepoPath, git.WithBranch("master"))
 
 	// Increment the generation of the unmodified repositories so the below CalculateChecksum calls goes to one of them
 	// as the test expects the primary to have that checksum.
