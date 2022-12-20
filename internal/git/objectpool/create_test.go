@@ -18,7 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -70,8 +69,8 @@ func TestCreate(t *testing.T) {
 
 		// There should not be a "hooks" directory in the pool.
 		require.NoDirExists(t, filepath.Join(poolPath, "hooks"))
-		// The "origin" remote of the pool points to the pool member.
-		require.Equal(t, repoPath, text.ChompBytes(gittest.Exec(t, cfg, "-C", poolPath, "remote", "get-url", "origin")))
+		// The repository has no remote.
+		require.Empty(t, gittest.Exec(t, cfg, "-C", poolPath, "remote"))
 		// The "master" branch points to the same commit as in the pool member.
 		require.Equal(t, commitID, gittest.ResolveRevision(t, cfg, poolPath, "refs/heads/master"))
 		// Objects exist in the pool repository.

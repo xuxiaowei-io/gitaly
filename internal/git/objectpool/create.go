@@ -77,5 +77,21 @@ func Create(
 		return nil, err
 	}
 
+	// git-clone(1) writes the remote configuration into the object pool. We nowadays don't have
+	// remote configuration in the gitconfig anymore, so let's remove it before returning. Note
+	// that we explicitly don't use git-remote(1) to do this, as this command would also remove
+	// references part of the remote.
+	if err := objectPool.ExecAndWait(ctx, git.Command{
+		Name: "config",
+		Flags: []git.Option{
+			git.Flag{Name: "--remove-section"},
+		},
+		Args: []string{
+			"remote.origin",
+		},
+	}); err != nil {
+		return nil, fmt.Errorf("removing origin remote config: %w", err)
+	}
+
 	return objectPool, nil
 }

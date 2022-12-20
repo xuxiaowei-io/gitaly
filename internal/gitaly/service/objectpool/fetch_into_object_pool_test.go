@@ -129,13 +129,6 @@ func testFetchIntoObjectPooltransactional(t *testing.T, ctx context.Context) {
 
 	poolProto, pool, poolPath := createObjectPool(t, ctx, cfg, client, repo)
 
-	// CreateObjectPool has a bug because it will leave the configuration of the origin remote
-	// in the gitconfig. This will get cleaned up at a later point by our housekeeping logic, so
-	// it doesn't hurt much in the first place to have it. But the cleanup logic would trigger
-	// another transactional vote which we want to avoid, so we simply unset the configuration
-	// here.
-	gittest.Exec(t, cfg, "-C", poolPath, "config", "--unset", "remote.origin.url")
-
 	// Inject transaction information so that FetchInotObjectPool knows to perform
 	// transactional voting.
 	ctx, err = txinfo.InjectTransaction(peer.NewContext(ctx, &peer.Peer{}), 1, "node", true)
