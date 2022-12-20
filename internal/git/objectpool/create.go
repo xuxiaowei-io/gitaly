@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
@@ -71,10 +70,6 @@ func Create(
 
 	if err := cmd.Wait(); err != nil {
 		return nil, fmt.Errorf("cloning to pool: %w, stderr: %q", err, stderr.String())
-	}
-
-	if err := os.RemoveAll(filepath.Join(objectPoolPath, "hooks")); err != nil {
-		return nil, fmt.Errorf("removing hooks: %v", err)
 	}
 
 	objectPool, err := FromProto(locator, gitCmdFactory, catfileCache, txManager, housekeepingManager, proto)
