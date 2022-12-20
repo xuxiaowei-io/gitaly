@@ -101,6 +101,19 @@ func testCreateUnsuccessful(t *testing.T, ctx context.Context) {
 	require.NoError(t, os.MkdirAll(filepath.Dir(lockedFullPath), 0o755))
 	require.NoError(t, os.WriteFile(lockedFullPath, nil, 0o644))
 
+	// Create a preexisting object pool.
+	preexistingPool := &gitalypb.ObjectPool{
+		Repository: &gitalypb.Repository{
+			StorageName:  cfg.Storages[0].Name,
+			RelativePath: gittest.NewObjectPoolName(t),
+		},
+	}
+	_, err := client.CreateObjectPool(ctx, &gitalypb.CreateObjectPoolRequest{
+		ObjectPool: preexistingPool,
+		Origin:     repo,
+	})
+	require.NoError(t, err)
+
 	for _, tc := range []struct {
 		desc        string
 		request     *gitalypb.CreateObjectPoolRequest
@@ -193,6 +206,19 @@ func testCreateUnsuccessful(t *testing.T, ctx context.Context) {
 					return structerr.NewInternal("creating object pool: locking repository: file already locked")
 				}
 				return nil
+			}(),
+		},
+		{
+			desc: "pool exists",
+			request: &gitalypb.CreateObjectPoolRequest{
+				Origin:     repo,
+				ObjectPool: preexistingPool,
+			},
+			expectedErr: func() error {
+				if featureflag.AtomicCreateObjectPool.IsEnabled(ctx) {
+					return structerr.NewAlreadyExists("creating object pool: repository exists already")
+				}
+				return structerr.NewFailedPrecondition("creating object pool: target path exists already")
 			}(),
 		},
 	} {
