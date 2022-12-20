@@ -1,6 +1,7 @@
 package localrepo
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -12,10 +13,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
+	"google.golang.org/grpc/metadata"
 )
 
 type ReaderFunc func([]byte) (int, error)
@@ -23,8 +29,12 @@ type ReaderFunc func([]byte) (int, error)
 func (fn ReaderFunc) Read(b []byte) (int, error) { return fn(b) }
 
 func TestRepo_WriteBlob(t *testing.T) {
-	ctx := testhelper.Context(t)
+	t.Parallel()
 
+	testhelper.NewFeatureSets(featureflag.LocalrepoReadObjectCached).Run(t, testRepoWriteBlob)
+}
+
+func testRepoWriteBlob(t *testing.T, ctx context.Context) {
 	_, repo, repoPath := setupRepo(t)
 
 	for _, tc := range []struct {
@@ -86,6 +96,8 @@ func TestRepo_WriteBlob(t *testing.T) {
 }
 
 func TestFormatTag(t *testing.T) {
+	t.Parallel()
+
 	for _, tc := range []struct {
 		desc       string
 		objectID   git.ObjectID
@@ -150,6 +162,8 @@ func TestFormatTag(t *testing.T) {
 }
 
 func TestRepo_WriteTag(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	cfg, repo, repoPath := setupRepo(t)
@@ -230,8 +244,12 @@ tagger root <root@localhost> 12345 -0100
 }
 
 func TestRepo_ReadObject(t *testing.T) {
-	ctx := testhelper.Context(t)
+	t.Parallel()
 
+	testhelper.NewFeatureSets(featureflag.LocalrepoReadObjectCached).Run(t, testRepoReadObject)
+}
+
+func testRepoReadObject(t *testing.T, ctx context.Context) {
 	cfg, repo, repoPath := setupRepo(t)
 	blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("content"))
 
@@ -260,7 +278,47 @@ func TestRepo_ReadObject(t *testing.T) {
 	}
 }
 
+func TestRepo_ReadObject_catfileCount(t *testing.T) {
+	t.Parallel()
+
+	testhelper.NewFeatureSets(featureflag.LocalrepoReadObjectCached).Run(t, testRepoReadObjectCatfileCount)
+}
+
+func testRepoReadObjectCatfileCount(t *testing.T, ctx context.Context) {
+	cfg := testcfg.Build(t)
+
+	gitCmdFactory := gittest.NewCountingCommandFactory(t, cfg)
+	catfileCache := catfile.NewCache(cfg)
+	t.Cleanup(catfileCache.Stop)
+
+	// Session needs to be set for the catfile cache to operate
+	ctx = testhelper.MergeIncomingMetadata(ctx,
+		metadata.Pairs(catfile.SessionIDField, "1"),
+	)
+
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+	})
+	repo := New(config.NewLocator(cfg), gitCmdFactory, catfileCache, repoProto)
+
+	blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("content"))
+
+	expected := 10
+	for i := 0; i < expected; i++ {
+		content, err := repo.ReadObject(ctx, blobID)
+		require.NoError(t, err)
+		require.Equal(t, "content", string(content))
+	}
+
+	if featureflag.LocalrepoReadObjectCached.IsEnabled(ctx) {
+		expected = 1
+	}
+	require.Equal(t, uint64(expected), gitCmdFactory.CommandCount("cat-file"))
+}
+
 func TestRepo_ReadCommit(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	cfg, repo, repoPath := setupRepo(t)
@@ -407,6 +465,8 @@ signed commit body
 }
 
 func TestRepo_IsAncestor(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	cfg, repo, repoPath := setupRepo(t)

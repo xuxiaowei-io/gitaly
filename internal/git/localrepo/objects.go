@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -185,6 +186,10 @@ func (err InvalidObjectError) Error() string { return fmt.Sprintf("invalid objec
 // ReadObject reads an object from the repository's object database. InvalidObjectError
 // is returned if the oid does not refer to a valid object.
 func (repo *Repo) ReadObject(ctx context.Context, oid git.ObjectID) ([]byte, error) {
+	if featureflag.LocalrepoReadObjectCached.IsEnabled(ctx) {
+		return repo.readObjectCached(ctx, oid)
+	}
+
 	const msgInvalidObject = "fatal: Not a valid object name "
 
 	stdout := &bytes.Buffer{}
@@ -212,6 +217,29 @@ func (repo *Repo) ReadObject(ctx context.Context, oid git.ObjectID) ([]byte, err
 	}
 
 	return stdout.Bytes(), nil
+}
+
+func (repo *Repo) readObjectCached(ctx context.Context, oid git.ObjectID) ([]byte, error) {
+	objectReader, cancel, err := repo.catfileCache.ObjectReader(ctx, repo)
+	if err != nil {
+		return nil, fmt.Errorf("create object reader: %w", err)
+	}
+	defer cancel()
+
+	object, err := objectReader.Object(ctx, oid.Revision())
+	if err != nil {
+		if catfile.IsNotFound(err) {
+			return nil, InvalidObjectError(oid.String())
+		}
+		return nil, fmt.Errorf("get object from reader: %w", err)
+	}
+
+	data, err := io.ReadAll(object)
+	if err != nil {
+		return nil, fmt.Errorf("read object from reader: %w", err)
+	}
+
+	return data, nil
 }
 
 type readCommitConfig struct {
