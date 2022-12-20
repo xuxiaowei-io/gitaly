@@ -304,3 +304,9 @@ func (e Error) WithDetail(detail proto.Message) Error {
 	e.details = append(e.details, detail)
 	return e
 }
+
+// WithGRPCCode overrides the gRPC code embedded into the error.
+func (e Error) WithGRPCCode(code codes.Code) Error {
+	e.code = code
+	return e
+}
