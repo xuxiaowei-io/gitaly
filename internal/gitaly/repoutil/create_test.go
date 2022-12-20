@@ -1,4 +1,4 @@
-package repository
+package repoutil
 
 import (
 	"context"
@@ -25,7 +25,7 @@ import (
 	"google.golang.org/grpc/peer"
 )
 
-func TestCreateRepository(t *testing.T) {
+func TestCreate(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
@@ -35,17 +35,11 @@ func TestCreateRepository(t *testing.T) {
 	locator := config.NewLocator(cfg)
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 
-	server := &server{
-		cfg:           cfg,
-		locator:       locator,
-		txManager:     txManager,
-		gitCmdFactory: gitCmdFactory,
-	}
-
 	var votesByPhase map[voting.Phase]int
 
 	for _, tc := range []struct {
 		desc   string
+		opts   []CreateOption
 		setup  func(t *testing.T, repo *gitalypb.Repository, repoPath string)
 		seed   func(t *testing.T, repo *gitalypb.Repository, repoPath string) error
 		verify func(
@@ -252,8 +246,51 @@ func TestCreateRepository(t *testing.T) {
 				}
 			},
 		},
+		{
+			desc: "override branch",
+			opts: []CreateOption{
+				WithBranchName("default"),
+			},
+			verify: func(t *testing.T, _ *gitalypb.Repository, _ string, _ *gitalypb.Repository, realRepoPath string) {
+				defaultBranch := text.ChompBytes(gittest.Exec(t, cfg, "-C", realRepoPath, "symbolic-ref", "HEAD"))
+				require.Equal(t, "refs/heads/default", defaultBranch)
+			},
+		},
+		{
+			desc: "override hash",
+			opts: []CreateOption{
+				WithObjectHash(git.ObjectHashSHA256),
+			},
+			verify: func(t *testing.T, _ *gitalypb.Repository, _ string, _ *gitalypb.Repository, realRepoPath string) {
+				objectFormat := text.ChompBytes(gittest.Exec(t, cfg, "-C", realRepoPath, "rev-parse", "--show-object-format"))
+				require.Equal(t, "sha256", objectFormat)
+			},
+		},
+		{
+			desc: "skip initialization",
+			opts: []CreateOption{
+				WithSkipInit(),
+			},
+			seed: func(t *testing.T, repo *gitalypb.Repository, repoPath string) error {
+				require.NoDirExists(t, repoPath)
+				gittest.Exec(t, cfg, "init", "--bare", repoPath)
+				return nil
+			},
+			verify: func(t *testing.T, tempRepo *gitalypb.Repository, tempRepoPath string, realRepo *gitalypb.Repository, realRepoPath string) {
+				require.NoDirExists(t, tempRepoPath)
+
+				// But the new repository must exist.
+				isBareRepo := gittest.Exec(t, cfg, "-C", realRepoPath, "rev-parse", "--is-bare-repository")
+				require.Equal(t, "true", text.ChompBytes(isBareRepo))
+			},
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
+			// Make sure that we don't leak either the context or the mocked transaction
+			// manager's data.
+			ctx := ctx
+			*txManager = transaction.MockManager{}
+
 			repo := &gitalypb.Repository{
 				StorageName:  cfg.Storages[0].Name,
 				RelativePath: gittest.NewRepositoryName(t),
@@ -274,7 +311,7 @@ func TestCreateRepository(t *testing.T) {
 			}
 
 			var tempRepo *gitalypb.Repository
-			require.Equal(t, tc.expectedErr, server.createRepository(ctx, repo, func(tr *gitalypb.Repository) error {
+			require.Equal(t, tc.expectedErr, Create(ctx, locator, gitCmdFactory, txManager, repo, func(tr *gitalypb.Repository) error {
 				tempRepo = tr
 
 				// The temporary repository must have been created in Gitaly's
@@ -282,19 +319,19 @@ func TestCreateRepository(t *testing.T) {
 				require.Equal(t, repo.StorageName, tempRepo.StorageName)
 				require.True(t, strings.HasPrefix(tempRepo.RelativePath, "+gitaly/tmp/repo"))
 
-				// Verify that the temporary repository exists and is a real Git
-				// repository.
-				tempRepoPath, err := locator.GetRepoPath(tempRepo)
+				tempRepoPath, err := locator.GetPath(tempRepo)
 				require.NoError(t, err)
-				isBareRepo := gittest.Exec(t, cfg, "-C", tempRepoPath, "rev-parse", "--is-bare-repository")
-				require.Equal(t, "true", text.ChompBytes(isBareRepo))
 
 				if tc.seed != nil {
 					return tc.seed(t, tempRepo, tempRepoPath)
 				}
 
+				// Verify that the repository exists now and is a real repository.
+				isBareRepo := gittest.Exec(t, cfg, "-C", tempRepoPath, "rev-parse", "--is-bare-repository")
+				require.Equal(t, "true", text.ChompBytes(isBareRepo))
+
 				return nil
-			}))
+			}, tc.opts...))
 
 			var tempRepoPath string
 			if tempRepo != nil {

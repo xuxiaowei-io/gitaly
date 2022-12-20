@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/repoutil"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -128,7 +129,8 @@ func (s *server) CreateRepositoryFromSnapshot(ctx context.Context, in *gitalypb.
 	if err := service.ValidateRepository(repository); err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
-	if err := s.createRepository(ctx, repository, func(repo *gitalypb.Repository) error {
+
+	if err := repoutil.Create(ctx, s.locator, s.gitCmdFactory, s.txManager, repository, func(repo *gitalypb.Repository) error {
 		path, err := s.locator.GetPath(repo)
 		if err != nil {
 			return structerr.NewInternal("getting repo path: %w", err)

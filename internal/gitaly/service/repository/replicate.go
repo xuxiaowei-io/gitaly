@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/remoterepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/repoutil"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
@@ -130,7 +131,7 @@ func (s *server) create(ctx context.Context, in *gitalypb.ReplicateRepositoryReq
 }
 
 func (s *server) createFromSnapshot(ctx context.Context, in *gitalypb.ReplicateRepositoryRequest) error {
-	if err := s.createRepository(ctx, in.GetRepository(), func(repo *gitalypb.Repository) error {
+	if err := repoutil.Create(ctx, s.locator, s.gitCmdFactory, s.txManager, in.GetRepository(), func(repo *gitalypb.Repository) error {
 		if err := s.extractSnapshot(ctx, in.GetSource(), repo); err != nil {
 			return fmt.Errorf("extracting snapshot: %w", err)
 		}

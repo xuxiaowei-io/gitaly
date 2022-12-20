@@ -3,6 +3,7 @@
 package objectpool
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
@@ -19,8 +21,11 @@ import (
 
 func TestLink(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.AtomicCreateObjectPool).Run(t, testLink)
+}
 
-	ctx := testhelper.Context(t)
+func testLink(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	cfg, repo, _, _, client := setup(t, ctx, testserver.WithDisablePraefect())
 
@@ -78,8 +83,11 @@ func TestLink(t *testing.T) {
 
 func TestLink_idempotent(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.AtomicCreateObjectPool).Run(t, testLinkIdempotent)
+}
 
-	ctx := testhelper.Context(t)
+func testLinkIdempotent(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	cfg, repoProto, _, _, client := setup(t, ctx)
 
@@ -99,8 +107,12 @@ func TestLink_idempotent(t *testing.T) {
 
 func TestLink_noClobber(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.AtomicCreateObjectPool).Run(t, testLinkNoClobber)
+}
 
-	ctx := testhelper.Context(t)
+func testLinkNoClobber(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, repoProto, repoPath, _, client := setup(t, ctx)
 	poolProto, _, _ := createObjectPool(t, ctx, cfg, client, repoProto)
 
@@ -124,8 +136,12 @@ func TestLink_noClobber(t *testing.T) {
 
 func TestLink_noPool(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.AtomicCreateObjectPool).Run(t, testLinkNoPool)
+}
 
-	ctx := testhelper.Context(t)
+func testLinkNoPool(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, repo, _, _, client := setup(t, ctx)
 
 	poolRelativePath := gittest.NewObjectPoolName(t)

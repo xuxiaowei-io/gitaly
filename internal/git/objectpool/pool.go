@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
@@ -51,15 +52,23 @@ func FromProto(
 	housekeepingManager housekeeping.Manager,
 	proto *gitalypb.ObjectPool,
 ) (*ObjectPool, error) {
-	// TODO: this is retained for backwards compatibility for now. We should eventually amend
-	// `FromProto()` to always return an error if the Protobuf representation is invalid, the
-	// pool directory doesn't exist, or if the directory does not contain a valid repository.
-	if _, err := locator.GetStorageByName(proto.GetRepository().GetStorageName()); err != nil {
+	poolPath, err := locator.GetPath(proto.GetRepository())
+	if err != nil {
 		return nil, err
 	}
 
 	if !housekeeping.IsPoolRepository(proto.GetRepository()) {
-		return nil, ErrInvalidPoolDir
+		// When creating repositories in the ObjectPool service we will first create the
+		// repository in a temporary directory. So we need to check whether the path we see
+		// here is in such a temporary directory and let it pass.
+		tempDir, err := locator.TempDir(proto.GetRepository().GetStorageName())
+		if err != nil {
+			return nil, fmt.Errorf("getting temporary storage directory: %w", err)
+		}
+
+		if !strings.HasPrefix(poolPath, tempDir) {
+			return nil, ErrInvalidPoolDir
+		}
 	}
 
 	pool := &ObjectPool{

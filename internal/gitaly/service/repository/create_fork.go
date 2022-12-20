@@ -3,10 +3,10 @@ package repository
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/repoutil"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -23,16 +23,10 @@ func (s *server) CreateFork(ctx context.Context, req *gitalypb.CreateForkRequest
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
-	if err := s.createRepository(ctx, targetRepository, func(repo *gitalypb.Repository) error {
+	if err := repoutil.Create(ctx, s.locator, s.gitCmdFactory, s.txManager, targetRepository, func(repo *gitalypb.Repository) error {
 		targetPath, err := s.locator.GetPath(repo)
 		if err != nil {
 			return err
-		}
-
-		// git-clone(1) doesn't allow for the target path to exist, so we have to
-		// remove it first.
-		if err := os.RemoveAll(targetPath); err != nil {
-			return fmt.Errorf("removing target path: %w", err)
 		}
 
 		// Ideally we'd just fetch into the already-created repo, but that wouldn't
@@ -77,7 +71,7 @@ func (s *server) CreateFork(ctx context.Context, req *gitalypb.CreateForkRequest
 		}
 
 		return nil
-	}); err != nil {
+	}, repoutil.WithSkipInit()); err != nil {
 		return nil, structerr.NewInternal("creating fork: %w", err)
 	}
 

@@ -6,10 +6,10 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/url"
-	"os"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/repoutil"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -88,15 +88,10 @@ func (s *server) CreateRepositoryFromURL(ctx context.Context, req *gitalypb.Crea
 		return nil, structerr.NewInvalidArgument("CreateRepositoryFromURL: %w", err)
 	}
 
-	if err := s.createRepository(ctx, req.GetRepository(), func(repo *gitalypb.Repository) error {
+	if err := repoutil.Create(ctx, s.locator, s.gitCmdFactory, s.txManager, req.GetRepository(), func(repo *gitalypb.Repository) error {
 		targetPath, err := s.locator.GetPath(repo)
 		if err != nil {
 			return fmt.Errorf("getting temporary repository path: %w", err)
-		}
-
-		// We need to remove the target path first so git-clone(1) doesn't complain.
-		if err := os.RemoveAll(targetPath); err != nil {
-			return fmt.Errorf("removing temporary repository: %w", err)
 		}
 
 		var stderr bytes.Buffer
@@ -124,7 +119,7 @@ func (s *server) CreateRepositoryFromURL(ctx context.Context, req *gitalypb.Crea
 		}
 
 		return nil
-	}); err != nil {
+	}, repoutil.WithSkipInit()); err != nil {
 		return nil, structerr.NewInternal("creating repository: %w", err)
 	}
 

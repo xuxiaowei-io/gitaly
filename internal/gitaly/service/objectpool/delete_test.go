@@ -3,11 +3,14 @@
 package objectpool
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -15,8 +18,12 @@ import (
 
 func TestDelete(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.AtomicCreateObjectPool).Run(t, testDelete)
+}
 
-	ctx := testhelper.Context(t)
+func testDelete(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, repoProto, _, _, client := setup(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -72,7 +79,10 @@ func TestDelete(t *testing.T) {
 		{
 			desc:         "path traversing fails",
 			relativePath: validPoolPath + "/../../../../..",
-			expectedErr:  errInvalidPoolDir,
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("GetRepoPath: %w", storage.ErrRelativePathEscapesRoot),
+				errInvalidPoolDir,
+			),
 		},
 		{
 			desc:         "deleting pool succeeds",
