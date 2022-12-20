@@ -4,10 +4,7 @@ import (
 	"fmt"
 )
 
-var (
-	version   string
-	buildtime string
-)
+var version string
 
 // GetVersionString returns a standard version header
 func GetVersionString(binary string) string {
@@ -17,9 +14,4 @@ func GetVersionString(binary string) string {
 // GetVersion returns the semver compatible version number
 func GetVersion() string {
 	return version
-}
-
-// GetBuildTime returns the time at which the build took place
-func GetBuildTime() string {
-	return buildtime
 }

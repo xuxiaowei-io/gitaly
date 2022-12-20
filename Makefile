@@ -71,9 +71,8 @@ GOLANGCI_LINT_CONFIG  ?= ${SOURCE_DIR}/.golangci.yml
 
 # Build information
 GITALY_PACKAGE    := gitlab.com/gitlab-org/gitaly/v15
-BUILD_TIME        := $(shell date +"%Y%m%d.%H%M%S")
 GITALY_VERSION    := $(shell ${GIT} describe --match v* 2>/dev/null | sed 's/^v//' || cat ${SOURCE_DIR}/VERSION 2>/dev/null || echo unknown)
-GO_LDFLAGS        := -X ${GITALY_PACKAGE}/internal/version.version=${GITALY_VERSION} -X ${GITALY_PACKAGE}/internal/version.buildtime=${BUILD_TIME}
+GO_LDFLAGS        := -X ${GITALY_PACKAGE}/internal/version.version=${GITALY_VERSION}
 SERVER_BUILD_TAGS := tracer_static,tracer_static_jaeger,tracer_static_stackdriver,continuous_profiler_stackdriver
 GIT2GO_BUILD_TAGS := static,system_libgit2
 
