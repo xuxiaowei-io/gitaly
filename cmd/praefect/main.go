@@ -125,7 +125,7 @@ func main() {
 
 	// If invoked with -version
 	if *flagVersion {
-		fmt.Println(praefect.GetVersionString())
+		fmt.Println(version.GetVersionString("Praefect"))
 		os.Exit(0)
 	}
 
@@ -143,7 +143,7 @@ func main() {
 
 	configure(conf)
 
-	logger.WithField("version", praefect.GetVersionString()).Info("Starting " + progname)
+	logger.WithField("version", version.GetVersionString("Praefect")).Info("Starting " + progname)
 
 	starterConfigs, err := getStarterConfigs(conf)
 	if err != nil {
@@ -542,7 +542,7 @@ func run(
 				if err := monitoring.Start(
 					monitoring.WithListener(l),
 					monitoring.WithServeMux(serveMux),
-					monitoring.WithBuildInformation(praefect.GetVersion(), praefect.GetBuildTime())); err != nil {
+					monitoring.WithBuildInformation(version.GetVersion(), version.GetBuildTime())); err != nil {
 					logger.WithError(err).Errorf("Unable to start prometheus listener: %v", conf.PrometheusListenAddr)
 				}
 			}()

@@ -10,8 +10,8 @@ var (
 )
 
 // GetVersionString returns a standard version header
-func GetVersionString() string {
-	return fmt.Sprintf("Gitaly, version %v", version)
+func GetVersionString(binary string) string {
+	return fmt.Sprintf("%s, version %v", binary, version)
 }
 
 // GetVersion returns the semver compatible version number

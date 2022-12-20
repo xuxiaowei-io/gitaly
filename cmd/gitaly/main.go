@@ -72,7 +72,7 @@ func loadConfig(configPath string) (config.Cfg, error) {
 }
 
 func flagUsage() {
-	fmt.Println(version.GetVersionString())
+	fmt.Println(version.GetVersionString("Gitaly"))
 	fmt.Printf("Usage: %v [command] [options] <configfile>\n", os.Args[0])
 	flag.PrintDefaults()
 	fmt.Printf("\nThe commands are:\n\n\tcheck\tchecks accessability of internal Rails API\n")
@@ -89,7 +89,7 @@ func main() {
 
 	// If invoked with -version
 	if *flagVersion {
-		fmt.Println(version.GetVersionString())
+		fmt.Println(version.GetVersionString("Gitaly"))
 		os.Exit(0)
 	}
 
@@ -98,7 +98,7 @@ func main() {
 		os.Exit(2)
 	}
 
-	log.Infof("Starting %s", version.GetVersionString())
+	log.Infof("Starting %s", version.GetVersionString("Gitaly"))
 	fips.Check()
 
 	cfg, err := configure(flag.Arg(0))
