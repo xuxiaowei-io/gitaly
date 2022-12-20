@@ -28,7 +28,7 @@ func sendTreeEntry(
 	}
 
 	if treeEntry == nil || len(treeEntry.Oid) == 0 {
-		return structerr.NewNotFound("not found: %s", path)
+		return structerr.NewNotFound("tree entry not found").WithMetadata("path", path)
 	}
 
 	if treeEntry.Type == gitalypb.TreeEntry_COMMIT {
