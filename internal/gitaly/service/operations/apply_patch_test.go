@@ -17,7 +17,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/txinfo"
@@ -63,8 +65,10 @@ To restore the original branch and stop patching, run "git am --abort".
 		baseReference git.ReferenceName
 		// notSentByAuthor marks the patch as being sent by someone else than the author.
 		notSentByAuthor bool
-		// targetBranch is the branch where the patched commit goes
+		// targetBranch is the branch where the patched commit goes.
 		targetBranch string
+		// expectedOldOID is a function which provides the expectedOldOID given the repoPath.
+		expectedOldOID func(repoPath string) string
 		// extraBranches are created with empty commits for verifying the correct base branch
 		// gets selected.
 		extraBranches []string
@@ -301,6 +305,84 @@ To restore the original branch and stop patching, run "git am --abort".
 			},
 			expectedErr: errPatchingFailed,
 		},
+		{
+			desc: "existing branch + correct expectedOldOID",
+			baseTree: []gittest.TreeEntry{
+				{Path: "file", Mode: "100644", Content: "base-content"},
+			},
+			baseReference: "refs/heads/master",
+			targetBranch:  "master",
+			patches: []patchDescription{
+				{
+					newTree: []gittest.TreeEntry{
+						{Path: "file", Mode: "100644", Content: "patch 1"},
+					},
+				},
+			},
+			expectedTree: []gittest.TreeEntry{
+				{Mode: "100644", Path: "file", Content: "patch 1"},
+			},
+			expectedOldOID: func(repoPath string) string {
+				return text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "master"))
+			},
+		},
+		{
+			desc: "existing branch + invalid expectedOldOID",
+			baseTree: []gittest.TreeEntry{
+				{Path: "file", Mode: "100644", Content: "base-content"},
+			},
+			baseReference: "refs/heads/master",
+			targetBranch:  "master",
+			patches: []patchDescription{
+				{
+					newTree: []gittest.TreeEntry{
+						{Path: "file", Mode: "100644", Content: "patch 1"},
+					},
+				},
+			},
+			expectedOldOID: func(repoPath string) string { return "foo" },
+			expectedErr:    structerr.NewInternal(`expected old object id not expected SHA format: invalid object ID: "foo"`),
+		},
+		{
+			desc: "existing branch + valid but unavailable expectedOldOID",
+			baseTree: []gittest.TreeEntry{
+				{Path: "file", Mode: "100644", Content: "base-content"},
+			},
+			baseReference: "refs/heads/master",
+			targetBranch:  "master",
+			patches: []patchDescription{
+				{
+					newTree: []gittest.TreeEntry{
+						{Path: "file", Mode: "100644", Content: "patch 1"},
+					},
+				},
+			},
+			expectedOldOID: func(repoPath string) string { return gittest.DefaultObjectHash.ZeroOID.String() },
+			expectedErr:    structerr.NewInternal("expected old object cannot be resolved: reference not found"),
+		},
+		{
+			desc: "existing branch + expectedOldOID set to an old commit OID",
+			baseTree: []gittest.TreeEntry{
+				{Path: "file", Mode: "100644", Content: "base-content"},
+			},
+			baseReference: "refs/heads/master",
+			targetBranch:  "master",
+			patches: []patchDescription{
+				{
+					newTree: []gittest.TreeEntry{
+						{Path: "file", Mode: "100644", Content: "patch 1"},
+					},
+				},
+			},
+			expectedOldOID: func(repoPath string) string {
+				currentCommit := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "master"))
+				// add a new commit to master so we can point at the old one, this is
+				// because by default the test only creates one commit
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(git.ObjectID(currentCommit)), gittest.WithBranch("master"))
+				return currentCommit
+			},
+			expectedErr: structerr.NewInternal(`update reference: Could not update refs/heads/master. Please refresh and try again.`),
+		},
 	} {
 		tc := tc
 
@@ -369,13 +451,19 @@ To restore the original branch and stop patching, run "git am --abort".
 				repoProto.RelativePath = "doesnt-exist"
 			}
 
+			expectedOldOID := ""
+			if tc.expectedOldOID != nil {
+				expectedOldOID = tc.expectedOldOID(repoPath)
+			}
+
 			require.NoError(t, stream.Send(&gitalypb.UserApplyPatchRequest{
 				UserApplyPatchRequestPayload: &gitalypb.UserApplyPatchRequest_Header_{
 					Header: &gitalypb.UserApplyPatchRequest_Header{
-						Repository:   repoProto,
-						User:         gittest.TestUser,
-						TargetBranch: []byte(tc.targetBranch),
-						Timestamp:    requestTimestamp,
+						Repository:     repoProto,
+						User:           gittest.TestUser,
+						TargetBranch:   []byte(tc.targetBranch),
+						Timestamp:      requestTimestamp,
+						ExpectedOldOid: expectedOldOID,
 					},
 				},
 			}))
