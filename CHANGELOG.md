@@ -1,5 +1,11 @@
 # Gitaly changelog
 
+## 15.6.3 (2022-12-21)
+
+### Fixed (1 change)
+
+- [Makefile: Upgrade Git to v2.37.4.gl1 and v2.38.2.gl1 respectively](gitlab-org/gitaly@8b6c7b9f7b97b6f4c2adfac64b01feec97812e74) ([merge request](gitlab-org/gitaly!5189))
+
 ## 15.6.2 (2022-12-05)
 
 No changes.
