@@ -1,5 +1,51 @@
 # Gitaly changelog
 
+## 15.7.0 (2022-12-21)
+
+### Added (7 changes)
+
+- [git/stats: Expose commit-graph information on generation data](gitlab-org/gitaly@b65e06e1a55b39f641a4755ebbde3ca42969d4c9) ([merge request](gitlab-org/gitaly!5171))
+- [git/stats: Start logging references information](gitlab-org/gitaly@92dec28377853dd031f96d587abb1663584232c4) ([merge request](gitlab-org/gitaly!5115))
+- [Add feature flag for testing connections with custom Yamux configuration](gitlab-org/gitaly@492a5b04807cfa179441564875a789f9dd06460d) ([merge request](gitlab-org/gitaly!5086))
+- [Add Yamux parameters to Praefect's configuration](gitlab-org/gitaly@ab405cca9de3358f498615344c663279eaa9922f) ([merge request](gitlab-org/gitaly!5086))
+- [git/stats: Expose information about commit-graphs](gitlab-org/gitaly@cd9e31425273e591c43a3cbad2def53d9ef9a05f) ([merge request](gitlab-org/gitaly!5093))
+- [git/stats: Expose information about packfile bitmaps](gitlab-org/gitaly@1f7cfb6e75f6a90c32373f3fb9d236573f7da388) ([merge request](gitlab-org/gitaly!5093))
+- [repository: Allow controlling object format in CreateRepository](gitlab-org/gitaly@c3f09c3223e1807e0d4eab3b0676da1a082b73e0) ([merge request](gitlab-org/gitaly!5063))
+
+### Fixed (14 changes)
+
+- [Makefile: Upgrade Git to v2.37.4.gl1 and v2.38.2.gl1 respectively](gitlab-org/gitaly@827bde0f71b207fd9d9eb7cd234e5a71d399454b) ([merge request](gitlab-org/gitaly!5175))
+- [git/objectpool: Refuse creating pools when empty target dir exists](gitlab-org/gitaly@6d007a5d3344e6c763921b0d4ed628cd7d5841a2) ([merge request](gitlab-org/gitaly!5168))
+- [objectpool: Fix error code when creating a pool with existing target dir](gitlab-org/gitaly@cd8ba8e5d10b17cb59f2b878e4153e7fd10f1a9c) ([merge request](gitlab-org/gitaly!5161))
+- [statushandler: Retain explicitly set `Unknown` error codes](gitlab-org/gitaly@ca3994a808accbd1bcca5c802fbddb639f635943) ([merge request](gitlab-org/gitaly!5151))
+- [structerr: Retain error details from already-wrapped gRPC errors](gitlab-org/gitaly@318c10c5c39633ee1b3bb13b6c0165179f3d190a) ([merge request](gitlab-org/gitaly!5151))
+- [structerr: Retain error codes from already-wrapped gRPC errors](gitlab-org/gitaly@bfc376114670d16c6bea0a0338ae887a76a421f6) ([merge request](gitlab-org/gitaly!5151))
+- [housekeeping: Always log repository info in `OptimzeRepository`](gitlab-org/gitaly@93d4b6e22311074929be786d9aef29ca8b2af708) ([merge request](gitlab-org/gitaly!5129))
+- [config: Allow empty values for Git configuration](gitlab-org/gitaly@9e89531ea2bc42dc55190fe63515eaf74a2687ea) ([merge request](gitlab-org/gitaly!5124))
+- [objectpool: Always reject fetching into nonexistent pools](gitlab-org/gitaly@28f2fd04ce1fa22efc85b44a77673d65fec04325) ([merge request](gitlab-org/gitaly!5108))
+- [Add --no-deref option to DeleteRefs RPC](gitlab-org/gitaly@edcba3a908f8ea16896290d9a783eeedc2729ff2) ([merge request](gitlab-org/gitaly!5078))
+- [updateref: Fix not detecting invalid ref names on pipe failure](gitlab-org/gitaly@c113ec5bb6c1f0cfaaf88d51232f70117a2f66af) ([merge request](gitlab-org/gitaly!5092))
+- [hook: Replace broken ad-hoc implementation to get envvars](gitlab-org/gitaly@1886073554e4a88934f5d36683a19ecfd1dbc8e4) ([merge request](gitlab-org/gitaly!5087))
+- [Allow differing relative paths in ReplicateRepository](gitlab-org/gitaly@6d4c130bcfacfbc7cbb03093ede898735f92b92a) ([merge request](gitlab-org/gitaly!5076))
+- [Allow non-unique addresses for storages in Praefect](gitlab-org/gitaly@7863e14b88922fce40c6b612602edccaff7c8985) ([merge request](gitlab-org/gitaly!5076))
+
+### Deprecated (1 change)
+
+- [proto: Deprecate FindAllBranchNames and FindAllTagNames](gitlab-org/gitaly@55797560fcd01232e3159782760805c5cd3544c0) ([merge request](gitlab-org/gitaly!5144))
+
+### Removed (1 change)
+
+- [Remove feature flag "tree_entries_new_page_token_format"](gitlab-org/gitaly@a06a5d4e441f17cb3baf9361df7f52726be34d17) ([merge request](gitlab-org/gitaly!5096))
+
+### Other (2 changes)
+
+- [Update feature flag documentation](gitlab-org/gitaly@b3f1433d1b1b54c6b39953dadef9acc5486165df) ([merge request](gitlab-org/gitaly!5079))
+- [doc/git-exec-env: Update Gitaly Git Distribution method](gitlab-org/gitaly@e96d17dacddc01d3942a52f177995fb743f90b53) ([merge request](gitlab-org/gitaly!4864))
+
+### deprecate (1 change)
+
+- [objectpool: Deprecate ReduplicateRepository RPC](gitlab-org/gitaly@4db49541d5843106aeac193de0ed3fd466cc3bc8) ([merge request](gitlab-org/gitaly!5131))
+
 ## 15.6.2 (2022-12-05)
 
 No changes.
