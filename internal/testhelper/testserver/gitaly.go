@@ -185,7 +185,9 @@ func runGitaly(tb testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, reg
 		waitHealthy(tb, ctx, "unix://"+internalListener.Addr().String(), cfg.Auth.Token)
 	}
 
-	externalServer, err := serverFactory.CreateExternal(cfg.TLS.CertPath != "" && cfg.TLS.KeyPath != "")
+	secure := cfg.TLS.CertPath != "" && cfg.TLS.KeyPath != ""
+
+	externalServer, err := serverFactory.CreateExternal(secure)
 	require.NoError(tb, err)
 	tb.Cleanup(externalServer.Stop)
 

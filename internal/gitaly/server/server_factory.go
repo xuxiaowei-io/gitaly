@@ -77,8 +77,8 @@ func (s *GitalyServerFactory) GracefulStop() {
 
 // CreateExternal creates a new external gRPC server. The external servers are closed
 // before the internal servers when gracefully shutting down.
-func (s *GitalyServerFactory) CreateExternal(secure bool) (*grpc.Server, error) {
-	server, err := s.New(secure)
+func (s *GitalyServerFactory) CreateExternal(secure bool, opts ...Option) (*grpc.Server, error) {
+	server, err := s.New(secure, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -89,8 +89,8 @@ func (s *GitalyServerFactory) CreateExternal(secure bool) (*grpc.Server, error) 
 
 // CreateInternal creates a new internal gRPC server. Internal servers are closed
 // after the external ones when gracefully shutting down.
-func (s *GitalyServerFactory) CreateInternal() (*grpc.Server, error) {
-	server, err := s.New(false)
+func (s *GitalyServerFactory) CreateInternal(opts ...Option) (*grpc.Server, error) {
+	server, err := s.New(false, opts...)
 	if err != nil {
 		return nil, err
 	}

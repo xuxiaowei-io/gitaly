@@ -49,8 +49,35 @@ func init() {
 	grpcmwlogrus.ReplaceGrpcLogger(gitalylog.GrpcGo())
 }
 
+type serverConfig struct {
+	unaryInterceptors  []grpc.UnaryServerInterceptor
+	streamInterceptors []grpc.StreamServerInterceptor
+}
+
+// Option is an option that can be passed to `New()`.
+type Option func(*serverConfig)
+
+// WithUnaryInterceptor adds another interceptor that shall be executed for unary RPC calls.
+func WithUnaryInterceptor(interceptor grpc.UnaryServerInterceptor) Option {
+	return func(cfg *serverConfig) {
+		cfg.unaryInterceptors = append(cfg.unaryInterceptors, interceptor)
+	}
+}
+
+// WithStreamInterceptor adds another interceptor that shall be executed for streaming RPC calls.
+func WithStreamInterceptor(interceptor grpc.StreamServerInterceptor) Option {
+	return func(cfg *serverConfig) {
+		cfg.streamInterceptors = append(cfg.streamInterceptors, interceptor)
+	}
+}
+
 // New returns a GRPC server instance with a set of interceptors configured.
-func (s *GitalyServerFactory) New(secure bool) (*grpc.Server, error) {
+func (s *GitalyServerFactory) New(secure bool, opts ...Option) (*grpc.Server, error) {
+	var cfg serverConfig
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
 	ctxTagOpts := []grpcmwtags.Option{
 		grpcmwtags.WithFieldExtractorForInitialReq(fieldextractors.FieldExtractor),
 	}
@@ -140,7 +167,10 @@ func (s *GitalyServerFactory) New(secure bool) (*grpc.Server, error) {
 		panichandler.UnaryPanicHandler,
 	)
 
-	opts := []grpc.ServerOption{
+	streamServerInterceptors = append(streamServerInterceptors, cfg.streamInterceptors...)
+	unaryServerInterceptors = append(unaryServerInterceptors, cfg.unaryInterceptors...)
+
+	serverOptions := []grpc.ServerOption{
 		grpc.StatsHandler(gitalylog.PerRPCLogHandler{
 			Underlying:     &grpcstats.PayloadBytes{},
 			FieldProducers: []gitalylog.FieldsProducer{grpcstats.FieldsProducer},
@@ -161,5 +191,5 @@ func (s *GitalyServerFactory) New(secure bool) (*grpc.Server, error) {
 		}),
 	}
 
-	return grpc.NewServer(opts...), nil
+	return grpc.NewServer(serverOptions...), nil
 }
