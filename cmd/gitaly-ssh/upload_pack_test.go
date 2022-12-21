@@ -5,6 +5,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -12,8 +13,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/protobuf/encoding/protojson"
 )
@@ -21,19 +24,15 @@ import (
 const keepAroundNamespace = "refs/keep-around"
 
 func TestVisibilityOfHiddenRefs(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 	testcfg.BuildGitalySSH(t, cfg)
 	testcfg.BuildGitalyHooks(t, cfg)
 
-	socketPath := testhelper.GetTemporaryGitalySocketFileName(t)
-
-	_, clean := runServer(t, false, cfg, "unix", socketPath)
-	defer clean()
-
-	_, clean = runServer(t, false, cfg, "unix", cfg.InternalSocketPath())
-	defer clean()
+	address := testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 
 	// Create a keep-around ref
 	existingSha := git.ObjectID("1e292f8fedd741b75372e19097c76d327140c312")
@@ -84,7 +83,7 @@ func TestVisibilityOfHiddenRefs(t *testing.T) {
 			stdout := gittest.ExecOpts(t, cfg, gittest.ExecConfig{
 				Env: []string{
 					fmt.Sprintf("GITALY_PAYLOAD=%s", payload),
-					fmt.Sprintf("GITALY_ADDRESS=unix:%s", socketPath),
+					fmt.Sprintf("GITALY_ADDRESS=unix:%s", strings.TrimPrefix(address, "unix://")),
 					fmt.Sprintf("GITALY_WD=%s", wd),
 					fmt.Sprintf("PATH=.:%s", os.Getenv("PATH")),
 					fmt.Sprintf("GIT_SSH_COMMAND=%s upload-pack", cfg.BinaryPath("gitaly-ssh")),
