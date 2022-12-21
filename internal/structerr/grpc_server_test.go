@@ -3,6 +3,7 @@ package structerr
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"testing"
 
@@ -13,12 +14,64 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb/testproto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/grpc_testing"
 )
+
+func TestInterceptedError(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		desc        string
+		err         error
+		expectedErr error
+	}{
+		{
+			desc:        "normal error",
+			err:         fmt.Errorf("test"),
+			expectedErr: fmt.Errorf("test"),
+		},
+		{
+			desc:        "structured error",
+			err:         NewNotFound("not found"),
+			expectedErr: NewNotFound("not found"),
+		},
+		{
+			desc:        "wrapped structured error",
+			err:         fmt.Errorf("wrapped: %w", NewNotFound("not found")),
+			expectedErr: fmt.Errorf("wrapped: %w", NewNotFound("not found")),
+		},
+		{
+			desc: "metadata",
+			err:  NewNotFound("not found").WithMetadata("key", "value"),
+			expectedErr: NewNotFound("not found").WithDetail(
+				&testproto.ErrorMetadata{
+					Key:   []byte("key"),
+					Value: []byte("value"),
+				},
+			),
+		},
+		{
+			desc: "wrapped error with metadata",
+			err:  fmt.Errorf("wrapped: %w", NewNotFound("not found").WithMetadata("key", "value")),
+			expectedErr: NewNotFound("wrapped: not found").WithDetail(
+				&testproto.ErrorMetadata{
+					Key:   []byte("key"),
+					Value: []byte("value"),
+				},
+			),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			err := interceptedError(tc.err)
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
+		})
+	}
+}
 
 type mockService struct {
 	grpc_testing.UnimplementedTestServiceServer
