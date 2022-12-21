@@ -21,7 +21,6 @@ const (
 	// packet, excluding size of length and band number
 	// https://gitlab.com/gitlab-org/git/-/blob/v2.30.0/pkt-line.h#L216
 	MaxPktSize = 65520
-	pktDelim   = "0001"
 )
 
 // NewScanner returns a bufio.Scanner that splits on Git pktline boundaries
@@ -87,13 +86,18 @@ func WriteFlush(w io.Writer) error {
 
 // WriteDelim writes a pkt delim packet.
 func WriteDelim(w io.Writer) error {
-	_, err := fmt.Fprint(w, pktDelim)
+	_, err := w.Write(PktDelim())
 	return err
 }
 
 // PktDone returns the bytes for a "done" packet.
 func PktDone() []byte {
 	return []byte("0009done\n")
+}
+
+// PktDelim returns the bytes for a "delim" packet.
+func PktDelim() []byte {
+	return []byte("0001")
 }
 
 // PktFlush returns the bytes for a "flush" packet.
