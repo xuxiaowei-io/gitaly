@@ -214,6 +214,16 @@ func TestNew(t *testing.T) {
 				require.True(t, ok)
 				require.Equal(t, expectedErr, s)
 			})
+
+			t.Run("overriding gRPC code", func(t *testing.T) {
+				err := tc.constructor("message").WithGRPCCode(unusedErrorCode)
+				require.EqualError(t, err, "message")
+				require.Equal(t, unusedErrorCode, status.Code(err))
+
+				s, ok := status.FromError(err)
+				require.True(t, ok)
+				require.Equal(t, status.New(unusedErrorCode, "message"), s)
+			})
 		})
 	}
 }
