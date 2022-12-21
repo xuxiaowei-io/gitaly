@@ -34,6 +34,11 @@ type DiffServiceClient interface {
 	DiffStats(ctx context.Context, in *DiffStatsRequest, opts ...grpc.CallOption) (DiffService_DiffStatsClient, error)
 	// Return a list of files changed along with the status of each file
 	FindChangedPaths(ctx context.Context, in *FindChangedPathsRequest, opts ...grpc.CallOption) (DiffService_FindChangedPathsClient, error)
+	// GetPatchID computes a patch ID for a patch. Patch IDs are a unique ID computed by hashing
+	// a patch with some parameters like line numbers ignored. The patch ID can thus be used to compare
+	// whether diffs make the same change. Please refer to git-patch-id(1) for further information.
+	// If the difference between old and new change is empty then this RPC returns an error.
+	GetPatchID(ctx context.Context, in *GetPatchIDRequest, opts ...grpc.CallOption) (*GetPatchIDResponse, error)
 }
 
 type diffServiceClient struct {
@@ -236,6 +241,15 @@ func (x *diffServiceFindChangedPathsClient) Recv() (*FindChangedPathsResponse, e
 	return m, nil
 }
 
+func (c *diffServiceClient) GetPatchID(ctx context.Context, in *GetPatchIDRequest, opts ...grpc.CallOption) (*GetPatchIDResponse, error) {
+	out := new(GetPatchIDResponse)
+	err := c.cc.Invoke(ctx, "/gitaly.DiffService/GetPatchID", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DiffServiceServer is the server API for DiffService service.
 // All implementations must embed UnimplementedDiffServiceServer
 // for forward compatibility
@@ -252,6 +266,11 @@ type DiffServiceServer interface {
 	DiffStats(*DiffStatsRequest, DiffService_DiffStatsServer) error
 	// Return a list of files changed along with the status of each file
 	FindChangedPaths(*FindChangedPathsRequest, DiffService_FindChangedPathsServer) error
+	// GetPatchID computes a patch ID for a patch. Patch IDs are a unique ID computed by hashing
+	// a patch with some parameters like line numbers ignored. The patch ID can thus be used to compare
+	// whether diffs make the same change. Please refer to git-patch-id(1) for further information.
+	// If the difference between old and new change is empty then this RPC returns an error.
+	GetPatchID(context.Context, *GetPatchIDRequest) (*GetPatchIDResponse, error)
 	mustEmbedUnimplementedDiffServiceServer()
 }
 
@@ -276,6 +295,9 @@ func (UnimplementedDiffServiceServer) DiffStats(*DiffStatsRequest, DiffService_D
 }
 func (UnimplementedDiffServiceServer) FindChangedPaths(*FindChangedPathsRequest, DiffService_FindChangedPathsServer) error {
 	return status.Errorf(codes.Unimplemented, "method FindChangedPaths not implemented")
+}
+func (UnimplementedDiffServiceServer) GetPatchID(context.Context, *GetPatchIDRequest) (*GetPatchIDResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetPatchID not implemented")
 }
 func (UnimplementedDiffServiceServer) mustEmbedUnimplementedDiffServiceServer() {}
 
@@ -416,13 +438,36 @@ func (x *diffServiceFindChangedPathsServer) Send(m *FindChangedPathsResponse) er
 	return x.ServerStream.SendMsg(m)
 }
 
+func _DiffService_GetPatchID_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetPatchIDRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DiffServiceServer).GetPatchID(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/gitaly.DiffService/GetPatchID",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DiffServiceServer).GetPatchID(ctx, req.(*GetPatchIDRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // DiffService_ServiceDesc is the grpc.ServiceDesc for DiffService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var DiffService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "gitaly.DiffService",
 	HandlerType: (*DiffServiceServer)(nil),
-	Methods:     []grpc.MethodDesc{},
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetPatchID",
+			Handler:    _DiffService_GetPatchID_Handler,
+		},
+	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "CommitDiff",
