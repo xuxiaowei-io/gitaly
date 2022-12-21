@@ -185,14 +185,12 @@ func CreateRepository(tb testing.TB, ctx context.Context, cfg config.Cfg, config
 			Exec(tb, cfg, "clone", "--no-hardlinks", "--dissociate", "--bare", testRepositoryPath(tb, opts.Seed), repoPath)
 			Exec(tb, cfg, "-C", repoPath, "remote", "remove", "origin")
 		} else {
-			args := []string{"init", "--bare"}
-			args = append(args, initRepoExtraArgs...)
-			args = append(args, repoPath)
-			if opts.ObjectFormat != "" {
-				args = append(args, "--object-format", opts.ObjectFormat)
+			objectFormat := opts.ObjectFormat
+			if objectFormat == "" {
+				objectFormat = DefaultObjectHash.Format
 			}
 
-			Exec(tb, cfg, args...)
+			Exec(tb, cfg, "init", "--bare", "--object-format="+objectFormat, repoPath)
 		}
 
 		tb.Cleanup(func() { require.NoError(tb, os.RemoveAll(repoPath)) })

@@ -4,9 +4,5 @@ package gittest
 
 import "gitlab.com/gitlab-org/gitaly/v15/internal/git"
 
-var (
-	// DefaultObjectHash is the default hash used for running tests.
-	DefaultObjectHash = git.ObjectHashSHA1
-
-	initRepoExtraArgs = []string{}
-)
+// DefaultObjectHash is the default hash used for running tests.
+var DefaultObjectHash = git.ObjectHashSHA1

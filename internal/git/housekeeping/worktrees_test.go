@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package housekeeping
 
 import (
@@ -20,7 +18,12 @@ func TestCleanupDisconnectedWorktrees_doesNothingWithoutWorktrees(t *testing.T) 
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
+
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+	})
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
 	worktreePath := filepath.Join(testhelper.TempDir(t), "worktree")
 
 	failingGitCmdFactory := gittest.NewInterceptingCommandFactory(t, ctx, cfg, func(git.ExecutionEnvironment) string {
@@ -46,8 +49,13 @@ func TestCleanupDisconnectedWorktrees_doesNothingWithoutWorktrees(t *testing.T) 
 func TestRemoveWorktree(t *testing.T) {
 	t.Parallel()
 
-	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
 
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+	})
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	existingWorktreePath := filepath.Join(repoPath, worktreePrefix, "existing")
