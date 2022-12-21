@@ -20,7 +20,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
@@ -163,7 +162,7 @@ func (s *server) extractSnapshot(ctx context.Context, source, target *gitalypb.R
 	// platforms.
 	firstBytes, err := stream.Recv()
 	if err != nil {
-		if helper.GrpcCode(err) == codes.NotFound && strings.Contains(err.Error(), "GetRepoPath: not a git repository:") {
+		if structerr.GRPCCode(err) == codes.NotFound && strings.Contains(err.Error(), "GetRepoPath: not a git repository:") {
 			return ErrInvalidSourceRepository
 		}
 

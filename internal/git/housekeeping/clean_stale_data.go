@@ -15,8 +15,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/safe"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"google.golang.org/grpc/codes"
 )
 
@@ -46,7 +46,7 @@ func (m *RepositoryManager) CleanStaleData(ctx context.Context, repo *localrepo.
 	repoPath, err := repo.Path()
 	if err != nil {
 		myLogger(ctx).WithError(err).Warn("housekeeping failed to get repo path")
-		if helper.GrpcCode(err) == codes.NotFound {
+		if structerr.GRPCCode(err) == codes.NotFound {
 			return nil
 		}
 		return fmt.Errorf("housekeeping failed to get repo path: %w", err)

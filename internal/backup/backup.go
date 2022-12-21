@@ -11,8 +11,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 	"gocloud.dev/blob/azureblob"
@@ -308,7 +308,7 @@ func (mgr *Manager) writeBundle(ctx context.Context, step *Step, server storage.
 	}
 	bundle := streamio.NewReader(func() ([]byte, error) {
 		resp, err := stream.Recv()
-		if helper.GrpcCode(err) == codes.FailedPrecondition {
+		if structerr.GRPCCode(err) == codes.FailedPrecondition {
 			err = errEmptyBundle
 		}
 		return resp.GetData(), err

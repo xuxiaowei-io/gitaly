@@ -12,8 +12,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
@@ -59,49 +59,66 @@ func TestReferenceTransactionHook(t *testing.T) {
 		stdin             []byte
 		state             gitalypb.ReferenceTransactionHookRequest_State
 		voteResponse      gitalypb.VoteTransactionResponse_TransactionState
-		expectedCode      codes.Code
+		expectedErr       error
+		expectedResponse  *gitalypb.ReferenceTransactionHookResponse
 		expectedReftxHash []byte
 	}{
 		{
-			desc:              "hook triggers transaction with default state",
-			stdin:             []byte("foobar"),
-			voteResponse:      gitalypb.VoteTransactionResponse_COMMIT,
-			expectedCode:      codes.OK,
-			expectedReftxHash: []byte("foobar"),
-		},
-		{
-			desc:              "hook triggers transaction with explicit prepared state",
-			stdin:             []byte("foobar"),
-			state:             gitalypb.ReferenceTransactionHookRequest_PREPARED,
-			voteResponse:      gitalypb.VoteTransactionResponse_COMMIT,
-			expectedCode:      codes.OK,
-			expectedReftxHash: []byte("foobar"),
-		},
-		{
-			desc:         "hook does not trigger transaction with aborted state",
+			desc:         "hook triggers transaction with default state",
 			stdin:        []byte("foobar"),
-			state:        gitalypb.ReferenceTransactionHookRequest_ABORTED,
-			expectedCode: codes.OK,
+			voteResponse: gitalypb.VoteTransactionResponse_COMMIT,
+			expectedResponse: &gitalypb.ReferenceTransactionHookResponse{
+				ExitStatus: &gitalypb.ExitStatus{
+					Value: 0,
+				},
+			},
+			expectedReftxHash: []byte("foobar"),
 		},
 		{
-			desc:              "hook triggers transaction with committed state",
-			stdin:             []byte("foobar"),
-			state:             gitalypb.ReferenceTransactionHookRequest_COMMITTED,
-			expectedCode:      codes.OK,
+			desc:         "hook triggers transaction with explicit prepared state",
+			stdin:        []byte("foobar"),
+			state:        gitalypb.ReferenceTransactionHookRequest_PREPARED,
+			voteResponse: gitalypb.VoteTransactionResponse_COMMIT,
+			expectedResponse: &gitalypb.ReferenceTransactionHookResponse{
+				ExitStatus: &gitalypb.ExitStatus{
+					Value: 0,
+				},
+			},
+			expectedReftxHash: []byte("foobar"),
+		},
+		{
+			desc:  "hook does not trigger transaction with aborted state",
+			stdin: []byte("foobar"),
+			state: gitalypb.ReferenceTransactionHookRequest_ABORTED,
+			expectedResponse: &gitalypb.ReferenceTransactionHookResponse{
+				ExitStatus: &gitalypb.ExitStatus{
+					Value: 0,
+				},
+			},
+		},
+		{
+			desc:  "hook triggers transaction with committed state",
+			stdin: []byte("foobar"),
+			state: gitalypb.ReferenceTransactionHookRequest_COMMITTED,
+			expectedResponse: &gitalypb.ReferenceTransactionHookResponse{
+				ExitStatus: &gitalypb.ExitStatus{
+					Value: 0,
+				},
+			},
 			expectedReftxHash: []byte("foobar"),
 		},
 		{
 			desc:              "hook fails with failed vote",
 			stdin:             []byte("foobar"),
 			voteResponse:      gitalypb.VoteTransactionResponse_ABORT,
-			expectedCode:      codes.Aborted,
+			expectedErr:       structerr.NewAborted("reference-transaction hook: error voting on transaction: transaction was aborted"),
 			expectedReftxHash: []byte("foobar"),
 		},
 		{
 			desc:              "hook fails with stopped vote",
 			stdin:             []byte("foobar"),
 			voteResponse:      gitalypb.VoteTransactionResponse_STOP,
-			expectedCode:      codes.FailedPrecondition,
+			expectedErr:       structerr.NewFailedPrecondition("reference-transaction hook: error voting on transaction: transaction was stopped"),
 			expectedReftxHash: []byte("foobar"),
 		},
 	}
@@ -182,10 +199,8 @@ func TestReferenceTransactionHook(t *testing.T) {
 			require.NoError(t, stream.CloseSend())
 
 			resp, err := stream.Recv()
-			require.Equal(t, helper.GrpcCode(err), tc.expectedCode)
-			if tc.expectedCode == codes.OK {
-				require.Equal(t, resp.GetExitStatus().GetValue(), int32(0))
-			}
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
+			testhelper.ProtoEqual(t, tc.expectedResponse, resp)
 
 			var expectedReftxHash []byte
 			if tc.expectedReftxHash != nil {
