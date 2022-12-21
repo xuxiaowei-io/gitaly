@@ -65,6 +65,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -125,7 +126,7 @@ func main() {
 
 	// If invoked with -version
 	if *flagVersion {
-		fmt.Println(praefect.GetVersionString())
+		fmt.Println(version.GetVersionString("Praefect"))
 		os.Exit(0)
 	}
 
@@ -143,7 +144,7 @@ func main() {
 
 	configure(conf)
 
-	logger.WithField("version", praefect.GetVersionString()).Info("Starting " + progname)
+	logger.WithField("version", version.GetVersionString("Praefect")).Info("Starting " + progname)
 
 	starterConfigs, err := getStarterConfigs(conf)
 	if err != nil {
@@ -539,10 +540,16 @@ func run(
 			serveMux.Handle("/db_metrics", promhttp.HandlerFor(dbPromRegistry, promhttp.HandlerOpts{}))
 
 			go func() {
-				if err := monitoring.Start(
+				opts := []monitoring.Option{
 					monitoring.WithListener(l),
 					monitoring.WithServeMux(serveMux),
-					monitoring.WithBuildInformation(praefect.GetVersion(), praefect.GetBuildTime())); err != nil {
+				}
+
+				if buildInfo, ok := debug.ReadBuildInfo(); ok {
+					opts = append(opts, monitoring.WithGoBuildInformation(buildInfo))
+				}
+
+				if err := monitoring.Start(opts...); err != nil {
 					logger.WithError(err).Errorf("Unable to start prometheus listener: %v", conf.PrometheusListenAddr)
 				}
 			}()

@@ -15,7 +15,7 @@ import (
 var flagVersion = flag.Bool("version", false, "Print version and exit")
 
 func flagUsage() {
-	fmt.Println(version.GetVersionString())
+	fmt.Println(version.GetVersionString("gitaly-blackbox"))
 	fmt.Printf("Usage: %v [OPTIONS] configfile\n", os.Args[0])
 	flag.PrintDefaults()
 }
@@ -26,7 +26,7 @@ func main() {
 
 	// If invoked with -version
 	if *flagVersion {
-		fmt.Println(version.GetVersionString())
+		fmt.Println(version.GetVersionString("gitaly-blackbox"))
 		os.Exit(0)
 	}
 

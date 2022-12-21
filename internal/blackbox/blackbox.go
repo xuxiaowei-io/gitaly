@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"runtime/debug"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/log"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/version"
 	"gitlab.com/gitlab-org/labkit/monitoring"
 )
 
@@ -166,10 +166,15 @@ func (b Blackbox) runProbes() {
 }
 
 func servePrometheus(l net.Listener) error {
-	return monitoring.Start(
+	opts := []monitoring.Option{
 		monitoring.WithListener(l),
-		monitoring.WithBuildInformation(version.GetVersion(), version.GetBuildTime()),
-	)
+	}
+
+	if buildInfo, ok := debug.ReadBuildInfo(); ok {
+		opts = append(opts, monitoring.WithGoBuildInformation(buildInfo))
+	}
+
+	return monitoring.Start(opts...)
 }
 
 func (b Blackbox) fetch(probe Probe) error {

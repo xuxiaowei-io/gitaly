@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime/debug"
 	"time"
 
 	"github.com/go-enry/go-license-detector/v4/licensedb"
@@ -72,7 +73,7 @@ func loadConfig(configPath string) (config.Cfg, error) {
 }
 
 func flagUsage() {
-	fmt.Println(version.GetVersionString())
+	fmt.Println(version.GetVersionString("Gitaly"))
 	fmt.Printf("Usage: %v [command] [options] <configfile>\n", os.Args[0])
 	flag.PrintDefaults()
 	fmt.Printf("\nThe commands are:\n\n\tcheck\tchecks accessability of internal Rails API\n")
@@ -89,7 +90,7 @@ func main() {
 
 	// If invoked with -version
 	if *flagVersion {
-		fmt.Println(version.GetVersionString())
+		fmt.Println(version.GetVersionString("Gitaly"))
 		os.Exit(0)
 	}
 
@@ -98,7 +99,7 @@ func main() {
 		os.Exit(2)
 	}
 
-	log.Infof("Starting %s", version.GetVersionString())
+	log.Infof("Starting %s", version.GetVersionString("Gitaly"))
 	fips.Check()
 
 	cfg, err := configure(flag.Arg(0))
@@ -375,14 +376,18 @@ func run(cfg config.Cfg) error {
 			log.WithField("address", addr).Info("starting prometheus listener")
 
 			go func() {
-				if err := monitoring.Start(
+				opts := []monitoring.Option{
 					monitoring.WithListener(l),
-					monitoring.WithBuildInformation(
-						version.GetVersion(),
-						version.GetBuildTime()),
 					monitoring.WithBuildExtraLabels(
 						map[string]string{"git_version": gitVersion.String()},
-					)); err != nil {
+					),
+				}
+
+				if buildInfo, ok := debug.ReadBuildInfo(); ok {
+					opts = append(opts, monitoring.WithGoBuildInformation(buildInfo))
+				}
+
+				if err := monitoring.Start(opts...); err != nil {
 					log.WithError(err).Error("Unable to serve prometheus")
 				}
 			}()
