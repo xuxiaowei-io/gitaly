@@ -18,7 +18,7 @@ const (
 	MaxSidebandData = MaxPktSize - 5
 
 	// MaxPktSize is the maximum size of content of a Git pktline side-band-64k
-	// packet, excluding size of length and band number
+	// packet, including size of length and band number
 	// https://gitlab.com/gitlab-org/git/-/blob/v2.30.0/pkt-line.h#L216
 	MaxPktSize = 65520
 )
