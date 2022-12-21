@@ -121,7 +121,7 @@ func dialProxy(upstreamAddr string) (*grpc.ClientConn, error) {
 		return grpc.NewServer(grpc.Creds(lm))
 	}
 
-	clientHandshaker := backchannel.NewClientHandshaker(newLogger(), factory)
+	clientHandshaker := backchannel.NewClientHandshaker(newLogger(), factory, backchannel.DefaultConfiguration())
 	dialOpts := []grpc.DialOption{
 		grpc.WithTransportCredentials(clientHandshaker.ClientHandshake(insecure.NewCredentials())),
 		grpc.WithUnaryInterceptor(NewUnaryProxy(registry)),

@@ -478,7 +478,7 @@ func TestConnectionMultiplexing(t *testing.T) {
 		promtest.NewMockHistogramVec(),
 		protoregistry.GitalyProtoPreregistered,
 		nil,
-		backchannel.NewClientHandshaker(logger, func() backchannel.Server { return grpc.NewServer() }),
+		backchannel.NewClientHandshaker(logger, func() backchannel.Server { return grpc.NewServer() }, backchannel.DefaultConfiguration()),
 		nil,
 	)
 	require.NoError(t, err)

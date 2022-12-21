@@ -69,7 +69,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hashicorp/yamux"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -312,15 +311,15 @@ func run(
 	transactionManager := transactions.NewManager(conf)
 	sidechannelRegistry := sidechannel.NewRegistry()
 
-	newClientHandshaker := func(config func(*yamux.Config)) backchannel.ClientHandshaker {
-		return backchannel.NewClientHandshakerWithYamuxConfig(
+	newClientHandshaker := func(config backchannel.Configuration) backchannel.ClientHandshaker {
+		return backchannel.NewClientHandshaker(
 			logger,
 			praefect.NewBackchannelServerFactory(logger, transaction.NewServer(transactionManager), sidechannelRegistry),
 			config,
 		)
 	}
 
-	clientHandshaker := newClientHandshaker(nil)
+	clientHandshaker := newClientHandshaker(backchannel.DefaultConfiguration())
 	assignmentStore := praefect.NewDisabledAssignmentStore(conf.StorageNames())
 	var (
 		nodeManager   nodes.Manager
@@ -342,9 +341,10 @@ func run(
 
 		// Dial a second set of connections to each storage with a different Yamux config
 		// so we can use a feature flag to gradually test the new configuration.
-		nodeSetWithCustomConfig, err := dialNodes(newClientHandshaker(func(cfg *yamux.Config) {
-			cfg.AcceptBacklog = conf.Yamux.AcceptBacklog
-			cfg.MaxStreamWindowSize = conf.Yamux.MaximumStreamWindowSizeBytes
+		nodeSetWithCustomConfig, err := dialNodes(newClientHandshaker(backchannel.Configuration{
+			AcceptBacklog:                conf.Yamux.AcceptBacklog,
+			MaximumStreamWindowSizeBytes: conf.Yamux.MaximumStreamWindowSizeBytes,
+			StreamCloseTimeout:           backchannel.DefaultConfiguration().StreamCloseTimeout,
 		}))
 		if err != nil {
 			return fmt.Errorf("dial nodes reduced window: %w", err)

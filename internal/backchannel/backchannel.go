@@ -40,26 +40,17 @@ import (
 var magicBytes = []byte("backchannel")
 
 // muxConfig returns a new config to use with the multiplexing session.
-func muxConfig(logger io.Writer, extra func(*yamux.Config)) *yamux.Config {
-	cfg := yamux.DefaultConfig()
-	cfg.LogOutput = logger
-	// The server only accepts a single stream from the client, which is the client's gRPC stream.
-	// The backchannel server should only receive a single stream from the server. As such, we can
-	// limit maximum pending streams to 1 as there should never be more streams waiting.
-	cfg.AcceptBacklog = 1
+func muxConfig(logger io.Writer, cfg Configuration) *yamux.Config {
+	yamuxCfg := yamux.DefaultConfig()
+	yamuxCfg.LogOutput = logger
 	// gRPC is already configured to send keep alives so we don't need yamux to do this for us.
 	// gRPC is a better choice as it sends the keep alives also to non-multiplexed connections.
-	cfg.EnableKeepAlive = false
-	// MaxStreamWindowSize configures the maximum receive buffer size for each stream. The sender
-	// is allowed to send the configured amount of bytes without receiving an acknowledgement from the
-	// receiver. This is can have a big impact on throughput as the latency increases, as the sender
-	// can't proceed sending without receiving an acknowledgement back.
-	cfg.MaxStreamWindowSize = 16 * 1024 * 1024
+	yamuxCfg.EnableKeepAlive = false
+	yamuxCfg.AcceptBacklog = cfg.AcceptBacklog
+	yamuxCfg.MaxStreamWindowSize = cfg.MaximumStreamWindowSizeBytes
+	yamuxCfg.StreamCloseTimeout = cfg.StreamCloseTimeout
 
-	if extra != nil {
-		extra(cfg)
-	}
-	return cfg
+	return yamuxCfg
 }
 
 // connCloser wraps a net.Conn and calls the provided close function instead when Close

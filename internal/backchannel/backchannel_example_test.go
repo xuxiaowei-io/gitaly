@@ -117,7 +117,7 @@ func invokeWithMuxedClient(logger *logrus.Entry, address string) error {
 			fmt.Println("Praefect responding via backchannel")
 			return stream.SendMsg(&gitalypb.VoteTransactionResponse{})
 		}))
-	})
+	}, backchannel.DefaultConfiguration())
 
 	return invokeWithOpts(address, grpc.WithTransportCredentials(clientHandshaker.ClientHandshake(insecure.NewCredentials())))
 }

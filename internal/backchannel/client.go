@@ -24,40 +24,55 @@ type Server interface {
 // a backchannel closes.
 type ServerFactory func() Server
 
+// Configuration sets contains configuration for the backchannel's Yamux session.
+type Configuration struct {
+	// MaximumStreamWindowSizeBytes sets the maximum window size in bytes used for yamux streams.
+	// Higher value can increase throughput at the cost of more memory usage.
+	MaximumStreamWindowSizeBytes uint32
+	// AcceptBacklog sets the maximum number of stream openings in-flight before further openings
+	// block.
+	AcceptBacklog int
+	// StreamCloseTimeout is the maximum time that a stream will allowed to
+	// be in a half-closed state when `Close` is called before forcibly
+	// closing the connection.
+	StreamCloseTimeout time.Duration
+}
+
+// DefaultConfiguration returns the default configuration.
+func DefaultConfiguration() Configuration {
+	defaults := yamux.DefaultConfig()
+	return Configuration{
+		AcceptBacklog:                1,
+		MaximumStreamWindowSizeBytes: 16 * 1024 * 1024,
+		StreamCloseTimeout:           defaults.StreamCloseTimeout,
+	}
+}
+
 // ClientHandshaker implements the client side handshake of the multiplexed connection.
 type ClientHandshaker struct {
 	logger        *logrus.Entry
 	serverFactory ServerFactory
-	yamuxConfig   func(*yamux.Config)
+	cfg           Configuration
 }
 
 // NewClientHandshaker returns a new client side implementation of the backchannel. The provided
 // logger is used to log multiplexing errors.
-func NewClientHandshaker(logger *logrus.Entry, serverFactory ServerFactory) ClientHandshaker {
-	return NewClientHandshakerWithYamuxConfig(logger, serverFactory, nil)
-}
-
-// NewClientHandshakerWithYamuxConfig returns a new client side implementation of the
-// backchannel. The provided logger is used to log multiplexing errors.
-// For each connection that we accept, the yamuxConfig callback is
-// invoked to allow yamux configuration overrides. If yamuxConfig is nil
-// it is ignored.
-func NewClientHandshakerWithYamuxConfig(logger *logrus.Entry, serverFactory ServerFactory, yamuxConfig func(*yamux.Config)) ClientHandshaker {
-	return ClientHandshaker{logger: logger, serverFactory: serverFactory, yamuxConfig: yamuxConfig}
+func NewClientHandshaker(logger *logrus.Entry, serverFactory ServerFactory, cfg Configuration) ClientHandshaker {
+	return ClientHandshaker{logger: logger, serverFactory: serverFactory, cfg: cfg}
 }
 
 // ClientHandshake returns TransportCredentials that perform the client side multiplexing handshake and
 // start the backchannel Server on the established connections. The transport credentials are used to intiliaze the
 // connection prior to the multiplexing.
 func (ch ClientHandshaker) ClientHandshake(tc credentials.TransportCredentials) credentials.TransportCredentials {
-	return clientHandshake{TransportCredentials: tc, serverFactory: ch.serverFactory, logger: ch.logger, yamuxConfig: ch.yamuxConfig}
+	return clientHandshake{TransportCredentials: tc, serverFactory: ch.serverFactory, logger: ch.logger, cfg: ch.cfg}
 }
 
 type clientHandshake struct {
 	credentials.TransportCredentials
 	serverFactory ServerFactory
 	logger        *logrus.Entry
-	yamuxConfig   func(*yamux.Config)
+	cfg           Configuration
 }
 
 func (ch clientHandshake) ClientHandshake(ctx context.Context, serverName string, conn net.Conn) (net.Conn, credentials.AuthInfo, error) {
@@ -103,7 +118,7 @@ func (ch clientHandshake) serve(ctx context.Context, conn net.Conn) (net.Conn, e
 	logger := ch.logger.WriterLevel(logrus.ErrorLevel)
 
 	// Initiate the multiplexing session.
-	muxSession, err := yamux.Client(conn, muxConfig(logger, ch.yamuxConfig))
+	muxSession, err := yamux.Client(conn, muxConfig(logger, ch.cfg))
 	if err != nil {
 		logger.Close()
 		return nil, fmt.Errorf("open multiplexing session: %w", err)

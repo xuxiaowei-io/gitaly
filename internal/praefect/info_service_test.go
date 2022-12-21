@@ -82,6 +82,7 @@ func TestInfoService_RepositoryReplicas(t *testing.T) {
 				transaction.NewServer(txManager),
 				sidechannelRegistry,
 			),
+			backchannel.DefaultConfiguration(),
 		),
 		sidechannelRegistry,
 	)

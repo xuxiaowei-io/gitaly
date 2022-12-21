@@ -425,6 +425,7 @@ func TestUserCreateTag_transactional(t *testing.T) {
 				gitalypb.RegisterRefTransactionServer(srv, transactionServer)
 				return srv
 			},
+			backchannel.DefaultConfiguration(),
 		),
 	)
 

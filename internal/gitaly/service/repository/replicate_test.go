@@ -237,6 +237,7 @@ func TestReplicateRepositoryTransactional(t *testing.T) {
 			gitalypb.RegisterRefTransactionServer(srv, &txServer)
 			return srv
 		},
+		backchannel.DefaultConfiguration(),
 	))
 
 	// The first invocation creates the repository via a snapshot given that it doesn't yet

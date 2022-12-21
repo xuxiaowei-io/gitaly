@@ -102,7 +102,7 @@ func (s *ServerHandshaker) Handshake(conn net.Conn, authInfo credentials.AuthInf
 	logger := s.logger.WriterLevel(logrus.ErrorLevel)
 
 	// Open the server side of the multiplexing session.
-	muxSession, err := yamux.Server(conn, muxConfig(logger, nil))
+	muxSession, err := yamux.Server(conn, muxConfig(logger, DefaultConfiguration()))
 	if err != nil {
 		logger.Close()
 		return nil, nil, fmt.Errorf("create multiplexing session: %w", err)
