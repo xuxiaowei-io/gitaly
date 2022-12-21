@@ -1029,120 +1029,304 @@ func errWithDetails(tb testing.TB, err error, details ...proto.Message) error {
 	return detailedErr
 }
 
-func TestUserFFBranch_successful(t *testing.T) {
+func TestUserFFBranch(t *testing.T) {
 	t.Parallel()
+
 	ctx := testhelper.Context(t)
+	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
-	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
-
-	commitID := "cfe32cf61b73a0d5e9f13e774abde7ff789b1660"
-	branchName := "test-ff-target-branch"
-	request := &gitalypb.UserFFBranchRequest{
-		Repository: repo,
-		CommitId:   commitID,
-		Branch:     []byte(branchName),
-		User:       gittest.TestUser,
+	type setupData struct {
+		repoPath         string
+		request          *gitalypb.UserFFBranchRequest
+		expectedResponse *gitalypb.UserFFBranchResponse
 	}
-	expectedResponse := &gitalypb.UserFFBranchResponse{
-		BranchUpdate: &gitalypb.OperationBranchUpdate{
-			RepoCreated:   false,
-			BranchCreated: false,
-			CommitId:      commitID,
-		},
-	}
-
-	gittest.Exec(t, cfg, "-C", repoPath, "branch", "-f", branchName, "6d394385cf567f80a8fd85055db1ab4c5295806f")
-
-	resp, err := client.UserFFBranch(ctx, request)
-	require.NoError(t, err)
-	testhelper.ProtoEqual(t, expectedResponse, resp)
-	newBranchHead := gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", branchName)
-	require.Equal(t, commitID, text.ChompBytes(newBranchHead), "branch head not updated")
-}
-
-func TestUserFFBranch_failure(t *testing.T) {
-	t.Parallel()
-	ctx := testhelper.Context(t)
-
-	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
-
-	commitID := "cfe32cf61b73a0d5e9f13e774abde7ff789b1660"
-	branchName := "test-ff-target-branch"
-
-	gittest.Exec(t, cfg, "-C", repoPath, "branch", "-f", branchName, "6d394385cf567f80a8fd85055db1ab4c5295806f")
 
 	testCases := []struct {
-		desc     string
-		user     *gitalypb.User
-		branch   []byte
-		commitID string
-		repo     *gitalypb.Repository
-		code     codes.Code
+		desc        string
+		setup       func(t *testing.T, ctx context.Context) setupData
+		expectedErr error
 	}{
 		{
-			desc:     "empty repository",
-			user:     gittest.TestUser,
-			branch:   []byte(branchName),
-			commitID: commitID,
-			code:     codes.InvalidArgument,
+			desc: "successful",
+			setup: func(t *testing.T, ctx context.Context) setupData {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				firstCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
+				commitToMerge := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(firstCommit))
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.UserFFBranchRequest{
+						Repository: repoProto,
+						User:       gittest.TestUser,
+						CommitId:   commitToMerge.String(),
+						Branch:     []byte("master"),
+					},
+					expectedResponse: &gitalypb.UserFFBranchResponse{
+						BranchUpdate: &gitalypb.OperationBranchUpdate{
+							CommitId: commitToMerge.String(),
+						},
+					},
+				}
+			},
+			expectedErr: nil,
 		},
 		{
-			desc:     "empty user",
-			repo:     repo,
-			branch:   []byte(branchName),
-			commitID: commitID,
-			code:     codes.InvalidArgument,
+			desc: "successful + expectedOldOID",
+			setup: func(t *testing.T, ctx context.Context) setupData {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				firstCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
+				commitToMerge := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(firstCommit))
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.UserFFBranchRequest{
+						Repository:     repoProto,
+						User:           gittest.TestUser,
+						CommitId:       commitToMerge.String(),
+						Branch:         []byte("master"),
+						ExpectedOldOid: string(firstCommit),
+					},
+					expectedResponse: &gitalypb.UserFFBranchResponse{
+						BranchUpdate: &gitalypb.OperationBranchUpdate{
+							CommitId: commitToMerge.String(),
+						},
+					},
+				}
+			},
+			expectedErr: nil,
 		},
 		{
-			desc:   "empty commit",
-			repo:   repo,
-			user:   gittest.TestUser,
-			branch: []byte(branchName),
-			code:   codes.InvalidArgument,
+			desc: "empty repository",
+			setup: func(t *testing.T, ctx context.Context) setupData {
+				_, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				firstCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
+				commitToMerge := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(firstCommit))
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.UserFFBranchRequest{
+						User:     gittest.TestUser,
+						CommitId: commitToMerge.String(),
+						Branch:   []byte("master"),
+					},
+				}
+			},
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect("empty Repository", "repo scoped: empty Repository")),
 		},
 		{
-			desc:     "non-existing commit",
-			repo:     repo,
-			user:     gittest.TestUser,
-			branch:   []byte(branchName),
-			commitID: "f001",
-			code:     codes.InvalidArgument,
+			desc: "empty user",
+			setup: func(t *testing.T, ctx context.Context) setupData {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				firstCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
+				commitToMerge := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(firstCommit))
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.UserFFBranchRequest{
+						Repository: repoProto,
+						CommitId:   commitToMerge.String(),
+						Branch:     []byte("master"),
+					},
+				}
+			},
+			expectedErr: structerr.NewInvalidArgument("empty user"),
 		},
 		{
-			desc:     "empty branch",
-			repo:     repo,
-			user:     gittest.TestUser,
-			commitID: commitID,
-			code:     codes.InvalidArgument,
+			desc: "empty commit",
+			setup: func(t *testing.T, ctx context.Context) setupData {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				firstCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(firstCommit))
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.UserFFBranchRequest{
+						Repository: repoProto,
+						User:       gittest.TestUser,
+						Branch:     []byte("master"),
+					},
+				}
+			},
+			expectedErr: structerr.NewInvalidArgument("empty commit id"),
 		},
 		{
-			desc:     "non-existing branch",
-			repo:     repo,
-			user:     gittest.TestUser,
-			branch:   []byte("this-isnt-real"),
-			commitID: commitID,
-			code:     codes.InvalidArgument,
+			desc: "non-existing commit",
+			setup: func(t *testing.T, ctx context.Context) setupData {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				firstCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(firstCommit))
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.UserFFBranchRequest{
+						Repository: repoProto,
+						User:       gittest.TestUser,
+						CommitId:   gittest.DefaultObjectHash.ZeroOID.String(),
+						Branch:     []byte("master"),
+					},
+				}
+			},
+			expectedErr: structerr.NewInternal(`checking for ancestry: invalid commit: "%s"`, gittest.DefaultObjectHash.ZeroOID),
 		},
 		{
-			desc:     "commit is not a descendant of branch head",
-			repo:     repo,
-			user:     gittest.TestUser,
-			branch:   []byte(branchName),
-			commitID: "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863",
-			code:     codes.FailedPrecondition,
+			desc: "empty branch",
+			setup: func(t *testing.T, ctx context.Context) setupData {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				firstCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
+				commitToMerge := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(firstCommit))
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.UserFFBranchRequest{
+						Repository: repoProto,
+						CommitId:   commitToMerge.String(),
+						User:       gittest.TestUser,
+					},
+				}
+			},
+			expectedErr: structerr.NewInvalidArgument("empty branch name"),
+		},
+		{
+			desc: "non-existing branch",
+			setup: func(t *testing.T, ctx context.Context) setupData {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				firstCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
+				commitToMerge := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(firstCommit))
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.UserFFBranchRequest{
+						Repository: repoProto,
+						CommitId:   commitToMerge.String(),
+						User:       gittest.TestUser,
+						Branch:     []byte("main"),
+					},
+				}
+			},
+			expectedErr: structerr.NewInvalidArgument("reference not found"),
+		},
+		{
+			desc: "commit is not a descendant of branch head",
+			setup: func(t *testing.T, ctx context.Context) setupData {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
+				commitToMerge := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "file", Mode: "100644", Content: "something"},
+				))
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.UserFFBranchRequest{
+						Repository: repoProto,
+						CommitId:   commitToMerge.String(),
+						User:       gittest.TestUser,
+						Branch:     []byte("master"),
+					},
+				}
+			},
+			expectedErr: structerr.NewFailedPrecondition("not fast forward"),
+		},
+		{
+			desc: "invalid expectedOldOID",
+			setup: func(t *testing.T, ctx context.Context) setupData {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				firstCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
+				commitToMerge := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(firstCommit))
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.UserFFBranchRequest{
+						Repository:     repoProto,
+						CommitId:       commitToMerge.String(),
+						User:           gittest.TestUser,
+						Branch:         []byte("master"),
+						ExpectedOldOid: "foobar",
+					},
+				}
+			},
+			expectedErr: structerr.NewInvalidArgument(`invalid expected old object ID: invalid object ID: "foobar"`),
+		},
+		{
+			desc: "valid SHA, but not existing expectedOldOID",
+			setup: func(t *testing.T, ctx context.Context) setupData {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				firstCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
+				commitToMerge := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(firstCommit))
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.UserFFBranchRequest{
+						Repository:     repoProto,
+						CommitId:       commitToMerge.String(),
+						User:           gittest.TestUser,
+						Branch:         []byte("master"),
+						ExpectedOldOid: gittest.DefaultObjectHash.ZeroOID.String(),
+					},
+				}
+			},
+			expectedErr: structerr.NewInvalidArgument("cannot resolve expected old object ID: reference not found"),
+		},
+		{
+			desc: "expectedOldOID pointing to old commit",
+			setup: func(t *testing.T, ctx context.Context) setupData {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				firstCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "bar", Mode: "100644", Content: "something"},
+				))
+				secondCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithParents(firstCommit),
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{Path: "foo", Mode: "100644", Content: "something"},
+					),
+				)
+				commitToMerge := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(secondCommit), gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "goo", Mode: "100644", Content: "something"},
+				))
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.UserFFBranchRequest{
+						Repository:     repoProto,
+						CommitId:       commitToMerge.String(),
+						User:           gittest.TestUser,
+						Branch:         []byte("master"),
+						ExpectedOldOid: firstCommit.String(),
+					},
+					// empty response is the expected (legacy) behavior when we fail to
+					// update the ref.
+					expectedResponse: &gitalypb.UserFFBranchResponse{},
+				}
+			},
 		},
 	}
 
-	for _, testCase := range testCases {
-		t.Run(testCase.desc, func(t *testing.T) {
-			request := &gitalypb.UserFFBranchRequest{
-				Repository: testCase.repo,
-				User:       testCase.user,
-				Branch:     testCase.branch,
-				CommitId:   testCase.commitID,
+	for _, tc := range testCases {
+		tc := tc
+
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			data := tc.setup(t, ctx)
+
+			resp, err := client.UserFFBranch(ctx, data.request)
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
+			testhelper.ProtoEqual(t, data.expectedResponse, resp)
+
+			if data.expectedResponse != nil && data.expectedResponse.BranchUpdate != nil {
+				newBranchHead := text.ChompBytes(gittest.Exec(t, cfg, "-C", data.repoPath, "rev-parse", string(data.request.Branch)))
+				require.Equal(t, data.request.CommitId, newBranchHead, "branch head not updated")
 			}
-			_, err := client.UserFFBranch(ctx, request)
-			testhelper.RequireGrpcCode(t, err, testCase.code)
 		})
 	}
 }
