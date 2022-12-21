@@ -123,7 +123,7 @@ func pktLineSplitter(data []byte, atEOF bool) (advance int, token []byte, err er
 	// Cast is safe because we requested an int-size number from strconv.ParseInt
 	pktLength := int(pktLength64)
 
-	if pktLength < 0 {
+	if pktLength < 0 || pktLength > MaxPktSize {
 		return 0, nil, fmt.Errorf("pktLineSplitter: invalid length: %d", pktLength)
 	}
 
