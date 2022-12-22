@@ -3,270 +3,432 @@
 package repository
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
-func TestFetchSourceBranchSourceRepositorySuccess(t *testing.T) {
+func TestFetchSourceBranch(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, sourceRepo, sourcePath, client := setupRepositoryService(t, ctx)
 
-	md := testcfg.GitalyServersMetadataFromCfg(t, cfg)
-	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
-
-	targetRepoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
-	targetRepo := localrepo.NewTestRepo(t, cfg, targetRepoProto)
-
-	sourceBranch := "fetch-source-branch-test-branch"
-	newCommitID := gittest.WriteCommit(t, cfg, sourcePath, gittest.WithBranch(sourceBranch))
-
-	targetRef := "refs/tmp/fetch-source-branch-test"
-	req := &gitalypb.FetchSourceBranchRequest{
-		Repository:       targetRepoProto,
-		SourceRepository: sourceRepo,
-		SourceBranch:     []byte(sourceBranch),
-		TargetRef:        []byte(targetRef),
+	type setupData struct {
+		cfg     config.Cfg
+		client  gitalypb.RepositoryServiceClient
+		request *gitalypb.FetchSourceBranchRequest
+		verify  func()
 	}
 
-	resp, err := client.FetchSourceBranch(ctx, req)
-	require.NoError(t, err)
-	require.True(t, resp.Result, "response.Result should be true")
-
-	fetchedCommit, err := targetRepo.ReadCommit(ctx, git.Revision(targetRef))
-	require.NoError(t, err)
-	require.Equal(t, newCommitID.String(), fetchedCommit.GetId())
-}
-
-func TestFetchSourceBranchSameRepositorySuccess(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	cfg, repoProto, repoPath, client := setupRepositoryService(t, ctx)
-
-	md := testcfg.GitalyServersMetadataFromCfg(t, cfg)
-	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
-
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-	sourceBranch := "fetch-source-branch-test-branch"
-	newCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(sourceBranch))
-
-	targetRef := "refs/tmp/fetch-source-branch-test"
-	req := &gitalypb.FetchSourceBranchRequest{
-		Repository:       repoProto,
-		SourceRepository: repoProto,
-		SourceBranch:     []byte(sourceBranch),
-		TargetRef:        []byte(targetRef),
-	}
-
-	resp, err := client.FetchSourceBranch(ctx, req)
-	require.NoError(t, err)
-	require.True(t, resp.Result, "response.Result should be true")
-
-	fetchedCommit, err := repo.ReadCommit(ctx, git.Revision(targetRef))
-	require.NoError(t, err)
-	require.Equal(t, newCommitID.String(), fetchedCommit.GetId())
-}
-
-func TestFetchSourceBranchBranchNotFound(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	cfg, targetRepo, _, client := setupRepositoryService(t, ctx)
-
-	md := testcfg.GitalyServersMetadataFromCfg(t, cfg)
-	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
-
-	sourceRepo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
-
-	sourceBranch := "does-not-exist"
-	targetRef := "refs/tmp/fetch-source-branch-test"
-
-	testCases := []struct {
-		req  *gitalypb.FetchSourceBranchRequest
-		desc string
+	for _, tc := range []struct {
+		desc             string
+		setup            func(t *testing.T) setupData
+		expectedResponse *gitalypb.FetchSourceBranchResponse
+		expectedErr      error
 	}{
 		{
-			desc: "target different from source",
-			req: &gitalypb.FetchSourceBranchRequest{
-				Repository:       targetRepo,
-				SourceRepository: sourceRepo,
-				SourceBranch:     []byte(sourceBranch),
-				TargetRef:        []byte(targetRef),
+			desc: "success",
+			setup: func(t *testing.T) setupData {
+				cfg, client := setupRepositoryServiceWithoutRepo(t)
+
+				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				commitID := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("master"))
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					cfg:    cfg,
+					client: client,
+					request: &gitalypb.FetchSourceBranchRequest{
+						Repository:       repoProto,
+						SourceRepository: sourceRepoProto,
+						SourceBranch:     []byte("master"),
+						TargetRef:        []byte("refs/tmp/fetch-source-branch-test"),
+					},
+					verify: func() {
+						actualCommitID := gittest.ResolveRevision(t, cfg, repoPath, "refs/tmp/fetch-source-branch-test")
+						require.Equal(t, commitID, actualCommitID)
+					},
+				}
 			},
+			expectedResponse: &gitalypb.FetchSourceBranchResponse{Result: true},
 		},
 		{
-			desc: "target same as source",
-			req: &gitalypb.FetchSourceBranchRequest{
-				Repository:       sourceRepo,
-				SourceRepository: sourceRepo,
-				SourceBranch:     []byte(sourceBranch),
-				TargetRef:        []byte(targetRef),
+			desc: "success + same repository",
+			setup: func(t *testing.T) setupData {
+				cfg, client := setupRepositoryServiceWithoutRepo(t)
+
+				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				commitID := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("master"))
+
+				return setupData{
+					cfg:    cfg,
+					client: client,
+					request: &gitalypb.FetchSourceBranchRequest{
+						Repository:       sourceRepoProto,
+						SourceRepository: sourceRepoProto,
+						SourceBranch:     []byte("master"),
+						TargetRef:        []byte("refs/tmp/fetch-source-branch-test"),
+					},
+					verify: func() {
+						actualCommitID := gittest.ResolveRevision(t, cfg, sourceRepoPath, "refs/tmp/fetch-source-branch-test")
+						require.Equal(t, commitID, actualCommitID)
+					},
+				}
 			},
+			expectedResponse: &gitalypb.FetchSourceBranchResponse{Result: true},
 		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.desc, func(t *testing.T) {
-			resp, err := client.FetchSourceBranch(ctx, tc.req)
-			require.NoError(t, err)
-			require.False(t, resp.Result, "response.Result should be false")
-		})
-	}
-}
-
-func TestFetchSourceBranch_validate(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	cfg, targetRepo, _, client := setupRepositoryService(t, ctx)
-
-	md := testcfg.GitalyServersMetadataFromCfg(t, cfg)
-	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
-
-	sourceRepo, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
-
-	sourceBranch := "fetch-source-branch-testmas-branch"
-	gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch(sourceBranch))
-
-	targetRef := "refs/tmp/fetch-source-branch-test"
-
-	testCases := []struct {
-		desc        string
-		req         *gitalypb.FetchSourceBranchRequest
-		expectedErr error
-	}{
 		{
-			desc: "no repository provided",
-			req:  &gitalypb.FetchSourceBranchRequest{Repository: nil},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			desc: "failure due to branch not found",
+			setup: func(t *testing.T) setupData {
+				cfg, client := setupRepositoryServiceWithoutRepo(t)
+
+				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				gittest.WriteCommit(t, cfg, sourceRepoPath)
+				repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					cfg:    cfg,
+					client: client,
+					request: &gitalypb.FetchSourceBranchRequest{
+						Repository:       repoProto,
+						SourceRepository: sourceRepoProto,
+						SourceBranch:     []byte("master"),
+						TargetRef:        []byte("refs/tmp/fetch-source-branch-test"),
+					},
+				}
+			},
+			expectedResponse: &gitalypb.FetchSourceBranchResponse{Result: false},
+		},
+		{
+			desc: "failure due to branch not found (same repo)",
+			setup: func(t *testing.T) setupData {
+				cfg, client := setupRepositoryServiceWithoutRepo(t)
+
+				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				gittest.WriteCommit(t, cfg, sourceRepoPath)
+
+				return setupData{
+					cfg:    cfg,
+					client: client,
+					request: &gitalypb.FetchSourceBranchRequest{
+						Repository:       sourceRepoProto,
+						SourceRepository: sourceRepoProto,
+						SourceBranch:     []byte("master"),
+						TargetRef:        []byte("refs/tmp/fetch-source-branch-test"),
+					},
+				}
+			},
+			expectedResponse: &gitalypb.FetchSourceBranchResponse{Result: false},
+		},
+		{
+			desc: "failure due to no repository provided",
+			setup: func(t *testing.T) setupData {
+				cfg, client := setupRepositoryServiceWithoutRepo(t)
+
+				sourceRepoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					cfg:    cfg,
+					client: client,
+					request: &gitalypb.FetchSourceBranchRequest{
+						SourceRepository: sourceRepoProto,
+						SourceBranch:     []byte("master"),
+						TargetRef:        []byte("refs/tmp/fetch-source-branch-test"),
+					},
+				}
+			},
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
 		},
 		{
-			desc: "source branch empty",
-			req: &gitalypb.FetchSourceBranchRequest{
-				Repository:       targetRepo,
-				SourceRepository: sourceRepo,
-				SourceBranch:     []byte(""),
-				TargetRef:        []byte(targetRef),
-			},
-			expectedErr: status.Error(codes.InvalidArgument, "empty revision"),
-		},
-		{
-			desc: "source branch blank",
-			req: &gitalypb.FetchSourceBranchRequest{
-				Repository:       targetRepo,
-				SourceRepository: sourceRepo,
-				SourceBranch:     []byte("   "),
-				TargetRef:        []byte(targetRef),
-			},
-			expectedErr: status.Error(codes.InvalidArgument, "revision can't contain whitespace"),
-		},
-		{
-			desc: "source branch starts with -",
-			req: &gitalypb.FetchSourceBranchRequest{
-				Repository:       targetRepo,
-				SourceRepository: sourceRepo,
-				SourceBranch:     []byte("-ref"),
-				TargetRef:        []byte(targetRef),
-			},
-			expectedErr: status.Error(codes.InvalidArgument, "revision can't start with '-'"),
-		},
-		{
-			desc: "source branch with :",
-			req: &gitalypb.FetchSourceBranchRequest{
-				Repository:       targetRepo,
-				SourceRepository: sourceRepo,
-				SourceBranch:     []byte("some:ref"),
-				TargetRef:        []byte(targetRef),
-			},
-			expectedErr: status.Error(codes.InvalidArgument, "revision can't contain ':'"),
-		},
-		{
-			desc: "source branch with NULL",
-			req: &gitalypb.FetchSourceBranchRequest{
-				Repository:       targetRepo,
-				SourceRepository: sourceRepo,
-				SourceBranch:     []byte("some\x00ref"),
-				TargetRef:        []byte(targetRef),
-			},
-			expectedErr: status.Error(codes.InvalidArgument, "revision can't contain NUL"),
-		},
-		{
-			desc: "target branch empty",
-			req: &gitalypb.FetchSourceBranchRequest{
-				Repository:       targetRepo,
-				SourceRepository: sourceRepo,
-				SourceBranch:     []byte(sourceBranch),
-				TargetRef:        []byte(""),
-			},
-			expectedErr: status.Error(codes.InvalidArgument, "empty revision"),
-		},
-		{
-			desc: "target branch blank",
-			req: &gitalypb.FetchSourceBranchRequest{
-				Repository:       targetRepo,
-				SourceRepository: sourceRepo,
-				SourceBranch:     []byte(sourceBranch),
-				TargetRef:        []byte("   "),
-			},
-			expectedErr: status.Error(codes.InvalidArgument, "revision can't contain whitespace"),
-		},
-		{
-			desc: "target branch starts with -",
-			req: &gitalypb.FetchSourceBranchRequest{
-				Repository:       targetRepo,
-				SourceRepository: sourceRepo,
-				SourceBranch:     []byte(sourceBranch),
-				TargetRef:        []byte("-ref"),
-			},
-			expectedErr: status.Error(codes.InvalidArgument, "revision can't start with '-'"),
-		},
-		{
-			desc: "target branch with :",
-			req: &gitalypb.FetchSourceBranchRequest{
-				Repository:       targetRepo,
-				SourceRepository: sourceRepo,
-				SourceBranch:     []byte(sourceBranch),
-				TargetRef:        []byte("some:ref"),
-			},
-			expectedErr: status.Error(codes.InvalidArgument, "revision can't contain ':'"),
-		},
-		{
-			desc: "target branch with NULL",
-			req: &gitalypb.FetchSourceBranchRequest{
-				Repository:       targetRepo,
-				SourceRepository: sourceRepo,
-				SourceBranch:     []byte(sourceBranch),
-				TargetRef:        []byte("some\x00ref"),
-			},
-			expectedErr: status.Error(codes.InvalidArgument, "revision can't contain NUL"),
-		},
-	}
+			desc: "failure due to no source branch",
+			setup: func(t *testing.T) setupData {
+				cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	for _, tc := range testCases {
+				sourceRepoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					cfg:    cfg,
+					client: client,
+					request: &gitalypb.FetchSourceBranchRequest{
+						Repository:       repoProto,
+						SourceRepository: sourceRepoProto,
+						TargetRef:        []byte("refs/tmp/fetch-source-branch-test"),
+					},
+				}
+			},
+			expectedErr: structerr.NewInvalidArgument("empty revision"),
+		},
+		{
+			desc: "failure due to blanks in source branch",
+			setup: func(t *testing.T) setupData {
+				cfg, client := setupRepositoryServiceWithoutRepo(t)
+
+				sourceRepoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					cfg:    cfg,
+					client: client,
+					request: &gitalypb.FetchSourceBranchRequest{
+						Repository:       repoProto,
+						SourceBranch:     []byte("   "),
+						SourceRepository: sourceRepoProto,
+						TargetRef:        []byte("refs/tmp/fetch-source-branch-test"),
+					},
+				}
+			},
+			expectedErr: structerr.NewInvalidArgument("revision can't contain whitespace"),
+		},
+		{
+			desc: "failure due to source branch starting with -",
+			setup: func(t *testing.T) setupData {
+				cfg, client := setupRepositoryServiceWithoutRepo(t)
+
+				sourceRepoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					cfg:    cfg,
+					client: client,
+					request: &gitalypb.FetchSourceBranchRequest{
+						Repository:       repoProto,
+						SourceBranch:     []byte("-ref"),
+						SourceRepository: sourceRepoProto,
+						TargetRef:        []byte("refs/tmp/fetch-source-branch-test"),
+					},
+				}
+			},
+			expectedErr: structerr.NewInvalidArgument("revision can't start with '-'"),
+		},
+		{
+			desc: "failure due to source branch with :",
+			setup: func(t *testing.T) setupData {
+				cfg, client := setupRepositoryServiceWithoutRepo(t)
+
+				sourceRepoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					cfg:    cfg,
+					client: client,
+					request: &gitalypb.FetchSourceBranchRequest{
+						Repository:       repoProto,
+						SourceBranch:     []byte("some:ref"),
+						SourceRepository: sourceRepoProto,
+						TargetRef:        []byte("refs/tmp/fetch-source-branch-test"),
+					},
+				}
+			},
+			expectedErr: structerr.NewInvalidArgument("revision can't contain ':'"),
+		},
+		{
+			desc: "failure due to source branch with NUL",
+			setup: func(t *testing.T) setupData {
+				cfg, client := setupRepositoryServiceWithoutRepo(t)
+
+				sourceRepoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					cfg:    cfg,
+					client: client,
+					request: &gitalypb.FetchSourceBranchRequest{
+						Repository:       repoProto,
+						SourceBranch:     []byte("some\x00ref"),
+						SourceRepository: sourceRepoProto,
+						TargetRef:        []byte("refs/tmp/fetch-source-branch-test"),
+					},
+				}
+			},
+			expectedErr: structerr.NewInvalidArgument("revision can't contain NUL"),
+		},
+		{
+			desc: "failure due to no target ref",
+			setup: func(t *testing.T) setupData {
+				cfg, client := setupRepositoryServiceWithoutRepo(t)
+
+				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("master"))
+				repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					cfg:    cfg,
+					client: client,
+					request: &gitalypb.FetchSourceBranchRequest{
+						Repository:       repoProto,
+						SourceBranch:     []byte("master"),
+						SourceRepository: sourceRepoProto,
+					},
+				}
+			},
+			expectedErr: structerr.NewInvalidArgument("empty revision"),
+		},
+		{
+			desc: "failure due to blanks in target ref",
+			setup: func(t *testing.T) setupData {
+				cfg, client := setupRepositoryServiceWithoutRepo(t)
+
+				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("master"))
+				repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					cfg:    cfg,
+					client: client,
+					request: &gitalypb.FetchSourceBranchRequest{
+						Repository:       repoProto,
+						SourceBranch:     []byte("master"),
+						SourceRepository: sourceRepoProto,
+						TargetRef:        []byte("   "),
+					},
+				}
+			},
+			expectedErr: structerr.NewInvalidArgument("revision can't contain whitespace"),
+		},
+		{
+			desc: "failure due to target ref starting with -",
+			setup: func(t *testing.T) setupData {
+				cfg, client := setupRepositoryServiceWithoutRepo(t)
+
+				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("master"))
+				repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					cfg:    cfg,
+					client: client,
+					request: &gitalypb.FetchSourceBranchRequest{
+						Repository:       repoProto,
+						SourceBranch:     []byte("master"),
+						SourceRepository: sourceRepoProto,
+						TargetRef:        []byte("-ref"),
+					},
+				}
+			},
+			expectedErr: structerr.NewInvalidArgument("revision can't start with '-'"),
+		},
+		{
+			desc: "failure due to target ref with :",
+			setup: func(t *testing.T) setupData {
+				cfg, client := setupRepositoryServiceWithoutRepo(t)
+
+				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("master"))
+				repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					cfg:    cfg,
+					client: client,
+					request: &gitalypb.FetchSourceBranchRequest{
+						Repository:       repoProto,
+						SourceBranch:     []byte("master"),
+						SourceRepository: sourceRepoProto,
+						TargetRef:        []byte("some:ref"),
+					},
+				}
+			},
+			expectedErr: structerr.NewInvalidArgument("revision can't contain ':'"),
+		},
+		{
+			desc: "failure due to target ref with NUL",
+			setup: func(t *testing.T) setupData {
+				cfg, client := setupRepositoryServiceWithoutRepo(t)
+
+				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("master"))
+				repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					cfg:    cfg,
+					client: client,
+					request: &gitalypb.FetchSourceBranchRequest{
+						Repository:       repoProto,
+						SourceBranch:     []byte("master"),
+						SourceRepository: sourceRepoProto,
+						TargetRef:        []byte("some\x00ref"),
+					},
+				}
+			},
+			expectedErr: structerr.NewInvalidArgument("revision can't contain NUL"),
+		},
+		{
+			desc: "failure during/after fetch doesn't clean out fetched objects",
+			setup: func(t *testing.T) setupData {
+				cfg := testcfg.Build(t)
+
+				testcfg.BuildGitalyHooks(t, cfg)
+				testcfg.BuildGitalySSH(t, cfg)
+
+				// We simulate a failed fetch where we actually fetch but just exit
+				// with status 1, this will actually fetch the refs but gitaly will think
+				// git failed.
+				gitCmdFactory := gittest.NewInterceptingCommandFactory(t, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
+					return fmt.Sprintf(`#!/bin/bash
+						if [[ "$@" =~ "fetch" ]]; then
+							%q "$@"
+							exit 1
+						fi
+						exec %q "$@"`, execEnv.BinaryPath, execEnv.BinaryPath)
+				})
+
+				client, serverSocketPath := runRepositoryService(t, cfg, nil, testserver.WithGitCommandFactory(gitCmdFactory))
+				cfg.SocketPath = serverSocketPath
+
+				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				commitID := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("master"))
+				repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					cfg:    cfg,
+					client: client,
+					request: &gitalypb.FetchSourceBranchRequest{
+						Repository:       repoProto,
+						SourceRepository: sourceRepoProto,
+						SourceBranch:     []byte("master"),
+						TargetRef:        []byte("refs/tmp/fetch-source-branch-test"),
+					},
+					verify: func() {
+						repo := localrepo.NewTestRepo(t, cfg, repoProto)
+						exists, err := repo.HasRevision(ctx, commitID.Revision()+"^{commit}")
+						require.NoError(t, err)
+						// TODO: This should be fixed in:
+						// https://gitlab.com/gitlab-org/gitaly/-/issues/4520
+						require.True(t, exists, "fetched commit isn't discarded")
+					},
+				}
+			},
+			expectedResponse: &gitalypb.FetchSourceBranchResponse{Result: false},
+		},
+	} {
+		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
-			_, err := client.FetchSourceBranch(ctx, tc.req)
+			data := tc.setup(t)
+
+			md := testcfg.GitalyServersMetadataFromCfg(t, data.cfg)
+			ctx := testhelper.MergeOutgoingMetadata(ctx, md)
+
+			resp, err := data.client.FetchSourceBranch(ctx, data.request)
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
+
+			if data.verify != nil {
+				data.verify()
+			}
+			testhelper.ProtoEqual(t, tc.expectedResponse, resp)
 		})
 	}
 }
