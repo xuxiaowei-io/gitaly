@@ -56,77 +56,7 @@ func (s *server) FindLicense(ctx context.Context, req *gitalypb.FindLicenseReque
 			return nil, structerr.NewInternal("cannot find HEAD revision: %v", err)
 		}
 
-		repoFiler := &gitFiler{ctx: ctx, repo: repo, treeishID: headOID}
-		detectedLicenses, err := licensedb.Detect(repoFiler)
-		if err != nil {
-			if errors.Is(err, licensedb.ErrNoLicenseFound) {
-				if repoFiler.foundLicense {
-					// In case the license is not identified, but a file containing some
-					// sort of license is found, we return a predefined response.
-					return &gitalypb.FindLicenseResponse{
-						LicenseName:      "Other",
-						LicenseShortName: "other",
-						LicenseNickname:  "LICENSE", // Show as LICENSE in the UI
-						LicensePath:      repoFiler.path,
-					}, nil
-				}
-				return &gitalypb.FindLicenseResponse{}, nil
-			}
-			return nil, structerr.NewInternal("detect licenses: %w", err)
-		}
-
-		// This should not happen as the error must be returned, but let's keep it safe to avoid panics.
-		if len(detectedLicenses) == 0 {
-			return &gitalypb.FindLicenseResponse{}, nil
-		}
-
-		type bestMatch struct {
-			shortName string
-			api.Match
-		}
-		bestMatches := make([]bestMatch, 0, len(detectedLicenses))
-		for candidate, match := range detectedLicenses {
-			bestMatches = append(bestMatches, bestMatch{Match: match, shortName: candidate})
-		}
-		sort.Slice(bestMatches, func(i, j int) bool {
-			// Because there could be multiple matches with the same confidence, we need
-			// to make sure the function is consistent and returns the same license on
-			// each invocation. That is why we sort by the short name as well.
-			if bestMatches[i].Confidence == bestMatches[j].Confidence {
-				return trimDeprecatedPrefix(bestMatches[i].shortName) < trimDeprecatedPrefix(bestMatches[j].shortName)
-			}
-			return bestMatches[i].Confidence > bestMatches[j].Confidence
-		})
-
-		// We also don't want to return the prefix back to the caller if it exists.
-		shortName := trimDeprecatedPrefix(bestMatches[0].shortName)
-
-		name, err := licensedb.LicenseName(shortName)
-		if err != nil {
-			return nil, structerr.NewInternal("license name by id %q: %w", shortName, err)
-		}
-
-		urls, err := licensedb.LicenseURLs(shortName)
-		if err != nil {
-			return nil, structerr.NewInternal("license URLs by id %q: %w", shortName, err)
-		}
-		var url string
-		if len(urls) > 0 {
-			// The URL list is returned in an ordered slice, so we just pick up the first one from the list.
-			url = urls[0]
-		}
-
-		// The license identifier used by `github.com/go-enry/go-license-detector` is
-		// case-sensitive, but the API requires all license identifiers to be lower-cased.
-		shortName = strings.ToLower(shortName)
-		nickname := nicknameByLicenseIdentifier[shortName]
-		return &gitalypb.FindLicenseResponse{
-			LicenseShortName: shortName,
-			LicensePath:      bestMatches[0].File,
-			LicenseName:      name,
-			LicenseUrl:       url,
-			LicenseNickname:  nickname,
-		}, nil
+		return findLicense(ctx, repo, headOID)
 	}
 
 	client, err := s.ruby.RepositoryServiceClient(ctx)
@@ -138,6 +68,80 @@ func (s *server) FindLicense(ctx context.Context, req *gitalypb.FindLicenseReque
 		return nil, err
 	}
 	return client.FindLicense(clientCtx, req)
+}
+
+func findLicense(ctx context.Context, repo *localrepo.Repo, commitID git.ObjectID) (*gitalypb.FindLicenseResponse, error) {
+	repoFiler := &gitFiler{ctx: ctx, repo: repo, treeishID: commitID}
+	detectedLicenses, err := licensedb.Detect(repoFiler)
+	if err != nil {
+		if errors.Is(err, licensedb.ErrNoLicenseFound) {
+			if repoFiler.foundLicense {
+				// In case the license is not identified, but a file containing some
+				// sort of license is found, we return a predefined response.
+				return &gitalypb.FindLicenseResponse{
+					LicenseName:      "Other",
+					LicenseShortName: "other",
+					LicenseNickname:  "LICENSE", // Show as LICENSE in the UI
+					LicensePath:      repoFiler.path,
+				}, nil
+			}
+			return &gitalypb.FindLicenseResponse{}, nil
+		}
+		return nil, structerr.NewInternal("detect licenses: %w", err)
+	}
+
+	// This should not happen as the error must be returned, but let's keep it safe to avoid panics.
+	if len(detectedLicenses) == 0 {
+		return &gitalypb.FindLicenseResponse{}, nil
+	}
+
+	type bestMatch struct {
+		shortName string
+		api.Match
+	}
+	bestMatches := make([]bestMatch, 0, len(detectedLicenses))
+	for candidate, match := range detectedLicenses {
+		bestMatches = append(bestMatches, bestMatch{Match: match, shortName: candidate})
+	}
+	sort.Slice(bestMatches, func(i, j int) bool {
+		// Because there could be multiple matches with the same confidence, we need
+		// to make sure the function is consistent and returns the same license on
+		// each invocation. That is why we sort by the short name as well.
+		if bestMatches[i].Confidence == bestMatches[j].Confidence {
+			return trimDeprecatedPrefix(bestMatches[i].shortName) < trimDeprecatedPrefix(bestMatches[j].shortName)
+		}
+		return bestMatches[i].Confidence > bestMatches[j].Confidence
+	})
+
+	// We also don't want to return the prefix back to the caller if it exists.
+	shortName := trimDeprecatedPrefix(bestMatches[0].shortName)
+
+	name, err := licensedb.LicenseName(shortName)
+	if err != nil {
+		return nil, structerr.NewInternal("license name by id %q: %w", shortName, err)
+	}
+
+	urls, err := licensedb.LicenseURLs(shortName)
+	if err != nil {
+		return nil, structerr.NewInternal("license URLs by id %q: %w", shortName, err)
+	}
+	var url string
+	if len(urls) > 0 {
+		// The URL list is returned in an ordered slice, so we just pick up the first one from the list.
+		url = urls[0]
+	}
+
+	// The license identifier used by `github.com/go-enry/go-license-detector` is
+	// case-sensitive, but the API requires all license identifiers to be lower-cased.
+	shortName = strings.ToLower(shortName)
+	nickname := nicknameByLicenseIdentifier[shortName]
+	return &gitalypb.FindLicenseResponse{
+		LicenseShortName: shortName,
+		LicensePath:      bestMatches[0].File,
+		LicenseName:      name,
+		LicenseUrl:       url,
+		LicenseNickname:  nickname,
+	}, nil
 }
 
 // For the deprecated licenses, the `github.com/go-enry/go-license-detector` package
