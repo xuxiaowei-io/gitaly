@@ -20,6 +20,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/unarycache"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -40,6 +41,14 @@ var nicknameByLicenseIdentifier = map[string]string{
 	"gpl-2.0":            "GNU GPLv2",
 }
 
+func newLicenseCache() *unarycache.Cache[git.ObjectID, *gitalypb.FindLicenseResponse] {
+	cache, err := unarycache.New(100, findLicense)
+	if err != nil {
+		panic(err)
+	}
+	return cache
+}
+
 func (s *server) FindLicense(ctx context.Context, req *gitalypb.FindLicenseRequest) (*gitalypb.FindLicenseResponse, error) {
 	repository := req.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
@@ -56,7 +65,12 @@ func (s *server) FindLicense(ctx context.Context, req *gitalypb.FindLicenseReque
 			return nil, structerr.NewInternal("cannot find HEAD revision: %v", err)
 		}
 
-		return findLicense(ctx, repo, headOID)
+		response, err := s.licenseCache.GetOrCompute(ctx, repo, headOID)
+		if err != nil {
+			return nil, err
+		}
+
+		return response, nil
 	}
 
 	client, err := s.ruby.RepositoryServiceClient(ctx)
