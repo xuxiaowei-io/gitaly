@@ -1,4 +1,4 @@
-package tree
+package localrepo
 
 import (
 	"bytes"
@@ -6,13 +6,12 @@ import (
 	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 )
 
 // Write writes a new tree object to the given path. This function does not verify whether OIDs
 // referred to by tree entries actually exist in the repository.
-func Write(ctx context.Context, repo *localrepo.Repo, entries []*Entry) (git.ObjectID, error) {
+func (r *localrepo) Write(ctx context.Context, entries []*git.TreeEntry) (git.ObjectID, error) {
 	var tree bytes.Buffer
 	for _, entry := range entries {
 		var entryType string

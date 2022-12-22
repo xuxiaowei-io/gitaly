@@ -1,6 +1,4 @@
-//go:build !gitaly_test_sha256
-
-package tree
+package localrepo
 
 import (
 	"bytes"
@@ -30,7 +28,7 @@ func TestWriteTree(t *testing.T) {
 	blobID, err := repo.WriteBlob(ctx, "file", bytes.NewBufferString("foobar\n"))
 	require.NoError(t, err)
 
-	treeID, err := Write(ctx, repo, []*Entry{
+	treeID, err := repo.WriteTree(ctx, []*git.TreeEntry{
 		{
 			ObjectID: blobID,
 			Mode:     []byte("100644"),
@@ -42,12 +40,12 @@ func TestWriteTree(t *testing.T) {
 
 	for _, tc := range []struct {
 		desc            string
-		entries         []*Entry
-		expectedEntries []*Entry
+		entries         []*TreeEntry
+		expectedEntries []*TreeEntry
 	}{
 		{
 			desc: "entry with blob OID",
-			entries: []*Entry{
+			entries: []*TreeEntry{
 				{
 					ObjectID: blobID,
 					Mode:     []byte("100644"),
@@ -55,7 +53,7 @@ func TestWriteTree(t *testing.T) {
 					Type:     Blob,
 				},
 			},
-			expectedEntries: []*Entry{
+			expectedEntries: []*TreeEntry{
 				{
 					ObjectID: blobID,
 					Mode:     []byte("100644"),
@@ -66,7 +64,7 @@ func TestWriteTree(t *testing.T) {
 		},
 		{
 			desc: "entry with tree OID",
-			entries: []*Entry{
+			entries: []*TreeEntry{
 				{
 					ObjectID: treeID,
 					Mode:     []byte("040000"),
@@ -74,7 +72,7 @@ func TestWriteTree(t *testing.T) {
 					Type:     Tree,
 				},
 			},
-			expectedEntries: []*Entry{
+			expectedEntries: []*TreeEntry{
 				{
 					ObjectID: blobID,
 					Mode:     []byte("100644"),
@@ -85,7 +83,7 @@ func TestWriteTree(t *testing.T) {
 		},
 		{
 			desc: "mixed tree and blob entries",
-			entries: []*Entry{
+			entries: []*TreeEntry{
 				{
 					ObjectID: treeID,
 					Mode:     []byte("040000"),
@@ -105,7 +103,7 @@ func TestWriteTree(t *testing.T) {
 					Type:     Blob,
 				},
 			},
-			expectedEntries: []*Entry{
+			expectedEntries: []*TreeEntry{
 				{
 					ObjectID: blobID,
 					Mode:     []byte("100644"),
@@ -128,7 +126,7 @@ func TestWriteTree(t *testing.T) {
 		},
 		{
 			desc: "two entries with nonexistant objects",
-			entries: []*Entry{
+			entries: []*TreeEntry{
 				{
 					ObjectID: git.ObjectID(strings.Repeat("1", git.ObjectHashSHA1.Hash().Size()*2)),
 					Mode:     []byte("100644"),
@@ -155,7 +153,7 @@ func TestWriteTree(t *testing.T) {
 			output := text.ChompBytes(git.Exec(t, cfg, "-C", repoPath, "ls-tree", "-r", string(oid)))
 
 			if len(output) > 0 {
-				var actualEntries []*Entry
+				var actualEntries []*TreeEntry
 				for _, line := range bytes.Split([]byte(output), []byte("\n")) {
 					// Format: <mode> SP <type> SP <object> TAB <file>
 					tabSplit := bytes.Split(line, []byte("\t"))
