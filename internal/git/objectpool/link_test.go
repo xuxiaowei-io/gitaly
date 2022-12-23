@@ -41,7 +41,7 @@ func TestLink(t *testing.T) {
 	newContent := testhelper.MustReadFile(t, altPath)
 	require.Equal(t, content, newContent)
 
-	require.Equal(t, []byte("origin\n"), gittest.Exec(t, cfg, "-C", gittest.RepositoryPath(t, pool), "remote"))
+	require.Empty(t, gittest.Exec(t, cfg, "-C", gittest.RepositoryPath(t, pool), "remote"))
 }
 
 func TestLink_transactional(t *testing.T) {
@@ -130,5 +130,5 @@ func TestLink_absoluteLinkExists(t *testing.T) {
 	repoObjectsPath := filepath.Join(repoPath, "objects")
 	require.Equal(t, poolObjectsPath, filepath.Join(repoObjectsPath, string(content)), "the content of the alternates file should be the relative version of the absolute pat")
 
-	require.Equal(t, []byte("origin\n"), gittest.Exec(t, cfg, "-C", poolPath, "remote"))
+	require.Empty(t, gittest.Exec(t, cfg, "-C", poolPath, "remote"))
 }
