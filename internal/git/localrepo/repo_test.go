@@ -84,12 +84,11 @@ func TestSize(t *testing.T) {
 					SkipCreationViaService: true,
 				})
 
-				git.WriteTestCommit(t, cfg, repoPath,
-					git.WithTreeEntries(
+				WriteTestCommit(t, NewTestRepo(t, cfg, repoProto),
+					localrepo.WithTreeEntries(
 						git.TreeEntry{Path: "file", Mode: "100644", Content: strings.Repeat("a", 1000)},
 					),
-					git.WithBranch("main"),
-				)
+					localrepo.WithBranch("main"))
 
 				return repoProto
 			},
@@ -103,11 +102,10 @@ func TestSize(t *testing.T) {
 					SkipCreationViaService: true,
 				})
 
-				git.WriteTestCommit(t, cfg, repoPath,
-					git.WithTreeEntries(
+				WriteTestCommit(t, NewTestRepo(t, cfg, repoProto),
+					localrepo.WithTreeEntries(
 						git.TreeEntry{Path: "file", Mode: "100644", Content: strings.Repeat("a", 1000)},
-					),
-				)
+					))
 
 				return repoProto
 			},
@@ -121,19 +119,18 @@ func TestSize(t *testing.T) {
 					SkipCreationViaService: true,
 				})
 
-				rootCommitID := git.WriteTestCommit(t, cfg, repoPath,
-					git.WithTreeEntries(
+				rootCommitID := WriteTestCommit(t, NewTestRepo(t, cfg, repoProto),
+					localrepo.WithTreeEntries(
 						git.TreeEntry{Path: "file", Mode: "100644", Content: strings.Repeat("a", 1000)},
-					),
-				)
+					))
 
 				git.WriteTestCommit(t, cfg, repoPath,
-					git.WithParents(rootCommitID),
-					git.WithTreeEntries(
+					localrepo.WithParents(rootCommitID),
+					localrepo.WithTreeEntries(
 						git.TreeEntry{Path: "file", Mode: "100644", Content: strings.Repeat("a", 1001)},
 					),
-					git.WithMessage("modification"),
-					git.WithBranch("main"),
+					localrepo.WithMessage("modification"),
+					localrepo.WithBranch("main"),
 				)
 
 				return repoProto
@@ -148,19 +145,18 @@ func TestSize(t *testing.T) {
 					SkipCreationViaService: true,
 				})
 
-				rootCommitID := git.WriteTestCommit(t, cfg, repoPath,
-					git.WithTreeEntries(
+				rootCommitID := WriteTestCommit(t, NewTestRepo(t, cfg, repoProto),
+					localrepo.WithTreeEntries(
 						git.TreeEntry{Path: "file", Mode: "100644", Content: strings.Repeat("a", 1000)},
-					),
-				)
+					))
 
 				git.WriteTestCommit(t, cfg, repoPath,
-					git.WithParents(rootCommitID),
-					git.WithTreeEntries(
+					localrepo.WithParents(rootCommitID),
+					localrepo.WithTreeEntries(
 						git.TreeEntry{Path: "file", Mode: "100644", Content: strings.Repeat("a", 1001)},
 					),
-					git.WithMessage("modification"),
-					git.WithBranch("main"),
+					localrepo.WithMessage("modification"),
+					localrepo.WithBranch("main"),
 				)
 
 				git.Exec(t, cfg, "-C", repoPath, "repack", "-a", "-d")
@@ -177,19 +173,17 @@ func TestSize(t *testing.T) {
 					SkipCreationViaService: true,
 				})
 
-				git.WriteTestCommit(t, cfg, repoPath,
-					git.WithTreeEntries(
+				WriteTestCommit(t, NewTestRepo(t, cfg, repoProto),
+					localrepo.WithTreeEntries(
 						git.TreeEntry{Path: "1kbblob", Mode: "100644", Content: strings.Repeat("a", 1000)},
 					),
-					git.WithBranch("exclude-me"),
-				)
+					localrepo.WithBranch("exclude-me"))
 
-				git.WriteTestCommit(t, cfg, repoPath,
-					git.WithTreeEntries(
+				WriteTestCommit(t, NewTestRepo(t, cfg, repoProto),
+					localrepo.WithTreeEntries(
 						git.TreeEntry{Path: "1kbblob", Mode: "100644", Content: strings.Repeat("x", 2000)},
 					),
-					git.WithBranch("include-me"),
-				)
+					localrepo.WithBranch("include-me"))
 
 				return repoProto
 			},
@@ -206,12 +200,11 @@ func TestSize(t *testing.T) {
 					SkipCreationViaService: true,
 				})
 
-				git.WriteTestCommit(t, cfg, repoPath,
-					git.WithTreeEntries(
+				WriteTestCommit(t, NewTestRepo(t, cfg, repoProto),
+					localrepo.WithTreeEntries(
 						git.TreeEntry{Path: "1kbblob", Mode: "100644", Content: strings.Repeat("a", 1000)},
 					),
-					git.WithBranch("exclude-me"),
-				)
+					localrepo.WithBranch("exclude-me"))
 
 				return repoProto
 			},
@@ -238,12 +231,12 @@ func TestSize(t *testing.T) {
 				))
 
 				for _, path := range []string{repoPath, poolPath} {
-					git.WriteTestCommit(t, cfg, path,
-						git.WithTreeEntries(
+					WriteTestCommit(t, git, cfg, path,
+						localrepo.WithTreeEntries(
 							git.TreeEntry{Path: "1kbblob", Mode: "100644", Content: strings.Repeat("a", 1000)},
 						),
-						git.WithBranch("main"),
-					)
+						localrepo.WithBranch("main"))
+
 				}
 
 				return repoProto
@@ -274,12 +267,12 @@ func TestSize(t *testing.T) {
 				// We write the same object into both repositories, so we should
 				// exclude it from our size calculations.
 				for _, path := range []string{repoPath, poolPath} {
-					git.WriteTestCommit(t, cfg, path,
-						git.WithTreeEntries(
+					WriteTestCommit(t, git, cfg, path,
+						localrepo.WithTreeEntries(
 							git.TreeEntry{Path: "1kbblob", Mode: "100644", Content: strings.Repeat("a", 1000)},
 						),
-						git.WithBranch("main"),
-					)
+						localrepo.WithBranch("main"))
+
 				}
 
 				return repoProto
@@ -309,21 +302,20 @@ func TestSize(t *testing.T) {
 				for i, path := range []string{repoPath, poolPath} {
 					// We first write one blob into the repo that is the same
 					// across both repositories.
-					rootCommitID := git.WriteTestCommit(t, cfg, path,
-						git.WithTreeEntries(
+					rootCommitID := WriteTestCommit(t, git, cfg, path,
+						localrepo.WithTreeEntries(
 							git.TreeEntry{Path: "1kbblob", Mode: "100644", Content: strings.Repeat("a", 1000)},
-						),
-					)
+						))
 
 					// But this time we also write a second commit into each of
 					// the repositories that is not the same to simulate history
 					// that has diverged.
 					git.WriteTestCommit(t, cfg, path,
-						git.WithParents(rootCommitID),
-						git.WithTreeEntries(
+						localrepo.WithParents(rootCommitID),
+						localrepo.WithTreeEntries(
 							git.TreeEntry{Path: "1kbblob", Mode: "100644", Content: fmt.Sprintf("%d", i)},
 						),
-						git.WithBranch("main"),
+						localrepo.WithBranch("main"),
 					)
 				}
 

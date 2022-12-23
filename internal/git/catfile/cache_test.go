@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
@@ -209,7 +210,8 @@ func TestCache_ObjectReader(t *testing.T) {
 	repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
-	git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+	localRepo := localrepo.NewTestRepo(t, cfg, repo)
+	localrepo.WriteTestCommit(t, localRepo, git.WithBranch("main"))
 
 	repoExecutor := newRepoExecutor(t, cfg, repo)
 
@@ -309,7 +311,7 @@ func TestCache_ObjectInfoReader(t *testing.T) {
 	repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
-	git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+	localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithBranch("main"))
 
 	repoExecutor := newRepoExecutor(t, cfg, repo)
 

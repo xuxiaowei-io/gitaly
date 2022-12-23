@@ -296,7 +296,7 @@ func TestCatfileInfoAllObjects(t *testing.T) {
 	tree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 		{Path: "foobar", Mode: "100644", OID: blob1},
 	})
-	commit := git.WriteTestCommit(t, cfg, repoPath)
+	commit := localrepo.WriteTestCommit(t, repo)
 
 	actualObjects := []CatfileInfoResult{
 		{ObjectInfo: &catfile.ObjectInfo{Oid: blob1, Type: "blob", Size: 6}},
@@ -355,7 +355,7 @@ func TestCatfileInfo_WithDiskUsageSize(t *testing.T) {
 			OID:  git.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("a"), 100)),
 		},
 	})
-	initialCommitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTree(tree1))
+	initialCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithTree(tree1))
 
 	tree2 := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 		{
@@ -368,13 +368,12 @@ func TestCatfileInfo_WithDiskUsageSize(t *testing.T) {
 			)),
 		},
 	})
-	git.WriteTestCommit(
+	localrepo.WriteTestCommit(
 		t,
-		cfg,
-		repoPath,
-		git.WithTree(tree2),
-		git.WithParents(initialCommitID),
-		git.WithBranch("master"),
+		repo,
+		localrepo.WithTree(tree2),
+		localrepo.WithParents(initialCommitID),
+		localrepo.WithBranch("master"),
 	)
 
 	git.Exec(t, cfg, "-C", repoPath, "gc")

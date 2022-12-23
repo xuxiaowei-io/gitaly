@@ -286,7 +286,7 @@ func testRepositoryPath(tb testing.TB, repo string) string {
 		require.Fail(tb, "could not get caller info")
 	}
 
-	path := filepath.Join(filepath.Dir(currentFile), "..", "..", "..", "_build", "testrepos", repo)
+	path := filepath.Join(filepath.Dir(currentFile), "..", "..", "_build", "testrepos", repo)
 	if !isValidRepoPath(path) {
 		makePath := filepath.Join(filepath.Dir(currentFile), "..", "..", "..")
 		makeTarget := "prepare-test-repos"

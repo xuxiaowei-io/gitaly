@@ -103,7 +103,7 @@ func TestUpdaterWithHooks_UpdateReference(t *testing.T) {
 	repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
-	commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+	commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithBranch("main"))
 
 	requirePayload := func(t *testing.T, env []string) {
 		require.Len(t, env, 1)
@@ -282,9 +282,9 @@ func TestUpdaterWithHooks_quarantine(t *testing.T) {
 	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
-	commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
-
 	unquarantinedRepo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+	commitID := localrepo.WriteTestCommit(t, unquarantinedRepo, localrepo.WithBranch("main"))
 
 	quarantine, err := quarantine.New(ctx, repoProto, locator)
 	require.NoError(t, err)

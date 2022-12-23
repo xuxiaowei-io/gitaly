@@ -36,6 +36,7 @@ var (
 
 // Repository is the common interface of different repository implementations.
 type Repository interface {
+	repository.GitRepo
 	// ResolveRevision tries to resolve the given revision to its object
 	// ID. This uses the typical DWIM mechanism of git, see gitrevisions(1)
 	// for accepted syntax. This will not verify whether the object ID

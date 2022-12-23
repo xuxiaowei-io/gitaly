@@ -20,7 +20,7 @@ import (
 
 type WriteCommitConfig struct {
 	Reference          string
-	Parents            []ObjectID
+	Parents            []git.ObjectID
 	AuthorDate         time.Time
 	AuthorName         string
 	AuthorEmail        string
@@ -28,8 +28,8 @@ type WriteCommitConfig struct {
 	CommitterEmail     string
 	CommitterDate      time.Time
 	Message            string
-	TreeEntries        []TreeEntry
-	TreeID             ObjectID
+	TreeEntries        []git.TreeEntry
+	TreeID             git.ObjectID
 	AlternateObjectDir string
 }
 
@@ -58,21 +58,21 @@ func WithMessage(message string) WriteCommitOption {
 }
 
 // WithParents is an option for WriteCommit which will set the parent OIDs of the resulting commit.
-func WithParents(parents ...ObjectID) WriteCommitOption {
+func WithParents(parents ...git.ObjectID) WriteCommitOption {
 	return func(cfg *WriteCommitConfig) {
 		if parents != nil {
 			cfg.Parents = parents
 		} else {
 			// We're explicitly initializing parents here such that we can discern the
 			// case where the commit should be created with no parents.
-			cfg.Parents = []ObjectID{}
+			cfg.Parents = []git.ObjectID{}
 		}
 	}
 }
 
 // WithTreeEntries is an option for WriteCommit which will cause it to create a new tree and use it
 // as root tree of the resulting commit.
-func WithTreeEntries(entries ...TreeEntry) WriteCommitOption {
+func WithTreeEntries(entries ...git.TreeEntry) WriteCommitOption {
 	return func(cfg *WriteCommitConfig) {
 		cfg.TreeEntries = entries
 	}
@@ -81,7 +81,7 @@ func WithTreeEntries(entries ...TreeEntry) WriteCommitOption {
 // WithTree is an option for WriteCommit which will cause it to use the given object ID as the root
 // tree of the resulting commit.
 // as root tree of the resulting commit.
-func WithTree(treeID ObjectID) WriteCommitOption {
+func WithTree(treeID git.ObjectID) WriteCommitOption {
 	return func(cfg *WriteCommitConfig) {
 		cfg.TreeID = treeID
 	}
@@ -124,8 +124,10 @@ func WithAlternateObjectDirectory(alternateObjectDir string) WriteCommitOption {
 	}
 }
 
+var ErrMissingTree = errors.New("tree is missing")
+
 // Write writes a new commit into the target repository.
-func (r *localrepo) WriteCommit(ctx context.Context, cfg WriteCommitConfig) (git.ObjectID, error) {
+func (r *Repo) WriteCommit(ctx context.Context, cfg WriteCommitConfig) (git.ObjectID, error) {
 	var tree git.ObjectID
 	var err error
 
@@ -188,7 +190,7 @@ func (r *localrepo) WriteCommit(ctx context.Context, cfg WriteCommitConfig) (git
 
 	var stdout, stderr bytes.Buffer
 
-	if err := repo.ExecAndWait(ctx,
+	if err := r.ExecAndWait(ctx,
 		git.Command{
 			Name:  "commit-tree",
 			Flags: flags,
@@ -207,8 +209,8 @@ func (r *localrepo) WriteCommit(ctx context.Context, cfg WriteCommitConfig) (git
 		return "", err
 	}
 
-	if cfg.reference != "" {
-		if err := repo.UpdateRef(
+	if cfg.Reference != "" {
+		if err := r.UpdateRef(
 			ctx,
 			git.ReferenceName(cfg.Reference),
 			oid,
@@ -225,8 +227,7 @@ func (r *localrepo) WriteCommit(ctx context.Context, cfg WriteCommitConfig) (git
 func WriteTestCommit(tb testing.TB, repo *Repo, opts ...WriteCommitOption) git.ObjectID {
 	tb.Helper()
 
-	var writeCommitConfig writeCommitConfig
-
+	var writeCommitConfig WriteCommitConfig
 	for _, opt := range opts {
 		opt(&writeCommitConfig)
 	}
@@ -241,21 +242,27 @@ func WriteTestCommit(tb testing.TB, repo *Repo, opts ...WriteCommitOption) git.O
 
 	ctx := testhelper.Context(tb)
 
+	var treeOID git.ObjectID
+	var tree string
 	var err error
 
-	if writeCommitConfig.TreeID == "" {
-		if writeCommitConfig.TreeEntries != nil {
-			writeCommitConfig.TreeID = WriteTestTree(tb, repo, writeCommitConfig.TreeEntries)
-		} else if len(writeCommitConfig.Parents) == 0 {
-			writeCommitConfig.TreeID = WriteTestTree(tb, repo, []git.TreeEntry{})
-		} else {
-			writeCommitConfig.TreeID = git.ObjectID(writeCommitConfig.Parents[0].String() + "^{tree}")
-		}
+	if writeCommitConfig.TreeEntries != nil {
+		treeOID, err = repo.WriteTree(ctx, writeCommitConfig.TreeEntries)
+	} else if writeCommitConfig.TreeID != "" {
+		tree = writeCommitConfig.TreeID.String()
+	} else if len(writeCommitConfig.Parents) == 0 {
+		treeOID, err = repo.WriteTree(ctx, []git.TreeEntry{})
+	} else {
+		tree = writeCommitConfig.Parents[0].String() + "^{tree}"
+	}
+
+	require.NoError(tb, err)
+	if tree == "" {
+		tree = string(treeOID)
 	}
 
 	if writeCommitConfig.AuthorName == "" {
 		writeCommitConfig.AuthorName = git.DefaultCommitterName
-		writeCommitConfig.AuthorEmail = git.DefaultCommitterMail
 	}
 
 	if writeCommitConfig.AuthorDate.IsZero() {
@@ -264,7 +271,6 @@ func WriteTestCommit(tb testing.TB, repo *Repo, opts ...WriteCommitOption) git.O
 
 	if writeCommitConfig.CommitterName == "" {
 		writeCommitConfig.CommitterName = git.DefaultCommitterName
-		writeCommitConfig.CommitterEmail = git.DefaultCommitterMail
 	}
 
 	if writeCommitConfig.CommitterDate.IsZero() {
@@ -273,6 +279,7 @@ func WriteTestCommit(tb testing.TB, repo *Repo, opts ...WriteCommitOption) git.O
 
 	oid, err := repo.WriteCommit(ctx, writeCommitConfig)
 	require.NoError(tb, err)
+
 	return oid
 }
 

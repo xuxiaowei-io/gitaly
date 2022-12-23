@@ -1,16 +1,20 @@
-package git
+package git_test
 
 import (
 	"strings"
 	"testing"
+
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 )
 
 func TestWriteTree(t *testing.T) {
-	cfg, _, repoPath := setup(t)
+	cfg, repoProto, repoPath := git.Setup(t)
 
-	differentContentBlobID := WriteBlob(t, cfg, repoPath, []byte("different content"))
-	blobID := WriteBlob(t, cfg, repoPath, []byte("foobar\n"))
-	treeID := WriteTree(t, cfg, repoPath, []TreeEntry{
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	differentContentBlobID := localrepo.WriteTestBlob(t, repo, "", "different content")
+	blobID := localrepo.WriteTestBlob(t, repo, "", "foobar\n")
+	treeID := localrepo.WriteTestTree(t, repo, []git.TreeEntry{
 		{
 			OID:  blobID,
 			Mode: "100644",
@@ -20,19 +24,19 @@ func TestWriteTree(t *testing.T) {
 
 	for _, tc := range []struct {
 		desc            string
-		entries         []TreeEntry
-		expectedEntries []TreeEntry
+		entries         []git.TreeEntry
+		expectedEntries []git.TreeEntry
 	}{
 		{
 			desc: "entry with blob OID",
-			entries: []TreeEntry{
+			entries: []git.TreeEntry{
 				{
 					OID:  blobID,
 					Mode: "100644",
 					Path: "file",
 				},
 			},
-			expectedEntries: []TreeEntry{
+			expectedEntries: []git.TreeEntry{
 				{
 					OID:     blobID,
 					Content: "foobar\n",
@@ -43,14 +47,14 @@ func TestWriteTree(t *testing.T) {
 		},
 		{
 			desc: "entry with blob content",
-			entries: []TreeEntry{
+			entries: []git.TreeEntry{
 				{
 					Content: "foobar\n",
 					Mode:    "100644",
 					Path:    "file",
 				},
 			},
-			expectedEntries: []TreeEntry{
+			expectedEntries: []git.TreeEntry{
 				{
 					OID:     blobID,
 					Content: "foobar\n",
@@ -61,14 +65,14 @@ func TestWriteTree(t *testing.T) {
 		},
 		{
 			desc: "entry with tree OID",
-			entries: []TreeEntry{
+			entries: []git.TreeEntry{
 				{
 					OID:  treeID,
 					Mode: "040000",
 					Path: "dir",
 				},
 			},
-			expectedEntries: []TreeEntry{
+			expectedEntries: []git.TreeEntry{
 				{
 					OID:     blobID,
 					Content: "foobar\n",
@@ -79,7 +83,7 @@ func TestWriteTree(t *testing.T) {
 		},
 		{
 			desc: "mixed tree and blob entries",
-			entries: []TreeEntry{
+			entries: []git.TreeEntry{
 				{
 					OID:  treeID,
 					Mode: "040000",
@@ -96,7 +100,7 @@ func TestWriteTree(t *testing.T) {
 					Path:    "file2",
 				},
 			},
-			expectedEntries: []TreeEntry{
+			expectedEntries: []git.TreeEntry{
 				{
 					OID:     blobID,
 					Content: "foobar\n",
@@ -119,14 +123,14 @@ func TestWriteTree(t *testing.T) {
 		},
 		{
 			desc: "two entries with nonexistant objects",
-			entries: []TreeEntry{
+			entries: []git.TreeEntry{
 				{
-					OID:  ObjectID(strings.Repeat("1", DefaultObjectHash.Hash().Size()*2)),
+					OID:  git.ObjectID(strings.Repeat("1", git.DefaultObjectHash.Hash().Size()*2)),
 					Mode: "100644",
 					Path: "file",
 				},
 				{
-					OID:  DefaultObjectHash.ZeroOID,
+					OID:  git.DefaultObjectHash.ZeroOID,
 					Mode: "100644",
 					Path: "file",
 				},
@@ -134,10 +138,10 @@ func TestWriteTree(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			oid := WriteTree(t, cfg, repoPath, tc.entries)
+			oid := localrepo.WriteTestTree(t, repo, tc.entries)
 
 			if tc.expectedEntries != nil {
-				RequireTree(t, cfg, repoPath, oid.String(), tc.expectedEntries)
+				git.RequireTree(t, cfg, repoPath, oid.String(), tc.expectedEntries)
 			}
 		})
 	}

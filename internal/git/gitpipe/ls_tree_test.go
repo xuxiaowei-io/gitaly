@@ -20,18 +20,18 @@ func TestLsTree(t *testing.T) {
 
 	for _, tc := range []struct {
 		desc        string
-		setup       func(t *testing.T, repoPath string) (git.Revision, []RevisionResult)
+		setup       func(t *testing.T, repo *localrepo.Repo) (git.Revision, []RevisionResult)
 		options     []LsTreeOption
 		expectedErr error
 	}{
 		{
 			desc: "initial commit",
-			setup: func(t *testing.T, repoPath string) (git.Revision, []RevisionResult) {
-				blobA := git.WriteBlob(t, cfg, repoPath, []byte("a"))
-				blobB := git.WriteBlob(t, cfg, repoPath, []byte("b"))
-				blobC := git.WriteBlob(t, cfg, repoPath, []byte("c"))
+			setup: func(t *testing.T, repo *localrepo.Repo) (git.Revision, []RevisionResult) {
+				blobA := localrepo.WriteTestBlob(t, repo, "a")
+				blobB := localrepo.WriteTestBlob(t, repo, "b")
+				blobC := localrepo.WriteTestBlob(t, repo, "c")
 
-				tree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
+				tree := localrepo.WriteTestTree(t, repo, []git.TreeEntry{
 					{Path: ".gitignore", Mode: "100644", OID: blobA},
 					{Path: "LICENSE", Mode: "100644", OID: blobB},
 					{Path: "README.md", Mode: "100644", OID: blobC},
@@ -46,11 +46,11 @@ func TestLsTree(t *testing.T) {
 		},
 		{
 			desc: "includes submodule",
-			setup: func(t *testing.T, repoPath string) (git.Revision, []RevisionResult) {
-				blob := git.WriteBlob(t, cfg, repoPath, []byte("a"))
-				commit := git.WriteTestCommit(t, cfg, repoPath)
+			setup: func(t *testing.T, repo *localrepo.Repo) (git.Revision, []RevisionResult) {
+				blob := localrepo.WriteTestBlob(t, repo, "a")
+				commit := localrepo.WriteTestCommit(t, repo)
 
-				tree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
+				tree := localrepo.WriteTestTree(t, repo, []git.TreeEntry{
 					{Path: "blob", Mode: "100644", OID: blob},
 					{Path: "submodule", Mode: "160000", OID: commit},
 				})
@@ -63,11 +63,11 @@ func TestLsTree(t *testing.T) {
 		},
 		{
 			desc: "filter blobs only",
-			setup: func(t *testing.T, repoPath string) (git.Revision, []RevisionResult) {
-				blob := git.WriteBlob(t, cfg, repoPath, []byte("a"))
-				commit := git.WriteTestCommit(t, cfg, repoPath)
+			setup: func(t *testing.T, repo *localrepo.Repo) (git.Revision, []RevisionResult) {
+				blob := localrepo.WriteTestBlob(t, repo, "a")
+				commit := localrepo.WriteTestCommit(t, repo)
 
-				tree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
+				tree := localrepo.WriteTestTree(t, repo, []git.TreeEntry{
 					{
 						Path: "blob",
 						Mode: "100644",
@@ -81,7 +81,7 @@ func TestLsTree(t *testing.T) {
 					{
 						Path: "subtree",
 						Mode: "040000",
-						OID: git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
+						OID: localrepo.WriteTestTree(t, repo, []git.TreeEntry{
 							{Path: "blob-in-subtree", Mode: "100644", Content: "something"},
 						}),
 					},
@@ -97,19 +97,19 @@ func TestLsTree(t *testing.T) {
 		},
 		{
 			desc: "empty tree",
-			setup: func(t *testing.T, repoPath string) (git.Revision, []RevisionResult) {
+			setup: func(t *testing.T, repo *localrepo.Repo) (git.Revision, []RevisionResult) {
 				return git.DefaultObjectHash.EmptyTreeOID.Revision(), nil
 			},
 		},
 		{
 			desc: "non-recursive",
-			setup: func(t *testing.T, repoPath string) (git.Revision, []RevisionResult) {
-				blob := git.WriteBlob(t, cfg, repoPath, []byte("a"))
-				subtree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
+			setup: func(t *testing.T, repo *localrepo.Repo) (git.Revision, []RevisionResult) {
+				blob := localrepo.WriteTestBlob(t, repo, "a")
+				subtree := localrepo.WriteTestTree(t, repo, []git.TreeEntry{
 					{Path: "blob-in-subtree", Mode: "100644", Content: "something"},
 				})
 
-				tree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
+				tree := localrepo.WriteTestTree(t, repo, []git.TreeEntry{
 					{Path: "blob", Mode: "100644", OID: blob},
 					{Path: "subtree", Mode: "040000", OID: subtree},
 				})
@@ -122,11 +122,11 @@ func TestLsTree(t *testing.T) {
 		},
 		{
 			desc: "recursive",
-			setup: func(t *testing.T, repoPath string) (git.Revision, []RevisionResult) {
-				blob := git.WriteBlob(t, cfg, repoPath, []byte("a"))
-				blobInSubtree := git.WriteBlob(t, cfg, repoPath, []byte("b"))
+			setup: func(t *testing.T, repo *localrepo.Repo) (git.Revision, []RevisionResult) {
+				blob := localrepo.WriteTestBlob(t, repo, "a")
+				blobInSubtree := localrepo.WriteTestBlob(t, repo, "b")
 
-				tree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
+				tree := localrepo.WriteTestTree(t, repo, []git.TreeEntry{
 					{
 						Path: "blob",
 						Mode: "100644",
@@ -135,7 +135,7 @@ func TestLsTree(t *testing.T) {
 					{
 						Path: "subtree",
 						Mode: "040000",
-						OID: git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
+						OID: localrepo.WriteTestTree(t, repo, []git.TreeEntry{
 							{Path: "blob-in-subtree", Mode: "100644", OID: blobInSubtree},
 						}),
 					},
@@ -152,12 +152,12 @@ func TestLsTree(t *testing.T) {
 		},
 		{
 			desc: "with skip function",
-			setup: func(t *testing.T, repoPath string) (git.Revision, []RevisionResult) {
-				blobA := git.WriteBlob(t, cfg, repoPath, []byte("a"))
-				blobB := git.WriteBlob(t, cfg, repoPath, []byte("b"))
-				blobC := git.WriteBlob(t, cfg, repoPath, []byte("c"))
+			setup: func(t *testing.T, repo *localrepo.Repo) (git.Revision, []RevisionResult) {
+				blobA := localrepo.WriteTestBlob(t, repo, "a")
+				blobB := localrepo.WriteTestBlob(t, repo, "b")
+				blobC := localrepo.WriteTestBlob(t, repo, "c")
 
-				tree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
+				tree := localrepo.WriteTestTree(t, repo, []git.TreeEntry{
 					{Path: ".gitignore", Mode: "100644", OID: blobA},
 					{Path: "LICENSE", Mode: "100644", OID: blobB},
 					{Path: "README.md", Mode: "100644", OID: blobC},
@@ -176,8 +176,8 @@ func TestLsTree(t *testing.T) {
 		},
 		{
 			desc: "with skip failure",
-			setup: func(t *testing.T, repoPath string) (git.Revision, []RevisionResult) {
-				tree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
+			setup: func(t *testing.T, repo *localrepo.Repo) (git.Revision, []RevisionResult) {
+				tree := localrepo.WriteTestTree(t, repo, []git.TreeEntry{
 					{Path: "README.md", Mode: "100644", Content: "Hello world"},
 				})
 
@@ -192,7 +192,7 @@ func TestLsTree(t *testing.T) {
 		},
 		{
 			desc: "invalid revision",
-			setup: func(t *testing.T, repoPath string) (git.Revision, []RevisionResult) {
+			setup: func(t *testing.T, repo *localrepo.Repo) (git.Revision, []RevisionResult) {
 				return "refs/heads/does-not-exist", nil
 			},
 			expectedErr: errors.New("ls-tree pipeline command: exit status 128, stderr: " +
@@ -205,7 +205,7 @@ func TestLsTree(t *testing.T) {
 			})
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-			revision, expectedResults := tc.setup(t, repoPath)
+			revision, expectedResults := tc.setup(t, repo)
 
 			it := LsTree(ctx, repo, revision.String(), tc.options...)
 

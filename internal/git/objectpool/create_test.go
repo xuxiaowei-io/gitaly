@@ -33,7 +33,7 @@ func TestCreate(t *testing.T) {
 		SkipCreationViaService: true,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-	commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("master"))
+	commitID := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("master"))
 
 	createPool := func(t *testing.T, poolProto *gitalypb.ObjectPool) (*ObjectPool, string, error) {
 		catfileCache := catfile.NewCache(cfg)
@@ -43,7 +43,7 @@ func TestCreate(t *testing.T) {
 		pool, err := Create(
 			ctx,
 			config.NewLocator(cfg),
-			git.NewCommandFactory(t, cfg, git.WithSkipHooks()),
+			git.NewCommandFactory(t, cfg, localrepo.WithSkipHooks()),
 			catfileCache,
 			txManager,
 			housekeeping.NewManager(cfg.Prometheus, txManager),
@@ -99,10 +99,10 @@ func TestCreate(t *testing.T) {
 			{Content: "content", Path: "dup", Mode: "100644"},
 			{Content: "content", Path: "dup", Mode: "100644"},
 		})
-		git.WriteTestCommit(t, cfg, repoPath,
-			git.WithParents(),
-			git.WithBranch("master"),
-			git.WithTree(treeID),
+		localrepo.WriteTestCommit(t, repo,
+			localrepo.WithParents(),
+			localrepo.WithBranch("master"),
+			localrepo.WithTree(treeID),
 		)
 
 		// While git-clone(1) would normally complain about the broken tree we have just

@@ -32,7 +32,7 @@ func TestRepo_ContainsRef(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg, repo, repoPath := setupRepo(t)
-	git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("master"))
+	WriteTestCommit(t, NewTestRepo(t, cfg, repo), localrepo.WithBranch("master"))
 
 	testcases := []struct {
 		desc      string
@@ -69,7 +69,7 @@ func TestRepo_GetReference(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg, repo, repoPath := setupRepo(t)
-	commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("master"))
+	commitID := WriteTestCommit(t, NewTestRepo(t, cfg, repo), localrepo.WithBranch("master"))
 
 	testcases := []struct {
 		desc        string
@@ -118,8 +118,9 @@ func TestRepo_GetReferenceWithAmbiguousRefs(t *testing.T) {
 
 	cfg, repo, repoPath := setupRepo(t, withDisabledHooks())
 
-	prevOID := git.WriteTestCommit(t, cfg, repoPath)
-	currentOID := git.WriteTestCommit(t, cfg, repoPath, git.WithParents(prevOID), git.WithBranch("master"))
+	localRepo := NewTestRepo(t, cfg, repo)
+	prevOID := WriteTestCommit(t, localRepo)
+	currentOID := WriteTestCommit(t, localRepo, localrepo.WithParents(prevOID), localrepo.WithBranch("master"))
 
 	for _, ref := range []git.ReferenceName{
 		"refs/heads/something/master",
@@ -150,9 +151,10 @@ func TestRepo_GetReferences(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg, repo, repoPath := setupRepo(t)
+	localRepo := NewTestRepo(t, cfg, repo)
 
-	git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
-	git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("feature"))
+	WriteTestCommit(t, localRepo, localrepo.WithBranch("main"))
+	WriteTestCommit(t, localRepo, localrepo.WithBranch("feature"))
 	git.WriteTag(t, cfg, repoPath, "v1.0.0", "refs/heads/main")
 
 	mainReference, err := repo.GetReference(ctx, "refs/heads/main")
@@ -342,12 +344,12 @@ func TestRepo_GetBranches(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	cfg, repo, repoPath := setupRepo(t)
+	localRepo := NewTestRepo(t, cfg, repo)
+	mainID := WriteTestCommit(t, localRepo, localrepo.WithBranch("main"), localrepo.WithMessage("main"))
+	featureID := WriteTestCommit(t, localRepo, localrepo.WithBranch("feature"), localrepo.WithMessage("feature"))
+	thirdID := WriteTestCommit(t, localRepo, localrepo.WithBranch("third"), localrepo.WithMessage("third"))
 
-	mainID := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"), git.WithMessage("main"))
-	featureID := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("feature"), git.WithMessage("feature"))
-	thirdID := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("third"), git.WithMessage("third"))
-
-	git.WriteTestCommit(t, cfg, repoPath, git.WithReference("refs/different/namespace"))
+	WriteTestCommit(t, localRepo, localrepo.WithReference("refs/different/namespace"))
 	git.WriteTag(t, cfg, repoPath, "v1.0.0", mainID.Revision())
 
 	refs, err := repo.GetBranches(ctx)
@@ -365,11 +367,11 @@ func TestRepo_UpdateRef(t *testing.T) {
 	cfg, repo, repoPath := setupRepo(t, withDisabledHooks())
 
 	// We move this into a function so that we can re-seed the repository for each test.
-	seedRepo := func(t *testing.T, repoPath string) {
-		git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"), git.WithMessage("main"))
-		git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("other"), git.WithMessage("other"))
+	seedRepo := func(t *testing.T, repo *Repo) {
+		WriteTestCommit(t, repo, localrepo.WithBranch("main"), localrepo.WithMessage("main"))
+		WriteTestCommit(t, repo, localrepo.WithBranch("other"), localrepo.WithMessage("other"))
 	}
-	seedRepo(t, repoPath)
+	seedRepo(t, NewTestRepo(t, cfg, repo))
 
 	mainCommitID := git.ResolveRevision(t, cfg, repoPath, "refs/heads/main")
 	otherRef, err := repo.GetReference(ctx, "refs/heads/other")
@@ -489,8 +491,9 @@ func TestRepo_SetDefaultBranch(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, repo, repoPath := setupRepo(t)
 
-	git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("master"))
-	git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("feature"))
+	localRepo := NewTestRepo(t, cfg, repo)
+	WriteTestCommit(t, localRepo, localrepo.WithBranch("master"))
+	WriteTestCommit(t, localRepo, localrepo.WithBranch("feature"))
 
 	txManager := transaction.NewTrackingManager()
 
@@ -615,7 +618,7 @@ func TestRepo_SetDefaultBranch_errors(t *testing.T) {
 		err = repo.ExecAndWait(ctx, git.Command{
 			Name: "symbolic-ref",
 			Args: []string{"HEAD", "refs/heads/otherbranch"},
-		}, git.WithRefTxHook(repo), git.WithStderr(&stderr))
+		}, localrepo.WithRefTxHook(repo), localrepo.WithStderr(&stderr))
 
 		code, ok := command.ExitStatus(err)
 		require.True(t, ok)
@@ -651,9 +654,9 @@ func TestRepo_SetDefaultBranch_errors(t *testing.T) {
 
 func TestGuessHead(t *testing.T) {
 	cfg, repo, repoPath := setupRepo(t)
-
-	commit1 := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"), git.WithMessage("main"))
-	commit2 := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("feature"), git.WithMessage("feature"))
+	localRepo := NewTestRepo(t, cfg, repo)
+	commit1 := WriteTestCommit(t, localRepo, localrepo.WithBranch("main"), localrepo.WithMessage("main"))
+	commit2 := WriteTestCommit(t, localRepo, localrepo.WithBranch("feature"), localrepo.WithMessage("feature"))
 
 	for _, tc := range []struct {
 		desc        string

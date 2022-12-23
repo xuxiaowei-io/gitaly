@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/metadata"
@@ -15,13 +16,17 @@ func TestGetCommit(t *testing.T) {
 	ctx := testhelper.Context(t)
 	ctx = metadata.NewIncomingContext(ctx, metadata.MD{})
 
-	cfg, objectReader, _, repoPath := setupObjectReader(t, ctx)
+	cfg, objectReader, repo, repoPath := setupObjectReader(t, ctx)
 
 	blobID := git.WriteBlob(t, cfg, repoPath, []byte("data"))
 	treeID := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 		{Path: "file", Mode: "100644", OID: blobID},
 	})
-	commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithMessage("commit message\n\ncommit body"), git.WithTree(treeID))
+	commitID := localrepo.WriteTestCommit(
+		t,
+		localrepo.NewTestRepo(t, cfg, repo),
+		localrepo.WithMessage("commit message\n\ncommit body"), localrepo.WithTree(treeID),
+	)
 
 	for _, tc := range []struct {
 		desc           string
@@ -67,7 +72,7 @@ func TestGetCommitWithTrailers(t *testing.T) {
 
 	cfg, objectReader, repo, repoPath := setupObjectReader(t, ctx)
 
-	commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithMessage(
+	commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithMessage(
 		"some header\n"+
 			"\n"+
 			"Commit message.\n"+

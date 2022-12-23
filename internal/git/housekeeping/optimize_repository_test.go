@@ -46,7 +46,7 @@ func TestRepackIfNeeded(t *testing.T) {
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 		// Create a loose object to verify it's not getting repacked.
-		git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"), git.WithMessage("a"))
+		localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"), localrepo.WithMessage("a"))
 
 		didRepack, repackObjectsCfg, err := repackIfNeeded(ctx, repo, mockOptimizationStrategy{
 			shouldRepackObjects: false,
@@ -65,11 +65,11 @@ func TestRepackIfNeeded(t *testing.T) {
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 		// Create an object and pack it into a packfile.
-		git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"), git.WithMessage("a"))
+		localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"), localrepo.WithMessage("a"))
 		git.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
 		// And a second object that is loose. The incremental repack should only pack the
 		// loose object.
-		git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"), git.WithMessage("b"))
+		localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"), localrepo.WithMessage("b"))
 
 		didRepack, repackObjectsCfg, err := repackIfNeeded(ctx, repo, mockOptimizationStrategy{
 			shouldRepackObjects: true,
@@ -88,11 +88,11 @@ func TestRepackIfNeeded(t *testing.T) {
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 		// Create an object and pack it into a packfile.
-		git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("a"), git.WithMessage("a"))
+		localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("a"), localrepo.WithMessage("a"))
 		git.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
 		// And a second object that is loose. The full repack should repack both the
 		// packfiles and loose objects into a single packfile.
-		git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("b"), git.WithMessage("b"))
+		localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("b"), localrepo.WithMessage("b"))
 
 		didRepack, repackObjectsCfg, err := repackIfNeeded(ctx, repo, mockOptimizationStrategy{
 			shouldRepackObjects: true,
@@ -122,7 +122,7 @@ func TestPackRefsIfNeeded(t *testing.T) {
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	// Write an empty commit such that we can create valid refs.
-	git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+	localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
 
 	packedRefsPath := filepath.Join(repoPath, "packed-refs")
 	looseRefPath := filepath.Join(repoPath, "refs", "heads", "main")
@@ -183,7 +183,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
 				})
-				git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
 				return repo
 			},
 			expectedMetrics: `# HELP gitaly_housekeeping_tasks_total Total number of housekeeping tasks performed in the repository
@@ -201,7 +201,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
 				})
-				git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
 				git.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "--write-bitmap-index")
 				return repo
 			},
@@ -222,9 +222,9 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 				// Create two packfiles by creating two objects and then packing
 				// twice. Note that the second git-repack(1) is incremental so that
 				// we don't remove the first packfile.
-				git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("first"))
+				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("first"))
 				git.Exec(t, cfg, "-C", repoPath, "repack", "-A", "--write-bitmap-index")
-				git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("second"), git.WithMessage("second"))
+				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("second"), localrepo.WithMessage("second"))
 				git.Exec(t, cfg, "-C", repoPath, "repack")
 
 				git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
@@ -250,7 +250,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
 				})
-				git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
 				git.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "--write-bitmap-index")
 				git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 				return repo
@@ -267,7 +267,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
 				})
-				git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
 				git.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "--write-bitmap-index")
 				git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 
@@ -302,7 +302,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
 				})
-				git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
 				git.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "--write-bitmap-index")
 				git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 
@@ -344,7 +344,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 				})
 
 				for i := 0; i < 16; i++ {
-					git.WriteTestCommit(t, cfg, repoPath, git.WithBranch(fmt.Sprintf("branch-%d", i)))
+					localrepo.WriteTestCommit(t, repo, localrepo.WithBranch(fmt.Sprintf("branch-%d", i)))
 				}
 
 				git.Exec(t, cfg, "-C", repoPath, "repack", "-A", "--write-bitmap-index")
@@ -578,7 +578,7 @@ func TestWriteCommitGraphIfNeeded(t *testing.T) {
 		})
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-		git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+		localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
 
 		written, cfg, err := writeCommitGraphIfNeeded(ctx, repo, mockOptimizationStrategy{
 			shouldWriteCommitGraph: false,
@@ -599,7 +599,7 @@ func TestWriteCommitGraphIfNeeded(t *testing.T) {
 		})
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-		git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+		localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
 
 		written, cfg, err := writeCommitGraphIfNeeded(ctx, repo, mockOptimizationStrategy{
 			shouldWriteCommitGraph: true,
@@ -621,12 +621,12 @@ func TestWriteCommitGraphIfNeeded(t *testing.T) {
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 		// Write a first commit-graph that contains the root commit, only.
-		rootCommitID := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+		rootCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
 		git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split", "--changed-paths")
 
 		// Write a second, incremental commit-graph that contains a commit we're about to
 		// make unreachable and then prune.
-		unreachableCommitID := git.WriteTestCommit(t, cfg, repoPath, git.WithParents(rootCommitID), git.WithBranch("main"))
+		unreachableCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithParents(rootCommitID), localrepo.WithBranch("main"))
 		git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split=no-merge", "--changed-paths")
 
 		// Reset the "main" branch back to the initial root commit ID and prune the now

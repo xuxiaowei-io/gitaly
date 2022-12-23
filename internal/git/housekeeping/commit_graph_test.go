@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -17,14 +18,14 @@ func TestWriteCommitGraphConfigForRepository(t *testing.T) {
 
 	for _, tc := range []struct {
 		desc           string
-		setup          func(t *testing.T, repoPath string)
+		setup          func(t *testing.T, repo *localrepo.Repo)
 		expectedErr    error
 		expectedConfig WriteCommitGraphConfig
 	}{
 		{
 			desc: "without commit-graph",
-			setup: func(t *testing.T, repoPath string) {
-				git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+			setup: func(t *testing.T, repo *localrepo.Repo) {
+				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
 			},
 			expectedConfig: WriteCommitGraphConfig{
 				ReplaceChain: true,
@@ -32,8 +33,8 @@ func TestWriteCommitGraphConfigForRepository(t *testing.T) {
 		},
 		{
 			desc: "monolithic commit-graph without bloom filter",
-			setup: func(t *testing.T, repoPath string) {
-				git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+			setup: func(t *testing.T, repo *localrepo.Repo) {
+				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
 				git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable")
 			},
 			expectedConfig: WriteCommitGraphConfig{
@@ -42,8 +43,8 @@ func TestWriteCommitGraphConfigForRepository(t *testing.T) {
 		},
 		{
 			desc: "monolithic commit-graph with bloom filter",
-			setup: func(t *testing.T, repoPath string) {
-				git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+			setup: func(t *testing.T, repo *localrepo.Repo) {
+				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
 				git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--changed-paths")
 			},
 			expectedConfig: WriteCommitGraphConfig{
@@ -52,8 +53,8 @@ func TestWriteCommitGraphConfigForRepository(t *testing.T) {
 		},
 		{
 			desc: "split commit-graph without bloom filter",
-			setup: func(t *testing.T, repoPath string) {
-				git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+			setup: func(t *testing.T, repo *localrepo.Repo) {
+				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
 				git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split")
 			},
 			expectedConfig: WriteCommitGraphConfig{
@@ -62,8 +63,8 @@ func TestWriteCommitGraphConfigForRepository(t *testing.T) {
 		},
 		{
 			desc: "split commit-graph with bloom filter",
-			setup: func(t *testing.T, repoPath string) {
-				git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+			setup: func(t *testing.T, repo *localrepo.Repo) {
+				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
 				git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split", "--changed-paths")
 			},
 			expectedConfig: WriteCommitGraphConfig{
@@ -77,7 +78,7 @@ func TestWriteCommitGraphConfigForRepository(t *testing.T) {
 			})
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-			tc.setup(t, repoPath)
+			tc.setup(t, repo)
 
 			config, err := WriteCommitGraphConfigForRepository(ctx, repo)
 			require.Equal(t, tc.expectedErr, err)

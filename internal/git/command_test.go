@@ -1,4 +1,4 @@
-package git
+package git_test
 
 import (
 	"bytes"
@@ -6,19 +6,20 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 )
 
 func TestExecOpts(t *testing.T) {
-	cfg, _, repoPath := setup(t)
+	cfg, _, repoPath := git.Setup(t)
 
 	t.Run("default config", func(t *testing.T) {
-		toplevel := ExecOpts(t, cfg, ExecConfig{}, "-C", repoPath, "rev-parse", "--path-format=absolute", "--git-dir")
+		toplevel := git.ExecOpts(t, cfg, git.ExecConfig{}, "-C", repoPath, "rev-parse", "--path-format=absolute", "--git-dir")
 		require.Equal(t, repoPath, text.ChompBytes(toplevel))
 	})
 
 	t.Run("env", func(t *testing.T) {
-		configValue := ExecOpts(t, cfg, ExecConfig{
+		configValue := git.ExecOpts(t, cfg, git.ExecConfig{
 			Env: []string{
 				"GIT_CONFIG_COUNT=1",
 				"GIT_CONFIG_KEY_0=injected.env-config",
@@ -30,19 +31,19 @@ func TestExecOpts(t *testing.T) {
 	})
 
 	t.Run("stdin", func(t *testing.T) {
-		blobID := ExecOpts(t, cfg, ExecConfig{
+		blobID := git.ExecOpts(t, cfg, git.ExecConfig{
 			Stdin: strings.NewReader("blob contents"),
 		}, "-C", repoPath, "hash-object", "-w", "--stdin")
 
 		require.Equal(t,
 			"blob contents",
-			string(Exec(t, cfg, "-C", repoPath, "cat-file", "-p", text.ChompBytes(blobID))),
+			string(git.Exec(t, cfg, "-C", repoPath, "cat-file", "-p", text.ChompBytes(blobID))),
 		)
 	})
 
 	t.Run("stdout", func(t *testing.T) {
 		var buf bytes.Buffer
-		ExecOpts(t, cfg, ExecConfig{
+		git.ExecOpts(t, cfg, git.ExecConfig{
 			Stdout: &buf,
 		}, "-C", repoPath, "rev-parse", "--path-format=absolute", "--git-dir")
 

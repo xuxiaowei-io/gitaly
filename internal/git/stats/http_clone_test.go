@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 )
@@ -20,10 +21,10 @@ func TestClone(t *testing.T) {
 	cfg := testcfg.Build(t)
 	gitCmdFactory := git.NewCommandFactory(t, cfg)
 
-	_, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
-	git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+	localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithBranch("main"))
 	git.WriteTag(t, cfg, repoPath, "some-tag", "refs/heads/main")
 
 	serverPort := git.HTTPServer(t, ctx, gitCmdFactory, repoPath, nil)
@@ -82,10 +83,10 @@ func TestCloneWithAuth(t *testing.T) {
 	cfg := testcfg.Build(t)
 	gitCmdFactory := git.NewCommandFactory(t, cfg)
 
-	_, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
-	git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+	localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithBranch("main"))
 
 	const (
 		user     = "test-user"

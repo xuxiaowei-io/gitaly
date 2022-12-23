@@ -1,11 +1,11 @@
-package git
+package localrepo
 
 import (
 	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -13,7 +13,7 @@ import (
 
 // GetRepositoryFunc is used to get a clean test repository for the different implementations of the
 // Repository interface in the common test suite TestRepository.
-type GetRepositoryFunc func(t testing.TB, ctx context.Context) (Repository, string)
+type GetRepositoryFunc func(t testing.TB, ctx context.Context) (git.Repository, string)
 
 // TestRepository tests an implementation of Repository.
 func TestRepository(t *testing.T, cfg config.Cfg, getRepository GetRepositoryFunc) {
@@ -43,18 +43,18 @@ func TestRepository(t *testing.T, cfg config.Cfg, getRepository GetRepositoryFun
 func testRepositoryResolveRevision(t *testing.T, cfg config.Cfg, getRepository GetRepositoryFunc) {
 	ctx := testhelper.Context(t)
 
-	repo, repoPath := getRepository(t, ctx)
+	repo, _ := getRepository(t, ctx)
 
-	localRepo := localrepo.NewTestRepo(t, cfg, repo)
+	localRepo := NewTestRepo(t, cfg, repo)
 
-	firstParentCommitID := localRepo.WriteTestCommit(t, localrepo.WithMessage("first parent"))
-	secondParentCommitID := localRepo.WriteTestCommit(t, localrepo.WithMessage("second parent"))
-	masterCommitID := localRepo.WriteTestCommit(t, localrepo.WithBranch("master"), localrepo.WithParents(firstParentCommitID, secondParentCommitID))
+	firstParentCommitID := WriteTestCommit(t, localRepo, WithMessage("first parent"))
+	secondParentCommitID := WriteTestCommit(t, localRepo, WithMessage("second parent"))
+	masterCommitID := WriteTestCommit(t, localRepo, WithBranch("master"), WithParents(firstParentCommitID, secondParentCommitID))
 
 	for _, tc := range []struct {
 		desc     string
 		revision string
-		expected ObjectID
+		expected git.ObjectID
 	}{
 		{
 			desc:     "unqualified master branch",
@@ -86,9 +86,9 @@ func testRepositoryResolveRevision(t *testing.T, cfg config.Cfg, getRepository G
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			oid, err := repo.ResolveRevision(ctx, Revision(tc.revision))
+			oid, err := repo.ResolveRevision(ctx, git.Revision(tc.revision))
 			if tc.expected == "" {
-				require.Equal(t, err, ErrReferenceNotFound)
+				require.Equal(t, err, git.ErrReferenceNotFound)
 				return
 			}
 
@@ -103,15 +103,15 @@ func testRepositoryHasBranches(t *testing.T, cfg config.Cfg, getRepository GetRe
 
 	repo, repoPath := getRepository(t, ctx)
 
-	emptyCommit := text.ChompBytes(Exec(t, cfg, "-C", repoPath, "commit-tree", DefaultObjectHash.EmptyTreeOID.String()))
+	emptyCommit := text.ChompBytes(git.Exec(t, cfg, "-C", repoPath, "commit-tree", git.DefaultObjectHash.EmptyTreeOID.String()))
 
-	Exec(t, cfg, "-C", repoPath, "update-ref", "refs/headsbranch", emptyCommit)
+	git.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/headsbranch", emptyCommit)
 
 	hasBranches, err := repo.HasBranches(ctx)
 	require.NoError(t, err)
 	require.False(t, hasBranches)
 
-	Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/branch", emptyCommit)
+	git.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/branch", emptyCommit)
 
 	hasBranches, err = repo.HasBranches(ctx)
 	require.NoError(t, err)
@@ -123,71 +123,71 @@ func testRepositoryGetDefaultBranch(t *testing.T, cfg config.Cfg, getRepository 
 
 	for _, tc := range []struct {
 		desc         string
-		repo         func(t *testing.T) Repository
-		expectedName ReferenceName
+		repo         func(t *testing.T) git.Repository
+		expectedName git.ReferenceName
 	}{
 		{
 			desc: "default ref",
-			repo: func(t *testing.T) Repository {
-				repo, repoPath := getRepository(t, ctx)
-				localRepo := localrepo.NewTestRepo(t, cfg, repo)
-				oid := localRepo.WriteTestCommit(t, localrepo.WithBranch("apple"))
-				localrepo.WriteTestCommit(t, localrepo.WithParents(oid), localrepo.WithBranch("main"))
+			repo: func(t *testing.T) git.Repository {
+				repo, _ := getRepository(t, ctx)
+				localRepo := NewTestRepo(t, cfg, repo)
+				oid := WriteTestCommit(t, localRepo, WithBranch("apple"))
+				WriteTestCommit(t, localRepo, WithParents(oid), WithBranch("main"))
 				return repo
 			},
-			expectedName: DefaultRef,
+			expectedName: git.DefaultRef,
 		},
 		{
 			desc: "legacy default ref",
-			repo: func(t *testing.T) Repository {
-				repo, repoPath := getRepository(t, ctx)
-				localRepo := localrepo.NewTestRepo(t, cfg, repo)
-				oid := localRepo.WriteTestCommit(t, localrepo.WithBranch("apple"))
-				localRepo.WriteTestCommit(t, localrepo.WithParents(oid), localrepo.WithBranch("master"))
+			repo: func(t *testing.T) git.Repository {
+				repo, _ := getRepository(t, ctx)
+				localRepo := NewTestRepo(t, cfg, repo)
+				oid := WriteTestCommit(t, localRepo, WithBranch("apple"))
+				WriteTestCommit(t, localRepo, WithParents(oid), WithBranch("master"))
 				return repo
 			},
-			expectedName: LegacyDefaultRef,
+			expectedName: git.LegacyDefaultRef,
 		},
 		{
 			desc: "no branches",
-			repo: func(t *testing.T) Repository {
+			repo: func(t *testing.T) git.Repository {
 				repo, _ := getRepository(t, ctx)
 				return repo
 			},
 		},
 		{
 			desc: "one branch",
-			repo: func(t *testing.T) Repository {
-				repo, repoPath := getRepository(t, ctx)
-				localRepo := localrepo.NewTestRepo(t, cfg, repo)
-				localRepo.WriteTestCommit(t, localrepo.WithBranch("apple"))
+			repo: func(t *testing.T) git.Repository {
+				repo, _ := getRepository(t, ctx)
+				localRepo := NewTestRepo(t, cfg, repo)
+				WriteTestCommit(t, localRepo, WithBranch("apple"))
 				return repo
 			},
-			expectedName: NewReferenceNameFromBranchName("apple"),
+			expectedName: git.NewReferenceNameFromBranchName("apple"),
 		},
 		{
 			desc: "no default branches",
-			repo: func(t *testing.T) Repository {
-				repo, repoPath := getRepository(t, ctx)
-				localRepo := localrepo.NewTestRepo(t, cfg, repo)
-				oid := localRepo.WriteTestCommit(t, localrepo.WithBranch("apple"))
-				localRepo.WriteTestCommit(t, localrepo.WithParents(oid), localrepo.WithBranch("banana"))
+			repo: func(t *testing.T) git.Repository {
+				repo, _ := getRepository(t, ctx)
+				localRepo := NewTestRepo(t, cfg, repo)
+				oid := WriteTestCommit(t, localRepo, WithBranch("apple"))
+				WriteTestCommit(t, localRepo, WithParents(oid), WithBranch("banana"))
 				return repo
 			},
-			expectedName: NewReferenceNameFromBranchName("apple"),
+			expectedName: git.NewReferenceNameFromBranchName("apple"),
 		},
 		{
 			desc: "test repo HEAD set",
-			repo: func(t *testing.T) Repository {
+			repo: func(t *testing.T) git.Repository {
 				repo, repoPath := getRepository(t, ctx)
-				localRepo := localrepo.NewTestRepo(t, cfg, repo)
+				localRepo := NewTestRepo(t, cfg, repo)
 
-				localRepo.WriteTestCommit(t, localrepo.WithBranch("feature"))
-				Exec(t, cfg, "-C", repoPath, "symbolic-ref", "HEAD", "refs/heads/feature")
+				WriteTestCommit(t, localRepo, WithBranch("feature"))
+				git.Exec(t, cfg, "-C", repoPath, "symbolic-ref", "HEAD", "refs/heads/feature")
 
 				return repo
 			},
-			expectedName: NewReferenceNameFromBranchName("feature"),
+			expectedName: git.NewReferenceNameFromBranchName("feature"),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

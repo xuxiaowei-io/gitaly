@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/txinfo"
@@ -22,31 +23,31 @@ func TestHooksPayload(t *testing.T) {
 	}
 
 	t.Run("envvar has proper name", func(t *testing.T) {
-		env, err := NewHooksPayload(cfg, repo, nil, nil, AllHooks, nil).Env()
+		env, err := git.NewHooksPayload(cfg, repo, nil, nil, git.AllHooks, nil).Env()
 		require.NoError(t, err)
-		require.True(t, strings.HasPrefix(env, EnvHooksPayload+"="))
+		require.True(t, strings.HasPrefix(env, git.EnvHooksPayload+"="))
 	})
 
 	t.Run("roundtrip succeeds", func(t *testing.T) {
-		env, err := NewHooksPayload(cfg, repo, nil, nil, PreReceiveHook, map[featureflag.FeatureFlag]bool{
+		env, err := git.NewHooksPayload(cfg, repo, nil, nil, git.PreReceiveHook, map[featureflag.FeatureFlag]bool{
 			{Name: "flag_key"}: true,
 		}).Env()
 		require.NoError(t, err)
 
-		payload, err := HooksPayloadFromEnv([]string{
+		payload, err := git.HooksPayloadFromEnv([]string{
 			"UNRELATED=value",
 			env,
 			"ANOTHOR=unrelated-value",
-			EnvHooksPayload + "_WITH_SUFFIX=is-ignored",
+			git.EnvHooksPayload + "_WITH_SUFFIX=is-ignored",
 		})
 		require.NoError(t, err)
 
-		require.Equal(t, HooksPayload{
+		require.Equal(t, git.HooksPayload{
 			Repo:           repo,
 			RuntimeDir:     cfg.RuntimeDir,
 			InternalSocket: cfg.InternalSocketPath(),
-			RequestedHooks: PreReceiveHook,
-			FeatureFlagsWithValue: []FeatureFlagWithValue{
+			RequestedHooks: git.PreReceiveHook,
+			FeatureFlagsWithValue: []git.FeatureFlagWithValue{
 				{
 					Flag:    featureflag.FeatureFlag{Name: "flag_key"},
 					Enabled: true,
@@ -56,41 +57,41 @@ func TestHooksPayload(t *testing.T) {
 	})
 
 	t.Run("roundtrip with transaction succeeds", func(t *testing.T) {
-		env, err := NewHooksPayload(cfg, repo, &tx, nil, UpdateHook, nil).Env()
+		env, err := git.NewHooksPayload(cfg, repo, &tx, nil, git.UpdateHook, nil).Env()
 		require.NoError(t, err)
 
-		payload, err := HooksPayloadFromEnv([]string{env})
+		payload, err := git.HooksPayloadFromEnv([]string{env})
 		require.NoError(t, err)
 
-		require.Equal(t, HooksPayload{
+		require.Equal(t, git.HooksPayload{
 			Repo:           repo,
 			RuntimeDir:     cfg.RuntimeDir,
 			InternalSocket: cfg.InternalSocketPath(),
 			Transaction:    &tx,
-			RequestedHooks: UpdateHook,
+			RequestedHooks: git.UpdateHook,
 		}, payload)
 	})
 
 	t.Run("missing envvar", func(t *testing.T) {
-		_, err := HooksPayloadFromEnv([]string{"OTHER_ENV=foobar"})
+		_, err := git.HooksPayloadFromEnv([]string{"OTHER_ENV=foobar"})
 		require.Error(t, err)
-		require.Equal(t, ErrPayloadNotFound, err)
+		require.Equal(t, git.ErrPayloadNotFound, err)
 	})
 
 	t.Run("bogus value", func(t *testing.T) {
-		_, err := HooksPayloadFromEnv([]string{EnvHooksPayload + "=foobar"})
+		_, err := git.HooksPayloadFromEnv([]string{git.EnvHooksPayload + "=foobar"})
 		require.Error(t, err)
 	})
 
 	t.Run("receive hooks payload", func(t *testing.T) {
-		env, err := NewHooksPayload(cfg, repo, nil, &UserDetails{
+		env, err := git.NewHooksPayload(cfg, repo, nil, &git.UserDetails{
 			UserID:   "1234",
 			Username: "user",
 			Protocol: "ssh",
-		}, PostReceiveHook, nil).Env()
+		}, git.PostReceiveHook, nil).Env()
 		require.NoError(t, err)
 
-		payload, err := HooksPayloadFromEnv([]string{
+		payload, err := git.HooksPayloadFromEnv([]string{
 			env,
 			"GL_ID=wrong",
 			"GL_USERNAME=wrong",
@@ -98,17 +99,17 @@ func TestHooksPayload(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		require.Equal(t, HooksPayload{
+		require.Equal(t, git.HooksPayload{
 			Repo:                repo,
 			RuntimeDir:          cfg.RuntimeDir,
 			InternalSocket:      cfg.InternalSocketPath(),
 			InternalSocketToken: cfg.Auth.Token,
-			UserDetails: &UserDetails{
+			UserDetails: &git.UserDetails{
 				UserID:   "1234",
 				Username: "user",
 				Protocol: "ssh",
 			},
-			RequestedHooks: PostReceiveHook,
+			RequestedHooks: git.PostReceiveHook,
 		}, payload)
 	})
 }
@@ -116,67 +117,67 @@ func TestHooksPayload(t *testing.T) {
 func TestHooksPayload_IsHookRequested(t *testing.T) {
 	for _, tc := range []struct {
 		desc       string
-		configured Hook
-		request    Hook
+		configured git.Hook
+		request    git.Hook
 		expected   bool
 	}{
 		{
 			desc:       "exact match",
-			configured: PreReceiveHook,
-			request:    PreReceiveHook,
+			configured: git.PreReceiveHook,
+			request:    git.PreReceiveHook,
 			expected:   true,
 		},
 		{
 			desc:       "hook matches a set",
-			configured: PreReceiveHook | PostReceiveHook,
-			request:    PreReceiveHook,
+			configured: git.PreReceiveHook | git.PostReceiveHook,
+			request:    git.PreReceiveHook,
 			expected:   true,
 		},
 		{
 			desc:       "no match",
-			configured: PreReceiveHook,
-			request:    PostReceiveHook,
+			configured: git.PreReceiveHook,
+			request:    git.PostReceiveHook,
 			expected:   false,
 		},
 		{
 			desc:       "no match with a set",
-			configured: PreReceiveHook | UpdateHook,
-			request:    PostReceiveHook,
+			configured: git.PreReceiveHook | git.UpdateHook,
+			request:    git.PostReceiveHook,
 			expected:   false,
 		},
 		{
 			desc:       "no match with nothing set",
 			configured: 0,
-			request:    PostReceiveHook,
+			request:    git.PostReceiveHook,
 			expected:   false,
 		},
 		{
-			desc:       "pre-receive hook with AllHooks",
-			configured: AllHooks,
-			request:    PreReceiveHook,
+			desc:       "pre-receive hook withgit.AllHooks",
+			configured: git.AllHooks,
+			request:    git.PreReceiveHook,
 			expected:   true,
 		},
 		{
-			desc:       "post-receive hook with AllHooks",
-			configured: AllHooks,
-			request:    PostReceiveHook,
+			desc:       "post-receive hook withgit.AllHooks",
+			configured: git.AllHooks,
+			request:    git.PostReceiveHook,
 			expected:   true,
 		},
 		{
-			desc:       "update hook with AllHooks",
-			configured: AllHooks,
-			request:    UpdateHook,
+			desc:       "update hook withgit.AllHooks",
+			configured: git.AllHooks,
+			request:    git.UpdateHook,
 			expected:   true,
 		},
 		{
-			desc:       "reference-transaction hook with AllHooks",
-			configured: AllHooks,
-			request:    ReferenceTransactionHook,
+			desc:       "reference-transaction hook withgit.AllHooks",
+			configured: git.AllHooks,
+			request:    git.ReferenceTransactionHook,
 			expected:   true,
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			actual := HooksPayload{
+			actual := git.HooksPayload{
 				RequestedHooks: tc.configured,
 			}.IsHookRequested(tc.request)
 			require.Equal(t, tc.expected, actual)

@@ -1,12 +1,11 @@
-package git
+package localrepo
 
 import (
-	"bytes"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 )
@@ -20,8 +19,8 @@ import (
 func TestDeltaIslands(
 	t *testing.T,
 	cfg config.Cfg,
-	repoToModify *localrepo.Repo,
-	repoToRepack *localrepo.Repo,
+	repoToModify *Repo,
+	repoToRepack *Repo,
 	isPoolRepo bool,
 	repack func() error,
 ) {
@@ -40,21 +39,26 @@ func TestDeltaIslands(
 	if isPoolRepo {
 		// Pool repositories use different references for their delta islands, so we need to
 		// adapt accordingly.
-		refsPrefix = ObjectPoolRefNamespace
+		refsPrefix = git.ObjectPoolRefNamespace
 	}
 
 	// Make the first two blobs reachable via references that are part of the delta island.
-	blob1ID := commitBlob(t, cfg, repoPathToModify, refsPrefix+"/heads/branch1", blob1)
-	blob2ID := commitBlob(t, cfg, repoPathToModify, refsPrefix+"/tags/tag2", blob2)
+	blob1ID := commitBlob(t, cfg, repoToModify, refsPrefix+"/heads/branch1", blob1)
+	blob2ID := commitBlob(t, cfg, repoToModify, refsPrefix+"/tags/tag2", blob2)
 
 	// The bad blob will only be reachable via a reference that is not covered by a delta
 	// island. Because of that it should be excluded from delta chains in the main island.
-	badBlobID := commitBlob(t, cfg, repoPathToModify, refsPrefix+"/bad/ref3", badBlob)
+	badBlobID := commitBlob(t, cfg, repoToModify, refsPrefix+"/bad/ref3", badBlob)
 
 	// Repack all objects into a single pack so that we can verify that delta chains are built
 	// by Git as expected. Most notably, we don't use the delta islands here yet and thus the
 	// delta base for both blob1 and blob2 should be the bad blob.
-	Exec(t, cfg, "-C", repoPathToModify, "repack", "-ad")
+	repoPathToModify, err := repoToModify.Path()
+	require.NoError(t, err)
+	repoPathToRepack, err := repoToRepack.Path()
+	require.NoError(t, err)
+
+	git.Exec(t, cfg, "-C", repoPathToModify, "repack", "-ad")
 	require.Equal(t, badBlobID, deltaBase(t, cfg, repoPathToModify, blob1ID), "expect blob 1 delta base to be bad blob after test setup")
 	require.Equal(t, badBlobID, deltaBase(t, cfg, repoPathToModify, blob2ID), "expect blob 2 delta base to be bad blob after test setup")
 
@@ -62,17 +66,17 @@ func TestDeltaIslands(
 	// chains, and thus neither of the two blobs should use the bad blob as delta base.
 	require.NoError(t, repack(), "repack after delta island setup")
 	require.Equal(t, blob2ID, deltaBase(t, cfg, repoPathToRepack, blob1ID), "blob 1 delta base should be blob 2 after repack")
-	require.Equal(t, DefaultObjectHash.ZeroOID.String(), deltaBase(t, cfg, repoPathToRepack, blob2ID), "blob 2 should not be delta compressed after repack")
+	require.Equal(t, git.DefaultObjectHash.ZeroOID.String(), deltaBase(t, cfg, repoPathToRepack, blob2ID), "blob 2 should not be delta compressed after repack")
 }
 
-func commitBlob(t *testing.T, cfg config.Cfg, repo *localrepo.Repo, ref string, content string) string {
-	blobID, err := repo.WriteBlob(helper.Context(t), "path", bytes.NewBufferString(content))
-	require.NoError(t, err)
+func commitBlob(t *testing.T, cfg config.Cfg, repo *Repo, ref string, content string) string {
+	blobID := WriteTestBlob(t, repo, "path", content)
 
 	// No parent, that means this will be an initial commit. Not very
 	// realistic but it doesn't matter for delta compression.
-	commitID := repo.WriteTestCommit(t,
-		localrepo.WithTreeEntries(TreeEntry{
+	commitID := WriteTestCommit(t,
+		repo,
+		WithTreeEntries(git.TreeEntry{
 			Mode: "100644", OID: blobID, Path: "file",
 		}),
 	)
@@ -80,13 +84,13 @@ func commitBlob(t *testing.T, cfg config.Cfg, repo *localrepo.Repo, ref string, 
 	repoPath, err := repo.Path()
 	require.NoError(t, err)
 
-	Exec(t, cfg, "-C", repoPath, "update-ref", ref, commitID.String())
+	git.Exec(t, cfg, "-C", repoPath, "update-ref", ref, commitID.String())
 
 	return blobID.String()
 }
 
 func deltaBase(t *testing.T, cfg config.Cfg, repoPath string, blobID string) string {
-	catfileOut := ExecOpts(t, cfg, ExecConfig{Stdin: strings.NewReader(blobID)},
+	catfileOut := git.ExecOpts(t, cfg, git.ExecConfig{Stdin: strings.NewReader(blobID)},
 		"-C", repoPath, "cat-file", "--batch-check=%(deltabase)",
 	)
 

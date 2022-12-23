@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -15,8 +16,8 @@ import (
 func TestGetTag(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	cfg, objectReader, _, repoPath := setupObjectReader(t, ctx)
-	commitID := git.WriteTestCommit(t, cfg, repoPath)
+	cfg, objectReader, repo, repoPath := setupObjectReader(t, ctx)
+	commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo))
 
 	for _, tc := range []struct {
 		tagName string

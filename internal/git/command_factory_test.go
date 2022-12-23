@@ -39,14 +39,14 @@ func TestGitCommandProxy(t *testing.T) {
 
 	dir := testhelper.TempDir(t)
 
-	gitCmdFactory, cleanup, err := NewExecCommandFactory(cfg)
+	gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg)
 	require.NoError(t, err)
 	defer cleanup()
 
-	cmd, err := gitCmdFactory.NewWithoutRepo(ctx, Command{
+	cmd, err := gitCmdFactory.NewWithoutRepo(ctx, git.Command{
 		Name: "clone",
 		Args: []string{"http://gitlab.com/bogus-repo", dir},
-	}, WithDisabledHooks())
+	}, git.WithDisabledHooks())
 	require.NoError(t, err)
 
 	err = cmd.Wait()
@@ -59,7 +59,7 @@ func TestGitCommandProxy(t *testing.T) {
 func TestExecCommandFactory_globalGitConfigIgnored(t *testing.T) {
 	cfg := testcfg.Build(t)
 
-	gitCmdFactory, cleanup, err := NewExecCommandFactory(cfg)
+	gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg)
 	require.NoError(t, err)
 	defer cleanup()
 
@@ -81,10 +81,10 @@ func TestExecCommandFactory_globalGitConfigIgnored(t *testing.T) {
 		{desc: "system", filter: "--system"},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			cmd, err := gitCmdFactory.NewWithoutRepo(ctx, Command{
+			cmd, err := gitCmdFactory.NewWithoutRepo(ctx, git.Command{
 				Name:  "config",
-				Flags: []Option{Flag{Name: "--list"}, Flag{Name: tc.filter}},
-			}, WithEnv("HOME="+tmpHome))
+				Flags: []git.Option{git.Flag{Name: "--list"}, git.Flag{Name: tc.filter}},
+			}, git.WithEnv("HOME="+tmpHome))
 			require.NoError(t, err)
 
 			configContents, err := io.ReadAll(cmd)
@@ -101,13 +101,13 @@ func TestExecCommandFactory_gitConfiguration(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
-	repo, repoPath := CreateRepository(t, ctx, cfg, CreateRepositoryConfig{
+	repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	require.NoError(t, os.Remove(filepath.Join(repoPath, "config")))
 
 	defaultConfig := func() []string {
-		commandFactory, cleanup, err := NewExecCommandFactory(cfg)
+		commandFactory, cleanup, err := git.NewExecCommandFactory(cfg)
 		require.NoError(t, err)
 		defer cleanup()
 
@@ -126,7 +126,7 @@ func TestExecCommandFactory_gitConfiguration(t *testing.T) {
 	for _, tc := range []struct {
 		desc           string
 		config         []config.GitConfig
-		options        []CmdOpt
+		options        []git.CmdOpt
 		expectedConfig []string
 	}{
 		{
@@ -164,17 +164,17 @@ func TestExecCommandFactory_gitConfiguration(t *testing.T) {
 		},
 		{
 			desc: "option",
-			options: []CmdOpt{
-				WithConfig(ConfigPair{Key: "core.foo", Value: "bar"}),
+			options: []git.CmdOpt{
+				git.WithConfig(git.ConfigPair{Key: "core.foo", Value: "bar"}),
 			},
 			expectedConfig: append(defaultConfig(), "core.foo=bar"),
 		},
 		{
 			desc: "multiple options",
-			options: []CmdOpt{
-				WithConfig(
-					ConfigPair{Key: "core.foo", Value: "initial"},
-					ConfigPair{Key: "core.foo", Value: "second"},
+			options: []git.CmdOpt{
+				git.WithConfig(
+					git.ConfigPair{Key: "core.foo", Value: "initial"},
+					git.ConfigPair{Key: "core.foo", Value: "second"},
 				),
 			},
 			expectedConfig: append(defaultConfig(), "core.foo=initial", "core.foo=second"),
@@ -184,9 +184,9 @@ func TestExecCommandFactory_gitConfiguration(t *testing.T) {
 			config: []config.GitConfig{
 				{Key: "from.config", Value: "value"},
 			},
-			options: []CmdOpt{
-				WithConfig(
-					ConfigPair{Key: "from.option", Value: "value"},
+			options: []git.CmdOpt{
+				git.WithConfig(
+					git.ConfigPair{Key: "from.option", Value: "value"},
 				),
 			},
 			expectedConfig: append(defaultConfig(), "from.option=value", "from.config=value"),
@@ -195,17 +195,17 @@ func TestExecCommandFactory_gitConfiguration(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			cfg.Git.Config = tc.config
 
-			commandFactory, cleanup, err := NewExecCommandFactory(cfg)
+			commandFactory, cleanup, err := git.NewExecCommandFactory(cfg)
 			require.NoError(t, err)
 			defer cleanup()
 
 			var stdout bytes.Buffer
-			cmd, err := commandFactory.New(ctx, repo, Command{
+			cmd, err := commandFactory.New(ctx, repo, git.Command{
 				Name: "config",
-				Flags: []Option{
-					Flag{Name: "--list"},
+				Flags: []git.Option{
+					git.Flag{Name: "--list"},
 				},
-			}, append(tc.options, WithStdout(&stdout))...)
+			}, append(tc.options, git.WithStdout(&stdout))...)
 			require.NoError(t, err)
 			require.NoError(t, cmd.Wait())
 			require.Equal(t, tc.expectedConfig, strings.Split(text.ChompBytes(stdout.Bytes()), "\n"))
@@ -219,9 +219,9 @@ func TestCommandFactory_ExecutionEnvironment(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	assertExecEnv := func(t *testing.T, cfg config.Cfg, expectedExecEnv ExecutionEnvironment) {
+	assertExecEnv := func(t *testing.T, cfg config.Cfg, expectedExecEnv git.ExecutionEnvironment) {
 		t.Helper()
-		gitCmdFactory, cleanup, err := NewExecCommandFactory(cfg, WithSkipHooks())
+		gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg, git.WithSkipHooks())
 		require.NoError(t, err)
 		defer cleanup()
 
@@ -238,7 +238,7 @@ func TestCommandFactory_ExecutionEnvironment(t *testing.T) {
 				BinPath:         "/path/to/myGit",
 				IgnoreGitconfig: false,
 			},
-		}, ExecutionEnvironment{
+		}, git.ExecutionEnvironment{
 			BinaryPath: "/path/to/myGit",
 			EnvironmentVariables: []string{
 				"LANG=en_US.UTF-8",
@@ -253,7 +253,7 @@ func TestCommandFactory_ExecutionEnvironment(t *testing.T) {
 				BinPath:         "/path/to/myGit",
 				IgnoreGitconfig: true,
 			},
-		}, ExecutionEnvironment{
+		}, git.ExecutionEnvironment{
 			BinaryPath: "/path/to/myGit",
 			EnvironmentVariables: []string{
 				"LANG=en_US.UTF-8",
@@ -272,7 +272,7 @@ func TestCommandFactory_ExecutionEnvironment(t *testing.T) {
 			Git: config.Git{
 				IgnoreGitconfig: true,
 			},
-		}, ExecutionEnvironment{
+		}, git.ExecutionEnvironment{
 			BinaryPath: "/path/to/env_git",
 			EnvironmentVariables: []string{
 				"NO_SET_GIT_TEMPLATE_DIR=YesPlease",
@@ -289,9 +289,9 @@ func TestCommandFactory_ExecutionEnvironment(t *testing.T) {
 		suffixes := []string{"-v2.38"}
 		bundledGitDir := testhelper.TempDir(t)
 
-		var bundledGitConstructors []BundledGitEnvironmentConstructor
-		for _, constructor := range ExecutionEnvironmentConstructors {
-			bundledGitConstructor, ok := constructor.(BundledGitEnvironmentConstructor)
+		var bundledGitConstructors []git.BundledGitEnvironmentConstructor
+		for _, constructor := range git.ExecutionEnvironmentConstructors {
+			bundledGitConstructor, ok := constructor.(git.BundledGitEnvironmentConstructor)
 			if ok {
 				bundledGitConstructors = append(bundledGitConstructors, bundledGitConstructor)
 			}
@@ -307,12 +307,12 @@ func TestCommandFactory_ExecutionEnvironment(t *testing.T) {
 		t.Setenv("GITALY_TESTING_BUNDLED_GIT_PATH", bundledGitDir)
 
 		t.Run("missing bin_dir", func(t *testing.T) {
-			_, _, err := NewExecCommandFactory(config.Cfg{Git: config.Git{}}, WithSkipHooks())
+			_, _, err := git.NewExecCommandFactory(config.Cfg{Git: config.Git{}}, git.WithSkipHooks())
 			require.EqualError(t, err, "setting up Git execution environment: constructing Git environment: cannot use bundled binaries without bin path being set")
 		})
 
 		t.Run("missing gitaly-git executable", func(t *testing.T) {
-			_, _, err := NewExecCommandFactory(config.Cfg{BinDir: testhelper.TempDir(t)}, WithSkipHooks())
+			_, _, err := git.NewExecCommandFactory(config.Cfg{BinDir: testhelper.TempDir(t)}, git.WithSkipHooks())
 			require.Error(t, err)
 			require.Contains(t, err.Error(), `statting "gitaly-git-v2.38"`)
 			require.True(t, errors.Is(err, os.ErrNotExist))
@@ -323,7 +323,7 @@ func TestCommandFactory_ExecutionEnvironment(t *testing.T) {
 				require.NoError(t, os.WriteFile(bundledGitExecutable, []byte{}, 0o777))
 			}
 
-			_, _, err := NewExecCommandFactory(config.Cfg{BinDir: testhelper.TempDir(t)}, WithSkipHooks())
+			_, _, err := git.NewExecCommandFactory(config.Cfg{BinDir: testhelper.TempDir(t)}, git.WithSkipHooks())
 			require.Error(t, err)
 			require.Contains(t, err.Error(), `statting "gitaly-git-remote-http-v2.38"`)
 			require.True(t, errors.Is(err, os.ErrNotExist))
@@ -337,7 +337,7 @@ func TestCommandFactory_ExecutionEnvironment(t *testing.T) {
 				require.NoError(t, os.WriteFile(bundledGitRemoteExecutable, []byte{}, 0o777))
 			}
 
-			_, _, err := NewExecCommandFactory(config.Cfg{BinDir: testhelper.TempDir(t)}, WithSkipHooks())
+			_, _, err := git.NewExecCommandFactory(config.Cfg{BinDir: testhelper.TempDir(t)}, git.WithSkipHooks())
 			require.Error(t, err)
 			require.Contains(t, err.Error(), `statting "gitaly-git-http-backend-v2.38"`)
 			require.True(t, errors.Is(err, os.ErrNotExist))
@@ -354,7 +354,7 @@ func TestCommandFactory_ExecutionEnvironment(t *testing.T) {
 
 			binDir := testhelper.TempDir(t)
 
-			gitCmdFactory, _, err := NewExecCommandFactory(config.Cfg{BinDir: binDir}, WithSkipHooks())
+			gitCmdFactory, _, err := git.NewExecCommandFactory(config.Cfg{BinDir: binDir}, git.WithSkipHooks())
 			require.NoError(t, err)
 
 			gitBinPath := gitCmdFactory.GetExecutionEnvironment(ctx).BinaryPath
@@ -386,7 +386,7 @@ func TestCommandFactory_ExecutionEnvironment(t *testing.T) {
 			Git: config.Git{
 				IgnoreGitconfig: true,
 			},
-		}, ExecutionEnvironment{
+		}, git.ExecutionEnvironment{
 			BinaryPath: resolvedPath,
 			EnvironmentVariables: []string{
 				"LANG=en_US.UTF-8",
@@ -401,7 +401,7 @@ func TestCommandFactory_ExecutionEnvironment(t *testing.T) {
 	t.Run("doesn't exist in the system", func(t *testing.T) {
 		testhelper.Unsetenv(t, "PATH")
 
-		_, _, err := NewExecCommandFactory(config.Cfg{}, WithSkipHooks())
+		_, _, err := git.NewExecCommandFactory(config.Cfg{}, git.WithSkipHooks())
 		require.EqualError(t, err, "setting up Git execution environment: could not set up any Git execution environments")
 	})
 }
@@ -415,7 +415,7 @@ func TestExecCommandFactoryHooksPath(t *testing.T) {
 		}
 
 		t.Run("no overrides", func(t *testing.T) {
-			gitCmdFactory := NewCommandFactory(t, cfg)
+			gitCmdFactory := git.NewCommandFactory(t, cfg)
 
 			hooksPath := gitCmdFactory.HooksPath(ctx)
 
@@ -430,15 +430,15 @@ func TestExecCommandFactoryHooksPath(t *testing.T) {
 		})
 
 		t.Run("with skip", func(t *testing.T) {
-			gitCmdFactory := NewCommandFactory(t, cfg, WithSkipHooks())
+			gitCmdFactory := git.NewCommandFactory(t, cfg, git.WithSkipHooks())
 			require.Equal(t, "/var/empty", gitCmdFactory.HooksPath(ctx))
 		})
 	})
 
 	t.Run("hooks path", func(t *testing.T) {
-		gitCmdFactory := NewCommandFactory(t, config.Cfg{
+		gitCmdFactory := git.NewCommandFactory(t, config.Cfg{
 			BinDir: testhelper.TempDir(t),
-		}, WithHooksPath("/hooks/path"))
+		}, git.WithHooksPath("/hooks/path"))
 
 		// The environment variable shouldn't override an explicitly set hooks path.
 		require.Equal(t, "/hooks/path", gitCmdFactory.HooksPath(ctx))
@@ -448,8 +448,8 @@ func TestExecCommandFactoryHooksPath(t *testing.T) {
 func TestExecCommandFactory_GitVersion(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	generateVersionScript := func(version string) func(ExecutionEnvironment) string {
-		return func(ExecutionEnvironment) string {
+	generateVersionScript := func(version string) func(git.ExecutionEnvironment) string {
+		return func(git.ExecutionEnvironment) string {
 			return fmt.Sprintf(
 				`#!/usr/bin/env bash
 				echo '%s'
@@ -485,10 +485,10 @@ func TestExecCommandFactory_GitVersion(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			gitCmdFactory := NewInterceptingCommandFactory(
+			gitCmdFactory := git.NewInterceptingCommandFactory(
 				t, ctx, testcfg.Build(t), generateVersionScript(tc.versionString),
-				WithRealCommandFactoryOptions(WithSkipHooks()),
-				WithInterceptedVersion(),
+				git.WithRealCommandFactoryOptions(git.WithSkipHooks()),
+				git.WithInterceptedVersion(),
 			)
 
 			actualVersion, err := gitCmdFactory.GitVersion(ctx)
@@ -502,10 +502,10 @@ func TestExecCommandFactory_GitVersion(t *testing.T) {
 	}
 
 	t.Run("caching", func(t *testing.T) {
-		gitCmdFactory := NewInterceptingCommandFactory(
+		gitCmdFactory := git.NewInterceptingCommandFactory(
 			t, ctx, testcfg.Build(t), generateVersionScript("git version 1.2.3"),
-			WithRealCommandFactoryOptions(WithSkipHooks()),
-			WithInterceptedVersion(),
+			git.WithRealCommandFactoryOptions(git.WithSkipHooks()),
+			git.WithInterceptedVersion(),
 		)
 
 		gitPath := gitCmdFactory.GetExecutionEnvironment(ctx).BinaryPath
@@ -522,7 +522,7 @@ func TestExecCommandFactory_GitVersion(t *testing.T) {
 		// is a known insufficiency, but it is extremely unlikely to ever happen in
 		// production when the real Git binary changes.
 		require.NoError(t, os.Remove(gitPath))
-		testhelper.WriteExecutable(t, gitPath, []byte(generateVersionScript("git version 9.8.7")(ExecutionEnvironment{})))
+		testhelper.WriteExecutable(t, gitPath, []byte(generateVersionScript("git version 9.8.7")(git.ExecutionEnvironment{})))
 		require.NoError(t, os.Chtimes(gitPath, stat.ModTime(), stat.ModTime()))
 
 		// Given that we continue to use the cached version we shouldn't see any
@@ -553,7 +553,7 @@ func TestExecCommandFactory_config(t *testing.T) {
 
 	// Create a repository and remove its gitconfig to bring us into a known state where there
 	// is no repo-level configuration that interferes with our test.
-	repo, repoDir := CreateRepository(t, ctx, cfg, CreateRepositoryConfig{
+	repo, repoDir := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	require.NoError(t, os.Remove(filepath.Join(repoDir, "config")))
@@ -567,15 +567,15 @@ func TestExecCommandFactory_config(t *testing.T) {
 		"core.fsyncmethod=fsync",
 	}
 
-	gitCmdFactory := NewCommandFactory(t, cfg)
+	gitCmdFactory := git.NewCommandFactory(t, cfg)
 
 	var stdout bytes.Buffer
-	cmd, err := gitCmdFactory.New(ctx, repo, Command{
+	cmd, err := gitCmdFactory.New(ctx, repo, git.Command{
 		Name: "config",
-		Flags: []Option{
-			Flag{Name: "--list"},
+		Flags: []git.Option{
+			git.Flag{Name: "--list"},
 		},
-	}, WithStdout(&stdout))
+	}, git.WithStdout(&stdout))
 	require.NoError(t, err)
 
 	require.NoError(t, cmd.Wait())
@@ -592,38 +592,38 @@ func TestExecCommandFactory_SidecarGitConfiguration(t *testing.T) {
 		{Key: "custom.key", Value: "injected"},
 	}
 
-	commonHead := []ConfigPair{
+	commonHead := []git.ConfigPair{
 		{Key: "gc.auto", Value: "0"},
 		{Key: "core.autocrlf", Value: "input"},
 		{Key: "core.useReplaceRefs", Value: "false"},
 		{Key: "commitGraph.generationVersion", Value: "1"},
 	}
 
-	commonTail := []ConfigPair{
+	commonTail := []git.ConfigPair{
 		{Key: "custom.key", Value: "injected"},
 	}
 
 	for _, tc := range []struct {
 		desc           string
 		version        string
-		expectedConfig []ConfigPair
+		expectedConfig []git.ConfigPair
 	}{
 		{
 			desc:    "with core.fsync",
 			version: "2.36.0",
 			expectedConfig: append(append(commonHead,
-				ConfigPair{Key: "core.fsync", Value: "objects,derived-metadata,reference"},
-				ConfigPair{Key: "core.fsyncMethod", Value: "fsync"},
+				git.ConfigPair{Key: "core.fsync", Value: "objects,derived-metadata,reference"},
+				git.ConfigPair{Key: "core.fsyncMethod", Value: "fsync"},
 			), commonTail...),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			factory := NewInterceptingCommandFactory(t, ctx, cfg, func(ExecutionEnvironment) string {
+			factory := git.NewInterceptingCommandFactory(t, ctx, cfg, func(git.ExecutionEnvironment) string {
 				return fmt.Sprintf(
 					`#!/usr/bin/env bash
 					echo "git version %s"
 				`, tc.version)
-			}, WithInterceptedVersion())
+			}, git.WithInterceptedVersion())
 
 			configPairs, err := factory.SidecarGitConfiguration(ctx)
 			require.NoError(t, err)
@@ -644,9 +644,9 @@ func TestFsckConfiguration(t *testing.T) {
 		{
 			desc: "with valid commit",
 			data: strings.Join([]string{
-				"tree " + DefaultObjectHash.EmptyTreeOID.String(),
-				"author " + DefaultCommitterSignature,
-				"committer " + DefaultCommitterSignature,
+				"tree " + git.DefaultObjectHash.EmptyTreeOID.String(),
+				"author " + git.DefaultCommitterSignature,
+				"committer " + git.DefaultCommitterSignature,
 				"",
 				"message",
 			}, "\n"),
@@ -654,7 +654,7 @@ func TestFsckConfiguration(t *testing.T) {
 		{
 			desc: "with missing space",
 			data: strings.Join([]string{
-				"tree " + DefaultObjectHash.EmptyTreeOID.String(),
+				"tree " + git.DefaultObjectHash.EmptyTreeOID.String(),
 				"author Scrooge McDuck <scrooge@mcduck.com>1659043074 -0500",
 				"committer Scrooge McDuck <scrooge@mcduck.com>1659975573 -0500",
 				"",
@@ -664,7 +664,7 @@ func TestFsckConfiguration(t *testing.T) {
 		{
 			desc: "with bad timezone",
 			data: strings.Join([]string{
-				"tree " + DefaultObjectHash.EmptyTreeOID.String(),
+				"tree " + git.DefaultObjectHash.EmptyTreeOID.String(),
 				"author Scrooge McDuck <scrooge@mcduck.com> 1659043074 -0500BAD",
 				"committer Scrooge McDuck <scrooge@mcduck.com> 1659975573 -0500BAD",
 				"",
@@ -675,24 +675,24 @@ func TestFsckConfiguration(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			ctx := testhelper.Context(t)
 			cfg := testcfg.Build(t)
-			repoProto, repoPath := CreateRepository(t, ctx, cfg,
-				CreateRepositoryConfig{SkipCreationViaService: true},
+			repoProto, repoPath := git.CreateRepository(t, ctx, cfg,
+				git.CreateRepositoryConfig{SkipCreationViaService: true},
 			)
 
 			// Create commit object.
-			commitOut := ExecOpts(t, cfg, ExecConfig{Stdin: bytes.NewBufferString(tc.data)},
+			commitOut := git.ExecOpts(t, cfg, git.ExecConfig{Stdin: bytes.NewBufferString(tc.data)},
 				"-C", repoPath, "hash-object", "-w", "-t", "commit", "--stdin", "--literally",
 			)
-			_, err := DefaultObjectHash.FromHex(text.ChompBytes(commitOut))
+			_, err := git.DefaultObjectHash.FromHex(text.ChompBytes(commitOut))
 			require.NoError(t, err)
 
-			gitCmdFactory, cleanup, err := NewExecCommandFactory(cfg)
+			gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg)
 			require.NoError(t, err)
 			defer cleanup()
 
 			// Create fsck command with configured ignore rules options.
 			cmd, err := gitCmdFactory.New(ctx, repoProto,
-				Command{Name: "fsck"},
+				git.Command{Name: "fsck"},
 			)
 			require.NoError(t, err)
 

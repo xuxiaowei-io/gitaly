@@ -26,20 +26,20 @@ func TestPipeline_revlist(t *testing.T) {
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	blobA := git.WriteBlob(t, cfg, repoPath, []byte("blob a"))
-	blobB := git.WriteBlob(t, cfg, repoPath, []byte("b"))
-	blobC := git.WriteBlob(t, cfg, repoPath, []byte("longer blob c"))
+	blobA := localrepo.WriteTestBlob(t, repo, "blob a")
+	blobB := localrepo.WriteTestBlob(t, repo, "b")
+	blobC := localrepo.WriteTestBlob(t, repo, "longer blob c")
 
-	subtree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
+	subtree := localrepo.WriteTestTree(t, repo, []git.TreeEntry{
 		{Path: "subblob", Mode: "100644", OID: blobA},
 	})
-	tree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
+	tree := localrepo.WriteTestTree(t, repo, []git.TreeEntry{
 		{Path: "blob", Mode: "100644", OID: blobB},
 		{Path: "subtree", Mode: "040000", OID: subtree},
 	})
 
-	commitA := git.WriteTestCommit(t, cfg, repoPath)
-	commitB := git.WriteTestCommit(t, cfg, repoPath, git.WithParents(commitA), git.WithTree(tree), git.WithBranch("main"))
+	commitA := localrepo.WriteTestCommit(t, repo)
+	commitB := git.WriteTestCommit(t, cfg, repoPath, localrepo.WithParents(commitA), localrepo.WithTree(tree), localrepo.WithBranch("main"))
 
 	for _, tc := range []struct {
 		desc               string
@@ -395,9 +395,9 @@ func TestPipeline_forEachRef(t *testing.T) {
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	keepaliveCommit := git.WriteTestCommit(t, cfg, repoPath, git.WithReference("refs/keep-alive/a"), git.WithMessage("keepalive"))
-	mainCommit := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"), git.WithMessage("main"))
-	featureCommit := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("feature"), git.WithMessage("feature"))
+	keepaliveCommit := localrepo.WriteTestCommit(t, repo, localrepo.WithReference("refs/keep-alive/a"), localrepo.WithMessage("keepalive"))
+	mainCommit := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"), localrepo.WithMessage("main"))
+	featureCommit := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("feature"), localrepo.WithMessage("feature"))
 	tag := git.WriteTag(t, cfg, repoPath, "v1.0.0", mainCommit.Revision(), git.WriteTagConfig{
 		Message: "annotated",
 	})

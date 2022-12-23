@@ -38,10 +38,9 @@ func TestRevlist(t *testing.T) {
 	treeA := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 		{Path: "branch-test.txt", Mode: "100644", OID: blob},
 	})
-	commitA := git.WriteTestCommit(t, cfg, repoPath,
+	commitA := WriteTestCommit(t, git, cfg, repoPath,
 		git.WithTree(treeA),
-		git.WithCommitterDate(time.Date(2000, 1, 1, 1, 1, 1, 1, time.UTC)),
-	)
+		git.WithCommitterDate(time.Date(2000, 1, 1, 1, 1, 1, 1, time.UTC)))
 
 	subtree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 		{Path: "subblob", Mode: "100644", OID: subblob},
@@ -68,7 +67,7 @@ func TestRevlist(t *testing.T) {
 		git.WithCommitterDate(time.Date(2001, 1, 1, 1, 1, 1, 1, time.UTC)),
 	)
 
-	mergeCommit := git.WriteTestCommit(t, cfg, repoPath, git.WithParents(commitAParent, commitBParent))
+	mergeCommit := WriteTestCommit(t, git, cfg, repoPath, git.WithParents(commitAParent, commitBParent))
 
 	tag := git.WriteTag(t, cfg, repoPath, "v1.0.0", mergeCommit.Revision(), git.WriteTagConfig{
 		Message: "annotated tag",
@@ -548,8 +547,8 @@ func TestForEachRef(t *testing.T) {
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	mainCommit := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"), git.WithMessage("main"))
-	featureCommit := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("feature"), git.WithMessage("feature"))
+	mainCommit := WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"), git.WithMessage("main"))
+	featureCommit := WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("feature"), git.WithMessage("feature"))
 	tag := git.WriteTag(t, cfg, repoPath, "v1.0.0", featureCommit.Revision(), git.WriteTagConfig{
 		Message: "annotated tag",
 	})
@@ -674,7 +673,7 @@ func TestForEachRef_options(t *testing.T) {
 		{
 			desc: "with limit",
 			prepare: func(repoPath string, cfg config.Cfg) string {
-				oid := string(git.WriteTestCommit(t, cfg, repoPath, git.WithMessage(t.Name())))
+				oid := string(WriteTestCommit(t, git, cfg, repoPath, git.WithMessage(t.Name())))
 
 				git.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/branch-1", oid)
 				git.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/branch-2", oid)
@@ -694,7 +693,7 @@ func TestForEachRef_options(t *testing.T) {
 		{
 			desc: "with sort key",
 			prepare: func(repoPath string, cfg config.Cfg) string {
-				oid := string(git.WriteTestCommit(t, cfg, repoPath, git.WithMessage(t.Name())))
+				oid := string(WriteTestCommit(t, git, cfg, repoPath, git.WithMessage(t.Name())))
 
 				git.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/branch-b", oid)
 				git.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/branch-a", oid)

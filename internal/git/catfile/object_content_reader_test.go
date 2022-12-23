@@ -11,6 +11,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -24,10 +25,10 @@ func TestObjectContentReader_reader(t *testing.T) {
 		SkipCreationViaService: true,
 	})
 
-	commitID := git.WriteTestCommit(t, cfg, repoPath,
-		git.WithBranch("main"),
-		git.WithMessage("commit message"),
-		git.WithTreeEntries(git.TreeEntry{Path: "README", Mode: "100644", Content: "something"}),
+	commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto),
+		localrepo.WithBranch("main"),
+		localrepo.WithMessage("commit message"),
+		localrepo.WithTreeEntries(git.TreeEntry{Path: "README", Mode: "100644", Content: "something"}),
 	)
 	git.WriteTag(t, cfg, repoPath, "v1.1.1", commitID.Revision(), git.WriteTagConfig{
 		Message: "annotated tag",

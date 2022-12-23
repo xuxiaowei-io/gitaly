@@ -46,11 +46,11 @@ func TestRepositoryProfile(t *testing.T) {
 	require.Equal(t, uint64(blobs), looseObjects)
 
 	for _, blobID := range blobIDs {
-		commitID := git.WriteTestCommit(t, cfg, repoPath,
-			git.WithTreeEntries(git.TreeEntry{
+		commitID := localrepo.WriteTestCommit(t, repo,
+			localrepo.WithTreeEntries(git.TreeEntry{
 				Mode: "100644", Path: "blob", OID: git.ObjectID(blobID),
-			}),
-		)
+			}))
+
 		git.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/"+blobID, commitID.String())
 	}
 
@@ -105,15 +105,15 @@ func TestLogObjectInfo(t *testing.T) {
 		logger, hook := test.NewNullLogger()
 		ctx := ctxlogrus.ToContext(ctx, logger.WithField("test", "logging"))
 
-		_, repoPath1 := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		repoProto1, repoPath1 := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 		})
-		git.WriteTestCommit(t, cfg, repoPath1, git.WithMessage("repo1"), git.WithBranch("main"))
+		localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto1), localrepo.WithMessage("repo1"), localrepo.WithBranch("main"))
 
-		_, repoPath2 := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		repoProto2, repoPath2 := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 		})
-		git.WriteTestCommit(t, cfg, repoPath2, git.WithMessage("repo2"), git.WithBranch("main"))
+		localrepo.WriteTestCommit(t, localrepo.NewtestRepo(t, cfg, repoProto2), localrepo.WithMessage("repo2"), localrepo.WithBranch("main"))
 
 		// clone existing local repo with two alternates
 		targetRepoName := git.NewRepositoryName(t)
@@ -149,9 +149,10 @@ func TestLogObjectInfo(t *testing.T) {
 		repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 		})
-		git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+		localRepo := localrepo.NewTestRepo(t, cfg, repo)
+		localrepo.WriteTestCommit(t, localRepo, localrepo.WithBranch("main"))
 
-		LogRepositoryInfo(ctx, localrepo.NewTestRepo(t, cfg, repo))
+		LogRepositoryInfo(ctx, localRepo)
 
 		objectsInfo := requireRepositoryInfo(hook.AllEntries())
 		require.Equal(t, RepositoryInfo{
@@ -179,19 +180,19 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 
 	for _, tc := range []struct {
 		desc         string
-		setup        func(t *testing.T, repoPath string)
+		setup        func(t *testing.T, repo *localrepo.Repo)
 		expectedErr  error
 		expectedInfo RepositoryInfo
 	}{
 		{
 			desc: "empty repository",
-			setup: func(*testing.T, string) {
+			setup: func(*testing.T, *localrepo.Repo) {
 			},
 		},
 		{
 			desc: "single blob",
-			setup: func(t *testing.T, repoPath string) {
-				git.WriteBlob(t, cfg, repoPath, []byte("x"))
+			setup: func(t *testing.T, repo *localrepo.Repo) {
+				localrepo.WriteTestBlob(t, "path", "x")
 			},
 			expectedInfo: RepositoryInfo{
 				LooseObjects: LooseObjectsInfo{
@@ -202,8 +203,11 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 		},
 		{
 			desc: "single packed blob",
-			setup: func(t *testing.T, repoPath string) {
-				blobID := git.WriteBlob(t, cfg, repoPath, []byte("x"))
+			setup: func(t *testing.T, repo *localrepo.Repo) {
+				blobID := localrepo.WriteTestBlob(t, repo, "path", "x")
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
+
 				git.WriteRef(t, cfg, repoPath, "refs/tags/blob", blobID)
 				// We use `-d`, which also prunes objects that have been packed.
 				git.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
@@ -221,8 +225,12 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 		},
 		{
 			desc: "single pruneable blob",
-			setup: func(t *testing.T, repoPath string) {
-				blobID := git.WriteBlob(t, cfg, repoPath, []byte("x"))
+			setup: func(t *testing.T, repo *localrepo.Repo) {
+				blobID := localrepo.WriteTestBlob(t, repo, "path", "x")
+
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
+
 				git.WriteRef(t, cfg, repoPath, "refs/tags/blob", blobID)
 				// This time we don't use `-d`, so the object will exist both in
 				// loose and packed form.
@@ -245,7 +253,7 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 		},
 		{
 			desc: "garbage",
-			setup: func(t *testing.T, repoPath string) {
+			setup: func(t *testing.T, repo *localrepo.Repo) {
 				garbagePath := filepath.Join(repoPath, "objects", "pack", "garbage")
 				require.NoError(t, os.WriteFile(garbagePath, []byte("x"), 0o600))
 			},
@@ -258,7 +266,7 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 		},
 		{
 			desc: "alternates",
-			setup: func(t *testing.T, repoPath string) {
+			setup: func(t *testing.T, repo *localrepo.Repo) {
 				infoAlternatesPath := filepath.Join(repoPath, "objects", "info", "alternates")
 				require.NoError(t, os.WriteFile(infoAlternatesPath, []byte(alternatePath), 0o600))
 			},
@@ -270,8 +278,11 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 		},
 		{
 			desc: "non-split commit-graph without bloom filter",
-			setup: func(t *testing.T, repoPath string) {
-				git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+			setup: func(t *testing.T, repo *localrepo.Repo) {
+				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
+
 				git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable")
 			},
 			expectedInfo: RepositoryInfo{
@@ -289,8 +300,11 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 		},
 		{
 			desc: "non-split commit-graph with bloom filter",
-			setup: func(t *testing.T, repoPath string) {
-				git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+			setup: func(t *testing.T, repo *localrepo.Repo) {
+				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
+
 				git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--changed-paths")
 			},
 			expectedInfo: RepositoryInfo{
@@ -309,8 +323,11 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 		},
 		{
 			desc: "non-split commit-graph with bloom filters and generation data",
-			setup: func(t *testing.T, repoPath string) {
-				git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+			setup: func(t *testing.T, repo *localrepo.Repo) {
+				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
+
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
 				git.Exec(t, cfg, "-C", repoPath,
 					"-c",
 					"commitGraph.generationVersion=2",
@@ -337,18 +354,21 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 		},
 		{
 			desc: "all together",
-			setup: func(t *testing.T, repoPath string) {
+			setup: func(t *testing.T, repo *localrepo.Repo) {
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
+
 				infoAlternatesPath := filepath.Join(repoPath, "objects", "info", "alternates")
 				require.NoError(t, os.WriteFile(infoAlternatesPath, []byte(alternatePath), 0o600))
 
 				// We write a single packed blob.
-				blobID := git.WriteBlob(t, cfg, repoPath, []byte("x"))
+				blobID := localrepo.WriteTestBlob(t, repo, "path", "x")
 				git.WriteRef(t, cfg, repoPath, "refs/tags/blob", blobID)
 				git.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
 
 				// And two loose ones.
-				git.WriteBlob(t, cfg, repoPath, []byte("1"))
-				git.WriteBlob(t, cfg, repoPath, []byte("2"))
+				localrepo.WriteTestBlob(t, repo, "path", "1")
+				localrepo.WriteTestBlob(t, repo, "path", "2")
 
 				// And three garbage-files. This is done so we've got unique counts
 				// everywhere.
@@ -384,7 +404,7 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 			})
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-			tc.setup(t, repoPath)
+			tc.setup(t, repo)
 
 			repoInfo, err := RepositoryInfoForRepository(ctx, repo)
 			require.Equal(t, tc.expectedErr, err)
@@ -411,8 +431,8 @@ func TestReferencesInfoForRepository(t *testing.T) {
 		},
 		{
 			desc: "single unpacked reference",
-			setup: func(t *testing.T, _ *localrepo.Repo, repoPath string) {
-				git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+			setup: func(t *testing.T, repo *localrepo.Repo, repoPath string) {
+				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
 			},
 			expectedInfo: ReferencesInfo{
 				LooseReferencesCount: 1,
@@ -432,13 +452,13 @@ func TestReferencesInfoForRepository(t *testing.T) {
 		},
 		{
 			desc: "multiple unpacked and packed refs",
-			setup: func(t *testing.T, _ *localrepo.Repo, repoPath string) {
+			setup: func(t *testing.T, repo *localrepo.Repo, repoPath string) {
 				for _, ref := range []string{
 					"refs/heads/main",
 					"refs/something",
 					"refs/merge-requests/1/HEAD",
 				} {
-					git.WriteTestCommit(t, cfg, repoPath, git.WithReference(ref))
+					localrepo.WriteTestCommit(t, repo, localrepo.WithReference(ref))
 				}
 
 				// We just write some random garbage -- we don't verify contents

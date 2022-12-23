@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	git "gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -171,11 +171,11 @@ func TestConflicts(t *testing.T) {
 		executor := buildExecutor(t, cfg)
 
 		testcfg.BuildGitalyGit2Go(t, cfg)
-		localRepo := localrepo.NewTestRepo(t, repo)
+		localRepo := localrepo.NewTestRepo(t, cfg, repo)
 
-		base := localRepo.WriteTestCommit(t, localrepo.WithTreeEntries(tc.base...))
-		ours := localRepo.WriteTestCommit(t, localrepo.WithParents(base), localrepo.WithTreeEntries(tc.ours...))
-		theirs := localRepo.WriteTestCommit(t, localrepo.WithParents(base), localrepo.WithTreeEntries(tc.theirs...))
+		base := localrepo.WriteTestCommit(t, localRepo, localrepo.WithTreeEntries(tc.base...))
+		ours := localrepo.WriteTestCommit(t, localRepo, localrepo.WithParents(base), localrepo.WithTreeEntries(tc.ours...))
+		theirs := localrepo.WriteTestCommit(t, localRepo, localrepo.WithParents(base), localrepo.WithTreeEntries(tc.theirs...))
 
 		t.Run(tc.desc, func(t *testing.T) {
 			ctx := testhelper.Context(t)
@@ -194,9 +194,9 @@ func TestConflicts(t *testing.T) {
 
 func TestConflicts_checkError(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
-	localRepo := localrepo.NewTestRepo(t, repo)
+	localRepo := localrepo.NewTestRepo(t, cfg, repo)
 
-	base := localRepo.WriteTestCommit(t, localrepo.WithTreeEntries())
+	base := localrepo.WriteTestCommit(t, localRepo, localrepo.WithTreeEntries())
 	validOID := git.ObjectID(base.String())
 	executor := buildExecutor(t, cfg)
 

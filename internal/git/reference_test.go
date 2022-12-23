@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 )
@@ -14,7 +15,7 @@ func TestCheckRefFormat(t *testing.T) {
 	cfg := testcfg.Build(t)
 	ctx := testhelper.Context(t)
 
-	gitCmdFactory := NewCommandFactory(t, cfg)
+	gitCmdFactory := git.NewCommandFactory(t, cfg)
 
 	for _, tc := range []struct {
 		desc    string
@@ -45,7 +46,7 @@ func TestCheckRefFormat(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ok, err := CheckRefFormat(ctx, gitCmdFactory, tc.tagName)
+			ok, err := git.CheckRefFormat(ctx, gitCmdFactory, tc.tagName)
 			require.NoError(t, err)
 			require.Equal(t, tc.ok, ok)
 		})
@@ -85,7 +86,7 @@ func TestReferenceName_NewReferenceNameFromBranchName(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ref := NewReferenceNameFromBranchName(tc.reference)
+			ref := git.NewReferenceNameFromBranchName(tc.reference)
 			require.Equal(t, ref.String(), tc.expected)
 		})
 	}
@@ -119,7 +120,7 @@ func TestReferenceName_Branch(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			branch, ok := ReferenceName(tc.reference).Branch()
+			branch, ok := git.ReferenceName(tc.reference).Branch()
 			require.Equal(t, tc.expected, branch)
 			require.Equal(t, tc.expected != "", ok)
 		})

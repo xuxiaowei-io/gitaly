@@ -43,7 +43,7 @@ func TestRepackObjects(t *testing.T) {
 		})
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-		git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+		localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
 
 		requireObjectCount(t, ctx, repo, 2)
 		requirePackfileCount(t, repoPath, 0)
@@ -67,7 +67,7 @@ func TestRepackObjects(t *testing.T) {
 
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-		git.TestDeltaIslands(t, cfg, repo, repo, IsPoolRepository(repoProto), func() error {
+		localrepo.TestDeltaIslands(t, cfg, repo, repo, IsPoolRepository(repoProto), func() error {
 			return RepackObjects(ctx, repo, RepackObjectsConfig{
 				FullRepack: true,
 			})

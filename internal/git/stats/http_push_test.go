@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -24,7 +25,7 @@ func TestPerformHTTPPush(t *testing.T) {
 	cfg := testcfg.Build(t)
 	gitCmdFactory := git.NewCommandFactory(t, cfg)
 
-	_, targetRepoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+	targetRepoProto, targetRepoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 
@@ -41,11 +42,11 @@ func TestPerformHTTPPush(t *testing.T) {
 		{
 			desc: "single revision",
 			preparePush: func(t *testing.T, cfg config.Cfg) ([]PushCommand, io.Reader) {
-				_, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
-				commit := git.WriteTestCommit(t, cfg, repoPath)
+				commit := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto))
 				revisions := strings.NewReader(commit.String())
 				pack := git.ExecOpts(t, cfg, git.ExecConfig{Stdin: revisions},
 					"-C", repoPath, "pack-objects", "--stdout", "--revs", "--thin", "--delta-base-offset", "-q",
@@ -77,12 +78,12 @@ func TestPerformHTTPPush(t *testing.T) {
 		{
 			desc: "many revisions",
 			preparePush: func(t *testing.T, cfg config.Cfg) ([]PushCommand, io.Reader) {
-				_, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
 				commands := make([]PushCommand, 1000)
-				commit := git.WriteTestCommit(t, cfg, repoPath)
+				commit := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto))
 
 				for i := 0; i < len(commands); i++ {
 					commands[i] = PushCommand{
@@ -121,7 +122,7 @@ func TestPerformHTTPPush(t *testing.T) {
 		{
 			desc: "branch deletion",
 			preparePush: func(t *testing.T, cfg config.Cfg) ([]PushCommand, io.Reader) {
-				oldOID := git.WriteTestCommit(t, cfg, targetRepoPath, git.WithBranch("feature"))
+				oldOID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, targetRepoProto), git.WithBranch("feature"))
 
 				return []PushCommand{
 					{OldOID: oldOID, NewOID: git.DefaultObjectHash.ZeroOID, Reference: "refs/heads/feature"},
@@ -149,7 +150,7 @@ func TestPerformHTTPPush(t *testing.T) {
 		{
 			desc: "failing delete",
 			preparePush: func(t *testing.T, cfg config.Cfg) ([]PushCommand, io.Reader) {
-				git.WriteTestCommit(t, cfg, targetRepoPath, git.WithBranch("master"))
+				localrepo.WriteTestCommit(t, targetRepo, git.WithBranch("master"))
 
 				oldOID := git.ObjectID(strings.Repeat("1", git.DefaultObjectHash.EncodedLen()))
 

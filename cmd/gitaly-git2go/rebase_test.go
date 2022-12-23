@@ -247,21 +247,20 @@ func TestRebase_skipEmptyCommit(t *testing.T) {
 
 	// Set up history with two diverging lines of branches, where both sides have implemented
 	// the same changes. During rebase, the diff will thus become empty.
-	base := localRepo.WriteTestCommit(tb,
+	base := localrepo.WriteTestCommit(t, localRepo,
 		localrepo.WithTreeEntries(gitalygit.TreeEntry{
 			Path: "a", Content: "base", Mode: "100644",
-		}),
-	)
-	theirs := localRepo.WriteTestCommit(tb, localrepo.WithMessage("theirs"),
+		}))
+
+	theirs := localrepo.WriteTestCommit(t, localRepo, localrepo.WithMessage("theirs"),
 		localrepo.WithParents(base), localrepo.WithTreeEntries(gitalygit.TreeEntry{
 			Path: "a", Content: "changed", Mode: "100644",
-		}),
-	)
-	ours := localRepo.WriteTestCommit(tb, localrepo.WithMessage("ours"),
+		}))
+
+	ours := localrepo.WriteTestCommit(t, localRepo, localrepo.WithMessage("ours"),
 		localrepo.WithParents(base), localrepo.WithTreeEntries(gitalygit.TreeEntry{
 			Path: "a", Content: "changed", Mode: "100644",
-		}),
-	)
+		}))
 
 	for _, tc := range []struct {
 		desc             string

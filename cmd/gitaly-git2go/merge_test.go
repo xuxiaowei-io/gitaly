@@ -291,9 +291,9 @@ func TestMerge_trees(t *testing.T) {
 
 		localRepo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-		base := localRepo.WriteTestCommit(t, localrepo.WithTreeEntries(tc.base...))
-		ours := localRepo.WriteTestCommit(t, localrepo.WithParents(base), localrepo.WithTreeEntries(tc.ours...))
-		theirs := localRepo.WriteTestCommit(t, localrepo.WithParents(base), localrepo.WithTreeEntries(tc.theirs...))
+		base := localrepo.WriteTestCommit(t, localRepo, localrepo.WithTreeEntries(tc.base...))
+		ours := localrepo.WriteTestCommit(t, localRepo, localrepo.WithParents(base), localrepo.WithTreeEntries(tc.ours...))
+		theirs := localrepo.WriteTestCommit(t, localRepo, localrepo.WithParents(base), localrepo.WithTreeEntries(tc.theirs...))
 
 		authorDate := time.Date(2020, 7, 30, 7, 45, 50, 0, time.FixedZone("UTC+2", +2*60*60))
 		committerDate := time.Date(2021, 7, 30, 7, 45, 50, 0, time.FixedZone("UTC+2", +2*60*60))
@@ -366,10 +366,10 @@ func TestMerge_squash(t *testing.T) {
 	theirFile1 := git.TreeEntry{Path: "file.txt", Content: "b\nc\nd", Mode: "100644"}
 	theirFile2 := git.TreeEntry{Path: "file.txt", Content: "b\nc\nd\ne", Mode: "100644"}
 
-	base := localRepo.WriteTestCommit(t, localrepo.WithTreeEntries(baseFile))
-	ours := localRepo.WriteTestCommit(t, localrepo.WithParents(base), localrepo.WithTreeEntries(ourFile))
-	theirs1 := localRepo.WriteTestCommit(t, localrepo.WithParents(base), localrepo.WithTreeEntries(theirFile1))
-	theirs2 := localRepo.WriteTestCommit(t, localrepo.WithParents(theirs1), localrepo.WithTreeEntries(theirFile2))
+	base := localrepo.WriteTestCommit(t, localRepo, localrepo.WithTreeEntries(baseFile))
+	ours := localrepo.WriteTestCommit(t, localRepo, localrepo.WithParents(base), localrepo.WithTreeEntries(ourFile))
+	theirs1 := localrepo.WriteTestCommit(t, localRepo, localrepo.WithParents(base), localrepo.WithTreeEntries(theirFile1))
+	theirs2 := localrepo.WriteTestCommit(t, localRepo, localrepo.WithParents(theirs1), localrepo.WithTreeEntries(theirFile2))
 
 	date := time.Date(2020, 7, 30, 7, 45, 50, 0, time.FixedZone("UTC+2", +2*60*60))
 	response, err := executor.Merge(ctx, repoProto, git2go.MergeCommand{
@@ -428,20 +428,20 @@ func TestMerge_recursive(t *testing.T) {
 
 	localRepo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	base := localRepo.WriteTestCommit(t, localrepo.WithTreeEntries(
-		localrepo.TreeEntry{Path: "base", Content: "base\n", Mode: "100644"},
+	base := localrepo.WriteTestCommit(t, localRepo, localrepo.WithTreeEntries(
+		git.TreeEntry{Path: "base", Content: "base\n", Mode: "100644"},
 	))
 
-	ours := make([]localrepo.ObjectID, git2go.MergeRecursionLimit)
-	ours[0] = localRepo.WriteTestCommit(t, localrepo.WithParents(base), localrepo.WithTreeEntries(
-		localrepo.TreeEntry{Path: "base", Content: "base\n", Mode: "100644"},
-		localrepo.TreeEntry{Path: "ours", Content: "ours-0\n", Mode: "100644"},
+	ours := make([]git.ObjectID, git2go.MergeRecursionLimit)
+	ours[0] = localrepo.WriteTestCommit(t, localRepo, localrepo.WithParents(base), localrepo.WithTreeEntries(
+		git.TreeEntry{Path: "base", Content: "base\n", Mode: "100644"},
+		git.TreeEntry{Path: "ours", Content: "ours-0\n", Mode: "100644"},
 	))
 
-	theirs := make([]localrepo.ObjectID, git2go.MergeRecursionLimit)
-	theirs[0] = localRepo.WriteTestCommit(t, localrepo.WithParents(base), localrepo.WithTreeEntries(
-		localrepo.TreeEntry{Path: "base", Content: "base\n", Mode: "100644"},
-		localrepo.TreeEntry{Path: "theirs", Content: "theirs-0\n", Mode: "100644"},
+	theirs := make([]git.ObjectID, git2go.MergeRecursionLimit)
+	theirs[0] = localrepo.WriteTestCommit(t, localRepo, localrepo.WithParents(base), localrepo.WithTreeEntries(
+		git.TreeEntry{Path: "base", Content: "base\n", Mode: "100644"},
+		git.TreeEntry{Path: "theirs", Content: "theirs-0\n", Mode: "100644"},
 	))
 
 	// We're now creating a set of criss-cross merges which look like the following graph:
@@ -456,17 +456,18 @@ func TestMerge_recursive(t *testing.T) {
 	// is not unique, and as a result the merge will generate virtual merge bases for each of
 	// the criss-cross merges. This operation may thus be heavily expensive to perform.
 	for i := 1; i < git2go.MergeRecursionLimit; i++ {
-		ours[i] = localrepo.WriteTestCommit(t, localrepo.WithParents(ours[i-1], theirs[i-1]), localrepo.WithTreeEntries(
+		ours[i] = localrepo.WriteTestCommit(t, localRepo, localrepo.WithParents(ours[i-1], theirs[i-1]), localrepo.WithTreeEntries(
 			git.TreeEntry{Path: "base", Content: "base\n", Mode: "100644"},
 			git.TreeEntry{Path: "ours", Content: fmt.Sprintf("ours-%d\n", i), Mode: "100644"},
 			git.TreeEntry{Path: "theirs", Content: fmt.Sprintf("theirs-%d\n", i-1), Mode: "100644"},
 		))
 
-		theirs[i] = localRepo.WriteTestCommit(t, cfg, repoPath, localrepo.WithParents(theirs[i-1], ours[i-1]), localrepo.WithTreeEntries(
+		theirs[i] = localrepo.WriteTestCommit(t, localRepo, localrepo.WithParents(theirs[i-1], ours[i-1]), localrepo.WithTreeEntries(
 			git.TreeEntry{Path: "base", Content: "base\n", Mode: "100644"},
 			git.TreeEntry{Path: "ours", Content: fmt.Sprintf("ours-%d\n", i-1), Mode: "100644"},
 			git.TreeEntry{Path: "theirs", Content: fmt.Sprintf("theirs-%d\n", i), Mode: "100644"},
 		))
+
 	}
 
 	authorDate := time.Date(2020, 7, 30, 7, 45, 50, 0, time.FixedZone("UTC+2", +2*60*60))

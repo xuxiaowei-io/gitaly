@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 )
@@ -18,7 +19,7 @@ func TestCommitGraphInfoForRepository(t *testing.T) {
 
 	for _, tc := range []struct {
 		desc         string
-		setup        func(t *testing.T, repoPath string)
+		setup        func(t *testing.T, repo *localrepo.Repo)
 		expectedErr  error
 		expectedInfo CommitGraphInfo
 	}{
@@ -29,7 +30,7 @@ func TestCommitGraphInfoForRepository(t *testing.T) {
 		},
 		{
 			desc: "single commit graph without bloom filter",
-			setup: func(t *testing.T, repoPath string) {
+			setup: func(t *testing.T, repo *localrepo.Repo) {
 				git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable")
 			},
 			expectedInfo: CommitGraphInfo{
@@ -38,7 +39,7 @@ func TestCommitGraphInfoForRepository(t *testing.T) {
 		},
 		{
 			desc: "single commit graph with bloom filter",
-			setup: func(t *testing.T, repoPath string) {
+			setup: func(t *testing.T, repo *localrepo.Repo) {
 				git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--changed-paths")
 			},
 			expectedInfo: CommitGraphInfo{
@@ -48,7 +49,7 @@ func TestCommitGraphInfoForRepository(t *testing.T) {
 		},
 		{
 			desc: "single commit graph with generation numbers",
-			setup: func(t *testing.T, repoPath string) {
+			setup: func(t *testing.T, repo *localrepo.Repo) {
 				git.Exec(t, cfg, "-C", repoPath,
 					"-c", "commitGraph.generationVersion=2",
 					"commit-graph", "write", "--reachable", "--changed-paths",
@@ -62,7 +63,7 @@ func TestCommitGraphInfoForRepository(t *testing.T) {
 		},
 		{
 			desc: "split commit graph without bloom filter",
-			setup: func(t *testing.T, repoPath string) {
+			setup: func(t *testing.T, repo *localrepo.Repo) {
 				git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split")
 			},
 			expectedInfo: CommitGraphInfo{
@@ -72,7 +73,7 @@ func TestCommitGraphInfoForRepository(t *testing.T) {
 		},
 		{
 			desc: "split commit graph with bloom filter",
-			setup: func(t *testing.T, repoPath string) {
+			setup: func(t *testing.T, repo *localrepo.Repo) {
 				git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split", "--changed-paths")
 			},
 			expectedInfo: CommitGraphInfo{
@@ -83,7 +84,7 @@ func TestCommitGraphInfoForRepository(t *testing.T) {
 		},
 		{
 			desc: "split commit-graph with generation numbers",
-			setup: func(t *testing.T, repoPath string) {
+			setup: func(t *testing.T, repo *localrepo.Repo) {
 				git.Exec(t, cfg, "-C", repoPath,
 					"-c", "commitGraph.generationVersion=2",
 					"commit-graph", "write", "--reachable", "--split", "--changed-paths",
@@ -98,15 +99,15 @@ func TestCommitGraphInfoForRepository(t *testing.T) {
 		},
 		{
 			desc: "split commit-graph with generation data overflow",
-			setup: func(t *testing.T, repoPath string) {
+			setup: func(t *testing.T, repo *localrepo.Repo) {
 				// We write two commits, where the parent commit is far away in the
 				// future and its child commit is in the past. This means we'll have
 				// to write a corrected committer date, and because the corrected
 				// date is longer than 31 bits we'll have to also write overflow
 				// data.
-				futureParent := git.WriteTestCommit(t, cfg, repoPath,
-					git.WithCommitterDate(time.Date(2077, 1, 1, 0, 0, 0, 0, time.UTC)),
-				)
+				futureParent := WriteTestCommit(t, git, cfg, repoPath,
+					git.WithCommitterDate(time.Date(2077, 1, 1, 0, 0, 0, 0, time.UTC)))
+
 				git.WriteTestCommit(t, cfg, repoPath,
 					git.WithBranch("overflow"),
 					git.WithParents(futureParent),
@@ -128,11 +129,12 @@ func TestCommitGraphInfoForRepository(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			_, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+			repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 				SkipCreationViaService: true,
 			})
-			git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
-			tc.setup(t, repoPath)
+			repo := localrepo.NewTestRepo(t, cfg, repoProto)
+			WriteTestCommit(t, repo, git.WithBranch("main"))
+			tc.setup(t, repo)
 
 			info, err := CommitGraphInfoForRepository(repoPath)
 			require.Equal(t, tc.expectedErr, err)

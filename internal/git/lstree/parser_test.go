@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 )
@@ -16,13 +17,13 @@ func TestParser(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
-	_, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 
 	gitignoreBlobID := git.WriteBlob(t, cfg, repoPath, []byte("gitignore"))
 	gitmodulesBlobID := git.WriteBlob(t, cfg, repoPath, []byte("gitmodules"))
-	submoduleCommitID := git.WriteTestCommit(t, cfg, repoPath)
+	submoduleCommitID := localrepo.WriteTestCommit(t, NewTestRepo(t, cfg, repoProto))
 
 	regularEntriesTreeID := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 		{Path: ".gitignore", Mode: "100644", OID: gitignoreBlobID},
@@ -92,7 +93,7 @@ func TestParserReadEntryPath(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
-	_, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 
@@ -100,7 +101,7 @@ func TestParserReadEntryPath(t *testing.T) {
 		{Path: ".gitignore", Mode: "100644", OID: git.WriteBlob(t, cfg, repoPath, []byte("gitignore"))},
 		{Path: ".gitmodules", Mode: "100644", OID: git.WriteBlob(t, cfg, repoPath, []byte("gitmodules"))},
 		{Path: "entry with space", Mode: "040000", OID: git.DefaultObjectHash.EmptyTreeOID},
-		{Path: "gitlab-shell", Mode: "160000", OID: git.WriteTestCommit(t, cfg, repoPath)},
+		{Path: "gitlab-shell", Mode: "160000", OID: localrepo.WriteTestCommit(t, NewTestRepo(t, cfg, repoProto))},
 		{Path: "\"file with quote.txt", Mode: "100644", OID: git.WriteBlob(t, cfg, repoPath, []byte("file with quotes"))},
 		{Path: "cuộc đời là những chuyến đi.md", Mode: "100644", OID: git.WriteBlob(t, cfg, repoPath, []byte("file with non-ascii file name"))},
 		{Path: "编码 'foo'.md", Mode: "100644", OID: git.WriteBlob(t, cfg, repoPath, []byte("file with non-ascii file name"))},

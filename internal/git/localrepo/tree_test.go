@@ -28,7 +28,7 @@ func TestWriteTree(t *testing.T) {
 	blobID, err := repo.WriteBlob(ctx, "file", bytes.NewBufferString("foobar\n"))
 	require.NoError(t, err)
 
-	treeID, err := repo.WriteTree(ctx, []*git.TreeEntry{
+	treeID, err := repo.WriteTree(ctx, []git.TreeEntry{
 		{
 			ObjectID: blobID,
 			Mode:     []byte("100644"),

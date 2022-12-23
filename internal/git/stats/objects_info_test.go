@@ -45,11 +45,11 @@ func TestRepositoryProfile(t *testing.T) {
 	require.Equal(t, uint64(blobs), looseObjects)
 
 	for _, blobID := range blobIDs {
-		commitID := git.WriteTestCommit(t, cfg, repoPath,
-			git.WithTreeEntries(git.TreeEntry{
+		commitID := localrepo.WriteTestCommit(t, repo,
+			localrepo.WithTreeEntries(git.TreeEntry{
 				Mode: "100644", Path: "blob", OID: git.ObjectID(blobID),
-			}),
-		)
+			}))
+
 		git.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/"+blobID, commitID.String())
 	}
 
@@ -104,15 +104,15 @@ func TestLogObjectInfo(t *testing.T) {
 		logger, hook := test.NewNullLogger()
 		ctx := ctxlogrus.ToContext(ctx, logger.WithField("test", "logging"))
 
-		_, repoPath1 := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		repoProto1, repoPath1 := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 		})
-		git.WriteTestCommit(t, cfg, repoPath1, git.WithMessage("repo1"), git.WithBranch("main"))
+		localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto1), localrepo.WithMessage("repo1"), localrepo.WithBranch("main"))
 
-		_, repoPath2 := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		repoProto2, repoPath2 := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 		})
-		git.WriteTestCommit(t, cfg, repoPath2, git.WithMessage("repo2"), git.WithBranch("main"))
+		localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto2), localrepo.WithMessage("repo2"), localrepo.WithBranch("main"))
 
 		// clone existing local repo with two alternates
 		targetRepoName := git.NewRepositoryName(t)
@@ -142,7 +142,7 @@ func TestLogObjectInfo(t *testing.T) {
 		repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 		})
-		git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+		localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithBranch("main"))
 
 		LogObjectsInfo(ctx, localrepo.NewTestRepo(t, cfg, repo))
 

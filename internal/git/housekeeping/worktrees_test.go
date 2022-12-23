@@ -22,7 +22,7 @@ func TestCleanupDisconnectedWorktrees_doesNothingWithoutWorktrees(t *testing.T) 
 	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
-	git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("master"))
+	localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithBranch("master"))
 	worktreePath := filepath.Join(testhelper.TempDir(t), "worktree")
 
 	failingGitCmdFactory := git.NewInterceptingCommandFactory(t, ctx, cfg, func(git.ExecutionEnvironment) string {
@@ -54,7 +54,7 @@ func TestRemoveWorktree(t *testing.T) {
 	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
-	git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("master"))
+	localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithBranch("master"))
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	existingWorktreePath := filepath.Join(repoPath, worktreePrefix, "existing")
