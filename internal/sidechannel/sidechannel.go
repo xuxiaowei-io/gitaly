@@ -134,15 +134,6 @@ func NewServerHandshaker(registry *Registry) *ServerHandshaker {
 // gRPC connections.
 func NewClientHandshaker(logger *logrus.Entry, registry *Registry) client.Handshaker {
 	cfg := backchannel.DefaultConfiguration()
-	// Backchannel sets a very large custom window size (16MB). This is not
-	// necessary for sidechannels because we use one stream per connection.
-	// Worse, this is wasteful, because a client that is serving many
-	// concurrent sidechannel calls may end up lazily creating a 16MB buffer
-	// for each ongoing call. See
-	// https://gitlab.com/gitlab-org/gitaly/-/issues/4132. To prevent this
-	// waste we change this value back to 256KB which is the default and
-	// minimum value.
-	cfg.MaximumStreamWindowSizeBytes = 256 * 1024
 	// If a client hangs up while the server is writing data to it then the
 	// server will block for 5 minutes by default before erroring out. This
 	// makes testing difficult and there is no reason to have such a long

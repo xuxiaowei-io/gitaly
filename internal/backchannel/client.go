@@ -42,8 +42,8 @@ type Configuration struct {
 func DefaultConfiguration() Configuration {
 	defaults := yamux.DefaultConfig()
 	return Configuration{
-		AcceptBacklog:                1,
-		MaximumStreamWindowSizeBytes: 16 * 1024 * 1024,
+		MaximumStreamWindowSizeBytes: defaults.MaxStreamWindowSize,
+		AcceptBacklog:                defaults.AcceptBacklog,
 		StreamCloseTimeout:           defaults.StreamCloseTimeout,
 	}
 }
