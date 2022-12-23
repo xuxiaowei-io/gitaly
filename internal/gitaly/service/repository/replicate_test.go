@@ -95,7 +95,7 @@ func TestReplicateRepository(t *testing.T) {
 	require.Equal(t, string(configData), string(replicatedConfigData), "config files must match")
 
 	// create another branch
-	git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("branch"))
+	WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("branch"))
 	_, err = client.ReplicateRepository(ctx, &gitalypb.ReplicateRepositoryRequest{
 		Repository: targetRepo,
 		Source:     repo,
@@ -132,7 +132,7 @@ func TestReplicateRepository_hiddenRefs(t *testing.T) {
 		// or read-only. We should be able to replicate all of them.
 		var expectedRefs []string
 		for refPrefix := range git.InternalRefPrefixes {
-			commitID := git.WriteTestCommit(t, cfg, sourceRepoPath, git.WithParents(), git.WithMessage(refPrefix))
+			commitID := WriteTestCommit(t, git, cfg, sourceRepoPath, git.WithParents(), git.WithMessage(refPrefix))
 			git.Exec(t, cfg, "-C", sourceRepoPath, "update-ref", refPrefix+"1", commitID.String())
 			expectedRefs = append(expectedRefs, fmt.Sprintf("%s commit\t%s", commitID, refPrefix+"1"))
 		}
@@ -172,7 +172,7 @@ func TestReplicateRepository_hiddenRefs(t *testing.T) {
 
 		// Create the internal references now.
 		for refPrefix := range git.InternalRefPrefixes {
-			commitID := git.WriteTestCommit(t, cfg, sourceRepoPath, git.WithParents(), git.WithMessage(refPrefix))
+			commitID := WriteTestCommit(t, git, cfg, sourceRepoPath, git.WithParents(), git.WithMessage(refPrefix))
 			git.Exec(t, cfg, "-C", sourceRepoPath, "update-ref", refPrefix+"1", commitID.String())
 		}
 
@@ -547,7 +547,7 @@ func TestFetchInternalRemote_successful(t *testing.T) {
 	ctx := testhelper.Context(t)
 	remoteCfg, remoteRepo, remoteRepoPath := testcfg.BuildWithRepo(t)
 	testcfg.BuildGitalyHooks(t, remoteCfg)
-	git.WriteTestCommit(t, remoteCfg, remoteRepoPath, git.WithBranch("master"))
+	WriteTestCommit(t, git, remoteCfg, remoteRepoPath, git.WithBranch("master"))
 
 	_, remoteAddr := runRepositoryService(t, remoteCfg, nil, testserver.WithDisablePraefect())
 

@@ -202,7 +202,7 @@ func TestWriteRef_missingRevisions(t *testing.T) {
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	repo, repoPath := git.CreateRepository(t, ctx, cfg)
-	commitID := git.WriteTestCommit(t, cfg, repoPath)
+	commitID := WriteTestCommit(t, git, cfg, repoPath)
 
 	for _, tc := range []struct {
 		desc        string

@@ -179,7 +179,7 @@ func TestSearchFilesByContentLargeFile(t *testing.T) {
 		},
 	} {
 		t.Run(tc.filename, func(t *testing.T) {
-			git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(git.TreeEntry{
+			WriteTestCommit(t, git, cfg, repoPath, git.WithTreeEntries(git.TreeEntry{
 				Path:    tc.filename,
 				Mode:    "100644",
 				Content: strings.Repeat(tc.line, tc.repeated),

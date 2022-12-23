@@ -137,11 +137,12 @@ func TestListConflictFilesHugeDiff(t *testing.T) {
 
 	cfg, repo, repoPath, client := setupConflictsService(t, ctx, nil)
 
-	ourCommitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+	ourCommitID := WriteTestCommit(t, git, cfg, repoPath, git.WithTreeEntries(
 		git.TreeEntry{Path: "a", Mode: "100644", Content: strings.Repeat("a\n", 128*1024)},
 		git.TreeEntry{Path: "b", Mode: "100644", Content: strings.Repeat("b\n", 128*1024)},
 	))
-	theirCommitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+
+	theirCommitID := WriteTestCommit(t, git, cfg, repoPath, git.WithTreeEntries(
 		git.TreeEntry{Path: "a", Mode: "100644", Content: strings.Repeat("x\n", 128*1024)},
 		git.TreeEntry{Path: "b", Mode: "100644", Content: strings.Repeat("y\n", 128*1024)},
 	))

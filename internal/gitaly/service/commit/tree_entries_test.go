@@ -24,7 +24,7 @@ func TestGetTreeEntries_curlyBraces(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, ctx)
 
-	commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(git.TreeEntry{
+	commitID := WriteTestCommit(t, git, cfg, repoPath, git.WithTreeEntries(git.TreeEntry{
 		Path: "issue-46261", Mode: "040000", OID: git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 			{
 				Path: "folder", Mode: "040000", OID: git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
@@ -591,7 +591,7 @@ func TestGetTreeEntries_deepFlatpath(t *testing.T) {
 
 		treeID = git.WriteTree(t, cfg, repoPath, []git.TreeEntry{treeEntry})
 	}
-	commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTree(treeID))
+	commitID := WriteTestCommit(t, git, cfg, repoPath, git.WithTree(treeID))
 
 	// We make a non-recursive request which tries to fetch tree entrie for the tree structure
 	// we have created above. This should return a single entry, which is the directory we're
@@ -625,13 +625,12 @@ func TestGetTreeEntries_file(t *testing.T) {
 
 	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, ctx)
 
-	commitID := git.WriteTestCommit(t, cfg, repoPath,
+	commitID := WriteTestCommit(t, git, cfg, repoPath,
 		git.WithTreeEntries(git.TreeEntry{
 			Mode:    "100644",
 			Path:    "README.md",
 			Content: "something with spaces in between",
-		}),
-	)
+		}))
 
 	// request entries of the tree with single-folder structure on each level
 	stream, err := client.GetTreeEntries(ctx, &gitalypb.GetTreeEntriesRequest{

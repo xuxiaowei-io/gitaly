@@ -25,9 +25,9 @@ func TestSuccessfulGetCommitMessagesRequest(t *testing.T) {
 	message1 := strings.Repeat("a\n", helper.MaxCommitOrTagMessageSize*2)
 	message2 := strings.Repeat("b\n", helper.MaxCommitOrTagMessageSize*2)
 
-	commit1ID := git.WriteTestCommit(t, cfg, repoPath,
-		git.WithBranch("local-big-commits"), git.WithMessage(message1),
-	)
+	commit1ID := WriteTestCommit(t, git, cfg, repoPath,
+		git.WithBranch("local-big-commits"), git.WithMessage(message1))
+
 	commit2ID := git.WriteTestCommit(t, cfg, repoPath,
 		git.WithBranch("local-big-commits"), git.WithMessage(message2),
 		git.WithParents(commit1ID),

@@ -328,39 +328,35 @@ func TestUserSquash_renames(t *testing.T) {
 
 	repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
 
-	git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+	WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"))
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	originalFilename := "original-file.txt"
 	renamedFilename := "renamed-file.txt"
 
-	rootCommitID := git.WriteTestCommit(t, cfg, repoPath,
+	rootCommitID := WriteTestCommit(t, git, cfg, repoPath,
 		git.WithTreeEntries(
 			git.TreeEntry{Path: originalFilename, Mode: "100644", Content: "This is a test"},
-		),
-	)
+		))
 
-	startCommitID := git.WriteTestCommit(t, cfg, repoPath,
+	startCommitID := WriteTestCommit(t, git, cfg, repoPath,
 		git.WithParents(rootCommitID),
 		git.WithTreeEntries(
 			git.TreeEntry{Path: renamedFilename, Mode: "100644", Content: "This is a test"},
-		),
-	)
+		))
 
-	changedCommitID := git.WriteTestCommit(t, cfg, repoPath,
+	changedCommitID := WriteTestCommit(t, git, cfg, repoPath,
 		git.WithParents(rootCommitID),
 		git.WithTreeEntries(
 			git.TreeEntry{Path: originalFilename, Mode: "100644", Content: "This is a change"},
-		),
-	)
+		))
 
-	endCommitID := git.WriteTestCommit(t, cfg, repoPath,
+	endCommitID := WriteTestCommit(t, git, cfg, repoPath,
 		git.WithParents(changedCommitID),
 		git.WithTreeEntries(
 			git.TreeEntry{Path: originalFilename, Mode: "100644", Content: "This is another change"},
-		),
-	)
+		))
 
 	request := &gitalypb.UserSquashRequest{
 		Repository:    repoProto,
@@ -420,11 +416,11 @@ func TestUserSquash_emptyCommit(t *testing.T) {
 
 	// Set up history with two diverging lines of branches, where both sides have implemented
 	// the same changes. During merge, the diff will thus become empty.
-	base := git.WriteTestCommit(t, cfg, repoPath,
+	base := WriteTestCommit(t, git, cfg, repoPath,
 		git.WithTreeEntries(
 			git.TreeEntry{Path: "a", Content: "base", Mode: "100644"},
-		),
-	)
+		))
+
 	theirs := git.WriteTestCommit(t, cfg, repoPath, git.WithMessage("theirs"),
 		git.WithParents(base), git.WithTreeEntries(
 			git.TreeEntry{Path: "a", Content: "changed", Mode: "100644"},
@@ -618,17 +614,17 @@ func TestUserSquash_conflicts(t *testing.T) {
 	ctx := testhelper.Context(t)
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
-	base := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+	base := WriteTestCommit(t, git, cfg, repoPath, git.WithTreeEntries(
 		git.TreeEntry{Path: "a", Mode: "100644", Content: "unchanged"},
 		git.TreeEntry{Path: "b", Mode: "100644", Content: "base"},
 	))
 
-	ours := git.WriteTestCommit(t, cfg, repoPath, git.WithParents(base), git.WithTreeEntries(
+	ours := WriteTestCommit(t, git, cfg, repoPath, git.WithParents(base), git.WithTreeEntries(
 		git.TreeEntry{Path: "a", Mode: "100644", Content: "unchanged"},
 		git.TreeEntry{Path: "b", Mode: "100644", Content: "ours"},
 	))
 
-	theirs := git.WriteTestCommit(t, cfg, repoPath, git.WithParents(base), git.WithTreeEntries(
+	theirs := WriteTestCommit(t, git, cfg, repoPath, git.WithParents(base), git.WithTreeEntries(
 		git.TreeEntry{Path: "a", Mode: "100644", Content: "unchanged"},
 		git.TreeEntry{Path: "b", Mode: "100644", Content: "theirs"},
 	))
@@ -668,7 +664,7 @@ func TestUserSquash_ancestry(t *testing.T) {
 
 	// We create an empty parent commit and two commits which both branch off from it. As a
 	// result, they are not direct ancestors of each other.
-	parent := git.WriteTestCommit(t, cfg, repoPath, git.WithMessage("p"), git.WithTreeEntries())
+	parent := WriteTestCommit(t, git, cfg, repoPath, git.WithMessage("p"), git.WithTreeEntries())
 	commit1 := git.WriteTestCommit(t, cfg, repoPath, git.WithMessage("1"),
 		git.WithTreeEntries(git.TreeEntry{Path: "a", Mode: "100644", Content: "a-content"}),
 		git.WithParents(parent),
@@ -801,9 +797,9 @@ func TestUserSquash_squashingMerge(t *testing.T) {
 	ctx := testhelper.Context(t)
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
-	base := git.WriteTestCommit(t, cfg, repoPath, git.WithMessage("base"),
-		git.WithTreeEntries(git.TreeEntry{Path: "a", Mode: "100644", Content: "base-content"}),
-	)
+	base := WriteTestCommit(t, git, cfg, repoPath, git.WithMessage("base"),
+		git.WithTreeEntries(git.TreeEntry{Path: "a", Mode: "100644", Content: "base-content"}))
+
 	ours := git.WriteTestCommit(t, cfg, repoPath, git.WithMessage("ours"),
 		git.WithTreeEntries(git.TreeEntry{Path: "a", Mode: "100644", Content: "ours-content"}),
 		git.WithParents(base),

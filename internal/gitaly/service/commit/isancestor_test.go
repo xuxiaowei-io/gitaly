@@ -170,10 +170,9 @@ func TestSuccessfulIsAncestorRequestWithAltGitObjectDirs(t *testing.T) {
 	parentCommitID := git.ObjectID(text.ChompBytes(git.Exec(t, cfg, "-C", repoPath, "rev-parse", "--verify", "HEAD")))
 
 	altObjectsDir := "./alt-objects"
-	commitID := git.WriteTestCommit(t, cfg, repoPath,
+	commitID := WriteTestCommit(t, git, cfg, repoPath,
 		git.WithParents(parentCommitID),
-		git.WithAlternateObjectDirectory(filepath.Join(repoPath, altObjectsDir)),
-	)
+		git.WithAlternateObjectDirectory(filepath.Join(repoPath, altObjectsDir)))
 
 	testCases := []struct {
 		desc    string

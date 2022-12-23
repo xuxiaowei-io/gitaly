@@ -16,7 +16,7 @@ func TestHasLocalBranches_successful(t *testing.T) {
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	populatedRepo, populatedRepoPath := git.CreateRepository(t, ctx, cfg)
-	git.WriteTestCommit(t, cfg, populatedRepoPath, git.WithBranch("main"))
+	WriteTestCommit(t, git, cfg, populatedRepoPath, git.WithBranch("main"))
 
 	emptyRepo, _ := git.CreateRepository(t, ctx, cfg)
 

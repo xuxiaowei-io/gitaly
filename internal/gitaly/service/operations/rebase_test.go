@@ -94,11 +94,10 @@ func TestUserRebaseConfirmable_skipEmptyCommits(t *testing.T) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	// This is the base commit from which both "theirs" and "ours" branch from".
-	baseCommit := git.WriteTestCommit(t, cfg, repoPath,
+	baseCommit := WriteTestCommit(t, git, cfg, repoPath,
 		git.WithTreeEntries(
 			git.TreeEntry{Mode: "100644", Path: "README", Content: "a\nb\nc\nd\ne\nf\n"},
-		),
-	)
+		))
 
 	// "theirs" changes the first line of the file to contain a "1".
 	theirs := git.WriteTestCommit(t, cfg, repoPath,
@@ -637,12 +636,12 @@ func TestUserRebaseConfirmable_deletedFileInLocalRepo(t *testing.T) {
 	// Write the root commit into both repositories as common history.
 	var rootCommitID git.ObjectID
 	for _, path := range []string{localRepoPath, remoteRepoPath} {
-		rootCommitID = git.WriteTestCommit(t, cfg, path,
+		rootCommitID = WriteTestCommit(t, git, cfg, path,
 			git.WithTreeEntries(
 				git.TreeEntry{Path: "change-me", Mode: "100644", Content: "unchanged contents"},
 				git.TreeEntry{Path: "delete-me", Mode: "100644", Content: "useless stuff"},
-			),
-		)
+			))
+
 	}
 
 	// Write a commit into the local repository that deletes a single file.
@@ -707,13 +706,13 @@ func TestUserRebaseConfirmable_deletedFileInRemoteRepo(t *testing.T) {
 	// Write the root commit into both repositories as common history.
 	var rootCommitID git.ObjectID
 	for _, path := range []string{localRepoPath, remoteRepoPath} {
-		rootCommitID = git.WriteTestCommit(t, cfg, path,
+		rootCommitID = WriteTestCommit(t, git, cfg, path,
 			git.WithTreeEntries(
 				git.TreeEntry{Path: "unchanged", Mode: "100644", Content: "unchanged contents"},
 				git.TreeEntry{Path: "delete-me", Mode: "100644", Content: "useless stuff"},
 			),
-			git.WithBranch("local"),
-		)
+			git.WithBranch("local"))
+
 	}
 
 	// Write a commit into the remote repository that deletes a file.

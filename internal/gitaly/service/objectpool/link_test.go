@@ -33,7 +33,7 @@ func testLink(t *testing.T, ctx context.Context) {
 
 	// Mock object in the pool, which should be available to the pool members
 	// after linking
-	poolCommitID := git.WriteTestCommit(t, cfg, poolPath,
+	poolCommitID := WriteTestCommit(t, git, cfg, poolPath,
 		git.WithBranch("pool-test-branch"))
 
 	for _, tc := range []struct {

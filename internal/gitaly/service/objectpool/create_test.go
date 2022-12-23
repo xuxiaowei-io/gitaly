@@ -34,7 +34,7 @@ func testCreate(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
 	cfg, repo, repoPath, _, client := setup(t, ctx)
-	commitID := git.WriteTestCommit(t, cfg, repoPath)
+	commitID := WriteTestCommit(t, git, cfg, repoPath)
 
 	txManager := transaction.NewManager(cfg, nil)
 	catfileCache := catfile.NewCache(cfg)

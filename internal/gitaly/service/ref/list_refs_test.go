@@ -24,11 +24,10 @@ func TestServer_ListRefs(t *testing.T) {
 
 	repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
-	oldCommitID := git.WriteTestCommit(t, cfg, repoPath)
-	newCommitID := git.WriteTestCommit(t, cfg, repoPath,
+	oldCommitID := WriteTestCommit(t, git, cfg, repoPath)
+	newCommitID := WriteTestCommit(t, git, cfg, repoPath,
 		git.WithParents(oldCommitID),
-		git.WithAuthorDate(time.Date(2011, 2, 16, 14, 1, 0, 0, time.FixedZone("UTC+1", +1*60*60))),
-	)
+		git.WithAuthorDate(time.Date(2011, 2, 16, 14, 1, 0, 0, time.FixedZone("UTC+1", +1*60*60))))
 
 	for _, cmd := range [][]string{
 		{"update-ref", "refs/heads/main", newCommitID.String()},

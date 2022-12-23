@@ -441,8 +441,8 @@ func TestUserDeleteBranch(t *testing.T) {
 			setup: func() setupResponse {
 				repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
 
-				firstCommit := git.WriteTestCommit(t, cfg, repoPath)
-				git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("master"), git.WithParents(firstCommit))
+				firstCommit := WriteTestCommit(t, git, cfg, repoPath)
+				WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("master"), git.WithParents(firstCommit))
 
 				git.Exec(t, cfg, "-C", repoPath, "branch", "to-attempt-to-delete-soon-branch", "master")
 
@@ -463,8 +463,8 @@ func TestUserDeleteBranch(t *testing.T) {
 			setup: func() setupResponse {
 				repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
 
-				firstCommit := git.WriteTestCommit(t, cfg, repoPath)
-				headCommit := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("master"), git.WithParents(firstCommit))
+				firstCommit := WriteTestCommit(t, git, cfg, repoPath)
+				headCommit := WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("master"), git.WithParents(firstCommit))
 
 				git.Exec(t, cfg, "-C", repoPath, "branch", "to-attempt-to-delete-soon-branch", "master")
 
@@ -488,8 +488,8 @@ func TestUserDeleteBranch(t *testing.T) {
 
 				repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
 
-				firstCommit := git.WriteTestCommit(t, cfg, repoPath)
-				git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("master"), git.WithParents(firstCommit))
+				firstCommit := WriteTestCommit(t, git, cfg, repoPath)
+				WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("master"), git.WithParents(firstCommit))
 
 				git.Exec(t, cfg, "-C", repoPath, "branch", branchName, "master")
 
@@ -512,8 +512,8 @@ func TestUserDeleteBranch(t *testing.T) {
 
 				repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
 
-				firstCommit := git.WriteTestCommit(t, cfg, repoPath)
-				git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("master"), git.WithParents(firstCommit))
+				firstCommit := WriteTestCommit(t, git, cfg, repoPath)
+				WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("master"), git.WithParents(firstCommit))
 
 				git.Exec(t, cfg, "-C", repoPath, "branch", branchName, "master")
 
@@ -536,8 +536,8 @@ func TestUserDeleteBranch(t *testing.T) {
 
 				repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
 
-				firstCommit := git.WriteTestCommit(t, cfg, repoPath)
-				git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("master"), git.WithParents(firstCommit))
+				firstCommit := WriteTestCommit(t, git, cfg, repoPath)
+				WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("master"), git.WithParents(firstCommit))
 
 				git.Exec(t, cfg, "-C", repoPath, "branch", branchName, "master")
 
@@ -561,8 +561,8 @@ func TestUserDeleteBranch(t *testing.T) {
 
 				repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
 
-				firstCommit := git.WriteTestCommit(t, cfg, repoPath)
-				git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("master"), git.WithParents(firstCommit))
+				firstCommit := WriteTestCommit(t, git, cfg, repoPath)
+				WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("master"), git.WithParents(firstCommit))
 
 				git.Exec(t, cfg, "-C", repoPath, "branch", branchName, "master")
 
@@ -586,8 +586,8 @@ func TestUserDeleteBranch(t *testing.T) {
 
 				repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
 
-				firstCommit := git.WriteTestCommit(t, cfg, repoPath)
-				git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("master"), git.WithParents(firstCommit))
+				firstCommit := WriteTestCommit(t, git, cfg, repoPath)
+				WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("master"), git.WithParents(firstCommit))
 
 				git.Exec(t, cfg, "-C", repoPath, "branch", branchName, "master")
 
@@ -698,7 +698,7 @@ func TestUserDeleteBranch_allowed(t *testing.T) {
 			))
 
 			repo, repoPath := git.CreateRepository(t, ctx, cfg)
-			git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("branch"))
+			WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("branch"))
 
 			response, err := client.UserDeleteBranch(ctx, &gitalypb.UserDeleteBranchRequest{
 				Repository: repo,
@@ -718,7 +718,7 @@ func TestUserDeleteBranch_concurrentUpdate(t *testing.T) {
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
-	commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("concurrent-update"))
+	commitID := WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("concurrent-update"))
 
 	// Create a git-update-ref(1) process that's locking the "concurrent-update" branch. We do
 	// not commit the update yet though to keep the reference locked to simulate concurrent

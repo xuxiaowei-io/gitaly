@@ -28,7 +28,7 @@ func testReduplicate(t *testing.T, ctx context.Context) {
 	cfg, repoProto, repoPath, _, client := setup(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+	commitID := WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"))
 
 	// Create the object pool and repack it. This is required for our test setup as Git won't
 	// deduplicate objects in the pool member when they're not in a packfile in the object pool.

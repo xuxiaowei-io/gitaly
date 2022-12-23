@@ -130,7 +130,7 @@ func TestInfoService_RepositoryReplicas(t *testing.T) {
 	)
 
 	// create a commit in the second replica so we can check that its checksum is different than the primary
-	git.WriteTestCommit(t, cfgs[1], testRepoPath, git.WithBranch("master"))
+	WriteTestCommit(t, git, cfgs[1], testRepoPath, git.WithBranch("master"))
 
 	// Increment the generation of the unmodified repositories so the below CalculateChecksum calls goes to one of them
 	// as the test expects the primary to have that checksum.

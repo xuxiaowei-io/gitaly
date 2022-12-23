@@ -73,26 +73,28 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gital
 			{
 				desc: "empty if no license file in repo",
 				setup: func(t *testing.T, repoPath string) {
-					git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"),
+					WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"),
 						git.WithTreeEntries(
 							git.TreeEntry{
 								Mode:    "100644",
 								Path:    "README.md",
 								Content: "readme content",
 							}))
+
 				},
 				expectedLicenseRuby: &gitalypb.FindLicenseResponse{},
 			},
 			{
 				desc: "high confidence mit result and less confident mit-0 result",
 				setup: func(t *testing.T, repoPath string) {
-					git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"),
+					WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"),
 						git.WithTreeEntries(
 							git.TreeEntry{
 								Mode:    "100644",
 								Path:    "LICENSE",
 								Content: mitLicense,
 							}))
+
 				},
 				expectedLicenseRuby: &gitalypb.FindLicenseResponse{
 					LicenseShortName: "mit",
@@ -110,13 +112,14 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gital
 			{
 				desc: "unknown license",
 				setup: func(t *testing.T, repoPath string) {
-					git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"),
+					WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"),
 						git.WithTreeEntries(
 							git.TreeEntry{
 								Mode:    "100644",
 								Path:    "LICENSE.md",
 								Content: "this doesn't match any known license",
 							}))
+
 				},
 				expectedLicenseRuby: &gitalypb.FindLicenseResponse{
 					LicenseShortName: "other",
@@ -136,13 +139,14 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gital
 				setup: func(t *testing.T, repoPath string) {
 					deprecatedLicenseData := testhelper.MustReadFile(t, "testdata/gnu_license.deprecated.txt")
 
-					git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"),
+					WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"),
 						git.WithTreeEntries(
 							git.TreeEntry{
 								Mode:    "100644",
 								Path:    "LICENSE",
 								Content: string(deprecatedLicenseData),
 							}))
+
 				},
 				expectedLicenseRuby: &gitalypb.FindLicenseResponse{
 					LicenseShortName: "gpl-3.0",
@@ -164,13 +168,14 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gital
 				setup: func(t *testing.T, repoPath string) {
 					licenseText := testhelper.MustReadFile(t, "testdata/gpl-2.0_license.txt")
 
-					git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"),
+					WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"),
 						git.WithTreeEntries(
 							git.TreeEntry{
 								Mode:    "100644",
 								Path:    "LICENSE",
 								Content: string(licenseText),
 							}))
+
 				},
 				expectedLicenseRuby: &gitalypb.FindLicenseResponse{
 					LicenseShortName: "gpl-2.0",
@@ -197,20 +202,21 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gital
 							Content: mitLicense,
 						}})
 
-					git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"),
+					WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"),
 						git.WithTreeEntries(
 							git.TreeEntry{
 								Mode: "040000",
 								Path: "legal",
 								OID:  subTree,
 							}))
+
 				},
 				expectedLicenseRuby: &gitalypb.FindLicenseResponse{},
 			},
 			{
 				desc: "license pointing to license file",
 				setup: func(t *testing.T, repoPath string) {
-					git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"),
+					WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"),
 						git.WithTreeEntries(
 							git.TreeEntry{
 								Mode:    "100644",
@@ -223,6 +229,7 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gital
 								Content: "mit.txt",
 							},
 						))
+
 				},
 				expectedLicenseRuby: &gitalypb.FindLicenseResponse{
 					LicenseShortName: "other",
@@ -358,8 +365,9 @@ func BenchmarkFindLicense(b *testing.B) {
 		}
 	}
 
-	git.WriteTestCommit(b, cfg, repoStressPath, git.WithBranch("main"),
+	WriteTestCommit(b, git, cfg, repoStressPath, git.WithBranch("main"),
 		git.WithTreeEntries(treeEntries...))
+
 	git.Exec(b, cfg, "-C", repoStressPath, "symbolic-ref", "HEAD", "refs/heads/main")
 
 	testhelper.NewFeatureSets(featureflag.LocalrepoReadObjectCached).Bench(b, func(b *testing.B, ctx context.Context) {

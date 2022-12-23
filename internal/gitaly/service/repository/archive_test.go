@@ -432,7 +432,7 @@ func TestGetArchive_pathInjection(t *testing.T) {
 	// a path and does not interpret it as an option.
 	outputPath := "/non/existent"
 
-	commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTree(git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
+	commitID := WriteTestCommit(t, git, cfg, repoPath, git.WithTree(git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 		{Path: "--output=", Mode: "040000", OID: git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 			{Path: "non", Mode: "040000", OID: git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 				{Path: "existent", Mode: "040000", OID: git.WriteTree(t, cfg, repoPath, []git.TreeEntry{

@@ -86,7 +86,7 @@ func TestOptimizeRepository(t *testing.T) {
 
 		// Write a commit and force-repack the whole repository. This is to ensure that the
 		// repository is in a state where it shouldn't need to be repacked.
-		git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("master"))
+		WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("master"))
 		_, err := client.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{
 			Repository: repo,
 			Strategy:   gitalypb.OptimizeRepositoryRequest_STRATEGY_EAGER,
@@ -115,7 +115,7 @@ func TestOptimizeRepository(t *testing.T) {
 		t.Parallel()
 
 		repo, repoPath := git.CreateRepository(t, ctx, cfg)
-		git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("master"))
+		WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("master"))
 
 		bitmaps, err := filepath.Glob(filepath.Join(repoPath, "objects", "pack", "*.bitmap"))
 		require.NoError(t, err)
@@ -139,7 +139,7 @@ func TestOptimizeRepository(t *testing.T) {
 		t.Parallel()
 
 		repo, repoPath := git.CreateRepository(t, ctx, cfg)
-		git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("master"))
+		WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("master"))
 
 		// Prepare the repository so that it has a commit-graph, but that commit-graph is
 		// missing bloom filters.

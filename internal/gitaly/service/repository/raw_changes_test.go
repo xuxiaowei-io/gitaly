@@ -288,16 +288,15 @@ func TestGetRawChangesInvalidUTF8Paths(t *testing.T) {
 	)
 	require.False(t, utf8.ValidString(nonUTF8Filename)) // sanity check
 
-	fromCommitID := git.WriteTestCommit(t, cfg, repoPath,
+	fromCommitID := WriteTestCommit(t, git, cfg, repoPath,
 		git.WithTreeEntries(git.TreeEntry{
 			OID: blobID1, Path: nonUTF8Filename, Mode: "100644",
-		}),
-	)
-	toCommitID := git.WriteTestCommit(t, cfg, repoPath,
+		}))
+
+	toCommitID := WriteTestCommit(t, git, cfg, repoPath,
 		git.WithTreeEntries(git.TreeEntry{
 			OID: blobID2, Path: nonUTF8Filename, Mode: "100644",
-		}),
-	)
+		}))
 
 	req := &gitalypb.GetRawChangesRequest{
 		Repository:   repo,

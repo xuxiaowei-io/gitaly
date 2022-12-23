@@ -68,8 +68,8 @@ func TestCreateRepositoryFromURL_successfulWithOptionalParameters(t *testing.T) 
 	gitCmdFactory := git.NewCommandFactory(t, cfg)
 
 	_, remoteRepoPath := git.CreateRepository(t, ctx, cfg)
-	git.WriteTestCommit(t, cfg, remoteRepoPath, git.WithBranch(git.DefaultBranch))
-	git.WriteTestCommit(t, cfg, remoteRepoPath, git.WithReference("refs/merge-requests/1/head"))
+	WriteTestCommit(t, git, cfg, remoteRepoPath, git.WithBranch(git.DefaultBranch))
+	WriteTestCommit(t, git, cfg, remoteRepoPath, git.WithReference("refs/merge-requests/1/head"))
 
 	user := "username123"
 	password := "password321localhost"

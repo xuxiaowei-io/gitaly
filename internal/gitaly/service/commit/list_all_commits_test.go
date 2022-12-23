@@ -116,9 +116,8 @@ func TestListAllCommits(t *testing.T) {
 
 		// We cannot easily spawn a command with an object directory, so we just do so
 		// manually here and write the commit into the quarantine object directory.
-		commitID := git.WriteTestCommit(t, cfg, repoPath,
-			git.WithAlternateObjectDirectory(filepath.Join(repoPath, quarantineDir)),
-		)
+		commitID := WriteTestCommit(t, git, cfg, repoPath,
+			git.WithAlternateObjectDirectory(filepath.Join(repoPath, quarantineDir)))
 
 		// We now expect only the quarantined commit to be returned.
 		stream, err = client.ListAllCommits(ctx, &gitalypb.ListAllCommitsRequest{

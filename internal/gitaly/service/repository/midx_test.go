@@ -85,7 +85,7 @@ func TestMidxRepack(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 	repo, repoPath := git.CreateRepository(t, ctx, cfg)
-	git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+	WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"))
 
 	// add some pack files with different sizes
 	packsAdded := 5
@@ -129,7 +129,7 @@ func TestMidxRepack_transactional(t *testing.T) {
 
 	cfg, client := setupRepositoryServiceWithoutRepo(t, testserver.WithTransactionManager(txManager))
 	repo, repoPath := git.CreateRepository(t, ctx, cfg)
-	git.WriteTestCommit(t, cfg, repoPath, git.WithBranch(git.DefaultBranch))
+	WriteTestCommit(t, git, cfg, repoPath, git.WithBranch(git.DefaultBranch))
 	git.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
 
 	// Reset the votes after creating the test repository.
@@ -164,7 +164,7 @@ func TestMidxRepackExpire(t *testing.T) {
 		t.Run(fmt.Sprintf("Test repack expire with %d added packs", packsAdded),
 			func(t *testing.T) {
 				repo, repoPath := git.CreateRepository(t, ctx, cfg)
-				git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+				WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"))
 
 				// add some pack files with different sizes
 				addPackFiles(t, ctx, cfg, repoPath, packsAdded, false)
@@ -267,10 +267,9 @@ func addPackFiles(
 		_, err := io.ReadFull(randomReader, buf)
 		require.NoError(t, err)
 
-		git.WriteTestCommit(t, cfg, repoPath,
+		WriteTestCommit(t, git, cfg, repoPath,
 			git.WithMessage(hex.EncodeToString(buf)),
-			git.WithBranch(fmt.Sprintf("branch-%d", i)),
-		)
+			git.WithBranch(fmt.Sprintf("branch-%d", i)))
 
 		git.Exec(t, cfg, "-C", repoPath, "repack", "-d")
 	}

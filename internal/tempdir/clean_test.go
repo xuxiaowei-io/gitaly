@@ -61,7 +61,7 @@ func TestCleanTempDir(t *testing.T) {
 		SkipCreationViaService: true,
 	})
 
-	git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("master"))
+	WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("master"))
 
 	logrus.SetLevel(logrus.InfoLevel)
 	logrus.SetOutput(io.Discard)

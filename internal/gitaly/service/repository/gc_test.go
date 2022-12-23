@@ -110,11 +110,10 @@ func TestGarbageCollectWithPrune(t *testing.T) {
 	oldReferencedObjFile := filepath.Join(repoPath, "objects", blobHashes[2][:2], blobHashes[2][2:])
 
 	// create a reference to the blob, so it should not be removed by gc
-	git.WriteTestCommit(t, cfg, repoPath,
+	WriteTestCommit(t, git, cfg, repoPath,
 		git.WithTreeEntries(git.TreeEntry{
 			OID: git.ObjectID(blobHashes[2]), Path: "blob-name", Mode: "100644",
-		}),
-	)
+		}))
 
 	// change modification time of the blobs to make them attractive for the gc
 	aBitMoreThan30MinutesAgo := time.Now().Add(-30*time.Minute - time.Second)
@@ -237,7 +236,7 @@ func TestGarbageCollectDeletesPackedRefsLock(t *testing.T) {
 
 			repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
-			git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+			WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"))
 			git.Exec(t, cfg, "-C", repoPath, "pack-refs", "--all")
 
 			// Force the packed-refs file to have an old time to test that even
@@ -560,7 +559,7 @@ func TestGarbageCollectDeltaIslands(t *testing.T) {
 	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	localRepo := localrepo.NewTestRepo(t, cfg, repo)
-	git.TestDeltaIslands(t, cfg, repo, repo, false, func() error {
+	localrepo.TestDeltaIslands(t, cfg, repo, repo, false, func() error {
 		//nolint:staticcheck
 		_, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: repo})
 		return err
@@ -576,12 +575,12 @@ func TestGarbageCollect_commitGraphsWithPrunedObjects(t *testing.T) {
 	repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
 
 	// Write a first commit-graph that contains the root commit, only.
-	rootCommitID := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+	rootCommitID := WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"))
 	git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split", "--changed-paths")
 
 	// Write a second, incremental commit-graph that contains a commit we're about to
 	// make unreachable and then prune.
-	unreachableCommitID := git.WriteTestCommit(t, cfg, repoPath, git.WithParents(rootCommitID), git.WithBranch("main"))
+	unreachableCommitID := WriteTestCommit(t, git, cfg, repoPath, git.WithParents(rootCommitID), git.WithBranch("main"))
 	git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split=no-merge", "--changed-paths")
 
 	// Reset the "main" branch back to the initial root commit ID and prune the now

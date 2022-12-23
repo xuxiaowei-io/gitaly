@@ -45,13 +45,13 @@ func testFetchIntoObjectPoolSuccess(t *testing.T, ctx context.Context) {
 
 	cfg, repo, repoPath, _, client := setup(t, ctx)
 
-	parentID := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+	parentID := WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"))
 
 	poolProto, _, poolPath := createObjectPool(t, ctx, cfg, client, repo)
 
 	// Create a new commit after having created the object pool. This commit exists only in the
 	// pool member, but not in the pool itself.
-	commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithParents(parentID), git.WithBranch("main"))
+	commitID := WriteTestCommit(t, git, cfg, repoPath, git.WithParents(parentID), git.WithBranch("main"))
 	git.RequireObjectExists(t, cfg, repoPath, commitID)
 	git.RequireObjectNotExists(t, cfg, poolPath, commitID)
 
@@ -157,7 +157,7 @@ func testFetchIntoObjectPooltransactional(t *testing.T, ctx context.Context) {
 
 		// Create a new reference that we'd in fact fetch into the object pool so that we
 		// know that something will be voted on.
-		repoCommit := git.WriteTestCommit(t, cfg, repoPath, git.WithParents(), git.WithBranch("new-branch"))
+		repoCommit := WriteTestCommit(t, git, cfg, repoPath, git.WithParents(), git.WithBranch("new-branch"))
 
 		_, err = client.FetchIntoObjectPool(ctx, &gitalypb.FetchIntoObjectPoolRequest{
 			ObjectPool: poolProto,
@@ -184,7 +184,7 @@ func testFetchIntoObjectPooltransactional(t *testing.T, ctx context.Context) {
 
 		// Create a commit in the pool repository itself. Right now, we don't touch this
 		// commit at all, but this will change in one of the next commits.
-		git.WriteTestCommit(t, cfg, poolPath, git.WithParents(), git.WithReference(reference))
+		WriteTestCommit(t, git, cfg, poolPath, git.WithParents(), git.WithReference(reference))
 
 		_, err = client.FetchIntoObjectPool(ctx, &gitalypb.FetchIntoObjectPoolRequest{
 			ObjectPool: poolProto,
@@ -315,7 +315,7 @@ func testFetchIntoObjectPoolDfConflict(t *testing.T, ctx context.Context) {
 	cfg, repo, repoPath, _, client := setup(t, ctx)
 	poolProto, _, poolPath := createObjectPool(t, ctx, cfg, client, repo)
 
-	git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("branch"))
+	WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("branch"))
 
 	// Perform an initial fetch into the object pool with the given object that exists in the
 	// pool member's repository.
@@ -328,7 +328,7 @@ func testFetchIntoObjectPoolDfConflict(t *testing.T, ctx context.Context) {
 	// Now we delete the reference in the pool member and create a new reference that has the
 	// same prefix, but is stored in a subdirectory. This will create a D/F conflict.
 	git.Exec(t, cfg, "-C", repoPath, "update-ref", "-d", "refs/heads/branch")
-	git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("branch/conflict"))
+	WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("branch/conflict"))
 
 	// Verify that we can still fetch into the object pool regardless of the D/F conflict. While
 	// it is not possible to store both references at the same time due to the conflict, we

@@ -441,9 +441,8 @@ func TestSuccessfulFindCommitsRequestWithAltGitObjectDirs(t *testing.T) {
 	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, ctx)
 
 	altObjectsDir := "./alt-objects"
-	commitID := git.WriteTestCommit(t, cfg, repoPath,
-		git.WithAlternateObjectDirectory(filepath.Join(repoPath, altObjectsDir)),
-	)
+	commitID := WriteTestCommit(t, git, cfg, repoPath,
+		git.WithAlternateObjectDirectory(filepath.Join(repoPath, altObjectsDir)))
 
 	testCases := []struct {
 		desc          string

@@ -566,10 +566,9 @@ func TestUpdateRemoteMirror(t *testing.T) {
 							parents = []git.ObjectID{commitOID}
 						}
 
-						commitOID = git.WriteTestCommit(t, cfg, repoPath,
+						commitOID = WriteTestCommit(t, git, cfg, repoPath,
 							git.WithMessage(commit),
-							git.WithParents(parents...),
-						)
+							git.WithParents(parents...))
 
 						commitsByMessage[commit] = commitOID
 					}
@@ -664,7 +663,7 @@ func TestSuccessfulUpdateRemoteMirrorRequest(t *testing.T) {
 	})
 
 	// Create a commit that only exists in the mirror
-	mirrorOnlyCommitOid := git.WriteTestCommit(t, cfg, mirrorPath, git.WithBranch("master"))
+	mirrorOnlyCommitOid := WriteTestCommit(t, git, cfg, mirrorPath, git.WithBranch("master"))
 	require.NotEmpty(t, mirrorOnlyCommitOid)
 
 	setupCommands := [][]string{
@@ -811,7 +810,7 @@ func TestUpdateRemoteMirrorInmemory(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg, localRepo, localPath, client := setupRemoteService(t, ctx)
-	git.WriteTestCommit(t, cfg, localPath)
+	WriteTestCommit(t, git, cfg, localPath)
 
 	_, remotePath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		Seed: git.SeedGitLabTest,

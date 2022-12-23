@@ -103,7 +103,7 @@ func testUploadPackTimeout(t *testing.T, opts ...testcfg.Option) {
 	cfg.SocketPath = runSSHServerWithOptions(t, cfg, []ServerOpt{WithUploadPackRequestTimeout(1)})
 
 	repo, repoPath := git.CreateRepository(t, testhelper.Context(t), cfg)
-	git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+	WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"))
 
 	client := newSSHClient(t, cfg.SocketPath)
 
@@ -522,10 +522,11 @@ func testUploadPackSuccessful(t *testing.T, sidechannel bool, opts ...testcfg.Op
 
 	// We set up the commits so that HEAD does not reference the above two blobs. If it did we'd
 	// fetch the blobs regardless of `--filter=blob:limit`.
-	rootCommitID := git.WriteTestCommit(t, cfg, repoPath, git.WithParents(), git.WithTreeEntries(
+	rootCommitID := WriteTestCommit(t, git, cfg, repoPath, git.WithParents(), git.WithTreeEntries(
 		git.TreeEntry{Path: "small", Mode: "100644", OID: smallBlobID},
 		git.TreeEntry{Path: "large", Mode: "100644", OID: largeBlobID},
 	))
+
 	git.WriteTestCommit(t, cfg, repoPath, git.WithParents(rootCommitID), git.WithBranch("main"), git.WithTreeEntries(
 		git.TreeEntry{Path: "unrelated", Mode: "100644", Content: "something"},
 	))

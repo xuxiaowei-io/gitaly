@@ -85,7 +85,7 @@ func testServerPostUpload(t *testing.T, ctx context.Context, makeRequest request
 
 	oldCommit, err := git.ObjectHashSHA1.FromHex("1e292f8fedd741b75372e19097c76d327140c312") // refs/heads/master
 	require.NoError(t, err)
-	newCommit := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("master"), git.WithParents(oldCommit))
+	newCommit := WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("master"), git.WithParents(oldCommit))
 
 	// UploadPack request is a "want" packet line followed by a packet flush, then many "have" packets followed by a packet flush.
 	// This is explained a bit in https://git-scm.com/book/en/v2/Git-Internals-Transfer-Protocols#_downloading_data
@@ -137,14 +137,14 @@ func testServerPostUploadPackGitConfigOptions(t *testing.T, ctx context.Context,
 	// normal refs. And the second commit is a child of the base commit, but its reference is
 	// created as `refs/hidden/csv`. This allows us to hide this reference and thus verify that
 	// the gitconfig indeed is applied because we should not be able to fetch the hidden ref.
-	baseID := git.WriteTestCommit(t, cfg, repoPath,
+	baseID := WriteTestCommit(t, git, cfg, repoPath,
 		git.WithMessage("base commit"),
-		git.WithBranch("main"),
-	)
-	hiddenID := git.WriteTestCommit(t, cfg, repoPath,
+		git.WithBranch("main"))
+
+	hiddenID := WriteTestCommit(t, git, cfg, repoPath,
 		git.WithMessage("hidden commit"),
-		git.WithParents(baseID),
-	)
+		git.WithParents(baseID))
+
 	git.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/hidden/csv", hiddenID.String())
 
 	requestBody := &bytes.Buffer{}
@@ -473,7 +473,7 @@ func testServerPostUploadPackPartialClone(t *testing.T, ctx context.Context, mak
 
 	oldCommit, err := git.ObjectHashSHA1.FromHex("1e292f8fedd741b75372e19097c76d327140c312") // refs/heads/master
 	require.NoError(t, err)
-	newCommit := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("master"), git.WithParents(oldCommit))
+	newCommit := WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("master"), git.WithParents(oldCommit))
 
 	var requestBuffer bytes.Buffer
 	git.WritePktlineString(t, &requestBuffer, fmt.Sprintf("want %s %s\n", newCommit, clientCapabilities))
@@ -532,7 +532,7 @@ func testServerPostUploadPackAllowAnySHA1InWant(t *testing.T, ctx context.Contex
 	_, localRepoPath := git.CreateRepository(t, ctx, cfg)
 
 	testcfg.BuildGitalyHooks(t, cfg)
-	newCommit := git.WriteTestCommit(t, cfg, repoPath)
+	newCommit := WriteTestCommit(t, git, cfg, repoPath)
 
 	var requestBuffer bytes.Buffer
 	git.WritePktlineString(t, &requestBuffer, fmt.Sprintf("want %s %s\n", newCommit, clientCapabilities))

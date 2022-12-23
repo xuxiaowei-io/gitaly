@@ -28,14 +28,14 @@ func TestRepackIncrementalSuccess(t *testing.T) {
 	repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
 	// Bring the repository into a known-good state with a single packfile, only.
-	initialCommit := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+	initialCommit := WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"))
 	git.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
 	oldPackfileCount, err := stats.PackfilesCount(repoPath)
 	require.NoError(t, err)
 	require.Equal(t, 1, oldPackfileCount)
 
 	// Write a second commit into the repository so that we have something to repack.
-	git.WriteTestCommit(t, cfg, repoPath, git.WithParents(initialCommit), git.WithBranch("main"))
+	WriteTestCommit(t, git, cfg, repoPath, git.WithParents(initialCommit), git.WithBranch("main"))
 
 	//nolint:staticcheck
 	c, err := client.RepackIncremental(ctx, &gitalypb.RepackIncrementalRequest{Repository: repo})
@@ -79,10 +79,9 @@ func TestRepackLocal(t *testing.T) {
 		git.WithBranch("alternate-odb"),
 	)
 
-	repoCommit := git.WriteTestCommit(t, cfg, repoPath,
+	repoCommit := WriteTestCommit(t, git, cfg, repoPath,
 		git.WithMessage("main commit"),
-		git.WithBranch("main-odb"),
-	)
+		git.WithBranch("main-odb"))
 
 	// Set GIT_ALTERNATE_OBJECT_DIRECTORIES on the outgoing request. The
 	// intended use case of the behavior we're testing here is that
@@ -189,9 +188,9 @@ func TestRepackFullSuccess(t *testing.T) {
 			repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
 			// Bring the repository into a known state with two packfiles.
-			git.WriteTestCommit(t, cfg, repoPath, git.WithMessage("first"), git.WithBranch("first"))
+			WriteTestCommit(t, git, cfg, repoPath, git.WithMessage("first"), git.WithBranch("first"))
 			git.Exec(t, cfg, "-C", repoPath, "repack")
-			git.WriteTestCommit(t, cfg, repoPath, git.WithMessage("second"), git.WithBranch("second"))
+			WriteTestCommit(t, git, cfg, repoPath, git.WithMessage("second"), git.WithBranch("second"))
 			git.Exec(t, cfg, "-C", repoPath, "repack")
 			oldPackfileCount, err := stats.PackfilesCount(repoPath)
 			require.NoError(t, err)
@@ -307,7 +306,7 @@ func TestRepackFullDeltaIslands(t *testing.T) {
 	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 	localRepo := localrepo.NewTestRepo(t, cfg, repo)
 
-	git.TestDeltaIslands(t, cfg, repo, repo, false, func() error {
+	localrepo.TestDeltaIslands(t, cfg, repo, repo, false, func() error {
 		//nolint:staticcheck
 		_, err := client.RepackFull(ctx, &gitalypb.RepackFullRequest{Repository: repo})
 		return err

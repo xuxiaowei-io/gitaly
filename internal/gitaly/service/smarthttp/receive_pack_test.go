@@ -593,12 +593,11 @@ func TestPostReceivePack_fsck(t *testing.T) {
 
 	// We're creating a new commit which has a root tree with duplicate entries. git-mktree(1)
 	// allows us to create these trees just fine, but git-fsck(1) complains.
-	commit := git.WriteTestCommit(t, cfg, repoPath,
+	commit := WriteTestCommit(t, git, cfg, repoPath,
 		git.WithTreeEntries(
 			git.TreeEntry{OID: "4b825dc642cb6eb9a060e54bf8d69288fbee4904", Path: "dup", Mode: "040000"},
 			git.TreeEntry{OID: "4b825dc642cb6eb9a060e54bf8d69288fbee4904", Path: "dup", Mode: "040000"},
-		),
-	)
+		))
 
 	var body bytes.Buffer
 	git.WritePktlineString(t, &body, fmt.Sprintf("%s %s refs/heads/master\x00 %s", head, commit, "report-status side-band-64k agent=git/2.12.0"))
@@ -896,7 +895,7 @@ func createPushRequest(t *testing.T, cfg config.Cfg) (git.ObjectID, git.ObjectID
 	})
 
 	oldCommitID := git.ObjectID(text.ChompBytes(git.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD")))
-	newCommitID := git.WriteTestCommit(t, cfg, repoPath, git.WithParents(oldCommitID))
+	newCommitID := WriteTestCommit(t, git, cfg, repoPath, git.WithParents(oldCommitID))
 
 	// ReceivePack request is a packet line followed by a packet flush, then the pack file of the objects we want to push.
 	// This is explained a bit in https://git-scm.com/book/en/v2/Git-Internals-Transfer-Protocols#_uploading_data

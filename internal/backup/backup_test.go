@@ -217,7 +217,7 @@ func TestManager_Create_incremental(t *testing.T) {
 				require.NoError(tb, os.WriteFile(filepath.Join(backupRepoPath, "LATEST"), []byte(backupID), os.ModePerm))
 				require.NoError(tb, os.WriteFile(filepath.Join(backupPath, "LATEST"), []byte("001"), os.ModePerm))
 
-				git.WriteTestCommit(tb, cfg, repoPath, git.WithBranch("master"))
+				WriteTestCommit(tb, git, cfg, repoPath, git.WithBranch("master"))
 
 				return repo, repoPath
 			},
@@ -403,17 +403,17 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 				require.NoError(tb, os.WriteFile(filepath.Join(repoBackupPath, "LATEST"), []byte(backupID), os.ModePerm))
 				require.NoError(tb, os.WriteFile(filepath.Join(backupPath, "LATEST"), []byte("002"), os.ModePerm))
 
-				root := git.WriteTestCommit(tb, cfg, expectedRepoPath,
+				root := WriteTestCommit(tb, git, cfg, expectedRepoPath,
+					git.WithBranch("master"))
+
+				master1 := WriteTestCommit(tb, git, cfg, expectedRepoPath,
 					git.WithBranch("master"),
-				)
-				master1 := git.WriteTestCommit(tb, cfg, expectedRepoPath,
-					git.WithBranch("master"),
-					git.WithParents(root),
-				)
-				other := git.WriteTestCommit(tb, cfg, expectedRepoPath,
+					git.WithParents(root))
+
+				other := WriteTestCommit(tb, git, cfg, expectedRepoPath,
 					git.WithBranch("other"),
-					git.WithParents(root),
-				)
+					git.WithParents(root))
+
 				git.Exec(tb, cfg, "-C", expectedRepoPath, "symbolic-ref", "HEAD", "refs/heads/master")
 				bundlePath1 := filepath.Join(backupPath, "001.bundle")
 				git.Exec(tb, cfg, "-C", expectedRepoPath, "bundle", "create", bundlePath1,
@@ -422,10 +422,10 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 					"refs/heads/other",
 				)
 
-				master2 := git.WriteTestCommit(tb, cfg, expectedRepoPath,
+				master2 := WriteTestCommit(tb, git, cfg, expectedRepoPath,
 					git.WithBranch("master"),
-					git.WithParents(master1),
-				)
+					git.WithParents(master1))
+
 				bundlePath2 := filepath.Join(backupPath, "002.bundle")
 				git.Exec(tb, cfg, "-C", expectedRepoPath, "bundle", "create", bundlePath2,
 					"HEAD",

@@ -121,7 +121,7 @@ func TestCreateFork_refs(t *testing.T) {
 
 	// Prepare the source repository with a bunch of refs and a non-default HEAD ref so we can
 	// assert that the target repo gets created with the correct set of refs.
-	commitID := git.WriteTestCommit(t, cfg, sourceRepoPath)
+	commitID := WriteTestCommit(t, git, cfg, sourceRepoPath)
 	for _, ref := range []string{
 		"refs/environments/something",
 		"refs/heads/something",

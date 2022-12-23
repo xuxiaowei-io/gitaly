@@ -326,11 +326,10 @@ func TestNonUtf8ListLastCommitsForTreeRequest(t *testing.T) {
 	nonUTF8Filename := "hello\x80world"
 	require.False(t, utf8.ValidString(nonUTF8Filename))
 
-	commitID := git.WriteTestCommit(t, cfg, repoPath,
+	commitID := WriteTestCommit(t, git, cfg, repoPath,
 		git.WithTreeEntries(git.TreeEntry{
 			Mode: "100644", Path: nonUTF8Filename, OID: blobID,
-		}),
-	)
+		}))
 
 	request := &gitalypb.ListLastCommitsForTreeRequest{
 		Repository: repo,
@@ -351,7 +350,7 @@ func TestSuccessfulListLastCommitsForTreeRequestWithGlobCharacters(t *testing.T)
 	ctx := testhelper.Context(t)
 	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, ctx)
 
-	commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(git.TreeEntry{
+	commitID := WriteTestCommit(t, git, cfg, repoPath, git.WithTreeEntries(git.TreeEntry{
 		Path: ":wq", Mode: "040000", OID: git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 			{Path: "README.md", Mode: "100644", Content: "something"},
 		}),

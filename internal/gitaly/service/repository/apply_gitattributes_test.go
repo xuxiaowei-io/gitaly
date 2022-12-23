@@ -28,10 +28,11 @@ func TestApplyGitattributes_successful(t *testing.T) {
 
 	repo, repoPath := git.CreateRepository(t, ctx, cfg)
 	gitattributesContent := "pattern attr=value"
-	commitWithGitattributes := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+	commitWithGitattributes := WriteTestCommit(t, git, cfg, repoPath, git.WithTreeEntries(
 		git.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: gitattributesContent},
 	))
-	commitWithoutGitattributes := git.WriteTestCommit(t, cfg, repoPath)
+
+	commitWithoutGitattributes := WriteTestCommit(t, git, cfg, repoPath)
 
 	infoPath := filepath.Join(repoPath, "info")
 	attributesPath := filepath.Join(infoPath, "attributes")
@@ -96,10 +97,11 @@ func TestApplyGitattributes_transactional(t *testing.T) {
 		SkipCreationViaService: true,
 	})
 	gitattributesContent := "pattern attr=value"
-	commitWithGitattributes := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+	commitWithGitattributes := WriteTestCommit(t, git, cfg, repoPath, git.WithTreeEntries(
 		git.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: gitattributesContent},
 	))
-	commitWithoutGitattributes := git.WriteTestCommit(t, cfg, repoPath)
+
+	commitWithoutGitattributes := WriteTestCommit(t, git, cfg, repoPath)
 
 	transactionServer := &testTransactionServer{}
 	runRepositoryService(t, cfg, nil)

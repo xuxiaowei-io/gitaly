@@ -54,7 +54,7 @@ func TestGetSnapshotSuccess(t *testing.T) {
 
 	// Ensure certain files exist in the test repo.
 	// WriteCommit produces a loose object with the given sha
-	sha := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("master"))
+	sha := WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("master"))
 	zeroes := strings.Repeat("0", 40)
 	require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "hooks"), 0o755))
 	require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "objects/pack"), 0o755))
@@ -122,10 +122,9 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 				absoluteAlternateObjDir = filepath.Join(repoPath, "objects", alternateObjDir)
 			}
 
-			firstCommitID := git.WriteTestCommit(t, cfg, repoPath,
+			firstCommitID := WriteTestCommit(t, git, cfg, repoPath,
 				git.WithMessage("An empty commit"),
-				git.WithAlternateObjectDirectory(absoluteAlternateObjDir),
-			)
+				git.WithAlternateObjectDirectory(absoluteAlternateObjDir))
 
 			locator := config.NewLocator(cfg)
 
@@ -139,10 +138,9 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 			require.NoError(t, os.WriteFile(alternatesPath, []byte(fmt.Sprintf("%s\n", alternateObjDir)), 0o644))
 
 			// Write another commit into the alternate object directory.
-			secondCommitID := git.WriteTestCommit(t, cfg, repoPath,
+			secondCommitID := WriteTestCommit(t, git, cfg, repoPath,
 				git.WithMessage("Another empty commit"),
-				git.WithAlternateObjectDirectory(absoluteAlternateObjDir),
-			)
+				git.WithAlternateObjectDirectory(absoluteAlternateObjDir))
 
 			// We should now be able to find both commits given that the alternates file
 			// points to the object directory we've created them in.
@@ -216,12 +214,10 @@ func TestGetSnapshot_alternateObjectDirectory(t *testing.T) {
 	t.Run("valid alternate object directory", func(t *testing.T) {
 		alternateObjectDir := filepath.Join(repoPath, "valid-odb")
 
-		commitID := git.WriteTestCommit(t, cfg, repoPath,
+		commitID := WriteTestCommit(t, git, cfg, repoPath,
 			git.WithAlternateObjectDirectory(alternateObjectDir),
-			// Create a branch with the commit such that the snapshot would indeed treat
-			// this commit as referenced.
-			git.WithBranch("some-branch"),
-		)
+
+			git.WithBranch("some-branch"))
 
 		require.NoError(t, os.WriteFile(alternatesFile, []byte(alternateObjectDir), 0o644))
 		defer func() {

@@ -127,7 +127,7 @@ func testSuccessfulRepositorySizeRequest(t *testing.T, ctx context.Context) {
 			Path: "1kbblob",
 		},
 	})
-	commitOID := git.WriteTestCommit(t, cfg, repoPath, git.WithTree(treeOID))
+	commitOID := WriteTestCommit(t, git, cfg, repoPath, git.WithTree(treeOID))
 
 	git.WriteRef(t, cfg, repoPath, git.ReferenceName("refs/keep-around/keep1"), commitOID)
 	git.WriteRef(t, cfg, repoPath, git.ReferenceName("refs/merge-requests/1123"), commitOID)

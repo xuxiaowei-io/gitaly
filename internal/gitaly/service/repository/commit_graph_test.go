@@ -30,13 +30,13 @@ func TestWriteCommitGraph_withExistingCommitGraphCreatedWithDefaults(t *testing.
 	})
 
 	treeEntry := git.TreeEntry{Mode: "100644", Path: "file.txt", Content: "something"}
-	git.WriteTestCommit(
-		t,
+	WriteTestCommit(
+		t, git,
+
 		cfg,
 		repoPath,
 		git.WithBranch(t.Name()),
-		git.WithTreeEntries(treeEntry),
-	)
+		git.WithTreeEntries(treeEntry))
 
 	//nolint:staticcheck
 	res, err := client.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{
@@ -68,13 +68,13 @@ func TestWriteCommitGraph_withExistingCommitGraphCreatedWithSplit(t *testing.T) 
 	})
 
 	treeEntry := git.TreeEntry{Mode: "100644", Path: "file.txt", Content: "something"}
-	git.WriteTestCommit(
-		t,
+	WriteTestCommit(
+		t, git,
+
 		cfg,
 		repoPath,
 		git.WithBranch(t.Name()),
-		git.WithTreeEntries(treeEntry),
-	)
+		git.WithTreeEntries(treeEntry))
 
 	//nolint:staticcheck
 	res, err := client.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{
@@ -187,13 +187,13 @@ func TestUpdateCommitGraph(t *testing.T) {
 	})
 
 	treeEntry := git.TreeEntry{Mode: "100644", Path: "file.txt", Content: "something"}
-	git.WriteTestCommit(
-		t,
+	WriteTestCommit(
+		t, git,
+
 		cfg,
 		repoPath,
 		git.WithBranch(t.Name()),
-		git.WithTreeEntries(treeEntry),
-	)
+		git.WithTreeEntries(treeEntry))
 
 	//nolint:staticcheck
 	res, err = client.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{

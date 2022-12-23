@@ -132,7 +132,7 @@ func TestReceivePack_success(t *testing.T) {
 	cfg.SocketPath = runSSHServer(t, cfg, testserver.WithGitCommandFactory(gitCmdFactory))
 
 	repo, repoPath := git.CreateRepository(t, ctx, cfg)
-	git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+	WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"))
 
 	glRepository := "project-456"
 	glProjectPath := "project/path"
@@ -297,7 +297,7 @@ func TestReceive_gitProtocol(t *testing.T) {
 	cfg.SocketPath = runSSHServer(t, cfg, testserver.WithGitCommandFactory(protocolDetectingFactory))
 
 	repo, repoPath := git.CreateRepository(t, ctx, cfg)
-	git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+	WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"))
 
 	lHead, rHead, err := testCloneAndPush(t, ctx, cfg, cfg.SocketPath, repo, repoPath, pushParams{
 		storageName:  testhelper.DefaultStorageName,
@@ -447,7 +447,7 @@ func TestReceivePack_hidesObjectPoolReferences(t *testing.T) {
 	require.NoError(t, pool.Link(ctx, repo))
 	poolPath := git.RepositoryPath(t, pool)
 
-	commitID := git.WriteTestCommit(t, cfg, poolPath, git.WithBranch(t.Name()))
+	commitID := WriteTestCommit(t, git, cfg, poolPath, git.WithBranch(t.Name()))
 
 	// First request
 	require.NoError(t, stream.Send(&gitalypb.SSHReceivePackRequest{Repository: repoProto, GlId: "user-123"}))
@@ -485,8 +485,8 @@ func TestReceivePack_transactional(t *testing.T) {
 
 	repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-	parentCommitID := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
-	commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"), git.WithParents(parentCommitID))
+	parentCommitID := WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"))
+	commitID := WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"), git.WithParents(parentCommitID))
 
 	type command struct {
 		ref    string

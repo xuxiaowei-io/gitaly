@@ -27,15 +27,14 @@ func TestCheckObjectsExist(t *testing.T) {
 
 	repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
-	commitID1 := git.WriteTestCommit(t, cfg, repoPath,
-		git.WithBranch("master"), git.WithMessage("commit-1"),
-	)
+	commitID1 := WriteTestCommit(t, git, cfg, repoPath,
+		git.WithBranch("master"), git.WithMessage("commit-1"))
+
 	commitID2 := git.WriteTestCommit(t, cfg, repoPath,
 		git.WithBranch("feature"), git.WithMessage("commit-2"), git.WithParents(commitID1),
 	)
-	commitID3 := git.WriteTestCommit(t, cfg, repoPath,
-		git.WithMessage("commit-3"), git.WithParents(commitID1),
-	)
+	commitID3 := WriteTestCommit(t, git, cfg, repoPath,
+		git.WithMessage("commit-3"), git.WithParents(commitID1))
 
 	for _, tc := range []struct {
 		desc                  string

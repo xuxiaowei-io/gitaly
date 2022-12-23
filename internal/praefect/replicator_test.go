@@ -146,7 +146,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 	}
 	require.Len(t, events, 1)
 
-	commitID := git.WriteTestCommit(t, primaryCfg, testRepoPath, git.WithBranch("master"))
+	commitID := WriteTestCommit(t, git, primaryCfg, testRepoPath, git.WithBranch("master"))
 
 	var mockReplicationLatencyHistogramVec promtest.MockHistogramVec
 	var mockReplicationDelayHistogramVec promtest.MockHistogramVec
@@ -302,7 +302,7 @@ func TestConfirmReplication(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, equal)
 
-	git.WriteTestCommit(t, cfg, testRepoAPath, git.WithBranch("master"))
+	WriteTestCommit(t, git, cfg, testRepoAPath, git.WithBranch("master"))
 
 	equal, err = confirmChecksums(ctx, testhelper.NewDiscardingLogger(t), gitalypb.NewRepositoryServiceClient(conn), gitalypb.NewRepositoryServiceClient(conn), testRepoA, testRepoB)
 	require.NoError(t, err)

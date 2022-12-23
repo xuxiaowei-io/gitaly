@@ -208,22 +208,22 @@ func TestResolveConflictsWithRemoteRepo(t *testing.T) {
 	testcfg.BuildGitalyHooks(t, cfg)
 
 	sourceBlobOID := git.WriteBlob(t, cfg, sourceRepoPath, []byte("contents-1\n"))
-	sourceCommitOID := git.WriteTestCommit(t, cfg, sourceRepoPath,
+	sourceCommitOID := WriteTestCommit(t, git, cfg, sourceRepoPath,
 		git.WithTreeEntries(git.TreeEntry{
 			Path: "file.txt", OID: sourceBlobOID, Mode: "100644",
-		}),
-	)
+		}))
+
 	git.Exec(t, cfg, "-C", sourceRepoPath, "update-ref", "refs/heads/source", sourceCommitOID.String())
 
 	targetRepo, targetRepoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		Seed: git.SeedGitLabTest,
 	})
 	targetBlobOID := git.WriteBlob(t, cfg, targetRepoPath, []byte("contents-2\n"))
-	targetCommitOID := git.WriteTestCommit(t, cfg, targetRepoPath,
+	targetCommitOID := WriteTestCommit(t, git, cfg, targetRepoPath,
 		git.WithTreeEntries(git.TreeEntry{
 			OID: targetBlobOID, Path: "file.txt", Mode: "100644",
-		}),
-	)
+		}))
+
 	git.Exec(t, cfg, "-C", targetRepoPath, "update-ref", "refs/heads/target", targetCommitOID.String())
 
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
@@ -338,19 +338,19 @@ func TestResolveConflictsLineEndings(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			ourOID := git.WriteBlob(t, cfg, repoPath, []byte(tc.ourContent))
-			ourCommit := git.WriteTestCommit(t, cfg, repoPath,
+			ourCommit := WriteTestCommit(t, git, cfg, repoPath,
 				git.WithTreeEntries(git.TreeEntry{
 					OID: ourOID, Path: "file.txt", Mode: "100644",
-				}),
-			)
+				}))
+
 			git.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/ours", ourCommit.String())
 
 			theirOID := git.WriteBlob(t, cfg, repoPath, []byte(tc.theirContent))
-			theirCommit := git.WriteTestCommit(t, cfg, repoPath,
+			theirCommit := WriteTestCommit(t, git, cfg, repoPath,
 				git.WithTreeEntries(git.TreeEntry{
 					OID: theirOID, Path: "file.txt", Mode: "100644",
-				}),
-			)
+				}))
+
 			git.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/theirs", theirCommit.String())
 
 			stream, err := client.ResolveConflicts(ctx)
@@ -813,12 +813,12 @@ func TestResolveConflictsQuarantine(t *testing.T) {
 	testcfg.BuildGitalyHooks(t, cfg)
 
 	sourceBlobOID := git.WriteBlob(t, cfg, sourceRepoPath, []byte("contents-1\n"))
-	sourceCommitOID := git.WriteTestCommit(t, cfg, sourceRepoPath,
+	sourceCommitOID := WriteTestCommit(t, git, cfg, sourceRepoPath,
 		git.WithParents("1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"),
 		git.WithTreeEntries(git.TreeEntry{
 			Path: "file.txt", OID: sourceBlobOID, Mode: "100644",
-		}),
-	)
+		}))
+
 	git.Exec(t, cfg, "-C", sourceRepoPath, "update-ref", "refs/heads/source", sourceCommitOID.String())
 
 	// We set up a custom "pre-receive" hook which simply prints the new commit to stdout and
@@ -836,12 +836,12 @@ func TestResolveConflictsQuarantine(t *testing.T) {
 		Seed: git.SeedGitLabTest,
 	})
 	targetBlobOID := git.WriteBlob(t, cfg, targetRepoPath, []byte("contents-2\n"))
-	targetCommitOID := git.WriteTestCommit(t, cfg, targetRepoPath,
+	targetCommitOID := WriteTestCommit(t, git, cfg, targetRepoPath,
 		git.WithParents("1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"),
 		git.WithTreeEntries(git.TreeEntry{
 			Path: "file.txt", OID: targetBlobOID, Mode: "100644",
-		}),
-	)
+		}))
+
 	git.Exec(t, cfg, "-C", targetRepoPath, "update-ref", "refs/heads/target", targetCommitOID.String())
 
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))

@@ -23,7 +23,7 @@ func TestFindRefsByOID_successful(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, repo, repoPath, client := setupRefService(t, ctx)
 
-	oid := git.WriteTestCommit(t, cfg, repoPath)
+	oid := WriteTestCommit(t, git, cfg, repoPath)
 
 	git.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/branch-1", string(oid))
 	git.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/branch-2", string(oid))
@@ -65,7 +65,7 @@ func TestFindRefsByOID_successful(t *testing.T) {
 	})
 
 	t.Run("excludes other tags", func(t *testing.T) {
-		anotherSha := git.WriteTestCommit(t, cfg, repoPath, git.WithMessage("hello! this is another commit"))
+		anotherSha := WriteTestCommit(t, git, cfg, repoPath, git.WithMessage("hello! this is another commit"))
 		git.Exec(t, cfg, "-C", repoPath, "tag", "v101.1.0", string(anotherSha))
 
 		resp, err := client.FindRefsByOID(ctx, &gitalypb.FindRefsByOIDRequest{
@@ -134,7 +134,7 @@ func TestFindRefsByOID_failure(t *testing.T) {
 				repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					Seed: git.SeedGitLabTest,
 				})
-				oid := git.WriteTestCommit(t, cfg, repoPath, git.WithMessage("no ref exists for OID"))
+				oid := WriteTestCommit(t, git, cfg, repoPath, git.WithMessage("no ref exists for OID"))
 
 				return &gitalypb.FindRefsByOIDRequest{
 					Repository: repo,
@@ -148,7 +148,7 @@ func TestFindRefsByOID_failure(t *testing.T) {
 				repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					Seed: git.SeedGitLabTest,
 				})
-				oid := git.WriteTestCommit(t, cfg, repoPath, git.WithMessage("no ref exists for OID"))
+				oid := WriteTestCommit(t, git, cfg, repoPath, git.WithMessage("no ref exists for OID"))
 				git.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/corrupted-repo-branch", oid.String())
 
 				require.NoError(t, os.RemoveAll(filepath.Join(repoPath, "objects")))
@@ -165,7 +165,7 @@ func TestFindRefsByOID_failure(t *testing.T) {
 				repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					Seed: git.SeedGitLabTest,
 				})
-				oid := git.WriteTestCommit(t, cfg, repoPath, git.WithMessage("repository is missing"))
+				oid := WriteTestCommit(t, git, cfg, repoPath, git.WithMessage("repository is missing"))
 				require.NoError(t, os.RemoveAll(repoPath))
 
 				return &gitalypb.FindRefsByOIDRequest{
@@ -194,7 +194,7 @@ func TestFindRefsByOID_failure(t *testing.T) {
 				repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					Seed: git.SeedGitLabTest,
 				})
-				oid := git.WriteTestCommit(t, cfg, repoPath, git.WithMessage("oid prefix too short"))
+				oid := WriteTestCommit(t, git, cfg, repoPath, git.WithMessage("oid prefix too short"))
 				git.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/short-oid", oid.String())
 
 				return &gitalypb.FindRefsByOIDRequest{

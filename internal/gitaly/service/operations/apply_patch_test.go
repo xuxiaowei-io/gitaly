@@ -377,7 +377,7 @@ To restore the original branch and stop patching, run "git am --abort".
 				currentCommit := text.ChompBytes(git.Exec(t, cfg, "-C", repoPath, "rev-parse", "master"))
 				// add a new commit to master so we can point at the old one, this is
 				// because by default the test only creates one commit
-				git.WriteTestCommit(t, cfg, repoPath, git.WithParents(git.ObjectID(currentCommit)), git.WithBranch("master"))
+				WriteTestCommit(t, git, cfg, repoPath, git.WithParents(git.ObjectID(currentCommit)), git.WithBranch("master"))
 				return currentCommit
 			},
 			expectedErr: structerr.NewInternal(`update reference: Could not update refs/heads/master. Please refresh and try again.`),
@@ -397,14 +397,14 @@ To restore the original branch and stop patching, run "git am --abort".
 
 			var baseCommit git.ObjectID
 			if tc.baseTree != nil {
-				baseCommit = git.WriteTestCommit(t, cfg, repoPath,
+				baseCommit = WriteTestCommit(t, git, cfg, repoPath,
 					git.WithTreeEntries(tc.baseTree...),
-					git.WithReference(string(tc.baseReference)),
-				)
+					git.WithReference(string(tc.baseReference)))
+
 			}
 
 			if tc.extraBranches != nil {
-				emptyCommit := git.WriteTestCommit(t, cfg, repoPath)
+				emptyCommit := WriteTestCommit(t, git, cfg, repoPath)
 				for _, extraBranch := range tc.extraBranches {
 					git.WriteRef(t, cfg, repoPath, git.NewReferenceNameFromBranchName(extraBranch), emptyCommit)
 				}
@@ -415,9 +415,9 @@ To restore the original branch and stop patching, run "git am --abort".
 				oldCommit := baseCommit
 
 				if patch.oldTree != nil {
-					oldCommit = git.WriteTestCommit(t, cfg, repoPath,
-						git.WithTreeEntries(patch.oldTree...),
-					)
+					oldCommit = WriteTestCommit(t, git, cfg, repoPath,
+						git.WithTreeEntries(patch.oldTree...))
+
 				}
 
 				newCommit := git.WriteTestCommit(t, cfg, repoPath,

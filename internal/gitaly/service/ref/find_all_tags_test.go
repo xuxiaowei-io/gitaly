@@ -208,7 +208,7 @@ func TestFindAllTags_simpleNestedTags(t *testing.T) {
 
 	repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
 
-	commitID := git.WriteTestCommit(t, cfg, repoPath)
+	commitID := WriteTestCommit(t, git, cfg, repoPath)
 
 	tagID := git.WriteTag(t, cfg, repoPath, "my/nested/tag", commitID.Revision())
 
@@ -249,7 +249,7 @@ func TestFindAllTags_duplicateAnnotatedTags(t *testing.T) {
 	repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	commitID := git.WriteTestCommit(t, cfg, repoPath)
+	commitID := WriteTestCommit(t, git, cfg, repoPath)
 	date := time.Unix(12345, 0)
 	dateOffset := date.Format("-0700")
 

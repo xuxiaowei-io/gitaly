@@ -43,7 +43,7 @@ func TestInstance_Stats(t *testing.T) {
 					SkipCreationViaService: true,
 				})
 
-				commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+				commitID := WriteTestCommit(t, git, cfg, repoPath, git.WithTreeEntries(
 					git.TreeEntry{Path: "webpack.coffee", Mode: "100644", Content: strings.Repeat("a", 107)},
 					git.TreeEntry{Path: "show_user.html", Mode: "100644", Content: strings.Repeat("a", 349)},
 					git.TreeEntry{Path: "api.javascript", Mode: "100644", Content: strings.Repeat("a", 1014)},
@@ -71,7 +71,7 @@ func TestInstance_Stats(t *testing.T) {
 					{Path: "index.html", Mode: "100644", Content: strings.Repeat("a", 120)},
 					{Path: "formatter.rb", Mode: "100644", Content: strings.Repeat("a", 403)},
 				})
-				commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+				commitID := WriteTestCommit(t, git, cfg, repoPath, git.WithTreeEntries(
 					git.TreeEntry{Path: "docs", Mode: "040000", OID: docTree},
 					git.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
 				))
@@ -94,7 +94,7 @@ func TestInstance_Stats(t *testing.T) {
 					{Path: "index.html", Mode: "100644", Content: strings.Repeat("a", 120)},
 					{Path: "formatter.rb", Mode: "100644", Content: strings.Repeat("a", 403)},
 				})
-				commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+				commitID := WriteTestCommit(t, git, cfg, repoPath, git.WithTreeEntries(
 					git.TreeEntry{Path: "docs", Mode: "040000", OID: docTree},
 					git.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
 					git.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "formatter.rb -linguist-documentation"},
@@ -117,7 +117,7 @@ func TestInstance_Stats(t *testing.T) {
 				vendorTree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{Path: "app.rb", Mode: "100644", Content: strings.Repeat("a", 500)},
 				})
-				commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+				commitID := WriteTestCommit(t, git, cfg, repoPath, git.WithTreeEntries(
 					git.TreeEntry{Path: "vendor", Mode: "040000", OID: vendorTree},
 					git.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
 				))
@@ -138,7 +138,7 @@ func TestInstance_Stats(t *testing.T) {
 				vendorTree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{Path: "app.rb", Mode: "100644", Content: strings.Repeat("a", 500)},
 				})
-				commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+				commitID := WriteTestCommit(t, git, cfg, repoPath, git.WithTreeEntries(
 					git.TreeEntry{Path: "vendor", Mode: "040000", OID: vendorTree},
 					git.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
 					git.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "*.rb -linguist-vendored"},
@@ -161,7 +161,7 @@ func TestInstance_Stats(t *testing.T) {
 				podsTree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{Path: "app.swift", Mode: "100644", Content: strings.Repeat("a", 500)},
 				})
-				commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+				commitID := WriteTestCommit(t, git, cfg, repoPath, git.WithTreeEntries(
 					git.TreeEntry{Path: "Pods", Mode: "040000", OID: podsTree},
 					git.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
 				))
@@ -182,7 +182,7 @@ func TestInstance_Stats(t *testing.T) {
 				podsTree := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 					{Path: "app.swift", Mode: "100644", Content: strings.Repeat("a", 500)},
 				})
-				commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+				commitID := WriteTestCommit(t, git, cfg, repoPath, git.WithTreeEntries(
 					git.TreeEntry{Path: "Pods", Mode: "040000", OID: podsTree},
 					git.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
 					git.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "Pods/* -linguist-generated"},
@@ -202,7 +202,7 @@ func TestInstance_Stats(t *testing.T) {
 					SkipCreationViaService: true,
 				})
 
-				commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+				commitID := WriteTestCommit(t, git, cfg, repoPath, git.WithTreeEntries(
 					git.TreeEntry{Path: "config.json", Mode: "100644", Content: strings.Repeat("a", 234)},
 					git.TreeEntry{Path: "manual.md", Mode: "100644", Content: strings.Repeat("a", 553)},
 					git.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
@@ -221,7 +221,7 @@ func TestInstance_Stats(t *testing.T) {
 					SkipCreationViaService: true,
 				})
 
-				commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+				commitID := WriteTestCommit(t, git, cfg, repoPath, git.WithTreeEntries(
 					git.TreeEntry{Path: "config.json", Mode: "100644", Content: strings.Repeat("a", 234)},
 					git.TreeEntry{Path: "manual.md", Mode: "100644", Content: strings.Repeat("a", 553)},
 					git.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
@@ -254,7 +254,7 @@ func TestInstance_Stats(t *testing.T) {
 					{Path: "formatter.rb", Mode: "100644", Content: strings.Repeat("a", 403)},
 				})
 
-				commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+				commitID := WriteTestCommit(t, git, cfg, repoPath, git.WithTreeEntries(
 					git.TreeEntry{Path: "docu", Mode: "040000", OID: docTree},
 					git.TreeEntry{
 						Path: ".gitattributes",
@@ -277,7 +277,7 @@ func TestInstance_Stats(t *testing.T) {
 					SkipCreationViaService: true,
 				})
 
-				commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+				commitID := WriteTestCommit(t, git, cfg, repoPath, git.WithTreeEntries(
 					git.TreeEntry{Path: "keeb.kicad_pcb", Mode: "100644", Content: strings.Repeat("a", 500)},
 					git.TreeEntry{Path: "keeb.sch", Mode: "100644", Content: strings.Repeat("a", 120)},
 					git.TreeEntry{Path: "export_bom.py", Mode: "100644", Content: strings.Repeat("a", 403)},
@@ -315,7 +315,7 @@ func TestInstance_Stats(t *testing.T) {
 					{Path: "example", Mode: "040000", OID: subSubTree},
 				})
 
-				commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+				commitID := WriteTestCommit(t, git, cfg, repoPath, git.WithTreeEntries(
 					git.TreeEntry{Path: "scripts", Mode: "040000", OID: subTree},
 					git.TreeEntry{Path: "run.rb", Mode: "100644", Content: strings.Repeat("a", 55)},
 					git.TreeEntry{
@@ -340,7 +340,7 @@ func TestInstance_Stats(t *testing.T) {
 				})
 
 				emptyBlob := git.WriteBlob(t, cfg, repoPath, []byte{})
-				commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+				commitID := WriteTestCommit(t, git, cfg, repoPath, git.WithTreeEntries(
 					git.TreeEntry{Path: "README.md", Mode: "100644", Content: "Hello world!"},
 					git.TreeEntry{Path: "index.html", Mode: "100644", OID: emptyBlob},
 					git.TreeEntry{Path: "app.js", Mode: "100644", OID: emptyBlob},
@@ -357,12 +357,13 @@ func TestInstance_Stats(t *testing.T) {
 					SkipCreationViaService: true,
 				})
 
-				commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+				commitID := WriteTestCommit(t, git, cfg, repoPath, git.WithTreeEntries(
 					git.TreeEntry{Path: "webpack.coffee", Mode: "100644", Content: strings.Repeat("a", 107)},
 					git.TreeEntry{Path: "show_user.html", Mode: "100644", Content: strings.Repeat("a", 349)},
 					git.TreeEntry{Path: "api.javascript", Mode: "100644", Content: strings.Repeat("a", 1014)},
 					git.TreeEntry{Path: "application.rb", Mode: "100644", Content: strings.Repeat("a", 2943)},
 				))
+
 				repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 				// We simply run the linguist once before so that it can already
@@ -390,19 +391,20 @@ func TestInstance_Stats(t *testing.T) {
 					SkipCreationViaService: true,
 				})
 
-				commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+				commitID := WriteTestCommit(t, git, cfg, repoPath, git.WithTreeEntries(
 					git.TreeEntry{Path: "webpack.coffee", Mode: "100644", Content: strings.Repeat("a", 107)},
 					git.TreeEntry{Path: "show_user.html", Mode: "100644", Content: strings.Repeat("a", 349)},
 					git.TreeEntry{Path: "api.javascript", Mode: "100644", Content: strings.Repeat("a", 1014)},
 					git.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "*.html linguist-vendored"},
 				))
+
 				repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 				_, err := New(cfg, catfileCache, repo).Stats(ctx, commitID.String())
 				require.NoError(t, err)
 				require.FileExists(t, filepath.Join(repoPath, languageStatsFilename))
 
-				commitID = git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+				commitID = WriteTestCommit(t, git, cfg, repoPath, git.WithTreeEntries(
 					git.TreeEntry{Path: "webpack.coffee", Mode: "100644", Content: strings.Repeat("a", 107)},
 					git.TreeEntry{Path: "show_user.html", Mode: "100644", Content: strings.Repeat("a", 349)},
 					git.TreeEntry{Path: "api.javascript", Mode: "100644", Content: strings.Repeat("a", 1014)},
@@ -431,7 +433,7 @@ func TestInstance_Stats(t *testing.T) {
 					{Path: "include", Mode: "040000", OID: includeTree},
 				})
 
-				commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+				commitID := WriteTestCommit(t, git, cfg, repoPath, git.WithTreeEntries(
 					git.TreeEntry{Path: "thirdparty", Mode: "040000", OID: thirdPartyTree},
 					git.TreeEntry{
 						Path:    ".gitattributes",
@@ -451,7 +453,7 @@ func TestInstance_Stats(t *testing.T) {
 					SkipCreationViaService: true,
 				})
 
-				commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+				commitID := WriteTestCommit(t, git, cfg, repoPath, git.WithTreeEntries(
 					git.TreeEntry{Path: "webpack.coffee", Mode: "100644", Content: strings.Repeat("a", 107)},
 					git.TreeEntry{Path: "show_user.html", Mode: "100644", Content: strings.Repeat("a", 349)},
 					git.TreeEntry{Path: "api.javascript", Mode: "100644", Content: strings.Repeat("a", 1014)},
@@ -477,10 +479,11 @@ func TestInstance_Stats(t *testing.T) {
 				})
 				repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-				oldCommitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+				oldCommitID := WriteTestCommit(t, git, cfg, repoPath, git.WithTreeEntries(
 					git.TreeEntry{Path: "main.rb", Content: "require 'fileutils'", Mode: "100644"},
 				))
-				newCommitID := git.WriteTestCommit(t, cfg, repoPath, git.WithParents(oldCommitID), git.WithTreeEntries(
+
+				newCommitID := WriteTestCommit(t, git, cfg, repoPath, git.WithParents(oldCommitID), git.WithTreeEntries(
 					git.TreeEntry{Path: "main.go", Content: "package main", Mode: "100644"},
 				))
 
@@ -570,7 +573,7 @@ func TestInstance_Stats_failureGitattributes(t *testing.T) {
 		SkipCreationViaService: true,
 	})
 
-	commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithTreeEntries(
+	commitID := WriteTestCommit(t, git, cfg, repoPath, git.WithTreeEntries(
 		git.TreeEntry{Path: "main.rb", Mode: "100644", Content: strings.Repeat("a", 107)},
 		git.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "*.rb -linguist-vendored"},
 	))

@@ -140,11 +140,10 @@ func TestSuccessfulLastCommitWithGlobCharacters(t *testing.T) {
 	const blobID = "c60514b6d3d6bf4bec1030f70026e34dfbd69ad5"
 	path := ":wq"
 
-	commitID := git.WriteTestCommit(t, cfg, repoPath,
+	commitID := WriteTestCommit(t, git, cfg, repoPath,
 		git.WithTreeEntries(git.TreeEntry{
 			Mode: "100644", Path: path, OID: git.ObjectID(blobID),
-		}),
-	)
+		}))
 
 	request := &gitalypb.LastCommitForPathRequest{
 		Repository:      repo,
