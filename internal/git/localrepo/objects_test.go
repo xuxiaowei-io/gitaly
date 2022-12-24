@@ -322,22 +322,22 @@ func TestRepo_ReadCommit(t *testing.T) {
 
 	cfg, repo, repoPath := setupRepo(t)
 
-	firstParentID := WriteTestCommit(t, NewTestRepo(t, cfg, repo), localrepo.WithMessage("first parent"))
-	secondParentID := WriteTestCommit(t, NewTestRepo(t, cfg, repo), localrepo.WithMessage("second parent"))
+	firstParentID := WriteTestCommit(t, NewTestRepo(t, cfg, repo), WithMessage("first parent"))
+	secondParentID := WriteTestCommit(t, NewTestRepo(t, cfg, repo), WithMessage("second parent"))
 
 	treeID := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 		{Path: "file", Mode: "100644", Content: "content"},
 	})
 	commitWithoutTrailers := WriteTestCommit(t, NewTestRepo(t, cfg, NewTestRepo(t, cfg, repo)),
-		localrepo.WithParents(firstParentID, secondParentID),
-		localrepo.WithTree(treeID),
-		localrepo.WithMessage("subject\n\nbody\n"),
-		localrepo.WithBranch("main"),
+		WithParents(firstParentID, secondParentID),
+		WithTree(treeID),
+		WithMessage("subject\n\nbody\n"),
+		WithBranch("main"),
 	)
 	commitWithTrailers := WriteTestCommit(t, NewTestRepo(t, cfg, repo),
-		localrepo.WithParents(commitWithoutTrailers),
-		localrepo.WithTree(treeID),
-		localrepo.WithMessage("with trailers\n\ntrailers\n\nSigned-off-by: John Doe <john.doe@example.com>"),
+		WithParents(commitWithoutTrailers),
+		WithTree(treeID),
+		WithMessage("with trailers\n\ntrailers\n\nSigned-off-by: John Doe <john.doe@example.com>"),
 	)
 
 	// We can't use git-commit-tree(1) directly, but have to manually write signed commits.
@@ -468,10 +468,10 @@ func TestRepo_IsAncestor(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, repo, repoPath := setupRepo(t)
+	cfg, repo, _ := setupRepo(t)
 
 	parentCommitID := WriteTestCommit(t, NewTestRepo(t, cfg, repo))
-	childCommitID := WriteTestCommit(t, NewTestRepo(t, cfg, repo), localrepo.WithParents(parentCommitID))
+	childCommitID := WriteTestCommit(t, NewTestRepo(t, cfg, repo), WithParents(parentCommitID))
 
 	for _, tc := range []struct {
 		desc         string

@@ -11,16 +11,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/tree"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 )
-
-func TestMain(m *testing.M) {
-	testhelper.Run(m)
-}
 
 func TestWriteCommit(t *testing.T) {
 	t.Helper()
@@ -28,27 +22,24 @@ func TestWriteCommit(t *testing.T) {
 	cfg := testcfg.Build(t)
 	ctx := testhelper.Context(t)
 
-	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryWriteCommitConfig{
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	repo := NewTestRepo(t, cfg, repoProto)
 
 	blobID, err := repo.WriteBlob(ctx, "file", bytes.NewBufferString("something"))
 	require.NoError(t, err)
 	changedBlobID, err := repo.WriteBlob(ctx, "file", bytes.NewBufferString("changed"))
 	require.NoError(t, err)
 
-	treeEntryA := &tree.Entry{Path: "file", Mode: []byte("100644"), ObjectID: blobID, Type: tree.Blob}
-	treeA, err := tree.Write(ctx, repo, []*tree.Entry{treeEntryA})
-	require.NoError(t, err)
+	treeEntryA := git.TreeEntry{Path: "file", Mode: "100644", OID: blobID}
+	treeA := WriteTestTree(t, repo, []git.TreeEntry{treeEntryA})
 
-	treeB, err := repo.WriteTree(ctx, []*git.TreeEntry{
-		{Path: "file", Mode: []byte("100644"), ObjectID: changedBlobID, Type: tree.Blob},
+	treeB := WriteTestTree(t, repo, []git.TreeEntry{
+		{Path: "file", Mode: "100644", OID: changedBlobID},
 	})
-	require.NoError(t, err)
-	commitA, err := Write(
+	commitA, err := repo.WriteCommit(
 		ctx,
-		repo,
 		WriteCommitConfig{
 			AuthorName:     "Tazmanian Devil",
 			AuthorEmail:    "taz@devils.org",
@@ -84,40 +75,6 @@ func TestWriteCommit(t *testing.T) {
 		{
 			desc:          "missing tree",
 			expectedError: ErrMissingTree,
-		},
-		{
-			desc:          "missing author",
-			expectedError: ErrMissingAuthor,
-			cfg: WriteCommitConfig{
-				TreeID: treeA,
-			},
-		},
-		{
-			desc:          "missing committer",
-			expectedError: ErrMissingCommitter,
-			cfg: WriteCommitConfig{
-				TreeID:     treeA,
-				AuthorName: "Scrooge Mcduck",
-			},
-		},
-		{
-			desc:          "missing author email",
-			expectedError: ErrMissingAuthorEmail,
-			cfg: WriteCommitConfig{
-				TreeID:        treeA,
-				AuthorName:    "Scrooge Mcduck",
-				CommitterName: "Mickey Mouse",
-			},
-		},
-		{
-			desc:          "missing committer email",
-			expectedError: ErrMissingCommitterEmail,
-			cfg: WriteCommitConfig{
-				TreeID:        treeA,
-				AuthorName:    "Scrooge Mcduck",
-				AuthorEmail:   "chief@ducks.org",
-				CommitterName: "Mickey Mouse",
-			},
 		},
 		{
 			desc: "with commit message",

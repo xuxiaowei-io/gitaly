@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -65,7 +66,16 @@ func (r *Repo) WriteTree(ctx context.Context, entries []git.TreeEntry) (git.Obje
 }
 
 func WriteTestTree(tb testing.TB, repo *Repo, entries []git.TreeEntry) git.ObjectID {
-	oid, err := repo.WriteTree(testhelper.Context(tb), entries)
+	ctx := testhelper.Context(tb)
+	for i, entry := range entries {
+		if entry.OID == "" {
+			oid, err := repo.WriteBlob(ctx, entry.Path, strings.NewReader(entry.Content))
+			require.NoError(tb, err)
+			entries[i].OID = oid
+		}
+	}
+
+	oid, err := repo.WriteTree(ctx, entries)
 	require.NoError(tb, err)
 
 	return oid

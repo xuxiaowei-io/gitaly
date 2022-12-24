@@ -242,23 +242,16 @@ func WriteTestCommit(tb testing.TB, repo *Repo, opts ...WriteCommitOption) git.O
 
 	ctx := testhelper.Context(tb)
 
-	var treeOID git.ObjectID
-	var tree string
 	var err error
 
-	if writeCommitConfig.TreeEntries != nil {
-		treeOID, err = repo.WriteTree(ctx, writeCommitConfig.TreeEntries)
-	} else if writeCommitConfig.TreeID != "" {
-		tree = writeCommitConfig.TreeID.String()
-	} else if len(writeCommitConfig.Parents) == 0 {
-		treeOID, err = repo.WriteTree(ctx, []git.TreeEntry{})
-	} else {
-		tree = writeCommitConfig.Parents[0].String() + "^{tree}"
-	}
-
-	require.NoError(tb, err)
-	if tree == "" {
-		tree = string(treeOID)
+	if writeCommitConfig.TreeID == "" {
+		if writeCommitConfig.TreeEntries != nil {
+			writeCommitConfig.TreeID = WriteTestTree(tb, repo, writeCommitConfig.TreeEntries)
+		} else if len(writeCommitConfig.Parents) == 0 {
+			writeCommitConfig.TreeID = WriteTestTree(tb, repo, []git.TreeEntry{})
+		} else {
+			writeCommitConfig.TreeID = git.ObjectID(writeCommitConfig.Parents[0].String() + "^{tree}")
+		}
 	}
 
 	if writeCommitConfig.AuthorName == "" {

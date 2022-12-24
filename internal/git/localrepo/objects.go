@@ -30,14 +30,19 @@ func (repo *Repo) WriteBlob(ctx context.Context, path string, content io.Reader)
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 
+	flags := []git.Option{
+		git.Flag{Name: "--stdin"},
+		git.Flag{Name: "-w"},
+	}
+
+	if path != "" {
+		flags = append(flags, git.ValueFlag{Name: "--path", Value: path})
+	}
+
 	cmd, err := repo.Exec(ctx,
 		git.Command{
-			Name: "hash-object",
-			Flags: []git.Option{
-				git.ValueFlag{Name: "--path", Value: path},
-				git.Flag{Name: "--stdin"},
-				git.Flag{Name: "-w"},
-			},
+			Name:  "hash-object",
+			Flags: flags,
 		},
 		git.WithStdin(content),
 		git.WithStdout(stdout),

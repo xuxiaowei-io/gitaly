@@ -22,7 +22,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 
 	cfg := testcfg.Build(t)
 
-	gitCmdFactory := git.NewCommandFactory(t, cfg, localrepo.WithSkipHooks())
+	gitCmdFactory := git.NewCommandFactory(t, cfg, git.WithSkipHooks())
 	catfileCache := catfile.NewCache(cfg)
 	defer catfileCache.Stop()
 	locator := config.NewLocator(cfg)
@@ -30,7 +30,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 	remoteRepoProto, remoteRepoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
-	commitID := WriteTestCommit(t, NewTestRepo(t, cfg, remoteRepoProto), localrepo.WithBranch("main"))
+	commitID := WriteTestCommit(t, NewTestRepo(t, cfg, remoteRepoProto), WithBranch("main"))
 	tagID := git.WriteTag(t, cfg, remoteRepoPath, "v1.0.0", commitID.Revision(), git.WriteTagConfig{
 		Message: "annotated tag",
 	})
@@ -133,14 +133,14 @@ func TestRepo_FetchRemote(t *testing.T) {
 
 		// Write a commit into the remote's reference namespace that doesn't exist in the
 		// remote and that would thus be pruned.
-		WriteTestCommit(t, repo, localrepo.WithReference("refs/remotes/source/markdown"))
+		WriteTestCommit(t, repo, WithReference("refs/remotes/source/markdown"))
 
 		require.NoError(t, repo.FetchRemote(
 			ctx,
 			"source",
 			FetchOpts{
 				CommandOptions: []git.CmdOpt{
-					localrepo.WithConfig(git.ConfigPair{Key: "fetch.prune", Value: "true"}),
+					git.WithConfig(git.ConfigPair{Key: "fetch.prune", Value: "true"}),
 				},
 			}),
 		)
@@ -161,7 +161,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 		require.NoError(t, repo.FetchRemote(ctx, "source", FetchOpts{}))
 		// Write a commit into the remote's reference namespace that doesn't exist in the
 		// remote and that would thus be pruned.
-		WriteTestCommit(t, repo, localrepo.WithReference("refs/remotes/source/markdown"))
+		WriteTestCommit(t, repo, WithReference("refs/remotes/source/markdown"))
 
 		require.NoError(t, repo.FetchRemote(ctx, "source", FetchOpts{Prune: true}))
 
@@ -260,12 +260,12 @@ func TestRepo_Push(t *testing.T) {
 	t.Cleanup(catfileCache.Stop)
 	locator := config.NewLocator(cfg)
 
-	sourceRepoProto, sourceRepoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+	sourceRepoProto, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	sourceRepo := New(locator, gitCmdFactory, catfileCache, sourceRepoProto)
-	WriteTestCommit(t, sourceRepo, localrepo.WithBranch("master"))
-	WriteTestCommit(t, sourceRepo, localrepo.WithBranch("feature"))
+	WriteTestCommit(t, sourceRepo, WithBranch("master"))
+	WriteTestCommit(t, sourceRepo, WithBranch("feature"))
 
 	setupPushRepo := func(tb testing.TB) (*Repo, string, []git.ConfigPair) {
 		repoProto, repopath := git.CreateRepository(tb, ctx, cfg, git.CreateRepositoryConfig{
@@ -286,8 +286,8 @@ func TestRepo_Push(t *testing.T) {
 
 		require.NoError(tb, sourceRepo.Push(ctx, repoPath, []string{"refs/*"}, PushOptions{}))
 		divergedMaster := WriteTestCommit(tb, repo,
-			localrepo.WithBranch("master"),
-			localrepo.WithParents(git.ObjectID(sourceMaster.Target)))
+			WithBranch("master"),
+			WithParents(git.ObjectID(sourceMaster.Target)))
 
 		master, err := repo.GetReference(ctx, "refs/heads/master")
 		require.NoError(tb, err)

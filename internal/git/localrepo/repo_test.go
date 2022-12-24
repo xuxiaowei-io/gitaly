@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -21,7 +22,7 @@ import (
 func TestRepo(t *testing.T) {
 	cfg := testcfg.Build(t)
 
-	git.TestRepository(t, cfg, func(tb testing.TB, ctx context.Context) (git.Repository, string) {
+	TestRepository(t, cfg, func(tb testing.TB, ctx context.Context) (git.Repository, string) {
 		tb.Helper()
 
 		repoProto, repoPath := git.CreateRepository(tb, ctx, cfg, git.CreateRepositoryConfig{
@@ -80,15 +81,15 @@ func TestSize(t *testing.T) {
 		{
 			desc: "referenced commit",
 			setup: func(t *testing.T) *gitalypb.Repository {
-				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+				repoProto, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
 				WriteTestCommit(t, NewTestRepo(t, cfg, repoProto),
-					localrepo.WithTreeEntries(
+					WithTreeEntries(
 						git.TreeEntry{Path: "file", Mode: "100644", Content: strings.Repeat("a", 1000)},
 					),
-					localrepo.WithBranch("main"))
+					WithBranch("main"))
 
 				return repoProto
 			},
@@ -98,12 +99,12 @@ func TestSize(t *testing.T) {
 		{
 			desc: "unreferenced commit",
 			setup: func(t *testing.T) *gitalypb.Repository {
-				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+				repoProto, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
 				WriteTestCommit(t, NewTestRepo(t, cfg, repoProto),
-					localrepo.WithTreeEntries(
+					WithTreeEntries(
 						git.TreeEntry{Path: "file", Mode: "100644", Content: strings.Repeat("a", 1000)},
 					))
 
@@ -115,22 +116,23 @@ func TestSize(t *testing.T) {
 		{
 			desc: "modification to blob without repack",
 			setup: func(t *testing.T) *gitalypb.Repository {
-				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+				repoProto, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
+				repo := NewTestRepo(t, cfg, repoProto)
 
-				rootCommitID := WriteTestCommit(t, NewTestRepo(t, cfg, repoProto),
-					localrepo.WithTreeEntries(
+				rootCommitID := WriteTestCommit(t, repo,
+					WithTreeEntries(
 						git.TreeEntry{Path: "file", Mode: "100644", Content: strings.Repeat("a", 1000)},
 					))
 
-				git.WriteTestCommit(t, cfg, repoPath,
-					localrepo.WithParents(rootCommitID),
-					localrepo.WithTreeEntries(
+				WriteTestCommit(t, repo,
+					WithParents(rootCommitID),
+					WithTreeEntries(
 						git.TreeEntry{Path: "file", Mode: "100644", Content: strings.Repeat("a", 1001)},
 					),
-					localrepo.WithMessage("modification"),
-					localrepo.WithBranch("main"),
+					WithMessage("modification"),
+					WithBranch("main"),
 				)
 
 				return repoProto
@@ -144,19 +146,20 @@ func TestSize(t *testing.T) {
 				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
+				repo := NewTestRepo(t, cfg, repoProto)
 
-				rootCommitID := WriteTestCommit(t, NewTestRepo(t, cfg, repoProto),
-					localrepo.WithTreeEntries(
+				rootCommitID := WriteTestCommit(t, repo,
+					WithTreeEntries(
 						git.TreeEntry{Path: "file", Mode: "100644", Content: strings.Repeat("a", 1000)},
 					))
 
-				git.WriteTestCommit(t, cfg, repoPath,
-					localrepo.WithParents(rootCommitID),
-					localrepo.WithTreeEntries(
+				WriteTestCommit(t, repo,
+					WithParents(rootCommitID),
+					WithTreeEntries(
 						git.TreeEntry{Path: "file", Mode: "100644", Content: strings.Repeat("a", 1001)},
 					),
-					localrepo.WithMessage("modification"),
-					localrepo.WithBranch("main"),
+					WithMessage("modification"),
+					WithBranch("main"),
 				)
 
 				git.Exec(t, cfg, "-C", repoPath, "repack", "-a", "-d")
@@ -169,21 +172,22 @@ func TestSize(t *testing.T) {
 		{
 			desc: "excluded single ref",
 			setup: func(t *testing.T) *gitalypb.Repository {
-				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+				repoProto, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
+				repo := NewTestRepo(t, cfg, repoProto)
 
-				WriteTestCommit(t, NewTestRepo(t, cfg, repoProto),
-					localrepo.WithTreeEntries(
+				WriteTestCommit(t, repo,
+					WithTreeEntries(
 						git.TreeEntry{Path: "1kbblob", Mode: "100644", Content: strings.Repeat("a", 1000)},
 					),
-					localrepo.WithBranch("exclude-me"))
+					WithBranch("exclude-me"))
 
-				WriteTestCommit(t, NewTestRepo(t, cfg, repoProto),
-					localrepo.WithTreeEntries(
+				WriteTestCommit(t, repo,
+					WithTreeEntries(
 						git.TreeEntry{Path: "1kbblob", Mode: "100644", Content: strings.Repeat("x", 2000)},
 					),
-					localrepo.WithBranch("include-me"))
+					WithBranch("include-me"))
 
 				return repoProto
 			},
@@ -196,15 +200,15 @@ func TestSize(t *testing.T) {
 		{
 			desc: "excluded everything",
 			setup: func(t *testing.T) *gitalypb.Repository {
-				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+				repoProto, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
 				WriteTestCommit(t, NewTestRepo(t, cfg, repoProto),
-					localrepo.WithTreeEntries(
+					WithTreeEntries(
 						git.TreeEntry{Path: "1kbblob", Mode: "100644", Content: strings.Repeat("a", 1000)},
 					),
-					localrepo.WithBranch("exclude-me"))
+					WithBranch("exclude-me"))
 
 				return repoProto
 			},
@@ -220,7 +224,7 @@ func TestSize(t *testing.T) {
 				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
-				_, poolPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+				poolProto, poolPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
@@ -230,12 +234,12 @@ func TestSize(t *testing.T) {
 					os.ModePerm,
 				))
 
-				for _, path := range []string{repoPath, poolPath} {
-					WriteTestCommit(t, git, cfg, path,
-						localrepo.WithTreeEntries(
+				for _, proto := range []repository.GitRepo{repoProto, poolProto} {
+					WriteTestCommit(t, NewTestRepo(t, cfg, proto),
+						WithTreeEntries(
 							git.TreeEntry{Path: "1kbblob", Mode: "100644", Content: strings.Repeat("a", 1000)},
 						),
-						localrepo.WithBranch("main"))
+						WithBranch("main"))
 
 				}
 
@@ -254,7 +258,7 @@ func TestSize(t *testing.T) {
 				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
-				_, poolPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+				poolProto, poolPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
@@ -266,12 +270,12 @@ func TestSize(t *testing.T) {
 
 				// We write the same object into both repositories, so we should
 				// exclude it from our size calculations.
-				for _, path := range []string{repoPath, poolPath} {
-					WriteTestCommit(t, git, cfg, path,
-						localrepo.WithTreeEntries(
+				for _, proto := range []repository.GitRepo{repoProto, poolProto} {
+					WriteTestCommit(t, NewTestRepo(t, cfg, proto),
+						WithTreeEntries(
 							git.TreeEntry{Path: "1kbblob", Mode: "100644", Content: strings.Repeat("a", 1000)},
 						),
-						localrepo.WithBranch("main"))
+						WithBranch("main"))
 
 				}
 
@@ -289,7 +293,7 @@ func TestSize(t *testing.T) {
 				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
-				_, poolPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+				poolProto, poolPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
@@ -299,23 +303,24 @@ func TestSize(t *testing.T) {
 					os.ModePerm,
 				))
 
-				for i, path := range []string{repoPath, poolPath} {
+				for i, proto := range []repository.GitRepo{repoProto, poolProto} {
 					// We first write one blob into the repo that is the same
 					// across both repositories.
-					rootCommitID := WriteTestCommit(t, git, cfg, path,
-						localrepo.WithTreeEntries(
+					repo := NewTestRepo(t, cfg, proto)
+					rootCommitID := WriteTestCommit(t, repo,
+						WithTreeEntries(
 							git.TreeEntry{Path: "1kbblob", Mode: "100644", Content: strings.Repeat("a", 1000)},
 						))
 
 					// But this time we also write a second commit into each of
 					// the repositories that is not the same to simulate history
 					// that has diverged.
-					git.WriteTestCommit(t, cfg, path,
-						localrepo.WithParents(rootCommitID),
-						localrepo.WithTreeEntries(
+					WriteTestCommit(t, repo,
+						WithParents(rootCommitID),
+						WithTreeEntries(
 							git.TreeEntry{Path: "1kbblob", Mode: "100644", Content: fmt.Sprintf("%d", i)},
 						),
-						localrepo.WithBranch("main"),
+						WithBranch("main"),
 					)
 				}
 

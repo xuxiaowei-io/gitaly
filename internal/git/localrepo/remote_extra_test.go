@@ -53,7 +53,7 @@ func TestRepo_FetchInternal(t *testing.T) {
 	testcfg.BuildGitalyHooks(t, cfg)
 
 	remoteRepoProto, remoteRepoPath := git.CreateRepository(t, ctx, cfg)
-	remoteOID := WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, remoteRepoProto), localrepo.WithBranch("master"))
+	remoteOID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, remoteRepoProto), localrepo.WithBranch("master"))
 	tagV100OID := git.WriteTag(t, cfg, remoteRepoPath, "v1.0.0", remoteOID.Revision(), git.WriteTagConfig{
 		Message: "v1.0.0",
 	})
@@ -197,12 +197,12 @@ func TestRepo_FetchInternal(t *testing.T) {
 	t.Run("pruning", func(t *testing.T) {
 		ctx := testhelper.MergeIncomingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
-		repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
+		repoProto, _ := git.CreateRepository(t, ctx, cfg)
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 		// Create a local reference. Given that it doesn't exist on the remote side, it
 		// would get pruned if we pass `--prune`.
-		WriteTestCommit(t, repo, localrepo.WithBranch("prune-me"))
+		localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("prune-me"))
 
 		// By default, refs are not pruned.
 		require.NoError(t, repo.FetchInternal(
