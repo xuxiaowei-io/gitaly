@@ -110,4 +110,17 @@ func TestPruneOldGitalyProcessDirectories(t *testing.T) {
 			require.NoDirExists(t, prunableEntry, prunableEntry)
 		}
 	})
+
+	t.Run("gitaly-0 directory exists", func(t *testing.T) {
+		baseDir := testhelper.TempDir(t)
+		cfg := Cfg{RuntimeDir: baseDir}
+
+		_, err := SetupRuntimeDirectory(cfg, 0)
+		require.NoError(t, err)
+
+		logger, hook := test.NewNullLogger()
+		require.NoError(t, PruneOldGitalyProcessDirectories(logger, cfg.RuntimeDir))
+		require.Len(t, hook.Entries, 1)
+		require.Equal(t, "removed gitaly directory with no pid", hook.LastEntry().Message)
+	})
 }

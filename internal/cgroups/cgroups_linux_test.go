@@ -120,6 +120,25 @@ func TestPruneOldCgroups(t *testing.T) {
 			},
 			expectedPruned: false,
 		},
+		{
+			desc: "gitaly-0 directory is deleted",
+			cfg: cgroups.Config{
+				Mountpoint:    testhelper.TempDir(t),
+				HierarchyRoot: "gitaly",
+				Repositories: cgroups.Repositories{
+					Count:       10,
+					MemoryBytes: 10 * 1024 * 1024,
+					CPUShares:   1024,
+				},
+			},
+			setup: func(t *testing.T, cfg cgroups.Config) int {
+				cgroupManager := NewManager(cfg, 0)
+				require.NoError(t, cgroupManager.Setup())
+
+				return 0
+			},
+			expectedPruned: true,
+		},
 	}
 
 	for _, tc := range testCases {
