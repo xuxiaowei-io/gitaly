@@ -4,6 +4,7 @@ package cgroups
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -94,6 +95,14 @@ func TestPruneOldCgroups(t *testing.T) {
 
 				cgroupManager := NewManager(cfg, pid)
 				require.NoError(t, cgroupManager.Setup())
+
+				memoryRoot := filepath.Join(
+					cfg.Mountpoint,
+					"memory",
+					cfg.HierarchyRoot,
+					"memory.limit_in_bytes",
+				)
+				require.NoError(t, os.WriteFile(memoryRoot, []byte{}, fs.ModeAppend))
 
 				return pid
 			},
