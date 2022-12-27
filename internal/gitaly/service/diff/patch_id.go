@@ -22,6 +22,18 @@ func (s *server) GetPatchID(ctx context.Context, in *gitalypb.GetPatchIDRequest)
 		git.Command{
 			Name: "diff",
 			Args: []string{string(in.GetOldRevision()), string(in.GetNewRevision())},
+			Flags: []git.Option{
+				// git-patch-id(1) will ignore binary diffs, and computing binary
+				// diffs would be expensive anyway for large blobs. This means that
+				// we must instead use the pre- and post-image blob IDs that
+				// git-diff(1) prints for binary diffs as input to git-patch-id(1),
+				// but unfortunately this is only honored in Git v2.39.0 and newer.
+				// We have no other choice than to accept this though, so we instead
+				// just ask git-diff(1) to print the full blob IDs for the pre- and
+				// post-image blobs instead of abbreviated ones so that we can avoid
+				// any kind of potential prefix collisions.
+				git.Flag{Name: "--full-index"},
+			},
 		},
 		git.WithStderr(&diffCmdStderr),
 	)

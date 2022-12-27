@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -16,6 +17,9 @@ func TestGetPatchID(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg, client := setupDiffServiceWithoutRepo(t)
+
+	gitVersion, err := gittest.NewCommandFactory(t, cfg).GitVersion(ctx)
+	require.NoError(t, err)
 
 	testCases := []struct {
 		desc             string
@@ -101,6 +105,92 @@ func TestGetPatchID(t *testing.T) {
 			},
 			expectedResponse: &gitalypb.GetPatchIDResponse{
 				PatchId: "a79c7e9df0094ee44fa7a2a9ae27e914e6b7e00b",
+			},
+		},
+		{
+			desc: "returns patch-id with binary file",
+			setup: func(t *testing.T) *gitalypb.GetPatchIDRequest {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				oldCommit := gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{Path: "binary", Mode: "100644", Content: "\000old"},
+					),
+				)
+				newCommit := gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{Path: "binary", Mode: "100644", Content: "\000new"},
+					),
+				)
+
+				return &gitalypb.GetPatchIDRequest{
+					Repository:  repoProto,
+					OldRevision: []byte(oldCommit),
+					NewRevision: []byte(newCommit),
+				}
+			},
+			expectedResponse: &gitalypb.GetPatchIDResponse{
+				PatchId: func() string {
+					// Before Git v2.39.0, git-patch-id(1) would skip over any
+					// lines that have an "index " prefix. This causes issues
+					// with diffs of binaries though: we don't generate the diff
+					// with `--binary`, so the "index" line that contains the
+					// pre- and post-image blob IDs of the binary is the only
+					// bit of information we have that something changed. But
+					// because Git used to skip over it we wouldn't actually
+					// take into account the contents of the changed blob at
+					// all.
+					//
+					// This was fixed in Git v2.39.0 so that "index" lines will
+					// now be hashed to correctly account for binary changes. As
+					// a result, the patch ID has changed.
+					if gitVersion.PatchIDRespectsBinaries() {
+						return "13e4e9b9cd44ec511bac24fdbdeab9b74ba3000b"
+					}
+
+					return "715883c1b90a5b4450072e22fefec769ad346266"
+				}(),
+			},
+		},
+		{
+			// This test is essentially the same test set up as the preceding one, but
+			// with different binary contents. This is done to ensure that we indeed
+			// generate different patch IDs as expected.
+			desc: "different binary diff has different patch ID",
+			setup: func(t *testing.T) *gitalypb.GetPatchIDRequest {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				oldCommit := gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{Path: "binary", Mode: "100644", Content: "\000old2"},
+					),
+				)
+				newCommit := gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{Path: "binary", Mode: "100644", Content: "\000new2"},
+					),
+				)
+
+				return &gitalypb.GetPatchIDRequest{
+					Repository:  repoProto,
+					OldRevision: []byte(oldCommit),
+					NewRevision: []byte(newCommit),
+				}
+			},
+			expectedResponse: &gitalypb.GetPatchIDResponse{
+				PatchId: func() string {
+					if gitVersion.PatchIDRespectsBinaries() {
+						// When respecting binary diffs we indeed have a
+						// different patch ID compared to the preceding
+						// testcase.
+						return "f678855867b112ac2c5466260b3b3a5e75fca875"
+					}
+
+					// But when git-patch-id(1) is not paying respect to binary
+					// diffs we incorrectly return the same patch ID. This is
+					// nothing we can easily fix though.
+					return "715883c1b90a5b4450072e22fefec769ad346266"
+				}(),
 			},
 		},
 		{
