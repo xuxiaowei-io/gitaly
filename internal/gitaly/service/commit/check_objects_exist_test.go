@@ -251,7 +251,7 @@ func TestCheckObjectsExist(t *testing.T) {
 
 			metadata := map[string]any{}
 			for _, entry := range hook.AllEntries() {
-				errorMetadata, ok := entry.Data["error.metadata"]
+				errorMetadata, ok := entry.Data["error_metadata"]
 				if !ok {
 					continue
 				}

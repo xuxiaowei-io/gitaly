@@ -120,7 +120,7 @@ func TestFieldsProducer(t *testing.T) {
 
 			var metadata []map[string]any
 			for _, entry := range loggerHook.AllEntries() {
-				if untypedMetadata := entry.Data["error.metadata"]; untypedMetadata != nil {
+				if untypedMetadata := entry.Data["error_metadata"]; untypedMetadata != nil {
 					require.IsType(t, untypedMetadata, map[string]any{})
 					metadata = append(metadata, untypedMetadata.(map[string]any))
 				}

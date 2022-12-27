@@ -18,7 +18,7 @@ func FieldsProducer(_ context.Context, err error) logrus.Fields {
 		}
 
 		return logrus.Fields{
-			"error.metadata": metadata,
+			"error_metadata": metadata,
 		}
 	}
 
