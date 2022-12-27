@@ -156,6 +156,7 @@ func (r *Repo) WriteCommit(ctx context.Context, cfg WriteCommitConfig) (git.Obje
 	}
 
 	var env []string
+	var updateRefOpts []UpdateRefOption
 	if cfg.AlternateObjectDir != "" {
 		if !filepath.IsAbs(cfg.AlternateObjectDir) {
 			return "", errors.New("alternate object directory must be an absolute path")
@@ -165,10 +166,14 @@ func (r *Repo) WriteCommit(ctx context.Context, cfg WriteCommitConfig) (git.Obje
 			return "", err
 		}
 
-		env = append(env,
+		gitObjEnvs := []string{
 			fmt.Sprintf("GIT_OBJECT_DIRECTORY=%s", cfg.AlternateObjectDir),
 			fmt.Sprintf("GIT_ALTERNATE_OBJECT_DIRECTORIES=%s", filepath.Join(repoPath, "objects")),
-		)
+		}
+
+		env = append(env, gitObjEnvs...)
+
+		updateRefOpts = []UpdateRefOption{WithEnv(gitObjEnvs)}
 	}
 
 	env = append(env,
@@ -215,6 +220,7 @@ func (r *Repo) WriteCommit(ctx context.Context, cfg WriteCommitConfig) (git.Obje
 			git.ReferenceName(cfg.Reference),
 			oid,
 			"",
+			updateRefOpts...,
 		); err != nil {
 			return "", err
 		}
