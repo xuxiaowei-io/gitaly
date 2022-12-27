@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
@@ -199,11 +200,12 @@ func TestManager_Create_incremental(t *testing.T) {
 		{
 			desc: "previous backup, updates",
 			setup: func(tb testing.TB, backupRoot string) (*gitalypb.Repository, string) {
-				repo, repoPath := git.CreateRepository(tb, ctx, cfg, git.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(tb, ctx, cfg, git.CreateRepositoryConfig{
 					Seed: git.SeedGitLabTest,
 				})
+				repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-				backupRepoPath := joinBackupPath(tb, backupRoot, repo)
+				backupRepoPath := joinBackupPath(tb, backupRoot, repoProto)
 				backupPath := filepath.Join(backupRepoPath, backupID)
 				bundlePath := filepath.Join(backupPath, "001.bundle")
 				refsPath := filepath.Join(backupPath, "001.refs")
@@ -217,9 +219,9 @@ func TestManager_Create_incremental(t *testing.T) {
 				require.NoError(tb, os.WriteFile(filepath.Join(backupRepoPath, "LATEST"), []byte(backupID), os.ModePerm))
 				require.NoError(tb, os.WriteFile(filepath.Join(backupPath, "LATEST"), []byte("001"), os.ModePerm))
 
-				WriteTestCommit(tb, git, cfg, repoPath, git.WithBranch("master"))
+				localrepo.WriteTestCommit(tb, repo, localrepo.WithBranch("master"))
 
-				return repo, repoPath
+				return repoProto, repoPath
 			},
 			expectedIncrement: "002",
 		},
@@ -280,12 +282,12 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 
 	repoClient := gitalypb.NewRepositoryServiceClient(cc)
 
-	backupRoot := testhelper.TempDir(t)
-
-	_, repoPath := git.CreateRepository(t, ctx, cfg)
-	commitID := git.WriteTestCommit(t, cfg, repoPath, git.WithBranch("main"))
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
+	commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithBranch("main"))
 	git.WriteTag(t, cfg, repoPath, "v1.0.0", commitID.Revision())
 	repoChecksum := git.ChecksumRepo(t, cfg, repoPath)
+
+	backupRoot := testhelper.TempDir(t)
 
 	for _, tc := range []struct {
 		desc          string
@@ -394,7 +396,7 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 			setup: func(tb testing.TB) (*gitalypb.Repository, *git.Checksum) {
 				const backupID = "abc123"
 
-				_, expectedRepoPath := git.CreateRepository(t, ctx, cfg)
+				expectedRepoProto, expectedRepoPath := git.CreateRepository(t, ctx, cfg)
 
 				repo, _ := git.CreateRepository(t, ctx, cfg)
 				repoBackupPath := joinBackupPath(tb, backupRoot, repo)
@@ -403,16 +405,18 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 				require.NoError(tb, os.WriteFile(filepath.Join(repoBackupPath, "LATEST"), []byte(backupID), os.ModePerm))
 				require.NoError(tb, os.WriteFile(filepath.Join(backupPath, "LATEST"), []byte("002"), os.ModePerm))
 
-				root := WriteTestCommit(tb, git, cfg, expectedRepoPath,
-					git.WithBranch("master"))
+				expectedRepo := localrepo.NewTestRepo(t, cfg, expectedRepoProto)
 
-				master1 := WriteTestCommit(tb, git, cfg, expectedRepoPath,
-					git.WithBranch("master"),
-					git.WithParents(root))
+				root := localrepo.WriteTestCommit(tb, expectedRepo,
+					localrepo.WithBranch("master"))
 
-				other := WriteTestCommit(tb, git, cfg, expectedRepoPath,
-					git.WithBranch("other"),
-					git.WithParents(root))
+				master1 := localrepo.WriteTestCommit(tb, expectedRepo,
+					localrepo.WithBranch("master"),
+					localrepo.WithParents(root))
+
+				other := localrepo.WriteTestCommit(tb, expectedRepo,
+					localrepo.WithBranch("other"),
+					localrepo.WithParents(root))
 
 				git.Exec(tb, cfg, "-C", expectedRepoPath, "symbolic-ref", "HEAD", "refs/heads/master")
 				bundlePath1 := filepath.Join(backupPath, "001.bundle")
@@ -422,9 +426,9 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 					"refs/heads/other",
 				)
 
-				master2 := WriteTestCommit(tb, git, cfg, expectedRepoPath,
-					git.WithBranch("master"),
-					git.WithParents(master1))
+				master2 := localrepo.WriteTestCommit(tb, expectedRepo,
+					localrepo.WithBranch("master"),
+					localrepo.WithParents(master1))
 
 				bundlePath2 := filepath.Join(backupPath, "002.bundle")
 				git.Exec(tb, cfg, "-C", expectedRepoPath, "bundle", "create", bundlePath2,
