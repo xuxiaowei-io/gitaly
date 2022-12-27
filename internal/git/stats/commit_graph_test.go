@@ -105,13 +105,13 @@ func TestCommitGraphInfoForRepository(t *testing.T) {
 				// to write a corrected committer date, and because the corrected
 				// date is longer than 31 bits we'll have to also write overflow
 				// data.
-				futureParent := WriteTestCommit(t, git, cfg, repoPath,
-					git.WithCommitterDate(time.Date(2077, 1, 1, 0, 0, 0, 0, time.UTC)))
+				futureParent := localrepo.WriteTestCommit(t, repo,
+					localrepo.WithCommitterDate(time.Date(2077, 1, 1, 0, 0, 0, 0, time.UTC)))
 
-				git.WriteTestCommit(t, cfg, repoPath,
-					git.WithBranch("overflow"),
-					git.WithParents(futureParent),
-					git.WithCommitterDate(time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)),
+				localrepo.WriteTestCommit(t, repo,
+					localrepo.WithBranch("overflow"),
+					localrepo.WithParents(futureParent),
+					localrepo.WithCommitterDate(time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)),
 				)
 
 				git.Exec(t, cfg, "-C", repoPath,
@@ -133,7 +133,7 @@ func TestCommitGraphInfoForRepository(t *testing.T) {
 				SkipCreationViaService: true,
 			})
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
-			WriteTestCommit(t, repo, git.WithBranch("main"))
+			localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
 			tc.setup(t, repo)
 
 			info, err := CommitGraphInfoForRepository(repoPath)
