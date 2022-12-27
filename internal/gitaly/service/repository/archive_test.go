@@ -14,6 +14,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/smudge"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
@@ -432,7 +433,7 @@ func TestGetArchive_pathInjection(t *testing.T) {
 	// a path and does not interpret it as an option.
 	outputPath := "/non/existent"
 
-	commitID := WriteTestCommit(t, git, cfg, repoPath, git.WithTree(git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
+	commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithTree(git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 		{Path: "--output=", Mode: "040000", OID: git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 			{Path: "non", Mode: "040000", OID: git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 				{Path: "existent", Mode: "040000", OID: git.WriteTree(t, cfg, repoPath, []git.TreeEntry{

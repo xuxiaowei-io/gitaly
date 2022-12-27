@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -36,32 +37,32 @@ func TestPruneUnreachableObjects(t *testing.T) {
 	})
 
 	t.Run("relative path points to removed repository", func(t *testing.T) {
-		repo, repoPath := git.CreateRepository(t, ctx, cfg)
+		repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
 		require.NoError(t, os.RemoveAll(repoPath))
 
 		_, err := client.PruneUnreachableObjects(ctx, &gitalypb.PruneUnreachableObjectsRequest{
-			Repository: repo,
+			Repository: repoProto,
 		})
 		testhelper.RequireGrpcError(t, structerr.NewNotFound("GetRepoPath: not a git repository: %q", repoPath), err)
 	})
 
 	t.Run("empty repository", func(t *testing.T) {
-		repo, _ := git.CreateRepository(t, ctx, cfg)
+		repoProto, _ := git.CreateRepository(t, ctx, cfg)
 
 		_, err := client.PruneUnreachableObjects(ctx, &gitalypb.PruneUnreachableObjectsRequest{
-			Repository: repo,
+			Repository: repoProto,
 		})
 		require.NoError(t, err)
 	})
 
 	t.Run("repository with reachable objects", func(t *testing.T) {
-		repo, repoPath := git.CreateRepository(t, ctx, cfg)
+		repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
 
 		// Create the commit and a branch pointing to it to make it reachable.
-		commitID := WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("branch"))
+		commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithBranch("branch"))
 
 		_, err := client.PruneUnreachableObjects(ctx, &gitalypb.PruneUnreachableObjectsRequest{
-			Repository: repo,
+			Repository: repoProto,
 		})
 		require.NoError(t, err)
 
@@ -70,16 +71,16 @@ func TestPruneUnreachableObjects(t *testing.T) {
 	})
 
 	t.Run("repository with recent unreachable objects", func(t *testing.T) {
-		repo, repoPath := git.CreateRepository(t, ctx, cfg)
+		repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
 
 		// Create the commit, but don't create a reference pointing to it.
-		commitID := WriteTestCommit(t, git, cfg, repoPath)
+		commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto))
 		// Set the object time to something that's close to 30 minutes, but gives us enough
 		// room to not cause flakes.
 		setObjectTime(t, repoPath, commitID, time.Now().Add(-28*time.Minute))
 
 		_, err := client.PruneUnreachableObjects(ctx, &gitalypb.PruneUnreachableObjectsRequest{
-			Repository: repo,
+			Repository: repoProto,
 		})
 		require.NoError(t, err)
 
@@ -89,14 +90,14 @@ func TestPruneUnreachableObjects(t *testing.T) {
 	})
 
 	t.Run("repository with old unreachable objects", func(t *testing.T) {
-		repo, repoPath := git.CreateRepository(t, ctx, cfg)
+		repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
 
 		// Create the commit, but don't create a reference pointing to it.
-		commitID := WriteTestCommit(t, git, cfg, repoPath)
+		commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto))
 		setObjectTime(t, repoPath, commitID, time.Now().Add(-31*time.Minute))
 
 		_, err := client.PruneUnreachableObjects(ctx, &gitalypb.PruneUnreachableObjectsRequest{
-			Repository: repo,
+			Repository: repoProto,
 		})
 		require.NoError(t, err)
 
@@ -107,19 +108,19 @@ func TestPruneUnreachableObjects(t *testing.T) {
 	})
 
 	t.Run("repository with mixed objects", func(t *testing.T) {
-		repo, repoPath := git.CreateRepository(t, ctx, cfg)
+		repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
 
-		reachableOldCommit := WriteTestCommit(t, git, cfg, repoPath, git.WithMessage("a"), git.WithBranch("branch"))
+		reachableOldCommit := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithMessage("a"), localrepo.WithBranch("branch"))
 		setObjectTime(t, repoPath, reachableOldCommit, time.Now().Add(-31*time.Minute))
 
-		unreachableRecentCommit := WriteTestCommit(t, git, cfg, repoPath, git.WithMessage("b"))
+		unreachableRecentCommit := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithMessage("b"))
 		setObjectTime(t, repoPath, unreachableRecentCommit, time.Now().Add(-28*time.Minute))
 
-		unreachableOldCommit := WriteTestCommit(t, git, cfg, repoPath, git.WithMessage("c"))
+		unreachableOldCommit := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithMessage("c"))
 		setObjectTime(t, repoPath, unreachableOldCommit, time.Now().Add(-31*time.Minute))
 
 		_, err := client.PruneUnreachableObjects(ctx, &gitalypb.PruneUnreachableObjectsRequest{
-			Repository: repo,
+			Repository: repoProto,
 		})
 		require.NoError(t, err)
 
@@ -135,13 +136,13 @@ func TestPruneUnreachableObjects(t *testing.T) {
 	})
 
 	t.Run("repository with commit-graph", func(t *testing.T) {
-		repo, repoPath := git.CreateRepository(t, ctx, cfg)
+		repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
 
 		// Write two commits into the repository and create a commit-graph. The second
 		// commit will become unreachable and will be pruned, but will be contained in the
 		// commit-graph.
-		rootCommitID := WriteTestCommit(t, git, cfg, repoPath)
-		unreachableCommitID := WriteTestCommit(t, git, cfg, repoPath, git.WithParents(rootCommitID), git.WithBranch("main"))
+		rootCommitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto))
+		unreachableCommitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithParents(rootCommitID), localrepo.WithBranch("main"))
 		git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split", "--changed-paths")
 
 		// Reset the "main" branch back to the initial root commit ID and prune the now
@@ -153,7 +154,7 @@ func TestPruneUnreachableObjects(t *testing.T) {
 		setObjectTime(t, repoPath, unreachableCommitID, time.Now().Add(-30*time.Minute))
 
 		_, err := client.PruneUnreachableObjects(ctx, &gitalypb.PruneUnreachableObjectsRequest{
-			Repository: repo,
+			Repository: repoProto,
 		})
 		require.NoError(t, err)
 

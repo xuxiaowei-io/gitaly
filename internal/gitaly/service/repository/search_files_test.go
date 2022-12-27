@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
@@ -88,7 +89,7 @@ func TestSearchFilesByContentSuccessful(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	_, repo, _, client := setupRepositoryService(t, ctx)
+	_, repoProto, _, client := setupRepositoryService(t, ctx)
 
 	testCases := []struct {
 		desc   string
@@ -131,7 +132,7 @@ func TestSearchFilesByContentSuccessful(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			request := &gitalypb.SearchFilesByContentRequest{
-				Repository: repo,
+				Repository: repoProto,
 				Query:      tc.query,
 				Ref:        []byte(tc.ref),
 			}
@@ -154,7 +155,7 @@ func TestSearchFilesByContentLargeFile(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
+	cfg, repoProto, _, client := setupRepositoryService(t, ctx)
 
 	for _, tc := range []struct {
 		desc     string
@@ -179,14 +180,14 @@ func TestSearchFilesByContentLargeFile(t *testing.T) {
 		},
 	} {
 		t.Run(tc.filename, func(t *testing.T) {
-			WriteTestCommit(t, git, cfg, repoPath, git.WithTreeEntries(git.TreeEntry{
+			localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithTreeEntries(git.TreeEntry{
 				Path:    tc.filename,
 				Mode:    "100644",
 				Content: strings.Repeat(tc.line, tc.repeated),
-			}), git.WithBranch("master"))
+			}), localrepo.WithBranch("master"))
 
 			stream, err := client.SearchFilesByContent(ctx, &gitalypb.SearchFilesByContentRequest{
-				Repository:      repo,
+				Repository:      repoProto,
 				Query:           tc.query,
 				Ref:             []byte("master"),
 				ChunkedResponse: true,
@@ -203,7 +204,7 @@ func TestSearchFilesByContentLargeFile(t *testing.T) {
 
 func TestSearchFilesByContentFailure(t *testing.T) {
 	t.Parallel()
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	cfg, repoProto, _ := testcfg.BuildWithRepo(t)
 	gitCommandFactory := git.NewCommandFactory(t, cfg)
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
@@ -239,13 +240,13 @@ func TestSearchFilesByContentFailure(t *testing.T) {
 	}{
 		{
 			desc: "empty request",
-			repo: repo,
+			repo: repoProto,
 			code: codes.InvalidArgument,
 			msg:  "no query given",
 		},
 		{
 			desc:  "only query given",
-			repo:  repo,
+			repo:  repoProto,
 			query: "foo",
 			code:  codes.InvalidArgument,
 			msg:   "no ref given",
@@ -259,7 +260,7 @@ func TestSearchFilesByContentFailure(t *testing.T) {
 		},
 		{
 			desc:  "invalid ref argument",
-			repo:  repo,
+			repo:  repoProto,
 			query: ".",
 			ref:   "--no-index",
 			code:  codes.InvalidArgument,
@@ -285,7 +286,7 @@ func TestSearchFilesByNameSuccessful(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	_, repo, _, client := setupRepositoryService(t, ctx)
+	_, repoProto, _, client := setupRepositoryService(t, ctx)
 
 	testCases := []struct {
 		desc     string
@@ -328,7 +329,7 @@ func TestSearchFilesByNameSuccessful(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			stream, err := client.SearchFilesByName(ctx, &gitalypb.SearchFilesByNameRequest{
-				Repository: repo,
+				Repository: repoProto,
 				Ref:        tc.ref,
 				Query:      tc.query,
 				Filter:     tc.filter,
@@ -351,13 +352,13 @@ func TestSearchFilesByNameUnusualFileNamesSuccessful(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
+	cfg, repoProto, _, client := setupRepositoryService(t, ctx)
 
 	ref := []byte("unusual_file_names")
-	git.WriteTestCommit(t, cfg, repoPath,
-		git.WithBranch(string(ref)),
-		git.WithMessage("commit message"),
-		git.WithTreeEntries(
+	localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto),
+		localrepo.WithBranch(string(ref)),
+		localrepo.WithMessage("commit message"),
+		localrepo.WithTreeEntries(
 			git.TreeEntry{Path: "\"file with quote.txt", Mode: "100644", Content: "something"},
 			git.TreeEntry{Path: ".vimrc", Mode: "100644", Content: "something"},
 			git.TreeEntry{Path: "cuộc đời là những chuyến đi.md", Mode: "100644", Content: "something"},
@@ -430,7 +431,7 @@ func TestSearchFilesByNameUnusualFileNamesSuccessful(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			stream, err := client.SearchFilesByName(ctx, &gitalypb.SearchFilesByNameRequest{
-				Repository: repo,
+				Repository: repoProto,
 				Ref:        ref,
 				Query:      tc.query,
 				Filter:     tc.filter,
@@ -449,13 +450,13 @@ func TestSearchFilesByNamePaginationSuccessful(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
+	cfg, repoProto, _, client := setupRepositoryService(t, ctx)
 
 	ref := []byte("pagination")
-	git.WriteTestCommit(t, cfg, repoPath,
-		git.WithBranch(string(ref)),
-		git.WithMessage("commit message"),
-		git.WithTreeEntries(
+	localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto),
+		localrepo.WithBranch(string(ref)),
+		localrepo.WithMessage("commit message"),
+		localrepo.WithTreeEntries(
 			git.TreeEntry{Path: "file1.md", Mode: "100644", Content: "file1"},
 			git.TreeEntry{Path: "file2.md", Mode: "100644", Content: "file2"},
 			git.TreeEntry{Path: "file3.md", Mode: "100644", Content: "file3"},
@@ -534,7 +535,7 @@ func TestSearchFilesByNamePaginationSuccessful(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			stream, err := client.SearchFilesByName(ctx, &gitalypb.SearchFilesByNameRequest{
-				Repository: repo,
+				Repository: repoProto,
 				Ref:        ref,
 				Query:      tc.query,
 				Filter:     tc.filter,

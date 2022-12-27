@@ -16,6 +16,7 @@ import (
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
 	"gitlab.com/gitlab-org/gitaly/v15/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/praefectutil"
@@ -121,7 +122,7 @@ func TestCreateFork_refs(t *testing.T) {
 
 	// Prepare the source repository with a bunch of refs and a non-default HEAD ref so we can
 	// assert that the target repo gets created with the correct set of refs.
-	commitID := WriteTestCommit(t, git, cfg, sourceRepoPath)
+	commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, sourceRepo))
 	for _, ref := range []string{
 		"refs/environments/something",
 		"refs/heads/something",
@@ -186,10 +187,10 @@ func TestCreateFork_fsck(t *testing.T) {
 		{Content: "content", Path: "dup", Mode: "100644"},
 	})
 
-	git.WriteTestCommit(t, cfg, repoPath,
-		git.WithParents(),
-		git.WithBranch("main"),
-		git.WithTree(treeID),
+	localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo),
+		localrepo.WithParents(),
+		localrepo.WithBranch("main"),
+		localrepo.WithTree(treeID),
 	)
 
 	forkedRepo := &gitalypb.Repository{

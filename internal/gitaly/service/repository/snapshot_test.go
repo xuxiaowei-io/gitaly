@@ -50,11 +50,11 @@ func touch(t *testing.T, format string, args ...interface{}) {
 
 func TestGetSnapshotSuccess(t *testing.T) {
 	t.Parallel()
-	cfg, repo, repoPath, client := setupRepositoryService(t, testhelper.Context(t))
+	cfg, repoProto, repoPath, client := setupRepositoryService(t, testhelper.Context(t))
 
 	// Ensure certain files exist in the test repo.
 	// WriteCommit produces a loose object with the given sha
-	sha := WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("master"))
+	sha := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithBranch("master"))
 	zeroes := strings.Repeat("0", 40)
 	require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "hooks"), 0o755))
 	require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "objects/pack"), 0o755))
@@ -63,7 +63,7 @@ func TestGetSnapshotSuccess(t *testing.T) {
 	touch(t, filepath.Join(repoPath, "objects/pack/pack-%s.idx"), zeroes)
 	touch(t, filepath.Join(repoPath, "objects/this-should-not-be-included"))
 
-	req := &gitalypb.GetSnapshotRequest{Repository: repo}
+	req := &gitalypb.GetSnapshotRequest{Repository: repoProto}
 	data, err := getSnapshot(t, client, req)
 	require.NoError(t, err)
 
@@ -122,9 +122,9 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 				absoluteAlternateObjDir = filepath.Join(repoPath, "objects", alternateObjDir)
 			}
 
-			firstCommitID := WriteTestCommit(t, git, cfg, repoPath,
-				git.WithMessage("An empty commit"),
-				git.WithAlternateObjectDirectory(absoluteAlternateObjDir))
+			firstCommitID := localrepo.WriteTestCommit(t, repo,
+				localrepo.WithMessage("An empty commit"),
+				localrepo.WithAlternateObjectDirectory(absoluteAlternateObjDir))
 
 			locator := config.NewLocator(cfg)
 
@@ -138,9 +138,9 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 			require.NoError(t, os.WriteFile(alternatesPath, []byte(fmt.Sprintf("%s\n", alternateObjDir)), 0o644))
 
 			// Write another commit into the alternate object directory.
-			secondCommitID := WriteTestCommit(t, git, cfg, repoPath,
-				git.WithMessage("Another empty commit"),
-				git.WithAlternateObjectDirectory(absoluteAlternateObjDir))
+			secondCommitID := localrepo.WriteTestCommit(t, repo,
+				localrepo.WithMessage("Another empty commit"),
+				localrepo.WithAlternateObjectDirectory(absoluteAlternateObjDir))
 
 			// We should now be able to find both commits given that the alternates file
 			// points to the object directory we've created them in.
@@ -214,10 +214,9 @@ func TestGetSnapshot_alternateObjectDirectory(t *testing.T) {
 	t.Run("valid alternate object directory", func(t *testing.T) {
 		alternateObjectDir := filepath.Join(repoPath, "valid-odb")
 
-		commitID := WriteTestCommit(t, git, cfg, repoPath,
-			git.WithAlternateObjectDirectory(alternateObjectDir),
-
-			git.WithBranch("some-branch"))
+		commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto),
+			localrepo.WithAlternateObjectDirectory(alternateObjectDir),
+			localrepo.WithBranch("some-branch"))
 
 		require.NoError(t, os.WriteFile(alternatesFile, []byte(alternateObjectDir), 0o644))
 		defer func() {
@@ -300,14 +299,14 @@ func TestGetSnapshot_validate(t *testing.T) {
 
 func TestGetSnapshotFailsIfRepositoryContainsSymlink(t *testing.T) {
 	t.Parallel()
-	_, repo, repoPath, client := setupRepositoryService(t, testhelper.Context(t))
+	_, repoProto, repoPath, client := setupRepositoryService(t, testhelper.Context(t))
 
 	// Make packed-refs into a symlink to break GetSnapshot()
 	packedRefsFile := filepath.Join(repoPath, "packed-refs")
 	require.NoError(t, os.Remove(packedRefsFile))
 	require.NoError(t, os.Symlink("HEAD", packedRefsFile))
 
-	req := &gitalypb.GetSnapshotRequest{Repository: repo}
+	req := &gitalypb.GetSnapshotRequest{Repository: repoProto}
 	data, err := getSnapshot(t, client, req)
 	testhelper.RequireGrpcCode(t, err, codes.Internal)
 	require.Contains(t, err.Error(), "building snapshot failed")

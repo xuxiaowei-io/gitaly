@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
@@ -36,10 +37,10 @@ func TestMidxWrite(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
+	cfg, repoProto, repoPath, client := setupRepositoryService(t, ctx)
 
 	//nolint:staticcheck
-	_, err := client.MidxRepack(ctx, &gitalypb.MidxRepackRequest{Repository: repo})
+	_, err := client.MidxRepack(ctx, &gitalypb.MidxRepackRequest{Repository: repoProto})
 	assert.NoError(t, err)
 
 	require.FileExists(t,
@@ -55,7 +56,7 @@ func TestMidxRewrite(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, repoPath, client := setupRepositoryService(t, ctx)
+	_, repoProto, repoPath, client := setupRepositoryService(t, ctx)
 
 	midxPath := filepath.Join(repoPath, MidxRelPath)
 
@@ -68,7 +69,7 @@ func TestMidxRewrite(t *testing.T) {
 	mt := info.ModTime()
 
 	//nolint:staticcheck
-	_, err = client.MidxRepack(ctx, &gitalypb.MidxRepackRequest{Repository: repo})
+	_, err = client.MidxRepack(ctx, &gitalypb.MidxRepackRequest{Repository: repoProto})
 	require.NoError(t, err)
 
 	require.FileExists(t,
@@ -84,12 +85,13 @@ func TestMidxRepack(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
-	repo, repoPath := git.CreateRepository(t, ctx, cfg)
-	WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"))
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
 
 	// add some pack files with different sizes
 	packsAdded := 5
-	addPackFiles(t, ctx, cfg, repoPath, packsAdded, true)
+	addPackFiles(t, ctx, cfg, repo, packsAdded, true)
 
 	// record pack count
 	actualCount, err := stats.PackfilesCount(repoPath)
@@ -104,7 +106,7 @@ func TestMidxRepack(t *testing.T) {
 	_, err = client.MidxRepack(
 		ctx,
 		&gitalypb.MidxRepackRequest{
-			Repository: repo,
+			Repository: repoProto,
 		},
 	)
 	require.NoError(t, err)
@@ -128,8 +130,8 @@ func TestMidxRepack_transactional(t *testing.T) {
 	txManager := transaction.NewTrackingManager()
 
 	cfg, client := setupRepositoryServiceWithoutRepo(t, testserver.WithTransactionManager(txManager))
-	repo, repoPath := git.CreateRepository(t, ctx, cfg)
-	WriteTestCommit(t, git, cfg, repoPath, git.WithBranch(git.DefaultBranch))
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
+	localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithBranch(git.DefaultBranch))
 	git.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
 
 	// Reset the votes after creating the test repository.
@@ -144,7 +146,7 @@ func TestMidxRepack_transactional(t *testing.T) {
 
 	//nolint:staticcheck
 	_, err = client.MidxRepack(ctx, &gitalypb.MidxRepackRequest{
-		Repository: repo,
+		Repository: repoProto,
 	})
 	require.NoError(t, err)
 
@@ -163,11 +165,12 @@ func TestMidxRepackExpire(t *testing.T) {
 	for _, packsAdded := range []int{3, 5, 11, 20} {
 		t.Run(fmt.Sprintf("Test repack expire with %d added packs", packsAdded),
 			func(t *testing.T) {
-				repo, repoPath := git.CreateRepository(t, ctx, cfg)
-				WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"))
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
+				repo := localrepo.NewTestRepo(t, cfg, repoProto)
+				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
 
 				// add some pack files with different sizes
-				addPackFiles(t, ctx, cfg, repoPath, packsAdded, false)
+				addPackFiles(t, ctx, cfg, repo, packsAdded, false)
 
 				// record pack count
 				actualCount, err := stats.PackfilesCount(repoPath)
@@ -194,7 +197,7 @@ func TestMidxRepackExpire(t *testing.T) {
 					_, err := client.MidxRepack(
 						ctx,
 						&gitalypb.MidxRepackRequest{
-							Repository: repo,
+							Repository: repoProto,
 						},
 					)
 					require.NoError(t, err)
@@ -250,11 +253,14 @@ func addPackFiles(
 	t *testing.T,
 	ctx context.Context,
 	cfg config.Cfg,
-	repoPath string,
+	repo *localrepo.Repo,
 	packCount int,
 	resetModTime bool,
 ) {
 	t.Helper()
+
+	repoPath, err := repo.Path()
+	require.NoError(t, err)
 
 	// Do a full repack to ensure we start with 1 pack.
 	git.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
@@ -267,9 +273,9 @@ func addPackFiles(
 		_, err := io.ReadFull(randomReader, buf)
 		require.NoError(t, err)
 
-		WriteTestCommit(t, git, cfg, repoPath,
-			git.WithMessage(hex.EncodeToString(buf)),
-			git.WithBranch(fmt.Sprintf("branch-%d", i)))
+		localrepo.WriteTestCommit(t, repo,
+			localrepo.WithMessage(hex.EncodeToString(buf)),
+			localrepo.WithBranch(fmt.Sprintf("branch-%d", i)))
 
 		git.Exec(t, cfg, "-C", repoPath, "repack", "-d")
 	}

@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -30,13 +31,9 @@ func TestWriteCommitGraph_withExistingCommitGraphCreatedWithDefaults(t *testing.
 	})
 
 	treeEntry := git.TreeEntry{Mode: "100644", Path: "file.txt", Content: "something"}
-	WriteTestCommit(
-		t, git,
-
-		cfg,
-		repoPath,
-		git.WithBranch(t.Name()),
-		git.WithTreeEntries(treeEntry))
+	localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo),
+		localrepo.WithBranch(t.Name()),
+		localrepo.WithTreeEntries(treeEntry))
 
 	//nolint:staticcheck
 	res, err := client.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{
@@ -68,13 +65,9 @@ func TestWriteCommitGraph_withExistingCommitGraphCreatedWithSplit(t *testing.T) 
 	})
 
 	treeEntry := git.TreeEntry{Mode: "100644", Path: "file.txt", Content: "something"}
-	WriteTestCommit(
-		t, git,
-
-		cfg,
-		repoPath,
-		git.WithBranch(t.Name()),
-		git.WithTreeEntries(treeEntry))
+	localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo),
+		localrepo.WithBranch(t.Name()),
+		localrepo.WithTreeEntries(treeEntry))
 
 	//nolint:staticcheck
 	res, err := client.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{
@@ -187,13 +180,9 @@ func TestUpdateCommitGraph(t *testing.T) {
 	})
 
 	treeEntry := git.TreeEntry{Mode: "100644", Path: "file.txt", Content: "something"}
-	WriteTestCommit(
-		t, git,
-
-		cfg,
-		repoPath,
-		git.WithBranch(t.Name()),
-		git.WithTreeEntries(treeEntry))
+	localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo),
+		localrepo.WithBranch(t.Name()),
+		localrepo.WithTreeEntries(treeEntry))
 
 	//nolint:staticcheck
 	res, err = client.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{

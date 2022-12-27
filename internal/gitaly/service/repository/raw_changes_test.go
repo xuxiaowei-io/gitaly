@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -19,7 +20,7 @@ func TestGetRawChanges(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRepositoryService(t, ctx)
+	_, repoProto, _, client := setupRepositoryService(t, ctx)
 
 	testCases := []struct {
 		oldRev  string
@@ -95,7 +96,7 @@ func TestGetRawChanges(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(fmt.Sprintf("old:%s,new:%s", tc.oldRev, tc.newRev), func(t *testing.T) {
 			req := &gitalypb.GetRawChangesRequest{
-				Repository:   repo,
+				Repository:   repoProto,
 				FromRevision: tc.oldRev,
 				ToRevision:   tc.newRev,
 			}
@@ -121,10 +122,10 @@ func TestGetRawChangesSpecialCharacters(t *testing.T) {
 	// characters.
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRepositoryService(t, ctx)
+	_, repoProto, _, client := setupRepositoryService(t, ctx)
 
 	req := &gitalypb.GetRawChangesRequest{
-		Repository:   repo,
+		Repository:   repoProto,
 		FromRevision: "cfe32cf61b73a0d5e9f13e774abde7ff789b1660",
 		ToRevision:   "913c66a37b4a45b9769037c55c2d238bd0942d2e",
 	}
@@ -161,7 +162,7 @@ func TestGetRawChangesFailures(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRepositoryService(t, ctx)
+	_, repoProto, _, client := setupRepositoryService(t, ctx)
 
 	for _, tc := range []struct {
 		desc        string
@@ -171,7 +172,7 @@ func TestGetRawChangesFailures(t *testing.T) {
 		{
 			desc: "missing from-revision",
 			request: &gitalypb.GetRawChangesRequest{
-				Repository:   repo,
+				Repository:   repoProto,
 				FromRevision: "",
 				ToRevision:   "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863",
 			},
@@ -191,7 +192,7 @@ func TestGetRawChangesFailures(t *testing.T) {
 		{
 			desc: "missing commit",
 			request: &gitalypb.GetRawChangesRequest{
-				Repository: repo,
+				Repository: repoProto,
 				// A Gitaly commit, unresolvable in gitlab-test
 				FromRevision: "32800ed8206c0087f65e90a1a396b76d3c33f648",
 				ToRevision:   "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863",
@@ -215,11 +216,11 @@ func TestGetRawChangesManyFiles(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRepositoryService(t, ctx)
+	_, repoProto, _, client := setupRepositoryService(t, ctx)
 
 	initCommit := "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"
 	req := &gitalypb.GetRawChangesRequest{
-		Repository:   repo,
+		Repository:   repoProto,
 		FromRevision: initCommit,
 		ToRevision:   "many_files",
 	}
@@ -236,10 +237,10 @@ func TestGetRawChangesMappingOperations(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRepositoryService(t, ctx)
+	_, repoProto, _, client := setupRepositoryService(t, ctx)
 
 	req := &gitalypb.GetRawChangesRequest{
-		Repository:   repo,
+		Repository:   repoProto,
 		FromRevision: "1b12f15a11fc6e62177bef08f47bc7b5ce50b141",
 		ToRevision:   "94bb47ca1297b7b3731ff2a36923640991e9236f",
 	}
@@ -278,7 +279,7 @@ func TestGetRawChangesInvalidUTF8Paths(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
+	cfg, repoProto, _, client := setupRepositoryService(t, ctx)
 
 	const (
 		// These are arbitrary blobs known to exist in the test repository
@@ -288,18 +289,18 @@ func TestGetRawChangesInvalidUTF8Paths(t *testing.T) {
 	)
 	require.False(t, utf8.ValidString(nonUTF8Filename)) // sanity check
 
-	fromCommitID := WriteTestCommit(t, git, cfg, repoPath,
-		git.WithTreeEntries(git.TreeEntry{
+	fromCommitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto),
+		localrepo.WithTreeEntries(git.TreeEntry{
 			OID: blobID1, Path: nonUTF8Filename, Mode: "100644",
 		}))
 
-	toCommitID := WriteTestCommit(t, git, cfg, repoPath,
-		git.WithTreeEntries(git.TreeEntry{
+	toCommitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto),
+		localrepo.WithTreeEntries(git.TreeEntry{
 			OID: blobID2, Path: nonUTF8Filename, Mode: "100644",
 		}))
 
 	req := &gitalypb.GetRawChangesRequest{
-		Repository:   repo,
+		Repository:   repoProto,
 		FromRevision: fromCommitID.String(),
 		ToRevision:   toCommitID.String(),
 	}

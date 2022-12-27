@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
@@ -53,7 +54,7 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gital
 		for _, tc := range []struct {
 			desc                  string
 			nonExistentRepository bool
-			setup                 func(t *testing.T, repoPath string)
+			setup                 func(t *testing.T, repo *localrepo.Repo)
 			// expectedLicenseRuby is used to verify the response received from the Ruby side-car.
 			// Also is it used if expectedLicenseGo is not set. Because the Licensee gem and
 			// the github.com/go-enry/go-license-detector go package use different license databases
@@ -65,16 +66,18 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gital
 		}{
 			{
 				desc: "repository does not exist",
-				setup: func(t *testing.T, repoPath string) {
+				setup: func(t *testing.T, repo *localrepo.Repo) {
+					repoPath, err := repo.Path()
+					require.NoError(t, err)
 					require.NoError(t, os.RemoveAll(repoPath))
 				},
 				errorContains: "GetRepoPath: not a git repository",
 			},
 			{
 				desc: "empty if no license file in repo",
-				setup: func(t *testing.T, repoPath string) {
-					WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"),
-						git.WithTreeEntries(
+				setup: func(t *testing.T, repo *localrepo.Repo) {
+					localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"),
+						localrepo.WithTreeEntries(
 							git.TreeEntry{
 								Mode:    "100644",
 								Path:    "README.md",
@@ -86,9 +89,9 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gital
 			},
 			{
 				desc: "high confidence mit result and less confident mit-0 result",
-				setup: func(t *testing.T, repoPath string) {
-					WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"),
-						git.WithTreeEntries(
+				setup: func(t *testing.T, repo *localrepo.Repo) {
+					localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"),
+						localrepo.WithTreeEntries(
 							git.TreeEntry{
 								Mode:    "100644",
 								Path:    "LICENSE",
@@ -111,9 +114,9 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gital
 			},
 			{
 				desc: "unknown license",
-				setup: func(t *testing.T, repoPath string) {
-					WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"),
-						git.WithTreeEntries(
+				setup: func(t *testing.T, repo *localrepo.Repo) {
+					localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"),
+						localrepo.WithTreeEntries(
 							git.TreeEntry{
 								Mode:    "100644",
 								Path:    "LICENSE.md",
@@ -136,11 +139,11 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gital
 			},
 			{
 				desc: "deprecated license",
-				setup: func(t *testing.T, repoPath string) {
+				setup: func(t *testing.T, repo *localrepo.Repo) {
 					deprecatedLicenseData := testhelper.MustReadFile(t, "testdata/gnu_license.deprecated.txt")
 
-					WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"),
-						git.WithTreeEntries(
+					localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"),
+						localrepo.WithTreeEntries(
 							git.TreeEntry{
 								Mode:    "100644",
 								Path:    "LICENSE",
@@ -165,11 +168,11 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gital
 			},
 			{
 				desc: "license with nickname",
-				setup: func(t *testing.T, repoPath string) {
+				setup: func(t *testing.T, repo *localrepo.Repo) {
 					licenseText := testhelper.MustReadFile(t, "testdata/gpl-2.0_license.txt")
 
-					WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"),
-						git.WithTreeEntries(
+					localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"),
+						localrepo.WithTreeEntries(
 							git.TreeEntry{
 								Mode:    "100644",
 								Path:    "LICENSE",
@@ -194,7 +197,10 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gital
 			},
 			{
 				desc: "license in subdir",
-				setup: func(t *testing.T, repoPath string) {
+				setup: func(t *testing.T, repo *localrepo.Repo) {
+					repoPath, err := repo.Path()
+					require.NoError(t, err)
+
 					subTree := git.WriteTree(t, cfg, repoPath,
 						[]git.TreeEntry{{
 							Mode:    "100644",
@@ -202,8 +208,8 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gital
 							Content: mitLicense,
 						}})
 
-					WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"),
-						git.WithTreeEntries(
+					localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"),
+						localrepo.WithTreeEntries(
 							git.TreeEntry{
 								Mode: "040000",
 								Path: "legal",
@@ -215,9 +221,9 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gital
 			},
 			{
 				desc: "license pointing to license file",
-				setup: func(t *testing.T, repoPath string) {
-					WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"),
-						git.WithTreeEntries(
+				setup: func(t *testing.T, repo *localrepo.Repo) {
+					localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"),
+						localrepo.WithTreeEntries(
 							git.TreeEntry{
 								Mode:    "100644",
 								Path:    "mit.txt",
@@ -246,14 +252,16 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gital
 			},
 		} {
 			t.Run(tc.desc, func(t *testing.T) {
-				repo, repoPath := git.CreateRepository(t, ctx, cfg)
-				tc.setup(t, repoPath)
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
+				repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+				tc.setup(t, repo)
 
 				if _, err := os.Stat(repoPath); !os.IsNotExist(err) {
 					git.Exec(t, cfg, "-C", repoPath, "symbolic-ref", "HEAD", "refs/heads/main")
 				}
 
-				resp, err := client.FindLicense(ctx, &gitalypb.FindLicenseRequest{Repository: repo})
+				resp, err := client.FindLicense(ctx, &gitalypb.FindLicenseRequest{Repository: repoProto})
 				if tc.errorContains != "" {
 					require.Error(t, err)
 					require.Contains(t, err.Error(), tc.errorContains)
@@ -315,7 +323,7 @@ func BenchmarkFindLicense(b *testing.B) {
 		Seed:                   "benchmark.git",
 	})
 
-	repoStress, repoStressPath := git.CreateRepository(b, ctx, cfg, git.CreateRepositoryConfig{
+	repoStressProto, repoStressPath := git.CreateRepository(b, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 
@@ -365,8 +373,8 @@ func BenchmarkFindLicense(b *testing.B) {
 		}
 	}
 
-	WriteTestCommit(b, git, cfg, repoStressPath, git.WithBranch("main"),
-		git.WithTreeEntries(treeEntries...))
+	localrepo.WriteTestCommit(b, localrepo.NewTestRepo(b, cfg, repoStressProto), localrepo.WithBranch("main"),
+		localrepo.WithTreeEntries(treeEntries...))
 
 	git.Exec(b, cfg, "-C", repoStressPath, "symbolic-ref", "HEAD", "refs/heads/main")
 
@@ -387,7 +395,7 @@ func BenchmarkFindLicense(b *testing.B) {
 			},
 			{
 				desc: "stress.git",
-				repo: repoStress,
+				repo: repoStressProto,
 			},
 		} {
 			b.Run(tc.desc, func(b *testing.B) {

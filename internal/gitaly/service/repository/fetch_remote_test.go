@@ -37,9 +37,9 @@ func TestFetchRemote_checkTagsChanged(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	_, remoteRepoPath := git.CreateRepository(t, ctx, cfg)
+	remoteRepoProto, remoteRepoPath := git.CreateRepository(t, ctx, cfg)
 
-	WriteTestCommit(t, git, cfg, remoteRepoPath, git.WithBranch("main"))
+	localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, remoteRepoProto), localrepo.WithBranch("main"))
 
 	t.Run("check tags without tags", func(t *testing.T) {
 		repoProto, _ := git.CreateRepository(t, ctx, cfg)
@@ -342,8 +342,8 @@ func TestFetchRemote_force(t *testing.T) {
 	tagOID, err := sourceRepo.ResolveRevision(ctx, "refs/tags/v1.0.0")
 	require.NoError(t, err)
 
-	divergingBranchOID := WriteTestCommit(t, git, cfg, sourceRepoPath, git.WithBranch("b1"))
-	divergingTagOID := WriteTestCommit(t, git, cfg, sourceRepoPath, git.WithBranch("b2"))
+	divergingBranchOID := localrepo.WriteTestCommit(t, sourceRepo, localrepo.WithBranch("b1"))
+	divergingTagOID := localrepo.WriteTestCommit(t, sourceRepo, localrepo.WithBranch("b2"))
 
 	port := git.HTTPServer(t, ctx, gitCmdFactory, sourceRepoPath, nil)
 
@@ -807,10 +807,11 @@ func TestFetchRemote_pooledRepository(t *testing.T) {
 			// single reference with an object that is neither in the pool member nor in
 			// the remote. If alternate refs are used, then Git will announce it to the
 			// remote as "have".
-			_, poolRepoPath := git.CreateRepository(t, ctx, cfg)
-			poolCommitID := WriteTestCommit(t, git, cfg, poolRepoPath,
-				git.WithBranch("pooled"),
-				git.WithTreeEntries(git.TreeEntry{Path: "pool", Mode: "100644", Content: "pool contents"}))
+			poolRepoProto, poolRepoPath := git.CreateRepository(t, ctx, cfg)
+
+			poolCommitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, poolRepoProto),
+				localrepo.WithBranch("pooled"),
+				localrepo.WithTreeEntries(git.TreeEntry{Path: "pool", Mode: "100644", Content: "pool contents"}))
 
 			// Create the pooled repository and link it to its pool. This is the
 			// repository we're fetching into.
@@ -820,10 +821,10 @@ func TestFetchRemote_pooledRepository(t *testing.T) {
 			// And then finally create a third repository that emulates the remote side
 			// we're fetching from. We need to create at least one reference so that Git
 			// would actually try to fetch objects.
-			_, remoteRepoPath := git.CreateRepository(t, ctx, cfg)
-			WriteTestCommit(t, git, cfg, remoteRepoPath,
-				git.WithBranch("remote"),
-				git.WithTreeEntries(git.TreeEntry{Path: "remote", Mode: "100644", Content: "remote contents"}))
+			remoteRepoProto, remoteRepoPath := git.CreateRepository(t, ctx, cfg)
+			localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, remoteRepoProto),
+				localrepo.WithBranch("remote"),
+				localrepo.WithTreeEntries(git.TreeEntry{Path: "remote", Mode: "100644", Content: "remote contents"}))
 
 			// Set up an HTTP server and intercept the request. This is done so that we
 			// can observe the reference negotiation and check whether alternate refs

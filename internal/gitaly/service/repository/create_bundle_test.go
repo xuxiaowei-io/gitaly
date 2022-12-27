@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -28,7 +29,7 @@ func TestSuccessfulCreateBundleRequest(t *testing.T) {
 
 	// Create a work tree with a HEAD pointing to a commit that is missing. CreateBundle should
 	// clean this up before creating the bundle.
-	sha := WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("branch"))
+	sha := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithBranch("branch"))
 
 	require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "gitlab-worktree"), 0o755))
 

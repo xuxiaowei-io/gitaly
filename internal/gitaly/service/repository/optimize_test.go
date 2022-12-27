@@ -34,7 +34,7 @@ func TestOptimizeRepository(t *testing.T) {
 	t.Run("gitconfig credentials get pruned", func(t *testing.T) {
 		t.Parallel()
 
-		repo, repoPath := git.CreateRepository(t, ctx, cfg)
+		repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
 		gitconfigPath := filepath.Join(repoPath, "config")
 
 		readConfig := func() []string {
@@ -72,7 +72,7 @@ func TestOptimizeRepository(t *testing.T) {
 		// Calling OptimizeRepository should cause us to strip any of the added creds from
 		// the gitconfig.
 		_, err := client.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{
-			Repository: repo,
+			Repository: repoProto,
 		})
 		require.NoError(t, err)
 		// The gitconfig should not contain any of the stripped gitconfig values anymore.
@@ -82,13 +82,13 @@ func TestOptimizeRepository(t *testing.T) {
 	t.Run("up-to-date packfile does not get repacked", func(t *testing.T) {
 		t.Parallel()
 
-		repo, repoPath := git.CreateRepository(t, ctx, cfg)
+		repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
 
 		// Write a commit and force-repack the whole repository. This is to ensure that the
 		// repository is in a state where it shouldn't need to be repacked.
-		WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("master"))
+		localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithBranch("master"))
 		_, err := client.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{
-			Repository: repo,
+			Repository: repoProto,
 			Strategy:   gitalypb.OptimizeRepositoryRequest_STRATEGY_EAGER,
 		})
 		require.NoError(t, err)
@@ -101,7 +101,7 @@ func TestOptimizeRepository(t *testing.T) {
 		// should see that the repository was in a well-defined state already, so we should
 		// not perform any optimization.
 		_, err = client.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{
-			Repository: repo,
+			Repository: repoProto,
 		})
 		require.NoError(t, err)
 
@@ -114,8 +114,8 @@ func TestOptimizeRepository(t *testing.T) {
 	t.Run("missing bitmap causes full repack", func(t *testing.T) {
 		t.Parallel()
 
-		repo, repoPath := git.CreateRepository(t, ctx, cfg)
-		WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("master"))
+		repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
+		localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithBranch("master"))
 
 		bitmaps, err := filepath.Glob(filepath.Join(repoPath, "objects", "pack", "*.bitmap"))
 		require.NoError(t, err)
@@ -126,7 +126,7 @@ func TestOptimizeRepository(t *testing.T) {
 		// out a new bitmap via a full repack. This is so that all repositories will have a
 		// bitmap available.
 		_, err = client.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{
-			Repository: repo,
+			Repository: repoProto,
 		})
 		require.NoError(t, err)
 
@@ -138,8 +138,8 @@ func TestOptimizeRepository(t *testing.T) {
 	t.Run("optimizing repository without commit-graph bloom filters", func(t *testing.T) {
 		t.Parallel()
 
-		repo, repoPath := git.CreateRepository(t, ctx, cfg)
-		WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("master"))
+		repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
+		localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithBranch("master"))
 
 		// Prepare the repository so that it has a commit-graph, but that commit-graph is
 		// missing bloom filters.
@@ -154,7 +154,7 @@ func TestOptimizeRepository(t *testing.T) {
 
 		// As a result, OptimizeRepository should rewrite the commit-graph.
 		_, err = client.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{
-			Repository: repo,
+			Repository: repoProto,
 		})
 		require.NoError(t, err)
 
@@ -171,7 +171,7 @@ func TestOptimizeRepository(t *testing.T) {
 	t.Run("empty ref directories get pruned after grace period", func(t *testing.T) {
 		t.Parallel()
 
-		repo, repoPath := git.CreateRepository(t, ctx, cfg)
+		repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
 
 		// Git will leave behind empty refs directories at times. In order to not slow down
 		// enumerating refs we want to make sure that they get cleaned up properly.
@@ -182,7 +182,7 @@ func TestOptimizeRepository(t *testing.T) {
 		// because we have a grace period so that we don't delete empty ref directories that
 		// have just been created by a concurrently running Git process.
 		_, err := client.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{
-			Repository: repo,
+			Repository: repoProto,
 		})
 		require.NoError(t, err)
 		require.DirExists(t, emptyRefsDir)
@@ -198,7 +198,7 @@ func TestOptimizeRepository(t *testing.T) {
 		// Now the second call to OptimizeRepository should indeed clean up the empty refs
 		// directories.
 		_, err = client.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{
-			Repository: repo,
+			Repository: repoProto,
 		})
 		require.NoError(t, err)
 		// We shouldn't have removed the top-level "refs" directory.
@@ -285,7 +285,7 @@ func TestOptimizeRepository_validation(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, _, client := setupRepositoryService(t, ctx)
+	cfg, repoProto, _, client := setupRepositoryService(t, ctx)
 
 	for _, tc := range []struct {
 		desc        string
@@ -305,7 +305,7 @@ func TestOptimizeRepository_validation(t *testing.T) {
 			request: &gitalypb.OptimizeRepositoryRequest{
 				Repository: &gitalypb.Repository{
 					StorageName:  "non-existent",
-					RelativePath: repo.GetRelativePath(),
+					RelativePath: repoProto.GetRelativePath(),
 				},
 			},
 			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
@@ -317,7 +317,7 @@ func TestOptimizeRepository_validation(t *testing.T) {
 			desc: "invalid repository path",
 			request: &gitalypb.OptimizeRepositoryRequest{
 				Repository: &gitalypb.Repository{
-					StorageName:  repo.GetStorageName(),
+					StorageName:  repoProto.GetStorageName(),
 					RelativePath: "path/not/exist",
 				},
 			},
@@ -329,7 +329,7 @@ func TestOptimizeRepository_validation(t *testing.T) {
 		{
 			desc: "invalid optimization strategy",
 			request: &gitalypb.OptimizeRepositoryRequest{
-				Repository: repo,
+				Repository: repoProto,
 				Strategy:   12,
 			},
 			expectedErr: structerr.NewInvalidArgument("unsupported optimization strategy 12"),

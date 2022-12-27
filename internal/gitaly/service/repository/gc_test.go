@@ -110,8 +110,8 @@ func TestGarbageCollectWithPrune(t *testing.T) {
 	oldReferencedObjFile := filepath.Join(repoPath, "objects", blobHashes[2][:2], blobHashes[2][2:])
 
 	// create a reference to the blob, so it should not be removed by gc
-	WriteTestCommit(t, git, cfg, repoPath,
-		git.WithTreeEntries(git.TreeEntry{
+	localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo),
+		localrepo.WithTreeEntries(git.TreeEntry{
 			OID: git.ObjectID(blobHashes[2]), Path: "blob-name", Mode: "100644",
 		}))
 
@@ -236,7 +236,7 @@ func TestGarbageCollectDeletesPackedRefsLock(t *testing.T) {
 
 			repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
-			WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"))
+			localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithBranch("main"))
 			git.Exec(t, cfg, "-C", repoPath, "pack-refs", "--all")
 
 			// Force the packed-refs file to have an old time to test that even
@@ -556,10 +556,10 @@ func TestGarbageCollectDeltaIslands(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
+	cfg, repo, _, client := setupRepositoryService(t, ctx)
 
 	localRepo := localrepo.NewTestRepo(t, cfg, repo)
-	localrepo.TestDeltaIslands(t, cfg, repo, repo, false, func() error {
+	localrepo.TestDeltaIslands(t, cfg, localRepo, localRepo, false, func() error {
 		//nolint:staticcheck
 		_, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: repo})
 		return err
@@ -575,12 +575,12 @@ func TestGarbageCollect_commitGraphsWithPrunedObjects(t *testing.T) {
 	repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
 
 	// Write a first commit-graph that contains the root commit, only.
-	rootCommitID := WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"))
+	rootCommitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithBranch("main"))
 	git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split", "--changed-paths")
 
 	// Write a second, incremental commit-graph that contains a commit we're about to
 	// make unreachable and then prune.
-	unreachableCommitID := WriteTestCommit(t, git, cfg, repoPath, git.WithParents(rootCommitID), git.WithBranch("main"))
+	unreachableCommitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithParents(rootCommitID), localrepo.WithBranch("main"))
 	git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split=no-merge", "--changed-paths")
 
 	// Reset the "main" branch back to the initial root commit ID and prune the now

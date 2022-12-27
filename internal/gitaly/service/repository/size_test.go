@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/quarantine"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
@@ -107,9 +108,9 @@ func testSuccessfulRepositorySizeRequest(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
 	logger, hook := test.NewNullLogger()
-	cfg, repo, repoPath, client := setupRepositoryService(t, ctx, testserver.WithLogger(logger))
+	cfg, repoProto, repoPath, client := setupRepositoryService(t, ctx, testserver.WithLogger(logger))
 
-	request := &gitalypb.RepositorySizeRequest{Repository: repo}
+	request := &gitalypb.RepositorySizeRequest{Repository: repoProto}
 	response, err := client.RepositorySize(ctx, request)
 	require.NoError(t, err)
 
@@ -127,7 +128,7 @@ func testSuccessfulRepositorySizeRequest(t *testing.T, ctx context.Context) {
 			Path: "1kbblob",
 		},
 	})
-	commitOID := WriteTestCommit(t, git, cfg, repoPath, git.WithTree(treeOID))
+	commitOID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithTree(treeOID))
 
 	git.WriteRef(t, cfg, repoPath, git.ReferenceName("refs/keep-around/keep1"), commitOID)
 	git.WriteRef(t, cfg, repoPath, git.ReferenceName("refs/merge-requests/1123"), commitOID)
