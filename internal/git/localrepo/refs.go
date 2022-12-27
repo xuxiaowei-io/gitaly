@@ -147,22 +147,51 @@ func (repo *Repo) GetBranches(ctx context.Context) ([]git.Reference, error) {
 	return repo.GetReferences(ctx, "refs/heads/")
 }
 
+type updateRefConfig struct {
+	envVars []string
+}
+
+// UpdateRefOption are provided to UpdateRef to modify the behavior of the ref
+// update.
+type UpdateRefOption func(*updateRefConfig)
+
+// WithEnv is an UpdateRefOption that passes in environment variables to the
+// update-ref call.
+func WithEnv(env []string) UpdateRefOption {
+	return func(cfg *updateRefConfig) {
+		cfg.envVars = env
+	}
+}
+
 // UpdateRef updates reference from oldValue to newValue. If oldValue is a
 // non-empty string, the update will fail it the reference is not currently at
 // that revision. If newValue is the ZeroOID, the reference will be deleted.
 // If oldValue is the ZeroOID, the reference will created.
-func (repo *Repo) UpdateRef(ctx context.Context, reference git.ReferenceName, newValue, oldValue git.ObjectID) error {
+func (repo *Repo) UpdateRef(ctx context.Context, reference git.ReferenceName, newValue, oldValue git.ObjectID, opts ...UpdateRefOption) error {
 	var stderr bytes.Buffer
+
+	var updateRefCfg updateRefConfig
+
+	for _, opt := range opts {
+		opt(&updateRefCfg)
+	}
+
+	gitOpts := []git.CmdOpt{
+		git.WithStdin(strings.NewReader(fmt.Sprintf("update %s\x00%s\x00%s\x00", reference, newValue.String(), oldValue.String()))),
+		git.WithStderr(&stderr),
+		git.WithRefTxHook(repo),
+	}
+
+	if len(updateRefCfg.envVars) > 0 {
+		gitOpts = append(gitOpts, git.WithEnv(updateRefCfg.envVars...))
+	}
 
 	if err := repo.ExecAndWait(ctx,
 		git.Command{
 			Name:  "update-ref",
 			Flags: []git.Option{git.Flag{Name: "-z"}, git.Flag{Name: "--stdin"}},
 		},
-		git.WithStdin(strings.NewReader(fmt.Sprintf("update %s\x00%s\x00%s\x00", reference, newValue.String(), oldValue.String()))),
-		git.WithStderr(&stderr),
-		git.WithRefTxHook(repo),
-	); err != nil {
+		gitOpts...); err != nil {
 		return fmt.Errorf("UpdateRef: failed updating reference %q from %q to %q: %w", reference, oldValue, newValue, errorWithStderr(err, stderr.Bytes()))
 	}
 

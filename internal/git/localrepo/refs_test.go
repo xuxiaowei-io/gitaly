@@ -746,3 +746,48 @@ func TestGuessHead(t *testing.T) {
 		})
 	}
 }
+
+func TestRepoOptions_WithEnv(t *testing.T) {
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+	})
+
+	factory := gittest.NewInterceptingCommandFactory(t, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
+		return `#!/usr/bin/env bash
+			printenv 1>&2
+			exit 128
+		`
+	})
+
+	catfileCache := catfile.NewCache(cfg)
+	t.Cleanup(catfileCache.Stop)
+
+	repo := New(config.NewLocator(cfg), factory, catfileCache, repoProto)
+
+	testCases := []struct {
+		desc string
+		env  []string
+	}{
+		{
+			desc: "single environment variable",
+			env:  []string{"VAR1=foo"},
+		},
+		{
+			desc: "multiple environment variables",
+			env:  []string{"VAR1=foo", "VAR2=bar"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			err := repo.UpdateRef(ctx, git.ReferenceName("some-ref"), git.ObjectID("deadbeef"), git.ObjectID(""), WithEnv(tc.env))
+			require.Error(t, err)
+			for _, env := range tc.env {
+				require.Contains(t, err.Error(), env)
+			}
+		})
+	}
+}
