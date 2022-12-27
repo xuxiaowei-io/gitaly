@@ -21,14 +21,14 @@ func TestPipeline_revlist(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
-	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+	repoProto, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	blobA := localrepo.WriteTestBlob(t, repo, "blob a")
-	blobB := localrepo.WriteTestBlob(t, repo, "b")
-	blobC := localrepo.WriteTestBlob(t, repo, "longer blob c")
+	blobA := localrepo.WriteTestBlob(t, repo, "", "blob a")
+	blobB := localrepo.WriteTestBlob(t, repo, "", "b")
+	blobC := localrepo.WriteTestBlob(t, repo, "", "longer blob c")
 
 	subtree := localrepo.WriteTestTree(t, repo, []git.TreeEntry{
 		{Path: "subblob", Mode: "100644", OID: blobA},
@@ -39,7 +39,7 @@ func TestPipeline_revlist(t *testing.T) {
 	})
 
 	commitA := localrepo.WriteTestCommit(t, repo)
-	commitB := git.WriteTestCommit(t, cfg, repoPath, localrepo.WithParents(commitA), localrepo.WithTree(tree), localrepo.WithBranch("main"))
+	commitB := localrepo.WriteTestCommit(t, repo, localrepo.WithParents(commitA), localrepo.WithTree(tree), localrepo.WithBranch("main"))
 
 	for _, tc := range []struct {
 		desc               string
