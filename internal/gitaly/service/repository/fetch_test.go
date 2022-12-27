@@ -40,9 +40,9 @@ func TestFetchSourceBranch(t *testing.T) {
 			setup: func(t *testing.T) setupData {
 				cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
-				commitID := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("master"))
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				sourceRepoProto, sourceRepoPath := git.CreateRepository(t, ctx, cfg)
+				commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, sourceRepoProto), localrepo.WithBranch("master"))
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
 
 				return setupData{
 					cfg:    cfg,
@@ -54,7 +54,7 @@ func TestFetchSourceBranch(t *testing.T) {
 						TargetRef:        []byte("refs/tmp/fetch-source-branch-test"),
 					},
 					verify: func() {
-						actualCommitID := gittest.ResolveRevision(t, cfg, repoPath, "refs/tmp/fetch-source-branch-test")
+						actualCommitID := git.ResolveRevision(t, cfg, repoPath, "refs/tmp/fetch-source-branch-test")
 						require.Equal(t, commitID, actualCommitID)
 					},
 				}
@@ -66,8 +66,8 @@ func TestFetchSourceBranch(t *testing.T) {
 			setup: func(t *testing.T) setupData {
 				cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
-				commitID := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("master"))
+				sourceRepoProto, sourceRepoPath := git.CreateRepository(t, ctx, cfg)
+				commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, sourceRepoProto), localrepo.WithBranch("master"))
 
 				return setupData{
 					cfg:    cfg,
@@ -79,7 +79,7 @@ func TestFetchSourceBranch(t *testing.T) {
 						TargetRef:        []byte("refs/tmp/fetch-source-branch-test"),
 					},
 					verify: func() {
-						actualCommitID := gittest.ResolveRevision(t, cfg, sourceRepoPath, "refs/tmp/fetch-source-branch-test")
+						actualCommitID := git.ResolveRevision(t, cfg, sourceRepoPath, "refs/tmp/fetch-source-branch-test")
 						require.Equal(t, commitID, actualCommitID)
 					},
 				}
@@ -91,9 +91,9 @@ func TestFetchSourceBranch(t *testing.T) {
 			setup: func(t *testing.T) setupData {
 				cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
-				gittest.WriteCommit(t, cfg, sourceRepoPath)
-				repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+				sourceRepoProto, sourceRepoPath := git.CreateRepository(t, ctx, cfg)
+				git.WriteCommit(t, cfg, sourceRepoPath)
+				repoProto, _ := git.CreateRepository(t, ctx, cfg)
 
 				return setupData{
 					cfg:    cfg,
@@ -113,8 +113,8 @@ func TestFetchSourceBranch(t *testing.T) {
 			setup: func(t *testing.T) setupData {
 				cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
-				gittest.WriteCommit(t, cfg, sourceRepoPath)
+				sourceRepoProto, sourceRepoPath := git.CreateRepository(t, ctx, cfg)
+				git.WriteCommit(t, cfg, sourceRepoPath)
 
 				return setupData{
 					cfg:    cfg,
@@ -134,7 +134,7 @@ func TestFetchSourceBranch(t *testing.T) {
 			setup: func(t *testing.T) setupData {
 				cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-				sourceRepoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+				sourceRepoProto, _ := git.CreateRepository(t, ctx, cfg)
 
 				return setupData{
 					cfg:    cfg,
@@ -156,8 +156,8 @@ func TestFetchSourceBranch(t *testing.T) {
 			setup: func(t *testing.T) setupData {
 				cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-				sourceRepoProto, _ := gittest.CreateRepository(t, ctx, cfg)
-				repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+				sourceRepoProto, _ := git.CreateRepository(t, ctx, cfg)
+				repoProto, _ := git.CreateRepository(t, ctx, cfg)
 
 				return setupData{
 					cfg:    cfg,
@@ -176,8 +176,8 @@ func TestFetchSourceBranch(t *testing.T) {
 			setup: func(t *testing.T) setupData {
 				cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-				sourceRepoProto, _ := gittest.CreateRepository(t, ctx, cfg)
-				repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+				sourceRepoProto, _ := git.CreateRepository(t, ctx, cfg)
+				repoProto, _ := git.CreateRepository(t, ctx, cfg)
 
 				return setupData{
 					cfg:    cfg,
@@ -197,8 +197,8 @@ func TestFetchSourceBranch(t *testing.T) {
 			setup: func(t *testing.T) setupData {
 				cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-				sourceRepoProto, _ := gittest.CreateRepository(t, ctx, cfg)
-				repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+				sourceRepoProto, _ := git.CreateRepository(t, ctx, cfg)
+				repoProto, _ := git.CreateRepository(t, ctx, cfg)
 
 				return setupData{
 					cfg:    cfg,
@@ -218,8 +218,8 @@ func TestFetchSourceBranch(t *testing.T) {
 			setup: func(t *testing.T) setupData {
 				cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-				sourceRepoProto, _ := gittest.CreateRepository(t, ctx, cfg)
-				repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+				sourceRepoProto, _ := git.CreateRepository(t, ctx, cfg)
+				repoProto, _ := git.CreateRepository(t, ctx, cfg)
 
 				return setupData{
 					cfg:    cfg,
@@ -239,8 +239,8 @@ func TestFetchSourceBranch(t *testing.T) {
 			setup: func(t *testing.T) setupData {
 				cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-				sourceRepoProto, _ := gittest.CreateRepository(t, ctx, cfg)
-				repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+				sourceRepoProto, _ := git.CreateRepository(t, ctx, cfg)
+				repoProto, _ := git.CreateRepository(t, ctx, cfg)
 
 				return setupData{
 					cfg:    cfg,
@@ -260,9 +260,9 @@ func TestFetchSourceBranch(t *testing.T) {
 			setup: func(t *testing.T) setupData {
 				cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
-				gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("master"))
-				repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+				sourceRepoProto, sourceRepoPath := git.CreateRepository(t, ctx, cfg)
+				localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, sourceRepoProto), localrepo.WithBranch("master"))
+				repoProto, _ := git.CreateRepository(t, ctx, cfg)
 
 				return setupData{
 					cfg:    cfg,
@@ -281,9 +281,9 @@ func TestFetchSourceBranch(t *testing.T) {
 			setup: func(t *testing.T) setupData {
 				cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
-				gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("master"))
-				repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+				sourceRepoProto, sourceRepoPath := git.CreateRepository(t, ctx, cfg)
+				localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, sourceRepoProto), localrepo.WithBranch("master"))
+				repoProto, _ := git.CreateRepository(t, ctx, cfg)
 
 				return setupData{
 					cfg:    cfg,
@@ -303,9 +303,9 @@ func TestFetchSourceBranch(t *testing.T) {
 			setup: func(t *testing.T) setupData {
 				cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
-				gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("master"))
-				repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+				sourceRepoProto, sourceRepoPath := git.CreateRepository(t, ctx, cfg)
+				localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, sourceRepoProto), localrepo.WithBranch("master"))
+				repoProto, _ := git.CreateRepository(t, ctx, cfg)
 
 				return setupData{
 					cfg:    cfg,
@@ -325,9 +325,9 @@ func TestFetchSourceBranch(t *testing.T) {
 			setup: func(t *testing.T) setupData {
 				cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
-				gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("master"))
-				repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+				sourceRepoProto, sourceRepoPath := git.CreateRepository(t, ctx, cfg)
+				localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, sourceRepoProto), localrepo.WithBranch("master"))
+				repoProto, _ := git.CreateRepository(t, ctx, cfg)
 
 				return setupData{
 					cfg:    cfg,
@@ -347,9 +347,9 @@ func TestFetchSourceBranch(t *testing.T) {
 			setup: func(t *testing.T) setupData {
 				cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
-				gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("master"))
-				repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+				sourceRepoProto, sourceRepoPath := git.CreateRepository(t, ctx, cfg)
+				localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, sourceRepoProto), localrepo.WithBranch("master"))
+				repoProto, _ := git.CreateRepository(t, ctx, cfg)
 
 				return setupData{
 					cfg:    cfg,
@@ -375,7 +375,7 @@ func TestFetchSourceBranch(t *testing.T) {
 				// We simulate a failed fetch where we actually fetch but just exit
 				// with status 1, this will actually fetch the refs but gitaly will think
 				// git failed.
-				gitCmdFactory := gittest.NewInterceptingCommandFactory(t, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
+				gitCmdFactory := git.NewInterceptingCommandFactory(t, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
 					return fmt.Sprintf(`#!/bin/bash
 						if [[ "$@" =~ "fetch" ]]; then
 							%q "$@"
@@ -387,9 +387,9 @@ func TestFetchSourceBranch(t *testing.T) {
 				client, serverSocketPath := runRepositoryService(t, cfg, nil, testserver.WithGitCommandFactory(gitCmdFactory))
 				cfg.SocketPath = serverSocketPath
 
-				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
-				commitID := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("master"))
-				repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+				sourceRepoProto, sourceRepoPath := git.CreateRepository(t, ctx, cfg)
+				commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, sourceRepoProto), localrepo.WithBranch("master"))
+				repoProto, _ := git.CreateRepository(t, ctx, cfg)
 
 				return setupData{
 					cfg:    cfg,

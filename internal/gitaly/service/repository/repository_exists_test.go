@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	gitalyerrors "gitlab.com/gitlab-org/gitaly/v15/internal/errors"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"

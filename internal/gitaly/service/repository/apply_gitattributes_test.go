@@ -10,6 +10,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -28,11 +30,11 @@ func TestApplyGitattributes_successful(t *testing.T) {
 
 	repo, repoPath := git.CreateRepository(t, ctx, cfg)
 	gitattributesContent := "pattern attr=value"
-	commitWithGitattributes := WriteTestCommit(t, git, cfg, repoPath, git.WithTreeEntries(
+	commitWithGitattributes := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithTreeEntries(
 		git.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: gitattributesContent},
 	))
 
-	commitWithoutGitattributes := WriteTestCommit(t, git, cfg, repoPath)
+	commitWithoutGitattributes := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo))
 
 	infoPath := filepath.Join(repoPath, "info")
 	attributesPath := filepath.Join(infoPath, "attributes")
@@ -97,11 +99,11 @@ func TestApplyGitattributes_transactional(t *testing.T) {
 		SkipCreationViaService: true,
 	})
 	gitattributesContent := "pattern attr=value"
-	commitWithGitattributes := WriteTestCommit(t, git, cfg, repoPath, git.WithTreeEntries(
+	commitWithGitattributes := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithTreeEntries(
 		git.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: gitattributesContent},
 	))
 
-	commitWithoutGitattributes := WriteTestCommit(t, git, cfg, repoPath)
+	commitWithoutGitattributes := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo))
 
 	transactionServer := &testTransactionServer{}
 	runRepositoryService(t, cfg, nil)
