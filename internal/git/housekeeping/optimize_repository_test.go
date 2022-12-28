@@ -40,7 +40,7 @@ func TestRepackIfNeeded(t *testing.T) {
 	}
 
 	t.Run("no repacking", func(t *testing.T) {
-		repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		repoProto, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 		})
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -179,11 +179,11 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 		{
 			desc: "repository without bitmap repacks objects",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+				repo, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
 				})
-				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
+				localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithBranch("main"))
 				return repo
 			},
 			expectedMetrics: `# HELP gitaly_housekeeping_tasks_total Total number of housekeeping tasks performed in the repository
@@ -201,7 +201,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
 				})
-				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
+				localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithBranch("main"))
 				git.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "--write-bitmap-index")
 				return repo
 			},
@@ -214,11 +214,11 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 		{
 			desc: "repository with multiple packfiles packs only for object pool",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
 				})
-
+				repo := localrepo.NewTestRepo(t, cfg, repoProto)
 				// Create two packfiles by creating two objects and then packing
 				// twice. Note that the second git-repack(1) is incremental so that
 				// we don't remove the first packfile.
@@ -229,7 +229,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 
 				git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 
-				return repo
+				return repoProto
 			},
 			expectedMetrics: `# HELP gitaly_housekeeping_tasks_total Total number of housekeeping tasks performed in the repository
 # TYPE gitaly_housekeeping_tasks_total counter
@@ -250,7 +250,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
 				})
-				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
+				localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithBranch("main"))
 				git.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "--write-bitmap-index")
 				git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 				return repo
@@ -263,11 +263,11 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 		{
 			desc: "recent loose objects don't get pruned",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
 				})
-				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
+				localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithBranch("main"))
 				git.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "--write-bitmap-index")
 				git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 
@@ -286,7 +286,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 					require.NoError(t, os.Chtimes(blobPath, almostTwoWeeksAgo, almostTwoWeeksAgo))
 				}
 
-				return repo
+				return repoProto
 			},
 			expectedMetrics: `# HELP gitaly_housekeeping_tasks_total Total number of housekeeping tasks performed in the repository
 # TYPE gitaly_housekeeping_tasks_total counter
@@ -298,11 +298,11 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 		{
 			desc: "old loose objects get pruned",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
 				})
-				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
+				localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithBranch("main"))
 				git.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "--write-bitmap-index")
 				git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 
@@ -318,7 +318,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 					require.NoError(t, os.Chtimes(blobPath, moreThanTwoWeeksAgo, moreThanTwoWeeksAgo))
 				}
 
-				return repo
+				return repoProto
 			},
 			expectedMetrics: `# HELP gitaly_housekeeping_tasks_total Total number of housekeeping tasks performed in the repository
 # TYPE gitaly_housekeeping_tasks_total counter
@@ -338,10 +338,12 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 		{
 			desc: "loose refs get packed",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
 				})
+
+				repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 				for i := 0; i < 16; i++ {
 					localrepo.WriteTestCommit(t, repo, localrepo.WithBranch(fmt.Sprintf("branch-%d", i)))
@@ -350,7 +352,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 				git.Exec(t, cfg, "-C", repoPath, "repack", "-A", "--write-bitmap-index")
 				git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 
-				return repo
+				return repoProto
 			},
 			expectedMetrics: `# HELP gitaly_housekeeping_tasks_total Total number of housekeeping tasks performed in the repository
 # TYPE gitaly_housekeeping_tasks_total counter

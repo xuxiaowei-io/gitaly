@@ -60,7 +60,7 @@ func TestRepackObjects(t *testing.T) {
 	testRepoAndPool(t, "delta islands", func(t *testing.T, relativePath string) {
 		t.Parallel()
 
-		repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		repoProto, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 			RelativePath:           relativePath,
 		})

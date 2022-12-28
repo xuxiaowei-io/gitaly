@@ -35,6 +35,9 @@ func TestWriteCommitGraphConfigForRepository(t *testing.T) {
 			desc: "monolithic commit-graph without bloom filter",
 			setup: func(t *testing.T, repo *localrepo.Repo) {
 				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
+
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
 				git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable")
 			},
 			expectedConfig: WriteCommitGraphConfig{
@@ -45,6 +48,9 @@ func TestWriteCommitGraphConfigForRepository(t *testing.T) {
 			desc: "monolithic commit-graph with bloom filter",
 			setup: func(t *testing.T, repo *localrepo.Repo) {
 				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
+
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
 				git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--changed-paths")
 			},
 			expectedConfig: WriteCommitGraphConfig{
@@ -55,6 +61,9 @@ func TestWriteCommitGraphConfigForRepository(t *testing.T) {
 			desc: "split commit-graph without bloom filter",
 			setup: func(t *testing.T, repo *localrepo.Repo) {
 				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
+
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
 				git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split")
 			},
 			expectedConfig: WriteCommitGraphConfig{
@@ -65,6 +74,9 @@ func TestWriteCommitGraphConfigForRepository(t *testing.T) {
 			desc: "split commit-graph with bloom filter",
 			setup: func(t *testing.T, repo *localrepo.Repo) {
 				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
+
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
 				git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split", "--changed-paths")
 			},
 			expectedConfig: WriteCommitGraphConfig{
@@ -73,7 +85,7 @@ func TestWriteCommitGraphConfigForRepository(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+			repoProto, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 				SkipCreationViaService: true,
 			})
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)

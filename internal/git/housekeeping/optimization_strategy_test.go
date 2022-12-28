@@ -155,7 +155,7 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
-				WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"))
+				localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithBranch("main"))
 
 				// Write a non-split commit-graph with bloom filters. We should
 				// always rewrite the commit-graphs when we're not using a split
@@ -189,7 +189,7 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
-				WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"))
+				localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithBranch("main"))
 
 				// Generate a split commit-graph, but don't enable computation of
 				// changed paths. This should trigger a rewrite so that we can
@@ -220,7 +220,7 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 				repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
-				WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"))
+				localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithBranch("main"))
 
 				// Write a split commit-graph with bitmaps. This is the state we
 				// want to be in, so there is no write required if we didn't also
