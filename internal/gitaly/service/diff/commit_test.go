@@ -699,6 +699,28 @@ func TestSuccessfulCommitDiffRequestWithLimits(t *testing.T) {
 			},
 		},
 		{
+			desc: "max patch bytes for file type",
+			request: &gitalypb.CommitDiffRequest{
+				EnforceLimits:                 true,
+				CollapseDiffs:                 false,
+				MaxFiles:                      5,
+				MaxLines:                      1000,
+				MaxBytes:                      3 * 5 * 1024,
+				SafeMaxFiles:                  3,
+				SafeMaxLines:                  1000,
+				SafeMaxBytes:                  1 * 5 * 1024,
+				MaxPatchBytes:                 1200,
+				MaxPatchBytesForFileExtension: map[string]int32{".md": 10000},
+			},
+			result: []diffAttributes{
+				{path: "CHANGELOG", tooLarge: true},
+				{path: "CONTRIBUTING.md", tooLarge: false},
+				{path: "LICENSE", tooLarge: false},
+				{path: "PROCESS.md", tooLarge: false},
+				{path: "VERSION", tooLarge: false},
+			},
+		},
+		{
 			desc: "collapse after safe max file count is exceeded",
 			request: &gitalypb.CommitDiffRequest{
 				EnforceLimits: true,

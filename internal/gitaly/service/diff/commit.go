@@ -67,6 +67,14 @@ func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.Diff
 		limits.MaxLines = int(in.MaxLines)
 		limits.MaxBytes = int(in.MaxBytes)
 		limits.MaxPatchBytes = int(in.MaxPatchBytes)
+
+		if len(in.MaxPatchBytesForFileExtension) > 0 {
+			limits.MaxPatchBytesForFileExtension = map[string]int{}
+
+			for extension, size := range in.MaxPatchBytesForFileExtension {
+				limits.MaxPatchBytesForFileExtension[extension] = int(size)
+			}
+		}
 	}
 	limits.CollapseDiffs = in.CollapseDiffs
 	limits.SafeMaxFiles = int(in.SafeMaxFiles)

@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"path/filepath"
 	"regexp"
 	"strconv"
 
@@ -75,6 +76,8 @@ type Limits struct {
 	SafeMaxBytes int
 	// Number of bytes a single patch can have. Patches surpassing this limit are pruned / nullified.
 	MaxPatchBytes int
+	// Max number of bytes for specific file type. This overrides MaxPatchBytes
+	MaxPatchBytesForFileExtension map[string]int
 }
 
 const (
@@ -179,8 +182,7 @@ func (parser *Parser) Parse() bool {
 	}
 
 	if parser.limits.EnforceLimits {
-		// Apply single-file size limit
-		if len(parser.currentDiff.Patch) >= parser.limits.MaxPatchBytes {
+		if len(parser.currentDiff.Patch) >= parser.maxPatchBytesForCurrentFile() {
 			parser.prunePatch()
 			parser.currentDiff.TooLarge = true
 		}
@@ -234,6 +236,27 @@ func (parser *Parser) isOverSafeLimits() bool {
 	return parser.filesProcessed > parser.limits.SafeMaxFiles ||
 		parser.linesProcessed > parser.limits.SafeMaxLines ||
 		parser.bytesProcessed > parser.limits.SafeMaxBytes
+}
+
+func (parser *Parser) maxPatchBytesForCurrentFile() int {
+	return maxPatchBytesFor(parser.limits.MaxPatchBytes, parser.limits.MaxPatchBytesForFileExtension, parser.Diff().ToPath)
+}
+
+func maxPatchBytesFor(maxPatchBytes int, maxBytesForExtension map[string]int, toPath []byte) int {
+	if len(maxBytesForExtension) > 0 {
+		fileName := filepath.Base(string(toPath))
+		key := filepath.Ext(fileName)
+
+		if key == "" {
+			key = fileName
+		}
+
+		if limitForExtension, ok := maxBytesForExtension[key]; ok {
+			return limitForExtension
+		}
+	}
+
+	return maxPatchBytes
 }
 
 func min(x, y int) int {
