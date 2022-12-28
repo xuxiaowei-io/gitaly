@@ -43,7 +43,7 @@ func TestInfoRefsUploadPack_successful(t *testing.T) {
 
 	repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
-	commitID := WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"), git.WithParents())
+	commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithBranch("main"), localrepo.WithParents())
 	tagID := git.WriteTag(t, cfg, repoPath, "v1.0.0", commitID.Revision(), git.WriteTagConfig{
 		Message: "annotated tag",
 	})
@@ -112,7 +112,7 @@ func TestInfoRefsUploadPack_internalRefs(t *testing.T) {
 		t.Run(tc.ref, func(t *testing.T) {
 			repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
-			commitID := WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"), git.WithParents())
+			commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithBranch("main"), localrepo.WithParents())
 			git.Exec(t, cfg, "-C", repoPath, "update-ref", tc.ref, commitID.String())
 
 			var expectedAdvertisements []string
@@ -201,7 +201,7 @@ func TestInfoRefsUploadPack_gitConfigOptions(t *testing.T) {
 	ctx := testhelper.Context(t)
 	repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
-	commitID := WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"), git.WithParents())
+	commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithBranch("main"), localrepo.WithParents())
 
 	// transfer.hideRefs=refs will hide every ref that info-refs would normally
 	// output, allowing us to test that the custom configuration is respected
@@ -283,7 +283,7 @@ func TestInfoRefsReceivePack_successful(t *testing.T) {
 
 	repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
-	commitID := WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"), git.WithParents())
+	commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, repo), localrepo.WithBranch("main"), localrepo.WithParents())
 	tagID := git.WriteTag(t, cfg, repoPath, "v1.0.0", commitID.Revision(), git.WriteTagConfig{
 		Message: "annotated tag",
 	})
@@ -333,7 +333,7 @@ func TestInfoRefsReceivePack_hiddenRefs(t *testing.T) {
 	require.NoError(t, err)
 	poolPath := git.RepositoryPath(t, pool)
 
-	commitID := WriteTestCommit(t, git, cfg, poolPath, git.WithBranch(t.Name()))
+	commitID := localrepo.WriteTestCommit(t, pool.Repo, localrepo.WithBranch(t.Name()))
 
 	require.NoError(t, pool.Link(ctx, repo))
 
@@ -455,7 +455,7 @@ func TestInfoRefsUploadPack_cache(t *testing.T) {
 
 	repo, repoPath := git.CreateRepository(t, ctx, cfg)
 
-	commitID := WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"), git.WithParents())
+	commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, repo), localrepo.WithBranch("main"), localrepo.WithParents())
 	tagID := git.WriteTag(t, cfg, repoPath, "v1.0.0", commitID.Revision(), git.WriteTagConfig{
 		Message: "annotated tag",
 	})

@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/sidechannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
@@ -85,7 +86,7 @@ func testServerPostUpload(t *testing.T, ctx context.Context, makeRequest request
 
 	oldCommit, err := git.ObjectHashSHA1.FromHex("1e292f8fedd741b75372e19097c76d327140c312") // refs/heads/master
 	require.NoError(t, err)
-	newCommit := WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("master"), git.WithParents(oldCommit))
+	newCommit := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithBranch("master"), localrepo.WithParents(oldCommit))
 
 	// UploadPack request is a "want" packet line followed by a packet flush, then many "have" packets followed by a packet flush.
 	// This is explained a bit in https://git-scm.com/book/en/v2/Git-Internals-Transfer-Protocols#_downloading_data
@@ -131,19 +132,19 @@ func testServerPostUploadPackGitConfigOptions(t *testing.T, ctx context.Context,
 
 	cfg.SocketPath = runSmartHTTPServer(t, cfg)
 
-	repo, repoPath := git.CreateRepository(t, ctx, cfg)
-
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	// We write two commits: the first commit is a common base commit that is available via
 	// normal refs. And the second commit is a child of the base commit, but its reference is
 	// created as `refs/hidden/csv`. This allows us to hide this reference and thus verify that
 	// the gitconfig indeed is applied because we should not be able to fetch the hidden ref.
-	baseID := WriteTestCommit(t, git, cfg, repoPath,
-		git.WithMessage("base commit"),
-		git.WithBranch("main"))
+	baseID := localrepo.WriteTestCommit(t, repo,
+		localrepo.WithMessage("base commit"),
+		localrepo.WithBranch("main"))
 
-	hiddenID := WriteTestCommit(t, git, cfg, repoPath,
-		git.WithMessage("hidden commit"),
-		git.WithParents(baseID))
+	hiddenID := localrepo.WriteTestCommit(t, repo,
+		localrepo.WithMessage("hidden commit"),
+		localrepo.WithParents(baseID))
 
 	git.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/hidden/csv", hiddenID.String())
 
@@ -154,7 +155,7 @@ func testServerPostUploadPackGitConfigOptions(t *testing.T, ctx context.Context,
 	git.WritePktlineFlush(t, requestBody)
 
 	t.Run("sanity check: ref exists and can be fetched", func(t *testing.T) {
-		rpcRequest := &gitalypb.PostUploadPackRequest{Repository: repo}
+		rpcRequest := &gitalypb.PostUploadPackRequest{Repository: repoProto}
 
 		response, err := makeRequest(t, ctx, cfg.SocketPath, cfg.Auth.Token, rpcRequest, bytes.NewReader(requestBody.Bytes()))
 		require.NoError(t, err)
@@ -164,7 +165,7 @@ func testServerPostUploadPackGitConfigOptions(t *testing.T, ctx context.Context,
 
 	t.Run("failing request because of hidden ref config", func(t *testing.T) {
 		rpcRequest := &gitalypb.PostUploadPackRequest{
-			Repository: repo,
+			Repository: repoProto,
 			GitConfigOptions: []string{
 				"uploadpack.hideRefs=refs/hidden",
 				"uploadpack.allowAnySHA1InWant=false",
@@ -467,13 +468,13 @@ func testServerPostUploadPackPartialClone(t *testing.T, ctx context.Context, mak
 	repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		Seed: git.SeedGitLabTest,
 	})
-	_, localRepoPath := git.CreateRepository(t, ctx, cfg)
+	localRepoProto, localRepoPath := git.CreateRepository(t, ctx, cfg)
 
 	testcfg.BuildGitalyHooks(t, cfg)
 
 	oldCommit, err := git.ObjectHashSHA1.FromHex("1e292f8fedd741b75372e19097c76d327140c312") // refs/heads/master
 	require.NoError(t, err)
-	newCommit := WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("master"), git.WithParents(oldCommit))
+	newCommit := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, localRepoProto), localrepo.WithBranch("master"), localrepo.WithParents(oldCommit))
 
 	var requestBuffer bytes.Buffer
 	git.WritePktlineString(t, &requestBuffer, fmt.Sprintf("want %s %s\n", newCommit, clientCapabilities))
@@ -529,10 +530,10 @@ func testServerPostUploadPackAllowAnySHA1InWant(t *testing.T, ctx context.Contex
 	repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		Seed: git.SeedGitLabTest,
 	})
-	_, localRepoPath := git.CreateRepository(t, ctx, cfg)
+	localRepoProto, localRepoPath := git.CreateRepository(t, ctx, cfg)
 
 	testcfg.BuildGitalyHooks(t, cfg)
-	newCommit := WriteTestCommit(t, git, cfg, repoPath)
+	newCommit := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, localRepoProto))
 
 	var requestBuffer bytes.Buffer
 	git.WritePktlineString(t, &requestBuffer, fmt.Sprintf("want %s %s\n", newCommit, clientCapabilities))
