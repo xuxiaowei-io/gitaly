@@ -34,7 +34,7 @@ func testDisconnectGitAlternates(t *testing.T, ctx context.Context) {
 	cfg, repoProto, repoPath, _, client := setup(t, ctx)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	commitID := WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"))
+	commitID := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
 	git.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
 
 	// We create the object pool, link the original repository to it and then repack the pool
@@ -141,7 +141,7 @@ func testRemoveAlternatesIfOk(t *testing.T, ctx context.Context) {
 		srv := server{gitCmdFactory: git.NewCommandFactory(t, cfg)}
 
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
-		WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"))
+		localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
 		git.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
 
 		// Change the alternates file to point to an empty directory. This is only done to
@@ -183,8 +183,8 @@ func testRemoveAlternatesIfOk(t *testing.T, ctx context.Context) {
 		// In order to test the scenario where a commit is in a commit graph but not in the
 		// object database, we will first write a new commit, write the commit graph, then
 		// remove that commit object from the object database.
-		parentOID := WriteTestCommit(t, git, cfg, repoPath)
-		commitOID := WriteTestCommit(t, git, cfg, repoPath, git.WithParents(parentOID), git.WithBranch("main"))
+		parentOID := localrepo.WriteTestCommit(t, repo)
+		commitOID := localrepo.WriteTestCommit(t, repo, localrepo.WithParents(parentOID), localrepo.WithBranch("main"))
 		git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write")
 
 		// We now manually remove the object. It thus exists in the commit-graph, but not in
