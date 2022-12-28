@@ -33,7 +33,7 @@ func TestFetchFromOrigin_dangling(t *testing.T) {
 	treeID := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 		{Mode: "100644", OID: blobID, Path: "reachable"},
 	})
-	commitID := localrepo.WriteTestCommit(t, NewTestRepo(t, cfg, repo),
+	commitID := localrepo.WriteTestCommit(t, repo,
 		localrepo.WithTree(treeID),
 		localrepo.WithBranch("master"))
 
@@ -45,7 +45,7 @@ func TestFetchFromOrigin_dangling(t *testing.T) {
 	unreachableTree := git.WriteTree(t, cfg, poolPath, []git.TreeEntry{
 		{Mode: "100644", OID: blobID, Path: "unreachable"},
 	})
-	unreachableCommit := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, pool),
+	unreachableCommit := localrepo.WriteTestCommit(t, pool.Repo,
 		localrepo.WithMessage("unreachable"),
 		localrepo.WithTree(treeID))
 
@@ -84,22 +84,20 @@ func TestFetchFromOrigin_fsck(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, pool, repo := setupObjectPool(t, ctx)
-	repoPath, err := repo.Path()
-	require.NoError(t, err)
+	_, pool, repo := setupObjectPool(t, ctx)
 
 	require.NoError(t, pool.FetchFromOrigin(ctx, repo), "seed pool")
 
 	// We're creating a new commit which has a root tree with duplicate entries. git-mktree(1)
 	// allows us to create these trees just fine, but git-fsck(1) complains.
-	localrepo.WriteTestCommit(t, NewTestRepo(t, cfg, repo),
+	localrepo.WriteTestCommit(t, repo,
 		localrepo.WithTreeEntries(
 			git.TreeEntry{OID: "4b825dc642cb6eb9a060e54bf8d69288fbee4904", Path: "dup", Mode: "040000"},
 			git.TreeEntry{OID: "4b825dc642cb6eb9a060e54bf8d69288fbee4904", Path: "dup", Mode: "040000"},
 		),
 		localrepo.WithBranch("branch"))
 
-	err = pool.FetchFromOrigin(ctx, repo)
+	err := pool.FetchFromOrigin(ctx, repo)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "duplicateEntries: contains duplicate file entries")
 }
@@ -109,8 +107,6 @@ func TestFetchFromOrigin_deltaIslands(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg, pool, repo := setupObjectPool(t, ctx)
-	poolPath := git.RepositoryPath(t, pool)
-	repoPath := git.RepositoryPath(t, repo)
 
 	require.NoError(t, pool.FetchFromOrigin(ctx, repo), "seed pool")
 	require.NoError(t, pool.Link(ctx, repo))
@@ -118,7 +114,7 @@ func TestFetchFromOrigin_deltaIslands(t *testing.T) {
 	// The setup of delta islands is done in the normal repository, and thus we pass `false`
 	// for `isPoolRepo`. Verification whether we correctly handle repacking though happens in
 	// the pool repository.
-	localrepo.TestDeltaIslands(t, cfg, repo, pool, false, func() error {
+	localrepo.TestDeltaIslands(t, cfg, repo, pool.Repo, false, func() error {
 		return pool.FetchFromOrigin(ctx, repo)
 	})
 }
@@ -127,11 +123,9 @@ func TestFetchFromOrigin_bitmapHashCache(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, pool, repo := setupObjectPool(t, ctx)
-	repoPath, err := repo.Path()
-	require.NoError(t, err)
+	_, pool, repo := setupObjectPool(t, ctx)
 
-	localrepo.WriteTestCommit(t, NewTestRepo(t, cfg, repo), localrepo.WithBranch("master"))
+	localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("master"))
 
 	require.NoError(t, pool.FetchFromOrigin(ctx, repo))
 
@@ -154,7 +148,7 @@ func TestFetchFromOrigin_refUpdates(t *testing.T) {
 
 	// Seed the pool member with some preliminary data.
 	oldRefs := map[string]git.ObjectID{}
-	oldRefs["heads/csv"] = localrepo.WriteTestCommit(t, NewTestRepo(t, cfg, repo), localrepo.WithBranch("csv"), localrepo.WithMessage("old"))
+	oldRefs["heads/csv"] = localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("csv"), localrepo.WithMessage("old"))
 	oldRefs["tags/v1.1.0"] = git.WriteTag(t, cfg, repoPath, "v1.1.0", oldRefs["heads/csv"].Revision())
 
 	// We now fetch that data into the object pool and verify that it exists as expected.
@@ -165,7 +159,7 @@ func TestFetchFromOrigin_refUpdates(t *testing.T) {
 
 	// Next, we force-overwrite both old references with new objects.
 	newRefs := map[string]git.ObjectID{}
-	newRefs["heads/csv"] = localrepo.WriteTestCommit(t, NewTestRepo(t, cfg, repo), localrepo.WithBranch("csv"), localrepo.WithMessage("new"))
+	newRefs["heads/csv"] = localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("csv"), localrepo.WithMessage("new"))
 	newRefs["tags/v1.1.0"] = git.WriteTag(t, cfg, repoPath, "v1.1.0", newRefs["heads/csv"].Revision(), git.WriteTagConfig{
 		Force: true,
 	})
@@ -176,7 +170,7 @@ func TestFetchFromOrigin_refUpdates(t *testing.T) {
 	// it's easy enough to do, so it doesn't hurt.
 	for i := 0; i < 32; i++ {
 		branchName := fmt.Sprintf("branch-%d", i)
-		newRefs["heads/"+branchName] = localrepo.WriteTestCommit(t, NewTestRepo(t, cfg, repo),
+		newRefs["heads/"+branchName] = localrepo.WriteTestCommit(t, repo,
 			localrepo.WithMessage(strconv.Itoa(i)),
 			localrepo.WithBranch(branchName))
 
@@ -202,7 +196,7 @@ func TestFetchFromOrigin_refs(t *testing.T) {
 	require.Empty(t, git.Exec(t, cfg, "-C", poolPath, "for-each-ref", "--format=%(refname)"))
 
 	// Initialize the repository with a bunch of references.
-	commitID := localrepo.WriteTestCommit(t, NewTestRepo(t, cfg, repo))
+	commitID := localrepo.WriteTestCommit(t, repo)
 	for _, ref := range []git.ReferenceName{"refs/heads/master", "refs/environments/1", "refs/tags/lightweight-tag"} {
 		git.WriteRef(t, cfg, repoPath, ref, commitID)
 	}
@@ -267,8 +261,8 @@ func TestObjectPool_logStats(t *testing.T) {
 		{
 			desc: "normal reference",
 			setup: func(t *testing.T) *ObjectPool {
-				cfg, pool, _ := setupObjectPool(t, ctx)
-				localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, pool), localrepo.WithBranch("main"))
+				_, pool, _ := setupObjectPool(t, ctx)
+				localrepo.WriteTestCommit(t, pool.Repo, localrepo.WithBranch("main"))
 				return pool
 			},
 			expectedFields: logrus.Fields{
@@ -290,8 +284,8 @@ func TestObjectPool_logStats(t *testing.T) {
 		{
 			desc: "dangling reference",
 			setup: func(t *testing.T) *ObjectPool {
-				cfg, pool, _ := setupObjectPool(t, ctx)
-				localrepo.WriteTestCommit(t, pool, localrepo.WithReference("refs/dangling/commit"))
+				_, pool, _ := setupObjectPool(t, ctx)
+				localrepo.WriteTestCommit(t, pool.Repo, localrepo.WithReference("refs/dangling/commit"))
 				return pool
 			},
 			expectedFields: logrus.Fields{

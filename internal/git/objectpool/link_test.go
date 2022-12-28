@@ -79,7 +79,7 @@ func TestLink_removeBitmap(t *testing.T) {
 	poolPath := git.RepositoryPath(t, pool)
 	repoPath := git.RepositoryPath(t, repo)
 
-	localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), git.WithBranch("master"))
+	localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithBranch("master"))
 
 	// Pull in all references from the repository.
 	git.Exec(t, cfg, "-C", poolPath, "fetch", repoPath, "+refs/*:refs/*")

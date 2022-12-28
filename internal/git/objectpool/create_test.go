@@ -43,7 +43,7 @@ func TestCreate(t *testing.T) {
 		pool, err := Create(
 			ctx,
 			config.NewLocator(cfg),
-			git.NewCommandFactory(t, cfg, localrepo.WithSkipHooks()),
+			git.NewCommandFactory(t, cfg, git.WithSkipHooks()),
 			catfileCache,
 			txManager,
 			housekeeping.NewManager(cfg.Prometheus, txManager),
