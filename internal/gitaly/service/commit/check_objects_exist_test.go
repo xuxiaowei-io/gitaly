@@ -10,6 +10,7 @@ import (
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
@@ -25,16 +26,17 @@ func TestCheckObjectsExist(t *testing.T) {
 	logger, hook := test.NewNullLogger()
 	cfg, client := setupCommitService(t, ctx, testserver.WithLogger(logger))
 
-	repo, repoPath := git.CreateRepository(t, ctx, cfg)
+	repoProto, _ := git.CreateRepository(t, ctx, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	commitID1 := WriteTestCommit(t, git, cfg, repoPath,
-		git.WithBranch("master"), git.WithMessage("commit-1"))
+	commitID1 := localrepo.WriteTestCommit(t, repo,
+		localrepo.WithBranch("master"), localrepo.WithMessage("commit-1"))
 
-	commitID2 := git.WriteTestCommit(t, cfg, repoPath,
-		git.WithBranch("feature"), git.WithMessage("commit-2"), git.WithParents(commitID1),
+	commitID2 := localrepo.WriteTestCommit(t, repo,
+		localrepo.WithBranch("feature"), localrepo.WithMessage("commit-2"), localrepo.WithParents(commitID1),
 	)
-	commitID3 := WriteTestCommit(t, git, cfg, repoPath,
-		git.WithMessage("commit-3"), git.WithParents(commitID1))
+	commitID3 := localrepo.WriteTestCommit(t, repo,
+		localrepo.WithMessage("commit-3"), localrepo.WithParents(commitID1))
 
 	for _, tc := range []struct {
 		desc                  string
@@ -77,7 +79,7 @@ func TestCheckObjectsExist(t *testing.T) {
 			desc: "request without revisions",
 			requests: []*gitalypb.CheckObjectsExistRequest{
 				{
-					Repository: repo,
+					Repository: repoProto,
 				},
 			},
 		},
@@ -85,7 +87,7 @@ func TestCheckObjectsExist(t *testing.T) {
 			desc: "commit ids and refs that exist",
 			requests: []*gitalypb.CheckObjectsExistRequest{
 				{
-					Repository: repo,
+					Repository: repoProto,
 					Revisions: [][]byte{
 						[]byte(commitID1),
 						[]byte("master"),
@@ -107,7 +109,7 @@ func TestCheckObjectsExist(t *testing.T) {
 			desc: "ref and objects missing",
 			requests: []*gitalypb.CheckObjectsExistRequest{
 				{
-					Repository: repo,
+					Repository: repoProto,
 					Revisions: [][]byte{
 						[]byte(commitID1),
 						[]byte("master"),
@@ -131,7 +133,7 @@ func TestCheckObjectsExist(t *testing.T) {
 			desc: "chunked input",
 			requests: []*gitalypb.CheckObjectsExistRequest{
 				{
-					Repository: repo,
+					Repository: repoProto,
 					Revisions: [][]byte{
 						[]byte(commitID1),
 					},
@@ -163,7 +165,7 @@ func TestCheckObjectsExist(t *testing.T) {
 			desc: "invalid input",
 			requests: []*gitalypb.CheckObjectsExistRequest{
 				{
-					Repository: repo,
+					Repository: repoProto,
 					Revisions: [][]byte{
 						[]byte("-not-a-rev"),
 					},
@@ -178,7 +180,7 @@ func TestCheckObjectsExist(t *testing.T) {
 			desc: "input with whitespace",
 			requests: []*gitalypb.CheckObjectsExistRequest{
 				{
-					Repository: repo,
+					Repository: repoProto,
 					Revisions: [][]byte{
 						[]byte(fmt.Sprintf("%s\n%s", commitID1, commitID2)),
 					},
@@ -193,7 +195,7 @@ func TestCheckObjectsExist(t *testing.T) {
 			desc: "chunked invalid input",
 			requests: []*gitalypb.CheckObjectsExistRequest{
 				{
-					Repository: repo,
+					Repository: repoProto,
 					Revisions: [][]byte{
 						[]byte(commitID1),
 					},

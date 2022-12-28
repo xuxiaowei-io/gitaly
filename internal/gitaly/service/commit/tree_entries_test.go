@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -24,7 +25,7 @@ func TestGetTreeEntries_curlyBraces(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, ctx)
 
-	commitID := WriteTestCommit(t, git, cfg, repoPath, git.WithTreeEntries(git.TreeEntry{
+	commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithTreeEntries(git.TreeEntry{
 		Path: "issue-46261", Mode: "040000", OID: git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 			{
 				Path: "folder", Mode: "040000", OID: git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
@@ -591,7 +592,7 @@ func TestGetTreeEntries_deepFlatpath(t *testing.T) {
 
 		treeID = git.WriteTree(t, cfg, repoPath, []git.TreeEntry{treeEntry})
 	}
-	commitID := WriteTestCommit(t, git, cfg, repoPath, git.WithTree(treeID))
+	commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithTree(treeID))
 
 	// We make a non-recursive request which tries to fetch tree entrie for the tree structure
 	// we have created above. This should return a single entry, which is the directory we're
@@ -623,10 +624,10 @@ func TestGetTreeEntries_file(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, ctx)
+	cfg, repo, _, client := setupCommitServiceWithRepo(t, ctx)
 
-	commitID := WriteTestCommit(t, git, cfg, repoPath,
-		git.WithTreeEntries(git.TreeEntry{
+	commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo),
+		localrepo.WithTreeEntries(git.TreeEntry{
 			Mode:    "100644",
 			Path:    "README.md",
 			Content: "something with spaces in between",

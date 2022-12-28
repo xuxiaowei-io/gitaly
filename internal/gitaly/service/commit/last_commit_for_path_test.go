@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -134,14 +135,14 @@ func TestSuccessfulLastCommitWithGlobCharacters(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, ctx)
+	cfg, repo, _, client := setupCommitServiceWithRepo(t, ctx)
 
 	// This is an arbitrary blob known to exist in the test repository
 	const blobID = "c60514b6d3d6bf4bec1030f70026e34dfbd69ad5"
 	path := ":wq"
 
-	commitID := WriteTestCommit(t, git, cfg, repoPath,
-		git.WithTreeEntries(git.TreeEntry{
+	commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo),
+		localrepo.WithTreeEntries(git.TreeEntry{
 			Mode: "100644", Path: path, OID: git.ObjectID(blobID),
 		}))
 

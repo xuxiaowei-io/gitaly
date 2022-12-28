@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -24,12 +25,12 @@ func TestSuccessfulFindCommitRequest(t *testing.T) {
 	windows1251Message := testhelper.MustReadFile(t, "testdata/commit-c809470461118b7bcab850f6e9a7ca97ac42f8ea-message.txt")
 
 	ctx := testhelper.Context(t)
-	cfg, repoProto, repoPath, client := setupCommitServiceWithRepo(t, ctx)
+	cfg, repoProto, _, client := setupCommitServiceWithRepo(t, ctx)
 
 	bigMessage := "An empty commit with REALLY BIG message\n\n" + strings.Repeat("MOAR!\n", 20*1024)
-	bigCommitID := git.WriteTestCommit(t, cfg, repoPath,
-		git.WithBranch("local-big-commits"), git.WithMessage(bigMessage),
-		git.WithParents("60ecb67744cb56576c30214ff52294f8ce2def98"),
+	bigCommitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto),
+		localrepo.WithBranch("local-big-commits"), localrepo.WithMessage(bigMessage),
+		localrepo.WithParents("60ecb67744cb56576c30214ff52294f8ce2def98"),
 	)
 
 	testCases := []struct {
