@@ -544,9 +544,6 @@ func TestUpdateRemoteMirror(t *testing.T) {
 					references: tc.mirrorRefs,
 				},
 			} {
-				repoPath, err := c.repo.Path()
-				require.NoError(t, err)
-
 				// We compute the commits in a separate step as many of the tests
 				// use a small handful of commits and then update many references to
 				// point to that small set. So by precomputing commits we save a few
@@ -566,9 +563,9 @@ func TestUpdateRemoteMirror(t *testing.T) {
 							parents = []git.ObjectID{commitOID}
 						}
 
-						commitOID = WriteTestCommit(t, git, cfg, repoPath,
-							git.WithMessage(commit),
-							git.WithParents(parents...))
+						commitOID = localrepo.WriteTestCommit(t, c.repo,
+							localrepo.WithMessage(commit),
+							localrepo.WithParents(parents...))
 
 						commitsByMessage[commit] = commitOID
 					}
@@ -652,7 +649,7 @@ func TestSuccessfulUpdateRemoteMirrorRequest(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg, testRepo, testRepoPath, client := setupRemoteService(t, ctx)
-	_, mirrorPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+	mirrorRepoProto, mirrorPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		Seed: git.SeedGitLabTest,
 	})
 
@@ -663,7 +660,7 @@ func TestSuccessfulUpdateRemoteMirrorRequest(t *testing.T) {
 	})
 
 	// Create a commit that only exists in the mirror
-	mirrorOnlyCommitOid := WriteTestCommit(t, git, cfg, mirrorPath, git.WithBranch("master"))
+	mirrorOnlyCommitOid := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, mirrorRepoProto), localrepo.WithBranch("master"))
 	require.NotEmpty(t, mirrorOnlyCommitOid)
 
 	setupCommands := [][]string{
@@ -810,7 +807,7 @@ func TestUpdateRemoteMirrorInmemory(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg, localRepo, localPath, client := setupRemoteService(t, ctx)
-	WriteTestCommit(t, git, cfg, localPath)
+	localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, localRepo))
 
 	_, remotePath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		Seed: git.SeedGitLabTest,
