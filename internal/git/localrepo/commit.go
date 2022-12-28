@@ -262,6 +262,7 @@ func WriteTestCommit(tb testing.TB, repo *Repo, opts ...WriteCommitOption) git.O
 
 	if writeCommitConfig.AuthorName == "" {
 		writeCommitConfig.AuthorName = git.DefaultCommitterName
+		writeCommitConfig.AuthorEmail = git.DefaultCommitterMail
 	}
 
 	if writeCommitConfig.AuthorDate.IsZero() {
@@ -270,6 +271,7 @@ func WriteTestCommit(tb testing.TB, repo *Repo, opts ...WriteCommitOption) git.O
 
 	if writeCommitConfig.CommitterName == "" {
 		writeCommitConfig.CommitterName = git.DefaultCommitterName
+		writeCommitConfig.CommitterEmail = git.DefaultCommitterMail
 	}
 
 	if writeCommitConfig.CommitterDate.IsZero() {
