@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -135,20 +136,21 @@ func TestSuccessfulListConflictFilesRequestWithAncestor(t *testing.T) {
 func TestListConflictFilesHugeDiff(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	cfg, repo, repoPath, client := setupConflictsService(t, ctx, nil)
+	cfg, repoProto, _, client := setupConflictsService(t, ctx, nil)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	ourCommitID := WriteTestCommit(t, git, cfg, repoPath, git.WithTreeEntries(
+	ourCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithTreeEntries(
 		git.TreeEntry{Path: "a", Mode: "100644", Content: strings.Repeat("a\n", 128*1024)},
 		git.TreeEntry{Path: "b", Mode: "100644", Content: strings.Repeat("b\n", 128*1024)},
 	))
 
-	theirCommitID := WriteTestCommit(t, git, cfg, repoPath, git.WithTreeEntries(
+	theirCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithTreeEntries(
 		git.TreeEntry{Path: "a", Mode: "100644", Content: strings.Repeat("x\n", 128*1024)},
 		git.TreeEntry{Path: "b", Mode: "100644", Content: strings.Repeat("y\n", 128*1024)},
 	))
 
 	request := &gitalypb.ListConflictFilesRequest{
-		Repository:     repo,
+		Repository:     repoProto,
 		OurCommitOid:   ourCommitID.String(),
 		TheirCommitOid: theirCommitID.String(),
 	}
