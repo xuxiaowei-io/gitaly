@@ -25,12 +25,14 @@ func TestCommitGraphInfoForRepository(t *testing.T) {
 	}{
 		{
 			desc:         "no commit graph filter",
-			setup:        func(*testing.T, string) {},
+			setup:        func(*testing.T, *localrepo.Repo) {},
 			expectedInfo: CommitGraphInfo{},
 		},
 		{
 			desc: "single commit graph without bloom filter",
 			setup: func(t *testing.T, repo *localrepo.Repo) {
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
 				git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable")
 			},
 			expectedInfo: CommitGraphInfo{
@@ -40,6 +42,8 @@ func TestCommitGraphInfoForRepository(t *testing.T) {
 		{
 			desc: "single commit graph with bloom filter",
 			setup: func(t *testing.T, repo *localrepo.Repo) {
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
 				git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--changed-paths")
 			},
 			expectedInfo: CommitGraphInfo{
@@ -50,6 +54,8 @@ func TestCommitGraphInfoForRepository(t *testing.T) {
 		{
 			desc: "single commit graph with generation numbers",
 			setup: func(t *testing.T, repo *localrepo.Repo) {
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
 				git.Exec(t, cfg, "-C", repoPath,
 					"-c", "commitGraph.generationVersion=2",
 					"commit-graph", "write", "--reachable", "--changed-paths",
@@ -64,6 +70,8 @@ func TestCommitGraphInfoForRepository(t *testing.T) {
 		{
 			desc: "split commit graph without bloom filter",
 			setup: func(t *testing.T, repo *localrepo.Repo) {
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
 				git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split")
 			},
 			expectedInfo: CommitGraphInfo{
@@ -74,6 +82,8 @@ func TestCommitGraphInfoForRepository(t *testing.T) {
 		{
 			desc: "split commit graph with bloom filter",
 			setup: func(t *testing.T, repo *localrepo.Repo) {
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
 				git.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split", "--changed-paths")
 			},
 			expectedInfo: CommitGraphInfo{
@@ -85,6 +95,8 @@ func TestCommitGraphInfoForRepository(t *testing.T) {
 		{
 			desc: "split commit-graph with generation numbers",
 			setup: func(t *testing.T, repo *localrepo.Repo) {
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
 				git.Exec(t, cfg, "-C", repoPath,
 					"-c", "commitGraph.generationVersion=2",
 					"commit-graph", "write", "--reachable", "--split", "--changed-paths",
@@ -114,6 +126,9 @@ func TestCommitGraphInfoForRepository(t *testing.T) {
 					localrepo.WithCommitterDate(time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)),
 				)
 
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
+
 				git.Exec(t, cfg, "-C", repoPath,
 					"-c", "commitGraph.generationVersion=2",
 					"commit-graph", "write", "--reachable", "--split", "--changed-paths",
@@ -138,6 +153,7 @@ func TestCommitGraphInfoForRepository(t *testing.T) {
 
 			info, err := CommitGraphInfoForRepository(repoPath)
 			require.Equal(t, tc.expectedErr, err)
+			require.Equal(t, tc.expectedInfo, info)
 		})
 	}
 }

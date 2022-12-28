@@ -174,7 +174,7 @@ func TestUpdater_fileDirectoryConflict(t *testing.T) {
 			} {
 				t.Run(method.desc, func(t *testing.T) {
 					t.Run("different transaction", func(t *testing.T) {
-						cfg, repo, repoPath, updater := setupUpdater(t, ctx)
+						_, repo, _, updater := setupUpdater(t, ctx)
 						defer func() { require.ErrorContains(t, updater.Close(), "closing updater: exit status 128") }()
 
 						commitID := localrepo.WriteTestCommit(t, repo)
@@ -193,7 +193,7 @@ func TestUpdater_fileDirectoryConflict(t *testing.T) {
 					})
 
 					t.Run("same transaction", func(t *testing.T) {
-						cfg, repo, repoPath, updater := setupUpdater(t, ctx)
+						_, repo, _, updater := setupUpdater(t, ctx)
 						defer func() { require.ErrorContains(t, updater.Close(), "closing updater: exit status 128") }()
 
 						commitID := localrepo.WriteTestCommit(t, repo)
@@ -218,7 +218,7 @@ func TestUpdater_invalidStateTransitions(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, repo, repoPath, updater := setupUpdater(t, ctx)
+	_, repo, _, updater := setupUpdater(t, ctx)
 	defer testhelper.MustClose(t, updater)
 
 	commitID := localrepo.WriteTestCommit(t, repo)
@@ -248,9 +248,9 @@ func TestUpdater_update(t *testing.T) {
 	// which results in closing the updater.
 	defer func() { require.ErrorContains(t, updater.Close(), "closing updater: exit status 128") }()
 
-	oldCommitID := localrepo.WriteTestCommit(t, repo, git.WithBranch("main"))
-	newCommitID := localrepo.WriteTestCommit(t, repo, git.WithParents(oldCommitID))
-	otherCommitID := localrepo.WriteTestCommit(t, repo, git.WithMessage("other"))
+	oldCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
+	newCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithParents(oldCommitID))
+	otherCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithMessage("other"))
 
 	// Check that we can force-update the reference when we don't give an old object ID.
 	require.NoError(t, updater.Start())
@@ -279,10 +279,10 @@ func TestUpdater_delete(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, repo, repoPath, updater := setupUpdater(t, ctx)
+	_, repo, _, updater := setupUpdater(t, ctx)
 	defer testhelper.MustClose(t, updater)
 
-	localrepo.WriteTestCommit(t, repo, git.WithBranch("main"))
+	localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
 
 	require.NoError(t, updater.Start())
 	require.NoError(t, updater.Delete("refs/heads/main"))
@@ -298,7 +298,7 @@ func TestUpdater_prepareLocksTransaction(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, repo, repoPath, updater := setupUpdater(t, ctx)
+	_, repo, _, updater := setupUpdater(t, ctx)
 	defer testhelper.MustClose(t, updater)
 
 	commitID := localrepo.WriteTestCommit(t, repo)
@@ -318,7 +318,7 @@ func TestUpdater_invalidReferenceName(t *testing.T) {
 
 	cfg := testcfg.Build(t)
 
-	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+	repoProto, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto, git.WithSkipHooks())
@@ -341,7 +341,7 @@ func TestUpdater_concurrentLocking(t *testing.T) {
 
 	cfg := testcfg.Build(t)
 
-	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+	repoProto, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto, git.WithSkipHooks())
@@ -380,7 +380,7 @@ func TestUpdater_bulkOperation(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, repo, repoPath, updater := setupUpdater(t, ctx)
+	_, repo, _, updater := setupUpdater(t, ctx)
 	defer testhelper.MustClose(t, updater)
 
 	commitID := localrepo.WriteTestCommit(t, repo)
@@ -413,8 +413,7 @@ func TestUpdater_contextCancellation(t *testing.T) {
 	ctx := testhelper.Context(t)
 	childCtx, childCancel := context.WithCancel(ctx)
 
-	cfg, repo, repoPath, _ := setupUpdater(t, ctx)
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	_, repo, _, _ := setupUpdater(t, ctx)
 
 	commitID := localrepo.WriteTestCommit(t, repo)
 
@@ -440,10 +439,10 @@ func TestUpdater_cancel(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, repo, repoPath, firstUpdater := setupUpdater(t, ctx)
+	_, repo, _, firstUpdater := setupUpdater(t, ctx)
 	defer testhelper.MustClose(t, firstUpdater)
 
-	localrepo.WriteTestCommit(t, repo, git.WithBranch("main"))
+	localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
 
 	// Queue the branch for deletion and lock it.
 	require.NoError(t, firstUpdater.Start())
@@ -478,7 +477,7 @@ func TestUpdater_closingStdinAbortsChanges(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, repo, repoPath, updater := setupUpdater(t, ctx)
+	_, repo, _, updater := setupUpdater(t, ctx)
 	defer testhelper.MustClose(t, updater)
 
 	commitID := localrepo.WriteTestCommit(t, repo)
@@ -551,11 +550,11 @@ func BenchmarkUpdater(b *testing.B) {
 			b.Run(fmt.Sprintf("transaction size %d", tc.transactionSize), func(b *testing.B) {
 				ctx := testhelper.Context(b)
 
-				cfg, repo, repoPath, updater := setupUpdater(b, ctx)
+				_, repo, _, updater := setupUpdater(b, ctx)
 				defer testhelper.MustClose(b, updater)
 
 				commitOID1 := localrepo.WriteTestCommit(b, repo)
-				commitOID2 := localrepo.WriteTestCommit(b, repo, git.WithParents(commitOID1))
+				commitOID2 := localrepo.WriteTestCommit(b, repo, localrepo.WithParents(commitOID1))
 
 				createReferences(b, repo, tc.transactionSize, commitOID1)
 
@@ -612,7 +611,7 @@ func BenchmarkUpdater(b *testing.B) {
 
 				ctx := testhelper.Context(b)
 
-				cfg, repo, repoPath, updater := setupUpdater(b, ctx)
+				_, repo, repoPath, updater := setupUpdater(b, ctx)
 				defer testhelper.MustClose(b, updater)
 
 				commitOID := localrepo.WriteTestCommit(b, repo)

@@ -113,7 +113,7 @@ func TestLogObjectInfo(t *testing.T) {
 		repoProto2, repoPath2 := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 		})
-		localrepo.WriteTestCommit(t, localrepo.NewtestRepo(t, cfg, repoProto2), localrepo.WithMessage("repo2"), localrepo.WithBranch("main"))
+		localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto2), localrepo.WithMessage("repo2"), localrepo.WithBranch("main"))
 
 		// clone existing local repo with two alternates
 		targetRepoName := git.NewRepositoryName(t)
@@ -146,7 +146,7 @@ func TestLogObjectInfo(t *testing.T) {
 		logger, hook := test.NewNullLogger()
 		ctx := ctxlogrus.ToContext(ctx, logger.WithField("test", "logging"))
 
-		repo, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+		repo, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 		})
 		localRepo := localrepo.NewTestRepo(t, cfg, repo)
@@ -192,7 +192,7 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 		{
 			desc: "single blob",
 			setup: func(t *testing.T, repo *localrepo.Repo) {
-				localrepo.WriteTestBlob(t, "path", "x")
+				localrepo.WriteTestBlob(t, repo, "", "x")
 			},
 			expectedInfo: RepositoryInfo{
 				LooseObjects: LooseObjectsInfo{
@@ -204,7 +204,7 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 		{
 			desc: "single packed blob",
 			setup: func(t *testing.T, repo *localrepo.Repo) {
-				blobID := localrepo.WriteTestBlob(t, repo, "path", "x")
+				blobID := localrepo.WriteTestBlob(t, repo, "", "x")
 				repoPath, err := repo.Path()
 				require.NoError(t, err)
 
@@ -226,7 +226,7 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 		{
 			desc: "single pruneable blob",
 			setup: func(t *testing.T, repo *localrepo.Repo) {
-				blobID := localrepo.WriteTestBlob(t, repo, "path", "x")
+				blobID := localrepo.WriteTestBlob(t, repo, "", "x")
 
 				repoPath, err := repo.Path()
 				require.NoError(t, err)
@@ -254,6 +254,9 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 		{
 			desc: "garbage",
 			setup: func(t *testing.T, repo *localrepo.Repo) {
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
+
 				garbagePath := filepath.Join(repoPath, "objects", "pack", "garbage")
 				require.NoError(t, os.WriteFile(garbagePath, []byte("x"), 0o600))
 			},
@@ -267,6 +270,9 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 		{
 			desc: "alternates",
 			setup: func(t *testing.T, repo *localrepo.Repo) {
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
+
 				infoAlternatesPath := filepath.Join(repoPath, "objects", "info", "alternates")
 				require.NoError(t, os.WriteFile(infoAlternatesPath, []byte(alternatePath), 0o600))
 			},
@@ -362,13 +368,13 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 				require.NoError(t, os.WriteFile(infoAlternatesPath, []byte(alternatePath), 0o600))
 
 				// We write a single packed blob.
-				blobID := localrepo.WriteTestBlob(t, repo, "path", "x")
+				blobID := localrepo.WriteTestBlob(t, repo, "", "x")
 				git.WriteRef(t, cfg, repoPath, "refs/tags/blob", blobID)
 				git.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
 
 				// And two loose ones.
-				localrepo.WriteTestBlob(t, repo, "path", "1")
-				localrepo.WriteTestBlob(t, repo, "path", "2")
+				localrepo.WriteTestBlob(t, repo, "", "1")
+				localrepo.WriteTestBlob(t, repo, "", "2")
 
 				// And three garbage-files. This is done so we've got unique counts
 				// everywhere.
@@ -399,7 +405,7 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+			repoProto, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 				SkipCreationViaService: true,
 			})
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)

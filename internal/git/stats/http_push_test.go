@@ -122,7 +122,7 @@ func TestPerformHTTPPush(t *testing.T) {
 		{
 			desc: "branch deletion",
 			preparePush: func(t *testing.T, cfg config.Cfg) ([]PushCommand, io.Reader) {
-				oldOID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, targetRepoProto), git.WithBranch("feature"))
+				oldOID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, targetRepoProto), localrepo.WithBranch("feature"))
 
 				return []PushCommand{
 					{OldOID: oldOID, NewOID: git.DefaultObjectHash.ZeroOID, Reference: "refs/heads/feature"},
@@ -150,7 +150,7 @@ func TestPerformHTTPPush(t *testing.T) {
 		{
 			desc: "failing delete",
 			preparePush: func(t *testing.T, cfg config.Cfg) ([]PushCommand, io.Reader) {
-				localrepo.WriteTestCommit(t, targetRepo, git.WithBranch("master"))
+				localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, targetRepoProto), localrepo.WithBranch("master"))
 
 				oldOID := git.ObjectID(strings.Repeat("1", git.DefaultObjectHash.EncodedLen()))
 

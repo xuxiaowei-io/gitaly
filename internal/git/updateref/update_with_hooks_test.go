@@ -279,7 +279,7 @@ func TestUpdaterWithHooks_quarantine(t *testing.T) {
 	gitCmdFactory := git.NewCommandFactory(t, cfg)
 	locator := config.NewLocator(cfg)
 
-	repoProto, repoPath := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
+	repoProto, _ := git.CreateRepository(t, ctx, cfg, git.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	unquarantinedRepo := localrepo.NewTestRepo(t, cfg, repoProto)
