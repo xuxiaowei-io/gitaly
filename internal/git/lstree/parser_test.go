@@ -23,7 +23,7 @@ func TestParser(t *testing.T) {
 
 	gitignoreBlobID := git.WriteBlob(t, cfg, repoPath, []byte("gitignore"))
 	gitmodulesBlobID := git.WriteBlob(t, cfg, repoPath, []byte("gitmodules"))
-	submoduleCommitID := localrepo.WriteTestCommit(t, NewTestRepo(t, cfg, repoProto))
+	submoduleCommitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto))
 
 	regularEntriesTreeID := git.WriteTree(t, cfg, repoPath, []git.TreeEntry{
 		{Path: ".gitignore", Mode: "100644", OID: gitignoreBlobID},
@@ -101,7 +101,7 @@ func TestParserReadEntryPath(t *testing.T) {
 		{Path: ".gitignore", Mode: "100644", OID: git.WriteBlob(t, cfg, repoPath, []byte("gitignore"))},
 		{Path: ".gitmodules", Mode: "100644", OID: git.WriteBlob(t, cfg, repoPath, []byte("gitmodules"))},
 		{Path: "entry with space", Mode: "040000", OID: git.DefaultObjectHash.EmptyTreeOID},
-		{Path: "gitlab-shell", Mode: "160000", OID: localrepo.WriteTestCommit(t, NewTestRepo(t, cfg, repoProto))},
+		{Path: "gitlab-shell", Mode: "160000", OID: localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto))},
 		{Path: "\"file with quote.txt", Mode: "100644", OID: git.WriteBlob(t, cfg, repoPath, []byte("file with quotes"))},
 		{Path: "cuộc đời là những chuyến đi.md", Mode: "100644", OID: git.WriteBlob(t, cfg, repoPath, []byte("file with non-ascii file name"))},
 		{Path: "编码 'foo'.md", Mode: "100644", OID: git.WriteBlob(t, cfg, repoPath, []byte("file with non-ascii file name"))},
