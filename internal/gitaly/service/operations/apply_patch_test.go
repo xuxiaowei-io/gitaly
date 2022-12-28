@@ -67,7 +67,7 @@ To restore the original branch and stop patching, run "git am --abort".
 		// targetBranch is the branch where the patched commit goes.
 		targetBranch string
 		// expectedOldOID is a function which provides the expectedOldOID given the repoPath.
-		expectedOldOID func(repoPath string) string
+		expectedOldOID func(repo *localrepo.Repo) string
 		// extraBranches are created with empty commits for verifying the correct base branch
 		// gets selected.
 		extraBranches []string
@@ -321,7 +321,10 @@ To restore the original branch and stop patching, run "git am --abort".
 			expectedTree: []git.TreeEntry{
 				{Mode: "100644", Path: "file", Content: "patch 1"},
 			},
-			expectedOldOID: func(repoPath string) string {
+			expectedOldOID: func(repo *localrepo.Repo) string {
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
+
 				return text.ChompBytes(git.Exec(t, cfg, "-C", repoPath, "rev-parse", "master"))
 			},
 		},
@@ -339,7 +342,7 @@ To restore the original branch and stop patching, run "git am --abort".
 					},
 				},
 			},
-			expectedOldOID: func(repoPath string) string { return "foo" },
+			expectedOldOID: func(repo *localrepo.Repo) string { return "foo" },
 			expectedErr:    structerr.NewInternal(`expected old object id not expected SHA format: invalid object ID: "foo"`),
 		},
 		{
@@ -356,8 +359,10 @@ To restore the original branch and stop patching, run "git am --abort".
 					},
 				},
 			},
-			expectedOldOID: func(repoPath string) string { return git.DefaultObjectHash.ZeroOID.String() },
-			expectedErr:    structerr.NewInternal("expected old object cannot be resolved: reference not found"),
+			expectedOldOID: func(repo *localrepo.Repo) string {
+				return git.DefaultObjectHash.ZeroOID.String()
+			},
+			expectedErr: structerr.NewInternal("expected old object cannot be resolved: reference not found"),
 		},
 		{
 			desc: "existing branch + expectedOldOID set to an old commit OID",
@@ -373,11 +378,14 @@ To restore the original branch and stop patching, run "git am --abort".
 					},
 				},
 			},
-			expectedOldOID: func(repoPath string) string {
+			expectedOldOID: func(repo *localrepo.Repo) string {
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
+
 				currentCommit := text.ChompBytes(git.Exec(t, cfg, "-C", repoPath, "rev-parse", "master"))
 				// add a new commit to master so we can point at the old one, this is
 				// because by default the test only creates one commit
-				WriteTestCommit(t, git, cfg, repoPath, git.WithParents(git.ObjectID(currentCommit)), git.WithBranch("master"))
+				localrepo.WriteTestCommit(t, repo, localrepo.WithParents(git.ObjectID(currentCommit)), localrepo.WithBranch("master"))
 				return currentCommit
 			},
 			expectedErr: structerr.NewInternal(`update reference: Could not update refs/heads/master. Please refresh and try again.`),
@@ -397,14 +405,13 @@ To restore the original branch and stop patching, run "git am --abort".
 
 			var baseCommit git.ObjectID
 			if tc.baseTree != nil {
-				baseCommit = WriteTestCommit(t, git, cfg, repoPath,
-					git.WithTreeEntries(tc.baseTree...),
-					git.WithReference(string(tc.baseReference)))
-
+				baseCommit = localrepo.WriteTestCommit(t, repo,
+					localrepo.WithTreeEntries(tc.baseTree...),
+					localrepo.WithReference(string(tc.baseReference)))
 			}
 
 			if tc.extraBranches != nil {
-				emptyCommit := WriteTestCommit(t, git, cfg, repoPath)
+				emptyCommit := localrepo.WriteTestCommit(t, repo)
 				for _, extraBranch := range tc.extraBranches {
 					git.WriteRef(t, cfg, repoPath, git.NewReferenceNameFromBranchName(extraBranch), emptyCommit)
 				}
@@ -415,15 +422,15 @@ To restore the original branch and stop patching, run "git am --abort".
 				oldCommit := baseCommit
 
 				if patch.oldTree != nil {
-					oldCommit = WriteTestCommit(t, git, cfg, repoPath,
-						git.WithTreeEntries(patch.oldTree...))
+					oldCommit = localrepo.WriteTestCommit(t, repo,
+						localrepo.WithTreeEntries(patch.oldTree...))
 
 				}
 
-				newCommit := git.WriteTestCommit(t, cfg, repoPath,
-					git.WithMessage(commitMessage),
-					git.WithTreeEntries(patch.newTree...),
-					git.WithParents(oldCommit),
+				newCommit := localrepo.WriteTestCommit(t, repo,
+					localrepo.WithMessage(commitMessage),
+					localrepo.WithTreeEntries(patch.newTree...),
+					localrepo.WithParents(oldCommit),
 				)
 
 				formatPatchArgs := []string{"-C", repoPath, "format-patch", "--stdout"}
@@ -452,7 +459,7 @@ To restore the original branch and stop patching, run "git am --abort".
 
 			expectedOldOID := ""
 			if tc.expectedOldOID != nil {
-				expectedOldOID = tc.expectedOldOID(repoPath)
+				expectedOldOID = tc.expectedOldOID(repo)
 			}
 
 			require.NoError(t, stream.Send(&gitalypb.UserApplyPatchRequest{

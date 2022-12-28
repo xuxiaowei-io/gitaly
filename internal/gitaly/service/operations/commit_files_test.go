@@ -45,6 +45,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 		ExecutableMode = "100755"
 	)
 
+	startRepo, _ := git.CreateRepository(t, ctx, cfg)
 	targetRepoSentinel := &gitalypb.Repository{}
 
 	type step struct {

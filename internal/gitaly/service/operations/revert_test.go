@@ -40,7 +40,7 @@ func TestUserRevert(t *testing.T) {
 		{
 			desc: "successful",
 			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
-				firstCommitID := WriteTestCommit(t, git, cfg, repoPath, git.WithBranch(branchName), git.WithTreeEntries(
+				firstCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch(branchName), localrepo.WithTreeEntries(
 					git.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
 				))
 
@@ -64,7 +64,7 @@ func TestUserRevert(t *testing.T) {
 		{
 			desc: "nonexistent branch + start_repository == repository",
 			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
-				firstCommitID := WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("master"), git.WithTreeEntries(
+				firstCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("master"), localrepo.WithTreeEntries(
 					git.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
 				))
 
@@ -91,10 +91,10 @@ func TestUserRevert(t *testing.T) {
 		{
 			desc: "nonexistent branch + start_repository != repository",
 			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
-				startRepoProto, startRepoPath := git.CreateRepository(t, ctx, cfg)
+				startRepoProto, _ := git.CreateRepository(t, ctx, cfg)
 				startRepo := localrepo.NewTestRepo(t, cfg, startRepoProto)
 
-				firstCommitID := WriteTestCommit(t, git, cfg, startRepoPath, git.WithBranch("master"), git.WithTreeEntries(
+				firstCommitID := localrepo.WriteTestCommit(t, startRepo, localrepo.WithBranch("master"), localrepo.WithTreeEntries(
 					git.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
 				))
 
@@ -120,7 +120,7 @@ func TestUserRevert(t *testing.T) {
 		{
 			desc: "successful with dry run",
 			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
-				firstCommitID := WriteTestCommit(t, git, cfg, repoPath, git.WithBranch(branchName), git.WithTreeEntries(
+				firstCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch(branchName), localrepo.WithTreeEntries(
 					git.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
 				))
 
@@ -146,7 +146,7 @@ func TestUserRevert(t *testing.T) {
 		{
 			desc: "nonexistent branch + start_repository == repository with dry run",
 			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
-				firstCommitID := WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("master"), git.WithTreeEntries(
+				firstCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("master"), localrepo.WithTreeEntries(
 					git.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
 				))
 
@@ -175,10 +175,10 @@ func TestUserRevert(t *testing.T) {
 		{
 			desc: "nonexistent branch + start_repository != repository with dry run",
 			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
-				startRepoProto, startRepoPath := git.CreateRepository(t, ctx, cfg)
+				startRepoProto, _ := git.CreateRepository(t, ctx, cfg)
 				startRepo := localrepo.NewTestRepo(t, cfg, startRepoProto)
 
-				firstCommitID := WriteTestCommit(t, git, cfg, startRepoPath, git.WithBranch("master"), git.WithTreeEntries(
+				firstCommitID := localrepo.WriteTestCommit(t, startRepo, localrepo.WithBranch("master"), localrepo.WithTreeEntries(
 					git.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
 				))
 
@@ -244,7 +244,7 @@ func TestUserRevert(t *testing.T) {
 		{
 			desc: "empty branch name",
 			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
-				firstCommitID := WriteTestCommit(t, git, cfg, repoPath, git.WithBranch(branchName), git.WithTreeEntries(
+				firstCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch(branchName), localrepo.WithTreeEntries(
 					git.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
 				))
 
@@ -265,7 +265,7 @@ func TestUserRevert(t *testing.T) {
 		{
 			desc: "empty message",
 			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
-				firstCommitID := WriteTestCommit(t, git, cfg, repoPath, git.WithBranch(branchName), git.WithTreeEntries(
+				firstCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch(branchName), localrepo.WithTreeEntries(
 					git.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
 				))
 
@@ -286,7 +286,7 @@ func TestUserRevert(t *testing.T) {
 		{
 			desc: "successful + expectedOldOID",
 			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
-				firstCommitID := WriteTestCommit(t, git, cfg, repoPath, git.WithBranch(branchName), git.WithTreeEntries(
+				firstCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch(branchName), localrepo.WithTreeEntries(
 					git.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
 				))
 
@@ -311,7 +311,7 @@ func TestUserRevert(t *testing.T) {
 		{
 			desc: "successful + invalid expectedOldOID",
 			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
-				firstCommitID := WriteTestCommit(t, git, cfg, repoPath, git.WithBranch(branchName), git.WithTreeEntries(
+				firstCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch(branchName), localrepo.WithTreeEntries(
 					git.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
 				))
 
@@ -334,7 +334,7 @@ func TestUserRevert(t *testing.T) {
 		{
 			desc: "expectedOldOID with valid SHA, but not present in repo",
 			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
-				firstCommitID := WriteTestCommit(t, git, cfg, repoPath, git.WithBranch(branchName), git.WithTreeEntries(
+				firstCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch(branchName), localrepo.WithTreeEntries(
 					git.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
 				))
 
@@ -357,11 +357,11 @@ func TestUserRevert(t *testing.T) {
 		{
 			desc: "expectedOldOID pointing to old commit",
 			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
-				firstCommitID := WriteTestCommit(t, git, cfg, repoPath, git.WithTreeEntries(
+				firstCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithTreeEntries(
 					git.TreeEntry{Path: "blob", Mode: "100644", Content: "bar"},
 				))
 
-				secondCommitID := git.WriteTestCommit(t, cfg, repoPath, git.WithParents(firstCommitID), git.WithBranch(branchName), git.WithTreeEntries(
+				secondCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithParents(firstCommitID), localrepo.WithBranch(branchName), localrepo.WithTreeEntries(
 					git.TreeEntry{Path: "bolb", Mode: "100644", Content: "foo"},
 				))
 				secondCommit, err := repo.ReadCommit(ctx, secondCommitID.Revision())

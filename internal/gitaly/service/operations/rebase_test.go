@@ -91,41 +91,42 @@ func TestUserRebaseConfirmable_skipEmptyCommits(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	// This is the base commit from which both "theirs" and "ours" branch from".
-	baseCommit := WriteTestCommit(t, git, cfg, repoPath,
-		git.WithTreeEntries(
+	baseCommit := localrepo.WriteTestCommit(t, repo,
+		localrepo.WithTreeEntries(
 			git.TreeEntry{Mode: "100644", Path: "README", Content: "a\nb\nc\nd\ne\nf\n"},
 		))
 
 	// "theirs" changes the first line of the file to contain a "1".
-	theirs := git.WriteTestCommit(t, cfg, repoPath,
-		git.WithParents(baseCommit),
-		git.WithTreeEntries(
+	theirs := localrepo.WriteTestCommit(t, repo,
+		localrepo.WithParents(baseCommit),
+		localrepo.WithTreeEntries(
 			git.TreeEntry{Mode: "100644", Path: "README", Content: "1\nb\nc\nd\ne\nf\n"},
 		),
-		git.WithMessage("theirs"),
-		git.WithBranch("theirs"),
+		localrepo.WithMessage("theirs"),
+		localrepo.WithBranch("theirs"),
 	)
 
 	// We create two commits on "ours": the first one does the same changes as "theirs", but
 	// with a different commit ID. It is expected to become empty. And the second commit is an
 	// independent change which modifies the last line.
-	oursBecomingEmpty := git.WriteTestCommit(t, cfg, repoPath,
-		git.WithParents(baseCommit),
-		git.WithTreeEntries(
+	oursBecomingEmpty := localrepo.WriteTestCommit(t, repo,
+		localrepo.WithParents(baseCommit),
+		localrepo.WithTreeEntries(
 			git.TreeEntry{Mode: "100644", Path: "README", Content: "1\nb\nc\nd\ne\nf\n"},
 		),
-		git.WithMessage("ours but same change as theirs"),
+		localrepo.WithMessage("ours but same change as theirs"),
 	)
-	ours := git.WriteTestCommit(t, cfg, repoPath,
-		git.WithParents(oursBecomingEmpty),
-		git.WithTreeEntries(
+	ours := localrepo.WriteTestCommit(t, repo,
+		localrepo.WithParents(oursBecomingEmpty),
+		localrepo.WithTreeEntries(
 			git.TreeEntry{Mode: "100644", Path: "README", Content: "1\nb\nc\nd\ne\n6\n"},
 		),
-		git.WithMessage("ours with additional changes"),
-		git.WithBranch("ours"),
+		localrepo.WithMessage("ours with additional changes"),
+		localrepo.WithBranch("ours"),
 	)
 
 	stream, err := client.UserRebaseConfirmable(ctx)
@@ -631,13 +632,14 @@ func TestUserRebaseConfirmable_deletedFileInLocalRepo(t *testing.T) {
 	localRepoProto, localRepoPath := git.CreateRepository(t, ctx, cfg)
 	localRepo := localrepo.NewTestRepo(t, cfg, localRepoProto)
 
-	remoteRepoProto, remoteRepoPath := git.CreateRepository(t, ctx, cfg)
+	remoteRepoProto, _ := git.CreateRepository(t, ctx, cfg)
+	remoteRepo := localrepo.NewTestRepo(t, cfg, remoteRepoProto)
 
 	// Write the root commit into both repositories as common history.
 	var rootCommitID git.ObjectID
-	for _, path := range []string{localRepoPath, remoteRepoPath} {
-		rootCommitID = WriteTestCommit(t, git, cfg, path,
-			git.WithTreeEntries(
+	for _, repo := range []*localrepo.Repo{localRepo, remoteRepo} {
+		rootCommitID = localrepo.WriteTestCommit(t, repo,
+			localrepo.WithTreeEntries(
 				git.TreeEntry{Path: "change-me", Mode: "100644", Content: "unchanged contents"},
 				git.TreeEntry{Path: "delete-me", Mode: "100644", Content: "useless stuff"},
 			))
@@ -645,22 +647,22 @@ func TestUserRebaseConfirmable_deletedFileInLocalRepo(t *testing.T) {
 	}
 
 	// Write a commit into the local repository that deletes a single file.
-	localCommitID := git.WriteTestCommit(t, cfg, localRepoPath,
-		git.WithParents(rootCommitID),
-		git.WithTreeEntries(
+	localCommitID := localrepo.WriteTestCommit(t, localRepo,
+		localrepo.WithParents(rootCommitID),
+		localrepo.WithTreeEntries(
 			git.TreeEntry{Path: "change-me", Mode: "100644", Content: "unchanged contents"},
 		),
-		git.WithBranch("local"),
+		localrepo.WithBranch("local"),
 	)
 
 	// And then finally write a commit into the remote repository that changes a different file.
-	git.WriteTestCommit(t, cfg, remoteRepoPath,
-		git.WithParents(rootCommitID),
-		git.WithTreeEntries(
+	localrepo.WriteTestCommit(t, remoteRepo,
+		localrepo.WithParents(rootCommitID),
+		localrepo.WithTreeEntries(
 			git.TreeEntry{Path: "change-me", Mode: "100644", Content: "modified contents"},
 			git.TreeEntry{Path: "delete-me", Mode: "100644", Content: "useless stuff"},
 		),
-		git.WithBranch("remote"),
+		localrepo.WithBranch("remote"),
 	)
 
 	// Send the first request to tell the server to perform the rebase.
@@ -701,27 +703,27 @@ func TestUserRebaseConfirmable_deletedFileInRemoteRepo(t *testing.T) {
 	localRepoProto, localRepoPath := git.CreateRepository(t, ctx, cfg)
 	localRepo := localrepo.NewTestRepo(t, cfg, localRepoProto)
 
-	remoteRepoProto, remoteRepoPath := git.CreateRepository(t, ctx, cfg)
+	remoteRepoProto, _ := git.CreateRepository(t, ctx, cfg)
+	remoteRepo := localrepo.NewTestRepo(t, cfg, remoteRepoProto)
 
 	// Write the root commit into both repositories as common history.
 	var rootCommitID git.ObjectID
-	for _, path := range []string{localRepoPath, remoteRepoPath} {
-		rootCommitID = WriteTestCommit(t, git, cfg, path,
-			git.WithTreeEntries(
+	for _, repo := range []*localrepo.Repo{localRepo, remoteRepo} {
+		rootCommitID = localrepo.WriteTestCommit(t, repo,
+			localrepo.WithTreeEntries(
 				git.TreeEntry{Path: "unchanged", Mode: "100644", Content: "unchanged contents"},
 				git.TreeEntry{Path: "delete-me", Mode: "100644", Content: "useless stuff"},
 			),
-			git.WithBranch("local"))
-
+			localrepo.WithBranch("local"))
 	}
 
 	// Write a commit into the remote repository that deletes a file.
-	remoteCommitID := git.WriteTestCommit(t, cfg, remoteRepoPath,
-		git.WithParents(rootCommitID),
-		git.WithTreeEntries(
+	remoteCommitID := localrepo.WriteTestCommit(t, remoteRepo,
+		localrepo.WithParents(rootCommitID),
+		localrepo.WithTreeEntries(
 			git.TreeEntry{Path: "unchanged", Mode: "100644", Content: "unchanged contents"},
 		),
-		git.WithBranch("remote"),
+		localrepo.WithBranch("remote"),
 	)
 
 	_, err := localRepo.ReadCommit(ctx, remoteCommitID.Revision())

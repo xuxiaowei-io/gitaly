@@ -327,34 +327,33 @@ func TestUserSquash_renames(t *testing.T) {
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
-
-	WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("main"))
-
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+	localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
 
 	originalFilename := "original-file.txt"
 	renamedFilename := "renamed-file.txt"
 
-	rootCommitID := WriteTestCommit(t, git, cfg, repoPath,
-		git.WithTreeEntries(
+	rootCommitID := localrepo.WriteTestCommit(t, repo,
+		localrepo.WithTreeEntries(
 			git.TreeEntry{Path: originalFilename, Mode: "100644", Content: "This is a test"},
 		))
 
-	startCommitID := WriteTestCommit(t, git, cfg, repoPath,
-		git.WithParents(rootCommitID),
-		git.WithTreeEntries(
+	startCommitID := localrepo.WriteTestCommit(t, repo,
+		localrepo.WithParents(rootCommitID),
+		localrepo.WithTreeEntries(
 			git.TreeEntry{Path: renamedFilename, Mode: "100644", Content: "This is a test"},
 		))
 
-	changedCommitID := WriteTestCommit(t, git, cfg, repoPath,
-		git.WithParents(rootCommitID),
-		git.WithTreeEntries(
+	changedCommitID := localrepo.WriteTestCommit(t, repo,
+		localrepo.WithParents(rootCommitID),
+		localrepo.WithTreeEntries(
 			git.TreeEntry{Path: originalFilename, Mode: "100644", Content: "This is a change"},
 		))
 
-	endCommitID := WriteTestCommit(t, git, cfg, repoPath,
-		git.WithParents(changedCommitID),
-		git.WithTreeEntries(
+	endCommitID := localrepo.WriteTestCommit(t, repo,
+		localrepo.WithParents(changedCommitID),
+		localrepo.WithTreeEntries(
 			git.TreeEntry{Path: originalFilename, Mode: "100644", Content: "This is another change"},
 		))
 
@@ -416,23 +415,23 @@ func TestUserSquash_emptyCommit(t *testing.T) {
 
 	// Set up history with two diverging lines of branches, where both sides have implemented
 	// the same changes. During merge, the diff will thus become empty.
-	base := WriteTestCommit(t, git, cfg, repoPath,
-		git.WithTreeEntries(
+	base := localrepo.WriteTestCommit(t, repo,
+		localrepo.WithTreeEntries(
 			git.TreeEntry{Path: "a", Content: "base", Mode: "100644"},
 		))
 
-	theirs := git.WriteTestCommit(t, cfg, repoPath, git.WithMessage("theirs"),
-		git.WithParents(base), git.WithTreeEntries(
+	theirs := localrepo.WriteTestCommit(t, repo, localrepo.WithMessage("theirs"),
+		localrepo.WithParents(base), localrepo.WithTreeEntries(
 			git.TreeEntry{Path: "a", Content: "changed", Mode: "100644"},
 		),
 	)
-	ours := git.WriteTestCommit(t, cfg, repoPath, git.WithMessage("ours"),
-		git.WithParents(base), git.WithTreeEntries(
+	ours := localrepo.WriteTestCommit(t, repo, localrepo.WithMessage("ours"),
+		localrepo.WithParents(base), localrepo.WithTreeEntries(
 			git.TreeEntry{Path: "a", Content: "changed", Mode: "100644"},
 		),
 	)
-	oursWithAdditionalChanges := git.WriteTestCommit(t, cfg, repoPath, git.WithMessage("ours"),
-		git.WithParents(ours), git.WithTreeEntries(
+	oursWithAdditionalChanges := localrepo.WriteTestCommit(t, repo, localrepo.WithMessage("ours"),
+		localrepo.WithParents(ours), localrepo.WithTreeEntries(
 			git.TreeEntry{Path: "a", Content: "changed", Mode: "100644"},
 			git.TreeEntry{Path: "ours", Content: "ours", Mode: "100644"},
 		),
@@ -612,25 +611,26 @@ func TestUserSquash_conflicts(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	base := WriteTestCommit(t, git, cfg, repoPath, git.WithTreeEntries(
+	base := localrepo.WriteTestCommit(t, repo, localrepo.WithTreeEntries(
 		git.TreeEntry{Path: "a", Mode: "100644", Content: "unchanged"},
 		git.TreeEntry{Path: "b", Mode: "100644", Content: "base"},
 	))
 
-	ours := WriteTestCommit(t, git, cfg, repoPath, git.WithParents(base), git.WithTreeEntries(
+	ours := localrepo.WriteTestCommit(t, repo, localrepo.WithParents(base), localrepo.WithTreeEntries(
 		git.TreeEntry{Path: "a", Mode: "100644", Content: "unchanged"},
 		git.TreeEntry{Path: "b", Mode: "100644", Content: "ours"},
 	))
 
-	theirs := WriteTestCommit(t, git, cfg, repoPath, git.WithParents(base), git.WithTreeEntries(
+	theirs := localrepo.WriteTestCommit(t, repo, localrepo.WithParents(base), localrepo.WithTreeEntries(
 		git.TreeEntry{Path: "a", Mode: "100644", Content: "unchanged"},
 		git.TreeEntry{Path: "b", Mode: "100644", Content: "theirs"},
 	))
 
 	response, err := client.UserSquash(ctx, &gitalypb.UserSquashRequest{
-		Repository:    repo,
+		Repository:    repoProto,
 		User:          git.TestUser,
 		Author:        git.TestUser,
 		CommitMessage: commitMessage,
@@ -660,22 +660,23 @@ func TestUserSquash_ancestry(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	// We create an empty parent commit and two commits which both branch off from it. As a
 	// result, they are not direct ancestors of each other.
-	parent := WriteTestCommit(t, git, cfg, repoPath, git.WithMessage("p"), git.WithTreeEntries())
-	commit1 := git.WriteTestCommit(t, cfg, repoPath, git.WithMessage("1"),
-		git.WithTreeEntries(git.TreeEntry{Path: "a", Mode: "100644", Content: "a-content"}),
-		git.WithParents(parent),
+	parent := localrepo.WriteTestCommit(t, repo, localrepo.WithMessage("p"), localrepo.WithTreeEntries())
+	commit1 := localrepo.WriteTestCommit(t, repo, localrepo.WithMessage("1"),
+		localrepo.WithTreeEntries(git.TreeEntry{Path: "a", Mode: "100644", Content: "a-content"}),
+		localrepo.WithParents(parent),
 	)
-	commit2 := git.WriteTestCommit(t, cfg, repoPath, git.WithMessage("2"),
-		git.WithTreeEntries(git.TreeEntry{Path: "b", Mode: "100644", Content: "b-content"}),
-		git.WithParents(parent),
+	commit2 := localrepo.WriteTestCommit(t, repo, localrepo.WithMessage("2"),
+		localrepo.WithTreeEntries(git.TreeEntry{Path: "b", Mode: "100644", Content: "b-content"}),
+		localrepo.WithParents(parent),
 	)
 
 	response, err := client.UserSquash(ctx, &gitalypb.UserSquashRequest{
-		Repository:    repo,
+		Repository:    repoProto,
 		User:          git.TestUser,
 		Author:        git.TestUser,
 		CommitMessage: commitMessage,
@@ -795,29 +796,30 @@ func TestUserSquash_squashingMerge(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	base := WriteTestCommit(t, git, cfg, repoPath, git.WithMessage("base"),
-		git.WithTreeEntries(git.TreeEntry{Path: "a", Mode: "100644", Content: "base-content"}))
+	base := localrepo.WriteTestCommit(t, repo, localrepo.WithMessage("base"),
+		localrepo.WithTreeEntries(git.TreeEntry{Path: "a", Mode: "100644", Content: "base-content"}))
 
-	ours := git.WriteTestCommit(t, cfg, repoPath, git.WithMessage("ours"),
-		git.WithTreeEntries(git.TreeEntry{Path: "a", Mode: "100644", Content: "ours-content"}),
-		git.WithParents(base),
+	ours := localrepo.WriteTestCommit(t, repo, localrepo.WithMessage("ours"),
+		localrepo.WithTreeEntries(git.TreeEntry{Path: "a", Mode: "100644", Content: "ours-content"}),
+		localrepo.WithParents(base),
 	)
-	theirs := git.WriteTestCommit(t, cfg, repoPath, git.WithMessage("theirs"),
-		git.WithTreeEntries(git.TreeEntry{Path: "a", Mode: "100644", Content: "theirs-content"}),
-		git.WithParents(base),
+	theirs := localrepo.WriteTestCommit(t, repo, localrepo.WithMessage("theirs"),
+		localrepo.WithTreeEntries(git.TreeEntry{Path: "a", Mode: "100644", Content: "theirs-content"}),
+		localrepo.WithParents(base),
 	)
-	oursMergedIntoTheirs := git.WriteTestCommit(t, cfg, repoPath, git.WithMessage("merge ours into theirs"),
-		git.WithTreeEntries(git.TreeEntry{Path: "a", Mode: "100644", Content: "ours-content\ntheirs-content"}),
-		git.WithParents(theirs, ours),
+	oursMergedIntoTheirs := localrepo.WriteTestCommit(t, repo, localrepo.WithMessage("merge ours into theirs"),
+		localrepo.WithTreeEntries(git.TreeEntry{Path: "a", Mode: "100644", Content: "ours-content\ntheirs-content"}),
+		localrepo.WithParents(theirs, ours),
 	)
-	ours2 := git.WriteTestCommit(t, cfg, repoPath, git.WithMessage("ours 2"),
-		git.WithTreeEntries(
+	ours2 := localrepo.WriteTestCommit(t, repo, localrepo.WithMessage("ours 2"),
+		localrepo.WithTreeEntries(
 			git.TreeEntry{Path: "a", Mode: "100644", Content: "ours-content"},
 			git.TreeEntry{Path: "ours-file", Mode: "100644", Content: "new-content"},
 		),
-		git.WithParents(ours),
+		localrepo.WithParents(ours),
 	)
 
 	// We had conflicting commit on "ours" and on "theirs",
@@ -832,7 +834,7 @@ func TestUserSquash_squashingMerge(t *testing.T) {
 	//
 	// We're now squashing both commits from "theirs" onto "ours".
 	response, err := client.UserSquash(ctx, &gitalypb.UserSquashRequest{
-		Repository:    repo,
+		Repository:    repoProto,
 		User:          git.TestUser,
 		Author:        git.TestUser,
 		CommitMessage: commitMessage,

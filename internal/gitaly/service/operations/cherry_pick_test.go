@@ -227,10 +227,10 @@ func TestUserCherryPick(t *testing.T) {
 			setup: func(data setupData) (*gitalypb.UserCherryPickRequest, *gitalypb.UserCherryPickResponse) {
 				git.Exec(t, data.cfg, "-C", data.repoPath, "branch", destinationBranch, "master")
 
-				git.WriteTestCommit(t, data.cfg, data.repoPath,
-					git.WithParents(git.ObjectID(data.masterCommit)),
-					git.WithBranch("master"),
-					git.WithTreeEntries(
+				localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, data.cfg, data.repoProto),
+					localrepo.WithParents(git.ObjectID(data.masterCommit)),
+					localrepo.WithBranch("master"),
+					localrepo.WithTreeEntries(
 						git.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
 					),
 				)
@@ -255,37 +255,39 @@ func TestUserCherryPick(t *testing.T) {
 			t.Parallel()
 
 			repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
-			masterCommitID := WriteTestCommit(t, git, cfg, repoPath, git.WithBranch("master"),
-				git.WithTreeEntries(
+			repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+			masterCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("master"),
+				localrepo.WithTreeEntries(
 					git.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
 				))
 
-			cherryPickCommitID := WriteTestCommit(t, git, cfg, repoPath,
-				git.WithParents(masterCommitID),
-				git.WithTreeEntries(
+			cherryPickCommitID := localrepo.WriteTestCommit(t, repo,
+				localrepo.WithParents(masterCommitID),
+				localrepo.WithTreeEntries(
 					git.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
 					git.TreeEntry{Mode: "100644", Path: "foo", Content: "bar"},
 				))
 
-			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 			cherryPickedCommit, err := repo.ReadCommit(ctx, cherryPickCommitID.Revision())
 			require.NoError(t, err)
 
 			copyRepoProto, copyRepoPath := git.CreateRepository(t, ctx, cfg)
-			masterCommitCopyID := WriteTestCommit(t, git, cfg, copyRepoPath, git.WithBranch("master"),
-				git.WithTreeEntries(
+			copyRepo := localrepo.NewTestRepo(t, cfg, copyRepoProto)
+
+			masterCommitCopyID := localrepo.WriteTestCommit(t, copyRepo, localrepo.WithBranch("master"),
+				localrepo.WithTreeEntries(
 					git.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
 				))
 
-			cherryPickCommitCopyID := WriteTestCommit(t, git, cfg, copyRepoPath,
-				git.WithParents(masterCommitCopyID),
-				git.WithTreeEntries(
+			cherryPickCommitCopyID := localrepo.WriteTestCommit(t, copyRepo,
+				localrepo.WithParents(masterCommitCopyID),
+				localrepo.WithTreeEntries(
 					git.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
 					git.TreeEntry{Mode: "100644", Path: "foo", Content: "bar"},
 				))
 
-			copyRepo := localrepo.NewTestRepo(t, cfg, repoProto)
-			copyCherryPickedCommit, err := copyRepo.ReadCommit(ctx, cherryPickCommitCopyID.Revision())
+			copyCherryPickedCommit, err := repo.ReadCommit(ctx, cherryPickCommitCopyID.Revision())
 			require.NoError(t, err)
 
 			req, expectedResp := tc.setup(setupData{
