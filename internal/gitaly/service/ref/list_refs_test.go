@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -22,12 +23,13 @@ func TestServer_ListRefs(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, _, _, client := setupRefService(t, ctx)
 
-	repo, repoPath := git.CreateRepository(t, ctx, cfg)
+	repoProto, repoPath := git.CreateRepository(t, ctx, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	oldCommitID := WriteTestCommit(t, git, cfg, repoPath)
-	newCommitID := WriteTestCommit(t, git, cfg, repoPath,
-		git.WithParents(oldCommitID),
-		git.WithAuthorDate(time.Date(2011, 2, 16, 14, 1, 0, 0, time.FixedZone("UTC+1", +1*60*60))))
+	oldCommitID := localrepo.WriteTestCommit(t, repo)
+	newCommitID := localrepo.WriteTestCommit(t, repo,
+		localrepo.WithParents(oldCommitID),
+		localrepo.WithAuthorDate(time.Date(2011, 2, 16, 14, 1, 0, 0, time.FixedZone("UTC+1", +1*60*60))))
 
 	for _, cmd := range [][]string{
 		{"update-ref", "refs/heads/main", newCommitID.String()},
@@ -61,7 +63,7 @@ func TestServer_ListRefs(t *testing.T) {
 		{
 			desc: "no patterns",
 			request: &gitalypb.ListRefsRequest{
-				Repository: repo,
+				Repository: repoProto,
 			},
 			expectedGrpcError: codes.InvalidArgument,
 			expectedError:     "rpc error: code = InvalidArgument desc = patterns must have at least one entry",
@@ -69,7 +71,7 @@ func TestServer_ListRefs(t *testing.T) {
 		{
 			desc: "bad sorting key",
 			request: &gitalypb.ListRefsRequest{
-				Repository: repo,
+				Repository: repoProto,
 				Patterns:   [][]byte{[]byte("refs/")},
 				SortBy: &gitalypb.ListRefsRequest_SortBy{
 					Key: gitalypb.ListRefsRequest_SortBy_Key(100),
@@ -81,7 +83,7 @@ func TestServer_ListRefs(t *testing.T) {
 		{
 			desc: "bad sorting direction",
 			request: &gitalypb.ListRefsRequest{
-				Repository: repo,
+				Repository: repoProto,
 				Patterns:   [][]byte{[]byte("refs/")},
 				SortBy: &gitalypb.ListRefsRequest_SortBy{
 					Direction: gitalypb.SortDirection(100),
@@ -93,14 +95,14 @@ func TestServer_ListRefs(t *testing.T) {
 		{
 			desc: "not found",
 			request: &gitalypb.ListRefsRequest{
-				Repository: repo,
+				Repository: repoProto,
 				Patterns:   [][]byte{[]byte("this-pattern-does-not-match-anything")},
 			},
 		},
 		{
 			desc: "not found and main",
 			request: &gitalypb.ListRefsRequest{
-				Repository: repo,
+				Repository: repoProto,
 				Patterns: [][]byte{
 					[]byte("this-pattern-does-not-match-anything"),
 					[]byte("refs/heads/main"),
@@ -113,7 +115,7 @@ func TestServer_ListRefs(t *testing.T) {
 		{
 			desc: "all",
 			request: &gitalypb.ListRefsRequest{
-				Repository: repo,
+				Repository: repoProto,
 				Patterns:   [][]byte{[]byte("refs/")},
 			},
 			expected: []*gitalypb.ListRefsResponse_Reference{
@@ -128,7 +130,7 @@ func TestServer_ListRefs(t *testing.T) {
 		{
 			desc: "sort by authordate desc",
 			request: &gitalypb.ListRefsRequest{
-				Repository: repo,
+				Repository: repoProto,
 				Patterns:   [][]byte{[]byte("refs/heads")},
 				SortBy: &gitalypb.ListRefsRequest_SortBy{
 					Direction: gitalypb.SortDirection_DESCENDING,
@@ -144,7 +146,7 @@ func TestServer_ListRefs(t *testing.T) {
 		{
 			desc: "branches and tags only",
 			request: &gitalypb.ListRefsRequest{
-				Repository: repo,
+				Repository: repoProto,
 				Patterns:   [][]byte{[]byte("refs/heads/*"), []byte("refs/tags/*")},
 			},
 			expected: []*gitalypb.ListRefsResponse_Reference{
@@ -158,7 +160,7 @@ func TestServer_ListRefs(t *testing.T) {
 		{
 			desc: "head and branches and tags only",
 			request: &gitalypb.ListRefsRequest{
-				Repository: repo,
+				Repository: repoProto,
 				Head:       true,
 				Patterns:   [][]byte{[]byte("refs/heads/*"), []byte("refs/tags/*")},
 			},

@@ -34,10 +34,10 @@ func TestFindTag_successful(t *testing.T) {
 
 	gitCommit := testhelper.GitLabTestCommit(commitID.String())
 
-	bigCommitID := git.WriteTestCommit(t, cfg, repoPath,
-		git.WithBranch("local-big-commits"),
-		git.WithMessage("An empty commit with REALLY BIG message\n\n"+strings.Repeat("a", helper.MaxCommitOrTagMessageSize+1)),
-		git.WithParents("60ecb67744cb56576c30214ff52294f8ce2def98"),
+	bigCommitID := localrepo.WriteTestCommit(t, repo,
+		localrepo.WithBranch("local-big-commits"),
+		localrepo.WithMessage("An empty commit with REALLY BIG message\n\n"+strings.Repeat("a", helper.MaxCommitOrTagMessageSize+1)),
+		localrepo.WithParents("60ecb67744cb56576c30214ff52294f8ce2def98"),
 	)
 	bigCommit, err := repo.ReadCommit(ctx, git.Revision(bigCommitID))
 	require.NoError(t, err)
