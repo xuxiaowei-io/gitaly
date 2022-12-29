@@ -20,6 +20,7 @@ import (
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
@@ -516,10 +517,11 @@ func testUploadPackSuccessful(t *testing.T, sidechannel bool, opts ...testcfg.Op
 		WithPackfileNegotiationMetrics(negotiationMetrics),
 	}, testserver.WithGitCommandFactory(protocolDetectingFactory))
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	smallBlobID := gittest.WriteBlob(t, cfg, repoPath, []byte("foobar"))
-	largeBlobID := gittest.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("1"), 2048))
+	smallBlobID := repo.MustWriteBlob(t, "foobar")
+	largeBlobID := repo.MustWriteBlob(t, strings.Repeat("1", 2048))
 
 	// We set up the commits so that HEAD does not reference the above two blobs. If it did we'd
 	// fetch the blobs regardless of `--filter=blob:limit`.
@@ -543,13 +545,13 @@ func testUploadPackSuccessful(t *testing.T, sidechannel bool, opts ...testcfg.Op
 		{
 			desc: "full clone",
 			request: &gitalypb.SSHUploadPackRequest{
-				Repository: repo,
+				Repository: repoProto,
 			},
 		},
 		{
 			desc: "full clone with protocol v2",
 			request: &gitalypb.SSHUploadPackRequest{
-				Repository:  repo,
+				Repository:  repoProto,
 				GitProtocol: git.ProtocolV2,
 			},
 			expectedProtocol: git.ProtocolV2,
@@ -557,7 +559,7 @@ func testUploadPackSuccessful(t *testing.T, sidechannel bool, opts ...testcfg.Op
 		{
 			desc: "shallow clone",
 			request: &gitalypb.SSHUploadPackRequest{
-				Repository: repo,
+				Repository: repoProto,
 			},
 			cloneArgs: []string{
 				"--depth=1",
@@ -567,7 +569,7 @@ func testUploadPackSuccessful(t *testing.T, sidechannel bool, opts ...testcfg.Op
 		{
 			desc: "shallow clone with protocol v2",
 			request: &gitalypb.SSHUploadPackRequest{
-				Repository:  repo,
+				Repository:  repoProto,
 				GitProtocol: git.ProtocolV2,
 			},
 			cloneArgs: []string{
@@ -579,7 +581,7 @@ func testUploadPackSuccessful(t *testing.T, sidechannel bool, opts ...testcfg.Op
 		{
 			desc: "partial clone",
 			request: &gitalypb.SSHUploadPackRequest{
-				Repository: repo,
+				Repository: repoProto,
 			},
 			cloneArgs: []string{
 				"--filter=blob:limit=1024",
@@ -595,7 +597,7 @@ func testUploadPackSuccessful(t *testing.T, sidechannel bool, opts ...testcfg.Op
 				"--mirror",
 			},
 			request: &gitalypb.SSHUploadPackRequest{
-				Repository: repo,
+				Repository: repoProto,
 				GitConfigOptions: []string{
 					"transfer.hideRefs=refs/tags",
 				},

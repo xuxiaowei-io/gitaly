@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -177,10 +178,10 @@ func TestFindRefsByOID_failure(t *testing.T) {
 		{
 			desc: "oid is not a commit",
 			setup: func(t *testing.T) (*gitalypb.FindRefsByOIDRequest, error) {
-				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					Seed: gittest.SeedGitLabTest,
 				})
-				oid := gittest.WriteBlob(t, cfg, repoPath, []byte("the blob"))
+				oid := localrepo.NewTestRepo(t, cfg, repo).MustWriteBlob(t, "the blob")
 
 				return &gitalypb.FindRefsByOIDRequest{
 					Repository: repo,

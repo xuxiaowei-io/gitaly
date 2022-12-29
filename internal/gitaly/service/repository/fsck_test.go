@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -116,12 +117,12 @@ func TestFsck(t *testing.T) {
 		{
 			desc: "dangling blob",
 			setup: func(t *testing.T) setupData {
-				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 				// A dangling blob should not cause the consistency check to fail as
 				// it is totally expected that repositories accumulate unreachable
 				// objects.
-				gittest.WriteBlob(t, cfg, repoPath, []byte("content"))
+				localrepo.NewTestRepo(t, cfg, repo).MustWriteBlob(t, "content")
 
 				return setupData{
 					repo:             repo,

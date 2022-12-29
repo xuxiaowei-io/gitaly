@@ -1,11 +1,11 @@
 package gitpipe
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -28,12 +28,12 @@ func TestCatfileObject(t *testing.T) {
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	blobA := gittest.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("a"), 133))
-	blobB := gittest.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("b"), 127))
-	blobC := gittest.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("c"), 127))
-	blobD := gittest.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("d"), 129))
+	blobA := repo.MustWriteBlob(t, strings.Repeat("a", 133))
+	blobB := repo.MustWriteBlob(t, strings.Repeat("b", 127))
+	blobC := repo.MustWriteBlob(t, strings.Repeat("c", 127))
+	blobD := repo.MustWriteBlob(t, strings.Repeat("d", 129))
 
-	blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("contents"))
+	blobID := repo.MustWriteBlob(t, "contents")
 	treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 		{Path: "branch-test.txt", Mode: "100644", OID: blobID},
 	})

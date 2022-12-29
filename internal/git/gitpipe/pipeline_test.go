@@ -27,9 +27,9 @@ func TestPipeline_revlist(t *testing.T) {
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	blobA := gittest.WriteBlob(t, cfg, repoPath, []byte("blob a"))
-	blobB := gittest.WriteBlob(t, cfg, repoPath, []byte("b"))
-	blobC := gittest.WriteBlob(t, cfg, repoPath, []byte("longer blob c"))
+	blobA := repo.MustWriteBlob(t, "blob a")
+	blobB := repo.MustWriteBlob(t, "b")
+	blobC := repo.MustWriteBlob(t, "longer blob c")
 
 	subtree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 		{Path: "subblob", Mode: "100644", OID: blobA},
