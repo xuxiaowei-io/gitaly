@@ -75,6 +75,7 @@ func RequireTree(tb testing.TB, cfg config.Cfg, repoPath, treeish string, expect
 
 // WriteTree writes a new tree object to the given path. This function does not verify whether OIDs
 // referred to by tree entries actually exist in the repository.
+// Deprecated: internal/git/localrepo package should e used for writing trees
 func WriteTree(tb testing.TB, cfg config.Cfg, repoPath string, entries []TreeEntry) git.ObjectID {
 	tb.Helper()
 
