@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"unsafe"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
@@ -402,6 +403,10 @@ func TestRequestQueue_RequestInfo(t *testing.T) {
 			requireRevision(t, queue)
 		}
 	})
+}
+
+func TestRequestQueueCounters64BitAlignment(t *testing.T) {
+	require.Equal(t, 0, int(unsafe.Sizeof(requestQueue{}))%8)
 }
 
 func newInterceptedObjectQueue(t *testing.T, ctx context.Context, script string) (ObjectContentReader, *requestQueue) {

@@ -27,10 +27,6 @@ const (
 )
 
 type requestQueue struct {
-	// objectHash is the object hash used by the repository the request queue has been
-	// spawned for.
-	objectHash git.ObjectHash
-
 	// outstandingRequests is the number of requests which have been queued up. Gets incremented
 	// on request, and decremented when starting to read an object (not when that object has
 	// been fully consumed).
@@ -44,6 +40,10 @@ type requestQueue struct {
 
 	// isReadingObject indicates whether there is a read in progress.
 	isReadingObject int32
+
+	// objectHash is the object hash used by the repository the request queue has been
+	// spawned for.
+	objectHash git.ObjectHash
 
 	// isObjectQueue is set to `true` when this is a request queue which can be used for reading
 	// objects. If set to `false`, then this can only be used to read object info.
