@@ -145,6 +145,7 @@ func WithAlternateObjectDirectory(alternateObjectDir string) WriteCommitOption {
 }
 
 // WriteCommit writes a new commit into the target repository.
+// Deprecated: internal/git/localrepo package should e used for writing commits
 func WriteCommit(tb testing.TB, cfg config.Cfg, repoPath string, opts ...WriteCommitOption) git.ObjectID {
 	tb.Helper()
 
