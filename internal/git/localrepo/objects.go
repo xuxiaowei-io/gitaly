@@ -6,14 +6,18 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
+	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -23,7 +27,20 @@ var ErrObjectNotFound = errors.New("object not found")
 // WriteBlob writes a blob to the repository's object database and
 // returns its object ID. Path is used by git to decide which filters to
 // run on the content.
-func (repo *Repo) WriteBlob(ctx context.Context, path string, content io.Reader) (git.ObjectID, error) {
+func (repo *Repo) WriteBlob(
+	ctx context.Context,
+	path string,
+	content io.Reader,
+) (git.ObjectID, error) {
+	return repo.writeBlob(ctx, path, content)
+}
+
+func (repo *Repo) writeBlob(
+	ctx context.Context,
+	path string,
+	content io.Reader,
+	cfgs ...git.ConfigPair,
+) (git.ObjectID, error) {
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 
@@ -36,6 +53,7 @@ func (repo *Repo) WriteBlob(ctx context.Context, path string, content io.Reader)
 				git.Flag{Name: "-w"},
 			},
 		},
+		git.WithConfig(cfgs...),
 		git.WithStdin(content),
 		git.WithStdout(stdout),
 		git.WithStderr(stderr),
@@ -320,4 +338,32 @@ func (repo *Repo) IsAncestor(ctx context.Context, parent, child git.Revision) (b
 	}
 
 	return true, nil
+}
+
+// MustWriteBlob is used to write blobs to repositories in tests
+func (repo *Repo) MustWriteBlob(tb testing.TB, content string) git.ObjectID {
+	oid, err := repo.writeBlob(
+		testhelper.Context(tb),
+		"",
+		strings.NewReader(content),
+		git.ConfigPair{
+			Key:   "core.autocrlf",
+			Value: "false",
+		},
+	)
+	require.NoError(tb, err)
+
+	return oid
+}
+
+// MustWriteBlobs is used to write multiple blobs to repositories in tests
+func (repo *Repo) MustWriteBlobs(tb testing.TB, n int) []git.ObjectID {
+	var blobIDs []git.ObjectID
+	for i := 0; i < n; i++ {
+		contents := strconv.Itoa(time.Now().Nanosecond())
+		oid := repo.MustWriteBlob(tb, contents)
+		blobIDs = append(blobIDs, oid)
+	}
+
+	return blobIDs
 }

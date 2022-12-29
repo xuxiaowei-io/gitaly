@@ -78,6 +78,7 @@ func WriteBlobs(tb testing.TB, cfg config.Cfg, testRepoPath string, n int) []str
 }
 
 // WriteBlob writes the given contents as a blob into the repository and returns its OID.
+// Deprecated: internal/git/localrepo package should e used for writing commits
 func WriteBlob(tb testing.TB, cfg config.Cfg, testRepoPath string, contents []byte) git.ObjectID {
 	hex := text.ChompBytes(ExecOpts(tb, cfg, ExecConfig{Stdin: bytes.NewReader(contents)},
 		"-C", testRepoPath, "hash-object", "-w", "--stdin",
