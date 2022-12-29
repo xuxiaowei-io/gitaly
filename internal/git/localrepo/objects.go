@@ -7,13 +7,16 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -320,4 +323,12 @@ func (repo *Repo) IsAncestor(ctx context.Context, parent, child git.Revision) (b
 	}
 
 	return true, nil
+}
+
+// WriteTestBlob is used to write blobs to repositories in tests
+func MustWriteBlob(tb testing.TB, repo *Repo, path, content string) git.ObjectID {
+	oid, err := repo.WriteBlob(testhelper.Context(tb), path, bytes.NewBufferString(content))
+	require.NoError(tb, err)
+
+	return oid
 }
