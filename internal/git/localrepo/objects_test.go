@@ -250,8 +250,8 @@ func TestRepo_ReadObject(t *testing.T) {
 }
 
 func testRepoReadObject(t *testing.T, ctx context.Context) {
-	cfg, repo, repoPath := setupRepo(t)
-	blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("content"))
+	_, repo, _ := setupRepo(t)
+	blobID := repo.MustWriteBlob(t, "content")
 
 	for _, tc := range []struct {
 		desc    string
@@ -296,12 +296,12 @@ func testRepoReadObjectCatfileCount(t *testing.T, ctx context.Context) {
 		metadata.Pairs(catfile.SessionIDField, "1"),
 	)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := New(config.NewLocator(cfg), gitCmdFactory, catfileCache, repoProto)
 
-	blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("content"))
+	blobID := repo.MustWriteBlob(t, "content")
 
 	expected := 10
 	for i := 0; i < expected; i++ {
