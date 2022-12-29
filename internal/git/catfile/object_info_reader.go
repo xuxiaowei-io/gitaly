@@ -126,13 +126,15 @@ type ObjectInfoQueue interface {
 // long-lived  `git cat-file --batch-check` process such that we do not have to spawn a separate
 // process per object info we're about to read.
 type objectInfoReader struct {
+	// These items must be listed first to ensure 64-bit alignment on a 32-bit system.
+	// This explicit ordering can go away once we use Go 1.19's atomic types: https://gitlab.com/gitlab-org/gitaly/-/issues/4702
+	queue      requestQueue
+	queueInUse int32
+
 	cmd        *command.Command
 	objectHash git.ObjectHash
 
 	counter *prometheus.CounterVec
-
-	queue      requestQueue
-	queueInUse int32
 }
 
 func newObjectInfoReader(
