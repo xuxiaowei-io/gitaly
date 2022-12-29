@@ -374,7 +374,7 @@ func TestRepo_UpdateRef(t *testing.T) {
 	}
 	seedRepo(t, NewTestRepo(t, cfg, repo))
 
-	mainCommitID := gittest.ResolveRevision(t, cfg, repoPath, "refs/heads/main")
+	mainCommitID := ResolveRevision(t, cfg, repoPath, "refs/heads/main")
 	otherRef, err := repo.GetReference(ctx, "refs/heads/other")
 	require.NoError(t, err)
 
@@ -793,4 +793,13 @@ func TestRepoOptions_WithEnv(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestResolveRevision(t *testing.T) {
+	cfg, repoProto, repoPath := setupRepo(t)
+	repo := NewTestRepo(t, cfg, repoProto)
+
+	commitID := WriteTestCommit(t, repo, WithBranch(git.DefaultBranch))
+
+	require.Equal(t, commitID, ResolveRevision(t, cfg, repoPath, git.DefaultBranch))
 }

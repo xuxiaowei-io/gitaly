@@ -55,7 +55,7 @@ func TestFetchSourceBranch(t *testing.T) {
 						TargetRef:        []byte("refs/tmp/fetch-source-branch-test"),
 					},
 					verify: func() {
-						actualCommitID := gittest.ResolveRevision(t, cfg, repoPath, "refs/tmp/fetch-source-branch-test")
+						actualCommitID := localrepo.ResolveRevision(t, cfg, repoPath, "refs/tmp/fetch-source-branch-test")
 						require.Equal(t, commitID, actualCommitID)
 					},
 				}
@@ -80,7 +80,7 @@ func TestFetchSourceBranch(t *testing.T) {
 						TargetRef:        []byte("refs/tmp/fetch-source-branch-test"),
 					},
 					verify: func() {
-						actualCommitID := gittest.ResolveRevision(t, cfg, sourceRepoPath, "refs/tmp/fetch-source-branch-test")
+						actualCommitID := localrepo.ResolveRevision(t, cfg, sourceRepoPath, "refs/tmp/fetch-source-branch-test")
 						require.Equal(t, commitID, actualCommitID)
 					},
 				}

@@ -852,8 +852,8 @@ func TestFetchRemote_pooledRepository(t *testing.T) {
 			// This should result in the "remote" branch having been fetched into the
 			// pooled repository.
 			require.Equal(t,
-				gittest.ResolveRevision(t, cfg, pooledRepoPath, "refs/heads/remote"),
-				gittest.ResolveRevision(t, cfg, remoteRepoPath, "refs/heads/remote"),
+				localrepo.ResolveRevision(t, cfg, pooledRepoPath, "refs/heads/remote"),
+				localrepo.ResolveRevision(t, cfg, remoteRepoPath, "refs/heads/remote"),
 			)
 
 			// Verify whether alternate refs have been announced as part of the

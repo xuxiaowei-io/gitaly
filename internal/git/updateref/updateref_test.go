@@ -60,7 +60,7 @@ func TestUpdater_create(t *testing.T) {
 
 	// Verify that the reference was created as expected and that it points to the correct
 	// commit.
-	require.Equal(t, gittest.ResolveRevision(t, cfg, repoPath, "refs/heads/_create"), commitID)
+	require.Equal(t, localrepo.ResolveRevision(t, cfg, repoPath, "refs/heads/_create"), commitID)
 }
 
 func TestUpdater_nonCommitObject(t *testing.T) {
@@ -257,13 +257,13 @@ func TestUpdater_update(t *testing.T) {
 	require.NoError(t, updater.Start())
 	require.NoError(t, updater.Update("refs/heads/main", newCommitID, ""))
 	require.NoError(t, updater.Commit())
-	require.Equal(t, gittest.ResolveRevision(t, cfg, repoPath, "refs/heads/main"), newCommitID)
+	require.Equal(t, localrepo.ResolveRevision(t, cfg, repoPath, "refs/heads/main"), newCommitID)
 
 	// Check that we can update with safety guards when giving an old commit ID.
 	require.NoError(t, updater.Start())
 	require.NoError(t, updater.Update("refs/heads/main", oldCommitID, newCommitID))
 	require.NoError(t, updater.Commit())
-	require.Equal(t, gittest.ResolveRevision(t, cfg, repoPath, "refs/heads/main"), oldCommitID)
+	require.Equal(t, localrepo.ResolveRevision(t, cfg, repoPath, "refs/heads/main"), oldCommitID)
 
 	// And finally assert that we fail to update the reference in case we're trying to update
 	// when the old commit ID doesn't match.
@@ -272,7 +272,7 @@ func TestUpdater_update(t *testing.T) {
 	require.ErrorContains(t, updater.Commit(), fmt.Sprintf("fatal: commit: cannot lock ref 'refs/heads/main': is at %s but expected %s", oldCommitID, otherCommitID))
 	require.Equal(t, invalidStateTransitionError{expected: stateIdle, actual: stateClosed}, updater.Start())
 
-	require.Equal(t, gittest.ResolveRevision(t, cfg, repoPath, "refs/heads/main"), oldCommitID)
+	require.Equal(t, localrepo.ResolveRevision(t, cfg, repoPath, "refs/heads/main"), oldCommitID)
 }
 
 func TestUpdater_delete(t *testing.T) {

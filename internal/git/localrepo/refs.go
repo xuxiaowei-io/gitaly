@@ -9,11 +9,16 @@ import (
 	"io"
 	"path/filepath"
 	"strings"
+	"testing"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
+	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/safe"
 )
 
@@ -471,4 +476,13 @@ func (repo *Repo) GuessHead(ctx context.Context, head git.Reference) (git.Refere
 	}
 
 	return "", fmt.Errorf("guess head: %w", git.ErrReferenceNotFound)
+}
+
+// ResolveRevision resolves a revision to an object ID.
+func ResolveRevision(tb testing.TB, cfg config.Cfg, repoPath string, revision string) git.ObjectID {
+	tb.Helper()
+	output := gittest.Exec(tb, cfg, "-C", repoPath, "rev-parse", "--verify", revision)
+	objectID, err := gittest.DefaultObjectHash.FromHex(text.ChompBytes(output))
+	require.NoError(tb, err)
+	return objectID
 }

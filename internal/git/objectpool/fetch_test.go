@@ -155,7 +155,7 @@ func TestFetchFromOrigin_refUpdates(t *testing.T) {
 	// We now fetch that data into the object pool and verify that it exists as expected.
 	require.NoError(t, pool.FetchFromOrigin(ctx, repo))
 	for ref, oid := range oldRefs {
-		require.Equal(t, oid, gittest.ResolveRevision(t, cfg, poolPath, "refs/remotes/origin/"+ref))
+		require.Equal(t, oid, localrepo.ResolveRevision(t, cfg, poolPath, "refs/remotes/origin/"+ref))
 	}
 
 	// Next, we force-overwrite both old references with new objects.
@@ -180,7 +180,7 @@ func TestFetchFromOrigin_refUpdates(t *testing.T) {
 	// Now we fetch again and verify that all references should have been updated accordingly.
 	require.NoError(t, pool.FetchFromOrigin(ctx, repo))
 	for ref, oid := range newRefs {
-		require.Equal(t, oid, gittest.ResolveRevision(t, cfg, poolPath, "refs/remotes/origin/"+ref))
+		require.Equal(t, oid, localrepo.ResolveRevision(t, cfg, poolPath, "refs/remotes/origin/"+ref))
 	}
 }
 

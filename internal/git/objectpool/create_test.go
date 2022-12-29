@@ -72,7 +72,7 @@ func TestCreate(t *testing.T) {
 		// The repository has no remote.
 		require.Empty(t, gittest.Exec(t, cfg, "-C", poolPath, "remote"))
 		// The "master" branch points to the same commit as in the pool member.
-		require.Equal(t, commitID, gittest.ResolveRevision(t, cfg, poolPath, "refs/heads/master"))
+		require.Equal(t, commitID, localrepo.ResolveRevision(t, cfg, poolPath, "refs/heads/master"))
 		// Objects exist in the pool repository.
 		gittest.RequireObjectExists(t, cfg, poolPath, commitID)
 	})
