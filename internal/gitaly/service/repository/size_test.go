@@ -3,8 +3,8 @@
 package repository
 
 import (
-	"bytes"
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -110,6 +110,7 @@ func testSuccessfulRepositorySizeRequest(t *testing.T, ctx context.Context) {
 
 	logger, hook := test.NewNullLogger()
 	cfg, repoProto, repoPath, client := setupRepositoryService(t, ctx, testserver.WithLogger(logger))
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	request := &gitalypb.RepositorySizeRequest{Repository: repoProto}
 	response, err := client.RepositorySize(ctx, request)
@@ -120,8 +121,8 @@ func testSuccessfulRepositorySizeRequest(t *testing.T, ctx context.Context) {
 		"repository size %d should be at least %d", response.Size, testRepoMinSizeKB,
 	)
 
-	blob := bytes.Repeat([]byte("a"), 1000)
-	blobOID := gittest.WriteBlob(t, cfg, repoPath, blob)
+	blob := strings.Repeat("a", 1000)
+	blobOID := localrepo.WriteTestBlob(t, repo, "", blob)
 	treeOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 		{
 			OID:  blobOID,
@@ -129,7 +130,7 @@ func testSuccessfulRepositorySizeRequest(t *testing.T, ctx context.Context) {
 			Path: "1kbblob",
 		},
 	})
-	commitOID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithTree(treeOID))
+	commitOID := localrepo.WriteTestCommit(t, repo, localrepo.WithTree(treeOID))
 
 	gittest.WriteRef(t, cfg, repoPath, git.ReferenceName("refs/keep-around/keep1"), commitOID)
 	gittest.WriteRef(t, cfg, repoPath, git.ReferenceName("refs/merge-requests/1123"), commitOID)

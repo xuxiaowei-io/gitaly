@@ -22,9 +22,11 @@ func TestParser(t *testing.T) {
 		SkipCreationViaService: true,
 	})
 
-	gitignoreBlobID := gittest.WriteBlob(t, cfg, repoPath, []byte("gitignore"))
-	gitmodulesBlobID := gittest.WriteBlob(t, cfg, repoPath, []byte("gitmodules"))
-	submoduleCommitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto))
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+	gitignoreBlobID := localrepo.WriteTestBlob(t, repo, "", "gitignore")
+	gitmodulesBlobID := localrepo.WriteTestBlob(t, repo, "", "gitmodules")
+	submoduleCommitID := localrepo.WriteTestCommit(t, repo)
 
 	regularEntriesTreeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 		{Path: ".gitignore", Mode: "100644", OID: gitignoreBlobID},
@@ -98,14 +100,16 @@ func TestParserReadEntryPath(t *testing.T) {
 		SkipCreationViaService: true,
 	})
 
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
 	regularEntriesTreeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
-		{Path: ".gitignore", Mode: "100644", OID: gittest.WriteBlob(t, cfg, repoPath, []byte("gitignore"))},
-		{Path: ".gitmodules", Mode: "100644", OID: gittest.WriteBlob(t, cfg, repoPath, []byte("gitmodules"))},
+		{Path: ".gitignore", Mode: "100644", OID: localrepo.WriteTestBlob(t, repo, "", "gitignore")},
+		{Path: ".gitmodules", Mode: "100644", OID: localrepo.WriteTestBlob(t, repo, "", "gitmodules")},
 		{Path: "entry with space", Mode: "040000", OID: gittest.DefaultObjectHash.EmptyTreeOID},
 		{Path: "gitlab-shell", Mode: "160000", OID: localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto))},
-		{Path: "\"file with quote.txt", Mode: "100644", OID: gittest.WriteBlob(t, cfg, repoPath, []byte("file with quotes"))},
-		{Path: "cuộc đời là những chuyến đi.md", Mode: "100644", OID: gittest.WriteBlob(t, cfg, repoPath, []byte("file with non-ascii file name"))},
-		{Path: "编码 'foo'.md", Mode: "100644", OID: gittest.WriteBlob(t, cfg, repoPath, []byte("file with non-ascii file name"))},
+		{Path: "\"file with quote.txt", Mode: "100644", OID: localrepo.WriteTestBlob(t, repo, "", "file with quotes")},
+		{Path: "cuộc đời là những chuyến đi.md", Mode: "100644", OID: localrepo.WriteTestBlob(t, repo, "", "file with non-ascii file name")},
+		{Path: "编码 'foo'.md", Mode: "100644", OID: localrepo.WriteTestBlob(t, repo, "", "file with non-ascii file name")},
 	})
 	for _, tc := range []struct {
 		desc          string

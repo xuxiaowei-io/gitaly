@@ -193,9 +193,7 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 		{
 			desc: "single blob",
 			setup: func(t *testing.T, repo *localrepo.Repo) {
-				repoPath, err := repo.Path()
-				require.NoError(t, err)
-				gittest.WriteBlob(t, cfg, repoPath, []byte("x"))
+				localrepo.WriteTestBlob(t, repo, "", "x")
 			},
 			expectedInfo: RepositoryInfo{
 				LooseObjects: LooseObjectsInfo{
@@ -210,7 +208,7 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 				repoPath, err := repo.Path()
 				require.NoError(t, err)
 
-				blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("x"))
+				blobID := localrepo.WriteTestBlob(t, repo, "", "x")
 
 				gittest.WriteRef(t, cfg, repoPath, "refs/tags/blob", blobID)
 				// We use `-d`, which also prunes objects that have been packed.
@@ -233,7 +231,7 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 				repoPath, err := repo.Path()
 				require.NoError(t, err)
 
-				blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("x"))
+				blobID := localrepo.WriteTestBlob(t, repo, "", "x")
 
 				gittest.WriteRef(t, cfg, repoPath, "refs/tags/blob", blobID)
 				// This time we don't use `-d`, so the object will exist both in
@@ -379,7 +377,7 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 				require.NoError(t, os.WriteFile(infoAlternatesPath, []byte(alternatePath), 0o600))
 
 				// We write a single packed blob.
-				blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("x"))
+				blobID := localrepo.WriteTestBlob(t, repo, "", "x")
 				gittest.WriteRef(t, cfg, repoPath, "refs/tags/blob", blobID)
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
 

@@ -340,8 +340,10 @@ func TestInstance_Stats(t *testing.T) {
 					SkipCreationViaService: true,
 				})
 
-				emptyBlob := gittest.WriteBlob(t, cfg, repoPath, []byte{})
-				commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithTreeEntries(
+				repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+				emptyBlob := localrepo.WriteTestBlob(t, repo, "", "")
+				commitID := localrepo.WriteTestCommit(t, repo, localrepo.WithTreeEntries(
 					localrepo.TreeEntry{Path: "README.md", Mode: "100644", Content: "Hello world!"},
 					localrepo.TreeEntry{Path: "index.html", Mode: "100644", OID: emptyBlob},
 					localrepo.TreeEntry{Path: "app.js", Mode: "100644", OID: emptyBlob},

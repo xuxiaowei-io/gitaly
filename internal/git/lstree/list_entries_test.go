@@ -22,7 +22,7 @@ func TestListEntries(t *testing.T) {
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("blob contents"))
+	blobID := localrepo.WriteTestBlob(t, repo, "", "blob contents")
 	emptyTreeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{})
 	treeWithBlob := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 		{OID: blobID, Mode: "100644", Path: "nonexecutable"},

@@ -203,24 +203,27 @@ func TestResolveConflictsWithRemoteRepo(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	hookManager := hook.NewMockManager(t, hook.NopPreReceive, hook.NopPostReceive, hook.NopUpdate, hook.NopReferenceTransaction)
-	cfg, sourceRepo, sourceRepoPath, client := setupConflictsService(t, ctx, hookManager)
+	cfg, sourceRepoProto, sourceRepoPath, client := setupConflictsService(t, ctx, hookManager)
+	sourceRepo := localrepo.NewTestRepo(t, cfg, sourceRepoProto)
 
 	testcfg.BuildGitalySSH(t, cfg)
 	testcfg.BuildGitalyHooks(t, cfg)
 
-	sourceBlobOID := gittest.WriteBlob(t, cfg, sourceRepoPath, []byte("contents-1\n"))
-	sourceCommitOID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, sourceRepo),
+	sourceBlobOID := localrepo.WriteTestBlob(t, sourceRepo, "", "contents-1\n")
+	sourceCommitOID := localrepo.WriteTestCommit(t, sourceRepo,
 		localrepo.WithTreeEntries(localrepo.TreeEntry{
 			Path: "file.txt", OID: sourceBlobOID, Mode: "100644",
 		}))
 
 	gittest.Exec(t, cfg, "-C", sourceRepoPath, "update-ref", "refs/heads/source", sourceCommitOID.String())
 
-	targetRepo, targetRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	targetRepoProto, targetRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
-	targetBlobOID := gittest.WriteBlob(t, cfg, targetRepoPath, []byte("contents-2\n"))
-	targetCommitOID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, targetRepo),
+	targetRepo := localrepo.NewTestRepo(t, cfg, targetRepoProto)
+
+	targetBlobOID := localrepo.WriteTestBlob(t, targetRepo, "", "contents-2\n")
+	targetCommitOID := localrepo.WriteTestCommit(t, targetRepo,
 		localrepo.WithTreeEntries(localrepo.TreeEntry{
 			OID: targetBlobOID, Path: "file.txt", Mode: "100644",
 		}))
@@ -246,8 +249,8 @@ func TestResolveConflictsWithRemoteRepo(t *testing.T) {
 	require.NoError(t, stream.Send(&gitalypb.ResolveConflictsRequest{
 		ResolveConflictsRequestPayload: &gitalypb.ResolveConflictsRequest_Header{
 			Header: &gitalypb.ResolveConflictsRequestHeader{
-				Repository:       sourceRepo,
-				TargetRepository: targetRepo,
+				Repository:       sourceRepoProto,
+				TargetRepository: targetRepoProto,
 				CommitMessage:    []byte(conflictResolutionCommitMessage),
 				OurCommitOid:     sourceCommitOID.String(),
 				TheirCommitOid:   targetCommitOID.String(),
@@ -339,7 +342,7 @@ func TestResolveConflictsLineEndings(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ourOID := gittest.WriteBlob(t, cfg, repoPath, []byte(tc.ourContent))
+			ourOID := localrepo.WriteTestBlob(t, repo, "", tc.ourContent)
 			ourCommit := localrepo.WriteTestCommit(t, repo,
 				localrepo.WithTreeEntries(localrepo.TreeEntry{
 					OID: ourOID, Path: "file.txt", Mode: "100644",
@@ -347,7 +350,7 @@ func TestResolveConflictsLineEndings(t *testing.T) {
 
 			gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/ours", ourCommit.String())
 
-			theirOID := gittest.WriteBlob(t, cfg, repoPath, []byte(tc.theirContent))
+			theirOID := localrepo.WriteTestBlob(t, repo, "", tc.theirContent)
 			theirCommit := localrepo.WriteTestCommit(t, repo,
 				localrepo.WithTreeEntries(localrepo.TreeEntry{
 					OID: theirOID, Path: "file.txt", Mode: "100644",
@@ -814,8 +817,10 @@ func TestResolveConflictsQuarantine(t *testing.T) {
 	testcfg.BuildGitalySSH(t, cfg)
 	testcfg.BuildGitalyHooks(t, cfg)
 
-	sourceBlobOID := gittest.WriteBlob(t, cfg, sourceRepoPath, []byte("contents-1\n"))
-	sourceCommitOID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, sourceRepoProto),
+	sourceRepo := localrepo.NewTestRepo(t, cfg, sourceRepoProto)
+
+	sourceBlobOID := localrepo.WriteTestBlob(t, sourceRepo, "", "contents-1\n")
+	sourceCommitOID := localrepo.WriteTestCommit(t, sourceRepo,
 		localrepo.WithParents("1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"),
 		localrepo.WithTreeEntries(localrepo.TreeEntry{
 			Path: "file.txt", OID: sourceBlobOID, Mode: "100644",
@@ -837,8 +842,9 @@ func TestResolveConflictsQuarantine(t *testing.T) {
 	targetRepoProto, targetRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
-	targetBlobOID := gittest.WriteBlob(t, cfg, targetRepoPath, []byte("contents-2\n"))
-	targetCommitOID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, targetRepoProto),
+	targetRepo := localrepo.NewTestRepo(t, cfg, targetRepoProto)
+	targetBlobOID := localrepo.WriteTestBlob(t, targetRepo, "", "contents-2\n")
+	targetCommitOID := localrepo.WriteTestCommit(t, targetRepo,
 		localrepo.WithParents("1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"),
 		localrepo.WithTreeEntries(localrepo.TreeEntry{
 			Path: "file.txt", OID: targetBlobOID, Mode: "100644",

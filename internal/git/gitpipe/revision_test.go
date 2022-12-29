@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -27,13 +28,13 @@ func TestRevlist(t *testing.T) {
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	blobA := gittest.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("a"), 133))
-	blobB := gittest.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("b"), 127))
-	blobC := gittest.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("c"), 127))
-	blobD := gittest.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("d"), 129))
+	blobA := localrepo.WriteTestBlob(t, repo, "", strings.Repeat("a", 133))
+	blobB := localrepo.WriteTestBlob(t, repo, "", strings.Repeat("b", 127))
+	blobC := localrepo.WriteTestBlob(t, repo, "", strings.Repeat("c", 127))
+	blobD := localrepo.WriteTestBlob(t, repo, "", strings.Repeat("d", 129))
 
-	blob := gittest.WriteBlob(t, cfg, repoPath, []byte("a"))
-	subblob := gittest.WriteBlob(t, cfg, repoPath, []byte("larger blob"))
+	blob := localrepo.WriteTestBlob(t, repo, "", "a")
+	subblob := localrepo.WriteTestBlob(t, repo, "", "larger blob")
 
 	treeA := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 		{Path: "branch-test.txt", Mode: "100644", OID: blob},

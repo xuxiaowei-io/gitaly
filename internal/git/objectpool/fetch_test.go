@@ -27,10 +27,13 @@ func TestFetchFromOrigin_dangling(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, pool, repo := setupObjectPool(t, ctx)
 	poolPath := gittest.RepositoryPath(t, pool)
-	repoPath := gittest.RepositoryPath(t, repo)
 
 	// Write some reachable objects into the object pool member and fetch them into the pool.
-	blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("contents"))
+	blobID := localrepo.WriteTestBlob(t, repo, "", "contents")
+
+	repoPath, err := repo.Path()
+	require.NoError(t, err)
+
 	treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 		{Mode: "100644", OID: blobID, Path: "reachable"},
 	})
@@ -42,7 +45,7 @@ func TestFetchFromOrigin_dangling(t *testing.T) {
 
 	// We now write a bunch of objects into the object pool that are not referenced by anything.
 	// These are thus "dangling".
-	unreachableBlob := gittest.WriteBlob(t, cfg, poolPath, []byte("unreachable"))
+	unreachableBlob := localrepo.WriteTestBlob(t, pool.Repo, "", "unreachable")
 	unreachableTree := gittest.WriteTree(t, cfg, poolPath, []gittest.TreeEntry{
 		{Mode: "100644", OID: blobID, Path: "unreachable"},
 	})

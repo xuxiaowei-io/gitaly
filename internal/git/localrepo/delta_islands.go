@@ -74,7 +74,7 @@ func commitBlob(t *testing.T, cfg config.Cfg, repo *Repo, ref string, content st
 	repoPath, err := repo.Path()
 	require.NoError(t, err)
 
-	blobID := gittest.WriteBlob(t, cfg, repoPath, []byte(content))
+	blobID := WriteTestBlob(t, repo, "", content)
 
 	// No parent, that means this will be an initial commit. Not very
 	// realistic but it doesn't matter for delta compression.

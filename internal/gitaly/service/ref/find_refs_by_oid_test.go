@@ -178,10 +178,10 @@ func TestFindRefsByOID_failure(t *testing.T) {
 		{
 			desc: "oid is not a commit",
 			setup: func(t *testing.T) (*gitalypb.FindRefsByOIDRequest, error) {
-				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					Seed: gittest.SeedGitLabTest,
 				})
-				oid := gittest.WriteBlob(t, cfg, repoPath, []byte("the blob"))
+				oid := localrepo.WriteTestBlob(t, localrepo.NewTestRepo(t, cfg, repo), "", "the blob")
 
 				return &gitalypb.FindRefsByOIDRequest{
 					Repository: repo,
