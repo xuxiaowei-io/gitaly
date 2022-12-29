@@ -567,8 +567,8 @@ func TestPruneIfNeeded(t *testing.T) {
 
 	// Write two blobs, one recent blob and one blob that is older than two weeks and that would
 	// thus get pruned.
-	recentBlobID := gittest.WriteBlob(t, cfg, repoPath, []byte("recent"))
-	staleBlobID := gittest.WriteBlob(t, cfg, repoPath, []byte("stale"))
+	recentBlobID := localrepo.MustWriteBlob(t, repo, "", "recent")
+	staleBlobID := localrepo.MustWriteBlob(t, repo, "", "stale")
 	twoWeeksAgo := time.Now().Add(-1 * 2 * 7 * 24 * time.Hour)
 	require.NoError(t, os.Chtimes(objectPath(staleBlobID), twoWeeksAgo, twoWeeksAgo))
 

@@ -518,8 +518,8 @@ func testUploadPackSuccessful(t *testing.T, sidechannel bool, opts ...testcfg.Op
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
-	smallBlobID := gittest.WriteBlob(t, cfg, repoPath, []byte("foobar"))
-	largeBlobID := gittest.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("1"), 2048))
+	smallBlobID := localrepo.MustWriteBlob(t, repo, "", "foobar")
+	largeBlobID := localrepo.MustWriteBlob(t, repo, "", strings.Repeat("1", 2048))
 
 	// We set up the commits so that HEAD does not reference the above two blobs. If it did we'd
 	// fetch the blobs regardless of `--filter=blob:limit`.

@@ -781,8 +781,9 @@ func TestUserCreateTag_nonCommitTarget(t *testing.T) {
 	ctx := testhelper.Context(t)
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
-	blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("content"))
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	blobID := localrepo.MustWriteBlob(t, repo, "", "content")
 	treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 		{Path: "file", Mode: "100644", Content: "something"},
 	})
@@ -845,7 +846,7 @@ func TestUserCreateTag_nonCommitTarget(t *testing.T) {
 			writeAssertObjectTypeUpdateHook(t, repoPath, tc.expectedObjectType)
 
 			response, err := client.UserCreateTag(ctx, &gitalypb.UserCreateTagRequest{
-				Repository:     repo,
+				Repository:     repoProto,
 				TagName:        []byte(tc.tagName),
 				TargetRevision: []byte(tc.targetRevision),
 				User:           gittest.TestUser,
