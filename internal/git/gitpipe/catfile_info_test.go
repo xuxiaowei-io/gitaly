@@ -1,10 +1,10 @@
 package gitpipe
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -27,12 +27,12 @@ func TestCatfileInfo(t *testing.T) {
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	blobA := gittest.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("a"), 133))
-	blobB := gittest.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("b"), 127))
-	blobC := gittest.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("c"), 127))
-	blobD := gittest.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("d"), 129))
+	blobA := repo.MustWriteBlob(t, strings.Repeat("a", 133))
+	blobB := repo.MustWriteBlob(t, strings.Repeat("b", 127))
+	blobC := repo.MustWriteBlob(t, strings.Repeat("c", 127))
+	blobD := repo.MustWriteBlob(t, strings.Repeat("d", 129))
 
-	blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("contents"))
+	blobID := repo.MustWriteBlob(t, "contents")
 	treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 		{Path: "branch-test.txt", Mode: "100644", OID: blobID},
 	})
@@ -291,8 +291,8 @@ func TestCatfileInfoAllObjects(t *testing.T) {
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	blob1 := gittest.WriteBlob(t, cfg, repoPath, []byte("foobar"))
-	blob2 := gittest.WriteBlob(t, cfg, repoPath, []byte("barfoo"))
+	blob1 := repo.MustWriteBlob(t, "foobar")
+	blob2 := repo.MustWriteBlob(t, "barfoo")
 	tree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 		{Path: "foobar", Mode: "100644", OID: blob1},
 	})
@@ -352,7 +352,7 @@ func TestCatfileInfo_WithDiskUsageSize(t *testing.T) {
 		{
 			Path: "foobar",
 			Mode: "100644",
-			OID:  gittest.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("a"), 100)),
+			OID:  repo.MustWriteBlob(t, strings.Repeat("a", 100)),
 		},
 	})
 	initialCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(tree1))
@@ -362,10 +362,7 @@ func TestCatfileInfo_WithDiskUsageSize(t *testing.T) {
 			Path: "foobar",
 			Mode: "100644",
 			// take advantage of compression
-			OID: gittest.WriteBlob(t, cfg, repoPath, append(bytes.Repeat([]byte("a"), 100),
-				'\n',
-				'b',
-			)),
+			OID: repo.MustWriteBlob(t, strings.Repeat("a", 100)+"\nb"),
 		},
 	})
 	gittest.WriteCommit(

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -27,29 +28,31 @@ func TestRevlist(t *testing.T) {
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	blobA := gittest.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("a"), 133))
-	blobB := gittest.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("b"), 127))
-	blobC := gittest.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("c"), 127))
-	blobD := gittest.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("d"), 129))
+	blobA := repo.MustWriteBlob(t, strings.Repeat("a", 133))
+	blobB := repo.MustWriteBlob(t, strings.Repeat("b", 127))
+	blobC := repo.MustWriteBlob(t, strings.Repeat("c", 127))
+	blobD := repo.MustWriteBlob(t, strings.Repeat("d", 129))
 
-	blob := gittest.WriteBlob(t, cfg, repoPath, []byte("a"))
-	subblob := gittest.WriteBlob(t, cfg, repoPath, []byte("larger blob"))
+	blob := repo.MustWriteBlob(t, "a")
+	subblob := repo.MustWriteBlob(t, "larger blob")
 
 	treeA := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 		{Path: "branch-test.txt", Mode: "100644", OID: blob},
 	})
+
 	commitA := gittest.WriteCommit(t, cfg, repoPath,
 		gittest.WithTree(treeA),
-		gittest.WithCommitterDate(time.Date(2000, 1, 1, 1, 1, 1, 1, time.UTC)),
-	)
+		gittest.WithCommitterDate(time.Date(2000, 1, 1, 1, 1, 1, 1, time.UTC)))
 
 	subtree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 		{Path: "subblob", Mode: "100644", OID: subblob},
 	})
+
 	treeB := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 		{Path: "branch-test.txt", Mode: "100644", OID: blob},
 		{Path: "subtree", Mode: "040000", OID: subtree},
 	})
+
 	commitB := gittest.WriteCommit(t, cfg, repoPath,
 		gittest.WithParents(commitA),
 		gittest.WithTree(treeB),

@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
@@ -111,19 +112,19 @@ func TestGarbageCollectWithPrune(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
+	cfg, repoProto, repoPath, client := setupRepositoryService(t, ctx)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	blobHashes := gittest.WriteBlobs(t, cfg, repoPath, 3)
-	oldDanglingObjFile := filepath.Join(repoPath, "objects", blobHashes[0][:2], blobHashes[0][2:])
-	newDanglingObjFile := filepath.Join(repoPath, "objects", blobHashes[1][:2], blobHashes[1][2:])
-	oldReferencedObjFile := filepath.Join(repoPath, "objects", blobHashes[2][:2], blobHashes[2][2:])
+	blobHashes := repo.MustWriteBlobs(t, 3)
+	oldDanglingObjFile := filepath.Join(repoPath, "objects", string(blobHashes[0][:2]), string(blobHashes[0][2:]))
+	newDanglingObjFile := filepath.Join(repoPath, "objects", string(blobHashes[1][:2]), string(blobHashes[1][2:]))
+	oldReferencedObjFile := filepath.Join(repoPath, "objects", string(blobHashes[2][:2]), string(blobHashes[2][2:]))
 
 	// create a reference to the blob, so it should not be removed by gc
 	gittest.WriteCommit(t, cfg, repoPath,
 		gittest.WithTreeEntries(gittest.TreeEntry{
-			OID: git.ObjectID(blobHashes[2]), Path: "blob-name", Mode: "100644",
-		}),
-	)
+			OID: blobHashes[2], Path: "blob-name", Mode: "100644",
+		}))
 
 	// change modification time of the blobs to make them attractive for the gc
 	aBitMoreThan30MinutesAgo := time.Now().Add(-30*time.Minute - time.Second)
@@ -134,14 +135,14 @@ func TestGarbageCollectWithPrune(t *testing.T) {
 
 	// Prune option has no effect when disabled
 	//nolint:staticcheck
-	c, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: repo, Prune: false})
+	c, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: repoProto, Prune: false})
 	require.NoError(t, err)
 	require.NotNil(t, c)
 	require.FileExists(t, oldDanglingObjFile, "blob should not be removed from object storage as it was modified less then 2 weeks ago")
 
 	// Prune option has effect when enabled
 	//nolint:staticcheck
-	c, err = client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: repo, Prune: true})
+	c, err = client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: repoProto, Prune: true})
 	require.NoError(t, err)
 	require.NotNil(t, c)
 
@@ -566,11 +567,12 @@ func TestGarbageCollectDeltaIslands(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
+
+	cfg, repoProto, repoPath, client := setupRepositoryService(t, ctx)
 
 	gittest.TestDeltaIslands(t, cfg, repoPath, repoPath, false, func() error {
 		//nolint:staticcheck
-		_, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: repo})
+		_, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: repoProto})
 		return err
 	})
 }

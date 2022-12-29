@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/quarantine"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -39,10 +40,10 @@ func TestListBlobs(t *testing.T) {
 	streamio.WriteBufferSize = 200
 	ctx := testhelper.Context(t)
 
-	cfg, repoProto, repoPath, client := setup(t, ctx)
+	cfg, repoProto, _, client := setup(t, ctx)
 
 	bigBlobContents := bytes.Repeat([]byte{1}, streamio.WriteBufferSize*2+1)
-	bigBlobOID := gittest.WriteBlob(t, cfg, repoPath, bigBlobContents)
+	bigBlobOID := localrepo.NewTestRepo(t, cfg, repoProto).MustWriteBlob(t, string(bigBlobContents))
 
 	for _, tc := range []struct {
 		desc          string
@@ -302,8 +303,8 @@ func TestListAllBlobs(t *testing.T) {
 
 	emptyRepo, _ := gittest.CreateRepository(t, ctx, cfg)
 
-	singleBlobRepo, singleBlobRepoPath := gittest.CreateRepository(t, ctx, cfg)
-	blobID := gittest.WriteBlob(t, cfg, singleBlobRepoPath, []byte("foobar"))
+	singleBlobRepo, _ := gittest.CreateRepository(t, ctx, cfg)
+	blobID := localrepo.NewTestRepo(t, cfg, singleBlobRepo).MustWriteBlob(t, "foobar")
 
 	for _, tc := range []struct {
 		desc    string

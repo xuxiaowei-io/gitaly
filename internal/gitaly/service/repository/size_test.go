@@ -3,8 +3,8 @@
 package repository
 
 import (
-	"bytes"
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/quarantine"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
@@ -108,9 +109,10 @@ func testSuccessfulRepositorySizeRequest(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
 	logger, hook := test.NewNullLogger()
-	cfg, repo, repoPath, client := setupRepositoryService(t, ctx, testserver.WithLogger(logger))
+	cfg, repoProto, repoPath, client := setupRepositoryService(t, ctx, testserver.WithLogger(logger))
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	request := &gitalypb.RepositorySizeRequest{Repository: repo}
+	request := &gitalypb.RepositorySizeRequest{Repository: repoProto}
 	response, err := client.RepositorySize(ctx, request)
 	require.NoError(t, err)
 
@@ -119,8 +121,8 @@ func testSuccessfulRepositorySizeRequest(t *testing.T, ctx context.Context) {
 		"repository size %d should be at least %d", response.Size, testRepoMinSizeKB,
 	)
 
-	blob := bytes.Repeat([]byte("a"), 1000)
-	blobOID := gittest.WriteBlob(t, cfg, repoPath, blob)
+	blob := strings.Repeat("a", 1000)
+	blobOID := repo.MustWriteBlob(t, blob)
 	treeOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 		{
 			OID:  blobOID,
