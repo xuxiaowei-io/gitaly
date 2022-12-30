@@ -41,8 +41,8 @@ func TestFetchSourceBranch(t *testing.T) {
 			setup: func(t *testing.T) setupData {
 				cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
-				commitID := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("master"))
+				sourceRepoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+				commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, sourceRepoProto), localrepo.WithBranch("master"))
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 				return setupData{
@@ -68,7 +68,7 @@ func TestFetchSourceBranch(t *testing.T) {
 				cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
-				commitID := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("master"))
+				commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, sourceRepoProto), localrepo.WithBranch("master"))
 
 				return setupData{
 					cfg:    cfg,
@@ -92,8 +92,8 @@ func TestFetchSourceBranch(t *testing.T) {
 			setup: func(t *testing.T) setupData {
 				cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
-				gittest.WriteCommit(t, cfg, sourceRepoPath)
+				sourceRepoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+				localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, sourceRepoProto))
 				repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
 
 				return setupData{
@@ -114,8 +114,8 @@ func TestFetchSourceBranch(t *testing.T) {
 			setup: func(t *testing.T) setupData {
 				cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
-				gittest.WriteCommit(t, cfg, sourceRepoPath)
+				sourceRepoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+				localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, sourceRepoProto))
 
 				return setupData{
 					cfg:    cfg,
@@ -261,8 +261,8 @@ func TestFetchSourceBranch(t *testing.T) {
 			setup: func(t *testing.T) setupData {
 				cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
-				gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("master"))
+				sourceRepoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+				localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, sourceRepoProto), localrepo.WithBranch("master"))
 				repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
 
 				return setupData{
@@ -282,8 +282,8 @@ func TestFetchSourceBranch(t *testing.T) {
 			setup: func(t *testing.T) setupData {
 				cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
-				gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("master"))
+				sourceRepoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+				localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, sourceRepoProto), localrepo.WithBranch("master"))
 				repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
 
 				return setupData{
@@ -304,8 +304,8 @@ func TestFetchSourceBranch(t *testing.T) {
 			setup: func(t *testing.T) setupData {
 				cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
-				gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("master"))
+				sourceRepoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+				localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, sourceRepoProto), localrepo.WithBranch("master"))
 				repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
 
 				return setupData{
@@ -326,8 +326,8 @@ func TestFetchSourceBranch(t *testing.T) {
 			setup: func(t *testing.T) setupData {
 				cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
-				gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("master"))
+				sourceRepoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+				localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, sourceRepoProto), localrepo.WithBranch("master"))
 				repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
 
 				return setupData{
@@ -348,8 +348,8 @@ func TestFetchSourceBranch(t *testing.T) {
 			setup: func(t *testing.T) setupData {
 				cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
-				gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("master"))
+				sourceRepoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+				localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, sourceRepoProto), localrepo.WithBranch("master"))
 				repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
 
 				return setupData{
@@ -388,8 +388,8 @@ func TestFetchSourceBranch(t *testing.T) {
 				client, serverSocketPath := runRepositoryService(t, cfg, nil, testserver.WithGitCommandFactory(gitCmdFactory))
 				cfg.SocketPath = serverSocketPath
 
-				sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
-				commitID := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("master"))
+				sourceRepoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+				commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, sourceRepoProto), localrepo.WithBranch("master"))
 				repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
 
 				return setupData{

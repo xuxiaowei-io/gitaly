@@ -441,9 +441,10 @@ func TestUserDeleteBranch(t *testing.T) {
 			desc: "simple successful deletion without ExpectedOldOID",
 			setup: func() setupResponse {
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-				firstCommit := gittest.WriteCommit(t, cfg, repoPath)
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithParents(firstCommit))
+				firstCommit := localrepo.WriteTestCommit(t, repo)
+				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("master"), localrepo.WithParents(firstCommit))
 
 				gittest.Exec(t, cfg, "-C", repoPath, "branch", "to-attempt-to-delete-soon-branch", "master")
 
@@ -463,9 +464,10 @@ func TestUserDeleteBranch(t *testing.T) {
 			desc: "simple successful deletion with ExpectedOldOID",
 			setup: func() setupResponse {
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-				firstCommit := gittest.WriteCommit(t, cfg, repoPath)
-				headCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithParents(firstCommit))
+				firstCommit := localrepo.WriteTestCommit(t, repo)
+				headCommit := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("master"), localrepo.WithParents(firstCommit))
 
 				gittest.Exec(t, cfg, "-C", repoPath, "branch", "to-attempt-to-delete-soon-branch", "master")
 
@@ -488,9 +490,10 @@ func TestUserDeleteBranch(t *testing.T) {
 				branchName := "heads/to-attempt-to-delete-soon-branch"
 
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-				firstCommit := gittest.WriteCommit(t, cfg, repoPath)
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithParents(firstCommit))
+				firstCommit := localrepo.WriteTestCommit(t, repo)
+				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("master"), localrepo.WithParents(firstCommit))
 
 				gittest.Exec(t, cfg, "-C", repoPath, "branch", branchName, "master")
 
@@ -512,9 +515,10 @@ func TestUserDeleteBranch(t *testing.T) {
 				branchName := "refs/heads/branch"
 
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-				firstCommit := gittest.WriteCommit(t, cfg, repoPath)
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithParents(firstCommit))
+				firstCommit := localrepo.WriteTestCommit(t, repo)
+				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("master"), localrepo.WithParents(firstCommit))
 
 				gittest.Exec(t, cfg, "-C", repoPath, "branch", branchName, "master")
 
@@ -536,9 +540,10 @@ func TestUserDeleteBranch(t *testing.T) {
 				branchName := "random-branch"
 
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-				firstCommit := gittest.WriteCommit(t, cfg, repoPath)
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithParents(firstCommit))
+				firstCommit := localrepo.WriteTestCommit(t, repo)
+				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("master"), localrepo.WithParents(firstCommit))
 
 				gittest.Exec(t, cfg, "-C", repoPath, "branch", branchName, "master")
 
@@ -561,9 +566,10 @@ func TestUserDeleteBranch(t *testing.T) {
 				branchName := "random-branch"
 
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-				firstCommit := gittest.WriteCommit(t, cfg, repoPath)
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithParents(firstCommit))
+				firstCommit := localrepo.WriteTestCommit(t, repo)
+				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("master"), localrepo.WithParents(firstCommit))
 
 				gittest.Exec(t, cfg, "-C", repoPath, "branch", branchName, "master")
 
@@ -586,9 +592,10 @@ func TestUserDeleteBranch(t *testing.T) {
 				branchName := "random-branch"
 
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-				firstCommit := gittest.WriteCommit(t, cfg, repoPath)
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithParents(firstCommit))
+				firstCommit := localrepo.WriteTestCommit(t, repo)
+				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("master"), localrepo.WithParents(firstCommit))
 
 				gittest.Exec(t, cfg, "-C", repoPath, "branch", branchName, "master")
 
@@ -698,11 +705,13 @@ func TestUserDeleteBranch_allowed(t *testing.T) {
 				gitlab.NewMockClient(t, tc.allowed, gitlab.MockPreReceive, gitlab.MockPostReceive),
 			))
 
-			repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
-			gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"))
+			repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+			repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+			localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("branch"))
 
 			response, err := client.UserDeleteBranch(ctx, &gitalypb.UserDeleteBranchRequest{
-				Repository: repo,
+				Repository: repoProto,
 				BranchName: []byte("branch"),
 				User:       gittest.TestUser,
 			})
@@ -717,9 +726,9 @@ func TestUserDeleteBranch_concurrentUpdate(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, repo, _, client := setupOperationsService(t, ctx)
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("concurrent-update"))
+	commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithBranch("concurrent-update"))
 
 	// Create a git-update-ref(1) process that's locking the "concurrent-update" branch. We do
 	// not commit the update yet though to keep the reference locked to simulate concurrent

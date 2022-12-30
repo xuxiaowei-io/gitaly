@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -52,16 +53,10 @@ func testWriteCommitGraphWithExistingCommitGraphCreatedWithDefaults(t *testing.T
 				Exists:            true,
 				HasGenerationData: tc.commitGraphVersion == "2",
 			})
-
-			treeEntry := gittest.TreeEntry{Mode: "100644", Path: "file.txt", Content: "something"}
-			gittest.WriteCommit(
-				t,
-				cfg,
-				repoPath,
-				gittest.WithBranch(t.Name()),
-				gittest.WithTreeEntries(treeEntry),
-			)
-
+			treeEntry := localrepo.TreeEntry{Mode: "100644", Path: "file.txt", Content: "something"}
+			localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo),
+				localrepo.WithBranch(t.Name()),
+				localrepo.WithTreeEntries(treeEntry))
 			//nolint:staticcheck
 			res, err := client.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{
 				Repository:    repo,
@@ -118,14 +113,10 @@ func testWriteCommitGraphWithExistingCommitGraphCreatedWithSplit(t *testing.T, c
 				HasGenerationData:      tc.commitGraphVersion == "2",
 			})
 
-			treeEntry := gittest.TreeEntry{Mode: "100644", Path: "file.txt", Content: "something"}
-			gittest.WriteCommit(
-				t,
-				cfg,
-				repoPath,
-				gittest.WithBranch(t.Name()),
-				gittest.WithTreeEntries(treeEntry),
-			)
+			treeEntry := localrepo.TreeEntry{Mode: "100644", Path: "file.txt", Content: "something"}
+			localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo),
+				localrepo.WithBranch(t.Name()),
+				localrepo.WithTreeEntries(treeEntry))
 
 			//nolint:staticcheck
 			res, err := client.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{
@@ -256,14 +247,10 @@ func testUpdateCommitGraph(t *testing.T, ctx context.Context) {
 		CommitGraphChainLength: 1,
 	})
 
-	treeEntry := gittest.TreeEntry{Mode: "100644", Path: "file.txt", Content: "something"}
-	gittest.WriteCommit(
-		t,
-		cfg,
-		repoPath,
-		gittest.WithBranch(t.Name()),
-		gittest.WithTreeEntries(treeEntry),
-	)
+	treeEntry := localrepo.TreeEntry{Mode: "100644", Path: "file.txt", Content: "something"}
+	localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo),
+		localrepo.WithBranch(t.Name()),
+		localrepo.WithTreeEntries(treeEntry))
 
 	//nolint:staticcheck
 	res, err = client.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{

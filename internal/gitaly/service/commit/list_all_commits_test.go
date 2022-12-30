@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -116,9 +117,8 @@ func TestListAllCommits(t *testing.T) {
 
 		// We cannot easily spawn a command with an object directory, so we just do so
 		// manually here and write the commit into the quarantine object directory.
-		commitID := gittest.WriteCommit(t, cfg, repoPath,
-			gittest.WithAlternateObjectDirectory(filepath.Join(repoPath, quarantineDir)),
-		)
+		commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo),
+			localrepo.WithAlternateObjectDirectory(filepath.Join(repoPath, quarantineDir)))
 
 		// We now expect only the quarantined commit to be returned.
 		stream, err = client.ListAllCommits(ctx, &gitalypb.ListAllCommitsRequest{

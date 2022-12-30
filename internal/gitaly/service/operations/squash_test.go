@@ -328,40 +328,35 @@ func TestUserSquash_renames(t *testing.T) {
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
-
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
-
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+	localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
 
 	originalFilename := "original-file.txt"
 	renamedFilename := "renamed-file.txt"
 
-	rootCommitID := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithTreeEntries(
-			gittest.TreeEntry{Path: originalFilename, Mode: "100644", Content: "This is a test"},
-		),
-	)
+	rootCommitID := localrepo.WriteTestCommit(t, repo,
+		localrepo.WithTreeEntries(
+			localrepo.TreeEntry{Path: originalFilename, Mode: "100644", Content: "This is a test"},
+		))
 
-	startCommitID := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithParents(rootCommitID),
-		gittest.WithTreeEntries(
-			gittest.TreeEntry{Path: renamedFilename, Mode: "100644", Content: "This is a test"},
-		),
-	)
+	startCommitID := localrepo.WriteTestCommit(t, repo,
+		localrepo.WithParents(rootCommitID),
+		localrepo.WithTreeEntries(
+			localrepo.TreeEntry{Path: renamedFilename, Mode: "100644", Content: "This is a test"},
+		))
 
-	changedCommitID := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithParents(rootCommitID),
-		gittest.WithTreeEntries(
-			gittest.TreeEntry{Path: originalFilename, Mode: "100644", Content: "This is a change"},
-		),
-	)
+	changedCommitID := localrepo.WriteTestCommit(t, repo,
+		localrepo.WithParents(rootCommitID),
+		localrepo.WithTreeEntries(
+			localrepo.TreeEntry{Path: originalFilename, Mode: "100644", Content: "This is a change"},
+		))
 
-	endCommitID := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithParents(changedCommitID),
-		gittest.WithTreeEntries(
-			gittest.TreeEntry{Path: originalFilename, Mode: "100644", Content: "This is another change"},
-		),
-	)
+	endCommitID := localrepo.WriteTestCommit(t, repo,
+		localrepo.WithParents(changedCommitID),
+		localrepo.WithTreeEntries(
+			localrepo.TreeEntry{Path: originalFilename, Mode: "100644", Content: "This is another change"},
+		))
 
 	request := &gitalypb.UserSquashRequest{
 		Repository:    repoProto,
@@ -421,25 +416,25 @@ func TestUserSquash_emptyCommit(t *testing.T) {
 
 	// Set up history with two diverging lines of branches, where both sides have implemented
 	// the same changes. During merge, the diff will thus become empty.
-	base := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithTreeEntries(
-			gittest.TreeEntry{Path: "a", Content: "base", Mode: "100644"},
+	base := localrepo.WriteTestCommit(t, repo,
+		localrepo.WithTreeEntries(
+			localrepo.TreeEntry{Path: "a", Content: "base", Mode: "100644"},
+		))
+
+	theirs := localrepo.WriteTestCommit(t, repo, localrepo.WithMessage("theirs"),
+		localrepo.WithParents(base), localrepo.WithTreeEntries(
+			localrepo.TreeEntry{Path: "a", Content: "changed", Mode: "100644"},
 		),
 	)
-	theirs := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("theirs"),
-		gittest.WithParents(base), gittest.WithTreeEntries(
-			gittest.TreeEntry{Path: "a", Content: "changed", Mode: "100644"},
+	ours := localrepo.WriteTestCommit(t, repo, localrepo.WithMessage("ours"),
+		localrepo.WithParents(base), localrepo.WithTreeEntries(
+			localrepo.TreeEntry{Path: "a", Content: "changed", Mode: "100644"},
 		),
 	)
-	ours := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("ours"),
-		gittest.WithParents(base), gittest.WithTreeEntries(
-			gittest.TreeEntry{Path: "a", Content: "changed", Mode: "100644"},
-		),
-	)
-	oursWithAdditionalChanges := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("ours"),
-		gittest.WithParents(ours), gittest.WithTreeEntries(
-			gittest.TreeEntry{Path: "a", Content: "changed", Mode: "100644"},
-			gittest.TreeEntry{Path: "ours", Content: "ours", Mode: "100644"},
+	oursWithAdditionalChanges := localrepo.WriteTestCommit(t, repo, localrepo.WithMessage("ours"),
+		localrepo.WithParents(ours), localrepo.WithTreeEntries(
+			localrepo.TreeEntry{Path: "a", Content: "changed", Mode: "100644"},
+			localrepo.TreeEntry{Path: "ours", Content: "ours", Mode: "100644"},
 		),
 	)
 
@@ -617,25 +612,26 @@ func TestUserSquash_conflicts(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	base := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-		gittest.TreeEntry{Path: "a", Mode: "100644", Content: "unchanged"},
-		gittest.TreeEntry{Path: "b", Mode: "100644", Content: "base"},
+	base := localrepo.WriteTestCommit(t, repo, localrepo.WithTreeEntries(
+		localrepo.TreeEntry{Path: "a", Mode: "100644", Content: "unchanged"},
+		localrepo.TreeEntry{Path: "b", Mode: "100644", Content: "base"},
 	))
 
-	ours := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(base), gittest.WithTreeEntries(
-		gittest.TreeEntry{Path: "a", Mode: "100644", Content: "unchanged"},
-		gittest.TreeEntry{Path: "b", Mode: "100644", Content: "ours"},
+	ours := localrepo.WriteTestCommit(t, repo, localrepo.WithParents(base), localrepo.WithTreeEntries(
+		localrepo.TreeEntry{Path: "a", Mode: "100644", Content: "unchanged"},
+		localrepo.TreeEntry{Path: "b", Mode: "100644", Content: "ours"},
 	))
 
-	theirs := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(base), gittest.WithTreeEntries(
-		gittest.TreeEntry{Path: "a", Mode: "100644", Content: "unchanged"},
-		gittest.TreeEntry{Path: "b", Mode: "100644", Content: "theirs"},
+	theirs := localrepo.WriteTestCommit(t, repo, localrepo.WithParents(base), localrepo.WithTreeEntries(
+		localrepo.TreeEntry{Path: "a", Mode: "100644", Content: "unchanged"},
+		localrepo.TreeEntry{Path: "b", Mode: "100644", Content: "theirs"},
 	))
 
 	response, err := client.UserSquash(ctx, &gitalypb.UserSquashRequest{
-		Repository:    repo,
+		Repository:    repoProto,
 		User:          gittest.TestUser,
 		Author:        gittest.TestUser,
 		CommitMessage: commitMessage,
@@ -665,22 +661,23 @@ func TestUserSquash_ancestry(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	// We create an empty parent commit and two commits which both branch off from it. As a
 	// result, they are not direct ancestors of each other.
-	parent := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("p"), gittest.WithTreeEntries())
-	commit1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("1"),
-		gittest.WithTreeEntries(gittest.TreeEntry{Path: "a", Mode: "100644", Content: "a-content"}),
-		gittest.WithParents(parent),
+	parent := localrepo.WriteTestCommit(t, repo, localrepo.WithMessage("p"), localrepo.WithTreeEntries())
+	commit1 := localrepo.WriteTestCommit(t, repo, localrepo.WithMessage("1"),
+		localrepo.WithTreeEntries(localrepo.TreeEntry{Path: "a", Mode: "100644", Content: "a-content"}),
+		localrepo.WithParents(parent),
 	)
-	commit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("2"),
-		gittest.WithTreeEntries(gittest.TreeEntry{Path: "b", Mode: "100644", Content: "b-content"}),
-		gittest.WithParents(parent),
+	commit2 := localrepo.WriteTestCommit(t, repo, localrepo.WithMessage("2"),
+		localrepo.WithTreeEntries(localrepo.TreeEntry{Path: "b", Mode: "100644", Content: "b-content"}),
+		localrepo.WithParents(parent),
 	)
 
 	response, err := client.UserSquash(ctx, &gitalypb.UserSquashRequest{
-		Repository:    repo,
+		Repository:    repoProto,
 		User:          gittest.TestUser,
 		Author:        gittest.TestUser,
 		CommitMessage: commitMessage,
@@ -800,29 +797,30 @@ func TestUserSquash_squashingMerge(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	base := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("base"),
-		gittest.WithTreeEntries(gittest.TreeEntry{Path: "a", Mode: "100644", Content: "base-content"}),
+	base := localrepo.WriteTestCommit(t, repo, localrepo.WithMessage("base"),
+		localrepo.WithTreeEntries(localrepo.TreeEntry{Path: "a", Mode: "100644", Content: "base-content"}))
+
+	ours := localrepo.WriteTestCommit(t, repo, localrepo.WithMessage("ours"),
+		localrepo.WithTreeEntries(localrepo.TreeEntry{Path: "a", Mode: "100644", Content: "ours-content"}),
+		localrepo.WithParents(base),
 	)
-	ours := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("ours"),
-		gittest.WithTreeEntries(gittest.TreeEntry{Path: "a", Mode: "100644", Content: "ours-content"}),
-		gittest.WithParents(base),
+	theirs := localrepo.WriteTestCommit(t, repo, localrepo.WithMessage("theirs"),
+		localrepo.WithTreeEntries(localrepo.TreeEntry{Path: "a", Mode: "100644", Content: "theirs-content"}),
+		localrepo.WithParents(base),
 	)
-	theirs := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("theirs"),
-		gittest.WithTreeEntries(gittest.TreeEntry{Path: "a", Mode: "100644", Content: "theirs-content"}),
-		gittest.WithParents(base),
+	oursMergedIntoTheirs := localrepo.WriteTestCommit(t, repo, localrepo.WithMessage("merge ours into theirs"),
+		localrepo.WithTreeEntries(localrepo.TreeEntry{Path: "a", Mode: "100644", Content: "ours-content\ntheirs-content"}),
+		localrepo.WithParents(theirs, ours),
 	)
-	oursMergedIntoTheirs := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("merge ours into theirs"),
-		gittest.WithTreeEntries(gittest.TreeEntry{Path: "a", Mode: "100644", Content: "ours-content\ntheirs-content"}),
-		gittest.WithParents(theirs, ours),
-	)
-	ours2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("ours 2"),
-		gittest.WithTreeEntries(
-			gittest.TreeEntry{Path: "a", Mode: "100644", Content: "ours-content"},
-			gittest.TreeEntry{Path: "ours-file", Mode: "100644", Content: "new-content"},
+	ours2 := localrepo.WriteTestCommit(t, repo, localrepo.WithMessage("ours 2"),
+		localrepo.WithTreeEntries(
+			localrepo.TreeEntry{Path: "a", Mode: "100644", Content: "ours-content"},
+			localrepo.TreeEntry{Path: "ours-file", Mode: "100644", Content: "new-content"},
 		),
-		gittest.WithParents(ours),
+		localrepo.WithParents(ours),
 	)
 
 	// We had conflicting commit on "ours" and on "theirs",
@@ -837,7 +835,7 @@ func TestUserSquash_squashingMerge(t *testing.T) {
 	//
 	// We're now squashing both commits from "theirs" onto "ours".
 	response, err := client.UserSquash(ctx, &gitalypb.UserSquashRequest{
-		Repository:    repo,
+		Repository:    repoProto,
 		User:          gittest.TestUser,
 		Author:        gittest.TestUser,
 		CommitMessage: commitMessage,

@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -25,7 +26,7 @@ func TestGetTreeEntries_curlyBraces(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, ctx)
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(gittest.TreeEntry{
+	commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithTreeEntries(localrepo.TreeEntry{
 		Path: "issue-46261", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 			{
 				Path: "folder", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
@@ -592,7 +593,7 @@ func TestGetTreeEntries_deepFlatpath(t *testing.T) {
 
 		treeID = gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{treeEntry})
 	}
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(treeID))
+	commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithTree(treeID))
 
 	// We make a non-recursive request which tries to fetch tree entrie for the tree structure
 	// we have created above. This should return a single entry, which is the directory we're
@@ -624,15 +625,14 @@ func TestGetTreeEntries_file(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, ctx)
+	cfg, repo, _, client := setupCommitServiceWithRepo(t, ctx)
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithTreeEntries(gittest.TreeEntry{
+	commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo),
+		localrepo.WithTreeEntries(localrepo.TreeEntry{
 			Mode:    "100644",
 			Path:    "README.md",
 			Content: "something with spaces in between",
-		}),
-	)
+		}))
 
 	// request entries of the tree with single-folder structure on each level
 	stream, err := client.GetTreeEntries(ctx, &gitalypb.GetTreeEntriesRequest{

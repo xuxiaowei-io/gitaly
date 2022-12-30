@@ -41,9 +41,10 @@ func TestUserRevert(t *testing.T) {
 		{
 			desc: "successful",
 			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
-				firstCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(branchName), gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
+				firstCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch(branchName), localrepo.WithTreeEntries(
+					localrepo.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
 				))
+
 				firstCommit, err := repo.ReadCommit(ctx, firstCommitID.Revision())
 				require.NoError(t, err)
 
@@ -64,9 +65,10 @@ func TestUserRevert(t *testing.T) {
 		{
 			desc: "nonexistent branch + start_repository == repository",
 			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
-				firstCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
+				firstCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("master"), localrepo.WithTreeEntries(
+					localrepo.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
 				))
+
 				firstCommit, err := repo.ReadCommit(ctx, firstCommitID.Revision())
 				require.NoError(t, err)
 
@@ -90,12 +92,13 @@ func TestUserRevert(t *testing.T) {
 		{
 			desc: "nonexistent branch + start_repository != repository",
 			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
-				startRepoProto, startRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				startRepoProto, _ := gittest.CreateRepository(t, ctx, cfg)
 				startRepo := localrepo.NewTestRepo(t, cfg, startRepoProto)
 
-				firstCommitID := gittest.WriteCommit(t, cfg, startRepoPath, gittest.WithBranch("master"), gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
+				firstCommitID := localrepo.WriteTestCommit(t, startRepo, localrepo.WithBranch("master"), localrepo.WithTreeEntries(
+					localrepo.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
 				))
+
 				firstCommit, err := startRepo.ReadCommit(ctx, firstCommitID.Revision())
 				require.NoError(t, err)
 
@@ -118,9 +121,10 @@ func TestUserRevert(t *testing.T) {
 		{
 			desc: "successful with dry run",
 			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
-				firstCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(branchName), gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
+				firstCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch(branchName), localrepo.WithTreeEntries(
+					localrepo.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
 				))
+
 				firstCommit, err := repo.ReadCommit(ctx, firstCommitID.Revision())
 				require.NoError(t, err)
 
@@ -143,9 +147,10 @@ func TestUserRevert(t *testing.T) {
 		{
 			desc: "nonexistent branch + start_repository == repository with dry run",
 			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
-				firstCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
+				firstCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("master"), localrepo.WithTreeEntries(
+					localrepo.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
 				))
+
 				firstCommit, err := repo.ReadCommit(ctx, firstCommitID.Revision())
 				require.NoError(t, err)
 
@@ -171,12 +176,13 @@ func TestUserRevert(t *testing.T) {
 		{
 			desc: "nonexistent branch + start_repository != repository with dry run",
 			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
-				startRepoProto, startRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				startRepoProto, _ := gittest.CreateRepository(t, ctx, cfg)
 				startRepo := localrepo.NewTestRepo(t, cfg, startRepoProto)
 
-				firstCommitID := gittest.WriteCommit(t, cfg, startRepoPath, gittest.WithBranch("master"), gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
+				firstCommitID := localrepo.WriteTestCommit(t, startRepo, localrepo.WithBranch("master"), localrepo.WithTreeEntries(
+					localrepo.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
 				))
+
 				firstCommit, err := startRepo.ReadCommit(ctx, firstCommitID.Revision())
 				require.NoError(t, err)
 
@@ -239,9 +245,10 @@ func TestUserRevert(t *testing.T) {
 		{
 			desc: "empty branch name",
 			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
-				firstCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(branchName), gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
+				firstCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch(branchName), localrepo.WithTreeEntries(
+					localrepo.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
 				))
+
 				firstCommit, err := repo.ReadCommit(ctx, firstCommitID.Revision())
 				require.NoError(t, err)
 
@@ -259,9 +266,10 @@ func TestUserRevert(t *testing.T) {
 		{
 			desc: "empty message",
 			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
-				firstCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(branchName), gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
+				firstCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch(branchName), localrepo.WithTreeEntries(
+					localrepo.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
 				))
+
 				firstCommit, err := repo.ReadCommit(ctx, firstCommitID.Revision())
 				require.NoError(t, err)
 
@@ -279,9 +287,10 @@ func TestUserRevert(t *testing.T) {
 		{
 			desc: "successful + expectedOldOID",
 			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
-				firstCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(branchName), gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
+				firstCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch(branchName), localrepo.WithTreeEntries(
+					localrepo.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
 				))
+
 				firstCommit, err := repo.ReadCommit(ctx, firstCommitID.Revision())
 				require.NoError(t, err)
 
@@ -303,9 +312,10 @@ func TestUserRevert(t *testing.T) {
 		{
 			desc: "successful + invalid expectedOldOID",
 			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
-				firstCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(branchName), gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
+				firstCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch(branchName), localrepo.WithTreeEntries(
+					localrepo.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
 				))
+
 				firstCommit, err := repo.ReadCommit(ctx, firstCommitID.Revision())
 				require.NoError(t, err)
 
@@ -325,9 +335,10 @@ func TestUserRevert(t *testing.T) {
 		{
 			desc: "expectedOldOID with valid SHA, but not present in repo",
 			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
-				firstCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(branchName), gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
+				firstCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch(branchName), localrepo.WithTreeEntries(
+					localrepo.TreeEntry{Path: "blob", Mode: "100644", Content: "foobar"},
 				))
+
 				firstCommit, err := repo.ReadCommit(ctx, firstCommitID.Revision())
 				require.NoError(t, err)
 
@@ -347,11 +358,12 @@ func TestUserRevert(t *testing.T) {
 		{
 			desc: "expectedOldOID pointing to old commit",
 			setup: func(t *testing.T, repoPath string, repoProto *gitalypb.Repository, repo *localrepo.Repo) setupData {
-				firstCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "blob", Mode: "100644", Content: "bar"},
+				firstCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithTreeEntries(
+					localrepo.TreeEntry{Path: "blob", Mode: "100644", Content: "bar"},
 				))
-				secondCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(firstCommitID), gittest.WithBranch(branchName), gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "bolb", Mode: "100644", Content: "foo"},
+
+				secondCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithParents(firstCommitID), localrepo.WithBranch(branchName), localrepo.WithTreeEntries(
+					localrepo.TreeEntry{Path: "bolb", Mode: "100644", Content: "foo"},
 				))
 				secondCommit, err := repo.ReadCommit(ctx, secondCommitID.Revision())
 				require.NoError(t, err)

@@ -30,12 +30,12 @@ func testLink(t *testing.T, ctx context.Context) {
 	cfg, repo, _, _, client := setup(t, ctx, testserver.WithDisablePraefect())
 
 	localRepo := localrepo.NewTestRepo(t, cfg, repo)
-	poolProto, _, poolPath := createObjectPool(t, ctx, cfg, client, repo)
+	poolProto, pool, _ := createObjectPool(t, ctx, cfg, client, repo)
 
 	// Mock object in the pool, which should be available to the pool members
 	// after linking
-	poolCommitID := gittest.WriteCommit(t, cfg, poolPath,
-		gittest.WithBranch("pool-test-branch"))
+	poolCommitID := localrepo.WriteTestCommit(t, pool.Repo,
+		localrepo.WithBranch("pool-test-branch"))
 
 	for _, tc := range []struct {
 		desc        string

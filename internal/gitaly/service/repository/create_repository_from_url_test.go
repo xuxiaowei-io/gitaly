@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/praefectutil"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -68,9 +69,10 @@ func TestCreateRepositoryFromURL_successfulWithOptionalParameters(t *testing.T) 
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 
-	_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
-	gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch(git.DefaultBranch))
-	gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithReference("refs/merge-requests/1/head"))
+	remoteRepoProto, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+	remoteRepo := localrepo.NewTestRepo(t, cfg, remoteRepoProto)
+	localrepo.WriteTestCommit(t, remoteRepo, localrepo.WithBranch(git.DefaultBranch))
+	localrepo.WriteTestCommit(t, remoteRepo, localrepo.WithReference("refs/merge-requests/1/head"))
 
 	user := "username123"
 	password := "password321localhost"
@@ -183,16 +185,16 @@ func TestCreateRepositoryFromURL_fsck(t *testing.T) {
 
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	_, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
+	sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	// We're creating a new commit which has a root tree with duplicate entries. git-mktree(1)
 	// allows us to create these trees just fine, but git-fsck(1) complains.
-	gittest.WriteCommit(t, cfg, sourceRepoPath,
-		gittest.WithParents(),
-		gittest.WithBranch("main"),
-		gittest.WithTreeEntries(
-			gittest.TreeEntry{Content: "content", Path: "dup", Mode: "100644"},
-			gittest.TreeEntry{Content: "content", Path: "dup", Mode: "100644"},
+	localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, sourceRepoProto),
+		localrepo.WithParents(),
+		localrepo.WithBranch("main"),
+		localrepo.WithTreeEntries(
+			localrepo.TreeEntry{Content: "content", Path: "dup", Mode: "100644"},
+			localrepo.TreeEntry{Content: "content", Path: "dup", Mode: "100644"},
 		),
 	)
 

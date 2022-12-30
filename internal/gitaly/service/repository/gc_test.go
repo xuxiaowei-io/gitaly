@@ -120,11 +120,10 @@ func TestGarbageCollectWithPrune(t *testing.T) {
 	oldReferencedObjFile := filepath.Join(repoPath, "objects", blobHashes[2][:2], blobHashes[2][2:])
 
 	// create a reference to the blob, so it should not be removed by gc
-	gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithTreeEntries(gittest.TreeEntry{
+	localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo),
+		localrepo.WithTreeEntries(localrepo.TreeEntry{
 			OID: git.ObjectID(blobHashes[2]), Path: "blob-name", Mode: "100644",
-		}),
-	)
+		}))
 
 	// change modification time of the blobs to make them attractive for the gc
 	aBitMoreThan30MinutesAgo := time.Now().Add(-30*time.Minute - time.Second)
@@ -247,7 +246,7 @@ func TestGarbageCollectDeletesPackedRefsLock(t *testing.T) {
 
 			repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
-			gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+			localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithBranch("main"))
 			gittest.Exec(t, cfg, "-C", repoPath, "pack-refs", "--all")
 
 			// Force the packed-refs file to have an old time to test that even
@@ -567,11 +566,11 @@ func TestGarbageCollectDeltaIslands(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
+
 	cfg, repoProto, _, client := setupRepositoryService(t, ctx)
 
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-	localrepo.TestDeltaIslands(t, cfg, repo, repo, false, func() error {
+	localRepo := localrepo.NewTestRepo(t, cfg, repoProto)
+	localrepo.TestDeltaIslands(t, cfg, localRepo, localRepo, false, func() error {
 		//nolint:staticcheck
 		_, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: repoProto})
 		return err
@@ -587,12 +586,12 @@ func TestGarbageCollect_commitGraphsWithPrunedObjects(t *testing.T) {
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	// Write a first commit-graph that contains the root commit, only.
-	rootCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+	rootCommitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithBranch("main"))
 	gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split", "--changed-paths")
 
 	// Write a second, incremental commit-graph that contains a commit we're about to
 	// make unreachable and then prune.
-	unreachableCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(rootCommitID), gittest.WithBranch("main"))
+	unreachableCommitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithParents(rootCommitID), localrepo.WithBranch("main"))
 	gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split=no-merge", "--changed-paths")
 
 	// Reset the "main" branch back to the initial root commit ID and prune the now

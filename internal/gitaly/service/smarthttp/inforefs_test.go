@@ -44,7 +44,7 @@ func TestInfoRefsUploadPack_successful(t *testing.T) {
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithParents())
+	commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithBranch("main"), localrepo.WithParents())
 	tagID := gittest.WriteTag(t, cfg, repoPath, "v1.0.0", commitID.Revision(), gittest.WriteTagConfig{
 		Message: "annotated tag",
 	})
@@ -113,7 +113,7 @@ func TestInfoRefsUploadPack_internalRefs(t *testing.T) {
 		t.Run(tc.ref, func(t *testing.T) {
 			repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
-			commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithParents())
+			commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithBranch("main"), localrepo.WithParents())
 			gittest.Exec(t, cfg, "-C", repoPath, "update-ref", tc.ref, commitID.String())
 
 			var expectedAdvertisements []string
@@ -200,9 +200,9 @@ func TestInfoRefsUploadPack_gitConfigOptions(t *testing.T) {
 	cfg.SocketPath = runSmartHTTPServer(t, cfg)
 
 	ctx := testhelper.Context(t)
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithParents())
+	commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithBranch("main"), localrepo.WithParents())
 
 	// transfer.hideRefs=refs will hide every ref that info-refs would normally
 	// output, allowing us to test that the custom configuration is respected
@@ -284,7 +284,7 @@ func TestInfoRefsReceivePack_successful(t *testing.T) {
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithParents())
+	commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithBranch("main"), localrepo.WithParents())
 	tagID := gittest.WriteTag(t, cfg, repoPath, "v1.0.0", commitID.Revision(), gittest.WriteTagConfig{
 		Message: "annotated tag",
 	})
@@ -332,9 +332,8 @@ func TestInfoRefsReceivePack_hiddenRefs(t *testing.T) {
 		repo,
 	)
 	require.NoError(t, err)
-	poolPath := gittest.RepositoryPath(t, pool)
 
-	commitID := gittest.WriteCommit(t, cfg, poolPath, gittest.WithBranch(t.Name()))
+	commitID := localrepo.WriteTestCommit(t, pool.Repo, localrepo.WithBranch(t.Name()))
 
 	require.NoError(t, pool.Link(ctx, repo))
 
@@ -456,7 +455,7 @@ func TestInfoRefsUploadPack_cache(t *testing.T) {
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithParents())
+	commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithBranch("main"), localrepo.WithParents())
 	tagID := gittest.WriteTag(t, cfg, repoPath, "v1.0.0", commitID.Revision(), gittest.WriteTagConfig{
 		Message: "annotated tag",
 	})

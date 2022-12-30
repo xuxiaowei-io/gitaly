@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
@@ -34,8 +35,8 @@ func TestCreate(t *testing.T) {
 func testCreate(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	cfg, repo, repoPath, _, client := setup(t, ctx)
-	commitID := gittest.WriteCommit(t, cfg, repoPath)
+	cfg, repo, _, _, client := setup(t, ctx)
+	commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo))
 
 	txManager := transaction.NewManager(cfg, nil)
 	catfileCache := catfile.NewCache(cfg)

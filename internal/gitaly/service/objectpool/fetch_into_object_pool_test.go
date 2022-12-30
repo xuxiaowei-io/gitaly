@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
@@ -44,21 +45,22 @@ func TestFetchIntoObjectPool_Success(t *testing.T) {
 func testFetchIntoObjectPoolSuccess(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	cfg, repo, repoPath, _, client := setup(t, ctx)
+	cfg, repoProto, repoPath, _, client := setup(t, ctx)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	parentID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+	parentID := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
 
-	poolProto, _, poolPath := createObjectPool(t, ctx, cfg, client, repo)
+	poolProto, _, poolPath := createObjectPool(t, ctx, cfg, client, repoProto)
 
 	// Create a new commit after having created the object pool. This commit exists only in the
 	// pool member, but not in the pool itself.
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(parentID), gittest.WithBranch("main"))
+	commitID := localrepo.WriteTestCommit(t, repo, localrepo.WithParents(parentID), localrepo.WithBranch("main"))
 	gittest.RequireObjectExists(t, cfg, repoPath, commitID)
 	gittest.RequireObjectNotExists(t, cfg, poolPath, commitID)
 
 	req := &gitalypb.FetchIntoObjectPoolRequest{
 		ObjectPool: poolProto,
-		Origin:     repo,
+		Origin:     repoProto,
 	}
 
 	// Now we update the object pool, which should pull the new commit into the pool.
@@ -119,7 +121,8 @@ func testFetchIntoObjectPooltransactional(t *testing.T, ctx context.Context) {
 	)
 	testcfg.BuildGitalyHooks(t, cfg)
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	conn, err := grpc.Dial(cfg.SocketPath, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, err)
@@ -127,7 +130,7 @@ func testFetchIntoObjectPooltransactional(t *testing.T, ctx context.Context) {
 
 	client := gitalypb.NewObjectPoolServiceClient(conn)
 
-	poolProto, pool, poolPath := createObjectPool(t, ctx, cfg, client, repo)
+	poolProto, pool, _ := createObjectPool(t, ctx, cfg, client, repoProto)
 
 	// Inject transaction information so that FetchInotObjectPool knows to perform
 	// transactional voting.
@@ -140,7 +143,7 @@ func testFetchIntoObjectPooltransactional(t *testing.T, ctx context.Context) {
 
 		_, err = client.FetchIntoObjectPool(ctx, &gitalypb.FetchIntoObjectPoolRequest{
 			ObjectPool: poolProto,
-			Origin:     repo,
+			Origin:     repoProto,
 		})
 		require.NoError(t, err)
 
@@ -158,11 +161,11 @@ func testFetchIntoObjectPooltransactional(t *testing.T, ctx context.Context) {
 
 		// Create a new reference that we'd in fact fetch into the object pool so that we
 		// know that something will be voted on.
-		repoCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(), gittest.WithBranch("new-branch"))
+		repoCommit := localrepo.WriteTestCommit(t, repo, localrepo.WithParents(), localrepo.WithBranch("new-branch"))
 
 		_, err = client.FetchIntoObjectPool(ctx, &gitalypb.FetchIntoObjectPoolRequest{
 			ObjectPool: poolProto,
-			Origin:     repo,
+			Origin:     repoProto,
 		})
 		require.NoError(t, err)
 
@@ -185,11 +188,11 @@ func testFetchIntoObjectPooltransactional(t *testing.T, ctx context.Context) {
 
 		// Create a commit in the pool repository itself. Right now, we don't touch this
 		// commit at all, but this will change in one of the next commits.
-		gittest.WriteCommit(t, cfg, poolPath, gittest.WithParents(), gittest.WithReference(reference))
+		localrepo.WriteTestCommit(t, pool.Repo, localrepo.WithParents(), localrepo.WithReference(reference))
 
 		_, err = client.FetchIntoObjectPool(ctx, &gitalypb.FetchIntoObjectPoolRequest{
 			ObjectPool: poolProto,
-			Origin:     repo,
+			Origin:     repoProto,
 		})
 		require.NoError(t, err)
 
@@ -313,30 +316,31 @@ func TestFetchIntoObjectPool_dfConflict(t *testing.T) {
 func testFetchIntoObjectPoolDfConflict(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	cfg, repo, repoPath, _, client := setup(t, ctx)
-	poolProto, _, poolPath := createObjectPool(t, ctx, cfg, client, repo)
+	cfg, repoProto, repoPath, _, client := setup(t, ctx)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	poolProto, _, poolPath := createObjectPool(t, ctx, cfg, client, repoProto)
 
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"))
+	localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("branch"))
 
 	// Perform an initial fetch into the object pool with the given object that exists in the
 	// pool member's repository.
 	_, err := client.FetchIntoObjectPool(ctx, &gitalypb.FetchIntoObjectPoolRequest{
 		ObjectPool: poolProto,
-		Origin:     repo,
+		Origin:     repoProto,
 	})
 	require.NoError(t, err)
 
 	// Now we delete the reference in the pool member and create a new reference that has the
 	// same prefix, but is stored in a subdirectory. This will create a D/F conflict.
 	gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "-d", "refs/heads/branch")
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch/conflict"))
+	localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("branch/conflict"))
 
 	// Verify that we can still fetch into the object pool regardless of the D/F conflict. While
 	// it is not possible to store both references at the same time due to the conflict, we
 	// should know to delete the old conflicting reference and replace it with the new one.
 	_, err = client.FetchIntoObjectPool(ctx, &gitalypb.FetchIntoObjectPoolRequest{
 		ObjectPool: poolProto,
-		Origin:     repo,
+		Origin:     repoProto,
 	})
 	require.NoError(t, err)
 

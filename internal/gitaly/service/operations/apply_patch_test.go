@@ -50,9 +50,9 @@ To restore the original branch and stop patching, run "git am --abort".
 	type patchDescription struct {
 		// oldTree is the old tree to compare against. If unset, we will instead us the base
 		// tree.
-		oldTree []gittest.TreeEntry
+		oldTree []localrepo.TreeEntry
 		// newTree is the tree with the changes applied.
-		newTree []gittest.TreeEntry
+		newTree []localrepo.TreeEntry
 	}
 
 	for _, tc := range []struct {
@@ -60,7 +60,7 @@ To restore the original branch and stop patching, run "git am --abort".
 		// sends a request to a non-existent repository
 		nonExistentRepository bool
 		// baseTree contanis the tree entry that form the tree of the base commit.
-		baseTree []gittest.TreeEntry
+		baseTree []localrepo.TreeEntry
 		// baseReference is the branch where baseCommit is, by default "master"
 		baseReference git.ReferenceName
 		// notSentByAuthor marks the patch as being sent by someone else than the author.
@@ -68,7 +68,7 @@ To restore the original branch and stop patching, run "git am --abort".
 		// targetBranch is the branch where the patched commit goes.
 		targetBranch string
 		// expectedOldOID is a function which provides the expectedOldOID given the repoPath.
-		expectedOldOID func(repoPath string) string
+		expectedOldOID func(repo *localrepo.Repo) string
 		// extraBranches are created with empty commits for verifying the correct base branch
 		// gets selected.
 		extraBranches []string
@@ -97,13 +97,13 @@ To restore the original branch and stop patching, run "git am --abort".
 		},
 		{
 			desc: "creating the first branch does not work",
-			baseTree: []gittest.TreeEntry{
+			baseTree: []localrepo.TreeEntry{
 				{Path: "file", Mode: "100644", Content: "base-content"},
 			},
 			targetBranch: "master",
 			patches: []patchDescription{
 				{
-					newTree: []gittest.TreeEntry{
+					newTree: []localrepo.TreeEntry{
 						{Path: "file", Mode: "100644", Content: "base-content"},
 					},
 				},
@@ -112,7 +112,7 @@ To restore the original branch and stop patching, run "git am --abort".
 		},
 		{
 			desc: "creating a new branch from HEAD works",
-			baseTree: []gittest.TreeEntry{
+			baseTree: []localrepo.TreeEntry{
 				{Path: "file", Mode: "100644", Content: "base-content"},
 			},
 			baseReference: "HEAD",
@@ -120,7 +120,7 @@ To restore the original branch and stop patching, run "git am --abort".
 			targetBranch:  "new-branch",
 			patches: []patchDescription{
 				{
-					newTree: []gittest.TreeEntry{
+					newTree: []localrepo.TreeEntry{
 						{Path: "file", Mode: "100644", Content: "patch 1"},
 					},
 				},
@@ -132,7 +132,7 @@ To restore the original branch and stop patching, run "git am --abort".
 		},
 		{
 			desc: "creating a new branch from the first listed branch works",
-			baseTree: []gittest.TreeEntry{
+			baseTree: []localrepo.TreeEntry{
 				{Path: "file", Mode: "100644", Content: "base-content"},
 			},
 			baseReference: "refs/heads/a",
@@ -140,7 +140,7 @@ To restore the original branch and stop patching, run "git am --abort".
 			targetBranch:  "new-branch",
 			patches: []patchDescription{
 				{
-					newTree: []gittest.TreeEntry{
+					newTree: []localrepo.TreeEntry{
 						{Path: "file", Mode: "100644", Content: "patch 1"},
 					},
 				},
@@ -152,22 +152,22 @@ To restore the original branch and stop patching, run "git am --abort".
 		},
 		{
 			desc: "multiple patches apply cleanly",
-			baseTree: []gittest.TreeEntry{
+			baseTree: []localrepo.TreeEntry{
 				{Path: "file", Mode: "100644", Content: "base-content"},
 			},
 			baseReference: "refs/heads/master",
 			targetBranch:  "master",
 			patches: []patchDescription{
 				{
-					newTree: []gittest.TreeEntry{
+					newTree: []localrepo.TreeEntry{
 						{Path: "file", Mode: "100644", Content: "patch 1"},
 					},
 				},
 				{
-					oldTree: []gittest.TreeEntry{
+					oldTree: []localrepo.TreeEntry{
 						{Path: "file", Mode: "100644", Content: "patch 1"},
 					},
-					newTree: []gittest.TreeEntry{
+					newTree: []localrepo.TreeEntry{
 						{Path: "file", Mode: "100644", Content: "patch 2"},
 					},
 				},
@@ -178,7 +178,7 @@ To restore the original branch and stop patching, run "git am --abort".
 		},
 		{
 			desc: "author in from field in body set correctly",
-			baseTree: []gittest.TreeEntry{
+			baseTree: []localrepo.TreeEntry{
 				{Path: "file", Mode: "100644", Content: "base-content"},
 			},
 			baseReference:   "refs/heads/master",
@@ -186,7 +186,7 @@ To restore the original branch and stop patching, run "git am --abort".
 			targetBranch:    "master",
 			patches: []patchDescription{
 				{
-					newTree: []gittest.TreeEntry{
+					newTree: []localrepo.TreeEntry{
 						{Path: "file", Mode: "100644", Content: "patch 1"},
 					},
 				},
@@ -197,22 +197,22 @@ To restore the original branch and stop patching, run "git am --abort".
 		},
 		{
 			desc: "multiple patches apply via fallback three-way merge",
-			baseTree: []gittest.TreeEntry{
+			baseTree: []localrepo.TreeEntry{
 				{Path: "file", Mode: "100644", Content: "base-content"},
 			},
 			baseReference: "refs/heads/master",
 			targetBranch:  "master",
 			patches: []patchDescription{
 				{
-					newTree: []gittest.TreeEntry{
+					newTree: []localrepo.TreeEntry{
 						{Path: "file", Mode: "100644", Content: "patch 1"},
 					},
 				},
 				{
-					oldTree: []gittest.TreeEntry{
+					oldTree: []localrepo.TreeEntry{
 						{Path: "file", Mode: "100644", Content: "patch 2"},
 					},
-					newTree: []gittest.TreeEntry{
+					newTree: []localrepo.TreeEntry{
 						{Path: "file", Mode: "100644", Content: "patch 1"},
 					},
 				},
@@ -223,19 +223,19 @@ To restore the original branch and stop patching, run "git am --abort".
 		},
 		{
 			desc: "patching fails due to modify-modify conflict",
-			baseTree: []gittest.TreeEntry{
+			baseTree: []localrepo.TreeEntry{
 				{Path: "file", Mode: "100644", Content: "base-content"},
 			},
 			baseReference: "refs/heads/master",
 			targetBranch:  "master",
 			patches: []patchDescription{
 				{
-					newTree: []gittest.TreeEntry{
+					newTree: []localrepo.TreeEntry{
 						{Path: "file", Mode: "100644", Content: "patch 1"},
 					},
 				},
 				{
-					newTree: []gittest.TreeEntry{
+					newTree: []localrepo.TreeEntry{
 						{Path: "file", Mode: "100644", Content: "patch 2"},
 					},
 				},
@@ -244,19 +244,19 @@ To restore the original branch and stop patching, run "git am --abort".
 		},
 		{
 			desc: "patching fails due to add-add conflict",
-			baseTree: []gittest.TreeEntry{
+			baseTree: []localrepo.TreeEntry{
 				{Path: "file", Mode: "100644", Content: "base-content"},
 			},
 			baseReference: "refs/heads/master",
 			targetBranch:  "master",
 			patches: []patchDescription{
 				{
-					newTree: []gittest.TreeEntry{
+					newTree: []localrepo.TreeEntry{
 						{Path: "added-file", Mode: "100644", Content: "content-1"},
 					},
 				},
 				{
-					newTree: []gittest.TreeEntry{
+					newTree: []localrepo.TreeEntry{
 						{Path: "added-file", Mode: "100644", Content: "content-2"},
 					},
 				},
@@ -265,19 +265,19 @@ To restore the original branch and stop patching, run "git am --abort".
 		},
 		{
 			desc: "patch applies using rename detection",
-			baseTree: []gittest.TreeEntry{
+			baseTree: []localrepo.TreeEntry{
 				{Path: "file", Mode: "100644", Content: "line 1\nline 2\nline 3\nline 4\n"},
 			},
 			baseReference: "refs/heads/master",
 			targetBranch:  "master",
 			patches: []patchDescription{
 				{
-					newTree: []gittest.TreeEntry{
+					newTree: []localrepo.TreeEntry{
 						{Path: "moved-file", Mode: "100644", Content: "line 1\nline 2\nline 3\nline 4\n"},
 					},
 				},
 				{
-					newTree: []gittest.TreeEntry{
+					newTree: []localrepo.TreeEntry{
 						{Path: "file", Mode: "100644", Content: "line 1\nline 2\nline 3\nline 4\nadded\n"},
 					},
 				},
@@ -288,17 +288,17 @@ To restore the original branch and stop patching, run "git am --abort".
 		},
 		{
 			desc: "patching fails due to delete-modify conflict",
-			baseTree: []gittest.TreeEntry{
+			baseTree: []localrepo.TreeEntry{
 				{Path: "file", Mode: "100644", Content: "base-content"},
 			},
 			baseReference: "refs/heads/master",
 			targetBranch:  "master",
 			patches: []patchDescription{
 				{
-					newTree: []gittest.TreeEntry{},
+					newTree: []localrepo.TreeEntry{},
 				},
 				{
-					newTree: []gittest.TreeEntry{
+					newTree: []localrepo.TreeEntry{
 						{Path: "file", Mode: "100644", Content: "updated content"},
 					},
 				},
@@ -307,14 +307,14 @@ To restore the original branch and stop patching, run "git am --abort".
 		},
 		{
 			desc: "existing branch + correct expectedOldOID",
-			baseTree: []gittest.TreeEntry{
+			baseTree: []localrepo.TreeEntry{
 				{Path: "file", Mode: "100644", Content: "base-content"},
 			},
 			baseReference: "refs/heads/master",
 			targetBranch:  "master",
 			patches: []patchDescription{
 				{
-					newTree: []gittest.TreeEntry{
+					newTree: []localrepo.TreeEntry{
 						{Path: "file", Mode: "100644", Content: "patch 1"},
 					},
 				},
@@ -322,63 +322,71 @@ To restore the original branch and stop patching, run "git am --abort".
 			expectedTree: []gittest.TreeEntry{
 				{Mode: "100644", Path: "file", Content: "patch 1"},
 			},
-			expectedOldOID: func(repoPath string) string {
+			expectedOldOID: func(repo *localrepo.Repo) string {
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
+
 				return text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "master"))
 			},
 		},
 		{
 			desc: "existing branch + invalid expectedOldOID",
-			baseTree: []gittest.TreeEntry{
+			baseTree: []localrepo.TreeEntry{
 				{Path: "file", Mode: "100644", Content: "base-content"},
 			},
 			baseReference: "refs/heads/master",
 			targetBranch:  "master",
 			patches: []patchDescription{
 				{
-					newTree: []gittest.TreeEntry{
+					newTree: []localrepo.TreeEntry{
 						{Path: "file", Mode: "100644", Content: "patch 1"},
 					},
 				},
 			},
-			expectedOldOID: func(repoPath string) string { return "foo" },
+			expectedOldOID: func(repo *localrepo.Repo) string { return "foo" },
 			expectedErr:    structerr.NewInternal(`expected old object id not expected SHA format: invalid object ID: "foo"`),
 		},
 		{
 			desc: "existing branch + valid but unavailable expectedOldOID",
-			baseTree: []gittest.TreeEntry{
+			baseTree: []localrepo.TreeEntry{
 				{Path: "file", Mode: "100644", Content: "base-content"},
 			},
 			baseReference: "refs/heads/master",
 			targetBranch:  "master",
 			patches: []patchDescription{
 				{
-					newTree: []gittest.TreeEntry{
+					newTree: []localrepo.TreeEntry{
 						{Path: "file", Mode: "100644", Content: "patch 1"},
 					},
 				},
 			},
-			expectedOldOID: func(repoPath string) string { return gittest.DefaultObjectHash.ZeroOID.String() },
-			expectedErr:    structerr.NewInternal("expected old object cannot be resolved: reference not found"),
+			expectedOldOID: func(repo *localrepo.Repo) string {
+				return gittest.DefaultObjectHash.ZeroOID.String()
+			},
+			expectedErr: structerr.NewInternal("expected old object cannot be resolved: reference not found"),
 		},
 		{
 			desc: "existing branch + expectedOldOID set to an old commit OID",
-			baseTree: []gittest.TreeEntry{
+			baseTree: []localrepo.TreeEntry{
 				{Path: "file", Mode: "100644", Content: "base-content"},
 			},
 			baseReference: "refs/heads/master",
 			targetBranch:  "master",
 			patches: []patchDescription{
 				{
-					newTree: []gittest.TreeEntry{
+					newTree: []localrepo.TreeEntry{
 						{Path: "file", Mode: "100644", Content: "patch 1"},
 					},
 				},
 			},
-			expectedOldOID: func(repoPath string) string {
+			expectedOldOID: func(repo *localrepo.Repo) string {
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
+
 				currentCommit := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "master"))
 				// add a new commit to master so we can point at the old one, this is
 				// because by default the test only creates one commit
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(git.ObjectID(currentCommit)), gittest.WithBranch("master"))
+				localrepo.WriteTestCommit(t, repo, localrepo.WithParents(git.ObjectID(currentCommit)), localrepo.WithBranch("master"))
 				return currentCommit
 			},
 			expectedErr: structerr.NewInternal(`update reference: Could not update refs/heads/master. Please refresh and try again.`),
@@ -398,14 +406,13 @@ To restore the original branch and stop patching, run "git am --abort".
 
 			var baseCommit git.ObjectID
 			if tc.baseTree != nil {
-				baseCommit = gittest.WriteCommit(t, cfg, repoPath,
-					gittest.WithTreeEntries(tc.baseTree...),
-					gittest.WithReference(string(tc.baseReference)),
-				)
+				baseCommit = localrepo.WriteTestCommit(t, repo,
+					localrepo.WithTreeEntries(tc.baseTree...),
+					localrepo.WithReference(string(tc.baseReference)))
 			}
 
 			if tc.extraBranches != nil {
-				emptyCommit := gittest.WriteCommit(t, cfg, repoPath)
+				emptyCommit := localrepo.WriteTestCommit(t, repo)
 				for _, extraBranch := range tc.extraBranches {
 					gittest.WriteRef(t, cfg, repoPath, git.NewReferenceNameFromBranchName(extraBranch), emptyCommit)
 				}
@@ -416,15 +423,14 @@ To restore the original branch and stop patching, run "git am --abort".
 				oldCommit := baseCommit
 
 				if patch.oldTree != nil {
-					oldCommit = gittest.WriteCommit(t, cfg, repoPath,
-						gittest.WithTreeEntries(patch.oldTree...),
-					)
+					oldCommit = localrepo.WriteTestCommit(t, repo,
+						localrepo.WithTreeEntries(patch.oldTree...))
 				}
 
-				newCommit := gittest.WriteCommit(t, cfg, repoPath,
-					gittest.WithMessage(commitMessage),
-					gittest.WithTreeEntries(patch.newTree...),
-					gittest.WithParents(oldCommit),
+				newCommit := localrepo.WriteTestCommit(t, repo,
+					localrepo.WithMessage(commitMessage),
+					localrepo.WithTreeEntries(patch.newTree...),
+					localrepo.WithParents(oldCommit),
 				)
 
 				formatPatchArgs := []string{"-C", repoPath, "format-patch", "--stdout"}
@@ -453,7 +459,7 @@ To restore the original branch and stop patching, run "git am --abort".
 
 			expectedOldOID := ""
 			if tc.expectedOldOID != nil {
-				expectedOldOID = tc.expectedOldOID(repoPath)
+				expectedOldOID = tc.expectedOldOID(repo)
 			}
 
 			require.NoError(t, stream.Send(&gitalypb.UserApplyPatchRequest{

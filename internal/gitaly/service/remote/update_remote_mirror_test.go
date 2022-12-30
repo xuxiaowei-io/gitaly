@@ -545,9 +545,6 @@ func TestUpdateRemoteMirror(t *testing.T) {
 					references: tc.mirrorRefs,
 				},
 			} {
-				repoPath, err := c.repo.Path()
-				require.NoError(t, err)
-
 				// We compute the commits in a separate step as many of the tests
 				// use a small handful of commits and then update many references to
 				// point to that small set. So by precomputing commits we save a few
@@ -567,10 +564,9 @@ func TestUpdateRemoteMirror(t *testing.T) {
 							parents = []git.ObjectID{commitOID}
 						}
 
-						commitOID = gittest.WriteCommit(t, cfg, repoPath,
-							gittest.WithMessage(commit),
-							gittest.WithParents(parents...),
-						)
+						commitOID = localrepo.WriteTestCommit(t, c.repo,
+							localrepo.WithMessage(commit),
+							localrepo.WithParents(parents...))
 
 						commitsByMessage[commit] = commitOID
 					}
@@ -654,7 +650,7 @@ func TestSuccessfulUpdateRemoteMirrorRequest(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg, testRepo, testRepoPath, client := setupRemoteService(t, ctx)
-	_, mirrorPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	mirrorRepoProto, mirrorPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
@@ -665,7 +661,7 @@ func TestSuccessfulUpdateRemoteMirrorRequest(t *testing.T) {
 	})
 
 	// Create a commit that only exists in the mirror
-	mirrorOnlyCommitOid := gittest.WriteCommit(t, cfg, mirrorPath, gittest.WithBranch("master"))
+	mirrorOnlyCommitOid := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, mirrorRepoProto), localrepo.WithBranch("master"))
 	require.NotEmpty(t, mirrorOnlyCommitOid)
 
 	setupCommands := [][]string{
@@ -812,7 +808,7 @@ func TestUpdateRemoteMirrorInmemory(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg, localRepo, localPath, client := setupRemoteService(t, ctx)
-	gittest.WriteCommit(t, cfg, localPath)
+	localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, localRepo))
 
 	_, remotePath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,

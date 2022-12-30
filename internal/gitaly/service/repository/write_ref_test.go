@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
@@ -202,8 +203,8 @@ func TestWriteRef_missingRevisions(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
-	commitID := gittest.WriteCommit(t, cfg, repoPath)
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+	commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto))
 
 	for _, tc := range []struct {
 		desc        string
@@ -213,7 +214,7 @@ func TestWriteRef_missingRevisions(t *testing.T) {
 		{
 			desc: "revision refers to missing reference",
 			request: &gitalypb.WriteRefRequest{
-				Repository: repo,
+				Repository: repoProto,
 				Ref:        []byte("refs/heads/main"),
 				Revision:   []byte("refs/heads/missing"),
 			},
@@ -222,7 +223,7 @@ func TestWriteRef_missingRevisions(t *testing.T) {
 		{
 			desc: "revision refers to missing object",
 			request: &gitalypb.WriteRefRequest{
-				Repository: repo,
+				Repository: repoProto,
 				Ref:        []byte("refs/heads/main"),
 				Revision:   bytes.Repeat([]byte("1"), gittest.DefaultObjectHash.EncodedLen()),
 			},
@@ -231,7 +232,7 @@ func TestWriteRef_missingRevisions(t *testing.T) {
 		{
 			desc: "old revision refers to missing reference",
 			request: &gitalypb.WriteRefRequest{
-				Repository:  repo,
+				Repository:  repoProto,
 				Ref:         []byte("refs/heads/main"),
 				Revision:    []byte(commitID),
 				OldRevision: bytes.Repeat([]byte("1"), gittest.DefaultObjectHash.EncodedLen()),

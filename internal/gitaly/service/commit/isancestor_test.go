@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -171,10 +172,9 @@ func TestSuccessfulIsAncestorRequestWithAltGitObjectDirs(t *testing.T) {
 	parentCommitID := git.ObjectID(text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "--verify", "HEAD")))
 
 	altObjectsDir := "./alt-objects"
-	commitID := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithParents(parentCommitID),
-		gittest.WithAlternateObjectDirectory(filepath.Join(repoPath, altObjectsDir)),
-	)
+	commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo),
+		localrepo.WithParents(parentCommitID),
+		localrepo.WithAlternateObjectDirectory(filepath.Join(repoPath, altObjectsDir)))
 
 	testCases := []struct {
 		desc    string

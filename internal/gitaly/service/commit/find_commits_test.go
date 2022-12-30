@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -441,9 +442,8 @@ func TestSuccessfulFindCommitsRequestWithAltGitObjectDirs(t *testing.T) {
 	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, ctx)
 
 	altObjectsDir := "./alt-objects"
-	commitID := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithAlternateObjectDirectory(filepath.Join(repoPath, altObjectsDir)),
-	)
+	commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo),
+		localrepo.WithAlternateObjectDirectory(filepath.Join(repoPath, altObjectsDir)))
 
 	testCases := []struct {
 		desc          string

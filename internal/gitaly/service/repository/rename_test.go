@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -23,24 +24,24 @@ func TestRenameRepositorySuccess(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, originalRepo, originalPath, client := setupRepositoryService(t, ctx)
+	cfg, originalRepoProto, originalPath, client := setupRepositoryService(t, ctx)
 
 	const targetPath = "a-new-location"
 	_, err := client.RenameRepository(ctx, &gitalypb.RenameRepositoryRequest{
-		Repository:   originalRepo,
+		Repository:   originalRepoProto,
 		RelativePath: targetPath,
 	})
 	require.NoError(t, err)
 
 	// A repository should not exist with the previous relative path
 	exists, err := client.RepositoryExists(ctx, &gitalypb.RepositoryExistsRequest{
-		Repository: originalRepo,
+		Repository: originalRepoProto,
 	})
 	require.NoError(t, err)
 	testhelper.ProtoEqual(t, &gitalypb.RepositoryExistsResponse{Exists: false}, exists)
 
 	// A repository should exist with the new relative path
-	renamedRepo := &gitalypb.Repository{StorageName: originalRepo.StorageName, RelativePath: targetPath}
+	renamedRepo := &gitalypb.Repository{StorageName: originalRepoProto.StorageName, RelativePath: targetPath}
 	exists, err = client.RepositoryExists(ctx, &gitalypb.RepositoryExistsRequest{
 		Repository: renamedRepo,
 	})
@@ -75,7 +76,7 @@ func TestRenameRepositoryDestinationExists(t *testing.T) {
 	require.NoError(t, err)
 
 	destinationRepoPath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(t, ctx, cfg, existingDestinationRepo))
-	commitID := gittest.WriteCommit(t, cfg, destinationRepoPath)
+	commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, existingDestinationRepo))
 
 	_, err = client.RenameRepository(ctx, &gitalypb.RenameRepositoryRequest{
 		Repository:   renamedRepo,

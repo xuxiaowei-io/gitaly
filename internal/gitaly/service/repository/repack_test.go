@@ -31,20 +31,21 @@ func testRepackIncrementalSuccess(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	// Bring the repository into a known-good state with a single packfile, only.
-	initialCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+	initialCommit := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
 	gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
 	oldPackfileCount, err := stats.PackfilesCount(repoPath)
 	require.NoError(t, err)
 	require.Equal(t, 1, oldPackfileCount)
 
 	// Write a second commit into the repository so that we have something to repack.
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(initialCommit), gittest.WithBranch("main"))
+	localrepo.WriteTestCommit(t, repo, localrepo.WithParents(initialCommit), localrepo.WithBranch("main"))
 
 	//nolint:staticcheck
-	c, err := client.RepackIncremental(ctx, &gitalypb.RepackIncrementalRequest{Repository: repo})
+	c, err := client.RepackIncremental(ctx, &gitalypb.RepackIncrementalRequest{Repository: repoProto})
 	assert.NoError(t, err)
 	assert.NotNil(t, c)
 
@@ -79,28 +80,28 @@ func TestRepackLocal(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
+	cfg, repoProto, repoPath, client := setupRepositoryService(t, ctx)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	altObjectsDir := "./alt-objects"
-	alternateCommit := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithMessage("alternate commit"),
-		gittest.WithAlternateObjectDirectory(filepath.Join(repoPath, altObjectsDir)),
-		gittest.WithBranch("alternate-odb"),
+	alternateCommit := localrepo.WriteTestCommit(t, repo,
+		localrepo.WithMessage("alternate commit"),
+		localrepo.WithAlternateObjectDirectory(filepath.Join(repoPath, altObjectsDir)),
+		localrepo.WithBranch("alternate-odb"),
 	)
 
-	repoCommit := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithMessage("main commit"),
-		gittest.WithBranch("main-odb"),
-	)
+	repoCommit := localrepo.WriteTestCommit(t, repo,
+		localrepo.WithMessage("main commit"),
+		localrepo.WithBranch("main-odb"))
 
 	// Set GIT_ALTERNATE_OBJECT_DIRECTORIES on the outgoing request. The
 	// intended use case of the behavior we're testing here is that
 	// alternates are found through the objects/info/alternates file instead
 	// of GIT_ALTERNATE_OBJECT_DIRECTORIES. But for the purpose of this test
 	// it doesn't matter.
-	repo.GitAlternateObjectDirectories = []string{altObjectsDir}
+	repoProto.GitAlternateObjectDirectories = []string{altObjectsDir}
 	//nolint:staticcheck
-	_, err := client.RepackFull(ctx, &gitalypb.RepackFullRequest{Repository: repo})
+	_, err := client.RepackFull(ctx, &gitalypb.RepackFullRequest{Repository: repoProto})
 	require.NoError(t, err)
 
 	packFiles, err := filepath.Glob(filepath.Join(repoPath, "objects", "pack", "pack-*.pack"))
@@ -199,12 +200,13 @@ func testRepackFullSuccess(t *testing.T, ctx context.Context) {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
-			repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 			// Bring the repository into a known state with two packfiles.
-			gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("first"), gittest.WithBranch("first"))
+			localrepo.WriteTestCommit(t, repo, localrepo.WithMessage("first"), localrepo.WithBranch("first"))
 			gittest.Exec(t, cfg, "-C", repoPath, "repack")
-			gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("second"), gittest.WithBranch("second"))
+			localrepo.WriteTestCommit(t, repo, localrepo.WithMessage("second"), localrepo.WithBranch("second"))
 			gittest.Exec(t, cfg, "-C", repoPath, "repack")
 			oldPackfileCount, err := stats.PackfilesCount(repoPath)
 			require.NoError(t, err)
@@ -212,7 +214,7 @@ func testRepackFullSuccess(t *testing.T, ctx context.Context) {
 
 			//nolint:staticcheck
 			response, err := client.RepackFull(ctx, &gitalypb.RepackFullRequest{
-				Repository:   repo,
+				Repository:   repoProto,
 				CreateBitmap: tc.createBitmap,
 			})
 			require.NoError(t, err)
@@ -321,7 +323,6 @@ func TestRepackFullDeltaIslands(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg, repoProto, _, client := setupRepositoryService(t, ctx)
-
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	localrepo.TestDeltaIslands(t, cfg, repo, repo, false, func() error {

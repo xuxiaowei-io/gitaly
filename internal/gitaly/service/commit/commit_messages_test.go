@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -20,21 +20,22 @@ func TestSuccessfulGetCommitMessagesRequest(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, ctx)
+	cfg, repoProto, _, client := setupCommitServiceWithRepo(t, ctx)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	message1 := strings.Repeat("a\n", helper.MaxCommitOrTagMessageSize*2)
 	message2 := strings.Repeat("b\n", helper.MaxCommitOrTagMessageSize*2)
 
-	commit1ID := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithBranch("local-big-commits"), gittest.WithMessage(message1),
-	)
-	commit2ID := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithBranch("local-big-commits"), gittest.WithMessage(message2),
-		gittest.WithParents(commit1ID),
+	commit1ID := localrepo.WriteTestCommit(t, repo,
+		localrepo.WithBranch("local-big-commits"), localrepo.WithMessage(message1))
+
+	commit2ID := localrepo.WriteTestCommit(t, repo,
+		localrepo.WithBranch("local-big-commits"), localrepo.WithMessage(message2),
+		localrepo.WithParents(commit1ID),
 	)
 
 	request := &gitalypb.GetCommitMessagesRequest{
-		Repository: repo,
+		Repository: repoProto,
 		CommitIds:  []string{commit1ID.String(), commit2ID.String()},
 	}
 

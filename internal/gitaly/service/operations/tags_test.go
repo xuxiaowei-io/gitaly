@@ -46,7 +46,7 @@ func TestUserDeleteTag(t *testing.T) {
 			setup: func() (string, *gitalypb.UserDeleteTagRequest) {
 				tagName := "mercury"
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference("refs/tags/"+tagName))
+				localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithReference("refs/tags/"+tagName))
 
 				return repoPath, &gitalypb.UserDeleteTagRequest{
 					Repository: repoProto,
@@ -61,7 +61,7 @@ func TestUserDeleteTag(t *testing.T) {
 			setup: func() (string, *gitalypb.UserDeleteTagRequest) {
 				tagName := "venus"
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
-				commit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference("refs/tags/"+tagName))
+				commit := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithReference("refs/tags/"+tagName))
 
 				return repoPath, &gitalypb.UserDeleteTagRequest{
 					Repository:     repoProto,
@@ -77,7 +77,7 @@ func TestUserDeleteTag(t *testing.T) {
 			setup: func() (string, *gitalypb.UserDeleteTagRequest) {
 				tagName := "refs/tags/earth"
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference("refs/tags/"+tagName))
+				localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithReference("refs/tags/"+tagName))
 
 				return repoPath, &gitalypb.UserDeleteTagRequest{
 					Repository: repoProto,
@@ -91,8 +91,8 @@ func TestUserDeleteTag(t *testing.T) {
 			desc: "no repository provided",
 			setup: func() (string, *gitalypb.UserDeleteTagRequest) {
 				tagName := "mars"
-				_, repoPath := gittest.CreateRepository(t, ctx, cfg)
-				gittest.WriteCommit(t, cfg, repoPath)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto))
 
 				return repoPath, &gitalypb.UserDeleteTagRequest{
 					TagName: []byte(tagName),
@@ -106,7 +106,7 @@ func TestUserDeleteTag(t *testing.T) {
 			setup: func() (string, *gitalypb.UserDeleteTagRequest) {
 				tagName := "jupiter"
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
-				gittest.WriteCommit(t, cfg, repoPath)
+				localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto))
 
 				return repoPath, &gitalypb.UserDeleteTagRequest{
 					Repository: repoProto,
@@ -119,7 +119,7 @@ func TestUserDeleteTag(t *testing.T) {
 			desc: "empty tag name",
 			setup: func() (string, *gitalypb.UserDeleteTagRequest) {
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
-				gittest.WriteCommit(t, cfg, repoPath)
+				localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto))
 
 				return repoPath, &gitalypb.UserDeleteTagRequest{
 					Repository: repoProto,
@@ -133,7 +133,7 @@ func TestUserDeleteTag(t *testing.T) {
 			setup: func() (string, *gitalypb.UserDeleteTagRequest) {
 				tagName := "uranus"
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference("refs/tags/"+tagName))
+				localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithReference("refs/tags/"+tagName))
 
 				return repoPath, &gitalypb.UserDeleteTagRequest{
 					Repository: repoProto,
@@ -149,7 +149,7 @@ func TestUserDeleteTag(t *testing.T) {
 			setup: func() (string, *gitalypb.UserDeleteTagRequest) {
 				tagName := "sun"
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference("refs/tags/"+tagName))
+				localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithReference("refs/tags/"+tagName))
 
 				return repoPath, &gitalypb.UserDeleteTagRequest{
 					Repository: repoProto,
@@ -165,7 +165,7 @@ func TestUserDeleteTag(t *testing.T) {
 			setup: func() (string, *gitalypb.UserDeleteTagRequest) {
 				tagName := "moon"
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference("refs/tags/"+tagName))
+				localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithReference("refs/tags/"+tagName))
 
 				return repoPath, &gitalypb.UserDeleteTagRequest{
 					Repository: repoProto,
@@ -181,7 +181,7 @@ func TestUserDeleteTag(t *testing.T) {
 			setup: func() (string, *gitalypb.UserDeleteTagRequest) {
 				tagName := "europa"
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference("refs/tags/"+tagName))
+				localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithReference("refs/tags/"+tagName))
 
 				return repoPath, &gitalypb.UserDeleteTagRequest{
 					Repository:     repoProto,
@@ -198,7 +198,7 @@ func TestUserDeleteTag(t *testing.T) {
 			setup: func() (string, *gitalypb.UserDeleteTagRequest) {
 				tagName := "europa"
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference("refs/tags/"+tagName))
+				localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithReference("refs/tags/"+tagName))
 
 				return repoPath, &gitalypb.UserDeleteTagRequest{
 					Repository:     repoProto,
@@ -215,8 +215,9 @@ func TestUserDeleteTag(t *testing.T) {
 			setup: func() (string, *gitalypb.UserDeleteTagRequest) {
 				tagName := "ganymede"
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
-				firstCommit := gittest.WriteCommit(t, cfg, repoPath)
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(firstCommit), gittest.WithReference("refs/tags/"+tagName))
+				repo := localrepo.NewTestRepo(t, cfg, repoProto)
+				firstCommit := localrepo.WriteTestCommit(t, repo)
+				localrepo.WriteTestCommit(t, repo, localrepo.WithParents(firstCommit), localrepo.WithReference("refs/tags/"+tagName))
 
 				return repoPath, &gitalypb.UserDeleteTagRequest{
 					Repository:     repoProto,
@@ -331,7 +332,7 @@ func TestUserCreateTag_successful(t *testing.T) {
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents())
+	commitID := localrepo.WriteTestCommit(t, repo, localrepo.WithParents())
 
 	targetRevisionCommit, err := repo.ReadCommit(ctx, commitID.Revision())
 	require.NoError(t, err)
@@ -469,7 +470,7 @@ func TestUserCreateTag_transactional(t *testing.T) {
 				)
 			}
 
-			commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents())
+			commitID := localrepo.WriteTestCommit(t, repo, localrepo.WithParents())
 			targetCommit, err := repo.ReadCommit(ctx, commitID.Revision())
 			require.NoError(t, err)
 
@@ -524,7 +525,7 @@ func TestUserCreateTag_quarantine(t *testing.T) {
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents())
+	commitID := localrepo.WriteTestCommit(t, repo, localrepo.WithParents())
 
 	tagIDOutputPath := filepath.Join(testhelper.TempDir(t), "tag-id")
 
@@ -641,7 +642,7 @@ func TestUserCreateTag_message(t *testing.T) {
 			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-			commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents())
+			commitID := localrepo.WriteTestCommit(t, repo, localrepo.WithParents())
 			commit, err := repo.ReadCommit(ctx, commitID.Revision())
 			require.NoError(t, err)
 
@@ -736,16 +737,16 @@ func TestUserCreateTag_targetRevision(t *testing.T) {
 			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-			baseCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(), gittest.WithMessage("1"))
+			baseCommit := localrepo.WriteTestCommit(t, repo, localrepo.WithParents(), localrepo.WithMessage("1"))
 
 			// We create an ambiguous branching structure that has "refs/heads/main",
 			// "refs/heads/heads/main" and "refs/heads/refs/heads/main" to exercise how
 			// we resolve the tag's target revision.
-			gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(baseCommit), gittest.WithBranch("main"), gittest.WithMessage("2"))
-			gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(baseCommit), gittest.WithBranch("heads/main"), gittest.WithMessage("3"))
-			gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(baseCommit), gittest.WithBranch("refs/heads/main"), gittest.WithMessage("4"))
+			localrepo.WriteTestCommit(t, repo, localrepo.WithParents(baseCommit), localrepo.WithBranch("main"), localrepo.WithMessage("2"))
+			localrepo.WriteTestCommit(t, repo, localrepo.WithParents(baseCommit), localrepo.WithBranch("heads/main"), localrepo.WithMessage("3"))
+			localrepo.WriteTestCommit(t, repo, localrepo.WithParents(baseCommit), localrepo.WithBranch("refs/heads/main"), localrepo.WithMessage("4"))
 
-			taggedCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(baseCommit), gittest.WithMessage("5"))
+			taggedCommit := localrepo.WriteTestCommit(t, repo, localrepo.WithParents(baseCommit), localrepo.WithMessage("5"))
 			gittest.WriteTag(t, cfg, repoPath, "v1.0.0", taggedCommit.Revision())
 
 			expectedCommit, err := repo.ReadCommit(ctx, git.Revision(tc.expectedRevision))
@@ -991,10 +992,10 @@ func TestUserCreateTag_stableTagIDs(t *testing.T) {
 	ctx := testhelper.Context(t)
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents())
+	commitID := localrepo.WriteTestCommit(t, repo, localrepo.WithParents())
 	commit, err := repo.ReadCommit(ctx, commitID.Revision())
 	require.NoError(t, err)
 
@@ -1026,7 +1027,7 @@ func TestUserCreateTag_prefixedTag(t *testing.T) {
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents())
+	commitID := localrepo.WriteTestCommit(t, repo, localrepo.WithParents())
 	commit, err := repo.ReadCommit(ctx, commitID.Revision())
 	require.NoError(t, err)
 
@@ -1064,7 +1065,7 @@ func TestUserCreateTag_gitHooks(t *testing.T) {
 			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-			commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents())
+			commitID := localrepo.WriteTestCommit(t, repo, localrepo.WithParents())
 			commit, err := repo.ReadCommit(ctx, commitID.Revision())
 			require.NoError(t, err)
 
@@ -1145,7 +1146,7 @@ func TestUserCreateTag_hookFailure(t *testing.T) {
 	} {
 		t.Run(tc.hook, func(t *testing.T) {
 			repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
-			commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents())
+			commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithParents())
 
 			gittest.WriteCustomHook(t, repoPath, tc.hook, []byte(
 				"#!/bin/sh\necho GL_ID=$GL_ID\nexit 1"),
@@ -1181,7 +1182,7 @@ func TestUserCreateTag_preexisting(t *testing.T) {
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents())
+	commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithParents())
 	gittest.WriteTag(t, cfg, repoPath, "v1.1.0", commitID.Revision())
 
 	for _, tc := range []struct {
@@ -1235,8 +1236,8 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 	ctx := testhelper.Context(t)
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithParents())
+	repo, _ := gittest.CreateRepository(t, ctx, cfg)
+	localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithBranch("main"), localrepo.WithParents())
 
 	injectedTag := "inject-tag\ntagger . <> 0 +0000\n\nInjected subject\n\n"
 
@@ -1264,22 +1265,6 @@ func TestUserCreateTag_invalidArgument(t *testing.T) {
 			desc:           "empty target revision",
 			repo:           repo,
 			tagName:        "shiny-new-tag",
-			targetRevision: "",
-			user:           gittest.TestUser,
-			expectedErr:    structerr.NewInvalidArgument("validating request: empty target revision"),
-		},
-		{
-			desc:           "empty user",
-			repo:           repo,
-			tagName:        "shiny-new-tag",
-			targetRevision: "main",
-			user:           nil,
-			expectedErr:    structerr.NewInvalidArgument("validating request: empty user"),
-		},
-		{
-			desc:           "empty starting point",
-			repo:           repo,
-			tagName:        "new-tag",
 			targetRevision: "",
 			user:           gittest.TestUser,
 			expectedErr:    structerr.NewInvalidArgument("validating request: empty target revision"),

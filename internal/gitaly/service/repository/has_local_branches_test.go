@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -16,8 +17,8 @@ func TestHasLocalBranches_successful(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	populatedRepo, populatedRepoPath := gittest.CreateRepository(t, ctx, cfg)
-	gittest.WriteCommit(t, cfg, populatedRepoPath, gittest.WithBranch("main"))
+	populatedRepo, _ := gittest.CreateRepository(t, ctx, cfg)
+	localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, populatedRepo), localrepo.WithBranch("main"))
 
 	emptyRepo, _ := gittest.CreateRepository(t, ctx, cfg)
 

@@ -46,10 +46,10 @@ func TestFindAllTags_successful(t *testing.T) {
 
 	gitCommit := testhelper.GitLabTestCommit(commitID.String())
 
-	bigCommitID := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithBranch("local-big-commits"),
-		gittest.WithMessage("An empty commit with REALLY BIG message\n\n"+strings.Repeat("a", helper.MaxCommitOrTagMessageSize+1)),
-		gittest.WithParents("60ecb67744cb56576c30214ff52294f8ce2def98"),
+	bigCommitID := localrepo.WriteTestCommit(t, repo,
+		localrepo.WithBranch("local-big-commits"),
+		localrepo.WithMessage("An empty commit with REALLY BIG message\n\n"+strings.Repeat("a", helper.MaxCommitOrTagMessageSize+1)),
+		localrepo.WithParents("60ecb67744cb56576c30214ff52294f8ce2def98"),
 	)
 	bigCommit, err := repo.ReadCommit(ctx, git.Revision(bigCommitID))
 	require.NoError(t, err)
@@ -209,7 +209,7 @@ func TestFindAllTags_simpleNestedTags(t *testing.T) {
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath)
+	commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto))
 
 	tagID := gittest.WriteTag(t, cfg, repoPath, "my/nested/tag", commitID.Revision())
 
@@ -247,10 +247,10 @@ func TestFindAllTags_duplicateAnnotatedTags(t *testing.T) {
 	cfg, client := setupRefServiceWithoutRepo(t)
 	ctx := testhelper.Context(t)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath)
+	commitID := localrepo.WriteTestCommit(t, repo)
 	date := time.Unix(12345, 0)
 	dateOffset := date.Format("-0700")
 

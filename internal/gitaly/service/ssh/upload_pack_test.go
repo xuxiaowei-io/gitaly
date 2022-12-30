@@ -20,6 +20,7 @@ import (
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
@@ -103,8 +104,8 @@ func testUploadPackTimeout(t *testing.T, opts ...testcfg.Option) {
 
 	cfg.SocketPath = runSSHServerWithOptions(t, cfg, []ServerOpt{WithUploadPackRequestTimeout(1)})
 
-	repo, repoPath := gittest.CreateRepository(t, testhelper.Context(t), cfg)
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+	repo, _ := gittest.CreateRepository(t, testhelper.Context(t), cfg)
+	localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithBranch("main"))
 
 	client := newSSHClient(t, cfg.SocketPath)
 
@@ -516,19 +517,21 @@ func testUploadPackSuccessful(t *testing.T, sidechannel bool, opts ...testcfg.Op
 		WithPackfileNegotiationMetrics(negotiationMetrics),
 	}, testserver.WithGitCommandFactory(protocolDetectingFactory))
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	smallBlobID := gittest.WriteBlob(t, cfg, repoPath, []byte("foobar"))
 	largeBlobID := gittest.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("1"), 2048))
 
 	// We set up the commits so that HEAD does not reference the above two blobs. If it did we'd
 	// fetch the blobs regardless of `--filter=blob:limit`.
-	rootCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(), gittest.WithTreeEntries(
-		gittest.TreeEntry{Path: "small", Mode: "100644", OID: smallBlobID},
-		gittest.TreeEntry{Path: "large", Mode: "100644", OID: largeBlobID},
+	rootCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithParents(), localrepo.WithTreeEntries(
+		localrepo.TreeEntry{Path: "small", Mode: "100644", OID: smallBlobID},
+		localrepo.TreeEntry{Path: "large", Mode: "100644", OID: largeBlobID},
 	))
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(rootCommitID), gittest.WithBranch("main"), gittest.WithTreeEntries(
-		gittest.TreeEntry{Path: "unrelated", Mode: "100644", Content: "something"},
+
+	localrepo.WriteTestCommit(t, repo, localrepo.WithParents(rootCommitID), localrepo.WithBranch("main"), localrepo.WithTreeEntries(
+		localrepo.TreeEntry{Path: "unrelated", Mode: "100644", Content: "something"},
 	))
 	gittest.WriteTag(t, cfg, repoPath, "v1.0.0", rootCommitID.Revision())
 
@@ -543,13 +546,13 @@ func testUploadPackSuccessful(t *testing.T, sidechannel bool, opts ...testcfg.Op
 		{
 			desc: "full clone",
 			request: &gitalypb.SSHUploadPackRequest{
-				Repository: repo,
+				Repository: repoProto,
 			},
 		},
 		{
 			desc: "full clone with protocol v2",
 			request: &gitalypb.SSHUploadPackRequest{
-				Repository:  repo,
+				Repository:  repoProto,
 				GitProtocol: git.ProtocolV2,
 			},
 			expectedProtocol: git.ProtocolV2,
@@ -557,7 +560,7 @@ func testUploadPackSuccessful(t *testing.T, sidechannel bool, opts ...testcfg.Op
 		{
 			desc: "shallow clone",
 			request: &gitalypb.SSHUploadPackRequest{
-				Repository: repo,
+				Repository: repoProto,
 			},
 			cloneArgs: []string{
 				"--depth=1",
@@ -567,7 +570,7 @@ func testUploadPackSuccessful(t *testing.T, sidechannel bool, opts ...testcfg.Op
 		{
 			desc: "shallow clone with protocol v2",
 			request: &gitalypb.SSHUploadPackRequest{
-				Repository:  repo,
+				Repository:  repoProto,
 				GitProtocol: git.ProtocolV2,
 			},
 			cloneArgs: []string{
@@ -579,7 +582,7 @@ func testUploadPackSuccessful(t *testing.T, sidechannel bool, opts ...testcfg.Op
 		{
 			desc: "partial clone",
 			request: &gitalypb.SSHUploadPackRequest{
-				Repository: repo,
+				Repository: repoProto,
 			},
 			cloneArgs: []string{
 				"--filter=blob:limit=1024",
@@ -595,7 +598,7 @@ func testUploadPackSuccessful(t *testing.T, sidechannel bool, opts ...testcfg.Op
 				"--mirror",
 			},
 			request: &gitalypb.SSHUploadPackRequest{
-				Repository: repo,
+				Repository: repoProto,
 				GitConfigOptions: []string{
 					"transfer.hideRefs=refs/tags",
 				},

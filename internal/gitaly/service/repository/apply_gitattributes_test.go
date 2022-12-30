@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -29,10 +30,11 @@ func TestApplyGitattributes_successful(t *testing.T) {
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	gitattributesContent := "pattern attr=value"
-	commitWithGitattributes := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-		gittest.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: gitattributesContent},
+	commitWithGitattributes := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithTreeEntries(
+		localrepo.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: gitattributesContent},
 	))
-	commitWithoutGitattributes := gittest.WriteCommit(t, cfg, repoPath)
+
+	commitWithoutGitattributes := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo))
 
 	infoPath := filepath.Join(repoPath, "info")
 	attributesPath := filepath.Join(infoPath, "attributes")
@@ -97,10 +99,11 @@ func TestApplyGitattributes_transactional(t *testing.T) {
 		SkipCreationViaService: true,
 	})
 	gitattributesContent := "pattern attr=value"
-	commitWithGitattributes := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-		gittest.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: gitattributesContent},
+	commitWithGitattributes := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithTreeEntries(
+		localrepo.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: gitattributesContent},
 	))
-	commitWithoutGitattributes := gittest.WriteCommit(t, cfg, repoPath)
+
+	commitWithoutGitattributes := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo))
 
 	transactionServer := &testTransactionServer{}
 	runRepositoryService(t, cfg, nil)

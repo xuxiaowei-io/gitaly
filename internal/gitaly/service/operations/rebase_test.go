@@ -92,42 +92,42 @@ func TestUserRebaseConfirmable_skipEmptyCommits(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	// This is the base commit from which both "theirs" and "ours" branch from".
-	baseCommit := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithTreeEntries(
-			gittest.TreeEntry{Mode: "100644", Path: "README", Content: "a\nb\nc\nd\ne\nf\n"},
-		),
-	)
+	baseCommit := localrepo.WriteTestCommit(t, repo,
+		localrepo.WithTreeEntries(
+			localrepo.TreeEntry{Mode: "100644", Path: "README", Content: "a\nb\nc\nd\ne\nf\n"},
+		))
 
 	// "theirs" changes the first line of the file to contain a "1".
-	theirs := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithParents(baseCommit),
-		gittest.WithTreeEntries(
-			gittest.TreeEntry{Mode: "100644", Path: "README", Content: "1\nb\nc\nd\ne\nf\n"},
+	theirs := localrepo.WriteTestCommit(t, repo,
+		localrepo.WithParents(baseCommit),
+		localrepo.WithTreeEntries(
+			localrepo.TreeEntry{Mode: "100644", Path: "README", Content: "1\nb\nc\nd\ne\nf\n"},
 		),
-		gittest.WithMessage("theirs"),
-		gittest.WithBranch("theirs"),
+		localrepo.WithMessage("theirs"),
+		localrepo.WithBranch("theirs"),
 	)
 
 	// We create two commits on "ours": the first one does the same changes as "theirs", but
 	// with a different commit ID. It is expected to become empty. And the second commit is an
 	// independent change which modifies the last line.
-	oursBecomingEmpty := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithParents(baseCommit),
-		gittest.WithTreeEntries(
-			gittest.TreeEntry{Mode: "100644", Path: "README", Content: "1\nb\nc\nd\ne\nf\n"},
+	oursBecomingEmpty := localrepo.WriteTestCommit(t, repo,
+		localrepo.WithParents(baseCommit),
+		localrepo.WithTreeEntries(
+			localrepo.TreeEntry{Mode: "100644", Path: "README", Content: "1\nb\nc\nd\ne\nf\n"},
 		),
-		gittest.WithMessage("ours but same change as theirs"),
+		localrepo.WithMessage("ours but same change as theirs"),
 	)
-	ours := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithParents(oursBecomingEmpty),
-		gittest.WithTreeEntries(
-			gittest.TreeEntry{Mode: "100644", Path: "README", Content: "1\nb\nc\nd\ne\n6\n"},
+	ours := localrepo.WriteTestCommit(t, repo,
+		localrepo.WithParents(oursBecomingEmpty),
+		localrepo.WithTreeEntries(
+			localrepo.TreeEntry{Mode: "100644", Path: "README", Content: "1\nb\nc\nd\ne\n6\n"},
 		),
-		gittest.WithMessage("ours with additional changes"),
-		gittest.WithBranch("ours"),
+		localrepo.WithMessage("ours with additional changes"),
+		localrepo.WithBranch("ours"),
 	)
 
 	stream, err := client.UserRebaseConfirmable(ctx)
@@ -633,36 +633,36 @@ func TestUserRebaseConfirmable_deletedFileInLocalRepo(t *testing.T) {
 	localRepoProto, localRepoPath := gittest.CreateRepository(t, ctx, cfg)
 	localRepo := localrepo.NewTestRepo(t, cfg, localRepoProto)
 
-	remoteRepoProto, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+	remoteRepoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+	remoteRepo := localrepo.NewTestRepo(t, cfg, remoteRepoProto)
 
 	// Write the root commit into both repositories as common history.
 	var rootCommitID git.ObjectID
-	for _, path := range []string{localRepoPath, remoteRepoPath} {
-		rootCommitID = gittest.WriteCommit(t, cfg, path,
-			gittest.WithTreeEntries(
-				gittest.TreeEntry{Path: "change-me", Mode: "100644", Content: "unchanged contents"},
-				gittest.TreeEntry{Path: "delete-me", Mode: "100644", Content: "useless stuff"},
-			),
-		)
+	for _, repo := range []*localrepo.Repo{localRepo, remoteRepo} {
+		rootCommitID = localrepo.WriteTestCommit(t, repo,
+			localrepo.WithTreeEntries(
+				localrepo.TreeEntry{Path: "change-me", Mode: "100644", Content: "unchanged contents"},
+				localrepo.TreeEntry{Path: "delete-me", Mode: "100644", Content: "useless stuff"},
+			))
 	}
 
 	// Write a commit into the local repository that deletes a single file.
-	localCommitID := gittest.WriteCommit(t, cfg, localRepoPath,
-		gittest.WithParents(rootCommitID),
-		gittest.WithTreeEntries(
-			gittest.TreeEntry{Path: "change-me", Mode: "100644", Content: "unchanged contents"},
+	localCommitID := localrepo.WriteTestCommit(t, localRepo,
+		localrepo.WithParents(rootCommitID),
+		localrepo.WithTreeEntries(
+			localrepo.TreeEntry{Path: "change-me", Mode: "100644", Content: "unchanged contents"},
 		),
-		gittest.WithBranch("local"),
+		localrepo.WithBranch("local"),
 	)
 
 	// And then finally write a commit into the remote repository that changes a different file.
-	gittest.WriteCommit(t, cfg, remoteRepoPath,
-		gittest.WithParents(rootCommitID),
-		gittest.WithTreeEntries(
-			gittest.TreeEntry{Path: "change-me", Mode: "100644", Content: "modified contents"},
-			gittest.TreeEntry{Path: "delete-me", Mode: "100644", Content: "useless stuff"},
+	localrepo.WriteTestCommit(t, remoteRepo,
+		localrepo.WithParents(rootCommitID),
+		localrepo.WithTreeEntries(
+			localrepo.TreeEntry{Path: "change-me", Mode: "100644", Content: "modified contents"},
+			localrepo.TreeEntry{Path: "delete-me", Mode: "100644", Content: "useless stuff"},
 		),
-		gittest.WithBranch("remote"),
+		localrepo.WithBranch("remote"),
 	)
 
 	// Send the first request to tell the server to perform the rebase.
@@ -703,27 +703,27 @@ func TestUserRebaseConfirmable_deletedFileInRemoteRepo(t *testing.T) {
 	localRepoProto, localRepoPath := gittest.CreateRepository(t, ctx, cfg)
 	localRepo := localrepo.NewTestRepo(t, cfg, localRepoProto)
 
-	remoteRepoProto, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+	remoteRepoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+	remoteRepo := localrepo.NewTestRepo(t, cfg, remoteRepoProto)
 
 	// Write the root commit into both repositories as common history.
 	var rootCommitID git.ObjectID
-	for _, path := range []string{localRepoPath, remoteRepoPath} {
-		rootCommitID = gittest.WriteCommit(t, cfg, path,
-			gittest.WithTreeEntries(
-				gittest.TreeEntry{Path: "unchanged", Mode: "100644", Content: "unchanged contents"},
-				gittest.TreeEntry{Path: "delete-me", Mode: "100644", Content: "useless stuff"},
+	for _, repo := range []*localrepo.Repo{localRepo, remoteRepo} {
+		rootCommitID = localrepo.WriteTestCommit(t, repo,
+			localrepo.WithTreeEntries(
+				localrepo.TreeEntry{Path: "unchanged", Mode: "100644", Content: "unchanged contents"},
+				localrepo.TreeEntry{Path: "delete-me", Mode: "100644", Content: "useless stuff"},
 			),
-			gittest.WithBranch("local"),
-		)
+			localrepo.WithBranch("local"))
 	}
 
 	// Write a commit into the remote repository that deletes a file.
-	remoteCommitID := gittest.WriteCommit(t, cfg, remoteRepoPath,
-		gittest.WithParents(rootCommitID),
-		gittest.WithTreeEntries(
-			gittest.TreeEntry{Path: "unchanged", Mode: "100644", Content: "unchanged contents"},
+	remoteCommitID := localrepo.WriteTestCommit(t, remoteRepo,
+		localrepo.WithParents(rootCommitID),
+		localrepo.WithTreeEntries(
+			localrepo.TreeEntry{Path: "unchanged", Mode: "100644", Content: "unchanged contents"},
 		),
-		gittest.WithBranch("remote"),
+		localrepo.WithBranch("remote"),
 	)
 
 	_, err := localRepo.ReadCommit(ctx, remoteCommitID.Revision())

@@ -160,12 +160,12 @@ func TestUserMergeBranch(t *testing.T) {
 			desc:  "incorrect expectedOldOID",
 			hooks: []string{},
 			setup: func(data setupData) setupResponse {
-				gittest.WriteCommit(t, cfg, data.repoPath,
-					gittest.WithParents(git.ObjectID(data.masterCommit)),
-					gittest.WithBranch(data.branch),
-					gittest.WithTreeEntries(
-						gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
-						gittest.TreeEntry{Mode: "100644", Path: "b", Content: "banana"},
+				localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, data.repoProto),
+					localrepo.WithParents(git.ObjectID(data.masterCommit)),
+					localrepo.WithBranch(data.branch),
+					localrepo.WithTreeEntries(
+						localrepo.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
+						localrepo.TreeEntry{Mode: "100644", Path: "b", Content: "banana"},
 					),
 				)
 
@@ -208,17 +208,18 @@ func TestUserMergeBranch(t *testing.T) {
 			message := "Merged by Gitaly"
 
 			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-			masterCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(branchToMerge),
-				gittest.WithTreeEntries(
-					gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
-				),
-			)
-			mergeCommitID := gittest.WriteCommit(t, cfg, repoPath,
-				gittest.WithParents(masterCommitID),
-				gittest.WithTreeEntries(
-					gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
-					gittest.TreeEntry{Mode: "100644", Path: "foo", Content: "bar"},
+			masterCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch(branchToMerge),
+				localrepo.WithTreeEntries(
+					localrepo.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
+				))
+
+			mergeCommitID := localrepo.WriteTestCommit(t, repo,
+				localrepo.WithParents(masterCommitID),
+				localrepo.WithTreeEntries(
+					localrepo.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
+					localrepo.TreeEntry{Mode: "100644", Path: "foo", Content: "bar"},
 				))
 
 			data := tc.setup(setupData{
@@ -280,7 +281,6 @@ func TestUserMergeBranch(t *testing.T) {
 			_, err = mergeBidi.Recv()
 			require.Equal(t, io.EOF, err)
 
-			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 			commit, err := repo.ReadCommit(ctx, git.Revision(branchToMerge))
 			require.NoError(t, err, "look up git commit after call has finished")
 
@@ -311,20 +311,23 @@ func TestUserMergeBranch_failure(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	master := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithTreeEntries(
-		gittest.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
+	master := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("master"), localrepo.WithTreeEntries(
+		localrepo.TreeEntry{Mode: "100644", Path: "a", Content: "apple"},
 	))
-	commit1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-		gittest.TreeEntry{Mode: "100644", Path: "b", Content: "banana"},
+
+	commit1 := localrepo.WriteTestCommit(t, repo, localrepo.WithTreeEntries(
+		localrepo.TreeEntry{Mode: "100644", Path: "b", Content: "banana"},
 	))
+
 	branchToMerge := "branchToMerge"
-	gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithBranch(branchToMerge),
-		gittest.WithParents(commit1),
-		gittest.WithTreeEntries(
-			gittest.TreeEntry{Mode: "100644", Path: "b", Content: "banana"},
+	localrepo.WriteTestCommit(t, repo,
+		localrepo.WithBranch(branchToMerge),
+		localrepo.WithParents(commit1),
+		localrepo.WithTreeEntries(
+			localrepo.TreeEntry{Mode: "100644", Path: "b", Content: "banana"},
 		),
 	)
 
@@ -675,8 +678,9 @@ func TestUserMergeBranch_concurrentUpdate(t *testing.T) {
 	require.NoError(t, err, "receive first response")
 
 	// This concurrent update of the branch we are merging into should make the merge fail.
-	concurrentCommitID := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithBranch(mergeBranchName))
+	concurrentCommitID := localrepo.WriteTestCommit(t, repo,
+		localrepo.WithBranch(mergeBranchName))
+
 	require.NotEqual(t, firstResponse.CommitId, concurrentCommitID)
 
 	require.NoError(t, mergeBidi.Send(&gitalypb.UserMergeBranchRequest{Apply: true}), "apply merge")
@@ -859,22 +863,23 @@ func TestUserMergeBranch_conflict(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	const mergeIntoBranch = "mergeIntoBranch"
 	const mergeFromBranch = "mergeFromBranch"
 	const conflictingFile = "file"
 
-	baseCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(mergeIntoBranch), gittest.WithTreeEntries(gittest.TreeEntry{
+	baseCommit := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch(mergeIntoBranch), localrepo.WithTreeEntries(localrepo.TreeEntry{
 		Mode: "100644", Path: conflictingFile, Content: "data",
 	}))
 
 	gittest.Exec(t, cfg, "-C", repoPath, "branch", mergeFromBranch, baseCommit.String())
 
-	divergedInto := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(mergeIntoBranch), gittest.WithTreeEntries(gittest.TreeEntry{
+	divergedInto := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch(mergeIntoBranch), localrepo.WithTreeEntries(localrepo.TreeEntry{
 		Mode: "100644", Path: conflictingFile, Content: "data-1",
 	}))
 
-	divergedFrom := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(mergeFromBranch), gittest.WithTreeEntries(gittest.TreeEntry{
+	divergedFrom := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch(mergeFromBranch), localrepo.WithTreeEntries(localrepo.TreeEntry{
 		Mode: "100644", Path: conflictingFile, Content: "data-2",
 	}))
 
@@ -1050,9 +1055,10 @@ func TestUserFFBranch(t *testing.T) {
 			desc: "successful",
 			setup: func(t *testing.T, ctx context.Context) setupData {
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-				firstCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
-				commitToMerge := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(firstCommit))
+				firstCommit := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("master"))
+				commitToMerge := localrepo.WriteTestCommit(t, repo, localrepo.WithParents(firstCommit))
 
 				return setupData{
 					repoPath: repoPath,
@@ -1075,9 +1081,10 @@ func TestUserFFBranch(t *testing.T) {
 			desc: "successful + expectedOldOID",
 			setup: func(t *testing.T, ctx context.Context) setupData {
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-				firstCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
-				commitToMerge := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(firstCommit))
+				firstCommit := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("master"))
+				commitToMerge := localrepo.WriteTestCommit(t, repo, localrepo.WithParents(firstCommit))
 
 				return setupData{
 					repoPath: repoPath,
@@ -1100,10 +1107,11 @@ func TestUserFFBranch(t *testing.T) {
 		{
 			desc: "empty repository",
 			setup: func(t *testing.T, ctx context.Context) setupData {
-				_, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-				firstCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
-				commitToMerge := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(firstCommit))
+				firstCommit := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("master"))
+				commitToMerge := localrepo.WriteTestCommit(t, repo, localrepo.WithParents(firstCommit))
 
 				return setupData{
 					repoPath: repoPath,
@@ -1120,9 +1128,10 @@ func TestUserFFBranch(t *testing.T) {
 			desc: "empty user",
 			setup: func(t *testing.T, ctx context.Context) setupData {
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-				firstCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
-				commitToMerge := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(firstCommit))
+				firstCommit := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("master"))
+				commitToMerge := localrepo.WriteTestCommit(t, repo, localrepo.WithParents(firstCommit))
 
 				return setupData{
 					repoPath: repoPath,
@@ -1139,9 +1148,10 @@ func TestUserFFBranch(t *testing.T) {
 			desc: "empty commit",
 			setup: func(t *testing.T, ctx context.Context) setupData {
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-				firstCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(firstCommit))
+				firstCommit := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("master"))
+				localrepo.WriteTestCommit(t, repo, localrepo.WithParents(firstCommit))
 
 				return setupData{
 					repoPath: repoPath,
@@ -1158,9 +1168,10 @@ func TestUserFFBranch(t *testing.T) {
 			desc: "non-existing commit",
 			setup: func(t *testing.T, ctx context.Context) setupData {
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-				firstCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(firstCommit))
+				firstCommit := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("master"))
+				localrepo.WriteTestCommit(t, repo, localrepo.WithParents(firstCommit))
 
 				return setupData{
 					repoPath: repoPath,
@@ -1178,9 +1189,10 @@ func TestUserFFBranch(t *testing.T) {
 			desc: "empty branch",
 			setup: func(t *testing.T, ctx context.Context) setupData {
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-				firstCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
-				commitToMerge := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(firstCommit))
+				firstCommit := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("master"))
+				commitToMerge := localrepo.WriteTestCommit(t, repo, localrepo.WithParents(firstCommit))
 
 				return setupData{
 					repoPath: repoPath,
@@ -1197,9 +1209,10 @@ func TestUserFFBranch(t *testing.T) {
 			desc: "non-existing branch",
 			setup: func(t *testing.T, ctx context.Context) setupData {
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-				firstCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
-				commitToMerge := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(firstCommit))
+				firstCommit := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("master"))
+				commitToMerge := localrepo.WriteTestCommit(t, repo, localrepo.WithParents(firstCommit))
 
 				return setupData{
 					repoPath: repoPath,
@@ -1217,10 +1230,11 @@ func TestUserFFBranch(t *testing.T) {
 			desc: "commit is not a descendant of branch head",
 			setup: func(t *testing.T, ctx context.Context) setupData {
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
-				commitToMerge := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "file", Mode: "100644", Content: "something"},
+				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("master"))
+				commitToMerge := localrepo.WriteTestCommit(t, repo, localrepo.WithTreeEntries(
+					localrepo.TreeEntry{Path: "file", Mode: "100644", Content: "something"},
 				))
 
 				return setupData{
@@ -1239,9 +1253,10 @@ func TestUserFFBranch(t *testing.T) {
 			desc: "invalid expectedOldOID",
 			setup: func(t *testing.T, ctx context.Context) setupData {
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-				firstCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
-				commitToMerge := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(firstCommit))
+				firstCommit := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("master"))
+				commitToMerge := localrepo.WriteTestCommit(t, repo, localrepo.WithParents(firstCommit))
 
 				return setupData{
 					repoPath: repoPath,
@@ -1260,9 +1275,10 @@ func TestUserFFBranch(t *testing.T) {
 			desc: "valid SHA, but not existing expectedOldOID",
 			setup: func(t *testing.T, ctx context.Context) setupData {
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-				firstCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
-				commitToMerge := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(firstCommit))
+				firstCommit := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("master"))
+				commitToMerge := localrepo.WriteTestCommit(t, repo, localrepo.WithParents(firstCommit))
 
 				return setupData{
 					repoPath: repoPath,
@@ -1281,17 +1297,19 @@ func TestUserFFBranch(t *testing.T) {
 			desc: "expectedOldOID pointing to old commit",
 			setup: func(t *testing.T, ctx context.Context) setupData {
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-				firstCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "bar", Mode: "100644", Content: "something"},
+				firstCommit := localrepo.WriteTestCommit(t, repo, localrepo.WithTreeEntries(
+					localrepo.TreeEntry{Path: "bar", Mode: "100644", Content: "something"},
 				))
-				secondCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithParents(firstCommit),
-					gittest.WithTreeEntries(
-						gittest.TreeEntry{Path: "foo", Mode: "100644", Content: "something"},
+
+				secondCommit := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("master"), localrepo.WithParents(firstCommit),
+					localrepo.WithTreeEntries(
+						localrepo.TreeEntry{Path: "foo", Mode: "100644", Content: "something"},
 					),
 				)
-				commitToMerge := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(secondCommit), gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "goo", Mode: "100644", Content: "something"},
+				commitToMerge := localrepo.WriteTestCommit(t, repo, localrepo.WithParents(secondCommit), localrepo.WithTreeEntries(
+					localrepo.TreeEntry{Path: "goo", Mode: "100644", Content: "something"},
 				))
 
 				return setupData{

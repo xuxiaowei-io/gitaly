@@ -69,7 +69,7 @@ func TestFindAllBranchNamesVeryLargeResponse(t *testing.T) {
 	cfg, client := setupRefServiceWithoutRepo(t)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
-	commitID := gittest.WriteCommit(t, cfg, repoPath)
+	commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto))
 
 	// We want to create enough refs to overflow the default bufio.Scanner
 	// buffer. Such an overflow will cause scanner.Bytes() to become invalid
@@ -338,12 +338,11 @@ func TestFindLocalBranchesHugeCommitter(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	cfg, repo, repoPath, client := setupRefService(t, ctx)
+	cfg, repo, _, client := setupRefService(t, ctx)
 
-	gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithBranch("refs/heads/improve/awesome"),
-		gittest.WithCommitterName(strings.Repeat("A", 100000)),
-	)
+	localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo),
+		localrepo.WithBranch("refs/heads/improve/awesome"),
+		localrepo.WithCommitterName(strings.Repeat("A", 100000)))
 
 	rpcRequest := &gitalypb.FindLocalBranchesRequest{Repository: repo}
 

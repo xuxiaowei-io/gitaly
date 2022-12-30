@@ -133,7 +133,7 @@ func TestReceivePack_success(t *testing.T) {
 	cfg.SocketPath = runSSHServer(t, cfg, testserver.WithGitCommandFactory(gitCmdFactory))
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+	localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithBranch("main"))
 
 	glRepository := "project-456"
 	glProjectPath := "project/path"
@@ -298,7 +298,7 @@ func TestReceive_gitProtocol(t *testing.T) {
 	cfg.SocketPath = runSSHServer(t, cfg, testserver.WithGitCommandFactory(protocolDetectingFactory))
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+	localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithBranch("main"))
 
 	lHead, rHead, err := testCloneAndPush(t, ctx, cfg, cfg.SocketPath, repo, repoPath, pushParams{
 		storageName:  testhelper.DefaultStorageName,
@@ -446,9 +446,8 @@ func TestReceivePack_hidesObjectPoolReferences(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.NoError(t, pool.Link(ctx, repo))
-	poolPath := gittest.RepositoryPath(t, pool)
 
-	commitID := gittest.WriteCommit(t, cfg, poolPath, gittest.WithBranch(t.Name()))
+	commitID := localrepo.WriteTestCommit(t, pool.Repo, localrepo.WithBranch(t.Name()))
 
 	// First request
 	require.NoError(t, stream.Send(&gitalypb.SSHReceivePackRequest{Repository: repoProto, GlId: "user-123"}))
@@ -486,8 +485,8 @@ func TestReceivePack_transactional(t *testing.T) {
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-	parentCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithParents(parentCommitID))
+	parentCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
+	commitID := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"), localrepo.WithParents(parentCommitID))
 
 	type command struct {
 		ref    string
@@ -739,20 +738,20 @@ type SSHCloneDetails struct {
 func setupSSHClone(t *testing.T, cfg config.Cfg, remoteRepo *gitalypb.Repository, remoteRepoPath string) (SSHCloneDetails, func()) {
 	ctx := testhelper.Context(t)
 
-	_, localRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	localRepoProto, localRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
 
 	oldHead := text.ChompBytes(gittest.Exec(t, cfg, "-C", localRepoPath, "rev-parse", "HEAD"))
-	newHead := gittest.WriteCommit(t, cfg, localRepoPath,
-		gittest.WithMessage(fmt.Sprintf("Testing ReceivePack RPC around %d", time.Now().Unix())),
-		gittest.WithTreeEntries(gittest.TreeEntry{
+	newHead := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, localRepoProto),
+		localrepo.WithMessage(fmt.Sprintf("Testing ReceivePack RPC around %d", time.Now().Unix())),
+		localrepo.WithTreeEntries(localrepo.TreeEntry{
 			Path:    "foo.txt",
 			Mode:    "100644",
 			Content: "foo bar",
 		}),
-		gittest.WithBranch("master"),
-		gittest.WithParents(git.ObjectID(oldHead)),
+		localrepo.WithBranch("master"),
+		localrepo.WithParents(git.ObjectID(oldHead)),
 	)
 
 	return SSHCloneDetails{

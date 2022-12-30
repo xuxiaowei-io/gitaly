@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/repository"
@@ -118,17 +119,17 @@ type gitCommitsGetter interface {
 	GetCommits() []*gitalypb.GitCommit
 }
 
-func createCommits(tb testing.TB, cfg config.Cfg, repoPath, branch string, commitCount int, parent git.ObjectID) git.ObjectID {
+func createCommits(tb testing.TB, cfg config.Cfg, repo *localrepo.Repo, branch string, commitCount int, parent git.ObjectID) git.ObjectID {
 	for i := 0; i < commitCount; i++ {
 		var parents []git.ObjectID
 		if parent != "" {
 			parents = append(parents, parent)
 		}
 
-		parent = gittest.WriteCommit(tb, cfg, repoPath,
-			gittest.WithBranch(branch),
-			gittest.WithMessage(fmt.Sprintf("%s branch Empty commit %d", branch, i)),
-			gittest.WithParents(parents...),
+		parent = localrepo.WriteTestCommit(tb, repo,
+			localrepo.WithBranch(branch),
+			localrepo.WithMessage(fmt.Sprintf("%s branch Empty commit %d", branch, i)),
+			localrepo.WithParents(parents...),
 		)
 	}
 

@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -23,7 +24,7 @@ func TestFindRefsByOID_successful(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, repo, repoPath, client := setupRefService(t, ctx)
 
-	oid := gittest.WriteCommit(t, cfg, repoPath)
+	oid := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo))
 
 	gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/branch-1", string(oid))
 	gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/branch-2", string(oid))
@@ -65,7 +66,7 @@ func TestFindRefsByOID_successful(t *testing.T) {
 	})
 
 	t.Run("excludes other tags", func(t *testing.T) {
-		anotherSha := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("hello! this is another commit"))
+		anotherSha := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithMessage("hello! this is another commit"))
 		gittest.Exec(t, cfg, "-C", repoPath, "tag", "v101.1.0", string(anotherSha))
 
 		resp, err := client.FindRefsByOID(ctx, &gitalypb.FindRefsByOIDRequest{
@@ -131,10 +132,10 @@ func TestFindRefsByOID_failure(t *testing.T) {
 		{
 			desc: "no ref exists for OID",
 			setup: func(t *testing.T) (*gitalypb.FindRefsByOIDRequest, error) {
-				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					Seed: gittest.SeedGitLabTest,
 				})
-				oid := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("no ref exists for OID"))
+				oid := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithMessage("no ref exists for OID"))
 
 				return &gitalypb.FindRefsByOIDRequest{
 					Repository: repo,
@@ -148,7 +149,7 @@ func TestFindRefsByOID_failure(t *testing.T) {
 				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					Seed: gittest.SeedGitLabTest,
 				})
-				oid := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("no ref exists for OID"))
+				oid := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithMessage("no ref exists for OID"))
 				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/corrupted-repo-branch", oid.String())
 
 				require.NoError(t, os.RemoveAll(filepath.Join(repoPath, "objects")))
@@ -165,7 +166,7 @@ func TestFindRefsByOID_failure(t *testing.T) {
 				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					Seed: gittest.SeedGitLabTest,
 				})
-				oid := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("repository is missing"))
+				oid := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithMessage("repository is missing"))
 				require.NoError(t, os.RemoveAll(repoPath))
 
 				return &gitalypb.FindRefsByOIDRequest{
@@ -194,7 +195,7 @@ func TestFindRefsByOID_failure(t *testing.T) {
 				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					Seed: gittest.SeedGitLabTest,
 				})
-				oid := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("oid prefix too short"))
+				oid := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithMessage("oid prefix too short"))
 				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/short-oid", oid.String())
 
 				return &gitalypb.FindRefsByOIDRequest{
