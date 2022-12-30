@@ -373,9 +373,9 @@ SHA256 object hash. Using seed repositories is thus discouraged.
 As an alternative, tests can rely on the following helper functions to generate
 their test data:
 
-- `gittest.WriteCommit()`
-- `gittest.WriteTree()`
-- `gittest.WriteBlob()`
+- `localrepo.WriteTestCommit()`
+- `localrepo.WriteTestTree()`
+- `localrepo.WriteTestBlob()`
 - `gittest.WriteTag()`
 
 ## Black box and white box testing
