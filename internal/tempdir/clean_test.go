@@ -11,6 +11,7 @@ import (
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -57,11 +58,11 @@ func TestCleanTempDir(t *testing.T) {
 	cfg := testcfg.Build(t, testcfg.WithStorages("first", "second"))
 	locator := config.NewLocator(cfg)
 
-	_, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
+	localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithBranch("master"))
 
 	logrus.SetLevel(logrus.InfoLevel)
 	logrus.SetOutput(io.Discard)
