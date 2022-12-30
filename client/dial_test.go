@@ -142,7 +142,7 @@ func TestDial(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			defer conn.Close()
+			defer testhelper.MustClose(t, conn)
 
 			_, err = healthpb.NewHealthClient(conn).Check(ctx, &healthpb.HealthCheckRequest{})
 			if tt.expectHealthFailure {
@@ -227,7 +227,7 @@ func TestDialSidechannel(t *testing.T) {
 
 			conn, err := DialSidechannel(ctx, tt.rawAddress, registry, tt.dialOpts)
 			require.NoError(t, err)
-			defer conn.Close()
+			defer testhelper.MustClose(t, conn)
 
 			ctx, scw := registry.Register(ctx, func(conn SidechannelConn) error {
 				const message = "hello world"
@@ -305,7 +305,7 @@ func TestDial_Correlation(t *testing.T) {
 			internalclient.UnaryInterceptor(), internalclient.StreamInterceptor(),
 		})
 		require.NoError(t, err)
-		defer cc.Close()
+		defer testhelper.MustClose(t, cc)
 
 		client := grpc_testing.NewTestServiceClient(cc)
 
@@ -340,7 +340,7 @@ func TestDial_Correlation(t *testing.T) {
 			internalclient.UnaryInterceptor(), internalclient.StreamInterceptor(),
 		})
 		require.NoError(t, err)
-		defer cc.Close()
+		defer testhelper.MustClose(t, cc)
 
 		client := grpc_testing.NewTestServiceClient(cc)
 
@@ -402,7 +402,7 @@ func TestDial_Tracing(t *testing.T) {
 	t.Run("unary", func(t *testing.T) {
 		reporter := jaeger.NewInMemoryReporter()
 		tracer, tracerCloser := jaeger.NewTracer("", jaeger.NewConstSampler(true), reporter)
-		defer tracerCloser.Close()
+		defer testhelper.MustClose(t, tracerCloser)
 
 		defer func(old opentracing.Tracer) { opentracing.SetGlobalTracer(old) }(opentracing.GlobalTracer())
 		opentracing.SetGlobalTracer(tracer)
@@ -413,7 +413,7 @@ func TestDial_Tracing(t *testing.T) {
 			internalclient.UnaryInterceptor(), internalclient.StreamInterceptor(),
 		})
 		require.NoError(t, err)
-		defer cc.Close()
+		defer testhelper.MustClose(t, cc)
 
 		// We set up a "main" span here, which is going to be what the
 		// other spans inherit from. In order to check whether baggage
@@ -461,7 +461,7 @@ func TestDial_Tracing(t *testing.T) {
 	t.Run("stream", func(t *testing.T) {
 		reporter := jaeger.NewInMemoryReporter()
 		tracer, tracerCloser := jaeger.NewTracer("", jaeger.NewConstSampler(true), reporter)
-		defer tracerCloser.Close()
+		defer testhelper.MustClose(t, tracerCloser)
 
 		defer func(old opentracing.Tracer) { opentracing.SetGlobalTracer(old) }(opentracing.GlobalTracer())
 		opentracing.SetGlobalTracer(tracer)
@@ -472,7 +472,7 @@ func TestDial_Tracing(t *testing.T) {
 			internalclient.UnaryInterceptor(), internalclient.StreamInterceptor(),
 		})
 		require.NoError(t, err)
-		defer cc.Close()
+		defer testhelper.MustClose(t, cc)
 
 		// We set up a "main" span here, which is going to be what the other spans inherit
 		// from. In order to check whether baggage works correctly, we also set up a "stub"
