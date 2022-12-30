@@ -22,6 +22,9 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
+	disabledGenerationVersion := "commitGraph.generationVersion=1"
+	enabledGenerationVersion := "commitGraph.generationVersion=2"
+
 	for _, tc := range []struct {
 		desc             string
 		setup            func(t *testing.T, relativePath string) *gitalypb.Repository
@@ -150,7 +153,7 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 			},
 		},
 		{
-			desc: "existing unsplit commit-graph with bloom filters",
+			desc: "existing unsplit commit-graph with bloom filters and no generation data",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
@@ -163,7 +166,9 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 				// `--changed-paths` given that it would otherwise cause us to
 				// rewrite the graph regardless of whether the graph is split or not
 				// if they were missing.
-				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--changed-paths")
+				gittest.Exec(t, cfg, "-C", repoPath, "-c", disabledGenerationVersion,
+					"commit-graph", "write", "--reachable", "--changed-paths",
+				)
 
 				return repoProto
 			},
@@ -177,14 +182,52 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 						LooseReferencesCount: 1,
 					},
 					CommitGraph: stats.CommitGraphInfo{
-						Exists:          true,
-						HasBloomFilters: true,
+						Exists:            true,
+						HasBloomFilters:   true,
+						HasGenerationData: false,
 					},
 				},
 			},
 		},
 		{
-			desc: "existing split commit-graph without bloom filters",
+			desc: "existing unsplit commit-graph with bloom filters with generation data",
+			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+
+				// Write a non-split commit-graph with bloom filters. We should
+				// always rewrite the commit-graphs when we're not using a split
+				// commit-graph. We make sure to add bloom filters via
+				// `--changed-paths` given that it would otherwise cause us to
+				// rewrite the graph regardless of whether the graph is split or not
+				// if they were missing.
+				gittest.Exec(t, cfg, "-C", repoPath, "-c", enabledGenerationVersion,
+					"commit-graph", "write", "--reachable", "--changed-paths",
+				)
+
+				return repoProto
+			},
+			expectedStrategy: HeuristicalOptimizationStrategy{
+				info: stats.RepositoryInfo{
+					LooseObjects: stats.LooseObjectsInfo{
+						Count: 2,
+						Size:  hashDependentObjectSize(142, 158),
+					},
+					References: stats.ReferencesInfo{
+						LooseReferencesCount: 1,
+					},
+					CommitGraph: stats.CommitGraphInfo{
+						Exists:            true,
+						HasBloomFilters:   true,
+						HasGenerationData: true,
+					},
+				},
+			},
+		},
+		{
+			desc: "existing split commit-graph without bloom filters and generation data",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
@@ -194,7 +237,9 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 				// Generate a split commit-graph, but don't enable computation of
 				// changed paths. This should trigger a rewrite so that we can
 				// recompute all graphs and generate the changed paths.
-				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split")
+				gittest.Exec(t, cfg, "-C", repoPath, "-c", disabledGenerationVersion,
+					"commit-graph", "write", "--reachable", "--split",
+				)
 
 				return repoProto
 			},
@@ -215,7 +260,7 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 			},
 		},
 		{
-			desc: "existing split commit-graph with bloom filters",
+			desc: "existing split commit-graph with bloom filters and generation data",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
@@ -225,7 +270,9 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 				// Write a split commit-graph with bitmaps. This is the state we
 				// want to be in, so there is no write required if we didn't also
 				// repack objects.
-				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split", "--changed-paths")
+				gittest.Exec(t, cfg, "-C", repoPath, "-c", enabledGenerationVersion,
+					"commit-graph", "write", "--reachable", "--split", "--changed-paths",
+				)
 
 				return repoProto
 			},
@@ -242,6 +289,7 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 						Exists:                 true,
 						CommitGraphChainLength: 1,
 						HasBloomFilters:        true,
+						HasGenerationData:      true,
 					},
 				},
 			},

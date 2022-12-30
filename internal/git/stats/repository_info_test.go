@@ -270,10 +270,13 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 			},
 		},
 		{
-			desc: "non-split commit-graph without bloom filter",
+			desc: "non-split commit-graph without bloom filter and generation data",
 			setup: func(t *testing.T, repoPath string) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
-				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable")
+				gittest.Exec(t, cfg, "-C", repoPath,
+					"-c", "commitGraph.generationVersion=1",
+					"commit-graph", "write", "--reachable",
+				)
 			},
 			expectedInfo: RepositoryInfo{
 				LooseObjects: LooseObjectsInfo{
@@ -289,10 +292,13 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 			},
 		},
 		{
-			desc: "non-split commit-graph with bloom filter",
+			desc: "non-split commit-graph with bloom filter and no generation data",
 			setup: func(t *testing.T, repoPath string) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
-				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--changed-paths")
+				gittest.Exec(t, cfg, "-C", repoPath,
+					"-c", "commitGraph.generationVersion=1",
+					"commit-graph", "write", "--reachable", "--changed-paths",
+				)
 			},
 			expectedInfo: RepositoryInfo{
 				LooseObjects: LooseObjectsInfo{

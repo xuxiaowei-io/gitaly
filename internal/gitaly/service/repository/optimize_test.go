@@ -19,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
@@ -27,8 +28,12 @@ import (
 
 func TestOptimizeRepository(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.UseCommitGraphGenerationData).Run(t, testOptimizeRepository)
+}
 
-	ctx := testhelper.Context(t)
+func testOptimizeRepository(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	t.Run("gitconfig credentials get pruned", func(t *testing.T) {
@@ -136,7 +141,7 @@ func TestOptimizeRepository(t *testing.T) {
 		require.NotEmpty(t, bitmaps)
 	})
 
-	t.Run("optimizing repository without commit-graph bloom filters", func(t *testing.T) {
+	t.Run("optimizing repository without commit-graph bloom filters and generation data", func(t *testing.T) {
 		t.Parallel()
 
 		repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -144,12 +149,16 @@ func TestOptimizeRepository(t *testing.T) {
 
 		// Prepare the repository so that it has a commit-graph, but that commit-graph is
 		// missing bloom filters.
-		gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--split", "--reachable")
+		gittest.Exec(t, cfg, "-C", repoPath,
+			"-c", "commitGraph.generationVersion=1",
+			"commit-graph", "write", "--split", "--reachable",
+		)
 		commitGraphInfo, err := stats.CommitGraphInfoForRepository(repoPath)
 		require.NoError(t, err)
 		require.Equal(t, stats.CommitGraphInfo{
 			Exists:                 true,
 			HasBloomFilters:        false,
+			HasGenerationData:      false,
 			CommitGraphChainLength: 1,
 		}, commitGraphInfo)
 
@@ -165,6 +174,45 @@ func TestOptimizeRepository(t *testing.T) {
 		require.Equal(t, stats.CommitGraphInfo{
 			Exists:                 true,
 			HasBloomFilters:        true,
+			HasGenerationData:      featureflag.UseCommitGraphGenerationData.IsEnabled(ctx),
+			CommitGraphChainLength: 1,
+		}, commitGraphInfo)
+	})
+
+	t.Run("optimizing repository without commit-graph bloom filters with generation data", func(t *testing.T) {
+		t.Parallel()
+
+		repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
+
+		// Prepare the repository so that it has a commit-graph, but that commit-graph is
+		// missing bloom filters.
+		gittest.Exec(t, cfg, "-C", repoPath,
+			"-c", "commitGraph.generationVersion=2",
+			"commit-graph", "write", "--split", "--reachable",
+		)
+		commitGraphInfo, err := stats.CommitGraphInfoForRepository(repoPath)
+		require.NoError(t, err)
+		require.Equal(t, stats.CommitGraphInfo{
+			Exists:                 true,
+			HasBloomFilters:        false,
+			HasGenerationData:      true,
+			CommitGraphChainLength: 1,
+		}, commitGraphInfo)
+
+		// As a result, OptimizeRepository should rewrite the commit-graph.
+		_, err = client.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{
+			Repository: repo,
+		})
+		require.NoError(t, err)
+
+		// Which means that we now should see that bloom filters exist.
+		commitGraphInfo, err = stats.CommitGraphInfoForRepository(repoPath)
+		require.NoError(t, err)
+		require.Equal(t, stats.CommitGraphInfo{
+			Exists:                 true,
+			HasBloomFilters:        true,
+			HasGenerationData:      featureflag.UseCommitGraphGenerationData.IsEnabled(ctx),
 			CommitGraphChainLength: 1,
 		}, commitGraphInfo)
 	})

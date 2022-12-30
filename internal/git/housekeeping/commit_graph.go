@@ -7,6 +7,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 )
 
@@ -44,6 +45,9 @@ func WriteCommitGraphConfigForRepository(ctx context.Context, repo *localrepo.Re
 		// If the commit-graph-chain exists, we want to rewrite it in case we see that it
 		// ain't got bloom filters enabled. This is because Git will refuse to write any
 		// bloom filters as long as any of the commit-graph slices is missing this info.
+		replaceChain = true
+	} else if !commitGraphInfo.HasGenerationData && featureflag.UseCommitGraphGenerationData.IsEnabled(ctx) {
+		// The same is true for generation data.
 		replaceChain = true
 	}
 

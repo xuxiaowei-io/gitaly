@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/log"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 )
 
 // CommandFactory is designed to create and run git commands in a protected and fully managed manner.
@@ -536,6 +537,14 @@ func (cf *ExecCommandFactory) GlobalConfiguration(ctx context.Context) ([]Config
 		// disable this mechanism.
 		{Key: "core.useReplaceRefs", Value: "false"},
 
+		// We configure for what data should be fsynced and how that should happen.
+		// Synchronize object files, packed-refs and loose refs to disk to lessen the
+		// likelihood of repository corruption in case the server crashes.
+		{Key: "core.fsync", Value: "objects,derived-metadata,reference"},
+		{Key: "core.fsyncMethod", Value: "fsync"},
+	}
+
+	if featureflag.UseCommitGraphGenerationData.IsDisabled(ctx) {
 		// Commit-graphs are used as an optimization to speed up reading commits and to be
 		// able to perform certain commit-related queries faster. One property that these
 		// graphs are storing is the generation number of a commit, where there are two
@@ -560,15 +569,17 @@ func (cf *ExecCommandFactory) GlobalConfiguration(ctx context.Context) ([]Config
 		// written by Git v2.35.0 or newer with Git v2.36.0 and later with `--changed-paths`
 		// enabled then the resulting commit-graph may be corrupt.
 		//
-		// Let's disable reading and writing corrected committer dates for now until the fix
-		// to this issue is upstream.
-		{Key: "commitGraph.generationVersion", Value: "1"},
-
-		// We configure for what data should be fsynced and how that should happen.
-		// Synchronize object files, packed-refs and loose refs to disk to lessen the
-		// likelihood of repository corruption in case the server crashes.
-		{Key: "core.fsync", Value: "objects,derived-metadata,reference"},
-		{Key: "core.fsyncMethod", Value: "fsync"},
+		// So if the above feature flag is disabled then we disable reading and writing
+		// corrected committer dates. Note that we say to use generation data version 1
+		// here, but due to the bug Git never actually paid attention to generation data in
+		// that case.
+		config = append(config, ConfigPair{Key: "commitGraph.generationVersion", Value: "1"})
+	} else {
+		// The commit-graph corruption was subsequently fixed in 9550f6c16a (commit-graph:
+		// fix corrupt upgrade from generation v1 to v2, 2022-07-12). So if the above
+		// feature flag is enabled then we start generating commit-graph generation data
+		// again.
+		config = append(config, ConfigPair{Key: "commitGraph.generationVersion", Value: "2"})
 	}
 
 	return config, nil

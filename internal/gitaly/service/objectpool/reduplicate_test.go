@@ -38,7 +38,7 @@ func testReduplicate(t *testing.T, ctx context.Context) {
 	// Link the repository to the pool and garbage collect it to get rid of the duplicate
 	// objects.
 	require.NoError(t, pool.Link(ctx, repo))
-	gittest.Exec(t, cfg, "-C", repoPath, "gc")
+	gittest.Exec(t, cfg, "-C", repoPath, "-c", "commitGraph.generationVersion=2", "gc")
 	packedRefsStat, err := os.Stat(filepath.Join(repoPath, "packed-refs"))
 	require.NoError(t, err)
 	// Verify that the pool member has no objects on its own anymore.
@@ -49,7 +49,8 @@ func testReduplicate(t *testing.T, ctx context.Context) {
 			PackedReferencesSize: uint64(packedRefsStat.Size()),
 		},
 		CommitGraph: stats.CommitGraphInfo{
-			Exists: true,
+			Exists:            true,
+			HasGenerationData: true,
 		},
 		Alternates: []string{filepath.Join(poolPath, "objects")},
 	}, repoInfo)

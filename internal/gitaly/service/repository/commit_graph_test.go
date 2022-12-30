@@ -3,12 +3,14 @@
 package repository
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -17,84 +19,140 @@ import (
 
 func TestWriteCommitGraph_withExistingCommitGraphCreatedWithDefaults(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.UseCommitGraphGenerationData).Run(t, testWriteCommitGraphWithExistingCommitGraphCreatedWithDefaults)
+}
 
-	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
+func testWriteCommitGraphWithExistingCommitGraphCreatedWithDefaults(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
-	requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{})
+	for _, tc := range []struct {
+		desc               string
+		commitGraphVersion string
+	}{
+		{
+			desc:               "without preexisting generation data",
+			commitGraphVersion: "1",
+		},
+		{
+			desc:               "with preexisting generation data",
+			commitGraphVersion: "2",
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
-	// write commit graph using an old approach
-	gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable")
-	requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{
-		Exists: true,
-	})
+			requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{})
 
-	treeEntry := gittest.TreeEntry{Mode: "100644", Path: "file.txt", Content: "something"}
-	gittest.WriteCommit(
-		t,
-		cfg,
-		repoPath,
-		gittest.WithBranch(t.Name()),
-		gittest.WithTreeEntries(treeEntry),
-	)
+			// write commit graph using an old approach
+			gittest.Exec(t, cfg, "-C", repoPath,
+				"-c", "commitGraph.generationVersion="+tc.commitGraphVersion,
+				"commit-graph", "write", "--reachable",
+			)
+			requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{
+				Exists:            true,
+				HasGenerationData: tc.commitGraphVersion == "2",
+			})
 
-	//nolint:staticcheck
-	res, err := client.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{
-		Repository:    repo,
-		SplitStrategy: gitalypb.WriteCommitGraphRequest_SizeMultiple,
-	})
-	require.NoError(t, err)
-	require.NotNil(t, res)
+			treeEntry := gittest.TreeEntry{Mode: "100644", Path: "file.txt", Content: "something"}
+			gittest.WriteCommit(
+				t,
+				cfg,
+				repoPath,
+				gittest.WithBranch(t.Name()),
+				gittest.WithTreeEntries(treeEntry),
+			)
 
-	requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{
-		Exists: true, HasBloomFilters: true, CommitGraphChainLength: 1,
-	})
+			//nolint:staticcheck
+			res, err := client.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{
+				Repository:    repo,
+				SplitStrategy: gitalypb.WriteCommitGraphRequest_SizeMultiple,
+			})
+			require.NoError(t, err)
+			require.NotNil(t, res)
+
+			requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{
+				Exists:                 true,
+				HasBloomFilters:        true,
+				HasGenerationData:      featureflag.UseCommitGraphGenerationData.IsEnabled(ctx),
+				CommitGraphChainLength: 1,
+			})
+		})
+	}
 }
 
 func TestWriteCommitGraph_withExistingCommitGraphCreatedWithSplit(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.UseCommitGraphGenerationData).Run(t, testWriteCommitGraphWithExistingCommitGraphCreatedWithSplit)
+}
 
-	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
+func testWriteCommitGraphWithExistingCommitGraphCreatedWithSplit(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
-	// Assert that no commit-graph exists.
-	requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{})
+	for _, tc := range []struct {
+		desc               string
+		commitGraphVersion string
+	}{
+		{
+			desc:               "without preexisting generation data",
+			commitGraphVersion: "1",
+		},
+		{
+			desc:               "with preexisting generation data",
+			commitGraphVersion: "2",
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
-	// write commit graph chain
-	gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split")
-	requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{
-		Exists:                 true,
-		CommitGraphChainLength: 1,
-	})
+			// Assert that no commit-graph exists.
+			requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{})
 
-	treeEntry := gittest.TreeEntry{Mode: "100644", Path: "file.txt", Content: "something"}
-	gittest.WriteCommit(
-		t,
-		cfg,
-		repoPath,
-		gittest.WithBranch(t.Name()),
-		gittest.WithTreeEntries(treeEntry),
-	)
+			// write commit graph chain
+			gittest.Exec(t, cfg, "-C", repoPath,
+				"-c", "commitGraph.generationVersion="+tc.commitGraphVersion,
+				"commit-graph", "write", "--reachable", "--split",
+			)
+			requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{
+				Exists:                 true,
+				CommitGraphChainLength: 1,
+				HasGenerationData:      tc.commitGraphVersion == "2",
+			})
 
-	//nolint:staticcheck
-	res, err := client.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{
-		Repository:    repo,
-		SplitStrategy: gitalypb.WriteCommitGraphRequest_SizeMultiple,
-	})
-	require.NoError(t, err)
-	require.NotNil(t, res)
+			treeEntry := gittest.TreeEntry{Mode: "100644", Path: "file.txt", Content: "something"}
+			gittest.WriteCommit(
+				t,
+				cfg,
+				repoPath,
+				gittest.WithBranch(t.Name()),
+				gittest.WithTreeEntries(treeEntry),
+			)
 
-	requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{
-		Exists:                 true,
-		HasBloomFilters:        true,
-		CommitGraphChainLength: 1,
-	})
+			//nolint:staticcheck
+			res, err := client.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{
+				Repository:    repo,
+				SplitStrategy: gitalypb.WriteCommitGraphRequest_SizeMultiple,
+			})
+			require.NoError(t, err)
+			require.NotNil(t, res)
+
+			requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{
+				Exists:                 true,
+				CommitGraphChainLength: 1,
+				HasBloomFilters:        true,
+				HasGenerationData:      featureflag.UseCommitGraphGenerationData.IsEnabled(ctx),
+			})
+		})
+	}
 }
 
 func TestWriteCommitGraph(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.UseCommitGraphGenerationData).Run(t, testWriteCommitGraph)
+}
 
-	ctx := testhelper.Context(t)
+func testWriteCommitGraph(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	_, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{})
@@ -108,14 +166,21 @@ func TestWriteCommitGraph(t *testing.T) {
 	require.NotNil(t, res)
 
 	requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{
-		Exists: true, HasBloomFilters: true, CommitGraphChainLength: 1,
+		Exists:                 true,
+		CommitGraphChainLength: 1,
+		HasBloomFilters:        true,
+		HasGenerationData:      featureflag.UseCommitGraphGenerationData.IsEnabled(ctx),
 	})
 }
 
 func TestWriteCommitGraph_validationChecks(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.UseCommitGraphGenerationData).Run(t, testWriteCommitGraphValidationChecks)
+}
 
-	ctx := testhelper.Context(t)
+func testWriteCommitGraphValidationChecks(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, repo, _, client := setupRepositoryService(t, ctx)
 
 	for _, tc := range []struct {
@@ -166,8 +231,12 @@ func TestWriteCommitGraph_validationChecks(t *testing.T) {
 
 func TestUpdateCommitGraph(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.UseCommitGraphGenerationData).Run(t, testUpdateCommitGraph)
+}
 
-	ctx := testhelper.Context(t)
+func testUpdateCommitGraph(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{})
@@ -183,6 +252,7 @@ func TestUpdateCommitGraph(t *testing.T) {
 	requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{
 		Exists:                 true,
 		HasBloomFilters:        true,
+		HasGenerationData:      featureflag.UseCommitGraphGenerationData.IsEnabled(ctx),
 		CommitGraphChainLength: 1,
 	})
 
@@ -206,6 +276,7 @@ func TestUpdateCommitGraph(t *testing.T) {
 	requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{
 		Exists:                 true,
 		HasBloomFilters:        true,
+		HasGenerationData:      featureflag.UseCommitGraphGenerationData.IsEnabled(ctx),
 		CommitGraphChainLength: 2,
 	})
 }

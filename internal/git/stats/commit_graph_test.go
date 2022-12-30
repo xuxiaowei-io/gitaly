@@ -28,9 +28,12 @@ func TestCommitGraphInfoForRepository(t *testing.T) {
 			expectedInfo: CommitGraphInfo{},
 		},
 		{
-			desc: "single commit graph without bloom filter",
+			desc: "single commit graph without bloom filter and generation data",
 			setup: func(t *testing.T, repoPath string) {
-				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable")
+				gittest.Exec(t, cfg, "-C", repoPath,
+					"-c", "commitGraph.generationVersion=1",
+					"commit-graph", "write", "--reachable",
+				)
 			},
 			expectedInfo: CommitGraphInfo{
 				Exists: true,
@@ -39,7 +42,10 @@ func TestCommitGraphInfoForRepository(t *testing.T) {
 		{
 			desc: "single commit graph with bloom filter",
 			setup: func(t *testing.T, repoPath string) {
-				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--changed-paths")
+				gittest.Exec(t, cfg, "-C", repoPath,
+					"-c", "commitGraph.generationVersion=1",
+					"commit-graph", "write", "--reachable", "--changed-paths",
+				)
 			},
 			expectedInfo: CommitGraphInfo{
 				Exists:          true,
@@ -61,9 +67,12 @@ func TestCommitGraphInfoForRepository(t *testing.T) {
 			},
 		},
 		{
-			desc: "split commit graph without bloom filter",
+			desc: "split commit graph without bloom filter and generation data",
 			setup: func(t *testing.T, repoPath string) {
-				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split")
+				gittest.Exec(t, cfg, "-C", repoPath,
+					"-c", "commitGraph.generationVersion=1",
+					"commit-graph", "write", "--reachable", "--split",
+				)
 			},
 			expectedInfo: CommitGraphInfo{
 				Exists:                 true,
@@ -71,9 +80,12 @@ func TestCommitGraphInfoForRepository(t *testing.T) {
 			},
 		},
 		{
-			desc: "split commit graph with bloom filter",
+			desc: "split commit graph with bloom filter without generation data",
 			setup: func(t *testing.T, repoPath string) {
-				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split", "--changed-paths")
+				gittest.Exec(t, cfg, "-C", repoPath,
+					"-c", "commitGraph.generationVersion=1",
+					"commit-graph", "write", "--reachable", "--split", "--changed-paths",
+				)
 			},
 			expectedInfo: CommitGraphInfo{
 				Exists:                 true,

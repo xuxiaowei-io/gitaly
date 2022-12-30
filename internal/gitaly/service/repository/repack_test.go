@@ -3,6 +3,7 @@
 package repository
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"testing"
@@ -12,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -21,8 +23,12 @@ import (
 
 func TestRepackIncrementalSuccess(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.UseCommitGraphGenerationData).Run(t, testRepackIncrementalSuccess)
+}
 
-	ctx := testhelper.Context(t)
+func testRepackIncrementalSuccess(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
@@ -47,7 +53,10 @@ func TestRepackIncrementalSuccess(t *testing.T) {
 	require.Equal(t, oldPackfileCount+1, newPackfileCount)
 
 	requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{
-		Exists: true, HasBloomFilters: true, CommitGraphChainLength: 1,
+		Exists:                 true,
+		HasBloomFilters:        true,
+		HasGenerationData:      featureflag.UseCommitGraphGenerationData.IsEnabled(ctx),
+		CommitGraphChainLength: 1,
 	})
 }
 
@@ -163,8 +172,12 @@ func TestRepackIncrementalFailure(t *testing.T) {
 
 func TestRepackFullSuccess(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.UseCommitGraphGenerationData).Run(t, testRepackFullSuccess)
+}
 
-	ctx := testhelper.Context(t)
+func testRepackFullSuccess(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	for _, tc := range []struct {
@@ -223,7 +236,10 @@ func TestRepackFullSuccess(t *testing.T) {
 			// And last but not least the commit-graph must've been written. This is
 			// important because the commit-graph might otherwise be stale.
 			requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{
-				Exists: true, HasBloomFilters: true, CommitGraphChainLength: 1,
+				Exists:                 true,
+				HasBloomFilters:        true,
+				HasGenerationData:      featureflag.UseCommitGraphGenerationData.IsEnabled(ctx),
+				CommitGraphChainLength: 1,
 			})
 		})
 	}

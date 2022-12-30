@@ -203,6 +203,9 @@ func ContextWithoutCancel(opts ...ContextOpt) context.Context {
 	// PraefectUseYamuxConfigurationForGitaly gets tested in Praefect when routing RPCs and thus it affects many tests.
 	// Let's randomly select which connection we use so both sets of connections get tested somewhat.
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.PraefectUseYamuxConfigurationForGitaly, rnd.Int()%2 == 0)
+	// We check this feature flag in the Git command factory on every spawned Git command, so
+	// basically in almost all cases.
+	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.UseCommitGraphGenerationData, rnd.Int()%2 == 0)
 
 	// Randomly enable the use of the catfile cache in localrepo.ReadObject.
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.LocalrepoReadObjectCached, rnd.Int()%2 == 0)
