@@ -4,9 +4,12 @@ import (
 	"context"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/client"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/protoregistry"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/serviceconfig"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/sidechannel"
 	"google.golang.org/grpc"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 // DefaultDialOpts hold the default DialOptions for connection to Gitaly over UNIX-socket
@@ -29,6 +32,37 @@ func DialContext(ctx context.Context, rawAddress string, connOpts []grpc.DialOpt
 // for details.
 func Dial(rawAddress string, connOpts []grpc.DialOption) (*grpc.ClientConn, error) {
 	return DialContext(context.Background(), rawAddress, connOpts)
+}
+
+// WithClientLoadBalancing sets the recommended client-side load balancing configuration to client
+// dial. By default, gRPC clients don't support client-side load balancing. After the connection to
+// a host is established for the first time, that client always sticks to that host. In all Gitaly
+// clients, the connection is cached somehow, usually one connection per host. It means they always
+// stick to the same host until the process restarts. This is not a problem in pure Gitaly
+// environment. In a cluster with more than one Praefect node, this behavior may cause serious
+// workload skew, especially after a fail-over event.
+//
+// This option configures the load balancing strategy to `round_robin`. This is a built-in strategy
+// grpc-go provides. When combining with service discovery via DNS, a client can distribute its
+// requests to all discovered nodes in a round-robin fashion. The client can detect the connectivity
+// changes, such as a node goes down/up again. It evicts subsequent requests accordingly.
+//
+// When autoRetry option is on, the client can retry inflight requests automatically if they are
+// interrupted due to connectivity reasons. Without this option, the requests could not recover. A
+// client is required to capture Unavailable or similar codes and retry the requests manually. Thus,
+// this option increases the resiliency and high availability against interruption events. Note that
+// this auto-retry mechanism works for read-only RPCs (OpAccessor) only.
+//
+// For more information:
+// https://gitlab.com/groups/gitlab-org/-/epics/8971#note_1207008162
+func WithClientLoadBalancing(autoRetry bool) grpc.DialOption {
+	config := serviceconfig.Generate(protoregistry.GitalyProtoPreregistered, autoRetry)
+	configJSON, err := protojson.Marshal(config)
+	if err != nil {
+		panic("fail to convert service config from protobuf to json")
+	}
+
+	return grpc.WithDefaultServiceConfig(string(configJSON))
 }
 
 // DialSidechannel configures the dialer to establish a Gitaly
@@ -58,7 +92,7 @@ func HealthCheckDialer(base Dialer) Dialer {
 		}
 
 		if _, err := healthpb.NewHealthClient(cc).Check(ctx, &healthpb.HealthCheckRequest{}); err != nil {
-			cc.Close()
+			_ = cc.Close()
 			return nil, err
 		}
 

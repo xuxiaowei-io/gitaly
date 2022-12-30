@@ -129,6 +129,14 @@ func Dial(ctx context.Context, rawAddress string, connOpts []grpc.DialOption, ha
 			Time:                20 * time.Second,
 			PermitWithoutStream: true,
 		}),
+		// grpc.WithDisableServiceConfig ignores the service config provided by resolvers
+		// when they resolve the target. gRPC provides this feature to inject service
+		// config from external sources (DNS TXT record, for example). Gitaly doesn't need
+		// this feature. When we implement a custom client-side load balancer, this feature
+		// can even break the balancer. So, we should better disable it.
+		// For more information, please visit
+		// - https://github.com/grpc/proposal/blob/master/A2-service-configs-in-dns.md
+		grpc.WithDisableServiceConfig(),
 	)
 
 	conn, err := grpc.DialContext(ctx, canonicalAddress, connOpts...)

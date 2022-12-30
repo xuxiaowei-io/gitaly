@@ -136,7 +136,7 @@ func TestDial(t *testing.T) {
 
 			ctx := testhelper.Context(t)
 
-			conn, err := Dial(tt.rawAddress, tt.dialOpts)
+			conn, err := Dial(tt.rawAddress, append(tt.dialOpts, WithClientLoadBalancing(true)))
 			if tt.expectDialFailure {
 				require.Error(t, err)
 				return
@@ -225,7 +225,10 @@ func TestDialSidechannel(t *testing.T) {
 
 			ctx := testhelper.Context(t)
 
-			conn, err := DialSidechannel(ctx, tt.rawAddress, registry, tt.dialOpts)
+			conn, err := DialSidechannel(
+				ctx, tt.rawAddress, registry,
+				append(tt.dialOpts, WithClientLoadBalancing(true)),
+			)
 			require.NoError(t, err)
 			defer testhelper.MustClose(t, conn)
 
