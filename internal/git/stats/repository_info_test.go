@@ -47,11 +47,11 @@ func TestRepositoryProfile(t *testing.T) {
 	require.Equal(t, uint64(blobs), looseObjects)
 
 	for _, blobID := range blobIDs {
-		commitID := gittest.WriteCommit(t, cfg, repoPath,
-			gittest.WithTreeEntries(gittest.TreeEntry{
+		commitID := localrepo.WriteTestCommit(t, repo,
+			localrepo.WithTreeEntries(localrepo.TreeEntry{
 				Mode: "100644", Path: "blob", OID: git.ObjectID(blobID),
-			}),
-		)
+			}))
+
 		gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/"+blobID, commitID.String())
 	}
 
@@ -106,15 +106,15 @@ func TestLogObjectInfo(t *testing.T) {
 		logger, hook := test.NewNullLogger()
 		ctx := ctxlogrus.ToContext(ctx, logger.WithField("test", "logging"))
 
-		_, repoPath1 := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		repoProto1, repoPath1 := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 		})
-		gittest.WriteCommit(t, cfg, repoPath1, gittest.WithMessage("repo1"), gittest.WithBranch("main"))
+		localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto1), localrepo.WithMessage("repo1"), localrepo.WithBranch("main"))
 
-		_, repoPath2 := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		repoProto2, repoPath2 := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 		})
-		gittest.WriteCommit(t, cfg, repoPath2, gittest.WithMessage("repo2"), gittest.WithBranch("main"))
+		localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto2), localrepo.WithMessage("repo2"), localrepo.WithBranch("main"))
 
 		// clone existing local repo with two alternates
 		targetRepoName := gittest.NewRepositoryName(t)
@@ -147,12 +147,13 @@ func TestLogObjectInfo(t *testing.T) {
 		logger, hook := test.NewNullLogger()
 		ctx := ctxlogrus.ToContext(ctx, logger.WithField("test", "logging"))
 
-		repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 		})
-		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+		localRepo := localrepo.NewTestRepo(t, cfg, repo)
+		localrepo.WriteTestCommit(t, localRepo, localrepo.WithBranch("main"))
 
-		LogRepositoryInfo(ctx, localrepo.NewTestRepo(t, cfg, repo))
+		LogRepositoryInfo(ctx, localRepo)
 
 		objectsInfo := requireRepositoryInfo(hook.AllEntries())
 		require.Equal(t, RepositoryInfo{
@@ -180,18 +181,20 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 
 	for _, tc := range []struct {
 		desc         string
-		setup        func(t *testing.T, repoPath string)
+		setup        func(t *testing.T, repo *localrepo.Repo)
 		expectedErr  error
 		expectedInfo RepositoryInfo
 	}{
 		{
 			desc: "empty repository",
-			setup: func(*testing.T, string) {
+			setup: func(*testing.T, *localrepo.Repo) {
 			},
 		},
 		{
 			desc: "single blob",
-			setup: func(t *testing.T, repoPath string) {
+			setup: func(t *testing.T, repo *localrepo.Repo) {
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
 				gittest.WriteBlob(t, cfg, repoPath, []byte("x"))
 			},
 			expectedInfo: RepositoryInfo{
@@ -203,8 +206,12 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 		},
 		{
 			desc: "single packed blob",
-			setup: func(t *testing.T, repoPath string) {
+			setup: func(t *testing.T, repo *localrepo.Repo) {
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
+
 				blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("x"))
+
 				gittest.WriteRef(t, cfg, repoPath, "refs/tags/blob", blobID)
 				// We use `-d`, which also prunes objects that have been packed.
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
@@ -222,8 +229,12 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 		},
 		{
 			desc: "single pruneable blob",
-			setup: func(t *testing.T, repoPath string) {
+			setup: func(t *testing.T, repo *localrepo.Repo) {
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
+
 				blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("x"))
+
 				gittest.WriteRef(t, cfg, repoPath, "refs/tags/blob", blobID)
 				// This time we don't use `-d`, so the object will exist both in
 				// loose and packed form.
@@ -246,7 +257,10 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 		},
 		{
 			desc: "garbage",
-			setup: func(t *testing.T, repoPath string) {
+			setup: func(t *testing.T, repo *localrepo.Repo) {
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
+
 				garbagePath := filepath.Join(repoPath, "objects", "pack", "garbage")
 				require.NoError(t, os.WriteFile(garbagePath, []byte("x"), 0o600))
 			},
@@ -259,7 +273,10 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 		},
 		{
 			desc: "alternates",
-			setup: func(t *testing.T, repoPath string) {
+			setup: func(t *testing.T, repo *localrepo.Repo) {
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
+
 				infoAlternatesPath := filepath.Join(repoPath, "objects", "info", "alternates")
 				require.NoError(t, os.WriteFile(infoAlternatesPath, []byte(alternatePath), 0o600))
 			},
@@ -271,7 +288,11 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 		},
 		{
 			desc: "non-split commit-graph without bloom filter and generation data",
-			setup: func(t *testing.T, repoPath string) {
+			setup: func(t *testing.T, repo *localrepo.Repo) {
+				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
+
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 				gittest.Exec(t, cfg, "-C", repoPath,
 					"-c", "commitGraph.generationVersion=1",
@@ -293,8 +314,11 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 		},
 		{
 			desc: "non-split commit-graph with bloom filter and no generation data",
-			setup: func(t *testing.T, repoPath string) {
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+			setup: func(t *testing.T, repo *localrepo.Repo) {
+				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
+
 				gittest.Exec(t, cfg, "-C", repoPath,
 					"-c", "commitGraph.generationVersion=1",
 					"commit-graph", "write", "--reachable", "--changed-paths",
@@ -316,8 +340,11 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 		},
 		{
 			desc: "non-split commit-graph with bloom filters and generation data",
-			setup: func(t *testing.T, repoPath string) {
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+			setup: func(t *testing.T, repo *localrepo.Repo) {
+				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
+
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
 				gittest.Exec(t, cfg, "-C", repoPath,
 					"-c",
 					"commitGraph.generationVersion=2",
@@ -344,7 +371,10 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 		},
 		{
 			desc: "all together",
-			setup: func(t *testing.T, repoPath string) {
+			setup: func(t *testing.T, repo *localrepo.Repo) {
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
+
 				infoAlternatesPath := filepath.Join(repoPath, "objects", "info", "alternates")
 				require.NoError(t, os.WriteFile(infoAlternatesPath, []byte(alternatePath), 0o600))
 
@@ -354,8 +384,8 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
 
 				// And two loose ones.
-				gittest.WriteBlob(t, cfg, repoPath, []byte("1"))
-				gittest.WriteBlob(t, cfg, repoPath, []byte("2"))
+				localrepo.WriteTestBlob(t, repo, "", "1")
+				localrepo.WriteTestBlob(t, repo, "", "2")
 
 				// And three garbage-files. This is done so we've got unique counts
 				// everywhere.
@@ -386,12 +416,12 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				SkipCreationViaService: true,
 			})
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-			tc.setup(t, repoPath)
+			tc.setup(t, repo)
 
 			repoInfo, err := RepositoryInfoForRepository(ctx, repo)
 			require.Equal(t, tc.expectedErr, err)
@@ -418,8 +448,8 @@ func TestReferencesInfoForRepository(t *testing.T) {
 		},
 		{
 			desc: "single unpacked reference",
-			setup: func(t *testing.T, _ *localrepo.Repo, repoPath string) {
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+			setup: func(t *testing.T, repo *localrepo.Repo, repoPath string) {
+				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
 			},
 			expectedInfo: ReferencesInfo{
 				LooseReferencesCount: 1,
@@ -439,13 +469,13 @@ func TestReferencesInfoForRepository(t *testing.T) {
 		},
 		{
 			desc: "multiple unpacked and packed refs",
-			setup: func(t *testing.T, _ *localrepo.Repo, repoPath string) {
+			setup: func(t *testing.T, repo *localrepo.Repo, repoPath string) {
 				for _, ref := range []string{
 					"refs/heads/main",
 					"refs/something",
 					"refs/merge-requests/1/HEAD",
 				} {
-					gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference(ref))
+					localrepo.WriteTestCommit(t, repo, localrepo.WithReference(ref))
 				}
 
 				// We just write some random garbage -- we don't verify contents

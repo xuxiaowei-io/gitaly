@@ -48,10 +48,10 @@ func TestUpdater_create(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, _, repoPath, updater := setupUpdater(t, ctx)
+	cfg, repo, repoPath, updater := setupUpdater(t, ctx)
 	defer testhelper.MustClose(t, updater)
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath)
+	commitID := localrepo.WriteTestCommit(t, repo)
 
 	// Create the first branch.
 	require.NoError(t, updater.Start())
@@ -175,10 +175,10 @@ func TestUpdater_fileDirectoryConflict(t *testing.T) {
 			} {
 				t.Run(method.desc, func(t *testing.T) {
 					t.Run("different transaction", func(t *testing.T) {
-						cfg, _, repoPath, updater := setupUpdater(t, ctx)
+						_, repo, _, updater := setupUpdater(t, ctx)
 						defer func() { require.ErrorContains(t, updater.Close(), "closing updater: exit status 128") }()
 
-						commitID := gittest.WriteCommit(t, cfg, repoPath)
+						commitID := localrepo.WriteTestCommit(t, repo)
 
 						require.NoError(t, updater.Start())
 						require.NoError(t, updater.Create(tc.firstReference, commitID))
@@ -194,10 +194,10 @@ func TestUpdater_fileDirectoryConflict(t *testing.T) {
 					})
 
 					t.Run("same transaction", func(t *testing.T) {
-						cfg, _, repoPath, updater := setupUpdater(t, ctx)
+						_, repo, _, updater := setupUpdater(t, ctx)
 						defer func() { require.ErrorContains(t, updater.Close(), "closing updater: exit status 128") }()
 
-						commitID := gittest.WriteCommit(t, cfg, repoPath)
+						commitID := localrepo.WriteTestCommit(t, repo)
 
 						require.NoError(t, updater.Start())
 						require.NoError(t, updater.Create(tc.firstReference, commitID))
@@ -219,10 +219,10 @@ func TestUpdater_invalidStateTransitions(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, repo, repoPath, updater := setupUpdater(t, ctx)
+	_, repo, _, updater := setupUpdater(t, ctx)
 	defer testhelper.MustClose(t, updater)
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath)
+	commitID := localrepo.WriteTestCommit(t, repo)
 
 	require.Equal(t, invalidStateTransitionError{expected: stateStarted, actual: stateIdle}, updater.Update("refs/heads/main", commitID, ""))
 	require.Equal(t, invalidStateTransitionError{expected: stateStarted, actual: stateClosed}, updater.Create("refs/heads/main", commitID))
@@ -243,15 +243,15 @@ func TestUpdater_update(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, _, repoPath, updater := setupUpdater(t, ctx)
+	cfg, repo, repoPath, updater := setupUpdater(t, ctx)
 
 	// The updater cancel should fail at the end of the test as the final operation is an error,
 	// which results in closing the updater.
 	defer func() { require.ErrorContains(t, updater.Close(), "closing updater: exit status 128") }()
 
-	oldCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
-	newCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(oldCommitID))
-	otherCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("other"))
+	oldCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
+	newCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithParents(oldCommitID))
+	otherCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithMessage("other"))
 
 	// Check that we can force-update the reference when we don't give an old object ID.
 	require.NoError(t, updater.Start())
@@ -280,10 +280,10 @@ func TestUpdater_delete(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, repo, repoPath, updater := setupUpdater(t, ctx)
+	_, repo, _, updater := setupUpdater(t, ctx)
 	defer testhelper.MustClose(t, updater)
 
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+	localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
 
 	require.NoError(t, updater.Start())
 	require.NoError(t, updater.Delete("refs/heads/main"))
@@ -299,10 +299,10 @@ func TestUpdater_prepareLocksTransaction(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, _, repoPath, updater := setupUpdater(t, ctx)
+	_, repo, _, updater := setupUpdater(t, ctx)
 	defer testhelper.MustClose(t, updater)
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath)
+	commitID := localrepo.WriteTestCommit(t, repo)
 
 	require.NoError(t, updater.Start())
 	require.NoError(t, updater.Update("refs/heads/feature", commitID, ""))
@@ -319,11 +319,11 @@ func TestUpdater_invalidReferenceName(t *testing.T) {
 
 	cfg := testcfg.Build(t)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto, git.WithSkipHooks())
-	commitID := gittest.WriteCommit(t, cfg, repoPath)
+	commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto))
 
 	updater, err := New(ctx, repo)
 	require.NoError(t, err)
@@ -342,12 +342,12 @@ func TestUpdater_concurrentLocking(t *testing.T) {
 
 	cfg := testcfg.Build(t)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto, git.WithSkipHooks())
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath)
+	commitID := localrepo.WriteTestCommit(t, repo)
 
 	// Create the first updater that prepares the reference transaction so that the reference
 	// we're about to update is locked.
@@ -381,10 +381,10 @@ func TestUpdater_bulkOperation(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, repo, repoPath, updater := setupUpdater(t, ctx)
+	_, repo, _, updater := setupUpdater(t, ctx)
 	defer testhelper.MustClose(t, updater)
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath)
+	commitID := localrepo.WriteTestCommit(t, repo)
 
 	var expectedRefs []git.Reference
 	for i := 0; i < 2; i++ {
@@ -414,10 +414,9 @@ func TestUpdater_contextCancellation(t *testing.T) {
 	ctx := testhelper.Context(t)
 	childCtx, childCancel := context.WithCancel(ctx)
 
-	cfg, repoProto, repoPath, _ := setupUpdater(t, ctx)
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	_, repo, _, _ := setupUpdater(t, ctx)
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath)
+	commitID := localrepo.WriteTestCommit(t, repo)
 
 	updater, err := New(childCtx, repo)
 	require.NoError(t, err)
@@ -441,10 +440,10 @@ func TestUpdater_cancel(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, repo, repoPath, firstUpdater := setupUpdater(t, ctx)
+	_, repo, _, firstUpdater := setupUpdater(t, ctx)
 	defer testhelper.MustClose(t, firstUpdater)
 
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+	localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
 
 	// Queue the branch for deletion and lock it.
 	require.NoError(t, firstUpdater.Start())
@@ -479,10 +478,10 @@ func TestUpdater_closingStdinAbortsChanges(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, repo, repoPath, updater := setupUpdater(t, ctx)
+	_, repo, _, updater := setupUpdater(t, ctx)
 	defer testhelper.MustClose(t, updater)
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath)
+	commitID := localrepo.WriteTestCommit(t, repo)
 
 	require.NoError(t, updater.Start())
 	require.NoError(t, updater.Create("refs/heads/main", commitID))
@@ -552,11 +551,11 @@ func BenchmarkUpdater(b *testing.B) {
 			b.Run(fmt.Sprintf("transaction size %d", tc.transactionSize), func(b *testing.B) {
 				ctx := testhelper.Context(b)
 
-				cfg, repo, repoPath, updater := setupUpdater(b, ctx)
+				_, repo, _, updater := setupUpdater(b, ctx)
 				defer testhelper.MustClose(b, updater)
 
-				commitOID1 := gittest.WriteCommit(b, cfg, repoPath)
-				commitOID2 := gittest.WriteCommit(b, cfg, repoPath, gittest.WithParents(commitOID1))
+				commitOID1 := localrepo.WriteTestCommit(b, repo)
+				commitOID2 := localrepo.WriteTestCommit(b, repo, localrepo.WithParents(commitOID1))
 
 				createReferences(b, repo, tc.transactionSize, commitOID1)
 
@@ -613,10 +612,10 @@ func BenchmarkUpdater(b *testing.B) {
 
 				ctx := testhelper.Context(b)
 
-				cfg, repo, repoPath, updater := setupUpdater(b, ctx)
+				_, repo, repoPath, updater := setupUpdater(b, ctx)
 				defer testhelper.MustClose(b, updater)
 
-				commitOID := gittest.WriteCommit(b, cfg, repoPath)
+				commitOID := localrepo.WriteTestCommit(b, repo)
 
 				// createPackedReferences writes out a packed-refs file into the repository. We do this
 				// manually as creating millions of references with update-ref and packing them is slow.

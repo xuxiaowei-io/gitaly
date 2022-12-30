@@ -39,8 +39,8 @@ func TestPipeline_revlist(t *testing.T) {
 		{Path: "subtree", Mode: "040000", OID: subtree},
 	})
 
-	commitA := gittest.WriteCommit(t, cfg, repoPath)
-	commitB := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(commitA), gittest.WithTree(tree), gittest.WithBranch("main"))
+	commitA := localrepo.WriteTestCommit(t, repo)
+	commitB := localrepo.WriteTestCommit(t, repo, localrepo.WithParents(commitA), localrepo.WithTree(tree), localrepo.WithBranch("main"))
 
 	for _, tc := range []struct {
 		desc               string
@@ -396,9 +396,9 @@ func TestPipeline_forEachRef(t *testing.T) {
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	keepaliveCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference("refs/keep-alive/a"), gittest.WithMessage("keepalive"))
-	mainCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithMessage("main"))
-	featureCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("feature"), gittest.WithMessage("feature"))
+	keepaliveCommit := localrepo.WriteTestCommit(t, repo, localrepo.WithReference("refs/keep-alive/a"), localrepo.WithMessage("keepalive"))
+	mainCommit := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"), localrepo.WithMessage("main"))
+	featureCommit := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("feature"), localrepo.WithMessage("feature"))
 	tag := gittest.WriteTag(t, cfg, repoPath, "v1.0.0", mainCommit.Revision(), gittest.WriteTagConfig{
 		Message: "annotated",
 	})

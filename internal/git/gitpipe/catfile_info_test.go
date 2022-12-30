@@ -296,7 +296,7 @@ func TestCatfileInfoAllObjects(t *testing.T) {
 	tree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 		{Path: "foobar", Mode: "100644", OID: blob1},
 	})
-	commit := gittest.WriteCommit(t, cfg, repoPath)
+	commit := localrepo.WriteTestCommit(t, repo)
 
 	actualObjects := []CatfileInfoResult{
 		{ObjectInfo: &catfile.ObjectInfo{Oid: blob1, Type: "blob", Size: 6}},
@@ -355,7 +355,7 @@ func TestCatfileInfo_WithDiskUsageSize(t *testing.T) {
 			OID:  gittest.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte("a"), 100)),
 		},
 	})
-	initialCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(tree1))
+	initialCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithTree(tree1))
 
 	tree2 := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 		{
@@ -368,13 +368,12 @@ func TestCatfileInfo_WithDiskUsageSize(t *testing.T) {
 			)),
 		},
 	})
-	gittest.WriteCommit(
+	localrepo.WriteTestCommit(
 		t,
-		cfg,
-		repoPath,
-		gittest.WithTree(tree2),
-		gittest.WithParents(initialCommitID),
-		gittest.WithBranch("master"),
+		repo,
+		localrepo.WithTree(tree2),
+		localrepo.WithParents(initialCommitID),
+		localrepo.WithBranch("master"),
 	)
 
 	gittest.Exec(t, cfg, "-C", repoPath, "gc")

@@ -21,13 +21,16 @@ func TestDiffTree(t *testing.T) {
 
 	for _, tc := range []struct {
 		desc        string
-		setup       func(t *testing.T, repoPath string) (git.Revision, git.Revision, []RevisionResult)
+		setup       func(t *testing.T, repo *localrepo.Repo) (git.Revision, git.Revision, []RevisionResult)
 		options     []DiffTreeOption
 		expectedErr error
 	}{
 		{
 			desc: "single file",
-			setup: func(t *testing.T, repoPath string) (git.Revision, git.Revision, []RevisionResult) {
+			setup: func(t *testing.T, repo *localrepo.Repo) (git.Revision, git.Revision, []RevisionResult) {
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
+
 				treeA := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 					{Path: "unchanged", Mode: "100644", Content: "unchanged"},
 					{Path: "changed", Mode: "100644", Content: "a"},
@@ -46,7 +49,10 @@ func TestDiffTree(t *testing.T) {
 		},
 		{
 			desc: "single file in subtree without recursive",
-			setup: func(t *testing.T, repoPath string) (git.Revision, git.Revision, []RevisionResult) {
+			setup: func(t *testing.T, repo *localrepo.Repo) (git.Revision, git.Revision, []RevisionResult) {
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
+
 				treeA := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 					{
 						Path:    "unchanged",
@@ -85,7 +91,10 @@ func TestDiffTree(t *testing.T) {
 		},
 		{
 			desc: "single file in subtree with recursive",
-			setup: func(t *testing.T, repoPath string) (git.Revision, git.Revision, []RevisionResult) {
+			setup: func(t *testing.T, repo *localrepo.Repo) (git.Revision, git.Revision, []RevisionResult) {
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
+
 				treeA := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 					{
 						Path:    "unchanged",
@@ -127,8 +136,11 @@ func TestDiffTree(t *testing.T) {
 		},
 		{
 			desc: "with submodules",
-			setup: func(t *testing.T, repoPath string) (git.Revision, git.Revision, []RevisionResult) {
-				submodule := gittest.WriteCommit(t, cfg, repoPath)
+			setup: func(t *testing.T, repo *localrepo.Repo) (git.Revision, git.Revision, []RevisionResult) {
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
+
+				submodule := localrepo.WriteTestCommit(t, repo)
 
 				treeA := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 					{Path: ".gitmodules", Mode: "100644", Content: "a"},
@@ -148,8 +160,11 @@ func TestDiffTree(t *testing.T) {
 		},
 		{
 			desc: "without submodules",
-			setup: func(t *testing.T, repoPath string) (git.Revision, git.Revision, []RevisionResult) {
-				submodule := gittest.WriteCommit(t, cfg, repoPath)
+			setup: func(t *testing.T, repo *localrepo.Repo) (git.Revision, git.Revision, []RevisionResult) {
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
+
+				submodule := localrepo.WriteTestCommit(t, repo)
 
 				treeA := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 					{Path: ".gitmodules", Mode: "100644", Content: "a"},
@@ -171,7 +186,10 @@ func TestDiffTree(t *testing.T) {
 		},
 		{
 			desc: "with skip function",
-			setup: func(t *testing.T, repoPath string) (git.Revision, git.Revision, []RevisionResult) {
+			setup: func(t *testing.T, repo *localrepo.Repo) (git.Revision, git.Revision, []RevisionResult) {
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
+
 				treeA := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 					{Path: "a", Mode: "100644", Content: "1"},
 					{Path: "b", Mode: "100644", Content: "2"},
@@ -195,7 +213,10 @@ func TestDiffTree(t *testing.T) {
 		},
 		{
 			desc: "with skip failure",
-			setup: func(t *testing.T, repoPath string) (git.Revision, git.Revision, []RevisionResult) {
+			setup: func(t *testing.T, repo *localrepo.Repo) (git.Revision, git.Revision, []RevisionResult) {
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
+
 				treeA := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 					{Path: "a", Mode: "100644", Content: "1"},
 					{Path: "b", Mode: "100644", Content: "2"},
@@ -218,8 +239,8 @@ func TestDiffTree(t *testing.T) {
 		},
 		{
 			desc: "invalid revision",
-			setup: func(t *testing.T, repoPath string) (git.Revision, git.Revision, []RevisionResult) {
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+			setup: func(t *testing.T, repo *localrepo.Repo) (git.Revision, git.Revision, []RevisionResult) {
+				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
 				return "refs/heads/main", "refs/heads/does-not-exist", nil
 			},
 			expectedErr: errors.New("diff-tree pipeline command: exit status 128, stderr: " +
@@ -229,12 +250,12 @@ func TestDiffTree(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				SkipCreationViaService: true,
 			})
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-			leftRevision, rightRevision, expectedResults := tc.setup(t, repoPath)
+			leftRevision, rightRevision, expectedResults := tc.setup(t, repo)
 
 			it := DiffTree(ctx, repo, leftRevision.String(), rightRevision.String(), tc.options...)
 

@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 )
@@ -18,18 +19,20 @@ func TestCommitGraphInfoForRepository(t *testing.T) {
 
 	for _, tc := range []struct {
 		desc         string
-		setup        func(t *testing.T, repoPath string)
+		setup        func(t *testing.T, repo *localrepo.Repo)
 		expectedErr  error
 		expectedInfo CommitGraphInfo
 	}{
 		{
 			desc:         "no commit graph filter",
-			setup:        func(*testing.T, string) {},
+			setup:        func(*testing.T, *localrepo.Repo) {},
 			expectedInfo: CommitGraphInfo{},
 		},
 		{
 			desc: "single commit graph without bloom filter and generation data",
-			setup: func(t *testing.T, repoPath string) {
+			setup: func(t *testing.T, repo *localrepo.Repo) {
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
 				gittest.Exec(t, cfg, "-C", repoPath,
 					"-c", "commitGraph.generationVersion=1",
 					"commit-graph", "write", "--reachable",
@@ -41,7 +44,10 @@ func TestCommitGraphInfoForRepository(t *testing.T) {
 		},
 		{
 			desc: "single commit graph with bloom filter",
-			setup: func(t *testing.T, repoPath string) {
+			setup: func(t *testing.T, repo *localrepo.Repo) {
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
+
 				gittest.Exec(t, cfg, "-C", repoPath,
 					"-c", "commitGraph.generationVersion=1",
 					"commit-graph", "write", "--reachable", "--changed-paths",
@@ -54,7 +60,9 @@ func TestCommitGraphInfoForRepository(t *testing.T) {
 		},
 		{
 			desc: "single commit graph with generation numbers",
-			setup: func(t *testing.T, repoPath string) {
+			setup: func(t *testing.T, repo *localrepo.Repo) {
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
 				gittest.Exec(t, cfg, "-C", repoPath,
 					"-c", "commitGraph.generationVersion=2",
 					"commit-graph", "write", "--reachable", "--changed-paths",
@@ -68,7 +76,10 @@ func TestCommitGraphInfoForRepository(t *testing.T) {
 		},
 		{
 			desc: "split commit graph without bloom filter and generation data",
-			setup: func(t *testing.T, repoPath string) {
+			setup: func(t *testing.T, repo *localrepo.Repo) {
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
+
 				gittest.Exec(t, cfg, "-C", repoPath,
 					"-c", "commitGraph.generationVersion=1",
 					"commit-graph", "write", "--reachable", "--split",
@@ -81,7 +92,10 @@ func TestCommitGraphInfoForRepository(t *testing.T) {
 		},
 		{
 			desc: "split commit graph with bloom filter without generation data",
-			setup: func(t *testing.T, repoPath string) {
+			setup: func(t *testing.T, repo *localrepo.Repo) {
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
+
 				gittest.Exec(t, cfg, "-C", repoPath,
 					"-c", "commitGraph.generationVersion=1",
 					"commit-graph", "write", "--reachable", "--split", "--changed-paths",
@@ -95,7 +109,9 @@ func TestCommitGraphInfoForRepository(t *testing.T) {
 		},
 		{
 			desc: "split commit-graph with generation numbers",
-			setup: func(t *testing.T, repoPath string) {
+			setup: func(t *testing.T, repo *localrepo.Repo) {
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
 				gittest.Exec(t, cfg, "-C", repoPath,
 					"-c", "commitGraph.generationVersion=2",
 					"commit-graph", "write", "--reachable", "--split", "--changed-paths",
@@ -110,20 +126,23 @@ func TestCommitGraphInfoForRepository(t *testing.T) {
 		},
 		{
 			desc: "split commit-graph with generation data overflow",
-			setup: func(t *testing.T, repoPath string) {
+			setup: func(t *testing.T, repo *localrepo.Repo) {
 				// We write two commits, where the parent commit is far away in the
 				// future and its child commit is in the past. This means we'll have
 				// to write a corrected committer date, and because the corrected
 				// date is longer than 31 bits we'll have to also write overflow
 				// data.
-				futureParent := gittest.WriteCommit(t, cfg, repoPath,
-					gittest.WithCommitterDate(time.Date(2077, 1, 1, 0, 0, 0, 0, time.UTC)),
+				futureParent := localrepo.WriteTestCommit(t, repo,
+					localrepo.WithCommitterDate(time.Date(2077, 1, 1, 0, 0, 0, 0, time.UTC)))
+
+				localrepo.WriteTestCommit(t, repo,
+					localrepo.WithBranch("overflow"),
+					localrepo.WithParents(futureParent),
+					localrepo.WithCommitterDate(time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)),
 				)
-				gittest.WriteCommit(t, cfg, repoPath,
-					gittest.WithBranch("overflow"),
-					gittest.WithParents(futureParent),
-					gittest.WithCommitterDate(time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)),
-				)
+
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
 
 				gittest.Exec(t, cfg, "-C", repoPath,
 					"-c", "commitGraph.generationVersion=2",
@@ -140,11 +159,12 @@ func TestCommitGraphInfoForRepository(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			_, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				SkipCreationViaService: true,
 			})
-			gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
-			tc.setup(t, repoPath)
+			repo := localrepo.NewTestRepo(t, cfg, repoProto)
+			localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
+			tc.setup(t, repo)
 
 			info, err := CommitGraphInfoForRepository(repoPath)
 			require.Equal(t, tc.expectedErr, err)

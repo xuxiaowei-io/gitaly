@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -78,7 +79,7 @@ func TestLink_removeBitmap(t *testing.T) {
 	poolPath := gittest.RepositoryPath(t, pool)
 	repoPath := gittest.RepositoryPath(t, repo)
 
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
+	localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithBranch("master"))
 
 	// Pull in all references from the repository.
 	gittest.Exec(t, cfg, "-C", poolPath, "fetch", repoPath, "+refs/*:refs/*")

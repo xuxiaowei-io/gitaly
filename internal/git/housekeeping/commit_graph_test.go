@@ -24,14 +24,14 @@ func testWriteCommitGraphConfigForRepository(t *testing.T, ctx context.Context) 
 
 	for _, tc := range []struct {
 		desc           string
-		setup          func(t *testing.T, repoPath string)
+		setup          func(t *testing.T, repo *localrepo.Repo)
 		expectedErr    error
 		expectedConfig WriteCommitGraphConfig
 	}{
 		{
 			desc: "without commit-graph",
-			setup: func(t *testing.T, repoPath string) {
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+			setup: func(t *testing.T, repo *localrepo.Repo) {
+				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
 			},
 			expectedConfig: WriteCommitGraphConfig{
 				ReplaceChain: true,
@@ -39,8 +39,11 @@ func testWriteCommitGraphConfigForRepository(t *testing.T, ctx context.Context) 
 		},
 		{
 			desc: "monolithic commit-graph without bloom filter",
-			setup: func(t *testing.T, repoPath string) {
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+			setup: func(t *testing.T, repo *localrepo.Repo) {
+				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
+
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
 				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable")
 			},
 			expectedConfig: WriteCommitGraphConfig{
@@ -49,8 +52,11 @@ func testWriteCommitGraphConfigForRepository(t *testing.T, ctx context.Context) 
 		},
 		{
 			desc: "monolithic commit-graph with bloom filter",
-			setup: func(t *testing.T, repoPath string) {
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+			setup: func(t *testing.T, repo *localrepo.Repo) {
+				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
+
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
 				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--changed-paths")
 			},
 			expectedConfig: WriteCommitGraphConfig{
@@ -59,8 +65,11 @@ func testWriteCommitGraphConfigForRepository(t *testing.T, ctx context.Context) 
 		},
 		{
 			desc: "split commit-graph without bloom filter",
-			setup: func(t *testing.T, repoPath string) {
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+			setup: func(t *testing.T, repo *localrepo.Repo) {
+				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
+
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
 				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split")
 			},
 			expectedConfig: WriteCommitGraphConfig{
@@ -69,8 +78,12 @@ func testWriteCommitGraphConfigForRepository(t *testing.T, ctx context.Context) 
 		},
 		{
 			desc: "split commit-graph with bloom filter without generation data",
-			setup: func(t *testing.T, repoPath string) {
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+			setup: func(t *testing.T, repo *localrepo.Repo) {
+				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
+
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
+
 				gittest.Exec(t, cfg, "-C", repoPath,
 					"-c", "commitGraph.generationVersion=1",
 					"commit-graph", "write", "--reachable", "--split", "--changed-paths",
@@ -82,8 +95,12 @@ func testWriteCommitGraphConfigForRepository(t *testing.T, ctx context.Context) 
 		},
 		{
 			desc: "split commit-graph with bloom filter with generation data",
-			setup: func(t *testing.T, repoPath string) {
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+			setup: func(t *testing.T, repo *localrepo.Repo) {
+				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
+
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
+
 				gittest.Exec(t, cfg, "-C", repoPath,
 					"-c", "commitGraph.generationVersion=2",
 					"commit-graph", "write", "--reachable", "--split", "--changed-paths",
@@ -95,12 +112,12 @@ func testWriteCommitGraphConfigForRepository(t *testing.T, ctx context.Context) 
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				SkipCreationViaService: true,
 			})
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-			tc.setup(t, repoPath)
+			tc.setup(t, repo)
 
 			config, err := WriteCommitGraphConfigForRepository(ctx, repo)
 			require.Equal(t, tc.expectedErr, err)

@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -25,7 +26,7 @@ func TestPerformHTTPPush(t *testing.T) {
 	cfg := testcfg.Build(t)
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 
-	_, targetRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	targetRepoProto, targetRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 
@@ -42,11 +43,11 @@ func TestPerformHTTPPush(t *testing.T) {
 		{
 			desc: "single revision",
 			preparePush: func(t *testing.T, cfg config.Cfg) ([]PushCommand, io.Reader) {
-				_, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
-				commit := gittest.WriteCommit(t, cfg, repoPath)
+				commit := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto))
 				revisions := strings.NewReader(commit.String())
 				pack := gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: revisions},
 					"-C", repoPath, "pack-objects", "--stdout", "--revs", "--thin", "--delta-base-offset", "-q",
@@ -78,12 +79,12 @@ func TestPerformHTTPPush(t *testing.T) {
 		{
 			desc: "many revisions",
 			preparePush: func(t *testing.T, cfg config.Cfg) ([]PushCommand, io.Reader) {
-				_, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
 
 				commands := make([]PushCommand, 1000)
-				commit := gittest.WriteCommit(t, cfg, repoPath)
+				commit := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto))
 
 				for i := 0; i < len(commands); i++ {
 					commands[i] = PushCommand{
@@ -122,7 +123,7 @@ func TestPerformHTTPPush(t *testing.T) {
 		{
 			desc: "branch deletion",
 			preparePush: func(t *testing.T, cfg config.Cfg) ([]PushCommand, io.Reader) {
-				oldOID := gittest.WriteCommit(t, cfg, targetRepoPath, gittest.WithBranch("feature"))
+				oldOID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, targetRepoProto), localrepo.WithBranch("feature"))
 
 				return []PushCommand{
 					{OldOID: oldOID, NewOID: gittest.DefaultObjectHash.ZeroOID, Reference: "refs/heads/feature"},
@@ -150,7 +151,7 @@ func TestPerformHTTPPush(t *testing.T) {
 		{
 			desc: "failing delete",
 			preparePush: func(t *testing.T, cfg config.Cfg) ([]PushCommand, io.Reader) {
-				gittest.WriteCommit(t, cfg, targetRepoPath, gittest.WithBranch("master"))
+				localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, targetRepoProto), localrepo.WithBranch("master"))
 
 				oldOID := git.ObjectID(strings.Repeat("1", gittest.DefaultObjectHash.EncodedLen()))
 

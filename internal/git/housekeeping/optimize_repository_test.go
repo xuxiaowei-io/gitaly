@@ -41,13 +41,13 @@ func TestRepackIfNeeded(t *testing.T) {
 	}
 
 	t.Run("no repacking", func(t *testing.T) {
-		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 		})
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 		// Create a loose object to verify it's not getting repacked.
-		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithMessage("a"))
+		localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"), localrepo.WithMessage("a"))
 
 		didRepack, repackObjectsCfg, err := repackIfNeeded(ctx, repo, mockOptimizationStrategy{
 			shouldRepackObjects: false,
@@ -66,11 +66,11 @@ func TestRepackIfNeeded(t *testing.T) {
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 		// Create an object and pack it into a packfile.
-		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithMessage("a"))
+		localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"), localrepo.WithMessage("a"))
 		gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
 		// And a second object that is loose. The incremental repack should only pack the
 		// loose object.
-		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithMessage("b"))
+		localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"), localrepo.WithMessage("b"))
 
 		didRepack, repackObjectsCfg, err := repackIfNeeded(ctx, repo, mockOptimizationStrategy{
 			shouldRepackObjects: true,
@@ -89,11 +89,11 @@ func TestRepackIfNeeded(t *testing.T) {
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 		// Create an object and pack it into a packfile.
-		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("a"), gittest.WithMessage("a"))
+		localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("a"), localrepo.WithMessage("a"))
 		gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
 		// And a second object that is loose. The full repack should repack both the
 		// packfiles and loose objects into a single packfile.
-		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("b"), gittest.WithMessage("b"))
+		localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("b"), localrepo.WithMessage("b"))
 
 		didRepack, repackObjectsCfg, err := repackIfNeeded(ctx, repo, mockOptimizationStrategy{
 			shouldRepackObjects: true,
@@ -123,7 +123,7 @@ func TestPackRefsIfNeeded(t *testing.T) {
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	// Write an empty commit such that we can create valid refs.
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+	localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
 
 	packedRefsPath := filepath.Join(repoPath, "packed-refs")
 	looseRefPath := filepath.Join(repoPath, "refs", "heads", "main")
@@ -180,11 +180,11 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 		{
 			desc: "repository without bitmap repacks objects",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
 				})
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+				localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithBranch("main"))
 				return repo
 			},
 			expectedMetrics: `# HELP gitaly_housekeeping_tasks_total Total number of housekeeping tasks performed in the repository
@@ -202,7 +202,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
 				})
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+				localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithBranch("main"))
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "--write-bitmap-index")
 				return repo
 			},
@@ -215,22 +215,22 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 		{
 			desc: "repository with multiple packfiles packs only for object pool",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
 				})
-
+				repo := localrepo.NewTestRepo(t, cfg, repoProto)
 				// Create two packfiles by creating two objects and then packing
 				// twice. Note that the second git-repack(1) is incremental so that
 				// we don't remove the first packfile.
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("first"))
+				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("first"))
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "--write-bitmap-index")
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("second"), gittest.WithMessage("second"))
+				localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("second"), localrepo.WithMessage("second"))
 				gittest.Exec(t, cfg, "-C", repoPath, "repack")
 
 				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 
-				return repo
+				return repoProto
 			},
 			expectedMetrics: `# HELP gitaly_housekeeping_tasks_total Total number of housekeeping tasks performed in the repository
 # TYPE gitaly_housekeeping_tasks_total counter
@@ -251,7 +251,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
 				})
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+				localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithBranch("main"))
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "--write-bitmap-index")
 				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 				return repo
@@ -264,11 +264,11 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 		{
 			desc: "recent loose objects don't get pruned",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
 				})
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+				localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithBranch("main"))
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "--write-bitmap-index")
 				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 
@@ -287,7 +287,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 					require.NoError(t, os.Chtimes(blobPath, almostTwoWeeksAgo, almostTwoWeeksAgo))
 				}
 
-				return repo
+				return repoProto
 			},
 			expectedMetrics: `# HELP gitaly_housekeeping_tasks_total Total number of housekeeping tasks performed in the repository
 # TYPE gitaly_housekeeping_tasks_total counter
@@ -299,11 +299,11 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 		{
 			desc: "old loose objects get pruned",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
 				})
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+				localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithBranch("main"))
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "--write-bitmap-index")
 				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 
@@ -319,7 +319,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 					require.NoError(t, os.Chtimes(blobPath, moreThanTwoWeeksAgo, moreThanTwoWeeksAgo))
 				}
 
-				return repo
+				return repoProto
 			},
 			expectedMetrics: `# HELP gitaly_housekeeping_tasks_total Total number of housekeeping tasks performed in the repository
 # TYPE gitaly_housekeeping_tasks_total counter
@@ -339,19 +339,21 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 		{
 			desc: "loose refs get packed",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
 				})
 
+				repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
 				for i := 0; i < 16; i++ {
-					gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(fmt.Sprintf("branch-%d", i)))
+					localrepo.WriteTestCommit(t, repo, localrepo.WithBranch(fmt.Sprintf("branch-%d", i)))
 				}
 
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "--write-bitmap-index")
 				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 
-				return repo
+				return repoProto
 			},
 			expectedMetrics: `# HELP gitaly_housekeeping_tasks_total Total number of housekeeping tasks performed in the repository
 # TYPE gitaly_housekeeping_tasks_total counter
@@ -579,7 +581,7 @@ func TestWriteCommitGraphIfNeeded(t *testing.T) {
 		})
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+		localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
 
 		written, cfg, err := writeCommitGraphIfNeeded(ctx, repo, mockOptimizationStrategy{
 			shouldWriteCommitGraph: false,
@@ -600,7 +602,7 @@ func TestWriteCommitGraphIfNeeded(t *testing.T) {
 		})
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+		localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
 
 		written, cfg, err := writeCommitGraphIfNeeded(ctx, repo, mockOptimizationStrategy{
 			shouldWriteCommitGraph: true,
@@ -622,12 +624,12 @@ func TestWriteCommitGraphIfNeeded(t *testing.T) {
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 		// Write a first commit-graph that contains the root commit, only.
-		rootCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+		rootCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
 		gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split", "--changed-paths")
 
 		// Write a second, incremental commit-graph that contains a commit we're about to
 		// make unreachable and then prune.
-		unreachableCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(rootCommitID), gittest.WithBranch("main"))
+		unreachableCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithParents(rootCommitID), localrepo.WithBranch("main"))
 		gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--reachable", "--split=no-merge", "--changed-paths")
 
 		// Reset the "main" branch back to the initial root commit ID and prune the now

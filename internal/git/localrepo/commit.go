@@ -242,7 +242,6 @@ func WriteTestCommit(tb testing.TB, repo *Repo, opts ...WriteCommitOption) git.O
 	tb.Helper()
 
 	var writeCommitConfig WriteCommitConfig
-
 	for _, opt := range opts {
 		opt(&writeCommitConfig)
 	}
@@ -289,6 +288,7 @@ func WriteTestCommit(tb testing.TB, repo *Repo, opts ...WriteCommitOption) git.O
 
 	oid, err := repo.WriteCommit(ctx, writeCommitConfig)
 	require.NoError(tb, err)
+
 	return oid
 }
 

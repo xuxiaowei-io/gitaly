@@ -34,13 +34,11 @@ func TestWriteCommit(t *testing.T) {
 	require.NoError(t, err)
 
 	treeEntryA := TreeEntry{Path: "file", Mode: "100644", OID: blobID}
-	treeA, err := repo.WriteTree(ctx, []TreeEntry{treeEntryA})
-	require.NoError(t, err)
+	treeA := WriteTestTree(t, repo, []TreeEntry{treeEntryA})
 
-	treeB, err := repo.WriteTree(ctx, []TreeEntry{
+	treeB := WriteTestTree(t, repo, []TreeEntry{
 		{Path: "file", Mode: "100644", OID: changedBlobID},
 	})
-	require.NoError(t, err)
 	commitA, err := repo.WriteCommit(
 		ctx,
 		WriteCommitConfig{

@@ -168,7 +168,7 @@ func TestRepo_WriteTag(t *testing.T) {
 
 	cfg, repo, repoPath := setupRepo(t)
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath)
+	commitID := WriteTestCommit(t, NewTestRepo(t, cfg, repo))
 
 	for _, tc := range []struct {
 		desc        string
@@ -250,8 +250,8 @@ func TestRepo_ReadObject(t *testing.T) {
 }
 
 func testRepoReadObject(t *testing.T, ctx context.Context) {
-	cfg, repo, repoPath := setupRepo(t)
-	blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("content"))
+	_, repo, _ := setupRepo(t)
+	blobID := WriteTestBlob(t, repo, "", "content")
 
 	for _, tc := range []struct {
 		desc    string
@@ -296,12 +296,12 @@ func testRepoReadObjectCatfileCount(t *testing.T, ctx context.Context) {
 		metadata.Pairs(catfile.SessionIDField, "1"),
 	)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := New(config.NewLocator(cfg), gitCmdFactory, catfileCache, repoProto)
 
-	blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("content"))
+	blobID := WriteTestBlob(t, repo, "", "content")
 
 	expected := 10
 	for i := 0; i < expected; i++ {
@@ -323,22 +323,22 @@ func TestRepo_ReadCommit(t *testing.T) {
 
 	cfg, repo, repoPath := setupRepo(t)
 
-	firstParentID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("first parent"))
-	secondParentID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("second parent"))
+	firstParentID := WriteTestCommit(t, NewTestRepo(t, cfg, repo), WithMessage("first parent"))
+	secondParentID := WriteTestCommit(t, NewTestRepo(t, cfg, repo), WithMessage("second parent"))
 
-	treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+	treeID := WriteTestTree(t, repo, []TreeEntry{
 		{Path: "file", Mode: "100644", Content: "content"},
 	})
-	commitWithoutTrailers := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithParents(firstParentID, secondParentID),
-		gittest.WithTree(treeID),
-		gittest.WithMessage("subject\n\nbody\n"),
-		gittest.WithBranch("main"),
+	commitWithoutTrailers := WriteTestCommit(t, NewTestRepo(t, cfg, NewTestRepo(t, cfg, repo)),
+		WithParents(firstParentID, secondParentID),
+		WithTree(treeID),
+		WithMessage("subject\n\nbody\n"),
+		WithBranch("main"),
 	)
-	commitWithTrailers := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithParents(commitWithoutTrailers),
-		gittest.WithTree(treeID),
-		gittest.WithMessage("with trailers\n\ntrailers\n\nSigned-off-by: John Doe <john.doe@example.com>"),
+	commitWithTrailers := WriteTestCommit(t, repo,
+		WithParents(commitWithoutTrailers),
+		WithTree(treeID),
+		WithMessage("with trailers\n\ntrailers\n\nSigned-off-by: John Doe <john.doe@example.com>"),
 	)
 
 	// We can't use git-commit-tree(1) directly, but have to manually write signed commits.
@@ -469,10 +469,10 @@ func TestRepo_IsAncestor(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	cfg, repo, repoPath := setupRepo(t)
+	cfg, repo, _ := setupRepo(t)
 
-	parentCommitID := gittest.WriteCommit(t, cfg, repoPath)
-	childCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(parentCommitID))
+	parentCommitID := WriteTestCommit(t, NewTestRepo(t, cfg, repo))
+	childCommitID := WriteTestCommit(t, NewTestRepo(t, cfg, repo), WithParents(parentCommitID))
 
 	for _, tc := range []struct {
 		desc         string

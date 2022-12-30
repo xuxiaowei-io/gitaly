@@ -34,7 +34,7 @@ func TestCreate(t *testing.T) {
 		SkipCreationViaService: true,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
+	commitID := localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("master"))
 
 	createPool := func(t *testing.T, poolProto *gitalypb.ObjectPool) (*ObjectPool, string, error) {
 		catfileCache := catfile.NewCache(cfg)
@@ -100,10 +100,10 @@ func TestCreate(t *testing.T) {
 			{Content: "content", Path: "dup", Mode: "100644"},
 			{Content: "content", Path: "dup", Mode: "100644"},
 		})
-		gittest.WriteCommit(t, cfg, repoPath,
-			gittest.WithParents(),
-			gittest.WithBranch("master"),
-			gittest.WithTree(treeID),
+		localrepo.WriteTestCommit(t, repo,
+			localrepo.WithParents(),
+			localrepo.WithBranch("master"),
+			localrepo.WithTree(treeID),
 		)
 
 		// While git-clone(1) would normally complain about the broken tree we have just

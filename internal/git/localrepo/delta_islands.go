@@ -1,4 +1,4 @@
-package gittest
+package localrepo
 
 import (
 	"strings"
@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 )
@@ -19,8 +20,8 @@ import (
 func TestDeltaIslands(
 	t *testing.T,
 	cfg config.Cfg,
-	repoPathToModify string,
-	repoPathToRepack string,
+	repoToModify *Repo,
+	repoToRepack *Repo,
 	isPoolRepo bool,
 	repack func() error,
 ) {
@@ -43,17 +44,22 @@ func TestDeltaIslands(
 	}
 
 	// Make the first two blobs reachable via references that are part of the delta island.
-	blob1ID := commitBlob(t, cfg, repoPathToModify, refsPrefix+"/heads/branch1", blob1)
-	blob2ID := commitBlob(t, cfg, repoPathToModify, refsPrefix+"/tags/tag2", blob2)
+	blob1ID := commitBlob(t, cfg, repoToModify, refsPrefix+"/heads/branch1", blob1)
+	blob2ID := commitBlob(t, cfg, repoToModify, refsPrefix+"/tags/tag2", blob2)
 
 	// The bad blob will only be reachable via a reference that is not covered by a delta
 	// island. Because of that it should be excluded from delta chains in the main island.
-	badBlobID := commitBlob(t, cfg, repoPathToModify, refsPrefix+"/bad/ref3", badBlob)
+	badBlobID := commitBlob(t, cfg, repoToModify, refsPrefix+"/bad/ref3", badBlob)
 
 	// Repack all objects into a single pack so that we can verify that delta chains are built
 	// by Git as expected. Most notably, we don't use the delta islands here yet and thus the
 	// delta base for both blob1 and blob2 should be the bad blob.
-	Exec(t, cfg, "-C", repoPathToModify, "repack", "-ad")
+	repoPathToModify, err := repoToModify.Path()
+	require.NoError(t, err)
+	repoPathToRepack, err := repoToRepack.Path()
+	require.NoError(t, err)
+
+	gittest.Exec(t, cfg, "-C", repoPathToModify, "repack", "-ad")
 	require.Equal(t, badBlobID, deltaBase(t, cfg, repoPathToModify, blob1ID), "expect blob 1 delta base to be bad blob after test setup")
 	require.Equal(t, badBlobID, deltaBase(t, cfg, repoPathToModify, blob2ID), "expect blob 2 delta base to be bad blob after test setup")
 
@@ -61,27 +67,31 @@ func TestDeltaIslands(
 	// chains, and thus neither of the two blobs should use the bad blob as delta base.
 	require.NoError(t, repack(), "repack after delta island setup")
 	require.Equal(t, blob2ID, deltaBase(t, cfg, repoPathToRepack, blob1ID), "blob 1 delta base should be blob 2 after repack")
-	require.Equal(t, DefaultObjectHash.ZeroOID.String(), deltaBase(t, cfg, repoPathToRepack, blob2ID), "blob 2 should not be delta compressed after repack")
+	require.Equal(t, gittest.DefaultObjectHash.ZeroOID.String(), deltaBase(t, cfg, repoPathToRepack, blob2ID), "blob 2 should not be delta compressed after repack")
 }
 
-func commitBlob(t *testing.T, cfg config.Cfg, repoPath, ref string, content string) string {
-	blobID := WriteBlob(t, cfg, repoPath, []byte(content))
+func commitBlob(t *testing.T, cfg config.Cfg, repo *Repo, ref string, content string) string {
+	repoPath, err := repo.Path()
+	require.NoError(t, err)
+
+	blobID := gittest.WriteBlob(t, cfg, repoPath, []byte(content))
 
 	// No parent, that means this will be an initial commit. Not very
 	// realistic but it doesn't matter for delta compression.
-	commitID := WriteCommit(t, cfg, repoPath,
+	commitID := WriteTestCommit(t,
+		repo,
 		WithTreeEntries(TreeEntry{
 			Mode: "100644", OID: blobID, Path: "file",
 		}),
 	)
 
-	Exec(t, cfg, "-C", repoPath, "update-ref", ref, commitID.String())
+	gittest.Exec(t, cfg, "-C", repoPath, "update-ref", ref, commitID.String())
 
 	return blobID.String()
 }
 
 func deltaBase(t *testing.T, cfg config.Cfg, repoPath string, blobID string) string {
-	catfileOut := ExecOpts(t, cfg, ExecConfig{Stdin: strings.NewReader(blobID)},
+	catfileOut := gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: strings.NewReader(blobID)},
 		"-C", repoPath, "cat-file", "--batch-check=%(deltabase)",
 	)
 

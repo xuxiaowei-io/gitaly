@@ -43,7 +43,7 @@ func TestRepackObjects(t *testing.T) {
 		})
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+		localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"))
 
 		requireObjectCount(t, ctx, repo, 2)
 		requirePackfileCount(t, repoPath, 0)
@@ -60,13 +60,14 @@ func TestRepackObjects(t *testing.T) {
 	testRepoAndPool(t, "delta islands", func(t *testing.T, relativePath string) {
 		t.Parallel()
 
-		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,
 			RelativePath:           relativePath,
 		})
+
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-		gittest.TestDeltaIslands(t, cfg, repoPath, repoPath, IsPoolRepository(repoProto), func() error {
+		localrepo.TestDeltaIslands(t, cfg, repo, repo, IsPoolRepository(repoProto), func() error {
 			return RepackObjects(ctx, repo, RepackObjectsConfig{
 				FullRepack: true,
 			})

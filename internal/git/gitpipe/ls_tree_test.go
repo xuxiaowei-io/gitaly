@@ -21,13 +21,16 @@ func TestLsTree(t *testing.T) {
 
 	for _, tc := range []struct {
 		desc        string
-		setup       func(t *testing.T, repoPath string) (git.Revision, []RevisionResult)
+		setup       func(t *testing.T, repo *localrepo.Repo) (git.Revision, []RevisionResult)
 		options     []LsTreeOption
 		expectedErr error
 	}{
 		{
 			desc: "initial commit",
-			setup: func(t *testing.T, repoPath string) (git.Revision, []RevisionResult) {
+			setup: func(t *testing.T, repo *localrepo.Repo) (git.Revision, []RevisionResult) {
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
+
 				blobA := gittest.WriteBlob(t, cfg, repoPath, []byte("a"))
 				blobB := gittest.WriteBlob(t, cfg, repoPath, []byte("b"))
 				blobC := gittest.WriteBlob(t, cfg, repoPath, []byte("c"))
@@ -47,9 +50,12 @@ func TestLsTree(t *testing.T) {
 		},
 		{
 			desc: "includes submodule",
-			setup: func(t *testing.T, repoPath string) (git.Revision, []RevisionResult) {
+			setup: func(t *testing.T, repo *localrepo.Repo) (git.Revision, []RevisionResult) {
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
+
 				blob := gittest.WriteBlob(t, cfg, repoPath, []byte("a"))
-				commit := gittest.WriteCommit(t, cfg, repoPath)
+				commit := localrepo.WriteTestCommit(t, repo)
 
 				tree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 					{Path: "blob", Mode: "100644", OID: blob},
@@ -64,9 +70,12 @@ func TestLsTree(t *testing.T) {
 		},
 		{
 			desc: "filter blobs only",
-			setup: func(t *testing.T, repoPath string) (git.Revision, []RevisionResult) {
+			setup: func(t *testing.T, repo *localrepo.Repo) (git.Revision, []RevisionResult) {
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
+
 				blob := gittest.WriteBlob(t, cfg, repoPath, []byte("a"))
-				commit := gittest.WriteCommit(t, cfg, repoPath)
+				commit := localrepo.WriteTestCommit(t, repo)
 
 				tree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 					{
@@ -98,13 +107,16 @@ func TestLsTree(t *testing.T) {
 		},
 		{
 			desc: "empty tree",
-			setup: func(t *testing.T, repoPath string) (git.Revision, []RevisionResult) {
+			setup: func(t *testing.T, repo *localrepo.Repo) (git.Revision, []RevisionResult) {
 				return gittest.DefaultObjectHash.EmptyTreeOID.Revision(), nil
 			},
 		},
 		{
 			desc: "non-recursive",
-			setup: func(t *testing.T, repoPath string) (git.Revision, []RevisionResult) {
+			setup: func(t *testing.T, repo *localrepo.Repo) (git.Revision, []RevisionResult) {
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
+
 				blob := gittest.WriteBlob(t, cfg, repoPath, []byte("a"))
 				subtree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 					{Path: "blob-in-subtree", Mode: "100644", Content: "something"},
@@ -123,7 +135,10 @@ func TestLsTree(t *testing.T) {
 		},
 		{
 			desc: "recursive",
-			setup: func(t *testing.T, repoPath string) (git.Revision, []RevisionResult) {
+			setup: func(t *testing.T, repo *localrepo.Repo) (git.Revision, []RevisionResult) {
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
+
 				blob := gittest.WriteBlob(t, cfg, repoPath, []byte("a"))
 				blobInSubtree := gittest.WriteBlob(t, cfg, repoPath, []byte("b"))
 
@@ -153,7 +168,10 @@ func TestLsTree(t *testing.T) {
 		},
 		{
 			desc: "with skip function",
-			setup: func(t *testing.T, repoPath string) (git.Revision, []RevisionResult) {
+			setup: func(t *testing.T, repo *localrepo.Repo) (git.Revision, []RevisionResult) {
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
+
 				blobA := gittest.WriteBlob(t, cfg, repoPath, []byte("a"))
 				blobB := gittest.WriteBlob(t, cfg, repoPath, []byte("b"))
 				blobC := gittest.WriteBlob(t, cfg, repoPath, []byte("c"))
@@ -177,7 +195,10 @@ func TestLsTree(t *testing.T) {
 		},
 		{
 			desc: "with skip failure",
-			setup: func(t *testing.T, repoPath string) (git.Revision, []RevisionResult) {
+			setup: func(t *testing.T, repo *localrepo.Repo) (git.Revision, []RevisionResult) {
+				repoPath, err := repo.Path()
+				require.NoError(t, err)
+
 				tree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 					{Path: "README.md", Mode: "100644", Content: "Hello world"},
 				})
@@ -193,7 +214,7 @@ func TestLsTree(t *testing.T) {
 		},
 		{
 			desc: "invalid revision",
-			setup: func(t *testing.T, repoPath string) (git.Revision, []RevisionResult) {
+			setup: func(t *testing.T, repo *localrepo.Repo) (git.Revision, []RevisionResult) {
 				return "refs/heads/does-not-exist", nil
 			},
 			expectedErr: errors.New("ls-tree pipeline command: exit status 128, stderr: " +
@@ -201,12 +222,12 @@ func TestLsTree(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				SkipCreationViaService: true,
 			})
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-			revision, expectedResults := tc.setup(t, repoPath)
+			revision, expectedResults := tc.setup(t, repo)
 
 			it := LsTree(ctx, repo, revision.String(), tc.options...)
 

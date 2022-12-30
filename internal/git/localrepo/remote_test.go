@@ -28,10 +28,10 @@ func TestRepo_FetchRemote(t *testing.T) {
 	defer catfileCache.Stop()
 	locator := config.NewLocator(cfg)
 
-	_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	remoteRepoProto, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
-	commitID := gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch("main"))
+	commitID := WriteTestCommit(t, NewTestRepo(t, cfg, remoteRepoProto), WithBranch("main"))
 	tagID := gittest.WriteTag(t, cfg, remoteRepoPath, "v1.0.0", commitID.Revision(), gittest.WriteTagConfig{
 		Message: "annotated tag",
 	})
@@ -134,7 +134,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 
 		// Write a commit into the remote's reference namespace that doesn't exist in the
 		// remote and that would thus be pruned.
-		gittest.WriteCommit(t, cfg, testRepoPath, gittest.WithReference("refs/remotes/source/markdown"))
+		WriteTestCommit(t, repo, WithReference("refs/remotes/source/markdown"))
 
 		require.NoError(t, repo.FetchRemote(
 			ctx,
@@ -162,7 +162,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 		require.NoError(t, repo.FetchRemote(ctx, "source", FetchOpts{}))
 		// Write a commit into the remote's reference namespace that doesn't exist in the
 		// remote and that would thus be pruned.
-		gittest.WriteCommit(t, cfg, testRepoPath, gittest.WithReference("refs/remotes/source/markdown"))
+		WriteTestCommit(t, repo, WithReference("refs/remotes/source/markdown"))
 
 		require.NoError(t, repo.FetchRemote(ctx, "source", FetchOpts{Prune: true}))
 
@@ -261,12 +261,12 @@ func TestRepo_Push(t *testing.T) {
 	t.Cleanup(catfileCache.Stop)
 	locator := config.NewLocator(cfg)
 
-	sourceRepoProto, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	sourceRepoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	sourceRepo := New(locator, gitCmdFactory, catfileCache, sourceRepoProto)
-	gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("master"))
-	gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("feature"))
+	WriteTestCommit(t, sourceRepo, WithBranch("master"))
+	WriteTestCommit(t, sourceRepo, WithBranch("feature"))
 
 	setupPushRepo := func(tb testing.TB) (*Repo, string, []git.ConfigPair) {
 		repoProto, repopath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
@@ -286,10 +286,9 @@ func TestRepo_Push(t *testing.T) {
 		require.NoError(tb, err)
 
 		require.NoError(tb, sourceRepo.Push(ctx, repoPath, []string{"refs/*"}, PushOptions{}))
-		divergedMaster := gittest.WriteCommit(tb, cfg, repoPath,
-			gittest.WithBranch("master"),
-			gittest.WithParents(git.ObjectID(sourceMaster.Target)),
-		)
+		divergedMaster := WriteTestCommit(tb, repo,
+			WithBranch("master"),
+			WithParents(git.ObjectID(sourceMaster.Target)))
 
 		master, err := repo.GetReference(ctx, "refs/heads/master")
 		require.NoError(tb, err)
