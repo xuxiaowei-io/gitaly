@@ -43,13 +43,14 @@ type queueCounters struct {
 }
 
 type requestQueue struct {
+	// queueCounters is a separate structure to hold variables accessed with sync/atomic
+	// to ensure 64-bit alignment. This needs to be listed first.
+	// This explicit ordering can go away once we use Go 1.19's atomic types: https://gitlab.com/gitlab-org/gitaly/-/issues/4702
+	counters queueCounters
+
 	// objectHash is the object hash used by the repository the request queue has been
 	// spawned for.
 	objectHash git.ObjectHash
-
-	// queueCounters is a separate structure to hold variables accessed with sync/atomic
-	// to ensure 64-bit alignment.
-	counters queueCounters
 
 	// isObjectQueue is set to `true` when this is a request queue which can be used for reading
 	// objects. If set to `false`, then this can only be used to read object info.
