@@ -22,6 +22,7 @@ import (
 	internalclient "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	gitalyx509 "gitlab.com/gitlab-org/gitaly/v15/internal/x509"
+	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/correlation"
 	grpccorrelation "gitlab.com/gitlab-org/labkit/correlation/grpc"
 	grpctracing "gitlab.com/gitlab-org/labkit/tracing/grpc"
@@ -650,4 +651,104 @@ func TestHealthCheckDialer(t *testing.T) {
 
 func newLogger(tb testing.TB) *logrus.Entry {
 	return logrus.NewEntry(testhelper.NewDiscardingLogger(tb))
+}
+
+func TestWithDefaultLoadBalancing(t *testing.T) {
+	t.Parallel()
+
+	for dialerName, dialer := range map[string]Dialer{
+		"Dial": func(ctx context.Context, address string, dialOptions []grpc.DialOption) (*grpc.ClientConn, error) {
+			return Dial(address, dialOptions)
+		},
+		"DialContext": func(ctx context.Context, address string, dialOptions []grpc.DialOption) (*grpc.ClientConn, error) {
+			return DialContext(ctx, address, dialOptions)
+		},
+		"DialSidechannel": func(ctx context.Context, address string, dialOptions []grpc.DialOption) (*grpc.ClientConn, error) {
+			return DialSidechannel(ctx, address, NewSidechannelRegistry(testhelper.NewDiscardingLogEntry(t)), dialOptions)
+		},
+	} {
+		t.Run(dialerName, func(t *testing.T) {
+			for _, tc := range []struct {
+				desc              string
+				returnedError     error
+				succeedsWithRetry bool
+			}{
+				{
+					desc:              "unavailable",
+					returnedError:     status.Error(codes.Unavailable, "intentionally unavailable"),
+					succeedsWithRetry: true,
+				},
+				{
+					desc:              "deadline exceeded",
+					returnedError:     status.Error(codes.DeadlineExceeded, "intentionally timeout"),
+					succeedsWithRetry: true,
+				},
+				{
+					// Internal error does not trigger client-side auto-retry
+					desc:              "non-retryable code",
+					returnedError:     status.Error(codes.Internal, "something goes wrong"),
+					succeedsWithRetry: false,
+				},
+			} {
+				t.Run(tc.desc, func(t *testing.T) {
+					t.Run("without retry", func(t *testing.T) {
+						testWithDefaultLoadBalancing(t, dialer, false, tc.returnedError, false)
+					})
+
+					t.Run("with retry", func(t *testing.T) {
+						testWithDefaultLoadBalancing(t, dialer, true, tc.returnedError, tc.succeedsWithRetry)
+					})
+				})
+			}
+		})
+	}
+}
+
+func testWithDefaultLoadBalancing(t *testing.T, dialer Dialer, retry bool, returnedError error, shouldSucceed bool) {
+	ctx := testhelper.Context(t)
+	serverSocketPath := startFakeGitalyServer(t, returnedError)
+
+	conn, err := dialer(ctx, "unix://"+serverSocketPath, []grpc.DialOption{WithClientLoadBalancing(retry)})
+	require.NoError(t, err)
+	defer testhelper.MustClose(t, conn)
+
+	client := gitalypb.NewCommitServiceClient(conn)
+	_, err = client.FindCommit(ctx, &gitalypb.FindCommitRequest{})
+
+	var expectedError error
+	if !shouldSucceed {
+		expectedError = returnedError
+	}
+
+	testhelper.ProtoEqual(t, expectedError, err)
+}
+
+// Due to circular dependency, we could not create a proper Gitaly server with real handler. Thus,
+// this is a fake server, returns an empty response. It is for testing dialing anyway, the response
+// does not matter.
+type fakeCommitServer struct {
+	failsRemaining int
+	returnedError  error
+	gitalypb.UnimplementedCommitServiceServer
+}
+
+func (s *fakeCommitServer) FindCommit(_ context.Context, _ *gitalypb.FindCommitRequest) (*gitalypb.FindCommitResponse, error) {
+	if s.failsRemaining > 0 {
+		s.failsRemaining--
+		return nil, s.returnedError
+	}
+	return &gitalypb.FindCommitResponse{}, nil
+}
+
+func startFakeGitalyServer(t *testing.T, returnedError error) string {
+	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
+	listener, err := net.Listen("unix", serverSocketPath)
+	require.NoError(t, err)
+
+	srv := grpc.NewServer(SidechannelServer(newLogger(t), insecure.NewCredentials()))
+	gitalypb.RegisterCommitServiceServer(srv, &fakeCommitServer{failsRemaining: 2, returnedError: returnedError})
+	go testhelper.MustServe(t, srv, listener)
+	t.Cleanup(srv.Stop)
+
+	return serverSocketPath
 }
