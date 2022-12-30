@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	glgit "gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -19,33 +19,33 @@ import (
 func TestConflicts(t *testing.T) {
 	testcases := []struct {
 		desc      string
-		base      []gittest.TreeEntry
-		ours      []gittest.TreeEntry
-		theirs    []gittest.TreeEntry
+		base      []localrepo.TreeEntry
+		ours      []localrepo.TreeEntry
+		theirs    []localrepo.TreeEntry
 		conflicts []git2go.Conflict
 	}{
 		{
 			desc: "no conflicts",
-			base: []gittest.TreeEntry{
+			base: []localrepo.TreeEntry{
 				{Path: "file", Content: "a", Mode: "100644"},
 			},
-			ours: []gittest.TreeEntry{
+			ours: []localrepo.TreeEntry{
 				{Path: "file", Content: "a", Mode: "100644"},
 			},
-			theirs: []gittest.TreeEntry{
+			theirs: []localrepo.TreeEntry{
 				{Path: "file", Content: "b", Mode: "100644"},
 			},
 			conflicts: nil,
 		},
 		{
 			desc: "single file",
-			base: []gittest.TreeEntry{
+			base: []localrepo.TreeEntry{
 				{Path: "file", Content: "a", Mode: "100644"},
 			},
-			ours: []gittest.TreeEntry{
+			ours: []localrepo.TreeEntry{
 				{Path: "file", Content: "b", Mode: "100644"},
 			},
-			theirs: []gittest.TreeEntry{
+			theirs: []localrepo.TreeEntry{
 				{Path: "file", Content: "c", Mode: "100644"},
 			},
 			conflicts: []git2go.Conflict{
@@ -59,15 +59,15 @@ func TestConflicts(t *testing.T) {
 		},
 		{
 			desc: "multiple files with single conflict",
-			base: []gittest.TreeEntry{
+			base: []localrepo.TreeEntry{
 				{Path: "file-1", Content: "a", Mode: "100644"},
 				{Path: "file-2", Content: "a", Mode: "100644"},
 			},
-			ours: []gittest.TreeEntry{
+			ours: []localrepo.TreeEntry{
 				{Path: "file-1", Content: "b", Mode: "100644"},
 				{Path: "file-2", Content: "b", Mode: "100644"},
 			},
-			theirs: []gittest.TreeEntry{
+			theirs: []localrepo.TreeEntry{
 				{Path: "file-1", Content: "a", Mode: "100644"},
 				{Path: "file-2", Content: "c", Mode: "100644"},
 			},
@@ -82,15 +82,15 @@ func TestConflicts(t *testing.T) {
 		},
 		{
 			desc: "multiple conflicts",
-			base: []gittest.TreeEntry{
+			base: []localrepo.TreeEntry{
 				{Path: "file-1", Content: "a", Mode: "100644"},
 				{Path: "file-2", Content: "a", Mode: "100644"},
 			},
-			ours: []gittest.TreeEntry{
+			ours: []localrepo.TreeEntry{
 				{Path: "file-1", Content: "b", Mode: "100644"},
 				{Path: "file-2", Content: "b", Mode: "100644"},
 			},
-			theirs: []gittest.TreeEntry{
+			theirs: []localrepo.TreeEntry{
 				{Path: "file-1", Content: "c", Mode: "100644"},
 				{Path: "file-2", Content: "c", Mode: "100644"},
 			},
@@ -111,13 +111,13 @@ func TestConflicts(t *testing.T) {
 		},
 		{
 			desc: "modified-delete-conflict",
-			base: []gittest.TreeEntry{
+			base: []localrepo.TreeEntry{
 				{Path: "file", Content: "content", Mode: "100644"},
 			},
-			ours: []gittest.TreeEntry{
+			ours: []localrepo.TreeEntry{
 				{Path: "file", Content: "changed", Mode: "100644"},
 			},
-			theirs: []gittest.TreeEntry{
+			theirs: []localrepo.TreeEntry{
 				{Path: "different-file", Content: "unrelated", Mode: "100644"},
 			},
 			conflicts: []git2go.Conflict{
@@ -134,13 +134,13 @@ func TestConflicts(t *testing.T) {
 			// detection and so don't we. The rename conflict is
 			// thus split up into three conflicts.
 			desc: "rename-rename-conflict",
-			base: []gittest.TreeEntry{
+			base: []localrepo.TreeEntry{
 				{Path: "file", Content: "a\nb\nc\nd\ne\nf\ng\n", Mode: "100644"},
 			},
-			ours: []gittest.TreeEntry{
+			ours: []localrepo.TreeEntry{
 				{Path: "renamed-1", Content: "a\nb\nc\nd\ne\nf\ng\n", Mode: "100644"},
 			},
-			theirs: []gittest.TreeEntry{
+			theirs: []localrepo.TreeEntry{
 				{Path: "renamed-2", Content: "a\nb\nc\nd\ne\nf\ng\n", Mode: "100644"},
 			},
 			conflicts: []git2go.Conflict{
@@ -171,10 +171,11 @@ func TestConflicts(t *testing.T) {
 		executor := buildExecutor(t, cfg)
 
 		testcfg.BuildGitalyGit2Go(t, cfg)
+		localRepo := localrepo.NewTestRepo(t, cfg, repo)
 
-		base := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(tc.base...))
-		ours := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(base), gittest.WithTreeEntries(tc.ours...))
-		theirs := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(base), gittest.WithTreeEntries(tc.theirs...))
+		base := localrepo.WriteTestCommit(t, localRepo, localrepo.WithTreeEntries(tc.base...))
+		ours := localrepo.WriteTestCommit(t, localRepo, localrepo.WithParents(base), localrepo.WithTreeEntries(tc.ours...))
+		theirs := localrepo.WriteTestCommit(t, localRepo, localrepo.WithParents(base), localrepo.WithTreeEntries(tc.theirs...))
 
 		t.Run(tc.desc, func(t *testing.T) {
 			ctx := testhelper.Context(t)
@@ -193,8 +194,10 @@ func TestConflicts(t *testing.T) {
 
 func TestConflicts_checkError(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
-	base := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries())
-	validOID := glgit.ObjectID(base.String())
+	localRepo := localrepo.NewTestRepo(t, cfg, repo)
+
+	base := localrepo.WriteTestCommit(t, localRepo, localrepo.WithTreeEntries())
+	validOID := git.ObjectID(base.String())
 	executor := buildExecutor(t, cfg)
 
 	testcfg.BuildGitalyGit2Go(t, cfg)
@@ -202,8 +205,8 @@ func TestConflicts_checkError(t *testing.T) {
 	testcases := []struct {
 		desc             string
 		overrideRepoPath string
-		ours             glgit.ObjectID
-		theirs           glgit.ObjectID
+		ours             git.ObjectID
+		theirs           git.ObjectID
 		expErr           error
 	}{
 		{
@@ -239,20 +242,20 @@ func TestConflicts_checkError(t *testing.T) {
 		},
 		{
 			desc:   "ours OID doesn't exist",
-			ours:   glgit.ObjectHashSHA1.ZeroOID,
+			ours:   git.ObjectHashSHA1.ZeroOID,
 			theirs: validOID,
 			expErr: status.Error(codes.InvalidArgument, "odb: cannot read object: null OID cannot exist"),
 		},
 		{
 			desc:   "invalid object type",
-			ours:   glgit.ObjectHashSHA1.EmptyTreeOID,
+			ours:   git.ObjectHashSHA1.EmptyTreeOID,
 			theirs: validOID,
 			expErr: status.Error(codes.InvalidArgument, "the requested type does not match the type in the ODB"),
 		},
 		{
 			desc:   "theirs OID doesn't exist",
 			ours:   validOID,
-			theirs: glgit.ObjectHashSHA1.ZeroOID,
+			theirs: git.ObjectHashSHA1.ZeroOID,
 			expErr: status.Error(codes.InvalidArgument, "odb: cannot read object: null OID cannot exist"),
 		},
 	}

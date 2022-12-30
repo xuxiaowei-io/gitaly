@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/cmd/gitaly-git2go/git2goutil"
 	gitalygit "gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -243,23 +244,24 @@ func TestRebase_skipEmptyCommit(t *testing.T) {
 	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 	testcfg.BuildGitalyGit2Go(t, cfg)
 
+	localRepo := localrepo.NewTestRepo(t, cfg, repoProto)
+
 	// Set up history with two diverging lines of branches, where both sides have implemented
 	// the same changes. During rebase, the diff will thus become empty.
-	base := gittest.WriteCommit(t, cfg, repoPath,
-		gittest.WithTreeEntries(gittest.TreeEntry{
+	base := localrepo.WriteTestCommit(t, localRepo,
+		localrepo.WithTreeEntries(localrepo.TreeEntry{
 			Path: "a", Content: "base", Mode: "100644",
-		}),
-	)
-	theirs := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("theirs"),
-		gittest.WithParents(base), gittest.WithTreeEntries(gittest.TreeEntry{
+		}))
+
+	theirs := localrepo.WriteTestCommit(t, localRepo, localrepo.WithMessage("theirs"),
+		localrepo.WithParents(base), localrepo.WithTreeEntries(localrepo.TreeEntry{
 			Path: "a", Content: "changed", Mode: "100644",
-		}),
-	)
-	ours := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("ours"),
-		gittest.WithParents(base), gittest.WithTreeEntries(gittest.TreeEntry{
+		}))
+
+	ours := localrepo.WriteTestCommit(t, localRepo, localrepo.WithMessage("ours"),
+		localrepo.WithParents(base), localrepo.WithTreeEntries(localrepo.TreeEntry{
 			Path: "a", Content: "changed", Mode: "100644",
-		}),
-	)
+		}))
 
 	for _, tc := range []struct {
 		desc             string
