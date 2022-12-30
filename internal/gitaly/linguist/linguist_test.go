@@ -44,11 +44,11 @@ func TestInstance_Stats(t *testing.T) {
 					SkipCreationViaService: true,
 				})
 
-				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "webpack.coffee", Mode: "100644", Content: strings.Repeat("a", 107)},
-					gittest.TreeEntry{Path: "show_user.html", Mode: "100644", Content: strings.Repeat("a", 349)},
-					gittest.TreeEntry{Path: "api.javascript", Mode: "100644", Content: strings.Repeat("a", 1014)},
-					gittest.TreeEntry{Path: "application.rb", Mode: "100644", Content: strings.Repeat("a", 2943)},
+				commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithTreeEntries(
+					localrepo.TreeEntry{Path: "webpack.coffee", Mode: "100644", Content: strings.Repeat("a", 107)},
+					localrepo.TreeEntry{Path: "show_user.html", Mode: "100644", Content: strings.Repeat("a", 349)},
+					localrepo.TreeEntry{Path: "api.javascript", Mode: "100644", Content: strings.Repeat("a", 1014)},
+					localrepo.TreeEntry{Path: "application.rb", Mode: "100644", Content: strings.Repeat("a", 2943)},
 				))
 
 				return repoProto, repoPath, commitID
@@ -72,9 +72,9 @@ func TestInstance_Stats(t *testing.T) {
 					{Path: "index.html", Mode: "100644", Content: strings.Repeat("a", 120)},
 					{Path: "formatter.rb", Mode: "100644", Content: strings.Repeat("a", 403)},
 				})
-				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "docs", Mode: "040000", OID: docTree},
-					gittest.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
+				commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithTreeEntries(
+					localrepo.TreeEntry{Path: "docs", Mode: "040000", OID: docTree},
+					localrepo.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
 				))
 
 				return repoProto, repoPath, commitID
@@ -95,10 +95,10 @@ func TestInstance_Stats(t *testing.T) {
 					{Path: "index.html", Mode: "100644", Content: strings.Repeat("a", 120)},
 					{Path: "formatter.rb", Mode: "100644", Content: strings.Repeat("a", 403)},
 				})
-				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "docs", Mode: "040000", OID: docTree},
-					gittest.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
-					gittest.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "formatter.rb -linguist-documentation"},
+				commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithTreeEntries(
+					localrepo.TreeEntry{Path: "docs", Mode: "040000", OID: docTree},
+					localrepo.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
+					localrepo.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "formatter.rb -linguist-documentation"},
 				))
 
 				return repoProto, repoPath, commitID
@@ -118,9 +118,9 @@ func TestInstance_Stats(t *testing.T) {
 				vendorTree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 					{Path: "app.rb", Mode: "100644", Content: strings.Repeat("a", 500)},
 				})
-				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "vendor", Mode: "040000", OID: vendorTree},
-					gittest.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
+				commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithTreeEntries(
+					localrepo.TreeEntry{Path: "vendor", Mode: "040000", OID: vendorTree},
+					localrepo.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
 				))
 
 				return repoProto, repoPath, commitID
@@ -139,10 +139,10 @@ func TestInstance_Stats(t *testing.T) {
 				vendorTree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 					{Path: "app.rb", Mode: "100644", Content: strings.Repeat("a", 500)},
 				})
-				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "vendor", Mode: "040000", OID: vendorTree},
-					gittest.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
-					gittest.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "*.rb -linguist-vendored"},
+				commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithTreeEntries(
+					localrepo.TreeEntry{Path: "vendor", Mode: "040000", OID: vendorTree},
+					localrepo.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
+					localrepo.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "*.rb -linguist-vendored"},
 				))
 
 				return repoProto, repoPath, commitID
@@ -162,9 +162,9 @@ func TestInstance_Stats(t *testing.T) {
 				podsTree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 					{Path: "app.swift", Mode: "100644", Content: strings.Repeat("a", 500)},
 				})
-				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "Pods", Mode: "040000", OID: podsTree},
-					gittest.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
+				commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithTreeEntries(
+					localrepo.TreeEntry{Path: "Pods", Mode: "040000", OID: podsTree},
+					localrepo.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
 				))
 
 				return repoProto, repoPath, commitID
@@ -183,10 +183,10 @@ func TestInstance_Stats(t *testing.T) {
 				podsTree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 					{Path: "app.swift", Mode: "100644", Content: strings.Repeat("a", 500)},
 				})
-				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "Pods", Mode: "040000", OID: podsTree},
-					gittest.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
-					gittest.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "Pods/* -linguist-generated"},
+				commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithTreeEntries(
+					localrepo.TreeEntry{Path: "Pods", Mode: "040000", OID: podsTree},
+					localrepo.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
+					localrepo.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "Pods/* -linguist-generated"},
 				))
 
 				return repoProto, repoPath, commitID
@@ -203,10 +203,10 @@ func TestInstance_Stats(t *testing.T) {
 					SkipCreationViaService: true,
 				})
 
-				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "config.json", Mode: "100644", Content: strings.Repeat("a", 234)},
-					gittest.TreeEntry{Path: "manual.md", Mode: "100644", Content: strings.Repeat("a", 553)},
-					gittest.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
+				commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithTreeEntries(
+					localrepo.TreeEntry{Path: "config.json", Mode: "100644", Content: strings.Repeat("a", 234)},
+					localrepo.TreeEntry{Path: "manual.md", Mode: "100644", Content: strings.Repeat("a", 553)},
+					localrepo.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
 				))
 
 				return repoProto, repoPath, commitID
@@ -222,11 +222,11 @@ func TestInstance_Stats(t *testing.T) {
 					SkipCreationViaService: true,
 				})
 
-				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "config.json", Mode: "100644", Content: strings.Repeat("a", 234)},
-					gittest.TreeEntry{Path: "manual.md", Mode: "100644", Content: strings.Repeat("a", 553)},
-					gittest.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
-					gittest.TreeEntry{
+				commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithTreeEntries(
+					localrepo.TreeEntry{Path: "config.json", Mode: "100644", Content: strings.Repeat("a", 234)},
+					localrepo.TreeEntry{Path: "manual.md", Mode: "100644", Content: strings.Repeat("a", 553)},
+					localrepo.TreeEntry{Path: "main.c", Mode: "100644", Content: strings.Repeat("a", 85)},
+					localrepo.TreeEntry{
 						Path: ".gitattributes",
 						Mode: "100644",
 						Content: "*.md linguist-detectable\n" +
@@ -255,9 +255,9 @@ func TestInstance_Stats(t *testing.T) {
 					{Path: "formatter.rb", Mode: "100644", Content: strings.Repeat("a", 403)},
 				})
 
-				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "docu", Mode: "040000", OID: docTree},
-					gittest.TreeEntry{
+				commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithTreeEntries(
+					localrepo.TreeEntry{Path: "docu", Mode: "040000", OID: docTree},
+					localrepo.TreeEntry{
 						Path: ".gitattributes",
 						Mode: "100644",
 						Content: "docu/* linguist-documentation\n" +
@@ -278,11 +278,11 @@ func TestInstance_Stats(t *testing.T) {
 					SkipCreationViaService: true,
 				})
 
-				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "keeb.kicad_pcb", Mode: "100644", Content: strings.Repeat("a", 500)},
-					gittest.TreeEntry{Path: "keeb.sch", Mode: "100644", Content: strings.Repeat("a", 120)},
-					gittest.TreeEntry{Path: "export_bom.py", Mode: "100644", Content: strings.Repeat("a", 403)},
-					gittest.TreeEntry{
+				commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithTreeEntries(
+					localrepo.TreeEntry{Path: "keeb.kicad_pcb", Mode: "100644", Content: strings.Repeat("a", 500)},
+					localrepo.TreeEntry{Path: "keeb.sch", Mode: "100644", Content: strings.Repeat("a", 120)},
+					localrepo.TreeEntry{Path: "export_bom.py", Mode: "100644", Content: strings.Repeat("a", 403)},
+					localrepo.TreeEntry{
 						Path: ".gitattributes",
 						Mode: "100644",
 						Content: "*.kicad_pcb linguist-detectable\n" +
@@ -316,10 +316,10 @@ func TestInstance_Stats(t *testing.T) {
 					{Path: "example", Mode: "040000", OID: subSubTree},
 				})
 
-				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "scripts", Mode: "040000", OID: subTree},
-					gittest.TreeEntry{Path: "run.rb", Mode: "100644", Content: strings.Repeat("a", 55)},
-					gittest.TreeEntry{
+				commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithTreeEntries(
+					localrepo.TreeEntry{Path: "scripts", Mode: "040000", OID: subTree},
+					localrepo.TreeEntry{Path: "run.rb", Mode: "100644", Content: strings.Repeat("a", 55)},
+					localrepo.TreeEntry{
 						Path: ".gitattributes",
 						Mode: "100644",
 						Content: "scripts/** linguist-documentation\n" +
@@ -341,10 +341,10 @@ func TestInstance_Stats(t *testing.T) {
 				})
 
 				emptyBlob := gittest.WriteBlob(t, cfg, repoPath, []byte{})
-				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "README.md", Mode: "100644", Content: "Hello world!"},
-					gittest.TreeEntry{Path: "index.html", Mode: "100644", OID: emptyBlob},
-					gittest.TreeEntry{Path: "app.js", Mode: "100644", OID: emptyBlob},
+				commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithTreeEntries(
+					localrepo.TreeEntry{Path: "README.md", Mode: "100644", Content: "Hello world!"},
+					localrepo.TreeEntry{Path: "index.html", Mode: "100644", OID: emptyBlob},
+					localrepo.TreeEntry{Path: "app.js", Mode: "100644", OID: emptyBlob},
 				))
 
 				return repoProto, repoPath, commitID
@@ -358,12 +358,13 @@ func TestInstance_Stats(t *testing.T) {
 					SkipCreationViaService: true,
 				})
 
-				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "webpack.coffee", Mode: "100644", Content: strings.Repeat("a", 107)},
-					gittest.TreeEntry{Path: "show_user.html", Mode: "100644", Content: strings.Repeat("a", 349)},
-					gittest.TreeEntry{Path: "api.javascript", Mode: "100644", Content: strings.Repeat("a", 1014)},
-					gittest.TreeEntry{Path: "application.rb", Mode: "100644", Content: strings.Repeat("a", 2943)},
+				commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithTreeEntries(
+					localrepo.TreeEntry{Path: "webpack.coffee", Mode: "100644", Content: strings.Repeat("a", 107)},
+					localrepo.TreeEntry{Path: "show_user.html", Mode: "100644", Content: strings.Repeat("a", 349)},
+					localrepo.TreeEntry{Path: "api.javascript", Mode: "100644", Content: strings.Repeat("a", 1014)},
+					localrepo.TreeEntry{Path: "application.rb", Mode: "100644", Content: strings.Repeat("a", 2943)},
 				))
+
 				repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 				// We simply run the linguist once before so that it can already
@@ -391,23 +392,24 @@ func TestInstance_Stats(t *testing.T) {
 					SkipCreationViaService: true,
 				})
 
-				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "webpack.coffee", Mode: "100644", Content: strings.Repeat("a", 107)},
-					gittest.TreeEntry{Path: "show_user.html", Mode: "100644", Content: strings.Repeat("a", 349)},
-					gittest.TreeEntry{Path: "api.javascript", Mode: "100644", Content: strings.Repeat("a", 1014)},
-					gittest.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "*.html linguist-vendored"},
-				))
 				repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+				commitID := localrepo.WriteTestCommit(t, repo, localrepo.WithTreeEntries(
+					localrepo.TreeEntry{Path: "webpack.coffee", Mode: "100644", Content: strings.Repeat("a", 107)},
+					localrepo.TreeEntry{Path: "show_user.html", Mode: "100644", Content: strings.Repeat("a", 349)},
+					localrepo.TreeEntry{Path: "api.javascript", Mode: "100644", Content: strings.Repeat("a", 1014)},
+					localrepo.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "*.html linguist-vendored"},
+				))
 
 				_, err := New(cfg, catfileCache, repo).Stats(ctx, commitID.String())
 				require.NoError(t, err)
 				require.FileExists(t, filepath.Join(repoPath, languageStatsFilename))
 
-				commitID = gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "webpack.coffee", Mode: "100644", Content: strings.Repeat("a", 107)},
-					gittest.TreeEntry{Path: "show_user.html", Mode: "100644", Content: strings.Repeat("a", 349)},
-					gittest.TreeEntry{Path: "api.javascript", Mode: "100644", Content: strings.Repeat("a", 1014)},
-					gittest.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "*.coffee linguist-vendored"},
+				commitID = localrepo.WriteTestCommit(t, repo, localrepo.WithTreeEntries(
+					localrepo.TreeEntry{Path: "webpack.coffee", Mode: "100644", Content: strings.Repeat("a", 107)},
+					localrepo.TreeEntry{Path: "show_user.html", Mode: "100644", Content: strings.Repeat("a", 349)},
+					localrepo.TreeEntry{Path: "api.javascript", Mode: "100644", Content: strings.Repeat("a", 1014)},
+					localrepo.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "*.coffee linguist-vendored"},
 				))
 
 				return repoProto, repoPath, commitID
@@ -432,9 +434,9 @@ func TestInstance_Stats(t *testing.T) {
 					{Path: "include", Mode: "040000", OID: includeTree},
 				})
 
-				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "thirdparty", Mode: "040000", OID: thirdPartyTree},
-					gittest.TreeEntry{
+				commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithTreeEntries(
+					localrepo.TreeEntry{Path: "thirdparty", Mode: "040000", OID: thirdPartyTree},
+					localrepo.TreeEntry{
 						Path:    ".gitattributes",
 						Mode:    "100644",
 						Content: "*.h linguist-language=cpp\nthirdparty/* linguist-vendored",
@@ -452,11 +454,11 @@ func TestInstance_Stats(t *testing.T) {
 					SkipCreationViaService: true,
 				})
 
-				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "webpack.coffee", Mode: "100644", Content: strings.Repeat("a", 107)},
-					gittest.TreeEntry{Path: "show_user.html", Mode: "100644", Content: strings.Repeat("a", 349)},
-					gittest.TreeEntry{Path: "api.javascript", Mode: "100644", Content: strings.Repeat("a", 1014)},
-					gittest.TreeEntry{Path: "application.rb", Mode: "100644", Content: strings.Repeat("a", 2943)},
+				commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithTreeEntries(
+					localrepo.TreeEntry{Path: "webpack.coffee", Mode: "100644", Content: strings.Repeat("a", 107)},
+					localrepo.TreeEntry{Path: "show_user.html", Mode: "100644", Content: strings.Repeat("a", 349)},
+					localrepo.TreeEntry{Path: "api.javascript", Mode: "100644", Content: strings.Repeat("a", 1014)},
+					localrepo.TreeEntry{Path: "application.rb", Mode: "100644", Content: strings.Repeat("a", 2943)},
 				))
 
 				require.NoError(t, os.WriteFile(filepath.Join(repoPath, languageStatsFilename), []byte("garbage"), 0o644))
@@ -478,11 +480,12 @@ func TestInstance_Stats(t *testing.T) {
 				})
 				repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-				oldCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "main.rb", Content: "require 'fileutils'", Mode: "100644"},
+				oldCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithTreeEntries(
+					localrepo.TreeEntry{Path: "main.rb", Content: "require 'fileutils'", Mode: "100644"},
 				))
-				newCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(oldCommitID), gittest.WithTreeEntries(
-					gittest.TreeEntry{Path: "main.go", Content: "package main", Mode: "100644"},
+
+				newCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithParents(oldCommitID), localrepo.WithTreeEntries(
+					localrepo.TreeEntry{Path: "main.go", Content: "package main", Mode: "100644"},
 				))
 
 				// Precreate the cache with the old commit. This ensures that
@@ -567,13 +570,13 @@ func TestInstance_Stats_failureGitattributes(t *testing.T) {
 		`, execEnv.BinaryPath)
 	})
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
-		gittest.TreeEntry{Path: "main.rb", Mode: "100644", Content: strings.Repeat("a", 107)},
-		gittest.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "*.rb -linguist-vendored"},
+	commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repoProto), localrepo.WithTreeEntries(
+		localrepo.TreeEntry{Path: "main.rb", Mode: "100644", Content: strings.Repeat("a", 107)},
+		localrepo.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: "*.rb -linguist-vendored"},
 	))
 
 	repo := localrepo.New(locator, gitCmdFactory, catfileCache, repoProto)
