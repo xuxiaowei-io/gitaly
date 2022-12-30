@@ -22,6 +22,7 @@ var GitalyProtos = []string{
 	"remote.proto",
 	"repository.proto",
 	"server.proto",
+	"service_config.proto",
 	"shared.proto",
 	"smarthttp.proto",
 	"ssh.proto",
