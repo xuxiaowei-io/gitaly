@@ -421,7 +421,8 @@ func TestGetArchive_pathInjection(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
+	cfg, repoProto, _, client := setupRepositoryService(t, ctx)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	// It used to be possible to inject options into `git-archive(1)`, with the worst outcome
 	// being that an adversary may create or overwrite arbitrary files in the filesystem in case
@@ -434,10 +435,10 @@ func TestGetArchive_pathInjection(t *testing.T) {
 	// a path and does not interpret it as an option.
 	outputPath := "/non/existent"
 
-	commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithTree(gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
-		{Path: "--output=", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
-			{Path: "non", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
-				{Path: "existent", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+	commitID := localrepo.WriteTestCommit(t, repo, localrepo.WithTree(localrepo.WriteTestTree(t, repo, []localrepo.TreeEntry{
+		{Path: "--output=", Mode: "040000", OID: localrepo.WriteTestTree(t, repo, []localrepo.TreeEntry{
+			{Path: "non", Mode: "040000", OID: localrepo.WriteTestTree(t, repo, []localrepo.TreeEntry{
+				{Path: "existent", Mode: "040000", OID: localrepo.WriteTestTree(t, repo, []localrepo.TreeEntry{
 					{Path: "injected file", Mode: "100644", Content: "injected content"},
 				})},
 			})},
@@ -446,7 +447,7 @@ func TestGetArchive_pathInjection(t *testing.T) {
 
 	// And now we fire the request path our bogus path to try and overwrite the output path.
 	stream, err := client.GetArchive(ctx, &gitalypb.GetArchiveRequest{
-		Repository: repo,
+		Repository: repoProto,
 		CommitId:   commitID.String(),
 		Prefix:     "",
 		Format:     gitalypb.GetArchiveRequest_TAR,

@@ -36,20 +36,23 @@ func TestRevlist(t *testing.T) {
 	blob := localrepo.WriteTestBlob(t, repo, "", "a")
 	subblob := localrepo.WriteTestBlob(t, repo, "", "larger blob")
 
-	treeA := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+	treeA := localrepo.WriteTestTree(t, repo, []localrepo.TreeEntry{
 		{Path: "branch-test.txt", Mode: "100644", OID: blob},
 	})
+
 	commitA := localrepo.WriteTestCommit(t, repo,
 		localrepo.WithTree(treeA),
 		localrepo.WithCommitterDate(time.Date(2000, 1, 1, 1, 1, 1, 1, time.UTC)))
 
-	subtree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+	subtree := localrepo.WriteTestTree(t, repo, []localrepo.TreeEntry{
 		{Path: "subblob", Mode: "100644", OID: subblob},
 	})
-	treeB := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+
+	treeB := localrepo.WriteTestTree(t, repo, []localrepo.TreeEntry{
 		{Path: "branch-test.txt", Mode: "100644", OID: blob},
 		{Path: "subtree", Mode: "040000", OID: subtree},
 	})
+
 	commitB := localrepo.WriteTestCommit(t, repo,
 		localrepo.WithParents(commitA),
 		localrepo.WithTree(treeB),

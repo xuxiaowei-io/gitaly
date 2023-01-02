@@ -785,7 +785,7 @@ func TestUserCreateTag_nonCommitTarget(t *testing.T) {
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	blobID := localrepo.WriteTestBlob(t, repo, "", "content")
-	treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+	treeID := localrepo.WriteTestTree(t, repo, []localrepo.TreeEntry{
 		{Path: "file", Mode: "100644", Content: "something"},
 	})
 

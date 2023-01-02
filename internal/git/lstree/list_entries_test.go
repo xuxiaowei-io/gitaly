@@ -17,28 +17,32 @@ func TestListEntries(t *testing.T) {
 	cfg := testcfg.Build(t)
 	ctx := testhelper.Context(t)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	blobID := localrepo.WriteTestBlob(t, repo, "", "blob contents")
-	emptyTreeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{})
-	treeWithBlob := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+	emptyTreeID := localrepo.WriteTestTree(t, repo, []localrepo.TreeEntry{})
+	treeWithBlob := localrepo.WriteTestTree(t, repo, []localrepo.TreeEntry{
 		{OID: blobID, Mode: "100644", Path: "nonexecutable"},
 		{OID: blobID, Mode: "100755", Path: "executable"},
 	})
-	treeWithSubtree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+
+	treeWithSubtree := localrepo.WriteTestTree(t, repo, []localrepo.TreeEntry{
 		{OID: emptyTreeID, Mode: "040000", Path: "subdir"},
 	})
-	treeWithNestedSubtrees := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+
+	treeWithNestedSubtrees := localrepo.WriteTestTree(t, repo, []localrepo.TreeEntry{
 		{OID: treeWithSubtree, Mode: "040000", Path: "nested-subdir"},
 	})
-	treeWithSubtreeAndBlob := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+
+	treeWithSubtreeAndBlob := localrepo.WriteTestTree(t, repo, []localrepo.TreeEntry{
 		{OID: treeWithSubtree, Mode: "040000", Path: "subdir"},
 		{OID: blobID, Mode: "100644", Path: "blob"},
 	})
-	treeWithSubtreeContainingBlob := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+
+	treeWithSubtreeContainingBlob := localrepo.WriteTestTree(t, repo, []localrepo.TreeEntry{
 		{OID: treeWithSubtreeAndBlob, Mode: "040000", Path: "subdir"},
 	})
 

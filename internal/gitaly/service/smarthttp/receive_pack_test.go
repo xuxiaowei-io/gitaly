@@ -457,11 +457,12 @@ func TestPostReceivePack_invalidObjects(t *testing.T) {
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
-
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-	_, localRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+
+	localRepoProto, localRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
+	localRepo := localrepo.NewTestRepo(t, cfg, localRepoProto)
 
 	client, conn := newSmartHTTPClient(t, server.Address(), cfg.Auth.Token)
 	defer conn.Close()
@@ -512,9 +513,10 @@ func TestPostReceivePack_invalidObjects(t *testing.T) {
 		{
 			desc: "zero-padded file mode",
 			prepareCommit: func(t *testing.T, repoPath string) bytes.Buffer {
-				subtree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				subtree := localrepo.WriteTestTree(t, localRepo, []localrepo.TreeEntry{
 					{Mode: "100644", Path: "file", Content: "content"},
 				})
+
 				subtreeID, err := subtree.Bytes()
 				require.NoError(t, err)
 
@@ -550,6 +552,7 @@ func TestPostReceivePack_invalidObjects(t *testing.T) {
 			currentHead := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD"))
 
 			stdin := strings.NewReader(fmt.Sprintf("^%s\n%s\n", currentHead, commitID))
+
 			pack := gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: stdin},
 				"-C", localRepoPath, "pack-objects", "--stdout", "--revs", "--thin", "--delta-base-offset", "-q",
 			)

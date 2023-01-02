@@ -30,7 +30,7 @@ func TestCreate(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -96,10 +96,11 @@ func TestCreate(t *testing.T) {
 
 	t.Run("consistency check", func(t *testing.T) {
 		// Write a tree into the repository that's known-broken.
-		treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+		treeID := localrepo.WriteTestTree(t, repo, []localrepo.TreeEntry{
 			{Content: "content", Path: "dup", Mode: "100644"},
 			{Content: "content", Path: "dup", Mode: "100644"},
 		})
+
 		localrepo.WriteTestCommit(t, repo,
 			localrepo.WithParents(),
 			localrepo.WithBranch("master"),

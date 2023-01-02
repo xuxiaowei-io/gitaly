@@ -22,7 +22,7 @@ func TestCatfileInfo(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -33,7 +33,7 @@ func TestCatfileInfo(t *testing.T) {
 	blobD := localrepo.WriteTestBlob(t, repo, "", strings.Repeat("d", 129))
 
 	blobID := localrepo.WriteTestBlob(t, repo, "", "contents")
-	treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+	treeID := localrepo.WriteTestTree(t, repo, []localrepo.TreeEntry{
 		{Path: "branch-test.txt", Mode: "100644", OID: blobID},
 	})
 
@@ -286,16 +286,17 @@ func TestCatfileInfoAllObjects(t *testing.T) {
 	cfg := testcfg.Build(t)
 	ctx := testhelper.Context(t)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	blob1 := localrepo.WriteTestBlob(t, repo, "", "foobar")
 	blob2 := localrepo.WriteTestBlob(t, repo, "", "barfoo")
-	tree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+	tree := localrepo.WriteTestTree(t, repo, []localrepo.TreeEntry{
 		{Path: "foobar", Mode: "100644", OID: blob1},
 	})
+
 	commit := localrepo.WriteTestCommit(t, repo)
 
 	actualObjects := []CatfileInfoResult{
@@ -348,16 +349,17 @@ func TestCatfileInfo_WithDiskUsageSize(t *testing.T) {
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	tree1 := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+	tree1 := localrepo.WriteTestTree(t, repo, []localrepo.TreeEntry{
 		{
 			Path: "foobar",
 			Mode: "100644",
 			OID:  localrepo.WriteTestBlob(t, repo, "", strings.Repeat("a", 100)),
 		},
 	})
+
 	initialCommitID := localrepo.WriteTestCommit(t, repo, localrepo.WithTree(tree1))
 
-	tree2 := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+	tree2 := localrepo.WriteTestTree(t, repo, []localrepo.TreeEntry{
 		{
 			Path: "foobar",
 			Mode: "100644",

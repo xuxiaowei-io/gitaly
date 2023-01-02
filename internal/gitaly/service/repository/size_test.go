@@ -123,13 +123,14 @@ func testSuccessfulRepositorySizeRequest(t *testing.T, ctx context.Context) {
 
 	blob := strings.Repeat("a", 1000)
 	blobOID := localrepo.WriteTestBlob(t, repo, "", blob)
-	treeOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+	treeOID := localrepo.WriteTestTree(t, repo, []localrepo.TreeEntry{
 		{
 			OID:  blobOID,
 			Mode: "100644",
 			Path: "1kbblob",
 		},
 	})
+
 	commitOID := localrepo.WriteTestCommit(t, repo, localrepo.WithTree(treeOID))
 
 	gittest.WriteRef(t, cfg, repoPath, git.ReferenceName("refs/keep-around/keep1"), commitOID)

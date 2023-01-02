@@ -28,7 +28,7 @@ func TestParser(t *testing.T) {
 	gitmodulesBlobID := localrepo.WriteTestBlob(t, repo, "", "gitmodules")
 	submoduleCommitID := localrepo.WriteTestCommit(t, repo)
 
-	regularEntriesTreeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+	regularEntriesTreeID := localrepo.WriteTestTree(t, repo, []localrepo.TreeEntry{
 		{Path: ".gitignore", Mode: "100644", OID: gitignoreBlobID},
 		{Path: ".gitmodules", Mode: "100644", OID: gitmodulesBlobID},
 		{Path: "entry with space", Mode: "040000", OID: gittest.DefaultObjectHash.EmptyTreeOID},
@@ -102,7 +102,7 @@ func TestParserReadEntryPath(t *testing.T) {
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	regularEntriesTreeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+	regularEntriesTreeID := localrepo.WriteTestTree(t, repo, []localrepo.TreeEntry{
 		{Path: ".gitignore", Mode: "100644", OID: localrepo.WriteTestBlob(t, repo, "", "gitignore")},
 		{Path: ".gitmodules", Mode: "100644", OID: localrepo.WriteTestBlob(t, repo, "", "gitmodules")},
 		{Path: "entry with space", Mode: "040000", OID: gittest.DefaultObjectHash.EmptyTreeOID},
@@ -111,6 +111,7 @@ func TestParserReadEntryPath(t *testing.T) {
 		{Path: "cuộc đời là những chuyến đi.md", Mode: "100644", OID: localrepo.WriteTestBlob(t, repo, "", "file with non-ascii file name")},
 		{Path: "编码 'foo'.md", Mode: "100644", OID: localrepo.WriteTestBlob(t, repo, "", "file with non-ascii file name")},
 	})
+
 	for _, tc := range []struct {
 		desc          string
 		treeID        git.ObjectID

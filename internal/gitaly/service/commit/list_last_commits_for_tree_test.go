@@ -9,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -349,17 +348,18 @@ func TestSuccessfulListLastCommitsForTreeRequestWithGlobCharacters(t *testing.T)
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, ctx)
+	cfg, repoProto, _, client := setupCommitServiceWithRepo(t, ctx)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithTreeEntries(localrepo.TreeEntry{
-		Path: ":wq", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+	commitID := localrepo.WriteTestCommit(t, repo, localrepo.WithTreeEntries(localrepo.TreeEntry{
+		Path: ":wq", Mode: "040000", OID: localrepo.WriteTestTree(t, repo, []localrepo.TreeEntry{
 			{Path: "README.md", Mode: "100644", Content: "something"},
 		}),
 	}))
 
 	t.Run("with literal pathspecs", func(t *testing.T) {
 		stream, err := client.ListLastCommitsForTree(ctx, &gitalypb.ListLastCommitsForTreeRequest{
-			Repository:    repo,
+			Repository:    repoProto,
 			Revision:      commitID.String(),
 			Path:          []byte(":wq"),
 			GlobalOptions: &gitalypb.GlobalOptions{LiteralPathspecs: true},
@@ -371,7 +371,7 @@ func TestSuccessfulListLastCommitsForTreeRequestWithGlobCharacters(t *testing.T)
 
 	t.Run("without literal pathspecs", func(t *testing.T) {
 		stream, err := client.ListLastCommitsForTree(ctx, &gitalypb.ListLastCommitsForTreeRequest{
-			Repository:    repo,
+			Repository:    repoProto,
 			Revision:      commitID.String(),
 			Path:          []byte(":wq"),
 			GlobalOptions: &gitalypb.GlobalOptions{LiteralPathspecs: false},

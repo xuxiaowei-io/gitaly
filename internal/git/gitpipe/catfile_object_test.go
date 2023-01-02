@@ -23,7 +23,7 @@ func TestCatfileObject(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -34,7 +34,7 @@ func TestCatfileObject(t *testing.T) {
 	blobD := localrepo.WriteTestBlob(t, repo, "", strings.Repeat("d", 129))
 
 	blobID := localrepo.WriteTestBlob(t, repo, "", "contents")
-	treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+	treeID := localrepo.WriteTestTree(t, repo, []localrepo.TreeEntry{
 		{Path: "branch-test.txt", Mode: "100644", OID: blobID},
 	})
 

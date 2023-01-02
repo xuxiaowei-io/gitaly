@@ -193,15 +193,13 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gital
 			{
 				desc: "license in subdir",
 				setup: func(t *testing.T, repo *localrepo.Repo) {
-					repoPath, err := repo.Path()
-					require.NoError(t, err)
-
-					subTree := gittest.WriteTree(t, cfg, repoPath,
-						[]gittest.TreeEntry{{
+					subTree := localrepo.WriteTestTree(t, repo, []localrepo.TreeEntry{
+						{
 							Mode:    "100644",
 							Path:    "LICENSE",
 							Content: mitLicense,
-						}})
+						},
+					})
 
 					localrepo.WriteTestCommit(t, repo, localrepo.WithBranch("main"),
 						localrepo.WithTreeEntries(

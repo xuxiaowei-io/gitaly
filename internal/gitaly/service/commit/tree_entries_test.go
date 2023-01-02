@@ -24,17 +24,18 @@ func TestGetTreeEntries_curlyBraces(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, ctx)
+	cfg, repoProto, _, client := setupCommitServiceWithRepo(t, ctx)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithTreeEntries(localrepo.TreeEntry{
-		Path: "issue-46261", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+	commitID := localrepo.WriteTestCommit(t, repo, localrepo.WithTreeEntries(localrepo.TreeEntry{
+		Path: "issue-46261", Mode: "040000", OID: localrepo.WriteTestTree(t, repo, []localrepo.TreeEntry{
 			{
-				Path: "folder", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				Path: "folder", Mode: "040000", OID: localrepo.WriteTestTree(t, repo, []localrepo.TreeEntry{
 					{Path: "test1.txt", Mode: "100644", Content: "test1"},
 				}),
 			},
 			{
-				Path: "{{curly}}", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				Path: "{{curly}}", Mode: "040000", OID: localrepo.WriteTestTree(t, repo, []localrepo.TreeEntry{
 					{Path: "test2.txt", Mode: "100644", Content: "test2"},
 				}),
 			},
@@ -63,7 +64,7 @@ func TestGetTreeEntries_curlyBraces(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			request := &gitalypb.GetTreeEntriesRequest{
-				Repository: repo,
+				Repository: repoProto,
 				Revision:   []byte(commitID.String()),
 				Path:       tc.path,
 				Recursive:  tc.recursive,
@@ -574,7 +575,8 @@ func TestGetTreeEntries_deepFlatpath(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, ctx)
+	cfg, repoProto, _, client := setupCommitServiceWithRepo(t, ctx)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	nestingLevel := 12
 	require.Greater(t, nestingLevel, defaultFlatTreeRecursion, "sanity check: construct folder deeper than default recursion value")
@@ -582,24 +584,24 @@ func TestGetTreeEntries_deepFlatpath(t *testing.T) {
 	// We create a tree structure that is one deeper than the flat-tree recursion limit.
 	var treeID git.ObjectID
 	for i := nestingLevel; i >= 0; i-- {
-		var treeEntry gittest.TreeEntry
+		var treeEntry localrepo.TreeEntry
 		if treeID == "" {
-			treeEntry = gittest.TreeEntry{Path: ".gitkeep", Mode: "100644", Content: "something"}
+			treeEntry = localrepo.TreeEntry{Path: ".gitkeep", Mode: "100644", Content: "something"}
 		} else {
 			// We use a numbered directory name to make it easier to see when things get
 			// truncated.
-			treeEntry = gittest.TreeEntry{Path: strconv.Itoa(i), Mode: "040000", OID: treeID}
+			treeEntry = localrepo.TreeEntry{Path: strconv.Itoa(i), Mode: "040000", OID: treeID}
 		}
 
-		treeID = gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{treeEntry})
+		treeID = localrepo.WriteTestTree(t, repo, []localrepo.TreeEntry{treeEntry})
 	}
-	commitID := localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo), localrepo.WithTree(treeID))
+	commitID := localrepo.WriteTestCommit(t, repo, localrepo.WithTree(treeID))
 
 	// We make a non-recursive request which tries to fetch tree entrie for the tree structure
 	// we have created above. This should return a single entry, which is the directory we're
 	// requesting.
 	stream, err := client.GetTreeEntries(ctx, &gitalypb.GetTreeEntriesRequest{
-		Repository: repo,
+		Repository: repoProto,
 		Revision:   []byte(commitID),
 		Path:       []byte("0"),
 		Recursive:  false,

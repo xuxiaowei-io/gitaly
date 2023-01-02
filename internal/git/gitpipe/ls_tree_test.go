@@ -32,10 +32,7 @@ func TestLsTree(t *testing.T) {
 				blobB := localrepo.WriteTestBlob(t, repo, "", "b")
 				blobC := localrepo.WriteTestBlob(t, repo, "", "c")
 
-				repoPath, err := repo.Path()
-				require.NoError(t, err)
-
-				tree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				tree := localrepo.WriteTestTree(t, repo, []localrepo.TreeEntry{
 					{Path: ".gitignore", Mode: "100644", OID: blobA},
 					{Path: "LICENSE", Mode: "100644", OID: blobB},
 					{Path: "README.md", Mode: "100644", OID: blobC},
@@ -54,10 +51,7 @@ func TestLsTree(t *testing.T) {
 				blob := localrepo.WriteTestBlob(t, repo, "", "a")
 				commit := localrepo.WriteTestCommit(t, repo)
 
-				repoPath, err := repo.Path()
-				require.NoError(t, err)
-
-				tree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				tree := localrepo.WriteTestTree(t, repo, []localrepo.TreeEntry{
 					{Path: "blob", Mode: "100644", OID: blob},
 					{Path: "submodule", Mode: "160000", OID: commit},
 				})
@@ -74,10 +68,7 @@ func TestLsTree(t *testing.T) {
 				blob := localrepo.WriteTestBlob(t, repo, "", "a")
 				commit := localrepo.WriteTestCommit(t, repo)
 
-				repoPath, err := repo.Path()
-				require.NoError(t, err)
-
-				tree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				tree := localrepo.WriteTestTree(t, repo, []localrepo.TreeEntry{
 					{
 						Path: "blob",
 						Mode: "100644",
@@ -91,7 +82,7 @@ func TestLsTree(t *testing.T) {
 					{
 						Path: "subtree",
 						Mode: "040000",
-						OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+						OID: localrepo.WriteTestTree(t, repo, []localrepo.TreeEntry{
 							{Path: "blob-in-subtree", Mode: "100644", Content: "something"},
 						}),
 					},
@@ -115,15 +106,11 @@ func TestLsTree(t *testing.T) {
 			desc: "non-recursive",
 			setup: func(t *testing.T, repo *localrepo.Repo) (git.Revision, []RevisionResult) {
 				blob := localrepo.WriteTestBlob(t, repo, "", "a")
-
-				repoPath, err := repo.Path()
-				require.NoError(t, err)
-
-				subtree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				subtree := localrepo.WriteTestTree(t, repo, []localrepo.TreeEntry{
 					{Path: "blob-in-subtree", Mode: "100644", Content: "something"},
 				})
 
-				tree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				tree := localrepo.WriteTestTree(t, repo, []localrepo.TreeEntry{
 					{Path: "blob", Mode: "100644", OID: blob},
 					{Path: "subtree", Mode: "040000", OID: subtree},
 				})
@@ -140,10 +127,7 @@ func TestLsTree(t *testing.T) {
 				blob := localrepo.WriteTestBlob(t, repo, "", "a")
 				blobInSubtree := localrepo.WriteTestBlob(t, repo, "", "b")
 
-				repoPath, err := repo.Path()
-				require.NoError(t, err)
-
-				tree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				tree := localrepo.WriteTestTree(t, repo, []localrepo.TreeEntry{
 					{
 						Path: "blob",
 						Mode: "100644",
@@ -152,7 +136,7 @@ func TestLsTree(t *testing.T) {
 					{
 						Path: "subtree",
 						Mode: "040000",
-						OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+						OID: localrepo.WriteTestTree(t, repo, []localrepo.TreeEntry{
 							{Path: "blob-in-subtree", Mode: "100644", OID: blobInSubtree},
 						}),
 					},
@@ -174,10 +158,7 @@ func TestLsTree(t *testing.T) {
 				blobB := localrepo.WriteTestBlob(t, repo, "", "b")
 				blobC := localrepo.WriteTestBlob(t, repo, "", "c")
 
-				repoPath, err := repo.Path()
-				require.NoError(t, err)
-
-				tree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				tree := localrepo.WriteTestTree(t, repo, []localrepo.TreeEntry{
 					{Path: ".gitignore", Mode: "100644", OID: blobA},
 					{Path: "LICENSE", Mode: "100644", OID: blobB},
 					{Path: "README.md", Mode: "100644", OID: blobC},
@@ -197,12 +178,10 @@ func TestLsTree(t *testing.T) {
 		{
 			desc: "with skip failure",
 			setup: func(t *testing.T, repo *localrepo.Repo) (git.Revision, []RevisionResult) {
-				repoPath, err := repo.Path()
-				require.NoError(t, err)
-
-				tree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				tree := localrepo.WriteTestTree(t, repo, []localrepo.TreeEntry{
 					{Path: "README.md", Mode: "100644", Content: "Hello world"},
 				})
+
 				return tree.Revision(), nil
 			},
 			options: []LsTreeOption{

@@ -179,15 +179,15 @@ func TestCreateFork_fsck(t *testing.T) {
 	ctx := testhelper.Context(t)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
-
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	// Write a tree into the repository that's known-broken.
-	treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+	treeID := localrepo.WriteTestTree(t, repo, []localrepo.TreeEntry{
 		{Content: "content", Path: "dup", Mode: "100644"},
 		{Content: "content", Path: "dup", Mode: "100644"},
 	})
 
-	localrepo.WriteTestCommit(t, localrepo.NewTestRepo(t, cfg, repo),
+	localrepo.WriteTestCommit(t, repo,
 		localrepo.WithParents(),
 		localrepo.WithBranch("main"),
 		localrepo.WithTree(treeID),
@@ -195,7 +195,7 @@ func TestCreateFork_fsck(t *testing.T) {
 
 	forkedRepo := &gitalypb.Repository{
 		RelativePath: gittest.NewRepositoryName(t),
-		StorageName:  repo.GetStorageName(),
+		StorageName:  repoProto.GetStorageName(),
 	}
 
 	// Create a fork from the repository with the broken tree. This should work alright: repos
@@ -205,7 +205,7 @@ func TestCreateFork_fsck(t *testing.T) {
 	// wouldn't be forkable anymore.
 	_, err := client.CreateFork(ctx, &gitalypb.CreateForkRequest{
 		Repository:       forkedRepo,
-		SourceRepository: repo,
+		SourceRepository: repoProto,
 	})
 	require.NoError(t, err)
 
