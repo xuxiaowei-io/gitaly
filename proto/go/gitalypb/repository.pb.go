@@ -1897,13 +1897,13 @@ func (x *FetchSourceBranchResponse) GetResult() bool {
 	return false
 }
 
-// This comment is left unintentionally blank.
+// FsckRequest is a request for the Fsck RPC.
 type FsckRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// Repository is the repository that shall be checked for consistency.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -1946,13 +1946,13 @@ func (x *FsckRequest) GetRepository() *Repository {
 	return nil
 }
 
-// This comment is left unintentionally blank.
+// FsckResponse is a response for the Fsck RPC.
 type FsckResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// Error contains both stdout and stderr of git-fsck(1) in case it returned an error.
 	Error []byte `protobuf:"bytes,1,opt,name=error,proto3" json:"error,omitempty"`
 }
 

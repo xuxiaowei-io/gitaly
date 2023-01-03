@@ -55,7 +55,8 @@ type RepositoryServiceClient interface {
 	// FetchSourceBranch fetches a branch from a second (potentially remote)
 	// repository into the given repository.
 	FetchSourceBranch(ctx context.Context, in *FetchSourceBranchRequest, opts ...grpc.CallOption) (*FetchSourceBranchResponse, error)
-	// This comment is left unintentionally blank.
+	// Fsck checks the repository for consistency via git-fsck(1). This can be used to check for
+	// repository corruption.
 	Fsck(ctx context.Context, in *FsckRequest, opts ...grpc.CallOption) (*FsckResponse, error)
 	// This comment is left unintentionally blank.
 	WriteRef(ctx context.Context, in *WriteRefRequest, opts ...grpc.CallOption) (*WriteRefResponse, error)
@@ -875,7 +876,8 @@ type RepositoryServiceServer interface {
 	// FetchSourceBranch fetches a branch from a second (potentially remote)
 	// repository into the given repository.
 	FetchSourceBranch(context.Context, *FetchSourceBranchRequest) (*FetchSourceBranchResponse, error)
-	// This comment is left unintentionally blank.
+	// Fsck checks the repository for consistency via git-fsck(1). This can be used to check for
+	// repository corruption.
 	Fsck(context.Context, *FsckRequest) (*FsckResponse, error)
 	// This comment is left unintentionally blank.
 	WriteRef(context.Context, *WriteRefRequest) (*WriteRefResponse, error)
