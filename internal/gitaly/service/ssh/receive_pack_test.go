@@ -201,6 +201,31 @@ func TestReceivePack_success(t *testing.T) {
 	}, payload)
 }
 
+func TestReceivePack_invalidGitconfig(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+	cfg.SocketPath = runSSHServer(t, cfg)
+
+	testcfg.BuildGitalySSH(t, cfg)
+	testcfg.BuildGitalyHooks(t, cfg)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+	require.NoError(t, os.WriteFile(filepath.Join(repoPath, "config"), []byte("x x x foobar"), 0o644))
+
+	lHead, rHead, err := testCloneAndPush(t, ctx, cfg, cfg.SocketPath, repo, repoPath, pushParams{
+		storageName:   cfg.Storages[0].Name,
+		glID:          "123",
+		glUsername:    "user",
+		glRepository:  "something",
+		glProjectPath: "something",
+	})
+	require.Error(t, err)
+	require.Equal(t, lHead, rHead, "local and remote head not equal. push failed")
+}
+
 func TestReceivePack_client(t *testing.T) {
 	t.Parallel()
 

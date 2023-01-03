@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"sync"
 
@@ -76,12 +77,35 @@ func (s *server) sshReceivePack(stream gitalypb.SSHService_SSHReceivePackServer,
 		return err
 	}
 
+	// When an `exec.Cmd` has its `cmd.Stdin` configured with an `io.Reader`
+	// that is not also of type `os.File` a goroutine is automatically
+	// configured that performs an `io.Copy()` between the reader and a newly
+	// created pipe. A problem with this can arise when `cmd.Wait()` is invoked
+	// because it waits not only for the process to complete but also all the
+	// goroutine to end. If the configured `cmd.Stdin` is only of type
+	// `io.Reader` and never closed, the goroutine will never end. This leads to
+	// `cmd.Wait()` being blocked indefinitely.
+	//
+	// Within Gitaly this problem can manifest itself when a git process crashes
+	// before `stdin` reaches EOF. To date this has only been noticed as a
+	// problem for the `SSHReceivePack` RPC, so a pipe and goroutine have been
+	// created explicitly to prevent `cmd.Wait()` from blocking indefinitely.
+	pr, pw, err := os.Pipe()
+	if err != nil {
+		return fmt.Errorf("creating pipe: %w", err)
+	}
+
+	go func() {
+		_, _ = io.Copy(pw, stdin)
+		_ = pw.Close()
+	}()
+
 	cmd, err := s.gitCmdFactory.New(ctx, req.GetRepository(),
 		git.Command{
 			Name: "receive-pack",
 			Args: []string{repoPath},
 		},
-		git.WithStdin(stdin),
+		git.WithStdin(pr),
 		git.WithStdout(stdout),
 		git.WithStderr(stderr),
 		git.WithReceivePackHooks(req, "ssh"),
