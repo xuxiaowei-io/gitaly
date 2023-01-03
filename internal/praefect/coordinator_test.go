@@ -395,11 +395,7 @@ func TestStreamDirectorMutator_StopTransaction(t *testing.T) {
 
 func TestStreamDirectorMutator_SecondaryErrorHandling(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.NodeErrorCancelsVoter).Run(t, testStreamDirectorMutatorSecondaryErrorHandling)
-}
-
-func testStreamDirectorMutatorSecondaryErrorHandling(t *testing.T, ctx context.Context) {
-	ctx, ctxCancel := context.WithCancel(ctx)
+	ctx := testhelper.Context(t)
 
 	socket := testhelper.GetTemporaryGitalySocketFileName(t)
 	testhelper.NewServerWithHealth(t, socket)
@@ -476,11 +472,7 @@ func testStreamDirectorMutatorSecondaryErrorHandling(t *testing.T, ctx context.C
 
 		vote := voting.VoteFromData([]byte("vote"))
 		err := txMgr.VoteTransaction(ctx, transaction.ID, "praefect-internal-1", vote)
-		if featureflag.NodeErrorCancelsVoter.IsEnabled(ctx) {
-			require.ErrorIs(t, err, transactions.ErrTransactionFailed)
-		} else {
-			require.EqualError(t, err, "context canceled")
-		}
+		require.ErrorIs(t, err, transactions.ErrTransactionFailed)
 	}()
 
 	for _, secondary := range streamParams.Secondaries() {
@@ -494,16 +486,10 @@ func testStreamDirectorMutatorSecondaryErrorHandling(t *testing.T, ctx context.C
 		}()
 	}
 
-	// If the feature flag is not enabled the context must be canceled to unblock voters.
-	if !featureflag.NodeErrorCancelsVoter.IsEnabled(ctx) {
-		ctxCancel()
-	}
-
 	wg.Wait()
 
 	err = streamParams.RequestFinalizer()
 	require.NoError(t, err)
-	ctxCancel()
 }
 
 func TestStreamDirectorMutator_ReplicateRepository(t *testing.T) {
