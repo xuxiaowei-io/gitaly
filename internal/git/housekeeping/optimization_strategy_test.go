@@ -1,6 +1,7 @@
 package housekeeping
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -317,6 +318,8 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 	t.Parallel()
 
+	ctx := testhelper.Context(t)
+
 	for _, tc := range []struct {
 		desc           string
 		strategy       HeuristicalOptimizationStrategy
@@ -374,7 +377,7 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			repackNeeded, repackCfg := tc.strategy.ShouldRepackObjects()
+			repackNeeded, repackCfg := tc.strategy.ShouldRepackObjects(ctx)
 			require.Equal(t, tc.expectedNeeded, repackNeeded)
 			require.Equal(t, tc.expectedConfig, repackCfg)
 		})
@@ -458,14 +461,14 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 						isObjectPool: tc.isPool,
 					}
 
-					repackNeeded, _ := strategy.ShouldRepackObjects()
+					repackNeeded, _ := strategy.ShouldRepackObjects(ctx)
 					require.False(t, repackNeeded)
 
 					// Now we add the last packfile that should bring us across
 					// the boundary of having to repack.
 					strategy.info.Packfiles.Count++
 
-					repackNeeded, repackCfg := strategy.ShouldRepackObjects()
+					repackNeeded, repackCfg := strategy.ShouldRepackObjects(ctx)
 					require.True(t, repackNeeded)
 					require.Equal(t, RepackObjectsConfig{
 						FullRepack:  true,
@@ -530,7 +533,7 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 					isObjectPool: tc.isPool,
 				}
 
-				repackNeeded, repackCfg := strategy.ShouldRepackObjects()
+				repackNeeded, repackCfg := strategy.ShouldRepackObjects(ctx)
 				require.Equal(t, outerTC.expectedRepack, repackNeeded)
 				require.Equal(t, RepackObjectsConfig{
 					FullRepack:  false,
@@ -543,6 +546,8 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 
 func TestHeuristicalOptimizationStrategy_ShouldPruneObjects(t *testing.T) {
 	t.Parallel()
+
+	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
 		desc                       string
@@ -590,13 +595,13 @@ func TestHeuristicalOptimizationStrategy_ShouldPruneObjects(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Run("normal repository", func(t *testing.T) {
-				require.Equal(t, tc.expectedShouldPruneObjects, tc.strategy.ShouldPruneObjects())
+				require.Equal(t, tc.expectedShouldPruneObjects, tc.strategy.ShouldPruneObjects(ctx))
 			})
 
 			t.Run("object pool", func(t *testing.T) {
 				strategy := tc.strategy
 				strategy.isObjectPool = true
-				require.False(t, strategy.ShouldPruneObjects())
+				require.False(t, strategy.ShouldPruneObjects(ctx))
 			})
 		})
 	}
@@ -604,6 +609,8 @@ func TestHeuristicalOptimizationStrategy_ShouldPruneObjects(t *testing.T) {
 
 func TestHeuristicalOptimizationStrategy_ShouldRepackReferences(t *testing.T) {
 	t.Parallel()
+
+	ctx := testhelper.Context(t)
 
 	const kiloByte = 1024
 
@@ -650,17 +657,19 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackReferences(t *testing.T) {
 				},
 			}
 
-			require.False(t, strategy.ShouldRepackReferences())
+			require.False(t, strategy.ShouldRepackReferences(ctx))
 
 			strategy.info.References.LooseReferencesCount++
 
-			require.True(t, strategy.ShouldRepackReferences())
+			require.True(t, strategy.ShouldRepackReferences(ctx))
 		})
 	}
 }
 
 func TestHeuristicalOptimizationStrategy_NeedsWriteCommitGraph(t *testing.T) {
 	t.Parallel()
+
+	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
 		desc           string
@@ -783,7 +792,7 @@ func TestHeuristicalOptimizationStrategy_NeedsWriteCommitGraph(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			needed, writeCommitGraphCfg := tc.strategy.ShouldWriteCommitGraph()
+			needed, writeCommitGraphCfg := tc.strategy.ShouldWriteCommitGraph(ctx)
 			require.Equal(t, tc.expectedNeeded, needed)
 			require.Equal(t, tc.expectedCfg, writeCommitGraphCfg)
 		})
@@ -851,6 +860,8 @@ func TestNewEagerOptimizationStrategy(t *testing.T) {
 func TestEagerOptimizationStrategy(t *testing.T) {
 	t.Parallel()
 
+	ctx := testhelper.Context(t)
+
 	for _, tc := range []struct {
 		desc                     string
 		strategy                 EagerOptimizationStrategy
@@ -885,21 +896,21 @@ func TestEagerOptimizationStrategy(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			shouldRepackObjects, repackObjectsCfg := tc.strategy.ShouldRepackObjects()
+			shouldRepackObjects, repackObjectsCfg := tc.strategy.ShouldRepackObjects(ctx)
 			require.True(t, shouldRepackObjects)
 			require.Equal(t, RepackObjectsConfig{
 				FullRepack:  true,
 				WriteBitmap: tc.expectWriteBitmap,
 			}, repackObjectsCfg)
 
-			shouldWriteCommitGraph, writeCommitGraphCfg := tc.strategy.ShouldWriteCommitGraph()
+			shouldWriteCommitGraph, writeCommitGraphCfg := tc.strategy.ShouldWriteCommitGraph(ctx)
 			require.True(t, shouldWriteCommitGraph)
 			require.Equal(t, WriteCommitGraphConfig{
 				ReplaceChain: true,
 			}, writeCommitGraphCfg)
 
-			require.Equal(t, tc.expectShouldPruneObjects, tc.strategy.ShouldPruneObjects())
-			require.True(t, tc.strategy.ShouldRepackReferences())
+			require.Equal(t, tc.expectShouldPruneObjects, tc.strategy.ShouldPruneObjects(ctx))
+			require.True(t, tc.strategy.ShouldRepackReferences(ctx))
 		})
 	}
 }
@@ -914,19 +925,19 @@ type mockOptimizationStrategy struct {
 	writeCommitGraphCfg    WriteCommitGraphConfig
 }
 
-func (m mockOptimizationStrategy) ShouldRepackObjects() (bool, RepackObjectsConfig) {
+func (m mockOptimizationStrategy) ShouldRepackObjects(context.Context) (bool, RepackObjectsConfig) {
 	return m.shouldRepackObjects, m.repackObjectsCfg
 }
 
-func (m mockOptimizationStrategy) ShouldPruneObjects() bool {
+func (m mockOptimizationStrategy) ShouldPruneObjects(context.Context) bool {
 	return m.shouldPruneObjects
 }
 
-func (m mockOptimizationStrategy) ShouldRepackReferences() bool {
+func (m mockOptimizationStrategy) ShouldRepackReferences(context.Context) bool {
 	return m.shouldRepackReferences
 }
 
-func (m mockOptimizationStrategy) ShouldWriteCommitGraph() (bool, WriteCommitGraphConfig) {
+func (m mockOptimizationStrategy) ShouldWriteCommitGraph(context.Context) (bool, WriteCommitGraphConfig) {
 	return m.shouldWriteCommitGraph, m.writeCommitGraphCfg
 }
 

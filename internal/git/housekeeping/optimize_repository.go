@@ -159,7 +159,7 @@ func optimizeRepository(
 
 // repackIfNeeded repacks the repository according to the strategy.
 func repackIfNeeded(ctx context.Context, repo *localrepo.Repo, strategy OptimizationStrategy) (bool, RepackObjectsConfig, error) {
-	repackNeeded, cfg := strategy.ShouldRepackObjects()
+	repackNeeded, cfg := strategy.ShouldRepackObjects(ctx)
 	if !repackNeeded {
 		return false, RepackObjectsConfig{}, nil
 	}
@@ -173,7 +173,7 @@ func repackIfNeeded(ctx context.Context, repo *localrepo.Repo, strategy Optimiza
 
 // writeCommitGraphIfNeeded writes the commit-graph if required.
 func writeCommitGraphIfNeeded(ctx context.Context, repo *localrepo.Repo, strategy OptimizationStrategy) (bool, WriteCommitGraphConfig, error) {
-	needed, cfg := strategy.ShouldWriteCommitGraph()
+	needed, cfg := strategy.ShouldWriteCommitGraph(ctx)
 	if !needed {
 		return false, WriteCommitGraphConfig{}, nil
 	}
@@ -188,7 +188,7 @@ func writeCommitGraphIfNeeded(ctx context.Context, repo *localrepo.Repo, strateg
 // pruneIfNeeded removes objects from the repository which are either unreachable or which are
 // already part of a packfile. We use a grace period of two weeks.
 func pruneIfNeeded(ctx context.Context, repo *localrepo.Repo, strategy OptimizationStrategy) (bool, error) {
-	if !strategy.ShouldPruneObjects() {
+	if !strategy.ShouldPruneObjects(ctx) {
 		return false, nil
 	}
 
@@ -210,7 +210,7 @@ func pruneIfNeeded(ctx context.Context, repo *localrepo.Repo, strategy Optimizat
 }
 
 func packRefsIfNeeded(ctx context.Context, repo *localrepo.Repo, strategy OptimizationStrategy) (bool, error) {
-	if !strategy.ShouldRepackReferences() {
+	if !strategy.ShouldRepackReferences(ctx) {
 		return false, nil
 	}
 

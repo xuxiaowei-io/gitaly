@@ -15,16 +15,16 @@ import (
 type OptimizationStrategy interface {
 	// ShouldRepackObjects determines whether the repository needs to be repacked and, if so,
 	// how it should be done.
-	ShouldRepackObjects() (bool, RepackObjectsConfig)
+	ShouldRepackObjects(context.Context) (bool, RepackObjectsConfig)
 	// ShouldPruneObjects determines whether the repository has stale objects that should be
 	// pruned.
-	ShouldPruneObjects() bool
+	ShouldPruneObjects(context.Context) bool
 	// ShouldRepackReferences determines whether the repository's references need to be
 	// repacked.
-	ShouldRepackReferences() bool
+	ShouldRepackReferences(context.Context) bool
 	// ShouldWriteCommitGraph determines whether we need to write the commit-graph and how it
 	// should be written.
-	ShouldWriteCommitGraph() (bool, WriteCommitGraphConfig)
+	ShouldWriteCommitGraph(context.Context) (bool, WriteCommitGraphConfig)
 }
 
 // HeuristicalOptimizationStrategy is an optimization strategy that is based on a set of
@@ -54,7 +54,7 @@ func NewHeuristicalOptimizationStrategy(ctx context.Context, repo *localrepo.Rep
 // ShouldRepackObjects checks whether the repository's objects need to be repacked. This uses a
 // set of heuristics that scales with the size of the object database: the larger the repository,
 // the less frequent does it get a full repack.
-func (s HeuristicalOptimizationStrategy) ShouldRepackObjects() (bool, RepackObjectsConfig) {
+func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(context.Context) (bool, RepackObjectsConfig) {
 	// If there are neither packfiles nor loose objects in this repository then there is no need
 	// to repack anything.
 	if s.info.Packfiles.Count == 0 && s.info.LooseObjects.Count == 0 {
@@ -149,7 +149,7 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects() (bool, RepackObje
 
 // ShouldWriteCommitGraph determines whether we need to write the commit-graph and how it should be
 // written.
-func (s HeuristicalOptimizationStrategy) ShouldWriteCommitGraph() (bool, WriteCommitGraphConfig) {
+func (s HeuristicalOptimizationStrategy) ShouldWriteCommitGraph(ctx context.Context) (bool, WriteCommitGraphConfig) {
 	// If the repository doesn't have any references at all then there is no point in writing
 	// commit-graphs given that it would only contain reachable objects, of which there are
 	// none.
@@ -165,7 +165,7 @@ func (s HeuristicalOptimizationStrategy) ShouldWriteCommitGraph() (bool, WriteCo
 	//
 	// To fix this case we will replace the complete commit-chain when we have pruned objects
 	// from the repository.
-	if s.ShouldPruneObjects() {
+	if s.ShouldPruneObjects(ctx) {
 		return true, WriteCommitGraphConfig{
 			ReplaceChain: true,
 		}
@@ -183,7 +183,7 @@ func (s HeuristicalOptimizationStrategy) ShouldWriteCommitGraph() (bool, WriteCo
 
 	// When we repacked the repository then chances are high that we have accumulated quite some
 	// objects since the last time we wrote a commit-graph.
-	if needsRepacking, _ := s.ShouldRepackObjects(); needsRepacking {
+	if needsRepacking, _ := s.ShouldRepackObjects(ctx); needsRepacking {
 		return true, WriteCommitGraphConfig{}
 	}
 
@@ -193,7 +193,7 @@ func (s HeuristicalOptimizationStrategy) ShouldWriteCommitGraph() (bool, WriteCo
 // ShouldPruneObjects determines whether the repository has stale objects that should be pruned.
 // Object pools are never pruned to not lose data in them, but otherwise we prune when we've found
 // enough stale objects that might in fact get pruned.
-func (s HeuristicalOptimizationStrategy) ShouldPruneObjects() bool {
+func (s HeuristicalOptimizationStrategy) ShouldPruneObjects(context.Context) bool {
 	// Pool repositories must never prune any objects, or otherwise we may corrupt members of
 	// that pool if they still refer to that object.
 	if s.isObjectPool {
@@ -212,7 +212,7 @@ func (s HeuristicalOptimizationStrategy) ShouldPruneObjects() bool {
 // ShouldRepackReferences determines whether the repository's references need to be repacked based
 // on heuristics. The more references there are, the more loose referencos may exist until they are
 // packed again.
-func (s HeuristicalOptimizationStrategy) ShouldRepackReferences() bool {
+func (s HeuristicalOptimizationStrategy) ShouldRepackReferences(context.Context) bool {
 	// If there aren't any loose refs then there is nothing we need to do.
 	if s.info.References.LooseReferencesCount == 0 {
 		return false
@@ -274,7 +274,7 @@ func NewEagerOptimizationStrategy(ctx context.Context, repo *localrepo.Repo) (Ea
 // ShouldRepackObjects always instructs the caller to repack objects. The strategy will always be to
 // repack all objects into a single packfile. The bitmap will be written in case the repository does
 // not have any alterantes.
-func (s EagerOptimizationStrategy) ShouldRepackObjects() (bool, RepackObjectsConfig) {
+func (s EagerOptimizationStrategy) ShouldRepackObjects(context.Context) (bool, RepackObjectsConfig) {
 	return true, RepackObjectsConfig{
 		FullRepack:  true,
 		WriteBitmap: !s.hasAlternate,
@@ -283,7 +283,7 @@ func (s EagerOptimizationStrategy) ShouldRepackObjects() (bool, RepackObjectsCon
 
 // ShouldWriteCommitGraph always instructs the caller to write the commit-graph. The strategy will
 // always be to completely rewrite the commit-graph chain.
-func (s EagerOptimizationStrategy) ShouldWriteCommitGraph() (bool, WriteCommitGraphConfig) {
+func (s EagerOptimizationStrategy) ShouldWriteCommitGraph(context.Context) (bool, WriteCommitGraphConfig) {
 	return true, WriteCommitGraphConfig{
 		ReplaceChain: true,
 	}
@@ -291,11 +291,11 @@ func (s EagerOptimizationStrategy) ShouldWriteCommitGraph() (bool, WriteCommitGr
 
 // ShouldPruneObjects always instructs the caller to prune objects, unless the repository is an
 // object pool.
-func (s EagerOptimizationStrategy) ShouldPruneObjects() bool {
+func (s EagerOptimizationStrategy) ShouldPruneObjects(context.Context) bool {
 	return !s.isObjectPool
 }
 
 // ShouldRepackReferences always instructs the caller to repack references.
-func (s EagerOptimizationStrategy) ShouldRepackReferences() bool {
+func (s EagerOptimizationStrategy) ShouldRepackReferences(context.Context) bool {
 	return true
 }
