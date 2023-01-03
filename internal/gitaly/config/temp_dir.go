@@ -44,6 +44,17 @@ func PruneOldGitalyProcessDirectories(log log.FieldLogger, directory string) err
 				return errors.New("gitaly process directory contains an unexpected directory")
 			}
 
+			// When the pid is 0 it might be from a previous failed run, so
+			// just delete it.
+			if processID == 0 {
+				if err := os.RemoveAll(filepath.Join(directory, entry.Name())); err != nil {
+					return fmt.Errorf("removing leftover gitaly process directory: %w", err)
+				}
+				log.Info("removed gitaly directory with no pid")
+
+				return nil
+			}
+
 			process, err := os.FindProcess(int(processID))
 			if err != nil {
 				return fmt.Errorf("could not find process: %w", err)
