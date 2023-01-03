@@ -171,11 +171,7 @@ func (s HeuristicalOptimizationStrategy) ShouldWriteCommitGraph(ctx context.Cont
 		}
 	}
 
-	// Bloom filters are part of the commit-graph and allow us to efficiently determine which
-	// paths have been modified in a given commit without having to look into the object
-	// database. In the past we didn't compute bloom filters at all, so we want to rewrite the
-	// whole commit-graph to generate them.
-	if s.info.CommitGraph.CommitGraphChainLength == 0 || !s.info.CommitGraph.HasBloomFilters {
+	if commitGraphNeedsRewrite(ctx, s.info.CommitGraph) {
 		return true, WriteCommitGraphConfig{
 			ReplaceChain: true,
 		}
