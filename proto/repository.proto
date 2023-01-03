@@ -108,7 +108,8 @@ service RepositoryService {
     };
   }
 
-  // This comment is left unintentionally blank.
+  // Fsck checks the repository for consistency via git-fsck(1). This can be used to check for
+  // repository corruption.
   rpc Fsck(FsckRequest) returns (FsckResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -605,15 +606,15 @@ message FetchSourceBranchResponse {
   bool result = 1;
 }
 
-// This comment is left unintentionally blank.
+// FsckRequest is a request for the Fsck RPC.
 message FsckRequest {
-  // This comment is left unintentionally blank.
+  // Repository is the repository that shall be checked for consistency.
   Repository repository = 1 [(target_repository)=true];
 }
 
-// This comment is left unintentionally blank.
+// FsckResponse is a response for the Fsck RPC.
 message FsckResponse {
-  // This comment is left unintentionally blank.
+  // Error contains both stdout and stderr of git-fsck(1) in case it returned an error.
   bytes error = 1;
 }
 
