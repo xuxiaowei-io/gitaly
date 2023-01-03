@@ -151,10 +151,10 @@ func TestFsck(t *testing.T) {
 				})
 
 				expectedErr := strings.Join([]string{
-					// This first error is a bug: we shouldn't complain about
-					// the dangling tree.
-					"dangling tree " + treeID.String(),
 					"error in tree " + treeID.String() + ": duplicateEntries: contains duplicate file entries",
+					// This error is a bug: we shouldn't complain about the
+					// dangling tree.
+					"dangling tree " + treeID.String(),
 				}, "\n") + "\n"
 
 				return setupData{
