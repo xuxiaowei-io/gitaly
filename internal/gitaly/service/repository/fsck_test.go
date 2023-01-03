@@ -150,12 +150,7 @@ func TestFsck(t *testing.T) {
 					{Path: "duplicate", Mode: "100644", Content: "bar"},
 				})
 
-				expectedErr := strings.Join([]string{
-					"error in tree " + treeID.String() + ": duplicateEntries: contains duplicate file entries",
-					// This error is a bug: we shouldn't complain about the
-					// dangling tree.
-					"dangling tree " + treeID.String(),
-				}, "\n") + "\n"
+				expectedErr := "error in tree " + treeID.String() + ": duplicateEntries: contains duplicate file entries\n"
 
 				return setupData{
 					repo: repo,
