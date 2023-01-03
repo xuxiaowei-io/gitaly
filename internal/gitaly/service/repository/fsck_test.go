@@ -113,6 +113,58 @@ func TestFsck(t *testing.T) {
 				}
 			},
 		},
+		{
+			desc: "dangling blob",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				// A dangling blob should not cause the consistency check to fail as
+				// it is totally expected that repositories accumulate unreachable
+				// objects.
+				gittest.WriteBlob(t, cfg, repoPath, []byte("content"))
+
+				return setupData{
+					repo:             repo,
+					expectedResponse: &gitalypb.FsckResponse{},
+				}
+			},
+		},
+		{
+			desc: "invalid tree object",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				// Create the default branch so that git-fsck(1) doesn't complain
+				// about it missing.
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+
+				// Write a tree object that has the same path twice. We use this as
+				// an example to verify that git-fsck(1) indeed also verifies
+				// objects as expected just because writing trees with two entries
+				// is so easy.
+				//
+				// Furthermore, the tree is also dangling on purpose to verify that
+				// we don't complain about it dangling.
+				treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "duplicate", Mode: "100644", Content: "foo"},
+					{Path: "duplicate", Mode: "100644", Content: "bar"},
+				})
+
+				expectedErr := strings.Join([]string{
+					// This first error is a bug: we shouldn't complain about
+					// the dangling tree.
+					"dangling tree " + treeID.String(),
+					"error in tree " + treeID.String() + ": duplicateEntries: contains duplicate file entries",
+				}, "\n") + "\n"
+
+				return setupData{
+					repo: repo,
+					expectedResponse: &gitalypb.FsckResponse{
+						Error: []byte(expectedErr),
+					},
+				}
+			},
+		},
 	} {
 		tc := tc
 
