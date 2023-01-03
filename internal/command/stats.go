@@ -9,59 +9,72 @@ import (
 
 type requestStatsKey struct{}
 
-//nolint:revive // This is unintentionally missing documentation.
+// Stats records statistics about a command that was spawned.
 type Stats struct {
-	registry map[string]int
+	resource map[string]int
+	metadata map[string]string
 	sync.Mutex
 }
 
-//nolint:revive // This is unintentionally missing documentation.
+// RecordSum sums up all the values for a given key.
 func (stats *Stats) RecordSum(key string, value int) {
 	stats.Lock()
 	defer stats.Unlock()
 
-	if prevValue, ok := stats.registry[key]; ok {
+	if prevValue, ok := stats.resource[key]; ok {
 		value += prevValue
 	}
 
-	stats.registry[key] = value
+	stats.resource[key] = value
 }
 
-//nolint:revive // This is unintentionally missing documentation.
+// RecordMax will store the max value for a given key.
 func (stats *Stats) RecordMax(key string, value int) {
 	stats.Lock()
 	defer stats.Unlock()
 
-	if prevValue, ok := stats.registry[key]; ok {
+	if prevValue, ok := stats.resource[key]; ok {
 		if prevValue > value {
 			return
 		}
 	}
 
-	stats.registry[key] = value
+	stats.resource[key] = value
 }
 
-//nolint:revive // This is unintentionally missing documentation.
+// RecordMetadata records metadata for the given key.
+func (stats *Stats) RecordMetadata(key string, value string) {
+	stats.Lock()
+	defer stats.Unlock()
+
+	stats.metadata[key] = value
+}
+
+// Fields returns all the stats as logrus.Fields
 func (stats *Stats) Fields() logrus.Fields {
 	stats.Lock()
 	defer stats.Unlock()
 
 	f := logrus.Fields{}
-	for k, v := range stats.registry {
+	for k, v := range stats.resource {
+		f[k] = v
+	}
+	for k, v := range stats.metadata {
 		f[k] = v
 	}
 	return f
 }
 
-//nolint:revive // This is unintentionally missing documentation.
+// StatsFromContext gets the `Stats` from the given context.
 func StatsFromContext(ctx context.Context) *Stats {
 	stats, _ := ctx.Value(requestStatsKey{}).(*Stats)
 	return stats
 }
 
-//nolint:revive // This is unintentionally missing documentation.
+// InitContextStats returns a new context with `Stats` added to the given context.
 func InitContextStats(ctx context.Context) context.Context {
 	return context.WithValue(ctx, requestStatsKey{}, &Stats{
-		registry: make(map[string]int),
+		resource: make(map[string]int),
+		metadata: make(map[string]string),
 	})
 }

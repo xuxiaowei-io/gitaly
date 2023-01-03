@@ -449,6 +449,10 @@ func (c *Command) logProcessComplete() {
 			stats.RecordSum("command.minflt", int(rusage.Minflt))
 			stats.RecordSum("command.majflt", int(rusage.Majflt))
 		}
+
+		if c.cgroupPath != "" {
+			stats.RecordMetadata("command.cgroup_path", c.cgroupPath)
+		}
 	}
 
 	service, method := methodFromContext(ctx)
@@ -481,6 +485,11 @@ func (c *Command) logProcessComplete() {
 			"oublock", rusage.Oublock,
 			"minflt", rusage.Minflt,
 			"majflt", rusage.Majflt,
+		)
+	}
+	if c.cgroupPath != "" {
+		c.span.LogKV(
+			"cgroup_path", c.cgroupPath,
 		)
 	}
 	c.span.Finish()
