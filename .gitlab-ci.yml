@@ -327,6 +327,25 @@ test:fips:
     - if: $CI_MERGE_REQUEST_LABELS =~ /FIPS/
     - *rules_run_on_merge
 
+test:raspberry-pi:
+  <<: *test_definition
+  image: registry.gitlab.com/gitlab-org/gitlab-omnibus-builder/rpi_11:4.2.0
+  needs: []
+  stage: test
+  cache:
+    - <<: *cache_deps_configuration
+      policy: pull-push
+    - <<: *cache_gems_configuration
+      policy: pull-push
+    - <<: *cache_go_configuration
+      policy: pull-push
+  variables:
+    <<: *test_variables
+    CACHE_PREFIX: raspberry-pi-11
+  parallel:
+    matrix:
+      - GO_VERSION: "1.19"
+
 test:macos:
   image: macos-12-xcode-14
   tags:
