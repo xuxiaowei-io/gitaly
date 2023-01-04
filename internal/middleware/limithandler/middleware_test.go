@@ -201,7 +201,20 @@ func TestStreamLimitHandler(t *testing.T) {
 				// id, but subsequent requests in a stream, even with the same
 				// id, should bypass the concurrency limiter
 				for i := 0; i < 10; i++ {
-					require.NoError(t, stream.Send(&grpc_testing.StreamingOutputCallRequest{}))
+					// Rate-limiting the stream is happening asynchronously when
+					// the server-side receives the first message. When the rate
+					// limiter then decides that the RPC call must be limited,
+					// it will close the stream.
+					//
+					// It may thus happen that we already see an EOF here in
+					// case the closed stream is received on the client-side
+					// before we have sent all requests. We thus need to special
+					// case this specific error code and will just stop sending
+					// requests in that case.
+					if err := stream.Send(&grpc_testing.StreamingOutputCallRequest{}); err != nil {
+						require.Equal(t, io.EOF, err)
+						break
+					}
 				}
 				require.NoError(t, stream.CloseSend())
 
