@@ -232,6 +232,8 @@ TEST_LOG_DIR	  ?=
 TEST_REPO_DIR     := ${BUILD_DIR}/testrepos
 TEST_REPO         := ${TEST_REPO_DIR}/gitlab-test.git
 BENCHMARK_REPO    := ${TEST_REPO_DIR}/benchmark.git
+## Options to pass to the script which builds the Gitaly gem
+BUILD_GEM_OPTIONS ?=
 
 # All executables provided by Gitaly.
 GITALY_EXECUTABLES           = $(addprefix ${BUILD_DIR}/bin/,$(notdir $(shell find ${SOURCE_DIR}/cmd -mindepth 1 -maxdepth 1 -type d -print)))
@@ -492,7 +494,7 @@ lint-proto: ${PROTOC} ${PROTOLINT} ${PROTOC_GEN_GITALY_LINT}
 .PHONY: build-proto-gem
 ## Build the Ruby Gem that contains Gitaly's Protobuf definitons.
 build-proto-gem:
-	${Q}"${SOURCE_DIR}"/tools/protogem/build-proto-gem "${BUILD_DIR}/gitaly.gem"
+	${Q}"${SOURCE_DIR}"/tools/protogem/build-proto-gem -o "${BUILD_DIR}/gitaly.gem" ${BUILD_GEM_OPTIONS}
 
 .PHONY: publish-proto-gem
 ## Build and publish the Ruby Gem that contains Gitaly's Protobuf definitons.
