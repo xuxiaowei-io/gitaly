@@ -22,7 +22,7 @@ func TestMain(m *testing.M) {
 	testhelper.Run(m)
 }
 
-func setupRemoteService(t *testing.T, ctx context.Context, opts ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, gitalypb.RemoteServiceClient) {
+func setupRemoteServiceWithoutRepo(t *testing.T, ctx context.Context, opts ...testserver.GitalyServerOpt) (config.Cfg, gitalypb.RemoteServiceClient) {
 	t.Helper()
 
 	cfg := testcfg.Build(t)
@@ -49,12 +49,20 @@ func setupRemoteService(t *testing.T, ctx context.Context, opts ...testserver.Gi
 	}, opts...)
 	cfg.SocketPath = addr
 
+	client, conn := newRemoteClient(t, addr)
+	t.Cleanup(func() { conn.Close() })
+
+	return cfg, client
+}
+
+func setupRemoteService(t *testing.T, ctx context.Context, opts ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, gitalypb.RemoteServiceClient) {
+	t.Helper()
+
+	cfg, client := setupRemoteServiceWithoutRepo(t, ctx, opts...)
+
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		Seed: gittest.SeedGitLabTest,
 	})
-
-	client, conn := newRemoteClient(t, addr)
-	t.Cleanup(func() { conn.Close() })
 
 	return cfg, repo, repoPath, client
 }
