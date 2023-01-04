@@ -33,6 +33,24 @@ func TestScanner(t *testing.T) {
 			out:  []string{"0010hello world!", "0000", largestPacket, "0000"},
 		},
 		{
+			desc: "unparsable input length",
+			in:   "0010hello world!0000" + "zzzz" + "hello world!",
+			out:  []string{"0010hello world!", "0000"},
+			fail: true,
+		},
+		{
+			desc: "negative input length",
+			in:   "0010hello world!0000" + "-fff" + "hello world!",
+			out:  []string{"0010hello world!", "0000"},
+			fail: true,
+		},
+		{
+			desc: "input length exceeding max size",
+			in:   "0010hello world!0000" + "ffff" + strings.Repeat("z", 65531) + "0000",
+			out:  []string{"0010hello world!", "0000"},
+			fail: true,
+		},
+		{
 			desc: "missing byte middle",
 			in:   "0010hello world!00000010010hello world!",
 			out:  []string{"0010hello world!", "0000", "0010010hello wor"},
@@ -158,6 +176,12 @@ func TestWriteFlush(t *testing.T) {
 	w := &bytes.Buffer{}
 	require.NoError(t, WriteFlush(w))
 	require.Equal(t, "0000", w.String())
+}
+
+func TestWriteDelim(t *testing.T) {
+	w := &bytes.Buffer{}
+	require.NoError(t, WriteDelim(w))
+	require.Equal(t, "0001", w.String())
 }
 
 func TestSidebandWriter_boundaries(t *testing.T) {
@@ -297,7 +321,7 @@ func TestEachSidebandPacket(t *testing.T) {
 		},
 		{
 			desc: "interrupted stream",
-			in:   "ffff\x10hello world!!",
+			in:   "fff0\x10hello world!!",
 			err:  io.ErrUnexpectedEOF,
 		},
 		{
