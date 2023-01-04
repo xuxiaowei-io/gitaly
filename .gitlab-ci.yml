@@ -342,6 +342,9 @@ test:raspberry-pi:
   variables:
     <<: *test_variables
     CACHE_PREFIX: raspberry-pi-11
+  before_script:
+    - go version
+    - apt update && apt install -y libcurl4-openssl-dev libexpat1-dev gettext libz-dev libssl-dev libpcre2-dev
   parallel:
     matrix:
       - GO_VERSION: "1.19"
