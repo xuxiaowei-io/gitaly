@@ -26,22 +26,6 @@ var ErrMaxQueueSize = errors.New("maximum queue size reached")
 // QueueTickerCreator is a function that provides a ticker
 type QueueTickerCreator func() helper.Ticker
 
-// ConcurrencyLimiter contains rate limiter state
-type ConcurrencyLimiter struct {
-	semaphores map[string]*semaphoreReference
-	// maxPerKey is the maximum number of concurrent operations
-	// per lockKey
-	maxPerKey int64
-	// queued tracks the current number of operations waiting to be picked up
-	queued int64
-	// queuedLimit is the maximum number of operations allowed to wait in a queued state.
-	// subsequent incoming operations will fail with an error.
-	queuedLimit         int64
-	monitor             ConcurrencyMonitor
-	mux                 sync.RWMutex
-	maxWaitTickerGetter QueueTickerCreator
-}
-
 type semaphoreReference struct {
 	tokens    chan struct{}
 	count     int
@@ -71,6 +55,92 @@ func (sem *semaphoreReference) acquire(ctx context.Context) error {
 }
 
 func (sem *semaphoreReference) release() { <-sem.tokens }
+
+// ConcurrencyLimiter contains rate limiter state
+type ConcurrencyLimiter struct {
+	semaphores map[string]*semaphoreReference
+	// maxPerKey is the maximum number of concurrent operations
+	// per lockKey
+	maxPerKey int64
+	// queued tracks the current number of operations waiting to be picked up
+	queued int64
+	// queuedLimit is the maximum number of operations allowed to wait in a queued state.
+	// subsequent incoming operations will fail with an error.
+	queuedLimit         int64
+	monitor             ConcurrencyMonitor
+	mux                 sync.RWMutex
+	maxWaitTickerGetter QueueTickerCreator
+}
+
+// NewConcurrencyLimiter creates a new concurrency rate limiter
+func NewConcurrencyLimiter(perKeyLimit, globalLimit int, maxWaitTickerGetter QueueTickerCreator, monitor ConcurrencyMonitor) *ConcurrencyLimiter {
+	if monitor == nil {
+		monitor = NewNoopConcurrencyMonitor()
+	}
+
+	return &ConcurrencyLimiter{
+		semaphores:          make(map[string]*semaphoreReference),
+		maxPerKey:           int64(perKeyLimit),
+		queuedLimit:         int64(globalLimit),
+		monitor:             monitor,
+		maxWaitTickerGetter: maxWaitTickerGetter,
+	}
+}
+
+// Limit will limit the concurrency of f
+func (c *ConcurrencyLimiter) Limit(ctx context.Context, lockKey string, f LimitedFunc) (interface{}, error) {
+	if c.maxPerKey <= 0 {
+		return f()
+	}
+
+	var decremented bool
+
+	log := ctxlogrus.Extract(ctx).WithField("limiting_key", lockKey)
+	if err := c.queueInc(ctx); err != nil {
+		if errors.Is(err, ErrMaxQueueSize) {
+			return nil, structerr.NewResourceExhausted("%w", ErrMaxQueueSize).WithDetail(
+				&gitalypb.LimitError{
+					ErrorMessage: err.Error(),
+					RetryAfter:   durationpb.New(0),
+				},
+			)
+		}
+
+		log.WithError(err).Error("unexpected error when queueing request")
+		return nil, err
+	}
+	defer c.queueDec(&decremented)
+
+	start := time.Now()
+	c.monitor.Queued(ctx)
+
+	sem := c.getSemaphore(lockKey)
+	defer c.putSemaphore(lockKey)
+
+	err := sem.acquire(ctx)
+	c.queueDec(&decremented)
+
+	c.monitor.Dequeued(ctx)
+	if err != nil {
+		if errors.Is(err, ErrMaxQueueTime) {
+			c.monitor.Dropped(ctx, "max_time")
+
+			return nil, structerr.NewResourceExhausted("%w", ErrMaxQueueTime).WithDetail(&gitalypb.LimitError{
+				ErrorMessage: err.Error(),
+				RetryAfter:   durationpb.New(0),
+			})
+		}
+
+		log.WithError(err).Error("unexpected error when dequeueing request")
+		return nil, err
+	}
+	defer sem.release()
+
+	c.monitor.Enter(ctx, time.Since(start))
+	defer c.monitor.Exit(ctx)
+
+	return f()
+}
 
 // Lazy create a semaphore for the given key
 func (c *ConcurrencyLimiter) getSemaphore(lockKey string) *semaphoreReference {
@@ -137,76 +207,6 @@ func (c *ConcurrencyLimiter) queueDec(decremented *bool) {
 	defer c.mux.Unlock()
 
 	c.queued--
-}
-
-// Limit will limit the concurrency of f
-func (c *ConcurrencyLimiter) Limit(ctx context.Context, lockKey string, f LimitedFunc) (interface{}, error) {
-	if c.maxPerKey <= 0 {
-		return f()
-	}
-
-	var decremented bool
-
-	log := ctxlogrus.Extract(ctx).WithField("limiting_key", lockKey)
-	if err := c.queueInc(ctx); err != nil {
-		if errors.Is(err, ErrMaxQueueSize) {
-			return nil, structerr.NewResourceExhausted("%w", ErrMaxQueueSize).WithDetail(
-				&gitalypb.LimitError{
-					ErrorMessage: err.Error(),
-					RetryAfter:   durationpb.New(0),
-				},
-			)
-		}
-
-		log.WithError(err).Error("unexpected error when queueing request")
-		return nil, err
-	}
-	defer c.queueDec(&decremented)
-
-	start := time.Now()
-	c.monitor.Queued(ctx)
-
-	sem := c.getSemaphore(lockKey)
-	defer c.putSemaphore(lockKey)
-
-	err := sem.acquire(ctx)
-	c.queueDec(&decremented)
-
-	c.monitor.Dequeued(ctx)
-	if err != nil {
-		if errors.Is(err, ErrMaxQueueTime) {
-			c.monitor.Dropped(ctx, "max_time")
-
-			return nil, structerr.NewResourceExhausted("%w", ErrMaxQueueTime).WithDetail(&gitalypb.LimitError{
-				ErrorMessage: err.Error(),
-				RetryAfter:   durationpb.New(0),
-			})
-		}
-
-		log.WithError(err).Error("unexpected error when dequeueing request")
-		return nil, err
-	}
-	defer sem.release()
-
-	c.monitor.Enter(ctx, time.Since(start))
-	defer c.monitor.Exit(ctx)
-
-	return f()
-}
-
-// NewConcurrencyLimiter creates a new concurrency rate limiter
-func NewConcurrencyLimiter(perKeyLimit, globalLimit int, maxWaitTickerGetter QueueTickerCreator, monitor ConcurrencyMonitor) *ConcurrencyLimiter {
-	if monitor == nil {
-		monitor = NewNoopConcurrencyMonitor()
-	}
-
-	return &ConcurrencyLimiter{
-		semaphores:          make(map[string]*semaphoreReference),
-		maxPerKey:           int64(perKeyLimit),
-		queuedLimit:         int64(globalLimit),
-		monitor:             monitor,
-		maxWaitTickerGetter: maxWaitTickerGetter,
-	}
 }
 
 // WithConcurrencyLimiters sets up middleware to limit the concurrency of
