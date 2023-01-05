@@ -332,6 +332,7 @@ test:raspberry-pi:
   image: registry.gitlab.com/gitlab-org/gitlab-omnibus-builder/rpi_11:4.2.0
   needs: []
   stage: test
+  timeout: 2 hours
   cache:
     - <<: *cache_deps_configuration
       policy: pull-push
