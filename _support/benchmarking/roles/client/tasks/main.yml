@@ -62,6 +62,14 @@
       - ghz
     remote_src: true
 
+- name: Copy query files
+  copy:
+    src: queries
+    dest: /opt/ghz
+    owner: git
+    group: git
+    mode: '0755'
+
 - name: Generate SSH key
   shell: ssh-keygen -q -t ed25519 -f /root/.ssh/id_ed25519 -N ""
   args:
