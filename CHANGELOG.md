@@ -1,5 +1,12 @@
 # Gitaly changelog
 
+## 15.7.1 (2023-01-05)
+
+### Fixed (2 changes)
+
+- [catfile: fix another 64-bit alignment error on objectInfoReader](gitlab-org/gitaly@1165b9b0f9b67c19b7b22104c791c0e989016e63) ([merge request](gitlab-org/gitaly!5224))
+- [Fix 64-bit alignment errors with request queue counters](gitlab-org/gitaly@0755af60b112290c6bc7d0e799ad353bcf1ae24b) ([merge request](gitlab-org/gitaly!5224))
+
 ## 15.7.0 (2022-12-21)
 
 ### Added (7 changes)
