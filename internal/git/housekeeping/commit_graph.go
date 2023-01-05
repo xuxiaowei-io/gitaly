@@ -29,31 +29,36 @@ func WriteCommitGraphConfigForRepository(ctx context.Context, repo *localrepo.Re
 		return WriteCommitGraphConfig{}, err
 	}
 
-	var replaceChain bool
-
 	commitGraphInfo, err := stats.CommitGraphInfoForRepository(repoPath)
 	if err != nil {
 		return WriteCommitGraphConfig{}, structerr.NewInternal("getting commit-graph info: %w", err)
 	}
 
+	return WriteCommitGraphConfig{
+		ReplaceChain: commitGraphNeedsRewrite(ctx, commitGraphInfo),
+	}, nil
+}
+
+// commitGraphNeedsRewrite determines whether the commit-graph needs to be rewritten. This can be
+// the case when it is either a monolithic commit-graph or when it is missing some extensions that
+// only get written on a full rewrite.
+func commitGraphNeedsRewrite(ctx context.Context, commitGraphInfo stats.CommitGraphInfo) bool {
 	if commitGraphInfo.CommitGraphChainLength == 0 {
 		// The repository does not have a commit-graph chain. This either indicates we ain't
 		// got no commit-graph at all, or that it's monolithic. In both cases we want to
 		// replace the commit-graph chain.
-		replaceChain = true
+		return true
 	} else if !commitGraphInfo.HasBloomFilters {
 		// If the commit-graph-chain exists, we want to rewrite it in case we see that it
 		// ain't got bloom filters enabled. This is because Git will refuse to write any
 		// bloom filters as long as any of the commit-graph slices is missing this info.
-		replaceChain = true
+		return true
 	} else if !commitGraphInfo.HasGenerationData && featureflag.UseCommitGraphGenerationData.IsEnabled(ctx) {
 		// The same is true for generation data.
-		replaceChain = true
+		return true
 	}
 
-	return WriteCommitGraphConfig{
-		ReplaceChain: replaceChain,
-	}, nil
+	return false
 }
 
 // WriteCommitGraph updates the commit-graph in the given repository. The commit-graph is updated

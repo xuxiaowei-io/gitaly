@@ -19,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -151,9 +152,13 @@ func TestPackRefsIfNeeded(t *testing.T) {
 
 func TestOptimizeRepository(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
-	cfg := testcfg.Build(t)
+	testhelper.NewFeatureSets(featureflag.UseCommitGraphGenerationData).Run(t, testOptimizeRepository)
+}
 
+func testOptimizeRepository(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
+	cfg := testcfg.Build(t)
 	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
 
 	for _, tc := range []struct {
@@ -213,6 +218,33 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 `,
 		},
 		{
+			desc: "repository with commit-graph without generation data writes commit-graph",
+			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+					RelativePath:           relativePath,
+				})
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "--write-bitmap-index")
+				gittest.Exec(t, cfg, "-c", "commitGraph.generationVersion=1", "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
+				return repo
+			},
+			expectedMetrics: func() string {
+				if featureflag.UseCommitGraphGenerationData.IsEnabled(ctx) {
+					return `# HELP gitaly_housekeeping_tasks_total Total number of housekeeping tasks performed in the repository
+# TYPE gitaly_housekeeping_tasks_total counter
+gitaly_housekeeping_tasks_total{housekeeping_task="written_commit_graph_full", status="success"} 1
+gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
+`
+				}
+
+				return `# HELP gitaly_housekeeping_tasks_total Total number of housekeeping tasks performed in the repository
+# TYPE gitaly_housekeeping_tasks_total counter
+gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
+`
+			}(),
+		},
+		{
 			desc: "repository with multiple packfiles packs only for object pool",
 			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
 				repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
@@ -228,7 +260,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("second"), gittest.WithMessage("second"))
 				gittest.Exec(t, cfg, "-C", repoPath, "repack")
 
-				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
+				gittest.Exec(t, cfg, "-c", "commitGraph.generationVersion=2", "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 
 				return repo
 			},
@@ -253,7 +285,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 				})
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "--write-bitmap-index")
-				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
+				gittest.Exec(t, cfg, "-c", "commitGraph.generationVersion=2", "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 				return repo
 			},
 			expectedMetrics: `# HELP gitaly_housekeeping_tasks_total Total number of housekeeping tasks performed in the repository
@@ -270,7 +302,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 				})
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "--write-bitmap-index")
-				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
+				gittest.Exec(t, cfg, "-c", "commitGraph.generationVersion=2", "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 
 				// The repack won't repack the following objects because they're
 				// broken, and thus we'll retry to prune them afterwards.
@@ -305,7 +337,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 				})
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "--write-bitmap-index")
-				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
+				gittest.Exec(t, cfg, "-c", "commitGraph.generationVersion=2", "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 
 				// The repack won't repack the following objects because they're
 				// broken, and thus we'll retry to prune them afterwards.
@@ -349,7 +381,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 				}
 
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "--write-bitmap-index")
-				gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
+				gittest.Exec(t, cfg, "-c", "commitGraph.generationVersion=2", "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 
 				return repo
 			},
@@ -364,8 +396,6 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 
 		testRepoAndPool(t, tc.desc, func(t *testing.T, relativePath string) {
 			t.Parallel()
-
-			ctx := testhelper.Context(t)
 
 			repoProto := tc.setup(t, relativePath)
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
