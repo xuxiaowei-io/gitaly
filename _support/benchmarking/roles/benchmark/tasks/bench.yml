@@ -1,0 +1,28 @@
+---
+- name: Show repo and RPC being benched
+  debug:
+    msg: "Benchmarking {{ rpc_info.rpc }} against {{ repo_name }}"
+
+- name: Create benchmark results directory on Gitaly node
+  file:
+    path: "{{ output_dir }}"
+    state: directory
+    mode: '0755'
+    owner: git
+    group: git
+
+- name: Create benchmark results directory on client node
+  file:
+    path: "{{ output_dir }}"
+    state: directory
+    mode: '0755'
+    owner: git
+    group: git
+  delegate_to: "{{ groups['client'][0] }}"
+
+# Create new Gitaly process for each run for easy log collection
+- name: Start Gitaly service
+  systemd:
+    name: gitaly
+    state: started
+  notify: stop gitaly
