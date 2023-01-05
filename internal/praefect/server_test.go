@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"google.golang.org/grpc/health"
 	"io"
 	"math/rand"
 	"net"
@@ -1042,6 +1043,79 @@ func TestErrorThreshold(t *testing.T) {
 			require.False(t, healthy)
 		})
 	}
+}
+
+func TestStreamingRPCRejected(t *testing.T) {
+	t.Parallel()
+
+	conf := config.Config{
+		VirtualStorages: []*config.VirtualStorage{
+			{
+				Name: "default",
+				Nodes: []*config.Node{
+					{
+						Storage: "praefect-internal-0",
+						Address: "tcp://this-does-not-matter",
+					},
+				},
+			},
+		},
+	}
+	ctx := testhelper.Context(t)
+
+	queue := datastore.NewPostgresReplicationEventQueue(testdb.New(t))
+	entry := testhelper.NewDiscardingLogEntry(t)
+
+	rs := datastore.MockRepositoryStore{}
+	nodeMgr, err := nodes.NewManager(entry, conf, nil, rs, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil, nil)
+	require.NoError(t, err)
+	defer nodeMgr.Stop()
+
+	coordinator := NewCoordinator(
+		queue,
+		rs,
+		NewNodeManagerRouter(nodeMgr, rs),
+		transactions.NewManager(conf),
+		conf,
+		protoregistry.GitalyProtoPreregistered,
+	)
+
+	server := grpc.NewServer(
+		grpc.ForceServerCodec(proxy.NewCodec()),
+		grpc.UnknownServiceHandler(proxy.TransparentHandler(coordinator.StreamDirector)),
+	)
+	grpc_health_v1.RegisterHealthServer(server, health.NewServer())
+
+	socket := testhelper.GetTemporaryGitalySocketFileName(t)
+	listener, err := net.Listen("unix", socket)
+	require.NoError(t, err)
+
+	go testhelper.MustServe(t, server, listener)
+	defer server.Stop()
+
+	conn, err := dial("unix://"+socket, []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())})
+	require.NoError(t, err)
+	defer testhelper.MustClose(t, conn)
+
+	client := gitalypb.NewSmartHTTPServiceClient(conn)
+	stream, err := client.PostUploadPack(ctx)
+	require.NoError(t, err)
+
+	testserver.WaitHealthy(t, ctx, "unix://"+socket, "")
+
+	err = stream.Send(&gitalypb.PostUploadPackRequest{Repository: &gitalypb.Repository{
+		StorageName:  "praefect-internal-0",
+		RelativePath: "please-do-not-exist",
+	}})
+	require.NoError(t, err)
+
+	var response gitalypb.PostUploadPackWithSidechannelResponse
+	err = stream.RecvMsg(&response)
+	require.NoError(t, err)
+
+	var response2 gitalypb.PostUploadPackResponse
+	err = stream.RecvMsg(&response2)
+	require.NoError(t, err)
 }
 
 func newSmartHTTPClient(t *testing.T, serverSocketPath string) (gitalypb.SmartHTTPServiceClient, *grpc.ClientConn) {

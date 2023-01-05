@@ -114,7 +114,7 @@ func StartPraefect(tb testing.TB, cfg config.Config) PraefectServer {
 		cancel()
 	}()
 
-	// Ensure this runs even if context ends in waitHealthy.
+	// Ensure this runs even if context ends in WaitHealthy.
 	defer func() {
 		// Check if the process has exited. This must not happen given that we need it to be
 		// up in order to connect to it.
@@ -128,14 +128,14 @@ func StartPraefect(tb testing.TB, cfg config.Config) PraefectServer {
 		case <-ctx.Done():
 			switch ctx.Err() {
 			case context.DeadlineExceeded:
-				// Capture Praefect logs when waitHealthy takes too long.
+				// Capture Praefect logs when WaitHealthy takes too long.
 				require.FailNowf(tb, "Connecting to Praefect exceeded deadline", "%s", stderr.String())
 			}
 		default:
 		}
 	}()
 
-	waitHealthy(tb, ctx, praefectServer.Address(), cfg.Auth.Token)
+	WaitHealthy(tb, ctx, praefectServer.Address(), cfg.Auth.Token)
 
 	return praefectServer
 }

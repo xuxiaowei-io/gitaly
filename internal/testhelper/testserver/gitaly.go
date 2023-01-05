@@ -124,8 +124,8 @@ func (gs GitalyServer) Address() string {
 	return gs.address
 }
 
-// waitHealthy waits until the server hosted at address becomes healthy.
-func waitHealthy(tb testing.TB, ctx context.Context, addr string, authToken string) {
+// WaitHealthy waits until the server hosted at address becomes healthy.
+func WaitHealthy(tb testing.TB, ctx context.Context, addr string, authToken string) {
 	grpcOpts := []grpc.DialOption{
 		grpc.WithBlock(),
 		internalclient.UnaryInterceptor(),
@@ -190,7 +190,7 @@ func runGitaly(tb testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, reg
 		}()
 
 		ctx := testhelper.Context(tb)
-		waitHealthy(tb, ctx, "unix://"+internalListener.Addr().String(), cfg.Auth.Token)
+		WaitHealthy(tb, ctx, "unix://"+internalListener.Addr().String(), cfg.Auth.Token)
 	}
 
 	secure := cfg.TLS.CertPath != "" && cfg.TLS.KeyPath != ""
@@ -227,7 +227,7 @@ func runGitaly(tb testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, reg
 	}()
 
 	ctx := testhelper.Context(tb)
-	waitHealthy(tb, ctx, addr, cfg.Auth.Token)
+	WaitHealthy(tb, ctx, addr, cfg.Auth.Token)
 
 	return externalServer, addr, gsd.disablePraefect
 }

@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"io"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/middleware/sentryhandler"
@@ -121,6 +122,8 @@ func (s *handler) handler(srv interface{}, serverStream grpc.ServerStream) (fina
 	// We require that the director's returned context inherits from the serverStream.Context().
 	params, err := s.director(serverStream.Context(), fullMethodName, peeker)
 	if err != nil {
+		_ = serverStream.SendMsg(&gitalypb.PostReceiveHookResponse{})
+		_ = serverStream.SendMsg(&gitalypb.PostUploadPackWithSidechannelResponse{})
 		return err
 	}
 
