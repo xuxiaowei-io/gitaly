@@ -1,0 +1,4 @@
+/hosts.ini
+/terraform/*
+!/terraform/main.tf
+/group_vars/all.yml
