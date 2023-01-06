@@ -8,3 +8,4 @@
 - include_tasks: setup_ruby.yml
 - include_tasks: setup_gitaly.yml
 - include_tasks: setup_gitlab_shell.yml
+- include_tasks: setup_profiling.yml
