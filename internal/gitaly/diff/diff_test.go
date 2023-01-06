@@ -487,6 +487,60 @@ func TestDiffLimitsBeingEnforcedByUpperBound(t *testing.T) {
 	require.Equal(t, diffParser.limits.MaxPatchBytes, 0)
 }
 
+// Test larger file type below limit, above original limit
+func TestDiffFileBeingBelowLimitForExtension(t *testing.T) {
+	header := `:000000 100644 0000000000000000000000000000000000000000 b6507e5b5ce18077e3ec8aaa2291404e5051d45d A	big.txt
+:000000 100644 0000000000000000000000000000000000000000 b6507e5b5ce18077e3ec8aaa2291404e5051d45d A	big.md
+
+`
+	bigLine := strings.Repeat("z", 100)
+	bigPatch := "@@ -0,0 +1,100 @@\n+" + strings.Repeat(fmt.Sprintf("+%s\n", bigLine), 100)
+
+	txtHeader := `diff --git a/big.txt b/big.txt
+new file mode 100644
+index 0000000000000000000000000000000000000000..4cc7061661b8f52891bc1b39feb4d856b21a1067
+--- /dev/null
++++ b/big.txt
+`
+
+	mdHeader := `diff --git a/big.md b/big.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..4cc7061661b8f52891bc1b39feb4d856b21a1067
+--- /dev/null
++++ b/big.md
+`
+	rawDiff := header + txtHeader + bigPatch + mdHeader + bigPatch
+
+	fmt.Println(len(bigPatch))
+
+	limits := Limits{
+		EnforceLimits: true,
+		MaxPatchBytes: 100,
+		MaxBytes:      safeMaxBytesUpperBound,
+		SafeMaxBytes:  safeMaxBytesUpperBound,
+		MaxFiles:      maxFilesUpperBound,
+		SafeMaxFiles:  maxFilesUpperBound,
+		MaxLines:      maxLinesUpperBound,
+		SafeMaxLines:  maxLinesUpperBound,
+		CollapseDiffs: true,
+		MaxPatchBytesForFileExtension: map[string]int{
+			".txt": 30000,
+		},
+	}
+
+	diffs := getDiffs(t, rawDiff, limits)
+
+	// .txt has increased limits
+	require.False(t, diffs[0].Collapsed)
+	require.False(t, diffs[0].TooLarge)
+	require.Equal(t, diffs[0].Patch, []byte(bigPatch))
+
+	// .md does not
+	require.False(t, diffs[1].Collapsed)
+	require.True(t, diffs[1].TooLarge)
+	require.Equal(t, diffs[1].Patch, []byte(nil))
+}
+
 func getDiffs(tb testing.TB, rawDiff string, limits Limits) []*Diff {
 	tb.Helper()
 
@@ -541,4 +595,30 @@ index 0000000000000000000000000000000000000000..c3ae147b03a2d1fd89b25198b3fc5302
 			require.Equal(b, NDiffs, n)
 		}
 	})
+}
+
+func Test_maxPatchBytesFor(t *testing.T) {
+	maxBytesForExtension := map[string]int{".txt": 2, "Dockerfile": 3, ".gitignore": 4}
+	maxPatchBytes := 1
+
+	tests := []struct {
+		name   string
+		toPath []byte
+		expect int
+	}{
+		{"File's extension matches custom limits", []byte("test.txt"), 2},
+		{"File full name matches custom limits", []byte("blah/Dockerfile"), 3},
+		{"File extension does not match custom limits ", []byte("test.md"), 1},
+		{"Dot file matches custom limits", []byte(".gitignore"), 4},
+		{"File full name does not match custom limits", []byte("test"), 1},
+		{"File last extension does not match custom limits", []byte("test.txt.md"), 1},
+		{"File last extension does match custom limits", []byte("test.md.txt"), 2},
+		{"File path is nil", nil, 1},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := maxPatchBytesFor(maxPatchBytes, maxBytesForExtension, tc.toPath)
+			require.Equalf(t, tc.expect, got, "maxPatchBytesFor() = %v, want %v", got, tc.expect)
+		})
+	}
 }
