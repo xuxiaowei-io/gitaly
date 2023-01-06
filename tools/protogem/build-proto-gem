@@ -3,21 +3,49 @@
 require 'erb'
 require 'fileutils'
 require 'tmpdir'
+require 'optparse'
 
 File.umask(0022)
 
 SOURCE_DIR = File.absolute_path(File.join(__dir__, '..', '..'))
 RUBY_VERSION_FILE = File.join('gitaly', 'version.rb')
 
-def main(output_path)
+def parse_options
+  options = {}
+
+  option_parser = OptionParser.new do |opts|
+    opts.banner = "Usage: build-proto-gem [options]"
+
+    opts.on_tail("--skip-verify-tag", "Skip verification that this is run for a tagged Gitaly commit") do
+      options[:skip_verify_tag] = true
+    end
+
+    opts.on("-o", "--output PATH", "output path for the gem") do |path|
+      options[:output_path] = File.absolute_path(path)
+    end
+  end
+
+  option_parser.parse!
+
+  if options[:output_path].nil?
+    puts option_parser.help
+    exit 1
+  end
+
+  return options
+end
+
+def main(options)
   version = File.read(File.join(SOURCE_DIR, 'VERSION')).strip
   unless version.match?(/\d+\.\d+\.\d+(-rc\d+)?/)
     abort "Version string #{version.inspect} does not look like a Gitaly Release tag (e.g. \"v1.0.2\"). Aborting."
   end
 
-  ref = capture!(%w[git describe --tag]).chomp
-  if ref != "v#{version}"
-    abort "Checkout tag v#{version} to publish.\n\t git checkout v#{version}"
+  if !options[:skip_verify_tag]
+    ref = capture!(%w[git describe --tag]).chomp
+    if ref != "v#{version}"
+      abort "Checkout tag v#{version} to publish.\n\t git checkout v#{version}"
+    end
   end
 
   puts 'Testing for changed files'
@@ -28,7 +56,7 @@ def main(output_path)
 
   Dir.mktmpdir do |output_dir|
     generate_sources(output_dir, version)
-    build_gem(output_dir, output_path)
+    build_gem(output_dir, options[:output_path])
   end
 end
 
@@ -140,9 +168,4 @@ module GitalySupport
   end
 end
 
-unless ARGV.count == 1
-  warn "Usage: #{$0} OUTPUT_PATH"
-  abort
-end
-
-main(File.absolute_path(ARGV[0]))
+main(parse_options)
