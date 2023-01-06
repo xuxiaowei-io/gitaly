@@ -112,3 +112,13 @@
     owner: git
     group: git
     mode: '0600'
+
+- name: Install Gitaly systemd service
+  copy:
+    src: gitaly.service
+    dest: /etc/systemd/system/gitaly.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - load service
