@@ -1,0 +1,77 @@
+---
+- name: Create 'git' user
+  user:
+    name: git
+    uid: 1999
+    groups: admin
+    append: true
+
+- name: Create /src directory
+  file:
+    path: /src
+    state: directory
+    mode: '0755'
+    owner: git
+    group: git
+
+- name: Clone Gitaly at HEAD
+  git:
+    repo: https://gitlab.com/gitlab-org/gitaly.git
+    dest: /src/gitaly
+  become_user: git
+
+- name: Peel gitaly_revision
+  command: "git rev-parse --verify {{ gitaly_revision }}^{commit}"
+  register: gitaly_commit
+  args:
+    chdir: /src/gitaly
+  become_user: git
+
+- name: Checkout Gitaly at specified commit
+  git:
+    repo: https://gitlab.com/gitlab-org/gitaly.git
+    dest: /src/gitaly
+    version: "{{ gitaly_commit['stdout'] }}"
+  become_user: git
+
+- name: Persist Gitaly commit as fact
+  set_fact:
+    gitaly_commit: "{{ gitaly_commit['stdout'] }}"
+
+- name: Find Gitaly's Golang version
+  shell: "awk '/^golang /{ print $2 }' /src/gitaly/.tool-versions"
+  register: golang_version
+
+- name: Persist golang_version
+  set_fact:
+    golang_version: "{{ golang_version['stdout'] }}"
+
+- name: Find Gitaly's Ruby version
+  shell: "awk '/^ruby/{ print $2 }' /src/gitaly/.tool-versions"
+  register: ruby_version
+
+- name: Persist ruby_version
+  set_fact:
+    ruby_version: "{{ ruby_version['stdout'] }}"
+
+- name: Install ghz
+  unarchive:
+    src: "https://github.com/bojand/ghz/releases/download/{{ ghz_version }}/ghz-linux-x86_64.tar.gz"
+    dest: /usr/local/bin
+    include:
+      - ghz
+    remote_src: true
+
+- name: Generate SSH key
+  shell: ssh-keygen -q -t ed25519 -f /root/.ssh/id_ed25519 -N ""
+  args:
+    creates: /root/.ssh/id_ed25519
+
+- name: Copy SSH key
+  slurp:
+    src: /root/.ssh/id_ed25519.pub
+  register: client_ssh_key_var
+
+- name: Persist SSH key as fact
+  set_fact:
+    client_ssh_key: "{{ client_ssh_key_var['content'] }}"
