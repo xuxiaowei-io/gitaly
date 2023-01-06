@@ -1,0 +1,33 @@
+---
+- name: Install Ruby build dependencies
+  apt:
+    name:
+      - autogen
+      - autoconf
+      - build-essential
+      - libtool
+      - libyaml-dev
+      - libreadline6-dev
+      - libncurses5-dev
+      - libffi-dev
+      - libgdbm-dev
+      - zlib1g-dev
+    state: present
+
+- name: Get ruby-build source
+  unarchive:
+    src: "https://github.com/rbenv/ruby-build/archive/refs/tags/v{{ ruby_build_version }}.tar.gz"
+    dest: /src
+    remote_src: true
+    creates: "/src/ruby-build-{{ ruby_build_version }}"
+  register: ruby_build
+  become_user: git
+
+- name: Install ruby-build
+  shell: "PREFIX=/usr/local /src/ruby-build-{{ ruby_build_version }}/install.sh"
+  when: ruby_build.changed == True
+
+- name: Build Ruby
+  shell: "ruby-build {{ hostvars[groups['client'][0]]['ruby_version'] }} /usr/local"
+  args:
+    creates: /usr/local/bin/ruby
