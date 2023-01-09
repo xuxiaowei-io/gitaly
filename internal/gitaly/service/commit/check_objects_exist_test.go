@@ -7,12 +7,10 @@ import (
 	"io"
 	"testing"
 
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -22,8 +20,7 @@ func TestCheckObjectsExist(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	logger, hook := test.NewNullLogger()
-	cfg, client := setupCommitService(t, ctx, testserver.WithLogger(logger))
+	cfg, client := setupCommitService(t, ctx)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
@@ -38,11 +35,10 @@ func TestCheckObjectsExist(t *testing.T) {
 	)
 
 	for _, tc := range []struct {
-		desc                  string
-		requests              []*gitalypb.CheckObjectsExistRequest
-		expectedResults       map[string]bool
-		expectedErr           error
-		expectedErrorMetadata any
+		desc            string
+		requests        []*gitalypb.CheckObjectsExistRequest
+		expectedResults map[string]bool
+		expectedErr     error
 	}{
 		{
 			desc:     "no repository provided",
@@ -170,10 +166,8 @@ func TestCheckObjectsExist(t *testing.T) {
 					},
 				},
 			},
-			expectedErr: structerr.NewInvalidArgument("invalid revision: revision can't start with '-'"),
-			expectedErrorMetadata: map[string]any{
-				"revision": "-not-a-rev",
-			},
+			expectedErr: structerr.NewInvalidArgument("invalid revision: revision can't start with '-'").
+				WithInterceptedMetadata("revision", "-not-a-rev"),
 		},
 		{
 			desc: "input with whitespace",
@@ -185,10 +179,8 @@ func TestCheckObjectsExist(t *testing.T) {
 					},
 				},
 			},
-			expectedErr: structerr.NewInvalidArgument("invalid revision: revision can't contain whitespace"),
-			expectedErrorMetadata: map[string]any{
-				"revision": fmt.Sprintf("%s\n%s", commitID1, commitID2),
-			},
+			expectedErr: structerr.NewInvalidArgument("invalid revision: revision can't contain whitespace").
+				WithInterceptedMetadata("revision", fmt.Sprintf("%s\n%s", commitID1, commitID2)),
 		},
 		{
 			desc: "chunked invalid input",
@@ -205,15 +197,11 @@ func TestCheckObjectsExist(t *testing.T) {
 					},
 				},
 			},
-			expectedErr: structerr.NewInvalidArgument("invalid revision: revision can't start with '-'"),
-			expectedErrorMetadata: map[string]any{
-				"revision": "-not-a-rev",
-			},
+			expectedErr: structerr.NewInvalidArgument("invalid revision: revision can't start with '-'").
+				WithInterceptedMetadata("revision", "-not-a-rev"),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			hook.Reset()
-
 			client, err := client.CheckObjectsExist(ctx)
 			require.NoError(t, err)
 
@@ -244,23 +232,6 @@ func TestCheckObjectsExist(t *testing.T) {
 
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 			require.Equal(t, tc.expectedResults, results)
-
-			if tc.expectedErrorMetadata == nil {
-				tc.expectedErrorMetadata = map[string]any{}
-			}
-
-			metadata := map[string]any{}
-			for _, entry := range hook.AllEntries() {
-				errorMetadata, ok := entry.Data["error_metadata"]
-				if !ok {
-					continue
-				}
-
-				for key, value := range errorMetadata.(map[string]any) {
-					metadata[key] = value
-				}
-			}
-			require.Equal(t, tc.expectedErrorMetadata, metadata)
 		})
 	}
 }

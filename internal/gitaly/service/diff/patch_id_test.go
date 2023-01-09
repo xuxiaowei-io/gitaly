@@ -21,15 +21,19 @@ func TestGetPatchID(t *testing.T) {
 	gitVersion, err := gittest.NewCommandFactory(t, cfg).GitVersion(ctx)
 	require.NoError(t, err)
 
-	testCases := []struct {
-		desc             string
-		setup            func(t *testing.T) *gitalypb.GetPatchIDRequest
+	type setupData struct {
+		request          *gitalypb.GetPatchIDRequest
 		expectedResponse *gitalypb.GetPatchIDResponse
 		expectedErr      error
+	}
+
+	testCases := []struct {
+		desc  string
+		setup func(t *testing.T) setupData
 	}{
 		{
 			desc: "retruns patch-id successfully",
-			setup: func(t *testing.T) *gitalypb.GetPatchIDRequest {
+			setup: func(t *testing.T) setupData {
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 				oldCommit := gittest.WriteCommit(t, cfg, repoPath,
@@ -45,19 +49,21 @@ func TestGetPatchID(t *testing.T) {
 					),
 				)
 
-				return &gitalypb.GetPatchIDRequest{
-					Repository:  repoProto,
-					OldRevision: []byte("main~"),
-					NewRevision: []byte("main"),
+				return setupData{
+					request: &gitalypb.GetPatchIDRequest{
+						Repository:  repoProto,
+						OldRevision: []byte("main~"),
+						NewRevision: []byte("main"),
+					},
+					expectedResponse: &gitalypb.GetPatchIDResponse{
+						PatchId: "a79c7e9df0094ee44fa7a2a9ae27e914e6b7e00b",
+					},
 				}
-			},
-			expectedResponse: &gitalypb.GetPatchIDResponse{
-				PatchId: "a79c7e9df0094ee44fa7a2a9ae27e914e6b7e00b",
 			},
 		},
 		{
 			desc: "returns patch-id successfully with commit ids",
-			setup: func(t *testing.T) *gitalypb.GetPatchIDRequest {
+			setup: func(t *testing.T) setupData {
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 				oldCommit := gittest.WriteCommit(t, cfg, repoPath,
@@ -71,19 +77,21 @@ func TestGetPatchID(t *testing.T) {
 					),
 				)
 
-				return &gitalypb.GetPatchIDRequest{
-					Repository:  repoProto,
-					OldRevision: []byte(oldCommit),
-					NewRevision: []byte(newCommit),
+				return setupData{
+					request: &gitalypb.GetPatchIDRequest{
+						Repository:  repoProto,
+						OldRevision: []byte(oldCommit),
+						NewRevision: []byte(newCommit),
+					},
+					expectedResponse: &gitalypb.GetPatchIDResponse{
+						PatchId: "a79c7e9df0094ee44fa7a2a9ae27e914e6b7e00b",
+					},
 				}
-			},
-			expectedResponse: &gitalypb.GetPatchIDResponse{
-				PatchId: "a79c7e9df0094ee44fa7a2a9ae27e914e6b7e00b",
 			},
 		},
 		{
 			desc: "returns patch-id successfully for a specific file",
-			setup: func(t *testing.T) *gitalypb.GetPatchIDRequest {
+			setup: func(t *testing.T) setupData {
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 				oldCommit := gittest.WriteCommit(t, cfg, repoPath,
@@ -97,19 +105,21 @@ func TestGetPatchID(t *testing.T) {
 					),
 				)
 
-				return &gitalypb.GetPatchIDRequest{
-					Repository:  repoProto,
-					OldRevision: []byte(fmt.Sprintf("%s:file", oldCommit)),
-					NewRevision: []byte(fmt.Sprintf("%s:file", newCommit)),
+				return setupData{
+					request: &gitalypb.GetPatchIDRequest{
+						Repository:  repoProto,
+						OldRevision: []byte(fmt.Sprintf("%s:file", oldCommit)),
+						NewRevision: []byte(fmt.Sprintf("%s:file", newCommit)),
+					},
+					expectedResponse: &gitalypb.GetPatchIDResponse{
+						PatchId: "a79c7e9df0094ee44fa7a2a9ae27e914e6b7e00b",
+					},
 				}
-			},
-			expectedResponse: &gitalypb.GetPatchIDResponse{
-				PatchId: "a79c7e9df0094ee44fa7a2a9ae27e914e6b7e00b",
 			},
 		},
 		{
 			desc: "returns patch-id with binary file",
-			setup: func(t *testing.T) *gitalypb.GetPatchIDRequest {
+			setup: func(t *testing.T) setupData {
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 				oldCommit := gittest.WriteCommit(t, cfg, repoPath,
@@ -123,33 +133,35 @@ func TestGetPatchID(t *testing.T) {
 					),
 				)
 
-				return &gitalypb.GetPatchIDRequest{
-					Repository:  repoProto,
-					OldRevision: []byte(oldCommit),
-					NewRevision: []byte(newCommit),
-				}
-			},
-			expectedResponse: &gitalypb.GetPatchIDResponse{
-				PatchId: func() string {
-					// Before Git v2.39.0, git-patch-id(1) would skip over any
-					// lines that have an "index " prefix. This causes issues
-					// with diffs of binaries though: we don't generate the diff
-					// with `--binary`, so the "index" line that contains the
-					// pre- and post-image blob IDs of the binary is the only
-					// bit of information we have that something changed. But
-					// because Git used to skip over it we wouldn't actually
-					// take into account the contents of the changed blob at
-					// all.
-					//
-					// This was fixed in Git v2.39.0 so that "index" lines will
-					// now be hashed to correctly account for binary changes. As
-					// a result, the patch ID has changed.
-					if gitVersion.PatchIDRespectsBinaries() {
-						return "13e4e9b9cd44ec511bac24fdbdeab9b74ba3000b"
-					}
+				return setupData{
+					request: &gitalypb.GetPatchIDRequest{
+						Repository:  repoProto,
+						OldRevision: []byte(oldCommit),
+						NewRevision: []byte(newCommit),
+					},
+					expectedResponse: &gitalypb.GetPatchIDResponse{
+						PatchId: func() string {
+							// Before Git v2.39.0, git-patch-id(1) would skip over any
+							// lines that have an "index " prefix. This causes issues
+							// with diffs of binaries though: we don't generate the diff
+							// with `--binary`, so the "index" line that contains the
+							// pre- and post-image blob IDs of the binary is the only
+							// bit of information we have that something changed. But
+							// because Git used to skip over it we wouldn't actually
+							// take into account the contents of the changed blob at
+							// all.
+							//
+							// This was fixed in Git v2.39.0 so that "index" lines will
+							// now be hashed to correctly account for binary changes. As
+							// a result, the patch ID has changed.
+							if gitVersion.PatchIDRespectsBinaries() {
+								return "13e4e9b9cd44ec511bac24fdbdeab9b74ba3000b"
+							}
 
-					return "715883c1b90a5b4450072e22fefec769ad346266"
-				}(),
+							return "715883c1b90a5b4450072e22fefec769ad346266"
+						}(),
+					},
+				}
 			},
 		},
 		{
@@ -157,7 +169,7 @@ func TestGetPatchID(t *testing.T) {
 			// with different binary contents. This is done to ensure that we indeed
 			// generate different patch IDs as expected.
 			desc: "different binary diff has different patch ID",
-			setup: func(t *testing.T) *gitalypb.GetPatchIDRequest {
+			setup: func(t *testing.T) setupData {
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 				oldCommit := gittest.WriteCommit(t, cfg, repoPath,
@@ -171,31 +183,33 @@ func TestGetPatchID(t *testing.T) {
 					),
 				)
 
-				return &gitalypb.GetPatchIDRequest{
-					Repository:  repoProto,
-					OldRevision: []byte(oldCommit),
-					NewRevision: []byte(newCommit),
-				}
-			},
-			expectedResponse: &gitalypb.GetPatchIDResponse{
-				PatchId: func() string {
-					if gitVersion.PatchIDRespectsBinaries() {
-						// When respecting binary diffs we indeed have a
-						// different patch ID compared to the preceding
-						// testcase.
-						return "f678855867b112ac2c5466260b3b3a5e75fca875"
-					}
+				return setupData{
+					request: &gitalypb.GetPatchIDRequest{
+						Repository:  repoProto,
+						OldRevision: []byte(oldCommit),
+						NewRevision: []byte(newCommit),
+					},
+					expectedResponse: &gitalypb.GetPatchIDResponse{
+						PatchId: func() string {
+							if gitVersion.PatchIDRespectsBinaries() {
+								// When respecting binary diffs we indeed have a
+								// different patch ID compared to the preceding
+								// testcase.
+								return "f678855867b112ac2c5466260b3b3a5e75fca875"
+							}
 
-					// But when git-patch-id(1) is not paying respect to binary
-					// diffs we incorrectly return the same patch ID. This is
-					// nothing we can easily fix though.
-					return "715883c1b90a5b4450072e22fefec769ad346266"
-				}(),
+							// But when git-patch-id(1) is not paying respect to binary
+							// diffs we incorrectly return the same patch ID. This is
+							// nothing we can easily fix though.
+							return "715883c1b90a5b4450072e22fefec769ad346266"
+						}(),
+					},
+				}
 			},
 		},
 		{
 			desc: "file didn't exist in the old revision",
-			setup: func(t *testing.T) *gitalypb.GetPatchIDRequest {
+			setup: func(t *testing.T) setupData {
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 				oldCommit := gittest.WriteCommit(t, cfg, repoPath)
@@ -203,81 +217,95 @@ func TestGetPatchID(t *testing.T) {
 					gittest.TreeEntry{Path: "file", Mode: "100644", Content: "new"},
 				))
 
-				return &gitalypb.GetPatchIDRequest{
-					Repository:  repoProto,
-					OldRevision: []byte(fmt.Sprintf("%s:file", oldCommit)),
-					NewRevision: []byte(fmt.Sprintf("%s:file", newCommit)),
+				return setupData{
+					request: &gitalypb.GetPatchIDRequest{
+						Repository:  repoProto,
+						OldRevision: []byte(fmt.Sprintf("%s:file", oldCommit)),
+						NewRevision: []byte(fmt.Sprintf("%s:file", newCommit)),
+					},
+					expectedErr: structerr.New("waiting for git-diff: exit status 128").
+						WithInterceptedMetadata("stderr", fmt.Sprintf("fatal: path 'file' does not exist in '%s'\n", oldCommit)),
 				}
 			},
-			expectedErr: structerr.New("waiting for git-diff: exit status 128"),
 		},
 		{
 			desc: "unknown revisions",
-			setup: func(t *testing.T) *gitalypb.GetPatchIDRequest {
+			setup: func(t *testing.T) setupData {
 				repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
 
 				newRevision := strings.Replace(string(gittest.DefaultObjectHash.ZeroOID), "0", "1", -1)
 
-				return &gitalypb.GetPatchIDRequest{
-					Repository:  repoProto,
-					OldRevision: []byte(gittest.DefaultObjectHash.ZeroOID),
-					NewRevision: []byte(newRevision),
+				return setupData{
+					request: &gitalypb.GetPatchIDRequest{
+						Repository:  repoProto,
+						OldRevision: []byte(gittest.DefaultObjectHash.ZeroOID),
+						NewRevision: []byte(newRevision),
+					},
+					expectedErr: structerr.New("waiting for git-diff: exit status 128").
+						WithInterceptedMetadata("stderr", fmt.Sprintf("fatal: bad object %s\n", gittest.DefaultObjectHash.ZeroOID)),
 				}
 			},
-			expectedErr: structerr.New("waiting for git-diff: exit status 128").WithMetadata("stderr", ""),
 		},
 		{
 			desc: "no diff from the given revisions",
-			setup: func(t *testing.T) *gitalypb.GetPatchIDRequest {
+			setup: func(t *testing.T) setupData {
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 				commit := gittest.WriteCommit(t, cfg, repoPath)
 
-				return &gitalypb.GetPatchIDRequest{
-					Repository:  repoProto,
-					OldRevision: []byte(commit),
-					NewRevision: []byte(commit),
+				return setupData{
+					request: &gitalypb.GetPatchIDRequest{
+						Repository:  repoProto,
+						OldRevision: []byte(commit),
+						NewRevision: []byte(commit),
+					},
+					expectedErr: structerr.NewFailedPrecondition("no difference between old and new revision"),
 				}
 			},
-			expectedErr: structerr.NewFailedPrecondition("no difference between old and new revision"),
 		},
 		{
 			desc: "empty repository",
-			setup: func(t *testing.T) *gitalypb.GetPatchIDRequest {
-				return &gitalypb.GetPatchIDRequest{
-					Repository:  nil,
-					OldRevision: []byte("HEAD~1"),
-					NewRevision: []byte("HEAD"),
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.GetPatchIDRequest{
+						Repository:  nil,
+						OldRevision: []byte("HEAD~1"),
+						NewRevision: []byte("HEAD"),
+					},
+					expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
+						"empty Repository",
+						"repo scoped: empty Repository",
+					)),
 				}
 			},
-			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
-				"empty Repository",
-				"repo scoped: empty Repository",
-			)),
 		},
 		{
 			desc: "empty old revision",
-			setup: func(t *testing.T) *gitalypb.GetPatchIDRequest {
+			setup: func(t *testing.T) setupData {
 				repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
 
-				return &gitalypb.GetPatchIDRequest{
-					Repository:  repoProto,
-					NewRevision: []byte("HEAD"),
+				return setupData{
+					request: &gitalypb.GetPatchIDRequest{
+						Repository:  repoProto,
+						NewRevision: []byte("HEAD"),
+					},
+					expectedErr: structerr.NewInvalidArgument("empty OldRevision"),
 				}
 			},
-			expectedErr: structerr.NewInvalidArgument("empty OldRevision"),
 		},
 		{
 			desc: "empty new revision",
-			setup: func(t *testing.T) *gitalypb.GetPatchIDRequest {
+			setup: func(t *testing.T) setupData {
 				repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
 
-				return &gitalypb.GetPatchIDRequest{
-					Repository:  repoProto,
-					OldRevision: []byte("HEAD~1"),
+				return setupData{
+					request: &gitalypb.GetPatchIDRequest{
+						Repository:  repoProto,
+						OldRevision: []byte("HEAD~1"),
+					},
+					expectedErr: structerr.NewInvalidArgument("empty NewRevision"),
 				}
 			},
-			expectedErr: structerr.NewInvalidArgument("empty NewRevision"),
 		},
 	}
 
@@ -286,11 +314,11 @@ func TestGetPatchID(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
-			request := tc.setup(t)
-			response, err := client.GetPatchID(ctx, request)
+			setupData := tc.setup(t)
+			response, err := client.GetPatchID(ctx, setupData.request)
 
-			testhelper.RequireGrpcError(t, tc.expectedErr, err)
-			testhelper.ProtoEqual(t, tc.expectedResponse, response)
+			testhelper.RequireGrpcError(t, setupData.expectedErr, err)
+			testhelper.ProtoEqual(t, setupData.expectedResponse, response)
 		})
 	}
 }

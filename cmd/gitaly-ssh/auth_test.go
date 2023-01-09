@@ -4,26 +4,15 @@ package main
 
 import (
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/client"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/server"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/setup"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/middleware/limithandler"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
@@ -139,47 +128,5 @@ func TestConnectivity(t *testing.T) {
 			}, "ls-remote", "git@localhost:test/test.git", "refs/heads/master")
 			require.True(t, strings.HasSuffix(strings.TrimSpace(string(output)), "refs/heads/master"))
 		})
-	}
-}
-
-func runServer(t *testing.T, secure bool, cfg config.Cfg, connectionType string, addr string) (int, func()) {
-	conns := client.NewPool()
-	locator := config.NewLocator(cfg)
-	registry := backchannel.NewRegistry()
-	txManager := transaction.NewManager(cfg, registry)
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
-	hookManager := hook.NewManager(cfg, locator, gitCmdFactory, txManager, gitlab.NewMockClient(
-		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
-	))
-	limitHandler := limithandler.New(cfg, limithandler.LimitConcurrencyByRepo, limithandler.WithConcurrencyLimiters)
-	diskCache := cache.New(cfg, locator)
-	srv, err := server.New(secure, cfg, testhelper.NewDiscardingLogEntry(t), registry, diskCache, []*limithandler.LimiterMiddleware{limitHandler})
-	require.NoError(t, err)
-	setup.RegisterAll(srv, &service.Dependencies{
-		Cfg:                cfg,
-		GitalyHookManager:  hookManager,
-		TransactionManager: txManager,
-		StorageLocator:     locator,
-		ClientPool:         conns,
-		GitCmdFactory:      gitCmdFactory,
-	})
-
-	listener, err := net.Listen(connectionType, addr)
-	require.NoError(t, err)
-
-	go testhelper.MustServe(t, srv, listener)
-
-	port := 0
-	if connectionType != "unix" {
-		addrSplit := strings.Split(listener.Addr().String(), ":")
-		portString := addrSplit[len(addrSplit)-1]
-
-		port, err = strconv.Atoi(portString)
-		require.NoError(t, err)
-	}
-
-	return port, func() {
-		conns.Close()
-		srv.Stop()
 	}
 }

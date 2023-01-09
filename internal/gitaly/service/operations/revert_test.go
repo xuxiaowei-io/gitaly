@@ -320,7 +320,8 @@ func TestUserRevert(t *testing.T) {
 					},
 				}
 			},
-			expectedErr: structerr.NewInvalidArgument(`invalid expected old object ID: invalid object ID: "foobar"`),
+			expectedErr: structerr.NewInvalidArgument(`invalid expected old object ID: invalid object ID: "foobar"`).
+				WithInterceptedMetadata("old_object_id", "foobar"),
 		},
 		{
 			desc: "expectedOldOID with valid SHA, but not present in repo",
@@ -342,7 +343,8 @@ func TestUserRevert(t *testing.T) {
 					},
 				}
 			},
-			expectedErr: structerr.NewInvalidArgument("cannot resolve expected old object ID: reference not found"),
+			expectedErr: structerr.NewInvalidArgument("cannot resolve expected old object ID: reference not found").
+				WithInterceptedMetadata("old_object_id", gittest.DefaultObjectHash.ZeroOID),
 		},
 		{
 			desc: "expectedOldOID pointing to old commit",

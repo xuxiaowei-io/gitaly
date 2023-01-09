@@ -113,6 +113,7 @@ func testCreateUnsuccessful(t *testing.T, ctx context.Context) {
 		Origin:     repo,
 	})
 	require.NoError(t, err)
+	preexistingPoolPath := filepath.Join(cfg.Storages[0].Path, preexistingPool.Repository.RelativePath)
 
 	for _, tc := range []struct {
 		desc        string
@@ -218,7 +219,9 @@ func testCreateUnsuccessful(t *testing.T, ctx context.Context) {
 				if featureflag.AtomicCreateObjectPool.IsEnabled(ctx) {
 					return structerr.NewFailedPrecondition("creating object pool: repository exists already")
 				}
-				return structerr.NewFailedPrecondition("creating object pool: target path exists already")
+
+				return structerr.NewFailedPrecondition("creating object pool: target path exists already").
+					WithInterceptedMetadata("object_pool_path", preexistingPoolPath)
 			}(),
 		},
 	} {

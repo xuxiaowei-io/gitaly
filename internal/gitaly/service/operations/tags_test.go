@@ -190,7 +190,8 @@ func TestUserDeleteTag(t *testing.T) {
 					ExpectedOldOid: "io",
 				}
 			},
-			expectedErr:  structerr.NewInvalidArgument(`invalid expected old object ID: invalid object ID: "io"`),
+			expectedErr: structerr.NewInvalidArgument(`invalid expected old object ID: invalid object ID: "io"`).
+				WithInterceptedMetadata("old_object_id", "io"),
 			expectedTags: []string{"europa"},
 		},
 		{
@@ -207,7 +208,8 @@ func TestUserDeleteTag(t *testing.T) {
 					ExpectedOldOid: gittest.DefaultObjectHash.ZeroOID.String(),
 				}
 			},
-			expectedErr:  structerr.NewInvalidArgument("cannot resolve expected old object ID: reference not found"),
+			expectedErr: structerr.NewInvalidArgument("cannot resolve expected old object ID: reference not found").
+				WithInterceptedMetadata("old_object_id", gittest.DefaultObjectHash.ZeroOID),
 			expectedTags: []string{"europa"},
 		},
 		{
