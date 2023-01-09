@@ -1,5 +1,11 @@
 # Gitaly changelog
 
+## 15.6.4 (2023-01-09)
+
+### Fixed (1 change)
+
+- [config: Allow empty values for Git configuration](gitlab-org/security/gitaly@2b0327a5893fd7b969f0179f92a9f5e3a55b5055)
+
 ## 15.6.3 (2022-12-21)
 
 ### Fixed (1 change)
