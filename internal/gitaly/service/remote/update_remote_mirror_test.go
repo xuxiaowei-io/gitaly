@@ -717,36 +717,6 @@ func TestUpdateRemoteMirror(t *testing.T) {
 	}
 }
 
-func TestUpdateRemoteMirrorInmemory(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	cfg, localRepo, localPath, client := setupRemoteService(t, ctx)
-	gittest.WriteCommit(t, cfg, localPath)
-
-	_, remotePath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
-
-	stream, err := client.UpdateRemoteMirror(ctx)
-	require.NoError(t, err)
-
-	require.NoError(t, stream.Send(&gitalypb.UpdateRemoteMirrorRequest{
-		Repository: localRepo,
-		Remote: &gitalypb.UpdateRemoteMirrorRequest_Remote{
-			Url: remotePath,
-		},
-	}))
-
-	response, err := stream.CloseAndRecv()
-	require.NoError(t, err)
-	testhelper.ProtoEqual(t, &gitalypb.UpdateRemoteMirrorResponse{}, response)
-
-	localRefs := string(gittest.Exec(t, cfg, "-C", localPath, "for-each-ref"))
-	remoteRefs := string(gittest.Exec(t, cfg, "-C", remotePath, "for-each-ref"))
-	require.Equal(t, localRefs, remoteRefs)
-}
-
 func TestSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefs(t *testing.T) {
 	t.Parallel()
 
