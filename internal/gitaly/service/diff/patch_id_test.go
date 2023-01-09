@@ -223,7 +223,8 @@ func TestGetPatchID(t *testing.T) {
 						OldRevision: []byte(fmt.Sprintf("%s:file", oldCommit)),
 						NewRevision: []byte(fmt.Sprintf("%s:file", newCommit)),
 					},
-					expectedErr: structerr.New("waiting for git-diff: exit status 128"),
+					expectedErr: structerr.New("waiting for git-diff: exit status 128").
+						WithInterceptedMetadata("stderr", fmt.Sprintf("fatal: path 'file' does not exist in '%s'\n", oldCommit)),
 				}
 			},
 		},
@@ -240,7 +241,8 @@ func TestGetPatchID(t *testing.T) {
 						OldRevision: []byte(gittest.DefaultObjectHash.ZeroOID),
 						NewRevision: []byte(newRevision),
 					},
-					expectedErr: structerr.New("waiting for git-diff: exit status 128").WithMetadata("stderr", ""),
+					expectedErr: structerr.New("waiting for git-diff: exit status 128").
+						WithInterceptedMetadata("stderr", fmt.Sprintf("fatal: bad object %s\n", gittest.DefaultObjectHash.ZeroOID)),
 				}
 			},
 		},

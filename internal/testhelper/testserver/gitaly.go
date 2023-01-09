@@ -33,6 +33,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/middleware/limithandler"
 	praefectconfig "gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/streamcache"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testdb"
 	"google.golang.org/grpc"
@@ -153,6 +154,13 @@ func runGitaly(tb testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, reg
 		gsd = opt(gsd)
 	}
 
+	// We set up the structerr interceptors so that any error metadata that gets set via
+	// `structerr.WithMetadata()` is not only logged, but also present in the error details.
+	serverOpts := []server.Option{
+		server.WithUnaryInterceptor(structerr.UnaryInterceptor),
+		server.WithStreamInterceptor(structerr.StreamInterceptor),
+	}
+
 	deps := gsd.createDependencies(tb, cfg, rubyServer)
 	tb.Cleanup(func() { gsd.conns.Close() })
 
@@ -165,7 +173,7 @@ func runGitaly(tb testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, reg
 	)
 
 	if cfg.RuntimeDir != "" {
-		internalServer, err := serverFactory.CreateInternal()
+		internalServer, err := serverFactory.CreateInternal(serverOpts...)
 		require.NoError(tb, err)
 		tb.Cleanup(internalServer.Stop)
 
@@ -187,7 +195,7 @@ func runGitaly(tb testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, reg
 
 	secure := cfg.TLS.CertPath != "" && cfg.TLS.KeyPath != ""
 
-	externalServer, err := serverFactory.CreateExternal(secure)
+	externalServer, err := serverFactory.CreateExternal(secure, serverOpts...)
 	require.NoError(tb, err)
 	tb.Cleanup(externalServer.Stop)
 
