@@ -29,8 +29,8 @@ type Dir struct {
 	locator         storage.Locator
 }
 
-// New creates a new quarantine directory and returns both the directory as well as its cleanup
-// function.
+// New creates a new quarantine directory and returns the directory. The repository is cleaned
+// up when the user invokes the Migrate() functionality on the Dir.
 func New(ctx context.Context, repo *gitalypb.Repository, locator storage.Locator) (*Dir, error) {
 	repoPath, err := locator.GetPath(repo)
 	if err != nil {

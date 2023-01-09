@@ -3,6 +3,7 @@
 package repository
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -11,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -21,7 +23,11 @@ import (
 func TestFetchSourceBranch(t *testing.T) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(featureflag.FetchSourceBranchQuarantined).Run(t, testFetchSourceBranch)
+}
+
+func testFetchSourceBranch(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	type setupData struct {
 		cfg     config.Cfg
@@ -55,7 +61,7 @@ func TestFetchSourceBranch(t *testing.T) {
 						TargetRef:        []byte("refs/tmp/fetch-source-branch-test"),
 					},
 					verify: func() {
-						actualCommitID := gittest.ResolveRevision(t, cfg, repoPath, "refs/tmp/fetch-source-branch-test")
+						actualCommitID := gittest.ResolveRevision(t, cfg, repoPath, "refs/tmp/fetch-source-branch-test^{commit}")
 						require.Equal(t, commitID, actualCommitID)
 					},
 				}
@@ -80,7 +86,7 @@ func TestFetchSourceBranch(t *testing.T) {
 						TargetRef:        []byte("refs/tmp/fetch-source-branch-test"),
 					},
 					verify: func() {
-						actualCommitID := gittest.ResolveRevision(t, cfg, sourceRepoPath, "refs/tmp/fetch-source-branch-test")
+						actualCommitID := gittest.ResolveRevision(t, cfg, sourceRepoPath, "refs/tmp/fetch-source-branch-test^{commit}")
 						require.Equal(t, commitID, actualCommitID)
 					},
 				}
@@ -405,9 +411,11 @@ func TestFetchSourceBranch(t *testing.T) {
 						repo := localrepo.NewTestRepo(t, cfg, repoProto)
 						exists, err := repo.HasRevision(ctx, commitID.Revision()+"^{commit}")
 						require.NoError(t, err)
-						// TODO: This should be fixed in:
-						// https://gitlab.com/gitlab-org/gitaly/-/issues/4520
-						require.True(t, exists, "fetched commit isn't discarded")
+						if featureflag.FetchSourceBranchQuarantined.IsEnabled(ctx) {
+							require.False(t, exists, "fetched commit isn't discarded")
+						} else {
+							require.True(t, exists, "fetched commit is discarded")
+						}
 					},
 				}
 			},

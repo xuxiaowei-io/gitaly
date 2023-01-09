@@ -7,9 +7,11 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/quarantine"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/remoterepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -32,7 +34,18 @@ func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourc
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
 
-	targetRepo := s.localrepo(req.GetRepository())
+	origTargetRepo := s.localrepo(req.GetRepository())
+	targetRepo := origTargetRepo
+
+	var quarantineDir *quarantine.Dir
+	if featureflag.FetchSourceBranchQuarantined.IsEnabled(ctx) {
+		var err error
+
+		quarantineDir, targetRepo, err = s.quarantinedRepo(ctx, req.GetRepository())
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	sourceRepo, err := remoterepo.New(ctx, req.GetSourceRepository(), s.conns)
 	if err != nil {
@@ -99,7 +112,13 @@ func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourc
 		}
 	}
 
-	if err := targetRepo.UpdateRef(ctx, git.ReferenceName(req.GetTargetRef()), sourceOid, ""); err != nil {
+	if quarantineDir != nil {
+		if err := quarantineDir.Migrate(); err != nil {
+			return nil, structerr.NewInternal("migrating quarantined objects: %w", err)
+		}
+	}
+
+	if err := origTargetRepo.UpdateRef(ctx, git.ReferenceName(req.GetTargetRef()), sourceOid, ""); err != nil {
 		return nil, err
 	}
 
