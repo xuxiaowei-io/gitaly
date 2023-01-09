@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 15.7.2 (2023-01-09)
+
+No changes.
+
 ## 15.7.1 (2023-01-05)
 
 ### Fixed (2 changes)
