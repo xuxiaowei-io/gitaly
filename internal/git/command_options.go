@@ -33,7 +33,7 @@ var (
 	// keys which git would parse just fine, but we only have a limited
 	// number of config entries anyway. Most importantly, we cannot allow
 	// `=` as part of the key as that would break parsing of `git -c`.
-	configKeyGlobalRegex = regexp.MustCompile(`^[[:alnum:]]+(\.[-/_a-zA-Z0-9]+)+$`)
+	configKeyGlobalRegex = regexp.MustCompile(`^[[:alnum:]]+(\.[-/_:@a-zA-Z0-9]+)+$`)
 
 	flagRegex = regexp.MustCompile(`^(-|--)[[:alnum:]]`)
 )

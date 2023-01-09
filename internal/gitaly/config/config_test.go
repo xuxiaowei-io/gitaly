@@ -410,9 +410,8 @@ func TestValidateGitConfig(t *testing.T) {
 		{
 			desc: "missing value",
 			configPairs: []GitConfig{
-				{Key: "foo.bar"},
+				{Key: "foo.bar", Value: ""},
 			},
-			expectedErr: fmt.Errorf("invalid configuration value: \"\""),
 		},
 	}
 
