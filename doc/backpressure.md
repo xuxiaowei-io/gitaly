@@ -38,9 +38,9 @@ configuration can prevent an unbounded in-memory queue of requests:
 - `max_queue_wait` is the maximum amount of time a request can wait in the
   concurrency queue. When a request waits longer than this time, it returns
   an error to the client.
-- `max_queue_size` is the maximum size the concurrency queue can grow for a given
-  RPC. If a concurrency queue is at its maximum, subsequent requests
-  return with an error.
+- `max_queue_size` is the maximum size the concurrency queue can grow for a
+  given RPC. If a concurrency queue is at its maximum, subsequent requests
+  return with an error. The queue size is per repository.
 
 For example:
 
@@ -75,7 +75,7 @@ In the above configuration, the `token bucket` has a capacity of 1 and gets
 refilled every minute. This means that Gitaly only accepts 1 `RepackFull`
 request per repository each minute.
 
-Requests that come in after the `token bucket` is full (and before it is 
+Requests that come in after the `token bucket` is full (and before it is
 replenished) are rejected with an error.
 
 ## Errors
