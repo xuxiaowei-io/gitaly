@@ -549,8 +549,9 @@ func TestUserDeleteBranch(t *testing.T) {
 						BranchName:     []byte(branchName),
 						ExpectedOldOid: "foobar",
 					},
-					repoPath:     repoPath,
-					expectedErr:  structerr.NewInvalidArgument("invalid expected old object ID: invalid object ID: \"foobar\""),
+					repoPath: repoPath,
+					expectedErr: structerr.NewInvalidArgument("invalid expected old object ID: invalid object ID: \"foobar\"").
+						WithInterceptedMetadata("old_object_id", "foobar"),
 					expectedRefs: []string{"master", branchName},
 				}
 			},
@@ -574,8 +575,9 @@ func TestUserDeleteBranch(t *testing.T) {
 						BranchName:     []byte(branchName),
 						ExpectedOldOid: gittest.DefaultObjectHash.ZeroOID.String(),
 					},
-					repoPath:     repoPath,
-					expectedErr:  structerr.NewInvalidArgument("cannot resolve expected old object ID: reference not found"),
+					repoPath: repoPath,
+					expectedErr: structerr.NewInvalidArgument("cannot resolve expected old object ID: reference not found").
+						WithInterceptedMetadata("old_object_id", gittest.DefaultObjectHash.ZeroOID),
 					expectedRefs: []string{"master", branchName},
 				}
 			},

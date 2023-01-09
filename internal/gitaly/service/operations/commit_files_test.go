@@ -1154,7 +1154,8 @@ func testSuccessfulUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 			repoPath:       repoPath,
 			branchName:     "few-commits",
 			expectedOldOID: "foobar",
-			expectedError:  structerr.NewInvalidArgument(`invalid expected old object ID: invalid object ID: "foobar"`),
+			expectedError: structerr.NewInvalidArgument(`invalid expected old object ID: invalid object ID: "foobar"`).
+				WithInterceptedMetadata("old_object_id", "foobar"),
 		},
 		{
 			desc:           "existing repo and branch + valid expectedOldOID but invalid object",
@@ -1162,7 +1163,8 @@ func testSuccessfulUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 			repoPath:       repoPath,
 			branchName:     "few-commits",
 			expectedOldOID: gittest.DefaultObjectHash.ZeroOID.String(),
-			expectedError:  structerr.NewInvalidArgument("cannot resolve expected old object ID: reference not found"),
+			expectedError: structerr.NewInvalidArgument("cannot resolve expected old object ID: reference not found").
+				WithInterceptedMetadata("old_object_id", gittest.DefaultObjectHash.ZeroOID),
 		},
 		{
 			desc:           "existing repo and branch + incorrect expectedOldOID",

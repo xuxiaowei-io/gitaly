@@ -205,7 +205,8 @@ func TestUserCherryPick(t *testing.T) {
 					ExpectedOldOid: "foobar",
 				}, &gitalypb.UserCherryPickResponse{}
 			},
-			expectedErr: structerr.NewInvalidArgument("invalid expected old object ID: invalid object ID: \"foobar\""),
+			expectedErr: structerr.NewInvalidArgument("invalid expected old object ID: invalid object ID: \"foobar\"").
+				WithInterceptedMetadata("old_object_id", "foobar"),
 		},
 		{
 			desc: "valid but non-existent expectedOldOID",
@@ -221,7 +222,8 @@ func TestUserCherryPick(t *testing.T) {
 					ExpectedOldOid: gittest.DefaultObjectHash.ZeroOID.String(),
 				}, &gitalypb.UserCherryPickResponse{}
 			},
-			expectedErr: structerr.NewInvalidArgument("cannot resolve expected old object ID: reference not found"),
+			expectedErr: structerr.NewInvalidArgument("cannot resolve expected old object ID: reference not found").
+				WithInterceptedMetadata("old_object_id", gittest.DefaultObjectHash.ZeroOID),
 		},
 		{
 			desc: "incorrect expectedOldOID",
