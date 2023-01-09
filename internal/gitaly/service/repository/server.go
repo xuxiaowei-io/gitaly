@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/unarycache"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -27,6 +28,8 @@ type server struct {
 	catfileCache        catfile.Cache
 	git2goExecutor      *git2go.Executor
 	housekeepingManager housekeeping.Manager
+
+	licenseCache *unarycache.Cache[git.ObjectID, *gitalypb.FindLicenseResponse]
 }
 
 // NewServer creates a new instance of a gRPC repo server
@@ -52,6 +55,8 @@ func NewServer(
 		catfileCache:        catfileCache,
 		git2goExecutor:      git2goExecutor,
 		housekeepingManager: housekeepingManager,
+
+		licenseCache: newLicenseCache(),
 	}
 }
 
