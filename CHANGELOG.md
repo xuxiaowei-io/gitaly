@@ -1,5 +1,13 @@
 # Gitaly changelog
 
+## 15.5.7 (2023-01-09)
+
+### Fixed (3 changes)
+
+- [config: Allow empty values for Git configuration](gitlab-org/security/gitaly@64fc4ac5dbad9d03ed9af8a495d2dc26a7e173a5)
+- [git: Extend config validation to allow URL keys](gitlab-org/security/gitaly@28d418468fa28cc189d9f0cb3b5355c92fd059c6)
+- [Makefile: Upgrade Git to v2.35.5.gl1 and v2.37.4.gl1 respectively](gitlab-org/security/gitaly@1744366f11ca32d46f444e4070c2aa8fbad44124)
+
 ## 15.5.6 (2022-12-07)
 
 No changes.
