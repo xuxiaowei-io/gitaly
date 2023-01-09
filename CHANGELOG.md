@@ -57,6 +57,12 @@ No changes.
 
 - [objectpool: Deprecate ReduplicateRepository RPC](gitlab-org/gitaly@4db49541d5843106aeac193de0ed3fd466cc3bc8) ([merge request](gitlab-org/gitaly!5131))
 
+## 15.6.4 (2023-01-09)
+
+### Fixed (1 change)
+
+- [config: Allow empty values for Git configuration](gitlab-org/security/gitaly@2b0327a5893fd7b969f0179f92a9f5e3a55b5055)
+
 ## 15.6.3 (2022-12-21)
 
 ### Fixed (1 change)
