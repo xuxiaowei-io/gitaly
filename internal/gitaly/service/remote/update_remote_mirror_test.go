@@ -147,6 +147,39 @@ func TestUpdateRemoteMirror(t *testing.T) {
 			},
 		},
 		{
+			desc: "updates branches that match the branch selector",
+			sourceRefs: refs{
+				"refs/heads/master":      {"commit 1"},
+				"refs/heads/matched":     {"commit 1"},
+				"refs/heads/not-matched": {"commit 1"},
+			},
+			mirrorRefs: refs{
+				"refs/tags/tag": {"commit 1"},
+			},
+			onlyBranchesMatching: []string{"matched"},
+			response:             &gitalypb.UpdateRemoteMirrorResponse{},
+			expectedMirrorRefs: map[string]string{
+				"refs/heads/matched": "commit 1",
+			},
+		},
+		{
+			desc: "updates branches that match the branch selector with wildcard",
+			sourceRefs: refs{
+				"refs/heads/master":      {"commit 1"},
+				"refs/heads/matched":     {"commit 1"},
+				"refs/heads/not-matched": {"commit 1"},
+			},
+			mirrorRefs: refs{
+				"refs/tags/tag": {"commit 1"},
+			},
+			onlyBranchesMatching: []string{"*matched"},
+			response:             &gitalypb.UpdateRemoteMirrorResponse{},
+			expectedMirrorRefs: map[string]string{
+				"refs/heads/not-matched": "commit 1",
+				"refs/heads/matched":     "commit 1",
+			},
+		},
+		{
 			desc: "deletes unneeded references that match the branch selector",
 			sourceRefs: refs{
 				"refs/heads/master": {"commit 1"},
@@ -682,77 +715,6 @@ func TestUpdateRemoteMirror(t *testing.T) {
 			require.Equal(t, tc.expectedMirrorRefs, actualMirrorRefs)
 		})
 	}
-}
-
-func TestSuccessfulUpdateRemoteMirrorRequestWithWildcards(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	cfg, testRepo, testRepoPath, client := setupRemoteService(t, ctx)
-
-	_, mirrorPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
-
-	setupCommands := [][]string{
-		// Preconditions
-		{"config", "user.email", "gitalytest@example.com"},
-		// Updates
-		{"branch", "11-0-stable", "60ecb67744cb56576c30214ff52294f8ce2def98"},
-		{"branch", "11-1-stable", "60ecb67744cb56576c30214ff52294f8ce2def98"},                // Add branch
-		{"branch", "ignored-branch", "60ecb67744cb56576c30214ff52294f8ce2def98"},             // Add branch not matching branch list
-		{"update-ref", "refs/heads/some-branch", "0b4bc9a49b562e85de7cc9e834518ea6828729b9"}, // Update branch
-		{"update-ref", "refs/heads/feature", "0b4bc9a49b562e85de7cc9e834518ea6828729b9"},     // Update branch
-		// Scoped to the project, so will be removed after
-		{"branch", "-D", "not-merged-branch"}, // Delete branch
-		{"tag", "--delete", "v1.1.0"},         // v1.1.0 is ambiguous, maps to a branch and a tag in gitlab-test repository
-	}
-
-	gittest.WriteTag(t, cfg, testRepoPath, "new-tag", "60ecb67744cb56576c30214ff52294f8ce2def98") // Add tag
-	gittest.WriteTag(t, cfg, testRepoPath, "v1.0.0", "0b4bc9a49b562e85de7cc9e834518ea6828729b9",
-		gittest.WriteTagConfig{Message: "Overriding tag", Force: true}) // Update tag
-
-	for _, args := range setupCommands {
-		gitArgs := []string{"-C", testRepoPath}
-		gitArgs = append(gitArgs, args...)
-		gittest.Exec(t, cfg, gitArgs...)
-	}
-
-	// Workaround for https://gitlab.com/gitlab-org/gitaly/issues/1439
-	// Create a tag on the remote to ensure it gets deleted later
-	gittest.WriteTag(t, cfg, mirrorPath, "v1.2.0", "master")
-
-	newTagOid := string(gittest.Exec(t, cfg, "-C", testRepoPath, "rev-parse", "v1.0.0"))
-	newTagOid = strings.TrimSpace(newTagOid)
-	require.NotEqual(t, newTagOid, "f4e6814c3e4e7a0de82a9e7cd20c626cc963a2f8") // Sanity check that the tag did in fact change
-	firstRequest := &gitalypb.UpdateRemoteMirrorRequest{
-		Repository: testRepo,
-		Remote: &gitalypb.UpdateRemoteMirrorRequest_Remote{
-			Url: mirrorPath,
-		},
-		OnlyBranchesMatching: [][]byte{[]byte("*-stable"), []byte("feature")},
-	}
-
-	stream, err := client.UpdateRemoteMirror(ctx)
-	require.NoError(t, err)
-	require.NoError(t, stream.Send(firstRequest))
-
-	response, err := stream.CloseAndRecv()
-	require.NoError(t, err)
-	require.Empty(t, response.DivergentRefs)
-
-	mirrorRefs := string(gittest.Exec(t, cfg, "-C", mirrorPath, "for-each-ref"))
-	require.Contains(t, mirrorRefs, "60ecb67744cb56576c30214ff52294f8ce2def98 commit\trefs/heads/11-0-stable")
-	require.Contains(t, mirrorRefs, "60ecb67744cb56576c30214ff52294f8ce2def98 commit\trefs/heads/11-1-stable")
-	require.Contains(t, mirrorRefs, "0b4bc9a49b562e85de7cc9e834518ea6828729b9 commit\trefs/heads/feature")
-	require.NotContains(t, mirrorRefs, "refs/heads/ignored-branch")
-	require.NotContains(t, mirrorRefs, "refs/heads/some-branch")
-	require.Contains(t, mirrorRefs, "refs/heads/not-merged-branch")
-	require.Contains(t, mirrorRefs, "60ecb67744cb56576c30214ff52294f8ce2def98 commit\trefs/tags/new-tag")
-	require.Contains(t, mirrorRefs, newTagOid+" tag\trefs/tags/v1.0.0")
-	require.NotContains(t, mirrorRefs, "refs/tags/v1.2.0")
-	require.Contains(t, mirrorRefs, "refs/heads/v1.1.0")
-	require.NotContains(t, mirrorRefs, "refs/tags/v1.1.0")
 }
 
 func TestUpdateRemoteMirrorInmemory(t *testing.T) {
