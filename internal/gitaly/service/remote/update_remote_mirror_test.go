@@ -42,6 +42,11 @@ func TestUpdateRemoteMirror(t *testing.T) {
 
 	type refs map[string][]string
 
+	type expectedError struct {
+		contains string
+		code     codes.Code
+	}
+
 	for _, tc := range []struct {
 		desc                 string
 		sourceRefs           refs
@@ -52,7 +57,7 @@ func TestUpdateRemoteMirror(t *testing.T) {
 		onlyBranchesMatching []string
 		wrapCommandFactory   func(testing.TB, git.CommandFactory) git.CommandFactory
 		requests             []*gitalypb.UpdateRemoteMirrorRequest
-		errorContains        string
+		expectedError        *expectedError
 		response             *gitalypb.UpdateRemoteMirrorResponse
 		expectedMirrorRefs   map[string]string
 	}{
@@ -357,7 +362,10 @@ func TestUpdateRemoteMirror(t *testing.T) {
 					},
 				}
 			},
-			errorContains: "Updates were rejected because a pushed branch tip is behind its remote",
+			expectedError: &expectedError{
+				contains: "Updates were rejected because a pushed branch tip is behind its remote",
+				code:     codes.Internal,
+			},
 		},
 		{
 			desc: "ignores symbolic references in source repo",
@@ -490,6 +498,33 @@ func TestUpdateRemoteMirror(t *testing.T) {
 				return out
 			}(),
 		},
+		{
+			desc:     "no F/D conflicts when the ref is an ancestor",
+			response: &gitalypb.UpdateRemoteMirrorResponse{},
+			sourceRefs: refs{
+				"refs/heads/branch": {"commit 1", "commit 2"},
+			},
+			mirrorRefs: refs{
+				"refs/heads/branch/conflict": {"commit 1"},
+			},
+			expectedMirrorRefs: map[string]string{
+				"refs/heads/branch": "commit 2",
+			},
+		},
+		{
+			desc:     "F/D conflicts when the ref is not an ancestor",
+			response: &gitalypb.UpdateRemoteMirrorResponse{},
+			sourceRefs: refs{
+				"refs/heads/branch": {"commit 1"},
+			},
+			mirrorRefs: refs{
+				"refs/heads/branch/conflict": {"commit 2"},
+			},
+			expectedError: &expectedError{
+				contains: "push to mirror: git push: exit status 1",
+				code:     codes.Internal,
+			},
+		},
 	} {
 		tc := tc
 
@@ -620,9 +655,9 @@ func TestUpdateRemoteMirror(t *testing.T) {
 			}
 
 			resp, err := stream.CloseAndRecv()
-			if tc.errorContains != "" {
-				testhelper.RequireGrpcCode(t, err, codes.Internal)
-				require.Contains(t, err.Error(), tc.errorContains)
+			if tc.expectedError != nil {
+				testhelper.RequireGrpcCode(t, err, tc.expectedError.code)
+				require.Contains(t, err.Error(), tc.expectedError.contains)
 				return
 			}
 
