@@ -19,13 +19,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	repositorysvc "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 type commandFactoryWrapper struct {
@@ -717,55 +717,69 @@ func TestUpdateRemoteMirror(t *testing.T) {
 	}
 }
 
-func TestFailedUpdateRemoteMirrorRequestDueToValidation(t *testing.T) {
+func TestUpdateRemoteMirror_Validations(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, testRepo, _, client := setupRemoteService(t, ctx)
+	cfg, client := setupRemoteServiceWithoutRepo(t, ctx)
 
 	testCases := []struct {
-		desc        string
-		request     *gitalypb.UpdateRemoteMirrorRequest
 		expectedErr error
+		setup       func(t *testing.T) *gitalypb.UpdateRemoteMirrorRequest
+		desc        string
 	}{
 		{
 			desc: "empty Repository",
-			request: &gitalypb.UpdateRemoteMirrorRequest{
-				Repository: nil,
-				Remote: &gitalypb.UpdateRemoteMirrorRequest_Remote{
-					Url: "something",
-				},
+			setup: func(t *testing.T) *gitalypb.UpdateRemoteMirrorRequest {
+				return &gitalypb.UpdateRemoteMirrorRequest{
+					Repository: nil,
+					Remote: &gitalypb.UpdateRemoteMirrorRequest_Remote{
+						Url: "something",
+					},
+				}
 			},
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
 		},
 		{
 			desc: "no Remote",
-			request: &gitalypb.UpdateRemoteMirrorRequest{
-				Repository: testRepo,
-				Remote:     nil,
+			setup: func(t *testing.T) *gitalypb.UpdateRemoteMirrorRequest {
+				mirrorRepoPb, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return &gitalypb.UpdateRemoteMirrorRequest{
+					Repository: mirrorRepoPb,
+				}
 			},
-			expectedErr: status.Error(codes.InvalidArgument, "missing Remote"),
+			expectedErr: structerr.NewInvalidArgument("missing Remote"),
 		},
+
 		{
 			desc: "remote is missing URL",
-			request: &gitalypb.UpdateRemoteMirrorRequest{
-				Repository: testRepo,
-				Remote: &gitalypb.UpdateRemoteMirrorRequest_Remote{
-					Url: "",
-				},
+			setup: func(t *testing.T) *gitalypb.UpdateRemoteMirrorRequest {
+				mirrorRepoPb, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return &gitalypb.UpdateRemoteMirrorRequest{
+					Repository: mirrorRepoPb,
+					Remote: &gitalypb.UpdateRemoteMirrorRequest_Remote{
+						Url: "",
+					},
+				}
 			},
-			expectedErr: status.Error(codes.InvalidArgument, "remote is missing URL"),
+			expectedErr: structerr.NewInvalidArgument("remote is missing URL"),
 		},
 	}
 
 	for _, tc := range testCases {
+		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
 			stream, err := client.UpdateRemoteMirror(ctx)
 			require.NoError(t, err)
-			require.NoError(t, stream.Send(tc.request))
+			require.NoError(t, stream.Send(tc.setup(t)))
 
 			_, err = stream.CloseAndRecv()
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
