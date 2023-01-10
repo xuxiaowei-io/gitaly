@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 15.7.2 (2023-01-09)
+
+No changes.
+
 ## 15.7.1 (2023-01-05)
 
 ### Fixed (2 changes)
@@ -52,6 +56,12 @@
 ### deprecate (1 change)
 
 - [objectpool: Deprecate ReduplicateRepository RPC](gitlab-org/gitaly@4db49541d5843106aeac193de0ed3fd466cc3bc8) ([merge request](gitlab-org/gitaly!5131))
+
+## 15.6.4 (2023-01-09)
+
+### Fixed (1 change)
+
+- [config: Allow empty values for Git configuration](gitlab-org/security/gitaly@2b0327a5893fd7b969f0179f92a9f5e3a55b5055)
 
 ## 15.6.3 (2022-12-21)
 
@@ -117,6 +127,14 @@ No changes.
 - [ruby: Remove HooksService and OperationService](gitlab-org/gitaly@4440aae1c028c263b37ee6f149f11179d22147f8) ([merge request](gitlab-org/gitaly!4992))
 - [ruby: Remove FeatureFlags](gitlab-org/gitaly@63b206dd21eac0e7f573b099f6bd4154ca44ae3a) ([merge request](gitlab-org/gitaly!4992))
 - [Remove rubyserver redundant clients](gitlab-org/gitaly@2a76a2615d8b1c6d611d0623e4d0925a4b9f914e) ([merge request](gitlab-org/gitaly!4992))
+
+## 15.5.7 (2023-01-09)
+
+### Fixed (3 changes)
+
+- [config: Allow empty values for Git configuration](gitlab-org/security/gitaly@64fc4ac5dbad9d03ed9af8a495d2dc26a7e173a5)
+- [git: Extend config validation to allow URL keys](gitlab-org/security/gitaly@28d418468fa28cc189d9f0cb3b5355c92fd059c6)
+- [Makefile: Upgrade Git to v2.35.5.gl1 and v2.37.4.gl1 respectively](gitlab-org/security/gitaly@1744366f11ca32d46f444e4070c2aa8fbad44124)
 
 ## 15.5.6 (2022-12-07)
 
