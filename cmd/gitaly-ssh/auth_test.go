@@ -22,10 +22,16 @@ import (
 )
 
 func TestConnectivity(t *testing.T) {
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
 
 	testcfg.BuildGitalySSH(t, cfg)
 	testcfg.BuildGitalyHooks(t, cfg)
+
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	cwd, err := os.Getwd()
 	require.NoError(t, err)

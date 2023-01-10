@@ -7,10 +7,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
 // UnconfiguredSocketPath is used to bypass config validation errors
@@ -146,29 +144,4 @@ func Build(tb testing.TB, opts ...Option) config.Cfg {
 	cfgBuilder := NewGitalyCfgBuilder(opts...)
 
 	return cfgBuilder.Build(tb)
-}
-
-// BuildWithRepo creates a minimal configuration setup with no options.
-// It also clones test repository at the storage and returns it with the full path to the repository.
-func BuildWithRepo(tb testing.TB, opts ...Option) (config.Cfg, *gitalypb.Repository, string) {
-	tb.Helper()
-
-	ctx := testhelper.Context(tb)
-	cfg := Build(tb, opts...)
-
-	// clone the test repo to the each storage
-	repos := make([]*gitalypb.Repository, len(cfg.Storages))
-	for i, gitalyStorage := range cfg.Storages {
-		repo, _ := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
-			SkipCreationViaService: true,
-			Storage:                gitalyStorage,
-			RelativePath:           tb.Name(),
-			Seed:                   gittest.SeedGitLabTest,
-		})
-
-		repos[i] = repo
-		repos[i].StorageName = gitalyStorage.Name
-	}
-
-	return cfg, repos[0], filepath.Join(cfg.Storages[0].Path, repos[0].RelativePath)
 }

@@ -167,7 +167,13 @@ func TestConflicts(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+		ctx := testhelper.Context(t)
+		cfg := testcfg.Build(t)
+
+		repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			SkipCreationViaService: true,
+			Seed:                   gittest.SeedGitLabTest,
+		})
 		executor := buildExecutor(t, cfg)
 
 		testcfg.BuildGitalyGit2Go(t, cfg)
@@ -177,8 +183,6 @@ func TestConflicts(t *testing.T) {
 		theirs := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(base), gittest.WithTreeEntries(tc.theirs...))
 
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
-
 			response, err := executor.Conflicts(ctx, repo, git2go.ConflictsCommand{
 				Repository: repoPath,
 				Ours:       ours.String(),
@@ -192,7 +196,14 @@ func TestConflicts(t *testing.T) {
 }
 
 func TestConflicts_checkError(t *testing.T) {
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
+
 	base := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries())
 	validOID := glgit.ObjectID(base.String())
 	executor := buildExecutor(t, cfg)
@@ -263,7 +274,6 @@ func TestConflicts_checkError(t *testing.T) {
 			if tc.overrideRepoPath != "" {
 				repoPath = tc.overrideRepoPath
 			}
-			ctx := testhelper.Context(t)
 
 			_, err := executor.Conflicts(ctx, repo, git2go.ConflictsCommand{
 				Repository: repoPath,

@@ -24,7 +24,13 @@ import (
 )
 
 func TestHookManager_stopCalled(t *testing.T) {
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	expectedTx := txinfo.Transaction{
 		ID: 1234, Node: "primary", Primary: true,
@@ -34,8 +40,6 @@ func TestHookManager_stopCalled(t *testing.T) {
 	hookManager := NewManager(cfg, config.NewLocator(cfg), gittest.NewCommandFactory(t, cfg), &mockTxMgr, gitlab.NewMockClient(
 		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
 	))
-
-	ctx := testhelper.Context(t)
 
 	hooksPayload, err := git.NewHooksPayload(
 		cfg,
@@ -122,7 +126,13 @@ func TestHookManager_stopCalled(t *testing.T) {
 }
 
 func TestHookManager_contextCancellationCancelsVote(t *testing.T) {
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	ctx, cancel := context.WithCancel(testhelper.Context(t))
+	cfg := testcfg.Build(t)
+
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	mockTxMgr := transaction.MockManager{
 		VoteFn: func(ctx context.Context, _ txinfo.Transaction, _ voting.Vote, _ voting.Phase) error {
@@ -146,7 +156,6 @@ func TestHookManager_contextCancellationCancelsVote(t *testing.T) {
 		nil,
 	).Env()
 	require.NoError(t, err)
-	ctx, cancel := context.WithCancel(testhelper.Context(t))
 
 	changes := fmt.Sprintf("%s %s refs/heads/master", strings.Repeat("1", 40), git.ObjectHashSHA1.ZeroOID)
 

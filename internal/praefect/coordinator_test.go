@@ -2064,7 +2064,13 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 		operationServer *mockOperationServer
 	}
 
-	_, repoProto, _ := testcfg.BuildWithRepo(t)
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	for _, tc := range []struct {
 		desc        string
@@ -2098,8 +2104,6 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
-
 			var wg sync.WaitGroup
 			gitalies := make(map[string]gitalyNode)
 			for _, gitaly := range []string{"primary", "secondary-1", "secondary-2"} {

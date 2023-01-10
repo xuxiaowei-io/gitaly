@@ -72,8 +72,13 @@ func TestServer_FetchBundle_transaction(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
 	testcfg.BuildGitalyHooks(t, cfg)
+
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	hookManager := &mockHookManager{}
 	client, _ := runRepositoryService(t, cfg, nil, testserver.WithHookManager(hookManager), testserver.WithDisablePraefect())

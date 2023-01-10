@@ -27,10 +27,15 @@ func TestVisibilityOfHiddenRefs(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
 
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 	testcfg.BuildGitalySSH(t, cfg)
 	testcfg.BuildGitalyHooks(t, cfg)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	address := testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 

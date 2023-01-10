@@ -25,7 +25,14 @@ import (
 )
 
 func TestUpdate_customHooks(t *testing.T) {
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
+
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 	locator := config.NewLocator(cfg)
 
@@ -38,8 +45,6 @@ func TestUpdate_customHooks(t *testing.T) {
 		Username: "user",
 		Protocol: "web",
 	}
-
-	ctx := testhelper.Context(t)
 
 	payload, err := git.NewHooksPayload(cfg, repo, nil, receiveHooksPayload, git.UpdateHook, featureflag.FromContext(ctx)).Env()
 	require.NoError(t, err)
@@ -208,8 +213,12 @@ func TestUpdate_customHooks(t *testing.T) {
 
 func TestUpdate_quarantine(t *testing.T) {
 	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
 
-	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	quarantine, err := quarantine.New(ctx, repoProto, config.NewLocator(cfg))
 	require.NoError(t, err)

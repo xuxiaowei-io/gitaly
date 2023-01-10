@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
@@ -63,7 +64,13 @@ func TestHooksMissingStdin(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+			ctx := testhelper.Context(t)
+			cfg := testcfg.Build(t)
+
+			repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				SkipCreationViaService: true,
+				Seed:                   gittest.SeedGitLabTest,
+			})
 
 			c := gitlab.TestServerOptions{
 				User:                        user,
@@ -96,7 +103,6 @@ func TestHooksMissingStdin(t *testing.T) {
 
 			client, conn := newHooksClient(t, serverSocketPath)
 			defer conn.Close()
-			ctx := testhelper.Context(t)
 
 			hooksPayload, err := git.NewHooksPayload(
 				cfg,
@@ -187,7 +193,13 @@ To create a merge request for okay, visit:
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+			ctx := testhelper.Context(t)
+			cfg := testcfg.Build(t)
+
+			repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				SkipCreationViaService: true,
+				Seed:                   gittest.SeedGitLabTest,
+			})
 
 			tempDir := testhelper.TempDir(t)
 			gitlab.WriteShellSecretFile(t, tempDir, secretToken)
@@ -225,7 +237,6 @@ To create a merge request for okay, visit:
 
 			client, conn := newHooksClient(t, serverSocketPath)
 			defer conn.Close()
-			ctx := testhelper.Context(t)
 
 			stream, err := client.PostReceiveHook(ctx)
 			require.NoError(t, err)

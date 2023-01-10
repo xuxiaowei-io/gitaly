@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -32,11 +33,18 @@ type postReceiveRequest struct {
 //
 //go:generate openssl req -newkey rsa:4096 -new -nodes -x509 -days 3650 -out testdata/certs/server.crt -keyout testdata/certs/server.key -subj "/C=US/ST=California/L=San Francisco/O=GitLab/OU=GitLab-Shell/CN=localhost" -addext "subjectAltName = IP:127.0.0.1"
 func TestAccess_verifyParams(t *testing.T) {
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
 	user, password := "user", "password"
 	secretToken := "topsecret"
 	glID, glRepository := "key-123", "repo-1"
 
-	_, repo, repoPath := testcfg.BuildWithRepo(t)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
+
 	changes := "changes1\nchanges2\nchanges3"
 	protocol := "protocol"
 
@@ -121,7 +129,6 @@ func TestAccess_verifyParams(t *testing.T) {
 			allowed:      false,
 		},
 	}
-	ctx := testhelper.Context(t)
 
 	for _, tc := range testCases {
 		allowed, _, err := c.Allowed(ctx, AllowedParams{
@@ -139,11 +146,18 @@ func TestAccess_verifyParams(t *testing.T) {
 }
 
 func TestAccess_escapedAndRelativeURLs(t *testing.T) {
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
 	user, password := "user", "password"
 	secretToken := "topsecret"
 	glID, glRepository := "key-123", "repo-1"
 
-	_, repo, repoPath := testcfg.BuildWithRepo(t)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
+
 	changes := "changes1\nchanges2\nchanges3"
 	protocol := "protocol"
 
@@ -230,7 +244,6 @@ func TestAccess_escapedAndRelativeURLs(t *testing.T) {
 				prometheus.Config{},
 			)
 			require.NoError(t, err)
-			ctx := testhelper.Context(t)
 
 			allowed, _, err := c.Allowed(ctx, AllowedParams{
 				RepoPath:                      repo.RelativePath,
@@ -248,7 +261,13 @@ func TestAccess_escapedAndRelativeURLs(t *testing.T) {
 }
 
 func TestAccess_allowedResponseHandling(t *testing.T) {
-	_, repo, repoPath := testcfg.BuildWithRepo(t)
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	// set git quarantine directories
 	gitObjectDir := filepath.Join(repoPath, "quarantine", "object", "dir")
@@ -383,7 +402,6 @@ func TestAccess_allowedResponseHandling(t *testing.T) {
 
 			mockHistogramVec := promtest.NewMockHistogramVec()
 			c.latencyMetric = mockHistogramVec
-			ctx := testhelper.Context(t)
 
 			allowed, message, err := c.Allowed(ctx, AllowedParams{
 				RepoPath:                      repo.RelativePath,

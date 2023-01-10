@@ -88,7 +88,13 @@ func TestPreReceiveHook_GitlabAPIAccess(t *testing.T) {
 	changes := "changes123"
 	protocol := "http"
 
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	gitObjectDirRel := "git/object/dir"
 	gitAlternateObjectRelDirs := []string{"alt/obj/dir/1", "alt/obj/dir/2"}
@@ -140,7 +146,6 @@ func TestPreReceiveHook_GitlabAPIAccess(t *testing.T) {
 
 	client, conn := newHooksClient(t, serverSocketPath)
 	defer conn.Close()
-	ctx := testhelper.Context(t)
 
 	hooksPayload, err := git.NewHooksPayload(
 		cfg,

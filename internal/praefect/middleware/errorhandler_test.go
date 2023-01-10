@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/grpc-proxy/proxy"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/nodes/tracker"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/protoregistry"
@@ -96,7 +97,11 @@ func TestStreamInterceptor(t *testing.T) {
 
 	client := gitalypb.NewRepositoryServiceClient(praefectCC)
 
-	_, repo, _ := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	for i := 0; i < threshold; i++ {
 		_, err = client.RepositoryExists(ctx, &gitalypb.RepositoryExistsRequest{

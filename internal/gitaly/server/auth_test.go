@@ -306,7 +306,8 @@ func TestStreamingNoAuth(t *testing.T) {
 }
 
 func TestAuthBeforeLimit(t *testing.T) {
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t, testcfg.WithBase(config.Cfg{
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t, testcfg.WithBase(config.Cfg{
 		Auth: auth.Config{Token: "abc123"},
 		Concurrency: []config.Concurrency{{
 			RPC:        "/gitaly.OperationService/UserCreateTag",
@@ -314,6 +315,11 @@ func TestAuthBeforeLimit(t *testing.T) {
 		}},
 	},
 	))
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	gitlabURL, cleanup := gitlab.SetupAndStartGitlabServer(t, cfg.GitlabShell.Dir, &gitlab.TestServerOptions{
 		SecretToken:                 "secretToken",
@@ -328,7 +334,6 @@ func TestAuthBeforeLimit(t *testing.T) {
 	serverSocketPath := runServer(t, cfg)
 	client, conn := newOperationClient(t, cfg.Auth.Token, serverSocketPath)
 	t.Cleanup(func() { conn.Close() })
-	ctx := testhelper.Context(t)
 
 	defer func(d time.Duration) {
 		gitalyauth.SetTokenValidityDuration(d)

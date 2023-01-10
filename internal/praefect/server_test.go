@@ -493,7 +493,12 @@ func TestRemoveRepository(t *testing.T) {
 	praefectCfg := config.Config{VirtualStorages: []*config.VirtualStorage{{Name: "praefect"}}}
 
 	for i, name := range []string{"gitaly-1", "gitaly-2", "gitaly-3"} {
-		gitalyCfgs[i], repos[i], _ = testcfg.BuildWithRepo(t, testcfg.WithStorages(name))
+		gitalyCfgs[i] = testcfg.Build(t, testcfg.WithStorages(name))
+		repos[i], _ = gittest.CreateRepository(t, ctx, gitalyCfgs[i], gittest.CreateRepositoryConfig{
+			SkipCreationViaService: true,
+			Seed:                   gittest.SeedGitLabTest,
+			RelativePath:           t.Name(),
+		})
 
 		gitalyAddr := testserver.RunGitalyServer(t, gitalyCfgs[i], nil, setup.RegisterAll, testserver.WithDisablePraefect())
 		gitalyCfgs[i].SocketPath = gitalyAddr
@@ -815,7 +820,11 @@ func TestProxyWrites(t *testing.T) {
 	defer nodeMgr.Stop()
 	ctx := testhelper.Context(t)
 
-	_, repo, _ := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	rs := datastore.MockRepositoryStore{
 		GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (string, map[string]struct{}, error) {
@@ -1004,7 +1013,12 @@ func TestErrorThreshold(t *testing.T) {
 			defer testhelper.MustClose(t, conn)
 			cli := gitalypb.NewRepositoryServiceClient(conn)
 
-			_, repo, _ := testcfg.BuildWithRepo(t)
+			cfg := testcfg.Build(t)
+
+			repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				SkipCreationViaService: true,
+				Seed:                   gittest.SeedGitLabTest,
+			})
 
 			node := nodeMgr.Nodes()["default"][0]
 			require.Equal(t, "praefect-internal-0", node.GetStorage())

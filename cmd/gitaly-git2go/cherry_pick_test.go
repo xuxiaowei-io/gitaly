@@ -17,7 +17,13 @@ import (
 )
 
 func TestCherryPick_validation(t *testing.T) {
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 	testcfg.BuildGitalyGit2Go(t, cfg)
 	executor := buildExecutor(t, cfg)
 
@@ -68,8 +74,6 @@ func TestCherryPick_validation(t *testing.T) {
 	}
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
-
 			_, err := executor.CherryPick(ctx, repo, tc.request)
 			require.EqualError(t, err, tc.expectedErr)
 		})
@@ -146,7 +150,13 @@ func TestCherryPick(t *testing.T) {
 		},
 	}
 	for _, tc := range testcases {
-		cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+		ctx := testhelper.Context(t)
+		cfg := testcfg.Build(t)
+
+		repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			SkipCreationViaService: true,
+			Seed:                   gittest.SeedGitLabTest,
+		})
 		testcfg.BuildGitalyGit2Go(t, cfg)
 		executor := buildExecutor(t, cfg)
 
@@ -161,8 +171,6 @@ func TestCherryPick(t *testing.T) {
 		}
 
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
-
 			committer := git.Signature{
 				Name:  "Baz",
 				Email: "baz@example.com",
@@ -221,8 +229,12 @@ func TestCherryPick(t *testing.T) {
 
 func TestCherryPickStructuredErrors(t *testing.T) {
 	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
 
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	testcfg.BuildGitalyGit2Go(t, cfg)
 	executor := buildExecutor(t, cfg)

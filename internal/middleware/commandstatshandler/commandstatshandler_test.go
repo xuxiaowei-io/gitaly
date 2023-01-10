@@ -74,7 +74,13 @@ func getBufDialer(listener *bufconn.Listener) func(context.Context, string) (net
 }
 
 func TestInterceptor(t *testing.T) {
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	logger, hook := test.NewNullLogger()
 
@@ -87,8 +93,6 @@ func TestInterceptor(t *testing.T) {
 		err := s.Serve(listener)
 		require.NoError(t, err)
 	}()
-
-	ctx := testhelper.Context(t)
 
 	tests := []struct {
 		name            string
