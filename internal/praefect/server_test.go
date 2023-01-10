@@ -489,12 +489,11 @@ func TestRemoveRepository(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	gitalyCfgs := make([]gconfig.Cfg, 3)
-	repos := make([][]*gitalypb.Repository, 3)
+	repos := make([]*gitalypb.Repository, 3)
 	praefectCfg := config.Config{VirtualStorages: []*config.VirtualStorage{{Name: "praefect"}}}
 
 	for i, name := range []string{"gitaly-1", "gitaly-2", "gitaly-3"} {
-		cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages(name))
-		gitalyCfgs[i], repos[i] = cfgBuilder.BuildWithRepoAt(t, "test-repository")
+		gitalyCfgs[i], repos[i], _ = testcfg.BuildWithRepo(t, testcfg.WithStorages(name))
 
 		gitalyAddr := testserver.RunGitalyServer(t, gitalyCfgs[i], nil, setup.RegisterAll, testserver.WithDisablePraefect())
 		gitalyCfgs[i].SocketPath = gitalyAddr
@@ -509,7 +508,7 @@ func TestRemoveRepository(t *testing.T) {
 	verifyReposExistence := func(t *testing.T, code codes.Code) {
 		for i, gitalyCfg := range gitalyCfgs {
 			locator := gconfig.NewLocator(gitalyCfg)
-			_, err := locator.GetRepoPath(repos[i][0])
+			_, err := locator.GetRepoPath(repos[i])
 			st, ok := status.FromError(err)
 			require.True(t, ok)
 			require.Equal(t, code, st.Code())
@@ -544,7 +543,7 @@ func TestRemoveRepository(t *testing.T) {
 	})
 	defer cleanup()
 
-	virtualRepo := proto.Clone(repos[0][0]).(*gitalypb.Repository)
+	virtualRepo := proto.Clone(repos[0]).(*gitalypb.Repository)
 	virtualRepo.StorageName = praefectCfg.VirtualStorages[0].Name
 
 	_, err = gitalypb.NewRepositoryServiceClient(cc).RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{
