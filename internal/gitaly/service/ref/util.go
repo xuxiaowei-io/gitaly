@@ -13,9 +13,9 @@ import (
 
 var localBranchFormatFields = []string{"%(refname)", "%(objectname)"}
 
-func parseRef(ref []byte) ([][]byte, error) {
+func parseRef(ref []byte, length int) ([][]byte, error) {
 	elements := bytes.Split(ref, []byte("\x00"))
-	if len(elements) != len(localBranchFormatFields) {
+	if len(elements) != length {
 		return nil, fmt.Errorf("error parsing ref %q", ref)
 	}
 	return elements, nil
@@ -90,7 +90,7 @@ func newFindLocalBranchesWriter(stream gitalypb.RefService_FindLocalBranchesServ
 		var branches []*gitalypb.Branch
 
 		for _, ref := range refs {
-			elements, err := parseRef(ref)
+			elements, err := parseRef(ref, len(localBranchFormatFields))
 			if err != nil {
 				return err
 			}
@@ -115,7 +115,7 @@ func newFindAllBranchesWriter(stream gitalypb.RefService_FindAllBranchesServer, 
 		ctx := stream.Context()
 
 		for _, ref := range refs {
-			elements, err := parseRef(ref)
+			elements, err := parseRef(ref, len(localBranchFormatFields))
 			if err != nil {
 				return err
 			}
@@ -135,7 +135,7 @@ func newFindAllRemoteBranchesWriter(stream gitalypb.RefService_FindAllRemoteBran
 		ctx := stream.Context()
 
 		for _, ref := range refs {
-			elements, err := parseRef(ref)
+			elements, err := parseRef(ref, len(localBranchFormatFields))
 			if err != nil {
 				return err
 			}

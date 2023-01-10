@@ -592,6 +592,13 @@ message ListRefsRequest {
   bool head = 3;
   // SortBy allows to request SHAs in particular order.
   SortBy sort_by = 4;
+  // PointingAtOids is a list of OIDs that can optionally be passed to only return refs
+  // pointing at the given OIDs. This corresponds to the --points-at option of git-for-each-ref(1).
+  repeated bytes pointing_at_oids = 5;
+  // PeelTags controls whether annotated tags should be peeled to their target objects so that the
+  // `PeeledTarget` returned for the reference is the ID of the target object. Note that this
+  // will significantly slow down the request by a factor of 3 to 4.
+  bool peel_tags = 6;
 }
 
 // ListRefsResponse is a response for the ListRefs RPC. The RPC can return multiple responses
@@ -603,6 +610,9 @@ message ListRefsResponse{
     bytes name = 1;
     // Target is the object ID the reference points to.
     string target = 2;
+    // PeeledTarget is the object ID an annotated tag points to. This field is only set when
+    // `PeelTags=true`. This field is empty in case the object is not an annotated tag.
+    string peeled_target = 3;
   }
 
   // References is the set of references returned by the RPC.
