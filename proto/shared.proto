@@ -125,6 +125,9 @@ message GitCommit {
   // The stats include additions, deletions and changed_files,
   // they are only set when `include_shortstat == true`.
   CommitStatInfo  short_stats = 11;
+  // referenced_by contains fully-qualified reference names (e.g refs/heads/main)
+  // that point to the commit.
+  repeated bytes referenced_by = 12; // protolint:disable:this REPEATED_FIELD_NAMES_PLURALIZED
 }
 
 // This comment is left unintentionally blank.

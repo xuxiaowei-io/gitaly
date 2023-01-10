@@ -95,7 +95,7 @@ func (s *server) findCommits(ctx context.Context, req *gitalypb.FindCommitsReque
 		}
 	}
 
-	if err := streamCommits(getCommits, stream, req.GetTrailers(), req.GetIncludeShortstat()); err != nil {
+	if err := streamCommits(getCommits, stream, req.GetTrailers(), req.GetIncludeShortstat(), len(req.GetIncludeReferencedBy()) > 0); err != nil {
 		return fmt.Errorf("error streaming commits: %w", err)
 	}
 	return nil
@@ -151,15 +151,21 @@ func (g *GetCommits) Offset(offset int) error {
 }
 
 // Commit returns the current commit
-func (g *GetCommits) Commit(ctx context.Context, trailers, shortStat bool) (*gitalypb.GitCommit, error) {
+func (g *GetCommits) Commit(ctx context.Context, trailers, shortStat, refs bool) (*gitalypb.GitCommit, error) {
 	logOutput := strings.TrimSpace(g.scanner.Text())
 	var revAndTrailers []string
 	var revAndStats []string
+	var revAndRefs []string
 	var revision string
 
 	if shortStat {
 		revAndStats = strings.SplitN(logOutput, "\n", 2)
 		logOutput = revAndStats[0]
+	}
+
+	if refs {
+		revAndRefs = strings.SplitN(logOutput, "\002", 2)
+		logOutput = revAndRefs[0]
 	}
 
 	if trailers {
@@ -172,6 +178,10 @@ func (g *GetCommits) Commit(ctx context.Context, trailers, shortStat bool) (*git
 	commit, err := catfile.GetCommit(ctx, g.objectReader, git.Revision(revision))
 	if err != nil {
 		return nil, fmt.Errorf("cat-file get commit %q: %w", revision, err)
+	}
+
+	if refs && len(revAndRefs) == 2 {
+		commit.ReferencedBy = parseRefs(revAndRefs[1])
 	}
 
 	if trailers && len(revAndTrailers) == 2 {
@@ -188,7 +198,7 @@ func (g *GetCommits) Commit(ctx context.Context, trailers, shortStat bool) (*git
 	return commit, nil
 }
 
-func streamCommits(getCommits *GetCommits, stream gitalypb.CommitService_FindCommitsServer, trailers, shortStat bool) error {
+func streamCommits(getCommits *GetCommits, stream gitalypb.CommitService_FindCommitsServer, trailers, shortStat bool, refs bool) error {
 	ctx := stream.Context()
 
 	chunker := chunk.New(&commitsSender{
@@ -200,7 +210,7 @@ func streamCommits(getCommits *GetCommits, stream gitalypb.CommitService_FindCom
 	})
 
 	for getCommits.Scan() {
-		commit, err := getCommits.Commit(ctx, trailers, shortStat)
+		commit, err := getCommits.Commit(ctx, trailers, shortStat, refs)
 		if err != nil {
 			return err
 		}
@@ -225,6 +235,11 @@ func getLogCommandSubCmd(req *gitalypb.FindCommitsRequest) git.Command {
 	}
 	if req.GetTrailers() {
 		logFormatOption += "%x00%(trailers:unfold,separator=%x00)"
+	}
+
+	if len(req.GetIncludeReferencedBy()) > 0 {
+		// Delimit ref names with '\x02' to avoid confusing with trailers
+		logFormatOption += "%x02%D"
 	}
 
 	subCmd := git.Command{Name: "log", Flags: []git.Option{git.Flag{Name: logFormatOption}}}
@@ -276,7 +291,39 @@ func getLogCommandSubCmd(req *gitalypb.FindCommitsRequest) git.Command {
 		subCmd.Flags = append(subCmd.Flags, git.Flag{Name: "--shortstat"})
 	}
 
+	if len(req.GetIncludeReferencedBy()) > 0 {
+		subCmd.Flags = append(subCmd.Flags, git.Flag{Name: "--decorate=full"})
+		for _, pattern := range req.GetIncludeReferencedBy() {
+			subCmd.Flags = append(subCmd.Flags, git.Flag{Name: fmt.Sprintf("--decorate-refs=%s", pattern)})
+		}
+	}
+
 	return subCmd
+}
+
+func parseRefs(refsLine string) [][]byte {
+	var refs [][]byte
+	for _, ref := range strings.Split(refsLine, ", ") {
+		if ref == "" {
+			continue
+		}
+
+		// Tags are output as `tag: refs/tags/<name>`. Trim the tag prefix in case
+		// this is a tag.
+		ref = strings.TrimPrefix(ref, "tag: ")
+
+		// By itself, HEAD is printed as HEAD. If HEAD points to another branch
+		// that is output, for example refs/heads/master, then HEAD printed as
+		// `HEAD -> refs/heads/master`. We need to separate the refs and include
+		// both in the response if this is the case.
+		if leftRef, rightRef, ok := strings.Cut(ref, " -> "); ok {
+			refs = append(refs, []byte(leftRef), []byte(rightRef))
+			continue
+		}
+
+		refs = append(refs, []byte(ref))
+	}
+	return refs
 }
 
 func parseStat(line string) (*gitalypb.CommitStatInfo, error) {
