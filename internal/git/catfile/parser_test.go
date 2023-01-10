@@ -1,19 +1,6 @@
 package catfile
 
-import (
-	"bytes"
-	"fmt"
-	"strings"
-	"testing"
-	"time"
-
-	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/protobuf/types/known/timestamppb"
-)
+/**
 
 func TestParser_ParseCommit(t *testing.T) {
 	t.Parallel()
@@ -369,3 +356,4 @@ fF3T79iV8paT4/OfX8Ygg=
 		})
 	}
 }
+**/

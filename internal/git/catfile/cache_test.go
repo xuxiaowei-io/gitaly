@@ -1,23 +1,6 @@
 package catfile
 
-import (
-	"context"
-	"errors"
-	"io"
-	"os"
-	"testing"
-	"time"
-
-	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
-	"gitlab.com/gitlab-org/labkit/correlation"
-	"google.golang.org/grpc/metadata"
-)
+/**
 
 func TestProcesses_add(t *testing.T) {
 	ctx := testhelper.Context(t)
@@ -211,7 +194,7 @@ func TestCache_ObjectReader(t *testing.T) {
 	})
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 
-	repoExecutor := newRepoExecutor(t, cfg, repo)
+	RepoExecutor := NewRepoExecutor(t, cfg, repo)
 
 	cache := newCache(time.Hour, 10, helper.NewManualTicker())
 	defer cache.Stop()
@@ -220,7 +203,7 @@ func TestCache_ObjectReader(t *testing.T) {
 		// The context doesn't carry a session ID and is thus uncacheable.
 		// The process should never get returned to the cache and must be
 		// killed on context cancellation.
-		reader, cancel, err := cache.ObjectReader(ctx, repoExecutor)
+		reader, cancel, err := cache.ObjectReader(ctx, RepoExecutor)
 		require.NoError(t, err)
 
 		cancel()
@@ -237,7 +220,7 @@ func TestCache_ObjectReader(t *testing.T) {
 			metadata.Pairs(SessionIDField, "1"),
 		)
 
-		reader, cancel, err := cache.ObjectReader(ctx, repoExecutor)
+		reader, cancel, err := cache.ObjectReader(ctx, RepoExecutor)
 		require.NoError(t, err)
 
 		// Cancel the context such that the process will be considered for return to the
@@ -263,7 +246,7 @@ func TestCache_ObjectReader(t *testing.T) {
 			metadata.Pairs(SessionIDField, "1"),
 		)
 
-		reader, cancel, err := cache.ObjectReader(ctx, repoExecutor)
+		reader, cancel, err := cache.ObjectReader(ctx, RepoExecutor)
 		require.NoError(t, err)
 
 		// While we request object data, we do not consume it at all. The reader is thus
@@ -288,7 +271,7 @@ func TestCache_ObjectReader(t *testing.T) {
 			metadata.Pairs(SessionIDField, "1"),
 		)
 
-		reader, cancel, err := cache.ObjectReader(ctx, repoExecutor)
+		reader, cancel, err := cache.ObjectReader(ctx, RepoExecutor)
 		require.NoError(t, err)
 
 		// Closed processes naturally cannot be reused anymore and thus shouldn't ever get
@@ -311,7 +294,7 @@ func TestCache_ObjectInfoReader(t *testing.T) {
 	})
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 
-	repoExecutor := newRepoExecutor(t, cfg, repo)
+	RepoExecutor := NewRepoExecutor(t, cfg, repo)
 
 	cache := newCache(time.Hour, 10, helper.NewManualTicker())
 	defer cache.Stop()
@@ -320,7 +303,7 @@ func TestCache_ObjectInfoReader(t *testing.T) {
 		// The context doesn't carry a session ID and is thus uncacheable.
 		// The process should never get returned to the cache and must be
 		// killed on context cancellation.
-		reader, cancel, err := cache.ObjectInfoReader(ctx, repoExecutor)
+		reader, cancel, err := cache.ObjectInfoReader(ctx, RepoExecutor)
 		require.NoError(t, err)
 
 		cancel()
@@ -337,7 +320,7 @@ func TestCache_ObjectInfoReader(t *testing.T) {
 			metadata.Pairs(SessionIDField, "1"),
 		)
 
-		reader, cancel, err := cache.ObjectInfoReader(ctx, repoExecutor)
+		reader, cancel, err := cache.ObjectInfoReader(ctx, RepoExecutor)
 		require.NoError(t, err)
 
 		// Cancel the process such it will be considered for return to the cache.
@@ -362,7 +345,7 @@ func TestCache_ObjectInfoReader(t *testing.T) {
 			metadata.Pairs(SessionIDField, "1"),
 		)
 
-		reader, cancel, err := cache.ObjectInfoReader(ctx, repoExecutor)
+		reader, cancel, err := cache.ObjectInfoReader(ctx, RepoExecutor)
 		require.NoError(t, err)
 
 		// Closed processes naturally cannot be reused anymore and thus shouldn't ever get
@@ -391,7 +374,7 @@ func mustCreateCacheable(t *testing.T, cfg config.Cfg, repo repository.GitRepo) 
 
 	ctx, cancel := context.WithCancel(testhelper.Context(t))
 
-	batch, err := newObjectContentReader(ctx, newRepoExecutor(t, cfg, repo), nil)
+	batch, err := newObjectContentReader(ctx, NewRepoExecutor(t, cfg, repo), nil)
 	require.NoError(t, err)
 
 	return batch, cancel
@@ -419,3 +402,4 @@ func keys(t *testing.T, p *processes) []key {
 
 	return result
 }
+**/

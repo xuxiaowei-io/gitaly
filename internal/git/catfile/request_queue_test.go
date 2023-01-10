@@ -1,4 +1,4 @@
-package catfile
+package catfile_test
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -41,10 +42,10 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 		reader, queue := newInterceptedObjectQueue(t, ctx, "#!/bin/sh\nread\n")
 
 		require.NoError(t, queue.RequestObject("foo"))
-		require.True(t, queue.isDirty())
+		require.True(t, queue.IsDirty())
 
-		reader.close()
-		require.True(t, queue.isDirty())
+		reader.Close()
+		require.True(t, queue.IsDirty())
 
 		_, err := queue.ReadObject()
 		require.Equal(t, fmt.Errorf("cannot read object info: %w", fmt.Errorf("file already closed")), err)
@@ -67,7 +68,7 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 		_, err = queue.ReadObject()
 		require.Equal(t, fmt.Errorf("current object has not been fully read"), err)
 
-		require.True(t, queue.isDirty())
+		require.True(t, queue.IsDirty())
 	})
 
 	t.Run("read with invalid object header", func(t *testing.T) {
@@ -81,7 +82,7 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 		require.Equal(t, fmt.Errorf("invalid info line: %q", "something something"), err)
 
 		// The queue must be dirty when we failed due to an unexpected error.
-		require.True(t, queue.isDirty())
+		require.True(t, queue.IsDirty())
 	})
 
 	t.Run("read with unexpected exit", func(t *testing.T) {
@@ -95,7 +96,7 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 		require.Equal(t, fmt.Errorf("read info line: %w", io.EOF), err)
 
 		// The queue must be dirty when we failed due to an unexpected error.
-		require.True(t, queue.isDirty())
+		require.True(t, queue.IsDirty())
 	})
 
 	t.Run("read with missing object", func(t *testing.T) {
@@ -110,7 +111,7 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 
 		// The queue must be empty even if the object wasn't found: this is a graceful
 		// failure that we should handle alright.
-		require.False(t, queue.isDirty())
+		require.False(t, queue.IsDirty())
 	})
 
 	t.Run("read single object", func(t *testing.T) {
@@ -120,11 +121,11 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 		`, oid))
 
 		require.NoError(t, queue.RequestObject("foo"))
-		require.True(t, queue.isDirty())
+		require.True(t, queue.IsDirty())
 
 		object, err := queue.ReadObject()
 		require.NoError(t, err)
-		require.Equal(t, ObjectInfo{
+		require.Equal(t, catfile.ObjectInfo{
 			Oid:  oid,
 			Type: "blob",
 			Size: 10,
@@ -134,7 +135,7 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "1234567890", string(data))
 
-		require.False(t, queue.isDirty())
+		require.False(t, queue.IsDirty())
 	})
 
 	t.Run("read multiple objects", func(t *testing.T) {
@@ -149,14 +150,14 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 
 		require.NoError(t, queue.RequestObject("foo"))
 		require.NoError(t, queue.RequestObject("foo"))
-		require.True(t, queue.isDirty())
+		require.True(t, queue.IsDirty())
 
 		for _, expectedObject := range []struct {
-			info ObjectInfo
+			info catfile.ObjectInfo
 			data string
 		}{
 			{
-				info: ObjectInfo{
+				info: catfile.ObjectInfo{
 					Oid:  oid,
 					Type: "blob",
 					Size: 10,
@@ -164,7 +165,7 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 				data: "1234567890",
 			},
 			{
-				info: ObjectInfo{
+				info: catfile.ObjectInfo{
 					Oid:  secondOID,
 					Type: "commit",
 					Size: 10,
@@ -172,7 +173,7 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 				data: "0987654321",
 			},
 		} {
-			require.True(t, queue.isDirty())
+			require.True(t, queue.IsDirty())
 
 			object, err := queue.ReadObject()
 			require.NoError(t, err)
@@ -183,7 +184,7 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 			require.Equal(t, expectedObject.data, string(data))
 		}
 
-		require.False(t, queue.isDirty())
+		require.False(t, queue.IsDirty())
 	})
 
 	t.Run("truncated object", func(t *testing.T) {
@@ -193,11 +194,11 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 		`, oid))
 
 		require.NoError(t, queue.RequestObject("foo"))
-		require.True(t, queue.isDirty())
+		require.True(t, queue.IsDirty())
 
 		object, err := queue.ReadObject()
 		require.NoError(t, err)
-		require.Equal(t, ObjectInfo{
+		require.Equal(t, catfile.ObjectInfo{
 			Oid:  oid,
 			Type: "blob",
 			Size: 10,
@@ -216,7 +217,7 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 		_, err = object.Read(buf[:])
 		require.Equal(t, fmt.Errorf("discard newline: \"EOF\""), err)
 
-		require.True(t, queue.isDirty())
+		require.True(t, queue.IsDirty())
 	})
 }
 
@@ -227,7 +228,7 @@ func TestRequestQueue_RequestObject(t *testing.T) {
 
 	oid := git.ObjectID(strings.Repeat("1", gittest.DefaultObjectHash.EncodedLen()))
 
-	requireRevision := func(t *testing.T, queue *requestQueue, rev git.Revision) {
+	requireRevision := func(t *testing.T, queue catfile.ObjectQueue, rev git.Revision) {
 		object, err := queue.ReadObject()
 		require.NoError(t, err)
 
@@ -238,7 +239,7 @@ func TestRequestQueue_RequestObject(t *testing.T) {
 
 	t.Run("requesting revision on closed queue", func(t *testing.T) {
 		_, queue := newInterceptedObjectQueue(t, ctx, "#!/bin/sh")
-		queue.close()
+		queue.Close()
 
 		require.Equal(t, fmt.Errorf("cannot request revision: %w", os.ErrClosed), queue.RequestObject("foo"))
 	})
@@ -332,7 +333,7 @@ func TestRequestQueue_RequestInfo(t *testing.T) {
 
 	t.Run("requesting revision on closed queue", func(t *testing.T) {
 		_, queue := newInterceptedInfoQueue(t, ctx, "#!/bin/sh")
-		queue.close()
+		queue.Close()
 
 		require.Equal(t, fmt.Errorf("cannot request revision: %w", os.ErrClosed), queue.RequestInfo("foo"))
 	})
@@ -409,7 +410,7 @@ func TestRequestQueueCounters64BitAlignment(t *testing.T) {
 	require.Equal(t, 0, int(unsafe.Sizeof(requestQueue{}.counters))%8)
 }
 
-func newInterceptedObjectQueue(t *testing.T, ctx context.Context, script string) (ObjectContentReader, *requestQueue) {
+func newInterceptedObjectQueue(t *testing.T, ctx context.Context, script string) (catfile.ObjectContentReader, catfile.ObjectQueue) {
 	cfg := testcfg.Build(t)
 	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
@@ -418,23 +419,23 @@ func newInterceptedObjectQueue(t *testing.T, ctx context.Context, script string)
 	commandFactory := gittest.NewInterceptingCommandFactory(t, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
 		return script
 	})
-	repoExecutor := repoExecutor{
+	RepoExecutor := RepoExecutor{
 		GitRepo:       repo,
 		gitCmdFactory: commandFactory,
 	}
 
-	reader, err := newObjectContentReader(ctx, &repoExecutor, nil)
+	reader, err := NewObjectContentReader(ctx, &RepoExecutor, nil)
 	require.NoError(t, err)
-	t.Cleanup(reader.close)
+	t.Cleanup(reader.Close)
 
-	queue, cleanup, err := reader.objectQueue(ctx, "trace")
+	queue, cleanup, err := reader.ObjectQueue(ctx)
 	require.NoError(t, err)
 	t.Cleanup(cleanup)
 
 	return reader, queue
 }
 
-func newInterceptedInfoQueue(t *testing.T, ctx context.Context, script string) (ObjectInfoReader, *requestQueue) {
+func newInterceptedInfoQueue(t *testing.T, ctx context.Context, script string) (catfile.ObjectInfoReader, catfile.ObjectInfoQueue) {
 	cfg := testcfg.Build(t)
 	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
@@ -443,16 +444,16 @@ func newInterceptedInfoQueue(t *testing.T, ctx context.Context, script string) (
 	commandFactory := gittest.NewInterceptingCommandFactory(t, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
 		return script
 	})
-	repoExecutor := repoExecutor{
+	RepoExecutor := RepoExecutor{
 		GitRepo:       repo,
 		gitCmdFactory: commandFactory,
 	}
 
-	reader, err := newObjectInfoReader(ctx, &repoExecutor, nil)
+	reader, err := NewObjectInfoReader(ctx, &RepoExecutor, nil)
 	require.NoError(t, err)
-	t.Cleanup(reader.close)
+	t.Cleanup(reader.Close)
 
-	queue, cleanup, err := reader.infoQueue(ctx, "trace")
+	queue, cleanup, err := reader.InfoQueue(ctx)
 	require.NoError(t, err)
 	t.Cleanup(cleanup)
 

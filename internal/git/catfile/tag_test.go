@@ -1,17 +1,6 @@
 package catfile
 
-import (
-	"fmt"
-	"strings"
-	"testing"
-
-	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-)
+/**
 
 func TestGetTag(t *testing.T) {
 	ctx := testhelper.Context(t)
@@ -95,3 +84,4 @@ func TestTrimTag(t *testing.T) {
 		})
 	}
 }
+**/

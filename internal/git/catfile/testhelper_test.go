@@ -23,23 +23,23 @@ func TestMain(m *testing.M) {
 	testhelper.Run(m)
 }
 
-type repoExecutor struct {
+type RepoExecutor struct {
 	repository.GitRepo
-	gitCmdFactory git.CommandFactory
+	GitCmdFactory git.CommandFactory
 }
 
-func newRepoExecutor(t *testing.T, cfg config.Cfg, repo repository.GitRepo) git.RepositoryExecutor {
-	return &repoExecutor{
+func NewRepoExecutor(t *testing.T, cfg config.Cfg, repo repository.GitRepo) git.RepositoryExecutor {
+	return &RepoExecutor{
 		GitRepo:       repo,
-		gitCmdFactory: gittest.NewCommandFactory(t, cfg),
+		GitCmdFactory: gittest.NewCommandFactory(t, cfg),
 	}
 }
 
-func (e *repoExecutor) Exec(ctx context.Context, cmd git.Command, opts ...git.CmdOpt) (*command.Command, error) {
-	return e.gitCmdFactory.New(ctx, e.GitRepo, cmd, opts...)
+func (e *RepoExecutor) Exec(ctx context.Context, cmd git.Command, opts ...git.CmdOpt) (*command.Command, error) {
+	return e.GitCmdFactory.New(ctx, e.GitRepo, cmd, opts...)
 }
 
-func (e *repoExecutor) ExecAndWait(ctx context.Context, cmd git.Command, opts ...git.CmdOpt) error {
+func (e *RepoExecutor) ExecAndWait(ctx context.Context, cmd git.Command, opts ...git.CmdOpt) error {
 	command, err := e.Exec(ctx, cmd, opts...)
 	if err != nil {
 		return err
@@ -47,11 +47,11 @@ func (e *repoExecutor) ExecAndWait(ctx context.Context, cmd git.Command, opts ..
 	return command.Wait()
 }
 
-func (e *repoExecutor) GitVersion(ctx context.Context) (git.Version, error) {
+func (e *RepoExecutor) GitVersion(ctx context.Context) (git.Version, error) {
 	return git.Version{}, nil
 }
 
-func (e *repoExecutor) ObjectHash(ctx context.Context) (git.ObjectHash, error) {
+func (e *RepoExecutor) ObjectHash(ctx context.Context) (git.ObjectHash, error) {
 	return gittest.DefaultObjectHash, nil
 }
 
@@ -62,12 +62,12 @@ func setupObjectReader(t *testing.T, ctx context.Context) (config.Cfg, ObjectCon
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
-	repoExecutor := newRepoExecutor(t, cfg, repo)
+	RepoExecutor := NewRepoExecutor(t, cfg, repo)
 
 	cache := newCache(1*time.Hour, 1000, helper.NewTimerTicker(defaultEvictionInterval))
 	t.Cleanup(cache.Stop)
 
-	objectReader, cancel, err := cache.ObjectReader(ctx, repoExecutor)
+	objectReader, cancel, err := cache.ObjectReader(ctx, RepoExecutor)
 	require.NoError(t, err)
 	t.Cleanup(cancel)
 
@@ -108,4 +108,20 @@ func (o *staticObject) Read(p []byte) (int, error) {
 
 func (o *staticObject) WriteTo(w io.Writer) (int64, error) {
 	return io.Copy(w, o.reader)
+}
+
+func (q *requestQueue) IsDirty() bool {
+	return q.isDirty()
+}
+
+func (q *requestQueue) Close() {
+	q.close()
+}
+
+//var NewInterceptedInfoQueue = newInterceptedInfoQueue
+
+var NewObjectContentReader = newObjectContentReader
+
+func (o *objectContentReader) Close() {
+	o.close()
 }
