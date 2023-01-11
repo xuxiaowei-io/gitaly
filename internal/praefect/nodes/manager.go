@@ -24,6 +24,7 @@ import (
 	prommetrics "gitlab.com/gitlab-org/gitaly/v15/internal/prometheus/metrics"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/sidechannel"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/backoff"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
@@ -117,7 +118,10 @@ type leaderElectionStrategy interface {
 // should not be used for a new request
 var ErrPrimaryNotHealthy = errors.New("primary gitaly is not healthy")
 
-const dialTimeout = 10 * time.Second
+const (
+	dialTimeout    = 10 * time.Second
+	dialMaxBackoff = 1 * time.Second
+)
 
 // Dial dials a node with the necessary interceptors configured.
 func Dial(ctx context.Context, node *config.Node, registry *protoregistry.Registry, errorTracker tracker.ErrorTracker, handshaker client.Handshaker, sidechannelRegistry *sidechannel.Registry) (*grpc.ClientConn, error) {
@@ -135,11 +139,15 @@ func Dial(ctx context.Context, node *config.Node, registry *protoregistry.Regist
 		sidechannel.NewUnaryProxy(sidechannelRegistry),
 	}
 
+	b := backoff.DefaultConfig
+	b.MaxDelay = dialMaxBackoff
+
 	dialOpts := []grpc.DialOption{
 		grpc.WithDefaultCallOptions(grpc.ForceCodec(proxy.NewCodec())),
 		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(node.Token)),
 		grpc.WithChainStreamInterceptor(streamInterceptors...),
 		grpc.WithChainUnaryInterceptor(unaryInterceptors...),
+		grpc.WithConnectParams(grpc.ConnectParams{Backoff: b}),
 		client.UnaryInterceptor(),
 		client.StreamInterceptor(),
 	}
