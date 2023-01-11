@@ -65,6 +65,11 @@ func getGitDirSize(tb testing.TB, repoPath string, subdirs ...string) int64 {
 	return blocks
 }
 
+// TODO: We can get rid of these functions once there are
+// localrepo.MustWriteCommit and localrepo.MustWriteTree, at which point we can
+// move TestDeltaIslands into the localrepo package, and get rid of WriteTree.
+// After this we can delete WriteBlobs and WriteBlob.
+
 // WriteBlobs writes n distinct blobs into the git repository's object
 // database. Each object has the current time in nanoseconds as contents.
 func WriteBlobs(tb testing.TB, cfg config.Cfg, testRepoPath string, n int) []string {

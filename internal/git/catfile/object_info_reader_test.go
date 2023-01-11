@@ -216,7 +216,7 @@ func TestObjectInfoReader_queue(t *testing.T) {
 		SkipCreationViaService: true,
 	})
 
-	blobOID := gittest.WriteBlob(t, cfg, repoPath, []byte("foobar"))
+	blobOID := writeBlob(t, cfg, repoPath, []byte("foobar"))
 	blobInfo := ObjectInfo{
 		Oid:  blobOID,
 		Type: "blob",

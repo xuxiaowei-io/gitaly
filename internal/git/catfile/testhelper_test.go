@@ -1,6 +1,7 @@
 package catfile
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -108,4 +110,13 @@ func (o *staticObject) Read(p []byte) (int, error) {
 
 func (o *staticObject) WriteTo(w io.Writer) (int64, error) {
 	return io.Copy(w, o.reader)
+}
+
+func writeBlob(tb testing.TB, cfg config.Cfg, testRepoPath string, contents []byte) git.ObjectID {
+	hex := text.ChompBytes(gittest.ExecOpts(tb, cfg, gittest.ExecConfig{Stdin: bytes.NewReader(contents)},
+		"-C", testRepoPath, "hash-object", "-w", "--stdin",
+	))
+	oid, err := gittest.DefaultObjectHash.FromHex(hex)
+	require.NoError(tb, err)
+	return oid
 }

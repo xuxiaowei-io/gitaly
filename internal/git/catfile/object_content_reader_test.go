@@ -137,8 +137,8 @@ func TestObjectContentReader_queue(t *testing.T) {
 		SkipCreationViaService: true,
 	})
 
-	foobarBlob := gittest.WriteBlob(t, cfg, repoPath, []byte("foobar"))
-	barfooBlob := gittest.WriteBlob(t, cfg, repoPath, []byte("barfoo"))
+	foobarBlob := writeBlob(t, cfg, repoPath, []byte("foobar"))
+	barfooBlob := writeBlob(t, cfg, repoPath, []byte("barfoo"))
 
 	t.Run("read single object", func(t *testing.T) {
 		reader, err := newObjectContentReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
@@ -437,8 +437,8 @@ func TestObjectContentReader_replaceRefs(t *testing.T) {
 		SkipCreationViaService: true,
 	})
 
-	originalOID := gittest.WriteBlob(t, cfg, repoPath, []byte("original"))
-	replacedOID := gittest.WriteBlob(t, cfg, repoPath, []byte("replaced"))
+	originalOID := writeBlob(t, cfg, repoPath, []byte("original"))
+	replacedOID := writeBlob(t, cfg, repoPath, []byte("replaced"))
 
 	gittest.WriteRef(t, cfg, repoPath, git.ReferenceName("refs/replace/"+originalOID.String()), replacedOID)
 

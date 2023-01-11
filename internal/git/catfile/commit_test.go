@@ -18,7 +18,7 @@ func TestGetCommit(t *testing.T) {
 
 	cfg, objectReader, _, repoPath := setupObjectReader(t, ctx)
 
-	blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("data"))
+	blobID := writeBlob(t, cfg, repoPath, []byte("data"))
 	treeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 		{Path: "file", Mode: "100644", OID: blobID},
 	})
