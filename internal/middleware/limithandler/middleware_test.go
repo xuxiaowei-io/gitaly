@@ -78,6 +78,140 @@ func TestUnaryLimitHandler(t *testing.T) {
 	wg.Wait()
 }
 
+func TestUnaryLimitHandler_queueing(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+
+	t.Run("simple timeout", func(t *testing.T) {
+		lh := limithandler.New(config.Cfg{
+			Concurrency: []config.Concurrency{
+				{
+					RPC:          "/grpc.testing.TestService/UnaryCall",
+					MaxPerRepo:   1,
+					MaxQueueSize: 1,
+					MaxQueueWait: duration.Duration(time.Millisecond),
+				},
+			},
+		}, fixedLockKey, limithandler.WithConcurrencyLimiters)
+
+		s := &queueTestServer{
+			server: server{
+				blockCh: make(chan struct{}),
+			},
+			reqArrivedCh: make(chan struct{}),
+		}
+
+		srv, serverSocketPath := runServer(t, s, grpc.UnaryInterceptor(lh.UnaryInterceptor()))
+		defer srv.Stop()
+
+		client, conn := newClient(t, serverSocketPath)
+		defer conn.Close()
+
+		// Spawn an RPC call that blocks so that the subsequent call will be put into the
+		// request queue and wait for the request to arrive.
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, err := client.UnaryCall(ctx, &grpc_testing.SimpleRequest{})
+			require.NoError(t, err)
+		}()
+		<-s.reqArrivedCh
+
+		// Now we spawn a second RPC call. As the concurrency limit is satisfied we'll be
+		// put into queue and will eventually return with an error.
+		_, err := client.UnaryCall(ctx, &grpc_testing.SimpleRequest{})
+		testhelper.RequireGrpcError(t, structerr.NewResourceExhausted("%w", limithandler.ErrMaxQueueTime).WithDetail(
+			&gitalypb.LimitError{
+				ErrorMessage: "maximum time in concurrency queue reached",
+				RetryAfter:   durationpb.New(0),
+			},
+		), err)
+
+		// Unblock the concurrent RPC call and wait for the Goroutine to finish so that it
+		// does not leak.
+		close(s.blockCh)
+		wg.Wait()
+	})
+
+	t.Run("unlimited queueing", func(t *testing.T) {
+		lh := limithandler.New(config.Cfg{
+			Concurrency: []config.Concurrency{
+				// Due to a bug queueing wait times used to leak into subsequent
+				// concurrency configuration in case they didn't explicitly set up
+				// the queueing wait time. We thus set up two limits here: one dummy
+				// limit that has a queueing wait time and then the actual config
+				// that has no wait limit. We of course expect that the actual
+				// config should not have any maximum queueing time.
+				{
+					RPC:          "dummy",
+					MaxPerRepo:   1,
+					MaxQueueWait: duration.Duration(1 * time.Nanosecond),
+				},
+				{
+					RPC:        "/grpc.testing.TestService/UnaryCall",
+					MaxPerRepo: 1,
+				},
+			},
+		}, fixedLockKey, limithandler.WithConcurrencyLimiters)
+
+		s := &queueTestServer{
+			server: server{
+				blockCh: make(chan struct{}),
+			},
+			reqArrivedCh: make(chan struct{}),
+		}
+
+		srv, serverSocketPath := runServer(t, s, grpc.UnaryInterceptor(lh.UnaryInterceptor()))
+		defer srv.Stop()
+
+		client, conn := newClient(t, serverSocketPath)
+		defer conn.Close()
+
+		// Spawn an RPC call that blocks so that the subsequent call will be put into the
+		// request queue and wait for the request to arrive.
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, err := client.UnaryCall(ctx, &grpc_testing.SimpleRequest{})
+			require.NoError(t, err)
+		}()
+		<-s.reqArrivedCh
+
+		// We now spawn a second RPC call. This call will get put into the queue and wait
+		// for the first call to finish.
+		errCh := make(chan error, 1)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, err := client.UnaryCall(ctx, &grpc_testing.SimpleRequest{})
+			errCh <- err
+		}()
+
+		// Assert that the second call does not finish. This is not a great test as we can
+		// basically just do a best-effort check. But I cannot think of any other way to
+		// properly verify this property.
+		select {
+		case <-errCh:
+			require.FailNow(t, "call should have been queued but finished unexpectedly")
+		case <-s.reqArrivedCh:
+			require.FailNow(t, "call should have been queued but posted a request")
+		case <-time.After(time.Millisecond):
+		}
+
+		// Unblock the first and any subsequent RPC calls, ...
+		close(s.blockCh)
+		// ... which means that we should get the second request now and ...
+		<-s.reqArrivedCh
+		// ... subsequently we should also see that it finishes successfully.
+		require.NoError(t, <-errCh)
+
+		wg.Wait()
+	})
+}
+
 func TestStreamLimitHandler(t *testing.T) {
 	t.Parallel()
 

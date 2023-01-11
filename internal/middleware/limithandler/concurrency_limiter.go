@@ -288,14 +288,14 @@ func WithConcurrencyLimiters(cfg config.Cfg, middleware *LimiterMiddleware) {
 	}
 
 	result := make(map[string]Limiter)
-
-	newTickerFunc := func() helper.Ticker {
-		return helper.NewManualTicker()
-	}
-
 	for _, limit := range cfg.Concurrency {
+		limit := limit
+
+		newTickerFunc := func() helper.Ticker {
+			return helper.NewManualTicker()
+		}
+
 		if limit.MaxQueueWait > 0 {
-			limit := limit
 			newTickerFunc = func() helper.Ticker {
 				return helper.NewTimerTicker(limit.MaxQueueWait.Duration())
 			}
