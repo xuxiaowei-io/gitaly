@@ -75,12 +75,31 @@ func (s *Server) userUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpda
 
 	referenceName := git.NewReferenceNameFromBranchName(string(req.GetBranch()))
 
-	branchOID, err := quarantineRepo.ResolveRevision(ctx, referenceName.Revision())
-	if err != nil {
-		if errors.Is(err, git.ErrReferenceNotFound) {
-			return nil, structerr.NewInvalidArgument("Cannot find branch")
+	var oldOID git.ObjectID
+	if expectedOldOID := req.GetExpectedOldOid(); expectedOldOID != "" {
+		objectHash, err := quarantineRepo.ObjectHash(ctx)
+		if err != nil {
+			return nil, structerr.NewInternal("detecting object hash: %w", err)
 		}
-		return nil, structerr.NewInternal("resolving revision: %w", err)
+
+		oldOID, err = objectHash.FromHex(expectedOldOID)
+		if err != nil {
+			return nil, structerr.NewInvalidArgument("invalid expected old object ID: %w", err).WithMetadata("old_object_id", expectedOldOID)
+		}
+
+		oldOID, err = quarantineRepo.ResolveRevision(ctx, git.Revision(fmt.Sprintf("%s^{object}", oldOID)))
+		if err != nil {
+			return nil, structerr.NewInvalidArgument("cannot resolve expected old object ID: %w", err).
+				WithMetadata("old_object_id", expectedOldOID)
+		}
+	} else {
+		oldOID, err = quarantineRepo.ResolveRevision(ctx, referenceName.Revision())
+		if err != nil {
+			if errors.Is(err, git.ErrReferenceNotFound) {
+				return nil, structerr.NewInvalidArgument("Cannot find branch")
+			}
+			return nil, structerr.NewInternal("resolving revision: %w", err)
+		}
 	}
 
 	repoPath, err := quarantineRepo.Path()
@@ -147,7 +166,7 @@ func (s *Server) userUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpda
 		quarantineDir,
 		referenceName,
 		commitID,
-		branchOID,
+		oldOID,
 	); err != nil {
 		var customHookErr updateref.CustomHookError
 		if errors.As(err, &customHookErr) {
