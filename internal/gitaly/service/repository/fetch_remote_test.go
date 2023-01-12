@@ -4,11 +4,9 @@ package repository
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -807,6 +805,36 @@ func TestFetchRemote(t *testing.T) {
 				}
 			},
 		},
+		{
+			desc: "http with timeout",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				ch := make(chan bool)
+
+				gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+				port := gittest.HTTPServer(t, ctx, gitCmdFactory, remoteRepoPath, func(w http.ResponseWriter, r *http.Request, next http.Handler) {
+					<-ch
+				})
+
+				t.Cleanup(func() { close(ch) })
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url:                     fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(remoteRepoPath)),
+							HttpAuthorizationHeader: httpToken,
+							HttpHost:                httpHost,
+						},
+						Timeout: 1,
+					},
+					runs: []run{{expectedErr: structerr.NewInternal("fetch remote: signal: terminated: context deadline exceeded")}},
+				}
+			},
+		},
 	} {
 		tc := tc
 
@@ -980,38 +1008,6 @@ func TestFetchRemote_localPath(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, getRefnames(t, cfg, sourceRepoPath), getRefnames(t, cfg, mirrorRepoPath))
-}
-
-func TestFetchRemote_httpWithTimeout(t *testing.T) {
-	t.Parallel()
-
-	ctx, cancel := context.WithCancel(testhelper.Context(t))
-	_, repo, _, client := setupRepositoryService(t, ctx)
-
-	s := httptest.NewServer(
-		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			require.Equal(t, "/info/refs?service=git-upload-pack", r.URL.String())
-			// Block the request forever.
-			<-ctx.Done()
-		}),
-	)
-	defer func() {
-		// We need to explicitly cancel the context here, or otherwise we'll be stuck
-		// closing the server due to the ongoing request.
-		cancel()
-		s.Close()
-	}()
-
-	req := &gitalypb.FetchRemoteRequest{
-		Repository:   repo,
-		RemoteParams: &gitalypb.Remote{Url: s.URL},
-		Timeout:      1,
-	}
-
-	_, err := client.FetchRemote(ctx, req)
-	require.Error(t, err)
-
-	require.Contains(t, err.Error(), "fetch remote: signal: terminated")
 }
 
 func TestFetchRemote_pooledRepository(t *testing.T) {
