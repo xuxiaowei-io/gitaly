@@ -23,6 +23,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
@@ -74,7 +75,9 @@ func TestFetchRemote(t *testing.T) {
 					},
 					runs: []run{
 						{
-							expectedRefs:     map[string]git.ObjectID{"refs/heads/main": commitID},
+							expectedRefs: map[string]git.ObjectID{
+								"refs/heads/main": commitID,
+							},
 							expectedResponse: &gitalypb.FetchRemoteResponse{},
 						},
 					},
@@ -184,6 +187,122 @@ func TestFetchRemote(t *testing.T) {
 								"refs/tags/testtag": tagID,
 							},
 							expectedResponse: &gitalypb.FetchRemoteResponse{TagsChanged: true},
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "D/F conflict is resolved when pruning",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				commitID := gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithReference("refs/heads/branch"))
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference("refs/heads/branch/conflict"))
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url: remoteRepoPath,
+						},
+					},
+					runs: []run{
+						{
+							expectedRefs: map[string]git.ObjectID{
+								"refs/heads/branch": commitID,
+							},
+							expectedResponse: &gitalypb.FetchRemoteResponse{TagsChanged: true},
+							expectedErr:      nil,
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "D/F conflict causes failure when pruning is disabled",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithReference("refs/heads/branch"))
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference("refs/heads/branch/conflict"))
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url: remoteRepoPath,
+						},
+						NoPrune: true,
+					},
+					runs: []run{
+						{
+							expectedRefs: map[string]git.ObjectID{
+								"refs/heads/branch/conflict": commitID,
+							},
+							expectedErr: structerr.NewInternal(`fetch remote: "error: cannot lock ref 'refs/heads/branch': 'refs/heads/branch/conflict' exists; cannot create 'refs/heads/branch'\nerror: some local refs could not be updated; try running\n 'git remote prune inmemory' to remove any old, conflicting branches\n": exit status 1`),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "F/D conflict is resolved when pruning",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference("refs/heads/branch"))
+				commitID := gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithReference("refs/heads/branch/conflict"))
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url: remoteRepoPath,
+						},
+					},
+					runs: []run{
+						{
+							expectedRefs: map[string]git.ObjectID{
+								"refs/heads/branch/conflict": commitID,
+							},
+							expectedResponse: &gitalypb.FetchRemoteResponse{TagsChanged: true},
+							expectedErr:      nil,
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "F/D conflict causes failure when pruning is disabled",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference("refs/heads/branch"))
+				gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithReference("refs/heads/branch/conflict"))
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url: remoteRepoPath,
+						},
+						NoPrune: true,
+					},
+					runs: []run{
+						{
+							expectedRefs: map[string]git.ObjectID{
+								"refs/heads/branch": commitID,
+							},
+							expectedErr: structerr.NewInternal(`fetch remote: "error: cannot lock ref 'refs/heads/branch/conflict': 'refs/heads/branch' exists; cannot create 'refs/heads/branch/conflict'\nerror: some local refs could not be updated; try running\n 'git remote prune inmemory' to remove any old, conflicting branches\n": exit status 1`),
 						},
 					},
 				}
