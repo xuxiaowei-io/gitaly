@@ -308,6 +308,41 @@ func TestFetchRemote(t *testing.T) {
 				}
 			},
 		},
+		{
+			desc: "with default refmaps",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				// Create the remote repository from which we're pulling from with two branches
+				// that don't exist in the target repository.
+				masterCommitID := gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch("master"), gittest.WithMessage("master"))
+				featureCommitID := gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch("feature"), gittest.WithMessage("feature"))
+
+				// Similar, we create the target repository with a branch that doesn't exist in the
+				// source repository. This branch should get pruned by default.
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("unrelated"), gittest.WithMessage("unrelated"))
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url: remoteRepoPath,
+						},
+					},
+					runs: []run{
+						{
+							expectedRefs: map[string]git.ObjectID{
+								"refs/heads/feature": featureCommitID,
+								"refs/heads/master":  masterCommitID,
+							},
+							expectedResponse: &gitalypb.FetchRemoteResponse{TagsChanged: true},
+						},
+					},
+				}
+			},
+		},
 	} {
 		tc := tc
 
@@ -411,43 +446,6 @@ func TestFetchRemote_sshCommand(t *testing.T) {
 			require.NoError(t, os.Remove(outputPath))
 		})
 	}
-}
-
-func TestFetchRemote_withDefaultRefmaps(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	cfg, sourceRepoProto, sourceRepoPath, client := setupRepositoryService(t, ctx)
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
-
-	sourceRepo := localrepo.NewTestRepo(t, cfg, sourceRepoProto)
-
-	targetRepoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
-	targetRepo := localrepo.NewTestRepo(t, cfg, targetRepoProto)
-
-	port := gittest.HTTPServer(t, ctx, gitCmdFactory, sourceRepoPath, nil)
-
-	require.NoError(t, sourceRepo.UpdateRef(ctx, "refs/heads/foobar", "refs/heads/master", ""))
-
-	// With no refmap given, FetchRemote should fall back to
-	// "refs/heads/*:refs/heads/*" and thus mirror what's in the source
-	// repository.
-	resp, err := client.FetchRemote(ctx, &gitalypb.FetchRemoteRequest{
-		Repository: targetRepoProto,
-		RemoteParams: &gitalypb.Remote{
-			Url: fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(sourceRepoPath)),
-		},
-	})
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-
-	sourceRefs, err := sourceRepo.GetReferences(ctx)
-	require.NoError(t, err)
-	targetRefs, err := targetRepo.GetReferences(ctx)
-	require.NoError(t, err)
-	require.Equal(t, sourceRefs, targetRefs)
 }
 
 func TestFetchRemote_transaction(t *testing.T) {
