@@ -946,45 +946,38 @@ func TestFetchRemote_sshCommand(t *testing.T) {
 
 func TestFetchRemote_transaction(t *testing.T) {
 	t.Parallel()
-	sourceCfg := testcfg.Build(t)
-
-	txManager := transaction.NewTrackingManager()
-	client, addr := runRepositoryService(t, sourceCfg, nil, testserver.WithTransactionManager(txManager))
-	sourceCfg.SocketPath = addr
 
 	ctx := testhelper.Context(t)
-	repo, _ := gittest.CreateRepository(t, ctx, sourceCfg, gittest.CreateRepositoryConfig{
-		RelativePath: t.Name(),
-		Seed:         gittest.SeedGitLabTest,
-	})
-	// Reset the manager as creating the repository casts some votes.
-	txManager.Reset()
 
-	targetCfg := testcfg.Build(t)
-	targetRepoProto, targetRepoPath := gittest.CreateRepository(t, ctx, targetCfg, gittest.CreateRepositoryConfig{
+	remoteCfg := testcfg.Build(t)
+	_, remoteRepoPath := gittest.CreateRepository(t, ctx, remoteCfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
-		RelativePath:           t.Name(),
 	})
-	targetGitCmdFactory := gittest.NewCommandFactory(t, targetCfg)
+	targetGitCmdFactory := gittest.NewCommandFactory(t, remoteCfg)
+	port := gittest.HTTPServer(t, ctx, targetGitCmdFactory, remoteRepoPath, nil)
 
-	port := gittest.HTTPServer(t, ctx, targetGitCmdFactory, targetRepoPath, nil)
+	cfg := testcfg.Build(t)
+	txManager := transaction.NewTrackingManager()
+	client, addr := runRepositoryService(t, cfg, nil, testserver.WithTransactionManager(txManager))
+	cfg.SocketPath = addr
+
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)
 	ctx = metadata.IncomingToOutgoing(ctx)
 
-	require.Equal(t, 0, len(txManager.Votes()))
+	require.Equal(t, testhelper.GitalyOrPraefect(0, 2), len(txManager.Votes()))
 
 	_, err = client.FetchRemote(ctx, &gitalypb.FetchRemoteRequest{
-		Repository: targetRepoProto,
+		Repository: repoProto,
 		RemoteParams: &gitalypb.Remote{
-			Url: fmt.Sprintf("http://127.0.0.1:%d/%s", port, repo.GetRelativePath()),
+			Url: fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(remoteRepoPath)),
 		},
 	})
 	require.NoError(t, err)
 
-	require.Equal(t, 1, len(txManager.Votes()))
+	require.Equal(t, testhelper.GitalyOrPraefect(1, 3), len(txManager.Votes()))
 }
 
 func TestFetchRemote_pooledRepository(t *testing.T) {
