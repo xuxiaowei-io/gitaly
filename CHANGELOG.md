@@ -152,6 +152,10 @@ No changes.
 - [ruby: Remove FeatureFlags](gitlab-org/gitaly@63b206dd21eac0e7f573b099f6bd4154ca44ae3a) ([merge request](gitlab-org/gitaly!4992))
 - [Remove rubyserver redundant clients](gitlab-org/gitaly@2a76a2615d8b1c6d611d0623e4d0925a4b9f914e) ([merge request](gitlab-org/gitaly!4992))
 
+## 15.5.9 (2023-01-12)
+
+No changes.
+
 ## 15.5.8 (2023-01-12)
 
 ### Security (1 change)
