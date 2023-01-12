@@ -866,25 +866,24 @@ func TestFetchRemote(t *testing.T) {
 }
 
 func TestFetchRemote_sshCommand(t *testing.T) {
-	testhelper.SkipWithPraefect(t, "It's not possible to create repositories through the API with the git command overwritten by the script.")
-
 	t.Parallel()
 
-	cfg := testcfg.Build(t)
 	ctx := testhelper.Context(t)
-
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
-	})
+	cfg := testcfg.Build(t)
 
 	outputPath := filepath.Join(testhelper.TempDir(t), "output")
 
 	// We ain't got a nice way to intercept the SSH call, so we just write a custom git command
 	// which simply prints the GIT_SSH_COMMAND environment variable.
-	gitCmdFactory := gittest.NewInterceptingCommandFactory(t, ctx, cfg, func(git.ExecutionEnvironment) string {
+	gitCmdFactory := gittest.NewInterceptingCommandFactory(t, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
 		return fmt.Sprintf(
-			`#!/bin/sh
+			`#!/bin/bash
+
+			if test -z "$GIT_SSH_COMMAND"
+			then
+				exec %q "$@"
+			fi
+
 			for arg in $GIT_SSH_COMMAND
 			do
 				case "$arg" in
@@ -895,11 +894,15 @@ func TestFetchRemote_sshCommand(t *testing.T) {
 					echo "$arg";;
 				esac
 			done >'%s'
+
 			exit 7
-		`, outputPath)
+		`, execEnv.BinaryPath, outputPath)
 	})
 
-	client, _ := runRepositoryService(t, cfg, nil, testserver.WithGitCommandFactory(gitCmdFactory))
+	client, addr := runRepositoryService(t, cfg, nil, testserver.WithGitCommandFactory(gitCmdFactory))
+	cfg.SocketPath = addr
+
+	repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	for _, tc := range []struct {
 		desc           string
