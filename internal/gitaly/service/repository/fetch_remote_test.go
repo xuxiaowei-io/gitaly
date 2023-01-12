@@ -18,7 +18,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
@@ -30,7 +29,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func TestFetchRemote(t *testing.T) {
@@ -433,6 +431,167 @@ func TestFetchRemote(t *testing.T) {
 				}
 			},
 		},
+		{
+			desc: "remote params without force fails with diverging refs",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch("master"),
+					gittest.WithTreeEntries(gittest.TreeEntry{Mode: "100644", Path: "foot", Content: "loose"}))
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"),
+					gittest.WithTreeEntries(gittest.TreeEntry{Mode: "100644", Path: "loose", Content: "foot"}))
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url: remoteRepoPath,
+						},
+					},
+					runs: []run{
+						{
+							expectedRefs: map[string]git.ObjectID{"refs/heads/master": commitID},
+							expectedErr:  structerr.NewInternal("fetch remote: exit status 1"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "remote params with force updates diverging refs",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				commitID := gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch("master"),
+					gittest.WithTreeEntries(gittest.TreeEntry{Mode: "100644", Path: "foot", Content: "loose"}))
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"),
+					gittest.WithTreeEntries(gittest.TreeEntry{Mode: "100644", Path: "loose", Content: "foot"}))
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url: remoteRepoPath,
+						},
+						Force: true,
+					},
+					runs: []run{
+						{
+							expectedRefs:     map[string]git.ObjectID{"refs/heads/master": commitID},
+							expectedResponse: &gitalypb.FetchRemoteResponse{TagsChanged: true},
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "remote params with explicit refmap doesn't update divergent tag",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				remoteCommitID := gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithReference("refs/tags/v1"),
+					gittest.WithTreeEntries(gittest.TreeEntry{Mode: "100644", Path: "foot", Content: "loose"}))
+				gittest.WriteRef(t, cfg, remoteRepoPath, "refs/heads/master", remoteCommitID)
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference("refs/tags/v1"),
+					gittest.WithTreeEntries(gittest.TreeEntry{Mode: "100644", Path: "loose", Content: "foot"}))
+				gittest.WriteRef(t, cfg, repoPath, "refs/heads/master", commitID)
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url:           remoteRepoPath,
+							MirrorRefmaps: []string{"+refs/heads/master:refs/heads/master"},
+						},
+					},
+					runs: []run{
+						{
+							expectedRefs: map[string]git.ObjectID{
+								"refs/heads/master": remoteCommitID,
+								"refs/tags/v1":      commitID,
+							},
+							expectedErr: structerr.NewInternal("fetch remote: exit status 1"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "remote params with explicit refmap and force updates divergent tag",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				remoteCommitID := gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithReference("refs/tags/v1"),
+					gittest.WithTreeEntries(gittest.TreeEntry{Mode: "100644", Path: "foot", Content: "loose"}))
+				gittest.WriteRef(t, cfg, remoteRepoPath, "refs/heads/master", remoteCommitID)
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference("refs/tags/v1"),
+					gittest.WithTreeEntries(gittest.TreeEntry{Mode: "100644", Path: "loose", Content: "foot"}))
+				gittest.WriteRef(t, cfg, repoPath, "refs/heads/master", commitID)
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url:           remoteRepoPath,
+							MirrorRefmaps: []string{"refs/heads/master:refs/heads/master"},
+						},
+						Force: true,
+					},
+					runs: []run{
+						{
+							expectedRefs: map[string]git.ObjectID{
+								"refs/heads/master": remoteCommitID,
+								"refs/tags/v1":      remoteCommitID,
+							},
+							expectedResponse: &gitalypb.FetchRemoteResponse{TagsChanged: true},
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "remote params with explicit refmap and no tags doesn't update divergent tag",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				remoteCommitID := gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithReference("refs/tags/v1"),
+					gittest.WithTreeEntries(gittest.TreeEntry{Mode: "100644", Path: "foot", Content: "loose"}))
+				gittest.WriteRef(t, cfg, remoteRepoPath, "refs/heads/master", remoteCommitID)
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference("refs/tags/v1"),
+					gittest.WithTreeEntries(gittest.TreeEntry{Mode: "100644", Path: "loose", Content: "foot"}))
+				gittest.WriteRef(t, cfg, repoPath, "refs/heads/master", commitID)
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url:           remoteRepoPath,
+							MirrorRefmaps: []string{"+refs/heads/master:refs/heads/master"},
+						},
+						NoTags: true,
+					},
+					runs: []run{
+						{
+							expectedRefs: map[string]git.ObjectID{
+								"refs/heads/master": remoteCommitID,
+								"refs/tags/v1":      commitID,
+							},
+							expectedResponse: &gitalypb.FetchRemoteResponse{TagsChanged: true},
+						},
+					},
+				}
+			},
+		},
 	} {
 		tc := tc
 
@@ -579,150 +738,6 @@ func TestFetchRemote_transaction(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, 1, len(txManager.Votes()))
-}
-
-func TestFetchRemote_force(t *testing.T) {
-	t.Parallel()
-	ctx := testhelper.Context(t)
-
-	cfg, sourceRepoProto, sourceRepoPath, client := setupRepositoryService(t, ctx)
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
-
-	sourceRepo := localrepo.NewTestRepo(t, cfg, sourceRepoProto)
-
-	branchOID, err := sourceRepo.ResolveRevision(ctx, "refs/heads/master")
-	require.NoError(t, err)
-
-	tagOID, err := sourceRepo.ResolveRevision(ctx, "refs/tags/v1.0.0")
-	require.NoError(t, err)
-
-	divergingBranchOID := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("b1"))
-	divergingTagOID := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("b2"))
-
-	port := gittest.HTTPServer(t, ctx, gitCmdFactory, sourceRepoPath, nil)
-
-	remoteURL := fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(sourceRepoPath))
-
-	for _, tc := range []struct {
-		desc         string
-		request      *gitalypb.FetchRemoteRequest
-		expectedErr  error
-		expectedRefs map[git.ReferenceName]git.ObjectID
-	}{
-		{
-			desc: "remote params without force fails with diverging refs",
-			request: &gitalypb.FetchRemoteRequest{
-				RemoteParams: &gitalypb.Remote{
-					Url: remoteURL,
-				},
-			},
-			expectedErr: status.Error(codes.Internal, "fetch remote: exit status 1"),
-			expectedRefs: map[git.ReferenceName]git.ObjectID{
-				"refs/heads/master": branchOID,
-				"refs/tags/v1.0.0":  tagOID,
-			},
-		},
-		{
-			desc: "remote params with force updates diverging refs",
-			request: &gitalypb.FetchRemoteRequest{
-				RemoteParams: &gitalypb.Remote{
-					Url: remoteURL,
-				},
-				Force: true,
-			},
-			expectedRefs: map[git.ReferenceName]git.ObjectID{
-				"refs/heads/master": divergingBranchOID,
-				"refs/tags/v1.0.0":  divergingTagOID,
-			},
-		},
-		{
-			desc: "remote params with force-refmap fails with divergent tag",
-			request: &gitalypb.FetchRemoteRequest{
-				RemoteParams: &gitalypb.Remote{
-					Url: remoteURL,
-					MirrorRefmaps: []string{
-						"+refs/heads/master:refs/heads/master",
-					},
-				},
-			},
-			// The master branch has been updated to the diverging branch, but the
-			// command still fails because we do fetch tags by default, and the tag did
-			// diverge.
-			expectedErr: status.Error(codes.Internal, "fetch remote: exit status 1"),
-			expectedRefs: map[git.ReferenceName]git.ObjectID{
-				"refs/heads/master": divergingBranchOID,
-				"refs/tags/v1.0.0":  tagOID,
-			},
-		},
-		{
-			desc: "remote params with explicit refmap and force updates divergent tag",
-			request: &gitalypb.FetchRemoteRequest{
-				RemoteParams: &gitalypb.Remote{
-					Url: remoteURL,
-					MirrorRefmaps: []string{
-						"refs/heads/master:refs/heads/master",
-					},
-				},
-				Force: true,
-			},
-			expectedRefs: map[git.ReferenceName]git.ObjectID{
-				"refs/heads/master": divergingBranchOID,
-				"refs/tags/v1.0.0":  divergingTagOID,
-			},
-		},
-		{
-			desc: "remote params with force-refmap and no tags only updates refspec",
-			request: &gitalypb.FetchRemoteRequest{
-				RemoteParams: &gitalypb.Remote{
-					Url: remoteURL,
-					MirrorRefmaps: []string{
-						"+refs/heads/master:refs/heads/master",
-					},
-				},
-				NoTags: true,
-			},
-			expectedRefs: map[git.ReferenceName]git.ObjectID{
-				"refs/heads/master": divergingBranchOID,
-				"refs/tags/v1.0.0":  tagOID,
-			},
-		},
-	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			targetRepoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-				Seed: gittest.SeedGitLabTest,
-			})
-
-			targetRepo := localrepo.NewTestRepo(t, cfg, targetRepoProto)
-
-			// We're force-updating a branch and a tag in the source repository to point
-			// to a diverging object ID in order to verify that the `force` parameter
-			// takes effect.
-			require.NoError(t, sourceRepo.UpdateRef(ctx, "refs/heads/master", divergingBranchOID, branchOID))
-			require.NoError(t, sourceRepo.UpdateRef(ctx, "refs/tags/v1.0.0", divergingTagOID, tagOID))
-			defer func() {
-				// Restore references after the current testcase again. Moving
-				// source repository setup into the testcases is not easily possible
-				// because hosting the gitserver requires the repo path, and we need
-				// the URL for our testcases.
-				require.NoError(t, sourceRepo.UpdateRef(ctx, "refs/heads/master", branchOID, divergingBranchOID))
-				require.NoError(t, sourceRepo.UpdateRef(ctx, "refs/tags/v1.0.0", tagOID, divergingTagOID))
-			}()
-
-			tc.request.Repository = targetRepoProto
-			_, err := client.FetchRemote(ctx, tc.request)
-			testhelper.RequireGrpcError(t, tc.expectedErr, err)
-
-			updatedBranchOID, err := targetRepo.ResolveRevision(ctx, "refs/heads/master")
-			require.NoError(t, err)
-			updatedTagOID, err := targetRepo.ResolveRevision(ctx, "refs/tags/v1.0.0")
-			require.NoError(t, err)
-
-			require.Equal(t, map[git.ReferenceName]git.ObjectID{
-				"refs/heads/master": updatedBranchOID,
-				"refs/tags/v1.0.0":  updatedTagOID,
-			}, tc.expectedRefs)
-		})
-	}
 }
 
 func TestFetchRemote_inputValidation(t *testing.T) {
