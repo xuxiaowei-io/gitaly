@@ -144,6 +144,12 @@ No changes.
 - [ruby: Remove FeatureFlags](gitlab-org/gitaly@63b206dd21eac0e7f573b099f6bd4154ca44ae3a) ([merge request](gitlab-org/gitaly!4992))
 - [Remove rubyserver redundant clients](gitlab-org/gitaly@2a76a2615d8b1c6d611d0623e4d0925a4b9f914e) ([merge request](gitlab-org/gitaly!4992))
 
+## 15.5.8 (2023-01-12)
+
+### Security (1 change)
+
+- [Makefile: Upgrade Git to address out-of-bounds reads and writes](gitlab-org/security/gitaly@a8d8a7d7880477b141f75c300fa4be3542acbc4a) ([merge request](gitlab-org/security/gitaly!70))
+
 ## 15.5.7 (2023-01-09)
 
 ### Fixed (3 changes)
