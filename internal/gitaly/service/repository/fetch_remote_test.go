@@ -28,7 +28,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
 )
 
 func TestFetchRemote(t *testing.T) {
@@ -592,6 +591,117 @@ func TestFetchRemote(t *testing.T) {
 				}
 			},
 		},
+		{
+			desc: "no repository",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				_, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						RemoteParams: &gitalypb.Remote{Url: remoteRepoPath},
+					},
+					runs: []run{{expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
+						"empty Repository",
+						"repo scoped: empty Repository",
+					))}},
+				}
+			},
+		},
+		{
+			desc: "invalid storage",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: &gitalypb.Repository{
+							StorageName:  "foobar",
+							RelativePath: repoProto.RelativePath,
+						},
+						RemoteParams: &gitalypb.Remote{Url: remoteRepoPath},
+					},
+					runs: []run{{expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
+						`fetch remote: GetStorageByName: no such storage: "foobar"`,
+						"repo scoped: invalid Repository",
+					))}},
+				}
+			},
+		},
+		{
+			desc: "missing remote",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+					},
+					runs: []run{{expectedErr: structerr.NewInvalidArgument("missing remote params")}},
+				}
+			},
+		},
+		{
+			desc: "invalid remote URL",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository:   repoProto,
+						RemoteParams: &gitalypb.Remote{Url: ""},
+					},
+					runs: []run{{expectedErr: structerr.NewInvalidArgument("blank or empty remote URL")}},
+				}
+			},
+		},
+		{
+			desc: "/dev/null",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository:   repoProto,
+						RemoteParams: &gitalypb.Remote{Url: "/dev/null"},
+					},
+					runs: []run{{expectedErr: structerr.NewInternal(`fetch remote: "fatal: '/dev/null' does not appear to be a git repository\nfatal: Could not read from remote repository.\n\nPlease make sure you have the correct access rights\nand the repository exists.\n": exit status 128`)}},
+				}
+			},
+		},
+		{
+			desc: "non existent repo via http",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+				port := gittest.HTTPServer(t, ctx, gitCmdFactory, remoteRepoPath, nil)
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url:                     fmt.Sprintf("http://127.0.0.1:%d/%s", port, "invalid/repo/path.git"),
+							HttpAuthorizationHeader: httpToken,
+							HttpHost:                httpHost,
+						},
+					},
+					runs: []run{
+						{
+							expectedErr: structerr.NewInternal(`fetch remote: "fatal: repository 'http://127.0.0.1:%d/invalid/repo/path.git/' not found\n": exit status 128`, port),
+						},
+					},
+				}
+			},
+		},
 	} {
 		tc := tc
 
@@ -606,9 +716,10 @@ func TestFetchRemote(t *testing.T) {
 				testhelper.RequireGrpcError(t, run.expectedErr, err)
 				testhelper.ProtoEqual(t, run.expectedResponse, response)
 
-				refs := map[string]git.ObjectID{}
+				var refs map[string]git.ObjectID
 				refLines := text.ChompBytes(gittest.Exec(t, cfg, "-C", setupData.repoPath, "for-each-ref", `--format=%(refname) %(objectname)`))
 				if refLines != "" {
+					refs = make(map[string]git.ObjectID)
 					for _, line := range strings.Split(refLines, "\n") {
 						refname, objectID, found := strings.Cut(line, " ")
 						require.True(t, found, "shouldn't have issues parsing the refs")
@@ -738,111 +849,6 @@ func TestFetchRemote_transaction(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, 1, len(txManager.Votes()))
-}
-
-func TestFetchRemote_inputValidation(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRepositoryService(t, ctx)
-
-	const remoteName = "test-repo"
-	httpSrv, _ := remoteHTTPServer(t, remoteName, httpHost, httpToken)
-	defer httpSrv.Close()
-
-	tests := []struct {
-		desc   string
-		req    *gitalypb.FetchRemoteRequest
-		code   codes.Code
-		errMsg string
-	}{
-		{
-			desc: "no repository",
-			req: &gitalypb.FetchRemoteRequest{
-				Repository: nil,
-				RemoteParams: &gitalypb.Remote{
-					Url: remoteName,
-				},
-				Timeout: 1000,
-			},
-			code:   codes.InvalidArgument,
-			errMsg: "empty Repository",
-		},
-		{
-			desc: "invalid storage",
-			req: &gitalypb.FetchRemoteRequest{
-				Repository: &gitalypb.Repository{
-					StorageName:  "invalid",
-					RelativePath: "foobar.git",
-				},
-				RemoteParams: &gitalypb.Remote{
-					Url: remoteName,
-				},
-				Timeout: 1000,
-			},
-			// the error text is shortened to only a single word as requests to gitaly done via praefect returns different error messages
-			code:   codes.InvalidArgument,
-			errMsg: "invalid",
-		},
-		{
-			desc: "missing remote",
-			req: &gitalypb.FetchRemoteRequest{
-				Repository: repo,
-				Timeout:    1000,
-			},
-			code:   codes.InvalidArgument,
-			errMsg: "missing remote params",
-		},
-		{
-			desc: "invalid remote url",
-			req: &gitalypb.FetchRemoteRequest{
-				Repository: repo,
-				RemoteParams: &gitalypb.Remote{
-					Url: "",
-				},
-				Timeout: 1000,
-			},
-			code:   codes.InvalidArgument,
-			errMsg: `blank or empty remote URL`,
-		},
-		{
-			desc: "not existing repo via http",
-			req: &gitalypb.FetchRemoteRequest{
-				Repository: repo,
-				RemoteParams: &gitalypb.Remote{
-					Url:                     httpSrv.URL + "/invalid/repo/path.git",
-					HttpAuthorizationHeader: httpToken,
-					HttpHost:                httpHost,
-					MirrorRefmaps:           []string{"all_refs"},
-				},
-				Timeout: 1000,
-			},
-			code:   codes.Internal,
-			errMsg: "invalid/repo/path.git/' not found",
-		},
-		{
-			desc: "/dev/null",
-			req: &gitalypb.FetchRemoteRequest{
-				Repository: repo,
-				RemoteParams: &gitalypb.Remote{
-					Url: "/dev/null",
-				},
-				Timeout: 1000,
-			},
-			code:   codes.Internal,
-			errMsg: "'/dev/null' does not appear to be a git repository",
-		},
-	}
-	for _, tc := range tests {
-		t.Run(tc.desc, func(t *testing.T) {
-			resp, err := client.FetchRemote(ctx, tc.req)
-			require.Error(t, err)
-			require.Nil(t, resp)
-
-			require.Contains(t, err.Error(), tc.errMsg)
-			testhelper.RequireGrpcCode(t, err, tc.code)
-		})
-	}
 }
 
 const (
