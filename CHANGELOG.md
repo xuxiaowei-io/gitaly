@@ -1,5 +1,11 @@
 # Gitaly changelog
 
+## 15.5.8 (2023-01-12)
+
+### Security (1 change)
+
+- [Makefile: Upgrade Git to address out-of-bounds reads and writes](gitlab-org/security/gitaly@a8d8a7d7880477b141f75c300fa4be3542acbc4a) ([merge request](gitlab-org/security/gitaly!70))
+
 ## 15.5.7 (2023-01-09)
 
 ### Fixed (3 changes)
