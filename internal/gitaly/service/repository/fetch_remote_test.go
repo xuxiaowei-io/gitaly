@@ -777,6 +777,36 @@ func TestFetchRemote(t *testing.T) {
 				}
 			},
 		},
+		{
+			desc: "http with redirect",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch("master"))
+
+				gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+				port := gittest.HTTPServer(t, ctx, gitCmdFactory, remoteRepoPath, func(w http.ResponseWriter, r *http.Request, next http.Handler) {
+					http.Redirect(w, r, "/redirect_url", http.StatusSeeOther)
+				})
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url:      fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(remoteRepoPath)),
+							HttpHost: httpHost,
+						},
+					},
+					runs: []run{
+						{
+							expectedErr: structerr.NewInternal(`fetch remote: "fatal: unable to access 'http://127.0.0.1:%d/%s/': The requested URL returned error: 303\n": exit status 128`, port, filepath.Base(remoteRepoPath)),
+						},
+					},
+				}
+			},
+		},
 	} {
 		tc := tc
 
@@ -950,31 +980,6 @@ func TestFetchRemote_localPath(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, getRefnames(t, cfg, sourceRepoPath), getRefnames(t, cfg, mirrorRepoPath))
-}
-
-func TestFetchRemote_httpWithRedirect(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRepositoryService(t, ctx)
-
-	s := httptest.NewServer(
-		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			require.Equal(t, "/info/refs?service=git-upload-pack", r.URL.String())
-			http.Redirect(w, r, "/redirect_url", http.StatusSeeOther)
-		}),
-	)
-	defer s.Close()
-
-	req := &gitalypb.FetchRemoteRequest{
-		Repository:   repo,
-		RemoteParams: &gitalypb.Remote{Url: s.URL},
-		Timeout:      1000,
-	}
-
-	_, err := client.FetchRemote(ctx, req)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "The requested URL returned error: 303")
 }
 
 func TestFetchRemote_httpWithTimeout(t *testing.T) {
