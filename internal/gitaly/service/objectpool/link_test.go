@@ -3,7 +3,6 @@
 package objectpool
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -12,7 +11,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
@@ -21,12 +19,8 @@ import (
 
 func TestLink(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.AtomicCreateObjectPool).Run(t, testLink)
-}
 
-func testLink(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg, repo, _, _, client := setup(t, ctx, testserver.WithDisablePraefect())
 
 	localRepo := localrepo.NewTestRepo(t, cfg, repo)
@@ -83,12 +77,8 @@ func testLink(t *testing.T, ctx context.Context) {
 
 func TestLink_idempotent(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.AtomicCreateObjectPool).Run(t, testLinkIdempotent)
-}
 
-func testLinkIdempotent(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg, repoProto, _, _, client := setup(t, ctx)
 
 	poolProto, _, _ := createObjectPool(t, ctx, cfg, client, repoProto)
@@ -107,12 +97,8 @@ func testLinkIdempotent(t *testing.T, ctx context.Context) {
 
 func TestLink_noClobber(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.AtomicCreateObjectPool).Run(t, testLinkNoClobber)
-}
 
-func testLinkNoClobber(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg, repoProto, repoPath, _, client := setup(t, ctx)
 	poolProto, _, _ := createObjectPool(t, ctx, cfg, client, repoProto)
 
@@ -136,12 +122,8 @@ func testLinkNoClobber(t *testing.T, ctx context.Context) {
 
 func TestLink_noPool(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.AtomicCreateObjectPool).Run(t, testLinkNoPool)
-}
 
-func testLinkNoPool(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg, repo, _, _, client := setup(t, ctx)
 
 	poolRelativePath := gittest.NewObjectPoolName(t)
