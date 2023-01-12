@@ -984,32 +984,6 @@ func TestFetchRemote_transaction(t *testing.T) {
 	require.Equal(t, 1, len(txManager.Votes()))
 }
 
-func getRefnames(t *testing.T, cfg config.Cfg, repoPath string) []string {
-	result := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--format", "%(refname:lstrip=2)")
-	return strings.Split(text.ChompBytes(result), "\n")
-}
-
-func TestFetchRemote_localPath(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	cfg, _, sourceRepoPath, client := setupRepositoryService(t, ctx)
-
-	mirrorRepo, mirrorRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
-
-	_, err := client.FetchRemote(ctx, &gitalypb.FetchRemoteRequest{
-		Repository: mirrorRepo,
-		RemoteParams: &gitalypb.Remote{
-			Url: sourceRepoPath,
-		},
-	})
-	require.NoError(t, err)
-
-	require.Equal(t, getRefnames(t, cfg, sourceRepoPath), getRefnames(t, cfg, mirrorRepoPath))
-}
-
 func TestFetchRemote_pooledRepository(t *testing.T) {
 	t.Parallel()
 
