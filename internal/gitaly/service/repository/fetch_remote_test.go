@@ -32,80 +32,190 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func TestFetchRemote_checkTagsChanged(t *testing.T) {
+func TestFetchRemote(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+	// Some of the tests require multiple calls to the clients each run struct
+	// encompasses the expected data for a single run
+	type run struct {
+		expectedRefs     map[string]git.ObjectID
+		expectedResponse *gitalypb.FetchRemoteResponse
+		expectedErr      error
+	}
 
-	gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch("main"))
+	type setupData struct {
+		repoPath string
+		request  *gitalypb.FetchRemoteRequest
+		runs     []run
+	}
 
-	t.Run("check tags without tags", func(t *testing.T) {
-		repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+	for _, tc := range []struct {
+		desc  string
+		setup func(t *testing.T, cfg config.Cfg) setupData
+	}{
+		{
+			desc: "check tags without tags",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
-		response, err := client.FetchRemote(ctx, &gitalypb.FetchRemoteRequest{
-			Repository: repoProto,
-			RemoteParams: &gitalypb.Remote{
-				Url: remoteRepoPath,
+				commitID := gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch("main"))
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url: remoteRepoPath,
+						},
+						CheckTagsChanged: true,
+					},
+					runs: []run{
+						{
+							expectedRefs:     map[string]git.ObjectID{"refs/heads/main": commitID},
+							expectedResponse: &gitalypb.FetchRemoteResponse{},
+						},
+					},
+				}
 			},
-			CheckTagsChanged: true,
-		})
-		require.NoError(t, err)
-		testhelper.ProtoEqual(t, &gitalypb.FetchRemoteResponse{}, response)
-	})
+		},
+		{
+			desc: "check tags with tags",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
-	gittest.WriteTag(t, cfg, remoteRepoPath, "testtag", "main")
+				commitID := gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch("main"))
+				tagID := gittest.WriteTag(t, cfg, remoteRepoPath, "testtag", "main")
 
-	t.Run("check tags with tags", func(t *testing.T) {
-		repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
-
-		// The first fetch should report that the tags have changed, ...
-		response, err := client.FetchRemote(ctx, &gitalypb.FetchRemoteRequest{
-			Repository: repoProto,
-			RemoteParams: &gitalypb.Remote{
-				Url: remoteRepoPath,
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url: remoteRepoPath,
+						},
+						CheckTagsChanged: true,
+					},
+					runs: []run{
+						{
+							expectedRefs: map[string]git.ObjectID{
+								"refs/heads/main":   commitID,
+								"refs/tags/testtag": tagID,
+							},
+							expectedResponse: &gitalypb.FetchRemoteResponse{TagsChanged: true},
+						},
+					},
+				}
 			},
-			CheckTagsChanged: true,
-		})
-		require.NoError(t, err)
-		testhelper.ProtoEqual(t, &gitalypb.FetchRemoteResponse{
-			TagsChanged: true,
-		}, response)
+		},
+		{
+			desc: "check tags with tags (second pull)",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
-		// ... while the second fetch shouldn't fetch it anew, and thus the tag should not
-		// have changed.
-		response, err = client.FetchRemote(ctx, &gitalypb.FetchRemoteRequest{
-			Repository: repoProto,
-			RemoteParams: &gitalypb.Remote{
-				Url: remoteRepoPath,
+				commitID := gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch("main"))
+				tagID := gittest.WriteTag(t, cfg, remoteRepoPath, "testtag", "main")
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url: remoteRepoPath,
+						},
+						CheckTagsChanged: true,
+					},
+					runs: []run{
+						{
+							expectedRefs: map[string]git.ObjectID{
+								"refs/heads/main":   commitID,
+								"refs/tags/testtag": tagID,
+							},
+							expectedResponse: &gitalypb.FetchRemoteResponse{TagsChanged: true},
+						},
+						{
+							expectedRefs: map[string]git.ObjectID{
+								"refs/heads/main":   commitID,
+								"refs/tags/testtag": tagID,
+							},
+							// second time around it shouldn't have changed tags
+							expectedResponse: &gitalypb.FetchRemoteResponse{},
+						},
+					},
+				}
 			},
-			CheckTagsChanged: true,
+		},
+		{
+			desc: "without checking for changed tags",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				commitID := gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch("main"))
+				tagID := gittest.WriteTag(t, cfg, remoteRepoPath, "testtag", "main")
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url: remoteRepoPath,
+						},
+						CheckTagsChanged: false,
+					},
+					runs: []run{
+						{
+							expectedRefs: map[string]git.ObjectID{
+								"refs/heads/main":   commitID,
+								"refs/tags/testtag": tagID,
+							},
+							// TagsChanged is set to true as we have requested to not check for tags changed
+							// in the request so it defaults to true.
+							expectedResponse: &gitalypb.FetchRemoteResponse{TagsChanged: true},
+						},
+						// Run a second time to ensure it is consistent
+						{
+							expectedRefs: map[string]git.ObjectID{
+								"refs/heads/main":   commitID,
+								"refs/tags/testtag": tagID,
+							},
+							expectedResponse: &gitalypb.FetchRemoteResponse{TagsChanged: true},
+						},
+					},
+				}
+			},
+		},
+	} {
+		tc := tc
+
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			cfg, client := setupRepositoryServiceWithoutRepo(t)
+			setupData := tc.setup(t, cfg)
+
+			for _, run := range setupData.runs {
+				response, err := client.FetchRemote(ctx, setupData.request)
+				testhelper.RequireGrpcError(t, run.expectedErr, err)
+				testhelper.ProtoEqual(t, run.expectedResponse, response)
+
+				refs := map[string]git.ObjectID{}
+				refLines := text.ChompBytes(gittest.Exec(t, cfg, "-C", setupData.repoPath, "for-each-ref", `--format=%(refname) %(objectname)`))
+				if refLines != "" {
+					for _, line := range strings.Split(refLines, "\n") {
+						refname, objectID, found := strings.Cut(line, " ")
+						require.True(t, found, "shouldn't have issues parsing the refs")
+						refs[refname] = git.ObjectID(objectID)
+					}
+				}
+				require.Equal(t, run.expectedRefs, refs)
+			}
 		})
-		require.NoError(t, err)
-		testhelper.ProtoEqual(t, &gitalypb.FetchRemoteResponse{}, response)
-	})
-
-	t.Run("without checking for changed tags", func(t *testing.T) {
-		repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
-
-		// We fetch into the same repository multiple times to assert that `TagsChanged` is
-		// `true` regardless of whether we have the tag locally already or not.
-		for i := 0; i < 2; i++ {
-			response, err := client.FetchRemote(ctx, &gitalypb.FetchRemoteRequest{
-				Repository: repoProto,
-				RemoteParams: &gitalypb.Remote{
-					Url: remoteRepoPath,
-				},
-				CheckTagsChanged: false,
-			})
-			require.NoError(t, err)
-			testhelper.ProtoEqual(t, &gitalypb.FetchRemoteResponse{
-				TagsChanged: true,
-			}, response)
-		}
-	})
+	}
 }
 
 func TestFetchRemote_sshCommand(t *testing.T) {
