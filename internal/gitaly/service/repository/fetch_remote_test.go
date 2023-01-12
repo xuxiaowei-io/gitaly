@@ -14,7 +14,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
@@ -29,6 +28,24 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
+
+const (
+	httpToken = "ABCefg0999182"
+	httpHost  = "example.com"
+)
+
+func gitRequestValidation(w http.ResponseWriter, r *http.Request, next http.Handler) {
+	if r.Host != httpHost {
+		http.Error(w, "No Host", http.StatusBadRequest)
+		return
+	}
+	if r.Header.Get("Authorization") != httpToken {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	next.ServeHTTP(w, r)
+}
 
 func TestFetchRemote(t *testing.T) {
 	t.Parallel()
@@ -702,6 +719,64 @@ func TestFetchRemote(t *testing.T) {
 				}
 			},
 		},
+		{
+			desc: "http with token",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				masterCommitID := gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch("master"))
+
+				gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+				port := gittest.HTTPServer(t, ctx, gitCmdFactory, remoteRepoPath, gitRequestValidation)
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url:                     fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(remoteRepoPath)),
+							HttpAuthorizationHeader: httpToken,
+							HttpHost:                httpHost,
+						},
+					},
+					runs: []run{
+						{
+							expectedResponse: &gitalypb.FetchRemoteResponse{TagsChanged: true},
+							expectedRefs:     map[string]git.ObjectID{"refs/heads/master": masterCommitID},
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "http without token",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch("master"))
+
+				gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+				port := gittest.HTTPServer(t, ctx, gitCmdFactory, remoteRepoPath, gitRequestValidation)
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url:      fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(remoteRepoPath)),
+							HttpHost: httpHost,
+						},
+					},
+					runs: []run{
+						{
+							expectedErr: structerr.NewInternal(`fetch remote: "fatal: could not read Username for 'http://127.0.0.1:%d': terminal prompts disabled\n": exit status 128`, port),
+						},
+					},
+				}
+			},
+		},
 	} {
 		tc := tc
 
@@ -851,102 +926,9 @@ func TestFetchRemote_transaction(t *testing.T) {
 	require.Equal(t, 1, len(txManager.Votes()))
 }
 
-const (
-	httpToken = "ABCefg0999182"
-	httpHost  = "example.com"
-)
-
-func remoteHTTPServer(t *testing.T, repoName, httpHost, httpToken string) (*httptest.Server, string) {
-	b := testhelper.MustReadFile(t, "testdata/advertise.txt")
-
-	s := httptest.NewServer(
-		// https://github.com/git/git/blob/master/Documentation/technical/http-protocol.txt
-		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Host != httpHost {
-				w.WriteHeader(http.StatusBadRequest)
-				return
-			}
-
-			if r.URL.String() != fmt.Sprintf("/%s.git/info/refs?service=git-upload-pack", repoName) {
-				w.WriteHeader(http.StatusNotFound)
-				return
-			}
-
-			if httpToken != "" && r.Header.Get("Authorization") != httpToken {
-				w.WriteHeader(http.StatusUnauthorized)
-				return
-			}
-
-			w.Header().Set("Content-Type", "application/x-git-upload-pack-advertisement")
-			_, err := w.Write(b)
-			assert.NoError(t, err)
-		}),
-	)
-
-	return s, fmt.Sprintf("%s/%s.git", s.URL, repoName)
-}
-
 func getRefnames(t *testing.T, cfg config.Cfg, repoPath string) []string {
 	result := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--format", "%(refname:lstrip=2)")
 	return strings.Split(text.ChompBytes(result), "\n")
-}
-
-func TestFetchRemote_http(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
-
-	testCases := []struct {
-		description string
-		httpToken   string
-		remoteURL   string
-	}{
-		{
-			description: "with http token",
-			httpToken:   httpToken,
-		},
-		{
-			description: "without http token",
-			httpToken:   "",
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.description, func(t *testing.T) {
-			forkedRepo, forkedRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-				Seed: gittest.SeedGitLabTest,
-			})
-
-			s, remoteURL := remoteHTTPServer(t, "my-repo", httpHost, tc.httpToken)
-			defer s.Close()
-
-			req := &gitalypb.FetchRemoteRequest{
-				Repository: forkedRepo,
-				RemoteParams: &gitalypb.Remote{
-					Url:                     remoteURL,
-					HttpAuthorizationHeader: tc.httpToken,
-					HttpHost:                httpHost,
-					MirrorRefmaps:           []string{"all_refs"},
-				},
-				Timeout: 1000,
-			}
-			if tc.remoteURL != "" {
-				req.RemoteParams.Url = s.URL + tc.remoteURL
-			}
-
-			refs := getRefnames(t, cfg, forkedRepoPath)
-			require.True(t, len(refs) > 1, "the advertisement.txt should have deleted all refs except for master")
-
-			_, err := client.FetchRemote(ctx, req)
-			require.NoError(t, err)
-
-			refs = getRefnames(t, cfg, forkedRepoPath)
-
-			require.Len(t, refs, 1)
-			assert.Equal(t, "master", refs[0])
-		})
-	}
 }
 
 func TestFetchRemote_localPath(t *testing.T) {
