@@ -343,6 +343,96 @@ func TestFetchRemote(t *testing.T) {
 				}
 			},
 		},
+		{
+			desc: "NoPrune=true with explicit Remote should not delete reference",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				masterCommitID := gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch("master"))
+				unrelatedCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("unrelated"))
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url: remoteRepoPath,
+						},
+						NoPrune: true,
+					},
+					runs: []run{
+						{
+							expectedRefs: map[string]git.ObjectID{
+								"refs/heads/unrelated": unrelatedCommitID,
+								"refs/heads/master":    masterCommitID,
+							},
+							expectedResponse: &gitalypb.FetchRemoteResponse{TagsChanged: true},
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "NoPrune=false with explicit Remote should delete reference",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				commitID := gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch("master"))
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("unrelated"))
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url: remoteRepoPath,
+						},
+						NoPrune: false,
+					},
+					runs: []run{
+						{
+							expectedRefs: map[string]git.ObjectID{
+								"refs/heads/master": commitID,
+							},
+							expectedResponse: &gitalypb.FetchRemoteResponse{TagsChanged: true},
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "NoPrune=false with explicit Remote should not delete reference outside of refspec",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				commitID := gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch("master"))
+				unrelatedID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("unrelated"))
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url:           remoteRepoPath,
+							MirrorRefmaps: []string{"refs/heads/*:refs/remotes/my-remote/*"},
+						},
+						NoPrune: false,
+					},
+					runs: []run{
+						{
+							expectedRefs: map[string]git.ObjectID{
+								"refs/remotes/my-remote/master": commitID,
+								"refs/heads/unrelated":          unrelatedID,
+							},
+							expectedResponse: &gitalypb.FetchRemoteResponse{TagsChanged: true},
+						},
+					},
+				}
+			},
+		},
 	} {
 		tc := tc
 
@@ -489,80 +579,6 @@ func TestFetchRemote_transaction(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, 1, len(txManager.Votes()))
-}
-
-func TestFetchRemote_prune(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	cfg, _, sourceRepoPath, client := setupRepositoryService(t, ctx)
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
-
-	port := gittest.HTTPServer(t, ctx, gitCmdFactory, sourceRepoPath, nil)
-
-	remoteURL := fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(sourceRepoPath))
-
-	for _, tc := range []struct {
-		desc        string
-		request     *gitalypb.FetchRemoteRequest
-		ref         git.ReferenceName
-		shouldExist bool
-	}{
-		{
-			desc: "NoPrune=true with explicit Remote should not delete reference",
-			request: &gitalypb.FetchRemoteRequest{
-				RemoteParams: &gitalypb.Remote{
-					Url: remoteURL,
-				},
-				NoPrune: true,
-			},
-			ref:         "refs/heads/nonexistent",
-			shouldExist: true,
-		},
-		{
-			desc: "NoPrune=false with explicit Remote should delete reference",
-			request: &gitalypb.FetchRemoteRequest{
-				RemoteParams: &gitalypb.Remote{
-					Url: remoteURL,
-				},
-				NoPrune: false,
-			},
-			ref:         "refs/heads/nonexistent",
-			shouldExist: false,
-		},
-		{
-			desc: "NoPrune=false with explicit Remote should not delete reference outside of refspec",
-			request: &gitalypb.FetchRemoteRequest{
-				RemoteParams: &gitalypb.Remote{
-					Url: remoteURL,
-					MirrorRefmaps: []string{
-						"refs/heads/*:refs/remotes/my-remote/*",
-					},
-				},
-				NoPrune: false,
-			},
-			ref:         "refs/heads/nonexistent",
-			shouldExist: true,
-		},
-	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			targetRepoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-				Seed: gittest.SeedGitLabTest,
-			})
-			targetRepo := localrepo.NewTestRepo(t, cfg, targetRepoProto)
-
-			require.NoError(t, targetRepo.UpdateRef(ctx, tc.ref, "refs/heads/master", ""))
-
-			tc.request.Repository = targetRepoProto
-			resp, err := client.FetchRemote(ctx, tc.request)
-			require.NoError(t, err)
-			require.NotNil(t, resp)
-
-			hasRevision, err := targetRepo.HasRevision(ctx, tc.ref.Revision())
-			require.NoError(t, err)
-			require.Equal(t, tc.shouldExist, hasRevision)
-		})
-	}
 }
 
 func TestFetchRemote_force(t *testing.T) {
