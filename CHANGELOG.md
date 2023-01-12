@@ -67,6 +67,12 @@ No changes.
 
 - [objectpool: Deprecate ReduplicateRepository RPC](gitlab-org/gitaly@4db49541d5843106aeac193de0ed3fd466cc3bc8) ([merge request](gitlab-org/gitaly!5131))
 
+## 15.6.5 (2023-01-12)
+
+### Security (1 change)
+
+- [Makefile: Upgrade Git to address out-of-bounds reads and writes](gitlab-org/security/gitaly@64daa1b1fed7d0ea17abc47970c3933cfa6ebf03) ([merge request](gitlab-org/security/gitaly!71))
+
 ## 15.6.4 (2023-01-09)
 
 ### Fixed (1 change)
