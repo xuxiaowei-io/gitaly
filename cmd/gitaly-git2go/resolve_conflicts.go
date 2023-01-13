@@ -231,10 +231,14 @@ func readConflictEntries(odb *git.Odb, c git.IndexConflict) (*conflict.Entry, *c
 			return nil, nil, nil, err
 		}
 
+		data := blob.Data()
+		contents := make([]byte, len(data))
+		copy(contents, data)
+
 		*part.result = &conflict.Entry{
 			Path:     part.entry.Path,
 			Mode:     uint(part.entry.Mode),
-			Contents: blob.Data(),
+			Contents: contents,
 		}
 	}
 
