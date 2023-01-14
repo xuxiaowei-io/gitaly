@@ -3,7 +3,6 @@
 package objectpool
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -18,7 +17,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -28,12 +26,8 @@ import (
 
 func TestCreate(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.AtomicCreateObjectPool).Run(t, testCreate)
-}
 
-func testCreate(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg, repo, repoPath, _, client := setup(t, ctx)
 	commitID := gittest.WriteCommit(t, cfg, repoPath)
 
@@ -86,12 +80,8 @@ func testCreate(t *testing.T, ctx context.Context) {
 
 func TestCreate_unsuccessful(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.AtomicCreateObjectPool).Run(t, testCreateUnsuccessful)
-}
 
-func testCreateUnsuccessful(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg, repo, _, _, client := setup(t, ctx, testserver.WithDisablePraefect())
 
 	// Precreate a stale lock for a valid object pool path so that we can verify that the lock
@@ -113,7 +103,6 @@ func testCreateUnsuccessful(t *testing.T, ctx context.Context) {
 		Origin:     repo,
 	})
 	require.NoError(t, err)
-	preexistingPoolPath := filepath.Join(cfg.Storages[0].Path, preexistingPool.Repository.RelativePath)
 
 	for _, tc := range []struct {
 		desc        string
@@ -202,12 +191,7 @@ func testCreateUnsuccessful(t *testing.T, ctx context.Context) {
 					},
 				},
 			},
-			expectedErr: func() error {
-				if featureflag.AtomicCreateObjectPool.IsEnabled(ctx) {
-					return structerr.NewInternal("creating object pool: locking repository: file already locked")
-				}
-				return nil
-			}(),
+			expectedErr: structerr.NewInternal("creating object pool: locking repository: file already locked"),
 		},
 		{
 			desc: "pool exists",
@@ -215,14 +199,7 @@ func testCreateUnsuccessful(t *testing.T, ctx context.Context) {
 				Origin:     repo,
 				ObjectPool: preexistingPool,
 			},
-			expectedErr: func() error {
-				if featureflag.AtomicCreateObjectPool.IsEnabled(ctx) {
-					return structerr.NewFailedPrecondition("creating object pool: repository exists already")
-				}
-
-				return structerr.NewFailedPrecondition("creating object pool: target path exists already").
-					WithInterceptedMetadata("object_pool_path", preexistingPoolPath)
-			}(),
+			expectedErr: structerr.NewFailedPrecondition("creating object pool: repository exists already"),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -234,12 +211,8 @@ func testCreateUnsuccessful(t *testing.T, ctx context.Context) {
 
 func TestCreate_atomic(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.AtomicCreateObjectPool).Run(t, testCreateAtomic)
-}
 
-func testCreateAtomic(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
 	gitCmdFactory := gittest.NewInterceptingCommandFactory(t, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
@@ -271,11 +244,5 @@ func testCreateAtomic(t *testing.T, ctx context.Context) {
 		Origin:     repo,
 	})
 	testhelper.RequireGrpcError(t, structerr.NewInternal("creating object pool: cloning to pool: exit status 123, stderr: %q", ""), err)
-
-	if featureflag.AtomicCreateObjectPool.IsEnabled(ctx) {
-		require.NoDirExists(t, filepath.Join(cfg.Storages[0].Path, objectPool.Repository.RelativePath))
-	} else {
-		poolPath := gittest.GetReplicaPath(t, ctx, cfg, objectPool.Repository)
-		require.DirExists(t, filepath.Join(cfg.Storages[0].Path, poolPath))
-	}
+	require.NoDirExists(t, filepath.Join(cfg.Storages[0].Path, objectPool.Repository.RelativePath))
 }
