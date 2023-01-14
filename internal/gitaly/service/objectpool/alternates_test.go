@@ -23,7 +23,6 @@ func TestDisconnectGitAlternates(t *testing.T) {
 	t.Parallel()
 	testhelper.NewFeatureSets(
 		featureflag.RevlistForConnectivity,
-		featureflag.AtomicCreateObjectPool,
 	).Run(
 		t,
 		testDisconnectGitAlternates,
