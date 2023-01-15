@@ -2,7 +2,7 @@ module gitlab.com/gitlab-org/gitaly/tools/gotestsum
 
 go 1.17
 
-require gotest.tools/gotestsum v1.8.2
+require gotest.tools/gotestsum v1.9.0
 
 require (
 	github.com/dnephin/pflag v1.0.7 // indirect
