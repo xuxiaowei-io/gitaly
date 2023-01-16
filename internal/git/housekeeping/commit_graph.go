@@ -7,7 +7,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 )
 
@@ -53,7 +52,7 @@ func commitGraphNeedsRewrite(ctx context.Context, commitGraphInfo stats.CommitGr
 		// ain't got bloom filters enabled. This is because Git will refuse to write any
 		// bloom filters as long as any of the commit-graph slices is missing this info.
 		return true
-	} else if !commitGraphInfo.HasGenerationData && featureflag.UseCommitGraphGenerationData.IsEnabled(ctx) {
+	} else if !commitGraphInfo.HasGenerationData {
 		// The same is true for generation data.
 		return true
 	}

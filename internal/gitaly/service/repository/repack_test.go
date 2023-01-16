@@ -3,7 +3,6 @@
 package repository
 
 import (
-	"context"
 	"fmt"
 	"path/filepath"
 	"testing"
@@ -13,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -23,12 +21,8 @@ import (
 
 func TestRepackIncrementalSuccess(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UseCommitGraphGenerationData).Run(t, testRepackIncrementalSuccess)
-}
 
-func testRepackIncrementalSuccess(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
@@ -55,7 +49,7 @@ func testRepackIncrementalSuccess(t *testing.T, ctx context.Context) {
 	requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{
 		Exists:                 true,
 		HasBloomFilters:        true,
-		HasGenerationData:      featureflag.UseCommitGraphGenerationData.IsEnabled(ctx),
+		HasGenerationData:      true,
 		CommitGraphChainLength: 1,
 	})
 }
@@ -172,12 +166,8 @@ func TestRepackIncrementalFailure(t *testing.T) {
 
 func TestRepackFullSuccess(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UseCommitGraphGenerationData).Run(t, testRepackFullSuccess)
-}
 
-func testRepackFullSuccess(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	for _, tc := range []struct {
@@ -238,7 +228,7 @@ func testRepackFullSuccess(t *testing.T, ctx context.Context) {
 			requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{
 				Exists:                 true,
 				HasBloomFilters:        true,
-				HasGenerationData:      featureflag.UseCommitGraphGenerationData.IsEnabled(ctx),
+				HasGenerationData:      true,
 				CommitGraphChainLength: 1,
 			})
 		})

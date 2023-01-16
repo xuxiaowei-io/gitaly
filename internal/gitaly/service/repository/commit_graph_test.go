@@ -3,14 +3,12 @@
 package repository
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -18,11 +16,6 @@ import (
 )
 
 func TestWriteCommitGraph_withExistingCommitGraphCreatedWithDefaults(t *testing.T) {
-	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UseCommitGraphGenerationData).Run(t, testWriteCommitGraphWithExistingCommitGraphCreatedWithDefaults)
-}
-
-func testWriteCommitGraphWithExistingCommitGraphCreatedWithDefaults(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
 	for _, tc := range []struct {
@@ -39,6 +32,7 @@ func testWriteCommitGraphWithExistingCommitGraphCreatedWithDefaults(t *testing.T
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
+			ctx := testhelper.Context(t)
 			cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 			requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{})
@@ -73,7 +67,7 @@ func testWriteCommitGraphWithExistingCommitGraphCreatedWithDefaults(t *testing.T
 			requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{
 				Exists:                 true,
 				HasBloomFilters:        true,
-				HasGenerationData:      featureflag.UseCommitGraphGenerationData.IsEnabled(ctx),
+				HasGenerationData:      true,
 				CommitGraphChainLength: 1,
 			})
 		})
@@ -81,11 +75,6 @@ func testWriteCommitGraphWithExistingCommitGraphCreatedWithDefaults(t *testing.T
 }
 
 func TestWriteCommitGraph_withExistingCommitGraphCreatedWithSplit(t *testing.T) {
-	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UseCommitGraphGenerationData).Run(t, testWriteCommitGraphWithExistingCommitGraphCreatedWithSplit)
-}
-
-func testWriteCommitGraphWithExistingCommitGraphCreatedWithSplit(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
 	for _, tc := range []struct {
@@ -102,6 +91,7 @@ func testWriteCommitGraphWithExistingCommitGraphCreatedWithSplit(t *testing.T, c
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
+			ctx := testhelper.Context(t)
 			cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 			// Assert that no commit-graph exists.
@@ -139,7 +129,7 @@ func testWriteCommitGraphWithExistingCommitGraphCreatedWithSplit(t *testing.T, c
 				Exists:                 true,
 				CommitGraphChainLength: 1,
 				HasBloomFilters:        true,
-				HasGenerationData:      featureflag.UseCommitGraphGenerationData.IsEnabled(ctx),
+				HasGenerationData:      true,
 			})
 		})
 	}
@@ -147,12 +137,8 @@ func testWriteCommitGraphWithExistingCommitGraphCreatedWithSplit(t *testing.T, c
 
 func TestWriteCommitGraph(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UseCommitGraphGenerationData).Run(t, testWriteCommitGraph)
-}
 
-func testWriteCommitGraph(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	_, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{})
@@ -169,18 +155,14 @@ func testWriteCommitGraph(t *testing.T, ctx context.Context) {
 		Exists:                 true,
 		CommitGraphChainLength: 1,
 		HasBloomFilters:        true,
-		HasGenerationData:      featureflag.UseCommitGraphGenerationData.IsEnabled(ctx),
+		HasGenerationData:      true,
 	})
 }
 
 func TestWriteCommitGraph_validationChecks(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UseCommitGraphGenerationData).Run(t, testWriteCommitGraphValidationChecks)
-}
 
-func testWriteCommitGraphValidationChecks(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg, repo, _, client := setupRepositoryService(t, ctx)
 
 	for _, tc := range []struct {
@@ -231,12 +213,8 @@ func testWriteCommitGraphValidationChecks(t *testing.T, ctx context.Context) {
 
 func TestUpdateCommitGraph(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UseCommitGraphGenerationData).Run(t, testUpdateCommitGraph)
-}
 
-func testUpdateCommitGraph(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{})
@@ -252,7 +230,7 @@ func testUpdateCommitGraph(t *testing.T, ctx context.Context) {
 	requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{
 		Exists:                 true,
 		HasBloomFilters:        true,
-		HasGenerationData:      featureflag.UseCommitGraphGenerationData.IsEnabled(ctx),
+		HasGenerationData:      true,
 		CommitGraphChainLength: 1,
 	})
 
@@ -276,7 +254,7 @@ func testUpdateCommitGraph(t *testing.T, ctx context.Context) {
 	requireCommitGraphInfo(t, repoPath, stats.CommitGraphInfo{
 		Exists:                 true,
 		HasBloomFilters:        true,
-		HasGenerationData:      featureflag.UseCommitGraphGenerationData.IsEnabled(ctx),
+		HasGenerationData:      true,
 		CommitGraphChainLength: 2,
 	})
 }

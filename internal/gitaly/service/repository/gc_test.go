@@ -4,7 +4,6 @@ package repository
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -19,7 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -34,12 +32,8 @@ var (
 
 func TestGarbageCollectCommitGraph(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UseCommitGraphGenerationData).Run(t, testGarbageCollectCommitGraph)
-}
 
-func testGarbageCollectCommitGraph(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	_, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	//nolint:staticcheck
@@ -51,7 +45,7 @@ func testGarbageCollectCommitGraph(t *testing.T, ctx context.Context) {
 		Exists:                 true,
 		CommitGraphChainLength: 1,
 		HasBloomFilters:        true,
-		HasGenerationData:      featureflag.UseCommitGraphGenerationData.IsEnabled(ctx),
+		HasGenerationData:      true,
 	})
 }
 
