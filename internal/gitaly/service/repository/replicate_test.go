@@ -546,13 +546,22 @@ func TestFetchInternalRemote_successful(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	remoteCfg, remoteRepo, remoteRepoPath := testcfg.BuildWithRepo(t)
+
+	remoteCfg := testcfg.Build(t)
+	remoteRepo, remoteRepoPath := gittest.CreateRepository(t, ctx, remoteCfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 	testcfg.BuildGitalyHooks(t, remoteCfg)
 	gittest.WriteCommit(t, remoteCfg, remoteRepoPath, gittest.WithBranch("master"))
 
 	_, remoteAddr := runRepositoryService(t, remoteCfg, nil, testserver.WithDisablePraefect())
 
-	localCfg, localRepoProto, localRepoPath := testcfg.BuildWithRepo(t)
+	localCfg := testcfg.Build(t)
+	localRepoProto, localRepoPath := gittest.CreateRepository(t, ctx, localCfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 	localRepo := localrepo.NewTestRepo(t, localCfg, localRepoProto)
 	testcfg.BuildGitalySSH(t, localCfg)
 	testcfg.BuildGitalyHooks(t, localCfg)
@@ -615,8 +624,14 @@ func TestFetchInternalRemote_failure(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repoProto, _ := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
+
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
 	ctx = testhelper.MergeIncomingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
 	connsPool := client.NewPool()

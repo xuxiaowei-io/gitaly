@@ -102,7 +102,13 @@ func TestMain(m *testing.M) {
 func TestHooksPrePostWithSymlinkedStoragePath(t *testing.T) {
 	tempDir := testhelper.TempDir(t)
 
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 	testcfg.BuildGitalyHooks(t, cfg)
 	testcfg.BuildGitalySSH(t, cfg)
 
@@ -115,7 +121,14 @@ func TestHooksPrePostWithSymlinkedStoragePath(t *testing.T) {
 }
 
 func TestHooksPrePostReceive(t *testing.T) {
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
+
 	testcfg.BuildGitalyHooks(t, cfg)
 	testcfg.BuildGitalySSH(t, cfg)
 	testHooksPrePostReceive(t, cfg, repo, repoPath)
@@ -327,7 +340,14 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 
 	logger, _ := test.NewNullLogger()
 
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t, testcfg.WithBase(config.Cfg{Auth: auth.Config{Token: "abc123"}}))
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t, testcfg.WithBase(config.Cfg{Auth: auth.Config{Token: "abc123"}}))
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
+
 	gitalyHooksPath := testcfg.BuildGitalyHooks(t, cfg)
 	testcfg.BuildGitalySSH(t, cfg)
 
@@ -394,8 +414,6 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
-
 			hooksPayload, err := git.NewHooksPayload(
 				cfg,
 				repo,
@@ -439,7 +457,14 @@ func TestHooksNotAllowed(t *testing.T) {
 
 	logger, _ := test.NewNullLogger()
 
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t, testcfg.WithBase(config.Cfg{Auth: auth.Config{Token: "abc123"}}))
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t, testcfg.WithBase(config.Cfg{Auth: auth.Config{Token: "abc123"}}))
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
+
 	gitalyHooksPath := testcfg.BuildGitalyHooks(t, cfg)
 	testcfg.BuildGitalySSH(t, cfg)
 
@@ -467,7 +492,6 @@ func TestHooksNotAllowed(t *testing.T) {
 	runHookServiceWithGitlabClient(t, cfg, gitlabClient)
 
 	var stderr, stdout bytes.Buffer
-	ctx := testhelper.Context(t)
 
 	cmd := exec.Command(gitalyHooksPath)
 	cmd.Args = []string{"pre-receive"}
@@ -548,10 +572,16 @@ func requireContainsOnce(t *testing.T, s string, contains string) {
 func TestGitalyHooksPackObjects(t *testing.T) {
 	logDir := testhelper.TempDir(t)
 
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t, testcfg.WithBase(config.Cfg{
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t, testcfg.WithBase(config.Cfg{
 		Auth:    auth.Config{Token: "abc123"},
 		Logging: config.Logging{Config: internallog.Config{Dir: logDir}},
 	}))
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	logger, hook := test.NewNullLogger()
 	runHookServiceServer(t, cfg, testserver.WithLogger(logger))
@@ -579,8 +609,6 @@ func TestGitalyHooksPackObjects(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
-
 			hook.Reset()
 
 			tempDir := testhelper.TempDir(t)

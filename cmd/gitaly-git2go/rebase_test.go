@@ -20,8 +20,16 @@ import (
 var masterRevision = "1e292f8fedd741b75372e19097c76d327140c312"
 
 func TestRebase_validation(t *testing.T) {
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
 	testcfg.BuildGitalyGit2Go(t, cfg)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
+
 	committer := git2go.NewSignature("Foo", "foo@example.com", time.Now())
 	executor := buildExecutor(t, cfg)
 
@@ -72,8 +80,6 @@ func TestRebase_validation(t *testing.T) {
 	}
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
-
 			_, err := executor.Rebase(ctx, repo, tc.request)
 			require.EqualError(t, err, tc.expectedErr)
 		})
@@ -171,7 +177,11 @@ func TestRebase_rebase(t *testing.T) {
 				string(gittest.TestUser.Email),
 				time.Date(2021, 3, 1, 13, 45, 50, 0, time.FixedZone("", +2*60*60)))
 
-			cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
+			cfg := testcfg.Build(t)
+			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				SkipCreationViaService: true,
+				Seed:                   gittest.SeedGitLabTest,
+			})
 			testcfg.BuildGitalyGit2Go(t, cfg)
 			executor := buildExecutor(t, cfg)
 
@@ -239,9 +249,14 @@ func TestRebase_rebase(t *testing.T) {
 
 func TestRebase_skipEmptyCommit(t *testing.T) {
 	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
 
-	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 	testcfg.BuildGitalyGit2Go(t, cfg)
+
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	// Set up history with two diverging lines of branches, where both sides have implemented
 	// the same changes. During rebase, the diff will thus become empty.

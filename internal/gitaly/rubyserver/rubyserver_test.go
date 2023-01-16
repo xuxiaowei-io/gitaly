@@ -38,8 +38,13 @@ func TestStopSafe(t *testing.T) {
 }
 
 func TestSetHeaders(t *testing.T) {
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
 	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	locator := config.NewLocator(cfg)
 

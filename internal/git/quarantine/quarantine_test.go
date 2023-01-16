@@ -40,12 +40,16 @@ func (e entry) create(t *testing.T, root string) {
 }
 
 func TestQuarantine_lifecycle(t *testing.T) {
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 	locator := config.NewLocator(cfg)
 
 	t.Run("quarantine directory gets created", func(t *testing.T) {
-		ctx := testhelper.Context(t)
-
 		quarantine, err := New(ctx, repo, locator)
 		require.NoError(t, err)
 
@@ -69,7 +73,7 @@ func TestQuarantine_lifecycle(t *testing.T) {
 	})
 
 	t.Run("context cancellation cleans up quarantine directory", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(testhelper.Context(t))
+		ctx, cancel := context.WithCancel(ctx)
 
 		quarantine, err := New(ctx, repo, locator)
 		require.NoError(t, err)
@@ -132,10 +136,14 @@ func TestQuarantine_Migrate(t *testing.T) {
 func TestQuarantine_localrepo(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	cfg, repoProto, _ := testcfg.BuildWithRepo(t)
-	locator := config.NewLocator(cfg)
-
+	cfg := testcfg.Build(t)
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+	locator := config.NewLocator(cfg)
 
 	quarantine, err := New(ctx, repoProto, locator)
 	require.NoError(t, err)

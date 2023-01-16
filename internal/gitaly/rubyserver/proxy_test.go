@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -13,8 +14,13 @@ import (
 )
 
 func TestSetHeadersBlocksUnknownMetadata(t *testing.T) {
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
 	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	otherKey := "unknown-key"
 	otherValue := "test-value"
@@ -31,8 +37,13 @@ func TestSetHeadersBlocksUnknownMetadata(t *testing.T) {
 }
 
 func TestSetHeadersPreservesAllowlistedMetadata(t *testing.T) {
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
 	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	key := "gitaly-servers"
 	value := "test-value"
@@ -48,8 +59,13 @@ func TestSetHeadersPreservesAllowlistedMetadata(t *testing.T) {
 }
 
 func TestRubyFeatureHeaders(t *testing.T) {
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
 	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	key := "gitaly-feature-ruby-test-feature"
 	value := "true"

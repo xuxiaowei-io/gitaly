@@ -203,7 +203,15 @@ func TestSearchFilesByContentLargeFile(t *testing.T) {
 
 func TestSearchFilesByContentFailure(t *testing.T) {
 	t.Parallel()
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
+
 	gitCommandFactory := gittest.NewCommandFactory(t, cfg)
 	catfileCache := catfile.NewCache(cfg)
 	t.Cleanup(catfileCache.Stop)
