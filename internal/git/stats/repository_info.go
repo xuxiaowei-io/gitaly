@@ -269,27 +269,30 @@ func PackfilesInfoForRepository(repo *localrepo.Repo) (PackfilesInfo, error) {
 			return PackfilesInfo{}, fmt.Errorf("getting packfile info: %w", err)
 		}
 
-		// We're overly lenient here and only verify for known prefixes. This would already
-		// catch things like temporary packfiles, but it wouldn't catch other bogus files.
-		// This is on purpose though because Git has grown more and more metadata-style file
-		// formats, and we don't want to copy the list here.
-		if !strings.HasPrefix(entry.Name(), "pack-") {
+		entryName := entry.Name()
+
+		switch {
+		case strings.HasPrefix(entryName, "pack-"):
+			// We're overly lenient here and only verify packfiles for known suffixes.
+			// As a consequence, we don't catch garbage files here. This is on purpose
+			// though because Git has grown more and more metadata-style file formats,
+			// and we don't want to copy the list here.
+			switch {
+			case strings.HasSuffix(entryName, ".pack"):
+				info.Count++
+				if entryInfo.Size() > 0 {
+					info.Size += uint64(entryInfo.Size())
+				}
+			case strings.HasSuffix(entryName, ".bitmap"):
+				info.HasBitmap = true
+			}
+		default:
 			info.GarbageCount++
 			if entryInfo.Size() > 0 {
 				info.GarbageSize += uint64(entryInfo.Size())
 			}
 
 			continue
-		}
-
-		switch {
-		case strings.HasSuffix(entry.Name(), ".pack"):
-			info.Count++
-			if entryInfo.Size() > 0 {
-				info.Size += uint64(entryInfo.Size())
-			}
-		case strings.HasSuffix(entry.Name(), ".bitmap"):
-			info.HasBitmap = true
 		}
 	}
 
