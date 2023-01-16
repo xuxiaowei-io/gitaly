@@ -19,16 +19,6 @@ import (
 // considered old. Currently this is set to being 2 weeks (2 * 7days * 24hours).
 const StaleObjectsGracePeriod = -14 * 24 * time.Hour
 
-// HasBitmap returns whether or not the repository contains an object bitmap.
-func HasBitmap(repoPath string) (bool, error) {
-	bitmaps, err := filepath.Glob(filepath.Join(repoPath, "objects", "pack", "*.bitmap"))
-	if err != nil {
-		return false, err
-	}
-
-	return len(bitmaps) > 0, nil
-}
-
 // PackfilesCount returns the number of packfiles a repository has.
 func PackfilesCount(repoPath string) (int, error) {
 	packFiles, err := GetPackfiles(repoPath)
@@ -309,18 +299,15 @@ func PackfilesInfoForRepository(repo *localrepo.Repo) (PackfilesInfo, error) {
 			continue
 		}
 
-		if !strings.HasSuffix(entry.Name(), ".pack") {
-			continue
+		switch {
+		case strings.HasSuffix(entry.Name(), ".pack"):
+			info.Count++
+			if entryInfo.Size() > 0 {
+				info.Size += uint64(entryInfo.Size())
+			}
+		case strings.HasSuffix(entry.Name(), ".bitmap"):
+			info.HasBitmap = true
 		}
-
-		info.Count++
-		if entryInfo.Size() > 0 {
-			info.Size += uint64(entryInfo.Size())
-		}
-	}
-
-	if info.HasBitmap, err = HasBitmap(repoPath); err != nil {
-		return PackfilesInfo{}, fmt.Errorf("checking for bitmap: %w", err)
 	}
 
 	return info, nil
