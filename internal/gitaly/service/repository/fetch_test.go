@@ -3,7 +3,6 @@
 package repository
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
@@ -12,7 +11,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -22,12 +20,7 @@ import (
 
 func TestFetchSourceBranch(t *testing.T) {
 	t.Parallel()
-
-	testhelper.NewFeatureSets(featureflag.FetchSourceBranchQuarantined).Run(t, testFetchSourceBranch)
-}
-
-func testFetchSourceBranch(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 
 	type setupData struct {
 		cfg     config.Cfg
@@ -411,11 +404,7 @@ func testFetchSourceBranch(t *testing.T, ctx context.Context) {
 						repo := localrepo.NewTestRepo(t, cfg, repoProto)
 						exists, err := repo.HasRevision(ctx, commitID.Revision()+"^{commit}")
 						require.NoError(t, err)
-						if featureflag.FetchSourceBranchQuarantined.IsEnabled(ctx) {
-							require.False(t, exists, "fetched commit isn't discarded")
-						} else {
-							require.True(t, exists, "fetched commit is discarded")
-						}
+						require.False(t, exists, "fetched commit isn't discarded")
 					},
 				}
 			},
@@ -428,7 +417,7 @@ func testFetchSourceBranch(t *testing.T, ctx context.Context) {
 			data := tc.setup(t)
 
 			md := testcfg.GitalyServersMetadataFromCfg(t, data.cfg)
-			ctx := testhelper.MergeOutgoingMetadata(ctx, md)
+			ctx = testhelper.MergeOutgoingMetadata(ctx, md)
 
 			resp, err := data.client.FetchSourceBranch(ctx, data.request)
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
