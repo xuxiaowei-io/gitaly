@@ -57,8 +57,8 @@ func GetPackfiles(repoPath string) ([]fs.DirEntry, error) {
 }
 
 // LooseObjects returns the number of loose objects that are not in a packfile.
-func LooseObjects(ctx context.Context, repo *localrepo.Repo) (uint64, error) {
-	repoInfo, err := RepositoryInfoForRepository(ctx, repo)
+func LooseObjects(repo *localrepo.Repo) (uint64, error) {
+	repoInfo, err := RepositoryInfoForRepository(repo)
 	if err != nil {
 		return 0, err
 	}
@@ -69,7 +69,7 @@ func LooseObjects(ctx context.Context, repo *localrepo.Repo) (uint64, error) {
 // LogRepositoryInfo derives RepositoryInfo and calls its `Log()` function, if successful. Otherwise
 // it logs an error.
 func LogRepositoryInfo(ctx context.Context, repo *localrepo.Repo) {
-	repoInfo, err := RepositoryInfoForRepository(ctx, repo)
+	repoInfo, err := RepositoryInfoForRepository(repo)
 	if err != nil {
 		ctxlogrus.Extract(ctx).WithError(err).Warn("failed reading repository info")
 	} else {
@@ -93,7 +93,7 @@ type RepositoryInfo struct {
 }
 
 // RepositoryInfoForRepository computes the RepositoryInfo for a repository.
-func RepositoryInfoForRepository(ctx context.Context, repo *localrepo.Repo) (RepositoryInfo, error) {
+func RepositoryInfoForRepository(repo *localrepo.Repo) (RepositoryInfo, error) {
 	var info RepositoryInfo
 	var err error
 
@@ -112,7 +112,7 @@ func RepositoryInfoForRepository(ctx context.Context, repo *localrepo.Repo) (Rep
 		return RepositoryInfo{}, fmt.Errorf("counting packfiles: %w", err)
 	}
 
-	info.References, err = ReferencesInfoForRepository(ctx, repo)
+	info.References, err = ReferencesInfoForRepository(repo)
 	if err != nil {
 		return RepositoryInfo{}, fmt.Errorf("checking references: %w", err)
 	}
@@ -144,7 +144,7 @@ type ReferencesInfo struct {
 }
 
 // ReferencesInfoForRepository derives information about references in the repository.
-func ReferencesInfoForRepository(ctx context.Context, repo *localrepo.Repo) (ReferencesInfo, error) {
+func ReferencesInfoForRepository(repo *localrepo.Repo) (ReferencesInfo, error) {
 	repoPath, err := repo.Path()
 	if err != nil {
 		return ReferencesInfo{}, fmt.Errorf("getting repository path: %w", err)

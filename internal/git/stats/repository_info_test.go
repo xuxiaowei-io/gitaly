@@ -42,7 +42,7 @@ func TestRepositoryProfile(t *testing.T) {
 	blobs := 10
 	blobIDs := gittest.WriteBlobs(t, cfg, repoPath, blobs)
 
-	looseObjects, err := LooseObjects(ctx, repo)
+	looseObjects, err := LooseObjects(repo)
 	require.NoError(t, err)
 	require.Equal(t, uint64(blobs), looseObjects)
 
@@ -60,7 +60,7 @@ func TestRepositoryProfile(t *testing.T) {
 
 	gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-b", "-d")
 
-	looseObjects, err = LooseObjects(ctx, repo)
+	looseObjects, err = LooseObjects(repo)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), looseObjects)
 
@@ -71,7 +71,7 @@ func TestRepositoryProfile(t *testing.T) {
 	theFuture := time.Now().Add(10 * time.Minute)
 	require.NoError(t, os.Chtimes(filepath.Join(repoPath, "objects", blobID[0:2], blobID[2:]), theFuture, theFuture))
 
-	looseObjects, err = LooseObjects(ctx, repo)
+	looseObjects, err = LooseObjects(repo)
 	require.NoError(t, err)
 	require.EqualValues(t, 2, looseObjects)
 }
@@ -393,7 +393,7 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 
 			tc.setup(t, repoPath)
 
-			repoInfo, err := RepositoryInfoForRepository(ctx, repo)
+			repoInfo, err := RepositoryInfoForRepository(repo)
 			require.Equal(t, tc.expectedErr, err)
 			require.Equal(t, tc.expectedInfo, repoInfo)
 		})
@@ -466,7 +466,7 @@ func TestReferencesInfoForRepository(t *testing.T) {
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 			tc.setup(t, repo, repoPath)
 
-			info, err := ReferencesInfoForRepository(ctx, repo)
+			info, err := ReferencesInfoForRepository(repo)
 			require.NoError(t, err)
 			require.Equal(t, tc.expectedInfo, info)
 		})
