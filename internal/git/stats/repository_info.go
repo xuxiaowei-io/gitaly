@@ -31,12 +31,12 @@ func PackfilesCount(repo *localrepo.Repo) (uint64, error) {
 
 // LooseObjects returns the number of loose objects that are not in a packfile.
 func LooseObjects(repo *localrepo.Repo) (uint64, error) {
-	repoInfo, err := RepositoryInfoForRepository(repo)
+	objectsInfo, err := LooseObjectsInfoForRepository(repo, time.Now())
 	if err != nil {
 		return 0, err
 	}
 
-	return repoInfo.LooseObjects.Count, nil
+	return objectsInfo.Count, nil
 }
 
 // LogRepositoryInfo derives RepositoryInfo and calls its `Log()` function, if successful. Otherwise
