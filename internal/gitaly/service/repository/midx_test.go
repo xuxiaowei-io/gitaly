@@ -230,7 +230,7 @@ func TestMidxRepackExpire(t *testing.T) {
 func findNewestPackFile(t *testing.T, repoPath string) (fs.DirEntry, fs.FileInfo) {
 	t.Helper()
 
-	files, err := stats.GetPackfiles(repoPath)
+	files, err := getPackfiles(repoPath)
 	require.NoError(t, err)
 
 	var newestPack fs.DirEntry
@@ -284,7 +284,7 @@ func addPackFiles(
 	if resetModTime {
 		packDir := filepath.Join(repoPath, "objects/pack/")
 
-		files, err := stats.GetPackfiles(repoPath)
+		files, err := getPackfiles(repoPath)
 		require.NoError(t, err)
 
 		for _, f := range files {

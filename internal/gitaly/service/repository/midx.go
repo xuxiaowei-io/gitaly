@@ -207,7 +207,7 @@ func (s *server) midxRepack(ctx context.Context, repo repository.GitRepo) error 
 // Reference:
 // - https://public-inbox.org/git/f3b25a9927fe560b764850ea880a71932ec2af32.1598380599.git.gitgitgadget@gmail.com/
 func calculateBatchSize(repoPath string) (int64, error) {
-	packfiles, err := stats.GetPackfiles(repoPath)
+	packfiles, err := getPackfiles(repoPath)
 	if err != nil {
 		return 0, err
 	}
@@ -246,4 +246,21 @@ func calculateBatchSize(repoPath string) (int64, error) {
 	// Add 1 so that we always attempt to create a new
 	// second biggest pack file
 	return secondBiggestSize + 1, nil
+}
+
+// getPackfiles returns the FileInfo of packfiles inside a repository.
+func getPackfiles(repoPath string) ([]fs.DirEntry, error) {
+	files, err := os.ReadDir(filepath.Join(repoPath, "objects/pack/"))
+	if err != nil {
+		return nil, err
+	}
+
+	var packFiles []fs.DirEntry
+	for _, f := range files {
+		if filepath.Ext(f.Name()) == ".pack" {
+			packFiles = append(packFiles, f)
+		}
+	}
+
+	return packFiles, nil
 }

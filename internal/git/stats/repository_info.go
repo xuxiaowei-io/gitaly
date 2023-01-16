@@ -29,23 +29,6 @@ func PackfilesCount(repo *localrepo.Repo) (uint64, error) {
 	return packfilesInfo.Count, nil
 }
 
-// GetPackfiles returns the FileInfo of packfiles inside a repository.
-func GetPackfiles(repoPath string) ([]fs.DirEntry, error) {
-	files, err := os.ReadDir(filepath.Join(repoPath, "objects/pack/"))
-	if err != nil {
-		return nil, err
-	}
-
-	var packFiles []fs.DirEntry
-	for _, f := range files {
-		if filepath.Ext(f.Name()) == ".pack" {
-			packFiles = append(packFiles, f)
-		}
-	}
-
-	return packFiles, nil
-}
-
 // LooseObjects returns the number of loose objects that are not in a packfile.
 func LooseObjects(repo *localrepo.Repo) (uint64, error) {
 	repoInfo, err := RepositoryInfoForRepository(repo)
