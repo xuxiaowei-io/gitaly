@@ -737,6 +737,32 @@ func TestPackfileInfoForRepository(t *testing.T) {
 		})
 	})
 
+	t.Run("multi-pack-index", func(t *testing.T) {
+		repo, repoPath := createRepo(t)
+
+		packfileDir := filepath.Join(repoPath, "objects", "pack")
+		require.NoError(t, os.MkdirAll(packfileDir, 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "multi-pack-index"), nil, 0o644))
+
+		requirePackfilesInfo(t, repo, PackfilesInfo{
+			HasMultiPackIndex: true,
+		})
+	})
+
+	t.Run("multi-pack-index with bitmap", func(t *testing.T) {
+		repo, repoPath := createRepo(t)
+
+		packfileDir := filepath.Join(repoPath, "objects", "pack")
+		require.NoError(t, os.MkdirAll(packfileDir, 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "multi-pack-index"), nil, 0o644))
+		require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "multi-pack-index-c0363841cc7e5783a996c72f0a4a7ae4440aaa40.bitmap"), nil, 0o644))
+
+		requirePackfilesInfo(t, repo, PackfilesInfo{
+			HasMultiPackIndex:       true,
+			HasMultiPackIndexBitmap: true,
+		})
+	})
+
 	t.Run("multiple packfiles with other data structures", func(t *testing.T) {
 		repo, repoPath := createRepo(t)
 
@@ -750,15 +776,19 @@ func TestPackfileInfoForRepository(t *testing.T) {
 			"pack-foo.pack",
 			"pack-foo.idx",
 			"garbage",
+			"multi-pack-index",
+			"multi-pack-index-c0363841cc7e5783a996c72f0a4a7ae4440aaa40.bitmap",
 		} {
 			require.NoError(t, os.WriteFile(filepath.Join(packfileDir, file), []byte("1"), 0o644))
 		}
 
 		requirePackfilesInfo(t, repo, PackfilesInfo{
-			Count:        2,
-			Size:         2,
-			GarbageCount: 1,
-			GarbageSize:  1,
+			Count:                   2,
+			Size:                    2,
+			GarbageCount:            1,
+			GarbageSize:             1,
+			HasMultiPackIndex:       true,
+			HasMultiPackIndexBitmap: true,
 		})
 	})
 }
