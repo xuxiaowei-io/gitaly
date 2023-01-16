@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 )
@@ -19,12 +20,18 @@ import (
 func TestLegacyLocator(t *testing.T) {
 	t.Parallel()
 
-	_, repo, _ := testcfg.BuildWithRepo(t)
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+		RelativePath:           t.Name(),
+	})
 	l := LegacyLocator{}
 
 	t.Run("Begin/Commit Full", func(t *testing.T) {
 		t.Parallel()
-		ctx := testhelper.Context(t)
 
 		expected := &Step{
 			SkippableOnNotFound: true,
@@ -41,7 +48,6 @@ func TestLegacyLocator(t *testing.T) {
 
 	t.Run("FindLatest", func(t *testing.T) {
 		t.Parallel()
-		ctx := testhelper.Context(t)
 
 		expected := &Backup{
 			Steps: []Step{
@@ -66,7 +72,14 @@ func TestPointerLocator(t *testing.T) {
 
 	const backupID = "abc123"
 
-	_, repo, _ := testcfg.BuildWithRepo(t)
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+		RelativePath:           t.Name(),
+	})
 
 	t.Run("Begin/Commit full", func(t *testing.T) {
 		t.Parallel()
@@ -75,7 +88,6 @@ func TestPointerLocator(t *testing.T) {
 		var l Locator = PointerLocator{
 			Sink: NewFilesystemSink(backupPath),
 		}
-		ctx := testhelper.Context(t)
 
 		const expectedIncrement = "001"
 		expected := &Step{
@@ -127,7 +139,6 @@ func TestPointerLocator(t *testing.T) {
 				backupPath := testhelper.TempDir(t)
 				sink := NewFilesystemSink(backupPath)
 				var l Locator = PointerLocator{Sink: sink}
-				ctx := testhelper.Context(t)
 
 				if tc.setup != nil {
 					tc.setup(t, ctx, sink)
@@ -174,7 +185,6 @@ func TestPointerLocator(t *testing.T) {
 			var l Locator = PointerLocator{
 				Sink: NewFilesystemSink(backupPath),
 			}
-			ctx := testhelper.Context(t)
 
 			_, err := l.FindLatest(ctx, repo)
 			require.ErrorIs(t, err, ErrDoesntExist)
@@ -217,7 +227,6 @@ func TestPointerLocator(t *testing.T) {
 				Sink:     NewFilesystemSink(backupPath),
 				Fallback: LegacyLocator{},
 			}
-			ctx := testhelper.Context(t)
 
 			expectedFallback := &Backup{
 				Steps: []Step{
@@ -259,7 +268,6 @@ func TestPointerLocator(t *testing.T) {
 			var l Locator = PointerLocator{
 				Sink: NewFilesystemSink(backupPath),
 			}
-			ctx := testhelper.Context(t)
 
 			_, err := l.FindLatest(ctx, repo)
 			require.ErrorIs(t, err, ErrDoesntExist)
@@ -277,7 +285,6 @@ func TestPointerLocator(t *testing.T) {
 			var l Locator = PointerLocator{
 				Sink: NewFilesystemSink(backupPath),
 			}
-			ctx := testhelper.Context(t)
 
 			_, err := l.FindLatest(ctx, repo)
 			require.ErrorIs(t, err, ErrDoesntExist)

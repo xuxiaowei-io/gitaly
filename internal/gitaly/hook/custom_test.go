@@ -13,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
@@ -52,7 +53,13 @@ echo "$0"
 exit 0`)
 
 func TestCustomHooksSuccess(t *testing.T) {
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	testCases := []struct {
 		hookName string
@@ -103,10 +110,15 @@ func TestCustomHooksSuccess(t *testing.T) {
 }
 
 func TestCustomHookPartialFailure(t *testing.T) {
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	globalCustomHooksDir := testhelper.TempDir(t)
-	ctx := testhelper.Context(t)
 
 	testCases := []struct {
 		hook                string
@@ -181,12 +193,17 @@ func TestCustomHookPartialFailure(t *testing.T) {
 }
 
 func TestCustomHooksMultipleHooks(t *testing.T) {
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	globalCustomHooksDir := testhelper.TempDir(t)
 
 	cfg.Hooks.CustomHooksDir = globalCustomHooksDir
-	ctx := testhelper.Context(t)
 
 	var expectedExecutedScripts []string
 
@@ -227,12 +244,17 @@ func TestCustomHooksMultipleHooks(t *testing.T) {
 }
 
 func TestCustomHooksWithSymlinks(t *testing.T) {
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	globalCustomHooksDir := testhelper.TempDir(t)
 
 	cfg.Hooks.CustomHooksDir = globalCustomHooksDir
-	ctx := testhelper.Context(t)
 
 	globalHooksPath := filepath.Join(globalCustomHooksDir, "update.d")
 
@@ -295,12 +317,17 @@ func TestCustomHooksWithSymlinks(t *testing.T) {
 }
 
 func TestMultilineStdin(t *testing.T) {
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	globalCustomHooksDir := testhelper.TempDir(t)
 
 	cfg.Hooks.CustomHooksDir = globalCustomHooksDir
-	ctx := testhelper.Context(t)
 
 	projectHooksPath := filepath.Join(repoPath, "custom_hooks", "pre-receive.d")
 
@@ -325,12 +352,17 @@ old3 new3 ref3
 }
 
 func TestMultipleScriptsStdin(t *testing.T) {
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	globalCustomHooksDir := testhelper.TempDir(t)
 
 	cfg.Hooks.CustomHooksDir = globalCustomHooksDir
-	ctx := testhelper.Context(t)
 
 	projectUpdateHooks := 9
 	projectHooksPath := filepath.Join(repoPath, "custom_hooks", "pre-receive.d")

@@ -87,13 +87,19 @@ func TestSubmodule(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
+			ctx := testhelper.Context(t)
+			cfg := testcfg.Build(t)
+
+			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				SkipCreationViaService: true,
+				Seed:                   gittest.SeedGitLabTest,
+			})
+
 			testcfg.BuildGitalyGit2Go(t, cfg)
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 			executor := buildExecutor(t, cfg)
 
 			tc.command.Repository = repoPath
-			ctx := testhelper.Context(t)
 
 			response, err := executor.Submodule(ctx, repo, tc.command)
 			if tc.expectedStderr != "" {

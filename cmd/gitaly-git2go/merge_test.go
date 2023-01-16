@@ -20,9 +20,14 @@ import (
 
 func TestMerge_missingArguments(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
 
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 	executor := buildExecutor(t, cfg)
 
 	testcases := []struct {
@@ -93,9 +98,15 @@ func TestMerge_missingArguments(t *testing.T) {
 
 func TestMerge_invalidRepositoryPath(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
 
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
+
 	testcfg.BuildGitalyGit2Go(t, cfg)
 	executor := buildExecutor(t, cfg)
 
@@ -285,7 +296,14 @@ func TestMerge_trees(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
+		cfg := testcfg.Build(t)
+
+		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg,
+			gittest.CreateRepositoryConfig{
+				SkipCreationViaService: true,
+				Seed:                   gittest.SeedGitLabTest,
+			})
+
 		testcfg.BuildGitalyGit2Go(t, cfg)
 		executor := buildExecutor(t, cfg)
 
@@ -352,8 +370,13 @@ func TestMerge_squash(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
 
-	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
+
 	testcfg.BuildGitalyGit2Go(t, cfg)
 	executor := buildExecutor(t, cfg)
 

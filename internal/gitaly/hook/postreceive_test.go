@@ -69,7 +69,14 @@ func TestPrintAlert(t *testing.T) {
 }
 
 func TestPostReceive_customHook(t *testing.T) {
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
+
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 	locator := config.NewLocator(cfg)
 
@@ -82,8 +89,6 @@ func TestPostReceive_customHook(t *testing.T) {
 		Username: "user",
 		Protocol: "web",
 	}
-
-	ctx := testhelper.Context(t)
 
 	payload, err := git.NewHooksPayload(cfg, repo, nil, receiveHooksPayload, git.PostReceiveHook, featureflag.FromContext(ctx)).Env()
 	require.NoError(t, err)
@@ -240,7 +245,13 @@ func (m *postreceiveAPIMock) PostReceive(ctx context.Context, glRepository, glID
 }
 
 func TestPostReceive_gitlab(t *testing.T) {
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	payload, err := git.NewHooksPayload(cfg, repo, nil, &git.UserDetails{
 		UserID:   "1234",
@@ -329,8 +340,6 @@ func TestPostReceive_gitlab(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
-
 			gitlabAPI := postreceiveAPIMock{
 				postreceive: func(ctx context.Context, glRepo, glID, changes string, pushOptions ...string) (bool, []gitlab.PostReceiveMessage, error) {
 					return tc.postreceive(t, ctx, glRepo, glID, changes, pushOptions...)
@@ -358,8 +367,12 @@ func TestPostReceive_gitlab(t *testing.T) {
 
 func TestPostReceive_quarantine(t *testing.T) {
 	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
 
-	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	quarantine, err := quarantine.New(ctx, repoProto, config.NewLocator(cfg))
 	require.NoError(t, err)

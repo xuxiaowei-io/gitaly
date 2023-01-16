@@ -113,10 +113,15 @@ func TestFetchRemote_sshCommand(t *testing.T) {
 
 	t.Parallel()
 
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	cfg := testcfg.Build(t)
+	ctx := testhelper.Context(t)
+
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	outputPath := filepath.Join(testhelper.TempDir(t), "output")
-	ctx := testhelper.Context(t)
 
 	// We ain't got a nice way to intercept the SSH call, so we just write a custom git command
 	// which simply prints the GIT_SSH_COMMAND environment variable.
@@ -232,7 +237,12 @@ func TestFetchRemote_transaction(t *testing.T) {
 	// Reset the manager as creating the repository casts some votes.
 	txManager.Reset()
 
-	targetCfg, targetRepoProto, targetRepoPath := testcfg.BuildWithRepo(t)
+	targetCfg := testcfg.Build(t)
+	targetRepoProto, targetRepoPath := gittest.CreateRepository(t, ctx, targetCfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+		RelativePath:           t.Name(),
+	})
 	targetGitCmdFactory := gittest.NewCommandFactory(t, targetCfg)
 
 	port := gittest.HTTPServer(t, ctx, targetGitCmdFactory, targetRepoPath, nil)

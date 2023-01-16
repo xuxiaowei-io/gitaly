@@ -28,7 +28,14 @@ import (
 )
 
 func TestPrereceive_customHooks(t *testing.T) {
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
+
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 	locator := config.NewLocator(cfg)
 
@@ -41,8 +48,6 @@ func TestPrereceive_customHooks(t *testing.T) {
 		Username: "user",
 		Protocol: "web",
 	}
-
-	ctx := testhelper.Context(t)
 
 	payload, err := git.NewHooksPayload(cfg, repo, nil, receiveHooksPayload, git.PreReceiveHook, featureflag.FromContext(ctx)).Env()
 	require.NoError(t, err)
@@ -177,8 +182,12 @@ func TestPrereceive_customHooks(t *testing.T) {
 
 func TestPrereceive_quarantine(t *testing.T) {
 	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
 
-	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	quarantine, err := quarantine.New(ctx, repoProto, config.NewLocator(cfg))
 	require.NoError(t, err)
@@ -252,7 +261,13 @@ func (m *prereceiveAPIMock) PostReceive(context.Context, string, string, string,
 }
 
 func TestPrereceive_gitlab(t *testing.T) {
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	payload, err := git.NewHooksPayload(cfg, repo, nil, &git.UserDetails{
 		UserID:   "1234",
@@ -352,8 +367,6 @@ func TestPrereceive_gitlab(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
-
 			gitlabAPI := prereceiveAPIMock{
 				allowed: func(ctx context.Context, params gitlab.AllowedParams) (bool, string, error) {
 					return tc.allowed(t, ctx, params)

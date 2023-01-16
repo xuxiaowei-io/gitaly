@@ -17,8 +17,13 @@ import (
 )
 
 func TestWithRefHook(t *testing.T) {
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
 	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	opt := git.WithRefTxHook(repo)
 	subCmd := git.Command{Name: "update-ref", Args: []string{"refs/heads/master", git.ObjectHashSHA1.ZeroOID.String()}}
@@ -61,9 +66,14 @@ func TestWithRefHook(t *testing.T) {
 }
 
 func TestWithPackObjectsHookEnv(t *testing.T) {
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
 	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
 	cfg.PackObjectsCache.Enabled = true
+
+	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	userID := "user-123"
 	username := "username"

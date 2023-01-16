@@ -44,8 +44,15 @@ import (
 
 func TestServerFactory(t *testing.T) {
 	t.Parallel()
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
 	gitalyAddr := testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
 
 	certFile, keyFile := testhelper.GenerateCerts(t)
 
@@ -218,7 +225,6 @@ func TestServerFactory(t *testing.T) {
 		require.NoError(t, err)
 
 		go func() { require.NoError(t, praefectServerFactory.Serve(listener, true)) }()
-		ctx := testhelper.Context(t)
 
 		certPool, err := x509.SystemCertPool()
 		require.NoError(t, err)
@@ -250,8 +256,6 @@ func TestServerFactory(t *testing.T) {
 	})
 
 	t.Run("stops all listening servers", func(t *testing.T) {
-		ctx := testhelper.Context(t)
-
 		praefectServerFactory := NewServerFactory(conf, logger, coordinator.StreamDirector, nodeMgr, txMgr, queue, rs, datastore.AssignmentStore{}, registry, nil, nil, nil)
 		defer praefectServerFactory.Stop()
 

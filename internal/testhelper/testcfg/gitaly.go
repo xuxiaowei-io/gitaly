@@ -7,10 +7,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
 // UnconfiguredSocketPath is used to bypass config validation errors
@@ -141,44 +139,9 @@ func (gc *GitalyCfgBuilder) Build(tb testing.TB) config.Cfg {
 	return cfg
 }
 
-// BuildWithRepoAt setups required filesystem structure, creates and returns configuration of the gitaly service,
-// clones test repository into each configured storage the provided relative path.
-func (gc *GitalyCfgBuilder) BuildWithRepoAt(tb testing.TB, relativePath string) (config.Cfg, []*gitalypb.Repository) {
-	tb.Helper()
-
-	ctx := testhelper.Context(tb)
-	cfg := gc.Build(tb)
-
-	// clone the test repo to the each storage
-	repos := make([]*gitalypb.Repository, len(cfg.Storages))
-	for i, gitalyStorage := range cfg.Storages {
-		repo, _ := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
-			SkipCreationViaService: true,
-			Storage:                gitalyStorage,
-			RelativePath:           relativePath,
-			Seed:                   gittest.SeedGitLabTest,
-		})
-
-		repos[i] = repo
-		repos[i].StorageName = gitalyStorage.Name
-	}
-
-	return cfg, repos
-}
-
-// Build creates a minimal configuration setup with no options and returns it with cleanup function.
+// Build creates a minimal configuration setup.
 func Build(tb testing.TB, opts ...Option) config.Cfg {
 	cfgBuilder := NewGitalyCfgBuilder(opts...)
 
 	return cfgBuilder.Build(tb)
-}
-
-// BuildWithRepo creates a minimal configuration setup with no options.
-// It also clones test repository at the storage and returns it with the full path to the repository.
-func BuildWithRepo(tb testing.TB, opts ...Option) (config.Cfg, *gitalypb.Repository, string) {
-	cfgBuilder := NewGitalyCfgBuilder(opts...)
-
-	cfg, repos := cfgBuilder.BuildWithRepoAt(tb, tb.Name())
-	repoPath := filepath.Join(cfg.Storages[0].Path, repos[0].RelativePath)
-	return cfg, repos[0], repoPath
 }

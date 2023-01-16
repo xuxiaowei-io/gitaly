@@ -19,7 +19,14 @@ import (
 )
 
 func TestRevert_validation(t *testing.T) {
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   gittest.SeedGitLabTest,
+	})
+
 	testcfg.BuildGitalyGit2Go(t, cfg)
 	executor := buildExecutor(t, cfg)
 
@@ -65,8 +72,6 @@ func TestRevert_validation(t *testing.T) {
 	}
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
-
 			_, err := executor.Revert(ctx, repo, tc.request)
 			require.Error(t, err)
 			require.EqualError(t, err, tc.expectedErr)
@@ -171,12 +176,18 @@ func TestRevert_trees(t *testing.T) {
 	}
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
-			cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
+			ctx := testhelper.Context(t)
+			cfg := testcfg.Build(t)
+
+			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				SkipCreationViaService: true,
+				Seed:                   gittest.SeedGitLabTest,
+			})
+
 			testcfg.BuildGitalyGit2Go(t, cfg)
 			executor := buildExecutor(t, cfg)
 
 			ours, revert := tc.setupRepo(t, cfg, repoPath)
-			ctx := testhelper.Context(t)
 
 			authorDate := time.Date(2020, 7, 30, 7, 45, 50, 0, time.FixedZone("UTC+2", +2*60*60))
 
