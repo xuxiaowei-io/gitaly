@@ -20,10 +20,10 @@ func requireObjectCount(t *testing.T, repo *localrepo.Repo, expectedObjects uint
 	require.Equal(t, expectedObjects, objects)
 }
 
-func requirePackfileCount(t *testing.T, repoPath string, expectedPackfiles int) {
+func requirePackfileCount(t *testing.T, repo *localrepo.Repo, expectedPackfiles uint64) {
 	t.Helper()
 
-	packfiles, err := stats.PackfilesCount(repoPath)
+	packfiles, err := stats.PackfilesCount(repo)
 	require.NoError(t, err)
 	require.Equal(t, expectedPackfiles, packfiles)
 }
@@ -45,12 +45,12 @@ func TestRepackObjects(t *testing.T) {
 		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 
 		requireObjectCount(t, repo, 2)
-		requirePackfileCount(t, repoPath, 0)
+		requirePackfileCount(t, repo, 0)
 
 		require.NoError(t, RepackObjects(ctx, repo, RepackObjectsConfig{}))
 
 		requireObjectCount(t, repo, 0)
-		requirePackfileCount(t, repoPath, 1)
+		requirePackfileCount(t, repo, 1)
 
 		require.NoFileExists(t, filepath.Join(repoPath, "info", "refs"))
 		require.NoFileExists(t, filepath.Join(repoPath, "objects", "info", "packs"))

@@ -19,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
@@ -85,15 +86,17 @@ func TestMidxRepack(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 
 	// add some pack files with different sizes
-	packsAdded := 5
+	packsAdded := uint64(5)
 	addPackFiles(t, ctx, cfg, repoPath, packsAdded, true)
 
 	// record pack count
-	actualCount, err := stats.PackfilesCount(repoPath)
+	actualCount, err := stats.PackfilesCount(repo)
 	require.NoError(t, err)
 	require.Equal(t,
 		packsAdded+1, // expect
@@ -105,12 +108,12 @@ func TestMidxRepack(t *testing.T) {
 	_, err = client.MidxRepack(
 		ctx,
 		&gitalypb.MidxRepackRequest{
-			Repository: repo,
+			Repository: repoProto,
 		},
 	)
 	require.NoError(t, err)
 
-	actualCount, err = stats.PackfilesCount(repoPath)
+	actualCount, err = stats.PackfilesCount(repo)
 	require.NoError(t, err)
 	require.Equal(t,
 		packsAdded+2, // expect
@@ -161,17 +164,18 @@ func TestMidxRepackExpire(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	for _, packsAdded := range []int{3, 5, 11, 20} {
+	for _, packsAdded := range []uint64{3, 5, 11, 20} {
 		t.Run(fmt.Sprintf("Test repack expire with %d added packs", packsAdded),
 			func(t *testing.T) {
-				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				repo := localrepo.NewTestRepo(t, cfg, repoProto)
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 
 				// add some pack files with different sizes
 				addPackFiles(t, ctx, cfg, repoPath, packsAdded, false)
 
 				// record pack count
-				actualCount, err := stats.PackfilesCount(repoPath)
+				actualCount, err := stats.PackfilesCount(repo)
 				require.NoError(t, err)
 				require.Equal(t,
 					packsAdded+1, // expect
@@ -183,7 +187,7 @@ func TestMidxRepackExpire(t *testing.T) {
 				// we should need no more than n interation(s)
 				// for the pack files to be consolidated into
 				// a new second biggest pack
-				i := 0
+				var i uint64
 				packCount := packsAdded + 1
 				for {
 					if i > packsAdded+1 {
@@ -195,12 +199,12 @@ func TestMidxRepackExpire(t *testing.T) {
 					_, err := client.MidxRepack(
 						ctx,
 						&gitalypb.MidxRepackRequest{
-							Repository: repo,
+							Repository: repoProto,
 						},
 					)
 					require.NoError(t, err)
 
-					packCount, err = stats.PackfilesCount(repoPath)
+					packCount, err = stats.PackfilesCount(repo)
 					require.NoError(t, err)
 
 					if packCount == 2 {
@@ -209,7 +213,7 @@ func TestMidxRepackExpire(t *testing.T) {
 				}
 
 				require.Equal(t,
-					2,         // expect
+					uint64(2), // expect
 					packCount, // actual
 					fmt.Sprintf(
 						"all small packs should be consolidated to a second biggest pack "+
@@ -252,7 +256,7 @@ func addPackFiles(
 	ctx context.Context,
 	cfg config.Cfg,
 	repoPath string,
-	packCount int,
+	packCount uint64,
 	resetModTime bool,
 ) {
 	t.Helper()
@@ -263,7 +267,7 @@ func addPackFiles(
 	randomReader := rand.New(rand.NewSource(1))
 
 	// Create some pack files with different sizes.
-	for i := 0; i < packCount; i++ {
+	for i := uint64(0); i < packCount; i++ {
 		buf := make([]byte, (packCount+1)*100)
 		_, err := io.ReadFull(randomReader, buf)
 		require.NoError(t, err)

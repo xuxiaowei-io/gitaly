@@ -20,13 +20,13 @@ import (
 const StaleObjectsGracePeriod = -14 * 24 * time.Hour
 
 // PackfilesCount returns the number of packfiles a repository has.
-func PackfilesCount(repoPath string) (int, error) {
-	packFiles, err := GetPackfiles(repoPath)
+func PackfilesCount(repo *localrepo.Repo) (uint64, error) {
+	packfilesInfo, err := PackfilesInfoForRepository(repo)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("deriving packfiles info: %w", err)
 	}
 
-	return len(packFiles), nil
+	return packfilesInfo.Count, nil
 }
 
 // GetPackfiles returns the FileInfo of packfiles inside a repository.
