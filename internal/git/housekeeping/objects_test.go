@@ -7,26 +7,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 )
-
-func requireObjectCount(t *testing.T, repo *localrepo.Repo, expectedObjects uint64) {
-	t.Helper()
-
-	objects, err := stats.LooseObjects(repo)
-	require.NoError(t, err)
-	require.Equal(t, expectedObjects, objects)
-}
-
-func requirePackfileCount(t *testing.T, repo *localrepo.Repo, expectedPackfiles uint64) {
-	t.Helper()
-
-	packfiles, err := stats.PackfilesCount(repo)
-	require.NoError(t, err)
-	require.Equal(t, expectedPackfiles, packfiles)
-}
 
 func TestRepackObjects(t *testing.T) {
 	t.Parallel()
@@ -44,13 +27,15 @@ func TestRepackObjects(t *testing.T) {
 
 		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 
-		requireObjectCount(t, repo, 2)
-		requirePackfileCount(t, repo, 0)
+		requireObjectsState(t, repo, objectsState{
+			looseObjects: 2,
+		})
 
 		require.NoError(t, RepackObjects(ctx, repo, RepackObjectsConfig{}))
 
-		requireObjectCount(t, repo, 0)
-		requirePackfileCount(t, repo, 1)
+		requireObjectsState(t, repo, objectsState{
+			packfiles: 1,
+		})
 
 		require.NoFileExists(t, filepath.Join(repoPath, "info", "refs"))
 		require.NoFileExists(t, filepath.Join(repoPath, "objects", "info", "packs"))
