@@ -1,5 +1,15 @@
 # Gitaly changelog
 
+## 15.7.5 (2023-01-12)
+
+No changes.
+
+## 15.7.4 (2023-01-12)
+
+### Security (1 change)
+
+- [Makefile: Upgrade Git to address out-of-bounds reads and writes](gitlab-org/security/gitaly@dfdd16122a2ed78fff1b5f8b13c32cc2a645033f) ([merge request](gitlab-org/security/gitaly!72))
+
 ## 15.7.3 (2023-01-11)
 
 No changes.
@@ -60,6 +70,16 @@ No changes.
 ### deprecate (1 change)
 
 - [objectpool: Deprecate ReduplicateRepository RPC](gitlab-org/gitaly@4db49541d5843106aeac193de0ed3fd466cc3bc8) ([merge request](gitlab-org/gitaly!5131))
+
+## 15.6.6 (2023-01-12)
+
+No changes.
+
+## 15.6.5 (2023-01-12)
+
+### Security (1 change)
+
+- [Makefile: Upgrade Git to address out-of-bounds reads and writes](gitlab-org/security/gitaly@64daa1b1fed7d0ea17abc47970c3933cfa6ebf03) ([merge request](gitlab-org/security/gitaly!71))
 
 ## 15.6.4 (2023-01-09)
 
@@ -131,6 +151,16 @@ No changes.
 - [ruby: Remove HooksService and OperationService](gitlab-org/gitaly@4440aae1c028c263b37ee6f149f11179d22147f8) ([merge request](gitlab-org/gitaly!4992))
 - [ruby: Remove FeatureFlags](gitlab-org/gitaly@63b206dd21eac0e7f573b099f6bd4154ca44ae3a) ([merge request](gitlab-org/gitaly!4992))
 - [Remove rubyserver redundant clients](gitlab-org/gitaly@2a76a2615d8b1c6d611d0623e4d0925a4b9f914e) ([merge request](gitlab-org/gitaly!4992))
+
+## 15.5.9 (2023-01-12)
+
+No changes.
+
+## 15.5.8 (2023-01-12)
+
+### Security (1 change)
+
+- [Makefile: Upgrade Git to address out-of-bounds reads and writes](gitlab-org/security/gitaly@a8d8a7d7880477b141f75c300fa4be3542acbc4a) ([merge request](gitlab-org/security/gitaly!70))
 
 ## 15.5.7 (2023-01-09)
 
