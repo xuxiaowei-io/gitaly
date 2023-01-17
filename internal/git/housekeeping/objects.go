@@ -83,7 +83,6 @@ func GetRepackGitConfig(ctx context.Context, repo repository.GitRepo, bitmap boo
 
 	if bitmap {
 		config = append(config, git.ConfigPair{Key: "repack.writeBitmaps", Value: "true"})
-		config = append(config, git.ConfigPair{Key: "pack.writeBitmapHashCache", Value: "true"})
 	} else {
 		config = append(config, git.ConfigPair{Key: "repack.writeBitmaps", Value: "false"})
 	}
