@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
@@ -24,25 +25,28 @@ func TestRepackIncrementalSuccess(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	// Bring the repository into a known-good state with a single packfile, only.
 	initialCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 	gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
-	oldPackfileCount, err := stats.PackfilesCount(repoPath)
+	oldPackfileCount, err := stats.PackfilesCount(repo)
 	require.NoError(t, err)
-	require.Equal(t, 1, oldPackfileCount)
+	require.Equal(t, uint64(1), oldPackfileCount)
 
 	// Write a second commit into the repository so that we have something to repack.
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(initialCommit), gittest.WithBranch("main"))
 
 	//nolint:staticcheck
-	c, err := client.RepackIncremental(ctx, &gitalypb.RepackIncrementalRequest{Repository: repo})
+	c, err := client.RepackIncremental(ctx, &gitalypb.RepackIncrementalRequest{
+		Repository: repoProto,
+	})
 	assert.NoError(t, err)
 	assert.NotNil(t, c)
 
 	// As we have done an incremental repack we expect to see one more packfile than before now.
-	newPackfileCount, err := stats.PackfilesCount(repoPath)
+	newPackfileCount, err := stats.PackfilesCount(repo)
 	require.NoError(t, err)
 	require.Equal(t, oldPackfileCount+1, newPackfileCount)
 
@@ -188,20 +192,21 @@ func TestRepackFullSuccess(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
-			repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 			// Bring the repository into a known state with two packfiles.
 			gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("first"), gittest.WithBranch("first"))
 			gittest.Exec(t, cfg, "-C", repoPath, "repack")
 			gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("second"), gittest.WithBranch("second"))
 			gittest.Exec(t, cfg, "-C", repoPath, "repack")
-			oldPackfileCount, err := stats.PackfilesCount(repoPath)
+			oldPackfileCount, err := stats.PackfilesCount(repo)
 			require.NoError(t, err)
-			require.Equal(t, 2, oldPackfileCount)
+			require.Equal(t, uint64(2), oldPackfileCount)
 
 			//nolint:staticcheck
 			response, err := client.RepackFull(ctx, &gitalypb.RepackFullRequest{
-				Repository:   repo,
+				Repository:   repoProto,
 				CreateBitmap: tc.createBitmap,
 			})
 			require.NoError(t, err)
@@ -209,9 +214,9 @@ func TestRepackFullSuccess(t *testing.T) {
 
 			// After the full repack we should see that all packfiles have been repacked
 			// into a single one.
-			newPackfileCount, err := stats.PackfilesCount(repoPath)
+			newPackfileCount, err := stats.PackfilesCount(repo)
 			require.NoError(t, err)
-			require.Equal(t, 1, newPackfileCount)
+			require.Equal(t, uint64(1), newPackfileCount)
 
 			// We should also see that the bitmap has been generated if requested.
 			bitmaps, err := filepath.Glob(filepath.Join(repoPath, "objects", "pack", "pack-*.bitmap"))

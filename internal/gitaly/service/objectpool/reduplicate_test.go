@@ -36,7 +36,7 @@ func TestReduplicate(t *testing.T) {
 	packedRefsStat, err := os.Stat(filepath.Join(repoPath, "packed-refs"))
 	require.NoError(t, err)
 	// Verify that the pool member has no objects on its own anymore.
-	repoInfo, err := stats.RepositoryInfoForRepository(ctx, repo)
+	repoInfo, err := stats.RepositoryInfoForRepository(repo)
 	require.NoError(t, err)
 	require.Equal(t, stats.RepositoryInfo{
 		References: stats.ReferencesInfo{

@@ -307,7 +307,7 @@ type referencedObjectTypes struct {
 func (o *ObjectPool) logStats(ctx context.Context, logger *logrus.Entry) error {
 	fields := logrus.Fields{}
 
-	repoInfo, err := stats.RepositoryInfoForRepository(ctx, o.Repo)
+	repoInfo, err := stats.RepositoryInfoForRepository(o.Repo)
 	if err != nil {
 		return fmt.Errorf("deriving repository info: %w", err)
 	}
