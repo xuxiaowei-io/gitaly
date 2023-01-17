@@ -1,9 +1,12 @@
 package stats
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -333,4 +336,58 @@ func readAlternates(repo *localrepo.Repo) ([]string, error) {
 	}
 
 	return alternatePaths, nil
+}
+
+// BitmapInfo contains information about a packfile or multi-pack-index bitmap.
+type BitmapInfo struct {
+	// Version is the version of the bitmap. Currently, this is expected to always be 1.
+	Version uint16 `json:"version"`
+	// HasHashCache indicates whether the name hash cache extension exists in the bitmap. This
+	// extension records hashes of the path at which trees or blobs are found at the time of
+	// writing the packfile so that it becomes possible to quickly find objects stored at the
+	// same path. This mechanism is fed into the delta compression machinery to make the delta
+	// heuristics more effective.
+	HasHashCache bool `json:"has_hash_cache"`
+	// HasLookupTable indicates whether the lookup table exists in the bitmap. Lookup tables
+	// allow to defer loading bitmaps until required and thus speed up read-only bitmap
+	// preparations.
+	HasLookupTable bool `json:"has_lookup_table"`
+}
+
+// BitmapInfoForPath reads the bitmap at the given path and returns information on that bitmap.
+func BitmapInfoForPath(path string) (BitmapInfo, error) {
+	// The bitmap header is defined in
+	// https://github.com/git/git/blob/master/Documentation/technical/bitmap-format.txt.
+	bitmapHeader := []byte{
+		0, 0, 0, 0, // 4-byte signature
+		0, 0, // 2-byte version number in network byte order
+		0, 0, // 2-byte flags in network byte order
+	}
+
+	file, err := os.Open(path)
+	if err != nil {
+		return BitmapInfo{}, fmt.Errorf("opening bitmap: %w", err)
+	}
+	defer file.Close()
+
+	if _, err := io.ReadFull(file, bitmapHeader); err != nil {
+		return BitmapInfo{}, fmt.Errorf("reading bitmap header: %w", err)
+	}
+
+	if !bytes.Equal(bitmapHeader[0:4], []byte{'B', 'I', 'T', 'M'}) {
+		return BitmapInfo{}, fmt.Errorf("invalid bitmap signature: %q", string(bitmapHeader[0:4]))
+	}
+
+	version := binary.BigEndian.Uint16(bitmapHeader[4:6])
+	if version != 1 {
+		return BitmapInfo{}, fmt.Errorf("unsupported version: %d", version)
+	}
+
+	flags := binary.BigEndian.Uint16(bitmapHeader[6:8])
+
+	return BitmapInfo{
+		Version:        version,
+		HasHashCache:   flags&0x4 == 0x4,
+		HasLookupTable: flags&0x10 == 0x10,
+	}, nil
 }

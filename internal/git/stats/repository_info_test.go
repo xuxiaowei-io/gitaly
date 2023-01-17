@@ -2,8 +2,12 @@ package stats
 
 import (
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"strconv"
+	"syscall"
 	"testing"
 	"time"
 
@@ -791,6 +795,175 @@ func TestPackfileInfoForRepository(t *testing.T) {
 			HasMultiPackIndexBitmap: true,
 		})
 	})
+}
+
+func TestBitmapInfoForPath(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	for _, bitmapTypeTC := range []struct {
+		desc             string
+		repackArgs       []string
+		verifyBitmapName func(*testing.T, string)
+	}{
+		{
+			desc:       "packfile bitmap",
+			repackArgs: []string{"-Adb"},
+			verifyBitmapName: func(t *testing.T, bitmapName string) {
+				require.Regexp(t, "^pack-.*.bitmap$", bitmapName)
+			},
+		},
+		{
+			desc:       "multi-pack-index bitmap",
+			repackArgs: []string{"-Adb", "--write-midx"},
+			verifyBitmapName: func(t *testing.T, bitmapName string) {
+				require.Regexp(t, "^multi-pack-index-.*.bitmap$", bitmapName)
+			},
+		},
+	} {
+		bitmapTypeTC := bitmapTypeTC
+
+		t.Run(bitmapTypeTC.desc, func(t *testing.T) {
+			t.Parallel()
+
+			for _, tc := range []struct {
+				desc               string
+				writeHashCache     bool
+				writeLookupTable   bool
+				expectedBitmapInfo BitmapInfo
+				expectedErr        error
+			}{
+				{
+					desc:             "bitmap without any extension",
+					writeHashCache:   false,
+					writeLookupTable: false,
+					expectedBitmapInfo: BitmapInfo{
+						Version: 1,
+					},
+				},
+				{
+					desc:             "bitmap with hash cache",
+					writeHashCache:   true,
+					writeLookupTable: false,
+					expectedBitmapInfo: BitmapInfo{
+						Version:      1,
+						HasHashCache: true,
+					},
+				},
+				{
+					desc:             "bitmap with lookup table",
+					writeHashCache:   false,
+					writeLookupTable: true,
+					expectedBitmapInfo: BitmapInfo{
+						Version:        1,
+						HasLookupTable: true,
+					},
+				},
+				{
+					desc:             "bitmap with all extensions",
+					writeHashCache:   true,
+					writeLookupTable: true,
+					expectedBitmapInfo: BitmapInfo{
+						Version:        1,
+						HasHashCache:   true,
+						HasLookupTable: true,
+					},
+				},
+			} {
+				tc := tc
+
+				t.Run(tc.desc, func(t *testing.T) {
+					t.Parallel()
+
+					_, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+						SkipCreationViaService: true,
+					})
+					gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+
+					gittest.Exec(t, cfg, append([]string{
+						"-C", repoPath,
+						"-c", "pack.writeBitmapHashCache=" + strconv.FormatBool(tc.writeHashCache),
+						"-c", "pack.writeBitmapLookupTable=" + strconv.FormatBool(tc.writeLookupTable),
+						"repack",
+					}, bitmapTypeTC.repackArgs...)...)
+
+					bitmapPaths, err := filepath.Glob(filepath.Join(repoPath, "objects", "pack", "*.bitmap"))
+					require.NoError(t, err)
+					require.Len(t, bitmapPaths, 1)
+
+					bitmapPath := bitmapPaths[0]
+					bitmapTypeTC.verifyBitmapName(t, filepath.Base(bitmapPath))
+
+					bitmapInfo, err := BitmapInfoForPath(bitmapPath)
+					require.Equal(t, tc.expectedErr, err)
+					require.Equal(t, tc.expectedBitmapInfo, bitmapInfo)
+				})
+			}
+		})
+	}
+
+	for _, tc := range []struct {
+		desc        string
+		setup       func(t *testing.T) string
+		expectedErr error
+	}{
+		{
+			desc: "nonexistent path",
+			setup: func(t *testing.T) string {
+				return "/does/not/exist"
+			},
+			expectedErr: fmt.Errorf("opening bitmap: %w", &fs.PathError{
+				Op:   "open",
+				Path: "/does/not/exist",
+				Err:  syscall.ENOENT,
+			}),
+		},
+		{
+			desc: "header is too short",
+			setup: func(t *testing.T) string {
+				bitmapPath := filepath.Join(testhelper.TempDir(t), "bitmap")
+				require.NoError(t, os.WriteFile(bitmapPath, []byte{0, 0, 0}, 0o644))
+				return bitmapPath
+			},
+			expectedErr: fmt.Errorf("reading bitmap header: %w", io.ErrUnexpectedEOF),
+		},
+		{
+			desc: "invalid signature",
+			setup: func(t *testing.T) string {
+				bitmapPath := filepath.Join(testhelper.TempDir(t), "bitmap")
+				require.NoError(t, os.WriteFile(bitmapPath, []byte{
+					'B', 'I', 'T', 'O', 0, 0, 0, 0,
+				}, 0o644))
+				return bitmapPath
+			},
+			expectedErr: fmt.Errorf("invalid bitmap signature: %q", "BITO"),
+		},
+		{
+			desc: "unsupported version",
+			setup: func(t *testing.T) string {
+				bitmapPath := filepath.Join(testhelper.TempDir(t), "bitmap")
+				require.NoError(t, os.WriteFile(bitmapPath, []byte{
+					'B', 'I', 'T', 'M', 0, 2, 0, 0,
+				}, 0o644))
+				return bitmapPath
+			},
+			expectedErr: fmt.Errorf("unsupported version: 2"),
+		},
+	} {
+		tc := tc
+
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			bitmapPath := tc.setup(t)
+
+			bitmapInfo, err := BitmapInfoForPath(bitmapPath)
+			require.Equal(t, tc.expectedErr, err)
+			require.Equal(t, BitmapInfo{}, bitmapInfo)
+		})
+	}
 }
 
 func hashDependentSize(sha1, sha256 uint64) uint64 {
