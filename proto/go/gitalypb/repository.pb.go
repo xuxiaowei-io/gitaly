@@ -3864,7 +3864,7 @@ type SearchFilesByNameResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// This comment is left unintentionally blank.
+	// Files contains the paths of files that have been found to match the query.
 	Files [][]byte `protobuf:"bytes,1,rep,name=files,proto3" json:"files,omitempty"`
 }
 
