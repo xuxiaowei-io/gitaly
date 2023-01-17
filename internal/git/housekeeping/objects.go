@@ -6,6 +6,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 )
 
 const (
@@ -29,6 +30,10 @@ type RepackObjectsConfig struct {
 // RepackObjects repacks objects in the given repository and updates the commit-graph. The way
 // objects are repacked is determined via the RepackObjectsConfig.
 func RepackObjects(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsConfig) error {
+	if !cfg.FullRepack && cfg.WriteBitmap {
+		return structerr.NewInvalidArgument("cannot write bitmap for an incremental repack")
+	}
+
 	var options []git.Option
 	if cfg.FullRepack {
 		options = append(options,
