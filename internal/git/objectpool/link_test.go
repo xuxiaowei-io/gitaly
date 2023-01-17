@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -85,24 +86,24 @@ func TestLink_removeBitmap(t *testing.T) {
 
 	// Repack both the object pool and the pool member such that they both have bitmaps.
 	gittest.Exec(t, cfg, "-C", poolPath, "repack", "-adb")
-	requireHasBitmap(t, poolPath, true)
+	requireHasBitmap(t, pool.Repo, true)
 	gittest.Exec(t, cfg, "-C", repoPath, "repack", "-adb")
-	requireHasBitmap(t, repoPath, true)
+	requireHasBitmap(t, repo, true)
 
 	// After linking the repository to its pool it should not have a bitmap anymore as Git does
 	// not allow for multiple bitmaps to exist.
 	require.NoError(t, pool.Link(ctx, repo))
-	requireHasBitmap(t, poolPath, true)
-	requireHasBitmap(t, repoPath, false)
+	requireHasBitmap(t, pool.Repo, true)
+	requireHasBitmap(t, repo, false)
 
 	// Sanity-check that the repository is still consistent.
 	gittest.Exec(t, cfg, "-C", repoPath, "fsck")
 }
 
-func requireHasBitmap(t *testing.T, repoPath string, expected bool) {
-	hasBitmap, err := stats.HasBitmap(repoPath)
+func requireHasBitmap(t *testing.T, repo *localrepo.Repo, expected bool) {
+	packfilesInfo, err := stats.PackfilesInfoForRepository(repo)
 	require.NoError(t, err)
-	require.Equal(t, expected, hasBitmap)
+	require.Equal(t, expected, packfilesInfo.HasBitmap)
 }
 
 func TestLink_absoluteLinkExists(t *testing.T) {
