@@ -16,6 +16,10 @@ import (
 // mustHaveNoGoroutines panics if it finds any Goroutines running.
 func mustHaveNoGoroutines() {
 	if err := goleak.Find(
+		// BadgerDB depends on Ristretto which uses glog for logging. glog initializes
+		// on import a log flushing goroutine that keeps running in the background.
+		// Ignore this goroutine as there is no way to stop it.
+		goleak.IgnoreTopFunction("github.com/golang/glog.(*loggingT).flushDaemon"),
 		// opencensus has a "defaultWorker" which is started by the package's
 		// `init()` function. There is no way to stop this worker, so it will leak
 		// whenever we import the package.
