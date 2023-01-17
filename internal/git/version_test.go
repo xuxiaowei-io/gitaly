@@ -142,3 +142,21 @@ func TestVersion_PatchIDRespectsBinaries(t *testing.T) {
 		})
 	}
 }
+
+func TestVersion_MidxDeletesRedundantBitmaps(t *testing.T) {
+	for _, tc := range []struct {
+		version string
+		expect  bool
+	}{
+		{"1.0.0", false},
+		{"2.38.2", false},
+		{"2.39.0", true},
+		{"3.0.0", true},
+	} {
+		t.Run(tc.version, func(t *testing.T) {
+			version, err := parseVersion(tc.version)
+			require.NoError(t, err)
+			require.Equal(t, tc.expect, version.MidxDeletesRedundantBitmaps())
+		})
+	}
+}
