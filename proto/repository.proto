@@ -957,7 +957,7 @@ message SearchFilesByNameRequest {
 
 // This comment is left unintentionally blank.
 message SearchFilesByNameResponse {
-  // This comment is left unintentionally blank.
+  // Files contains the paths of files that have been found to match the query.
   repeated bytes files = 1;
 }
 
