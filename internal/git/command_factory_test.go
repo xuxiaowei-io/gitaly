@@ -20,7 +20,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 )
@@ -560,18 +559,12 @@ func TestExecCommandFactory_config(t *testing.T) {
 	})
 	require.NoError(t, os.Remove(filepath.Join(repoDir, "config")))
 
-	generationVersion := "1"
-	if featureflag.UseCommitGraphGenerationData.IsEnabled(ctx) {
-		generationVersion = "2"
-	}
-
 	expectedEnv := []string{
 		"gc.auto=0",
 		"core.autocrlf=input",
 		"core.usereplacerefs=false",
 		"core.fsync=objects,derived-metadata,reference",
 		"core.fsyncmethod=fsync",
-		"commitgraph.generationversion=" + generationVersion,
 	}
 
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
@@ -599,11 +592,6 @@ func TestExecCommandFactory_SidecarGitConfiguration(t *testing.T) {
 		{Key: "custom.key", Value: "injected"},
 	}
 
-	generationVersion := "1"
-	if featureflag.UseCommitGraphGenerationData.IsEnabled(ctx) {
-		generationVersion = "2"
-	}
-
 	configPairs, err := gittest.NewCommandFactory(t, cfg).SidecarGitConfiguration(ctx)
 	require.NoError(t, err)
 	require.Equal(t, []git.ConfigPair{
@@ -612,7 +600,6 @@ func TestExecCommandFactory_SidecarGitConfiguration(t *testing.T) {
 		{Key: "core.useReplaceRefs", Value: "false"},
 		{Key: "core.fsync", Value: "objects,derived-metadata,reference"},
 		{Key: "core.fsyncMethod", Value: "fsync"},
-		{Key: "commitGraph.generationVersion", Value: generationVersion},
 		{Key: "custom.key", Value: "injected"},
 	}, configPairs)
 }

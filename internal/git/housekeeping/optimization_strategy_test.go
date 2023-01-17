@@ -12,7 +12,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -668,10 +667,6 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackReferences(t *testing.T) {
 }
 
 func TestHeuristicalOptimizationStrategy_NeedsWriteCommitGraph(t *testing.T) {
-	testhelper.NewFeatureSets(featureflag.UseCommitGraphGenerationData).Run(t, testHeuristicalOptimizationStrategyNeedsWriteCommitGraph)
-}
-
-func testHeuristicalOptimizationStrategyNeedsWriteCommitGraph(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
 	for _, tc := range []struct {
@@ -744,9 +739,9 @@ func testHeuristicalOptimizationStrategyNeedsWriteCommitGraph(t *testing.T, ctx 
 			},
 			// If we have no generation data then we want to rewrite the commit-graph,
 			// but only if the feature flag is enabled.
-			expectedNeeded: featureflag.UseCommitGraphGenerationData.IsEnabled(ctx),
+			expectedNeeded: true,
 			expectedCfg: WriteCommitGraphConfig{
-				ReplaceChain: featureflag.UseCommitGraphGenerationData.IsEnabled(ctx),
+				ReplaceChain: true,
 			},
 		},
 		{
@@ -816,6 +811,8 @@ func testHeuristicalOptimizationStrategyNeedsWriteCommitGraph(t *testing.T, ctx 
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
+			ctx := testhelper.Context(t)
+
 			needed, writeCommitGraphCfg := tc.strategy.ShouldWriteCommitGraph(ctx)
 			require.Equal(t, tc.expectedNeeded, needed)
 			require.Equal(t, tc.expectedCfg, writeCommitGraphCfg)
