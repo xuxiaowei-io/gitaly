@@ -17,7 +17,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/log"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 )
 
 // CommandFactory is designed to create and run git commands in a protected and fully managed manner.
@@ -542,44 +541,6 @@ func (cf *ExecCommandFactory) GlobalConfiguration(ctx context.Context) ([]Config
 		// likelihood of repository corruption in case the server crashes.
 		{Key: "core.fsync", Value: "objects,derived-metadata,reference"},
 		{Key: "core.fsyncMethod", Value: "fsync"},
-	}
-
-	if featureflag.UseCommitGraphGenerationData.IsDisabled(ctx) {
-		// Commit-graphs are used as an optimization to speed up reading commits and to be
-		// able to perform certain commit-related queries faster. One property that these
-		// graphs are storing is the generation number of a commit, where there are two
-		// different types of generation numbers:
-		//
-		//     - Topological level: a commit with no parents has a level of 1. A commit with
-		//       at least one parent has a level one more than the largest topological level
-		//       of its parents.
-		//
-		//     - Corrected committer date: a commit with no parents has a corrected commit
-		//       date equal to its committer date. A commit with at least one parent has a
-		//       corrected committer date equal to the maximum between either its own
-		//       committer date or the largest corrected committer date across its parents
-		//       plus 1.
-		//
-		// By default, newer Git versions store both generation numbers for commits, where
-		// the corrected committer date allows for some more optimizations. But due to a bug
-		// in Git v2.35.0 and earlier, the corrected committer date wasn't ever read.
-		//
-		// This bug was fixed in Git v2.36.0, together with a few other bugs in this area.
-		// But unfortunately, a new bug was introduced: when upgrading a commit-graph
-		// written by Git v2.35.0 or newer with Git v2.36.0 and later with `--changed-paths`
-		// enabled then the resulting commit-graph may be corrupt.
-		//
-		// So if the above feature flag is disabled then we disable reading and writing
-		// corrected committer dates. Note that we say to use generation data version 1
-		// here, but due to the bug Git never actually paid attention to generation data in
-		// that case.
-		config = append(config, ConfigPair{Key: "commitGraph.generationVersion", Value: "1"})
-	} else {
-		// The commit-graph corruption was subsequently fixed in 9550f6c16a (commit-graph:
-		// fix corrupt upgrade from generation v1 to v2, 2022-07-12). So if the above
-		// feature flag is enabled then we start generating commit-graph generation data
-		// again.
-		config = append(config, ConfigPair{Key: "commitGraph.generationVersion", Value: "2"})
 	}
 
 	return config, nil

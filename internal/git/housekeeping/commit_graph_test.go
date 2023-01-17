@@ -1,25 +1,19 @@
 package housekeeping
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 )
 
 func TestWriteCommitGraphConfigForRepository(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UseCommitGraphGenerationData).Run(t, testWriteCommitGraphConfigForRepository)
-}
 
-func testWriteCommitGraphConfigForRepository(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
 	for _, tc := range []struct {
@@ -77,7 +71,7 @@ func testWriteCommitGraphConfigForRepository(t *testing.T, ctx context.Context) 
 				)
 			},
 			expectedConfig: WriteCommitGraphConfig{
-				ReplaceChain: featureflag.UseCommitGraphGenerationData.IsEnabled(ctx),
+				ReplaceChain: true,
 			},
 		},
 		{

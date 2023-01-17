@@ -19,7 +19,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -152,12 +151,8 @@ func TestPackRefsIfNeeded(t *testing.T) {
 
 func TestOptimizeRepository(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UseCommitGraphGenerationData).Run(t, testOptimizeRepository)
-}
 
-func testOptimizeRepository(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
 
@@ -229,20 +224,11 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 				gittest.Exec(t, cfg, "-c", "commitGraph.generationVersion=1", "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 				return repo
 			},
-			expectedMetrics: func() string {
-				if featureflag.UseCommitGraphGenerationData.IsEnabled(ctx) {
-					return `# HELP gitaly_housekeeping_tasks_total Total number of housekeeping tasks performed in the repository
+			expectedMetrics: `# HELP gitaly_housekeeping_tasks_total Total number of housekeeping tasks performed in the repository
 # TYPE gitaly_housekeeping_tasks_total counter
 gitaly_housekeeping_tasks_total{housekeeping_task="written_commit_graph_full", status="success"} 1
 gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
-`
-				}
-
-				return `# HELP gitaly_housekeeping_tasks_total Total number of housekeeping tasks performed in the repository
-# TYPE gitaly_housekeeping_tasks_total counter
-gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
-`
-			}(),
+`,
 		},
 		{
 			desc: "repository with multiple packfiles packs only for object pool",
