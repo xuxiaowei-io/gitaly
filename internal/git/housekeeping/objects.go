@@ -2,6 +2,7 @@ package housekeeping
 
 import (
 	"context"
+	"strconv"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
@@ -65,6 +66,7 @@ func RepackObjects(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsC
 func GetRepackGitConfig(ctx context.Context, repo repository.GitRepo, bitmap bool) []git.ConfigPair {
 	config := []git.ConfigPair{
 		{Key: "repack.useDeltaIslands", Value: "true"},
+		{Key: "repack.writeBitmaps", Value: strconv.FormatBool(bitmap)},
 	}
 
 	if IsPoolRepository(repo) {
@@ -79,12 +81,6 @@ func GetRepackGitConfig(ctx context.Context, repo repository.GitRepo, bitmap boo
 			git.ConfigPair{Key: "pack.island", Value: "r(e)fs/tags"},
 			git.ConfigPair{Key: "pack.islandCore", Value: "e"},
 		)
-	}
-
-	if bitmap {
-		config = append(config, git.ConfigPair{Key: "repack.writeBitmaps", Value: "true"})
-	} else {
-		config = append(config, git.ConfigPair{Key: "repack.writeBitmaps", Value: "false"})
 	}
 
 	return config
