@@ -18,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -79,51 +80,88 @@ func (s *server) restoreCustomHooks(ctx context.Context, tar io.Reader, repo rep
 		return fmt.Errorf("getting repo path: %w", err)
 	}
 
-	customHooksPath := filepath.Join(repoPath, customHooksDir)
-
-	if err = os.MkdirAll(customHooksPath, os.ModePerm); err != nil {
-		return fmt.Errorf("making custom hooks directory: %w", err)
-	}
-
-	lockDir, err := safe.NewLockingDirectory(repoPath, customHooksDir)
+	// The `custom_hooks` directory in the repository is locked to prevent
+	// concurrent modification of hooks.
+	hooksLock, err := safe.NewLockingDirectory(repoPath, customHooksDir)
 	if err != nil {
-		return fmt.Errorf("creating lock: %w", err)
+		return fmt.Errorf("creating hooks lock: %w", err)
 	}
 
-	if err := lockDir.Lock(); err != nil {
+	if err := hooksLock.Lock(); err != nil {
 		return fmt.Errorf("locking hooks: %w", err)
 	}
-
 	defer func() {
-		if !lockDir.IsLocked() {
-			return
-		}
-
-		if err := lockDir.Unlock(); err != nil {
-			ctxlogrus.Extract(ctx).WithError(err).Warn("could not unlock directory")
+		// If the `.lock` file is not removed from the `custom_hooks` directory,
+		// future modifications to the repository's hooks will be prevented. If
+		// this occurs, the `.lock` file will have to be manually removed.
+		if err := hooksLock.Unlock(); err != nil {
+			ctxlogrus.Extract(ctx).WithError(err).Error("failed to unlock hooks")
 		}
 	}()
 
-	preparedVote := voting.NewVoteHash()
-	if err := voteCustomHooks(ctx, s.txManager, &preparedVote, voting.Prepared); err != nil {
-		return fmt.Errorf("casting prepared vote: %w", err)
+	// Create a temporary directory to write the new hooks to and also
+	// temporarily store the current repository hooks. This enables "atomic"
+	// directory swapping by acting as an intermediary storage location between
+	// moves.
+	tmpDir, err := tempdir.NewWithoutContext(repo.GetStorageName(), s.locator)
+	if err != nil {
+		return fmt.Errorf("creating temp directory: %w", err)
 	}
 
-	if err := extractHooks(ctx, tar, repoPath); err != nil {
+	defer func() {
+		if err := os.RemoveAll(tmpDir.Path()); err != nil {
+			ctxlogrus.Extract(ctx).WithError(err).Warn("failed to remove temporary directory")
+		}
+	}()
+
+	if err := extractHooks(ctx, tar, tmpDir.Path()); err != nil {
 		return fmt.Errorf("extracting hooks: %w", err)
 	}
 
-	committedVote, err := newDirectoryVote(customHooksPath)
+	tempHooksPath := filepath.Join(tmpDir.Path(), customHooksDir)
+
+	// No hooks will be extracted if the tar archive is empty. If this happens
+	// it means the repository should be set with an empty `custom_hooks`
+	// directory. Create `custom_hooks` in the temporary directory so that any
+	// existing repository hooks will be replaced with this empty directory.
+	if err := os.Mkdir(tempHooksPath, os.ModePerm); err != nil && !errors.Is(err, fs.ErrExist) {
+		return fmt.Errorf("making temp hooks directory: %w", err)
+	}
+
+	preparedVote, err := newDirectoryVote(tempHooksPath)
+	if err != nil {
+		return fmt.Errorf("generating prepared vote: %w", err)
+	}
+
+	// Cast prepared vote with hash of the extracted archive in the temporary
+	// `custom_hooks` directory.
+	if err := voteCustomHooks(ctx, s.txManager, preparedVote, voting.Prepared); err != nil {
+		return fmt.Errorf("casting prepared vote: %w", err)
+	}
+
+	repoHooksPath := filepath.Join(repoPath, customHooksDir)
+	prevHooksPath := filepath.Join(tmpDir.Path(), "previous_hooks")
+
+	// If the `custom_hooks` directory exists in the repository, move the
+	// current hooks to `previous_hooks` in the temporary directory.
+	if err := os.Rename(repoHooksPath, prevHooksPath); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("moving current hooks to temp: %w", err)
+	}
+
+	// Move `custom_hooks` from the temporary directory to the repository.
+	if err := os.Rename(tempHooksPath, repoHooksPath); err != nil {
+		return fmt.Errorf("moving new hooks to repo: %w", err)
+	}
+
+	committedVote, err := newDirectoryVote(repoHooksPath)
 	if err != nil {
 		return fmt.Errorf("generating committed vote: %w", err)
 	}
 
+	// Cast committed vote with hash of the extracted archive in the repository
+	// `custom_hooks` directory.
 	if err := voteCustomHooks(ctx, s.txManager, committedVote, voting.Committed); err != nil {
 		return fmt.Errorf("casting committed vote: %w", err)
-	}
-
-	if err := lockDir.Unlock(); err != nil {
-		return fmt.Errorf("unlocking hooks: %w", err)
 	}
 
 	return nil
