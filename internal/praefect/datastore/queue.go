@@ -12,6 +12,18 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore/glsql"
 )
 
+// ReplicationEventExistsError is returned when trying to add an already existing
+// replication job into the queue
+type ReplicationEventExistsError struct {
+	state string
+	job   ReplicationJob
+}
+
+// Error returns the errors message.
+func (err ReplicationEventExistsError) Error() string {
+	return fmt.Sprintf("replication event %q -> %q already exists", err.state, err.job)
+}
+
 // ReplicationEventQueue allows to put new events to the persistent queue and retrieve them back.
 type ReplicationEventQueue interface {
 	// Enqueue puts provided event into the persistent queue.
@@ -229,6 +241,13 @@ func (rq PostgresReplicationEventQueue) Enqueue(ctx context.Context, event Repli
 	// this will always return a single row result (because of lock uniqueness) or an error
 	rows, err := rq.qc.QueryContext(ctx, query, event.Job.VirtualStorage, event.Job.TargetNodeStorage, event.Job.RelativePath, event.Job, event.Meta)
 	if err != nil {
+		if glsql.IsUniqueViolation(err, "replication_queue_constraint") {
+			return ReplicationEvent{}, ReplicationEventExistsError{
+				state: event.State.String(),
+				job:   event.Job,
+			}
+		}
+
 		return ReplicationEvent{}, fmt.Errorf("query: %w", err)
 	}
 

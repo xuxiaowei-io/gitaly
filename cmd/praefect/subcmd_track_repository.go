@@ -10,6 +10,7 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect"
@@ -238,6 +239,10 @@ func (req *trackRepositoryRequest) execRequest(ctx context.Context,
 		}
 
 		if _, err := queue.Enqueue(ctx, event); err != nil {
+			if errors.As(err, &datastore.ReplicationEventExistsError{}) {
+				ctxlogrus.Extract(ctx).WithError(err).Info("replication event queue already has similar entry")
+				return nil
+			}
 			return fmt.Errorf("%s: %w", trackRepoErrorPrefix, err)
 		}
 		fmt.Fprintf(w, "Added replication job to replicate repository to %q.\n", secondary)

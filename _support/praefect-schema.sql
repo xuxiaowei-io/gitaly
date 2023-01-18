@@ -502,6 +502,13 @@ CREATE UNIQUE INDEX delete_replica_unique_index ON public.replication_queue USIN
 
 
 --
+-- Name: replication_queue_constraint; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX replication_queue_constraint ON public.replication_queue USING btree (job, state);
+
+
+--
 -- Name: replication_queue_target_index; Type: INDEX; Schema: public; Owner: -
 --
 

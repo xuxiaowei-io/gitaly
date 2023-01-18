@@ -275,6 +275,7 @@ reconciliation_jobs AS (
 	-- only perform inserts if we managed to acquire the lock as otherwise
 	-- we'd schedule duplicate jobs
 	WHERE ( SELECT acquired FROM reconciliation_lock )
+	ON CONFLICT DO NOTHING
 	RETURNING lock_id, meta, job
 ),
 
