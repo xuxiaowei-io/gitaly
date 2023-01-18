@@ -12,6 +12,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
@@ -23,18 +24,19 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 )
 
+// RestoreCustomHooks sets the git hooks for a repository. The hooks are sent in
+// a tar archive containing a `custom_hooks` directory. This directory is
+// ultimately extracted to the repository.
 func (s *server) RestoreCustomHooks(stream gitalypb.RepositoryService_RestoreCustomHooksServer) error {
-	if featureflag.TransactionalRestoreCustomHooks.IsEnabled(stream.Context()) {
-		return s.restoreCustomHooksWithVoting(stream)
-	}
+	ctx := stream.Context()
 
 	firstRequest, err := stream.Recv()
 	if err != nil {
 		return structerr.NewInternal("first request failed %w", err)
 	}
 
-	repository := firstRequest.GetRepository()
-	if err := service.ValidateRepository(repository); err != nil {
+	repo := firstRequest.GetRepository()
+	if err := service.ValidateRepository(repo); err != nil {
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
@@ -49,63 +51,47 @@ func (s *server) RestoreCustomHooks(stream gitalypb.RepositoryService_RestoreCus
 		return request.GetData(), err
 	})
 
-	repoPath, err := s.locator.GetPath(repository)
+	if featureflag.TransactionalRestoreCustomHooks.IsEnabled(ctx) {
+		if err := s.restoreCustomHooks(ctx, reader, repo); err != nil {
+			return structerr.NewInternal("setting custom hooks: %w", err)
+		}
+
+		return stream.SendAndClose(&gitalypb.RestoreCustomHooksResponse{})
+	}
+
+	repoPath, err := s.locator.GetPath(repo)
 	if err != nil {
 		return structerr.NewInternal("getting repo path failed %w", err)
 	}
 
-	cmdArgs := []string{
-		"-xf",
-		"-",
-		"-C",
-		repoPath,
-		customHooksDir,
-	}
-
-	ctx := stream.Context()
-	cmd, err := command.New(ctx, append([]string{"tar"}, cmdArgs...), command.WithStdin(reader))
-	if err != nil {
-		return structerr.NewInternal("Could not untar custom hooks tar %w", err)
-	}
-
-	if err := cmd.Wait(); err != nil {
-		return structerr.NewInternal("cmd wait failed: %w", err)
+	if err := extractHooks(ctx, reader, repoPath); err != nil {
+		return structerr.NewInternal("extracting hooks: %w", err)
 	}
 
 	return stream.SendAndClose(&gitalypb.RestoreCustomHooksResponse{})
 }
 
-func (s *server) restoreCustomHooksWithVoting(stream gitalypb.RepositoryService_RestoreCustomHooksServer) error {
-	firstRequest, err := stream.Recv()
+// restoreCustomHooks transactionally and atomically sets the provided custom
+// hooks for the specified repository.
+func (s *server) restoreCustomHooks(ctx context.Context, tar io.Reader, repo repository.GitRepo) error {
+	repoPath, err := s.locator.GetRepoPath(repo)
 	if err != nil {
-		return structerr.NewInternal("first request failed %w", err)
-	}
-
-	ctx := stream.Context()
-
-	repository := firstRequest.GetRepository()
-	if err := service.ValidateRepository(repository); err != nil {
-		return structerr.NewInvalidArgument("%w", err)
-	}
-
-	repoPath, err := s.locator.GetRepoPath(repository)
-	if err != nil {
-		return structerr.NewInternal("RestoreCustomHooks: getting repo path failed %w", err)
+		return fmt.Errorf("getting repo path: %w", err)
 	}
 
 	customHooksPath := filepath.Join(repoPath, customHooksDir)
 
 	if err = os.MkdirAll(customHooksPath, os.ModePerm); err != nil {
-		return structerr.NewInternal("making custom hooks directory %w", err)
+		return fmt.Errorf("making custom hooks directory: %w", err)
 	}
 
 	lockDir, err := safe.NewLockingDirectory(repoPath, customHooksDir)
 	if err != nil {
-		return structerr.NewInternal("RestoreCustomHooks: creating locking directory: %w", err)
+		return fmt.Errorf("creating lock: %w", err)
 	}
 
 	if err := lockDir.Lock(); err != nil {
-		return structerr.NewInternal("locking directory failed: %w", err)
+		return fmt.Errorf("locking hooks: %w", err)
 	}
 
 	defer func() {
@@ -120,51 +106,27 @@ func (s *server) restoreCustomHooksWithVoting(stream gitalypb.RepositoryService_
 
 	preparedVote := voting.NewVoteHash()
 	if err := voteCustomHooks(ctx, s.txManager, &preparedVote, voting.Prepared); err != nil {
-		return structerr.NewInternal("casting prepared vote: %w", err)
+		return fmt.Errorf("casting prepared vote: %w", err)
 	}
 
-	reader := streamio.NewReader(func() ([]byte, error) {
-		if firstRequest != nil {
-			data := firstRequest.GetData()
-			firstRequest = nil
-			return data, nil
-		}
-
-		request, err := stream.Recv()
-		return request.GetData(), err
-	})
-
-	cmdArgs := []string{
-		"-xf",
-		"-",
-		"-C",
-		repoPath,
-		customHooksDir,
-	}
-
-	cmd, err := command.New(ctx, append([]string{"tar"}, cmdArgs...), command.WithStdin(reader))
-	if err != nil {
-		return structerr.NewInternal("Could not untar custom hooks tar %w", err)
-	}
-
-	if err := cmd.Wait(); err != nil {
-		return structerr.NewInternal("cmd wait failed: %w", err)
+	if err := extractHooks(ctx, tar, repoPath); err != nil {
+		return fmt.Errorf("extracting hooks: %w", err)
 	}
 
 	committedVote, err := newDirectoryVote(customHooksPath)
 	if err != nil {
-		return structerr.NewInternal("generating committed vote: %w", err)
+		return fmt.Errorf("generating committed vote: %w", err)
 	}
 
 	if err := voteCustomHooks(ctx, s.txManager, committedVote, voting.Committed); err != nil {
-		return structerr.NewInternal("casting committed vote: %w", err)
+		return fmt.Errorf("casting committed vote: %w", err)
 	}
 
 	if err := lockDir.Unlock(); err != nil {
-		return structerr.NewInternal("committing lock dir %w", err)
+		return fmt.Errorf("unlocking hooks: %w", err)
 	}
 
-	return stream.SendAndClose(&gitalypb.RestoreCustomHooksResponse{})
+	return nil
 }
 
 // newDirectoryVote creates a voting.VoteHash by walking the specified path and
@@ -218,6 +180,8 @@ func newDirectoryVote(basePath string) (*voting.VoteHash, error) {
 	return &voteHash, nil
 }
 
+// voteCustomHooks casts a vote symbolic of the custom hooks received. If there
+// is no transaction voting is skipped.
 func voteCustomHooks(
 	ctx context.Context,
 	txManager transaction.Manager,
@@ -238,6 +202,23 @@ func voteCustomHooks(
 
 	if err := txManager.Vote(ctx, tx, vote, phase); err != nil {
 		return fmt.Errorf("vote failed: %w", err)
+	}
+
+	return nil
+}
+
+// extractHooks unpacks a tar file containing custom hooks into a `custom_hooks`
+// directory at the specified path.
+func extractHooks(ctx context.Context, reader io.Reader, path string) error {
+	cmdArgs := []string{"-xf", "-", "-C", path, customHooksDir}
+
+	cmd, err := command.New(ctx, append([]string{"tar"}, cmdArgs...), command.WithStdin(reader))
+	if err != nil {
+		return fmt.Errorf("executing tar command: %w", err)
+	}
+
+	if err := cmd.Wait(); err != nil {
+		return fmt.Errorf("waiting for tar command completion: %w", err)
 	}
 
 	return nil

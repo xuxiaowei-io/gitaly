@@ -248,7 +248,9 @@ service RepositoryService {
     };
   }
 
-  // This comment is left unintentionally blank.
+  // RestoreCustomHooks sets the git hooks for a repository. The hooks are sent
+  // in a tar archive containing a `custom_hooks` directory. This directory is
+  // ultimately extracted to the repository.
   rpc RestoreCustomHooks(stream RestoreCustomHooksRequest) returns (RestoreCustomHooksResponse) {
     option (op_type) = {
       op: MUTATOR
