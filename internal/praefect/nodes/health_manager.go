@@ -58,9 +58,6 @@ type HealthManager struct {
 
 // NewHealthManager returns a new health manager that monitors which nodes in the cluster
 // are healthy.
-//
-// If db is nil, the HealthManager checks the connection health normally but doesn't persist
-// any information about the nodes in the database.
 func NewHealthManager(
 	log logrus.FieldLogger,
 	db glsql.Querier,
@@ -141,13 +138,10 @@ func (hm *HealthManager) updateHealthChecks(ctx context.Context, virtualStorages
 
 	hm.locallyHealthy.Store(locallyHealthy)
 
-	if hm.db != nil {
-		// Database is nil only when an alternative set of connections is being tested behind a feature flag
-		// and we do not want to affect the consensus in the database, just the routing decisions.
-		ctx, cancel := hm.databaseTimeout(ctx)
-		defer cancel()
+	ctx, cancel := hm.databaseTimeout(ctx)
+	defer cancel()
 
-		if _, err := hm.db.ExecContext(ctx, `
+	if _, err := hm.db.ExecContext(ctx, `
 INSERT INTO node_status (praefect_name, shard_name, node_name, last_contact_attempt_at, last_seen_active_at)
 SELECT $1, shard_name, node_name, NOW(), CASE WHEN is_healthy THEN NOW() ELSE NULL END
 FROM (
@@ -161,13 +155,12 @@ ON CONFLICT (praefect_name, shard_name, node_name)
 		last_contact_attempt_at = NOW(),
 		last_seen_active_at = COALESCE(EXCLUDED.last_seen_active_at, node_status.last_seen_active_at)
 	`,
-			hm.praefectName,
-			virtualStorages,
-			physicalStorages,
-			healthy,
-		); err != nil {
-			return fmt.Errorf("update checks: %w", err)
-		}
+		hm.praefectName,
+		virtualStorages,
+		physicalStorages,
+		healthy,
+	); err != nil {
+		return fmt.Errorf("update checks: %w", err)
 	}
 
 	if hm.firstUpdate {

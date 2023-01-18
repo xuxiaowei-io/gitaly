@@ -168,7 +168,7 @@ func TestRunner_Run(t *testing.T) {
 	logger.SetLevel(logrus.DebugLevel)
 
 	entry := logger.WithContext(ctx)
-	clientHandshaker := backchannel.NewClientHandshaker(entry, praefect.NewBackchannelServerFactory(entry, transaction.NewServer(nil), nil))
+	clientHandshaker := backchannel.NewClientHandshaker(entry, praefect.NewBackchannelServerFactory(entry, transaction.NewServer(nil), nil), backchannel.DefaultConfiguration())
 	nodeSet, err := praefect.DialNodes(ctx, conf.VirtualStorages, protoregistry.GitalyProtoPreregistered, nil, clientHandshaker, nil)
 	require.NoError(t, err)
 	defer nodeSet.Close()
@@ -277,7 +277,7 @@ func TestRunner_Run_noAvailableStorages(t *testing.T) {
 
 	logger := testhelper.NewDiscardingLogger(t)
 	entry := logger.WithContext(ctx)
-	clientHandshaker := backchannel.NewClientHandshaker(entry, praefect.NewBackchannelServerFactory(entry, transaction.NewServer(nil), nil))
+	clientHandshaker := backchannel.NewClientHandshaker(entry, praefect.NewBackchannelServerFactory(entry, transaction.NewServer(nil), nil), backchannel.DefaultConfiguration())
 	nodeSet, err := praefect.DialNodes(ctx, conf.VirtualStorages, protoregistry.GitalyProtoPreregistered, nil, clientHandshaker, nil)
 	require.NoError(t, err)
 	defer nodeSet.Close()

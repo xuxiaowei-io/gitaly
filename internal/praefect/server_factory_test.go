@@ -85,7 +85,7 @@ func TestServerFactory(t *testing.T) {
 	rs := datastore.MockRepositoryStore{}
 	txMgr := transactions.NewManager(conf)
 	sidechannelRegistry := sidechannel.NewRegistry()
-	clientHandshaker := backchannel.NewClientHandshaker(logger, NewBackchannelServerFactory(logger, transaction.NewServer(txMgr), sidechannelRegistry))
+	clientHandshaker := backchannel.NewClientHandshaker(logger, NewBackchannelServerFactory(logger, transaction.NewServer(txMgr), sidechannelRegistry), backchannel.DefaultConfiguration())
 	nodeMgr, err := nodes.NewManager(logger, conf, nil, rs, &promtest.MockHistogramVec{}, protoregistry.GitalyProtoPreregistered, nil, clientHandshaker, sidechannelRegistry)
 	require.NoError(t, err)
 	nodeMgr.Start(0, time.Second)
@@ -135,7 +135,7 @@ func TestServerFactory(t *testing.T) {
 			return grpc.NewServer(grpc.Creds(lm))
 		}
 
-		clientHandshaker := backchannel.NewClientHandshaker(logger, factory)
+		clientHandshaker := backchannel.NewClientHandshaker(logger, factory, backchannel.DefaultConfiguration())
 		dialOpt := grpc.WithTransportCredentials(clientHandshaker.ClientHandshake(creds))
 
 		cc, err := grpc.Dial(addr, dialOpt)

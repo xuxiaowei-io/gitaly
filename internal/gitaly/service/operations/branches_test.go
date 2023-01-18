@@ -181,6 +181,7 @@ func TestUserCreateBranch_Transactions(t *testing.T) {
 						gitalypb.RegisterRefTransactionServer(srv, transactionServer)
 						return srv
 					},
+					backchannel.DefaultConfiguration(),
 				),
 			)
 
@@ -835,6 +836,7 @@ func TestUserDeleteBranch_transaction(t *testing.T) {
 				gitalypb.RegisterRefTransactionServer(srv, transactionServer)
 				return srv
 			},
+			backchannel.DefaultConfiguration(),
 		),
 	)
 

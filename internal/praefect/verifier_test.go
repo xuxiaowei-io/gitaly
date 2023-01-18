@@ -517,6 +517,7 @@ func TestVerifier(t *testing.T) {
 						transaction.NewServer(txManager),
 						sidechannelRegistry,
 					),
+					backchannel.DefaultConfiguration(),
 				),
 				sidechannelRegistry,
 			)

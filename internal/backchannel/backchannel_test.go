@@ -121,7 +121,7 @@ func TestBackchannel_concurrentRequestsFromMultipleClients(t *testing.T) {
 				})
 
 				return srv
-			})
+			}, DefaultConfiguration())
 
 			<-start
 			client, err := grpc.Dial(ln.Addr().String(),
@@ -182,7 +182,7 @@ func TestHandshaker_idempotentClose(t *testing.T) {
 				stopCalled++
 			},
 		}
-	})
+	}, DefaultConfiguration())
 
 	closeServer := make(chan struct{})
 	serverClosed := make(chan struct{})
@@ -276,7 +276,7 @@ func Benchmark(b *testing.B) {
 
 					opts := []grpc.DialOption{grpc.WithBlock(), grpc.WithTransportCredentials(insecure.NewCredentials())}
 					if tc.multiplexed {
-						clientHandshaker := NewClientHandshaker(newLogger(), func() Server { return grpc.NewServer() })
+						clientHandshaker := NewClientHandshaker(newLogger(), func() Server { return grpc.NewServer() }, DefaultConfiguration())
 						opts = []grpc.DialOption{
 							grpc.WithBlock(),
 							grpc.WithTransportCredentials(clientHandshaker.ClientHandshake(insecure.NewCredentials())),

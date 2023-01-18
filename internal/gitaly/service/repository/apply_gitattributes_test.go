@@ -111,11 +111,15 @@ func TestApplyGitattributes_transactional(t *testing.T) {
 	logger := testhelper.NewDiscardingLogEntry(t)
 
 	client := newMuxedRepositoryClient(t, ctx, cfg, "unix://"+cfg.InternalSocketPath(),
-		backchannel.NewClientHandshaker(logger, func() backchannel.Server {
-			srv := grpc.NewServer()
-			gitalypb.RegisterRefTransactionServer(srv, transactionServer)
-			return srv
-		}),
+		backchannel.NewClientHandshaker(
+			logger,
+			func() backchannel.Server {
+				srv := grpc.NewServer()
+				gitalypb.RegisterRefTransactionServer(srv, transactionServer)
+				return srv
+			},
+			backchannel.DefaultConfiguration(),
+		),
 	)
 
 	for _, tc := range []struct {

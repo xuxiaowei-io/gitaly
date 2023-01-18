@@ -97,9 +97,16 @@ func TestNewBackchannelServerFactory(t *testing.T) {
 	nodeSet, err := DialNodes(ctx, []*config.VirtualStorage{{
 		Name:  "default",
 		Nodes: []*config.Node{{Storage: "gitaly-1", Address: "tcp://" + ln.Addr().String()}},
-	}}, nil, nil, backchannel.NewClientHandshaker(logger, NewBackchannelServerFactory(
-		testhelper.NewDiscardingLogEntry(t), transaction.NewServer(mgr), nil,
-	)), nil)
+	}}, nil, nil,
+		backchannel.NewClientHandshaker(
+			logger,
+			NewBackchannelServerFactory(
+				testhelper.NewDiscardingLogEntry(t),
+				transaction.NewServer(mgr),
+				nil,
+			),
+			backchannel.DefaultConfiguration(),
+		), nil)
 	require.NoError(t, err)
 	defer nodeSet.Close()
 
@@ -530,6 +537,7 @@ func TestRemoveRepository(t *testing.T) {
 		nil, backchannel.NewClientHandshaker(
 			testhelper.NewDiscardingLogEntry(t),
 			NewBackchannelServerFactory(testhelper.NewDiscardingLogEntry(t), transaction.NewServer(txMgr), nil),
+			backchannel.DefaultConfiguration(),
 		), nil,
 	)
 	require.NoError(t, err)
@@ -603,6 +611,7 @@ func TestRenameRepository(t *testing.T) {
 			transaction.NewServer(txManager),
 			nil,
 		),
+		backchannel.DefaultConfiguration(),
 	)
 
 	ctx := testhelper.Context(t)

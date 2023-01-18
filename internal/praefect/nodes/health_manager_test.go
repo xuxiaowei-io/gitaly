@@ -49,31 +49,6 @@ func getHealthConsensus(t *testing.T, ctx context.Context, db glsql.Querier) map
 	return consensus
 }
 
-func TestHealthManagerWithoutDatabase(t *testing.T) {
-	t.Parallel()
-
-	hm := NewHealthManager(testhelper.NewDiscardingLogger(t), nil, "ignored", HealthClients{
-		"virtual-storage": {
-			"healthy-storage": mockHealthClient{
-				CheckFunc: func(context.Context, *grpc_health_v1.HealthCheckRequest, ...grpc.CallOption) (*grpc_health_v1.HealthCheckResponse, error) {
-					return &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_SERVING}, nil
-				},
-			},
-			"unhealthy-storage": mockHealthClient{
-				CheckFunc: func(context.Context, *grpc_health_v1.HealthCheckRequest, ...grpc.CallOption) (*grpc_health_v1.HealthCheckResponse, error) {
-					return &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_NOT_SERVING}, nil
-				},
-			},
-		},
-	})
-	hm.handleError = func(err error) error { return err }
-
-	runCtx, cancelRun := context.WithCancel(testhelper.Context(t))
-	require.Equal(t, context.Canceled, hm.Run(runCtx, helper.NewCountTicker(1, cancelRun)))
-	require.Equal(t, map[string][]string{"virtual-storage": {"healthy-storage"}}, hm.HealthyNodes())
-	<-hm.Updated()
-}
-
 func TestHealthManager(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)

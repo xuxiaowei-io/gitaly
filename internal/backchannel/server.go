@@ -102,7 +102,14 @@ func (s *ServerHandshaker) Handshake(conn net.Conn, authInfo credentials.AuthInf
 	logger := s.logger.WriterLevel(logrus.ErrorLevel)
 
 	// Open the server side of the multiplexing session.
-	muxSession, err := yamux.Server(conn, muxConfig(logger, nil))
+	//
+	// Gitaly is using custom settings with a lower accept backlog and higher receive
+	// buffer size than Praefect and the clients. We should eventually strive to match
+	// the settings here to avoid Gitaly from buffering too much.
+	cfg := DefaultConfiguration()
+	cfg.AcceptBacklog = 1
+	cfg.MaximumStreamWindowSizeBytes = 16 * 1024 * 1024
+	muxSession, err := yamux.Server(conn, muxConfig(logger, cfg))
 	if err != nil {
 		logger.Close()
 		return nil, nil, fmt.Errorf("create multiplexing session: %w", err)
