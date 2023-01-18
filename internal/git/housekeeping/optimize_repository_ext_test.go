@@ -1,6 +1,7 @@
 package housekeeping_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/setup"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
@@ -23,10 +25,13 @@ import (
 
 func TestPruneIfNeeded(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.WriteBitmapLookupTable).Run(t, testPruneIfNeeded)
+}
 
-	ctx := testhelper.Context(t)
+func testPruneIfNeeded(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
-
 	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
 
 	for _, tc := range []struct {

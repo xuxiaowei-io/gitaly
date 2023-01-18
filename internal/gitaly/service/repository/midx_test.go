@@ -25,6 +25,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/txinfo"
@@ -83,8 +84,12 @@ func TestMidxRewrite(t *testing.T) {
 
 func TestMidxRepack(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.WriteBitmapLookupTable).Run(t, testMidxRepack)
+}
 
-	ctx := testhelper.Context(t)
+func testMidxRepack(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -160,8 +165,12 @@ func TestMidxRepack_transactional(t *testing.T) {
 
 func TestMidxRepackExpire(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.WriteBitmapLookupTable).Run(t, testMidxRepackExpire)
+}
 
-	ctx := testhelper.Context(t)
+func testMidxRepackExpire(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	for _, packsAdded := range []uint64{3, 5, 11, 20} {

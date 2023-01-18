@@ -3,6 +3,7 @@
 package repository
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"testing"
@@ -13,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -22,8 +24,12 @@ import (
 
 func TestRepackIncrementalSuccess(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.WriteBitmapLookupTable).Run(t, testRepackIncrementalSuccess)
+}
 
-	ctx := testhelper.Context(t)
+func testRepackIncrementalSuccess(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -60,8 +66,12 @@ func TestRepackIncrementalSuccess(t *testing.T) {
 
 func TestRepackIncrementalCollectLogStatistics(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.WriteBitmapLookupTable).Run(t, testRepackIncrementalCollectLogStatistics)
+}
 
-	ctx := testhelper.Context(t)
+func testRepackIncrementalCollectLogStatistics(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	logger, hook := test.NewNullLogger()
 	_, repo, _, client := setupRepositoryService(t, ctx, testserver.WithLogger(logger))
 
@@ -74,8 +84,12 @@ func TestRepackIncrementalCollectLogStatistics(t *testing.T) {
 
 func TestRepackLocal(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.WriteBitmapLookupTable).Run(t, testRepackLocal)
+}
 
-	ctx := testhelper.Context(t)
+func testRepackLocal(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	altObjectsDir := "./alt-objects"
@@ -113,8 +127,12 @@ const praefectErr = `routing repository maintenance: getting repository metadata
 
 func TestRepackIncrementalFailure(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.WriteBitmapLookupTable).Run(t, testRepackIncrementalFailure)
+}
 
-	ctx := testhelper.Context(t)
+func testRepackIncrementalFailure(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	tests := []struct {
@@ -170,8 +188,12 @@ func TestRepackIncrementalFailure(t *testing.T) {
 
 func TestRepackFullSuccess(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.WriteBitmapLookupTable).Run(t, testRepackFullSuccess)
+}
 
-	ctx := testhelper.Context(t)
+func testRepackFullSuccess(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	for _, tc := range []struct {
@@ -227,9 +249,10 @@ func TestRepackFullSuccess(t *testing.T) {
 				bitmapInfo, err := stats.BitmapInfoForPath(bitmaps[0])
 				require.NoError(t, err)
 				require.Equal(t, stats.BitmapInfo{
-					Exists:       true,
-					Version:      1,
-					HasHashCache: true,
+					Exists:         true,
+					Version:        1,
+					HasHashCache:   true,
+					HasLookupTable: featureflag.WriteBitmapLookupTable.IsEnabled(ctx),
 				}, bitmapInfo)
 			} else {
 				require.Empty(t, bitmaps)
@@ -248,9 +271,12 @@ func TestRepackFullSuccess(t *testing.T) {
 }
 
 func TestRepackFullCollectLogStatistics(t *testing.T) {
+	testhelper.NewFeatureSets(featureflag.WriteBitmapLookupTable).Run(t, testRepackFullCollectLogStatistics)
+}
+
+func testRepackFullCollectLogStatistics(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
 	logger, hook := test.NewNullLogger()
 	_, repo, _, client := setupRepositoryService(t, ctx, testserver.WithLogger(logger))
 
@@ -263,8 +289,12 @@ func TestRepackFullCollectLogStatistics(t *testing.T) {
 
 func TestRepackFullFailure(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.WriteBitmapLookupTable).Run(t, testRepackFullFailure)
+}
 
-	ctx := testhelper.Context(t)
+func testRepackFullFailure(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	tests := []struct {
@@ -311,8 +341,12 @@ func TestRepackFullFailure(t *testing.T) {
 
 func TestRepackFullDeltaIslands(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.WriteBitmapLookupTable).Run(t, testRepackFullDeltaIslands)
+}
 
-	ctx := testhelper.Context(t)
+func testRepackFullDeltaIslands(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	gittest.TestDeltaIslands(t, cfg, repoPath, repoPath, false, func() error {

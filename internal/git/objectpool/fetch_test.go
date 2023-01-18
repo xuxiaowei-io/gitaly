@@ -3,6 +3,7 @@
 package objectpool
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -16,14 +17,19 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
 
 func TestFetchFromOrigin_dangling(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.WriteBitmapLookupTable).Run(t, testFetchFromOriginDangling)
+}
 
-	ctx := testhelper.Context(t)
+func testFetchFromOriginDangling(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, pool, repo := setupObjectPool(t, ctx)
 	poolPath := gittest.RepositoryPath(t, pool)
 	repoPath := gittest.RepositoryPath(t, repo)
@@ -107,8 +113,12 @@ func TestFetchFromOrigin_fsck(t *testing.T) {
 
 func TestFetchFromOrigin_deltaIslands(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.WriteBitmapLookupTable).Run(t, testFetchFromOriginDeltaIslands)
+}
 
-	ctx := testhelper.Context(t)
+func testFetchFromOriginDeltaIslands(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, pool, repo := setupObjectPool(t, ctx)
 	poolPath := gittest.RepositoryPath(t, pool)
 	repoPath := gittest.RepositoryPath(t, repo)
@@ -126,8 +136,12 @@ func TestFetchFromOrigin_deltaIslands(t *testing.T) {
 
 func TestFetchFromOrigin_bitmapHashCache(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.WriteBitmapLookupTable).Run(t, testFetchFromOriginBitmapHashCache)
+}
 
-	ctx := testhelper.Context(t)
+func testFetchFromOriginBitmapHashCache(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, pool, repo := setupObjectPool(t, ctx)
 	repoPath, err := repo.Path()
 	require.NoError(t, err)
@@ -143,16 +157,21 @@ func TestFetchFromOrigin_bitmapHashCache(t *testing.T) {
 	bitmapInfo, err := stats.BitmapInfoForPath(bitmaps[0])
 	require.NoError(t, err)
 	require.Equal(t, stats.BitmapInfo{
-		Exists:       true,
-		Version:      1,
-		HasHashCache: true,
+		Exists:         true,
+		Version:        1,
+		HasHashCache:   true,
+		HasLookupTable: featureflag.WriteBitmapLookupTable.IsEnabled(ctx),
 	}, bitmapInfo)
 }
 
 func TestFetchFromOrigin_refUpdates(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.WriteBitmapLookupTable).Run(t, testFetchFromOriginRefUpdates)
+}
 
-	ctx := testhelper.Context(t)
+func testFetchFromOriginRefUpdates(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, pool, repo := setupObjectPool(t, ctx)
 	repoPath, err := repo.Path()
 	require.NoError(t, err)
@@ -198,8 +217,12 @@ func TestFetchFromOrigin_refUpdates(t *testing.T) {
 
 func TestFetchFromOrigin_refs(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.WriteBitmapLookupTable).Run(t, testFetchFromOriginRefs)
+}
 
-	ctx := testhelper.Context(t)
+func testFetchFromOriginRefs(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, pool, repo := setupObjectPool(t, ctx)
 	repoPath, err := repo.Path()
 	require.NoError(t, err)
