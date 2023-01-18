@@ -211,10 +211,10 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 			},
 			expectedInfo: RepositoryInfo{
 				Packfiles: PackfilesInfo{
-					Count:     1,
-					Size:      hashDependentSize(42, 54),
-					HasBitmap: true,
+					Count: 1,
+					Size:  hashDependentSize(42, 54),
 					Bitmap: BitmapInfo{
+						Exists:       true,
 						Version:      1,
 						HasHashCache: true,
 					},
@@ -239,10 +239,10 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 					Size:  16,
 				},
 				Packfiles: PackfilesInfo{
-					Count:     1,
-					Size:      hashDependentSize(42, 54),
-					HasBitmap: true,
+					Count: 1,
+					Size:  hashDependentSize(42, 54),
 					Bitmap: BitmapInfo{
+						Exists:       true,
 						Version:      1,
 						HasHashCache: true,
 					},
@@ -382,8 +382,8 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 					Size:         hashDependentSize(42, 54),
 					GarbageCount: 3,
 					GarbageSize:  3,
-					HasBitmap:    true,
 					Bitmap: BitmapInfo{
+						Exists:       true,
 						Version:      1,
 						HasHashCache: true,
 					},
@@ -772,11 +772,11 @@ func TestPackfileInfoForRepository(t *testing.T) {
 		gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Adb", "--write-midx")
 
 		requirePackfilesInfo(t, repo, PackfilesInfo{
-			Count:                   1,
-			Size:                    hashDependentSize(163, 189),
-			HasMultiPackIndex:       true,
-			HasMultiPackIndexBitmap: true,
+			Count:             1,
+			Size:              hashDependentSize(163, 189),
+			HasMultiPackIndex: true,
 			MultiPackIndexBitmap: BitmapInfo{
+				Exists:       true,
 				Version:      1,
 				HasHashCache: true,
 			},
@@ -794,13 +794,13 @@ func TestPackfileInfoForRepository(t *testing.T) {
 		require.NoError(t, os.WriteFile(filepath.Join(repoPath, "objects", "pack", "garbage"), []byte("1"), 0o644))
 
 		requirePackfilesInfo(t, repo, PackfilesInfo{
-			Count:                   2,
-			Size:                    hashDependentSize(315, 367),
-			GarbageCount:            1,
-			GarbageSize:             1,
-			HasMultiPackIndex:       true,
-			HasMultiPackIndexBitmap: true,
+			Count:             2,
+			Size:              hashDependentSize(315, 367),
+			GarbageCount:      1,
+			GarbageSize:       1,
+			HasMultiPackIndex: true,
 			MultiPackIndexBitmap: BitmapInfo{
+				Exists:       true,
 				Version:      1,
 				HasHashCache: true,
 			},
@@ -851,6 +851,7 @@ func TestBitmapInfoForPath(t *testing.T) {
 					writeHashCache:   false,
 					writeLookupTable: false,
 					expectedBitmapInfo: BitmapInfo{
+						Exists:  true,
 						Version: 1,
 					},
 				},
@@ -859,6 +860,7 @@ func TestBitmapInfoForPath(t *testing.T) {
 					writeHashCache:   true,
 					writeLookupTable: false,
 					expectedBitmapInfo: BitmapInfo{
+						Exists:       true,
 						Version:      1,
 						HasHashCache: true,
 					},
@@ -868,6 +870,7 @@ func TestBitmapInfoForPath(t *testing.T) {
 					writeHashCache:   false,
 					writeLookupTable: true,
 					expectedBitmapInfo: BitmapInfo{
+						Exists:         true,
 						Version:        1,
 						HasLookupTable: true,
 					},
@@ -877,6 +880,7 @@ func TestBitmapInfoForPath(t *testing.T) {
 					writeHashCache:   true,
 					writeLookupTable: true,
 					expectedBitmapInfo: BitmapInfo{
+						Exists:         true,
 						Version:        1,
 						HasHashCache:   true,
 						HasLookupTable: true,

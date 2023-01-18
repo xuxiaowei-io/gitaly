@@ -44,8 +44,8 @@ func requireObjectsState(tb testing.TB, repo *localrepo.Repo, expectedState obje
 	require.Equal(tb, expectedState, objectsState{
 		looseObjects:            repoInfo.LooseObjects.Count,
 		packfiles:               repoInfo.Packfiles.Count,
-		hasBitmap:               repoInfo.Packfiles.HasBitmap,
+		hasBitmap:               repoInfo.Packfiles.Bitmap.Exists,
 		hasMultiPackIndex:       repoInfo.Packfiles.HasMultiPackIndex,
-		hasMultiPackIndexBitmap: repoInfo.Packfiles.HasMultiPackIndexBitmap,
+		hasMultiPackIndexBitmap: repoInfo.Packfiles.MultiPackIndexBitmap.Exists,
 	})
 }

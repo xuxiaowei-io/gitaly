@@ -71,7 +71,7 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(context.Context) (b
 	// a bitmap on their own. We do not yet use multi-pack indices, and in that case Git can
 	// only use one bitmap. We already generate this bitmap in the pool, so member of it
 	// shouldn't have another bitmap on their own.
-	if !s.info.Packfiles.HasBitmap && len(s.info.Alternates) == 0 {
+	if !s.info.Packfiles.Bitmap.Exists && len(s.info.Alternates) == 0 {
 		return true, RepackObjectsConfig{
 			FullRepack:  true,
 			WriteBitmap: true,

@@ -241,14 +241,10 @@ type PackfilesInfo struct {
 	GarbageCount uint64 `json:"garbage_count"`
 	// GarbageSize is the total size of all garbage files in bytes.
 	GarbageSize uint64 `json:"garbage_size"`
-	// HasBitmap indicates whether the packfiles have a bitmap.
-	HasBitmap bool `json:"has_bitmap"`
 	// Bitmap contains information about the bitmap, if any exists.
 	Bitmap BitmapInfo `json:"bitmap"`
 	// HasMultiPackIndex indicates whether there is a multi-pack-index.
 	HasMultiPackIndex bool `json:"has_multi_pack_index"`
-	// HasMultiPackIndexBitmap indicates whether the multi-pack-index has a bitmap.
-	HasMultiPackIndexBitmap bool `json:"has_multi_pack_index_bitmap"`
 	// MultiPackIndexBitmap contains information about the bitmap for the multi-pack-index, if
 	// any exists.
 	MultiPackIndexBitmap BitmapInfo `json:"multi_pack_index_bitmap"`
@@ -297,8 +293,6 @@ func PackfilesInfoForRepository(repo *localrepo.Repo) (PackfilesInfo, error) {
 					info.Size += uint64(entryInfo.Size())
 				}
 			case strings.HasSuffix(entryName, ".bitmap"):
-				info.HasBitmap = true
-
 				bitmap, err := BitmapInfoForPath(filepath.Join(packfilesPath, entryName))
 				if err != nil {
 					return PackfilesInfo{}, fmt.Errorf("reading bitmap info: %w", err)
@@ -309,8 +303,6 @@ func PackfilesInfoForRepository(repo *localrepo.Repo) (PackfilesInfo, error) {
 		case entryName == "multi-pack-index":
 			info.HasMultiPackIndex = true
 		case strings.HasPrefix(entryName, "multi-pack-index-") && strings.HasSuffix(entryName, ".bitmap"):
-			info.HasMultiPackIndexBitmap = true
-
 			bitmap, err := BitmapInfoForPath(filepath.Join(packfilesPath, entryName))
 			if err != nil {
 				return PackfilesInfo{}, fmt.Errorf("reading multi-pack-index bitmap info: %w", err)
@@ -360,6 +352,10 @@ func readAlternates(repo *localrepo.Repo) ([]string, error) {
 
 // BitmapInfo contains information about a packfile or multi-pack-index bitmap.
 type BitmapInfo struct {
+	// Exists indicates whether the bitmap exists. This field would usually always be `true`
+	// when read via `BitmapInfoForPath()`, but helps when the bitmap info is embedded into
+	// another structure where it may only be conditionally read.
+	Exists bool `json:"exists"`
 	// Version is the version of the bitmap. Currently, this is expected to always be 1.
 	Version uint16 `json:"version"`
 	// HasHashCache indicates whether the name hash cache extension exists in the bitmap. This
@@ -406,6 +402,7 @@ func BitmapInfoForPath(path string) (BitmapInfo, error) {
 	flags := binary.BigEndian.Uint16(bitmapHeader[6:8])
 
 	return BitmapInfo{
+		Exists:         true,
 		Version:        version,
 		HasHashCache:   flags&0x4 == 0x4,
 		HasLookupTable: flags&0x10 == 0x10,
