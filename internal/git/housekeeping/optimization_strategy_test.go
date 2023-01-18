@@ -140,15 +140,25 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
 				})
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 
-				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "objects", "pack", "pack-1234.bitmap"), nil, 0o644))
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Adb")
 
 				return repoProto
 			},
 			expectedStrategy: HeuristicalOptimizationStrategy{
 				info: stats.RepositoryInfo{
+					References: stats.ReferencesInfo{
+						LooseReferencesCount: 1,
+					},
 					Packfiles: stats.PackfilesInfo{
+						Count:     1,
+						Size:      hashDependentObjectSize(163, 189),
 						HasBitmap: true,
+						Bitmap: stats.BitmapInfo{
+							Version:      1,
+							HasHashCache: true,
+						},
 					},
 				},
 			},

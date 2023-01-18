@@ -243,10 +243,15 @@ type PackfilesInfo struct {
 	GarbageSize uint64 `json:"garbage_size"`
 	// HasBitmap indicates whether the packfiles have a bitmap.
 	HasBitmap bool `json:"has_bitmap"`
+	// Bitmap contains information about the bitmap, if any exists.
+	Bitmap BitmapInfo `json:"bitmap"`
 	// HasMultiPackIndex indicates whether there is a multi-pack-index.
 	HasMultiPackIndex bool `json:"has_multi_pack_index"`
 	// HasMultiPackIndexBitmap indicates whether the multi-pack-index has a bitmap.
 	HasMultiPackIndexBitmap bool `json:"has_multi_pack_index_bitmap"`
+	// MultiPackIndexBitmap contains information about the bitmap for the multi-pack-index, if
+	// any exists.
+	MultiPackIndexBitmap BitmapInfo `json:"multi_pack_index_bitmap"`
 }
 
 // PackfilesInfoForRepository derives various information about packfiles for the given repository.
@@ -255,8 +260,9 @@ func PackfilesInfoForRepository(repo *localrepo.Repo) (PackfilesInfo, error) {
 	if err != nil {
 		return PackfilesInfo{}, fmt.Errorf("getting repository path: %w", err)
 	}
+	packfilesPath := filepath.Join(repoPath, "objects", "pack")
 
-	entries, err := os.ReadDir(filepath.Join(repoPath, "objects", "pack"))
+	entries, err := os.ReadDir(packfilesPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return PackfilesInfo{}, nil
@@ -292,11 +298,25 @@ func PackfilesInfoForRepository(repo *localrepo.Repo) (PackfilesInfo, error) {
 				}
 			case strings.HasSuffix(entryName, ".bitmap"):
 				info.HasBitmap = true
+
+				bitmap, err := BitmapInfoForPath(filepath.Join(packfilesPath, entryName))
+				if err != nil {
+					return PackfilesInfo{}, fmt.Errorf("reading bitmap info: %w", err)
+				}
+
+				info.Bitmap = bitmap
 			}
 		case entryName == "multi-pack-index":
 			info.HasMultiPackIndex = true
 		case strings.HasPrefix(entryName, "multi-pack-index-") && strings.HasSuffix(entryName, ".bitmap"):
 			info.HasMultiPackIndexBitmap = true
+
+			bitmap, err := BitmapInfoForPath(filepath.Join(packfilesPath, entryName))
+			if err != nil {
+				return PackfilesInfo{}, fmt.Errorf("reading multi-pack-index bitmap info: %w", err)
+			}
+
+			info.MultiPackIndexBitmap = bitmap
 		default:
 			info.GarbageCount++
 			if entryInfo.Size() > 0 {

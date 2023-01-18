@@ -214,6 +214,10 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 					Count:     1,
 					Size:      hashDependentSize(42, 54),
 					HasBitmap: true,
+					Bitmap: BitmapInfo{
+						Version:      1,
+						HasHashCache: true,
+					},
 				},
 				References: ReferencesInfo{
 					LooseReferencesCount: 1,
@@ -238,6 +242,10 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 					Count:     1,
 					Size:      hashDependentSize(42, 54),
 					HasBitmap: true,
+					Bitmap: BitmapInfo{
+						Version:      1,
+						HasHashCache: true,
+					},
 				},
 				References: ReferencesInfo{
 					LooseReferencesCount: 1,
@@ -375,6 +383,10 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 					GarbageCount: 3,
 					GarbageSize:  3,
 					HasBitmap:    true,
+					Bitmap: BitmapInfo{
+						Version:      1,
+						HasHashCache: true,
+					},
 				},
 				References: ReferencesInfo{
 					LooseReferencesCount: 1,
@@ -756,43 +768,42 @@ func TestPackfileInfoForRepository(t *testing.T) {
 	t.Run("multi-pack-index with bitmap", func(t *testing.T) {
 		repo, repoPath := createRepo(t)
 
-		packfileDir := filepath.Join(repoPath, "objects", "pack")
-		require.NoError(t, os.MkdirAll(packfileDir, 0o755))
-		require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "multi-pack-index"), nil, 0o644))
-		require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "multi-pack-index-c0363841cc7e5783a996c72f0a4a7ae4440aaa40.bitmap"), nil, 0o644))
+		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+		gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Adb", "--write-midx")
 
 		requirePackfilesInfo(t, repo, PackfilesInfo{
+			Count:                   1,
+			Size:                    hashDependentSize(163, 189),
 			HasMultiPackIndex:       true,
 			HasMultiPackIndexBitmap: true,
+			MultiPackIndexBitmap: BitmapInfo{
+				Version:      1,
+				HasHashCache: true,
+			},
 		})
 	})
 
 	t.Run("multiple packfiles with other data structures", func(t *testing.T) {
 		repo, repoPath := createRepo(t)
 
-		packfileDir := filepath.Join(repoPath, "objects", "pack")
-		require.NoError(t, os.MkdirAll(packfileDir, 0o755))
-		for _, file := range []string{
-			"pack-bar.bar",
-			"pack-bar.pack",
-			"pack-bar.idx",
-			"pack-foo.bar",
-			"pack-foo.pack",
-			"pack-foo.idx",
-			"garbage",
-			"multi-pack-index",
-			"multi-pack-index-c0363841cc7e5783a996c72f0a4a7ae4440aaa40.bitmap",
-		} {
-			require.NoError(t, os.WriteFile(filepath.Join(packfileDir, file), []byte("1"), 0o644))
-		}
+		gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("first"), gittest.WithBranch("first"))
+		gittest.Exec(t, cfg, "-c", "repack.writeBitmaps=false", "-C", repoPath, "repack", "-Ad")
+		gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("second"), gittest.WithBranch("second"))
+		gittest.Exec(t, cfg, "-C", repoPath, "repack", "-db", "--write-midx")
+
+		require.NoError(t, os.WriteFile(filepath.Join(repoPath, "objects", "pack", "garbage"), []byte("1"), 0o644))
 
 		requirePackfilesInfo(t, repo, PackfilesInfo{
 			Count:                   2,
-			Size:                    2,
+			Size:                    hashDependentSize(315, 367),
 			GarbageCount:            1,
 			GarbageSize:             1,
 			HasMultiPackIndex:       true,
 			HasMultiPackIndexBitmap: true,
+			MultiPackIndexBitmap: BitmapInfo{
+				Version:      1,
+				HasHashCache: true,
+			},
 		})
 	})
 }
