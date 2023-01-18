@@ -140,7 +140,13 @@ func TestFetchFromOrigin_bitmapHashCache(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, bitmaps, 1)
 
-	gittest.TestBitmapHasHashcache(t, bitmaps[0])
+	bitmapInfo, err := stats.BitmapInfoForPath(bitmaps[0])
+	require.NoError(t, err)
+	require.Equal(t, stats.BitmapInfo{
+		Exists:       true,
+		Version:      1,
+		HasHashCache: true,
+	}, bitmapInfo)
 }
 
 func TestFetchFromOrigin_refUpdates(t *testing.T) {

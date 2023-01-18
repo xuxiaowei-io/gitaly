@@ -223,7 +223,14 @@ func TestRepackFullSuccess(t *testing.T) {
 			require.NoError(t, err)
 			if tc.createBitmap {
 				require.Len(t, bitmaps, 1)
-				doBitmapsContainHashCache(t, bitmaps)
+
+				bitmapInfo, err := stats.BitmapInfoForPath(bitmaps[0])
+				require.NoError(t, err)
+				require.Equal(t, stats.BitmapInfo{
+					Exists:       true,
+					Version:      1,
+					HasHashCache: true,
+				}, bitmapInfo)
 			} else {
 				require.Empty(t, bitmaps)
 			}
@@ -252,14 +259,6 @@ func TestRepackFullCollectLogStatistics(t *testing.T) {
 	require.NoError(t, err)
 
 	requireRepositoryInfoLog(t, hook.AllEntries()...)
-}
-
-func doBitmapsContainHashCache(t *testing.T, bitmapPaths []string) {
-	// for each bitmap file, check the 2-byte flag as documented in
-	// https://github.com/git/git/blob/master/Documentation/technical/bitmap-format.txt
-	for _, bitmapPath := range bitmapPaths {
-		gittest.TestBitmapHasHashcache(t, bitmapPath)
-	}
 }
 
 func TestRepackFullFailure(t *testing.T) {
