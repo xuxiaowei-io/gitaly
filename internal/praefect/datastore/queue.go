@@ -208,14 +208,13 @@ type PostgresReplicationEventQueue struct {
 	qc glsql.Querier
 }
 
-//nolint:revive // This is unintentionally missing documentation.
+// Enqueue is used to add a replicationEvent to the `replication_event_queue`
+// When `Enqueue` method is called:
+//  1. Insertion of the new record into `replication_queue_lock` table, so we are ensured all events have
+//     a corresponding <lock>. If a record already exists it won't be inserted again.
+//  2. Insertion of the new record into the `replication_queue` table with the defaults listed above,
+//     the job, the meta and corresponding <lock> used in `replication_queue_lock` table for the `lock_id` column.
 func (rq PostgresReplicationEventQueue) Enqueue(ctx context.Context, event ReplicationEvent) (ReplicationEvent, error) {
-	// When `Enqueue` method is called:
-	//  1. Insertion of the new record into `replication_queue_lock` table, so we are ensured all events have
-	//     a corresponding <lock>. If a record already exists it won't be inserted again.
-	//  2. Insertion of the new record into the `replication_queue` table with the defaults listed above,
-	//     the job, the meta and corresponding <lock> used in `replication_queue_lock` table for the `lock_id` column.
-
 	query := `
 		WITH insert_lock AS (
 			INSERT INTO replication_queue_lock(id)
