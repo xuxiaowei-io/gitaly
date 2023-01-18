@@ -58,7 +58,7 @@ func HealthCheckDialer(base Dialer) Dialer {
 		}
 
 		if _, err := healthpb.NewHealthClient(cc).Check(ctx, &healthpb.HealthCheckRequest{}); err != nil {
-			cc.Close()
+			_ = cc.Close()
 			return nil, err
 		}
 

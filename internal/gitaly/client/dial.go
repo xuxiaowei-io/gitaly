@@ -9,12 +9,14 @@ import (
 	"time"
 
 	gitalyx509 "gitlab.com/gitlab-org/gitaly/v15/internal/x509"
+	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	grpccorrelation "gitlab.com/gitlab-org/labkit/correlation/grpc"
 	grpctracing "gitlab.com/gitlab-org/labkit/tracing/grpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 type connectionType int
@@ -129,6 +131,32 @@ func Dial(ctx context.Context, rawAddress string, connOpts []grpc.DialOption, ha
 			Time:                20 * time.Second,
 			PermitWithoutStream: true,
 		}),
+		// grpc.WithDisableServiceConfig ignores the service config provided by resolvers
+		// when they resolve the target. gRPC provides this feature to inject service
+		// config from external sources (DNS TXT record, for example). Gitaly doesn't need
+		// this feature. When we implement a custom client-side load balancer, this feature
+		// can even break the balancer. So, we should better disable it.
+		// For more information, please visit
+		// - https://github.com/grpc/proposal/blob/master/A2-service-configs-in-dns.md
+		grpc.WithDisableServiceConfig(),
+		// grpc.WithDefaultServiceConfig sets the recommended client-side load balancing
+		// configuration to client dial. By default, gRPC clients don't support client-side load
+		// balancing. After the connection to a host is established for the first time, that
+		// client always sticks to that host. In all Gitaly clients, the connection is cached
+		// somehow, usually one connection per host. It means they always stick to the same
+		// host until the process restarts. This is not a problem in pure Gitaly environment.
+		// In a cluster with more than one Praefect node, this behavior may cause serious
+		// workload skew, especially after a fail-over event.
+		//
+		// This option configures the load balancing strategy to `round_robin`. This is a
+		// built-in strategy grpc-go provides. When combining with service discovery via DNS,
+		// a client can distribute its requests to all discovered nodes in a round-robin
+		// fashion. The client can detect the connectivity changes, such as a node goes
+		// down/up again. It evicts subsequent requests accordingly.
+		//
+		// For more information:
+		// https://gitlab.com/groups/gitlab-org/-/epics/8971#note_1207008162
+		grpc.WithDefaultServiceConfig(defaultServiceConfig()),
 	)
 
 	conn, err := grpc.DialContext(ctx, canonicalAddress, connOpts...)
@@ -159,4 +187,18 @@ func cloneOpts(opts []grpc.DialOption) []grpc.DialOption {
 	clone := make([]grpc.DialOption, len(opts))
 	copy(clone, opts)
 	return clone
+}
+
+func defaultServiceConfig() string {
+	serviceConfig := &gitalypb.ServiceConfig{
+		LoadBalancingConfig: []*gitalypb.LoadBalancingConfig{{
+			Policy: &gitalypb.LoadBalancingConfig_RoundRobin{},
+		}},
+	}
+	configJSON, err := protojson.Marshal(serviceConfig)
+	if err != nil {
+		panic("fail to convert service config from protobuf to json")
+	}
+
+	return string(configJSON)
 }
