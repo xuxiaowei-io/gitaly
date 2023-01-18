@@ -1,133 +1,887 @@
-//go:build !gitaly_test_sha256
-
 package repository
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
-func TestFetchRemote_checkTagsChanged(t *testing.T) {
+const (
+	httpToken = "ABCefg0999182"
+	httpHost  = "example.com"
+)
+
+func gitRequestValidation(w http.ResponseWriter, r *http.Request, next http.Handler) {
+	if r.Host != httpHost {
+		http.Error(w, "No Host", http.StatusBadRequest)
+		return
+	}
+	if r.Header.Get("Authorization") != httpToken {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	next.ServeHTTP(w, r)
+}
+
+func TestFetchRemote(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+	// Some of the tests require multiple calls to the clients each run struct
+	// encompasses the expected data for a single run
+	type run struct {
+		expectedRefs     map[string]git.ObjectID
+		expectedResponse *gitalypb.FetchRemoteResponse
+		expectedErr      error
+	}
 
-	gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch("main"))
+	type setupData struct {
+		repoPath string
+		request  *gitalypb.FetchRemoteRequest
+		runs     []run
+	}
 
-	t.Run("check tags without tags", func(t *testing.T) {
-		repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
+	for _, tc := range []struct {
+		desc  string
+		setup func(t *testing.T, cfg config.Cfg) setupData
+	}{
+		{
+			desc: "check tags without tags",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
-		response, err := client.FetchRemote(ctx, &gitalypb.FetchRemoteRequest{
-			Repository: repoProto,
-			RemoteParams: &gitalypb.Remote{
-				Url: remoteRepoPath,
+				commitID := gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch("main"))
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url: remoteRepoPath,
+						},
+						CheckTagsChanged: true,
+					},
+					runs: []run{
+						{
+							expectedRefs: map[string]git.ObjectID{
+								"refs/heads/main": commitID,
+							},
+							expectedResponse: &gitalypb.FetchRemoteResponse{},
+						},
+					},
+				}
 			},
-			CheckTagsChanged: true,
-		})
-		require.NoError(t, err)
-		testhelper.ProtoEqual(t, &gitalypb.FetchRemoteResponse{}, response)
-	})
+		},
+		{
+			desc: "check tags with tags",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
-	gittest.WriteTag(t, cfg, remoteRepoPath, "testtag", "main")
+				commitID := gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch("main"))
+				tagID := gittest.WriteTag(t, cfg, remoteRepoPath, "testtag", "main")
 
-	t.Run("check tags with tags", func(t *testing.T) {
-		repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
-
-		// The first fetch should report that the tags have changed, ...
-		response, err := client.FetchRemote(ctx, &gitalypb.FetchRemoteRequest{
-			Repository: repoProto,
-			RemoteParams: &gitalypb.Remote{
-				Url: remoteRepoPath,
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url: remoteRepoPath,
+						},
+						CheckTagsChanged: true,
+					},
+					runs: []run{
+						{
+							expectedRefs: map[string]git.ObjectID{
+								"refs/heads/main":   commitID,
+								"refs/tags/testtag": tagID,
+							},
+							expectedResponse: &gitalypb.FetchRemoteResponse{TagsChanged: true},
+						},
+					},
+				}
 			},
-			CheckTagsChanged: true,
-		})
-		require.NoError(t, err)
-		testhelper.ProtoEqual(t, &gitalypb.FetchRemoteResponse{
-			TagsChanged: true,
-		}, response)
+		},
+		{
+			desc: "check tags with tags (second pull)",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
-		// ... while the second fetch shouldn't fetch it anew, and thus the tag should not
-		// have changed.
-		response, err = client.FetchRemote(ctx, &gitalypb.FetchRemoteRequest{
-			Repository: repoProto,
-			RemoteParams: &gitalypb.Remote{
-				Url: remoteRepoPath,
+				commitID := gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch("main"))
+				tagID := gittest.WriteTag(t, cfg, remoteRepoPath, "testtag", "main")
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url: remoteRepoPath,
+						},
+						CheckTagsChanged: true,
+					},
+					runs: []run{
+						{
+							expectedRefs: map[string]git.ObjectID{
+								"refs/heads/main":   commitID,
+								"refs/tags/testtag": tagID,
+							},
+							expectedResponse: &gitalypb.FetchRemoteResponse{TagsChanged: true},
+						},
+						{
+							expectedRefs: map[string]git.ObjectID{
+								"refs/heads/main":   commitID,
+								"refs/tags/testtag": tagID,
+							},
+							// second time around it shouldn't have changed tags
+							expectedResponse: &gitalypb.FetchRemoteResponse{},
+						},
+					},
+				}
 			},
-			CheckTagsChanged: true,
+		},
+		{
+			desc: "without checking for changed tags",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				commitID := gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch("main"))
+				tagID := gittest.WriteTag(t, cfg, remoteRepoPath, "testtag", "main")
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url: remoteRepoPath,
+						},
+						CheckTagsChanged: false,
+					},
+					runs: []run{
+						{
+							expectedRefs: map[string]git.ObjectID{
+								"refs/heads/main":   commitID,
+								"refs/tags/testtag": tagID,
+							},
+							// TagsChanged is set to true as we have requested to not check for tags changed
+							// in the request so it defaults to true.
+							expectedResponse: &gitalypb.FetchRemoteResponse{TagsChanged: true},
+						},
+						// Run a second time to ensure it is consistent
+						{
+							expectedRefs: map[string]git.ObjectID{
+								"refs/heads/main":   commitID,
+								"refs/tags/testtag": tagID,
+							},
+							expectedResponse: &gitalypb.FetchRemoteResponse{TagsChanged: true},
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "D/F conflict is resolved when pruning",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				commitID := gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithReference("refs/heads/branch"))
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference("refs/heads/branch/conflict"))
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url: remoteRepoPath,
+						},
+					},
+					runs: []run{
+						{
+							expectedRefs: map[string]git.ObjectID{
+								"refs/heads/branch": commitID,
+							},
+							expectedResponse: &gitalypb.FetchRemoteResponse{TagsChanged: true},
+							expectedErr:      nil,
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "D/F conflict causes failure when pruning is disabled",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithReference("refs/heads/branch"))
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference("refs/heads/branch/conflict"))
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url: remoteRepoPath,
+						},
+						NoPrune: true,
+					},
+					runs: []run{
+						{
+							expectedRefs: map[string]git.ObjectID{
+								"refs/heads/branch/conflict": commitID,
+							},
+							expectedErr: structerr.NewInternal(`fetch remote: "error: cannot lock ref 'refs/heads/branch': 'refs/heads/branch/conflict' exists; cannot create 'refs/heads/branch'\nerror: some local refs could not be updated; try running\n 'git remote prune inmemory' to remove any old, conflicting branches\n": exit status 1`),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "F/D conflict is resolved when pruning",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference("refs/heads/branch"))
+				commitID := gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithReference("refs/heads/branch/conflict"))
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url: remoteRepoPath,
+						},
+					},
+					runs: []run{
+						{
+							expectedRefs: map[string]git.ObjectID{
+								"refs/heads/branch/conflict": commitID,
+							},
+							expectedResponse: &gitalypb.FetchRemoteResponse{TagsChanged: true},
+							expectedErr:      nil,
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "F/D conflict causes failure when pruning is disabled",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference("refs/heads/branch"))
+				gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithReference("refs/heads/branch/conflict"))
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url: remoteRepoPath,
+						},
+						NoPrune: true,
+					},
+					runs: []run{
+						{
+							expectedRefs: map[string]git.ObjectID{
+								"refs/heads/branch": commitID,
+							},
+							expectedErr: structerr.NewInternal(`fetch remote: "error: cannot lock ref 'refs/heads/branch/conflict': 'refs/heads/branch' exists; cannot create 'refs/heads/branch/conflict'\nerror: some local refs could not be updated; try running\n 'git remote prune inmemory' to remove any old, conflicting branches\n": exit status 1`),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "with default refmaps",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				// Create the remote repository from which we're pulling from with two branches
+				// that don't exist in the target repository.
+				masterCommitID := gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch("master"), gittest.WithMessage("master"))
+				featureCommitID := gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch("feature"), gittest.WithMessage("feature"))
+
+				// Similar, we create the target repository with a branch that doesn't exist in the
+				// source repository. This branch should get pruned by default.
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("unrelated"), gittest.WithMessage("unrelated"))
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url: remoteRepoPath,
+						},
+					},
+					runs: []run{
+						{
+							expectedRefs: map[string]git.ObjectID{
+								"refs/heads/feature": featureCommitID,
+								"refs/heads/master":  masterCommitID,
+							},
+							expectedResponse: &gitalypb.FetchRemoteResponse{TagsChanged: true},
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "NoPrune=true with explicit Remote should not delete reference",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				masterCommitID := gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch("master"))
+				unrelatedCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("unrelated"))
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url: remoteRepoPath,
+						},
+						NoPrune: true,
+					},
+					runs: []run{
+						{
+							expectedRefs: map[string]git.ObjectID{
+								"refs/heads/unrelated": unrelatedCommitID,
+								"refs/heads/master":    masterCommitID,
+							},
+							expectedResponse: &gitalypb.FetchRemoteResponse{TagsChanged: true},
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "NoPrune=false with explicit Remote should delete reference",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				commitID := gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch("master"))
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("unrelated"))
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url: remoteRepoPath,
+						},
+						NoPrune: false,
+					},
+					runs: []run{
+						{
+							expectedRefs: map[string]git.ObjectID{
+								"refs/heads/master": commitID,
+							},
+							expectedResponse: &gitalypb.FetchRemoteResponse{TagsChanged: true},
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "NoPrune=false with explicit Remote should not delete reference outside of refspec",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				commitID := gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch("master"))
+				unrelatedID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("unrelated"))
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url:           remoteRepoPath,
+							MirrorRefmaps: []string{"refs/heads/*:refs/remotes/my-remote/*"},
+						},
+						NoPrune: false,
+					},
+					runs: []run{
+						{
+							expectedRefs: map[string]git.ObjectID{
+								"refs/remotes/my-remote/master": commitID,
+								"refs/heads/unrelated":          unrelatedID,
+							},
+							expectedResponse: &gitalypb.FetchRemoteResponse{TagsChanged: true},
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "remote params without force fails with diverging refs",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch("master"),
+					gittest.WithTreeEntries(gittest.TreeEntry{Mode: "100644", Path: "foot", Content: "loose"}))
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"),
+					gittest.WithTreeEntries(gittest.TreeEntry{Mode: "100644", Path: "loose", Content: "foot"}))
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url: remoteRepoPath,
+						},
+					},
+					runs: []run{
+						{
+							expectedRefs: map[string]git.ObjectID{"refs/heads/master": commitID},
+							expectedErr:  structerr.NewInternal("fetch remote: exit status 1"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "remote params with force updates diverging refs",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				commitID := gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch("master"),
+					gittest.WithTreeEntries(gittest.TreeEntry{Mode: "100644", Path: "foot", Content: "loose"}))
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"),
+					gittest.WithTreeEntries(gittest.TreeEntry{Mode: "100644", Path: "loose", Content: "foot"}))
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url: remoteRepoPath,
+						},
+						Force: true,
+					},
+					runs: []run{
+						{
+							expectedRefs:     map[string]git.ObjectID{"refs/heads/master": commitID},
+							expectedResponse: &gitalypb.FetchRemoteResponse{TagsChanged: true},
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "remote params with explicit refmap doesn't update divergent tag",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				remoteCommitID := gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithReference("refs/tags/v1"),
+					gittest.WithTreeEntries(gittest.TreeEntry{Mode: "100644", Path: "foot", Content: "loose"}))
+				gittest.WriteRef(t, cfg, remoteRepoPath, "refs/heads/master", remoteCommitID)
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference("refs/tags/v1"),
+					gittest.WithTreeEntries(gittest.TreeEntry{Mode: "100644", Path: "loose", Content: "foot"}))
+				gittest.WriteRef(t, cfg, repoPath, "refs/heads/master", commitID)
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url:           remoteRepoPath,
+							MirrorRefmaps: []string{"+refs/heads/master:refs/heads/master"},
+						},
+					},
+					runs: []run{
+						{
+							expectedRefs: map[string]git.ObjectID{
+								"refs/heads/master": remoteCommitID,
+								"refs/tags/v1":      commitID,
+							},
+							expectedErr: structerr.NewInternal("fetch remote: exit status 1"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "remote params with explicit refmap and force updates divergent tag",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				remoteCommitID := gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithReference("refs/tags/v1"),
+					gittest.WithTreeEntries(gittest.TreeEntry{Mode: "100644", Path: "foot", Content: "loose"}))
+				gittest.WriteRef(t, cfg, remoteRepoPath, "refs/heads/master", remoteCommitID)
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference("refs/tags/v1"),
+					gittest.WithTreeEntries(gittest.TreeEntry{Mode: "100644", Path: "loose", Content: "foot"}))
+				gittest.WriteRef(t, cfg, repoPath, "refs/heads/master", commitID)
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url:           remoteRepoPath,
+							MirrorRefmaps: []string{"refs/heads/master:refs/heads/master"},
+						},
+						Force: true,
+					},
+					runs: []run{
+						{
+							expectedRefs: map[string]git.ObjectID{
+								"refs/heads/master": remoteCommitID,
+								"refs/tags/v1":      remoteCommitID,
+							},
+							expectedResponse: &gitalypb.FetchRemoteResponse{TagsChanged: true},
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "remote params with explicit refmap and no tags doesn't update divergent tag",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				remoteCommitID := gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithReference("refs/tags/v1"),
+					gittest.WithTreeEntries(gittest.TreeEntry{Mode: "100644", Path: "foot", Content: "loose"}))
+				gittest.WriteRef(t, cfg, remoteRepoPath, "refs/heads/master", remoteCommitID)
+				commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference("refs/tags/v1"),
+					gittest.WithTreeEntries(gittest.TreeEntry{Mode: "100644", Path: "loose", Content: "foot"}))
+				gittest.WriteRef(t, cfg, repoPath, "refs/heads/master", commitID)
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url:           remoteRepoPath,
+							MirrorRefmaps: []string{"+refs/heads/master:refs/heads/master"},
+						},
+						NoTags: true,
+					},
+					runs: []run{
+						{
+							expectedRefs: map[string]git.ObjectID{
+								"refs/heads/master": remoteCommitID,
+								"refs/tags/v1":      commitID,
+							},
+							expectedResponse: &gitalypb.FetchRemoteResponse{TagsChanged: true},
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "no repository",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				_, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						RemoteParams: &gitalypb.Remote{Url: remoteRepoPath},
+					},
+					runs: []run{{expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
+						"empty Repository",
+						"repo scoped: empty Repository",
+					))}},
+				}
+			},
+		},
+		{
+			desc: "invalid storage",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: &gitalypb.Repository{
+							StorageName:  "foobar",
+							RelativePath: repoProto.RelativePath,
+						},
+						RemoteParams: &gitalypb.Remote{Url: remoteRepoPath},
+					},
+					runs: []run{{expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
+						`fetch remote: GetStorageByName: no such storage: "foobar"`,
+						"repo scoped: invalid Repository",
+					))}},
+				}
+			},
+		},
+		{
+			desc: "missing remote",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+					},
+					runs: []run{{expectedErr: structerr.NewInvalidArgument("missing remote params")}},
+				}
+			},
+		},
+		{
+			desc: "invalid remote URL",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository:   repoProto,
+						RemoteParams: &gitalypb.Remote{Url: ""},
+					},
+					runs: []run{{expectedErr: structerr.NewInvalidArgument("blank or empty remote URL")}},
+				}
+			},
+		},
+		{
+			desc: "/dev/null",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository:   repoProto,
+						RemoteParams: &gitalypb.Remote{Url: "/dev/null"},
+					},
+					runs: []run{{expectedErr: structerr.NewInternal(`fetch remote: "fatal: '/dev/null' does not appear to be a git repository\nfatal: Could not read from remote repository.\n\nPlease make sure you have the correct access rights\nand the repository exists.\n": exit status 128`)}},
+				}
+			},
+		},
+		{
+			desc: "non existent repo via http",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+				port := gittest.HTTPServer(t, ctx, gitCmdFactory, remoteRepoPath, nil)
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url:                     fmt.Sprintf("http://127.0.0.1:%d/%s", port, "invalid/repo/path.git"),
+							HttpAuthorizationHeader: httpToken,
+							HttpHost:                httpHost,
+						},
+					},
+					runs: []run{
+						{
+							expectedErr: structerr.NewInternal(`fetch remote: "fatal: repository 'http://127.0.0.1:%d/invalid/repo/path.git/' not found\n": exit status 128`, port),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "http with token",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				masterCommitID := gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch("master"))
+
+				gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+				port := gittest.HTTPServer(t, ctx, gitCmdFactory, remoteRepoPath, gitRequestValidation)
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url:                     fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(remoteRepoPath)),
+							HttpAuthorizationHeader: httpToken,
+							HttpHost:                httpHost,
+						},
+					},
+					runs: []run{
+						{
+							expectedResponse: &gitalypb.FetchRemoteResponse{TagsChanged: true},
+							expectedRefs:     map[string]git.ObjectID{"refs/heads/master": masterCommitID},
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "http without token",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch("master"))
+
+				gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+				port := gittest.HTTPServer(t, ctx, gitCmdFactory, remoteRepoPath, gitRequestValidation)
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url:      fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(remoteRepoPath)),
+							HttpHost: httpHost,
+						},
+					},
+					runs: []run{
+						{
+							expectedErr: structerr.NewInternal(`fetch remote: "fatal: could not read Username for 'http://127.0.0.1:%d': terminal prompts disabled\n": exit status 128`, port),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "http with redirect",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch("master"))
+
+				gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+				port := gittest.HTTPServer(t, ctx, gitCmdFactory, remoteRepoPath, func(w http.ResponseWriter, r *http.Request, next http.Handler) {
+					http.Redirect(w, r, "/redirect_url", http.StatusSeeOther)
+				})
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url:      fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(remoteRepoPath)),
+							HttpHost: httpHost,
+						},
+					},
+					runs: []run{
+						{
+							expectedErr: structerr.NewInternal(`fetch remote: "fatal: unable to access 'http://127.0.0.1:%d/%s/': The requested URL returned error: 303\n": exit status 128`, port, filepath.Base(remoteRepoPath)),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "http with timeout",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				ch := make(chan bool)
+
+				gitCmdFactory := gittest.NewCommandFactory(t, cfg)
+				port := gittest.HTTPServer(t, ctx, gitCmdFactory, remoteRepoPath, func(w http.ResponseWriter, r *http.Request, next http.Handler) {
+					<-ch
+				})
+
+				t.Cleanup(func() { close(ch) })
+
+				return setupData{
+					repoPath: repoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: repoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url:                     fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(remoteRepoPath)),
+							HttpAuthorizationHeader: httpToken,
+							HttpHost:                httpHost,
+						},
+						Timeout: 1,
+					},
+					runs: []run{{expectedErr: structerr.NewInternal("fetch remote: signal: terminated: context deadline exceeded")}},
+				}
+			},
+		},
+	} {
+		tc := tc
+
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			cfg, client := setupRepositoryServiceWithoutRepo(t)
+			setupData := tc.setup(t, cfg)
+
+			for _, run := range setupData.runs {
+				response, err := client.FetchRemote(ctx, setupData.request)
+				testhelper.RequireGrpcError(t, run.expectedErr, err)
+				testhelper.ProtoEqual(t, run.expectedResponse, response)
+
+				var refs map[string]git.ObjectID
+				refLines := text.ChompBytes(gittest.Exec(t, cfg, "-C", setupData.repoPath, "for-each-ref", `--format=%(refname) %(objectname)`))
+				if refLines != "" {
+					refs = make(map[string]git.ObjectID)
+					for _, line := range strings.Split(refLines, "\n") {
+						refname, objectID, found := strings.Cut(line, " ")
+						require.True(t, found, "shouldn't have issues parsing the refs")
+						refs[refname] = git.ObjectID(objectID)
+					}
+				}
+				require.Equal(t, run.expectedRefs, refs)
+			}
 		})
-		require.NoError(t, err)
-		testhelper.ProtoEqual(t, &gitalypb.FetchRemoteResponse{}, response)
-	})
-
-	t.Run("without checking for changed tags", func(t *testing.T) {
-		repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
-
-		// We fetch into the same repository multiple times to assert that `TagsChanged` is
-		// `true` regardless of whether we have the tag locally already or not.
-		for i := 0; i < 2; i++ {
-			response, err := client.FetchRemote(ctx, &gitalypb.FetchRemoteRequest{
-				Repository: repoProto,
-				RemoteParams: &gitalypb.Remote{
-					Url: remoteRepoPath,
-				},
-				CheckTagsChanged: false,
-			})
-			require.NoError(t, err)
-			testhelper.ProtoEqual(t, &gitalypb.FetchRemoteResponse{
-				TagsChanged: true,
-			}, response)
-		}
-	})
+	}
 }
 
 func TestFetchRemote_sshCommand(t *testing.T) {
-	testhelper.SkipWithPraefect(t, "It's not possible to create repositories through the API with the git command overwritten by the script.")
-
 	t.Parallel()
 
-	cfg := testcfg.Build(t)
 	ctx := testhelper.Context(t)
-
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
-	})
+	cfg := testcfg.Build(t)
 
 	outputPath := filepath.Join(testhelper.TempDir(t), "output")
 
 	// We ain't got a nice way to intercept the SSH call, so we just write a custom git command
 	// which simply prints the GIT_SSH_COMMAND environment variable.
-	gitCmdFactory := gittest.NewInterceptingCommandFactory(t, ctx, cfg, func(git.ExecutionEnvironment) string {
+	gitCmdFactory := gittest.NewInterceptingCommandFactory(t, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
 		return fmt.Sprintf(
-			`#!/bin/sh
+			`#!/bin/bash
+
+			if test -z "$GIT_SSH_COMMAND"
+			then
+				exec %q "$@"
+			fi
+
 			for arg in $GIT_SSH_COMMAND
 			do
 				case "$arg" in
@@ -138,11 +892,15 @@ func TestFetchRemote_sshCommand(t *testing.T) {
 					echo "$arg";;
 				esac
 			done >'%s'
+
 			exit 7
-		`, outputPath)
+		`, execEnv.BinaryPath, outputPath)
 	})
 
-	client, _ := runRepositoryService(t, cfg, nil, testserver.WithGitCommandFactory(gitCmdFactory))
+	client, addr := runRepositoryService(t, cfg, nil, testserver.WithGitCommandFactory(gitCmdFactory))
+	cfg.SocketPath = addr
+
+	repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	for _, tc := range []struct {
 		desc           string
@@ -184,583 +942,40 @@ func TestFetchRemote_sshCommand(t *testing.T) {
 	}
 }
 
-func TestFetchRemote_withDefaultRefmaps(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	cfg, sourceRepoProto, sourceRepoPath, client := setupRepositoryService(t, ctx)
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
-
-	sourceRepo := localrepo.NewTestRepo(t, cfg, sourceRepoProto)
-
-	targetRepoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
-	targetRepo := localrepo.NewTestRepo(t, cfg, targetRepoProto)
-
-	port := gittest.HTTPServer(t, ctx, gitCmdFactory, sourceRepoPath, nil)
-
-	require.NoError(t, sourceRepo.UpdateRef(ctx, "refs/heads/foobar", "refs/heads/master", ""))
-
-	// With no refmap given, FetchRemote should fall back to
-	// "refs/heads/*:refs/heads/*" and thus mirror what's in the source
-	// repository.
-	resp, err := client.FetchRemote(ctx, &gitalypb.FetchRemoteRequest{
-		Repository: targetRepoProto,
-		RemoteParams: &gitalypb.Remote{
-			Url: fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(sourceRepoPath)),
-		},
-	})
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-
-	sourceRefs, err := sourceRepo.GetReferences(ctx)
-	require.NoError(t, err)
-	targetRefs, err := targetRepo.GetReferences(ctx)
-	require.NoError(t, err)
-	require.Equal(t, sourceRefs, targetRefs)
-}
-
 func TestFetchRemote_transaction(t *testing.T) {
 	t.Parallel()
-	sourceCfg := testcfg.Build(t)
-
-	txManager := transaction.NewTrackingManager()
-	client, addr := runRepositoryService(t, sourceCfg, nil, testserver.WithTransactionManager(txManager))
-	sourceCfg.SocketPath = addr
 
 	ctx := testhelper.Context(t)
-	repo, _ := gittest.CreateRepository(t, ctx, sourceCfg, gittest.CreateRepositoryConfig{
-		RelativePath: t.Name(),
-		Seed:         gittest.SeedGitLabTest,
-	})
-	// Reset the manager as creating the repository casts some votes.
-	txManager.Reset()
 
-	targetCfg := testcfg.Build(t)
-	targetRepoProto, targetRepoPath := gittest.CreateRepository(t, ctx, targetCfg, gittest.CreateRepositoryConfig{
+	remoteCfg := testcfg.Build(t)
+	_, remoteRepoPath := gittest.CreateRepository(t, ctx, remoteCfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
-		RelativePath:           t.Name(),
 	})
-	targetGitCmdFactory := gittest.NewCommandFactory(t, targetCfg)
+	targetGitCmdFactory := gittest.NewCommandFactory(t, remoteCfg)
+	port := gittest.HTTPServer(t, ctx, targetGitCmdFactory, remoteRepoPath, nil)
 
-	port := gittest.HTTPServer(t, ctx, targetGitCmdFactory, targetRepoPath, nil)
+	cfg := testcfg.Build(t)
+	txManager := transaction.NewTrackingManager()
+	client, addr := runRepositoryService(t, cfg, nil, testserver.WithTransactionManager(txManager))
+	cfg.SocketPath = addr
+
+	repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)
 	ctx = metadata.IncomingToOutgoing(ctx)
 
-	require.Equal(t, 0, len(txManager.Votes()))
+	require.Equal(t, testhelper.GitalyOrPraefect(0, 2), len(txManager.Votes()))
 
 	_, err = client.FetchRemote(ctx, &gitalypb.FetchRemoteRequest{
-		Repository: targetRepoProto,
+		Repository: repoProto,
 		RemoteParams: &gitalypb.Remote{
-			Url: fmt.Sprintf("http://127.0.0.1:%d/%s", port, repo.GetRelativePath()),
+			Url: fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(remoteRepoPath)),
 		},
 	})
 	require.NoError(t, err)
 
-	require.Equal(t, 1, len(txManager.Votes()))
-}
-
-func TestFetchRemote_prune(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	cfg, _, sourceRepoPath, client := setupRepositoryService(t, ctx)
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
-
-	port := gittest.HTTPServer(t, ctx, gitCmdFactory, sourceRepoPath, nil)
-
-	remoteURL := fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(sourceRepoPath))
-
-	for _, tc := range []struct {
-		desc        string
-		request     *gitalypb.FetchRemoteRequest
-		ref         git.ReferenceName
-		shouldExist bool
-	}{
-		{
-			desc: "NoPrune=true with explicit Remote should not delete reference",
-			request: &gitalypb.FetchRemoteRequest{
-				RemoteParams: &gitalypb.Remote{
-					Url: remoteURL,
-				},
-				NoPrune: true,
-			},
-			ref:         "refs/heads/nonexistent",
-			shouldExist: true,
-		},
-		{
-			desc: "NoPrune=false with explicit Remote should delete reference",
-			request: &gitalypb.FetchRemoteRequest{
-				RemoteParams: &gitalypb.Remote{
-					Url: remoteURL,
-				},
-				NoPrune: false,
-			},
-			ref:         "refs/heads/nonexistent",
-			shouldExist: false,
-		},
-		{
-			desc: "NoPrune=false with explicit Remote should not delete reference outside of refspec",
-			request: &gitalypb.FetchRemoteRequest{
-				RemoteParams: &gitalypb.Remote{
-					Url: remoteURL,
-					MirrorRefmaps: []string{
-						"refs/heads/*:refs/remotes/my-remote/*",
-					},
-				},
-				NoPrune: false,
-			},
-			ref:         "refs/heads/nonexistent",
-			shouldExist: true,
-		},
-	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			targetRepoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-				Seed: gittest.SeedGitLabTest,
-			})
-			targetRepo := localrepo.NewTestRepo(t, cfg, targetRepoProto)
-
-			require.NoError(t, targetRepo.UpdateRef(ctx, tc.ref, "refs/heads/master", ""))
-
-			tc.request.Repository = targetRepoProto
-			resp, err := client.FetchRemote(ctx, tc.request)
-			require.NoError(t, err)
-			require.NotNil(t, resp)
-
-			hasRevision, err := targetRepo.HasRevision(ctx, tc.ref.Revision())
-			require.NoError(t, err)
-			require.Equal(t, tc.shouldExist, hasRevision)
-		})
-	}
-}
-
-func TestFetchRemote_force(t *testing.T) {
-	t.Parallel()
-	ctx := testhelper.Context(t)
-
-	cfg, sourceRepoProto, sourceRepoPath, client := setupRepositoryService(t, ctx)
-	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
-
-	sourceRepo := localrepo.NewTestRepo(t, cfg, sourceRepoProto)
-
-	branchOID, err := sourceRepo.ResolveRevision(ctx, "refs/heads/master")
-	require.NoError(t, err)
-
-	tagOID, err := sourceRepo.ResolveRevision(ctx, "refs/tags/v1.0.0")
-	require.NoError(t, err)
-
-	divergingBranchOID := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("b1"))
-	divergingTagOID := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("b2"))
-
-	port := gittest.HTTPServer(t, ctx, gitCmdFactory, sourceRepoPath, nil)
-
-	remoteURL := fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(sourceRepoPath))
-
-	for _, tc := range []struct {
-		desc         string
-		request      *gitalypb.FetchRemoteRequest
-		expectedErr  error
-		expectedRefs map[git.ReferenceName]git.ObjectID
-	}{
-		{
-			desc: "remote params without force fails with diverging refs",
-			request: &gitalypb.FetchRemoteRequest{
-				RemoteParams: &gitalypb.Remote{
-					Url: remoteURL,
-				},
-			},
-			expectedErr: status.Error(codes.Internal, "fetch remote: exit status 1"),
-			expectedRefs: map[git.ReferenceName]git.ObjectID{
-				"refs/heads/master": branchOID,
-				"refs/tags/v1.0.0":  tagOID,
-			},
-		},
-		{
-			desc: "remote params with force updates diverging refs",
-			request: &gitalypb.FetchRemoteRequest{
-				RemoteParams: &gitalypb.Remote{
-					Url: remoteURL,
-				},
-				Force: true,
-			},
-			expectedRefs: map[git.ReferenceName]git.ObjectID{
-				"refs/heads/master": divergingBranchOID,
-				"refs/tags/v1.0.0":  divergingTagOID,
-			},
-		},
-		{
-			desc: "remote params with force-refmap fails with divergent tag",
-			request: &gitalypb.FetchRemoteRequest{
-				RemoteParams: &gitalypb.Remote{
-					Url: remoteURL,
-					MirrorRefmaps: []string{
-						"+refs/heads/master:refs/heads/master",
-					},
-				},
-			},
-			// The master branch has been updated to the diverging branch, but the
-			// command still fails because we do fetch tags by default, and the tag did
-			// diverge.
-			expectedErr: status.Error(codes.Internal, "fetch remote: exit status 1"),
-			expectedRefs: map[git.ReferenceName]git.ObjectID{
-				"refs/heads/master": divergingBranchOID,
-				"refs/tags/v1.0.0":  tagOID,
-			},
-		},
-		{
-			desc: "remote params with explicit refmap and force updates divergent tag",
-			request: &gitalypb.FetchRemoteRequest{
-				RemoteParams: &gitalypb.Remote{
-					Url: remoteURL,
-					MirrorRefmaps: []string{
-						"refs/heads/master:refs/heads/master",
-					},
-				},
-				Force: true,
-			},
-			expectedRefs: map[git.ReferenceName]git.ObjectID{
-				"refs/heads/master": divergingBranchOID,
-				"refs/tags/v1.0.0":  divergingTagOID,
-			},
-		},
-		{
-			desc: "remote params with force-refmap and no tags only updates refspec",
-			request: &gitalypb.FetchRemoteRequest{
-				RemoteParams: &gitalypb.Remote{
-					Url: remoteURL,
-					MirrorRefmaps: []string{
-						"+refs/heads/master:refs/heads/master",
-					},
-				},
-				NoTags: true,
-			},
-			expectedRefs: map[git.ReferenceName]git.ObjectID{
-				"refs/heads/master": divergingBranchOID,
-				"refs/tags/v1.0.0":  tagOID,
-			},
-		},
-	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			targetRepoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-				Seed: gittest.SeedGitLabTest,
-			})
-
-			targetRepo := localrepo.NewTestRepo(t, cfg, targetRepoProto)
-
-			// We're force-updating a branch and a tag in the source repository to point
-			// to a diverging object ID in order to verify that the `force` parameter
-			// takes effect.
-			require.NoError(t, sourceRepo.UpdateRef(ctx, "refs/heads/master", divergingBranchOID, branchOID))
-			require.NoError(t, sourceRepo.UpdateRef(ctx, "refs/tags/v1.0.0", divergingTagOID, tagOID))
-			defer func() {
-				// Restore references after the current testcase again. Moving
-				// source repository setup into the testcases is not easily possible
-				// because hosting the gitserver requires the repo path, and we need
-				// the URL for our testcases.
-				require.NoError(t, sourceRepo.UpdateRef(ctx, "refs/heads/master", branchOID, divergingBranchOID))
-				require.NoError(t, sourceRepo.UpdateRef(ctx, "refs/tags/v1.0.0", tagOID, divergingTagOID))
-			}()
-
-			tc.request.Repository = targetRepoProto
-			_, err := client.FetchRemote(ctx, tc.request)
-			testhelper.RequireGrpcError(t, tc.expectedErr, err)
-
-			updatedBranchOID, err := targetRepo.ResolveRevision(ctx, "refs/heads/master")
-			require.NoError(t, err)
-			updatedTagOID, err := targetRepo.ResolveRevision(ctx, "refs/tags/v1.0.0")
-			require.NoError(t, err)
-
-			require.Equal(t, map[git.ReferenceName]git.ObjectID{
-				"refs/heads/master": updatedBranchOID,
-				"refs/tags/v1.0.0":  updatedTagOID,
-			}, tc.expectedRefs)
-		})
-	}
-}
-
-func TestFetchRemote_inputValidation(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRepositoryService(t, ctx)
-
-	const remoteName = "test-repo"
-	httpSrv, _ := remoteHTTPServer(t, remoteName, httpHost, httpToken)
-	defer httpSrv.Close()
-
-	tests := []struct {
-		desc   string
-		req    *gitalypb.FetchRemoteRequest
-		code   codes.Code
-		errMsg string
-	}{
-		{
-			desc: "no repository",
-			req: &gitalypb.FetchRemoteRequest{
-				Repository: nil,
-				RemoteParams: &gitalypb.Remote{
-					Url: remoteName,
-				},
-				Timeout: 1000,
-			},
-			code:   codes.InvalidArgument,
-			errMsg: "empty Repository",
-		},
-		{
-			desc: "invalid storage",
-			req: &gitalypb.FetchRemoteRequest{
-				Repository: &gitalypb.Repository{
-					StorageName:  "invalid",
-					RelativePath: "foobar.git",
-				},
-				RemoteParams: &gitalypb.Remote{
-					Url: remoteName,
-				},
-				Timeout: 1000,
-			},
-			// the error text is shortened to only a single word as requests to gitaly done via praefect returns different error messages
-			code:   codes.InvalidArgument,
-			errMsg: "invalid",
-		},
-		{
-			desc: "missing remote",
-			req: &gitalypb.FetchRemoteRequest{
-				Repository: repo,
-				Timeout:    1000,
-			},
-			code:   codes.InvalidArgument,
-			errMsg: "missing remote params",
-		},
-		{
-			desc: "invalid remote url",
-			req: &gitalypb.FetchRemoteRequest{
-				Repository: repo,
-				RemoteParams: &gitalypb.Remote{
-					Url: "",
-				},
-				Timeout: 1000,
-			},
-			code:   codes.InvalidArgument,
-			errMsg: `blank or empty remote URL`,
-		},
-		{
-			desc: "not existing repo via http",
-			req: &gitalypb.FetchRemoteRequest{
-				Repository: repo,
-				RemoteParams: &gitalypb.Remote{
-					Url:                     httpSrv.URL + "/invalid/repo/path.git",
-					HttpAuthorizationHeader: httpToken,
-					HttpHost:                httpHost,
-					MirrorRefmaps:           []string{"all_refs"},
-				},
-				Timeout: 1000,
-			},
-			code:   codes.Internal,
-			errMsg: "invalid/repo/path.git/' not found",
-		},
-		{
-			desc: "/dev/null",
-			req: &gitalypb.FetchRemoteRequest{
-				Repository: repo,
-				RemoteParams: &gitalypb.Remote{
-					Url: "/dev/null",
-				},
-				Timeout: 1000,
-			},
-			code:   codes.Internal,
-			errMsg: "'/dev/null' does not appear to be a git repository",
-		},
-	}
-	for _, tc := range tests {
-		t.Run(tc.desc, func(t *testing.T) {
-			resp, err := client.FetchRemote(ctx, tc.req)
-			require.Error(t, err)
-			require.Nil(t, resp)
-
-			require.Contains(t, err.Error(), tc.errMsg)
-			testhelper.RequireGrpcCode(t, err, tc.code)
-		})
-	}
-}
-
-const (
-	httpToken = "ABCefg0999182"
-	httpHost  = "example.com"
-)
-
-func remoteHTTPServer(t *testing.T, repoName, httpHost, httpToken string) (*httptest.Server, string) {
-	b := testhelper.MustReadFile(t, "testdata/advertise.txt")
-
-	s := httptest.NewServer(
-		// https://github.com/git/git/blob/master/Documentation/technical/http-protocol.txt
-		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Host != httpHost {
-				w.WriteHeader(http.StatusBadRequest)
-				return
-			}
-
-			if r.URL.String() != fmt.Sprintf("/%s.git/info/refs?service=git-upload-pack", repoName) {
-				w.WriteHeader(http.StatusNotFound)
-				return
-			}
-
-			if httpToken != "" && r.Header.Get("Authorization") != httpToken {
-				w.WriteHeader(http.StatusUnauthorized)
-				return
-			}
-
-			w.Header().Set("Content-Type", "application/x-git-upload-pack-advertisement")
-			_, err := w.Write(b)
-			assert.NoError(t, err)
-		}),
-	)
-
-	return s, fmt.Sprintf("%s/%s.git", s.URL, repoName)
-}
-
-func getRefnames(t *testing.T, cfg config.Cfg, repoPath string) []string {
-	result := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--format", "%(refname:lstrip=2)")
-	return strings.Split(text.ChompBytes(result), "\n")
-}
-
-func TestFetchRemote_http(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
-
-	testCases := []struct {
-		description string
-		httpToken   string
-		remoteURL   string
-	}{
-		{
-			description: "with http token",
-			httpToken:   httpToken,
-		},
-		{
-			description: "without http token",
-			httpToken:   "",
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.description, func(t *testing.T) {
-			forkedRepo, forkedRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-				Seed: gittest.SeedGitLabTest,
-			})
-
-			s, remoteURL := remoteHTTPServer(t, "my-repo", httpHost, tc.httpToken)
-			defer s.Close()
-
-			req := &gitalypb.FetchRemoteRequest{
-				Repository: forkedRepo,
-				RemoteParams: &gitalypb.Remote{
-					Url:                     remoteURL,
-					HttpAuthorizationHeader: tc.httpToken,
-					HttpHost:                httpHost,
-					MirrorRefmaps:           []string{"all_refs"},
-				},
-				Timeout: 1000,
-			}
-			if tc.remoteURL != "" {
-				req.RemoteParams.Url = s.URL + tc.remoteURL
-			}
-
-			refs := getRefnames(t, cfg, forkedRepoPath)
-			require.True(t, len(refs) > 1, "the advertisement.txt should have deleted all refs except for master")
-
-			_, err := client.FetchRemote(ctx, req)
-			require.NoError(t, err)
-
-			refs = getRefnames(t, cfg, forkedRepoPath)
-
-			require.Len(t, refs, 1)
-			assert.Equal(t, "master", refs[0])
-		})
-	}
-}
-
-func TestFetchRemote_localPath(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	cfg, _, sourceRepoPath, client := setupRepositoryService(t, ctx)
-
-	mirrorRepo, mirrorRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
-
-	_, err := client.FetchRemote(ctx, &gitalypb.FetchRemoteRequest{
-		Repository: mirrorRepo,
-		RemoteParams: &gitalypb.Remote{
-			Url: sourceRepoPath,
-		},
-	})
-	require.NoError(t, err)
-
-	require.Equal(t, getRefnames(t, cfg, sourceRepoPath), getRefnames(t, cfg, mirrorRepoPath))
-}
-
-func TestFetchRemote_httpWithRedirect(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRepositoryService(t, ctx)
-
-	s := httptest.NewServer(
-		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			require.Equal(t, "/info/refs?service=git-upload-pack", r.URL.String())
-			http.Redirect(w, r, "/redirect_url", http.StatusSeeOther)
-		}),
-	)
-	defer s.Close()
-
-	req := &gitalypb.FetchRemoteRequest{
-		Repository:   repo,
-		RemoteParams: &gitalypb.Remote{Url: s.URL},
-		Timeout:      1000,
-	}
-
-	_, err := client.FetchRemote(ctx, req)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "The requested URL returned error: 303")
-}
-
-func TestFetchRemote_httpWithTimeout(t *testing.T) {
-	t.Parallel()
-
-	ctx, cancel := context.WithCancel(testhelper.Context(t))
-	_, repo, _, client := setupRepositoryService(t, ctx)
-
-	s := httptest.NewServer(
-		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			require.Equal(t, "/info/refs?service=git-upload-pack", r.URL.String())
-			// Block the request forever.
-			<-ctx.Done()
-		}),
-	)
-	defer func() {
-		// We need to explicitly cancel the context here, or otherwise we'll be stuck
-		// closing the server due to the ongoing request.
-		cancel()
-		s.Close()
-	}()
-
-	req := &gitalypb.FetchRemoteRequest{
-		Repository:   repo,
-		RemoteParams: &gitalypb.Remote{Url: s.URL},
-		Timeout:      1,
-	}
-
-	_, err := client.FetchRemote(ctx, req)
-	require.Error(t, err)
-
-	require.Contains(t, err.Error(), "fetch remote: signal: terminated")
+	require.Equal(t, testhelper.GitalyOrPraefect(1, 3), len(txManager.Votes()))
 }
 
 func TestFetchRemote_pooledRepository(t *testing.T) {
