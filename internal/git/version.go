@@ -82,6 +82,16 @@ func (v Version) PatchIDRespectsBinaries() bool {
 	})
 }
 
+// MidxDeletesRedundantBitmaps detects whether the given Git version deletes redundant pack-based
+// bitmaps when writing multi-pack-indices. This feature has been added via 55d902cd61
+// (builtin/repack.c: remove redundant pack-based bitmaps, 2022-10-17), which is part of Git
+// v2.39.0 and newer.
+func (v Version) MidxDeletesRedundantBitmaps() bool {
+	return !v.LessThan(Version{
+		major: 2, minor: 39, patch: 0,
+	})
+}
+
 // LessThan determines whether the version is older than another version.
 func (v Version) LessThan(other Version) bool {
 	switch {

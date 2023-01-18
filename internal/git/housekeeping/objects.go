@@ -6,6 +6,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 )
 
 const (
@@ -24,11 +25,17 @@ type RepackObjectsConfig struct {
 	// reason to set this to `false`, except for legacy compatibility reasons with existing RPC
 	// behaviour
 	WriteBitmap bool
+	// WriteMultiPackIndex determines whether a multi-pack index should be written or not.
+	WriteMultiPackIndex bool
 }
 
 // RepackObjects repacks objects in the given repository and updates the commit-graph. The way
 // objects are repacked is determined via the RepackObjectsConfig.
 func RepackObjects(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsConfig) error {
+	if !cfg.FullRepack && !cfg.WriteMultiPackIndex && cfg.WriteBitmap {
+		return structerr.NewInvalidArgument("cannot write packfile bitmap for an incremental repack")
+	}
+
 	var options []git.Option
 	if cfg.FullRepack {
 		options = append(options,
@@ -36,6 +43,10 @@ func RepackObjects(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsC
 			git.Flag{Name: "--pack-kept-objects"},
 			git.Flag{Name: "-l"},
 		)
+	}
+
+	if cfg.WriteMultiPackIndex {
+		options = append(options, git.Flag{Name: "--write-midx"})
 	}
 
 	if err := repo.ExecAndWait(ctx, git.Command{

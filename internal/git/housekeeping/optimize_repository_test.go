@@ -30,16 +30,6 @@ func TestRepackIfNeeded(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
-	requirePackfilesAndLooseObjects := func(t *testing.T, repo *localrepo.Repo, expectedPackfiles, expectedLooseObjects uint64) {
-		t.Helper()
-
-		info, err := stats.RepositoryInfoForRepository(repo)
-		require.NoError(t, err)
-
-		require.Equal(t, expectedPackfiles, info.Packfiles.Count)
-		require.Equal(t, expectedLooseObjects, info.LooseObjects.Count)
-	}
-
 	t.Run("no repacking", func(t *testing.T) {
 		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,
@@ -56,7 +46,9 @@ func TestRepackIfNeeded(t *testing.T) {
 		require.False(t, didRepack)
 		require.Equal(t, RepackObjectsConfig{}, repackObjectsCfg)
 
-		requirePackfilesAndLooseObjects(t, repo, 0, 2)
+		requireObjectsState(t, repo, objectsState{
+			looseObjects: 2,
+		})
 	})
 
 	t.Run("incremental repack", func(t *testing.T) {
@@ -79,7 +71,10 @@ func TestRepackIfNeeded(t *testing.T) {
 		require.True(t, didRepack)
 		require.Equal(t, RepackObjectsConfig{}, repackObjectsCfg)
 
-		requirePackfilesAndLooseObjects(t, repo, 2, 0)
+		requireObjectsState(t, repo, objectsState{
+			packfiles: 2,
+			hasBitmap: true,
+		})
 	})
 
 	t.Run("full repack", func(t *testing.T) {
@@ -107,7 +102,9 @@ func TestRepackIfNeeded(t *testing.T) {
 			FullRepack: true,
 		}, repackObjectsCfg)
 
-		requirePackfilesAndLooseObjects(t, repo, 1, 0)
+		requireObjectsState(t, repo, objectsState{
+			packfiles: 1,
+		})
 	})
 }
 
