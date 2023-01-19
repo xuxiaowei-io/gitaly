@@ -150,6 +150,7 @@ func optimizeRepository(
 		optimizations["packed_objects_full"] = "failure"
 		optimizations["packed_objects_incremental"] = "failure"
 		optimizations["written_bitmap"] = "failure"
+		optimizations["written_multi_pack_index"] = "failure"
 		return fmt.Errorf("could not repack: %w", err)
 	}
 	if didRepack {
@@ -160,6 +161,9 @@ func optimizeRepository(
 		}
 		if repackCfg.WriteBitmap {
 			optimizations["written_bitmap"] = "success"
+		}
+		if repackCfg.WriteMultiPackIndex {
+			optimizations["written_multi_pack_index"] = "success"
 		}
 	}
 	timer.ObserveDuration()
