@@ -2,8 +2,12 @@ package stats
 
 import (
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"strconv"
+	"syscall"
 	"testing"
 	"time"
 
@@ -207,9 +211,13 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 			},
 			expectedInfo: RepositoryInfo{
 				Packfiles: PackfilesInfo{
-					Count:     1,
-					Size:      hashDependentSize(42, 54),
-					HasBitmap: true,
+					Count: 1,
+					Size:  hashDependentSize(42, 54),
+					Bitmap: BitmapInfo{
+						Exists:       true,
+						Version:      1,
+						HasHashCache: true,
+					},
 				},
 				References: ReferencesInfo{
 					LooseReferencesCount: 1,
@@ -231,9 +239,13 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 					Size:  16,
 				},
 				Packfiles: PackfilesInfo{
-					Count:     1,
-					Size:      hashDependentSize(42, 54),
-					HasBitmap: true,
+					Count: 1,
+					Size:  hashDependentSize(42, 54),
+					Bitmap: BitmapInfo{
+						Exists:       true,
+						Version:      1,
+						HasHashCache: true,
+					},
 				},
 				References: ReferencesInfo{
 					LooseReferencesCount: 1,
@@ -370,7 +382,11 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 					Size:         hashDependentSize(42, 54),
 					GarbageCount: 3,
 					GarbageSize:  3,
-					HasBitmap:    true,
+					Bitmap: BitmapInfo{
+						Exists:       true,
+						Version:      1,
+						HasHashCache: true,
+					},
 				},
 				References: ReferencesInfo{
 					LooseReferencesCount: 1,
@@ -752,45 +768,217 @@ func TestPackfileInfoForRepository(t *testing.T) {
 	t.Run("multi-pack-index with bitmap", func(t *testing.T) {
 		repo, repoPath := createRepo(t)
 
-		packfileDir := filepath.Join(repoPath, "objects", "pack")
-		require.NoError(t, os.MkdirAll(packfileDir, 0o755))
-		require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "multi-pack-index"), nil, 0o644))
-		require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "multi-pack-index-c0363841cc7e5783a996c72f0a4a7ae4440aaa40.bitmap"), nil, 0o644))
+		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+		gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Adb", "--write-midx")
 
 		requirePackfilesInfo(t, repo, PackfilesInfo{
-			HasMultiPackIndex:       true,
-			HasMultiPackIndexBitmap: true,
+			Count:             1,
+			Size:              hashDependentSize(163, 189),
+			HasMultiPackIndex: true,
+			MultiPackIndexBitmap: BitmapInfo{
+				Exists:       true,
+				Version:      1,
+				HasHashCache: true,
+			},
 		})
 	})
 
 	t.Run("multiple packfiles with other data structures", func(t *testing.T) {
 		repo, repoPath := createRepo(t)
 
-		packfileDir := filepath.Join(repoPath, "objects", "pack")
-		require.NoError(t, os.MkdirAll(packfileDir, 0o755))
-		for _, file := range []string{
-			"pack-bar.bar",
-			"pack-bar.pack",
-			"pack-bar.idx",
-			"pack-foo.bar",
-			"pack-foo.pack",
-			"pack-foo.idx",
-			"garbage",
-			"multi-pack-index",
-			"multi-pack-index-c0363841cc7e5783a996c72f0a4a7ae4440aaa40.bitmap",
-		} {
-			require.NoError(t, os.WriteFile(filepath.Join(packfileDir, file), []byte("1"), 0o644))
-		}
+		gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("first"), gittest.WithBranch("first"))
+		gittest.Exec(t, cfg, "-c", "repack.writeBitmaps=false", "-C", repoPath, "repack", "-Ad")
+		gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("second"), gittest.WithBranch("second"))
+		gittest.Exec(t, cfg, "-C", repoPath, "repack", "-db", "--write-midx")
+
+		require.NoError(t, os.WriteFile(filepath.Join(repoPath, "objects", "pack", "garbage"), []byte("1"), 0o644))
 
 		requirePackfilesInfo(t, repo, PackfilesInfo{
-			Count:                   2,
-			Size:                    2,
-			GarbageCount:            1,
-			GarbageSize:             1,
-			HasMultiPackIndex:       true,
-			HasMultiPackIndexBitmap: true,
+			Count:             2,
+			Size:              hashDependentSize(315, 367),
+			GarbageCount:      1,
+			GarbageSize:       1,
+			HasMultiPackIndex: true,
+			MultiPackIndexBitmap: BitmapInfo{
+				Exists:       true,
+				Version:      1,
+				HasHashCache: true,
+			},
 		})
 	})
+}
+
+func TestBitmapInfoForPath(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	for _, bitmapTypeTC := range []struct {
+		desc             string
+		repackArgs       []string
+		verifyBitmapName func(*testing.T, string)
+	}{
+		{
+			desc:       "packfile bitmap",
+			repackArgs: []string{"-Adb"},
+			verifyBitmapName: func(t *testing.T, bitmapName string) {
+				require.Regexp(t, "^pack-.*.bitmap$", bitmapName)
+			},
+		},
+		{
+			desc:       "multi-pack-index bitmap",
+			repackArgs: []string{"-Adb", "--write-midx"},
+			verifyBitmapName: func(t *testing.T, bitmapName string) {
+				require.Regexp(t, "^multi-pack-index-.*.bitmap$", bitmapName)
+			},
+		},
+	} {
+		bitmapTypeTC := bitmapTypeTC
+
+		t.Run(bitmapTypeTC.desc, func(t *testing.T) {
+			t.Parallel()
+
+			for _, tc := range []struct {
+				desc               string
+				writeHashCache     bool
+				writeLookupTable   bool
+				expectedBitmapInfo BitmapInfo
+				expectedErr        error
+			}{
+				{
+					desc:             "bitmap without any extension",
+					writeHashCache:   false,
+					writeLookupTable: false,
+					expectedBitmapInfo: BitmapInfo{
+						Exists:  true,
+						Version: 1,
+					},
+				},
+				{
+					desc:             "bitmap with hash cache",
+					writeHashCache:   true,
+					writeLookupTable: false,
+					expectedBitmapInfo: BitmapInfo{
+						Exists:       true,
+						Version:      1,
+						HasHashCache: true,
+					},
+				},
+				{
+					desc:             "bitmap with lookup table",
+					writeHashCache:   false,
+					writeLookupTable: true,
+					expectedBitmapInfo: BitmapInfo{
+						Exists:         true,
+						Version:        1,
+						HasLookupTable: true,
+					},
+				},
+				{
+					desc:             "bitmap with all extensions",
+					writeHashCache:   true,
+					writeLookupTable: true,
+					expectedBitmapInfo: BitmapInfo{
+						Exists:         true,
+						Version:        1,
+						HasHashCache:   true,
+						HasLookupTable: true,
+					},
+				},
+			} {
+				tc := tc
+
+				t.Run(tc.desc, func(t *testing.T) {
+					t.Parallel()
+
+					_, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+						SkipCreationViaService: true,
+					})
+					gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+
+					gittest.Exec(t, cfg, append([]string{
+						"-C", repoPath,
+						"-c", "pack.writeBitmapHashCache=" + strconv.FormatBool(tc.writeHashCache),
+						"-c", "pack.writeBitmapLookupTable=" + strconv.FormatBool(tc.writeLookupTable),
+						"repack",
+					}, bitmapTypeTC.repackArgs...)...)
+
+					bitmapPaths, err := filepath.Glob(filepath.Join(repoPath, "objects", "pack", "*.bitmap"))
+					require.NoError(t, err)
+					require.Len(t, bitmapPaths, 1)
+
+					bitmapPath := bitmapPaths[0]
+					bitmapTypeTC.verifyBitmapName(t, filepath.Base(bitmapPath))
+
+					bitmapInfo, err := BitmapInfoForPath(bitmapPath)
+					require.Equal(t, tc.expectedErr, err)
+					require.Equal(t, tc.expectedBitmapInfo, bitmapInfo)
+				})
+			}
+		})
+	}
+
+	for _, tc := range []struct {
+		desc        string
+		setup       func(t *testing.T) string
+		expectedErr error
+	}{
+		{
+			desc: "nonexistent path",
+			setup: func(t *testing.T) string {
+				return "/does/not/exist"
+			},
+			expectedErr: fmt.Errorf("opening bitmap: %w", &fs.PathError{
+				Op:   "open",
+				Path: "/does/not/exist",
+				Err:  syscall.ENOENT,
+			}),
+		},
+		{
+			desc: "header is too short",
+			setup: func(t *testing.T) string {
+				bitmapPath := filepath.Join(testhelper.TempDir(t), "bitmap")
+				require.NoError(t, os.WriteFile(bitmapPath, []byte{0, 0, 0}, 0o644))
+				return bitmapPath
+			},
+			expectedErr: fmt.Errorf("reading bitmap header: %w", io.ErrUnexpectedEOF),
+		},
+		{
+			desc: "invalid signature",
+			setup: func(t *testing.T) string {
+				bitmapPath := filepath.Join(testhelper.TempDir(t), "bitmap")
+				require.NoError(t, os.WriteFile(bitmapPath, []byte{
+					'B', 'I', 'T', 'O', 0, 0, 0, 0,
+				}, 0o644))
+				return bitmapPath
+			},
+			expectedErr: fmt.Errorf("invalid bitmap signature: %q", "BITO"),
+		},
+		{
+			desc: "unsupported version",
+			setup: func(t *testing.T) string {
+				bitmapPath := filepath.Join(testhelper.TempDir(t), "bitmap")
+				require.NoError(t, os.WriteFile(bitmapPath, []byte{
+					'B', 'I', 'T', 'M', 0, 2, 0, 0,
+				}, 0o644))
+				return bitmapPath
+			},
+			expectedErr: fmt.Errorf("unsupported version: 2"),
+		},
+	} {
+		tc := tc
+
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			bitmapPath := tc.setup(t)
+
+			bitmapInfo, err := BitmapInfoForPath(bitmapPath)
+			require.Equal(t, tc.expectedErr, err)
+			require.Equal(t, BitmapInfo{}, bitmapInfo)
+		})
+	}
 }
 
 func hashDependentSize(sha1, sha256 uint64) uint64 {

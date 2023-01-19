@@ -140,15 +140,25 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 					SkipCreationViaService: true,
 					RelativePath:           relativePath,
 				})
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 
-				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "objects", "pack", "pack-1234.bitmap"), nil, 0o644))
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Adb")
 
 				return repoProto
 			},
 			expectedStrategy: HeuristicalOptimizationStrategy{
 				info: stats.RepositoryInfo{
+					References: stats.ReferencesInfo{
+						LooseReferencesCount: 1,
+					},
 					Packfiles: stats.PackfilesInfo{
-						HasBitmap: true,
+						Count: 1,
+						Size:  hashDependentObjectSize(163, 189),
+						Bitmap: stats.BitmapInfo{
+							Exists:       true,
+							Version:      1,
+							HasHashCache: true,
+						},
 					},
 				},
 			},
@@ -335,8 +345,10 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 			strategy: HeuristicalOptimizationStrategy{
 				info: stats.RepositoryInfo{
 					Packfiles: stats.PackfilesInfo{
-						HasBitmap: false,
-						Count:     1,
+						Count: 1,
+						Bitmap: stats.BitmapInfo{
+							Exists: false,
+						},
 					},
 					Alternates: []string{},
 				},
@@ -352,8 +364,10 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 			strategy: HeuristicalOptimizationStrategy{
 				info: stats.RepositoryInfo{
 					Packfiles: stats.PackfilesInfo{
-						HasBitmap: false,
-						Count:     1,
+						Count: 1,
+						Bitmap: stats.BitmapInfo{
+							Exists: false,
+						},
 					},
 					Alternates: []string{"something"},
 				},
@@ -368,8 +382,10 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 			strategy: HeuristicalOptimizationStrategy{
 				info: stats.RepositoryInfo{
 					Packfiles: stats.PackfilesInfo{
-						HasBitmap: true,
-						Count:     1,
+						Count: 1,
+						Bitmap: stats.BitmapInfo{
+							Exists: true,
+						},
 					},
 				},
 			},
@@ -452,9 +468,11 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 					strategy := HeuristicalOptimizationStrategy{
 						info: stats.RepositoryInfo{
 							Packfiles: stats.PackfilesInfo{
-								Size:      outerTC.packfileSizeInMB * 1024 * 1024,
-								Count:     tc.requiredPackfiles - 1,
-								HasBitmap: true,
+								Size:  outerTC.packfileSizeInMB * 1024 * 1024,
+								Count: tc.requiredPackfiles - 1,
+								Bitmap: stats.BitmapInfo{
+									Exists: true,
+								},
 							},
 							Alternates: tc.alternates,
 						},
@@ -527,7 +545,9 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 						Packfiles: stats.PackfilesInfo{
 							// We need to pretend that we have a bitmap,
 							// otherwise we aways do a full repack.
-							HasBitmap: true,
+							Bitmap: stats.BitmapInfo{
+								Exists: true,
+							},
 						},
 					},
 					isObjectPool: tc.isPool,

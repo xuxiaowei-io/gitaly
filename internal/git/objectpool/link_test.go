@@ -103,7 +103,7 @@ func TestLink_removeBitmap(t *testing.T) {
 func requireHasBitmap(t *testing.T, repo *localrepo.Repo, expected bool) {
 	packfilesInfo, err := stats.PackfilesInfoForRepository(repo)
 	require.NoError(t, err)
-	require.Equal(t, expected, packfilesInfo.HasBitmap)
+	require.Equal(t, expected, packfilesInfo.Bitmap.Exists)
 }
 
 func TestLink_absoluteLinkExists(t *testing.T) {
