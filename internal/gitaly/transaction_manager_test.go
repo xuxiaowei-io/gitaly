@@ -1497,6 +1497,7 @@ func TestTransactionManager(t *testing.T) {
 				transactionManager.Stop()
 				managerRunning, err = checkManagerError(t, managerErr, transactionManager)
 				require.NoError(t, err)
+				require.False(t, managerRunning)
 			}
 
 			// startManager starts fresh manager and applies hooks into it.
@@ -1563,24 +1564,43 @@ func TestTransactionManager(t *testing.T) {
 	}
 }
 
-func checkManagerError(t *testing.T, managerErr chan error, mgr *TransactionManager) (bool, error) {
+func checkManagerError(t *testing.T, managerErrChannel chan error, mgr *TransactionManager) (bool, error) {
 	t.Helper()
 
-	select {
-	case err, ok := <-managerErr:
-		if ok {
-			close(managerErr)
-		}
-
-		// managerErr returns the possible error if manager has already stopped.
-		return false, err
-	case mgr.admissionQueue <- transactionFuture{
+	testTransaction := transactionFuture{
 		transaction: Transaction{ReferenceUpdates: ReferenceUpdates{"sentinel": {}}},
 		result:      make(resultChannel, 1),
-	}:
+	}
+
+	var (
+		// managerErr is the error returned from the TransactionManager's Run method.
+		managerErr error
+		// closeChannel determines whether the channel was still open. If so, we need to close it
+		// so further calls of checkManagerError do not block as they won't manage to receive an err
+		// as it was already received and won't be able to send as the manager is no longer running.
+		closeChannel bool
+	)
+
+	select {
+	case managerErr, closeChannel = <-managerErrChannel:
+	case mgr.admissionQueue <- testTransaction:
 		// If the error channel doesn't receive, we don't know whether it is because the manager is still running
 		// or we are still waiting for it to return. We test whether the manager is running or not here by queueing a
 		// a proposal that will error. If the manager processes it, we know it is still running.
-		return true, nil
+		//
+		// If the manager was stopped, it might manage to admit the testTransaction but not process it. To determine
+		// whether that was the case, we also keep waiting on the managerErr channel.
+		select {
+		case err := <-testTransaction.result:
+			require.Error(t, err, "test transaction is expected to error out")
+			return true, nil
+		case managerErr, closeChannel = <-managerErrChannel:
+		}
 	}
+
+	if closeChannel {
+		close(managerErrChannel)
+	}
+
+	return false, managerErr
 }
