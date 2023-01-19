@@ -1,0 +1,124 @@
+---
+- name: Create /var/opt/gitaly directory
+  file:
+    path: /var/opt/gitaly
+    state: directory
+    mode: '0700'
+    owner: git
+    group: git
+
+- name: Create /opt/gitaly directory
+  file:
+    path: /opt/gitaly
+    state: directory
+    mode: '0755'
+    owner: git
+    group: git
+
+- name: Create runtime directory
+  file:
+    path: /var/opt/gitaly/run
+    state: directory
+    mode: '0700'
+    owner: git
+    group: git
+
+- name: Create log directory
+  file:
+    path: /var/log/gitaly
+    state: directory
+    mode: '0755'
+    owner: git
+    group: git
+
+- name: Create gitaly-ruby directory
+  file:
+    path: /opt/gitaly-ruby
+    state: directory
+    mode: '0755'
+    owner: git
+    group: git
+
+- name: Install Gitaly build dependencies
+  apt:
+    name:
+      - cmake
+      - libssl-dev
+      - pkg-config
+    state: present
+
+- name: Install Git build dependencies
+  apt:
+    name:
+      - dh-autoreconf
+      - libcurl4-gnutls-dev
+      - libexpat1-dev
+      - gettext
+      - libz-dev
+      - libssl-dev
+      - asciidoc
+      - libffi-dev
+      - xmlto
+      - docbook2x
+      - install-info
+      - libpcre2-dev
+    state: present
+
+- name: Clone Gitaly at specified commit
+  git:
+    repo: https://gitlab.com/gitlab-org/gitaly.git
+    dest: /src/gitaly
+    version: "{{ hostvars[groups['client'][0]]['gitaly_commit'] }}"
+  become_user: git
+
+- name: Build Gitaly
+  make:
+    target: build
+    params:
+      WITH_BUNDLED_GIT: YesPlease
+    jobs: "{{ ansible_processor_nproc }}"
+    chdir: /src/gitaly
+  environment:
+    PATH: '/usr/local/go/bin:{{ ansible_env.PATH }}'
+    BUNDLE_PATH: '/src/gitaly/.ruby'
+  become_user: git
+
+- name: Install Gitaly to /opt/gitaly
+  make:
+    target: install
+    params:
+      WITH_BUNDLED_GIT: YesPlease
+      PREFIX: /opt/gitaly
+    jobs: "{{ ansible_processor_nproc }}"
+    chdir: /src/gitaly
+  environment:
+    PATH: '/usr/local/go/bin:{{ ansible_env.PATH }}'
+    BUNDLE_PATH: '/src/gitaly/.ruby'
+  become_user: git
+
+- name:  Copy Gitaly-Ruby to ruby directory
+  copy:
+    src: /src/gitaly/ruby/
+    dest: /opt/gitaly-ruby/
+    owner: git
+    group: git
+    mode: '0755'
+    remote_src: true
+
+- name: Install Gitaly config
+  template:
+    src: config.toml.j2
+    dest: /var/opt/gitaly/config.toml
+    owner: git
+    group: git
+    mode: '0600'
+
+- name: Install Gitaly systemd service
+  copy:
+    src: gitaly.service
+    dest: /etc/systemd/system/gitaly.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - load service
