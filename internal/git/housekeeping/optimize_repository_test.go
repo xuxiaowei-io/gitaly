@@ -18,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
+	gitalycfgprom "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -424,13 +425,12 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 		})
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-		manager := &RepositoryManager{
-			optimizeFunc: func(context.Context, *RepositoryManager, *localrepo.Repo, OptimizationStrategy) error {
-				reqReceivedCh <- struct{}{}
-				ch <- struct{}{}
+		manager := NewManager(gitalycfgprom.Config{}, nil)
+		manager.optimizeFunc = func(context.Context, *RepositoryManager, *localrepo.Repo, OptimizationStrategy) error {
+			reqReceivedCh <- struct{}{}
+			ch <- struct{}{}
 
-				return nil
-			},
+			return nil
 		}
 
 		go func() {
@@ -460,17 +460,16 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 
 		reposOptimized := make(map[string]struct{})
 
-		manager := &RepositoryManager{
-			optimizeFunc: func(_ context.Context, _ *RepositoryManager, repo *localrepo.Repo, _ OptimizationStrategy) error {
-				reposOptimized[repo.GetRelativePath()] = struct{}{}
+		manager := NewManager(gitalycfgprom.Config{}, nil)
+		manager.optimizeFunc = func(_ context.Context, _ *RepositoryManager, repo *localrepo.Repo, _ OptimizationStrategy) error {
+			reposOptimized[repo.GetRelativePath()] = struct{}{}
 
-				if repo.GitRepo.GetRelativePath() == repoFirst.GetRelativePath() {
-					reqReceivedCh <- struct{}{}
-					ch <- struct{}{}
-				}
+			if repo.GitRepo.GetRelativePath() == repoFirst.GetRelativePath() {
+				reqReceivedCh <- struct{}{}
+				ch <- struct{}{}
+			}
 
-				return nil
-			},
+			return nil
 		}
 
 		// We block in the first call so that we can assert that a second call
@@ -498,17 +497,16 @@ func TestOptimizeRepository_ConcurrencyLimit(t *testing.T) {
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 		var optimizations int
 
-		manager := &RepositoryManager{
-			optimizeFunc: func(context.Context, *RepositoryManager, *localrepo.Repo, OptimizationStrategy) error {
-				optimizations++
+		manager := NewManager(gitalycfgprom.Config{}, nil)
+		manager.optimizeFunc = func(context.Context, *RepositoryManager, *localrepo.Repo, OptimizationStrategy) error {
+			optimizations++
 
-				if optimizations == 1 {
-					reqReceivedCh <- struct{}{}
-					ch <- struct{}{}
-				}
+			if optimizations == 1 {
+				reqReceivedCh <- struct{}{}
+				ch <- struct{}{}
+			}
 
-				return nil
-			},
+			return nil
 		}
 
 		var wg sync.WaitGroup
