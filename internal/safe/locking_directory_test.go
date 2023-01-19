@@ -16,12 +16,14 @@ import (
 func TestLockingDirectory(t *testing.T) {
 	t.Parallel()
 
+	lockname := "foo"
+
 	t.Run("normal lifecycle", func(t *testing.T) {
 		path := testhelper.TempDir(t)
-		lockingDir, err := safe.NewLockingDirectory(path)
+		lockingDir, err := safe.NewLockingDirectory(path, lockname)
 		require.NoError(t, err)
 		require.NoError(t, lockingDir.Lock())
-		secondLockingDir, err := safe.NewLockingDirectory(path)
+		secondLockingDir, err := safe.NewLockingDirectory(path, lockname)
 		require.NoError(t, err)
 		require.NoError(t, os.WriteFile(
 			filepath.Join(path, "somefile"),
@@ -34,7 +36,7 @@ func TestLockingDirectory(t *testing.T) {
 
 	t.Run("multiple locks fail", func(t *testing.T) {
 		path := testhelper.TempDir(t)
-		lockingDir, err := safe.NewLockingDirectory(path)
+		lockingDir, err := safe.NewLockingDirectory(path, lockname)
 		require.NoError(t, err)
 		require.NoError(t, lockingDir.Lock())
 		assert.Equal(
@@ -46,7 +48,7 @@ func TestLockingDirectory(t *testing.T) {
 
 	t.Run("unlock without lock fails", func(t *testing.T) {
 		path := testhelper.TempDir(t)
-		lockingDir, err := safe.NewLockingDirectory(path)
+		lockingDir, err := safe.NewLockingDirectory(path, lockname)
 		require.NoError(t, err)
 		assert.Equal(
 			t,
@@ -57,7 +59,7 @@ func TestLockingDirectory(t *testing.T) {
 
 	t.Run("multiple unlocks fail", func(t *testing.T) {
 		path := testhelper.TempDir(t)
-		lockingDir, err := safe.NewLockingDirectory(path)
+		lockingDir, err := safe.NewLockingDirectory(path, lockname)
 		require.NoError(t, err)
 		require.NoError(t, lockingDir.Lock())
 		require.NoError(t, lockingDir.Unlock())
@@ -72,7 +74,7 @@ func TestLockingDirectory(t *testing.T) {
 		path := testhelper.TempDir(t)
 		require.NoError(t, os.RemoveAll(path))
 
-		_, err := safe.NewLockingDirectory(path)
+		_, err := safe.NewLockingDirectory(path, lockname)
 		assert.True(t, errors.Is(err, fs.ErrNotExist))
 	})
 }

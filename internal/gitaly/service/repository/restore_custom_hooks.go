@@ -98,7 +98,7 @@ func (s *server) restoreCustomHooksWithVoting(stream gitalypb.RepositoryService_
 		return structerr.NewInternal("making custom hooks directory %w", err)
 	}
 
-	lockDir, err := safe.NewLockingDirectory(customHooksPath)
+	lockDir, err := safe.NewLockingDirectory(repoPath, customHooksDir)
 	if err != nil {
 		return structerr.NewInternal("RestoreCustomHooks: creating locking directory: %w", err)
 	}
