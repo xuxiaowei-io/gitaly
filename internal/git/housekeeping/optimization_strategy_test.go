@@ -315,7 +315,7 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 				repoProto := tc.setup(t, relativePath)
 				repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-				tc.expectedStrategy.isObjectPool = stats.IsPoolRepository(repo)
+				tc.expectedStrategy.info.IsObjectPool = stats.IsPoolRepository(repo)
 
 				strategy, err := NewHeuristicalOptimizationStrategy(ctx, repo)
 				require.NoError(t, err)
@@ -467,6 +467,7 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 				t.Run(tc.desc, func(t *testing.T) {
 					strategy := HeuristicalOptimizationStrategy{
 						info: stats.RepositoryInfo{
+							IsObjectPool: tc.isPool,
 							Packfiles: stats.PackfilesInfo{
 								Size:  outerTC.packfileSizeInMB * 1024 * 1024,
 								Count: tc.requiredPackfiles - 1,
@@ -476,7 +477,6 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 							},
 							Alternates: tc.alternates,
 						},
-						isObjectPool: tc.isPool,
 					}
 
 					repackNeeded, _ := strategy.ShouldRepackObjects(ctx)
@@ -539,6 +539,7 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 			t.Run(tc.desc, func(t *testing.T) {
 				strategy := HeuristicalOptimizationStrategy{
 					info: stats.RepositoryInfo{
+						IsObjectPool: tc.isPool,
 						LooseObjects: stats.LooseObjectsInfo{
 							Count: outerTC.looseObjects,
 						},
@@ -550,7 +551,6 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 							},
 						},
 					},
-					isObjectPool: tc.isPool,
 				}
 
 				repackNeeded, repackCfg := strategy.ShouldRepackObjects(ctx)
@@ -620,7 +620,7 @@ func TestHeuristicalOptimizationStrategy_ShouldPruneObjects(t *testing.T) {
 
 			t.Run("object pool", func(t *testing.T) {
 				strategy := tc.strategy
-				strategy.isObjectPool = true
+				strategy.info.IsObjectPool = true
 				require.False(t, strategy.ShouldPruneObjects(ctx))
 			})
 		})

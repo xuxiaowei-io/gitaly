@@ -30,8 +30,7 @@ type OptimizationStrategy interface {
 // HeuristicalOptimizationStrategy is an optimization strategy that is based on a set of
 // heuristics.
 type HeuristicalOptimizationStrategy struct {
-	info         stats.RepositoryInfo
-	isObjectPool bool
+	info stats.RepositoryInfo
 }
 
 // NewHeuristicalOptimizationStrategy constructs a heuristicalOptimizationStrategy for the given
@@ -41,7 +40,6 @@ func NewHeuristicalOptimizationStrategy(ctx context.Context, repo *localrepo.Rep
 	var strategy HeuristicalOptimizationStrategy
 	var err error
 
-	strategy.isObjectPool = stats.IsPoolRepository(repo)
 	strategy.info, err = stats.RepositoryInfoForRepository(repo)
 	if err != nil {
 		return HeuristicalOptimizationStrategy{}, fmt.Errorf("deriving repository info: %w", err)
@@ -112,7 +110,7 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(context.Context) (b
 	// This is a heuristic and thus imperfect by necessity. We may tune it as we gain experience
 	// with the way it behaves.
 	lowerLimit, log := 5.0, 1.3
-	if s.isObjectPool {
+	if s.info.IsObjectPool {
 		lowerLimit, log = 2.0, 10.0
 	}
 
@@ -192,7 +190,7 @@ func (s HeuristicalOptimizationStrategy) ShouldWriteCommitGraph(ctx context.Cont
 func (s HeuristicalOptimizationStrategy) ShouldPruneObjects(context.Context) bool {
 	// Pool repositories must never prune any objects, or otherwise we may corrupt members of
 	// that pool if they still refer to that object.
-	if s.isObjectPool {
+	if s.info.IsObjectPool {
 		return false
 	}
 
