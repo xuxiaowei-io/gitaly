@@ -27,7 +27,7 @@ type RepositoryManager struct {
 	tasksTotal       *prometheus.CounterVec
 	tasksLatency     *prometheus.HistogramVec
 	prunedFilesTotal *prometheus.CounterVec
-	optimizeFunc     func(context.Context, *RepositoryManager, *localrepo.Repo, OptimizeRepositoryConfig) error
+	optimizeFunc     func(context.Context, *RepositoryManager, *localrepo.Repo, OptimizationStrategy) error
 	reposInProgress  sync.Map
 }
 

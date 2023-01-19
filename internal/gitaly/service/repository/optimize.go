@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
@@ -18,25 +17,23 @@ func (s *server) OptimizeRepository(ctx context.Context, in *gitalypb.OptimizeRe
 
 	repo := s.localrepo(in.GetRepository())
 
-	repositoryInfo, err := stats.RepositoryInfoForRepository(repo)
-	if err != nil {
-		return nil, fmt.Errorf("deriving repository info: %w", err)
-	}
-	repositoryInfo.Log(ctx)
-
-	var strategyOpt housekeeping.OptimizeRepositoryOption
+	var strategyConstructor housekeeping.OptimizationStrategyConstructor
 	switch in.GetStrategy() {
 	case gitalypb.OptimizeRepositoryRequest_STRATEGY_UNSPECIFIED, gitalypb.OptimizeRepositoryRequest_STRATEGY_HEURISTICAL:
-		strategy := housekeeping.NewHeuristicalOptimizationStrategy(repositoryInfo)
-		strategyOpt = housekeeping.WithOptimizationStrategy(strategy)
+		strategyConstructor = func(info stats.RepositoryInfo) housekeeping.OptimizationStrategy {
+			return housekeeping.NewHeuristicalOptimizationStrategy(info)
+		}
 	case gitalypb.OptimizeRepositoryRequest_STRATEGY_EAGER:
-		strategy := housekeeping.NewEagerOptimizationStrategy(repositoryInfo)
-		strategyOpt = housekeeping.WithOptimizationStrategy(strategy)
+		strategyConstructor = func(info stats.RepositoryInfo) housekeeping.OptimizationStrategy {
+			return housekeeping.NewEagerOptimizationStrategy(info)
+		}
 	default:
 		return nil, structerr.NewInvalidArgument("unsupported optimization strategy %d", in.GetStrategy())
 	}
 
-	if err := s.housekeepingManager.OptimizeRepository(ctx, repo, strategyOpt); err != nil {
+	if err := s.housekeepingManager.OptimizeRepository(ctx, repo,
+		housekeeping.WithOptimizationStrategyConstructor(strategyConstructor),
+	); err != nil {
 		return nil, structerr.NewInternal("%w", err)
 	}
 

@@ -260,7 +260,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 
 type mockHousekeepingManager struct {
 	housekeeping.Manager
-	cfgCh chan housekeeping.OptimizeRepositoryConfig
+	strategyCh chan housekeeping.OptimizationStrategy
 }
 
 func (m mockHousekeepingManager) OptimizeRepository(_ context.Context, _ *localrepo.Repo, opts ...housekeeping.OptimizeRepositoryOption) error {
@@ -269,7 +269,7 @@ func (m mockHousekeepingManager) OptimizeRepository(_ context.Context, _ *localr
 		opt(&cfg)
 	}
 
-	m.cfgCh <- cfg
+	m.strategyCh <- cfg.StrategyConstructor(stats.RepositoryInfo{})
 	return nil
 }
 
@@ -277,7 +277,7 @@ func TestOptimizeRepository_strategy(t *testing.T) {
 	t.Parallel()
 
 	housekeepingManager := mockHousekeepingManager{
-		cfgCh: make(chan housekeeping.OptimizeRepositoryConfig, 1),
+		strategyCh: make(chan housekeeping.OptimizationStrategy, 1),
 	}
 
 	ctx := testhelper.Context(t)
@@ -286,18 +286,16 @@ func TestOptimizeRepository_strategy(t *testing.T) {
 	repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	for _, tc := range []struct {
-		desc        string
-		request     *gitalypb.OptimizeRepositoryRequest
-		expectedCfg housekeeping.OptimizeRepositoryConfig
+		desc             string
+		request          *gitalypb.OptimizeRepositoryRequest
+		expectedStrategy housekeeping.OptimizationStrategy
 	}{
 		{
 			desc: "no strategy",
 			request: &gitalypb.OptimizeRepositoryRequest{
 				Repository: repoProto,
 			},
-			expectedCfg: housekeeping.OptimizeRepositoryConfig{
-				Strategy: housekeeping.HeuristicalOptimizationStrategy{},
-			},
+			expectedStrategy: housekeeping.HeuristicalOptimizationStrategy{},
 		},
 		{
 			desc: "heuristical strategy",
@@ -305,9 +303,7 @@ func TestOptimizeRepository_strategy(t *testing.T) {
 				Repository: repoProto,
 				Strategy:   gitalypb.OptimizeRepositoryRequest_STRATEGY_HEURISTICAL,
 			},
-			expectedCfg: housekeeping.OptimizeRepositoryConfig{
-				Strategy: housekeeping.HeuristicalOptimizationStrategy{},
-			},
+			expectedStrategy: housekeeping.HeuristicalOptimizationStrategy{},
 		},
 		{
 			desc: "eager strategy",
@@ -315,9 +311,7 @@ func TestOptimizeRepository_strategy(t *testing.T) {
 				Repository: repoProto,
 				Strategy:   gitalypb.OptimizeRepositoryRequest_STRATEGY_EAGER,
 			},
-			expectedCfg: housekeeping.OptimizeRepositoryConfig{
-				Strategy: housekeeping.EagerOptimizationStrategy{},
-			},
+			expectedStrategy: housekeeping.EagerOptimizationStrategy{},
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -325,7 +319,7 @@ func TestOptimizeRepository_strategy(t *testing.T) {
 			require.NoError(t, err)
 			testhelper.ProtoEqual(t, &gitalypb.OptimizeRepositoryResponse{}, response)
 
-			require.Equal(t, tc.expectedCfg, <-housekeepingManager.cfgCh)
+			require.Equal(t, tc.expectedStrategy, <-housekeepingManager.strategyCh)
 		})
 	}
 }

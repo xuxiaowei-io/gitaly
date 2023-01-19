@@ -15,17 +15,22 @@ import (
 // OptimizeRepositoryConfig is the configuration used by OptimizeRepository that is computed by
 // applying all the OptimizeRepositoryOption modifiers.
 type OptimizeRepositoryConfig struct {
-	Strategy OptimizationStrategy
+	StrategyConstructor OptimizationStrategyConstructor
 }
 
 // OptimizeRepositoryOption is an option that can be passed to OptimizeRepository.
 type OptimizeRepositoryOption func(cfg *OptimizeRepositoryConfig)
 
-// WithOptimizationStrategy changes the strategy used to determine which parts of the repository
-// will be optimized. By default the HeuristicalOptimizationStrategy is used.
-func WithOptimizationStrategy(strategy OptimizationStrategy) OptimizeRepositoryOption {
+// OptimizationStrategyConstructor is a constructor for an OptimizationStrategy that is being
+// informed by the passed-in RepositoryInfo.
+type OptimizationStrategyConstructor func(stats.RepositoryInfo) OptimizationStrategy
+
+// WithOptimizationStrategyConstructor changes the constructor for the optimization strategy.that is
+// used to determine which parts of the repository will be optimized. By default the
+// HeuristicalOptimizationStrategy is used.
+func WithOptimizationStrategyConstructor(strategyConstructor OptimizationStrategyConstructor) OptimizeRepositoryOption {
 	return func(cfg *OptimizeRepositoryConfig) {
-		cfg.Strategy = strategy
+		cfg.StrategyConstructor = strategyConstructor
 	}
 }
 
@@ -54,24 +59,27 @@ func (m *RepositoryManager) OptimizeRepository(
 		opt(&cfg)
 	}
 
-	if cfg.Strategy == nil {
-		repositoryInfo, err := stats.RepositoryInfoForRepository(repo)
-		if err != nil {
-			return fmt.Errorf("deriving repository info: %w", err)
-		}
-		repositoryInfo.Log(ctx)
+	repositoryInfo, err := stats.RepositoryInfoForRepository(repo)
+	if err != nil {
+		return fmt.Errorf("deriving repository info: %w", err)
+	}
+	repositoryInfo.Log(ctx)
 
-		cfg.Strategy = NewHeuristicalOptimizationStrategy(repositoryInfo)
+	var strategy OptimizationStrategy
+	if cfg.StrategyConstructor == nil {
+		strategy = NewHeuristicalOptimizationStrategy(repositoryInfo)
+	} else {
+		strategy = cfg.StrategyConstructor(repositoryInfo)
 	}
 
-	return m.optimizeFunc(ctx, m, repo, cfg)
+	return m.optimizeFunc(ctx, m, repo, strategy)
 }
 
 func optimizeRepository(
 	ctx context.Context,
 	m *RepositoryManager,
 	repo *localrepo.Repo,
-	cfg OptimizeRepositoryConfig,
+	strategy OptimizationStrategy,
 ) error {
 	totalTimer := prometheus.NewTimer(m.tasksLatency.WithLabelValues("total"))
 	totalStatus := "failure"
@@ -101,7 +109,7 @@ func optimizeRepository(
 	timer.ObserveDuration()
 
 	timer = prometheus.NewTimer(m.tasksLatency.WithLabelValues("repack"))
-	didRepack, repackCfg, err := repackIfNeeded(ctx, repo, cfg.Strategy)
+	didRepack, repackCfg, err := repackIfNeeded(ctx, repo, strategy)
 	if err != nil {
 		optimizations["packed_objects_full"] = "failure"
 		optimizations["packed_objects_incremental"] = "failure"
@@ -121,7 +129,7 @@ func optimizeRepository(
 	timer.ObserveDuration()
 
 	timer = prometheus.NewTimer(m.tasksLatency.WithLabelValues("prune"))
-	didPrune, err := pruneIfNeeded(ctx, repo, cfg.Strategy)
+	didPrune, err := pruneIfNeeded(ctx, repo, strategy)
 	if err != nil {
 		optimizations["pruned_objects"] = "failure"
 		return fmt.Errorf("could not prune: %w", err)
@@ -131,7 +139,7 @@ func optimizeRepository(
 	timer.ObserveDuration()
 
 	timer = prometheus.NewTimer(m.tasksLatency.WithLabelValues("pack-refs"))
-	didPackRefs, err := packRefsIfNeeded(ctx, repo, cfg.Strategy)
+	didPackRefs, err := packRefsIfNeeded(ctx, repo, strategy)
 	if err != nil {
 		optimizations["packed_refs"] = "failure"
 		return fmt.Errorf("could not pack refs: %w", err)
@@ -141,7 +149,7 @@ func optimizeRepository(
 	timer.ObserveDuration()
 
 	timer = prometheus.NewTimer(m.tasksLatency.WithLabelValues("commit-graph"))
-	if didWriteCommitGraph, writeCommitGraphCfg, err := writeCommitGraphIfNeeded(ctx, repo, cfg.Strategy); err != nil {
+	if didWriteCommitGraph, writeCommitGraphCfg, err := writeCommitGraphIfNeeded(ctx, repo, strategy); err != nil {
 		optimizations["written_commit_graph_full"] = "failure"
 		optimizations["written_commit_graph_incremental"] = "failure"
 		return fmt.Errorf("could not write commit-graph: %w", err)
