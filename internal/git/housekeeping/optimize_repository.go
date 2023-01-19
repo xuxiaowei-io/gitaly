@@ -9,6 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 )
 
 // OptimizeRepositoryConfig is the configuration used by OptimizeRepository that is computed by
@@ -54,12 +55,13 @@ func (m *RepositoryManager) OptimizeRepository(
 	}
 
 	if cfg.Strategy == nil {
-		strategy, err := NewHeuristicalOptimizationStrategy(ctx, repo)
+		repositoryInfo, err := stats.RepositoryInfoForRepository(repo)
 		if err != nil {
-			return fmt.Errorf("creating default optimization strategy: %w", err)
+			return fmt.Errorf("deriving repository info: %w", err)
 		}
+		repositoryInfo.Log(ctx)
 
-		cfg.Strategy = strategy
+		cfg.Strategy = NewHeuristicalOptimizationStrategy(repositoryInfo)
 	}
 
 	return m.optimizeFunc(ctx, m, repo, cfg)

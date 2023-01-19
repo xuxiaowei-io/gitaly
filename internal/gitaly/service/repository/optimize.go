@@ -2,8 +2,10 @@ package repository
 
 import (
 	"context"
+	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -19,10 +21,13 @@ func (s *server) OptimizeRepository(ctx context.Context, in *gitalypb.OptimizeRe
 	var strategyOpt housekeeping.OptimizeRepositoryOption
 	switch in.GetStrategy() {
 	case gitalypb.OptimizeRepositoryRequest_STRATEGY_UNSPECIFIED, gitalypb.OptimizeRepositoryRequest_STRATEGY_HEURISTICAL:
-		strategy, err := housekeeping.NewHeuristicalOptimizationStrategy(ctx, repo)
+		repositoryInfo, err := stats.RepositoryInfoForRepository(repo)
 		if err != nil {
-			return nil, structerr.NewInternal("creating heuristical optimization strategy: %w", err)
+			return nil, fmt.Errorf("deriving repository info: %w", err)
 		}
+		repositoryInfo.Log(ctx)
+
+		strategy := housekeeping.NewHeuristicalOptimizationStrategy(repositoryInfo)
 
 		strategyOpt = housekeeping.WithOptimizationStrategy(strategy)
 	case gitalypb.OptimizeRepositoryRequest_STRATEGY_EAGER:
