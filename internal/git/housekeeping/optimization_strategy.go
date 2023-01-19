@@ -2,11 +2,8 @@ package housekeeping
 
 import (
 	"context"
-	"fmt"
 	"math"
-	"os"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 )
 
@@ -236,26 +233,14 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackReferences(context.Context)
 // EagerOptimizationStrategy is a strategy that will eagerly perform optimizations. All of the data
 // structures will be optimized regardless of whether they already are in an optimal state or not.
 type EagerOptimizationStrategy struct {
-	hasAlternate bool
-	isObjectPool bool
+	info stats.RepositoryInfo
 }
 
 // NewEagerOptimizationStrategy creates a new EagerOptimizationStrategy.
-func NewEagerOptimizationStrategy(ctx context.Context, repo *localrepo.Repo) (EagerOptimizationStrategy, error) {
-	altFile, err := repo.InfoAlternatesPath()
-	if err != nil {
-		return EagerOptimizationStrategy{}, fmt.Errorf("getting alternates path: %w", err)
-	}
-
-	hasAlternate := true
-	if _, err := os.Stat(altFile); os.IsNotExist(err) {
-		hasAlternate = false
-	}
-
+func NewEagerOptimizationStrategy(info stats.RepositoryInfo) EagerOptimizationStrategy {
 	return EagerOptimizationStrategy{
-		hasAlternate: hasAlternate,
-		isObjectPool: stats.IsPoolRepository(repo),
-	}, nil
+		info: info,
+	}
 }
 
 // ShouldRepackObjects always instructs the caller to repack objects. The strategy will always be to
@@ -264,7 +249,7 @@ func NewEagerOptimizationStrategy(ctx context.Context, repo *localrepo.Repo) (Ea
 func (s EagerOptimizationStrategy) ShouldRepackObjects(context.Context) (bool, RepackObjectsConfig) {
 	return true, RepackObjectsConfig{
 		FullRepack:  true,
-		WriteBitmap: !s.hasAlternate,
+		WriteBitmap: len(s.info.Alternates) == 0,
 	}
 }
 
@@ -279,7 +264,7 @@ func (s EagerOptimizationStrategy) ShouldWriteCommitGraph(context.Context) (bool
 // ShouldPruneObjects always instructs the caller to prune objects, unless the repository is an
 // object pool.
 func (s EagerOptimizationStrategy) ShouldPruneObjects(context.Context) bool {
-	return !s.isObjectPool
+	return !s.info.IsObjectPool
 }
 
 // ShouldRepackReferences always instructs the caller to repack references.

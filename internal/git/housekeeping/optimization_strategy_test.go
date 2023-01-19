@@ -3,17 +3,11 @@ package housekeeping
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
-	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
 func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
@@ -531,64 +525,6 @@ func TestHeuristicalOptimizationStrategy_NeedsWriteCommitGraph(t *testing.T) {
 	}
 }
 
-func TestNewEagerOptimizationStrategy(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	cfg := testcfg.Build(t)
-
-	for _, tc := range []struct {
-		desc             string
-		setup            func(t *testing.T, relativePath string) *gitalypb.Repository
-		expectedStrategy EagerOptimizationStrategy
-	}{
-		{
-			desc: "empty repo",
-			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-					SkipCreationViaService: true,
-					RelativePath:           relativePath,
-				})
-				return repoProto
-			},
-			expectedStrategy: EagerOptimizationStrategy{},
-		},
-		{
-			desc: "alternate",
-			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-					SkipCreationViaService: true,
-					RelativePath:           relativePath,
-				})
-
-				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "objects", "info", "alternates"), nil, 0o644))
-
-				return repoProto
-			},
-			expectedStrategy: EagerOptimizationStrategy{
-				hasAlternate: true,
-			},
-		},
-	} {
-		tc := tc
-
-		t.Run(tc.desc, func(t *testing.T) {
-			t.Parallel()
-
-			testRepoAndPool(t, tc.desc, func(t *testing.T, relativePath string) {
-				repoProto := tc.setup(t, relativePath)
-				repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-				tc.expectedStrategy.isObjectPool = stats.IsPoolRepository(repo)
-
-				strategy, err := NewEagerOptimizationStrategy(ctx, repo)
-				require.NoError(t, err)
-				require.Equal(t, tc.expectedStrategy, strategy)
-			})
-		})
-	}
-}
-
 func TestEagerOptimizationStrategy(t *testing.T) {
 	t.Parallel()
 
@@ -608,22 +544,28 @@ func TestEagerOptimizationStrategy(t *testing.T) {
 		{
 			desc: "alternate",
 			strategy: EagerOptimizationStrategy{
-				hasAlternate: true,
+				info: stats.RepositoryInfo{
+					Alternates: []string{"path/to/alternate"},
+				},
 			},
 			expectShouldPruneObjects: true,
 		},
 		{
 			desc: "object pool",
 			strategy: EagerOptimizationStrategy{
-				isObjectPool: true,
+				info: stats.RepositoryInfo{
+					IsObjectPool: true,
+				},
 			},
 			expectWriteBitmap: true,
 		},
 		{
 			desc: "object pool with alternate",
 			strategy: EagerOptimizationStrategy{
-				hasAlternate: true,
-				isObjectPool: true,
+				info: stats.RepositoryInfo{
+					IsObjectPool: true,
+					Alternates:   []string{"path/to/alternate"},
+				},
 			},
 		},
 	} {
