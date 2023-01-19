@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/prometheus/client_golang/prometheus"
@@ -63,7 +64,7 @@ func (m *RepositoryManager) OptimizeRepository(
 	if err != nil {
 		return fmt.Errorf("deriving repository info: %w", err)
 	}
-	repositoryInfo.Log(ctx)
+	m.reportRepositoryInfo(ctx, repositoryInfo)
 
 	var strategy OptimizationStrategy
 	if cfg.StrategyConstructor == nil {
@@ -73,6 +74,41 @@ func (m *RepositoryManager) OptimizeRepository(
 	}
 
 	return m.optimizeFunc(ctx, m, repo, strategy)
+}
+
+func (m *RepositoryManager) reportRepositoryInfo(ctx context.Context, info stats.RepositoryInfo) {
+	info.Log(ctx)
+
+	m.reportDataStructureExistence("commit_graph", info.CommitGraph.Exists)
+	m.reportDataStructureExistence("commit_graph_bloom_filters", info.CommitGraph.HasBloomFilters)
+	m.reportDataStructureExistence("commit_graph_generation_data", info.CommitGraph.HasGenerationData)
+	m.reportDataStructureExistence("commit_graph_generation_data_overflow", info.CommitGraph.HasGenerationDataOverflow)
+	m.reportDataStructureExistence("bitmap", info.Packfiles.Bitmap.Exists)
+	m.reportDataStructureExistence("multi_pack_index", info.Packfiles.HasMultiPackIndex)
+	m.reportDataStructureExistence("multi_pack_index_bitmap", info.Packfiles.MultiPackIndexBitmap.Exists)
+
+	m.reportDataStructureCount("loose_objects", info.LooseObjects.Count)
+	m.reportDataStructureCount("loose_objects_stale_count", info.LooseObjects.StaleCount)
+	m.reportDataStructureCount("commit_graph_chain", info.CommitGraph.CommitGraphChainLength)
+	m.reportDataStructureCount("packfiles", info.Packfiles.Count)
+	m.reportDataStructureCount("loose_references", info.References.LooseReferencesCount)
+
+	m.reportDataStructureSize("loose_objects", info.LooseObjects.Size)
+	m.reportDataStructureSize("loose_objects_stale", info.LooseObjects.StaleSize)
+	m.reportDataStructureSize("packfiles", info.Packfiles.Size)
+	m.reportDataStructureSize("packed_references", info.References.PackedReferencesSize)
+}
+
+func (m *RepositoryManager) reportDataStructureExistence(dataStructure string, exists bool) {
+	m.dataStructureExistence.WithLabelValues(dataStructure, strconv.FormatBool(exists)).Inc()
+}
+
+func (m *RepositoryManager) reportDataStructureCount(dataStructure string, count uint64) {
+	m.dataStructureCount.WithLabelValues(dataStructure).Observe(float64(count))
+}
+
+func (m *RepositoryManager) reportDataStructureSize(dataStructure string, size uint64) {
+	m.dataStructureSize.WithLabelValues(dataStructure).Observe(float64(size))
 }
 
 func optimizeRepository(

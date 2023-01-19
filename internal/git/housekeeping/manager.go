@@ -24,11 +24,14 @@ type Manager interface {
 type RepositoryManager struct {
 	txManager transaction.Manager
 
-	tasksTotal       *prometheus.CounterVec
-	tasksLatency     *prometheus.HistogramVec
-	prunedFilesTotal *prometheus.CounterVec
-	optimizeFunc     func(context.Context, *RepositoryManager, *localrepo.Repo, OptimizationStrategy) error
-	reposInProgress  sync.Map
+	tasksTotal             *prometheus.CounterVec
+	tasksLatency           *prometheus.HistogramVec
+	prunedFilesTotal       *prometheus.CounterVec
+	dataStructureExistence *prometheus.CounterVec
+	dataStructureCount     *prometheus.HistogramVec
+	dataStructureSize      *prometheus.HistogramVec
+	optimizeFunc           func(context.Context, *RepositoryManager, *localrepo.Repo, OptimizationStrategy) error
+	reposInProgress        sync.Map
 }
 
 // NewManager creates a new RepositoryManager.
@@ -58,6 +61,29 @@ func NewManager(promCfg gitalycfgprom.Config, txManager transaction.Manager) *Re
 			},
 			[]string{"filetype"},
 		),
+		dataStructureExistence: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "gitaly_housekeeping_data_structure_existence_total",
+				Help: "Total number of data structures that exist in the repository",
+			},
+			[]string{"data_structure", "exists"},
+		),
+		dataStructureCount: prometheus.NewHistogramVec(
+			prometheus.HistogramOpts{
+				Name:    "gitaly_housekeeping_data_structure_wcount",
+				Help:    "Total count of the data structures that exist in the repository",
+				Buckets: prometheus.ExponentialBucketsRange(1, 10_000_000, 16),
+			},
+			[]string{"data_structure"},
+		),
+		dataStructureSize: prometheus.NewHistogramVec(
+			prometheus.HistogramOpts{
+				Name:    "gitaly_housekeeping_data_structure_size",
+				Help:    "Total size of the data structures that exist in the repository",
+				Buckets: prometheus.ExponentialBucketsRange(1, 50_000_000_000, 16),
+			},
+			[]string{"data_structure"},
+		),
 		optimizeFunc: optimizeRepository,
 	}
 }
@@ -72,4 +98,7 @@ func (m *RepositoryManager) Collect(metrics chan<- prometheus.Metric) {
 	m.tasksTotal.Collect(metrics)
 	m.tasksLatency.Collect(metrics)
 	m.prunedFilesTotal.Collect(metrics)
+	m.dataStructureExistence.Collect(metrics)
+	m.dataStructureCount.Collect(metrics)
+	m.dataStructureSize.Collect(metrics)
 }
