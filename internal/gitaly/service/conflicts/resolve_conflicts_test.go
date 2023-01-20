@@ -283,6 +283,7 @@ func TestResolveConflictsLineEndings(t *testing.T) {
 		theirContent     string
 		resolutions      []map[string]interface{}
 		expectedContents string
+		expectedError    string
 	}{
 		{
 			desc:             "only newline",
@@ -336,6 +337,21 @@ func TestResolveConflictsLineEndings(t *testing.T) {
 			},
 			expectedContents: "A\nB",
 		},
+		{
+			desc:         "conflict with existing conflict markers",
+			ourContent:   "<<<<<<< HEAD\nA\nB\n=======",
+			theirContent: "X\nB",
+			resolutions: []map[string]interface{}{
+				{
+					"old_path": "file.txt",
+					"new_path": "file.txt",
+					"sections": map[string]string{
+						"5436437fa01a7d3e41d46741da54b451446774ca_1_1": "head",
+					},
+				},
+			},
+			expectedError: `resolve: parse conflict for "file.txt": unexpected conflict delimiter`,
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			ourOID := gittest.WriteBlob(t, cfg, repoPath, []byte(tc.ourContent))
@@ -381,11 +397,16 @@ func TestResolveConflictsLineEndings(t *testing.T) {
 			}))
 
 			response, err := stream.CloseAndRecv()
-			require.NoError(t, err)
-			require.Empty(t, response.GetResolutionError())
 
-			oursFile := gittest.Exec(t, cfg, "-C", repoPath, "cat-file", "-p", "refs/heads/ours:file.txt")
-			require.Equal(t, []byte(tc.expectedContents), oursFile)
+			if tc.expectedError == "" {
+				require.NoError(t, err)
+				require.Empty(t, response.GetResolutionError())
+
+				oursFile := gittest.Exec(t, cfg, "-C", repoPath, "cat-file", "-p", "refs/heads/ours:file.txt")
+				require.Equal(t, []byte(tc.expectedContents), oursFile)
+			} else {
+				require.Equal(t, status.Error(codes.Internal, tc.expectedError), err)
+			}
 		})
 	}
 }
