@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package smarthttp
 
 import (
@@ -169,8 +167,10 @@ func testServerPostUploadPackGitConfigOptions(t *testing.T, ctx context.Context,
 
 		// The failure message proves that upload-pack failed because of
 		// GitConfigOptions, and that proves that passing GitConfigOptions works.
-		expected := fmt.Sprintf("0049ERR upload-pack: not our ref %v", hiddenID)
-		require.Equal(t, expected, response.String(), "Ref is hidden, expected error message did not appear")
+		require.Equal(t,
+			gittest.Pktlinef(t, "ERR upload-pack: not our ref %v", hiddenID),
+			response.String(),
+		)
 	})
 }
 
@@ -199,6 +199,7 @@ func testServerPostUploadPackGitProtocol(t *testing.T, ctx context.Context, make
 	// command=ls-refs does not exist in protocol v0, so if this succeeds, we're talking v2
 	requestBody := &bytes.Buffer{}
 	gittest.WritePktlineString(t, requestBody, "command=ls-refs\n")
+	gittest.WritePktlineString(t, requestBody, fmt.Sprintf("object-format=%s\n", gittest.DefaultObjectHash.Format))
 	gittest.WritePktlineDelim(t, requestBody)
 	gittest.WritePktlineString(t, requestBody, "peel\n")
 	gittest.WritePktlineString(t, requestBody, "symrefs\n")
@@ -247,7 +248,7 @@ func testServerPostUploadPackSuppressDeepenExitError(t *testing.T, ctx context.C
 		Repository: repo,
 	}, &requestBody)
 	require.NoError(t, err)
-	require.Equal(t, fmt.Sprintf("0034shallow %s0000", commitID), response.String())
+	require.Equal(t, gittest.Pktlinef(t, "shallow %s", commitID)+"0000", response.String())
 }
 
 func TestServer_PostUploadPack_usesPackObjectsHook(t *testing.T) {
