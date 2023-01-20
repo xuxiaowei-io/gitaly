@@ -62,6 +62,7 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gital
 			expectedLicenseRuby *gitalypb.FindLicenseResponse
 			expectedLicenseGo   *gitalypb.FindLicenseResponse
 			errorContains       string
+			errorContainsGo     string
 		}{
 			{
 				desc: "repository does not exist",
@@ -106,6 +107,28 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gital
 					LicenseName:      "MIT License",
 					LicensePath:      "LICENSE",
 				},
+			},
+			{
+				// test for https://gitlab.com/gitlab-org/gitaly/-/issues/4745
+				desc: "ignores licenses that don't have further details",
+				setup: func(t *testing.T, repoPath string) {
+					licenseText := testhelper.MustReadFile(t, "testdata/linux-license.txt")
+
+					gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"),
+						gittest.WithTreeEntries(
+							gittest.TreeEntry{
+								Mode:    "100644",
+								Path:    "COPYING",
+								Content: string(licenseText),
+							}))
+				},
+				expectedLicenseRuby: &gitalypb.FindLicenseResponse{
+					LicenseShortName: "other",
+					LicenseName:      "Other",
+					LicenseNickname:  "LICENSE",
+					LicensePath:      "COPYING",
+				},
+				errorContainsGo: `license name by id "Linux-syscall-note": license id is not known`,
 			},
 			{
 				desc: "unknown license",
@@ -250,6 +273,11 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gital
 				if tc.errorContains != "" {
 					require.Error(t, err)
 					require.Contains(t, err.Error(), tc.errorContains)
+					return
+				}
+				if featureflag.GoFindLicense.IsEnabled(ctx) && tc.errorContainsGo != "" {
+					require.Error(t, err)
+					require.Contains(t, err.Error(), tc.errorContainsGo)
 					return
 				}
 
