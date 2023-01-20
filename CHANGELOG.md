@@ -1,5 +1,45 @@
 # Gitaly changelog
 
+## 15.8.0 (2023-01-20)
+
+### Added (3 changes)
+
+- [commit: Adds max batch size per file type](gitlab-org/gitaly@71a8cf3a533a984c4918c1f302342f95a507872c) ([merge request](gitlab-org/gitaly!4703))
+- [housekeeping: Replace commit-graph chain when missing generation data](gitlab-org/gitaly@eab4c4758224c4835bf6e46b13b7b06afbfdd780) ([merge request](gitlab-org/gitaly!5211))
+- [git: Enable reading and writing commit-graph generation data](gitlab-org/gitaly@c73860e8addd42ecca0e9ffa4505d949bb79f182) ([merge request](gitlab-org/gitaly!5211))
+
+### Fixed (12 changes)
+
+- [limithandler: Fix maximum queueing time applying to subsequent RPCs](gitlab-org/gitaly@3520116532cd42732efda136347786cfb0566818) ([merge request](gitlab-org/gitaly!5238))
+- [limithandler: Fix queueing mechanism in the concurrency limiter](gitlab-org/gitaly@ee7c6acd586d74548138f5b7c8e89328621d2c71) ([merge request](gitlab-org/gitaly!5236))
+- [diff: Sort out behaviour of GetPatchID with binary diffs](gitlab-org/gitaly@ed2b02c589220d26850d3540a0cadb97614dfa95) ([merge request](gitlab-org/gitaly!5221))
+- [housekeeping: Fix rewriting of commit-graphs without generation data](gitlab-org/gitaly@6003c7fda5638f24b3d5d118206f208bcca1fa73) ([merge request](gitlab-org/gitaly!5231))
+- [catfile: fix another 64-bit alignment error on objectInfoReader](gitlab-org/gitaly@8e91c5746c4e70720de193e3748c56b7eb553b46) ([merge request](gitlab-org/gitaly!5226))
+- [Fix 64-bit alignment errors with request queue counters](gitlab-org/gitaly@d17749651e6dd35d5f3f8de0f8e0a27b704217ff) ([merge request](gitlab-org/gitaly!5223))
+- [structerr: Fix error metadata log field colliding with normal error](gitlab-org/gitaly@d8cf8080c035f53217238bd8f6c0bc70a8142093) ([merge request](gitlab-org/gitaly!5220))
+- [objectpool: Fix error code when trying to recreate existing pool](gitlab-org/gitaly@b83f606ba7c7da912fbeb000d377a252217dc072) ([merge request](gitlab-org/gitaly!5202))
+- [version: Make builds deterministic by dropping build time](gitlab-org/gitaly@7be5e5c23152778b32a6b9859085724acb6a549d) ([merge request](gitlab-org/gitaly!5201))
+- [git/objectpool: Remove remote configuration after creation](gitlab-org/gitaly@84775c1340395ab4b933131e620504ec5b0e8bff) ([merge request](gitlab-org/gitaly!5199))
+- [commit: Don't put tree entry name into error message](gitlab-org/gitaly@85c9c0efa10f31f2e14800b8feec1a877c0c0235) ([merge request](gitlab-org/gitaly!5200))
+- [objectpool: Enable atomic creation of object pools](gitlab-org/gitaly@e07e5a246042ebe3f04d8497981fae2540b6073c) ([merge request](gitlab-org/gitaly!5187))
+
+### Changed (2 changes)
+
+- [Update Markdown-related Ruby gems](gitlab-org/gitaly@aacf5bce656670326ffe87bea5df7a6f89bb7503) ([merge request](gitlab-org/gitaly!5213))
+- [git: Bump minimum required Git version to v2.38.0](gitlab-org/gitaly@d2021eb33549319da75a1b80642768bb397cecd2) ([merge request](gitlab-org/gitaly!5210))
+
+### Security (1 change)
+
+- [Makefile: Upgrade Git to address out-of-bounds reads and writes](gitlab-org/gitaly@42159da198d2526b1f98f5dd22a2d94b145a50e5)
+
+### Performance (1 change)
+
+- [repository: Use unarycache in FindLicense](gitlab-org/gitaly@dd85450dd0f17e0f231835a30d3afb9d6949dcd1) ([merge request](gitlab-org/gitaly!5080))
+
+### improved (1 change)
+
+- [repository: Disable misleading dangling checks in git-fsck(1)](gitlab-org/gitaly@fb830f5f01311609c01590ddf04a22a3d33cd36d) ([merge request](gitlab-org/gitaly!5230))
+
 ## 15.7.3 (2023-01-11)
 
 No changes.
