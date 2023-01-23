@@ -26,7 +26,7 @@ gem 'google-protobuf', '~> 3.21.12'
 gem 'redis', '~> 4.8.0'
 
 group :development, :test do
-  gem 'rubocop', '~> 0.69', require: false
+  gem 'rubocop', '~> 1.38', require: false
   gem 'rspec', require: false
   gem 'rspec-parameterized', require: false
   gem 'timecop', require: false
