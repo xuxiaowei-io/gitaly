@@ -62,7 +62,6 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gital
 			expectedLicenseRuby *gitalypb.FindLicenseResponse
 			expectedLicenseGo   *gitalypb.FindLicenseResponse
 			errorContains       string
-			errorContainsGo     string
 		}{
 			{
 				desc: "repository does not exist",
@@ -128,7 +127,12 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gital
 					LicenseNickname:  "LICENSE",
 					LicensePath:      "COPYING",
 				},
-				errorContainsGo: `license name by id "Linux-syscall-note": license id is not known`,
+				expectedLicenseGo: &gitalypb.FindLicenseResponse{
+					LicenseShortName: "gpl-2.0+",
+					LicenseName:      "GNU General Public License v2.0 or later",
+					LicenseUrl:       "https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html",
+					LicensePath:      "COPYING",
+				},
 			},
 			{
 				desc: "unknown license",
@@ -273,11 +277,6 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gital
 				if tc.errorContains != "" {
 					require.Error(t, err)
 					require.Contains(t, err.Error(), tc.errorContains)
-					return
-				}
-				if featureflag.GoFindLicense.IsEnabled(ctx) && tc.errorContainsGo != "" {
-					require.Error(t, err)
-					require.Contains(t, err.Error(), tc.errorContainsGo)
 					return
 				}
 
