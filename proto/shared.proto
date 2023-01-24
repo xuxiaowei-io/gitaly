@@ -171,6 +171,8 @@ message Tag {
   CommitAuthor tagger = 6;
   // This comment is left unintentionally blank.
   SignatureType signature_type = 7;
+  // This comment is left unintentionally blank.
+  bytes signature = 8;
 }
 
 // This comment is left unintentionally blank.

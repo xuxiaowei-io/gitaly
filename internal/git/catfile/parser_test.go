@@ -335,16 +335,16 @@ AAAAQLSyv010gOFwIs9QTtDvlfIEWiAw2iQL/T9usGcxHXn/W5l0cOFCd7O+WaMDg0t0nW
 fF3T79iV8paT4/OfX8Ygg=
 -----END SSH SIGNATURE-----`, oid),
 			expectedTag: &gitalypb.Tag{
-				Id:   "1234",
-				Name: []byte("v2.6.16.28"),
-				Message: []byte(`This tag is signed with SSH
------BEGIN SSH SIGNATURE-----
+				Id:          "1234",
+				Name:        []byte("v2.6.16.28"),
+				Message:     []byte("This tag is signed with SSH\n"),
+				MessageSize: 28,
+				Signature: []byte(`-----BEGIN SSH SIGNATURE-----
 U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgtc+Qk8jhMwVZk/jFEFCM16LNQb
 30q5kK30bbetfjyTMAAAADZ2l0AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1NTE5
 AAAAQLSyv010gOFwIs9QTtDvlfIEWiAw2iQL/T9usGcxHXn/W5l0cOFCd7O+WaMDg0t0nW
 fF3T79iV8paT4/OfX8Ygg=
 -----END SSH SIGNATURE-----`),
-				MessageSize: 321,
 				Tagger: &gitalypb.CommitAuthor{
 					Name:  []byte("Adrian Bunk"),
 					Email: []byte("bunk@stusta.de"),

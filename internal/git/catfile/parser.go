@@ -276,17 +276,19 @@ func (p *parser) parseTag(object git.Object, name []byte) (*gitalypb.Tag, tagged
 			)
 		}
 
-		tag.Message = message
-		tag.MessageSize = int64(len(message))
-
-		if signature, _ := ExtractTagSignature(message); signature != nil {
+		if signature, restContent := ExtractTagSignature(message); signature != nil {
 			length := bytes.Index(signature, []byte("\n"))
 
 			if length > 0 {
-				signature := string(signature[:length])
-				tag.SignatureType = detectSignatureType(signature)
+				tag.SignatureType = detectSignatureType(string(signature[:length]))
+				tag.Signature = signature
+
+				message = restContent
 			}
 		}
+
+		tag.Message = message
+		tag.MessageSize = int64(len(message))
 	}
 
 	return tag, tagged, nil
