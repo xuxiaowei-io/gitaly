@@ -7,7 +7,7 @@ require 'optparse'
 
 ADDR = 'socket'
 
-def main(params)
+def main(params) # rubocop:disable Metrics/MethodLength
   gitaly_dir = File.realpath(params[:dir])
   build_dir = File.join(gitaly_dir, '_build')
   bin_dir = File.join(build_dir, 'bin')
@@ -27,7 +27,7 @@ def main(params)
   unless version.start_with?(version_from_file)
     abort "\nversion check failed: VERSION file contained '#{version_from_file}'"\
       " but 'gitaly -version' reported '#{version}'."\
-      " If you are working from a fork, please fetch the latest tags."
+      ' If you are working from a fork, please fetch the latest tags.'
   end
 
   Dir.mktmpdir do |dir|
@@ -61,7 +61,7 @@ def main(params)
   end
 end
 
-def write_gitaly_config(config_path, bin_dir:, dir:, use_bundled_git:, git_path:, gitaly_dir:, gitlab_shell_dir:)
+def write_gitaly_config(config_path, bin_dir:, dir:, use_bundled_git:, git_path:, gitaly_dir:, gitlab_shell_dir:) # rubocop:disable Metrics/ParameterLists
   File.write(config_path, <<~CONFIG
     socket_path = "#{ADDR}"
     bin_dir = "#{bin_dir}"
