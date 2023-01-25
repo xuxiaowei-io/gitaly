@@ -2,7 +2,6 @@ package repository
 
 import (
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -21,22 +20,18 @@ func TestRemoveRepository(t *testing.T) {
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 	ctx := testhelper.Context(t)
 
-	repo := &gitalypb.Repository{
-		StorageName:  cfg.Storages[0].Name,
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		RelativePath: gittest.NewRepositoryName(t),
-	}
+	})
 
-	_, err := client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{
+	require.DirExists(t, repoPath)
+
+	_, err := client.RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{
 		Repository: repo,
 	})
 	require.NoError(t, err)
 
-	_, err = client.RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{
-		Repository: repo,
-	})
-	require.NoError(t, err)
-
-	require.NoFileExists(t, filepath.Join(cfg.Storages[0].Path, repo.RelativePath))
+	require.NoDirExists(t, repoPath)
 }
 
 func TestRemoveRepository_doesNotExist(t *testing.T) {
