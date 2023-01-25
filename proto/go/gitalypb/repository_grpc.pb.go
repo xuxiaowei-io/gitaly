@@ -147,6 +147,8 @@ type RepositoryServiceClient interface {
 	// FullPath reads the "gitlab.fullpath" configuration from the repository's
 	// gitconfig. Returns an error in case the full path has not been configured.
 	FullPath(ctx context.Context, in *FullPathRequest, opts ...grpc.CallOption) (*FullPathResponse, error)
+	// RemoveAll deletes all repositories on a specified storage.
+	RemoveAll(ctx context.Context, in *RemoveAllRequest, opts ...grpc.CallOption) (*RemoveAllResponse, error)
 }
 
 type repositoryServiceClient struct {
@@ -856,6 +858,15 @@ func (c *repositoryServiceClient) FullPath(ctx context.Context, in *FullPathRequ
 	return out, nil
 }
 
+func (c *repositoryServiceClient) RemoveAll(ctx context.Context, in *RemoveAllRequest, opts ...grpc.CallOption) (*RemoveAllResponse, error) {
+	out := new(RemoveAllResponse)
+	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/RemoveAll", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RepositoryServiceServer is the server API for RepositoryService service.
 // All implementations must embed UnimplementedRepositoryServiceServer
 // for forward compatibility
@@ -985,6 +996,8 @@ type RepositoryServiceServer interface {
 	// FullPath reads the "gitlab.fullpath" configuration from the repository's
 	// gitconfig. Returns an error in case the full path has not been configured.
 	FullPath(context.Context, *FullPathRequest) (*FullPathResponse, error)
+	// RemoveAll deletes all repositories on a specified storage.
+	RemoveAll(context.Context, *RemoveAllRequest) (*RemoveAllResponse, error)
 	mustEmbedUnimplementedRepositoryServiceServer()
 }
 
@@ -1120,6 +1133,9 @@ func (UnimplementedRepositoryServiceServer) SetFullPath(context.Context, *SetFul
 }
 func (UnimplementedRepositoryServiceServer) FullPath(context.Context, *FullPathRequest) (*FullPathResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FullPath not implemented")
+}
+func (UnimplementedRepositoryServiceServer) RemoveAll(context.Context, *RemoveAllRequest) (*RemoveAllResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RemoveAll not implemented")
 }
 func (UnimplementedRepositoryServiceServer) mustEmbedUnimplementedRepositoryServiceServer() {}
 
@@ -1967,6 +1983,24 @@ func _RepositoryService_FullPath_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RepositoryService_RemoveAll_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RemoveAllRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RepositoryServiceServer).RemoveAll(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/gitaly.RepositoryService/RemoveAll",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RepositoryServiceServer).RemoveAll(ctx, req.(*RemoveAllRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RepositoryService_ServiceDesc is the grpc.ServiceDesc for RepositoryService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -2093,6 +2127,10 @@ var RepositoryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "FullPath",
 			Handler:    _RepositoryService_FullPath_Handler,
+		},
+		{
+			MethodName: "RemoveAll",
+			Handler:    _RepositoryService_RemoveAll_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
