@@ -177,11 +177,13 @@ func newDirectoryVote(basePath string) (*voting.VoteHash, error) {
 			return err
 		}
 
-		// Write file name to hash. Since `WalkDir()` output is deterministic
-		// based on lexical order, the path does not need to be included with
-		// the name written to the hash. Any change to the entry's path will
-		// result in a different hash due to the change in walked order.
-		_, _ = voteHash.Write([]byte(entry.Name()))
+		relPath, err := filepath.Rel(basePath, path)
+		if err != nil {
+			return fmt.Errorf("getting relative path: %w", err)
+		}
+
+		// Write file relative path to hash.
+		_, _ = voteHash.Write([]byte(relPath))
 
 		info, err := entry.Info()
 		if err != nil {

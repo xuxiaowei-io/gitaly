@@ -180,7 +180,7 @@ func TestNewDirectoryVote(t *testing.T) {
 				{name: "pre-commit.sample", content: "foo", mode: 0o755},
 				{name: "pre-push.sample", content: "bar", mode: 0o755},
 			},
-			expectedHash: "b8f99a3012ce12c1a5711e3b94d45b98878cc18d",
+			expectedHash: "8ca11991268de4c9278488a674fc1a88db449566",
 		},
 		{
 			desc: "generated hash matches with changed file name",
@@ -188,7 +188,7 @@ func TestNewDirectoryVote(t *testing.T) {
 				{name: "pre-commit.sample.diff", content: "foo", mode: 0o755},
 				{name: "pre-push.sample", content: "bar", mode: 0o755},
 			},
-			expectedHash: "f55ff88d7f84045fce970615ecd04c4fe9bf0a94",
+			expectedHash: "b5ed58ced84103da1ed9d7813a9e39b3b5daf7d7",
 		},
 		{
 			desc: "generated hash matches with changed file content",
@@ -196,7 +196,7 @@ func TestNewDirectoryVote(t *testing.T) {
 				{name: "pre-commit.sample", content: "foo", mode: 0o755},
 				{name: "pre-push.sample", content: "bar.diff", mode: 0o755},
 			},
-			expectedHash: "0c628c59e62c351069037aad858a6f900ef1de9b",
+			expectedHash: "178083848c8a08e36c4f86c2d318a84b0bb845f2",
 		},
 		{
 			desc: "generated hash matches with changed file mode",
@@ -204,7 +204,7 @@ func TestNewDirectoryVote(t *testing.T) {
 				{name: "pre-commit.sample", content: "foo", mode: 0o644},
 				{name: "pre-push.sample", content: "bar", mode: 0o755},
 			},
-			expectedHash: "9321dde590ef5ffa05d1ddf690b8983f406242e7",
+			expectedHash: "c69574241b83496bb4005b4f7a0dfcda96cb317e",
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
