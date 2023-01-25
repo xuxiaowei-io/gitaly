@@ -5,7 +5,11 @@ thresholds = helper.config.code_size_thresholds
 lines_changed = (git.added_files + git.modified_files).sum do |file|
   next 0 if file.end_with?('.pb.go') || file.end_with?('_pb.rb')
 
-  git.info_for_file(file)[:insertions]
+  info = git.info_for_file(file)
+
+  next 0 if info.nil?
+
+  info[:insertions]
 end
 
 if lines_changed > thresholds[:high]
