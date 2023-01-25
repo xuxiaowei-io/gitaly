@@ -55,10 +55,8 @@ func testSuccessfulRestoreCustomHooksRequest(t *testing.T, ctx context.Context) 
 	require.NoError(t, err)
 
 	request := &gitalypb.RestoreCustomHooksRequest{Repository: repo}
-	voteHash := voting.NewVoteHash()
 
 	writer := streamio.NewWriter(func(p []byte) error {
-		voteHash.Write(p)
 		request.Data = p
 		if err := stream.Send(request); err != nil {
 			return err
@@ -74,6 +72,9 @@ func testSuccessfulRestoreCustomHooksRequest(t *testing.T, ctx context.Context) 
 	_, err = io.Copy(writer, file)
 	require.NoError(t, err)
 	_, err = stream.CloseAndRecv()
+	require.NoError(t, err)
+
+	voteHash, err := newDirectoryVote(filepath.Join(repoPath, customHooksDir))
 	require.NoError(t, err)
 
 	testhelper.MustClose(t, file)
@@ -148,4 +149,83 @@ func testFailedRestoreCustomHooksDueToBadTar(t *testing.T, ctx context.Context) 
 	_, err = stream.CloseAndRecv()
 
 	testhelper.RequireGrpcCode(t, err, codes.Internal)
+}
+
+type testFile struct {
+	name    string
+	content string
+	mode    os.FileMode
+}
+
+func TestNewDirectoryVote(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		desc         string
+		files        []testFile
+		expectedHash string
+	}{
+		{
+			desc: "generated hash matches",
+			files: []testFile{
+				{name: "pre-commit.sample", content: "foo", mode: 0o755},
+				{name: "pre-push.sample", content: "bar", mode: 0o755},
+			},
+			expectedHash: "b8f99a3012ce12c1a5711e3b94d45b98878cc18d",
+		},
+		{
+			desc: "generated hash matches with changed file name",
+			files: []testFile{
+				{name: "pre-commit.sample.diff", content: "foo", mode: 0o755},
+				{name: "pre-push.sample", content: "bar", mode: 0o755},
+			},
+			expectedHash: "f55ff88d7f84045fce970615ecd04c4fe9bf0a94",
+		},
+		{
+			desc: "generated hash matches with changed file content",
+			files: []testFile{
+				{name: "pre-commit.sample", content: "foo", mode: 0o755},
+				{name: "pre-push.sample", content: "bar.diff", mode: 0o755},
+			},
+			expectedHash: "0c628c59e62c351069037aad858a6f900ef1de9b",
+		},
+		{
+			desc: "generated hash matches with changed file mode",
+			files: []testFile{
+				{name: "pre-commit.sample", content: "foo", mode: 0o644},
+				{name: "pre-push.sample", content: "bar", mode: 0o755},
+			},
+			expectedHash: "9321dde590ef5ffa05d1ddf690b8983f406242e7",
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			path := setupTestHooks(t, tc.files)
+
+			voteHash, err := newDirectoryVote(path)
+			require.NoError(t, err)
+
+			vote, err := voteHash.Vote()
+			require.NoError(t, err)
+
+			hash := vote.String()
+			require.Equal(t, tc.expectedHash, hash)
+		})
+	}
+}
+
+func setupTestHooks(t *testing.T, files []testFile) string {
+	t.Helper()
+
+	tmpDir := testhelper.TempDir(t)
+	hooksPath := filepath.Join(tmpDir, customHooksDir)
+
+	err := os.Mkdir(hooksPath, 0o755)
+	require.NoError(t, err)
+
+	for _, f := range files {
+		err = os.WriteFile(filepath.Join(hooksPath, f.name), []byte(f.content), f.mode)
+		require.NoError(t, err)
+	}
+
+	return hooksPath
 }

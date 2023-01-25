@@ -2,8 +2,11 @@ package repository
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -85,8 +88,6 @@ func (s *server) restoreCustomHooksWithVoting(stream gitalypb.RepositoryService_
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
-	v := voting.NewVoteHash()
-
 	repoPath, err := s.locator.GetRepoPath(repository)
 	if err != nil {
 		return structerr.NewInternal("RestoreCustomHooks: getting repo path failed %w", err)
@@ -98,7 +99,7 @@ func (s *server) restoreCustomHooksWithVoting(stream gitalypb.RepositoryService_
 		return structerr.NewInternal("making custom hooks directory %w", err)
 	}
 
-	lockDir, err := safe.NewLockingDirectory(customHooksPath)
+	lockDir, err := safe.NewLockingDirectory(repoPath, customHooksDir)
 	if err != nil {
 		return structerr.NewInternal("RestoreCustomHooks: creating locking directory: %w", err)
 	}
@@ -117,26 +118,20 @@ func (s *server) restoreCustomHooksWithVoting(stream gitalypb.RepositoryService_
 		}
 	}()
 
-	if err := voteCustomHooks(ctx, s.txManager, &v, voting.Prepared); err != nil {
-		return err
+	preparedVote := voting.NewVoteHash()
+	if err := voteCustomHooks(ctx, s.txManager, &preparedVote, voting.Prepared); err != nil {
+		return structerr.NewInternal("casting prepared vote: %w", err)
 	}
 
 	reader := streamio.NewReader(func() ([]byte, error) {
-		var data []byte
-		defer func() {
-			_, _ = v.Write(data)
-		}()
-
 		if firstRequest != nil {
-			data = firstRequest.GetData()
+			data := firstRequest.GetData()
 			firstRequest = nil
 			return data, nil
 		}
 
 		request, err := stream.Recv()
-
-		data = request.GetData()
-		return data, err
+		return request.GetData(), err
 	})
 
 	cmdArgs := []string{
@@ -156,8 +151,13 @@ func (s *server) restoreCustomHooksWithVoting(stream gitalypb.RepositoryService_
 		return structerr.NewInternal("cmd wait failed: %w", err)
 	}
 
-	if err := voteCustomHooks(ctx, s.txManager, &v, voting.Committed); err != nil {
-		return err
+	committedVote, err := newDirectoryVote(customHooksPath)
+	if err != nil {
+		return structerr.NewInternal("generating committed vote: %w", err)
+	}
+
+	if err := voteCustomHooks(ctx, s.txManager, committedVote, voting.Committed); err != nil {
+		return structerr.NewInternal("casting committed vote: %w", err)
 	}
 
 	if err := lockDir.Unlock(); err != nil {
@@ -165,6 +165,55 @@ func (s *server) restoreCustomHooksWithVoting(stream gitalypb.RepositoryService_
 	}
 
 	return stream.SendAndClose(&gitalypb.RestoreCustomHooksResponse{})
+}
+
+// newDirectoryVote creates a voting.VoteHash by walking the specified path and
+// generating a hash based on file name, permissions, and data.
+func newDirectoryVote(basePath string) (*voting.VoteHash, error) {
+	voteHash := voting.NewVoteHash()
+
+	if err := filepath.WalkDir(basePath, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Write file name to hash. Since `WalkDir()` output is deterministic
+		// based on lexical order, the path does not need to be included with
+		// the name written to the hash. Any change to the entry's path will
+		// result in a different hash due to the change in walked order.
+		_, _ = voteHash.Write([]byte(entry.Name()))
+
+		info, err := entry.Info()
+		if err != nil {
+			return fmt.Errorf("getting file info: %w", err)
+		}
+
+		// Write file permissions to hash.
+		permBytes := make([]byte, 4)
+		binary.BigEndian.PutUint32(permBytes, uint32(info.Mode()))
+		_, _ = voteHash.Write(permBytes)
+
+		if entry.IsDir() {
+			return nil
+		}
+
+		file, err := os.Open(path)
+		if err != nil {
+			return fmt.Errorf("opening file: %w", err)
+		}
+		defer file.Close()
+
+		// Copy file data to hash.
+		if _, err = io.Copy(voteHash, file); err != nil {
+			return fmt.Errorf("copying file to hash: %w", err)
+		}
+
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("walking directory: %w", err)
+	}
+
+	return &voteHash, nil
 }
 
 func voteCustomHooks(

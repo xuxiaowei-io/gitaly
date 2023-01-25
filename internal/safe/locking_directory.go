@@ -20,10 +20,11 @@ const (
 type LockingDirectory struct {
 	state lockingDirectoryState
 	path  string
+	name  string
 }
 
 // NewLockingDirectory creates a new LockingDirectory.
-func NewLockingDirectory(path string) (*LockingDirectory, error) {
+func NewLockingDirectory(path, name string) (*LockingDirectory, error) {
 	fi, err := os.Stat(path)
 	if err != nil {
 		return nil, fmt.Errorf("creating new locking directory: %w", err)
@@ -36,6 +37,7 @@ func NewLockingDirectory(path string) (*LockingDirectory, error) {
 	ld := &LockingDirectory{
 		state: lockingDirectoryStateUnlocked,
 		path:  path,
+		name:  name,
 	}
 
 	return ld, nil
@@ -91,5 +93,5 @@ func (ld *LockingDirectory) Unlock() error {
 }
 
 func (ld *LockingDirectory) lockPath() string {
-	return filepath.Join(ld.path, ".lock")
+	return filepath.Join(ld.path, ld.name+".lock")
 }
