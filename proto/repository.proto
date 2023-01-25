@@ -326,6 +326,7 @@ service RepositoryService {
   // an admin inspects the repository's gitconfig such that he can easily see
   // what the repository name is.
   rpc SetFullPath(SetFullPathRequest) returns (SetFullPathResponse) {
+    option deprecated = true;
     option (op_type)  = {
       op: MUTATOR
     };
@@ -334,6 +335,7 @@ service RepositoryService {
   // FullPath reads the "gitlab.fullpath" configuration from the repository's
   // gitconfig. Returns an error in case the full path has not been configured.
   rpc FullPath(FullPathRequest) returns (FullPathResponse) {
+    option deprecated = true;
     option (op_type) = {
       op: ACCESSOR
     };

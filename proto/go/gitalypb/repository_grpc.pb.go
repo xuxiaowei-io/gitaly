@@ -133,11 +133,13 @@ type RepositoryServiceClient interface {
 	// To make proper use of this RPC you thus need to call OptimizeRepository,
 	// wait 30 minutes, and then call PruneUnreachableObjects.
 	PruneUnreachableObjects(ctx context.Context, in *PruneUnreachableObjectsRequest, opts ...grpc.CallOption) (*PruneUnreachableObjectsResponse, error)
+	// Deprecated: Do not use.
 	// SetFullPath writes the "gitlab.fullpath" configuration into the
 	// repository's gitconfig. This is mainly to help debugging purposes in case
 	// an admin inspects the repository's gitconfig such that he can easily see
 	// what the repository name is.
 	SetFullPath(ctx context.Context, in *SetFullPathRequest, opts ...grpc.CallOption) (*SetFullPathResponse, error)
+	// Deprecated: Do not use.
 	// FullPath reads the "gitlab.fullpath" configuration from the repository's
 	// gitconfig. Returns an error in case the full path has not been configured.
 	FullPath(ctx context.Context, in *FullPathRequest, opts ...grpc.CallOption) (*FullPathResponse, error)
@@ -821,6 +823,7 @@ func (c *repositoryServiceClient) PruneUnreachableObjects(ctx context.Context, i
 	return out, nil
 }
 
+// Deprecated: Do not use.
 func (c *repositoryServiceClient) SetFullPath(ctx context.Context, in *SetFullPathRequest, opts ...grpc.CallOption) (*SetFullPathResponse, error) {
 	out := new(SetFullPathResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/SetFullPath", in, out, opts...)
@@ -830,6 +833,7 @@ func (c *repositoryServiceClient) SetFullPath(ctx context.Context, in *SetFullPa
 	return out, nil
 }
 
+// Deprecated: Do not use.
 func (c *repositoryServiceClient) FullPath(ctx context.Context, in *FullPathRequest, opts ...grpc.CallOption) (*FullPathResponse, error) {
 	out := new(FullPathResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/FullPath", in, out, opts...)
@@ -954,11 +958,13 @@ type RepositoryServiceServer interface {
 	// To make proper use of this RPC you thus need to call OptimizeRepository,
 	// wait 30 minutes, and then call PruneUnreachableObjects.
 	PruneUnreachableObjects(context.Context, *PruneUnreachableObjectsRequest) (*PruneUnreachableObjectsResponse, error)
+	// Deprecated: Do not use.
 	// SetFullPath writes the "gitlab.fullpath" configuration into the
 	// repository's gitconfig. This is mainly to help debugging purposes in case
 	// an admin inspects the repository's gitconfig such that he can easily see
 	// what the repository name is.
 	SetFullPath(context.Context, *SetFullPathRequest) (*SetFullPathResponse, error)
+	// Deprecated: Do not use.
 	// FullPath reads the "gitlab.fullpath" configuration from the repository's
 	// gitconfig. Returns an error in case the full path has not been configured.
 	FullPath(context.Context, *FullPathRequest) (*FullPathResponse, error)
