@@ -21,8 +21,9 @@ type requestWithLeftRightCommitIds interface {
 
 func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.DiffService_CommitDiffServer) error {
 	ctxlogrus.Extract(stream.Context()).WithFields(log.Fields{
-		"LeftCommitId":           in.LeftCommitId,
-		"RightCommitId":          in.RightCommitId,
+		"LeftCommitId":  in.LeftCommitId,
+		"RightCommitId": in.RightCommitId,
+		//nolint:staticcheck // This is a deprecated field and will be remove in a upcoming release
 		"IgnoreWhitespaceChange": in.IgnoreWhitespaceChange,
 		"Paths":                  logPaths(in.Paths),
 	}).Debug("CommitDiff")
@@ -33,6 +34,7 @@ func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.Diff
 
 	leftSha := in.LeftCommitId
 	rightSha := in.RightCommitId
+	//nolint:staticcheck // This is a deprecated field and will be remove in a upcoming release
 	ignoreWhitespaceChange := in.GetIgnoreWhitespaceChange()
 	paths := in.GetPaths()
 
