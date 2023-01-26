@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/objectpool"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	objectpoolsvc "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/objectpool"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
@@ -29,7 +29,7 @@ func DeleteObjectPoolHandler(rs datastore.RepositoryStore, conns Connections) gr
 				return nil, err
 			}
 
-			if !housekeeping.IsRailsPoolRepository(repo) {
+			if !stats.IsRailsPoolRepository(repo) {
 				return nil, structerr.NewInvalidArgument("%w", objectpool.ErrInvalidPoolDir)
 			}
 

@@ -398,7 +398,7 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 			require.Equal(t, tc.expectedErr, err)
 
 			expectedMetrics := tc.expectedMetrics
-			if IsPoolRepository(repoProto) && tc.expectedMetricsForPool != "" {
+			if stats.IsPoolRepository(repoProto) && tc.expectedMetricsForPool != "" {
 				expectedMetrics = tc.expectedMetricsForPool
 			}
 

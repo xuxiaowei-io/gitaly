@@ -41,7 +41,7 @@ func NewHeuristicalOptimizationStrategy(ctx context.Context, repo *localrepo.Rep
 	var strategy HeuristicalOptimizationStrategy
 	var err error
 
-	strategy.isObjectPool = IsPoolRepository(repo)
+	strategy.isObjectPool = stats.IsPoolRepository(repo)
 	strategy.info, err = stats.RepositoryInfoForRepository(repo)
 	if err != nil {
 		return HeuristicalOptimizationStrategy{}, fmt.Errorf("deriving repository info: %w", err)
@@ -263,7 +263,7 @@ func NewEagerOptimizationStrategy(ctx context.Context, repo *localrepo.Repo) (Ea
 
 	return EagerOptimizationStrategy{
 		hasAlternate: hasAlternate,
-		isObjectPool: IsPoolRepository(repo),
+		isObjectPool: stats.IsPoolRepository(repo),
 	}, nil
 }
 

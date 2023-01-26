@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -301,7 +302,7 @@ func testRepackObjects(t *testing.T, ctx context.Context) {
 		})
 		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-		gittest.TestDeltaIslands(t, cfg, repoPath, repoPath, IsPoolRepository(repoProto), func() error {
+		gittest.TestDeltaIslands(t, cfg, repoPath, repoPath, stats.IsPoolRepository(repoProto), func() error {
 			return RepackObjects(ctx, repo, RepackObjectsConfig{
 				FullRepack: true,
 			})

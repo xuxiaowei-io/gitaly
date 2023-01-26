@@ -315,7 +315,7 @@ func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
 				repoProto := tc.setup(t, relativePath)
 				repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-				tc.expectedStrategy.isObjectPool = IsPoolRepository(repo)
+				tc.expectedStrategy.isObjectPool = stats.IsPoolRepository(repo)
 
 				strategy, err := NewHeuristicalOptimizationStrategy(ctx, repo)
 				require.NoError(t, err)
@@ -888,7 +888,7 @@ func TestNewEagerOptimizationStrategy(t *testing.T) {
 				repoProto := tc.setup(t, relativePath)
 				repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-				tc.expectedStrategy.isObjectPool = IsPoolRepository(repo)
+				tc.expectedStrategy.isObjectPool = stats.IsPoolRepository(repo)
 
 				strategy, err := NewEagerOptimizationStrategy(ctx, repo)
 				require.NoError(t, err)
