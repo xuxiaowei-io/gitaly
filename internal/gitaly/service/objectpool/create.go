@@ -3,8 +3,8 @@ package objectpool
 import (
 	"context"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/objectpool"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/repoutil"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -25,7 +25,7 @@ func (s *server) CreateObjectPool(ctx context.Context, in *gitalypb.CreateObject
 		return nil, errMissingPool
 	}
 
-	if !housekeeping.IsPoolRepository(poolRepo) {
+	if !stats.IsPoolRepository(poolRepo) {
 		return nil, errInvalidPoolDir
 	}
 

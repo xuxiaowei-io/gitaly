@@ -2,11 +2,8 @@ package housekeeping
 
 import (
 	"context"
-	"fmt"
 	"math"
-	"os"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 )
 
@@ -30,25 +27,16 @@ type OptimizationStrategy interface {
 // HeuristicalOptimizationStrategy is an optimization strategy that is based on a set of
 // heuristics.
 type HeuristicalOptimizationStrategy struct {
-	info         stats.RepositoryInfo
-	isObjectPool bool
+	info stats.RepositoryInfo
 }
 
 // NewHeuristicalOptimizationStrategy constructs a heuristicalOptimizationStrategy for the given
-// repository. It derives all data from the repository so that the heuristics used by this
+// repository info. It derives all data from the repository so that the heuristics used by this
 // repository can be decided without further disk reads.
-func NewHeuristicalOptimizationStrategy(ctx context.Context, repo *localrepo.Repo) (HeuristicalOptimizationStrategy, error) {
-	var strategy HeuristicalOptimizationStrategy
-	var err error
-
-	strategy.isObjectPool = IsPoolRepository(repo)
-	strategy.info, err = stats.RepositoryInfoForRepository(repo)
-	if err != nil {
-		return HeuristicalOptimizationStrategy{}, fmt.Errorf("deriving repository info: %w", err)
+func NewHeuristicalOptimizationStrategy(info stats.RepositoryInfo) HeuristicalOptimizationStrategy {
+	return HeuristicalOptimizationStrategy{
+		info: info,
 	}
-	strategy.info.Log(ctx)
-
-	return strategy, nil
 }
 
 // ShouldRepackObjects checks whether the repository's objects need to be repacked. This uses a
@@ -112,7 +100,7 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(context.Context) (b
 	// This is a heuristic and thus imperfect by necessity. We may tune it as we gain experience
 	// with the way it behaves.
 	lowerLimit, log := 5.0, 1.3
-	if s.isObjectPool {
+	if s.info.IsObjectPool {
 		lowerLimit, log = 2.0, 10.0
 	}
 
@@ -192,7 +180,7 @@ func (s HeuristicalOptimizationStrategy) ShouldWriteCommitGraph(ctx context.Cont
 func (s HeuristicalOptimizationStrategy) ShouldPruneObjects(context.Context) bool {
 	// Pool repositories must never prune any objects, or otherwise we may corrupt members of
 	// that pool if they still refer to that object.
-	if s.isObjectPool {
+	if s.info.IsObjectPool {
 		return false
 	}
 
@@ -245,26 +233,14 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackReferences(context.Context)
 // EagerOptimizationStrategy is a strategy that will eagerly perform optimizations. All of the data
 // structures will be optimized regardless of whether they already are in an optimal state or not.
 type EagerOptimizationStrategy struct {
-	hasAlternate bool
-	isObjectPool bool
+	info stats.RepositoryInfo
 }
 
 // NewEagerOptimizationStrategy creates a new EagerOptimizationStrategy.
-func NewEagerOptimizationStrategy(ctx context.Context, repo *localrepo.Repo) (EagerOptimizationStrategy, error) {
-	altFile, err := repo.InfoAlternatesPath()
-	if err != nil {
-		return EagerOptimizationStrategy{}, fmt.Errorf("getting alternates path: %w", err)
-	}
-
-	hasAlternate := true
-	if _, err := os.Stat(altFile); os.IsNotExist(err) {
-		hasAlternate = false
-	}
-
+func NewEagerOptimizationStrategy(info stats.RepositoryInfo) EagerOptimizationStrategy {
 	return EagerOptimizationStrategy{
-		hasAlternate: hasAlternate,
-		isObjectPool: IsPoolRepository(repo),
-	}, nil
+		info: info,
+	}
 }
 
 // ShouldRepackObjects always instructs the caller to repack objects. The strategy will always be to
@@ -273,7 +249,7 @@ func NewEagerOptimizationStrategy(ctx context.Context, repo *localrepo.Repo) (Ea
 func (s EagerOptimizationStrategy) ShouldRepackObjects(context.Context) (bool, RepackObjectsConfig) {
 	return true, RepackObjectsConfig{
 		FullRepack:  true,
-		WriteBitmap: !s.hasAlternate,
+		WriteBitmap: len(s.info.Alternates) == 0,
 	}
 }
 
@@ -288,7 +264,7 @@ func (s EagerOptimizationStrategy) ShouldWriteCommitGraph(context.Context) (bool
 // ShouldPruneObjects always instructs the caller to prune objects, unless the repository is an
 // object pool.
 func (s EagerOptimizationStrategy) ShouldPruneObjects(context.Context) bool {
-	return !s.isObjectPool
+	return !s.info.IsObjectPool
 }
 
 // ShouldRepackReferences always instructs the caller to repack references.

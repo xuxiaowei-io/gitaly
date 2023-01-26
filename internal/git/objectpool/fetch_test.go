@@ -291,7 +291,9 @@ func TestObjectPool_logStats(t *testing.T) {
 			expectedFields: logrus.Fields{
 				"references.dangling": referencedObjectTypes{},
 				"references.normal":   referencedObjectTypes{},
-				"repository_info":     stats.RepositoryInfo{},
+				"repository_info": stats.RepositoryInfo{
+					IsObjectPool: true,
+				},
 			},
 		},
 		{
@@ -307,6 +309,7 @@ func TestObjectPool_logStats(t *testing.T) {
 					Commits: 1,
 				},
 				"repository_info": stats.RepositoryInfo{
+					IsObjectPool: true,
 					LooseObjects: stats.LooseObjectsInfo{
 						Count: 2,
 						Size:  142,
@@ -330,6 +333,7 @@ func TestObjectPool_logStats(t *testing.T) {
 				},
 				"references.normal": referencedObjectTypes{},
 				"repository_info": stats.RepositoryInfo{
+					IsObjectPool: true,
 					LooseObjects: stats.LooseObjectsInfo{
 						Count: 2,
 						Size:  142,

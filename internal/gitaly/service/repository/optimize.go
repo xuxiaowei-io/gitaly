@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -16,27 +17,23 @@ func (s *server) OptimizeRepository(ctx context.Context, in *gitalypb.OptimizeRe
 
 	repo := s.localrepo(in.GetRepository())
 
-	var strategyOpt housekeeping.OptimizeRepositoryOption
+	var strategyConstructor housekeeping.OptimizationStrategyConstructor
 	switch in.GetStrategy() {
 	case gitalypb.OptimizeRepositoryRequest_STRATEGY_UNSPECIFIED, gitalypb.OptimizeRepositoryRequest_STRATEGY_HEURISTICAL:
-		strategy, err := housekeeping.NewHeuristicalOptimizationStrategy(ctx, repo)
-		if err != nil {
-			return nil, structerr.NewInternal("creating heuristical optimization strategy: %w", err)
+		strategyConstructor = func(info stats.RepositoryInfo) housekeeping.OptimizationStrategy {
+			return housekeeping.NewHeuristicalOptimizationStrategy(info)
 		}
-
-		strategyOpt = housekeeping.WithOptimizationStrategy(strategy)
 	case gitalypb.OptimizeRepositoryRequest_STRATEGY_EAGER:
-		strategy, err := housekeeping.NewEagerOptimizationStrategy(ctx, repo)
-		if err != nil {
-			return nil, structerr.NewInternal("creating eager optimization strategy: %w", err)
+		strategyConstructor = func(info stats.RepositoryInfo) housekeeping.OptimizationStrategy {
+			return housekeeping.NewEagerOptimizationStrategy(info)
 		}
-
-		strategyOpt = housekeeping.WithOptimizationStrategy(strategy)
 	default:
 		return nil, structerr.NewInvalidArgument("unsupported optimization strategy %d", in.GetStrategy())
 	}
 
-	if err := s.housekeepingManager.OptimizeRepository(ctx, repo, strategyOpt); err != nil {
+	if err := s.housekeepingManager.OptimizeRepository(ctx, repo,
+		housekeeping.WithOptimizationStrategyConstructor(strategyConstructor),
+	); err != nil {
 		return nil, structerr.NewInternal("%w", err)
 	}
 

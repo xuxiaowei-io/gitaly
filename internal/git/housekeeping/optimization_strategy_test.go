@@ -3,327 +3,12 @@ package housekeeping
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
-	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
-
-func TestNewHeuristicalOptimizationStrategy_variousParameters(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	cfg := testcfg.Build(t)
-
-	disabledGenerationVersion := "commitGraph.generationVersion=1"
-	enabledGenerationVersion := "commitGraph.generationVersion=2"
-
-	for _, tc := range []struct {
-		desc             string
-		setup            func(t *testing.T, relativePath string) *gitalypb.Repository
-		expectedStrategy HeuristicalOptimizationStrategy
-	}{
-		{
-			desc: "empty repo",
-			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-					SkipCreationViaService: true,
-					RelativePath:           relativePath,
-				})
-				return repoProto
-			},
-			expectedStrategy: HeuristicalOptimizationStrategy{},
-		},
-		{
-			desc: "object in 17 shard",
-			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-					SkipCreationViaService: true,
-					RelativePath:           relativePath,
-				})
-
-				looseObjectPath := filepath.Join(repoPath, "objects", "17", "1234")
-				require.NoError(t, os.MkdirAll(filepath.Dir(looseObjectPath), 0o755))
-				require.NoError(t, os.WriteFile(looseObjectPath, nil, 0o644))
-
-				return repoProto
-			},
-			expectedStrategy: HeuristicalOptimizationStrategy{
-				info: stats.RepositoryInfo{
-					LooseObjects: stats.LooseObjectsInfo{
-						Count: 1,
-					},
-				},
-			},
-		},
-		{
-			desc: "old object in 17 shard",
-			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-					SkipCreationViaService: true,
-					RelativePath:           relativePath,
-				})
-
-				shard := filepath.Join(repoPath, "objects", "17")
-				require.NoError(t, os.MkdirAll(shard, 0o755))
-
-				// We write one recent...
-				require.NoError(t, os.WriteFile(filepath.Join(shard, "1234"), nil, 0o644))
-
-				// ... and one stale object.
-				staleObjectPath := filepath.Join(shard, "5678")
-				require.NoError(t, os.WriteFile(staleObjectPath, nil, 0o644))
-				twoWeeksAgo := time.Now().Add(stats.StaleObjectsGracePeriod)
-				require.NoError(t, os.Chtimes(staleObjectPath, twoWeeksAgo, twoWeeksAgo))
-
-				return repoProto
-			},
-			expectedStrategy: HeuristicalOptimizationStrategy{
-				info: stats.RepositoryInfo{
-					LooseObjects: stats.LooseObjectsInfo{
-						Count:      2,
-						StaleCount: 1,
-					},
-				},
-			},
-		},
-		{
-			desc: "packfile",
-			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-					SkipCreationViaService: true,
-					RelativePath:           relativePath,
-				})
-
-				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "objects", "pack", "pack-foobar.pack"), nil, 0o644))
-
-				return repoProto
-			},
-			expectedStrategy: HeuristicalOptimizationStrategy{
-				info: stats.RepositoryInfo{
-					Packfiles: stats.PackfilesInfo{
-						Count: 1,
-					},
-				},
-			},
-		},
-		{
-			desc: "alternate",
-			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-					SkipCreationViaService: true,
-					RelativePath:           relativePath,
-				})
-
-				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "objects", "info", "alternates"), []byte("/path/to/alternate"), 0o644))
-
-				return repoProto
-			},
-			expectedStrategy: HeuristicalOptimizationStrategy{
-				info: stats.RepositoryInfo{
-					Alternates: []string{"/path/to/alternate"},
-				},
-			},
-		},
-		{
-			desc: "bitmap",
-			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-					SkipCreationViaService: true,
-					RelativePath:           relativePath,
-				})
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
-
-				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Adb")
-
-				return repoProto
-			},
-			expectedStrategy: HeuristicalOptimizationStrategy{
-				info: stats.RepositoryInfo{
-					References: stats.ReferencesInfo{
-						LooseReferencesCount: 1,
-					},
-					Packfiles: stats.PackfilesInfo{
-						Count: 1,
-						Size:  hashDependentObjectSize(163, 189),
-						Bitmap: stats.BitmapInfo{
-							Exists:       true,
-							Version:      1,
-							HasHashCache: true,
-						},
-					},
-				},
-			},
-		},
-		{
-			desc: "existing unsplit commit-graph with bloom filters and no generation data",
-			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-					SkipCreationViaService: true,
-				})
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
-
-				// Write a non-split commit-graph with bloom filters. We should
-				// always rewrite the commit-graphs when we're not using a split
-				// commit-graph. We make sure to add bloom filters via
-				// `--changed-paths` given that it would otherwise cause us to
-				// rewrite the graph regardless of whether the graph is split or not
-				// if they were missing.
-				gittest.Exec(t, cfg, "-C", repoPath, "-c", disabledGenerationVersion,
-					"commit-graph", "write", "--reachable", "--changed-paths",
-				)
-
-				return repoProto
-			},
-			expectedStrategy: HeuristicalOptimizationStrategy{
-				info: stats.RepositoryInfo{
-					LooseObjects: stats.LooseObjectsInfo{
-						Count: 2,
-						Size:  hashDependentObjectSize(142, 158),
-					},
-					References: stats.ReferencesInfo{
-						LooseReferencesCount: 1,
-					},
-					CommitGraph: stats.CommitGraphInfo{
-						Exists:            true,
-						HasBloomFilters:   true,
-						HasGenerationData: false,
-					},
-				},
-			},
-		},
-		{
-			desc: "existing unsplit commit-graph with bloom filters with generation data",
-			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-					SkipCreationViaService: true,
-				})
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
-
-				// Write a non-split commit-graph with bloom filters. We should
-				// always rewrite the commit-graphs when we're not using a split
-				// commit-graph. We make sure to add bloom filters via
-				// `--changed-paths` given that it would otherwise cause us to
-				// rewrite the graph regardless of whether the graph is split or not
-				// if they were missing.
-				gittest.Exec(t, cfg, "-C", repoPath, "-c", enabledGenerationVersion,
-					"commit-graph", "write", "--reachable", "--changed-paths",
-				)
-
-				return repoProto
-			},
-			expectedStrategy: HeuristicalOptimizationStrategy{
-				info: stats.RepositoryInfo{
-					LooseObjects: stats.LooseObjectsInfo{
-						Count: 2,
-						Size:  hashDependentObjectSize(142, 158),
-					},
-					References: stats.ReferencesInfo{
-						LooseReferencesCount: 1,
-					},
-					CommitGraph: stats.CommitGraphInfo{
-						Exists:            true,
-						HasBloomFilters:   true,
-						HasGenerationData: true,
-					},
-				},
-			},
-		},
-		{
-			desc: "existing split commit-graph without bloom filters and generation data",
-			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-					SkipCreationViaService: true,
-				})
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
-
-				// Generate a split commit-graph, but don't enable computation of
-				// changed paths. This should trigger a rewrite so that we can
-				// recompute all graphs and generate the changed paths.
-				gittest.Exec(t, cfg, "-C", repoPath, "-c", disabledGenerationVersion,
-					"commit-graph", "write", "--reachable", "--split",
-				)
-
-				return repoProto
-			},
-			expectedStrategy: HeuristicalOptimizationStrategy{
-				info: stats.RepositoryInfo{
-					LooseObjects: stats.LooseObjectsInfo{
-						Count: 2,
-						Size:  hashDependentObjectSize(142, 158),
-					},
-					References: stats.ReferencesInfo{
-						LooseReferencesCount: 1,
-					},
-					CommitGraph: stats.CommitGraphInfo{
-						Exists:                 true,
-						CommitGraphChainLength: 1,
-					},
-				},
-			},
-		},
-		{
-			desc: "existing split commit-graph with bloom filters and generation data",
-			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-					SkipCreationViaService: true,
-				})
-				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
-
-				// Write a split commit-graph with bitmaps. This is the state we
-				// want to be in, so there is no write required if we didn't also
-				// repack objects.
-				gittest.Exec(t, cfg, "-C", repoPath, "-c", enabledGenerationVersion,
-					"commit-graph", "write", "--reachable", "--split", "--changed-paths",
-				)
-
-				return repoProto
-			},
-			expectedStrategy: HeuristicalOptimizationStrategy{
-				info: stats.RepositoryInfo{
-					LooseObjects: stats.LooseObjectsInfo{
-						Count: 2,
-						Size:  hashDependentObjectSize(142, 158),
-					},
-					References: stats.ReferencesInfo{
-						LooseReferencesCount: 1,
-					},
-					CommitGraph: stats.CommitGraphInfo{
-						Exists:                 true,
-						CommitGraphChainLength: 1,
-						HasBloomFilters:        true,
-						HasGenerationData:      true,
-					},
-				},
-			},
-		},
-	} {
-		tc := tc
-
-		t.Run(tc.desc, func(t *testing.T) {
-			t.Parallel()
-
-			testRepoAndPool(t, tc.desc, func(t *testing.T, relativePath string) {
-				repoProto := tc.setup(t, relativePath)
-				repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-				tc.expectedStrategy.isObjectPool = IsPoolRepository(repo)
-
-				strategy, err := NewHeuristicalOptimizationStrategy(ctx, repo)
-				require.NoError(t, err)
-				require.Equal(t, tc.expectedStrategy, strategy)
-			})
-		})
-	}
-}
 
 func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 	t.Parallel()
@@ -467,6 +152,7 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 				t.Run(tc.desc, func(t *testing.T) {
 					strategy := HeuristicalOptimizationStrategy{
 						info: stats.RepositoryInfo{
+							IsObjectPool: tc.isPool,
 							Packfiles: stats.PackfilesInfo{
 								Size:  outerTC.packfileSizeInMB * 1024 * 1024,
 								Count: tc.requiredPackfiles - 1,
@@ -476,7 +162,6 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 							},
 							Alternates: tc.alternates,
 						},
-						isObjectPool: tc.isPool,
 					}
 
 					repackNeeded, _ := strategy.ShouldRepackObjects(ctx)
@@ -539,6 +224,7 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 			t.Run(tc.desc, func(t *testing.T) {
 				strategy := HeuristicalOptimizationStrategy{
 					info: stats.RepositoryInfo{
+						IsObjectPool: tc.isPool,
 						LooseObjects: stats.LooseObjectsInfo{
 							Count: outerTC.looseObjects,
 						},
@@ -550,7 +236,6 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 							},
 						},
 					},
-					isObjectPool: tc.isPool,
 				}
 
 				repackNeeded, repackCfg := strategy.ShouldRepackObjects(ctx)
@@ -620,7 +305,7 @@ func TestHeuristicalOptimizationStrategy_ShouldPruneObjects(t *testing.T) {
 
 			t.Run("object pool", func(t *testing.T) {
 				strategy := tc.strategy
-				strategy.isObjectPool = true
+				strategy.info.IsObjectPool = true
 				require.False(t, strategy.ShouldPruneObjects(ctx))
 			})
 		})
@@ -840,64 +525,6 @@ func TestHeuristicalOptimizationStrategy_NeedsWriteCommitGraph(t *testing.T) {
 	}
 }
 
-func TestNewEagerOptimizationStrategy(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	cfg := testcfg.Build(t)
-
-	for _, tc := range []struct {
-		desc             string
-		setup            func(t *testing.T, relativePath string) *gitalypb.Repository
-		expectedStrategy EagerOptimizationStrategy
-	}{
-		{
-			desc: "empty repo",
-			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-					SkipCreationViaService: true,
-					RelativePath:           relativePath,
-				})
-				return repoProto
-			},
-			expectedStrategy: EagerOptimizationStrategy{},
-		},
-		{
-			desc: "alternate",
-			setup: func(t *testing.T, relativePath string) *gitalypb.Repository {
-				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-					SkipCreationViaService: true,
-					RelativePath:           relativePath,
-				})
-
-				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "objects", "info", "alternates"), nil, 0o644))
-
-				return repoProto
-			},
-			expectedStrategy: EagerOptimizationStrategy{
-				hasAlternate: true,
-			},
-		},
-	} {
-		tc := tc
-
-		t.Run(tc.desc, func(t *testing.T) {
-			t.Parallel()
-
-			testRepoAndPool(t, tc.desc, func(t *testing.T, relativePath string) {
-				repoProto := tc.setup(t, relativePath)
-				repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-				tc.expectedStrategy.isObjectPool = IsPoolRepository(repo)
-
-				strategy, err := NewEagerOptimizationStrategy(ctx, repo)
-				require.NoError(t, err)
-				require.Equal(t, tc.expectedStrategy, strategy)
-			})
-		})
-	}
-}
-
 func TestEagerOptimizationStrategy(t *testing.T) {
 	t.Parallel()
 
@@ -917,22 +544,28 @@ func TestEagerOptimizationStrategy(t *testing.T) {
 		{
 			desc: "alternate",
 			strategy: EagerOptimizationStrategy{
-				hasAlternate: true,
+				info: stats.RepositoryInfo{
+					Alternates: []string{"path/to/alternate"},
+				},
 			},
 			expectShouldPruneObjects: true,
 		},
 		{
 			desc: "object pool",
 			strategy: EagerOptimizationStrategy{
-				isObjectPool: true,
+				info: stats.RepositoryInfo{
+					IsObjectPool: true,
+				},
 			},
 			expectWriteBitmap: true,
 		},
 		{
 			desc: "object pool with alternate",
 			strategy: EagerOptimizationStrategy{
-				hasAlternate: true,
-				isObjectPool: true,
+				info: stats.RepositoryInfo{
+					IsObjectPool: true,
+					Alternates:   []string{"path/to/alternate"},
+				},
 			},
 		},
 	} {
@@ -980,11 +613,4 @@ func (m mockOptimizationStrategy) ShouldRepackReferences(context.Context) bool {
 
 func (m mockOptimizationStrategy) ShouldWriteCommitGraph(context.Context) (bool, WriteCommitGraphConfig) {
 	return m.shouldWriteCommitGraph, m.writeCommitGraphCfg
-}
-
-func hashDependentObjectSize(sha1Size, sha256Size uint64) uint64 {
-	if gittest.ObjectHashIsSHA256() {
-		return sha256Size
-	}
-	return sha1Size
 }

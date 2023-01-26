@@ -55,6 +55,8 @@ func LogRepositoryInfo(ctx context.Context, repo *localrepo.Repo) {
 
 // RepositoryInfo contains information about the repository.
 type RepositoryInfo struct {
+	// IsObjectPool determines whether the repository is an object pool or a normal repository.
+	IsObjectPool bool `json:"is_object_pool"`
 	// LooseObjects contains information about loose objects.
 	LooseObjects LooseObjectsInfo `json:"loose_objects"`
 	// Packfiles contains information about packfiles.
@@ -77,6 +79,8 @@ func RepositoryInfoForRepository(repo *localrepo.Repo) (RepositoryInfo, error) {
 	if err != nil {
 		return RepositoryInfo{}, err
 	}
+
+	info.IsObjectPool = IsPoolRepository(repo)
 
 	info.LooseObjects, err = LooseObjectsInfoForRepository(repo, time.Now().Add(StaleObjectsGracePeriod))
 	if err != nil {
