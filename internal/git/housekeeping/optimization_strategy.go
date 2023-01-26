@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 )
 
 // OptimizationStrategy is an interface to determine which parts of a repository should be
@@ -42,7 +43,7 @@ func NewHeuristicalOptimizationStrategy(info stats.RepositoryInfo) HeuristicalOp
 // ShouldRepackObjects checks whether the repository's objects need to be repacked. This uses a
 // set of heuristics that scales with the size of the object database: the larger the repository,
 // the less frequent does it get a full repack.
-func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(context.Context) (bool, RepackObjectsConfig) {
+func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context) (bool, RepackObjectsConfig) {
 	// If there are neither packfiles nor loose objects in this repository then there is no need
 	// to repack anything.
 	if s.info.Packfiles.Count == 0 && s.info.LooseObjects.Count == 0 {
@@ -59,7 +60,12 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(context.Context) (b
 	// a bitmap on their own. We do not yet use multi-pack indices, and in that case Git can
 	// only use one bitmap. We already generate this bitmap in the pool, so member of it
 	// shouldn't have another bitmap on their own.
-	if !s.info.Packfiles.Bitmap.Exists && len(s.info.Alternates) == 0 {
+	//
+	// Addendum: this isn't true anymore as we're rolling out multi-pack-indices. For one, they
+	// allow us to have bitmaps even in repositories that are linked via alternates. And second,
+	// they don't require a full repack in order to write the bitmap. So once we have fully
+	// rolled out multi-pack-indices this whole condition can go away.
+	if featureflag.WriteMultiPackIndex.IsDisabled(ctx) && !s.info.Packfiles.Bitmap.Exists && len(s.info.Alternates) == 0 {
 		return true, RepackObjectsConfig{
 			FullRepack:  true,
 			WriteBitmap: true,
@@ -107,8 +113,9 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(context.Context) (b
 	if uint64(math.Max(lowerLimit,
 		math.Log(float64(s.info.Packfiles.Size/1024/1024))/math.Log(log))) <= s.info.Packfiles.Count {
 		return true, RepackObjectsConfig{
-			FullRepack:  true,
-			WriteBitmap: len(s.info.Alternates) == 0,
+			FullRepack:          true,
+			WriteBitmap:         len(s.info.Alternates) == 0 || featureflag.WriteMultiPackIndex.IsEnabled(ctx),
+			WriteMultiPackIndex: featureflag.WriteMultiPackIndex.IsEnabled(ctx),
 		}
 	}
 
@@ -127,8 +134,19 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(context.Context) (b
 	// it is necessary on the client side. We thus take a much stricter limit of 1024 objects.
 	if s.info.LooseObjects.Count > looseObjectLimit {
 		return true, RepackObjectsConfig{
-			FullRepack:  false,
-			WriteBitmap: false,
+			FullRepack:          false,
+			WriteBitmap:         featureflag.WriteMultiPackIndex.IsEnabled(ctx),
+			WriteMultiPackIndex: featureflag.WriteMultiPackIndex.IsEnabled(ctx),
+		}
+	}
+
+	// In case both packfiles and loose objects are in a good state, but we don't yet have a
+	// multi-pack-index we perform an incremental repack to generate one.
+	if featureflag.WriteMultiPackIndex.IsEnabled(ctx) && !s.info.Packfiles.HasMultiPackIndex {
+		return true, RepackObjectsConfig{
+			FullRepack:          false,
+			WriteBitmap:         true,
+			WriteMultiPackIndex: true,
 		}
 	}
 
@@ -246,10 +264,11 @@ func NewEagerOptimizationStrategy(info stats.RepositoryInfo) EagerOptimizationSt
 // ShouldRepackObjects always instructs the caller to repack objects. The strategy will always be to
 // repack all objects into a single packfile. The bitmap will be written in case the repository does
 // not have any alterantes.
-func (s EagerOptimizationStrategy) ShouldRepackObjects(context.Context) (bool, RepackObjectsConfig) {
+func (s EagerOptimizationStrategy) ShouldRepackObjects(ctx context.Context) (bool, RepackObjectsConfig) {
 	return true, RepackObjectsConfig{
-		FullRepack:  true,
-		WriteBitmap: len(s.info.Alternates) == 0,
+		FullRepack:          true,
+		WriteBitmap:         len(s.info.Alternates) == 0 || featureflag.WriteMultiPackIndex.IsEnabled(ctx),
+		WriteMultiPackIndex: featureflag.WriteMultiPackIndex.IsEnabled(ctx),
 	}
 }
 
