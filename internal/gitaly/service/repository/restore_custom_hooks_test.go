@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -158,7 +159,15 @@ type testFile struct {
 }
 
 func TestNewDirectoryVote(t *testing.T) {
-	t.Parallel()
+	// The vote hash depends on the permission bits, so we must make sure that the files we
+	// write have the same permission bits on all systems. As the umask can get in our way we
+	// reset it to a known value here and restore it after the test. This also means that we
+	// cannot parallelize this test.
+	currentUmask := syscall.Umask(0)
+	defer func() {
+		syscall.Umask(currentUmask)
+	}()
+	syscall.Umask(0o022)
 
 	for _, tc := range []struct {
 		desc         string
