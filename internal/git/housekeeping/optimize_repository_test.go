@@ -163,12 +163,17 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 	cfg := testcfg.Build(t)
 	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
 
+	type metric struct {
+		name, status string
+		count        int
+	}
+
 	for _, tc := range []struct {
 		desc                   string
 		setup                  func(t *testing.T, relativePath string) *gitalypb.Repository
 		expectedErr            error
-		expectedMetrics        string
-		expectedMetricsForPool string
+		expectedMetrics        []metric
+		expectedMetricsForPool []metric
 	}{
 		{
 			desc: "empty repository does nothing",
@@ -179,10 +184,9 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				})
 				return repo
 			},
-			expectedMetrics: `# HELP gitaly_housekeeping_tasks_total Total number of housekeeping tasks performed in the repository
-# TYPE gitaly_housekeeping_tasks_total counter
-gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
-`,
+			expectedMetrics: []metric{
+				{name: "total", status: "success", count: 1},
+			},
 		},
 		{
 			desc: "repository without bitmap repacks objects",
@@ -194,13 +198,12 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 				return repo
 			},
-			expectedMetrics: `# HELP gitaly_housekeeping_tasks_total Total number of housekeeping tasks performed in the repository
-# TYPE gitaly_housekeeping_tasks_total counter
-gitaly_housekeeping_tasks_total{housekeeping_task="packed_objects_full", status="success"} 1
-gitaly_housekeeping_tasks_total{housekeeping_task="written_commit_graph_full", status="success"} 1
-gitaly_housekeeping_tasks_total{housekeeping_task="written_bitmap", status="success"} 1
-gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
-`,
+			expectedMetrics: []metric{
+				{name: "packed_objects_full", status: "success", count: 1},
+				{name: "written_commit_graph_full", status: "success", count: 1},
+				{name: "written_bitmap", status: "success", count: 1},
+				{name: "total", status: "success", count: 1},
+			},
 		},
 		{
 			desc: "repository without commit-graph writes commit-graph",
@@ -213,11 +216,10 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "--write-bitmap-index")
 				return repo
 			},
-			expectedMetrics: `# HELP gitaly_housekeeping_tasks_total Total number of housekeeping tasks performed in the repository
-# TYPE gitaly_housekeeping_tasks_total counter
-gitaly_housekeeping_tasks_total{housekeeping_task="written_commit_graph_full", status="success"} 1
-gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
-`,
+			expectedMetrics: []metric{
+				{name: "written_commit_graph_full", status: "success", count: 1},
+				{name: "total", status: "success", count: 1},
+			},
 		},
 		{
 			desc: "repository with commit-graph without generation data writes commit-graph",
@@ -231,11 +233,10 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 				gittest.Exec(t, cfg, "-c", "commitGraph.generationVersion=1", "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 				return repo
 			},
-			expectedMetrics: `# HELP gitaly_housekeeping_tasks_total Total number of housekeeping tasks performed in the repository
-# TYPE gitaly_housekeeping_tasks_total counter
-gitaly_housekeeping_tasks_total{housekeeping_task="written_commit_graph_full", status="success"} 1
-gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
-`,
+			expectedMetrics: []metric{
+				{name: "written_commit_graph_full", status: "success", count: 1},
+				{name: "total", status: "success", count: 1},
+			},
 		},
 		{
 			desc: "repository with multiple packfiles packs only for object pool",
@@ -257,17 +258,15 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 
 				return repo
 			},
-			expectedMetrics: `# HELP gitaly_housekeeping_tasks_total Total number of housekeeping tasks performed in the repository
-# TYPE gitaly_housekeeping_tasks_total counter
-gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
-`,
-			expectedMetricsForPool: `# HELP gitaly_housekeeping_tasks_total Total number of housekeeping tasks performed in the repository
-# TYPE gitaly_housekeeping_tasks_total counter
-gitaly_housekeeping_tasks_total{housekeeping_task="packed_objects_full", status="success"} 1
-gitaly_housekeeping_tasks_total{housekeeping_task="written_bitmap", status="success"} 1
-gitaly_housekeeping_tasks_total{housekeeping_task="written_commit_graph_incremental", status="success"} 1
-gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
-`,
+			expectedMetrics: []metric{
+				{name: "total", status: "success", count: 1},
+			},
+			expectedMetricsForPool: []metric{
+				{name: "packed_objects_full", status: "success", count: 1},
+				{name: "written_bitmap", status: "success", count: 1},
+				{name: "written_commit_graph_incremental", status: "success", count: 1},
+				{name: "total", status: "success", count: 1},
+			},
 		},
 		{
 			desc: "well-packed repository does not optimize",
@@ -281,10 +280,9 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 				gittest.Exec(t, cfg, "-c", "commitGraph.generationVersion=2", "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 				return repo
 			},
-			expectedMetrics: `# HELP gitaly_housekeeping_tasks_total Total number of housekeeping tasks performed in the repository
-# TYPE gitaly_housekeeping_tasks_total counter
-gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
-`,
+			expectedMetrics: []metric{
+				{name: "total", status: "success", count: 1},
+			},
 		},
 		{
 			desc: "recent loose objects don't get pruned",
@@ -314,12 +312,11 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 
 				return repo
 			},
-			expectedMetrics: `# HELP gitaly_housekeeping_tasks_total Total number of housekeeping tasks performed in the repository
-# TYPE gitaly_housekeeping_tasks_total counter
-gitaly_housekeeping_tasks_total{housekeeping_task="packed_objects_incremental", status="success"} 1
-gitaly_housekeeping_tasks_total{housekeeping_task="written_commit_graph_incremental", status="success"} 1
-gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
-`,
+			expectedMetrics: []metric{
+				{name: "packed_objects_incremental", status: "success", count: 1},
+				{name: "written_commit_graph_incremental", status: "success", count: 1},
+				{name: "total", status: "success", count: 1},
+			},
 		},
 		{
 			desc: "old loose objects get pruned",
@@ -346,20 +343,18 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 
 				return repo
 			},
-			expectedMetrics: `# HELP gitaly_housekeeping_tasks_total Total number of housekeeping tasks performed in the repository
-# TYPE gitaly_housekeeping_tasks_total counter
-gitaly_housekeeping_tasks_total{housekeeping_task="packed_objects_incremental", status="success"} 1
-gitaly_housekeeping_tasks_total{housekeeping_task="written_commit_graph_full", status="success"} 1
-gitaly_housekeeping_tasks_total{housekeeping_task="pruned_objects",status="success"} 1
-gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
-`,
+			expectedMetrics: []metric{
+				{name: "packed_objects_incremental", status: "success", count: 1},
+				{name: "written_commit_graph_full", status: "success", count: 1},
+				{name: "pruned_objects", status: "success", count: 1},
+				{name: "total", status: "success", count: 1},
+			},
 			// Object pools never prune objects.
-			expectedMetricsForPool: `# HELP gitaly_housekeeping_tasks_total Total number of housekeeping tasks performed in the repository
-# TYPE gitaly_housekeeping_tasks_total counter
-gitaly_housekeeping_tasks_total{housekeeping_task="packed_objects_incremental", status="success"} 1
-gitaly_housekeeping_tasks_total{housekeeping_task="written_commit_graph_incremental", status="success"} 1
-gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
-`,
+			expectedMetricsForPool: []metric{
+				{name: "packed_objects_incremental", status: "success", count: 1},
+				{name: "written_commit_graph_incremental", status: "success", count: 1},
+				{name: "total", status: "success", count: 1},
+			},
 		},
 		{
 			desc: "loose refs get packed",
@@ -378,11 +373,10 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 
 				return repo
 			},
-			expectedMetrics: `# HELP gitaly_housekeeping_tasks_total Total number of housekeeping tasks performed in the repository
-# TYPE gitaly_housekeeping_tasks_total counter
-gitaly_housekeeping_tasks_total{housekeeping_task="packed_refs", status="success"} 1
-gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
-`,
+			expectedMetrics: []metric{
+				{name: "packed_refs", status: "success", count: 1},
+				{name: "total", status: "success", count: 1},
+			},
 		},
 	} {
 		tc := tc
@@ -399,14 +393,26 @@ gitaly_housekeeping_tasks_total{housekeeping_task="total", status="success"} 1
 			require.Equal(t, tc.expectedErr, err)
 
 			expectedMetrics := tc.expectedMetrics
-			if stats.IsPoolRepository(repoProto) && tc.expectedMetricsForPool != "" {
+			if stats.IsPoolRepository(repoProto) && tc.expectedMetricsForPool != nil {
 				expectedMetrics = tc.expectedMetricsForPool
 			}
 
+			var buf bytes.Buffer
+			_, err = buf.WriteString("# HELP gitaly_housekeeping_tasks_total Total number of housekeeping tasks performed in the repository\n")
+			require.NoError(t, err)
+			_, err = buf.WriteString("# TYPE gitaly_housekeeping_tasks_total counter\n")
+			require.NoError(t, err)
+
+			for _, metric := range expectedMetrics {
+				_, err := buf.WriteString(fmt.Sprintf(
+					"gitaly_housekeeping_tasks_total{housekeeping_task=%q, status=%q} %d\n",
+					metric.name, metric.status, metric.count,
+				))
+				require.NoError(t, err)
+			}
+
 			require.NoError(t, testutil.CollectAndCompare(
-				manager.tasksTotal,
-				bytes.NewBufferString(expectedMetrics),
-				"gitaly_housekeeping_tasks_total",
+				manager.tasksTotal, &buf, "gitaly_housekeeping_tasks_total",
 			))
 		})
 	}
