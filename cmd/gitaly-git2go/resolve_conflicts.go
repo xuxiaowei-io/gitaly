@@ -128,7 +128,7 @@ func (cmd resolveSubcommand) Run(_ context.Context, decoder *gob.Decoder, encode
 			their,
 		)
 		if err != nil {
-			return fmt.Errorf("parse conflict for %q: %w", c.Ancestor.Path, err)
+			return fmt.Errorf("parse conflict for %q: %w", c.Our.Path, err)
 		}
 
 		resolvedBlob, err := conflictFile.Resolve(r)
