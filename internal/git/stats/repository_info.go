@@ -241,6 +241,8 @@ type PackfilesInfo struct {
 	Count uint64 `json:"count"`
 	// Size is the total size of all loose objects in bytes, including stale ones.
 	Size uint64 `json:"size"`
+	// ReverseIndexCount is the number of reverse indices.
+	ReverseIndexCount uint64 `json:"reverse_index_count"`
 	// GarbageCount is the number of garbage files.
 	GarbageCount uint64 `json:"garbage_count"`
 	// GarbageSize is the total size of all garbage files in bytes.
@@ -290,6 +292,8 @@ func PackfilesInfoForRepository(repo *localrepo.Repo) (PackfilesInfo, error) {
 			if entryInfo.Size() > 0 {
 				info.Size += uint64(entryInfo.Size())
 			}
+		case hasPrefixAndSuffix(entryName, "pack-", ".rev"):
+			info.ReverseIndexCount++
 		case hasPrefixAndSuffix(entryName, "pack-", ".bitmap"):
 			bitmap, err := BitmapInfoForPath(filepath.Join(packfilesPath, entryName))
 			if err != nil {

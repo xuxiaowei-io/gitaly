@@ -745,6 +745,23 @@ func TestPackfileInfoForRepository(t *testing.T) {
 			},
 		},
 		{
+			desc: "reverse index",
+			seedRepository: func(t *testing.T, repoPath string) {
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+				gittest.Exec(t, cfg, "-c", "pack.writeReverseIndex=true", "-C", repoPath, "repack", "-Ad")
+			},
+			expectedInfo: PackfilesInfo{
+				Count:             1,
+				Size:              hashDependentSize(163, 189),
+				ReverseIndexCount: 1,
+				Bitmap: BitmapInfo{
+					Exists:       true,
+					Version:      1,
+					HasHashCache: true,
+				},
+			},
+		},
+		{
 			desc: "multi-pack-index",
 			seedRepository: func(t *testing.T, repoPath string) {
 				packfileDir := filepath.Join(repoPath, "objects", "pack")

@@ -91,6 +91,7 @@ func (m *RepositoryManager) reportRepositoryInfo(ctx context.Context, info stats
 	m.reportDataStructureCount("loose_objects_stale_count", info.LooseObjects.StaleCount)
 	m.reportDataStructureCount("commit_graph_chain", info.CommitGraph.CommitGraphChainLength)
 	m.reportDataStructureCount("packfiles", info.Packfiles.Count)
+	m.reportDataStructureCount("packfiles_reverse_indices", info.Packfiles.ReverseIndexCount)
 	m.reportDataStructureCount("loose_references", info.References.LooseReferencesCount)
 
 	m.reportDataStructureSize("loose_objects", info.LooseObjects.Size)
