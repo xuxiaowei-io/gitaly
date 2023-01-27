@@ -1150,14 +1150,14 @@ func assertExactReceivedDiffs(t *testing.T, client gitalypb.DiffService_CommitDi
 		require.Greater(t, len(expectedDiffs), i, "Unexpected diff #%d received: %v", i, fetchedDiff)
 
 		expectedDiff := expectedDiffs[i]
-		require.Equal(t, expectedDiff.FromID, fetchedDiff.FromID)
-		require.Equal(t, expectedDiff.ToID, fetchedDiff.ToID)
-		require.Equal(t, expectedDiff.OldMode, fetchedDiff.OldMode)
-		require.Equal(t, expectedDiff.NewMode, fetchedDiff.NewMode)
-		require.Equal(t, expectedDiff.FromPath, fetchedDiff.FromPath)
-		require.Equal(t, expectedDiff.ToPath, fetchedDiff.ToPath)
-		require.Equal(t, expectedDiff.Binary, fetchedDiff.Binary)
-		require.Equal(t, expectedDiff.Patch, fetchedDiff.Patch)
+		require.Equal(t, expectedDiff.FromID, fetchedDiff.FromID, "FromID should match")
+		require.Equal(t, expectedDiff.ToID, fetchedDiff.ToID, "ToID should match")
+		require.Equal(t, expectedDiff.OldMode, fetchedDiff.OldMode, "OldMode should match")
+		require.Equal(t, expectedDiff.NewMode, fetchedDiff.NewMode, "NewMode should match")
+		require.Equal(t, expectedDiff.FromPath, fetchedDiff.FromPath, "FromPath should match")
+		require.Equal(t, expectedDiff.ToPath, fetchedDiff.ToPath, "ToPath should match")
+		require.Equal(t, expectedDiff.Binary, fetchedDiff.Binary, "Binary should match")
+		require.Equal(t, expectedDiff.Patch, fetchedDiff.Patch, "Patch should match")
 	}
 
 	require.Len(t, expectedDiffs, i+1, "Unexpected number of diffs")
