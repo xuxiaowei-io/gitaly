@@ -104,19 +104,26 @@ func findLicense(ctx context.Context, repo *localrepo.Repo, commitID git.ObjectI
 		return nil, structerr.NewInternal("detect licenses: %w", err)
 	}
 
-	// This should not happen as the error must be returned, but let's keep it safe to avoid panics.
-	if len(detectedLicenses) == 0 {
-		return &gitalypb.FindLicenseResponse{}, nil
-	}
-
 	type bestMatch struct {
 		shortName string
 		api.Match
 	}
 	bestMatches := make([]bestMatch, 0, len(detectedLicenses))
 	for candidate, match := range detectedLicenses {
+		_, err := licensedb.LicenseName(trimDeprecatedPrefix(candidate))
+		if err != nil {
+			if errors.Is(err, licensedb.ErrUnknownLicenseID) {
+				continue
+			}
+			return nil, structerr.NewInternal("license name by id %q: %w", candidate, err)
+		}
 		bestMatches = append(bestMatches, bestMatch{Match: match, shortName: candidate})
 	}
+
+	if len(bestMatches) == 0 {
+		return &gitalypb.FindLicenseResponse{}, nil
+	}
+
 	sort.Slice(bestMatches, func(i, j int) bool {
 		// Because there could be multiple matches with the same confidence, we need
 		// to make sure the function is consistent and returns the same license on

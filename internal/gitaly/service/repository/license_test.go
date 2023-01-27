@@ -108,6 +108,33 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gital
 				},
 			},
 			{
+				// test for https://gitlab.com/gitlab-org/gitaly/-/issues/4745
+				desc: "ignores licenses that don't have further details",
+				setup: func(t *testing.T, repoPath string) {
+					licenseText := testhelper.MustReadFile(t, "testdata/linux-license.txt")
+
+					gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"),
+						gittest.WithTreeEntries(
+							gittest.TreeEntry{
+								Mode:    "100644",
+								Path:    "COPYING",
+								Content: string(licenseText),
+							}))
+				},
+				expectedLicenseRuby: &gitalypb.FindLicenseResponse{
+					LicenseShortName: "other",
+					LicenseName:      "Other",
+					LicenseNickname:  "LICENSE",
+					LicensePath:      "COPYING",
+				},
+				expectedLicenseGo: &gitalypb.FindLicenseResponse{
+					LicenseShortName: "gpl-2.0+",
+					LicenseName:      "GNU General Public License v2.0 or later",
+					LicenseUrl:       "https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html",
+					LicensePath:      "COPYING",
+				},
+			},
+			{
 				desc: "unknown license",
 				setup: func(t *testing.T, repoPath string) {
 					gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"),
