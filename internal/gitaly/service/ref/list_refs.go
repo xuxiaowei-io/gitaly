@@ -29,7 +29,12 @@ func (s *server) ListRefs(in *gitalypb.ListRefsRequest, stream gitalypb.RefServi
 		}
 	}
 
-	writer := newListRefsWriter(stream, headOID)
+	format := localBranchFormatFields
+	if in.PeelTags {
+		format = append(format, "%(*objectname)")
+	}
+
+	writer := newListRefsWriter(stream, headOID, in.PeelTags)
 
 	patterns := make([]string, 0, len(in.GetPatterns()))
 	for _, pattern := range in.GetPatterns() {
@@ -40,8 +45,12 @@ func (s *server) ListRefs(in *gitalypb.ListRefsRequest, stream gitalypb.RefServi
 	opts := buildFindRefsOpts(ctx, nil)
 	opts.cmdArgs = []git.Option{
 		// %00 inserts the null character into the output (see for-each-ref docs)
-		git.ValueFlag{Name: "--format", Value: strings.Join(localBranchFormatFields, "%00")},
+		git.ValueFlag{Name: "--format", Value: strings.Join(format, "%00")},
 		git.ValueFlag{Name: "--sort", Value: sorting},
+	}
+
+	for _, oid := range in.GetPointingAtOids() {
+		opts.cmdArgs = append(opts.cmdArgs, git.ValueFlag{Name: "--points-at", Value: string(oid)})
 	}
 
 	if err := s.findRefs(ctx, writer, repo, patterns, opts); err != nil {
@@ -72,7 +81,7 @@ func validateListRefsRequest(in *gitalypb.ListRefsRequest) error {
 	return nil
 }
 
-func newListRefsWriter(stream gitalypb.RefService_ListRefsServer, headOID git.ObjectID) lines.Sender {
+func newListRefsWriter(stream gitalypb.RefService_ListRefsServer, headOID git.ObjectID, peelTags bool) lines.Sender {
 	return func(refs [][]byte) error {
 		var refNames []*gitalypb.ListRefsResponse_Reference
 
@@ -85,7 +94,12 @@ func newListRefsWriter(stream gitalypb.RefService_ListRefsServer, headOID git.Ob
 		}
 
 		for _, ref := range refs {
-			elements, err := parseRef(ref)
+			length := len(localBranchFormatFields)
+			if peelTags {
+				length++
+			}
+
+			elements, err := parseRef(ref, length)
 			if err != nil {
 				return err
 			}
@@ -94,6 +108,10 @@ func newListRefsWriter(stream gitalypb.RefService_ListRefsServer, headOID git.Ob
 				Name:   elements[0],
 				Target: string(elements[1]),
 			})
+
+			if peelTags {
+				refNames[len(refNames)-1].PeeledTarget = string(elements[2])
+			}
 		}
 
 		return stream.Send(&gitalypb.ListRefsResponse{References: refNames})

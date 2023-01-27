@@ -33,6 +33,7 @@ func TestServer_ListRefs(t *testing.T) {
 	for _, cmd := range [][]string{
 		{"update-ref", "refs/heads/main", newCommitID.String()},
 		{"tag", "lightweight-tag", newCommitID.String()},
+		{"tag", "old-commit-tag", oldCommitID.String()},
 		{"tag", "-m", "tag message", "annotated-tag", "refs/heads/main"},
 		{"symbolic-ref", "refs/heads/symbolic", "refs/heads/main"},
 		{"update-ref", "refs/remote/remote-name/remote-branch", newCommitID.String()},
@@ -124,6 +125,7 @@ func TestServer_ListRefs(t *testing.T) {
 				{Name: []byte("refs/remote/remote-name/remote-branch"), Target: newCommitID.String()},
 				{Name: []byte("refs/tags/annotated-tag"), Target: annotatedTagOID},
 				{Name: []byte("refs/tags/lightweight-tag"), Target: newCommitID.String()},
+				{Name: []byte("refs/tags/old-commit-tag"), Target: oldCommitID.String()},
 			},
 		},
 		{
@@ -154,6 +156,7 @@ func TestServer_ListRefs(t *testing.T) {
 				{Name: []byte("refs/heads/symbolic"), Target: newCommitID.String()},
 				{Name: []byte("refs/tags/annotated-tag"), Target: annotatedTagOID},
 				{Name: []byte("refs/tags/lightweight-tag"), Target: newCommitID.String()},
+				{Name: []byte("refs/tags/old-commit-tag"), Target: oldCommitID.String()},
 			},
 		},
 		{
@@ -170,6 +173,47 @@ func TestServer_ListRefs(t *testing.T) {
 				{Name: []byte("refs/heads/symbolic"), Target: newCommitID.String()},
 				{Name: []byte("refs/tags/annotated-tag"), Target: annotatedTagOID},
 				{Name: []byte("refs/tags/lightweight-tag"), Target: newCommitID.String()},
+				{Name: []byte("refs/tags/old-commit-tag"), Target: oldCommitID.String()},
+			},
+		},
+		{
+			desc: "tags filtered by one OID",
+			request: &gitalypb.ListRefsRequest{
+				Repository:     repo,
+				Head:           false,
+				Patterns:       [][]byte{[]byte("refs/tags/*")},
+				PointingAtOids: [][]byte{[]byte(oldCommitID.String())},
+			},
+			expected: []*gitalypb.ListRefsResponse_Reference{
+				{Name: []byte("refs/tags/old-commit-tag"), Target: oldCommitID.String()},
+			},
+		},
+		{
+			desc: "tags filtered by multiple OIDs",
+			request: &gitalypb.ListRefsRequest{
+				Repository:     repo,
+				Head:           false,
+				Patterns:       [][]byte{[]byte("refs/tags/*")},
+				PointingAtOids: [][]byte{[]byte(oldCommitID.String()), []byte(newCommitID.String())},
+			},
+			expected: []*gitalypb.ListRefsResponse_Reference{
+				{Name: []byte("refs/tags/annotated-tag"), Target: annotatedTagOID},
+				{Name: []byte("refs/tags/lightweight-tag"), Target: newCommitID.String()},
+				{Name: []byte("refs/tags/old-commit-tag"), Target: oldCommitID.String()},
+			},
+		},
+		{
+			desc: "with PeelTags option",
+			request: &gitalypb.ListRefsRequest{
+				Repository: repo,
+				Head:       false,
+				Patterns:   [][]byte{[]byte("refs/tags/*")},
+				PeelTags:   true,
+			},
+			expected: []*gitalypb.ListRefsResponse_Reference{
+				{Name: []byte("refs/tags/annotated-tag"), Target: annotatedTagOID, PeeledTarget: newCommitID.String()},
+				{Name: []byte("refs/tags/lightweight-tag"), Target: newCommitID.String()},
+				{Name: []byte("refs/tags/old-commit-tag"), Target: oldCommitID.String()},
 			},
 		},
 	} {
