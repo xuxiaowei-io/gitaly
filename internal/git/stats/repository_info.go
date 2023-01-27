@@ -292,6 +292,9 @@ func PackfilesInfoForRepository(repo *localrepo.Repo) (PackfilesInfo, error) {
 			if entryInfo.Size() > 0 {
 				info.Size += uint64(entryInfo.Size())
 			}
+		case hasPrefixAndSuffix(entryName, "pack-", ".idx"):
+			// We ignore normal indices as every packfile would have one anyway, or
+			// otherwise the repository would be corrupted.
 		case hasPrefixAndSuffix(entryName, "pack-", ".rev"):
 			info.ReverseIndexCount++
 		case hasPrefixAndSuffix(entryName, "pack-", ".bitmap"):
@@ -301,11 +304,6 @@ func PackfilesInfoForRepository(repo *localrepo.Repo) (PackfilesInfo, error) {
 			}
 
 			info.Bitmap = bitmap
-		case strings.HasPrefix(entryName, "pack-"):
-			// We're overly lenient here and only verify packfiles for known suffixes.
-			// As a consequence, we don't catch garbage files here. This is on purpose
-			// though because Git has grown more and more metadata-style file formats,
-			// and we don't want to copy the list here.
 		case entryName == "multi-pack-index":
 			info.HasMultiPackIndex = true
 		case hasPrefixAndSuffix(entryName, "multi-pack-index-", ".bitmap"):
