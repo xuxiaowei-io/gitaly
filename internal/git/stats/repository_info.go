@@ -285,28 +285,26 @@ func PackfilesInfoForRepository(repo *localrepo.Repo) (PackfilesInfo, error) {
 		entryName := entry.Name()
 
 		switch {
+		case hasPrefixAndSuffix(entryName, "pack-", ".pack"):
+			info.Count++
+			if entryInfo.Size() > 0 {
+				info.Size += uint64(entryInfo.Size())
+			}
+		case hasPrefixAndSuffix(entryName, "pack-", ".bitmap"):
+			bitmap, err := BitmapInfoForPath(filepath.Join(packfilesPath, entryName))
+			if err != nil {
+				return PackfilesInfo{}, fmt.Errorf("reading bitmap info: %w", err)
+			}
+
+			info.Bitmap = bitmap
 		case strings.HasPrefix(entryName, "pack-"):
 			// We're overly lenient here and only verify packfiles for known suffixes.
 			// As a consequence, we don't catch garbage files here. This is on purpose
 			// though because Git has grown more and more metadata-style file formats,
 			// and we don't want to copy the list here.
-			switch {
-			case strings.HasSuffix(entryName, ".pack"):
-				info.Count++
-				if entryInfo.Size() > 0 {
-					info.Size += uint64(entryInfo.Size())
-				}
-			case strings.HasSuffix(entryName, ".bitmap"):
-				bitmap, err := BitmapInfoForPath(filepath.Join(packfilesPath, entryName))
-				if err != nil {
-					return PackfilesInfo{}, fmt.Errorf("reading bitmap info: %w", err)
-				}
-
-				info.Bitmap = bitmap
-			}
 		case entryName == "multi-pack-index":
 			info.HasMultiPackIndex = true
-		case strings.HasPrefix(entryName, "multi-pack-index-") && strings.HasSuffix(entryName, ".bitmap"):
+		case hasPrefixAndSuffix(entryName, "multi-pack-index-", ".bitmap"):
 			bitmap, err := BitmapInfoForPath(filepath.Join(packfilesPath, entryName))
 			if err != nil {
 				return PackfilesInfo{}, fmt.Errorf("reading multi-pack-index bitmap info: %w", err)
@@ -324,6 +322,10 @@ func PackfilesInfoForRepository(repo *localrepo.Repo) (PackfilesInfo, error) {
 	}
 
 	return info, nil
+}
+
+func hasPrefixAndSuffix(s, prefix, suffix string) bool {
+	return strings.HasPrefix(s, prefix) && strings.HasSuffix(s, suffix)
 }
 
 func readAlternates(repo *localrepo.Repo) ([]string, error) {
