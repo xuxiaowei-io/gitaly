@@ -182,7 +182,7 @@ endif
 # https://github.com/libgit2/git2go/#which-go-version-to-use for a
 # compatibility matrix.
 GIT2GO_VERSION      ?= v34
-LIBGIT2_VERSION     ?= v1.5.0
+LIBGIT2_VERSION     ?= v1.5.1
 LIBGIT2_REPO_URL    ?= https://gitlab.com/libgit2/libgit2
 LIBGIT2_SOURCE_DIR  ?= ${DEPENDENCY_DIR}/libgit2/source
 LIBGIT2_BUILD_DIR   ?= ${DEPENDENCY_DIR}/libgit2/build
