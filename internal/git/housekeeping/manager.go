@@ -70,7 +70,7 @@ func NewManager(promCfg gitalycfgprom.Config, txManager transaction.Manager) *Re
 		),
 		dataStructureCount: prometheus.NewHistogramVec(
 			prometheus.HistogramOpts{
-				Name:    "gitaly_housekeeping_data_structure_wcount",
+				Name:    "gitaly_housekeeping_data_structure_count",
 				Help:    "Total count of the data structures that exist in the repository",
 				Buckets: prometheus.ExponentialBucketsRange(1, 10_000_000, 16),
 			},
