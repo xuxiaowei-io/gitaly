@@ -275,23 +275,17 @@ func PackfilesInfoForRepository(repo *localrepo.Repo) (PackfilesInfo, error) {
 
 	var info PackfilesInfo
 	for _, entry := range entries {
-		entryInfo, err := entry.Info()
-		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				continue
-			}
-
-			return PackfilesInfo{}, fmt.Errorf("getting packfile info: %w", err)
-		}
-
 		entryName := entry.Name()
 
 		switch {
 		case hasPrefixAndSuffix(entryName, "pack-", ".pack"):
-			info.Count++
-			if entryInfo.Size() > 0 {
-				info.Size += uint64(entryInfo.Size())
+			size, err := entrySize(entry)
+			if err != nil {
+				return PackfilesInfo{}, fmt.Errorf("getting packfile size: %w", err)
 			}
+
+			info.Count++
+			info.Size += size
 		case hasPrefixAndSuffix(entryName, "pack-", ".idx"):
 			// We ignore normal indices as every packfile would have one anyway, or
 			// otherwise the repository would be corrupted.
@@ -314,16 +308,38 @@ func PackfilesInfoForRepository(repo *localrepo.Repo) (PackfilesInfo, error) {
 
 			info.MultiPackIndexBitmap = bitmap
 		default:
-			info.GarbageCount++
-			if entryInfo.Size() > 0 {
-				info.GarbageSize += uint64(entryInfo.Size())
+			size, err := entrySize(entry)
+			if err != nil {
+				if errors.Is(err, os.ErrNotExist) {
+					// Unrecognized files may easily be temporary files written
+					// by Git. It is expected that these may get concurrently
+					// removed, so we just ignore the case where they've gone
+					// missing.
+					continue
+				}
+
+				return PackfilesInfo{}, fmt.Errorf("getting garbage size: %w", err)
 			}
 
-			continue
+			info.GarbageCount++
+			info.GarbageSize += size
 		}
 	}
 
 	return info, nil
+}
+
+func entrySize(entry fs.DirEntry) (uint64, error) {
+	entryInfo, err := entry.Info()
+	if err != nil {
+		return 0, fmt.Errorf("getting file info: %w", err)
+	}
+
+	if entryInfo.Size() >= 0 {
+		return uint64(entryInfo.Size()), nil
+	}
+
+	return 0, nil
 }
 
 func hasPrefixAndSuffix(s, prefix, suffix string) bool {
