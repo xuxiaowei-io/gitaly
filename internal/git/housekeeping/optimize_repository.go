@@ -101,6 +101,8 @@ func (m *RepositoryManager) reportRepositoryInfo(ctx context.Context, info stats
 
 func (m *RepositoryManager) reportDataStructureExistence(dataStructure string, exists bool) {
 	m.dataStructureExistence.WithLabelValues(dataStructure, strconv.FormatBool(exists)).Inc()
+	// We also report the inverse metric so that it will be visible to clients.
+	m.dataStructureExistence.WithLabelValues(dataStructure, strconv.FormatBool(!exists)).Add(0)
 }
 
 func (m *RepositoryManager) reportDataStructureCount(dataStructure string, count uint64) {
