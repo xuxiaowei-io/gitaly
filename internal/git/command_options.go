@@ -50,14 +50,10 @@ type Option interface {
 // ConfigPair is a GlobalOption that can be passed to Git commands to inject per-command config
 // entries via the `git -c` switch.
 type ConfigPair struct {
-	Key   string
+	// Key is the key of the config entry, e.g. `core.gc`.
+	Key string
+	// Value is the value of the config entry, e.g. `false`.
 	Value string
-	// Origin shows the origin type: file, standard input, blob, command line.
-	// https://git-scm.com/docs/git-config#Documentation/git-config.txt---show-origin
-	Origin string
-	// Scope shows the scope of this config value: local, global, system, command.
-	// https://git-scm.com/docs/git-config#Documentation/git-config.txt---show-scope
-	Scope string
 }
 
 // GlobalArgs generates a git `-c <key>=<value>` flag. The key must pass
