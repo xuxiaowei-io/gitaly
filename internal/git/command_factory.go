@@ -380,7 +380,7 @@ func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo repository.Gi
 		return nil, err
 	}
 
-	args, err := cf.combineArgs(ctx, cf.cfg.Git.Config, sc, config)
+	args, err := cf.combineArgs(ctx, sc, config)
 	if err != nil {
 		return nil, err
 	}
@@ -455,7 +455,7 @@ func (cf *ExecCommandFactory) combineOpts(ctx context.Context, sc Command, opts 
 	return config, nil
 }
 
-func (cf *ExecCommandFactory) combineArgs(ctx context.Context, gitConfig []config.GitConfig, sc Command, cc cmdCfg) (_ []string, err error) {
+func (cf *ExecCommandFactory) combineArgs(ctx context.Context, sc Command, cc cmdCfg) (_ []string, err error) {
 	var args []string
 
 	defer func() {
@@ -474,13 +474,13 @@ func (cf *ExecCommandFactory) combineArgs(ctx context.Context, gitConfig []confi
 		return nil, fmt.Errorf("getting global Git configuration: %w", err)
 	}
 
-	combinedGlobals := make([]GlobalOption, 0, len(globalConfig)+len(commandDescription.opts)+len(cc.globals)+len(gitConfig))
+	combinedGlobals := make([]GlobalOption, 0, len(globalConfig)+len(commandDescription.opts)+len(cc.globals)+len(cf.cfg.Git.Config))
 	for _, configPair := range globalConfig {
 		combinedGlobals = append(combinedGlobals, configPair)
 	}
 	combinedGlobals = append(combinedGlobals, commandDescription.opts...)
 	combinedGlobals = append(combinedGlobals, cc.globals...)
-	for _, configPair := range gitConfig {
+	for _, configPair := range cf.cfg.Git.Config {
 		combinedGlobals = append(combinedGlobals, ConfigPair{
 			Key:   configPair.Key,
 			Value: configPair.Value,
