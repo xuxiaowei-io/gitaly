@@ -732,6 +732,32 @@ func TestPackfileInfoForRepository(t *testing.T) {
 			},
 		},
 		{
+			desc: "keep packfile",
+			seedRepository: func(t *testing.T, repoPath string) {
+				packfileDir := filepath.Join(repoPath, "objects", "pack")
+				require.NoError(t, os.MkdirAll(packfileDir, 0o755))
+				require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "pack-foo.pack"), []byte("foobar"), 0o644))
+				require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "pack-foo.keep"), []byte("foobar"), 0o644))
+			},
+			expectedInfo: PackfilesInfo{
+				KeepCount: 1,
+				KeepSize:  6,
+			},
+		},
+		{
+			desc: "cruft packfile",
+			seedRepository: func(t *testing.T, repoPath string) {
+				packfileDir := filepath.Join(repoPath, "objects", "pack")
+				require.NoError(t, os.MkdirAll(packfileDir, 0o755))
+				require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "pack-foo.pack"), []byte("foobar"), 0o644))
+				require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "pack-foo.mtimes"), []byte("foobar"), 0o644))
+			},
+			expectedInfo: PackfilesInfo{
+				CruftCount: 1,
+				CruftSize:  6,
+			},
+		},
+		{
 			desc: "multiple packfiles",
 			seedRepository: func(t *testing.T, repoPath string) {
 				packfileDir := filepath.Join(repoPath, "objects", "pack")
@@ -804,6 +830,26 @@ func TestPackfileInfoForRepository(t *testing.T) {
 				Size:              hashDependentSize(315, 367),
 				GarbageCount:      1,
 				GarbageSize:       1,
+				HasMultiPackIndex: true,
+				MultiPackIndexBitmap: BitmapInfo{
+					Exists:       true,
+					Version:      1,
+					HasHashCache: true,
+				},
+			},
+		},
+		{
+			desc: "cruft packfiles with other data structures",
+			seedRepository: func(t *testing.T, repoPath string) {
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("first"), gittest.WithBranch("first"))
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("unreachable"))
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "--cruft", "-db", "--write-midx")
+			},
+			expectedInfo: PackfilesInfo{
+				Count:             1,
+				Size:              hashDependentSize(162, 188),
+				CruftCount:        1,
+				CruftSize:         hashDependentSize(156, 183),
 				HasMultiPackIndex: true,
 				MultiPackIndexBitmap: BitmapInfo{
 					Exists:       true,

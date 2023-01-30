@@ -243,6 +243,14 @@ type PackfilesInfo struct {
 	Size uint64 `json:"size"`
 	// ReverseIndexCount is the number of reverse indices.
 	ReverseIndexCount uint64 `json:"reverse_index_count"`
+	// CruftCount is the number of cruft packfiles which have a .mtimes file.
+	CruftCount uint64 `json:"cruft_count"`
+	// CruftSize is the size of cruft packfiles which have a .mtimes file.
+	CruftSize uint64 `json:"cruft_size"`
+	// KeepCount is the number of .keep packfiles.
+	KeepCount uint64 `json:"keep_count"`
+	// KeepSize is the size of .keep packfiles.
+	KeepSize uint64 `json:"keep_size"`
 	// GarbageCount is the number of garbage files.
 	GarbageCount uint64 `json:"garbage_count"`
 	// GarbageSize is the total size of all garbage files in bytes.
@@ -273,6 +281,8 @@ func PackfilesInfoForRepository(repo *localrepo.Repo) (PackfilesInfo, error) {
 		return PackfilesInfo{}, err
 	}
 
+	packfilesMetadata := classifyPackfiles(entries)
+
 	var info PackfilesInfo
 	for _, entry := range entries {
 		entryName := entry.Name()
@@ -284,11 +294,25 @@ func PackfilesInfoForRepository(repo *localrepo.Repo) (PackfilesInfo, error) {
 				return PackfilesInfo{}, fmt.Errorf("getting packfile size: %w", err)
 			}
 
-			info.Count++
-			info.Size += size
+			metadata := packfilesMetadata[entryName]
+			switch {
+			case metadata.hasKeep:
+				info.KeepCount++
+				info.KeepSize += size
+			case metadata.hasMtimes:
+				info.CruftCount++
+				info.CruftSize += size
+			default:
+				info.Count++
+				info.Size += size
+			}
 		case hasPrefixAndSuffix(entryName, "pack-", ".idx"):
 			// We ignore normal indices as every packfile would have one anyway, or
 			// otherwise the repository would be corrupted.
+		case hasPrefixAndSuffix(entryName, "pack-", ".keep"):
+			// We classify .keep files above.
+		case hasPrefixAndSuffix(entryName, "pack-", ".mtimes"):
+			// We classify .mtimes files above.
 		case hasPrefixAndSuffix(entryName, "pack-", ".rev"):
 			info.ReverseIndexCount++
 		case hasPrefixAndSuffix(entryName, "pack-", ".bitmap"):
