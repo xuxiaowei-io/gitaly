@@ -44,6 +44,10 @@ No changes.
 
 - [repository: Disable misleading dangling checks in git-fsck(1)](gitlab-org/gitaly@fb830f5f01311609c01590ddf04a22a3d33cd36d) ([merge request](gitlab-org/gitaly!5230))
 
+## 15.7.6 (2023-01-30)
+
+No changes.
+
 ## 15.7.5 (2023-01-12)
 
 No changes.
