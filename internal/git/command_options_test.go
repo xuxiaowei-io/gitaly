@@ -3,6 +3,7 @@ package git
 import (
 	"bytes"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -160,17 +161,17 @@ func TestGlobalOption(t *testing.T) {
 		{
 			desc:        "config pair with invalid section format",
 			option:      ConfigPair{Key: "foo", Value: "value"},
-			expectedErr: fmt.Errorf("config key %q failed regexp validation: %w", "foo", ErrInvalidArg),
+			expectedErr: fmt.Errorf("invalid configuration key %q: %w", "foo", errors.New("key must contain at least one section")),
 		},
 		{
 			desc:        "config pair with leading whitespace",
 			option:      ConfigPair{Key: " foo.bar", Value: "value"},
-			expectedErr: fmt.Errorf("config key %q failed regexp validation: %w", " foo.bar", ErrInvalidArg),
+			expectedErr: fmt.Errorf("invalid configuration key %q: %w", " foo.bar", errors.New("key failed regexp validation")),
 		},
 		{
 			desc:        "config pair with disallowed character in key",
 			option:      ConfigPair{Key: "foo.b=r", Value: "value"},
-			expectedErr: fmt.Errorf("config key %q failed regexp validation: %w", "foo.b=r", ErrInvalidArg),
+			expectedErr: fmt.Errorf("invalid configuration key %q: %w", "foo.b=r", errors.New("key cannot contain assignment")),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
