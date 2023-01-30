@@ -14,7 +14,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/tick"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
 
@@ -95,7 +95,7 @@ func TestBootstrap_listenerError(t *testing.T) {
 	b, upgrader, listeners := setup(t, ctx)
 
 	waitCh := make(chan error)
-	go func() { waitCh <- b.Wait(helper.NewManualTicker(), nil) }()
+	go func() { waitCh <- b.Wait(tick.NewManualTicker(), nil) }()
 
 	// Signal readiness, but don't start the upgrade. Like this, we can close the listener in a
 	// raceless manner and wait for the error to propagate.
@@ -115,7 +115,7 @@ func TestBootstrap_signal(t *testing.T) {
 			b, upgrader, _ := setup(t, ctx)
 
 			waitCh := make(chan error)
-			go func() { waitCh <- b.Wait(helper.NewManualTicker(), nil) }()
+			go func() { waitCh <- b.Wait(tick.NewManualTicker(), nil) }()
 
 			// Start the upgrade, but don't unblock `Exit()` such that we'll be blocked
 			// waiting on the parent.
@@ -137,7 +137,7 @@ func TestBootstrap_gracefulTerminationStuck(t *testing.T) {
 
 	b, upgrader, _ := setup(t, ctx)
 
-	gracePeriodTicker := helper.NewManualTicker()
+	gracePeriodTicker := tick.NewManualTicker()
 
 	doneCh := make(chan struct{})
 	err := performUpgrade(t, b, upgrader, gracePeriodTicker, nil, func() {
@@ -163,7 +163,7 @@ func TestBootstrap_gracefulTerminationWithSignals(t *testing.T) {
 			b, upgrader, _ := setup(t, ctx)
 
 			doneCh := make(chan struct{})
-			err := performUpgrade(t, b, upgrader, helper.NewManualTicker(), func() {
+			err := performUpgrade(t, b, upgrader, tick.NewManualTicker(), func() {
 				self, err := os.FindProcess(os.Getpid())
 				require.NoError(t, err)
 				require.NoError(t, self.Signal(sig))
@@ -186,7 +186,7 @@ func TestBootstrap_gracefulTerminationTimeoutWithListenerError(t *testing.T) {
 
 	b, upgrader, listeners := setup(t, ctx)
 
-	gracePeriodTicker := helper.NewManualTicker()
+	gracePeriodTicker := tick.NewManualTicker()
 
 	doneCh := make(chan struct{})
 	err := performUpgrade(t, b, upgrader, gracePeriodTicker, nil, func() {
@@ -215,7 +215,7 @@ func TestBootstrap_gracefulTermination(t *testing.T) {
 
 	require.Equal(t,
 		fmt.Errorf("graceful upgrade: completed"),
-		performUpgrade(t, b, upgrader, helper.NewManualTicker(), nil, nil),
+		performUpgrade(t, b, upgrader, tick.NewManualTicker(), nil, nil),
 	)
 }
 
@@ -241,7 +241,7 @@ func performUpgrade(
 	t *testing.T,
 	b *Bootstrap,
 	upgrader *mockUpgrader,
-	gracePeriodTicker helper.Ticker,
+	gracePeriodTicker tick.Ticker,
 	duringGracePeriodCallback func(),
 	stopAction func(),
 ) error {
