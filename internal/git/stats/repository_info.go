@@ -329,6 +329,37 @@ func PackfilesInfoForRepository(repo *localrepo.Repo) (PackfilesInfo, error) {
 	return info, nil
 }
 
+type packfileMetadata struct {
+	hasKeep, hasMtimes bool
+}
+
+// classifyPackfiles classifies all directory entries that look like packfiles and derives whether
+// they have specific metadata or not. It returns a map of packfile names with the respective
+// metadata that has been found.
+func classifyPackfiles(entries []fs.DirEntry) map[string]packfileMetadata {
+	packfileInfos := map[string]packfileMetadata{}
+
+	for _, entry := range entries {
+		if !strings.HasPrefix(entry.Name(), "pack-") {
+			continue
+		}
+
+		extension := filepath.Ext(entry.Name())
+		packfileName := strings.TrimSuffix(entry.Name(), extension) + ".pack"
+
+		packfileMetadata := packfileInfos[packfileName]
+		switch extension {
+		case ".keep":
+			packfileMetadata.hasKeep = true
+		case ".mtimes":
+			packfileMetadata.hasMtimes = true
+		}
+		packfileInfos[packfileName] = packfileMetadata
+	}
+
+	return packfileInfos
+}
+
 func entrySize(entry fs.DirEntry) (uint64, error) {
 	entryInfo, err := entry.Info()
 	if err != nil {

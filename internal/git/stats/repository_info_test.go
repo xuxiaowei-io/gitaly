@@ -832,6 +832,135 @@ func TestPackfileInfoForRepository(t *testing.T) {
 	}
 }
 
+type packfileEntry struct {
+	fs.DirEntry
+	name string
+}
+
+func (e packfileEntry) Name() string {
+	return e.name
+}
+
+func TestClassifyPackfiles(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		desc            string
+		packfileEntries []fs.DirEntry
+		expectedTypes   map[string]packfileMetadata
+	}{
+		{
+			desc:          "empty entries",
+			expectedTypes: map[string]packfileMetadata{},
+		},
+		{
+			desc: "unrelated entry",
+			packfileEntries: []fs.DirEntry{
+				packfileEntry{name: "something something"},
+			},
+			expectedTypes: map[string]packfileMetadata{},
+		},
+		{
+			desc: "packfile index only",
+			packfileEntries: []fs.DirEntry{
+				packfileEntry{name: "pack-1234.idx"},
+			},
+			expectedTypes: map[string]packfileMetadata{
+				"pack-1234.pack": {},
+			},
+		},
+		{
+			desc: "normal packfile",
+			packfileEntries: []fs.DirEntry{
+				packfileEntry{name: "pack-1234.pack"},
+			},
+			expectedTypes: map[string]packfileMetadata{
+				"pack-1234.pack": {},
+			},
+		},
+		{
+			desc: "normal packfile with unrelated metadata",
+			packfileEntries: []fs.DirEntry{
+				packfileEntry{name: "pack-1234.pack"},
+				packfileEntry{name: "pack-5678.keep"},
+				packfileEntry{name: "pack-5678.mtimes"},
+			},
+			expectedTypes: map[string]packfileMetadata{
+				"pack-1234.pack": {},
+				"pack-5678.pack": {
+					hasKeep:   true,
+					hasMtimes: true,
+				},
+			},
+		},
+		{
+			desc: "keep packfile",
+			packfileEntries: []fs.DirEntry{
+				packfileEntry{name: "pack-1234.pack"},
+				packfileEntry{name: "pack-1234.keep"},
+			},
+			expectedTypes: map[string]packfileMetadata{
+				"pack-1234.pack": {
+					hasKeep: true,
+				},
+			},
+		},
+		{
+			desc: "cruft packfile",
+			packfileEntries: []fs.DirEntry{
+				packfileEntry{name: "pack-1234.pack"},
+				packfileEntry{name: "pack-1234.mtimes"},
+			},
+			expectedTypes: map[string]packfileMetadata{
+				"pack-1234.pack": {
+					hasMtimes: true,
+				},
+			},
+		},
+		{
+			desc: "keep packfile with mtimes",
+			packfileEntries: []fs.DirEntry{
+				packfileEntry{name: "pack-1234.pack"},
+				packfileEntry{name: "pack-1234.keep"},
+				packfileEntry{name: "pack-1234.mtimes"},
+			},
+			expectedTypes: map[string]packfileMetadata{
+				"pack-1234.pack": {
+					hasKeep:   true,
+					hasMtimes: true,
+				},
+			},
+		},
+		{
+			desc: "multiple packfiles",
+			packfileEntries: []fs.DirEntry{
+				packfileEntry{name: "pack-1.pack"},
+				packfileEntry{name: "pack-1.keep"},
+				packfileEntry{name: "pack-2.pack"},
+				packfileEntry{name: "pack-2.mtimes"},
+				packfileEntry{name: "pack-3.pack"},
+				packfileEntry{name: "pack-3.idx"},
+				packfileEntry{name: "pack-4.idx"},
+				packfileEntry{name: "garbage"},
+			},
+			expectedTypes: map[string]packfileMetadata{
+				"pack-1.pack": {
+					hasKeep: true,
+				},
+				"pack-2.pack": {
+					hasMtimes: true,
+				},
+				"pack-3.pack": {},
+				"pack-4.pack": {},
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			require.Equal(t, tc.expectedTypes, classifyPackfiles(tc.packfileEntries))
+		})
+	}
+}
+
 func TestBitmapInfoForPath(t *testing.T) {
 	t.Parallel()
 
