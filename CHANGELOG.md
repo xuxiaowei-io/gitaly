@@ -119,6 +119,10 @@ No changes.
 
 - [objectpool: Deprecate ReduplicateRepository RPC](gitlab-org/gitaly@4db49541d5843106aeac193de0ed3fd466cc3bc8) ([merge request](gitlab-org/gitaly!5131))
 
+## 15.6.7 (2023-01-30)
+
+No changes.
+
 ## 15.6.6 (2023-01-12)
 
 No changes.
