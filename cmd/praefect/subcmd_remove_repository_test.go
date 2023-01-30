@@ -338,19 +338,21 @@ func TestRemoveRepository_removeReplicationEvents(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []uint64{failedEvent.ID}, acknowledgedJobIDs)
 
+	resetCh := make(chan struct{})
 	ticker := helper.NewManualTicker()
-	defer ticker.Stop()
+	ticker.ResetFunc = func() {
+		resetCh <- struct{}{}
+	}
 
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 
-		// Tick multiple times so that we know that at least one event must have been processed by
-		// the command.
-		ticker.Tick()
-		ticker.Tick()
-		ticker.Tick()
+		// Wait for the system-under-test to execute the `Reset()` function of the ticker
+		// for the first time. This means that the logic-under-test has executed once and
+		// that the processing loop is blocked until we call `Tick()`.
+		<-resetCh
 
 		// Verify that the database now only contains a single job, which is the "in_progress" one.
 		var jobIDs glsql.Uint64Provider
@@ -364,6 +366,13 @@ func TestRemoveRepository_removeReplicationEvents(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, []uint64{inProgressEvent.ID}, acknowledgedJobIDs)
 
+		// Trigger the ticker so that the processing loop becomes unblocked. This should
+		// cause us to prune the now-acknowledged job.
+		//
+		// Note that we explicitly don't close the reset channel or try to receive another
+		// message on it. This is done to ensure that we have now deterministically removed
+		// the replication event and that the loop indeed has terminated as expected without
+		// calling `Reset()` on the ticker again.
 		ticker.Tick()
 	}()
 
