@@ -621,6 +621,59 @@ func TestRepositoryStore_Postgres(t *testing.T) {
 		})
 	})
 
+	t.Run("DeleteAllRepositories", func(t *testing.T) {
+		rs := newRepositoryStore(t, nil)
+
+		require.NoError(t, rs.CreateRepository(ctx, 1, "virtual-storage-1", "repository-1", "replica-path-1", "storage-1", nil, nil, false, false))
+		require.NoError(t, rs.CreateRepository(ctx, 2, "virtual-storage-2", "repository-1", "replica-path-2", "storage-1", []string{"storage-2"}, nil, false, false))
+		require.NoError(t, rs.CreateRepository(ctx, 3, "virtual-storage-2", "repository-2", "replica-path-3", "storage-1", nil, nil, false, false))
+
+		requireState(t, ctx, db,
+			virtualStorageState{
+				"virtual-storage-1": {
+					"repository-1": {repositoryID: 1, replicaPath: "replica-path-1"},
+				},
+				"virtual-storage-2": {
+					"repository-1": {repositoryID: 2, replicaPath: "replica-path-2"},
+					"repository-2": {repositoryID: 3, replicaPath: "replica-path-3"},
+				},
+			},
+			storageState{
+				"virtual-storage-1": {
+					"repository-1": {
+						"storage-1": {repositoryID: 1},
+					},
+				},
+				"virtual-storage-2": {
+					"repository-1": {
+						"storage-1": {repositoryID: 2},
+						"storage-2": {repositoryID: 2},
+					},
+					"repository-2": {
+						"storage-1": {repositoryID: 3},
+					},
+				},
+			},
+		)
+
+		require.NoError(t, rs.DeleteAllRepositories(ctx, "virtual-storage-2"))
+
+		requireState(t, ctx, db,
+			virtualStorageState{
+				"virtual-storage-1": {
+					"repository-1": {repositoryID: 1, replicaPath: "replica-path-1"},
+				},
+			},
+			storageState{
+				"virtual-storage-1": {
+					"repository-1": {
+						"storage-1": {repositoryID: 1},
+					},
+				},
+			},
+		)
+	})
+
 	t.Run("DeleteRepository", func(t *testing.T) {
 		t.Run("delete non-existing", func(t *testing.T) {
 			rs := newRepositoryStore(t, nil)
