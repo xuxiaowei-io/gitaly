@@ -241,6 +241,8 @@ type PackfilesInfo struct {
 	Count uint64 `json:"count"`
 	// Size is the total size of all loose objects in bytes, including stale ones.
 	Size uint64 `json:"size"`
+	// ReverseIndexCount is the number of reverse indices.
+	ReverseIndexCount uint64 `json:"reverse_index_count"`
 	// GarbageCount is the number of garbage files.
 	GarbageCount uint64 `json:"garbage_count"`
 	// GarbageSize is the total size of all garbage files in bytes.
@@ -273,40 +275,32 @@ func PackfilesInfoForRepository(repo *localrepo.Repo) (PackfilesInfo, error) {
 
 	var info PackfilesInfo
 	for _, entry := range entries {
-		entryInfo, err := entry.Info()
-		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				continue
-			}
-
-			return PackfilesInfo{}, fmt.Errorf("getting packfile info: %w", err)
-		}
-
 		entryName := entry.Name()
 
 		switch {
-		case strings.HasPrefix(entryName, "pack-"):
-			// We're overly lenient here and only verify packfiles for known suffixes.
-			// As a consequence, we don't catch garbage files here. This is on purpose
-			// though because Git has grown more and more metadata-style file formats,
-			// and we don't want to copy the list here.
-			switch {
-			case strings.HasSuffix(entryName, ".pack"):
-				info.Count++
-				if entryInfo.Size() > 0 {
-					info.Size += uint64(entryInfo.Size())
-				}
-			case strings.HasSuffix(entryName, ".bitmap"):
-				bitmap, err := BitmapInfoForPath(filepath.Join(packfilesPath, entryName))
-				if err != nil {
-					return PackfilesInfo{}, fmt.Errorf("reading bitmap info: %w", err)
-				}
-
-				info.Bitmap = bitmap
+		case hasPrefixAndSuffix(entryName, "pack-", ".pack"):
+			size, err := entrySize(entry)
+			if err != nil {
+				return PackfilesInfo{}, fmt.Errorf("getting packfile size: %w", err)
 			}
+
+			info.Count++
+			info.Size += size
+		case hasPrefixAndSuffix(entryName, "pack-", ".idx"):
+			// We ignore normal indices as every packfile would have one anyway, or
+			// otherwise the repository would be corrupted.
+		case hasPrefixAndSuffix(entryName, "pack-", ".rev"):
+			info.ReverseIndexCount++
+		case hasPrefixAndSuffix(entryName, "pack-", ".bitmap"):
+			bitmap, err := BitmapInfoForPath(filepath.Join(packfilesPath, entryName))
+			if err != nil {
+				return PackfilesInfo{}, fmt.Errorf("reading bitmap info: %w", err)
+			}
+
+			info.Bitmap = bitmap
 		case entryName == "multi-pack-index":
 			info.HasMultiPackIndex = true
-		case strings.HasPrefix(entryName, "multi-pack-index-") && strings.HasSuffix(entryName, ".bitmap"):
+		case hasPrefixAndSuffix(entryName, "multi-pack-index-", ".bitmap"):
 			bitmap, err := BitmapInfoForPath(filepath.Join(packfilesPath, entryName))
 			if err != nil {
 				return PackfilesInfo{}, fmt.Errorf("reading multi-pack-index bitmap info: %w", err)
@@ -314,16 +308,42 @@ func PackfilesInfoForRepository(repo *localrepo.Repo) (PackfilesInfo, error) {
 
 			info.MultiPackIndexBitmap = bitmap
 		default:
-			info.GarbageCount++
-			if entryInfo.Size() > 0 {
-				info.GarbageSize += uint64(entryInfo.Size())
+			size, err := entrySize(entry)
+			if err != nil {
+				if errors.Is(err, os.ErrNotExist) {
+					// Unrecognized files may easily be temporary files written
+					// by Git. It is expected that these may get concurrently
+					// removed, so we just ignore the case where they've gone
+					// missing.
+					continue
+				}
+
+				return PackfilesInfo{}, fmt.Errorf("getting garbage size: %w", err)
 			}
 
-			continue
+			info.GarbageCount++
+			info.GarbageSize += size
 		}
 	}
 
 	return info, nil
+}
+
+func entrySize(entry fs.DirEntry) (uint64, error) {
+	entryInfo, err := entry.Info()
+	if err != nil {
+		return 0, fmt.Errorf("getting file info: %w", err)
+	}
+
+	if entryInfo.Size() >= 0 {
+		return uint64(entryInfo.Size()), nil
+	}
+
+	return 0, nil
+}
+
+func hasPrefixAndSuffix(s, prefix, suffix string) bool {
+	return strings.HasPrefix(s, prefix) && strings.HasSuffix(s, suffix)
 }
 
 func readAlternates(repo *localrepo.Repo) ([]string, error) {

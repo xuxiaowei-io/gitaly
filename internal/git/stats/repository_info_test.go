@@ -708,104 +708,128 @@ func TestPackfileInfoForRepository(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
-	createRepo := func(t *testing.T) (*localrepo.Repo, string) {
-		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-			SkipCreationViaService: true,
-		})
-		return localrepo.NewTestRepo(t, cfg, repoProto), repoPath
-	}
-
-	requirePackfilesInfo := func(t *testing.T, repo *localrepo.Repo, expectedInfo PackfilesInfo) {
-		info, err := PackfilesInfoForRepository(repo)
-		require.NoError(t, err)
-		require.Equal(t, expectedInfo, info)
-	}
-
-	t.Run("empty repository", func(t *testing.T) {
-		repo, _ := createRepo(t)
-		requirePackfilesInfo(t, repo, PackfilesInfo{})
-	})
-
-	t.Run("single packfile", func(t *testing.T) {
-		repo, repoPath := createRepo(t)
-
-		packfileDir := filepath.Join(repoPath, "objects", "pack")
-		require.NoError(t, os.MkdirAll(packfileDir, 0o755))
-		require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "pack-foo.pack"), []byte("foobar"), 0o644))
-
-		requirePackfilesInfo(t, repo, PackfilesInfo{
-			Count: 1,
-			Size:  6,
-		})
-	})
-
-	t.Run("multiple packfiles", func(t *testing.T) {
-		repo, repoPath := createRepo(t)
-
-		packfileDir := filepath.Join(repoPath, "objects", "pack")
-		require.NoError(t, os.MkdirAll(packfileDir, 0o755))
-		require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "pack-foo.pack"), []byte("foobar"), 0o644))
-		require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "pack-bar.pack"), []byte("123"), 0o644))
-
-		requirePackfilesInfo(t, repo, PackfilesInfo{
-			Count: 2,
-			Size:  9,
-		})
-	})
-
-	t.Run("multi-pack-index", func(t *testing.T) {
-		repo, repoPath := createRepo(t)
-
-		packfileDir := filepath.Join(repoPath, "objects", "pack")
-		require.NoError(t, os.MkdirAll(packfileDir, 0o755))
-		require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "multi-pack-index"), nil, 0o644))
-
-		requirePackfilesInfo(t, repo, PackfilesInfo{
-			HasMultiPackIndex: true,
-		})
-	})
-
-	t.Run("multi-pack-index with bitmap", func(t *testing.T) {
-		repo, repoPath := createRepo(t)
-
-		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
-		gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Adb", "--write-midx")
-
-		requirePackfilesInfo(t, repo, PackfilesInfo{
-			Count:             1,
-			Size:              hashDependentSize(163, 189),
-			HasMultiPackIndex: true,
-			MultiPackIndexBitmap: BitmapInfo{
-				Exists:       true,
-				Version:      1,
-				HasHashCache: true,
+	for _, tc := range []struct {
+		desc           string
+		seedRepository func(t *testing.T, repoPath string)
+		expectedInfo   PackfilesInfo
+	}{
+		{
+			desc: "empty repository",
+			seedRepository: func(t *testing.T, repoPath string) {
 			},
-		})
-	})
-
-	t.Run("multiple packfiles with other data structures", func(t *testing.T) {
-		repo, repoPath := createRepo(t)
-
-		gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("first"), gittest.WithBranch("first"))
-		gittest.Exec(t, cfg, "-c", "repack.writeBitmaps=false", "-C", repoPath, "repack", "-Ad")
-		gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("second"), gittest.WithBranch("second"))
-		gittest.Exec(t, cfg, "-C", repoPath, "repack", "-db", "--write-midx")
-
-		require.NoError(t, os.WriteFile(filepath.Join(repoPath, "objects", "pack", "garbage"), []byte("1"), 0o644))
-
-		requirePackfilesInfo(t, repo, PackfilesInfo{
-			Count:             2,
-			Size:              hashDependentSize(315, 367),
-			GarbageCount:      1,
-			GarbageSize:       1,
-			HasMultiPackIndex: true,
-			MultiPackIndexBitmap: BitmapInfo{
-				Exists:       true,
-				Version:      1,
-				HasHashCache: true,
+			expectedInfo: PackfilesInfo{},
+		},
+		{
+			desc: "single packfile",
+			seedRepository: func(t *testing.T, repoPath string) {
+				packfileDir := filepath.Join(repoPath, "objects", "pack")
+				require.NoError(t, os.MkdirAll(packfileDir, 0o755))
+				require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "pack-foo.pack"), []byte("foobar"), 0o644))
 			},
+			expectedInfo: PackfilesInfo{
+				Count: 1,
+				Size:  6,
+			},
+		},
+		{
+			desc: "multiple packfiles",
+			seedRepository: func(t *testing.T, repoPath string) {
+				packfileDir := filepath.Join(repoPath, "objects", "pack")
+				require.NoError(t, os.MkdirAll(packfileDir, 0o755))
+				require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "pack-foo.pack"), []byte("foobar"), 0o644))
+				require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "pack-bar.pack"), []byte("123"), 0o644))
+			},
+			expectedInfo: PackfilesInfo{
+				Count: 2,
+				Size:  9,
+			},
+		},
+		{
+			desc: "reverse index",
+			seedRepository: func(t *testing.T, repoPath string) {
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+				gittest.Exec(t, cfg, "-c", "pack.writeReverseIndex=true", "-C", repoPath, "repack", "-Ad")
+			},
+			expectedInfo: PackfilesInfo{
+				Count:             1,
+				Size:              hashDependentSize(163, 189),
+				ReverseIndexCount: 1,
+				Bitmap: BitmapInfo{
+					Exists:       true,
+					Version:      1,
+					HasHashCache: true,
+				},
+			},
+		},
+		{
+			desc: "multi-pack-index",
+			seedRepository: func(t *testing.T, repoPath string) {
+				packfileDir := filepath.Join(repoPath, "objects", "pack")
+				require.NoError(t, os.MkdirAll(packfileDir, 0o755))
+				require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "multi-pack-index"), nil, 0o644))
+			},
+			expectedInfo: PackfilesInfo{
+				HasMultiPackIndex: true,
+			},
+		},
+		{
+			desc: "multi-pack-index with bitmap",
+			seedRepository: func(t *testing.T, repoPath string) {
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Adb", "--write-midx")
+			},
+			expectedInfo: PackfilesInfo{
+				Count:             1,
+				Size:              hashDependentSize(163, 189),
+				HasMultiPackIndex: true,
+				MultiPackIndexBitmap: BitmapInfo{
+					Exists:       true,
+					Version:      1,
+					HasHashCache: true,
+				},
+			},
+		},
+		{
+			desc: "multiple packfiles with other data structures",
+			seedRepository: func(t *testing.T, repoPath string) {
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("first"), gittest.WithBranch("first"))
+				gittest.Exec(t, cfg, "-c", "repack.writeBitmaps=false", "-C", repoPath, "repack", "-Ad")
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("second"), gittest.WithBranch("second"))
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-db", "--write-midx")
+
+				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "objects", "pack", "garbage"), []byte("1"), 0o644))
+			},
+			expectedInfo: PackfilesInfo{
+				Count:             2,
+				Size:              hashDependentSize(315, 367),
+				GarbageCount:      1,
+				GarbageSize:       1,
+				HasMultiPackIndex: true,
+				MultiPackIndexBitmap: BitmapInfo{
+					Exists:       true,
+					Version:      1,
+					HasHashCache: true,
+				},
+			},
+		},
+	} {
+		tc := tc
+
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				SkipCreationViaService: true,
+			})
+			repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+			tc.seedRepository(t, repoPath)
+
+			info, err := PackfilesInfoForRepository(repo)
+			require.NoError(t, err)
+			require.Equal(t, tc.expectedInfo, info)
 		})
-	})
+	}
 }
 
 func TestBitmapInfoForPath(t *testing.T) {
