@@ -25,7 +25,10 @@ import (
 
 func TestPruneIfNeeded(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.WriteBitmapLookupTable).Run(t, testPruneIfNeeded)
+	testhelper.NewFeatureSets(
+		featureflag.WriteBitmapLookupTable,
+		featureflag.WriteMultiPackIndex,
+	).Run(t, testPruneIfNeeded)
 }
 
 func testPruneIfNeeded(t *testing.T, ctx context.Context) {
@@ -33,6 +36,13 @@ func testPruneIfNeeded(t *testing.T, ctx context.Context) {
 
 	cfg := testcfg.Build(t)
 	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
+
+	midxEnabledOrDisabled := func(enabled, disabled map[string]string) map[string]string {
+		if featureflag.WriteMultiPackIndex.IsEnabled(ctx) {
+			return enabled
+		}
+		return disabled
+	}
 
 	for _, tc := range []struct {
 		desc               string
@@ -51,20 +61,34 @@ func testPruneIfNeeded(t *testing.T, ctx context.Context) {
 			looseObjects: []string{
 				filepath.Join("ab/12345"),
 			},
-			expectedLogEntries: map[string]string{
-				"packed_objects_full": "success",
-				"written_bitmap":      "success",
-			},
+			expectedLogEntries: midxEnabledOrDisabled(
+				map[string]string{
+					"packed_objects_incremental": "success",
+					"written_bitmap":             "success",
+					"written_multi_pack_index":   "success",
+				},
+				map[string]string{
+					"packed_objects_full": "success",
+					"written_bitmap":      "success",
+				},
+			),
 		},
 		{
 			desc: "object in 17 shard",
 			looseObjects: []string{
 				filepath.Join("17/12345"),
 			},
-			expectedLogEntries: map[string]string{
-				"packed_objects_full": "success",
-				"written_bitmap":      "success",
-			},
+			expectedLogEntries: midxEnabledOrDisabled(
+				map[string]string{
+					"packed_objects_incremental": "success",
+					"written_bitmap":             "success",
+					"written_multi_pack_index":   "success",
+				},
+				map[string]string{
+					"packed_objects_full": "success",
+					"written_bitmap":      "success",
+				},
+			),
 		},
 		{
 			desc: "objects in different shards",
@@ -74,10 +98,17 @@ func testPruneIfNeeded(t *testing.T, ctx context.Context) {
 				filepath.Join("12/12345"),
 				filepath.Join("17/12345"),
 			},
-			expectedLogEntries: map[string]string{
-				"packed_objects_full": "success",
-				"written_bitmap":      "success",
-			},
+			expectedLogEntries: midxEnabledOrDisabled(
+				map[string]string{
+					"packed_objects_incremental": "success",
+					"written_bitmap":             "success",
+					"written_multi_pack_index":   "success",
+				},
+				map[string]string{
+					"packed_objects_full": "success",
+					"written_bitmap":      "success",
+				},
+			),
 		},
 		{
 			desc:   "exceeding boundary on pool",
@@ -93,10 +124,17 @@ func testPruneIfNeeded(t *testing.T, ctx context.Context) {
 
 				return looseObjects
 			}(),
-			expectedLogEntries: map[string]string{
-				"packed_objects_full": "success",
-				"written_bitmap":      "success",
-			},
+			expectedLogEntries: midxEnabledOrDisabled(
+				map[string]string{
+					"packed_objects_incremental": "success",
+					"written_bitmap":             "success",
+					"written_multi_pack_index":   "success",
+				},
+				map[string]string{
+					"packed_objects_full": "success",
+					"written_bitmap":      "success",
+				},
+			),
 		},
 		{
 			desc: "on boundary shouldn't prune",
@@ -115,10 +153,17 @@ func testPruneIfNeeded(t *testing.T, ctx context.Context) {
 				t := time.Now().Add(stats.StaleObjectsGracePeriod).Add(-1 * time.Minute)
 				return &t
 			}(),
-			expectedLogEntries: map[string]string{
-				"packed_objects_full": "success",
-				"written_bitmap":      "success",
-			},
+			expectedLogEntries: midxEnabledOrDisabled(
+				map[string]string{
+					"packed_objects_incremental": "success",
+					"written_bitmap":             "success",
+					"written_multi_pack_index":   "success",
+				},
+				map[string]string{
+					"packed_objects_full": "success",
+					"written_bitmap":      "success",
+				},
+			),
 		},
 		{
 			desc: "exceeding boundary should prune",
@@ -137,11 +182,19 @@ func testPruneIfNeeded(t *testing.T, ctx context.Context) {
 				t := time.Now().Add(stats.StaleObjectsGracePeriod).Add(-1 * time.Minute)
 				return &t
 			}(),
-			expectedLogEntries: map[string]string{
-				"packed_objects_full": "success",
-				"pruned_objects":      "success",
-				"written_bitmap":      "success",
-			},
+			expectedLogEntries: midxEnabledOrDisabled(
+				map[string]string{
+					"packed_objects_incremental": "success",
+					"pruned_objects":             "success",
+					"written_bitmap":             "success",
+					"written_multi_pack_index":   "success",
+				},
+				map[string]string{
+					"packed_objects_full": "success",
+					"pruned_objects":      "success",
+					"written_bitmap":      "success",
+				},
+			),
 		},
 	} {
 		tc := tc

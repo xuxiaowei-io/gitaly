@@ -24,7 +24,10 @@ import (
 
 func TestFetchFromOrigin_dangling(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.WriteBitmapLookupTable).Run(t, testFetchFromOriginDangling)
+	testhelper.NewFeatureSets(
+		featureflag.WriteBitmapLookupTable,
+		featureflag.WriteMultiPackIndex,
+	).Run(t, testFetchFromOriginDangling)
 }
 
 func testFetchFromOriginDangling(t *testing.T, ctx context.Context) {
@@ -113,7 +116,10 @@ func TestFetchFromOrigin_fsck(t *testing.T) {
 
 func TestFetchFromOrigin_deltaIslands(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.WriteBitmapLookupTable).Run(t, testFetchFromOriginDeltaIslands)
+	testhelper.NewFeatureSets(
+		featureflag.WriteBitmapLookupTable,
+		featureflag.WriteMultiPackIndex,
+	).Run(t, testFetchFromOriginDeltaIslands)
 }
 
 func testFetchFromOriginDeltaIslands(t *testing.T, ctx context.Context) {
@@ -126,6 +132,13 @@ func testFetchFromOriginDeltaIslands(t *testing.T, ctx context.Context) {
 	require.NoError(t, pool.FetchFromOrigin(ctx, repo), "seed pool")
 	require.NoError(t, pool.Link(ctx, repo))
 
+	// With multi-pack-indices we don't do full repacks of repositories that
+	// aggressively anymore, but in order to test delta islands we need to trigger one.
+	// We thus write a second packfile so that `OptimizeRepository()` decides to
+	// rewrite packfiles.
+	gittest.WriteCommit(t, cfg, poolPath, gittest.WithBranch("irrelevant"))
+	gittest.Exec(t, cfg, "-C", poolPath, "repack")
+
 	// The setup of delta islands is done in the normal repository, and thus we pass `false`
 	// for `isPoolRepo`. Verification whether we correctly handle repacking though happens in
 	// the pool repository.
@@ -136,7 +149,10 @@ func testFetchFromOriginDeltaIslands(t *testing.T, ctx context.Context) {
 
 func TestFetchFromOrigin_bitmapHashCache(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.WriteBitmapLookupTable).Run(t, testFetchFromOriginBitmapHashCache)
+	testhelper.NewFeatureSets(
+		featureflag.WriteBitmapLookupTable,
+		featureflag.WriteMultiPackIndex,
+	).Run(t, testFetchFromOriginBitmapHashCache)
 }
 
 func testFetchFromOriginBitmapHashCache(t *testing.T, ctx context.Context) {
@@ -166,7 +182,10 @@ func testFetchFromOriginBitmapHashCache(t *testing.T, ctx context.Context) {
 
 func TestFetchFromOrigin_refUpdates(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.WriteBitmapLookupTable).Run(t, testFetchFromOriginRefUpdates)
+	testhelper.NewFeatureSets(
+		featureflag.WriteBitmapLookupTable,
+		featureflag.WriteMultiPackIndex,
+	).Run(t, testFetchFromOriginRefUpdates)
 }
 
 func testFetchFromOriginRefUpdates(t *testing.T, ctx context.Context) {
@@ -217,7 +236,10 @@ func testFetchFromOriginRefUpdates(t *testing.T, ctx context.Context) {
 
 func TestFetchFromOrigin_refs(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.WriteBitmapLookupTable).Run(t, testFetchFromOriginRefs)
+	testhelper.NewFeatureSets(
+		featureflag.WriteBitmapLookupTable,
+		featureflag.WriteMultiPackIndex,
+	).Run(t, testFetchFromOriginRefs)
 }
 
 func testFetchFromOriginRefs(t *testing.T, ctx context.Context) {

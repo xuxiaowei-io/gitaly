@@ -38,7 +38,10 @@ import (
 
 func TestFetchIntoObjectPool_Success(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.WriteBitmapLookupTable).Run(t, testFetchIntoObjectPoolSuccess)
+	testhelper.NewFeatureSets(
+		featureflag.WriteBitmapLookupTable,
+		featureflag.WriteMultiPackIndex,
+	).Run(t, testFetchIntoObjectPoolSuccess)
 }
 
 func testFetchIntoObjectPoolSuccess(t *testing.T, ctx context.Context) {
@@ -91,7 +94,10 @@ func testFetchIntoObjectPoolSuccess(t *testing.T, ctx context.Context) {
 
 func TestFetchIntoObjectPool_transactional(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.WriteBitmapLookupTable).Run(t, testFetchIntoObjectPoolTransactional)
+	testhelper.NewFeatureSets(
+		featureflag.WriteBitmapLookupTable,
+		featureflag.WriteMultiPackIndex,
+	).Run(t, testFetchIntoObjectPoolTransactional)
 }
 
 func testFetchIntoObjectPoolTransactional(t *testing.T, ctx context.Context) {
@@ -207,7 +213,10 @@ func testFetchIntoObjectPoolTransactional(t *testing.T, ctx context.Context) {
 
 func TestFetchIntoObjectPool_CollectLogStatistics(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.WriteBitmapLookupTable).Run(t, testFetchIntoObjectPoolCollectLogStatistics)
+	testhelper.NewFeatureSets(
+		featureflag.WriteBitmapLookupTable,
+		featureflag.WriteMultiPackIndex,
+	).Run(t, testFetchIntoObjectPoolCollectLogStatistics)
 }
 
 func testFetchIntoObjectPoolCollectLogStatistics(t *testing.T, ctx context.Context) {
@@ -303,7 +312,10 @@ func TestFetchIntoObjectPool_Failure(t *testing.T) {
 
 func TestFetchIntoObjectPool_dfConflict(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.WriteBitmapLookupTable).Run(t, testFetchIntoObjectPoolDfConflict)
+	testhelper.NewFeatureSets(
+		featureflag.WriteBitmapLookupTable,
+		featureflag.WriteMultiPackIndex,
+	).Run(t, testFetchIntoObjectPoolDfConflict)
 }
 
 func testFetchIntoObjectPoolDfConflict(t *testing.T, ctx context.Context) {
