@@ -27,7 +27,6 @@ const (
 )
 
 var (
-	configKeyOptionRegex = regexp.MustCompile(`^[[:alnum:]]+[-[:alnum:]]*\.(.+\.)*[[:alnum:]]+[-[:alnum:]]*$`)
 	// configKeyGlobalRegex is intended to verify config keys when used as
 	// global arguments. We're playing it safe here by disallowing lots of
 	// keys which git would parse just fine, but we only have a limited
@@ -51,7 +50,8 @@ type Option interface {
 	OptionArgs() ([]string, error)
 }
 
-// ConfigPair is a sub-command option for use with commands like "git config"
+// ConfigPair is a GlobalOption that can be passed to Git commands to inject per-command config
+// entries via the `git -c` switch.
 type ConfigPair struct {
 	Key   string
 	Value string
@@ -61,14 +61,6 @@ type ConfigPair struct {
 	// Scope shows the scope of this config value: local, global, system, command.
 	// https://git-scm.com/docs/git-config#Documentation/git-config.txt---show-scope
 	Scope string
-}
-
-// OptionArgs validates the config pair args
-func (cp ConfigPair) OptionArgs() ([]string, error) {
-	if !configKeyOptionRegex.MatchString(cp.Key) {
-		return nil, fmt.Errorf("config key %q failed regexp validation: %w", cp.Key, ErrInvalidArg)
-	}
-	return []string{cp.Key, cp.Value}, nil
 }
 
 // GlobalArgs generates a git `-c <key>=<value>` flag. The key must pass
