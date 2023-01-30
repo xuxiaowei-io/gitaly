@@ -36,6 +36,7 @@ func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.Diff
 	rightSha := in.RightCommitId
 	//nolint:staticcheck // This is a deprecated field and will be remove in a upcoming release
 	ignoreWhitespaceChange := in.GetIgnoreWhitespaceChange()
+	whitespaceChanges := in.GetWhitespaceChanges()
 	paths := in.GetPaths()
 
 	cmd := git.Command{
@@ -50,9 +51,14 @@ func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.Diff
 		Args: []string{leftSha, rightSha},
 	}
 
-	if ignoreWhitespaceChange {
+	if whitespaceChanges == gitalypb.CommitDiffRequest_WHITESPACE_CHANGES_IGNORE_ALL {
+		cmd.Flags = append(cmd.Flags, git.Flag{Name: "--ignore-all-space"})
+	} else if whitespaceChanges == gitalypb.CommitDiffRequest_WHITESPACE_CHANGES_IGNORE || ignoreWhitespaceChange {
+		// ignoreWhitespaceChange is a deprecated field which we will eventually remove, for
+		// now when `whitespaceChanges` is undefined we refer to ignoreWhitespaceChange.
 		cmd.Flags = append(cmd.Flags, git.Flag{Name: "--ignore-space-change"})
 	}
+
 	if in.GetDiffMode() == gitalypb.CommitDiffRequest_WORDDIFF {
 		cmd.Flags = append(cmd.Flags, git.Flag{Name: "--word-diff=porcelain"})
 	}

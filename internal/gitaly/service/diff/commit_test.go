@@ -418,6 +418,179 @@ func TestCommitDiff(t *testing.T) {
 				}
 			},
 		},
+		{
+			desc: "whitespace_changes: undefined + ignore_whitespace_change: false",
+			setup: func() setupData {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				blob1 := gittest.WriteBlob(t, cfg, repoPath, []byte("random text of string\n"))
+				blob2 := gittest.WriteBlob(t, cfg, repoPath, []byte("\trandom text of string\n\n"))
+				commit1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "foo", Mode: "100644", OID: blob1},
+				))
+				commit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "foo", Mode: "100644", OID: blob2},
+				))
+
+				return setupData{
+					request: &gitalypb.CommitDiffRequest{
+						Repository:             repoProto,
+						LeftCommitId:           commit1.String(),
+						RightCommitId:          commit2.String(),
+						WhitespaceChanges:      gitalypb.CommitDiffRequest_WHITESPACE_CHANGES_UNSPECIFIED,
+						IgnoreWhitespaceChange: false,
+					},
+					expectedDiff: []diff.Diff{
+						{
+							FromID:   blob1.String(),
+							ToID:     blob2.String(),
+							OldMode:  0o100644,
+							NewMode:  0o100644,
+							FromPath: []byte("foo"),
+							ToPath:   []byte("foo"),
+							Patch:    []byte("@@ -1 +1,2 @@\n-random text of string\n+\trandom text of string\n+\n"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "whitespace_changes: undefined + ignore_whitespace_change: true",
+			setup: func() setupData {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				blob1 := gittest.WriteBlob(t, cfg, repoPath, []byte("random text of string\n"))
+				blob2 := gittest.WriteBlob(t, cfg, repoPath, []byte("random text of string \n"))
+				commit1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "foo", Mode: "100644", OID: blob1},
+				))
+				commit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "foo", Mode: "100644", OID: blob2},
+				))
+
+				return setupData{
+					request: &gitalypb.CommitDiffRequest{
+						Repository:             repoProto,
+						LeftCommitId:           commit1.String(),
+						RightCommitId:          commit2.String(),
+						WhitespaceChanges:      gitalypb.CommitDiffRequest_WHITESPACE_CHANGES_UNSPECIFIED,
+						IgnoreWhitespaceChange: true,
+					},
+					expectedDiff: []diff.Diff{
+						{
+							FromID:   blob1.String(),
+							ToID:     blob2.String(),
+							OldMode:  0o100644,
+							NewMode:  0o100644,
+							FromPath: []byte("foo"),
+							ToPath:   []byte("foo"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "whitespace_changes: dont_ignore",
+			setup: func() setupData {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				blob1 := gittest.WriteBlob(t, cfg, repoPath, []byte("random text of string\n"))
+				blob2 := gittest.WriteBlob(t, cfg, repoPath, []byte("random text of string \n"))
+				commit1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "foo", Mode: "100644", OID: blob1},
+				))
+				commit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "foo", Mode: "100644", OID: blob2},
+				))
+
+				return setupData{
+					request: &gitalypb.CommitDiffRequest{
+						Repository:        repoProto,
+						LeftCommitId:      commit1.String(),
+						RightCommitId:     commit2.String(),
+						WhitespaceChanges: gitalypb.CommitDiffRequest_WHITESPACE_CHANGES_UNSPECIFIED,
+					},
+					expectedDiff: []diff.Diff{
+						{
+							FromID:   blob1.String(),
+							ToID:     blob2.String(),
+							OldMode:  0o100644,
+							NewMode:  0o100644,
+							FromPath: []byte("foo"),
+							ToPath:   []byte("foo"),
+							Patch:    []byte("@@ -1 +1 @@\n-random text of string\n+random text of string \n"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "whitespace_changes: ignore",
+			setup: func() setupData {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				blob1 := gittest.WriteBlob(t, cfg, repoPath, []byte("random text of string\n"))
+				// prefix space is not ignored
+				blob2 := gittest.WriteBlob(t, cfg, repoPath, []byte(" random text of string \n"))
+				commit1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "foo", Mode: "100644", OID: blob1},
+				))
+				commit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "foo", Mode: "100644", OID: blob2},
+				))
+
+				return setupData{
+					request: &gitalypb.CommitDiffRequest{
+						Repository:             repoProto,
+						LeftCommitId:           commit1.String(),
+						RightCommitId:          commit2.String(),
+						WhitespaceChanges:      gitalypb.CommitDiffRequest_WHITESPACE_CHANGES_IGNORE,
+						IgnoreWhitespaceChange: true,
+					},
+					expectedDiff: []diff.Diff{
+						{
+							FromID:   blob1.String(),
+							ToID:     blob2.String(),
+							OldMode:  0o100644,
+							NewMode:  0o100644,
+							FromPath: []byte("foo"),
+							ToPath:   []byte("foo"),
+							Patch:    []byte("@@ -1 +1 @@\n-random text of string\n+ random text of string \n"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "whitespace_changes: ignore_all",
+			setup: func() setupData {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				blob1 := gittest.WriteBlob(t, cfg, repoPath, []byte("random text of string\n"))
+				blob2 := gittest.WriteBlob(t, cfg, repoPath, []byte("random text of string \n"))
+				commit1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "foo", Mode: "100644", OID: blob1},
+				))
+				commit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "foo", Mode: "100644", OID: blob2},
+				))
+
+				return setupData{
+					request: &gitalypb.CommitDiffRequest{
+						Repository:             repoProto,
+						LeftCommitId:           commit1.String(),
+						RightCommitId:          commit2.String(),
+						WhitespaceChanges:      gitalypb.CommitDiffRequest_WHITESPACE_CHANGES_IGNORE_ALL,
+						IgnoreWhitespaceChange: true,
+					},
+					expectedDiff: []diff.Diff{
+						{
+							FromID:   blob1.String(),
+							ToID:     blob2.String(),
+							OldMode:  0o100644,
+							NewMode:  0o100644,
+							FromPath: []byte("foo"),
+							ToPath:   []byte("foo"),
+						},
+					},
+				}
+			},
+		},
 	} {
 		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
