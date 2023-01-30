@@ -3,6 +3,7 @@
 package featureflag
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -79,6 +80,7 @@ func TestFeatureFlag_enabled(t *testing.T) {
 		shouldPanic bool
 		enabled     bool
 		onByDefault bool
+		cache       Cache
 	}{
 		{
 			desc:        "empty name",
@@ -168,8 +170,30 @@ func TestFeatureFlag_enabled(t *testing.T) {
 			enabled:     true,
 			onByDefault: true,
 		},
+		{
+			desc:        "flag missing in metadata but it is available in cache",
+			flag:        "flag",
+			headers:     map[string]string{},
+			shouldPanic: false,
+			enabled:     true,
+			onByDefault: false,
+			cache:       staticCache{"flag": true},
+		},
+		{
+			desc:        "flag missing in metadata and in cache",
+			flag:        "flag",
+			headers:     map[string]string{},
+			shouldPanic: false,
+			enabled:     true,
+			onByDefault: true,
+			cache:       staticCache{},
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
+			if tc.cache != nil {
+				defer SetCache(GetCache())
+				SetCache(tc.cache)
+			}
 			ctx := metadata.NewIncomingContext(createContext(), metadata.New(tc.headers))
 
 			var ff FeatureFlag
@@ -183,4 +207,11 @@ func TestFeatureFlag_enabled(t *testing.T) {
 			require.Equal(t, tc.enabled, !ff.IsDisabled(ctx))
 		})
 	}
+}
+
+type staticCache map[string]bool
+
+func (sc staticCache) Get(_ context.Context, name string) (bool, bool) {
+	val, found := sc[name]
+	return val, found
 }
