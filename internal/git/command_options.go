@@ -27,12 +27,9 @@ const (
 )
 
 var (
-	// configKeyGlobalRegex is intended to verify config keys when used as
-	// global arguments. We're playing it safe here by disallowing lots of
-	// keys which git would parse just fine, but we only have a limited
-	// number of config entries anyway. Most importantly, we cannot allow
-	// `=` as part of the key as that would break parsing of `git -c`.
-	configKeyGlobalRegex = regexp.MustCompile(`^[[:alnum:]]+(\.[-/_:@a-zA-Z0-9]+)+$`)
+	// configKeyRegex is intended to verify config keys in their `core.gc` or
+	// `http.http://example.com.proxy` format.
+	configKeyRegex = regexp.MustCompile(`^[[:alnum:]]+(\.[-/_:@a-zA-Z0-9]+)+$`)
 
 	flagRegex = regexp.MustCompile(`^(-|--)[[:alnum:]]`)
 )
@@ -68,7 +65,7 @@ type ConfigPair struct {
 // No other characters are allowed for now as `git -c` may not correctly parse
 // them, most importantly when they contain equals signs.
 func (cp ConfigPair) GlobalArgs() ([]string, error) {
-	if !configKeyGlobalRegex.MatchString(cp.Key) {
+	if !configKeyRegex.MatchString(cp.Key) {
 		return nil, fmt.Errorf("config key %q failed regexp validation: %w", cp.Key, ErrInvalidArg)
 	}
 	return []string{"-c", fmt.Sprintf("%s=%s", cp.Key, cp.Value)}, nil
