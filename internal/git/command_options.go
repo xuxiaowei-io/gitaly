@@ -29,7 +29,7 @@ const (
 var (
 	// configKeyRegex is intended to verify config keys in their `core.gc` or
 	// `http.http://example.com.proxy` format.
-	configKeyRegex = regexp.MustCompile(`^[[:alnum:]]+(\.[-/_:@a-zA-Z0-9]+)+$`)
+	configKeyRegex = regexp.MustCompile(`^[[:alnum:]]+(\.[*-/_:@a-zA-Z0-9]+)+$`)
 
 	flagRegex = regexp.MustCompile(`^(-|--)[[:alnum:]]`)
 )

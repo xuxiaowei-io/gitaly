@@ -166,6 +166,12 @@ func TestGlobalOption(t *testing.T) {
 			expected: []string{"-c", "http.https://user@example.com/repo.git.user=kitty"},
 		},
 		{
+			desc:     "config pair with URL key including wildcard",
+			option:   ConfigPair{Key: "http.https://*.example.com/.proxy", Value: "http://proxy.example.com"},
+			valid:    true,
+			expected: []string{"-c", "http.https://*.example.com/.proxy=http://proxy.example.com"},
+		},
+		{
 			desc:   "config pair with invalid section format",
 			option: ConfigPair{Key: "foo", Value: "value"},
 			valid:  false,
