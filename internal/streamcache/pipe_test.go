@@ -135,6 +135,11 @@ func TestPipe_backpressure(t *testing.T) {
 	_, err := io.ReadFull(pr, buf)
 	require.NoError(t, err)
 	output = append(output, buf...)
+	require.Eventually(t, func() bool {
+		return atomic.LoadInt64(&wprogress) == 2
+	}, time.Minute, time.Millisecond, "writer should have read 2 bytes")
+
+	// We should not see any progress until we try to read more bytes.
 	time.Sleep(10 * time.Millisecond)
 	require.Equal(t, int64(2), atomic.LoadInt64(&wprogress), "writer should be blocked after 2 bytes")
 
