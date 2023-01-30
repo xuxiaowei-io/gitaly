@@ -15,7 +15,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	promtest "github.com/prometheus/client_golang/prometheus/testutil"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
@@ -71,21 +70,15 @@ func TestServer_PostUploadWithChannel(t *testing.T) {
 
 func testServerPostUpload(t *testing.T, ctx context.Context, makeRequest requestMaker, opts ...testcfg.Option) {
 	cfg := testcfg.Build(t, opts...)
+	testcfg.BuildGitalyHooks(t, cfg)
 
 	negotiationMetrics := prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"feature"})
 	cfg.SocketPath = runSmartHTTPServer(t, cfg, WithPackfileNegotiationMetrics(negotiationMetrics))
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
-	_, localRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	_, localRepoPath := gittest.CreateRepository(t, ctx, cfg)
 
-	testcfg.BuildGitalyHooks(t, cfg)
-
-	oldCommit, err := git.ObjectHashSHA1.FromHex("1e292f8fedd741b75372e19097c76d327140c312") // refs/heads/master
-	require.NoError(t, err)
+	oldCommit := gittest.WriteCommit(t, cfg, repoPath)
 	newCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithParents(oldCommit))
 
 	// UploadPack request is a "want" packet line followed by a packet flush, then many "have" packets followed by a packet flush.
@@ -201,9 +194,7 @@ func testServerPostUploadPackGitProtocol(t *testing.T, ctx context.Context, make
 	})
 	cfg.SocketPath = server.Address()
 
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
+	repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	// command=ls-refs does not exist in protocol v0, so if this succeeds, we're talking v2
 	requestBody := &bytes.Buffer{}
@@ -244,21 +235,19 @@ func testServerPostUploadPackSuppressDeepenExitError(t *testing.T, ctx context.C
 	cfg := testcfg.Build(t, opts...)
 	cfg.SocketPath = runSmartHTTPServer(t, cfg)
 
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	commitID := gittest.WriteCommit(t, cfg, repoPath)
 
-	requestBody := &bytes.Buffer{}
-	gittest.WritePktlineString(t, requestBody, fmt.Sprintf("want e63f41fe459e62e1228fcef60d7189127aeba95a %s\n", clientCapabilities))
-	gittest.WritePktlineString(t, requestBody, "deepen 1")
-	gittest.WritePktlineFlush(t, requestBody)
+	var requestBody bytes.Buffer
+	gittest.WritePktlineString(t, &requestBody, fmt.Sprintf("want %s %s\n", commitID, clientCapabilities))
+	gittest.WritePktlineString(t, &requestBody, "deepen 1")
+	gittest.WritePktlineFlush(t, &requestBody)
 
-	rpcRequest := &gitalypb.PostUploadPackRequest{Repository: repo}
-	response, err := makeRequest(t, ctx, cfg.SocketPath, cfg.Auth.Token, rpcRequest, requestBody)
-
-	// This assertion is the main reason this test exists.
-	assert.NoError(t, err)
-	assert.Equal(t, `0034shallow e63f41fe459e62e1228fcef60d7189127aeba95a0000`, response.String())
+	response, err := makeRequest(t, ctx, cfg.SocketPath, cfg.Auth.Token, &gitalypb.PostUploadPackRequest{
+		Repository: repo,
+	}, &requestBody)
+	require.NoError(t, err)
+	require.Equal(t, fmt.Sprintf("0034shallow %s0000", commitID), response.String())
 }
 
 func TestServer_PostUploadPack_usesPackObjectsHook(t *testing.T) {
@@ -293,22 +282,19 @@ func testServerPostUploadPackUsesPackObjectsHook(t *testing.T, ctx context.Conte
 
 	cfg.SocketPath = runSmartHTTPServer(t, cfg)
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	oldHead := gittest.WriteCommit(t, cfg, repoPath)
+	newHead := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(oldHead), gittest.WithBranch("master"))
 
-	oldHead := bytes.TrimSpace(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "master~"))
-	newHead := bytes.TrimSpace(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "master"))
-
-	requestBuffer := &bytes.Buffer{}
-	gittest.WritePktlineString(t, requestBuffer, fmt.Sprintf("want %s %s\n", newHead, clientCapabilities))
-	gittest.WritePktlineFlush(t, requestBuffer)
-	gittest.WritePktlineString(t, requestBuffer, fmt.Sprintf("have %s\n", oldHead))
-	gittest.WritePktlineFlush(t, requestBuffer)
+	var requestBuffer bytes.Buffer
+	gittest.WritePktlineString(t, &requestBuffer, fmt.Sprintf("want %s %s\n", newHead, clientCapabilities))
+	gittest.WritePktlineFlush(t, &requestBuffer)
+	gittest.WritePktlineString(t, &requestBuffer, fmt.Sprintf("have %s\n", oldHead))
+	gittest.WritePktlineFlush(t, &requestBuffer)
 
 	_, err := makeRequest(t, ctx, cfg.SocketPath, cfg.Auth.Token, &gitalypb.PostUploadPackRequest{
 		Repository: repo,
-	}, requestBuffer)
+	}, &requestBuffer)
 	require.NoError(t, err)
 
 	contents := testhelper.MustReadFile(t, outputPath)
@@ -461,19 +447,21 @@ func TestServer_PostUploadPackWithSidechannel_partialClone(t *testing.T) {
 
 func testServerPostUploadPackPartialClone(t *testing.T, ctx context.Context, makeRequest requestMaker, opts ...testcfg.Option) {
 	cfg := testcfg.Build(t, opts...)
+	testcfg.BuildGitalyHooks(t, cfg)
 
 	negotiationMetrics := prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"feature"})
 	cfg.SocketPath = runSmartHTTPServer(t, cfg, WithPackfileNegotiationMetrics(negotiationMetrics))
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	_, localRepoPath := gittest.CreateRepository(t, ctx, cfg)
 
-	testcfg.BuildGitalyHooks(t, cfg)
+	blobLessThanLimit := gittest.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte{1}, 100))
+	blobGreaterThanLimit := gittest.WriteBlob(t, cfg, repoPath, bytes.Repeat([]byte{1}, 1000))
 
-	oldCommit, err := git.ObjectHashSHA1.FromHex("1e292f8fedd741b75372e19097c76d327140c312") // refs/heads/master
-	require.NoError(t, err)
+	oldCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "small", Mode: "100644", OID: blobLessThanLimit},
+		gittest.TreeEntry{Path: "large", Mode: "100644", OID: blobGreaterThanLimit},
+	))
 	newCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"), gittest.WithParents(oldCommit))
 
 	var requestBuffer bytes.Buffer
@@ -493,12 +481,6 @@ func testServerPostUploadPackPartialClone(t *testing.T, ctx context.Context, mak
 	gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: bytes.NewReader(pack)},
 		"-C", localRepoPath, "unpack-objects", fmt.Sprintf("--pack_header=%d,%d", version, entries),
 	)
-
-	// a4a132b1b0d6720ca9254440a7ba8a6b9bbd69ec is README.md, which is a small file
-	blobLessThanLimit := git.ObjectID("a4a132b1b0d6720ca9254440a7ba8a6b9bbd69ec")
-
-	// c1788657b95998a2f177a4f86d68a60f2a80117f is CONTRIBUTING.md, which is > 200 bytes
-	blobGreaterThanLimit := git.ObjectID("c1788657b95998a2f177a4f86d68a60f2a80117f")
 
 	gittest.RequireObjectExists(t, cfg, localRepoPath, blobLessThanLimit)
 	gittest.RequireObjectExists(t, cfg, repoPath, blobGreaterThanLimit)
@@ -527,9 +509,7 @@ func testServerPostUploadPackAllowAnySHA1InWant(t *testing.T, ctx context.Contex
 	cfg := testcfg.Build(t, opts...)
 	cfg.SocketPath = runSmartHTTPServer(t, cfg)
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	_, localRepoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	testcfg.BuildGitalyHooks(t, cfg)
