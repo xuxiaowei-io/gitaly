@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package smarthttp
 
 import (
@@ -170,19 +168,15 @@ func TestInfoRefsUploadPack_partialClone(t *testing.T) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
-
 	cfg.SocketPath = runSmartHTTPServer(t, cfg)
 	ctx := testhelper.Context(t)
 
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 
-	request := &gitalypb.InfoRefsRequest{
+	partialResponse, err := makeInfoRefsUploadPackRequest(t, ctx, cfg.SocketPath, cfg.Auth.Token, &gitalypb.InfoRefsRequest{
 		Repository: repo,
-	}
-
-	partialResponse, err := makeInfoRefsUploadPackRequest(t, ctx, cfg.SocketPath, cfg.Auth.Token, request)
+	})
 	require.NoError(t, err)
 	partialRefs := stats.ReferenceDiscovery{}
 	err = partialRefs.Parse(bytes.NewReader(partialResponse))
@@ -230,19 +224,15 @@ func TestInfoRefsUploadPack_gitProtocol(t *testing.T) {
 	})
 	cfg.SocketPath = server.Address()
 
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
-
-	rpcRequest := &gitalypb.InfoRefsRequest{
-		Repository:  repo,
-		GitProtocol: git.ProtocolV2,
-	}
+	repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	client, conn := newSmartHTTPClient(t, server.Address(), cfg.Auth.Token)
 	defer testhelper.MustClose(t, conn)
 
-	c, err := client.InfoRefsUploadPack(ctx, rpcRequest)
+	c, err := client.InfoRefsUploadPack(ctx, &gitalypb.InfoRefsRequest{
+		Repository:  repo,
+		GitProtocol: git.ProtocolV2,
+	})
 	require.NoError(t, err)
 
 	for {
@@ -310,10 +300,10 @@ func TestInfoRefsReceivePack_hiddenRefs(t *testing.T) {
 	cfg.SocketPath = runSmartHTTPServer(t, cfg)
 	ctx := testhelper.Context(t)
 
-	repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+
 	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
 
 	pool, err := objectpool.Create(
