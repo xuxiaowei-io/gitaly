@@ -100,7 +100,9 @@ type RepositoryServiceClient interface {
 	SearchFilesByContent(ctx context.Context, in *SearchFilesByContentRequest, opts ...grpc.CallOption) (RepositoryService_SearchFilesByContentClient, error)
 	// This comment is left unintentionally blank.
 	SearchFilesByName(ctx context.Context, in *SearchFilesByNameRequest, opts ...grpc.CallOption) (RepositoryService_SearchFilesByNameClient, error)
-	// This comment is left unintentionally blank.
+	// RestoreCustomHooks sets the git hooks for a repository. The hooks are sent
+	// in a tar archive containing a `custom_hooks` directory. This directory is
+	// ultimately extracted to the repository.
 	RestoreCustomHooks(ctx context.Context, opts ...grpc.CallOption) (RepositoryService_RestoreCustomHooksClient, error)
 	// This comment is left unintentionally blank.
 	BackupCustomHooks(ctx context.Context, in *BackupCustomHooksRequest, opts ...grpc.CallOption) (RepositoryService_BackupCustomHooksClient, error)
@@ -925,7 +927,9 @@ type RepositoryServiceServer interface {
 	SearchFilesByContent(*SearchFilesByContentRequest, RepositoryService_SearchFilesByContentServer) error
 	// This comment is left unintentionally blank.
 	SearchFilesByName(*SearchFilesByNameRequest, RepositoryService_SearchFilesByNameServer) error
-	// This comment is left unintentionally blank.
+	// RestoreCustomHooks sets the git hooks for a repository. The hooks are sent
+	// in a tar archive containing a `custom_hooks` directory. This directory is
+	// ultimately extracted to the repository.
 	RestoreCustomHooks(RepositoryService_RestoreCustomHooksServer) error
 	// This comment is left unintentionally blank.
 	BackupCustomHooks(*BackupCustomHooksRequest, RepositoryService_BackupCustomHooksServer) error
