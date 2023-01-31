@@ -4,6 +4,7 @@ package repository
 
 import (
 	"context"
+	_ "net/http/pprof"
 	"os"
 	"testing"
 
@@ -339,6 +340,11 @@ func BenchmarkFindLicense(b *testing.B) {
 		SkipCreationViaService: true,
 	})
 
+	repoKicad, _ := gittest.CreateRepository(b, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		Seed:                   "kicad.git",
+	})
+
 	// Based on https://github.com/go-enry/go-license-detector/blob/18a439e5437cd46905b074ac24c27cbb6cac4347/licensedb/internal/investigation.go#L28-L38
 	fileNames := []string{
 		"licence",
@@ -397,16 +403,24 @@ func BenchmarkFindLicense(b *testing.B) {
 		)
 
 		for _, tc := range []struct {
-			desc string
-			repo *gitalypb.Repository
+			desc      string
+			repo      *gitalypb.Repository
+			shortname string
 		}{
 			{
-				desc: "gitlab-org/gitlab.git",
-				repo: repoGitLab,
+				desc:      "gitlab-org/gitlab.git",
+				repo:      repoGitLab,
+				shortname: "mit",
 			},
 			{
-				desc: "stress.git",
-				repo: repoStress,
+				desc:      "stress.git",
+				repo:      repoStress,
+				shortname: "mit",
+			},
+			{
+				desc:      "kicad.git",
+				repo:      repoKicad,
+				shortname: "bsl-1.0",
 			},
 		} {
 			b.Run(tc.desc, func(b *testing.B) {
@@ -415,7 +429,7 @@ func BenchmarkFindLicense(b *testing.B) {
 				for i := 0; i < b.N; i++ {
 					resp, err := client.FindLicense(ctx, &gitalypb.FindLicenseRequest{Repository: tc.repo})
 					require.NoError(b, err)
-					require.Equal(b, "mit", resp.GetLicenseShortName())
+					require.Equal(b, tc.shortname, resp.GetLicenseShortName())
 				}
 
 				if featureflag.LocalrepoReadObjectCached.IsEnabled(ctx) {

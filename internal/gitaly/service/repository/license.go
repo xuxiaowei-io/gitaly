@@ -85,7 +85,7 @@ func (s *server) FindLicense(ctx context.Context, req *gitalypb.FindLicenseReque
 }
 
 func findLicense(ctx context.Context, repo *localrepo.Repo, commitID git.ObjectID) (*gitalypb.FindLicenseResponse, error) {
-	repoFiler := &gitFiler{ctx: ctx, repo: repo, treeishID: commitID}
+	repoFiler := &GitFiler{Ctx: ctx, Repo: repo, TreeishID: commitID}
 	detectedLicenses, err := licensedb.Detect(repoFiler)
 	if err != nil {
 		if errors.Is(err, licensedb.ErrNoLicenseFound) {
@@ -175,16 +175,16 @@ func trimDeprecatedPrefix(name string) string {
 
 var readmeRegexp = regexp.MustCompile(`(readme|guidelines)(\.md|\.rst|\.html|\.txt)?$`)
 
-type gitFiler struct {
-	ctx          context.Context
-	repo         *localrepo.Repo
+type GitFiler struct {
+	Ctx          context.Context
+	Repo         *localrepo.Repo
 	foundLicense bool
 	path         string
-	treeishID    git.ObjectID
+	TreeishID    git.ObjectID
 }
 
-func (f *gitFiler) ReadFile(path string) ([]byte, error) {
-	data, err := f.repo.ReadObject(f.ctx, git.ObjectID(fmt.Sprintf("%s:%s", f.treeishID, path)))
+func (f *GitFiler) ReadFile(path string) ([]byte, error) {
+	data, err := f.Repo.ReadObject(f.Ctx, git.ObjectID(fmt.Sprintf("%s:%s", f.TreeishID, path)))
 	if err != nil {
 		return nil, fmt.Errorf("read file: %w", err)
 	}
@@ -207,14 +207,14 @@ func (f *gitFiler) ReadFile(path string) ([]byte, error) {
 	return data, nil
 }
 
-func (f *gitFiler) ReadDir(string) ([]filer.File, error) {
+func (f *GitFiler) ReadDir(string) ([]filer.File, error) {
 	var stderr bytes.Buffer
-	cmd, err := f.repo.Exec(f.ctx, git.Command{
+	cmd, err := f.Repo.Exec(f.Ctx, git.Command{
 		Name: "ls-tree",
 		Flags: []git.Option{
 			git.Flag{Name: "-z"},
 		},
-		Args: []string{f.treeishID.String()},
+		Args: []string{f.TreeishID.String()},
 	}, git.WithStderr(&stderr))
 	if err != nil {
 		return nil, err
@@ -249,9 +249,9 @@ func (f *gitFiler) ReadDir(string) ([]filer.File, error) {
 	return files, nil
 }
 
-func (f *gitFiler) Close() {}
+func (f *GitFiler) Close() {}
 
-func (f *gitFiler) PathsAreAlwaysSlash() bool {
+func (f *GitFiler) PathsAreAlwaysSlash() bool {
 	// git ls-files uses unix slash `/`
 	return true
 }
