@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"google.golang.org/grpc"
@@ -16,21 +15,16 @@ import (
 
 func TestUnary(t *testing.T) {
 	t.Parallel()
-	featureSet := testhelper.NewFeatureSets(featureflag.ConvertErrToStatus)
-	featureSet.Run(t, testUnary)
-}
-
-func testUnary(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
 	cancelledCtx, cancel := context.WithCancel(ctx)
 	cancel()
 	timeoutCtx, timeout := context.WithTimeout(ctx, 0) //nolint:forbidigo
 	timeout()
 
 	for desc, tc := range map[string]struct {
-		ctx                   context.Context
-		err                   error
-		expectedErr           error
-		skipIfFeatureDisabled bool
+		ctx         context.Context
+		err         error
+		expectedErr error
 	}{
 		"context cancelled": {
 			ctx: cancelledCtx,
@@ -49,10 +43,9 @@ func testUnary(t *testing.T, ctx context.Context) {
 			expectedErr: status.Error(codes.DeadlineExceeded, assert.AnError.Error()),
 		},
 		"bare error": {
-			ctx:                   ctx,
-			err:                   assert.AnError,
-			expectedErr:           status.Error(codes.Internal, assert.AnError.Error()),
-			skipIfFeatureDisabled: true,
+			ctx:         ctx,
+			err:         assert.AnError,
+			expectedErr: status.Error(codes.Internal, assert.AnError.Error()),
 		},
 		"wrapped error": {
 			ctx:         ctx,
@@ -60,26 +53,19 @@ func testUnary(t *testing.T, ctx context.Context) {
 			expectedErr: status.Error(codes.InvalidArgument, assert.AnError.Error()),
 		},
 		"formatted wrapped error": {
-			ctx: ctx,
-			err: fmt.Errorf("cause: %w", structerr.NewInvalidArgument("%w", assert.AnError)),
-			expectedErr: func(ff bool) error {
-				if ff {
-					return status.Error(codes.InvalidArgument, "cause: "+assert.AnError.Error())
-				}
-				return status.Error(codes.Unknown, "cause: "+assert.AnError.Error())
-			}(featureflag.ConvertErrToStatus.IsEnabled(ctx)),
+			ctx:         ctx,
+			err:         fmt.Errorf("cause: %w", structerr.NewInvalidArgument("%w", assert.AnError)),
+			expectedErr: status.Error(codes.InvalidArgument, "cause: "+assert.AnError.Error()),
 		},
 		"cancelled error": {
-			ctx:                   ctx,
-			err:                   context.Canceled,
-			expectedErr:           status.Error(codes.Internal, context.Canceled.Error()),
-			skipIfFeatureDisabled: true,
+			ctx:         ctx,
+			err:         context.Canceled,
+			expectedErr: status.Error(codes.Internal, context.Canceled.Error()),
 		},
 		"timeout error": {
-			ctx:                   ctx,
-			err:                   context.DeadlineExceeded,
-			expectedErr:           status.Error(codes.Internal, context.DeadlineExceeded.Error()),
-			skipIfFeatureDisabled: true,
+			ctx:         ctx,
+			err:         context.DeadlineExceeded,
+			expectedErr: status.Error(codes.Internal, context.DeadlineExceeded.Error()),
 		},
 		"no errors": {
 			ctx:         ctx,
@@ -87,10 +73,6 @@ func testUnary(t *testing.T, ctx context.Context) {
 		},
 	} {
 		t.Run(desc, func(t *testing.T) {
-			if !featureflag.ConvertErrToStatus.IsEnabled(ctx) && tc.skipIfFeatureDisabled {
-				t.Skip()
-				return
-			}
 			_, err := Unary(tc.ctx, nil, nil, func(context.Context, interface{}) (interface{}, error) {
 				return nil, tc.err
 			})
@@ -101,21 +83,16 @@ func testUnary(t *testing.T, ctx context.Context) {
 
 func TestStream(t *testing.T) {
 	t.Parallel()
-	featureSet := testhelper.NewFeatureSets(featureflag.ConvertErrToStatus)
-	featureSet.Run(t, testStream)
-}
-
-func testStream(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
 	cancelledCtx, cancel := context.WithCancel(ctx)
 	cancel()
 	timedoutCtx, timeout := context.WithTimeout(ctx, 0) //nolint:forbidigo
 	timeout()
 
 	for desc, tc := range map[string]struct {
-		ctx                   context.Context
-		err                   error
-		expectedErr           error
-		skipIfFeatureDisabled bool
+		ctx         context.Context
+		err         error
+		expectedErr error
 	}{
 		"context cancelled": {
 			ctx: cancelledCtx,
@@ -134,10 +111,9 @@ func testStream(t *testing.T, ctx context.Context) {
 			expectedErr: status.Error(codes.DeadlineExceeded, assert.AnError.Error()),
 		},
 		"bare error": {
-			ctx:                   ctx,
-			err:                   assert.AnError,
-			expectedErr:           status.Error(codes.Internal, assert.AnError.Error()),
-			skipIfFeatureDisabled: true,
+			ctx:         ctx,
+			err:         assert.AnError,
+			expectedErr: status.Error(codes.Internal, assert.AnError.Error()),
 		},
 		"wrapped error": {
 			ctx:         ctx,
@@ -145,26 +121,19 @@ func testStream(t *testing.T, ctx context.Context) {
 			expectedErr: status.Error(codes.InvalidArgument, assert.AnError.Error()),
 		},
 		"formatted wrapped error": {
-			ctx: ctx,
-			err: fmt.Errorf("cause: %w", structerr.NewInvalidArgument("%w", assert.AnError)),
-			expectedErr: func(ff bool) error {
-				if ff {
-					return status.Error(codes.InvalidArgument, "cause: "+assert.AnError.Error())
-				}
-				return status.Error(codes.Unknown, "cause: "+assert.AnError.Error())
-			}(featureflag.ConvertErrToStatus.IsEnabled(ctx)),
+			ctx:         ctx,
+			err:         fmt.Errorf("cause: %w", structerr.NewInvalidArgument("%w", assert.AnError)),
+			expectedErr: status.Error(codes.InvalidArgument, "cause: "+assert.AnError.Error()),
 		},
 		"cancelled error": {
-			ctx:                   ctx,
-			err:                   context.Canceled,
-			expectedErr:           status.Error(codes.Internal, context.Canceled.Error()),
-			skipIfFeatureDisabled: true,
+			ctx:         ctx,
+			err:         context.Canceled,
+			expectedErr: status.Error(codes.Internal, context.Canceled.Error()),
 		},
 		"timeout error": {
-			ctx:                   ctx,
-			err:                   context.DeadlineExceeded,
-			expectedErr:           status.Error(codes.Internal, context.DeadlineExceeded.Error()),
-			skipIfFeatureDisabled: true,
+			ctx:         ctx,
+			err:         context.DeadlineExceeded,
+			expectedErr: status.Error(codes.Internal, context.DeadlineExceeded.Error()),
 		},
 		"no errors": {
 			ctx:         ctx,
@@ -172,10 +141,6 @@ func testStream(t *testing.T, ctx context.Context) {
 		},
 	} {
 		t.Run(desc, func(t *testing.T) {
-			if !featureflag.ConvertErrToStatus.IsEnabled(ctx) && tc.skipIfFeatureDisabled {
-				t.Skip()
-				return
-			}
 			err := Stream(nil, serverStream{ctx: tc.ctx}, nil, func(srv interface{}, stream grpc.ServerStream) error {
 				return tc.err
 			})

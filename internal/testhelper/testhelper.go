@@ -196,7 +196,6 @@ func ContextWithoutCancel(opts ...ContextOpt) context.Context {
 	// deep in the call stack, so almost every test function would have to inject it into its
 	// context. The values of these flags should be randomized to increase the test coverage.
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RunCommandsInCGroup, true)
-	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.ConvertErrToStatus, true)
 
 	// Randomly enable the use of the catfile cache in localrepo.ReadObject.
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.LocalrepoReadObjectCached, rnd.Int()%2 == 0)
