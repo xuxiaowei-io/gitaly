@@ -320,7 +320,10 @@ func (u *Updater) write(format string, args ...interface{}) error {
 		// We need to explicitly cancel the command here and wait for it to terminate such
 		// that we can retrieve the command's stderr in a race-free manner.
 		_ = u.Close()
-		return fmt.Errorf("%w: %q", err, u.stderr)
+		// The update-ref process may have already exited due to an error. In such cases,
+		// the write errors are not meaningful. If we find one of the typed errors in
+		// stderr, we'll return it instead.
+		return parseStderrError(u.stderr.Bytes(), fmt.Errorf("%w: %q", err, u.stderr))
 	}
 
 	return nil
@@ -337,17 +340,7 @@ var (
 
 func (u *Updater) setState(state string) error {
 	if err := u.write("%s\x00", state); err != nil {
-		// It can happen that Git already dies while we're still trying to write to it,
-		// which seems to happen when the machine is really busy. As a result, we try to
-		// write to the now-broken pipe and get Git's error message here already. This
-		// seems to only happen for invalid reference format errors, we have not yet
-		// observed early errors for updating already-locked references.
-		matches := refInvalidFormatRegex.FindSubmatch(u.stderr.Bytes())
-		if len(matches) > 1 {
-			return ErrInvalidReferenceFormat{ReferenceName: string(matches[1])}
-		}
-
-		return fmt.Errorf("updating state to %q: %w", state, err)
+		return err
 	}
 
 	// For each state-changing command, git-update-ref(1) will report successful execution via
@@ -361,50 +354,7 @@ func (u *Updater) setState(state string) error {
 		// terminate such that we can retrieve the command's stderr in a race-free
 		// manner.
 		_ = u.Close()
-
-		matches := refLockedRegex.FindSubmatch(u.stderr.Bytes())
-		if len(matches) > 1 {
-			return &ErrAlreadyLocked{Ref: string(matches[1])}
-		}
-
-		matches = refInvalidFormatRegex.FindSubmatch(u.stderr.Bytes())
-		if len(matches) > 1 {
-			return ErrInvalidReferenceFormat{ReferenceName: string(matches[1])}
-		}
-
-		matches = referenceExistsConflictRegex.FindSubmatch(u.stderr.Bytes())
-		if len(matches) > 1 {
-			return ErrFileDirectoryConflict{
-				ExistingReferenceName:    string(matches[2]),
-				ConflictingReferenceName: string(matches[1]),
-			}
-		}
-
-		matches = inTransactionConflictRegex.FindSubmatch(u.stderr.Bytes())
-		if len(matches) > 1 {
-			return ErrInTransactionConflict{
-				FirstReferenceName:  string(matches[1]),
-				SecondReferenceName: string(matches[2]),
-			}
-		}
-
-		matches = nonExistentObjectRegex.FindSubmatch(u.stderr.Bytes())
-		if len(matches) > 1 {
-			return NonExistentObjectError{
-				ReferenceName: string(matches[1]),
-				ObjectID:      string(matches[2]),
-			}
-		}
-
-		matches = nonCommitObjectRegex.FindSubmatch(u.stderr.Bytes())
-		if len(matches) > 1 {
-			return NonCommitObjectError{
-				ReferenceName: string(matches[2]),
-				ObjectID:      string(matches[1]),
-			}
-		}
-
-		return fmt.Errorf("state update to %q failed: %w, stderr: %q", state, err, u.stderr)
+		return parseStderrError(u.stderr.Bytes(), fmt.Errorf("state update to %q failed: %w, stderr: %q", state, err, u.stderr))
 	}
 
 	if line != fmt.Sprintf("%s: ok\n", state) {
@@ -413,4 +363,52 @@ func (u *Updater) setState(state string) error {
 	}
 
 	return nil
+}
+
+// parseStderrError returns any typed error that might be present in stderr. If
+// the error message does not match any typed error, defaultErr is returned instead.
+func parseStderrError(stderr []byte, defaultErr error) error {
+	matches := refLockedRegex.FindSubmatch(stderr)
+	if len(matches) > 1 {
+		return &ErrAlreadyLocked{Ref: string(matches[1])}
+	}
+
+	matches = refInvalidFormatRegex.FindSubmatch(stderr)
+	if len(matches) > 1 {
+		return ErrInvalidReferenceFormat{ReferenceName: string(matches[1])}
+	}
+
+	matches = referenceExistsConflictRegex.FindSubmatch(stderr)
+	if len(matches) > 1 {
+		return ErrFileDirectoryConflict{
+			ExistingReferenceName:    string(matches[2]),
+			ConflictingReferenceName: string(matches[1]),
+		}
+	}
+
+	matches = inTransactionConflictRegex.FindSubmatch(stderr)
+	if len(matches) > 1 {
+		return ErrInTransactionConflict{
+			FirstReferenceName:  string(matches[1]),
+			SecondReferenceName: string(matches[2]),
+		}
+	}
+
+	matches = nonExistentObjectRegex.FindSubmatch(stderr)
+	if len(matches) > 1 {
+		return NonExistentObjectError{
+			ReferenceName: string(matches[1]),
+			ObjectID:      string(matches[2]),
+		}
+	}
+
+	matches = nonCommitObjectRegex.FindSubmatch(stderr)
+	if len(matches) > 1 {
+		return NonCommitObjectError{
+			ReferenceName: string(matches[2]),
+			ObjectID:      string(matches[1]),
+		}
+	}
+
+	return defaultErr
 }

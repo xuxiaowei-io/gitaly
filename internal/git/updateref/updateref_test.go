@@ -107,6 +107,62 @@ func TestUpdater_nonCommitObject(t *testing.T) {
 	}
 }
 
+// TestUpdater_properErrorOnWriteFailure tests that the Updater returns a well-typed error from
+// stderr even if the update-ref process closes by itself due to an error while processing the
+// transaction.
+func TestUpdater_properErrorOnWriteFailure(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+
+	const referenceName = "/.invalid-reference"
+	for _, tc := range []struct {
+		desc   string
+		method func(*Updater, git.ObjectID) error
+	}{
+		{
+			desc: "create",
+			method: func(updater *Updater, commitOID git.ObjectID) error {
+				return updater.Create(referenceName, commitOID)
+			},
+		},
+		{
+			desc: "update",
+			method: func(updater *Updater, commitOID git.ObjectID) error {
+				return updater.Update(referenceName, commitOID, gittest.DefaultObjectHash.ZeroOID)
+			},
+		},
+		{
+			desc: "delete",
+			method: func(updater *Updater, commitOID git.ObjectID) error {
+				return updater.Delete(referenceName)
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			cfg, _, repoPath, updater := setupUpdater(t, ctx)
+			defer func() { require.ErrorContains(t, updater.Close(), "closing updater: exit status 128") }()
+
+			commitID := gittest.WriteCommit(t, cfg, repoPath)
+
+			require.NoError(t, updater.Start())
+
+			for {
+				err := tc.method(updater, commitID)
+				if err == nil {
+					// If the call didn't error, then git didn't manage to process the
+					// invalid reference and shutdown. Keep writing until the process has
+					// exited due to the invalid reference name.
+					continue
+				}
+
+				require.Equal(t, ErrInvalidReferenceFormat{ReferenceName: referenceName}, err)
+				break
+			}
+		})
+	}
+}
+
 func TestUpdater_nonExistentObject(t *testing.T) {
 	t.Parallel()
 
