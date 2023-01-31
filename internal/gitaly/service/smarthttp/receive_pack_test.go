@@ -515,19 +515,13 @@ func TestPostReceivePack_invalidObjects(t *testing.T) {
 				subtree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 					{Mode: "100644", Path: "file", Content: "content"},
 				})
-				subtreeID, err := subtree.Bytes()
-				require.NoError(t, err)
 
-				var treeContents bytes.Buffer
-				treeContents.WriteString("040000 subdir\x00")
-				treeContents.Write(subtreeID)
-
-				brokenTree := gittest.ExecOpts(t, cfg, gittest.ExecConfig{
-					Stdin: &treeContents,
-				}, "-C", repoPath, "hash-object", "-w", "-t", "tree", "--stdin")
+				brokenTree := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+					{Path: "subdir", Mode: "040000", OID: subtree},
+				})
 
 				var buf bytes.Buffer
-				buf.WriteString("tree " + text.ChompBytes(brokenTree) + "\n")
+				buf.WriteString("tree " + brokenTree.String() + "\n")
 				buf.WriteString("parent " + head + "\n")
 				buf.WriteString("author Au Thor <author@example.com>\n")
 				buf.WriteString("committer Au Thor <author@example.com>\n")
@@ -544,7 +538,7 @@ func TestPostReceivePack_invalidObjects(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			commitBuffer := tc.prepareCommit(t, localRepoPath)
 			commitID := text.ChompBytes(gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: &commitBuffer},
-				"-C", localRepoPath, "hash-object", "-t", "commit", "--stdin", "-w",
+				"-C", localRepoPath, "hash-object", "--literally", "-t", "commit", "--stdin", "-w",
 			))
 
 			currentHead := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD"))
