@@ -345,7 +345,7 @@ func TestConfigParsing(t *testing.T) {
 				},
 				BackgroundVerification: BackgroundVerification{
 					VerificationInterval: duration.Duration(24 * time.Hour),
-					DeleteInvalidRecords: true,
+					DeleteInvalidRecords: false,
 				},
 				Yamux: Yamux{
 					MaximumStreamWindowSizeBytes: 1000,
