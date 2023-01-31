@@ -30,8 +30,6 @@ type SmartHTTPServiceClient interface {
 	// Will be invoked when the user executes a `git push`, but only advertises
 	// references to the user.
 	InfoRefsReceivePack(ctx context.Context, in *InfoRefsRequest, opts ...grpc.CallOption) (SmartHTTPService_InfoRefsReceivePackClient, error)
-	// Request and response body for POST /upload-pack
-	PostUploadPack(ctx context.Context, opts ...grpc.CallOption) (SmartHTTPService_PostUploadPackClient, error)
 	// Request and response body for POST /upload-pack using sidechannel protocol
 	PostUploadPackWithSidechannel(ctx context.Context, in *PostUploadPackWithSidechannelRequest, opts ...grpc.CallOption) (*PostUploadPackWithSidechannelResponse, error)
 	// Request and response body for POST /receive-pack
@@ -110,37 +108,6 @@ func (x *smartHTTPServiceInfoRefsReceivePackClient) Recv() (*InfoRefsResponse, e
 	return m, nil
 }
 
-func (c *smartHTTPServiceClient) PostUploadPack(ctx context.Context, opts ...grpc.CallOption) (SmartHTTPService_PostUploadPackClient, error) {
-	stream, err := c.cc.NewStream(ctx, &SmartHTTPService_ServiceDesc.Streams[2], "/gitaly.SmartHTTPService/PostUploadPack", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &smartHTTPServicePostUploadPackClient{stream}
-	return x, nil
-}
-
-type SmartHTTPService_PostUploadPackClient interface {
-	Send(*PostUploadPackRequest) error
-	Recv() (*PostUploadPackResponse, error)
-	grpc.ClientStream
-}
-
-type smartHTTPServicePostUploadPackClient struct {
-	grpc.ClientStream
-}
-
-func (x *smartHTTPServicePostUploadPackClient) Send(m *PostUploadPackRequest) error {
-	return x.ClientStream.SendMsg(m)
-}
-
-func (x *smartHTTPServicePostUploadPackClient) Recv() (*PostUploadPackResponse, error) {
-	m := new(PostUploadPackResponse)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
 func (c *smartHTTPServiceClient) PostUploadPackWithSidechannel(ctx context.Context, in *PostUploadPackWithSidechannelRequest, opts ...grpc.CallOption) (*PostUploadPackWithSidechannelResponse, error) {
 	out := new(PostUploadPackWithSidechannelResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.SmartHTTPService/PostUploadPackWithSidechannel", in, out, opts...)
@@ -151,7 +118,7 @@ func (c *smartHTTPServiceClient) PostUploadPackWithSidechannel(ctx context.Conte
 }
 
 func (c *smartHTTPServiceClient) PostReceivePack(ctx context.Context, opts ...grpc.CallOption) (SmartHTTPService_PostReceivePackClient, error) {
-	stream, err := c.cc.NewStream(ctx, &SmartHTTPService_ServiceDesc.Streams[3], "/gitaly.SmartHTTPService/PostReceivePack", opts...)
+	stream, err := c.cc.NewStream(ctx, &SmartHTTPService_ServiceDesc.Streams[2], "/gitaly.SmartHTTPService/PostReceivePack", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -193,8 +160,6 @@ type SmartHTTPServiceServer interface {
 	// Will be invoked when the user executes a `git push`, but only advertises
 	// references to the user.
 	InfoRefsReceivePack(*InfoRefsRequest, SmartHTTPService_InfoRefsReceivePackServer) error
-	// Request and response body for POST /upload-pack
-	PostUploadPack(SmartHTTPService_PostUploadPackServer) error
 	// Request and response body for POST /upload-pack using sidechannel protocol
 	PostUploadPackWithSidechannel(context.Context, *PostUploadPackWithSidechannelRequest) (*PostUploadPackWithSidechannelResponse, error)
 	// Request and response body for POST /receive-pack
@@ -211,9 +176,6 @@ func (UnimplementedSmartHTTPServiceServer) InfoRefsUploadPack(*InfoRefsRequest, 
 }
 func (UnimplementedSmartHTTPServiceServer) InfoRefsReceivePack(*InfoRefsRequest, SmartHTTPService_InfoRefsReceivePackServer) error {
 	return status.Errorf(codes.Unimplemented, "method InfoRefsReceivePack not implemented")
-}
-func (UnimplementedSmartHTTPServiceServer) PostUploadPack(SmartHTTPService_PostUploadPackServer) error {
-	return status.Errorf(codes.Unimplemented, "method PostUploadPack not implemented")
 }
 func (UnimplementedSmartHTTPServiceServer) PostUploadPackWithSidechannel(context.Context, *PostUploadPackWithSidechannelRequest) (*PostUploadPackWithSidechannelResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PostUploadPackWithSidechannel not implemented")
@@ -274,32 +236,6 @@ type smartHTTPServiceInfoRefsReceivePackServer struct {
 
 func (x *smartHTTPServiceInfoRefsReceivePackServer) Send(m *InfoRefsResponse) error {
 	return x.ServerStream.SendMsg(m)
-}
-
-func _SmartHTTPService_PostUploadPack_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(SmartHTTPServiceServer).PostUploadPack(&smartHTTPServicePostUploadPackServer{stream})
-}
-
-type SmartHTTPService_PostUploadPackServer interface {
-	Send(*PostUploadPackResponse) error
-	Recv() (*PostUploadPackRequest, error)
-	grpc.ServerStream
-}
-
-type smartHTTPServicePostUploadPackServer struct {
-	grpc.ServerStream
-}
-
-func (x *smartHTTPServicePostUploadPackServer) Send(m *PostUploadPackResponse) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func (x *smartHTTPServicePostUploadPackServer) Recv() (*PostUploadPackRequest, error) {
-	m := new(PostUploadPackRequest)
-	if err := x.ServerStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
 }
 
 func _SmartHTTPService_PostUploadPackWithSidechannel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -368,12 +304,6 @@ var SmartHTTPService_ServiceDesc = grpc.ServiceDesc{
 			StreamName:    "InfoRefsReceivePack",
 			Handler:       _SmartHTTPService_InfoRefsReceivePack_Handler,
 			ServerStreams: true,
-		},
-		{
-			StreamName:    "PostUploadPack",
-			Handler:       _SmartHTTPService_PostUploadPack_Handler,
-			ServerStreams: true,
-			ClientStreams: true,
 		},
 		{
 			StreamName:    "PostReceivePack",

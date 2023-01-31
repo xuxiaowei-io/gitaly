@@ -24,7 +24,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -34,7 +33,7 @@ const (
 )
 
 type (
-	requestMaker func(t *testing.T, ctx context.Context, serverSocketPath, token string, in *gitalypb.PostUploadPackRequest, body io.Reader) (*bytes.Buffer, error)
+	requestMaker func(t *testing.T, ctx context.Context, serverSocketPath, token string, in *gitalypb.PostUploadPackWithSidechannelRequest, body io.Reader) (*bytes.Buffer, error)
 )
 
 func runTestWithAndWithoutConfigOptions(
@@ -52,12 +51,6 @@ func runTestWithAndWithoutConfigOptions(
 			tf(t, ctx, makeRequest, opts...)
 		})
 	}
-}
-
-func TestServer_PostUpload(t *testing.T) {
-	t.Parallel()
-
-	runTestWithAndWithoutConfigOptions(t, testServerPostUpload, makePostUploadPackRequest, testcfg.WithPackObjectsCacheEnabled())
 }
 
 func TestServer_PostUploadWithChannel(t *testing.T) {
@@ -87,7 +80,7 @@ func testServerPostUpload(t *testing.T, ctx context.Context, makeRequest request
 	gittest.WritePktlineString(t, requestBuffer, fmt.Sprintf("have %s\n", oldCommit))
 	gittest.WritePktlineFlush(t, requestBuffer)
 
-	req := &gitalypb.PostUploadPackRequest{Repository: repo}
+	req := &gitalypb.PostUploadPackWithSidechannelRequest{Repository: repo}
 	responseBuffer, err := makeRequest(t, ctx, cfg.SocketPath, cfg.Auth.Token, req, requestBuffer)
 	require.NoError(t, err)
 
@@ -103,12 +96,6 @@ func testServerPostUpload(t *testing.T, ctx context.Context, makeRequest request
 	metric, err := negotiationMetrics.GetMetricWithLabelValues("have")
 	require.NoError(t, err)
 	require.Equal(t, 1.0, promtest.ToFloat64(metric))
-}
-
-func TestServer_PostUploadPack_gitConfigOptions(t *testing.T) {
-	t.Parallel()
-
-	runTestWithAndWithoutConfigOptions(t, testServerPostUploadPackGitConfigOptions, makePostUploadPackRequest, testcfg.WithPackObjectsCacheEnabled())
 }
 
 func TestServer_PostUploadPackSidechannel_gitConfigOptions(t *testing.T) {
@@ -146,7 +133,7 @@ func testServerPostUploadPackGitConfigOptions(t *testing.T, ctx context.Context,
 	gittest.WritePktlineFlush(t, requestBody)
 
 	t.Run("sanity check: ref exists and can be fetched", func(t *testing.T) {
-		rpcRequest := &gitalypb.PostUploadPackRequest{Repository: repo}
+		rpcRequest := &gitalypb.PostUploadPackWithSidechannelRequest{Repository: repo}
 
 		response, err := makeRequest(t, ctx, cfg.SocketPath, cfg.Auth.Token, rpcRequest, bytes.NewReader(requestBody.Bytes()))
 		require.NoError(t, err)
@@ -155,7 +142,7 @@ func testServerPostUploadPackGitConfigOptions(t *testing.T, ctx context.Context,
 	})
 
 	t.Run("failing request because of hidden ref config", func(t *testing.T) {
-		rpcRequest := &gitalypb.PostUploadPackRequest{
+		rpcRequest := &gitalypb.PostUploadPackWithSidechannelRequest{
 			Repository: repo,
 			GitConfigOptions: []string{
 				"uploadpack.hideRefs=refs/hidden",
@@ -172,12 +159,6 @@ func testServerPostUploadPackGitConfigOptions(t *testing.T, ctx context.Context,
 			response.String(),
 		)
 	})
-}
-
-func TestServer_PostUploadPack_gitProtocol(t *testing.T) {
-	t.Parallel()
-
-	runTestWithAndWithoutConfigOptions(t, testServerPostUploadPackGitProtocol, makePostUploadPackRequest, testcfg.WithPackObjectsCacheEnabled())
 }
 
 func TestServer_PostUploadPackWithSidechannel_gitProtocol(t *testing.T) {
@@ -205,7 +186,7 @@ func testServerPostUploadPackGitProtocol(t *testing.T, ctx context.Context, make
 	gittest.WritePktlineString(t, requestBody, "symrefs\n")
 	gittest.WritePktlineFlush(t, requestBody)
 
-	rpcRequest := &gitalypb.PostUploadPackRequest{
+	rpcRequest := &gitalypb.PostUploadPackWithSidechannelRequest{
 		Repository:  repo,
 		GitProtocol: git.ProtocolV2,
 	}
@@ -215,15 +196,6 @@ func testServerPostUploadPackGitProtocol(t *testing.T, ctx context.Context, make
 
 	envData := protocolDetectingFactory.ReadProtocol(t)
 	require.Equal(t, fmt.Sprintf("GIT_PROTOCOL=%s\n", git.ProtocolV2), envData)
-}
-
-// This test is here because git-upload-pack returns a non-zero exit code
-// on 'deepen' requests even though the request is being handled just
-// fine from the client perspective.
-func TestServer_PostUploadPack_suppressDeepenExitError(t *testing.T) {
-	t.Parallel()
-
-	runTestWithAndWithoutConfigOptions(t, testServerPostUploadPackSuppressDeepenExitError, makePostUploadPackRequest, testcfg.WithPackObjectsCacheEnabled())
 }
 
 func TestServer_PostUploadPackWithSidechannel_suppressDeepenExitError(t *testing.T) {
@@ -244,18 +216,10 @@ func testServerPostUploadPackSuppressDeepenExitError(t *testing.T, ctx context.C
 	gittest.WritePktlineString(t, &requestBody, "deepen 1")
 	gittest.WritePktlineFlush(t, &requestBody)
 
-	response, err := makeRequest(t, ctx, cfg.SocketPath, cfg.Auth.Token, &gitalypb.PostUploadPackRequest{
-		Repository: repo,
-	}, &requestBody)
+	rpcRequest := &gitalypb.PostUploadPackWithSidechannelRequest{Repository: repo}
+	response, err := makeRequest(t, ctx, cfg.SocketPath, cfg.Auth.Token, rpcRequest, &requestBody)
 	require.NoError(t, err)
 	require.Equal(t, gittest.Pktlinef(t, "shallow %s", commitID)+"0000", response.String())
-}
-
-func TestServer_PostUploadPack_usesPackObjectsHook(t *testing.T) {
-	t.Parallel()
-	ctx := testhelper.Context(t)
-
-	testServerPostUploadPackUsesPackObjectsHook(t, ctx, makePostUploadPackRequest)
 }
 
 func TestServer_PostUploadPackWithSidechannel_usesPackObjectsHook(t *testing.T) {
@@ -293,7 +257,7 @@ func testServerPostUploadPackUsesPackObjectsHook(t *testing.T, ctx context.Conte
 	gittest.WritePktlineString(t, &requestBuffer, fmt.Sprintf("have %s\n", oldHead))
 	gittest.WritePktlineFlush(t, &requestBuffer)
 
-	_, err := makeRequest(t, ctx, cfg.SocketPath, cfg.Auth.Token, &gitalypb.PostUploadPackRequest{
+	_, err := makeRequest(t, ctx, cfg.SocketPath, cfg.Auth.Token, &gitalypb.PostUploadPackWithSidechannelRequest{
 		Repository: repo,
 	}, &requestBuffer)
 	require.NoError(t, err)
@@ -305,7 +269,7 @@ func testServerPostUploadPackUsesPackObjectsHook(t *testing.T, ctx context.Conte
 func TestServer_PostUploadPack_validation(t *testing.T) {
 	t.Parallel()
 
-	runTestWithAndWithoutConfigOptions(t, testServerPostUploadPackValidation, makePostUploadPackRequest, testcfg.WithPackObjectsCacheEnabled())
+	runTestWithAndWithoutConfigOptions(t, testServerPostUploadPackValidation, makePostUploadPackWithSidechannelRequest, testcfg.WithPackObjectsCacheEnabled())
 }
 
 func testServerPostUploadPackValidation(t *testing.T, ctx context.Context, makeRequest requestMaker, opts ...testcfg.Option) {
@@ -315,16 +279,14 @@ func testServerPostUploadPackValidation(t *testing.T, ctx context.Context, makeR
 	serverSocketPath := runSmartHTTPServer(t, cfg)
 	cfg.SocketPath = serverSocketPath
 
-	repo, _ := gittest.CreateRepository(t, ctx, cfg)
-
 	for _, tc := range []struct {
 		desc        string
-		request     *gitalypb.PostUploadPackRequest
+		request     *gitalypb.PostUploadPackWithSidechannelRequest
 		expectedErr error
 	}{
 		{
 			desc: "nonexistent repository",
-			request: &gitalypb.PostUploadPackRequest{
+			request: &gitalypb.PostUploadPackWithSidechannelRequest{
 				Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"},
 			},
 			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
@@ -334,19 +296,11 @@ func testServerPostUploadPackValidation(t *testing.T, ctx context.Context, makeR
 		},
 		{
 			desc:    "unset repository",
-			request: &gitalypb.PostUploadPackRequest{Repository: nil},
+			request: &gitalypb.PostUploadPackWithSidechannelRequest{Repository: nil},
 			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
 			)),
-		},
-		{
-			desc: "data on first request",
-			request: &gitalypb.PostUploadPackRequest{
-				Repository: repo,
-				Data:       []byte("Fail"),
-			},
-			expectedErr: structerr.NewInvalidArgument("non-empty Data"),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -368,12 +322,12 @@ func testServerPostUploadPackWithSideChannelValidation(t *testing.T, ctx context
 
 	for _, tc := range []struct {
 		desc        string
-		req         *gitalypb.PostUploadPackRequest
+		req         *gitalypb.PostUploadPackWithSidechannelRequest
 		expectedErr error
 	}{
 		{
 			desc: "Repository doesn't exist",
-			req:  &gitalypb.PostUploadPackRequest{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}},
+			req:  &gitalypb.PostUploadPackWithSidechannelRequest{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}},
 			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				`GetStorageByName: no such storage: "fake"`,
 				"repo scoped: invalid Repository",
@@ -381,7 +335,7 @@ func testServerPostUploadPackWithSideChannelValidation(t *testing.T, ctx context
 		},
 		{
 			desc: "Repository no provided",
-			req:  &gitalypb.PostUploadPackRequest{Repository: nil},
+			req:  &gitalypb.PostUploadPackWithSidechannelRequest{Repository: nil},
 			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
 				"empty Repository",
 				"repo scoped: empty Repository",
@@ -434,12 +388,6 @@ func extractPackDataFromResponse(t *testing.T, buf *bytes.Buffer) ([]byte, int, 
 	return pack, version, entries
 }
 
-func TestServer_PostUploadPack_partialClone(t *testing.T) {
-	t.Parallel()
-
-	runTestWithAndWithoutConfigOptions(t, testServerPostUploadPackPartialClone, makePostUploadPackRequest, testcfg.WithPackObjectsCacheEnabled())
-}
-
 func TestServer_PostUploadPackWithSidechannel_partialClone(t *testing.T) {
 	t.Parallel()
 
@@ -472,7 +420,7 @@ func testServerPostUploadPackPartialClone(t *testing.T, ctx context.Context, mak
 	gittest.WritePktlineString(t, &requestBuffer, "done\n")
 	gittest.WritePktlineFlush(t, &requestBuffer)
 
-	req := &gitalypb.PostUploadPackRequest{Repository: repo}
+	req := &gitalypb.PostUploadPackWithSidechannelRequest{Repository: repo}
 	responseBuffer, err := makeRequest(t, ctx, cfg.SocketPath, cfg.Auth.Token, req, &requestBuffer)
 	require.NoError(t, err)
 
@@ -490,13 +438,6 @@ func testServerPostUploadPackPartialClone(t *testing.T, ctx context.Context, mak
 	metric, err := negotiationMetrics.GetMetricWithLabelValues("filter")
 	require.NoError(t, err)
 	require.Equal(t, 1.0, promtest.ToFloat64(metric))
-}
-
-func TestServer_PostUploadPack_allowAnySHA1InWant(t *testing.T) {
-	t.Parallel()
-	ctx := testhelper.Context(t)
-
-	testServerPostUploadPackAllowAnySHA1InWant(t, ctx, makePostUploadPackRequest)
 }
 
 func TestServer_PostUploadPackWithSidechannel_allowAnySHA1InWant(t *testing.T) {
@@ -522,7 +463,7 @@ func testServerPostUploadPackAllowAnySHA1InWant(t *testing.T, ctx context.Contex
 	gittest.WritePktlineString(t, &requestBuffer, "done\n")
 	gittest.WritePktlineFlush(t, &requestBuffer)
 
-	req := &gitalypb.PostUploadPackRequest{Repository: repo}
+	req := &gitalypb.PostUploadPackWithSidechannelRequest{Repository: repo}
 	responseBuffer, err := makeRequest(t, ctx, cfg.SocketPath, cfg.Auth.Token, req, &requestBuffer)
 	require.NoError(t, err)
 
@@ -534,35 +475,6 @@ func testServerPostUploadPackAllowAnySHA1InWant(t *testing.T, ctx context.Contex
 	)
 
 	gittest.RequireObjectExists(t, cfg, localRepoPath, newCommit)
-}
-
-func makePostUploadPackRequest(t *testing.T, ctx context.Context, serverSocketPath, token string, in *gitalypb.PostUploadPackRequest, body io.Reader) (*bytes.Buffer, error) {
-	client, conn := newSmartHTTPClient(t, serverSocketPath, token)
-	defer conn.Close()
-
-	stream, err := client.PostUploadPack(ctx)
-	require.NoError(t, err)
-
-	require.NoError(t, stream.Send(in))
-
-	if body != nil {
-		sw := streamio.NewWriter(func(p []byte) error {
-			return stream.Send(&gitalypb.PostUploadPackRequest{Data: p})
-		})
-
-		_, err = io.Copy(sw, body)
-		require.NoError(t, err)
-		require.NoError(t, stream.CloseSend())
-	}
-
-	responseBuffer := &bytes.Buffer{}
-	rr := streamio.NewReader(func() ([]byte, error) {
-		resp, err := stream.Recv()
-		return resp.GetData(), err
-	})
-	_, err = io.Copy(responseBuffer, rr)
-
-	return responseBuffer, err
 }
 
 func dialSmartHTTPServerWithSidechannel(t *testing.T, serverSocketPath, token string, registry *sidechannel.Registry) *grpc.ClientConn {
@@ -580,7 +492,7 @@ func dialSmartHTTPServerWithSidechannel(t *testing.T, serverSocketPath, token st
 	return conn
 }
 
-func makePostUploadPackWithSidechannelRequest(t *testing.T, ctx context.Context, serverSocketPath, token string, in *gitalypb.PostUploadPackRequest, body io.Reader) (*bytes.Buffer, error) {
+func makePostUploadPackWithSidechannelRequest(t *testing.T, ctx context.Context, serverSocketPath, token string, in *gitalypb.PostUploadPackWithSidechannelRequest, body io.Reader) (*bytes.Buffer, error) {
 	t.Helper()
 
 	registry := sidechannel.NewRegistry()

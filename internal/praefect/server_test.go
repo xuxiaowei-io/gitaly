@@ -718,18 +718,6 @@ func (m *mockSmartHTTP) InfoRefsReceivePack(req *gitalypb.InfoRefsRequest, strea
 	return stream.Send(&gitalypb.InfoRefsResponse{})
 }
 
-func (m *mockSmartHTTP) PostUploadPack(stream gitalypb.SmartHTTPService_PostUploadPackServer) error {
-	m.m.Lock()
-	defer m.m.Unlock()
-	if m.methodsCalled == nil {
-		m.methodsCalled = make(map[string]int)
-	}
-
-	m.methodsCalled["PostUploadPack"]++
-
-	return stream.Send(&gitalypb.PostUploadPackResponse{})
-}
-
 func (m *mockSmartHTTP) PostReceivePack(stream gitalypb.SmartHTTPService_PostReceivePackServer) error {
 	m.m.Lock()
 	defer m.m.Unlock()

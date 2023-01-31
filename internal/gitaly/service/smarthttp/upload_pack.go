@@ -14,47 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/sidechannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 )
-
-type basicPostUploadPackRequest interface {
-	GetRepository() *gitalypb.Repository
-	GetGitConfigOptions() []string
-	GetGitProtocol() string
-}
-
-func (s *server) PostUploadPack(stream gitalypb.SmartHTTPService_PostUploadPackServer) error {
-	ctx := stream.Context()
-
-	req, err := stream.Recv() // First request contains Repository only
-	if err != nil {
-		return err
-	}
-
-	if req.Data != nil {
-		return structerr.NewInvalidArgument("non-empty Data")
-	}
-
-	repoPath, gitConfig, err := s.validateUploadPackRequest(ctx, req)
-	if err != nil {
-		return structerr.NewInvalidArgument("%w", err)
-	}
-
-	stdin := streamio.NewReader(func() ([]byte, error) {
-		resp, err := stream.Recv()
-
-		return resp.GetData(), err
-	})
-	stdout := streamio.NewWriter(func(p []byte) error {
-		return stream.Send(&gitalypb.PostUploadPackResponse{Data: p})
-	})
-
-	if err := s.runUploadPack(ctx, req, repoPath, gitConfig, stdin, stdout); err != nil {
-		return structerr.NewInternal("running upload-pack: %w", err)
-	}
-
-	return nil
-}
 
 func (s *server) PostUploadPackWithSidechannel(ctx context.Context, req *gitalypb.PostUploadPackWithSidechannelRequest) (*gitalypb.PostUploadPackWithSidechannelResponse, error) {
 	repoPath, gitConfig, err := s.validateUploadPackRequest(ctx, req)
@@ -112,7 +72,7 @@ func (s *server) runStatsCollector(ctx context.Context, r io.Reader) (io.Reader,
 	return io.TeeReader(r, pw), sc
 }
 
-func (s *server) validateUploadPackRequest(ctx context.Context, req basicPostUploadPackRequest) (string, []git.ConfigPair, error) {
+func (s *server) validateUploadPackRequest(ctx context.Context, req *gitalypb.PostUploadPackWithSidechannelRequest) (string, []git.ConfigPair, error) {
 	repository := req.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
 		return "", nil, err
@@ -132,7 +92,7 @@ func (s *server) validateUploadPackRequest(ctx context.Context, req basicPostUpl
 	return repoPath, config, nil
 }
 
-func (s *server) runUploadPack(ctx context.Context, req basicPostUploadPackRequest, repoPath string, gitConfig []git.ConfigPair, stdin io.Reader, stdout io.Writer) error {
+func (s *server) runUploadPack(ctx context.Context, req *gitalypb.PostUploadPackWithSidechannelRequest, repoPath string, gitConfig []git.ConfigPair, stdin io.Reader, stdout io.Writer) error {
 	h := sha1.New()
 
 	stdin = io.TeeReader(stdin, h)
