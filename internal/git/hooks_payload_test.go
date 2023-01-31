@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package git_test
 
 import (
@@ -16,12 +14,13 @@ import (
 )
 
 func TestHooksPayload(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
 	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 
 	tx := txinfo.Transaction{
@@ -123,6 +122,8 @@ func TestHooksPayload(t *testing.T) {
 }
 
 func TestHooksPayload_IsHookRequested(t *testing.T) {
+	t.Parallel()
+
 	for _, tc := range []struct {
 		desc       string
 		configured git.Hook
