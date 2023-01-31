@@ -444,7 +444,7 @@ func TestFetchRemote(t *testing.T) {
 			},
 		},
 		{
-			desc: "remote params without force fails with diverging refs",
+			desc: "without force fails with diverging refs",
 			setup: func(t *testing.T, cfg config.Cfg) setupData {
 				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -472,7 +472,7 @@ func TestFetchRemote(t *testing.T) {
 			},
 		},
 		{
-			desc: "remote params with force updates diverging refs",
+			desc: "with force updates diverging refs",
 			setup: func(t *testing.T, cfg config.Cfg) setupData {
 				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -501,7 +501,7 @@ func TestFetchRemote(t *testing.T) {
 			},
 		},
 		{
-			desc: "remote params with explicit refmap doesn't update divergent tag",
+			desc: "with explicit refmap doesn't update divergent tag",
 			setup: func(t *testing.T, cfg config.Cfg) setupData {
 				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -535,7 +535,7 @@ func TestFetchRemote(t *testing.T) {
 			},
 		},
 		{
-			desc: "remote params with explicit refmap and force updates divergent tag",
+			desc: "with explicit refmap and force updates divergent tag",
 			setup: func(t *testing.T, cfg config.Cfg) setupData {
 				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -570,7 +570,7 @@ func TestFetchRemote(t *testing.T) {
 			},
 		},
 		{
-			desc: "remote params with explicit refmap and no tags doesn't update divergent tag",
+			desc: "with explicit refmap and no tags doesn't update divergent tag",
 			setup: func(t *testing.T, cfg config.Cfg) setupData {
 				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
