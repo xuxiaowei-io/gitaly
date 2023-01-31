@@ -88,7 +88,7 @@ func (m *RepositoryManager) reportRepositoryInfo(ctx context.Context, info stats
 	m.reportDataStructureExistence("multi_pack_index_bitmap", info.Packfiles.MultiPackIndexBitmap.Exists)
 
 	m.reportDataStructureCount("loose_objects", info.LooseObjects.Count)
-	m.reportDataStructureCount("loose_objects_stale_count", info.LooseObjects.StaleCount)
+	m.reportDataStructureCount("loose_objects_stale", info.LooseObjects.StaleCount)
 	m.reportDataStructureCount("commit_graph_chain", info.CommitGraph.CommitGraphChainLength)
 	m.reportDataStructureCount("packfiles", info.Packfiles.Count)
 	m.reportDataStructureCount("packfiles_reverse_indices", info.Packfiles.ReverseIndexCount)
