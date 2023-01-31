@@ -7,7 +7,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/go-enry/go-license-detector/v4/licensedb"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
@@ -49,6 +48,8 @@ SOFTWARE.`
 )
 
 func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gitalypb.RepositoryServiceClient, rubySrv *rubyserver.Server) {
+	require.NoError(t, PreloadLicenseDatabase())
+
 	testhelper.NewFeatureSets(featureflag.GoFindLicense).Run(t, func(t *testing.T, ctx context.Context) {
 		for _, tc := range []struct {
 			desc                  string
@@ -328,7 +329,7 @@ func BenchmarkFindLicense(b *testing.B) {
 	cfg.SocketPath = serverSocketPath
 
 	// Warm up the license database
-	licensedb.Preload()
+	require.NoError(b, PreloadLicenseDatabase())
 
 	repoGitLab, _ := gittest.CreateRepository(b, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,

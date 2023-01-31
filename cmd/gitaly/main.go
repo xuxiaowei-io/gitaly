@@ -8,7 +8,6 @@ import (
 	"runtime/debug"
 	"time"
 
-	"github.com/go-enry/go-license-detector/v4/licensedb"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	log "github.com/sirupsen/logrus"
@@ -34,6 +33,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/server"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
+	repositoryservice "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
@@ -126,19 +126,12 @@ func configure(configPath string) (config.Cfg, error) {
 	sentry.ConfigureSentry(version.GetVersion(), sentry.Config(cfg.Logging.Sentry))
 	cfg.Prometheus.Configure()
 	tracing.Initialize(tracing.WithServiceName("gitaly"))
-	preloadLicenseDatabase()
+	err = repositoryservice.PreloadLicenseDatabase()
+	if err != nil {
+		return config.Cfg{}, fmt.Errorf("Preload database: %w", err)
+	}
 
 	return cfg, nil
-}
-
-func preloadLicenseDatabase() {
-	// the first call to `licensedb.Detect` could be too long
-	// https://github.com/go-enry/go-license-detector/issues/13
-	// this is why we're calling it here to preload license database
-	// on server startup to avoid long initialization on gRPC
-	// method handling.
-	licensedb.Preload()
-	log.Info("License database preloaded")
 }
 
 func run(cfg config.Cfg) error {

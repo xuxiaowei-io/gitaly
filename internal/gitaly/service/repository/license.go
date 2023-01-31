@@ -13,6 +13,7 @@ import (
 	"github.com/go-enry/go-license-detector/v4/licensedb"
 	"github.com/go-enry/go-license-detector/v4/licensedb/api"
 	"github.com/go-enry/go-license-detector/v4/licensedb/filer"
+	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/lstree"
@@ -39,6 +40,16 @@ var nicknameByLicenseIdentifier = map[string]string{
 	"lgpl-2.1":           "GNU LGPLv2.1",
 	"gpl-3.0":            "GNU GPLv3",
 	"gpl-2.0":            "GNU GPLv2",
+}
+
+// PreloadLicenseDatabase will warm up the license database, otherwise
+// the first call to `licensedb.Detect` could take too long:
+// https://github.com/go-enry/go-license-detector/issues/13
+func PreloadLicenseDatabase() error {
+	licensedb.Preload()
+	log.Info("License database preloaded")
+
+	return nil
 }
 
 func newLicenseCache() *unarycache.Cache[git.ObjectID, *gitalypb.FindLicenseResponse] {
