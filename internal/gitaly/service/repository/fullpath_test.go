@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc/codes"
 )
 
+//nolint:staticcheck
 func TestSetFullPath(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
@@ -146,6 +147,7 @@ func TestSetFullPath(t *testing.T) {
 	})
 }
 
+//nolint:staticcheck
 func TestFullPath(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
