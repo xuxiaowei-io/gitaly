@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package objectpool
 
 import (
@@ -67,24 +65,24 @@ func testFetchFromOriginDangling(t *testing.T, ctx context.Context) {
 
 	// git-fsck(1) should report the newly created unreachable objects as dangling.
 	fsckBefore := gittest.Exec(t, cfg, "-C", poolPath, "fsck", "--connectivity-only", "--dangling")
-	require.Equal(t, strings.Join([]string{
+	require.ElementsMatch(t, []string{
 		fmt.Sprintf("dangling blob %s", unreachableBlob),
 		fmt.Sprintf("dangling tag %s", unreachableTag),
 		fmt.Sprintf("dangling commit %s", unreachableCommit),
 		fmt.Sprintf("dangling tree %s", unreachableTree),
-	}, "\n"), text.ChompBytes(fsckBefore))
+	}, strings.Split(text.ChompBytes(fsckBefore), "\n"))
 
 	// We expect this second run to convert the dangling objects into non-dangling objects.
 	require.NoError(t, pool.FetchFromOrigin(ctx, repo))
 
 	// Each of the dangling objects should have gotten a new dangling reference.
 	danglingRefs := gittest.Exec(t, cfg, "-C", poolPath, "for-each-ref", "--format=%(refname) %(objectname)", "refs/dangling/")
-	require.Equal(t, strings.Join([]string{
+	require.ElementsMatch(t, []string{
 		fmt.Sprintf("refs/dangling/%[1]s %[1]s", unreachableBlob),
 		fmt.Sprintf("refs/dangling/%[1]s %[1]s", unreachableTree),
 		fmt.Sprintf("refs/dangling/%[1]s %[1]s", unreachableTag),
 		fmt.Sprintf("refs/dangling/%[1]s %[1]s", unreachableCommit),
-	}, "\n"), text.ChompBytes(danglingRefs))
+	}, strings.Split(text.ChompBytes(danglingRefs), "\n"))
 	// And git-fsck(1) shouldn't report the objects as dangling anymore.
 	require.Empty(t, gittest.Exec(t, cfg, "-C", poolPath, "fsck", "--connectivity-only", "--dangling"))
 }
@@ -103,8 +101,8 @@ func TestFetchFromOrigin_fsck(t *testing.T) {
 	// allows us to create these trees just fine, but git-fsck(1) complains.
 	gittest.WriteCommit(t, cfg, repoPath,
 		gittest.WithTreeEntries(
-			gittest.TreeEntry{OID: "4b825dc642cb6eb9a060e54bf8d69288fbee4904", Path: "dup", Mode: "040000"},
-			gittest.TreeEntry{OID: "4b825dc642cb6eb9a060e54bf8d69288fbee4904", Path: "dup", Mode: "040000"},
+			gittest.TreeEntry{OID: gittest.DefaultObjectHash.EmptyTreeOID, Path: "dup", Mode: "040000"},
+			gittest.TreeEntry{OID: gittest.DefaultObjectHash.EmptyTreeOID, Path: "dup", Mode: "040000"},
 		),
 		gittest.WithBranch("branch"),
 	)
@@ -334,7 +332,7 @@ func TestObjectPool_logStats(t *testing.T) {
 					IsObjectPool: true,
 					LooseObjects: stats.LooseObjectsInfo{
 						Count: 2,
-						Size:  142,
+						Size:  hashDependentSize(142, 158),
 					},
 					References: stats.ReferencesInfo{
 						LooseReferencesCount: 1,
@@ -358,7 +356,7 @@ func TestObjectPool_logStats(t *testing.T) {
 					IsObjectPool: true,
 					LooseObjects: stats.LooseObjectsInfo{
 						Count: 2,
-						Size:  142,
+						Size:  hashDependentSize(142, 158),
 					},
 					References: stats.ReferencesInfo{
 						LooseReferencesCount: 1,

@@ -56,3 +56,10 @@ func setupObjectPool(t *testing.T, ctx context.Context) (config.Cfg, *ObjectPool
 
 	return cfg, pool, repo
 }
+
+func hashDependentSize(sha1Size, sha256Size uint64) uint64 {
+	if gittest.ObjectHashIsSHA256() {
+		return sha256Size
+	}
+	return sha1Size
+}
