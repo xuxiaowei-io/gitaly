@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package git_test
 
 import (
@@ -10,31 +8,31 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 )
 
 func TestShowRefDecoder(t *testing.T) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 	ctx := testhelper.Context(t)
 
-	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	_, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
-		RelativePath:           "repo.git",
 	})
 
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-
-	expectedRefs, err := repo.GetReferences(ctx, "refs/")
-	require.NoError(t, err)
+	mainCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("main"), gittest.WithReference("refs/heads/main"))
+	nestedCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("nested"), gittest.WithReference("refs/heads/nested/branch"))
+	namespacedCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("namespace"), gittest.WithReference("refs/different/namespace"))
+	tag := gittest.WriteTag(t, cfg, repoPath, "v1.0.0", namespacedCommit.Revision(), gittest.WriteTagConfig{
+		Message: "annotated tag",
+	})
+	gittest.Exec(t, cfg, "-C", repoPath, "symbolic-ref", "refs/heads/symbolic", "refs/heads/main")
 
 	output := gittest.Exec(t, cfg, "-C", repoPath, "show-ref")
-	stream := bytes.NewBuffer(output)
 
-	d := git.NewShowRefDecoder(stream)
-
+	d := git.NewShowRefDecoder(bytes.NewReader(output))
 	var refs []git.Reference
 	for {
 		var ref git.Reference
@@ -48,5 +46,26 @@ func TestShowRefDecoder(t *testing.T) {
 		refs = append(refs, ref)
 	}
 
-	require.Equal(t, expectedRefs, refs)
+	require.Equal(t, []git.Reference{
+		{
+			Name:   "refs/different/namespace",
+			Target: namespacedCommit.String(),
+		},
+		{
+			Name:   "refs/heads/main",
+			Target: mainCommit.String(),
+		},
+		{
+			Name:   "refs/heads/nested/branch",
+			Target: nestedCommit.String(),
+		},
+		{
+			Name:   "refs/heads/symbolic",
+			Target: mainCommit.String(),
+		},
+		{
+			Name:   "refs/tags/v1.0.0",
+			Target: tag.String(),
+		},
+	}, refs)
 }
