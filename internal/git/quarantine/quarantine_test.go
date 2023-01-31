@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package quarantine
 
 import (
@@ -40,12 +38,13 @@ func (e entry) create(t *testing.T, root string) {
 }
 
 func TestQuarantine_lifecycle(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 	locator := config.NewLocator(cfg)
 
@@ -86,6 +85,8 @@ func TestQuarantine_lifecycle(t *testing.T) {
 }
 
 func TestQuarantine_Migrate(t *testing.T) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 	locator := config.NewLocator(cfg)
 
@@ -95,7 +96,6 @@ func TestQuarantine_Migrate(t *testing.T) {
 		repo, repoPath := gittest.CreateRepository(t, ctx, cfg,
 			gittest.CreateRepositoryConfig{
 				SkipCreationViaService: true,
-				Seed:                   gittest.SeedGitLabTest,
 			})
 
 		oldContents := listEntries(t, repoPath)
@@ -113,7 +113,6 @@ func TestQuarantine_Migrate(t *testing.T) {
 
 		repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 			SkipCreationViaService: true,
-			Seed:                   gittest.SeedGitLabTest,
 		})
 
 		oldContents := listEntries(t, repoPath)
@@ -134,13 +133,15 @@ func TestQuarantine_Migrate(t *testing.T) {
 }
 
 func TestQuarantine_localrepo(t *testing.T) {
-	ctx := testhelper.Context(t)
+	t.Parallel()
 
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
-	repoProto, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	locator := config.NewLocator(cfg)
