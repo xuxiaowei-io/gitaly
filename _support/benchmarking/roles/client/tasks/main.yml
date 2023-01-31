@@ -14,10 +14,11 @@
     owner: git
     group: git
 
-- name: Clone Gitaly at HEAD
+- name: Clone Gitaly
   git:
     repo: https://gitlab.com/gitlab-org/gitaly.git
     dest: /src/gitaly
+    version: "{{ gitaly_revision }}"
   become_user: git
 
 - name: Peel gitaly_revision
