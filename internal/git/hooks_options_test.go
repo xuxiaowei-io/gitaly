@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package git_test
 
 import (
@@ -17,16 +15,18 @@ import (
 )
 
 func TestWithRefHook(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("refs/heads/master"))
 
 	opt := git.WithRefTxHook(repo)
-	subCmd := git.Command{Name: "update-ref", Args: []string{"refs/heads/master", git.ObjectHashSHA1.ZeroOID.String()}}
+	subCmd := git.Command{Name: "update-ref", Args: []string{"refs/heads/master", gittest.DefaultObjectHash.ZeroOID.String()}}
 
 	for _, tt := range []struct {
 		name string
@@ -66,13 +66,14 @@ func TestWithRefHook(t *testing.T) {
 }
 
 func TestWithPackObjectsHookEnv(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 	cfg.PackObjectsCache.Enabled = true
 
 	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 
 	userID := "user-123"
