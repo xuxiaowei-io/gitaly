@@ -3,6 +3,7 @@ package remoterepo
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"gitlab.com/gitlab-org/gitaly/v15/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
@@ -15,6 +16,10 @@ import (
 type Repo struct {
 	*gitalypb.Repository
 	conn *grpc.ClientConn
+
+	detectObjectHashOnce sync.Once
+	objectHash           git.ObjectHash
+	objectHashErr        error
 }
 
 // New creates a new remote Repository from its protobuf representation.
@@ -33,6 +38,26 @@ func New(ctx context.Context, repo *gitalypb.Repository, pool *client.Pool) (*Re
 		Repository: repo,
 		conn:       cc,
 	}, nil
+}
+
+// ObjectHash detects the object hash used by this particular repository.
+func (rr *Repo) ObjectHash(ctx context.Context) (git.ObjectHash, error) {
+	rr.detectObjectHashOnce.Do(func() {
+		rr.objectHash, rr.objectHashErr = func() (git.ObjectHash, error) {
+			client := gitalypb.NewRepositoryServiceClient(rr.conn)
+
+			response, err := client.ObjectFormat(ctx, &gitalypb.ObjectFormatRequest{
+				Repository: rr.Repository,
+			})
+			if err != nil {
+				return git.ObjectHash{}, err
+			}
+
+			return git.ObjectHashByProto(response.Format)
+		}()
+	})
+
+	return rr.objectHash, rr.objectHashErr
 }
 
 // ResolveRevision will dial to the remote repository and attempt to resolve the
