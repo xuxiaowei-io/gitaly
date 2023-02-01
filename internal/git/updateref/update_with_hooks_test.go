@@ -57,27 +57,27 @@ func TestUpdaterWithHooks_UpdateReference_invalidParameters(t *testing.T) {
 			desc:        "missing old rev",
 			ref:         "refs/heads/master",
 			newRev:      revB,
-			expectedErr: fmt.Errorf("validating old value: %w", fmt.Errorf("%w: %q", git.ErrInvalidObjectID, "")),
+			expectedErr: fmt.Errorf("validating old value: %w", git.InvalidObjectIDLengthError{OID: "", CorrectLength: gittest.DefaultObjectHash.EncodedLen(), Length: 0}),
 		},
 		{
 			desc:        "missing new rev",
 			ref:         "refs/heads/master",
 			oldRev:      revB,
-			expectedErr: fmt.Errorf("validating new value: %w", fmt.Errorf("%w: %q", git.ErrInvalidObjectID, "")),
+			expectedErr: fmt.Errorf("validating new value: %w", git.InvalidObjectIDLengthError{OID: "", CorrectLength: gittest.DefaultObjectHash.EncodedLen(), Length: 0}),
 		},
 		{
 			desc:        "invalid old rev",
 			ref:         "refs/heads/master",
 			newRev:      revA,
 			oldRev:      "foobar",
-			expectedErr: fmt.Errorf("validating old value: %w", fmt.Errorf("%w: %q", git.ErrInvalidObjectID, "foobar")),
+			expectedErr: fmt.Errorf("validating old value: %w", git.InvalidObjectIDLengthError{OID: "foobar", CorrectLength: gittest.DefaultObjectHash.EncodedLen(), Length: 6}),
 		},
 		{
 			desc:        "invalid new rev",
 			ref:         "refs/heads/master",
 			newRev:      "foobar",
 			oldRev:      revB,
-			expectedErr: fmt.Errorf("validating new value: %w", fmt.Errorf("%w: %q", git.ErrInvalidObjectID, "foobar")),
+			expectedErr: fmt.Errorf("validating new value: %w", git.InvalidObjectIDLengthError{OID: "foobar", CorrectLength: gittest.DefaultObjectHash.EncodedLen(), Length: 6}),
 		},
 	}
 

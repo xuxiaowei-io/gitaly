@@ -565,7 +565,7 @@ func TestUserUpdateSubmodule(t *testing.T) {
 						ExpectedOldOid: "foobar",
 					},
 					commitID: commitID.String(),
-					expectedErr: structerr.NewInvalidArgument(`invalid expected old object ID: invalid object ID: "foobar"`).
+					expectedErr: structerr.NewInvalidArgument(fmt.Sprintf(`invalid expected old object ID: invalid object ID: "foobar", expected length %v, got 6`, gittest.DefaultObjectHash.EncodedLen())).
 						WithInterceptedMetadata("old_object_id", "foobar"),
 					verify: func(t *testing.T) {},
 				}

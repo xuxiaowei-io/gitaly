@@ -217,7 +217,7 @@ func TestObjectHash_ValidateHex(t *testing.T) {
 		{
 			desc:     "SHA1",
 			hash:     git.ObjectHashSHA1,
-			validHex: "356e7793f9654d51dfb27312a1464062bceb9fa3",
+			validHex: "a56e7793f9654d51dfb27312a1464062bceb9fa3",
 		},
 		{
 			desc:     "SHA256",
@@ -227,9 +227,10 @@ func TestObjectHash_ValidateHex(t *testing.T) {
 	} {
 		t.Run(hash.desc, func(t *testing.T) {
 			for _, tc := range []struct {
-				desc  string
-				hex   string
-				valid bool
+				desc        string
+				hex         string
+				valid       bool
+				expectedErr error
 			}{
 				{
 					desc:  "valid object ID",
@@ -237,39 +238,39 @@ func TestObjectHash_ValidateHex(t *testing.T) {
 					valid: true,
 				},
 				{
-					desc:  "object ID with non-hex characters fails",
-					hex:   "x" + hash.validHex[1:],
-					valid: false,
+					desc:        "object ID with non-hex characters fails",
+					hex:         "x" + hash.validHex[1:],
+					valid:       false,
+					expectedErr: git.InvalidObjectIDCharError{OID: "x" + hash.validHex[1:], BadChar: 'x'},
 				},
 				{
-					desc:  "object ID with upper-case letters fails",
-					hex:   strings.ToUpper(hash.validHex),
-					valid: false,
+					desc:        "object ID with upper-case letters fails",
+					hex:         strings.ToUpper(hash.validHex),
+					valid:       false,
+					expectedErr: git.InvalidObjectIDCharError{OID: strings.ToUpper(hash.validHex), BadChar: rune(strings.ToUpper(hash.validHex)[0])},
 				},
 				{
-					desc:  "too short object ID fails",
-					hex:   hash.validHex[:len(hash.validHex)-1],
-					valid: false,
+					desc:        "too short object ID fails",
+					hex:         hash.validHex[:len(hash.validHex)-1],
+					valid:       false,
+					expectedErr: git.InvalidObjectIDLengthError{OID: hash.validHex[:len(hash.validHex)-1], CorrectLength: hash.hash.EncodedLen(), Length: len(hash.validHex) - 1},
 				},
 				{
-					desc:  "too long object ID fails",
-					hex:   hash.validHex + "3",
-					valid: false,
+					desc:        "too long object ID fails",
+					hex:         hash.validHex + "3",
+					valid:       false,
+					expectedErr: git.InvalidObjectIDLengthError{OID: hash.validHex + "3", CorrectLength: hash.hash.EncodedLen(), Length: len(hash.validHex) + 1},
 				},
 				{
-					desc:  "empty string fails",
-					hex:   "",
-					valid: false,
+					desc:        "empty string fails",
+					hex:         "",
+					valid:       false,
+					expectedErr: git.InvalidObjectIDLengthError{OID: "", CorrectLength: hash.hash.EncodedLen(), Length: 0},
 				},
 			} {
 				t.Run(tc.desc, func(t *testing.T) {
 					err := hash.hash.ValidateHex(tc.hex)
-					if tc.valid {
-						require.NoError(t, err)
-					} else {
-						require.Error(t, err)
-						require.EqualError(t, err, fmt.Sprintf("invalid object ID: %q", tc.hex))
-					}
+					require.Equal(t, err, tc.expectedErr)
 				})
 			}
 		})

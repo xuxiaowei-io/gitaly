@@ -6,7 +6,6 @@ import (
 	"crypto/sha1"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"hash"
 
@@ -32,11 +31,30 @@ var (
 		Format:       "sha256",
 		ProtoFormat:  gitalypb.ObjectFormat_OBJECT_FORMAT_SHA256,
 	}
-
-	// ErrInvalidObjectID is returned in case an object ID's string
-	// representation is not a valid one.
-	ErrInvalidObjectID = errors.New("invalid object ID")
 )
+
+// InvalidObjectIDLengthError is returned when an object ID's string
+// representation is not the required length.
+type InvalidObjectIDLengthError struct {
+	OID           string
+	CorrectLength int
+	Length        int
+}
+
+func (e InvalidObjectIDLengthError) Error() string {
+	return fmt.Sprintf("invalid object ID: %q, expected length %v, got %v", e.OID, e.CorrectLength, e.Length)
+}
+
+// InvalidObjectIDCharError is returned when an object ID's string
+// representation contains an invalid hexadecimal digit.
+type InvalidObjectIDCharError struct {
+	OID     string
+	BadChar rune
+}
+
+func (e InvalidObjectIDCharError) Error() string {
+	return fmt.Sprintf("invalid object ID: %q, invalid character %q", e.OID, e.BadChar)
+}
 
 // ObjectHash is a hash-function specific implementation of an object ID.
 type ObjectHash struct {
@@ -112,7 +130,7 @@ func (h ObjectHash) FromHex(hex string) (ObjectID, error) {
 // object IDs are not deemed to be valid. Returns an `ErrInvalidObjectID` if the `hex` is not valid.
 func (h ObjectHash) ValidateHex(hex string) error {
 	if len(hex) != h.EncodedLen() {
-		return fmt.Errorf("%w: %q", ErrInvalidObjectID, hex)
+		return InvalidObjectIDLengthError{OID: hex, CorrectLength: h.EncodedLen(), Length: len(hex)}
 	}
 
 	for _, c := range hex {
@@ -120,7 +138,7 @@ func (h ObjectHash) ValidateHex(hex string) error {
 		case '0' <= c && c <= '9':
 		case 'a' <= c && c <= 'f':
 		default:
-			return fmt.Errorf("%w: %q", ErrInvalidObjectID, hex)
+			return InvalidObjectIDCharError{OID: hex, BadChar: c}
 		}
 	}
 

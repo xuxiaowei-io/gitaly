@@ -1154,7 +1154,7 @@ func testSuccessfulUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 			repoPath:       repoPath,
 			branchName:     "few-commits",
 			expectedOldOID: "foobar",
-			expectedError: structerr.NewInvalidArgument(`invalid expected old object ID: invalid object ID: "foobar"`).
+			expectedError: structerr.NewInvalidArgument(fmt.Sprintf(`invalid expected old object ID: invalid object ID: "foobar", expected length %v, got 6`, gittest.DefaultObjectHash.EncodedLen())).
 				WithInterceptedMetadata("old_object_id", "foobar"),
 		},
 		{
@@ -1718,7 +1718,7 @@ func testFailedUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 		{
 			desc:        "invalid object ID: \"foobar\"",
 			req:         setStartSha(headerRequest(repo, gittest.TestUser, branchName, commitFilesMessage, "", ""), "foobar"),
-			expectedErr: status.Error(codes.InvalidArgument, `invalid object ID: "foobar"`),
+			expectedErr: status.Error(codes.InvalidArgument, fmt.Sprintf(`invalid object ID: "foobar", expected length %v, got 6`, gittest.DefaultObjectHash.EncodedLen())),
 		},
 		{
 			desc:        "failed to parse signature - Signature cannot have an empty name or email",

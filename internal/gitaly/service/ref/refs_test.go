@@ -881,7 +881,7 @@ func TestListTagNamesContainingCommit_validate(t *testing.T) {
 		{
 			desc:        "bad commit provided",
 			req:         &gitalypb.ListTagNamesContainingCommitRequest{Repository: repoProto, CommitId: "invalid"},
-			expectedErr: status.Error(codes.InvalidArgument, `invalid object ID: "invalid"`),
+			expectedErr: status.Error(codes.InvalidArgument, fmt.Sprintf(`invalid object ID: "invalid", expected length %v, got 7`, gittest.DefaultObjectHash.EncodedLen())),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -1001,7 +1001,7 @@ func TestListBranchNamesContainingCommit_validate(t *testing.T) {
 		{
 			desc:        "bad commit provided",
 			req:         &gitalypb.ListBranchNamesContainingCommitRequest{Repository: repoProto, CommitId: "invalid"},
-			expectedErr: status.Error(codes.InvalidArgument, `invalid object ID: "invalid"`),
+			expectedErr: status.Error(codes.InvalidArgument, fmt.Sprintf(`invalid object ID: "invalid", expected length %v, got 7`, gittest.DefaultObjectHash.EncodedLen())),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
