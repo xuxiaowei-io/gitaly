@@ -72,7 +72,7 @@ func NewManager(promCfg gitalycfgprom.Config, txManager transaction.Manager) *Re
 			prometheus.HistogramOpts{
 				Name:    "gitaly_housekeeping_data_structure_count",
 				Help:    "Total count of the data structures that exist in the repository",
-				Buckets: prometheus.ExponentialBucketsRange(1, 10_000_000, 16),
+				Buckets: prometheus.ExponentialBucketsRange(1, 10_000_000, 32),
 			},
 			[]string{"data_structure"},
 		),
@@ -80,7 +80,7 @@ func NewManager(promCfg gitalycfgprom.Config, txManager transaction.Manager) *Re
 			prometheus.HistogramOpts{
 				Name:    "gitaly_housekeeping_data_structure_size",
 				Help:    "Total size of the data structures that exist in the repository",
-				Buckets: prometheus.ExponentialBucketsRange(1, 50_000_000_000, 16),
+				Buckets: prometheus.ExponentialBucketsRange(1, 50_000_000_000, 32),
 			},
 			[]string{"data_structure"},
 		),

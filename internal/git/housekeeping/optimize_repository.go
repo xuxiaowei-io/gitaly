@@ -87,14 +87,14 @@ func (m *RepositoryManager) reportRepositoryInfo(ctx context.Context, info stats
 	m.reportDataStructureExistence("multi_pack_index", info.Packfiles.HasMultiPackIndex)
 	m.reportDataStructureExistence("multi_pack_index_bitmap", info.Packfiles.MultiPackIndexBitmap.Exists)
 
-	m.reportDataStructureCount("loose_objects", info.LooseObjects.Count)
-	m.reportDataStructureCount("loose_objects_stale_count", info.LooseObjects.StaleCount)
+	m.reportDataStructureCount("loose_objects_recent", info.LooseObjects.Count-info.LooseObjects.StaleCount)
+	m.reportDataStructureCount("loose_objects_stale", info.LooseObjects.StaleCount)
 	m.reportDataStructureCount("commit_graph_chain", info.CommitGraph.CommitGraphChainLength)
 	m.reportDataStructureCount("packfiles", info.Packfiles.Count)
 	m.reportDataStructureCount("packfiles_reverse_indices", info.Packfiles.ReverseIndexCount)
 	m.reportDataStructureCount("loose_references", info.References.LooseReferencesCount)
 
-	m.reportDataStructureSize("loose_objects", info.LooseObjects.Size)
+	m.reportDataStructureSize("loose_objects_recent", info.LooseObjects.Size-info.LooseObjects.StaleSize)
 	m.reportDataStructureSize("loose_objects_stale", info.LooseObjects.StaleSize)
 	m.reportDataStructureSize("packfiles", info.Packfiles.Size)
 	m.reportDataStructureSize("packed_references", info.References.PackedReferencesSize)
