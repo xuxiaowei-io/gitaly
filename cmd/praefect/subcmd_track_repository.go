@@ -238,6 +238,11 @@ func (req *trackRepositoryRequest) execRequest(ctx context.Context,
 		}
 
 		if _, err := queue.Enqueue(ctx, event); err != nil {
+			if errors.As(err, &datastore.ReplicationEventExistsError{}) {
+				fmt.Fprintf(w, "replication event queue already has similar entry: %s.\n", err)
+				return nil
+			}
+
 			return fmt.Errorf("%s: %w", trackRepoErrorPrefix, err)
 		}
 		fmt.Fprintf(w, "Added replication job to replicate repository to %q.\n", secondary)

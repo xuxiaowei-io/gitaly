@@ -12,6 +12,25 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore/glsql"
 )
 
+// ReplicationEventExistsError is returned when trying to add an already existing
+// replication event into the queue.
+type ReplicationEventExistsError struct {
+	state             string
+	virtualStorage    string
+	targetNodeStorage string
+	relativePath      string
+}
+
+// Error returns the errors message.
+func (err ReplicationEventExistsError) Error() string {
+	return fmt.Sprintf("replication event %q -> %q -> %q -> %q already exists",
+		err.state,
+		err.virtualStorage,
+		err.targetNodeStorage,
+		err.relativePath,
+	)
+}
+
 // ReplicationEventQueue allows to put new events to the persistent queue and retrieve them back.
 type ReplicationEventQueue interface {
 	// Enqueue puts provided event into the persistent queue.
@@ -225,6 +244,15 @@ func (rq PostgresReplicationEventQueue) Enqueue(ctx context.Context, event Repli
 		INSERT INTO replication_queue(lock_id, job, meta)
 		SELECT insert_lock.id, $4, $5
 		FROM insert_lock
+		WHERE NOT EXISTS (
+			SELECT
+			FROM replication_queue AS q
+			WHERE q.state = 'ready'
+			AND q.job->>'virtual_storage' = $4::json->>'virtual_storage'
+			AND q.job->>'relative_path' = $4::json->>'relative_path'
+			AND q.job->>'target_node_storage' = $4::json->>'target_node_storage'
+			AND q.job->>'change' = $4::json->>'change'
+		)
 		RETURNING id, state, created_at, updated_at, lock_id, attempt, job, meta`
 	// this will always return a single row result (because of lock uniqueness) or an error
 	rows, err := rq.qc.QueryContext(ctx, query, event.Job.VirtualStorage, event.Job.TargetNodeStorage, event.Job.RelativePath, event.Job, event.Meta)
@@ -235,6 +263,15 @@ func (rq PostgresReplicationEventQueue) Enqueue(ctx context.Context, event Repli
 	events, err := scanReplicationEvents(rows)
 	if err != nil {
 		return ReplicationEvent{}, fmt.Errorf("scan: %w", err)
+	}
+
+	if len(events) == 0 {
+		return ReplicationEvent{}, ReplicationEventExistsError{
+			state:             event.State.String(),
+			virtualStorage:    event.Job.VirtualStorage,
+			targetNodeStorage: event.Job.TargetNodeStorage,
+			relativePath:      event.Job.RelativePath,
+		}
 	}
 
 	return events[0], nil

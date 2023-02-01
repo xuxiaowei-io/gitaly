@@ -1104,6 +1104,11 @@ func (c *Coordinator) newRequestFinalizer(
 
 			g.Go(func() error {
 				if _, err := c.queue.Enqueue(ctx, event); err != nil {
+					if errors.As(err, &datastore.ReplicationEventExistsError{}) {
+						ctxlogrus.Extract(ctx).WithError(err).Info("replication event queue already has similar entry")
+						return nil
+					}
+
 					return fmt.Errorf("enqueue replication event: %w", err)
 				}
 				return nil

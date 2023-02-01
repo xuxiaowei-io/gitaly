@@ -2896,6 +2896,59 @@ func TestNewRequestFinalizer_contextIsDisjointedFromTheRPC(t *testing.T) {
 	}
 }
 
+func TestNewRequestFinalizer_enqueueErrorPropagation(t *testing.T) {
+	t.Parallel()
+	ctx := testhelper.Context(t)
+
+	for _, tc := range []struct {
+		desc        string
+		enqueueErr  error
+		expectedErr error
+	}{
+		{
+			desc:        "most errors are propagated back",
+			enqueueErr:  errors.New("enqueue failed"),
+			expectedErr: fmt.Errorf("enqueue replication event: %w", errors.New("enqueue failed")),
+		},
+		{
+			desc:        "replication event exists errors are ignored ",
+			enqueueErr:  datastore.ReplicationEventExistsError{},
+			expectedErr: nil,
+		},
+	} {
+		tc := tc
+
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			err := NewCoordinator(
+				&datastore.MockReplicationEventQueue{
+					EnqueueFunc: func(ctx context.Context, _ datastore.ReplicationEvent) (datastore.ReplicationEvent, error) {
+						return datastore.ReplicationEvent{}, tc.enqueueErr
+					},
+				},
+				datastore.MockRepositoryStore{},
+				nil,
+				nil,
+				config.Config{},
+				nil,
+			).newRequestFinalizer(ctx,
+				1,
+				"praefect",
+				&gitalypb.Repository{},
+				"replic-path",
+				"primary",
+				[]string{},
+				[]string{"secondary"},
+				datastore.UpdateRepo,
+				datastore.Params{"RelativePath": "relative-path"},
+				"rpc-name",
+			)()
+			require.Equal(t, tc.expectedErr, err)
+		})
+	}
+}
+
 func TestStreamParametersContext(t *testing.T) {
 	// Because we're using NewFeatureFlag, they'll end up in the All array.
 	enabledFF := featureflag.NewFeatureFlag("default_enabled", "", "", true)
