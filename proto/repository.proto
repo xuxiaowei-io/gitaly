@@ -64,6 +64,13 @@ service RepositoryService {
     };
   }
 
+  // ObjectFormat determines the object format that is being used by the repository.
+  rpc ObjectFormat(ObjectFormatRequest) returns (ObjectFormatResponse) {
+    option (op_type) = {
+      op: ACCESSOR
+    };
+  }
+
   // This comment is left unintentionally blank.
   rpc ApplyGitattributes(ApplyGitattributesRequest) returns (ApplyGitattributesResponse) {
     option (op_type) = {
@@ -446,6 +453,18 @@ message RepositorySizeRequest {
 message RepositorySizeResponse {
   // Repository size in kilobytes
   int64 size = 1;
+}
+
+// ObjectFormatRequest is a request for the ObjectFormat RPC.
+message ObjectFormatRequest {
+  // Repository is the repository for which to determine the object format.
+  Repository repository = 1 [(target_repository)=true];
+}
+
+// ObjectFormatResponse is a response for the ObjectFormat RPC.
+message ObjectFormatResponse {
+  // Format is the object format that the repository uses.
+  ObjectFormat format = 1;
 }
 
 // This comment is left unintentionally blank.
