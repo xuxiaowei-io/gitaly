@@ -732,6 +732,32 @@ func TestPackfileInfoForRepository(t *testing.T) {
 			},
 		},
 		{
+			desc: "keep packfile",
+			seedRepository: func(t *testing.T, repoPath string) {
+				packfileDir := filepath.Join(repoPath, "objects", "pack")
+				require.NoError(t, os.MkdirAll(packfileDir, 0o755))
+				require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "pack-foo.pack"), []byte("foobar"), 0o644))
+				require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "pack-foo.keep"), []byte("foobar"), 0o644))
+			},
+			expectedInfo: PackfilesInfo{
+				KeepCount: 1,
+				KeepSize:  6,
+			},
+		},
+		{
+			desc: "cruft packfile",
+			seedRepository: func(t *testing.T, repoPath string) {
+				packfileDir := filepath.Join(repoPath, "objects", "pack")
+				require.NoError(t, os.MkdirAll(packfileDir, 0o755))
+				require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "pack-foo.pack"), []byte("foobar"), 0o644))
+				require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "pack-foo.mtimes"), []byte("foobar"), 0o644))
+			},
+			expectedInfo: PackfilesInfo{
+				CruftCount: 1,
+				CruftSize:  6,
+			},
+		},
+		{
 			desc: "multiple packfiles",
 			seedRepository: func(t *testing.T, repoPath string) {
 				packfileDir := filepath.Join(repoPath, "objects", "pack")
@@ -812,6 +838,26 @@ func TestPackfileInfoForRepository(t *testing.T) {
 				},
 			},
 		},
+		{
+			desc: "cruft packfiles with other data structures",
+			seedRepository: func(t *testing.T, repoPath string) {
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("first"), gittest.WithBranch("first"))
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("unreachable"))
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "--cruft", "-db", "--write-midx")
+			},
+			expectedInfo: PackfilesInfo{
+				Count:             1,
+				Size:              hashDependentSize(162, 188),
+				CruftCount:        1,
+				CruftSize:         hashDependentSize(156, 183),
+				HasMultiPackIndex: true,
+				MultiPackIndexBitmap: BitmapInfo{
+					Exists:       true,
+					Version:      1,
+					HasHashCache: true,
+				},
+			},
+		},
 	} {
 		tc := tc
 
@@ -828,6 +874,135 @@ func TestPackfileInfoForRepository(t *testing.T) {
 			info, err := PackfilesInfoForRepository(repo)
 			require.NoError(t, err)
 			require.Equal(t, tc.expectedInfo, info)
+		})
+	}
+}
+
+type packfileEntry struct {
+	fs.DirEntry
+	name string
+}
+
+func (e packfileEntry) Name() string {
+	return e.name
+}
+
+func TestClassifyPackfiles(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		desc            string
+		packfileEntries []fs.DirEntry
+		expectedTypes   map[string]packfileMetadata
+	}{
+		{
+			desc:          "empty entries",
+			expectedTypes: map[string]packfileMetadata{},
+		},
+		{
+			desc: "unrelated entry",
+			packfileEntries: []fs.DirEntry{
+				packfileEntry{name: "something something"},
+			},
+			expectedTypes: map[string]packfileMetadata{},
+		},
+		{
+			desc: "packfile index only",
+			packfileEntries: []fs.DirEntry{
+				packfileEntry{name: "pack-1234.idx"},
+			},
+			expectedTypes: map[string]packfileMetadata{
+				"pack-1234.pack": {},
+			},
+		},
+		{
+			desc: "normal packfile",
+			packfileEntries: []fs.DirEntry{
+				packfileEntry{name: "pack-1234.pack"},
+			},
+			expectedTypes: map[string]packfileMetadata{
+				"pack-1234.pack": {},
+			},
+		},
+		{
+			desc: "normal packfile with unrelated metadata",
+			packfileEntries: []fs.DirEntry{
+				packfileEntry{name: "pack-1234.pack"},
+				packfileEntry{name: "pack-5678.keep"},
+				packfileEntry{name: "pack-5678.mtimes"},
+			},
+			expectedTypes: map[string]packfileMetadata{
+				"pack-1234.pack": {},
+				"pack-5678.pack": {
+					hasKeep:   true,
+					hasMtimes: true,
+				},
+			},
+		},
+		{
+			desc: "keep packfile",
+			packfileEntries: []fs.DirEntry{
+				packfileEntry{name: "pack-1234.pack"},
+				packfileEntry{name: "pack-1234.keep"},
+			},
+			expectedTypes: map[string]packfileMetadata{
+				"pack-1234.pack": {
+					hasKeep: true,
+				},
+			},
+		},
+		{
+			desc: "cruft packfile",
+			packfileEntries: []fs.DirEntry{
+				packfileEntry{name: "pack-1234.pack"},
+				packfileEntry{name: "pack-1234.mtimes"},
+			},
+			expectedTypes: map[string]packfileMetadata{
+				"pack-1234.pack": {
+					hasMtimes: true,
+				},
+			},
+		},
+		{
+			desc: "keep packfile with mtimes",
+			packfileEntries: []fs.DirEntry{
+				packfileEntry{name: "pack-1234.pack"},
+				packfileEntry{name: "pack-1234.keep"},
+				packfileEntry{name: "pack-1234.mtimes"},
+			},
+			expectedTypes: map[string]packfileMetadata{
+				"pack-1234.pack": {
+					hasKeep:   true,
+					hasMtimes: true,
+				},
+			},
+		},
+		{
+			desc: "multiple packfiles",
+			packfileEntries: []fs.DirEntry{
+				packfileEntry{name: "pack-1.pack"},
+				packfileEntry{name: "pack-1.keep"},
+				packfileEntry{name: "pack-2.pack"},
+				packfileEntry{name: "pack-2.mtimes"},
+				packfileEntry{name: "pack-3.pack"},
+				packfileEntry{name: "pack-3.idx"},
+				packfileEntry{name: "pack-4.idx"},
+				packfileEntry{name: "garbage"},
+			},
+			expectedTypes: map[string]packfileMetadata{
+				"pack-1.pack": {
+					hasKeep: true,
+				},
+				"pack-2.pack": {
+					hasMtimes: true,
+				},
+				"pack-3.pack": {},
+				"pack-4.pack": {},
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			require.Equal(t, tc.expectedTypes, classifyPackfiles(tc.packfileEntries))
 		})
 	}
 }
