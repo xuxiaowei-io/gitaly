@@ -219,6 +219,11 @@ func (repo *Repo) ReadObject(ctx context.Context, oid git.ObjectID) ([]byte, err
 	return stdout.Bytes(), nil
 }
 
+// ObjectReader returns thee object reader for the given repository.
+func (repo *Repo) ObjectReader(ctx context.Context) (catfile.ObjectContentReader, func(), error) {
+	return repo.catfileCache.ObjectReader(ctx, repo)
+}
+
 func (repo *Repo) readObjectCached(ctx context.Context, oid git.ObjectID) ([]byte, error) {
 	objectReader, cancel, err := repo.catfileCache.ObjectReader(ctx, repo)
 	if err != nil {
