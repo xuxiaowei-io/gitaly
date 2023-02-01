@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -165,9 +166,8 @@ func TestDetectObjectHash(t *testing.T) {
 
 				return repo
 			},
-			expectedErr: fmt.Errorf(
-				"reading object format: exit status 128, stderr: %q",
-				"fatal: repo version is 0, but v1-only extension found:\n\tobjectformat\n",
+			expectedErr: structerr.New("reading object format: exit status 128").WithMetadata(
+				"stderr", "fatal: repo version is 0, but v1-only extension found:\n\tobjectformat\n",
 			),
 		},
 		{
@@ -182,8 +182,8 @@ func TestDetectObjectHash(t *testing.T) {
 
 				return repo
 			},
-			expectedErr: fmt.Errorf(
-				"reading object format: exit status 128, stderr: \"error: invalid value for 'extensions.objectformat'",
+			expectedErr: structerr.New("reading object format: exit status 128").WithMetadata(
+				"stderr", "error: invalid value for 'extensions.objectformat'",
 			),
 		},
 	} {

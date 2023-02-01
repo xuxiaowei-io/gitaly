@@ -10,6 +10,7 @@ import (
 	"hash"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -105,7 +106,7 @@ func DetectObjectHash(ctx context.Context, repoExecutor RepositoryExecutor) (Obj
 			Flag{"--show-object-format"},
 		},
 	}, WithStdout(&stdout), WithStderr(&stderr)); err != nil {
-		return ObjectHash{}, fmt.Errorf("reading object format: %w, stderr: %q", err, stderr.String())
+		return ObjectHash{}, structerr.New("reading object format: %w", err).WithMetadata("stderr", stderr.String())
 	}
 
 	return ObjectHashByFormat(text.ChompBytes(stdout.Bytes()))
