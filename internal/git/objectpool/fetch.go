@@ -158,6 +158,11 @@ func (o *ObjectPool) pruneReferences(ctx context.Context, origin *localrepo.Repo
 		return fmt.Errorf("start reference transaction: %w", err)
 	}
 
+	objectHash, err := o.ObjectHash(ctx)
+	if err != nil {
+		return fmt.Errorf("detecting object hash: %w", err)
+	}
+
 	// We need to manually compute a vote because all deletions we queue up here are
 	// force-deletions. We are forced to filter out force-deletions because these may also
 	// happen when evicting references from the packed-refs file.
@@ -182,7 +187,7 @@ func (o *ObjectPool) pruneReferences(ctx context.Context, origin *localrepo.Repo
 			// of every reference here.
 			deletedRef := "refs/remotes/" + string(bytes.TrimPrefix(line, []byte(" * [would prune] ")))
 
-			if _, err := io.Copy(voteHash, strings.NewReader(fmt.Sprintf("%[1]s %[1]s %s\n", git.ObjectHashSHA1.ZeroOID, deletedRef))); err != nil {
+			if _, err := io.Copy(voteHash, strings.NewReader(fmt.Sprintf("%[1]s %[1]s %s\n", objectHash.ZeroOID, deletedRef))); err != nil {
 				return fmt.Errorf("hashing reference deletion: %w", err)
 			}
 
@@ -264,6 +269,11 @@ func (o *ObjectPool) rescueDanglingObjects(ctx context.Context) (returnedErr err
 		return fmt.Errorf("start reference transaction: %w", err)
 	}
 
+	objectHash, err := o.ObjectHash(ctx)
+	if err != nil {
+		return fmt.Errorf("detecting object hash: %w", err)
+	}
+
 	scanner := bufio.NewScanner(fsck)
 	for scanner.Scan() {
 		split := strings.SplitN(scanner.Text(), " ", 3)
@@ -275,7 +285,7 @@ func (o *ObjectPool) rescueDanglingObjects(ctx context.Context) (returnedErr err
 			continue
 		}
 
-		danglingObjectID, err := git.ObjectHashSHA1.FromHex(split[2])
+		danglingObjectID, err := objectHash.FromHex(split[2])
 		if err != nil {
 			return fmt.Errorf("parsing object ID %q: %w", split[2], err)
 		}

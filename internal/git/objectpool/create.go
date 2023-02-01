@@ -50,6 +50,11 @@ func Create(
 		return nil, fmt.Errorf("getting source repository path: %w", err)
 	}
 
+	objectHash, err := sourceRepo.ObjectHash(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("detecting source repo object hash: %w", err)
+	}
+
 	var stderr bytes.Buffer
 	cmd, err := gitCmdFactory.NewWithoutRepo(ctx,
 		git.Command{
@@ -63,6 +68,11 @@ func Create(
 		},
 		git.WithRefTxHook(sourceRepo),
 		git.WithStderr(&stderr),
+		// When cloning an empty repository then Git isn't capable to figure out the correct
+		// object hash that the new repository needs to use and just uses the default object
+		// format. To work around this shortcoming we thus set the default object hash to
+		// match the source repository's object hash.
+		git.WithEnv("GIT_DEFAULT_HASH="+objectHash.Format),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("spawning clone: %w", err)
