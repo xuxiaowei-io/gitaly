@@ -74,14 +74,28 @@ message CommitDiffRequest {
     WORDDIFF = 1; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
   }
 
+  // WhiteSpaceChanges states which whitespace changes we should ignore. These options correlate to
+  // the ones present in git-diff(1).
+  enum WhitespaceChanges {
+    // WHITESPACE_CHANGES_UNSPECIFIED is used to not ignore any whitespace changes. This also defaults
+    // to the value in the deprecated field `ignore_whitespace_change` to stay backward compatible.
+    WHITESPACE_CHANGES_UNSPECIFIED = 0;
+    // WHITESPACE_CHANGES_IGNORE specifies to use the `--ignore-space-change` flag of git-diff(1).
+    // Only changes in amount of whitespace are ignored.
+    WHITESPACE_CHANGES_IGNORE = 1;
+    // WHITESPACE_CHANGES_IGNORE_ALL specifies to use the `--ignore-all-space` flag of git-diff(1).
+    // All whitespace characters are ignored when comparing lines.
+    WHITESPACE_CHANGES_IGNORE_ALL = 2;
+  }
+
   // This comment is left unintentionally blank.
   Repository repository = 1 [(target_repository)=true];
   // This comment is left unintentionally blank.
   string left_commit_id = 2;
   // This comment is left unintentionally blank.
   string right_commit_id = 3;
-  // This comment is left unintentionally blank.
-  bool ignore_whitespace_change = 4;
+  // This field is deprecated, use the `whitespace_changes` field instead.
+  bool ignore_whitespace_change = 4 [deprecated=true];
   // This comment is left unintentionally blank.
   repeated bytes paths = 5;
   // This comment is left unintentionally blank.
@@ -114,6 +128,10 @@ message CommitDiffRequest {
   // If the file does not have an extension (eg Dockerfile), then the file name is used for matching.
   // For files with more than on extension (eg file.html.tmpl) only the last extension is matched.
   map<string, int32> max_patch_bytes_for_file_extension = 16;
+
+  // WhitespaceChanges states which whitespace changes should be included in the diff.
+  // Please refer to the enum declaration for supported modes.
+  WhitespaceChanges whitespace_changes = 17;
 }
 
 // A CommitDiffResponse corresponds to a single changed file in a commit.

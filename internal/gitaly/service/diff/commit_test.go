@@ -18,168 +18,592 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func TestSuccessfulCommitDiffRequest(t *testing.T) {
+func TestCommitDiff(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupDiffService(t, ctx)
+	cfg, client := setupDiffServiceWithoutRepo(t)
 
-	rightCommit := "ab2c9622c02288a2bbaaf35d96088cfdff31d9d9"
-	leftCommit := "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"
-	expectedDiffs := []diff.Diff{
-		{
-			FromID:   "faaf198af3a36dbf41961466703cc1d47c61d051",
-			ToID:     "877cee6ab11f9094e1bcdb7f1fd9c0001b572185",
-			OldMode:  0o100644,
-			NewMode:  0o100644,
-			FromPath: []byte("README.md"),
-			ToPath:   []byte("README.md"),
-			Binary:   false,
-			Patch:    testhelper.MustReadFile(t, "testdata/readme-md-chunks.txt"),
-		},
-		{
-			FromID:   "bdea48ee65c869eb0b86b1283069d76cce0a7254",
-			ToID:     git.ObjectHashSHA1.ZeroOID.String(),
-			OldMode:  0o100644,
-			NewMode:  0,
-			FromPath: []byte("gitaly/deleted-file"),
-			ToPath:   []byte("gitaly/deleted-file"),
-			Binary:   false,
-			Patch:    testhelper.MustReadFile(t, "testdata/deleted-file-chunks.txt"),
-		},
-		{
-			FromID:   "aa408b4556e594f7974390ad6b86210617fbda6e",
-			ToID:     "1c69c4d2a65ad05c24ac3b6780b5748b97ffd3aa",
-			OldMode:  0o100644,
-			NewMode:  0o100644,
-			FromPath: []byte("gitaly/file-with-multiple-chunks"),
-			ToPath:   []byte("gitaly/file-with-multiple-chunks"),
-			Binary:   false,
-			Patch:    testhelper.MustReadFile(t, "testdata/file-with-multiple-chunks-chunks.txt"),
-		},
-		{
-			FromID:   git.ObjectHashSHA1.ZeroOID.String(),
-			ToID:     "389c7a36a6e133268b0d36b00e7ffc0f3a5b6651",
-			OldMode:  0,
-			NewMode:  0o100644,
-			FromPath: []byte("gitaly/file-with-pluses.txt"),
-			ToPath:   []byte("gitaly/file-with-pluses.txt"),
-			Binary:   false,
-			Patch:    testhelper.MustReadFile(t, "testdata/file-with-pluses-chunks.txt"),
-		},
-		{
-			FromID:   git.ObjectHashSHA1.ZeroOID.String(),
-			ToID:     "bc2ef601a538d69ef99d5bdafa605e63f902e8e4",
-			OldMode:  0,
-			NewMode:  0o100644,
-			FromPath: []byte("gitaly/logo-white.png"),
-			ToPath:   []byte("gitaly/logo-white.png"),
-			Binary:   true,
-			Patch:    []byte("Binary files /dev/null and b/gitaly/logo-white.png differ\n"),
-		},
-		{
-			FromID:   "ead5a0eee1391308803cfebd8a2a8530495645eb",
-			ToID:     "ead5a0eee1391308803cfebd8a2a8530495645eb",
-			OldMode:  0o100644,
-			NewMode:  0o100755,
-			FromPath: []byte("gitaly/mode-file"),
-			ToPath:   []byte("gitaly/mode-file"),
-			Binary:   false,
-		},
-		{
-			FromID:   "357406f3075a57708d0163752905cc1576fceacc",
-			ToID:     "8e5177d718c561d36efde08bad36b43687ee6bf0",
-			OldMode:  0o100644,
-			NewMode:  0o100755,
-			FromPath: []byte("gitaly/mode-file-with-mods"),
-			ToPath:   []byte("gitaly/mode-file-with-mods"),
-			Binary:   false,
-			Patch:    testhelper.MustReadFile(t, "testdata/mode-file-with-mods-chunks.txt"),
-		},
-		{
-			FromID:   "43d24af4e22580f36b1ca52647c1aff75a766a33",
-			ToID:     git.ObjectHashSHA1.ZeroOID.String(),
-			OldMode:  0o100644,
-			NewMode:  0,
-			FromPath: []byte("gitaly/named-file-with-mods"),
-			ToPath:   []byte("gitaly/named-file-with-mods"),
-			Binary:   false,
-			Patch:    testhelper.MustReadFile(t, "testdata/named-file-with-mods-chunks.txt"),
-		},
-		{
-			FromID:   git.ObjectHashSHA1.ZeroOID.String(),
-			ToID:     "b464dff7a75ccc92fbd920fd9ae66a84b9d2bf94",
-			OldMode:  0,
-			NewMode:  0o100644,
-			FromPath: []byte("gitaly/no-newline-at-the-end"),
-			ToPath:   []byte("gitaly/no-newline-at-the-end"),
-			Binary:   false,
-			Patch:    testhelper.MustReadFile(t, "testdata/no-newline-at-the-end-chunks.txt"),
-		},
-		{
-			FromID:   "4e76e90b3c7e52390de9311a23c0a77575aed8a8",
-			ToID:     "4e76e90b3c7e52390de9311a23c0a77575aed8a8",
-			OldMode:  0o100644,
-			NewMode:  0o100644,
-			FromPath: []byte("gitaly/named-file"),
-			ToPath:   []byte("gitaly/renamed-file"),
-			Binary:   false,
-		},
-		{
-			FromID:   git.ObjectHashSHA1.ZeroOID.String(),
-			ToID:     "3856c00e9450a51a62096327167fc43d3be62eef",
-			OldMode:  0,
-			NewMode:  0o100644,
-			FromPath: []byte("gitaly/renamed-file-with-mods"),
-			ToPath:   []byte("gitaly/renamed-file-with-mods"),
-			Binary:   false,
-			Patch:    testhelper.MustReadFile(t, "testdata/renamed-file-with-mods-chunks.txt"),
-		},
-		{
-			FromID:   git.ObjectHashSHA1.ZeroOID.String(),
-			ToID:     "a135e3e0d4af177a902ca57dcc4c7fc6f30858b1",
-			OldMode:  0,
-			NewMode:  0o100644,
-			FromPath: []byte("gitaly/tab\tnewline\n file"),
-			ToPath:   []byte("gitaly/tab\tnewline\n file"),
-			Binary:   false,
-			Patch:    testhelper.MustReadFile(t, "testdata/tab-newline-file-chunks.txt"),
-		},
-		{
-			FromID:   git.ObjectHashSHA1.ZeroOID.String(),
-			ToID:     "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
-			OldMode:  0,
-			NewMode:  0o100755,
-			FromPath: []byte("gitaly/テスト.txt"),
-			ToPath:   []byte("gitaly/テスト.txt"),
-			Binary:   false,
-		},
-		{
-			FromID:   git.ObjectHashSHA1.ZeroOID.String(),
-			ToID:     "b1e67221afe8461efd244b487afca22d46b95eb8",
-			OldMode:  0,
-			NewMode:  0o100644,
-			FromPath: []byte("z-short-diff"),
-			ToPath:   []byte("z-short-diff"),
-			Binary:   false,
-			Patch:    testhelper.MustReadFile(t, "testdata/z-short-diff-chunks.txt"),
-		},
+	type setupData struct {
+		expectedErr  error
+		request      *gitalypb.CommitDiffRequest
+		expectedDiff []diff.Diff
 	}
 
-	testCases := []struct {
-		noPrefixConfig string
-		desc           string
+	for _, tc := range []struct {
+		setup func() setupData
+		desc  string
 	}{
-		{noPrefixConfig: "false", desc: "Git config diff.noprefix set to false"},
-		{noPrefixConfig: "true", desc: "Git config diff.noprefix set to true"},
-	}
+		{
+			desc: "diff in single file",
+			setup: func() setupData {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				blob1 := gittest.WriteBlob(t, cfg, repoPath, []byte("random string of text\n"))
+				blob2 := gittest.WriteBlob(t, cfg, repoPath, []byte("random of string text\n"))
+				commit1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "foo", Mode: "100644", OID: blob1},
+				))
+				commit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "foo", Mode: "100644", OID: blob2},
+				))
 
-	for _, testCase := range testCases {
-		t.Run(testCase.desc, func(t *testing.T) {
-			gittest.Exec(t, cfg, "-C", repoPath, "config", "diff.noprefix", testCase.noPrefixConfig)
-			rpcRequest := &gitalypb.CommitDiffRequest{Repository: repo, RightCommitId: rightCommit, LeftCommitId: leftCommit, IgnoreWhitespaceChange: false}
-			c, err := client.CommitDiff(ctx, rpcRequest)
-			require.NoError(t, err)
+				return setupData{
+					request: &gitalypb.CommitDiffRequest{
+						Repository:    repoProto,
+						LeftCommitId:  commit1.String(),
+						RightCommitId: commit2.String(),
+					},
+					expectedDiff: []diff.Diff{
+						{
+							FromID:   blob1.String(),
+							ToID:     blob2.String(),
+							OldMode:  0o100644,
+							NewMode:  0o100644,
+							FromPath: []byte("foo"),
+							ToPath:   []byte("foo"),
+							Patch:    []byte("@@ -1 +1 @@\n-random string of text\n+random of string text\n"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "diff for file deleted",
+			setup: func() setupData {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				blob1 := gittest.WriteBlob(t, cfg, repoPath, []byte("random string of text\n"))
+				commit1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "foo", Mode: "100644", OID: blob1},
+				))
+				commit2 := gittest.WriteCommit(t, cfg, repoPath)
 
-			assertExactReceivedDiffs(t, c, expectedDiffs)
+				return setupData{
+					request: &gitalypb.CommitDiffRequest{
+						Repository:    repoProto,
+						LeftCommitId:  commit1.String(),
+						RightCommitId: commit2.String(),
+					},
+					expectedDiff: []diff.Diff{
+						{
+							FromID:   blob1.String(),
+							ToID:     gittest.DefaultObjectHash.ZeroOID.String(),
+							OldMode:  0o100644,
+							NewMode:  0,
+							FromPath: []byte("foo"),
+							ToPath:   []byte("foo"),
+							Patch:    []byte("@@ -1 +0,0 @@\n-random string of text\n"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "file with multiple chunks",
+			setup: func() setupData {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				blob1 := gittest.WriteBlob(t, cfg, repoPath, testhelper.MustReadFile(t, "testdata/file-with-multiple-chunks-before.txt"))
+				blob2 := gittest.WriteBlob(t, cfg, repoPath, testhelper.MustReadFile(t, "testdata/file-with-multiple-chunks-after.txt"))
+				commit1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "foo", Mode: "100644", OID: blob1},
+				))
+				commit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "foo", Mode: "100644", OID: blob2},
+				))
+
+				return setupData{
+					request: &gitalypb.CommitDiffRequest{
+						Repository:    repoProto,
+						LeftCommitId:  commit1.String(),
+						RightCommitId: commit2.String(),
+					},
+					expectedDiff: []diff.Diff{
+						{
+							FromID:   blob1.String(),
+							ToID:     blob2.String(),
+							OldMode:  0o100644,
+							NewMode:  0o100644,
+							FromPath: []byte("foo"),
+							ToPath:   []byte("foo"),
+							Patch:    testhelper.MustReadFile(t, "testdata/file-with-multiple-chunks-diff.txt"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "new file with pluses",
+			setup: func() setupData {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				blob2 := gittest.WriteBlob(t, cfg, repoPath, []byte("+\n++\n+++\n++++\n+++++\n"))
+				commit1 := gittest.WriteCommit(t, cfg, repoPath)
+				commit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "foo", Mode: "100644", OID: blob2},
+				))
+
+				return setupData{
+					request: &gitalypb.CommitDiffRequest{
+						Repository:    repoProto,
+						LeftCommitId:  commit1.String(),
+						RightCommitId: commit2.String(),
+					},
+					expectedDiff: []diff.Diff{
+						{
+							FromID:   gittest.DefaultObjectHash.ZeroOID.String(),
+							ToID:     blob2.String(),
+							OldMode:  0,
+							NewMode:  0o100644,
+							FromPath: []byte("foo"),
+							ToPath:   []byte("foo"),
+							Patch:    []byte("@@ -0,0 +1,5 @@\n++\n+++\n++++\n+++++\n++++++\n"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "no diff in file",
+			setup: func() setupData {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				blob1 := gittest.WriteBlob(t, cfg, repoPath, []byte("random string of text\n"))
+				commit1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "foo", Mode: "100644", OID: blob1},
+				))
+				commit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "foo", Mode: "100644", OID: blob1},
+				))
+
+				return setupData{
+					request: &gitalypb.CommitDiffRequest{
+						Repository:    repoProto,
+						LeftCommitId:  commit1.String(),
+						RightCommitId: commit2.String(),
+					},
+					expectedDiff: []diff.Diff{
+						{
+							FromID:   blob1.String(),
+							ToID:     blob1.String(),
+							OldMode:  0o100644,
+							NewMode:  0o100644,
+							FromPath: []byte("foo"),
+							ToPath:   []byte("foo"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "mode diff in single file",
+			setup: func() setupData {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				blob1 := gittest.WriteBlob(t, cfg, repoPath, []byte("random string of text\n"))
+				blob2 := gittest.WriteBlob(t, cfg, repoPath, []byte("random of string text\n"))
+				commit1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "foo", Mode: "100644", OID: blob1},
+				))
+				commit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "foo", Mode: "100755", OID: blob2},
+				))
+
+				return setupData{
+					request: &gitalypb.CommitDiffRequest{
+						Repository:    repoProto,
+						LeftCommitId:  commit1.String(),
+						RightCommitId: commit2.String(),
+					},
+					expectedDiff: []diff.Diff{
+						{
+							FromID:   blob1.String(),
+							ToID:     blob2.String(),
+							OldMode:  0o100644,
+							NewMode:  0o100755,
+							FromPath: []byte("foo"),
+							ToPath:   []byte("foo"),
+							Patch:    []byte("@@ -1 +1 @@\n-random string of text\n+random of string text\n"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "binary file",
+			setup: func() setupData {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				// Git detects binary files by looking for null characters
+				blob1 := gittest.WriteBlob(t, cfg, repoPath, []byte("\x000 hello world"))
+				blob2 := gittest.WriteBlob(t, cfg, repoPath, []byte("\x000 world hello"))
+				commit1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "foo", Mode: "100644", OID: blob1},
+				))
+				commit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "foo", Mode: "100755", OID: blob2},
+				))
+
+				return setupData{
+					request: &gitalypb.CommitDiffRequest{
+						Repository:    repoProto,
+						LeftCommitId:  commit1.String(),
+						RightCommitId: commit2.String(),
+					},
+					expectedDiff: []diff.Diff{
+						{
+							FromID:   blob1.String(),
+							ToID:     blob2.String(),
+							OldMode:  0o100644,
+							NewMode:  0o100755,
+							FromPath: []byte("foo"),
+							ToPath:   []byte("foo"),
+							Binary:   true,
+							Patch:    []byte("Binary files a/foo and b/foo differ\n"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "single file renamed with mode changes",
+			setup: func() setupData {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				blob1 := gittest.WriteBlob(t, cfg, repoPath, []byte("random string of text\n"))
+				commit1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "foo", Mode: "100644", OID: blob1},
+				))
+				commit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "goo", Mode: "100755", OID: blob1},
+				))
+
+				return setupData{
+					request: &gitalypb.CommitDiffRequest{
+						Repository:    repoProto,
+						LeftCommitId:  commit1.String(),
+						RightCommitId: commit2.String(),
+					},
+					expectedDiff: []diff.Diff{
+						{
+							FromID:   blob1.String(),
+							ToID:     blob1.String(),
+							OldMode:  0o100644,
+							NewMode:  0o100755,
+							FromPath: []byte("foo"),
+							ToPath:   []byte("goo"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "no newline at the end",
+			setup: func() setupData {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				blob1 := gittest.WriteBlob(t, cfg, repoPath, []byte("random string of text"))
+				blob2 := gittest.WriteBlob(t, cfg, repoPath, []byte("random of string text"))
+				commit1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "foo", Mode: "100644", OID: blob1},
+				))
+				commit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "foo", Mode: "100644", OID: blob2},
+				))
+
+				return setupData{
+					request: &gitalypb.CommitDiffRequest{
+						Repository:    repoProto,
+						LeftCommitId:  commit1.String(),
+						RightCommitId: commit2.String(),
+					},
+					expectedDiff: []diff.Diff{
+						{
+							FromID:   blob1.String(),
+							ToID:     blob2.String(),
+							OldMode:  0o100644,
+							NewMode:  0o100644,
+							FromPath: []byte("foo"),
+							ToPath:   []byte("foo"),
+							Patch:    []byte("@@ -1 +1 @@\n-random string of text\n\\ No newline at end of file\n+random of string text\n\\ No newline at end of file\n"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "filename with tabs, newline",
+			setup: func() setupData {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				blob1 := gittest.WriteBlob(t, cfg, repoPath, []byte("random string of text\n"))
+				commit1 := gittest.WriteCommit(t, cfg, repoPath)
+				commit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "foo\tbar\ngoo.txt", Mode: "100644", OID: blob1},
+				))
+
+				return setupData{
+					request: &gitalypb.CommitDiffRequest{
+						Repository:    repoProto,
+						LeftCommitId:  commit1.String(),
+						RightCommitId: commit2.String(),
+					},
+					expectedDiff: []diff.Diff{
+						{
+							FromID:   gittest.DefaultObjectHash.ZeroOID.String(),
+							ToID:     blob1.String(),
+							OldMode:  0,
+							NewMode:  0o100644,
+							FromPath: []byte("foo\tbar\ngoo.txt"),
+							ToPath:   []byte("foo\tbar\ngoo.txt"),
+							Patch:    []byte("@@ -0,0 +1 @@\n+random string of text\n"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "filename with unicode",
+			setup: func() setupData {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				blob1 := gittest.WriteBlob(t, cfg, repoPath, []byte("こんにちは世界\n"))
+				commit1 := gittest.WriteCommit(t, cfg, repoPath)
+				commit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "テスト.txt", Mode: "100644", OID: blob1},
+				))
+
+				return setupData{
+					request: &gitalypb.CommitDiffRequest{
+						Repository:    repoProto,
+						LeftCommitId:  commit1.String(),
+						RightCommitId: commit2.String(),
+					},
+					expectedDiff: []diff.Diff{
+						{
+							FromID:   gittest.DefaultObjectHash.ZeroOID.String(),
+							ToID:     blob1.String(),
+							OldMode:  0,
+							NewMode:  0o100644,
+							FromPath: []byte("テスト.txt"),
+							ToPath:   []byte("テスト.txt"),
+							Patch:    []byte("@@ -0,0 +1 @@\n+こんにちは世界\n"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "diff.noprefix set to true",
+			setup: func() setupData {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				gittest.Exec(t, cfg, "-C", repoPath, "config", "diff.noprefix", "true")
+
+				blob1 := gittest.WriteBlob(t, cfg, repoPath, []byte("random string of text\n"))
+				blob2 := gittest.WriteBlob(t, cfg, repoPath, []byte("random of string text\n"))
+				commit1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "foo", Mode: "100644", OID: blob1},
+				))
+				commit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "foo", Mode: "100644", OID: blob2},
+				))
+
+				return setupData{
+					request: &gitalypb.CommitDiffRequest{
+						Repository:    repoProto,
+						LeftCommitId:  commit1.String(),
+						RightCommitId: commit2.String(),
+					},
+					expectedDiff: []diff.Diff{
+						{
+							FromID:   blob1.String(),
+							ToID:     blob2.String(),
+							OldMode:  0o100644,
+							NewMode:  0o100644,
+							FromPath: []byte("foo"),
+							ToPath:   []byte("foo"),
+							Patch:    []byte("@@ -1 +1 @@\n-random string of text\n+random of string text\n"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "whitespace_changes: undefined + ignore_whitespace_change: false",
+			setup: func() setupData {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				blob1 := gittest.WriteBlob(t, cfg, repoPath, []byte("random text of string\n"))
+				blob2 := gittest.WriteBlob(t, cfg, repoPath, []byte("\trandom text of string\n\n"))
+				commit1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "foo", Mode: "100644", OID: blob1},
+				))
+				commit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "foo", Mode: "100644", OID: blob2},
+				))
+
+				return setupData{
+					request: &gitalypb.CommitDiffRequest{
+						Repository:             repoProto,
+						LeftCommitId:           commit1.String(),
+						RightCommitId:          commit2.String(),
+						WhitespaceChanges:      gitalypb.CommitDiffRequest_WHITESPACE_CHANGES_UNSPECIFIED,
+						IgnoreWhitespaceChange: false,
+					},
+					expectedDiff: []diff.Diff{
+						{
+							FromID:   blob1.String(),
+							ToID:     blob2.String(),
+							OldMode:  0o100644,
+							NewMode:  0o100644,
+							FromPath: []byte("foo"),
+							ToPath:   []byte("foo"),
+							Patch:    []byte("@@ -1 +1,2 @@\n-random text of string\n+\trandom text of string\n+\n"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "whitespace_changes: undefined + ignore_whitespace_change: true",
+			setup: func() setupData {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				blob1 := gittest.WriteBlob(t, cfg, repoPath, []byte("random text of string\n"))
+				blob2 := gittest.WriteBlob(t, cfg, repoPath, []byte("random text of string \n"))
+				commit1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "foo", Mode: "100644", OID: blob1},
+				))
+				commit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "foo", Mode: "100644", OID: blob2},
+				))
+
+				return setupData{
+					request: &gitalypb.CommitDiffRequest{
+						Repository:             repoProto,
+						LeftCommitId:           commit1.String(),
+						RightCommitId:          commit2.String(),
+						WhitespaceChanges:      gitalypb.CommitDiffRequest_WHITESPACE_CHANGES_UNSPECIFIED,
+						IgnoreWhitespaceChange: true,
+					},
+					expectedDiff: []diff.Diff{
+						{
+							FromID:   blob1.String(),
+							ToID:     blob2.String(),
+							OldMode:  0o100644,
+							NewMode:  0o100644,
+							FromPath: []byte("foo"),
+							ToPath:   []byte("foo"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "whitespace_changes: dont_ignore",
+			setup: func() setupData {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				blob1 := gittest.WriteBlob(t, cfg, repoPath, []byte("random text of string\n"))
+				blob2 := gittest.WriteBlob(t, cfg, repoPath, []byte("random text of string \n"))
+				commit1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "foo", Mode: "100644", OID: blob1},
+				))
+				commit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "foo", Mode: "100644", OID: blob2},
+				))
+
+				return setupData{
+					request: &gitalypb.CommitDiffRequest{
+						Repository:        repoProto,
+						LeftCommitId:      commit1.String(),
+						RightCommitId:     commit2.String(),
+						WhitespaceChanges: gitalypb.CommitDiffRequest_WHITESPACE_CHANGES_UNSPECIFIED,
+					},
+					expectedDiff: []diff.Diff{
+						{
+							FromID:   blob1.String(),
+							ToID:     blob2.String(),
+							OldMode:  0o100644,
+							NewMode:  0o100644,
+							FromPath: []byte("foo"),
+							ToPath:   []byte("foo"),
+							Patch:    []byte("@@ -1 +1 @@\n-random text of string\n+random text of string \n"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "whitespace_changes: ignore",
+			setup: func() setupData {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				blob1 := gittest.WriteBlob(t, cfg, repoPath, []byte("random text of string\n"))
+				// prefix space is not ignored
+				blob2 := gittest.WriteBlob(t, cfg, repoPath, []byte(" random text of string \n"))
+				commit1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "foo", Mode: "100644", OID: blob1},
+				))
+				commit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "foo", Mode: "100644", OID: blob2},
+				))
+
+				return setupData{
+					request: &gitalypb.CommitDiffRequest{
+						Repository:             repoProto,
+						LeftCommitId:           commit1.String(),
+						RightCommitId:          commit2.String(),
+						WhitespaceChanges:      gitalypb.CommitDiffRequest_WHITESPACE_CHANGES_IGNORE,
+						IgnoreWhitespaceChange: true,
+					},
+					expectedDiff: []diff.Diff{
+						{
+							FromID:   blob1.String(),
+							ToID:     blob2.String(),
+							OldMode:  0o100644,
+							NewMode:  0o100644,
+							FromPath: []byte("foo"),
+							ToPath:   []byte("foo"),
+							Patch:    []byte("@@ -1 +1 @@\n-random text of string\n+ random text of string \n"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "whitespace_changes: ignore_all",
+			setup: func() setupData {
+				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				blob1 := gittest.WriteBlob(t, cfg, repoPath, []byte("random text of string\n"))
+				blob2 := gittest.WriteBlob(t, cfg, repoPath, []byte("random text of string \n"))
+				commit1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "foo", Mode: "100644", OID: blob1},
+				))
+				commit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "foo", Mode: "100644", OID: blob2},
+				))
+
+				return setupData{
+					request: &gitalypb.CommitDiffRequest{
+						Repository:             repoProto,
+						LeftCommitId:           commit1.String(),
+						RightCommitId:          commit2.String(),
+						WhitespaceChanges:      gitalypb.CommitDiffRequest_WHITESPACE_CHANGES_IGNORE_ALL,
+						IgnoreWhitespaceChange: true,
+					},
+					expectedDiff: []diff.Diff{
+						{
+							FromID:   blob1.String(),
+							ToID:     blob2.String(),
+							OldMode:  0o100644,
+							NewMode:  0o100644,
+							FromPath: []byte("foo"),
+							ToPath:   []byte("foo"),
+						},
+					},
+				}
+			},
+		},
+	} {
+		tc := tc
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			data := tc.setup()
+			c, err := client.CommitDiff(ctx, data.request)
+			require.Equal(t, err, data.expectedErr)
+			if err != nil {
+				return
+			}
+
+			assertExactReceivedDiffs(t, c, tc.setup().expectedDiff)
 		})
 	}
 }
@@ -1150,14 +1574,14 @@ func assertExactReceivedDiffs(t *testing.T, client gitalypb.DiffService_CommitDi
 		require.Greater(t, len(expectedDiffs), i, "Unexpected diff #%d received: %v", i, fetchedDiff)
 
 		expectedDiff := expectedDiffs[i]
-		require.Equal(t, expectedDiff.FromID, fetchedDiff.FromID)
-		require.Equal(t, expectedDiff.ToID, fetchedDiff.ToID)
-		require.Equal(t, expectedDiff.OldMode, fetchedDiff.OldMode)
-		require.Equal(t, expectedDiff.NewMode, fetchedDiff.NewMode)
-		require.Equal(t, expectedDiff.FromPath, fetchedDiff.FromPath)
-		require.Equal(t, expectedDiff.ToPath, fetchedDiff.ToPath)
-		require.Equal(t, expectedDiff.Binary, fetchedDiff.Binary)
-		require.Equal(t, expectedDiff.Patch, fetchedDiff.Patch)
+		require.Equal(t, expectedDiff.FromID, fetchedDiff.FromID, "FromID should match")
+		require.Equal(t, expectedDiff.ToID, fetchedDiff.ToID, "ToID should match")
+		require.Equal(t, expectedDiff.OldMode, fetchedDiff.OldMode, "OldMode should match")
+		require.Equal(t, expectedDiff.NewMode, fetchedDiff.NewMode, "NewMode should match")
+		require.Equal(t, expectedDiff.FromPath, fetchedDiff.FromPath, "FromPath should match")
+		require.Equal(t, expectedDiff.ToPath, fetchedDiff.ToPath, "ToPath should match")
+		require.Equal(t, expectedDiff.Binary, fetchedDiff.Binary, "Binary should match")
+		require.Equal(t, expectedDiff.Patch, fetchedDiff.Patch, "Patch should match")
 	}
 
 	require.Len(t, expectedDiffs, i+1, "Unexpected number of diffs")
