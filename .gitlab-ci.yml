@@ -193,8 +193,8 @@ build:binaries:
   cache:
     - *cache_deps_configuration
     - *cache_go_configuration
-  only:
-    - tags
+  # only:
+  #   - tags
   script:
     # Just in case we start running CI builds on other architectures in future
     - go version
