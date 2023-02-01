@@ -1991,12 +1991,15 @@ func TestStreamDirectorStorageScopeError(t *testing.T) {
 }
 
 func TestDisabledTransactionsWithFeatureFlag(t *testing.T) {
-	ctx := testhelper.Context(t)
+	t.Parallel()
 
+	testhelper.NewFeatureSets(featureflag.TransactionalRestoreCustomHooks).Run(t, testDisabledTransactionsWithFeatureFlag)
+}
+
+func testDisabledTransactionsWithFeatureFlag(t *testing.T, ctx context.Context) {
 	for rpc, enabledFn := range transactionRPCs {
 		if enabledFn(ctx) {
 			require.True(t, shouldUseTransaction(ctx, rpc))
-			break
 		}
 	}
 }
