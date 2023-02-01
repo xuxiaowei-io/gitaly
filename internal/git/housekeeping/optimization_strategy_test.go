@@ -72,7 +72,6 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 			expectedConfig: func() RepackObjectsConfig {
 				if featureflag.WriteMultiPackIndex.IsEnabled(ctx) {
 					return RepackObjectsConfig{
-						WriteBitmap:         true,
 						WriteMultiPackIndex: true,
 					}
 				}
@@ -228,7 +227,7 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 					require.True(t, repackNeeded)
 					require.Equal(t, RepackObjectsConfig{
 						FullRepack:          true,
-						WriteBitmap:         len(tc.alternates) == 0 || featureflag.WriteMultiPackIndex.IsEnabled(ctx),
+						WriteBitmap:         len(tc.alternates) == 0,
 						WriteMultiPackIndex: featureflag.WriteMultiPackIndex.IsEnabled(ctx),
 					}, repackCfg)
 				})
@@ -607,7 +606,7 @@ func testEagerOptimizationStrategy(t *testing.T, ctx context.Context) {
 					Alternates: []string{"path/to/alternate"},
 				},
 			},
-			expectWriteBitmap:        featureflag.WriteMultiPackIndex.IsEnabled(ctx),
+			expectWriteBitmap:        false,
 			expectShouldPruneObjects: true,
 		},
 		{
@@ -628,7 +627,7 @@ func testEagerOptimizationStrategy(t *testing.T, ctx context.Context) {
 					Alternates:   []string{"path/to/alternate"},
 				},
 			},
-			expectWriteBitmap:        featureflag.WriteMultiPackIndex.IsEnabled(ctx),
+			expectWriteBitmap:        false,
 			expectShouldPruneObjects: false,
 		},
 	} {

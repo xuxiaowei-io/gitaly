@@ -57,14 +57,12 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 	// case they're missing.
 	//
 	// There is one exception: repositories which are connected to an object pool must not have
-	// a bitmap on their own. We do not yet use multi-pack indices, and in that case Git can
-	// only use one bitmap. We already generate this bitmap in the pool, so member of it
-	// shouldn't have another bitmap on their own.
+	// a bitmap on their own as Git cannot cope writing bitmaps when a repository does not have
+	// the full closure of objects in its own object database.
 	//
-	// Addendum: this isn't true anymore as we're rolling out multi-pack-indices. For one, they
-	// allow us to have bitmaps even in repositories that are linked via alternates. And second,
-	// they don't require a full repack in order to write the bitmap. So once we have fully
-	// rolled out multi-pack-indices this whole condition can go away.
+	// Note that we only do a full repack in case multi-pack-indices are disabled. This is
+	// because we can write bitmaps with an incremental repack when we also write an MIDX, so we
+	// instead handle this case further down.
 	if featureflag.WriteMultiPackIndex.IsDisabled(ctx) && !s.info.Packfiles.Bitmap.Exists && len(s.info.Alternates) == 0 {
 		return true, RepackObjectsConfig{
 			FullRepack:  true,
@@ -114,7 +112,7 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 		math.Log(float64(s.info.Packfiles.Size/1024/1024))/math.Log(log))) <= s.info.Packfiles.Count {
 		return true, RepackObjectsConfig{
 			FullRepack:          true,
-			WriteBitmap:         len(s.info.Alternates) == 0 || featureflag.WriteMultiPackIndex.IsEnabled(ctx),
+			WriteBitmap:         len(s.info.Alternates) == 0,
 			WriteMultiPackIndex: featureflag.WriteMultiPackIndex.IsEnabled(ctx),
 		}
 	}
@@ -134,8 +132,10 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 	// it is necessary on the client side. We thus take a much stricter limit of 1024 objects.
 	if s.info.LooseObjects.Count > looseObjectLimit {
 		return true, RepackObjectsConfig{
-			FullRepack:          false,
-			WriteBitmap:         featureflag.WriteMultiPackIndex.IsEnabled(ctx),
+			FullRepack: false,
+			// Without multi-pack-index we cannot write bitmaps during an incremental
+			// repack.
+			WriteBitmap:         len(s.info.Alternates) == 0 && featureflag.WriteMultiPackIndex.IsEnabled(ctx),
 			WriteMultiPackIndex: featureflag.WriteMultiPackIndex.IsEnabled(ctx),
 		}
 	}
@@ -145,7 +145,7 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 	if featureflag.WriteMultiPackIndex.IsEnabled(ctx) && !s.info.Packfiles.HasMultiPackIndex {
 		return true, RepackObjectsConfig{
 			FullRepack:          false,
-			WriteBitmap:         true,
+			WriteBitmap:         len(s.info.Alternates) == 0,
 			WriteMultiPackIndex: true,
 		}
 	}
@@ -267,7 +267,7 @@ func NewEagerOptimizationStrategy(info stats.RepositoryInfo) EagerOptimizationSt
 func (s EagerOptimizationStrategy) ShouldRepackObjects(ctx context.Context) (bool, RepackObjectsConfig) {
 	return true, RepackObjectsConfig{
 		FullRepack:          true,
-		WriteBitmap:         len(s.info.Alternates) == 0 || featureflag.WriteMultiPackIndex.IsEnabled(ctx),
+		WriteBitmap:         len(s.info.Alternates) == 0,
 		WriteMultiPackIndex: featureflag.WriteMultiPackIndex.IsEnabled(ctx),
 	}
 }
