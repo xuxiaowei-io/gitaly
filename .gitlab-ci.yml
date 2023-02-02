@@ -19,7 +19,7 @@ variables:
   # We use Gitaly's Git version by default.
   GIT_VERSION: "default"
   GO_VERSION: "1.19"
-  RUBY_VERSION: "2.7"
+  RUBY_VERSION: "3.0"
   POSTGRES_VERSION: "12.6-alpine"
   PGBOUNCER_VERSION: "1.16.1"
   BUNDLE_PATH: "${CI_PROJECT_DIR}/_build/cache/ruby"
