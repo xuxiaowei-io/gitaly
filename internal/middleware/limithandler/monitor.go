@@ -88,6 +88,10 @@ func (p *PromMonitor) Enter(ctx context.Context, acquireTime time.Duration) {
 	}
 
 	p.acquiringSecondsMetric.Observe(acquireTime.Seconds())
+
+	if stats := limitStatsFromContext(ctx); stats != nil {
+		stats.AddConcurrencyQueueMs(acquireTime.Milliseconds())
+	}
 }
 
 // Exit is called when a request has finished processing
