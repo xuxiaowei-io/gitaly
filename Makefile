@@ -183,7 +183,7 @@ endif
 # compatibility matrix.
 GIT2GO_VERSION      ?= v34
 LIBGIT2_VERSION     ?= v1.5.1
-LIBGIT2_REPO_URL    ?= https://gitlab.com/libgit2/libgit2
+LIBGIT2_REPO_URL    ?= https://gitlab.com/libgit2/libgit2.git
 LIBGIT2_SOURCE_DIR  ?= ${DEPENDENCY_DIR}/libgit2/source
 LIBGIT2_BUILD_DIR   ?= ${DEPENDENCY_DIR}/libgit2/build
 LIBGIT2_INSTALL_DIR ?= ${DEPENDENCY_DIR}/libgit2/install
