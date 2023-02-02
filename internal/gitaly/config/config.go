@@ -20,6 +20,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/sentry"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/duration"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 )
 
 const (
@@ -634,7 +635,7 @@ func SetupRuntimeDirectory(cfg Cfg, processID int) (string, error) {
 			}
 		}
 
-		if err := os.Mkdir(runtimeDir, 0o700); err != nil {
+		if err := os.Mkdir(runtimeDir, perm.PrivateDir); err != nil {
 			return "", fmt.Errorf("creating runtime directory: %w", err)
 		}
 	}
@@ -647,7 +648,7 @@ func SetupRuntimeDirectory(cfg Cfg, processID int) (string, error) {
 	// socket paths. We hope/expect that os.MkdirTemp creates a directory
 	// that is not too deep. We need a directory, not a tempfile, because we
 	// will later want to set its permissions to 0700
-	if err := os.Mkdir(cfg.InternalSocketDir(), 0o700); err != nil {
+	if err := os.Mkdir(cfg.InternalSocketDir(), perm.PrivateDir); err != nil {
 		return "", fmt.Errorf("create internal socket directory: %w", err)
 	}
 

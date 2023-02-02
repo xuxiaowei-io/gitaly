@@ -11,6 +11,7 @@ import (
 
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
 
@@ -76,7 +77,7 @@ func TestPruneOldGitalyProcessDirectories(t *testing.T) {
 			"gitaly-invalidpid",
 		} {
 			dirPath := filepath.Join(baseDir, dirName)
-			require.NoError(t, os.Mkdir(dirPath, os.ModePerm))
+			require.NoError(t, os.Mkdir(dirPath, perm.PublicDir))
 			expectedLogs[dirPath] = "could not prune entry"
 			expectedErrs[dirPath] = errors.New("gitaly process directory contains an unexpected directory")
 			nonPrunableDirs = append(nonPrunableDirs, dirPath)

@@ -20,6 +20,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -219,7 +220,7 @@ func (repo *Repo) StorageTempDir() (string, error) {
 		return "", err
 	}
 
-	if err := os.MkdirAll(tempPath, 0o755); err != nil {
+	if err := os.MkdirAll(tempPath, perm.SharedDir); err != nil {
 		return "", err
 	}
 

@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/txinfo"
@@ -42,7 +43,7 @@ func (s *server) applyGitattributes(ctx context.Context, repo *localrepo.Repo, o
 	}
 
 	// Create  /info folder if it doesn't exist
-	if err := os.MkdirAll(infoPath, 0o755); err != nil {
+	if err := os.MkdirAll(infoPath, perm.SharedDir); err != nil {
 		return err
 	}
 

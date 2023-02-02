@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -61,13 +62,13 @@ func TestApplyGitattributes_successful(t *testing.T) {
 
 			t.Run("without 'info/attributes' directory", func(t *testing.T) {
 				require.NoError(t, os.RemoveAll(infoPath))
-				require.NoError(t, os.Mkdir(infoPath, 0o755))
+				require.NoError(t, os.Mkdir(infoPath, perm.SharedDir))
 				requireApplyGitattributes(t, ctx, client, repo, attributesPath, tc.revision, tc.expectedContent)
 			})
 
 			t.Run("with preexisting 'info/attributes'", func(t *testing.T) {
 				require.NoError(t, os.RemoveAll(infoPath))
-				require.NoError(t, os.Mkdir(infoPath, 0o755))
+				require.NoError(t, os.Mkdir(infoPath, perm.SharedDir))
 				require.NoError(t, os.WriteFile(attributesPath, []byte("*.docx diff=word"), 0o644))
 				requireApplyGitattributes(t, ctx, client, repo, attributesPath, tc.revision, tc.expectedContent)
 			})

@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -88,7 +89,7 @@ func TestCreate_unsuccessful(t *testing.T) {
 	// gets honored as expected.
 	lockedRelativePath := gittest.NewObjectPoolName(t)
 	lockedFullPath := filepath.Join(cfg.Storages[0].Path, lockedRelativePath+".lock")
-	require.NoError(t, os.MkdirAll(filepath.Dir(lockedFullPath), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Dir(lockedFullPath), perm.SharedDir))
 	require.NoError(t, os.WriteFile(lockedFullPath, nil, 0o644))
 
 	// Create a preexisting object pool.

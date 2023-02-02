@@ -9,6 +9,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -79,7 +80,7 @@ func newDirectory(ctx context.Context, storageName string, prefix string, loc st
 		return Dir{}, fmt.Errorf("temp directory: %w", err)
 	}
 
-	if err := os.MkdirAll(root, 0o700); err != nil {
+	if err := os.MkdirAll(root, perm.PrivateDir); err != nil {
 		return Dir{}, err
 	}
 

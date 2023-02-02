@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -250,7 +251,7 @@ size 12345`
 		// may want to inspect all newly pushed objects, denoted by a repository proto
 		// message which only has its object directory set to the quarantine directory.
 		quarantineDir := "objects/incoming-123456"
-		require.NoError(t, os.Mkdir(filepath.Join(repoPath, quarantineDir), 0o777))
+		require.NoError(t, os.Mkdir(filepath.Join(repoPath, quarantineDir), perm.PublicDir))
 		repoProto.GitObjectDirectory = quarantineDir
 		repoProto.GitAlternateObjectDirectories = nil
 

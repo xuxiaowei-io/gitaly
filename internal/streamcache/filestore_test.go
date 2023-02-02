@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
@@ -109,8 +110,8 @@ func TestFilestoreCleanwalk(t *testing.T) {
 	dir1 := filepath.Join(tmp, "dir1")
 	dir2 := filepath.Join(tmp, "dir2")
 	file := filepath.Join(dir2, "file")
-	require.NoError(t, os.Mkdir(dir1, 0o755))
-	require.NoError(t, os.Mkdir(dir2, 0o755))
+	require.NoError(t, os.Mkdir(dir1, perm.SharedDir))
+	require.NoError(t, os.Mkdir(dir2, perm.SharedDir))
 	require.NoError(t, os.WriteFile(file, nil, 0o644))
 	require.NoError(t, os.Chmod(dir2, 0), "create dir with pathological permissions")
 

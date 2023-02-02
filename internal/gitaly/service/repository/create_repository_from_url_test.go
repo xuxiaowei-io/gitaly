@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/praefectutil"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -130,9 +131,9 @@ func TestCreateRepositoryFromURL_existingTarget(t *testing.T) {
 			importedRepoPath := filepath.Join(cfg.Storages[0].Path, importedRepo.GetRelativePath())
 
 			if testCase.isDir {
-				require.NoError(t, os.MkdirAll(importedRepoPath, 0o770))
+				require.NoError(t, os.MkdirAll(importedRepoPath, perm.GroupPrivateDir))
 			} else {
-				require.NoError(t, os.MkdirAll(filepath.Dir(importedRepoPath), os.ModePerm))
+				require.NoError(t, os.MkdirAll(filepath.Dir(importedRepoPath), perm.PublicDir))
 				require.NoError(t, os.WriteFile(importedRepoPath, nil, 0o644))
 			}
 			t.Cleanup(func() { require.NoError(t, os.RemoveAll(importedRepoPath)) })

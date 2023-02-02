@@ -30,6 +30,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/middleware/limithandler"
 	praefectconfig "gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/streamcache"
@@ -180,7 +181,7 @@ func runGitaly(tb testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, reg
 		registrar(internalServer, deps)
 		registerHealthServerIfNotRegistered(internalServer)
 
-		require.NoError(tb, os.MkdirAll(cfg.InternalSocketDir(), 0o700))
+		require.NoError(tb, os.MkdirAll(cfg.InternalSocketDir(), perm.PrivateDir))
 		tb.Cleanup(func() { require.NoError(tb, os.RemoveAll(cfg.InternalSocketDir())) })
 
 		internalListener, err := net.Listen("unix", cfg.InternalSocketPath())

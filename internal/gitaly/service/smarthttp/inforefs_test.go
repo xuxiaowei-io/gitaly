@@ -22,6 +22,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -537,7 +538,7 @@ func withInfoRefCache(cache infoRefCache) ServerOpt {
 
 func createInvalidRepo(tb testing.TB, repoDir string) func() {
 	for _, subDir := range []string{"objects", "refs", "HEAD"} {
-		require.NoError(tb, os.MkdirAll(filepath.Join(repoDir, subDir), 0o755))
+		require.NoError(tb, os.MkdirAll(filepath.Join(repoDir, subDir), perm.SharedDir))
 	}
 	return func() { require.NoError(tb, os.RemoveAll(repoDir)) }
 }

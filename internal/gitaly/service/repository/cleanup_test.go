@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -101,7 +102,7 @@ func TestCleanupDeletesOrphanedWorktrees(t *testing.T) {
 	basePath := filepath.Join(repoPath, "worktrees")
 	worktreePath := filepath.Join(basePath, "test-worktree")
 
-	require.NoError(t, os.MkdirAll(worktreeCheckoutPath, os.ModePerm))
+	require.NoError(t, os.MkdirAll(worktreeCheckoutPath, perm.PublicDir))
 	require.NoError(t, os.Chtimes(worktreeCheckoutPath, oldWorktreeTime, oldWorktreeTime))
 
 	//nolint:staticcheck

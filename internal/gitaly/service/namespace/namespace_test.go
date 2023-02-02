@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
@@ -25,7 +26,7 @@ func TestNamespaceExists(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	const existingNamespace = "existing"
-	require.NoError(t, os.MkdirAll(filepath.Join(existingStorage.Path, existingNamespace), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(existingStorage.Path, existingNamespace), perm.SharedDir))
 
 	for _, tc := range []struct {
 		desc             string
@@ -156,7 +157,7 @@ func TestRemoveNamespace(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	const existingNamespace = "created"
-	require.NoError(t, os.MkdirAll(filepath.Join(existingStorage.Path, existingNamespace), 0o755), "test setup")
+	require.NoError(t, os.MkdirAll(filepath.Join(existingStorage.Path, existingNamespace), perm.SharedDir), "test setup")
 
 	queries := []struct {
 		desc        string
@@ -210,7 +211,7 @@ func TestRenameNamespace(t *testing.T) {
 	ctx := testhelper.Context(t)
 
 	const existingNamespace = "existing"
-	require.NoError(t, os.MkdirAll(filepath.Join(existingStorage.Path, existingNamespace), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(existingStorage.Path, existingNamespace), perm.SharedDir))
 
 	for _, tc := range []struct {
 		desc        string

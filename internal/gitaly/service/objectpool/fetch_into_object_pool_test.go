@@ -20,6 +20,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -80,7 +81,7 @@ func testFetchIntoObjectPoolSuccess(t *testing.T, ctx context.Context) {
 	// break many Git commands, including git-fetch(1). We should know to prune stale broken
 	// references though and thus be able to recover.
 	brokenRef := filepath.Join(poolPath, "refs", "heads", "broken")
-	require.NoError(t, os.MkdirAll(filepath.Dir(brokenRef), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Dir(brokenRef), perm.SharedDir))
 	require.NoError(t, os.WriteFile(brokenRef, []byte{}, 0o777))
 	oldTime := time.Now().Add(-25 * time.Hour)
 	require.NoError(t, os.Chtimes(brokenRef, oldTime, oldTime))

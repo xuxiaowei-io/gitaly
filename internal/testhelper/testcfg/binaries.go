@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
 
@@ -123,7 +124,7 @@ func BuildBinary(tb testing.TB, targetDir, sourcePath string) string {
 	require.FileExists(tb, sharedBinaryPath, "%s does not exist", executableName)
 	require.NoFileExists(tb, targetPath, "%s exists already -- do you try to build it twice?", executableName)
 
-	require.NoError(tb, os.MkdirAll(targetDir, os.ModePerm))
+	require.NoError(tb, os.MkdirAll(targetDir, perm.PublicDir))
 
 	// We hard-link the file into place instead of copying it because copying used to cause
 	// ETXTBSY errors in CI. This is likely caused by a bug in the overlay filesystem used by

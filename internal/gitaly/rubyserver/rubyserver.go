@@ -18,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/rubyserver/balancer"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/env"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/supervisor"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/version"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -153,7 +154,7 @@ func (s *Server) start() error {
 	// released (https://github.com/libgit2/rugged/pull/918).
 	if cfg.Ruby.RuggedGitConfigSearchPath == "" {
 		gitconfigDir := filepath.Join(cfg.RuntimeDir, "ruby-gitconfig")
-		if err := os.Mkdir(gitconfigDir, 0o777); err != nil {
+		if err := os.Mkdir(gitconfigDir, perm.PublicDir); err != nil {
 			return fmt.Errorf("creating gitconfig dir: %w", err)
 		}
 

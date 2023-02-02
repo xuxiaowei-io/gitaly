@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
@@ -24,7 +25,7 @@ func TestGetInfoAttributesExisting(t *testing.T) {
 	_, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	infoPath := filepath.Join(repoPath, "info")
-	require.NoError(t, os.MkdirAll(infoPath, 0o755))
+	require.NoError(t, os.MkdirAll(infoPath, perm.SharedDir))
 
 	buffSize := streamio.WriteBufferSize + 1
 	data := bytes.Repeat([]byte("*.pbxproj binary\n"), buffSize)

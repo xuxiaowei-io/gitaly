@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/setup"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -42,7 +43,7 @@ func TestConfigLocator_GetRepoPath(t *testing.T) {
 
 	// The repository path exists on the disk, but it is not a git repository.
 	const notRepositoryFolder = "not-a-git-repo"
-	require.NoError(t, os.MkdirAll(filepath.Join(cfg.Storages[0].Path, notRepositoryFolder), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(cfg.Storages[0].Path, notRepositoryFolder), perm.SharedDir))
 
 	for _, tc := range []struct {
 		desc   string
@@ -106,7 +107,7 @@ func TestConfigLocator_GetPath(t *testing.T) {
 
 	// The repository path exists on the disk, but it is not a git repository.
 	const notRepositoryFolder = "not-a-git-repo"
-	require.NoError(t, os.MkdirAll(filepath.Join(cfg.Storages[0].Path, notRepositoryFolder), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(cfg.Storages[0].Path, notRepositoryFolder), perm.SharedDir))
 
 	for _, tc := range []struct {
 		desc string

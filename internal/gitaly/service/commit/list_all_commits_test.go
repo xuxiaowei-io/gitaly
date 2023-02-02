@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -101,7 +102,7 @@ func TestListAllCommits(t *testing.T) {
 		cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, ctx)
 
 		quarantineDir := filepath.Join("objects", "incoming-123456")
-		require.NoError(t, os.Mkdir(filepath.Join(repoPath, quarantineDir), 0o777))
+		require.NoError(t, os.Mkdir(filepath.Join(repoPath, quarantineDir), perm.PublicDir))
 
 		repo.GitObjectDirectory = quarantineDir
 		repo.GitAlternateObjectDirectories = nil

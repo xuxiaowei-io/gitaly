@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -107,7 +108,7 @@ func TestFromRepo_failures(t *testing.T) {
 			repoPath, err := repo.Path()
 			require.NoError(t, err)
 
-			require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "objects", "info"), 0o755))
+			require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "objects", "info"), perm.SharedDir))
 			alternateFilePath := filepath.Join(repoPath, "objects", "info", "alternates")
 			require.NoError(t, os.WriteFile(alternateFilePath, tc.fileContent, 0o644))
 			poolFromRepo, err := FromRepo(locator, pool.gitCmdFactory, nil, nil, nil, repo)

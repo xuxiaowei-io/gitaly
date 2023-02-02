@@ -18,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
@@ -228,7 +229,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 		// Git will leave behind empty refs directories at times. In order to not slow down
 		// enumerating refs we want to make sure that they get cleaned up properly.
 		emptyRefsDir := filepath.Join(repoPath, "refs", "merge-requests", "1")
-		require.NoError(t, os.MkdirAll(emptyRefsDir, 0o755))
+		require.NoError(t, os.MkdirAll(emptyRefsDir, perm.SharedDir))
 
 		// But we don't expect the first call to OptimizeRepository to do anything. This is
 		// because we have a grace period so that we don't delete empty ref directories that

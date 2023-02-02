@@ -9,6 +9,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -48,7 +49,7 @@ func (s *server) renameRepository(ctx context.Context, sourceRepo, targetRepo *g
 		return structerr.NewAlreadyExists("target repo exists already")
 	}
 
-	if err := os.MkdirAll(filepath.Dir(targetPath), 0o770); err != nil {
+	if err := os.MkdirAll(filepath.Dir(targetPath), perm.GroupPrivateDir); err != nil {
 		return fmt.Errorf("create target parent dir: %w", err)
 	}
 

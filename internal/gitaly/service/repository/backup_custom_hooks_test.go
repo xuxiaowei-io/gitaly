@@ -13,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
@@ -33,7 +34,7 @@ func TestBackupCustomHooks_successful(t *testing.T) {
 		"custom_hooks/prepare-commit-msg.sample",
 		"custom_hooks/pre-push.sample",
 	}
-	require.NoError(t, os.Mkdir(filepath.Join(repoPath, "custom_hooks"), 0o700), "Could not create custom_hooks dir")
+	require.NoError(t, os.Mkdir(filepath.Join(repoPath, "custom_hooks"), perm.PrivateDir), "Could not create custom_hooks dir")
 	for _, fileName := range expectedTarResponse[1:] {
 		require.NoError(t, os.WriteFile(filepath.Join(repoPath, fileName), []byte("Some hooks"), 0o700), fmt.Sprintf("Could not create %s", fileName))
 	}

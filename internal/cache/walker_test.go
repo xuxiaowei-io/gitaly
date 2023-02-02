@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 )
@@ -38,7 +39,7 @@ func TestDiskCacheObjectWalker(t *testing.T) {
 		require.NoError(t, err)
 
 		path := filepath.Join(cacheDir, tt.name)
-		require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+		require.NoError(t, os.MkdirAll(filepath.Dir(path), perm.SharedDir))
 
 		f, err := os.Create(path)
 		require.NoError(t, err)
@@ -79,7 +80,7 @@ func TestDiskCacheInitialClear(t *testing.T) {
 	require.NoError(t, err)
 
 	canary := filepath.Join(cacheDir, "canary.txt")
-	require.NoError(t, os.MkdirAll(filepath.Dir(canary), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Dir(canary), perm.SharedDir))
 	require.NoError(t, os.WriteFile(canary, []byte("chirp chirp"), 0o755))
 
 	cache := New(cfg, locator, withDisabledWalker())
@@ -115,7 +116,7 @@ func TestCleanWalkEmptyDirs(t *testing.T) {
 	} {
 		p := filepath.Join(tmp, tt.path)
 		if strings.HasSuffix(tt.path, "/") {
-			require.NoError(t, os.MkdirAll(p, 0o755))
+			require.NoError(t, os.MkdirAll(p, perm.SharedDir))
 		} else {
 			require.NoError(t, os.WriteFile(p, nil, 0o655))
 			if tt.stale {

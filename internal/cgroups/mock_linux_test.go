@@ -29,6 +29,7 @@ import (
 
 	"github.com/containerd/cgroups"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
 
@@ -46,7 +47,7 @@ func newMock(t *testing.T) *mockCgroup {
 	require.NoError(t, err)
 
 	for _, s := range subsystems {
-		require.NoError(t, os.MkdirAll(filepath.Join(root, string(s.Name())), os.FileMode(0o755)))
+		require.NoError(t, os.MkdirAll(filepath.Join(root, string(s.Name())), perm.SharedDir))
 	}
 
 	return &mockCgroup{
@@ -66,7 +67,7 @@ func (m *mockCgroup) setupMockCgroupFiles(
 ) {
 	for _, s := range m.subsystems {
 		cgroupPath := filepath.Join(m.root, string(s.Name()), manager.currentProcessCgroup())
-		require.NoError(t, os.MkdirAll(cgroupPath, 0o755))
+		require.NoError(t, os.MkdirAll(cgroupPath, perm.SharedDir))
 
 		contentByFilename := map[string]string{
 			"cgroup.procs": "",
@@ -107,7 +108,7 @@ func (m *mockCgroup) setupMockCgroupFiles(
 
 		for shard := uint(0); shard < manager.cfg.Repositories.Count; shard++ {
 			shardPath := filepath.Join(cgroupPath, fmt.Sprintf("repos-%d", shard))
-			require.NoError(t, os.MkdirAll(shardPath, 0o755))
+			require.NoError(t, os.MkdirAll(shardPath, perm.SharedDir))
 
 			for filename, content := range contentByFilename {
 				shardControlFilePath := filepath.Join(shardPath, filename)

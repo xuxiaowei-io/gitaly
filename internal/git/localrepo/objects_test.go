@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -79,7 +80,7 @@ func testRepoWriteBlob(t *testing.T, ctx context.Context) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			attributesPath := filepath.Join(repoPath, "info", "attributes")
-			require.NoError(t, os.MkdirAll(filepath.Dir(attributesPath), 0o755))
+			require.NoError(t, os.MkdirAll(filepath.Dir(attributesPath), perm.SharedDir))
 			require.NoError(t, os.WriteFile(attributesPath, []byte(tc.attributes), os.ModePerm))
 
 			sha, err := repo.WriteBlob(ctx, "file-path", tc.input)

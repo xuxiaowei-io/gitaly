@@ -18,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/archive"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
@@ -56,8 +57,8 @@ func TestGetSnapshotSuccess(t *testing.T) {
 	// WriteCommit produces a loose object with the given sha
 	sha := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
 	zeroes := strings.Repeat("0", 40)
-	require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "hooks"), 0o755))
-	require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "objects/pack"), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "hooks"), perm.SharedDir))
+	require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "objects/pack"), perm.SharedDir))
 	touch(t, filepath.Join(repoPath, "shallow"))
 	touch(t, filepath.Join(repoPath, "objects/pack/pack-%s.pack"), zeroes)
 	touch(t, filepath.Join(repoPath, "objects/pack/pack-%s.idx"), zeroes)
