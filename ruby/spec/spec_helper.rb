@@ -1,6 +1,5 @@
 require_relative '../lib/gitaly_server.rb'
 require_relative 'support/sentry.rb'
-require 'timecop'
 require 'rspec-parameterized'
 require 'factory_bot'
 require 'pry'
