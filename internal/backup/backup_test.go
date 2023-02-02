@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/client"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/archive"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/setup"
@@ -324,7 +325,7 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 				customHooksPath := filepath.Join(backupRoot, relativePath, "custom_hooks.tar")
 				require.NoError(tb, os.MkdirAll(filepath.Join(backupRoot, relativePath), perm.PublicDir))
 				gittest.BundleRepo(tb, cfg, repoPath, bundlePath)
-				testhelper.CopyFile(tb, "../gitaly/service/repository/testdata/custom_hooks.tar", customHooksPath)
+				testhelper.CopyFile(tb, mustCreateCustomHooksArchive(t, ctx), customHooksPath)
 
 				return repo, repoChecksum
 			},
@@ -670,4 +671,26 @@ func joinBackupPath(tb testing.TB, backupRoot string, repo *gitalypb.Repository,
 
 func stripRelativePath(tb testing.TB, repo *gitalypb.Repository) string {
 	return strings.TrimSuffix(repo.GetRelativePath(), ".git")
+}
+
+func mustCreateCustomHooksArchive(t *testing.T, ctx context.Context) string {
+	t.Helper()
+
+	tmpDir := testhelper.TempDir(t)
+
+	hooksDirPath := filepath.Join(tmpDir, "custom_hooks")
+	require.NoError(t, os.Mkdir(hooksDirPath, os.ModePerm))
+
+	require.NoError(t, os.WriteFile(filepath.Join(hooksDirPath, "pre-commit.sample"), []byte("foo"), os.ModePerm))
+	require.NoError(t, os.WriteFile(filepath.Join(hooksDirPath, "prepare-commit-msg.sample"), []byte("bar"), os.ModePerm))
+	require.NoError(t, os.WriteFile(filepath.Join(hooksDirPath, "pre-push.sample"), []byte("baz"), os.ModePerm))
+
+	archivePath := filepath.Join(tmpDir, "custom_hooks.tar")
+	file, err := os.Create(archivePath)
+	require.NoError(t, err)
+	defer testhelper.MustClose(t, file)
+
+	require.NoError(t, archive.WriteTarball(ctx, file, tmpDir, "custom_hooks"))
+
+	return archivePath
 }

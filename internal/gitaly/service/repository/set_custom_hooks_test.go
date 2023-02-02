@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/archive"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
@@ -113,7 +114,12 @@ func testSuccessfulSetCustomHooksRequest(t *testing.T, ctx context.Context) {
 
 			writer, closeStream := tc.streamWriter(t, ctx, repo, client)
 
-			file, err := os.Open("testdata/custom_hooks.tar")
+			archivePath := mustCreateCustomHooksArchive(t, ctx, []testFile{
+				{name: "pre-commit.sample", content: "foo", mode: 0o755},
+				{name: "pre-push.sample", content: "bar", mode: 0o755},
+			}, customHooksDir)
+
+			file, err := os.Open(archivePath)
 			require.NoError(t, err)
 
 			_, err = io.Copy(writer, file)
@@ -262,7 +268,9 @@ func testFailedSetCustomHooksDueToBadTar(t *testing.T, ctx context.Context) {
 			_, repo, _, client := setupRepositoryService(t, ctx)
 			writer, closeStream := tc.streamWriter(t, ctx, repo, client)
 
-			file, err := os.Open("testdata/corrupted_hooks.tar")
+			archivePath := mustCreateCorruptHooksArchive(t)
+
+			file, err := os.Open(archivePath)
 			require.NoError(t, err)
 			defer testhelper.MustClose(t, file)
 
@@ -330,7 +338,7 @@ func TestNewDirectoryVote(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			path := setupTestHooks(t, tc.files)
+			path := mustWriteCustomHookDirectory(t, tc.files, customHooksDir)
 
 			voteHash, err := newDirectoryVote(path)
 			require.NoError(t, err)
@@ -344,11 +352,11 @@ func TestNewDirectoryVote(t *testing.T) {
 	}
 }
 
-func setupTestHooks(t *testing.T, files []testFile) string {
+func mustWriteCustomHookDirectory(t *testing.T, files []testFile, dirName string) string {
 	t.Helper()
 
 	tmpDir := testhelper.TempDir(t)
-	hooksPath := filepath.Join(tmpDir, customHooksDir)
+	hooksPath := filepath.Join(tmpDir, dirName)
 
 	err := os.Mkdir(hooksPath, perm.SharedDir)
 	require.NoError(t, err)
@@ -359,4 +367,34 @@ func setupTestHooks(t *testing.T, files []testFile) string {
 	}
 
 	return hooksPath
+}
+
+func mustCreateCustomHooksArchive(t *testing.T, ctx context.Context, files []testFile, dirName string) string {
+	t.Helper()
+
+	hooksPath := mustWriteCustomHookDirectory(t, files, dirName)
+	hooksDir := filepath.Dir(hooksPath)
+
+	tmpDir := testhelper.TempDir(t)
+	archivePath := filepath.Join(tmpDir, "custom_hooks.tar")
+
+	file, err := os.Create(archivePath)
+	require.NoError(t, err)
+
+	err = archive.WriteTarball(ctx, file, hooksDir, dirName)
+	require.NoError(t, err)
+
+	return archivePath
+}
+
+func mustCreateCorruptHooksArchive(t *testing.T) string {
+	t.Helper()
+
+	tmpDir := testhelper.TempDir(t)
+	archivePath := filepath.Join(tmpDir, "corrupt_hooks.tar")
+
+	err := os.WriteFile(archivePath, []byte("This is a corrupted tar file"), 0o755)
+	require.NoError(t, err)
+
+	return archivePath
 }
