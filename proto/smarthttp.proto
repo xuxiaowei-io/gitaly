@@ -28,13 +28,6 @@ service SmartHTTPService {
     };
   }
 
-  // Request and response body for POST /upload-pack
-  rpc PostUploadPack(stream PostUploadPackRequest) returns (stream PostUploadPackResponse) {
-    option (op_type) = {
-      op: ACCESSOR
-    };
-  }
-
   // Request and response body for POST /upload-pack using sidechannel protocol
   rpc PostUploadPackWithSidechannel(PostUploadPackWithSidechannelRequest) returns (PostUploadPackWithSidechannelResponse) {
     option (op_type) = {
@@ -64,25 +57,6 @@ message InfoRefsRequest {
 // This comment is left unintentionally blank.
 message InfoRefsResponse {
   // This comment is left unintentionally blank.
-  bytes data = 1;
-}
-
-// This comment is left unintentionally blank.
-message PostUploadPackRequest {
-  // repository should only be present in the first message of the stream
-  Repository repository = 1 [(target_repository)=true];
-  // Raw data to be copied to stdin of 'git upload-pack'
-  bytes data = 2;
-  // Parameters to use with git -c (key=value pairs)
-  repeated string git_config_options = 3;
-
-  // Git protocol version
-  string git_protocol = 4;
-}
-
-// This comment is left unintentionally blank.
-message PostUploadPackResponse {
-  // Raw data from stdout of 'git upload-pack'
   bytes data = 1;
 }
 

@@ -137,10 +137,10 @@ func TestNewProtoRegistry(t *testing.T) {
 			"WriteRef":                     protoregistry.OpMutator,
 		},
 		"SmartHTTPService": {
-			"InfoRefsReceivePack": protoregistry.OpAccessor,
-			"InfoRefsUploadPack":  protoregistry.OpAccessor,
-			"PostReceivePack":     protoregistry.OpMutator,
-			"PostUploadPack":      protoregistry.OpAccessor,
+			"InfoRefsReceivePack":           protoregistry.OpAccessor,
+			"InfoRefsUploadPack":            protoregistry.OpAccessor,
+			"PostReceivePack":               protoregistry.OpMutator,
+			"PostUploadPackWithSidechannel": protoregistry.OpAccessor,
 		},
 		"SSHService": {
 			"SSHReceivePack":   protoregistry.OpMutator,
