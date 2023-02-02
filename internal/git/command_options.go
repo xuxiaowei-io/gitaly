@@ -27,13 +27,9 @@ const (
 )
 
 var (
-	configKeyOptionRegex = regexp.MustCompile(`^[[:alnum:]]+[-[:alnum:]]*\.(.+\.)*[[:alnum:]]+[-[:alnum:]]*$`)
-	// configKeyGlobalRegex is intended to verify config keys when used as
-	// global arguments. We're playing it safe here by disallowing lots of
-	// keys which git would parse just fine, but we only have a limited
-	// number of config entries anyway. Most importantly, we cannot allow
-	// `=` as part of the key as that would break parsing of `git -c`.
-	configKeyGlobalRegex = regexp.MustCompile(`^[[:alnum:]]+(\.[-/_:@a-zA-Z0-9]+)+$`)
+	// configKeyRegex is intended to verify config keys in their `core.gc` or
+	// `http.http://example.com.proxy` format.
+	configKeyRegex = regexp.MustCompile(`^[[:alnum:]]+(\.[*-/_:@a-zA-Z0-9]+)+$`)
 
 	flagRegex = regexp.MustCompile(`^(-|--)[[:alnum:]]`)
 )
@@ -51,24 +47,13 @@ type Option interface {
 	OptionArgs() ([]string, error)
 }
 
-// ConfigPair is a sub-command option for use with commands like "git config"
+// ConfigPair is a GlobalOption that can be passed to Git commands to inject per-command config
+// entries via the `git -c` switch.
 type ConfigPair struct {
-	Key   string
+	// Key is the key of the config entry, e.g. `core.gc`.
+	Key string
+	// Value is the value of the config entry, e.g. `false`.
 	Value string
-	// Origin shows the origin type: file, standard input, blob, command line.
-	// https://git-scm.com/docs/git-config#Documentation/git-config.txt---show-origin
-	Origin string
-	// Scope shows the scope of this config value: local, global, system, command.
-	// https://git-scm.com/docs/git-config#Documentation/git-config.txt---show-scope
-	Scope string
-}
-
-// OptionArgs validates the config pair args
-func (cp ConfigPair) OptionArgs() ([]string, error) {
-	if !configKeyOptionRegex.MatchString(cp.Key) {
-		return nil, fmt.Errorf("config key %q failed regexp validation: %w", cp.Key, ErrInvalidArg)
-	}
-	return []string{cp.Key, cp.Value}, nil
 }
 
 // GlobalArgs generates a git `-c <key>=<value>` flag. The key must pass
@@ -76,7 +61,7 @@ func (cp ConfigPair) OptionArgs() ([]string, error) {
 // No other characters are allowed for now as `git -c` may not correctly parse
 // them, most importantly when they contain equals signs.
 func (cp ConfigPair) GlobalArgs() ([]string, error) {
-	if !configKeyGlobalRegex.MatchString(cp.Key) {
+	if !configKeyRegex.MatchString(cp.Key) {
 		return nil, fmt.Errorf("config key %q failed regexp validation: %w", cp.Key, ErrInvalidArg)
 	}
 	return []string{"-c", fmt.Sprintf("%s=%s", cp.Key, cp.Value)}, nil

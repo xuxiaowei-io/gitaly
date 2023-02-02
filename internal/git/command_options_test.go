@@ -35,12 +35,6 @@ func TestFlagValidation(t *testing.T) {
 		{option: ValueFlag{"-k", "--anything"}, valid: true},
 		{option: ValueFlag{"-k", ""}, valid: true},
 
-		// valid ConfigPair inputs
-		{option: ConfigPair{Key: "a.b.c", Value: "d"}, valid: true},
-		{option: ConfigPair{Key: "core.sound", Value: "meow"}, valid: true},
-		{option: ConfigPair{Key: "asdf-qwer.1234-5678", Value: ""}, valid: true},
-		{option: ConfigPair{Key: "http.https://user@example.com/repo.git.user", Value: "kitty"}, valid: true},
-
 		// invalid Flag inputs
 		{option: Flag{Name: "-*"}},          // invalid character
 		{option: Flag{Name: "a"}},           // missing dash
@@ -50,15 +44,6 @@ func TestFlagValidation(t *testing.T) {
 
 		// invalid ValueFlag inputs
 		{option: ValueFlag{"k", "asdf"}}, // missing dash
-
-		// invalid ConfigPair inputs
-		{option: ConfigPair{Key: "", Value: ""}},            // key cannot be empty
-		{option: ConfigPair{Key: " ", Value: ""}},           // key cannot be whitespace
-		{option: ConfigPair{Key: "asdf", Value: ""}},        // two components required
-		{option: ConfigPair{Key: "asdf.", Value: ""}},       // 2nd component must be non-empty
-		{option: ConfigPair{Key: "--asdf.asdf", Value: ""}}, // key cannot start with dash
-		{option: ConfigPair{Key: "as[[df.asdf", Value: ""}}, // 1st component cannot contain non-alphanumeric
-		{option: ConfigPair{Key: "asdf.as]]df", Value: ""}}, // 2nd component cannot contain non-alphanumeric
 	} {
 		args, err := tt.option.OptionArgs()
 		if tt.valid {
@@ -177,6 +162,12 @@ func TestGlobalOption(t *testing.T) {
 			option:   ConfigPair{Key: "http.https://user@example.com/repo.git.user", Value: "kitty"},
 			valid:    true,
 			expected: []string{"-c", "http.https://user@example.com/repo.git.user=kitty"},
+		},
+		{
+			desc:     "config pair with URL key including wildcard",
+			option:   ConfigPair{Key: "http.https://*.example.com/.proxy", Value: "http://proxy.example.com"},
+			valid:    true,
+			expected: []string{"-c", "http.https://*.example.com/.proxy=http://proxy.example.com"},
 		},
 		{
 			desc:   "config pair with invalid section format",
