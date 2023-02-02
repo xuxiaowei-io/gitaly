@@ -80,6 +80,11 @@ func getSpawnToken(ctx context.Context) (putToken func(), err error) {
 
 func logTime(ctx context.Context, start time.Time, msg string) {
 	delta := time.Since(start)
+
+	if stats := StatsFromContext(ctx); stats != nil {
+		stats.RecordSum("command.spawn_token_wait_ms", int(delta.Milliseconds()))
+	}
+
 	if delta < logDurationThreshold {
 		return
 	}
