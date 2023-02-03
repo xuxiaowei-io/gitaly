@@ -10,6 +10,7 @@ import (
 	"unsafe"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -403,6 +404,36 @@ func TestRequestQueue_RequestInfo(t *testing.T) {
 			requireRevision(t, queue)
 		}
 	})
+}
+
+func TestRequestQueue_CommandStats(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	ctx = command.InitContextStats(ctx)
+
+	oid := git.ObjectID(strings.Repeat("1", gittest.DefaultObjectHash.EncodedLen()))
+
+	_, queue := newInterceptedObjectQueue(t, ctx, fmt.Sprintf(`#!/bin/sh
+			read revision
+			echo "%s blob ${#revision}"
+			echo "${revision}"
+		`, oid))
+
+	require.NoError(t, queue.RequestObject(ctx, "foo"))
+	require.NoError(t, queue.Flush(ctx))
+	_, err := queue.ReadObject(ctx)
+	require.NoError(t, err)
+
+	stats := command.StatsFromContext(ctx)
+	fields := stats.Fields()
+	require.Contains(t, fields, "catfile.request_object_count")
+	require.Contains(t, fields, "catfile.request_object_ms")
+	require.Contains(t, fields, "catfile.flush_count")
+	require.Contains(t, fields, "catfile.flush_ms")
+	require.Contains(t, fields, "catfile.read_object_count")
+	require.Contains(t, fields, "catfile.read_object_ms")
+	require.Contains(t, fields, "catfile.duration_ms")
 }
 
 func TestRequestQueueCounters64BitAlignment(t *testing.T) {
