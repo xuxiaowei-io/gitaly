@@ -13,6 +13,7 @@ import (
 	"github.com/go-enry/go-license-detector/v4/licensedb"
 	"github.com/go-enry/go-license-detector/v4/licensedb/api"
 	"github.com/go-enry/go-license-detector/v4/licensedb/filer"
+	"github.com/opentracing/opentracing-go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/lstree"
@@ -85,6 +86,9 @@ func (s *server) FindLicense(ctx context.Context, req *gitalypb.FindLicenseReque
 }
 
 func findLicense(ctx context.Context, repo *localrepo.Repo, commitID git.ObjectID) (*gitalypb.FindLicenseResponse, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "repository.findLicense")
+	defer span.Finish()
+
 	repoFiler := &gitFiler{ctx: ctx, repo: repo, treeishID: commitID}
 	detectedLicenses, err := licensedb.Detect(repoFiler)
 	if err != nil {
