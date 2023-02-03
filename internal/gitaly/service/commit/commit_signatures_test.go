@@ -4,6 +4,7 @@ package commit
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"testing"
 
@@ -122,7 +123,7 @@ func TestFailedGetCommitSignaturesRequest(t *testing.T) {
 				Repository: repo,
 				CommitIds:  []string{"5937ac0a7beb003549fc5fd26fc247adbce4a52e", "a17a9f6"},
 			},
-			expectedErr: status.Error(codes.InvalidArgument, `GetCommitSignatures: invalid object ID: "a17a9f6"`),
+			expectedErr: status.Error(codes.InvalidArgument, fmt.Sprintf(`GetCommitSignatures: invalid object ID: "a17a9f6", expected length %v, got 7`, gittest.DefaultObjectHash.EncodedLen())),
 		},
 	}
 

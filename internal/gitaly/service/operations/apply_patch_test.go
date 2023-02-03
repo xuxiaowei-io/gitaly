@@ -341,7 +341,7 @@ To restore the original branch and stop patching, run "git am --abort".
 				},
 			},
 			expectedOldOID: func(repoPath string) string { return "foo" },
-			expectedErr:    structerr.NewInternal(`expected old object id not expected SHA format: invalid object ID: "foo"`),
+			expectedErr:    structerr.NewInternal(fmt.Sprintf(`expected old object id not expected SHA format: invalid object ID: "foo", expected length %v, got 3`, gittest.DefaultObjectHash.EncodedLen())),
 		},
 		{
 			desc: "existing branch + valid but unavailable expectedOldOID",

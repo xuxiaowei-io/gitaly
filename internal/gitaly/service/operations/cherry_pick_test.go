@@ -205,7 +205,7 @@ func TestUserCherryPick(t *testing.T) {
 					ExpectedOldOid: "foobar",
 				}, &gitalypb.UserCherryPickResponse{}
 			},
-			expectedErr: structerr.NewInvalidArgument("invalid expected old object ID: invalid object ID: \"foobar\"").
+			expectedErr: structerr.NewInvalidArgument(fmt.Sprintf("invalid expected old object ID: invalid object ID: \"foobar\", expected length %v, got 6", gittest.DefaultObjectHash.EncodedLen())).
 				WithInterceptedMetadata("old_object_id", "foobar"),
 		},
 		{
