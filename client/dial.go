@@ -2,7 +2,12 @@ package client
 
 import (
 	"context"
+	"math/rand"
+	"time"
 
+	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/backoff"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/dnsresolver"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/sidechannel"
 	"google.golang.org/grpc"
@@ -64,4 +69,25 @@ func HealthCheckDialer(base Dialer) Dialer {
 
 		return cc, nil
 	}
+}
+
+// DNSResolverBuilderConfig exposes the DNS resolver builder option. It is used to build Gitaly
+// custom DNS resolver.
+type DNSResolverBuilderConfig dnsresolver.BuilderConfig
+
+// DefaultDNSResolverBuilderConfig returns the default options for building DNS resolver.
+func DefaultDNSResolverBuilderConfig() *DNSResolverBuilderConfig {
+	return &DNSResolverBuilderConfig{
+		RefreshRate:     5 * time.Minute,
+		Logger:          logrus.StandardLogger(),
+		Backoff:         backoff.NewDefaultExponential(rand.New(rand.NewSource(time.Now().UnixNano()))),
+		DefaultGrpcPort: "443",
+	}
+}
+
+// WithGitalyDNSResolver defines a gRPC dial option for injecting Gitaly's custom DNS resolver. This
+// resolver watches for the changes of target URL periodically and update the target subchannels
+// accordingly.
+func WithGitalyDNSResolver(opts *DNSResolverBuilderConfig) grpc.DialOption {
+	return grpc.WithResolvers(dnsresolver.NewBuilder((*dnsresolver.BuilderConfig)(opts)))
 }

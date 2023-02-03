@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/miekg/dns"
 	"github.com/opentracing/opentracing-go"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -22,6 +23,7 @@ import (
 	internalclient "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	gitalyx509 "gitlab.com/gitlab-org/gitaly/v15/internal/x509"
+	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/correlation"
 	grpccorrelation "gitlab.com/gitlab-org/labkit/correlation/grpc"
 	grpctracing "gitlab.com/gitlab-org/labkit/tracing/grpc"
@@ -136,7 +138,8 @@ func TestDial(t *testing.T) {
 
 			ctx := testhelper.Context(t)
 
-			conn, err := Dial(tt.rawAddress, tt.dialOpts)
+			dialOpts := append(tt.dialOpts, WithGitalyDNSResolver(DefaultDNSResolverBuilderConfig()))
+			conn, err := Dial(tt.rawAddress, dialOpts)
 			if tt.expectDialFailure {
 				require.Error(t, err)
 				return
@@ -225,7 +228,8 @@ func TestDialSidechannel(t *testing.T) {
 
 			ctx := testhelper.Context(t)
 
-			conn, err := DialSidechannel(ctx, tt.rawAddress, registry, tt.dialOpts)
+			dialOpts := append(tt.dialOpts, WithGitalyDNSResolver(DefaultDNSResolverBuilderConfig()))
+			conn, err := DialSidechannel(ctx, tt.rawAddress, registry, dialOpts)
 			require.NoError(t, err)
 			defer testhelper.MustClose(t, conn)
 
@@ -302,7 +306,9 @@ func TestDial_Correlation(t *testing.T) {
 		ctx := testhelper.Context(t)
 
 		cc, err := DialContext(ctx, "unix://"+serverSocketPath, []grpc.DialOption{
-			internalclient.UnaryInterceptor(), internalclient.StreamInterceptor(),
+			internalclient.UnaryInterceptor(),
+			internalclient.StreamInterceptor(),
+			WithGitalyDNSResolver(DefaultDNSResolverBuilderConfig()),
 		})
 		require.NoError(t, err)
 		defer testhelper.MustClose(t, cc)
@@ -337,7 +343,9 @@ func TestDial_Correlation(t *testing.T) {
 		ctx := testhelper.Context(t)
 
 		cc, err := DialContext(ctx, "unix://"+serverSocketPath, []grpc.DialOption{
-			internalclient.UnaryInterceptor(), internalclient.StreamInterceptor(),
+			internalclient.UnaryInterceptor(),
+			internalclient.StreamInterceptor(),
+			WithGitalyDNSResolver(DefaultDNSResolverBuilderConfig()),
 		})
 		require.NoError(t, err)
 		defer testhelper.MustClose(t, cc)
@@ -410,7 +418,9 @@ func TestDial_Tracing(t *testing.T) {
 		// This needs to be run after setting up the global tracer as it will cause us to
 		// create the span when executing the RPC call further down below.
 		cc, err := DialContext(ctx, "unix://"+serverSocketPath, []grpc.DialOption{
-			internalclient.UnaryInterceptor(), internalclient.StreamInterceptor(),
+			internalclient.UnaryInterceptor(),
+			internalclient.StreamInterceptor(),
+			WithGitalyDNSResolver(DefaultDNSResolverBuilderConfig()),
 		})
 		require.NoError(t, err)
 		defer testhelper.MustClose(t, cc)
@@ -469,7 +479,9 @@ func TestDial_Tracing(t *testing.T) {
 		// This needs to be run after setting up the global tracer as it will cause us to
 		// create the span when executing the RPC call further down below.
 		cc, err := DialContext(ctx, "unix://"+serverSocketPath, []grpc.DialOption{
-			internalclient.UnaryInterceptor(), internalclient.StreamInterceptor(),
+			internalclient.UnaryInterceptor(),
+			internalclient.StreamInterceptor(),
+			WithGitalyDNSResolver(DefaultDNSResolverBuilderConfig()),
 		})
 		require.NoError(t, err)
 		defer testhelper.MustClose(t, cc)
@@ -640,9 +652,83 @@ func TestHealthCheckDialer(t *testing.T) {
 		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2("token")),
 		internalclient.UnaryInterceptor(),
 		internalclient.StreamInterceptor(),
+		WithGitalyDNSResolver(DefaultDNSResolverBuilderConfig()),
 	})
 	require.NoError(t, err)
 	require.NoError(t, cc.Close())
+}
+
+func TestWithGitalyDNSResolver_successfully(t *testing.T) {
+	t.Parallel()
+
+	serverURL := startFakeGitalyServer(t)
+	serverHost, serverPort, err := net.SplitHostPort(serverURL)
+	require.NoError(t, err)
+
+	dnsServer := testhelper.NewFakeDNSServer(t).WithHandler(dns.TypeA, func(host string) []string {
+		if host == "grpc.test." {
+			return []string{serverHost}
+		}
+		return nil
+	}).Start()
+
+	// This scheme uses our DNS resolver
+	target := fmt.Sprintf("dns://%s/grpc.test:%s", dnsServer.Addr(), serverPort)
+	conn, err := grpc.Dial(
+		target,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		WithGitalyDNSResolver(DefaultDNSResolverBuilderConfig()),
+	)
+	require.NoError(t, err)
+	defer testhelper.MustClose(t, conn)
+
+	client := gitalypb.NewCommitServiceClient(conn)
+	for i := 0; i < 10; i++ {
+		_, err = client.FindCommit(testhelper.Context(t), &gitalypb.FindCommitRequest{})
+		require.NoError(t, err)
+	}
+}
+
+func TestWithGitalyDNSResolver_zeroAddresses(t *testing.T) {
+	t.Parallel()
+
+	dnsServer := testhelper.NewFakeDNSServer(t).WithHandler(dns.TypeA, func(host string) []string {
+		return nil
+	}).Start()
+
+	// This scheme uses our DNS resolver
+	target := fmt.Sprintf("dns://%s/grpc.test:50051", dnsServer.Addr())
+	conn, err := grpc.Dial(
+		target,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		WithGitalyDNSResolver(DefaultDNSResolverBuilderConfig()),
+	)
+	require.NoError(t, err)
+	defer testhelper.MustClose(t, conn)
+
+	client := gitalypb.NewCommitServiceClient(conn)
+	_, err = client.FindCommit(testhelper.Context(t), &gitalypb.FindCommitRequest{})
+	require.Equal(t, err, status.Error(codes.Unavailable, "name resolver error: produced zero addresses"))
+}
+
+type fakeCommitServer struct {
+	gitalypb.UnimplementedCommitServiceServer
+}
+
+func (s *fakeCommitServer) FindCommit(_ context.Context, _ *gitalypb.FindCommitRequest) (*gitalypb.FindCommitResponse, error) {
+	return &gitalypb.FindCommitResponse{}, nil
+}
+
+func startFakeGitalyServer(t *testing.T) string {
+	listener, err := net.Listen("tcp", "localhost:0")
+	require.NoError(t, err)
+
+	srv := grpc.NewServer(SidechannelServer(newLogger(t), insecure.NewCredentials()))
+	gitalypb.RegisterCommitServiceServer(srv, &fakeCommitServer{})
+	go testhelper.MustServe(t, srv, listener)
+	t.Cleanup(srv.Stop)
+
+	return listener.Addr().String()
 }
 
 func newLogger(tb testing.TB) *logrus.Entry {
