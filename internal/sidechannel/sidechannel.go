@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/opentracing/opentracing-go"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/client"
@@ -33,6 +34,9 @@ const (
 // OpenSidechannel opens a sidechannel connection from the stream opener
 // extracted from the current peer connection.
 func OpenSidechannel(ctx context.Context) (_ *ServerConn, err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "sidechannel.OpenSidechannel")
+	defer span.Finish()
+
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return nil, fmt.Errorf("sidechannel: failed to extract incoming metadata")
