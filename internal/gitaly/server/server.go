@@ -165,6 +165,7 @@ func (s *GitalyServerFactory) New(secure bool, opts ...Option) (*grpc.Server, er
 	)
 
 	unaryServerInterceptors = append(unaryServerInterceptors,
+		grpctracing.UnaryServerTracingInterceptor(),
 		cache.UnaryInvalidator(s.cacheInvalidator, protoregistry.GitalyProtoPreregistered),
 		// Panic handler should remain last so that application panics will be
 		// converted to errors and logged
