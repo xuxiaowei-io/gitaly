@@ -514,6 +514,17 @@ func (mgr *TransactionManager) readKey(key []byte, destination proto.Message) er
 	})
 }
 
+// deleteKey deletes a key from the database.
+func (mgr *TransactionManager) deleteKey(key []byte) error {
+	return mgr.db.Update(func(txn databaseTransaction) error {
+		if err := txn.Delete(key); err != nil {
+			return fmt.Errorf("delete: %w", err)
+		}
+
+		return nil
+	})
+}
+
 // getRepositoryID returns a repository's ID. The ID should never change as it is used in the database
 // keys. Gitaly does not have a permanent ID to use yet so the repository's storage name and relative
 // path are used as a composite key.

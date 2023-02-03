@@ -31,9 +31,14 @@ func (db databaseAdapter) NewWriteBatch() writeBatch {
 	return db.DB.NewWriteBatch()
 }
 
-// NewWriteBatch calls badger.*DB.View. Refer to Badger's documentation for details.
+// View calls badger.*DB.View. Refer to Badger's documentation for details.
 func (db databaseAdapter) View(handler func(databaseTransaction) error) error {
 	return db.DB.View(func(txn *badger.Txn) error { return handler(txn) })
+}
+
+// Update calls badger.*DB.View. Refer to Badger's documentation for details.
+func (db databaseAdapter) Update(handler func(databaseTransaction) error) error {
+	return db.DB.Update(func(txn *badger.Txn) error { return handler(txn) })
 }
 
 // database is the Badger.DB interface used by TransactionManager. Refer to Badger's documentation
@@ -41,6 +46,7 @@ func (db databaseAdapter) View(handler func(databaseTransaction) error) error {
 type database interface {
 	NewWriteBatch() writeBatch
 	View(func(databaseTransaction) error) error
+	Update(func(databaseTransaction) error) error
 }
 
 // writeBatch is the interface of Badger.WriteBatch used by TransactionManager. Refer to Badger's
@@ -55,5 +61,6 @@ type writeBatch interface {
 // documentation for details
 type databaseTransaction interface {
 	Get([]byte) (*badger.Item, error)
+	Delete([]byte) error
 	NewIterator(badger.IteratorOptions) *badger.Iterator
 }
