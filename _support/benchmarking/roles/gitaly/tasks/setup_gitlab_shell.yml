@@ -1,4 +1,13 @@
 ---
+- name: Install gitlab-shell build dependencies
+  apt:
+    name:
+      - krb5-user
+      - libgssapi-krb5-2
+      - libkrb5-dev
+      - libsasl2-modules-gssapi-mit
+    state: present
+
 - name: Create /opt/gitlab-shell directory
   file:
     path: /opt/gitlab-shell

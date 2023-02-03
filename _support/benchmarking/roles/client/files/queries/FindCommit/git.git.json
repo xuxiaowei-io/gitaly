@@ -1,0 +1,10 @@
+{
+  "repository": {
+    "storageName": "default",
+    "relativePath": "git.git",
+    "gitAlternateObjectDirectories": [],
+    "glRepository": "git",
+    "glProjectPath": "git/git"
+  },
+  "revision": "bWFzdGVy"
+}

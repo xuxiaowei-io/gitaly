@@ -20,10 +20,6 @@ provider "google" {
   zone    = var.benchmark_zone
 }
 
-resource "google_compute_network" "default" {
-  name = "test-network"
-}
-
 data "google_compute_disk" "repository-disk" {
   name = "git-repos"
   project = "gitaly-benchmark-0150d6cf"

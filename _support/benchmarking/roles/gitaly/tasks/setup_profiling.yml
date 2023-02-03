@@ -79,3 +79,11 @@
     dest: /usr/local/bin/flamegraph
     mode: 0755
     remote_src: true
+
+- name: Install profile-gitaly.sh as profile-gitaly
+  copy:
+    src: profile-gitaly.sh
+    dest: /usr/local/bin/profile-gitaly
+    owner: root
+    group: root
+    mode: '0755'
