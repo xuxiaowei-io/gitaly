@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
+	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
@@ -159,6 +160,13 @@ func NewConcurrencyLimiter(maxConcurrencyLimit, maxQueueLength int, maxQueuedTic
 //     semaphore. If this takes longer than the maximum queueing limit then the caller will be
 //     dequeued and gets an error.
 func (c *ConcurrencyLimiter) Limit(ctx context.Context, limitingKey string, f LimitedFunc) (interface{}, error) {
+	span, ctx := opentracing.StartSpanFromContext(
+		ctx,
+		"limithandler.ConcurrencyLimiter.Limit",
+		opentracing.Tag{Key: "key", Value: limitingKey},
+	)
+	defer span.Finish()
+
 	if c.maxConcurrencyLimit <= 0 {
 		return f()
 	}
