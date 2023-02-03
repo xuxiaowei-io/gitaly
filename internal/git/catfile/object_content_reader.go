@@ -143,7 +143,7 @@ func (o *objectContentReader) Object(ctx context.Context, revision git.Revision)
 }
 
 func (o *objectContentReader) ObjectContentQueue(ctx context.Context) (ObjectContentQueue, func(), error) {
-	queue, finish, err := o.objectQueue(ctx, "catfile.ObjectQueue")
+	queue, finish, err := o.objectQueue(ctx, "catfile.ObjectContentQueue")
 	if err != nil {
 		return nil, nil, err
 	}

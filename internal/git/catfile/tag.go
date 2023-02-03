@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/opentracing/opentracing-go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -15,6 +16,9 @@ import (
 // in the tagName because the tag name from refs/tags may be different than the name found in the
 // actual tag object. We want to use the tagName found in refs/tags
 func GetTag(ctx context.Context, objectReader ObjectContentReader, tagID git.Revision, tagName string) (*gitalypb.Tag, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "catfile.GetTag", opentracing.Tag{Key: "tagName", Value: tagName})
+	defer span.Finish()
+
 	object, err := objectReader.Object(ctx, tagID)
 	if err != nil {
 		return nil, err
