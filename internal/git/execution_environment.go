@@ -19,12 +19,12 @@ var (
 	// environment was not configured.
 	ErrNotConfigured = errors.New("execution environment is not configured")
 
-	// ExecutionEnvironmentConstructors is the list of Git environments supported by the Git
-	// command factory. The order is important and signifies the priority in which the
+	// defaultExecutionEnvironmentConstructors is the list of Git environments supported by the
+	// Git command factory. The order is important and signifies the priority in which the
 	// environments will be used: the environment created by the first constructor is the one
 	// that will be preferred when executing Git commands. Later environments may be used in
 	// case `IsEnabled()` returns `false` though.
-	ExecutionEnvironmentConstructors = []ExecutionEnvironmentConstructor{
+	defaultExecutionEnvironmentConstructors = []ExecutionEnvironmentConstructor{
 		BundledGitEnvironmentConstructor{
 			Suffix: "-v2.38",
 		},

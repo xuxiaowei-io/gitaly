@@ -401,9 +401,19 @@ func TestCommandFactory_ExecutionEnvironment(t *testing.T) {
 				setupData := tc.setup(t)
 				t.Setenv("GITALY_TESTING_BUNDLED_GIT_PATH", setupData.bundledGitDir)
 
-				gitCmdFactory, cleanup, err := git.NewExecCommandFactory(config.Cfg{
-					BinDir: setupData.binaryDir,
-				}, git.WithSkipHooks())
+				gitCmdFactory, cleanup, err := git.NewExecCommandFactory(
+					config.Cfg{
+						BinDir: setupData.binaryDir,
+					},
+					git.WithSkipHooks(),
+					// Override the constructors so that we don't have to change
+					// tests every time we're upgrading our bundled Git version.
+					git.WithExecutionEnvironmentConstructors(
+						git.BundledGitEnvironmentConstructor{
+							Suffix: "-v2.38",
+						},
+					),
+				)
 				require.Equal(t, setupData.expectedErr, err)
 				if err != nil {
 					return
