@@ -503,7 +503,6 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 }
 
 func TestResolveSink(t *testing.T) {
-	t.Parallel()
 	ctx := testhelper.Context(t)
 
 	isStorageServiceSink := func(expErrMsg string) func(t *testing.T, sink Sink) {
