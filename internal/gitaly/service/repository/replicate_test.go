@@ -28,6 +28,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
@@ -38,10 +39,14 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func TestReplicateRepository(t *testing.T) {
+func TestReplicateRepository_success(t *testing.T) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(featureflag.ReplicateRepositoryHooks).
+		Run(t, testReplicateRepositorySuccess)
+}
+
+func testReplicateRepositorySuccess(t *testing.T, ctx context.Context) {
 	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "replica"))
 	cfg := cfgBuilder.Build(t)
 
@@ -115,7 +120,11 @@ func TestReplicateRepository(t *testing.T) {
 func TestReplicateRepository_hiddenRefs(t *testing.T) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(featureflag.ReplicateRepositoryHooks).
+		Run(t, testReplicateRepositoryHiddenRefs)
+}
+
+func testReplicateRepositoryHiddenRefs(t *testing.T, ctx context.Context) {
 	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "replica"))
 	cfg := cfgBuilder.Build(t)
 
@@ -196,10 +205,13 @@ func TestReplicateRepository_hiddenRefs(t *testing.T) {
 	})
 }
 
-func TestReplicateRepositoryTransactional(t *testing.T) {
+func TestReplicateRepository_transactional(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.ReplicateRepositoryHooks).
+		Run(t, testReplicateRepositoryTransactional)
+}
 
-	ctx := testhelper.Context(t)
+func testReplicateRepositoryTransactional(t *testing.T, ctx context.Context) {
 	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "replica"))
 	cfg := cfgBuilder.Build(t)
 
@@ -255,7 +267,9 @@ func TestReplicateRepositoryTransactional(t *testing.T) {
 	// There is a gitconfig though, so the vote should reflect its contents.
 	gitconfigVote := sha1.Sum(testhelper.MustReadFile(t, filepath.Join(sourceRepoPath, "config")))
 
-	require.Equal(t, []string{
+	noHooksVote := "fd69c38637bf443296edc19e2b2c649d0502f7c0"
+
+	expectedVotes := []string{
 		// We cannot easily derive these first two votes: they are based on the complete
 		// hashed contents of the unpacked repository. We thus just only assert that they
 		// are always the first two entries and that they are the same by simply taking the
@@ -266,7 +280,13 @@ func TestReplicateRepositoryTransactional(t *testing.T) {
 		hex.EncodeToString(gitconfigVote[:]),
 		hex.EncodeToString(gitattributesVote[:]),
 		hex.EncodeToString(gitattributesVote[:]),
-	}, votes)
+	}
+
+	if featureflag.ReplicateRepositoryHooks.IsEnabled(ctx) {
+		expectedVotes = append(expectedVotes, noHooksVote, noHooksVote)
+	}
+
+	require.Equal(t, expectedVotes, votes)
 
 	// We're about to change refs/heads/master, and thus the mirror-fetch will update it. The
 	// vote should reflect that.
@@ -286,14 +306,21 @@ func TestReplicateRepositoryTransactional(t *testing.T) {
 		Source:     sourceRepo,
 	})
 	require.NoError(t, err)
-	require.Equal(t, []string{
+
+	expectedVotes = []string{
 		hex.EncodeToString(gitconfigVote[:]),
 		hex.EncodeToString(gitconfigVote[:]),
 		hex.EncodeToString(gitattributesVote[:]),
 		hex.EncodeToString(gitattributesVote[:]),
 		hex.EncodeToString(replicationVote[:]),
 		hex.EncodeToString(replicationVote[:]),
-	}, votes)
+	}
+
+	if featureflag.ReplicateRepositoryHooks.IsEnabled(ctx) {
+		expectedVotes = append(expectedVotes, noHooksVote, noHooksVote)
+	}
+
+	require.Equal(t, expectedVotes, votes)
 }
 
 func TestReplicateRepositoryInvalidArguments(t *testing.T) {
@@ -377,8 +404,11 @@ func TestReplicateRepositoryInvalidArguments(t *testing.T) {
 func TestReplicateRepository_BadRepository(t *testing.T) {
 	t.Parallel()
 
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(featureflag.ReplicateRepositoryHooks).
+		Run(t, testReplicateRepositoryBadRepository)
+}
 
+func testReplicateRepositoryBadRepository(t *testing.T, ctx context.Context) {
 	for _, tc := range []struct {
 		desc          string
 		invalidSource bool
@@ -645,4 +675,59 @@ func TestFetchInternalRemote_failure(t *testing.T) {
 	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "fatal: Could not read from remote repository")
+}
+
+func TestReplicateRepository_hooks(t *testing.T) {
+	t.Parallel()
+
+	testhelper.NewFeatureSets(featureflag.ReplicateRepositoryHooks).
+		Run(t, testReplicateRepositoryHooks)
+}
+
+func testReplicateRepositoryHooks(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
+	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "replica"))
+	cfg := cfgBuilder.Build(t)
+
+	testcfg.BuildGitalyHooks(t, cfg)
+	testcfg.BuildGitalySSH(t, cfg)
+
+	service, serverSocketPath := runRepositoryService(t, cfg, nil, testserver.WithDisablePraefect())
+	cfg.SocketPath = serverSocketPath
+
+	sourceRepo, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{})
+
+	// Add custom hooks to source repository.
+	archivePath := mustCreateCustomHooksArchive(t, ctx, []testFile{
+		{name: "pre-commit.sample", content: "foo", mode: 0o755},
+		{name: "pre-push.sample", content: "bar", mode: 0o755},
+	}, customHooksDir)
+
+	hooks, err := os.Open(archivePath)
+	require.NoError(t, err)
+
+	err = extractHooks(ctx, hooks, sourceRepoPath)
+	require.NoError(t, err)
+
+	targetRepo := proto.Clone(sourceRepo).(*gitalypb.Repository)
+	targetRepo.StorageName = cfg.Storages[1].Name
+
+	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
+
+	_, err = service.ReplicateRepository(ctx, &gitalypb.ReplicateRepositoryRequest{
+		Repository: targetRepo,
+		Source:     sourceRepo,
+	})
+	require.NoError(t, err)
+
+	targetRepoPath := filepath.Join(cfg.Storages[1].Path, gittest.GetReplicaPath(t, ctx, cfg, targetRepo))
+	targetHooksPath := filepath.Join(targetRepoPath, customHooksDir)
+
+	// Make sure target repo contains replicated custom hooks from source repository.
+	if featureflag.ReplicateRepositoryHooks.IsEnabled(ctx) {
+		require.FileExists(t, filepath.Join(targetHooksPath, "pre-push.sample"))
+	} else {
+		require.NoDirExists(t, targetHooksPath)
+	}
 }

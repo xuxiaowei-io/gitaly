@@ -22,6 +22,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/tempdir"
@@ -87,6 +88,12 @@ func (s *server) ReplicateRepository(ctx context.Context, in *gitalypb.Replicate
 
 	if err := s.syncRepository(outgoingCtx, in); err != nil {
 		return nil, structerr.NewInternal("synchronizing repository: %w", err)
+	}
+
+	if featureflag.ReplicateRepositoryHooks.IsEnabled(ctx) {
+		if err := s.syncCustomHooks(ctx, in); err != nil {
+			return nil, structerr.NewInternal("synchronizing custom hooks: %w", err)
+		}
 	}
 
 	return &gitalypb.ReplicateRepositoryResponse{}, nil
@@ -255,6 +262,32 @@ func fetchInternalRemote(
 		if err := repo.SetDefaultBranch(ctx, txManager, remoteDefaultBranch); err != nil {
 			return structerr.NewInternal("setting default branch: %w", err)
 		}
+	}
+
+	return nil
+}
+
+// syncCustomHooks replicates custom hooks from a source to a target.
+func (s *server) syncCustomHooks(ctx context.Context, in *gitalypb.ReplicateRepositoryRequest) error {
+	repoClient, err := s.newRepoClient(ctx, in.GetSource().GetStorageName())
+	if err != nil {
+		return fmt.Errorf("creating repo client: %w", err)
+	}
+
+	stream, err := repoClient.GetCustomHooks(ctx, &gitalypb.GetCustomHooksRequest{
+		Repository: in.GetSource(),
+	})
+	if err != nil {
+		return fmt.Errorf("getting custom hooks: %w", err)
+	}
+
+	reader := streamio.NewReader(func() ([]byte, error) {
+		request, err := stream.Recv()
+		return request.GetData(), err
+	})
+
+	if err := s.setCustomHooksTransaction(ctx, reader, in.GetRepository()); err != nil {
+		return fmt.Errorf("setting custom hooks: %w", err)
 	}
 
 	return nil
