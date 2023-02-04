@@ -187,16 +187,21 @@ func TestValidateStorages(t *testing.T) {
 	filePath := filepath.Join(testhelper.TempDir(t), "temporary-file")
 	require.NoError(t, os.WriteFile(filePath, []byte{}, perm.PublicFile))
 
-	invalidDir := filepath.Join(repositories, t.Name())
+	invalidDir := filepath.Join(filepath.Dir(repositories), t.Name())
 
 	testCases := []struct {
-		desc      string
-		storages  []Storage
-		expErrMsg string
+		desc        string
+		storages    []Storage
+		expectedErr error
 	}{
 		{
-			desc:      "no storages",
-			expErrMsg: "no storage configurations found. Are you using the right format? https://gitlab.com/gitlab-org/gitaly/issues/397",
+			desc: "no storages",
+			expectedErr: ValidationErrors{
+				{
+					Key:     []string{"storage"},
+					Message: "is not set",
+				},
+			},
 		},
 		{
 			desc: "just 1 storage",
@@ -226,16 +231,38 @@ func TestValidateStorages(t *testing.T) {
 				{Name: "other", Path: repositories},
 				{Name: "third", Path: nestedRepositories},
 			},
-			expErrMsg: `storage paths may not nest: "third" and "default"`,
+			expectedErr: ValidationErrors{
+				{
+					Key:     []string{"storage", "path"},
+					Message: fmt.Sprintf("'%s' for storage 'third' at declaration 3: is nest with '%s' for storage 'default' at declaration 1", nestedRepositories, repositories),
+				},
+				{
+					Key:     []string{"storage", "path"},
+					Message: fmt.Sprintf("'%s' for storage 'third' at declaration 3: is nest with '%s' for storage 'other' at declaration 2", nestedRepositories, repositories),
+				},
+			},
 		},
 		{
 			desc: "nested paths 2",
 			storages: []Storage{
 				{Name: "default", Path: nestedRepositories},
 				{Name: "other", Path: repositories},
-				{Name: "third", Path: repositories},
+				{Name: "", Path: repositories},
 			},
-			expErrMsg: `storage paths may not nest: "other" and "default"`,
+			expectedErr: ValidationErrors{
+				{
+					Key:     []string{"storage", "path"},
+					Message: fmt.Sprintf("'%s' for storage 'other' at declaration 2: is nest with '%s' for storage 'default' at declaration 1", repositories, nestedRepositories),
+				},
+				{
+					Key:     []string{"storage", "name"},
+					Message: "empty value at declaration 3",
+				},
+				{
+					Key:     []string{"storage", "path"},
+					Message: fmt.Sprintf("'%s' at declaration 3: is nest with '%s' for storage 'default' at declaration 1", repositories, nestedRepositories),
+				},
+			},
 		},
 		{
 			desc: "duplicate definition",
@@ -243,7 +270,12 @@ func TestValidateStorages(t *testing.T) {
 				{Name: "default", Path: repositories},
 				{Name: "default", Path: repositories},
 			},
-			expErrMsg: `storage "default" is defined more than once`,
+			expectedErr: ValidationErrors{
+				{
+					Key:     []string{"storage", "name"},
+					Message: "'default' at declaration 2: is defined more than once",
+				},
+			},
 		},
 		{
 			desc: "re-definition",
@@ -251,7 +283,12 @@ func TestValidateStorages(t *testing.T) {
 				{Name: "default", Path: repositories},
 				{Name: "default", Path: repositories2},
 			},
-			expErrMsg: `storage "default" is defined more than once`,
+			expectedErr: ValidationErrors{
+				{
+					Key:     []string{"storage", "name"},
+					Message: "'default' at declaration 2: is defined more than once",
+				},
+			},
 		},
 		{
 			desc: "empty name",
@@ -259,7 +296,12 @@ func TestValidateStorages(t *testing.T) {
 				{Name: "some", Path: repositories},
 				{Name: "", Path: repositories},
 			},
-			expErrMsg: `empty storage name at declaration 2`,
+			expectedErr: ValidationErrors{
+				{
+					Key:     []string{"storage", "name"},
+					Message: "empty value at declaration 2",
+				},
+			},
 		},
 		{
 			desc: "empty path",
@@ -267,7 +309,12 @@ func TestValidateStorages(t *testing.T) {
 				{Name: "some", Path: repositories},
 				{Name: "default", Path: ""},
 			},
-			expErrMsg: `empty storage path for storage "default"`,
+			expectedErr: ValidationErrors{
+				{
+					Key:     []string{"storage", "path"},
+					Message: "empty value at declaration 2",
+				},
+			},
 		},
 		{
 			desc: "non existing directory",
@@ -275,7 +322,12 @@ func TestValidateStorages(t *testing.T) {
 				{Name: "default", Path: repositories},
 				{Name: "nope", Path: invalidDir},
 			},
-			expErrMsg: fmt.Sprintf(`storage path %q for storage "nope" doesn't exist`, invalidDir),
+			expectedErr: ValidationErrors{
+				{
+					Key:     []string{"storage", "path"},
+					Message: fmt.Sprintf("'%s' for storage 'nope' at declaration 2: dir doesn't exist", invalidDir),
+				},
+			},
 		},
 		{
 			desc: "path points to the regular file",
@@ -283,7 +335,12 @@ func TestValidateStorages(t *testing.T) {
 				{Name: "default", Path: repositories},
 				{Name: "is_file", Path: filePath},
 			},
-			expErrMsg: fmt.Sprintf(`storage path %q for storage "is_file" is not a dir`, filePath),
+			expectedErr: ValidationErrors{
+				{
+					Key:     []string{"storage", "path"},
+					Message: fmt.Sprintf("'%s' for storage 'is_file' at declaration 2: is not a dir", filePath),
+				},
+			},
 		},
 	}
 
@@ -291,13 +348,8 @@ func TestValidateStorages(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			cfg := Cfg{Storages: tc.storages}
 
-			err := cfg.validateStorages()
-			if tc.expErrMsg != "" {
-				assert.EqualError(t, err, tc.expErrMsg, "%+v", tc.storages)
-				return
-			}
-
-			assert.NoError(t, err, "%+v", tc.storages)
+			errs := cfg.validateStorages()
+			assert.Equal(t, tc.expectedErr, errs)
 		})
 	}
 }

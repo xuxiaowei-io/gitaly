@@ -187,8 +187,8 @@ func (cfg GitConfig) GlobalArgs() ([]string, error) {
 
 // Storage contains a single storage-shard
 type Storage struct {
-	Name string
-	Path string
+	Name string `toml:"name"`
+	Path string `toml:"path"`
 }
 
 // Sentry is a sentry.Config. We redefine this type to a different name so
@@ -453,33 +453,66 @@ func (cfg *Cfg) BinaryPath(binaryName string) string {
 
 func (cfg *Cfg) validateStorages() error {
 	if len(cfg.Storages) == 0 {
-		return fmt.Errorf("no storage configurations found. Are you using the right format? https://gitlab.com/gitlab-org/gitaly/issues/397")
+		return ValidationErrors{
+			{
+				Key:     []string{"storage"},
+				Message: "is not set",
+			},
+		}
 	}
 
+	var errs ValidationErrors
 	for i, storage := range cfg.Storages {
-		if storage.Name == "" {
-			return fmt.Errorf("empty storage name at declaration %d", i+1)
+		formatPlace := func(path, storage string, i int) string {
+			if storage == "" {
+				return fmt.Sprintf("'%s' at declaration %d", path, i)
+			}
+			return fmt.Sprintf("'%s' for storage '%s' at declaration %d", path, storage, i)
 		}
 
-		if storage.Path == "" {
-			return fmt.Errorf("empty storage path for storage %q", storage.Name)
+		if strings.TrimSpace(storage.Name) == "" {
+			errs = append(errs, ValidationError{
+				Key:     []string{"storage", "name"},
+				Message: fmt.Sprintf("empty value at declaration %d", i+1),
+			})
+		}
+
+		if strings.TrimSpace(storage.Path) == "" {
+			errs = append(errs, ValidationError{
+				Key:     []string{"storage", "path"},
+				Message: fmt.Sprintf("empty value at declaration %d", i+1),
+			})
+			continue
 		}
 
 		fs, err := os.Stat(storage.Path)
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
-				return fmt.Errorf("storage path %q for storage %q doesn't exist", storage.Path, storage.Name)
+				// We don't use the 'err' here as it would probably contain a text
+				// message about missing file, not a directory which may be confusing.
+				errs = append(errs, ValidationError{
+					Key:     []string{"storage", "path"},
+					Message: formatPlace(storage.Path, storage.Name, i+1) + ": dir doesn't exist",
+				})
+			} else {
+				errs = append(errs, ValidationError{
+					Key:     []string{"storage", "path"},
+					Message: formatPlace(storage.Path, storage.Name, i+1) + ": " + err.Error(),
+				})
 			}
-			return fmt.Errorf("storage %q: %w", storage.Name, err)
+		} else if !fs.IsDir() {
+			errs = append(errs, ValidationError{
+				Key:     []string{"storage", "path"},
+				Message: formatPlace(storage.Path, storage.Name, i+1) + ": is not a dir",
+			})
 		}
 
-		if !fs.IsDir() {
-			return fmt.Errorf("storage path %q for storage %q is not a dir", storage.Path, storage.Name)
-		}
-
-		for _, other := range cfg.Storages[:i] {
+		for j, other := range cfg.Storages[:i] {
 			if other.Name == storage.Name {
-				return fmt.Errorf("storage %q is defined more than once", storage.Name)
+				errs = append(errs, ValidationError{
+					Key:     []string{"storage", "name"},
+					Message: fmt.Sprintf("'%s' at declaration %d: is defined more than once", storage.Name, i+1),
+				})
 			}
 
 			if storage.Path == other.Path {
@@ -488,13 +521,20 @@ func (cfg *Cfg) validateStorages() error {
 			}
 
 			if strings.HasPrefix(storage.Path, other.Path) || strings.HasPrefix(other.Path, storage.Path) {
-				// If storages have the same sub directory, that is allowed
+				// If storages have the same subdirectory, that is allowed
 				if filepath.Dir(storage.Path) == filepath.Dir(other.Path) {
 					continue
 				}
-				return fmt.Errorf("storage paths may not nest: %q and %q", storage.Name, other.Name)
+				errs = append(errs, ValidationError{
+					Key:     []string{"storage", "path"},
+					Message: formatPlace(storage.Path, storage.Name, i+1) + ": is nest with " + formatPlace(other.Path, other.Name, j+1),
+				})
 			}
 		}
+	}
+
+	if len(errs) != 0 {
+		return errs
 	}
 
 	return nil
