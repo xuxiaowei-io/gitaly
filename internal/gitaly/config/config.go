@@ -36,6 +36,31 @@ const (
 // `http.http://example.com.proxy` format.
 var configKeyRegex = regexp.MustCompile(`^[[:alnum:]]+(\.[*-/_:@a-zA-Z0-9]+)+$`)
 
+// ValidationError represents an issue with provided configuration.
+type ValidationError struct {
+	// Key represents a path to the field.
+	Key []string
+	// Message describes what is wrong with the provided configuration value.
+	Message string
+}
+
+// ValidationErrors is a list of ValidationError-s.
+type ValidationErrors []ValidationError
+
+func (vs ValidationErrors) Error() string {
+	var buf strings.Builder
+	for i, ve := range vs {
+		if i != 0 {
+			buf.WriteString("\n")
+		}
+		path := strings.Join(ve.Key, ".")
+		buf.WriteString(path)
+		buf.WriteString(": ")
+		buf.WriteString(ve.Message)
+	}
+	return buf.String()
+}
+
 // DailyJob enables a daily task to be scheduled for specific storages
 type DailyJob struct {
 	Hour     uint              `toml:"start_hour"`

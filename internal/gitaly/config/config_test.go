@@ -1359,3 +1359,20 @@ func TestPackObjectsLimiting(t *testing.T) {
 		})
 	}
 }
+
+func TestValidationErrors_Error(t *testing.T) {
+	t.Parallel()
+
+	t.Run("serialized", func(t *testing.T) {
+		require.Equal(t, "1.2: msg1\n1: msg2",
+			ValidationErrors{
+				{Key: []string{"1", "2"}, Message: "msg1"},
+				{Key: []string{"1"}, Message: "msg2"},
+			}.Error(),
+		)
+	})
+
+	t.Run("nothing to present", func(t *testing.T) {
+		require.Equal(t, "", ValidationErrors{}.Error())
+	})
+}
