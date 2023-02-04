@@ -596,10 +596,18 @@ func (cfg *Cfg) validateRuntimeDir() error {
 }
 
 func (cfg *Cfg) validateGit() error {
+	var errs ValidationErrors
 	for _, cfg := range cfg.Git.Config {
 		if err := cfg.Validate(); err != nil {
-			return fmt.Errorf("invalid configuration key %q: %w", cfg.Key, err)
+			errs = append(errs, ValidationError{
+				Key:     []string{"git", "config"},
+				Message: fmt.Sprintf("invalid configuration key '%s': %v", cfg.Key, err),
+			})
 		}
+	}
+
+	if len(errs) != 0 {
+		return errs
 	}
 
 	return nil

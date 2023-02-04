@@ -427,36 +427,77 @@ func TestValidateGitConfig(t *testing.T) {
 			configPairs: []GitConfig{
 				{Value: "value"},
 			},
-			expectedErr: fmt.Errorf("invalid configuration key \"\": %w", errors.New("key cannot be empty")),
+			expectedErr: ValidationErrors{
+				{
+					Key:     []string{"git", "config"},
+					Message: "invalid configuration key '': key cannot be empty",
+				},
+			},
 		},
 		{
 			desc: "key has no section",
 			configPairs: []GitConfig{
 				{Key: "foo", Value: "value"},
 			},
-			expectedErr: fmt.Errorf("invalid configuration key \"foo\": %w", errors.New("key must contain at least one section")),
+			expectedErr: ValidationErrors{
+				{
+					Key:     []string{"git", "config"},
+					Message: "invalid configuration key 'foo': key must contain at least one section",
+				},
+			},
 		},
 		{
 			desc: "key with leading dot",
 			configPairs: []GitConfig{
 				{Key: ".foo.bar", Value: "value"},
 			},
-			expectedErr: fmt.Errorf("invalid configuration key \".foo.bar\": %w", errors.New("key must not start or end with a dot")),
+			expectedErr: ValidationErrors{
+				{
+					Key:     []string{"git", "config"},
+					Message: "invalid configuration key '.foo.bar': key must not start or end with a dot",
+				},
+			},
 		},
 		{
 			desc: "key with trailing dot",
 			configPairs: []GitConfig{
 				{Key: "foo.bar.", Value: "value"},
 			},
-			expectedErr: fmt.Errorf("invalid configuration key \"foo.bar.\": %w", errors.New("key must not start or end with a dot")),
+			expectedErr: ValidationErrors{
+				{
+					Key:     []string{"git", "config"},
+					Message: "invalid configuration key 'foo.bar.': key must not start or end with a dot",
+				},
+			},
 		},
 		{
 			desc: "key has assignment",
 			configPairs: []GitConfig{
 				{Key: "foo.bar=value", Value: "value"},
 			},
-			expectedErr: fmt.Errorf("invalid configuration key \"foo.bar=value\": %w",
-				errors.New("key cannot contain assignment")),
+			expectedErr: ValidationErrors{
+				{
+					Key:     []string{"git", "config"},
+					Message: "invalid configuration key 'foo.bar=value': key cannot contain assignment",
+				},
+			},
+		},
+		{
+			desc: "multiple problems",
+			configPairs: []GitConfig{
+				{Key: "foo", Value: "value"},
+				{Key: "foo.bar=value", Value: "value"},
+			},
+			expectedErr: ValidationErrors{
+				{
+					Key:     []string{"git", "config"},
+					Message: "invalid configuration key 'foo': key must contain at least one section",
+				},
+				{
+					Key:     []string{"git", "config"},
+					Message: "invalid configuration key 'foo.bar=value': key cannot contain assignment",
+				},
+			},
 		},
 		{
 			desc: "missing value",
