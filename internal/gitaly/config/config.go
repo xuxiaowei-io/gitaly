@@ -316,6 +316,7 @@ func Load(file io.Reader) (Cfg, error) {
 
 // Validate checks the current Config for sanity.
 func (cfg *Cfg) Validate() error {
+	var validationErrs ValidationErrors
 	for _, run := range []func() error{
 		cfg.validateListeners,
 		cfg.validateStorages,
@@ -330,8 +331,17 @@ func (cfg *Cfg) Validate() error {
 		cfg.configurePackObjectsCache,
 	} {
 		if err := run(); err != nil {
+			var errs ValidationErrors
+			if errors.As(err, &errs) {
+				validationErrs = append(validationErrs, errs...)
+				continue
+			}
 			return err
 		}
+	}
+
+	if len(validationErrs) != 0 {
+		return validationErrs
 	}
 
 	return nil
@@ -368,9 +378,26 @@ func (cfg *Cfg) setDefaults() error {
 }
 
 func (cfg *Cfg) validateListeners() error {
-	if len(cfg.SocketPath) == 0 && len(cfg.ListenAddr) == 0 && len(cfg.TLSListenAddr) == 0 {
-		return fmt.Errorf("at least one of socket_path, listen_addr or tls_listen_addr must be set")
+	const msg = `none of 'socket_path', 'listen_addr' or 'tls_listen_addr' is set`
+	var errs ValidationErrors
+	listeners := []struct {
+		key string
+		val string
+	}{
+		{key: "socket_path", val: cfg.SocketPath},
+		{key: "listen_addr", val: cfg.ListenAddr},
+		{key: "tls_listen_addr", val: cfg.TLSListenAddr},
 	}
+	for _, listener := range listeners {
+		if strings.TrimSpace(listener.val) == "" {
+			errs = append(errs, ValidationError{Key: []string{listener.key}, Message: msg})
+		}
+	}
+
+	if len(errs) == len(listeners) {
+		return errs
+	}
+
 	return nil
 }
 

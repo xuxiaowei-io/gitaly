@@ -547,9 +547,25 @@ func TestValidateListeners(t *testing.T) {
 	testCases := []struct {
 		desc string
 		Cfg
-		expErrMsg string
+		expectedErr error
 	}{
-		{desc: "empty", expErrMsg: `at least one of socket_path, listen_addr or tls_listen_addr must be set`},
+		{
+			desc: "empty",
+			expectedErr: ValidationErrors{
+				{
+					Key:     []string{"socket_path"},
+					Message: `none of 'socket_path', 'listen_addr' or 'tls_listen_addr' is set`,
+				},
+				{
+					Key:     []string{"listen_addr"},
+					Message: `none of 'socket_path', 'listen_addr' or 'tls_listen_addr' is set`,
+				},
+				{
+					Key:     []string{"tls_listen_addr"},
+					Message: `none of 'socket_path', 'listen_addr' or 'tls_listen_addr' is set`,
+				},
+			},
+		},
 		{desc: "socket only", Cfg: Cfg{SocketPath: "/foo/bar"}},
 		{desc: "tcp only", Cfg: Cfg{ListenAddr: "a.b.c.d:1234"}},
 		{desc: "tls only", Cfg: Cfg{TLSListenAddr: "a.b.c.d:1234"}},
@@ -560,11 +576,7 @@ func TestValidateListeners(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			err := tc.Cfg.validateListeners()
-			if tc.expErrMsg != "" {
-				require.EqualError(t, err, tc.expErrMsg)
-			} else {
-				require.NoError(t, err)
-			}
+			require.Equal(t, tc.expectedErr, err)
 		})
 	}
 }
