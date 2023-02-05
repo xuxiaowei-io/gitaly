@@ -177,7 +177,7 @@ func (s *Server) start() error {
 
 	gitalyRuby := filepath.Join(cfg.Ruby.Dir, "bin", "gitaly-ruby")
 
-	numWorkers := cfg.Ruby.NumWorkers
+	numWorkers := int(cfg.Ruby.NumWorkers)
 	balancer.ConfigureBuilder(numWorkers, 0, time.Now)
 
 	svConfig, err := supervisor.NewConfigFromEnv()
@@ -196,7 +196,7 @@ func (s *Server) start() error {
 
 		events := make(chan supervisor.Event)
 		check := func() error { return ping(socketPath) }
-		p, err := supervisor.New(svConfig, name, env, args, cfg.Ruby.Dir, cfg.Ruby.MaxRSS, events, check)
+		p, err := supervisor.New(svConfig, name, env, args, cfg.Ruby.Dir, int(cfg.Ruby.MaxRSS), events, check)
 		if err != nil {
 			return err
 		}
