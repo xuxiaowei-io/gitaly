@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"time"
 
+	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/duration"
 )
 
@@ -54,5 +55,10 @@ func (cfg *Cfg) ConfigureRuby() error {
 		}
 	}
 
-	return validateIsDirectory(cfg.Ruby.Dir, "gitaly-ruby.dir")
+	if err := validateIsDirectory(cfg.Ruby.Dir); err != nil {
+		return err
+	}
+
+	log.WithField("dir", cfg.Ruby.Dir).Debug("gitaly-ruby.dir set")
+	return nil
 }

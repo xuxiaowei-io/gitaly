@@ -402,26 +402,29 @@ func (cfg *Cfg) validateListeners() error {
 }
 
 func (cfg *Cfg) validateShell() error {
-	if len(cfg.GitlabShell.Dir) == 0 {
-		return fmt.Errorf("gitlab-shell.dir: is not set")
+	if strings.TrimSpace(cfg.GitlabShell.Dir) == "" {
+		return ValidationErrors{{Key: []string{"gitlab-shell", "dir"}, Message: "is not set"}}
 	}
 
-	return validateIsDirectory(cfg.GitlabShell.Dir, "gitlab-shell.dir")
+	if err := validateIsDirectory(cfg.GitlabShell.Dir); err != nil {
+		return ValidationErrors{{Key: []string{"gitlab-shell", "dir"}, Message: err.Error()}}
+	}
+
+	log.WithField("dir", cfg.GitlabShell.Dir).Debug("gitlab-shell.dir set")
+	return nil
 }
 
-func validateIsDirectory(path, name string) error {
+func validateIsDirectory(path string) error {
 	s, err := os.Stat(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("%s: path doesn't exist: %q", name, path)
+			return fmt.Errorf("'%s' dir doesn't exist", path)
 		}
-		return fmt.Errorf("%s: %w", name, err)
+		return err
 	}
 	if !s.IsDir() {
-		return fmt.Errorf("%s: not a directory: %q", name, path)
+		return fmt.Errorf("'%s' is not a dir", path)
 	}
-
-	log.WithField("dir", path).Debugf("%s set", name)
 
 	return nil
 }
@@ -572,12 +575,15 @@ func (cfg *Cfg) validateBinDir() error {
 		return fmt.Errorf("bin_dir: is not set")
 	}
 
-	if err := validateIsDirectory(cfg.BinDir, "bin_dir"); err != nil {
+	if err := validateIsDirectory(cfg.BinDir); err != nil {
 		return err
 	}
 
 	var err error
 	cfg.BinDir, err = filepath.Abs(cfg.BinDir)
+	if err != nil {
+		log.WithField("dir", cfg.BinDir).Debug("bin_dir set")
+	}
 	return err
 }
 
@@ -586,12 +592,15 @@ func (cfg *Cfg) validateRuntimeDir() error {
 		return nil
 	}
 
-	if err := validateIsDirectory(cfg.RuntimeDir, "runtime_dir"); err != nil {
+	if err := validateIsDirectory(cfg.RuntimeDir); err != nil {
 		return err
 	}
 
 	var err error
 	cfg.RuntimeDir, err = filepath.Abs(cfg.RuntimeDir)
+	if err != nil {
+		log.WithField("dir", cfg.RuntimeDir).Debug("runtime_dir set")
+	}
 	return err
 }
 

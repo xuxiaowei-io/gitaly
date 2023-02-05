@@ -523,29 +523,43 @@ func TestValidateShellPath(t *testing.T) {
 	require.NoError(t, os.WriteFile(tmpFile, []byte{}, perm.PublicFile))
 
 	testCases := []struct {
-		desc      string
-		path      string
-		expErrMsg string
+		desc        string
+		path        string
+		expectedErr error
 	}{
 		{
-			desc:      "When no Shell Path set",
-			path:      "",
-			expErrMsg: "gitlab-shell.dir: is not set",
+			desc: "When no Shell Path set",
+			path: "",
+			expectedErr: ValidationErrors{
+				{
+					Key:     []string{"gitlab-shell", "dir"},
+					Message: "is not set",
+				},
+			},
 		},
 		{
-			desc:      "When Shell Path set to non-existing path",
-			path:      "/non/existing/path",
-			expErrMsg: `gitlab-shell.dir: path doesn't exist: "/non/existing/path"`,
+			desc: "When Shell Path set to non-existing path",
+			path: "/non/existing/path",
+			expectedErr: ValidationErrors{
+				{
+					Key:     []string{"gitlab-shell", "dir"},
+					Message: "'/non/existing/path' dir doesn't exist",
+				},
+			},
 		},
 		{
-			desc:      "When Shell Path set to non-dir path",
-			path:      tmpFile,
-			expErrMsg: fmt.Sprintf(`gitlab-shell.dir: not a directory: %q`, tmpFile),
+			desc: "When Shell Path set to non-dir path",
+			path: tmpFile,
+			expectedErr: ValidationErrors{
+				{
+					Key:     []string{"gitlab-shell", "dir"},
+					Message: fmt.Sprintf("'%s' is not a dir", tmpFile),
+				},
+			},
 		},
 		{
-			desc:      "When Shell Path set to a valid directory",
-			path:      tmpDir,
-			expErrMsg: "",
+			desc: "When Shell Path set to a valid directory",
+			path: tmpDir,
 		},
 	}
 
@@ -553,11 +567,7 @@ func TestValidateShellPath(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			cfg := Cfg{GitlabShell: GitlabShell{Dir: tc.path}}
 			err := cfg.validateShell()
-			if tc.expErrMsg != "" {
-				assert.EqualError(t, err, tc.expErrMsg)
-			} else {
-				assert.NoError(t, err)
-			}
+			require.Equal(t, tc.expectedErr, err)
 		})
 	}
 }
@@ -589,12 +599,12 @@ func TestConfigureRuby(t *testing.T) {
 		{
 			desc:      "does not exist",
 			dir:       "/does/not/exist",
-			expErrMsg: `gitaly-ruby.dir: path doesn't exist: "/does/not/exist"`,
+			expErrMsg: `'/does/not/exist' dir doesn't exist`,
 		},
 		{
 			desc:      "exists but is not a directory",
 			dir:       tmpFile,
-			expErrMsg: fmt.Sprintf(`gitaly-ruby.dir: not a directory: %q`, tmpFile),
+			expErrMsg: fmt.Sprintf(`'%s' is not a dir`, tmpFile),
 		},
 	}
 
@@ -1313,12 +1323,12 @@ func TestValidateBinDir(t *testing.T) {
 		{
 			desc:      "path doesn't exist",
 			binDir:    "/not/exists",
-			expErrMsg: `bin_dir: path doesn't exist: "/not/exists"`,
+			expErrMsg: "'/not/exists' dir doesn't exist",
 		},
 		{
 			desc:      "is not a directory",
 			binDir:    tmpFile,
-			expErrMsg: fmt.Sprintf(`bin_dir: not a directory: %q`, tmpFile),
+			expErrMsg: fmt.Sprintf(`'%s' is not a dir`, tmpFile),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -1387,12 +1397,12 @@ func TestSetupRuntimeDirectory(t *testing.T) {
 			{
 				desc:        "path doesn't exist",
 				runtimeDir:  "/does/not/exist",
-				expectedErr: fmt.Errorf("runtime_dir: path doesn't exist: %q", "/does/not/exist"),
+				expectedErr: fmt.Errorf("'%s' dir doesn't exist", "/does/not/exist"),
 			},
 			{
 				desc:        "path is not a directory",
 				runtimeDir:  filePath,
-				expectedErr: fmt.Errorf(`runtime_dir: not a directory: %q`, filePath),
+				expectedErr: fmt.Errorf(`'%s' is not a dir`, filePath),
 			},
 		} {
 			t.Run(tc.desc, func(t *testing.T) {
