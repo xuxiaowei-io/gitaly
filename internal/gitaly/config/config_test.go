@@ -1326,14 +1326,20 @@ func TestSetupRuntimeDirectory(t *testing.T) {
 				runtimeDir: "",
 			},
 			{
-				desc:        "path doesn't exist",
-				runtimeDir:  "/does/not/exist",
-				expectedErr: fmt.Errorf("'%s' dir doesn't exist", "/does/not/exist"),
+				desc:       "path doesn't exist",
+				runtimeDir: "/does/not/exist",
+				expectedErr: ValidationErrors{{
+					Key:     []string{"runtime_dir"},
+					Message: fmt.Sprintf("'%s' dir doesn't exist", "/does/not/exist"),
+				}},
 			},
 			{
-				desc:        "path is not a directory",
-				runtimeDir:  filePath,
-				expectedErr: fmt.Errorf(`'%s' is not a dir`, filePath),
+				desc:       "path is not a directory",
+				runtimeDir: filePath,
+				expectedErr: ValidationErrors{{
+					Key:     []string{"runtime_dir"},
+					Message: fmt.Sprintf(`'%s' is not a dir`, filePath),
+				}},
 			},
 		} {
 			t.Run(tc.desc, func(t *testing.T) {

@@ -586,20 +586,28 @@ func (cfg *Cfg) validateBinDir() error {
 }
 
 func (cfg *Cfg) validateRuntimeDir() error {
-	if cfg.RuntimeDir == "" {
+	runtimeDir := cfg.RuntimeDir
+	if runtimeDir == "" {
 		return nil
 	}
 
-	if err := validateIsDirectory(cfg.RuntimeDir); err != nil {
-		return err
+	if err := validateIsDirectory(runtimeDir); err != nil {
+		return ValidationErrors{{Key: []string{"runtime_dir"}, Message: err.Error()}}
 	}
 
 	var err error
-	cfg.RuntimeDir, err = filepath.Abs(cfg.RuntimeDir)
+	cfg.RuntimeDir, err = filepath.Abs(runtimeDir)
 	if err != nil {
-		log.WithField("dir", cfg.RuntimeDir).Debug("runtime_dir set")
+		return ValidationErrors{
+			{
+				Key:     []string{"runtime_dir"},
+				Message: fmt.Sprintf("'%s' %s", runtimeDir, err),
+			},
+		}
 	}
-	return err
+
+	log.WithField("dir", cfg.RuntimeDir).Debug("runtime_dir set")
+	return nil
 }
 
 func (cfg *Cfg) validateGit() error {
