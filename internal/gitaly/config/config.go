@@ -722,20 +722,18 @@ func (cfg *Cfg) validateCgroups() error {
 	return nil
 }
 
-var (
-	errPackObjectsCacheNegativeMaxAge = errors.New("pack_objects_cache.max_age cannot be negative")
-	errPackObjectsCacheNoStorages     = errors.New("pack_objects_cache: cannot pick default cache directory: no storages")
-	errPackObjectsCacheRelativePath   = errors.New("pack_objects_cache: storage directory must be absolute path")
-)
-
 func (cfg *Cfg) configurePackObjectsCache() error {
 	poc := &cfg.PackObjectsCache
 	if !poc.Enabled {
 		return nil
 	}
 
+	var errs ValidationErrors
 	if poc.MaxAge < 0 {
-		return errPackObjectsCacheNegativeMaxAge
+		errs = append(errs, ValidationError{
+			Key:     []string{"pack_objects_cache", "max_age"},
+			Message: "cannot be negative",
+		})
 	}
 
 	if poc.MaxAge == 0 {
@@ -744,17 +742,23 @@ func (cfg *Cfg) configurePackObjectsCache() error {
 
 	if poc.Dir == "" {
 		if len(cfg.Storages) == 0 {
-			return errPackObjectsCacheNoStorages
+			errs = append(errs, ValidationError{
+				Key:     []string{"pack_objects_cache", "dir"},
+				Message: "cannot pick default cache directory: no storages",
+			})
+		} else {
+			poc.Dir = filepath.Join(cfg.Storages[0].Path, GitalyDataPrefix, "PackObjectsCache")
 		}
-
-		poc.Dir = filepath.Join(cfg.Storages[0].Path, GitalyDataPrefix, "PackObjectsCache")
 	}
 
-	if !filepath.IsAbs(poc.Dir) {
-		return errPackObjectsCacheRelativePath
+	if poc.Dir != "" && !filepath.IsAbs(poc.Dir) {
+		errs = append(errs, ValidationError{
+			Key:     []string{"pack_objects_cache", "dir"},
+			Message: "must be absolute path",
+		})
 	}
 
-	return nil
+	return errs
 }
 
 // SetupRuntimeDirectory creates a new runtime directory. Runtime directory contains internal

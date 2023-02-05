@@ -1204,10 +1204,10 @@ path="/foobar"
 `
 
 	testCases := []struct {
-		desc string
-		in   string
-		out  StreamCacheConfig
-		err  error
+		desc        string
+		in          string
+		out         StreamCacheConfig
+		expectedErr error
 	}{
 		{desc: "empty"},
 		{
@@ -1231,15 +1231,22 @@ max_age = "10m"
 			in: `[pack_objects_cache]
 enabled = true
 `,
-			err: errPackObjectsCacheNoStorages,
+			expectedErr: ValidationErrors{{
+				Key:     []string{"pack_objects_cache", "dir"},
+				Message: "cannot pick default cache directory: no storages",
+			}},
 		},
 		{
 			desc: "enabled with negative max age",
 			in: `[pack_objects_cache]
 enabled = true
 max_age = "-5m"
+dir = "/"
 `,
-			err: errPackObjectsCacheNegativeMaxAge,
+			expectedErr: ValidationErrors{{
+				Key:     []string{"pack_objects_cache", "max_age"},
+				Message: "cannot be negative",
+			}},
 		},
 		{
 			desc: "enabled with relative path",
@@ -1247,7 +1254,25 @@ max_age = "-5m"
 enabled = true
 dir = "foobar"
 `,
-			err: errPackObjectsCacheRelativePath,
+			expectedErr: ValidationErrors{{
+				Key:     []string{"pack_objects_cache", "dir"},
+				Message: "must be absolute path",
+			}},
+		},
+		{
+			desc: "multiple validation errors",
+			in: `[pack_objects_cache]
+enabled = true
+max_age = "-5m"
+dir = "foobar"
+`,
+			expectedErr: ValidationErrors{{
+				Key:     []string{"pack_objects_cache", "max_age"},
+				Message: "cannot be negative",
+			}, {
+				Key:     []string{"pack_objects_cache", "dir"},
+				Message: "must be absolute path",
+			}},
 		},
 	}
 
@@ -1256,13 +1281,13 @@ dir = "foobar"
 			cfg, err := Load(strings.NewReader(tc.in))
 			require.NoError(t, err)
 
-			err = cfg.configurePackObjectsCache()
-			if tc.err != nil {
-				require.Equal(t, tc.err, err)
+			errs := cfg.configurePackObjectsCache()
+			if tc.expectedErr != nil {
+				require.Equal(t, tc.expectedErr, errs)
 				return
 			}
 
-			require.NoError(t, err)
+			require.Empty(t, errs)
 			require.Equal(t, tc.out, cfg.PackObjectsCache)
 		})
 	}
