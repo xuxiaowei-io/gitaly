@@ -873,7 +873,7 @@ func TestValidateCgroups(t *testing.T) {
 		name        string
 		rawCfg      string
 		expect      cgroups.Config
-		validateErr error
+		expectedErr error
 	}
 
 	t.Run("old format", func(t *testing.T) {
@@ -1020,7 +1020,7 @@ func TestValidateCgroups(t *testing.T) {
 				cfg, err := Load(tmpFile)
 				require.NoError(t, err)
 				require.Equal(t, tt.expect, cfg.Cgroups)
-				require.Equal(t, tt.validateErr, cfg.validateCgroups())
+				require.Equal(t, tt.expectedErr, cfg.validateCgroups())
 			})
 		}
 	})
@@ -1089,27 +1089,50 @@ func TestValidateCgroups(t *testing.T) {
 				mountpoint = "/sys/fs/cgroup"
 				hierarchy_root = "gitaly"
 				memory_bytes = 1073741824
-				cpu_shares = 1024
 				[cgroups.repositories]
 				count = 10
 				memory_bytes = 2147483648
-				cpu_shares = 128
 				`,
 				expect: cgroups.Config{
 					Mountpoint:    "/sys/fs/cgroup",
 					HierarchyRoot: "gitaly",
 					MemoryBytes:   1073741824,
-					CPUShares:     1024,
 					Repositories: cgroups.Repositories{
 						Count:       10,
 						MemoryBytes: 2147483648,
-						CPUShares:   128,
 					},
 				},
-				validateErr: errors.New("cgroups.repositories: memory limit cannot exceed parent"),
+				expectedErr: ValidationErrors{{
+					Key:     []string{"cgroups", "repositories", "memory_bytes"},
+					Message: "memory limit 2147483648 cannot exceed parent 1073741824",
+				}},
 			},
 			{
 				name: "repositories cpu exceeds parent",
+				rawCfg: `[cgroups]
+				mountpoint = "/sys/fs/cgroup"
+				hierarchy_root = "gitaly"
+				cpu_shares = 128
+				[cgroups.repositories]
+				count = 10
+				cpu_shares = 512
+				`,
+				expect: cgroups.Config{
+					Mountpoint:    "/sys/fs/cgroup",
+					HierarchyRoot: "gitaly",
+					CPUShares:     128,
+					Repositories: cgroups.Repositories{
+						Count:     10,
+						CPUShares: 512,
+					},
+				},
+				expectedErr: ValidationErrors{{
+					Key:     []string{"cgroups", "repositories", "cpu_shares"},
+					Message: "cpu shares 512 cannot exceed parent 128",
+				}},
+			},
+			{
+				name: "multiple limits exceed parent",
 				rawCfg: `[cgroups]
 				mountpoint = "/sys/fs/cgroup"
 				hierarchy_root = "gitaly"
@@ -1117,7 +1140,7 @@ func TestValidateCgroups(t *testing.T) {
 				cpu_shares = 128
 				[cgroups.repositories]
 				count = 10
-				memory_bytes = 1024
+				memory_bytes = 2147483648
 				cpu_shares = 512
 				`,
 				expect: cgroups.Config{
@@ -1127,11 +1150,17 @@ func TestValidateCgroups(t *testing.T) {
 					CPUShares:     128,
 					Repositories: cgroups.Repositories{
 						Count:       10,
-						MemoryBytes: 1024,
+						MemoryBytes: 2147483648,
 						CPUShares:   512,
 					},
 				},
-				validateErr: errors.New("cgroups.repositories: cpu shares cannot exceed parent"),
+				expectedErr: ValidationErrors{{
+					Key:     []string{"cgroups", "repositories", "memory_bytes"},
+					Message: "memory limit 2147483648 cannot exceed parent 1073741824",
+				}, {
+					Key:     []string{"cgroups", "repositories", "cpu_shares"},
+					Message: "cpu shares 512 cannot exceed parent 128",
+				}},
 			},
 			{
 				name: "metrics enabled",
@@ -1162,7 +1191,7 @@ func TestValidateCgroups(t *testing.T) {
 				cfg, err := Load(tmpFile)
 				require.NoError(t, err)
 				require.Equal(t, tt.expect, cfg.Cgroups)
-				require.Equal(t, tt.validateErr, cfg.validateCgroups())
+				require.Equal(t, tt.expectedErr, cfg.validateCgroups())
 			})
 		}
 	})

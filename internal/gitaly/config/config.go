@@ -700,12 +700,23 @@ func (cfg *Cfg) validateMaintenance() error {
 func (cfg *Cfg) validateCgroups() error {
 	cg := cfg.Cgroups
 
+	var errs ValidationErrors
 	if cg.MemoryBytes > 0 && (cg.Repositories.MemoryBytes > cg.MemoryBytes) {
-		return errors.New("cgroups.repositories: memory limit cannot exceed parent")
+		errs = append(errs, ValidationError{
+			Key:     []string{"cgroups", "repositories", "memory_bytes"},
+			Message: fmt.Sprintf("memory limit %d cannot exceed parent %d", cg.Repositories.MemoryBytes, cg.MemoryBytes),
+		})
 	}
 
-	if cg.MemoryBytes > 0 && (cg.Repositories.CPUShares > cg.CPUShares) {
-		return errors.New("cgroups.repositories: cpu shares cannot exceed parent")
+	if cg.CPUShares > 0 && (cg.Repositories.CPUShares > cg.CPUShares) {
+		errs = append(errs, ValidationError{
+			Key:     []string{"cgroups", "repositories", "cpu_shares"},
+			Message: fmt.Sprintf("cpu shares %d cannot exceed parent %d", cg.Repositories.CPUShares, cg.CPUShares),
+		})
+	}
+
+	if len(errs) != 0 {
+		return errs
 	}
 
 	return nil
