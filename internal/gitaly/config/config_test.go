@@ -1233,37 +1233,42 @@ func TestValidateBinDir(t *testing.T) {
 	require.NoError(t, fp.Close())
 
 	for _, tc := range []struct {
-		desc      string
-		binDir    string
-		expErrMsg string
+		desc        string
+		binDir      string
+		expectedErr error
 	}{
 		{
 			desc:   "ok",
 			binDir: tmpDir,
 		},
 		{
-			desc:      "empty",
-			binDir:    "",
-			expErrMsg: "bin_dir: is not set",
+			desc:   "empty",
+			binDir: "",
+			expectedErr: ValidationErrors{{
+				Key:     []string{"bin_dir"},
+				Message: "is not set",
+			}},
 		},
 		{
-			desc:      "path doesn't exist",
-			binDir:    "/not/exists",
-			expErrMsg: "'/not/exists' dir doesn't exist",
+			desc:   "path doesn't exist",
+			binDir: "/not/exists",
+			expectedErr: ValidationErrors{{
+				Key:     []string{"bin_dir"},
+				Message: "'/not/exists' dir doesn't exist",
+			}},
 		},
 		{
-			desc:      "is not a directory",
-			binDir:    tmpFile,
-			expErrMsg: fmt.Sprintf(`'%s' is not a dir`, tmpFile),
+			desc:   "is not a directory",
+			binDir: tmpFile,
+			expectedErr: ValidationErrors{{
+				Key:     []string{"bin_dir"},
+				Message: fmt.Sprintf(`'%s' is not a dir`, tmpFile),
+			}},
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			err := (&Cfg{BinDir: tc.binDir}).validateBinDir()
-			if tc.expErrMsg == "" {
-				require.NoError(t, err)
-			} else {
-				require.EqualError(t, err, tc.expErrMsg)
-			}
+			errs := (&Cfg{BinDir: tc.binDir}).validateBinDir()
+			require.Equal(t, tc.expectedErr, errs)
 		})
 	}
 }

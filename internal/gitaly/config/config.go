@@ -557,20 +557,32 @@ func (cfg *Cfg) InternalSocketPath() string {
 }
 
 func (cfg *Cfg) validateBinDir() error {
-	if len(cfg.BinDir) == 0 {
-		return fmt.Errorf("bin_dir: is not set")
+	binDir := cfg.BinDir
+	if strings.TrimSpace(binDir) == "" {
+		return ValidationErrors{
+			{Key: []string{"bin_dir"}, Message: "is not set"},
+		}
 	}
 
-	if err := validateIsDirectory(cfg.BinDir); err != nil {
-		return err
+	if err := validateIsDirectory(binDir); err != nil {
+		return ValidationErrors{
+			{Key: []string{"bin_dir"}, Message: err.Error()},
+		}
 	}
 
 	var err error
-	cfg.BinDir, err = filepath.Abs(cfg.BinDir)
+	cfg.BinDir, err = filepath.Abs(binDir)
 	if err != nil {
-		log.WithField("dir", cfg.BinDir).Debug("bin_dir set")
+		return ValidationErrors{
+			{
+				Key:     []string{"bin_dir"},
+				Message: fmt.Sprintf("'%s' %s", binDir, err),
+			},
+		}
 	}
-	return err
+
+	log.WithField("dir", cfg.BinDir).Debug("bin_dir set")
+	return nil
 }
 
 func (cfg *Cfg) validateRuntimeDir() error {
