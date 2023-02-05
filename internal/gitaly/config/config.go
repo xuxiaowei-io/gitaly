@@ -660,20 +660,38 @@ func (cfg *Cfg) validateMaintenance() error {
 	for _, s := range cfg.Storages {
 		sNames[s.Name] = struct{}{}
 	}
+
+	var errs ValidationErrors
 	for _, sName := range dm.Storages {
 		if _, ok := sNames[sName]; !ok {
-			return fmt.Errorf("daily maintenance specified storage %q does not exist in configuration", sName)
+			errs = append(errs, ValidationError{
+				Key:     []string{"daily_maintenance", "storages"},
+				Message: fmt.Sprintf("specified storage '%s' does not exist in configuration", sName),
+			})
 		}
 	}
 
 	if dm.Hour > 23 {
-		return fmt.Errorf("daily maintenance specified hour '%d' outside range (0-23)", dm.Hour)
+		errs = append(errs, ValidationError{
+			Key:     []string{"daily_maintenance", "start_hour"},
+			Message: fmt.Sprintf("specified hour '%d' outside range (0-23)", dm.Hour),
+		})
 	}
 	if dm.Minute > 59 {
-		return fmt.Errorf("daily maintenance specified minute '%d' outside range (0-59)", dm.Minute)
+		errs = append(errs, ValidationError{
+			Key:     []string{"daily_maintenance", "start_minute"},
+			Message: fmt.Sprintf("specified minute '%d' outside range (0-59)", dm.Minute),
+		})
 	}
 	if dm.Duration.Duration() > 24*time.Hour {
-		return fmt.Errorf("daily maintenance specified duration %s must be less than 24 hours", dm.Duration.Duration())
+		errs = append(errs, ValidationError{
+			Key:     []string{"daily_maintenance", "duration"},
+			Message: fmt.Sprintf("specified duration %s must be less than 24 hours", dm.Duration.Duration()),
+		})
+	}
+
+	if len(errs) > 0 {
+		return errs
 	}
 
 	return nil

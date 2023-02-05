@@ -736,7 +736,7 @@ func TestLoadDailyMaintenance(t *testing.T) {
 		rawCfg      string
 		expect      DailyJob
 		loadErr     error
-		validateErr error
+		expectedErr error
 	}{
 		{
 			name: "success",
@@ -758,22 +758,31 @@ func TestLoadDailyMaintenance(t *testing.T) {
 			},
 		},
 		{
+			name: "bad hour",
 			rawCfg: `[daily_maintenance]
 			start_hour = 24`,
 			expect: DailyJob{
 				Hour: 24,
 			},
-			validateErr: errors.New("daily maintenance specified hour '24' outside range (0-23)"),
+			expectedErr: ValidationErrors{{
+				Key:     []string{"daily_maintenance", "start_hour"},
+				Message: "specified hour '24' outside range (0-23)",
+			}},
 		},
 		{
+			name: "bad hour",
 			rawCfg: `[daily_maintenance]
 			start_hour = 60`,
 			expect: DailyJob{
 				Hour: 60,
 			},
-			validateErr: errors.New("daily maintenance specified hour '60' outside range (0-23)"),
+			expectedErr: ValidationErrors{{
+				Key:     []string{"daily_maintenance", "start_hour"},
+				Message: "specified hour '60' outside range (0-23)",
+			}},
 		},
 		{
+			name: "bad start minute",
 			rawCfg: `[daily_maintenance]
 			start_hour = 0
 			start_minute = 61`,
@@ -781,9 +790,13 @@ func TestLoadDailyMaintenance(t *testing.T) {
 				Hour:   0,
 				Minute: 61,
 			},
-			validateErr: errors.New("daily maintenance specified minute '61' outside range (0-59)"),
+			expectedErr: ValidationErrors{{
+				Key:     []string{"daily_maintenance", "start_minute"},
+				Message: "specified minute '61' outside range (0-59)",
+			}},
 		},
 		{
+			name: "bad duration",
 			rawCfg: `[daily_maintenance]
 			start_hour = 0
 			start_minute = 59
@@ -793,21 +806,29 @@ func TestLoadDailyMaintenance(t *testing.T) {
 				Minute:   59,
 				Duration: duration.Duration(24*time.Hour + time.Second),
 			},
-			validateErr: errors.New("daily maintenance specified duration 24h0m1s must be less than 24 hours"),
+			expectedErr: ValidationErrors{{
+				Key:     []string{"daily_maintenance", "duration"},
+				Message: "specified duration 24h0m1s must be less than 24 hours",
+			}},
 		},
 		{
+			name: "invalid duration",
 			rawCfg: `[daily_maintenance]
 			duration = "meow"`,
 			expect:  DailyJob{},
-			loadErr: errors.New("load toml: toml: time: invalid duration \"meow\""),
+			loadErr: errors.New(`load toml: toml: time: invalid duration "meow"`),
 		},
 		{
+			name: "not existing storage",
 			rawCfg: `[daily_maintenance]
 			storages = ["default"]`,
 			expect: DailyJob{
 				Storages: []string{"default"},
 			},
-			validateErr: errors.New(`daily maintenance specified storage "default" does not exist in configuration`),
+			expectedErr: ValidationErrors{{
+				Key:     []string{"daily_maintenance", "storages"},
+				Message: "specified storage 'default' does not exist in configuration",
+			}},
 		},
 		{
 			name: "default window",
@@ -842,7 +863,7 @@ func TestLoadDailyMaintenance(t *testing.T) {
 				require.Contains(t, err.Error(), tt.loadErr.Error())
 			}
 			require.Equal(t, tt.expect, cfg.DailyMaintenance)
-			require.Equal(t, tt.validateErr, cfg.validateMaintenance())
+			require.Equal(t, tt.expectedErr, cfg.validateMaintenance())
 		})
 	}
 }
