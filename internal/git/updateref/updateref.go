@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 
@@ -363,7 +364,18 @@ func (u *Updater) setState(state string) error {
 func (u *Updater) handleIOError(fallbackErr error) error {
 	// We need to explicitly cancel the command here and wait for it to terminate such that we
 	// can retrieve the command's stderr in a race-free manner.
-	_ = u.Close()
+	//
+	// Furthermore, if I/O has failed because we cancelled the process then we don't want to
+	// return a converted error, but instead want to return the actual context cancellation
+	// error.
+	if err := u.Close(); err != nil {
+		switch {
+		case errors.Is(err, context.Canceled):
+			return err
+		case errors.Is(err, context.DeadlineExceeded):
+			return err
+		}
+	}
 
 	stderr := u.stderr.Bytes()
 
