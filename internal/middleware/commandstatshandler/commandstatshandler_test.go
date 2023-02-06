@@ -32,6 +32,8 @@ func TestMain(m *testing.M) {
 }
 
 func createNewServer(t *testing.T, cfg config.Cfg, logger *logrus.Logger) *grpc.Server {
+	t.Helper()
+
 	logrusEntry := logrus.NewEntry(logger).WithField("test", t.Name())
 
 	opts := []grpc.ServerOption{
@@ -72,6 +74,8 @@ func getBufDialer(listener *bufconn.Listener) func(context.Context, string) (net
 }
 
 func TestInterceptor(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
@@ -86,19 +90,16 @@ func TestInterceptor(t *testing.T) {
 
 	bufferSize := 1024 * 1024
 	listener := bufconn.Listen(bufferSize)
-	go func() {
-		err := s.Serve(listener)
-		require.NoError(t, err)
-	}()
+	go testhelper.MustServe(t, s, listener)
 
 	tests := []struct {
 		name            string
-		performRPC      func(ctx context.Context, client gitalypb.RefServiceClient)
+		performRPC      func(t *testing.T, ctx context.Context, client gitalypb.RefServiceClient)
 		expectedLogData map[string]interface{}
 	}{
 		{
 			name: "Unary",
-			performRPC: func(ctx context.Context, client gitalypb.RefServiceClient) {
+			performRPC: func(t *testing.T, ctx context.Context, client gitalypb.RefServiceClient) {
 				req := &gitalypb.RefExistsRequest{Repository: repo, Ref: []byte("refs/foo")}
 
 				_, err := client.RefExists(ctx, req)
@@ -119,7 +120,7 @@ func TestInterceptor(t *testing.T) {
 		},
 		{
 			name: "Stream",
-			performRPC: func(ctx context.Context, client gitalypb.RefServiceClient) {
+			performRPC: func(t *testing.T, ctx context.Context, client gitalypb.RefServiceClient) {
 				req := &gitalypb.ListRefsRequest{Repository: repo, Patterns: [][]byte{[]byte("refs/heads/")}}
 
 				stream, err := client.ListRefs(ctx, req)
@@ -148,7 +149,7 @@ func TestInterceptor(t *testing.T) {
 
 			client := gitalypb.NewRefServiceClient(conn)
 
-			tt.performRPC(ctx, client)
+			tt.performRPC(t, ctx, client)
 
 			logEntries := hook.AllEntries()
 			require.Len(t, logEntries, 1)
