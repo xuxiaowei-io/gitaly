@@ -62,9 +62,10 @@ type Process struct {
 	dir  string
 
 	// Shutdown
-	shutdown chan struct{}
-	done     chan struct{}
-	stopOnce sync.Once
+	shutdownWG sync.WaitGroup
+	shutdown   chan struct{}
+	done       chan struct{}
+	stopOnce   sync.Once
 }
 
 // New creates a new process instance.
@@ -114,7 +115,11 @@ func (p *Process) start(logger *log.Entry) (*exec.Cmd, error) {
 // notifyEventAsync asynchronously notifies any event listeners that the caller-provided event has
 // happened. If the event could not be sent after at most 1 second then it will be swallowed.
 func (p *Process) notifyEventAsync(eventType EventType, pid int) {
+	p.shutdownWG.Add(1)
+
 	go func() {
+		defer p.shutdownWG.Done()
+
 		select {
 		case p.events <- Event{Type: eventType, Pid: pid}:
 		case <-time.After(1 * time.Second):
@@ -245,4 +250,6 @@ func (p *Process) Stop() {
 	case <-time.After(1 * time.Second):
 		// Don't wait for shutdown forever
 	}
+
+	p.shutdownWG.Wait()
 }
