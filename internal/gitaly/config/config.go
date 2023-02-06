@@ -300,7 +300,7 @@ func Load(file io.Reader) (Cfg, error) {
 	}
 
 	if err := toml.NewDecoder(file).Decode(&cfg); err != nil {
-		return Cfg{}, fmt.Errorf("load toml: %v", err)
+		return Cfg{}, fmt.Errorf("load toml: %w", err)
 	}
 
 	if err := cfg.setDefaults(); err != nil {

@@ -76,13 +76,23 @@ func flagUsage() {
 	fmt.Println(version.GetVersionString("Gitaly"))
 	fmt.Printf("Usage: %v [command] [options] <configfile>\n", os.Args[0])
 	flag.PrintDefaults()
-	fmt.Printf("\nThe commands are:\n\n\tcheck\tchecks accessability of internal Rails API\n")
+	fmt.Printf(`
+The commands are:
+
+	check                 	checks accessability of internal Rails API
+	validate-configuration	validates provided configuration
+`)
 }
 
 func main() {
-	// If invoked with subcommand check
-	if len(os.Args) > 1 && os.Args[1] == "check" {
-		execCheck()
+	// If invoked with subcommand
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "check":
+			execCheck()
+		case "validate-configuration":
+			execValidateConfiguration()
+		}
 	}
 
 	flag.Usage = flagUsage
