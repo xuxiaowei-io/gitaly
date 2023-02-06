@@ -1,6 +1,7 @@
 package git
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -348,18 +349,22 @@ func (cf *ExecCommandFactory) GitVersion(ctx context.Context) (Version, error) {
 	// Furthermore, note that we're not using `newCommand()` but instead hand-craft the command.
 	// This is required to avoid a cyclic dependency when we need to check the version in
 	// `newCommand()` itself.
-	cmd, err := command.New(ctx, []string{execEnv.BinaryPath, "version"}, command.WithEnvironment(execEnv.EnvironmentVariables))
+	var versionBuffer bytes.Buffer
+	cmd, err := command.New(ctx, []string{execEnv.BinaryPath, "version"},
+		command.WithEnvironment(execEnv.EnvironmentVariables),
+		command.WithStdout(&versionBuffer),
+	)
 	if err != nil {
 		return Version{}, fmt.Errorf("spawning version command: %w", err)
 	}
 
-	gitVersion, err := parseVersionFromCommand(cmd)
-	if err != nil {
-		return Version{}, err
-	}
-
 	if err := cmd.Wait(); err != nil {
 		return Version{}, fmt.Errorf("waiting for version: %w", err)
+	}
+
+	gitVersion, err := parseVersionOutput(versionBuffer.Bytes())
+	if err != nil {
+		return Version{}, err
 	}
 
 	cf.cachedGitVersionByBinary[gitBinary] = cachedGitVersion{

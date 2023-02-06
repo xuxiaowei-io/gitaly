@@ -1,12 +1,10 @@
 package git
 
 import (
+	"bytes"
 	"fmt"
-	"io"
 	"strconv"
 	"strings"
-
-	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 )
 
 // minimumVersion is the minimum required Git version. If updating this version, be sure to
@@ -38,17 +36,10 @@ type Version struct {
 	gl                  uint32
 }
 
-func parseVersionFromCommand(cmd *command.Command) (Version, error) {
-	versionOutput, err := io.ReadAll(cmd)
-	if err != nil {
-		return Version{}, fmt.Errorf("reading version output: %w", err)
-	}
-
-	if err := cmd.Wait(); err != nil {
-		return Version{}, fmt.Errorf("waiting for version command: %w", err)
-	}
-
-	trimmedVersionOutput := strings.Trim(string(versionOutput), " \n")
+// parseVersionOutput parses output returned by git-version(1). It is expected to be in the format
+// "git version 2.39.1.gl1".
+func parseVersionOutput(versionOutput []byte) (Version, error) {
+	trimmedVersionOutput := string(bytes.Trim(versionOutput, " \n"))
 	versionString := strings.SplitN(trimmedVersionOutput, " ", 3)
 	if len(versionString) != 3 {
 		return Version{}, fmt.Errorf("invalid version format: %q", string(versionOutput))
