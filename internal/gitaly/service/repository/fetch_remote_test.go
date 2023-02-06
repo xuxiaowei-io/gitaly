@@ -444,7 +444,7 @@ func TestFetchRemote(t *testing.T) {
 			},
 		},
 		{
-			desc: "remote params without force fails with diverging refs",
+			desc: "without force fails with diverging refs",
 			setup: func(t *testing.T, cfg config.Cfg) setupData {
 				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -472,7 +472,7 @@ func TestFetchRemote(t *testing.T) {
 			},
 		},
 		{
-			desc: "remote params with force updates diverging refs",
+			desc: "with force updates diverging refs",
 			setup: func(t *testing.T, cfg config.Cfg) setupData {
 				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -501,7 +501,7 @@ func TestFetchRemote(t *testing.T) {
 			},
 		},
 		{
-			desc: "remote params with explicit refmap doesn't update divergent tag",
+			desc: "with explicit refmap doesn't update divergent tag",
 			setup: func(t *testing.T, cfg config.Cfg) setupData {
 				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -535,7 +535,7 @@ func TestFetchRemote(t *testing.T) {
 			},
 		},
 		{
-			desc: "remote params with explicit refmap and force updates divergent tag",
+			desc: "with explicit refmap and force updates divergent tag",
 			setup: func(t *testing.T, cfg config.Cfg) setupData {
 				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -570,7 +570,7 @@ func TestFetchRemote(t *testing.T) {
 			},
 		},
 		{
-			desc: "remote params with explicit refmap and no tags doesn't update divergent tag",
+			desc: "with explicit refmap and no tags doesn't update divergent tag",
 			setup: func(t *testing.T, cfg config.Cfg) setupData {
 				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
 				repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -599,6 +599,85 @@ func TestFetchRemote(t *testing.T) {
 								"refs/tags/v1":      commitID,
 							},
 							expectedResponse: &gitalypb.FetchRemoteResponse{TagsChanged: true},
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "partial reference update",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				// We set up two branches in both repositories:
+				//
+				// - "main" diverges as both repostiories have different commits on
+				//   it.
+				// - "branch" does not diverge, but is out-of-date in the local
+				//   repository.
+				//
+				// What we want to see is that `FetchRemote()` updates the outdated
+				// branch while keeping the diverging one untouched.
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithMessage("diverging-remote"), gittest.WithBranch("main"))
+				remoteCommonID := gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithMessage("common-branch"))
+				remoteUpdatedID := gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithParents(remoteCommonID), gittest.WithBranch("branch"))
+
+				localRepoProto, localRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				localDivergingID := gittest.WriteCommit(t, cfg, localRepoPath, gittest.WithMessage("diverging-local"), gittest.WithBranch("main"))
+				gittest.WriteCommit(t, cfg, localRepoPath, gittest.WithMessage("common-branch"), gittest.WithBranch("branch"))
+
+				return setupData{
+					repoPath: localRepoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: localRepoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url:           remoteRepoPath,
+							MirrorRefmaps: []string{"all_refs"},
+						},
+					},
+					runs: []run{
+						{
+							expectedRefs: map[string]git.ObjectID{
+								"refs/heads/main":   localDivergingID,
+								"refs/heads/branch": remoteUpdatedID,
+							},
+							expectedErr: structerr.New("fetch remote: exit status 1"),
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "diverging reference with tags",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				// We set up a diverging branch and a tag that points to the branch
+				// in the remote repository. Interestingly, even though we only
+				// intend to mirror branches, we still create the tag locally even
+				// though we haven't downloaded any of the objects it's pointing to.
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				remoteDivergingID := gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithMessage("diverging-remote"), gittest.WithBranch("main"))
+				remoteTagID := gittest.WriteTag(t, cfg, remoteRepoPath, "v1.0.0", remoteDivergingID.Revision(), gittest.WriteTagConfig{
+					Message: "diverging tag",
+				})
+
+				localRepoProto, localRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				localDivergingID := gittest.WriteCommit(t, cfg, localRepoPath, gittest.WithMessage("diverging-local"), gittest.WithBranch("main"))
+
+				return setupData{
+					repoPath: localRepoPath,
+					request: &gitalypb.FetchRemoteRequest{
+						Repository: localRepoProto,
+						RemoteParams: &gitalypb.Remote{
+							Url:           remoteRepoPath,
+							MirrorRefmaps: []string{"refs/heads/*:refs/heads/*"},
+						},
+					},
+					runs: []run{
+						{
+							expectedRefs: map[string]git.ObjectID{
+								"refs/heads/main":  localDivergingID,
+								"refs/tags/v1.0.0": remoteTagID,
+							},
+							expectedErr: structerr.New("fetch remote: exit status 1"),
 						},
 					},
 				}
