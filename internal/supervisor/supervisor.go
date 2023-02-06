@@ -111,12 +111,16 @@ func (p *Process) start(logger *log.Entry) (*exec.Cmd, error) {
 	return cmd, nil
 }
 
-func (p *Process) notifyEvent(eventType EventType, pid int) {
-	select {
-	case p.events <- Event{Type: eventType, Pid: pid}:
-	case <-time.After(1 * time.Second):
-		// Timeout
-	}
+// notifyEventAsync asynchronously notifies any event listeners that the caller-provided event has
+// happened. If the event could not be sent after at most 1 second then it will be swallowed.
+func (p *Process) notifyEventAsync(eventType EventType, pid int) {
+	go func() {
+		select {
+		case p.events <- Event{Type: eventType, Pid: pid}:
+		case <-time.After(1 * time.Second):
+			// Timeout
+		}
+	}()
 }
 
 func watch(p *Process) {
@@ -163,13 +167,13 @@ spawnLoop:
 
 		cmd, err := p.start(logger)
 		if err != nil {
-			go p.notifyEvent(Crash, -1)
+			p.notifyEventAsync(Crash, -1)
 			crashes++
 			logger.WithError(err).Error("start failed")
 			continue
 		}
 		pid := cmd.Process.Pid
-		go p.notifyEvent(Up, pid)
+		p.notifyEventAsync(Up, pid)
 		logger.WithField("supervisor.pid", pid).Warn("spawned")
 
 		waitCh := make(chan struct{})
@@ -195,7 +199,7 @@ spawnLoop:
 		for {
 			select {
 			case <-notificationTicker.C():
-				go p.notifyEvent(Up, pid)
+				p.notifyEventAsync(Up, pid)
 
 				// We repeat this idempotent notification because its delivery is not
 				// guaranteed.
@@ -205,7 +209,7 @@ spawnLoop:
 				// reset crashes once.
 				crashes = 0
 			case <-waitCh:
-				go p.notifyEvent(Crash, pid)
+				p.notifyEventAsync(Crash, pid)
 				crashes++
 				break waitLoop
 			case <-p.shutdown:
