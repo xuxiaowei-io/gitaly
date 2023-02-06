@@ -17,6 +17,7 @@ import (
 )
 
 func TestCheckOK(t *testing.T) {
+	t.Parallel()
 	user, password := "user123", "password321"
 
 	c := gitlab.TestServerOptions{
@@ -61,6 +62,7 @@ func TestCheckOK(t *testing.T) {
 }
 
 func TestCheckBadCreds(t *testing.T) {
+	t.Parallel()
 	user, password := "user123", "password321"
 
 	c := gitlab.TestServerOptions{
