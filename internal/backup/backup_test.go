@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -59,7 +60,7 @@ func TestManager_Create(t *testing.T) {
 				hooksRepo, hooksRepoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
 					Seed: gittest.SeedGitLabTest,
 				})
-				require.NoError(tb, os.Mkdir(filepath.Join(hooksRepoPath, "custom_hooks"), os.ModePerm))
+				require.NoError(tb, os.Mkdir(filepath.Join(hooksRepoPath, "custom_hooks"), perm.PublicDir))
 				require.NoError(tb, os.WriteFile(filepath.Join(hooksRepoPath, "custom_hooks/pre-commit.sample"), []byte("Some hooks"), os.ModePerm))
 				return hooksRepo, hooksRepoPath
 			},
@@ -184,7 +185,7 @@ func TestManager_Create_incremental(t *testing.T) {
 				bundlePath := filepath.Join(backupPath, "001.bundle")
 				refsPath := filepath.Join(backupPath, "001.refs")
 
-				require.NoError(tb, os.MkdirAll(backupPath, os.ModePerm))
+				require.NoError(tb, os.MkdirAll(backupPath, perm.PublicDir))
 				gittest.Exec(tb, cfg, "-C", repoPath, "bundle", "create", bundlePath, "--all")
 
 				refs := gittest.Exec(tb, cfg, "-C", repoPath, "show-ref", "--head")
@@ -209,7 +210,7 @@ func TestManager_Create_incremental(t *testing.T) {
 				bundlePath := filepath.Join(backupPath, "001.bundle")
 				refsPath := filepath.Join(backupPath, "001.refs")
 
-				require.NoError(tb, os.MkdirAll(backupPath, os.ModePerm))
+				require.NoError(tb, os.MkdirAll(backupPath, perm.PublicDir))
 				gittest.Exec(tb, cfg, "-C", repoPath, "bundle", "create", bundlePath, "--all")
 
 				refs := gittest.Exec(tb, cfg, "-C", repoPath, "show-ref", "--head")
@@ -304,7 +305,7 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 				repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 				relativePath := stripRelativePath(tb, repo)
-				require.NoError(tb, os.MkdirAll(filepath.Join(backupRoot, relativePath), os.ModePerm))
+				require.NoError(tb, os.MkdirAll(filepath.Join(backupRoot, relativePath), perm.PublicDir))
 				bundlePath := filepath.Join(backupRoot, relativePath+".bundle")
 				gittest.BundleRepo(tb, cfg, repoPath, bundlePath)
 
@@ -321,7 +322,7 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 				relativePath := stripRelativePath(tb, repo)
 				bundlePath := filepath.Join(backupRoot, relativePath+".bundle")
 				customHooksPath := filepath.Join(backupRoot, relativePath, "custom_hooks.tar")
-				require.NoError(tb, os.MkdirAll(filepath.Join(backupRoot, relativePath), os.ModePerm))
+				require.NoError(tb, os.MkdirAll(filepath.Join(backupRoot, relativePath), perm.PublicDir))
 				gittest.BundleRepo(tb, cfg, repoPath, bundlePath)
 				testhelper.CopyFile(tb, "../gitaly/service/repository/testdata/custom_hooks.tar", customHooksPath)
 
@@ -363,7 +364,7 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 				}
 
 				relativePath := stripRelativePath(tb, repo)
-				require.NoError(tb, os.MkdirAll(filepath.Dir(filepath.Join(backupRoot, relativePath)), os.ModePerm))
+				require.NoError(tb, os.MkdirAll(filepath.Dir(filepath.Join(backupRoot, relativePath)), perm.PublicDir))
 				bundlePath := filepath.Join(backupRoot, relativePath+".bundle")
 				gittest.BundleRepo(tb, cfg, repoPath, bundlePath)
 
@@ -379,7 +380,7 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 				repo, _ := gittest.CreateRepository(t, ctx, cfg)
 				repoBackupPath := joinBackupPath(tb, backupRoot, repo)
 				backupPath := filepath.Join(repoBackupPath, backupID)
-				require.NoError(tb, os.MkdirAll(backupPath, os.ModePerm))
+				require.NoError(tb, os.MkdirAll(backupPath, perm.PublicDir))
 				require.NoError(tb, os.WriteFile(filepath.Join(repoBackupPath, "LATEST"), []byte(backupID), os.ModePerm))
 				require.NoError(tb, os.WriteFile(filepath.Join(backupPath, "LATEST"), []byte("001"), os.ModePerm))
 				bundlePath := filepath.Join(backupPath, "001.bundle")
@@ -400,7 +401,7 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 				repo, _ := gittest.CreateRepository(t, ctx, cfg)
 				repoBackupPath := joinBackupPath(tb, backupRoot, repo)
 				backupPath := filepath.Join(repoBackupPath, backupID)
-				require.NoError(tb, os.MkdirAll(backupPath, os.ModePerm))
+				require.NoError(tb, os.MkdirAll(backupPath, perm.PublicDir))
 				require.NoError(tb, os.WriteFile(filepath.Join(repoBackupPath, "LATEST"), []byte(backupID), os.ModePerm))
 				require.NoError(tb, os.WriteFile(filepath.Join(backupPath, "LATEST"), []byte("002"), os.ModePerm))
 

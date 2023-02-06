@@ -25,6 +25,7 @@ import (
 	gitalyhook "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -63,7 +64,7 @@ func TestReplicateRepository(t *testing.T) {
 
 	// write info attributes
 	attrFilePath := filepath.Join(repoPath, "info", "attributes")
-	require.NoError(t, os.MkdirAll(filepath.Dir(attrFilePath), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Dir(attrFilePath), perm.SharedDir))
 	attrData := []byte("*.pbxproj binary\n")
 	require.NoError(t, os.WriteFile(attrFilePath, attrData, 0o644))
 

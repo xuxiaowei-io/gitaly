@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 )
@@ -26,7 +27,7 @@ func TestCheckAttrCmd_Check(t *testing.T) {
 	// Until https://gitlab.com/groups/gitlab-org/-/epics/9006 is completed
 	// we rely on info/attributes.
 	infoPath := filepath.Join(repoPath, "info")
-	require.NoError(t, os.MkdirAll(infoPath, 0o755))
+	require.NoError(t, os.MkdirAll(infoPath, perm.SharedDir))
 	attrPath := filepath.Join(infoPath, "attributes")
 
 	for _, tc := range []struct {

@@ -7,6 +7,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 )
 
 // FilesystemSink is a sink for creating and restoring backups from the local filesystem.
@@ -26,7 +28,7 @@ func NewFilesystemSink(path string) *FilesystemSink {
 func (fs *FilesystemSink) Write(ctx context.Context, relativePath string, r io.Reader) (returnErr error) {
 	path := filepath.Join(fs.path, relativePath)
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o700); err != nil {
+	if err := os.MkdirAll(dir, perm.PrivateDir); err != nil {
 		return fmt.Errorf("create directory structure %q: %w", dir, err)
 	}
 

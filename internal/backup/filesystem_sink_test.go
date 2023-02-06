@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
 
@@ -77,7 +78,7 @@ func TestFilesystemSink_Write(t *testing.T) {
 		const relativePath = "nested/dir/test.dat"
 		fullPath := filepath.Join(dir, relativePath)
 
-		require.NoError(t, os.MkdirAll(filepath.Dir(fullPath), 0o755))
+		require.NoError(t, os.MkdirAll(filepath.Dir(fullPath), perm.SharedDir))
 		require.NoError(t, os.WriteFile(fullPath, []byte("initial"), 0o655))
 
 		fsSink := NewFilesystemSink(dir)

@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/tempdir"
@@ -81,7 +82,7 @@ func Create(
 	}
 
 	// Create the parent directory in case it doesn't exist yet.
-	if err := os.MkdirAll(filepath.Dir(targetPath), 0o770); err != nil {
+	if err := os.MkdirAll(filepath.Dir(targetPath), perm.GroupPrivateDir); err != nil {
 		return structerr.NewInternal("create directories: %w", err)
 	}
 

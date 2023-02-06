@@ -18,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/txinfo"
@@ -100,7 +101,7 @@ func (d *dirEntry) create(t *testing.T, parent string) {
 
 	dirname := filepath.Join(parent, d.name)
 
-	if err := os.Mkdir(dirname, 0o700); err != nil {
+	if err := os.Mkdir(dirname, perm.PrivateDir); err != nil {
 		require.True(t, os.IsExist(err), "mkdir failed: %v", dirname)
 	}
 
@@ -393,7 +394,7 @@ func TestRepositoryManager_CleanStaleData_references(t *testing.T) {
 			for _, ref := range tc.refs {
 				path := filepath.Join(repoPath, ref.name)
 
-				require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+				require.NoError(t, os.MkdirAll(filepath.Dir(path), perm.SharedDir))
 				require.NoError(t, os.WriteFile(path, bytes.Repeat([]byte{0}, ref.size), 0o644))
 				filetime := time.Now().Add(-ref.age)
 				require.NoError(t, os.Chtimes(path, filetime, filetime))

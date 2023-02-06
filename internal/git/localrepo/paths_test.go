@@ -10,6 +10,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/quarantine"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -55,7 +56,7 @@ func TestRepo_Path(t *testing.T) {
 		// Recreate the repository as a simple empty directory to simulate
 		// that the repository is in a partially-created state.
 		require.NoError(t, os.RemoveAll(repoPath))
-		require.NoError(t, os.MkdirAll(repoPath, 0o777))
+		require.NoError(t, os.MkdirAll(repoPath, perm.PublicDir))
 
 		_, err := repo.Path()
 		require.Equal(t, structerr.NewNotFound("GetRepoPath: not a git repository: %q", repoPath), err)

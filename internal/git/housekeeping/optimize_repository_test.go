@@ -20,6 +20,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	gitalycfgprom "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -413,7 +414,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 
 				// The repack won't repack the following objects because they're
 				// broken, and thus we'll retry to prune them afterwards.
-				require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "objects", "17"), 0o755))
+				require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "objects", "17"), perm.SharedDir))
 
 				// We set the object's mtime to be almost two weeks ago. Given that
 				// our timeout is at exactly two weeks this shouldn't caused them to
@@ -456,7 +457,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 
 				// The repack won't repack the following objects because they're
 				// broken, and thus we'll retry to prune them afterwards.
-				require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "objects", "17"), 0o755))
+				require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "objects", "17"), perm.SharedDir))
 
 				moreThanTwoWeeksAgo := time.Now().Add(stats.StaleObjectsGracePeriod).Add(-time.Minute)
 

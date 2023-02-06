@@ -15,6 +15,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/dontpanic"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 )
 
 var (
@@ -106,7 +107,7 @@ func (fs *filestore) Create() (namedWriteCloser, error) {
 	)
 
 	path := filepath.Join(fs.dir, fmt.Sprintf("%02x", uint8(fileID)), name)
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), perm.PrivateDir); err != nil {
 		return nil, fmt.Errorf("Create: mkdir: %w", err)
 	}
 

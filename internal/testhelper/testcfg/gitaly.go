@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
 
@@ -77,7 +78,7 @@ func (gc *GitalyCfgBuilder) Build(tb testing.TB) config.Cfg {
 
 	if cfg.BinDir == "" {
 		cfg.BinDir = filepath.Join(root, "bin.d")
-		require.NoError(tb, os.Mkdir(cfg.BinDir, 0o755))
+		require.NoError(tb, os.Mkdir(cfg.BinDir, perm.SharedDir))
 	}
 
 	if cfg.Ruby.Dir == "" {
@@ -92,19 +93,19 @@ func (gc *GitalyCfgBuilder) Build(tb testing.TB) config.Cfg {
 			cfg.Logging.Dir = logDir
 		} else {
 			cfg.Logging.Dir = filepath.Join(root, "log.d")
-			require.NoError(tb, os.Mkdir(cfg.Logging.Dir, 0o755))
+			require.NoError(tb, os.Mkdir(cfg.Logging.Dir, perm.SharedDir))
 		}
 	}
 
 	if cfg.GitlabShell.Dir == "" {
 		cfg.GitlabShell.Dir = filepath.Join(root, "shell.d")
-		require.NoError(tb, os.Mkdir(cfg.GitlabShell.Dir, 0o755))
+		require.NoError(tb, os.Mkdir(cfg.GitlabShell.Dir, perm.SharedDir))
 	}
 
 	if cfg.RuntimeDir == "" {
 		cfg.RuntimeDir = filepath.Join(root, "runtime.d")
-		require.NoError(tb, os.Mkdir(cfg.RuntimeDir, 0o700))
-		require.NoError(tb, os.Mkdir(cfg.InternalSocketDir(), 0o755))
+		require.NoError(tb, os.Mkdir(cfg.RuntimeDir, perm.PrivateDir))
+		require.NoError(tb, os.Mkdir(cfg.InternalSocketDir(), perm.SharedDir))
 	}
 
 	if len(cfg.Storages) != 0 && len(gc.storages) != 0 {
@@ -113,7 +114,7 @@ func (gc *GitalyCfgBuilder) Build(tb testing.TB) config.Cfg {
 
 	if len(cfg.Storages) == 0 {
 		storagesDir := filepath.Join(root, "storages.d")
-		require.NoError(tb, os.Mkdir(storagesDir, 0o755))
+		require.NoError(tb, os.Mkdir(storagesDir, perm.SharedDir))
 
 		if len(gc.storages) == 0 {
 			gc.storages = []string{"default"}
@@ -123,7 +124,7 @@ func (gc *GitalyCfgBuilder) Build(tb testing.TB) config.Cfg {
 		cfg.Storages = make([]config.Storage, len(gc.storages))
 		for i, storageName := range gc.storages {
 			storagePath := filepath.Join(storagesDir, storageName)
-			require.NoError(tb, os.MkdirAll(storagePath, 0o755))
+			require.NoError(tb, os.MkdirAll(storagePath, perm.SharedDir))
 			cfg.Storages[i].Name = storageName
 			cfg.Storages[i].Path = storagePath
 		}

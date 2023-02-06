@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -26,7 +27,7 @@ func TestSuccessfulCalculateChecksum(t *testing.T) {
 	// Force the refs database of testRepo into a known state
 	require.NoError(t, os.RemoveAll(filepath.Join(repoPath, "refs")))
 	for _, d := range []string{"refs/heads", "refs/tags", "refs/notes"} {
-		require.NoError(t, os.MkdirAll(filepath.Join(repoPath, d), 0o755))
+		require.NoError(t, os.MkdirAll(filepath.Join(repoPath, d), perm.SharedDir))
 	}
 
 	testhelper.CopyFile(t, "testdata/checksum-test-packed-refs", filepath.Join(repoPath, "packed-refs"))
@@ -117,7 +118,7 @@ func TestInvalidRefsCalculateChecksum(t *testing.T) {
 	// Force the refs database of testRepo into a known state
 	require.NoError(t, os.RemoveAll(filepath.Join(repoPath, "refs")))
 	for _, d := range []string{"refs/heads", "refs/tags", "refs/notes"} {
-		require.NoError(t, os.MkdirAll(filepath.Join(repoPath, d), 0o755))
+		require.NoError(t, os.MkdirAll(filepath.Join(repoPath, d), perm.SharedDir))
 	}
 	require.NoError(t, exec.Command("cp", "testdata/checksum-test-invalid-refs", filepath.Join(repoPath, "packed-refs")).Run())
 

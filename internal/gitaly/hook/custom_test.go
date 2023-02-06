@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -270,7 +271,7 @@ func TestCustomHooksWithSymlinks(t *testing.T) {
 	// bad -> /path/to/nowhere             BAD
 	firstDir := filepath.Join(globalHooksPath, "first_dir")
 	secondDir := filepath.Join(globalHooksPath, "second_dir")
-	require.NoError(t, os.MkdirAll(firstDir, 0o755))
+	require.NoError(t, os.MkdirAll(firstDir, perm.SharedDir))
 	require.NoError(t, os.Symlink(firstDir, secondDir))
 	filename := filepath.Join(firstDir, "update")
 
@@ -451,7 +452,7 @@ type customHookResults struct {
 }
 
 func writeCustomHook(t *testing.T, hookName, dir string, content []byte) func() {
-	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.MkdirAll(dir, perm.SharedDir))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, hookName), content, 0o755))
 
 	return func() {

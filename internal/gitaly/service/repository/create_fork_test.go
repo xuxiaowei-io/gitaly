@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/praefectutil"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
@@ -232,14 +233,14 @@ func TestCreateFork_targetExists(t *testing.T) {
 		{
 			desc: "empty target directory",
 			seed: func(t *testing.T, targetPath string) {
-				require.NoError(t, os.MkdirAll(targetPath, 0o770))
+				require.NoError(t, os.MkdirAll(targetPath, perm.GroupPrivateDir))
 			},
 			expectedErrWithAtomicCreation: structerr.NewAlreadyExists("creating fork: repository exists already"),
 		},
 		{
 			desc: "non-empty target directory",
 			seed: func(t *testing.T, targetPath string) {
-				require.NoError(t, os.MkdirAll(targetPath, 0o770))
+				require.NoError(t, os.MkdirAll(targetPath, perm.GroupPrivateDir))
 				require.NoError(t, os.WriteFile(
 					filepath.Join(targetPath, "config"),
 					nil,
@@ -251,7 +252,7 @@ func TestCreateFork_targetExists(t *testing.T) {
 		{
 			desc: "target file",
 			seed: func(t *testing.T, targetPath string) {
-				require.NoError(t, os.MkdirAll(filepath.Dir(targetPath), 0o770))
+				require.NoError(t, os.MkdirAll(filepath.Dir(targetPath), perm.GroupPrivateDir))
 				require.NoError(t, os.WriteFile(targetPath, nil, 0o644))
 			},
 			expectedErrWithAtomicCreation: structerr.NewAlreadyExists("creating fork: repository exists already"),

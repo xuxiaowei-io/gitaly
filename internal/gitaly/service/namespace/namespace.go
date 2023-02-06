@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -47,7 +48,7 @@ func (s *server) AddNamespace(ctx context.Context, in *gitalypb.AddNamespaceRequ
 		return nil, noNameError
 	}
 
-	if err = os.MkdirAll(namespacePath(storagePath, name), 0o770); err != nil {
+	if err = os.MkdirAll(namespacePath(storagePath, name), perm.GroupPrivateDir); err != nil {
 		return nil, structerr.NewInternal("create directory: %w", err)
 	}
 
@@ -84,7 +85,7 @@ func (s *server) RenameNamespace(ctx context.Context, in *gitalypb.RenameNamespa
 	targetPath := namespacePath(storagePath, in.GetTo())
 
 	// Create the parent directory.
-	if err = os.MkdirAll(filepath.Dir(targetPath), 0o775); err != nil {
+	if err = os.MkdirAll(filepath.Dir(targetPath), perm.SharedDir); err != nil {
 		return nil, structerr.NewInternal("create directory: %w", err)
 	}
 

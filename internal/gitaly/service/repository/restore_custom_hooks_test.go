@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -228,7 +229,7 @@ func setupTestHooks(t *testing.T, files []testFile) string {
 	tmpDir := testhelper.TempDir(t)
 	hooksPath := filepath.Join(tmpDir, customHooksDir)
 
-	err := os.Mkdir(hooksPath, 0o755)
+	err := os.Mkdir(hooksPath, perm.SharedDir)
 	require.NoError(t, err)
 
 	for _, f := range files {

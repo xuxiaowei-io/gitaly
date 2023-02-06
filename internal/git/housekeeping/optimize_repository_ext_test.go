@@ -22,6 +22,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -218,7 +219,7 @@ func testPruneIfNeeded(t *testing.T, ctx context.Context) {
 
 			for _, looseObjectPath := range tc.looseObjects {
 				looseObjectPath := filepath.Join(repoPath, "objects", looseObjectPath)
-				require.NoError(t, os.MkdirAll(filepath.Dir(looseObjectPath), 0o755))
+				require.NoError(t, os.MkdirAll(filepath.Dir(looseObjectPath), perm.SharedDir))
 
 				looseObjectFile, err := os.Create(looseObjectPath)
 				require.NoError(t, err)

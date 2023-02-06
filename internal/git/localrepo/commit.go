@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 )
 
@@ -87,7 +88,7 @@ func (repo *Repo) WriteCommit(ctx context.Context, cfg WriteCommitConfig) (git.O
 			return "", errors.New("alternate object directory must be an absolute path")
 		}
 
-		if err := os.MkdirAll(cfg.AlternateObjectDir, 0o755); err != nil {
+		if err := os.MkdirAll(cfg.AlternateObjectDir, perm.SharedDir); err != nil {
 			return "", err
 		}
 

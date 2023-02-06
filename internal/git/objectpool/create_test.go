@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -81,7 +82,7 @@ func TestCreate(t *testing.T) {
 
 		// We currently allow creating object pools when the target path is an empty
 		// directory. This can be considered a bug, but for now we abide.
-		require.NoError(t, os.MkdirAll(fullPath, 0o755))
+		require.NoError(t, os.MkdirAll(fullPath, perm.SharedDir))
 
 		_, _, err := createPool(t, &gitalypb.ObjectPool{
 			Repository: &gitalypb.Repository{

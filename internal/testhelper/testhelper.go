@@ -26,6 +26,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 )
 
@@ -212,7 +213,7 @@ func ContextWithoutCancel(opts ...ContextOpt) context.Context {
 func CreateGlobalDirectory(tb testing.TB, name string) string {
 	require.NotEmpty(tb, testDirectory, "global temporary directory does not exist")
 	path := filepath.Join(testDirectory, name)
-	require.NoError(tb, os.Mkdir(path, 0o777))
+	require.NoError(tb, os.Mkdir(path, perm.PublicDir))
 	return path
 }
 
@@ -240,7 +241,7 @@ type Cleanup func()
 // executable.
 func WriteExecutable(tb testing.TB, path string, content []byte) string {
 	dir := filepath.Dir(path)
-	require.NoError(tb, os.MkdirAll(dir, 0o755))
+	require.NoError(tb, os.MkdirAll(dir, perm.SharedDir))
 	tb.Cleanup(func() {
 		assert.NoError(tb, os.RemoveAll(dir))
 	})

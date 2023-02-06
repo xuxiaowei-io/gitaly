@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -27,7 +28,7 @@ func (e entry) create(t *testing.T, root string) {
 	require.True(t, e.contents == "" || e.children == nil, "An entry cannot have both file contents and children")
 
 	if e.children != nil {
-		require.NoError(t, os.Mkdir(root, 0o777))
+		require.NoError(t, os.Mkdir(root, perm.PublicDir))
 
 		for name, child := range e.children {
 			child.create(t, filepath.Join(root, name))

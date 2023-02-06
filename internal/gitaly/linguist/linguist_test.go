@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -528,7 +529,7 @@ func TestInstance_Stats(t *testing.T) {
 			// Apply the gitattributes
 			// We should get rid of this with https://gitlab.com/groups/gitlab-org/-/epics/9006
 			infoPath := filepath.Join(repoPath, "info")
-			require.NoError(t, os.MkdirAll(infoPath, 0o755))
+			require.NoError(t, os.MkdirAll(infoPath, perm.SharedDir))
 			attrData, err := gittest.NewCommand(t, cfg, "-C", repoPath, "cat-file", "blob", objectID.String()+":.gitattributes").Output()
 			if err == nil {
 				require.NoError(t, os.WriteFile(filepath.Join(infoPath, "attributes"), attrData, 0o644))

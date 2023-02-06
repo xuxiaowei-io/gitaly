@@ -10,6 +10,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 )
@@ -66,7 +67,7 @@ func TestRemoveWorktree(t *testing.T) {
 	require.NoError(t, os.RemoveAll(disconnectedWorktreePath))
 
 	orphanedWorktreePath := filepath.Join(repoPath, worktreePrefix, "orphaned")
-	require.NoError(t, os.MkdirAll(orphanedWorktreePath, os.ModePerm))
+	require.NoError(t, os.MkdirAll(orphanedWorktreePath, perm.PublicDir))
 
 	for _, tc := range []struct {
 		worktree     string

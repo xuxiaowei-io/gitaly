@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/version"
@@ -62,7 +63,7 @@ func (keyer leaseKeyer) updateLatest(ctx context.Context, repo *gitalypb.Reposit
 	}
 
 	lPath := latestPath(repoStatePath)
-	if err := os.MkdirAll(filepath.Dir(lPath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(lPath), perm.SharedDir); err != nil {
 		return "", err
 	}
 
@@ -181,7 +182,7 @@ func (keyer leaseKeyer) newPendingLease(repo *gitalypb.Repository) (string, erro
 	}
 
 	pDir := pendingDir(repoStatePath)
-	if err := os.MkdirAll(pDir, 0o755); err != nil {
+	if err := os.MkdirAll(pDir, perm.SharedDir); err != nil {
 		return "", err
 	}
 

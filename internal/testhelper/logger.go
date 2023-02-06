@@ -9,6 +9,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 )
 
 // NewDiscardingLogger creates a logger that discards everything.
@@ -60,7 +61,7 @@ func CreateTestLogDir(tb testing.TB) string {
 
 	logDir := filepath.Join(testLogDir, tb.Name())
 
-	require.NoError(tb, os.MkdirAll(logDir, 0o755))
+	require.NoError(tb, os.MkdirAll(logDir, perm.SharedDir))
 
 	return logDir
 }

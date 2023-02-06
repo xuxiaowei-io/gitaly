@@ -18,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -506,7 +507,7 @@ func testCleanupInvalidKeepAroundRefs(t *testing.T, ctx context.Context) {
 	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	// Make the directory, so we can create random reflike things in it
-	require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "refs", "keep-around"), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "refs", "keep-around"), perm.SharedDir))
 
 	testCases := []struct {
 		desc        string
@@ -589,7 +590,7 @@ func testCleanupInvalidKeepAroundRefs(t *testing.T, ctx context.Context) {
 func mustCreateFileWithTimes(tb testing.TB, path string, mTime time.Time) {
 	tb.Helper()
 
-	require.NoError(tb, os.MkdirAll(filepath.Dir(path), 0o755))
+	require.NoError(tb, os.MkdirAll(filepath.Dir(path), perm.SharedDir))
 	require.NoError(tb, os.WriteFile(path, nil, 0o644))
 	require.NoError(tb, os.Chtimes(path, mTime, mTime))
 }

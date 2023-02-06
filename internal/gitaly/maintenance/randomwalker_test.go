@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
 
@@ -151,7 +152,7 @@ func TestRandomWalk(t *testing.T) {
 			root := testhelper.TempDir(t)
 
 			for _, dir := range tc.dirs {
-				require.NoError(t, os.MkdirAll(filepath.Join(root, dir), 0o777))
+				require.NoError(t, os.MkdirAll(filepath.Join(root, dir), perm.PublicDir))
 			}
 
 			for _, file := range tc.files {
@@ -195,7 +196,7 @@ func TestRandomWalk_withRemovedDirs(t *testing.T) {
 	root := testhelper.TempDir(t)
 
 	for _, dir := range []string{"foo/bar", "foo/bar/deleteme", "foo/baz/qux", "foo/baz/other"} {
-		require.NoError(t, os.MkdirAll(filepath.Join(root, dir), 0o777))
+		require.NoError(t, os.MkdirAll(filepath.Join(root, dir), perm.PublicDir))
 	}
 
 	walker := newRandomWalker(root, rand.New(rand.NewSource(1)))

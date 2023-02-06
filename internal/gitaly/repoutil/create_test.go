@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
@@ -95,7 +96,7 @@ func TestCreate(t *testing.T) {
 		{
 			desc: "preexisting directory",
 			setup: func(t *testing.T, repo *gitalypb.Repository, repoPath string) {
-				require.NoError(t, os.MkdirAll(repoPath, 0o777))
+				require.NoError(t, os.MkdirAll(repoPath, perm.PublicDir))
 			},
 			verify: func(t *testing.T, tempRepo *gitalypb.Repository, tempRepoPath string, realRepo *gitalypb.Repository, realRepoPath string) {
 				require.NoDirExists(t, tempRepoPath)
@@ -110,7 +111,7 @@ func TestCreate(t *testing.T) {
 		{
 			desc: "locked",
 			setup: func(t *testing.T, repo *gitalypb.Repository, repoPath string) {
-				require.NoError(t, os.MkdirAll(filepath.Dir(repoPath), 0o777))
+				require.NoError(t, os.MkdirAll(filepath.Dir(repoPath), perm.PublicDir))
 
 				// Lock the target repository such that we must fail.
 				lock, err := os.Create(repoPath + ".lock")
@@ -184,7 +185,7 @@ func TestCreate(t *testing.T) {
 				// should try locking the repository before casting any votes, we do
 				// not expect to see a voting error.
 
-				require.NoError(t, os.MkdirAll(filepath.Dir(repoPath), 0o777))
+				require.NoError(t, os.MkdirAll(filepath.Dir(repoPath), perm.PublicDir))
 				lock, err := os.Create(repoPath + ".lock")
 				require.NoError(t, err)
 				require.NoError(t, lock.Close())
@@ -212,19 +213,19 @@ func TestCreate(t *testing.T) {
 			seed: func(t *testing.T, repo *gitalypb.Repository, repoPath string) error {
 				// Remove the repository first so we can start from a clean state.
 				require.NoError(t, os.RemoveAll(repoPath))
-				require.NoError(t, os.Mkdir(repoPath, 0o777))
+				require.NoError(t, os.Mkdir(repoPath, perm.PublicDir))
 
 				// Objects and FETCH_HEAD should both be ignored. They may contain
 				// indeterministic data that's different across replicas and would
 				// thus cause us to not reach quorum.
-				require.NoError(t, os.Mkdir(filepath.Join(repoPath, "objects"), 0o777))
+				require.NoError(t, os.Mkdir(filepath.Join(repoPath, "objects"), perm.PublicDir))
 				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "objects", "object"), []byte("object"), 0o666))
 				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "FETCH_HEAD"), []byte("fetch-head"), 0o666))
 
 				// All the other files should be hashed though.
 				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "HEAD"), []byte("head"), 0o666))
 				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "config"), []byte("cfg"), 0o666))
-				require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "refs", "heads"), 0o777))
+				require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "refs", "heads"), perm.PublicDir))
 				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "refs", "heads", "foo"), []byte("foo"), 0o666))
 
 				return nil

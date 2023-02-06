@@ -18,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/sentry"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/duration"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
 
@@ -183,7 +184,7 @@ func TestValidateStorages(t *testing.T) {
 	repositories := testhelper.TempDir(t)
 	repositories2 := testhelper.TempDir(t)
 	nestedRepositories := filepath.Join(repositories, "nested")
-	require.NoError(t, os.MkdirAll(nestedRepositories, os.ModePerm))
+	require.NoError(t, os.MkdirAll(nestedRepositories, perm.PublicDir))
 
 	filePath := filepath.Join(testhelper.TempDir(t), "temporary-file")
 	require.NoError(t, os.WriteFile(filePath, []byte{}, 0o666))
@@ -426,7 +427,7 @@ func TestValidateGitConfig(t *testing.T) {
 func TestValidateShellPath(t *testing.T) {
 	tmpDir := testhelper.TempDir(t)
 
-	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "bin"), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "bin"), perm.SharedDir))
 	tmpFile := filepath.Join(tmpDir, "my-file")
 	require.NoError(t, os.WriteFile(tmpFile, []byte{}, 0o666))
 
@@ -635,7 +636,7 @@ func TestSetupRuntimeDirectory_validateInternalSocket(t *testing.T) {
 			desc: "symlinked runtime directory",
 			setup: func(t *testing.T) string {
 				runtimeDir := testhelper.TempDir(t)
-				require.NoError(t, os.Mkdir(filepath.Join(runtimeDir, "sock.d"), os.ModePerm))
+				require.NoError(t, os.Mkdir(filepath.Join(runtimeDir, "sock.d"), perm.PublicDir))
 
 				// Create a symlink which points to the real runtime directory.
 				symlinkDir := testhelper.TempDir(t)
@@ -662,7 +663,7 @@ func TestSetupRuntimeDirectory_validateInternalSocket(t *testing.T) {
 
 				runtimeDirTooLongForSockets := filepath.Join(tempDir, strings.Repeat("/nested_directory", 10))
 				socketDir := filepath.Join(runtimeDirTooLongForSockets, "sock.d")
-				require.NoError(t, os.MkdirAll(socketDir, os.ModePerm))
+				require.NoError(t, os.MkdirAll(socketDir, perm.PublicDir))
 
 				return runtimeDirTooLongForSockets
 			},

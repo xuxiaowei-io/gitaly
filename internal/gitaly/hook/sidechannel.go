@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	gitaly_metadata "gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"google.golang.org/grpc/metadata"
 )
@@ -56,7 +57,7 @@ func SetupSidechannel(ctx context.Context, payload git.HooksPayload, callback fu
 		// Note that we don't use `os.MkdirAll()` here: we don't want to accidentally create
 		// the full directory hierarchy, and the assumption is that the runtime directory
 		// must exist already.
-		if err := os.Mkdir(sidechannelDir, 0o700); err != nil && !errors.Is(err, fs.ErrExist) {
+		if err := os.Mkdir(sidechannelDir, perm.PrivateDir); err != nil && !errors.Is(err, fs.ErrExist) {
 			return nil, nil, err
 		}
 
