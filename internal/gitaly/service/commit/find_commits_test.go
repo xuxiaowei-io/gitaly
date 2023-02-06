@@ -627,6 +627,161 @@ func getCommits(t *testing.T, ctx context.Context, request *gitalypb.FindCommits
 	return commits
 }
 
+func TestFindCommits_withReferencedBy(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, ctx)
+
+	type commitInfo struct {
+		id         string
+		shortStats *gitalypb.CommitStatInfo
+		refs       [][]byte
+	}
+
+	gittest.WriteTag(t, cfg, repoPath, "a-tag", "570e7b2abdd848b95f2f578043fc23bd6f6fd24d")
+	gittest.WriteTag(t, cfg, repoPath, "another-tag", "570e7b2abdd848b95f2f578043fc23bd6f6fd24d")
+
+	testCases := []struct {
+		desc        string
+		request     *gitalypb.FindCommitsRequest
+		commitStats []commitInfo
+	}{
+		{
+			desc: "with stats and trailers",
+			request: &gitalypb.FindCommitsRequest{
+				Repository:          repo,
+				Revision:            []byte("4cd80ccab63c82b4bad16faa5193fbd2aa06df40"),
+				Limit:               3,
+				SkipMerges:          true,
+				IncludeShortstat:    true,
+				Trailers:            true,
+				IncludeReferencedBy: [][]byte{[]byte("refs/tags"), []byte("refs/heads")},
+			},
+			commitStats: []commitInfo{
+				{
+					id: "4cd80ccab63c82b4bad16faa5193fbd2aa06df40",
+					shortStats: &gitalypb.CommitStatInfo{
+						Additions:    0,
+						Deletions:    0,
+						ChangedFiles: 1,
+					},
+					refs: nil,
+				},
+				{
+					id: "5937ac0a7beb003549fc5fd26fc247adbce4a52e",
+					shortStats: &gitalypb.CommitStatInfo{
+						Additions:    4,
+						Deletions:    0,
+						ChangedFiles: 2,
+					},
+					refs: [][]byte{[]byte("refs/tags/v1.1.0"), []byte("refs/heads/improve/awesome")},
+				},
+				{
+					id: "570e7b2abdd848b95f2f578043fc23bd6f6fd24d",
+					shortStats: &gitalypb.CommitStatInfo{
+						Additions:    11,
+						Deletions:    6,
+						ChangedFiles: 2,
+					},
+					refs: [][]byte{[]byte("refs/tags/another-tag"), []byte("refs/tags/a-tag")},
+				},
+			},
+		},
+		{
+			desc: "without stats or trailers",
+			request: &gitalypb.FindCommitsRequest{
+				Repository:          repo,
+				Revision:            []byte("4cd80ccab63c82b4bad16faa5193fbd2aa06df40"),
+				Limit:               3,
+				IncludeShortstat:    false,
+				SkipMerges:          true,
+				Trailers:            false,
+				IncludeReferencedBy: [][]byte{[]byte("refs/tags"), []byte("refs/heads/")},
+			},
+			commitStats: []commitInfo{
+				{
+					id:         "4cd80ccab63c82b4bad16faa5193fbd2aa06df40",
+					shortStats: nil,
+					refs:       nil,
+				},
+				{
+					id:         "5937ac0a7beb003549fc5fd26fc247adbce4a52e",
+					shortStats: nil,
+					refs:       [][]byte{[]byte("refs/tags/v1.1.0"), []byte("refs/heads/improve/awesome")},
+				},
+				{
+					id:         "570e7b2abdd848b95f2f578043fc23bd6f6fd24d",
+					shortStats: nil,
+					refs:       [][]byte{[]byte("refs/tags/another-tag"), []byte("refs/tags/a-tag")},
+				},
+			},
+		},
+		{
+			desc: "only tags",
+			request: &gitalypb.FindCommitsRequest{
+				Repository:          repo,
+				Revision:            []byte("5937ac0a7beb003549fc5fd26fc247adbce4a52e"),
+				Limit:               1,
+				IncludeShortstat:    false,
+				SkipMerges:          true,
+				Trailers:            false,
+				IncludeReferencedBy: [][]byte{[]byte("refs/tags")},
+			},
+			commitStats: []commitInfo{
+				{
+					id:         "5937ac0a7beb003549fc5fd26fc247adbce4a52e",
+					shortStats: nil,
+					refs:       [][]byte{[]byte("refs/tags/v1.1.0")},
+				},
+			},
+		},
+		{
+			desc: "with HEAD",
+			request: &gitalypb.FindCommitsRequest{
+				Repository:          repo,
+				Revision:            []byte("refs/heads/master"),
+				Limit:               1,
+				IncludeReferencedBy: [][]byte{[]byte("HEAD")},
+			},
+			commitStats: []commitInfo{
+				{
+					id:   "1e292f8fedd741b75372e19097c76d327140c312",
+					refs: [][]byte{[]byte("HEAD")},
+				},
+			},
+		},
+		{
+			desc: "with HEAD pointing to another branch in the set",
+			request: &gitalypb.FindCommitsRequest{
+				Repository:          repo,
+				Revision:            []byte("refs/heads/master"),
+				Limit:               1,
+				IncludeReferencedBy: [][]byte{[]byte("refs/heads"), []byte("HEAD")},
+			},
+			commitStats: []commitInfo{
+				{
+					id:   "1e292f8fedd741b75372e19097c76d327140c312",
+					refs: [][]byte{[]byte("HEAD"), []byte("refs/heads/master")},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			commits := getCommits(t, ctx, tc.request, client)
+			assert.Equal(t, len(tc.commitStats), len(commits))
+
+			for i, commit := range commits {
+				assert.Equal(t, tc.commitStats[i].id, commit.Id)
+				assert.Equal(t, tc.commitStats[i].shortStats, commit.ShortStats)
+				assert.Equal(t, tc.commitStats[i].refs, commit.ReferencedBy)
+			}
+		})
+	}
+}
+
 func TestFindCommits_withStats(t *testing.T) {
 	t.Parallel()
 

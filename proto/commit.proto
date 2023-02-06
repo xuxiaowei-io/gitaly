@@ -607,6 +607,13 @@ message FindCommitsRequest {
   // include_shortstat determines whether to include the number of lines and files
   // changed in the commits. Populates the `short_stats` field.
   bool include_shortstat = 17;
+  // include_referenced_by determines whether to include references that point to a
+  // commit in the response. The field contains patterns that are matched against
+  // references. Only matching references are included in the response. For 
+  // example, one can get tags pointing to a commit with `refs/tags`, or branches
+  // respectively with `refs/heads`. By sending both, the response will include all
+  // references that match either pattern. 
+  repeated bytes include_referenced_by = 18; // protolint:disable:this REPEATED_FIELD_NAMES_PLURALIZED
 }
 
 // A single 'page' of the result set
