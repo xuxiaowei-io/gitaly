@@ -34,12 +34,12 @@ type ObjectContentReader interface {
 // have been queued up such that all requested objects will be readable.
 type ObjectContentQueue interface {
 	// RequestObject requests the given revision from git-cat-file(1).
-	RequestObject(git.Revision) error
+	RequestObject(context.Context, git.Revision) error
 	// ReadObject reads an object which has previously been requested.
-	ReadObject() (*Object, error)
+	ReadObject(context.Context) (*Object, error)
 	// Flush flushes all queued requests and asks git-cat-file(1) to print all objects which
 	// have been requested up to this point.
-	Flush() error
+	Flush(context.Context) error
 }
 
 // objectContentReader is a reader for Git objects. Reading is implemented via a long-lived `git cat-file
@@ -126,15 +126,15 @@ func (o *objectContentReader) Object(ctx context.Context, revision git.Revision)
 	}
 	defer finish()
 
-	if err := queue.RequestObject(revision); err != nil {
+	if err := queue.RequestObject(ctx, revision); err != nil {
 		return nil, err
 	}
 
-	if err := queue.Flush(); err != nil {
+	if err := queue.Flush(ctx); err != nil {
 		return nil, err
 	}
 
-	object, err := queue.ReadObject()
+	object, err := queue.ReadObject(ctx)
 	if err != nil {
 		return nil, err
 	}

@@ -114,12 +114,12 @@ type ObjectInfoReader interface {
 // all requests have been queued up such that all requested objects will be readable.
 type ObjectInfoQueue interface {
 	// RequestInfo requests the given revision from git-cat-file(1).
-	RequestInfo(git.Revision) error
+	RequestInfo(context.Context, git.Revision) error
 	// ReadInfo reads object info which has previously been requested.
-	ReadInfo() (*ObjectInfo, error)
+	ReadInfo(context.Context) (*ObjectInfo, error)
 	// Flush flushes all queued requests and asks git-cat-file(1) to print all objects which
 	// have been requested up to this point.
-	Flush() error
+	Flush(context.Context) error
 }
 
 // objectInfoReader is a reader for Git object information. This reader is implemented via a
@@ -209,15 +209,15 @@ func (o *objectInfoReader) Info(ctx context.Context, revision git.Revision) (*Ob
 	}
 	defer cleanup()
 
-	if err := queue.RequestInfo(revision); err != nil {
+	if err := queue.RequestInfo(ctx, revision); err != nil {
 		return nil, err
 	}
 
-	if err := queue.Flush(); err != nil {
+	if err := queue.Flush(ctx); err != nil {
 		return nil, err
 	}
 
-	objectInfo, err := queue.ReadInfo()
+	objectInfo, err := queue.ReadInfo(ctx)
 	if err != nil {
 		return nil, err
 	}

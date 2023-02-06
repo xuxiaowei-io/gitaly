@@ -72,7 +72,7 @@ func CatfileObject(
 
 		var i int64
 		for it.Next() {
-			if err := queue.RequestObject(it.ObjectID().Revision()); err != nil {
+			if err := queue.RequestObject(ctx, it.ObjectID().Revision()); err != nil {
 				sendRequest(catfileObjectRequest{err: err})
 				return
 			}
@@ -83,7 +83,7 @@ func CatfileObject(
 				// If the context got cancelled, then we need to flush out all
 				// outstanding requests so that the downstream consumer is
 				// unblocked.
-				if err := queue.Flush(); err != nil {
+				if err := queue.Flush(ctx); err != nil {
 					sendRequest(catfileObjectRequest{err: err})
 					return
 				}
@@ -94,7 +94,7 @@ func CatfileObject(
 
 			i++
 			if i%int64(cap(requestChan)) == 0 {
-				if err := queue.Flush(); err != nil {
+				if err := queue.Flush(ctx); err != nil {
 					sendRequest(catfileObjectRequest{err: err})
 					return
 				}
@@ -106,7 +106,7 @@ func CatfileObject(
 			return
 		}
 
-		if err := queue.Flush(); err != nil {
+		if err := queue.Flush(ctx); err != nil {
 			sendRequest(catfileObjectRequest{err: err})
 			return
 		}
@@ -165,7 +165,7 @@ func CatfileObject(
 				}
 			}
 
-			object, err := queue.ReadObject()
+			object, err := queue.ReadObject(ctx)
 			if err != nil {
 				sendResult(CatfileObjectResult{
 					err: fmt.Errorf("requesting object: %w", err),

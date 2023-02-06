@@ -2,11 +2,14 @@ package catfile
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"os"
 	"sync/atomic"
+	"time"
 
+	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 )
 
@@ -87,17 +90,21 @@ func (q *requestQueue) close() {
 
 // RequestObject requests the contents for the given revision. A subsequent call has
 // to be made to ReadObject to read the contents.
-func (q *requestQueue) RequestObject(revision git.Revision) error {
-	return q.requestRevision(contentsCommand, revision)
+func (q *requestQueue) RequestObject(ctx context.Context, revision git.Revision) error {
+	defer logDuration(ctx, "request_object")()
+
+	return q.requestRevision(ctx, contentsCommand, revision)
 }
 
 // RequestObject requests the info for the given revision. A subsequent call has to
 // be made to ReadInfo read the info.
-func (q *requestQueue) RequestInfo(revision git.Revision) error {
-	return q.requestRevision(infoCommand, revision)
+func (q *requestQueue) RequestInfo(ctx context.Context, revision git.Revision) error {
+	defer logDuration(ctx, "request_info")()
+
+	return q.requestRevision(ctx, infoCommand, revision)
 }
 
-func (q *requestQueue) requestRevision(cmd string, revision git.Revision) error {
+func (q *requestQueue) requestRevision(ctx context.Context, cmd string, revision git.Revision) error {
 	if q.isClosed() {
 		return fmt.Errorf("cannot request revision: %w", os.ErrClosed)
 	}
@@ -117,7 +124,9 @@ func (q *requestQueue) requestRevision(cmd string, revision git.Revision) error 
 	return nil
 }
 
-func (q *requestQueue) Flush() error {
+func (q *requestQueue) Flush(ctx context.Context) error {
+	defer logDuration(ctx, "flush")()
+
 	if q.isClosed() {
 		return fmt.Errorf("cannot flush: %w", os.ErrClosed)
 	}
@@ -141,7 +150,9 @@ type readerFunc func([]byte) (int, error)
 
 func (fn readerFunc) Read(buf []byte) (int, error) { return fn(buf) }
 
-func (q *requestQueue) ReadObject() (*Object, error) {
+func (q *requestQueue) ReadObject(ctx context.Context) (*Object, error) {
+	defer logDuration(ctx, "read_object")()
+
 	if !q.isObjectQueue {
 		panic("object queue used to read object info")
 	}
@@ -207,7 +218,9 @@ func (q *requestQueue) ReadObject() (*Object, error) {
 	}, nil
 }
 
-func (q *requestQueue) ReadInfo() (*ObjectInfo, error) {
+func (q *requestQueue) ReadInfo(ctx context.Context) (*ObjectInfo, error) {
+	defer logDuration(ctx, "read_info")()
+
 	if q.isObjectQueue {
 		panic("object queue used to read object info")
 	}
@@ -242,4 +255,16 @@ func (q *requestQueue) readInfo() (*ObjectInfo, error) {
 	}
 
 	return ParseObjectInfo(q.objectHash, q.stdout)
+}
+
+func logDuration(ctx context.Context, logFieldName string) func() {
+	start := time.Now()
+	return func() {
+		delta := time.Since(start)
+		if stats := command.StatsFromContext(ctx); stats != nil {
+			stats.RecordSum(fmt.Sprintf("catfile.%s_count", logFieldName), 1)
+			stats.RecordSum(fmt.Sprintf("catfile.%s_ms", logFieldName), int(delta.Milliseconds()))
+			stats.RecordSum("catfile.duration_ms", int(delta.Milliseconds()))
+		}
+	}
 }
