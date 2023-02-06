@@ -23,7 +23,6 @@ import (
 func TestFetchFromOrigin_dangling(t *testing.T) {
 	t.Parallel()
 	testhelper.NewFeatureSets(
-		featureflag.WriteBitmapLookupTable,
 		featureflag.WriteMultiPackIndex,
 	).Run(t, testFetchFromOriginDangling)
 }
@@ -115,7 +114,6 @@ func TestFetchFromOrigin_fsck(t *testing.T) {
 func TestFetchFromOrigin_deltaIslands(t *testing.T) {
 	t.Parallel()
 	testhelper.NewFeatureSets(
-		featureflag.WriteBitmapLookupTable,
 		featureflag.WriteMultiPackIndex,
 	).Run(t, testFetchFromOriginDeltaIslands)
 }
@@ -148,7 +146,6 @@ func testFetchFromOriginDeltaIslands(t *testing.T, ctx context.Context) {
 func TestFetchFromOrigin_bitmapHashCache(t *testing.T) {
 	t.Parallel()
 	testhelper.NewFeatureSets(
-		featureflag.WriteBitmapLookupTable,
 		featureflag.WriteMultiPackIndex,
 	).Run(t, testFetchFromOriginBitmapHashCache)
 }
@@ -174,14 +171,13 @@ func testFetchFromOriginBitmapHashCache(t *testing.T, ctx context.Context) {
 		Exists:         true,
 		Version:        1,
 		HasHashCache:   true,
-		HasLookupTable: featureflag.WriteBitmapLookupTable.IsEnabled(ctx),
+		HasLookupTable: true,
 	}, bitmapInfo)
 }
 
 func TestFetchFromOrigin_refUpdates(t *testing.T) {
 	t.Parallel()
 	testhelper.NewFeatureSets(
-		featureflag.WriteBitmapLookupTable,
 		featureflag.WriteMultiPackIndex,
 	).Run(t, testFetchFromOriginRefUpdates)
 }
@@ -235,7 +231,6 @@ func testFetchFromOriginRefUpdates(t *testing.T, ctx context.Context) {
 func TestFetchFromOrigin_refs(t *testing.T) {
 	t.Parallel()
 	testhelper.NewFeatureSets(
-		featureflag.WriteBitmapLookupTable,
 		featureflag.WriteMultiPackIndex,
 	).Run(t, testFetchFromOriginRefs)
 }

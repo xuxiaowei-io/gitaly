@@ -29,7 +29,6 @@ import (
 func TestRepackIfNeeded(t *testing.T) {
 	t.Parallel()
 	testhelper.NewFeatureSets(
-		featureflag.WriteBitmapLookupTable,
 		featureflag.WriteMultiPackIndex,
 	).Run(t, testRepackIfNeeded)
 }
@@ -158,7 +157,6 @@ func TestPackRefsIfNeeded(t *testing.T) {
 func TestOptimizeRepository(t *testing.T) {
 	t.Parallel()
 	testhelper.NewFeatureSets(
-		featureflag.WriteBitmapLookupTable,
 		featureflag.WriteMultiPackIndex,
 	).Run(t, testOptimizeRepository)
 }

@@ -1,7 +1,6 @@
 package housekeeping
 
 import (
-	"context"
 	"path/filepath"
 	"testing"
 
@@ -9,7 +8,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -17,12 +15,8 @@ import (
 
 func TestRepackObjects(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.WriteBitmapLookupTable).Run(t, testRepackObjects)
-}
 
-func testRepackObjects(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
 	gitVersion, err := gittest.NewCommandFactory(t, cfg).GitVersion(ctx)

@@ -8,7 +8,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 )
 
@@ -69,7 +68,7 @@ func GetRepackGitConfig(ctx context.Context, repo repository.GitRepo, bitmap boo
 	config := []git.ConfigPair{
 		{Key: "repack.useDeltaIslands", Value: "true"},
 		{Key: "repack.writeBitmaps", Value: strconv.FormatBool(bitmap)},
-		{Key: "pack.writeBitmapLookupTable", Value: strconv.FormatBool(featureflag.WriteBitmapLookupTable.IsEnabled(ctx))},
+		{Key: "pack.writeBitmapLookupTable", Value: "true"},
 	}
 
 	if stats.IsPoolRepository(repo) {
