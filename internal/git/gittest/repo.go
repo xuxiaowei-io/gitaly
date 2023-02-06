@@ -156,9 +156,17 @@ func CreateRepository(tb testing.TB, ctx context.Context, cfg config.Cfg, config
 			})
 			require.NoError(tb, err)
 		} else {
-			_, err := client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{
+			objectFormat := opts.ObjectFormat
+			if objectFormat == "" {
+				objectFormat = DefaultObjectHash.Format
+			}
+
+			objectHash, err := git.ObjectHashByFormat(objectFormat)
+			require.NoError(tb, err)
+
+			_, err = client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{
 				Repository:   repository,
-				ObjectFormat: DefaultObjectHash.ProtoFormat,
+				ObjectFormat: objectHash.ProtoFormat,
 			})
 			require.NoError(tb, err)
 		}

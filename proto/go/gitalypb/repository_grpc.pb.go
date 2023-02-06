@@ -41,6 +41,8 @@ type RepositoryServiceClient interface {
 	WriteCommitGraph(ctx context.Context, in *WriteCommitGraphRequest, opts ...grpc.CallOption) (*WriteCommitGraphResponse, error)
 	// This comment is left unintentionally blank.
 	RepositorySize(ctx context.Context, in *RepositorySizeRequest, opts ...grpc.CallOption) (*RepositorySizeResponse, error)
+	// ObjectFormat determines the object format that is being used by the repository.
+	ObjectFormat(ctx context.Context, in *ObjectFormatRequest, opts ...grpc.CallOption) (*ObjectFormatResponse, error)
 	// This comment is left unintentionally blank.
 	ApplyGitattributes(ctx context.Context, in *ApplyGitattributesRequest, opts ...grpc.CallOption) (*ApplyGitattributesResponse, error)
 	// FetchRemote fetches references from a remote repository into the local
@@ -217,6 +219,15 @@ func (c *repositoryServiceClient) WriteCommitGraph(ctx context.Context, in *Writ
 func (c *repositoryServiceClient) RepositorySize(ctx context.Context, in *RepositorySizeRequest, opts ...grpc.CallOption) (*RepositorySizeResponse, error) {
 	out := new(RepositorySizeResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/RepositorySize", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *repositoryServiceClient) ObjectFormat(ctx context.Context, in *ObjectFormatRequest, opts ...grpc.CallOption) (*ObjectFormatResponse, error) {
+	out := new(ObjectFormatResponse)
+	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/ObjectFormat", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -868,6 +879,8 @@ type RepositoryServiceServer interface {
 	WriteCommitGraph(context.Context, *WriteCommitGraphRequest) (*WriteCommitGraphResponse, error)
 	// This comment is left unintentionally blank.
 	RepositorySize(context.Context, *RepositorySizeRequest) (*RepositorySizeResponse, error)
+	// ObjectFormat determines the object format that is being used by the repository.
+	ObjectFormat(context.Context, *ObjectFormatRequest) (*ObjectFormatResponse, error)
 	// This comment is left unintentionally blank.
 	ApplyGitattributes(context.Context, *ApplyGitattributesRequest) (*ApplyGitattributesResponse, error)
 	// FetchRemote fetches references from a remote repository into the local
@@ -999,6 +1012,9 @@ func (UnimplementedRepositoryServiceServer) WriteCommitGraph(context.Context, *W
 }
 func (UnimplementedRepositoryServiceServer) RepositorySize(context.Context, *RepositorySizeRequest) (*RepositorySizeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RepositorySize not implemented")
+}
+func (UnimplementedRepositoryServiceServer) ObjectFormat(context.Context, *ObjectFormatRequest) (*ObjectFormatResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ObjectFormat not implemented")
 }
 func (UnimplementedRepositoryServiceServer) ApplyGitattributes(context.Context, *ApplyGitattributesRequest) (*ApplyGitattributesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ApplyGitattributes not implemented")
@@ -1240,6 +1256,24 @@ func _RepositoryService_RepositorySize_Handler(srv interface{}, ctx context.Cont
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RepositoryServiceServer).RepositorySize(ctx, req.(*RepositorySizeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RepositoryService_ObjectFormat_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ObjectFormatRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RepositoryServiceServer).ObjectFormat(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/gitaly.RepositoryService/ObjectFormat",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RepositoryServiceServer).ObjectFormat(ctx, req.(*ObjectFormatRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1967,6 +2001,10 @@ var RepositoryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RepositorySize",
 			Handler:    _RepositoryService_RepositorySize_Handler,
+		},
+		{
+			MethodName: "ObjectFormat",
+			Handler:    _RepositoryService_ObjectFormat_Handler,
 		},
 		{
 			MethodName: "ApplyGitattributes",
