@@ -5,14 +5,17 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -49,7 +52,88 @@ func validateMergeBranchRequest(request *gitalypb.UserMergeBranchRequest) error 
 	return nil
 }
 
-//nolint:revive // This is unintentionally missing documentation.
+func (s *Server) merge(
+	ctx context.Context,
+	repoPath string,
+	quarantineRepo *localrepo.Repo,
+	authorName string,
+	authorMail string,
+	authorDate time.Time,
+	message string,
+	ours string,
+	theirs string,
+) (string, error) {
+	treeOID, err := quarantineRepo.MergeTree(ctx, ours, theirs)
+	if err != nil {
+		return "", err
+	}
+
+	c, err := quarantineRepo.WriteCommit(
+		ctx,
+		localrepo.WriteCommitConfig{
+			TreeID:  treeOID,
+			Message: message,
+			Parents: []git.ObjectID{
+				git.ObjectID(ours),
+				git.ObjectID(theirs),
+			},
+			AuthorName:     authorName,
+			AuthorEmail:    authorMail,
+			AuthorDate:     authorDate,
+			CommitterName:  authorName,
+			CommitterEmail: authorMail,
+			CommitterDate:  authorDate,
+		},
+	)
+	if err != nil {
+		return "", fmt.Errorf("create commit from tree: %w", err)
+	}
+
+	return string(c), nil
+}
+
+// TODO: remove this function once we roll out the feature flag
+// to use the git implementation.
+func (s *Server) mergeWithGit2Go(
+	ctx context.Context,
+	repoPath string,
+	quarantineRepo *localrepo.Repo,
+	authorName string,
+	authorMail string,
+	authorDate time.Time,
+	message string,
+	ours string,
+	theirs string,
+) (string, error) {
+	mergeResult, err := s.git2goExecutor.Merge(ctx, quarantineRepo, git2go.MergeCommand{
+		Repository: repoPath,
+		AuthorName: authorName,
+		AuthorMail: authorMail,
+		AuthorDate: authorDate,
+		Message:    message,
+		Ours:       ours,
+		Theirs:     theirs,
+	})
+	if err != nil {
+		var conflictErr git2go.ConflictingFilesError
+		if errors.As(err, &conflictErr) {
+			return "", &localrepo.MergeTreeError{
+				ConflictingFiles: conflictErr.ConflictingFiles,
+			}
+		}
+
+		if errors.Is(err, git2go.ErrInvalidArgument) {
+			return "", structerr.NewInvalidArgument("%w", err)
+		}
+
+		return "", err
+	}
+
+	return mergeResult.CommitID, nil
+}
+
+// UserMergeBranch is a two stage streaming RPC that will merge two commits together and
+// create a merge commit
 func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranchServer) error {
 	ctx := stream.Context()
 
@@ -102,52 +186,61 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
-	merge, err := s.git2goExecutor.Merge(ctx, quarantineRepo, git2go.MergeCommand{
-		Repository: repoPath,
-		AuthorName: string(firstRequest.User.Name),
-		AuthorMail: string(firstRequest.User.Email),
-		AuthorDate: authorDate,
-		Message:    string(firstRequest.Message),
-		Ours:       revision.String(),
-		Theirs:     firstRequest.CommitId,
-	})
-	if err != nil {
-		if errors.Is(err, git2go.ErrInvalidArgument) {
-			return structerr.NewInvalidArgument("%w", err)
-		}
+	var mergeCommitID string
+	var mergeErr error
 
-		var conflictErr git2go.ConflictingFilesError
-		if errors.As(err, &conflictErr) {
+	if featureflag.MergeTreeMerge.IsEnabled(ctx) {
+		mergeCommitID, mergeErr = s.merge(ctx, repoPath, quarantineRepo,
+			string(firstRequest.User.Name),
+			string(firstRequest.User.Email),
+			authorDate,
+			string(firstRequest.Message),
+			revision.String(),
+			firstRequest.CommitId)
+	} else {
+		mergeCommitID, mergeErr = s.mergeWithGit2Go(ctx, repoPath, quarantineRepo,
+			string(firstRequest.User.Name),
+			string(firstRequest.User.Email),
+			authorDate,
+			string(firstRequest.Message),
+			revision.String(),
+			firstRequest.CommitId)
+	}
+
+	if mergeErr != nil {
+		var conflictErr *localrepo.MergeTreeError
+		if errors.As(mergeErr, &conflictErr) {
 			conflictingFiles := make([][]byte, 0, len(conflictErr.ConflictingFiles))
 			for _, conflictingFile := range conflictErr.ConflictingFiles {
 				conflictingFiles = append(conflictingFiles, []byte(conflictingFile))
 			}
 
-			return structerr.NewFailedPrecondition("merging commits: %w", err).WithDetail(
-				&gitalypb.UserMergeBranchError{
-					Error: &gitalypb.UserMergeBranchError_MergeConflict{
-						MergeConflict: &gitalypb.MergeConflictError{
-							ConflictingFiles: conflictingFiles,
-							ConflictingCommitIds: []string{
-								revision.String(),
-								firstRequest.CommitId,
+			return structerr.NewFailedPrecondition("merging commits: %w", mergeErr).
+				WithDetail(
+					&gitalypb.UserMergeBranchError{
+						Error: &gitalypb.UserMergeBranchError_MergeConflict{
+							MergeConflict: &gitalypb.MergeConflictError{
+								ConflictingFiles: conflictingFiles,
+								ConflictingCommitIds: []string{
+									revision.String(),
+									firstRequest.CommitId,
+								},
 							},
 						},
 					},
-				},
-			)
+				)
 		}
 
 		return structerr.NewInternal("%w", err)
 	}
 
-	mergeOID, err := git.ObjectHashSHA1.FromHex(merge.CommitID)
+	mergeOID, err := git.ObjectHashSHA1.FromHex(mergeCommitID)
 	if err != nil {
 		return structerr.NewInternal("could not parse merge ID: %w", err)
 	}
 
 	if err := stream.Send(&gitalypb.UserMergeBranchResponse{
-		CommitId: merge.CommitID,
+		CommitId: mergeOID.String(),
 	}); err != nil {
 		return err
 	}
@@ -211,7 +304,7 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 
 	if err := stream.Send(&gitalypb.UserMergeBranchResponse{
 		BranchUpdate: &gitalypb.OperationBranchUpdate{
-			CommitId:      merge.CommitID,
+			CommitId:      mergeOID.String(),
 			RepoCreated:   false,
 			BranchCreated: false,
 		},
