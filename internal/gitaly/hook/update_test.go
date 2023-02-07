@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package hook
 
 import (
@@ -30,7 +28,6 @@ func TestUpdate_customHooks(t *testing.T) {
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
@@ -217,7 +214,6 @@ func TestUpdate_quarantine(t *testing.T) {
 
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 
 	quarantine, err := quarantine.New(ctx, repoProto, config.NewLocator(cfg))
