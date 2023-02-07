@@ -16,6 +16,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/bootstrap"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 )
@@ -69,7 +70,7 @@ func TestFindProcess(t *testing.T) {
 		t.Parallel()
 
 		path := filepath.Join(testhelper.TempDir(t), "pid")
-		require.NoError(t, os.WriteFile(path, []byte("garbage"), 0o644))
+		require.NoError(t, os.WriteFile(path, []byte("garbage"), perm.SharedFile))
 
 		_, err := findProcess(path)
 		_, expectedErr := strconv.Atoi("garbage")
@@ -82,7 +83,7 @@ func TestFindProcess(t *testing.T) {
 		// The below PID can exist, but chances are sufficiently low to hopefully not matter
 		// in practice.
 		path := filepath.Join(testhelper.TempDir(t), "pid")
-		require.NoError(t, os.WriteFile(path, []byte("7777777"), 0o644))
+		require.NoError(t, os.WriteFile(path, []byte("7777777"), perm.SharedFile))
 
 		// The process isn't alive, so we expect neither an error nor a process to be
 		// returned.
@@ -117,7 +118,7 @@ func TestFindProcess(t *testing.T) {
 		require.NoError(t, err)
 
 		path := filepath.Join(testhelper.TempDir(t), "pid")
-		require.NoError(t, os.WriteFile(path, []byte(strconv.FormatInt(int64(cmd.Process.Pid), 10)), 0o644))
+		require.NoError(t, os.WriteFile(path, []byte(strconv.FormatInt(int64(cmd.Process.Pid), 10)), perm.SharedFile))
 
 		process, err := findProcess(path)
 		require.NotNil(t, process)
@@ -175,7 +176,7 @@ func TestReadPIDFile(t *testing.T) {
 		t.Parallel()
 
 		path := filepath.Join(testhelper.TempDir(t), "pid")
-		require.NoError(t, os.WriteFile(path, nil, 0o644))
+		require.NoError(t, os.WriteFile(path, nil, perm.SharedFile))
 		_, err := readPIDFile(path)
 		_, expectedErr := strconv.Atoi("")
 		require.Equal(t, expectedErr, err)
@@ -185,7 +186,7 @@ func TestReadPIDFile(t *testing.T) {
 		t.Parallel()
 
 		path := filepath.Join(testhelper.TempDir(t), "pid")
-		require.NoError(t, os.WriteFile(path, []byte("invalid"), 0o644))
+		require.NoError(t, os.WriteFile(path, []byte("invalid"), perm.SharedFile))
 		_, err := readPIDFile(path)
 		_, expectedErr := strconv.Atoi("invalid")
 		require.Equal(t, expectedErr, err)
@@ -195,7 +196,7 @@ func TestReadPIDFile(t *testing.T) {
 		t.Parallel()
 
 		path := filepath.Join(testhelper.TempDir(t), "pid")
-		require.NoError(t, os.WriteFile(path, []byte("12345"), 0o644))
+		require.NoError(t, os.WriteFile(path, []byte("12345"), perm.SharedFile))
 		pid, err := readPIDFile(path)
 		require.NoError(t, err)
 		require.Equal(t, 12345, pid)
@@ -348,7 +349,7 @@ func TestRun(t *testing.T) {
 		// Write the PID of the running process into the PID file. As a result, it should
 		// get adopted by gitaly-wrapper, which means it wouldn't try to execute it anew.
 		pidPath := filepath.Join(testhelper.TempDir(t), "pid")
-		require.NoError(t, os.WriteFile(pidPath, []byte(strconv.FormatInt(int64(scriptCmd.Process.Pid), 10)), 0o644))
+		require.NoError(t, os.WriteFile(pidPath, []byte(strconv.FormatInt(int64(scriptCmd.Process.Pid), 10)), perm.SharedFile))
 
 		// Run gitaly-script with a binary path whose basename matches, but which ultimately
 		// doesn't exist. This proves that it doesn't try to execute the script again.
@@ -412,7 +413,7 @@ func TestRun(t *testing.T) {
 		`))
 
 		pidPath := filepath.Join(testhelper.TempDir(t), "pid")
-		require.NoError(t, os.WriteFile(pidPath, []byte("12345"), 0o644))
+		require.NoError(t, os.WriteFile(pidPath, []byte("12345"), perm.SharedFile))
 
 		cmd := exec.CommandContext(ctx, binary, script)
 		cmd.Env = append(os.Environ(), fmt.Sprintf("%s=%s", bootstrap.EnvPidFile, pidPath))
@@ -443,7 +444,7 @@ func TestRun(t *testing.T) {
 		require.NoError(t, err)
 
 		pidPath := filepath.Join(testhelper.TempDir(t), "pid")
-		require.NoError(t, os.WriteFile(pidPath, []byte(strconv.FormatInt(int64(scriptCmd.Process.Pid), 10)), 0o644))
+		require.NoError(t, os.WriteFile(pidPath, []byte(strconv.FormatInt(int64(scriptCmd.Process.Pid), 10)), perm.SharedFile))
 
 		cmd := exec.CommandContext(ctx, binary, script)
 		cmd.Env = append(os.Environ(), fmt.Sprintf("%s=%s", bootstrap.EnvPidFile, pidPath))

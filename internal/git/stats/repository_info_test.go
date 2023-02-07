@@ -257,7 +257,7 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 			desc: "garbage",
 			setup: func(t *testing.T, repoPath string) {
 				garbagePath := filepath.Join(repoPath, "objects", "pack", "garbage")
-				require.NoError(t, os.WriteFile(garbagePath, []byte("x"), 0o600))
+				require.NoError(t, os.WriteFile(garbagePath, []byte("x"), perm.PrivateFile))
 			},
 			expectedInfo: RepositoryInfo{
 				Packfiles: PackfilesInfo{
@@ -270,7 +270,7 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 			desc: "alternates",
 			setup: func(t *testing.T, repoPath string) {
 				infoAlternatesPath := filepath.Join(repoPath, "objects", "info", "alternates")
-				require.NoError(t, os.WriteFile(infoAlternatesPath, []byte(alternatePath), 0o600))
+				require.NoError(t, os.WriteFile(infoAlternatesPath, []byte(alternatePath), perm.PrivateFile))
 			},
 			expectedInfo: RepositoryInfo{
 				Alternates: []string{
@@ -355,7 +355,7 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 			desc: "all together",
 			setup: func(t *testing.T, repoPath string) {
 				infoAlternatesPath := filepath.Join(repoPath, "objects", "info", "alternates")
-				require.NoError(t, os.WriteFile(infoAlternatesPath, []byte(alternatePath), 0o600))
+				require.NoError(t, os.WriteFile(infoAlternatesPath, []byte(alternatePath), perm.PrivateFile))
 
 				// We write a single packed blob.
 				blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("x"))
@@ -370,7 +370,7 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 				// everywhere.
 				for _, file := range []string{"garbage1", "garbage2", "garbage3"} {
 					garbagePath := filepath.Join(repoPath, "objects", "pack", file)
-					require.NoError(t, os.WriteFile(garbagePath, []byte("x"), 0o600))
+					require.NoError(t, os.WriteFile(garbagePath, []byte("x"), perm.PrivateFile))
 				}
 			},
 			expectedInfo: RepositoryInfo{
@@ -444,7 +444,7 @@ func TestReferencesInfoForRepository(t *testing.T) {
 				// We just write some random garbage -- we don't verify contents
 				// anyway, but just the size. And testing like that is at least
 				// deterministic as we don't have to special-case hash sizes.
-				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "packed-refs"), []byte("content"), 0o644))
+				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "packed-refs"), []byte("content"), perm.SharedFile))
 			},
 			expectedInfo: ReferencesInfo{
 				PackedReferencesSize: 7,
@@ -464,7 +464,7 @@ func TestReferencesInfoForRepository(t *testing.T) {
 				// We just write some random garbage -- we don't verify contents
 				// anyway, but just the size. And testing like that is at least
 				// deterministic as we don't have to special-case hash sizes.
-				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "packed-refs"), []byte("content"), 0o644))
+				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "packed-refs"), []byte("content"), perm.SharedFile))
 			},
 			expectedInfo: ReferencesInfo{
 				LooseReferencesCount: 3,
@@ -515,7 +515,7 @@ func TestCountLooseObjects(t *testing.T) {
 
 		differentShard := filepath.Join(repoPath, "objects", "a0")
 		require.NoError(t, os.MkdirAll(differentShard, perm.SharedDir))
-		require.NoError(t, os.WriteFile(filepath.Join(differentShard, "123456"), []byte("foobar"), 0o644))
+		require.NoError(t, os.WriteFile(filepath.Join(differentShard, "123456"), []byte("foobar"), perm.SharedFile))
 
 		requireLooseObjectsInfo(t, repo, time.Now(), LooseObjectsInfo{
 			Count:      1,
@@ -531,7 +531,7 @@ func TestCountLooseObjects(t *testing.T) {
 		for i, shard := range []string{"00", "17", "32", "ff"} {
 			shardPath := filepath.Join(repoPath, "objects", shard)
 			require.NoError(t, os.MkdirAll(shardPath, perm.SharedDir))
-			require.NoError(t, os.WriteFile(filepath.Join(shardPath, "123456"), make([]byte, i), 0o644))
+			require.NoError(t, os.WriteFile(filepath.Join(shardPath, "123456"), make([]byte, i), perm.SharedFile))
 		}
 
 		requireLooseObjectsInfo(t, repo, time.Now(), LooseObjectsInfo{
@@ -558,7 +558,7 @@ func TestCountLooseObjects(t *testing.T) {
 		beforeCutoffDate := cutoffDate.Add(-1 * time.Minute)
 
 		for _, objectPath := range objectPaths {
-			require.NoError(t, os.WriteFile(objectPath, []byte("1"), 0o644))
+			require.NoError(t, os.WriteFile(objectPath, []byte("1"), perm.SharedFile))
 			require.NoError(t, os.Chtimes(objectPath, afterCutoffDate, afterCutoffDate))
 		}
 
@@ -587,8 +587,8 @@ func TestCountLooseObjects(t *testing.T) {
 		shard := filepath.Join(repoPath, "objects", "17")
 		require.NoError(t, os.MkdirAll(shard, perm.SharedDir))
 
-		require.NoError(t, os.WriteFile(filepath.Join(shard, "012345"), []byte("valid"), 0o644))
-		require.NoError(t, os.WriteFile(filepath.Join(shard, "garbage"), []byte("garbage"), 0o644))
+		require.NoError(t, os.WriteFile(filepath.Join(shard, "012345"), []byte("valid"), perm.SharedFile))
+		require.NoError(t, os.WriteFile(filepath.Join(shard, "garbage"), []byte("garbage"), perm.SharedFile))
 
 		requireLooseObjectsInfo(t, repo, time.Now(), LooseObjectsInfo{
 			Count:        1,
@@ -627,7 +627,7 @@ func BenchmarkCountLooseObjects(b *testing.B) {
 
 		objectPath := filepath.Join(repoPath, "objects", "17", "12345")
 		require.NoError(b, os.Mkdir(filepath.Dir(objectPath), perm.SharedDir))
-		require.NoError(b, os.WriteFile(objectPath, nil, 0o644))
+		require.NoError(b, os.WriteFile(objectPath, nil, perm.SharedFile))
 
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -642,7 +642,7 @@ func BenchmarkCountLooseObjects(b *testing.B) {
 		for i := 0; i < 256; i++ {
 			objectPath := filepath.Join(repoPath, "objects", fmt.Sprintf("%02x", i), "12345")
 			require.NoError(b, os.Mkdir(filepath.Dir(objectPath), perm.SharedDir))
-			require.NoError(b, os.WriteFile(objectPath, nil, 0o644))
+			require.NoError(b, os.WriteFile(objectPath, nil, perm.SharedFile))
 		}
 
 		b.ResetTimer()
@@ -671,7 +671,7 @@ func BenchmarkCountLooseObjects(b *testing.B) {
 
 			for j := 0; j < looseObjectCount; j++ {
 				objectPath := filepath.Join(shardPath, fmt.Sprintf("%d", j))
-				require.NoError(b, os.WriteFile(objectPath, nil, 0o644))
+				require.NoError(b, os.WriteFile(objectPath, nil, perm.SharedFile))
 			}
 		}
 
@@ -691,7 +691,7 @@ func BenchmarkCountLooseObjects(b *testing.B) {
 
 			for j := 0; j < 1000; j++ {
 				objectPath := filepath.Join(shardPath, fmt.Sprintf("%d", j))
-				require.NoError(b, os.WriteFile(objectPath, nil, 0o644))
+				require.NoError(b, os.WriteFile(objectPath, nil, perm.SharedFile))
 			}
 		}
 
@@ -725,7 +725,7 @@ func TestPackfileInfoForRepository(t *testing.T) {
 			seedRepository: func(t *testing.T, repoPath string) {
 				packfileDir := filepath.Join(repoPath, "objects", "pack")
 				require.NoError(t, os.MkdirAll(packfileDir, perm.SharedDir))
-				require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "pack-foo.pack"), []byte("foobar"), 0o644))
+				require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "pack-foo.pack"), []byte("foobar"), perm.SharedFile))
 			},
 			expectedInfo: PackfilesInfo{
 				Count: 1,
@@ -737,8 +737,8 @@ func TestPackfileInfoForRepository(t *testing.T) {
 			seedRepository: func(t *testing.T, repoPath string) {
 				packfileDir := filepath.Join(repoPath, "objects", "pack")
 				require.NoError(t, os.MkdirAll(packfileDir, perm.SharedDir))
-				require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "pack-foo.pack"), []byte("foobar"), 0o644))
-				require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "pack-foo.keep"), []byte("foobar"), 0o644))
+				require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "pack-foo.pack"), []byte("foobar"), perm.SharedFile))
+				require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "pack-foo.keep"), []byte("foobar"), perm.SharedFile))
 			},
 			expectedInfo: PackfilesInfo{
 				KeepCount: 1,
@@ -750,8 +750,8 @@ func TestPackfileInfoForRepository(t *testing.T) {
 			seedRepository: func(t *testing.T, repoPath string) {
 				packfileDir := filepath.Join(repoPath, "objects", "pack")
 				require.NoError(t, os.MkdirAll(packfileDir, perm.SharedDir))
-				require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "pack-foo.pack"), []byte("foobar"), 0o644))
-				require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "pack-foo.mtimes"), []byte("foobar"), 0o644))
+				require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "pack-foo.pack"), []byte("foobar"), perm.SharedFile))
+				require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "pack-foo.mtimes"), []byte("foobar"), perm.SharedFile))
 			},
 			expectedInfo: PackfilesInfo{
 				CruftCount: 1,
@@ -763,8 +763,8 @@ func TestPackfileInfoForRepository(t *testing.T) {
 			seedRepository: func(t *testing.T, repoPath string) {
 				packfileDir := filepath.Join(repoPath, "objects", "pack")
 				require.NoError(t, os.MkdirAll(packfileDir, perm.SharedDir))
-				require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "pack-foo.pack"), []byte("foobar"), 0o644))
-				require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "pack-bar.pack"), []byte("123"), 0o644))
+				require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "pack-foo.pack"), []byte("foobar"), perm.SharedFile))
+				require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "pack-bar.pack"), []byte("123"), perm.SharedFile))
 			},
 			expectedInfo: PackfilesInfo{
 				Count: 2,
@@ -793,7 +793,7 @@ func TestPackfileInfoForRepository(t *testing.T) {
 			seedRepository: func(t *testing.T, repoPath string) {
 				packfileDir := filepath.Join(repoPath, "objects", "pack")
 				require.NoError(t, os.MkdirAll(packfileDir, perm.SharedDir))
-				require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "multi-pack-index"), nil, 0o644))
+				require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "multi-pack-index"), nil, perm.SharedFile))
 			},
 			expectedInfo: PackfilesInfo{
 				HasMultiPackIndex: true,
@@ -824,7 +824,7 @@ func TestPackfileInfoForRepository(t *testing.T) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("second"), gittest.WithBranch("second"))
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-db", "--write-midx")
 
-				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "objects", "pack", "garbage"), []byte("1"), 0o644))
+				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "objects", "pack", "garbage"), []byte("1"), perm.SharedFile))
 			},
 			expectedInfo: PackfilesInfo{
 				Count:             2,
@@ -1139,7 +1139,7 @@ func TestBitmapInfoForPath(t *testing.T) {
 			desc: "header is too short",
 			setup: func(t *testing.T) string {
 				bitmapPath := filepath.Join(testhelper.TempDir(t), "bitmap")
-				require.NoError(t, os.WriteFile(bitmapPath, []byte{0, 0, 0}, 0o644))
+				require.NoError(t, os.WriteFile(bitmapPath, []byte{0, 0, 0}, perm.SharedFile))
 				return bitmapPath
 			},
 			expectedErr: fmt.Errorf("reading bitmap header: %w", io.ErrUnexpectedEOF),
@@ -1150,7 +1150,7 @@ func TestBitmapInfoForPath(t *testing.T) {
 				bitmapPath := filepath.Join(testhelper.TempDir(t), "bitmap")
 				require.NoError(t, os.WriteFile(bitmapPath, []byte{
 					'B', 'I', 'T', 'O', 0, 0, 0, 0,
-				}, 0o644))
+				}, perm.SharedFile))
 				return bitmapPath
 			},
 			expectedErr: fmt.Errorf("invalid bitmap signature: %q", "BITO"),
@@ -1161,7 +1161,7 @@ func TestBitmapInfoForPath(t *testing.T) {
 				bitmapPath := filepath.Join(testhelper.TempDir(t), "bitmap")
 				require.NoError(t, os.WriteFile(bitmapPath, []byte{
 					'B', 'I', 'T', 'M', 0, 2, 0, 0,
-				}, 0o644))
+				}, perm.SharedFile))
 				return bitmapPath
 			},
 			expectedErr: fmt.Errorf("unsupported version: 2"),

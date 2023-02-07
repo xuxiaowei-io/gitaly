@@ -460,7 +460,7 @@ func TestInstance_Stats(t *testing.T) {
 					gittest.TreeEntry{Path: "application.rb", Mode: "100644", Content: strings.Repeat("a", 2943)},
 				))
 
-				require.NoError(t, os.WriteFile(filepath.Join(repoPath, languageStatsFilename), []byte("garbage"), 0o644))
+				require.NoError(t, os.WriteFile(filepath.Join(repoPath, languageStatsFilename), []byte("garbage"), perm.SharedFile))
 
 				return repoProto, repoPath, commitID
 			},
@@ -532,7 +532,7 @@ func TestInstance_Stats(t *testing.T) {
 			require.NoError(t, os.MkdirAll(infoPath, perm.SharedDir))
 			attrData, err := gittest.NewCommand(t, cfg, "-C", repoPath, "cat-file", "blob", objectID.String()+":.gitattributes").Output()
 			if err == nil {
-				require.NoError(t, os.WriteFile(filepath.Join(infoPath, "attributes"), attrData, 0o644))
+				require.NoError(t, os.WriteFile(filepath.Join(infoPath, "attributes"), attrData, perm.SharedFile))
 			}
 
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)

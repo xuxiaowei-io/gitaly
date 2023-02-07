@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -144,7 +145,7 @@ func TestObjectFormat(t *testing.T) {
 						"[extensions]",
 						"objectFormat = blake2b",
 					}, "\n"),
-				), 0o644))
+				), perm.SharedFile))
 
 				return setupData{
 					request: &gitalypb.ObjectFormatRequest{

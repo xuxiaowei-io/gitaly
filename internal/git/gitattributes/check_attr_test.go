@@ -139,7 +139,7 @@ func TestCheckAttrCmd_Check(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			require.NoError(t, os.WriteFile(attrPath, []byte(tc.attrContent), 0o644))
+			require.NoError(t, os.WriteFile(attrPath, []byte(tc.attrContent), perm.SharedFile))
 
 			checkCmd, finish, err := CheckAttr(ctx, repo, []string{"foo", "bar"})
 			require.NoError(t, err)

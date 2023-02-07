@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -115,7 +116,7 @@ func testDisconnectGitAlternatesUnexpectedAlternates(t *testing.T, ctx context.C
 
 			altPath, err := repo.InfoAlternatesPath()
 			require.NoError(t, err)
-			require.NoError(t, os.WriteFile(altPath, []byte(tc.altContent), 0o644))
+			require.NoError(t, os.WriteFile(altPath, []byte(tc.altContent), perm.SharedFile))
 
 			_, err = client.DisconnectGitAlternates(ctx, &gitalypb.DisconnectGitAlternatesRequest{Repository: repoProto})
 			require.Error(t, err)
@@ -149,7 +150,7 @@ func testRemoveAlternatesIfOk(t *testing.T, ctx context.Context) {
 		altPath, err := repo.InfoAlternatesPath()
 		require.NoError(t, err)
 		altContent := testhelper.TempDir(t) + "\n"
-		require.NoError(t, os.WriteFile(altPath, []byte(altContent), 0o644))
+		require.NoError(t, os.WriteFile(altPath, []byte(altContent), perm.SharedFile))
 
 		// Intentionally break the repository so that the consistency check will cause an
 		// error.
@@ -177,7 +178,7 @@ func testRemoveAlternatesIfOk(t *testing.T, ctx context.Context) {
 		altPath, err := repo.InfoAlternatesPath()
 		require.NoError(t, err)
 		altContent := testhelper.TempDir(t) + "\n"
-		require.NoError(t, os.WriteFile(altPath, []byte(altContent), 0o644))
+		require.NoError(t, os.WriteFile(altPath, []byte(altContent), perm.SharedFile))
 
 		// In order to test the scenario where a commit is in a commit graph but not in the
 		// object database, we will first write a new commit, write the commit graph, then

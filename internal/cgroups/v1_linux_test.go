@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/cgroups"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
 
@@ -221,7 +222,7 @@ func readCgroupFile(t *testing.T, path string) []byte {
 	// The cgroups package defaults to permission 0 as it expects the file to be existing (the kernel creates the file)
 	// and its testing override the permission private variable to something sensible, hence we have to chmod ourselves
 	// so we can read the file.
-	require.NoError(t, os.Chmod(path, 0o666))
+	require.NoError(t, os.Chmod(path, perm.PublicFile))
 
 	return testhelper.MustReadFile(t, path)
 }

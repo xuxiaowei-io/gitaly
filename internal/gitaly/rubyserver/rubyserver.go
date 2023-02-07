@@ -162,7 +162,7 @@ func (s *Server) start() error {
 		// Git configuration. Otherwise, Rugged wouldn't find it.
 		if err := os.WriteFile(filepath.Join(gitconfigDir, "gitconfig"), []byte(
 			"[core]\n\tfsyncObjectFiles = true\n",
-		), 0o666); err != nil {
+		), perm.PublicFile); err != nil {
 			return fmt.Errorf("writing gitconfig: %w", err)
 		}
 

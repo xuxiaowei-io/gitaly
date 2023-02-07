@@ -111,7 +111,7 @@ func (fs *filestore) Create() (namedWriteCloser, error) {
 		return nil, fmt.Errorf("Create: mkdir: %w", err)
 	}
 
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, perm.SharedFile)
 	if err != nil {
 		return nil, fmt.Errorf("Create: %w", err)
 	}

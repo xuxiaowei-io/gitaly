@@ -73,7 +73,7 @@ func TestObjectDirsOutsideStorage(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			ctx := testhelper.Context(t)
 
-			require.NoError(t, os.WriteFile(alternatesFile, []byte(tc.alternates), 0o600))
+			require.NoError(t, os.WriteFile(alternatesFile, []byte(tc.alternates), perm.PrivateFile))
 			out, err := ObjectDirectories(ctx, storageRoot, repoPath)
 			require.Equal(t, expectedErr, err)
 			require.Nil(t, out)

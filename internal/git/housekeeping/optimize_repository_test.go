@@ -423,7 +423,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 
 				for i := 0; i < looseObjectLimit+1; i++ {
 					blobPath := filepath.Join(repoPath, "objects", "17", fmt.Sprintf("%d", i))
-					require.NoError(t, os.WriteFile(blobPath, nil, 0o644))
+					require.NoError(t, os.WriteFile(blobPath, nil, perm.SharedFile))
 					require.NoError(t, os.Chtimes(blobPath, almostTwoWeeksAgo, almostTwoWeeksAgo))
 				}
 
@@ -463,7 +463,7 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 
 				for i := 0; i < looseObjectLimit+1; i++ {
 					blobPath := filepath.Join(repoPath, "objects", "17", fmt.Sprintf("%d", i))
-					require.NoError(t, os.WriteFile(blobPath, nil, 0o644))
+					require.NoError(t, os.WriteFile(blobPath, nil, perm.SharedFile))
 					require.NoError(t, os.Chtimes(blobPath, moreThanTwoWeeksAgo, moreThanTwoWeeksAgo))
 				}
 

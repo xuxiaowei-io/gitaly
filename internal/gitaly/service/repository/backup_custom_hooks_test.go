@@ -36,7 +36,7 @@ func TestBackupCustomHooks_successful(t *testing.T) {
 	}
 	require.NoError(t, os.Mkdir(filepath.Join(repoPath, "custom_hooks"), perm.PrivateDir), "Could not create custom_hooks dir")
 	for _, fileName := range expectedTarResponse[1:] {
-		require.NoError(t, os.WriteFile(filepath.Join(repoPath, fileName), []byte("Some hooks"), 0o700), fmt.Sprintf("Could not create %s", fileName))
+		require.NoError(t, os.WriteFile(filepath.Join(repoPath, fileName), []byte("Some hooks"), perm.PrivateExecutable), fmt.Sprintf("Could not create %s", fileName))
 	}
 
 	backupRequest := &gitalypb.BackupCustomHooksRequest{Repository: repo}

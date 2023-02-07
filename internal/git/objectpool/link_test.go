@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/txinfo"
 	"google.golang.org/grpc/peer"
@@ -117,7 +118,7 @@ func TestLink_absoluteLinkExists(t *testing.T) {
 	altPath, err := repo.InfoAlternatesPath()
 	require.NoError(t, err)
 
-	require.NoError(t, os.WriteFile(altPath, []byte(poolObjectsPath), 0o644))
+	require.NoError(t, os.WriteFile(altPath, []byte(poolObjectsPath), perm.SharedFile))
 
 	require.NoError(t, pool.Link(ctx, repo), "we expect this call to change the absolute link to a relative link")
 

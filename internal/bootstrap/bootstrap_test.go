@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
 
@@ -77,7 +78,7 @@ func TestBootstrap_unixListener(t *testing.T) {
 			require.NoError(t, err)
 
 			if tc.preexistingSocket {
-				require.NoError(t, os.WriteFile(socketPath, nil, 0o755))
+				require.NoError(t, os.WriteFile(socketPath, nil, perm.SharedExecutable))
 			}
 
 			listener, err := b.listen("unix", socketPath)

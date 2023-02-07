@@ -49,7 +49,7 @@ func (f *fileEntry) create(t *testing.T, parent string) {
 	t.Helper()
 
 	filename := filepath.Join(parent, f.name)
-	ff, err := os.OpenFile(filename, os.O_RDONLY|os.O_CREATE, 0o700)
+	ff, err := os.OpenFile(filename, os.O_RDONLY|os.O_CREATE, perm.PrivateFile)
 	assert.NoError(t, err, "file creation failed: %v", filename)
 	err = ff.Close()
 	assert.NoError(t, err, "file close failed: %v", filename)
@@ -186,9 +186,9 @@ func TestRepositoryManager_CleanStaleData(t *testing.T) {
 			name: "clean",
 			entries: []entry{
 				d("objects", perm.PrivateDir, 240*time.Hour, Keep,
-					f("a", 0o700, 24*time.Hour, Keep),
-					f("b", 0o700, 24*time.Hour, Keep),
-					f("c", 0o700, 24*time.Hour, Keep),
+					f("a", perm.PrivateFile, 24*time.Hour, Keep),
+					f("b", perm.PrivateFile, 24*time.Hour, Keep),
+					f("c", perm.PrivateFile, 24*time.Hour, Keep),
 				),
 			},
 		},
@@ -196,7 +196,7 @@ func TestRepositoryManager_CleanStaleData(t *testing.T) {
 			name: "emptyperms",
 			entries: []entry{
 				d("objects", perm.PrivateDir, 240*time.Hour, Keep,
-					f("b", 0o700, 24*time.Hour, Keep),
+					f("b", perm.PrivateFile, 24*time.Hour, Keep),
 					f("tmp_a", 0o000, 2*time.Hour, Keep),
 				),
 			},
@@ -206,7 +206,7 @@ func TestRepositoryManager_CleanStaleData(t *testing.T) {
 			entries: []entry{
 				d("objects", perm.PrivateDir, 240*time.Hour, Keep,
 					d("tmp_d", 0o000, 240*time.Hour, Keep),
-					f("b", 0o700, 24*time.Hour, Keep),
+					f("b", perm.PrivateFile, 24*time.Hour, Keep),
 				),
 			},
 		},
@@ -214,8 +214,8 @@ func TestRepositoryManager_CleanStaleData(t *testing.T) {
 			name: "oldtempfile",
 			entries: []entry{
 				d("objects", perm.PrivateDir, 240*time.Hour, Keep,
-					f("tmp_a", 0o644, 240*time.Hour, Delete),
-					f("b", 0o700, 24*time.Hour, Keep),
+					f("tmp_a", perm.SharedFile, 240*time.Hour, Delete),
+					f("b", perm.PrivateFile, 24*time.Hour, Keep),
 				),
 			},
 			expectedMetrics: cleanStaleDataMetrics{
@@ -227,7 +227,7 @@ func TestRepositoryManager_CleanStaleData(t *testing.T) {
 			entries: []entry{
 				d("objects", perm.PrivateDir, 240*time.Hour, Keep,
 					d("a", perm.GroupPrivateDir, 240*time.Hour, Keep,
-						f("tmp_b", 0o700, 240*time.Hour, Delete),
+						f("tmp_b", perm.PrivateFile, 240*time.Hour, Delete),
 					),
 				),
 			},
@@ -240,7 +240,7 @@ func TestRepositoryManager_CleanStaleData(t *testing.T) {
 			entries: []entry{
 				d("objects", perm.PrivateDir, 240*time.Hour, Keep,
 					d("tmp_a", 0o000, 240*time.Hour, Keep,
-						f("tmp_b", 0o700, 240*time.Hour, Delete),
+						f("tmp_b", perm.PrivateFile, 240*time.Hour, Delete),
 					),
 				),
 			},
@@ -263,9 +263,9 @@ func TestRepositoryManager_CleanStaleData(t *testing.T) {
 		{
 			name: "files outside of object database",
 			entries: []entry{
-				f("tmp_a", 0o644, 240*time.Hour, Keep),
+				f("tmp_a", perm.SharedFile, 240*time.Hour, Keep),
 				d("info", perm.PrivateDir, 240*time.Hour, Keep,
-					f("tmp_a", 0o644, 240*time.Hour, Keep),
+					f("tmp_a", perm.SharedFile, 240*time.Hour, Keep),
 				),
 			},
 		},
@@ -395,7 +395,7 @@ func TestRepositoryManager_CleanStaleData_references(t *testing.T) {
 				path := filepath.Join(repoPath, ref.name)
 
 				require.NoError(t, os.MkdirAll(filepath.Dir(path), perm.SharedDir))
-				require.NoError(t, os.WriteFile(path, bytes.Repeat([]byte{0}, ref.size), 0o644))
+				require.NoError(t, os.WriteFile(path, bytes.Repeat([]byte{0}, ref.size), perm.SharedFile))
 				filetime := time.Now().Add(-ref.age)
 				require.NoError(t, os.Chtimes(path, filetime, filetime))
 			}
@@ -498,7 +498,7 @@ func TestRepositoryManager_CleanStaleData_emptyRefDirs(t *testing.T) {
 							d("third", perm.PrivateDir, 24*time.Hour, Delete),
 						),
 						d("other", perm.PrivateDir, 240*time.Hour, Keep,
-							f("ref", 0o700, 1*time.Hour, Keep),
+							f("ref", perm.PrivateFile, 1*time.Hour, Keep),
 						),
 					),
 				),
@@ -662,32 +662,32 @@ func TestRepositoryManager_CleanStaleData_withSpecificFile(t *testing.T) {
 			}{
 				{
 					desc:  fmt.Sprintf("fresh %s is kept", tc.file),
-					entry: f(tc.file, 0o700, 10*time.Minute, Keep),
+					entry: f(tc.file, perm.PrivateFile, 10*time.Minute, Keep),
 				},
 				{
 					desc: fmt.Sprintf("stale %s in subdir is kept", tc.file),
 					entry: d("subdir", perm.PrivateDir, 240*time.Hour, Keep,
-						f(tc.file, 0o700, 24*time.Hour, Keep),
+						f(tc.file, perm.PrivateFile, 24*time.Hour, Keep),
 					),
 				},
 				{
 					desc:  fmt.Sprintf("stale %s is deleted", tc.file),
-					entry: f(tc.file, 0o700, 61*time.Minute, Delete),
+					entry: f(tc.file, perm.PrivateFile, 61*time.Minute, Delete),
 					expectedFiles: []string{
 						filepath.Join(append([]string{repoPath}, append(tc.subdirs, tc.file)...)...),
 					},
 				},
 				{
 					desc:  fmt.Sprintf("%q is kept", tc.file[:len(tc.file)-1]),
-					entry: f(tc.file[:len(tc.file)-1], 0o700, 61*time.Minute, Keep),
+					entry: f(tc.file[:len(tc.file)-1], perm.PrivateFile, 61*time.Minute, Keep),
 				},
 				{
 					desc:  fmt.Sprintf("%q is kept", "~"+tc.file),
-					entry: f("~"+tc.file, 0o700, 61*time.Minute, Keep),
+					entry: f("~"+tc.file, perm.PrivateFile, 61*time.Minute, Keep),
 				},
 				{
 					desc:  fmt.Sprintf("%q is kept", tc.file+"~"),
-					entry: f(tc.file+"~", 0o700, 61*time.Minute, Keep),
+					entry: f(tc.file+"~", perm.PrivateFile, 61*time.Minute, Keep),
 				},
 			} {
 				t.Run(subcase.desc, func(t *testing.T) {
@@ -722,17 +722,17 @@ func TestRepositoryManager_CleanStaleData_serverInfo(t *testing.T) {
 
 	entries := []entry{
 		d("info", perm.SharedDir, 0, Keep,
-			f("ref", 0o644, 0, Keep),
-			f("refs", 0o644, 0, Delete),
-			f("refsx", 0o644, 0, Keep),
-			f("refs_123456", 0o644, 0, Delete),
+			f("ref", perm.SharedFile, 0, Keep),
+			f("refs", perm.SharedFile, 0, Delete),
+			f("refsx", perm.SharedFile, 0, Keep),
+			f("refs_123456", perm.SharedFile, 0, Delete),
 		),
 		d("objects", perm.SharedDir, 0, Keep,
 			d("info", perm.SharedDir, 0, Keep,
-				f("pack", 0o644, 0, Keep),
-				f("packs", 0o644, 0, Delete),
-				f("packsx", 0o644, 0, Keep),
-				f("packs_123456", 0o644, 0, Delete),
+				f("pack", perm.SharedFile, 0, Keep),
+				f("packs", perm.SharedFile, 0, Delete),
+				f("packsx", perm.SharedFile, 0, Keep),
+				f("packs_123456", perm.SharedFile, 0, Delete),
 			),
 		),
 	}
@@ -777,8 +777,8 @@ func TestRepositoryManager_CleanStaleData_referenceLocks(t *testing.T) {
 			desc: "fresh lock is kept",
 			entries: []entry{
 				d("refs", perm.SharedDir, 0*time.Hour, Keep,
-					f("main", 0o755, 10*time.Minute, Keep),
-					f("main.lock", 0o755, 10*time.Minute, Keep),
+					f("main", perm.SharedExecutable, 10*time.Minute, Keep),
+					f("main.lock", perm.SharedExecutable, 10*time.Minute, Keep),
 				),
 			},
 		},
@@ -786,8 +786,8 @@ func TestRepositoryManager_CleanStaleData_referenceLocks(t *testing.T) {
 			desc: "stale lock is deleted",
 			entries: []entry{
 				d("refs", perm.SharedDir, 0*time.Hour, Keep,
-					f("main", 0o755, 1*time.Hour, Keep),
-					f("main.lock", 0o755, 1*time.Hour, Delete),
+					f("main", perm.SharedExecutable, 1*time.Hour, Keep),
+					f("main.lock", perm.SharedExecutable, 1*time.Hour, Delete),
 				),
 			},
 			expectedReferenceLocks: []string{
@@ -802,16 +802,16 @@ func TestRepositoryManager_CleanStaleData_referenceLocks(t *testing.T) {
 			entries: []entry{
 				d("refs", perm.SharedDir, 0*time.Hour, Keep,
 					d("tags", perm.SharedDir, 0*time.Hour, Keep,
-						f("main", 0o755, 1*time.Hour, Keep),
-						f("main.lock", 0o755, 1*time.Hour, Delete),
+						f("main", perm.SharedExecutable, 1*time.Hour, Keep),
+						f("main.lock", perm.SharedExecutable, 1*time.Hour, Delete),
 					),
 					d("heads", perm.SharedDir, 0*time.Hour, Keep,
-						f("main", 0o755, 1*time.Hour, Keep),
-						f("main.lock", 0o755, 1*time.Hour, Delete),
+						f("main", perm.SharedExecutable, 1*time.Hour, Keep),
+						f("main.lock", perm.SharedExecutable, 1*time.Hour, Delete),
 					),
 					d("foobar", perm.SharedDir, 0*time.Hour, Keep,
-						f("main", 0o755, 1*time.Hour, Keep),
-						f("main.lock", 0o755, 1*time.Hour, Delete),
+						f("main", perm.SharedExecutable, 1*time.Hour, Keep),
+						f("main.lock", perm.SharedExecutable, 1*time.Hour, Delete),
 					),
 				),
 			},
@@ -1001,7 +1001,7 @@ func TestRepositoryManager_CleanStaleData_unsetConfiguration(t *testing.T) {
 	else = untouched
 [totally]
 	unrelated = untouched
-`), 0o644))
+`), perm.SharedFile))
 
 	mgr := NewManager(cfg.Prometheus, nil)
 
@@ -1092,7 +1092,7 @@ func TestRepositoryManager_CleanStaleData_pruneEmptyConfigSections(t *testing.T)
 [remote "tmp-03b5e8c765135b343214d471843a062a"]
 [remote "tmp-f57338181aca1d599669dbb71ce9ce57"]
 [remote "tmp-8c948ca94832c2725733e48cb2902287"]
-`), 0o644))
+`), perm.SharedFile))
 
 	mgr := NewManager(cfg.Prometheus, nil)
 
@@ -1240,7 +1240,7 @@ func TestPruneEmptyConfigSections(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			require.NoError(t, os.WriteFile(configPath, []byte(tc.configData), 0o644))
+			require.NoError(t, os.WriteFile(configPath, []byte(tc.configData), perm.SharedFile))
 
 			skippedSections, err := pruneEmptyConfigSections(ctx, repo)
 			require.NoError(t, err)

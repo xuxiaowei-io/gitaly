@@ -61,7 +61,7 @@ func TestManager_Create(t *testing.T) {
 					Seed: gittest.SeedGitLabTest,
 				})
 				require.NoError(tb, os.Mkdir(filepath.Join(hooksRepoPath, "custom_hooks"), perm.PublicDir))
-				require.NoError(tb, os.WriteFile(filepath.Join(hooksRepoPath, "custom_hooks/pre-commit.sample"), []byte("Some hooks"), os.ModePerm))
+				require.NoError(tb, os.WriteFile(filepath.Join(hooksRepoPath, "custom_hooks/pre-commit.sample"), []byte("Some hooks"), perm.PublicFile))
 				return hooksRepo, hooksRepoPath
 			},
 			createsBundle:      true,
@@ -126,7 +126,7 @@ func TestManager_Create(t *testing.T) {
 
 				bundleInfo, err := os.Stat(bundlePath)
 				require.NoError(t, err)
-				require.Equal(t, os.FileMode(0o600), bundleInfo.Mode().Perm(), "expecting restricted file permissions")
+				require.Equal(t, perm.PrivateFile, bundleInfo.Mode().Perm(), "expecting restricted file permissions")
 
 				output := gittest.Exec(t, cfg, "-C", repoPath, "bundle", "verify", bundlePath)
 				require.Contains(t, string(output), "The bundle records a complete history")
@@ -189,10 +189,10 @@ func TestManager_Create_incremental(t *testing.T) {
 				gittest.Exec(tb, cfg, "-C", repoPath, "bundle", "create", bundlePath, "--all")
 
 				refs := gittest.Exec(tb, cfg, "-C", repoPath, "show-ref", "--head")
-				require.NoError(tb, os.WriteFile(refsPath, refs, os.ModePerm))
+				require.NoError(tb, os.WriteFile(refsPath, refs, perm.PublicFile))
 
-				require.NoError(tb, os.WriteFile(filepath.Join(backupRepoPath, "LATEST"), []byte(backupID), os.ModePerm))
-				require.NoError(tb, os.WriteFile(filepath.Join(backupPath, "LATEST"), []byte("001"), os.ModePerm))
+				require.NoError(tb, os.WriteFile(filepath.Join(backupRepoPath, "LATEST"), []byte(backupID), perm.PublicFile))
+				require.NoError(tb, os.WriteFile(filepath.Join(backupPath, "LATEST"), []byte("001"), perm.PublicFile))
 
 				return repo, repoPath
 			},
@@ -214,10 +214,10 @@ func TestManager_Create_incremental(t *testing.T) {
 				gittest.Exec(tb, cfg, "-C", repoPath, "bundle", "create", bundlePath, "--all")
 
 				refs := gittest.Exec(tb, cfg, "-C", repoPath, "show-ref", "--head")
-				require.NoError(tb, os.WriteFile(refsPath, refs, os.ModePerm))
+				require.NoError(tb, os.WriteFile(refsPath, refs, perm.PublicFile))
 
-				require.NoError(tb, os.WriteFile(filepath.Join(backupRepoPath, "LATEST"), []byte(backupID), os.ModePerm))
-				require.NoError(tb, os.WriteFile(filepath.Join(backupPath, "LATEST"), []byte("001"), os.ModePerm))
+				require.NoError(tb, os.WriteFile(filepath.Join(backupRepoPath, "LATEST"), []byte(backupID), perm.PublicFile))
+				require.NoError(tb, os.WriteFile(filepath.Join(backupPath, "LATEST"), []byte("001"), perm.PublicFile))
 
 				gittest.WriteCommit(tb, cfg, repoPath, gittest.WithBranch("master"))
 
@@ -381,8 +381,8 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 				repoBackupPath := joinBackupPath(tb, backupRoot, repo)
 				backupPath := filepath.Join(repoBackupPath, backupID)
 				require.NoError(tb, os.MkdirAll(backupPath, perm.PublicDir))
-				require.NoError(tb, os.WriteFile(filepath.Join(repoBackupPath, "LATEST"), []byte(backupID), os.ModePerm))
-				require.NoError(tb, os.WriteFile(filepath.Join(backupPath, "LATEST"), []byte("001"), os.ModePerm))
+				require.NoError(tb, os.WriteFile(filepath.Join(repoBackupPath, "LATEST"), []byte(backupID), perm.PublicFile))
+				require.NoError(tb, os.WriteFile(filepath.Join(backupPath, "LATEST"), []byte("001"), perm.PublicFile))
 				bundlePath := filepath.Join(backupPath, "001.bundle")
 				gittest.BundleRepo(tb, cfg, repoPath, bundlePath)
 
@@ -402,8 +402,8 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 				repoBackupPath := joinBackupPath(tb, backupRoot, repo)
 				backupPath := filepath.Join(repoBackupPath, backupID)
 				require.NoError(tb, os.MkdirAll(backupPath, perm.PublicDir))
-				require.NoError(tb, os.WriteFile(filepath.Join(repoBackupPath, "LATEST"), []byte(backupID), os.ModePerm))
-				require.NoError(tb, os.WriteFile(filepath.Join(backupPath, "LATEST"), []byte("002"), os.ModePerm))
+				require.NoError(tb, os.WriteFile(filepath.Join(repoBackupPath, "LATEST"), []byte(backupID), perm.PublicFile))
+				require.NoError(tb, os.WriteFile(filepath.Join(backupPath, "LATEST"), []byte("002"), perm.PublicFile))
 
 				root := gittest.WriteCommit(tb, cfg, expectedRepoPath,
 					gittest.WithBranch("master"),
@@ -533,7 +533,7 @@ func TestResolveSink(t *testing.T) {
   "token_uri": "https://accounts.google.com/o/oauth2/token",
   "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
   "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/303724477529-compute%40developer.gserviceaccount.com"
-}`), 0o644))
+}`), perm.SharedFile))
 
 	for _, tc := range []struct {
 		desc   string

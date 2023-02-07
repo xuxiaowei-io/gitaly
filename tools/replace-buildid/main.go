@@ -16,6 +16,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 )
 
 func main() {
@@ -105,7 +107,7 @@ func writeBinary(binaryPath string, contents []byte) error {
 		f.Close()
 	}()
 
-	if err := f.Chmod(0o755); err != nil {
+	if err := f.Chmod(perm.SharedExecutable); err != nil {
 		return fmt.Errorf("could not change permissions: %w", err)
 	}
 

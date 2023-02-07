@@ -19,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -582,7 +583,7 @@ func TestRepo_SetDefaultBranch_errors(t *testing.T) {
 		path, err := repo.Path()
 		require.NoError(t, err)
 
-		require.NoError(t, os.WriteFile(filepath.Join(path, "HEAD.lock"), []byte(""), 0o644))
+		require.NoError(t, os.WriteFile(filepath.Join(path, "HEAD.lock"), []byte(""), perm.SharedFile))
 
 		err = repo.SetDefaultBranch(ctx, &transaction.MockManager{}, "refs/heads/branch")
 		require.ErrorIs(t, err, safe.ErrFileAlreadyLocked)

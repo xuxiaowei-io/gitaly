@@ -46,7 +46,7 @@ func getSnapshot(tb testing.TB, client gitalypb.RepositoryServiceClient, req *gi
 
 func touch(t *testing.T, format string, args ...interface{}) {
 	path := fmt.Sprintf(format, args...)
-	require.NoError(t, os.WriteFile(path, nil, 0o644))
+	require.NoError(t, os.WriteFile(path, nil, perm.SharedFile))
 }
 
 func TestGetSnapshotSuccess(t *testing.T) {
@@ -137,7 +137,7 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 			// Write alternates file to point to alt objects folder.
 			alternatesPath, err := repo.InfoAlternatesPath()
 			require.NoError(t, err)
-			require.NoError(t, os.WriteFile(alternatesPath, []byte(fmt.Sprintf("%s\n", alternateObjDir)), 0o644))
+			require.NoError(t, os.WriteFile(alternatesPath, []byte(fmt.Sprintf("%s\n", alternateObjDir)), perm.SharedFile))
 
 			// Write another commit into the alternate object directory.
 			secondCommitID := gittest.WriteCommit(t, cfg, repoPath,
@@ -178,7 +178,7 @@ func TestGetSnapshot_alternateObjectDirectory(t *testing.T) {
 	t.Run("nonexistent", func(t *testing.T) {
 		alternateObjectDir := filepath.Join(repoPath, "does-not-exist")
 
-		require.NoError(t, os.WriteFile(alternatesFile, []byte(fmt.Sprintf("%s\n", alternateObjectDir)), 0o644))
+		require.NoError(t, os.WriteFile(alternatesFile, []byte(fmt.Sprintf("%s\n", alternateObjectDir)), perm.SharedFile))
 		defer func() {
 			require.NoError(t, os.Remove(alternatesFile))
 		}()
@@ -193,7 +193,7 @@ func TestGetSnapshot_alternateObjectDirectory(t *testing.T) {
 
 		alternateObjectDir := filepath.Join(storageRoot, "..")
 
-		require.NoError(t, os.WriteFile(alternatesFile, []byte(alternateObjectDir), 0o600))
+		require.NoError(t, os.WriteFile(alternatesFile, []byte(alternateObjectDir), perm.PrivateFile))
 		defer func() {
 			require.NoError(t, os.Remove(alternatesFile))
 		}()
@@ -224,7 +224,7 @@ func TestGetSnapshot_alternateObjectDirectory(t *testing.T) {
 			gittest.WithBranch("some-branch"),
 		)
 
-		require.NoError(t, os.WriteFile(alternatesFile, []byte(alternateObjectDir), 0o644))
+		require.NoError(t, os.WriteFile(alternatesFile, []byte(alternateObjectDir), perm.SharedFile))
 		defer func() {
 			require.NoError(t, os.Remove(alternatesFile))
 		}()

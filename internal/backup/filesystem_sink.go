@@ -32,7 +32,7 @@ func (fs *FilesystemSink) Write(ctx context.Context, relativePath string, r io.R
 		return fmt.Errorf("create directory structure %q: %w", dir, err)
 	}
 
-	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600)
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, perm.PrivateFile)
 	if err != nil {
 		return fmt.Errorf("write file %q: %w", path, err)
 	}

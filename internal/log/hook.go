@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 )
 
 // HookLogger is a wrapper around *logrus.Logger
@@ -24,7 +25,7 @@ func NewHookLogger() *HookLogger {
 		return &HookLogger{logger: logger}
 	}
 
-	logFile, err := os.OpenFile(filepath.Join(logDir, "gitaly_hooks.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	logFile, err := os.OpenFile(filepath.Join(logDir, "gitaly_hooks.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, perm.SharedFile)
 	if err != nil {
 		logger.SetOutput(io.Discard)
 	} else {

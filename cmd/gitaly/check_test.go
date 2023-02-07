@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 )
@@ -113,7 +114,7 @@ func writeTemporaryGitalyConfigFile(tb testing.TB, cfg config.Cfg) string {
 
 	contents, err := toml.Marshal(cfg)
 	require.NoError(tb, err)
-	require.NoError(tb, os.WriteFile(path, contents, 0o644))
+	require.NoError(tb, os.WriteFile(path, contents, perm.SharedFile))
 
 	return path
 }

@@ -219,14 +219,14 @@ func TestCreate(t *testing.T) {
 				// indeterministic data that's different across replicas and would
 				// thus cause us to not reach quorum.
 				require.NoError(t, os.Mkdir(filepath.Join(repoPath, "objects"), perm.PublicDir))
-				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "objects", "object"), []byte("object"), 0o666))
-				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "FETCH_HEAD"), []byte("fetch-head"), 0o666))
+				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "objects", "object"), []byte("object"), perm.PublicFile))
+				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "FETCH_HEAD"), []byte("fetch-head"), perm.PublicFile))
 
 				// All the other files should be hashed though.
-				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "HEAD"), []byte("head"), 0o666))
-				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "config"), []byte("cfg"), 0o666))
+				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "HEAD"), []byte("head"), perm.PublicFile))
+				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "config"), []byte("cfg"), perm.PublicFile))
 				require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "refs", "heads"), perm.PublicDir))
-				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "refs", "heads", "foo"), []byte("foo"), 0o666))
+				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "refs", "heads", "foo"), []byte("foo"), perm.PublicFile))
 
 				return nil
 			},

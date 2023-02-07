@@ -33,7 +33,7 @@ func NewGitalyServerLogger(tb testing.TB) *logrus.Logger {
 	}
 
 	path := filepath.Join(logDir, "gitaly_server.log")
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0o755)
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_RDWR, perm.SharedExecutable)
 	require.NoError(tb, err)
 
 	tb.Cleanup(func() { require.NoError(tb, f.Close()) })

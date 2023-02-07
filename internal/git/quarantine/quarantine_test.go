@@ -34,7 +34,7 @@ func (e entry) create(t *testing.T, root string) {
 			child.create(t, filepath.Join(root, name))
 		}
 	} else {
-		require.NoError(t, os.WriteFile(root, []byte(e.contents), 0o666))
+		require.NoError(t, os.WriteFile(root, []byte(e.contents), perm.PublicFile))
 	}
 }
 
@@ -122,7 +122,7 @@ func TestQuarantine_Migrate(t *testing.T) {
 		quarantine, err := New(ctx, repo, locator)
 		require.NoError(t, err)
 
-		require.NoError(t, os.WriteFile(filepath.Join(quarantine.dir.Path(), "file"), []byte("foobar"), 0o666))
+		require.NoError(t, os.WriteFile(filepath.Join(quarantine.dir.Path(), "file"), []byte("foobar"), perm.PublicFile))
 		require.NoError(t, quarantine.Migrate())
 
 		newContents := listEntries(t, repoPath)
@@ -337,7 +337,7 @@ func TestFinalizeObjectFile(t *testing.T) {
 
 		source := filepath.Join(dir, "a")
 		target := filepath.Join(dir, "b")
-		require.NoError(t, os.WriteFile(source, []byte("a"), 0o777))
+		require.NoError(t, os.WriteFile(source, []byte("a"), perm.PublicExecutable))
 
 		require.NoError(t, finalizeObjectFile(source, target))
 		require.NoFileExists(t, source)
@@ -350,7 +350,7 @@ func TestFinalizeObjectFile(t *testing.T) {
 
 		source := filepath.Join(sourceDir, "a")
 		target := filepath.Join(targetDir, "a")
-		require.NoError(t, os.WriteFile(source, []byte("a"), 0o777))
+		require.NoError(t, os.WriteFile(source, []byte("a"), perm.PublicExecutable))
 
 		require.NoError(t, finalizeObjectFile(source, target))
 		require.NoFileExists(t, source)
@@ -361,10 +361,10 @@ func TestFinalizeObjectFile(t *testing.T) {
 		dir := testhelper.TempDir(t)
 
 		source := filepath.Join(dir, "a")
-		require.NoError(t, os.WriteFile(source, []byte("a"), 0o777))
+		require.NoError(t, os.WriteFile(source, []byte("a"), perm.PublicExecutable))
 
 		target := filepath.Join(dir, "b")
-		require.NoError(t, os.WriteFile(target, []byte("b"), 0o777))
+		require.NoError(t, os.WriteFile(target, []byte("b"), perm.PublicExecutable))
 
 		// We do not expect an error in case the target file exists: given that objects and
 		// packs are content addressable, a file with the same name should have the same

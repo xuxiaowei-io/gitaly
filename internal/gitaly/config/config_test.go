@@ -185,7 +185,7 @@ func TestValidateStorages(t *testing.T) {
 	require.NoError(t, os.MkdirAll(nestedRepositories, perm.PublicDir))
 
 	filePath := filepath.Join(testhelper.TempDir(t), "temporary-file")
-	require.NoError(t, os.WriteFile(filePath, []byte{}, 0o666))
+	require.NoError(t, os.WriteFile(filePath, []byte{}, perm.PublicFile))
 
 	invalidDir := filepath.Join(repositories, t.Name())
 
@@ -427,7 +427,7 @@ func TestValidateShellPath(t *testing.T) {
 
 	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "bin"), perm.SharedDir))
 	tmpFile := filepath.Join(tmpDir, "my-file")
-	require.NoError(t, os.WriteFile(tmpFile, []byte{}, 0o666))
+	require.NoError(t, os.WriteFile(tmpFile, []byte{}, perm.PublicFile))
 
 	testCases := []struct {
 		desc      string
@@ -473,7 +473,7 @@ func TestConfigureRuby(t *testing.T) {
 	tmpDir := testhelper.TempDir(t)
 
 	tmpFile := filepath.Join(tmpDir, "file")
-	require.NoError(t, os.WriteFile(tmpFile, nil, 0o644))
+	require.NoError(t, os.WriteFile(tmpFile, nil, perm.SharedFile))
 
 	testCases := []struct {
 		desc      string
@@ -1264,7 +1264,7 @@ func TestSetupRuntimeDirectory(t *testing.T) {
 	t.Run("validation", func(t *testing.T) {
 		dirPath := testhelper.TempDir(t)
 		filePath := filepath.Join(dirPath, "file")
-		require.NoError(t, os.WriteFile(filePath, nil, 0o644))
+		require.NoError(t, os.WriteFile(filePath, nil, perm.SharedFile))
 
 		for _, tc := range []struct {
 			desc        string

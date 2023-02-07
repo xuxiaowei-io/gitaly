@@ -57,7 +57,7 @@ func TestGetObjectPoolBadFile(t *testing.T) {
 
 	alternatesFilePath := filepath.Join(repoPath, "objects", "info", "alternates")
 	require.NoError(t, os.MkdirAll(filepath.Dir(alternatesFilePath), perm.SharedDir))
-	require.NoError(t, os.WriteFile(alternatesFilePath, []byte("not-a-directory"), 0o644))
+	require.NoError(t, os.WriteFile(alternatesFilePath, []byte("not-a-directory"), perm.SharedFile))
 
 	resp, err := client.GetObjectPool(ctx, &gitalypb.GetObjectPoolRequest{
 		Repository: repo,
