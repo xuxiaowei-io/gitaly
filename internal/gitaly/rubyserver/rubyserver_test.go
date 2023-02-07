@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package rubyserver
 
 import (
@@ -43,7 +41,6 @@ func TestSetHeaders(t *testing.T) {
 
 	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 
 	locator := config.NewLocator(cfg)
