@@ -265,4 +265,27 @@ func TestAddRepository_Exec(t *testing.T) {
 
 		assert.NoError(t, cmd.Exec(flag.NewFlagSet("", flag.PanicOnError), conf))
 	})
+
+	t.Run("replication event exists", func(t *testing.T) {
+		relativePath := "path/to/test/repo_3"
+
+		require.NoError(t, createRepoThroughGitaly1(relativePath))
+		require.DirExists(t, filepath.Join(g1Cfg.Storages[0].Path, relativePath))
+		require.NoDirExists(t, filepath.Join(g2Cfg.Storages[0].Path, relativePath))
+
+		var stdout bytes.Buffer
+		cmd := &trackRepository{
+			w:                    &stdout,
+			logger:               testhelper.NewDiscardingLogger(t),
+			virtualStorage:       virtualStorageName,
+			relativePath:         relativePath,
+			authoritativeStorage: authoritativeStorage,
+		}
+
+		assert.NoError(t, cmd.Exec(flag.NewFlagSet("", flag.PanicOnError), conf))
+		// running the command twice means we try creating the replication event
+		// again, which should log the duplicate but not break the flow.
+		assert.NoError(t, cmd.Exec(flag.NewFlagSet("", flag.PanicOnError), conf))
+		assert.Contains(t, stdout.String(), "replication event queue already has similar entry: replication event \"\" -> \"praefect\" -> \"gitaly-2\" -> \"path/to/test/repo_3\" already exists.")
+	})
 }

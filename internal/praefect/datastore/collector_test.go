@@ -270,10 +270,11 @@ func TestRepositoryStoreCollector_ReplicationQueueDepth(t *testing.T) {
 			_, err := queue.Enqueue(ctx, ReplicationEvent{
 				Job: ReplicationJob{
 					Change:            UpdateRepo,
-					RelativePath:      "/project/path-1",
+					RelativePath:      fmt.Sprintf("/project/path-%d", i),
 					TargetNodeStorage: nodes[1],
 					SourceNodeStorage: nodes[0],
 					VirtualStorage:    virtualStorage,
+					RepositoryID:      int64(i),
 					Params:            nil,
 				},
 			})

@@ -12,6 +12,25 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore/glsql"
 )
 
+// ReplicationEventExistsError is returned when trying to add an already existing
+// replication event into the queue.
+type ReplicationEventExistsError struct {
+	state             string
+	virtualStorage    string
+	targetNodeStorage string
+	relativePath      string
+}
+
+// Error returns the errors message.
+func (err ReplicationEventExistsError) Error() string {
+	return fmt.Sprintf("replication event %q -> %q -> %q -> %q already exists",
+		err.state,
+		err.virtualStorage,
+		err.targetNodeStorage,
+		err.relativePath,
+	)
+}
+
 // ReplicationEventQueue allows to put new events to the persistent queue and retrieve them back.
 type ReplicationEventQueue interface {
 	// Enqueue puts provided event into the persistent queue.
@@ -20,7 +39,7 @@ type ReplicationEventQueue interface {
 	Dequeue(ctx context.Context, virtualStorage, nodeStorage string, count int) ([]ReplicationEvent, error)
 	// Acknowledge updates previously dequeued events with the new state and releases resources acquired for it.
 	// It updates events that are in 'in_progress' state to the state that is passed in.
-	// It also updates state of similar events (scheduled fot the same repository with same change from the same source)
+	// It also updates state of similar events (scheduled for the same repository with same change from the same source)
 	// that are in 'ready' state and created before the target event was dequeue for the processing if the new state is
 	// 'completed'. Otherwise it won't be changed.
 	// It returns sub-set of passed in ids that were updated.
@@ -66,7 +85,7 @@ type ReplicationJob struct {
 	Params            Params `json:"params"`
 }
 
-//nolint:revive // This is unintentionally missing documentation.
+// Scan a value of json data into the ReplicationJob
 func (job *ReplicationJob) Scan(value interface{}) error {
 	if value == nil {
 		return nil
@@ -80,7 +99,7 @@ func (job *ReplicationJob) Scan(value interface{}) error {
 	return json.Unmarshal(d, job)
 }
 
-//nolint:revive // This is unintentionally missing documentation.
+// Value transforms the ReplicationJob into json
 func (job ReplicationJob) Value() (driver.Value, error) {
 	data, err := json.Marshal(job)
 	if err != nil {
@@ -208,14 +227,13 @@ type PostgresReplicationEventQueue struct {
 	qc glsql.Querier
 }
 
-//nolint:revive // This is unintentionally missing documentation.
+// Enqueue puts the provided event into the persistent queue.
+// When `Enqueue` method is called:
+//  1. Insertion of the new record into `replication_queue_lock` table, so we are ensured all events have
+//     a corresponding <lock>. If a record already exists it won't be inserted again.
+//  2. Insertion of the new record into the `replication_queue` table with the defaults listed above,
+//     the job, the meta and corresponding <lock> used in `replication_queue_lock` table for the `lock_id` column.
 func (rq PostgresReplicationEventQueue) Enqueue(ctx context.Context, event ReplicationEvent) (ReplicationEvent, error) {
-	// When `Enqueue` method is called:
-	//  1. Insertion of the new record into `replication_queue_lock` table, so we are ensured all events have
-	//     a corresponding <lock>. If a record already exists it won't be inserted again.
-	//  2. Insertion of the new record into the `replication_queue` table with the defaults listed above,
-	//     the job, the meta and corresponding <lock> used in `replication_queue_lock` table for the `lock_id` column.
-
 	query := `
 		WITH insert_lock AS (
 			INSERT INTO replication_queue_lock(id)
@@ -226,6 +244,15 @@ func (rq PostgresReplicationEventQueue) Enqueue(ctx context.Context, event Repli
 		INSERT INTO replication_queue(lock_id, job, meta)
 		SELECT insert_lock.id, $4, $5
 		FROM insert_lock
+		WHERE NOT EXISTS (
+			SELECT
+			FROM replication_queue AS q
+			WHERE q.state = 'ready'
+			AND q.job->>'virtual_storage' = $4::json->>'virtual_storage'
+			AND q.job->>'relative_path' = $4::json->>'relative_path'
+			AND q.job->>'target_node_storage' = $4::json->>'target_node_storage'
+			AND q.job->>'change' = $4::json->>'change'
+		)
 		RETURNING id, state, created_at, updated_at, lock_id, attempt, job, meta`
 	// this will always return a single row result (because of lock uniqueness) or an error
 	rows, err := rq.qc.QueryContext(ctx, query, event.Job.VirtualStorage, event.Job.TargetNodeStorage, event.Job.RelativePath, event.Job, event.Meta)
@@ -238,32 +265,45 @@ func (rq PostgresReplicationEventQueue) Enqueue(ctx context.Context, event Repli
 		return ReplicationEvent{}, fmt.Errorf("scan: %w", err)
 	}
 
+	if len(events) == 0 {
+		return ReplicationEvent{}, ReplicationEventExistsError{
+			state:             event.State.String(),
+			virtualStorage:    event.Job.VirtualStorage,
+			targetNodeStorage: event.Job.TargetNodeStorage,
+			relativePath:      event.Job.RelativePath,
+		}
+	}
+
 	return events[0], nil
 }
 
-//nolint:revive // This is unintentionally missing documentation.
+// Dequeue is used to pop events from the queue matching specific filters
+// When `Dequeue` method is called:
+//
+//  1. Events with attempts left that are either in `ready` or `failed` state are candidates for dequeuing.
+//     Events already being processed by another worker are filtered out by checking if the event is already locked
+//     in the `replication_queue_job_lock` table.
+//
+//  2. Events for repositories that are already locked by another Praefect instance are filtered out.
+//     Repository locks are stored in the `replication_queue_lock` table.
+//
+//  3. The events that still remain after filtering are dequeued. On dequeuing:
+//     - The event's attempts are decremented by 1.
+//     - The event's state is set to `in_progress`
+//     - The event's `updated_at` is set to current time in UTC.
+//
+//  4. For each event retrieved from the step above a new record would be created in
+//     `replication_queue_job_lock` table. Rows in this table allows us to track events that were fetched for processing
+//     and relation of them with the locks in the `replication_queue_lock` table. The reason we need it is because
+//     multiple events can be fetched for the same repository (more details on it in `Acknowledge` below).
+//
+//  5. Update the corresponding <lock> in `replication_queue_lock` table and column `acquired` is assigned with
+//     `TRUE` value to signal that this <lock> is busy and can't be used to fetch events (step 2.).
+//
+//     As a special case, 'delete_replica' type events have unlimited attempts. This is to ensure we never partially apply the job
+//     by deleting the repository from the disk but leaving it still present in the database. Praefect would then see that there still
+//     is a replica on the storage, when there is none in fact. That could cause us to delete all replicas of a repository.
 func (rq PostgresReplicationEventQueue) Dequeue(ctx context.Context, virtualStorage, nodeStorage string, count int) ([]ReplicationEvent, error) {
-	// When `Dequeue` method is called:
-	//  1. Events with attempts left that are either in `ready` or `failed` state are candidates for dequeuing.
-	//     Events already being processed by another worker are filtered out by checking if the event is already locked
-	//     in the `replication_queue_job_lock` table.
-	//  2. Events for repositories that are already locked by another Praefect instance are filtered out.
-	//     Repository locks are stored in the `replication_queue_lock` table.
-	//  3. The events that still remain after filtering are dequeued. On dequeuing:
-	//      - The event's attempts are decremented by 1.
-	//      - The event's state is set to `in_progress`
-	//      - The event's `updated_at` is set to current time in UTC.
-	//  4. For each event retrieved from the step above a new record would be created in
-	//     `replication_queue_job_lock` table. Rows in this table allows us to track events that were fetched for processing
-	//     and relation of them with the locks in the `replication_queue_lock` table. The reason we need it is because
-	//     multiple events can be fetched for the same repository (more details on it in `Acknowledge` below).
-	//  5. Update the corresponding <lock> in `replication_queue_lock` table and column `acquired` is assigned with
-	//     `TRUE` value to signal that this <lock> is busy and can't be used to fetch events (step 2.).
-	//
-	//  As a special case, 'delete_replica' type events have unlimited attempts. This is to ensure we never partially apply the job
-	//  by deleting the repository from the disk but leaving it still present in the database. Praefect would then see that there still
-	//  is a replica on the storage, when there is none in fact. That could cause us to delete all replicas of a repository.
-
 	query := `
 		WITH lock AS (
 			SELECT id
@@ -322,27 +362,26 @@ func (rq PostgresReplicationEventQueue) Dequeue(ctx context.Context, virtualStor
 	return res, nil
 }
 
-//nolint:revive // This is unintentionally missing documentation.
+// Acknowledge is used to delete events which have dequeue'd and are completed|dead.
+// When `Acknowledge` method is called:
+//  1. The list of event `id`s and corresponding <lock>s retrieved from `replication_queue` table as passed in by the
+//     user `ids` could not exist in the table or the `state` of the event could differ from `in_progress` (it is
+//     possible to acknowledge only events previously fetched by the `Dequeue` method)
+//  2. Based on the list fetched on previous step the delete is executed on the `replication_queue` table. In case the
+//     new state for the entry is 'dead' it will be just deleted, but if the new state is 'completed' the event will
+//     be delete as well, but all events similar to it (events for the same repository with same change type and a source)
+//     that were created before processed events were queued for processing will also be deleted.
+//     In case the new state is something different ('failed') the event will be updated only with a new state.
+//     It returns a list of event `id`s and corresponding <lock>s of the affected events during this delete/update process.
+//  3. The removal of records in `replication_queue_job_lock` table happens that were created by step 4. of `Dequeue`
+//     method call.
+//  4. Acquisition state of <lock>s in `replication_queue_lock` table updated by comparing amount of existing bindings
+//     in `replication_queue_lock` table for the <lock> to amount of removed bindings done on the 3. for the <lock>
+//     and if amount is the same the <lock> is free and column `acquired` assigned `FALSE` value, so this <lock> can
+//     be used in the `Dequeue` method to retrieve other events. If amounts don't match no update happens and <lock>
+//     remains acquired until all events are acknowledged (binding records removed from the `replication_queue_job_lock`
+//     table).
 func (rq PostgresReplicationEventQueue) Acknowledge(ctx context.Context, state JobState, ids []uint64) ([]uint64, error) {
-	// When `Acknowledge` method is called:
-	//  1. The list of event `id`s and corresponding <lock>s retrieved from `replication_queue` table as passed in by the
-	//     user `ids` could not exist in the table or the `state` of the event could differ from `in_progress` (it is
-	//     possible to acknowledge only events previously fetched by the `Dequeue` method)
-	//  2. Based on the list fetched on previous step the delete is executed on the `replication_queue` table. In case the
-	//     new state for the entry is 'dead' it will be just deleted, but if the new state is 'completed' the event will
-	//     be delete as well, but all events similar to it (events for the same repository with same change type and a source)
-	//     that were created before processed events were queued for processing will also be deleted.
-	//     In case the new state is something different ('failed') the event will be updated only with a new state.
-	//     It returns a list of event `id`s and corresponding <lock>s of the affected events during this delete/update process.
-	//  3. The removal of records in `replication_queue_job_lock` table happens that were created by step 4. of `Dequeue`
-	//     method call.
-	//  4. Acquisition state of <lock>s in `replication_queue_lock` table updated by comparing amount of existing bindings
-	//     in `replication_queue_lock` table for the <lock> to amount of removed bindings done on the 3. for the <lock>
-	//     and if amount is the same the <lock> is free and column `acquired` assigned `FALSE` value, so this <lock> can
-	//     be used in the `Dequeue` method to retrieve other events. If amounts don't match no update happens and <lock>
-	//     remains acquired until all events are acknowledged (binding records removed from the `replication_queue_job_lock`
-	//     table).
-
 	if len(ids) == 0 {
 		return nil, nil
 	}
