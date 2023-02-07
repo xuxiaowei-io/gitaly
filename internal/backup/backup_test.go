@@ -122,7 +122,7 @@ func TestManager_Create(t *testing.T) {
 
 				dirInfo, err := os.Stat(filepath.Dir(bundlePath))
 				require.NoError(t, err)
-				require.Equal(t, os.FileMode(0o700), dirInfo.Mode().Perm(), "expecting restricted directory permissions")
+				require.Equal(t, perm.PrivateDir, dirInfo.Mode().Perm(), "expecting restricted directory permissions")
 
 				bundleInfo, err := os.Stat(bundlePath)
 				require.NoError(t, err)
