@@ -257,7 +257,11 @@ func TestServer_CloneFromURLCommand(t *testing.T) {
 			expectedCurloptResolveHeader: "gitlab.com:443:192.0.1.1",
 		},
 	} {
+		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
 			ctx, cancel := context.WithCancel(testhelper.Context(t))
 
 			cmd, err := s.cloneFromURLCommand(
@@ -265,7 +269,7 @@ func TestServer_CloneFromURLCommand(t *testing.T) {
 				tc.url,
 				"www.example.com",
 				tc.resolvedAddress,
-				"full/path/to/repository",
+				filepath.Join(testhelper.TempDir(t), "target"),
 				tc.token,
 				false,
 				git.WithDisabledHooks(),
