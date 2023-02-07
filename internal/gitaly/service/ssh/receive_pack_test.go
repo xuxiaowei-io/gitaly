@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
@@ -24,7 +23,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
@@ -740,24 +738,25 @@ type SSHCloneDetails struct {
 func setupSSHClone(t *testing.T, cfg config.Cfg) SSHCloneDetails {
 	ctx := testhelper.Context(t)
 
-	_, localRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
+	_, localRepoPath := gittest.CreateRepository(t, ctx, cfg)
 
-	oldHead := text.ChompBytes(gittest.Exec(t, cfg, "-C", localRepoPath, "rev-parse", "HEAD"))
-	newHead := gittest.WriteCommit(t, cfg, localRepoPath,
-		gittest.WithMessage(fmt.Sprintf("Testing ReceivePack RPC around %d", time.Now().Unix())),
+	oldHead := gittest.WriteCommit(t, cfg, localRepoPath,
+		gittest.WithMessage("old message"),
 		gittest.WithTreeEntries(gittest.TreeEntry{
-			Path:    "foo.txt",
-			Mode:    "100644",
-			Content: "foo bar",
+			Path: "foo.txt", Mode: "100644", Content: "old content",
+		}),
+	)
+	newHead := gittest.WriteCommit(t, cfg, localRepoPath,
+		gittest.WithMessage("new message"),
+		gittest.WithTreeEntries(gittest.TreeEntry{
+			Path: "foo.txt", Mode: "100644", Content: "new content",
 		}),
 		gittest.WithBranch("master"),
-		gittest.WithParents(git.ObjectID(oldHead)),
+		gittest.WithParents(oldHead),
 	)
 
 	return SSHCloneDetails{
-		OldHead:       []byte(oldHead),
+		OldHead:       []byte(oldHead.String()),
 		NewHead:       []byte(newHead.String()),
 		LocalRepoPath: localRepoPath,
 	}
