@@ -62,13 +62,10 @@ func TestReceivePack_validation(t *testing.T) {
 				},
 				GlId: "user-123",
 			},
-			expectedErr: func() error {
-				if testhelper.IsPraefectEnabled() {
-					return structerr.NewInvalidArgument("repo scoped: invalid Repository")
-				}
-
-				return structerr.NewInvalidArgument("empty RelativePath")
-			}(),
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("empty RelativePath"),
+				structerr.NewInvalidArgument("repo scoped: invalid Repository"),
+			),
 		},
 		{
 			desc: "missing repository",
@@ -94,6 +91,20 @@ func TestReceivePack_validation(t *testing.T) {
 				GlId: "",
 			},
 			expectedErr: structerr.NewInvalidArgument("empty GlId"),
+		},
+		{
+			desc: "invalid storage name",
+			request: &gitalypb.SSHReceivePackRequest{
+				Repository: &gitalypb.Repository{
+					StorageName:  "doesnotexist",
+					RelativePath: repo.GetRelativePath(),
+				},
+				GlId: "user-123",
+			},
+			expectedErr: testhelper.GitalyOrPraefect(
+				structerr.NewInvalidArgument("GetStorageByName: no such storage: %q", "doesnotexist"),
+				structerr.NewInvalidArgument("repo scoped: invalid Repository"),
+			),
 		},
 		{
 			desc: "stdin on first request",
@@ -336,38 +347,6 @@ func TestReceive_gitProtocol(t *testing.T) {
 
 	envData := protocolDetectingFactory.ReadProtocol(t)
 	require.Contains(t, envData, fmt.Sprintf("GIT_PROTOCOL=%s\n", git.ProtocolV2))
-}
-
-func TestReceivePack_failure(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	cfg := testcfg.Build(t)
-	cfg.SocketPath = runSSHServer(t, cfg)
-
-	testcfg.BuildGitalySSH(t, cfg)
-
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
-
-	t.Run("clone with invalid storage name", func(t *testing.T) {
-		_, _, err := testCloneAndPush(t, ctx, cfg, cfg.SocketPath, repo, repoPath, pushParams{
-			storageName: "foobar",
-			glID:        "1",
-		})
-		require.Error(t, err)
-
-		if testhelper.IsPraefectEnabled() {
-			require.Contains(t, err.Error(), structerr.NewInvalidArgument("repo scoped: invalid Repository").Error())
-		} else {
-			require.Contains(t, err.Error(), structerr.NewInvalidArgument("GetStorageByName: no such storage: \\\"foobar\\\"\\n").Error())
-		}
-	})
-
-	t.Run("clone with invalid GlId", func(t *testing.T) {
-		_, _, err := testCloneAndPush(t, ctx, cfg, cfg.SocketPath, repo, repoPath, pushParams{storageName: cfg.Storages[0].Name, glID: ""})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), structerr.NewInvalidArgument("empty GlId").Error())
-	})
 }
 
 func TestReceivePack_hookFailure(t *testing.T) {
