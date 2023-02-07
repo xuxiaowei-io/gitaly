@@ -39,9 +39,10 @@ type CommandFactory interface {
 }
 
 type execCommandFactoryConfig struct {
-	hooksPath      string
-	gitBinaryPath  string
-	cgroupsManager cgroups.Manager
+	hooksPath           string
+	gitBinaryPath       string
+	cgroupsManager      cgroups.Manager
+	execEnvConstructors []ExecutionEnvironmentConstructor
 }
 
 // ExecCommandFactoryOption is an option that can be passed to NewExecCommandFactory.
@@ -72,6 +73,14 @@ func WithGitBinaryPath(path string) ExecCommandFactoryOption {
 func WithCgroupsManager(cgroupsManager cgroups.Manager) ExecCommandFactoryOption {
 	return func(cfg *execCommandFactoryConfig) {
 		cfg.cgroupsManager = cgroupsManager
+	}
+}
+
+// WithExecutionEnvironmentConstructors overrides the default Git execution environments used by the
+// command factory.
+func WithExecutionEnvironmentConstructors(constructors ...ExecutionEnvironmentConstructor) ExecCommandFactoryOption {
+	return func(cfg *execCommandFactoryConfig) {
+		cfg.execEnvConstructors = constructors
 	}
 }
 
@@ -184,8 +193,13 @@ func setupGitExecutionEnvironments(cfg config.Cfg, factoryCfg execCommandFactory
 		}, func() {}, nil
 	}
 
+	constructors := factoryCfg.execEnvConstructors
+	if factoryCfg.execEnvConstructors == nil {
+		constructors = defaultExecutionEnvironmentConstructors
+	}
+
 	var execEnvs []ExecutionEnvironment
-	for _, constructor := range ExecutionEnvironmentConstructors {
+	for _, constructor := range constructors {
 		execEnv, err := constructor.Construct(cfg)
 		if err != nil {
 			// In case the environment has not been configured by the user we simply

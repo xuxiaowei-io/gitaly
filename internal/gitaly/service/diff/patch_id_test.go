@@ -1,12 +1,14 @@
 package diff
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -14,8 +16,12 @@ import (
 
 func TestGetPatchID(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.GitV239).Run(t, testGetPatchID)
+}
 
-	ctx := testhelper.Context(t)
+func testGetPatchID(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, client := setupDiffServiceWithoutRepo(t)
 
 	gitVersion, err := gittest.NewCommandFactory(t, cfg).GitVersion(ctx)
@@ -155,7 +161,15 @@ func TestGetPatchID(t *testing.T) {
 							// now be hashed to correctly account for binary changes. As
 							// a result, the patch ID has changed.
 							if gitVersion.PatchIDRespectsBinaries() {
-								return "13e4e9b9cd44ec511bac24fdbdeab9b74ba3000b"
+								switch gittest.DefaultObjectHash.Format {
+								case "sha1":
+									return "13e4e9b9cd44ec511bac24fdbdeab9b74ba3000b"
+								case "sha256":
+									return "32f6beb9a210ac89a3e15e44dcd174c87c904e9d"
+								default:
+									require.FailNow(t, "unsupported object hash")
+									return ""
+								}
 							}
 
 							return "715883c1b90a5b4450072e22fefec769ad346266"
@@ -195,7 +209,15 @@ func TestGetPatchID(t *testing.T) {
 								// When respecting binary diffs we indeed have a
 								// different patch ID compared to the preceding
 								// testcase.
-								return "f678855867b112ac2c5466260b3b3a5e75fca875"
+								switch gittest.DefaultObjectHash.Format {
+								case "sha1":
+									return "f678855867b112ac2c5466260b3b3a5e75fca875"
+								case "sha256":
+									return "10443cf318b577ea41526825ba034aaaedfeaa4b"
+								default:
+									require.FailNow(t, "unsupported object hash")
+									return ""
+								}
 							}
 
 							// But when git-patch-id(1) is not paying respect to binary
