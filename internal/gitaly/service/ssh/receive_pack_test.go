@@ -382,8 +382,7 @@ func TestReceivePack_customHookFailure(t *testing.T) {
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
-	cloneDetails, cleanup := setupSSHClone(t, cfg, repo, repoPath)
-	defer cleanup()
+	cloneDetails := setupSSHClone(t, cfg, repo, repoPath)
 
 	hookContent := []byte("#!/bin/sh\necho 'this is wrong' >&2;exit 1")
 	gittest.WriteCustomHook(t, cloneDetails.RemoteRepoPath, "pre-receive", hookContent)
@@ -697,8 +696,7 @@ func TestReceivePack_objectExistsHook(t *testing.T) {
 
 	cfg.GitlabShell.Dir = tempGitlabShellDir
 
-	cloneDetails, cleanup := setupSSHClone(t, cfg, repo, repoPath)
-	defer cleanup()
+	cloneDetails := setupSSHClone(t, cfg, repo, repoPath)
 
 	serverURL, cleanup := gitlab.NewTestServer(t, gitlab.TestServerOptions{
 		User:                        "",
@@ -740,7 +738,7 @@ type SSHCloneDetails struct {
 }
 
 // setupSSHClone sets up a test clone
-func setupSSHClone(t *testing.T, cfg config.Cfg, remoteRepo *gitalypb.Repository, remoteRepoPath string) (SSHCloneDetails, func()) {
+func setupSSHClone(t *testing.T, cfg config.Cfg, remoteRepo *gitalypb.Repository, remoteRepoPath string) SSHCloneDetails {
 	ctx := testhelper.Context(t)
 
 	_, localRepoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
@@ -760,15 +758,12 @@ func setupSSHClone(t *testing.T, cfg config.Cfg, remoteRepo *gitalypb.Repository
 	)
 
 	return SSHCloneDetails{
-			OldHead:        []byte(oldHead),
-			NewHead:        []byte(newHead.String()),
-			LocalRepoPath:  localRepoPath,
-			RemoteRepoPath: remoteRepoPath,
-			TempRepo:       remoteRepo.GetRelativePath(),
-		}, func() {
-			require.NoError(t, os.RemoveAll(remoteRepoPath))
-			require.NoError(t, os.RemoveAll(localRepoPath))
-		}
+		OldHead:        []byte(oldHead),
+		NewHead:        []byte(newHead.String()),
+		LocalRepoPath:  localRepoPath,
+		RemoteRepoPath: remoteRepoPath,
+		TempRepo:       remoteRepo.GetRelativePath(),
+	}
 }
 
 func sshPushCommand(t *testing.T, ctx context.Context, cfg config.Cfg, cloneDetails SSHCloneDetails, params pushParams) *exec.Cmd {
@@ -823,9 +818,7 @@ func sshPush(t *testing.T, ctx context.Context, cfg config.Cfg, cloneDetails SSH
 }
 
 func testCloneAndPush(t *testing.T, ctx context.Context, cfg config.Cfg, remoteRepo *gitalypb.Repository, remoteRepoPath string, params pushParams) (string, string, error) {
-	cloneDetails, cleanup := setupSSHClone(t, cfg, remoteRepo, remoteRepoPath)
-	defer cleanup()
-
+	cloneDetails := setupSSHClone(t, cfg, remoteRepo, remoteRepoPath)
 	return sshPush(t, ctx, cfg, cloneDetails, params)
 }
 
