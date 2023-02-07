@@ -214,7 +214,7 @@ func TestRepositoryManager_CleanStaleData(t *testing.T) {
 			name: "oldtempfile",
 			entries: []entry{
 				d("objects", perm.PrivateDir, 240*time.Hour, Keep,
-					f("tmp_a", 0o655, 240*time.Hour, Delete),
+					f("tmp_a", 0o644, 240*time.Hour, Delete),
 					f("b", 0o700, 24*time.Hour, Keep),
 				),
 			},
@@ -263,9 +263,9 @@ func TestRepositoryManager_CleanStaleData(t *testing.T) {
 		{
 			name: "files outside of object database",
 			entries: []entry{
-				f("tmp_a", 0o655, 240*time.Hour, Keep),
+				f("tmp_a", 0o644, 240*time.Hour, Keep),
 				d("info", perm.PrivateDir, 240*time.Hour, Keep,
-					f("tmp_a", 0o655, 240*time.Hour, Keep),
+					f("tmp_a", 0o644, 240*time.Hour, Keep),
 				),
 			},
 		},

@@ -116,7 +116,7 @@ func TestCleanWalkEmptyDirs(t *testing.T) {
 		if strings.HasSuffix(tt.path, "/") {
 			require.NoError(t, os.MkdirAll(p, perm.SharedDir))
 		} else {
-			require.NoError(t, os.WriteFile(p, nil, 0o655))
+			require.NoError(t, os.WriteFile(p, nil, 0o644))
 			if tt.stale {
 				require.NoError(t, os.Chtimes(p, time.Now(), time.Now().Add(-time.Hour)))
 			}
