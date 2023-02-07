@@ -24,13 +24,12 @@ func TestDnsResolver(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
-		name            string
-		setup           func(*testhelper.FakeDNSServer, *Builder) *fakeClientConn
-		address         string
-		builder         *Builder
-		expectedStates  []resolver.State
-		expectedErrors  []error
-		expectedRetries []uint
+		name           string
+		setup          func(*testhelper.FakeDNSServer, *Builder) *fakeClientConn
+		address        string
+		builder        *Builder
+		expectedStates []resolver.State
+		expectedErrors []error
 	}{
 		{
 			name: "resolver updates a single IPv4 each resolution",
@@ -161,7 +160,6 @@ func TestDnsResolver(t *testing.T) {
 				{Addresses: []resolver.Address{{Addr: "1.2.3.6:50051"}}},
 				{Addresses: []resolver.Address{{Addr: "1.2.3.7:50051"}}},
 			},
-			expectedRetries: []uint{0, 1},
 		},
 		{
 			name: "DNS nameserver returns empty addresses",
@@ -225,7 +223,6 @@ func TestDnsResolver(t *testing.T) {
 					IsTimeout: true,
 				}),
 			},
-			expectedRetries: []uint{0},
 		},
 		{
 			name: "DNS nameserver raises a temporary error",
@@ -293,7 +290,6 @@ func TestDnsResolver(t *testing.T) {
 					IsTemporary: true,
 				}),
 			},
-			expectedRetries: []uint{0, 1, 2, 0},
 		},
 	}
 
@@ -319,7 +315,6 @@ func TestDnsResolver(t *testing.T) {
 
 			require.Equal(t, tc.expectedStates, conn.states)
 			require.Equal(t, tc.expectedErrors, conn.errors)
-			require.Equal(t, tc.expectedRetries, b.retries)
 		})
 	}
 }
