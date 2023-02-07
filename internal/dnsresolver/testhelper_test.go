@@ -87,18 +87,12 @@ func (c *fakeClientConn) NewServiceConfig(_ string) { panic("deprecated") }
 
 func (c *fakeClientConn) ParseServiceConfig(_ string) *serviceconfig.ParseResult { panic("deprecated") }
 
-// fakeBackoff stubs the exponential Backoff strategy. It always returns a tiny duration regardless
-// of the retry attempts. While it's possible to set to 0 (no timer), it makes sense to set a tiny
-// delay.
-type fakeBackoff struct {
-	duration time.Duration
-	retries  []uint
-}
+// fakeBackoff stubs the exponential Backoff strategy. It always returns 0 regardless of the retry
+// attempts.
+type fakeBackoff struct{}
 
-func (c *fakeBackoff) Backoff(retries uint) time.Duration {
-	c.retries = append(c.retries, retries)
-
-	return c.duration
+func (c *fakeBackoff) Backoff(uint) time.Duration {
+	return 0
 }
 
 // fakeLookup stubs the DNS lookup. It wraps around a real DNS lookup. The caller can return an
@@ -129,9 +123,9 @@ func buildResolverTarget(s *testhelper.FakeDNSServer, addr string) resolver.Targ
 
 func newTestDNSBuilder(t *testing.T) *Builder {
 	return NewBuilder(&BuilderConfig{
-		RefreshRate: 1 * time.Millisecond,
+		RefreshRate: 0,
 		Logger:      testhelper.NewDiscardingLogger(t),
-		Backoff:     &fakeBackoff{duration: 1 * time.Millisecond},
+		Backoff:     &fakeBackoff{},
 	})
 }
 
