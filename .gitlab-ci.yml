@@ -5,7 +5,7 @@ stages:
   - qa
 
 default:
-  image: registry.gitlab.com/gitlab-org/gitlab-build-images/debian-${DEBIAN_VERSION}-ruby-${RUBY_VERSION}-golang-${GO_VERSION}:git-2.36
+  image: registry.gitlab.com/gitlab-org/gitlab-build-images/debian-${DEBIAN_VERSION}-ruby-${RUBY_VERSION}-golang-${GO_VERSION}-rust-${RUST_VERSION}:git-2.36
   tags:
     - gitlab-org
   interruptible: true
@@ -19,7 +19,8 @@ variables:
   # We use Gitaly's Git version by default.
   GIT_VERSION: "default"
   GO_VERSION: "1.19"
-  RUBY_VERSION: "2.7"
+  RUBY_VERSION: "3.0"
+  RUST_VERSION: "1.65.0"
   POSTGRES_VERSION: "12.6-alpine"
   PGBOUNCER_VERSION: "1.16.1"
   BUNDLE_PATH: "${CI_PROJECT_DIR}/_build/cache/ruby"
@@ -306,7 +307,7 @@ test:sha256:
 
 test:fips:
   <<: *test_definition
-  image: registry.gitlab.com/gitlab-org/gitlab-build-images/ubi-${UBI_VERSION}-ruby-${RUBY_VERSION}-golang-${GO_VERSION}:git-2.36
+  image: registry.gitlab.com/gitlab-org/gitlab-build-images/ubi-${UBI_VERSION}-ruby-${RUBY_VERSION}-golang-${GO_VERSION}-rust-${RUST_VERSION}:git-2.36
   tags:
     - fips
   cache:
