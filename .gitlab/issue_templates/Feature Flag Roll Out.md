@@ -60,4 +60,4 @@ I.e.
 
 Please refer to the [documentation of feature flags](https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/PROCESS.md#feature-flags) for further information.
 
-/label ~"devops::create" ~"group::gitaly" ~"feature flag" ~"feature::maintainance" ~"Category:Gitaly" ~"section::dev" ~"featureflag::disabled"
+/label ~"devops::systems" ~"group::gitaly" ~"feature flag" ~"feature::maintainance" ~"Category:Gitaly" ~"section::enablement" ~"featureflag::disabled"

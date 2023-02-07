@@ -137,4 +137,4 @@ Importantly for the demo, repository creation does not yet work. To work around 
 1. [ ] Open a new demo issue and assign to the next demo conductor
 1. [ ] Close this issue
 
-/label ~demo ~"group::gitaly" ~"devops::create"
+/label ~demo ~"group::gitaly" ~"devops::systems"

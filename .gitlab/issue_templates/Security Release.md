@@ -66,4 +66,4 @@ After your merge request has been approved according to our [approval guidelines
 [approval guidelines]: https://docs.gitlab.com/ee/development/code_review.html#approval-guidelines
 [issue as related]: https://docs.gitlab.com/ee/user/project/issues/related_issues.html#adding-a-related-issue
 
-/label ~"devops::create" ~"group::gitaly" ~"security"
+/label ~"devops::systems" ~"group::gitaly" ~"security"
