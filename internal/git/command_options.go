@@ -26,13 +26,7 @@ const (
 	InternalGitalyURL = "ssh://gitaly/internal.git"
 )
 
-var (
-	// configKeyRegex is intended to verify config keys in their `core.gc` or
-	// `http.http://example.com.proxy` format.
-	configKeyRegex = regexp.MustCompile(`^[[:alnum:]]+(\.[*-/_:@a-zA-Z0-9]+)+$`)
-
-	flagRegex = regexp.MustCompile(`^(-|--)[[:alnum:]]`)
-)
+var flagRegex = regexp.MustCompile(`^(-|--)[[:alnum:]]`)
 
 // GlobalOption is an interface for all options which can be globally applied
 // to git commands. This is the command-inspecific part before the actual
@@ -49,23 +43,7 @@ type Option interface {
 
 // ConfigPair is a GlobalOption that can be passed to Git commands to inject per-command config
 // entries via the `git -c` switch.
-type ConfigPair struct {
-	// Key is the key of the config entry, e.g. `core.gc`.
-	Key string
-	// Value is the value of the config entry, e.g. `false`.
-	Value string
-}
-
-// GlobalArgs generates a git `-c <key>=<value>` flag. The key must pass
-// validation by containing only alphanumeric sections separated by dots.
-// No other characters are allowed for now as `git -c` may not correctly parse
-// them, most importantly when they contain equals signs.
-func (cp ConfigPair) GlobalArgs() ([]string, error) {
-	if !configKeyRegex.MatchString(cp.Key) {
-		return nil, fmt.Errorf("config key %q failed regexp validation: %w", cp.Key, ErrInvalidArg)
-	}
-	return []string{"-c", fmt.Sprintf("%s=%s", cp.Key, cp.Value)}, nil
-}
+type ConfigPair = config.GitConfig
 
 // ConfigPairsToGitEnvironment converts the given config pairs into a set of environment variables
 // that can be injected into a Git executable.

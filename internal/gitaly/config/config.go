@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strings"
 	"syscall"
 	"time"
@@ -30,6 +31,10 @@ const (
 	// character is not allowed in GitLab namespaces or repositories.
 	GitalyDataPrefix = "+gitaly"
 )
+
+// configKeyRegex is intended to verify config keys in their `core.gc` or
+// `http.http://example.com.proxy` format.
+var configKeyRegex = regexp.MustCompile(`^[[:alnum:]]+(\.[*-/_:@a-zA-Z0-9]+)+$`)
 
 // DailyJob enables a daily task to be scheduled for specific storages
 type DailyJob struct {
@@ -115,8 +120,44 @@ type Git struct {
 
 // GitConfig contains a key-value pair which is to be passed to git as configuration.
 type GitConfig struct {
-	Key   string `toml:"key"`
+	// Key is the key of the config entry, e.g. `core.gc`.
+	Key string `toml:"key"`
+	// Value is the value of the config entry, e.g. `false`.
 	Value string `toml:"value"`
+}
+
+// Validate validates that the Git configuration conforms to a format that Git understands.
+func (cfg GitConfig) Validate() error {
+	// Even though redundant, this block checks for a few things up front to give better error
+	// messages to the administrator in case any of the keys fails validation.
+	if cfg.Key == "" {
+		return errors.New("key cannot be empty")
+	}
+	if strings.Contains(cfg.Key, "=") {
+		return errors.New("key cannot contain assignment")
+	}
+	if !strings.Contains(cfg.Key, ".") {
+		return errors.New("key must contain at least one section")
+	}
+	if strings.HasPrefix(cfg.Key, ".") || strings.HasSuffix(cfg.Key, ".") {
+		return errors.New("key must not start or end with a dot")
+	}
+
+	if !configKeyRegex.MatchString(cfg.Key) {
+		return fmt.Errorf("key failed regexp validation")
+	}
+
+	return nil
+}
+
+// GlobalArgs generates a git `-c <key>=<value>` flag. Returns an error if `Validate()` fails to
+// validate the config key.
+func (cfg GitConfig) GlobalArgs() ([]string, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid configuration key %q: %w", cfg.Key, err)
+	}
+
+	return []string{"-c", fmt.Sprintf("%s=%s", cfg.Key, cfg.Value)}, nil
 }
 
 // Storage contains a single storage-shard
@@ -462,30 +503,10 @@ func (cfg *Cfg) validateRuntimeDir() error {
 	return err
 }
 
-// validateGitConfigKey does a best-effort check whether or not a given git config key is valid. It
-// does not allow for assignments in keys, which is overly strict and does not allow some valid
-// keys. It does avoid misinterpretation of keys though and should catch many cases of
-// misconfiguration.
-func validateGitConfigKey(key string) error {
-	if key == "" {
-		return errors.New("key cannot be empty")
-	}
-	if strings.Contains(key, "=") {
-		return errors.New("key cannot contain assignment")
-	}
-	if !strings.Contains(key, ".") {
-		return errors.New("key must contain at least one section")
-	}
-	if strings.HasPrefix(key, ".") || strings.HasSuffix(key, ".") {
-		return errors.New("key must not start or end with a dot")
-	}
-	return nil
-}
-
 func (cfg *Cfg) validateGit() error {
-	for _, configPair := range cfg.Git.Config {
-		if err := validateGitConfigKey(configPair.Key); err != nil {
-			return fmt.Errorf("invalid configuration key %q: %w", configPair.Key, err)
+	for _, cfg := range cfg.Git.Config {
+		if err := cfg.Validate(); err != nil {
+			return fmt.Errorf("invalid configuration key %q: %w", cfg.Key, err)
 		}
 	}
 

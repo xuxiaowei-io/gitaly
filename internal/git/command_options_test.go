@@ -3,6 +3,7 @@ package git
 import (
 	"bytes"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -57,143 +58,126 @@ func TestFlagValidation(t *testing.T) {
 }
 
 func TestGlobalOption(t *testing.T) {
+	t.Parallel()
+
 	for _, tc := range []struct {
-		desc     string
-		option   GlobalOption
-		valid    bool
-		expected []string
+		desc         string
+		option       GlobalOption
+		expectedErr  error
+		expectedArgs []string
 	}{
 		{
-			desc:     "single-letter flag",
-			option:   Flag{Name: "-k"},
-			valid:    true,
-			expected: []string{"-k"},
+			desc:         "single-letter flag",
+			option:       Flag{Name: "-k"},
+			expectedArgs: []string{"-k"},
 		},
 		{
-			desc:     "long option flag",
-			option:   Flag{Name: "--asdf"},
-			valid:    true,
-			expected: []string{"--asdf"},
+			desc:         "long option flag",
+			option:       Flag{Name: "--asdf"},
+			expectedArgs: []string{"--asdf"},
 		},
 		{
-			desc:     "multiple single-letter flags",
-			option:   Flag{Name: "-abc"},
-			valid:    true,
-			expected: []string{"-abc"},
+			desc:         "multiple single-letter flags",
+			option:       Flag{Name: "-abc"},
+			expectedArgs: []string{"-abc"},
 		},
 		{
-			desc:     "single-letter option with value",
-			option:   Flag{Name: "-a=value"},
-			valid:    true,
-			expected: []string{"-a=value"},
+			desc:         "single-letter option with value",
+			option:       Flag{Name: "-a=value"},
+			expectedArgs: []string{"-a=value"},
 		},
 		{
-			desc:     "long option with value",
-			option:   Flag{Name: "--asdf=value"},
-			valid:    true,
-			expected: []string{"--asdf=value"},
+			desc:         "long option with value",
+			option:       Flag{Name: "--asdf=value"},
+			expectedArgs: []string{"--asdf=value"},
 		},
 		{
-			desc:   "flags without dashes are not allowed",
-			option: Flag{Name: "foo"},
-			valid:  false,
+			desc:        "flags without dashes are not allowed",
+			option:      Flag{Name: "foo"},
+			expectedErr: fmt.Errorf("flag %q failed regex validation: %w", "foo", ErrInvalidArg),
 		},
 		{
-			desc:   "leading spaces are not allowed",
-			option: Flag{Name: " -a"},
-			valid:  false,
+			desc:        "leading spaces are not allowed",
+			option:      Flag{Name: " -a"},
+			expectedErr: fmt.Errorf("flag %q failed regex validation: %w", " -a", ErrInvalidArg),
 		},
 
 		{
-			desc:     "single-letter value flag",
-			option:   ValueFlag{Name: "-a", Value: "value"},
-			valid:    true,
-			expected: []string{"-a", "value"},
+			desc:         "single-letter value flag",
+			option:       ValueFlag{Name: "-a", Value: "value"},
+			expectedArgs: []string{"-a", "value"},
 		},
 		{
-			desc:     "long option value flag",
-			option:   ValueFlag{Name: "--foobar", Value: "value"},
-			valid:    true,
-			expected: []string{"--foobar", "value"},
+			desc:         "long option value flag",
+			option:       ValueFlag{Name: "--foobar", Value: "value"},
+			expectedArgs: []string{"--foobar", "value"},
 		},
 		{
-			desc:     "multiple single-letters for value flag",
-			option:   ValueFlag{Name: "-abc", Value: "value"},
-			valid:    true,
-			expected: []string{"-abc", "value"},
+			desc:         "multiple single-letters for value flag",
+			option:       ValueFlag{Name: "-abc", Value: "value"},
+			expectedArgs: []string{"-abc", "value"},
 		},
 		{
-			desc:     "value flag with empty value",
-			option:   ValueFlag{Name: "--key", Value: ""},
-			valid:    true,
-			expected: []string{"--key", ""},
+			desc:         "value flag with empty value",
+			option:       ValueFlag{Name: "--key", Value: ""},
+			expectedArgs: []string{"--key", ""},
 		},
 		{
-			desc:   "value flag without dashes are not allowed",
-			option: ValueFlag{Name: "foo", Value: "bar"},
-			valid:  false,
+			desc:        "value flag without dashes are not allowed",
+			option:      ValueFlag{Name: "foo", Value: "bar"},
+			expectedErr: fmt.Errorf("value flag %q failed regex validation: %w", "foo", ErrInvalidArg),
 		},
 		{
-			desc:   "value flag with empty key are not allowed",
-			option: ValueFlag{Name: "", Value: "bar"},
-			valid:  false,
+			desc:        "value flag with empty key are not allowed",
+			option:      ValueFlag{Name: "", Value: "bar"},
+			expectedErr: fmt.Errorf("value flag %q failed regex validation: %w", "", ErrInvalidArg),
 		},
 
 		{
-			desc:     "config pair with key and value",
-			option:   ConfigPair{Key: "foo.bar", Value: "value"},
-			valid:    true,
-			expected: []string{"-c", "foo.bar=value"},
+			desc:         "config pair with key and value",
+			option:       ConfigPair{Key: "foo.bar", Value: "value"},
+			expectedArgs: []string{"-c", "foo.bar=value"},
 		},
 		{
-			desc:     "config pair with subsection",
-			option:   ConfigPair{Key: "foo.bar.baz", Value: "value"},
-			valid:    true,
-			expected: []string{"-c", "foo.bar.baz=value"},
+			desc:         "config pair with subsection",
+			option:       ConfigPair{Key: "foo.bar.baz", Value: "value"},
+			expectedArgs: []string{"-c", "foo.bar.baz=value"},
 		},
 		{
-			desc:     "config pair without value",
-			option:   ConfigPair{Key: "foo.bar"},
-			valid:    true,
-			expected: []string{"-c", "foo.bar="},
+			desc:         "config pair without value",
+			option:       ConfigPair{Key: "foo.bar"},
+			expectedArgs: []string{"-c", "foo.bar="},
 		},
 		{
-			desc:     "config pair with URL key",
-			option:   ConfigPair{Key: "http.https://user@example.com/repo.git.user", Value: "kitty"},
-			valid:    true,
-			expected: []string{"-c", "http.https://user@example.com/repo.git.user=kitty"},
+			desc:         "config pair with URL key",
+			option:       ConfigPair{Key: "http.https://user@example.com/repo.git.user", Value: "kitty"},
+			expectedArgs: []string{"-c", "http.https://user@example.com/repo.git.user=kitty"},
 		},
 		{
-			desc:     "config pair with URL key including wildcard",
-			option:   ConfigPair{Key: "http.https://*.example.com/.proxy", Value: "http://proxy.example.com"},
-			valid:    true,
-			expected: []string{"-c", "http.https://*.example.com/.proxy=http://proxy.example.com"},
+			desc:         "config pair with URL key including wildcard",
+			option:       ConfigPair{Key: "http.https://*.example.com/.proxy", Value: "http://proxy.example.com"},
+			expectedArgs: []string{"-c", "http.https://*.example.com/.proxy=http://proxy.example.com"},
 		},
 		{
-			desc:   "config pair with invalid section format",
-			option: ConfigPair{Key: "foo", Value: "value"},
-			valid:  false,
+			desc:        "config pair with invalid section format",
+			option:      ConfigPair{Key: "foo", Value: "value"},
+			expectedErr: fmt.Errorf("invalid configuration key %q: %w", "foo", errors.New("key must contain at least one section")),
 		},
 		{
-			desc:   "config pair with leading whitespace",
-			option: ConfigPair{Key: " foo.bar", Value: "value"},
-			valid:  false,
+			desc:        "config pair with leading whitespace",
+			option:      ConfigPair{Key: " foo.bar", Value: "value"},
+			expectedErr: fmt.Errorf("invalid configuration key %q: %w", " foo.bar", errors.New("key failed regexp validation")),
 		},
 		{
-			desc:   "config pair with disallowed character in key",
-			option: ConfigPair{Key: "foo.b=r", Value: "value"},
-			valid:  false,
+			desc:        "config pair with disallowed character in key",
+			option:      ConfigPair{Key: "foo.b=r", Value: "value"},
+			expectedErr: fmt.Errorf("invalid configuration key %q: %w", "foo.b=r", errors.New("key cannot contain assignment")),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			args, err := tc.option.GlobalArgs()
-			if tc.valid {
-				require.NoError(t, err)
-				require.Equal(t, tc.expected, args)
-			} else {
-				require.Error(t, err, "expected error, but args %v passed validation", args)
-				require.True(t, IsInvalidArgErr(err))
-			}
+			require.Equal(t, tc.expectedErr, err)
+			require.Equal(t, tc.expectedArgs, args)
 		})
 	}
 }
