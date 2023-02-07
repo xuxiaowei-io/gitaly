@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package gitlab
 
 import (
@@ -42,7 +40,6 @@ func TestAccess_verifyParams(t *testing.T) {
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 
 	changes := "changes1\nchanges2\nchanges3"
@@ -155,7 +152,6 @@ func TestAccess_escapedAndRelativeURLs(t *testing.T) {
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 
 	changes := "changes1\nchanges2\nchanges3"
@@ -266,7 +262,6 @@ func TestAccess_allowedResponseHandling(t *testing.T) {
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 
 	// set git quarantine directories
