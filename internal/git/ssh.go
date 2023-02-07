@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 )
 
 // BuildSSHInvocation builds a command line to invoke SSH with the provided key and known hosts.
@@ -32,7 +33,7 @@ func BuildSSHInvocation(ctx context.Context, sshKey, knownHosts string) (string,
 	args := []string{sshCommand}
 	if sshKey != "" {
 		sshKeyFile := filepath.Join(tmpDir, "ssh-key")
-		if err := os.WriteFile(sshKeyFile, []byte(sshKey), 0o400); err != nil {
+		if err := os.WriteFile(sshKeyFile, []byte(sshKey), perm.PrivateWriteOnceFile); err != nil {
 			cleanup()
 			return "", nil, fmt.Errorf("create ssh key file: %w", err)
 		}
@@ -42,7 +43,7 @@ func BuildSSHInvocation(ctx context.Context, sshKey, knownHosts string) (string,
 
 	if knownHosts != "" {
 		knownHostsFile := filepath.Join(tmpDir, "known-hosts")
-		if err := os.WriteFile(knownHostsFile, []byte(knownHosts), 0o400); err != nil {
+		if err := os.WriteFile(knownHostsFile, []byte(knownHosts), perm.PrivateWriteOnceFile); err != nil {
 			cleanup()
 			return "", nil, fmt.Errorf("create known hosts file: %w", err)
 		}
