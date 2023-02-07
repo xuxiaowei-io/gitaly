@@ -92,7 +92,10 @@ type BackgroundVerification struct {
 
 // DefaultBackgroundVerificationConfig returns the default background verification configuration.
 func DefaultBackgroundVerificationConfig() BackgroundVerification {
-	return BackgroundVerification{VerificationInterval: duration.Duration(7 * 24 * time.Hour)}
+	return BackgroundVerification{
+		VerificationInterval: duration.Duration(7 * 24 * time.Hour),
+		DeleteInvalidRecords: true,
+	}
 }
 
 // Reconciliation contains reconciliation specific configuration options.
