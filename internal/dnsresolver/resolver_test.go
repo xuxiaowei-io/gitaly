@@ -295,12 +295,11 @@ func TestDnsResolver(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			b := &fakeBackoff{duration: 1 * time.Millisecond}
 			builder := NewBuilder(&BuilderConfig{
-				RefreshRate:     1 * time.Millisecond,
+				RefreshRate:     0, // No delay
 				Logger:          testhelper.NewDiscardingLogger(t),
 				DefaultGrpcPort: "1234",
-				Backoff:         b,
+				Backoff:         &fakeBackoff{},
 			})
 
 			fakeServer := testhelper.NewFakeDNSServer(t)
@@ -343,7 +342,7 @@ func TestDnsResolver_grpcCallWithOurDNSResolver(t *testing.T) {
 		target.URL.String(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithResolvers(NewBuilder(&BuilderConfig{
-			RefreshRate:     1 * time.Millisecond,
+			RefreshRate:     0, // No delay
 			Logger:          testhelper.NewDiscardingLogger(t),
 			DefaultGrpcPort: "1234",
 			Backoff:         backoff.NewDefaultExponential(rand.New(rand.NewSource(time.Now().UnixNano()))),
