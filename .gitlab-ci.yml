@@ -21,7 +21,7 @@ variables:
   GO_VERSION: "1.19"
   RUBY_VERSION: "3.0"
   RUST_VERSION: "1.65.0"
-  POSTGRES_VERSION: "12.6-alpine"
+  POSTGRES_VERSION: "12-alpine"
   PGBOUNCER_VERSION: "1.16.1"
   BUNDLE_PATH: "${CI_PROJECT_DIR}/_build/cache/ruby"
   GOCACHE: "${CI_PROJECT_DIR}/_build/cache/go-build"
@@ -229,7 +229,7 @@ test:
       # the minimum version changes, please change this to the new minimum
       # version. Furthermore, please make sure to update the minimum required
       # version in `datastore.CheckPostgresVersion()`.
-      - POSTGRES_VERSION: "11.14-alpine"
+      - POSTGRES_VERSION: "11-alpine"
         TEST_TARGET: [ test, test-with-praefect ]
 
 test:coverage:
