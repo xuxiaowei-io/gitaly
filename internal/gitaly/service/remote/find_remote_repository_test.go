@@ -3,63 +3,94 @@
 package remote
 
 import (
-	"bytes"
-	"io"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
 )
 
 func TestFindRemoteRepository(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRemoteService(t, ctx)
+	cfg, _, _, client := setupRemoteService(t, ctx)
+	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		infoRefs := testhelper.MustReadFile(t, "testdata/lsremotedata.txt")
-		w.Header().Set("Content-Type", "application/x-git-upload-pack-advertisement")
-		_, err := io.Copy(w, bytes.NewReader(infoRefs))
-		require.NoError(t, err)
-	}))
-	defer ts.Close()
-
-	resp, err := client.FindRemoteRepository(ctx, &gitalypb.FindRemoteRepositoryRequest{Remote: ts.URL, StorageName: repo.GetStorageName()})
-	require.NoError(t, err)
-
-	require.True(t, resp.Exists)
-}
-
-func TestFailedFindRemoteRepository(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRemoteService(t, ctx)
-
-	testCases := []struct {
-		description string
-		remote      string
-		exists      bool
-		code        codes.Code
-	}{
-		{"non existing remote", "http://example.com/test.git", false, codes.OK},
-		{"empty remote", "", false, codes.InvalidArgument},
+	type setupData struct {
+		request          *gitalypb.FindRemoteRepositoryRequest
+		expectedErr      error
+		expectedResponse *gitalypb.FindRemoteRepositoryResponse
 	}
 
-	for _, tc := range testCases {
-		resp, err := client.FindRemoteRepository(ctx, &gitalypb.FindRemoteRepositoryRequest{Remote: tc.remote, StorageName: repo.GetStorageName()})
-		if tc.code == codes.OK {
-			require.NoError(t, err)
-		} else {
-			testhelper.RequireGrpcCode(t, err, tc.code)
-			continue
-		}
+	for _, tc := range []struct {
+		desc  string
+		setup func(t *testing.T) setupData
+	}{
+		{
+			desc: "empty remote",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.FindRemoteRepositoryRequest{
+						Remote:      "",
+						StorageName: cfg.Storages[0].Name,
+					},
+					expectedErr: structerr.NewInvalidArgument("empty remote can't be checked."),
+				}
+			},
+		},
+		{
+			desc: "nonexistent remote repository",
+			setup: func(t *testing.T) setupData {
+				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+					w.WriteHeader(404)
+				}))
+				t.Cleanup(server.Close)
 
-		require.Equal(t, tc.exists, resp.GetExists(), tc.description)
+				return setupData{
+					request: &gitalypb.FindRemoteRepositoryRequest{
+						Remote:      server.URL + "/does-not-exist.git",
+						StorageName: cfg.Storages[0].Name,
+					},
+					expectedResponse: &gitalypb.FindRemoteRepositoryResponse{},
+				}
+			},
+		},
+		{
+			desc: "successful",
+			setup: func(t *testing.T) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch("main"))
+
+				port := gittest.HTTPServer(t, ctx, gitCmdFactory, remoteRepoPath, nil)
+
+				return setupData{
+					request: &gitalypb.FindRemoteRepositoryRequest{
+						Remote:      fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(remoteRepoPath)),
+						StorageName: cfg.Storages[0].Name,
+					},
+					expectedResponse: &gitalypb.FindRemoteRepositoryResponse{
+						Exists: true,
+					},
+				}
+			},
+		},
+	} {
+		tc := tc
+
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			setup := tc.setup(t)
+
+			response, err := client.FindRemoteRepository(ctx, setup.request)
+			testhelper.RequireGrpcError(t, setup.expectedErr, err)
+			testhelper.ProtoEqual(t, setup.expectedResponse, response)
+		})
 	}
 }
