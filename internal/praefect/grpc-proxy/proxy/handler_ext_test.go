@@ -355,7 +355,17 @@ func TestProxyErrorPropagation(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				testhelper.MustServe(t, backendServer, backendListener)
+
+				err := backendServer.Serve(backendListener)
+				switch {
+				case errors.Is(err, grpc.ErrServerStopped):
+					// `grpc.Server.Serve()` may return `ErrServerStopped()` in
+					// case `Serve()` is called after `Stop()`. This can indeed
+					// happen in this test as the backend server will not get
+					// hit when the proxy server is already returning an error.
+				default:
+					require.NoError(t, err)
+				}
 			}()
 			defer backendServer.Stop()
 
