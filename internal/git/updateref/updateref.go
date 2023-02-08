@@ -4,11 +4,13 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 )
 
 // ErrAlreadyLocked indicates a reference cannot be locked because another
@@ -317,13 +319,7 @@ func (u *Updater) Close() error {
 
 func (u *Updater) write(format string, args ...interface{}) error {
 	if _, err := fmt.Fprintf(u.cmd, format, args...); err != nil {
-		// We need to explicitly cancel the command here and wait for it to terminate such
-		// that we can retrieve the command's stderr in a race-free manner.
-		_ = u.Close()
-		// The update-ref process may have already exited due to an error. In such cases,
-		// the write errors are not meaningful. If we find one of the typed errors in
-		// stderr, we'll return it instead.
-		return parseStderrError(u.stderr.Bytes(), fmt.Errorf("%w: %q", err, u.stderr))
+		return u.handleIOError(err)
 	}
 
 	return nil
@@ -350,11 +346,7 @@ func (u *Updater) setState(state string) error {
 	// raised.
 	line, err := u.stdout.ReadString('\n')
 	if err != nil {
-		// We need to explicitly cancel the command here and wait for it to
-		// terminate such that we can retrieve the command's stderr in a race-free
-		// manner.
-		_ = u.Close()
-		return parseStderrError(u.stderr.Bytes(), fmt.Errorf("state update to %q failed: %w, stderr: %q", state, err, u.stderr))
+		return u.handleIOError(fmt.Errorf("state update to %q failed: %w", state, err))
 	}
 
 	if line != fmt.Sprintf("%s: ok\n", state) {
@@ -365,9 +357,28 @@ func (u *Updater) setState(state string) error {
 	return nil
 }
 
-// parseStderrError returns any typed error that might be present in stderr. If
-// the error message does not match any typed error, defaultErr is returned instead.
-func parseStderrError(stderr []byte, defaultErr error) error {
+// handleIOError handles errors after reading from or writing to git-update-ref(1) has failed.
+// It makes sure to properly tear down the process so that the stderr gets synchronized and handles
+// well-known errors. If the error message is not a well-known error then this function returns the
+// fallback error provided by the caller.
+func (u *Updater) handleIOError(fallbackErr error) error {
+	// We need to explicitly cancel the command here and wait for it to terminate such that we
+	// can retrieve the command's stderr in a race-free manner.
+	//
+	// Furthermore, if I/O has failed because we cancelled the process then we don't want to
+	// return a converted error, but instead want to return the actual context cancellation
+	// error.
+	if err := u.Close(); err != nil {
+		switch {
+		case errors.Is(err, context.Canceled):
+			return err
+		case errors.Is(err, context.DeadlineExceeded):
+			return err
+		}
+	}
+
+	stderr := u.stderr.Bytes()
+
 	matches := refLockedRegex.FindSubmatch(stderr)
 	if len(matches) > 1 {
 		return &ErrAlreadyLocked{Ref: string(matches[1])}
@@ -410,5 +421,5 @@ func parseStderrError(stderr []byte, defaultErr error) error {
 		}
 	}
 
-	return defaultErr
+	return structerr.New("%w", fallbackErr).WithMetadata("stderr", string(stderr))
 }

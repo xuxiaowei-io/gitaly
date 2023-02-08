@@ -3,7 +3,9 @@ package updateref
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -14,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 )
@@ -325,7 +328,10 @@ func TestUpdater_update(t *testing.T) {
 	// when the old commit ID doesn't match.
 	require.NoError(t, updater.Start())
 	require.NoError(t, updater.Update("refs/heads/main", newCommitID, otherCommitID))
-	require.ErrorContains(t, updater.Commit(), fmt.Sprintf("fatal: commit: cannot lock ref 'refs/heads/main': is at %s but expected %s", oldCommitID, otherCommitID))
+
+	require.Equal(t, structerr.New("%w", fmt.Errorf("state update to %q failed: %w", "commit", io.EOF)).WithMetadata(
+		"stderr", fmt.Sprintf("fatal: commit: cannot lock ref 'refs/heads/main': is at %s but expected %s\n", oldCommitID, otherCommitID),
+	), updater.Commit())
 	require.Equal(t, invalidStateTransitionError{expected: stateIdle, actual: stateClosed}, updater.Start())
 
 	require.Equal(t, gittest.ResolveRevision(t, cfg, repoPath, "refs/heads/main"), oldCommitID)
@@ -515,7 +521,14 @@ func TestUpdater_cancel(t *testing.T) {
 
 	require.NoError(t, failingUpdater.Start())
 	require.NoError(t, failingUpdater.Delete(git.ReferenceName("refs/heads/main")))
-	require.ErrorContains(t, failingUpdater.Commit(), "fatal: commit: cannot lock ref 'refs/heads/main'")
+
+	err = failingUpdater.Commit()
+	require.EqualError(t, err, fmt.Sprintf("state update to %q failed: %v", "commit", io.EOF))
+	var structErr structerr.Error
+	require.True(t, errors.As(err, &structErr))
+	// The error message returned by git-update-ref(1) is simply too long to fully verify it, so
+	// we just check that it matches a specific substring.
+	require.Contains(t, structErr.Metadata()["stderr"], "fatal: commit: cannot lock ref 'refs/heads/main'")
 
 	// We now cancel the initial updater. Afterwards, it should be possible again to update the
 	// ref because locks should have been released.
@@ -569,7 +582,9 @@ func TestUpdater_capturesStderr(t *testing.T) {
 	_, err := updater.cmd.Write([]byte("garbage input"))
 	require.NoError(t, err)
 
-	require.EqualError(t, updater.Commit(), `state update to "commit" failed: EOF, stderr: "fatal: unknown command: garbage inputcommit\n"`)
+	require.Equal(t, structerr.New("%w", fmt.Errorf("state update to %q failed: %w", "commit", io.EOF)).WithMetadata(
+		"stderr", "fatal: unknown command: garbage inputcommit\n",
+	), updater.Commit())
 }
 
 func BenchmarkUpdater(b *testing.B) {
