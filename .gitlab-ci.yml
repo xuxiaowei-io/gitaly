@@ -22,7 +22,7 @@ variables:
   RUBY_VERSION: "3.0"
   RUST_VERSION: "1.65.0"
   POSTGRES_VERSION: "12-alpine"
-  PGBOUNCER_VERSION: "1.16.1"
+  PGBOUNCER_VERSION: "1.17.0"
   BUNDLE_PATH: "${CI_PROJECT_DIR}/_build/cache/ruby"
   GOCACHE: "${CI_PROJECT_DIR}/_build/cache/go-build"
   GOMODCACHE: "${CI_PROJECT_DIR}/_build/cache/go-mod"
