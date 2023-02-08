@@ -19,7 +19,7 @@ func TestFindRemoteRepository(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, _, _, client := setupRemoteService(t, ctx)
+	cfg, client := setupRemoteService(t, ctx)
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 
 	type setupData struct {

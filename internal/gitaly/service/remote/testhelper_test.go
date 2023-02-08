@@ -6,7 +6,6 @@ import (
 	"context"
 	"testing"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/repository"
@@ -22,7 +21,7 @@ func TestMain(m *testing.M) {
 	testhelper.Run(m)
 }
 
-func setupRemoteServiceWithoutRepo(t *testing.T, ctx context.Context, opts ...testserver.GitalyServerOpt) (config.Cfg, gitalypb.RemoteServiceClient) {
+func setupRemoteService(t *testing.T, ctx context.Context, opts ...testserver.GitalyServerOpt) (config.Cfg, gitalypb.RemoteServiceClient) {
 	t.Helper()
 
 	cfg := testcfg.Build(t)
@@ -53,18 +52,6 @@ func setupRemoteServiceWithoutRepo(t *testing.T, ctx context.Context, opts ...te
 	t.Cleanup(func() { conn.Close() })
 
 	return cfg, client
-}
-
-func setupRemoteService(t *testing.T, ctx context.Context, opts ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, gitalypb.RemoteServiceClient) {
-	t.Helper()
-
-	cfg, client := setupRemoteServiceWithoutRepo(t, ctx, opts...)
-
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
-
-	return cfg, repo, repoPath, client
 }
 
 func newRemoteClient(t *testing.T, serverSocketPath string) (gitalypb.RemoteServiceClient, *grpc.ClientConn) {
