@@ -27,6 +27,8 @@ Please complete all but the "Reading material" section in your first few working
   - [ ] update your [Team page entry](https://about.gitlab.com/handbook/git-page-update/#12-add-yourself-to-the-team-page)
   - [ ] update your Slack profile ("What I do")
   - [ ] update your Zoom title
+- Integrate Your PTO with the Gitaly Team Calendar
+  - [ ]  [follow these instructions](https://about.gitlab.com/handbook/people-group/engineering/team-pto-calendar/#steps), and use `gitlab.com_mc911ncuk38bfngud133tjb4m8@group.calendar.google.com` as the Calendar ID.
 - Reading material
   - [ ] check out the [README](https://gitlab.com/gitlab-org/gitaly/-/blob/master/README.md) at https://gitlab.com/gitlab-org/gitaly, without getting lost in too much detail
     - [ ] watch video [presentations](https://gitlab.com/gitlab-org/gitaly/-/blob/master/README.md#presentations) linked in README
