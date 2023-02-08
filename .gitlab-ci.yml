@@ -256,15 +256,11 @@ test:pgbouncer:
     <<: *test_variables
     # The following variables are used by PgBouncer to connect to Postgres.
     POSTGRESQL_HOST: "${PGHOST}"
-    # The image doesn't support setting `auth_user`, so we're cheating and use
-    # "command line injection" here. In any case, `auth_user` is required so
-    # that we can connect as a different user, but authenticate as the actual
-    # PGUSER. We can fix this when
-    # https://github.com/bitnami/bitnami-docker-pgbouncer/pull/22 lands.
-    POSTGRESQL_PORT: "${PGPORT} auth_user=${PGUSER}"
+    POSTGRESQL_PORT: "${PGPORT}"
     POSTGRESQL_USERNAME: "${PGUSER}"
     # These variables define how PgBouncer itself is configured
     PGBOUNCER_AUTH_TYPE: trust
+    PGBOUNCER_AUTH_USER: "${PGUSER}"
     PGBOUNCER_DATABASE: "*"
     PGBOUNCER_IGNORE_STARTUP_PARAMETERS: extra_float_digits
     PGBOUNCER_POOL_MODE: transaction
