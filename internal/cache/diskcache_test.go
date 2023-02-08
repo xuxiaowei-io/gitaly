@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package cache
 
 import (
@@ -50,14 +48,15 @@ func TestStreamDBNaiveKeyer(t *testing.T) {
 	ctx := testhelper.Context(t)
 	ctx = testhelper.SetCtxGrpcMethod(ctx, "InfoRefsUploadPack")
 
-	repo1, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repo1, repoPath1 := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
-	repo2, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	gittest.WriteCommit(t, cfg, repoPath1, gittest.WithMessage("one"), gittest.WithBranch("master"))
+
+	repo2, repoPath2 := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
+	gittest.WriteCommit(t, cfg, repoPath2, gittest.WithMessage("two"), gittest.WithBranch("master"))
 
 	locator := config.NewLocator(cfg)
 

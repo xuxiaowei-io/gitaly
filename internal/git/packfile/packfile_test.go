@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package packfile_test
 
 import (
@@ -18,34 +16,51 @@ func TestMain(m *testing.M) {
 }
 
 func TestList(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
-	tempDir := testhelper.TempDir(t)
 
-	emptyRepo := filepath.Join(tempDir, "empty.git")
-	gittest.Exec(t, cfg, "init", "--bare", emptyRepo)
-
-	populatedRepo := filepath.Join(tempDir, "populated")
-	gittest.Exec(t, cfg, "init", populatedRepo)
-	for i := 0; i < 10; i++ {
-		gittest.Exec(t, cfg, "-C", populatedRepo, "commit",
-			"--allow-empty", "--message", "commit message")
-	}
-	gittest.Exec(t, cfg, "-C", populatedRepo, "repack", "-ad")
-
-	testCases := []struct {
-		desc     string
-		path     string
-		numPacks int
+	for _, tc := range []struct {
+		desc          string
+		setup         func(t *testing.T) string
+		expectedPacks int
 	}{
-		{desc: "empty", path: emptyRepo},
-		{desc: "1 pack no alternates", path: filepath.Join(populatedRepo, ".git"), numPacks: 1},
-	}
+		{
+			desc: "empty repository",
+			setup: func(t *testing.T) string {
+				_, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
+				return repoPath
+			},
+			expectedPacks: 0,
+		},
+		{
+			desc: "with single packfile",
+			setup: func(t *testing.T) string {
+				_, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
 
-	for _, tc := range testCases {
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Ad")
+
+				return repoPath
+			},
+			expectedPacks: 1,
+		},
+	} {
+		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
-			out, err := packfile.List(filepath.Join(tc.path, "objects"))
+			t.Parallel()
+
+			repoPath := tc.setup(t)
+
+			packs, err := packfile.List(filepath.Join(repoPath, "objects"))
 			require.NoError(t, err)
-			require.Len(t, out, tc.numPacks)
+			require.Len(t, packs, tc.expectedPacks)
 		})
 	}
 }

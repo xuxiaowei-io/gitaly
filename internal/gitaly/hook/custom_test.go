@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package hook
 
 import (
@@ -59,7 +57,6 @@ func TestCustomHooksSuccess(t *testing.T) {
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 
 	testCases := []struct {
@@ -116,7 +113,6 @@ func TestCustomHookPartialFailure(t *testing.T) {
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 
 	globalCustomHooksDir := testhelper.TempDir(t)
@@ -199,7 +195,6 @@ func TestCustomHooksMultipleHooks(t *testing.T) {
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 
 	globalCustomHooksDir := testhelper.TempDir(t)
@@ -250,7 +245,6 @@ func TestCustomHooksWithSymlinks(t *testing.T) {
 
 	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 
 	globalCustomHooksDir := testhelper.TempDir(t)
@@ -323,7 +317,6 @@ func TestMultilineStdin(t *testing.T) {
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 
 	globalCustomHooksDir := testhelper.TempDir(t)
@@ -358,7 +351,6 @@ func TestMultipleScriptsStdin(t *testing.T) {
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 
 	globalCustomHooksDir := testhelper.TempDir(t)

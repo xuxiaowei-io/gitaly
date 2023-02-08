@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package hook
 
 import (
@@ -29,7 +27,6 @@ func TestHookManager_stopCalled(t *testing.T) {
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 
 	expectedTx := txinfo.Transaction{
@@ -131,7 +128,6 @@ func TestHookManager_contextCancellationCancelsVote(t *testing.T) {
 
 	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 
 	mockTxMgr := transaction.MockManager{

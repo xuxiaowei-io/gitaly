@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package commandstatshandler
 
 import (
@@ -79,7 +77,6 @@ func TestInterceptor(t *testing.T) {
 
 	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 
 	logger, hook := test.NewNullLogger()

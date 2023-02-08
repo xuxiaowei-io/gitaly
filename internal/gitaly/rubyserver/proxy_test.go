@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package rubyserver
 
 import (
@@ -19,7 +17,6 @@ func TestSetHeadersBlocksUnknownMetadata(t *testing.T) {
 
 	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 
 	otherKey := "unknown-key"
@@ -42,7 +39,6 @@ func TestSetHeadersPreservesAllowlistedMetadata(t *testing.T) {
 
 	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 
 	key := "gitaly-servers"
@@ -64,7 +60,6 @@ func TestRubyFeatureHeaders(t *testing.T) {
 
 	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 
 	key := "gitaly-feature-ruby-test-feature"
