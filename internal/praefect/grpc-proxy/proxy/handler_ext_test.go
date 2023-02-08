@@ -336,6 +336,7 @@ func TestProxyErrorPropagation(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
+			ctx := testhelper.Context(t)
 			tmpDir := testhelper.TempDir(t)
 
 			backendListener, err := net.Listen("unix", filepath.Join(tmpDir, "backend"))
@@ -346,14 +347,13 @@ func TestProxyErrorPropagation(t *testing.T) {
 			}))
 			go testhelper.MustServe(t, backendServer, backendListener)
 			defer backendServer.Stop()
-			ctx := testhelper.Context(t)
 
 			backendClientConn, err := grpc.DialContext(ctx, "unix://"+backendListener.Addr().String(),
-				grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithDefaultCallOptions(grpc.ForceCodec(proxy.NewCodec())))
+				grpc.WithTransportCredentials(insecure.NewCredentials()),
+				grpc.WithDefaultCallOptions(grpc.ForceCodec(proxy.NewCodec())),
+			)
 			require.NoError(t, err)
-			defer func() {
-				require.NoError(t, backendClientConn.Close())
-			}()
+			defer testhelper.MustClose(t, backendClientConn)
 
 			proxyListener, err := net.Listen("unix", filepath.Join(tmpDir, "proxy"))
 			require.NoError(t, err)
@@ -373,15 +373,12 @@ func TestProxyErrorPropagation(t *testing.T) {
 					), tc.directorError
 				})),
 			)
-
 			go testhelper.MustServe(t, proxyServer, proxyListener)
 			defer proxyServer.Stop()
 
 			proxyClientConn, err := grpc.DialContext(ctx, "unix://"+proxyListener.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 			require.NoError(t, err)
-			defer func() {
-				require.NoError(t, proxyClientConn.Close())
-			}()
+			defer testhelper.MustClose(t, proxyClientConn)
 
 			resp, err := grpc_testing.NewTestServiceClient(proxyClientConn).UnaryCall(ctx, &grpc_testing.SimpleRequest{})
 			testhelper.RequireGrpcError(t, tc.returnedError, err)
