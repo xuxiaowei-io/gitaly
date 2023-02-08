@@ -656,7 +656,32 @@ func TestHealthCheckDialer(t *testing.T) {
 	require.NoError(t, cc.Close())
 }
 
-func TestWithGitalyDNSResolver_successfully(t *testing.T) {
+var dialFuncs = []struct {
+	name string
+	dial func(*testing.T, string, []grpc.DialOption) (*grpc.ClientConn, error)
+}{
+	{
+		name: "Dial",
+		dial: func(t *testing.T, rawAddress string, connOpts []grpc.DialOption) (*grpc.ClientConn, error) {
+			return Dial(rawAddress, connOpts)
+		},
+	},
+	{
+		name: "DialContext",
+		dial: func(t *testing.T, rawAddress string, connOpts []grpc.DialOption) (*grpc.ClientConn, error) {
+			return DialContext(testhelper.Context(t), rawAddress, connOpts)
+		},
+	},
+	{
+		name: "DialSidechannel",
+		dial: func(t *testing.T, rawAddress string, connOpts []grpc.DialOption) (*grpc.ClientConn, error) {
+			sr := NewSidechannelRegistry(testhelper.NewDiscardingLogEntry(t))
+			return DialSidechannel(testhelper.Context(t), rawAddress, sr, connOpts)
+		},
+	},
+}
+
+func TestWithGitalyDNSResolver_resolvableDomain(t *testing.T) {
 	t.Parallel()
 
 	serverURL := startFakeGitalyServer(t)
@@ -671,11 +696,50 @@ func TestWithGitalyDNSResolver_successfully(t *testing.T) {
 	}).Start()
 
 	// This scheme uses our DNS resolver
-	target := fmt.Sprintf("dns://%s/grpc.test:%s", dnsServer.Addr(), serverPort)
-	conn, err := grpc.Dial(
+	url := fmt.Sprintf("dns://%s/grpc.test:%s", dnsServer.Addr(), serverPort)
+	for _, dialFunc := range dialFuncs {
+		dialFunc := dialFunc
+		t.Run(fmt.Sprintf("dial via %s, url = %s", dialFunc.name, url), func(t *testing.T) {
+			t.Parallel()
+			verifyDNSConnection(t, dialFunc.dial, url)
+		})
+	}
+}
+
+func TestWithGitalyDNSResolver_loopbackAddresses(t *testing.T) {
+	t.Parallel()
+
+	serverURL := startFakeGitalyServer(t)
+	_, port, err := net.SplitHostPort(serverURL)
+	require.NoError(t, err)
+
+	urls := []string{
+		fmt.Sprintf("dns:///%s", serverURL),
+		fmt.Sprintf("dns:%s", serverURL),
+		fmt.Sprintf("dns:///localhost:%s", port),
+		fmt.Sprintf("dns:localhost:%s", port),
+	}
+
+	for _, url := range urls {
+		for _, dialFunc := range dialFuncs {
+			url := url
+			dialFunc := dialFunc
+			t.Run(fmt.Sprintf("dial via %s, url = %s", dialFunc.name, url), func(t *testing.T) {
+				t.Parallel()
+				verifyDNSConnection(t, dialFunc.dial, url)
+			})
+		}
+	}
+}
+
+func verifyDNSConnection(t *testing.T, dial func(*testing.T, string, []grpc.DialOption) (*grpc.ClientConn, error), target string) {
+	conn, err := dial(
+		t,
 		target,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		WithGitalyDNSResolver(DefaultDNSResolverBuilderConfig()),
+		[]grpc.DialOption{
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			WithGitalyDNSResolver(DefaultDNSResolverBuilderConfig()),
+		},
 	)
 	require.NoError(t, err)
 	defer testhelper.MustClose(t, conn)
@@ -690,23 +754,33 @@ func TestWithGitalyDNSResolver_successfully(t *testing.T) {
 func TestWithGitalyDNSResolver_zeroAddresses(t *testing.T) {
 	t.Parallel()
 
-	dnsServer := testhelper.NewFakeDNSServer(t).WithHandler(dns.TypeA, func(host string) []string {
-		return nil
-	}).Start()
+	for _, dialFunc := range dialFuncs {
+		dialFunc := dialFunc
+		t.Run(fmt.Sprintf("dial via %s", dialFunc.name), func(t *testing.T) {
+			t.Parallel()
 
-	// This scheme uses our DNS resolver
-	target := fmt.Sprintf("dns://%s/grpc.test:50051", dnsServer.Addr())
-	conn, err := grpc.Dial(
-		target,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		WithGitalyDNSResolver(DefaultDNSResolverBuilderConfig()),
-	)
-	require.NoError(t, err)
-	defer testhelper.MustClose(t, conn)
+			dnsServer := testhelper.NewFakeDNSServer(t).WithHandler(dns.TypeA, func(host string) []string {
+				return nil
+			}).Start()
 
-	client := gitalypb.NewCommitServiceClient(conn)
-	_, err = client.FindCommit(testhelper.Context(t), &gitalypb.FindCommitRequest{})
-	require.Equal(t, err, status.Error(codes.Unavailable, "name resolver error: produced zero addresses"))
+			// This scheme uses our DNS resolver
+			target := fmt.Sprintf("dns://%s/grpc.test:50051", dnsServer.Addr())
+			conn, err := dialFunc.dial(
+				t,
+				target,
+				[]grpc.DialOption{
+					grpc.WithTransportCredentials(insecure.NewCredentials()),
+					WithGitalyDNSResolver(DefaultDNSResolverBuilderConfig()),
+				},
+			)
+			require.NoError(t, err)
+			defer testhelper.MustClose(t, conn)
+
+			client := gitalypb.NewCommitServiceClient(conn)
+			_, err = client.FindCommit(testhelper.Context(t), &gitalypb.FindCommitRequest{})
+			require.Equal(t, err, status.Error(codes.Unavailable, "last resolver error: produced zero addresses"))
+		})
+	}
 }
 
 type fakeCommitServer struct {
