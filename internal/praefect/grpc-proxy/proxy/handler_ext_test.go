@@ -15,6 +15,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/getsentry/sentry-go"
@@ -342,10 +343,20 @@ func TestProxyErrorPropagation(t *testing.T) {
 			backendListener, err := net.Listen("unix", filepath.Join(tmpDir, "backend"))
 			require.NoError(t, err)
 
+			// We use a wait group to synchronize shutdown of the gRPC servers. This is
+			// done so that any errors returned by the servers are propagated while the
+			// test is still execution.
+			var wg sync.WaitGroup
+			defer wg.Wait()
+
 			backendServer := grpc.NewServer(grpc.UnknownServiceHandler(func(interface{}, grpc.ServerStream) error {
 				return tc.backendError
 			}))
-			go testhelper.MustServe(t, backendServer, backendListener)
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				testhelper.MustServe(t, backendServer, backendListener)
+			}()
 			defer backendServer.Stop()
 
 			backendClientConn, err := grpc.DialContext(ctx, "unix://"+backendListener.Addr().String(),
@@ -373,7 +384,11 @@ func TestProxyErrorPropagation(t *testing.T) {
 					), tc.directorError
 				})),
 			)
-			go testhelper.MustServe(t, proxyServer, proxyListener)
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				testhelper.MustServe(t, proxyServer, proxyListener)
+			}()
 			defer proxyServer.Stop()
 
 			proxyClientConn, err := grpc.DialContext(ctx, "unix://"+proxyListener.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
