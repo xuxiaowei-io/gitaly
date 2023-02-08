@@ -1,4 +1,6 @@
-package commandstatshandler
+//go:build !gitaly_test_sha256
+
+package limithandler_test
 
 import (
 	"context"
@@ -12,13 +14,13 @@ import (
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/log"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/middleware/limithandler"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -27,27 +29,31 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 )
 
-func TestMain(m *testing.M) {
-	testhelper.Run(m)
-}
-
 func createNewServer(t *testing.T, cfg config.Cfg, logger *logrus.Logger) *grpc.Server {
 	t.Helper()
 
 	logrusEntry := logrus.NewEntry(logger).WithField("test", t.Name())
 
+	concurrencyLimitHandler := limithandler.New(
+		cfg,
+		limithandler.LimitConcurrencyByRepo,
+		limithandler.WithConcurrencyLimiters,
+	)
+
 	opts := []grpc.ServerOption{
 		grpc.StreamInterceptor(grpcmw.ChainStreamServer(
-			StreamInterceptor,
+			limithandler.StatsStreamInterceptor,
 			grpcmwlogrus.StreamServerInterceptor(logrusEntry,
 				grpcmwlogrus.WithTimestampFormat(log.LogTimestampFormat),
-				grpcmwlogrus.WithMessageProducer(log.MessageProducer(grpcmwlogrus.DefaultMessageProducer, FieldsProducer))),
+				grpcmwlogrus.WithMessageProducer(log.MessageProducer(grpcmwlogrus.DefaultMessageProducer, limithandler.FieldsProducer))),
+			concurrencyLimitHandler.StreamInterceptor(),
 		)),
 		grpc.UnaryInterceptor(grpcmw.ChainUnaryServer(
-			UnaryInterceptor,
+			limithandler.StatsUnaryInterceptor,
 			grpcmwlogrus.UnaryServerInterceptor(logrusEntry,
 				grpcmwlogrus.WithTimestampFormat(log.LogTimestampFormat),
-				grpcmwlogrus.WithMessageProducer(log.MessageProducer(grpcmwlogrus.DefaultMessageProducer, FieldsProducer))),
+				grpcmwlogrus.WithMessageProducer(log.MessageProducer(grpcmwlogrus.DefaultMessageProducer, limithandler.FieldsProducer))),
+			concurrencyLimitHandler.UnaryInterceptor(),
 		)),
 	}
 
@@ -95,7 +101,7 @@ func TestInterceptor(t *testing.T) {
 	tests := []struct {
 		name            string
 		performRPC      func(t *testing.T, ctx context.Context, client gitalypb.RefServiceClient)
-		expectedLogData map[string]interface{}
+		expectedLogData []string
 	}{
 		{
 			name: "Unary",
@@ -105,18 +111,7 @@ func TestInterceptor(t *testing.T) {
 				_, err := client.RefExists(ctx, req)
 				require.NoError(t, err)
 			},
-			expectedLogData: map[string]interface{}{
-				// Until we bump our minimum required Git version to v2.36.0 we are
-				// forced to carry a version check whenever we spawn Git commands.
-				// The command count here is thus 2 because of the additional
-				// git-version(1) command. Note that the next command count remains
-				// 1 though: the version is cached, and consequentially we don't
-				// re-run git-version(1).
-				//
-				// This test will break again as soon as we bump the minimum Git
-				// version and thus remove the version check.
-				"command.count": 2,
-			},
+			expectedLogData: []string{"limit.concurrency_queue_ms"},
 		},
 		{
 			name: "Stream",
@@ -134,9 +129,7 @@ func TestInterceptor(t *testing.T) {
 					require.NoError(t, err)
 				}
 			},
-			expectedLogData: map[string]interface{}{
-				"command.count": 1,
-			},
+			expectedLogData: []string{"limit.concurrency_queue_ms"},
 		},
 	}
 	for _, tt := range tests {
@@ -153,20 +146,9 @@ func TestInterceptor(t *testing.T) {
 
 			logEntries := hook.AllEntries()
 			require.Len(t, logEntries, 1)
-			for expectedLogKey, expectedLogValue := range tt.expectedLogData {
+			for _, expectedLogKey := range tt.expectedLogData {
 				require.Contains(t, logEntries[0].Data, expectedLogKey)
-				require.Equal(t, logEntries[0].Data[expectedLogKey], expectedLogValue)
 			}
 		})
 	}
-}
-
-func TestFieldsProducer(t *testing.T) {
-	ctx := testhelper.Context(t)
-
-	ctx = command.InitContextStats(ctx)
-	stats := command.StatsFromContext(ctx)
-	stats.RecordMax("stub", 42)
-
-	require.Equal(t, logrus.Fields{"stub": 42}, FieldsProducer(ctx, nil))
 }
