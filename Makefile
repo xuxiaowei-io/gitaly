@@ -618,7 +618,8 @@ ${BUILD_DIR}/intermediate/%:                 clear-go-build-cache-if-needed .FOR
 	@ # We're building intermediate binaries first which contain a fixed build ID
 	@ # of "TEMP_GITALY_BUILD_ID". In the final binary we replace this build ID with
 	@ # the computed build ID for this binary.
-	${Q}go build -o "$@" -ldflags '-B 0x${TEMPORARY_BUILD_ID} ${GO_LDFLAGS}' -tags "${GO_BUILD_TAGS}" $(addprefix ${SOURCE_DIR}/cmd/,$(@F))
+	@ # We cd to SOURCE_DIR to avoid corner cases where workdir may be a symlink
+	${Q}cd ${SOURCE_DIR} && go build -o "$@" -ldflags '-B 0x${TEMPORARY_BUILD_ID} ${GO_LDFLAGS}' -tags "${GO_BUILD_TAGS}" $(addprefix ${SOURCE_DIR}/cmd/,$(@F))
 
 # This is a build hack to avoid excessive rebuilding of targets. Instead of
 # depending on the Makefile, we start to depend on tool versions as defined in
