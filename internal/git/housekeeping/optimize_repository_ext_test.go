@@ -33,7 +33,6 @@ import (
 func TestPruneIfNeeded(t *testing.T) {
 	t.Parallel()
 	testhelper.NewFeatureSets(
-		featureflag.WriteBitmapLookupTable,
 		featureflag.WriteMultiPackIndex,
 	).Run(t, testPruneIfNeeded)
 }
@@ -243,7 +242,6 @@ func testPruneIfNeeded(t *testing.T, ctx context.Context) {
 func TestOptimizeRepository_objectPoolMember(t *testing.T) {
 	t.Parallel()
 	testhelper.NewFeatureSets(
-		featureflag.WriteBitmapLookupTable,
 		featureflag.WriteMultiPackIndex,
 	).Run(t, testOptimizeRepositoryObjectPoolMember)
 }

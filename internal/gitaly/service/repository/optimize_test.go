@@ -30,7 +30,6 @@ import (
 func TestOptimizeRepository(t *testing.T) {
 	t.Parallel()
 	testhelper.NewFeatureSets(
-		featureflag.WriteBitmapLookupTable,
 		featureflag.WriteMultiPackIndex,
 	).Run(t, testOptimizeRepository)
 }
