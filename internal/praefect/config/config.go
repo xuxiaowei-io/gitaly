@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/yamux"
 	"github.com/pelletier/go-toml/v2"
 	promclient "github.com/prometheus/client_golang/prometheus"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/errors/cfgerror"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/auth"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/log"
@@ -44,8 +45,9 @@ const (
 	minimalSyncRunInterval   = time.Minute
 )
 
-//nolint:revive // This is unintentionally missing documentation.
+// Failover contains configuration for the mechanism that tracks healthiness of the cluster nodes.
 type Failover struct {
+	// Enabled is a trigger used to check if failover is enabled or not.
 	Enabled bool `toml:"enabled,omitempty"`
 	// ElectionStrategy is the strategy to use for electing primaries nodes.
 	ElectionStrategy         ElectionStrategy  `toml:"election_strategy,omitempty"`
@@ -80,6 +82,39 @@ func (f Failover) ErrorThresholdsConfigured() (bool, error) {
 	}
 
 	return true, nil
+}
+
+// Validate returns a list of failed checks.
+func (f Failover) Validate() error {
+	if !f.Enabled {
+		// If it is not enabled we shouldn't care about provided values
+		// as they won't be used.
+		return nil
+	}
+
+	errs := cfgerror.New().
+		Append(cfgerror.IsSupportedValue(f.ElectionStrategy, ElectionStrategyLocal, ElectionStrategySQL, ElectionStrategyPerRepository), "election_strategy").
+		Append(cfgerror.IsPositive(f.BootstrapInterval.Duration()), "bootstrap_interval").
+		Append(cfgerror.IsPositive(f.MonitorInterval.Duration()), "monitor_interval").
+		Append(cfgerror.IsPositive(f.ErrorThresholdWindow.Duration()), "error_threshold_window")
+
+	if f.ErrorThresholdWindow == 0 && f.WriteErrorThresholdCount == 0 && f.ReadErrorThresholdCount == 0 {
+		return errs.AsError()
+	}
+
+	if f.ErrorThresholdWindow == 0 {
+		errs = errs.Append(cfgerror.ErrNotSet, "error_threshold_window")
+	}
+
+	if f.WriteErrorThresholdCount == 0 {
+		errs = errs.Append(cfgerror.ErrNotSet, "write_error_threshold_count")
+	}
+
+	if f.ReadErrorThresholdCount == 0 {
+		errs = errs.Append(cfgerror.ErrNotSet, "read_error_threshold_count")
+	}
+
+	return errs.AsError()
 }
 
 // BackgroundVerification contains configuration options for the repository background verification.

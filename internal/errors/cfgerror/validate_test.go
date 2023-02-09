@@ -237,3 +237,11 @@ func TestInRange(t *testing.T) {
 		})
 	}
 }
+
+func TestIsSupportedValue(t *testing.T) {
+	t.Parallel()
+	require.NoError(t, IsSupportedValue(1, 1, 2, 3))
+	require.Equal(t, NewValidationError(fmt.Errorf("%w: 0", ErrUnsupportedValue)), IsSupportedValue(0))
+	require.Equal(t, NewValidationError(fmt.Errorf("%w: 1", ErrUnsupportedValue)), IsSupportedValue(1, 0, 10))
+	require.Equal(t, NewValidationError(fmt.Errorf(`%w: "c"`, ErrUnsupportedValue)), IsSupportedValue("c", "a", "b"))
+}

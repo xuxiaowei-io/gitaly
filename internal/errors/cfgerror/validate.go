@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 
 	"golang.org/x/exp/constraints"
@@ -31,6 +32,8 @@ var (
 	ErrBadOrder = errors.New("bad order")
 	// ErrNotInRange should be used when the value is not in expected range of values.
 	ErrNotInRange = errors.New("not in range")
+	// ErrUnsupportedValue should be used when the value is not supported.
+	ErrUnsupportedValue = errors.New("not supported")
 )
 
 // ValidationError represents an issue with provided configuration.
@@ -246,4 +249,19 @@ func InRange[T Numeric](min, max, val T, opts ...InRangeOpt) error {
 	}
 
 	return nil
+}
+
+// IsSupportedValue ensures the provided 'value' is one listed as 'supportedValues'.
+func IsSupportedValue[T comparable](value T, supportedValues ...T) error {
+	for _, supportedValue := range supportedValues {
+		if value == supportedValue {
+			return nil
+		}
+	}
+
+	if reflect.TypeOf(value).Kind() == reflect.String {
+		return NewValidationError(fmt.Errorf(`%w: "%v"`, ErrUnsupportedValue, value))
+	}
+
+	return NewValidationError(fmt.Errorf("%w: %v", ErrUnsupportedValue, value))
 }

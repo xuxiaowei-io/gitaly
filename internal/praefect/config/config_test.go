@@ -5,12 +5,14 @@ package config
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/errors/cfgerror"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/log"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/prometheus"
@@ -535,4 +537,104 @@ func TestSerialization(t *testing.T) {
 		require.NoError(t, encoder.Encode(Config{ListenAddr: "localhost:5640"}))
 		require.Equal(t, "listen_addr = 'localhost:5640'\n", out.String())
 	})
+}
+
+func TestFailover_Validate(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name        string
+		failover    Failover
+		expectedErr error
+	}{
+		{
+			name:     "empty disabled config",
+			failover: Failover{},
+		},
+		{
+			name: "all set valid",
+			failover: Failover{
+				Enabled:                  true,
+				ElectionStrategy:         ElectionStrategySQL,
+				ErrorThresholdWindow:     duration.Duration(1),
+				WriteErrorThresholdCount: 1,
+				ReadErrorThresholdCount:  1,
+				BootstrapInterval:        duration.Duration(1),
+				MonitorInterval:          duration.Duration(1),
+			},
+		},
+		{
+			name: "all valid with disabled error threshold",
+			failover: Failover{
+				ElectionStrategy:  ElectionStrategySQL,
+				BootstrapInterval: duration.Duration(1),
+				MonitorInterval:   duration.Duration(1),
+			},
+		},
+		{
+			name: "all set invalid except ErrorThresholdWindow",
+			failover: Failover{
+				Enabled:                  true,
+				ElectionStrategy:         ElectionStrategy("bad"),
+				ErrorThresholdWindow:     duration.Duration(-1),
+				WriteErrorThresholdCount: 0,
+				ReadErrorThresholdCount:  0,
+				BootstrapInterval:        duration.Duration(-1),
+				MonitorInterval:          duration.Duration(-1),
+			},
+			expectedErr: cfgerror.ValidationErrors{
+				{
+					Key:   []string{"election_strategy"},
+					Cause: fmt.Errorf(`%w: "bad"`, cfgerror.ErrUnsupportedValue),
+				},
+				{
+					Key:   []string{"bootstrap_interval"},
+					Cause: fmt.Errorf("%w: -1ns", cfgerror.ErrIsNegative),
+				},
+				{
+					Key:   []string{"monitor_interval"},
+					Cause: fmt.Errorf("%w: -1ns", cfgerror.ErrIsNegative),
+				},
+				{
+					Key:   []string{"error_threshold_window"},
+					Cause: fmt.Errorf("%w: -1ns", cfgerror.ErrIsNegative),
+				},
+				{
+					Key:   []string{"write_error_threshold_count"},
+					Cause: cfgerror.ErrNotSet,
+				},
+				{
+					Key:   []string{"read_error_threshold_count"},
+					Cause: cfgerror.ErrNotSet,
+				},
+			},
+		},
+		{
+			name: "invalid error threshold",
+			failover: Failover{
+				Enabled:                  true,
+				ElectionStrategy:         ElectionStrategySQL,
+				ErrorThresholdWindow:     duration.Duration(0),
+				WriteErrorThresholdCount: 1,
+				ReadErrorThresholdCount:  1,
+			},
+			expectedErr: cfgerror.ValidationErrors{
+				{
+					Key:   []string{"error_threshold_window"},
+					Cause: cfgerror.ErrNotSet,
+				},
+			},
+		},
+		{
+			name: "set invalid but disabled",
+			failover: Failover{
+				Enabled:          false,
+				ElectionStrategy: ElectionStrategy("bad"),
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			errs := tc.failover.Validate()
+			require.Equal(t, tc.expectedErr, errs)
+		})
+	}
 }
