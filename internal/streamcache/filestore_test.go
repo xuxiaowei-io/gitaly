@@ -110,7 +110,7 @@ func TestFilestoreCleanwalk(t *testing.T) {
 	file := filepath.Join(dir2, "file")
 	require.NoError(t, os.Mkdir(dir1, perm.SharedDir))
 	require.NoError(t, os.Mkdir(dir2, perm.SharedDir))
-	require.NoError(t, os.WriteFile(file, nil, 0o644))
+	require.NoError(t, os.WriteFile(file, nil, perm.SharedFile))
 	require.NoError(t, os.Chmod(dir2, 0), "create dir with pathological permissions")
 
 	require.NoError(t, fs.cleanWalk(time.Now().Add(time.Hour)))
@@ -119,7 +119,7 @@ func TestFilestoreCleanwalk(t *testing.T) {
 		fi, err := os.Stat(d)
 		require.NoError(t, err, "directories do not get deleted")
 
-		const mask = 0o700
+		const mask = perm.PrivateExecutable
 		require.True(t, fi.Mode()&mask >= mask, "unexpected file mode %o", fi.Mode())
 	}
 

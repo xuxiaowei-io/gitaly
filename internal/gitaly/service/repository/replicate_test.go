@@ -66,7 +66,7 @@ func TestReplicateRepository(t *testing.T) {
 	attrFilePath := filepath.Join(repoPath, "info", "attributes")
 	require.NoError(t, os.MkdirAll(filepath.Dir(attrFilePath), perm.SharedDir))
 	attrData := []byte("*.pbxproj binary\n")
-	require.NoError(t, os.WriteFile(attrFilePath, attrData, 0o644))
+	require.NoError(t, os.WriteFile(attrFilePath, attrData, perm.SharedFile))
 
 	// Write a modified gitconfig
 	gittest.Exec(t, cfg, "-C", repoPath, "config", "please.replicate", "me")
@@ -489,7 +489,7 @@ func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 	})
 
 	// We corrupt the repository by writing garbage into HEAD.
-	require.NoError(t, os.WriteFile(filepath.Join(sourceRepoPath, "HEAD"), []byte("garbage"), 0o666))
+	require.NoError(t, os.WriteFile(filepath.Join(sourceRepoPath, "HEAD"), []byte("garbage"), perm.PublicFile))
 
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
@@ -532,7 +532,7 @@ func listenGitalySSHCalls(t *testing.T, conf config.Cfg) func() gitalySSHParams 
 		echo "$@" >%[1]q/arguments
 
 		exec %[2]q "$@"`, tmpDir, updatedPath)
-	require.NoError(t, os.WriteFile(initialPath, []byte(script), 0o755))
+	require.NoError(t, os.WriteFile(initialPath, []byte(script), perm.SharedExecutable))
 
 	return func() gitalySSHParams {
 		arguments := testhelper.MustReadFile(t, filepath.Join(tmpDir, "arguments"))

@@ -258,7 +258,7 @@ func WriteExecutable(tb testing.TB, path string, content []byte) string {
 	//
 	// We thus need to perform file locking to ensure that all writeable references to this
 	// file have been closed before returning.
-	executable, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o755)
+	executable, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, perm.SharedExecutable)
 	require.NoError(tb, err)
 	_, err = io.Copy(executable, bytes.NewReader(content))
 	require.NoError(tb, err)

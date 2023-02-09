@@ -110,7 +110,7 @@ func TestFromRepo_failures(t *testing.T) {
 
 			require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "objects", "info"), perm.SharedDir))
 			alternateFilePath := filepath.Join(repoPath, "objects", "info", "alternates")
-			require.NoError(t, os.WriteFile(alternateFilePath, tc.fileContent, 0o644))
+			require.NoError(t, os.WriteFile(alternateFilePath, tc.fileContent, perm.SharedFile))
 			poolFromRepo, err := FromRepo(locator, pool.gitCmdFactory, nil, nil, nil, repo)
 			require.Equal(t, tc.expectedErr, err)
 			require.Nil(t, poolFromRepo)

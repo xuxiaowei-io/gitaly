@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
@@ -67,7 +68,7 @@ func TestRemoveRepository_locking(t *testing.T) {
 
 	// Simulate a concurrent RPC holding the repository lock.
 	lockPath := repoPath + ".lock"
-	require.NoError(t, os.WriteFile(lockPath, []byte{}, 0o644))
+	require.NoError(t, os.WriteFile(lockPath, []byte{}, perm.SharedFile))
 	defer func() { require.NoError(t, os.RemoveAll(lockPath)) }()
 
 	_, err := client.RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{Repository: repo})

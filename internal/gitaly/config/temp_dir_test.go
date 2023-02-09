@@ -62,7 +62,7 @@ func TestPruneOldGitalyProcessDirectories(t *testing.T) {
 
 		// Create an unexpected file in the runtime directory
 		unexpectedFilePath := filepath.Join(baseDir, "unexpected-file")
-		require.NoError(t, os.WriteFile(unexpectedFilePath, []byte(""), os.ModePerm))
+		require.NoError(t, os.WriteFile(unexpectedFilePath, []byte(""), perm.PublicFile))
 		expectedLogs[unexpectedFilePath] = "ignoring file found in gitaly process directory"
 
 		nonPrunableDirs := []string{ownRuntimeDir}

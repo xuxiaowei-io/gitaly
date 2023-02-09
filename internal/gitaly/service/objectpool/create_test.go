@@ -90,7 +90,7 @@ func TestCreate_unsuccessful(t *testing.T) {
 	lockedRelativePath := gittest.NewObjectPoolName(t)
 	lockedFullPath := filepath.Join(cfg.Storages[0].Path, lockedRelativePath+".lock")
 	require.NoError(t, os.MkdirAll(filepath.Dir(lockedFullPath), perm.SharedDir))
-	require.NoError(t, os.WriteFile(lockedFullPath, nil, 0o644))
+	require.NoError(t, os.WriteFile(lockedFullPath, nil, perm.SharedFile))
 
 	// Create a preexisting object pool.
 	preexistingPool := &gitalypb.ObjectPool{

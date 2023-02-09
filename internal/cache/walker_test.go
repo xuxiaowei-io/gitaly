@@ -79,7 +79,7 @@ func TestDiskCacheInitialClear(t *testing.T) {
 
 	canary := filepath.Join(cacheDir, "canary.txt")
 	require.NoError(t, os.MkdirAll(filepath.Dir(canary), perm.SharedDir))
-	require.NoError(t, os.WriteFile(canary, []byte("chirp chirp"), 0o755))
+	require.NoError(t, os.WriteFile(canary, []byte("chirp chirp"), perm.SharedExecutable))
 
 	cache := New(cfg, locator, withDisabledWalker())
 	require.NoError(t, cache.StartWalkers())
@@ -116,7 +116,7 @@ func TestCleanWalkEmptyDirs(t *testing.T) {
 		if strings.HasSuffix(tt.path, "/") {
 			require.NoError(t, os.MkdirAll(p, perm.SharedDir))
 		} else {
-			require.NoError(t, os.WriteFile(p, nil, 0o655))
+			require.NoError(t, os.WriteFile(p, nil, perm.SharedFile))
 			if tt.stale {
 				require.NoError(t, os.Chtimes(p, time.Now(), time.Now().Add(-time.Hour)))
 			}

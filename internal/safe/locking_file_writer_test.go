@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -147,7 +148,7 @@ func TestLockingFileWriter_seedingWithExistingTarget(t *testing.T) {
 	t.Parallel()
 
 	target := filepath.Join(testhelper.TempDir(t), "file")
-	require.NoError(t, os.WriteFile(target, []byte("seed"), 0o644))
+	require.NoError(t, os.WriteFile(target, []byte("seed"), perm.SharedFile))
 
 	writer, err := safe.NewLockingFileWriter(target, safe.LockingFileWriterConfig{
 		SeedContents: true,
@@ -165,7 +166,7 @@ func TestLockingFileWriter_modifiesExistingFiles(t *testing.T) {
 	t.Parallel()
 
 	target := filepath.Join(testhelper.TempDir(t), "file")
-	require.NoError(t, os.WriteFile(target, []byte("preexisting"), 0o644))
+	require.NoError(t, os.WriteFile(target, []byte("preexisting"), perm.SharedFile))
 
 	writer, err := safe.NewLockingFileWriter(target)
 	require.NoError(t, err)
@@ -181,7 +182,7 @@ func TestLockingFileWriter_modifiesExistingFilesWithMode(t *testing.T) {
 	t.Parallel()
 
 	target := filepath.Join(testhelper.TempDir(t), "file")
-	require.NoError(t, os.WriteFile(target, []byte("preexisting"), 0o644))
+	require.NoError(t, os.WriteFile(target, []byte("preexisting"), perm.SharedFile))
 
 	writer, err := safe.NewLockingFileWriter(target, safe.LockingFileWriterConfig{
 		FileWriterConfig: safe.FileWriterConfig{FileMode: 0o060},
@@ -204,7 +205,7 @@ func TestLockingFileWriter_concurrentCreation(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create file concurrently.
-	require.NoError(t, os.WriteFile(target, []byte("concurrent"), 0o644))
+	require.NoError(t, os.WriteFile(target, []byte("concurrent"), perm.SharedFile))
 
 	require.Equal(t, fmt.Errorf("file concurrently created"), writer.Lock())
 
@@ -216,7 +217,7 @@ func TestLockingFileWriter_concurrentDeletion(t *testing.T) {
 
 	target := filepath.Join(testhelper.TempDir(t), "file")
 
-	require.NoError(t, os.WriteFile(target, []byte("base"), 0o644))
+	require.NoError(t, os.WriteFile(target, []byte("base"), perm.SharedFile))
 	writer, err := safe.NewLockingFileWriter(target)
 	require.NoError(t, err)
 
@@ -233,12 +234,12 @@ func TestLockingFileWriter_concurrentModification(t *testing.T) {
 
 	target := filepath.Join(testhelper.TempDir(t), "file")
 
-	require.NoError(t, os.WriteFile(target, []byte("base"), 0o644))
+	require.NoError(t, os.WriteFile(target, []byte("base"), perm.SharedFile))
 	writer, err := safe.NewLockingFileWriter(target)
 	require.NoError(t, err)
 
 	// Concurrently modify the file.
-	require.NoError(t, os.WriteFile(target, []byte("concurrent"), 0o644))
+	require.NoError(t, os.WriteFile(target, []byte("concurrent"), perm.SharedFile))
 
 	require.Equal(t, fmt.Errorf("file concurrently modified"), writer.Lock())
 
@@ -271,13 +272,13 @@ func TestLockingFileWriter_locked(t *testing.T) {
 	t.Parallel()
 
 	target := filepath.Join(testhelper.TempDir(t), "file")
-	require.NoError(t, os.WriteFile(target, []byte("base"), 0o644))
+	require.NoError(t, os.WriteFile(target, []byte("base"), perm.SharedFile))
 
 	writer, err := safe.NewLockingFileWriter(target)
 	require.NoError(t, err)
 
 	// Concurrently lock the file.
-	require.NoError(t, os.WriteFile(target+".lock", nil, 0o644))
+	require.NoError(t, os.WriteFile(target+".lock", nil, perm.SharedFile))
 
 	require.Equal(t, safe.ErrFileAlreadyLocked, writer.Lock())
 
@@ -290,7 +291,7 @@ func TestLockingFileWriter_externalProcess(t *testing.T) {
 	cfg := testcfg.Build(t)
 
 	target := filepath.Join(testhelper.TempDir(t), "file")
-	require.NoError(t, os.WriteFile(target, []byte("base"), 0o644))
+	require.NoError(t, os.WriteFile(target, []byte("base"), perm.SharedFile))
 
 	writer, err := safe.NewLockingFileWriter(target)
 	require.NoError(t, err)

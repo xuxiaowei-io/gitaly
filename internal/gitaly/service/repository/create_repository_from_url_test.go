@@ -134,7 +134,7 @@ func TestCreateRepositoryFromURL_existingTarget(t *testing.T) {
 				require.NoError(t, os.MkdirAll(importedRepoPath, perm.GroupPrivateDir))
 			} else {
 				require.NoError(t, os.MkdirAll(filepath.Dir(importedRepoPath), perm.PublicDir))
-				require.NoError(t, os.WriteFile(importedRepoPath, nil, 0o644))
+				require.NoError(t, os.WriteFile(importedRepoPath, nil, perm.SharedFile))
 			}
 			t.Cleanup(func() { require.NoError(t, os.RemoveAll(importedRepoPath)) })
 

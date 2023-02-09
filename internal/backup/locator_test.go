@@ -193,8 +193,8 @@ func TestPointerLocator(t *testing.T) {
 			require.ErrorIs(t, err, ErrDoesntExist)
 
 			require.NoError(t, os.MkdirAll(filepath.Join(backupPath, repo.RelativePath, backupID), perm.SharedDir))
-			require.NoError(t, os.WriteFile(filepath.Join(backupPath, repo.RelativePath, "LATEST"), []byte(backupID), 0o644))
-			require.NoError(t, os.WriteFile(filepath.Join(backupPath, repo.RelativePath, backupID, "LATEST"), []byte("003"), 0o644))
+			require.NoError(t, os.WriteFile(filepath.Join(backupPath, repo.RelativePath, "LATEST"), []byte(backupID), perm.SharedFile))
+			require.NoError(t, os.WriteFile(filepath.Join(backupPath, repo.RelativePath, backupID, "LATEST"), []byte("003"), perm.SharedFile))
 			expected := &Backup{
 				Steps: []Step{
 					{
@@ -247,8 +247,8 @@ func TestPointerLocator(t *testing.T) {
 			require.Equal(t, expectedFallback, fallbackFull)
 
 			require.NoError(t, os.MkdirAll(filepath.Join(backupPath, repo.RelativePath, backupID), perm.SharedDir))
-			require.NoError(t, os.WriteFile(filepath.Join(backupPath, repo.RelativePath, "LATEST"), []byte(backupID), 0o644))
-			require.NoError(t, os.WriteFile(filepath.Join(backupPath, repo.RelativePath, backupID, "LATEST"), []byte("001"), 0o644))
+			require.NoError(t, os.WriteFile(filepath.Join(backupPath, repo.RelativePath, "LATEST"), []byte(backupID), perm.SharedFile))
+			require.NoError(t, os.WriteFile(filepath.Join(backupPath, repo.RelativePath, backupID, "LATEST"), []byte("001"), perm.SharedFile))
 			expected := &Backup{
 				Steps: []Step{
 					{
@@ -276,7 +276,7 @@ func TestPointerLocator(t *testing.T) {
 			require.ErrorIs(t, err, ErrDoesntExist)
 
 			require.NoError(t, os.MkdirAll(filepath.Join(backupPath, repo.RelativePath), perm.SharedDir))
-			require.NoError(t, os.WriteFile(filepath.Join(backupPath, repo.RelativePath, "LATEST"), []byte("invalid"), 0o644))
+			require.NoError(t, os.WriteFile(filepath.Join(backupPath, repo.RelativePath, "LATEST"), []byte("invalid"), perm.SharedFile))
 			_, err = l.FindLatest(ctx, repo)
 			require.EqualError(t, err, "pointer locator: find latest: find: find latest ID: filesystem sink: get reader for \"TestPointerLocator/invalid/LATEST\": doesn't exist")
 		})
@@ -293,8 +293,8 @@ func TestPointerLocator(t *testing.T) {
 			require.ErrorIs(t, err, ErrDoesntExist)
 
 			require.NoError(t, os.MkdirAll(filepath.Join(backupPath, repo.RelativePath, backupID), perm.SharedDir))
-			require.NoError(t, os.WriteFile(filepath.Join(backupPath, repo.RelativePath, "LATEST"), []byte(backupID), 0o644))
-			require.NoError(t, os.WriteFile(filepath.Join(backupPath, repo.RelativePath, backupID, "LATEST"), []byte("invalid"), 0o644))
+			require.NoError(t, os.WriteFile(filepath.Join(backupPath, repo.RelativePath, "LATEST"), []byte(backupID), perm.SharedFile))
+			require.NoError(t, os.WriteFile(filepath.Join(backupPath, repo.RelativePath, backupID, "LATEST"), []byte("invalid"), perm.SharedFile))
 
 			_, err = l.FindLatest(ctx, repo)
 			require.EqualError(t, err, "pointer locator: find latest: find: determine increment ID: strconv.Atoi: parsing \"invalid\": invalid syntax")

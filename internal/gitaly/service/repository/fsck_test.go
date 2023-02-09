@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -77,7 +78,7 @@ func TestFsck(t *testing.T) {
 				// This makes the repo severely broken so that `git` does not
 				// identify it as a proper repository anymore.
 				require.NoError(t, os.RemoveAll(filepath.Join(repoPath, "objects")))
-				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "objects"), nil, 0o644))
+				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "objects"), nil, perm.SharedFile))
 
 				return setupData{
 					repo: repo,

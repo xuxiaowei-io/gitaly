@@ -178,32 +178,32 @@ func TestNewDirectoryVote(t *testing.T) {
 		{
 			desc: "generated hash matches",
 			files: []testFile{
-				{name: "pre-commit.sample", content: "foo", mode: 0o755},
-				{name: "pre-push.sample", content: "bar", mode: 0o755},
+				{name: "pre-commit.sample", content: "foo", mode: perm.SharedExecutable},
+				{name: "pre-push.sample", content: "bar", mode: perm.SharedExecutable},
 			},
 			expectedHash: "8ca11991268de4c9278488a674fc1a88db449566",
 		},
 		{
 			desc: "generated hash matches with changed file name",
 			files: []testFile{
-				{name: "pre-commit.sample.diff", content: "foo", mode: 0o755},
-				{name: "pre-push.sample", content: "bar", mode: 0o755},
+				{name: "pre-commit.sample.diff", content: "foo", mode: perm.SharedExecutable},
+				{name: "pre-push.sample", content: "bar", mode: perm.SharedExecutable},
 			},
 			expectedHash: "b5ed58ced84103da1ed9d7813a9e39b3b5daf7d7",
 		},
 		{
 			desc: "generated hash matches with changed file content",
 			files: []testFile{
-				{name: "pre-commit.sample", content: "foo", mode: 0o755},
-				{name: "pre-push.sample", content: "bar.diff", mode: 0o755},
+				{name: "pre-commit.sample", content: "foo", mode: perm.SharedExecutable},
+				{name: "pre-push.sample", content: "bar.diff", mode: perm.SharedExecutable},
 			},
 			expectedHash: "178083848c8a08e36c4f86c2d318a84b0bb845f2",
 		},
 		{
 			desc: "generated hash matches with changed file mode",
 			files: []testFile{
-				{name: "pre-commit.sample", content: "foo", mode: 0o644},
-				{name: "pre-push.sample", content: "bar", mode: 0o755},
+				{name: "pre-commit.sample", content: "foo", mode: perm.SharedFile},
+				{name: "pre-push.sample", content: "bar", mode: perm.SharedExecutable},
 			},
 			expectedHash: "c69574241b83496bb4005b4f7a0dfcda96cb317e",
 		},

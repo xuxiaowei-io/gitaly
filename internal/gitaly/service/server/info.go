@@ -8,6 +8,7 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/fstype"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/version"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -55,7 +56,7 @@ func shardCheck(shardPath string) (readable bool, writeable bool) {
 	testPath := filepath.Join(shardPath, "+testWrite")
 
 	content := []byte("testWrite")
-	if err := os.WriteFile(testPath, content, 0o644); err == nil {
+	if err := os.WriteFile(testPath, content, perm.SharedFile); err == nil {
 		writeable = true
 	}
 	_ = os.Remove(testPath)

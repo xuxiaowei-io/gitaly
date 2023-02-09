@@ -69,7 +69,7 @@ func TestApplyGitattributes_successful(t *testing.T) {
 			t.Run("with preexisting 'info/attributes'", func(t *testing.T) {
 				require.NoError(t, os.RemoveAll(infoPath))
 				require.NoError(t, os.Mkdir(infoPath, perm.SharedDir))
-				require.NoError(t, os.WriteFile(attributesPath, []byte("*.docx diff=word"), 0o644))
+				require.NoError(t, os.WriteFile(attributesPath, []byte("*.docx diff=word"), perm.SharedFile))
 				requireApplyGitattributes(t, ctx, client, repo, attributesPath, tc.revision, tc.expectedContent)
 			})
 		})

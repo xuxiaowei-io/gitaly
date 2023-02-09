@@ -557,11 +557,11 @@ func testCleanupInvalidKeepAroundRefs(t *testing.T, ctx context.Context) {
 			// Create an invalid ref that should should be removed with the testcase
 			bogusSha := "b3f5e4adf6277b571b7943a4f0405a6dd7ee7e15"
 			bogusPath := filepath.Join(repoPath, fmt.Sprintf("refs/keep-around/%s", bogusSha))
-			require.NoError(t, os.WriteFile(bogusPath, []byte(bogusSha), 0o644))
+			require.NoError(t, os.WriteFile(bogusPath, []byte(bogusSha), perm.SharedFile))
 
 			// Creating the keeparound without using git so we can create invalid ones in testcases
 			refPath := filepath.Join(repoPath, fmt.Sprintf("refs/keep-around/%s", testcase.refName))
-			require.NoError(t, os.WriteFile(refPath, []byte(testcase.refContent), 0o644))
+			require.NoError(t, os.WriteFile(refPath, []byte(testcase.refContent), perm.SharedFile))
 
 			// Perform the request
 			req := &gitalypb.GarbageCollectRequest{Repository: repo}
@@ -591,7 +591,7 @@ func mustCreateFileWithTimes(tb testing.TB, path string, mTime time.Time) {
 	tb.Helper()
 
 	require.NoError(tb, os.MkdirAll(filepath.Dir(path), perm.SharedDir))
-	require.NoError(tb, os.WriteFile(path, nil, 0o644))
+	require.NoError(tb, os.WriteFile(path, nil, perm.SharedFile))
 	require.NoError(tb, os.Chtimes(path, mTime, mTime))
 }
 

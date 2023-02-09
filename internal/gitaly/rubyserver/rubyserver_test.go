@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/log"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/version"
@@ -171,7 +172,7 @@ func TestServer_gitconfig(t *testing.T) {
 			setup: func(t *testing.T) (config.Cfg, string) {
 				gitconfigDir := testhelper.TempDir(t)
 				expectedPath := filepath.Join(gitconfigDir, "gitconfig")
-				require.NoError(t, os.WriteFile(expectedPath, []byte("garbage"), 0o666))
+				require.NoError(t, os.WriteFile(expectedPath, []byte("garbage"), perm.PublicFile))
 
 				cfg := testcfg.Build(t, testcfg.WithBase(config.Cfg{
 					Ruby: config.Ruby{

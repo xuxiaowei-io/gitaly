@@ -144,7 +144,7 @@ func makeFile(t *testing.T, locator storage.Locator, storage config.Storage, fil
 	require.NoError(t, err)
 
 	fullPath := filepath.Join(root, filePath)
-	require.NoError(t, os.WriteFile(fullPath, nil, 0o644))
+	require.NoError(t, os.WriteFile(fullPath, nil, perm.SharedFile))
 	require.NoError(t, os.Chtimes(fullPath, mtime, mtime))
 }
 

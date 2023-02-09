@@ -156,7 +156,7 @@ func TestRandomWalk(t *testing.T) {
 			}
 
 			for _, file := range tc.files {
-				require.NoError(t, os.WriteFile(filepath.Join(root, file), []byte{}, 0o777))
+				require.NoError(t, os.WriteFile(filepath.Join(root, file), []byte{}, perm.PublicExecutable))
 			}
 
 			walker := newRandomWalker(root, rand.New(rand.NewSource(1)))

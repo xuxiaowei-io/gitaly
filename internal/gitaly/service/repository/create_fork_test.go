@@ -244,7 +244,7 @@ func TestCreateFork_targetExists(t *testing.T) {
 				require.NoError(t, os.WriteFile(
 					filepath.Join(targetPath, "config"),
 					nil,
-					0o644,
+					perm.SharedFile,
 				))
 			},
 			expectedErrWithAtomicCreation: structerr.NewAlreadyExists("creating fork: repository exists already"),
@@ -253,7 +253,7 @@ func TestCreateFork_targetExists(t *testing.T) {
 			desc: "target file",
 			seed: func(t *testing.T, targetPath string) {
 				require.NoError(t, os.MkdirAll(filepath.Dir(targetPath), perm.GroupPrivateDir))
-				require.NoError(t, os.WriteFile(targetPath, nil, 0o644))
+				require.NoError(t, os.WriteFile(targetPath, nil, perm.SharedFile))
 			},
 			expectedErrWithAtomicCreation: structerr.NewAlreadyExists("creating fork: repository exists already"),
 		},

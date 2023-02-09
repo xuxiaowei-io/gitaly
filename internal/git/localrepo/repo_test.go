@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -235,7 +236,7 @@ func TestSize(t *testing.T) {
 				require.NoError(t, os.WriteFile(
 					filepath.Join(repoPath, "objects", "info", "alternates"),
 					[]byte(filepath.Join(poolPath, "objects")),
-					os.ModePerm,
+					perm.PublicFile,
 				))
 
 				for _, path := range []string{repoPath, poolPath} {
@@ -269,7 +270,7 @@ func TestSize(t *testing.T) {
 				require.NoError(t, os.WriteFile(
 					filepath.Join(repoPath, "objects", "info", "alternates"),
 					[]byte(filepath.Join(poolPath, "objects")),
-					os.ModePerm,
+					perm.PublicFile,
 				))
 
 				// We write the same object into both repositories, so we should
@@ -304,7 +305,7 @@ func TestSize(t *testing.T) {
 				require.NoError(t, os.WriteFile(
 					filepath.Join(repoPath, "objects", "info", "alternates"),
 					[]byte(filepath.Join(poolPath, "objects")),
-					os.ModePerm,
+					perm.PublicFile,
 				))
 
 				for i, path := range []string{repoPath, poolPath} {

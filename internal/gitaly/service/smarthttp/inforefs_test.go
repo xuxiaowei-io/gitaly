@@ -545,7 +545,7 @@ func createInvalidRepo(tb testing.TB, repoDir string) func() {
 
 func replaceCachedResponse(tb testing.TB, ctx context.Context, cache *cache.DiskCache, req *gitalypb.InfoRefsRequest, newContents string) {
 	path := pathToCachedResponse(tb, ctx, cache, req)
-	require.NoError(tb, os.WriteFile(path, []byte(newContents), 0o644))
+	require.NoError(tb, os.WriteFile(path, []byte(newContents), perm.SharedFile))
 }
 
 func setInfoRefsUploadPackMethod(ctx context.Context) context.Context {

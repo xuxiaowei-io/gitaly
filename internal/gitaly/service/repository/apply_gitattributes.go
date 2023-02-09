@@ -22,7 +22,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
-const attributesFileMode os.FileMode = 0o644
+const attributesFileMode os.FileMode = perm.SharedFile
 
 func (s *server) applyGitattributes(ctx context.Context, repo *localrepo.Repo, objectReader catfile.ObjectContentReader, repoPath string, revision []byte) (returnedErr error) {
 	infoPath := filepath.Join(repoPath, "info")

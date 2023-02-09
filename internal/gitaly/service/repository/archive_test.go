@@ -18,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/smudge"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -551,7 +552,7 @@ func TestGetArchive_environment(t *testing.T) {
 
 func compressedFileContents(t *testing.T, format gitalypb.GetArchiveRequest_Format, contents []byte) string {
 	path := filepath.Join(testhelper.TempDir(t), "archive")
-	require.NoError(t, os.WriteFile(path, contents, 0o644))
+	require.NoError(t, os.WriteFile(path, contents, perm.SharedFile))
 
 	switch format {
 	case gitalypb.GetArchiveRequest_TAR:

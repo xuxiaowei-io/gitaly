@@ -6,6 +6,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 )
 
 // buildDir is the directory path where our build target places the built binaries.
@@ -46,7 +48,7 @@ func UnpackAuxiliaryBinaries(destinationDir string) error {
 			}()
 
 			unpackedPath := filepath.Join(destinationDir, entry.Name())
-			unpackedFile, err := os.OpenFile(unpackedPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o700)
+			unpackedFile, err := os.OpenFile(unpackedPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, perm.PrivateExecutable)
 			if err != nil {
 				return err
 			}

@@ -279,7 +279,7 @@ func (s *server) syncGitconfig(ctx context.Context, in *gitalypb.ReplicateReposi
 	}
 
 	configPath := filepath.Join(repoPath, "config")
-	if err := s.writeFile(ctx, configPath, 0o644, streamio.NewReader(func() ([]byte, error) {
+	if err := s.writeFile(ctx, configPath, perm.SharedFile, streamio.NewReader(func() ([]byte, error) {
 		resp, err := stream.Recv()
 		return resp.GetData(), err
 	})); err != nil {

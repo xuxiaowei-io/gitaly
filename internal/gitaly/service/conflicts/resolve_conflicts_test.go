@@ -20,6 +20,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -474,7 +475,7 @@ func TestResolveConflictsIdenticalContent(t *testing.T) {
 	} {
 		contents := gittest.Exec(t, cfg, "-C", repoPath, "cat-file", "-p", rev+":files/ruby/popen.rb")
 		path := filepath.Join(tempDir, rev)
-		require.NoError(t, os.WriteFile(path, contents, 0o644))
+		require.NoError(t, os.WriteFile(path, contents, perm.SharedFile))
 		conflictingPaths = append(conflictingPaths, path)
 	}
 

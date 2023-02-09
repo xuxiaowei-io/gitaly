@@ -23,6 +23,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
@@ -64,7 +65,7 @@ func TestMidxRewrite(t *testing.T) {
 
 	// Create an invalid multi-pack-index file
 	// with mtime update being the basis for comparison
-	require.NoError(t, os.WriteFile(midxPath, nil, 0o644))
+	require.NoError(t, os.WriteFile(midxPath, nil, perm.SharedFile))
 	require.NoError(t, os.Chtimes(midxPath, time.Time{}, time.Time{}))
 	info, err := os.Stat(midxPath)
 	require.NoError(t, err)
