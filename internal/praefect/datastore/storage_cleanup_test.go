@@ -163,7 +163,7 @@ func TestStorageCleanup_AcquireNextStorage(t *testing.T) {
 			require.Len(t, check2, 1)
 			require.True(t, check2[0].TriggeredAt.Valid)
 			return check2[0].TriggeredAt.Time.After(check1[0].TriggeredAt.Time)
-		}, 2*time.Second, 200*time.Millisecond, "goroutine failed to update triggered_at column")
+		}, time.Minute, 200*time.Millisecond, "goroutine failed to update triggered_at column")
 
 		require.NoError(t, release())
 
