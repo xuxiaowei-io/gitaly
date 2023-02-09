@@ -49,6 +49,48 @@ func TestFindDNSLookup_validAuthority(t *testing.T) {
 	require.Equal(t, []string{"1.2.3.4"}, addrs)
 }
 
+func TestValidateTarget(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		target      string
+		expectedErr error
+	}{
+		{target: "dns:google.com"},
+		{target: "dns:///google.com"},
+		{target: "dns://1.1.1.1/google.com"},
+		{target: "dns:google.com:50051"},
+		{target: "dns:///google.com:50051"},
+		{target: "dns://1.1.1.1:53/google.com:50051"},
+		{target: "dns:[2001:0db8:85a3:0000:0000:8a2e:0370:7334]"},
+		{target: "dns:///[2001:0db8:85a3:0000:0000:8a2e:0370:7334]"},
+		{target: "dns://1.1.1.1:53/[2001:0db8:85a3:0000:0000:8a2e:0370:7334]"},
+		{target: "dns:[2001:0db8:85a3:0000:0000:8a2e:0370:7334]:50051"},
+		{target: "dns:///[2001:0db8:85a3:0000:0000:8a2e:0370:7334]:50051"},
+		{target: "dns://1.1.1.1:53/[2001:0db8:85a3:0000:0000:8a2e:0370:7334]:50051"},
+		{target: "dns:[fe80::1ff:fe23:4567:890a]:50051"},
+		{target: "dns:///[fe80::1ff:fe23:4567:890a]:50051"},
+		{target: "dns://1.1.1.1:53/[fe80::1ff:fe23:4567:890a]:50051"},
+		{
+			target:      "dns:[fe80::1ff:fe23:4567:890a]:",
+			expectedErr: structerr.New("dns resolver: missing port after port-separator colon"),
+		},
+		{
+			target:      "tcp://[fe80::1ff:fe23:4567:890a]",
+			expectedErr: structerr.New("unexpected scheme: tcp"),
+		},
+		{
+			target:      "",
+			expectedErr: structerr.New("empty address"),
+		},
+	}
+	for _, tc := range tests {
+		t.Run(fmt.Sprintf("target: %s", tc.target), func(t *testing.T) {
+			require.Equal(t, tc.expectedErr, ValidateURL(tc.target))
+		})
+	}
+}
+
 func TestParseTarget(t *testing.T) {
 	t.Parallel()
 
