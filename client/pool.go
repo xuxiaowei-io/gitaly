@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"sync"
 
-	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
 	"google.golang.org/grpc"
 )
 
@@ -89,7 +88,7 @@ func (p *Pool) getOrCreateConnection(ctx context.Context, address, token string)
 	opts := make([]grpc.DialOption, 0, len(p.dialOptions)+1)
 	opts = append(opts, p.dialOptions...)
 	if token != "" {
-		opts = append(opts, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(token)))
+		opts = append(opts, grpc.WithPerRPCCredentials(RPCCredentialsV2(token)))
 	}
 
 	cc, err := p.dialer(ctx, address, opts)

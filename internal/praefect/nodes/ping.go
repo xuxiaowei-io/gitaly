@@ -8,7 +8,6 @@ import (
 	"strings"
 	"sync"
 
-	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
 	"gitlab.com/gitlab-org/gitaly/v15/client"
 	internalclient "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
@@ -78,7 +77,7 @@ func (p *Ping) dial(ctx context.Context) (*grpc.ClientConn, error) {
 	}
 
 	if len(p.token) > 0 {
-		opts = append(opts, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(p.token)))
+		opts = append(opts, grpc.WithPerRPCCredentials(client.RPCCredentialsV2(p.token)))
 	}
 
 	return client.DialContext(ctx, p.address, opts)

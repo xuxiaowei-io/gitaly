@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"os"
 
-	"gitlab.com/gitlab-org/gitaly/v15/client"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/client"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/sidechannel"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-func receivePack(ctx context.Context, conn *grpc.ClientConn, registry *client.SidechannelRegistry, req string) (int32, error) {
+func receivePack(ctx context.Context, conn *grpc.ClientConn, registry *sidechannel.SidechannelRegistry, req string) (int32, error) {
 	var request gitalypb.SSHReceivePackRequest
 
 	if err := protojson.Unmarshal([]byte(req), &request); err != nil {

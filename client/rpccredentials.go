@@ -1,7 +1,9 @@
-package gitalyauth
+package client
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
 	"fmt"
 	"strconv"
 	"time"
@@ -30,4 +32,12 @@ func (rc2 *rpcCredentialsV2) GetRequestMetadata(context.Context, ...string) (map
 	return map[string]string{
 		"authorization": "Bearer " + fmt.Sprintf("v2.%x.%s", signature, message),
 	}, nil
+}
+
+func hmacSign(secret []byte, message string) []byte {
+	mac := hmac.New(sha256.New, secret)
+	// hash.Hash never returns an error.
+	_, _ = mac.Write([]byte(message))
+
+	return mac.Sum(nil)
 }

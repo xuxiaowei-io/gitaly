@@ -1,9 +1,10 @@
-package client
+package client_tests
 
 import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	client2 "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/client"
 	"io"
 	"net"
 	"os"
@@ -17,10 +18,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/uber/jaeger-client-go"
-	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
-	internalclient "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/client"
+	"gitlab.com/gitlab-org/gitaly/v15/client"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/listenmux"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/sidechannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
-	gitalyx509 "gitlab.com/gitlab-org/gitaly/v15/internal/x509"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/correlation"
 	grpccorrelation "gitlab.com/gitlab-org/labkit/correlation/grpc"
@@ -33,6 +35,55 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/grpc_testing"
 )
+
+func TestDialHandshaker(t *testing.T) {
+	errNonMuxed := status.Error(codes.Internal, "non-muxed connection")
+	errMuxed := status.Error(codes.Internal, "muxed connection")
+
+	logger := testhelper.NewDiscardingLogEntry(t)
+
+	lm := listenmux.New(insecure.NewCredentials())
+	lm.Register(backchannel.NewServerHandshaker(logger, backchannel.NewRegistry(), nil))
+
+	srv := grpc.NewServer(
+		grpc.Creds(lm),
+		grpc.UnknownServiceHandler(func(srv interface{}, stream grpc.ServerStream) error {
+			_, err := backchannel.GetPeerID(stream.Context())
+			if err == backchannel.ErrNonMultiplexedConnection {
+				return errNonMuxed
+			}
+
+			assert.NoError(t, err)
+			return errMuxed
+		}),
+	)
+	defer srv.Stop()
+
+	ln, err := net.Listen("tcp", "localhost:0")
+	require.NoError(t, err)
+
+	go testhelper.MustServe(t, srv, ln)
+	ctx := testhelper.Context(t)
+
+	t.Run("non-muxed conn", func(t *testing.T) {
+		nonMuxedConn, err := client.DialHandshaker(ctx, "tcp://"+ln.Addr().String(), nil, nil)
+		require.NoError(t, err)
+		defer func() { require.NoError(t, nonMuxedConn.Close()) }()
+
+		dialErr := nonMuxedConn.Invoke(ctx, "/Service/Method", &gitalypb.VoteTransactionRequest{}, &gitalypb.VoteTransactionResponse{})
+		testhelper.RequireGrpcError(t, errNonMuxed, dialErr)
+	})
+
+	t.Run("muxed conn", func(t *testing.T) {
+		handshaker := backchannel.NewClientHandshaker(logger, func() backchannel.Server { return grpc.NewServer() }, backchannel.DefaultConfiguration())
+		nonMuxedConn, err := client.DialHandshaker(ctx, "tcp://"+ln.Addr().String(), nil, handshaker)
+		require.NoError(t, err)
+		defer func() { require.NoError(t, nonMuxedConn.Close()) }()
+
+		dialErr := nonMuxedConn.Invoke(ctx, "/Service/Method", &gitalypb.VoteTransactionRequest{}, &gitalypb.VoteTransactionResponse{})
+		testhelper.RequireGrpcError(t, errMuxed, dialErr)
+	})
+}
 
 var proxyEnvironmentKeys = []string{"http_proxy", "https_proxy", "no_proxy"}
 
@@ -119,7 +170,7 @@ func TestDial(t *testing.T) {
 		{
 			name:              "dial fail if there is no listener on address",
 			rawAddress:        "tcp://invalid.address",
-			dialOpts:          FailOnNonTempDialError(),
+			dialOpts:          client.FailOnNonTempDialError(),
 			expectDialFailure: true,
 		},
 	}
@@ -131,13 +182,14 @@ func TestDial(t *testing.T) {
 			}
 
 			if tt.envSSLCertFile != "" {
-				t.Setenv(gitalyx509.SSLCertFile, tt.envSSLCertFile)
+				// Read in gitlab.com/gitlab-org/gitaly/v15/client/internal/x509.
+				t.Setenv("SSL_CERT_FILE", tt.envSSLCertFile)
 			}
 
 			ctx := testhelper.Context(t)
 
-			dialOpts := append(tt.dialOpts, WithGitalyDNSResolver(DefaultDNSResolverBuilderConfig()))
-			conn, err := Dial(tt.rawAddress, dialOpts)
+			dialOpts := append(tt.dialOpts, client.WithGitalyDNSResolver(client.DefaultDNSResolverBuilderConfig()))
+			conn, err := client.Dial(tt.rawAddress, dialOpts)
 			if tt.expectDialFailure {
 				require.Error(t, err)
 				return
@@ -161,7 +213,7 @@ func TestDialSidechannel(t *testing.T) {
 	}
 
 	stop, connectionMap := startListeners(t, func(creds credentials.TransportCredentials) *grpc.Server {
-		return grpc.NewServer(TestSidechannelServer(newLogger(t), creds, func(
+		return grpc.NewServer(sidechannel.TestSidechannelServer(newLogger(t), creds, func(
 			_ interface{},
 			stream grpc.ServerStream,
 			sidechannelConn io.ReadWriteCloser,
@@ -195,7 +247,7 @@ func TestDialSidechannel(t *testing.T) {
 	unixSocketPath := filepath.Join(tempDir, "gitaly.socket")
 	require.NoError(t, os.Symlink(unixSocketAbsPath, unixSocketPath))
 
-	registry := NewSidechannelRegistry(newLogger(t))
+	registry := sidechannel.NewSidechannelRegistry(newLogger(t))
 
 	tests := []struct {
 		name           string
@@ -221,17 +273,18 @@ func TestDialSidechannel(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.envSSLCertFile != "" {
-				t.Setenv(gitalyx509.SSLCertFile, tt.envSSLCertFile)
+				// Read in gitlab.com/gitlab-org/gitaly/v15/client/internal/x509.
+				t.Setenv("SSL_CERT_FILE", tt.envSSLCertFile)
 			}
 
 			ctx := testhelper.Context(t)
 
-			dialOpts := append(tt.dialOpts, WithGitalyDNSResolver(DefaultDNSResolverBuilderConfig()))
-			conn, err := DialSidechannel(ctx, tt.rawAddress, registry, dialOpts)
+			dialOpts := append(tt.dialOpts, client.WithGitalyDNSResolver(client.DefaultDNSResolverBuilderConfig()))
+			conn, err := sidechannel.Dial(ctx, tt.rawAddress, registry, dialOpts)
 			require.NoError(t, err)
 			defer testhelper.MustClose(t, conn)
 
-			ctx, scw := registry.Register(ctx, func(conn SidechannelConn) error {
+			ctx, scw := registry.Register(ctx, func(conn sidechannel.SidechannelConn) error {
 				const message = "hello world"
 				if _, err := io.WriteString(conn, message); err != nil {
 					return err
@@ -303,10 +356,10 @@ func TestDial_Correlation(t *testing.T) {
 		defer grpcServer.Stop()
 		ctx := testhelper.Context(t)
 
-		cc, err := DialContext(ctx, "unix://"+serverSocketPath, []grpc.DialOption{
-			internalclient.UnaryInterceptor(),
-			internalclient.StreamInterceptor(),
-			WithGitalyDNSResolver(DefaultDNSResolverBuilderConfig()),
+		cc, err := client.DialContext(ctx, "unix://"+serverSocketPath, []grpc.DialOption{
+			client2.UnaryInterceptor(),
+			client2.StreamInterceptor(),
+			client.WithGitalyDNSResolver(client.DefaultDNSResolverBuilderConfig()),
 		})
 		require.NoError(t, err)
 		defer testhelper.MustClose(t, cc)
@@ -340,10 +393,10 @@ func TestDial_Correlation(t *testing.T) {
 		defer grpcServer.Stop()
 		ctx := testhelper.Context(t)
 
-		cc, err := DialContext(ctx, "unix://"+serverSocketPath, []grpc.DialOption{
-			internalclient.UnaryInterceptor(),
-			internalclient.StreamInterceptor(),
-			WithGitalyDNSResolver(DefaultDNSResolverBuilderConfig()),
+		cc, err := client.DialContext(ctx, "unix://"+serverSocketPath, []grpc.DialOption{
+			client2.UnaryInterceptor(),
+			client2.StreamInterceptor(),
+			client.WithGitalyDNSResolver(client.DefaultDNSResolverBuilderConfig()),
 		})
 		require.NoError(t, err)
 		defer testhelper.MustClose(t, cc)
@@ -415,10 +468,10 @@ func TestDial_Tracing(t *testing.T) {
 
 		// This needs to be run after setting up the global tracer as it will cause us to
 		// create the span when executing the RPC call further down below.
-		cc, err := DialContext(ctx, "unix://"+serverSocketPath, []grpc.DialOption{
-			internalclient.UnaryInterceptor(),
-			internalclient.StreamInterceptor(),
-			WithGitalyDNSResolver(DefaultDNSResolverBuilderConfig()),
+		cc, err := client.DialContext(ctx, "unix://"+serverSocketPath, []grpc.DialOption{
+			client2.UnaryInterceptor(),
+			client2.StreamInterceptor(),
+			client.WithGitalyDNSResolver(client.DefaultDNSResolverBuilderConfig()),
 		})
 		require.NoError(t, err)
 		defer testhelper.MustClose(t, cc)
@@ -476,10 +529,10 @@ func TestDial_Tracing(t *testing.T) {
 
 		// This needs to be run after setting up the global tracer as it will cause us to
 		// create the span when executing the RPC call further down below.
-		cc, err := DialContext(ctx, "unix://"+serverSocketPath, []grpc.DialOption{
-			internalclient.UnaryInterceptor(),
-			internalclient.StreamInterceptor(),
-			WithGitalyDNSResolver(DefaultDNSResolverBuilderConfig()),
+		cc, err := client.DialContext(ctx, "unix://"+serverSocketPath, []grpc.DialOption{
+			client2.UnaryInterceptor(),
+			client2.StreamInterceptor(),
+			client.WithGitalyDNSResolver(client.DefaultDNSResolverBuilderConfig()),
 		})
 		require.NoError(t, err)
 		defer testhelper.MustClose(t, cc)
@@ -643,14 +696,14 @@ func TestHealthCheckDialer(t *testing.T) {
 	defer cleanup()
 	ctx := testhelper.Context(t)
 
-	_, err := HealthCheckDialer(DialContext)(ctx, addr, nil)
+	_, err := client.HealthCheckDialer(client.DialContext)(ctx, addr, nil)
 	testhelper.RequireGrpcError(t, status.Error(codes.Unauthenticated, "authentication required"), err)
 
-	cc, err := HealthCheckDialer(DialContext)(ctx, addr, []grpc.DialOption{
-		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2("token")),
-		internalclient.UnaryInterceptor(),
-		internalclient.StreamInterceptor(),
-		WithGitalyDNSResolver(DefaultDNSResolverBuilderConfig()),
+	cc, err := client.HealthCheckDialer(client.DialContext)(ctx, addr, []grpc.DialOption{
+		grpc.WithPerRPCCredentials(client.RPCCredentialsV2("token")),
+		client2.UnaryInterceptor(),
+		client2.StreamInterceptor(),
+		client.WithGitalyDNSResolver(client.DefaultDNSResolverBuilderConfig()),
 	})
 	require.NoError(t, err)
 	require.NoError(t, cc.Close())
@@ -738,7 +791,7 @@ func verifyDNSConnection(t *testing.T, dial func(*testing.T, string, []grpc.Dial
 		target,
 		[]grpc.DialOption{
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
-			WithGitalyDNSResolver(DefaultDNSResolverBuilderConfig()),
+			client.WithGitalyDNSResolver(client.DefaultDNSResolverBuilderConfig()),
 		},
 	)
 	require.NoError(t, err)
@@ -770,7 +823,7 @@ func TestWithGitalyDNSResolver_zeroAddresses(t *testing.T) {
 				target,
 				[]grpc.DialOption{
 					grpc.WithTransportCredentials(insecure.NewCredentials()),
-					WithGitalyDNSResolver(DefaultDNSResolverBuilderConfig()),
+					client.WithGitalyDNSResolver(client.DefaultDNSResolverBuilderConfig()),
 				},
 			)
 			require.NoError(t, err)
@@ -795,7 +848,7 @@ func startFakeGitalyServer(t *testing.T) string {
 	listener, err := net.Listen("tcp", "localhost:0")
 	require.NoError(t, err)
 
-	srv := grpc.NewServer(SidechannelServer(newLogger(t), insecure.NewCredentials()))
+	srv := grpc.NewServer(sidechannel.SidechannelServer(newLogger(t), insecure.NewCredentials()))
 	gitalypb.RegisterCommitServiceServer(srv, &fakeCommitServer{})
 	go testhelper.MustServe(t, srv, listener)
 	t.Cleanup(srv.Stop)

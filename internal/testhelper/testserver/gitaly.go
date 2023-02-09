@@ -9,7 +9,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
 	"gitlab.com/gitlab-org/gitaly/v15/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/cache"
@@ -133,7 +132,7 @@ func waitHealthy(tb testing.TB, ctx context.Context, addr string, authToken stri
 		internalclient.StreamInterceptor(),
 	}
 	if authToken != "" {
-		grpcOpts = append(grpcOpts, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(authToken)))
+		grpcOpts = append(grpcOpts, grpc.WithPerRPCCredentials(client.RPCCredentialsV2(authToken)))
 	}
 
 	conn, err := client.DialContext(ctx, addr, grpcOpts)

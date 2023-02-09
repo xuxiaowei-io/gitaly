@@ -7,13 +7,13 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	gitalyx509 "gitlab.com/gitlab-org/gitaly/v15/client/internal/x509"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
 	"gitlab.com/gitlab-org/gitaly/v15/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
@@ -23,7 +23,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
-	gitalyx509 "gitlab.com/gitlab-org/gitaly/v15/internal/x509"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -337,7 +336,7 @@ func newSecureRepoClient(tb testing.TB, addr, token string, pool *x509.CertPool)
 			RootCAs:    pool,
 			MinVersion: tls.VersionTLS12,
 		})),
-		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(token)),
+		grpc.WithPerRPCCredentials(client.RPCCredentialsV2(token)),
 	}
 
 	conn, err := client.Dial(addr, connOpts)

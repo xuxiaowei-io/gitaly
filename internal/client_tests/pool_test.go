@@ -1,4 +1,4 @@
-package client
+package client_tests
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
+	"gitlab.com/gitlab-org/gitaly/v15/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/bootstrap/starter"
 	gitalycfgauth "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/auth"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/server/auth"
@@ -33,12 +33,12 @@ func TestPoolDial(t *testing.T) {
 
 	testCases := []struct {
 		desc        string
-		poolOptions []PoolOption
-		test        func(t *testing.T, ctx context.Context, pool *Pool)
+		poolOptions []client.PoolOption
+		test        func(t *testing.T, ctx context.Context, pool *client.Pool)
 	}{
 		{
 			desc: "dialing once succeeds",
-			test: func(t *testing.T, ctx context.Context, pool *Pool) {
+			test: func(t *testing.T, ctx context.Context, pool *client.Pool) {
 				conn, err := pool.Dial(ctx, insecure, "")
 				require.NoError(t, err)
 				verifyConnection(t, ctx, conn, codes.OK)
@@ -46,7 +46,7 @@ func TestPoolDial(t *testing.T) {
 		},
 		{
 			desc: "dialing multiple times succeeds",
-			test: func(t *testing.T, ctx context.Context, pool *Pool) {
+			test: func(t *testing.T, ctx context.Context, pool *client.Pool) {
 				for i := 0; i < 10; i++ {
 					conn, err := pool.Dial(ctx, insecure, "")
 					require.NoError(t, err)
@@ -56,7 +56,7 @@ func TestPoolDial(t *testing.T) {
 		},
 		{
 			desc: "redialing after close succeeds",
-			test: func(t *testing.T, ctx context.Context, pool *Pool) {
+			test: func(t *testing.T, ctx context.Context, pool *client.Pool) {
 				conn, err := pool.Dial(ctx, insecure, "")
 				require.NoError(t, err)
 				verifyConnection(t, ctx, conn, codes.OK)
@@ -70,7 +70,7 @@ func TestPoolDial(t *testing.T) {
 		},
 		{
 			desc: "dialing invalid fails",
-			test: func(t *testing.T, ctx context.Context, pool *Pool) {
+			test: func(t *testing.T, ctx context.Context, pool *client.Pool) {
 				conn, err := pool.Dial(ctx, "foo/bar", "")
 				require.Error(t, err)
 				require.Nil(t, conn)
@@ -78,7 +78,7 @@ func TestPoolDial(t *testing.T) {
 		},
 		{
 			desc: "dialing empty fails",
-			test: func(t *testing.T, ctx context.Context, pool *Pool) {
+			test: func(t *testing.T, ctx context.Context, pool *client.Pool) {
 				conn, err := pool.Dial(ctx, "", "")
 				require.Error(t, err)
 				require.Nil(t, conn)
@@ -86,7 +86,7 @@ func TestPoolDial(t *testing.T) {
 		},
 		{
 			desc: "dialing concurrently succeeds",
-			test: func(t *testing.T, ctx context.Context, pool *Pool) {
+			test: func(t *testing.T, ctx context.Context, pool *client.Pool) {
 				wg := sync.WaitGroup{}
 
 				for i := 0; i < 10; i++ {
@@ -105,7 +105,7 @@ func TestPoolDial(t *testing.T) {
 		},
 		{
 			desc: "dialing with credentials succeeds",
-			test: func(t *testing.T, ctx context.Context, pool *Pool) {
+			test: func(t *testing.T, ctx context.Context, pool *client.Pool) {
 				conn, err := pool.Dial(ctx, secure, creds)
 				require.NoError(t, err)
 				verifyConnection(t, ctx, conn, codes.OK)
@@ -113,7 +113,7 @@ func TestPoolDial(t *testing.T) {
 		},
 		{
 			desc: "dialing with invalid credentials fails",
-			test: func(t *testing.T, ctx context.Context, pool *Pool) {
+			test: func(t *testing.T, ctx context.Context, pool *client.Pool) {
 				conn, err := pool.Dial(ctx, secure, "invalid-credential")
 				require.NoError(t, err)
 				verifyConnection(t, ctx, conn, codes.PermissionDenied)
@@ -121,7 +121,7 @@ func TestPoolDial(t *testing.T) {
 		},
 		{
 			desc: "dialing with missing credentials fails",
-			test: func(t *testing.T, ctx context.Context, pool *Pool) {
+			test: func(t *testing.T, ctx context.Context, pool *client.Pool) {
 				conn, err := pool.Dial(ctx, secure, "")
 				require.NoError(t, err)
 				verifyConnection(t, ctx, conn, codes.Unauthenticated)
@@ -129,10 +129,10 @@ func TestPoolDial(t *testing.T) {
 		},
 		{
 			desc: "dialing with dial options succeeds",
-			poolOptions: []PoolOption{
-				WithDialOptions(grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(creds))),
+			poolOptions: []client.PoolOption{
+				client.WithDialOptions(grpc.WithPerRPCCredentials(client.RPCCredentialsV2(creds))),
 			},
-			test: func(t *testing.T, ctx context.Context, pool *Pool) {
+			test: func(t *testing.T, ctx context.Context, pool *client.Pool) {
 				conn, err := pool.Dial(ctx, secure, "") // no creds here
 				require.NoError(t, err)
 				verifyConnection(t, ctx, conn, codes.OK) // auth passes
@@ -140,13 +140,13 @@ func TestPoolDial(t *testing.T) {
 		},
 		{
 			desc: "dial options function is invoked per dial",
-			poolOptions: []PoolOption{
-				WithDialer(func(ctx context.Context, address string, dialOptions []grpc.DialOption) (*grpc.ClientConn, error) {
+			poolOptions: []client.PoolOption{
+				client.WithDialer(func(ctx context.Context, address string, dialOptions []grpc.DialOption) (*grpc.ClientConn, error) {
 					dialFuncInvocationCounter++
-					return DialContext(ctx, address, dialOptions)
+					return client.DialContext(ctx, address, dialOptions)
 				}),
 			},
-			test: func(t *testing.T, ctx context.Context, pool *Pool) {
+			test: func(t *testing.T, ctx context.Context, pool *client.Pool) {
 				_, err := pool.Dial(ctx, secure, "")
 				require.NoError(t, err)
 				assert.Equal(t, 1, dialFuncInvocationCounter)
@@ -159,7 +159,7 @@ func TestPoolDial(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			pool := NewPoolWithOptions(tc.poolOptions...)
+			pool := client.NewPoolWithOptions(tc.poolOptions...)
 			defer func() {
 				require.NoError(t, pool.Close())
 			}()
@@ -230,7 +230,7 @@ func TestPool_Dial_same_addr_another_token(t *testing.T) {
 	_, addr, stop1 := runServer(t, "")
 	defer func() { stop1() }()
 
-	pool := NewPool()
+	pool := client.NewPool()
 	defer pool.Close()
 
 	// all good - server is running and serving requests

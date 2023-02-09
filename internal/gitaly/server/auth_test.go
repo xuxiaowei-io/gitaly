@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/auth"
 	"io"
 	"net"
 	"testing"
@@ -14,7 +15,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
 	"gitlab.com/gitlab-org/gitaly/v15/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/cache"
@@ -94,7 +94,7 @@ func TestAuthFailures(t *testing.T) {
 		},
 		{
 			desc: "wrong secret",
-			opts: []grpc.DialOption{grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2("foobar"))},
+			opts: []grpc.DialOption{grpc.WithPerRPCCredentials(client.RPCCredentialsV2("foobar"))},
 			code: codes.PermissionDenied,
 		},
 	}
@@ -126,17 +126,17 @@ func TestAuthSuccess(t *testing.T) {
 		{desc: "no auth, not required"},
 		{
 			desc:  "v2 correct auth, not required",
-			opts:  []grpc.DialOption{grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(token))},
+			opts:  []grpc.DialOption{grpc.WithPerRPCCredentials(client.RPCCredentialsV2(token))},
 			token: token,
 		},
 		{
 			desc:  "v2 incorrect auth, not required",
-			opts:  []grpc.DialOption{grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2("incorrect"))},
+			opts:  []grpc.DialOption{grpc.WithPerRPCCredentials(client.RPCCredentialsV2("incorrect"))},
 			token: token,
 		},
 		{
 			desc:     "v2 correct auth, required",
-			opts:     []grpc.DialOption{grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(token))},
+			opts:     []grpc.DialOption{grpc.WithPerRPCCredentials(client.RPCCredentialsV2(token))},
 			token:    token,
 			required: true,
 		},
@@ -180,7 +180,7 @@ func newOperationClient(t *testing.T, token, serverSocketPath string) (gitalypb.
 
 	connOpts := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(token)),
+		grpc.WithPerRPCCredentials(client.RPCCredentialsV2(token)),
 	}
 	conn, err := grpc.Dial(serverSocketPath, connOpts...)
 	require.NoError(t, err)

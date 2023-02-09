@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 
-	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
 	"gitlab.com/gitlab-org/gitaly/v15/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
@@ -148,7 +147,7 @@ func noopSender(c chan error) {}
 func dialGitaly(payload git.HooksPayload) (*grpc.ClientConn, error) {
 	dialOpts := client.DefaultDialOpts
 	if payload.InternalSocketToken != "" {
-		dialOpts = append(dialOpts, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(payload.InternalSocketToken)))
+		dialOpts = append(dialOpts, grpc.WithPerRPCCredentials(client.RPCCredentialsV2(payload.InternalSocketToken)))
 	}
 
 	conn, err := client.Dial("unix://"+payload.InternalSocket, dialOpts)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 
+	"gitlab.com/gitlab-org/gitaly/v15/internal/sidechannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/stream"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
@@ -46,7 +47,7 @@ func UploadPack(ctx context.Context, conn *grpc.ClientConn, stdin io.Reader, std
 func UploadPackWithSidechannel(
 	ctx context.Context,
 	conn *grpc.ClientConn,
-	reg *SidechannelRegistry,
+	reg *sidechannel.SidechannelRegistry,
 	stdin io.Reader,
 	stdout, stderr io.Writer,
 	req *gitalypb.SSHUploadPackWithSidechannelRequest,
@@ -54,7 +55,7 @@ func UploadPackWithSidechannel(
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	ctx, wt := reg.Register(ctx, func(c SidechannelConn) error {
+	ctx, wt := reg.Register(ctx, func(c sidechannel.SidechannelConn) error {
 		return stream.ProxyPktLine(c, stdin, stdout, stderr)
 	})
 	defer func() {

@@ -3,6 +3,7 @@ package dnsresolver
 import (
 	"context"
 	"fmt"
+	"gitlab.com/gitlab-org/gitaly/v15/client/internal/dnsresolver"
 	"math/rand"
 	"net"
 	"testing"
@@ -10,7 +11,7 @@ import (
 
 	"github.com/miekg/dns"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/backoff"
+	"gitlab.com/gitlab-org/gitaly/v15/client/internal/backoff"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	grpccorrelation "gitlab.com/gitlab-org/labkit/correlation/grpc"
@@ -33,7 +34,7 @@ func TestDnsResolver(t *testing.T) {
 	}{
 		{
 			name: "resolver updates a single IPv4 each resolution",
-			setup: func(server *testhelper.FakeDNSServer, _ *Builder) *fakeClientConn {
+			setup: func(server *testhelper.FakeDNSServer, _ *dnsresolver.Builder) *fakeClientConn {
 				ips := ipList{ips: [][]string{
 					{"1.2.3.4"},
 					{"1.2.3.5"},
@@ -57,7 +58,7 @@ func TestDnsResolver(t *testing.T) {
 		},
 		{
 			name: "resolver updates multiple IPv4 each resolution",
-			setup: func(server *testhelper.FakeDNSServer, _ *Builder) *fakeClientConn {
+			setup: func(server *testhelper.FakeDNSServer, _ *dnsresolver.Builder) *fakeClientConn {
 				ips := ipList{ips: [][]string{
 					{"1.2.3.4", "1.2.3.5"},
 					{"1.2.3.6"},
@@ -81,7 +82,7 @@ func TestDnsResolver(t *testing.T) {
 		},
 		{
 			name: "resolver updates multiple IPv6 each resolution",
-			setup: func(server *testhelper.FakeDNSServer, _ *Builder) *fakeClientConn {
+			setup: func(server *testhelper.FakeDNSServer, _ *dnsresolver.Builder) *fakeClientConn {
 				ips := ipList{ips: [][]string{
 					{"::1", "::2"},
 					{"::3", "::4"},
@@ -105,7 +106,7 @@ func TestDnsResolver(t *testing.T) {
 		},
 		{
 			name: "resolver resolves address without port",
-			setup: func(server *testhelper.FakeDNSServer, _ *Builder) *fakeClientConn {
+			setup: func(server *testhelper.FakeDNSServer, _ *dnsresolver.Builder) *fakeClientConn {
 				ips := ipList{ips: [][]string{
 					{"1.2.3.4"},
 					{"1.2.3.5"},
@@ -129,7 +130,7 @@ func TestDnsResolver(t *testing.T) {
 		},
 		{
 			name: "resolver retries with exponential Backoff when client connection fails to update",
-			setup: func(server *testhelper.FakeDNSServer, _ *Builder) *fakeClientConn {
+			setup: func(server *testhelper.FakeDNSServer, _ *dnsresolver.Builder) *fakeClientConn {
 				conn := newFakeClientConn(2, 0)
 				connErr := 2
 				conn.customUpdateState = func(state resolver.State) error {
@@ -163,7 +164,7 @@ func TestDnsResolver(t *testing.T) {
 		},
 		{
 			name: "DNS nameserver returns empty addresses",
-			setup: func(server *testhelper.FakeDNSServer, _ *Builder) *fakeClientConn {
+			setup: func(server *testhelper.FakeDNSServer, _ *dnsresolver.Builder) *fakeClientConn {
 				server.WithHandler(dns.TypeA, func(_ string) []string {
 					return nil
 				})
@@ -178,7 +179,7 @@ func TestDnsResolver(t *testing.T) {
 		},
 		{
 			name: "DNS nameserver raises timeout error",
-			setup: func(server *testhelper.FakeDNSServer, builder *Builder) *fakeClientConn {
+			setup: func(server *testhelper.FakeDNSServer, builder *dnsresolver.Builder) *fakeClientConn {
 				ips := ipList{ips: [][]string{
 					{"1.2.3.4"},
 					{},
@@ -186,7 +187,7 @@ func TestDnsResolver(t *testing.T) {
 					{"1.2.3.6"},
 				}}
 
-				builder.opts.authorityFinder = func(authority string) (dnsLookuper, error) {
+				builder.opts.authorityFinder = func(authority string) (dnsresolver.dnsLookuper, error) {
 					f := newFakeLookup(t, authority)
 					f.stubLookup = func(ctx context.Context, host string) ([]string, error) {
 						nextIPs := ips.peek()
@@ -226,7 +227,7 @@ func TestDnsResolver(t *testing.T) {
 		},
 		{
 			name: "DNS nameserver raises a temporary error",
-			setup: func(server *testhelper.FakeDNSServer, builder *Builder) *fakeClientConn {
+			setup: func(server *testhelper.FakeDNSServer, builder *dnsresolver.Builder) *fakeClientConn {
 				ips := ipList{ips: [][]string{
 					{"1.2.3.4"},
 					{},
@@ -238,7 +239,7 @@ func TestDnsResolver(t *testing.T) {
 					{"1.2.3.6"},
 				}}
 
-				builder.opts.authorityFinder = func(authority string) (dnsLookuper, error) {
+				builder.opts.authorityFinder = func(authority string) (dnsresolver.dnsLookuper, error) {
 					f := newFakeLookup(t, authority)
 					f.stubLookup = func(ctx context.Context, host string) ([]string, error) {
 						nextIPs := ips.peek()
@@ -341,7 +342,7 @@ func TestDnsResolver_grpcCallWithOurDNSResolver(t *testing.T) {
 	conn, err := grpc.Dial(
 		target.URL.String(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithResolvers(NewBuilder(&BuilderConfig{
+		grpc.WithResolvers(dnsresolver.NewBuilder(&dnsresolver.BuilderConfig{
 			RefreshRate:     0, // No delay
 			Logger:          testhelper.NewDiscardingLogger(t),
 			DefaultGrpcPort: "1234",

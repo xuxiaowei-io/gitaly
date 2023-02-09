@@ -3,6 +3,7 @@ package git
 import (
 	"context"
 	"fmt"
+	"gitlab.com/gitlab-org/gitaly/v15/client/internal/x509"
 	"io"
 	"os"
 	"regexp"
@@ -13,7 +14,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/x509"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/correlation"
 	"google.golang.org/protobuf/encoding/protojson"

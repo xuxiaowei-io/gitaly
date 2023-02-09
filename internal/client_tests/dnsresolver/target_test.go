@@ -2,6 +2,7 @@ package dnsresolver
 
 import (
 	"fmt"
+	"gitlab.com/gitlab-org/gitaly/v15/client/internal/dnsresolver"
 	"net"
 	"testing"
 
@@ -14,7 +15,7 @@ import (
 func TestFindDNSLookup_default(t *testing.T) {
 	t.Parallel()
 
-	resolver, err := findDNSLookup("")
+	resolver, err := dnsresolver.findDNSLookup("")
 	require.NoError(t, err)
 	require.Equal(t, net.DefaultResolver, resolver)
 }
@@ -22,7 +23,7 @@ func TestFindDNSLookup_default(t *testing.T) {
 func TestFindDNSLookup_invalidAuthority(t *testing.T) {
 	t.Parallel()
 
-	resolver, err := findDNSLookup("this:is:not:good")
+	resolver, err := dnsresolver.findDNSLookup("this:is:not:good")
 	require.ErrorIs(t, structerr.New("dns resolver: %w", &net.AddrError{
 		Err:  "too many colons in address",
 		Addr: "this:is:not:good:53",
@@ -40,7 +41,7 @@ func TestFindDNSLookup_validAuthority(t *testing.T) {
 		return nil
 	}).Start()
 
-	resolver, err := findDNSLookup(fakeServer.Addr())
+	resolver, err := dnsresolver.findDNSLookup(fakeServer.Addr())
 	require.NoError(t, err)
 
 	addrs, err := resolver.LookupHost(testhelper.Context(t), "grpc.test")
@@ -154,7 +155,7 @@ func TestParseTarget(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(fmt.Sprintf("target: %s", tc.target), func(t *testing.T) {
-			host, port, err := parseTarget(tc.target, defaultPort)
+			host, port, err := dnsresolver.parseTarget(tc.target, defaultPort)
 
 			require.Equal(t, tc.expectedErr, err)
 			require.Equal(t, tc.expectedHost, host)
@@ -180,7 +181,7 @@ func TestTryParseIP(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(fmt.Sprintf("host: %s, port: %s", tc.host, tc.port), func(t *testing.T) {
-			addr, ok := tryParseIP(tc.host, tc.port)
+			addr, ok := dnsresolver.tryParseIP(tc.host, tc.port)
 
 			require.Equal(t, tc.expectedOk, ok)
 			require.Equal(t, tc.expectedAddr, addr)

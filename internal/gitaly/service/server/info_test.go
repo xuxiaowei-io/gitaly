@@ -3,10 +3,10 @@
 package server
 
 import (
+	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/client"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/auth"

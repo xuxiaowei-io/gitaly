@@ -3,6 +3,7 @@ package dnsresolver
 import (
 	"context"
 	"fmt"
+	"gitlab.com/gitlab-org/gitaly/v15/client/internal/dnsresolver"
 	"net/url"
 	"sync"
 	"testing"
@@ -98,7 +99,7 @@ func (c *fakeBackoff) Backoff(uint) time.Duration {
 // fakeLookup stubs the DNS lookup. It wraps around a real DNS lookup. The caller can return an
 // alternative addresses, errors, or fallback to use the real DNS lookup if needed.
 type fakeLookup struct {
-	realLookup dnsLookuper
+	realLookup dnsresolver.dnsLookuper
 	stubLookup func(context.Context, string) ([]string, error)
 }
 
@@ -107,7 +108,7 @@ func (f *fakeLookup) LookupHost(ctx context.Context, s string) ([]string, error)
 }
 
 func newFakeLookup(t *testing.T, authority string) *fakeLookup {
-	lookup, err := findDNSLookup(authority)
+	lookup, err := dnsresolver.findDNSLookup(authority)
 	require.NoError(t, err)
 
 	return &fakeLookup{realLookup: lookup}
@@ -121,8 +122,8 @@ func buildResolverTarget(s *testhelper.FakeDNSServer, addr string) resolver.Targ
 	}}
 }
 
-func newTestDNSBuilder(t *testing.T) *Builder {
-	return NewBuilder(&BuilderConfig{
+func newTestDNSBuilder(t *testing.T) *dnsresolver.Builder {
+	return dnsresolver.NewBuilder(&dnsresolver.BuilderConfig{
 		RefreshRate: 0,
 		Logger:      testhelper.NewDiscardingLogger(t),
 		Backoff:     &fakeBackoff{},

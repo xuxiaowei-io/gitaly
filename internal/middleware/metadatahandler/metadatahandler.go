@@ -2,13 +2,13 @@ package metadatahandler
 
 import (
 	"context"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/auth"
 	"strings"
 
 	grpcmwtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	grpcprometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/labkit/correlation"
 	"google.golang.org/grpc"

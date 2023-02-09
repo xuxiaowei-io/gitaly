@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	client2 "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/client"
 	"os"
 
 	"gitlab.com/gitlab-org/gitaly/v15/client"
@@ -20,5 +21,5 @@ func uploadArchive(ctx context.Context, conn *grpc.ClientConn, registry *client.
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	return client.UploadArchive(ctx, conn, os.Stdin, os.Stdout, os.Stderr, &request)
+	return client2.UploadArchive(ctx, conn, os.Stdin, os.Stdout, os.Stderr, &request)
 }

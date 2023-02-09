@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"gitlab.com/gitlab-org/gitaly/v15/client"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/client"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/sidechannel"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -22,7 +23,7 @@ func uploadPackConfig(config []string) []string {
 	return append([]string{GitConfigShowAllRefs}, config...)
 }
 
-func uploadPack(ctx context.Context, conn *grpc.ClientConn, registry *client.SidechannelRegistry, req string) (int32, error) {
+func uploadPack(ctx context.Context, conn *grpc.ClientConn, registry *sidechannel.SidechannelRegistry, req string) (int32, error) {
 	var request gitalypb.SSHUploadPackRequest
 	if err := protojson.Unmarshal([]byte(req), &request); err != nil {
 		return 0, fmt.Errorf("json unmarshal: %w", err)
@@ -36,7 +37,7 @@ func uploadPack(ctx context.Context, conn *grpc.ClientConn, registry *client.Sid
 	return client.UploadPack(ctx, conn, os.Stdin, os.Stdout, os.Stderr, &request)
 }
 
-func uploadPackWithSidechannel(ctx context.Context, conn *grpc.ClientConn, registry *client.SidechannelRegistry, req string) (int32, error) {
+func uploadPackWithSidechannel(ctx context.Context, conn *grpc.ClientConn, registry *sidechannel.SidechannelRegistry, req string) (int32, error) {
 	var request gitalypb.SSHUploadPackWithSidechannelRequest
 	if err := protojson.Unmarshal([]byte(req), &request); err != nil {
 		return 0, fmt.Errorf("json unmarshal: %w", err)

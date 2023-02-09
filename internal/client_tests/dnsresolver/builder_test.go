@@ -7,6 +7,7 @@ import (
 
 	"github.com/miekg/dns"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/client/internal/dnsresolver"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"google.golang.org/grpc/resolver"
 )
@@ -68,7 +69,7 @@ func TestBuildDNSBuilder_customAuthorityResolver(t *testing.T) {
 		return nil
 	}).Start()
 
-	builder := NewBuilder(&BuilderConfig{
+	builder := dnsresolver.NewBuilder(&dnsresolver.BuilderConfig{
 		RefreshRate: 0,
 		Logger:      testhelper.NewDiscardingLogger(t),
 		Backoff:     &fakeBackoff{},
@@ -114,7 +115,7 @@ func TestBuildDNSBuilder_staticIPAddress(t *testing.T) {
 				return nil
 			}).Start()
 
-			builder := NewBuilder(&BuilderConfig{
+			builder := dnsresolver.NewBuilder(&dnsresolver.BuilderConfig{
 				RefreshRate: 0,
 				Logger:      testhelper.NewDiscardingLogger(t),
 				Backoff:     &fakeBackoff{},
@@ -130,7 +131,7 @@ func TestBuildDNSBuilder_staticIPAddress(t *testing.T) {
 				Addr: tc.addr,
 			}}}}, conn.states)
 
-			require.IsType(t, &noopResolver{}, r, "building a resolver for IP address should return a no-op resolver")
+			require.IsType(t, &dnsresolver.noopResolver{}, r, "building a resolver for IP address should return a no-op resolver")
 		})
 	}
 }
@@ -138,6 +139,6 @@ func TestBuildDNSBuilder_staticIPAddress(t *testing.T) {
 func TestSchemeDNSBuilder(t *testing.T) {
 	t.Parallel()
 
-	d := &Builder{}
+	d := &dnsresolver.Builder{}
 	require.Equal(t, d.Scheme(), "dns")
 }

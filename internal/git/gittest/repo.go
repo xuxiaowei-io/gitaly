@@ -11,7 +11,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
-	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
 	"gitlab.com/gitlab-org/gitaly/v15/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
@@ -100,7 +99,7 @@ type CreateRepositoryConfig struct {
 func dialService(tb testing.TB, ctx context.Context, cfg config.Cfg) *grpc.ClientConn {
 	dialOptions := []grpc.DialOption{internalclient.UnaryInterceptor(), internalclient.StreamInterceptor()}
 	if cfg.Auth.Token != "" {
-		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(cfg.Auth.Token)))
+		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(client.RPCCredentialsV2(cfg.Auth.Token)))
 	}
 
 	conn, err := client.DialContext(ctx, cfg.SocketPath, dialOptions)

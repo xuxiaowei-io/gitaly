@@ -9,7 +9,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
 	gclient "gitlab.com/gitlab-org/gitaly/v15/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
@@ -41,7 +40,7 @@ func newRepositoryClient(tb testing.TB, cfg config.Cfg, serverSocketPath string)
 		internalclient.UnaryInterceptor(), internalclient.StreamInterceptor(),
 	}
 	if cfg.Auth.Token != "" {
-		connOpts = append(connOpts, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(cfg.Auth.Token)))
+		connOpts = append(connOpts, grpc.WithPerRPCCredentials(gclient.RPCCredentialsV2(cfg.Auth.Token)))
 	}
 	conn, err := gclient.Dial(serverSocketPath, connOpts)
 	require.NoError(tb, err)
@@ -60,7 +59,7 @@ func newObjectPoolClient(tb testing.TB, cfg config.Cfg, serverSocketPath string)
 
 func newMuxedRepositoryClient(t *testing.T, ctx context.Context, cfg config.Cfg, serverSocketPath string, handshaker internalclient.Handshaker) gitalypb.RepositoryServiceClient {
 	conn, err := internalclient.Dial(ctx, serverSocketPath, []grpc.DialOption{
-		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(cfg.Auth.Token)),
+		grpc.WithPerRPCCredentials(gclient.RPCCredentialsV2(cfg.Auth.Token)),
 	}, handshaker)
 	require.NoError(t, err)
 	t.Cleanup(func() { conn.Close() })

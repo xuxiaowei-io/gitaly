@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
 	"gitlab.com/gitlab-org/gitaly/v15/client"
 	internalclient "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
@@ -133,7 +132,7 @@ func subCmdDial(ctx context.Context, addr, token string, timeout time.Duration, 
 	if len(token) > 0 {
 		opts = append(opts,
 			grpc.WithPerRPCCredentials(
-				gitalyauth.RPCCredentialsV2(token),
+				client.RPCCredentialsV2(token),
 			),
 		)
 	}

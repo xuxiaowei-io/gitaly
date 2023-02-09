@@ -2,12 +2,12 @@ package auth
 
 import (
 	"context"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/auth"
 	"time"
 
 	grpcmwauth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
 	gitalycfgauth "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/auth"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"

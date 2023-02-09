@@ -4,10 +4,10 @@ package operations
 
 import (
 	"context"
+	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/client"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	internalclient "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"

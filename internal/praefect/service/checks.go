@@ -10,7 +10,6 @@ import (
 	"time"
 
 	migrate "github.com/rubenv/sql-migrate"
-	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
 	"gitlab.com/gitlab-org/gitaly/v15/client"
 	internalclient "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
@@ -267,7 +266,7 @@ func NewClockSyncCheck(clockDriftCheck func(ntpHost string, driftThreshold time.
 								internalclient.StreamInterceptor(),
 							}
 							if len(node.Token) > 0 {
-								opts = append(opts, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(node.Token)))
+								opts = append(opts, grpc.WithPerRPCCredentials(client.RPCCredentialsV2(node.Token)))
 							}
 
 							cc, err := client.DialContext(ctx, node.Address, opts)
