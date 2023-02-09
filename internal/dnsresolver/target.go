@@ -3,9 +3,39 @@ package dnsresolver
 import (
 	"context"
 	"net"
+	"net/url"
+	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 )
+
+// ValidateURL validates Gitaly address URL having dns scheme. The URL follows three forms:
+// * dns://authority-port:authority-host/host:port
+// * dns:///host:port
+// * dns:host:port
+// Either form, the real address is the URL's path
+func ValidateURL(rawAddress string) error {
+	if rawAddress == "" {
+		return structerr.New("empty address")
+	}
+
+	uri, err := url.Parse(rawAddress)
+	if err != nil {
+		return structerr.New("fail to parse address: %w", err)
+	}
+
+	if uri.Scheme != "dns" {
+		return structerr.New("unexpected scheme: %s", uri.Scheme)
+	}
+
+	path := uri.Path
+	if path == "" {
+		// When "//" part is stripped
+		path = uri.Opaque
+	}
+	_, _, err = parseTarget(strings.TrimPrefix(path, "/"), "50051")
+	return err
+}
 
 // parseTarget takes the user input target string and default port, returns formatted host and port info.
 // This is a shameless copy of built-in gRPC dns resolver, because we don't want to have any

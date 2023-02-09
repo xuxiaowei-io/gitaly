@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"time"
 
+	"gitlab.com/gitlab-org/gitaly/v15/internal/dnsresolver"
 	gitalyx509 "gitlab.com/gitlab-org/gitaly/v15/internal/x509"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	grpccorrelation "gitlab.com/gitlab-org/labkit/correlation/grpc"
@@ -26,6 +27,7 @@ const (
 	tcpConnection
 	tlsConnection
 	unixConnection
+	dnsConnection
 )
 
 func getConnectionType(rawAddress string) connectionType {
@@ -41,6 +43,8 @@ func getConnectionType(rawAddress string) connectionType {
 		return unixConnection
 	case "tcp":
 		return tcpConnection
+	case "dns":
+		return dnsConnection
 	default:
 		return invalidConnection
 	}
@@ -90,6 +94,13 @@ func Dial(ctx context.Context, rawAddress string, connOpts []grpc.DialOption, ha
 		if err != nil {
 			return nil, fmt.Errorf("failed to extract host for 'tcp' connection: %w", err)
 		}
+
+	case dnsConnection:
+		err = dnsresolver.ValidateURL(rawAddress)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse target for 'dns' connection: %w", err)
+		}
+		canonicalAddress = rawAddress // DNS Resolver will handle this
 
 	case unixConnection:
 		canonicalAddress = rawAddress // This will be overridden by the custom dialer...
