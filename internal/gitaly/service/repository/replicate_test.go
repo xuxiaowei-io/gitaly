@@ -415,6 +415,10 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
+			testhelper.SkipQuarantinedTest(t,
+				"https://gitlab.com/gitlab-org/gitaly/-/issues/4773",
+				"TestReplicateRepository_BadRepository/target_invalid")
+
 			cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "target"))
 			cfg := cfgBuilder.Build(t)
 

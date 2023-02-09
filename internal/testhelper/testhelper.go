@@ -28,6 +28,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
+	"golang.org/x/exp/slices"
 )
 
 const (
@@ -382,4 +383,16 @@ func GitalyOrPraefect[Type any](gitaly, praefect Type) Type {
 		return praefect
 	}
 	return gitaly
+}
+
+// SkipQuarantinedTest skips the test if the test name has been specified as
+// quarantined. If no test names are provided the test is always skipped.
+func SkipQuarantinedTest(t *testing.T, issue string, tests ...string) {
+	if issue == "" {
+		panic("issue not specified")
+	}
+
+	if len(tests) == 0 || slices.Contains(tests, t.Name()) {
+		t.Skipf("This test has been quarantined. Please see %s for more information.", issue)
+	}
 }
