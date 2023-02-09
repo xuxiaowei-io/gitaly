@@ -134,9 +134,9 @@ GIT_EXECUTABLES += git-http-backend
 ## tags, branches, and commit ids.
 GIT_VERSION ?=
 ## The Git version used for bundled Git v2.37.
-GIT_VERSION_2_37_1 ?= v2.37.5.gl1
+GIT_VERSION_2_37_1 ?= v2.37.6.gl1
 ## The Git version used for bundled Git v2.38.
-GIT_VERSION_2_38 ?= v2.38.3.gl1
+GIT_VERSION_2_38 ?= v2.38.4.gl1
 
 ## Skip overriding the Git version and instead use the Git version as specified
 ## in the Git sources. This is required when building Git from a version that
@@ -146,7 +146,7 @@ SKIP_OVERRIDING_GIT_VERSION ?=
 # The default version is used in case the caller does not set the variable or
 # if it is either set to the empty string or "default".
 ifeq (${GIT_VERSION:default=},)
-    override GIT_VERSION := v2.38.3.gl1
+    override GIT_VERSION := ${GIT_VERSION_2_38}
 else
     # Support both vX.Y.Z and X.Y.Z version patterns, since callers across GitLab
     # use both.
