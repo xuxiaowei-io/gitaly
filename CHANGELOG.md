@@ -125,6 +125,12 @@ No changes.
 
 - [objectpool: Deprecate ReduplicateRepository RPC](gitlab-org/gitaly@4db49541d5843106aeac193de0ed3fd466cc3bc8) ([merge request](gitlab-org/gitaly!5131))
 
+## 15.6.8 (2023-02-10)
+
+### Security (1 change)
+
+- [git: Upgrade to Git security release v2.38.4.gl1 and v2.37.6.gl1](gitlab-org/security/gitaly@4b7013dee1e9ee5ce7accb50c674fae1ddd2b4cb) ([merge request](gitlab-org/security/gitaly!80))
+
 ## 15.6.7 (2023-01-30)
 
 No changes.
