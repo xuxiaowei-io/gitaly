@@ -622,11 +622,80 @@ func TestRepositoryStore_Postgres(t *testing.T) {
 	})
 
 	t.Run("DeleteAllRepositories", func(t *testing.T) {
+		queue := PostgresReplicationEventQueue{db}
 		rs := newRepositoryStore(t, nil)
 
 		require.NoError(t, rs.CreateRepository(ctx, 1, "virtual-storage-1", "repository-1", "replica-path-1", "storage-1", nil, nil, false, false))
 		require.NoError(t, rs.CreateRepository(ctx, 2, "virtual-storage-2", "repository-1", "replica-path-2", "storage-1", []string{"storage-2"}, nil, false, false))
 		require.NoError(t, rs.CreateRepository(ctx, 3, "virtual-storage-2", "repository-2", "replica-path-3", "storage-1", nil, nil, false, false))
+
+		events := []ReplicationEvent{
+			{
+				Job: ReplicationJob{
+					Change:            UpdateRepo,
+					RelativePath:      "/project/path-1",
+					TargetNodeStorage: "gitaly-1",
+					SourceNodeStorage: "gitaly-0",
+					VirtualStorage:    "virtual-storage-1",
+				},
+			},
+			{
+				Job: ReplicationJob{
+					Change:            UpdateRepo,
+					RelativePath:      "/project/path-2",
+					TargetNodeStorage: "gitaly-1",
+					SourceNodeStorage: "gitaly-0",
+					VirtualStorage:    "virtual-storage-1",
+				},
+			},
+			{
+				Job: ReplicationJob{
+					Change:            UpdateRepo,
+					RelativePath:      "/project/path-3",
+					TargetNodeStorage: "gitaly-1",
+					SourceNodeStorage: "gitaly-0",
+					VirtualStorage:    "virtual-storage-2",
+				},
+			},
+			{
+				Job: ReplicationJob{
+					Change:            UpdateRepo,
+					RelativePath:      "/project/path-4",
+					TargetNodeStorage: "gitaly-1",
+					SourceNodeStorage: "gitaly-0",
+					VirtualStorage:    "virtual-storage-2",
+				},
+			},
+		}
+
+		for i := range events {
+			var err error
+			events[i], err = queue.Enqueue(ctx, events[i])
+			require.NoError(t, err, "failed to fill in event queue")
+		}
+
+		expectedEvents := []ReplicationEvent{events[2]}
+		expectedJobLocks := []JobLockRow{
+			{JobID: events[2].ID, LockID: "virtual-storage-2|gitaly-1|/project/path-3"},
+		}
+
+		dequeuedEvents, err := queue.Dequeue(ctx, "virtual-storage-2", "gitaly-1", 1)
+		require.NoError(t, err)
+		require.Len(t, dequeuedEvents, len(expectedEvents))
+		for i := range dequeuedEvents {
+			dequeuedEvents[i].UpdatedAt = nil // it is not possible to determine update_at value as it is generated on UPDATE in database
+			expectedEvents[i].State = JobStateInProgress
+			expectedEvents[i].Attempt--
+		}
+		require.Equal(t, expectedEvents, dequeuedEvents)
+
+		requireLocks(t, ctx, db, []LockRow{
+			{ID: "virtual-storage-1|gitaly-1|/project/path-1", Acquired: false},
+			{ID: "virtual-storage-1|gitaly-1|/project/path-2", Acquired: false},
+			{ID: "virtual-storage-2|gitaly-1|/project/path-3", Acquired: true},
+			{ID: "virtual-storage-2|gitaly-1|/project/path-4", Acquired: false},
+		})
+		requireJobLocks(t, ctx, db, expectedJobLocks)
 
 		requireState(t, ctx, db,
 			virtualStorageState{
@@ -657,6 +726,12 @@ func TestRepositoryStore_Postgres(t *testing.T) {
 		)
 
 		require.NoError(t, rs.DeleteAllRepositories(ctx, "virtual-storage-2"))
+
+		requireLocks(t, ctx, db, []LockRow{
+			{ID: "virtual-storage-1|gitaly-1|/project/path-1", Acquired: false},
+			{ID: "virtual-storage-1|gitaly-1|/project/path-2", Acquired: false},
+		})
+		requireJobLocks(t, ctx, db, []JobLockRow{})
 
 		requireState(t, ctx, db,
 			virtualStorageState{

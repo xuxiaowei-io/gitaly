@@ -524,8 +524,25 @@ GROUP BY replica_path
 //nolint:revive // This is unintentionally missing documentation.
 func (rs *PostgresRepositoryStore) DeleteAllRepositories(ctx context.Context, virtualStorage string) error {
 	_, err := rs.db.ExecContext(ctx, `
+WITH delete_jobs AS (
+  DELETE FROM replication_queue
+  WHERE job->>'virtual_storage' = $1
+  RETURNING id
+),
+
+delete_job_locks AS (
+  DELETE FROM replication_queue_job_lock
+  USING delete_jobs
+  WHERE job_id = delete_jobs.id
+),
+
+delete_locks AS (
+  DELETE FROM replication_queue_lock
+  WHERE id LIKE $1 || '|%|%'
+)
+
 DELETE FROM repositories
-WHERE virtual_storage = $1
+WHERE virtual_storage = $1;
 	`, virtualStorage)
 	if err != nil {
 		return err
