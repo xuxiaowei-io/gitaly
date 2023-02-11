@@ -1,7 +1,6 @@
 package service
 
 import (
-	"gitlab.com/gitlab-org/gitaly/v15/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"

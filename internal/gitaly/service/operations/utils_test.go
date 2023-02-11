@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/proto/v15/go/gitalypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 

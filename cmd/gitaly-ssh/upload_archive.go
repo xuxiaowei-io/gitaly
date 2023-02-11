@@ -6,8 +6,7 @@ import (
 	client2 "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/client"
 	"os"
 
-	"gitlab.com/gitlab-org/gitaly/v15/client"
-	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/proto/v15/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/encoding/protojson"
 )

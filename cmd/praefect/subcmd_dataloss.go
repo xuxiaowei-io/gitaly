@@ -10,8 +10,8 @@ import (
 	"sort"
 	"strings"
 
+	"gitlab.com/gitlab-org/gitaly/proto/v15/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
-	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
 const datalossCmdName = "dataloss"

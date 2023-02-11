@@ -6,7 +6,7 @@ import "google/protobuf/timestamp.proto";
 import "lint.proto";
 import "shared.proto";
 
-option go_package = "gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb";
+option go_package = "gitlab.com/gitlab-org/gitaly/proto/v15/go/gitalypb";
 
 // CommitService is a service which provides RPCs that interact with Git
 // commits.
@@ -609,10 +609,10 @@ message FindCommitsRequest {
   bool include_shortstat = 17;
   // include_referenced_by determines whether to include references that point to a
   // commit in the response. The field contains patterns that are matched against
-  // references. Only matching references are included in the response. For 
+  // references. Only matching references are included in the response. For
   // example, one can get tags pointing to a commit with `refs/tags`, or branches
   // respectively with `refs/heads`. By sending both, the response will include all
-  // references that match either pattern. 
+  // references that match either pattern.
   repeated bytes include_referenced_by = 18; // protolint:disable:this REPEATED_FIELD_NAMES_PLURALIZED
 }
 

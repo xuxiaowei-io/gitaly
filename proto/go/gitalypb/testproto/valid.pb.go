@@ -7,7 +7,7 @@
 package testproto
 
 import (
-	gitalypb "gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
+	gitalypb "gitlab.com/gitlab-org/gitaly/proto/v15/go/gitalypb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"

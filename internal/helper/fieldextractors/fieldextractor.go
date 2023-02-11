@@ -3,7 +3,7 @@ package fieldextractors
 import (
 	"strings"
 
-	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/proto/v15/go/gitalypb"
 )
 
 type repositoryBasedRequest interface {

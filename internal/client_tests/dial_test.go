@@ -13,17 +13,14 @@ import (
 	"testing"
 
 	"github.com/miekg/dns"
-	"github.com/opentracing/opentracing-go"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/uber/jaeger-client-go"
-	"gitlab.com/gitlab-org/gitaly/v15/client"
+	"gitlab.com/gitlab-org/gitaly/proto/v15/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/listenmux"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/sidechannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/correlation"
 	grpccorrelation "gitlab.com/gitlab-org/labkit/correlation/grpc"
 	grpctracing "gitlab.com/gitlab-org/labkit/tracing/grpc"
@@ -182,7 +179,7 @@ func TestDial(t *testing.T) {
 			}
 
 			if tt.envSSLCertFile != "" {
-				// Read in gitlab.com/gitlab-org/gitaly/v15/client/internal/x509.
+				// Read in gitlab.com/gitlab-org/gitaly/client/v15/internal/x509.
 				t.Setenv("SSL_CERT_FILE", tt.envSSLCertFile)
 			}
 
@@ -273,7 +270,7 @@ func TestDialSidechannel(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.envSSLCertFile != "" {
-				// Read in gitlab.com/gitlab-org/gitaly/v15/client/internal/x509.
+				// Read in gitlab.com/gitlab-org/gitaly/client/v15/internal/x509.
 				t.Setenv("SSL_CERT_FILE", tt.envSSLCertFile)
 			}
 

@@ -2,6 +2,7 @@ package smarthttp
 
 import (
 	"context"
+	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"io"
 	"sync"
 
@@ -9,9 +10,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	log "github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/proto/v15/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/cache"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
-	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
 type infoRefCache struct {

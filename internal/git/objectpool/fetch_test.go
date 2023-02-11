@@ -3,6 +3,7 @@ package objectpool
 import (
 	"context"
 	"fmt"
+	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -16,7 +17,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
 

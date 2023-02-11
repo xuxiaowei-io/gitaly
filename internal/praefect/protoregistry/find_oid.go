@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strconv"
 
-	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/proto/v15/go/gitalypb"
 	"google.golang.org/protobuf/proto"
 )
 

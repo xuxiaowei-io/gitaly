@@ -5,7 +5,7 @@ import (
 	"io"
 	"sort"
 
-	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/proto/v15/go/gitalypb"
 )
 
 // ReadinessCheck runs the set of the checks to make sure service is in operational state.

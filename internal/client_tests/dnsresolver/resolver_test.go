@@ -3,7 +3,8 @@ package dnsresolver
 import (
 	"context"
 	"fmt"
-	"gitlab.com/gitlab-org/gitaly/v15/client/internal/dnsresolver"
+	"gitlab.com/gitlab-org/gitaly/client/v15/internal/dnsresolver"
+	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"math/rand"
 	"net"
 	"testing"
@@ -11,8 +12,7 @@ import (
 
 	"github.com/miekg/dns"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/client/internal/backoff"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
+	"gitlab.com/gitlab-org/gitaly/client/v15/internal/backoff"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	grpccorrelation "gitlab.com/gitlab-org/labkit/correlation/grpc"
 	"google.golang.org/grpc"

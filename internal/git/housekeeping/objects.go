@@ -2,6 +2,7 @@ package housekeeping
 
 import (
 	"context"
+	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"strconv"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
@@ -9,6 +10,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 )
 
 const (

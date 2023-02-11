@@ -2,13 +2,13 @@ package dnsresolver
 
 import (
 	"fmt"
-	"gitlab.com/gitlab-org/gitaly/v15/client/internal/dnsresolver"
+	"gitlab.com/gitlab-org/gitaly/client/v15/internal/dnsresolver"
+	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"net"
 	"testing"
 
 	"github.com/miekg/dns"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
 

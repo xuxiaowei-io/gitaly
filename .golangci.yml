@@ -55,7 +55,7 @@ linters-settings:
     exclude-functions:
       - (*database/sql.DB).Close
       - (*database/sql.Rows).Close
-      - (*gitlab.com/gitlab-org/gitaly/v15/client.Pool).Close
+      - (*gitlab.com/gitlab-org/gitaly/client/v15.Pool).Close
       - (*gitlab.com/gitlab-org/gitaly/v15/internal/sidechannel.ServerConn).Close
       - (*gitlab.com/gitlab-org/gitaly/v15/internal/streamcache.pipe).Close
       - (*gitlab.com/gitlab-org/gitaly/v15/internal/streamcache.pipeReader).Close

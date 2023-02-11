@@ -5,13 +5,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	structerr2 "gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
-	"gitlab.com/gitlab-org/gitaly/v15/client"
+	"gitlab.com/gitlab-org/gitaly/proto/v15/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
@@ -23,9 +24,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/safe"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/tempdir"
-	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -36,12 +35,12 @@ var ErrInvalidSourceRepository = status.Error(codes.NotFound, "invalid source re
 
 func (s *server) ReplicateRepository(ctx context.Context, in *gitalypb.ReplicateRepositoryRequest) (*gitalypb.ReplicateRepositoryResponse, error) {
 	if err := validateReplicateRepository(in); err != nil {
-		return nil, structerr.NewInvalidArgument("%w", err)
+		return nil, structerr2.NewInvalidArgument("%w", err)
 	}
 
 	repoPath, err := s.locator.GetPath(in.GetRepository())
 	if err != nil {
-		return nil, structerr.NewInternal("%w", err)
+		return nil, structerr2.NewInternal("%w", err)
 	}
 
 	if !storage.IsGitDirectory(repoPath) {
@@ -50,13 +49,13 @@ func (s *server) ReplicateRepository(ctx context.Context, in *gitalypb.Replicate
 				return nil, ErrInvalidSourceRepository
 			}
 
-			return nil, structerr.NewInternal("%w", err)
+			return nil, structerr2.NewInternal("%w", err)
 		}
 	}
 
 	repoClient, err := s.newRepoClient(ctx, in.GetSource().GetStorageName())
 	if err != nil {
-		return nil, structerr.NewInternal("new client: %w", err)
+		return nil, structerr2.NewInternal("new client: %w", err)
 	}
 
 	// We're checking for repository existence up front such that we can give a conclusive error
@@ -69,7 +68,7 @@ func (s *server) ReplicateRepository(ctx context.Context, in *gitalypb.Replicate
 		Repository: in.GetSource(),
 	})
 	if err != nil {
-		return nil, structerr.NewInternal("checking for repo existence: %w", err)
+		return nil, structerr2.NewInternal("checking for repo existence: %w", err)
 	}
 	if !request.GetExists() {
 		return nil, ErrInvalidSourceRepository
@@ -78,15 +77,15 @@ func (s *server) ReplicateRepository(ctx context.Context, in *gitalypb.Replicate
 	outgoingCtx := metadata.IncomingToOutgoing(ctx)
 
 	if err := s.syncGitconfig(outgoingCtx, in); err != nil {
-		return nil, structerr.NewInternal("synchronizing gitconfig: %w", err)
+		return nil, structerr2.NewInternal("synchronizing gitconfig: %w", err)
 	}
 
 	if err := s.syncInfoAttributes(outgoingCtx, in); err != nil {
-		return nil, structerr.NewInternal("synchronizing gitattributes: %w", err)
+		return nil, structerr2.NewInternal("synchronizing gitattributes: %w", err)
 	}
 
 	if err := s.syncRepository(outgoingCtx, in); err != nil {
-		return nil, structerr.NewInternal("synchronizing repository: %w", err)
+		return nil, structerr2.NewInternal("synchronizing repository: %w", err)
 	}
 
 	return &gitalypb.ReplicateRepositoryResponse{}, nil
@@ -163,7 +162,7 @@ func (s *server) extractSnapshot(ctx context.Context, source, target *gitalypb.R
 	// platforms.
 	firstBytes, err := stream.Recv()
 	if err != nil {
-		if structerr.GRPCCode(err) == codes.NotFound && strings.Contains(err.Error(), "GetRepoPath: not a git repository:") {
+		if structerr2.GRPCCode(err) == codes.NotFound && strings.Contains(err.Error(), "GetRepoPath: not a git repository:") {
 			return ErrInvalidSourceRepository
 		}
 
@@ -238,22 +237,22 @@ func fetchInternalRemote(
 
 	remoteRepo, err := remoterepo.New(ctx, remoteRepoProto, conns)
 	if err != nil {
-		return structerr.NewInternal("%w", err)
+		return structerr2.NewInternal("%w", err)
 	}
 
 	remoteDefaultBranch, err := remoteRepo.GetDefaultBranch(ctx)
 	if err != nil {
-		return structerr.NewInternal("getting remote default branch: %w", err)
+		return structerr2.NewInternal("getting remote default branch: %w", err)
 	}
 
 	defaultBranch, err := repo.GetDefaultBranch(ctx)
 	if err != nil {
-		return structerr.NewInternal("getting local default branch: %w", err)
+		return structerr2.NewInternal("getting local default branch: %w", err)
 	}
 
 	if defaultBranch != remoteDefaultBranch {
 		if err := repo.SetDefaultBranch(ctx, txManager, remoteDefaultBranch); err != nil {
-			return structerr.NewInternal("setting default branch: %w", err)
+			return structerr2.NewInternal("setting default branch: %w", err)
 		}
 	}
 

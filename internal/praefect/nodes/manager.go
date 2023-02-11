@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/client"
+	gitalyauth "gitlab.com/gitlab-org/gitaly/client/v15"
 	"math/rand"
 	"sync"
 	"time"

@@ -3,11 +3,11 @@ package info
 import (
 	"context"
 	"errors"
+	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 
+	"gitlab.com/gitlab-org/gitaly/proto/v15/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
-	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 

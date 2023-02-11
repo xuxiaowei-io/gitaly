@@ -3,14 +3,14 @@ package limithandler
 import (
 	"context"
 	"errors"
+	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"gitlab.com/gitlab-org/gitaly/proto/v15/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
-	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"golang.org/x/time/rate"
 	"google.golang.org/protobuf/types/known/durationpb"
 )

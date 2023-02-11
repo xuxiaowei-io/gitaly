@@ -3,6 +3,7 @@ package server
 import (
 	"crypto/tls"
 	"fmt"
+	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 	"time"
 
 	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -26,7 +27,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/middleware/sentryhandler"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/middleware/statushandler"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/protoregistry"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	grpccorrelation "gitlab.com/gitlab-org/labkit/correlation/grpc"
 	grpctracing "gitlab.com/gitlab-org/labkit/tracing/grpc"
 	"google.golang.org/grpc"

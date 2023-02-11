@@ -3,11 +3,11 @@ package transaction
 import (
 	"context"
 	"errors"
+	"gitlab.com/gitlab-org/gitaly/v15/structerr"
 
+	"gitlab.com/gitlab-org/gitaly/proto/v15/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/transactions"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/voting"
-	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
 //nolint:revive // This is unintentionally missing documentation.

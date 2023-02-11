@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/grpc_testing"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
@@ -525,7 +527,7 @@ func TestError_Details(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			err := tc.createError()
 			require.Equal(t, tc.expectedErr, err)
-			testhelper.ProtoEqual(t, tc.expectedDetails, err.Details())
+			protoEqual(t, tc.expectedDetails, err.Details())
 
 			// `proto.Details()` returns an `[]any` slice, so we need to convert here or
 			// otherwise the comparison would fail.
@@ -538,7 +540,16 @@ func TestError_Details(t *testing.T) {
 			require.True(t, ok)
 			require.Equal(t, codes.Internal, s.Code())
 			require.Equal(t, tc.expectedMessage, s.Message())
-			testhelper.ProtoEqual(t, anyDetails, s.Details())
+			protoEqual(t, anyDetails, s.Details())
 		})
 	}
+}
+
+// ProtoEqual asserts that expected and actual protobuf messages are equal.
+// It can accept not only proto.Message, but slices, maps, and structs too.
+// This is required as comparing messages directly with `require.Equal` doesn't
+// work.
+func protoEqual(tb testing.TB, expected, actual interface{}) {
+	tb.Helper()
+	require.Empty(tb, cmp.Diff(expected, actual, protocmp.Transform(), cmpopts.EquateErrors()))
 }

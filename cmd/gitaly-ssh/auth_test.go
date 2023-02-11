@@ -10,13 +10,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/proto/v15/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
-	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
@@ -92,7 +92,7 @@ func TestConnectivity(t *testing.T) {
 			name: "tls",
 			addr: func(t *testing.T, cfg config.Cfg) (string, string) {
 				certFile, keyFile := testhelper.GenerateCerts(t)
-				// Read by "gitlab.com/gitlab-org/gitaly/v15/client/internal/x509"
+				// Read by "gitlab.com/gitlab-org/gitaly/client/v15/internal/x509"
 				t.Setenv("SSL_CERT_FILE", certFile)
 
 				cfg.TLSListenAddr = "localhost:0"

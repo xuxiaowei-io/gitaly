@@ -3,7 +3,7 @@ package dnsresolver
 import (
 	"context"
 	"fmt"
-	"gitlab.com/gitlab-org/gitaly/v15/client/internal/dnsresolver"
+	"gitlab.com/gitlab-org/gitaly/client/v15/internal/dnsresolver"
 	"net/url"
 	"sync"
 	"testing"
