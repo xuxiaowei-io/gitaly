@@ -422,6 +422,7 @@ func validateIsDirectory(path string) error {
 		}
 		return err
 	}
+
 	if !s.IsDir() {
 		return fmt.Errorf("'%s' is not a dir", path)
 	}
@@ -466,11 +467,11 @@ func (cfg *Cfg) validateStorages() error {
 
 	var errs ValidationErrors
 	for i, storage := range cfg.Storages {
-		formatPlace := func(path, storage string, i int) string {
+		formatPlace := func(storage string, i int) string {
 			if storage == "" {
-				return fmt.Sprintf("'%s' at declaration %d", path, i)
+				return fmt.Sprintf("at declaration %d", i)
 			}
-			return fmt.Sprintf("'%s' for storage '%s' at declaration %d", path, storage, i)
+			return fmt.Sprintf("for storage '%s' at declaration %d", storage, i)
 		}
 
 		if strings.TrimSpace(storage.Name) == "" {
@@ -488,25 +489,10 @@ func (cfg *Cfg) validateStorages() error {
 			continue
 		}
 
-		fs, err := os.Stat(storage.Path)
-		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				// We don't use the 'err' here as it would probably contain a text
-				// message about missing file, not a directory which may be confusing.
-				errs = append(errs, ValidationError{
-					Key:     []string{"storage", "path"},
-					Message: formatPlace(storage.Path, storage.Name, i+1) + ": dir doesn't exist",
-				})
-			} else {
-				errs = append(errs, ValidationError{
-					Key:     []string{"storage", "path"},
-					Message: formatPlace(storage.Path, storage.Name, i+1) + ": " + err.Error(),
-				})
-			}
-		} else if !fs.IsDir() {
+		if err := validateIsDirectory(storage.Path); err != nil {
 			errs = append(errs, ValidationError{
 				Key:     []string{"storage", "path"},
-				Message: formatPlace(storage.Path, storage.Name, i+1) + ": is not a dir",
+				Message: formatPlace(storage.Name, i+1) + ": " + err.Error(),
 			})
 		}
 
@@ -530,7 +516,7 @@ func (cfg *Cfg) validateStorages() error {
 				}
 				errs = append(errs, ValidationError{
 					Key:     []string{"storage", "path"},
-					Message: formatPlace(storage.Path, storage.Name, i+1) + ": is nest with " + formatPlace(other.Path, other.Name, j+1),
+					Message: formatPlace(storage.Name, i+1) + fmt.Sprintf(" '%s': is nest with '%s' ", storage.Path, other.Path) + formatPlace(other.Name, j+1),
 				})
 			}
 		}

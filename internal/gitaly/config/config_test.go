@@ -234,11 +234,11 @@ func TestValidateStorages(t *testing.T) {
 			expectedErr: ValidationErrors{
 				{
 					Key:     []string{"storage", "path"},
-					Message: fmt.Sprintf("'%s' for storage 'third' at declaration 3: is nest with '%s' for storage 'default' at declaration 1", nestedRepositories, repositories),
+					Message: fmt.Sprintf("for storage 'third' at declaration 3 '%s': is nest with '%s' for storage 'default' at declaration 1", nestedRepositories, repositories),
 				},
 				{
 					Key:     []string{"storage", "path"},
-					Message: fmt.Sprintf("'%s' for storage 'third' at declaration 3: is nest with '%s' for storage 'other' at declaration 2", nestedRepositories, repositories),
+					Message: fmt.Sprintf("for storage 'third' at declaration 3 '%s': is nest with '%s' for storage 'other' at declaration 2", nestedRepositories, repositories),
 				},
 			},
 		},
@@ -252,7 +252,7 @@ func TestValidateStorages(t *testing.T) {
 			expectedErr: ValidationErrors{
 				{
 					Key:     []string{"storage", "path"},
-					Message: fmt.Sprintf("'%s' for storage 'other' at declaration 2: is nest with '%s' for storage 'default' at declaration 1", repositories, nestedRepositories),
+					Message: fmt.Sprintf("for storage 'other' at declaration 2 '%s': is nest with '%s' for storage 'default' at declaration 1", repositories, nestedRepositories),
 				},
 				{
 					Key:     []string{"storage", "name"},
@@ -260,7 +260,7 @@ func TestValidateStorages(t *testing.T) {
 				},
 				{
 					Key:     []string{"storage", "path"},
-					Message: fmt.Sprintf("'%s' at declaration 3: is nest with '%s' for storage 'default' at declaration 1", repositories, nestedRepositories),
+					Message: fmt.Sprintf("at declaration 3 '%s': is nest with '%s' for storage 'default' at declaration 1", repositories, nestedRepositories),
 				},
 			},
 		},
@@ -325,7 +325,7 @@ func TestValidateStorages(t *testing.T) {
 			expectedErr: ValidationErrors{
 				{
 					Key:     []string{"storage", "path"},
-					Message: fmt.Sprintf("'%s' for storage 'nope' at declaration 2: dir doesn't exist", invalidDir),
+					Message: fmt.Sprintf("for storage 'nope' at declaration 2: '%s' dir doesn't exist", invalidDir),
 				},
 			},
 		},
@@ -338,7 +338,7 @@ func TestValidateStorages(t *testing.T) {
 			expectedErr: ValidationErrors{
 				{
 					Key:     []string{"storage", "path"},
-					Message: fmt.Sprintf("'%s' for storage 'is_file' at declaration 2: is not a dir", filePath),
+					Message: fmt.Sprintf("for storage 'is_file' at declaration 2: '%s' is not a dir", filePath),
 				},
 			},
 		},
