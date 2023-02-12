@@ -37,7 +37,7 @@ func (cmd *restoreSubcommand) Flags(fs *flag.FlagSet) {
 	fs.StringVar(&cmd.backupPath, "path", "", "repository backup path")
 	fs.IntVar(&cmd.parallel, "parallel", runtime.NumCPU(), "maximum number of parallel restores")
 	fs.IntVar(&cmd.parallelStorage, "parallel-storage", 2, "maximum number of parallel restores per storage. Note: actual parallelism when combined with `-parallel` depends on the order the repositories are received.")
-	fs.StringVar(&cmd.layout, "layout", "legacy", "determines how backup files are located. One of legacy, pointer. Note: The feature is not ready for production use.")
+	fs.StringVar(&cmd.layout, "layout", "pointer", "how backup files are located. Either pointer or legacy.")
 }
 
 func (cmd *restoreSubcommand) Run(ctx context.Context, stdin io.Reader, stdout io.Writer) error {

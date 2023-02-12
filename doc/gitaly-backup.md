@@ -50,8 +50,8 @@ Gitaly and Gitaly Cluster.
    |  `-parallel`          |  integer  |  no      |  Maximum number of parallel backups. |
    |  `-parallel-storage`  |  integer  |  no      |  Maximum number of parallel backups per storage. |
    |  `-id`                |  string   |  no      |  Used to determine a unique path for the backup when a full backup is created. |
-   |  `-layout`            |  string   |  no      |  Determines the file-system layout. Any of `legacy`, `pointer` (default `legacy`). Note: The feature is not ready for production use. |
-   |  `-incremental`       |  bool     |  no      |  Determines if an incremental backup should be created. Note: The feature is not ready for production use. |
+   |  `-layout`            |  string   |  no      |  How backup files are located. Either `pointer` (default) or `legacy`. |
+   |  `-incremental`       |  bool     |  no      |  Indicates whether to create an incremental backup. |
 
 ## Directly restore repository data
 
@@ -101,7 +101,7 @@ Gitaly and Gitaly Cluster.
    |  `-path`              |  string   |  yes     |  Directory where the backup files are stored. |
    |  `-parallel`          |  integer  |  no      |  Maximum number of parallel restores. |
    |  `-parallel-storage`  |  integer  |  no      |  Maximum number of parallel restores per storage. |
-   |  `-layout`            |  string   |  no      |  Determines the file-system layout. Any of `legacy`, `pointer` (default `legacy`). Note: The feature is not ready for production use. |
+   |  `-layout`            |  string   |  no      |  How backup files are located. Either `pointer` (default) or `legacy`. |
 
 ## Path
 

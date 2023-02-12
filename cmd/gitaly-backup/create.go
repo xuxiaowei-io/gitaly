@@ -37,7 +37,7 @@ func (cmd *createSubcommand) Flags(fs *flag.FlagSet) {
 	fs.StringVar(&cmd.backupPath, "path", "", "repository backup path")
 	fs.IntVar(&cmd.parallel, "parallel", runtime.NumCPU(), "maximum number of parallel backups")
 	fs.IntVar(&cmd.parallelStorage, "parallel-storage", 2, "maximum number of parallel backups per storage. Note: actual parallelism when combined with `-parallel` depends on the order the repositories are received.")
-	fs.StringVar(&cmd.layout, "layout", "legacy", "determines how backup files are located. One of legacy, pointer. Note: The feature is not ready for production use.")
+	fs.StringVar(&cmd.layout, "layout", "pointer", "how backup files are located. Either pointer or legacy.")
 	fs.BoolVar(&cmd.incremental, "incremental", false, "creates an incremental backup if possible.")
 	fs.StringVar(&cmd.backupID, "id", time.Now().UTC().Format("20060102150405"), "the backup ID used when creating a full backup.")
 }
