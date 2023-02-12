@@ -153,9 +153,10 @@ func NewGRPCServer(
 
 	if conf.Failover.ElectionStrategy == config.ElectionStrategyPerRepository {
 		proxy.RegisterStreamHandlers(srv, "gitaly.RepositoryService", map[string]grpc.StreamHandler{
-			"RepositoryExists": RepositoryExistsHandler(rs),
+			"RemoveAll":        RemoveAllHandler(rs, conns),
 			"RemoveRepository": RemoveRepositoryHandler(rs, conns),
 			"RenameRepository": RenameRepositoryHandler(conf.VirtualStorageNames(), rs),
+			"RepositoryExists": RepositoryExistsHandler(rs),
 		})
 		proxy.RegisterStreamHandlers(srv, "gitaly.ObjectPoolService", map[string]grpc.StreamHandler{
 			"DeleteObjectPool": DeleteObjectPoolHandler(rs, conns),

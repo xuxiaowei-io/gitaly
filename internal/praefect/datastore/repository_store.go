@@ -112,6 +112,9 @@ type RepositoryStore interface {
 	// which are known to have a replica at the time of deletion. commonerr.RepositoryNotFoundError is returned when
 	// the repository is not tracked by the Praefect datastore.
 	DeleteRepository(ctx context.Context, virtualStorage, relativePath string) (string, []string, error)
+	// DeleteAllRepositories deletes the database records associated with
+	// repositories in the specified virtual storage.
+	DeleteAllRepositories(ctx context.Context, virtualStorage string) error
 	// DeleteReplica deletes a replica of a repository from a storage without affecting other state in the virtual storage.
 	DeleteReplica(ctx context.Context, repositoryID int64, storage string) error
 	// RenameRepository updates a repository's relative path. It renames the virtual storage wide record as well
@@ -516,6 +519,36 @@ GROUP BY replica_path
 	}
 
 	return replicaPath, storages.Slice(), nil
+}
+
+//nolint:revive // This is unintentionally missing documentation.
+func (rs *PostgresRepositoryStore) DeleteAllRepositories(ctx context.Context, virtualStorage string) error {
+	_, err := rs.db.ExecContext(ctx, `
+WITH delete_jobs AS (
+  DELETE FROM replication_queue
+  WHERE job->>'virtual_storage' = $1
+  RETURNING id
+),
+
+delete_job_locks AS (
+  DELETE FROM replication_queue_job_lock
+  USING delete_jobs
+  WHERE job_id = delete_jobs.id
+),
+
+delete_locks AS (
+  DELETE FROM replication_queue_lock
+  WHERE id LIKE $1 || '|%|%'
+)
+
+DELETE FROM repositories
+WHERE virtual_storage = $1;
+	`, virtualStorage)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // DeleteReplica deletes a record from the `storage_repositories`. See the interface documentation for details.

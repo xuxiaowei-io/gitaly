@@ -349,6 +349,11 @@ service RepositoryService {
       op: ACCESSOR
     };
   }
+
+  // RemoveAll deletes all repositories on a specified storage.
+  rpc RemoveAll(RemoveAllRequest) returns (RemoveAllResponse) {
+    option (intercepted_method) = true;
+  }
 }
 
 // This comment is left unintentionally blank.
@@ -1153,4 +1158,14 @@ message FullPathRequest {
 message FullPathResponse {
   // Path read from the "gitlab.fullpath" config key.
   string path = 1;
+}
+
+// RemoveAll is a request for the RemoveAll RPC.
+message RemoveAllRequest {
+  // StorageName of the storage to have all repositories removed from.
+  string storage_name = 1;
+}
+
+// RemoveAllResponse is a response for the RemoveAll RPC.
+message RemoveAllResponse {
 }
