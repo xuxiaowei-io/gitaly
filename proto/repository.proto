@@ -283,6 +283,15 @@ service RepositoryService {
     };
   }
 
+  // ReadCustomHooks fetches the git hooks for a repository. The hooks are sent
+  // in a tar archive containing a `custom_hooks` directory. If no hooks are
+  // present in the repository, the response will have no data.
+  rpc ReadCustomHooks(ReadCustomHooksRequest) returns (stream ReadCustomHooksResponse) {
+    option (op_type) = {
+      op: ACCESSOR
+    };
+  }
+
   // This comment is left unintentionally blank.
   rpc GetObjectDirectorySize(GetObjectDirectorySizeRequest) returns (GetObjectDirectorySizeResponse) {
     option (op_type) = {
@@ -816,7 +825,19 @@ message BackupCustomHooksRequest {
 }
 
 // This comment is left unintentionally blank.
+message ReadCustomHooksRequest {
+  // This comment is left unintentionally blank.
+  Repository repository = 1 [(target_repository)=true];
+}
+
+// This comment is left unintentionally blank.
 message BackupCustomHooksResponse {
+  // This comment is left unintentionally blank.
+  bytes data = 1;
+}
+
+// This comment is left unintentionally blank.
+message ReadCustomHooksResponse {
   // This comment is left unintentionally blank.
   bytes data = 1;
 }

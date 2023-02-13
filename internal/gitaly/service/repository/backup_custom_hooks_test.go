@@ -129,8 +129,8 @@ func TestBackupCustomHooks_validate(t *testing.T) {
 			desc: "repository not provided",
 			req:  &gitalypb.BackupCustomHooksRequest{Repository: nil},
 			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"empty Repository",
-				"repo scoped: empty Repository",
+				"validating repository: empty Repository",
+				"repo scoped: validating repository: empty Repository",
 			)),
 		},
 	} {
