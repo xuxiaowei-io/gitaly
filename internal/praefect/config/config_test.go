@@ -638,3 +638,48 @@ func TestFailover_Validate(t *testing.T) {
 		})
 	}
 }
+
+func TestBackgroundVerification_Validate(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name         string
+		verification BackgroundVerification
+		expectedErr  error
+	}{
+		{
+			name:         "empty is valid",
+			verification: BackgroundVerification{},
+		},
+		{
+			name: "valid",
+			verification: BackgroundVerification{
+				DeleteInvalidRecords: true,
+				VerificationInterval: duration.Duration(1),
+			},
+		},
+		{
+			name: "zero",
+			verification: BackgroundVerification{
+				DeleteInvalidRecords: true,
+				VerificationInterval: duration.Duration(0),
+			},
+		},
+		{
+			name: "invalid",
+			verification: BackgroundVerification{
+				VerificationInterval: duration.Duration(-1),
+			},
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: -1ns", cfgerror.ErrIsNegative),
+					"verification_interval",
+				),
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.verification.Validate()
+			require.Equal(t, tc.expectedErr, err)
+		})
+	}
+}

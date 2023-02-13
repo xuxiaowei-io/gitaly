@@ -127,6 +127,13 @@ type BackgroundVerification struct {
 	DeleteInvalidRecords bool `toml:"delete_invalid_records"`
 }
 
+// Validate runs validation on all fields and compose all found errors.
+func (bv BackgroundVerification) Validate() error {
+	return cfgerror.New().
+		Append(cfgerror.IsPositive(bv.VerificationInterval.Duration()), "verification_interval").
+		AsError()
+}
+
 // DefaultBackgroundVerificationConfig returns the default background verification configuration.
 func DefaultBackgroundVerificationConfig() BackgroundVerification {
 	return BackgroundVerification{
