@@ -111,8 +111,14 @@ type RepositoryServiceClient interface {
 	// tar archive containing a `custom_hooks` directory. This directory is
 	// ultimately extracted to the repository.
 	SetCustomHooks(ctx context.Context, opts ...grpc.CallOption) (RepositoryService_SetCustomHooksClient, error)
-	// This comment is left unintentionally blank.
+	// BackupCustomHooks fetches the git hooks for a repository. The hooks are
+	// sent in a tar archive containing a `custom_hooks` directory. If no hooks
+	// are present in the repository, the response will have no data.
 	BackupCustomHooks(ctx context.Context, in *BackupCustomHooksRequest, opts ...grpc.CallOption) (RepositoryService_BackupCustomHooksClient, error)
+	// GetCustomHooks fetches the git hooks for a repository. The hooks are sent
+	// in a tar archive containing a `custom_hooks` directory. If no hooks are
+	// present in the repository, the response will have no data.
+	GetCustomHooks(ctx context.Context, in *GetCustomHooksRequest, opts ...grpc.CallOption) (RepositoryService_GetCustomHooksClient, error)
 	// This comment is left unintentionally blank.
 	GetObjectDirectorySize(ctx context.Context, in *GetObjectDirectorySizeRequest, opts ...grpc.CallOption) (*GetObjectDirectorySizeResponse, error)
 	// RemoveRepository will move the repository to `+gitaly/tmp/<relative_path>_removed` and
@@ -824,6 +830,38 @@ func (x *repositoryServiceBackupCustomHooksClient) Recv() (*BackupCustomHooksRes
 	return m, nil
 }
 
+func (c *repositoryServiceClient) GetCustomHooks(ctx context.Context, in *GetCustomHooksRequest, opts ...grpc.CallOption) (RepositoryService_GetCustomHooksClient, error) {
+	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[14], "/gitaly.RepositoryService/GetCustomHooks", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &repositoryServiceGetCustomHooksClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type RepositoryService_GetCustomHooksClient interface {
+	Recv() (*GetCustomHooksResponse, error)
+	grpc.ClientStream
+}
+
+type repositoryServiceGetCustomHooksClient struct {
+	grpc.ClientStream
+}
+
+func (x *repositoryServiceGetCustomHooksClient) Recv() (*GetCustomHooksResponse, error) {
+	m := new(GetCustomHooksResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (c *repositoryServiceClient) GetObjectDirectorySize(ctx context.Context, in *GetObjectDirectorySizeRequest, opts ...grpc.CallOption) (*GetObjectDirectorySizeResponse, error) {
 	out := new(GetObjectDirectorySizeResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/GetObjectDirectorySize", in, out, opts...)
@@ -1000,8 +1038,14 @@ type RepositoryServiceServer interface {
 	// tar archive containing a `custom_hooks` directory. This directory is
 	// ultimately extracted to the repository.
 	SetCustomHooks(RepositoryService_SetCustomHooksServer) error
-	// This comment is left unintentionally blank.
+	// BackupCustomHooks fetches the git hooks for a repository. The hooks are
+	// sent in a tar archive containing a `custom_hooks` directory. If no hooks
+	// are present in the repository, the response will have no data.
 	BackupCustomHooks(*BackupCustomHooksRequest, RepositoryService_BackupCustomHooksServer) error
+	// GetCustomHooks fetches the git hooks for a repository. The hooks are sent
+	// in a tar archive containing a `custom_hooks` directory. If no hooks are
+	// present in the repository, the response will have no data.
+	GetCustomHooks(*GetCustomHooksRequest, RepositoryService_GetCustomHooksServer) error
 	// This comment is left unintentionally blank.
 	GetObjectDirectorySize(context.Context, *GetObjectDirectorySizeRequest) (*GetObjectDirectorySizeResponse, error)
 	// RemoveRepository will move the repository to `+gitaly/tmp/<relative_path>_removed` and
@@ -1157,6 +1201,9 @@ func (UnimplementedRepositoryServiceServer) SetCustomHooks(RepositoryService_Set
 }
 func (UnimplementedRepositoryServiceServer) BackupCustomHooks(*BackupCustomHooksRequest, RepositoryService_BackupCustomHooksServer) error {
 	return status.Errorf(codes.Unimplemented, "method BackupCustomHooks not implemented")
+}
+func (UnimplementedRepositoryServiceServer) GetCustomHooks(*GetCustomHooksRequest, RepositoryService_GetCustomHooksServer) error {
+	return status.Errorf(codes.Unimplemented, "method GetCustomHooks not implemented")
 }
 func (UnimplementedRepositoryServiceServer) GetObjectDirectorySize(context.Context, *GetObjectDirectorySizeRequest) (*GetObjectDirectorySizeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetObjectDirectorySize not implemented")
@@ -1913,6 +1960,27 @@ func (x *repositoryServiceBackupCustomHooksServer) Send(m *BackupCustomHooksResp
 	return x.ServerStream.SendMsg(m)
 }
 
+func _RepositoryService_GetCustomHooks_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(GetCustomHooksRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(RepositoryServiceServer).GetCustomHooks(m, &repositoryServiceGetCustomHooksServer{stream})
+}
+
+type RepositoryService_GetCustomHooksServer interface {
+	Send(*GetCustomHooksResponse) error
+	grpc.ServerStream
+}
+
+type repositoryServiceGetCustomHooksServer struct {
+	grpc.ServerStream
+}
+
+func (x *repositoryServiceGetCustomHooksServer) Send(m *GetCustomHooksResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 func _RepositoryService_GetObjectDirectorySize_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetObjectDirectorySizeRequest)
 	if err := dec(in); err != nil {
@@ -2277,6 +2345,11 @@ var RepositoryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "BackupCustomHooks",
 			Handler:       _RepositoryService_BackupCustomHooks_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "GetCustomHooks",
+			Handler:       _RepositoryService_GetCustomHooks_Handler,
 			ServerStreams: true,
 		},
 	},
