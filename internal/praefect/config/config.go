@@ -155,13 +155,11 @@ type Config struct {
 	Auth                                        auth.Config `toml:"auth,omitempty"`
 	TLS                                         config.TLS  `toml:"tls,omitempty"`
 	DB                                          `toml:"database,omitempty"`
-	Failover                                    Failover `toml:"failover,omitempty"`
-	// Keep for legacy reasons: remove after Omnibus has switched
-	FailoverEnabled     bool                `toml:"failover_enabled,omitempty"`
-	MemoryQueueEnabled  bool                `toml:"memory_queue_enabled,omitempty"`
-	GracefulStopTimeout duration.Duration   `toml:"graceful_stop_timeout,omitempty"`
-	RepositoriesCleanup RepositoriesCleanup `toml:"repositories_cleanup,omitempty"`
-	Yamux               Yamux               `toml:"yamux,omitempty"`
+	Failover                                    Failover            `toml:"failover,omitempty"`
+	MemoryQueueEnabled                          bool                `toml:"memory_queue_enabled,omitempty"`
+	GracefulStopTimeout                         duration.Duration   `toml:"graceful_stop_timeout,omitempty"`
+	RepositoriesCleanup                         RepositoriesCleanup `toml:"repositories_cleanup,omitempty"`
+	Yamux                                       Yamux               `toml:"yamux,omitempty"`
 }
 
 // Yamux contains Yamux related configuration values.
@@ -234,12 +232,6 @@ func FromReader(reader io.Reader) (Config, error) {
 	}
 	if err := toml.NewDecoder(reader).Decode(conf); err != nil {
 		return Config{}, err
-	}
-
-	// TODO: Remove this after failover_enabled has moved under a separate failover section. This is for
-	// backwards compatibility only
-	if conf.FailoverEnabled {
-		conf.Failover.Enabled = true
 	}
 
 	conf.setDefaults()
