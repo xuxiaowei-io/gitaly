@@ -449,12 +449,12 @@ func (mgr *Manager) restoreCustomHooks(ctx context.Context, path string, server 
 	if err != nil {
 		return fmt.Errorf("restore custom hooks, %q: %w", path, err)
 	}
-	stream, err := repoClient.RestoreCustomHooks(ctx)
+	stream, err := repoClient.SetCustomHooks(ctx)
 	if err != nil {
 		return fmt.Errorf("restore custom hooks, %q: %w", path, err)
 	}
 
-	request := &gitalypb.RestoreCustomHooksRequest{Repository: repo}
+	request := &gitalypb.SetCustomHooksRequest{Repository: repo}
 	bundle := streamio.NewWriter(func(p []byte) error {
 		request.Data = p
 		if err := stream.Send(request); err != nil {
@@ -462,7 +462,7 @@ func (mgr *Manager) restoreCustomHooks(ctx context.Context, path string, server 
 		}
 
 		// Only set `Repository` on the first `Send` of the stream
-		request = &gitalypb.RestoreCustomHooksRequest{}
+		request = &gitalypb.SetCustomHooksRequest{}
 
 		return nil
 	})

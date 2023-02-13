@@ -262,6 +262,7 @@ service RepositoryService {
     option (op_type) = {
       op: MUTATOR
     };
+    option deprecated = true;
   }
 
   // SetCustomHooks sets the git hooks for a repository. The hooks are sent in a

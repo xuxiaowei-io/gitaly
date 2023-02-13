@@ -102,6 +102,7 @@ type RepositoryServiceClient interface {
 	SearchFilesByContent(ctx context.Context, in *SearchFilesByContentRequest, opts ...grpc.CallOption) (RepositoryService_SearchFilesByContentClient, error)
 	// This comment is left unintentionally blank.
 	SearchFilesByName(ctx context.Context, in *SearchFilesByNameRequest, opts ...grpc.CallOption) (RepositoryService_SearchFilesByNameClient, error)
+	// Deprecated: Do not use.
 	// RestoreCustomHooks sets the git hooks for a repository. The hooks are sent
 	// in a tar archive containing a `custom_hooks` directory. This directory is
 	// ultimately extracted to the repository.
@@ -722,6 +723,7 @@ func (x *repositoryServiceSearchFilesByNameClient) Recv() (*SearchFilesByNameRes
 	return m, nil
 }
 
+// Deprecated: Do not use.
 func (c *repositoryServiceClient) RestoreCustomHooks(ctx context.Context, opts ...grpc.CallOption) (RepositoryService_RestoreCustomHooksClient, error) {
 	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[11], "/gitaly.RepositoryService/RestoreCustomHooks", opts...)
 	if err != nil {
@@ -989,6 +991,7 @@ type RepositoryServiceServer interface {
 	SearchFilesByContent(*SearchFilesByContentRequest, RepositoryService_SearchFilesByContentServer) error
 	// This comment is left unintentionally blank.
 	SearchFilesByName(*SearchFilesByNameRequest, RepositoryService_SearchFilesByNameServer) error
+	// Deprecated: Do not use.
 	// RestoreCustomHooks sets the git hooks for a repository. The hooks are sent
 	// in a tar archive containing a `custom_hooks` directory. This directory is
 	// ultimately extracted to the repository.

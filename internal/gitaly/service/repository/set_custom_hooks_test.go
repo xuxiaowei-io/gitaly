@@ -69,6 +69,7 @@ func testSuccessfulSetCustomHooksRequest(t *testing.T, ctx context.Context) {
 		{
 			desc: "RestoreCustomHooks",
 			streamWriter: func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, client gitalypb.RepositoryServiceClient) (io.Writer, func()) {
+				//nolint:staticcheck
 				stream, err := client.RestoreCustomHooks(ctx)
 				require.NoError(t, err)
 
@@ -169,6 +170,7 @@ func testFailedSetCustomHooksDueToValidations(t *testing.T, ctx context.Context)
 		{
 			desc: "RestoreCustomHooks",
 			streamSender: func(t *testing.T, ctx context.Context, client gitalypb.RepositoryServiceClient) error {
+				//nolint:staticcheck
 				stream, err := client.RestoreCustomHooks(ctx)
 				require.NoError(t, err)
 
@@ -232,6 +234,7 @@ func testFailedSetCustomHooksDueToBadTar(t *testing.T, ctx context.Context) {
 		{
 			desc: "RestoreCustomHooks",
 			streamWriter: func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, client gitalypb.RepositoryServiceClient) (io.Writer, func() error) {
+				//nolint:staticcheck
 				stream, err := client.RestoreCustomHooks(ctx)
 				require.NoError(t, err)
 
