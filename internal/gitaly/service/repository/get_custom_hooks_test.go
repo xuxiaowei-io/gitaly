@@ -46,6 +46,7 @@ func TestGetCustomHooks_successful(t *testing.T) {
 			desc: "BackupCustomHooks",
 			streamReader: func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, client gitalypb.RepositoryServiceClient) *tar.Reader {
 				request := &gitalypb.BackupCustomHooksRequest{Repository: repo}
+				//nolint:staticcheck
 				stream, err := client.BackupCustomHooks(ctx, request)
 				require.NoError(t, err)
 
@@ -112,6 +113,7 @@ func TestGetCustomHooks_symlink(t *testing.T) {
 			desc: "BackupCustomHooks",
 			streamReader: func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, client gitalypb.RepositoryServiceClient) *tar.Reader {
 				request := &gitalypb.BackupCustomHooksRequest{Repository: repo}
+				//nolint:staticcheck
 				stream, err := client.BackupCustomHooks(ctx, request)
 				require.NoError(t, err)
 
@@ -169,6 +171,7 @@ func TestGetCustomHooks_nonexistentHooks(t *testing.T) {
 			desc: "BackupCustomHooks",
 			streamReader: func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, client gitalypb.RepositoryServiceClient) *tar.Reader {
 				request := &gitalypb.BackupCustomHooksRequest{Repository: repo}
+				//nolint:staticcheck
 				stream, err := client.BackupCustomHooks(ctx, request)
 				require.NoError(t, err)
 
@@ -245,6 +248,7 @@ func TestBackupCustomHooks_validate(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
+			//nolint:staticcheck
 			stream, err := client.BackupCustomHooks(ctx, tc.req)
 			require.NoError(t, err)
 			_, err = stream.Recv()

@@ -421,7 +421,7 @@ func (mgr *Manager) writeCustomHooks(ctx context.Context, path string, server st
 	if err != nil {
 		return err
 	}
-	stream, err := repoClient.BackupCustomHooks(ctx, &gitalypb.BackupCustomHooksRequest{Repository: repo})
+	stream, err := repoClient.GetCustomHooks(ctx, &gitalypb.GetCustomHooksRequest{Repository: repo})
 	if err != nil {
 		return err
 	}
