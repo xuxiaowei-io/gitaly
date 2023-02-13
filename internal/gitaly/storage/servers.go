@@ -19,6 +19,11 @@ type ServerInfo struct {
 	Token   string `json:"token"`
 }
 
+// Zero returns true when no attributes have been set.
+func (si ServerInfo) Zero() bool {
+	return si == ServerInfo{}
+}
+
 // GitalyServers hold Gitaly servers info like {"default":{"token":"x","address":"y"}},
 // to be passed in `gitaly-servers` metadata.
 type GitalyServers map[string]ServerInfo

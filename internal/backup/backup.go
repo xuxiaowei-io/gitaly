@@ -149,6 +149,10 @@ type CreateRequest struct {
 
 // Create creates a repository backup.
 func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
+	if err := setContextServerInfo(ctx, &req.Server, req.Repository.GetStorageName()); err != nil {
+		return fmt.Errorf("manager: %w", err)
+	}
+
 	if isEmpty, err := mgr.isEmpty(ctx, req.Server, req.Repository); err != nil {
 		return fmt.Errorf("manager: %w", err)
 	} else if isEmpty {
@@ -196,6 +200,10 @@ type RestoreRequest struct {
 
 // Restore restores a repository from a backup.
 func (mgr *Manager) Restore(ctx context.Context, req *RestoreRequest) error {
+	if err := setContextServerInfo(ctx, &req.Server, req.Repository.GetStorageName()); err != nil {
+		return fmt.Errorf("manager: %w", err)
+	}
+
 	if err := mgr.removeRepository(ctx, req.Server, req.Repository); err != nil {
 		return fmt.Errorf("manager: %w", err)
 	}
@@ -234,6 +242,17 @@ func (mgr *Manager) Restore(ctx context.Context, req *RestoreRequest) error {
 		}
 	}
 	return nil
+}
+
+// setContextServerInfo overwrites server with gitaly connection info from ctx metadata when server is zero.
+func setContextServerInfo(ctx context.Context, server *storage.ServerInfo, storageName string) error {
+	if !server.Zero() {
+		return nil
+	}
+
+	var err error
+	*server, err = storage.ExtractGitalyServer(ctx, storageName)
+	return err
 }
 
 func (mgr *Manager) isEmpty(ctx context.Context, server storage.ServerInfo, repo *gitalypb.Repository) (bool, error) {
