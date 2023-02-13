@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"time"
 
 	"github.com/hashicorp/yamux"
@@ -149,6 +150,20 @@ type Reconciliation struct {
 	SchedulingInterval duration.Duration `toml:"scheduling_interval,omitempty"`
 	// HistogramBuckets configures the reconciliation scheduling duration histogram's buckets.
 	HistogramBuckets []float64 `toml:"histogram_buckets,omitempty"`
+}
+
+// Validate runs validation on all fields and compose all found errors.
+func (r Reconciliation) Validate() error {
+	errs := cfgerror.New().
+		Append(cfgerror.IsPositive(r.SchedulingInterval.Duration()), "scheduling_interval")
+
+	if r.SchedulingInterval != 0 {
+		if !sort.Float64sAreSorted(r.HistogramBuckets) {
+			errs = errs.Append(cfgerror.ErrBadOrder, "histogram_buckets")
+		}
+	}
+
+	return errs.AsError()
 }
 
 // DefaultReconciliationConfig returns the default values for reconciliation configuration.

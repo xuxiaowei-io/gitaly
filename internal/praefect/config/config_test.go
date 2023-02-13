@@ -683,3 +683,43 @@ func TestBackgroundVerification_Validate(t *testing.T) {
 		})
 	}
 }
+
+func TestReconciliation_Validate(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name           string
+		reconciliation Reconciliation
+		expectedErr    error
+	}{
+		{
+			name:           "empty is valid",
+			reconciliation: Reconciliation{},
+		},
+		{
+			name: "valid",
+			reconciliation: Reconciliation{
+				SchedulingInterval: duration.Duration(1),
+				HistogramBuckets:   []float64{-1, 0, 1},
+			},
+		},
+		{
+			name: "invalid",
+			reconciliation: Reconciliation{
+				SchedulingInterval: duration.Duration(-1),
+				HistogramBuckets:   []float64{-1, 1, 0},
+			},
+			expectedErr: cfgerror.ValidationErrors{{
+				Key:   []string{"scheduling_interval"},
+				Cause: fmt.Errorf("%w: -1ns", cfgerror.ErrIsNegative),
+			}, {
+				Key:   []string{"histogram_buckets"},
+				Cause: cfgerror.ErrBadOrder,
+			}},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.reconciliation.Validate()
+			require.Equal(t, tc.expectedErr, err)
+		})
+	}
+}
