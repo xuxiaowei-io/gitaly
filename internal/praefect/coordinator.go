@@ -99,6 +99,7 @@ var transactionRPCs = map[string]transactionsCondition{
 	// The `RestoreCustomHooks` RPC can be make transactional by enabling the
 	// `TransactionalRestoreCustomHooks` feature flag.
 	"/gitaly.RepositoryService/RestoreCustomHooks": transactionsFlag(featureflag.TransactionalRestoreCustomHooks),
+	"/gitaly.RepositoryService/WriteCustomHooks":   transactionsFlag(featureflag.TransactionalRestoreCustomHooks),
 }
 
 // forcePrimaryRoutingRPCs tracks RPCs which need to always get routed to the primary. This should

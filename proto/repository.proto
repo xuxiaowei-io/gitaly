@@ -264,7 +264,18 @@ service RepositoryService {
     };
   }
 
-  // This comment is left unintentionally blank.
+  // WriteCustomHooks sets the git hooks for a repository. The hooks are sent
+  // in a tar archive containing a `custom_hooks` directory. This directory is
+  // ultimately extracted to the repository.
+  rpc WriteCustomHooks(stream WriteCustomHooksRequest) returns (WriteCustomHooksResponse) {
+    option (op_type) = {
+      op: MUTATOR
+    };
+  }
+
+  // BackupCustomHooks fetches the git hooks for a repository. The hooks are
+  // sent in a tar archive containing a `custom_hooks` directory. If no hooks
+  // are present in the repository, the response will have no data.
   rpc BackupCustomHooks(BackupCustomHooksRequest) returns (stream BackupCustomHooksResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -782,7 +793,19 @@ message  RestoreCustomHooksRequest {
 }
 
 // This comment is left unintentionally blank.
+message  WriteCustomHooksRequest {
+  // This comment is left unintentionally blank.
+  Repository repository = 1 [(target_repository)=true];
+  // This comment is left unintentionally blank.
+  bytes data = 2;
+}
+
+// This comment is left unintentionally blank.
 message RestoreCustomHooksResponse {
+}
+
+// This comment is left unintentionally blank.
+message WriteCustomHooksResponse {
 }
 
 // This comment is left unintentionally blank.

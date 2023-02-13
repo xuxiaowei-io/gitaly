@@ -26,6 +26,40 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 )
 
+// WriteCustomHooks sets the git hooks for a repository. The hooks are sent in a
+// tar archive containing a `custom_hooks` directory. This directory is
+// ultimately extracted to the repository.
+func (s *server) WriteCustomHooks(stream gitalypb.RepositoryService_WriteCustomHooksServer) error {
+	ctx := stream.Context()
+
+	firstRequest, err := stream.Recv()
+	if err != nil {
+		return structerr.NewInternal("first request failed %w", err)
+	}
+
+	repo := firstRequest.GetRepository()
+	if err := service.ValidateRepository(repo); err != nil {
+		return structerr.NewInvalidArgument("%w", err)
+	}
+
+	reader := streamio.NewReader(func() ([]byte, error) {
+		if firstRequest != nil {
+			data := firstRequest.GetData()
+			firstRequest = nil
+			return data, nil
+		}
+
+		request, err := stream.Recv()
+		return request.GetData(), err
+	})
+
+	if err := s.writeCustomHooks(ctx, reader, repo); err != nil {
+		return structerr.NewInternal("%w", err)
+	}
+
+	return stream.SendAndClose(&gitalypb.WriteCustomHooksResponse{})
+}
+
 // RestoreCustomHooks sets the git hooks for a repository. The hooks are sent in
 // a tar archive containing a `custom_hooks` directory. This directory is
 // ultimately extracted to the repository.
@@ -53,29 +87,37 @@ func (s *server) RestoreCustomHooks(stream gitalypb.RepositoryService_RestoreCus
 		return request.GetData(), err
 	})
 
-	if featureflag.TransactionalRestoreCustomHooks.IsEnabled(ctx) {
-		if err := s.restoreCustomHooks(ctx, reader, repo); err != nil {
-			return structerr.NewInternal("setting custom hooks: %w", err)
-		}
-
-		return stream.SendAndClose(&gitalypb.RestoreCustomHooksResponse{})
-	}
-
-	repoPath, err := s.locator.GetPath(repo)
-	if err != nil {
-		return structerr.NewInternal("getting repo path failed %w", err)
-	}
-
-	if err := extractHooks(ctx, reader, repoPath); err != nil {
-		return structerr.NewInternal("extracting hooks: %w", err)
+	if err := s.writeCustomHooks(ctx, reader, repo); err != nil {
+		return structerr.NewInternal("%w", err)
 	}
 
 	return stream.SendAndClose(&gitalypb.RestoreCustomHooksResponse{})
 }
 
-// restoreCustomHooks transactionally and atomically sets the provided custom
-// hooks for the specified repository.
-func (s *server) restoreCustomHooks(ctx context.Context, tar io.Reader, repo repository.GitRepo) error {
+func (s *server) writeCustomHooks(ctx context.Context, reader io.Reader, repo repository.GitRepo) error {
+	if featureflag.TransactionalRestoreCustomHooks.IsEnabled(ctx) {
+		if err := s.writeCustomHooksTransaction(ctx, reader, repo); err != nil {
+			return fmt.Errorf("writing custom hooks: %w", err)
+		}
+
+		return nil
+	}
+
+	repoPath, err := s.locator.GetPath(repo)
+	if err != nil {
+		return fmt.Errorf("getting repo path failed %w", err)
+	}
+
+	if err := extractHooks(ctx, reader, repoPath); err != nil {
+		return fmt.Errorf("extracting hooks: %w", err)
+	}
+
+	return nil
+}
+
+// writeCustomHooksTransaction transactionally and atomically sets the provided
+// custom hooks for the specified repository.
+func (s *server) writeCustomHooksTransaction(ctx context.Context, tar io.Reader, repo repository.GitRepo) error {
 	repoPath, err := s.locator.GetRepoPath(repo)
 	if err != nil {
 		return fmt.Errorf("getting repo path: %w", err)

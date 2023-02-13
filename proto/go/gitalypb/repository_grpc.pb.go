@@ -106,7 +106,13 @@ type RepositoryServiceClient interface {
 	// in a tar archive containing a `custom_hooks` directory. This directory is
 	// ultimately extracted to the repository.
 	RestoreCustomHooks(ctx context.Context, opts ...grpc.CallOption) (RepositoryService_RestoreCustomHooksClient, error)
-	// This comment is left unintentionally blank.
+	// WriteCustomHooks sets the git hooks for a repository. The hooks are sent
+	// in a tar archive containing a `custom_hooks` directory. This directory is
+	// ultimately extracted to the repository.
+	WriteCustomHooks(ctx context.Context, opts ...grpc.CallOption) (RepositoryService_WriteCustomHooksClient, error)
+	// BackupCustomHooks fetches the git hooks for a repository. The hooks are
+	// sent in a tar archive containing a `custom_hooks` directory. If no hooks
+	// are present in the repository, the response will have no data.
 	BackupCustomHooks(ctx context.Context, in *BackupCustomHooksRequest, opts ...grpc.CallOption) (RepositoryService_BackupCustomHooksClient, error)
 	// This comment is left unintentionally blank.
 	GetObjectDirectorySize(ctx context.Context, in *GetObjectDirectorySizeRequest, opts ...grpc.CallOption) (*GetObjectDirectorySizeResponse, error)
@@ -752,8 +758,42 @@ func (x *repositoryServiceRestoreCustomHooksClient) CloseAndRecv() (*RestoreCust
 	return m, nil
 }
 
+func (c *repositoryServiceClient) WriteCustomHooks(ctx context.Context, opts ...grpc.CallOption) (RepositoryService_WriteCustomHooksClient, error) {
+	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[12], "/gitaly.RepositoryService/WriteCustomHooks", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &repositoryServiceWriteCustomHooksClient{stream}
+	return x, nil
+}
+
+type RepositoryService_WriteCustomHooksClient interface {
+	Send(*WriteCustomHooksRequest) error
+	CloseAndRecv() (*WriteCustomHooksResponse, error)
+	grpc.ClientStream
+}
+
+type repositoryServiceWriteCustomHooksClient struct {
+	grpc.ClientStream
+}
+
+func (x *repositoryServiceWriteCustomHooksClient) Send(m *WriteCustomHooksRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *repositoryServiceWriteCustomHooksClient) CloseAndRecv() (*WriteCustomHooksResponse, error) {
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	m := new(WriteCustomHooksResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (c *repositoryServiceClient) BackupCustomHooks(ctx context.Context, in *BackupCustomHooksRequest, opts ...grpc.CallOption) (RepositoryService_BackupCustomHooksClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[12], "/gitaly.RepositoryService/BackupCustomHooks", opts...)
+	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[13], "/gitaly.RepositoryService/BackupCustomHooks", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -955,7 +995,13 @@ type RepositoryServiceServer interface {
 	// in a tar archive containing a `custom_hooks` directory. This directory is
 	// ultimately extracted to the repository.
 	RestoreCustomHooks(RepositoryService_RestoreCustomHooksServer) error
-	// This comment is left unintentionally blank.
+	// WriteCustomHooks sets the git hooks for a repository. The hooks are sent
+	// in a tar archive containing a `custom_hooks` directory. This directory is
+	// ultimately extracted to the repository.
+	WriteCustomHooks(RepositoryService_WriteCustomHooksServer) error
+	// BackupCustomHooks fetches the git hooks for a repository. The hooks are
+	// sent in a tar archive containing a `custom_hooks` directory. If no hooks
+	// are present in the repository, the response will have no data.
 	BackupCustomHooks(*BackupCustomHooksRequest, RepositoryService_BackupCustomHooksServer) error
 	// This comment is left unintentionally blank.
 	GetObjectDirectorySize(context.Context, *GetObjectDirectorySizeRequest) (*GetObjectDirectorySizeResponse, error)
@@ -1106,6 +1152,9 @@ func (UnimplementedRepositoryServiceServer) SearchFilesByName(*SearchFilesByName
 }
 func (UnimplementedRepositoryServiceServer) RestoreCustomHooks(RepositoryService_RestoreCustomHooksServer) error {
 	return status.Errorf(codes.Unimplemented, "method RestoreCustomHooks not implemented")
+}
+func (UnimplementedRepositoryServiceServer) WriteCustomHooks(RepositoryService_WriteCustomHooksServer) error {
+	return status.Errorf(codes.Unimplemented, "method WriteCustomHooks not implemented")
 }
 func (UnimplementedRepositoryServiceServer) BackupCustomHooks(*BackupCustomHooksRequest, RepositoryService_BackupCustomHooksServer) error {
 	return status.Errorf(codes.Unimplemented, "method BackupCustomHooks not implemented")
@@ -1818,6 +1867,32 @@ func (x *repositoryServiceRestoreCustomHooksServer) Recv() (*RestoreCustomHooksR
 	return m, nil
 }
 
+func _RepositoryService_WriteCustomHooks_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(RepositoryServiceServer).WriteCustomHooks(&repositoryServiceWriteCustomHooksServer{stream})
+}
+
+type RepositoryService_WriteCustomHooksServer interface {
+	SendAndClose(*WriteCustomHooksResponse) error
+	Recv() (*WriteCustomHooksRequest, error)
+	grpc.ServerStream
+}
+
+type repositoryServiceWriteCustomHooksServer struct {
+	grpc.ServerStream
+}
+
+func (x *repositoryServiceWriteCustomHooksServer) SendAndClose(m *WriteCustomHooksResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *repositoryServiceWriteCustomHooksServer) Recv() (*WriteCustomHooksRequest, error) {
+	m := new(WriteCustomHooksRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func _RepositoryService_BackupCustomHooks_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(BackupCustomHooksRequest)
 	if err := stream.RecvMsg(m); err != nil {
@@ -2193,6 +2268,11 @@ var RepositoryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "RestoreCustomHooks",
 			Handler:       _RepositoryService_RestoreCustomHooks_Handler,
+			ClientStreams: true,
+		},
+		{
+			StreamName:    "WriteCustomHooks",
+			Handler:       _RepositoryService_WriteCustomHooks_Handler,
 			ClientStreams: true,
 		},
 		{
