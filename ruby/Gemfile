@@ -12,7 +12,7 @@ gem 'rbtrace', require: false
 gem 'gitaly', '~> 15.5.0'
 
 # Labkit provides observability functionality
-gem 'gitlab-labkit', '~> 0.29'
+gem 'gitlab-labkit', '~> 0.31'
 
 # Detects the open source license the repository includes
 # This version needs to be in sync with GitLab CE/EE
