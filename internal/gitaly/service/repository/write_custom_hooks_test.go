@@ -28,13 +28,13 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func TestSuccessfulRestoreCustomHooksRequest(t *testing.T) {
+func TestSuccessfulWriteCustomHooksRequest(t *testing.T) {
 	t.Parallel()
 	testhelper.NewFeatureSets(featureflag.TransactionalRestoreCustomHooks).
-		Run(t, testSuccessfulRestoreCustomHooksRequest)
+		Run(t, testSuccessfulWriteCustomHooksRequest)
 }
 
-func testSuccessfulRestoreCustomHooksRequest(t *testing.T, ctx context.Context) {
+func testSuccessfulWriteCustomHooksRequest(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
 	cfg := testcfg.Build(t)
@@ -53,10 +53,10 @@ func testSuccessfulRestoreCustomHooksRequest(t *testing.T, ctx context.Context) 
 	// reset the txManager since CreateRepository would have done
 	// voting
 	txManager.Reset()
-	stream, err := client.RestoreCustomHooks(ctx)
+	stream, err := client.WriteCustomHooks(ctx)
 	require.NoError(t, err)
 
-	request := &gitalypb.RestoreCustomHooksRequest{Repository: repo}
+	request := &gitalypb.WriteCustomHooksRequest{Repository: repo}
 
 	writer := streamio.NewWriter(func(p []byte) error {
 		request.Data = p
@@ -64,7 +64,7 @@ func testSuccessfulRestoreCustomHooksRequest(t *testing.T, ctx context.Context) 
 			return err
 		}
 
-		request = &gitalypb.RestoreCustomHooksRequest{}
+		request = &gitalypb.WriteCustomHooksRequest{}
 		return nil
 	})
 
@@ -96,20 +96,20 @@ func testSuccessfulRestoreCustomHooksRequest(t *testing.T, ctx context.Context) 
 	}
 }
 
-func TestFailedRestoreCustomHooksDueToValidations(t *testing.T) {
+func TestFailedWriteCustomHooksDueToValidations(t *testing.T) {
 	t.Parallel()
 	testhelper.NewFeatureSets(featureflag.TransactionalRestoreCustomHooks).
-		Run(t, testFailedRestoreCustomHooksDueToValidations)
+		Run(t, testFailedWriteCustomHooksDueToValidations)
 }
 
-func testFailedRestoreCustomHooksDueToValidations(t *testing.T, ctx context.Context) {
+func testFailedWriteCustomHooksDueToValidations(t *testing.T, ctx context.Context) {
 	t.Parallel()
 	_, client := setupRepositoryServiceWithoutRepo(t)
 
-	stream, err := client.RestoreCustomHooks(ctx)
+	stream, err := client.WriteCustomHooks(ctx)
 	require.NoError(t, err)
 
-	require.NoError(t, stream.Send(&gitalypb.RestoreCustomHooksRequest{}))
+	require.NoError(t, stream.Send(&gitalypb.WriteCustomHooksRequest{}))
 
 	_, err = stream.CloseAndRecv()
 	testhelper.RequireGrpcError(t, err, status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
@@ -118,27 +118,27 @@ func testFailedRestoreCustomHooksDueToValidations(t *testing.T, ctx context.Cont
 	)))
 }
 
-func TestFailedRestoreCustomHooksDueToBadTar(t *testing.T) {
+func TestFailedWriteCustomHooksDueToBadTar(t *testing.T) {
 	t.Parallel()
 	testhelper.NewFeatureSets(featureflag.TransactionalRestoreCustomHooks).
-		Run(t, testFailedRestoreCustomHooksDueToBadTar)
+		Run(t, testFailedWriteCustomHooksDueToBadTar)
 }
 
-func testFailedRestoreCustomHooksDueToBadTar(t *testing.T, ctx context.Context) {
+func testFailedWriteCustomHooksDueToBadTar(t *testing.T, ctx context.Context) {
 	_, repo, _, client := setupRepositoryService(t, ctx)
 
-	stream, err := client.RestoreCustomHooks(ctx)
+	stream, err := client.WriteCustomHooks(ctx)
 
 	require.NoError(t, err)
 
-	request := &gitalypb.RestoreCustomHooksRequest{Repository: repo}
+	request := &gitalypb.WriteCustomHooksRequest{Repository: repo}
 	writer := streamio.NewWriter(func(p []byte) error {
 		request.Data = p
 		if err := stream.Send(request); err != nil {
 			return err
 		}
 
-		request = &gitalypb.RestoreCustomHooksRequest{}
+		request = &gitalypb.WriteCustomHooksRequest{}
 		return nil
 	})
 
