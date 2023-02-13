@@ -264,6 +264,15 @@ service RepositoryService {
     };
   }
 
+  // SetCustomHooks sets the git hooks for a repository. The hooks are sent in a
+  // tar archive containing a `custom_hooks` directory. This directory is 
+  // ultimately extracted to the repository.
+  rpc SetCustomHooks(stream SetCustomHooksRequest) returns (SetCustomHooksResponse) {
+    option (op_type) = {
+      op: MUTATOR
+    };
+  }
+
   // This comment is left unintentionally blank.
   rpc BackupCustomHooks(BackupCustomHooksRequest) returns (stream BackupCustomHooksResponse) {
     option (op_type) = {
@@ -782,7 +791,19 @@ message  RestoreCustomHooksRequest {
 }
 
 // This comment is left unintentionally blank.
+message  SetCustomHooksRequest {
+  // This comment is left unintentionally blank.
+  Repository repository = 1 [(target_repository)=true];
+  // This comment is left unintentionally blank.
+  bytes data = 2;
+}
+
+// This comment is left unintentionally blank.
 message RestoreCustomHooksResponse {
+}
+
+// This comment is left unintentionally blank.
+message SetCustomHooksResponse {
 }
 
 // This comment is left unintentionally blank.

@@ -28,129 +28,247 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func TestSuccessfulRestoreCustomHooksRequest(t *testing.T) {
+func TestSetCustomHooksRequest_success(t *testing.T) {
 	t.Parallel()
 	testhelper.NewFeatureSets(featureflag.TransactionalRestoreCustomHooks).
-		Run(t, testSuccessfulRestoreCustomHooksRequest)
+		Run(t, testSuccessfulSetCustomHooksRequest)
 }
 
-func testSuccessfulRestoreCustomHooksRequest(t *testing.T, ctx context.Context) {
+func testSuccessfulSetCustomHooksRequest(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	cfg := testcfg.Build(t)
-	testcfg.BuildGitalyHooks(t, cfg)
-	txManager := transaction.NewTrackingManager()
+	for _, tc := range []struct {
+		desc         string
+		streamWriter func(*testing.T, context.Context, *gitalypb.Repository, gitalypb.RepositoryServiceClient) (io.Writer, func())
+	}{
+		{
+			desc: "SetCustomHooks",
+			streamWriter: func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, client gitalypb.RepositoryServiceClient) (io.Writer, func()) {
+				stream, err := client.SetCustomHooks(ctx)
+				require.NoError(t, err)
 
-	client, addr := runRepositoryService(t, cfg, nil, testserver.WithTransactionManager(txManager))
-	cfg.SocketPath = addr
+				request := &gitalypb.SetCustomHooksRequest{Repository: repo}
+				writer := streamio.NewWriter(func(p []byte) error {
+					request.Data = p
+					if err := stream.Send(request); err != nil {
+						return err
+					}
 
-	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
-	require.NoError(t, err)
+					request = &gitalypb.SetCustomHooksRequest{}
+					return nil
+				})
 
-	ctx = metadata.IncomingToOutgoing(ctx)
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+				closeFunc := func() {
+					_, err = stream.CloseAndRecv()
+					require.NoError(t, err)
+				}
 
-	// reset the txManager since CreateRepository would have done
-	// voting
-	txManager.Reset()
-	stream, err := client.RestoreCustomHooks(ctx)
-	require.NoError(t, err)
+				return writer, closeFunc
+			},
+		},
+		{
+			desc: "RestoreCustomHooks",
+			streamWriter: func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, client gitalypb.RepositoryServiceClient) (io.Writer, func()) {
+				stream, err := client.RestoreCustomHooks(ctx)
+				require.NoError(t, err)
 
-	request := &gitalypb.RestoreCustomHooksRequest{Repository: repo}
+				request := &gitalypb.RestoreCustomHooksRequest{Repository: repo}
+				writer := streamio.NewWriter(func(p []byte) error {
+					request.Data = p
+					if err := stream.Send(request); err != nil {
+						return err
+					}
 
-	writer := streamio.NewWriter(func(p []byte) error {
-		request.Data = p
-		if err := stream.Send(request); err != nil {
-			return err
-		}
+					request = &gitalypb.RestoreCustomHooksRequest{}
+					return nil
+				})
 
-		request = &gitalypb.RestoreCustomHooksRequest{}
-		return nil
-	})
+				closeFunc := func() {
+					_, err = stream.CloseAndRecv()
+					require.NoError(t, err)
+				}
 
-	file, err := os.Open("testdata/custom_hooks.tar")
-	require.NoError(t, err)
+				return writer, closeFunc
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			cfg := testcfg.Build(t)
+			testcfg.BuildGitalyHooks(t, cfg)
+			txManager := transaction.NewTrackingManager()
 
-	_, err = io.Copy(writer, file)
-	require.NoError(t, err)
-	_, err = stream.CloseAndRecv()
-	require.NoError(t, err)
+			client, addr := runRepositoryService(t, cfg, nil, testserver.WithTransactionManager(txManager))
+			cfg.SocketPath = addr
 
-	voteHash, err := newDirectoryVote(filepath.Join(repoPath, customHooksDir))
-	require.NoError(t, err)
+			ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
+			require.NoError(t, err)
 
-	testhelper.MustClose(t, file)
+			ctx = metadata.IncomingToOutgoing(ctx)
+			repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
-	expectedVote, err := voteHash.Vote()
-	require.NoError(t, err)
+			// reset the txManager since CreateRepository would have done
+			// voting
+			txManager.Reset()
 
-	require.FileExists(t, filepath.Join(repoPath, "custom_hooks", "pre-push.sample"))
+			writer, closeStream := tc.streamWriter(t, ctx, repo, client)
 
-	if featureflag.TransactionalRestoreCustomHooks.IsEnabled(ctx) {
-		require.Equal(t, 2, len(txManager.Votes()))
-		assert.Equal(t, voting.Prepared, txManager.Votes()[0].Phase)
-		assert.Equal(t, expectedVote, txManager.Votes()[1].Vote)
-		assert.Equal(t, voting.Committed, txManager.Votes()[1].Phase)
-	} else {
-		require.Equal(t, 0, len(txManager.Votes()))
+			file, err := os.Open("testdata/custom_hooks.tar")
+			require.NoError(t, err)
+
+			_, err = io.Copy(writer, file)
+			require.NoError(t, err)
+			closeStream()
+
+			voteHash, err := newDirectoryVote(filepath.Join(repoPath, customHooksDir))
+			require.NoError(t, err)
+
+			testhelper.MustClose(t, file)
+
+			expectedVote, err := voteHash.Vote()
+			require.NoError(t, err)
+
+			require.FileExists(t, filepath.Join(repoPath, "custom_hooks", "pre-push.sample"))
+
+			if featureflag.TransactionalRestoreCustomHooks.IsEnabled(ctx) {
+				require.Equal(t, 2, len(txManager.Votes()))
+				assert.Equal(t, voting.Prepared, txManager.Votes()[0].Phase)
+				assert.Equal(t, expectedVote, txManager.Votes()[1].Vote)
+				assert.Equal(t, voting.Committed, txManager.Votes()[1].Phase)
+			} else {
+				require.Equal(t, 0, len(txManager.Votes()))
+			}
+		})
 	}
 }
 
-func TestFailedRestoreCustomHooksDueToValidations(t *testing.T) {
+func TestSetCustomHooks_failedValidation(t *testing.T) {
 	t.Parallel()
 	testhelper.NewFeatureSets(featureflag.TransactionalRestoreCustomHooks).
-		Run(t, testFailedRestoreCustomHooksDueToValidations)
+		Run(t, testFailedSetCustomHooksDueToValidations)
 }
 
-func testFailedRestoreCustomHooksDueToValidations(t *testing.T, ctx context.Context) {
+func testFailedSetCustomHooksDueToValidations(t *testing.T, ctx context.Context) {
 	t.Parallel()
-	_, client := setupRepositoryServiceWithoutRepo(t)
 
-	stream, err := client.RestoreCustomHooks(ctx)
-	require.NoError(t, err)
+	for _, tc := range []struct {
+		desc         string
+		streamSender func(*testing.T, context.Context, gitalypb.RepositoryServiceClient) error
+	}{
+		{
+			desc: "SetCustomHooks",
+			streamSender: func(t *testing.T, ctx context.Context, client gitalypb.RepositoryServiceClient) error {
+				stream, err := client.SetCustomHooks(ctx)
+				require.NoError(t, err)
 
-	require.NoError(t, stream.Send(&gitalypb.RestoreCustomHooksRequest{}))
+				require.NoError(t, stream.Send(&gitalypb.SetCustomHooksRequest{}))
 
-	_, err = stream.CloseAndRecv()
-	testhelper.RequireGrpcError(t, err, status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-		"empty Repository",
-		"repo scoped: empty Repository",
-	)))
+				_, err = stream.CloseAndRecv()
+				return err
+			},
+		},
+		{
+			desc: "RestoreCustomHooks",
+			streamSender: func(t *testing.T, ctx context.Context, client gitalypb.RepositoryServiceClient) error {
+				stream, err := client.RestoreCustomHooks(ctx)
+				require.NoError(t, err)
+
+				require.NoError(t, stream.Send(&gitalypb.RestoreCustomHooksRequest{}))
+
+				_, err = stream.CloseAndRecv()
+				return err
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			_, client := setupRepositoryServiceWithoutRepo(t)
+
+			err := tc.streamSender(t, ctx, client)
+			testhelper.RequireGrpcError(t, err, status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)))
+		})
+	}
 }
 
-func TestFailedRestoreCustomHooksDueToBadTar(t *testing.T) {
+func TestSetCustomHooks_corruptTar(t *testing.T) {
 	t.Parallel()
 	testhelper.NewFeatureSets(featureflag.TransactionalRestoreCustomHooks).
-		Run(t, testFailedRestoreCustomHooksDueToBadTar)
+		Run(t, testFailedSetCustomHooksDueToBadTar)
 }
 
-func testFailedRestoreCustomHooksDueToBadTar(t *testing.T, ctx context.Context) {
-	_, repo, _, client := setupRepositoryService(t, ctx)
+func testFailedSetCustomHooksDueToBadTar(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
-	stream, err := client.RestoreCustomHooks(ctx)
+	for _, tc := range []struct {
+		desc         string
+		streamWriter func(*testing.T, context.Context, *gitalypb.Repository, gitalypb.RepositoryServiceClient) (io.Writer, func() error)
+	}{
+		{
+			desc: "SetCustomHooks",
+			streamWriter: func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, client gitalypb.RepositoryServiceClient) (io.Writer, func() error) {
+				stream, err := client.SetCustomHooks(ctx)
+				require.NoError(t, err)
 
-	require.NoError(t, err)
+				request := &gitalypb.SetCustomHooksRequest{Repository: repo}
+				writer := streamio.NewWriter(func(p []byte) error {
+					request.Data = p
+					if err := stream.Send(request); err != nil {
+						return err
+					}
 
-	request := &gitalypb.RestoreCustomHooksRequest{Repository: repo}
-	writer := streamio.NewWriter(func(p []byte) error {
-		request.Data = p
-		if err := stream.Send(request); err != nil {
-			return err
-		}
+					request = &gitalypb.SetCustomHooksRequest{}
+					return nil
+				})
 
-		request = &gitalypb.RestoreCustomHooksRequest{}
-		return nil
-	})
+				closeFunc := func() error {
+					_, err = stream.CloseAndRecv()
+					return err
+				}
 
-	file, err := os.Open("testdata/corrupted_hooks.tar")
-	require.NoError(t, err)
-	defer file.Close()
+				return writer, closeFunc
+			},
+		},
+		{
+			desc: "RestoreCustomHooks",
+			streamWriter: func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, client gitalypb.RepositoryServiceClient) (io.Writer, func() error) {
+				stream, err := client.RestoreCustomHooks(ctx)
+				require.NoError(t, err)
 
-	_, err = io.Copy(writer, file)
-	require.NoError(t, err)
-	_, err = stream.CloseAndRecv()
+				request := &gitalypb.RestoreCustomHooksRequest{Repository: repo}
+				writer := streamio.NewWriter(func(p []byte) error {
+					request.Data = p
+					if err := stream.Send(request); err != nil {
+						return err
+					}
 
-	testhelper.RequireGrpcCode(t, err, codes.Internal)
+					request = &gitalypb.RestoreCustomHooksRequest{}
+					return nil
+				})
+
+				closeFunc := func() error {
+					_, err = stream.CloseAndRecv()
+					return err
+				}
+
+				return writer, closeFunc
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			_, repo, _, client := setupRepositoryService(t, ctx)
+			writer, closeStream := tc.streamWriter(t, ctx, repo, client)
+
+			file, err := os.Open("testdata/corrupted_hooks.tar")
+			require.NoError(t, err)
+			defer testhelper.MustClose(t, file)
+
+			_, err = io.Copy(writer, file)
+			require.NoError(t, err)
+			err = closeStream()
+			testhelper.RequireGrpcCode(t, err, codes.Internal)
+		})
+	}
 }
 
 type testFile struct {
