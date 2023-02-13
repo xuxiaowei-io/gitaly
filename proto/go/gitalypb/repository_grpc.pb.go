@@ -111,6 +111,7 @@ type RepositoryServiceClient interface {
 	// in a tar archive containing a `custom_hooks` directory. This directory is
 	// ultimately extracted to the repository.
 	WriteCustomHooks(ctx context.Context, opts ...grpc.CallOption) (RepositoryService_WriteCustomHooksClient, error)
+	// Deprecated: Do not use.
 	// BackupCustomHooks fetches the git hooks for a repository. The hooks are
 	// sent in a tar archive containing a `custom_hooks` directory. If no hooks
 	// are present in the repository, the response will have no data.
@@ -798,6 +799,7 @@ func (x *repositoryServiceWriteCustomHooksClient) CloseAndRecv() (*WriteCustomHo
 	return m, nil
 }
 
+// Deprecated: Do not use.
 func (c *repositoryServiceClient) BackupCustomHooks(ctx context.Context, in *BackupCustomHooksRequest, opts ...grpc.CallOption) (RepositoryService_BackupCustomHooksClient, error) {
 	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[13], "/gitaly.RepositoryService/BackupCustomHooks", opts...)
 	if err != nil {
@@ -1038,6 +1040,7 @@ type RepositoryServiceServer interface {
 	// in a tar archive containing a `custom_hooks` directory. This directory is
 	// ultimately extracted to the repository.
 	WriteCustomHooks(RepositoryService_WriteCustomHooksServer) error
+	// Deprecated: Do not use.
 	// BackupCustomHooks fetches the git hooks for a repository. The hooks are
 	// sent in a tar archive containing a `custom_hooks` directory. If no hooks
 	// are present in the repository, the response will have no data.

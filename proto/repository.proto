@@ -281,6 +281,7 @@ service RepositoryService {
     option (op_type) = {
       op: ACCESSOR
     };
+    option deprecated = true;
   }
 
   // ReadCustomHooks fetches the git hooks for a repository. The hooks are sent

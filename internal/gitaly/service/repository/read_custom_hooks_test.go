@@ -21,7 +21,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func TestBackupCustomHooks_successful(t *testing.T) {
+func TestReadCustomHooks_successful(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
@@ -39,8 +39,8 @@ func TestBackupCustomHooks_successful(t *testing.T) {
 		require.NoError(t, os.WriteFile(filepath.Join(repoPath, fileName), []byte("Some hooks"), perm.PrivateExecutable), fmt.Sprintf("Could not create %s", fileName))
 	}
 
-	backupRequest := &gitalypb.BackupCustomHooksRequest{Repository: repo}
-	backupStream, err := client.BackupCustomHooks(ctx, backupRequest)
+	backupRequest := &gitalypb.ReadCustomHooksRequest{Repository: repo}
+	backupStream, err := client.ReadCustomHooks(ctx, backupRequest)
 	require.NoError(t, err)
 
 	reader := tar.NewReader(streamio.NewReader(func() ([]byte, error) {
@@ -61,7 +61,7 @@ func TestBackupCustomHooks_successful(t *testing.T) {
 	require.Equal(t, fileLength, len(expectedTarResponse))
 }
 
-func TestBackupCustomHooks_symlink(t *testing.T) {
+func TestReadCustomHooks_symlink(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
@@ -71,8 +71,8 @@ func TestBackupCustomHooks_symlink(t *testing.T) {
 	linkTarget := "/var/empty"
 	require.NoError(t, os.Symlink(linkTarget, filepath.Join(repoPath, "custom_hooks")), "Could not create custom_hooks symlink")
 
-	backupRequest := &gitalypb.BackupCustomHooksRequest{Repository: repo}
-	backupStream, err := client.BackupCustomHooks(ctx, backupRequest)
+	backupRequest := &gitalypb.ReadCustomHooksRequest{Repository: repo}
+	backupStream, err := client.ReadCustomHooks(ctx, backupRequest)
 	require.NoError(t, err)
 
 	reader := tar.NewReader(streamio.NewReader(func() ([]byte, error) {
@@ -91,15 +91,15 @@ func TestBackupCustomHooks_symlink(t *testing.T) {
 	require.Equal(t, io.EOF, err, "custom_hooks should have been the only entry")
 }
 
-func TestBackupCustomHooks_nonexistentHooks(t *testing.T) {
+func TestReadCustomHooks_nonexistentHooks(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 	repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
-	backupRequest := &gitalypb.BackupCustomHooksRequest{Repository: repo}
-	backupStream, err := client.BackupCustomHooks(ctx, backupRequest)
+	backupRequest := &gitalypb.ReadCustomHooksRequest{Repository: repo}
+	backupStream, err := client.ReadCustomHooks(ctx, backupRequest)
 	require.NoError(t, err)
 
 	reader := streamio.NewReader(func() ([]byte, error) {
@@ -114,7 +114,7 @@ func TestBackupCustomHooks_nonexistentHooks(t *testing.T) {
 	require.Empty(t, buf.String(), "Returned stream should be empty")
 }
 
-func TestBackupCustomHooks_validate(t *testing.T) {
+func TestReadCustomHooks_validate(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
@@ -122,12 +122,12 @@ func TestBackupCustomHooks_validate(t *testing.T) {
 
 	for _, tc := range []struct {
 		desc        string
-		req         *gitalypb.BackupCustomHooksRequest
+		req         *gitalypb.ReadCustomHooksRequest
 		expectedErr error
 	}{
 		{
 			desc: "repository not provided",
-			req:  &gitalypb.BackupCustomHooksRequest{Repository: nil},
+			req:  &gitalypb.ReadCustomHooksRequest{Repository: nil},
 			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 				"validating repository: empty Repository",
 				"repo scoped: validating repository: empty Repository",
@@ -135,7 +135,7 @@ func TestBackupCustomHooks_validate(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			stream, err := client.BackupCustomHooks(ctx, tc.req)
+			stream, err := client.ReadCustomHooks(ctx, tc.req)
 			require.NoError(t, err)
 			_, err = stream.Recv()
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
