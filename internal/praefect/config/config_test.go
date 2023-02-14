@@ -723,3 +723,39 @@ func TestReconciliation_Validate(t *testing.T) {
 		})
 	}
 }
+
+func TestReplication_Validate(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name        string
+		replication Replication
+		expectedErr error
+	}{
+		{
+			name: "valid",
+			replication: Replication{
+				BatchSize:                        1,
+				ParallelStorageProcessingWorkers: 1,
+			},
+		},
+		{
+			name: "invalid",
+			replication: Replication{
+				BatchSize:                        0,
+				ParallelStorageProcessingWorkers: 0,
+			},
+			expectedErr: cfgerror.ValidationErrors{{
+				Key:   []string{"batch_size"},
+				Cause: fmt.Errorf("%w: 0 is not greater than or equal to 1", cfgerror.ErrNotInRange),
+			}, {
+				Key:   []string{"parallel_storage_processing_workers"},
+				Cause: fmt.Errorf("%w: 0 is not greater than or equal to 1", cfgerror.ErrNotInRange),
+			}},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.replication.Validate()
+			require.Equal(t, tc.expectedErr, err)
+		})
+	}
+}

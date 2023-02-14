@@ -184,6 +184,14 @@ type Replication struct {
 	ParallelStorageProcessingWorkers uint `toml:"parallel_storage_processing_workers,omitempty"`
 }
 
+// Validate runs validation on all fields and compose all found errors.
+func (r Replication) Validate() error {
+	return cfgerror.New().
+		Append(cfgerror.Comparable(r.BatchSize).GreaterOrEqual(1), "batch_size").
+		Append(cfgerror.Comparable(r.ParallelStorageProcessingWorkers).GreaterOrEqual(1), "parallel_storage_processing_workers").
+		AsError()
+}
+
 // DefaultReplicationConfig returns the default values for replication configuration.
 func DefaultReplicationConfig() Replication {
 	return Replication{BatchSize: 10, ParallelStorageProcessingWorkers: 1}

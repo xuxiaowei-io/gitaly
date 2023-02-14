@@ -222,19 +222,26 @@ func (opts inRangeOpts[T]) greaterThan(val, max T) bool {
 	return val >= max
 }
 
-func (opts inRangeOpts[T]) format(min, max T) string {
-	format := "%s%v, %v%s"
-	openRange := "("
-	closeRange := ")"
+func (opts inRangeOpts[T]) formatRange(min, max T) string {
+	return opts.formatRangeMin(min) + ", " + opts.formatRangeMax(max)
+}
+
+func (opts inRangeOpts[T]) formatRangeMin(min T) string {
 	for _, opt := range opts {
 		if opt == InRangeOptIncludeMin {
-			openRange = "["
-		}
-		if opt == InRangeOptIncludeMax {
-			closeRange = "]"
+			return fmt.Sprintf("[%v", min)
 		}
 	}
-	return fmt.Sprintf(format, openRange, min, max, closeRange)
+	return fmt.Sprintf("(%v", min)
+}
+
+func (opts inRangeOpts[T]) formatRangeMax(max T) string {
+	for _, opt := range opts {
+		if opt == InRangeOptIncludeMax {
+			return fmt.Sprintf("%v]", max)
+		}
+	}
+	return fmt.Sprintf("%v)", max)
 }
 
 // Numeric includes types that can be used in the comparison operations.
@@ -245,7 +252,7 @@ type Numeric interface {
 // InRange returns an error if 'val' is less than 'min' or greater or equal to 'max'.
 func InRange[T Numeric](min, max, val T, opts ...InRangeOpt) error {
 	if cmp := inRangeOpts[T](opts); cmp.lessThan(val, min) || cmp.greaterThan(val, max) {
-		return NewValidationError(fmt.Errorf("%w: %v out of %s", ErrNotInRange, val, cmp.format(min, max)))
+		return NewValidationError(fmt.Errorf("%w: %v out of %s", ErrNotInRange, val, cmp.formatRange(min, max)))
 	}
 
 	return nil
@@ -264,4 +271,45 @@ func IsSupportedValue[T comparable](value T, supportedValues ...T) error {
 	}
 
 	return NewValidationError(fmt.Errorf("%w: %v", ErrUnsupportedValue, value))
+}
+
+type numeric[T Numeric] struct {
+	value T
+}
+
+// Comparable wraps value, so the method can be invoked on it.
+func Comparable[T Numeric](val T) numeric[T] {
+	return numeric[T]{value: val}
+}
+
+// LessThan returns an error if val is less than one hold by c.
+func (c numeric[T]) LessThan(val T) error {
+	if cmp := inRangeOpts[T](nil); cmp.lessThan(val, c.value) {
+		err := fmt.Errorf("%w: %v is not less than %v", ErrNotInRange, c.value, val)
+		return NewValidationError(err)
+	}
+	return nil
+}
+
+// GreaterThan returns an error if val is greater than one hold by c.
+func (c numeric[T]) GreaterThan(val T) error {
+	if cmp := inRangeOpts[T](nil); cmp.greaterThan(val, c.value) {
+		err := fmt.Errorf("%w: %v is not greater than %v", ErrNotInRange, c.value, val)
+		return NewValidationError(err)
+	}
+	return nil
+}
+
+// GreaterOrEqual returns an error if val is greater than one hold by c.
+func (c numeric[T]) GreaterOrEqual(val T) error {
+	if cmp := (inRangeOpts[T]{InRangeOptIncludeMax}); cmp.greaterThan(val, c.value) {
+		err := fmt.Errorf("%w: %v is not greater than or equal to %v", ErrNotInRange, c.value, val)
+		return NewValidationError(err)
+	}
+	return nil
+}
+
+// InRange returns an error if 'c.value' is less than 'min' or greater or equal to 'max'.
+func (c numeric[T]) InRange(min, max T, opts ...InRangeOpt) error {
+	return InRange(min, max, c.value, opts...)
 }
