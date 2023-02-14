@@ -179,6 +179,8 @@ func TestListLFSPointers(t *testing.T) {
 }
 
 func TestListAllLFSPointers(t *testing.T) {
+	testhelper.SkipQuarantinedTest(t, "https://gitlab.com/gitlab-org/gitaly/-/issues/4793")
+
 	ctx := testhelper.Context(t)
 
 	receivePointers := func(t *testing.T, stream gitalypb.BlobService_ListAllLFSPointersClient) []*gitalypb.LFSPointer {
