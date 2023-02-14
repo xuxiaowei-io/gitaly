@@ -13,6 +13,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/errors/cfgerror"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/auth"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/prometheus"
@@ -638,7 +639,7 @@ value = "second-value"
 	}, cfg.Git)
 }
 
-func TestValidateGitConfig(t *testing.T) {
+func TestGit_Validate(t *testing.T) {
 	testCases := []struct {
 		desc        string
 		configPairs []GitConfig
@@ -658,36 +659,60 @@ func TestValidateGitConfig(t *testing.T) {
 			configPairs: []GitConfig{
 				{Value: "value"},
 			},
-			expectedErr: fmt.Errorf("invalid configuration key \"\": %w", errors.New("key cannot be empty")),
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					errors.New("not set"),
+					"config", "key",
+				),
+			},
 		},
 		{
 			desc: "key has no section",
 			configPairs: []GitConfig{
 				{Key: "foo", Value: "value"},
 			},
-			expectedErr: fmt.Errorf("invalid configuration key \"foo\": %w", errors.New("key must contain at least one section")),
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					errors.New(`key "foo" must contain at least one section`),
+					"config", "key",
+				),
+			},
 		},
 		{
 			desc: "key with leading dot",
 			configPairs: []GitConfig{
 				{Key: ".foo.bar", Value: "value"},
 			},
-			expectedErr: fmt.Errorf("invalid configuration key \".foo.bar\": %w", errors.New("key must not start or end with a dot")),
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					errors.New(`key ".foo.bar" must not start or end with a dot`),
+					"config", "key",
+				),
+			},
 		},
 		{
 			desc: "key with trailing dot",
 			configPairs: []GitConfig{
 				{Key: "foo.bar.", Value: "value"},
 			},
-			expectedErr: fmt.Errorf("invalid configuration key \"foo.bar.\": %w", errors.New("key must not start or end with a dot")),
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					errors.New(`key "foo.bar." must not start or end with a dot`),
+					"config", "key",
+				),
+			},
 		},
 		{
 			desc: "key has assignment",
 			configPairs: []GitConfig{
 				{Key: "foo.bar=value", Value: "value"},
 			},
-			expectedErr: fmt.Errorf("invalid configuration key \"foo.bar=value\": %w",
-				errors.New("key cannot contain assignment")),
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					errors.New(`key "foo.bar=value" cannot contain "="`),
+					"config", "key",
+				),
+			},
 		},
 		{
 			desc: "missing value",
@@ -700,7 +725,7 @@ func TestValidateGitConfig(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			cfg := Cfg{BinDir: testhelper.TempDir(t), Git: Git{Config: tc.configPairs}}
-			require.Equal(t, tc.expectedErr, cfg.validateGit())
+			require.Equal(t, tc.expectedErr, cfg.Git.Validate())
 		})
 	}
 }

@@ -18,6 +18,7 @@ import (
 
 	"github.com/pelletier/go-toml/v2"
 	log "github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/errors/cfgerror"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/auth"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/cgroups"
 	internallog "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/log"
@@ -127,6 +128,16 @@ type Git struct {
 	SigningKey         string      `toml:"signing_key,omitempty" json:"signing_key"`
 }
 
+// Validate runs validation on all fields and compose all found errors.
+func (g Git) Validate() error {
+	var errs cfgerror.ValidationErrors
+	for _, gc := range g.Config {
+		errs = errs.Append(gc.Validate(), "config")
+	}
+
+	return errs.AsError()
+}
+
 // GitConfig contains a key-value pair which is to be passed to git as configuration.
 type GitConfig struct {
 	// Key is the key of the config entry, e.g. `core.gc`.
@@ -140,20 +151,32 @@ func (cfg GitConfig) Validate() error {
 	// Even though redundant, this block checks for a few things up front to give better error
 	// messages to the administrator in case any of the keys fails validation.
 	if cfg.Key == "" {
-		return errors.New("key cannot be empty")
+		return cfgerror.NewValidationError(cfgerror.ErrNotSet, "key")
 	}
 	if strings.Contains(cfg.Key, "=") {
-		return errors.New("key cannot contain assignment")
+		return cfgerror.NewValidationError(
+			fmt.Errorf(`key %q cannot contain "="`, cfg.Key),
+			"key",
+		)
 	}
 	if !strings.Contains(cfg.Key, ".") {
-		return errors.New("key must contain at least one section")
+		return cfgerror.NewValidationError(
+			fmt.Errorf("key %q must contain at least one section", cfg.Key),
+			"key",
+		)
 	}
 	if strings.HasPrefix(cfg.Key, ".") || strings.HasSuffix(cfg.Key, ".") {
-		return errors.New("key must not start or end with a dot")
+		return cfgerror.NewValidationError(
+			fmt.Errorf("key %q must not start or end with a dot", cfg.Key),
+			"key",
+		)
 	}
 
 	if !configKeyRegex.MatchString(cfg.Key) {
-		return fmt.Errorf("key failed regexp validation")
+		return cfgerror.NewValidationError(
+			fmt.Errorf("key %q failed regexp validation", cfg.Key),
+			"key",
+		)
 	}
 
 	return nil
