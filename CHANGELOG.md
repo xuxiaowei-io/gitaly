@@ -1,5 +1,11 @@
 # Gitaly changelog
 
+## 15.6.8 (2023-02-10)
+
+### Security (1 change)
+
+- [git: Upgrade to Git security release v2.38.4.gl1 and v2.37.6.gl1](gitlab-org/security/gitaly@4b7013dee1e9ee5ce7accb50c674fae1ddd2b4cb) ([merge request](gitlab-org/security/gitaly!80))
+
 ## 15.6.7 (2023-01-30)
 
 No changes.
