@@ -3,6 +3,8 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+
+	"gitlab.com/gitlab-org/gitaly/v15/internal/errors/cfgerror"
 )
 
 // Node describes an address that serves a storage
@@ -23,4 +25,12 @@ func (n Node) MarshalJSON() ([]byte, error) {
 // String prints out the node attributes but hiding the token
 func (n Node) String() string {
 	return fmt.Sprintf("storage_name: %s, address: %s", n.Storage, n.Address)
+}
+
+// Validate runs validation on all fields and compose all found errors.
+func (n Node) Validate() error {
+	return cfgerror.New().
+		Append(cfgerror.NotBlank(n.Storage), "storage").
+		Append(cfgerror.NotBlank(n.Address), "address").
+		AsError()
 }
