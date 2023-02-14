@@ -1,5 +1,11 @@
 # Gitaly changelog
 
+## 15.8.2 (2023-02-10)
+
+### Security (1 change)
+
+- [git: Upgrade to Git security release v2.38.4.gl1](gitlab-org/security/gitaly@aca8d0a77a7d2d15c1049f5f877575ad650175e3) ([merge request](gitlab-org/security/gitaly!82))
+
 ## 15.8.1 (2023-01-30)
 
 No changes.
@@ -43,6 +49,12 @@ No changes.
 ### improved (1 change)
 
 - [repository: Disable misleading dangling checks in git-fsck(1)](gitlab-org/gitaly@fb830f5f01311609c01590ddf04a22a3d33cd36d) ([merge request](gitlab-org/gitaly!5230))
+
+## 15.7.7 (2023-02-10)
+
+### Security (1 change)
+
+- [git: Upgrade to Git security release v2.38.4.gl1 and v2.37.6.gl1](gitlab-org/security/gitaly@1f127ef85b78b09758cff497374f8299d9f74195) ([merge request](gitlab-org/security/gitaly!81))
 
 ## 15.7.6 (2023-01-30)
 
@@ -118,6 +130,12 @@ No changes.
 ### deprecate (1 change)
 
 - [objectpool: Deprecate ReduplicateRepository RPC](gitlab-org/gitaly@4db49541d5843106aeac193de0ed3fd466cc3bc8) ([merge request](gitlab-org/gitaly!5131))
+
+## 15.6.8 (2023-02-10)
+
+### Security (1 change)
+
+- [git: Upgrade to Git security release v2.38.4.gl1 and v2.37.6.gl1](gitlab-org/security/gitaly@4b7013dee1e9ee5ce7accb50c674fae1ddd2b4cb) ([merge request](gitlab-org/security/gitaly!80))
 
 ## 15.6.7 (2023-01-30)
 
