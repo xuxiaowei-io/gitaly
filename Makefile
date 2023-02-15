@@ -64,6 +64,7 @@ PROTOC_GEN_GITALY_PROTOLIST := ${TOOLS_DIR}/protoc-gen-gitaly-protolist
 GOTESTSUM                   := ${TOOLS_DIR}/gotestsum
 GOCOVER_COBERTURA           := ${TOOLS_DIR}/gocover-cobertura
 DELVE                       := ${TOOLS_DIR}/dlv
+GITALY_LINTERS              := ${SOURCE_DIR}/tools/gitaly-linters
 
 # Tool options
 GOLANGCI_LINT_OPTIONS ?=
@@ -417,15 +418,19 @@ check-mod-tidy:
 	${Q}go mod tidy -compat=1.17
 	${Q}${GIT} diff --quiet --exit-code go.mod go.sum || (echo "error: uncommitted changes in go.mod or go.sum" && exit 1)
 
+.PHONY: gitaly-linters
+gitaly-linters: $(wildcard ${GITALY_LINTERS}/*)
+	${Q}cd $? && go build -buildmode=plugin -o '${TOOLS_DIR}/gitaly-linters/$(basename $(notdir $?)).so' -modfile go.mod *.go
+
 .PHONY: lint
 ## Run Go linter.
-lint: ${GOLANGCI_LINT} libgit2 ${GITALY_PACKED_EXECUTABLES}
-	${Q}${GOLANGCI_LINT} run --build-tags "${SERVER_BUILD_TAGS},${GIT2GO_BUILD_TAGS}" --out-format tab --config ${GOLANGCI_LINT_CONFIG} ${GOLANGCI_LINT_OPTIONS}
+lint: ${GOLANGCI_LINT} libgit2 ${GITALY_PACKED_EXECUTABLES} gitaly-linters
+	${Q}${GOLANGCI_LINT} run --build-tags "${SERVER_BUILD_TAGS},${GIT2GO_BUILD_TAGS}" --config ${GOLANGCI_LINT_CONFIG} ${GOLANGCI_LINT_OPTIONS}
 
 .PHONY: lint-fix
 ## Run Go linter and write back fixes to the files (not supported by all linters).
-lint-fix: ${GOLANGCI_LINT} libgit2 ${GITALY_PACKED_EXECUTABLES}
-	${Q}${GOLANGCI_LINT} run --fix --build-tags "${SERVER_BUILD_TAGS},${GIT2GO_BUILD_TAGS}" --out-format tab --config ${GOLANGCI_LINT_CONFIG} ${GOLANGCI_LINT_OPTIONS}
+lint-fix: ${GOLANGCI_LINT} libgit2 ${GITALY_PACKED_EXECUTABLES} gitaly-linters
+	${Q}${GOLANGCI_LINT} run --fix --build-tags "${SERVER_BUILD_TAGS},${GIT2GO_BUILD_TAGS}" --config ${GOLANGCI_LINT_CONFIG} ${GOLANGCI_LINT_OPTIONS}
 
 .PHONY: lint-docs
 ## Run Markdownlint to lint documentation.
