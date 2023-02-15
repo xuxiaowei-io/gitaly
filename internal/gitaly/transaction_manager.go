@@ -424,11 +424,6 @@ func (mgr *TransactionManager) prepareReferenceTransaction(ctx context.Context, 
 	}
 
 	if err := updater.Prepare(); err != nil {
-		var errInvalidReferenceFormat updateref.ErrInvalidReferenceFormat
-		if errors.As(err, &errInvalidReferenceFormat) {
-			return nil, InvalidReferenceFormatError{ReferenceName: git.ReferenceName(errInvalidReferenceFormat.ReferenceName)}
-		}
-
 		return nil, fmt.Errorf("prepare: %w", err)
 	}
 
