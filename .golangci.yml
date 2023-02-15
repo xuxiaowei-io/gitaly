@@ -135,6 +135,11 @@ linters-settings:
       begin: false
     tb:
       begin: false
+  custom:
+    gitaly-styles:
+      path: ./_build/tools/gitaly-linters/styles.so
+      description: A collection of linters to enforce Gitaly style guide in STYLE.md
+      original-url: gitlab.com/gitlab-org/gitaly
 
 issues:
   exclude-use-default: false
