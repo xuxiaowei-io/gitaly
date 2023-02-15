@@ -61,13 +61,13 @@ func TestCreateSubcommand(t *testing.T) {
 	fs := flag.NewFlagSet("create", flag.ContinueOnError)
 	cmd.Flags(fs)
 
-	require.NoError(t, fs.Parse([]string{"-path", path}))
+	require.NoError(t, fs.Parse([]string{"-path", path, "-id", "the-new-backup"}))
 	require.EqualError(t,
 		cmd.Run(ctx, &stdin, io.Discard),
 		"create: pipeline: 1 failures encountered:\n - invalid: manager: isEmpty: could not dial source: invalid connection string: \"invalid\"\n")
 
 	for _, repo := range repos {
-		bundlePath := filepath.Join(path, repo.RelativePath+".bundle")
+		bundlePath := filepath.Join(path, repo.RelativePath, "the-new-backup", "001.bundle")
 		require.FileExists(t, bundlePath)
 	}
 }
