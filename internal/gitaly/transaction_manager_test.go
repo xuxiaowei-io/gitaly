@@ -1507,6 +1507,18 @@ func TestTransactionManager(t *testing.T) {
 				require.False(t, managerRunning)
 			}
 
+			applyHooks := func(tb testing.TB, testHooks testHooks) {
+				installHooks(tb, transactionManager, database, repository, hooks{
+					beforeReadLogEntry:    testHooks.BeforeApplyLogEntry,
+					beforeResolveRevision: testHooks.BeforeAppendLogEntry,
+					beforeDeferredStop: func(hookContext) {
+						if testHooks.WaitForTransactionsWhenStopping {
+							inflightTransactions.Wait()
+						}
+					},
+				})
+			}
+
 			// startManager starts fresh manager and applies hooks into it.
 			startManager := func(testHooks testHooks) {
 				t.Helper()
@@ -1516,15 +1528,7 @@ func TestTransactionManager(t *testing.T) {
 				managerErr = make(chan error)
 
 				transactionManager = NewTransactionManager(database, repository)
-				installHooks(t, transactionManager, database, repository, hooks{
-					beforeResolveRevision: testHooks.BeforeAppendLogEntry,
-					beforeReadLogEntry:    testHooks.BeforeApplyLogEntry,
-					beforeDeferredStop: func(hookContext) {
-						if testHooks.WaitForTransactionsWhenStopping {
-							inflightTransactions.Wait()
-						}
-					},
-				})
+				applyHooks(t, testHooks)
 
 				go func() { managerErr <- transactionManager.Run() }()
 			}
@@ -1535,6 +1539,10 @@ func TestTransactionManager(t *testing.T) {
 				// Ensure every step starts with the manager running.
 				if !managerRunning {
 					startManager(step.Hooks)
+				} else {
+					// Apply the hooks for this step if the manager is running already to ensure the
+					// steps hooks are in place.
+					applyHooks(t, step.Hooks)
 				}
 
 				if step.StopManager {
