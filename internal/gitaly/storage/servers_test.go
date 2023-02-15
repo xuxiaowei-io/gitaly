@@ -102,3 +102,51 @@ func TestInjectGitalyServers(t *testing.T) {
 		require.Equal(t, []string{"bar"}, md["foo"])
 	})
 }
+
+func TestInjectGitalyServersEnv(t *testing.T) {
+	t.Run("GITALY_SERVERS not set", func(t *testing.T) {
+		testhelper.Unsetenv(t, "GITALY_SERVERS")
+
+		ctx := testhelper.Context(t)
+
+		newCtx, err := storage.InjectGitalyServersEnv(ctx)
+
+		require.NoError(t, err)
+		require.Equal(t, ctx, newCtx)
+	})
+
+	for _, tc := range []struct {
+		desc             string
+		gitalyServersEnv string
+		expectedErr      string
+		expectedInfo     storage.GitalyServers
+	}{
+		{
+			desc:             "GITALY_SERVERS invalid",
+			gitalyServersEnv: base64.StdEncoding.EncodeToString([]byte("definitely not JSON")),
+			expectedErr:      "injecting GITALY_SERVERS: failed unmarshalling json: invalid character 'd' looking for beginning of value",
+		},
+		{
+			desc:             "GITALY_SERVERS set",
+			gitalyServersEnv: base64.StdEncoding.EncodeToString([]byte(`{"default":{"address":"unix:///tmp/sock","token":"hunter1"}}`)),
+			expectedInfo:     storage.GitalyServers{"default": storage.ServerInfo{Address: "unix:///tmp/sock", Token: "hunter1"}},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Setenv("GITALY_SERVERS", tc.gitalyServersEnv)
+
+			ctx, err := storage.InjectGitalyServersEnv(testhelper.Context(t))
+			if tc.expectedErr == "" {
+				require.NoError(t, err)
+			} else {
+				require.EqualError(t, err, tc.expectedErr)
+				return
+			}
+
+			info, err := storage.ExtractGitalyServers(ctx)
+			require.NoError(t, err)
+
+			require.Equal(t, tc.expectedInfo, info)
+		})
+	}
+}

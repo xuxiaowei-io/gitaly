@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/env"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -86,4 +87,23 @@ func InjectGitalyServers(ctx context.Context, name, address, token string) (cont
 	}
 
 	return metadata.AppendToOutgoingContext(ctx, "gitaly-servers", base64.StdEncoding.EncodeToString(gitalyServersJSON)), nil
+}
+
+// InjectGitalyServersEnv injects the GITALY_SERVERS env var into an incoming
+// context.
+func InjectGitalyServersEnv(ctx context.Context) (context.Context, error) {
+	rawServers := env.GetString("GITALY_SERVERS", "")
+	if rawServers == "" {
+		return ctx, nil
+	}
+
+	md := metadata.Pairs("gitaly-servers", rawServers)
+	ctx = metadata.NewIncomingContext(ctx, md)
+
+	// Make sure we fail early if the value in the env var cannot be interpreted.
+	if _, err := ExtractGitalyServers(ctx); err != nil {
+		return nil, fmt.Errorf("injecting GITALY_SERVERS: %w", err)
+	}
+
+	return ctx, nil
 }
