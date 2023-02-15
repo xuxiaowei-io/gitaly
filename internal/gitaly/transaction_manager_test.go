@@ -1477,6 +1477,11 @@ func TestTransactionManager(t *testing.T) {
 				"TestTransactionManager/propose_returns_if_context_is_canceled_before_admission",
 			)
 
+			testhelper.SkipQuarantinedTest(t,
+				"https://gitlab.com/gitlab-org/gitaly/-/issues/4797",
+				"TestTransactionManager/invalid_reference_aborts_the_entire_transaction",
+			)
+
 			// Setup the repository with the exact same state as what was used to build the test cases.
 			repository, _, _, _ := setupRepository(t)
 
