@@ -417,14 +417,17 @@ check-mod-tidy:
 	${Q}go mod tidy -compat=1.17
 	${Q}${GIT} diff --quiet --exit-code go.mod go.sum || (echo "error: uncommitted changes in go.mod or go.sum" && exit 1)
 
+gitaly-linters: $(wildcard ${SOURCE_DIR}/tools/gitaly-linters/*)
+	${Q}go build -buildmode=plugin -o '${TOOLS_DIR}/gitaly-linters.so' -modfile go.mod ${SOURCE_DIR}/tools/gitaly-linters/*.go
+
 .PHONY: lint
 ## Run Go linter.
-lint: ${GOLANGCI_LINT} libgit2 ${GITALY_PACKED_EXECUTABLES}
+lint: ${GOLANGCI_LINT} libgit2 ${GITALY_PACKED_EXECUTABLES} gitaly-linters
 	${Q}${GOLANGCI_LINT} run --build-tags "${SERVER_BUILD_TAGS},${GIT2GO_BUILD_TAGS}" --out-format tab --config ${GOLANGCI_LINT_CONFIG} ${GOLANGCI_LINT_OPTIONS}
 
 .PHONY: lint-fix
 ## Run Go linter and write back fixes to the files (not supported by all linters).
-lint-fix: ${GOLANGCI_LINT} libgit2 ${GITALY_PACKED_EXECUTABLES}
+lint-fix: ${GOLANGCI_LINT} libgit2 ${GITALY_PACKED_EXECUTABLES} gitaly-linters
 	${Q}${GOLANGCI_LINT} run --fix --build-tags "${SERVER_BUILD_TAGS},${GIT2GO_BUILD_TAGS}" --out-format tab --config ${GOLANGCI_LINT_CONFIG} ${GOLANGCI_LINT_OPTIONS}
 
 .PHONY: lint-docs
