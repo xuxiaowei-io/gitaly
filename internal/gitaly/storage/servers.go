@@ -45,15 +45,9 @@ func ExtractGitalyServers(ctx context.Context) (gitalyServersInfo GitalyServers,
 		return nil, fmt.Errorf("empty gitaly-servers metadata")
 	}
 
-	gitalyServersJSON, err := base64.StdEncoding.DecodeString(gitalyServersJSONEncoded[0])
-	if err != nil {
-		return nil, fmt.Errorf("failed decoding base64: %v", err)
+	if err := unmarshalGitalyServers(gitalyServersJSONEncoded[0], &gitalyServersInfo); err != nil {
+		return nil, err
 	}
-
-	if err := json.Unmarshal(gitalyServersJSON, &gitalyServersInfo); err != nil {
-		return nil, fmt.Errorf("failed unmarshalling json: %v", err)
-	}
-
 	return
 }
 
@@ -97,13 +91,24 @@ func InjectGitalyServersEnv(ctx context.Context) (context.Context, error) {
 		return ctx, nil
 	}
 
-	md := metadata.Pairs("gitaly-servers", rawServers)
-	ctx = metadata.NewIncomingContext(ctx, md)
-
 	// Make sure we fail early if the value in the env var cannot be interpreted.
-	if _, err := ExtractGitalyServers(ctx); err != nil {
+	if err := unmarshalGitalyServers(rawServers, &GitalyServers{}); err != nil {
 		return nil, fmt.Errorf("injecting GITALY_SERVERS: %w", err)
 	}
 
-	return ctx, nil
+	md := metadata.Pairs("gitaly-servers", rawServers)
+	return metadata.NewIncomingContext(ctx, md), nil
+}
+
+func unmarshalGitalyServers(encoded string, servers *GitalyServers) error {
+	gitalyServersJSON, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return fmt.Errorf("failed decoding base64: %v", err)
+	}
+
+	if err := json.Unmarshal(gitalyServersJSON, servers); err != nil {
+		return fmt.Errorf("failed unmarshalling json: %v", err)
+	}
+
+	return nil
 }
