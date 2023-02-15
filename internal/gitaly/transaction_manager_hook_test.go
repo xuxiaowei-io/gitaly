@@ -36,7 +36,7 @@ type hooks struct {
 	beforeResolveRevision hookFunc
 	// beforeDeferredStop is invoked before the deferred Stop is invoked in Run.
 	beforeDeferredStop hookFunc
-	// beforeDeleteLogEntry is invoked before a log entry is delted from the database.
+	// beforeDeleteLogEntry is invoked before a log entry is deleted from the database.
 	beforeDeleteLogEntry hookFunc
 }
 
