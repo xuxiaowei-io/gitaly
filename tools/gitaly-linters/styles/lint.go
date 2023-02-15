@@ -10,6 +10,7 @@ type analyzerPlugin struct{}
 func (*analyzerPlugin) GetAnalyzers() []*analysis.Analyzer {
 	return []*analysis.Analyzer{
 		interpolation.QuoteInterpolationAnalyzer,
+		interpolation.ErrorWrapAnalyzer,
 	}
 }
 
