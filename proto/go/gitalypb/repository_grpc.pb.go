@@ -102,12 +102,24 @@ type RepositoryServiceClient interface {
 	SearchFilesByContent(ctx context.Context, in *SearchFilesByContentRequest, opts ...grpc.CallOption) (RepositoryService_SearchFilesByContentClient, error)
 	// This comment is left unintentionally blank.
 	SearchFilesByName(ctx context.Context, in *SearchFilesByNameRequest, opts ...grpc.CallOption) (RepositoryService_SearchFilesByNameClient, error)
+	// Deprecated: Do not use.
 	// RestoreCustomHooks sets the git hooks for a repository. The hooks are sent
 	// in a tar archive containing a `custom_hooks` directory. This directory is
 	// ultimately extracted to the repository.
 	RestoreCustomHooks(ctx context.Context, opts ...grpc.CallOption) (RepositoryService_RestoreCustomHooksClient, error)
-	// This comment is left unintentionally blank.
+	// SetCustomHooks sets the git hooks for a repository. The hooks are sent in a
+	// tar archive containing a `custom_hooks` directory. This directory is
+	// ultimately extracted to the repository.
+	SetCustomHooks(ctx context.Context, opts ...grpc.CallOption) (RepositoryService_SetCustomHooksClient, error)
+	// Deprecated: Do not use.
+	// BackupCustomHooks fetches the git hooks for a repository. The hooks are
+	// sent in a tar archive containing a `custom_hooks` directory. If no hooks
+	// are present in the repository, the response will have no data.
 	BackupCustomHooks(ctx context.Context, in *BackupCustomHooksRequest, opts ...grpc.CallOption) (RepositoryService_BackupCustomHooksClient, error)
+	// GetCustomHooks fetches the git hooks for a repository. The hooks are sent
+	// in a tar archive containing a `custom_hooks` directory. If no hooks are
+	// present in the repository, the response will have no data.
+	GetCustomHooks(ctx context.Context, in *GetCustomHooksRequest, opts ...grpc.CallOption) (RepositoryService_GetCustomHooksClient, error)
 	// This comment is left unintentionally blank.
 	GetObjectDirectorySize(ctx context.Context, in *GetObjectDirectorySizeRequest, opts ...grpc.CallOption) (*GetObjectDirectorySizeResponse, error)
 	// RemoveRepository will move the repository to `+gitaly/tmp/<relative_path>_removed` and
@@ -718,6 +730,7 @@ func (x *repositoryServiceSearchFilesByNameClient) Recv() (*SearchFilesByNameRes
 	return m, nil
 }
 
+// Deprecated: Do not use.
 func (c *repositoryServiceClient) RestoreCustomHooks(ctx context.Context, opts ...grpc.CallOption) (RepositoryService_RestoreCustomHooksClient, error) {
 	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[11], "/gitaly.RepositoryService/RestoreCustomHooks", opts...)
 	if err != nil {
@@ -752,8 +765,43 @@ func (x *repositoryServiceRestoreCustomHooksClient) CloseAndRecv() (*RestoreCust
 	return m, nil
 }
 
+func (c *repositoryServiceClient) SetCustomHooks(ctx context.Context, opts ...grpc.CallOption) (RepositoryService_SetCustomHooksClient, error) {
+	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[12], "/gitaly.RepositoryService/SetCustomHooks", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &repositoryServiceSetCustomHooksClient{stream}
+	return x, nil
+}
+
+type RepositoryService_SetCustomHooksClient interface {
+	Send(*SetCustomHooksRequest) error
+	CloseAndRecv() (*SetCustomHooksResponse, error)
+	grpc.ClientStream
+}
+
+type repositoryServiceSetCustomHooksClient struct {
+	grpc.ClientStream
+}
+
+func (x *repositoryServiceSetCustomHooksClient) Send(m *SetCustomHooksRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *repositoryServiceSetCustomHooksClient) CloseAndRecv() (*SetCustomHooksResponse, error) {
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	m := new(SetCustomHooksResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// Deprecated: Do not use.
 func (c *repositoryServiceClient) BackupCustomHooks(ctx context.Context, in *BackupCustomHooksRequest, opts ...grpc.CallOption) (RepositoryService_BackupCustomHooksClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[12], "/gitaly.RepositoryService/BackupCustomHooks", opts...)
+	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[13], "/gitaly.RepositoryService/BackupCustomHooks", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -778,6 +826,38 @@ type repositoryServiceBackupCustomHooksClient struct {
 
 func (x *repositoryServiceBackupCustomHooksClient) Recv() (*BackupCustomHooksResponse, error) {
 	m := new(BackupCustomHooksResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *repositoryServiceClient) GetCustomHooks(ctx context.Context, in *GetCustomHooksRequest, opts ...grpc.CallOption) (RepositoryService_GetCustomHooksClient, error) {
+	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[14], "/gitaly.RepositoryService/GetCustomHooks", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &repositoryServiceGetCustomHooksClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type RepositoryService_GetCustomHooksClient interface {
+	Recv() (*GetCustomHooksResponse, error)
+	grpc.ClientStream
+}
+
+type repositoryServiceGetCustomHooksClient struct {
+	grpc.ClientStream
+}
+
+func (x *repositoryServiceGetCustomHooksClient) Recv() (*GetCustomHooksResponse, error) {
+	m := new(GetCustomHooksResponse)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -951,12 +1031,24 @@ type RepositoryServiceServer interface {
 	SearchFilesByContent(*SearchFilesByContentRequest, RepositoryService_SearchFilesByContentServer) error
 	// This comment is left unintentionally blank.
 	SearchFilesByName(*SearchFilesByNameRequest, RepositoryService_SearchFilesByNameServer) error
+	// Deprecated: Do not use.
 	// RestoreCustomHooks sets the git hooks for a repository. The hooks are sent
 	// in a tar archive containing a `custom_hooks` directory. This directory is
 	// ultimately extracted to the repository.
 	RestoreCustomHooks(RepositoryService_RestoreCustomHooksServer) error
-	// This comment is left unintentionally blank.
+	// SetCustomHooks sets the git hooks for a repository. The hooks are sent in a
+	// tar archive containing a `custom_hooks` directory. This directory is
+	// ultimately extracted to the repository.
+	SetCustomHooks(RepositoryService_SetCustomHooksServer) error
+	// Deprecated: Do not use.
+	// BackupCustomHooks fetches the git hooks for a repository. The hooks are
+	// sent in a tar archive containing a `custom_hooks` directory. If no hooks
+	// are present in the repository, the response will have no data.
 	BackupCustomHooks(*BackupCustomHooksRequest, RepositoryService_BackupCustomHooksServer) error
+	// GetCustomHooks fetches the git hooks for a repository. The hooks are sent
+	// in a tar archive containing a `custom_hooks` directory. If no hooks are
+	// present in the repository, the response will have no data.
+	GetCustomHooks(*GetCustomHooksRequest, RepositoryService_GetCustomHooksServer) error
 	// This comment is left unintentionally blank.
 	GetObjectDirectorySize(context.Context, *GetObjectDirectorySizeRequest) (*GetObjectDirectorySizeResponse, error)
 	// RemoveRepository will move the repository to `+gitaly/tmp/<relative_path>_removed` and
@@ -1107,8 +1199,14 @@ func (UnimplementedRepositoryServiceServer) SearchFilesByName(*SearchFilesByName
 func (UnimplementedRepositoryServiceServer) RestoreCustomHooks(RepositoryService_RestoreCustomHooksServer) error {
 	return status.Errorf(codes.Unimplemented, "method RestoreCustomHooks not implemented")
 }
+func (UnimplementedRepositoryServiceServer) SetCustomHooks(RepositoryService_SetCustomHooksServer) error {
+	return status.Errorf(codes.Unimplemented, "method SetCustomHooks not implemented")
+}
 func (UnimplementedRepositoryServiceServer) BackupCustomHooks(*BackupCustomHooksRequest, RepositoryService_BackupCustomHooksServer) error {
 	return status.Errorf(codes.Unimplemented, "method BackupCustomHooks not implemented")
+}
+func (UnimplementedRepositoryServiceServer) GetCustomHooks(*GetCustomHooksRequest, RepositoryService_GetCustomHooksServer) error {
+	return status.Errorf(codes.Unimplemented, "method GetCustomHooks not implemented")
 }
 func (UnimplementedRepositoryServiceServer) GetObjectDirectorySize(context.Context, *GetObjectDirectorySizeRequest) (*GetObjectDirectorySizeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetObjectDirectorySize not implemented")
@@ -1818,6 +1916,32 @@ func (x *repositoryServiceRestoreCustomHooksServer) Recv() (*RestoreCustomHooksR
 	return m, nil
 }
 
+func _RepositoryService_SetCustomHooks_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(RepositoryServiceServer).SetCustomHooks(&repositoryServiceSetCustomHooksServer{stream})
+}
+
+type RepositoryService_SetCustomHooksServer interface {
+	SendAndClose(*SetCustomHooksResponse) error
+	Recv() (*SetCustomHooksRequest, error)
+	grpc.ServerStream
+}
+
+type repositoryServiceSetCustomHooksServer struct {
+	grpc.ServerStream
+}
+
+func (x *repositoryServiceSetCustomHooksServer) SendAndClose(m *SetCustomHooksResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *repositoryServiceSetCustomHooksServer) Recv() (*SetCustomHooksRequest, error) {
+	m := new(SetCustomHooksRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func _RepositoryService_BackupCustomHooks_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(BackupCustomHooksRequest)
 	if err := stream.RecvMsg(m); err != nil {
@@ -1836,6 +1960,27 @@ type repositoryServiceBackupCustomHooksServer struct {
 }
 
 func (x *repositoryServiceBackupCustomHooksServer) Send(m *BackupCustomHooksResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _RepositoryService_GetCustomHooks_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(GetCustomHooksRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(RepositoryServiceServer).GetCustomHooks(m, &repositoryServiceGetCustomHooksServer{stream})
+}
+
+type RepositoryService_GetCustomHooksServer interface {
+	Send(*GetCustomHooksResponse) error
+	grpc.ServerStream
+}
+
+type repositoryServiceGetCustomHooksServer struct {
+	grpc.ServerStream
+}
+
+func (x *repositoryServiceGetCustomHooksServer) Send(m *GetCustomHooksResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
@@ -2196,8 +2341,18 @@ var RepositoryService_ServiceDesc = grpc.ServiceDesc{
 			ClientStreams: true,
 		},
 		{
+			StreamName:    "SetCustomHooks",
+			Handler:       _RepositoryService_SetCustomHooks_Handler,
+			ClientStreams: true,
+		},
+		{
 			StreamName:    "BackupCustomHooks",
 			Handler:       _RepositoryService_BackupCustomHooks_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "GetCustomHooks",
+			Handler:       _RepositoryService_GetCustomHooks_Handler,
 			ServerStreams: true,
 		},
 	},

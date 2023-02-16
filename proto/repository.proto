@@ -262,10 +262,32 @@ service RepositoryService {
     option (op_type) = {
       op: MUTATOR
     };
+    option deprecated = true;
   }
 
-  // This comment is left unintentionally blank.
+  // SetCustomHooks sets the git hooks for a repository. The hooks are sent in a
+  // tar archive containing a `custom_hooks` directory. This directory is 
+  // ultimately extracted to the repository.
+  rpc SetCustomHooks(stream SetCustomHooksRequest) returns (SetCustomHooksResponse) {
+    option (op_type) = {
+      op: MUTATOR
+    };
+  }
+
+  // BackupCustomHooks fetches the git hooks for a repository. The hooks are
+  // sent in a tar archive containing a `custom_hooks` directory. If no hooks
+  // are present in the repository, the response will have no data.
   rpc BackupCustomHooks(BackupCustomHooksRequest) returns (stream BackupCustomHooksResponse) {
+    option (op_type) = {
+      op: ACCESSOR
+    };
+    option deprecated = true;
+  }
+
+  // GetCustomHooks fetches the git hooks for a repository. The hooks are sent
+  // in a tar archive containing a `custom_hooks` directory. If no hooks are
+  // present in the repository, the response will have no data.
+  rpc GetCustomHooks(GetCustomHooksRequest) returns (stream GetCustomHooksResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
@@ -782,7 +804,19 @@ message  RestoreCustomHooksRequest {
 }
 
 // This comment is left unintentionally blank.
+message  SetCustomHooksRequest {
+  // This comment is left unintentionally blank.
+  Repository repository = 1 [(target_repository)=true];
+  // This comment is left unintentionally blank.
+  bytes data = 2;
+}
+
+// This comment is left unintentionally blank.
 message RestoreCustomHooksResponse {
+}
+
+// This comment is left unintentionally blank.
+message SetCustomHooksResponse {
 }
 
 // This comment is left unintentionally blank.
@@ -792,7 +826,19 @@ message BackupCustomHooksRequest {
 }
 
 // This comment is left unintentionally blank.
+message GetCustomHooksRequest {
+  // This comment is left unintentionally blank.
+  Repository repository = 1 [(target_repository)=true];
+}
+
+// This comment is left unintentionally blank.
 message BackupCustomHooksResponse {
+  // This comment is left unintentionally blank.
+  bytes data = 1;
+}
+
+// This comment is left unintentionally blank.
+message GetCustomHooksResponse {
   // This comment is left unintentionally blank.
   bytes data = 1;
 }
