@@ -81,7 +81,7 @@ func testFetchIntoObjectPoolSuccess(t *testing.T, ctx context.Context) {
 	// references though and thus be able to recover.
 	brokenRef := filepath.Join(poolPath, "refs", "heads", "broken")
 	require.NoError(t, os.MkdirAll(filepath.Dir(brokenRef), perm.SharedDir))
-	require.NoError(t, os.WriteFile(brokenRef, []byte{}, perm.PublicExecutable))
+	require.NoError(t, os.WriteFile(brokenRef, []byte{}, perm.PublicFile))
 	oldTime := time.Now().Add(-25 * time.Hour)
 	require.NoError(t, os.Chtimes(brokenRef, oldTime, oldTime))
 

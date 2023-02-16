@@ -79,7 +79,7 @@ func TestDiskCacheInitialClear(t *testing.T) {
 
 	canary := filepath.Join(cacheDir, "canary.txt")
 	require.NoError(t, os.MkdirAll(filepath.Dir(canary), perm.SharedDir))
-	require.NoError(t, os.WriteFile(canary, []byte("chirp chirp"), perm.SharedExecutable))
+	require.NoError(t, os.WriteFile(canary, []byte("chirp chirp"), perm.PublicFile))
 
 	cache := New(cfg, locator, withDisabledWalker())
 	require.NoError(t, cache.StartWalkers())
