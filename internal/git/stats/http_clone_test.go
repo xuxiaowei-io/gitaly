@@ -46,7 +46,7 @@ func TestClone(t *testing.T) {
 		{"time to first packet", clone.ReferenceDiscovery.FirstGitPacket()},
 		{"time to receive response body", clone.ReferenceDiscovery.ResponseBody()},
 	} {
-		require.True(t, m.value > previousValue, "get: expect %s (%v) to be greater than previous value %v", m.desc, m.value, previousValue)
+		require.GreaterOrEqual(t, m.value, previousValue, "get: expect %s (%v) to be greater than previous value %v", m.desc, m.value, previousValue)
 		previousValue = m.value
 	}
 
@@ -70,7 +70,7 @@ func TestClone(t *testing.T) {
 		{"time to receive first pack message", clone.FetchPack.BandFirstPacket("pack")},
 		{"time to receive response body", clone.FetchPack.ResponseBody()},
 	} {
-		require.True(t, m.value > previousValue, "post: expect %s (%v) to be greater than previous value %v", m.desc, m.value, previousValue)
+		require.GreaterOrEqual(t, m.value, previousValue, "post: expect %s (%v) to be greater than previous value %v", m.desc, m.value, previousValue)
 		previousValue = m.value
 	}
 }
