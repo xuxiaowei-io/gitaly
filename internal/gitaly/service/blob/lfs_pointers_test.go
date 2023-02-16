@@ -70,7 +70,8 @@ var lfsPointers = map[string]*gitalypb.LFSPointer{
 
 func TestListLFSPointers(t *testing.T) {
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setup(t, ctx)
+	cfg, client := setupWithoutRepo(t, ctx)
+	repo, _, repoInfo := setupRepoWithLFS(t, ctx, cfg)
 
 	ctx = testhelper.MergeOutgoingMetadata(ctx,
 		metadata.Pairs(catfile.SessionIDField, "1"),
@@ -99,8 +100,8 @@ func TestListLFSPointers(t *testing.T) {
 				lfsPointer1,
 				lfsPointer2,
 				lfsPointer3,
-				"d5b560e9c17384cf8257347db63167b54e0c97ff", // tree
-				"60ecb67744cb56576c30214ff52294f8ce2def98", // commit
+				repoInfo.defaultTreeID.String(),   // tree
+				repoInfo.defaultCommitID.String(), // commit
 			},
 			expectedPointers: []*gitalypb.LFSPointer{
 				lfsPointers[lfsPointer1],
@@ -202,7 +203,7 @@ oid sha256:1111111111111111111111111111111111111111111111111111111111111111
 size 12345`
 
 	t.Run("normal repository", func(t *testing.T) {
-		_, repo, _, client := setup(t, ctx)
+		_, repo, _, client := setupWithLFS(t, ctx)
 		stream, err := client.ListAllLFSPointers(ctx, &gitalypb.ListAllLFSPointersRequest{
 			Repository: repo,
 		})
@@ -218,7 +219,7 @@ size 12345`
 	})
 
 	t.Run("dangling LFS pointer", func(t *testing.T) {
-		cfg, repo, repoPath, client := setup(t, ctx)
+		cfg, repo, repoPath, client := setupWithLFS(t, ctx)
 
 		hash := gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: strings.NewReader(lfsPointerContents)},
 			"-C", repoPath, "hash-object", "-w", "--stdin",
@@ -245,7 +246,7 @@ size 12345`
 	})
 
 	t.Run("quarantine", func(t *testing.T) {
-		cfg, repoProto, repoPath, client := setup(t, ctx)
+		cfg, repoProto, repoPath, client := setupWithLFS(t, ctx)
 
 		// We're emulating the case where git is receiving data via a push, where objects
 		// are stored in a separate quarantine environment. In this case, LFS pointer checks
@@ -294,12 +295,12 @@ size 12345`
 	})
 
 	t.Run("no repository provided", func(t *testing.T) {
-		_, _, _, client := setup(t, ctx)
-		stram, err := client.ListAllLFSPointers(ctx, &gitalypb.ListAllLFSPointersRequest{
+		_, _, _, client := setupWithLFS(t, ctx)
+		stream, err := client.ListAllLFSPointers(ctx, &gitalypb.ListAllLFSPointersRequest{
 			Repository: nil,
 		})
 		require.NoError(t, err)
-		_, err = stram.Recv()
+		_, err = stream.Recv()
 		testhelper.RequireGrpcError(t, status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 			"empty Repository",
 			"repo scoped: empty Repository",
@@ -309,8 +310,8 @@ size 12345`
 
 func TestSuccessfulGetLFSPointersRequest(t *testing.T) {
 	ctx := testhelper.Context(t)
-
-	_, repo, _, client := setup(t, ctx)
+	cfg, client := setupWithoutRepo(t, ctx)
+	repo, _, repoInfo := setupRepoWithLFS(t, ctx, cfg)
 
 	lfsPointerIds := []string{
 		lfsPointer1,
@@ -318,8 +319,8 @@ func TestSuccessfulGetLFSPointersRequest(t *testing.T) {
 		lfsPointer3,
 	}
 	otherObjectIds := []string{
-		"d5b560e9c17384cf8257347db63167b54e0c97ff", // tree
-		"60ecb67744cb56576c30214ff52294f8ce2def98", // commit
+		repoInfo.defaultTreeID.String(),   // tree
+		repoInfo.defaultCommitID.String(), // commit
 	}
 
 	expectedLFSPointers := []*gitalypb.LFSPointer{
@@ -354,7 +355,7 @@ func TestSuccessfulGetLFSPointersRequest(t *testing.T) {
 func TestFailedGetLFSPointersRequestDueToValidations(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	_, repo, _, client := setup(t, ctx)
+	_, repo, _, client := setupWithLFS(t, ctx)
 
 	testCases := []struct {
 		desc    string
