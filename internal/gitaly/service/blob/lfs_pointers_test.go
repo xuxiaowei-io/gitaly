@@ -4,6 +4,7 @@ package blob
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"os"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -404,5 +406,60 @@ func lfsPointersEqual(tb testing.TB, expected, actual []*gitalypb.LFSPointer) {
 	require.Equal(tb, len(expected), len(actual))
 	for i := range expected {
 		testhelper.ProtoEqual(tb, expected[i], actual[i])
+	}
+}
+
+func setupWithLFS(tb testing.TB, ctx context.Context) (config.Cfg, *gitalypb.Repository, string, gitalypb.BlobServiceClient) {
+	tb.Helper()
+
+	cfg, client := setupWithoutRepo(tb, ctx)
+	repo, repoPath, _ := setupRepoWithLFS(tb, ctx, cfg)
+
+	return cfg, repo, repoPath, client
+}
+
+type lfsRepoInfo struct {
+	// defaultCommitID is the object ID of the commit pointed to by the default branch.
+	defaultCommitID git.ObjectID
+	// defaultTreeID is the object ID of the tree pointed to by the default branch.
+	defaultTreeID git.ObjectID
+}
+
+// setRepoWithLFS configures a git repository with LFS pointers to be used in
+// testing. The commit OID and root tree OID of the default branch are returned
+// for use with some tests.
+func setupRepoWithLFS(tb testing.TB, ctx context.Context, cfg config.Cfg) (*gitalypb.Repository, string, lfsRepoInfo) {
+	tb.Helper()
+
+	repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
+
+	masterTreeID := gittest.WriteTree(tb, cfg, repoPath, []gittest.TreeEntry{
+		{Mode: "100644", Path: lfsPointer1, Content: string(lfsPointers[lfsPointer1].Data)},
+	})
+	masterCommitID := gittest.WriteCommit(tb, cfg, repoPath,
+		gittest.WithTree(masterTreeID),
+		gittest.WithBranch("master"),
+	)
+
+	_ = gittest.WriteCommit(tb, cfg, repoPath,
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: lfsPointer2, Content: string(lfsPointers[lfsPointer2].Data)},
+			gittest.TreeEntry{Mode: "100644", Path: lfsPointer3, Content: string(lfsPointers[lfsPointer3].Data)},
+		),
+		gittest.WithBranch("foo"),
+	)
+
+	_ = gittest.WriteCommit(tb, cfg, repoPath,
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: lfsPointer4, Content: string(lfsPointers[lfsPointer4].Data)},
+			gittest.TreeEntry{Mode: "100644", Path: lfsPointer5, Content: string(lfsPointers[lfsPointer5].Data)},
+			gittest.TreeEntry{Mode: "100644", Path: lfsPointer6, Content: string(lfsPointers[lfsPointer6].Data)},
+		),
+		gittest.WithBranch("bar"),
+	)
+
+	return repo, repoPath, lfsRepoInfo{
+		defaultCommitID: masterCommitID,
+		defaultTreeID:   masterTreeID,
 	}
 }
