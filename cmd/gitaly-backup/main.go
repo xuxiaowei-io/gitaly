@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/log"
 )
 
@@ -41,7 +42,12 @@ func main() {
 	subcmd.Flags(subcmdFlags)
 	_ = subcmdFlags.Parse(flags.Args()[2:])
 
-	if err := subcmd.Run(context.Background(), os.Stdin, os.Stdout); err != nil {
+	ctx, err := storage.InjectGitalyServersEnv(context.Background())
+	if err != nil {
+		logger.Fatalf("%s", err)
+	}
+
+	if err := subcmd.Run(ctx, os.Stdin, os.Stdout); err != nil {
 		logger.Fatalf("%s", err)
 	}
 }

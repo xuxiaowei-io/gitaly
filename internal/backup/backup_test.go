@@ -503,6 +503,40 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 	}
 }
 
+func TestManager_CreateRestore_contextServerInfo(t *testing.T) {
+	t.Parallel()
+
+	cfg := testcfg.Build(t)
+	testcfg.BuildGitalyHooks(t, cfg)
+	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
+
+	ctx := testhelper.Context(t)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+	gittest.WriteTag(t, cfg, repoPath, "v1.0.0", commitID.Revision())
+
+	backupRoot := testhelper.TempDir(t)
+
+	pool := client.NewPool()
+	defer testhelper.MustClose(t, pool)
+
+	sink := NewFilesystemSink(backupRoot)
+	locator, err := ResolveLocator("pointer", sink)
+	require.NoError(t, err)
+
+	fsBackup := NewManager(sink, locator, pool, "unused-backup-id")
+
+	ctx = testhelper.MergeIncomingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
+
+	require.NoError(t, fsBackup.Create(ctx, &CreateRequest{
+		Repository: repo,
+	}))
+	require.NoError(t, fsBackup.Restore(ctx, &RestoreRequest{
+		Repository: repo,
+	}))
+}
+
 func TestResolveSink(t *testing.T) {
 	ctx := testhelper.Context(t)
 

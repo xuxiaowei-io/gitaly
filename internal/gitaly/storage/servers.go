@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/env"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -17,6 +18,11 @@ import (
 type ServerInfo struct {
 	Address string `json:"address"`
 	Token   string `json:"token"`
+}
+
+// Zero returns true when no attributes have been set.
+func (si ServerInfo) Zero() bool {
+	return si == ServerInfo{}
 }
 
 // GitalyServers hold Gitaly servers info like {"default":{"token":"x","address":"y"}},
@@ -39,15 +45,9 @@ func ExtractGitalyServers(ctx context.Context) (gitalyServersInfo GitalyServers,
 		return nil, fmt.Errorf("empty gitaly-servers metadata")
 	}
 
-	gitalyServersJSON, err := base64.StdEncoding.DecodeString(gitalyServersJSONEncoded[0])
-	if err != nil {
-		return nil, fmt.Errorf("failed decoding base64: %v", err)
+	if err := unmarshalGitalyServers(gitalyServersJSONEncoded[0], &gitalyServersInfo); err != nil {
+		return nil, err
 	}
-
-	if err := json.Unmarshal(gitalyServersJSON, &gitalyServersInfo); err != nil {
-		return nil, fmt.Errorf("failed unmarshalling json: %v", err)
-	}
-
 	return
 }
 
@@ -81,4 +81,34 @@ func InjectGitalyServers(ctx context.Context, name, address, token string) (cont
 	}
 
 	return metadata.AppendToOutgoingContext(ctx, "gitaly-servers", base64.StdEncoding.EncodeToString(gitalyServersJSON)), nil
+}
+
+// InjectGitalyServersEnv injects the GITALY_SERVERS env var into an incoming
+// context.
+func InjectGitalyServersEnv(ctx context.Context) (context.Context, error) {
+	rawServers := env.GetString("GITALY_SERVERS", "")
+	if rawServers == "" {
+		return ctx, nil
+	}
+
+	// Make sure we fail early if the value in the env var cannot be interpreted.
+	if err := unmarshalGitalyServers(rawServers, &GitalyServers{}); err != nil {
+		return nil, fmt.Errorf("injecting GITALY_SERVERS: %w", err)
+	}
+
+	md := metadata.Pairs("gitaly-servers", rawServers)
+	return metadata.NewIncomingContext(ctx, md), nil
+}
+
+func unmarshalGitalyServers(encoded string, servers *GitalyServers) error {
+	gitalyServersJSON, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return fmt.Errorf("failed decoding base64: %v", err)
+	}
+
+	if err := json.Unmarshal(gitalyServersJSON, servers); err != nil {
+		return fmt.Errorf("failed unmarshalling json: %v", err)
+	}
+
+	return nil
 }
