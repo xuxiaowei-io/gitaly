@@ -75,6 +75,10 @@ func NewErrors(ctx context.Context, isInErrorWindow ErrorWindowFunction, readThr
 
 // IncrReadErr increases the read errors for a node by 1
 func (e *errorTracker) IncrReadErr(node string) {
+	e.incrReadErrTime(node, time.Now())
+}
+
+func (e *errorTracker) incrReadErrTime(node string, t time.Time) {
 	select {
 	case <-e.ctx.Done():
 		return
@@ -82,7 +86,7 @@ func (e *errorTracker) IncrReadErr(node string) {
 		e.m.Lock()
 		defer e.m.Unlock()
 
-		e.readErrors[node] = append(e.readErrors[node], time.Now())
+		e.readErrors[node] = append(e.readErrors[node], t)
 
 		if len(e.readErrors[node]) > e.readThreshold {
 			e.readErrors[node] = e.readErrors[node][1:]
@@ -92,6 +96,10 @@ func (e *errorTracker) IncrReadErr(node string) {
 
 // IncrWriteErr increases the read errors for a node by 1
 func (e *errorTracker) IncrWriteErr(node string) {
+	e.incrWriteErrTime(node, time.Now())
+}
+
+func (e *errorTracker) incrWriteErrTime(node string, t time.Time) {
 	select {
 	case <-e.ctx.Done():
 		return
@@ -99,7 +107,7 @@ func (e *errorTracker) IncrWriteErr(node string) {
 		e.m.Lock()
 		defer e.m.Unlock()
 
-		e.writeErrors[node] = append(e.writeErrors[node], time.Now())
+		e.writeErrors[node] = append(e.writeErrors[node], t)
 
 		if len(e.writeErrors[node]) > e.writeThreshold {
 			e.writeErrors[node] = e.writeErrors[node][1:]
