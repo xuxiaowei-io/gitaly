@@ -119,7 +119,7 @@ func TestFilestoreCleanwalk(t *testing.T) {
 		fi, err := os.Stat(d)
 		require.NoError(t, err, "directories do not get deleted")
 
-		const mask = perm.PrivateExecutable
+		const mask = perm.PrivateDir
 		require.True(t, fi.Mode()&mask >= mask, "unexpected file mode %o", fi.Mode())
 	}
 
