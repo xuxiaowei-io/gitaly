@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/go-enry/go-license-detector/v4/licensedb"
+	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	log "github.com/sirupsen/logrus"
@@ -144,6 +145,9 @@ func preloadLicenseDatabase() {
 func run(cfg config.Cfg) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	bootstrapSpan, ctx := opentracing.StartSpanFromContext(ctx, "gitaly-bootstrap")
+	defer bootstrapSpan.Finish()
 
 	if cfg.RuntimeDir != "" {
 		if err := config.PruneOldGitalyProcessDirectories(log.StandardLogger(), cfg.RuntimeDir); err != nil {
@@ -406,6 +410,7 @@ func run(cfg config.Cfg) error {
 	if err := b.Start(); err != nil {
 		return fmt.Errorf("unable to start the bootstrap: %v", err)
 	}
+	bootstrapSpan.Finish()
 
 	shutdownWorkers, err := maintenance.StartWorkers(
 		ctx,

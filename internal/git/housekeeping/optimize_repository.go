@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
+	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
@@ -42,6 +43,9 @@ func (m *RepositoryManager) OptimizeRepository(
 	repo *localrepo.Repo,
 	opts ...OptimizeRepositoryOption,
 ) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "housekeeping.OptimizeRepository")
+	defer span.Finish()
+
 	path, err := repo.Path()
 	if err != nil {
 		return err

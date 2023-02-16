@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
+	"github.com/opentracing/opentracing-go"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
@@ -44,6 +45,9 @@ type staleFileFinderFn func(context.Context, string) ([]string, error)
 
 // CleanStaleData cleans up any stale data in the repository.
 func (m *RepositoryManager) CleanStaleData(ctx context.Context, repo *localrepo.Repo) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "housekeeping.CleanStaleData")
+	defer span.Finish()
+
 	repoPath, err := repo.Path()
 	if err != nil {
 		myLogger(ctx).WithError(err).Warn("housekeeping failed to get repo path")

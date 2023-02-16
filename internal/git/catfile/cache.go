@@ -212,6 +212,9 @@ func (c *ProcessCache) getOrCreateProcess(
 ) (_ cacheable, _ func(), returnedErr error) {
 	defer c.reportCacheMembers()
 
+	span, ctx := opentracing.StartSpanFromContext(ctx, spanName)
+	defer span.Finish()
+
 	cacheKey, isCacheable := newCacheKey(metadata.GetValue(ctx, SessionIDField), repo)
 	if isCacheable {
 		// We only try to look up cached processes in case it is cacheable, which requires a
@@ -222,12 +225,14 @@ func (c *ProcessCache) getOrCreateProcess(
 
 		if entry, ok := processes.Checkout(cacheKey); ok {
 			c.catfileCacheCounter.WithLabelValues("hit").Inc()
+			span.SetTag("hit", true)
 			return entry.value, func() {
 				c.returnToCache(processes, cacheKey, entry.value, entry.cancel)
 			}, nil
 		}
 
 		c.catfileCacheCounter.WithLabelValues("miss").Inc()
+		span.SetTag("hit", false)
 
 		// We have not found any cached process, so we need to create a new one. In this
 		// case, we need to detach the process from the current context such that it does
@@ -243,10 +248,7 @@ func (c *ProcessCache) getOrCreateProcess(
 		// We have to decorrelate the process from the current context given that it
 		// may potentially be reused across different RPC calls.
 		ctx = correlation.ContextWithCorrelation(ctx, "")
-		ctx = opentracing.ContextWithSpan(ctx, nil)
 	}
-
-	span, ctx := opentracing.StartSpanFromContext(ctx, spanName)
 
 	// Create a new cancellable process context such that we can kill it on demand. If it's a
 	// cached process, then it will only be killed when the cache evicts the entry because we
@@ -280,7 +282,6 @@ func (c *ProcessCache) getOrCreateProcess(
 	closeProcess := func() {
 		cancelProcessContext()
 		process.close()
-		span.Finish()
 		c.currentCatfileProcesses.Dec()
 	}
 

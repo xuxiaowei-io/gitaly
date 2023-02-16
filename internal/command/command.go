@@ -171,12 +171,6 @@ func New(ctx context.Context, nameAndArgs []string, opts ...Option) (*Command, e
 		opt(&cfg)
 	}
 
-	span, ctx := opentracing.StartSpanFromContext(
-		ctx,
-		nameAndArgs[0],
-		opentracing.Tag{Key: "args", Value: strings.Join(nameAndArgs[1:], " ")},
-	)
-
 	spawnStartTime := time.Now()
 	putToken, err := getSpawnToken(ctx)
 	if err != nil {
@@ -199,6 +193,18 @@ func New(ctx context.Context, nameAndArgs []string, opts ...Option) (*Command, e
 		}).Debug("spawn")
 	}()
 
+	var spanName string
+	if cfg.commandName != "" && cfg.subcommandName != "" {
+		spanName = fmt.Sprintf("%s-%s", cfg.commandName, cfg.subcommandName)
+	} else {
+		spanName = cmdName
+	}
+	span, ctx := opentracing.StartSpanFromContext(
+		ctx,
+		spanName,
+		opentracing.Tag{Key: "path", Value: nameAndArgs[0]},
+		opentracing.Tag{Key: "args", Value: strings.Join(nameAndArgs[1:], " ")},
+	)
 	cmd := exec.Command(nameAndArgs[0], nameAndArgs[1:]...)
 
 	command := &Command{
@@ -471,26 +477,20 @@ func (c *Command) logProcessComplete() {
 		contextSwitchesTotal.WithLabelValues(service, method, cmdName, c.metricsSubCmd, "nonvoluntary", c.cmdGitVersion).Add(float64(rusage.Nivcsw))
 	}
 
-	c.span.LogKV(
-		"pid", cmd.ProcessState.Pid(),
-		"exit_code", exitCode,
-		"system_time_ms", systemTime.Milliseconds(),
-		"user_time_ms", userTime.Milliseconds(),
-		"real_time_ms", realTime.Milliseconds(),
-	)
+	c.span.SetTag("pid", cmd.ProcessState.Pid())
+	c.span.SetTag("exit_code", exitCode)
+	c.span.SetTag("system_time_ms", systemTime.Milliseconds())
+	c.span.SetTag("user_time_ms", userTime.Milliseconds())
+	c.span.SetTag("real_time_ms", realTime.Milliseconds())
 	if ok {
-		c.span.LogKV(
-			"maxrss", rusage.Maxrss,
-			"inblock", rusage.Inblock,
-			"oublock", rusage.Oublock,
-			"minflt", rusage.Minflt,
-			"majflt", rusage.Majflt,
-		)
+		c.span.SetTag("maxrss", rusage.Maxrss)
+		c.span.SetTag("inblock", rusage.Inblock)
+		c.span.SetTag("oublock", rusage.Oublock)
+		c.span.SetTag("minflt", rusage.Minflt)
+		c.span.SetTag("majflt", rusage.Majflt)
 	}
 	if c.cgroupPath != "" {
-		c.span.LogKV(
-			"cgroup_path", c.cgroupPath,
-		)
+		c.span.SetTag("cgroup_path", c.cgroupPath)
 	}
 	c.span.Finish()
 }
