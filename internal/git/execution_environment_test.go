@@ -74,7 +74,7 @@ func TestBundledGitEnvironmentConstructor(t *testing.T) {
 	seedDirWithExecutables := func(t *testing.T, executableNames ...string) string {
 		dir := testhelper.TempDir(t)
 		for _, executableName := range executableNames {
-			require.NoError(t, os.WriteFile(filepath.Join(dir, executableName), nil, perm.PublicExecutable))
+			require.NoError(t, os.WriteFile(filepath.Join(dir, executableName), nil, perm.SharedExecutable))
 		}
 		return dir
 	}

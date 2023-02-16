@@ -47,8 +47,4 @@ const (
 	// SharedExecutable is the permission given for an executable that may be
 	// executed outside of gitaly.
 	SharedExecutable fs.FileMode = 0o755
-
-	// PublicExecutable is the permission given for an executable that may be
-	// read or written outside of gitaly.
-	PublicExecutable fs.FileMode = 0o777
 )
