@@ -6,5 +6,5 @@ var WriteMultiPackIndex = NewFeatureFlag(
 	"write_multi_pack_index",
 	"v15.9.0",
 	"https://gitlab.com/gitlab-org/gitaly/-/issues/4741",
-	false,
+	true,
 )
