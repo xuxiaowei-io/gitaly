@@ -12,22 +12,50 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 )
 
+type mergeTreeConfig struct {
+	allowUnrelatedHistories bool
+}
+
+// MergeTreeOption is a function that sets a config in mergeTreeConfig.
+type MergeTreeOption func(*mergeTreeConfig)
+
+// WithAllowUnrelatedHistories lets MergeTree accept two commits that do not
+// share a common ancestor.
+func WithAllowUnrelatedHistories() MergeTreeOption {
+	return func(options *mergeTreeConfig) {
+		options.allowUnrelatedHistories = true
+	}
+}
+
 // MergeTree calls git-merge-tree(1) with arguments, and parses the results from
 // stdout.
 func (repo *Repo) MergeTree(
 	ctx context.Context,
 	ours, theirs string,
+	mergeTreeOptions ...MergeTreeOption,
 ) (git.ObjectID, error) {
+	var config mergeTreeConfig
+
+	for _, option := range mergeTreeOptions {
+		option(&config)
+	}
+
+	flags := []git.Option{
+		git.Flag{Name: "--write-tree"},
+		git.Flag{Name: "--name-only"},
+	}
+
+	if config.allowUnrelatedHistories {
+		flags = append(flags, git.Flag{Name: "--allow-unrelated-histories"})
+	}
+
 	var stdout, stderr bytes.Buffer
 	err := repo.ExecAndWait(
 		ctx,
 		git.Command{
-			Name: "merge-tree",
-			Flags: []git.Option{
-				git.Flag{Name: "--write-tree"},
-				git.Flag{Name: "--name-only"},
-			},
-			Args: []string{ours, theirs},
+			Name:  "merge-tree",
+			Flags: flags,
+			Args:  []string{ours, theirs},
 		},
 		git.WithStderr(&stderr),
 		git.WithStdout(&stdout),

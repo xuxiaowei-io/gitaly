@@ -210,6 +210,67 @@ func TestMergeTree(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("allow unrelated histories", func(t *testing.T) {
+		ctx := testhelper.Context(t)
+
+		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			SkipCreationViaService: true,
+		})
+		repo := NewTestRepo(t, cfg, repoProto)
+
+		tree1 := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+			{
+				Mode:    "100644",
+				Path:    "file1",
+				Content: "foo",
+			},
+		})
+		tree2 := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+			{
+				Mode:    "100644",
+				Path:    "file2",
+				Content: "baz",
+			},
+		})
+		ours := gittest.WriteCommit(t, cfg, repoPath,
+			gittest.WithTree(tree1),
+			gittest.WithAuthorName("Woody"),
+			gittest.WithCommitterName("Woody"),
+		)
+		theirs := gittest.WriteCommit(t, cfg, repoPath,
+			gittest.WithTree(tree2),
+			gittest.WithAuthorName("Buzz"),
+			gittest.WithCommitterName("Buzz"),
+		)
+
+		mergeTreeResult, err := repo.MergeTree(
+			ctx,
+			string(ours),
+			string(theirs),
+			WithAllowUnrelatedHistories(),
+		)
+		require.NoError(t, err)
+
+		gittest.RequireTree(
+			t,
+			cfg,
+			repoPath,
+			string(mergeTreeResult),
+			[]gittest.TreeEntry{
+				{
+					Mode:    "100644",
+					Path:    "file1",
+					Content: "foo",
+				},
+				{
+					Mode:    "100644",
+					Path:    "file2",
+					Content: "baz",
+				},
+			},
+		)
+	})
 }
 
 func TestParseResult(t *testing.T) {

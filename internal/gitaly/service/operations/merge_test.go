@@ -913,38 +913,23 @@ func testUserMergeBranchConflict(t *testing.T, ctx context.Context) {
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	const baseBranch = "base"
 	const mergeIntoBranch = "mergeIntoBranch"
 	const mergeFromBranch = "mergeFromBranch"
 	const conflictingFile = "file"
 
-	baseCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(baseBranch), gittest.WithTreeEntries(gittest.TreeEntry{
+	baseCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(mergeIntoBranch), gittest.WithTreeEntries(gittest.TreeEntry{
 		Mode: "100644", Path: conflictingFile, Content: "data",
 	}))
 
 	gittest.Exec(t, cfg, "-C", repoPath, "branch", mergeFromBranch, baseCommit.String())
 
-	divergedInto := gittest.WriteCommit(
-		t,
-		cfg,
-		repoPath,
-		gittest.WithBranch(mergeIntoBranch),
-		gittest.WithParents(baseCommit),
-		gittest.WithTreeEntries(gittest.TreeEntry{
-			Mode: "100644", Path: conflictingFile, Content: "data-1",
-		}),
-	)
+	divergedInto := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(mergeIntoBranch), gittest.WithTreeEntries(gittest.TreeEntry{
+		Mode: "100644", Path: conflictingFile, Content: "data-1",
+	}))
 
-	divergedFrom := gittest.WriteCommit(
-		t,
-		cfg,
-		repoPath,
-		gittest.WithBranch(mergeFromBranch),
-		gittest.WithParents(baseCommit),
-		gittest.WithTreeEntries(gittest.TreeEntry{
-			Mode: "100644", Path: conflictingFile, Content: "data-2",
-		}),
-	)
+	divergedFrom := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(mergeFromBranch), gittest.WithTreeEntries(gittest.TreeEntry{
+		Mode: "100644", Path: conflictingFile, Content: "data-2",
+	}))
 
 	mergeBidi, err := client.UserMergeBranch(ctx)
 	require.NoError(t, err)
