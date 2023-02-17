@@ -5,6 +5,7 @@ package repository
 import (
 	"context"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/archive"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
@@ -113,7 +115,12 @@ func testSuccessfulSetCustomHooksRequest(t *testing.T, ctx context.Context) {
 
 			writer, closeStream := tc.streamWriter(t, ctx, repo, client)
 
-			file, err := os.Open("testdata/custom_hooks.tar")
+			archivePath := mustCreateCustomHooksArchive(t, ctx, []testFile{
+				{name: "pre-commit.sample", content: "foo", mode: 0o755},
+				{name: "pre-push.sample", content: "bar", mode: 0o755},
+			}, customHooksDir)
+
+			file, err := os.Open(archivePath)
 			require.NoError(t, err)
 
 			_, err = io.Copy(writer, file)
@@ -186,7 +193,7 @@ func testFailedSetCustomHooksDueToValidations(t *testing.T, ctx context.Context)
 
 			err := tc.streamSender(t, ctx, client)
 			testhelper.RequireGrpcError(t, err, status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"empty Repository",
+				"validating repo: empty Repository",
 				"repo scoped: empty Repository",
 			)))
 		})
@@ -262,7 +269,9 @@ func testFailedSetCustomHooksDueToBadTar(t *testing.T, ctx context.Context) {
 			_, repo, _, client := setupRepositoryService(t, ctx)
 			writer, closeStream := tc.streamWriter(t, ctx, repo, client)
 
-			file, err := os.Open("testdata/corrupted_hooks.tar")
+			archivePath := mustCreateCorruptHooksArchive(t)
+
+			file, err := os.Open(archivePath)
 			require.NoError(t, err)
 			defer testhelper.MustClose(t, file)
 
@@ -330,7 +339,7 @@ func TestNewDirectoryVote(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			path := setupTestHooks(t, tc.files)
+			path := mustWriteCustomHookDirectory(t, tc.files, customHooksDir)
 
 			voteHash, err := newDirectoryVote(path)
 			require.NoError(t, err)
@@ -344,11 +353,11 @@ func TestNewDirectoryVote(t *testing.T) {
 	}
 }
 
-func setupTestHooks(t *testing.T, files []testFile) string {
+func mustWriteCustomHookDirectory(t *testing.T, files []testFile, dirName string) string {
 	t.Helper()
 
 	tmpDir := testhelper.TempDir(t)
-	hooksPath := filepath.Join(tmpDir, customHooksDir)
+	hooksPath := filepath.Join(tmpDir, dirName)
 
 	err := os.Mkdir(hooksPath, perm.SharedDir)
 	require.NoError(t, err)
@@ -359,4 +368,137 @@ func setupTestHooks(t *testing.T, files []testFile) string {
 	}
 
 	return hooksPath
+}
+
+func mustCreateCustomHooksArchive(t *testing.T, ctx context.Context, files []testFile, dirName string) string {
+	t.Helper()
+
+	hooksPath := mustWriteCustomHookDirectory(t, files, dirName)
+	hooksDir := filepath.Dir(hooksPath)
+
+	tmpDir := testhelper.TempDir(t)
+	archivePath := filepath.Join(tmpDir, "custom_hooks.tar")
+
+	file, err := os.Create(archivePath)
+	require.NoError(t, err)
+
+	err = archive.WriteTarball(ctx, file, hooksDir, dirName)
+	require.NoError(t, err)
+
+	return archivePath
+}
+
+func mustCreateCorruptHooksArchive(t *testing.T) string {
+	t.Helper()
+
+	tmpDir := testhelper.TempDir(t)
+	archivePath := filepath.Join(tmpDir, "corrupt_hooks.tar")
+
+	err := os.WriteFile(archivePath, []byte("This is a corrupted tar file"), 0o755)
+	require.NoError(t, err)
+
+	return archivePath
+}
+
+func TestExtractHooks(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	hooksFiles := []testFile{
+		{name: "pre-commit.sample", content: "foo", mode: 0o755},
+		{name: "pre-push.sample", content: "bar", mode: 0o755},
+	}
+
+	tmpDir := testhelper.TempDir(t)
+	emptyTar := filepath.Join(tmpDir, "empty_hooks.tar")
+	err := os.WriteFile(emptyTar, nil, 0o644)
+	require.NoError(t, err)
+
+	for _, tc := range []struct {
+		desc          string
+		path          string
+		expectedFiles []testFile
+		expectedErr   string
+	}{
+		{
+			desc: "custom hooks tar",
+			path: mustCreateCustomHooksArchive(t, ctx, hooksFiles, customHooksDir),
+			expectedFiles: []testFile{
+				{name: "custom_hooks"},
+				{name: "custom_hooks/pre-commit.sample", content: "foo"},
+				{name: "custom_hooks/pre-push.sample", content: "bar"},
+			},
+		},
+		{
+			desc:          "empty custom hooks tar",
+			path:          mustCreateCustomHooksArchive(t, ctx, []testFile{}, customHooksDir),
+			expectedFiles: []testFile{{name: "custom_hooks"}},
+		},
+		{
+			desc: "no hooks tar",
+			path: mustCreateCustomHooksArchive(t, ctx, hooksFiles, "no_hooks"),
+		},
+		{
+			desc:        "corrupt tar",
+			path:        mustCreateCorruptHooksArchive(t),
+			expectedErr: "waiting for tar command completion: exit status",
+		},
+		{
+			desc: "empty tar",
+			path: emptyTar,
+		},
+	} {
+		tc := tc
+
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			_, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				SkipCreationViaService: true,
+			})
+
+			tarball, err := os.Open(tc.path)
+			require.NoError(t, err)
+			defer tarball.Close()
+
+			err = extractHooks(ctx, tarball, repoPath)
+			if tc.expectedErr == "" {
+				require.NoError(t, err)
+			} else {
+				require.ErrorContains(t, err, tc.expectedErr)
+			}
+
+			if len(tc.expectedFiles) == 0 {
+				require.NoDirExists(t, filepath.Join(repoPath, customHooksDir))
+				return
+			}
+
+			var extractedFiles []testFile
+
+			hooksPath := filepath.Join(repoPath, customHooksDir)
+			err = filepath.WalkDir(hooksPath, func(path string, d fs.DirEntry, err error) error {
+				require.NoError(t, err)
+
+				relPath, err := filepath.Rel(repoPath, path)
+				require.NoError(t, err)
+
+				var hookData []byte
+				if !d.IsDir() {
+					hookData, err = os.ReadFile(path)
+					require.NoError(t, err)
+				}
+
+				extractedFiles = append(extractedFiles, testFile{
+					name:    relPath,
+					content: string(hookData),
+				})
+
+				return nil
+			})
+			require.NoError(t, err)
+			require.Equal(t, tc.expectedFiles, extractedFiles)
+		})
+	}
 }

@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"bufio"
 	"context"
 	"encoding/binary"
 	"errors"
@@ -9,6 +10,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
@@ -34,12 +36,12 @@ func (s *server) SetCustomHooks(stream gitalypb.RepositoryService_SetCustomHooks
 
 	firstRequest, err := stream.Recv()
 	if err != nil {
-		return structerr.NewInternal("first request failed %w", err)
+		return structerr.NewInternal("getting first request: %w", err)
 	}
 
 	repo := firstRequest.GetRepository()
 	if err := service.ValidateRepository(repo); err != nil {
-		return structerr.NewInvalidArgument("%w", err)
+		return structerr.NewInvalidArgument("validating repo: %w", err)
 	}
 
 	reader := streamio.NewReader(func() ([]byte, error) {
@@ -68,12 +70,12 @@ func (s *server) RestoreCustomHooks(stream gitalypb.RepositoryService_RestoreCus
 
 	firstRequest, err := stream.Recv()
 	if err != nil {
-		return structerr.NewInternal("first request failed %w", err)
+		return structerr.NewInternal("getting first request: %w", err)
 	}
 
 	repo := firstRequest.GetRepository()
 	if err := service.ValidateRepository(repo); err != nil {
-		return structerr.NewInvalidArgument("%w", err)
+		return structerr.NewInvalidArgument("validating repo: %w", err)
 	}
 
 	reader := streamio.NewReader(func() ([]byte, error) {
@@ -97,7 +99,7 @@ func (s *server) RestoreCustomHooks(stream gitalypb.RepositoryService_RestoreCus
 func (s *server) setCustomHooks(ctx context.Context, reader io.Reader, repo repository.GitRepo) error {
 	if featureflag.TransactionalRestoreCustomHooks.IsEnabled(ctx) {
 		if err := s.setCustomHooksTransaction(ctx, reader, repo); err != nil {
-			return fmt.Errorf("writing custom hooks: %w", err)
+			return fmt.Errorf("setting custom hooks: %w", err)
 		}
 
 		return nil
@@ -105,7 +107,7 @@ func (s *server) setCustomHooks(ctx context.Context, reader io.Reader, repo repo
 
 	repoPath, err := s.locator.GetPath(repo)
 	if err != nil {
-		return fmt.Errorf("getting repo path failed %w", err)
+		return fmt.Errorf("getting repo path: %w", err)
 	}
 
 	if err := extractHooks(ctx, reader, repoPath); err != nil {
@@ -291,14 +293,34 @@ func voteCustomHooks(
 // extractHooks unpacks a tar file containing custom hooks into a `custom_hooks`
 // directory at the specified path.
 func extractHooks(ctx context.Context, reader io.Reader, path string) error {
+	// GNU tar does not accept an empty file as a valid tar archive and produces
+	// an error. Since an empty hooks tar is symbolic of a repository having no
+	// hooks, the reader is peeked to check if there is any data present.
+	buf := bufio.NewReader(reader)
+	if _, err := buf.Peek(1); err == io.EOF {
+		return nil
+	}
+
 	cmdArgs := []string{"-xf", "-", "-C", path, customHooksDir}
 
-	cmd, err := command.New(ctx, append([]string{"tar"}, cmdArgs...), command.WithStdin(reader))
+	var stderrBuilder strings.Builder
+	cmd, err := command.New(ctx, append([]string{"tar"}, cmdArgs...),
+		command.WithStdin(buf),
+		command.WithStderr(&stderrBuilder))
 	if err != nil {
 		return fmt.Errorf("executing tar command: %w", err)
 	}
 
 	if err := cmd.Wait(); err != nil {
+		// GNU and BSD tar versions have differing errors when attempting to
+		// extract specified members from a valid tar archive. If the tar
+		// archive is valid the errors for GNU and BSD tar should have the
+		// same prefix, which can be checked to validate whether the expected
+		// content is present in the archive for extraction.
+		if strings.HasPrefix(stderrBuilder.String(), "tar: custom_hooks: Not found in archive") {
+			return nil
+		}
+
 		return fmt.Errorf("waiting for tar command completion: %w", err)
 	}
 

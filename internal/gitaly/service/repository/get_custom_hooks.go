@@ -6,9 +6,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/archive"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
@@ -70,19 +69,8 @@ func (s *server) getCustomHooks(ctx context.Context, writer io.Writer, repo repo
 		return nil
 	}
 
-	var tar []string
-	if runtime.GOOS == "darwin" {
-		tar = []string{"tar", "--no-mac-metadata", "-c", "-f", "-", "-C", repoPath, customHooksDir}
-	} else {
-		tar = []string{"tar", "-c", "-f", "-", "-C", repoPath, customHooksDir}
-	}
-	cmd, err := command.New(ctx, tar, command.WithStdout(writer))
-	if err != nil {
-		return fmt.Errorf("creating tar command: %w", err)
-	}
-
-	if err := cmd.Wait(); err != nil {
-		return fmt.Errorf("waiting for tar command completion: %w", err)
+	if err := archive.WriteTarball(ctx, writer, repoPath, customHooksDir); err != nil {
+		return structerr.NewInternal("archiving hooks: %w", err)
 	}
 
 	return nil
