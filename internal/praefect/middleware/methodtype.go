@@ -38,7 +38,7 @@ func observeMethodType(registry *protoregistry.Registry, fullMethod string) {
 
 	mi, err := registry.LookupMethod(fullMethod)
 	if err != nil {
-		logrus.WithField("full_method_name", fullMethod).WithError(err).Warn("error when looking up method info")
+		logrus.WithField("full_method_name", fullMethod).WithError(err).Debug("error when looking up method info")
 	}
 
 	var opType string
