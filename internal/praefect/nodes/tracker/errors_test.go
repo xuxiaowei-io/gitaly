@@ -90,18 +90,21 @@ func TestErrorTracker_ClearErrors(t *testing.T) {
 
 	node := "backend-node-1"
 
-	errors.IncrWriteErr(node)
-	errors.IncrReadErr(node)
-
 	now := time.Now()
+	beforeNow := now.Add(-10 * time.Millisecond)
+	afterNow := now.Add(10 * time.Millisecond)
+
+	errors.incrWriteErrTime(node, beforeNow)
+	errors.incrReadErrTime(node, beforeNow)
+
 	errors.isInErrorWindow = func(_ time.Time, errTime time.Time) bool {
 		// Consider all errors which have been added until now to not be part of the error
 		// window anymore. All new events will be considered part of it though.
 		return errTime.After(now)
 	}
 
-	errors.IncrWriteErr(node)
-	errors.IncrReadErr(node)
+	errors.incrWriteErrTime(node, afterNow)
+	errors.incrReadErrTime(node, afterNow)
 
 	errors.clear()
 	assert.Len(t, errors.readErrors[node], 1, "clear should only have cleared the read error older than the time specified")
