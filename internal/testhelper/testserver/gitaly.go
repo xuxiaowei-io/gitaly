@@ -98,6 +98,14 @@ func runPraefectProxy(tb testing.TB, gitalyCfg config.Cfg, gitalyAddr string) Pr
 			Enabled:          true,
 			ElectionStrategy: praefectconfig.ElectionStrategyLocal,
 		},
+		BackgroundVerification: praefectconfig.BackgroundVerification{
+			// Some tests cases purposefully create bad metadata by deleting a repository off
+			// the disk. If the background verifier is running, it could find these repositories
+			// and remove the invalid metadata related to them. This can cause the test assertions
+			// to fail. As the background verifier runs asynchronously and possibly changes state
+			// during a test and issues unexpected RPCs, it's disabled generally for all tests.
+			VerificationInterval: -1,
+		},
 		Replication: praefectconfig.DefaultReplicationConfig(),
 		Logging: gitalylog.Config{
 			Format: "json",
