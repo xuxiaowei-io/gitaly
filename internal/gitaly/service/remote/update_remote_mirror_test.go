@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package remote
 
 import (
@@ -721,7 +719,7 @@ func TestUpdateRemoteMirror_Validations(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRemoteServiceWithoutRepo(t, ctx)
+	cfg, client := setupRemoteService(t, ctx)
 
 	testCases := []struct {
 		expectedErr error

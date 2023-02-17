@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package remote
 
 import (
@@ -18,129 +16,132 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func TestFindRemoteRootRefSuccess(t *testing.T) {
+func TestFindRemoteRootRef(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupRemoteService(t, ctx)
+	cfg, client := setupRemoteService(t, ctx)
 	gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 
-	const (
-		host   = "example.com"
-		secret = "mysecret"
-	)
+	// Even though FindRemoteRootRef does theoretically not require a local repository it is
+	// still bound to one right now. We thus create an empty repository up front that we can
+	// reuse.
+	localRepo, _ := gittest.CreateRepository(t, ctx, cfg)
 
-	port := gittest.HTTPServer(t, ctx, gitCmdFactory, repoPath, newGitRequestValidationMiddleware(host, secret))
-
-	originURL := fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(repoPath))
+	type setupData struct {
+		request          *gitalypb.FindRemoteRootRefRequest
+		expectedErr      error
+		expectedResponse *gitalypb.FindRemoteRootRefResponse
+	}
 
 	for _, tc := range []struct {
-		desc    string
-		request *gitalypb.FindRemoteRootRefRequest
+		desc  string
+		setup func(t *testing.T) setupData
 	}{
 		{
-			desc: "with remote URL",
-			request: &gitalypb.FindRemoteRootRefRequest{
-				Repository:              repo,
-				RemoteUrl:               originURL,
-				HttpAuthorizationHeader: secret,
-				HttpHost:                host,
+			desc: "invalid repository",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.FindRemoteRootRefRequest{
+						Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"},
+						RemoteUrl:  "remote-url",
+					},
+					expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
+						`GetStorageByName: no such storage: "fake"`,
+						"repo scoped: invalid Repository",
+					)),
+				}
+			},
+		},
+		{
+			desc: "missing repository",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.FindRemoteRootRefRequest{
+						RemoteUrl: "remote-url",
+					},
+					expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
+						"empty Repository",
+						"repo scoped: empty Repository",
+					)),
+				}
+			},
+		},
+		{
+			desc: "missing remote URL",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.FindRemoteRootRefRequest{
+						Repository: localRepo,
+					},
+					expectedErr: structerr.NewInvalidArgument("missing remote URL"),
+				}
+			},
+		},
+		{
+			desc: "successful",
+			setup: func(t *testing.T) setupData {
+				host := "example.com"
+				secret := "mysecret"
+
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+				gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch("main"))
+
+				port := gittest.HTTPServer(t, ctx, gitCmdFactory, remoteRepoPath, newGitRequestValidationMiddleware(host, secret))
+				originURL := fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(remoteRepoPath))
+
+				return setupData{
+					request: &gitalypb.FindRemoteRootRefRequest{
+						Repository:              localRepo,
+						RemoteUrl:               originURL,
+						HttpAuthorizationHeader: secret,
+						HttpHost:                host,
+					},
+					expectedResponse: &gitalypb.FindRemoteRootRefResponse{
+						Ref: "main",
+					},
+				}
+			},
+		},
+		{
+			desc: "unborn HEAD",
+			setup: func(t *testing.T) setupData {
+				_, remoteRepoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					request: &gitalypb.FindRemoteRootRefRequest{
+						Repository: localRepo,
+						RemoteUrl:  "file://" + remoteRepoPath,
+					},
+					expectedErr: status.Error(codes.NotFound, "no remote HEAD found"),
+				}
+			},
+		},
+		{
+			desc: "invalid remote URL",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.FindRemoteRootRefRequest{
+						Repository: localRepo,
+						RemoteUrl:  "file://" + testhelper.TempDir(t),
+					},
+					expectedErr: structerr.New("exit status 128"),
+				}
 			},
 		},
 	} {
+		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
-			response, err := client.FindRemoteRootRef(ctx, tc.request)
-			require.NoError(t, err)
-			require.Equal(t, "master", response.Ref)
+			t.Parallel()
+
+			setup := tc.setup(t)
+
+			response, err := client.FindRemoteRootRef(ctx, setup.request)
+			testhelper.RequireGrpcError(t, setup.expectedErr, err)
+			testhelper.ProtoEqual(t, setup.expectedResponse, response)
 		})
 	}
-}
-
-func TestFindRemoteRootRefWithUnbornRemoteHead(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	cfg, remoteRepo, remoteRepoPath, client := setupRemoteService(t, ctx)
-
-	// We're creating an empty repository. Empty repositories do have a HEAD set up, but they
-	// point to an unborn branch because the default branch hasn't yet been created.
-	_, clientRepoPath := gittest.CreateRepository(t, ctx, cfg)
-	gittest.Exec(t, cfg, "-C", remoteRepoPath, "remote", "add", "foo", "file://"+clientRepoPath)
-	response, err := client.FindRemoteRootRef(ctx, &gitalypb.FindRemoteRootRefRequest{
-		Repository: remoteRepo,
-		RemoteUrl:  "file://" + clientRepoPath,
-	},
-	)
-	testhelper.RequireGrpcError(t, status.Error(codes.NotFound, "no remote HEAD found"), err)
-	require.Nil(t, response)
-}
-
-func TestFindRemoteRootRefFailedDueToValidation(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRemoteService(t, ctx)
-
-	testCases := []struct {
-		desc        string
-		request     *gitalypb.FindRemoteRootRefRequest
-		expectedErr error
-	}{
-		{
-			desc: "Invalid repository",
-			request: &gitalypb.FindRemoteRootRefRequest{
-				Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"},
-				RemoteUrl:  "remote-url",
-			},
-			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
-				`GetStorageByName: no such storage: "fake"`,
-				"repo scoped: invalid Repository",
-			)),
-		},
-		{
-			desc: "Repository is nil",
-			request: &gitalypb.FindRemoteRootRefRequest{
-				RemoteUrl: "remote-url",
-			},
-			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
-				"empty Repository",
-				"repo scoped: empty Repository",
-			)),
-		},
-		{
-			desc: "Remote URL is empty",
-			request: &gitalypb.FindRemoteRootRefRequest{
-				Repository: repo,
-			},
-			expectedErr: structerr.NewInvalidArgument("missing remote URL"),
-		},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.desc, func(t *testing.T) {
-			_, err := client.FindRemoteRootRef(ctx, testCase.request)
-			testhelper.RequireGrpcError(t, testCase.expectedErr, err)
-		})
-	}
-}
-
-func TestFindRemoteRootRefFailedDueToInvalidRemote(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRemoteService(t, ctx)
-
-	t.Run("invalid remote URL", func(t *testing.T) {
-		fakeRepoDir := testhelper.TempDir(t)
-
-		// We're using a nonexistent filepath remote URL so we avoid hitting the internet.
-		request := &gitalypb.FindRemoteRootRefRequest{
-			Repository: repo, RemoteUrl: "file://" + fakeRepoDir,
-		}
-
-		_, err := client.FindRemoteRootRef(ctx, request)
-		testhelper.RequireGrpcCode(t, err, codes.Internal)
-	})
 }
 
 func newGitRequestValidationMiddleware(host, secret string) func(http.ResponseWriter, *http.Request, http.Handler) {

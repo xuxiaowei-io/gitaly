@@ -36,11 +36,27 @@ func (s *server) FindRemoteRepository(ctx context.Context, req *gitalypb.FindRem
 		return &gitalypb.FindRemoteRepositoryResponse{Exists: false}, nil
 	}
 
-	// The output of a successful command is structured like
-	// Regexp would've read better, but this is faster
-	// 58fbff2e0d3b620f591a748c158799ead87b51cd	HEAD
-	fields := bytes.Fields(output)
-	match := len(fields) == 2 && len(fields[0]) == 40 && string(fields[1]) == "HEAD"
+	// The output of git-ls-remote is expected to be of the format:
+	//
+	//	58fbff2e0d3b620f591a748c158799ead87b51cd	HEAD\n
+	objectID, refname, ok := bytes.Cut(output, []byte("\t"))
+	if !ok {
+		return &gitalypb.FindRemoteRepositoryResponse{Exists: false}, nil
+	}
 
-	return &gitalypb.FindRemoteRepositoryResponse{Exists: match}, nil
+	// We've asked for HEAD, so the refname should match that.
+	if !bytes.Equal(refname, []byte("HEAD\n")) {
+		return &gitalypb.FindRemoteRepositoryResponse{Exists: false}, nil
+	}
+
+	// We have no way to ask the remote's object format via git-ls-remote(1), so all we can do
+	// is to verify that the object hash matches something we know.
+	switch len(objectID) {
+	case git.ObjectHashSHA1.EncodedLen():
+		return &gitalypb.FindRemoteRepositoryResponse{Exists: true}, nil
+	case git.ObjectHashSHA256.EncodedLen():
+		return &gitalypb.FindRemoteRepositoryResponse{Exists: true}, nil
+	default:
+		return &gitalypb.FindRemoteRepositoryResponse{Exists: false}, nil
+	}
 }
