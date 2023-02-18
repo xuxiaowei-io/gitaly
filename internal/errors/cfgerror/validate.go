@@ -18,6 +18,10 @@ var (
 	ErrNotDir = errors.New("not a dir")
 	// ErrNotUnique should be used when the value must be unique, but there are duplicates.
 	ErrNotUnique = errors.New("not unique")
+	// ErrIsNegative should be used when the positive value or 0 is expected.
+	ErrIsNegative = errors.New("is negative")
+	// ErrBadOrder should be used when the order of the elements is wrong.
+	ErrBadOrder = errors.New("bad order")
 )
 
 // ValidationError represents an issue with provided configuration.
