@@ -16,6 +16,8 @@ var (
 	ErrDoesntExist = errors.New("doesn't exist")
 	// ErrNotDir should be used when path on the file system exists, but it is not a directory.
 	ErrNotDir = errors.New("not a dir")
+	// ErrNotFile should be used when path on the file system exists, but it is not a file.
+	ErrNotFile = errors.New("not a file")
 	// ErrNotUnique should be used when the value must be unique, but there are duplicates.
 	ErrNotUnique = errors.New("not unique")
 	// ErrIsNegative should be used when the positive value or 0 is expected.
@@ -140,6 +142,23 @@ func DirExists(path string) error {
 
 	if !fs.IsDir() {
 		return NewValidationError(fmt.Errorf("%w: %q", ErrNotDir, path))
+	}
+
+	return nil
+}
+
+// FileExists checks the value points to an existing file on the disk.
+func FileExists(path string) error {
+	fs, err := os.Stat(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return NewValidationError(fmt.Errorf("%w: %q", ErrDoesntExist, path))
+		}
+		return err
+	}
+
+	if fs.IsDir() {
+		return NewValidationError(fmt.Errorf("%w: %q", ErrNotFile, path))
 	}
 
 	return nil

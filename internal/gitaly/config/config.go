@@ -1,6 +1,7 @@
 package config
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -89,6 +90,37 @@ type Cfg struct {
 type TLS struct {
 	CertPath string `toml:"certificate_path,omitempty" json:"cert_path"`
 	KeyPath  string `toml:"key_path,omitempty" json:"key_path"`
+}
+
+// Validate runs validation on all fields and compose all found errors.
+func (t TLS) Validate() error {
+	if t.CertPath == "" && t.KeyPath == "" {
+		return nil
+	}
+
+	errs := cfgerror.New().
+		Append(cfgerror.FileExists(t.CertPath), "certificate_path").
+		Append(cfgerror.FileExists(t.KeyPath), "key_path")
+
+	if len(errs) != 0 {
+		// In case of problems with files attempt to load
+		// will fail and pollute output with useless info.
+		return errs.AsError()
+	}
+
+	if _, err := tls.LoadX509KeyPair(t.CertPath, t.KeyPath); err != nil {
+		if strings.Contains(err.Error(), "in certificate input") {
+			return cfgerror.NewValidationError(err, "certificate_path")
+		}
+
+		if strings.Contains(err.Error(), "in key input") {
+			return cfgerror.NewValidationError(err, "key_path")
+		}
+
+		return cfgerror.NewValidationError(err)
+	}
+
+	return nil
 }
 
 // GitlabShell contains the settings required for executing `gitlab-shell`

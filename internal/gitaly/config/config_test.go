@@ -1775,3 +1775,74 @@ func TestStorage_Validate(t *testing.T) {
 		})
 	}
 }
+
+func TestTLS_Validate(t *testing.T) {
+	t.Parallel()
+	const certPath = "../server/testdata/gitalycert.pem"
+	const keyPath = "../server/testdata/gitalykey.pem"
+
+	tmpDir := testhelper.TempDir(t)
+	tmpFile := filepath.Join(tmpDir, "file")
+	require.NoError(t, os.WriteFile(tmpFile, []byte("I am not a certificate"), perm.SharedFile))
+
+	for _, tc := range []struct {
+		name        string
+		setup       func(t *testing.T) TLS
+		expectedErr error
+	}{
+		{
+			name: "empty",
+			setup: func(t *testing.T) TLS {
+				return TLS{}
+			},
+		},
+		{
+			name: "valid",
+			setup: func(t *testing.T) TLS {
+				return TLS{CertPath: certPath, KeyPath: keyPath}
+			},
+		},
+		{
+			name: "no cert path, bad key path",
+			setup: func(t *testing.T) TLS {
+				return TLS{CertPath: "", KeyPath: "somewhere"}
+			},
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: %q", cfgerror.ErrDoesntExist, ""),
+					"certificate_path",
+				),
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: %q", cfgerror.ErrDoesntExist, "somewhere"),
+					"key_path",
+				),
+			},
+		},
+		{
+			name: "bad cert",
+			setup: func(t *testing.T) TLS {
+				return TLS{CertPath: tmpFile, KeyPath: keyPath}
+			},
+			expectedErr: cfgerror.NewValidationError(
+				errors.New("tls: failed to find any PEM data in certificate input"),
+				"certificate_path",
+			),
+		},
+		{
+			name: "bad key",
+			setup: func(t *testing.T) TLS {
+				return TLS{CertPath: certPath, KeyPath: "config_test.go"}
+			},
+			expectedErr: cfgerror.NewValidationError(
+				errors.New("tls: failed to find any PEM data in key input"),
+				"key_path",
+			),
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tlsCfg := tc.setup(t)
+			err := tlsCfg.Validate()
+			require.Equal(t, tc.expectedErr, err)
+		})
+	}
+}

@@ -134,3 +134,20 @@ func TestDirExists(t *testing.T) {
 	expectedNotDir := NewValidationError(fmt.Errorf("%w: %q", ErrNotDir, filePath))
 	require.Equal(t, expectedNotDir, DirExists(filePath))
 }
+
+func TestFileExists(t *testing.T) {
+	t.Parallel()
+
+	dir := testhelper.TempDir(t)
+	existing := filepath.Join(dir, "tmp-file")
+	require.NoError(t, os.WriteFile(existing, []byte{}, perm.PublicFile))
+	notExisting := filepath.Join(dir, "bad")
+
+	require.NoError(t, FileExists(existing))
+
+	expectedNotExisting := NewValidationError(fmt.Errorf("%w: %q", ErrDoesntExist, notExisting))
+	require.Equal(t, expectedNotExisting, FileExists(notExisting))
+
+	expectedNotFile := NewValidationError(fmt.Errorf("%w: %q", ErrNotFile, dir))
+	require.Equal(t, expectedNotFile, FileExists(dir))
+}
