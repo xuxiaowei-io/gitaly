@@ -234,6 +234,11 @@ func (c *ProcessCache) getOrCreateProcess(
 		c.catfileCacheCounter.WithLabelValues("miss").Inc()
 		span.SetTag("hit", false)
 
+		// When cache misses, a new process is created. This process may be re-used later.
+		// In that case, the lifecycle of the process is stretched across multiple
+		// gorountines. We should not attribute the span of this shared process to the
+		// current trace.
+		ctx = tracing.DiscardSpanInContext(ctx)
 		// We have not found any cached process, so we need to create a new one. In this
 		// case, we need to detach the process from the current context such that it does
 		// not get killed when the parent context is cancelled.
