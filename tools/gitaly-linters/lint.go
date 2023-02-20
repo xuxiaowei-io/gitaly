@@ -11,6 +11,10 @@ func (*analyzerPlugin) GetAnalyzers() []*analysis.Analyzer {
 		NewQuoteInterpolationAnalyzer([]string{
 			"fmt.*",
 		}),
+		NewErrorWrapAnalyzer([]string{
+			"fmt.Errorf",
+			"gitlab.com/gitlab-org/gitaly/v15/internal/structerr.*",
+		}),
 	}
 }
 
