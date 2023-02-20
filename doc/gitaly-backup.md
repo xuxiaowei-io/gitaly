@@ -9,12 +9,22 @@ Gitaly and Gitaly Cluster.
    - The [Admin area](https://docs.gitlab.com/ee/administration/repository_storage_types.html#from-project-name-to-hashed-path).
    - The [repository storage API](https://docs.gitlab.com/ee/api/projects.html#get-the-path-to-repository-storage).
 
+1. Generate the `GITALY_SERVERS` environment variable. This variable specifies
+   the address and authentication details of each storage to restore to. The
+   variable takes a base64-encoded JSON object.
+
+   For example:
+
+   ```shell
+   export GITALY_SERVERS=`echo '{"default":{"address":"unix:/var/opt/gitlab/gitaly.socket","token":""}}' | base64 --wrap=0`
+   ```
+
 1. Generate the backup job file. The job file consists of a series of JSON objects separated by a new line (`\n`).
 
    | Attribute           | Type     | Required | Description |
    |:--------------------|:---------|:---------|:------------|
-   |  `address`          |  string  |  yes     |  Address of the Gitaly or Gitaly Cluster server. |
-   |  `token`            |  string  |  yes     |  Authentication token for the Gitaly server. |
+   |  `address`          |  string  |  no      |  Address of the Gitaly or Gitaly Cluster server. Overrides the address specified in `GITALY_SERVERS`. |
+   |  `token`            |  string  |  no      |  Authentication token for the Gitaly server. Overrides the token specified in `GITALY_SERVERS`. |
    |  `storage_name`     |  string  |  yes     |  Name of the storage where the repository is stored. |
    |  `relative_path`    |  string  |  yes     |  Relative path of the repository. |
    |  `gl_project_path`  |  string  |  no      |  Name of the project. Used for logging. |
@@ -23,15 +33,11 @@ Gitaly and Gitaly Cluster.
 
    ```json
    {
-     "address":"unix:/var/opt/gitlab/gitaly.socket",
-     "token":"",
      "storage_name":"default",
      "relative_path":"@hashed/f5/ca/f5ca38f748a1d6eaf726b8a42fb575c3c71f1864a8143301782de13da2d9202b.git",
      "gl_project_path":"diaspora/diaspora-client"
    }
    {
-     "address":"unix:/var/opt/gitlab/gitaly.socket",
-     "token":"",
      "storage_name":"default",
      "relative_path":"@hashed/6b/86/6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b.git",
      "gl_project_path":"brightbox/puppet"
@@ -59,12 +65,22 @@ Gitaly and Gitaly Cluster.
    - The [Admin area](https://docs.gitlab.com/ee/administration/repository_storage_types.html#from-project-name-to-hashed-path).
    - The [repository storage API](https://docs.gitlab.com/ee/api/projects.html#get-the-path-to-repository-storage).
 
+1. Generate the `GITALY_SERVERS` environment variable. This variable specifies
+   the address and authentication details of each storage to restore to. The
+   variable takes a base64-encoded JSON object.
+
+   For example:
+
+   ```shell
+   export GITALY_SERVERS=`echo '{"default":{"address":"unix:/var/opt/gitlab/gitaly.socket","token":""}}' | base64 --wrap=0`
+   ```
+
 1. Generate the restore job file. The job file consists of a series of JSON objects separated by a new-line (`\n`).
 
    | Attribute           | Type     | Required | Description |
    |:--------------------|:---------|:---------|:------------|
-   |  `address`          |  string  |  yes     |  Address of the Gitaly or Gitaly Cluster server. |
-   |  `token`            |  string  |  yes     |  Authentication token for the Gitaly server. |
+   |  `address`          |  string  |  no      |  Address of the Gitaly or Gitaly Cluster server. Overrides the address specified in `GITALY_SERVERS`. |
+   |  `token`            |  string  |  no      |  Authentication token for the Gitaly server. Overrides the token specified in `GITALY_SERVERS`. |
    |  `storage_name`     |  string  |  yes     |  Name of the storage where the repository is stored. |
    |  `relative_path`    |  string  |  yes     |  Relative path of the repository. |
    |  `gl_project_path`  |  string  |  no      |  Name of the project. Used for logging. |
@@ -74,16 +90,12 @@ Gitaly and Gitaly Cluster.
 
    ```json
    {
-     "address":"unix:/var/opt/gitlab/gitaly.socket",
-     "token":"",
      "storage_name":"default",
      "relative_path":"@hashed/f5/ca/f5ca38f748a1d6eaf726b8a42fb575c3c71f1864a8143301782de13da2d9202b.git",
      "gl_project_path":"diaspora/diaspora-client",
      "always_create": true
    }
    {
-     "address":"unix:/var/opt/gitlab/gitaly.socket",
-     "token":"",
      "storage_name":"default",
      "relative_path":"@hashed/6b/86/6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b.git",
      "gl_project_path":"brightbox/puppet"
@@ -96,12 +108,13 @@ Gitaly and Gitaly Cluster.
    /opt/gitlab/embedded/bin/gitaly-backup restore -path $BACKUP_SOURCE_PATH < restore_job.json
    ```
 
-   | Argument              | Type      | Required | Description |
-   |:----------------------|:----------|:---------|:------------|
-   |  `-path`              |  string   |  yes     |  Directory where the backup files are stored. |
-   |  `-parallel`          |  integer  |  no      |  Maximum number of parallel restores. |
-   |  `-parallel-storage`  |  integer  |  no      |  Maximum number of parallel restores per storage. |
-   |  `-layout`            |  string   |  no      |  How backup files are located. Either `pointer` (default) or `legacy`. |
+   | Argument                    | Type                   | Required | Description |
+   |:----------------------------|:-----------------------|:---------|:------------|
+   |  `-path`                    |  string                |  yes     |  Directory where the backup files are stored. |
+   |  `-parallel`                |  integer               |  no      |  Maximum number of parallel restores. |
+   |  `-parallel-storage`        |  integer               |  no      |  Maximum number of parallel restores per storage. |
+   |  `-layout`                  |  string                |  no      |  How backup files are located. Either `pointer` (default) or `legacy`. |
+   |  `-remove-all-repositories` |  comma-separated list  |  no      |  List of storage names to have all repositories removed from before restoring. You must specify `GITALY_SERVERS` for the listed storage names. |
 
 ## Path
 
