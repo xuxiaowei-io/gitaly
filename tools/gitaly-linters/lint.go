@@ -7,7 +7,11 @@ import (
 type analyzerPlugin struct{}
 
 func (*analyzerPlugin) GetAnalyzers() []*analysis.Analyzer {
-	return []*analysis.Analyzer{}
+	return []*analysis.Analyzer{
+		NewQuoteInterpolationAnalyzer([]string{
+			"fmt.*",
+		}),
+	}
 }
 
 // AnalyzerPlugin is a convention of golangci-lint to implement a custom linter. This variable
