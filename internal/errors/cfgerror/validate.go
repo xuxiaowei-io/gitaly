@@ -163,3 +163,11 @@ func FileExists(path string) error {
 
 	return nil
 }
+
+// IsPositive returns an error if provided value less than a zero.
+func IsPositive[T constraints.Signed | constraints.Float](val T) error {
+	if val < 0 {
+		return NewValidationError(fmt.Errorf("%w: %v", ErrIsNegative, val))
+	}
+	return nil
+}

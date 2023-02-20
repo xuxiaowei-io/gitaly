@@ -151,3 +151,10 @@ func TestFileExists(t *testing.T) {
 	expectedNotFile := NewValidationError(fmt.Errorf("%w: %q", ErrNotFile, dir))
 	require.Equal(t, expectedNotFile, FileExists(dir))
 }
+
+func TestIsPositive(t *testing.T) {
+	t.Parallel()
+	require.NoError(t, IsPositive(0))
+	require.NoError(t, IsPositive(100))
+	require.Equal(t, NewValidationError(fmt.Errorf("%w: -1.2", ErrIsNegative)), IsPositive(-1.2))
+}

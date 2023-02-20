@@ -5,17 +5,27 @@ import (
 	"path/filepath"
 	"time"
 
+	"gitlab.com/gitlab-org/gitaly/v15/internal/errors/cfgerror"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/duration"
 )
 
 // Ruby contains setting for Ruby worker processes
 type Ruby struct {
 	Dir                       string            `toml:"dir"`
-	MaxRSS                    int               `toml:"max_rss"`
+	MaxRSS                    uint              `toml:"max_rss"`
 	GracefulRestartTimeout    duration.Duration `toml:"graceful_restart_timeout"`
 	RestartDelay              duration.Duration `toml:"restart_delay"`
-	NumWorkers                int               `toml:"num_workers"`
+	NumWorkers                uint              `toml:"num_workers"`
 	RuggedGitConfigSearchPath string            `toml:"rugged_git_config_search_path"`
+}
+
+// Validate runs validation on all fields and compose all found errors.
+func (r Ruby) Validate() error {
+	return cfgerror.New().
+		Append(cfgerror.IsPositive(r.GracefulRestartTimeout.Duration()), "graceful_restart_timeout").
+		Append(cfgerror.IsPositive(r.RestartDelay.Duration()), "restart_delay").
+		Append(cfgerror.DirExists(r.Dir), "dir").
+		AsError()
 }
 
 // ConfigureRuby validates the gitaly-ruby configuration and sets default values.
@@ -36,7 +46,7 @@ func (cfg *Cfg) ConfigureRuby() error {
 		return fmt.Errorf("gitaly-ruby.dir: is not set")
 	}
 
-	minWorkers := 2
+	minWorkers := uint(2)
 	if cfg.Ruby.NumWorkers < minWorkers {
 		cfg.Ruby.NumWorkers = minWorkers
 	}

@@ -875,9 +875,8 @@ func TestConfigureRuby(t *testing.T) {
 
 func TestConfigureRubyNumWorkers(t *testing.T) {
 	testCases := []struct {
-		in, out int
+		in, out uint
 	}{
-		{in: -1, out: 2},
 		{in: 0, out: 2},
 		{in: 1, out: 2},
 		{in: 2, out: 2},
