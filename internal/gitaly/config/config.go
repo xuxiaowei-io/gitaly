@@ -128,6 +128,13 @@ type GitlabShell struct {
 	Dir string `toml:"dir" json:"dir"`
 }
 
+// Validate runs validation on all fields and compose all found errors.
+func (gs GitlabShell) Validate() error {
+	return cfgerror.New().
+		Append(cfgerror.DirExists(gs.Dir), "dir").
+		AsError()
+}
+
 // Gitlab contains settings required to connect to the Gitlab api
 type Gitlab struct {
 	URL             string       `toml:"url,omitempty" json:"url"`

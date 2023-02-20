@@ -1845,3 +1845,47 @@ func TestTLS_Validate(t *testing.T) {
 		})
 	}
 }
+
+func TestGitlabShell_Validate(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := testhelper.TempDir(t)
+	tmpFile := filepath.Join(tmpDir, "file")
+	require.NoError(t, os.WriteFile(tmpFile, nil, perm.SharedFile))
+
+	for _, tc := range []struct {
+		name        string
+		gitlabShell GitlabShell
+		expectedErr error
+	}{
+		{
+			name:        "valid",
+			gitlabShell: GitlabShell{Dir: tmpDir},
+		},
+		{
+			name:        "dir does not exist",
+			gitlabShell: GitlabShell{Dir: "/does/not/exist"},
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: %q", cfgerror.ErrDoesntExist, "/does/not/exist"),
+					"dir",
+				),
+			},
+		},
+		{
+			name:        "dir is not a directory",
+			gitlabShell: GitlabShell{Dir: tmpFile},
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: %q", cfgerror.ErrNotDir, tmpFile),
+					"dir",
+				),
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.gitlabShell.Validate()
+			require.Equal(t, tc.expectedErr, err)
+		})
+	}
+}
