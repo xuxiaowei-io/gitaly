@@ -140,6 +140,32 @@ func NewManager(sink Sink, locator Locator, pool *client.Pool, backupID string) 
 	}
 }
 
+// RemoveAllRepositoriesRequest is the request to remove all repositories in the specified
+// storage name.
+type RemoveAllRepositoriesRequest struct {
+	Server      storage.ServerInfo
+	StorageName string
+}
+
+// RemoveAllRepositories removes all repositories in the specified storage name.
+func (mgr *Manager) RemoveAllRepositories(ctx context.Context, req *RemoveAllRepositoriesRequest) error {
+	if err := setContextServerInfo(ctx, &req.Server, req.StorageName); err != nil {
+		return fmt.Errorf("manager: %w", err)
+	}
+
+	repoClient, err := mgr.newRepoClient(ctx, req.Server)
+	if err != nil {
+		return fmt.Errorf("manager: %w", err)
+	}
+
+	_, err = repoClient.RemoveAll(ctx, &gitalypb.RemoveAllRequest{StorageName: req.StorageName})
+	if err != nil {
+		return fmt.Errorf("manager: %w", err)
+	}
+
+	return nil
+}
+
 // CreateRequest is the request to create a backup
 type CreateRequest struct {
 	Server      storage.ServerInfo

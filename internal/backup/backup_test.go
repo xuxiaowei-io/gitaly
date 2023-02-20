@@ -26,6 +26,36 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+func TestManager_RemoveAllRepositories(t *testing.T) {
+	t.Parallel()
+
+	const backupID = "abc123"
+
+	cfg := testcfg.Build(t)
+	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
+
+	ctx := testhelper.Context(t)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+	gittest.WriteTag(t, cfg, repoPath, "v1.0.0", commitID.Revision())
+
+	pool := client.NewPool()
+	defer testhelper.MustClose(t, pool)
+
+	backupRoot := testhelper.TempDir(t)
+	sink := NewFilesystemSink(backupRoot)
+	locator, err := ResolveLocator("pointer", sink)
+	require.NoError(t, err)
+
+	fsBackup := NewManager(sink, locator, pool, backupID)
+	err = fsBackup.RemoveAllRepositories(ctx, &RemoveAllRepositoriesRequest{
+		Server:      storage.ServerInfo{Address: cfg.SocketPath, Token: cfg.Auth.Token},
+		StorageName: repo.StorageName,
+	})
+	require.NoError(t, err)
+}
+
 func TestManager_Create(t *testing.T) {
 	t.Parallel()
 
