@@ -21,7 +21,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command/commandcounter"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
-	"gitlab.com/gitlab-org/labkit/tracing"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/tracing"
+	labkittracing "gitlab.com/gitlab-org/labkit/tracing"
 )
 
 var (
@@ -114,7 +115,7 @@ var (
 
 	// envInjector is responsible for injecting environment variables required for tracing into
 	// the child process.
-	envInjector = tracing.NewEnvInjector()
+	envInjector = labkittracing.NewEnvInjector()
 )
 
 const (
@@ -199,11 +200,13 @@ func New(ctx context.Context, nameAndArgs []string, opts ...Option) (*Command, e
 	} else {
 		spanName = cmdName
 	}
-	span, ctx := opentracing.StartSpanFromContext(
+	span, ctx := tracing.StartSpanIfHasParent(
 		ctx,
 		spanName,
-		opentracing.Tag{Key: "path", Value: nameAndArgs[0]},
-		opentracing.Tag{Key: "args", Value: strings.Join(nameAndArgs[1:], " ")},
+		tracing.Tags{
+			"path": nameAndArgs[0],
+			"args": strings.Join(nameAndArgs[1:], " "),
+		},
 	)
 	cmd := exec.Command(nameAndArgs[0], nameAndArgs[1:]...)
 

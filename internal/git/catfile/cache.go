@@ -7,13 +7,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/tracing"
 	"gitlab.com/gitlab-org/labkit/correlation"
 )
 
@@ -212,7 +212,7 @@ func (c *ProcessCache) getOrCreateProcess(
 ) (_ cacheable, _ func(), returnedErr error) {
 	defer c.reportCacheMembers()
 
-	span, ctx := opentracing.StartSpanFromContext(ctx, spanName)
+	span, ctx := tracing.StartSpanIfHasParent(ctx, spanName, nil)
 	defer span.Finish()
 
 	cacheKey, isCacheable := newCacheKey(metadata.GetValue(ctx, SessionIDField), repo)

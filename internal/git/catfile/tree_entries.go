@@ -11,8 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/opentracing/opentracing-go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/tracing"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
@@ -36,11 +36,10 @@ func NewTreeEntryFinder(objectReader ObjectContentReader, objectInfoReader Objec
 
 // FindByRevisionAndPath returns a TreeEntry struct for the object present at the revision/path pair.
 func (tef *TreeEntryFinder) FindByRevisionAndPath(ctx context.Context, revision, path string) (*gitalypb.TreeEntry, error) {
-	span, ctx := opentracing.StartSpanFromContext(
+	span, ctx := tracing.StartSpanIfHasParent(
 		ctx,
 		"catfile.FindByRevisionAndPatch",
-		opentracing.Tag{Key: "revision", Value: revision},
-		opentracing.Tag{Key: "path", Value: path},
+		tracing.Tags{"revision": revision, "path": path},
 	)
 	defer span.Finish()
 
@@ -120,11 +119,10 @@ func TreeEntries(
 	objectInfoReader ObjectInfoReader,
 	revision, path string,
 ) (_ []*gitalypb.TreeEntry, returnedErr error) {
-	span, ctx := opentracing.StartSpanFromContext(
+	span, ctx := tracing.StartSpanIfHasParent(
 		ctx,
 		"catfile.TreeEntries",
-		opentracing.Tag{Key: "revision", Value: revision},
-		opentracing.Tag{Key: "path", Value: path},
+		tracing.Tags{"revision": revision, "path": path},
 	)
 	defer span.Finish()
 

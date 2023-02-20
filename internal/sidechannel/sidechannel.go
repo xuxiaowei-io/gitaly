@@ -9,11 +9,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/opentracing/opentracing-go"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/listenmux"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/tracing"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
@@ -34,7 +34,7 @@ const (
 // OpenSidechannel opens a sidechannel connection from the stream opener
 // extracted from the current peer connection.
 func OpenSidechannel(ctx context.Context) (_ *ServerConn, err error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "sidechannel.OpenSidechannel")
+	span, ctx := tracing.StartSpanIfHasParent(ctx, "sidechannel.OpenSidechannel", nil)
 	defer span.Finish()
 
 	md, ok := metadata.FromIncomingContext(ctx)

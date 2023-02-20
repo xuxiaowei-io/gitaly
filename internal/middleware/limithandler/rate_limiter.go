@@ -6,11 +6,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/tracing"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"golang.org/x/time/rate"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -33,10 +33,10 @@ var ErrRateLimit = errors.New("rate limit reached")
 // Limit rejects an incoming reequest if the maximum number of requests per
 // second has been reached
 func (r *RateLimiter) Limit(ctx context.Context, lockKey string, f LimitedFunc) (interface{}, error) {
-	span, _ := opentracing.StartSpanFromContext(
+	span, _ := tracing.StartSpanIfHasParent(
 		ctx,
 		"limithandler.RateLimiterLimit",
-		opentracing.Tag{Key: "key", Value: lockKey},
+		tracing.Tags{"key": lockKey},
 	)
 	defer span.Finish()
 

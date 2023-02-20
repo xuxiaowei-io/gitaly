@@ -20,6 +20,7 @@ import (
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
 	internalclient "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/tracing"
 	gitalyx509 "gitlab.com/gitlab-org/gitaly/v15/internal/x509"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/correlation"
@@ -379,7 +380,7 @@ func TestDial_Tracing(t *testing.T) {
 	)
 	svc := &testSvc{
 		unaryCall: func(ctx context.Context, r *grpc_testing.SimpleRequest) (*grpc_testing.SimpleResponse, error) {
-			span, _ := opentracing.StartSpanFromContext(ctx, "nested-span")
+			span, _ := tracing.StartSpan(ctx, "nested-span", nil)
 			defer span.Finish()
 			span.LogKV("was", "called")
 			return &grpc_testing.SimpleResponse{}, nil
@@ -393,7 +394,7 @@ func TestDial_Tracing(t *testing.T) {
 				return stream.Context().Err()
 			}
 
-			span, _ := opentracing.StartSpanFromContext(stream.Context(), "nested-span")
+			span, _ := tracing.StartSpan(stream.Context(), "nested-span", nil)
 			defer span.Finish()
 			span.LogKV("was", "called")
 			return nil
