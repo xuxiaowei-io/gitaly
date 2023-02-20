@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"runtime"
+	"strings"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -27,10 +28,11 @@ type restoreRequest struct {
 }
 
 type restoreSubcommand struct {
-	backupPath      string
-	parallel        int
-	parallelStorage int
-	layout          string
+	backupPath            string
+	parallel              int
+	parallelStorage       int
+	layout                string
+	removeAllRepositories []string
 }
 
 func (cmd *restoreSubcommand) Flags(fs *flag.FlagSet) {
@@ -38,6 +40,10 @@ func (cmd *restoreSubcommand) Flags(fs *flag.FlagSet) {
 	fs.IntVar(&cmd.parallel, "parallel", runtime.NumCPU(), "maximum number of parallel restores")
 	fs.IntVar(&cmd.parallelStorage, "parallel-storage", 2, "maximum number of parallel restores per storage. Note: actual parallelism when combined with `-parallel` depends on the order the repositories are received.")
 	fs.StringVar(&cmd.layout, "layout", "pointer", "how backup files are located. Either pointer or legacy.")
+	fs.Func("remove-all-repositories", "comma-separated list of storage names to have all repositories removed from before restoring.", func(removeAll string) error {
+		cmd.removeAllRepositories = strings.Split(removeAll, ",")
+		return nil
+	})
 }
 
 func (cmd *restoreSubcommand) Run(ctx context.Context, stdin io.Reader, stdout io.Writer) error {
@@ -55,9 +61,21 @@ func (cmd *restoreSubcommand) Run(ctx context.Context, stdin io.Reader, stdout i
 	defer pool.Close()
 
 	manager := backup.NewManager(sink, locator, pool, time.Now().UTC().Format("20060102150405"))
+	logger := log.StandardLogger()
+
+	for _, storageName := range cmd.removeAllRepositories {
+		err := manager.RemoveAllRepositories(ctx, &backup.RemoveAllRepositoriesRequest{
+			StorageName: storageName,
+		})
+		if err != nil {
+			// Treat RemoveAll failures as soft failures until we can determine
+			// how often it fails.
+			logger.WithError(err).Warnf("failed to remove all repositories from %s", storageName)
+		}
+	}
 
 	var pipeline backup.Pipeline
-	pipeline = backup.NewLoggingPipeline(log.StandardLogger())
+	pipeline = backup.NewLoggingPipeline(logger)
 	if cmd.parallel > 0 || cmd.parallelStorage > 0 {
 		pipeline = backup.NewParallelPipeline(pipeline, cmd.parallel, cmd.parallelStorage)
 	}
