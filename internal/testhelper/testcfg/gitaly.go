@@ -135,6 +135,18 @@ func (gc *GitalyCfgBuilder) Build(tb testing.TB) config.Cfg {
 	// to have lying around.
 	cfg.Git.IgnoreGitconfig = true
 
+	// The tests don't require GitLab API to be accessible, but as it is required to pass
+	// validation, so the artificial values are set to pass.
+	if cfg.Gitlab.URL == "" {
+		cfg.Gitlab.URL = "https://test.stub.gitlab.com"
+	}
+
+	if cfg.Gitlab.SecretFile == "" {
+		cfg.Gitlab.SecretFile = filepath.Join(root, "gitlab", "http.secret")
+		require.NoError(tb, os.MkdirAll(filepath.Dir(cfg.Gitlab.SecretFile), perm.SharedDir))
+		require.NoError(tb, os.WriteFile(cfg.Gitlab.SecretFile, nil, perm.PublicFile))
+	}
+
 	require.NoError(tb, cfg.Validate())
 
 	return cfg

@@ -539,6 +539,67 @@ func (cfg *Cfg) Validate() error {
 	return nil
 }
 
+// ValidateV2 is a new validation method that is a replacement for the existing Validate.
+// It exists as a demonstration of the new validation implementation based on the usage
+// of the cfgerror package.
+func (cfg *Cfg) ValidateV2() error {
+	var errs cfgerror.ValidationErrors
+	for _, check := range []struct {
+		field    string
+		validate func() error
+	}{
+		{field: "", validate: func() error {
+			if cfg.SocketPath == "" && cfg.ListenAddr == "" && cfg.TLSListenAddr == "" {
+				return fmt.Errorf(`none of "socket_path", "listen_addr" or "tls_listen_addr" is set`)
+			}
+			return nil
+		}},
+		{field: "bin_dir", validate: func() error {
+			return cfgerror.DirExists(cfg.BinDir)
+		}},
+		{field: "runtime_dir", validate: func() error {
+			if cfg.RuntimeDir != "" {
+				return cfgerror.DirExists(cfg.RuntimeDir)
+			}
+			return nil
+		}},
+		{field: "git", validate: cfg.Git.Validate},
+		{field: "storage", validate: func() error {
+			var errs cfgerror.ValidationErrors
+			for i, storage := range cfg.Storages {
+				errs = errs.Append(storage.Validate(), fmt.Sprintf("[%d]", i))
+			}
+			return errs.AsError()
+		}},
+		{field: "prometheus", validate: cfg.Prometheus.Validate},
+		{field: "tls", validate: cfg.TLS.Validate},
+		{field: "ruby", validate: cfg.Ruby.Validate},
+		{field: "gitlab", validate: cfg.Gitlab.Validate},
+		{field: "gitlab-shell", validate: cfg.GitlabShell.Validate},
+		{field: "graceful_restart_timeout", validate: func() error {
+			return cfgerror.IsPositive(cfg.GracefulRestartTimeout.Duration())
+		}},
+		{field: "daily_maintenance", validate: func() error {
+			storages := make([]string, len(cfg.Storages))
+			for i := 0; i < len(cfg.Storages); i++ {
+				storages[i] = cfg.Storages[i].Name
+			}
+			return cfg.DailyMaintenance.Validate(storages)
+		}},
+		{field: "cgroups", validate: cfg.Cgroups.Validate},
+		{field: "pack_objects_cache", validate: cfg.PackObjectsCache.Validate},
+		{field: "pack_objects_limiting", validate: cfg.PackObjectsLimiting.Validate},
+	} {
+		var fields []string
+		if check.field != "" {
+			fields = append(fields, check.field)
+		}
+		errs = errs.Append(check.validate(), fields...)
+	}
+
+	return errs.AsError()
+}
+
 func (cfg *Cfg) setDefaults() error {
 	if cfg.GracefulRestartTimeout.Duration() == 0 {
 		cfg.GracefulRestartTimeout = duration.Duration(time.Minute)
