@@ -21,6 +21,9 @@ type hookFunc func(hookContext)
 type hookContext struct {
 	// stopManager calls the calls stops the TransactionManager.
 	stopManager func()
+	// database provides access to the database for the hook handler.
+	database *badger.DB
+	tb       testing.TB
 }
 
 // hooks are functions that get invoked at specific points of the TransactionManager Run method. They allow
@@ -33,11 +36,13 @@ type hooks struct {
 	beforeResolveRevision hookFunc
 	// beforeDeferredStop is invoked before the deferred Stop is invoked in Run.
 	beforeDeferredStop hookFunc
+	// beforeDeleteLogEntry is invoked before a log entry is deleted from the database.
+	beforeDeleteLogEntry hookFunc
 }
 
 // installHooks installs the configured hooks into the transactionManager.
 func installHooks(tb testing.TB, transactionManager *TransactionManager, database *badger.DB, repository *localrepo.Repo, hooks hooks) {
-	hookContext := hookContext{stopManager: transactionManager.stop}
+	hookContext := hookContext{stopManager: transactionManager.stop, database: database, tb: &testingHook{TB: tb}}
 
 	transactionManager.stop = func() {
 		programCounter, _, _, ok := runtime.Caller(2)
@@ -98,6 +103,16 @@ func (hook databaseHook) View(handler func(databaseTransaction) error) error {
 	})
 }
 
+func (hook databaseHook) Update(handler func(databaseTransaction) error) error {
+	return hook.database.Update(func(transaction databaseTransaction) error {
+		return handler(databaseTransactionHook{
+			databaseTransaction: transaction,
+			hookContext:         hook.hookContext,
+			hooks:               hook.hooks,
+		})
+	})
+}
+
 func (hook databaseHook) NewWriteBatch() writeBatch {
 	return writeBatchHook{writeBatch: hook.database.NewWriteBatch()}
 }
@@ -124,6 +139,14 @@ func (hook databaseTransactionHook) NewIterator(options badger.IteratorOptions) 
 	return hook.databaseTransaction.NewIterator(options)
 }
 
+func (hook databaseTransactionHook) Delete(key []byte) error {
+	if regexLogEntry.Match(key) && hook.beforeDeleteLogEntry != nil {
+		hook.beforeDeleteLogEntry(hook.hookContext)
+	}
+
+	return hook.databaseTransaction.Delete(key)
+}
+
 type writeBatchHook struct {
 	writeBatch
 }
@@ -135,3 +158,13 @@ func (hook writeBatchHook) Set(key []byte, value []byte) error {
 func (hook writeBatchHook) Flush() error { return hook.writeBatch.Flush() }
 
 func (hook writeBatchHook) Cancel() { hook.writeBatch.Cancel() }
+
+type testingHook struct {
+	testing.TB
+}
+
+// We override the FailNow call to the regular testing.Fail, so that it can be
+// used within goroutines without replacing calls made to the `require` library.
+func (t testingHook) FailNow() {
+	t.Fail()
+}

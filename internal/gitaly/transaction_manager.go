@@ -452,7 +452,9 @@ func (mgr *TransactionManager) appendLogEntry(logEntry *gitalypb.LogEntry) error
 // applyLogEntry reads a log entry at the given index and applies it to the repository.
 func (mgr *TransactionManager) applyLogEntry(ctx context.Context, logIndex LogIndex) error {
 	var logEntry gitalypb.LogEntry
-	if err := mgr.readKey(keyLogEntry(getRepositoryID(mgr.repository), logIndex), &logEntry); err != nil {
+	key := keyLogEntry(getRepositoryID(mgr.repository), logIndex)
+
+	if err := mgr.readKey(key, &logEntry); err != nil {
 		return fmt.Errorf("read log entry: %w", err)
 	}
 
@@ -467,6 +469,10 @@ func (mgr *TransactionManager) applyLogEntry(ctx context.Context, logIndex LogIn
 
 	if err := mgr.storeAppliedLogIndex(logIndex); err != nil {
 		return fmt.Errorf("set applied log index: %w", err)
+	}
+
+	if err := mgr.deleteKey(key); err != nil {
+		return fmt.Errorf("deleting log entry: %w", err)
 	}
 
 	mgr.appliedLogIndex = logIndex
@@ -511,6 +517,17 @@ func (mgr *TransactionManager) readKey(key []byte, destination proto.Message) er
 		}
 
 		return item.Value(func(value []byte) error { return proto.Unmarshal(value, destination) })
+	})
+}
+
+// deleteKey deletes a key from the database.
+func (mgr *TransactionManager) deleteKey(key []byte) error {
+	return mgr.db.Update(func(txn databaseTransaction) error {
+		if err := txn.Delete(key); err != nil {
+			return fmt.Errorf("delete: %w", err)
+		}
+
+		return nil
 	})
 }
 
