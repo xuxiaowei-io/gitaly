@@ -1,5 +1,73 @@
 # Gitaly changelog
 
+## 15.9.0 (2023-02-21)
+
+### Added (13 changes)
+
+- [remote: Have FindRemoteRepository detect repos using SHA256](gitlab-org/gitaly@be3e14641ca8771cd21d62f5c2cb75991af6de58) ([merge request](gitlab-org/gitaly!5368))
+- [gitaly-backup: Inject GITALY_SERVERS env var](gitlab-org/gitaly@01930dff6714cd9b904163a50658609c9ad24d75) ([merge request](gitlab-org/gitaly!5384))
+- [Implement RemoveAll RPC](gitlab-org/gitaly@5010f808b5ea7e2509d9fbf6b9c77c0d28984af6) ([merge request](gitlab-org/gitaly!5291))
+- [git: Wire up Git v2.39 execution environment](gitlab-org/gitaly@b9890e7265593266d5cc157df9227e9a477f6721) ([merge request](gitlab-org/gitaly!5339))
+- [remoterepo: Handle SHA256 object hash in `ResolveRevision()`](gitlab-org/gitaly@72f03b1fd0c12eab20a3a559676751273e5b3da6) ([merge request](gitlab-org/gitaly!5317))
+- [repository: Implement new RPC to detect the object format](gitlab-org/gitaly@c58728b9b3afd82690d617fd029d43733ecd668f) ([merge request](gitlab-org/gitaly!5317))
+- [proto: CommitDiffRequest: Introduce `WhitespaceChanges`](gitlab-org/gitaly@900fabc05e316a073e4be04509d248d4be9ae52f) ([merge request](gitlab-org/gitaly!5288))
+- [git/stats: Discern different packfile types](gitlab-org/gitaly@47af9fbaa390da9cfc0de8f27fd7cfa6e21118f5) ([merge request](gitlab-org/gitaly!5310))
+- [housekeeping: Report existence of bitmap extensions](gitlab-org/gitaly@beac70afe618377a48f9eabd49a4d3a621e2583f) ([merge request](gitlab-org/gitaly!5303))
+- [git/stats: Surface information about reverse indices](gitlab-org/gitaly@a30997dda7e0b9fbe5ecb2e56c5f857a162471c2) ([merge request](gitlab-org/gitaly!5299))
+- [housekeeping: Add Prometheus metrics for on-disk repository states](gitlab-org/gitaly@512aed451d7e2c0c45629a13c1b12d86dece3131) ([merge request](gitlab-org/gitaly!5276))
+- [git/stats: Read bitmap info when deriving packfile info](gitlab-org/gitaly@0c0dcecd903c7295f0d2e9f83c525b4a921bc57d) ([merge request](gitlab-org/gitaly!5269))
+- [benchmarking: Add a README](gitlab-org/gitaly@c39695ac9154de55917f044f3932b14ca91ec0fd) ([merge request](gitlab-org/gitaly!5235))
+
+### Fixed (17 changes)
+
+- [dnsresolver: Support DNS scheme in client dial functions](gitlab-org/gitaly@21e5a03bdd8c8b3845091d28a77ed890d23ed1ab) ([merge request](gitlab-org/gitaly!5367))
+- [go: Fix dependencies which have been inadvertently downgraded](gitlab-org/gitaly@a8568f1c8f8dc5f13c8e59a5633e480118c5bf6c) ([merge request](gitlab-org/gitaly!5354))
+- [updateref: Fix handling of context cancellation errors](gitlab-org/gitaly@02e4696c9236bd434170a25cb938f3839b89e12d) ([merge request](gitlab-org/gitaly!5345))
+- [supervisor: Wait for notifiers to shut down](gitlab-org/gitaly@7868f591aa494e4a2a578040e735d39e3913cedd) ([merge request](gitlab-org/gitaly!5346))
+- [git: Fix race between cancelling git-version(1) and reading its output](gitlab-org/gitaly@e83475a5e80fc0daec8096bf0853c51cf64a98d0) ([merge request](gitlab-org/gitaly!5344))
+- [updateref: return proper error when writing to closed process](gitlab-org/gitaly@17a74ef76c46706427326b5652d77504dc65e228) ([merge request](gitlab-org/gitaly!5320))
+- [objectpool: Detect object format to use for parsing object IDs](gitlab-org/gitaly@04f2c468612b40f41b2e02ada0ad3bcfdf72df60) ([merge request](gitlab-org/gitaly!5318))
+- [objectpool: Fix object format when creating from empty repo](gitlab-org/gitaly@c6fd56b6e66ffcb48c7e3fa78c4683b66d3dfec3) ([merge request](gitlab-org/gitaly!5318))
+- [git: Allow wildcards in config keys](gitlab-org/gitaly@a841a2caf11f0fe39ebeaeb1222f9f8fb221d136) ([merge request](gitlab-org/gitaly!5314))
+- [housekeeping: Don't write bitmaps with MIDX in pooled repos](gitlab-org/gitaly@c74a4b7386f170c5629ab786aae4afbc3a61bcd4) ([merge request](gitlab-org/gitaly!5312))
+- [repository: Ignore licenses without a name](gitlab-org/gitaly@529cba3212366a92f21bc99a5328cf2e62f8a477) ([merge request](gitlab-org/gitaly!5285))
+- [Makefile: Install protogem dependencies](gitlab-org/gitaly@e917b3d3a8d4e680be8899dc974b12357616b8cf) ([merge request](gitlab-org/gitaly!5296))
+- [conflicts: Fix nil pointer access when conflict has no ancestor](gitlab-org/gitaly@98b0027d4791b4e9d3c87f36e80436dc65245de9) ([merge request](gitlab-org/gitaly!5283))
+- [conflicts: Fix nil pointer access when conflict has no ancestor](gitlab-org/gitaly@169dc65a41588477a983c3b17e638bd26d25bc9e) ([merge request](gitlab-org/gitaly!5283))
+- [git: Upgrade Git to correctly sync packed-refs to disk](gitlab-org/gitaly@266921418ebf81aa71d64d8f417f13eacc10aff4) ([merge request](gitlab-org/gitaly!5282))
+- [nodes: Set connection backoff MaxDelay to 1 second](gitlab-org/gitaly@6c4afcd90cf3fe95231bcb12bc6003854cd256ac) ([merge request](gitlab-org/gitaly!5255))
+- [conflicts: Fix memory corruption in resolving conflicts](gitlab-org/gitaly@cefe00a120e9b68f32ac7cd9c15da5eb204c70f6) ([merge request](gitlab-org/gitaly!5258))
+
+### Changed (7 changes)
+
+- [housekeeping: Enable writing MIDX by default](gitlab-org/gitaly@2111df234b1a053c159683c4446953d0952e8ece) ([merge request](gitlab-org/gitaly!5397))
+- [gitaly-backup: Use pointer layout by default](gitlab-org/gitaly@c60ec202b0510b22748633f62901c5aaee0d0d98) ([merge request](gitlab-org/gitaly!5378))
+- [gitaly/config: Unify Git config validation](gitlab-org/gitaly@c320eb9355cca6061fc8fea2529eb84717349e0b) ([merge request](gitlab-org/gitaly!5331))
+- [housekeeping: Unconditionally write bitmap lookup tables](gitlab-org/gitaly@150d4a95f7cae901a8b1fb7add89cd235f783be8) ([merge request](gitlab-org/gitaly!5343))
+- [Bump Nokogiri to v1.14.1](gitlab-org/gitaly@7a59c3272287ad4164f8dfee5b1a2d1c12376d2a) ([merge request](gitlab-org/gitaly!5327))
+- [Default enable invalid metadata deletion in Praefect](gitlab-org/gitaly@02e6584586ae7aed4407bffd1b5f5b3495fd15af) ([merge request](gitlab-org/gitaly!5321))
+- [Use Yamux configuration in Praefect by default](gitlab-org/gitaly@2dba1c8e4ce19f4cdce3b0f7c406a4f1d663e087) ([merge request](gitlab-org/gitaly!5215))
+
+### Deprecated (1 change)
+
+- [Deprecate FullPath and SetFulPath RPCs](gitlab-org/gitaly@27abba61db658e7c9e6befc3ba550d3885b1e591) ([merge request](gitlab-org/gitaly!5293))
+
+### Removed (2 changes)
+
+- [git: Rely on `repack.updateServerInfo` for repacks instead of `-n`](gitlab-org/gitaly@42147604283a2c1e387ac918bbcf7b40ee532872) ([merge request](gitlab-org/gitaly!5264))
+- [housekeeping: Always enable commit-graph generation data](gitlab-org/gitaly@a15c34925479e82e089b46641bcd9e46996b2704) ([merge request](gitlab-org/gitaly!5260))
+
+### Security (1 change)
+
+- [git: Upgrade to Git security release v2.38.4.gl1 and v2.39.2](gitlab-org/gitaly@cd869bcc60f97c19332f93cbf1c0a8b52607df8f)
+
+### Performance (4 changes)
+
+- [git: Replace regexp in ValidateHex](gitlab-org/gitaly@6f5c8288c7447e0dc382024467b8f1e5a7239fb5) ([merge request](gitlab-org/gitaly!5308))
+- [git/stats: Don't stat(3P) all pack directory entries](gitlab-org/gitaly@a440158795b509632fea820ce12973022bba9604) ([merge request](gitlab-org/gitaly!5299))
+- [housekeeping: Enable writing of multi-pack-indices](gitlab-org/gitaly@ef10b419db050e8a43d2c345bce167bc0a1d15ce) ([merge request](gitlab-org/gitaly!5275))
+- [housekeeping: Enable writing bitmap lookup tables](gitlab-org/gitaly@73505638cebbbd47aa70b9f587f411559abc1f08) ([merge request](gitlab-org/gitaly!5278))
+
 ## 15.8.3 (2023-02-15)
 
 No changes.
