@@ -59,7 +59,7 @@ func (s *server) BackupCustomHooks(in *gitalypb.BackupCustomHooksRequest, stream
 }
 
 func (s *server) getCustomHooks(ctx context.Context, writer io.Writer, repo repository.GitRepo) error {
-	repoPath, err := s.locator.GetPath(repo)
+	repoPath, err := s.locator.GetRepoPath(repo)
 	if err != nil {
 		return fmt.Errorf("getting repo path: %w", err)
 	}
