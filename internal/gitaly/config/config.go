@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -172,18 +173,55 @@ type Gitlab struct {
 	SecretFile      string       `toml:"secret_file,omitempty" json:"secret_file"`
 }
 
+// Validate runs validation on all fields and compose all found errors.
+func (gl Gitlab) Validate() error {
+	var errs cfgerror.ValidationErrors
+	if err := cfgerror.NotBlank(gl.URL); err != nil {
+		errs = errs.Append(err, "url")
+	} else {
+		if _, err := url.Parse(gl.URL); err != nil {
+			errs = errs.Append(err, "url")
+		}
+	}
+
+	return errs.Append(cfgerror.FileExists(gl.SecretFile), "secret_file").
+		Append(gl.HTTPSettings.Validate(), "http-settings").
+		AsError()
+}
+
 // Hooks contains the settings required for hooks
 type Hooks struct {
 	CustomHooksDir string `toml:"custom_hooks_dir,omitempty" json:"custom_hooks_dir"`
 }
 
-//nolint:revive // This is unintentionally missing documentation.
+// HTTPSettings contains configuration settings used to setup HTTP transport
+// and basic HTTP authorization.
 type HTTPSettings struct {
-	ReadTimeout int    `toml:"read_timeout,omitempty" json:"read_timeout"`
+	ReadTimeout uint64 `toml:"read_timeout,omitempty" json:"read_timeout"`
 	User        string `toml:"user,omitempty" json:"user"`
 	Password    string `toml:"password,omitempty" json:"password"`
 	CAFile      string `toml:"ca_file,omitempty" json:"ca_file"`
 	CAPath      string `toml:"ca_path,omitempty" json:"ca_path"`
+}
+
+// Validate runs validation on all fields and compose all found errors.
+func (ss HTTPSettings) Validate() error {
+	var errs cfgerror.ValidationErrors
+	if ss.User != "" || ss.Password != "" {
+		// If one of the basic auth parameters is set the other one must be set as well.
+		errs = errs.Append(cfgerror.NotBlank(ss.User), "user").
+			Append(cfgerror.NotBlank(ss.Password), "password")
+	}
+
+	if ss.CAFile != "" {
+		errs = errs.Append(cfgerror.FileExists(ss.CAFile), "ca_file")
+	}
+
+	if ss.CAPath != "" {
+		errs = errs.Append(cfgerror.DirExists(ss.CAPath), "ca_path")
+	}
+
+	return errs.AsError()
 }
 
 // Git contains the settings for the Git executable

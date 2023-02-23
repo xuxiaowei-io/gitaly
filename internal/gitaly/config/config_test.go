@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -1956,6 +1957,124 @@ func TestDailyJob_Validate(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			err := tc.dailyJob.Validate(tc.storage)
+			require.Equal(t, tc.expectedErr, err)
+		})
+	}
+}
+
+func TestHTTPSettings_Validate(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := testhelper.TempDir(t)
+	tmpFile := filepath.Join(tmpDir, "tmpfile")
+	require.NoError(t, os.WriteFile(tmpFile, []byte{}, perm.PublicFile))
+
+	for _, tc := range []struct {
+		name         string
+		httpSettings HTTPSettings
+		expectedErr  error
+	}{
+		{
+			name: "empty",
+		},
+		{
+			name: "all valid",
+			httpSettings: HTTPSettings{
+				User:     "user",
+				Password: "psswrd",
+				CAFile:   tmpFile,
+				CAPath:   tmpDir,
+			},
+		},
+		{
+			name: "all invalid",
+			httpSettings: HTTPSettings{
+				User:     "user",
+				Password: "",
+				CAFile:   tmpDir,
+				CAPath:   tmpFile,
+			},
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					cfgerror.ErrBlankOrEmpty,
+					"password",
+				),
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: %q", cfgerror.ErrNotFile, tmpDir),
+					"ca_file",
+				),
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: %q", cfgerror.ErrNotDir, tmpFile),
+					"ca_path",
+				),
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.httpSettings.Validate()
+			require.Equal(t, tc.expectedErr, err)
+		})
+	}
+}
+
+func TestGitlab_Validate(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := testhelper.TempDir(t)
+	tmpFile := filepath.Join(tmpDir, "tmpfile")
+	require.NoError(t, os.WriteFile(tmpFile, []byte{}, perm.PublicFile))
+
+	for _, tc := range []struct {
+		name        string
+		gitLab      Gitlab
+		expectedErr error
+	}{
+		{
+			name: "all valid",
+			gitLab: Gitlab{
+				URL:             "https://gitlab.com",
+				RelativeURLRoot: "api/v1",
+				HTTPSettings: HTTPSettings{
+					User:     "user",
+					Password: "psswrd",
+					CAFile:   tmpFile,
+					CAPath:   tmpDir,
+				},
+				SecretFile: tmpFile,
+			},
+		},
+		{
+			name: "all invalid",
+			gitLab: Gitlab{
+				URL:             string(rune(0x7f)),
+				RelativeURLRoot: "",
+				HTTPSettings: HTTPSettings{
+					CAFile: "/doesnt/exist",
+				},
+				SecretFile: tmpDir,
+			},
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					&url.Error{
+						Op:  "parse",
+						URL: string(rune(0x7f)),
+						Err: errors.New("net/url: invalid control character in URL"),
+					},
+					"url",
+				),
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: %q", cfgerror.ErrNotFile, tmpDir),
+					"secret_file",
+				),
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: %q", cfgerror.ErrDoesntExist, "/doesnt/exist"),
+					"http-settings", "ca_file",
+				),
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.gitLab.Validate()
 			require.Equal(t, tc.expectedErr, err)
 		})
 	}
