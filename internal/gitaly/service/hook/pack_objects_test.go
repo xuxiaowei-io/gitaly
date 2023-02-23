@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -150,7 +151,17 @@ func testServerPackObjectsHookSeparateContextWithRuntimeDir(t *testing.T, ctx co
 	go func() {
 		defer wg.Done()
 		_, err := client1.PackObjectsHookWithSidechannel(ctx1, req)
-		testhelper.AssertGrpcCode(t, err, codes.Canceled)
+
+		if runtime.GOOS == "darwin" {
+			assert.Contains(t, []codes.Code{codes.Canceled, codes.Internal}, status.Code(err))
+
+			if status.Code(err) == codes.Internal {
+				assert.Contains(t, err.Error(), "write: socket is not connected")
+			}
+		} else {
+			testhelper.AssertGrpcCode(t, err, codes.Canceled)
+		}
+
 		assert.NoError(t, wt1.Wait())
 	}()
 
