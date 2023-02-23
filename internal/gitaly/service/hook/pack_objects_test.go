@@ -16,6 +16,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
@@ -149,8 +150,8 @@ func testServerPackObjectsHookSeparateContextWithRuntimeDir(t *testing.T, ctx co
 	go func() {
 		defer wg.Done()
 		_, err := client1.PackObjectsHookWithSidechannel(ctx1, req)
-		testhelper.RequireGrpcCode(t, err, codes.Canceled)
-		require.NoError(t, wt1.Wait())
+		testhelper.AssertGrpcCode(t, err, codes.Canceled)
+		assert.NoError(t, wt1.Wait())
 	}()
 
 	// Call 2: this is a normal call with the same request as call 1
@@ -189,8 +190,8 @@ func testServerPackObjectsHookSeparateContextWithRuntimeDir(t *testing.T, ctx co
 	go func() {
 		defer wg.Done()
 		_, err := client2.PackObjectsHookWithSidechannel(ctx2, req)
-		require.NoError(t, err)
-		require.NoError(t, wt2.Wait())
+		assert.NoError(t, err)
+		assert.NoError(t, wt2.Wait())
 	}()
 
 	close(start1)
