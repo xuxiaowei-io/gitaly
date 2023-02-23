@@ -4,7 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
+
+	"golang.org/x/exp/constraints"
 )
 
 var (
@@ -18,12 +21,16 @@ var (
 	ErrNotDir = errors.New("not a dir")
 	// ErrNotFile should be used when path on the file system exists, but it is not a file.
 	ErrNotFile = errors.New("not a file")
+	// ErrNotAbsolutePath should be used in case absolute path is expected, but the relative was provided.
+	ErrNotAbsolutePath = errors.New("not an absolute path")
 	// ErrNotUnique should be used when the value must be unique, but there are duplicates.
 	ErrNotUnique = errors.New("not unique")
 	// ErrIsNegative should be used when the positive value or 0 is expected.
 	ErrIsNegative = errors.New("is negative")
 	// ErrBadOrder should be used when the order of the elements is wrong.
 	ErrBadOrder = errors.New("bad order")
+	// ErrNotInRange should be used when the value is not in expected range of values.
+	ErrNotInRange = errors.New("not in range")
 )
 
 // ValidationError represents an issue with provided configuration.
@@ -164,10 +171,79 @@ func FileExists(path string) error {
 	return nil
 }
 
+// PathIsAbs checks if provided path is an absolute path.
+func PathIsAbs(path string) error {
+	if filepath.IsAbs(path) {
+		return nil
+	}
+	return NewValidationError(fmt.Errorf("%w: %q", ErrNotAbsolutePath, path))
+}
+
 // IsPositive returns an error if provided value less than a zero.
 func IsPositive[T constraints.Signed | constraints.Float](val T) error {
 	if val < 0 {
 		return NewValidationError(fmt.Errorf("%w: %v", ErrIsNegative, val))
 	}
+	return nil
+}
+
+// InRangeOpt represents configuration options for InRange function.
+type InRangeOpt int
+
+const (
+	// InRangeOptIncludeMin includes min value equality.
+	InRangeOptIncludeMin InRangeOpt = iota + 1
+	// InRangeOptIncludeMax includes max value equality.
+	InRangeOptIncludeMax
+)
+
+type inRangeOpts[T Numeric] []InRangeOpt
+
+func (opts inRangeOpts[T]) lessThan(val, min T) bool {
+	for _, opt := range opts {
+		if opt == InRangeOptIncludeMin {
+			return val < min
+		}
+	}
+
+	return val <= min
+}
+
+func (opts inRangeOpts[T]) greaterThan(val, max T) bool {
+	for _, opt := range opts {
+		if opt == InRangeOptIncludeMax {
+			return val > max
+		}
+	}
+
+	return val >= max
+}
+
+func (opts inRangeOpts[T]) format(min, max T) string {
+	format := "%s%v, %v%s"
+	openRange := "("
+	closeRange := ")"
+	for _, opt := range opts {
+		if opt == InRangeOptIncludeMin {
+			openRange = "["
+		}
+		if opt == InRangeOptIncludeMax {
+			closeRange = "]"
+		}
+	}
+	return fmt.Sprintf(format, openRange, min, max, closeRange)
+}
+
+// Numeric includes types that can be used in the comparison operations.
+type Numeric interface {
+	constraints.Integer | constraints.Float
+}
+
+// InRange returns an error if 'val' is less than 'min' or greater or equal to 'max'.
+func InRange[T Numeric](min, max, val T, opts ...InRangeOpt) error {
+	if cmp := inRangeOpts[T](opts); cmp.lessThan(val, min) || cmp.greaterThan(val, max) {
+		return NewValidationError(fmt.Errorf("%w: %v out of %s", ErrNotInRange, val, cmp.format(min, max)))
+	}
+
 	return nil
 }

@@ -158,3 +158,48 @@ func TestIsPositive(t *testing.T) {
 	require.NoError(t, IsPositive(100))
 	require.Equal(t, NewValidationError(fmt.Errorf("%w: -1.2", ErrIsNegative)), IsPositive(-1.2))
 }
+
+func TestInRange(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name          string
+		val, min, max int
+		opts          []InRangeOpt
+		expectedErr   error
+	}{
+		{
+			name:        "out of range - no include",
+			opts:        []InRangeOpt{},
+			expectedErr: NewValidationError(fmt.Errorf("%w: 0 out of (0, 0)", ErrNotInRange)),
+		},
+		{
+			name:        "out of range - max include",
+			opts:        []InRangeOpt{InRangeOptIncludeMax},
+			expectedErr: NewValidationError(fmt.Errorf("%w: 0 out of (0, 0]", ErrNotInRange)),
+		},
+		{
+			name:        "out of range - min include",
+			opts:        []InRangeOpt{InRangeOptIncludeMin},
+			expectedErr: NewValidationError(fmt.Errorf("%w: 0 out of [0, 0)", ErrNotInRange)),
+		},
+		{
+			name:        "in range - min and max include",
+			opts:        []InRangeOpt{InRangeOptIncludeMin, InRangeOptIncludeMax},
+			expectedErr: nil,
+		},
+		{
+			name:        "in range - min and max exclude",
+			val:         0,
+			min:         -1,
+			max:         1,
+			opts:        []InRangeOpt{},
+			expectedErr: nil,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := InRange(tc.min, tc.max, tc.val, tc.opts...)
+			require.Equal(t, tc.expectedErr, err)
+		})
+	}
+}

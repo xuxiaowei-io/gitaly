@@ -1889,3 +1889,74 @@ func TestGitlabShell_Validate(t *testing.T) {
 		})
 	}
 }
+
+func TestDailyJob_Validate(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name        string
+		dailyJob    DailyJob
+		storage     []string
+		expectedErr error
+	}{
+		{
+			name:     "empty",
+			dailyJob: DailyJob{},
+		},
+		{
+			name: "all valid",
+			dailyJob: DailyJob{
+				Hour:     5,
+				Minute:   30,
+				Duration: duration.Duration(100),
+				Disabled: false,
+				Storages: []string{"1", "2"},
+			},
+			storage: []string{"1", "2"},
+		},
+		{
+			name: "all invalid",
+			dailyJob: DailyJob{
+				Hour:     100,
+				Minute:   90,
+				Duration: duration.Duration(80 * time.Hour),
+				Disabled: false,
+				Storages: []string{"1", "2"},
+			},
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: 100 out of [0, 23]", cfgerror.ErrNotInRange),
+					"start_hour",
+				),
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: 90 out of [0, 59]", cfgerror.ErrNotInRange),
+					"start_minute",
+				),
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: 80h0m0s out of [0s, 24h0m0s]", cfgerror.ErrNotInRange),
+					"duration",
+				),
+				cfgerror.NewValidationError(
+					fmt.Errorf(`%w: "1"`, cfgerror.ErrDoesntExist),
+					"storages", "[0]",
+				),
+				cfgerror.NewValidationError(
+					fmt.Errorf(`%w: "2"`, cfgerror.ErrDoesntExist),
+					"storages", "[1]",
+				),
+			},
+		},
+		{
+			name: "invalid, but disabled",
+			dailyJob: DailyJob{
+				Hour:     100,
+				Disabled: true,
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.dailyJob.Validate(tc.storage)
+			require.Equal(t, tc.expectedErr, err)
+		})
+	}
+}

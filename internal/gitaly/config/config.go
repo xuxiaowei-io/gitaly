@@ -53,6 +53,35 @@ type DailyJob struct {
 	Disabled bool `toml:"disabled,omitempty" json:"disabled"`
 }
 
+// Validate runs validation on all fields and compose all found errors.
+func (dj DailyJob) Validate(allowedStorages []string) error {
+	if dj.Disabled {
+		return nil
+	}
+
+	inRangeOpts := []cfgerror.InRangeOpt{cfgerror.InRangeOptIncludeMin, cfgerror.InRangeOptIncludeMax}
+	errs := cfgerror.New().
+		Append(cfgerror.InRange(0, 23, dj.Hour, inRangeOpts...), "start_hour").
+		Append(cfgerror.InRange(0, 59, dj.Minute, inRangeOpts...), "start_minute").
+		Append(cfgerror.InRange(time.Duration(0), 24*time.Hour, dj.Duration.Duration(), inRangeOpts...), "duration")
+
+	for i, storage := range dj.Storages {
+		var found bool
+		for _, allowed := range allowedStorages {
+			if allowed == storage {
+				found = true
+				break
+			}
+		}
+		if !found {
+			cause := fmt.Errorf("%w: %q", cfgerror.ErrDoesntExist, storage)
+			errs = errs.Append(cfgerror.NewValidationError(cause, "storages", fmt.Sprintf("[%d]", i)))
+		}
+	}
+
+	return errs.AsError()
+}
+
 // Cfg is a container for all config derived from config.toml.
 type Cfg struct {
 	// ConfigCommand specifies the path to an executable that Gitaly will run after loading the
