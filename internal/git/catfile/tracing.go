@@ -6,6 +6,7 @@ import (
 
 	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/tracing"
 )
 
 type trace struct {
@@ -24,7 +25,7 @@ func startTrace(
 	counter *prometheus.CounterVec,
 	methodName string,
 ) *trace {
-	span, _ := opentracing.StartSpanFromContext(ctx, methodName)
+	span, _ := tracing.StartSpanIfHasParent(ctx, methodName, nil)
 
 	trace := &trace{
 		span:    span,

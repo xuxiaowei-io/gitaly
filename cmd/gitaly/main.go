@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/go-enry/go-license-detector/v4/licensedb"
-	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	log "github.com/sirupsen/logrus"
@@ -45,10 +44,11 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/middleware/limithandler"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/streamcache"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/tempdir"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/tracing"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/version"
 	"gitlab.com/gitlab-org/labkit/fips"
 	"gitlab.com/gitlab-org/labkit/monitoring"
-	"gitlab.com/gitlab-org/labkit/tracing"
+	labkittracing "gitlab.com/gitlab-org/labkit/tracing"
 	"google.golang.org/grpc"
 )
 
@@ -126,7 +126,7 @@ func configure(configPath string) (config.Cfg, error) {
 
 	sentry.ConfigureSentry(version.GetVersion(), sentry.Config(cfg.Logging.Sentry))
 	cfg.Prometheus.Configure()
-	tracing.Initialize(tracing.WithServiceName("gitaly"))
+	labkittracing.Initialize(labkittracing.WithServiceName("gitaly"))
 	preloadLicenseDatabase()
 
 	return cfg, nil
@@ -146,7 +146,7 @@ func run(cfg config.Cfg) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	bootstrapSpan, ctx := opentracing.StartSpanFromContext(ctx, "gitaly-bootstrap")
+	bootstrapSpan, ctx := tracing.StartSpan(ctx, "gitaly-bootstrap", nil)
 	defer bootstrapSpan.Finish()
 
 	if cfg.RuntimeDir != "" {

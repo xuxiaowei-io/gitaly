@@ -7,11 +7,11 @@ import (
 	"strconv"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
-	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/tracing"
 )
 
 // OptimizeRepositoryConfig is the configuration used by OptimizeRepository that is computed by
@@ -43,7 +43,7 @@ func (m *RepositoryManager) OptimizeRepository(
 	repo *localrepo.Repo,
 	opts ...OptimizeRepositoryOption,
 ) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "housekeeping.OptimizeRepository")
+	span, ctx := tracing.StartSpanIfHasParent(ctx, "housekeeping.OptimizeRepository", nil)
 	defer span.Finish()
 
 	path, err := repo.Path()

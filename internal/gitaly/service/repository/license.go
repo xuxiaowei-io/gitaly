@@ -13,7 +13,6 @@ import (
 	"github.com/go-enry/go-license-detector/v4/licensedb"
 	"github.com/go-enry/go-license-detector/v4/licensedb/api"
 	"github.com/go-enry/go-license-detector/v4/licensedb/filer"
-	"github.com/opentracing/opentracing-go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/lstree"
@@ -21,6 +20,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/tracing"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/unarycache"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -86,7 +86,7 @@ func (s *server) FindLicense(ctx context.Context, req *gitalypb.FindLicenseReque
 }
 
 func findLicense(ctx context.Context, repo *localrepo.Repo, commitID git.ObjectID) (*gitalypb.FindLicenseResponse, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "repository.findLicense")
+	span, ctx := tracing.StartSpanIfHasParent(ctx, "repository.findLicense", nil)
 	defer span.Finish()
 
 	repoFiler := &gitFiler{ctx: ctx, repo: repo, treeishID: commitID}
