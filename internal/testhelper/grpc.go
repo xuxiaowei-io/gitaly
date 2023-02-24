@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -48,6 +49,16 @@ func RequireGrpcCode(tb testing.TB, err error, expectedCode codes.Code) {
 	status, ok := status.FromError(err)
 	require.True(tb, ok)
 	require.Equal(tb, expectedCode, status.Code())
+}
+
+// AssertGrpcCode asserts that the error has the expected gRPC status code.
+func AssertGrpcCode(tb testing.TB, err error, expectedCode codes.Code) {
+	tb.Helper()
+
+	assert.Error(tb, err)
+	status, ok := status.FromError(err)
+	assert.True(tb, ok)
+	assert.Equal(tb, expectedCode, status.Code())
 }
 
 // RequireGrpcError asserts that expected and actual gRPC errors are equal. Comparing gRPC errors
