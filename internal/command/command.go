@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/trace2"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/trace2/hooks"
 	"io"
 	"os"
 	"os/exec"
@@ -116,6 +118,11 @@ var (
 	// envInjector is responsible for injecting environment variables required for tracing into
 	// the child process.
 	envInjector = labkittracing.NewEnvInjector()
+
+	// trace2Hooks
+	trace2Hooks = []trace2.Hook{
+		hooks.TracingHook{},
+	}
 )
 
 const (
@@ -143,7 +150,8 @@ type Command struct {
 
 	finalizer func(*Command)
 
-	span opentracing.Span
+	trace2Manager *trace2.Manager
+	span          opentracing.Span
 
 	metricsCmd    string
 	metricsSubCmd string
@@ -228,8 +236,14 @@ func New(ctx context.Context, nameAndArgs []string, opts ...Option) (*Command, e
 	cmd.Env = AllowedEnvironment(os.Environ())
 	// Append environment variables explicitly requested by the caller.
 	cmd.Env = append(cmd.Env, cfg.environment...)
-	// And finally inject environment variables required for tracing into the command.
+	// Inject environment variables required for tracing into the command.
 	cmd.Env = envInjector(ctx, cmd.Env)
+	// And finally inject trace2 environment variable
+	command.trace2Manager = trace2.NewManager(ctx, trace2Hooks, cmd.Path, cmd.Args)
+	cmd.Env, err = command.trace2Manager.Inject(cmd.Env)
+	if err != nil {
+		return nil, fmt.Errorf("trace2 inject env: %w", err)
+	}
 
 	// Start the command in its own process group (nice for signalling)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
@@ -381,6 +395,9 @@ func (c *Command) wait() {
 	}
 
 	inFlightCommandGauge.Dec()
+
+	// Handle trace2 hooks if needed
+	c.trace2Manager.Finish()
 
 	c.logProcessComplete()
 
