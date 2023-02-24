@@ -125,7 +125,7 @@ func TestTransactionManager(t *testing.T) {
 							"refs/heads/../main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 						},
 					},
-					ExpectedProposeError: InvalidReferenceFormatError{ReferenceName: "refs/heads/../main"},
+					ExpectedProposeError: updateref.ErrInvalidReferenceFormat{ReferenceName: "refs/heads/../main"},
 				},
 			},
 		},
@@ -138,7 +138,7 @@ func TestTransactionManager(t *testing.T) {
 							"refs/heads/../main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 						},
 					},
-					ExpectedProposeError: InvalidReferenceFormatError{ReferenceName: "refs/heads/../main"},
+					ExpectedProposeError: updateref.ErrInvalidReferenceFormat{ReferenceName: "refs/heads/../main"},
 				},
 				{
 					Transaction: Transaction{
@@ -1443,12 +1443,19 @@ func TestTransactionManager(t *testing.T) {
 		desc             string
 		referenceName    git.ReferenceName
 		invalidReference git.ReferenceName
+		updateRefError   bool
 	}
 
 	appendInvalidReferenceTestCase := func(tc invalidReferenceTestCase) {
 		invalidReference := tc.invalidReference
 		if invalidReference == "" {
 			invalidReference = tc.referenceName
+		}
+
+		var err error
+		err = InvalidReferenceFormatError{ReferenceName: invalidReference}
+		if tc.updateRefError {
+			err = updateref.ErrInvalidReferenceFormat{ReferenceName: invalidReference.String()}
 		}
 
 		testCases = append(testCases, testCase{
@@ -1460,7 +1467,7 @@ func TestTransactionManager(t *testing.T) {
 							tc.referenceName: {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 						},
 					},
-					ExpectedProposeError: InvalidReferenceFormatError{ReferenceName: invalidReference},
+					ExpectedProposeError: err,
 				},
 			},
 		})
@@ -1468,46 +1475,48 @@ func TestTransactionManager(t *testing.T) {
 
 	// Generate test cases for the reference format rules according to https://git-scm.com/docs/git-check-ref-format.
 	// This is to ensure the references are correctly validated prior to logging so they are guaranteed to apply later.
+	// We also have two levels for catching invalid refs, the first is part of the transaction_manager, the second is
+	// the errors thrown by git-update-ref(1) itself.
 	for _, tc := range []invalidReferenceTestCase{
 		// 1. They can include slash / for hierarchical (directory) grouping, but no slash-separated
 		// component can begin with a dot . or end with the sequence .lock.
-		{"starting with a period", ".refs/heads/main", ""},
-		{"subcomponent starting with a period", "refs/heads/.main", ""},
-		{"ending in .lock", "refs/heads/main.lock", ""},
-		{"subcomponent ending in .lock", "refs/heads/main.lock/main", ""},
+		{"starting with a period", ".refs/heads/main", "", false},
+		{"subcomponent starting with a period", "refs/heads/.main", "", true},
+		{"ending in .lock", "refs/heads/main.lock", "", true},
+		{"subcomponent ending in .lock", "refs/heads/main.lock/main", "", true},
 		// 2. They must contain at least one /. This enforces the presence of a category like heads/,
 		// tags/ etc. but the actual names are not restricted.
-		{"without a /", "one-level", ""},
-		{"with refs without a /", "refs", ""},
+		{"without a /", "one-level", "", false},
+		{"with refs without a /", "refs", "", false},
 		// We restrict this further by requiring a 'refs/' prefix to ensure loose references only end up
 		// in the 'refs/' folder.
-		{"without refs/ prefix ", "nonrefs/main", ""},
+		{"without refs/ prefix ", "nonrefs/main", "", false},
 		// 3. They cannot have two consecutive dots .. anywhere.
-		{"containing two consecutive dots", "refs/heads/../main", ""},
+		{"containing two consecutive dots", "refs/heads/../main", "", true},
 		// 4. They cannot have ASCII control characters ... (\177 DEL), space, tilde ~, caret ^, or colon : anywhere.
 		//
 		// Tests for control characters < \040 generated further down.
-		{"containing DEL", "refs/heads/ma\177in", "refs/heads/ma?in"},
-		{"containing space", "refs/heads/ma in", ""},
-		{"containing ~", "refs/heads/ma~in", ""},
-		{"containing ^", "refs/heads/ma^in", ""},
-		{"containing :", "refs/heads/ma:in", ""},
+		{"containing DEL", "refs/heads/ma\177in", "refs/heads/ma?in", true},
+		{"containing space", "refs/heads/ma in", "", true},
+		{"containing ~", "refs/heads/ma~in", "", true},
+		{"containing ^", "refs/heads/ma^in", "", true},
+		{"containing :", "refs/heads/ma:in", "", true},
 		// 5. They cannot have question-mark ?, asterisk *, or open bracket [ anywhere.
-		{"containing ?", "refs/heads/ma?in", ""},
-		{"containing *", "refs/heads/ma*in", ""},
-		{"containing [", "refs/heads/ma[in", ""},
+		{"containing ?", "refs/heads/ma?in", "", true},
+		{"containing *", "refs/heads/ma*in", "", true},
+		{"containing [", "refs/heads/ma[in", "", true},
 		// 6. They cannot begin or end with a slash / or contain multiple consecutive slashes
-		{"begins with /", "/refs/heads/main", ""},
-		{"ends with /", "refs/heads/main/", ""},
-		{"contains consecutive /", "refs/heads//main", ""},
+		{"begins with /", "/refs/heads/main", "", false},
+		{"ends with /", "refs/heads/main/", "", true},
+		{"contains consecutive /", "refs/heads//main", "", true},
 		// 7. They cannot end with a dot.
-		{"ending in a dot", "refs/heads/main.", ""},
+		{"ending in a dot", "refs/heads/main.", "", true},
 		// 8. They cannot contain a sequence @{.
-		{"invalid reference contains @{", "refs/heads/m@{n", ""},
+		{"invalid reference contains @{", "refs/heads/m@{n", "", true},
 		// 9. They cannot be the single character @.
-		{"is a single character @", "@", ""},
+		{"is a single character @", "@", "", false},
 		// 10. They cannot contain a \.
-		{`containing \`, `refs/heads\main`, `refs/heads\main`},
+		{`containing \`, `refs/heads\main`, `refs/heads\main`, true},
 	} {
 		appendInvalidReferenceTestCase(tc)
 	}
@@ -1533,10 +1542,16 @@ func TestTransactionManager(t *testing.T) {
 			expectedSubstitute = "?"
 		}
 
+		updateRefError := true
+		if i == '\000' || i == '\n' {
+			updateRefError = false
+		}
+
 		appendInvalidReferenceTestCase(invalidReferenceTestCase{
 			desc:             fmt.Sprintf(`containing ASCII control character %d`, i),
 			referenceName:    git.ReferenceName(invalidReference),
 			invalidReference: git.ReferenceName(fmt.Sprintf("refs/heads/ma%sin", expectedSubstitute)),
+			updateRefError:   updateRefError,
 		})
 	}
 
