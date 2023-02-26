@@ -73,8 +73,6 @@ type TreeEntry struct {
 	Mode string
 	// Path is the full path of the tree entry.
 	Path string
-	// Content is the content of the tree entry.
-	Content string
 	// Type is the type of the tree entry.
 	Type ObjectType
 }
