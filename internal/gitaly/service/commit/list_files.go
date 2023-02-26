@@ -6,6 +6,7 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/lstree"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
@@ -94,7 +95,7 @@ func (s *server) listFiles(repo git.RepositoryExecutor, revision string, stream 
 			return err
 		}
 
-		if entry.Type != lstree.Blob {
+		if entry.Type != localrepo.Blob {
 			continue
 		}
 

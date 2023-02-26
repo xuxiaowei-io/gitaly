@@ -46,7 +46,7 @@ func TestListEntries(t *testing.T) {
 		desc            string
 		treeish         git.Revision
 		cfg             *ListEntriesConfig
-		expectedResults []*Entry
+		expectedResults []*localrepo.TreeEntry
 		expectedErr     error
 	}{
 		{
@@ -56,23 +56,23 @@ func TestListEntries(t *testing.T) {
 		{
 			desc:    "tree with blob",
 			treeish: treeWithBlob.Revision(),
-			expectedResults: []*Entry{
-				{Mode: []byte("100755"), Type: Blob, ObjectID: blobID, Path: "executable"},
-				{Mode: []byte("100644"), Type: Blob, ObjectID: blobID, Path: "nonexecutable"},
+			expectedResults: []*localrepo.TreeEntry{
+				{Mode: "100755", Type: localrepo.Blob, OID: blobID, Path: "executable"},
+				{Mode: "100644", Type: localrepo.Blob, OID: blobID, Path: "nonexecutable"},
 			},
 		},
 		{
 			desc:    "tree with subtree",
 			treeish: treeWithSubtree.Revision(),
-			expectedResults: []*Entry{
-				{Mode: []byte("040000"), Type: Tree, ObjectID: emptyTreeID, Path: "subdir"},
+			expectedResults: []*localrepo.TreeEntry{
+				{Mode: "040000", Type: localrepo.Tree, OID: emptyTreeID, Path: "subdir"},
 			},
 		},
 		{
 			desc:    "nested trees",
 			treeish: treeWithNestedSubtrees.Revision(),
-			expectedResults: []*Entry{
-				{Mode: []byte("040000"), Type: Tree, ObjectID: treeWithSubtree, Path: "nested-subdir"},
+			expectedResults: []*localrepo.TreeEntry{
+				{Mode: "040000", Type: localrepo.Tree, OID: treeWithSubtree, Path: "nested-subdir"},
 			},
 		},
 		{
@@ -81,9 +81,9 @@ func TestListEntries(t *testing.T) {
 			cfg: &ListEntriesConfig{
 				Recursive: true,
 			},
-			expectedResults: []*Entry{
-				{Mode: []byte("040000"), Type: Tree, ObjectID: treeWithSubtree, Path: "nested-subdir"},
-				{Mode: []byte("040000"), Type: Tree, ObjectID: emptyTreeID, Path: "nested-subdir/subdir"},
+			expectedResults: []*localrepo.TreeEntry{
+				{Mode: "040000", Type: localrepo.Tree, OID: treeWithSubtree, Path: "nested-subdir"},
+				{Mode: "040000", Type: localrepo.Tree, OID: emptyTreeID, Path: "nested-subdir/subdir"},
 			},
 		},
 		{
@@ -92,8 +92,8 @@ func TestListEntries(t *testing.T) {
 			cfg: &ListEntriesConfig{
 				RelativePath: "nested-subdir",
 			},
-			expectedResults: []*Entry{
-				{Mode: []byte("040000"), Type: Tree, ObjectID: emptyTreeID, Path: "subdir"},
+			expectedResults: []*localrepo.TreeEntry{
+				{Mode: "040000", Type: localrepo.Tree, OID: emptyTreeID, Path: "subdir"},
 			},
 		},
 		{
@@ -103,10 +103,10 @@ func TestListEntries(t *testing.T) {
 				RelativePath: "subdir",
 				Recursive:    true,
 			},
-			expectedResults: []*Entry{
-				{Mode: []byte("100644"), Type: Blob, ObjectID: blobID, Path: "blob"},
-				{Mode: []byte("040000"), Type: Tree, ObjectID: treeWithSubtree, Path: "subdir"},
-				{Mode: []byte("040000"), Type: Tree, ObjectID: emptyTreeID, Path: "subdir/subdir"},
+			expectedResults: []*localrepo.TreeEntry{
+				{Mode: "100644", Type: localrepo.Blob, OID: blobID, Path: "blob"},
+				{Mode: "040000", Type: localrepo.Tree, OID: treeWithSubtree, Path: "subdir"},
+				{Mode: "040000", Type: localrepo.Tree, OID: emptyTreeID, Path: "subdir/subdir"},
 			},
 		},
 		{
@@ -115,10 +115,10 @@ func TestListEntries(t *testing.T) {
 			cfg: &ListEntriesConfig{
 				Recursive: true,
 			},
-			expectedResults: []*Entry{
-				{Mode: []byte("100644"), Type: Blob, ObjectID: blobID, Path: "blob"},
-				{Mode: []byte("040000"), Type: Tree, ObjectID: treeWithSubtree, Path: "subdir"},
-				{Mode: []byte("040000"), Type: Tree, ObjectID: emptyTreeID, Path: "subdir/subdir"},
+			expectedResults: []*localrepo.TreeEntry{
+				{Mode: "100644", Type: localrepo.Blob, OID: blobID, Path: "blob"},
+				{Mode: "040000", Type: localrepo.Tree, OID: treeWithSubtree, Path: "subdir"},
+				{Mode: "040000", Type: localrepo.Tree, OID: emptyTreeID, Path: "subdir/subdir"},
 			},
 		},
 		{

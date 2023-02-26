@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 )
 
 // ErrParse is returned when the parse of an entry was unsuccessful
@@ -27,9 +28,8 @@ func NewParser(src io.Reader, objectHash git.ObjectHash) *Parser {
 }
 
 // NextEntry reads a tree entry as it would be written by `git ls-tree -z`.
-func (p *Parser) NextEntry() (*Entry, error) {
+func (p *Parser) NextEntry() (*localrepo.TreeEntry, error) {
 	// Each tree entry is expected to have a format of `<mode> SP <type> SP <objectid> TAB <path> NUL`.
-
 	treeEntryMode, err := p.reader.ReadBytes(' ')
 	if err != nil {
 		if errors.Is(err, io.EOF) {
@@ -58,21 +58,16 @@ func (p *Parser) NextEntry() (*Entry, error) {
 	}
 	treeEntryPath = treeEntryPath[:len(treeEntryPath)-1]
 
-	objectType, err := toEnum(string(treeEntryType))
-	if err != nil {
-		return nil, err
-	}
-
 	objectID, err := p.objectHash.FromHex(string(treeEntryID))
 	if err != nil {
 		return nil, err
 	}
 
-	return &Entry{
-		Mode:     treeEntryMode,
-		Type:     objectType,
-		ObjectID: objectID,
-		Path:     string(treeEntryPath),
+	return &localrepo.TreeEntry{
+		Mode: string(treeEntryMode),
+		OID:  objectID,
+		Path: string(treeEntryPath),
+		Type: localrepo.ToEnum(string(treeEntryType)),
 	}, nil
 }
 
@@ -87,17 +82,4 @@ func (p *Parser) NextEntryPath() ([]byte, error) {
 		return nil, fmt.Errorf("reading path: %w", err)
 	}
 	return treeEntryPath[:len(treeEntryPath)-1], nil
-}
-
-func toEnum(s string) (ObjectType, error) {
-	switch s {
-	case "tree":
-		return Tree, nil
-	case "blob":
-		return Blob, nil
-	case "commit":
-		return Submodule, nil
-	default:
-		return -1, ErrParse
-	}
 }
