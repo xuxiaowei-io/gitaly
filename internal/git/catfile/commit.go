@@ -10,15 +10,11 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/trailerparser"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/tracing"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
 // GetCommit looks up a commit by revision using an existing Batch instance.
 func GetCommit(ctx context.Context, objectReader ObjectContentReader, revision git.Revision) (*gitalypb.GitCommit, error) {
-	span, ctx := tracing.StartSpanIfHasParent(ctx, "catfile.GetCommit", tracing.Tags{"revision": revision.String()})
-	defer span.Finish()
-
 	object, err := objectReader.Object(ctx, revision+"^{commit}")
 	if err != nil {
 		return nil, err
@@ -36,9 +32,6 @@ func GetCommitWithTrailers(
 	objectReader ObjectContentReader,
 	revision git.Revision,
 ) (*gitalypb.GitCommit, error) {
-	span, ctx := tracing.StartSpanIfHasParent(ctx, "catfile.GetCommitWithTrailers", tracing.Tags{"revision": revision.String()})
-	defer span.Finish()
-
 	commit, err := GetCommit(ctx, objectReader, revision)
 	if err != nil {
 		return nil, err
@@ -75,9 +68,6 @@ func GetCommitWithTrailers(
 
 // GetCommitMessage looks up a commit message and returns it in its entirety.
 func GetCommitMessage(ctx context.Context, objectReader ObjectContentReader, repo repository.GitRepo, revision git.Revision) ([]byte, error) {
-	span, ctx := tracing.StartSpanIfHasParent(ctx, "catfile.GetCommitMessage", tracing.Tags{"revision": revision.String()})
-	defer span.Finish()
-
 	obj, err := objectReader.Object(ctx, revision+"^{commit}")
 	if err != nil {
 		return nil, err
