@@ -575,6 +575,10 @@ func (cfg *Cfg) validateCgroups() error {
 		return errors.New("cgroups.repositories: cpu shares cannot exceed parent")
 	}
 
+	if cg.CPUQuotaUs > 0 && (cg.Repositories.CPUQuotaUs > cg.CPUQuotaUs) {
+		return errors.New("cgroups.repositories: cpu quota cannot exceed parent")
+	}
+
 	return nil
 }
 

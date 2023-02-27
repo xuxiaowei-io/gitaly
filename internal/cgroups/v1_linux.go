@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/containerd/cgroups"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
@@ -15,13 +16,20 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/log"
 )
 
+// cfs_period_us hardcoded to be 100ms.
+const cfsPeriodUs uint64 = 100000
+
 // CGroupV1Manager is the manager for cgroups v1
 type CGroupV1Manager struct {
-	cfg                                  cgroupscfg.Config
-	hierarchy                            func() ([]cgroups.Subsystem, error)
-	memoryReclaimAttemptsTotal, cpuUsage *prometheus.GaugeVec
-	procs                                *prometheus.GaugeVec
-	pid                                  int
+	cfg                        cgroupscfg.Config
+	hierarchy                  func() ([]cgroups.Subsystem, error)
+	memoryReclaimAttemptsTotal *prometheus.GaugeVec
+	cpuUsage                   *prometheus.GaugeVec
+	cpuCFSPeriods              *prometheus.Desc
+	cpuCFSThrottledPeriods     *prometheus.Desc
+	cpuCFSThrottledTime        *prometheus.Desc
+	procs                      *prometheus.GaugeVec
+	pid                        int
 }
 
 func newV1Manager(cfg cgroupscfg.Config, pid int) *CGroupV1Manager {
@@ -45,6 +53,21 @@ func newV1Manager(cfg cgroupscfg.Config, pid int) *CGroupV1Manager {
 			},
 			[]string{"path", "type"},
 		),
+		cpuCFSPeriods: prometheus.NewDesc(
+			"gitaly_cgroup_cpu_cfs_periods_total",
+			"Number of elapsed enforcement period intervals",
+			[]string{"path"}, nil,
+		),
+		cpuCFSThrottledPeriods: prometheus.NewDesc(
+			"gitaly_cgroup_cpu_cfs_throttled_periods_total",
+			"Number of throttled period intervals",
+			[]string{"path"}, nil,
+		),
+		cpuCFSThrottledTime: prometheus.NewDesc(
+			"gitaly_cgroup_cpu_cfs_throttled_seconds_total",
+			"Total time duration the Cgroup has been throttled",
+			[]string{"path"}, nil,
+		),
 		procs: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: "gitaly_cgroup_procs_total",
@@ -57,10 +80,19 @@ func newV1Manager(cfg cgroupscfg.Config, pid int) *CGroupV1Manager {
 
 //nolint:revive // This is unintentionally missing documentation.
 func (cg *CGroupV1Manager) Setup() error {
+	cfsPeriodUs := cfsPeriodUs
+
 	var parentResources specs.LinuxResources
+	// Leave them `nil` so it takes kernel default unless cfg value above `0`.
+	parentResources.CPU = &specs.LinuxCPU{}
 
 	if cg.cfg.CPUShares > 0 {
-		parentResources.CPU = &specs.LinuxCPU{Shares: &cg.cfg.CPUShares}
+		parentResources.CPU.Shares = &cg.cfg.CPUShares
+	}
+
+	if cg.cfg.CPUQuotaUs > 0 {
+		parentResources.CPU.Quota = &cg.cfg.CPUQuotaUs
+		parentResources.CPU.Period = &cfsPeriodUs
 	}
 
 	if cg.cfg.MemoryBytes > 0 {
@@ -76,9 +108,16 @@ func (cg *CGroupV1Manager) Setup() error {
 	}
 
 	var reposResources specs.LinuxResources
+	// Leave them `nil` so it takes kernel default unless cfg value above `0`.
+	reposResources.CPU = &specs.LinuxCPU{}
 
 	if cg.cfg.Repositories.CPUShares > 0 {
-		reposResources.CPU = &specs.LinuxCPU{Shares: &cg.cfg.Repositories.CPUShares}
+		reposResources.CPU.Shares = &cg.cfg.Repositories.CPUShares
+	}
+
+	if cg.cfg.Repositories.CPUQuotaUs > 0 {
+		reposResources.CPU.Quota = &cg.cfg.Repositories.CPUQuotaUs
+		reposResources.CPU.Period = &cfsPeriodUs
 	}
 
 	if cg.cfg.Repositories.MemoryBytes > 0 {
@@ -175,6 +214,27 @@ func (cg *CGroupV1Manager) Collect(ch chan<- prometheus.Metric) {
 			cpuUserMetric := cg.cpuUsage.WithLabelValues(repoPath, "user")
 			cpuUserMetric.Set(float64(metrics.CPU.Usage.User))
 			ch <- cpuUserMetric
+
+			ch <- prometheus.MustNewConstMetric(
+				cg.cpuCFSPeriods,
+				prometheus.CounterValue,
+				float64(metrics.CPU.Throttling.Periods),
+				repoPath,
+			)
+
+			ch <- prometheus.MustNewConstMetric(
+				cg.cpuCFSThrottledPeriods,
+				prometheus.CounterValue,
+				float64(metrics.CPU.Throttling.ThrottledPeriods),
+				repoPath,
+			)
+
+			ch <- prometheus.MustNewConstMetric(
+				cg.cpuCFSThrottledTime,
+				prometheus.CounterValue,
+				float64(metrics.CPU.Throttling.ThrottledTime)/float64(time.Second),
+				repoPath,
+			)
 
 			cpuKernelMetric := cg.cpuUsage.WithLabelValues(repoPath, "kernel")
 			cpuKernelMetric.Set(float64(metrics.CPU.Usage.Kernel))
