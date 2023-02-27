@@ -4,11 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"net"
-	"os"
-	"path/filepath"
-
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
 	"gitlab.com/gitlab-org/gitaly/v15/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
@@ -20,8 +15,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 	"gitlab.com/gitlab-org/labkit/tracing"
+	grpctracing "gitlab.com/gitlab-org/labkit/tracing/grpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
+	"io"
+	"net"
+	"os"
+	"path/filepath"
 )
 
 type hookError struct {
@@ -85,6 +85,7 @@ func run(args []string) error {
 
 		switch subCmd {
 		case "git":
+			tracing.Initialize(tracing.WithServiceName("gitaly-hooks-git"))
 			return executeHook(hookCommand{
 				exec:     packObjectsHook,
 				hookType: git.PackObjectsHook,
@@ -99,6 +100,7 @@ func run(args []string) error {
 			return fmt.Errorf("subcommand name invalid: %q", hookName)
 		}
 
+		tracing.Initialize(tracing.WithServiceName(fmt.Sprintf("gitaly-hooks-%s", hookName)))
 		return executeHook(hookCommand, args[1:])
 	}
 }
@@ -150,6 +152,9 @@ func dialGitaly(payload git.HooksPayload) (*grpc.ClientConn, error) {
 	if payload.InternalSocketToken != "" {
 		dialOpts = append(dialOpts, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(payload.InternalSocketToken)))
 	}
+
+	dialOpts = append(dialOpts, grpc.WithUnaryInterceptor(grpctracing.UnaryClientTracingInterceptor()))
+	dialOpts = append(dialOpts, grpc.WithStreamInterceptor(grpctracing.StreamClientTracingInterceptor()))
 
 	conn, err := client.Dial("unix://"+payload.InternalSocket, dialOpts)
 	if err != nil {
