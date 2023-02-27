@@ -12,7 +12,12 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
+	labkittracing "gitlab.com/gitlab-org/labkit/tracing"
 )
+
+// envInjector is responsible for injecting environment variables required for tracing into
+// the child process.
+var envInjector = labkittracing.NewEnvInjector()
 
 // WithDisabledHooks returns an option that satisfies the requirement to set up
 // hooks, but won't in fact set up hook execution.
@@ -124,6 +129,7 @@ func (cc *cmdCfg) configureHooks(
 		payload,
 		fmt.Sprintf("%s=%s", log.GitalyLogDirEnvKey, cfg.Logging.Dir),
 	)
+	cc.env = envInjector(ctx, cc.env)
 
 	cc.globals = append(cc.globals, ConfigPair{Key: "core.hooksPath", Value: gitCmdFactory.HooksPath(ctx)})
 	cc.hooksConfigured = true

@@ -69,6 +69,8 @@ func envForHooks(tb testing.TB, ctx context.Context, cfg config.Cfg, repo *gital
 	env := append(command.AllowedEnvironment(os.Environ()), []string{
 		payload,
 		fmt.Sprintf("%s=%s", gitalylog.GitalyLogDirEnvKey, cfg.Logging.Dir),
+		"GITLAB_TRACING=opentracing://jaeger",
+		"user-tracer-id=1:2:3:4",
 	}...)
 	env = append(env, gitPushOptions...)
 
