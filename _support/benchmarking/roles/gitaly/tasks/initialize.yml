@@ -4,6 +4,13 @@
     user: root
     key: "{{ hostvars[groups['client'][0]]['client_ssh_key'] | b64decode }}"
 
+# needed for Ansible > 4.0 https://github.com/ansible/ansible/issues/74830
+- name: Install acl
+  apt:
+    name:
+      - acl
+    state: present
+
 # Set high uid to ensure it's not squashed by another service
 - name: Create 'git' user
   user:

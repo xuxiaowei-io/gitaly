@@ -1,2 +1,2 @@
 #!/bin/sh
-exec ansible-playbook -l localhost create.yml "$@"
+exec ansible-playbook -i localhost, create.yml "$@"
