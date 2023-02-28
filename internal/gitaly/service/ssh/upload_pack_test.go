@@ -663,7 +663,7 @@ func TestUploadPack_packObjectsHook(t *testing.T) {
 	// special, but writes an error message and errors out and should thus
 	// cause the clone to fail with this error message.
 	testhelper.WriteExecutable(t, cfg.BinaryPath("gitaly-hooks"), []byte(fmt.Sprintf(
-		`#!/bin/bash
+		`#!/usr/bin/env bash
 		set -eo pipefail
 		echo 'I was invoked' >'%s'
 		shift

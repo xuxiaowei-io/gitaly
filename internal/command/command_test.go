@@ -263,7 +263,7 @@ func TestNew_missingBinary(t *testing.T) {
 func TestCommand_stderrLogging(t *testing.T) {
 	t.Parallel()
 
-	binaryPath := testhelper.WriteExecutable(t, filepath.Join(testhelper.TempDir(t), "script"), []byte(`#!/bin/bash
+	binaryPath := testhelper.WriteExecutable(t, filepath.Join(testhelper.TempDir(t), "script"), []byte(`#!/usr/bin/env bash
 		for i in {1..5}
 		do
 			echo 'hello world' 1>&2
@@ -287,7 +287,7 @@ func TestCommand_stderrLogging(t *testing.T) {
 func TestCommand_stderrLoggingTruncation(t *testing.T) {
 	t.Parallel()
 
-	binaryPath := testhelper.WriteExecutable(t, filepath.Join(testhelper.TempDir(t), "script"), []byte(`#!/bin/bash
+	binaryPath := testhelper.WriteExecutable(t, filepath.Join(testhelper.TempDir(t), "script"), []byte(`#!/usr/bin/env bash
 		for i in {1..1000}
 		do
 			printf '%06d zzzzzzzzzz\n' $i >&2
@@ -311,7 +311,7 @@ func TestCommand_stderrLoggingTruncation(t *testing.T) {
 func TestCommand_stderrLoggingWithNulBytes(t *testing.T) {
 	t.Parallel()
 
-	binaryPath := testhelper.WriteExecutable(t, filepath.Join(testhelper.TempDir(t), "script"), []byte(`#!/bin/bash
+	binaryPath := testhelper.WriteExecutable(t, filepath.Join(testhelper.TempDir(t), "script"), []byte(`#!/usr/bin/env bash
 		dd if=/dev/zero bs=1000 count=1000 status=none >&2
 		exit 1
 	`))
@@ -332,7 +332,7 @@ func TestCommand_stderrLoggingWithNulBytes(t *testing.T) {
 func TestCommand_stderrLoggingLongLine(t *testing.T) {
 	t.Parallel()
 
-	binaryPath := testhelper.WriteExecutable(t, filepath.Join(testhelper.TempDir(t), "script"), []byte(`#!/bin/bash
+	binaryPath := testhelper.WriteExecutable(t, filepath.Join(testhelper.TempDir(t), "script"), []byte(`#!/usr/bin/env bash
 		printf 'a%.0s' {1..8192} >&2
 		printf '\n' >&2
 		printf 'b%.0s' {1..8192} >&2
@@ -361,7 +361,7 @@ func TestCommand_stderrLoggingLongLine(t *testing.T) {
 func TestCommand_stderrLoggingMaxBytes(t *testing.T) {
 	t.Parallel()
 
-	binaryPath := testhelper.WriteExecutable(t, filepath.Join(testhelper.TempDir(t), "script"), []byte(`#!/bin/bash
+	binaryPath := testhelper.WriteExecutable(t, filepath.Join(testhelper.TempDir(t), "script"), []byte(`#!/usr/bin/env bash
 		# This script is used to test that a command writes at most maxBytes to stderr. It
 		# simulates the edge case where the logwriter has already written MaxStderrBytes-1
 		# (9999) bytes

@@ -340,7 +340,7 @@ func TestAuthBeforeLimit(t *testing.T) {
 	}(gitalyauth.TokenValidityDuration())
 	gitalyauth.SetTokenValidityDuration(5 * time.Second)
 
-	gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte(fmt.Sprintf(`#!/bin/bash
+	gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte(fmt.Sprintf(`#!/usr/bin/env bash
 sleep %v
 `, gitalyauth.TokenValidityDuration().Seconds())))
 

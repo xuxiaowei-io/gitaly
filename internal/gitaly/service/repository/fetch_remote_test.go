@@ -955,7 +955,7 @@ func TestFetchRemote_sshCommand(t *testing.T) {
 	// which simply prints the GIT_SSH_COMMAND environment variable.
 	gitCmdFactory := gittest.NewInterceptingCommandFactory(t, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
 		return fmt.Sprintf(
-			`#!/bin/bash
+			`#!/usr/bin/env bash
 
 			if test -z "$GIT_SSH_COMMAND"
 			then

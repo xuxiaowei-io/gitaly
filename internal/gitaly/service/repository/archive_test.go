@@ -481,7 +481,7 @@ func TestGetArchive_environment(t *testing.T) {
 	// Intercept commands to git-archive(1) to print the environment. Note that we continue to
 	// execute any other Git commands so that the command factory behaves as expected.
 	gitCmdFactory := gittest.NewInterceptingCommandFactory(t, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
-		return fmt.Sprintf(`#!/bin/bash
+		return fmt.Sprintf(`#!/usr/bin/env bash
 		if [[ ! "$@" =~ "archive" ]]; then
 			exec %q "$@"
 		fi

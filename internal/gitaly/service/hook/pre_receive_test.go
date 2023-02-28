@@ -335,7 +335,7 @@ func TestPreReceiveHook_CustomHookErrors(t *testing.T) {
 	customHookReturnCode := int32(128)
 	customHookReturnMsg := "custom hook error"
 
-	gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte(fmt.Sprintf(`#!/bin/bash
+	gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte(fmt.Sprintf(`#!/usr/bin/env bash
 echo '%s' 1>&2
 exit %d
 `, customHookReturnMsg, customHookReturnCode)))
@@ -467,7 +467,7 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 				Seed: gittest.SeedGitLabTest,
 			})
 
-			gittest.WriteCustomHook(t, testRepoPath, "pre-receive", []byte(fmt.Sprintf("#!/bin/bash\nexit %d", tc.hookExitCode)))
+			gittest.WriteCustomHook(t, testRepoPath, "pre-receive", []byte(fmt.Sprintf("#!/usr/bin/env bash\nexit %d", tc.hookExitCode)))
 
 			client, conn := newHooksClient(t, cfg.SocketPath)
 			defer conn.Close()

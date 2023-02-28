@@ -67,7 +67,7 @@ func TestUpdate_CustomHooks(t *testing.T) {
 	}
 
 	errorMsg := "error123"
-	gittest.WriteCustomHook(t, repoPath, "update", []byte(fmt.Sprintf(`#!/bin/bash
+	gittest.WriteCustomHook(t, repoPath, "update", []byte(fmt.Sprintf(`#!/usr/bin/env bash
 echo %s 1>&2
 exit 1
 `, errorMsg)))

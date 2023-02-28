@@ -280,7 +280,7 @@ func TestUserDeleteTag_hooks(t *testing.T) {
 func writeAssertObjectTypePreReceiveHook(t *testing.T, repoPath, expectedObjectType string) {
 	t.Helper()
 
-	gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte(fmt.Sprintf(`#!/bin/bash
+	gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte(fmt.Sprintf(`#!/usr/bin/env bash
 		i=0
 		while read oldvalue newvalue reference
 		do
@@ -310,7 +310,7 @@ func writeAssertObjectTypePreReceiveHook(t *testing.T, repoPath, expectedObjectT
 func writeAssertObjectTypeUpdateHook(t *testing.T, repoPath, expectedObjectType string) {
 	t.Helper()
 
-	gittest.WriteCustomHook(t, repoPath, "update", []byte(fmt.Sprintf(`#!/bin/bash
+	gittest.WriteCustomHook(t, repoPath, "update", []byte(fmt.Sprintf(`#!/usr/bin/env bash
 		if [[ "$1" =~ skip-type-check- ]]
 		then
 			exit 0

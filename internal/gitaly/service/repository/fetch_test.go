@@ -376,7 +376,7 @@ func TestFetchSourceBranch(t *testing.T) {
 				// with status 1, this will actually fetch the refs but gitaly will think
 				// git failed.
 				gitCmdFactory := gittest.NewInterceptingCommandFactory(t, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
-					return fmt.Sprintf(`#!/bin/bash
+					return fmt.Sprintf(`#!/usr/bin/env bash
 						if [[ "$@" =~ "fetch" ]]; then
 							%q "$@"
 							exit 1
