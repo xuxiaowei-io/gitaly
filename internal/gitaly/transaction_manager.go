@@ -158,6 +158,7 @@ type TransactionManager struct {
 type repository interface {
 	git.RepositoryExecutor
 	ResolveRevision(context.Context, git.Revision) (git.ObjectID, error)
+	SetDefaultBranch(ctx context.Context, txManager transaction.Manager, reference git.ReferenceName) error
 }
 
 // NewTransactionManager returns a new TransactionManager for the given repository.
