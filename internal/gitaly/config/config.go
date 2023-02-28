@@ -422,7 +422,7 @@ func ParsePackObjectsLimitingKey(k string) (PackObjectsLimitingKey, error) {
 	case PackObjectsLimitingKeyRepository:
 		return PackObjectsLimitingKeyRepository, nil
 	default:
-		return "", fmt.Errorf("unsupported pack objects limiting key: %s", k)
+		return "", fmt.Errorf("unsupported pack objects limiting key: %q", k)
 	}
 }
 
@@ -445,10 +445,17 @@ type PackObjectsLimiting struct {
 	Key PackObjectsLimitingKey `toml:"key,omitempty" json:"key,omitempty"`
 	// MaxConcurrency is the maximum number of concurrent pack objects processes
 	// for a given key.
-	MaxConcurrency int `toml:"max_concurrency,omitempty" json:"max_concurrency,omitempty"`
+	MaxConcurrency uint `toml:"max_concurrency,omitempty" json:"max_concurrency,omitempty"`
 	// MaxQueueWait is the maximum time a request can remain in the concurrency queue
 	// waiting to be picked up by Gitaly.
 	MaxQueueWait duration.Duration `toml:"max_queue_wait,omitempty" json:"max_queue_wait,omitempty"`
+}
+
+// Validate runs validation on all fields and compose all found errors.
+func (pol PackObjectsLimiting) Validate() error {
+	return cfgerror.New().
+		Append(cfgerror.IsPositive(pol.MaxQueueWait.Duration()), "max_queue_wait").
+		AsError()
 }
 
 // StreamCacheConfig contains settings for a streamcache instance.

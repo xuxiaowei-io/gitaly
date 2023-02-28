@@ -1719,7 +1719,7 @@ func TestPackObjectsLimiting(t *testing.T) {
 			max_concurrency = 10
 			max_queue_wait = "1m"
 			`,
-			expectedErrString: "unsupported pack objects limiting key: project",
+			expectedErrString: `unsupported pack objects limiting key: "project"`,
 		},
 	}
 
@@ -1737,6 +1737,21 @@ func TestPackObjectsLimiting(t *testing.T) {
 			require.Equal(t, tc.expectedCfg, cfg.PackObjectsLimiting)
 		})
 	}
+}
+
+func TestPackObjectsLimiting_Validate(t *testing.T) {
+	t.Parallel()
+	require.NoError(t, PackObjectsLimiting{MaxQueueWait: duration.Duration(1)}.Validate())
+	require.Equal(
+		t,
+		cfgerror.ValidationErrors{
+			cfgerror.NewValidationError(
+				fmt.Errorf("%w: -1m0s", cfgerror.ErrIsNegative),
+				"max_queue_wait",
+			),
+		},
+		PackObjectsLimiting{MaxQueueWait: duration.Duration(-time.Minute)}.Validate(),
+	)
 }
 
 func TestStorage_Validate(t *testing.T) {
