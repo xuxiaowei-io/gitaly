@@ -1,7 +1,6 @@
 package housekeeping_test
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -23,7 +22,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
@@ -32,23 +30,10 @@ import (
 
 func TestPruneIfNeeded(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(
-		featureflag.WriteMultiPackIndex,
-	).Run(t, testPruneIfNeeded)
-}
 
-func testPruneIfNeeded(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
-
-	midxEnabledOrDisabled := func(enabled, disabled map[string]string) map[string]string {
-		if featureflag.WriteMultiPackIndex.IsEnabled(ctx) {
-			return enabled
-		}
-		return disabled
-	}
 
 	for _, tc := range []struct {
 		desc               string
@@ -67,34 +52,22 @@ func testPruneIfNeeded(t *testing.T, ctx context.Context) {
 			looseObjects: []string{
 				filepath.Join("ab/12345"),
 			},
-			expectedLogEntries: midxEnabledOrDisabled(
-				map[string]string{
-					"packed_objects_incremental": "success",
-					"written_bitmap":             "success",
-					"written_multi_pack_index":   "success",
-				},
-				map[string]string{
-					"packed_objects_full": "success",
-					"written_bitmap":      "success",
-				},
-			),
+			expectedLogEntries: map[string]string{
+				"packed_objects_incremental": "success",
+				"written_bitmap":             "success",
+				"written_multi_pack_index":   "success",
+			},
 		},
 		{
 			desc: "object in 17 shard",
 			looseObjects: []string{
 				filepath.Join("17/12345"),
 			},
-			expectedLogEntries: midxEnabledOrDisabled(
-				map[string]string{
-					"packed_objects_incremental": "success",
-					"written_bitmap":             "success",
-					"written_multi_pack_index":   "success",
-				},
-				map[string]string{
-					"packed_objects_full": "success",
-					"written_bitmap":      "success",
-				},
-			),
+			expectedLogEntries: map[string]string{
+				"packed_objects_incremental": "success",
+				"written_bitmap":             "success",
+				"written_multi_pack_index":   "success",
+			},
 		},
 		{
 			desc: "objects in different shards",
@@ -104,17 +77,11 @@ func testPruneIfNeeded(t *testing.T, ctx context.Context) {
 				filepath.Join("12/12345"),
 				filepath.Join("17/12345"),
 			},
-			expectedLogEntries: midxEnabledOrDisabled(
-				map[string]string{
-					"packed_objects_incremental": "success",
-					"written_bitmap":             "success",
-					"written_multi_pack_index":   "success",
-				},
-				map[string]string{
-					"packed_objects_full": "success",
-					"written_bitmap":      "success",
-				},
-			),
+			expectedLogEntries: map[string]string{
+				"packed_objects_incremental": "success",
+				"written_bitmap":             "success",
+				"written_multi_pack_index":   "success",
+			},
 		},
 		{
 			desc:   "exceeding boundary on pool",
@@ -130,17 +97,11 @@ func testPruneIfNeeded(t *testing.T, ctx context.Context) {
 
 				return looseObjects
 			}(),
-			expectedLogEntries: midxEnabledOrDisabled(
-				map[string]string{
-					"packed_objects_incremental": "success",
-					"written_bitmap":             "success",
-					"written_multi_pack_index":   "success",
-				},
-				map[string]string{
-					"packed_objects_full": "success",
-					"written_bitmap":      "success",
-				},
-			),
+			expectedLogEntries: map[string]string{
+				"packed_objects_incremental": "success",
+				"written_bitmap":             "success",
+				"written_multi_pack_index":   "success",
+			},
 		},
 		{
 			desc: "on boundary shouldn't prune",
@@ -159,17 +120,11 @@ func testPruneIfNeeded(t *testing.T, ctx context.Context) {
 				t := time.Now().Add(stats.StaleObjectsGracePeriod).Add(-1 * time.Minute)
 				return &t
 			}(),
-			expectedLogEntries: midxEnabledOrDisabled(
-				map[string]string{
-					"packed_objects_incremental": "success",
-					"written_bitmap":             "success",
-					"written_multi_pack_index":   "success",
-				},
-				map[string]string{
-					"packed_objects_full": "success",
-					"written_bitmap":      "success",
-				},
-			),
+			expectedLogEntries: map[string]string{
+				"packed_objects_incremental": "success",
+				"written_bitmap":             "success",
+				"written_multi_pack_index":   "success",
+			},
 		},
 		{
 			desc: "exceeding boundary should prune",
@@ -188,19 +143,12 @@ func testPruneIfNeeded(t *testing.T, ctx context.Context) {
 				t := time.Now().Add(stats.StaleObjectsGracePeriod).Add(-1 * time.Minute)
 				return &t
 			}(),
-			expectedLogEntries: midxEnabledOrDisabled(
-				map[string]string{
-					"packed_objects_incremental": "success",
-					"pruned_objects":             "success",
-					"written_bitmap":             "success",
-					"written_multi_pack_index":   "success",
-				},
-				map[string]string{
-					"packed_objects_full": "success",
-					"pruned_objects":      "success",
-					"written_bitmap":      "success",
-				},
-			),
+			expectedLogEntries: map[string]string{
+				"packed_objects_incremental": "success",
+				"pruned_objects":             "success",
+				"written_bitmap":             "success",
+				"written_multi_pack_index":   "success",
+			},
 		},
 	} {
 		tc := tc
@@ -241,27 +189,14 @@ func testPruneIfNeeded(t *testing.T, ctx context.Context) {
 
 func TestOptimizeRepository_objectPoolMember(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(
-		featureflag.WriteMultiPackIndex,
-	).Run(t, testOptimizeRepositoryObjectPoolMember)
-}
 
-func testOptimizeRepositoryObjectPoolMember(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
 	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
 	manager := housekeeping.NewManager(cfg.Prometheus, txManager)
 	catfileCache := catfile.NewCache(cfg)
 	defer catfileCache.Stop()
-
-	midxEnabledOrDisabled := func(enabled, disabled map[string]string) map[string]string {
-		if featureflag.WriteMultiPackIndex.IsEnabled(ctx) {
-			return enabled
-		}
-		return disabled
-	}
 
 	for _, tc := range []struct {
 		desc                string
@@ -273,37 +208,24 @@ func testOptimizeRepositoryObjectPoolMember(t *testing.T, ctx context.Context) {
 			strategyConstructor: func(repoInfo stats.RepositoryInfo) housekeeping.OptimizationStrategy {
 				return housekeeping.NewEagerOptimizationStrategy(repoInfo)
 			},
-			expectedLogEntries: midxEnabledOrDisabled(
-				map[string]string{
-					"packed_refs":               "success",
-					"packed_objects_full":       "success",
-					"pruned_objects":            "success",
-					"written_commit_graph_full": "success",
-					"written_multi_pack_index":  "success",
-				},
-				map[string]string{
-					"packed_refs":               "success",
-					"packed_objects_full":       "success",
-					"pruned_objects":            "success",
-					"written_commit_graph_full": "success",
-				},
-			),
+			expectedLogEntries: map[string]string{
+				"packed_refs":               "success",
+				"packed_objects_full":       "success",
+				"pruned_objects":            "success",
+				"written_commit_graph_full": "success",
+				"written_multi_pack_index":  "success",
+			},
 		},
 		{
 			desc: "heuristical",
 			strategyConstructor: func(repoInfo stats.RepositoryInfo) housekeeping.OptimizationStrategy {
 				return housekeeping.NewHeuristicalOptimizationStrategy(repoInfo)
 			},
-			expectedLogEntries: midxEnabledOrDisabled(
-				map[string]string{
-					"packed_objects_incremental": "success",
-					"written_commit_graph_full":  "success",
-					"written_multi_pack_index":   "success",
-				},
-				map[string]string{
-					"written_commit_graph_full": "success",
-				},
-			),
+			expectedLogEntries: map[string]string{
+				"packed_objects_incremental": "success",
+				"written_commit_graph_full":  "success",
+				"written_multi_pack_index":   "success",
+			},
 		},
 	} {
 		tc := tc

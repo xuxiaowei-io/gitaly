@@ -5,7 +5,6 @@ import (
 	"math"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 )
 
 // OptimizationStrategy is an interface to determine which parts of a repository should be
@@ -48,26 +47,6 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 	// to repack anything.
 	if s.info.Packfiles.Count == 0 && s.info.LooseObjects.Count == 0 {
 		return false, RepackObjectsConfig{}
-	}
-
-	// Bitmaps are used to efficiently determine transitive reachability of objects from a
-	// set of commits. They are an essential part of the puzzle required to serve fetches
-	// efficiently, as we'd otherwise need to traverse the object graph every time to find
-	// which objects we have to send. We thus repack the repository with bitmaps enabled in
-	// case they're missing.
-	//
-	// There is one exception: repositories which are connected to an object pool must not have
-	// a bitmap on their own as Git cannot cope writing bitmaps when a repository does not have
-	// the full closure of objects in its own object database.
-	//
-	// Note that we only do a full repack in case multi-pack-indices are disabled. This is
-	// because we can write bitmaps with an incremental repack when we also write an MIDX, so we
-	// instead handle this case further down.
-	if featureflag.WriteMultiPackIndex.IsDisabled(ctx) && !s.info.Packfiles.Bitmap.Exists && len(s.info.Alternates) == 0 {
-		return true, RepackObjectsConfig{
-			FullRepack:  true,
-			WriteBitmap: true,
-		}
 	}
 
 	// Whenever we do an incremental repack we create a new packfile, and as a result Git may
@@ -113,7 +92,7 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 		return true, RepackObjectsConfig{
 			FullRepack:          true,
 			WriteBitmap:         len(s.info.Alternates) == 0,
-			WriteMultiPackIndex: featureflag.WriteMultiPackIndex.IsEnabled(ctx),
+			WriteMultiPackIndex: true,
 		}
 	}
 
@@ -135,14 +114,14 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 			FullRepack: false,
 			// Without multi-pack-index we cannot write bitmaps during an incremental
 			// repack.
-			WriteBitmap:         len(s.info.Alternates) == 0 && featureflag.WriteMultiPackIndex.IsEnabled(ctx),
-			WriteMultiPackIndex: featureflag.WriteMultiPackIndex.IsEnabled(ctx),
+			WriteBitmap:         len(s.info.Alternates) == 0,
+			WriteMultiPackIndex: true,
 		}
 	}
 
 	// In case both packfiles and loose objects are in a good state, but we don't yet have a
 	// multi-pack-index we perform an incremental repack to generate one.
-	if featureflag.WriteMultiPackIndex.IsEnabled(ctx) && !s.info.Packfiles.HasMultiPackIndex {
+	if !s.info.Packfiles.HasMultiPackIndex {
 		return true, RepackObjectsConfig{
 			FullRepack:          false,
 			WriteBitmap:         len(s.info.Alternates) == 0,
@@ -268,7 +247,7 @@ func (s EagerOptimizationStrategy) ShouldRepackObjects(ctx context.Context) (boo
 	return true, RepackObjectsConfig{
 		FullRepack:          true,
 		WriteBitmap:         len(s.info.Alternates) == 0,
-		WriteMultiPackIndex: featureflag.WriteMultiPackIndex.IsEnabled(ctx),
+		WriteMultiPackIndex: true,
 	}
 }
 

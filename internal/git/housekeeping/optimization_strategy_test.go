@@ -7,17 +7,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
 
 func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.WriteMultiPackIndex).Run(t, testHeuristicalOptimizationStrategyShouldRepackObjects)
-}
 
-func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
 		desc           string
@@ -44,9 +40,9 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 			},
 			expectedNeeded: true,
 			expectedConfig: RepackObjectsConfig{
-				FullRepack:          featureflag.WriteMultiPackIndex.IsDisabled(ctx),
+				FullRepack:          false,
 				WriteBitmap:         true,
-				WriteMultiPackIndex: featureflag.WriteMultiPackIndex.IsEnabled(ctx),
+				WriteMultiPackIndex: true,
 			},
 		},
 		{
@@ -68,16 +64,10 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 			//
 			// This changes though with multi-pack-indices, which allow for bitmaps to
 			// exist in pooled repositories.
-			expectedNeeded: featureflag.WriteMultiPackIndex.IsEnabled(ctx),
-			expectedConfig: func() RepackObjectsConfig {
-				if featureflag.WriteMultiPackIndex.IsEnabled(ctx) {
-					return RepackObjectsConfig{
-						WriteMultiPackIndex: true,
-					}
-				}
-
-				return RepackObjectsConfig{}
-			}(),
+			expectedNeeded: true,
+			expectedConfig: RepackObjectsConfig{
+				WriteMultiPackIndex: true,
+			},
 		},
 		{
 			desc: "no repack needed without multi-pack-index",
@@ -91,18 +81,12 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 					},
 				},
 			},
-			expectedNeeded: featureflag.WriteMultiPackIndex.IsEnabled(ctx),
-			expectedConfig: func() RepackObjectsConfig {
-				if featureflag.WriteMultiPackIndex.IsEnabled(ctx) {
-					return RepackObjectsConfig{
-						FullRepack:          false,
-						WriteBitmap:         true,
-						WriteMultiPackIndex: true,
-					}
-				}
-
-				return RepackObjectsConfig{}
-			}(),
+			expectedNeeded: true,
+			expectedConfig: RepackObjectsConfig{
+				FullRepack:          false,
+				WriteBitmap:         true,
+				WriteMultiPackIndex: true,
+			},
 		},
 		{
 			desc: "no repack needed with multi-pack-index",
@@ -114,18 +98,8 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 					},
 				},
 			},
-			expectedNeeded: featureflag.WriteMultiPackIndex.IsDisabled(ctx),
-			expectedConfig: func() RepackObjectsConfig {
-				if featureflag.WriteMultiPackIndex.IsDisabled(ctx) {
-					return RepackObjectsConfig{
-						FullRepack:          true,
-						WriteBitmap:         true,
-						WriteMultiPackIndex: false,
-					}
-				}
-
-				return RepackObjectsConfig{}
-			}(),
+			expectedNeeded: false,
+			expectedConfig: RepackObjectsConfig{},
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -228,7 +202,7 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 					require.Equal(t, RepackObjectsConfig{
 						FullRepack:          true,
 						WriteBitmap:         len(tc.alternates) == 0,
-						WriteMultiPackIndex: featureflag.WriteMultiPackIndex.IsEnabled(ctx),
+						WriteMultiPackIndex: true,
 					}, repackCfg)
 				})
 			}
@@ -296,8 +270,8 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 				require.Equal(t, outerTC.expectedRepack, repackNeeded)
 				require.Equal(t, RepackObjectsConfig{
 					FullRepack:          false,
-					WriteBitmap:         repackNeeded && featureflag.WriteMultiPackIndex.IsEnabled(ctx),
-					WriteMultiPackIndex: repackNeeded && featureflag.WriteMultiPackIndex.IsEnabled(ctx),
+					WriteBitmap:         repackNeeded,
+					WriteMultiPackIndex: repackNeeded,
 				}, repackCfg)
 			})
 		}
@@ -582,11 +556,8 @@ func TestHeuristicalOptimizationStrategy_NeedsWriteCommitGraph(t *testing.T) {
 
 func TestEagerOptimizationStrategy(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.WriteMultiPackIndex).Run(t, testEagerOptimizationStrategy)
-}
 
-func testEagerOptimizationStrategy(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
 		desc                     string
@@ -637,7 +608,7 @@ func testEagerOptimizationStrategy(t *testing.T, ctx context.Context) {
 			require.Equal(t, RepackObjectsConfig{
 				FullRepack:          true,
 				WriteBitmap:         tc.expectWriteBitmap,
-				WriteMultiPackIndex: featureflag.WriteMultiPackIndex.IsEnabled(ctx),
+				WriteMultiPackIndex: true,
 			}, repackObjectsCfg)
 
 			shouldWriteCommitGraph, writeCommitGraphCfg := tc.strategy.ShouldWriteCommitGraph(ctx)
