@@ -63,6 +63,12 @@ type ReferenceUpdate struct {
 	NewOID git.ObjectID
 }
 
+// DefaultBranchUpdate provides the information to update the default branch of the repo.
+type DefaultBranchUpdate struct {
+	// Reference is the reference to update the default branch to.
+	Reference git.ReferenceName
+}
+
 // ReferenceUpdates contains references to update. Reference name is used as the key and the value
 // is the expected old tip and the desired new tip.
 type ReferenceUpdates map[git.ReferenceName]ReferenceUpdate
@@ -77,6 +83,8 @@ type Transaction struct {
 	SkipVerificationFailures bool
 	// ReferenceUpdates contains the reference updates to be performed.
 	ReferenceUpdates
+	// DefaultBranchUpdate contains the information to update the default branch of the repo.
+	DefaultBranchUpdate *DefaultBranchUpdate
 }
 
 // TransactionManager is responsible for transaction management of a single repository. Each repository has
