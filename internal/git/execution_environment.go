@@ -27,12 +27,6 @@ var (
 	defaultExecutionEnvironmentConstructors = []ExecutionEnvironmentConstructor{
 		BundledGitEnvironmentConstructor{
 			Suffix: "-v2.39",
-			FeatureFlags: []featureflag.FeatureFlag{
-				featureflag.GitV239,
-			},
-		},
-		BundledGitEnvironmentConstructor{
-			Suffix: "-v2.38",
 		},
 		DistributedGitEnvironmentConstructor{},
 	}
