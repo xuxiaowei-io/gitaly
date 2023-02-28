@@ -145,7 +145,7 @@ SKIP_OVERRIDING_GIT_VERSION ?=
 # The default version is used in case the caller does not set the variable or
 # if it is either set to the empty string or "default".
 ifeq (${GIT_VERSION:default=},)
-    override GIT_VERSION := ${GIT_VERSION_2_38}
+    override GIT_VERSION := ${GIT_VERSION_2_39}
 else
     # Support both vX.Y.Z and X.Y.Z version patterns, since callers across GitLab
     # use both.
