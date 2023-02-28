@@ -1,14 +1,12 @@
 package diff
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -16,12 +14,8 @@ import (
 
 func TestGetPatchID(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.GitV239).Run(t, testGetPatchID)
-}
 
-func testGetPatchID(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg, client := setupDiffServiceWithoutRepo(t)
 
 	gitVersion, err := gittest.NewCommandFactory(t, cfg).GitVersion(ctx)
