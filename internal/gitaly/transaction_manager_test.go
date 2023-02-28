@@ -104,6 +104,8 @@ func TestTransactionManager(t *testing.T) {
 		ExpectedProposeError error
 		// ExpectedReferences is the expected state of references at the end of this step.
 		ExpectedReferences []git.Reference
+		// ExpectedDefaultBranch is the expected refname that HEAD points to.
+		ExpectedDefaultBranch git.ReferenceName
 		// ExpectedDatabase is the expected state of the database at the end of this step.
 		ExpectedDatabase DatabaseState
 	}
@@ -125,7 +127,8 @@ func TestTransactionManager(t *testing.T) {
 							"refs/heads/../main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 						},
 					},
-					ExpectedProposeError: updateref.ErrInvalidReferenceFormat{ReferenceName: "refs/heads/../main"},
+					ExpectedProposeError:  updateref.ErrInvalidReferenceFormat{ReferenceName: "refs/heads/../main"},
+					ExpectedDefaultBranch: "",
 				},
 			},
 		},
@@ -138,7 +141,8 @@ func TestTransactionManager(t *testing.T) {
 							"refs/heads/../main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 						},
 					},
-					ExpectedProposeError: updateref.ErrInvalidReferenceFormat{ReferenceName: "refs/heads/../main"},
+					ExpectedProposeError:  updateref.ErrInvalidReferenceFormat{ReferenceName: "refs/heads/../main"},
+					ExpectedDefaultBranch: "",
 				},
 				{
 					Transaction: Transaction{
@@ -165,6 +169,7 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDatabase: DatabaseState{
 						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 					},
+					ExpectedDefaultBranch: "refs/heads/main",
 				},
 			},
 		},
@@ -196,6 +201,7 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDatabase: DatabaseState{
 						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 					},
+					ExpectedDefaultBranch: "refs/heads/main",
 				},
 			},
 		},
@@ -227,6 +233,7 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDatabase: DatabaseState{
 						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 					},
+					ExpectedDefaultBranch: "refs/heads/parent",
 				},
 				{
 					Transaction: Transaction{
@@ -242,6 +249,7 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDatabase: DatabaseState{
 						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 					},
+					ExpectedDefaultBranch: "refs/heads/parent",
 				},
 			},
 		},
@@ -259,6 +267,7 @@ func TestTransactionManager(t *testing.T) {
 						FirstReferenceName:  "refs/heads/parent",
 						SecondReferenceName: "refs/heads/parent/child",
 					},
+					ExpectedDefaultBranch: "",
 				},
 			},
 		},
@@ -278,6 +287,7 @@ func TestTransactionManager(t *testing.T) {
 						FirstReferenceName:  "refs/heads/parent",
 						SecondReferenceName: "refs/heads/parent/child",
 					},
+					ExpectedDefaultBranch: "",
 				},
 			},
 		},
@@ -309,6 +319,7 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDatabase: DatabaseState{
 						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 					},
+					ExpectedDefaultBranch: "refs/heads/parent/child",
 				},
 				{
 					Transaction: Transaction{
@@ -324,6 +335,7 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDatabase: DatabaseState{
 						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 					},
+					ExpectedDefaultBranch: "refs/heads/parent/child",
 				},
 			},
 		},
@@ -341,6 +353,7 @@ func TestTransactionManager(t *testing.T) {
 						FirstReferenceName:  "refs/heads/parent",
 						SecondReferenceName: "refs/heads/parent/child",
 					},
+					ExpectedDefaultBranch: "",
 				},
 			},
 		},
@@ -360,6 +373,7 @@ func TestTransactionManager(t *testing.T) {
 						ReferenceName: "refs/heads/branch-2",
 						ObjectID:      objectHash.EmptyTreeOID.String(),
 					},
+					ExpectedDefaultBranch: "",
 				},
 			},
 		},
@@ -391,6 +405,7 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDatabase: DatabaseState{
 						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 					},
+					ExpectedDefaultBranch: "",
 				},
 			},
 		},
@@ -407,6 +422,7 @@ func TestTransactionManager(t *testing.T) {
 						ReferenceName: "refs/heads/main",
 						ObjectID:      nonExistentOID.String(),
 					},
+					ExpectedDefaultBranch: "",
 				},
 			},
 		},
@@ -438,6 +454,7 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDatabase: DatabaseState{
 						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 					},
+					ExpectedDefaultBranch: "refs/heads/main",
 				},
 				{
 					Transaction: Transaction{
@@ -469,6 +486,7 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDatabase: DatabaseState{
 						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
 					},
+					ExpectedDefaultBranch: "refs/heads/main",
 				},
 			},
 		},
@@ -500,6 +518,7 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDatabase: DatabaseState{
 						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 					},
+					ExpectedDefaultBranch: "refs/heads/main",
 				},
 				{
 					Transaction: Transaction{
@@ -524,6 +543,7 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDatabase: DatabaseState{
 						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 					},
+					ExpectedDefaultBranch: "refs/heads/main",
 				},
 			},
 		},
@@ -555,6 +575,7 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDatabase: DatabaseState{
 						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 					},
+					ExpectedDefaultBranch: "refs/heads/main",
 				},
 				{
 					Transaction: Transaction{
@@ -571,6 +592,7 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDatabase: DatabaseState{
 						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 					},
+					ExpectedDefaultBranch: "refs/heads/main",
 				},
 			},
 		},
@@ -602,6 +624,7 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDatabase: DatabaseState{
 						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 					},
+					ExpectedDefaultBranch: "refs/heads/main",
 				},
 				{
 					Transaction: Transaction{
@@ -629,6 +652,7 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDatabase: DatabaseState{
 						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
 					},
+					ExpectedDefaultBranch: "refs/heads/main",
 				},
 			},
 		},
@@ -669,6 +693,7 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDatabase: DatabaseState{
 						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 					},
+					ExpectedDefaultBranch: "refs/heads/main",
 				},
 				{
 					Transaction: Transaction{
@@ -700,6 +725,7 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDatabase: DatabaseState{
 						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
 					},
+					ExpectedDefaultBranch: "refs/heads/main",
 				},
 			},
 		},
@@ -739,6 +765,7 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDatabase: DatabaseState{
 						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 					},
+					ExpectedDefaultBranch: "refs/heads/main",
 				},
 				{
 					Transaction: Transaction{
@@ -759,6 +786,7 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDatabase: DatabaseState{
 						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 					},
+					ExpectedDefaultBranch: "refs/heads/main",
 				},
 			},
 		},
@@ -776,6 +804,7 @@ func TestTransactionManager(t *testing.T) {
 						ExpectedOID:   secondCommitOID,
 						ActualOID:     objectHash.ZeroOID,
 					},
+					ExpectedDefaultBranch: "",
 				},
 			},
 		},
@@ -807,6 +836,7 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDatabase: DatabaseState{
 						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 					},
+					ExpectedDefaultBranch: "refs/heads/main",
 				},
 				{
 					Transaction: Transaction{
@@ -833,6 +863,7 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDatabase: DatabaseState{
 						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
 					},
+					ExpectedDefaultBranch: "refs/heads/main",
 				},
 			},
 		},
@@ -864,6 +895,7 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDatabase: DatabaseState{
 						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 					},
+					ExpectedDefaultBranch: "refs/heads/main",
 				},
 				{
 					Transaction: Transaction{
@@ -889,6 +921,7 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDatabase: DatabaseState{
 						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
 					},
+					ExpectedDefaultBranch: "",
 				},
 			},
 		},
@@ -928,6 +961,7 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDatabase: DatabaseState{
 						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 					},
+					ExpectedDefaultBranch: "refs/heads/main",
 				},
 				{
 					Transaction: Transaction{
@@ -956,6 +990,7 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDatabase: DatabaseState{
 						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
 					},
+					ExpectedDefaultBranch: "refs/heads/main",
 				},
 			},
 		},
@@ -995,6 +1030,7 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDatabase: DatabaseState{
 						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 					},
+					ExpectedDefaultBranch: "refs/heads/main",
 				},
 				{
 					Transaction: Transaction{
@@ -1015,6 +1051,7 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDatabase: DatabaseState{
 						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 					},
+					ExpectedDefaultBranch: "refs/heads/main",
 				},
 			},
 		},
@@ -1032,6 +1069,7 @@ func TestTransactionManager(t *testing.T) {
 						ExpectedOID:   rootCommitOID,
 						ActualOID:     objectHash.ZeroOID,
 					},
+					ExpectedDefaultBranch: "",
 				},
 			},
 		},
@@ -1062,6 +1100,7 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDatabase: DatabaseState{
 						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 					},
+					ExpectedDefaultBranch: "",
 				},
 			},
 		},
@@ -1079,6 +1118,7 @@ func TestTransactionManager(t *testing.T) {
 						ExpectedOID:   rootCommitOID,
 						ActualOID:     objectHash.ZeroOID,
 					},
+					ExpectedDefaultBranch: "",
 				},
 				{
 					Transaction: Transaction{
@@ -1105,6 +1145,7 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDatabase: DatabaseState{
 						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 					},
+					ExpectedDefaultBranch: "refs/heads/main",
 				},
 			},
 		},
@@ -1136,6 +1177,7 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDatabase: DatabaseState{
 						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 					},
+					ExpectedDefaultBranch: "refs/heads/main",
 				},
 				{
 					StopManager:  true,
@@ -1164,6 +1206,7 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDatabase: DatabaseState{
 						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
 					},
+					ExpectedDefaultBranch: "refs/heads/main",
 				},
 			},
 		},
@@ -1181,6 +1224,7 @@ func TestTransactionManager(t *testing.T) {
 						ExpectedOID:   rootCommitOID,
 						ActualOID:     objectHash.ZeroOID,
 					},
+					ExpectedDefaultBranch: "",
 				},
 				{
 					StopManager:  true,
@@ -1209,6 +1253,7 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDatabase: DatabaseState{
 						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 					},
+					ExpectedDefaultBranch: "refs/heads/main",
 				},
 			},
 		},
@@ -1238,6 +1283,7 @@ func TestTransactionManager(t *testing.T) {
 							},
 						},
 					},
+					ExpectedDefaultBranch: "",
 				},
 				{
 					Transaction: Transaction{
@@ -1253,6 +1299,7 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDatabase: DatabaseState{
 						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
 					},
+					ExpectedDefaultBranch: "refs/heads/main",
 				},
 			},
 		},
@@ -1282,6 +1329,7 @@ func TestTransactionManager(t *testing.T) {
 							},
 						},
 					},
+					ExpectedDefaultBranch: "",
 				},
 				{
 					Transaction: Transaction{
@@ -1313,6 +1361,7 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDatabase: DatabaseState{
 						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 					},
+					ExpectedDefaultBranch: "refs/heads/main",
 				},
 			},
 		},
@@ -1330,7 +1379,8 @@ func TestTransactionManager(t *testing.T) {
 							"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 						},
 					},
-					ExpectedProposeError: context.Canceled,
+					ExpectedProposeError:  context.Canceled,
+					ExpectedDefaultBranch: "",
 				},
 			},
 		},
@@ -1344,7 +1394,8 @@ func TestTransactionManager(t *testing.T) {
 							"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 						},
 					},
-					ExpectedProposeError: ErrTransactionProcessingStopped,
+					ExpectedProposeError:  ErrTransactionProcessingStopped,
+					ExpectedDefaultBranch: "",
 				},
 			},
 		},
@@ -1384,6 +1435,7 @@ func TestTransactionManager(t *testing.T) {
 						ExpectedDatabase: DatabaseState{
 							string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 						},
+						ExpectedDefaultBranch: "refs/heads/main",
 					},
 				},
 			}
@@ -1434,6 +1486,323 @@ func TestTransactionManager(t *testing.T) {
 							},
 						},
 					},
+				},
+			},
+		},
+		{
+			desc: "update default branch with existing branch",
+			steps: steps{
+				{
+					Transaction: Transaction{
+						ReferenceUpdates: ReferenceUpdates{
+							"refs/heads/branch2": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+							"refs/heads/main":    {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						},
+					},
+					ExpectedReferences: []git.Reference{
+						{Name: "refs/heads/branch2", Target: rootCommitOID.String()},
+						{Name: "refs/heads/main", Target: rootCommitOID.String()},
+					},
+					Hooks: testHooks{
+						BeforeDeleteLogEntry: func(hookCtx hookContext) {
+							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
+								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
+								string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
+									ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
+										{
+											ReferenceName: []byte("refs/heads/branch2"),
+											NewOid:        []byte(rootCommitOID),
+										},
+										{
+											ReferenceName: []byte("refs/heads/main"),
+											NewOid:        []byte(rootCommitOID),
+										},
+									},
+								},
+							})
+						},
+					},
+					ExpectedDatabase: DatabaseState{
+						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
+					},
+					ExpectedDefaultBranch: "refs/heads/main",
+				},
+				{
+					Transaction: Transaction{
+						DefaultBranchUpdate: &DefaultBranchUpdate{
+							Reference: "refs/heads/branch2",
+						},
+					},
+					ExpectedReferences: []git.Reference{
+						{Name: "refs/heads/branch2", Target: rootCommitOID.String()},
+						{Name: "refs/heads/main", Target: rootCommitOID.String()},
+					},
+					Hooks: testHooks{
+						BeforeDeleteLogEntry: func(hookCtx hookContext) {
+							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
+								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
+								string(keyLogEntry(getRepositoryID(repo), 2)): &gitalypb.LogEntry{
+									DefaultBranchUpdate: &gitalypb.LogEntry_DefaultBranchUpdate{
+										ReferenceName: []byte("refs/heads/branch2"),
+									},
+								},
+							})
+						},
+					},
+					ExpectedDatabase: DatabaseState{
+						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
+					},
+					ExpectedDefaultBranch: "refs/heads/branch2",
+				},
+			},
+		},
+		{
+			desc: "update default branch with new branch created in same transaction",
+			steps: steps{
+				{
+					Transaction: Transaction{
+						ReferenceUpdates: ReferenceUpdates{
+							"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						},
+					},
+					ExpectedReferences: []git.Reference{
+						{Name: "refs/heads/main", Target: rootCommitOID.String()},
+					},
+					Hooks: testHooks{
+						BeforeDeleteLogEntry: func(hookCtx hookContext) {
+							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
+								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
+								string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
+									ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
+										{
+											ReferenceName: []byte("refs/heads/main"),
+											NewOid:        []byte(rootCommitOID),
+										},
+									},
+								},
+							})
+						},
+					},
+					ExpectedDatabase: DatabaseState{
+						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
+					},
+					ExpectedDefaultBranch: "refs/heads/main",
+				},
+				{
+					Transaction: Transaction{
+						ReferenceUpdates: ReferenceUpdates{
+							"refs/heads/branch2": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+							"refs/heads/main":    {OldOID: rootCommitOID, NewOID: secondCommitOID},
+						},
+						DefaultBranchUpdate: &DefaultBranchUpdate{
+							Reference: "refs/heads/branch2",
+						},
+					},
+					ExpectedReferences: []git.Reference{
+						{Name: "refs/heads/branch2", Target: rootCommitOID.String()},
+						{Name: "refs/heads/main", Target: secondCommitOID.String()},
+					},
+					Hooks: testHooks{
+						BeforeDeleteLogEntry: func(hookCtx hookContext) {
+							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
+								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
+								string(keyLogEntry(getRepositoryID(repo), 2)): &gitalypb.LogEntry{
+									ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
+										{
+											ReferenceName: []byte("refs/heads/branch2"),
+											NewOid:        []byte(rootCommitOID),
+										},
+										{
+											ReferenceName: []byte("refs/heads/main"),
+											NewOid:        []byte(secondCommitOID),
+										},
+									},
+									DefaultBranchUpdate: &gitalypb.LogEntry_DefaultBranchUpdate{
+										ReferenceName: []byte("refs/heads/branch2"),
+									},
+								},
+							})
+						},
+					},
+					ExpectedDatabase: DatabaseState{
+						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
+					},
+					ExpectedDefaultBranch: "refs/heads/branch2",
+				},
+			},
+		},
+		{
+			desc: "update default branch with invalid reference name",
+			steps: steps{
+				{
+					Transaction: Transaction{
+						ReferenceUpdates: ReferenceUpdates{
+							"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						},
+						DefaultBranchUpdate: &DefaultBranchUpdate{
+							Reference: "refs/heads/../main",
+						},
+					},
+					// For branch updates, we don't really verify the refname schematics, we take a shortcut
+					// and rely on it being either a verified new reference name or a reference name which
+					// exists on the repo already.
+					ExpectedProposeError:  git.ErrReferenceNotFound,
+					ExpectedDefaultBranch: "",
+				},
+			},
+		},
+		{
+			desc: "update default branch to point to a non-existent reference name",
+			steps: steps{
+				{
+					Transaction: Transaction{
+						ReferenceUpdates: ReferenceUpdates{
+							"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						},
+						DefaultBranchUpdate: &DefaultBranchUpdate{
+							Reference: "refs/heads/yoda",
+						},
+					},
+					// For branch updates, we don't really verify the refname schematics, we take a shortcut
+					// and rely on it being either a verified new reference name or a reference name which
+					// exists on the repo already.
+					ExpectedProposeError:  git.ErrReferenceNotFound,
+					ExpectedDefaultBranch: "",
+				},
+			},
+		},
+		{
+			desc: "update default branch to point to reference being deleted in the same transaction",
+			steps: steps{
+				{
+					Transaction: Transaction{
+						ReferenceUpdates: ReferenceUpdates{
+							"refs/heads/main":    {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+							"refs/heads/branch2": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						},
+					},
+					ExpectedReferences: []git.Reference{
+						{Name: "refs/heads/branch2", Target: rootCommitOID.String()},
+						{Name: "refs/heads/main", Target: rootCommitOID.String()},
+					},
+					Hooks: testHooks{
+						BeforeDeleteLogEntry: func(hookCtx hookContext) {
+							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
+								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
+								string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
+									ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
+										{
+											ReferenceName: []byte("refs/heads/branch2"),
+											NewOid:        []byte(rootCommitOID),
+										},
+										{
+											ReferenceName: []byte("refs/heads/main"),
+											NewOid:        []byte(rootCommitOID),
+										},
+									},
+								},
+							})
+						},
+					},
+					ExpectedDatabase: DatabaseState{
+						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
+					},
+					ExpectedDefaultBranch: "refs/heads/main",
+				},
+				{
+					Transaction: Transaction{
+						ReferenceUpdates: ReferenceUpdates{
+							"refs/heads/branch2": {OldOID: rootCommitOID, NewOID: objectHash.ZeroOID},
+						},
+						DefaultBranchUpdate: &DefaultBranchUpdate{
+							Reference: "refs/heads/branch2",
+						},
+					},
+					ExpectedProposeError: ReferenceToBeDeletedError{ReferenceName: "refs/heads/branch2"},
+					ExpectedReferences: []git.Reference{
+						{Name: "refs/heads/branch2", Target: rootCommitOID.String()},
+						{Name: "refs/heads/main", Target: rootCommitOID.String()},
+					},
+					ExpectedDatabase: DatabaseState{
+						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
+					},
+					ExpectedDefaultBranch: "refs/heads/main",
+				},
+			},
+		},
+		{
+			desc: "update default branch with existing branch and other modifications",
+			steps: steps{
+				{
+					Transaction: Transaction{
+						ReferenceUpdates: ReferenceUpdates{
+							"refs/heads/branch2": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+							"refs/heads/main":    {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						},
+					},
+					ExpectedReferences: []git.Reference{
+						{Name: "refs/heads/branch2", Target: rootCommitOID.String()},
+						{Name: "refs/heads/main", Target: rootCommitOID.String()},
+					},
+					Hooks: testHooks{
+						BeforeDeleteLogEntry: func(hookCtx hookContext) {
+							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
+								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
+								string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
+									ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
+										{
+											ReferenceName: []byte("refs/heads/branch2"),
+											NewOid:        []byte(rootCommitOID),
+										},
+										{
+											ReferenceName: []byte("refs/heads/main"),
+											NewOid:        []byte(rootCommitOID),
+										},
+									},
+								},
+							})
+						},
+					},
+					ExpectedDatabase: DatabaseState{
+						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
+					},
+					ExpectedDefaultBranch: "refs/heads/main",
+				},
+				{
+					Transaction: Transaction{
+						ReferenceUpdates: ReferenceUpdates{
+							"refs/heads/main": {OldOID: rootCommitOID, NewOID: secondCommitOID},
+						},
+						DefaultBranchUpdate: &DefaultBranchUpdate{
+							Reference: "refs/heads/branch2",
+						},
+					},
+					ExpectedReferences: []git.Reference{
+						{Name: "refs/heads/branch2", Target: rootCommitOID.String()},
+						{Name: "refs/heads/main", Target: secondCommitOID.String()},
+					},
+					Hooks: testHooks{
+						BeforeDeleteLogEntry: func(hookCtx hookContext) {
+							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
+								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
+								string(keyLogEntry(getRepositoryID(repo), 2)): &gitalypb.LogEntry{
+									ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
+										{
+											ReferenceName: []byte("refs/heads/main"),
+											NewOid:        []byte(secondCommitOID),
+										},
+									},
+									DefaultBranchUpdate: &gitalypb.LogEntry_DefaultBranchUpdate{
+										ReferenceName: []byte("refs/heads/branch2"),
+									},
+								},
+							})
+						},
+					},
+					ExpectedDatabase: DatabaseState{
+						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
+					},
+					ExpectedDefaultBranch: "refs/heads/branch2",
 				},
 			},
 		},
@@ -1662,6 +2031,7 @@ func TestTransactionManager(t *testing.T) {
 				}
 
 				RequireReferences(t, ctx, repository, step.ExpectedReferences)
+				RequireDefaultBranch(t, ctx, repository, step.ExpectedDefaultBranch)
 				RequireDatabase(t, ctx, database, step.ExpectedDatabase)
 			}
 		})
