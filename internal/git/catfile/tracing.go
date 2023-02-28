@@ -25,7 +25,12 @@ func startTrace(
 	counter *prometheus.CounterVec,
 	methodName string,
 ) *trace {
-	span, _ := tracing.StartSpanIfHasParent(ctx, methodName, nil)
+	var span opentracing.Span
+	if methodName == "" {
+		span = &tracing.NoopSpan{}
+	} else {
+		span, _ = tracing.StartSpanIfHasParent(ctx, methodName, nil)
+	}
 
 	trace := &trace{
 		span:    span,

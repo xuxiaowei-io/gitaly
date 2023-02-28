@@ -120,7 +120,7 @@ func (o *objectContentReader) objectQueue(ctx context.Context, tracedMethod stri
 }
 
 func (o *objectContentReader) Object(ctx context.Context, revision git.Revision) (*Object, error) {
-	queue, finish, err := o.objectQueue(ctx, "catfile.Object")
+	queue, finish, err := o.objectQueue(ctx, "")
 	if err != nil {
 		return nil, err
 	}
