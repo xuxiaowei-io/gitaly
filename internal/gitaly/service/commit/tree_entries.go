@@ -98,10 +98,6 @@ func (s *server) sendTreeEntries(
 	// git-ls-tree(1) is worse than using a long-lived catfile process. We thus fall back to
 	// using catfile readers to answer these non-recursive queries.
 	if recursive {
-		if path == "." {
-			path = ""
-		}
-
 		rootTreeInfo, err := repo.ResolveRevision(ctx, git.Revision(revision+"^{tree}"))
 		if err != nil {
 			if errors.Is(err, git.ErrReferenceNotFound) {
