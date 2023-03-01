@@ -4,18 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"regexp"
 	"strings"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/lstree"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -59,148 +55,6 @@ func validateUserUpdateSubmoduleRequest(req *gitalypb.UserUpdateSubmoduleRequest
 	}
 
 	return nil
-}
-
-func (s *Server) updateSubmodule(ctx context.Context, quarantineRepo *localrepo.Repo, req *gitalypb.UserUpdateSubmoduleRequest) (string, error) {
-	path := filepath.Dir(string(req.GetSubmodule()))
-	base := filepath.Base(string(req.GetSubmodule()))
-	replaceWith := git.ObjectID(req.GetCommitSha())
-
-	var submoduleFound bool
-
-	// First find the tree containing the submodule to be updated.
-	// Write a new tree object abc with the updated submodule. Then, write a new
-	// tree with the new tree abcabc. Continue iterating up the tree,
-	// writing a new tree object each time.
-	for {
-		entries, err := lstree.ListEntries(
-			ctx,
-			quarantineRepo,
-			git.Revision("refs/heads/"+string(req.GetBranch())),
-			&lstree.ListEntriesConfig{
-				RelativePath: path,
-			},
-		)
-		if err != nil {
-			return "", fmt.Errorf("error reading tree: %w", err)
-		}
-
-		var newEntries []localrepo.TreeEntry
-		var newTreeID git.ObjectID
-
-		for _, entry := range entries {
-			// If the entry's path does not match, then we simply
-			// want to retain this tree entry.
-			if entry.Path != base {
-				newEntries = append(newEntries, localrepo.TreeEntry{
-					Mode: string(entry.Mode),
-					Path: entry.Path,
-					OID:  entry.ObjectID,
-				})
-				continue
-			}
-
-			// If we are at the submodule we want to replace, check
-			// if it's already at the value we want to replace, or
-			// if it's not a submodule.
-			if filepath.Join(path, entry.Path) == string(req.GetSubmodule()) {
-				if string(entry.ObjectID) == req.GetCommitSha() {
-					return "",
-						//nolint:stylecheck
-						fmt.Errorf(
-							"The submodule %s is already at %s",
-							req.GetSubmodule(),
-							replaceWith,
-						)
-				}
-
-				if entry.Type != lstree.Submodule {
-					return "", structerr.NewInvalidArgument("submodule %s is not a commit", req.GetSubmodule())
-				}
-			}
-
-			// Otherwise, create a new tree entry
-			submoduleFound = true
-
-			newEntries = append(newEntries, localrepo.TreeEntry{
-				Mode: string(entry.Mode),
-				Path: entry.Path,
-				OID:  replaceWith,
-			})
-		}
-
-		newTreeID, err = quarantineRepo.WriteTree(ctx, newEntries)
-		if err != nil {
-			return "", fmt.Errorf("write tree: %w", err)
-		}
-		replaceWith = newTreeID
-
-		if path == "." {
-			break
-		}
-
-		base = filepath.Base(path)
-		path = filepath.Dir(path)
-	}
-
-	if !submoduleFound {
-		return "", fmt.Errorf("submodule: %s", git2go.LegacyErrPrefixInvalidSubmodulePath)
-	}
-
-	currentBranchCommit, err := quarantineRepo.ResolveRevision(ctx, git.Revision(req.GetBranch()))
-	if err != nil {
-		return "", fmt.Errorf("resolving submodule branch: %w", err)
-	}
-
-	authorDate, err := dateFromProto(req)
-	if err != nil {
-		return "", structerr.NewInvalidArgument("%w", err)
-	}
-
-	newCommitID, err := quarantineRepo.WriteCommit(ctx, localrepo.WriteCommitConfig{
-		Parents:        []git.ObjectID{currentBranchCommit},
-		AuthorDate:     authorDate,
-		AuthorName:     string(req.GetUser().GetName()),
-		AuthorEmail:    string(req.GetUser().GetEmail()),
-		CommitterName:  string(req.GetUser().GetName()),
-		CommitterEmail: string(req.GetUser().GetEmail()),
-		CommitterDate:  authorDate,
-		Message:        string(req.GetCommitMessage()),
-		TreeID:         replaceWith,
-	})
-	if err != nil {
-		return "", fmt.Errorf("creating commit %w", err)
-	}
-
-	return string(newCommitID), nil
-}
-
-func (s *Server) updateSubmoduleWithGit2Go(ctx context.Context, quarantineRepo *localrepo.Repo, req *gitalypb.UserUpdateSubmoduleRequest) (string, error) {
-	repoPath, err := quarantineRepo.Path()
-	if err != nil {
-		return "", structerr.NewInternal("locate repo: %w", err)
-	}
-
-	authorDate, err := dateFromProto(req)
-	if err != nil {
-		return "", structerr.NewInvalidArgument("%w", err)
-	}
-
-	result, err := s.git2goExecutor.Submodule(ctx, quarantineRepo, git2go.SubmoduleCommand{
-		Repository: repoPath,
-		AuthorMail: string(req.GetUser().GetEmail()),
-		AuthorName: string(req.GetUser().GetName()),
-		AuthorDate: authorDate,
-		Branch:     string(req.GetBranch()),
-		CommitSHA:  req.GetCommitSha(),
-		Submodule:  string(req.GetSubmodule()),
-		Message:    string(req.GetCommitMessage()),
-	})
-	if err != nil {
-		return "", err
-	}
-
-	return result.CommitID, nil
 }
 
 func (s *Server) userUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpdateSubmoduleRequest) (*gitalypb.UserUpdateSubmoduleResponse, error) {
@@ -248,14 +102,26 @@ func (s *Server) userUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpda
 		}
 	}
 
-	var commitID string
-
-	if featureflag.SubmoduleInGit.IsEnabled(ctx) {
-		commitID, err = s.updateSubmodule(ctx, quarantineRepo, req)
-	} else {
-		commitID, err = s.updateSubmoduleWithGit2Go(ctx, quarantineRepo, req)
+	repoPath, err := quarantineRepo.Path()
+	if err != nil {
+		return nil, fmt.Errorf("locate repo: %w", err)
 	}
 
+	authorDate, err := dateFromProto(req)
+	if err != nil {
+		return nil, structerr.NewInvalidArgument("%w", err)
+	}
+
+	result, err := s.git2goExecutor.Submodule(ctx, quarantineRepo, git2go.SubmoduleCommand{
+		Repository: repoPath,
+		AuthorMail: string(req.GetUser().GetEmail()),
+		AuthorName: string(req.GetUser().GetName()),
+		AuthorDate: authorDate,
+		Branch:     string(req.GetBranch()),
+		CommitSHA:  req.GetCommitSha(),
+		Submodule:  string(req.GetSubmodule()),
+		Message:    string(req.GetCommitMessage()),
+	})
 	if err != nil {
 		errStr := strings.TrimPrefix(err.Error(), "submodule: ")
 		errStr = strings.TrimSpace(errStr)
@@ -285,11 +151,10 @@ func (s *Server) userUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpda
 		if resp != nil {
 			return resp, nil
 		}
-
 		return nil, structerr.NewInternal("submodule subcommand: %w", err)
 	}
 
-	commitOID, err := git.ObjectHashSHA1.FromHex(commitID)
+	commitID, err := git.ObjectHashSHA1.FromHex(result.CommitID)
 	if err != nil {
 		return nil, structerr.NewInvalidArgument("cannot parse commit ID: %w", err)
 	}
@@ -300,7 +165,7 @@ func (s *Server) userUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpda
 		req.GetUser(),
 		quarantineDir,
 		referenceName,
-		commitOID,
+		commitID,
 		oldOID,
 	); err != nil {
 		var customHookErr updateref.CustomHookError
@@ -322,7 +187,7 @@ func (s *Server) userUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpda
 
 	return &gitalypb.UserUpdateSubmoduleResponse{
 		BranchUpdate: &gitalypb.OperationBranchUpdate{
-			CommitId:      commitID,
+			CommitId:      result.CommitID,
 			BranchCreated: false,
 			RepoCreated:   false,
 		},
