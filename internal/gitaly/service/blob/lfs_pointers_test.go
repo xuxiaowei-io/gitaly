@@ -6,8 +6,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
@@ -17,8 +15,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/quarantine"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -183,131 +181,174 @@ func TestListLFSPointers(t *testing.T) {
 }
 
 func TestListAllLFSPointers(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
-
-	receivePointers := func(t *testing.T, stream gitalypb.BlobService_ListAllLFSPointersClient) []*gitalypb.LFSPointer {
-		t.Helper()
-
-		var pointers []*gitalypb.LFSPointer
-		for {
-			resp, err := stream.Recv()
-			if err == io.EOF {
-				break
-			}
-			require.Nil(t, err)
-			pointers = append(pointers, resp.GetLfsPointers()...)
-		}
-		return pointers
-	}
+	cfg, client := setupWithoutRepo(t, ctx)
 
 	lfsPointerContents := `version https://git-lfs.github.com/spec/v1
 oid sha256:1111111111111111111111111111111111111111111111111111111111111111
 size 12345`
 
-	t.Run("normal repository", func(t *testing.T) {
-		_, repo, _, client := setupWithLFS(t, ctx)
-		stream, err := client.ListAllLFSPointers(ctx, &gitalypb.ListAllLFSPointersRequest{
-			Repository: repo,
-		})
-		require.NoError(t, err)
-		lfsPointersEqual(t, []*gitalypb.LFSPointer{
-			lfsPointers[lfsPointer1],
-			lfsPointers[lfsPointer2],
-			lfsPointers[lfsPointer3],
-			lfsPointers[lfsPointer4],
-			lfsPointers[lfsPointer5],
-			lfsPointers[lfsPointer6],
-		}, receivePointers(t, stream))
-	})
+	type setupData struct {
+		repo             *gitalypb.Repository
+		expectedErr      error
+		expectedPointers []*gitalypb.LFSPointer
+	}
 
-	t.Run("dangling LFS pointer", func(t *testing.T) {
-		cfg, repo, repoPath, client := setupWithLFS(t, ctx)
-
-		hash := gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: strings.NewReader(lfsPointerContents)},
-			"-C", repoPath, "hash-object", "-w", "--stdin",
-		)
-		lfsPointerOID := text.ChompBytes(hash)
-
-		stream, err := client.ListAllLFSPointers(ctx, &gitalypb.ListAllLFSPointersRequest{
-			Repository: repo,
-		})
-		require.NoError(t, err)
-		lfsPointersEqual(t, []*gitalypb.LFSPointer{
-			{
-				Oid:  lfsPointerOID,
-				Data: []byte(lfsPointerContents),
-				Size: int64(len(lfsPointerContents)),
+	for _, tc := range []struct {
+		desc  string
+		setup func(t *testing.T) setupData
+	}{
+		{
+			desc: "missing repository",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
+						"empty Repository",
+						"repo scoped: empty Repository",
+					)),
+				}
 			},
-			lfsPointers[lfsPointer1],
-			lfsPointers[lfsPointer2],
-			lfsPointers[lfsPointer3],
-			lfsPointers[lfsPointer4],
-			lfsPointers[lfsPointer5],
-			lfsPointers[lfsPointer6],
-		}, receivePointers(t, stream))
-	})
+		},
+		{
+			desc: "normal repository",
+			setup: func(t *testing.T) setupData {
+				repo, _, _ := setupRepoWithLFS(t, ctx, cfg)
 
-	t.Run("quarantine", func(t *testing.T) {
-		cfg, repoProto, repoPath, client := setupWithLFS(t, ctx)
-
-		// We're emulating the case where git is receiving data via a push, where objects
-		// are stored in a separate quarantine environment. In this case, LFS pointer checks
-		// may want to inspect all newly pushed objects, denoted by a repository proto
-		// message which only has its object directory set to the quarantine directory.
-		quarantineDir := "objects/incoming-123456"
-		require.NoError(t, os.Mkdir(filepath.Join(repoPath, quarantineDir), perm.PublicDir))
-		repoProto.GitObjectDirectory = quarantineDir
-		repoProto.GitAlternateObjectDirectories = nil
-
-		// There are no quarantined objects yet, so none should be returned here.
-		stream, err := client.ListAllLFSPointers(ctx, &gitalypb.ListAllLFSPointersRequest{
-			Repository: repoProto,
-		})
-		require.NoError(t, err)
-		require.Empty(t, receivePointers(t, stream))
-
-		// Write a new object into the repository. Because we set GIT_OBJECT_DIRECTORY to
-		// the quarantine directory, objects will be written in there instead of into the
-		// repository's normal object directory.
-		repo := localrepo.NewTestRepo(t, cfg, repoProto)
-		var buffer, stderr bytes.Buffer
-		err = repo.ExecAndWait(ctx, git.Command{
-			Name: "hash-object",
-			Flags: []git.Option{
-				git.Flag{Name: "-w"},
-				git.Flag{Name: "--stdin"},
+				return setupData{
+					repo: repo,
+					expectedPointers: []*gitalypb.LFSPointer{
+						lfsPointers[lfsPointer1],
+						lfsPointers[lfsPointer2],
+						lfsPointers[lfsPointer3],
+						lfsPointers[lfsPointer4],
+						lfsPointers[lfsPointer5],
+						lfsPointers[lfsPointer6],
+					},
+				}
 			},
-		}, git.WithStdin(strings.NewReader(lfsPointerContents)), git.WithStdout(&buffer), git.WithStderr(&stderr))
-		require.NoError(t, err)
+		},
+		{
+			desc: "dangling pointer",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath, _ := setupRepoWithLFS(t, ctx, cfg)
 
-		stream, err = client.ListAllLFSPointers(ctx, &gitalypb.ListAllLFSPointersRequest{
-			Repository: repoProto,
-		})
-		require.NoError(t, err)
+				hash := gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: strings.NewReader(lfsPointerContents)},
+					"-C", repoPath, "hash-object", "-w", "--stdin",
+				)
+				lfsPointerOID := text.ChompBytes(hash)
 
-		// We only expect to find a single LFS pointer, which is the one we've just written
-		// into the quarantine directory.
-		lfsPointersEqual(t, []*gitalypb.LFSPointer{
-			{
-				Oid:  text.ChompBytes(buffer.Bytes()),
-				Data: []byte(lfsPointerContents),
-				Size: int64(len(lfsPointerContents)),
+				return setupData{
+					repo: repo,
+					expectedPointers: []*gitalypb.LFSPointer{
+						{
+							Oid:  lfsPointerOID,
+							Data: []byte(lfsPointerContents),
+							Size: int64(len(lfsPointerContents)),
+						},
+						lfsPointers[lfsPointer1],
+						lfsPointers[lfsPointer2],
+						lfsPointers[lfsPointer3],
+						lfsPointers[lfsPointer4],
+						lfsPointers[lfsPointer5],
+						lfsPointers[lfsPointer6],
+					},
+				}
 			},
-		}, receivePointers(t, stream))
-	})
+		},
+		{
+			desc: "empty quarantine directory",
+			setup: func(t *testing.T) setupData {
+				repo, _, _ := setupRepoWithLFS(t, ctx, cfg)
 
-	t.Run("no repository provided", func(t *testing.T) {
-		_, _, _, client := setupWithLFS(t, ctx)
-		stream, err := client.ListAllLFSPointers(ctx, &gitalypb.ListAllLFSPointersRequest{
-			Repository: nil,
+				quarantineDir, err := quarantine.New(ctx, gittest.RewrittenRepository(t, ctx, cfg, repo), config.NewLocator(cfg))
+				require.NoError(t, err)
+
+				repo.GitObjectDirectory = quarantineDir.QuarantinedRepo().GitObjectDirectory
+
+				// There are no quarantined objects yet, so none should be returned
+				// here.
+				return setupData{
+					repo:             repo,
+					expectedPointers: nil,
+				}
+			},
+		},
+		{
+			desc: "populated quarantine directory",
+			setup: func(t *testing.T) setupData {
+				repo, _, _ := setupRepoWithLFS(t, ctx, cfg)
+
+				// We're emulating the case where git is receiving data via a push,
+				// where objects are stored in a separate quarantine environment. In
+				// this case, LFS pointer checks may want to inspect all newly
+				// pushed objects, denoted by a repository proto message which only
+				// has its object directory set to the quarantine directory.
+				quarantineDir, err := quarantine.New(ctx, gittest.RewrittenRepository(t, ctx, cfg, repo), config.NewLocator(cfg))
+				require.NoError(t, err)
+
+				// Note that we need to continue using the non-rewritten repository
+				// here as `localrepo.NewTestRepo()` already will try to rewrite it
+				// again.
+				repo.GitObjectDirectory = quarantineDir.QuarantinedRepo().GitObjectDirectory
+
+				// Write a new object into the repository. Because we set
+				// GIT_OBJECT_DIRECTORY to the quarantine directory, objects will be
+				// written in there instead of into the repository's normal object
+				// directory.
+				quarantineRepo := localrepo.NewTestRepo(t, cfg, repo)
+				var buffer bytes.Buffer
+				require.NoError(t, quarantineRepo.ExecAndWait(ctx, git.Command{
+					Name: "hash-object",
+					Flags: []git.Option{
+						git.Flag{Name: "-w"},
+						git.Flag{Name: "--stdin"},
+					},
+				}, git.WithStdin(strings.NewReader(lfsPointerContents)), git.WithStdout(&buffer)))
+
+				return setupData{
+					repo: repo,
+					expectedPointers: []*gitalypb.LFSPointer{
+						{
+							Oid:  text.ChompBytes(buffer.Bytes()),
+							Data: []byte(lfsPointerContents),
+							Size: int64(len(lfsPointerContents)),
+						},
+					},
+				}
+			},
+		},
+	} {
+		tc := tc
+
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			setup := tc.setup(t)
+
+			stream, err := client.ListAllLFSPointers(ctx, &gitalypb.ListAllLFSPointersRequest{
+				Repository: setup.repo,
+			})
+			require.NoError(t, err)
+
+			var pointers []*gitalypb.LFSPointer
+			for {
+				resp, err := stream.Recv()
+				if err == io.EOF {
+					break
+				}
+
+				testhelper.RequireGrpcError(t, setup.expectedErr, err)
+				if err != nil {
+					break
+				}
+
+				pointers = append(pointers, resp.GetLfsPointers()...)
+			}
+			lfsPointersEqual(t, setup.expectedPointers, pointers)
 		})
-		require.NoError(t, err)
-		_, err = stream.Recv()
-		testhelper.RequireGrpcError(t, status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-			"empty Repository",
-			"repo scoped: empty Repository",
-		)), err)
-	})
+	}
 }
 
 func TestGetLFSPointers(t *testing.T) {
@@ -418,15 +459,6 @@ func lfsPointersEqual(tb testing.TB, expected, actual []*gitalypb.LFSPointer) {
 	for i := range expected {
 		testhelper.ProtoEqual(tb, expected[i], actual[i])
 	}
-}
-
-func setupWithLFS(tb testing.TB, ctx context.Context) (config.Cfg, *gitalypb.Repository, string, gitalypb.BlobServiceClient) {
-	tb.Helper()
-
-	cfg, client := setupWithoutRepo(tb, ctx)
-	repo, repoPath, _ := setupRepoWithLFS(tb, ctx, cfg)
-
-	return cfg, repo, repoPath, client
 }
 
 type lfsRepoInfo struct {
