@@ -4,6 +4,7 @@ package blob
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"os"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -69,7 +71,8 @@ var lfsPointers = map[string]*gitalypb.LFSPointer{
 
 func TestListLFSPointers(t *testing.T) {
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setup(t, ctx)
+	cfg, client := setupWithoutRepo(t, ctx)
+	repo, _, repoInfo := setupRepoWithLFS(t, ctx, cfg)
 
 	ctx = testhelper.MergeOutgoingMetadata(ctx,
 		metadata.Pairs(catfile.SessionIDField, "1"),
@@ -98,8 +101,8 @@ func TestListLFSPointers(t *testing.T) {
 				lfsPointer1,
 				lfsPointer2,
 				lfsPointer3,
-				"d5b560e9c17384cf8257347db63167b54e0c97ff", // tree
-				"60ecb67744cb56576c30214ff52294f8ce2def98", // commit
+				repoInfo.defaultTreeID.String(),   // tree
+				repoInfo.defaultCommitID.String(), // commit
 			},
 			expectedPointers: []*gitalypb.LFSPointer{
 				lfsPointers[lfsPointer1],
@@ -203,7 +206,7 @@ oid sha256:1111111111111111111111111111111111111111111111111111111111111111
 size 12345`
 
 	t.Run("normal repository", func(t *testing.T) {
-		_, repo, _, client := setup(t, ctx)
+		_, repo, _, client := setupWithLFS(t, ctx)
 		stream, err := client.ListAllLFSPointers(ctx, &gitalypb.ListAllLFSPointersRequest{
 			Repository: repo,
 		})
@@ -219,7 +222,7 @@ size 12345`
 	})
 
 	t.Run("dangling LFS pointer", func(t *testing.T) {
-		cfg, repo, repoPath, client := setup(t, ctx)
+		cfg, repo, repoPath, client := setupWithLFS(t, ctx)
 
 		hash := gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: strings.NewReader(lfsPointerContents)},
 			"-C", repoPath, "hash-object", "-w", "--stdin",
@@ -246,7 +249,7 @@ size 12345`
 	})
 
 	t.Run("quarantine", func(t *testing.T) {
-		cfg, repoProto, repoPath, client := setup(t, ctx)
+		cfg, repoProto, repoPath, client := setupWithLFS(t, ctx)
 
 		// We're emulating the case where git is receiving data via a push, where objects
 		// are stored in a separate quarantine environment. In this case, LFS pointer checks
@@ -295,12 +298,12 @@ size 12345`
 	})
 
 	t.Run("no repository provided", func(t *testing.T) {
-		_, _, _, client := setup(t, ctx)
-		stram, err := client.ListAllLFSPointers(ctx, &gitalypb.ListAllLFSPointersRequest{
+		_, _, _, client := setupWithLFS(t, ctx)
+		stream, err := client.ListAllLFSPointers(ctx, &gitalypb.ListAllLFSPointersRequest{
 			Repository: nil,
 		})
 		require.NoError(t, err)
-		_, err = stram.Recv()
+		_, err = stream.Recv()
 		testhelper.RequireGrpcError(t, status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
 			"empty Repository",
 			"repo scoped: empty Repository",
@@ -310,8 +313,8 @@ size 12345`
 
 func TestSuccessfulGetLFSPointersRequest(t *testing.T) {
 	ctx := testhelper.Context(t)
-
-	_, repo, _, client := setup(t, ctx)
+	cfg, client := setupWithoutRepo(t, ctx)
+	repo, _, repoInfo := setupRepoWithLFS(t, ctx, cfg)
 
 	lfsPointerIds := []string{
 		lfsPointer1,
@@ -319,8 +322,8 @@ func TestSuccessfulGetLFSPointersRequest(t *testing.T) {
 		lfsPointer3,
 	}
 	otherObjectIds := []string{
-		"d5b560e9c17384cf8257347db63167b54e0c97ff", // tree
-		"60ecb67744cb56576c30214ff52294f8ce2def98", // commit
+		repoInfo.defaultTreeID.String(),   // tree
+		repoInfo.defaultCommitID.String(), // commit
 	}
 
 	expectedLFSPointers := []*gitalypb.LFSPointer{
@@ -355,7 +358,7 @@ func TestSuccessfulGetLFSPointersRequest(t *testing.T) {
 func TestFailedGetLFSPointersRequestDueToValidations(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	_, repo, _, client := setup(t, ctx)
+	_, repo, _, client := setupWithLFS(t, ctx)
 
 	testCases := []struct {
 		desc    string
@@ -404,5 +407,60 @@ func lfsPointersEqual(tb testing.TB, expected, actual []*gitalypb.LFSPointer) {
 	require.Equal(tb, len(expected), len(actual))
 	for i := range expected {
 		testhelper.ProtoEqual(tb, expected[i], actual[i])
+	}
+}
+
+func setupWithLFS(tb testing.TB, ctx context.Context) (config.Cfg, *gitalypb.Repository, string, gitalypb.BlobServiceClient) {
+	tb.Helper()
+
+	cfg, client := setupWithoutRepo(tb, ctx)
+	repo, repoPath, _ := setupRepoWithLFS(tb, ctx, cfg)
+
+	return cfg, repo, repoPath, client
+}
+
+type lfsRepoInfo struct {
+	// defaultCommitID is the object ID of the commit pointed to by the default branch.
+	defaultCommitID git.ObjectID
+	// defaultTreeID is the object ID of the tree pointed to by the default branch.
+	defaultTreeID git.ObjectID
+}
+
+// setRepoWithLFS configures a git repository with LFS pointers to be used in
+// testing. The commit OID and root tree OID of the default branch are returned
+// for use with some tests.
+func setupRepoWithLFS(tb testing.TB, ctx context.Context, cfg config.Cfg) (*gitalypb.Repository, string, lfsRepoInfo) {
+	tb.Helper()
+
+	repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
+
+	masterTreeID := gittest.WriteTree(tb, cfg, repoPath, []gittest.TreeEntry{
+		{Mode: "100644", Path: lfsPointer1, Content: string(lfsPointers[lfsPointer1].Data)},
+	})
+	masterCommitID := gittest.WriteCommit(tb, cfg, repoPath,
+		gittest.WithTree(masterTreeID),
+		gittest.WithBranch("master"),
+	)
+
+	_ = gittest.WriteCommit(tb, cfg, repoPath,
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: lfsPointer2, Content: string(lfsPointers[lfsPointer2].Data)},
+			gittest.TreeEntry{Mode: "100644", Path: lfsPointer3, Content: string(lfsPointers[lfsPointer3].Data)},
+		),
+		gittest.WithBranch("foo"),
+	)
+
+	_ = gittest.WriteCommit(tb, cfg, repoPath,
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{Mode: "100644", Path: lfsPointer4, Content: string(lfsPointers[lfsPointer4].Data)},
+			gittest.TreeEntry{Mode: "100644", Path: lfsPointer5, Content: string(lfsPointers[lfsPointer5].Data)},
+			gittest.TreeEntry{Mode: "100644", Path: lfsPointer6, Content: string(lfsPointers[lfsPointer6].Data)},
+		),
+		gittest.WithBranch("bar"),
+	)
+
+	return repo, repoPath, lfsRepoInfo{
+		defaultCommitID: masterCommitID,
+		defaultTreeID:   masterTreeID,
 	}
 }
