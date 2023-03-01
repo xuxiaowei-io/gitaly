@@ -1051,22 +1051,18 @@ func TestValidateCgroups(t *testing.T) {
 				rawCfg: `[cgroups]
 				mountpoint = "/sys/fs/cgroup"
 				hierarchy_root = "gitaly"
-				memory_bytes = 1073741824
 				cpu_shares = 128
 				[cgroups.repositories]
 				count = 10
-				memory_bytes = 1024
 				cpu_shares = 512
 				`,
 				expect: cgroups.Config{
 					Mountpoint:    "/sys/fs/cgroup",
 					HierarchyRoot: "gitaly",
-					MemoryBytes:   1073741824,
 					CPUShares:     128,
 					Repositories: cgroups.Repositories{
-						Count:       10,
-						MemoryBytes: 1024,
-						CPUShares:   512,
+						Count:     10,
+						CPUShares: 512,
 					},
 				},
 				validateErr: errors.New("cgroups.repositories: cpu shares cannot exceed parent"),

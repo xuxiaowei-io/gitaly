@@ -571,7 +571,7 @@ func (cfg *Cfg) validateCgroups() error {
 		return errors.New("cgroups.repositories: memory limit cannot exceed parent")
 	}
 
-	if cg.MemoryBytes > 0 && (cg.Repositories.CPUShares > cg.CPUShares) {
+	if cg.CPUShares > 0 && (cg.Repositories.CPUShares > cg.CPUShares) {
 		return errors.New("cgroups.repositories: cpu shares cannot exceed parent")
 	}
 
