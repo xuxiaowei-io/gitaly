@@ -78,35 +78,35 @@ func TestListBlobs(t *testing.T) {
 		{
 			desc: "single blob",
 			revisions: []string{
-				lfsPointer1,
+				repoInfo.lfsPointers[0].Oid,
 			},
 			expectedBlobs: []*gitalypb.ListBlobsResponse_Blob{
-				{Oid: lfsPointer1, Size: lfsPointers[lfsPointer1].Size},
+				{Oid: repoInfo.lfsPointers[0].Oid, Size: repoInfo.lfsPointers[0].Size},
 			},
 		},
 		{
 			desc: "single blob with paths",
 			revisions: []string{
-				lfsPointer1,
+				repoInfo.lfsPointers[0].Oid,
 			},
 			withPaths: true,
 			// When iterating blobs directly, we cannot deduce a path and thus don't get
 			// any as response.
 			expectedBlobs: []*gitalypb.ListBlobsResponse_Blob{
-				{Oid: lfsPointer1, Size: lfsPointers[lfsPointer1].Size},
+				{Oid: repoInfo.lfsPointers[0].Oid, Size: repoInfo.lfsPointers[0].Size},
 			},
 		},
 		{
 			desc: "multiple blobs",
 			revisions: []string{
-				lfsPointer1,
-				lfsPointer2,
-				lfsPointer3,
+				repoInfo.lfsPointers[0].Oid,
+				repoInfo.lfsPointers[1].Oid,
+				repoInfo.lfsPointers[2].Oid,
 			},
 			expectedBlobs: []*gitalypb.ListBlobsResponse_Blob{
-				{Oid: lfsPointer1, Size: lfsPointers[lfsPointer1].Size},
-				{Oid: lfsPointer2, Size: lfsPointers[lfsPointer2].Size},
-				{Oid: lfsPointer3, Size: lfsPointers[lfsPointer3].Size},
+				{Oid: repoInfo.lfsPointers[0].Oid, Size: repoInfo.lfsPointers[0].Size},
+				{Oid: repoInfo.lfsPointers[1].Oid, Size: repoInfo.lfsPointers[1].Size},
+				{Oid: repoInfo.lfsPointers[2].Oid, Size: repoInfo.lfsPointers[2].Size},
 			},
 		},
 		{
@@ -198,71 +198,71 @@ func TestListBlobs(t *testing.T) {
 		{
 			desc: "complete contents via negative bytes limit",
 			revisions: []string{
-				lfsPointer1,
-				lfsPointer2,
-				lfsPointer3,
+				repoInfo.lfsPointers[0].Oid,
+				repoInfo.lfsPointers[1].Oid,
+				repoInfo.lfsPointers[2].Oid,
 			},
 			bytesLimit: -1,
 			expectedBlobs: []*gitalypb.ListBlobsResponse_Blob{
-				{Oid: lfsPointer1, Size: lfsPointers[lfsPointer1].Size, Data: lfsPointers[lfsPointer1].Data},
-				{Oid: lfsPointer2, Size: lfsPointers[lfsPointer2].Size, Data: lfsPointers[lfsPointer2].Data},
-				{Oid: lfsPointer3, Size: lfsPointers[lfsPointer3].Size, Data: lfsPointers[lfsPointer3].Data},
+				{Oid: repoInfo.lfsPointers[0].Oid, Size: repoInfo.lfsPointers[0].Size, Data: repoInfo.lfsPointers[0].Data},
+				{Oid: repoInfo.lfsPointers[1].Oid, Size: repoInfo.lfsPointers[1].Size, Data: repoInfo.lfsPointers[1].Data},
+				{Oid: repoInfo.lfsPointers[2].Oid, Size: repoInfo.lfsPointers[2].Size, Data: repoInfo.lfsPointers[2].Data},
 			},
 		},
 		{
 			desc: "contents truncated by bytes limit",
 			revisions: []string{
-				lfsPointer1,
-				lfsPointer2,
-				lfsPointer3,
+				repoInfo.lfsPointers[0].Oid,
+				repoInfo.lfsPointers[1].Oid,
+				repoInfo.lfsPointers[2].Oid,
 			},
 			bytesLimit: 10,
 			expectedBlobs: []*gitalypb.ListBlobsResponse_Blob{
-				{Oid: lfsPointer1, Size: lfsPointers[lfsPointer1].Size, Data: lfsPointers[lfsPointer1].Data[:10]},
-				{Oid: lfsPointer2, Size: lfsPointers[lfsPointer2].Size, Data: lfsPointers[lfsPointer2].Data[:10]},
-				{Oid: lfsPointer3, Size: lfsPointers[lfsPointer3].Size, Data: lfsPointers[lfsPointer3].Data[:10]},
+				{Oid: repoInfo.lfsPointers[0].Oid, Size: repoInfo.lfsPointers[0].Size, Data: repoInfo.lfsPointers[0].Data[:10]},
+				{Oid: repoInfo.lfsPointers[1].Oid, Size: repoInfo.lfsPointers[1].Size, Data: repoInfo.lfsPointers[1].Data[:10]},
+				{Oid: repoInfo.lfsPointers[2].Oid, Size: repoInfo.lfsPointers[2].Size, Data: repoInfo.lfsPointers[2].Data[:10]},
 			},
 		},
 		{
 			desc: "bytes limit exceeding total blob content size",
 			revisions: []string{
-				lfsPointer1,
-				lfsPointer2,
-				lfsPointer3,
+				repoInfo.lfsPointers[0].Oid,
+				repoInfo.lfsPointers[1].Oid,
+				repoInfo.lfsPointers[2].Oid,
 			},
 			bytesLimit: 9000,
 			expectedBlobs: []*gitalypb.ListBlobsResponse_Blob{
-				{Oid: lfsPointer1, Size: lfsPointers[lfsPointer1].Size, Data: lfsPointers[lfsPointer1].Data},
-				{Oid: lfsPointer2, Size: lfsPointers[lfsPointer2].Size, Data: lfsPointers[lfsPointer2].Data},
-				{Oid: lfsPointer3, Size: lfsPointers[lfsPointer3].Size, Data: lfsPointers[lfsPointer3].Data},
+				{Oid: repoInfo.lfsPointers[0].Oid, Size: repoInfo.lfsPointers[0].Size, Data: repoInfo.lfsPointers[0].Data},
+				{Oid: repoInfo.lfsPointers[1].Oid, Size: repoInfo.lfsPointers[1].Size, Data: repoInfo.lfsPointers[1].Data},
+				{Oid: repoInfo.lfsPointers[2].Oid, Size: repoInfo.lfsPointers[2].Size, Data: repoInfo.lfsPointers[2].Data},
 			},
 		},
 		{
 			desc: "bytes limit partially exceeding limit",
 			revisions: []string{
-				lfsPointer1,
-				lfsPointer2,
-				lfsPointer3,
+				repoInfo.lfsPointers[0].Oid,
+				repoInfo.lfsPointers[1].Oid,
+				repoInfo.lfsPointers[2].Oid,
 			},
 			bytesLimit: 128,
 			expectedBlobs: []*gitalypb.ListBlobsResponse_Blob{
-				{Oid: lfsPointer1, Size: lfsPointers[lfsPointer1].Size, Data: lfsPointers[lfsPointer1].Data[:128]},
-				{Oid: lfsPointer2, Size: lfsPointers[lfsPointer2].Size, Data: lfsPointers[lfsPointer2].Data},
-				{Oid: lfsPointer3, Size: lfsPointers[lfsPointer3].Size, Data: lfsPointers[lfsPointer3].Data},
+				{Oid: repoInfo.lfsPointers[0].Oid, Size: repoInfo.lfsPointers[0].Size, Data: repoInfo.lfsPointers[0].Data[:128]},
+				{Oid: repoInfo.lfsPointers[1].Oid, Size: repoInfo.lfsPointers[1].Size, Data: repoInfo.lfsPointers[1].Data},
+				{Oid: repoInfo.lfsPointers[2].Oid, Size: repoInfo.lfsPointers[2].Size, Data: repoInfo.lfsPointers[2].Data},
 			},
 		},
 		{
 			desc: "blob with content bigger than a gRPC message",
 			revisions: []string{
 				bigBlobOID.String(),
-				lfsPointer1,
+				repoInfo.lfsPointers[0].Oid,
 			},
 			bytesLimit: -1,
 			expectedBlobs: []*gitalypb.ListBlobsResponse_Blob{
 				{Oid: bigBlobOID.String(), Size: int64(len(bigBlobData)), Data: bigBlobData[:streamio.WriteBufferSize]},
 				{Data: bigBlobData[streamio.WriteBufferSize : 2*streamio.WriteBufferSize]},
 				{Data: bigBlobData[2*streamio.WriteBufferSize:]},
-				{Oid: lfsPointer1, Size: lfsPointers[lfsPointer1].Size, Data: lfsPointers[lfsPointer1].Data},
+				{Oid: repoInfo.lfsPointers[0].Oid, Size: repoInfo.lfsPointers[0].Size, Data: repoInfo.lfsPointers[0].Data},
 			},
 		},
 	} {

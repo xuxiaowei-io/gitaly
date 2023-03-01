@@ -26,48 +26,6 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-const (
-	lfsPointer1 = "0c304a93cb8430108629bbbcaa27db3343299bc0"
-	lfsPointer2 = "f78df813119a79bfbe0442ab92540a61d3ab7ff3"
-	lfsPointer3 = "bab31d249f78fba464d1b75799aad496cc07fa3b"
-	lfsPointer4 = "125fcc9f6e33175cb278b9b2809154d2535fe19f"
-	lfsPointer5 = "0360724a0d64498331888f1eaef2d24243809230"
-	lfsPointer6 = "ff0ab3afd1616ff78d0331865d922df103b64cf0"
-)
-
-var lfsPointers = map[string]*gitalypb.LFSPointer{
-	lfsPointer1: {
-		Size: 133,
-		Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:91eff75a492a3ed0dfcb544d7f31326bc4014c8551849c192fd1e48d4dd2c897\nsize 1575078\n\n"),
-		Oid:  lfsPointer1,
-	},
-	lfsPointer2: {
-		Size: 127,
-		Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:f2b0a1e7550e9b718dafc9b525a04879a766de62e4fbdfc46593d47f7ab74636\nsize 20\n"),
-		Oid:  lfsPointer2,
-	},
-	lfsPointer3: {
-		Size: 127,
-		Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:bad71f905b60729f502ca339f7c9f001281a3d12c68a5da7f15de8009f4bd63d\nsize 18\n"),
-		Oid:  lfsPointer3,
-	},
-	lfsPointer4: {
-		Size: 129,
-		Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:47997ea7ecff33be61e3ca1cc287ee72a2125161518f1a169f2893a5a82e9d95\nsize 7501\n"),
-		Oid:  lfsPointer4,
-	},
-	lfsPointer5: {
-		Size: 129,
-		Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:8c1e8de917525f83104736f6c64d32f0e2a02f5bf2ee57843a54f222cba8c813\nsize 2797\n"),
-		Oid:  lfsPointer5,
-	},
-	lfsPointer6: {
-		Size: 132,
-		Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:96f74c6fe7a2979eefb9ec74a5dfc6888fb25543cf99b77586b79afea1da6f97\nsize 1219696\n"),
-		Oid:  lfsPointer6,
-	},
-}
-
 func TestListLFSPointers(t *testing.T) {
 	ctx := testhelper.Context(t)
 	cfg, client := setupWithoutRepo(t, ctx)
@@ -97,23 +55,23 @@ func TestListLFSPointers(t *testing.T) {
 		{
 			desc: "object IDs",
 			revs: []string{
-				lfsPointer1,
-				lfsPointer2,
-				lfsPointer3,
+				repoInfo.lfsPointers[0].Oid,
+				repoInfo.lfsPointers[1].Oid,
+				repoInfo.lfsPointers[2].Oid,
 				repoInfo.defaultTreeID.String(),   // tree
 				repoInfo.defaultCommitID.String(), // commit
 			},
 			expectedPointers: []*gitalypb.LFSPointer{
-				lfsPointers[lfsPointer1],
-				lfsPointers[lfsPointer2],
-				lfsPointers[lfsPointer3],
+				repoInfo.lfsPointers[0],
+				repoInfo.lfsPointers[1],
+				repoInfo.lfsPointers[2],
 			},
 		},
 		{
 			desc: "revision",
 			revs: []string{"refs/heads/master"},
 			expectedPointers: []*gitalypb.LFSPointer{
-				lfsPointers[lfsPointer1],
+				repoInfo.lfsPointers[0],
 			},
 		},
 		{
@@ -124,11 +82,11 @@ func TestListLFSPointers(t *testing.T) {
 			desc: "partial graph walk",
 			revs: []string{"--all", "--not", "refs/heads/master"},
 			expectedPointers: []*gitalypb.LFSPointer{
-				lfsPointers[lfsPointer2],
-				lfsPointers[lfsPointer3],
-				lfsPointers[lfsPointer4],
-				lfsPointers[lfsPointer5],
-				lfsPointers[lfsPointer6],
+				repoInfo.lfsPointers[1],
+				repoInfo.lfsPointers[2],
+				repoInfo.lfsPointers[3],
+				repoInfo.lfsPointers[4],
+				repoInfo.lfsPointers[5],
 			},
 		},
 		{
@@ -136,11 +94,11 @@ func TestListLFSPointers(t *testing.T) {
 			revs:  []string{"--all", "--not", "refs/heads/master"},
 			limit: 5,
 			expectedPointers: []*gitalypb.LFSPointer{
-				lfsPointers[lfsPointer2],
-				lfsPointers[lfsPointer3],
-				lfsPointers[lfsPointer4],
-				lfsPointers[lfsPointer5],
-				lfsPointers[lfsPointer6],
+				repoInfo.lfsPointers[1],
+				repoInfo.lfsPointers[2],
+				repoInfo.lfsPointers[3],
+				repoInfo.lfsPointers[4],
+				repoInfo.lfsPointers[5],
 			},
 		},
 		{
@@ -148,9 +106,9 @@ func TestListLFSPointers(t *testing.T) {
 			revs:  []string{"--all", "--not", "refs/heads/master"},
 			limit: 3,
 			expectedPointers: []*gitalypb.LFSPointer{
-				lfsPointers[lfsPointer4],
-				lfsPointers[lfsPointer5],
-				lfsPointers[lfsPointer6],
+				repoInfo.lfsPointers[3],
+				repoInfo.lfsPointers[4],
+				repoInfo.lfsPointers[5],
 			},
 		},
 	} {
@@ -214,17 +172,17 @@ size 12345`
 		{
 			desc: "normal repository",
 			setup: func(t *testing.T) setupData {
-				repo, _, _ := setupRepoWithLFS(t, ctx, cfg)
+				repo, _, repoInfo := setupRepoWithLFS(t, ctx, cfg)
 
 				return setupData{
 					repo: repo,
 					expectedPointers: []*gitalypb.LFSPointer{
-						lfsPointers[lfsPointer1],
-						lfsPointers[lfsPointer2],
-						lfsPointers[lfsPointer3],
-						lfsPointers[lfsPointer4],
-						lfsPointers[lfsPointer5],
-						lfsPointers[lfsPointer6],
+						repoInfo.lfsPointers[0],
+						repoInfo.lfsPointers[1],
+						repoInfo.lfsPointers[2],
+						repoInfo.lfsPointers[3],
+						repoInfo.lfsPointers[4],
+						repoInfo.lfsPointers[5],
 					},
 				}
 			},
@@ -232,7 +190,7 @@ size 12345`
 		{
 			desc: "dangling pointer",
 			setup: func(t *testing.T) setupData {
-				repo, repoPath, _ := setupRepoWithLFS(t, ctx, cfg)
+				repo, repoPath, repoInfo := setupRepoWithLFS(t, ctx, cfg)
 
 				hash := gittest.ExecOpts(t, cfg, gittest.ExecConfig{Stdin: strings.NewReader(lfsPointerContents)},
 					"-C", repoPath, "hash-object", "-w", "--stdin",
@@ -247,12 +205,12 @@ size 12345`
 							Data: []byte(lfsPointerContents),
 							Size: int64(len(lfsPointerContents)),
 						},
-						lfsPointers[lfsPointer1],
-						lfsPointers[lfsPointer2],
-						lfsPointers[lfsPointer3],
-						lfsPointers[lfsPointer4],
-						lfsPointers[lfsPointer5],
-						lfsPointers[lfsPointer6],
+						repoInfo.lfsPointers[0],
+						repoInfo.lfsPointers[1],
+						repoInfo.lfsPointers[2],
+						repoInfo.lfsPointers[3],
+						repoInfo.lfsPointers[4],
+						repoInfo.lfsPointers[5],
 					},
 				}
 			},
@@ -388,15 +346,15 @@ func TestGetLFSPointers(t *testing.T) {
 			request: &gitalypb.GetLFSPointersRequest{
 				Repository: repo,
 				BlobIds: []string{
-					lfsPointer1,
-					lfsPointer2,
-					lfsPointer3,
+					repoInfo.lfsPointers[0].Oid,
+					repoInfo.lfsPointers[1].Oid,
+					repoInfo.lfsPointers[2].Oid,
 				},
 			},
 			expectedPointers: []*gitalypb.LFSPointer{
-				lfsPointers[lfsPointer1],
-				lfsPointers[lfsPointer2],
-				lfsPointers[lfsPointer3],
+				repoInfo.lfsPointers[0],
+				repoInfo.lfsPointers[1],
+				repoInfo.lfsPointers[2],
 			},
 		},
 		{
@@ -404,17 +362,17 @@ func TestGetLFSPointers(t *testing.T) {
 			request: &gitalypb.GetLFSPointersRequest{
 				Repository: repo,
 				BlobIds: []string{
-					lfsPointer1,
-					lfsPointer2,
+					repoInfo.lfsPointers[0].Oid,
+					repoInfo.lfsPointers[1].Oid,
 					repoInfo.defaultTreeID.String(),
-					lfsPointer3,
+					repoInfo.lfsPointers[2].Oid,
 					repoInfo.defaultCommitID.String(),
 				},
 			},
 			expectedPointers: []*gitalypb.LFSPointer{
-				lfsPointers[lfsPointer1],
-				lfsPointers[lfsPointer2],
-				lfsPointers[lfsPointer3],
+				repoInfo.lfsPointers[0],
+				repoInfo.lfsPointers[1],
+				repoInfo.lfsPointers[2],
 			},
 		},
 	} {
@@ -466,6 +424,8 @@ type lfsRepoInfo struct {
 	defaultCommitID git.ObjectID
 	// defaultTreeID is the object ID of the tree pointed to by the default branch.
 	defaultTreeID git.ObjectID
+
+	lfsPointers []*gitalypb.LFSPointer
 }
 
 // setRepoWithLFS configures a git repository with LFS pointers to be used in
@@ -476,8 +436,25 @@ func setupRepoWithLFS(tb testing.TB, ctx context.Context, cfg config.Cfg) (*gita
 
 	repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 
+	var lfsPointers []*gitalypb.LFSPointer
+	for _, lfsPointer := range []string{
+		"version https://git-lfs.github.com/spec/v1\noid sha256:91eff75a492a3ed0dfcb544d7f31326bc4014c8551849c192fd1e48d4dd2c897\nsize 1575078\n\n",
+		"version https://git-lfs.github.com/spec/v1\noid sha256:f2b0a1e7550e9b718dafc9b525a04879a766de62e4fbdfc46593d47f7ab74636\nsize 20\n",
+		"version https://git-lfs.github.com/spec/v1\noid sha256:bad71f905b60729f502ca339f7c9f001281a3d12c68a5da7f15de8009f4bd63d\nsize 18\n",
+		"version https://git-lfs.github.com/spec/v1\noid sha256:47997ea7ecff33be61e3ca1cc287ee72a2125161518f1a169f2893a5a82e9d95\nsize 7501\n",
+		"version https://git-lfs.github.com/spec/v1\noid sha256:8c1e8de917525f83104736f6c64d32f0e2a02f5bf2ee57843a54f222cba8c813\nsize 2797\n",
+		"version https://git-lfs.github.com/spec/v1\noid sha256:96f74c6fe7a2979eefb9ec74a5dfc6888fb25543cf99b77586b79afea1da6f97\nsize 1219696\n",
+	} {
+		lfsPointerOID := gittest.WriteBlob(tb, cfg, repoPath, []byte(lfsPointer))
+		lfsPointers = append(lfsPointers, &gitalypb.LFSPointer{
+			Data: []byte(lfsPointer),
+			Size: int64(len(lfsPointer)),
+			Oid:  lfsPointerOID.String(),
+		})
+	}
+
 	masterTreeID := gittest.WriteTree(tb, cfg, repoPath, []gittest.TreeEntry{
-		{Mode: "100644", Path: lfsPointer1, Content: string(lfsPointers[lfsPointer1].Data)},
+		{Mode: "100644", Path: lfsPointers[0].Oid, Content: string(lfsPointers[0].Data)},
 	})
 	masterCommitID := gittest.WriteCommit(tb, cfg, repoPath,
 		gittest.WithTree(masterTreeID),
@@ -486,17 +463,17 @@ func setupRepoWithLFS(tb testing.TB, ctx context.Context, cfg config.Cfg) (*gita
 
 	_ = gittest.WriteCommit(tb, cfg, repoPath,
 		gittest.WithTreeEntries(
-			gittest.TreeEntry{Mode: "100644", Path: lfsPointer2, Content: string(lfsPointers[lfsPointer2].Data)},
-			gittest.TreeEntry{Mode: "100644", Path: lfsPointer3, Content: string(lfsPointers[lfsPointer3].Data)},
+			gittest.TreeEntry{Mode: "100644", Path: lfsPointers[1].Oid, Content: string(lfsPointers[1].Data)},
+			gittest.TreeEntry{Mode: "100644", Path: lfsPointers[2].Oid, Content: string(lfsPointers[2].Data)},
 		),
 		gittest.WithBranch("foo"),
 	)
 
 	_ = gittest.WriteCommit(tb, cfg, repoPath,
 		gittest.WithTreeEntries(
-			gittest.TreeEntry{Mode: "100644", Path: lfsPointer4, Content: string(lfsPointers[lfsPointer4].Data)},
-			gittest.TreeEntry{Mode: "100644", Path: lfsPointer5, Content: string(lfsPointers[lfsPointer5].Data)},
-			gittest.TreeEntry{Mode: "100644", Path: lfsPointer6, Content: string(lfsPointers[lfsPointer6].Data)},
+			gittest.TreeEntry{Mode: "100644", Path: lfsPointers[3].Oid, Content: string(lfsPointers[3].Data)},
+			gittest.TreeEntry{Mode: "100644", Path: lfsPointers[4].Oid, Content: string(lfsPointers[4].Data)},
+			gittest.TreeEntry{Mode: "100644", Path: lfsPointers[5].Oid, Content: string(lfsPointers[5].Data)},
 		),
 		gittest.WithBranch("bar"),
 	)
@@ -504,5 +481,6 @@ func setupRepoWithLFS(tb testing.TB, ctx context.Context, cfg config.Cfg) (*gita
 	return repo, repoPath, lfsRepoInfo{
 		defaultCommitID: masterCommitID,
 		defaultTreeID:   masterTreeID,
+		lfsPointers:     lfsPointers,
 	}
 }
