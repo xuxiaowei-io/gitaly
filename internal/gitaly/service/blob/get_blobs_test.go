@@ -3,183 +3,247 @@
 package blob
 
 import (
-	"fmt"
 	"io"
-	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc/codes"
 )
 
-func TestSuccessfulGetBlobsRequest(t *testing.T) {
+func TestGetBlobs(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
+	cfg, client := setupWithoutRepo(t, ctx)
 
-	cfg, repo, repoPath, client := setup(t, ctx)
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
-	expectedBlobs := []*gitalypb.GetBlobsResponse{
-		{
-			Path: []byte("CHANGELOG"),
-			Size: 22846,
-			Oid:  "53855584db773c3df5b5f61f72974cb298822fbb",
-			Mode: 0o100644,
-			Type: gitalypb.ObjectType_BLOB,
-		},
-		{
-			Path: []byte("files/lfs/lfs_object.iso"),
-			Size: 133,
-			Oid:  "0c304a93cb8430108629bbbcaa27db3343299bc0",
-			Mode: 0o100644,
-			Type: gitalypb.ObjectType_BLOB,
-		},
-		{
-			Path: []byte("files/big-lorem.txt"),
-			Size: 30602785,
-			Oid:  "c9d591740caed845a78ed529fadb3fb96c920cb2",
-			Mode: 0o100644,
-			Type: gitalypb.ObjectType_BLOB,
-		},
-		{
-			Path:        []byte("six"),
-			Size:        0,
-			Oid:         "409f37c4f05865e4fb208c771485f211a22c4c2d",
-			Mode:        0o160000,
-			IsSubmodule: true,
-			Type:        gitalypb.ObjectType_COMMIT,
-		},
-		{
-			Path:        []byte("files"),
-			Size:        268,
-			Oid:         "21cac26406a56d724ad3eeed4f90cf9b48edb992",
-			Mode:        0o040000,
-			IsSubmodule: false,
-			Type:        gitalypb.ObjectType_TREE,
-		},
+	blobASize := int64(13)
+	blobAData := strings.Repeat("a", int(blobASize))
+	blobAOID := gittest.WriteBlob(t, cfg, repoPath, []byte(blobAData))
+
+	blobBSize := int64(50)
+	blobBData := strings.Repeat("b", int(blobBSize))
+	blobBOID := gittest.WriteBlob(t, cfg, repoPath, []byte(blobBData))
+
+	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{OID: blobAOID, Path: "a", Mode: "100644"},
+		gittest.TreeEntry{OID: blobBOID, Path: "b", Mode: "100644"},
+	))
+
+	missingBlob := func(path string, revision git.ObjectID) *gitalypb.GetBlobsResponse {
+		return &gitalypb.GetBlobsResponse{
+			Path:     []byte(path),
+			Revision: revision.String(),
+		}
 	}
-	revision := "ef16b8d2b204706bd8dc211d4011a5bffb6fc0c2"
-	limits := []int{-1, 0, 10 * 1024 * 1024}
 
-	gittest.Exec(t, cfg, "-C", repoPath, "worktree", "add", "blobs-sandbox", revision)
-
-	var revisionPaths []*gitalypb.GetBlobsRequest_RevisionPath
-	for _, blob := range expectedBlobs {
-		revisionPaths = append(revisionPaths, &gitalypb.GetBlobsRequest_RevisionPath{Revision: revision, Path: blob.Path})
+	existingBlob := func(path string, revision, blobID git.ObjectID, data string, size int64) *gitalypb.GetBlobsResponse {
+		return &gitalypb.GetBlobsResponse{
+			Path:     []byte(path),
+			Revision: revision.String(),
+			Oid:      blobID.String(),
+			Data:     []byte(data),
+			Size:     size,
+			Mode:     0o100644,
+			Type:     gitalypb.ObjectType_BLOB,
+		}
 	}
-	revisionPaths = append(revisionPaths,
-		&gitalypb.GetBlobsRequest_RevisionPath{Revision: "does-not-exist", Path: []byte("CHANGELOG")},
-		&gitalypb.GetBlobsRequest_RevisionPath{Revision: revision, Path: []byte("file-that-does-not-exist")},
-	)
 
-	for _, limit := range limits {
-		t.Run(fmt.Sprintf("limit = %d", limit), func(t *testing.T) {
-			request := &gitalypb.GetBlobsRequest{
-				Repository:    repo,
-				RevisionPaths: revisionPaths,
-				Limit:         int64(limit),
-			}
+	type setupData struct {
+		request           *gitalypb.GetBlobsRequest
+		expectedErr       error
+		expectedResponses []*gitalypb.GetBlobsResponse
+	}
 
-			c, err := client.GetBlobs(ctx, request)
+	for _, tc := range []struct {
+		desc  string
+		setup func(t *testing.T) setupData
+	}{
+		{
+			desc: "empty Repository",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.GetBlobsRequest{
+						RevisionPaths: []*gitalypb.GetBlobsRequest_RevisionPath{
+							{Revision: "does-not-exist", Path: []byte("file")},
+						},
+					},
+					expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
+						"empty Repository",
+						"repo scoped: empty Repository",
+					)),
+				}
+			},
+		},
+		{
+			desc: "empty RevisionPaths",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.GetBlobsRequest{
+						Repository: repo,
+					},
+					expectedErr: structerr.NewInvalidArgument("empty RevisionPaths"),
+				}
+			},
+		},
+		{
+			desc: "invalid Revision",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.GetBlobsRequest{
+						Repository: repo,
+						RevisionPaths: []*gitalypb.GetBlobsRequest_RevisionPath{
+							{Revision: "--output=/meow", Path: []byte("CHANGELOG")},
+						},
+					},
+					expectedErr: structerr.NewInvalidArgument("revision can't start with '-'"),
+				}
+			},
+		},
+		{
+			desc: "zero-limit skips blob data",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.GetBlobsRequest{
+						Repository: repo,
+						Limit:      0,
+						RevisionPaths: []*gitalypb.GetBlobsRequest_RevisionPath{
+							{Revision: commitID.String(), Path: []byte("a")},
+							{Revision: commitID.String(), Path: []byte("b")},
+						},
+					},
+					expectedResponses: []*gitalypb.GetBlobsResponse{
+						existingBlob("a", commitID, blobAOID, "", blobASize),
+						existingBlob("b", commitID, blobBOID, "", blobBSize),
+					},
+				}
+			},
+		},
+		{
+			desc: "negative limit sends all blob data",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.GetBlobsRequest{
+						Repository: repo,
+						Limit:      -1,
+						RevisionPaths: []*gitalypb.GetBlobsRequest_RevisionPath{
+							{Revision: commitID.String(), Path: []byte("a")},
+							{Revision: commitID.String(), Path: []byte("b")},
+						},
+					},
+					expectedResponses: []*gitalypb.GetBlobsResponse{
+						existingBlob("a", commitID, blobAOID, blobAData, blobASize),
+						existingBlob("b", commitID, blobBOID, blobBData, blobBSize),
+					},
+				}
+			},
+		},
+		{
+			desc: "positive limit truncates blob data",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.GetBlobsRequest{
+						Repository: repo,
+						Limit:      5,
+						RevisionPaths: []*gitalypb.GetBlobsRequest_RevisionPath{
+							{Revision: commitID.String(), Path: []byte("a")},
+							{Revision: commitID.String(), Path: []byte("b")},
+						},
+					},
+					expectedResponses: []*gitalypb.GetBlobsResponse{
+						existingBlob("a", commitID, blobAOID, blobAData[:5], blobASize),
+						existingBlob("b", commitID, blobBOID, blobBData[:5], blobBSize),
+					},
+				}
+			},
+		},
+		{
+			desc: "with limit exceeding blob sizes",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.GetBlobsRequest{
+						Repository: repo,
+						Limit:      9000,
+						RevisionPaths: []*gitalypb.GetBlobsRequest_RevisionPath{
+							{Revision: commitID.String(), Path: []byte("a")},
+							{Revision: commitID.String(), Path: []byte("b")},
+						},
+					},
+					expectedResponses: []*gitalypb.GetBlobsResponse{
+						existingBlob("a", commitID, blobAOID, blobAData, blobASize),
+						existingBlob("b", commitID, blobBOID, blobBData, blobBSize),
+					},
+				}
+			},
+		},
+		{
+			desc: "nonexisting path",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.GetBlobsRequest{
+						Repository: repo,
+						RevisionPaths: []*gitalypb.GetBlobsRequest_RevisionPath{
+							{Revision: commitID.String(), Path: []byte("does-not-exist")},
+						},
+					},
+					expectedResponses: []*gitalypb.GetBlobsResponse{
+						missingBlob("does-not-exist", commitID),
+					},
+				}
+			},
+		},
+		{
+			desc: "mixed existing and nonexisting path",
+			setup: func(t *testing.T) setupData {
+				return setupData{
+					request: &gitalypb.GetBlobsRequest{
+						Repository: repo,
+						RevisionPaths: []*gitalypb.GetBlobsRequest_RevisionPath{
+							{Revision: commitID.String(), Path: []byte("a")},
+							{Revision: commitID.String(), Path: []byte("does-not-exist")},
+						},
+					},
+					expectedResponses: []*gitalypb.GetBlobsResponse{
+						existingBlob("a", commitID, blobAOID, "", blobASize),
+						missingBlob("does-not-exist", commitID),
+					},
+				}
+			},
+		},
+	} {
+		tc := tc
+
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			setup := tc.setup(t)
+
+			stream, err := client.GetBlobs(ctx, setup.request)
 			require.NoError(t, err)
 
-			var receivedBlobs []*gitalypb.GetBlobsResponse
-			var nonExistentBlobs []*gitalypb.GetBlobsResponse
-
+			var responses []*gitalypb.GetBlobsResponse
 			for {
-				response, err := c.Recv()
-				if err == io.EOF {
+				response, err := stream.Recv()
+				if err != nil {
+					if setup.expectedErr == nil {
+						setup.expectedErr = io.EOF
+					}
+
+					testhelper.RequireGrpcError(t, setup.expectedErr, err)
 					break
 				}
 				require.NoError(t, err)
 
-				if len(response.Oid) == 0 && len(response.Data) == 0 {
-					nonExistentBlobs = append(nonExistentBlobs, response)
-				} else if len(response.Oid) != 0 {
-					receivedBlobs = append(receivedBlobs, response)
-				} else {
-					require.NotEmpty(t, receivedBlobs)
-					currentBlob := receivedBlobs[len(receivedBlobs)-1]
-					currentBlob.Data = append(currentBlob.Data, response.Data...)
-				}
+				responses = append(responses, response)
 			}
 
-			require.Equal(t, 2, len(nonExistentBlobs))
-			require.Equal(t, len(expectedBlobs), len(receivedBlobs))
-
-			for i, receivedBlob := range receivedBlobs {
-				expectedBlob := expectedBlobs[i]
-				expectedBlob.Revision = revision
-				if !expectedBlob.IsSubmodule && expectedBlob.Type == gitalypb.ObjectType_BLOB {
-					expectedBlob.Data = testhelper.MustReadFile(t, filepath.Join(repoPath, "blobs-sandbox", string(expectedBlob.Path)))
-				}
-				if limit == 0 {
-					expectedBlob.Data = nil
-				}
-				if limit > 0 && limit < len(expectedBlob.Data) {
-					expectedBlob.Data = expectedBlob.Data[:limit]
-				}
-
-				// comparison of the huge blobs is not possible with testhelper.ProtoEqual
-				// we compare them manually and override to use in testhelper.ProtoEqual
-				require.Equal(t, expectedBlob.Data, receivedBlob.Data)
-				expectedBlob.Data, receivedBlob.Data = nil, nil
-				testhelper.ProtoEqual(t, expectedBlob, receivedBlob)
-			}
-		})
-	}
-}
-
-func TestFailedGetBlobsRequestDueToValidation(t *testing.T) {
-	ctx := testhelper.Context(t)
-
-	_, repo, _, client := setup(t, ctx)
-
-	testCases := []struct {
-		desc    string
-		request *gitalypb.GetBlobsRequest
-		code    codes.Code
-	}{
-		{
-			desc: "empty Repository",
-			request: &gitalypb.GetBlobsRequest{
-				RevisionPaths: []*gitalypb.GetBlobsRequest_RevisionPath{
-					{Revision: "does-not-exist", Path: []byte("file")},
-				},
-			},
-			code: codes.InvalidArgument,
-		},
-		{
-			desc: "empty RevisionPaths",
-			request: &gitalypb.GetBlobsRequest{
-				Repository: repo,
-			},
-			code: codes.InvalidArgument,
-		},
-		{
-			desc: "invalid Revision",
-			request: &gitalypb.GetBlobsRequest{
-				Repository: repo,
-				RevisionPaths: []*gitalypb.GetBlobsRequest_RevisionPath{
-					{
-						Path:     []byte("CHANGELOG"),
-						Revision: "--output=/meow",
-					},
-				},
-			},
-			code: codes.InvalidArgument,
-		},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.desc, func(t *testing.T) {
-			stream, err := client.GetBlobs(ctx, testCase.request)
-			require.NoError(t, err)
-
-			_, err = stream.Recv()
-			require.NotEqual(t, io.EOF, err)
-			testhelper.RequireGrpcCode(t, err, testCase.code)
+			testhelper.ProtoEqual(t, setup.expectedResponses, responses)
 		})
 	}
 }
