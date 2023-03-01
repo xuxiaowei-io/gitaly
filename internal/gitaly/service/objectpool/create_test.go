@@ -217,7 +217,7 @@ func TestCreate_atomic(t *testing.T) {
 	cfg := testcfg.Build(t)
 
 	gitCmdFactory := gittest.NewInterceptingCommandFactory(t, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
-		return fmt.Sprintf(`#!/bin/bash
+		return fmt.Sprintf(`#!/usr/bin/env bash
 		if [[ ! "$@" =~ "clone" ]]; then
 			exec %[1]q "$@"
 		fi

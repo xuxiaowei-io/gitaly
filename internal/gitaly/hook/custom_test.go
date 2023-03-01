@@ -27,14 +27,14 @@ import (
 // args: arg1 arg2
 // env: VAR1=VAL1 VAR2=VAL2
 // NOTE: this script only prints one line of stdin
-var printAllScript = []byte(`#!/bin/bash
+var printAllScript = []byte(`#!/usr/bin/env bash
 read stdin
 echo stdin:$stdin
 echo args:$@
 echo env: $(printenv)`)
 
 // printStdinScript prints stdin line by line
-var printStdinScript = []byte(`#!/bin/bash
+var printStdinScript = []byte(`#!/usr/bin/env bash
 while read line
 do
   echo "$line"
@@ -42,12 +42,12 @@ done
 `)
 
 // failScript prints the name of the command and exits with exit code 1
-var failScript = []byte(`#!/bin/bash
+var failScript = []byte(`#!/usr/bin/env bash
 echo "$0" >&2
 exit 1`)
 
 // successScript prints the name of the command and exits with exit code 0
-var successScript = []byte(`#!/bin/bash
+var successScript = []byte(`#!/usr/bin/env bash
 echo "$0"
 exit 0`)
 

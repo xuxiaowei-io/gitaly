@@ -48,7 +48,7 @@ func TestSize(t *testing.T) {
 
 	commandArgFile := filepath.Join(testhelper.TempDir(t), "args")
 	interceptingFactory := gittest.NewInterceptingCommandFactory(t, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
-		return fmt.Sprintf(`#!/bin/bash
+		return fmt.Sprintf(`#!/usr/bin/env bash
 			echo "$@" >%q
 			exec %q "$@"
 		`, commandArgFile, execEnv.BinaryPath)

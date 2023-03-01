@@ -296,7 +296,7 @@ func testHooksUpdate(t *testing.T, ctx context.Context, cfg config.Cfg, glValues
 	customHookArgsPath := filepath.Join(testhelper.TempDir(t), "containsarguments")
 	testhelper.WriteExecutable(t,
 		filepath.Join(repoPath, "custom_hooks", "update.d", "dumpargsscript"),
-		[]byte(fmt.Sprintf(`#!/bin/bash
+		[]byte(fmt.Sprintf(`#!/usr/bin/env bash
 			echo "$@" >%q
 		`, customHookArgsPath)),
 	)

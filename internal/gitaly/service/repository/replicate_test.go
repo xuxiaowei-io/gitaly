@@ -552,7 +552,7 @@ func listenGitalySSHCalls(t *testing.T, conf config.Cfg) func() gitalySSHParams 
 
 	tmpDir := testhelper.TempDir(t)
 
-	script := fmt.Sprintf(`#!/bin/bash
+	script := fmt.Sprintf(`#!/usr/bin/env bash
 
 		# To omit possible problem with parallel run and a race for the file creation with '>'
 		# this option is used, please checkout https://mywiki.wooledge.org/NoClobber for more details.

@@ -560,7 +560,7 @@ func TestInstance_Stats_failureGitattributes(t *testing.T) {
 	t.Cleanup(catfileCache.Stop)
 
 	gitCmdFactory := gittest.NewInterceptingCommandFactory(t, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
-		return fmt.Sprintf(`#!/bin/bash
+		return fmt.Sprintf(`#!/usr/bin/env bash
 		if [[ ! "$@" =~ "check-attr" ]]; then
 			exec %q "$@"
 		fi

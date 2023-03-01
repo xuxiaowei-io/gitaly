@@ -87,7 +87,7 @@ func NewInterceptingCommandFactory(
 	if !interceptingCommandFactoryCfg.interceptVersion {
 		wrapperScriptPath := filepath.Join(testhelper.TempDir(tb), "git")
 		testhelper.WriteExecutable(tb, wrapperScriptPath, []byte(fmt.Sprintf(
-			`#!/bin/bash
+			`#!/usr/bin/env bash
 			if test "$1" = "version"
 			then
 				exec %q "$@"
