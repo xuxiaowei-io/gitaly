@@ -135,6 +135,11 @@ linters-settings:
       begin: false
     tb:
       begin: false
+  custom:
+    gitaly-linters:
+      path: ./_build/tools/gitaly-linters.so
+      description: A collection of linters tailored for Gitaly
+      original-url: gitlab.com/gitlab-org/gitaly
 
 issues:
   exclude-use-default: false

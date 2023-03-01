@@ -3,6 +3,7 @@ module gitlab.com/gitlab-org/gitaly/tools/golangci-lint
 go 1.18
 
 require github.com/golangci/golangci-lint v1.51.1
+require golang.org/x/tools v0.5.0
 
 require (
 	4d63.com/gocheckcompilerdirectives v1.2.1 // indirect
