@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/safe"
 )
 
@@ -326,6 +327,10 @@ func (repo *Repo) GetRemoteReferences(ctx context.Context, remote string, opts .
 
 // GetDefaultBranch determines the default branch name
 func (repo *Repo) GetDefaultBranch(ctx context.Context) (git.ReferenceName, error) {
+	if featureflag.HeadAsDefaultBranch.IsEnabled(ctx) {
+		return repo.headReference(ctx)
+	}
+
 	branches, err := repo.GetBranches(ctx)
 	if err != nil {
 		return "", err

@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"google.golang.org/protobuf/proto"
 )
@@ -76,5 +77,16 @@ func RequireDefaultBranch(tb testing.TB, ctx context.Context, repo *localrepo.Re
 
 	actualDefaultBranch, err := repo.GetDefaultBranch(ctx)
 	require.NoError(tb, err)
+
+	// Often it is convenient to leave test-case assertions at their zero value
+	// when it isn't relevant to the test at hand. Before HeadAsDefaultBranch
+	// empty repositories would return an empty string as the default branch,
+	// with HeadAsDefaultBranch there is always a default branch. So here we
+	// assume when the default branch is not relevant to the test that it will
+	// be git.DefaultRef.
+	if featureflag.HeadAsDefaultBranch.IsEnabled(ctx) && expectedDefaultBranch == "" {
+		expectedDefaultBranch = git.DefaultRef
+	}
+
 	require.Equal(tb, expectedDefaultBranch, actualDefaultBranch)
 }

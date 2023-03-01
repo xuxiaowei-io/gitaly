@@ -8,6 +8,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
 
@@ -19,7 +20,7 @@ type GetRepositoryFunc func(t testing.TB, ctx context.Context) (git.Repository, 
 func TestRepository(t *testing.T, cfg config.Cfg, getRepository GetRepositoryFunc) {
 	for _, tc := range []struct {
 		desc string
-		test func(*testing.T, config.Cfg, GetRepositoryFunc)
+		test func(*testing.T, context.Context, config.Cfg, GetRepositoryFunc)
 	}{
 		{
 			desc: "ResolveRevision",
@@ -35,14 +36,14 @@ func TestRepository(t *testing.T, cfg config.Cfg, getRepository GetRepositoryFun
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			tc.test(t, cfg, getRepository)
+			testhelper.NewFeatureSets(featureflag.HeadAsDefaultBranch).Run(t, func(t *testing.T, ctx context.Context) {
+				tc.test(t, ctx, cfg, getRepository)
+			})
 		})
 	}
 }
 
-func testRepositoryResolveRevision(t *testing.T, cfg config.Cfg, getRepository GetRepositoryFunc) {
-	ctx := testhelper.Context(t)
-
+func testRepositoryResolveRevision(t *testing.T, ctx context.Context, cfg config.Cfg, getRepository GetRepositoryFunc) {
 	repo, repoPath := getRepository(t, ctx)
 
 	firstParentCommitID := WriteCommit(t, cfg, repoPath, WithMessage("first parent"))
@@ -96,9 +97,7 @@ func testRepositoryResolveRevision(t *testing.T, cfg config.Cfg, getRepository G
 	}
 }
 
-func testRepositoryHasBranches(t *testing.T, cfg config.Cfg, getRepository GetRepositoryFunc) {
-	ctx := testhelper.Context(t)
-
+func testRepositoryHasBranches(t *testing.T, ctx context.Context, cfg config.Cfg, getRepository GetRepositoryFunc) {
 	repo, repoPath := getRepository(t, ctx)
 
 	emptyCommit := text.ChompBytes(Exec(t, cfg, "-C", repoPath, "commit-tree", DefaultObjectHash.EmptyTreeOID.String()))
@@ -116,9 +115,7 @@ func testRepositoryHasBranches(t *testing.T, cfg config.Cfg, getRepository GetRe
 	require.True(t, hasBranches)
 }
 
-func testRepositoryGetDefaultBranch(t *testing.T, cfg config.Cfg, getRepository GetRepositoryFunc) {
-	ctx := testhelper.Context(t)
-
+func testRepositoryGetDefaultBranch(t *testing.T, ctx context.Context, cfg config.Cfg, getRepository GetRepositoryFunc) {
 	for _, tc := range []struct {
 		desc         string
 		repo         func(t *testing.T) git.Repository
@@ -142,7 +139,10 @@ func testRepositoryGetDefaultBranch(t *testing.T, cfg config.Cfg, getRepository 
 				WriteCommit(t, cfg, repoPath, WithParents(oid), WithBranch("master"))
 				return repo
 			},
-			expectedName: git.LegacyDefaultRef,
+			expectedName: testhelper.EnabledOrDisabledFlag(ctx, featureflag.HeadAsDefaultBranch,
+				git.DefaultRef,
+				git.LegacyDefaultRef,
+			),
 		},
 		{
 			desc: "no branches",
@@ -150,6 +150,10 @@ func testRepositoryGetDefaultBranch(t *testing.T, cfg config.Cfg, getRepository 
 				repo, _ := getRepository(t, ctx)
 				return repo
 			},
+			expectedName: testhelper.EnabledOrDisabledFlag(ctx, featureflag.HeadAsDefaultBranch,
+				git.DefaultRef,
+				git.ReferenceName(""),
+			),
 		},
 		{
 			desc: "one branch",
@@ -158,7 +162,10 @@ func testRepositoryGetDefaultBranch(t *testing.T, cfg config.Cfg, getRepository 
 				WriteCommit(t, cfg, repoPath, WithBranch("apple"))
 				return repo
 			},
-			expectedName: git.NewReferenceNameFromBranchName("apple"),
+			expectedName: testhelper.EnabledOrDisabledFlag(ctx, featureflag.HeadAsDefaultBranch,
+				git.DefaultRef,
+				git.NewReferenceNameFromBranchName("apple"),
+			),
 		},
 		{
 			desc: "no default branches",
@@ -168,7 +175,10 @@ func testRepositoryGetDefaultBranch(t *testing.T, cfg config.Cfg, getRepository 
 				WriteCommit(t, cfg, repoPath, WithParents(oid), WithBranch("banana"))
 				return repo
 			},
-			expectedName: git.NewReferenceNameFromBranchName("apple"),
+			expectedName: testhelper.EnabledOrDisabledFlag(ctx, featureflag.HeadAsDefaultBranch,
+				git.DefaultRef,
+				git.NewReferenceNameFromBranchName("apple"),
+			),
 		},
 		{
 			desc: "test repo HEAD set",

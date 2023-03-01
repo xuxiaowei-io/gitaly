@@ -21,6 +21,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -64,11 +65,13 @@ func validCustomHooks(tb testing.TB) []byte {
 func noopTransactionFinalizer() {}
 
 func TestTransactionManager(t *testing.T) {
+	testhelper.NewFeatureSets(featureflag.HeadAsDefaultBranch).Run(t, testTransactionManager)
+}
+
+func testTransactionManager(t *testing.T, ctx context.Context) {
 	umask := perm.GetUmask()
 
 	t.Parallel()
-
-	ctx := testhelper.Context(t)
 
 	type testCommit struct {
 		OID git.ObjectID
@@ -343,8 +346,11 @@ func TestTransactionManager(t *testing.T) {
 				},
 			},
 			expectedState: StateAssertion{
-				DefaultBranch: "refs/heads/parent",
-				References:    []git.Reference{{Name: "refs/heads/parent", Target: setup.Commits.First.OID.String()}},
+				DefaultBranch: testhelper.EnabledOrDisabledFlag(ctx, featureflag.HeadAsDefaultBranch,
+					git.DefaultRef,
+					git.ReferenceName("refs/heads/parent"),
+				),
+				References: []git.Reference{{Name: "refs/heads/parent", Target: setup.Commits.First.OID.String()}},
 				Database: DatabaseState{
 					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
 				},
@@ -417,8 +423,11 @@ func TestTransactionManager(t *testing.T) {
 				},
 			},
 			expectedState: StateAssertion{
-				DefaultBranch: "refs/heads/parent/child",
-				References:    []git.Reference{{Name: "refs/heads/parent/child", Target: setup.Commits.First.OID.String()}},
+				DefaultBranch: testhelper.EnabledOrDisabledFlag(ctx, featureflag.HeadAsDefaultBranch,
+					git.DefaultRef,
+					git.ReferenceName("refs/heads/parent/child"),
+				),
+				References: []git.Reference{{Name: "refs/heads/parent/child", Target: setup.Commits.First.OID.String()}},
 				Database: DatabaseState{
 					string(keyAppliedLogIndex(getRepositoryID(setup.Repository))): LogIndex(1).toProto(),
 				},

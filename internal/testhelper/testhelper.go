@@ -202,6 +202,12 @@ func ContextWithoutCancel(opts ...ContextOpt) context.Context {
 	// Randomly enable the use of the catfile cache in localrepo.ReadObject.
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.LocalrepoReadObjectCached, rnd.Int()%2 == 0)
 
+	// Default branch is often called but not explicitly tested very often. So
+	// to save having to change too many tests we randomly enable it when it
+	// shouldn't affect anything, and explicitly test enabled/disabled as
+	// required.
+	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.HeadAsDefaultBranch, rnd.Int()%2 == 0)
+
 	for _, opt := range opts {
 		ctx = opt(ctx)
 	}

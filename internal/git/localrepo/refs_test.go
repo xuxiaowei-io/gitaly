@@ -21,6 +21,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -488,7 +489,10 @@ func TestRepo_UpdateRef(t *testing.T) {
 }
 
 func TestRepo_SetDefaultBranch(t *testing.T) {
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(featureflag.HeadAsDefaultBranch).Run(t, testRepoSetDefaultBranch)
+}
+
+func testRepoSetDefaultBranch(t *testing.T, ctx context.Context) {
 	cfg, repo, repoPath := setupRepo(t)
 
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
@@ -507,9 +511,12 @@ func TestRepo_SetDefaultBranch(t *testing.T) {
 			expectedRef: "refs/heads/feature",
 		},
 		{
-			desc:        "unknown ref",
-			ref:         "refs/heads/non_existent_ref",
-			expectedRef: git.LegacyDefaultRef,
+			desc: "unknown ref",
+			ref:  "refs/heads/non_existent_ref",
+			expectedRef: testhelper.EnabledOrDisabledFlag(ctx, featureflag.HeadAsDefaultBranch,
+				git.ReferenceName("refs/heads/non_existent_ref"),
+				git.LegacyDefaultRef,
+			),
 		},
 	}
 	for _, tc := range testCases {
@@ -565,8 +572,10 @@ func (b *blockingManager) Stop(_ context.Context, _ txinfo.Transaction) error {
 }
 
 func TestRepo_SetDefaultBranch_errors(t *testing.T) {
-	ctx := testhelper.Context(t)
+	testhelper.NewFeatureSets(featureflag.HeadAsDefaultBranch).Run(t, testRepoSetDefaultBranchErrors)
+}
 
+func testRepoSetDefaultBranchErrors(t *testing.T, ctx context.Context) {
 	t.Run("malformed refname", func(t *testing.T) {
 		_, repo, _ := setupRepo(t)
 
