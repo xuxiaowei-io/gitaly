@@ -21,7 +21,6 @@ import (
 	gitalycfgprom "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -29,14 +28,8 @@ import (
 
 func TestRepackIfNeeded(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(
-		featureflag.WriteMultiPackIndex,
-	).Run(t, testRepackIfNeeded)
-}
 
-func testRepackIfNeeded(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
 	t.Run("no repacking", func(t *testing.T) {
@@ -157,27 +150,14 @@ func TestPackRefsIfNeeded(t *testing.T) {
 
 func TestOptimizeRepository(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(
-		featureflag.WriteMultiPackIndex,
-	).Run(t, testOptimizeRepository)
-}
 
-func testOptimizeRepository(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
 
 	type metric struct {
 		name, status string
 		count        int
-	}
-
-	midxEnabledOrDisabled := func(enabled, disabled []metric) []metric {
-		if featureflag.WriteMultiPackIndex.IsEnabled(ctx) {
-			return enabled
-		}
-		return disabled
 	}
 
 	for _, tc := range []struct {
@@ -210,21 +190,13 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 				return repo
 			},
-			expectedMetrics: midxEnabledOrDisabled(
-				[]metric{
-					{name: "packed_objects_incremental", status: "success", count: 1},
-					{name: "written_commit_graph_full", status: "success", count: 1},
-					{name: "written_bitmap", status: "success", count: 1},
-					{name: "written_multi_pack_index", status: "success", count: 1},
-					{name: "total", status: "success", count: 1},
-				},
-				[]metric{
-					{name: "packed_objects_full", status: "success", count: 1},
-					{name: "written_commit_graph_full", status: "success", count: 1},
-					{name: "written_bitmap", status: "success", count: 1},
-					{name: "total", status: "success", count: 1},
-				},
-			),
+			expectedMetrics: []metric{
+				{name: "packed_objects_incremental", status: "success", count: 1},
+				{name: "written_commit_graph_full", status: "success", count: 1},
+				{name: "written_bitmap", status: "success", count: 1},
+				{name: "written_multi_pack_index", status: "success", count: 1},
+				{name: "total", status: "success", count: 1},
+			},
 		},
 		{
 			desc: "repository without commit-graph writes commit-graph",
@@ -237,19 +209,13 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "--write-bitmap-index")
 				return repo
 			},
-			expectedMetrics: midxEnabledOrDisabled(
-				[]metric{
-					{name: "packed_objects_incremental", status: "success", count: 1},
-					{name: "written_bitmap", status: "success", count: 1},
-					{name: "written_commit_graph_full", status: "success", count: 1},
-					{name: "written_multi_pack_index", status: "success", count: 1},
-					{name: "total", status: "success", count: 1},
-				},
-				[]metric{
-					{name: "written_commit_graph_full", status: "success", count: 1},
-					{name: "total", status: "success", count: 1},
-				},
-			),
+			expectedMetrics: []metric{
+				{name: "packed_objects_incremental", status: "success", count: 1},
+				{name: "written_bitmap", status: "success", count: 1},
+				{name: "written_commit_graph_full", status: "success", count: 1},
+				{name: "written_multi_pack_index", status: "success", count: 1},
+				{name: "total", status: "success", count: 1},
+			},
 		},
 		{
 			desc: "repository with commit-graph without generation data writes commit-graph",
@@ -263,19 +229,13 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				gittest.Exec(t, cfg, "-c", "commitGraph.generationVersion=1", "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 				return repo
 			},
-			expectedMetrics: midxEnabledOrDisabled(
-				[]metric{
-					{name: "packed_objects_incremental", status: "success", count: 1},
-					{name: "written_bitmap", status: "success", count: 1},
-					{name: "written_commit_graph_full", status: "success", count: 1},
-					{name: "written_multi_pack_index", status: "success", count: 1},
-					{name: "total", status: "success", count: 1},
-				},
-				[]metric{
-					{name: "written_commit_graph_full", status: "success", count: 1},
-					{name: "total", status: "success", count: 1},
-				},
-			),
+			expectedMetrics: []metric{
+				{name: "packed_objects_incremental", status: "success", count: 1},
+				{name: "written_bitmap", status: "success", count: 1},
+				{name: "written_commit_graph_full", status: "success", count: 1},
+				{name: "written_multi_pack_index", status: "success", count: 1},
+				{name: "total", status: "success", count: 1},
+			},
 		},
 		{
 			desc: "repository without multi-pack-index performs incremental repack",
@@ -288,19 +248,13 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-d", "-b")
 				return repo
 			},
-			expectedMetrics: midxEnabledOrDisabled(
-				[]metric{
-					{name: "packed_objects_incremental", status: "success", count: 1},
-					{name: "written_bitmap", status: "success", count: 1},
-					{name: "written_commit_graph_full", status: "success", count: 1},
-					{name: "written_multi_pack_index", status: "success", count: 1},
-					{name: "total", status: "success", count: 1},
-				},
-				[]metric{
-					{name: "written_commit_graph_full", status: "success", count: 1},
-					{name: "total", status: "success", count: 1},
-				},
-			),
+			expectedMetrics: []metric{
+				{name: "packed_objects_incremental", status: "success", count: 1},
+				{name: "written_bitmap", status: "success", count: 1},
+				{name: "written_commit_graph_full", status: "success", count: 1},
+				{name: "written_multi_pack_index", status: "success", count: 1},
+				{name: "total", status: "success", count: 1},
+			},
 		},
 		{
 			desc: "repository with multiple packfiles packs only for object pool",
@@ -322,33 +276,20 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 
 				return repo
 			},
-			expectedMetrics: midxEnabledOrDisabled(
-				[]metric{
-					{name: "packed_objects_incremental", status: "success", count: 1},
-					{name: "written_bitmap", status: "success", count: 1},
-					{name: "written_commit_graph_incremental", status: "success", count: 1},
-					{name: "written_multi_pack_index", status: "success", count: 1},
-					{name: "total", status: "success", count: 1},
-				},
-				[]metric{
-					{name: "total", status: "success", count: 1},
-				},
-			),
-			expectedMetricsForPool: midxEnabledOrDisabled(
-				[]metric{
-					{name: "packed_objects_full", status: "success", count: 1},
-					{name: "written_bitmap", status: "success", count: 1},
-					{name: "written_commit_graph_incremental", status: "success", count: 1},
-					{name: "written_multi_pack_index", status: "success", count: 1},
-					{name: "total", status: "success", count: 1},
-				},
-				[]metric{
-					{name: "packed_objects_full", status: "success", count: 1},
-					{name: "written_bitmap", status: "success", count: 1},
-					{name: "written_commit_graph_incremental", status: "success", count: 1},
-					{name: "total", status: "success", count: 1},
-				},
-			),
+			expectedMetrics: []metric{
+				{name: "packed_objects_incremental", status: "success", count: 1},
+				{name: "written_bitmap", status: "success", count: 1},
+				{name: "written_commit_graph_incremental", status: "success", count: 1},
+				{name: "written_multi_pack_index", status: "success", count: 1},
+				{name: "total", status: "success", count: 1},
+			},
+			expectedMetricsForPool: []metric{
+				{name: "packed_objects_full", status: "success", count: 1},
+				{name: "written_bitmap", status: "success", count: 1},
+				{name: "written_commit_graph_incremental", status: "success", count: 1},
+				{name: "written_multi_pack_index", status: "success", count: 1},
+				{name: "total", status: "success", count: 1},
+			},
 		},
 		{
 			desc: "well-packed repository does not optimize",
@@ -362,18 +303,13 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				gittest.Exec(t, cfg, "-c", "commitGraph.generationVersion=2", "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 				return repo
 			},
-			expectedMetrics: midxEnabledOrDisabled(
-				[]metric{
-					{name: "packed_objects_incremental", status: "success", count: 1},
-					{name: "written_bitmap", status: "success", count: 1},
-					{name: "written_commit_graph_incremental", status: "success", count: 1},
-					{name: "written_multi_pack_index", status: "success", count: 1},
-					{name: "total", status: "success", count: 1},
-				},
-				[]metric{
-					{name: "total", status: "success", count: 1},
-				},
-			),
+			expectedMetrics: []metric{
+				{name: "packed_objects_incremental", status: "success", count: 1},
+				{name: "written_bitmap", status: "success", count: 1},
+				{name: "written_commit_graph_incremental", status: "success", count: 1},
+				{name: "written_multi_pack_index", status: "success", count: 1},
+				{name: "total", status: "success", count: 1},
+			},
 		},
 		{
 			desc: "well-packed repository with multi-pack-index does not optimize",
@@ -387,17 +323,9 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 				gittest.Exec(t, cfg, "-c", "commitGraph.generationVersion=2", "-C", repoPath, "commit-graph", "write", "--split", "--changed-paths")
 				return repo
 			},
-			expectedMetrics: midxEnabledOrDisabled(
-				[]metric{
-					{name: "total", status: "success", count: 1},
-				},
-				[]metric{
-					{name: "packed_objects_full", status: "success", count: 1},
-					{name: "written_bitmap", status: "success", count: 1},
-					{name: "written_commit_graph_incremental", status: "success", count: 1},
-					{name: "total", status: "success", count: 1},
-				},
-			),
+			expectedMetrics: []metric{
+				{name: "total", status: "success", count: 1},
+			},
 		},
 		{
 			desc: "recent loose objects don't get pruned",
@@ -427,20 +355,13 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 
 				return repo
 			},
-			expectedMetrics: midxEnabledOrDisabled(
-				[]metric{
-					{name: "packed_objects_incremental", status: "success", count: 1},
-					{name: "written_bitmap", status: "success", count: 1},
-					{name: "written_commit_graph_incremental", status: "success", count: 1},
-					{name: "written_multi_pack_index", status: "success", count: 1},
-					{name: "total", status: "success", count: 1},
-				},
-				[]metric{
-					{name: "packed_objects_incremental", status: "success", count: 1},
-					{name: "written_commit_graph_incremental", status: "success", count: 1},
-					{name: "total", status: "success", count: 1},
-				},
-			),
+			expectedMetrics: []metric{
+				{name: "packed_objects_incremental", status: "success", count: 1},
+				{name: "written_bitmap", status: "success", count: 1},
+				{name: "written_commit_graph_incremental", status: "success", count: 1},
+				{name: "written_multi_pack_index", status: "success", count: 1},
+				{name: "total", status: "success", count: 1},
+			},
 		},
 		{
 			desc: "old loose objects get pruned",
@@ -467,37 +388,22 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 
 				return repo
 			},
-			expectedMetrics: midxEnabledOrDisabled(
-				[]metric{
-					{name: "packed_objects_incremental", status: "success", count: 1},
-					{name: "pruned_objects", status: "success", count: 1},
-					{name: "written_commit_graph_full", status: "success", count: 1},
-					{name: "written_bitmap", status: "success", count: 1},
-					{name: "written_multi_pack_index", status: "success", count: 1},
-					{name: "total", status: "success", count: 1},
-				},
-				[]metric{
-					{name: "packed_objects_incremental", status: "success", count: 1},
-					{name: "written_commit_graph_full", status: "success", count: 1},
-					{name: "pruned_objects", status: "success", count: 1},
-					{name: "total", status: "success", count: 1},
-				},
-			),
+			expectedMetrics: []metric{
+				{name: "packed_objects_incremental", status: "success", count: 1},
+				{name: "pruned_objects", status: "success", count: 1},
+				{name: "written_commit_graph_full", status: "success", count: 1},
+				{name: "written_bitmap", status: "success", count: 1},
+				{name: "written_multi_pack_index", status: "success", count: 1},
+				{name: "total", status: "success", count: 1},
+			},
 			// Object pools never prune objects.
-			expectedMetricsForPool: midxEnabledOrDisabled(
-				[]metric{
-					{name: "packed_objects_incremental", status: "success", count: 1},
-					{name: "written_bitmap", status: "success", count: 1},
-					{name: "written_commit_graph_incremental", status: "success", count: 1},
-					{name: "written_multi_pack_index", status: "success", count: 1},
-					{name: "total", status: "success", count: 1},
-				},
-				[]metric{
-					{name: "packed_objects_incremental", status: "success", count: 1},
-					{name: "written_commit_graph_incremental", status: "success", count: 1},
-					{name: "total", status: "success", count: 1},
-				},
-			),
+			expectedMetricsForPool: []metric{
+				{name: "packed_objects_incremental", status: "success", count: 1},
+				{name: "written_bitmap", status: "success", count: 1},
+				{name: "written_commit_graph_incremental", status: "success", count: 1},
+				{name: "written_multi_pack_index", status: "success", count: 1},
+				{name: "total", status: "success", count: 1},
+			},
 		},
 		{
 			desc: "loose refs get packed",
@@ -516,20 +422,14 @@ func testOptimizeRepository(t *testing.T, ctx context.Context) {
 
 				return repo
 			},
-			expectedMetrics: midxEnabledOrDisabled(
-				[]metric{
-					{name: "packed_objects_incremental", status: "success", count: 1},
-					{name: "packed_refs", status: "success", count: 1},
-					{name: "written_commit_graph_incremental", status: "success", count: 1},
-					{name: "written_bitmap", status: "success", count: 1},
-					{name: "written_multi_pack_index", status: "success", count: 1},
-					{name: "total", status: "success", count: 1},
-				},
-				[]metric{
-					{name: "packed_refs", status: "success", count: 1},
-					{name: "total", status: "success", count: 1},
-				},
-			),
+			expectedMetrics: []metric{
+				{name: "packed_objects_incremental", status: "success", count: 1},
+				{name: "packed_refs", status: "success", count: 1},
+				{name: "written_commit_graph_incremental", status: "success", count: 1},
+				{name: "written_bitmap", status: "success", count: 1},
+				{name: "written_multi_pack_index", status: "success", count: 1},
+				{name: "total", status: "success", count: 1},
+			},
 		},
 	} {
 		tc := tc
