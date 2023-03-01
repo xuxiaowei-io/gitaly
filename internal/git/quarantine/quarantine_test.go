@@ -337,7 +337,7 @@ func TestFinalizeObjectFile(t *testing.T) {
 
 		source := filepath.Join(dir, "a")
 		target := filepath.Join(dir, "b")
-		require.NoError(t, os.WriteFile(source, []byte("a"), perm.PublicExecutable))
+		require.NoError(t, os.WriteFile(source, []byte("a"), perm.PublicFile))
 
 		require.NoError(t, finalizeObjectFile(source, target))
 		require.NoFileExists(t, source)
@@ -350,7 +350,7 @@ func TestFinalizeObjectFile(t *testing.T) {
 
 		source := filepath.Join(sourceDir, "a")
 		target := filepath.Join(targetDir, "a")
-		require.NoError(t, os.WriteFile(source, []byte("a"), perm.PublicExecutable))
+		require.NoError(t, os.WriteFile(source, []byte("a"), perm.PublicFile))
 
 		require.NoError(t, finalizeObjectFile(source, target))
 		require.NoFileExists(t, source)
@@ -361,10 +361,10 @@ func TestFinalizeObjectFile(t *testing.T) {
 		dir := testhelper.TempDir(t)
 
 		source := filepath.Join(dir, "a")
-		require.NoError(t, os.WriteFile(source, []byte("a"), perm.PublicExecutable))
+		require.NoError(t, os.WriteFile(source, []byte("a"), perm.PublicFile))
 
 		target := filepath.Join(dir, "b")
-		require.NoError(t, os.WriteFile(target, []byte("b"), perm.PublicExecutable))
+		require.NoError(t, os.WriteFile(target, []byte("b"), perm.PublicFile))
 
 		// We do not expect an error in case the target file exists: given that objects and
 		// packs are content addressable, a file with the same name should have the same
