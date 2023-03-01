@@ -20,6 +20,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -309,59 +310,18 @@ size 12345`
 	})
 }
 
-func TestSuccessfulGetLFSPointersRequest(t *testing.T) {
+func TestGetLFSPointers(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg, client := setupWithoutRepo(t, ctx)
 	repo, _, repoInfo := setupRepoWithLFS(t, ctx, cfg)
 
-	lfsPointerIds := []string{
-		lfsPointer1,
-		lfsPointer2,
-		lfsPointer3,
-	}
-	otherObjectIds := []string{
-		repoInfo.defaultTreeID.String(),   // tree
-		repoInfo.defaultCommitID.String(), // commit
-	}
-
-	expectedLFSPointers := []*gitalypb.LFSPointer{
-		lfsPointers[lfsPointer1],
-		lfsPointers[lfsPointer2],
-		lfsPointers[lfsPointer3],
-	}
-
-	request := &gitalypb.GetLFSPointersRequest{
-		Repository: repo,
-		BlobIds:    append(lfsPointerIds, otherObjectIds...),
-	}
-
-	stream, err := client.GetLFSPointers(ctx, request)
-	require.NoError(t, err)
-
-	var receivedLFSPointers []*gitalypb.LFSPointer
-	for {
-		resp, err := stream.Recv()
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			t.Fatal(err)
-		}
-
-		receivedLFSPointers = append(receivedLFSPointers, resp.GetLfsPointers()...)
-	}
-
-	lfsPointersEqual(t, receivedLFSPointers, expectedLFSPointers)
-}
-
-func TestFailedGetLFSPointersRequestDueToValidations(t *testing.T) {
-	ctx := testhelper.Context(t)
-
-	_, repo, _, client := setupWithLFS(t, ctx)
-
-	testCases := []struct {
-		desc    string
-		request *gitalypb.GetLFSPointersRequest
-		code    codes.Code
+	for _, tc := range []struct {
+		desc             string
+		request          *gitalypb.GetLFSPointersRequest
+		expectedErr      error
+		expectedPointers []*gitalypb.LFSPointer
 	}{
 		{
 			desc: "empty Repository",
@@ -369,7 +329,10 @@ func TestFailedGetLFSPointersRequestDueToValidations(t *testing.T) {
 				Repository: nil,
 				BlobIds:    []string{"f00"},
 			},
-			code: codes.InvalidArgument,
+			expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
+				"empty Repository",
+				"repo scoped: empty Repository",
+			)),
 		},
 		{
 			desc: "empty BlobIds",
@@ -377,18 +340,67 @@ func TestFailedGetLFSPointersRequestDueToValidations(t *testing.T) {
 				Repository: repo,
 				BlobIds:    nil,
 			},
-			code: codes.InvalidArgument,
+			expectedErr: structerr.NewInvalidArgument("empty BlobIds"),
 		},
-	}
+		{
+			desc: "successful request",
+			request: &gitalypb.GetLFSPointersRequest{
+				Repository: repo,
+				BlobIds: []string{
+					lfsPointer1,
+					lfsPointer2,
+					lfsPointer3,
+				},
+			},
+			expectedPointers: []*gitalypb.LFSPointer{
+				lfsPointers[lfsPointer1],
+				lfsPointers[lfsPointer2],
+				lfsPointers[lfsPointer3],
+			},
+		},
+		{
+			desc: "mixed pointers and blobs",
+			request: &gitalypb.GetLFSPointersRequest{
+				Repository: repo,
+				BlobIds: []string{
+					lfsPointer1,
+					lfsPointer2,
+					repoInfo.defaultTreeID.String(),
+					lfsPointer3,
+					repoInfo.defaultCommitID.String(),
+				},
+			},
+			expectedPointers: []*gitalypb.LFSPointer{
+				lfsPointers[lfsPointer1],
+				lfsPointers[lfsPointer2],
+				lfsPointers[lfsPointer3],
+			},
+		},
+	} {
+		tc := tc
 
-	for _, testCase := range testCases {
-		t.Run(testCase.desc, func(t *testing.T) {
-			stream, err := client.GetLFSPointers(ctx, testCase.request)
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			stream, err := client.GetLFSPointers(ctx, tc.request)
 			require.NoError(t, err)
 
-			_, err = stream.Recv()
-			require.NotEqual(t, io.EOF, err)
-			testhelper.RequireGrpcCode(t, err, testCase.code)
+			var receivedPointers []*gitalypb.LFSPointer
+			for {
+				resp, err := stream.Recv()
+				if err == io.EOF {
+					break
+				}
+
+				testhelper.RequireGrpcError(t, tc.expectedErr, err)
+				if err != nil {
+					break
+				}
+
+				receivedPointers = append(receivedPointers, resp.GetLfsPointers()...)
+			}
+
+			lfsPointersEqual(t, receivedPointers, tc.expectedPointers)
 		})
 	}
 }
