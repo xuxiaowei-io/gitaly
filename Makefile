@@ -417,8 +417,8 @@ check-mod-tidy:
 	${Q}go mod tidy -compat=1.17
 	${Q}${GIT} diff --quiet --exit-code go.mod go.sum || (echo "error: uncommitted changes in go.mod or go.sum" && exit 1)
 
-${TOOLS_DIR}/gitaly-linters.so: $(wildcard ${SOURCE_DIR}/tools/gitaly-linters/*.go)
-	${Q}go build -buildmode=plugin -o '$@' -modfile go.mod $^
+${TOOLS_DIR}/gitaly-linters.so: ${SOURCE_DIR}/tools/golangci-lint/go.sum $(wildcard ${SOURCE_DIR}/tools/golangci-lint/gitaly/*.go)
+	${Q}go build -buildmode=plugin -o '$@' -modfile ${SOURCE_DIR}/tools/golangci-lint/go.mod $(filter-out $<,$^)
 
 .PHONY: lint
 ## Run Go linter.
