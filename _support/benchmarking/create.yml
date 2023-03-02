@@ -1,6 +1,7 @@
 ---
 - name: Set user-defined variables
   hosts: localhost
+  connection: local
   vars_prompt:
     - name: gitaly_revision
       prompt: "Enter Gitaly revision to build"

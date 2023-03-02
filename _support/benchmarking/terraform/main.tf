@@ -1,60 +1,68 @@
-variable "project" { default = "gitaly-benchmark-0150d6cf" }
-variable "benchmark_region" { default = "us-central1" }
-variable "benchmark_zone" { default = "us-central1-a" }
-variable "gitaly_benchmarking_instance_name" { }
-variable "ssh_pubkey" { }
-variable "os_image" { default = "ubuntu-os-cloud/ubuntu-2204-lts" }
+variable "gitaly_benchmarking_instance_name" {}
+variable "ssh_pubkey" {}
 variable "startup_script" {
   default = <<EOF
     set -e
     if [ -d /src/gitaly ] ; then exit; fi
   EOF
 }
-variable "gitaly_machine_type" { default = "t2d-standard-4" }
-variable "client_machine_type" { default = "n1-standard-1" }
-variable "boot_disk_size" { default = "20" }
 
 provider "google" {
-  project = var.project
-  region  = var.benchmark_region
-  zone    = var.benchmark_zone
+  project = local.config.project
+  region  = local.config.benchmark_region
+  zone    = local.config.benchmark_zone
 }
 
 data "google_compute_disk" "repository-disk" {
-  name = "git-repos"
-  project = "gitaly-benchmark-0150d6cf"
+  name    = "git-repos"
+  project = local.config.project
 }
 
 resource "google_compute_disk" "repository-disk" {
-  name = format("%s-repository-disk", var.gitaly_benchmarking_instance_name)
-  type = "pd-balanced"
-  image = format("projects/%s/global/images/git-repositories", var.project)
+  name  = format("%s-repository-disk", var.gitaly_benchmarking_instance_name)
+  type  = local.config.repository_disk_type
+  image = format("projects/%s/global/images/git-repositories", local.config.project)
+}
+
+resource "google_compute_region_disk" "repository-region-disk" {
+  count         = local.config.use_regional_disk ? 1 : 0
+  name          = format("%s-repository-region-disk", var.gitaly_benchmarking_instance_name)
+  type          = local.config.repository_disk_type
+  snapshot      = google_compute_snapshot.repository-disk[0].id
+  replica_zones = local.config.regional_disk_replica_zones
+}
+
+resource "google_compute_snapshot" "repository-disk" {
+  count       = local.config.use_regional_disk ? 1 : 0
+  name        = format("%s-repository-snapshot", var.gitaly_benchmarking_instance_name)
+  source_disk = google_compute_disk.repository-disk.name
+  zone        = local.config.benchmark_zone
 }
 
 resource "google_compute_instance" "gitaly" {
   name         = format("%s-gitaly", var.gitaly_benchmarking_instance_name)
-  machine_type = var.gitaly_machine_type
+  machine_type = local.config.gitaly_machine_type
 
   boot_disk {
     initialize_params {
-      image = var.os_image
-      size = var.boot_disk_size
+      image = local.config.os_image
+      size  = local.config.boot_disk_size
     }
   }
 
   attached_disk {
-    source = google_compute_disk.repository-disk.name
+    source      = local.config.use_regional_disk ? google_compute_region_disk.repository-region-disk[0].self_link : google_compute_disk.repository-disk.self_link
     device_name = "repository-disk"
   }
 
   network_interface {
-    network = "default"
+    network    = "default"
     subnetwork = "default"
     access_config {}
   }
 
   metadata = {
-    ssh-keys = format("gitaly_bench:%s", var.ssh_pubkey)
+    ssh-keys       = format("gitaly_bench:%s", var.ssh_pubkey)
     startup-script = <<EOF
       ${var.startup_script}
     EOF
@@ -69,12 +77,12 @@ resource "google_compute_instance" "gitaly" {
 
 resource "google_compute_instance" "client" {
   name         = format("%s-client", var.gitaly_benchmarking_instance_name)
-  machine_type = var.client_machine_type
+  machine_type = local.config.client_machine_type
 
   boot_disk {
     initialize_params {
-      image = var.os_image
-      size = var.boot_disk_size
+      image = local.config.os_image
+      size  = local.config.boot_disk_size
     }
   }
 
@@ -84,7 +92,7 @@ resource "google_compute_instance" "client" {
   }
 
   metadata = {
-    ssh-keys = format("gitaly_bench:%s", var.ssh_pubkey)
+    ssh-keys       = format("gitaly_bench:%s", var.ssh_pubkey)
     startup-script = <<EOF
       ${var.startup_script}
     EOF

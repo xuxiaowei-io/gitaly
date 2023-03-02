@@ -1,4 +1,11 @@
 ---
+# needed for Ansible > 4.0 https://github.com/ansible/ansible/issues/74830
+- name: Install acl
+  apt:
+    name:
+      - acl
+    state: present
+
 - name: Create 'git' user
   user:
     name: git

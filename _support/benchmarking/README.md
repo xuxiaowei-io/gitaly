@@ -4,19 +4,20 @@
 
 An Ansible script for running RPC-level benchmarks against Gitaly.
 
-## Required tools
-
-The following programs must be installed locally to run the script:
-
-- Ansible 2.14 or above
-- Terraform 1.2 or above
-- gcloud
-
-You must be a member of the `gitaly-benchmark-0150d6cf` GCP group.
+**Note**: You must be a member of the `gitaly-benchmark-0150d6cf` GCP group.
 
 ## Steps for use
 
-### 1. Create instance
+### 1. Setup your environment
+
+1. Ensure that [`gcloud`](https://cloud.google.com/sdk/docs/install) is installed and available on your path.
+1. Ensure that `python` and `terraform` are installed, or use [`asdf`](https://asdf-vm.com/guide/getting-started.html) to install them (recommended).
+1. Create a new Python virtualenv: `python3 -m venv env`
+1. Activate the virtualenv: `source env/bin/activate`
+1. Install Ansible: `python3 -m pip install -r requirements.txt`
+1. **Optional**: Copy `config.yml.example` to `config.yml` to customize the machine type uses for benchmarking
+
+### 2. Create instance
 
 ```shell
 ./create-benchmark-instance
@@ -32,7 +33,7 @@ Use the `gitaly_bench` user to SSH into the instance if desired:
 ssh gitaly_bench@<INSTANCE_ADDRESS>
 ```
 
-### 2. Configure instance
+### 3. Configure instance
 
 ```shell
 ./configure-benchmark-instance
@@ -42,7 +43,7 @@ Build and install Gitaly from source with from desired reference and install
 profiling tools like `perf` and `libbpf-tools`. A disk image containing the
 test repositories will be mounted to `/mnt/git-repositories` on the Gitaly node.
 
-### 3. Run benchmarks
+### 4. Run benchmarks
 
 ```shell
 ./run-benchmarks
@@ -86,7 +87,7 @@ When profiling is enabled, the following are also present:
   This uses `--call-graph=fp` for accurate stack traces for Golang.
 - `page-cachestat.txt` - Kernel page cache hit rate.
 
-### 4. Destroy instance
+### 5. Destroy instance
 
 ```shell
 ./destroy-benchmark-instance

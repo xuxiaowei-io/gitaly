@@ -1,5 +1,7 @@
 /hosts.ini
 /terraform/*
 !/terraform/main.tf
+!/terraform/locals.tf
 /group_vars/all.yml
 /results/*
+config.yml
