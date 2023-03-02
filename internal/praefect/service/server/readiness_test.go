@@ -83,6 +83,15 @@ func TestServer_ReadinessCheck(t *testing.T) {
 
 func TestServer_ReadinessCheck_unreachableGitaly(t *testing.T) {
 	t.Parallel()
+
+	ctx := testhelper.Context(t)
+
+	// We create a local listener, but immediately close it so that it cannot be reached. This
+	// will cause us to allocate a temporary port, which is preferable to using some kind of
+	// random address or DNS name as it is guaranteed to resolve and be unreachable.
+	listener, addr := testhelper.GetLocalhostListener(t)
+	require.NoError(t, listener.Close())
+
 	praefectConf := config.Config{
 		SocketPath: testhelper.GetTemporaryGitalySocketFileName(t),
 		VirtualStorages: []*config.VirtualStorage{
@@ -91,17 +100,18 @@ func TestServer_ReadinessCheck_unreachableGitaly(t *testing.T) {
 				Nodes: []*config.Node{
 					{
 						Storage: "praefect-internal-0",
-						Address: "tcp://non-existing:42",
+						Address: "tcp://" + addr,
 					},
 				},
 			},
 		},
 	}
-	ctx := testhelper.Context(t)
+
 	grpcConn, _, cleanup := praefect.RunPraefectServer(t, ctx, praefectConf, praefect.BuildOptions{})
 	t.Cleanup(cleanup)
-	serverClient := gitalypb.NewServerServiceClient(grpcConn)
-	resp, err := serverClient.ReadinessCheck(ctx, &gitalypb.ReadinessCheckRequest{Timeout: durationpb.New(time.Nanosecond)})
+	client := gitalypb.NewServerServiceClient(grpcConn)
+
+	resp, err := client.ReadinessCheck(ctx, &gitalypb.ReadinessCheckRequest{Timeout: durationpb.New(time.Nanosecond)})
 	require.NoError(t, err)
 	require.Nil(t, resp.GetOkResponse())
 	require.NotNil(t, resp.GetFailureResponse())
