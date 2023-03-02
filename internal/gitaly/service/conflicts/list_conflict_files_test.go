@@ -77,13 +77,7 @@ end
 		},
 	}
 
-	receivedFiles := getConflictFiles(t, c)
-	require.Len(t, receivedFiles, len(expectedFiles))
-
-	for i := 0; i < len(expectedFiles); i++ {
-		testhelper.ProtoEqual(t, receivedFiles[i].Header, expectedFiles[i].Header)
-		require.Equal(t, expectedFiles[i].Content, receivedFiles[i].Content)
-	}
+	testhelper.ProtoEqual(t, expectedFiles, getConflictFiles(t, c))
 }
 
 func TestSuccessfulListConflictFilesRequestWithAncestor(t *testing.T) {
