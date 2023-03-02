@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 15.9.2 (2023-03-02)
+
+No changes.
+
 ## 15.9.1 (2023-02-23)
 
 No changes.
@@ -72,6 +76,10 @@ No changes.
 - [housekeeping: Enable writing of multi-pack-indices](gitlab-org/gitaly@ef10b419db050e8a43d2c345bce167bc0a1d15ce) ([merge request](gitlab-org/gitaly!5275))
 - [housekeeping: Enable writing bitmap lookup tables](gitlab-org/gitaly@73505638cebbbd47aa70b9f587f411559abc1f08) ([merge request](gitlab-org/gitaly!5278))
 
+## 15.8.4 (2023-03-02)
+
+No changes.
+
 ## 15.8.3 (2023-02-15)
 
 No changes.
@@ -125,6 +133,10 @@ No changes.
 ### improved (1 change)
 
 - [repository: Disable misleading dangling checks in git-fsck(1)](gitlab-org/gitaly@fb830f5f01311609c01590ddf04a22a3d33cd36d) ([merge request](gitlab-org/gitaly!5230))
+
+## 15.7.8 (2023-03-02)
+
+No changes.
 
 ## 15.7.7 (2023-02-10)
 
