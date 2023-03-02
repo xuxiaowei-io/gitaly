@@ -38,6 +38,8 @@ type hooks struct {
 	beforeDeferredStop hookFunc
 	// beforeDeleteLogEntry is invoked before a log entry is deleted from the database.
 	beforeDeleteLogEntry hookFunc
+	// beforeStoreAppliedLogIndex is invoked before a the applied log index is stored.
+	beforeStoreAppliedLogIndex hookFunc
 }
 
 // installHooks installs the configured hooks into the transactionManager.
@@ -114,7 +116,11 @@ func (hook databaseHook) Update(handler func(databaseTransaction) error) error {
 }
 
 func (hook databaseHook) NewWriteBatch() writeBatch {
-	return writeBatchHook{writeBatch: hook.database.NewWriteBatch()}
+	return writeBatchHook{
+		writeBatch:  hook.database.NewWriteBatch(),
+		hookContext: hook.hookContext,
+		hooks:       hook.hooks,
+	}
 }
 
 type databaseTransactionHook struct {
@@ -123,7 +129,10 @@ type databaseTransactionHook struct {
 	hooks
 }
 
-var regexLogEntry = regexp.MustCompile("repository/.+/log/entry/")
+var (
+	regexLogEntry = regexp.MustCompile("repository/.+/log/entry/")
+	regexLogIndex = regexp.MustCompile("repository/.+/log/index/applied")
+)
 
 func (hook databaseTransactionHook) Get(key []byte) (*badger.Item, error) {
 	if regexLogEntry.Match(key) {
@@ -149,9 +158,14 @@ func (hook databaseTransactionHook) Delete(key []byte) error {
 
 type writeBatchHook struct {
 	writeBatch
+	hookContext
+	hooks
 }
 
 func (hook writeBatchHook) Set(key []byte, value []byte) error {
+	if regexLogIndex.Match(key) && hook.hooks.beforeStoreAppliedLogIndex != nil {
+		hook.hooks.beforeStoreAppliedLogIndex(hook.hookContext)
+	}
 	return hook.writeBatch.Set(key, value)
 }
 
