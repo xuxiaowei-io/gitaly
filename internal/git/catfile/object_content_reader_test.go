@@ -140,6 +140,18 @@ func TestObjectContentReader_queue(t *testing.T) {
 	foobarBlob := gittest.WriteBlob(t, cfg, repoPath, []byte("foobar"))
 	barfooBlob := gittest.WriteBlob(t, cfg, repoPath, []byte("barfoo"))
 
+	t.Run("reader is dirty with acquired queue", func(t *testing.T) {
+		reader, err := newObjectContentReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		require.NoError(t, err)
+
+		queue, cleanup, err := reader.objectQueue(ctx, "trace")
+		require.NoError(t, err)
+		defer cleanup()
+
+		require.False(t, queue.isDirty())
+		require.True(t, reader.isDirty())
+	})
+
 	t.Run("read single object", func(t *testing.T) {
 		reader, err := newObjectContentReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
 		require.NoError(t, err)
@@ -340,11 +352,13 @@ func TestObjectContentReader_queue(t *testing.T) {
 		reader, err := newObjectContentReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
 		require.NoError(t, err)
 
+		require.False(t, reader.isDirty())
+
 		queue, cleanup, err := reader.objectQueue(ctx, "trace")
 		require.NoError(t, err)
 		defer cleanup()
 
-		require.False(t, reader.isDirty())
+		require.True(t, reader.isDirty())
 		require.False(t, queue.isDirty())
 
 		require.NoError(t, queue.RequestObject(ctx, foobarBlob.Revision()))
@@ -362,6 +376,11 @@ func TestObjectContentReader_queue(t *testing.T) {
 
 		_, err = io.ReadAll(object)
 		require.NoError(t, err)
+
+		require.True(t, reader.isDirty())
+		require.False(t, queue.isDirty())
+
+		cleanup()
 
 		require.False(t, reader.isDirty())
 		require.False(t, queue.isDirty())

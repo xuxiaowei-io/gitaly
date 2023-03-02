@@ -235,6 +235,18 @@ func TestObjectInfoReader_queue(t *testing.T) {
 		}(),
 	}
 
+	t.Run("reader is dirty with acquired queue", func(t *testing.T) {
+		reader, err := newObjectInfoReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
+		require.NoError(t, err)
+
+		queue, cleanup, err := reader.infoQueue(ctx, "trace")
+		require.NoError(t, err)
+		defer cleanup()
+
+		require.False(t, queue.isDirty())
+		require.True(t, reader.isDirty())
+	})
+
 	t.Run("read single info", func(t *testing.T) {
 		reader, err := newObjectInfoReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
 		require.NoError(t, err)
@@ -417,11 +429,13 @@ func TestObjectInfoReader_queue(t *testing.T) {
 		reader, err := newObjectInfoReader(ctx, newRepoExecutor(t, cfg, repoProto), nil)
 		require.NoError(t, err)
 
+		require.False(t, reader.isDirty())
+
 		queue, cleanup, err := reader.infoQueue(ctx, "trace")
 		require.NoError(t, err)
 		defer cleanup()
 
-		require.False(t, reader.isDirty())
+		require.True(t, reader.isDirty())
 		require.False(t, queue.isDirty())
 
 		require.NoError(t, queue.RequestInfo(ctx, blobOID.Revision()))
@@ -432,6 +446,11 @@ func TestObjectInfoReader_queue(t *testing.T) {
 
 		_, err = queue.ReadInfo(ctx)
 		require.NoError(t, err)
+
+		require.True(t, reader.isDirty())
+		require.False(t, queue.isDirty())
+
+		cleanup()
 
 		require.False(t, reader.isDirty())
 		require.False(t, queue.isDirty())
