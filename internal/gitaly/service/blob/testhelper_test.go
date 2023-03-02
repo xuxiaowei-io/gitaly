@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/repository"
@@ -21,17 +20,7 @@ func TestMain(m *testing.M) {
 	testhelper.Run(m)
 }
 
-func setup(tb testing.TB, ctx context.Context) (config.Cfg, *gitalypb.Repository, string, gitalypb.BlobServiceClient) {
-	cfg, client := setupWithoutRepo(tb, ctx)
-
-	repo, repoPath := gittest.CreateRepository(tb, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
-
-	return cfg, repo, repoPath, client
-}
-
-func setupWithoutRepo(tb testing.TB, ctx context.Context) (config.Cfg, gitalypb.BlobServiceClient) {
+func setup(tb testing.TB, ctx context.Context) (config.Cfg, gitalypb.BlobServiceClient) {
 	cfg := testcfg.Build(tb)
 
 	addr := testserver.RunGitalyServer(tb, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {

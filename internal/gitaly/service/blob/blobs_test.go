@@ -30,7 +30,7 @@ func TestListBlobs(t *testing.T) {
 	streamio.WriteBufferSize = 200
 	ctx := testhelper.Context(t)
 
-	cfg, client := setupWithoutRepo(t, ctx)
+	cfg, client := setup(t, ctx)
 	repoProto, repoPath, repoInfo := setupRepoWithLFS(t, ctx, cfg)
 
 	blobASize := int64(251)
@@ -295,8 +295,12 @@ func TestListBlobs(t *testing.T) {
 }
 
 func TestListAllBlobs(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
-	cfg, repo, _, client := setup(t, ctx)
+	cfg, client := setup(t, ctx)
+
+	repo, _, _ := setupRepoWithLFS(t, ctx, cfg)
 
 	quarantine, err := quarantine.New(ctx, gittest.RewrittenRepository(t, ctx, cfg, repo), config.NewLocator(cfg))
 	require.NoError(t, err)
@@ -366,7 +370,7 @@ func TestListAllBlobs(t *testing.T) {
 				Repository: repo,
 			},
 			verify: func(t *testing.T, blobs []*gitalypb.ListAllBlobsResponse_Blob) {
-				require.Greater(t, len(blobs), 300)
+				require.Len(t, blobs, 6)
 			},
 		},
 		{
@@ -386,7 +390,8 @@ func TestListAllBlobs(t *testing.T) {
 				BytesLimit: 1,
 			},
 			verify: func(t *testing.T, blobs []*gitalypb.ListAllBlobsResponse_Blob) {
-				require.Greater(t, len(blobs), 300)
+				require.Equal(t, len(blobs), 6)
+
 				for _, blob := range blobs {
 					emptyBlobID := "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
 					if blob.Oid == emptyBlobID {
@@ -404,7 +409,7 @@ func TestListAllBlobs(t *testing.T) {
 				Repository: quarantinedRepo,
 			},
 			verify: func(t *testing.T, blobs []*gitalypb.ListAllBlobsResponse_Blob) {
-				require.Greater(t, len(blobs), 300)
+				require.Len(t, blobs, 6)
 			},
 		},
 		{
@@ -417,7 +422,11 @@ func TestListAllBlobs(t *testing.T) {
 			},
 		},
 	} {
+		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
 			stream, err := client.ListAllBlobs(ctx, tc.request)
 			require.NoError(t, err)
 
@@ -443,7 +452,8 @@ func BenchmarkListAllBlobs(b *testing.B) {
 	b.StopTimer()
 	ctx := testhelper.Context(b)
 
-	_, repoProto, _, client := setup(b, ctx)
+	cfg, client := setup(b, ctx)
+	repoProto, _, _ := setupRepoWithLFS(b, ctx, cfg)
 
 	for _, tc := range []struct {
 		desc    string
@@ -487,7 +497,8 @@ func BenchmarkListBlobs(b *testing.B) {
 	b.StopTimer()
 	ctx := testhelper.Context(b)
 
-	_, repoProto, _, client := setup(b, ctx)
+	cfg, client := setup(b, ctx)
+	repoProto, _, _ := setupRepoWithLFS(b, ctx, cfg)
 
 	for _, tc := range []struct {
 		desc    string

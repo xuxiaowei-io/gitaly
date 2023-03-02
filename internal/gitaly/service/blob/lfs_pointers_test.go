@@ -28,7 +28,7 @@ import (
 
 func TestListLFSPointers(t *testing.T) {
 	ctx := testhelper.Context(t)
-	cfg, client := setupWithoutRepo(t, ctx)
+	cfg, client := setup(t, ctx)
 	repo, _, repoInfo := setupRepoWithLFS(t, ctx, cfg)
 
 	ctx = testhelper.MergeOutgoingMetadata(ctx,
@@ -142,7 +142,7 @@ func TestListAllLFSPointers(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupWithoutRepo(t, ctx)
+	cfg, client := setup(t, ctx)
 
 	lfsPointerContents := `version https://git-lfs.github.com/spec/v1
 oid sha256:1111111111111111111111111111111111111111111111111111111111111111
@@ -313,7 +313,7 @@ func TestGetLFSPointers(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupWithoutRepo(t, ctx)
+	cfg, client := setup(t, ctx)
 	repo, _, repoInfo := setupRepoWithLFS(t, ctx, cfg)
 
 	for _, tc := range []struct {

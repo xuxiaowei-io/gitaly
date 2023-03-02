@@ -19,7 +19,7 @@ func TestGetBlob_successful(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupWithoutRepo(t, ctx)
+	cfg, client := setup(t, ctx)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
@@ -95,7 +95,7 @@ func TestGetBlob_notFound(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupWithoutRepo(t, ctx)
+	cfg, client := setup(t, ctx)
 	repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	stream, err := client.GetBlob(ctx, &gitalypb.GetBlobRequest{
@@ -142,7 +142,7 @@ func TestGetBlob_invalidRequest(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupWithoutRepo(t, ctx)
+	cfg, client := setup(t, ctx)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	oid := gittest.WriteBlob(t, cfg, repoPath, []byte("something")).String()

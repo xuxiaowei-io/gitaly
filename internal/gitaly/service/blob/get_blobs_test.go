@@ -19,7 +19,7 @@ func TestGetBlobs(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupWithoutRepo(t, ctx)
+	cfg, client := setup(t, ctx)
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
