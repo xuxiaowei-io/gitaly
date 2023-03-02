@@ -9,12 +9,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/voting"
@@ -79,11 +76,6 @@ func Create(
 	// create it with atomic semantics.
 	if _, err := os.Stat(targetPath); !os.IsNotExist(err) {
 		return structerr.NewAlreadyExists("repository exists already")
-	}
-
-	// Create the parent directory in case it doesn't exist yet.
-	if err := os.MkdirAll(filepath.Dir(targetPath), perm.GroupPrivateDir); err != nil {
-		return structerr.NewInternal("create directories: %w", err)
 	}
 
 	newRepo, newRepoDir, err := tempdir.NewRepository(ctx, repository.GetStorageName(), locator)
@@ -181,20 +173,6 @@ func Create(
 		return fmt.Errorf("computing vote: %w", err)
 	}
 
-	// We're somewhat abusing this file writer given that we simply want to assert that
-	// the target directory doesn't exist and isn't created while we want to move the
-	// new repository into place. We thus only use the locking semantics of the writer,
-	// but will never commit it.
-	locker, err := safe.NewLockingFileWriter(targetPath)
-	if err != nil {
-		return fmt.Errorf("creating locker: %w", err)
-	}
-	defer func() {
-		if err := locker.Close(); err != nil {
-			ctxlogrus.Extract(ctx).Error("closing repository locker: %w", err)
-		}
-	}()
-
 	// We're now entering the critical section where we want to have exclusive access
 	// over creation of the repository. So we:
 	//
@@ -208,9 +186,11 @@ func Create(
 	// This sequence guarantees that the change is atomic and can trivially be rolled
 	// back in case we fail to either lock the repository or reach quorum in the initial
 	// vote.
-	if err := locker.Lock(); err != nil {
+	unlock, err := Lock(ctx, locator, repository)
+	if err != nil {
 		return fmt.Errorf("locking repository: %w", err)
 	}
+	defer unlock()
 
 	// Now that the repository is locked, we must assert that it _still_ doesn't exist.
 	// Otherwise, it could have happened that a concurrent RPC call created it while we created
