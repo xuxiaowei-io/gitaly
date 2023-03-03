@@ -150,6 +150,21 @@ func (s *server) validateGetArchivePrecondition(
 		} else if !ok {
 			return structerr.NewFailedPrecondition("path doesn't exist")
 		}
+	} else {
+		repoHash, err := repo.ObjectHash(ctx)
+		if err != nil {
+			return err
+		}
+
+		rootTree, err := objectInfoReader.Info(ctx, git.ObjectID(commitID).Revision()+"^{tree}")
+		if err != nil {
+			return err
+		}
+
+		// Root tree is empty, nothing to return.
+		if rootTree.ObjectID() == repoHash.EmptyTreeOID {
+			return structerr.NewFailedPrecondition("path doesn't exist")
+		}
 	}
 
 	for i, exclude := range exclude {

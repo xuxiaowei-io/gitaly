@@ -347,6 +347,15 @@ func TestGetArchive_inputValidation(t *testing.T) {
 			expectedErr: status.Error(codes.FailedPrecondition, "path doesn't exist"),
 		},
 		{
+			desc:        "Root tree is empty",
+			repo:        repo,
+			prefix:      "",
+			commitID:    "7efb185dd22fd5c51ef044795d62b7847900c341",
+			format:      gitalypb.GetArchiveRequest_ZIP,
+			path:        []byte("."),
+			expectedErr: status.Error(codes.FailedPrecondition, "path doesn't exist"),
+		},
+		{
 			desc:        "Non-existing path in repository on commit ID",
 			repo:        repo,
 			prefix:      "",
