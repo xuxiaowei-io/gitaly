@@ -37,7 +37,7 @@ func ListEntries(
 	repo *localrepo.Repo,
 	treeish git.Revision,
 	cfg *ListEntriesConfig,
-) ([]*Entry, error) {
+) ([]*localrepo.TreeEntry, error) {
 	if cfg == nil {
 		cfg = &ListEntriesConfig{}
 	}
@@ -66,7 +66,7 @@ func ListEntries(
 	}
 
 	parser := NewParser(cmd, objectHash)
-	var entries []*Entry
+	var entries []*localrepo.TreeEntry
 	for {
 		entry, err := parser.NextEntry()
 		if err != nil {

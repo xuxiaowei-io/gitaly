@@ -236,7 +236,7 @@ func (f *gitFiler) ReadDir(string) ([]filer.File, error) {
 			return nil, err
 		}
 
-		if entry.Type != lstree.Blob {
+		if !entry.IsBlob() {
 			continue
 		}
 

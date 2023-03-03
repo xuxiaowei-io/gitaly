@@ -15,7 +15,7 @@ import (
 // lsTreeConfig is configuration for the LsTree pipeline step.
 type lsTreeConfig struct {
 	recursive  bool
-	typeFilter func(*lstree.Entry) bool
+	typeFilter func(*localrepo.TreeEntry) bool
 	skipResult func(*RevisionResult) (bool, error)
 }
 
@@ -32,7 +32,7 @@ func LsTreeWithRecursive() LsTreeOption {
 // LsTreeWithBlobFilter configures LsTree to only pass through blob objects.
 func LsTreeWithBlobFilter() LsTreeOption {
 	return func(cfg *lsTreeConfig) {
-		cfg.typeFilter = func(e *lstree.Entry) bool { return e.Type == lstree.Blob }
+		cfg.typeFilter = func(e *localrepo.TreeEntry) bool { return e.IsBlob() }
 	}
 }
 
@@ -115,7 +115,7 @@ func LsTree(
 			}
 
 			result := RevisionResult{
-				OID:        entry.ObjectID,
+				OID:        entry.OID,
 				ObjectName: []byte(entry.Path),
 			}
 

@@ -7,6 +7,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/lstree"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
@@ -51,7 +52,7 @@ func (s *server) listLastCommitsForTree(in *gitalypb.ListLastCommitsForTreeReque
 	offset := int(in.GetOffset())
 	if offset >= len(entries) {
 		offset = 0
-		entries = lstree.Entries{}
+		entries = localrepo.Entries{}
 	}
 
 	limit := offset + int(in.GetLimit())
@@ -87,8 +88,8 @@ func (s *server) listLastCommitsForTree(in *gitalypb.ListLastCommitsForTreeReque
 	return sendCommitsForTree(batch, stream)
 }
 
-func getLSTreeEntries(parser *lstree.Parser) (lstree.Entries, error) {
-	entries := lstree.Entries{}
+func getLSTreeEntries(parser *lstree.Parser) (localrepo.Entries, error) {
+	entries := localrepo.Entries{}
 
 	for {
 		entry, err := parser.NextEntry()

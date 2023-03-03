@@ -132,7 +132,7 @@ func (s *server) sendTreeEntries(
 
 		entries = make([]*gitalypb.TreeEntry, 0, len(treeEntries))
 		for _, entry := range treeEntries {
-			objectID, err := entry.ObjectID.Bytes()
+			objectID, err := entry.OID.Bytes()
 			if err != nil {
 				return fmt.Errorf("converting tree entry OID: %w", err)
 			}
@@ -143,7 +143,7 @@ func (s *server) sendTreeEntries(
 				path,
 				[]byte(entry.Path),
 				objectID,
-				entry.Mode,
+				[]byte(entry.Mode),
 			)
 			if err != nil {
 				return fmt.Errorf("converting tree entry: %w", err)
@@ -246,14 +246,14 @@ func sortTrees(entries []*gitalypb.TreeEntry, sortBy gitalypb.GetTreeEntriesRequ
 }
 
 // This is used to match the sorting order given by getLSTreeEntries
-func toLsTreeEnum(input gitalypb.TreeEntry_EntryType) (lstree.ObjectType, error) {
+func toLsTreeEnum(input gitalypb.TreeEntry_EntryType) (localrepo.ObjectType, error) {
 	switch input {
 	case gitalypb.TreeEntry_TREE:
-		return lstree.Tree, nil
+		return localrepo.Tree, nil
 	case gitalypb.TreeEntry_COMMIT:
-		return lstree.Submodule, nil
+		return localrepo.Submodule, nil
 	case gitalypb.TreeEntry_BLOB:
-		return lstree.Blob, nil
+		return localrepo.Blob, nil
 	default:
 		return -1, lstree.ErrParse
 	}

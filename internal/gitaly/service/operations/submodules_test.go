@@ -669,7 +669,7 @@ func TestUserUpdateSubmodule(t *testing.T) {
 				parsedEntry, err := parser.NextEntry()
 				require.NoError(t, err)
 				require.Equal(t, tc.subPath, parsedEntry.Path)
-				require.Equal(t, setupData.commitID, parsedEntry.ObjectID.String())
+				require.Equal(t, setupData.commitID, parsedEntry.OID.String())
 			} else {
 				setupData.verify(t)
 			}
