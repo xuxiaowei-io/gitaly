@@ -2,8 +2,8 @@ package repository
 
 import (
 	"context"
+	"time"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
@@ -32,11 +32,8 @@ func (s *server) PruneUnreachableObjects(
 		return nil, err
 	}
 
-	if err := repo.ExecAndWait(ctx, git.Command{
-		Name: "prune",
-		Flags: []git.Option{
-			git.ValueFlag{Name: "--expire", Value: "30.minutes.ago"},
-		},
+	if err := housekeeping.PruneObjects(ctx, repo, housekeeping.PruneObjectsConfig{
+		ExpireBefore: time.Now().Add(-30 * time.Minute),
 	}); err != nil {
 		return nil, structerr.NewInternal("pruning objects: %w", err)
 	}
