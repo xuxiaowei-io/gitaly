@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/repoutil"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
@@ -52,24 +52,16 @@ func (s *server) RemoveRepository(ctx context.Context, in *gitalypb.RemoveReposi
 		return nil, structerr.NewInternal("statting repository: %w", err)
 	}
 
-	locker, err := safe.NewLockingFileWriter(path)
-	if err != nil {
-		return nil, structerr.NewInternal("creating locker: %w", err)
-	}
-	defer func() {
-		if err := locker.Close(); err != nil {
-			ctxlogrus.Extract(ctx).Error("closing repository locker: %w", err)
-		}
-	}()
-
 	// Lock the repository such that it cannot be created or removed by any concurrent
 	// RPC call.
-	if err := locker.Lock(); err != nil {
+	unlock, err := repoutil.Lock(ctx, s.locator, repository)
+	if err != nil {
 		if errors.Is(err, safe.ErrFileAlreadyLocked) {
 			return nil, structerr.NewFailedPrecondition("repository is already locked")
 		}
 		return nil, structerr.NewInternal("locking repository for removal: %w", err)
 	}
+	defer unlock()
 
 	// Recheck whether the repository still exists after we have taken the lock. It
 	// could be a concurrent RPC call removed the repository while we have not yet been
