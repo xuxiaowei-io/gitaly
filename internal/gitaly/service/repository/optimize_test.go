@@ -282,16 +282,16 @@ func TestOptimizeRepository_strategy(t *testing.T) {
 	repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	for _, tc := range []struct {
-		desc             string
-		request          *gitalypb.OptimizeRepositoryRequest
-		expectedStrategy housekeeping.OptimizationStrategy
+		desc         string
+		request      *gitalypb.OptimizeRepositoryRequest
+		expectedType housekeeping.OptimizationStrategy
 	}{
 		{
 			desc: "no strategy",
 			request: &gitalypb.OptimizeRepositoryRequest{
 				Repository: repoProto,
 			},
-			expectedStrategy: housekeeping.HeuristicalOptimizationStrategy{},
+			expectedType: housekeeping.HeuristicalOptimizationStrategy{},
 		},
 		{
 			desc: "heuristical strategy",
@@ -299,7 +299,7 @@ func TestOptimizeRepository_strategy(t *testing.T) {
 				Repository: repoProto,
 				Strategy:   gitalypb.OptimizeRepositoryRequest_STRATEGY_HEURISTICAL,
 			},
-			expectedStrategy: housekeeping.HeuristicalOptimizationStrategy{},
+			expectedType: housekeeping.HeuristicalOptimizationStrategy{},
 		},
 		{
 			desc: "eager strategy",
@@ -307,7 +307,7 @@ func TestOptimizeRepository_strategy(t *testing.T) {
 				Repository: repoProto,
 				Strategy:   gitalypb.OptimizeRepositoryRequest_STRATEGY_EAGER,
 			},
-			expectedStrategy: housekeeping.EagerOptimizationStrategy{},
+			expectedType: housekeeping.EagerOptimizationStrategy{},
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -315,7 +315,7 @@ func TestOptimizeRepository_strategy(t *testing.T) {
 			require.NoError(t, err)
 			testhelper.ProtoEqual(t, &gitalypb.OptimizeRepositoryResponse{}, response)
 
-			require.Equal(t, tc.expectedStrategy, <-housekeepingManager.strategyCh)
+			require.IsType(t, tc.expectedType, <-housekeepingManager.strategyCh)
 		})
 	}
 }

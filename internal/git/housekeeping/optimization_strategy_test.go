@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
@@ -282,15 +283,19 @@ func TestHeuristicalOptimizationStrategy_ShouldPruneObjects(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
+	expireBefore := time.Now()
 
 	for _, tc := range []struct {
 		desc                       string
 		strategy                   HeuristicalOptimizationStrategy
 		expectedShouldPruneObjects bool
+		expectedPruneObjectsConfig PruneObjectsConfig
 	}{
 		{
-			desc:                       "empty repository",
-			strategy:                   HeuristicalOptimizationStrategy{},
+			desc: "empty repository",
+			strategy: HeuristicalOptimizationStrategy{
+				expireBefore: expireBefore,
+			},
 			expectedShouldPruneObjects: false,
 		},
 		{
@@ -301,6 +306,7 @@ func TestHeuristicalOptimizationStrategy_ShouldPruneObjects(t *testing.T) {
 						Count: 10000,
 					},
 				},
+				expireBefore: expireBefore,
 			},
 			expectedShouldPruneObjects: false,
 		},
@@ -312,6 +318,7 @@ func TestHeuristicalOptimizationStrategy_ShouldPruneObjects(t *testing.T) {
 						StaleCount: 1000,
 					},
 				},
+				expireBefore: expireBefore,
 			},
 			expectedShouldPruneObjects: false,
 		},
@@ -323,19 +330,28 @@ func TestHeuristicalOptimizationStrategy_ShouldPruneObjects(t *testing.T) {
 						StaleCount: 1025,
 					},
 				},
+				expireBefore: expireBefore,
 			},
 			expectedShouldPruneObjects: true,
+			expectedPruneObjectsConfig: PruneObjectsConfig{
+				ExpireBefore: expireBefore,
+			},
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Run("normal repository", func(t *testing.T) {
-				require.Equal(t, tc.expectedShouldPruneObjects, tc.strategy.ShouldPruneObjects(ctx))
+				shouldPrune, pruneCfg := tc.strategy.ShouldPruneObjects(ctx)
+				require.Equal(t, tc.expectedShouldPruneObjects, shouldPrune)
+				require.Equal(t, tc.expectedPruneObjectsConfig, pruneCfg)
 			})
 
 			t.Run("object pool", func(t *testing.T) {
 				strategy := tc.strategy
 				strategy.info.IsObjectPool = true
-				require.False(t, strategy.ShouldPruneObjects(ctx))
+
+				shouldPrune, pruneCfg := tc.strategy.ShouldPruneObjects(ctx)
+				require.Equal(t, tc.expectedShouldPruneObjects, shouldPrune)
+				require.Equal(t, tc.expectedPruneObjectsConfig, pruneCfg)
 			})
 		})
 	}
@@ -559,16 +575,25 @@ func TestEagerOptimizationStrategy(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
+	expireBefore := time.Now()
+
 	for _, tc := range []struct {
 		desc                     string
 		strategy                 EagerOptimizationStrategy
 		expectWriteBitmap        bool
 		expectShouldPruneObjects bool
+		pruneObjectsCfg          PruneObjectsConfig
 	}{
 		{
-			desc:                     "no alternate",
+			desc: "no alternate",
+			strategy: EagerOptimizationStrategy{
+				expireBefore: expireBefore,
+			},
 			expectWriteBitmap:        true,
 			expectShouldPruneObjects: true,
+			pruneObjectsCfg: PruneObjectsConfig{
+				ExpireBefore: expireBefore,
+			},
 		},
 		{
 			desc: "alternate",
@@ -576,9 +601,13 @@ func TestEagerOptimizationStrategy(t *testing.T) {
 				info: stats.RepositoryInfo{
 					Alternates: []string{"path/to/alternate"},
 				},
+				expireBefore: expireBefore,
 			},
 			expectWriteBitmap:        false,
 			expectShouldPruneObjects: true,
+			pruneObjectsCfg: PruneObjectsConfig{
+				ExpireBefore: expireBefore,
+			},
 		},
 		{
 			desc: "object pool",
@@ -586,6 +615,7 @@ func TestEagerOptimizationStrategy(t *testing.T) {
 				info: stats.RepositoryInfo{
 					IsObjectPool: true,
 				},
+				expireBefore: expireBefore,
 			},
 			expectWriteBitmap:        true,
 			expectShouldPruneObjects: false,
@@ -597,6 +627,7 @@ func TestEagerOptimizationStrategy(t *testing.T) {
 					IsObjectPool: true,
 					Alternates:   []string{"path/to/alternate"},
 				},
+				expireBefore: expireBefore,
 			},
 			expectWriteBitmap:        false,
 			expectShouldPruneObjects: false,
@@ -617,7 +648,10 @@ func TestEagerOptimizationStrategy(t *testing.T) {
 				ReplaceChain: true,
 			}, writeCommitGraphCfg)
 
-			require.Equal(t, tc.expectShouldPruneObjects, tc.strategy.ShouldPruneObjects(ctx))
+			shouldPruneObjects, pruneObjectsCfg := tc.strategy.ShouldPruneObjects(ctx)
+			require.Equal(t, tc.expectShouldPruneObjects, shouldPruneObjects)
+			require.Equal(t, tc.pruneObjectsCfg, pruneObjectsCfg)
+
 			require.True(t, tc.strategy.ShouldRepackReferences(ctx))
 		})
 	}
@@ -628,6 +662,7 @@ type mockOptimizationStrategy struct {
 	shouldRepackObjects    bool
 	repackObjectsCfg       RepackObjectsConfig
 	shouldPruneObjects     bool
+	pruneObjectsCfg        PruneObjectsConfig
 	shouldRepackReferences bool
 	shouldWriteCommitGraph bool
 	writeCommitGraphCfg    WriteCommitGraphConfig
@@ -637,8 +672,8 @@ func (m mockOptimizationStrategy) ShouldRepackObjects(context.Context) (bool, Re
 	return m.shouldRepackObjects, m.repackObjectsCfg
 }
 
-func (m mockOptimizationStrategy) ShouldPruneObjects(context.Context) bool {
-	return m.shouldPruneObjects
+func (m mockOptimizationStrategy) ShouldPruneObjects(context.Context) (bool, PruneObjectsConfig) {
+	return m.shouldPruneObjects, m.pruneObjectsCfg
 }
 
 func (m mockOptimizationStrategy) ShouldRepackReferences(context.Context) bool {

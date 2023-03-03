@@ -253,22 +253,13 @@ func writeCommitGraphIfNeeded(ctx context.Context, repo *localrepo.Repo, strateg
 // pruneIfNeeded removes objects from the repository which are either unreachable or which are
 // already part of a packfile. We use a grace period of two weeks.
 func pruneIfNeeded(ctx context.Context, repo *localrepo.Repo, strategy OptimizationStrategy) (bool, error) {
-	if !strategy.ShouldPruneObjects(ctx) {
+	needed, cfg := strategy.ShouldPruneObjects(ctx)
+	if !needed {
 		return false, nil
 	}
 
-	if err := repo.ExecAndWait(ctx, git.Command{
-		Name: "prune",
-		Flags: []git.Option{
-			// By default, this prunes all unreachable objects regardless of when they
-			// have last been accessed. This opens us up for races when there are
-			// concurrent commands which are just at the point of writing objects into
-			// the repository, but which haven't yet updated any references to make them
-			// reachable. We thus use the same two-week grace period as git-gc(1) does.
-			git.ValueFlag{Name: "--expire", Value: "two.weeks.ago"},
-		},
-	}); err != nil {
-		return false, fmt.Errorf("pruning objects: %w", err)
+	if err := PruneObjects(ctx, repo, cfg); err != nil {
+		return true, fmt.Errorf("pruning objects: %w", err)
 	}
 
 	return true, nil

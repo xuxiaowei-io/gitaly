@@ -2,7 +2,9 @@ package housekeeping
 
 import (
 	"context"
+	"fmt"
 	"strconv"
+	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
@@ -15,6 +17,8 @@ const (
 	// looseObjectLimit is the limit of loose objects we accept both when doing incremental
 	// repacks and when pruning objects.
 	looseObjectLimit = 1024
+	// rfc2822DateFormat is the date format that Git typically uses for dates.
+	rfc2822DateFormat = "Mon Jan 02 2006 15:04:05 -0700"
 )
 
 // RepackObjectsConfig is configuration for RepackObjects.
@@ -86,4 +90,36 @@ func GetRepackGitConfig(ctx context.Context, repo repository.GitRepo, bitmap boo
 	}
 
 	return config
+}
+
+// PruneObjectsConfig determines which objects should be pruned in PruneObjects.
+type PruneObjectsConfig struct {
+	// ExpireBefore controls the grace period after which unreachable objects shall be pruned.
+	// An unreachable object must be older than the given date in order to be considered for
+	// deletion.
+	ExpireBefore time.Time
+}
+
+// PruneObjects prunes loose objects from the repository that are already packed or which are
+// unreachable and older than the configured expiry date.
+func PruneObjects(ctx context.Context, repo *localrepo.Repo, cfg PruneObjectsConfig) error {
+	if err := repo.ExecAndWait(ctx, git.Command{
+		Name: "prune",
+		Flags: []git.Option{
+			// By default, this prunes all unreachable objects regardless of when they
+			// have last been accessed. This opens us up for races when there are
+			// concurrent commands which are just at the point of writing objects into
+			// the repository, but which haven't yet updated any references to make them
+			// reachable.
+			//
+			// To avoid this race, we use a grace window that can be specified by the
+			// caller so that we only delete objects that are older than this grace
+			// window.
+			git.ValueFlag{Name: "--expire", Value: cfg.ExpireBefore.Format(rfc2822DateFormat)},
+		},
+	}); err != nil {
+		return fmt.Errorf("executing prune: %w", err)
+	}
+
+	return nil
 }
