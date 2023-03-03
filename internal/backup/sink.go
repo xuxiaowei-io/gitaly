@@ -4,13 +4,38 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/url"
+	"strings"
 
 	"gocloud.dev/blob"
-	_ "gocloud.dev/blob/azureblob" //nolint:nolintlint,golint,gci
-	_ "gocloud.dev/blob/gcsblob"   //nolint:nolintlint,golint,gci
-	_ "gocloud.dev/blob/s3blob"    //nolint:nolintlint,golint,gci
+	"gocloud.dev/blob/azureblob"
+	"gocloud.dev/blob/gcsblob"
+	"gocloud.dev/blob/s3blob"
 	"gocloud.dev/gcerrors"
 )
+
+// ResolveSink returns a sink implementation based on the provided path.
+func ResolveSink(ctx context.Context, path string) (Sink, error) {
+	parsed, err := url.Parse(path)
+	if err != nil {
+		return nil, err
+	}
+	scheme := parsed.Scheme
+	if i := strings.LastIndex(scheme, "+"); i > 0 {
+		// the url may include additional configuration options like service name
+		// we don't include it into the scheme definition as it will push us to create
+		// a full set of variations. Instead we trim it up to the service option only.
+		scheme = scheme[i+1:]
+	}
+
+	switch scheme {
+	case s3blob.Scheme, azureblob.Scheme, gcsblob.Scheme:
+		sink, err := NewStorageServiceSink(ctx, path)
+		return sink, err
+	default:
+		return NewFilesystemSink(path), nil
+	}
+}
 
 // StorageServiceSink uses a storage engine that can be defined by the construction url on creation.
 type StorageServiceSink struct {
