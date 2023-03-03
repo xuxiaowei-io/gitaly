@@ -316,7 +316,10 @@ func TestGitalyServerFactory_closeOrder(t *testing.T) {
 	invokeQuick(internalConn, true)
 
 	// invoke a blocking RPC on the external server to block the graceful shutdown
-	invokeBlocking(externalConn)
+	externalBlockingRPCFinished := invokeBlocking(externalConn)
+	defer func() {
+		<-externalBlockingRPCFinished
+	}()
 	<-externalIsBlocking
 
 	shutdownCompeleted := make(chan struct{})
