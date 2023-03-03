@@ -1,6 +1,6 @@
 //go:build !gitaly_test_sha256
 
-package backup
+package backup_test
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/archive"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/backup"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/setup"
@@ -44,12 +45,12 @@ func TestManager_RemoveAllRepositories(t *testing.T) {
 	defer testhelper.MustClose(t, pool)
 
 	backupRoot := testhelper.TempDir(t)
-	sink := NewFilesystemSink(backupRoot)
-	locator, err := ResolveLocator("pointer", sink)
+	sink := backup.NewFilesystemSink(backupRoot)
+	locator, err := backup.ResolveLocator("pointer", sink)
 	require.NoError(t, err)
 
-	fsBackup := NewManager(sink, locator, pool, backupID)
-	err = fsBackup.RemoveAllRepositories(ctx, &RemoveAllRepositoriesRequest{
+	fsBackup := backup.NewManager(sink, locator, pool, backupID)
+	err = fsBackup.RemoveAllRepositories(ctx, &backup.RemoveAllRepositoriesRequest{
 		Server:      storage.ServerInfo{Address: cfg.SocketPath, Token: cfg.Auth.Token},
 		StorageName: repo.StorageName,
 	})
@@ -106,7 +107,7 @@ func TestManager_Create(t *testing.T) {
 			},
 			createsBundle:      false,
 			createsCustomHooks: false,
-			err:                fmt.Errorf("manager: repository empty: %w", ErrSkipped),
+			err:                fmt.Errorf("manager: repository empty: %w", backup.ErrSkipped),
 		},
 		{
 			desc: "nonexistent repo",
@@ -118,7 +119,7 @@ func TestManager_Create(t *testing.T) {
 			},
 			createsBundle:      false,
 			createsCustomHooks: false,
-			err:                fmt.Errorf("manager: repository empty: %w", ErrSkipped),
+			err:                fmt.Errorf("manager: repository empty: %w", backup.ErrSkipped),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -132,12 +133,12 @@ func TestManager_Create(t *testing.T) {
 			pool := client.NewPool()
 			defer testhelper.MustClose(t, pool)
 
-			sink := NewFilesystemSink(backupRoot)
-			locator, err := ResolveLocator("pointer", sink)
+			sink := backup.NewFilesystemSink(backupRoot)
+			locator, err := backup.ResolveLocator("pointer", sink)
 			require.NoError(t, err)
 
-			fsBackup := NewManager(sink, locator, pool, backupID)
-			err = fsBackup.Create(ctx, &CreateRequest{
+			fsBackup := backup.NewManager(sink, locator, pool, backupID)
+			err = fsBackup.Create(ctx, &backup.CreateRequest{
 				Server:     storage.ServerInfo{Address: cfg.SocketPath, Token: cfg.Auth.Token},
 				Repository: repo,
 			})
@@ -227,7 +228,7 @@ func TestManager_Create_incremental(t *testing.T) {
 
 				return repo, repoPath
 			},
-			expectedErr: fmt.Errorf("manager: write bundle: %w", fmt.Errorf("*backup.FilesystemSink write: %w: no changes to bundle", ErrSkipped)),
+			expectedErr: fmt.Errorf("manager: write bundle: %w", fmt.Errorf("*backup.FilesystemSink write: %w: no changes to bundle", backup.ErrSkipped)),
 		},
 		{
 			desc: "previous backup, updates",
@@ -267,12 +268,12 @@ func TestManager_Create_incremental(t *testing.T) {
 			pool := client.NewPool()
 			defer testhelper.MustClose(t, pool)
 
-			sink := NewFilesystemSink(backupRoot)
-			locator, err := ResolveLocator("pointer", sink)
+			sink := backup.NewFilesystemSink(backupRoot)
+			locator, err := backup.ResolveLocator("pointer", sink)
 			require.NoError(t, err)
 
-			fsBackup := NewManager(sink, locator, pool, backupID)
-			err = fsBackup.Create(ctx, &CreateRequest{
+			fsBackup := backup.NewManager(sink, locator, pool, backupID)
+			err = fsBackup.Create(ctx, &backup.CreateRequest{
 				Server:      storage.ServerInfo{Address: cfg.SocketPath, Token: cfg.Auth.Token},
 				Repository:  repo,
 				Incremental: true,
@@ -373,7 +374,7 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 				repo, _ := gittest.CreateRepository(t, ctx, cfg)
 				return repo, nil
 			},
-			expectedErrAs: ErrSkipped,
+			expectedErrAs: backup.ErrSkipped,
 		},
 		{
 			desc:     "missing bundle, always create",
@@ -488,12 +489,12 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 					pool := client.NewPool()
 					defer testhelper.MustClose(t, pool)
 
-					sink := NewFilesystemSink(backupRoot)
-					locator, err := ResolveLocator(locatorName, sink)
+					sink := backup.NewFilesystemSink(backupRoot)
+					locator, err := backup.ResolveLocator(locatorName, sink)
 					require.NoError(t, err)
 
-					fsBackup := NewManager(sink, locator, pool, "unused-backup-id")
-					err = fsBackup.Restore(ctx, &RestoreRequest{
+					fsBackup := backup.NewManager(sink, locator, pool, "unused-backup-id")
+					err = fsBackup.Restore(ctx, &backup.RestoreRequest{
 						Server:       storage.ServerInfo{Address: cfg.SocketPath, Token: cfg.Auth.Token},
 						Repository:   repo,
 						AlwaysCreate: tc.alwaysCreate,
@@ -552,18 +553,18 @@ func TestManager_CreateRestore_contextServerInfo(t *testing.T) {
 	pool := client.NewPool()
 	defer testhelper.MustClose(t, pool)
 
-	sink := NewFilesystemSink(backupRoot)
-	locator, err := ResolveLocator("pointer", sink)
+	sink := backup.NewFilesystemSink(backupRoot)
+	locator, err := backup.ResolveLocator("pointer", sink)
 	require.NoError(t, err)
 
-	fsBackup := NewManager(sink, locator, pool, "unused-backup-id")
+	fsBackup := backup.NewManager(sink, locator, pool, "unused-backup-id")
 
 	ctx = testhelper.MergeIncomingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
-	require.NoError(t, fsBackup.Create(ctx, &CreateRequest{
+	require.NoError(t, fsBackup.Create(ctx, &backup.CreateRequest{
 		Repository: repo,
 	}))
-	require.NoError(t, fsBackup.Restore(ctx, &RestoreRequest{
+	require.NoError(t, fsBackup.Restore(ctx, &backup.RestoreRequest{
 		Repository: repo,
 	}))
 }
@@ -583,7 +584,7 @@ func TestResolveLocator(t *testing.T) {
 		},
 	} {
 		t.Run(tc.layout, func(t *testing.T) {
-			l, err := ResolveLocator(tc.layout, nil)
+			l, err := backup.ResolveLocator(tc.layout, nil)
 
 			if tc.expectedErr == "" {
 				require.NoError(t, err)
