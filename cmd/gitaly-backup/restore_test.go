@@ -38,7 +38,7 @@ func TestRestoreSubcommand(t *testing.T) {
 	existingRepoBundlePath := filepath.Join(path, existingRepo.RelativePath+".bundle")
 	gittest.Exec(t, cfg, "-C", existRepoPath, "bundle", "create", existingRepoBundlePath, "--all")
 
-	repos := []*gitalypb.Repository{existingRepo}
+	var repos []*gitalypb.Repository
 	for i := 0; i < 2; i++ {
 		repo := gittest.InitRepoDir(t, cfg.Storages[0].Path, fmt.Sprintf("repo-%d", i))
 		repoBundlePath := filepath.Join(path, repo.RelativePath+".bundle")
@@ -65,15 +65,20 @@ func TestRestoreSubcommand(t *testing.T) {
 		"relative_path": "invalid",
 	}))
 
+	ctx = testhelper.MergeIncomingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 	cmd := restoreSubcommand{}
 
 	fs := flag.NewFlagSet("restore", flag.ContinueOnError)
 	cmd.Flags(fs)
 
-	require.NoError(t, fs.Parse([]string{"-path", path}))
+	require.DirExists(t, existRepoPath)
+
+	require.NoError(t, fs.Parse([]string{"-path", path, "-remove-all-repositories", existingRepo.StorageName}))
 	require.EqualError(t,
 		cmd.Run(ctx, &stdin, io.Discard),
 		"restore: pipeline: 1 failures encountered:\n - invalid: manager: remove repository: could not dial source: invalid connection string: \"invalid\"\n")
+
+	require.NoDirExists(t, existRepoPath)
 
 	for _, repo := range repos {
 		repoPath := filepath.Join(cfg.Storages[0].Path, gittest.GetReplicaPath(t, ctx, cfg, repo))
