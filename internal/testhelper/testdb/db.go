@@ -182,7 +182,7 @@ func requireSQLOpen(tb testing.TB, dbCfg config.DB, direct bool) *sql.DB {
 
 func requireTerminateAllConnections(tb testing.TB, db *sql.DB, database string) {
 	tb.Helper()
-	_, err := db.Exec("SELECT PG_TERMINATE_BACKEND(pid) FROM PG_STAT_ACTIVITY WHERE datname = '" + database + "'")
+	_, err := db.Exec("SELECT PG_TERMINATE_BACKEND(pid) FROM PG_STAT_ACTIVITY WHERE datname = $1", database)
 	require.NoError(tb, err)
 
 	// Once the pg_terminate_backend has completed, we may need to wait before the connections
