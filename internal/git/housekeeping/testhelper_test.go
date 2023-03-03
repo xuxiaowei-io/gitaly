@@ -30,6 +30,7 @@ func testRepoAndPool(t *testing.T, desc string, testFunc func(t *testing.T, rela
 type objectsState struct {
 	looseObjects            uint64
 	packfiles               uint64
+	cruftPacks              uint64
 	hasBitmap               bool
 	hasMultiPackIndex       bool
 	hasMultiPackIndexBitmap bool
@@ -44,6 +45,7 @@ func requireObjectsState(tb testing.TB, repo *localrepo.Repo, expectedState obje
 	require.Equal(tb, expectedState, objectsState{
 		looseObjects:            repoInfo.LooseObjects.Count,
 		packfiles:               repoInfo.Packfiles.Count,
+		cruftPacks:              repoInfo.Packfiles.CruftCount,
 		hasBitmap:               repoInfo.Packfiles.Bitmap.Exists,
 		hasMultiPackIndex:       repoInfo.Packfiles.HasMultiPackIndex,
 		hasMultiPackIndexBitmap: repoInfo.Packfiles.MultiPackIndexBitmap.Exists,
