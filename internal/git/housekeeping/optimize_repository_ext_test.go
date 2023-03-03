@@ -1,6 +1,7 @@
 package housekeeping_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -22,6 +23,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
@@ -189,8 +191,12 @@ func TestPruneIfNeeded(t *testing.T) {
 
 func TestOptimizeRepository_objectPoolMember(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.WriteCruftPacks).Run(t, testOptimizeRepositoryObjectPoolMember)
+}
 
-	ctx := testhelper.Context(t)
+func testOptimizeRepositoryObjectPoolMember(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 
 	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())

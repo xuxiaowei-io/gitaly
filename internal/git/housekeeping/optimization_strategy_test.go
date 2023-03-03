@@ -8,13 +8,17 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
 
 func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.WriteCruftPacks).Run(t, testHeuristicalOptimizationStrategyShouldRepackObjects)
+}
 
-	ctx := testhelper.Context(t)
+func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	for _, tc := range []struct {
 		desc           string
@@ -176,6 +180,7 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 				},
 			} {
 				t.Run(tc.desc, func(t *testing.T) {
+					expireBefore := time.Now()
 					strategy := HeuristicalOptimizationStrategy{
 						info: stats.RepositoryInfo{
 							IsObjectPool: tc.isPool,
@@ -189,6 +194,7 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 							},
 							Alternates: tc.alternates,
 						},
+						expireBefore: expireBefore,
 					}
 
 					repackNeeded, _ := strategy.ShouldRepackObjects(ctx)
@@ -204,6 +210,10 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackObjects(t *testing.T) {
 						FullRepack:          true,
 						WriteBitmap:         len(tc.alternates) == 0,
 						WriteMultiPackIndex: true,
+						WriteCruftPack:      featureflag.WriteCruftPacks.IsEnabled(ctx),
+						CruftExpireBefore: testhelper.EnabledOrDisabledFlag(ctx, featureflag.WriteCruftPacks,
+							expireBefore, time.Time{},
+						),
 					}, repackCfg)
 				})
 			}
@@ -572,8 +582,11 @@ func TestHeuristicalOptimizationStrategy_NeedsWriteCommitGraph(t *testing.T) {
 
 func TestEagerOptimizationStrategy(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.WriteCruftPacks).Run(t, testEagerOptimizationStrategy)
+}
 
-	ctx := testhelper.Context(t)
+func testEagerOptimizationStrategy(t *testing.T, ctx context.Context) {
+	t.Parallel()
 
 	expireBefore := time.Now()
 
@@ -640,6 +653,10 @@ func TestEagerOptimizationStrategy(t *testing.T) {
 				FullRepack:          true,
 				WriteBitmap:         tc.expectWriteBitmap,
 				WriteMultiPackIndex: true,
+				WriteCruftPack:      featureflag.WriteCruftPacks.IsEnabled(ctx),
+				CruftExpireBefore: testhelper.EnabledOrDisabledFlag(ctx, featureflag.WriteCruftPacks,
+					expireBefore, time.Time{},
+				),
 			}, repackObjectsCfg)
 
 			shouldWriteCommitGraph, writeCommitGraphCfg := tc.strategy.ShouldWriteCommitGraph(ctx)
