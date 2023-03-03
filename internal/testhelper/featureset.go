@@ -109,3 +109,12 @@ func (s FeatureSets) Bench(b *testing.B, test func(b *testing.B, ctx context.Con
 		})
 	}
 }
+
+// EnabledOrDisabledFlag returns either the enabled value or the disabled value depending on the
+// feature flag's state.
+func EnabledOrDisabledFlag[T any](ctx context.Context, flag featureflag.FeatureFlag, enabled, disabled T) T {
+	if flag.IsEnabled(ctx) {
+		return enabled
+	}
+	return disabled
+}
