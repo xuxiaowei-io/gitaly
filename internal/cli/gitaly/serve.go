@@ -2,7 +2,6 @@ package gitaly
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"os"
 	"runtime/debug"
@@ -12,6 +11,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	log "github.com/sirupsen/logrus"
+	"github.com/urfave/cli/v2"
 	"gitlab.com/gitlab-org/gitaly/v15"
 	"gitlab.com/gitlab-org/gitaly/v15/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
@@ -52,7 +52,14 @@ import (
 	"google.golang.org/grpc"
 )
 
-var flagVersion = flag.Bool("version", false, "Print version and exit")
+func newServeCommand() *cli.Command {
+	return &cli.Command{
+		Name:      "serve",
+		Usage:     "launch the server daemon",
+		ArgsUsage: "<configfile>",
+		Action:    serveAction,
+	}
+}
 
 func loadConfig(configPath string) (config.Cfg, error) {
 	cfgFile, err := os.Open(configPath)
@@ -73,37 +80,15 @@ func loadConfig(configPath string) (config.Cfg, error) {
 	return cfg, nil
 }
 
-func flagUsage() {
-	fmt.Println(version.GetVersionString("Gitaly"))
-	fmt.Printf("Usage: %v [command] [options] <configfile>\n", os.Args[0])
-	flag.PrintDefaults()
-	fmt.Printf("\nThe commands are:\n\n\tcheck\tchecks accessability of internal Rails API\n")
-}
-
-func Main() {
-	// If invoked with subcommand check
-	if len(os.Args) > 1 && os.Args[1] == "check" {
-		execCheck()
-	}
-
-	flag.Usage = flagUsage
-	flag.Parse()
-
-	// If invoked with -version
-	if *flagVersion {
-		fmt.Println(version.GetVersionString("Gitaly"))
-		os.Exit(0)
-	}
-
-	if flag.NArg() != 1 || flag.Arg(0) == "" {
-		flag.Usage()
-		os.Exit(2)
+func serveAction(ctx *cli.Context) error {
+	if ctx.NArg() != 1 || ctx.Args().First() == "" {
+		cli.ShowSubcommandHelpAndExit(ctx, 2)
 	}
 
 	log.Infof("Starting %s", version.GetVersionString("Gitaly"))
 	fips.Check()
 
-	cfg, err := configure(flag.Arg(0))
+	cfg, err := configure(ctx.Args().First())
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -114,6 +99,8 @@ func Main() {
 	}
 
 	log.Info("Gitaly shutdown")
+
+	return nil
 }
 
 func configure(configPath string) (config.Cfg, error) {

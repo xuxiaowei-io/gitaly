@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"os/exec"
 	"testing"
 
@@ -31,8 +30,7 @@ func TestGitalyCLI(t *testing.T) {
 		{
 			desc:     "without arguments",
 			exitCode: 2,
-			stdout:   fmt.Sprintf("Gitaly, version %s\nUsage: %s [command] [options] <configfile>\n\nThe commands are:\n\n\tcheck\tchecks accessability of internal Rails API\n", version.GetVersion(), binaryPath),
-			stderr:   "  -version\n    \tPrint version and exit\n",
+			stdout:   "NAME:\n   gitaly - a git server\n\nUSAGE:\n   gitaly command [command options] [arguments...]\n\nCOMMANDS:\n   serve    launch the server daemon\n   check    verify internal API is accessible\n   help, h  Shows a list of commands or help for one command\n\nOPTIONS:\n   --help, -h     show help\n   --version, -v  print the version\n",
 		},
 		{
 			desc:     "with non-existent config",
@@ -44,7 +42,8 @@ func TestGitalyCLI(t *testing.T) {
 			desc:     "check without config",
 			args:     []string{"check"},
 			exitCode: 2,
-			stderr:   fmt.Sprintf("error: invalid argument(s)Usage: %s check <configfile>\n", binaryPath),
+			stdout:   "NAME:\n   gitaly check - verify internal API is accessible\n\nUSAGE:\n   gitaly check command [command options] <configfile>\n\nCOMMANDS:\n   help, h  Shows a list of commands or help for one command\n\nOPTIONS:\n   --help, -h  show help\n",
+			stderr:   "invalid argument(s)",
 		},
 		{
 			desc:     "check with non-existent config",

@@ -38,6 +38,7 @@ require (
 	github.com/sirupsen/logrus v1.9.0
 	github.com/stretchr/testify v1.8.2
 	github.com/uber/jaeger-client-go v2.30.0+incompatible
+	github.com/urfave/cli/v2 v2.24.4
 	gitlab.com/gitlab-org/labkit v1.17.0
 	go.uber.org/goleak v1.2.1
 	gocloud.dev v0.28.0
@@ -100,6 +101,7 @@ require (
 	github.com/client9/reopen v1.0.0 // indirect
 	github.com/cloudflare/circl v1.2.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
+	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dgraph-io/ristretto v0.1.1 // indirect
 	github.com/dgryski/go-minhash v0.0.0-20190315135803-ad340ca03076 // indirect
@@ -178,6 +180,7 @@ require (
 	github.com/tklauser/numcpus v0.2.1 // indirect
 	github.com/uber/jaeger-lib v2.4.1+incompatible // indirect
 	github.com/xanzy/ssh-agent v0.3.2 // indirect
+	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	golang.org/x/crypto v0.6.0 // indirect

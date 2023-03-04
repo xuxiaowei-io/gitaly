@@ -2,11 +2,11 @@ package gitaly
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"os"
 
 	"github.com/sirupsen/logrus"
+	"github.com/urfave/cli/v2"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/prometheus"
@@ -14,24 +14,24 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
 )
 
-func execCheck() {
+func newCheckCommand() *cli.Command {
+	return &cli.Command{
+		Name:      "check",
+		Usage:     "verify internal API is accessible",
+		ArgsUsage: "<configfile>",
+		Action:    checkAction,
+	}
+}
+
+func checkAction(ctx *cli.Context) error {
 	logrus.SetLevel(logrus.ErrorLevel)
 
-	checkCmd := flag.NewFlagSet("check", flag.ExitOnError)
-	checkCmd.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: %v check <configfile>\n", os.Args[0])
-		checkCmd.PrintDefaults()
-	}
-
-	_ = checkCmd.Parse(os.Args[2:])
-
-	if checkCmd.NArg() != 1 || checkCmd.Arg(0) == "" {
+	if ctx.NArg() != 1 || ctx.Args().First() == "" {
 		fmt.Fprintf(os.Stderr, "error: invalid argument(s)")
-		checkCmd.Usage()
-		os.Exit(2)
+		cli.ShowSubcommandHelpAndExit(ctx, 2)
 	}
 
-	configPath := checkCmd.Arg(0)
+	configPath := ctx.Args().First()
 
 	fmt.Print("Checking GitLab API access: ")
 	info, err := checkAPI(configPath)
@@ -48,7 +48,7 @@ func execCheck() {
 	fmt.Printf("Redis reachable for GitLab: %t\n", info.RedisReachable)
 	fmt.Println("OK")
 
-	os.Exit(0)
+	return nil
 }
 
 func checkAPI(configPath string) (*gitlab.CheckInfo, error) {
