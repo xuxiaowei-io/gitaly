@@ -459,6 +459,18 @@ type StreamCacheConfig struct {
 	MinOccurrences int               `toml:"min_occurrences" json:"min_occurrences"`
 }
 
+// Validate runs validation on all fields and compose all found errors.
+func (scc StreamCacheConfig) Validate() error {
+	if !scc.Enabled {
+		return nil
+	}
+
+	return cfgerror.New().
+		Append(cfgerror.PathIsAbs(scc.Dir), "dir").
+		Append(cfgerror.IsPositive(scc.MaxAge.Duration()), "max_age").
+		AsError()
+}
+
 // Load initializes the Config variable from file and the environment.
 // Environment variables take precedence over the file.
 func Load(file io.Reader) (Cfg, error) {

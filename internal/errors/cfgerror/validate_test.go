@@ -152,6 +152,40 @@ func TestFileExists(t *testing.T) {
 	require.Equal(t, expectedNotFile, FileExists(dir))
 }
 
+func TestPathIsAbs(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name        string
+		path        string
+		expectedErr error
+	}{
+		{
+			name: "relative path",
+			path: "relative/path",
+			expectedErr: NewValidationError(
+				fmt.Errorf("%w: %q", ErrNotAbsolutePath, "relative/path"),
+			),
+		},
+		{
+			name: "empty path",
+			path: "",
+			expectedErr: NewValidationError(
+				fmt.Errorf("%w: %q", ErrNotAbsolutePath, ""),
+			),
+		},
+		{
+			name: "absolute path",
+			path: "/abs/path",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := PathIsAbs(tc.path)
+			require.Equal(t, tc.expectedErr, err)
+		})
+	}
+}
+
 func TestIsPositive(t *testing.T) {
 	t.Parallel()
 	require.NoError(t, IsPositive(0))

@@ -2079,3 +2079,52 @@ func TestGitlab_Validate(t *testing.T) {
 		})
 	}
 }
+
+func TestStreamCacheConfig_Validate(t *testing.T) {
+	t.Parallel()
+
+	absPath, err := filepath.Abs(".")
+	require.NoError(t, err)
+
+	for _, tc := range []struct {
+		name        string
+		streamCache StreamCacheConfig
+		expectedErr error
+	}{
+		{
+			name:        "disable",
+			streamCache: StreamCacheConfig{MaxAge: duration.Duration(-1)},
+		},
+		{
+			name: "valid",
+			streamCache: StreamCacheConfig{
+				Enabled: true,
+				Dir:     absPath,
+				MaxAge:  duration.Duration(1),
+			},
+		},
+		{
+			name: "invalid",
+			streamCache: StreamCacheConfig{
+				Enabled: true,
+				Dir:     "relative/path",
+				MaxAge:  duration.Duration(-1),
+			},
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: %q", cfgerror.ErrNotAbsolutePath, "relative/path"),
+					"dir",
+				),
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: %s", cfgerror.ErrIsNegative, time.Duration(-1)),
+					"max_age",
+				),
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.streamCache.Validate()
+			require.Equal(t, tc.expectedErr, err)
+		})
+	}
+}
