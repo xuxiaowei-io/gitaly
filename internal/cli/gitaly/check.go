@@ -3,7 +3,6 @@ package gitaly
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
@@ -27,26 +26,28 @@ func checkAction(ctx *cli.Context) error {
 	logrus.SetLevel(logrus.ErrorLevel)
 
 	if ctx.NArg() != 1 || ctx.Args().First() == "" {
-		fmt.Fprintf(os.Stderr, "error: invalid argument(s)")
-		cli.ShowSubcommandHelpAndExit(ctx, 2)
+		if err := cli.ShowSubcommandHelp(ctx); err != nil {
+			return err
+		}
+
+		return cli.Exit("error: invalid argument(s)", 2)
 	}
 
 	configPath := ctx.Args().First()
 
-	fmt.Print("Checking GitLab API access: ")
+	fmt.Fprint(ctx.App.Writer, "Checking GitLab API access: ")
 	info, err := checkAPI(configPath)
 	if err != nil {
-		fmt.Println("FAILED")
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		fmt.Fprintln(ctx.App.Writer, "FAILED")
+		return err
 	}
 
-	fmt.Println("OK")
-	fmt.Printf("GitLab version: %s\n", info.Version)
-	fmt.Printf("GitLab revision: %s\n", info.Revision)
-	fmt.Printf("GitLab Api version: %s\n", info.APIVersion)
-	fmt.Printf("Redis reachable for GitLab: %t\n", info.RedisReachable)
-	fmt.Println("OK")
+	fmt.Fprintln(ctx.App.Writer, "OK")
+	fmt.Fprintf(ctx.App.Writer, "GitLab version: %s\n", info.Version)
+	fmt.Fprintf(ctx.App.Writer, "GitLab revision: %s\n", info.Revision)
+	fmt.Fprintf(ctx.App.Writer, "GitLab Api version: %s\n", info.APIVersion)
+	fmt.Fprintf(ctx.App.Writer, "Redis reachable for GitLab: %t\n", info.RedisReachable)
+	fmt.Fprintln(ctx.App.Writer, "OK")
 
 	return nil
 }
