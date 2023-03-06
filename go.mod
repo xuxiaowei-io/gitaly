@@ -36,7 +36,7 @@ require (
 	github.com/prometheus/client_model v0.3.0
 	github.com/rubenv/sql-migrate v1.3.1
 	github.com/sirupsen/logrus v1.9.0
-	github.com/stretchr/testify v1.8.1
+	github.com/stretchr/testify v1.8.2
 	github.com/uber/jaeger-client-go v2.30.0+incompatible
 	gitlab.com/gitlab-org/labkit v1.17.0
 	go.uber.org/goleak v1.2.1
