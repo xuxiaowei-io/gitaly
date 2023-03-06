@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/protobuf/proto"
 )
@@ -46,6 +47,17 @@ func (err ReferenceVerificationError) Error() string {
 	return fmt.Sprintf("expected %q to point to %q but it pointed to %q", err.ReferenceName, err.ExpectedOID, err.ActualOID)
 }
 
+// ReferenceToBeDeletedError is returned when the reference used is scheduled to be deleted.
+type ReferenceToBeDeletedError struct {
+	// ReferenceName is the name of the reference that is scheduled to be deleted.
+	ReferenceName git.ReferenceName
+}
+
+// Error returns the formatted error string.
+func (err ReferenceToBeDeletedError) Error() string {
+	return fmt.Sprintf("reference %q is scheduled to be deleted", err.ReferenceName)
+}
+
 // LogIndex points to a specific position in a repository's write-ahead log.
 type LogIndex uint64
 
@@ -63,6 +75,12 @@ type ReferenceUpdate struct {
 	NewOID git.ObjectID
 }
 
+// DefaultBranchUpdate provides the information to update the default branch of the repo.
+type DefaultBranchUpdate struct {
+	// Reference is the reference to update the default branch to.
+	Reference git.ReferenceName
+}
+
 // ReferenceUpdates contains references to update. Reference name is used as the key and the value
 // is the expected old tip and the desired new tip.
 type ReferenceUpdates map[git.ReferenceName]ReferenceUpdate
@@ -77,6 +95,8 @@ type Transaction struct {
 	SkipVerificationFailures bool
 	// ReferenceUpdates contains the reference updates to be performed.
 	ReferenceUpdates
+	// DefaultBranchUpdate contains the information to update the default branch of the repo.
+	DefaultBranchUpdate *DefaultBranchUpdate
 }
 
 // TransactionManager is responsible for transaction management of a single repository. Each repository has
@@ -150,6 +170,7 @@ type TransactionManager struct {
 type repository interface {
 	git.RepositoryExecutor
 	ResolveRevision(context.Context, git.Revision) (git.ObjectID, error)
+	SetDefaultBranch(ctx context.Context, txManager transaction.Manager, reference git.ReferenceName) error
 }
 
 // NewTransactionManager returns a new TransactionManager for the given repository.
@@ -388,6 +409,16 @@ func (mgr *TransactionManager) verifyReferences(ctx context.Context, transaction
 		return nil, fmt.Errorf("verify references with git: %w", err)
 	}
 
+	if transaction.DefaultBranchUpdate != nil {
+		if err := mgr.verifyDefaultBranchUpdate(ctx, transaction); err != nil {
+			return nil, fmt.Errorf("verify default branch update: %w", err)
+		}
+
+		logEntry.DefaultBranchUpdate = &gitalypb.LogEntry_DefaultBranchUpdate{
+			ReferenceName: []byte(transaction.DefaultBranchUpdate.Reference),
+		}
+	}
+
 	return logEntry, nil
 }
 
@@ -402,6 +433,45 @@ func (mgr *TransactionManager) verifyReferencesWithGit(ctx context.Context, refe
 	}
 
 	return updater.Close()
+}
+
+// verifyDefaultBranchUpdate verifies the default branch referance update. This is done by first checking if it is one of
+// the references in the current transaction which is not scheduled to be deleted. If not, we check if its a valid reference
+// name in the repository. We don't do reference name validation because any reference going through the transaction manager
+// has name validation and we can rely on that.
+func (mgr *TransactionManager) verifyDefaultBranchUpdate(ctx context.Context, transaction Transaction) error {
+	referenceName := transaction.DefaultBranchUpdate.Reference
+
+	// Check the transaction reference updates, to see if the refname exists, if we find it here
+	// we don't have to invoke git to do a refname check.
+	if refUpdate, ok := transaction.ReferenceUpdates[referenceName]; ok {
+		objectHash, err := mgr.repository.ObjectHash(ctx)
+		if err != nil {
+			return fmt.Errorf("obtaining object hash: %w", err)
+		}
+
+		// reference is scheduled to be deleted
+		if refUpdate.NewOID == objectHash.ZeroOID {
+			return ReferenceToBeDeletedError{ReferenceName: referenceName}
+		}
+
+		return nil
+	}
+
+	if _, err := mgr.repository.ResolveRevision(ctx, referenceName.Revision()); err != nil {
+		return fmt.Errorf("cannot resolve default branch update: %w", err)
+	}
+
+	return nil
+}
+
+// updateDefaultBranch sets the default branch using localrepo.SetDefaultBranch if there is adequate datprovided.
+func (mgr *TransactionManager) updateDefaultBranch(ctx context.Context, defaultBranch *gitalypb.LogEntry_DefaultBranchUpdate) error {
+	if defaultBranch == nil {
+		return nil
+	}
+
+	return mgr.repository.SetDefaultBranch(ctx, nil, git.ReferenceName(defaultBranch.ReferenceName))
 }
 
 // prepareReferenceTransaction prepares a reference transaction with `git update-ref`. It leaves committing
@@ -460,6 +530,10 @@ func (mgr *TransactionManager) applyLogEntry(ctx context.Context, logIndex LogIn
 
 	if err := updater.Commit(); err != nil {
 		return fmt.Errorf("commit transaction: %w", err)
+	}
+
+	if err := mgr.updateDefaultBranch(ctx, logEntry.DefaultBranchUpdate); err != nil {
+		return fmt.Errorf("writing default branch: %w", err)
 	}
 
 	if err := mgr.storeAppliedLogIndex(logIndex); err != nil {
