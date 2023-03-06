@@ -436,7 +436,6 @@ func verifyListener(t *testing.T, ctx context.Context, dbConf config.DB, channel
 	setup(t)
 
 	runCtx, runCancel := context.WithCancel(ctx)
-	defer runCancel()
 
 	readyChan := make(chan struct{})
 	receivedChan := make(chan struct{})
@@ -464,6 +463,10 @@ func verifyListener(t *testing.T, ctx context.Context, dbConf config.DB, channel
 		err := lis.Listen(runCtx, handler, channel)
 		assert.True(t, errors.Is(err, context.Canceled), err)
 	}()
+	defer func() {
+		runCancel()
+		waitFor(t, done)
+	}()
 
 	select {
 	case <-time.After(time.Second):
@@ -487,7 +490,6 @@ func verifyListener(t *testing.T, ctx context.Context, dbConf config.DB, channel
 		require.Failf(t, "no notifications expected", "received: %v", notification)
 	}
 	verifier(t, notification)
-	waitFor(t, done)
 }
 
 func requireEqualNotificationEntries(t *testing.T, d string, entries []notificationEntry) {
