@@ -624,6 +624,9 @@ func TestPruneIfNeeded(t *testing.T) {
 	// We shouldn't prune when the strategy determines there aren't enough old objects.
 	didPrune, err := pruneIfNeeded(ctx, repo, mockOptimizationStrategy{
 		shouldPruneObjects: false,
+		pruneObjectsCfg: PruneObjectsConfig{
+			ExpireBefore: twoWeeksAgo,
+		},
 	})
 	require.NoError(t, err)
 	require.False(t, didPrune)
@@ -635,6 +638,9 @@ func TestPruneIfNeeded(t *testing.T) {
 	// But we naturally should prune if told so.
 	didPrune, err = pruneIfNeeded(ctx, repo, mockOptimizationStrategy{
 		shouldPruneObjects: true,
+		pruneObjectsCfg: PruneObjectsConfig{
+			ExpireBefore: twoWeeksAgo,
+		},
 	})
 	require.NoError(t, err)
 	require.True(t, didPrune)

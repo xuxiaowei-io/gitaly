@@ -3,6 +3,7 @@ package housekeeping
 import (
 	"context"
 	"math"
+	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 )
@@ -14,8 +15,8 @@ type OptimizationStrategy interface {
 	// how it should be done.
 	ShouldRepackObjects(context.Context) (bool, RepackObjectsConfig)
 	// ShouldPruneObjects determines whether the repository has stale objects that should be
-	// pruned.
-	ShouldPruneObjects(context.Context) bool
+	// pruned and, if so, how it should be done.
+	ShouldPruneObjects(context.Context) (bool, PruneObjectsConfig)
 	// ShouldRepackReferences determines whether the repository's references need to be
 	// repacked.
 	ShouldRepackReferences(context.Context) bool
@@ -27,7 +28,8 @@ type OptimizationStrategy interface {
 // HeuristicalOptimizationStrategy is an optimization strategy that is based on a set of
 // heuristics.
 type HeuristicalOptimizationStrategy struct {
-	info stats.RepositoryInfo
+	info         stats.RepositoryInfo
+	expireBefore time.Time
 }
 
 // NewHeuristicalOptimizationStrategy constructs a heuristicalOptimizationStrategy for the given
@@ -35,7 +37,8 @@ type HeuristicalOptimizationStrategy struct {
 // repository can be decided without further disk reads.
 func NewHeuristicalOptimizationStrategy(info stats.RepositoryInfo) HeuristicalOptimizationStrategy {
 	return HeuristicalOptimizationStrategy{
-		info: info,
+		info:         info,
+		expireBefore: time.Now().Add(stats.StaleObjectsGracePeriod),
 	}
 }
 
@@ -150,7 +153,7 @@ func (s HeuristicalOptimizationStrategy) ShouldWriteCommitGraph(ctx context.Cont
 	//
 	// To fix this case we will replace the complete commit-chain when we have pruned objects
 	// from the repository.
-	if s.ShouldPruneObjects(ctx) {
+	if shouldPrune, _ := s.ShouldPruneObjects(ctx); shouldPrune {
 		return true, WriteCommitGraphConfig{
 			ReplaceChain: true,
 		}
@@ -174,20 +177,22 @@ func (s HeuristicalOptimizationStrategy) ShouldWriteCommitGraph(ctx context.Cont
 // ShouldPruneObjects determines whether the repository has stale objects that should be pruned.
 // Object pools are never pruned to not lose data in them, but otherwise we prune when we've found
 // enough stale objects that might in fact get pruned.
-func (s HeuristicalOptimizationStrategy) ShouldPruneObjects(context.Context) bool {
+func (s HeuristicalOptimizationStrategy) ShouldPruneObjects(context.Context) (bool, PruneObjectsConfig) {
 	// Pool repositories must never prune any objects, or otherwise we may corrupt members of
 	// that pool if they still refer to that object.
 	if s.info.IsObjectPool {
-		return false
+		return false, PruneObjectsConfig{}
 	}
 
 	// When we have a number of loose objects that is older than two weeks then they have
 	// surpassed the grace period and may thus be pruned.
 	if s.info.LooseObjects.StaleCount <= looseObjectLimit {
-		return false
+		return false, PruneObjectsConfig{}
 	}
 
-	return true
+	return true, PruneObjectsConfig{
+		ExpireBefore: s.expireBefore,
+	}
 }
 
 // ShouldRepackReferences determines whether the repository's references need to be repacked based
@@ -230,13 +235,15 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackReferences(context.Context)
 // EagerOptimizationStrategy is a strategy that will eagerly perform optimizations. All of the data
 // structures will be optimized regardless of whether they already are in an optimal state or not.
 type EagerOptimizationStrategy struct {
-	info stats.RepositoryInfo
+	info         stats.RepositoryInfo
+	expireBefore time.Time
 }
 
 // NewEagerOptimizationStrategy creates a new EagerOptimizationStrategy.
 func NewEagerOptimizationStrategy(info stats.RepositoryInfo) EagerOptimizationStrategy {
 	return EagerOptimizationStrategy{
-		info: info,
+		info:         info,
+		expireBefore: time.Now().Add(stats.StaleObjectsGracePeriod),
 	}
 }
 
@@ -261,8 +268,14 @@ func (s EagerOptimizationStrategy) ShouldWriteCommitGraph(context.Context) (bool
 
 // ShouldPruneObjects always instructs the caller to prune objects, unless the repository is an
 // object pool.
-func (s EagerOptimizationStrategy) ShouldPruneObjects(context.Context) bool {
-	return !s.info.IsObjectPool
+func (s EagerOptimizationStrategy) ShouldPruneObjects(context.Context) (bool, PruneObjectsConfig) {
+	if s.info.IsObjectPool {
+		return false, PruneObjectsConfig{}
+	}
+
+	return true, PruneObjectsConfig{
+		ExpireBefore: s.expireBefore,
+	}
 }
 
 // ShouldRepackReferences always instructs the caller to repack references.
