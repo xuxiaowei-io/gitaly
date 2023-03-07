@@ -9,12 +9,12 @@ import (
 	"github.com/hashicorp/yamux"
 	"github.com/pelletier/go-toml/v2"
 	promclient "github.com/prometheus/client_golang/prometheus"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/auth"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/log"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/prometheus"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/sentry"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/duration"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/auth"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/log"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/prometheus"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/sentry"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/duration"
 )
 
 // ElectionStrategy is a Praefect primary election strategy.

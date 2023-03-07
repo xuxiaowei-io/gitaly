@@ -6,7 +6,7 @@ import (
 	"io"
 	"runtime"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 )
 
 // WriteTarball writes a tarball to an `io.Writer` for the provided path

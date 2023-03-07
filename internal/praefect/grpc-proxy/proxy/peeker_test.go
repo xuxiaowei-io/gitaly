@@ -8,9 +8,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/grpc-proxy/proxy"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/metadata"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/grpc-proxy/proxy"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"google.golang.org/grpc/test/grpc_testing"
 	"google.golang.org/protobuf/proto"
 )

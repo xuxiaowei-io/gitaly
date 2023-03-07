@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/promtest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/promtest"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )

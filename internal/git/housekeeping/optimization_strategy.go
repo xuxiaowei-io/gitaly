@@ -5,7 +5,7 @@ import (
 	"math"
 	"time"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
 )
 
 // OptimizationStrategy is an interface to determine which parts of a repository should be

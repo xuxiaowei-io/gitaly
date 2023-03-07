@@ -7,7 +7,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 )
 
 func TestLimitStats(t *testing.T) {

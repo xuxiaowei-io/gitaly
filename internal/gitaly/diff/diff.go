@@ -9,8 +9,8 @@ import (
 	"regexp"
 	"strconv"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 )
 
 // Diff represents a single parsed diff entry

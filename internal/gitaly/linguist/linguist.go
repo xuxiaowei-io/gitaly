@@ -8,13 +8,13 @@ import (
 
 	"github.com/go-enry/go-enry/v2"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gitattributes"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gitpipe"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gitattributes"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gitpipe"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 )
 
 // ByteCountPerLanguage represents a counter value (bytes) per language.

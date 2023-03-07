@@ -1,4 +1,4 @@
-module gitlab.com/gitlab-org/gitaly/v15
+module gitlab.com/gitlab-org/gitaly/v16
 
 go 1.18
 

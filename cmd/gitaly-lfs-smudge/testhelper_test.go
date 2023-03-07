@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 )
 
 func TestMain(m *testing.M) {

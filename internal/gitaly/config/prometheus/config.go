@@ -6,7 +6,7 @@ import (
 	grpcprometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/duration"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/duration"
 )
 
 // Config contains additional configuration data for prometheus

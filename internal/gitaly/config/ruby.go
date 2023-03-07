@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/duration"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/duration"
 )
 
 // Ruby contains setting for Ruby worker processes

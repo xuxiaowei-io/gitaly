@@ -5,10 +5,10 @@ import (
 	"sync"
 	"testing"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 )
 
 var _ git.CommandFactory = &CountingCommandFactory{}

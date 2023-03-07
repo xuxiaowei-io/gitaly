@@ -9,8 +9,8 @@ import (
 
 	"github.com/dgraph-io/badger/v3"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 )
 
 // hookFunc is a function that is executed at a specific point. It gets a hookContext that allows it to

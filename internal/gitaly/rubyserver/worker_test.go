@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/supervisor"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/supervisor"
 )
 
 func TestWorker(t *testing.T) {

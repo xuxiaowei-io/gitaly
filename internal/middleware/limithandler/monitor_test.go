@@ -8,8 +8,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/require"
-	promconfig "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/prometheus"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
+	promconfig "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/prometheus"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 )
 
 func TestNewPerRPCPromMonitor(t *testing.T) {

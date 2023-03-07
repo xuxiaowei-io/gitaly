@@ -15,13 +15,13 @@ import (
 
 	"github.com/pelletier/go-toml/v2"
 	log "github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/auth"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/cgroups"
-	internallog "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/log"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/prometheus"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/sentry"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/duration"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/auth"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/cgroups"
+	internallog "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/log"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/prometheus"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/sentry"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/duration"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 )
 
 const (

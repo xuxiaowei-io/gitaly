@@ -3,7 +3,7 @@ package statushandler
 import (
 	"context"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"google.golang.org/grpc"
 )
 

@@ -11,12 +11,12 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
-	"gitlab.com/gitlab-org/gitaly/v15/client"
-	internalclient "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/client"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore/glsql"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/service"
+	gitalyauth "gitlab.com/gitlab-org/gitaly/v16/auth"
+	"gitlab.com/gitlab-org/gitaly/v16/client"
+	internalclient "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/client"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore/glsql"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/service"
 	"google.golang.org/grpc"
 )
 

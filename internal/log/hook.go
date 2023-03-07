@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 )
 
 // HookLogger is a wrapper around *logrus.Logger

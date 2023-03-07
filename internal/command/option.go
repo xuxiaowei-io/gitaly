@@ -3,7 +3,7 @@ package command
 import (
 	"io"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/cgroups"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/cgroups"
 )
 
 type config struct {

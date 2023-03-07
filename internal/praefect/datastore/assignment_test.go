@@ -8,10 +8,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/commonerr"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore/glsql"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testdb"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/commonerr"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/datastore/glsql"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testdb"
 )
 
 func TestAssignmentStore_GetHostAssignments(t *testing.T) {

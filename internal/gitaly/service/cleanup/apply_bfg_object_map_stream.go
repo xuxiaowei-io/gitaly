@@ -3,13 +3,13 @@ package cleanup
 import (
 	"io"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/cleanup/internalrefs"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/cleanup/notifier"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
-	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"gitlab.com/gitlab-org/gitaly/v15/streamio"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/cleanup/internalrefs"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/cleanup/notifier"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/chunk"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
+	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v16/streamio"
 	"google.golang.org/protobuf/proto"
 )
 

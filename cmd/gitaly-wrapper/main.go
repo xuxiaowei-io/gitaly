@@ -12,10 +12,10 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/bootstrap"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/env"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/log"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/ps"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/bootstrap"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/env"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/ps"
 	"golang.org/x/sys/unix"
 )
 

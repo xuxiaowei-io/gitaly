@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/repository"
 )
 
 // poolPathPrefix is the prefix directory where Praefect places object pools.

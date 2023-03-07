@@ -11,13 +11,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/auth"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/cgroups"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/prometheus"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/sentry"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/duration"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/auth"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/cgroups"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/prometheus"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/sentry"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/duration"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 )
 
 func TestBinaryPath(t *testing.T) {

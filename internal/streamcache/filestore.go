@@ -13,9 +13,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/dontpanic"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/dontpanic"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/housekeeping"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 )
 
 var (

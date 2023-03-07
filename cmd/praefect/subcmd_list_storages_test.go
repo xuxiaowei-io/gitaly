@@ -9,7 +9,7 @@ import (
 	"github.com/olekukonko/tablewriter"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
 )
 
 func TestListStorages_FlagSet(t *testing.T) {
