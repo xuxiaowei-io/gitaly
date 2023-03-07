@@ -24,7 +24,7 @@ require (
 	github.com/hashicorp/yamux v0.1.1
 	github.com/jackc/pgconn v1.14.0
 	github.com/jackc/pgtype v1.14.0
-	github.com/jackc/pgx/v4 v4.18.0
+	github.com/jackc/pgx/v4 v4.18.1
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/libgit2/git2go/v34 v34.0.0
 	github.com/miekg/dns v1.1.50
