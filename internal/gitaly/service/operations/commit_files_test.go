@@ -17,7 +17,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -32,12 +31,7 @@ var commitFilesMessage = []byte("Change files")
 
 func TestUserCommitFiles(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCommitFilesStructuredErrors).Run(t,
-		testUserCommitFiles)
-}
-
-func testUserCommitFiles(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 
@@ -936,38 +930,26 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 
 				resp, err := stream.CloseAndRecv()
 
-				if featureflag.UserCommitFilesStructuredErrors.IsEnabled(ctx) {
-					if step.error != nil {
-						testhelper.RequireGrpcError(t, step.error, err)
-						continue
-					}
-
-					if step.unknownIndexError != nil {
-						require.Equal(t, step.unknownIndexError, err)
-						continue
-					}
-
-					if step.structError != nil {
-						testhelper.RequireGrpcError(t, errWithDetails(t,
-							step.structError.StructuredError(),
-							&gitalypb.UserCommitFilesError{
-								Error: &gitalypb.UserCommitFilesError_IndexUpdate{
-									IndexUpdate: step.structError.Proto(),
-								},
-							},
-						), err)
-						continue
-					}
-				} else {
+				if step.error != nil {
 					testhelper.RequireGrpcError(t, step.error, err)
-					if step.error != nil {
-						continue
-					}
+					continue
+				}
 
-					require.Equal(t, step.indexError, resp.IndexError, "step %d", i+1)
-					if step.indexError != "" {
-						continue
-					}
+				if step.unknownIndexError != nil {
+					require.Equal(t, step.unknownIndexError, err)
+					continue
+				}
+
+				if step.structError != nil {
+					testhelper.RequireGrpcError(t, errWithDetails(t,
+						step.structError.StructuredError(),
+						&gitalypb.UserCommitFilesError{
+							Error: &gitalypb.UserCommitFilesError_IndexUpdate{
+								IndexUpdate: step.structError.Proto(),
+							},
+						},
+					), err)
+					continue
 				}
 
 				require.Equal(t, step.branchCreated, resp.BranchUpdate.BranchCreated, "step %d", i+1)
@@ -983,12 +965,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 
 func TestUserCommitFilesStableCommitID(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCommitFilesStructuredErrors).Run(t,
-		testUserCommitFilesStableCommitID)
-}
-
-func testUserCommitFilesStableCommitID(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
@@ -1046,12 +1023,7 @@ func testUserCommitFilesStableCommitID(t *testing.T, ctx context.Context) {
 
 func TestUserCommitFilesQuarantine(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCommitFilesStructuredErrors).Run(t,
-		testUserCommitFilesQuarantine)
-}
-
-func testUserCommitFilesQuarantine(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
@@ -1082,20 +1054,16 @@ func testUserCommitFilesQuarantine(t *testing.T, ctx context.Context) {
 	require.NoError(t, stream.Send(actionContentRequest("content")))
 	_, err = stream.CloseAndRecv()
 
-	if featureflag.UserCommitFilesStructuredErrors.IsEnabled(ctx) {
-		testhelper.RequireGrpcError(t, structerr.NewPermissionDenied("denied by custom hooks").WithDetail(
-			&gitalypb.UserCommitFilesError{
-				Error: &gitalypb.UserCommitFilesError_CustomHook{
-					CustomHook: &gitalypb.CustomHookError{
-						HookType: gitalypb.CustomHookError_HOOK_TYPE_PRERECEIVE,
-						Stdout:   []byte(""),
-					},
+	testhelper.RequireGrpcError(t, structerr.NewPermissionDenied("denied by custom hooks").WithDetail(
+		&gitalypb.UserCommitFilesError{
+			Error: &gitalypb.UserCommitFilesError_CustomHook{
+				CustomHook: &gitalypb.CustomHookError{
+					HookType: gitalypb.CustomHookError_HOOK_TYPE_PRERECEIVE,
+					Stdout:   []byte(""),
 				},
 			},
-		), err)
-	} else {
-		require.NoError(t, err)
-	}
+		},
+	), err)
 
 	hookOutput := testhelper.MustReadFile(t, outputPath)
 	oid, err := git.ObjectHashSHA1.FromHex(text.ChompBytes(hookOutput))
@@ -1107,12 +1075,7 @@ func testUserCommitFilesQuarantine(t *testing.T, ctx context.Context) {
 
 func TestSuccessfulUserCommitFilesFilesRequest(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCommitFilesStructuredErrors).Run(t,
-		testSuccessfulUserCommitFilesRequest)
-}
-
-func testSuccessfulUserCommitFilesRequest(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
@@ -1261,12 +1224,7 @@ func testSuccessfulUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 
 func TestSuccessUserCommitFilesRequestMove(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCommitFilesStructuredErrors).Run(t,
-		testSuccessfulUserCommitFilesRequestMove)
-}
-
-func testSuccessfulUserCommitFilesRequestMove(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
@@ -1324,13 +1282,8 @@ func testSuccessfulUserCommitFilesRequestMove(t *testing.T, ctx context.Context)
 
 func TestSuccessUserCommitFilesRequestForceCommit(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCommitFilesStructuredErrors).Run(t,
-		testSuccessfulUserCommitFilesRequestForceCommit)
-}
 
-func testSuccessfulUserCommitFilesRequestForceCommit(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -1374,13 +1327,8 @@ func testSuccessfulUserCommitFilesRequestForceCommit(t *testing.T, ctx context.C
 
 func TestSuccessUserCommitFilesRequestStartSha(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCommitFilesStructuredErrors).Run(t,
-		testSuccessfulUserCommitFilesRequestStartSha)
-}
 
-func testSuccessfulUserCommitFilesRequestStartSha(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -1412,12 +1360,6 @@ func testSuccessfulUserCommitFilesRequestStartSha(t *testing.T, ctx context.Cont
 
 func TestSuccessUserCommitFilesRequestStartShaRemoteRepository(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCommitFilesStructuredErrors).Run(t,
-		testSuccessfulUserCommitFilesRequestStartShaRemoteRepository)
-}
-
-func testSuccessfulUserCommitFilesRequestStartShaRemoteRepository(t *testing.T, ctx context.Context) {
-	t.Parallel()
 
 	testSuccessfulUserCommitFilesRemoteRepositoryRequest(func(header *gitalypb.UserCommitFilesRequest) {
 		setStartSha(header, "1e292f8fedd741b75372e19097c76d327140c312")
@@ -1425,12 +1367,6 @@ func testSuccessfulUserCommitFilesRequestStartShaRemoteRepository(t *testing.T, 
 }
 
 func TestSuccessUserCommitFilesRequestStartBranchRemoteRepository(t *testing.T) {
-	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCommitFilesStructuredErrors).Run(t,
-		testSuccessfulUserCommitFilesRequestStartBranchRemoteRepository)
-}
-
-func testSuccessfulUserCommitFilesRequestStartBranchRemoteRepository(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
 	testSuccessfulUserCommitFilesRemoteRepositoryRequest(func(header *gitalypb.UserCommitFilesRequest) {
@@ -1478,13 +1414,8 @@ func testSuccessfulUserCommitFilesRemoteRepositoryRequest(setHeader func(header 
 
 func TestSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCommitFilesStructuredErrors).Run(t,
-		testSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature)
-}
 
-func testSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
 	repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
@@ -1534,13 +1465,8 @@ func testSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *tes
 
 func TestFailedUserCommitFilesRequestDueToHooks(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCommitFilesStructuredErrors).Run(t,
-		testFailedUserCommitFilesRequestDueToHooks)
-}
 
-func testFailedUserCommitFilesRequestDueToHooks(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	ctx, _, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	branchName := "feature"
@@ -1560,46 +1486,36 @@ func testFailedUserCommitFilesRequestDueToHooks(t *testing.T, ctx context.Contex
 			require.NoError(t, stream.Send(actionsRequest1))
 			require.NoError(t, stream.Send(actionsRequest2))
 
-			resp, err := stream.CloseAndRecv()
+			_, err = stream.CloseAndRecv()
 
-			if featureflag.UserCommitFilesStructuredErrors.IsEnabled(ctx) {
-				var hookT gitalypb.CustomHookError_HookType
-				if hookName == "pre-receive" {
-					hookT = gitalypb.CustomHookError_HOOK_TYPE_PRERECEIVE
-				} else {
-					hookT = gitalypb.CustomHookError_HOOK_TYPE_UPDATE
-				}
+			var hookT gitalypb.CustomHookError_HookType
+			if hookName == "pre-receive" {
+				hookT = gitalypb.CustomHookError_HOOK_TYPE_PRERECEIVE
+			} else {
+				hookT = gitalypb.CustomHookError_HOOK_TYPE_UPDATE
+			}
 
-				expectedOut := fmt.Sprintf("GL_ID=%s GL_USERNAME=%s\n",
-					gittest.TestUser.GlId, gittest.TestUser.GlUsername)
+			expectedOut := fmt.Sprintf("GL_ID=%s GL_USERNAME=%s\n",
+				gittest.TestUser.GlId, gittest.TestUser.GlUsername)
 
-				testhelper.RequireGrpcError(t, structerr.NewPermissionDenied("denied by custom hooks").WithDetail(
-					&gitalypb.UserCommitFilesError{
-						Error: &gitalypb.UserCommitFilesError_CustomHook{
-							CustomHook: &gitalypb.CustomHookError{
-								HookType: hookT,
-								Stdout:   []byte(expectedOut),
-							},
+			testhelper.RequireGrpcError(t, structerr.NewPermissionDenied("denied by custom hooks").WithDetail(
+				&gitalypb.UserCommitFilesError{
+					Error: &gitalypb.UserCommitFilesError_CustomHook{
+						CustomHook: &gitalypb.CustomHookError{
+							HookType: hookT,
+							Stdout:   []byte(expectedOut),
 						},
 					},
-				), err)
-			} else {
-				require.Contains(t, resp.PreReceiveError, "GL_ID="+gittest.TestUser.GlId)
-				require.Contains(t, resp.PreReceiveError, "GL_USERNAME="+gittest.TestUser.GlUsername)
-			}
+				},
+			), err)
 		})
 	}
 }
 
 func TestFailedUserCommitFilesRequestDueToIndexError(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCommitFilesStructuredErrors).Run(t,
-		testFailedUserCommitFilesRequestDueToIndexError)
-}
 
-func testFailedUserCommitFilesRequestDueToIndexError(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
 	testCases := []struct {
@@ -1656,33 +1572,23 @@ func testFailedUserCommitFilesRequestDueToIndexError(t *testing.T, ctx context.C
 				require.NoError(t, stream.Send(req))
 			}
 
-			resp, err := stream.CloseAndRecv()
-			if featureflag.UserCommitFilesStructuredErrors.IsEnabled(ctx) {
-				testhelper.RequireGrpcError(t, errWithDetails(t,
-					tc.structError.StructuredError(),
-					&gitalypb.UserCommitFilesError{
-						Error: &gitalypb.UserCommitFilesError_IndexUpdate{
-							IndexUpdate: tc.structError.Proto(),
-						},
+			_, err = stream.CloseAndRecv()
+			testhelper.RequireGrpcError(t, errWithDetails(t,
+				tc.structError.StructuredError(),
+				&gitalypb.UserCommitFilesError{
+					Error: &gitalypb.UserCommitFilesError_IndexUpdate{
+						IndexUpdate: tc.structError.Proto(),
 					},
-				), err)
-			} else {
-				require.NoError(t, err)
-				require.Equal(t, tc.indexError, resp.GetIndexError())
-			}
+				},
+			), err)
 		})
 	}
 }
 
 func TestFailedUserCommitFilesRequest(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCommitFilesStructuredErrors).Run(t,
-		testFailedUserCommitFilesRequest)
-}
 
-func testFailedUserCommitFilesRequest(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
 	branchName := "feature"
@@ -1762,12 +1668,8 @@ func testFailedUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 
 func TestUserCommitFilesFailsIfRepositoryMissing(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UserCommitFilesStructuredErrors).Run(t,
-		testUserCommitFilesFailsIfRepositoryMissing)
-}
 
-func testUserCommitFilesFailsIfRepositoryMissing(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 	ctx, cfg, client := setupOperationsServiceWithoutRepo(t, ctx)
 	repo := &gitalypb.Repository{
 		StorageName:   cfg.Storages[0].Name,
