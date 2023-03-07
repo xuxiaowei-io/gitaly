@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/sirupsen/logrus"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
 	"gitlab.com/gitlab-org/gitaly/v15/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
@@ -17,9 +18,10 @@ import (
 	gitalylog "gitlab.com/gitlab-org/gitaly/v15/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/stream"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/tracing"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
-	"gitlab.com/gitlab-org/labkit/tracing"
+	labkittracing "gitlab.com/gitlab-org/labkit/tracing"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )
@@ -110,7 +112,7 @@ func executeHook(cmd hookCommand, args []string) error {
 	// Since the environment is sanitized at the moment, we're only
 	// using this to extract the correlation ID. The finished() call
 	// to clean up the tracing will be a NOP here.
-	ctx, finished := tracing.ExtractFromEnv(ctx)
+	ctx, finished := labkittracing.ExtractFromEnv(ctx)
 	defer finished()
 
 	payload, err := git.HooksPayloadFromEnv(os.Environ())
@@ -151,12 +153,35 @@ func dialGitaly(payload git.HooksPayload) (*grpc.ClientConn, error) {
 		dialOpts = append(dialOpts, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(payload.InternalSocketToken)))
 	}
 
+	initializeTracing()
+	if spanContext, err := tracing.ExtractSpanContextFromEnv(os.Environ()); err == nil {
+		dialOpts = append(dialOpts, grpc.WithUnaryInterceptor(tracing.UnaryPassthroughInterceptor(spanContext)))
+		dialOpts = append(dialOpts, grpc.WithStreamInterceptor(tracing.StreamPassthroughInterceptor(spanContext)))
+	}
+
 	conn, err := client.Dial("unix://"+payload.InternalSocket, dialOpts)
 	if err != nil {
 		return nil, fmt.Errorf("error when dialing: %w", err)
 	}
 
 	return conn, nil
+}
+
+func initializeTracing() {
+	// All stdout and stderr are captured by Gitaly process. They may be sent back to users.
+	// We don't want to bother them with these redundant logs. As a result, all logs should be
+	// suppressed while labkit is in initialization phase.
+	output := logrus.StandardLogger().Out
+	logrus.SetOutput(io.Discard)
+	defer logrus.SetOutput(output)
+
+	// This is a sanitized environment. It does not suppose to expose any spans. Instead, it
+	// transfers incoming metadata from ENV to gRPC outgoing metadata without any modification
+	// or starting new span. This technique connects the parent span in parent Gitaly process
+	// and the remote spans when Gitaly handle subsequent gRPC calls issued by this hook.
+	// As tracing is a nice-to-have feature, it should not interrupt the main functionality
+	// of Gitaly hook. As a result, errors, if any, are ignored.
+	labkittracing.Initialize()
 }
 
 func gitPushOptions() []string {
