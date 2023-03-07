@@ -702,12 +702,12 @@ func testReplicateRepositoryHooks(t *testing.T, ctx context.Context) {
 	archivePath := mustCreateCustomHooksArchive(t, ctx, []testFile{
 		{name: "pre-commit.sample", content: "foo", mode: 0o755},
 		{name: "pre-push.sample", content: "bar", mode: 0o755},
-	}, customHooksDir)
+	}, gitalyhook.CustomHooksDir)
 
 	hooks, err := os.Open(archivePath)
 	require.NoError(t, err)
 
-	err = extractHooks(ctx, hooks, sourceRepoPath)
+	err = gitalyhook.ExtractHooks(ctx, hooks, sourceRepoPath)
 	require.NoError(t, err)
 
 	targetRepo := proto.Clone(sourceRepo).(*gitalypb.Repository)
@@ -722,7 +722,7 @@ func testReplicateRepositoryHooks(t *testing.T, ctx context.Context) {
 	require.NoError(t, err)
 
 	targetRepoPath := filepath.Join(cfg.Storages[1].Path, gittest.GetReplicaPath(t, ctx, cfg, targetRepo))
-	targetHooksPath := filepath.Join(targetRepoPath, customHooksDir)
+	targetHooksPath := filepath.Join(targetRepoPath, gitalyhook.CustomHooksDir)
 
 	// Make sure target repo contains replicated custom hooks from source repository.
 	if featureflag.ReplicateRepositoryHooks.IsEnabled(ctx) {
