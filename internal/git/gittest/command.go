@@ -80,7 +80,7 @@ func createCommand(tb testing.TB, cfg config.Cfg, execCfg ExecConfig, args ...st
 	gitConfig, err := factory.GlobalConfiguration(ctx)
 	require.NoError(tb, err)
 	gitConfig = append(gitConfig,
-		git.ConfigPair{Key: "init.defaultBranch", Value: "master"},
+		git.ConfigPair{Key: "init.defaultBranch", Value: git.DefaultBranch},
 		git.ConfigPair{Key: "init.templateDir", Value: ""},
 		git.ConfigPair{Key: "user.name", Value: "Your Name"},
 		git.ConfigPair{Key: "user.email", Value: "you@example.com"},
