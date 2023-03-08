@@ -108,7 +108,7 @@ func (s *server) setCustomHooks(ctx context.Context, reader io.Reader, repo repo
 		return fmt.Errorf("getting repo path: %w", err)
 	}
 
-	if err := hook.ExtractHooks(ctx, reader, repoPath); err != nil {
+	if err := hook.ExtractHooks(ctx, reader, repoPath, false); err != nil {
 		return fmt.Errorf("extracting hooks: %w", err)
 	}
 
@@ -157,7 +157,7 @@ func (s *server) setCustomHooksTransaction(ctx context.Context, tar io.Reader, r
 		}
 	}()
 
-	if err := hook.ExtractHooks(ctx, tar, tmpDir.Path()); err != nil {
+	if err := hook.ExtractHooks(ctx, tar, tmpDir.Path(), false); err != nil {
 		return fmt.Errorf("extracting hooks: %w", err)
 	}
 

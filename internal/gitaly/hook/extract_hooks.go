@@ -15,8 +15,9 @@ import (
 const CustomHooksDir = "custom_hooks"
 
 // ExtractHooks unpacks a tar file containing custom hooks into a `custom_hooks`
-// directory at the specified path.
-func ExtractHooks(ctx context.Context, reader io.Reader, path string) error {
+// directory at the specified path. If stripPrefix is set, the hooks are extracted directly
+// to the target directory instead of in a `custom_hooks` directory in the target directory.
+func ExtractHooks(ctx context.Context, reader io.Reader, path string, stripPrefix bool) error {
 	// GNU tar does not accept an empty file as a valid tar archive and produces
 	// an error. Since an empty hooks tar is symbolic of a repository having no
 	// hooks, the reader is peeked to check if there is any data present.
@@ -25,7 +26,12 @@ func ExtractHooks(ctx context.Context, reader io.Reader, path string) error {
 		return nil
 	}
 
-	cmdArgs := []string{"-xf", "-", "-C", path, CustomHooksDir}
+	stripComponents := "0"
+	if stripPrefix {
+		stripComponents = "1"
+	}
+
+	cmdArgs := []string{"-xf", "-", "-C", path, "--strip-components", stripComponents, CustomHooksDir}
 
 	var stderrBuilder strings.Builder
 	cmd, err := command.New(ctx, append([]string{"tar"}, cmdArgs...),

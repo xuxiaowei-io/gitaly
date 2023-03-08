@@ -707,7 +707,7 @@ func testReplicateRepositoryHooks(t *testing.T, ctx context.Context) {
 	hooks, err := os.Open(archivePath)
 	require.NoError(t, err)
 
-	err = gitalyhook.ExtractHooks(ctx, hooks, sourceRepoPath)
+	err = gitalyhook.ExtractHooks(ctx, hooks, sourceRepoPath, false)
 	require.NoError(t, err)
 
 	targetRepo := proto.Clone(sourceRepo).(*gitalypb.Repository)

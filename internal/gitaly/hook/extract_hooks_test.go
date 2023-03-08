@@ -26,9 +26,25 @@ func TestExtractHooks(t *testing.T) {
 		require.NoError(t, err)
 	}
 
+	validArchive := func() io.Reader {
+		var buffer bytes.Buffer
+		writer := tar.NewWriter(&buffer)
+		writeFile(writer, "custom_hooks/pre-receive", fs.ModePerm, "pre-receive content")
+		require.NoError(t, writer.WriteHeader(&tar.Header{
+			Name: "custom_hooks/subdirectory/",
+			Mode: int64(perm.PrivateDir),
+		}))
+		writeFile(writer, "custom_hooks/subdirectory/supporting-file", perm.PrivateFile, "supporting-file content")
+		writeFile(writer, "ignored_file", fs.ModePerm, "ignored content")
+		writeFile(writer, "ignored_directory/ignored_file", fs.ModePerm, "ignored content")
+		defer testhelper.MustClose(t, writer)
+		return &buffer
+	}
+
 	for _, tc := range []struct {
 		desc                 string
 		archive              io.Reader
+		stripPrefix          bool
 		expectedState        testhelper.DirectoryState
 		expectedErrorMessage string
 	}{
@@ -69,27 +85,25 @@ func TestExtractHooks(t *testing.T) {
 			},
 		},
 		{
-			desc: "custom_hooks dir extracted",
-			archive: func() io.Reader {
-				var buffer bytes.Buffer
-				writer := tar.NewWriter(&buffer)
-				writeFile(writer, "custom_hooks/pre-receive", fs.ModePerm, "pre-receive content")
-				require.NoError(t, writer.WriteHeader(&tar.Header{
-					Name: "custom_hooks/subdirectory/",
-					Mode: int64(perm.PrivateDir),
-				}))
-				writeFile(writer, "custom_hooks/subdirectory/supporting-file", perm.PrivateFile, "supporting-file content")
-				writeFile(writer, "ignored_file", fs.ModePerm, "ignored content")
-				writeFile(writer, "ignored_directory/ignored_file", fs.ModePerm, "ignored content")
-				defer testhelper.MustClose(t, writer)
-				return &buffer
-			}(),
+			desc:    "custom_hooks dir extracted",
+			archive: validArchive(),
 			expectedState: testhelper.DirectoryState{
 				"/":                          {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 				"/custom_hooks":              {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 				"/custom_hooks/pre-receive":  {Mode: umask.Mask(fs.ModePerm), Content: []byte("pre-receive content")},
 				"/custom_hooks/subdirectory": {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
 				"/custom_hooks/subdirectory/supporting-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("supporting-file content")},
+			},
+		},
+		{
+			desc:        "custom_hooks dir extracted with prefix stripped",
+			archive:     validArchive(),
+			stripPrefix: true,
+			expectedState: testhelper.DirectoryState{
+				"/":                             {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+				"/pre-receive":                  {Mode: umask.Mask(fs.ModePerm), Content: []byte("pre-receive content")},
+				"/subdirectory":                 {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+				"/subdirectory/supporting-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("supporting-file content")},
 			},
 		},
 		{
@@ -108,7 +122,7 @@ func TestExtractHooks(t *testing.T) {
 			ctx := testhelper.Context(t)
 
 			tmpDir := t.TempDir()
-			err := ExtractHooks(ctx, tc.archive, tmpDir)
+			err := ExtractHooks(ctx, tc.archive, tmpDir, tc.stripPrefix)
 			if tc.expectedErrorMessage != "" {
 				require.ErrorContains(t, err, tc.expectedErrorMessage)
 			} else {
