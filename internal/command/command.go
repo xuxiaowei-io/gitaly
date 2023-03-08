@@ -141,7 +141,7 @@ type Command struct {
 	waitOnce        sync.Once
 	processExitedCh chan struct{}
 
-	finalizer func(*Command)
+	finalizers []func(context.Context, *Command)
 
 	span opentracing.Span
 
@@ -215,7 +215,7 @@ func New(ctx context.Context, nameAndArgs []string, opts ...Option) (*Command, e
 		startTime:       time.Now(),
 		context:         ctx,
 		span:            span,
-		finalizer:       cfg.finalizer,
+		finalizers:      cfg.finalizers,
 		metricsCmd:      cfg.commandName,
 		metricsSubCmd:   cfg.subcommandName,
 		cmdGitVersion:   cfg.gitVersion,
@@ -393,8 +393,8 @@ func (c *Command) wait() {
 	// idiomatic.
 	commandcounter.Decrement()
 
-	if c.finalizer != nil {
-		c.finalizer(c)
+	for _, finalizer := range c.finalizers {
+		finalizer(c.context, c)
 	}
 }
 

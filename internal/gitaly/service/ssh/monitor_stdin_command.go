@@ -29,7 +29,7 @@ func monitorStdinCommand(
 		git.WithStdin(stdinPipe),
 		git.WithStdout(stdout),
 		git.WithStderr(stderr),
-		git.WithFinalizer(func(*command.Command) { cleanup() }),
+		git.WithFinalizer(func(context.Context, *command.Command) { cleanup() }),
 	}, opts...)...)
 	stdinPipe.Close() // this now belongs to cmd
 	if err != nil {

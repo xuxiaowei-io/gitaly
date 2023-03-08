@@ -1,6 +1,7 @@
 package command
 
 import (
+	"context"
 	"io"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/cgroups"
@@ -13,7 +14,7 @@ type config struct {
 	dir         string
 	environment []string
 
-	finalizer func(*Command)
+	finalizers []func(context.Context, *Command)
 
 	commandName    string
 	subcommandName string
@@ -97,8 +98,8 @@ func WithCgroup(cgroupsManager cgroups.Manager, opts ...cgroups.AddCommandOption
 
 // WithFinalizer sets up the finalizer to be run when the command is being wrapped up. It will be
 // called after `Wait()` has returned.
-func WithFinalizer(finalizer func(*Command)) Option {
+func WithFinalizer(finalizer func(context.Context, *Command)) Option {
 	return func(cfg *config) {
-		cfg.finalizer = finalizer
+		cfg.finalizers = append(cfg.finalizers, finalizer)
 	}
 }
