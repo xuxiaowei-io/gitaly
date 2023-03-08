@@ -15,7 +15,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -92,46 +91,6 @@ func (s *Server) merge(
 	return string(c), nil
 }
 
-// TODO: remove this function once we roll out the feature flag
-// to use the git implementation.
-func (s *Server) mergeWithGit2Go(
-	ctx context.Context,
-	repoPath string,
-	quarantineRepo *localrepo.Repo,
-	authorName string,
-	authorMail string,
-	authorDate time.Time,
-	message string,
-	ours string,
-	theirs string,
-) (string, error) {
-	mergeResult, err := s.git2goExecutor.Merge(ctx, quarantineRepo, git2go.MergeCommand{
-		Repository: repoPath,
-		AuthorName: authorName,
-		AuthorMail: authorMail,
-		AuthorDate: authorDate,
-		Message:    message,
-		Ours:       ours,
-		Theirs:     theirs,
-	})
-	if err != nil {
-		var conflictErr git2go.ConflictingFilesError
-		if errors.As(err, &conflictErr) {
-			return "", &localrepo.MergeTreeError{
-				ConflictingFiles: conflictErr.ConflictingFiles,
-			}
-		}
-
-		if errors.Is(err, git2go.ErrInvalidArgument) {
-			return "", structerr.NewInvalidArgument("%w", err)
-		}
-
-		return "", err
-	}
-
-	return mergeResult.CommitID, nil
-}
-
 // UserMergeBranch is a two stage streaming RPC that will merge two commits together and
 // create a merge commit
 func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranchServer) error {
@@ -186,26 +145,13 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 		return structerr.NewInvalidArgument("%w", err)
 	}
 
-	var mergeCommitID string
-	var mergeErr error
-
-	if featureflag.MergeTreeMerge.IsEnabled(ctx) {
-		mergeCommitID, mergeErr = s.merge(ctx, repoPath, quarantineRepo,
-			string(firstRequest.User.Name),
-			string(firstRequest.User.Email),
-			authorDate,
-			string(firstRequest.Message),
-			revision.String(),
-			firstRequest.CommitId)
-	} else {
-		mergeCommitID, mergeErr = s.mergeWithGit2Go(ctx, repoPath, quarantineRepo,
-			string(firstRequest.User.Name),
-			string(firstRequest.User.Email),
-			authorDate,
-			string(firstRequest.Message),
-			revision.String(),
-			firstRequest.CommitId)
-	}
+	mergeCommitID, mergeErr := s.merge(ctx, repoPath, quarantineRepo,
+		string(firstRequest.User.Name),
+		string(firstRequest.User.Email),
+		authorDate,
+		string(firstRequest.Message),
+		revision.String(),
+		firstRequest.CommitId)
 
 	if mergeErr != nil {
 		var conflictErr *localrepo.MergeTreeError
