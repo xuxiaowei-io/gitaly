@@ -33,7 +33,7 @@ func TestCreate(t *testing.T) {
 		SkipCreationViaService: true,
 	})
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
-	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
+	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
 
 	createPool := func(t *testing.T, poolProto *gitalypb.ObjectPool) (*ObjectPool, string, error) {
 		catfileCache := catfile.NewCache(cfg)
@@ -70,8 +70,8 @@ func TestCreate(t *testing.T) {
 		require.NoDirExists(t, filepath.Join(poolPath, "hooks"))
 		// The repository has no remote.
 		require.Empty(t, gittest.Exec(t, cfg, "-C", poolPath, "remote"))
-		// The "master" branch points to the same commit as in the pool member.
-		require.Equal(t, commitID, gittest.ResolveRevision(t, cfg, poolPath, "refs/heads/master"))
+		// The default branch points to the same commit as in the pool member.
+		require.Equal(t, commitID, gittest.ResolveRevision(t, cfg, poolPath, string(git.DefaultRef)))
 		// Objects exist in the pool repository.
 		gittest.RequireObjectExists(t, cfg, poolPath, commitID)
 	})
@@ -101,7 +101,7 @@ func TestCreate(t *testing.T) {
 		})
 		gittest.WriteCommit(t, cfg, repoPath,
 			gittest.WithParents(),
-			gittest.WithBranch("master"),
+			gittest.WithBranch(git.DefaultBranch),
 			gittest.WithTree(treeID),
 		)
 

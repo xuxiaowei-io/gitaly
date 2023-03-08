@@ -150,16 +150,16 @@ func TestPerformHTTPPush(t *testing.T) {
 		{
 			desc: "failing delete",
 			preparePush: func(t *testing.T, cfg config.Cfg) ([]PushCommand, io.Reader) {
-				gittest.WriteCommit(t, cfg, targetRepoPath, gittest.WithBranch("master"))
+				gittest.WriteCommit(t, cfg, targetRepoPath, gittest.WithBranch(git.DefaultBranch))
 
 				oldOID := git.ObjectID(strings.Repeat("1", gittest.DefaultObjectHash.EncodedLen()))
 
 				return []PushCommand{
-					{OldOID: oldOID, NewOID: gittest.DefaultObjectHash.ZeroOID, Reference: "refs/heads/master"},
+					{OldOID: oldOID, NewOID: gittest.DefaultObjectHash.ZeroOID, Reference: git.DefaultRef},
 				}, nil
 			},
 			expectedErr: fmt.Errorf("parsing packfile response: %w",
-				errors.New("reference update failed: \"ng refs/heads/master deletion of the current branch prohibited\\n\"")),
+				errors.New("reference update failed: \"ng "+string(git.DefaultRef)+" deletion of the current branch prohibited\\n\"")),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
