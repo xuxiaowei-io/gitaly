@@ -4,7 +4,10 @@
 // umask.
 package perm
 
-import "io/fs"
+import (
+	"io/fs"
+	"syscall"
+)
 
 const (
 	// PrivateDir is the permissions given for a directory that must only be
@@ -48,3 +51,19 @@ const (
 	// executed outside of gitaly.
 	SharedExecutable fs.FileMode = 0o755
 )
+
+// Umask represents a umask that is used to mask mode bits.
+type Umask int
+
+// Mask applies the mask on the mode.
+func (mask Umask) Mask(mode fs.FileMode) fs.FileMode {
+	return mode & ^fs.FileMode(mask)
+}
+
+// GetUmask gets the currently set umask. Not safe to call concurrently with other
+// file operations as it has to set the Umask to get the old value.
+func GetUmask() Umask {
+	umask := syscall.Umask(0)
+	syscall.Umask(umask)
+	return Umask(fs.FileMode(umask))
+}

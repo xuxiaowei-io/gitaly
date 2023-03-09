@@ -9,13 +9,12 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/archive"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 )
-
-const customHooksDir = "custom_hooks"
 
 // GetCustomHooks fetches the git hooks for a repository. The hooks are sent in
 // a tar archive containing a `custom_hooks` directory. If no hooks are present
@@ -65,11 +64,11 @@ func (s *server) getCustomHooks(ctx context.Context, writer io.Writer, repo repo
 		return fmt.Errorf("getting repo path: %w", err)
 	}
 
-	if _, err := os.Lstat(filepath.Join(repoPath, customHooksDir)); os.IsNotExist(err) {
+	if _, err := os.Lstat(filepath.Join(repoPath, hook.CustomHooksDir)); os.IsNotExist(err) {
 		return nil
 	}
 
-	if err := archive.WriteTarball(ctx, writer, repoPath, customHooksDir); err != nil {
+	if err := archive.WriteTarball(ctx, writer, repoPath, hook.CustomHooksDir); err != nil {
 		return structerr.NewInternal("archiving hooks: %w", err)
 	}
 

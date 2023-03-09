@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"bufio"
 	"context"
 	"encoding/binary"
 	"errors"
@@ -10,11 +9,10 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
@@ -110,7 +108,7 @@ func (s *server) setCustomHooks(ctx context.Context, reader io.Reader, repo repo
 		return fmt.Errorf("getting repo path: %w", err)
 	}
 
-	if err := extractHooks(ctx, reader, repoPath); err != nil {
+	if err := hook.ExtractHooks(ctx, reader, repoPath, false); err != nil {
 		return fmt.Errorf("extracting hooks: %w", err)
 	}
 
@@ -127,7 +125,7 @@ func (s *server) setCustomHooksTransaction(ctx context.Context, tar io.Reader, r
 
 	// The `custom_hooks` directory in the repository is locked to prevent
 	// concurrent modification of hooks.
-	hooksLock, err := safe.NewLockingDirectory(repoPath, customHooksDir)
+	hooksLock, err := safe.NewLockingDirectory(repoPath, hook.CustomHooksDir)
 	if err != nil {
 		return fmt.Errorf("creating hooks lock: %w", err)
 	}
@@ -159,11 +157,11 @@ func (s *server) setCustomHooksTransaction(ctx context.Context, tar io.Reader, r
 		}
 	}()
 
-	if err := extractHooks(ctx, tar, tmpDir.Path()); err != nil {
+	if err := hook.ExtractHooks(ctx, tar, tmpDir.Path(), false); err != nil {
 		return fmt.Errorf("extracting hooks: %w", err)
 	}
 
-	tempHooksPath := filepath.Join(tmpDir.Path(), customHooksDir)
+	tempHooksPath := filepath.Join(tmpDir.Path(), hook.CustomHooksDir)
 
 	// No hooks will be extracted if the tar archive is empty. If this happens
 	// it means the repository should be set with an empty `custom_hooks`
@@ -184,7 +182,7 @@ func (s *server) setCustomHooksTransaction(ctx context.Context, tar io.Reader, r
 		return fmt.Errorf("casting prepared vote: %w", err)
 	}
 
-	repoHooksPath := filepath.Join(repoPath, customHooksDir)
+	repoHooksPath := filepath.Join(repoPath, hook.CustomHooksDir)
 	prevHooksPath := filepath.Join(tmpDir.Path(), "previous_hooks")
 
 	// If the `custom_hooks` directory exists in the repository, move the
@@ -285,43 +283,6 @@ func voteCustomHooks(
 
 	if err := txManager.Vote(ctx, tx, vote, phase); err != nil {
 		return fmt.Errorf("vote failed: %w", err)
-	}
-
-	return nil
-}
-
-// extractHooks unpacks a tar file containing custom hooks into a `custom_hooks`
-// directory at the specified path.
-func extractHooks(ctx context.Context, reader io.Reader, path string) error {
-	// GNU tar does not accept an empty file as a valid tar archive and produces
-	// an error. Since an empty hooks tar is symbolic of a repository having no
-	// hooks, the reader is peeked to check if there is any data present.
-	buf := bufio.NewReader(reader)
-	if _, err := buf.Peek(1); err == io.EOF {
-		return nil
-	}
-
-	cmdArgs := []string{"-xf", "-", "-C", path, customHooksDir}
-
-	var stderrBuilder strings.Builder
-	cmd, err := command.New(ctx, append([]string{"tar"}, cmdArgs...),
-		command.WithStdin(buf),
-		command.WithStderr(&stderrBuilder))
-	if err != nil {
-		return fmt.Errorf("executing tar command: %w", err)
-	}
-
-	if err := cmd.Wait(); err != nil {
-		// GNU and BSD tar versions have differing errors when attempting to
-		// extract specified members from a valid tar archive. If the tar
-		// archive is valid the errors for GNU and BSD tar should have the
-		// same prefix, which can be checked to validate whether the expected
-		// content is present in the archive for extraction.
-		if strings.HasPrefix(stderrBuilder.String(), "tar: custom_hooks: Not found in archive") {
-			return nil
-		}
-
-		return fmt.Errorf("waiting for tar command completion: %w", err)
 	}
 
 	return nil
