@@ -21,6 +21,7 @@ import (
 	gitalycfgprom "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -108,6 +109,77 @@ func TestRepackIfNeeded(t *testing.T) {
 			packfiles: 1,
 		})
 	})
+
+	t.Run("cruft repack with recent unreachable object", func(t *testing.T) {
+		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			SkipCreationViaService: true,
+		})
+		repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("reachable"), gittest.WithMessage("reachable"))
+		gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("unreachable"))
+
+		// The expiry time is before we have written the objects, so they should be packed
+		// into a cruft pack.
+		expiryTime := time.Now().Add(-1 * time.Hour)
+
+		didRepack, repackObjectsCfg, err := repackIfNeeded(ctx, repo, mockOptimizationStrategy{
+			shouldRepackObjects: true,
+			repackObjectsCfg: RepackObjectsConfig{
+				FullRepack:        true,
+				WriteCruftPack:    true,
+				CruftExpireBefore: expiryTime,
+			},
+		})
+		require.NoError(t, err)
+		require.True(t, didRepack)
+		require.Equal(t, RepackObjectsConfig{
+			FullRepack:        true,
+			WriteCruftPack:    true,
+			CruftExpireBefore: expiryTime,
+		}, repackObjectsCfg)
+
+		requireObjectsState(t, repo, objectsState{
+			packfiles:  1,
+			cruftPacks: 1,
+		})
+	})
+
+	t.Run("cruft repack with expired cruft object", func(t *testing.T) {
+		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			SkipCreationViaService: true,
+		})
+		repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+		gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("reachable"), gittest.WithMessage("reachable"))
+		gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("unreachable"))
+		gittest.Exec(t, cfg, "-C", repoPath, "repack", "--cruft", "-d")
+
+		// The expiry time is after we have written the cruft pack, so the unreachable
+		// object should get pruned.
+		expiryTime := time.Now().Add(1 * time.Hour)
+
+		didRepack, repackObjectsCfg, err := repackIfNeeded(ctx, repo, mockOptimizationStrategy{
+			shouldRepackObjects: true,
+			repackObjectsCfg: RepackObjectsConfig{
+				FullRepack:        true,
+				WriteCruftPack:    true,
+				CruftExpireBefore: expiryTime,
+			},
+		})
+		require.NoError(t, err)
+		require.True(t, didRepack)
+		require.Equal(t, RepackObjectsConfig{
+			FullRepack:        true,
+			WriteCruftPack:    true,
+			CruftExpireBefore: expiryTime,
+		}, repackObjectsCfg)
+
+		requireObjectsState(t, repo, objectsState{
+			packfiles:  1,
+			cruftPacks: 0,
+		})
+	})
 }
 
 func TestPackRefsIfNeeded(t *testing.T) {
@@ -150,8 +222,12 @@ func TestPackRefsIfNeeded(t *testing.T) {
 
 func TestOptimizeRepository(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.WriteCruftPacks).Run(t, testOptimizeRepository)
+}
 
-	ctx := testhelper.Context(t)
+func testOptimizeRepository(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg := testcfg.Build(t)
 	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
 

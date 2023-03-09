@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 )
 
 // OptimizationStrategy is an interface to determine which parts of a repository should be
@@ -92,11 +93,19 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 
 	if uint64(math.Max(lowerLimit,
 		math.Log(float64(s.info.Packfiles.Size/1024/1024))/math.Log(log))) <= s.info.Packfiles.Count {
-		return true, RepackObjectsConfig{
+
+		cfg := RepackObjectsConfig{
 			FullRepack:          true,
 			WriteBitmap:         len(s.info.Alternates) == 0,
 			WriteMultiPackIndex: true,
 		}
+
+		if featureflag.WriteCruftPacks.IsEnabled(ctx) {
+			cfg.WriteCruftPack = true
+			cfg.CruftExpireBefore = s.expireBefore
+		}
+
+		return true, cfg
 	}
 
 	// Most Git commands do not write packfiles directly, but instead write loose objects into
@@ -251,11 +260,18 @@ func NewEagerOptimizationStrategy(info stats.RepositoryInfo) EagerOptimizationSt
 // repack all objects into a single packfile. The bitmap will be written in case the repository does
 // not have any alterantes.
 func (s EagerOptimizationStrategy) ShouldRepackObjects(ctx context.Context) (bool, RepackObjectsConfig) {
-	return true, RepackObjectsConfig{
+	cfg := RepackObjectsConfig{
 		FullRepack:          true,
 		WriteBitmap:         len(s.info.Alternates) == 0,
 		WriteMultiPackIndex: true,
 	}
+
+	if featureflag.WriteCruftPacks.IsEnabled(ctx) {
+		cfg.WriteCruftPack = true
+		cfg.CruftExpireBefore = s.expireBefore
+	}
+
+	return true, cfg
 }
 
 // ShouldWriteCommitGraph always instructs the caller to write the commit-graph. The strategy will

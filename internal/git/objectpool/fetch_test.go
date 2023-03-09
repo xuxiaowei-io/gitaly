@@ -1,6 +1,7 @@
 package objectpool
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -14,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
@@ -105,8 +107,12 @@ func TestFetchFromOrigin_fsck(t *testing.T) {
 
 func TestFetchFromOrigin_deltaIslands(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.WriteCruftPacks).Run(t, testFetchFromOriginDeltaIslands)
+}
 
-	ctx := testhelper.Context(t)
+func testFetchFromOriginDeltaIslands(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, pool, repo := setupObjectPool(t, ctx)
 	poolPath := gittest.RepositoryPath(t, pool)
 	repoPath := gittest.RepositoryPath(t, repo)
@@ -157,8 +163,12 @@ func TestFetchFromOrigin_bitmapHashCache(t *testing.T) {
 
 func TestFetchFromOrigin_refUpdates(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.WriteCruftPacks).Run(t, testFetchFromOriginRefUpdates)
+}
 
-	ctx := testhelper.Context(t)
+func testFetchFromOriginRefUpdates(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, pool, repo := setupObjectPool(t, ctx)
 	repoPath, err := repo.Path()
 	require.NoError(t, err)

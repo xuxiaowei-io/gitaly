@@ -3,6 +3,7 @@ package housekeeping
 import (
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
@@ -262,6 +263,124 @@ func TestRepackObjects(t *testing.T) {
 				packfiles:               1,
 				hasMultiPackIndex:       true,
 				hasMultiPackIndexBitmap: true,
+			},
+		},
+		{
+			desc:  "writing cruft pack requires full repack",
+			setup: func(t *testing.T, repoPath string) {},
+			repackCfg: RepackObjectsConfig{
+				WriteCruftPack: true,
+			},
+			expectedErr: structerr.NewInvalidArgument("cannot write cruft packs for an incremental repack"),
+		},
+		{
+			desc: "unreachable objects get moved into cruft pack",
+			setup: func(t *testing.T, repoPath string) {
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("reachable"), gittest.WithBranch("reachable"))
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("unreachable"))
+			},
+			repackCfg: RepackObjectsConfig{
+				FullRepack:     true,
+				WriteCruftPack: true,
+			},
+			stateBeforeRepack: objectsState{
+				looseObjects: 3,
+			},
+			stateAfterRepack: objectsState{
+				packfiles:  1,
+				cruftPacks: 1,
+			},
+		},
+		{
+			desc:  "expiring cruft objects requires writing cruft packs",
+			setup: func(t *testing.T, repoPath string) {},
+			repackCfg: RepackObjectsConfig{
+				CruftExpireBefore: time.Now(),
+			},
+			expectedErr: structerr.NewInvalidArgument("cannot expire cruft objects when not writing cruft packs"),
+		},
+		{
+			desc: "stale unreachable object is not added to cruft pack",
+			setup: func(t *testing.T, repoPath string) {
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("reachable"), gittest.WithBranch("reachable"))
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("unreachable"))
+			},
+			repackCfg: RepackObjectsConfig{
+				FullRepack:        true,
+				WriteCruftPack:    true,
+				CruftExpireBefore: time.Now().Add(time.Hour),
+			},
+			stateBeforeRepack: objectsState{
+				looseObjects: 3,
+			},
+			// The loose object is older than the expiration date already, which is why
+			// it is not added to any cruft pack in the first place. But neither is it
+			// getting deleted, which means that we need to ensure that ourselves.
+			stateAfterRepack: objectsState{
+				looseObjects: 1,
+				packfiles:    1,
+			},
+		},
+		{
+			desc: "recent unreachable objects are added to cruft pack",
+			setup: func(t *testing.T, repoPath string) {
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("reachable"), gittest.WithBranch("reachable"))
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("unreachable"))
+			},
+			repackCfg: RepackObjectsConfig{
+				FullRepack:        true,
+				WriteCruftPack:    true,
+				CruftExpireBefore: time.Now().Add(-1 * time.Hour),
+			},
+			stateBeforeRepack: objectsState{
+				looseObjects: 3,
+			},
+			// The loose object is newer than the expiration date, so it should not get
+			// pruned but instead it should be added to the cruft pack.
+			stateAfterRepack: objectsState{
+				packfiles:  1,
+				cruftPacks: 1,
+			},
+		},
+		{
+			desc: "recent cruft objects don't get deleted",
+			setup: func(t *testing.T, repoPath string) {
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("reachable"), gittest.WithBranch("reachable"))
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("unreachable"))
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "--cruft", "-d", "-n", "--no-write-bitmap-index")
+			},
+			repackCfg: RepackObjectsConfig{
+				FullRepack:        true,
+				WriteCruftPack:    true,
+				CruftExpireBefore: time.Now().Add(-1 * time.Hour),
+			},
+			stateBeforeRepack: objectsState{
+				packfiles:  1,
+				cruftPacks: 1,
+			},
+			stateAfterRepack: objectsState{
+				packfiles:  1,
+				cruftPacks: 1,
+			},
+		},
+		{
+			desc: "stale cruft objects get deleted",
+			setup: func(t *testing.T, repoPath string) {
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("reachable"), gittest.WithBranch("reachable"))
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("unreachable"))
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "--cruft", "-d", "-n", "--no-write-bitmap-index")
+			},
+			repackCfg: RepackObjectsConfig{
+				FullRepack:        true,
+				WriteCruftPack:    true,
+				CruftExpireBefore: time.Now().Add(1 * time.Hour),
+			},
+			stateBeforeRepack: objectsState{
+				packfiles:  1,
+				cruftPacks: 1,
+			},
+			stateAfterRepack: objectsState{
+				packfiles: 1,
 			},
 		},
 	} {

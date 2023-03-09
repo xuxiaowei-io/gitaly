@@ -33,6 +33,11 @@ type RepackObjectsConfig struct {
 	WriteBitmap bool
 	// WriteMultiPackIndex determines whether a multi-pack index should be written or not.
 	WriteMultiPackIndex bool
+	// WriteCruftPack determines whether unreachable objects shall be written into cruft packs.
+	WriteCruftPack bool
+	// CruftExpireBefore determines the cutoff date before which unreachable cruft objects shall
+	// be expired and thus deleted.
+	CruftExpireBefore time.Time
 }
 
 // RepackObjects repacks objects in the given repository and updates the commit-graph. The way
@@ -42,13 +47,33 @@ func RepackObjects(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsC
 		return structerr.NewInvalidArgument("cannot write packfile bitmap for an incremental repack")
 	}
 
+	if !cfg.FullRepack && cfg.WriteCruftPack {
+		return structerr.NewInvalidArgument("cannot write cruft packs for an incremental repack")
+	}
+
+	if !cfg.WriteCruftPack && !cfg.CruftExpireBefore.IsZero() {
+		return structerr.NewInvalidArgument("cannot expire cruft objects when not writing cruft packs")
+	}
+
 	var options []git.Option
 	if cfg.FullRepack {
 		options = append(options,
-			git.Flag{Name: "-A"},
 			git.Flag{Name: "--pack-kept-objects"},
 			git.Flag{Name: "-l"},
 		)
+
+		if cfg.WriteCruftPack {
+			options = append(options, git.Flag{Name: "--cruft"})
+		} else {
+			options = append(options, git.Flag{Name: "-A"})
+		}
+
+		if !cfg.CruftExpireBefore.IsZero() {
+			options = append(options, git.ValueFlag{
+				Name:  "--cruft-expiration",
+				Value: cfg.CruftExpireBefore.Format(rfc2822DateFormat),
+			})
+		}
 	}
 
 	if cfg.WriteMultiPackIndex {
