@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package blob
 
 import (
@@ -20,15 +18,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-const (
-	gitattributesOID  = "b680596c9f3a3c834b933aef14f94a0ab9fa604a"
-	gitattributesData = "/custom-highlighting/*.gitlab-custom gitlab-language=ruby\n*.lfs filter=lfs diff=lfs merge=lfs -text\n"
-	gitattributesSize = int64(len(gitattributesData))
-
-	gitignoreOID  = "dfaa3f97ca337e20154a98ac9d0be76ddd1fcc82"
-	gitignoreSize = 241
-)
-
 func TestListBlobs(t *testing.T) {
 	// In order to get deterministic behaviour with regards to how streamio splits up values,
 	// we're going to limit the write batch size to something smallish. Otherwise, tests will
@@ -39,10 +28,29 @@ func TestListBlobs(t *testing.T) {
 	streamio.WriteBufferSize = 200
 	ctx := testhelper.Context(t)
 
-	cfg, repoProto, repoPath, client := setup(t, ctx)
+	cfg, client := setup(t, ctx)
+	repoProto, repoPath, repoInfo := setupRepoWithLFS(t, ctx, cfg)
 
-	bigBlobContents := bytes.Repeat([]byte{1}, streamio.WriteBufferSize*2+1)
-	bigBlobOID := gittest.WriteBlob(t, cfg, repoPath, bigBlobContents)
+	blobASize := int64(251)
+	blobAData := bytes.Repeat([]byte{'a'}, int(blobASize))
+	blobAOID := gittest.WriteBlob(t, cfg, repoPath, blobAData)
+
+	blobBSize := int64(64)
+	blobBData := bytes.Repeat([]byte{'b'}, int(blobBSize))
+	blobBOID := gittest.WriteBlob(t, cfg, repoPath, blobBData)
+
+	bigBlobData := bytes.Repeat([]byte{1}, streamio.WriteBufferSize*2+1)
+	bigBlobOID := gittest.WriteBlob(t, cfg, repoPath, bigBlobData)
+
+	treeOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+		{Path: "a", Mode: "100644", OID: blobAOID},
+		{Path: "b", Mode: "100644", OID: blobBOID},
+	})
+
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(repoInfo.defaultCommitID),
+		gittest.WithTree(treeOID),
+		gittest.WithBranch("master"),
+	)
 
 	for _, tc := range []struct {
 		desc          string
@@ -68,64 +76,67 @@ func TestListBlobs(t *testing.T) {
 		{
 			desc: "single blob",
 			revisions: []string{
-				lfsPointer1,
+				repoInfo.lfsPointers[0].Oid,
 			},
 			expectedBlobs: []*gitalypb.ListBlobsResponse_Blob{
-				{Oid: lfsPointer1, Size: lfsPointers[lfsPointer1].Size},
+				{Oid: repoInfo.lfsPointers[0].Oid, Size: repoInfo.lfsPointers[0].Size},
 			},
 		},
 		{
 			desc: "single blob with paths",
 			revisions: []string{
-				lfsPointer1,
+				repoInfo.lfsPointers[0].Oid,
 			},
 			withPaths: true,
 			// When iterating blobs directly, we cannot deduce a path and thus don't get
 			// any as response.
 			expectedBlobs: []*gitalypb.ListBlobsResponse_Blob{
-				{Oid: lfsPointer1, Size: lfsPointers[lfsPointer1].Size},
+				{Oid: repoInfo.lfsPointers[0].Oid, Size: repoInfo.lfsPointers[0].Size},
 			},
 		},
 		{
 			desc: "multiple blobs",
 			revisions: []string{
-				lfsPointer1,
-				lfsPointer2,
-				lfsPointer3,
+				repoInfo.lfsPointers[0].Oid,
+				repoInfo.lfsPointers[1].Oid,
+				repoInfo.lfsPointers[2].Oid,
 			},
 			expectedBlobs: []*gitalypb.ListBlobsResponse_Blob{
-				{Oid: lfsPointer1, Size: lfsPointers[lfsPointer1].Size},
-				{Oid: lfsPointer2, Size: lfsPointers[lfsPointer2].Size},
-				{Oid: lfsPointer3, Size: lfsPointers[lfsPointer3].Size},
+				{Oid: repoInfo.lfsPointers[0].Oid, Size: repoInfo.lfsPointers[0].Size},
+				{Oid: repoInfo.lfsPointers[1].Oid, Size: repoInfo.lfsPointers[1].Size},
+				{Oid: repoInfo.lfsPointers[2].Oid, Size: repoInfo.lfsPointers[2].Size},
 			},
 		},
 		{
 			desc: "tree",
 			revisions: []string{
-				"b95c0fad32f4361845f91d9ce4c1721b52b82793",
+				treeOID.String(),
 			},
 			expectedBlobs: []*gitalypb.ListBlobsResponse_Blob{
-				{Oid: "93e123ac8a3e6a0b600953d7598af629dec7b735", Size: 59},
+				{Oid: blobAOID.String(), Size: blobASize},
+				{Oid: blobBOID.String(), Size: blobBSize},
 			},
 		},
 		{
 			desc: "tree with paths",
 			revisions: []string{
-				"b95c0fad32f4361845f91d9ce4c1721b52b82793",
+				treeOID.String(),
 			},
 			withPaths: true,
 			expectedBlobs: []*gitalypb.ListBlobsResponse_Blob{
-				{Oid: "93e123ac8a3e6a0b600953d7598af629dec7b735", Size: 59, Path: []byte("branch-test.txt")},
+				{Oid: blobAOID.String(), Size: blobASize, Path: []byte("a")},
+				{Oid: blobBOID.String(), Size: blobBSize, Path: []byte("b")},
 			},
 		},
 		{
 			desc: "revision range",
 			revisions: []string{
 				"master",
-				"^master~2",
+				"^master~",
 			},
 			expectedBlobs: []*gitalypb.ListBlobsResponse_Blob{
-				{Oid: "723c2c3f4c8a2a1e957f878c8813acfc08cda2b6", Size: 1219696},
+				{Oid: blobAOID.String(), Size: blobASize},
+				{Oid: blobBOID.String(), Size: blobBSize},
 			},
 		},
 		{
@@ -144,8 +155,8 @@ func TestListBlobs(t *testing.T) {
 			},
 			limit: 2,
 			expectedBlobs: []*gitalypb.ListBlobsResponse_Blob{
-				{Oid: gitattributesOID, Size: gitattributesSize},
-				{Oid: gitignoreOID, Size: gitignoreSize},
+				{Oid: blobAOID.String(), Size: blobASize},
+				{Oid: blobBOID.String(), Size: blobBSize},
 			},
 		},
 		{
@@ -156,8 +167,8 @@ func TestListBlobs(t *testing.T) {
 			limit:     2,
 			withPaths: true,
 			expectedBlobs: []*gitalypb.ListBlobsResponse_Blob{
-				{Oid: gitattributesOID, Size: gitattributesSize, Path: []byte(".gitattributes")},
-				{Oid: gitignoreOID, Size: gitignoreSize, Path: []byte(".gitignore")},
+				{Oid: blobAOID.String(), Size: blobASize, Path: []byte("a")},
+				{Oid: blobBOID.String(), Size: blobBSize, Path: []byte("b")},
 			},
 		},
 		{
@@ -168,88 +179,88 @@ func TestListBlobs(t *testing.T) {
 			limit:      2,
 			bytesLimit: 5,
 			expectedBlobs: []*gitalypb.ListBlobsResponse_Blob{
-				{Oid: gitattributesOID, Size: gitattributesSize, Data: []byte("/cust")},
-				{Oid: gitignoreOID, Size: gitignoreSize, Data: []byte("*.rbc")},
+				{Oid: blobAOID.String(), Size: blobASize, Data: []byte("aaaaa")},
+				{Oid: blobBOID.String(), Size: blobBSize, Data: []byte("bbbbb")},
 			},
 		},
 		{
 			desc: "revision with path",
 			revisions: []string{
-				"master:.gitattributes",
+				"master:b",
 			},
 			bytesLimit: -1,
 			expectedBlobs: []*gitalypb.ListBlobsResponse_Blob{
-				{Oid: gitattributesOID, Size: gitattributesSize, Data: []byte(gitattributesData)},
+				{Oid: blobBOID.String(), Size: blobBSize, Data: blobBData},
 			},
 		},
 		{
 			desc: "complete contents via negative bytes limit",
 			revisions: []string{
-				lfsPointer1,
-				lfsPointer2,
-				lfsPointer3,
+				repoInfo.lfsPointers[0].Oid,
+				repoInfo.lfsPointers[1].Oid,
+				repoInfo.lfsPointers[2].Oid,
 			},
 			bytesLimit: -1,
 			expectedBlobs: []*gitalypb.ListBlobsResponse_Blob{
-				{Oid: lfsPointer1, Size: lfsPointers[lfsPointer1].Size, Data: lfsPointers[lfsPointer1].Data},
-				{Oid: lfsPointer2, Size: lfsPointers[lfsPointer2].Size, Data: lfsPointers[lfsPointer2].Data},
-				{Oid: lfsPointer3, Size: lfsPointers[lfsPointer3].Size, Data: lfsPointers[lfsPointer3].Data},
+				{Oid: repoInfo.lfsPointers[0].Oid, Size: repoInfo.lfsPointers[0].Size, Data: repoInfo.lfsPointers[0].Data},
+				{Oid: repoInfo.lfsPointers[1].Oid, Size: repoInfo.lfsPointers[1].Size, Data: repoInfo.lfsPointers[1].Data},
+				{Oid: repoInfo.lfsPointers[2].Oid, Size: repoInfo.lfsPointers[2].Size, Data: repoInfo.lfsPointers[2].Data},
 			},
 		},
 		{
 			desc: "contents truncated by bytes limit",
 			revisions: []string{
-				lfsPointer1,
-				lfsPointer2,
-				lfsPointer3,
+				repoInfo.lfsPointers[0].Oid,
+				repoInfo.lfsPointers[1].Oid,
+				repoInfo.lfsPointers[2].Oid,
 			},
 			bytesLimit: 10,
 			expectedBlobs: []*gitalypb.ListBlobsResponse_Blob{
-				{Oid: lfsPointer1, Size: lfsPointers[lfsPointer1].Size, Data: lfsPointers[lfsPointer1].Data[:10]},
-				{Oid: lfsPointer2, Size: lfsPointers[lfsPointer2].Size, Data: lfsPointers[lfsPointer2].Data[:10]},
-				{Oid: lfsPointer3, Size: lfsPointers[lfsPointer3].Size, Data: lfsPointers[lfsPointer3].Data[:10]},
+				{Oid: repoInfo.lfsPointers[0].Oid, Size: repoInfo.lfsPointers[0].Size, Data: repoInfo.lfsPointers[0].Data[:10]},
+				{Oid: repoInfo.lfsPointers[1].Oid, Size: repoInfo.lfsPointers[1].Size, Data: repoInfo.lfsPointers[1].Data[:10]},
+				{Oid: repoInfo.lfsPointers[2].Oid, Size: repoInfo.lfsPointers[2].Size, Data: repoInfo.lfsPointers[2].Data[:10]},
 			},
 		},
 		{
 			desc: "bytes limit exceeding total blob content size",
 			revisions: []string{
-				lfsPointer1,
-				lfsPointer2,
-				lfsPointer3,
+				repoInfo.lfsPointers[0].Oid,
+				repoInfo.lfsPointers[1].Oid,
+				repoInfo.lfsPointers[2].Oid,
 			},
 			bytesLimit: 9000,
 			expectedBlobs: []*gitalypb.ListBlobsResponse_Blob{
-				{Oid: lfsPointer1, Size: lfsPointers[lfsPointer1].Size, Data: lfsPointers[lfsPointer1].Data},
-				{Oid: lfsPointer2, Size: lfsPointers[lfsPointer2].Size, Data: lfsPointers[lfsPointer2].Data},
-				{Oid: lfsPointer3, Size: lfsPointers[lfsPointer3].Size, Data: lfsPointers[lfsPointer3].Data},
+				{Oid: repoInfo.lfsPointers[0].Oid, Size: repoInfo.lfsPointers[0].Size, Data: repoInfo.lfsPointers[0].Data},
+				{Oid: repoInfo.lfsPointers[1].Oid, Size: repoInfo.lfsPointers[1].Size, Data: repoInfo.lfsPointers[1].Data},
+				{Oid: repoInfo.lfsPointers[2].Oid, Size: repoInfo.lfsPointers[2].Size, Data: repoInfo.lfsPointers[2].Data},
 			},
 		},
 		{
 			desc: "bytes limit partially exceeding limit",
 			revisions: []string{
-				lfsPointer1,
-				lfsPointer2,
-				lfsPointer3,
+				repoInfo.lfsPointers[0].Oid,
+				repoInfo.lfsPointers[1].Oid,
+				repoInfo.lfsPointers[2].Oid,
 			},
 			bytesLimit: 128,
 			expectedBlobs: []*gitalypb.ListBlobsResponse_Blob{
-				{Oid: lfsPointer1, Size: lfsPointers[lfsPointer1].Size, Data: lfsPointers[lfsPointer1].Data[:128]},
-				{Oid: lfsPointer2, Size: lfsPointers[lfsPointer2].Size, Data: lfsPointers[lfsPointer2].Data},
-				{Oid: lfsPointer3, Size: lfsPointers[lfsPointer3].Size, Data: lfsPointers[lfsPointer3].Data},
+				{Oid: repoInfo.lfsPointers[0].Oid, Size: repoInfo.lfsPointers[0].Size, Data: repoInfo.lfsPointers[0].Data[:128]},
+				{Oid: repoInfo.lfsPointers[1].Oid, Size: repoInfo.lfsPointers[1].Size, Data: repoInfo.lfsPointers[1].Data},
+				{Oid: repoInfo.lfsPointers[2].Oid, Size: repoInfo.lfsPointers[2].Size, Data: repoInfo.lfsPointers[2].Data},
 			},
 		},
 		{
 			desc: "blob with content bigger than a gRPC message",
 			revisions: []string{
 				bigBlobOID.String(),
-				lfsPointer1,
+				repoInfo.lfsPointers[0].Oid,
 			},
 			bytesLimit: -1,
 			expectedBlobs: []*gitalypb.ListBlobsResponse_Blob{
-				{Oid: bigBlobOID.String(), Size: int64(len(bigBlobContents)), Data: bigBlobContents[:streamio.WriteBufferSize]},
-				{Data: bigBlobContents[streamio.WriteBufferSize : 2*streamio.WriteBufferSize]},
-				{Data: bigBlobContents[2*streamio.WriteBufferSize:]},
-				{Oid: lfsPointer1, Size: lfsPointers[lfsPointer1].Size, Data: lfsPointers[lfsPointer1].Data},
+				{Oid: bigBlobOID.String(), Size: int64(len(bigBlobData)), Data: bigBlobData[:streamio.WriteBufferSize]},
+				{Data: bigBlobData[streamio.WriteBufferSize : 2*streamio.WriteBufferSize]},
+				{Data: bigBlobData[2*streamio.WriteBufferSize:]},
+				{Oid: repoInfo.lfsPointers[0].Oid, Size: repoInfo.lfsPointers[0].Size, Data: repoInfo.lfsPointers[0].Data},
 			},
 		},
 	} {
@@ -282,8 +293,12 @@ func TestListBlobs(t *testing.T) {
 }
 
 func TestListAllBlobs(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
-	cfg, repo, _, client := setup(t, ctx)
+	cfg, client := setup(t, ctx)
+
+	repo, _, _ := setupRepoWithLFS(t, ctx, cfg)
 
 	quarantine, err := quarantine.New(ctx, gittest.RewrittenRepository(t, ctx, cfg, repo), config.NewLocator(cfg))
 	require.NoError(t, err)
@@ -353,7 +368,7 @@ func TestListAllBlobs(t *testing.T) {
 				Repository: repo,
 			},
 			verify: func(t *testing.T, blobs []*gitalypb.ListAllBlobsResponse_Blob) {
-				require.Greater(t, len(blobs), 300)
+				require.Len(t, blobs, 6)
 			},
 		},
 		{
@@ -373,7 +388,8 @@ func TestListAllBlobs(t *testing.T) {
 				BytesLimit: 1,
 			},
 			verify: func(t *testing.T, blobs []*gitalypb.ListAllBlobsResponse_Blob) {
-				require.Greater(t, len(blobs), 300)
+				require.Equal(t, len(blobs), 6)
+
 				for _, blob := range blobs {
 					emptyBlobID := "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
 					if blob.Oid == emptyBlobID {
@@ -391,7 +407,7 @@ func TestListAllBlobs(t *testing.T) {
 				Repository: quarantinedRepo,
 			},
 			verify: func(t *testing.T, blobs []*gitalypb.ListAllBlobsResponse_Blob) {
-				require.Greater(t, len(blobs), 300)
+				require.Len(t, blobs, 6)
 			},
 		},
 		{
@@ -404,7 +420,11 @@ func TestListAllBlobs(t *testing.T) {
 			},
 		},
 	} {
+		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
 			stream, err := client.ListAllBlobs(ctx, tc.request)
 			require.NoError(t, err)
 
@@ -430,7 +450,8 @@ func BenchmarkListAllBlobs(b *testing.B) {
 	b.StopTimer()
 	ctx := testhelper.Context(b)
 
-	_, repoProto, _, client := setup(b, ctx)
+	cfg, client := setup(b, ctx)
+	repoProto, _, _ := setupRepoWithLFS(b, ctx, cfg)
 
 	for _, tc := range []struct {
 		desc    string
@@ -474,7 +495,8 @@ func BenchmarkListBlobs(b *testing.B) {
 	b.StopTimer()
 	ctx := testhelper.Context(b)
 
-	_, repoProto, _, client := setup(b, ctx)
+	cfg, client := setup(b, ctx)
+	repoProto, _, _ := setupRepoWithLFS(b, ctx, cfg)
 
 	for _, tc := range []struct {
 		desc    string
