@@ -167,6 +167,7 @@ type cleanStaleDataMetrics struct {
 	refs           int
 	reflocks       int
 	refsEmptyDir   int
+	packFileLocks  int
 	packedRefsLock int
 	packedRefsNew  int
 	serverInfo     int
@@ -189,6 +190,7 @@ func requireCleanStaleDataMetrics(t *testing.T, m *RepositoryManager, metrics cl
 		"locks":          metrics.locks,
 		"refs":           metrics.refs,
 		"reflocks":       metrics.reflocks,
+		"packfilelocks":  metrics.packFileLocks,
 		"packedrefslock": metrics.packedRefsLock,
 		"packedrefsnew":  metrics.packedRefsNew,
 		"refsemptydir":   metrics.refsEmptyDir,
@@ -293,6 +295,62 @@ func TestRepositoryManager_CleanStaleData(t *testing.T) {
 				d("info", []entry{
 					f("tmp_a"),
 				}),
+			},
+		},
+		{
+			name: "recent unattributed packfile lock",
+			entries: []entry{
+				d("objects", []entry{
+					d("pack", []entry{
+						f("pack-abcd.keep", withAge(recent)),
+					}),
+				}),
+			},
+		},
+		{
+			name: "recent receive-pack packfile lock",
+			entries: []entry{
+				d("objects", []entry{
+					d("pack", []entry{
+						f("pack-abcd.keep", withData("receive-pack 1 on host"), withAge(recent)),
+					}),
+				}),
+			},
+		},
+		{
+			name: "stale manual packfile lock",
+			entries: []entry{
+				d("objects", []entry{
+					d("pack", []entry{
+						f("pack-abcd.keep", withData("some manual description")),
+					}),
+				}),
+			},
+		},
+		{
+			name: "stale receive-pack packfile lock",
+			entries: []entry{
+				d("objects", []entry{
+					d("pack", []entry{
+						f("pack-abcd.keep", withData("receive-pack 1 on host"), expectDeletion),
+					}),
+				}),
+			},
+			expectedMetrics: cleanStaleDataMetrics{
+				packFileLocks: 1,
+			},
+		},
+		{
+			name: "stale fetch-pack packfile lock",
+			entries: []entry{
+				d("objects", []entry{
+					d("pack", []entry{
+						f("pack-abcd.keep", withData("fetch-pack 1 on host"), expectDeletion),
+					}),
+				}),
+			},
+			expectedMetrics: cleanStaleDataMetrics{
+				packFileLocks: 1,
 			},
 		},
 	}
