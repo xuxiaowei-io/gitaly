@@ -247,10 +247,13 @@ const danglingObjectNamespace = "refs/dangling/"
 // an object is still used anywhere, so the only safe thing to do is to
 // assume that every object _is_ used.
 func (o *ObjectPool) rescueDanglingObjects(ctx context.Context) (returnedErr error) {
+	stderr := &bytes.Buffer{}
 	fsck, err := o.Repo.Exec(ctx, git.Command{
 		Name:  "fsck",
 		Flags: []git.Option{git.Flag{Name: "--connectivity-only"}, git.Flag{Name: "--dangling"}},
-	})
+	},
+		git.WithStderr(stderr),
+	)
 	if err != nil {
 		return err
 	}
@@ -301,7 +304,7 @@ func (o *ObjectPool) rescueDanglingObjects(ctx context.Context) (returnedErr err
 	}
 
 	if err := fsck.Wait(); err != nil {
-		return fmt.Errorf("git fsck: %v", err)
+		return fmt.Errorf("git fsck: %w, stderr: %q", err, stderr.String())
 	}
 
 	return updater.Commit()
