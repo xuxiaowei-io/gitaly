@@ -5,8 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/url"
-	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v15/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
@@ -15,9 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
-	"gocloud.dev/blob/azureblob"
-	"gocloud.dev/blob/gcsblob"
-	"gocloud.dev/blob/s3blob"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -77,29 +72,6 @@ type Locator interface {
 
 	// FindLatest returns the latest backup that was written by Commit
 	FindLatest(ctx context.Context, repo *gitalypb.Repository) (*Backup, error)
-}
-
-// ResolveSink returns a sink implementation based on the provided path.
-func ResolveSink(ctx context.Context, path string) (Sink, error) {
-	parsed, err := url.Parse(path)
-	if err != nil {
-		return nil, err
-	}
-	scheme := parsed.Scheme
-	if i := strings.LastIndex(scheme, "+"); i > 0 {
-		// the url may include additional configuration options like service name
-		// we don't include it into the scheme definition as it will push us to create
-		// a full set of variations. Instead we trim it up to the service option only.
-		scheme = scheme[i+1:]
-	}
-
-	switch scheme {
-	case s3blob.Scheme, azureblob.Scheme, gcsblob.Scheme:
-		sink, err := NewStorageServiceSink(ctx, path)
-		return sink, err
-	default:
-		return NewFilesystemSink(path), nil
-	}
 }
 
 // ResolveLocator returns a locator implementation based on a locator identifier.

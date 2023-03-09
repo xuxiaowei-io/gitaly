@@ -1,6 +1,6 @@
 //go:build !gitaly_test_sha256
 
-package backup
+package backup_test
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/archive"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/backup"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/setup"
@@ -44,12 +45,12 @@ func TestManager_RemoveAllRepositories(t *testing.T) {
 	defer testhelper.MustClose(t, pool)
 
 	backupRoot := testhelper.TempDir(t)
-	sink := NewFilesystemSink(backupRoot)
-	locator, err := ResolveLocator("pointer", sink)
+	sink := backup.NewFilesystemSink(backupRoot)
+	locator, err := backup.ResolveLocator("pointer", sink)
 	require.NoError(t, err)
 
-	fsBackup := NewManager(sink, locator, pool, backupID)
-	err = fsBackup.RemoveAllRepositories(ctx, &RemoveAllRepositoriesRequest{
+	fsBackup := backup.NewManager(sink, locator, pool, backupID)
+	err = fsBackup.RemoveAllRepositories(ctx, &backup.RemoveAllRepositoriesRequest{
 		Server:      storage.ServerInfo{Address: cfg.SocketPath, Token: cfg.Auth.Token},
 		StorageName: repo.StorageName,
 	})
@@ -106,7 +107,7 @@ func TestManager_Create(t *testing.T) {
 			},
 			createsBundle:      false,
 			createsCustomHooks: false,
-			err:                fmt.Errorf("manager: repository empty: %w", ErrSkipped),
+			err:                fmt.Errorf("manager: repository empty: %w", backup.ErrSkipped),
 		},
 		{
 			desc: "nonexistent repo",
@@ -118,7 +119,7 @@ func TestManager_Create(t *testing.T) {
 			},
 			createsBundle:      false,
 			createsCustomHooks: false,
-			err:                fmt.Errorf("manager: repository empty: %w", ErrSkipped),
+			err:                fmt.Errorf("manager: repository empty: %w", backup.ErrSkipped),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -132,12 +133,12 @@ func TestManager_Create(t *testing.T) {
 			pool := client.NewPool()
 			defer testhelper.MustClose(t, pool)
 
-			sink := NewFilesystemSink(backupRoot)
-			locator, err := ResolveLocator("pointer", sink)
+			sink := backup.NewFilesystemSink(backupRoot)
+			locator, err := backup.ResolveLocator("pointer", sink)
 			require.NoError(t, err)
 
-			fsBackup := NewManager(sink, locator, pool, backupID)
-			err = fsBackup.Create(ctx, &CreateRequest{
+			fsBackup := backup.NewManager(sink, locator, pool, backupID)
+			err = fsBackup.Create(ctx, &backup.CreateRequest{
 				Server:     storage.ServerInfo{Address: cfg.SocketPath, Token: cfg.Auth.Token},
 				Repository: repo,
 			})
@@ -227,7 +228,7 @@ func TestManager_Create_incremental(t *testing.T) {
 
 				return repo, repoPath
 			},
-			expectedErr: fmt.Errorf("manager: write bundle: %w", fmt.Errorf("*backup.FilesystemSink write: %w: no changes to bundle", ErrSkipped)),
+			expectedErr: fmt.Errorf("manager: write bundle: %w", fmt.Errorf("*backup.FilesystemSink write: %w: no changes to bundle", backup.ErrSkipped)),
 		},
 		{
 			desc: "previous backup, updates",
@@ -267,12 +268,12 @@ func TestManager_Create_incremental(t *testing.T) {
 			pool := client.NewPool()
 			defer testhelper.MustClose(t, pool)
 
-			sink := NewFilesystemSink(backupRoot)
-			locator, err := ResolveLocator("pointer", sink)
+			sink := backup.NewFilesystemSink(backupRoot)
+			locator, err := backup.ResolveLocator("pointer", sink)
 			require.NoError(t, err)
 
-			fsBackup := NewManager(sink, locator, pool, backupID)
-			err = fsBackup.Create(ctx, &CreateRequest{
+			fsBackup := backup.NewManager(sink, locator, pool, backupID)
+			err = fsBackup.Create(ctx, &backup.CreateRequest{
 				Server:      storage.ServerInfo{Address: cfg.SocketPath, Token: cfg.Auth.Token},
 				Repository:  repo,
 				Incremental: true,
@@ -373,7 +374,7 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 				repo, _ := gittest.CreateRepository(t, ctx, cfg)
 				return repo, nil
 			},
-			expectedErrAs: ErrSkipped,
+			expectedErrAs: backup.ErrSkipped,
 		},
 		{
 			desc:     "missing bundle, always create",
@@ -488,12 +489,12 @@ func testManagerRestore(t *testing.T, ctx context.Context) {
 					pool := client.NewPool()
 					defer testhelper.MustClose(t, pool)
 
-					sink := NewFilesystemSink(backupRoot)
-					locator, err := ResolveLocator(locatorName, sink)
+					sink := backup.NewFilesystemSink(backupRoot)
+					locator, err := backup.ResolveLocator(locatorName, sink)
 					require.NoError(t, err)
 
-					fsBackup := NewManager(sink, locator, pool, "unused-backup-id")
-					err = fsBackup.Restore(ctx, &RestoreRequest{
+					fsBackup := backup.NewManager(sink, locator, pool, "unused-backup-id")
+					err = fsBackup.Restore(ctx, &backup.RestoreRequest{
 						Server:       storage.ServerInfo{Address: cfg.SocketPath, Token: cfg.Auth.Token},
 						Repository:   repo,
 						AlwaysCreate: tc.alwaysCreate,
@@ -552,115 +553,20 @@ func TestManager_CreateRestore_contextServerInfo(t *testing.T) {
 	pool := client.NewPool()
 	defer testhelper.MustClose(t, pool)
 
-	sink := NewFilesystemSink(backupRoot)
-	locator, err := ResolveLocator("pointer", sink)
+	sink := backup.NewFilesystemSink(backupRoot)
+	locator, err := backup.ResolveLocator("pointer", sink)
 	require.NoError(t, err)
 
-	fsBackup := NewManager(sink, locator, pool, "unused-backup-id")
+	fsBackup := backup.NewManager(sink, locator, pool, "unused-backup-id")
 
 	ctx = testhelper.MergeIncomingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
-	require.NoError(t, fsBackup.Create(ctx, &CreateRequest{
+	require.NoError(t, fsBackup.Create(ctx, &backup.CreateRequest{
 		Repository: repo,
 	}))
-	require.NoError(t, fsBackup.Restore(ctx, &RestoreRequest{
+	require.NoError(t, fsBackup.Restore(ctx, &backup.RestoreRequest{
 		Repository: repo,
 	}))
-}
-
-func TestResolveSink(t *testing.T) {
-	ctx := testhelper.Context(t)
-
-	isStorageServiceSink := func(expErrMsg string) func(t *testing.T, sink Sink) {
-		return func(t *testing.T, sink Sink) {
-			t.Helper()
-			sssink, ok := sink.(*StorageServiceSink)
-			require.True(t, ok)
-			_, err := sssink.bucket.List(nil).Next(ctx)
-			ierr, ok := err.(interface{ Unwrap() error })
-			require.True(t, ok)
-			terr := ierr.Unwrap()
-			require.Contains(t, terr.Error(), expErrMsg)
-		}
-	}
-
-	tmpDir := testhelper.TempDir(t)
-	gsCreds := filepath.Join(tmpDir, "gs.creds")
-	require.NoError(t, os.WriteFile(gsCreds, []byte(`
-{
-  "type": "service_account",
-  "project_id": "hostfactory-179005",
-  "private_key_id": "6253b144ccd94f50ce1224a73ffc48bda256d0a7",
-  "private_key": "-----BEGIN PRIVATE KEY-----\nXXXX<KEY CONTENT OMMIT HERR> \n-----END PRIVATE KEY-----\n",
-  "client_email": "303721356529-compute@developer.gserviceaccount.com",
-  "client_id": "116595416948414952474",
-  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-  "token_uri": "https://accounts.google.com/o/oauth2/token",
-  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/303724477529-compute%40developer.gserviceaccount.com"
-}`), perm.SharedFile))
-
-	for _, tc := range []struct {
-		desc   string
-		envs   map[string]string
-		path   string
-		verify func(t *testing.T, sink Sink)
-		errMsg string
-	}{
-		{
-			desc: "AWS S3",
-			envs: map[string]string{
-				"AWS_ACCESS_KEY_ID":     "test",
-				"AWS_SECRET_ACCESS_KEY": "test",
-				"AWS_REGION":            "us-east-1",
-			},
-			path:   "s3://bucket",
-			verify: isStorageServiceSink("The AWS Access Key Id you provided does not exist in our records."),
-		},
-		{
-			desc: "Google Cloud Storage",
-			envs: map[string]string{
-				"GOOGLE_APPLICATION_CREDENTIALS": gsCreds,
-			},
-			path:   "blob+gs://bucket",
-			verify: isStorageServiceSink("storage.googleapis.com"),
-		},
-		{
-			desc: "Azure Cloud File Storage",
-			envs: map[string]string{
-				"AZURE_STORAGE_ACCOUNT":   "test",
-				"AZURE_STORAGE_KEY":       "test",
-				"AZURE_STORAGE_SAS_TOKEN": "test",
-			},
-			path:   "blob+bucket+azblob://bucket",
-			verify: isStorageServiceSink("https://test.blob.core.windows.net"),
-		},
-		{
-			desc: "Filesystem",
-			path: "/some/path",
-			verify: func(t *testing.T, sink Sink) {
-				require.IsType(t, &FilesystemSink{}, sink)
-			},
-		},
-		{
-			desc:   "undefined",
-			path:   "some:invalid:path\x00",
-			errMsg: `parse "some:invalid:path\x00": net/url: invalid control character in URL`,
-		},
-	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			for k, v := range tc.envs {
-				t.Setenv(k, v)
-			}
-
-			sink, err := ResolveSink(ctx, tc.path)
-			if tc.errMsg != "" {
-				require.EqualError(t, err, tc.errMsg)
-				return
-			}
-			tc.verify(t, sink)
-		})
-	}
 }
 
 func TestResolveLocator(t *testing.T) {
@@ -678,7 +584,7 @@ func TestResolveLocator(t *testing.T) {
 		},
 	} {
 		t.Run(tc.layout, func(t *testing.T) {
-			l, err := ResolveLocator(tc.layout, nil)
+			l, err := backup.ResolveLocator(tc.layout, nil)
 
 			if tc.expectedErr == "" {
 				require.NoError(t, err)
