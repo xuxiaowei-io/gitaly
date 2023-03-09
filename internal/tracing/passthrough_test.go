@@ -3,6 +3,7 @@ package tracing
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"testing"
 
@@ -224,8 +225,15 @@ func TestStreamPassthroughInterceptor(t *testing.T) {
 			require.NoError(t, err)
 
 			require.NoError(t, stream.Send(&grpc_testing.StreamingOutputCallRequest{}))
-			_, err = stream.Recv()
+
+			resp, err := stream.Recv()
 			require.NoError(t, err)
+			testhelper.ProtoEqual(t, &grpc_testing.StreamingOutputCallResponse{}, resp)
+
+			resp, err = stream.Recv()
+			require.Equal(t, io.EOF, err)
+			require.Nil(t, resp)
+
 			finishFunc()
 
 			require.Equal(t, expectedParentID, parentID)
