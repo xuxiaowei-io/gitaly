@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/version"
 )
 
 var buildOnceByName sync.Map
@@ -112,6 +113,7 @@ func BuildBinary(tb testing.TB, targetDir, sourcePath string) string {
 			"build",
 			"-buildvcs=false",
 			"-tags", strings.Join(buildTags, ","),
+			"-ldflags", fmt.Sprintf("-X gitlab.com/gitlab-org/gitaly/v15/internal/version.version=%s", version.GetVersion()),
 			"-o", sharedBinaryPath,
 			sourcePath,
 		)
