@@ -12,7 +12,9 @@ import (
 )
 
 func TestCreateSpan(t *testing.T) {
-	reporter := stubTracingReporter(t)
+	reporter, cleanup := testhelper.StubTracingReporter(t)
+	defer cleanup()
+
 	var span opentracing.Span
 	span, _ = StartSpan(testhelper.Context(t), "root", Tags{
 		"tagRoot1": "value1",
@@ -30,9 +32,10 @@ func TestCreateSpan(t *testing.T) {
 }
 
 func TestCreateSpanIfHasParent_emptyContext(t *testing.T) {
-	reporter := stubTracingReporter(t)
-	ctx := testhelper.Context(t)
+	reporter, cleanup := testhelper.StubTracingReporter(t)
+	defer cleanup()
 
+	ctx := testhelper.Context(t)
 	var span, span2 opentracing.Span
 
 	span, ctx = StartSpanIfHasParent(ctx, "should-not-report-root", nil)
@@ -49,7 +52,9 @@ func TestCreateSpanIfHasParent_emptyContext(t *testing.T) {
 }
 
 func TestCreateSpanIfHasParent_hasParent(t *testing.T) {
-	reporter := stubTracingReporter(t)
+	reporter, cleanup := testhelper.StubTracingReporter(t)
+	defer cleanup()
+
 	ctx := testhelper.Context(t)
 
 	var span1, span2 opentracing.Span
@@ -63,7 +68,9 @@ func TestCreateSpanIfHasParent_hasParent(t *testing.T) {
 }
 
 func TestCreateSpanIfHasParent_hasParentWithTags(t *testing.T) {
-	reporter := stubTracingReporter(t)
+	reporter, cleanup := testhelper.StubTracingReporter(t)
+	defer cleanup()
+
 	ctx := testhelper.Context(t)
 
 	var span1, span2 opentracing.Span
@@ -100,7 +107,9 @@ func TestDiscardSpanInContext_emptyContext(t *testing.T) {
 }
 
 func TestDiscardSpanInContext_hasParent(t *testing.T) {
-	reporter := stubTracingReporter(t)
+	reporter, cleanup := testhelper.StubTracingReporter(t)
+	defer cleanup()
+
 	ctx := testhelper.Context(t)
 
 	var span1, span2, span3 opentracing.Span
@@ -115,19 +124,6 @@ func TestDiscardSpanInContext_hasParent(t *testing.T) {
 
 	spans := reportedSpans(t, reporter)
 	require.Equal(t, []string{"child", "root"}, spans)
-}
-
-func stubTracingReporter(t *testing.T) *jaeger.InMemoryReporter {
-	reporter := jaeger.NewInMemoryReporter()
-	tracer, tracerCloser := jaeger.NewTracer("", jaeger.NewConstSampler(true), reporter)
-	t.Cleanup(func() { testhelper.MustClose(t, tracerCloser) })
-
-	old := opentracing.GlobalTracer()
-	t.Cleanup(func() {
-		opentracing.SetGlobalTracer(old)
-	})
-	opentracing.SetGlobalTracer(tracer)
-	return reporter
 }
 
 func reportedSpans(t *testing.T, reporter *jaeger.InMemoryReporter) []string {

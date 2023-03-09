@@ -18,7 +18,8 @@ import (
 )
 
 func TestExtractSpanContextFromEnv(t *testing.T) {
-	_ = stubTracingReporter(t)
+	_, cleanup := testhelper.StubTracingReporter(t)
+	defer cleanup()
 
 	injectedSpan := opentracing.StartSpan("test", opentracing.Tag{Key: "do-not-carry", Value: "value"})
 	injectedSpan.SetBaggageItem("hi", "hello")
@@ -77,8 +78,8 @@ func TestExtractSpanContextFromEnv(t *testing.T) {
 }
 
 func TestUnaryPassthroughInterceptor(t *testing.T) {
-	reporter := stubTracingReporter(t)
-	defer reporter.Reset()
+	reporter, cleanup := testhelper.StubTracingReporter(t)
+	defer cleanup()
 
 	tests := []struct {
 		desc          string
@@ -153,8 +154,8 @@ func TestUnaryPassthroughInterceptor(t *testing.T) {
 }
 
 func TestStreamPassthroughInterceptor(t *testing.T) {
-	reporter := stubTracingReporter(t)
-	defer reporter.Reset()
+	reporter, cleanup := testhelper.StubTracingReporter(t)
+	defer cleanup()
 
 	tests := []struct {
 		desc          string
