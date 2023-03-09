@@ -372,35 +372,25 @@ func (repo *Repo) GetDefaultBranch(ctx context.Context) (git.ReferenceName, erro
 }
 
 func (repo *Repo) headReference(ctx context.Context) (git.ReferenceName, error) {
-	var headRef []byte
-
 	cmd, err := repo.Exec(ctx, git.Command{
-		Name:  "rev-parse",
-		Flags: []git.Option{git.Flag{Name: "--symbolic-full-name"}},
-		Args:  []string{"HEAD"},
-	})
+		Name: "symbolic-ref",
+		Args: []string{"HEAD"},
+	}, git.WithDisabledHooks()) // this operation is read-only
 	if err != nil {
 		return "", err
 	}
 
-	scanner := bufio.NewScanner(cmd)
-	scanner.Scan()
-	if err := scanner.Err(); err != nil {
+	buf := bufio.NewReader(cmd)
+	headRef, err := buf.ReadString('\n')
+	if err != nil {
 		return "", err
 	}
-	headRef = scanner.Bytes()
 
 	if err := cmd.Wait(); err != nil {
-		// If the ref pointed at by HEAD doesn't exist, the rev-parse fails
-		// returning the string `"HEAD"`, so we return `nil` without error.
-		if bytes.Equal(headRef, []byte("HEAD")) {
-			return "", nil
-		}
-
 		return "", err
 	}
 
-	return git.ReferenceName(headRef), nil
+	return git.ReferenceName(strings.TrimSuffix(headRef, "\n")), nil
 }
 
 // GuessHead tries to guess what branch HEAD would be pointed at. If no
