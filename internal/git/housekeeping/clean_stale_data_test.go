@@ -30,6 +30,9 @@ type entryFinalState int
 const (
 	Delete entryFinalState = iota
 	Keep
+
+	ancient = 240 * time.Hour
+	recent  = 24 * time.Hour
 )
 
 type entry interface {
@@ -125,12 +128,46 @@ func (d *dirEntry) validate(t *testing.T, parent string) {
 	}
 }
 
-func f(name string, mode os.FileMode, age time.Duration, finalState entryFinalState) *fileEntry {
-	return &fileEntry{name, mode, age, finalState}
+type entryOption func(entry *fileEntry)
+
+func withAge(age time.Duration) entryOption {
+	return func(entry *fileEntry) {
+		entry.age = age
+	}
 }
 
-func d(name string, mode os.FileMode, age time.Duration, finalState entryFinalState, entries ...entry) *dirEntry {
-	return &dirEntry{fileEntry{name, mode, age, finalState}, entries}
+func withMode(mode os.FileMode) entryOption {
+	return func(entry *fileEntry) {
+		entry.mode = mode
+	}
+}
+
+func expectDeletion(entry *fileEntry) {
+	entry.finalState = Delete
+}
+
+func f(name string, opts ...entryOption) *fileEntry {
+	entry := &fileEntry{
+		name:       name,
+		mode:       perm.PrivateFile,
+		age:        ancient,
+		finalState: Keep,
+	}
+
+	for _, opt := range opts {
+		opt(entry)
+	}
+
+	return entry
+}
+
+func d(name string, entries []entry, opts ...entryOption) *dirEntry {
+	opts = append([]entryOption{withMode(perm.PrivateDir)}, opts...)
+
+	return &dirEntry{
+		fileEntry: *f(name, opts...),
+		entries:   entries,
+	}
 }
 
 type cleanStaleDataMetrics struct {
@@ -185,38 +222,38 @@ func TestRepositoryManager_CleanStaleData(t *testing.T) {
 		{
 			name: "clean",
 			entries: []entry{
-				d("objects", perm.PrivateDir, 240*time.Hour, Keep,
-					f("a", perm.PrivateFile, 24*time.Hour, Keep),
-					f("b", perm.PrivateFile, 24*time.Hour, Keep),
-					f("c", perm.PrivateFile, 24*time.Hour, Keep),
-				),
+				d("objects", []entry{
+					f("a", withAge(recent)),
+					f("b", withAge(recent)),
+					f("c", withAge(recent)),
+				}),
 			},
 		},
 		{
 			name: "emptyperms",
 			entries: []entry{
-				d("objects", perm.PrivateDir, 240*time.Hour, Keep,
-					f("b", perm.PrivateFile, 24*time.Hour, Keep),
-					f("tmp_a", 0o000, 2*time.Hour, Keep),
-				),
+				d("objects", []entry{
+					f("b", withAge(recent)),
+					f("tmp_a", withAge(2*time.Hour), withMode(0o000)),
+				}),
 			},
 		},
 		{
 			name: "emptytempdir",
 			entries: []entry{
-				d("objects", perm.PrivateDir, 240*time.Hour, Keep,
-					d("tmp_d", 0o000, 240*time.Hour, Keep),
-					f("b", perm.PrivateFile, 24*time.Hour, Keep),
-				),
+				d("objects", []entry{
+					d("tmp_d", []entry{}, withMode(0o000)),
+					f("b"),
+				}),
 			},
 		},
 		{
 			name: "oldtempfile",
 			entries: []entry{
-				d("objects", perm.PrivateDir, 240*time.Hour, Keep,
-					f("tmp_a", perm.SharedFile, 240*time.Hour, Delete),
-					f("b", perm.PrivateFile, 24*time.Hour, Keep),
-				),
+				d("objects", []entry{
+					f("tmp_a", expectDeletion),
+					f("b", withAge(recent)),
+				}),
 			},
 			expectedMetrics: cleanStaleDataMetrics{
 				objects: 1,
@@ -225,11 +262,11 @@ func TestRepositoryManager_CleanStaleData(t *testing.T) {
 		{
 			name: "subdir temp file",
 			entries: []entry{
-				d("objects", perm.PrivateDir, 240*time.Hour, Keep,
-					d("a", perm.GroupPrivateDir, 240*time.Hour, Keep,
-						f("tmp_b", perm.PrivateFile, 240*time.Hour, Delete),
-					),
-				),
+				d("objects", []entry{
+					d("a", []entry{
+						f("tmp_b", expectDeletion),
+					}),
+				}),
 			},
 			expectedMetrics: cleanStaleDataMetrics{
 				objects: 1,
@@ -238,23 +275,23 @@ func TestRepositoryManager_CleanStaleData(t *testing.T) {
 		{
 			name: "inaccessible tmp directory",
 			entries: []entry{
-				d("objects", perm.PrivateDir, 240*time.Hour, Keep,
-					d("tmp_a", 0o000, 240*time.Hour, Keep,
-						f("tmp_b", perm.PrivateFile, 240*time.Hour, Delete),
-					),
-				),
+				d("objects", []entry{
+					d("tmp_a", []entry{
+						f("tmp_b", expectDeletion),
+					}, withMode(0o000)),
+				}),
 			},
 		},
 		{
 			name: "deeply nested inaccessible tmp directory",
 			entries: []entry{
-				d("objects", perm.PrivateDir, 240*time.Hour, Keep,
-					d("tmp_a", perm.PrivateDir, 240*time.Hour, Keep,
-						d("tmp_a", perm.PrivateDir, 24*time.Hour, Keep,
-							f("tmp_b", 0o000, 240*time.Hour, Delete),
-						),
-					),
-				),
+				d("objects", []entry{
+					d("tmp_a", []entry{
+						d("tmp_a", []entry{
+							f("tmp_b", withMode(0o000), expectDeletion),
+						}, withAge(recent)),
+					}),
+				}),
 			},
 			expectedMetrics: cleanStaleDataMetrics{
 				objects: 1,
@@ -263,10 +300,10 @@ func TestRepositoryManager_CleanStaleData(t *testing.T) {
 		{
 			name: "files outside of object database",
 			entries: []entry{
-				f("tmp_a", perm.SharedFile, 240*time.Hour, Keep),
-				d("info", perm.PrivateDir, 240*time.Hour, Keep,
-					f("tmp_a", perm.SharedFile, 240*time.Hour, Keep),
-				),
+				f("tmp_a"),
+				d("info", []entry{
+					f("tmp_a"),
+				}),
 			},
 		},
 	}
@@ -431,31 +468,31 @@ func TestRepositoryManager_CleanStaleData_emptyRefDirs(t *testing.T) {
 		{
 			name: "unrelated empty directories",
 			entries: []entry{
-				d("objects", perm.PrivateDir, 240*time.Hour, Keep,
-					d("empty", perm.PrivateDir, 240*time.Hour, Keep),
-				),
+				d("objects", []entry{
+					d("empty", []entry{}),
+				}),
 			},
 		},
 		{
 			name: "empty ref dir gets retained",
 			entries: []entry{
-				d("refs", perm.PrivateDir, 240*time.Hour, Keep),
+				d("refs", []entry{}),
 			},
 		},
 		{
 			name: "empty nested non-stale ref dir gets kept",
 			entries: []entry{
-				d("refs", perm.PrivateDir, 240*time.Hour, Keep,
-					d("nested", perm.PrivateDir, 23*time.Hour, Keep),
-				),
+				d("refs", []entry{
+					d("nested", []entry{}, withAge(23*time.Hour)),
+				}),
 			},
 		},
 		{
 			name: "empty nested stale ref dir gets pruned",
 			entries: []entry{
-				d("refs", perm.PrivateDir, 240*time.Hour, Keep,
-					d("nested", perm.PrivateDir, 240*time.Hour, Delete),
-				),
+				d("refs", []entry{
+					d("nested", []entry{}, expectDeletion),
+				}),
 			},
 			expectedMetrics: cleanStaleDataMetrics{
 				refsEmptyDir: 1,
@@ -464,11 +501,11 @@ func TestRepositoryManager_CleanStaleData_emptyRefDirs(t *testing.T) {
 		{
 			name: "hierarchy of nested stale ref dirs gets pruned",
 			entries: []entry{
-				d("refs", perm.PrivateDir, 240*time.Hour, Keep,
-					d("first", perm.PrivateDir, 240*time.Hour, Delete,
-						d("second", perm.PrivateDir, 240*time.Hour, Delete),
-					),
-				),
+				d("refs", []entry{
+					d("first", []entry{
+						d("second", []entry{}, expectDeletion),
+					}, expectDeletion),
+				}),
 			},
 			expectedMetrics: cleanStaleDataMetrics{
 				refsEmptyDir: 2,
@@ -477,13 +514,13 @@ func TestRepositoryManager_CleanStaleData_emptyRefDirs(t *testing.T) {
 		{
 			name: "hierarchy with intermediate non-stale ref dir gets kept",
 			entries: []entry{
-				d("refs", perm.PrivateDir, 240*time.Hour, Keep,
-					d("first", perm.PrivateDir, 240*time.Hour, Keep,
-						d("second", perm.PrivateDir, 1*time.Hour, Keep,
-							d("third", perm.PrivateDir, 24*time.Hour, Delete),
-						),
-					),
-				),
+				d("refs", []entry{
+					d("first", []entry{
+						d("second", []entry{
+							d("third", []entry{}, withAge(recent), expectDeletion),
+						}, withAge(1*time.Hour)),
+					}),
+				}),
 			},
 			expectedMetrics: cleanStaleDataMetrics{
 				refsEmptyDir: 1,
@@ -492,16 +529,16 @@ func TestRepositoryManager_CleanStaleData_emptyRefDirs(t *testing.T) {
 		{
 			name: "stale hierrachy with refs gets partially retained",
 			entries: []entry{
-				d("refs", perm.PrivateDir, 240*time.Hour, Keep,
-					d("first", perm.PrivateDir, 240*time.Hour, Keep,
-						d("second", perm.PrivateDir, 240*time.Hour, Delete,
-							d("third", perm.PrivateDir, 24*time.Hour, Delete),
-						),
-						d("other", perm.PrivateDir, 240*time.Hour, Keep,
-							f("ref", perm.PrivateFile, 1*time.Hour, Keep),
-						),
-					),
-				),
+				d("refs", []entry{
+					d("first", []entry{
+						d("second", []entry{
+							d("third", []entry{}, withAge(recent), expectDeletion),
+						}, expectDeletion),
+						d("other", []entry{
+							f("ref", withAge(1*time.Hour)),
+						}),
+					}),
+				}),
 			},
 			expectedMetrics: cleanStaleDataMetrics{
 				refsEmptyDir: 2,
@@ -550,7 +587,7 @@ func TestRepositoryManager_CleanStaleData_withSpecificFile(t *testing.T) {
 
 		var topLevelDir, currentDir *dirEntry
 		for _, subdir := range subdirs {
-			dir := d(subdir, perm.PrivateDir, 1*time.Hour, Keep)
+			dir := d(subdir, []entry{}, withAge(1*time.Hour))
 			if topLevelDir == nil {
 				topLevelDir = dir
 			}
@@ -662,32 +699,32 @@ func TestRepositoryManager_CleanStaleData_withSpecificFile(t *testing.T) {
 			}{
 				{
 					desc:  fmt.Sprintf("fresh %s is kept", tc.file),
-					entry: f(tc.file, perm.PrivateFile, 10*time.Minute, Keep),
+					entry: f(tc.file, withAge(10*time.Minute)),
 				},
 				{
 					desc: fmt.Sprintf("stale %s in subdir is kept", tc.file),
-					entry: d("subdir", perm.PrivateDir, 240*time.Hour, Keep,
-						f(tc.file, perm.PrivateFile, 24*time.Hour, Keep),
-					),
+					entry: d("subdir", []entry{
+						f(tc.file, withAge(24*time.Hour)),
+					}),
 				},
 				{
 					desc:  fmt.Sprintf("stale %s is deleted", tc.file),
-					entry: f(tc.file, perm.PrivateFile, 61*time.Minute, Delete),
+					entry: f(tc.file, withAge(61*time.Minute), expectDeletion),
 					expectedFiles: []string{
 						filepath.Join(append([]string{repoPath}, append(tc.subdirs, tc.file)...)...),
 					},
 				},
 				{
 					desc:  fmt.Sprintf("%q is kept", tc.file[:len(tc.file)-1]),
-					entry: f(tc.file[:len(tc.file)-1], perm.PrivateFile, 61*time.Minute, Keep),
+					entry: f(tc.file[:len(tc.file)-1], withAge(61*time.Minute)),
 				},
 				{
 					desc:  fmt.Sprintf("%q is kept", "~"+tc.file),
-					entry: f("~"+tc.file, perm.PrivateFile, 61*time.Minute, Keep),
+					entry: f("~"+tc.file, withAge(61*time.Minute)),
 				},
 				{
 					desc:  fmt.Sprintf("%q is kept", tc.file+"~"),
-					entry: f(tc.file+"~", perm.PrivateFile, 61*time.Minute, Keep),
+					entry: f(tc.file+"~", withAge(61*time.Minute)),
 				},
 			} {
 				t.Run(subcase.desc, func(t *testing.T) {
@@ -721,20 +758,20 @@ func TestRepositoryManager_CleanStaleData_serverInfo(t *testing.T) {
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	entries := []entry{
-		d("info", perm.SharedDir, 0, Keep,
-			f("ref", perm.SharedFile, 0, Keep),
-			f("refs", perm.SharedFile, 0, Delete),
-			f("refsx", perm.SharedFile, 0, Keep),
-			f("refs_123456", perm.SharedFile, 0, Delete),
-		),
-		d("objects", perm.SharedDir, 0, Keep,
-			d("info", perm.SharedDir, 0, Keep,
-				f("pack", perm.SharedFile, 0, Keep),
-				f("packs", perm.SharedFile, 0, Delete),
-				f("packsx", perm.SharedFile, 0, Keep),
-				f("packs_123456", perm.SharedFile, 0, Delete),
-			),
-		),
+		d("info", []entry{
+			f("ref"),
+			f("refs", expectDeletion),
+			f("refsx"),
+			f("refs_123456", expectDeletion),
+		}),
+		d("objects", []entry{
+			d("info", []entry{
+				f("pack"),
+				f("packs", expectDeletion),
+				f("packsx"),
+				f("packs_123456", expectDeletion),
+			}),
+		}),
 	}
 
 	for _, entry := range entries {
@@ -776,19 +813,19 @@ func TestRepositoryManager_CleanStaleData_referenceLocks(t *testing.T) {
 		{
 			desc: "fresh lock is kept",
 			entries: []entry{
-				d("refs", perm.SharedDir, 0*time.Hour, Keep,
-					f("main", perm.PublicFile, 10*time.Minute, Keep),
-					f("main.lock", perm.PublicFile, 10*time.Minute, Keep),
-				),
+				d("refs", []entry{
+					f("main", withAge(10*time.Minute)),
+					f("main.lock", withAge(10*time.Minute)),
+				}),
 			},
 		},
 		{
 			desc: "stale lock is deleted",
 			entries: []entry{
-				d("refs", perm.SharedDir, 0*time.Hour, Keep,
-					f("main", perm.PublicFile, 1*time.Hour, Keep),
-					f("main.lock", perm.PublicFile, 1*time.Hour, Delete),
-				),
+				d("refs", []entry{
+					f("main", withAge(1*time.Hour)),
+					f("main.lock", withAge(1*time.Hour), expectDeletion),
+				}),
 			},
 			expectedReferenceLocks: []string{
 				"refs/main.lock",
@@ -800,20 +837,20 @@ func TestRepositoryManager_CleanStaleData_referenceLocks(t *testing.T) {
 		{
 			desc: "nested reference locks are deleted",
 			entries: []entry{
-				d("refs", perm.SharedDir, 0*time.Hour, Keep,
-					d("tags", perm.SharedDir, 0*time.Hour, Keep,
-						f("main", perm.PublicFile, 1*time.Hour, Keep),
-						f("main.lock", perm.PublicFile, 1*time.Hour, Delete),
-					),
-					d("heads", perm.SharedDir, 0*time.Hour, Keep,
-						f("main", perm.PublicFile, 1*time.Hour, Keep),
-						f("main.lock", perm.PublicFile, 1*time.Hour, Delete),
-					),
-					d("foobar", perm.SharedDir, 0*time.Hour, Keep,
-						f("main", perm.PublicFile, 1*time.Hour, Keep),
-						f("main.lock", perm.PublicFile, 1*time.Hour, Delete),
-					),
-				),
+				d("refs", []entry{
+					d("tags", []entry{
+						f("main", withAge(1*time.Hour)),
+						f("main.lock", withAge(1*time.Hour), expectDeletion),
+					}),
+					d("heads", []entry{
+						f("main", withAge(1*time.Hour)),
+						f("main.lock", withAge(1*time.Hour), expectDeletion),
+					}),
+					d("foobar", []entry{
+						f("main", withAge(1*time.Hour)),
+						f("main.lock", withAge(1*time.Hour), expectDeletion),
+					}),
+				}),
 			},
 			expectedReferenceLocks: []string{
 				"refs/tags/main.lock",
