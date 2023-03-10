@@ -31,6 +31,7 @@ const (
 	referenceLockfileGracePeriod     = 1 * time.Hour
 	packedRefsLockGracePeriod        = 1 * time.Hour
 	packedRefsNewGracePeriod         = 15 * time.Minute
+	packFileLockGracePeriod          = 7 * 24 * time.Hour
 )
 
 var lockfiles = []string{
@@ -77,6 +78,7 @@ func (m *RepositoryManager) CleanStaleData(ctx context.Context, repo *localrepo.
 		"locks":          findStaleLockfiles,
 		"refs":           findBrokenLooseReferences,
 		"reflocks":       findStaleReferenceLocks,
+		"packfilelocks":  findStalePackFileLocks,
 		"packedrefslock": findPackedRefsLock,
 		"packedrefsnew":  findPackedRefsNew,
 		"serverinfo":     findServerInfo,
@@ -271,6 +273,62 @@ func findStaleFiles(repoPath string, gracePeriod time.Duration, files ...string)
 // set of lockfiles which have caused problems in the past.
 func findStaleLockfiles(ctx context.Context, repoPath string) ([]string, error) {
 	return findStaleFiles(repoPath, lockfileGracePeriod, lockfiles...)
+}
+
+// findStalePackFileLocks finds packfile locks (`.keep` files) that git-receive-pack(1) and
+// git-fetch-pack(1) write in order to not have the newly written packfile be deleted while refs
+// have not yet been updated to point to their objects. Normally, these locks would get removed by
+// both Git commands once the refs have been updated. But when the command gets killed meanwhile,
+// then it can happen that the locks are left behind. As Git will never delete packfiles with an
+// associated `.keep` file, the end result is that we may accumulate more and more of these locked
+// packfiles over time.
+func findStalePackFileLocks(ctx context.Context, repoPath string) ([]string, error) {
+	locks, err := filepath.Glob(filepath.Join(repoPath, "objects", "pack", "pack-*.keep"))
+	if err != nil {
+		return nil, fmt.Errorf("enumerating .keep files: %w", err)
+	}
+
+	var staleLocks []string
+	for _, lock := range locks {
+		lockInfo, err := os.Stat(lock)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, fmt.Errorf("statting .keep: %w", err)
+		}
+
+		// We use a grace period so that we don't accidentally delete a packfile for a
+		// concurrent fetch or push.
+		if time.Since(lockInfo.ModTime()) < packFileLockGracePeriod {
+			continue
+		}
+
+		contents, err := os.ReadFile(lock)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, fmt.Errorf("reading .keep: %w", err)
+		}
+
+		// Git will write either of the following messages into the `.keep` file when
+		// written by either git-fetch-pack(1) or git-receive-pack(1):
+		//
+		// - "fetch-pack $PID on $HOSTNAME"
+		// - "receive-pack $PID on $HOSTNAME"
+		//
+		// This allows us to identify these `.keep` files. We skip over any `.keep` files
+		// that have an unknown prefix as they might've been written by an admin in order to
+		// keep certain objects alive, whatever the reason.
+		if !bytes.HasPrefix(contents, []byte("receive-pack ")) && !bytes.HasPrefix(contents, []byte("fetch-pack ")) {
+			continue
+		}
+
+		staleLocks = append(staleLocks, lock)
+	}
+
+	return staleLocks, nil
 }
 
 func findTemporaryObjects(ctx context.Context, repoPath string) ([]string, error) {
