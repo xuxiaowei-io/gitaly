@@ -1,6 +1,9 @@
 package testhelper
 
 import (
+	"archive/tar"
+	"bytes"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -8,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 )
 
 // DirectoryEntry models an entry in a directory.
@@ -66,4 +70,64 @@ func RequireDirectoryState(tb testing.TB, rootDirectory, relativeDirectory strin
 	}
 
 	require.Equal(tb, expected, actual)
+}
+
+// RequireTarState asserts that the provided tarball contents matches the expected state.
+func RequireTarState(tb testing.TB, tarball io.Reader, expected DirectoryState) {
+	tb.Helper()
+
+	actual := DirectoryState{}
+	tr := tar.NewReader(tarball)
+	for {
+		header, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		require.NoError(tb, err)
+
+		actualEntry := DirectoryEntry{
+			Mode: fs.FileMode(header.Mode),
+		}
+
+		if header.Typeflag == tar.TypeReg {
+			b, err := io.ReadAll(tr)
+			require.NoError(tb, err)
+
+			actualEntry.Content = b
+		}
+
+		actual[header.Name] = actualEntry
+	}
+
+	if expected == nil {
+		expected = DirectoryState{}
+	}
+
+	require.Equal(tb, expected, actual)
+}
+
+// MustCreateCustomHooksTar creates a temporary custom hooks tar archive on disk
+// for testing and returns its file path.
+func MustCreateCustomHooksTar(tb testing.TB) io.Reader {
+	tb.Helper()
+
+	writeFile := func(writer *tar.Writer, path string, mode fs.FileMode, content string) {
+		require.NoError(tb, writer.WriteHeader(&tar.Header{
+			Name: path,
+			Mode: int64(mode),
+			Size: int64(len(content)),
+		}))
+		_, err := writer.Write([]byte(content))
+		require.NoError(tb, err)
+	}
+
+	var buffer bytes.Buffer
+	writer := tar.NewWriter(&buffer)
+	defer MustClose(tb, writer)
+
+	writeFile(writer, "custom_hooks/pre-commit", perm.SharedExecutable, "pre-commit content")
+	writeFile(writer, "custom_hooks/pre-push", perm.SharedExecutable, "pre-push content")
+	writeFile(writer, "custom_hooks/pre-receive", perm.SharedExecutable, "pre-receive content")
+
+	return &buffer
 }
