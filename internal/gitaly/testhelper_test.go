@@ -3,6 +3,7 @@ package gitaly
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -77,4 +78,13 @@ func RequireDefaultBranch(tb testing.TB, ctx context.Context, repo *localrepo.Re
 	actualDefaultBranch, err := repo.GetDefaultBranch(ctx)
 	require.NoError(tb, err)
 	require.Equal(tb, expectedDefaultBranch, actualDefaultBranch)
+}
+
+func RequireHooks(tb testing.TB, repo *localrepo.Repo, expected testhelper.DirectoryState) {
+	tb.Helper()
+
+	repoPath, err := repo.Path()
+	require.NoError(tb, err)
+
+	testhelper.RequireDirectoryState(tb, repoPath, filepath.Join("wal", "hooks"), expected)
 }

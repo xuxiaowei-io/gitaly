@@ -27,6 +27,14 @@ message LogEntry {
     bytes reference_name = 1;
   }
 
+  // CustomHooksUpdate models an update to the custom hooks.
+  message CustomHooksUpdate {
+    // custom_hooks_tar is a TAR that contains the custom hooks in
+    // `custom_hooks` directory. The contents of the directory are
+    // unpacked as the custom hooks.
+    bytes custom_hooks_tar = 1;
+  }
+
   // reference_updates contains the reference updates this log
   // entry records. The logged reference updates have already passed
   // through verification and are applied without any further checks.
@@ -34,6 +42,8 @@ message LogEntry {
   // default_branch_update contains the information pertaining to updating
   // the default branch of the repo.
   DefaultBranchUpdate default_branch_update = 2;
+  // CustomHooksUpdate contains the custom hooks to set in the repository.
+  CustomHooksUpdate custom_hooks_update = 3;
 }
 
 // LogIndex serializes a log index. It's used for storing a repository's

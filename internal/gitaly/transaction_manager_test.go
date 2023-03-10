@@ -1,9 +1,12 @@
 package gitaly
 
 import (
+	"archive/tar"
+	"bytes"
 	"context"
 	"encoding/hex"
 	"fmt"
+	"io/fs"
 	"sync"
 	"testing"
 	"time"
@@ -16,12 +19,48 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
+func validCustomHooks(tb testing.TB) []byte {
+	tb.Helper()
+
+	var hooks bytes.Buffer
+	writer := tar.NewWriter(&hooks)
+	require.NoError(tb, writer.WriteHeader(&tar.Header{
+		Name: "custom_hooks/pre-receive",
+		Size: int64(len("hook content")),
+		Mode: int64(fs.ModePerm),
+	}))
+	_, err := writer.Write([]byte("hook content"))
+	require.NoError(tb, err)
+
+	require.NoError(tb, writer.WriteHeader(&tar.Header{
+		Name: "custom_hooks/private-dir/",
+		Mode: int64(perm.PrivateDir),
+	}))
+
+	require.NoError(tb, writer.WriteHeader(&tar.Header{
+		Name: "custom_hooks/private-dir/private-file",
+		Size: int64(len("private content")),
+		Mode: int64(perm.PrivateFile),
+	}))
+	_, err = writer.Write([]byte("private content"))
+	require.NoError(tb, err)
+
+	require.NoError(tb, writer.WriteHeader(&tar.Header{Name: "ignored_file"}))
+	require.NoError(tb, writer.WriteHeader(&tar.Header{Name: "ignored_dir/ignored_file"}))
+
+	require.NoError(tb, writer.Close())
+	return hooks.Bytes()
+}
+
 func TestTransactionManager(t *testing.T) {
+	umask := perm.GetUmask()
+
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
@@ -104,6 +143,8 @@ func TestTransactionManager(t *testing.T) {
 		ExpectedRunError bool
 		// ExpectedProposeError is the error that is expected to be returned when proposing the transaction in this step.
 		ExpectedProposeError error
+		// ExpectedHooks is the expected state of the hooks at the end of this step.
+		ExpectedHooks testhelper.DirectoryState
 		// ExpectedReferences is the expected state of references at the end of this step.
 		ExpectedReferences []git.Reference
 		// ExpectedDefaultBranch is the expected refname that HEAD points to.
@@ -1106,6 +1147,127 @@ func TestTransactionManager(t *testing.T) {
 						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 					},
 					ExpectedDefaultBranch: "",
+				},
+			},
+		},
+		{
+			desc: "set custom hooks successfully",
+			steps: steps{
+				{
+					Transaction: Transaction{
+						CustomHooksUpdate: &CustomHooksUpdate{
+							CustomHooksTAR: validCustomHooks(t),
+						},
+					},
+					Hooks: testHooks{
+						BeforeDeleteLogEntry: func(hookCtx hookContext) {
+							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
+								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
+								string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
+									CustomHooksUpdate: &gitalypb.LogEntry_CustomHooksUpdate{
+										CustomHooksTar: validCustomHooks(t),
+									},
+								},
+							})
+						},
+					},
+					ExpectedDatabase: DatabaseState{
+						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
+					},
+					ExpectedHooks: testhelper.DirectoryState{
+						"/wal/hooks":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+						"/wal/hooks/1": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+						"/wal/hooks/1/pre-receive": {
+							Mode:    umask.Mask(fs.ModePerm),
+							Content: []byte("hook content"),
+						},
+						"/wal/hooks/1/private-dir":              {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+						"/wal/hooks/1/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
+					},
+				},
+				{
+					Transaction: Transaction{
+						CustomHooksUpdate: &CustomHooksUpdate{},
+					},
+					Hooks: testHooks{
+						BeforeDeleteLogEntry: func(hookCtx hookContext) {
+							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
+								string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
+								string(keyLogEntry(getRepositoryID(repo), 2)): &gitalypb.LogEntry{
+									CustomHooksUpdate: &gitalypb.LogEntry_CustomHooksUpdate{},
+								},
+							})
+						},
+					},
+					ExpectedDatabase: DatabaseState{
+						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
+					},
+					ExpectedHooks: testhelper.DirectoryState{
+						"/wal/hooks":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+						"/wal/hooks/1": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+						"/wal/hooks/1/pre-receive": {
+							Mode:    umask.Mask(fs.ModePerm),
+							Content: []byte("hook content"),
+						},
+						"/wal/hooks/1/private-dir":              {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+						"/wal/hooks/1/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
+						"/wal/hooks/2":                          {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+					},
+				},
+			},
+		},
+		{
+			desc: "reapplying custom hooks works",
+			steps: steps{
+				{
+					Transaction: Transaction{
+						CustomHooksUpdate: &CustomHooksUpdate{
+							CustomHooksTAR: validCustomHooks(t),
+						},
+					},
+					Hooks: testHooks{
+						BeforeStoreAppliedLogIndex: func(hookContext) {
+							panic("crash")
+						},
+					},
+					ExpectedPanic: "crash",
+					ExpectedDatabase: DatabaseState{
+						string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
+							CustomHooksUpdate: &gitalypb.LogEntry_CustomHooksUpdate{
+								CustomHooksTar: validCustomHooks(t),
+							},
+						},
+					},
+					ExpectedRunError:     true,
+					ExpectedProposeError: ErrTransactionProcessingStopped,
+					ExpectedHooks: testhelper.DirectoryState{
+						"/wal/hooks":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+						"/wal/hooks/1": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+						"/wal/hooks/1/pre-receive": {
+							Mode:    umask.Mask(fs.ModePerm),
+							Content: []byte("hook content"),
+						},
+						"/wal/hooks/1/private-dir":              {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+						"/wal/hooks/1/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
+					},
+				},
+				{
+					// Empty transaction used here to just check the log entry is applied and the
+					// applied index incremented.
+					Transaction: Transaction{},
+					ExpectedDatabase: DatabaseState{
+						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
+					},
+					ExpectedHooks: testhelper.DirectoryState{
+						"/wal/hooks":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+						"/wal/hooks/1": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
+						"/wal/hooks/1/pre-receive": {
+							Mode:    umask.Mask(fs.ModePerm),
+							Content: []byte("hook content"),
+						},
+						"/wal/hooks/1/private-dir":              {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+						"/wal/hooks/1/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
+					},
 				},
 			},
 		},
@@ -2155,6 +2317,7 @@ func TestTransactionManager(t *testing.T) {
 				RequireReferences(t, ctx, repository, step.ExpectedReferences)
 				RequireDefaultBranch(t, ctx, repository, step.ExpectedDefaultBranch)
 				RequireDatabase(t, ctx, database, step.ExpectedDatabase)
+				RequireHooks(t, repository, step.ExpectedHooks)
 			}
 		})
 	}

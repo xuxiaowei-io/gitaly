@@ -6,14 +6,20 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/dgraph-io/badger/v3"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/protobuf/proto"
 )
@@ -66,6 +72,11 @@ func (index LogIndex) toProto() *gitalypb.LogIndex {
 	return &gitalypb.LogIndex{LogIndex: uint64(index)}
 }
 
+// String returns a string representation of the LogIndex.
+func (index LogIndex) String() string {
+	return strconv.FormatUint(uint64(index), 10)
+}
+
 // ReferenceUpdate describes the state of a reference's old and new tip in an update.
 type ReferenceUpdate struct {
 	// OldOID is the old OID the reference is expected to point to prior to updating it.
@@ -79,6 +90,14 @@ type ReferenceUpdate struct {
 type DefaultBranchUpdate struct {
 	// Reference is the reference to update the default branch to.
 	Reference git.ReferenceName
+}
+
+// CustomHooksUpdate models an update to the custom hooks.
+type CustomHooksUpdate struct {
+	// CustomHooksTAR contains the custom hooks as a TAR. The TAR contains a `custom_hooks`
+	// directory which contains the hooks. Setting the update with nil `custom_hooks_tar` clears
+	// the hooks from the repository.
+	CustomHooksTAR []byte
 }
 
 // ReferenceUpdates contains references to update. Reference name is used as the key and the value
@@ -97,6 +116,8 @@ type Transaction struct {
 	ReferenceUpdates
 	// DefaultBranchUpdate contains the information to update the default branch of the repo.
 	DefaultBranchUpdate *DefaultBranchUpdate
+	// CustomHooksUpdate contains the custom hooks to set in the repository.
+	CustomHooksUpdate *CustomHooksUpdate
 }
 
 // TransactionManager is responsible for transaction management of a single repository. Each repository has
@@ -171,6 +192,7 @@ type repository interface {
 	git.RepositoryExecutor
 	ResolveRevision(context.Context, git.Revision) (git.ObjectID, error)
 	SetDefaultBranch(ctx context.Context, txManager transaction.Manager, reference git.ReferenceName) error
+	Path() (string, error)
 }
 
 // NewTransactionManager returns a new TransactionManager for the given repository.
@@ -296,6 +318,12 @@ func (mgr *TransactionManager) Run() error {
 			logEntry, err := mgr.verifyReferences(mgr.ctx, transaction.transaction)
 			if err != nil {
 				return fmt.Errorf("verify references: %w", err)
+			}
+
+			if transaction.transaction.CustomHooksUpdate != nil {
+				logEntry.CustomHooksUpdate = &gitalypb.LogEntry_CustomHooksUpdate{
+					CustomHooksTar: transaction.transaction.CustomHooksUpdate.CustomHooksTAR,
+				}
 			}
 
 			return mgr.appendLogEntry(logEntry)
@@ -536,6 +564,10 @@ func (mgr *TransactionManager) applyLogEntry(ctx context.Context, logIndex LogIn
 		return fmt.Errorf("writing default branch: %w", err)
 	}
 
+	if err := mgr.applyCustomHooks(ctx, logIndex, logEntry.CustomHooksUpdate); err != nil {
+		return fmt.Errorf("apply custom hooks: %w", err)
+	}
+
 	if err := mgr.storeAppliedLogIndex(logIndex); err != nil {
 		return fmt.Errorf("set applied log index: %w", err)
 	}
@@ -545,6 +577,65 @@ func (mgr *TransactionManager) applyLogEntry(ctx context.Context, logIndex LogIn
 	}
 
 	mgr.appliedLogIndex = logIndex
+
+	return nil
+}
+
+// applyCustomHooks applies the custom hooks to the repository from the log entry. The hooks are stored
+// at `<repo>/wal/hooks/<log_index>`. The hooks are fsynced prior to returning so it is safe to delete
+// the log entry afterwards.
+func (mgr *TransactionManager) applyCustomHooks(ctx context.Context, logIndex LogIndex, update *gitalypb.LogEntry_CustomHooksUpdate) error {
+	if update == nil {
+		return nil
+	}
+
+	repoPath, err := mgr.repository.Path()
+	if err != nil {
+		return fmt.Errorf("repository path: %w", err)
+	}
+
+	syncer := safe.NewSyncer()
+
+	hooksPath := filepath.Join("wal", "hooks")
+	relativePath := filepath.Join(hooksPath, logIndex.String())
+	targetDirectory := filepath.Join(repoPath, relativePath)
+	if err := os.Mkdir(targetDirectory, fs.ModePerm); err != nil {
+		switch {
+		case errors.Is(err, fs.ErrExist):
+			// The target directory may exist if we previously tried to extract the
+			// hooks there. TAR overwrites existing files and the hooks files are
+			// guaranteed to be the same as this is the same log entry.
+		case errors.Is(err, fs.ErrNotExist):
+			// One of the parent directories doesn't exist. Create the expected
+			// hierarchy. This happens only when the hooks are being set for the
+			// first time in the repository.
+			if err := os.MkdirAll(targetDirectory, fs.ModePerm); err != nil {
+				return fmt.Errorf("create directories: %w", err)
+			}
+
+			// Sync the hierarchy separately as the common path doesn't sync anything
+			// but the hooks themselves.
+			if err := syncer.SyncHierarchy(repoPath, relativePath); err != nil {
+				return fmt.Errorf("sync hierarchy: %w", err)
+			}
+		default:
+			return fmt.Errorf("create directory: %w", err)
+		}
+	}
+
+	if err := hook.ExtractHooks(ctx, bytes.NewReader(update.CustomHooksTar), targetDirectory, true); err != nil {
+		return fmt.Errorf("extract hooks: %w", err)
+	}
+
+	// TAR doesn't sync the extracted files so do it manually here.
+	if err := syncer.SyncRecursive(targetDirectory); err != nil {
+		return fmt.Errorf("sync hooks: %w", err)
+	}
+
+	// Sync the parent directory as well.
+	if err := syncer.Sync(filepath.Join(repoPath, hooksPath)); err != nil {
+		return fmt.Errorf("sync hook directory: %w", err)
+	}
 
 	return nil
 }
