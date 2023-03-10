@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/testutil"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
@@ -43,6 +42,7 @@ type entry interface {
 // fileEntry is an entry implementation for a file
 type fileEntry struct {
 	name       string
+	data       string
 	mode       os.FileMode
 	age        time.Duration
 	finalState entryFinalState
@@ -52,13 +52,10 @@ func (f *fileEntry) create(t *testing.T, parent string) {
 	t.Helper()
 
 	filename := filepath.Join(parent, f.name)
-	ff, err := os.OpenFile(filename, os.O_RDONLY|os.O_CREATE, perm.PrivateFile)
-	assert.NoError(t, err, "file creation failed: %v", filename)
-	err = ff.Close()
-	assert.NoError(t, err, "file close failed: %v", filename)
+	require.NoError(t, os.WriteFile(filename, []byte(f.data), f.mode))
 
-	f.chmod(t, filename)
-	f.chtimes(t, filename)
+	filetime := time.Now().Add(-f.age)
+	require.NoError(t, os.Chtimes(filename, filetime, filetime))
 }
 
 func (f *fileEntry) validate(t *testing.T, parent string) {
@@ -66,21 +63,6 @@ func (f *fileEntry) validate(t *testing.T, parent string) {
 
 	filename := filepath.Join(parent, f.name)
 	f.checkExistence(t, filename)
-}
-
-func (f *fileEntry) chmod(t *testing.T, filename string) {
-	t.Helper()
-
-	err := os.Chmod(filename, f.mode)
-	assert.NoError(t, err, "chmod failed")
-}
-
-func (f *fileEntry) chtimes(t *testing.T, filename string) {
-	t.Helper()
-
-	filetime := time.Now().Add(-f.age)
-	err := os.Chtimes(filename, filetime, filetime)
-	assert.NoError(t, err, "chtimes failed")
 }
 
 func (f *fileEntry) checkExistence(t *testing.T, filename string) {
@@ -113,8 +95,9 @@ func (d *dirEntry) create(t *testing.T, parent string) {
 	}
 
 	// Apply permissions and times after the children have been created
-	d.chmod(t, dirname)
-	d.chtimes(t, dirname)
+	require.NoError(t, os.Chmod(dirname, d.mode))
+	filetime := time.Now().Add(-d.age)
+	require.NoError(t, os.Chtimes(dirname, filetime, filetime))
 }
 
 func (d *dirEntry) validate(t *testing.T, parent string) {
@@ -133,6 +116,12 @@ type entryOption func(entry *fileEntry)
 func withAge(age time.Duration) entryOption {
 	return func(entry *fileEntry) {
 		entry.age = age
+	}
+}
+
+func withData(data string) entryOption {
+	return func(entry *fileEntry) {
+		entry.data = data
 	}
 }
 
