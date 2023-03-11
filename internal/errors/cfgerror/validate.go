@@ -313,3 +313,11 @@ func (c numeric[T]) GreaterOrEqual(val T) error {
 func (c numeric[T]) InRange(min, max T, opts ...InRangeOpt) error {
 	return InRange(min, max, c.value, opts...)
 }
+
+// NotEmptySlice returns an error if provided slice has no elements.
+func NotEmptySlice[T any](slice []T) error {
+	if len(slice) == 0 {
+		return NewValidationError(ErrNotSet)
+	}
+	return nil
+}

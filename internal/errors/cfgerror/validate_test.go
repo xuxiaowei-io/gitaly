@@ -340,3 +340,10 @@ func TestIsSupportedValue(t *testing.T) {
 	require.Equal(t, NewValidationError(fmt.Errorf("%w: 1", ErrUnsupportedValue)), IsSupportedValue(1, 0, 10))
 	require.Equal(t, NewValidationError(fmt.Errorf(`%w: "c"`, ErrUnsupportedValue)), IsSupportedValue("c", "a", "b"))
 }
+
+func TestNotEmptySlice(t *testing.T) {
+	t.Parallel()
+	require.NoError(t, NotEmptySlice([]int{1}))
+	require.Equal(t, NewValidationError(ErrNotSet), NotEmptySlice([]string{}))
+	require.Equal(t, NewValidationError(ErrNotSet), NotEmptySlice[any](nil))
+}

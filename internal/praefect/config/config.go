@@ -272,6 +272,19 @@ type VirtualStorage struct {
 	DefaultReplicationFactor int `toml:"default_replication_factor,omitempty"`
 }
 
+// Validate runs validation on all fields and compose all found errors.
+func (vs VirtualStorage) Validate() error {
+	errs := cfgerror.New().
+		Append(cfgerror.NotBlank(vs.Name), "name").
+		Append(cfgerror.NotEmptySlice(vs.Nodes), "node")
+
+	for i, node := range vs.Nodes {
+		errs = errs.Append(node.Validate(), "node", fmt.Sprintf("[%d]", i))
+	}
+
+	return errs.AsError()
+}
+
 // FromFile loads the config for the passed file path
 func FromFile(filePath string) (Config, error) {
 	b, err := os.ReadFile(filePath)

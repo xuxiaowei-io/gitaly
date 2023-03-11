@@ -759,3 +759,52 @@ func TestReplication_Validate(t *testing.T) {
 		})
 	}
 }
+
+func TestVirtualStorage_Validate(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name        string
+		vs          VirtualStorage
+		expectedErr error
+	}{
+		{
+			name: "ok",
+			vs: VirtualStorage{
+				Name:  "vs",
+				Nodes: []*Node{{Storage: "st", Address: "addr"}},
+			},
+		},
+		{
+			name: "invalid node",
+			vs: VirtualStorage{
+				Name:  "vs",
+				Nodes: []*Node{{Storage: "", Address: "addr"}},
+			},
+			expectedErr: cfgerror.ValidationErrors{
+				{
+					Key:   []string{"node", "[0]", "storage"},
+					Cause: cfgerror.ErrBlankOrEmpty,
+				},
+			},
+		},
+		{
+			name: "invalid",
+			vs:   VirtualStorage{},
+			expectedErr: cfgerror.ValidationErrors{
+				{
+					Key:   []string{"name"},
+					Cause: cfgerror.ErrBlankOrEmpty,
+				},
+				{
+					Key:   []string{"node"},
+					Cause: cfgerror.ErrNotSet,
+				},
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.vs.Validate()
+			require.Equal(t, tc.expectedErr, err)
+		})
+	}
+}
