@@ -808,3 +808,57 @@ func TestVirtualStorage_Validate(t *testing.T) {
 		})
 	}
 }
+
+func TestRepositoriesCleanup_Validate(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name        string
+		cleanup     RepositoriesCleanup
+		expectedErr error
+	}{
+		{
+			name: "valid",
+			cleanup: RepositoriesCleanup{
+				CheckInterval:       duration.Duration(10 * time.Minute),
+				RunInterval:         duration.Duration(1 * time.Minute),
+				RepositoriesInBatch: 10,
+			},
+		},
+		{
+			name: "noop because run interval is 0",
+			cleanup: RepositoriesCleanup{
+				CheckInterval:       -duration.Duration(10 * time.Minute),
+				RunInterval:         0,
+				RepositoriesInBatch: 10,
+			},
+		},
+		{
+			name: "invalid",
+			cleanup: RepositoriesCleanup{
+				CheckInterval:       duration.Duration(1),
+				RunInterval:         duration.Duration(50 * time.Second),
+				RepositoriesInBatch: 0,
+			},
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: 1ns is not greater than or equal to 1m0s", cfgerror.ErrNotInRange),
+					"check_interval",
+				),
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: 50s is not greater than or equal to 1m0s", cfgerror.ErrNotInRange),
+					"run_interval",
+				),
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: 0 is not greater than or equal to 1", cfgerror.ErrNotInRange),
+					"repositories_in_batch",
+				),
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.cleanup.Validate()
+			require.Equal(t, tc.expectedErr, err)
+		})
+	}
+}

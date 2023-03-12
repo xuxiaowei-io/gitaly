@@ -508,7 +508,22 @@ type RepositoriesCleanup struct {
 	// RunInterval: the check runs if the previous operation was done at least RunInterval before.
 	RunInterval duration.Duration `toml:"run_interval,omitempty"`
 	// RepositoriesInBatch is the number of repositories to pass as a batch for processing.
-	RepositoriesInBatch int `toml:"repositories_in_batch,omitempty"`
+	RepositoriesInBatch uint `toml:"repositories_in_batch,omitempty"`
+}
+
+// Validate runs validation on all fields and compose all found errors.
+func (rc RepositoriesCleanup) Validate() error {
+	if rc.RunInterval == 0 {
+		// If RunInterval is set to 0 it means it is disabled. The validation doesn't make
+		// sense then as it won't be used.
+		return nil
+	}
+
+	return cfgerror.New().
+		Append(cfgerror.Comparable(rc.CheckInterval.Duration()).GreaterOrEqual(minimalSyncCheckInterval), "check_interval").
+		Append(cfgerror.Comparable(rc.RunInterval.Duration()).GreaterOrEqual(minimalSyncRunInterval), "run_interval").
+		Append(cfgerror.Comparable(rc.RepositoriesInBatch).GreaterOrEqual(1), "repositories_in_batch").
+		AsError()
 }
 
 // DefaultRepositoriesCleanup contains default configuration values for the RepositoriesCleanup.
