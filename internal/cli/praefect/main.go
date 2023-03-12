@@ -326,7 +326,7 @@ func run(
 	sidechannelRegistry := sidechannel.NewRegistry()
 
 	backchannelCfg := backchannel.DefaultConfiguration()
-	backchannelCfg.AcceptBacklog = conf.Yamux.AcceptBacklog
+	backchannelCfg.AcceptBacklog = int(conf.Yamux.AcceptBacklog)
 	backchannelCfg.MaximumStreamWindowSizeBytes = conf.Yamux.MaximumStreamWindowSizeBytes
 	clientHandshaker := backchannel.NewClientHandshaker(
 		logger,

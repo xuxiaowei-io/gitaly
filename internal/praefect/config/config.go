@@ -234,7 +234,7 @@ type Yamux struct {
 	MaximumStreamWindowSizeBytes uint32 `toml:"maximum_stream_window_size_bytes,omitempty"`
 	// AcceptBacklog sets the maximum number of stream openings in-flight before further openings
 	// block.
-	AcceptBacklog int `toml:"accept_backlog,omitempty"`
+	AcceptBacklog uint `toml:"accept_backlog,omitempty"`
 }
 
 func (cfg Yamux) validate() error {
@@ -251,12 +251,20 @@ func (cfg Yamux) validate() error {
 	return nil
 }
 
+// Validate runs validation on all fields and compose all found errors.
+func (cfg Yamux) Validate() error {
+	return cfgerror.New().
+		Append(cfgerror.Comparable(cfg.MaximumStreamWindowSizeBytes).GreaterOrEqual(262144), "maximum_stream_window_size_bytes").
+		Append(cfgerror.Comparable(cfg.AcceptBacklog).GreaterOrEqual(1), "accept_backlog").
+		AsError()
+}
+
 // DefaultYamuxConfig returns the default Yamux configuration values.
 func DefaultYamuxConfig() Yamux {
 	defaultCfg := yamux.DefaultConfig()
 	return Yamux{
 		MaximumStreamWindowSizeBytes: defaultCfg.MaxStreamWindowSize,
-		AcceptBacklog:                defaultCfg.AcceptBacklog,
+		AcceptBacklog:                uint(defaultCfg.AcceptBacklog),
 	}
 }
 

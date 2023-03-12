@@ -862,3 +862,43 @@ func TestRepositoriesCleanup_Validate(t *testing.T) {
 		})
 	}
 }
+
+func TestYamux_Validate(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name        string
+		yamux       Yamux
+		expectedErr error
+	}{
+		{
+			name: "valid",
+			yamux: Yamux{
+				MaximumStreamWindowSizeBytes: 1024 * 1024,
+				AcceptBacklog:                5,
+			},
+		},
+		{
+			name: "invalid",
+			yamux: Yamux{
+				MaximumStreamWindowSizeBytes: 1024,
+				AcceptBacklog:                0,
+			},
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: 1024 out of [262144, Inf)", cfgerror.ErrNotInRange),
+					"maximum_stream_window_size_bytes",
+				),
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: 0 out of [1, Inf)", cfgerror.ErrNotInRange),
+					"accept_backlog",
+				),
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.yamux.Validate()
+			require.Equal(t, tc.expectedErr, err)
+		})
+	}
+}
