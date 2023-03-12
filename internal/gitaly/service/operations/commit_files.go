@@ -125,6 +125,40 @@ func validatePath(rootPath, relPath string) (string, error) {
 	return path, nil
 }
 
+func (s *Server) userCommitFilesGit2Go(
+	ctx context.Context,
+	header *gitalypb.UserCommitFilesRequestHeader,
+	parentCommitOID git.ObjectID,
+	quarantineRepo *localrepo.Repo,
+	repoPath string,
+	actions []git2go.Action,
+) (git.ObjectID, error) {
+	now, err := dateFromProto(header)
+	if err != nil {
+		return "", structerr.NewInvalidArgument("%w", err)
+	}
+
+	committer := git2go.NewSignature(string(header.User.Name), string(header.User.Email), now)
+	author := committer
+	if len(header.CommitAuthorName) > 0 && len(header.CommitAuthorEmail) > 0 {
+		author = git2go.NewSignature(string(header.CommitAuthorName), string(header.CommitAuthorEmail), now)
+	}
+
+	commitID, err := s.git2goExecutor.Commit(ctx, quarantineRepo, git2go.CommitCommand{
+		Repository: repoPath,
+		Author:     author,
+		Committer:  committer,
+		Message:    string(header.CommitMessage),
+		Parent:     parentCommitOID.String(),
+		Actions:    actions,
+	})
+	if err != nil {
+		return "", fmt.Errorf("commit: %w", err)
+	}
+
+	return commitID, nil
+}
+
 func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommitFilesRequestHeader, stream gitalypb.OperationService_UserCommitFilesServer) error {
 	quarantineDir, quarantineRepo, err := s.quarantinedRepo(ctx, header.GetRepository())
 	if err != nil {
@@ -288,27 +322,16 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 		}
 	}
 
-	now, err := dateFromProto(header)
+	commitID, err := s.userCommitFilesGit2Go(
+		ctx,
+		header,
+		parentCommitOID,
+		quarantineRepo,
+		repoPath,
+		actions,
+	)
 	if err != nil {
-		return structerr.NewInvalidArgument("%w", err)
-	}
-
-	committer := git2go.NewSignature(string(header.User.Name), string(header.User.Email), now)
-	author := committer
-	if len(header.CommitAuthorName) > 0 && len(header.CommitAuthorEmail) > 0 {
-		author = git2go.NewSignature(string(header.CommitAuthorName), string(header.CommitAuthorEmail), now)
-	}
-
-	commitID, err := s.git2goExecutor.Commit(ctx, quarantineRepo, git2go.CommitCommand{
-		Repository: repoPath,
-		Author:     author,
-		Committer:  committer,
-		Message:    string(header.CommitMessage),
-		Parent:     parentCommitOID.String(),
-		Actions:    actions,
-	})
-	if err != nil {
-		return fmt.Errorf("commit: %w", err)
+		return err
 	}
 
 	hasBranches, err := quarantineRepo.HasBranches(ctx)
