@@ -136,8 +136,14 @@ func TestTransactionManager(t *testing.T) {
 		SkipStartManager bool
 		// Context is the context to use for the Propose call of the step.
 		Context context.Context
-		// Transaction is the transaction that is proposed in this step.
-		Transaction Transaction
+		// SkipVerificationFailures sets the verification failure handling for this step.
+		SkipVerificationFailures bool
+		// ReferenceUpdates are the reference updates to perform in this step.
+		ReferenceUpdates ReferenceUpdates
+		// DefaultBranchUpdate is the default branch update to perform in this step.
+		DefaultBranchUpdate *DefaultBranchUpdate
+		// CustomHooksUpdate is the custom hooks update to perform in this step.
+		CustomHooksUpdate *CustomHooksUpdate
 		// Hooks contains the hook functions that are configured on the TransactionManager. These allow
 		// for better synchronization.
 		Hooks testHooks
@@ -168,12 +174,10 @@ func TestTransactionManager(t *testing.T) {
 			desc: "invalid reference aborts the entire transaction",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						SkipVerificationFailures: true,
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main":    {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-							"refs/heads/../main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						},
+					SkipVerificationFailures: true,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main":    {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/../main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
 					ExpectedProposeError:  updateref.ErrInvalidReferenceFormat{ReferenceName: "refs/heads/../main"},
 					ExpectedDefaultBranch: "",
@@ -184,19 +188,15 @@ func TestTransactionManager(t *testing.T) {
 			desc: "continues processing after aborting due to an invalid reference",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/../main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/../main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
 					ExpectedProposeError:  updateref.ErrInvalidReferenceFormat{ReferenceName: "refs/heads/../main"},
 					ExpectedDefaultBranch: "",
 				},
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
 					ExpectedReferences: []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
 					Hooks: testHooks{
@@ -225,10 +225,8 @@ func TestTransactionManager(t *testing.T) {
 			desc: "create reference",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
 					ExpectedReferences: []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
 					Hooks: testHooks{
@@ -257,10 +255,8 @@ func TestTransactionManager(t *testing.T) {
 			desc: "create a file-directory reference conflict different transaction",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/parent": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/parent": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
 					ExpectedReferences: []git.Reference{{Name: "refs/heads/parent", Target: rootCommitOID.String()}},
 					Hooks: testHooks{
@@ -284,10 +280,8 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDefaultBranch: "refs/heads/parent",
 				},
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/parent/child": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/parent/child": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
 					ExpectedProposeError: updateref.ErrFileDirectoryConflict{
 						ExistingReferenceName:    "refs/heads/parent",
@@ -305,11 +299,9 @@ func TestTransactionManager(t *testing.T) {
 			desc: "create a file-directory reference conflict in same transaction",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/parent":       {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-							"refs/heads/parent/child": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/parent":       {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/parent/child": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
 					ExpectedProposeError: updateref.ErrInTransactionConflict{
 						FirstReferenceName:  "refs/heads/parent",
@@ -323,13 +315,11 @@ func TestTransactionManager(t *testing.T) {
 			desc: "file-directory conflict aborts the transaction with verification failures skipped",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						SkipVerificationFailures: true,
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main":         {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-							"refs/heads/parent":       {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-							"refs/heads/parent/child": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						},
+					SkipVerificationFailures: true,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main":         {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/parent":       {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/parent/child": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
 					ExpectedProposeError: updateref.ErrInTransactionConflict{
 						FirstReferenceName:  "refs/heads/parent",
@@ -343,10 +333,8 @@ func TestTransactionManager(t *testing.T) {
 			desc: "delete file-directory conflict in different transaction",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/parent/child": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/parent/child": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
 					ExpectedReferences: []git.Reference{{Name: "refs/heads/parent/child", Target: rootCommitOID.String()}},
 					Hooks: testHooks{
@@ -370,10 +358,8 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDefaultBranch: "refs/heads/parent/child",
 				},
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/parent": {OldOID: objectHash.ZeroOID, NewOID: objectHash.ZeroOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/parent": {OldOID: objectHash.ZeroOID, NewOID: objectHash.ZeroOID},
 					},
 					ExpectedProposeError: updateref.ErrFileDirectoryConflict{
 						ExistingReferenceName:    "refs/heads/parent/child",
@@ -391,11 +377,9 @@ func TestTransactionManager(t *testing.T) {
 			desc: "delete file-directory conflict in same transaction",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/parent/child": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-							"refs/heads/parent":       {OldOID: objectHash.ZeroOID, NewOID: objectHash.ZeroOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/parent/child": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/parent":       {OldOID: objectHash.ZeroOID, NewOID: objectHash.ZeroOID},
 					},
 					ExpectedProposeError: updateref.ErrInTransactionConflict{
 						FirstReferenceName:  "refs/heads/parent",
@@ -409,13 +393,11 @@ func TestTransactionManager(t *testing.T) {
 			desc: "create a branch to a non-commit object",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						SkipVerificationFailures: true,
-						ReferenceUpdates: ReferenceUpdates{
-							// The error should abort the entire transaction.
-							"refs/heads/branch-1": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-							"refs/heads/branch-2": {OldOID: objectHash.ZeroOID, NewOID: objectHash.EmptyTreeOID},
-						},
+					SkipVerificationFailures: true,
+					ReferenceUpdates: ReferenceUpdates{
+						// The error should abort the entire transaction.
+						"refs/heads/branch-1": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/branch-2": {OldOID: objectHash.ZeroOID, NewOID: objectHash.EmptyTreeOID},
 					},
 					ExpectedProposeError: updateref.NonCommitObjectError{
 						ReferenceName: "refs/heads/branch-2",
@@ -429,10 +411,8 @@ func TestTransactionManager(t *testing.T) {
 			desc: "create a tag to a non-commit object",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/tags/v1.0.0": {OldOID: objectHash.ZeroOID, NewOID: objectHash.EmptyTreeOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/tags/v1.0.0": {OldOID: objectHash.ZeroOID, NewOID: objectHash.EmptyTreeOID},
 					},
 					ExpectedReferences: []git.Reference{{Name: "refs/tags/v1.0.0", Target: objectHash.EmptyTreeOID.String()}},
 					Hooks: testHooks{
@@ -461,10 +441,8 @@ func TestTransactionManager(t *testing.T) {
 			desc: "create a reference to non-existent object",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: nonExistentOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: nonExistentOID},
 					},
 					ExpectedProposeError: updateref.NonExistentObjectError{
 						ReferenceName: "refs/heads/main",
@@ -478,10 +456,8 @@ func TestTransactionManager(t *testing.T) {
 			desc: "create reference ignoring verification failure",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
 					ExpectedReferences: []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
 					Hooks: testHooks{
@@ -505,12 +481,10 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDefaultBranch: "refs/heads/main",
 				},
 				{
-					Transaction: Transaction{
-						SkipVerificationFailures: true,
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main":            {OldOID: objectHash.ZeroOID, NewOID: secondCommitOID},
-							"refs/heads/non-conflicting": {OldOID: objectHash.ZeroOID, NewOID: secondCommitOID},
-						},
+					SkipVerificationFailures: true,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main":            {OldOID: objectHash.ZeroOID, NewOID: secondCommitOID},
+						"refs/heads/non-conflicting": {OldOID: objectHash.ZeroOID, NewOID: secondCommitOID},
 					},
 					ExpectedReferences: []git.Reference{
 						{Name: "refs/heads/main", Target: rootCommitOID.String()},
@@ -542,10 +516,8 @@ func TestTransactionManager(t *testing.T) {
 			desc: "create reference that already exists",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
 					ExpectedReferences: []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
 					Hooks: testHooks{
@@ -569,11 +541,9 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDefaultBranch: "refs/heads/main",
 				},
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main":            {OldOID: objectHash.ZeroOID, NewOID: secondCommitOID},
-							"refs/heads/non-conflicting": {OldOID: objectHash.ZeroOID, NewOID: secondCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main":            {OldOID: objectHash.ZeroOID, NewOID: secondCommitOID},
+						"refs/heads/non-conflicting": {OldOID: objectHash.ZeroOID, NewOID: secondCommitOID},
 					},
 					ExpectedProposeError: ReferenceVerificationError{
 						ReferenceName: "refs/heads/main",
@@ -599,10 +569,8 @@ func TestTransactionManager(t *testing.T) {
 			desc: "create reference no-op",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
 					ExpectedReferences: []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
 					Hooks: testHooks{
@@ -626,10 +594,8 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDefaultBranch: "refs/heads/main",
 				},
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
 					ExpectedProposeError: ReferenceVerificationError{
 						ReferenceName: "refs/heads/main",
@@ -648,10 +614,8 @@ func TestTransactionManager(t *testing.T) {
 			desc: "update reference",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
 					ExpectedReferences: []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
 					Hooks: testHooks{
@@ -675,10 +639,8 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDefaultBranch: "refs/heads/main",
 				},
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main": {OldOID: rootCommitOID, NewOID: secondCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: rootCommitOID, NewOID: secondCommitOID},
 					},
 					ExpectedReferences: []git.Reference{{Name: "refs/heads/main", Target: secondCommitOID.String()}},
 					Hooks: testHooks{
@@ -708,11 +670,9 @@ func TestTransactionManager(t *testing.T) {
 			desc: "update reference ignoring verification failures",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main":            {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-							"refs/heads/non-conflicting": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main":            {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/non-conflicting": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
 					ExpectedReferences: []git.Reference{
 						{Name: "refs/heads/main", Target: rootCommitOID.String()},
@@ -744,12 +704,10 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDefaultBranch: "refs/heads/main",
 				},
 				{
-					Transaction: Transaction{
-						SkipVerificationFailures: true,
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main":            {OldOID: secondCommitOID, NewOID: thirdCommitOID},
-							"refs/heads/non-conflicting": {OldOID: rootCommitOID, NewOID: thirdCommitOID},
-						},
+					SkipVerificationFailures: true,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main":            {OldOID: secondCommitOID, NewOID: thirdCommitOID},
+						"refs/heads/non-conflicting": {OldOID: rootCommitOID, NewOID: thirdCommitOID},
 					},
 					ExpectedReferences: []git.Reference{
 						{Name: "refs/heads/main", Target: rootCommitOID.String()},
@@ -781,11 +739,9 @@ func TestTransactionManager(t *testing.T) {
 			desc: "update reference with incorrect old tip",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main":            {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-							"refs/heads/non-conflicting": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main":            {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/non-conflicting": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
 					ExpectedReferences: []git.Reference{
 						{Name: "refs/heads/main", Target: rootCommitOID.String()},
@@ -816,11 +772,9 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDefaultBranch: "refs/heads/main",
 				},
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main":            {OldOID: secondCommitOID, NewOID: thirdCommitOID},
-							"refs/heads/non-conflicting": {OldOID: rootCommitOID, NewOID: thirdCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main":            {OldOID: secondCommitOID, NewOID: thirdCommitOID},
+						"refs/heads/non-conflicting": {OldOID: rootCommitOID, NewOID: thirdCommitOID},
 					},
 					ExpectedProposeError: ReferenceVerificationError{
 						ReferenceName: "refs/heads/main",
@@ -842,10 +796,8 @@ func TestTransactionManager(t *testing.T) {
 			desc: "update non-existent reference",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main": {OldOID: secondCommitOID, NewOID: thirdCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: secondCommitOID, NewOID: thirdCommitOID},
 					},
 					ExpectedProposeError: ReferenceVerificationError{
 						ReferenceName: "refs/heads/main",
@@ -860,10 +812,8 @@ func TestTransactionManager(t *testing.T) {
 			desc: "update reference no-op",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
 					ExpectedReferences: []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
 					Hooks: testHooks{
@@ -887,10 +837,8 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDefaultBranch: "refs/heads/main",
 				},
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main": {OldOID: rootCommitOID, NewOID: rootCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: rootCommitOID, NewOID: rootCommitOID},
 					},
 					ExpectedReferences: []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
 					Hooks: testHooks{
@@ -919,10 +867,8 @@ func TestTransactionManager(t *testing.T) {
 			desc: "delete reference",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
 					ExpectedReferences: []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
 					Hooks: testHooks{
@@ -946,10 +892,8 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDefaultBranch: "refs/heads/main",
 				},
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main": {OldOID: rootCommitOID, NewOID: objectHash.ZeroOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: rootCommitOID, NewOID: objectHash.ZeroOID},
 					},
 					Hooks: testHooks{
 						BeforeDeleteLogEntry: func(hookCtx hookContext) {
@@ -977,11 +921,9 @@ func TestTransactionManager(t *testing.T) {
 			desc: "delete reference ignoring verification failures",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main":            {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-							"refs/heads/non-conflicting": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main":            {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/non-conflicting": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
 					ExpectedReferences: []git.Reference{
 						{Name: "refs/heads/main", Target: rootCommitOID.String()},
@@ -1012,12 +954,10 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDefaultBranch: "refs/heads/main",
 				},
 				{
-					Transaction: Transaction{
-						SkipVerificationFailures: true,
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main":            {OldOID: secondCommitOID, NewOID: objectHash.ZeroOID},
-							"refs/heads/non-conflicting": {OldOID: rootCommitOID, NewOID: objectHash.ZeroOID},
-						},
+					SkipVerificationFailures: true,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main":            {OldOID: secondCommitOID, NewOID: objectHash.ZeroOID},
+						"refs/heads/non-conflicting": {OldOID: rootCommitOID, NewOID: objectHash.ZeroOID},
 					},
 					ExpectedReferences: []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
 					Hooks: testHooks{
@@ -1046,11 +986,9 @@ func TestTransactionManager(t *testing.T) {
 			desc: "delete reference with incorrect old tip",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main":            {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-							"refs/heads/non-conflicting": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main":            {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/non-conflicting": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
 					ExpectedReferences: []git.Reference{
 						{Name: "refs/heads/main", Target: rootCommitOID.String()},
@@ -1081,11 +1019,9 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDefaultBranch: "refs/heads/main",
 				},
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main":            {OldOID: secondCommitOID, NewOID: objectHash.ZeroOID},
-							"refs/heads/non-conflicting": {OldOID: rootCommitOID, NewOID: objectHash.ZeroOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main":            {OldOID: secondCommitOID, NewOID: objectHash.ZeroOID},
+						"refs/heads/non-conflicting": {OldOID: rootCommitOID, NewOID: objectHash.ZeroOID},
 					},
 					ExpectedProposeError: ReferenceVerificationError{
 						ReferenceName: "refs/heads/main",
@@ -1107,10 +1043,8 @@ func TestTransactionManager(t *testing.T) {
 			desc: "delete non-existent reference",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main": {OldOID: rootCommitOID, NewOID: objectHash.ZeroOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: rootCommitOID, NewOID: objectHash.ZeroOID},
 					},
 					ExpectedProposeError: ReferenceVerificationError{
 						ReferenceName: "refs/heads/main",
@@ -1125,10 +1059,8 @@ func TestTransactionManager(t *testing.T) {
 			desc: "delete reference no-op",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: objectHash.ZeroOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: objectHash.ZeroOID},
 					},
 					Hooks: testHooks{
 						BeforeDeleteLogEntry: func(hookCtx hookContext) {
@@ -1156,10 +1088,8 @@ func TestTransactionManager(t *testing.T) {
 			desc: "set custom hooks successfully",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						CustomHooksUpdate: &CustomHooksUpdate{
-							CustomHooksTAR: validCustomHooks(t),
-						},
+					CustomHooksUpdate: &CustomHooksUpdate{
+						CustomHooksTAR: validCustomHooks(t),
 					},
 					Hooks: testHooks{
 						BeforeDeleteLogEntry: func(hookCtx hookContext) {
@@ -1188,9 +1118,7 @@ func TestTransactionManager(t *testing.T) {
 					},
 				},
 				{
-					Transaction: Transaction{
-						CustomHooksUpdate: &CustomHooksUpdate{},
-					},
+					CustomHooksUpdate: &CustomHooksUpdate{},
 					Hooks: testHooks{
 						BeforeDeleteLogEntry: func(hookCtx hookContext) {
 							RequireDatabase(hookCtx.tb, ctx, hookCtx.database, DatabaseState{
@@ -1222,10 +1150,8 @@ func TestTransactionManager(t *testing.T) {
 			desc: "reapplying custom hooks works",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						CustomHooksUpdate: &CustomHooksUpdate{
-							CustomHooksTAR: validCustomHooks(t),
-						},
+					CustomHooksUpdate: &CustomHooksUpdate{
+						CustomHooksTAR: validCustomHooks(t),
 					},
 					Hooks: testHooks{
 						BeforeStoreAppliedLogIndex: func(hookContext) {
@@ -1256,7 +1182,6 @@ func TestTransactionManager(t *testing.T) {
 				{
 					// Empty transaction used here to just check the log entry is applied and the
 					// applied index incremented.
-					Transaction: Transaction{},
 					ExpectedDatabase: DatabaseState{
 						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
 					},
@@ -1277,10 +1202,8 @@ func TestTransactionManager(t *testing.T) {
 			desc: "continues processing after reference verification failure",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main": {OldOID: rootCommitOID, NewOID: secondCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: rootCommitOID, NewOID: secondCommitOID},
 					},
 					ExpectedProposeError: ReferenceVerificationError{
 						ReferenceName: "refs/heads/main",
@@ -1290,10 +1213,8 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDefaultBranch: "",
 				},
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: secondCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: secondCommitOID},
 					},
 					ExpectedReferences: []git.Reference{{Name: "refs/heads/main", Target: secondCommitOID.String()}},
 					Hooks: testHooks{
@@ -1322,10 +1243,8 @@ func TestTransactionManager(t *testing.T) {
 			desc: "continues processing after a restart",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
 					ExpectedReferences: []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
 					Hooks: testHooks{
@@ -1351,10 +1270,8 @@ func TestTransactionManager(t *testing.T) {
 				{
 					StopManager:    true,
 					RestartManager: true,
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main": {OldOID: rootCommitOID, NewOID: secondCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: rootCommitOID, NewOID: secondCommitOID},
 					},
 					ExpectedReferences: []git.Reference{{Name: "refs/heads/main", Target: secondCommitOID.String()}},
 					Hooks: testHooks{
@@ -1383,10 +1300,8 @@ func TestTransactionManager(t *testing.T) {
 			desc: "continues processing after restarting after a reference verification failure",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main": {OldOID: rootCommitOID, NewOID: secondCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: rootCommitOID, NewOID: secondCommitOID},
 					},
 					ExpectedProposeError: ReferenceVerificationError{
 						ReferenceName: "refs/heads/main",
@@ -1398,10 +1313,8 @@ func TestTransactionManager(t *testing.T) {
 				{
 					StopManager:    true,
 					RestartManager: true,
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: secondCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: secondCommitOID},
 					},
 					ExpectedReferences: []git.Reference{{Name: "refs/heads/main", Target: secondCommitOID.String()}},
 					Hooks: testHooks{
@@ -1430,10 +1343,8 @@ func TestTransactionManager(t *testing.T) {
 			desc: "continues processing after failing to store log index",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
 					Hooks: testHooks{
 						BeforeStoreAppliedLogIndex: func(hookCtx hookContext) {
@@ -1457,10 +1368,8 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDefaultBranch: "refs/heads/main",
 				},
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main": {OldOID: rootCommitOID, NewOID: secondCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: rootCommitOID, NewOID: secondCommitOID},
 					},
 					ExpectedReferences: []git.Reference{{Name: "refs/heads/main", Target: secondCommitOID.String()}},
 					ExpectedDatabase: DatabaseState{
@@ -1474,10 +1383,8 @@ func TestTransactionManager(t *testing.T) {
 			desc: "recovers from the write-ahead log on start up",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
 					Hooks: testHooks{
 						BeforeApplyLogEntry: func(hookCtx hookContext) {
@@ -1499,10 +1406,8 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDefaultBranch: "",
 				},
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main": {OldOID: rootCommitOID, NewOID: secondCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: rootCommitOID, NewOID: secondCommitOID},
 					},
 					ExpectedReferences: []git.Reference{{Name: "refs/heads/main", Target: secondCommitOID.String()}},
 					// Notice that here we can't check state of database before deletion because
@@ -1520,10 +1425,8 @@ func TestTransactionManager(t *testing.T) {
 			desc: "reference verification fails after recovering logged writes",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
 					Hooks: testHooks{
 						BeforeApplyLogEntry: func(hookCtx hookContext) {
@@ -1545,10 +1448,8 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDefaultBranch: "",
 				},
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main": {OldOID: secondCommitOID, NewOID: rootCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: secondCommitOID, NewOID: rootCommitOID},
 					},
 					ExpectedProposeError: ReferenceVerificationError{
 						ReferenceName: "refs/heads/main",
@@ -1588,10 +1489,8 @@ func TestTransactionManager(t *testing.T) {
 						return ctx
 					}(),
 					SkipStartManager: true,
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
 					ExpectedProposeError:  context.Canceled,
 					ExpectedDefaultBranch: "",
@@ -1603,10 +1502,8 @@ func TestTransactionManager(t *testing.T) {
 			steps: steps{
 				{
 					StopManager: true,
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
 					ExpectedProposeError:  ErrTransactionProcessingStopped,
 					ExpectedDefaultBranch: "",
@@ -1620,10 +1517,8 @@ func TestTransactionManager(t *testing.T) {
 				steps: steps{
 					{
 						Context: ctx,
-						Transaction: Transaction{
-							ReferenceUpdates: ReferenceUpdates{
-								"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-							},
+						ReferenceUpdates: ReferenceUpdates{
+							"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 						},
 						Hooks: testHooks{
 							BeforeApplyLogEntry: func(hookCtx hookContext) {
@@ -1658,10 +1553,8 @@ func TestTransactionManager(t *testing.T) {
 			desc: "propose returns if transaction processing stops before transaction acceptance",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
 					Hooks: testHooks{
 						BeforeAppendLogEntry: func(hookContext hookContext) { hookContext.stopManager() },
@@ -1678,10 +1571,8 @@ func TestTransactionManager(t *testing.T) {
 			desc: "propose returns if transaction processing stops after transaction acceptance",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
 					Hooks: testHooks{
 						BeforeApplyLogEntry: func(hookCtx hookContext) {
@@ -1707,11 +1598,9 @@ func TestTransactionManager(t *testing.T) {
 			desc: "update default branch with existing branch",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/branch2": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-							"refs/heads/main":    {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/branch2": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/main":    {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
 					ExpectedReferences: []git.Reference{
 						{Name: "refs/heads/branch2", Target: rootCommitOID.String()},
@@ -1742,10 +1631,8 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDefaultBranch: "refs/heads/main",
 				},
 				{
-					Transaction: Transaction{
-						DefaultBranchUpdate: &DefaultBranchUpdate{
-							Reference: "refs/heads/branch2",
-						},
+					DefaultBranchUpdate: &DefaultBranchUpdate{
+						Reference: "refs/heads/branch2",
 					},
 					ExpectedReferences: []git.Reference{
 						{Name: "refs/heads/branch2", Target: rootCommitOID.String()},
@@ -1774,10 +1661,8 @@ func TestTransactionManager(t *testing.T) {
 			desc: "update default branch with new branch created in same transaction",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
 					ExpectedReferences: []git.Reference{
 						{Name: "refs/heads/main", Target: rootCommitOID.String()},
@@ -1803,14 +1688,12 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDefaultBranch: "refs/heads/main",
 				},
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/branch2": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-							"refs/heads/main":    {OldOID: rootCommitOID, NewOID: secondCommitOID},
-						},
-						DefaultBranchUpdate: &DefaultBranchUpdate{
-							Reference: "refs/heads/branch2",
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/branch2": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/main":    {OldOID: rootCommitOID, NewOID: secondCommitOID},
+					},
+					DefaultBranchUpdate: &DefaultBranchUpdate{
+						Reference: "refs/heads/branch2",
 					},
 					ExpectedReferences: []git.Reference{
 						{Name: "refs/heads/branch2", Target: rootCommitOID.String()},
@@ -1849,13 +1732,11 @@ func TestTransactionManager(t *testing.T) {
 			desc: "update default branch with invalid reference name",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						},
-						DefaultBranchUpdate: &DefaultBranchUpdate{
-							Reference: "refs/heads/../main",
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+					},
+					DefaultBranchUpdate: &DefaultBranchUpdate{
+						Reference: "refs/heads/../main",
 					},
 					// For branch updates, we don't really verify the refname schematics, we take a shortcut
 					// and rely on it being either a verified new reference name or a reference name which
@@ -1869,13 +1750,11 @@ func TestTransactionManager(t *testing.T) {
 			desc: "update default branch to point to a non-existent reference name",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						},
-						DefaultBranchUpdate: &DefaultBranchUpdate{
-							Reference: "refs/heads/yoda",
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+					},
+					DefaultBranchUpdate: &DefaultBranchUpdate{
+						Reference: "refs/heads/yoda",
 					},
 					// For branch updates, we don't really verify the refname schematics, we take a shortcut
 					// and rely on it being either a verified new reference name or a reference name which
@@ -1889,11 +1768,9 @@ func TestTransactionManager(t *testing.T) {
 			desc: "update default branch to point to reference being deleted in the same transaction",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main":    {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-							"refs/heads/branch2": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main":    {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/branch2": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
 					ExpectedReferences: []git.Reference{
 						{Name: "refs/heads/branch2", Target: rootCommitOID.String()},
@@ -1924,13 +1801,11 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDefaultBranch: "refs/heads/main",
 				},
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/branch2": {OldOID: rootCommitOID, NewOID: objectHash.ZeroOID},
-						},
-						DefaultBranchUpdate: &DefaultBranchUpdate{
-							Reference: "refs/heads/branch2",
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/branch2": {OldOID: rootCommitOID, NewOID: objectHash.ZeroOID},
+					},
+					DefaultBranchUpdate: &DefaultBranchUpdate{
+						Reference: "refs/heads/branch2",
 					},
 					ExpectedProposeError: ReferenceToBeDeletedError{ReferenceName: "refs/heads/branch2"},
 					ExpectedReferences: []git.Reference{
@@ -1948,11 +1823,9 @@ func TestTransactionManager(t *testing.T) {
 			desc: "update default branch with existing branch and other modifications",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/branch2": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-							"refs/heads/main":    {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/branch2": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/main":    {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
 					ExpectedReferences: []git.Reference{
 						{Name: "refs/heads/branch2", Target: rootCommitOID.String()},
@@ -1983,13 +1856,11 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDefaultBranch: "refs/heads/main",
 				},
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main": {OldOID: rootCommitOID, NewOID: secondCommitOID},
-						},
-						DefaultBranchUpdate: &DefaultBranchUpdate{
-							Reference: "refs/heads/branch2",
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: rootCommitOID, NewOID: secondCommitOID},
+					},
+					DefaultBranchUpdate: &DefaultBranchUpdate{
+						Reference: "refs/heads/branch2",
 					},
 					ExpectedReferences: []git.Reference{
 						{Name: "refs/heads/branch2", Target: rootCommitOID.String()},
@@ -2024,14 +1895,12 @@ func TestTransactionManager(t *testing.T) {
 			desc: "update default branch fails before storing log index",
 			steps: steps{
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main":    {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-							"refs/heads/branch2": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						},
-						DefaultBranchUpdate: &DefaultBranchUpdate{
-							Reference: "refs/heads/branch2",
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main":    {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						"refs/heads/branch2": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+					},
+					DefaultBranchUpdate: &DefaultBranchUpdate{
+						Reference: "refs/heads/branch2",
 					},
 					Hooks: testHooks{
 						BeforeStoreAppliedLogIndex: func(hookCtx hookContext) {
@@ -2065,10 +1934,8 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDefaultBranch: "refs/heads/branch2",
 				},
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							"refs/heads/main": {OldOID: rootCommitOID, NewOID: secondCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: rootCommitOID, NewOID: secondCommitOID},
 					},
 
 					ExpectedReferences: []git.Reference{
@@ -2107,10 +1974,8 @@ func TestTransactionManager(t *testing.T) {
 			desc: fmt.Sprintf("invalid reference %s", tc.desc),
 			steps: steps{
 				{
-					Transaction: Transaction{
-						ReferenceUpdates: ReferenceUpdates{
-							tc.referenceName: {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
-						},
+					ReferenceUpdates: ReferenceUpdates{
+						tc.referenceName: {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
 					ExpectedProposeError: err,
 				},
@@ -2311,7 +2176,12 @@ func TestTransactionManager(t *testing.T) {
 						proposeCtx = step.Context
 					}
 
-					require.ErrorIs(t, transactionManager.Propose(proposeCtx, step.Transaction), step.ExpectedProposeError)
+					require.ErrorIs(t, transactionManager.Propose(proposeCtx, Transaction{
+						SkipVerificationFailures: step.SkipVerificationFailures,
+						ReferenceUpdates:         step.ReferenceUpdates,
+						DefaultBranchUpdate:      step.DefaultBranchUpdate,
+						CustomHooksUpdate:        step.CustomHooksUpdate,
+					}), step.ExpectedProposeError)
 				}()
 
 				if !step.SkipStartManager {
