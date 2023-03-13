@@ -2219,9 +2219,9 @@ func TestTransactionManager(t *testing.T) {
 func checkManagerError(t *testing.T, managerErrChannel chan error, mgr *TransactionManager) (bool, error) {
 	t.Helper()
 
-	testTransaction := transactionFuture{
-		transaction: &Transaction{referenceUpdates: ReferenceUpdates{"sentinel": {}}},
-		result:      make(resultChannel, 1),
+	testTransaction := &Transaction{
+		referenceUpdates: ReferenceUpdates{"sentinel": {}},
+		result:           make(chan error, 1),
 	}
 
 	var (

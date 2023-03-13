@@ -108,6 +108,9 @@ type ReferenceUpdates map[git.ReferenceName]ReferenceUpdate
 type Transaction struct {
 	// commit commits the Transaction through the TransactionManager.
 	commit func(context.Context, *Transaction) error
+	// result is where the outcome of the transaction is sent ot by TransactionManager once it
+	// has been determined.
+	result chan error
 
 	skipVerificationFailures bool
 	referenceUpdates         ReferenceUpdates
@@ -220,7 +223,7 @@ type TransactionManager struct {
 	db database
 	// admissionQueue is where the incoming writes are waiting to be admitted to the transaction
 	// manager.
-	admissionQueue chan transactionFuture
+	admissionQueue chan *Transaction
 
 	// appendedLogIndex holds the index of the last log entry appended to the log.
 	appendedLogIndex LogIndex
@@ -246,7 +249,7 @@ func NewTransactionManager(db *badger.DB, repository *localrepo.Repo) *Transacti
 		stop:           cancel,
 		repository:     repository,
 		db:             newDatabaseAdapter(db),
-		admissionQueue: make(chan transactionFuture),
+		admissionQueue: make(chan *Transaction),
 	}
 }
 
@@ -254,21 +257,14 @@ func NewTransactionManager(db *badger.DB, repository *localrepo.Repo) *Transacti
 // outcome has been decided.
 type resultChannel chan error
 
-// transactionFuture holds a transaction and the resultChannel the transaction queuer is waiting
-// for the result on.
-type transactionFuture struct {
-	transaction *Transaction
-	result      resultChannel
-}
-
 // commit queus the transaction for processing and returns once the result has been determined.
 func (mgr *TransactionManager) commit(ctx context.Context, transaction *Transaction) error {
-	queuedTransaction := transactionFuture{transaction: transaction, result: make(resultChannel, 1)}
+	transaction.result = make(resultChannel, 1)
 
 	select {
-	case mgr.admissionQueue <- queuedTransaction:
+	case mgr.admissionQueue <- transaction:
 		select {
-		case err := <-queuedTransaction.result:
+		case err := <-transaction.result:
 			return unwrapExpectedError(err)
 		case <-ctx.Done():
 			return ctx.Err()
@@ -333,7 +329,7 @@ func (mgr *TransactionManager) Run() error {
 			continue
 		}
 
-		var transaction transactionFuture
+		var transaction *Transaction
 		select {
 		case transaction = <-mgr.admissionQueue:
 		case <-mgr.ctx.Done():
@@ -346,14 +342,14 @@ func (mgr *TransactionManager) Run() error {
 		}
 
 		if err := func() error {
-			logEntry, err := mgr.verifyReferences(mgr.ctx, transaction.transaction)
+			logEntry, err := mgr.verifyReferences(mgr.ctx, transaction)
 			if err != nil {
 				return fmt.Errorf("verify references: %w", err)
 			}
 
-			if transaction.transaction.customHooksUpdate != nil {
+			if transaction.customHooksUpdate != nil {
 				logEntry.CustomHooksUpdate = &gitalypb.LogEntry_CustomHooksUpdate{
-					CustomHooksTar: transaction.transaction.customHooksUpdate.CustomHooksTAR,
+					CustomHooksTar: transaction.customHooksUpdate.CustomHooksTAR,
 				}
 			}
 
