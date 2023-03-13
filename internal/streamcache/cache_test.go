@@ -46,16 +46,11 @@ func TestCache_writeOneReadMultiple(t *testing.T) {
 
 	for i := 0; i < N; i++ {
 		t.Run(fmt.Sprintf("read %d", i), func(t *testing.T) {
-			r, created, err := c.FindOrCreate(key, writeString(content(i)))
+			buf := &bytes.Buffer{}
+			_, created, err := c.Fetch(ctx, key, buf, writeString(content(i)))
 			require.NoError(t, err)
-			defer r.Close()
-
 			require.Equal(t, i == 0, created, "all calls except the first one should be cache hits")
-
-			out, err := io.ReadAll(r)
-			require.NoError(t, err)
-			require.NoError(t, r.Wait(ctx))
-			require.Equal(t, content(0), string(out), "expect cache hits for all i > 0")
+			require.Equal(t, content(0), buf.String(), "expect cache hits for all i > 0")
 		})
 	}
 
@@ -88,19 +83,14 @@ func TestCache_manyConcurrentWrites(t *testing.T) {
 			errors <- func() error {
 				<-start
 
-				r, _, err := c.FindOrCreate(key, writeString(content[i]))
+				buf := &bytes.Buffer{}
+				_, _, err := c.Fetch(ctx, key, buf, writeString(content[i]))
 				if err != nil {
 					return err
 				}
-				defer r.Close()
 
-				out, err := io.ReadAll(r)
-				if err != nil {
-					return err
-				}
-				output[i] = string(out)
-
-				return r.Wait(ctx)
+				output[i] = buf.String()
+				return nil
 			}()
 		}(i)
 	}
@@ -113,10 +103,10 @@ func TestCache_manyConcurrentWrites(t *testing.T) {
 	}
 
 	for i := 0; i < N; i++ {
-		require.Equal(t, output[0], output[i], "all calls to FindOrCreate returned the same bytes")
+		require.Equal(t, output[0], output[i], "all calls to Fetch returned the same bytes")
 	}
 
-	require.Contains(t, content, output[0], "data returned by FindOrCreate is not mangled")
+	require.Contains(t, content, output[0], "data returned by Fetch is not mangled")
 
 	requireCacheFiles(t, tmp, 1)
 }
@@ -145,6 +135,7 @@ func requireCacheEntries(t *testing.T, _c Cache, n int) {
 
 func TestCache_deletedFile(t *testing.T) {
 	tmp := testhelper.TempDir(t)
+	ctx := testhelper.Context(t)
 
 	c := newCache(tmp)
 	defer c.Stop()
@@ -154,9 +145,9 @@ func TestCache_deletedFile(t *testing.T) {
 	)
 	content := func(i int) string { return fmt.Sprintf("content %d", i) }
 
-	r1, created, err := c.FindOrCreate(key, writeString(content(1)))
+	buf1 := &bytes.Buffer{}
+	_, created, err := c.Fetch(ctx, key, buf1, writeString(content(1)))
 	require.NoError(t, err)
-	defer r1.Close()
 	require.True(t, created)
 
 	require.NoError(t, os.RemoveAll(tmp), "wipe out underlying files of cache")
@@ -166,18 +157,13 @@ func TestCache_deletedFile(t *testing.T) {
 	requireCacheFiles(t, tmp, 0)
 	requireCacheEntries(t, c, 1)
 
-	r2, created, err := c.FindOrCreate(key, writeString(content(2)))
+	buf2 := &bytes.Buffer{}
+	_, created, err = c.Fetch(ctx, key, buf2, writeString(content(2)))
 	require.NoError(t, err)
-	defer r2.Close()
 	require.True(t, created, "because the first file is gone, cache is forced to create a new entry")
 
-	out1, err := io.ReadAll(r1)
-	require.NoError(t, err)
-	require.Equal(t, content(1), string(out1), "r1 should still see its original pre-wipe contents")
-
-	out2, err := io.ReadAll(r2)
-	require.NoError(t, err)
-	require.Equal(t, content(2), string(out2), "r2 should see the new post-wipe contents")
+	require.Equal(t, content(1), buf1.String(), "r1 should still see its original pre-wipe contents")
+	require.Equal(t, content(2), buf2.String(), "r2 should see the new post-wipe contents")
 }
 
 func TestCache_scope(t *testing.T) {
@@ -194,38 +180,38 @@ func TestCache_scope(t *testing.T) {
 	// to test that they do not trample on each others files.
 	cache := make([]Cache, N)
 	input := make([]string, N)
-	reader := make([]*Stream, N)
-	var err error
+	output := make([]string, N)
+	wg := &sync.WaitGroup{}
+	wg.Add(N)
 
 	for i := 0; i < N; i++ {
-		input[i] = fmt.Sprintf("test content %d", i)
-		cache[i] = newCache(tmp)
-		defer func(i int) { cache[i].Stop() }(i)
+		go func(i int) {
+			defer wg.Done()
 
-		var created bool
-		reader[i], created, err = cache[i].FindOrCreate(key, writeString(input[i]))
-		require.NoError(t, err)
-		defer func(i int) { require.NoError(t, reader[i].Close()) }(i)
-		require.True(t, created)
+			input[i] = fmt.Sprintf("test content %d", i)
+			cache[i] = newCache(tmp)
+			defer func(i int) { cache[i].Stop() }(i)
+
+			buf := &bytes.Buffer{}
+			_, created, err := cache[i].Fetch(ctx, key, buf, writeString(input[i]))
+			require.NoError(t, err)
+			require.True(t, created)
+			output[i] = buf.String()
+		}(i)
 	}
+	wg.Wait()
 
 	// If different cache instances overwrite their entries, the effect may
 	// be order dependent, e.g. "last write wins". We could reverse the order
 	// now to catch that possible bug, but then we only test for one kind of
 	// bug. Let's shuffle instead, which can catch more hypothetical bugs.
 	rand.Shuffle(N, func(i, j int) {
-		reader[i], reader[j] = reader[j], reader[i]
+		output[i], output[j] = output[j], output[i]
 		input[i], input[j] = input[j], input[i]
 	})
 
 	for i := 0; i < N; i++ {
-		r, content := reader[i], input[i]
-
-		out, err := io.ReadAll(r)
-		require.NoError(t, err)
-		require.NoError(t, r.Wait(ctx))
-
-		require.Equal(t, content, string(out))
+		require.Equal(t, input[i], output[i])
 	}
 }
 
@@ -256,15 +242,11 @@ func TestCache_diskCleanup(t *testing.T) {
 
 	content := func(i int) string { return fmt.Sprintf("content %d", i) }
 
-	r1, created, err := c.FindOrCreate(key, writeString(content(1)))
+	out1 := &bytes.Buffer{}
+	_, created, err := c.Fetch(ctx, key, out1, writeString(content(1)))
 	require.NoError(t, err)
-	defer r1.Close()
 	require.True(t, created)
-
-	out1, err := io.ReadAll(r1)
-	require.NoError(t, err)
-	require.Equal(t, content(1), string(out1))
-	require.NoError(t, r1.Wait(ctx))
+	require.Equal(t, content(1), out1.String())
 
 	// File and index entry should still exist because cleanup goroutines are blocked.
 	requireCacheFiles(t, tmp, 1)
@@ -295,17 +277,11 @@ func TestCache_diskCleanup(t *testing.T) {
 	requireCacheFiles(t, tmp, 0)
 	requireCacheEntries(t, c, 0)
 
-	r2, created, err := c.FindOrCreate(key, writeString(content(2)))
+	out2 := &bytes.Buffer{}
+	_, created, err = c.Fetch(ctx, key, out2, writeString(content(2)))
 	require.NoError(t, err)
-	defer r2.Close()
 	require.True(t, created)
-
-	out2, err := io.ReadAll(r2)
-	require.NoError(t, err)
-	require.NoError(t, r2.Wait(ctx))
-
-	// Sanity check: no stale value returned by the cache
-	require.Equal(t, content(2), string(out2))
+	require.Equal(t, content(2), out2.String(), "Sanity check: no stale value returned by the cache")
 }
 
 func TestCache_failedWrite(t *testing.T) {
@@ -332,30 +308,24 @@ func TestCache_failedWrite(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			r1, created, err := c.FindOrCreate(tc.desc, tc.create)
-			require.NoError(t, err)
+			_, created, err := c.Fetch(ctx, tc.desc, io.Discard, tc.create)
+			require.Error(t, err)
 			require.True(t, created)
 
-			_, err = io.Copy(io.Discard, r1)
-			require.NoError(t, err, "errors on the write end are not propagated via Read()")
-			require.NoError(t, r1.Close(), "errors on the write end are not propagated via Close()")
-			require.Error(t, r1.Wait(ctx), "error propagation happens via Wait()")
-
 			const happy = "all is good"
-			r2, created, err := c.FindOrCreate(tc.desc, writeString(happy))
+			buf := &bytes.Buffer{}
+			_, created, err = c.Fetch(ctx, tc.desc, buf, writeString(happy))
 			require.NoError(t, err)
-			defer r2.Close()
 			require.True(t, created, "because the previous entry failed, a new one should have been created")
 
-			out, err := io.ReadAll(r2)
-			require.NoError(t, err)
-			require.NoError(t, r2.Wait(ctx))
-			require.Equal(t, happy, string(out))
+			require.Equal(t, happy, buf.String())
 		})
 	}
 }
 
 func TestCache_failCreateFile(t *testing.T) {
+	ctx := testhelper.Context(t)
+
 	tmp := testhelper.TempDir(t)
 
 	c := newCache(tmp)
@@ -364,7 +334,7 @@ func TestCache_failCreateFile(t *testing.T) {
 	createError := errors.New("cannot create file")
 	c.(*cache).createFile = func() (namedWriteCloser, error) { return nil, createError }
 
-	_, _, err := c.FindOrCreate("key", func(io.Writer) error { return nil })
+	_, _, err := c.Fetch(ctx, "key", io.Discard, func(io.Writer) error { return nil })
 	require.Equal(t, createError, err)
 }
 
@@ -380,17 +350,10 @@ func TestCache_unWriteableFile(t *testing.T) {
 		return os.OpenFile(filepath.Join(tmp, "unwriteable"), os.O_RDONLY|os.O_CREATE|os.O_EXCL, perm.SharedFile)
 	}
 
-	r, created, err := c.FindOrCreate("key", func(w io.Writer) error {
+	_, _, err := c.Fetch(ctx, "key", io.Discard, func(w io.Writer) error {
 		_, err := io.WriteString(w, "hello")
 		return err
 	})
-	require.NoError(t, err)
-	require.True(t, created)
-
-	_, err = io.ReadAll(r)
-	require.NoError(t, err)
-
-	err = r.Wait(ctx)
 	require.IsType(t, &os.PathError{}, err)
 	require.Equal(t, "write", err.(*os.PathError).Op)
 }
@@ -411,19 +374,14 @@ func TestCache_unCloseableFile(t *testing.T) {
 		return f, f.Close() // Already closed so cannot be closed again
 	}
 
-	r, created, err := c.FindOrCreate("key", func(w io.Writer) error { return nil })
-	require.NoError(t, err)
-	require.True(t, created)
-
-	_, err = io.ReadAll(r)
-	require.NoError(t, err)
-
-	err = r.Wait(ctx)
+	_, _, err := c.Fetch(ctx, "key", io.Discard, func(w io.Writer) error { return nil })
 	require.IsType(t, &os.PathError{}, err)
 	require.Equal(t, "close", err.(*os.PathError).Op)
 }
 
 func TestCache_cannotOpenFileForReading(t *testing.T) {
+	ctx := testhelper.Context(t)
+
 	tmp := testhelper.TempDir(t)
 
 	c := newCache(tmp)
@@ -437,7 +395,7 @@ func TestCache_cannotOpenFileForReading(t *testing.T) {
 		return f, os.Remove(f.Name()) // Removed so cannot be opened
 	}
 
-	_, _, err := c.FindOrCreate("key", func(w io.Writer) error { return nil })
+	_, _, err := c.Fetch(ctx, "key", io.Discard, func(w io.Writer) error { return nil })
 	err = errors.Unwrap(err)
 	require.IsType(t, &os.PathError{}, err)
 	require.Equal(t, "open", err.(*os.PathError).Op)
@@ -490,7 +448,8 @@ func TestNullCache(t *testing.T) {
 
 				<-start
 
-				s, created, err := c.FindOrCreate(key, func(w io.Writer) error {
+				output := &bytes.Buffer{}
+				_, created, err := c.Fetch(ctx, key, output, func(w io.Writer) error {
 					for j := 0; j < len(input); j++ {
 						n, err := w.Write(input[j : j+1])
 						if err != nil {
@@ -505,21 +464,16 @@ func TestNullCache(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				defer s.Close()
 
 				if !created {
 					return errors.New("created should be true")
 				}
 
-				output, err := io.ReadAll(s)
-				if err != nil {
-					return err
-				}
-				if !bytes.Equal(output, input) {
+				if !bytes.Equal(output.Bytes(), input) {
 					return errors.New("output does not match input")
 				}
 
-				return s.Wait(ctx)
+				return nil
 			}()
 		}()
 	}

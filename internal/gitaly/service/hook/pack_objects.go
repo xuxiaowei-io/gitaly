@@ -75,7 +75,7 @@ func (s *server) packObjectsHook(ctx context.Context, req *gitalypb.PackObjectsH
 
 	key := hex.EncodeToString(h.Sum(nil))
 
-	r, created, err := s.packObjectsCache.FindOrCreate(key, func(w io.Writer) error {
+	servedBytes, created, err := s.packObjectsCache.Fetch(ctx, key, output, func(w io.Writer) error {
 		if featureflag.PackObjectsLimitingRepo.IsEnabled(ctx) {
 			return s.runPackObjectsLimited(
 				ctx,
@@ -105,7 +105,6 @@ func (s *server) packObjectsHook(ctx context.Context, req *gitalypb.PackObjectsH
 	if err != nil {
 		return err
 	}
-	defer r.Close()
 
 	if created {
 		closeStdin = false
@@ -114,21 +113,13 @@ func (s *server) packObjectsHook(ctx context.Context, req *gitalypb.PackObjectsH
 		packObjectsCacheLookups.WithLabelValues("hit").Inc()
 	}
 
-	var servedBytes int64
-	defer func() {
-		ctxlogrus.Extract(ctx).WithFields(logrus.Fields{
-			"cache_key": key,
-			"bytes":     servedBytes,
-		}).Info("served bytes")
-		packObjectsServedBytes.Add(float64(servedBytes))
-	}()
+	ctxlogrus.Extract(ctx).WithFields(logrus.Fields{
+		"cache_key": key,
+		"bytes":     servedBytes,
+	}).Info("served bytes")
+	packObjectsServedBytes.Add(float64(servedBytes))
 
-	servedBytes, err = io.Copy(output, r)
-	if err != nil {
-		return err
-	}
-
-	return r.Wait(ctx)
+	return nil
 }
 
 func (s *server) runPackObjects(

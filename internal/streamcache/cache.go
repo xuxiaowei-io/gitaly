@@ -38,6 +38,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/dontpanic"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 )
 
 var (
@@ -60,10 +61,12 @@ var (
 
 // Cache is a cache for large byte streams.
 type Cache interface {
-	// FindOrCreate finds or creates a cache entry. If the create callback
-	// runs, it will be asynchronous and created is set to true. Callers must
-	// Close() the returned stream to free underlying resources.
-	FindOrCreate(key string, create func(io.Writer) error) (s *Stream, created bool, err error)
+	// Fetch finds or creates a cache entry and writes its contents into dst.
+	// If the create callback is called the created return value is true. In
+	// case of a non-nil error return, the create callback may still be
+	// running in a goroutine for the benefit of another caller of Fetch with
+	// the same key.
+	Fetch(ctx context.Context, key string, dst io.Writer, create func(io.Writer) error) (written int64, created bool, err error)
 	// Stop stops the cleanup goroutines of the cache.
 	Stop()
 }
@@ -86,15 +89,15 @@ type TestLoggingCache struct {
 	m       sync.Mutex
 }
 
-// FindOrCreate calls the underlying FindOrCreate method and logs the
+// Fetch calls the underlying Fetch method and logs the
 // result.
-func (tlc *TestLoggingCache) FindOrCreate(key string, create func(io.Writer) error) (s *Stream, created bool, err error) {
-	s, created, err = tlc.Cache.FindOrCreate(key, create)
+func (tlc *TestLoggingCache) Fetch(ctx context.Context, key string, dst io.Writer, create func(io.Writer) error) (written int64, created bool, err error) {
+	written, created, err = tlc.Cache.Fetch(ctx, key, dst, create)
 
 	tlc.m.Lock()
 	defer tlc.m.Unlock()
 	tlc.entries = append(tlc.entries, &TestLogEntry{Key: key, Created: created, Err: err})
-	return s, created, err
+	return written, created, err
 }
 
 // Entries returns a reference to the log of entries observed so far.
@@ -112,13 +115,11 @@ var _ = Cache(NullCache{})
 // and it uses no storage.
 type NullCache struct{}
 
-// FindOrCreate runs create in a goroutine and lets the caller consume
-// the result via the returned stream. The created flag is always true.
-func (NullCache) FindOrCreate(key string, create func(io.Writer) error) (s *Stream, created bool, err error) {
-	pr, pw := io.Pipe()
-	w := newWaiter()
-	go func() { w.SetError(runCreate(pw, create)) }()
-	return &Stream{ReadCloser: pr, waiter: w}, true, nil
+// Fetch runs create(dst). The created flag is always true.
+func (NullCache) Fetch(ctx context.Context, key string, dst io.Writer, create func(io.Writer) error) (written int64, created bool, err error) {
+	w := &helper.CountingWriter{W: dst}
+	err = create(w)
+	return w.N, true, err
 }
 
 // Stop is a no-op.
@@ -227,13 +228,33 @@ func (c *cache) setIndexSize() {
 	cacheIndexSize.WithLabelValues(c.dir).Set(float64(len(c.index)))
 }
 
-func (c *cache) FindOrCreate(key string, create func(io.Writer) error) (s *Stream, created bool, err error) {
+func (c *cache) Fetch(ctx context.Context, key string, dst io.Writer, create func(io.Writer) error) (written int64, created bool, err error) {
+	var (
+		rc io.ReadCloser
+		wt *waiter
+	)
+	rc, wt, created, err = c.getStream(key, create)
+	if err != nil {
+		return
+	}
+	defer rc.Close()
+
+	written, err = io.Copy(dst, rc)
+	if err != nil {
+		return
+	}
+
+	err = wt.Wait(ctx)
+	return
+}
+
+func (c *cache) getStream(key string, create func(io.Writer) error) (_ io.ReadCloser, _ *waiter, created bool, err error) {
 	c.m.Lock()
 	defer c.m.Unlock()
 
 	if e := c.index[key]; e != nil {
-		if s, err := e.Open(); err == nil {
-			return s, false, nil
+		if r, err := e.pipe.OpenReader(); err == nil {
+			return r, e.waiter, false, nil
 		}
 
 		// In this case err != nil. That is allowed to happen, for instance if
@@ -243,15 +264,15 @@ func (c *cache) FindOrCreate(key string, create func(io.Writer) error) (s *Strea
 		c.delete(key)
 	}
 
-	s, e, err := c.newEntry(key, create)
+	r, e, err := c.newEntry(key, create)
 	if err != nil {
-		return nil, false, err
+		return nil, nil, false, err
 	}
 
 	c.index[key] = e
 	c.setIndexSize()
 
-	return s, true, nil
+	return r, e.waiter, true, nil
 }
 
 type entry struct {
@@ -262,28 +283,7 @@ type entry struct {
 	waiter  *waiter
 }
 
-// Stream abstracts a stream of bytes (via Read()) plus an error (via
-// Wait()). Callers must always call Close() to prevent resource leaks.
-type Stream struct {
-	waiter *waiter
-	io.ReadCloser
-}
-
-// Wait returns the error value of the Stream. If ctx is canceled,
-// Wait unblocks and returns early.
-func (s *Stream) Wait(ctx context.Context) error { return s.waiter.Wait(ctx) }
-
-// WriteTo implements io.WriterTo. For some w on some platforms, this
-// uses sendfile to make copying data more efficient.
-func (s *Stream) WriteTo(w io.Writer) (int64, error) {
-	if wt, ok := s.ReadCloser.(io.WriterTo); ok {
-		return wt.WriteTo(w)
-	}
-
-	return io.Copy(w, s.ReadCloser)
-}
-
-func (c *cache) newEntry(key string, create func(io.Writer) error) (_ *Stream, _ *entry, err error) {
+func (c *cache) newEntry(key string, create func(io.Writer) error) (_ io.ReadCloser, _ *entry, err error) {
 	e := &entry{
 		key:     key,
 		cache:   c,
@@ -333,11 +333,7 @@ func (c *cache) newEntry(key string, create func(io.Writer) error) (_ *Stream, _
 		}
 	}()
 
-	return e.wrapReadCloser(pr), e, nil
-}
-
-func (e *entry) wrapReadCloser(r io.ReadCloser) *Stream {
-	return &Stream{ReadCloser: r, waiter: e.waiter}
+	return pr, e, nil
 }
 
 func runCreate(w io.WriteCloser, create func(io.Writer) error) (err error) {
@@ -361,11 +357,6 @@ func runCreate(w io.WriteCloser, create func(io.Writer) error) (err error) {
 	}
 
 	return nil
-}
-
-func (e *entry) Open() (*Stream, error) {
-	r, err := e.pipe.OpenReader()
-	return e.wrapReadCloser(r), err
 }
 
 type waiter struct {
