@@ -315,8 +315,6 @@ func GenerateCerts(tb testing.TB) (string, string) {
 		NotAfter:              time.Now().AddDate(0, 0, 1),
 		BasicConstraintsValid: true,
 		IsCA:                  true,
-		IPAddresses:           []net.IP{net.ParseIP("0.0.0.0"), net.ParseIP("127.0.0.1"), net.ParseIP("::1"), net.ParseIP("::")},
-		DNSNames:              []string{"localhost"},
 		KeyUsage:              x509.KeyUsageCertSign,
 	}
 
@@ -331,9 +329,17 @@ func GenerateCerts(tb testing.TB) (string, string) {
 
 	entityCert := &x509.Certificate{
 		SerialNumber: big.NewInt(2),
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().AddDate(0, 0, 1),
+		IPAddresses:  []net.IP{net.ParseIP("0.0.0.0"), net.ParseIP("127.0.0.1"), net.ParseIP("::1"), net.ParseIP("::")},
+		DNSNames:     []string{"localhost"},
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+		ExtKeyUsage: []x509.ExtKeyUsage{
+			x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth,
+		},
 	}
 
-	entityBytes, err := x509.CreateCertificate(rand.Reader, rootCert, entityCert, &entityKey.PublicKey, rootKey)
+	entityBytes, err := x509.CreateCertificate(rand.Reader, entityCert, rootCert, &entityKey.PublicKey, rootKey)
 	require.NoError(tb, err)
 
 	certFile, err := os.CreateTemp(testDirectory, "")
