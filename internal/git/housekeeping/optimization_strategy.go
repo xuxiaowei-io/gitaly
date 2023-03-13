@@ -100,7 +100,14 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 			WriteMultiPackIndex: true,
 		}
 
-		if featureflag.WriteCruftPacks.IsEnabled(ctx) {
+		// Object pools should neither have unreachable objects, nor should we ever try to
+		// delete any if there are some. So we disable cruft packs and expiration of them
+		// for them.
+		//
+		// Alternatively, we could enable writing cruft packs, but never expire the objects.
+		// This is left for another iteration though once we have determined that this is
+		// even necessary.
+		if featureflag.WriteCruftPacks.IsEnabled(ctx) && !s.info.IsObjectPool {
 			cfg.WriteCruftPack = true
 			cfg.CruftExpireBefore = s.expireBefore
 		}
@@ -266,7 +273,9 @@ func (s EagerOptimizationStrategy) ShouldRepackObjects(ctx context.Context) (boo
 		WriteMultiPackIndex: true,
 	}
 
-	if featureflag.WriteCruftPacks.IsEnabled(ctx) {
+	// Object pools should neither have unreachable objects, nor should we ever try to delete
+	// any if there are some. So we disable cruft packs and expiration of them for them.
+	if featureflag.WriteCruftPacks.IsEnabled(ctx) && !s.info.IsObjectPool {
 		cfg.WriteCruftPack = true
 		cfg.CruftExpireBefore = s.expireBefore
 	}
