@@ -952,8 +952,8 @@ github.com/gl-gitaly/go-license-detector/v4 v4.0.0-20230217131025-5f34a24251ba h
 github.com/gl-gitaly/go-license-detector/v4 v4.0.0-20230217131025-5f34a24251ba/go.mod h1:GQ4fTuYONdIld5zIpcOd0hbfZIfZnZmrR5m86NH8pKU=
 github.com/gliderlabs/ssh v0.2.2 h1:6zsha5zo/TWhRhwqCD3+EarCAgZ2yN28ipRnGPnwkI0=
 github.com/gliderlabs/ssh v0.2.2/go.mod h1:U7qILu1NlMHj9FlMhZLlkCdDnU1DBEAqr0aevW3Awn0=
-github.com/go-enry/go-enry/v2 v2.8.3 h1:BwvNrN58JqBJhyyVdZSl5QD3xoxEEGYUrRyPh31FGhw=
-github.com/go-enry/go-enry/v2 v2.8.3/go.mod h1:GVzIiAytiS5uT/QiuakK7TF1u4xDab87Y8V5EJRpsIQ=
+github.com/go-enry/go-enry/v2 v2.8.4 h1:QrY3hx/RiqCJJRbdU0MOcjfTM1a586J0WSooqdlJIhs=
+github.com/go-enry/go-enry/v2 v2.8.4/go.mod h1:9yrj4ES1YrbNb1Wb7/PWYr2bpaCXUGRt0uafN0ISyG8=
 github.com/go-enry/go-oniguruma v1.2.1 h1:k8aAMuJfMrqm/56SG2lV9Cfti6tC4x8673aHCcBk+eo=
 github.com/go-enry/go-oniguruma v1.2.1/go.mod h1:bWDhYP+S6xZQgiRL7wlTScFYBe023B6ilRZbCAD5Hf4=
 github.com/go-errors/errors v1.4.2 h1:J6MZopCL4uSllY1OfXM374weqZFFItUbrImctkmUxIA=
