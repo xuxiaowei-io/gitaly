@@ -204,16 +204,18 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 					// the boundary of having to repack.
 					strategy.info.Packfiles.Count++
 
+					if featureflag.WriteCruftPacks.IsDisabled(ctx) || tc.isPool {
+						expireBefore = time.Time{}
+					}
+
 					repackNeeded, repackCfg := strategy.ShouldRepackObjects(ctx)
 					require.True(t, repackNeeded)
 					require.Equal(t, RepackObjectsConfig{
 						FullRepack:          true,
 						WriteBitmap:         len(tc.alternates) == 0,
 						WriteMultiPackIndex: true,
-						WriteCruftPack:      featureflag.WriteCruftPacks.IsEnabled(ctx),
-						CruftExpireBefore: testhelper.EnabledOrDisabledFlag(ctx, featureflag.WriteCruftPacks,
-							expireBefore, time.Time{},
-						),
+						WriteCruftPack:      featureflag.WriteCruftPacks.IsEnabled(ctx) && !tc.isPool,
+						CruftExpireBefore:   expireBefore,
 					}, repackCfg)
 				})
 			}
@@ -647,16 +649,19 @@ func testEagerOptimizationStrategy(t *testing.T, ctx context.Context) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
+			var expectedExpireBefore time.Time
+			if featureflag.WriteCruftPacks.IsEnabled(ctx) && !tc.strategy.info.IsObjectPool {
+				expectedExpireBefore = expireBefore
+			}
+
 			shouldRepackObjects, repackObjectsCfg := tc.strategy.ShouldRepackObjects(ctx)
 			require.True(t, shouldRepackObjects)
 			require.Equal(t, RepackObjectsConfig{
 				FullRepack:          true,
 				WriteBitmap:         tc.expectWriteBitmap,
 				WriteMultiPackIndex: true,
-				WriteCruftPack:      featureflag.WriteCruftPacks.IsEnabled(ctx),
-				CruftExpireBefore: testhelper.EnabledOrDisabledFlag(ctx, featureflag.WriteCruftPacks,
-					expireBefore, time.Time{},
-				),
+				WriteCruftPack:      featureflag.WriteCruftPacks.IsEnabled(ctx) && !tc.strategy.info.IsObjectPool,
+				CruftExpireBefore:   expectedExpireBefore,
 			}, repackObjectsCfg)
 
 			shouldWriteCommitGraph, writeCommitGraphCfg := tc.strategy.ShouldWriteCommitGraph(ctx)
