@@ -17,9 +17,12 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/alternates"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/trace2"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/trace2hooks"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/log"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/tracing"
 	"gitlab.com/gitlab-org/labkit/correlation"
 )
 
@@ -88,10 +91,14 @@ func WithTrace2Hooks(hooks []trace2.Hook) ExecCommandFactoryOption {
 	}
 }
 
-// defaultTrace2HooksFor creates a list of all Trace2 hooks. It doesn't mean all hooks are triggered.
+// DefaultTrace2HooksFor creates a list of all Trace2 hooks. It doesn't mean all hooks are triggered.
 // Each hook's activation status will be evaluated before the command starts.
-func defaultTrace2HooksFor(context.Context, string) []trace2.Hook {
-	return []trace2.Hook{}
+func DefaultTrace2HooksFor(ctx context.Context, subCmd string) []trace2.Hook {
+	var hooks []trace2.Hook
+	if featureflag.ExportTrace2Tracing.IsEnabled(ctx) && tracing.IsSampled(ctx) {
+		hooks = append(hooks, &trace2hooks.TracingExporter{})
+	}
+	return hooks
 }
 
 // WithExecutionEnvironmentConstructors overrides the default Git execution environments used by the
@@ -462,7 +469,7 @@ func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo repository.Gi
 
 	trace2Hooks := cf.trace2Hooks
 	if trace2Hooks == nil {
-		trace2Hooks = defaultTrace2HooksFor(ctx, sc.Name)
+		trace2Hooks = DefaultTrace2HooksFor(ctx, sc.Name)
 	}
 	if len(trace2Hooks) != 0 {
 		trace2Manager, err := trace2.NewManager(correlation.ExtractFromContextOrGenerate(ctx), trace2Hooks)
