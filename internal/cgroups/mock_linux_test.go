@@ -93,8 +93,10 @@ func (m *mockCgroup) setupMockCgroupFiles(
 			contentByFilename["memory.kmem.tcp.limit_in_bytes"] = "0"
 			contentByFilename["memory.failcnt"] = strconv.Itoa(memFailCount)
 		case "cpu":
-			contentByFilename["cpu.stat"] = ""
 			contentByFilename["cpu.shares"] = "0"
+			contentByFilename["cpu.stat"] = `nr_periods 10
+nr_throttled 20
+throttled_time 1000000`
 		default:
 			require.FailNow(t, "cannot set up subsystem", "unknown subsystem %q", s.Name())
 		}

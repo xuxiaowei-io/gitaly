@@ -142,15 +142,17 @@ self_signed_cert = false
 # storages = ["default"]
 # disabled = false
 
+# Limit the resources Gitaly can use via Linux cgroups v1
 # [cgroups]
-# count = 10
 # mountpoint = "/sys/fs/cgroup"
 # hierarchy_root = "gitaly"
+# memory_bytes = 64424509440 # 60gb
+# cpu_shares = 1024
+# cpu_quota_us = 400000
 
-# [cgroups.memory]
-# enabled = true
-# limit = 1048576
-
-# [cgroups.cpu]
-# enabled = true
-# shares = 512
+# Limit the resources each repository can use via Linux cgroups v1
+# [cgroups.repositories]
+# count = 500
+# memory_bytes = 12884901888 # 12gb
+# cpu_shares = 512
+# cpu_quota_us = 200000

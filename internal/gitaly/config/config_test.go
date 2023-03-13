@@ -974,6 +974,7 @@ func TestValidateCgroups(t *testing.T) {
 				count = 10
 				memory_bytes = 1024
 				cpu_shares = 512
+				cpu_quota_us = 500
 				`,
 				expect: cgroups.Config{
 					Mountpoint:    "/sys/fs/cgroup",
@@ -982,6 +983,7 @@ func TestValidateCgroups(t *testing.T) {
 						Count:       10,
 						MemoryBytes: 1024,
 						CPUShares:   512,
+						CPUQuotaUs:  500,
 					},
 				},
 			},
@@ -994,6 +996,7 @@ func TestValidateCgroups(t *testing.T) {
 				count = 0
 				memory_bytes = 1024
 				cpu_shares = 512
+				cpu_quota_us = 500
 				`,
 				expect: cgroups.Config{
 					Mountpoint:    "/sys/fs/cgroup",
@@ -1001,6 +1004,7 @@ func TestValidateCgroups(t *testing.T) {
 					Repositories: cgroups.Repositories{
 						MemoryBytes: 1024,
 						CPUShares:   512,
+						CPUQuotaUs:  500,
 					},
 				},
 			},
@@ -1011,13 +1015,16 @@ func TestValidateCgroups(t *testing.T) {
 				hierarchy_root = "gitaly"
 				[cgroups.repositories]
 				count = 10
-				cpu_shares = 512`,
+				cpu_shares = 512
+				cpu_quota_us = 500
+				`,
 				expect: cgroups.Config{
 					Mountpoint:    "/sys/fs/cgroup",
 					HierarchyRoot: "gitaly",
 					Repositories: cgroups.Repositories{
-						Count:     10,
-						CPUShares: 512,
+						Count:      10,
+						CPUShares:  512,
+						CPUQuotaUs: 500,
 					},
 				},
 			},
@@ -1028,26 +1035,30 @@ func TestValidateCgroups(t *testing.T) {
 				hierarchy_root = "gitaly"
 				memory_bytes = 1073741824
 				cpu_shares = 1024
+				cpu_quota_us = 800
 				[cgroups.repositories]
 				count = 10
 				memory_bytes = 2147483648
 				cpu_shares = 128
+				cpu_quota_us = 500
 				`,
 				expect: cgroups.Config{
 					Mountpoint:    "/sys/fs/cgroup",
 					HierarchyRoot: "gitaly",
 					MemoryBytes:   1073741824,
 					CPUShares:     1024,
+					CPUQuotaUs:    800,
 					Repositories: cgroups.Repositories{
 						Count:       10,
 						MemoryBytes: 2147483648,
 						CPUShares:   128,
+						CPUQuotaUs:  500,
 					},
 				},
 				validateErr: errors.New("cgroups.repositories: memory limit cannot exceed parent"),
 			},
 			{
-				name: "repositories cpu exceeds parent",
+				name: "repositories cpu shares exceeds parent",
 				rawCfg: `[cgroups]
 				mountpoint = "/sys/fs/cgroup"
 				hierarchy_root = "gitaly"
@@ -1066,6 +1077,27 @@ func TestValidateCgroups(t *testing.T) {
 					},
 				},
 				validateErr: errors.New("cgroups.repositories: cpu shares cannot exceed parent"),
+			},
+			{
+				name: "repositories cpu quota exceeds parent",
+				rawCfg: `[cgroups]
+				mountpoint = "/sys/fs/cgroup"
+				hierarchy_root = "gitaly"
+				cpu_quota_us = 225
+				[cgroups.repositories]
+				count = 10
+				cpu_quota_us = 500
+				`,
+				expect: cgroups.Config{
+					Mountpoint:    "/sys/fs/cgroup",
+					HierarchyRoot: "gitaly",
+					CPUQuotaUs:    225,
+					Repositories: cgroups.Repositories{
+						Count:      10,
+						CPUQuotaUs: 500,
+					},
+				},
+				validateErr: errors.New("cgroups.repositories: cpu quota cannot exceed parent"),
 			},
 			{
 				name: "metrics enabled",

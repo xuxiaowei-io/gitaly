@@ -14,8 +14,14 @@ type Config struct {
 	MemoryBytes int64 `toml:"memory_bytes"`
 	// CPUShares are the shares of CPU the parent cgroup is allowed to utilize. A value of 1024
 	// is full utilization of the CPU. 0 implies no CPU limit.
-	CPUShares      uint64 `toml:"cpu_shares"`
-	MetricsEnabled bool   `toml:"metrics_enabled"`
+	CPUShares uint64 `toml:"cpu_shares"`
+	// CPUQuotaUs sets cpu_quota_us for the parent cgroup
+	// https://docs.kernel.org/scheduler/sched-bwc.html?highlight=cfs_period_us#management
+	// below 0 implies no quota
+	//
+	// The cfs_period_us is hardcoded to 100ms
+	CPUQuotaUs     int64 `toml:"cpu_quota_us"`
+	MetricsEnabled bool  `toml:"metrics_enabled"`
 
 	// Deprecated: No longer supported after 15.0
 	Count  uint   `toml:"count"`
@@ -49,6 +55,12 @@ type Repositories struct {
 	// CPUShares are the shares of CPU that each cgroup is allowed to utilize. A value of 1024
 	// is full utilization of the CPU. 0 implies no CPU limit.
 	CPUShares uint64 `toml:"cpu_shares"`
+	// CPUQuotaUs sets the value of `cfs_quota_us` for the repository cgroup.
+	// https://docs.kernel.org/scheduler/sched-bwc.html?highlight=cfs_period_us
+	// Below 0 implies no quota
+	//
+	// The cfs_period_us is hardcoded to 100ms
+	CPUQuotaUs int64 `toml:"cpu_quota_us"`
 }
 
 // Memory is a struct storing cgroups memory config
