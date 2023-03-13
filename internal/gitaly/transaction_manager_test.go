@@ -79,6 +79,8 @@ func TestTransactionManager(t *testing.T) {
 		BeforeAppendLogEntry hookFunc
 		// BeforeDeleteLogEntry is called before a log entry is deleted.
 		BeforeDeleteLogEntry hookFunc
+		// beforeStoreAppliedLogIndex is invoked before a the applied log index is stored.
+		BeforeStoreAppliedLogIndex hookFunc
 		// WaitForTransactionsWhenStopping waits for a in-flight to finish before returning
 		// from Run.
 		WaitForTransactionsWhenStopping bool
@@ -108,6 +110,9 @@ func TestTransactionManager(t *testing.T) {
 		ExpectedDefaultBranch git.ReferenceName
 		// ExpectedDatabase is the expected state of the database at the end of this step.
 		ExpectedDatabase DatabaseState
+		// ExpectedPanic is used to denote the panic, if any. Panics are triggered to stop the transaction
+		// manager and the database/disk writes.
+		ExpectedPanic any
 	}
 
 	type testCase struct {
@@ -1258,6 +1263,50 @@ func TestTransactionManager(t *testing.T) {
 			},
 		},
 		{
+			desc: "continues processing after failing to store log index",
+			steps: steps{
+				{
+					Transaction: Transaction{
+						ReferenceUpdates: ReferenceUpdates{
+							"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						},
+					},
+					Hooks: testHooks{
+						BeforeStoreAppliedLogIndex: func(hookCtx hookContext) {
+							panic("node failure simulation")
+						},
+					},
+					ExpectedPanic:        "node failure simulation",
+					ExpectedProposeError: ErrTransactionProcessingStopped,
+					ExpectedRunError:     true,
+					ExpectedDatabase: DatabaseState{
+						string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
+							ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
+								{
+									ReferenceName: []byte("refs/heads/main"),
+									NewOid:        []byte(rootCommitOID),
+								},
+							},
+						},
+					},
+					ExpectedReferences:    []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
+					ExpectedDefaultBranch: "refs/heads/main",
+				},
+				{
+					Transaction: Transaction{
+						ReferenceUpdates: ReferenceUpdates{
+							"refs/heads/main": {OldOID: rootCommitOID, NewOID: secondCommitOID},
+						},
+					},
+					ExpectedReferences: []git.Reference{{Name: "refs/heads/main", Target: secondCommitOID.String()}},
+					ExpectedDatabase: DatabaseState{
+						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
+					},
+					ExpectedDefaultBranch: "refs/heads/main",
+				},
+			},
+		},
+		{
 			desc: "recovers from the write-ahead log on start up",
 			steps: steps{
 				{
@@ -1806,6 +1855,68 @@ func TestTransactionManager(t *testing.T) {
 				},
 			},
 		},
+		{
+			desc: "update default branch fails before storing log index",
+			steps: steps{
+				{
+					Transaction: Transaction{
+						ReferenceUpdates: ReferenceUpdates{
+							"refs/heads/main":    {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+							"refs/heads/branch2": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
+						},
+						DefaultBranchUpdate: &DefaultBranchUpdate{
+							Reference: "refs/heads/branch2",
+						},
+					},
+					Hooks: testHooks{
+						BeforeStoreAppliedLogIndex: func(hookCtx hookContext) {
+							panic("node failure simulation")
+						},
+					},
+					ExpectedPanic:        "node failure simulation",
+					ExpectedProposeError: ErrTransactionProcessingStopped,
+					ExpectedRunError:     true,
+					ExpectedDatabase: DatabaseState{
+						string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
+							ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
+								{
+									ReferenceName: []byte("refs/heads/branch2"),
+									NewOid:        []byte(rootCommitOID),
+								},
+								{
+									ReferenceName: []byte("refs/heads/main"),
+									NewOid:        []byte(rootCommitOID),
+								},
+							},
+							DefaultBranchUpdate: &gitalypb.LogEntry_DefaultBranchUpdate{
+								ReferenceName: []byte("refs/heads/branch2"),
+							},
+						},
+					},
+					ExpectedReferences: []git.Reference{
+						{Name: "refs/heads/branch2", Target: rootCommitOID.String()},
+						{Name: "refs/heads/main", Target: rootCommitOID.String()},
+					},
+					ExpectedDefaultBranch: "refs/heads/branch2",
+				},
+				{
+					Transaction: Transaction{
+						ReferenceUpdates: ReferenceUpdates{
+							"refs/heads/main": {OldOID: rootCommitOID, NewOID: secondCommitOID},
+						},
+					},
+
+					ExpectedReferences: []git.Reference{
+						{Name: "refs/heads/branch2", Target: rootCommitOID.String()},
+						{Name: "refs/heads/main", Target: secondCommitOID.String()},
+					},
+					ExpectedDatabase: DatabaseState{
+						string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(2).toProto(),
+					},
+					ExpectedDefaultBranch: "refs/heads/branch2",
+				},
+			},
+		},
 	}
 
 	type invalidReferenceTestCase struct {
@@ -1973,12 +2084,13 @@ func TestTransactionManager(t *testing.T) {
 							inflightTransactions.Wait()
 						}
 					},
-					beforeDeleteLogEntry: testHooks.BeforeDeleteLogEntry,
+					beforeDeleteLogEntry:       testHooks.BeforeDeleteLogEntry,
+					beforeStoreAppliedLogIndex: testHooks.BeforeStoreAppliedLogIndex,
 				})
 			}
 
 			// startManager starts fresh manager and applies hooks into it.
-			startManager := func(testHooks testHooks) {
+			startManager := func(testHooks testHooks, expectedPanic any) {
 				t.Helper()
 
 				require.False(t, managerRunning, "manager started while it was already running")
@@ -1988,7 +2100,17 @@ func TestTransactionManager(t *testing.T) {
 				transactionManager = NewTransactionManager(database, repository)
 				applyHooks(t, testHooks)
 
-				go func() { managerErr <- transactionManager.Run() }()
+				go func() {
+					defer func() {
+						r := recover()
+						assert.Equal(t, expectedPanic, r)
+						if r != nil {
+							managerErr <- fmt.Errorf("received panic: %s", r.(string))
+						}
+					}()
+
+					managerErr <- transactionManager.Run()
+				}()
 			}
 
 			// Stop the manager if it is running at the end of the test.
@@ -1996,7 +2118,7 @@ func TestTransactionManager(t *testing.T) {
 			for _, step := range tc.steps {
 				// Ensure every step starts with the manager running.
 				if !managerRunning {
-					startManager(step.Hooks)
+					startManager(step.Hooks, step.ExpectedPanic)
 				} else {
 					// Apply the hooks for this step if the manager is running already to ensure the
 					// steps hooks are in place.
@@ -2009,7 +2131,7 @@ func TestTransactionManager(t *testing.T) {
 				}
 
 				if step.StartManager {
-					startManager(step.Hooks)
+					startManager(step.Hooks, step.ExpectedPanic)
 				}
 
 				func() {
