@@ -495,6 +495,8 @@ func TestRemoveRepository(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
+	testhelper.SkipQuarantinedTest(t, "https://gitlab.com/gitlab-org/gitaly/-/issues/4833", "TestRemoveRepository")
+
 	gitalyCfgs := make([]gconfig.Cfg, 3)
 	repos := make([]*gitalypb.Repository, 3)
 	praefectCfg := config.Config{VirtualStorages: []*config.VirtualStorage{{Name: "praefect"}}}
