@@ -134,8 +134,8 @@ func TestTransactionManager(t *testing.T) {
 		RestartManager bool
 		// SkipStartManager can be used to skip starting the manager at the start of the step.
 		SkipStartManager bool
-		// Context is the context to use for the Propose call of the step.
-		Context context.Context
+		// CommitContext is the context to use for the Commit call of the step.
+		CommitContext context.Context
 		// SkipVerificationFailures sets the verification failure handling for this step.
 		SkipVerificationFailures bool
 		// ReferenceUpdates are the reference updates to perform in this step.
@@ -149,8 +149,8 @@ func TestTransactionManager(t *testing.T) {
 		Hooks testHooks
 		// ExpectedRunError is the expected error to be returned from Run from this step.
 		ExpectedRunError bool
-		// ExpectedProposeError is the error that is expected to be returned when proposing the transaction in this step.
-		ExpectedProposeError error
+		// ExpectedCommitError is the error that is expected to be returned when committing the transaction in this step.
+		ExpectedCommitError error
 		// ExpectedHooks is the expected state of the hooks at the end of this step.
 		ExpectedHooks testhelper.DirectoryState
 		// ExpectedReferences is the expected state of references at the end of this step.
@@ -179,7 +179,7 @@ func TestTransactionManager(t *testing.T) {
 						"refs/heads/main":    {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 						"refs/heads/../main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedProposeError:  updateref.ErrInvalidReferenceFormat{ReferenceName: "refs/heads/../main"},
+					ExpectedCommitError:   updateref.ErrInvalidReferenceFormat{ReferenceName: "refs/heads/../main"},
 					ExpectedDefaultBranch: "",
 				},
 			},
@@ -191,7 +191,7 @@ func TestTransactionManager(t *testing.T) {
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/../main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedProposeError:  updateref.ErrInvalidReferenceFormat{ReferenceName: "refs/heads/../main"},
+					ExpectedCommitError:   updateref.ErrInvalidReferenceFormat{ReferenceName: "refs/heads/../main"},
 					ExpectedDefaultBranch: "",
 				},
 				{
@@ -283,7 +283,7 @@ func TestTransactionManager(t *testing.T) {
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/parent/child": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedProposeError: updateref.ErrFileDirectoryConflict{
+					ExpectedCommitError: updateref.ErrFileDirectoryConflict{
 						ExistingReferenceName:    "refs/heads/parent",
 						ConflictingReferenceName: "refs/heads/parent/child",
 					},
@@ -303,7 +303,7 @@ func TestTransactionManager(t *testing.T) {
 						"refs/heads/parent":       {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 						"refs/heads/parent/child": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedProposeError: updateref.ErrInTransactionConflict{
+					ExpectedCommitError: updateref.ErrInTransactionConflict{
 						FirstReferenceName:  "refs/heads/parent",
 						SecondReferenceName: "refs/heads/parent/child",
 					},
@@ -321,7 +321,7 @@ func TestTransactionManager(t *testing.T) {
 						"refs/heads/parent":       {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 						"refs/heads/parent/child": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedProposeError: updateref.ErrInTransactionConflict{
+					ExpectedCommitError: updateref.ErrInTransactionConflict{
 						FirstReferenceName:  "refs/heads/parent",
 						SecondReferenceName: "refs/heads/parent/child",
 					},
@@ -361,7 +361,7 @@ func TestTransactionManager(t *testing.T) {
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/parent": {OldOID: objectHash.ZeroOID, NewOID: objectHash.ZeroOID},
 					},
-					ExpectedProposeError: updateref.ErrFileDirectoryConflict{
+					ExpectedCommitError: updateref.ErrFileDirectoryConflict{
 						ExistingReferenceName:    "refs/heads/parent/child",
 						ConflictingReferenceName: "refs/heads/parent",
 					},
@@ -381,7 +381,7 @@ func TestTransactionManager(t *testing.T) {
 						"refs/heads/parent/child": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 						"refs/heads/parent":       {OldOID: objectHash.ZeroOID, NewOID: objectHash.ZeroOID},
 					},
-					ExpectedProposeError: updateref.ErrInTransactionConflict{
+					ExpectedCommitError: updateref.ErrInTransactionConflict{
 						FirstReferenceName:  "refs/heads/parent",
 						SecondReferenceName: "refs/heads/parent/child",
 					},
@@ -399,7 +399,7 @@ func TestTransactionManager(t *testing.T) {
 						"refs/heads/branch-1": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 						"refs/heads/branch-2": {OldOID: objectHash.ZeroOID, NewOID: objectHash.EmptyTreeOID},
 					},
-					ExpectedProposeError: updateref.NonCommitObjectError{
+					ExpectedCommitError: updateref.NonCommitObjectError{
 						ReferenceName: "refs/heads/branch-2",
 						ObjectID:      objectHash.EmptyTreeOID.String(),
 					},
@@ -444,7 +444,7 @@ func TestTransactionManager(t *testing.T) {
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: nonExistentOID},
 					},
-					ExpectedProposeError: updateref.NonExistentObjectError{
+					ExpectedCommitError: updateref.NonExistentObjectError{
 						ReferenceName: "refs/heads/main",
 						ObjectID:      nonExistentOID.String(),
 					},
@@ -545,7 +545,7 @@ func TestTransactionManager(t *testing.T) {
 						"refs/heads/main":            {OldOID: objectHash.ZeroOID, NewOID: secondCommitOID},
 						"refs/heads/non-conflicting": {OldOID: objectHash.ZeroOID, NewOID: secondCommitOID},
 					},
-					ExpectedProposeError: ReferenceVerificationError{
+					ExpectedCommitError: ReferenceVerificationError{
 						ReferenceName: "refs/heads/main",
 						ExpectedOID:   objectHash.ZeroOID,
 						ActualOID:     rootCommitOID,
@@ -597,7 +597,7 @@ func TestTransactionManager(t *testing.T) {
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedProposeError: ReferenceVerificationError{
+					ExpectedCommitError: ReferenceVerificationError{
 						ReferenceName: "refs/heads/main",
 						ExpectedOID:   objectHash.ZeroOID,
 						ActualOID:     rootCommitOID,
@@ -776,7 +776,7 @@ func TestTransactionManager(t *testing.T) {
 						"refs/heads/main":            {OldOID: secondCommitOID, NewOID: thirdCommitOID},
 						"refs/heads/non-conflicting": {OldOID: rootCommitOID, NewOID: thirdCommitOID},
 					},
-					ExpectedProposeError: ReferenceVerificationError{
+					ExpectedCommitError: ReferenceVerificationError{
 						ReferenceName: "refs/heads/main",
 						ExpectedOID:   secondCommitOID,
 						ActualOID:     rootCommitOID,
@@ -799,7 +799,7 @@ func TestTransactionManager(t *testing.T) {
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: secondCommitOID, NewOID: thirdCommitOID},
 					},
-					ExpectedProposeError: ReferenceVerificationError{
+					ExpectedCommitError: ReferenceVerificationError{
 						ReferenceName: "refs/heads/main",
 						ExpectedOID:   secondCommitOID,
 						ActualOID:     objectHash.ZeroOID,
@@ -1023,7 +1023,7 @@ func TestTransactionManager(t *testing.T) {
 						"refs/heads/main":            {OldOID: secondCommitOID, NewOID: objectHash.ZeroOID},
 						"refs/heads/non-conflicting": {OldOID: rootCommitOID, NewOID: objectHash.ZeroOID},
 					},
-					ExpectedProposeError: ReferenceVerificationError{
+					ExpectedCommitError: ReferenceVerificationError{
 						ReferenceName: "refs/heads/main",
 						ExpectedOID:   secondCommitOID,
 						ActualOID:     rootCommitOID,
@@ -1046,7 +1046,7 @@ func TestTransactionManager(t *testing.T) {
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: rootCommitOID, NewOID: objectHash.ZeroOID},
 					},
-					ExpectedProposeError: ReferenceVerificationError{
+					ExpectedCommitError: ReferenceVerificationError{
 						ReferenceName: "refs/heads/main",
 						ExpectedOID:   rootCommitOID,
 						ActualOID:     objectHash.ZeroOID,
@@ -1166,8 +1166,8 @@ func TestTransactionManager(t *testing.T) {
 							},
 						},
 					},
-					ExpectedRunError:     true,
-					ExpectedProposeError: ErrTransactionProcessingStopped,
+					ExpectedRunError:    true,
+					ExpectedCommitError: ErrTransactionProcessingStopped,
 					ExpectedHooks: testhelper.DirectoryState{
 						"/wal/hooks":   {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
 						"/wal/hooks/1": {Mode: umask.Mask(fs.ModeDir | fs.ModePerm)},
@@ -1205,7 +1205,7 @@ func TestTransactionManager(t *testing.T) {
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: rootCommitOID, NewOID: secondCommitOID},
 					},
-					ExpectedProposeError: ReferenceVerificationError{
+					ExpectedCommitError: ReferenceVerificationError{
 						ReferenceName: "refs/heads/main",
 						ExpectedOID:   rootCommitOID,
 						ActualOID:     objectHash.ZeroOID,
@@ -1303,7 +1303,7 @@ func TestTransactionManager(t *testing.T) {
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: rootCommitOID, NewOID: secondCommitOID},
 					},
-					ExpectedProposeError: ReferenceVerificationError{
+					ExpectedCommitError: ReferenceVerificationError{
 						ReferenceName: "refs/heads/main",
 						ExpectedOID:   rootCommitOID,
 						ActualOID:     objectHash.ZeroOID,
@@ -1351,9 +1351,9 @@ func TestTransactionManager(t *testing.T) {
 							panic("node failure simulation")
 						},
 					},
-					ExpectedPanic:        "node failure simulation",
-					ExpectedProposeError: ErrTransactionProcessingStopped,
-					ExpectedRunError:     true,
+					ExpectedPanic:       "node failure simulation",
+					ExpectedCommitError: ErrTransactionProcessingStopped,
+					ExpectedRunError:    true,
 					ExpectedDatabase: DatabaseState{
 						string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
 							ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
@@ -1391,8 +1391,8 @@ func TestTransactionManager(t *testing.T) {
 							hookCtx.stopManager()
 						},
 					},
-					ExpectedProposeError: ErrTransactionProcessingStopped,
-					ExpectedRunError:     true,
+					ExpectedCommitError: ErrTransactionProcessingStopped,
+					ExpectedRunError:    true,
 					ExpectedDatabase: DatabaseState{
 						string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
 							ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
@@ -1433,8 +1433,8 @@ func TestTransactionManager(t *testing.T) {
 							hookCtx.stopManager()
 						},
 					},
-					ExpectedProposeError: ErrTransactionProcessingStopped,
-					ExpectedRunError:     true,
+					ExpectedCommitError: ErrTransactionProcessingStopped,
+					ExpectedRunError:    true,
 					ExpectedDatabase: DatabaseState{
 						string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
 							ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
@@ -1451,7 +1451,7 @@ func TestTransactionManager(t *testing.T) {
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: secondCommitOID, NewOID: rootCommitOID},
 					},
-					ExpectedProposeError: ReferenceVerificationError{
+					ExpectedCommitError: ReferenceVerificationError{
 						ReferenceName: "refs/heads/main",
 						ExpectedOID:   secondCommitOID,
 						ActualOID:     rootCommitOID,
@@ -1480,10 +1480,10 @@ func TestTransactionManager(t *testing.T) {
 			},
 		},
 		{
-			desc: "propose returns if context is canceled before admission",
+			desc: "commit returns if context is canceled before admission",
 			steps: steps{
 				{
-					Context: func() context.Context {
+					CommitContext: func() context.Context {
 						ctx, cancel := context.WithCancel(ctx)
 						cancel()
 						return ctx
@@ -1492,20 +1492,20 @@ func TestTransactionManager(t *testing.T) {
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedProposeError:  context.Canceled,
+					ExpectedCommitError:   context.Canceled,
 					ExpectedDefaultBranch: "",
 				},
 			},
 		},
 		{
-			desc: "propose returns if transaction processing stops before admission",
+			desc: "commit returns if transaction processing stops before admission",
 			steps: steps{
 				{
 					StopManager: true,
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedProposeError:  ErrTransactionProcessingStopped,
+					ExpectedCommitError:   ErrTransactionProcessingStopped,
 					ExpectedDefaultBranch: "",
 				},
 			},
@@ -1513,16 +1513,16 @@ func TestTransactionManager(t *testing.T) {
 		func() testCase {
 			ctx, cancel := context.WithCancel(ctx)
 			return testCase{
-				desc: "propose returns if context is canceled after admission",
+				desc: "commit returns if context is canceled after admission",
 				steps: steps{
 					{
-						Context: ctx,
+						CommitContext: ctx,
 						ReferenceUpdates: ReferenceUpdates{
 							"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 						},
 						Hooks: testHooks{
 							BeforeApplyLogEntry: func(hookCtx hookContext) {
-								// Cancel the context used in Propose
+								// Cancel the context used in Commit
 								cancel()
 							},
 							BeforeDeleteLogEntry: func(hookCtx hookContext) {
@@ -1539,8 +1539,8 @@ func TestTransactionManager(t *testing.T) {
 								})
 							},
 						},
-						ExpectedProposeError: context.Canceled,
-						ExpectedReferences:   []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
+						ExpectedCommitError: context.Canceled,
+						ExpectedReferences:  []git.Reference{{Name: "refs/heads/main", Target: rootCommitOID.String()}},
 						ExpectedDatabase: DatabaseState{
 							string(keyAppliedLogIndex(getRepositoryID(repo))): LogIndex(1).toProto(),
 						},
@@ -1550,7 +1550,7 @@ func TestTransactionManager(t *testing.T) {
 			}
 		}(),
 		{
-			desc: "propose returns if transaction processing stops before transaction acceptance",
+			desc: "commit returns if transaction processing stops before transaction acceptance",
 			steps: steps{
 				{
 					ReferenceUpdates: ReferenceUpdates{
@@ -1563,12 +1563,12 @@ func TestTransactionManager(t *testing.T) {
 						// runDone is closed.
 						WaitForTransactionsWhenStopping: true,
 					},
-					ExpectedProposeError: ErrTransactionProcessingStopped,
+					ExpectedCommitError: ErrTransactionProcessingStopped,
 				},
 			},
 		},
 		{
-			desc: "propose returns if transaction processing stops after transaction acceptance",
+			desc: "commit returns if transaction processing stops after transaction acceptance",
 			steps: steps{
 				{
 					ReferenceUpdates: ReferenceUpdates{
@@ -1579,8 +1579,8 @@ func TestTransactionManager(t *testing.T) {
 							hookCtx.stopManager()
 						},
 					},
-					ExpectedProposeError: ErrTransactionProcessingStopped,
-					ExpectedRunError:     true,
+					ExpectedCommitError: ErrTransactionProcessingStopped,
+					ExpectedRunError:    true,
 					ExpectedDatabase: DatabaseState{
 						string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
 							ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
@@ -1741,7 +1741,7 @@ func TestTransactionManager(t *testing.T) {
 					// For branch updates, we don't really verify the refname schematics, we take a shortcut
 					// and rely on it being either a verified new reference name or a reference name which
 					// exists on the repo already.
-					ExpectedProposeError:  git.ErrReferenceNotFound,
+					ExpectedCommitError:   git.ErrReferenceNotFound,
 					ExpectedDefaultBranch: "",
 				},
 			},
@@ -1759,7 +1759,7 @@ func TestTransactionManager(t *testing.T) {
 					// For branch updates, we don't really verify the refname schematics, we take a shortcut
 					// and rely on it being either a verified new reference name or a reference name which
 					// exists on the repo already.
-					ExpectedProposeError:  git.ErrReferenceNotFound,
+					ExpectedCommitError:   git.ErrReferenceNotFound,
 					ExpectedDefaultBranch: "",
 				},
 			},
@@ -1807,7 +1807,7 @@ func TestTransactionManager(t *testing.T) {
 					DefaultBranchUpdate: &DefaultBranchUpdate{
 						Reference: "refs/heads/branch2",
 					},
-					ExpectedProposeError: ReferenceToBeDeletedError{ReferenceName: "refs/heads/branch2"},
+					ExpectedCommitError: ReferenceToBeDeletedError{ReferenceName: "refs/heads/branch2"},
 					ExpectedReferences: []git.Reference{
 						{Name: "refs/heads/branch2", Target: rootCommitOID.String()},
 						{Name: "refs/heads/main", Target: rootCommitOID.String()},
@@ -1907,9 +1907,9 @@ func TestTransactionManager(t *testing.T) {
 							panic("node failure simulation")
 						},
 					},
-					ExpectedPanic:        "node failure simulation",
-					ExpectedProposeError: ErrTransactionProcessingStopped,
-					ExpectedRunError:     true,
+					ExpectedPanic:       "node failure simulation",
+					ExpectedCommitError: ErrTransactionProcessingStopped,
+					ExpectedRunError:    true,
 					ExpectedDatabase: DatabaseState{
 						string(keyLogEntry(getRepositoryID(repo), 1)): &gitalypb.LogEntry{
 							ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
@@ -1977,7 +1977,7 @@ func TestTransactionManager(t *testing.T) {
 					ReferenceUpdates: ReferenceUpdates{
 						tc.referenceName: {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedProposeError: err,
+					ExpectedCommitError: err,
 				},
 			},
 		})
@@ -2085,8 +2085,8 @@ func TestTransactionManager(t *testing.T) {
 				// managerErr is used for synchronizing manager stopping and returning
 				// the error from Run.
 				managerErr chan error
-				// inflightTransactions tracks the number of on going propose calls. It is used to synchronize
-				// the database hooks with propose calls.
+				// inflightTransactions tracks the number of on going transactions calls. It is used to synchronize
+				// the database hooks with transactions.
 				inflightTransactions sync.WaitGroup
 			)
 
@@ -2171,17 +2171,32 @@ func TestTransactionManager(t *testing.T) {
 					inflightTransactions.Add(1)
 					defer inflightTransactions.Done()
 
-					proposeCtx := ctx
-					if step.Context != nil {
-						proposeCtx = step.Context
+					transaction, err := transactionManager.Begin(ctx)
+					require.NoError(t, err)
+					defer transaction.Rollback()
+
+					if step.SkipVerificationFailures {
+						transaction.SkipVerificationFailures()
 					}
 
-					require.ErrorIs(t, transactionManager.Propose(proposeCtx, Transaction{
-						SkipVerificationFailures: step.SkipVerificationFailures,
-						ReferenceUpdates:         step.ReferenceUpdates,
-						DefaultBranchUpdate:      step.DefaultBranchUpdate,
-						CustomHooksUpdate:        step.CustomHooksUpdate,
-					}), step.ExpectedProposeError)
+					if step.ReferenceUpdates != nil {
+						transaction.UpdateReferences(step.ReferenceUpdates)
+					}
+
+					if step.DefaultBranchUpdate != nil {
+						transaction.SetDefaultBranch(step.DefaultBranchUpdate.Reference)
+					}
+
+					if step.CustomHooksUpdate != nil {
+						transaction.SetCustomHooks(step.CustomHooksUpdate.CustomHooksTAR)
+					}
+
+					commitCtx := ctx
+					if step.CommitContext != nil {
+						commitCtx = step.CommitContext
+					}
+
+					require.ErrorIs(t, transaction.Commit(commitCtx), step.ExpectedCommitError)
 				}()
 
 				if !step.SkipStartManager {
@@ -2205,7 +2220,7 @@ func checkManagerError(t *testing.T, managerErrChannel chan error, mgr *Transact
 	t.Helper()
 
 	testTransaction := transactionFuture{
-		transaction: Transaction{ReferenceUpdates: ReferenceUpdates{"sentinel": {}}},
+		transaction: &Transaction{referenceUpdates: ReferenceUpdates{"sentinel": {}}},
 		result:      make(resultChannel, 1),
 	}
 
@@ -2223,7 +2238,7 @@ func checkManagerError(t *testing.T, managerErrChannel chan error, mgr *Transact
 	case mgr.admissionQueue <- testTransaction:
 		// If the error channel doesn't receive, we don't know whether it is because the manager is still running
 		// or we are still waiting for it to return. We test whether the manager is running or not here by queueing a
-		// a proposal that will error. If the manager processes it, we know it is still running.
+		// a transaction that will error. If the manager processes it, we know it is still running.
 		//
 		// If the manager was stopped, it might manage to admit the testTransaction but not process it. To determine
 		// whether that was the case, we also keep waiting on the managerErr channel.
@@ -2251,10 +2266,10 @@ func BenchmarkTransactionManager(b *testing.B) {
 		// setting this higher allows for testing parallel throughput of multiple repositories. This mostly serves
 		// to determine the impact of the shared resources such as the database.
 		numberOfRepositories int
-		// concurrentUpdaters sets the number of goroutines that are calling Propose for a repository. Each of the
-		// updaters work on their own references so they don't block each other. Setting this to 1 allows for testing
-		// sequential update throughput of a repository. Setting this higher allows for testing reference update
-		// throughput when multiple references are being updated concurrently.
+		// concurrentUpdaters sets the number of goroutines that are calling committing transactions for a repository.
+		// Each of the updaters work on their own references so they don't block each other. Setting this to 1 allows
+		// for testing sequential update throughput of a repository. Setting this higher allows for testing reference
+		// update throughput when multiple references are being updated concurrently.
 		concurrentUpdaters int
 		// transactionSize sets the number of references that are updated in each transaction.
 		transactionSize int
@@ -2362,14 +2377,15 @@ func BenchmarkTransactionManager(b *testing.B) {
 				require.NoError(b, err)
 
 				for j := 0; j < tc.concurrentUpdaters; j++ {
-					require.NoError(b, manager.Propose(ctx, Transaction{
-						ReferenceUpdates: getReferenceUpdates(j, objectHash.ZeroOID, commit1),
-					}))
+					transaction, err := manager.Begin(ctx)
+					require.NoError(b, err)
+					transaction.UpdateReferences(getReferenceUpdates(j, objectHash.ZeroOID, commit1))
+					require.NoError(b, transaction.Commit(ctx))
 				}
 			}
 
-			// proposeWG tracks the number of on going Propose calls.
-			var proposeWG sync.WaitGroup
+			// transactionWG tracks the number of on going transaction.
+			var transactionWG sync.WaitGroup
 			transactionChan := make(chan struct{})
 
 			for _, manager := range managers {
@@ -2380,17 +2396,22 @@ func BenchmarkTransactionManager(b *testing.B) {
 					currentReferences := getReferenceUpdates(i, commit1, commit2)
 					nextReferences := getReferenceUpdates(i, commit2, commit1)
 
-					// Setup the starting state so the references start at the expected old tip.
-					require.NoError(b, manager.Propose(ctx, Transaction{
-						ReferenceUpdates: currentReferences,
-					}))
+					transaction, err := manager.Begin(ctx)
+					require.NoError(b, err)
+					transaction.UpdateReferences(currentReferences)
 
-					proposeWG.Add(1)
+					// Setup the starting state so the references start at the expected old tip.
+					require.NoError(b, transaction.Commit(ctx))
+
+					transactionWG.Add(1)
 					go func() {
-						defer proposeWG.Done()
+						defer transactionWG.Done()
 
 						for range transactionChan {
-							assert.NoError(b, manager.Propose(ctx, Transaction{ReferenceUpdates: nextReferences}))
+							transaction, err := manager.Begin(ctx)
+							require.NoError(b, err)
+							transaction.UpdateReferences(nextReferences)
+							assert.NoError(b, transaction.Commit(ctx))
 							currentReferences, nextReferences = nextReferences, currentReferences
 						}
 					}()
@@ -2406,7 +2427,7 @@ func BenchmarkTransactionManager(b *testing.B) {
 			}
 			close(transactionChan)
 
-			proposeWG.Wait()
+			transactionWG.Wait()
 			b.StopTimer()
 
 			b.ReportMetric(float64(b.N*tc.transactionSize)/time.Since(began).Seconds(), "reference_updates/s")
