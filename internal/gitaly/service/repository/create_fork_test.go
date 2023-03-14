@@ -94,12 +94,7 @@ func TestCreateFork_refs(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	cfg := testcfg.Build(t)
-	testcfg.BuildGitalyHooks(t, cfg)
-	testcfg.BuildGitalySSH(t, cfg)
-
-	client, socketPath := runRepositoryService(t, cfg, nil)
-	cfg.SocketPath = socketPath
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	sourceRepo, sourceRepoPath := gittest.CreateRepository(t, ctx, cfg)
 
@@ -151,13 +146,7 @@ func TestCreateFork_refs(t *testing.T) {
 func TestCreateFork_fsck(t *testing.T) {
 	t.Parallel()
 
-	cfg := testcfg.Build(t)
-
-	testcfg.BuildGitalyHooks(t, cfg)
-	testcfg.BuildGitalySSH(t, cfg)
-
-	client, socketPath := runRepositoryService(t, cfg, nil)
-	cfg.SocketPath = socketPath
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	ctx := testhelper.Context(t)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
