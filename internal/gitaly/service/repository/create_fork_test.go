@@ -67,9 +67,7 @@ func TestCreateFork_successful(t *testing.T) {
 			ctx := testhelper.Context(t)
 			ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
-			repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-				Seed: gittest.SeedGitLabTest,
-			})
+			repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 			forkedRepo := &gitalypb.Repository{
 				RelativePath: gittest.NewRepositoryName(t),
@@ -246,10 +244,10 @@ func TestCreateFork_targetExists(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			ctx := testhelper.Context(t)
-
-			cfg, repo, _, client := setupRepositoryService(t, ctx)
-
+			cfg, client := setupRepositoryServiceWithoutRepo(t)
 			ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
+
+			repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 			forkedRepo := &gitalypb.Repository{
 				// As this test can run with Praefect in front of it, we'll use the next replica path Praefect will
@@ -273,8 +271,11 @@ func TestCreateFork_targetExists(t *testing.T) {
 
 func TestCreateFork_validate(t *testing.T) {
 	t.Parallel()
+
 	ctx := testhelper.Context(t)
-	_, repo, _, cli := setupRepositoryService(t, ctx)
+	cfg, cli := setupRepositoryServiceWithoutRepo(t)
+	repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
 	for _, tc := range []struct {
 		desc        string
 		req         *gitalypb.CreateForkRequest
