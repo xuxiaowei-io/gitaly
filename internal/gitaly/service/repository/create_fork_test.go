@@ -4,8 +4,6 @@ package repository
 
 import (
 	"bytes"
-	"crypto/tls"
-	"crypto/x509"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,8 +11,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
-	"gitlab.com/gitlab-org/gitaly/v15/client"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
@@ -25,19 +21,19 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	gitalyx509 "gitlab.com/gitlab-org/gitaly/v15/internal/x509"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
 )
 
 func TestCreateFork_successful(t *testing.T) {
+	ctx := testhelper.Context(t)
+
 	// We need to inject this once across all tests given that crypto/x509 only initializes
 	// certificates once. Changing injected certs during our tests is thus not going to fly well
 	// and would cause failure. We should eventually address this and provide better testing
 	// utilities around this, but now's not the time.
-	certPool, tlsConfig := injectCustomCATestCerts(t)
-	ctx := testhelper.Context(t)
+	certFile, keyFile := testhelper.GenerateCerts(t)
+	t.Setenv(gitalyx509.SSLCertFile, certFile)
 
 	for _, tt := range []struct {
 		name   string
@@ -57,30 +53,22 @@ func TestCreateFork_successful(t *testing.T) {
 			testcfg.BuildGitalyHooks(t, cfg)
 			testcfg.BuildGitalySSH(t, cfg)
 
-			createRepoConfig := gittest.CreateRepositoryConfig{
-				Seed: gittest.SeedGitLabTest,
-			}
-			getReplicaPathConfig := gittest.GetReplicaPathConfig{}
-
 			var client gitalypb.RepositoryServiceClient
 			if tt.secure {
-				cfg.TLS = tlsConfig
+				cfg.TLS = config.TLS{
+					CertPath: certFile,
+					KeyPath:  keyFile,
+				}
 				cfg.TLSListenAddr = "localhost:0"
 
-				_, addr := runRepositoryService(t, cfg, nil)
-				cfg.TLSListenAddr = addr
-
-				var conn *grpc.ClientConn
-				client, conn = newSecureRepoClient(t, cfg.TLSListenAddr, cfg.Auth.Token, certPool)
-				t.Cleanup(func() { conn.Close() })
-
-				createRepoConfig.ClientConn = conn
-				getReplicaPathConfig.ClientConn = conn
+				client, cfg.TLSListenAddr = runRepositoryService(t, cfg, nil)
 			} else {
 				client, cfg.SocketPath = runRepositoryService(t, cfg, nil)
 			}
 
-			repo, _ := gittest.CreateRepository(t, ctx, cfg, createRepoConfig)
+			repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				Seed: gittest.SeedGitLabTest,
+			})
 
 			ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
@@ -95,7 +83,7 @@ func TestCreateFork_successful(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			replicaPath := gittest.GetReplicaPath(t, ctx, cfg, forkedRepo, getReplicaPathConfig)
+			replicaPath := gittest.GetReplicaPath(t, ctx, cfg, forkedRepo)
 			forkedRepoPath := filepath.Join(cfg.Storages[0].Path, replicaPath)
 
 			gittest.Exec(t, cfg, "-C", forkedRepoPath, "fsck")
@@ -316,32 +304,4 @@ func TestCreateFork_validate(t *testing.T) {
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
 	}
-}
-
-func injectCustomCATestCerts(t *testing.T) (*x509.CertPool, config.TLS) {
-	certFile, keyFile := testhelper.GenerateCerts(t)
-	t.Setenv(gitalyx509.SSLCertFile, certFile)
-
-	caPEMBytes := testhelper.MustReadFile(t, certFile)
-	pool := x509.NewCertPool()
-	require.True(t, pool.AppendCertsFromPEM(caPEMBytes))
-
-	return pool, config.TLS{CertPath: certFile, KeyPath: keyFile}
-}
-
-func newSecureRepoClient(tb testing.TB, addr, token string, pool *x509.CertPool) (gitalypb.RepositoryServiceClient, *grpc.ClientConn) {
-	tb.Helper()
-
-	connOpts := []grpc.DialOption{
-		grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
-			RootCAs:    pool,
-			MinVersion: tls.VersionTLS12,
-		})),
-		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(token)),
-	}
-
-	conn, err := client.Dial(addr, connOpts)
-	require.NoError(tb, err)
-
-	return gitalypb.NewRepositoryServiceClient(conn), conn
 }
