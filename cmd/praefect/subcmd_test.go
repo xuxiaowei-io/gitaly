@@ -47,7 +47,9 @@ func listenAndServe(tb testing.TB, svcs []svcRegistrar) (net.Listener, testhelpe
 		s(srv)
 	}
 
-	go func() { require.NoError(tb, srv.Serve(ln)) }()
+	errCh := make(chan error, 1)
+	go func() { errCh <- srv.Serve(ln) }()
+
 	ctx := testhelper.Context(tb)
 
 	// verify the service is up
@@ -58,5 +60,7 @@ func listenAndServe(tb testing.TB, svcs []svcRegistrar) (net.Listener, testhelpe
 
 	return ln, func() {
 		srv.Stop()
+		err := <-errCh
+		require.NoErrorf(tb, err, "error while stopping server: %q", err)
 	}
 }
