@@ -1,8 +1,10 @@
 package config
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"time"
 
@@ -214,6 +216,11 @@ func FromFile(filePath string) (Config, error) {
 		return Config{}, err
 	}
 
+	return FromReader(bytes.NewReader(b))
+}
+
+// FromReader loads the config for the passed data stream.
+func FromReader(reader io.Reader) (Config, error) {
 	conf := &Config{
 		BackgroundVerification: DefaultBackgroundVerificationConfig(),
 		Reconciliation:         DefaultReconciliationConfig(),
@@ -225,7 +232,7 @@ func FromFile(filePath string) (Config, error) {
 		RepositoriesCleanup: DefaultRepositoriesCleanup(),
 		Yamux:               DefaultYamuxConfig(),
 	}
-	if err := toml.Unmarshal(b, conf); err != nil {
+	if err := toml.NewDecoder(reader).Decode(conf); err != nil {
 		return Config{}, err
 	}
 
@@ -322,6 +329,13 @@ func (c *Config) Validate() error {
 		return err
 	}
 
+	return nil
+}
+
+// ValidateV2 is a new validation method that is a replacement for the existing Validate.
+// It exists as a demonstration of the new validation implementation based on the usage
+// of the cfgerror package.
+func (c *Config) ValidateV2() error {
 	return nil
 }
 
