@@ -2,10 +2,15 @@ package cfgerror
 
 import (
 	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 )
 
 func TestValidationError_Error(t *testing.T) {
@@ -98,4 +103,34 @@ func TestNewValidationError(t *testing.T) {
 
 	err = NewValidationError(assert.AnError, "outer", "inner")
 	require.Equal(t, ValidationError{Cause: assert.AnError, Key: []string{"outer", "inner"}}, err)
+}
+
+func TestNotEmpty(t *testing.T) {
+	t.Parallel()
+	require.NoError(t, NotEmpty("value"))
+	require.Equal(t, NewValidationError(ErrNotSet), NotEmpty(""))
+}
+
+func TestNotBlank(t *testing.T) {
+	t.Parallel()
+	require.NoError(t, NotBlank("value"))
+	require.Equal(t, NewValidationError(ErrBlankOrEmpty), NotBlank(""))
+	require.Equal(t, NewValidationError(ErrBlankOrEmpty), NotBlank("  \t  \n "))
+}
+
+func TestDirExists(t *testing.T) {
+	t.Parallel()
+
+	filePath := filepath.Join(testhelper.TempDir(t), "tmp-file")
+	require.NoError(t, os.WriteFile(filePath, []byte{}, perm.PublicFile))
+	existing := testhelper.TempDir(t)
+	notExisting := filepath.Join(existing, "bad")
+
+	require.NoError(t, DirExists(existing))
+
+	expectedNotExisting := NewValidationError(fmt.Errorf("%w: %q", ErrDoesntExist, notExisting))
+	require.Equal(t, expectedNotExisting, DirExists(notExisting))
+
+	expectedNotDir := NewValidationError(fmt.Errorf("%w: %q", ErrNotDir, filePath))
+	require.Equal(t, expectedNotDir, DirExists(filePath))
 }

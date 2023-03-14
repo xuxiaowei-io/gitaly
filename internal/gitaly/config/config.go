@@ -194,8 +194,61 @@ func (cfg GitConfig) GlobalArgs() ([]string, error) {
 
 // Storage contains a single storage-shard
 type Storage struct {
-	Name string
-	Path string
+	Name string `toml:"name"`
+	Path string `toml:"path"`
+}
+
+// Validate runs validation on all fields and compose all found errors.
+func (s Storage) Validate() error {
+	return cfgerror.New().
+		Append(cfgerror.NotEmpty(s.Name), "name").
+		Append(cfgerror.DirExists(s.Path), "path").
+		AsError()
+}
+
+func validateStorages(storages []Storage) error {
+	if len(storages) == 0 {
+		return cfgerror.NewValidationError(cfgerror.ErrNotSet)
+	}
+
+	var errs cfgerror.ValidationErrors
+	for i, s := range storages {
+		errs = errs.Append(s.Validate(), fmt.Sprintf("[%d]", i))
+	}
+
+	for i, storage := range storages {
+		for _, other := range storages[:i] {
+			if other.Name == storage.Name {
+				err := fmt.Errorf("%w: %q", cfgerror.ErrNotUnique, storage.Name)
+				cause := cfgerror.NewValidationError(err, "name")
+				errs = errs.Append(cause, fmt.Sprintf("[%d]", i))
+			}
+
+			if storage.Path == other.Path {
+				// This is weird, but we allow it for legacy gitlab.com reasons.
+				continue
+			}
+
+			if storage.Path == "" || other.Path == "" {
+				// If one of Path-s is not set the code below will produce an error
+				// that only confuses, so we stop here.
+				continue
+			}
+
+			if strings.HasPrefix(storage.Path, other.Path) || strings.HasPrefix(other.Path, storage.Path) {
+				// If storages have the same subdirectory, that is allowed.
+				if filepath.Dir(storage.Path) == filepath.Dir(other.Path) {
+					continue
+				}
+
+				cause := fmt.Errorf("can't nest: %q and %q", storage.Path, other.Path)
+				err := cfgerror.NewValidationError(cause, "path")
+				errs = errs.Append(err, fmt.Sprintf("[%d]", i))
+			}
+		}
+	}
+
+	return errs.AsError()
 }
 
 // Sentry is a sentry.Config. We redefine this type to a different name so

@@ -471,16 +471,16 @@ func TestValidateStorages(t *testing.T) {
 	filePath := filepath.Join(testhelper.TempDir(t), "temporary-file")
 	require.NoError(t, os.WriteFile(filePath, []byte{}, perm.PublicFile))
 
-	invalidDir := filepath.Join(repositories, t.Name())
+	invalidDir := filepath.Join(filepath.Dir(repositories), t.Name())
 
 	testCases := []struct {
-		desc      string
-		storages  []Storage
-		expErrMsg string
+		desc        string
+		storages    []Storage
+		expectedErr error
 	}{
 		{
-			desc:      "no storages",
-			expErrMsg: "no storage configurations found. Are you using the right format? https://gitlab.com/gitlab-org/gitaly/issues/397",
+			desc:        "no storages",
+			expectedErr: cfgerror.NewValidationError(cfgerror.ErrNotSet),
 		},
 		{
 			desc: "just 1 storage",
@@ -510,7 +510,13 @@ func TestValidateStorages(t *testing.T) {
 				{Name: "other", Path: repositories},
 				{Name: "third", Path: nestedRepositories},
 			},
-			expErrMsg: `storage paths may not nest: "third" and "default"`,
+			expectedErr: cfgerror.ValidationErrors{{
+				Key:   []string{"[2]", "path"},
+				Cause: fmt.Errorf(`can't nest: %q and %q`, nestedRepositories, repositories),
+			}, {
+				Key:   []string{"[2]", "path"},
+				Cause: fmt.Errorf(`can't nest: %q and %q`, nestedRepositories, repositories),
+			}},
 		},
 		{
 			desc: "nested paths 2",
@@ -519,7 +525,13 @@ func TestValidateStorages(t *testing.T) {
 				{Name: "other", Path: repositories},
 				{Name: "third", Path: repositories},
 			},
-			expErrMsg: `storage paths may not nest: "other" and "default"`,
+			expectedErr: cfgerror.ValidationErrors{{
+				Key:   []string{"[1]", "path"},
+				Cause: fmt.Errorf(`can't nest: %q and %q`, repositories, nestedRepositories),
+			}, {
+				Key:   []string{"[2]", "path"},
+				Cause: fmt.Errorf(`can't nest: %q and %q`, repositories, nestedRepositories),
+			}},
 		},
 		{
 			desc: "duplicate definition",
@@ -527,7 +539,10 @@ func TestValidateStorages(t *testing.T) {
 				{Name: "default", Path: repositories},
 				{Name: "default", Path: repositories},
 			},
-			expErrMsg: `storage "default" is defined more than once`,
+			expectedErr: cfgerror.ValidationErrors{cfgerror.NewValidationError(
+				fmt.Errorf(`%w: "default"`, cfgerror.ErrNotUnique),
+				"[1]", "name",
+			)},
 		},
 		{
 			desc: "re-definition",
@@ -535,7 +550,12 @@ func TestValidateStorages(t *testing.T) {
 				{Name: "default", Path: repositories},
 				{Name: "default", Path: repositories2},
 			},
-			expErrMsg: `storage "default" is defined more than once`,
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					fmt.Errorf(`%w: "default"`, cfgerror.ErrNotUnique),
+					"[1]", "name",
+				),
+			},
 		},
 		{
 			desc: "empty name",
@@ -543,15 +563,12 @@ func TestValidateStorages(t *testing.T) {
 				{Name: "some", Path: repositories},
 				{Name: "", Path: repositories},
 			},
-			expErrMsg: `empty storage name at declaration 2`,
-		},
-		{
-			desc: "empty path",
-			storages: []Storage{
-				{Name: "some", Path: repositories},
-				{Name: "default", Path: ""},
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					cfgerror.ErrNotSet,
+					"[1]", "name",
+				),
 			},
-			expErrMsg: `empty storage path for storage "default"`,
 		},
 		{
 			desc: "non existing directory",
@@ -559,7 +576,12 @@ func TestValidateStorages(t *testing.T) {
 				{Name: "default", Path: repositories},
 				{Name: "nope", Path: invalidDir},
 			},
-			expErrMsg: fmt.Sprintf(`storage path %q for storage "nope" doesn't exist`, invalidDir),
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: %q", cfgerror.ErrDoesntExist, invalidDir),
+					"[1]", "path",
+				),
+			},
 		},
 		{
 			desc: "path points to the regular file",
@@ -567,21 +589,41 @@ func TestValidateStorages(t *testing.T) {
 				{Name: "default", Path: repositories},
 				{Name: "is_file", Path: filePath},
 			},
-			expErrMsg: fmt.Sprintf(`storage path %q for storage "is_file" is not a dir`, filePath),
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: %q", cfgerror.ErrNotDir, filePath),
+					"[1]", "path",
+				),
+			},
+		},
+		{
+			desc: "multiple errors",
+			storages: []Storage{
+				{Name: "", Path: repositories},
+				{Name: "default", Path: "somewhat"},
+			},
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					cfgerror.ErrNotSet,
+					"[0]", "name",
+				),
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: %q", cfgerror.ErrDoesntExist, "somewhat"),
+					"[1]", "path",
+				),
+			},
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			cfg := Cfg{Storages: tc.storages}
-
-			err := cfg.validateStorages()
-			if tc.expErrMsg != "" {
-				assert.EqualError(t, err, tc.expErrMsg, "%+v", tc.storages)
+			err := validateStorages(tc.storages)
+			if tc.expectedErr != nil {
+				assert.Equalf(t, tc.expectedErr, err, "%+v", tc.storages)
 				return
 			}
 
-			assert.NoError(t, err, "%+v", tc.storages)
+			assert.NoErrorf(t, err, "%+v", tc.storages)
 		})
 	}
 }
@@ -1693,6 +1735,43 @@ func TestPackObjectsLimiting(t *testing.T) {
 
 			require.NoError(t, err)
 			require.Equal(t, tc.expectedCfg, cfg.PackObjectsLimiting)
+		})
+	}
+}
+
+func TestStorage_Validate(t *testing.T) {
+	t.Parallel()
+
+	dirPath := testhelper.TempDir(t)
+	filePath := filepath.Join(dirPath, "file")
+	require.NoError(t, os.WriteFile(filePath, nil, perm.SharedFile))
+	for _, tc := range []struct {
+		name        string
+		storage     Storage
+		expectedErr error
+	}{
+		{
+			name:    "valid",
+			storage: Storage{Name: "name", Path: dirPath},
+		},
+		{
+			name:    "invalid",
+			storage: Storage{Name: "", Path: filePath},
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					cfgerror.ErrNotSet,
+					"name",
+				),
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: %q", cfgerror.ErrNotDir, filePath),
+					"path",
+				),
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.storage.Validate()
+			require.Equal(t, tc.expectedErr, err)
 		})
 	}
 }

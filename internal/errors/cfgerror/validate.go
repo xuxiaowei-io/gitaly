@@ -3,11 +3,22 @@ package cfgerror
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 )
 
-// ErrNotSet should be used when the value is not set, but it is required.
-var ErrNotSet = errors.New("not set")
+var (
+	// ErrNotSet should be used when the value is not set, but it is required.
+	ErrNotSet = errors.New("not set")
+	// ErrBlankOrEmpty should be used when non-blank/non-empty string is expected.
+	ErrBlankOrEmpty = errors.New("blank or empty")
+	// ErrDoesntExist should be used when resource doesn't exist.
+	ErrDoesntExist = errors.New("doesn't exist")
+	// ErrNotDir should be used when path on the file system exists, but it is not a directory.
+	ErrNotDir = errors.New("not a dir")
+	// ErrNotUnique should be used when the value must be unique, but there are duplicates.
+	ErrNotUnique = errors.New("not unique")
+)
 
 // ValidationError represents an issue with provided configuration.
 type ValidationError struct {
@@ -94,5 +105,38 @@ func (vs ValidationErrors) Error() string {
 
 // New returns uninitialized ValidationErrors object.
 func New() ValidationErrors {
+	return nil
+}
+
+// NotEmpty checks if value is empty.
+func NotEmpty(val string) error {
+	if val == "" {
+		return NewValidationError(ErrNotSet)
+	}
+	return nil
+}
+
+// NotBlank checks the value is not empty or blank.
+func NotBlank(val string) error {
+	if strings.TrimSpace(val) == "" {
+		return NewValidationError(ErrBlankOrEmpty)
+	}
+	return nil
+}
+
+// DirExists checks the value points to an existing directory on the disk.
+func DirExists(path string) error {
+	fs, err := os.Stat(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return NewValidationError(fmt.Errorf("%w: %q", ErrDoesntExist, path))
+		}
+		return err
+	}
+
+	if !fs.IsDir() {
+		return NewValidationError(fmt.Errorf("%w: %q", ErrNotDir, path))
+	}
+
 	return nil
 }
