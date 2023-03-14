@@ -55,7 +55,7 @@ func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
 					gittest.TreeEntry{
 						Mode:    "100644",
 						Path:    ".gitmodules",
-						Content: fmt.Sprintf(`[submodule "%s"]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
+						Content: fmt.Sprintf(`[submodule %q]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
 					},
 					gittest.TreeEntry{OID: subCommitID, Mode: "160000", Path: "sub"},
 				))
@@ -85,7 +85,7 @@ func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
 					gittest.TreeEntry{
 						Mode:    "100644",
 						Path:    ".gitmodules",
-						Content: fmt.Sprintf(`[submodule "%s"]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
+						Content: fmt.Sprintf(`[submodule %q]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
 					},
 					gittest.TreeEntry{OID: subCommitID, Mode: "160000", Path: "sub"},
 				))
@@ -115,7 +115,7 @@ func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
 					gittest.TreeEntry{
 						Mode:    "100644",
 						Path:    ".gitmodules",
-						Content: fmt.Sprintf(`[submodule "%s"]\n\tpath = %s\n\turl = file://%s`, "sub", "foo/sub", subRepoPath),
+						Content: fmt.Sprintf(`[submodule %q]\n\tpath = %s\n\turl = file://%s`, "sub", "foo/sub", subRepoPath),
 					},
 					gittest.TreeEntry{
 						Mode: "040000",
@@ -161,7 +161,7 @@ func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
 					gittest.TreeEntry{
 						Mode:    "100644",
 						Path:    ".gitmodules",
-						Content: fmt.Sprintf(`[submodule "%s"]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
+						Content: fmt.Sprintf(`[submodule %q]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
 					},
 					gittest.TreeEntry{OID: subCommitID, Mode: "160000", Path: "sub"},
 				))
@@ -203,7 +203,7 @@ func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
 					gittest.TreeEntry{
 						Mode:    "100644",
 						Path:    ".gitmodules",
-						Content: fmt.Sprintf(`[submodule "%s"]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
+						Content: fmt.Sprintf(`[submodule %q]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
 					},
 					gittest.TreeEntry{OID: subCommitID, Mode: "160000", Path: "sub"},
 				))
@@ -232,7 +232,7 @@ func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
 					gittest.TreeEntry{
 						Mode:    "100644",
 						Path:    ".gitmodules",
-						Content: fmt.Sprintf(`[submodule "%s"]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
+						Content: fmt.Sprintf(`[submodule %q]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
 					},
 					gittest.TreeEntry{OID: subCommitID, Mode: "160000", Path: "sub"},
 				))
@@ -261,7 +261,7 @@ func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
 					gittest.TreeEntry{
 						Mode:    "100644",
 						Path:    ".gitmodules",
-						Content: fmt.Sprintf(`[submodule "%s"]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
+						Content: fmt.Sprintf(`[submodule %q]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
 					},
 					gittest.TreeEntry{OID: subCommitID, Mode: "160000", Path: "sub"},
 				))
@@ -290,7 +290,7 @@ func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
 					gittest.TreeEntry{
 						Mode:    "100644",
 						Path:    ".gitmodules",
-						Content: fmt.Sprintf(`[submodule "%s"]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
+						Content: fmt.Sprintf(`[submodule %q]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
 					},
 					gittest.TreeEntry{OID: subCommitID, Mode: "160000", Path: "sub"},
 				))
@@ -319,7 +319,7 @@ func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
 					gittest.TreeEntry{
 						Mode:    "100644",
 						Path:    ".gitmodules",
-						Content: fmt.Sprintf(`[submodule "%s"]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
+						Content: fmt.Sprintf(`[submodule %q]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
 					},
 					gittest.TreeEntry{OID: subCommitID, Mode: "160000", Path: "sub"},
 				))
@@ -349,7 +349,7 @@ func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
 					gittest.TreeEntry{
 						Mode:    "100644",
 						Path:    ".gitmodules",
-						Content: fmt.Sprintf(`[submodule "%s"]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
+						Content: fmt.Sprintf(`[submodule %q]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
 					},
 					gittest.TreeEntry{OID: subCommitID, Mode: "160000", Path: "sub"},
 				))
@@ -378,7 +378,7 @@ func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
 					gittest.TreeEntry{
 						Mode:    "100644",
 						Path:    ".gitmodules",
-						Content: fmt.Sprintf(`[submodule "%s"]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
+						Content: fmt.Sprintf(`[submodule %q]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
 					},
 					gittest.TreeEntry{OID: subCommitID, Mode: "160000", Path: "sub"},
 				))
@@ -407,7 +407,7 @@ func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
 					gittest.TreeEntry{
 						Mode:    "100644",
 						Path:    ".gitmodules",
-						Content: fmt.Sprintf(`[submodule "%s"]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
+						Content: fmt.Sprintf(`[submodule %q]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
 					},
 					gittest.TreeEntry{OID: subCommitID, Mode: "160000", Path: "sub"},
 				))
@@ -437,7 +437,7 @@ func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
 					gittest.TreeEntry{
 						Mode:    "100644",
 						Path:    ".gitmodules",
-						Content: fmt.Sprintf(`[submodule "%s"]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
+						Content: fmt.Sprintf(`[submodule %q]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
 					},
 					gittest.TreeEntry{OID: subCommitID, Mode: "160000", Path: "sub"},
 				))
@@ -469,7 +469,7 @@ func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
 					gittest.TreeEntry{
 						Mode:    "100644",
 						Path:    ".gitmodules",
-						Content: fmt.Sprintf(`[submodule "%s"]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
+						Content: fmt.Sprintf(`[submodule %q]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
 					},
 					gittest.TreeEntry{OID: subCommitID, Mode: "160000", Path: "sub"},
 				))
@@ -501,7 +501,7 @@ func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
 					gittest.TreeEntry{
 						Mode:    "100644",
 						Path:    ".gitmodules",
-						Content: fmt.Sprintf(`[submodule "%s"]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
+						Content: fmt.Sprintf(`[submodule %q]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
 					},
 					gittest.TreeEntry{OID: subCommitID, Mode: "160000", Path: "sub"},
 				))
@@ -584,7 +584,7 @@ func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
 					gittest.TreeEntry{
 						Mode:    "100644",
 						Path:    ".gitmodules",
-						Content: fmt.Sprintf(`[submodule "%s"]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
+						Content: fmt.Sprintf(`[submodule %q]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
 					},
 					gittest.TreeEntry{OID: subCommitID, Mode: "160000", Path: "sub"},
 				))
@@ -615,7 +615,7 @@ func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
 					gittest.TreeEntry{
 						Mode:    "100644",
 						Path:    ".gitmodules",
-						Content: fmt.Sprintf(`[submodule "%s"]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
+						Content: fmt.Sprintf(`[submodule %q]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
 					},
 					gittest.TreeEntry{OID: subCommitID, Mode: "160000", Path: "sub"},
 				))
@@ -648,7 +648,7 @@ func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
 					gittest.TreeEntry{
 						Mode:    "100644",
 						Path:    ".gitmodules",
-						Content: fmt.Sprintf(`[submodule "%s"]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
+						Content: fmt.Sprintf(`[submodule %q]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
 					},
 					gittest.TreeEntry{OID: subCommitID, Mode: "160000", Path: "sub"},
 				))
@@ -684,7 +684,7 @@ func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
 						gittest.TreeEntry{
 							Mode:    "100644",
 							Path:    ".gitmodules",
-							Content: fmt.Sprintf(`[submodule "%s"]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
+							Content: fmt.Sprintf(`[submodule %q]\n\tpath = %s\n\turl = file://%s`, "sub", "sub", subRepoPath),
 						},
 						gittest.TreeEntry{OID: subCommitID, Mode: "160000", Path: "sub"},
 					),

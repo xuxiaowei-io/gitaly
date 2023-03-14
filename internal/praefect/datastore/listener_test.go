@@ -51,6 +51,7 @@ func TestListener_Listen(t *testing.T) {
 	notifyListener := func(t *testing.T, channels []string, payload string) {
 		t.Helper()
 		for _, channel := range channels {
+			//nolint:gitaly-linters
 			_, err := db.Exec(fmt.Sprintf(`NOTIFY %s, '%s'`, channel, payload))
 			assert.NoError(t, err)
 		}

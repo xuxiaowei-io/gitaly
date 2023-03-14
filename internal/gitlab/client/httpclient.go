@@ -60,7 +60,7 @@ func validateCaFile(filename string) error {
 
 	if _, err := os.Stat(filename); err != nil {
 		if os.IsNotExist(err) {
-			return fmt.Errorf("cannot find cafile '%s': %w", filename, ErrCafileNotFound)
+			return fmt.Errorf("cannot find cafile %q: %w", filename, ErrCafileNotFound)
 		}
 
 		return err

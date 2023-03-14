@@ -754,7 +754,7 @@ func testPackObjectsConcurrency(t *testing.T, ctx context.Context) {
 			testutil.GatherAndCompare(registry,
 				bytes.NewBufferString(fmt.Sprintf(`# HELP gitaly_pack_objects_in_progress Gauge of number of concurrent in-progress calls
 # TYPE gitaly_pack_objects_in_progress gauge
-gitaly_pack_objects_in_progress{type="%s"} 1
+gitaly_pack_objects_in_progress{type=%q} 1
 `, keyType)), "gitaly_pack_objects_in_progress"))
 
 		ticker.Tick()
@@ -770,10 +770,10 @@ gitaly_pack_objects_in_progress{type="%s"} 1
 
 		expectedMetrics := bytes.NewBufferString(fmt.Sprintf(`# HELP gitaly_pack_objects_dropped_total Number of requests dropped from the queue
 # TYPE gitaly_pack_objects_dropped_total counter
-gitaly_pack_objects_dropped_total{reason="max_time", type="%s"} 1
+gitaly_pack_objects_dropped_total{reason="max_time", type=%q} 1
 # HELP gitaly_pack_objects_queued Gauge of number of queued calls
 # TYPE gitaly_pack_objects_queued gauge
-gitaly_pack_objects_queued{type="%s"} 0
+gitaly_pack_objects_queued{type=%q} 0
 `, keyType, keyType))
 
 		require.NoError(t,

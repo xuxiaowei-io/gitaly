@@ -55,7 +55,7 @@ func (err IndexError) Error() string {
 	case ErrFileNotFound:
 		return "A file with this name doesn't exist"
 	case ErrInvalidPath:
-		return fmt.Sprintf("invalid path: '%s'", err.Path)
+		return fmt.Sprintf("invalid path: %q", err.Path)
 	default:
 		panic(fmt.Sprintf("unhandled IndexErrorType: %v", err.Type))
 	}

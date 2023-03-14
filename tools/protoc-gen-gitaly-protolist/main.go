@@ -87,7 +87,7 @@ func generateProtolistGo(req *pluginpb.CodeGeneratorRequest) error {
 
 	for _, fi := range files {
 		if !fi.IsDir() && strings.HasSuffix(fi.Name(), ".proto") {
-			protoNames = append(protoNames, fmt.Sprintf(`"%s"`, fi.Name()))
+			protoNames = append(protoNames, fmt.Sprintf(`%q`, fi.Name()))
 		}
 	}
 

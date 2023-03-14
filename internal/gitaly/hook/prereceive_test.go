@@ -196,6 +196,7 @@ func TestPrereceive_quarantine(t *testing.T) {
 		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
 	))
 
+	//nolint:gitaly-linters
 	gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte(fmt.Sprintf(
 		`#!/bin/sh
 		git cat-file -p '%s' || true

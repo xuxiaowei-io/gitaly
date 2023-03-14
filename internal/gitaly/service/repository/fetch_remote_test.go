@@ -954,6 +954,7 @@ func TestFetchRemote_sshCommand(t *testing.T) {
 	// We ain't got a nice way to intercept the SSH call, so we just write a custom git command
 	// which simply prints the GIT_SSH_COMMAND environment variable.
 	gitCmdFactory := gittest.NewInterceptingCommandFactory(t, ctx, cfg, func(execEnv git.ExecutionEnvironment) string {
+		//nolint:gitaly-linters
 		return fmt.Sprintf(
 			`#!/usr/bin/env bash
 

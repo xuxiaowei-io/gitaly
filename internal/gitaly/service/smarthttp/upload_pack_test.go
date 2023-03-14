@@ -234,6 +234,7 @@ func testServerPostUploadPackUsesPackObjectsHook(t *testing.T, ctx context.Conte
 	cfg.BinDir = testhelper.TempDir(t)
 
 	outputPath := filepath.Join(cfg.BinDir, "output")
+	//nolint:gitaly-linters
 	hookScript := fmt.Sprintf("#!/bin/sh\necho 'I was invoked' >'%s'\nshift\nexec git \"$@\"\n", outputPath)
 
 	// We're using a custom pack-objects hook for git-upload-pack. In order
