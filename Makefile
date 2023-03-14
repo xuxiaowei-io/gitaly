@@ -314,6 +314,13 @@ help:
 		 /^[[:space:]]*[[:alpha:]][[:alnum:]_-]+[[:space:]]*\?=/ && desc { print "  "$$1 ":" desc } \
 		 { desc = "" }' $(MAKEFILE_LIST) | sort | column -s: -t
 
+.PHONY: clean-ruby
+build: clean-ruby
+clean: clean-ruby
+## Clean up all remnants of ruby sidecar (we can remove this rule in 16.1)
+clean-ruby:
+	${Q}rm -rf ${SOURCE_DIR}/ruby ${SOURCE_DIR}/.ruby-bundle
+
 .PHONY: build
 ## Build Go binaries.
 build: ${GITALY_INSTALLED_EXECUTABLES}
