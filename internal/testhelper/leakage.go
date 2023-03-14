@@ -24,12 +24,6 @@ func mustHaveNoGoroutines() {
 		// `init()` function. There is no way to stop this worker, so it will leak
 		// whenever we import the package.
 		goleak.IgnoreTopFunction("go.opencensus.io/stats/view.(*worker).start"),
-		// The Ruby server's load balancer is registered in the `init()` function
-		// of our "rubyserver/balancer" package. Ideally we'd clean this up
-		// eventually, but the pragmatic approach is to just wait until we remove
-		// the Ruby sidecar altogether.
-		goleak.IgnoreTopFunction("google.golang.org/grpc.(*ccBalancerWrapper).watcher"),
-		goleak.IgnoreTopFunction(PkgPath("internal/gitaly/rubyserver/balancer.(*builder).monitor")),
 		// labkit's logger spawns a Goroutine which cannot be closed when calling
 		// `Initialize()`.
 		goleak.IgnoreTopFunction("gitlab.com/gitlab-org/labkit/log.listenForSignalHangup"),
