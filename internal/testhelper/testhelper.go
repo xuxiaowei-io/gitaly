@@ -17,7 +17,9 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
+	"reflect"
 	"syscall"
 	"testing"
 	"time"
@@ -392,4 +394,15 @@ func SkipQuarantinedTest(t *testing.T, issue string, tests ...string) {
 	if len(tests) == 0 || slices.Contains(tests, t.Name()) {
 		t.Skipf("This test has been quarantined. Please see %s for more information.", issue)
 	}
+}
+
+// pkgPath is used to determine the package path using reflection.
+type pkgPath struct{}
+
+// PkgPath returns the gitaly module package path, including major version
+// number. paths will be path joined to the returned package path.
+func PkgPath(paths ...string) string {
+	internalPkgPath := path.Dir(reflect.TypeOf(pkgPath{}).PkgPath())
+	rootPkgPath := path.Dir(internalPkgPath)
+	return path.Join(append([]string{rootPkgPath}, paths...)...)
 }

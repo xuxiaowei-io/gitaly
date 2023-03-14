@@ -113,7 +113,7 @@ func BuildBinary(tb testing.TB, targetDir, sourcePath string) string {
 			"build",
 			"-buildvcs=false",
 			"-tags", strings.Join(buildTags, ","),
-			"-ldflags", fmt.Sprintf("-X gitlab.com/gitlab-org/gitaly/v15/internal/version.version=%s", version.GetVersion()),
+			"-ldflags", fmt.Sprintf("-X %s/version.version=%s", testhelper.PkgPath("internal"), version.GetVersion()),
 			"-o", sharedBinaryPath,
 			sourcePath,
 		)
@@ -139,5 +139,5 @@ func BuildBinary(tb testing.TB, targetDir, sourcePath string) string {
 }
 
 func gitalyCommandPath(command string) string {
-	return fmt.Sprintf("gitlab.com/gitlab-org/gitaly/v15/cmd/%s", command)
+	return fmt.Sprintf("%s/cmd/%s", testhelper.PkgPath(), command)
 }
