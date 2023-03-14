@@ -26,8 +26,6 @@ import (
 )
 
 func TestCreateFork_successful(t *testing.T) {
-	ctx := testhelper.Context(t)
-
 	// We need to inject this once across all tests given that crypto/x509 only initializes
 	// certificates once. Changing injected certs during our tests is thus not going to fly well
 	// and would cause failure. We should eventually address this and provide better testing
@@ -66,11 +64,12 @@ func TestCreateFork_successful(t *testing.T) {
 				client, cfg.SocketPath = runRepositoryService(t, cfg, nil)
 			}
 
+			ctx := testhelper.Context(t)
+			ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
+
 			repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				Seed: gittest.SeedGitLabTest,
 			})
-
-			ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
 			forkedRepo := &gitalypb.Repository{
 				RelativePath: gittest.NewRepositoryName(t),
@@ -211,7 +210,6 @@ func TestCreateFork_fsck(t *testing.T) {
 
 func TestCreateFork_targetExists(t *testing.T) {
 	t.Parallel()
-	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
 		desc                          string
@@ -247,6 +245,8 @@ func TestCreateFork_targetExists(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
+			ctx := testhelper.Context(t)
+
 			cfg, repo, _, client := setupRepositoryService(t, ctx)
 
 			ctx = testhelper.MergeOutgoingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
