@@ -11,8 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -48,7 +46,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.`
 )
 
-func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gitalypb.RepositoryServiceClient, rubySrv *rubyserver.Server) {
+func TestFindLicense_successful(t *testing.T) {
+	t.Parallel()
+
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
@@ -243,9 +244,10 @@ func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gital
 	}
 }
 
-func testFindLicenseRequestEmptyRepo(t *testing.T, cfg config.Cfg, client gitalypb.RepositoryServiceClient, rubySrv *rubyserver.Server) {
+func TestFindLicense_emptyRepo(t *testing.T) {
 	t.Parallel()
 
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 	ctx := testhelper.Context(t)
 	repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
