@@ -291,7 +291,7 @@ func rewriteProto(moduleAbsRootPath, prev, next string) error {
 		for _, line := range lines {
 			tokens := bytes.Fields(line)
 			pckg := bytes.Join(tokens, []byte{'~'})
-			if !bytes.HasPrefix(pckg, []byte(`option~go_package~=~"`+prev+`/proto/go/gitalypb";`)) {
+			if !bytes.HasPrefix(pckg, []byte(`option~go_package~=~"`+prev+`/proto/`)) {
 				modified = append(modified, line)
 				continue
 			}
