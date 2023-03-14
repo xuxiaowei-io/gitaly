@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/dgraph-io/badger/v3"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
@@ -104,6 +105,12 @@ type CustomHooksUpdate struct {
 // is the expected old tip and the desired new tip.
 type ReferenceUpdates map[git.ReferenceName]ReferenceUpdate
 
+// Snapshot contains the read snapshot details of a Transaction.
+type Snapshot struct {
+	// ReadIndex is the index of the log entry this Transaction is reading the data at.
+	ReadIndex LogIndex
+}
+
 // Transaction is a unit-of-work that contains reference changes to perform on the repository.
 type Transaction struct {
 	// commit commits the Transaction through the TransactionManager.
@@ -111,6 +118,9 @@ type Transaction struct {
 	// result is where the outcome of the transaction is sent ot by TransactionManager once it
 	// has been determined.
 	result chan error
+
+	// Snapshot contains the details of the Transaction's read snapshot.
+	snapshot Snapshot
 
 	skipVerificationFailures bool
 	referenceUpdates         ReferenceUpdates
@@ -120,8 +130,42 @@ type Transaction struct {
 
 // Begin opens a new transaction. The caller must call either Commit or Rollback to release
 // the resources tied to the transaction. The returned Transaction is not safe for concurrent use.
+//
+// The returned Transaction's read snapshot includes all writes that were committed prior to the
+// Begin call. Begin blocks until the committed writes have been applied to the repository.
 func (mgr *TransactionManager) Begin(ctx context.Context) (*Transaction, error) {
-	return &Transaction{commit: mgr.commit}, nil
+	// Wait until the manager has been initialized so the notification channels
+	// and the log indexes are loaded.
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-mgr.initialized:
+	}
+
+	mgr.mutex.RLock()
+	readIndex := mgr.appendedLogIndex
+	readReady := mgr.applyNotifications[readIndex]
+	mgr.mutex.RUnlock()
+	if readReady == nil {
+		// The snapshot log entry is already applied if there is no notification channel for it.
+		// If so, the transaction is ready to begin immediately.
+		readReady = make(chan struct{})
+		close(readReady)
+	}
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-mgr.ctx.Done():
+		return nil, ErrTransactionProcessingStopped
+	case <-readReady:
+		return &Transaction{
+			commit: mgr.commit,
+			snapshot: Snapshot{
+				ReadIndex: readIndex,
+			},
+		}, nil
+	}
 }
 
 // Commit performs the changes. If no error is returned, the transaction was successful and the changes
@@ -132,6 +176,11 @@ func (txn *Transaction) Commit(ctx context.Context) error {
 
 // Rollback releases resources associated with the transaction without performing any changes.
 func (txn *Transaction) Rollback() {}
+
+// Snapshot returns the details of the Transaction's read snapshot.
+func (txn *Transaction) Snapshot() Snapshot {
+	return txn.snapshot
+}
 
 // SkipVerificationFailures configures the transaction to skip reference updates that fail verification.
 // If a reference update fails verification with this set, the update is dropped from the transaction but
@@ -225,6 +274,15 @@ type TransactionManager struct {
 	// manager.
 	admissionQueue chan *Transaction
 
+	// initialized is closed when the manager has been initialized. It's used to block new transactions
+	// from beginning prior to the manager having initialized its runtime state on start up.
+	initialized chan struct{}
+	// mutex guards access to applyNotifications and appendedLogIndex. These fields are accessed by both
+	// Run and Begin which are ran in different goroutines.
+	mutex sync.RWMutex
+	// applyNotifications stores channels that are closed when a log entry is applied. These
+	// are used to block transactions from beginning before their snapshot is ready.
+	applyNotifications map[LogIndex]chan struct{}
 	// appendedLogIndex holds the index of the last log entry appended to the log.
 	appendedLogIndex LogIndex
 	// appliedLogIndex holds the index of the last log entry applied to the repository
@@ -243,13 +301,15 @@ type repository interface {
 func NewTransactionManager(db *badger.DB, repository *localrepo.Repo) *TransactionManager {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &TransactionManager{
-		ctx:            ctx,
-		stopCalled:     ctx.Done(),
-		runDone:        make(chan struct{}),
-		stop:           cancel,
-		repository:     repository,
-		db:             newDatabaseAdapter(db),
-		admissionQueue: make(chan *Transaction),
+		ctx:                ctx,
+		stopCalled:         ctx.Done(),
+		runDone:            make(chan struct{}),
+		stop:               cancel,
+		repository:         repository,
+		db:                 newDatabaseAdapter(db),
+		admissionQueue:     make(chan *Transaction),
+		initialized:        make(chan struct{}),
+		applyNotifications: make(map[LogIndex]chan struct{}),
 	}
 }
 
@@ -297,7 +357,15 @@ func unwrapExpectedError(err error) error {
 //
 // Run keeps running until Stop is called or it encounters a fatal error. All transactions will error with
 // ErrTransactionProcessingStopped when Run returns.
-func (mgr *TransactionManager) Run() error {
+func (mgr *TransactionManager) Run() (returnedErr error) {
+	defer func() {
+		// On-going operations may fail with a context canceled error if the manager is stopped. This is
+		// not a real error though given the manager will recover from this on restart. Swallow the error.
+		if errors.Is(returnedErr, context.Canceled) {
+			returnedErr = nil
+		}
+	}()
+
 	// Defer the Stop in order to release all on-going Commit calls in case of error.
 	defer close(mgr.runDone)
 	defer mgr.Stop()
@@ -306,24 +374,12 @@ func (mgr *TransactionManager) Run() error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	// awaitingTransactions contains transactions waiting for their log entry to be applied to
-	// the repository. It's keyed by the log index the transaction is waiting to be applied and the
-	// value is the resultChannel that is waiting the result.
-	awaitingTransactions := make(map[LogIndex]resultChannel)
-
 	for {
 		if mgr.appliedLogIndex < mgr.appendedLogIndex {
 			logIndex := mgr.appliedLogIndex + 1
 
 			if err := mgr.applyLogEntry(mgr.ctx, logIndex); err != nil {
 				return fmt.Errorf("apply log entry: %w", err)
-			}
-
-			// There is no awaiter for a transaction if the transaction manager is recovering
-			// transactions from the log after starting up.
-			if resultChan, ok := awaitingTransactions[logIndex]; ok {
-				resultChan <- nil
-				delete(awaitingTransactions, logIndex)
 			}
 
 			continue
@@ -337,11 +393,11 @@ func (mgr *TransactionManager) Run() error {
 
 		// Return if the manager was stopped. The select is indeterministic so this guarantees
 		// the manager stops the processing even if there are transactions in the queue.
-		if mgr.ctx.Err() != nil {
-			return nil
+		if err := mgr.ctx.Err(); err != nil {
+			return err
 		}
 
-		if err := func() error {
+		transaction.result <- func() error {
 			logEntry, err := mgr.verifyReferences(mgr.ctx, transaction)
 			if err != nil {
 				return fmt.Errorf("verify references: %w", err)
@@ -354,21 +410,18 @@ func (mgr *TransactionManager) Run() error {
 			}
 
 			return mgr.appendLogEntry(logEntry)
-		}(); err != nil {
-			transaction.result <- err
-			continue
-		}
-
-		awaitingTransactions[mgr.appendedLogIndex] = transaction.result
+		}()
 	}
 }
 
 // Stop stops the transaction processing causing Run to return.
 func (mgr *TransactionManager) Stop() { mgr.stop() }
 
-// initialize initializes the TransactionManager by loading the applied log index and determining the
-// appended log index from the database.
+// initialize initializes the TransactionManager's state from the database. It loads the appendend and the applied
+// indexes and initializes the notification channels that synchronize transaction beginning with log entry applying.
 func (mgr *TransactionManager) initialize() error {
+	defer close(mgr.initialized)
+
 	var appliedLogIndex gitalypb.LogIndex
 	if err := mgr.readKey(keyAppliedLogIndex(getRepositoryID(mgr.repository)), &appliedLogIndex); err != nil && !errors.Is(err, badger.ErrKeyNotFound) {
 		return fmt.Errorf("read applied log index: %w", err)
@@ -383,7 +436,7 @@ func (mgr *TransactionManager) initialize() error {
 	//
 	// As the log indexes in the keys are encoded in big endian, the latest log entry can be found by taking
 	// the first key when iterating the log entry key space in reverse.
-	return mgr.db.View(func(txn databaseTransaction) error {
+	if err := mgr.db.View(func(txn databaseTransaction) error {
 		logPrefix := keyPrefixLogEntries(getRepositoryID(mgr.repository))
 
 		iterator := txn.NewIterator(badger.IteratorOptions{Reverse: true, Prefix: logPrefix})
@@ -398,7 +451,17 @@ func (mgr *TransactionManager) initialize() error {
 		}
 
 		return nil
-	})
+	}); err != nil {
+		return fmt.Errorf("determine appended log index: %w", err)
+	}
+
+	// Each unapplied log entry should have a notification channel that gets closed when it is applied.
+	// Create these channels here for the log entries.
+	for i := mgr.appliedLogIndex + 1; i <= mgr.appendedLogIndex; i++ {
+		mgr.applyNotifications[i] = make(chan struct{})
+	}
+
+	return nil
 }
 
 // verifyReferences verifies that the references in the transaction apply on top of the already accepted
@@ -564,7 +627,10 @@ func (mgr *TransactionManager) appendLogEntry(logEntry *gitalypb.LogEntry) error
 		return fmt.Errorf("set log entry: %w", err)
 	}
 
+	mgr.mutex.Lock()
 	mgr.appendedLogIndex = nextLogIndex
+	mgr.applyNotifications[nextLogIndex] = make(chan struct{})
+	mgr.mutex.Unlock()
 
 	return nil
 }
@@ -604,6 +670,17 @@ func (mgr *TransactionManager) applyLogEntry(ctx context.Context, logIndex LogIn
 	}
 
 	mgr.appliedLogIndex = logIndex
+
+	// Notify the transactions waiting for this log entry to be applied prior to beginning.
+	mgr.mutex.Lock()
+	notificationCh, ok := mgr.applyNotifications[logIndex]
+	if !ok {
+		// This should never happen and is a programming error if it does.
+		return fmt.Errorf("no notification channel for LSN %d", logIndex)
+	}
+	delete(mgr.applyNotifications, logIndex)
+	mgr.mutex.Unlock()
+	close(notificationCh)
 
 	return nil
 }
