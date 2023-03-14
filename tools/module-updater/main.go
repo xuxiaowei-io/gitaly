@@ -161,41 +161,8 @@ func rewriteImports(moduleAbsRootPath, prev, next string) error {
 		}
 		seen[file.Name()] = struct{}{}
 
-		astFile, err := parser.ParseFile(fileSet, file.Name(), nil, parser.ParseComments)
-		if err != nil {
+		if err := rewriteFileImports(fileSet, file.Name(), prev, next); err != nil {
 			rerr = err
-			return false
-		}
-
-		for _, imprt := range astFile.Imports {
-			oldImport, err := strconv.Unquote(imprt.Path.Value)
-			if err != nil {
-				rerr = fmt.Errorf("unquote import: %s :%w", imprt.Path.Value, err)
-				return false
-			}
-
-			if newImport := strings.Replace(oldImport, prev, next, 1); newImport != oldImport {
-				imprt.EndPos = imprt.End()
-				imprt.Path.Value = strconv.Quote(newImport)
-			}
-		}
-
-		f, err := os.Create(file.Name())
-		if err != nil {
-			rerr = fmt.Errorf("open file %q: %w", file.Name(), err)
-			return false
-		}
-
-		ferr := format.Node(f, fileSet, astFile)
-		cerr := f.Close()
-
-		if ferr != nil {
-			rerr = fmt.Errorf("rewrite file %q: %w", file.Name(), err)
-			return false
-		}
-
-		if cerr != nil {
-			rerr = fmt.Errorf("close file %q: %w", file.Name(), err)
 			return false
 		}
 
@@ -203,6 +170,41 @@ func rewriteImports(moduleAbsRootPath, prev, next string) error {
 	})
 
 	return rerr
+}
+
+func rewriteFileImports(fileSet *token.FileSet, filename, prev, next string) (retErr error) {
+	astFile, err := parser.ParseFile(fileSet, filename, nil, parser.ParseComments)
+	if err != nil {
+		return err
+	}
+
+	for _, imprt := range astFile.Imports {
+		oldImport, err := strconv.Unquote(imprt.Path.Value)
+		if err != nil {
+			return fmt.Errorf("unquote import: %s :%w", imprt.Path.Value, err)
+		}
+
+		if newImport := strings.Replace(oldImport, prev, next, 1); newImport != oldImport {
+			imprt.EndPos = imprt.End()
+			imprt.Path.Value = strconv.Quote(newImport)
+		}
+	}
+
+	f, err := os.Create(filename)
+	if err != nil {
+		return fmt.Errorf("open file %q: %w", filename, err)
+	}
+	defer func() {
+		if err := f.Close(); retErr == nil && err != nil {
+			retErr = fmt.Errorf("close file %q: %w", filename, err)
+		}
+	}()
+
+	if err := format.Node(f, fileSet, astFile); err != nil {
+		return fmt.Errorf("rewrite file %q: %w", filename, err)
+	}
+
+	return nil
 }
 
 func normaliseDesiredImportReplacement(module, from, to string) (string, string, error) {
