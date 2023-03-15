@@ -2,9 +2,7 @@ package featureflag
 
 import (
 	"context"
-	"fmt"
 	"strconv"
-	"strings"
 
 	"google.golang.org/grpc/metadata"
 )
@@ -33,11 +31,6 @@ func OutgoingCtxWithFeatureFlag(ctx context.Context, flag FeatureFlag, enabled b
 	return outgoingCtxWithFeatureFlag(ctx, flag.MetadataKey(), enabled)
 }
 
-// OutgoingCtxWithRubyFeatureFlag sets the Ruby feature flag for an outgoing context.
-func OutgoingCtxWithRubyFeatureFlag(ctx context.Context, flag FeatureFlag, enabled bool) context.Context {
-	return outgoingCtxWithFeatureFlag(ctx, rubyHeaderKey(flag.Name), enabled)
-}
-
 func outgoingCtxWithFeatureFlag(ctx context.Context, key string, enabled bool) context.Context {
 	md, ok := metadata.FromOutgoingContext(ctx)
 	if !ok {
@@ -54,12 +47,6 @@ func outgoingCtxWithFeatureFlag(ctx context.Context, key string, enabled bool) c
 // use in clients that transfer the context across process boundaries.
 func IncomingCtxWithFeatureFlag(ctx context.Context, flag FeatureFlag, enabled bool) context.Context {
 	return incomingCtxWithFeatureFlag(ctx, flag.MetadataKey(), enabled)
-}
-
-// IncomingCtxWithRubyFeatureFlag sets the Ruby feature flag for an incoming context. This is NOT
-// meant for use in clients that transfer the context across process boundaries.
-func IncomingCtxWithRubyFeatureFlag(ctx context.Context, flag FeatureFlag, enabled bool) context.Context {
-	return incomingCtxWithFeatureFlag(ctx, rubyHeaderKey(flag.Name), enabled)
 }
 
 func incomingCtxWithFeatureFlag(ctx context.Context, key string, enabled bool) context.Context {
@@ -112,8 +99,4 @@ func FromContext(ctx context.Context) map[FeatureFlag]bool {
 	}
 
 	return flags
-}
-
-func rubyHeaderKey(flag string) string {
-	return fmt.Sprintf("gitaly-feature-ruby-%s", strings.ReplaceAll(flag, "_", "-"))
 }
