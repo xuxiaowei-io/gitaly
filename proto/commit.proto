@@ -415,8 +415,12 @@ message TreeEntry {
 
   // OID of the object this tree entry points to
   string oid = 1;
-  // OID of the tree attached to commit_oid
-  string root_oid = 2;
+  // OID of the tree attached to commit_oid. This field is deprecated and will be removed in Gitaly
+  // v16.0 as it cannot be implemented efficiently without having to spawn another extra process
+  // that needs to get queried for every single TreeEntry. And at that point the caller can just
+  // manually resolve the root tree ID via a separate RPC call, especially so as there are not
+  // currently any known users of this feature.
+  string root_oid = 2 [deprecated=true];
   // Path relative to repository root
   bytes path = 3;
   // This comment is left unintentionally blank.
