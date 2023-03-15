@@ -11,8 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -48,258 +46,215 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.`
 )
 
-func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, client gitalypb.RepositoryServiceClient, rubySrv *rubyserver.Server) {
-	testhelper.NewFeatureSets(featureflag.GoFindLicense).Run(t, func(t *testing.T, ctx context.Context) {
-		for _, tc := range []struct {
-			desc                  string
-			nonExistentRepository bool
-			setup                 func(t *testing.T, repoPath string)
-			// expectedLicenseRuby is used to verify the response received from the Ruby side-car.
-			// Also is it used if expectedLicenseGo is not set. Because the Licensee gem and
-			// the github.com/go-enry/go-license-detector go package use different license databases
-			// and different methods to detect the license, they will not always return the
-			// same result. So we need to provide different expected results in some cases.
-			expectedLicenseRuby *gitalypb.FindLicenseResponse
-			expectedLicenseGo   *gitalypb.FindLicenseResponse
-			errorContains       string
-		}{
-			{
-				desc: "repository does not exist",
-				setup: func(t *testing.T, repoPath string) {
-					require.NoError(t, os.RemoveAll(repoPath))
-				},
-				errorContains: "GetRepoPath: not a git repository",
-			},
-			{
-				desc: "empty if no license file in repo",
-				setup: func(t *testing.T, repoPath string) {
-					gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"),
-						gittest.WithTreeEntries(
-							gittest.TreeEntry{
-								Mode:    "100644",
-								Path:    "README.md",
-								Content: "readme content",
-							}))
-				},
-				expectedLicenseRuby: &gitalypb.FindLicenseResponse{},
-			},
-			{
-				desc: "high confidence mit result and less confident mit-0 result",
-				setup: func(t *testing.T, repoPath string) {
-					gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"),
-						gittest.WithTreeEntries(
-							gittest.TreeEntry{
-								Mode:    "100644",
-								Path:    "LICENSE",
-								Content: mitLicense,
-							}))
-				},
-				expectedLicenseRuby: &gitalypb.FindLicenseResponse{
-					LicenseShortName: "mit",
-					LicenseUrl:       "http://choosealicense.com/licenses/mit/",
-					LicenseName:      "MIT License",
-					LicensePath:      "LICENSE",
-				},
-				expectedLicenseGo: &gitalypb.FindLicenseResponse{
-					LicenseShortName: "mit",
-					LicenseUrl:       "https://opensource.org/licenses/MIT",
-					LicenseName:      "MIT License",
-					LicensePath:      "LICENSE",
-				},
-			},
-			{
-				// test for https://gitlab.com/gitlab-org/gitaly/-/issues/4745
-				desc: "ignores licenses that don't have further details",
-				setup: func(t *testing.T, repoPath string) {
-					licenseText := testhelper.MustReadFile(t, "testdata/linux-license.txt")
+func TestFindLicense_successful(t *testing.T) {
+	t.Parallel()
 
-					gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"),
-						gittest.WithTreeEntries(
-							gittest.TreeEntry{
-								Mode:    "100644",
-								Path:    "COPYING",
-								Content: string(licenseText),
-							}))
-				},
-				expectedLicenseRuby: &gitalypb.FindLicenseResponse{
-					LicenseShortName: "other",
-					LicenseName:      "Other",
-					LicenseNickname:  "LICENSE",
-					LicensePath:      "COPYING",
-				},
-				expectedLicenseGo: &gitalypb.FindLicenseResponse{
-					LicenseShortName: "gpl-2.0+",
-					LicenseName:      "GNU General Public License v2.0 or later",
-					LicenseUrl:       "https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html",
-					LicensePath:      "COPYING",
-				},
-			},
-			{
-				desc: "unknown license",
-				setup: func(t *testing.T, repoPath string) {
-					gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"),
-						gittest.WithTreeEntries(
-							gittest.TreeEntry{
-								Mode:    "100644",
-								Path:    "LICENSE.md",
-								Content: "this doesn't match any known license",
-							}))
-				},
-				expectedLicenseRuby: &gitalypb.FindLicenseResponse{
-					LicenseShortName: "other",
-					LicenseName:      "Other",
-					LicenseNickname:  "LICENSE",
-					LicensePath:      "LICENSE.md",
-				},
-				expectedLicenseGo: &gitalypb.FindLicenseResponse{
-					LicenseShortName: "other",
-					LicenseName:      "Other",
-					LicenseNickname:  "LICENSE",
-					LicensePath:      "LICENSE.md",
-				},
-			},
-			{
-				desc: "deprecated license",
-				setup: func(t *testing.T, repoPath string) {
-					deprecatedLicenseData := testhelper.MustReadFile(t, "testdata/gnu_license.deprecated.txt")
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	ctx := testhelper.Context(t)
 
-					gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"),
-						gittest.WithTreeEntries(
-							gittest.TreeEntry{
-								Mode:    "100644",
-								Path:    "LICENSE",
-								Content: string(deprecatedLicenseData),
-							}))
-				},
-				expectedLicenseRuby: &gitalypb.FindLicenseResponse{
-					LicenseShortName: "gpl-3.0",
-					LicenseUrl:       "http://choosealicense.com/licenses/gpl-3.0/",
-					LicenseName:      "GNU General Public License v3.0",
-					LicensePath:      "LICENSE",
-					LicenseNickname:  "GNU GPLv3",
-				},
-				expectedLicenseGo: &gitalypb.FindLicenseResponse{
-					LicenseShortName: "gpl-3.0+",
-					LicenseUrl:       "https://www.gnu.org/licenses/gpl-3.0-standalone.html",
-					LicenseName:      "GNU General Public License v3.0 or later",
-					LicensePath:      "LICENSE",
-					// The nickname is not set because there is no nickname defined for gpl-3.0+ license.
-				},
+	for _, tc := range []struct {
+		desc                  string
+		nonExistentRepository bool
+		setup                 func(t *testing.T, repoPath string)
+		expectedLicense       *gitalypb.FindLicenseResponse
+		errorContains         string
+	}{
+		{
+			desc: "repository does not exist",
+			setup: func(t *testing.T, repoPath string) {
+				require.NoError(t, os.RemoveAll(repoPath))
 			},
-			{
-				desc: "license with nickname",
-				setup: func(t *testing.T, repoPath string) {
-					licenseText := testhelper.MustReadFile(t, "testdata/gpl-2.0_license.txt")
-
-					gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"),
-						gittest.WithTreeEntries(
-							gittest.TreeEntry{
-								Mode:    "100644",
-								Path:    "LICENSE",
-								Content: string(licenseText),
-							}))
-				},
-				expectedLicenseRuby: &gitalypb.FindLicenseResponse{
-					LicenseShortName: "gpl-2.0",
-					LicenseUrl:       "http://choosealicense.com/licenses/gpl-2.0/",
-					LicenseName:      "GNU General Public License v2.0",
-					LicensePath:      "LICENSE",
-					LicenseNickname:  "GNU GPLv2",
-				},
-				expectedLicenseGo: &gitalypb.FindLicenseResponse{
-					LicenseShortName: "gpl-2.0",
-					LicenseUrl:       "https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html",
-					LicenseName:      "GNU General Public License v2.0 only",
-					LicensePath:      "LICENSE",
-					LicenseNickname:  "GNU GPLv2",
-				},
+			errorContains: "GetRepoPath: not a git repository",
+		},
+		{
+			desc: "empty if no license file in repo",
+			setup: func(t *testing.T, repoPath string) {
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"),
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{
+							Mode:    "100644",
+							Path:    "README.md",
+							Content: "readme content",
+						}))
 			},
-			{
-				desc: "license in subdir",
-				setup: func(t *testing.T, repoPath string) {
-					subTree := gittest.WriteTree(t, cfg, repoPath,
-						[]gittest.TreeEntry{{
+			expectedLicense: &gitalypb.FindLicenseResponse{},
+		},
+		{
+			desc: "high confidence mit result and less confident mit-0 result",
+			setup: func(t *testing.T, repoPath string) {
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"),
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{
 							Mode:    "100644",
 							Path:    "LICENSE",
 							Content: mitLicense,
-						}})
-
-					gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"),
-						gittest.WithTreeEntries(
-							gittest.TreeEntry{
-								Mode: "040000",
-								Path: "legal",
-								OID:  subTree,
-							}))
-				},
-				expectedLicenseRuby: &gitalypb.FindLicenseResponse{},
+						}))
 			},
-			{
-				desc: "license pointing to license file",
-				setup: func(t *testing.T, repoPath string) {
-					gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"),
-						gittest.WithTreeEntries(
-							gittest.TreeEntry{
-								Mode:    "100644",
-								Path:    "mit.txt",
-								Content: mitLicense,
-							},
-							gittest.TreeEntry{
-								Mode:    "100644",
-								Path:    "LICENSE",
-								Content: "mit.txt",
-							},
-						))
-				},
-				expectedLicenseRuby: &gitalypb.FindLicenseResponse{
-					LicenseShortName: "other",
-					LicenseName:      "Other",
-					LicenseNickname:  "LICENSE",
-					LicensePath:      "LICENSE",
-				},
-				expectedLicenseGo: &gitalypb.FindLicenseResponse{
-					LicenseShortName: "mit",
-					LicenseUrl:       "https://opensource.org/licenses/MIT",
-					LicenseName:      "MIT License",
-					LicensePath:      "mit.txt",
-				},
+			expectedLicense: &gitalypb.FindLicenseResponse{
+				LicenseShortName: "mit",
+				LicenseUrl:       "https://opensource.org/licenses/MIT",
+				LicenseName:      "MIT License",
+				LicensePath:      "LICENSE",
 			},
-		} {
-			t.Run(tc.desc, func(t *testing.T) {
-				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
-				tc.setup(t, repoPath)
+		},
+		{
+			// test for https://gitlab.com/gitlab-org/gitaly/-/issues/4745
+			desc: "ignores licenses that don't have further details",
+			setup: func(t *testing.T, repoPath string) {
+				licenseText := testhelper.MustReadFile(t, "testdata/linux-license.txt")
 
-				if _, err := os.Stat(repoPath); !os.IsNotExist(err) {
-					gittest.Exec(t, cfg, "-C", repoPath, "symbolic-ref", "HEAD", "refs/heads/main")
-				}
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"),
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{
+							Mode:    "100644",
+							Path:    "COPYING",
+							Content: string(licenseText),
+						}))
+			},
+			expectedLicense: &gitalypb.FindLicenseResponse{
+				LicenseShortName: "gpl-2.0+",
+				LicenseName:      "GNU General Public License v2.0 or later",
+				LicenseUrl:       "https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html",
+				LicensePath:      "COPYING",
+			},
+		},
+		{
+			desc: "unknown license",
+			setup: func(t *testing.T, repoPath string) {
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"),
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{
+							Mode:    "100644",
+							Path:    "LICENSE.md",
+							Content: "this doesn't match any known license",
+						}))
+			},
+			expectedLicense: &gitalypb.FindLicenseResponse{
+				LicenseShortName: "other",
+				LicenseName:      "Other",
+				LicenseNickname:  "LICENSE",
+				LicensePath:      "LICENSE.md",
+			},
+		},
+		{
+			desc: "deprecated license",
+			setup: func(t *testing.T, repoPath string) {
+				deprecatedLicenseData := testhelper.MustReadFile(t, "testdata/gnu_license.deprecated.txt")
 
-				resp, err := client.FindLicense(ctx, &gitalypb.FindLicenseRequest{Repository: repo})
-				if tc.errorContains != "" {
-					require.Error(t, err)
-					require.Contains(t, err.Error(), tc.errorContains)
-					return
-				}
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"),
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{
+							Mode:    "100644",
+							Path:    "LICENSE",
+							Content: string(deprecatedLicenseData),
+						}))
+			},
+			expectedLicense: &gitalypb.FindLicenseResponse{
+				LicenseShortName: "gpl-3.0+",
+				LicenseUrl:       "https://www.gnu.org/licenses/gpl-3.0-standalone.html",
+				LicenseName:      "GNU General Public License v3.0 or later",
+				LicensePath:      "LICENSE",
+				// The nickname is not set because there is no nickname defined for gpl-3.0+ license.
+			},
+		},
+		{
+			desc: "license with nickname",
+			setup: func(t *testing.T, repoPath string) {
+				licenseText := testhelper.MustReadFile(t, "testdata/gpl-2.0_license.txt")
 
-				require.NoError(t, err)
-				if featureflag.GoFindLicense.IsEnabled(ctx) && tc.expectedLicenseGo != nil {
-					testhelper.ProtoEqual(t, tc.expectedLicenseGo, resp)
-				} else {
-					testhelper.ProtoEqual(t, tc.expectedLicenseRuby, resp)
-				}
-			})
-		}
-	})
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"),
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{
+							Mode:    "100644",
+							Path:    "LICENSE",
+							Content: string(licenseText),
+						}))
+			},
+			expectedLicense: &gitalypb.FindLicenseResponse{
+				LicenseShortName: "gpl-2.0",
+				LicenseUrl:       "https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html",
+				LicenseName:      "GNU General Public License v2.0 only",
+				LicensePath:      "LICENSE",
+				LicenseNickname:  "GNU GPLv2",
+			},
+		},
+		{
+			desc: "license in subdir",
+			setup: func(t *testing.T, repoPath string) {
+				subTree := gittest.WriteTree(t, cfg, repoPath,
+					[]gittest.TreeEntry{{
+						Mode:    "100644",
+						Path:    "LICENSE",
+						Content: mitLicense,
+					}})
+
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"),
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{
+							Mode: "040000",
+							Path: "legal",
+							OID:  subTree,
+						}))
+			},
+			expectedLicense: &gitalypb.FindLicenseResponse{},
+		},
+		{
+			desc: "license pointing to license file",
+			setup: func(t *testing.T, repoPath string) {
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"),
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{
+							Mode:    "100644",
+							Path:    "mit.txt",
+							Content: mitLicense,
+						},
+						gittest.TreeEntry{
+							Mode:    "100644",
+							Path:    "LICENSE",
+							Content: "mit.txt",
+						},
+					))
+			},
+			expectedLicense: &gitalypb.FindLicenseResponse{
+				LicenseShortName: "mit",
+				LicenseUrl:       "https://opensource.org/licenses/MIT",
+				LicenseName:      "MIT License",
+				LicensePath:      "mit.txt",
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+			tc.setup(t, repoPath)
+
+			if _, err := os.Stat(repoPath); !os.IsNotExist(err) {
+				gittest.Exec(t, cfg, "-C", repoPath, "symbolic-ref", "HEAD", "refs/heads/main")
+			}
+
+			resp, err := client.FindLicense(ctx, &gitalypb.FindLicenseRequest{Repository: repo})
+			if tc.errorContains != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.errorContains)
+				return
+			}
+
+			require.NoError(t, err)
+			testhelper.ProtoEqual(t, tc.expectedLicense, resp)
+		})
+	}
 }
 
-func testFindLicenseRequestEmptyRepo(t *testing.T, cfg config.Cfg, client gitalypb.RepositoryServiceClient, rubySrv *rubyserver.Server) {
-	testhelper.NewFeatureSets(featureflag.GoFindLicense).Run(t, func(t *testing.T, ctx context.Context) {
-		repo, _ := gittest.CreateRepository(t, ctx, cfg)
+func TestFindLicense_emptyRepo(t *testing.T) {
+	t.Parallel()
 
-		resp, err := client.FindLicense(ctx, &gitalypb.FindLicenseRequest{Repository: repo})
-		require.NoError(t, err)
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	ctx := testhelper.Context(t)
+	repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
-		require.Empty(t, resp.GetLicenseShortName())
-	})
+	resp, err := client.FindLicense(ctx, &gitalypb.FindLicenseRequest{Repository: repo})
+	require.NoError(t, err)
+
+	require.Empty(t, resp.GetLicenseShortName())
 }
 
 func TestFindLicense_validate(t *testing.T) {
@@ -316,7 +271,6 @@ func TestFindLicense_validate(t *testing.T) {
 func BenchmarkFindLicense(b *testing.B) {
 	cfg := testcfg.Build(b)
 	ctx := testhelper.Context(b)
-	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.GoFindLicense, true)
 
 	gitCmdFactory := gittest.NewCountingCommandFactory(b, cfg)
 	client, serverSocketPath := runRepositoryService(
@@ -390,7 +344,6 @@ func BenchmarkFindLicense(b *testing.B) {
 	gittest.Exec(b, cfg, "-C", repoStressPath, "symbolic-ref", "HEAD", "refs/heads/main")
 
 	testhelper.NewFeatureSets(featureflag.LocalrepoReadObjectCached).Bench(b, func(b *testing.B, ctx context.Context) {
-		ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.GoFindLicense, true)
 		ctx = correlation.ContextWithCorrelation(ctx, "1")
 		ctx = testhelper.MergeOutgoingMetadata(ctx,
 			metadata.Pairs(catfile.SessionIDField, "1"),

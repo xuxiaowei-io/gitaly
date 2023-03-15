@@ -16,9 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/lstree"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/tracing"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/unarycache"
@@ -55,34 +53,22 @@ func (s *server) FindLicense(ctx context.Context, req *gitalypb.FindLicenseReque
 	if err := service.ValidateRepository(repository); err != nil {
 		return nil, structerr.NewInvalidArgument("%w", err)
 	}
-	if featureflag.GoFindLicense.IsEnabled(ctx) {
-		repo := localrepo.New(s.locator, s.gitCmdFactory, s.catfileCache, repository)
+	repo := localrepo.New(s.locator, s.gitCmdFactory, s.catfileCache, repository)
 
-		headOID, err := repo.ResolveRevision(ctx, "HEAD")
-		if err != nil {
-			if errors.Is(err, git.ErrReferenceNotFound) {
-				return &gitalypb.FindLicenseResponse{}, nil
-			}
-			return nil, structerr.NewInternal("cannot find HEAD revision: %v", err)
+	headOID, err := repo.ResolveRevision(ctx, "HEAD")
+	if err != nil {
+		if errors.Is(err, git.ErrReferenceNotFound) {
+			return &gitalypb.FindLicenseResponse{}, nil
 		}
-
-		response, err := s.licenseCache.GetOrCompute(ctx, repo, headOID)
-		if err != nil {
-			return nil, err
-		}
-
-		return response, nil
+		return nil, structerr.NewInternal("cannot find HEAD revision: %v", err)
 	}
 
-	client, err := s.ruby.RepositoryServiceClient(ctx)
+	response, err := s.licenseCache.GetOrCompute(ctx, repo, headOID)
 	if err != nil {
 		return nil, err
 	}
-	clientCtx, err := rubyserver.SetHeaders(ctx, s.locator, repository)
-	if err != nil {
-		return nil, err
-	}
-	return client.FindLicense(clientCtx, req)
+
+	return response, nil
 }
 
 func findLicense(ctx context.Context, repo *localrepo.Repo, commitID git.ObjectID) (*gitalypb.FindLicenseResponse, error) {
