@@ -9,7 +9,13 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
-// NewQuoteInterpolationAnalyzer returns an analyzer to detect manually quoted string interpolation
+const quoteInterpolationAnalyzerName = "string_interpolation_quote"
+
+type quoteInterpolationAnalyzerSettings struct {
+	IncludedFunctions []string `mapstructure:"included-functions"`
+}
+
+// newQuoteInterpolationAnalyzer returns an analyzer to detect manually quoted string interpolation
 // with '%s' and "%s". Quoting this way doesn't escape special characters such as endline and makes
 // debugging harder later. We encourage to use %q verb instead.
 //
@@ -27,13 +33,13 @@ import (
 //
 // For more information:
 // https://gitlab.com/gitlab-org/gitaly/-/blob/master/STYLE.md#use-q-when-interpolating-strings
-func NewQuoteInterpolationAnalyzer(rules []string) *analysis.Analyzer {
+func newQuoteInterpolationAnalyzer(settings *quoteInterpolationAnalyzerSettings) *analysis.Analyzer {
 	return &analysis.Analyzer{
-		Name: "string_interpolation_quote",
+		Name: quoteInterpolationAnalyzerName,
 		Doc: `Unless it would lead to incorrect results, always use %q when
 		interpolating strings. For more information:
 		https://gitlab.com/gitlab-org/gitaly/-/blob/master/STYLE.md#use-q-when-interpolating-strings`,
-		Run: runStringInterpolationQuoteAnalyzer(rules),
+		Run: runStringInterpolationQuoteAnalyzer(settings.IncludedFunctions),
 	}
 }
 

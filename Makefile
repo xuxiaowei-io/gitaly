@@ -364,10 +364,17 @@ prepare-test-repos: ${TEST_REPO}
 
 .PHONY: test
 ## Run Go and Ruby tests.
-test: test-go test-ruby
+test: test-go test-ruby test-gitaly-linters
 
 .PHONY: test-ruby
 test-ruby: rspec
+
+.PHONY: test-gitaly-linters
+## Test Go tests in tools/golangci-lint/gitaly folder
+## That folder has its own go.mod file. Hence tests must run the context of that folder.
+test-gitaly-linters: TEST_PACKAGES := .
+test-gitaly-linters:
+	${Q}cd ${SOURCE_DIR}/tools/golangci-lint/gitaly && $(call run_go_tests)
 
 .PHONY: test-go
 ## Run Go tests.
@@ -422,7 +429,7 @@ ${TOOLS_DIR}/gitaly-linters.so: ${SOURCE_DIR}/tools/golangci-lint/go.sum $(wildc
 
 .PHONY: lint
 ## Run Go linter.
-lint: ${GOLANGCI_LINT} libgit2 ${GITALY_PACKED_EXECUTABLES} ${TOOLS_DIR}/gitaly-linters.so
+lint: ${GOLANGCI_LINT} libgit2 ${GITALY_PACKED_EXECUTABLES} ${TOOLS_DIR}/gitaly-linters.so lint-gitaly-linters
 	${Q}${GOLANGCI_LINT} run --build-tags "${SERVER_BUILD_TAGS},${GIT2GO_BUILD_TAGS}" --out-format tab --config ${GOLANGCI_LINT_CONFIG} ${GOLANGCI_LINT_OPTIONS}
 
 .PHONY: lint-fix
@@ -434,6 +441,13 @@ lint-fix: ${GOLANGCI_LINT} libgit2 ${GITALY_PACKED_EXECUTABLES} ${TOOLS_DIR}/git
 ## Run Markdownlint to lint documentation.
 lint-docs:
 	${Q}markdownlint-cli2-config .markdownlint.yml README.md REVIEWING.md STYLE.md **/*.md || (echo "error: markdownlint-cli2 not found!")
+
+.PHONY: lint-gitaly-linters
+## Test Go tests in tools/golangci-lint/gitaly folder
+## That folder has its own go.mod file. Hence linter must run the context of that folder.
+lint-gitaly-linters: ${GOLANGCI_LINT} ${TOOLS_DIR}/gitaly-linters.so
+	${Q}cd ${SOURCE_DIR}/tools/golangci-lint/gitaly
+	${Q}${GOLANGCI_LINT} run --out-format tab --config ${GOLANGCI_LINT_CONFIG} .
 
 .PHONY: format
 ## Run Go formatter and adjust imports.
