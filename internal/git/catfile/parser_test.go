@@ -121,6 +121,14 @@ fF3T79iV8paT4/OfX8Ygg=
 				},
 			},
 		},
+		{
+			desc: "has encoding",
+			in:   "encoding Windows-1251",
+			out: &gitalypb.GitCommit{
+				Id:       info.Oid.String(),
+				Encoding: "Windows-1251",
+			},
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			info.Size = int64(len(tc.in))

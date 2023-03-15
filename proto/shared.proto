@@ -128,6 +128,11 @@ message GitCommit {
   // referenced_by contains fully-qualified reference names (e.g refs/heads/main)
   // that point to the commit.
   repeated bytes referenced_by = 12; // protolint:disable:this REPEATED_FIELD_NAMES_PLURALIZED
+  // The encoding of the commit message. This field will only be present if
+  // `i18n.commitEncoding` was set to a value other than "UTF-8" at the time
+  // this commit was made.
+  // See: https://git-scm.com/docs/git-commit#_discussion
+  string encoding = 13;
 }
 
 // This comment is left unintentionally blank.
