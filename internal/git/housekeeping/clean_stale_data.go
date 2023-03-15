@@ -108,8 +108,6 @@ func (m *RepositoryManager) CleanStaleData(ctx context.Context, repo *localrepo.
 		return fmt.Errorf("housekeeping could not remove empty refs: %w", err)
 	}
 
-	// TODO: https://gitlab.com/gitlab-org/gitaly/-/issues/3987
-	// This is a temporary code and needs to be removed once it will be run on all repositories at least once.
 	unnecessaryConfigRegex := "^(http\\..+\\.extraheader|remote\\..+\\.(fetch|mirror|prune|url)|core\\.(commitgraph|sparsecheckout|splitindex))$"
 	if err := repo.UnsetMatchingConfig(ctx, unnecessaryConfigRegex, m.txManager); err != nil {
 		if !errors.Is(err, git.ErrNotFound) {
