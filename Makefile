@@ -530,7 +530,7 @@ no-changes:
 .PHONY: no-proto-changes
 no-proto-changes: PROTO_DEST_DIR := ${BUILD_DIR}/proto-changes
 no-proto-changes: proto | ${BUILD_DIR}
-	${Q}${GIT} diff --no-index --exit-code -- "${PROTO_DEST_DIR}" "${SOURCE_DIR}/proto/go"
+	${Q}${GIT} diff --no-index --exit-code -- "${SOURCE_DIR}/proto/go" "${PROTO_DEST_DIR}"
 
 .PHONY: dump-database-schema
 ## Dump the clean database schema of Praefect into a file.
