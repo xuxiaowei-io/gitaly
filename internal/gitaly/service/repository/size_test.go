@@ -36,7 +36,6 @@ func TestRepositorySize_SuccessfulRequest(t *testing.T) {
 	featureSet := testhelper.NewFeatureSets(
 		featureflag.RepositorySizeViaWalk,
 		featureflag.RevlistForRepoSize,
-		featureflag.CatfileRepoSize,
 		featureflag.UseNewRepoSize,
 	)
 
@@ -95,9 +94,7 @@ func testSuccessfulRepositorySizeRequestPoolMember(t *testing.T, ctx context.Con
 	response, err = repoClient.RepositorySize(ctx, sizeRequest)
 	require.NoError(t, err)
 
-	if featureflag.UseNewRepoSize.IsEnabled(ctx) &&
-		(featureflag.RevlistForRepoSize.IsEnabled(ctx) ||
-			featureflag.CatfileRepoSize.IsEnabled(ctx)) {
+	if featureflag.UseNewRepoSize.IsEnabled(ctx) && featureflag.RevlistForRepoSize.IsEnabled(ctx) {
 		assert.Equal(t, int64(0), response.GetSize())
 	} else {
 		assert.Less(t, response.GetSize(), sizeBeforePool)
@@ -169,29 +166,6 @@ func testSuccessfulRepositorySizeRequest(t *testing.T, ctx context.Context) {
 				"excluded refs do not contribute to the repository size",
 			)
 		}
-	case featureflag.CatfileRepoSize.IsEnabled(ctx):
-		for _, entry := range hook.AllEntries() {
-			_, ok := entry.Data["repo_size_catfile_bytes"]
-			if ok {
-				entries = append(entries, entry)
-			}
-		}
-
-		require.Len(t, entries, 2)
-		catfileSizeInLog, ok := entries[1].Data["repo_size_catfile_bytes"]
-		require.True(t, ok)
-		duSizeInLog, ok := entries[1].Data["repo_size_du_bytes"]
-		require.True(t, ok)
-
-		require.Equal(t, "repository size calculated", entries[1].Message)
-
-		require.Less(t, catfileSizeInLog, duSizeInLog)
-
-		if featureflag.UseNewRepoSize.IsEnabled(ctx) {
-			// Because we divide by 1024 to get kibibytes, small
-			// differences might not appear in the final size.
-			assert.LessOrEqual(t, response.Size, responseAfterRefs.Size)
-		}
 	default:
 		assert.Less(t, response.Size, responseAfterRefs.Size)
 	}
@@ -243,7 +217,6 @@ func BenchmarkRepositorySize(b *testing.B) {
 				ctx := testhelper.Context(b)
 				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RepositorySizeViaWalk, false)
 				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RevlistForRepoSize, false)
-				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.CatfileRepoSize, false)
 				return ctx
 			},
 		},
@@ -253,7 +226,6 @@ func BenchmarkRepositorySize(b *testing.B) {
 				ctx := testhelper.Context(b)
 				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RepositorySizeViaWalk, true)
 				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RevlistForRepoSize, false)
-				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.CatfileRepoSize, false)
 				return ctx
 			},
 		},
@@ -264,18 +236,6 @@ func BenchmarkRepositorySize(b *testing.B) {
 				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RepositorySizeViaWalk, false)
 				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RevlistForRepoSize, true)
 				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.UseNewRepoSize, true)
-				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.CatfileRepoSize, false)
-				return ctx
-			},
-		},
-		{
-			desc: "cat-file",
-			setupContext: func(b *testing.B) context.Context {
-				ctx := testhelper.Context(b)
-				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RepositorySizeViaWalk, false)
-				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RevlistForRepoSize, false)
-				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.UseNewRepoSize, true)
-				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.CatfileRepoSize, true)
 				return ctx
 			},
 		},
