@@ -140,6 +140,14 @@ linters-settings:
       path: ./_build/tools/gitaly-linters.so
       description: A collection of linters tailored for Gitaly
       original-url: gitlab.com/gitlab-org/gitaly
+      settings:
+        string_interpolation_quote:
+          included-functions:
+            - fmt.*
+        error_wrap:
+          included-functions:
+            - fmt.Errorf
+            - gitlab.com/gitlab-org/gitaly/v15/internal/structerr.*
 
 issues:
   exclude-use-default: false

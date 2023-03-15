@@ -9,7 +9,13 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
-// NewErrorWrapAnalyzer returns an analyzer to detect unexpected error interpolation without %w.
+const errorWrapAnalyzerName = "error_wrap"
+
+type errorWrapAnalyzerSettings struct {
+	IncludedFunctions []string `mapstructure:"included-functions"`
+}
+
+// newErrorWrapAnalyzer returns an analyzer to detect unexpected error interpolation without %w.
 // After error wrapping was introduced, we encourage wrapping error with %w when constructing a new
 // error. The new error contains the original error able to be unwrapped later.
 //
@@ -30,12 +36,12 @@ import (
 //
 // For more information:
 // https://gitlab.com/gitlab-org/gitaly/-/blob/master/STYLE.md#use-w-when-wrapping-errors
-func NewErrorWrapAnalyzer(rules []string) *analysis.Analyzer {
+func newErrorWrapAnalyzer(settings *errorWrapAnalyzerSettings) *analysis.Analyzer {
 	return &analysis.Analyzer{
-		Name: "error_wrap",
+		Name: errorWrapAnalyzerName,
 		Doc: `Always wrap an error with %w:
 	https://gitlab.com/gitlab-org/gitaly/-/blob/master/STYLE.md#use-w-when-wrapping-errors`,
-		Run: runErrorWrapAnalyzer(rules),
+		Run: runErrorWrapAnalyzer(settings.IncludedFunctions),
 	}
 }
 

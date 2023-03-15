@@ -15,8 +15,8 @@ func TestQuoteInterpolationAnalyzer(t *testing.T) {
 	}
 
 	testdata := filepath.Join(wd, "testdata")
-	analyzer := NewQuoteInterpolationAnalyzer([]string{
+	analyzer := newQuoteInterpolationAnalyzer(&quoteInterpolationAnalyzerSettings{IncludedFunctions: []string{
 		"fmt.*",
-	})
+	}})
 	analysistest.Run(t, testdata, analyzer, "quote")
 }

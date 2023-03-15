@@ -15,8 +15,8 @@ func TestNewErrorWrapAnalyzer(t *testing.T) {
 	}
 
 	testdata := filepath.Join(wd, "testdata")
-	analyzer := NewErrorWrapAnalyzer([]string{
+	analyzer := newErrorWrapAnalyzer(&errorWrapAnalyzerSettings{IncludedFunctions: []string{
 		"fmt.Errorf",
-	})
+	}})
 	analysistest.Run(t, testdata, analyzer, "errorwrap")
 }
