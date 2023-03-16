@@ -3,7 +3,6 @@ package repository
 import (
 	"bytes"
 	"context"
-	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -164,11 +163,11 @@ func TestApplyGitattributes_transactional(t *testing.T) {
 			desc:     "failing vote does not write gitattributes",
 			revision: []byte(commitWithGitattributes),
 			voteFn: func(t *testing.T, request *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
-				return nil, errors.New("foobar")
+				return nil, structerr.NewFailedPrecondition("foobar")
 			},
 			shouldExist: false,
 			expectedErr: func() error {
-				return structerr.NewUnknown("committing gitattributes: voting on locked file: preimage vote: rpc error: code = Unknown desc = foobar")
+				return structerr.NewFailedPrecondition("committing gitattributes: voting on locked file: preimage vote: rpc error: code = FailedPrecondition desc = foobar")
 			}(),
 			expectedVotes: 1,
 		},
