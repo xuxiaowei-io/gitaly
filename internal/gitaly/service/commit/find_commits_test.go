@@ -56,6 +56,7 @@ func TestFindCommitsFields(t *testing.T) {
 				ParentIds: []string{"e63f41fe459e62e1228fcef60d7189127aeba95a"},
 				BodySize:  49,
 				TreeId:    "86ec18bfe87ad42a782fdabd8310f9b7ac750f51",
+				Encoding:  "windows-1251",
 			},
 		},
 		{

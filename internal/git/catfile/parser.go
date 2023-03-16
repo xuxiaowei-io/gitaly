@@ -82,6 +82,8 @@ func (p *parser) ParseCommit(object git.Object) (*gitalypb.GitCommit, error) {
 			commit.SignatureType = detectSignatureType(value)
 		case "tree":
 			commit.TreeId = value
+		case "encoding":
+			commit.Encoding = value
 		}
 	}
 
