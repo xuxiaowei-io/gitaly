@@ -3,8 +3,12 @@ package repository
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
+	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
@@ -45,7 +49,15 @@ func (s *server) RepositorySize(ctx context.Context, in *gitalypb.RepositorySize
 		return nil, err
 	}
 
-	sizeKiB := getPathSize(ctx, path)
+	var sizeKiB int64
+	if featureflag.RepositorySizeViaWalk.IsEnabled(ctx) {
+		sizeKiB, err = dirSizeInKB(path)
+		if err != nil {
+			return nil, fmt.Errorf("calculating directory size: %w", err)
+		}
+	} else {
+		sizeKiB = getPathSize(ctx, path)
+	}
 
 	logger := ctxlogrus.Extract(ctx).WithField("repo_size_du_bytes", sizeKiB*1024)
 
@@ -177,7 +189,17 @@ func (s *server) GetObjectDirectorySize(ctx context.Context, in *gitalypb.GetObj
 		return nil, err
 	}
 
-	return &gitalypb.GetObjectDirectorySizeResponse{Size: getPathSize(ctx, path)}, nil
+	var sizeKiB int64
+	if featureflag.RepositorySizeViaWalk.IsEnabled(ctx) {
+		sizeKiB, err = dirSizeInKB(path)
+		if err != nil {
+			return nil, fmt.Errorf("calculating directory size: %w", err)
+		}
+	} else {
+		sizeKiB = getPathSize(ctx, path)
+	}
+
+	return &gitalypb.GetObjectDirectorySizeResponse{Size: sizeKiB}, nil
 }
 
 func getPathSize(ctx context.Context, path string) int64 {
@@ -211,4 +233,36 @@ func getPathSize(ctx context.Context, path string) int64 {
 	}
 
 	return size
+}
+
+func dirSizeInKB(path string) (int64, error) {
+	var totalSize int64
+
+	if err := filepath.WalkDir(path, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if d.IsDir() {
+			return nil
+		}
+
+		fi, err := d.Info()
+		if err != nil {
+			// The file may have been concurrently removed.
+			if errors.Is(err, os.ErrNotExist) {
+				return nil
+			}
+
+			return fmt.Errorf("retrieving file info: %w", err)
+		}
+
+		totalSize += fi.Size()
+
+		return nil
+	}); err != nil {
+		return 0, fmt.Errorf("walking directory: %w", err)
+	}
+
+	return totalSize / 1024, nil
 }

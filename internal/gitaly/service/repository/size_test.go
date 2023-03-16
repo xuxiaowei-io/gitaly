@@ -3,8 +3,8 @@
 package repository
 
 import (
-	"bytes"
 	"context"
+	"math/rand"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -34,6 +34,7 @@ func TestRepositorySize_SuccessfulRequest(t *testing.T) {
 	t.Parallel()
 
 	featureSet := testhelper.NewFeatureSets(
+		featureflag.RepositorySizeViaWalk,
 		featureflag.RevlistForRepoSize,
 		featureflag.CatfileRepoSize,
 		featureflag.UseNewRepoSize,
@@ -118,13 +119,14 @@ func testSuccessfulRepositorySizeRequest(t *testing.T, ctx context.Context) {
 		"repository size %d should be at least %d", response.Size, testRepoMinSizeKB,
 	)
 
-	blob := bytes.Repeat([]byte("a"), 1000)
-	blobOID := gittest.WriteBlob(t, cfg, repoPath, blob)
+	var blob [16 * 1024]byte
+	rand.Read(blob[:])
+
 	treeOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 		{
-			OID:  blobOID,
-			Mode: "100644",
-			Path: "1kbblob",
+			Mode:    "100644",
+			Path:    "1kbblob",
+			Content: string(blob[:]),
 		},
 	})
 	commitOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(treeOID))
@@ -236,9 +238,20 @@ func BenchmarkRepositorySize(b *testing.B) {
 		setupContext func(b *testing.B) context.Context
 	}{
 		{
-			desc: "disk-usage",
+			desc: "disk-usage with du",
 			setupContext: func(b *testing.B) context.Context {
 				ctx := testhelper.Context(b)
+				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RepositorySizeViaWalk, false)
+				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RevlistForRepoSize, false)
+				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.CatfileRepoSize, false)
+				return ctx
+			},
+		},
+		{
+			desc: "disk-usage with walk",
+			setupContext: func(b *testing.B) context.Context {
+				ctx := testhelper.Context(b)
+				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RepositorySizeViaWalk, true)
 				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RevlistForRepoSize, false)
 				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.CatfileRepoSize, false)
 				return ctx
@@ -248,6 +261,7 @@ func BenchmarkRepositorySize(b *testing.B) {
 			desc: "rev-list",
 			setupContext: func(b *testing.B) context.Context {
 				ctx := testhelper.Context(b)
+				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RepositorySizeViaWalk, false)
 				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RevlistForRepoSize, true)
 				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.UseNewRepoSize, true)
 				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.CatfileRepoSize, false)
@@ -258,6 +272,7 @@ func BenchmarkRepositorySize(b *testing.B) {
 			desc: "cat-file",
 			setupContext: func(b *testing.B) context.Context {
 				ctx := testhelper.Context(b)
+				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RepositorySizeViaWalk, false)
 				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RevlistForRepoSize, false)
 				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.UseNewRepoSize, true)
 				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.CatfileRepoSize, true)
@@ -308,7 +323,7 @@ func BenchmarkRepositorySize(b *testing.B) {
 
 func TestRepositorySize_SuccessfulGetObjectDirectorySizeRequest(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.RevlistForRepoSize).
+	testhelper.NewFeatureSets(featureflag.RevlistForRepoSize, featureflag.RepositorySizeViaWalk).
 		Run(t, testSuccessfulGetObjectDirectorySizeRequest)
 }
 
@@ -328,7 +343,7 @@ func testSuccessfulGetObjectDirectorySizeRequest(t *testing.T, ctx context.Conte
 
 func TestRepositorySize_GetObjectDirectorySize_quarantine(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.RevlistForRepoSize).
+	testhelper.NewFeatureSets(featureflag.RevlistForRepoSize, featureflag.RepositorySizeViaWalk).
 		Run(t, testGetObjectDirectorySizeQuarantine)
 }
 
