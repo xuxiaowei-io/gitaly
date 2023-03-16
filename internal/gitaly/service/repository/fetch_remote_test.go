@@ -641,7 +641,7 @@ func TestFetchRemote(t *testing.T) {
 								"refs/heads/main":   localDivergingID,
 								"refs/heads/branch": remoteUpdatedID,
 							},
-							expectedErr: structerr.New("fetch remote: exit status 1"),
+							expectedErr: structerr.NewInternal("fetch remote: exit status 1"),
 						},
 					},
 				}
@@ -678,7 +678,7 @@ func TestFetchRemote(t *testing.T) {
 								"refs/heads/main":  localDivergingID,
 								"refs/tags/v1.0.0": remoteTagID,
 							},
-							expectedErr: structerr.New("fetch remote: exit status 1"),
+							expectedErr: structerr.NewInternal("fetch remote: exit status 1"),
 						},
 					},
 				}

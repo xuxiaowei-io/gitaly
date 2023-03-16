@@ -30,7 +30,7 @@ func TestNew(t *testing.T) {
 		{
 			desc:         "New",
 			constructor:  New,
-			expectedCode: codes.Internal,
+			expectedCode: codes.Unknown,
 		},
 		{
 			desc:         "NewAborted",
@@ -330,7 +330,7 @@ func TestError_Metadata(t *testing.T) {
 		err := New("message")
 		require.Equal(t, Error{
 			err:  errors.New("message"),
-			code: codes.Internal,
+			code: codes.Unknown,
 		}, err)
 		require.Equal(t, map[string]any{}, err.Metadata())
 	})
@@ -339,7 +339,7 @@ func TestError_Metadata(t *testing.T) {
 		err := New("message").WithMetadata("key", "value")
 		require.Equal(t, Error{
 			err:  errors.New("message"),
-			code: codes.Internal,
+			code: codes.Unknown,
 			metadata: []metadataItem{
 				{key: "key", value: "value"},
 			},
@@ -353,7 +353,7 @@ func TestError_Metadata(t *testing.T) {
 		err := New("message").WithMetadata("first", 1).WithMetadata("second", 2)
 		require.Equal(t, Error{
 			err:  errors.New("message"),
-			code: codes.Internal,
+			code: codes.Unknown,
 			metadata: []metadataItem{
 				{key: "first", value: 1},
 				{key: "second", value: 2},
@@ -369,7 +369,7 @@ func TestError_Metadata(t *testing.T) {
 		err := New("message").WithMetadata("first", "initial").WithMetadata("first", "overridden")
 		require.Equal(t, Error{
 			err:  errors.New("message"),
-			code: codes.Internal,
+			code: codes.Unknown,
 			metadata: []metadataItem{
 				{key: "first", value: "overridden"},
 			},
@@ -384,7 +384,7 @@ func TestError_Metadata(t *testing.T) {
 		toplevelErr := New("top-level: %w", nestedErr).WithMetadata("toplevel", "value")
 		require.Equal(t, Error{
 			err:  fmt.Errorf("top-level: %w", nestedErr),
-			code: codes.Internal,
+			code: codes.Unknown,
 			metadata: []metadataItem{
 				{key: "toplevel", value: "value"},
 			},
@@ -400,7 +400,7 @@ func TestError_Metadata(t *testing.T) {
 		toplevelErr := New("top-level: %w", nestedErr).WithMetadata("key", "top-level")
 		require.Equal(t, Error{
 			err:  fmt.Errorf("top-level: %w", nestedErr),
-			code: codes.Internal,
+			code: codes.Unknown,
 			metadata: []metadataItem{
 				{key: "key", value: "top-level"},
 			},
@@ -415,7 +415,7 @@ func TestError_Metadata(t *testing.T) {
 		toplevelErr := New("top-level: %w", nestedErr).WithMetadata("toplevel", "initial").WithMetadata("toplevel", "overridden")
 		require.Equal(t, Error{
 			err:  fmt.Errorf("top-level: %w", nestedErr),
-			code: codes.Internal,
+			code: codes.Unknown,
 			metadata: []metadataItem{
 				{key: "toplevel", value: "overridden"},
 			},
@@ -433,7 +433,7 @@ func TestError_Metadata(t *testing.T) {
 
 		require.Equal(t, Error{
 			err:  fmt.Errorf("top: %w", midlevelErr),
-			code: codes.Internal,
+			code: codes.Unknown,
 			metadata: []metadataItem{
 				{key: "toplevel", value: "value"},
 			},
@@ -469,7 +469,7 @@ func TestError_Details(t *testing.T) {
 			},
 			expectedErr: Error{
 				err:  errors.New("message"),
-				code: codes.Internal,
+				code: codes.Unknown,
 			},
 			expectedMessage: "message",
 		},
@@ -480,7 +480,7 @@ func TestError_Details(t *testing.T) {
 			},
 			expectedErr: Error{
 				err:  errors.New("message"),
-				code: codes.Internal,
+				code: codes.Unknown,
 				details: []proto.Message{
 					initialPayload,
 				},
@@ -497,7 +497,7 @@ func TestError_Details(t *testing.T) {
 			},
 			expectedErr: Error{
 				err:  errors.New("message"),
-				code: codes.Internal,
+				code: codes.Unknown,
 				details: []proto.Message{
 					initialPayload,
 					overridingPayload,
@@ -517,7 +517,7 @@ func TestError_Details(t *testing.T) {
 			},
 			expectedErr: Error{
 				err:  fmt.Errorf("top-level: %w", New("nested").WithDetail(initialPayload)),
-				code: codes.Internal,
+				code: codes.Unknown,
 				details: []proto.Message{
 					overridingPayload,
 				},
@@ -543,7 +543,7 @@ func TestError_Details(t *testing.T) {
 
 			s, ok := status.FromError(err)
 			require.True(t, ok)
-			require.Equal(t, codes.Internal, s.Code())
+			require.Equal(t, codes.Unknown, s.Code())
 			require.Equal(t, tc.expectedMessage, s.Message())
 			testhelper.ProtoEqual(t, anyDetails, s.Details())
 		})

@@ -100,11 +100,12 @@ func newError(code codes.Code, format string, a ...any) Error {
 	}
 }
 
-// New returns a new Error with the default error code, which is Internal. When this function is
-// used to wrap another Error, then the error code of that wrapped Error will be retained. The
-// intent of this is to always retain the most specific error code in the general case.
+// New returns a new Error with an Unknown error code. This constructor should be used in the
+// general case where it is not clear what the specific error category is. As Unknown errors get
+// treated specially, they will be overridden when wrapped with an error that has a more specific
+// error code.
 func New(format string, a ...any) Error {
-	return newError(codes.Internal, format, a...)
+	return newError(codes.Unknown, format, a...)
 }
 
 // NewAborted constructs a new error code with the Aborted error code. Please refer to New for
