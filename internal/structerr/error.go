@@ -81,10 +81,17 @@ func newError(code codes.Code, format string, a ...any) Error {
 	formattedErr := fmt.Errorf(format, a...)
 
 	// When we wrap an Error, we retain its error code. The intent of this is to retain the most
-	// specific error code we have in the general case.
+	// specific error code we have in the general case. As `Unknown` does not really count as a
+	// specific error code, we will ignore these errors.
+	//
+	// Note that this impacts our middleware status handler, where we wrap non-context-errors
+	// via `structerr.NewInternal()`. The result is that the caller should never see any
+	// `Unknown` errors.
 	var wrappedErr Error
 	if errors.As(formattedErr, &wrappedErr) {
-		code = wrappedErr.code
+		if wrappedErr.code != codes.Unknown {
+			code = wrappedErr.code
+		}
 	}
 
 	return Error{

@@ -148,6 +148,18 @@ func TestNew(t *testing.T) {
 				require.Equal(t, status.New(unusedErrorCode, "top-level: nested"), s)
 			})
 
+			t.Run("wrapping structerr with Unknown error", func(t *testing.T) {
+				err := tc.constructor("top-level: %w", newError(codes.Unknown, "unknown"))
+				require.EqualError(t, err, "top-level: unknown")
+				// We should be overriding the Unknown error code with the error
+				// code of the top-level error.
+				require.Equal(t, tc.expectedCode, status.Code(err))
+
+				s, ok := status.FromError(err)
+				require.True(t, ok)
+				require.Equal(t, status.New(tc.expectedCode, "top-level: unknown"), s)
+			})
+
 			t.Run("wrapping status.Error", func(t *testing.T) {
 				err := tc.constructor("top-level: %w", status.Error(unusedErrorCode, "nested"))
 				require.EqualError(t, err, "top-level: nested")
