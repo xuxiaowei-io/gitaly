@@ -187,9 +187,10 @@ func TestPerformHTTPPush(t *testing.T) {
 			previousTime := start
 			for _, expectedTiming := range tc.expectedTimings {
 				timing := timings[expectedTiming]
-				require.True(t, timing.After(previousTime),
+				require.GreaterOrEqual(t, *timing, previousTime,
 					"expected to receive %q packet before before %q, but received at %q",
-					expectedTiming, previousTime, timing)
+					expectedTiming, previousTime, timing,
+				)
 				previousTime = *timing
 				*timing = time.Time{}
 			}
