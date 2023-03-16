@@ -102,11 +102,6 @@ func TestNew(t *testing.T) {
 			constructor:  NewUnimplemented,
 			expectedCode: codes.Unimplemented,
 		},
-		{
-			desc:         "NewUnknown",
-			constructor:  NewUnknown,
-			expectedCode: codes.Unknown,
-		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			require.NotEqual(t, tc.expectedCode, unusedErrorCode)

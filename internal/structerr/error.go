@@ -184,12 +184,6 @@ func NewUnimplemented(format string, a ...any) Error {
 	return newError(codes.Unimplemented, format, a...)
 }
 
-// NewUnknown constructs a new error code with the Unknown error code. Please refer to New for
-// further details.
-func NewUnknown(format string, a ...any) Error {
-	return newError(codes.Unknown, format, a...)
-}
-
 // Error returns the error message of the Error.
 func (e Error) Error() string {
 	return e.err.Error()
