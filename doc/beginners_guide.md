@@ -52,7 +52,7 @@ frequently used targets:
 - `install`: Build and install Gitaly. The destination directory can be modified
   by modifying a set of variables, most importantly `PREFIX`.
 
-- `test`: Execute both Go and Ruby tests.
+- `test`: Execute tests.
 
 - `clean`: Remove all generated build artifacts.
 
@@ -130,44 +130,6 @@ If either your request or response data can exceed 100KB you need to use the `st
 #### Gitaly
 
 If proto is updated, run `make`. This should compile successfully.
-
-#### `gitaly-ruby`
-
-Gitaly is mostly written in Go but it also uses a pool of Ruby helper
-processes. This helper application is called `gitaly-ruby` and its code
-is in the `ruby` subdirectory of Gitaly. `gitaly-ruby` is a gRPC server,
-just like its Go parent process. The Go parent proxies certain
-requests to `gitaly-ruby`.
-
-It is our experience that `gitaly-ruby` is unsuitable for RPC's that are slow, or that are called with a high frequency. It should only be used for:
-
-- legacy GitLab application code that is too complex or subtle to rewrite in Go
-- prototyping (if you the contributor are uncomfortable writing Go)
-
-Note that for any changes to `gitaly-ruby` to be used by GDK, you need to
-run `make gitaly-setup` in your GDK root and restart your processes.
-
-##### `gitaly-ruby` boilerplate
-
-To create the Ruby endpoint, some Go is required as the go code receives the
-requests and proxies it to the Go server. In general this is boilerplate code
-where only method and variable names are different.
-
-Examples:
-
-- Simple: [Simple request in, simple response out](https://gitlab.com/gitlab-org/gitaly/blob/6841327adea214666417ee339ca37b58b20c649c/internal/service/wiki/delete_page.go)
-- Client Streamed: [Stream in, simple response out](https://gitlab.com/gitlab-org/gitaly/blob/6841327adea214666417ee339ca37b58b20c649c/internal/service/wiki/write_page.go)
-- Server Streamed: [Simple request in, streamed response out](https://gitlab.com/gitlab-org/gitaly/blob/6841327adea214666417ee339ca37b58b20c649c/internal/service/wiki/find_page.go)
-- Bidirectional: No example at this time
-
-##### Ruby
-
-The Ruby code needs to be added to `ruby/lib/gitaly_server/<service-name>_service.rb`.
-The method name should match the name defined by the `gitaly` gem. To be sure
-run `bundle open gitaly`. The return value of the method should be an
-instance of the response object.
-
-There is no autoloader in `gitaly-ruby`. If you add new Ruby files, you need to manually add a `require` statement in `ruby/lib/gitlab/git.rb` or `ruby/lib/gitaly_server.rb.`
 
 ## Testing
 
@@ -251,23 +213,6 @@ The `testhelper` package provides functions to create configurations to run Gita
 - [Create test configuration](https://gitlab.com/gitlab-org/gitaly/-/blob/aa098de7b267e3d6cb8a05e7862a1ad34f8f2ab5/internal/gitaly/service/ref/testhelper_test.go#L43)
 - [Run Gitaly](https://gitlab.com/gitlab-org/gitaly/-/blob/aa098de7b267e3d6cb8a05e7862a1ad34f8f2ab5/internal/gitaly/service/ref/testhelper_test.go#L57)
 - [Clone test repository](https://gitlab.com/gitlab-org/gitaly/-/blob/aa098de7b267e3d6cb8a05e7862a1ad34f8f2ab5/internal/gitaly/service/ref/find_all_tags_test.go#L30)
-
-### RSpec tests
-
-It is possible to write end-to-end RSpec tests that run against a full
-Gitaly server. This is more or less equivalent to the service-level
-tests we write in Go. You can also write unit tests for Ruby code in
-RSpec.
-
-Because the RSpec tests use a full Gitaly server you must re-compile
-Gitaly every time you change the Go code. Run `make` to recompile.
-
-Then, you can run RSpec tests in the `ruby` subdirectory.
-
-```shell
-cd ruby
-bundle exec rspec
-```
 
 ## Rails tests
 

@@ -124,9 +124,7 @@ And finally, inside Gitaly, when we spawn a Git process, we [re-create
 the environment
 variables](https://gitlab.com/gitlab-org/gitaly/-/blob/969bac80e2f246867c1a976864bd1f5b34ee43dd/internal/git/alternates/alternates.go#L21-34)
 that were present on the `pre-receive` hook, so that we can see the
-quarantined objects. We do the same when we [instantiate a
-`Gitlab::Git::Repository` in
-`gitaly-ruby`](https://gitlab.com/gitlab-org/gitaly/-/blob/969bac80e2f246867c1a976864bd1f5b34ee43dd/ruby/lib/gitlab/git/repository.rb#L44).
+quarantined objects.
 
 ### Relative paths
 
