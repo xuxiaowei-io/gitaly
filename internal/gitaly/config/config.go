@@ -39,41 +39,41 @@ var configKeyRegex = regexp.MustCompile(`^[[:alnum:]]+(\.[*-/_:@a-zA-Z0-9]+)+$`)
 
 // DailyJob enables a daily task to be scheduled for specific storages
 type DailyJob struct {
-	Hour     uint              `toml:"start_hour" json:"start_hour"`
-	Minute   uint              `toml:"start_minute" json:"start_minute"`
-	Duration duration.Duration `toml:"duration" json:"duration"`
-	Storages []string          `toml:"storages" json:"storages"`
+	Hour     uint              `toml:"start_hour,omitempty" json:"start_hour"`
+	Minute   uint              `toml:"start_minute,omitempty" json:"start_minute"`
+	Duration duration.Duration `toml:"duration,omitempty" json:"duration"`
+	Storages []string          `toml:"storages,omitempty" json:"storages"`
 
 	// Disabled will completely disable a daily job, even in cases where a
 	// default schedule is implied
-	Disabled bool `toml:"disabled" json:"disabled"`
+	Disabled bool `toml:"disabled,omitempty" json:"disabled"`
 }
 
 // Cfg is a container for all config derived from config.toml.
 type Cfg struct {
-	SocketPath             string              `toml:"socket_path" json:"socket_path" split_words:"true"`
-	ListenAddr             string              `toml:"listen_addr" json:"listen_addr" split_words:"true"`
-	TLSListenAddr          string              `toml:"tls_listen_addr" json:"tls_listen_addr" split_words:"true"`
-	PrometheusListenAddr   string              `toml:"prometheus_listen_addr" json:"prometheus_listen_addr" split_words:"true"`
-	BinDir                 string              `toml:"bin_dir" json:"bin_dir"`
-	RuntimeDir             string              `toml:"runtime_dir" json:"runtime_dir"`
-	Git                    Git                 `toml:"git" json:"git" envconfig:"git"`
-	Storages               []Storage           `toml:"storage" json:"storage" envconfig:"storage"`
-	Logging                Logging             `toml:"logging" json:"logging" envconfig:"logging"`
-	Prometheus             prometheus.Config   `toml:"prometheus" json:"prometheus"`
-	Auth                   auth.Config         `toml:"auth" json:"auth"`
-	TLS                    TLS                 `toml:"tls" json:"tls"`
-	Ruby                   Ruby                `toml:"gitaly-ruby" json:"gitaly-ruby"`
-	Gitlab                 Gitlab              `toml:"gitlab" json:"gitlab"`
-	GitlabShell            GitlabShell         `toml:"gitlab-shell" json:"gitlab-shell"`
-	Hooks                  Hooks               `toml:"hooks" json:"hooks"`
-	Concurrency            []Concurrency       `toml:"concurrency" json:"concurrency"`
-	RateLimiting           []RateLimiting      `toml:"rate_limiting" json:"rate_limiting"`
-	GracefulRestartTimeout duration.Duration   `toml:"graceful_restart_timeout" json:"graceful_restart_timeout"`
-	DailyMaintenance       DailyJob            `toml:"daily_maintenance" json:"daily_maintenance"`
-	Cgroups                cgroups.Config      `toml:"cgroups" json:"cgroups"`
-	PackObjectsCache       StreamCacheConfig   `toml:"pack_objects_cache" json:"pack_objects_cache"`
-	PackObjectsLimiting    PackObjectsLimiting `toml:"pack_objects_limiting" json:"pack_objects_limiting"`
+	SocketPath             string              `toml:"socket_path,omitempty" json:"socket_path" split_words:"true"`
+	ListenAddr             string              `toml:"listen_addr,omitempty" json:"listen_addr" split_words:"true"`
+	TLSListenAddr          string              `toml:"tls_listen_addr,omitempty" json:"tls_listen_addr" split_words:"true"`
+	PrometheusListenAddr   string              `toml:"prometheus_listen_addr,omitempty" json:"prometheus_listen_addr" split_words:"true"`
+	BinDir                 string              `toml:"bin_dir,omitempty" json:"bin_dir"`
+	RuntimeDir             string              `toml:"runtime_dir,omitempty" json:"runtime_dir"`
+	Git                    Git                 `toml:"git,omitempty" json:"git" envconfig:"git"`
+	Storages               []Storage           `toml:"storage,omitempty" json:"storage" envconfig:"storage"`
+	Logging                Logging             `toml:"logging,omitempty" json:"logging" envconfig:"logging"`
+	Prometheus             prometheus.Config   `toml:"prometheus,omitempty" json:"prometheus"`
+	Auth                   auth.Config         `toml:"auth,omitempty" json:"auth"`
+	TLS                    TLS                 `toml:"tls,omitempty" json:"tls"`
+	Ruby                   Ruby                `toml:"gitaly-ruby,omitempty" json:"gitaly-ruby"`
+	Gitlab                 Gitlab              `toml:"gitlab,omitempty" json:"gitlab"`
+	GitlabShell            GitlabShell         `toml:"gitlab-shell,omitempty" json:"gitlab-shell"`
+	Hooks                  Hooks               `toml:"hooks,omitempty" json:"hooks"`
+	Concurrency            []Concurrency       `toml:"concurrency,omitempty" json:"concurrency"`
+	RateLimiting           []RateLimiting      `toml:"rate_limiting,omitempty" json:"rate_limiting"`
+	GracefulRestartTimeout duration.Duration   `toml:"graceful_restart_timeout,omitempty" json:"graceful_restart_timeout"`
+	DailyMaintenance       DailyJob            `toml:"daily_maintenance,omitempty" json:"daily_maintenance"`
+	Cgroups                cgroups.Config      `toml:"cgroups,omitempty" json:"cgroups"`
+	PackObjectsCache       StreamCacheConfig   `toml:"pack_objects_cache,omitempty" json:"pack_objects_cache"`
+	PackObjectsLimiting    PackObjectsLimiting `toml:"pack_objects_limiting,omitempty" json:"pack_objects_limiting"`
 }
 
 // TLS configuration
@@ -89,42 +89,42 @@ type GitlabShell struct {
 
 // Gitlab contains settings required to connect to the Gitlab api
 type Gitlab struct {
-	URL             string       `toml:"url" json:"url"`
-	RelativeURLRoot string       `toml:"relative_url_root" json:"relative_url_root"` // For UNIX sockets only
-	HTTPSettings    HTTPSettings `toml:"http-settings" json:"http_settings"`
-	SecretFile      string       `toml:"secret_file" json:"secret_file"`
+	URL             string       `toml:"url,omitempty" json:"url"`
+	RelativeURLRoot string       `toml:"relative_url_root,omitempty" json:"relative_url_root"` // For UNIX sockets only
+	HTTPSettings    HTTPSettings `toml:"http-settings,omitempty" json:"http_settings"`
+	SecretFile      string       `toml:"secret_file,omitempty" json:"secret_file"`
 }
 
 // Hooks contains the settings required for hooks
 type Hooks struct {
-	CustomHooksDir string `toml:"custom_hooks_dir" json:"custom_hooks_dir"`
+	CustomHooksDir string `toml:"custom_hooks_dir,omitempty" json:"custom_hooks_dir"`
 }
 
 //nolint:revive // This is unintentionally missing documentation.
 type HTTPSettings struct {
-	ReadTimeout int    `toml:"read_timeout" json:"read_timeout"`
-	User        string `toml:"user" json:"user"`
-	Password    string `toml:"password" json:"password"`
-	CAFile      string `toml:"ca_file" json:"ca_file"`
-	CAPath      string `toml:"ca_path" json:"ca_path"`
+	ReadTimeout int    `toml:"read_timeout,omitempty" json:"read_timeout"`
+	User        string `toml:"user,omitempty" json:"user"`
+	Password    string `toml:"password,omitempty" json:"password"`
+	CAFile      string `toml:"ca_file,omitempty" json:"ca_file"`
+	CAPath      string `toml:"ca_path,omitempty" json:"ca_path"`
 }
 
 // Git contains the settings for the Git executable
 type Git struct {
-	UseBundledBinaries bool        `toml:"use_bundled_binaries" json:"use_bundled_binaries"`
-	BinPath            string      `toml:"bin_path" json:"bin_path"`
-	CatfileCacheSize   int         `toml:"catfile_cache_size" json:"catfile_cache_size"`
-	Config             []GitConfig `toml:"config" json:"config"`
-	IgnoreGitconfig    bool        `toml:"ignore_gitconfig" json:"ignore_gitconfig"`
-	SigningKey         string      `toml:"signing_key" json:"signing_key"`
+	UseBundledBinaries bool        `toml:"use_bundled_binaries,omitempty" json:"use_bundled_binaries"`
+	BinPath            string      `toml:"bin_path,omitempty" json:"bin_path"`
+	CatfileCacheSize   int         `toml:"catfile_cache_size,omitempty" json:"catfile_cache_size"`
+	Config             []GitConfig `toml:"config,omitempty" json:"config"`
+	IgnoreGitconfig    bool        `toml:"ignore_gitconfig,omitempty" json:"ignore_gitconfig"`
+	SigningKey         string      `toml:"signing_key,omitempty" json:"signing_key"`
 }
 
 // GitConfig contains a key-value pair which is to be passed to git as configuration.
 type GitConfig struct {
 	// Key is the key of the config entry, e.g. `core.gc`.
-	Key string `toml:"key" json:"key"`
+	Key string `toml:"key,omitempty" json:"key"`
 	// Value is the value of the config entry, e.g. `false`.
-	Value string `toml:"value" json:"value"`
+	Value string `toml:"value,omitempty" json:"value"`
 }
 
 // Validate validates that the Git configuration conforms to a format that Git understands.

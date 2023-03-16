@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/auth"
@@ -176,6 +177,18 @@ func TestLoadListenAddr(t *testing.T) {
 	cfg, err := Load(tmpFile)
 	require.NoError(t, err)
 	require.Equal(t, ":8080", cfg.ListenAddr)
+}
+
+func TestConfig_marshallingTOMLRoundtrips(t *testing.T) {
+	// Without `omitempty` tags marshalling and de-marshalling as TOML would result in different
+	// configurations.
+	serialized, err := toml.Marshal(Cfg{})
+	require.NoError(t, err)
+	require.Empty(t, string(serialized))
+
+	var deserialized Cfg
+	require.NoError(t, toml.Unmarshal(serialized, &deserialized))
+	require.Equal(t, Cfg{}, deserialized)
 }
 
 func TestValidateStorages(t *testing.T) {
