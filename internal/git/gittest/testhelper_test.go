@@ -3,7 +3,6 @@ package gittest
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -37,10 +36,6 @@ func setup(tb testing.TB) (config.Cfg, *gitalypb.Repository, string) {
 		},
 	}
 	require.NoError(tb, os.Mkdir(cfg.Storages[0].Path, perm.SharedDir))
-
-	_, currentFile, _, ok := runtime.Caller(0)
-	require.True(tb, ok, "could not get caller info")
-	cfg.Ruby.Dir = filepath.Join(filepath.Dir(currentFile), "../../../ruby")
 
 	cfg.GitlabShell.Dir = filepath.Join(rootDir, "shell.d")
 	require.NoError(tb, os.Mkdir(cfg.GitlabShell.Dir, perm.SharedDir))

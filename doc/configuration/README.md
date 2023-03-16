@@ -129,24 +129,6 @@ Prometheus query to see the hit rate:
 sum(rate(gitaly_catfile_cache_total{type="hit"}[5m])) / sum(rate(gitaly_catfile_cache_total{type=~"(hit)|(miss)"}[5m]))
 ```
 
-### `gitaly-ruby`
-
-A Gitaly process uses one or more `gitaly-ruby` helper processes to
-execute RPC's implemented in Ruby instead of Go. The `[gitaly-ruby]`
-section of the config file contains settings for these helper processes.
-
-These processes are known to occasionally suffer from memory leaks.
-Gitaly restarts its `gitaly-ruby` helpers when their memory exceeds the
-max\_rss limit.
-
-| Name                       | Type    | Required | Notes                                                                                                                           |
-|:---------------------------|:--------|:---------|:--------------------------------------------------------------------------------------------------------------------------------|
-| `dir`                      | string  | yes      | Path to where `gitaly-ruby` is installed (needed to boot the process).                                                          |
-| `max_rss`                  | integer | no       | Resident set size limit that triggers a `gitaly-ruby` restart, in bytes. Default 300MB.                                         |
-| `graceful_restart_timeout` | string  | no       | Grace period to allow a `gitaly-ruby` process to finish ongoing requests. Default 10 minutes ("10m").                           |
-| `restart_delay`            | string  | no       | Time memory must be high before a restart is triggered, in seconds. Default 5 minutes ("5m").                                   |
-| `num_workers`              | integer | no       | Number of `gitaly-ruby` worker processes. Try increasing this number in case of ResourceExhausted errors. Default 2, minimum 2. |
-
 ### Logging
 
 Example:

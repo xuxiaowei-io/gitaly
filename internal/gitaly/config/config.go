@@ -102,7 +102,6 @@ type Cfg struct {
 	Prometheus             prometheus.Config   `toml:"prometheus,omitempty" json:"prometheus"`
 	Auth                   auth.Config         `toml:"auth,omitempty" json:"auth"`
 	TLS                    TLS                 `toml:"tls,omitempty" json:"tls"`
-	Ruby                   Ruby                `toml:"gitaly-ruby,omitempty" json:"gitaly-ruby"`
 	Gitlab                 Gitlab              `toml:"gitlab,omitempty" json:"gitlab"`
 	GitlabShell            GitlabShell         `toml:"gitlab-shell,omitempty" json:"gitlab-shell"`
 	Hooks                  Hooks               `toml:"hooks,omitempty" json:"hooks"`
@@ -364,8 +363,6 @@ type Sentry sentry.Config
 type Logging struct {
 	internallog.Config
 	Sentry
-
-	RubySentryDSN string `toml:"ruby_sentry_dsn" json:"ruby_sentry_dsn"`
 }
 
 // Concurrency allows endpoints to be limited to a maximum concurrency per repo.
@@ -536,7 +533,6 @@ func (cfg *Cfg) Validate() error {
 		cfg.validateToken,
 		cfg.validateGit,
 		cfg.validateShell,
-		cfg.ConfigureRuby,
 		cfg.validateBinDir,
 		cfg.validateRuntimeDir,
 		cfg.validateMaintenance,
@@ -585,7 +581,6 @@ func (cfg *Cfg) ValidateV2() error {
 		}},
 		{field: "prometheus", validate: cfg.Prometheus.Validate},
 		{field: "tls", validate: cfg.TLS.Validate},
-		{field: "ruby", validate: cfg.Ruby.Validate},
 		{field: "gitlab", validate: cfg.Gitlab.Validate},
 		{field: "gitlab-shell", validate: cfg.GitlabShell.Validate},
 		{field: "graceful_restart_timeout", validate: func() error {
