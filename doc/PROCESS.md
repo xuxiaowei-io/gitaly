@@ -740,3 +740,36 @@ We are deprecating RPC FooBar because **REASONS**.
 - [ ] wait for a GitLab release in which the RPC is no longer occurring in client side code **LINK TO GITLAB-CE RELEASE TAG**
 - [ ] delete the server side implementation of the old RPC in https://gitlab.com/gitlab-org/gitaly **Merge Request LINK**
 ```
+
+## Bumping the major version
+
+When GitLab's major version is updated, we also need to bump Gitaly's module
+version number. Use `make upgrade-module` for this.
+
+Gitaly version numbers match GitLab version numbers for reasons discussed below.
+
+### Why Gitaly and GitLab versions match
+
+In [`12e0bf3ac80b7`](https://gitlab.com/gitlab-org/gitaly/-/merge_requests/3525),
+we added a major version to the Gitaly module. The GitLab
+release process tags Gitaly versions according to the GitLab versioning scheme.
+Because Go tries to enforce semantic versioning, when one tries to pull a tag,
+it expects the corresponding major version. For example, if v13.0.4 is pulled, Go
+expects the major version of the module to be v13.
+
+Since then, the team has discussed removing the major version because it does
+not really represent semantic versioning for Gitaly. With semantic versioning,
+major versions only change when there is a breaking non-backwards compatible
+change. Gitaly major versions are, instead, simply tied to GitLab versions
+rather than taking into account breaking changes in the Gitaly API itself.
+
+Because we'd like to make Gitaly its own standalone product one day,
+it would be ideal to use true semantic versioning in Gitaly.
+
+However, this would also mean we would need to change our tagging scheme.
+Changing this would have a large impact on the GitLab release process because much
+of the tooling relies on the assumption that Gitaly versions match GitLab
+versions.
+
+There are also other challenges to removing the major version, detailed in [this
+issuey](https://gitlab.com/gitlab-org/gitaly/-/issues/4714).
