@@ -19,7 +19,7 @@ func (p *analyzerPlugin) GetAnalyzers() []*analysis.Analyzer {
 		}),
 		newErrorWrapAnalyzer(&errorWrapAnalyzerSettings{
 			IncludedFunctions: p.configStringSlicesAt(
-				quoteInterpolationAnalyzerName,
+				errorWrapAnalyzerName,
 				"included-functions",
 			),
 		}),

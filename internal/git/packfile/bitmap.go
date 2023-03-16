@@ -94,7 +94,7 @@ func (idx *Index) LoadBitmap() error {
 	}
 
 	if _, err := r.Peek(1); err != io.EOF {
-		return fmt.Errorf("expected EOF, got %v", err)
+		return fmt.Errorf("expected EOF, got %w", err)
 	}
 
 	idx.IndexBitmap = ib

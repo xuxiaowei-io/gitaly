@@ -92,6 +92,7 @@ func mustFindNoRunningChildProcess() error {
 
 	exitError, ok := err.(*exec.ExitError)
 	if !ok {
+		//nolint:gitaly-linters
 		return fmt.Errorf("expected ExitError, got %T", err)
 	}
 

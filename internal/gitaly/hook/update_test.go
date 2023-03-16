@@ -227,6 +227,7 @@ func TestUpdate_quarantine(t *testing.T) {
 		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
 	))
 
+	//nolint:gitaly-linters
 	gittest.WriteCustomHook(t, repoPath, "update", []byte(fmt.Sprintf(
 		`#!/bin/sh
 		git cat-file -p '%s' || true

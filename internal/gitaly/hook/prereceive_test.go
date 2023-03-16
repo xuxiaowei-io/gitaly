@@ -196,6 +196,7 @@ func TestPrereceive_quarantine(t *testing.T) {
 		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
 	))
 
+	//nolint:gitaly-linters
 	gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte(fmt.Sprintf(
 		`#!/bin/sh
 		git cat-file -p '%s' || true
@@ -356,7 +357,7 @@ func TestPrereceive_gitlab(t *testing.T) {
 				return false, errors.New("prereceive oops")
 			},
 			expectHookCall: true,
-			expectedErr:    structerr.NewInternal("calling pre_receive endpoint: %v", errors.New("prereceive oops")),
+			expectedErr:    structerr.NewInternal("calling pre_receive endpoint: %w", errors.New("prereceive oops")),
 		},
 	}
 

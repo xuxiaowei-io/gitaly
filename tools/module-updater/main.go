@@ -65,15 +65,15 @@ func changeModuleVersion() error {
 	}
 
 	if err := rewriteImports(moduleAbsRootPath, prev, next); err != nil {
-		return fmt.Errorf("re-write go imports: %s", err)
+		return fmt.Errorf("re-write go imports: %w", err)
 	}
 
 	if err := rewriteProto(moduleAbsRootPath, prev, next); err != nil {
-		return fmt.Errorf("re-write .proto files: %s", err)
+		return fmt.Errorf("re-write .proto files: %w", err)
 	}
 
 	if err := rewriteGoMod(moduleAbsRootPath, next); err != nil {
-		return fmt.Errorf("re-write go.mod file: %s", err)
+		return fmt.Errorf("re-write go.mod file: %w", err)
 	}
 
 	return nil

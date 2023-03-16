@@ -71,22 +71,22 @@ func (fw *FileWriter) Commit() error {
 
 	fw.commitOrClose.Do(func() {
 		if err = fw.tmpFile.Sync(); err != nil {
-			err = fmt.Errorf("syncing temp file: %v", err)
+			err = fmt.Errorf("syncing temp file: %w", err)
 			return
 		}
 
 		if err = fw.tmpFile.Close(); err != nil {
-			err = fmt.Errorf("closing temp file: %v", err)
+			err = fmt.Errorf("closing temp file: %w", err)
 			return
 		}
 
 		if err = fw.rename(); err != nil {
-			err = fmt.Errorf("renaming temp file: %v", err)
+			err = fmt.Errorf("renaming temp file: %w", err)
 			return
 		}
 
 		if err = fw.syncDir(); err != nil {
-			err = fmt.Errorf("syncing dir: %v", err)
+			err = fmt.Errorf("syncing dir: %w", err)
 			return
 		}
 	})

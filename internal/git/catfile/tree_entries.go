@@ -86,24 +86,24 @@ func extractEntryInfoFromTreeData(treeData io.Reader, commitOid, rootOid, rootPa
 			break
 		}
 		if err != nil || len(modeBytes) <= 1 {
-			return nil, fmt.Errorf("read entry mode: %v", err)
+			return nil, fmt.Errorf("read entry mode: %w", err)
 		}
 		modeBytes = modeBytes[:len(modeBytes)-1]
 
 		filename, err := bufReader.ReadBytes('\x00')
 		if err != nil || len(filename) <= 1 {
-			return nil, fmt.Errorf("read entry path: %v", err)
+			return nil, fmt.Errorf("read entry path: %w", err)
 		}
 		filename = filename[:len(filename)-1]
 
 		oidBuf.Reset()
 		if _, err := io.CopyN(oidBuf, bufReader, oidSize); err != nil {
-			return nil, fmt.Errorf("read entry oid: %v", err)
+			return nil, fmt.Errorf("read entry oid: %w", err)
 		}
 
 		treeEntry, err := git.NewTreeEntry(commitOid, rootOid, rootPath, filename, oidBuf.Bytes(), modeBytes)
 		if err != nil {
-			return nil, fmt.Errorf("new entry info: %v", err)
+			return nil, fmt.Errorf("new entry info: %w", err)
 		}
 
 		entries = append(entries, treeEntry)

@@ -72,7 +72,7 @@ func (cmd *sqlMigrateSubcommand) Exec(flags *flag.FlagSet, conf config.Config) e
 
 		n, err := glsql.MigrateSome(mig.Migration, db, cmd.ignoreUnknown)
 		if err != nil {
-			return fmt.Errorf("%s: fail: %v", time.Now().Format(timeFmt), err)
+			return fmt.Errorf("%s: fail: %w", time.Now().Format(timeFmt), err)
 		}
 
 		if n > 0 {

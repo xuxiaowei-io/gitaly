@@ -94,7 +94,7 @@ func (p *Pool) getOrCreateConnection(ctx context.Context, address, token string)
 
 	cc, err := p.dialer(ctx, address, opts)
 	if err != nil {
-		return nil, fmt.Errorf("could not dial source: %v", err)
+		return nil, fmt.Errorf("could not dial source: %w", err)
 	}
 
 	p.conns[key] = cc

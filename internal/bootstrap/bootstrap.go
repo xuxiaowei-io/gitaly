@@ -183,7 +183,7 @@ func (b *Bootstrap) Wait(gracePeriodTicker helper.Ticker, stopAction func()) err
 		// we set a grace period and then we force a termination.
 		waitError := b.waitGracePeriod(gracePeriodTicker, immediateShutdown, stopAction)
 
-		err = fmt.Errorf("graceful upgrade: %v", waitError)
+		err = fmt.Errorf("graceful upgrade: %w", waitError)
 	case s := <-immediateShutdown:
 		err = fmt.Errorf("received signal %q", s)
 		b.upgrader.Stop()

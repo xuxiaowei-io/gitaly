@@ -214,7 +214,7 @@ func TestDiffTree(t *testing.T) {
 					return true, errors.New("broken")
 				}),
 			},
-			expectedErr: errors.New(`diff-tree skip: "broken"`),
+			expectedErr: errors.New(`diff-tree skip: broken`),
 		},
 		{
 			desc: "invalid revision",

@@ -239,6 +239,7 @@ func TestGetPatchID(t *testing.T) {
 						OldRevision: []byte(fmt.Sprintf("%s:file", oldCommit)),
 						NewRevision: []byte(fmt.Sprintf("%s:file", newCommit)),
 					},
+					//nolint:gitaly-linters
 					expectedErr: structerr.New("waiting for git-diff: exit status 128").
 						WithInterceptedMetadata("stderr", fmt.Sprintf("fatal: path 'file' does not exist in '%s'\n", oldCommit)),
 				}

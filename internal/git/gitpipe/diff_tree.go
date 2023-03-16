@@ -120,7 +120,7 @@ func DiffTree(
 				skip, err := cfg.skipResult(&result)
 				if err != nil {
 					sendRevisionResult(ctx, resultChan, RevisionResult{
-						err: fmt.Errorf("diff-tree skip: %q", err),
+						err: fmt.Errorf("diff-tree skip: %w", err),
 					})
 					return
 				}

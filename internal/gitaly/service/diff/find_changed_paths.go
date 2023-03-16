@@ -92,7 +92,7 @@ func parsePaths(reader *bufio.Reader, chunker *chunk.Chunker) error {
 		}
 
 		if err := chunker.Send(path); err != nil {
-			return fmt.Errorf("err sending to chunker: %v", err)
+			return fmt.Errorf("err sending to chunker: %w", err)
 		}
 	}
 

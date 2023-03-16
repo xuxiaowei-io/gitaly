@@ -62,9 +62,9 @@ func (l *configLocator) GetPath(repo repository.GitRepo) (string, error) {
 
 	if _, err := os.Stat(storagePath); err != nil {
 		if os.IsNotExist(err) {
-			return "", structerr.NewNotFound("GetPath: does not exist: %v", err)
+			return "", structerr.NewNotFound("GetPath: does not exist: %w", err)
 		}
-		return "", structerr.NewInternal("GetPath: storage path: %v", err)
+		return "", structerr.NewInternal("GetPath: storage path: %w", err)
 	}
 
 	relativePath := repo.GetRelativePath()
@@ -74,7 +74,7 @@ func (l *configLocator) GetPath(repo repository.GitRepo) (string, error) {
 	}
 
 	if _, err := storage.ValidateRelativePath(storagePath, relativePath); err != nil {
-		return "", structerr.NewInvalidArgument("GetRepoPath: %s", err)
+		return "", structerr.NewInvalidArgument("GetRepoPath: %w", err)
 	}
 
 	return filepath.Join(storagePath, relativePath), nil

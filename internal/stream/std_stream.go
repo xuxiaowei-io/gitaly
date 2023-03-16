@@ -62,7 +62,7 @@ func Handler(recv func() (StdoutStderrResponse, error), send func(chan error), s
 	case errSend := <-errC:
 		if errSend != nil {
 			// This should not happen
-			errSend = fmt.Errorf("stdin send error: %v", errSend)
+			errSend = fmt.Errorf("stdin send error: %w", errSend)
 		}
 		return exitStatus, errSend
 	default:

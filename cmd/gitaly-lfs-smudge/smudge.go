@@ -305,7 +305,7 @@ func smudgeOneObject(ctx context.Context, cfg smudge.Config, gitlabClient *gitla
 
 	response, err := gitlabClient.Get(ctx, u.String())
 	if err != nil {
-		return nil, fmt.Errorf("error loading LFS object: %v", err)
+		return nil, fmt.Errorf("error loading LFS object: %w", err)
 	}
 
 	if response.StatusCode == 200 {

@@ -306,7 +306,7 @@ func run(cfg config.Cfg) error {
 
 	rubySrv := rubyserver.New(cfg, gitCmdFactory)
 	if err := rubySrv.Start(); err != nil {
-		return fmt.Errorf("initialize gitaly-ruby: %v", err)
+		return fmt.Errorf("initialize gitaly-ruby: %w", err)
 	}
 	defer rubySrv.Stop()
 
@@ -395,7 +395,7 @@ func run(cfg config.Cfg) error {
 	}
 
 	if err := b.Start(); err != nil {
-		return fmt.Errorf("unable to start the bootstrap: %v", err)
+		return fmt.Errorf("unable to start the bootstrap: %w", err)
 	}
 	bootstrapSpan.Finish()
 
@@ -407,7 +407,7 @@ func run(cfg config.Cfg) error {
 		})),
 	)
 	if err != nil {
-		return fmt.Errorf("initialize auxiliary workers: %v", err)
+		return fmt.Errorf("initialize auxiliary workers: %w", err)
 	}
 	defer shutdownWorkers()
 

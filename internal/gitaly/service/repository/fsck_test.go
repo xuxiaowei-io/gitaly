@@ -83,6 +83,7 @@ func TestFsck(t *testing.T) {
 				return setupData{
 					repo: repo,
 					expectedResponse: &gitalypb.FsckResponse{
+						//nolint:gitaly-linters
 						Error: []byte(fmt.Sprintf("fatal: not a git repository: '%s'\n", repoPath)),
 					},
 				}

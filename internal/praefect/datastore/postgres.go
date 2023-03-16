@@ -29,7 +29,7 @@ func CheckPostgresVersion(db *sql.DB) error {
 
 	var serverVersion int
 	if err := db.QueryRowContext(ctx, "SHOW server_version_num").Scan(&serverVersion); err != nil {
-		return fmt.Errorf("get postgres server version: %v", err)
+		return fmt.Errorf("get postgres server version: %w", err)
 	}
 
 	// The minimum required Postgres server version is v11.0.
@@ -50,7 +50,7 @@ func MigrateDownPlan(conf config.Config, max int) ([]string, error) {
 	defer cancel()
 	db, err := glsql.OpenDB(openDBCtx, conf.DB)
 	if err != nil {
-		return nil, fmt.Errorf("sql open: %v", err)
+		return nil, fmt.Errorf("sql open: %w", err)
 	}
 	defer db.Close()
 
@@ -79,7 +79,7 @@ func MigrateDown(conf config.Config, max int) (int, error) {
 	defer cancel()
 	db, err := glsql.OpenDB(openDBCtx, conf.DB)
 	if err != nil {
-		return 0, fmt.Errorf("sql open: %v", err)
+		return 0, fmt.Errorf("sql open: %w", err)
 	}
 	defer db.Close()
 
@@ -99,7 +99,7 @@ func MigrateStatus(conf config.Config) (map[string]*MigrationStatusRow, error) {
 	defer cancel()
 	db, err := glsql.OpenDB(openDBCtx, conf.DB)
 	if err != nil {
-		return nil, fmt.Errorf("sql open: %v", err)
+		return nil, fmt.Errorf("sql open: %w", err)
 	}
 	defer db.Close()
 

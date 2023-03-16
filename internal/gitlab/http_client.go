@@ -128,7 +128,7 @@ func (a *allowedRequest) parseAndSetGLID(glID string) error {
 	}
 
 	if !glIDRegex.MatchString(value) {
-		return fmt.Errorf("gl_id='%s' is invalid", glID)
+		return fmt.Errorf("gl_id=%q is invalid", glID)
 	}
 
 	return nil

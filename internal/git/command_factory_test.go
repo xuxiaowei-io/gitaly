@@ -518,6 +518,7 @@ func TestExecCommandFactory_GitVersion(t *testing.T) {
 
 	generateVersionScript := func(version string) func(git.ExecutionEnvironment) string {
 		return func(git.ExecutionEnvironment) string {
+			//nolint:gitaly-linters
 			return fmt.Sprintf(
 				`#!/usr/bin/env bash
 				echo '%s'

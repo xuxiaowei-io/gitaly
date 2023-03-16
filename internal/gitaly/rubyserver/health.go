@@ -24,7 +24,7 @@ func ping(address string) error {
 		}),
 	)
 	if err != nil {
-		return fmt.Errorf("failed to connect to gitaly-ruby worker: %v", err)
+		return fmt.Errorf("failed to connect to gitaly-ruby worker: %w", err)
 	}
 	defer conn.Close()
 

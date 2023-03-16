@@ -376,6 +376,7 @@ func (c *Command) wait() {
 		// The standard library sets exit status -1 if the process was terminated by a signal,
 		// such as the SIGTERM sent when context is done.
 		if exitCode, ok := ExitStatus(c.waitError); ok && exitCode == -1 {
+			//nolint:gitaly-linters // We can only wrap one
 			c.waitError = fmt.Errorf("%s: %w", c.waitError, c.context.Err())
 		}
 	}

@@ -133,7 +133,7 @@ func (repo *Repo) getReferences(ctx context.Context, limit uint, patterns ...str
 	}
 
 	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("reading standard input: %v", err)
+		return nil, fmt.Errorf("reading standard input: %w", err)
 	}
 	if err := cmd.Wait(); err != nil {
 		return nil, err

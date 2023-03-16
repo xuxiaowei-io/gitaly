@@ -600,6 +600,7 @@ func TestLoadGracefulRestartTimeout(t *testing.T) {
 func TestGitlabShellDefaults(t *testing.T) {
 	gitlabShellDir := "/dir"
 
+	//nolint:gitaly-linters
 	tmpFile := strings.NewReader(fmt.Sprintf(`[gitlab-shell]
 dir = '%s'`, gitlabShellDir))
 	cfg, err := Load(tmpFile)

@@ -103,11 +103,11 @@ func InjectGitalyServersEnv(ctx context.Context) (context.Context, error) {
 func unmarshalGitalyServers(encoded string, servers *GitalyServers) error {
 	gitalyServersJSON, err := base64.StdEncoding.DecodeString(encoded)
 	if err != nil {
-		return fmt.Errorf("failed decoding base64: %v", err)
+		return fmt.Errorf("failed decoding base64: %w", err)
 	}
 
 	if err := json.Unmarshal(gitalyServersJSON, servers); err != nil {
-		return fmt.Errorf("failed unmarshalling json: %v", err)
+		return fmt.Errorf("failed unmarshalling json: %w", err)
 	}
 
 	return nil

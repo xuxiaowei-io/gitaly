@@ -104,7 +104,7 @@ func openDB(conf config.DB) (*sql.DB, func(), error) {
 	defer cancel()
 	db, err := glsql.OpenDB(openDBCtx, conf)
 	if err != nil {
-		return nil, nil, fmt.Errorf("sql open: %v", err)
+		return nil, nil, fmt.Errorf("sql open: %w", err)
 	}
 
 	clean := func() {

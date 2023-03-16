@@ -330,7 +330,7 @@ func TestPostReceive_gitlab(t *testing.T) {
 			postreceive: func(t *testing.T, ctx context.Context, glRepo, glID, changes string, pushOptions ...string) (bool, []gitlab.PostReceiveMessage, error) {
 				return false, nil, errors.New("failure")
 			},
-			expectedErr: errors.New("GitLab: failure"),
+			expectedErr: fmt.Errorf("GitLab: %w", fmt.Errorf("failure")),
 		},
 	}
 
@@ -382,7 +382,7 @@ func TestPostReceive_quarantine(t *testing.T) {
 
 	gittest.WriteCustomHook(t, repoPath, "post-receive", []byte(fmt.Sprintf(
 		`#!/bin/sh
-		git cat-file -p '%s' || true
+		git cat-file -p %q || true
 	`, blobID.String())))
 
 	for repo, isQuarantined := range map[*gitalypb.Repository]bool{

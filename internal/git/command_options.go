@@ -231,12 +231,12 @@ func withInternalFetch(req repoScopedRequest, withSidechannel bool) func(ctx con
 	return func(ctx context.Context, cfg config.Cfg, _ CommandFactory, c *cmdCfg) error {
 		payload, err := protojson.Marshal(req)
 		if err != nil {
-			return structerr.NewInternal("marshalling payload failed: %v", err)
+			return structerr.NewInternal("marshalling payload failed: %w", err)
 		}
 
 		serversInfo, err := storage.ExtractGitalyServers(ctx)
 		if err != nil {
-			return structerr.NewInternal("extracting Gitaly servers: %v", err)
+			return structerr.NewInternal("extracting Gitaly servers: %w", err)
 		}
 
 		storageInfo, ok := serversInfo[req.GetRepository().GetStorageName()]

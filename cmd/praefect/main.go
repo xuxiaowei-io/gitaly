@@ -177,7 +177,7 @@ func initConfig(logger *logrus.Entry) (config.Config, error) {
 
 	conf, err := config.FromFile(*flagConfig)
 	if err != nil {
-		return conf, fmt.Errorf("error reading config file: %v", err)
+		return conf, fmt.Errorf("error reading config file: %w", err)
 	}
 
 	if err := conf.Validate(); err != nil {
@@ -530,7 +530,7 @@ func run(
 	}
 
 	if err := b.Start(); err != nil {
-		return fmt.Errorf("unable to start the bootstrap: %v", err)
+		return fmt.Errorf("unable to start the bootstrap: %w", err)
 	}
 	for _, cfg := range cfgs {
 		logger.WithFields(logrus.Fields{"schema": cfg.Name, "address": cfg.Addr}).Info("listening")

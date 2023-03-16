@@ -64,7 +64,7 @@ func (cmd *datalossSubcommand) Exec(flags *flag.FlagSet, cfg config.Config) erro
 	ctx := context.Background()
 	conn, err := subCmdDial(ctx, nodeAddr, cfg.Auth.Token, defaultDialTimeout)
 	if err != nil {
-		return fmt.Errorf("error dialing: %v", err)
+		return fmt.Errorf("error dialing: %w", err)
 	}
 	defer func() {
 		if err := conn.Close(); err != nil {
@@ -80,7 +80,7 @@ func (cmd *datalossSubcommand) Exec(flags *flag.FlagSet, cfg config.Config) erro
 			IncludePartiallyReplicated: cmd.includePartiallyAvailable,
 		})
 		if err != nil {
-			return fmt.Errorf("error checking: %v", err)
+			return fmt.Errorf("error checking: %w", err)
 		}
 
 		cmd.println(0, "Virtual storage: %s", vs)

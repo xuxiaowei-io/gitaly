@@ -215,7 +215,7 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 		// truncated. Note that we explicitly expect to not see an io.EOF here,
 		// which might indicate success to the caller.
 		_, err = object.Read(buf[:])
-		require.Equal(t, fmt.Errorf("discard newline: \"EOF\""), err)
+		require.Equal(t, fmt.Errorf("discard newline: %w", io.EOF), err)
 
 		require.True(t, queue.isDirty())
 	})

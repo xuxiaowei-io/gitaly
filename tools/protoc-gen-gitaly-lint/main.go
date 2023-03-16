@@ -96,12 +96,12 @@ func lintProtos(req *pluginpb.CodeGeneratorRequest) error {
 	// Send back the results.
 	data, err := proto.Marshal(resp)
 	if err != nil {
-		return fmt.Errorf("failed to marshal output proto: %s", err)
+		return fmt.Errorf("failed to marshal output proto: %w", err)
 	}
 
 	_, err = os.Stdout.Write(data)
 	if err != nil {
-		return fmt.Errorf("failed to write output proto: %s", err)
+		return fmt.Errorf("failed to write output proto: %w", err)
 	}
 	return nil
 }

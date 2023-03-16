@@ -32,9 +32,9 @@ func wrapCtxErr(ctx context.Context, err error) error {
 	case err == nil:
 		return nil
 	case ctx.Err() == context.DeadlineExceeded:
-		return structerr.NewDeadlineExceeded("%v", err)
+		return structerr.NewDeadlineExceeded("%w", err)
 	case ctx.Err() == context.Canceled:
-		return structerr.NewCanceled("%v", err)
+		return structerr.NewCanceled("%w", err)
 	default:
 		return structerr.NewInternal("%w", err)
 	}

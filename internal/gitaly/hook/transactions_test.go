@@ -133,7 +133,7 @@ func TestHookManager_contextCancellationCancelsVote(t *testing.T) {
 	mockTxMgr := transaction.MockManager{
 		VoteFn: func(ctx context.Context, _ txinfo.Transaction, _ voting.Vote, _ voting.Phase) error {
 			<-ctx.Done()
-			return fmt.Errorf("mock error: %s", ctx.Err())
+			return fmt.Errorf("mock error: %w", ctx.Err())
 		},
 	}
 

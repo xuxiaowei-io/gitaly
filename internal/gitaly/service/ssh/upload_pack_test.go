@@ -662,6 +662,7 @@ func TestUploadPack_packObjectsHook(t *testing.T) {
 	// custom script which replaces the hook binary. It doesn't do anything
 	// special, but writes an error message and errors out and should thus
 	// cause the clone to fail with this error message.
+	//nolint:gitaly-linters
 	testhelper.WriteExecutable(t, cfg.BinaryPath("gitaly-hooks"), []byte(fmt.Sprintf(
 		`#!/usr/bin/env bash
 		set -eo pipefail
