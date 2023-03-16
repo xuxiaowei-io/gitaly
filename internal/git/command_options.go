@@ -278,7 +278,7 @@ func withInternalFetch(req repoScopedRequest, withSidechannel bool) func(ctx con
 
 // WithFinalizer sets up the finalizer to be run when the command is being wrapped up. It will be
 // called after `Wait()` has returned.
-func WithFinalizer(finalizer func(*command.Command)) CmdOpt {
+func WithFinalizer(finalizer func(context.Context, *command.Command)) CmdOpt {
 	return func(_ context.Context, _ config.Cfg, _ CommandFactory, c *cmdCfg) error {
 		c.commandOpts = append(c.commandOpts, command.WithFinalizer(finalizer))
 		return nil

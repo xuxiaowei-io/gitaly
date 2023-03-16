@@ -2,6 +2,7 @@ package git_test
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -16,8 +17,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/trace2"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -735,6 +738,195 @@ func TestFsckConfiguration(t *testing.T) {
 			// Execute git fsck command.
 			err = cmd.Wait()
 			require.NoError(t, err)
+		})
+	}
+}
+
+type dummyHook struct {
+	name    string
+	handler func(context.Context, *trace2.Trace) error
+}
+
+func (h *dummyHook) Name() string {
+	return h.name
+}
+
+func (h *dummyHook) Handle(ctx context.Context, trace *trace2.Trace) error {
+	return h.handler(ctx, trace)
+}
+
+func TestWithTrace2Hooks(t *testing.T) {
+	t.Parallel()
+
+	extractEventNames := func(trace *trace2.Trace) []string {
+		var names []string
+		trace.Walk(testhelper.Context(t), func(ctx context.Context, trace *trace2.Trace) context.Context {
+			names = append(names, trace.Name)
+			return nil
+		})
+		return names
+	}
+
+	// Trace2 outputs differently between platforms. It may include irrelevant events. In some
+	// rare cases, it can also re-order the events, leading to flaky tests. So, we assert the
+	// presences of essential events of the tested Git command.
+	essentialEvents := []string{
+		"pack-objects:enumerate-objects",
+		"pack-objects:prepare-pack",
+		"pack-objects:write-pack-file",
+		"data:pack-objects:write_pack_file/wrote",
+	}
+
+	for _, tc := range []struct {
+		desc          string
+		setup         func(t *testing.T) []trace2.Hook
+		expectedStats map[string]any
+		withStats     bool
+	}{
+		{
+			desc: "trace2 hook runs successfully",
+			setup: func(t *testing.T) []trace2.Hook {
+				return []trace2.Hook{
+					&dummyHook{
+						name: "dummy",
+						handler: func(ctx context.Context, trace *trace2.Trace) error {
+							require.Subset(t, extractEventNames(trace), essentialEvents)
+							return nil
+						},
+					},
+				}
+			},
+			withStats: true,
+			expectedStats: map[string]any{
+				"trace2.activated": "true",
+				"trace2.hooks":     "dummy",
+			},
+		},
+		{
+			desc: "multiple trace2 hooks run successfully",
+			setup: func(t *testing.T) []trace2.Hook {
+				return []trace2.Hook{
+					&dummyHook{
+						name: "dummy",
+						handler: func(ctx context.Context, trace *trace2.Trace) error {
+							require.Subset(t, extractEventNames(trace), essentialEvents)
+							return nil
+						},
+					},
+					&dummyHook{
+						name: "dummy2",
+						handler: func(ctx context.Context, trace *trace2.Trace) error {
+							require.Subset(t, extractEventNames(trace), essentialEvents)
+							return nil
+						},
+					},
+				}
+			},
+			withStats: true,
+			expectedStats: map[string]any{
+				"trace2.activated": "true",
+				"trace2.hooks":     "dummy,dummy2",
+			},
+		},
+		{
+			desc: "no hooks provided",
+			setup: func(t *testing.T) []trace2.Hook {
+				return []trace2.Hook{}
+			},
+			withStats: true,
+			expectedStats: map[string]any{
+				"trace2.activated": nil,
+				"trace2.hooks":     nil,
+			},
+		},
+		{
+			desc: "trace2 hook returns error",
+			setup: func(t *testing.T) []trace2.Hook {
+				return []trace2.Hook{
+					&dummyHook{
+						name: "dummy",
+						handler: func(ctx context.Context, trace *trace2.Trace) error {
+							return fmt.Errorf("something goes wrong")
+						},
+					},
+					&dummyHook{
+						name: "dummy2",
+						handler: func(ctx context.Context, trace *trace2.Trace) error {
+							require.Fail(t, "should not trigger hook after prior one fails")
+							return nil
+						},
+					},
+				}
+			},
+			withStats: true,
+			expectedStats: map[string]any{
+				"trace2.activated": "true",
+				"trace2.hooks":     "dummy,dummy2",
+				"trace2.error":     `trace2: executing "dummy" handler: something goes wrong`,
+			},
+		},
+		{
+			desc: "stats is not initialized",
+			setup: func(t *testing.T) []trace2.Hook {
+				return []trace2.Hook{
+					&dummyHook{
+						name: "dummy",
+						handler: func(ctx context.Context, trace *trace2.Trace) error {
+							require.Subset(t, extractEventNames(trace), essentialEvents)
+							return nil
+						},
+					},
+				}
+			},
+			withStats: false,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			hooks := tc.setup(t)
+			ctx := testhelper.Context(t)
+			if tc.withStats {
+				ctx = command.InitContextStats(ctx)
+			}
+
+			cfg := testcfg.Build(t)
+			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg,
+				gittest.CreateRepositoryConfig{SkipCreationViaService: true},
+			)
+
+			var input bytes.Buffer
+			for i := 0; i <= 10; i++ {
+				input.WriteString(gittest.WriteCommit(t, cfg, repoPath).String())
+				input.WriteString("\n")
+			}
+
+			gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg, git.WithTrace2Hooks(hooks))
+			require.NoError(t, err)
+			defer cleanup()
+
+			cmd, err := gitCmdFactory.New(ctx, repoProto, git.Command{
+				Name: "pack-objects",
+				Flags: []git.Option{
+					git.Flag{Name: "--compression=0"},
+					git.Flag{Name: "--stdout"},
+					git.Flag{Name: "-q"},
+				},
+			}, git.WithStdin(&input))
+			require.NoError(t, err)
+
+			err = cmd.Wait()
+			require.NoError(t, err)
+
+			if tc.withStats {
+				stats := command.StatsFromContext(ctx)
+				require.NotNil(t, stats)
+
+				fields := stats.Fields()
+				for key, value := range tc.expectedStats {
+					require.Equal(t, value, fields[key])
+				}
+			} else {
+				require.Nil(t, command.StatsFromContext(ctx))
+			}
 		})
 	}
 }

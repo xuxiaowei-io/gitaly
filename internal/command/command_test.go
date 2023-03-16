@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -473,7 +474,7 @@ func TestCommand_withFinalizer(t *testing.T) {
 		ctx, cancel := context.WithCancel(testhelper.Context(t))
 
 		finalizerCh := make(chan struct{})
-		_, err := New(ctx, []string{"echo"}, WithFinalizer(func(*Command) {
+		_, err := New(ctx, []string{"echo"}, WithFinalizer(func(context.Context, *Command) {
 			close(finalizerCh)
 		}))
 		require.NoError(t, err)
@@ -487,7 +488,7 @@ func TestCommand_withFinalizer(t *testing.T) {
 		ctx := testhelper.Context(t)
 
 		finalizerCh := make(chan struct{})
-		cmd, err := New(ctx, []string{"echo"}, WithFinalizer(func(*Command) {
+		cmd, err := New(ctx, []string{"echo"}, WithFinalizer(func(context.Context, *Command) {
 			close(finalizerCh)
 		}))
 		require.NoError(t, err)
@@ -497,11 +498,41 @@ func TestCommand_withFinalizer(t *testing.T) {
 		<-finalizerCh
 	})
 
+	t.Run("Wait runs multiple finalizers", func(t *testing.T) {
+		ctx := testhelper.Context(t)
+
+		wg := sync.WaitGroup{}
+		wg.Add(2)
+		cmd, err := New(
+			ctx,
+			[]string{"echo"},
+			WithFinalizer(func(context.Context, *Command) { wg.Done() }),
+			WithFinalizer(func(context.Context, *Command) { wg.Done() }),
+		)
+		require.NoError(t, err)
+		require.NoError(t, cmd.Wait())
+
+		wg.Wait()
+	})
+
+	t.Run("Wait runs finalizer with the latest context", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(testhelper.Context(t))
+		//nolint:staticcheck
+		ctx = context.WithValue(ctx, "hello", "world")
+
+		_, err := New(ctx, []string{"echo"}, WithFinalizer(func(ctx context.Context, _ *Command) {
+			require.Equal(t, "world", ctx.Value("hello"))
+		}))
+		require.NoError(t, err)
+
+		cancel()
+	})
+
 	t.Run("process exit does not run finalizer", func(t *testing.T) {
 		ctx := testhelper.Context(t)
 
 		finalizerCh := make(chan struct{})
-		_, err := New(ctx, []string{"echo"}, WithFinalizer(func(*Command) {
+		_, err := New(ctx, []string{"echo"}, WithFinalizer(func(context.Context, *Command) {
 			close(finalizerCh)
 		}))
 		require.NoError(t, err)

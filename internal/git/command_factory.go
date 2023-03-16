@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -15,9 +16,11 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/alternates"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/trace2"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/log"
+	"gitlab.com/gitlab-org/labkit/correlation"
 )
 
 // CommandFactory is designed to create and run git commands in a protected and fully managed manner.
@@ -43,6 +46,7 @@ type execCommandFactoryConfig struct {
 	hooksPath           string
 	gitBinaryPath       string
 	cgroupsManager      cgroups.Manager
+	trace2Hooks         []trace2.Hook
 	execEnvConstructors []ExecutionEnvironmentConstructor
 }
 
@@ -77,6 +81,19 @@ func WithCgroupsManager(cgroupsManager cgroups.Manager) ExecCommandFactoryOption
 	}
 }
 
+// WithTrace2Hooks overrides default trace2 hooks used by trace2 manager
+func WithTrace2Hooks(hooks []trace2.Hook) ExecCommandFactoryOption {
+	return func(cfg *execCommandFactoryConfig) {
+		cfg.trace2Hooks = hooks
+	}
+}
+
+// defaultTrace2HooksFor creates a list of all Trace2 hooks. It doesn't mean all hooks are triggered.
+// Each hook's activation status will be evaluated before the command starts.
+func defaultTrace2HooksFor(context.Context, string) []trace2.Hook {
+	return []trace2.Hook{}
+}
+
 // WithExecutionEnvironmentConstructors overrides the default Git execution environments used by the
 // command factory.
 func WithExecutionEnvironmentConstructors(constructors ...ExecutionEnvironmentConstructor) ExecCommandFactoryOption {
@@ -100,6 +117,7 @@ type ExecCommandFactory struct {
 	cfg                   config.Cfg
 	execEnvs              []ExecutionEnvironment
 	cgroupsManager        cgroups.Manager
+	trace2Hooks           []trace2.Hook
 	invalidCommandsMetric *prometheus.CounterVec
 	hookDirs              hookDirectories
 
@@ -150,6 +168,7 @@ func NewExecCommandFactory(cfg config.Cfg, opts ...ExecCommandFactoryOption) (_ 
 		execEnvs:       execEnvs,
 		locator:        config.NewLocator(cfg),
 		cgroupsManager: cgroupsManager,
+		trace2Hooks:    factoryCfg.trace2Hooks,
 		invalidCommandsMetric: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "gitaly_invalid_commands_total",
@@ -439,13 +458,30 @@ func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo repository.Gi
 		}
 	}
 
-	command, err := command.New(ctx, append([]string{execEnv.BinaryPath}, args...), append(
-		config.commandOpts,
+	commandOpts := config.commandOpts
+
+	trace2Hooks := cf.trace2Hooks
+	if trace2Hooks == nil {
+		trace2Hooks = defaultTrace2HooksFor(ctx, sc.Name)
+	}
+	if len(trace2Hooks) != 0 {
+		trace2Manager, err := trace2.NewManager(correlation.ExtractFromContextOrGenerate(ctx), trace2Hooks)
+		if err != nil {
+			return nil, fmt.Errorf("creating trace2 manager: %w", err)
+		}
+
+		env = trace2Manager.Inject(env)
+		commandOpts = append(commandOpts, command.WithFinalizer(cf.trace2Finalizer(trace2Manager)))
+	}
+
+	commandOpts = append(
+		commandOpts,
 		command.WithEnvironment(env),
 		command.WithCommandName("git", sc.Name),
 		command.WithCgroup(cf.cgroupsManager, cgroupsAddCommandOpts...),
 		command.WithCommandGitVersion(cmdGitVersion.String()),
-	)...)
+	)
+	command, err := command.New(ctx, append([]string{execEnv.BinaryPath}, args...), commandOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -610,4 +646,18 @@ func (cf *ExecCommandFactory) SidecarGitConfiguration(ctx context.Context) ([]Co
 	}
 
 	return configPairs, nil
+}
+
+func (cf *ExecCommandFactory) trace2Finalizer(manager *trace2.Manager) func(context.Context, *command.Command) {
+	return func(ctx context.Context, cmd *command.Command) {
+		manager.Finish(ctx)
+		stats := command.StatsFromContext(ctx)
+		if stats != nil {
+			stats.RecordMetadata("trace2.activated", "true")
+			stats.RecordMetadata("trace2.hooks", strings.Join(manager.HookNames(), ","))
+			if manager.Error() != nil {
+				stats.RecordMetadata("trace2.error", manager.Error().Error())
+			}
+		}
+	}
 }
