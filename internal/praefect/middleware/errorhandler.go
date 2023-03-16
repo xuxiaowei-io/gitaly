@@ -17,6 +17,7 @@ func StreamErrorHandler(registry *protoregistry.Registry, errorTracker tracker.E
 
 		mi, lookupErr := registry.LookupMethod(method)
 		if err != nil {
+			//nolint:gitaly-linters
 			return nil, fmt.Errorf("error when looking up method: %w %v", err, lookupErr)
 		}
 

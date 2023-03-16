@@ -73,7 +73,7 @@ func updateRef(ctx context.Context, repo *localrepo.Repo, req *gitalypb.WriteRef
 
 	u, err := updateref.New(ctx, repo)
 	if err != nil {
-		return fmt.Errorf("error when running creating new updater: %v", err)
+		return fmt.Errorf("error when running creating new updater: %w", err)
 	}
 	defer func() {
 		if err := u.Close(); err != nil && returnedErr == nil {
@@ -86,11 +86,11 @@ func updateRef(ctx context.Context, repo *localrepo.Repo, req *gitalypb.WriteRef
 	}
 
 	if err = u.Update(git.ReferenceName(req.GetRef()), newObjectID, oldObjectID); err != nil {
-		return fmt.Errorf("error when creating update-ref command: %v", err)
+		return fmt.Errorf("error when creating update-ref command: %w", err)
 	}
 
 	if err = u.Commit(); err != nil {
-		return fmt.Errorf("error when running update-ref command: %v", err)
+		return fmt.Errorf("error when running update-ref command: %w", err)
 	}
 
 	return nil
@@ -101,14 +101,14 @@ func validateWriteRefRequest(req *gitalypb.WriteRefRequest) error {
 		return err
 	}
 	if err := git.ValidateRevision(req.Ref); err != nil {
-		return fmt.Errorf("invalid ref: %v", err)
+		return fmt.Errorf("invalid ref: %w", err)
 	}
 	if err := git.ValidateRevision(req.Revision); err != nil {
-		return fmt.Errorf("invalid revision: %v", err)
+		return fmt.Errorf("invalid revision: %w", err)
 	}
 	if len(req.OldRevision) > 0 {
 		if err := git.ValidateRevision(req.OldRevision); err != nil {
-			return fmt.Errorf("invalid OldRevision: %v", err)
+			return fmt.Errorf("invalid OldRevision: %w", err)
 		}
 	}
 

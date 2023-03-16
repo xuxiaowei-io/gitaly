@@ -156,11 +156,11 @@ func (m *GitLabHookManager) postReceiveHook(ctx context.Context, payload git.Hoo
 		pushOptions...,
 	)
 	if err != nil {
-		return fmt.Errorf("GitLab: %v", err)
+		return fmt.Errorf("GitLab: %w", err)
 	}
 
 	if err := printMessages(messages, stdout); err != nil {
-		return fmt.Errorf("error writing messages to stream: %v", err)
+		return fmt.Errorf("error writing messages to stream: %w", err)
 	}
 
 	if !ok {
@@ -169,12 +169,12 @@ func (m *GitLabHookManager) postReceiveHook(ctx context.Context, payload git.Hoo
 
 	executor, err := m.newCustomHooksExecutor(repo, "post-receive")
 	if err != nil {
-		return structerr.NewInternal("creating custom hooks executor: %v", err)
+		return structerr.NewInternal("creating custom hooks executor: %w", err)
 	}
 
 	customEnv, err := m.customHooksEnv(ctx, payload, pushOptions, env)
 	if err != nil {
-		return structerr.NewInternal("constructing custom hook environment: %v", err)
+		return structerr.NewInternal("constructing custom hook environment: %w", err)
 	}
 
 	if err = executor(

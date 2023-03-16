@@ -94,13 +94,13 @@ func (m *GitLabHookManager) PreReceiveHook(ctx context.Context, repo *gitalypb.R
 func (m *GitLabHookManager) preReceiveHook(ctx context.Context, payload git.HooksPayload, repo *gitalypb.Repository, pushOptions, envs []string, changes []byte, stdout, stderr io.Writer) error {
 	repoPath, err := m.locator.GetRepoPath(repo)
 	if err != nil {
-		return structerr.NewInternal("getting repo path: %v", err)
+		return structerr.NewInternal("getting repo path: %w", err)
 	}
 
 	if gitObjDir, gitAltObjDirs := env.ExtractValue(envs, "GIT_OBJECT_DIRECTORY"), env.ExtractValue(envs, "GIT_ALTERNATE_OBJECT_DIRECTORIES"); gitObjDir != "" && gitAltObjDirs != "" {
 		gitObjectDirRel, gitAltObjectDirRel, err := getRelativeObjectDirs(repoPath, gitObjDir, gitAltObjDirs)
 		if err != nil {
-			return structerr.NewInternal("getting relative git object directories: %v", err)
+			return structerr.NewInternal("getting relative git object directories: %w", err)
 		}
 
 		repo.GitObjectDirectory = gitObjectDirRel
@@ -168,7 +168,7 @@ func (m *GitLabHookManager) preReceiveHook(ctx context.Context, payload git.Hook
 
 	customEnv, err := m.customHooksEnv(ctx, payload, pushOptions, envs)
 	if err != nil {
-		return structerr.NewInternal("constructing custom hook environment: %v", err)
+		return structerr.NewInternal("constructing custom hook environment: %w", err)
 	}
 
 	if err = executor(
@@ -185,7 +185,7 @@ func (m *GitLabHookManager) preReceiveHook(ctx context.Context, payload git.Hook
 	// reference counter
 	ok, err := m.gitlabClient.PreReceive(ctx, repo.GetGlRepository())
 	if err != nil {
-		return structerr.NewInternal("calling pre_receive endpoint: %v", err)
+		return structerr.NewInternal("calling pre_receive endpoint: %w", err)
 	}
 
 	if !ok {

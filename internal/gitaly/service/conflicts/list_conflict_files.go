@@ -26,12 +26,12 @@ func (s *server) ListConflictFiles(request *gitalypb.ListConflictFilesRequest, s
 
 	ours, err := repo.ResolveRevision(ctx, git.Revision(request.OurCommitOid+"^{commit}"))
 	if err != nil {
-		return structerr.NewFailedPrecondition("could not lookup 'our' OID: %s", err)
+		return structerr.NewFailedPrecondition("could not lookup 'our' OID: %w", err)
 	}
 
 	theirs, err := repo.ResolveRevision(ctx, git.Revision(request.TheirCommitOid+"^{commit}"))
 	if err != nil {
-		return structerr.NewFailedPrecondition("could not lookup 'their' OID: %s", err)
+		return structerr.NewFailedPrecondition("could not lookup 'their' OID: %w", err)
 	}
 
 	repoPath, err := s.locator.GetPath(request.Repository)

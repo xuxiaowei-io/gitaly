@@ -357,7 +357,7 @@ func TestPrereceive_gitlab(t *testing.T) {
 				return false, errors.New("prereceive oops")
 			},
 			expectHookCall: true,
-			expectedErr:    structerr.NewInternal("calling pre_receive endpoint: %v", errors.New("prereceive oops")),
+			expectedErr:    structerr.NewInternal("calling pre_receive endpoint: %w", errors.New("prereceive oops")),
 		},
 	}
 

@@ -14,7 +14,7 @@ func NewTreeEntry(commitOid, rootOid, rootPath string, filename, oidBytes, modeB
 
 	mode, err := strconv.ParseInt(string(modeBytes), 8, 32)
 	if err != nil {
-		return nil, fmt.Errorf("parse mode: %v", err)
+		return nil, fmt.Errorf("parse mode: %w", err)
 	}
 
 	oid := fmt.Sprintf("%02x", oidBytes)

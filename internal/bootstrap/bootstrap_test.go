@@ -148,7 +148,7 @@ func TestBootstrap_gracefulTerminationStuck(t *testing.T) {
 		// terminate and thus the graceful termination will be stuck.
 		<-ctx.Done()
 	})
-	require.Equal(t, fmt.Errorf("graceful upgrade: grace period expired"), err)
+	require.Equal(t, fmt.Errorf("graceful upgrade: %w", fmt.Errorf("grace period expired")), err)
 
 	cancel()
 	<-doneCh
@@ -172,7 +172,7 @@ func TestBootstrap_gracefulTerminationWithSignals(t *testing.T) {
 				// signal was processed.
 				<-ctx.Done()
 			})
-			require.Equal(t, fmt.Errorf("graceful upgrade: force shutdown"), err)
+			require.Equal(t, fmt.Errorf("graceful upgrade: %w", fmt.Errorf("force shutdown")), err)
 
 			cancel()
 			<-doneCh
@@ -201,7 +201,7 @@ func TestBootstrap_gracefulTerminationTimeoutWithListenerError(t *testing.T) {
 		// terminate.
 		<-ctx.Done()
 	})
-	require.Equal(t, fmt.Errorf("graceful upgrade: grace period expired"), err)
+	require.Equal(t, fmt.Errorf("graceful upgrade: %w", fmt.Errorf("grace period expired")), err)
 
 	cancel()
 	<-doneCh
@@ -213,7 +213,7 @@ func TestBootstrap_gracefulTermination(t *testing.T) {
 	b, upgrader, _ := setup(t, ctx)
 
 	require.Equal(t,
-		fmt.Errorf("graceful upgrade: completed"),
+		fmt.Errorf("graceful upgrade: %w", fmt.Errorf("completed")),
 		performUpgrade(t, b, upgrader, helper.NewManualTicker(), nil, nil),
 	)
 }

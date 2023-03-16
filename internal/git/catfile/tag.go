@@ -65,13 +65,13 @@ func buildAnnotatedTag(ctx context.Context, objectReader ObjectContentReader, ob
 	case "commit":
 		tag.TargetCommit, err = GetCommit(ctx, objectReader, git.Revision(tagged.objectID))
 		if err != nil {
-			return nil, fmt.Errorf("buildAnnotatedTag error when getting target commit: %v", err)
+			return nil, fmt.Errorf("buildAnnotatedTag error when getting target commit: %w", err)
 		}
 
 	case "tag":
 		tag.TargetCommit, err = dereferenceTag(ctx, objectReader, git.Revision(tagged.objectID))
 		if err != nil {
-			return nil, fmt.Errorf("buildAnnotatedTag error when dereferencing tag: %v", err)
+			return nil, fmt.Errorf("buildAnnotatedTag error when dereferencing tag: %w", err)
 		}
 	}
 

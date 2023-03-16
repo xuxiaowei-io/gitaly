@@ -60,7 +60,7 @@ func (s *server) FindLicense(ctx context.Context, req *gitalypb.FindLicenseReque
 		if errors.Is(err, git.ErrReferenceNotFound) {
 			return &gitalypb.FindLicenseResponse{}, nil
 		}
-		return nil, structerr.NewInternal("cannot find HEAD revision: %v", err)
+		return nil, structerr.NewInternal("cannot find HEAD revision: %w", err)
 	}
 
 	response, err := s.licenseCache.GetOrCompute(ctx, repo, headOID)

@@ -121,6 +121,7 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 		var customHookErr updateref.CustomHookError
 		switch {
 		case errors.As(err, &customHookErr):
+			//nolint:gitaly-linters
 			return structerr.NewPermissionDenied("access check: %q", err).WithDetail(
 				&gitalypb.UserRebaseConfirmableError{
 					Error: &gitalypb.UserRebaseConfirmableError_AccessCheck{

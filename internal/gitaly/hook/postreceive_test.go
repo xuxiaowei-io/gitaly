@@ -330,7 +330,7 @@ func TestPostReceive_gitlab(t *testing.T) {
 			postreceive: func(t *testing.T, ctx context.Context, glRepo, glID, changes string, pushOptions ...string) (bool, []gitlab.PostReceiveMessage, error) {
 				return false, nil, errors.New("failure")
 			},
-			expectedErr: errors.New("GitLab: failure"),
+			expectedErr: fmt.Errorf("GitLab: %w", fmt.Errorf("failure")),
 		},
 	}
 

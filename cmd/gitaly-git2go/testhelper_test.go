@@ -31,7 +31,7 @@ func TestMain(m *testing.M) {
 			git.ConfigLevelGlobal,
 		} {
 			if err := git.SetSearchPath(configLevel, "/dev/null"); err != nil {
-				return fmt.Errorf("setting Git2go search path: %s", err)
+				return fmt.Errorf("setting Git2go search path: %w", err)
 			}
 		}
 

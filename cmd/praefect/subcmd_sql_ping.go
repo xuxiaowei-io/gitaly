@@ -28,7 +28,7 @@ func (s *sqlPingSubcommand) Exec(flags *flag.FlagSet, conf config.Config) error 
 	defer clean()
 
 	if err := datastore.CheckPostgresVersion(db); err != nil {
-		return fmt.Errorf("%s: fail: %v", subCmd, err)
+		return fmt.Errorf("%s: fail: %w", subCmd, err)
 	}
 
 	fmt.Printf("%s: OK\n", subCmd)

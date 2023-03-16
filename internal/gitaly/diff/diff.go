@@ -150,7 +150,7 @@ func (parser *Parser) Parse() bool {
 			// patchReader will read EOF, but Parser not finished.
 			currentPatchDone = true
 		} else if err != nil {
-			parser.err = fmt.Errorf("peek diff line: %v", err)
+			parser.err = fmt.Errorf("peek diff line: %w", err)
 			return false
 		}
 
@@ -328,7 +328,7 @@ func (parser *Parser) findNextPatchFromPath() error {
 
 	line, err := parser.patchReader.ReadBytes('\n')
 	if err != nil && err != io.EOF {
-		parser.err = fmt.Errorf("read diff header line: %v", err)
+		parser.err = fmt.Errorf("read diff header line: %w", err)
 		return parser.err
 	} else if err == io.EOF {
 		return nil
@@ -370,13 +370,13 @@ func parseRawLine(line []byte, diff *Diff) error {
 
 	mode, err := strconv.ParseInt(string(matches[1]), 8, 0)
 	if err != nil {
-		return fmt.Errorf("raw old mode: %v", err)
+		return fmt.Errorf("raw old mode: %w", err)
 	}
 	diff.OldMode = int32(mode)
 
 	mode, err = strconv.ParseInt(string(matches[2]), 8, 0)
 	if err != nil {
-		return fmt.Errorf("raw new mode: %v", err)
+		return fmt.Errorf("raw new mode: %w", err)
 	}
 	diff.NewMode = int32(mode)
 
@@ -414,7 +414,7 @@ func (parser *Parser) consumeChunkLine(updateLineStats bool) {
 		case bufio.ErrBufferFull:
 			// long line: keep reading
 		default:
-			parser.err = fmt.Errorf("read chunk line: %v", err)
+			parser.err = fmt.Errorf("read chunk line: %w", err)
 			return
 		}
 
@@ -431,7 +431,7 @@ func (parser *Parser) consumeChunkLine(updateLineStats bool) {
 func (parser *Parser) consumeLine(updateStats bool) {
 	line, err := parser.patchReader.ReadBytes('\n')
 	if err != nil && err != io.EOF {
-		parser.err = fmt.Errorf("read line: %v", err)
+		parser.err = fmt.Errorf("read line: %w", err)
 		return
 	}
 

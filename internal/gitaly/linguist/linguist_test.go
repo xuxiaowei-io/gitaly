@@ -582,7 +582,7 @@ func TestInstance_Stats_failureGitattributes(t *testing.T) {
 	linguist := New(cfg, catfileCache, repo)
 	_, err := linguist.Stats(ctx, commitID.String())
 
-	expectedErr := `linguist object iterator: ls-tree skip: "new file instance: checking attribute:`
+	expectedErr := `linguist object iterator: ls-tree skip: new file instance: checking attribute:`
 	require.ErrorContains(t, err, expectedErr)
 }
 

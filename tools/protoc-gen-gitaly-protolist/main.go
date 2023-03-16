@@ -77,12 +77,12 @@ func generateProtolistGo(req *pluginpb.CodeGeneratorRequest) error {
 	var protoNames []string
 
 	if gitalyProtoDir, err = filepath.Abs(gitalyProtoDir); err != nil {
-		return fmt.Errorf("failed to get absolute path for %s: %v", gitalyProtoDir, err)
+		return fmt.Errorf("failed to get absolute path for %s: %w", gitalyProtoDir, err)
 	}
 
 	files, err := os.ReadDir(gitalyProtoDir)
 	if err != nil {
-		return fmt.Errorf("failed to read %s: %v", gitalyProtoDir, err)
+		return fmt.Errorf("failed to read %s: %w", gitalyProtoDir, err)
 	}
 
 	for _, fi := range files {
@@ -93,12 +93,12 @@ func generateProtolistGo(req *pluginpb.CodeGeneratorRequest) error {
 
 	f, err := os.Create(filepath.Join(gitalypbDir, "protolist.go"))
 	if err != nil {
-		return fmt.Errorf("could not create protolist.go: %v", err)
+		return fmt.Errorf("could not create protolist.go: %w", err)
 	}
 	defer f.Close()
 
 	if err = renderProtoList(f, protoNames); err != nil {
-		return fmt.Errorf("could not render go code: %v", err)
+		return fmt.Errorf("could not render go code: %w", err)
 	}
 
 	return nil
@@ -117,22 +117,22 @@ func renderProtoList(dest io.WriteCloser, protoNames []string) error {
 	`
 	protoListTempl, err := template.New("protoList").Funcs(joinFunc).Parse(protoList)
 	if err != nil {
-		return fmt.Errorf("could not create go code template: %v", err)
+		return fmt.Errorf("could not create go code template: %w", err)
 	}
 
 	var rawGo bytes.Buffer
 
 	if err := protoListTempl.Execute(&rawGo, protoNames); err != nil {
-		return fmt.Errorf("could not execute go code template: %v", err)
+		return fmt.Errorf("could not execute go code template: %w", err)
 	}
 
 	formattedGo, err := format.Source(rawGo.Bytes())
 	if err != nil {
-		return fmt.Errorf("could not format go code: %v", err)
+		return fmt.Errorf("could not format go code: %w", err)
 	}
 
 	if _, err = io.Copy(dest, bytes.NewBuffer(formattedGo)); err != nil {
-		return fmt.Errorf("failed to write protolist.go file: %v", err)
+		return fmt.Errorf("failed to write protolist.go file: %w", err)
 	}
 
 	return nil

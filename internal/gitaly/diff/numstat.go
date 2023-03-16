@@ -100,7 +100,7 @@ func convertNumStat(num []byte) (int32, error) {
 
 	parsedNum, err := strconv.ParseInt(string(num), 10, 32)
 	if err != nil {
-		return 0, fmt.Errorf("error converting diff num stat: %v", err)
+		return 0, fmt.Errorf("error converting diff num stat: %w", err)
 	}
 
 	return int32(parsedNum), nil

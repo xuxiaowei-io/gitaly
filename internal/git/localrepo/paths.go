@@ -37,14 +37,14 @@ func (repo *Repo) ObjectDirectoryPath() (string, error) {
 	if _, origError := storage.ValidateRelativePath(repoPath, objectDirectoryPath); origError != nil {
 		tempDir, err := repo.locator.TempDir(repo.GetStorageName())
 		if err != nil {
-			return "", structerr.NewInvalidArgument("getting storage's temporary directory: %s", err)
+			return "", structerr.NewInvalidArgument("getting storage's temporary directory: %w", err)
 		}
 
 		expectedQuarantinePrefix := filepath.Join(tempDir, storage.QuarantineDirectoryPrefix(repo))
 		absoluteObjectDirectoryPath := filepath.Join(repoPath, objectDirectoryPath)
 
 		if !strings.HasPrefix(absoluteObjectDirectoryPath, expectedQuarantinePrefix) {
-			return "", structerr.NewInvalidArgument("not a valid relative path: %s", origError)
+			return "", structerr.NewInvalidArgument("not a valid relative path: %w", origError)
 		}
 	}
 

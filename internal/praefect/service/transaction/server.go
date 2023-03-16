@@ -29,7 +29,7 @@ func NewServer(txMgr *transactions.Manager) gitalypb.RefTransactionServer {
 func (s *Server) VoteTransaction(ctx context.Context, in *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
 	vote, err := voting.VoteFromHash(in.GetReferenceUpdatesHash())
 	if err != nil {
-		return nil, structerr.NewInvalidArgument("invalid reference update hash: %v", err)
+		return nil, structerr.NewInvalidArgument("invalid reference update hash: %w", err)
 	}
 
 	if err := s.txMgr.VoteTransaction(ctx, in.TransactionId, in.Node, vote); err != nil {

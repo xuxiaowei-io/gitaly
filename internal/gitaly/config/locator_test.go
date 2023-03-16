@@ -1,9 +1,12 @@
 package config_test
 
 import (
+	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -59,9 +62,13 @@ func TestConfigLocator_GetRepoPath(t *testing.T) {
 			expErr: structerr.NewInvalidArgument(`GetStorageByName: no such storage: "invalid"`),
 		},
 		{
-			desc:   "storage doesn't exist on disk",
-			repo:   &gitalypb.Repository{StorageName: cfg.Storages[1].Name, RelativePath: repo.RelativePath},
-			expErr: structerr.NewNotFound(`GetPath: does not exist: stat %s: no such file or directory`, cfg.Storages[1].Path),
+			desc: "storage doesn't exist on disk",
+			repo: &gitalypb.Repository{StorageName: cfg.Storages[1].Name, RelativePath: repo.RelativePath},
+			expErr: structerr.NewNotFound(`GetPath: does not exist: %w`, &fs.PathError{
+				Op:   "stat",
+				Path: cfg.Storages[1].Path,
+				Err:  syscall.ENOENT,
+			}),
 		},
 		{
 			desc:   "relative path is empty",
@@ -81,7 +88,7 @@ func TestConfigLocator_GetRepoPath(t *testing.T) {
 		{
 			desc:   "relative path escapes parent folder",
 			repo:   &gitalypb.Repository{StorageName: storageName, RelativePath: "../.."},
-			expErr: structerr.NewInvalidArgument(`GetRepoPath: relative path escapes root directory`),
+			expErr: structerr.NewInvalidArgument(`GetRepoPath: %w`, fmt.Errorf("relative path escapes root directory")),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -157,9 +164,13 @@ func TestConfigLocator_GetPath(t *testing.T) {
 			expErr: structerr.NewInvalidArgument(`GetStorageByName: no such storage: "invalid"`),
 		},
 		{
-			desc:   "storage doesn't exist on disk",
-			repo:   &gitalypb.Repository{StorageName: cfg.Storages[1].Name, RelativePath: repo.RelativePath},
-			expErr: structerr.NewNotFound(`GetPath: does not exist: stat %s: no such file or directory`, cfg.Storages[1].Path),
+			desc: "storage doesn't exist on disk",
+			repo: &gitalypb.Repository{StorageName: cfg.Storages[1].Name, RelativePath: repo.RelativePath},
+			expErr: structerr.NewNotFound(`GetPath: does not exist: %w`, &fs.PathError{
+				Op:   "stat",
+				Path: cfg.Storages[1].Path,
+				Err:  syscall.ENOENT,
+			}),
 		},
 		{
 			desc:   "relative path is empty",
@@ -169,7 +180,7 @@ func TestConfigLocator_GetPath(t *testing.T) {
 		{
 			desc:   "relative path escapes parent folder",
 			repo:   &gitalypb.Repository{StorageName: storageName, RelativePath: "../.."},
-			expErr: structerr.NewInvalidArgument(`GetRepoPath: relative path escapes root directory`),
+			expErr: structerr.NewInvalidArgument(`GetRepoPath: %w`, fmt.Errorf("relative path escapes root directory")),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

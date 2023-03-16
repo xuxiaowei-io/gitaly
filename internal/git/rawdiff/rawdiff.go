@@ -72,7 +72,7 @@ func (p *Parser) NextDiff() (*Diff, error) {
 func (p *Parser) readStringChop(delim byte) (string, error) {
 	s, err := p.r.ReadString(delim)
 	if err != nil {
-		return "", fmt.Errorf("read raw diff: %v", err)
+		return "", fmt.Errorf("read raw diff: %w", err)
 	}
 
 	return s[:len(s)-1], nil

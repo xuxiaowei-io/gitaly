@@ -194,7 +194,7 @@ func (q *requestQueue) ReadObject(ctx context.Context) (*Object, error) {
 		},
 		readerFunc(func([]byte) (int, error) {
 			if _, err := io.CopyN(io.Discard, q.stdout, 1); err != nil {
-				return 0, fmt.Errorf("discard newline: %q", err)
+				return 0, fmt.Errorf("discard newline: %w", err)
 			}
 
 			atomic.StoreInt32(&q.counters.isReadingObject, 0)

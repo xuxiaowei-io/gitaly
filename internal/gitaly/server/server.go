@@ -89,7 +89,7 @@ func (s *GitalyServerFactory) New(secure bool, opts ...Option) (*grpc.Server, er
 	if secure {
 		cert, err := tls.LoadX509KeyPair(s.cfg.TLS.CertPath, s.cfg.TLS.KeyPath)
 		if err != nil {
-			return nil, fmt.Errorf("error reading certificate and key paths: %v", err)
+			return nil, fmt.Errorf("error reading certificate and key paths: %w", err)
 		}
 
 		transportCredentials = credentials.NewTLS(&tls.Config{
