@@ -31,7 +31,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/sentry"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/maintenance"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/server"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/setup"
@@ -304,12 +303,6 @@ func run(cfg config.Cfg) error {
 
 	updaterWithHooks := updateref.NewUpdaterWithHooks(cfg, locator, hookManager, gitCmdFactory, catfileCache)
 
-	rubySrv := rubyserver.New(cfg, gitCmdFactory)
-	if err := rubySrv.Start(); err != nil {
-		return fmt.Errorf("initialize gitaly-ruby: %w", err)
-	}
-	defer rubySrv.Stop()
-
 	streamCache := streamcache.New(cfg.PackObjectsCache, glog.Default())
 	concurrencyTracker := hook.NewConcurrencyTracker()
 	prometheus.MustRegister(concurrencyTracker)
@@ -339,7 +332,6 @@ func run(cfg config.Cfg) error {
 
 		setup.RegisterAll(srv, &service.Dependencies{
 			Cfg:                           cfg,
-			RubyServer:                    rubySrv,
 			GitalyHookManager:             hookManager,
 			TransactionManager:            transactionManager,
 			StorageLocator:                locator,
