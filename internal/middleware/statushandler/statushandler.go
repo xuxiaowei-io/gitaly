@@ -32,9 +32,13 @@ func wrapCtxErr(ctx context.Context, err error) error {
 	case err == nil:
 		return nil
 	case ctx.Err() == context.DeadlineExceeded:
-		return structerr.NewDeadlineExceeded("%w", err)
+		//nolint:gitaly-linters // Structerr will unwrap to the inner status, deliberately use '%v'
+		// to retain `DeadlineExceeded` status.
+		return structerr.NewDeadlineExceeded("%v", err)
 	case ctx.Err() == context.Canceled:
-		return structerr.NewCanceled("%w", err)
+		//nolint:gitaly-linters // Structerr will unwrap to the inner status, deliberately use '%v'
+		// to return the `Canceled` status to clients.
+		return structerr.NewCanceled("%v", err)
 	default:
 		return structerr.NewInternal("%w", err)
 	}
