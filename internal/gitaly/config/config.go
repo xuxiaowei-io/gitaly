@@ -1,11 +1,13 @@
 package config
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"regexp"
@@ -51,6 +53,12 @@ type DailyJob struct {
 
 // Cfg is a container for all config derived from config.toml.
 type Cfg struct {
+	// ConfigCommand specifies the path to an executable that Gitaly will run after loading the
+	// initial configuration from disk. The executable is expected to write JSON-formatted
+	// configuration to its standard output that we will then deserialize and merge back into
+	// the initially-loaded configuration again. This is an easy mechanism to generate parts of
+	// the configuration at runtime, like for example secrets.
+	ConfigCommand          string              `toml:"config_command,omitempty" json:"config_command"`
 	SocketPath             string              `toml:"socket_path,omitempty" json:"socket_path" split_words:"true"`
 	ListenAddr             string              `toml:"listen_addr,omitempty" json:"listen_addr" split_words:"true"`
 	TLSListenAddr          string              `toml:"tls_listen_addr,omitempty" json:"tls_listen_addr" split_words:"true"`
@@ -278,6 +286,22 @@ func Load(file io.Reader) (Cfg, error) {
 
 	if err := toml.NewDecoder(file).Decode(&cfg); err != nil {
 		return Cfg{}, fmt.Errorf("load toml: %w", err)
+	}
+
+	if cfg.ConfigCommand != "" {
+		output, err := exec.Command(cfg.ConfigCommand).Output()
+		if err != nil {
+			var exitErr *exec.ExitError
+			if errors.As(err, &exitErr) {
+				return Cfg{}, fmt.Errorf("running config command: %w, stderr: %q", err, string(exitErr.Stderr))
+			}
+
+			return Cfg{}, fmt.Errorf("running config command: %w", err)
+		}
+
+		if err := json.Unmarshal(output, &cfg); err != nil {
+			return Cfg{}, fmt.Errorf("unmarshalling generated config: %w", err)
+		}
 	}
 
 	if err := cfg.setDefaults(); err != nil {
