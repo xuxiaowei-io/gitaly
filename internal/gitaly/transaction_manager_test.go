@@ -91,8 +91,10 @@ func TestTransactionManager(t *testing.T) {
 	type steps []struct {
 		// StopManager stops the manager in the beginning of the step.
 		StopManager bool
-		// StartManager can be used to start the manager again after stopping it.
-		StartManager bool
+		// RestartManager can be used to start the manager again after stopping it.
+		RestartManager bool
+		// SkipStartManager can be used to skip starting the manager at the start of the step.
+		SkipStartManager bool
 		// Context is the context to use for the Propose call of the step.
 		Context context.Context
 		// Transaction is the transaction that is proposed in this step.
@@ -1185,8 +1187,8 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDefaultBranch: "refs/heads/main",
 				},
 				{
-					StopManager:  true,
-					StartManager: true,
+					StopManager:    true,
+					RestartManager: true,
 					Transaction: Transaction{
 						ReferenceUpdates: ReferenceUpdates{
 							"refs/heads/main": {OldOID: rootCommitOID, NewOID: secondCommitOID},
@@ -1232,8 +1234,8 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedDefaultBranch: "",
 				},
 				{
-					StopManager:  true,
-					StartManager: true,
+					StopManager:    true,
+					RestartManager: true,
 					Transaction: Transaction{
 						ReferenceUpdates: ReferenceUpdates{
 							"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: secondCommitOID},
@@ -1423,6 +1425,7 @@ func TestTransactionManager(t *testing.T) {
 						cancel()
 						return ctx
 					}(),
+					SkipStartManager: true,
 					Transaction: Transaction{
 						ReferenceUpdates: ReferenceUpdates{
 							"refs/heads/main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
@@ -2040,11 +2043,6 @@ func TestTransactionManager(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
-			testhelper.SkipQuarantinedTest(t,
-				"https://gitlab.com/gitlab-org/gitaly/-/issues/4794",
-				"TestTransactionManager/propose_returns_if_context_is_canceled_before_admission",
-			)
-
 			// Setup the repository with the exact same state as what was used to build the test cases.
 			repository, _, _, _ := setupRepository(t)
 
@@ -2114,14 +2112,22 @@ func TestTransactionManager(t *testing.T) {
 			}
 
 			// Stop the manager if it is running at the end of the test.
-			defer stopManager()
+			defer func() {
+				if managerRunning {
+					stopManager()
+				}
+			}()
 			for _, step := range tc.steps {
-				// Ensure every step starts with the manager running.
-				if !managerRunning {
+				switch {
+				case step.SkipStartManager:
+					transactionManager = NewTransactionManager(database, repository)
+				case !managerRunning:
+					// Unless explicitly skipped, ensure every step starts with
+					// the manager running.
 					startManager(step.Hooks, step.ExpectedPanic)
-				} else {
-					// Apply the hooks for this step if the manager is running already to ensure the
-					// steps hooks are in place.
+				default:
+					// Apply the hooks for this step if the manager is running
+					// already to ensure the steps hooks are in place.
 					applyHooks(t, step.Hooks)
 				}
 
@@ -2130,7 +2136,7 @@ func TestTransactionManager(t *testing.T) {
 					stopManager()
 				}
 
-				if step.StartManager {
+				if step.RestartManager {
 					startManager(step.Hooks, step.ExpectedPanic)
 				}
 
@@ -2146,10 +2152,12 @@ func TestTransactionManager(t *testing.T) {
 					require.ErrorIs(t, transactionManager.Propose(proposeCtx, step.Transaction), step.ExpectedProposeError)
 				}()
 
-				if managerRunning, err = checkManagerError(t, managerErr, transactionManager); step.ExpectedRunError {
-					require.Error(t, err)
-				} else {
-					require.NoError(t, err)
+				if !step.SkipStartManager {
+					if managerRunning, err = checkManagerError(t, managerErr, transactionManager); step.ExpectedRunError {
+						require.Error(t, err)
+					} else {
+						require.NoError(t, err)
+					}
 				}
 
 				RequireReferences(t, ctx, repository, step.ExpectedReferences)
