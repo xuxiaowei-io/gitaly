@@ -3,8 +3,8 @@
 package repository
 
 import (
-	"bytes"
 	"context"
+	"math/rand"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -34,6 +34,7 @@ func TestRepositorySize_SuccessfulRequest(t *testing.T) {
 	t.Parallel()
 
 	featureSet := testhelper.NewFeatureSets(
+		featureflag.RepositorySizeViaWalk,
 		featureflag.RevlistForRepoSize,
 		featureflag.CatfileRepoSize,
 		featureflag.UseNewRepoSize,
@@ -118,13 +119,14 @@ func testSuccessfulRepositorySizeRequest(t *testing.T, ctx context.Context) {
 		"repository size %d should be at least %d", response.Size, testRepoMinSizeKB,
 	)
 
-	blob := bytes.Repeat([]byte("a"), 1000)
-	blobOID := gittest.WriteBlob(t, cfg, repoPath, blob)
+	var blob [16 * 1024]byte
+	rand.Read(blob[:])
+
 	treeOID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 		{
-			OID:  blobOID,
-			Mode: "100644",
-			Path: "1kbblob",
+			Mode:    "100644",
+			Path:    "1kbblob",
+			Content: string(blob[:]),
 		},
 	})
 	commitOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(treeOID))
@@ -228,9 +230,100 @@ func testFailedRepositorySizeRequest(t *testing.T, ctx context.Context) {
 	}
 }
 
+func BenchmarkRepositorySize(b *testing.B) {
+	cfg, client := setupRepositoryServiceWithoutRepo(b)
+
+	for _, implementationTC := range []struct {
+		desc         string
+		setupContext func(b *testing.B) context.Context
+	}{
+		{
+			desc: "disk-usage with du",
+			setupContext: func(b *testing.B) context.Context {
+				ctx := testhelper.Context(b)
+				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RepositorySizeViaWalk, false)
+				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RevlistForRepoSize, false)
+				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.CatfileRepoSize, false)
+				return ctx
+			},
+		},
+		{
+			desc: "disk-usage with walk",
+			setupContext: func(b *testing.B) context.Context {
+				ctx := testhelper.Context(b)
+				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RepositorySizeViaWalk, true)
+				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RevlistForRepoSize, false)
+				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.CatfileRepoSize, false)
+				return ctx
+			},
+		},
+		{
+			desc: "rev-list",
+			setupContext: func(b *testing.B) context.Context {
+				ctx := testhelper.Context(b)
+				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RepositorySizeViaWalk, false)
+				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RevlistForRepoSize, true)
+				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.UseNewRepoSize, true)
+				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.CatfileRepoSize, false)
+				return ctx
+			},
+		},
+		{
+			desc: "cat-file",
+			setupContext: func(b *testing.B) context.Context {
+				ctx := testhelper.Context(b)
+				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RepositorySizeViaWalk, false)
+				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RevlistForRepoSize, false)
+				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.UseNewRepoSize, true)
+				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.CatfileRepoSize, true)
+				return ctx
+			},
+		},
+	} {
+		b.Run(implementationTC.desc, func(b *testing.B) {
+			ctx := implementationTC.setupContext(b)
+
+			for _, tc := range []struct {
+				desc  string
+				setup func(b *testing.B) *gitalypb.Repository
+			}{
+				{
+					desc: "empty repository",
+					setup: func(b *testing.B) *gitalypb.Repository {
+						repo, _ := gittest.CreateRepository(b, ctx, cfg)
+						return repo
+					},
+				},
+				{
+					desc: "benchmark repository",
+					setup: func(b *testing.B) *gitalypb.Repository {
+						repo, _ := gittest.CreateRepository(b, ctx, cfg, gittest.CreateRepositoryConfig{
+							Seed: "benchmark.git",
+						})
+						return repo
+					},
+				},
+			} {
+				b.Run(tc.desc, func(b *testing.B) {
+					repo := tc.setup(b)
+
+					b.StartTimer()
+
+					for i := 0; i < b.N; i++ {
+						_, err := client.RepositorySize(ctx, &gitalypb.RepositorySizeRequest{
+							Repository: repo,
+						})
+						require.NoError(b, err)
+					}
+				})
+			}
+		})
+	}
+}
+
 func TestRepositorySize_SuccessfulGetObjectDirectorySizeRequest(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.RevlistForRepoSize).
+	testhelper.NewFeatureSets(featureflag.RevlistForRepoSize, featureflag.RepositorySizeViaWalk).
 		Run(t, testSuccessfulGetObjectDirectorySizeRequest)
 }
 
@@ -250,7 +343,7 @@ func testSuccessfulGetObjectDirectorySizeRequest(t *testing.T, ctx context.Conte
 
 func TestRepositorySize_GetObjectDirectorySize_quarantine(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.RevlistForRepoSize).
+	testhelper.NewFeatureSets(featureflag.RevlistForRepoSize, featureflag.RepositorySizeViaWalk).
 		Run(t, testGetObjectDirectorySizeQuarantine)
 }
 
