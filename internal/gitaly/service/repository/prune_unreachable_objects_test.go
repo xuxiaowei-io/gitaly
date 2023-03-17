@@ -3,6 +3,7 @@
 package repository
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,6 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -18,8 +22,12 @@ import (
 
 func TestPruneUnreachableObjects(t *testing.T) {
 	t.Parallel()
+	testhelper.NewFeatureSets(featureflag.WriteCruftPacks).Run(t, testPruneUnreachableObjects)
+}
 
-	ctx := testhelper.Context(t)
+func testPruneUnreachableObjects(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	setObjectTime := func(t *testing.T, repoPath string, objectID git.ObjectID, when time.Time) {
@@ -161,6 +169,78 @@ func TestPruneUnreachableObjects(t *testing.T) {
 		// The commit-graph chain should have been rewritten by PruneUnreachableObjects so
 		// that it doesn't refer to the pruned commit anymore.
 		gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "verify")
+	})
+
+	t.Run("repository with recent objects in cruft pack", func(t *testing.T) {
+		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+		repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+		// Write two commits into the repository and create a commit-graph. The second
+		// commit will become unreachable and will be pruned, but will be contained in the
+		// commit-graph.
+		reachableCommitID := gittest.WriteCommit(t, cfg, repoPath)
+		unreachableCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(reachableCommitID), gittest.WithBranch("main"))
+
+		// Reset the "main" branch back to the initial root commit ID.
+		gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/main", reachableCommitID.String())
+
+		// We now repack the repository with cruft packs. The result should be that we have
+		// two packs in the repository.
+		gittest.Exec(t, cfg, "-C", repoPath, "repack", "--cruft", "-d")
+		packfilesInfo, err := stats.PackfilesInfoForRepository(repo)
+		require.NoError(t, err)
+		require.EqualValues(t, 1, packfilesInfo.Count)
+		require.EqualValues(t, 1, packfilesInfo.CruftCount)
+
+		_, err = client.PruneUnreachableObjects(ctx, &gitalypb.PruneUnreachableObjectsRequest{
+			Repository: repoProto,
+		})
+		require.NoError(t, err)
+
+		// Both commits should still exist as they are still recent.
+		gittest.RequireObjectExists(t, cfg, repoPath, reachableCommitID)
+		gittest.RequireObjectExists(t, cfg, repoPath, unreachableCommitID)
+	})
+
+	t.Run("repository with stale objects in cruft pack", func(t *testing.T) {
+		repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg)
+		repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+		// Write two commits into the repository and create a commit-graph. The second
+		// commit will become unreachable and will be pruned, but will be contained in the
+		// commit-graph.
+		reachableCommitID := gittest.WriteCommit(t, cfg, repoPath)
+		unreachableCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(reachableCommitID), gittest.WithBranch("main"))
+
+		// Set the object time of both commits to be older than our 30 minute grace period.
+		// As a result, they would both be removed via cruft packs if they were to be
+		// considered unreachable.
+		setObjectTime(t, repoPath, reachableCommitID, time.Now().Add(-31*time.Minute))
+		setObjectTime(t, repoPath, unreachableCommitID, time.Now().Add(-31*time.Minute))
+
+		// Reset the "main" branch back to the initial root commit ID.
+		gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/main", reachableCommitID.String())
+
+		// We now repack the repository with cruft packs. The result should be that we have
+		// two packs in the repository.
+		gittest.Exec(t, cfg, "-C", repoPath, "repack", "--cruft", "-d")
+		packfilesInfo, err := stats.PackfilesInfoForRepository(repo)
+		require.NoError(t, err)
+		require.EqualValues(t, 1, packfilesInfo.Count)
+		require.EqualValues(t, 1, packfilesInfo.CruftCount)
+
+		_, err = client.PruneUnreachableObjects(ctx, &gitalypb.PruneUnreachableObjectsRequest{
+			Repository: repoProto,
+		})
+		require.NoError(t, err)
+
+		// The reachable commit should exist, but the unreachable one shouldn't.
+		gittest.RequireObjectExists(t, cfg, repoPath, reachableCommitID)
+		if featureflag.WriteCruftPacks.IsEnabled(ctx) {
+			gittest.RequireObjectNotExists(t, cfg, repoPath, unreachableCommitID)
+		} else {
+			gittest.RequireObjectExists(t, cfg, repoPath, unreachableCommitID)
+		}
 	})
 
 	t.Run("object pool", func(t *testing.T) {
