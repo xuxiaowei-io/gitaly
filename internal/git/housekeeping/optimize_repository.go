@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/prometheus/client_golang/prometheus"
@@ -110,6 +111,9 @@ func (m *RepositoryManager) reportRepositoryInfo(ctx context.Context, info stats
 	m.reportDataStructureSize("packfiles_cruft", info.Packfiles.CruftSize)
 	m.reportDataStructureSize("packfiles_keep", info.Packfiles.KeepSize)
 	m.reportDataStructureSize("packed_references", info.References.PackedReferencesSize)
+
+	now := time.Now()
+	m.dataStructureTimeSinceLastOptimization.WithLabelValues("packfiles_full_repack").Observe(now.Sub(info.Packfiles.LastFullRepack).Seconds())
 }
 
 func (m *RepositoryManager) reportDataStructureExistence(dataStructure string, exists bool) {
