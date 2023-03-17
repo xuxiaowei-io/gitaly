@@ -162,4 +162,17 @@ func TestPruneUnreachableObjects(t *testing.T) {
 		// that it doesn't refer to the pruned commit anymore.
 		gittest.Exec(t, cfg, "-C", repoPath, "commit-graph", "verify")
 	})
+
+	t.Run("object pool", func(t *testing.T) {
+		repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			RelativePath: gittest.NewObjectPoolName(t),
+		})
+
+		_, err := client.PruneUnreachableObjects(ctx, &gitalypb.PruneUnreachableObjectsRequest{
+			Repository: repo,
+		})
+		testhelper.RequireGrpcError(t,
+			structerr.NewInvalidArgument("pruning objects for object pool"), err,
+		)
+	})
 }

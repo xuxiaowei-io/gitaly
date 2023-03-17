@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
@@ -30,6 +31,16 @@ func (s *server) PruneUnreachableObjects(
 	// case it doesn't.
 	if _, err := repo.Path(); err != nil {
 		return nil, err
+	}
+
+	// Verify that the repository is not an object pool. Pruning objects in object pools is not
+	// a safe operation and is likely to cause corruption of object pool members.
+	repoInfo, err := stats.RepositoryInfoForRepository(repo)
+	if err != nil {
+		return nil, fmt.Errorf("deriving repository info: %w", err)
+	}
+	if repoInfo.IsObjectPool {
+		return nil, structerr.NewInvalidArgument("pruning objects for object pool")
 	}
 
 	if err := housekeeping.PruneObjects(ctx, repo, housekeeping.PruneObjectsConfig{
