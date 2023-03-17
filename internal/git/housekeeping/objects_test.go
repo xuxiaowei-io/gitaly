@@ -400,6 +400,12 @@ func TestRepackObjects(t *testing.T) {
 			require.Equal(t, tc.expectedErr, RepackObjects(ctx, repo, tc.repackCfg))
 			requireObjectsState(t, repo, tc.stateAfterRepack)
 
+			if tc.repackCfg.FullRepack {
+				require.FileExists(t, filepath.Join(repoPath, stats.FullRepackTimestampFilename))
+			} else {
+				require.NoFileExists(t, filepath.Join(repoPath, stats.FullRepackTimestampFilename))
+			}
+
 			// There should not be any server info data in the repository.
 			require.NoFileExists(t, filepath.Join(repoPath, "info", "refs"))
 			require.NoFileExists(t, filepath.Join(repoPath, "objects", "info", "packs"))

@@ -352,6 +352,21 @@ func TestRepositoryInfoForRepository(t *testing.T) {
 			},
 		},
 		{
+			desc: "last full repack timestamp",
+			setup: func(t *testing.T, repoPath string) {
+				timestampPath := filepath.Join(repoPath, FullRepackTimestampFilename)
+				require.NoError(t, os.WriteFile(timestampPath, nil, perm.PrivateFile))
+
+				date := time.Date(2005, 4, 7, 15, 13, 13, 0, time.Local)
+				require.NoError(t, os.Chtimes(timestampPath, date, date))
+			},
+			expectedInfo: RepositoryInfo{
+				Packfiles: PackfilesInfo{
+					LastFullRepack: time.Date(2005, 4, 7, 15, 13, 13, 0, time.Local),
+				},
+			},
+		},
+		{
 			desc: "all together",
 			setup: func(t *testing.T, repoPath string) {
 				infoAlternatesPath := filepath.Join(repoPath, "objects", "info", "alternates")

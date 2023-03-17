@@ -3,6 +3,7 @@ package housekeeping
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
@@ -24,14 +25,15 @@ type Manager interface {
 type RepositoryManager struct {
 	txManager transaction.Manager
 
-	tasksTotal             *prometheus.CounterVec
-	tasksLatency           *prometheus.HistogramVec
-	prunedFilesTotal       *prometheus.CounterVec
-	dataStructureExistence *prometheus.CounterVec
-	dataStructureCount     *prometheus.HistogramVec
-	dataStructureSize      *prometheus.HistogramVec
-	optimizeFunc           func(context.Context, *RepositoryManager, *localrepo.Repo, OptimizationStrategy) error
-	reposInProgress        sync.Map
+	tasksTotal                             *prometheus.CounterVec
+	tasksLatency                           *prometheus.HistogramVec
+	prunedFilesTotal                       *prometheus.CounterVec
+	dataStructureExistence                 *prometheus.CounterVec
+	dataStructureCount                     *prometheus.HistogramVec
+	dataStructureSize                      *prometheus.HistogramVec
+	dataStructureTimeSinceLastOptimization *prometheus.HistogramVec
+	optimizeFunc                           func(context.Context, *RepositoryManager, *localrepo.Repo, OptimizationStrategy) error
+	reposInProgress                        sync.Map
 }
 
 // NewManager creates a new RepositoryManager.
@@ -81,6 +83,30 @@ func NewManager(promCfg gitalycfgprom.Config, txManager transaction.Manager) *Re
 				Name:    "gitaly_housekeeping_data_structure_size",
 				Help:    "Total size of the data structures that exist in the repository",
 				Buckets: prometheus.ExponentialBucketsRange(1, 50_000_000_000, 32),
+			},
+			[]string{"data_structure"},
+		),
+		dataStructureTimeSinceLastOptimization: prometheus.NewHistogramVec(
+			prometheus.HistogramOpts{
+				Name: "gitaly_housekeeping_time_since_last_optimization_seconds",
+				Help: "Absolute time in seconds since a given optimization has last been performed",
+				Buckets: []float64{
+					time.Second.Seconds(),
+					time.Minute.Seconds(),
+					(5 * time.Minute).Seconds(),
+					(10 * time.Minute).Seconds(),
+					(30 * time.Minute).Seconds(),
+					(1 * time.Hour).Seconds(),
+					(3 * time.Hour).Seconds(),
+					(6 * time.Hour).Seconds(),
+					(12 * time.Hour).Seconds(),
+					(1 * 24 * time.Hour).Seconds(),
+					(2 * 24 * time.Hour).Seconds(),
+					(3 * 24 * time.Hour).Seconds(),
+					(5 * 24 * time.Hour).Seconds(),
+					(7 * 24 * time.Hour).Seconds(),
+					(10 * 24 * time.Hour).Seconds(),
+				},
 			},
 			[]string{"data_structure"},
 		),

@@ -18,9 +18,17 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 )
 
-// StaleObjectsGracePeriod is time delta that is used to indicate cutoff wherein an object would be
-// considered old. Currently this is set to being 2 weeks (2 * 7days * 24hours).
-const StaleObjectsGracePeriod = -14 * 24 * time.Hour
+const (
+	// StaleObjectsGracePeriod is time delta that is used to indicate cutoff wherein an object
+	// would be considered old. Currently this is set to being 2 weeks (2 * 7days * 24hours).
+	StaleObjectsGracePeriod = -14 * 24 * time.Hour
+
+	// FullRepackTimestampFilename is the name of the file that is used as a timestamp for the
+	// last repack that happened in the repository. Whenever a full repack happens, Gitaly will
+	// touch this file so that its last-modified date can be used to tell how long ago the last
+	// full repack happened.
+	FullRepackTimestampFilename = ".gitaly-full-repack-timestamp"
+)
 
 // PackfilesCount returns the number of packfiles a repository has.
 func PackfilesCount(repo *localrepo.Repo) (uint64, error) {
@@ -262,6 +270,9 @@ type PackfilesInfo struct {
 	// MultiPackIndexBitmap contains information about the bitmap for the multi-pack-index, if
 	// any exists.
 	MultiPackIndexBitmap BitmapInfo `json:"multi_pack_index_bitmap"`
+	// LastFullRepack indicates the last date at which a full repack has been performed. If the
+	// date cannot be determined then this file is set to the zero time.
+	LastFullRepack time.Time `json:"last_full_repack"`
 }
 
 // PackfilesInfoForRepository derives various information about packfiles for the given repository.
@@ -348,6 +359,17 @@ func PackfilesInfoForRepository(repo *localrepo.Repo) (PackfilesInfo, error) {
 			info.GarbageCount++
 			info.GarbageSize += size
 		}
+	}
+
+	if stat, err := os.Stat(filepath.Join(repoPath, FullRepackTimestampFilename)); err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return PackfilesInfo{}, fmt.Errorf("reading full repack timestamp: %w", err)
+		}
+
+		// It's fine if the file doesn't exist. We just leave the timestamp at the zero date
+		// in that case.
+	} else {
+		info.LastFullRepack = stat.ModTime()
 	}
 
 	return info, nil
