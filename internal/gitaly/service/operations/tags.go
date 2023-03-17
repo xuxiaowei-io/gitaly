@@ -281,9 +281,9 @@ func (s *Server) createTag(
 	if makingTag {
 		tagObjectID, err := repo.WriteTag(ctx, targetObjectID, targetObjectType, tagName, message, committer, committerTime)
 		if err != nil {
-			var FormatTagError localrepo.FormatTagError
-			if errors.As(err, &FormatTagError) {
-				return nil, "", structerr.NewUnknown("Rugged::InvalidError: failed to parse signature - expected prefix doesn't match actual")
+			var formatTagErr localrepo.FormatTagError
+			if errors.As(err, &formatTagErr) {
+				return nil, "", structerr.NewInvalidArgument("formatting tag: %w", formatTagErr)
 			}
 
 			var MktagError localrepo.MktagError

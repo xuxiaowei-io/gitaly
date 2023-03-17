@@ -81,10 +81,17 @@ func newError(code codes.Code, format string, a ...any) Error {
 	formattedErr := fmt.Errorf(format, a...)
 
 	// When we wrap an Error, we retain its error code. The intent of this is to retain the most
-	// specific error code we have in the general case.
+	// specific error code we have in the general case. As `Unknown` does not really count as a
+	// specific error code, we will ignore these errors.
+	//
+	// Note that this impacts our middleware status handler, where we wrap non-context-errors
+	// via `structerr.NewInternal()`. The result is that the caller should never see any
+	// `Unknown` errors.
 	var wrappedErr Error
 	if errors.As(formattedErr, &wrappedErr) {
-		code = wrappedErr.code
+		if wrappedErr.code != codes.Unknown {
+			code = wrappedErr.code
+		}
 	}
 
 	return Error{
@@ -93,11 +100,12 @@ func newError(code codes.Code, format string, a ...any) Error {
 	}
 }
 
-// New returns a new Error with the default error code, which is Internal. When this function is
-// used to wrap another Error, then the error code of that wrapped Error will be retained. The
-// intent of this is to always retain the most specific error code in the general case.
+// New returns a new Error with an Unknown error code. This constructor should be used in the
+// general case where it is not clear what the specific error category is. As Unknown errors get
+// treated specially, they will be overridden when wrapped with an error that has a more specific
+// error code.
 func New(format string, a ...any) Error {
-	return newError(codes.Internal, format, a...)
+	return newError(codes.Unknown, format, a...)
 }
 
 // NewAborted constructs a new error code with the Aborted error code. Please refer to New for
@@ -182,12 +190,6 @@ func NewUnauthenticated(format string, a ...any) Error {
 // New for further details.
 func NewUnimplemented(format string, a ...any) Error {
 	return newError(codes.Unimplemented, format, a...)
-}
-
-// NewUnknown constructs a new error code with the Unknown error code. Please refer to New for
-// further details.
-func NewUnknown(format string, a ...any) Error {
-	return newError(codes.Unknown, format, a...)
 }
 
 // Error returns the error message of the Error.

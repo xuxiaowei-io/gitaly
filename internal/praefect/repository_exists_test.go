@@ -13,18 +13,18 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/grpc-proxy/proxy"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/praefect/protoregistry"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testdb"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/status"
 )
 
 func TestRepositoryExistsHandler(t *testing.T) {
 	t.Parallel()
-	errServedByGitaly := status.Error(codes.Unknown, "request passed to Gitaly")
+
+	errServedByGitaly := structerr.NewInternal("request passed to Gitaly")
 
 	db := testdb.New(t)
 	for _, tc := range []struct {

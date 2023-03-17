@@ -22,16 +22,14 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/status"
 )
 
 func TestRemoveRepositoryHandler(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	errServedByGitaly := status.Error(codes.Unknown, "request passed to Gitaly")
+	errServedByGitaly := structerr.NewInternal("request passed to Gitaly")
 	const virtualStorage, relativePath = "virtual-storage", "relative-path"
 
 	db := testdb.New(t)

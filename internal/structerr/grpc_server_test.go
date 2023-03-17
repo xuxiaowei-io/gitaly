@@ -139,12 +139,12 @@ func TestFieldsProducer(t *testing.T) {
 		{
 			desc:        "structured error",
 			returnedErr: New("message"),
-			expectedErr: status.Error(codes.Internal, "message"),
+			expectedErr: status.Error(codes.Unknown, "message"),
 		},
 		{
 			desc:        "structured error with metadata",
 			returnedErr: New("message").WithMetadata("key", "value"),
-			expectedErr: status.Error(codes.Internal, "message"),
+			expectedErr: status.Error(codes.Unknown, "message"),
 			expectedMetadata: []map[string]any{
 				{
 					"key": "value",
@@ -154,7 +154,7 @@ func TestFieldsProducer(t *testing.T) {
 		{
 			desc:        "structured error with nested metadata",
 			returnedErr: New("message: %w", New("nested").WithMetadata("nested", "value")).WithMetadata("key", "value"),
-			expectedErr: status.Error(codes.Internal, "message: nested"),
+			expectedErr: status.Error(codes.Unknown, "message: nested"),
 			expectedMetadata: []map[string]any{
 				{
 					"key":    "value",

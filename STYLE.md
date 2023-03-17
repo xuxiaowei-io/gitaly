@@ -88,6 +88,11 @@ func CheckFrobnicated(s string) error {
 }
 ```
 
+Unless the root cause of an error can be determined and categorized, you should
+use `structerr.New()` to generate an error with an `Unknown` error code. This
+code will automatically get overridden when the error is wrapped with a specific
+error code.
+
 ### Error wrapping
 
 You should use wrapping directives `"%w"` to wrap errors. This

@@ -125,7 +125,7 @@ func TestFindRemoteRootRef(t *testing.T) {
 						Repository: localRepo,
 						RemoteUrl:  "file://" + testhelper.TempDir(t),
 					},
-					expectedErr: structerr.New("exit status 128"),
+					expectedErr: structerr.NewInternal("exit status 128"),
 				}
 			},
 		},
