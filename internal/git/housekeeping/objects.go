@@ -3,6 +3,8 @@ package housekeeping
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -10,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 )
 
@@ -43,6 +46,11 @@ type RepackObjectsConfig struct {
 // RepackObjects repacks objects in the given repository and updates the commit-graph. The way
 // objects are repacked is determined via the RepackObjectsConfig.
 func RepackObjects(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsConfig) error {
+	repoPath, err := repo.Path()
+	if err != nil {
+		return err
+	}
+
 	if !cfg.FullRepack && !cfg.WriteMultiPackIndex && cfg.WriteBitmap {
 		return structerr.NewInvalidArgument("cannot write packfile bitmap for an incremental repack")
 	}
@@ -73,6 +81,20 @@ func RepackObjects(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsC
 				Name:  "--cruft-expiration",
 				Value: cfg.CruftExpireBefore.Format(rfc2822DateFormat),
 			})
+		}
+
+		// When we have performed a full repack we're updating the "full-repack-timestamp"
+		// file. This is done so that we can tell when we have last performed a full repack
+		// in a repository. This information can be used by our heuristics to effectively
+		// rate-limit the frequency of full repacks.
+		//
+		// Note that we write the file _before_ actually writing the new pack, which means
+		// that even if the full repack fails, we would still pretend to have done it. This
+		// is done intentionally, as the likelihood for huge repositories to fail during a
+		// full repack is comparatively high. So if we didn't update the timestamp in case
+		// of a failure we'd potentially busy-spin trying to do a full repack.
+		if err := os.WriteFile(filepath.Join(repoPath, stats.FullRepackTimestampFilename), nil, perm.PrivateFile); err != nil {
+			return fmt.Errorf("updating timestamp: %w", err)
 		}
 	}
 

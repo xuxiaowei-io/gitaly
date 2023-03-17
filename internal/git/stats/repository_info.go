@@ -18,9 +18,17 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 )
 
-// StaleObjectsGracePeriod is time delta that is used to indicate cutoff wherein an object would be
-// considered old. Currently this is set to being 2 weeks (2 * 7days * 24hours).
-const StaleObjectsGracePeriod = -14 * 24 * time.Hour
+const (
+	// StaleObjectsGracePeriod is time delta that is used to indicate cutoff wherein an object
+	// would be considered old. Currently this is set to being 2 weeks (2 * 7days * 24hours).
+	StaleObjectsGracePeriod = -14 * 24 * time.Hour
+
+	// FullRepackTimestampFilename is the name of the file that is used as a timestamp for the
+	// last repack that happened in the repository. Whenever a full repack happens, Gitaly will
+	// touch this file so that its last-modified date can be used to tell how long ago the last
+	// full repack happened.
+	FullRepackTimestampFilename = ".gitaly-full-repack-timestamp"
+)
 
 // PackfilesCount returns the number of packfiles a repository has.
 func PackfilesCount(repo *localrepo.Repo) (uint64, error) {
