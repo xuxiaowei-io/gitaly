@@ -309,31 +309,37 @@ func Unsetenv(tb testing.TB, key string) {
 func GenerateCerts(tb testing.TB) (string, string) {
 	tb.Helper()
 
-	rootCA := &x509.Certificate{
+	rootCert := &x509.Certificate{
 		SerialNumber:          big.NewInt(1),
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().AddDate(0, 0, 1),
 		BasicConstraintsValid: true,
 		IsCA:                  true,
-		IPAddresses:           []net.IP{net.ParseIP("0.0.0.0"), net.ParseIP("127.0.0.1"), net.ParseIP("::1"), net.ParseIP("::")},
-		DNSNames:              []string{"localhost"},
 		KeyUsage:              x509.KeyUsageCertSign,
 	}
 
-	caKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	rootKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(tb, err)
 
-	caCert, err := x509.CreateCertificate(rand.Reader, rootCA, rootCA, &caKey.PublicKey, caKey)
+	rootBytes, err := x509.CreateCertificate(rand.Reader, rootCert, rootCert, &rootKey.PublicKey, rootKey)
 	require.NoError(tb, err)
 
 	entityKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(tb, err)
 
-	entityX509 := &x509.Certificate{
+	entityCert := &x509.Certificate{
 		SerialNumber: big.NewInt(2),
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().AddDate(0, 0, 1),
+		IPAddresses:  []net.IP{net.ParseIP("0.0.0.0"), net.ParseIP("127.0.0.1"), net.ParseIP("::1"), net.ParseIP("::")},
+		DNSNames:     []string{"localhost"},
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+		ExtKeyUsage: []x509.ExtKeyUsage{
+			x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth,
+		},
 	}
 
-	entityCert, err := x509.CreateCertificate(rand.Reader, rootCA, entityX509, &entityKey.PublicKey, caKey)
+	entityBytes, err := x509.CreateCertificate(rand.Reader, entityCert, rootCert, &entityKey.PublicKey, rootKey)
 	require.NoError(tb, err)
 
 	certFile, err := os.CreateTemp(testDirectory, "")
@@ -344,7 +350,7 @@ func GenerateCerts(tb testing.TB) (string, string) {
 	})
 
 	// create chained PEM file with CA and entity cert
-	for _, cert := range [][]byte{entityCert, caCert} {
+	for _, cert := range [][]byte{entityBytes, rootBytes} {
 		require.NoError(tb,
 			pem.Encode(certFile, &pem.Block{
 				Type:  "CERTIFICATE",
