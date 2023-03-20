@@ -140,8 +140,6 @@ func (p *pipe) Close() error {
 	return errClose
 }
 
-func (p *pipe) RemoveFile() error { return os.Remove(p.name) }
-
 func (p *pipe) OpenReader() (*pipeReader, error) {
 	p.m.Lock()
 	defer p.m.Unlock()

@@ -24,10 +24,7 @@ func createPipe(t *testing.T) (*pipeReader, *pipe) {
 	pr, p, err := newPipe(f)
 	require.NoError(t, err)
 
-	t.Cleanup(func() {
-		_ = p.RemoveFile()
-		p.Close()
-	})
+	t.Cleanup(func() { p.Close() })
 
 	return pr, p
 }
@@ -215,11 +212,6 @@ func TestPipe_closeWrongOrder(t *testing.T) {
 	pr, p, err := newPipe(cs)
 	require.NoError(t, err)
 
-	defer func() {
-		_ = p.RemoveFile()
-		p.Close()
-	}()
-
 	defer p.Close()
 	defer pr.Close()
 
@@ -247,11 +239,6 @@ func TestPipe_closeOrderHappy(t *testing.T) {
 
 	pr1, p, err := newPipe(cs)
 	require.NoError(t, err)
-
-	defer func() {
-		_ = p.RemoveFile()
-		p.Close()
-	}()
 
 	defer p.Close()
 	defer pr1.Close()
