@@ -332,16 +332,13 @@ func runCreate(w io.WriteCloser, create func(io.Writer) error) (err error) {
 type waiter struct {
 	done chan struct{}
 	err  error
-	once sync.Once
 }
 
 func newWaiter() *waiter { return &waiter{done: make(chan struct{})} }
 
 func (w *waiter) SetError(err error) {
-	w.once.Do(func() {
-		w.err = err
-		close(w.done)
-	})
+	w.err = err
+	close(w.done)
 }
 
 func (w *waiter) Wait(ctx context.Context) error {
