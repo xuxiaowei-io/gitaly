@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -262,9 +263,10 @@ type PackObjectsLimiting struct {
 
 // StreamCacheConfig contains settings for a streamcache instance.
 type StreamCacheConfig struct {
-	Enabled bool              `toml:"enabled"` // Default: false
-	Dir     string            `toml:"dir"`     // Default: <FIRST STORAGE PATH>/+gitaly/PackObjectsCache
-	MaxAge  duration.Duration `toml:"max_age"` // Default: 5m
+	Enabled        bool              `toml:"enabled"` // Default: false
+	Dir            string            `toml:"dir"`     // Default: <FIRST STORAGE PATH>/+gitaly/PackObjectsCache
+	MaxAge         duration.Duration `toml:"max_age"` // Default: 5m
+	MinOccurrences int               `toml:"min_occurrences"`
 }
 
 // Load initializes the Config variable from file and the environment.
@@ -612,6 +614,11 @@ func (cfg *Cfg) configurePackObjectsCache() error {
 
 	if !filepath.IsAbs(poc.Dir) {
 		return errPackObjectsCacheRelativePath
+	}
+
+	// Temporary environment variable for validation on GitLab.com
+	if n, err := strconv.Atoi(os.Getenv("GITALY_PACK_OBJECTS_CACHE_MIN_OCCURRENCES")); err == nil && n > 0 {
+		poc.MinOccurrences = n
 	}
 
 	return nil

@@ -30,6 +30,21 @@ func newCache(dir string) Cache {
 	}, log.Default())
 }
 
+func innerCache(c Cache) *cache {
+	for {
+		switch v := c.(type) {
+		case *cache:
+			return v
+		case *minOccurrences:
+			c = v.Cache
+		case *TestLoggingCache:
+			c = v.Cache
+		default:
+			panic(fmt.Errorf("unexpected cache type: %v", v))
+		}
+	}
+}
+
 func TestCache_writeOneReadMultiple(t *testing.T) {
 	ctx := testhelper.Context(t)
 
@@ -127,7 +142,7 @@ func requireCacheFiles(t *testing.T, dir string, n int) {
 
 func requireCacheEntries(t *testing.T, _c Cache, n int) {
 	t.Helper()
-	c := _c.(*cache)
+	c := innerCache(_c)
 	c.m.Lock()
 	defer c.m.Unlock()
 	require.Len(t, c.index, n)
@@ -332,7 +347,7 @@ func TestCache_failCreateFile(t *testing.T) {
 	defer c.Stop()
 
 	createError := errors.New("cannot create file")
-	c.(*cache).createFile = func() (namedWriteCloser, error) { return nil, createError }
+	innerCache(c).createFile = func() (namedWriteCloser, error) { return nil, createError }
 
 	_, _, err := c.Fetch(ctx, "key", io.Discard, func(io.Writer) error { return nil })
 	require.Equal(t, createError, err)
@@ -346,7 +361,7 @@ func TestCache_unWriteableFile(t *testing.T) {
 	c := newCache(tmp)
 	defer c.Stop()
 
-	c.(*cache).createFile = func() (namedWriteCloser, error) {
+	innerCache(c).createFile = func() (namedWriteCloser, error) {
 		return os.OpenFile(filepath.Join(tmp, "unwriteable"), os.O_RDONLY|os.O_CREATE|os.O_EXCL, perm.SharedFile)
 	}
 
@@ -366,7 +381,7 @@ func TestCache_unCloseableFile(t *testing.T) {
 	c := newCache(tmp)
 	defer c.Stop()
 
-	c.(*cache).createFile = func() (namedWriteCloser, error) {
+	innerCache(c).createFile = func() (namedWriteCloser, error) {
 		f, err := os.OpenFile(filepath.Join(tmp, "uncloseable"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, perm.SharedFile)
 		if err != nil {
 			return nil, err
@@ -387,7 +402,7 @@ func TestCache_cannotOpenFileForReading(t *testing.T) {
 	c := newCache(tmp)
 	defer c.Stop()
 
-	c.(*cache).createFile = func() (namedWriteCloser, error) {
+	innerCache(c).createFile = func() (namedWriteCloser, error) {
 		f, err := os.OpenFile(filepath.Join(tmp, "unopenable"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, perm.SharedFile)
 		if err != nil {
 			return nil, err

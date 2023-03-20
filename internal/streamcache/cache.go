@@ -149,7 +149,12 @@ func New(cfg config.StreamCacheConfig, logger logrus.FieldLogger) Cache {
 			strconv.Itoa(int(cfg.MaxAge.Duration().Seconds())),
 		).Set(1)
 
-		return newCacheWithSleep(cfg.Dir, cfg.MaxAge.Duration(), time.After, time.After, logger)
+		maxAge := cfg.MaxAge.Duration()
+		return &minOccurrences{
+			N:      cfg.MinOccurrences,
+			MinAge: maxAge,
+			Cache:  newCacheWithSleep(cfg.Dir, maxAge, time.After, time.After, logger),
+		}
 	}
 
 	return NullCache{}
