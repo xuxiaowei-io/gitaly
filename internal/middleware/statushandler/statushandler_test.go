@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/grpc/stress/grpc_testing"
 )
 
 func TestStatushandler(t *testing.T) {
@@ -43,6 +44,11 @@ func TestStatushandler(t *testing.T) {
 			err:         structerr.NewInternal("%w", assert.AnError),
 			expectedErr: status.Error(codes.Canceled, assert.AnError.Error()),
 		},
+		"context cancelled with structured error details": {
+			ctx:         cancelledCtx,
+			err:         structerr.NewInternal("error").WithDetail(&grpc_testing.EmptyMessage{}),
+			expectedErr: structerr.NewCanceled("error").WithDetail(&grpc_testing.EmptyMessage{}),
+		},
 		"context cancelled with gRPC error": {
 			ctx:         cancelledCtx,
 			err:         status.Error(codes.Internal, assert.AnError.Error()),
@@ -62,6 +68,11 @@ func TestStatushandler(t *testing.T) {
 			ctx:         timeoutCtx,
 			err:         structerr.NewInternal("%w", assert.AnError),
 			expectedErr: status.Error(codes.DeadlineExceeded, assert.AnError.Error()),
+		},
+		"context timed out with structured error details": {
+			ctx:         timeoutCtx,
+			err:         structerr.NewInternal("error").WithDetail(&grpc_testing.EmptyMessage{}),
+			expectedErr: structerr.NewDeadlineExceeded("error").WithDetail(&grpc_testing.EmptyMessage{}),
 		},
 		"context timed out with gRPC error": {
 			ctx:         timeoutCtx,
