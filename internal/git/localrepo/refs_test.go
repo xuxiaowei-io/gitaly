@@ -237,13 +237,13 @@ func TestRepo_GetRemoteReferences(t *testing.T) {
 
 	gittest.Exec(t, cfg, "init", repoPath)
 	gittest.Exec(t, cfg, "-C", repoPath, "commit", "--allow-empty", "-m", "commit message")
-	commit := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/master"))
+	commit := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", git.DefaultRef.String()))
 
 	for _, cmd := range [][]string{
-		{"update-ref", "refs/heads/master", commit},
+		{"update-ref", git.DefaultRef.String(), commit},
 		{"tag", "lightweight-tag", commit},
-		{"tag", "-m", "tag message", "annotated-tag", "refs/heads/master"},
-		{"symbolic-ref", "refs/heads/symbolic", "refs/heads/master"},
+		{"tag", "-m", "tag message", "annotated-tag", git.DefaultRef.String()},
+		{"symbolic-ref", "refs/heads/symbolic", git.DefaultRef.String()},
 		{"update-ref", "refs/remote/remote-name/remote-branch", commit},
 	} {
 		gittest.Exec(t, cfg, append([]string{"-C", repoPath}, cmd...)...)
@@ -278,7 +278,7 @@ func TestRepo_GetRemoteReferences(t *testing.T) {
 			desc:   "all",
 			remote: repoPath,
 			expected: []git.Reference{
-				{Name: "refs/heads/master", Target: commit},
+				{Name: git.DefaultRef, Target: commit},
 				{Name: "refs/heads/symbolic", Target: commit, IsSymbolic: true},
 				{Name: "refs/remote/remote-name/remote-branch", Target: commit},
 				{Name: "refs/tags/annotated-tag", Target: annotatedTagOID},
@@ -292,7 +292,7 @@ func TestRepo_GetRemoteReferences(t *testing.T) {
 				WithPatterns("refs/heads/*", "refs/tags/*"),
 			},
 			expected: []git.Reference{
-				{Name: "refs/heads/master", Target: commit},
+				{Name: git.DefaultRef, Target: commit},
 				{Name: "refs/heads/symbolic", Target: commit, IsSymbolic: true},
 				{Name: "refs/tags/annotated-tag", Target: annotatedTagOID},
 				{Name: "refs/tags/lightweight-tag", Target: commit},
@@ -302,25 +302,25 @@ func TestRepo_GetRemoteReferences(t *testing.T) {
 			desc:   "with in-memory remote",
 			remote: "inmemory",
 			opts: []GetRemoteReferencesOption{
-				WithPatterns("refs/heads/master"),
+				WithPatterns(git.DefaultRef.String()),
 				WithConfig(git.ConfigPair{
 					Key:   "remote.inmemory.url",
 					Value: repoPath,
 				}),
 			},
 			expected: []git.Reference{
-				{Name: "refs/heads/master", Target: commit},
+				{Name: git.DefaultRef, Target: commit},
 			},
 		},
 		{
 			desc:   "with custom ssh command",
 			remote: repoPath,
 			opts: []GetRemoteReferencesOption{
-				WithPatterns("refs/heads/master"),
+				WithPatterns(git.DefaultRef.String()),
 				WithSSHCommand("custom-ssh -with-creds"),
 			},
 			expected: []git.Reference{
-				{Name: "refs/heads/master", Target: commit},
+				{Name: git.DefaultRef, Target: commit},
 			},
 			expectedGitSSHCommand: "custom-ssh -with-creds",
 		},

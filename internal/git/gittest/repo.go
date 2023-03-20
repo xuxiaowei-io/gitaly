@@ -339,6 +339,7 @@ func AddWorktreeArgs(repoPath, worktreeName string) []string {
 
 // AddWorktree creates a worktree in the repository path for tests
 func AddWorktree(tb testing.TB, cfg config.Cfg, repoPath string, worktreeName string) {
+	tb.Helper()
 	Exec(tb, cfg, AddWorktreeArgs(repoPath, worktreeName)...)
 }
 
