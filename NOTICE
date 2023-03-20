@@ -11360,6 +11360,9 @@ _testmain.go
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 .golangci.yml - github.com/hashicorp/golang-lru/v2
+# Copyright (c) HashiCorp, Inc.
+# SPDX-License-Identifier: MPL-2.0
+
 linters:
   enable:
     - megacheck
@@ -11393,10 +11396,13 @@ issues:
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 2q.go - github.com/hashicorp/golang-lru/v2
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package lru
 
 import (
-	"fmt"
+	"errors"
 	"sync"
 
 	"github.com/hashicorp/golang-lru/v2/simplelru"
@@ -11427,7 +11433,7 @@ type TwoQueueCache[K comparable, V any] struct {
 
 	recent      simplelru.LRUCache[K, V]
 	frequent    simplelru.LRUCache[K, V]
-	recentEvict simplelru.LRUCache[K, V]
+	recentEvict simplelru.LRUCache[K, struct{}]
 	lock        sync.RWMutex
 }
 
@@ -11441,13 +11447,13 @@ func New2Q[K comparable, V any](size int) (*TwoQueueCache[K, V], error) {
 // parameter values.
 func New2QParams[K comparable, V any](size int, recentRatio, ghostRatio float64) (*TwoQueueCache[K, V], error) {
 	if size <= 0 {
-		return nil, fmt.Errorf("invalid size")
+		return nil, errors.New("invalid size")
 	}
 	if recentRatio < 0.0 || recentRatio > 1.0 {
-		return nil, fmt.Errorf("invalid recent ratio")
+		return nil, errors.New("invalid recent ratio")
 	}
 	if ghostRatio < 0.0 || ghostRatio > 1.0 {
-		return nil, fmt.Errorf("invalid ghost ratio")
+		return nil, errors.New("invalid ghost ratio")
 	}
 
 	// Determine the sub-sizes
@@ -11463,7 +11469,7 @@ func New2QParams[K comparable, V any](size int, recentRatio, ghostRatio float64)
 	if err != nil {
 		return nil, err
 	}
-	recentEvict, err := simplelru.NewLRU[K, V](evictSize, nil)
+	recentEvict, err := simplelru.NewLRU[K, struct{}](evictSize, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -11548,8 +11554,7 @@ func (c *TwoQueueCache[K, V]) ensureSpace(recentEvict bool) {
 	// the target, evict from there
 	if recentLen > 0 && (recentLen > c.recentSize || (recentLen == c.recentSize && !recentEvict)) {
 		k, _, _ := c.recent.RemoveOldest()
-		var empty V
-		c.recentEvict.Add(k, empty)
+		c.recentEvict.Add(k, struct{}{})
 		return
 	}
 
@@ -11619,6 +11624,9 @@ func (c *TwoQueueCache[K, V]) Peek(key K) (value V, ok bool) {
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 2q_test.go - github.com/hashicorp/golang-lru/v2
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package lru
 
 import (
@@ -11643,8 +11651,7 @@ func Benchmark2Q_Rand(b *testing.B) {
 		if i%2 == 0 {
 			l.Add(trace[i], trace[i])
 		} else {
-			_, ok := l.Get(trace[i])
-			if ok {
+			if _, ok := l.Get(trace[i]); ok {
 				hit++
 			} else {
 				miss++
@@ -11676,8 +11683,7 @@ func Benchmark2Q_Freq(b *testing.B) {
 	}
 	var hit, miss int
 	for i := 0; i < b.N; i++ {
-		_, ok := l.Get(trace[i])
-		if ok {
+		if _, ok := l.Get(trace[i]); ok {
 			hit++
 		} else {
 			miss++
@@ -11732,8 +11738,7 @@ func Test2Q_Get_RecentToFrequent(t *testing.T) {
 
 	// Get should upgrade to t2
 	for i := 0; i < 128; i++ {
-		_, ok := l.Get(i)
-		if !ok {
+		if _, ok := l.Get(i); !ok {
 			t.Fatalf("missing: %d", i)
 		}
 	}
@@ -11746,8 +11751,7 @@ func Test2Q_Get_RecentToFrequent(t *testing.T) {
 
 	// Get be from t2
 	for i := 0; i < 128; i++ {
-		_, ok := l.Get(i)
-		if !ok {
+		if _, ok := l.Get(i); !ok {
 			t.Fatalf("missing: %d", i)
 		}
 	}
@@ -11859,21 +11863,18 @@ func Test2Q(t *testing.T) {
 		}
 	}
 	for i := 0; i < 128; i++ {
-		_, ok := l.Get(i)
-		if ok {
+		if _, ok := l.Get(i); ok {
 			t.Fatalf("should be evicted")
 		}
 	}
 	for i := 128; i < 256; i++ {
-		_, ok := l.Get(i)
-		if !ok {
+		if _, ok := l.Get(i); !ok {
 			t.Fatalf("should not be evicted")
 		}
 	}
 	for i := 128; i < 192; i++ {
 		l.Remove(i)
-		_, ok := l.Get(i)
-		if ok {
+		if _, ok := l.Get(i); ok {
 			t.Fatalf("should be deleted")
 		}
 	}
@@ -12311,7 +12312,7 @@ Example
 Using the LRU is very simple:
 
 ```go
-l, _ := New(128)
+l, _ := New[int, interface{}](128)
 for i := 0; i < 256; i++ {
     l.Add(i, nil)
 }
@@ -12322,6 +12323,9 @@ if l.Len() != 128 {
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 arc.go - github.com/hashicorp/golang-lru/v2
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package lru
 
 import (
@@ -12342,11 +12346,11 @@ type ARCCache[K comparable, V any] struct {
 	size int // Size is the total capacity of the cache
 	p    int // P is the dynamic preference towards T1 or T2
 
-	t1 simplelru.LRUCache[K, V] // T1 is the LRU for recently accessed items
-	b1 simplelru.LRUCache[K, V] // B1 is the LRU for evictions from t1
+	t1 simplelru.LRUCache[K, V]        // T1 is the LRU for recently accessed items
+	b1 simplelru.LRUCache[K, struct{}] // B1 is the LRU for evictions from t1
 
-	t2 simplelru.LRUCache[K, V] // T2 is the LRU for frequently accessed items
-	b2 simplelru.LRUCache[K, V] // B2 is the LRU for evictions from t2
+	t2 simplelru.LRUCache[K, V]        // T2 is the LRU for frequently accessed items
+	b2 simplelru.LRUCache[K, struct{}] // B2 is the LRU for evictions from t2
 
 	lock sync.RWMutex
 }
@@ -12354,11 +12358,11 @@ type ARCCache[K comparable, V any] struct {
 // NewARC creates an ARC of the given size
 func NewARC[K comparable, V any](size int) (*ARCCache[K, V], error) {
 	// Create the sub LRUs
-	b1, err := simplelru.NewLRU[K, V](size, nil)
+	b1, err := simplelru.NewLRU[K, struct{}](size, nil)
 	if err != nil {
 		return nil, err
 	}
-	b2, err := simplelru.NewLRU[K, V](size, nil)
+	b2, err := simplelru.NewLRU[K, struct{}](size, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -12506,14 +12510,12 @@ func (c *ARCCache[K, V]) replace(b2ContainsKey bool) {
 	if t1Len > 0 && (t1Len > c.p || (t1Len == c.p && b2ContainsKey)) {
 		k, _, ok := c.t1.RemoveOldest()
 		if ok {
-			var empty V
-			c.b1.Add(k, empty)
+			c.b1.Add(k, struct{}{})
 		}
 	} else {
 		k, _, ok := c.t2.RemoveOldest()
 		if ok {
-			var empty V
-			c.b2.Add(k, empty)
+			c.b2.Add(k, struct{}{})
 		}
 	}
 }
@@ -12583,6 +12585,9 @@ func (c *ARCCache[K, V]) Peek(key K) (value V, ok bool) {
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 arc_test.go - github.com/hashicorp/golang-lru/v2
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package lru
 
 import (
@@ -12613,8 +12618,7 @@ func BenchmarkARC_Rand(b *testing.B) {
 		if i%2 == 0 {
 			l.Add(trace[i], trace[i])
 		} else {
-			_, ok := l.Get(trace[i])
-			if ok {
+			if _, ok := l.Get(trace[i]); ok {
 				hit++
 			} else {
 				miss++
@@ -12646,8 +12650,7 @@ func BenchmarkARC_Freq(b *testing.B) {
 	}
 	var hit, miss int
 	for i := 0; i < b.N; i++ {
-		_, ok := l.Get(trace[i])
-		if ok {
+		if _, ok := l.Get(trace[i]); ok {
 			hit++
 		} else {
 			miss++
@@ -12706,8 +12709,7 @@ func TestARC_Get_RecentToFrequent(t *testing.T) {
 
 	// Get should upgrade to t2
 	for i := 0; i < 128; i++ {
-		_, ok := l.Get(i)
-		if !ok {
+		if _, ok := l.Get(i); !ok {
 			t.Fatalf("missing: %d", i)
 		}
 	}
@@ -12720,8 +12722,7 @@ func TestARC_Get_RecentToFrequent(t *testing.T) {
 
 	// Get be from t2
 	for i := 0; i < 128; i++ {
-		_, ok := l.Get(i)
-		if !ok {
+		if _, ok := l.Get(i); !ok {
 			t.Fatalf("missing: %d", i)
 		}
 	}
@@ -12895,21 +12896,18 @@ func TestARC(t *testing.T) {
 		}
 	}
 	for i := 0; i < 128; i++ {
-		_, ok := l.Get(i)
-		if ok {
+		if _, ok := l.Get(i); ok {
 			t.Fatalf("should be evicted")
 		}
 	}
 	for i := 128; i < 256; i++ {
-		_, ok := l.Get(i)
-		if !ok {
+		if _, ok := l.Get(i); !ok {
 			t.Fatalf("should not be evicted")
 		}
 	}
 	for i := 128; i < 192; i++ {
 		l.Remove(i)
-		_, ok := l.Get(i)
-		if ok {
+		if _, ok := l.Get(i); ok {
 			t.Fatalf("should be deleted")
 		}
 	}
@@ -12963,6 +12961,9 @@ func TestARC_Peek(t *testing.T) {
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 doc.go - github.com/hashicorp/golang-lru/v2
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 // Package lru provides three different LRU caches of varying sophistication.
 //
 // Cache is a simple LRU cache. It is based on the
@@ -12993,6 +12994,9 @@ go 1.18
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 lru.go - github.com/hashicorp/golang-lru/v2
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package lru
 
 import (
@@ -13235,6 +13239,9 @@ func (c *Cache[K, V]) Len() int {
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 lru_test.go - github.com/hashicorp/golang-lru/v2
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package lru
 
 import (
@@ -13259,8 +13266,7 @@ func BenchmarkLRU_Rand(b *testing.B) {
 		if i%2 == 0 {
 			l.Add(trace[i], trace[i])
 		} else {
-			_, ok := l.Get(trace[i])
-			if ok {
+			if _, ok := l.Get(trace[i]); ok {
 				hit++
 			} else {
 				miss++
@@ -13292,8 +13298,7 @@ func BenchmarkLRU_Freq(b *testing.B) {
 	}
 	var hit, miss int
 	for i := 0; i < b.N; i++ {
-		_, ok := l.Get(trace[i])
-		if ok {
+		if _, ok := l.Get(trace[i]); ok {
 			hit++
 		} else {
 			miss++
@@ -13332,21 +13337,18 @@ func TestLRU(t *testing.T) {
 		}
 	}
 	for i := 0; i < 128; i++ {
-		_, ok := l.Get(i)
-		if ok {
+		if _, ok := l.Get(i); ok {
 			t.Fatalf("should be evicted")
 		}
 	}
 	for i := 128; i < 256; i++ {
-		_, ok := l.Get(i)
-		if !ok {
+		if _, ok := l.Get(i); !ok {
 			t.Fatalf("should not be evicted")
 		}
 	}
 	for i := 128; i < 192; i++ {
 		l.Remove(i)
-		_, ok := l.Get(i)
-		if ok {
+		if _, ok := l.Get(i); ok {
 			t.Fatalf("should be deleted")
 		}
 	}
@@ -13693,6 +13695,9 @@ func (l *lruList[K, V]) moveToFront(e *entry[K, V]) {
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 lru.go - github.com/hashicorp/golang-lru/v2/simplelru
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package simplelru
 
 import (
@@ -13795,8 +13800,7 @@ func (c *LRU[K, V]) Remove(key K) (present bool) {
 
 // RemoveOldest removes the oldest item from the cache.
 func (c *LRU[K, V]) RemoveOldest() (key K, value V, ok bool) {
-	ent := c.evictList.back()
-	if ent != nil {
+	if ent := c.evictList.back(); ent != nil {
 		c.removeElement(ent)
 		return ent.key, ent.value, true
 	}
@@ -13805,8 +13809,7 @@ func (c *LRU[K, V]) RemoveOldest() (key K, value V, ok bool) {
 
 // GetOldest returns the oldest entry
 func (c *LRU[K, V]) GetOldest() (key K, value V, ok bool) {
-	ent := c.evictList.back()
-	if ent != nil {
+	if ent := c.evictList.back(); ent != nil {
 		return ent.key, ent.value, true
 	}
 	return
@@ -13843,8 +13846,7 @@ func (c *LRU[K, V]) Resize(size int) (evicted int) {
 
 // removeOldest removes the oldest item from the cache.
 func (c *LRU[K, V]) removeOldest() {
-	ent := c.evictList.back()
-	if ent != nil {
+	if ent := c.evictList.back(); ent != nil {
 		c.removeElement(ent)
 	}
 }
@@ -13860,6 +13862,9 @@ func (c *LRU[K, V]) removeElement(e *entry[K, V]) {
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 lru_interface.go - github.com/hashicorp/golang-lru/v2/simplelru
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 // Package simplelru provides simple LRU implementation based on build-in container/list.
 package simplelru
 
@@ -13903,6 +13908,9 @@ type LRUCache[K comparable, V any] interface {
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 lru_test.go - github.com/hashicorp/golang-lru/v2/simplelru
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package simplelru
 
 import "testing"
@@ -13937,28 +13945,23 @@ func TestLRU(t *testing.T) {
 		}
 	}
 	for i := 0; i < 128; i++ {
-		_, ok := l.Get(i)
-		if ok {
+		if _, ok := l.Get(i); ok {
 			t.Fatalf("should be evicted")
 		}
 	}
 	for i := 128; i < 256; i++ {
-		_, ok := l.Get(i)
-		if !ok {
+		if _, ok := l.Get(i); !ok {
 			t.Fatalf("should not be evicted")
 		}
 	}
 	for i := 128; i < 192; i++ {
-		ok := l.Remove(i)
-		if !ok {
+		if ok := l.Remove(i); !ok {
 			t.Fatalf("should be contained")
 		}
-		ok = l.Remove(i)
-		if ok {
+		if ok := l.Remove(i); ok {
 			t.Fatalf("should not be contained")
 		}
-		_, ok = l.Get(i)
-		if ok {
+		if _, ok := l.Get(i); ok {
 			t.Fatalf("should be deleted")
 		}
 	}
@@ -14112,6 +14115,9 @@ func TestLRU_Resize(t *testing.T) {
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 testing.go - github.com/hashicorp/golang-lru/v2
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package lru
 
 import (
