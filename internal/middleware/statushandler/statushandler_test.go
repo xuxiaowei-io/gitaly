@@ -38,10 +38,40 @@ func TestStatushandler(t *testing.T) {
 			err:         assert.AnError,
 			expectedErr: status.Error(codes.Canceled, assert.AnError.Error()),
 		},
+		"context cancelled with structured error": {
+			ctx:         cancelledCtx,
+			err:         structerr.NewInternal("%w", assert.AnError),
+			expectedErr: status.Error(codes.Canceled, assert.AnError.Error()),
+		},
+		"context cancelled with gRPC error": {
+			ctx:         cancelledCtx,
+			err:         status.Error(codes.Internal, assert.AnError.Error()),
+			expectedErr: status.Error(codes.Canceled, assert.AnError.Error()),
+		},
+		"context canceled with wrapped error": {
+			ctx:         cancelledCtx,
+			err:         fmt.Errorf("cause: %w", structerr.NewInvalidArgument("%w", assert.AnError)),
+			expectedErr: status.Error(codes.Canceled, "cause: "+assert.AnError.Error()),
+		},
 		"context timed out with an error returned": {
 			ctx:         timeoutCtx,
 			err:         assert.AnError,
 			expectedErr: status.Error(codes.DeadlineExceeded, assert.AnError.Error()),
+		},
+		"context timed out with structured error": {
+			ctx:         timeoutCtx,
+			err:         structerr.NewInternal("%w", assert.AnError),
+			expectedErr: status.Error(codes.DeadlineExceeded, assert.AnError.Error()),
+		},
+		"context timed out with gRPC error": {
+			ctx:         timeoutCtx,
+			err:         status.Error(codes.Internal, assert.AnError.Error()),
+			expectedErr: status.Error(codes.DeadlineExceeded, assert.AnError.Error()),
+		},
+		"context timed out with wrapped error": {
+			ctx:         timeoutCtx,
+			err:         fmt.Errorf("cause: %w", structerr.NewInvalidArgument("%w", assert.AnError)),
+			expectedErr: status.Error(codes.DeadlineExceeded, "cause: "+assert.AnError.Error()),
 		},
 		"bare error": {
 			ctx:         ctx,
