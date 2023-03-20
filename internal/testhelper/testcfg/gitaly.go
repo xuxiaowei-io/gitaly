@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
@@ -157,4 +158,18 @@ func Build(tb testing.TB, opts ...Option) config.Cfg {
 	cfgBuilder := NewGitalyCfgBuilder(opts...)
 
 	return cfgBuilder.Build(tb)
+}
+
+// WriteTemporaryGitalyConfigFile writes the given Gitaly configuration into a temporary file and
+// returns its path.
+func WriteTemporaryGitalyConfigFile(tb testing.TB, cfg config.Cfg) string {
+	tb.Helper()
+
+	path := filepath.Join(testhelper.TempDir(tb), "config.toml")
+
+	contents, err := toml.Marshal(cfg)
+	require.NoError(tb, err)
+	require.NoError(tb, os.WriteFile(path, contents, perm.SharedFile))
+
+	return path
 }
