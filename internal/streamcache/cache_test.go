@@ -235,68 +235,101 @@ func TestCache_diskCleanup(t *testing.T) {
 
 	tmp := testhelper.TempDir(t)
 
-	const (
-		key = "test key"
-	)
-
-	filestoreCleanTimerCh := make(chan time.Time)
+	filestoreCleanTimerCh := make(chan chan time.Time)
 	filestoreClean := func(time.Duration) <-chan time.Time {
-		return filestoreCleanTimerCh
+		return <-filestoreCleanTimerCh
 	}
 
-	cleanSleepTimerCh := make(chan time.Time)
-	cleanSleep := func(time.Duration) <-chan time.Time {
-		return cleanSleepTimerCh
-	}
-
-	c := newCacheWithSleep(tmp, 0, filestoreClean, cleanSleep, log.Default())
+	c := newCacheWithSleep(tmp, 0, filestoreClean, log.Default())
 	defer c.Stop()
-
-	var removalLock sync.Mutex
-	c.removalCond = sync.NewCond(&removalLock)
 
 	content := func(i int) string { return fmt.Sprintf("content %d", i) }
 
+	const key = "key"
 	out1 := &bytes.Buffer{}
 	_, created, err := c.Fetch(ctx, key, out1, writeString(content(1)))
 	require.NoError(t, err)
 	require.True(t, created)
 	require.Equal(t, content(1), out1.String())
 
-	// File and index entry should still exist because cleanup goroutines are blocked.
-	requireCacheFiles(t, tmp, 1)
-	requireCacheEntries(t, c, 1)
+	requireCacheFiles(t, tmp, 1) // Cleanup has not happened yet
 
-	// In order to avoid having to sleep, we instead use the removalCond of the cache. Like
-	// this, we can lock the condition before scheduling removal of the cache entry and then
-	// wait for the condition to be triggered. Like this, we can wait for removal in an entirely
-	// race-free manner.
-	removedCh := make(chan struct{})
-	removalLock.Lock()
-	go func() {
-		defer func() {
-			removalLock.Unlock()
-			close(removedCh)
-		}()
+	afterCh := make(chan time.Time)
+	filestoreCleanTimerCh <- afterCh
+	afterCh <- time.Now()
+	// Body of sleep loop now runs
+	filestoreCleanTimerCh <- nil
+	// Body of sleep loop done
 
-		c.removalCond.Wait()
-	}()
-
-	// Unblock cleanup goroutines so they run exactly once
-	cleanSleepTimerCh <- time.Time{}
-	filestoreCleanTimerCh <- time.Time{}
-
-	<-removedCh
-
-	// File and index entry should have been removed by cleanup goroutines.
-	requireCacheFiles(t, tmp, 0)
-	requireCacheEntries(t, c, 0)
+	requireCacheFiles(t, tmp, 0) // Cleanup has happened
 
 	out2 := &bytes.Buffer{}
 	_, created, err = c.Fetch(ctx, key, out2, writeString(content(2)))
 	require.NoError(t, err)
 	require.True(t, created)
 	require.Equal(t, content(2), out2.String(), "Sanity check: no stale value returned by the cache")
+}
+
+func (c *cache) size() int {
+	c.m.Lock()
+	defer c.m.Unlock()
+	return len(c.index) + len(c.oldIndex)
+}
+
+func TestCache_indexCleanup(t *testing.T) {
+	ctx := testhelper.Context(t)
+
+	_c := newCache(testhelper.TempDir(t))
+	defer _c.Stop()
+	c := innerCache(_c)
+	c.minAge = time.Hour
+
+	for i := 0; i < 100; i++ {
+		c.rotatedAt = time.Now().Add(-2 * c.minAge) // Next Fetch call triggers rotation
+
+		key := fmt.Sprintf("key.%d", i)
+		_, created, err := c.Fetch(ctx, key, io.Discard, func(io.Writer) error { return nil })
+		require.NoError(t, err)
+		require.True(t, created)
+
+		if i == 0 {
+			require.Equal(t, 1, c.size(), "only first key is in index")
+		} else {
+			require.Equal(t, 2, c.size(), "last 2 keys are in index")
+		}
+	}
+}
+
+func TestCache_indexKeyMigration(t *testing.T) {
+	ctx := testhelper.Context(t)
+
+	_c := newCache(testhelper.TempDir(t))
+	defer _c.Stop()
+	c := innerCache(_c)
+
+	const (
+		frequentKey   = "frequent"
+		infrequentKey = "infrequent"
+	)
+
+	for i := 0; i < 100; i++ {
+		c.rotatedAt = time.Now().Add(-2 * c.minAge)
+
+		output := &bytes.Buffer{}
+		_, created, err := c.Fetch(ctx, frequentKey, output, writeString(fmt.Sprintf("frequent %d", i)))
+		require.NoError(t, err)
+		require.Equal(t, i == 0, created)
+		require.Equal(t, "frequent 0", output.String(), "key never gets evicted")
+
+		if i%3 == 0 {
+			content := fmt.Sprintf("infrequent %d", i)
+			output := &bytes.Buffer{}
+			_, created, err := c.Fetch(ctx, infrequentKey, output, writeString(content))
+			require.NoError(t, err)
+			require.True(t, created)
+			require.Equal(t, content, output.String())
+		}
+	}
 }
 
 func TestCache_failedWrite(t *testing.T) {

@@ -14,21 +14,19 @@
 //
 // # Eviction
 //
-// There are two eviction goroutines: one for Cache and one for filestore.
-// The Cache eviction goroutine evicts entries after a set amount of time,
-// and deletes their underlying files too. This is safe because Unix file
-// semantics guarantee that readers/writers that are still using those
-// files can keep using them. In addition to evicting known cache
-// entries, we also have a goroutine at the filestore level which
-// performs a directory walk. This will clean up cache files left behind
-// by other processes.
+// The filestore has a goroutine that periodically wakes up and deletes
+// old cache files. This is safe because Unix file semantics guarantee
+// that readers/writers that are still using those files can keep using
+// them. This cleanup goroutine is also responsible for deleting cache
+// files left behind by other processes.
 package streamcache
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
-	"os"
+	"io/fs"
 	"strconv"
 	"sync"
 	"time"
@@ -36,7 +34,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/dontpanic"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper"
 )
@@ -126,19 +123,23 @@ func (NullCache) Fetch(ctx context.Context, key string, dst io.Writer, create fu
 func (NullCache) Stop() {}
 
 type cache struct {
-	m          sync.Mutex
-	maxAge     time.Duration
-	index      map[string]*entry
-	createFile func() (namedWriteCloser, error)
-	stop       chan struct{}
-	stopOnce   sync.Once
-	logger     logrus.FieldLogger
-	dir        string
-	sleepLoop  *dontpanic.Forever
+	m sync.Mutex
 
-	// removalCond is a condition that gets signalled after files have been removed from disk.
-	// This field is optional and should only be used for tests.
-	removalCond *sync.Cond
+	// Index keys are kept around for a minimum amount of time equal to the
+	// filestore MaxAge. Unused index keys are batch-deleted by throwing away
+	// an entire index map. To avoid a wave of index expiries we keep two
+	// generations of index keys and only throw out the oldest generation
+	// when the time comes.
+	minAge          time.Duration
+	index, oldIndex map[string]*entry
+	rotatedAt       time.Time
+
+	// For testing purposes we can override the function that creates a new cache file
+	createFile      func() (namedWriteCloser, error)
+	stopFileCleaner func()
+
+	logger logrus.FieldLogger
+	dir    string
 }
 
 // New returns a new cache instance.
@@ -153,7 +154,7 @@ func New(cfg config.StreamCacheConfig, logger logrus.FieldLogger) Cache {
 		return &minOccurrences{
 			N:      cfg.MinOccurrences,
 			MinAge: maxAge,
-			Cache:  newCacheWithSleep(cfg.Dir, maxAge, time.After, time.After, logger),
+			Cache:  newCacheWithSleep(cfg.Dir, maxAge, time.After, logger),
 		}
 	}
 
@@ -164,73 +165,32 @@ func newCacheWithSleep(
 	dir string,
 	maxAge time.Duration,
 	filestoreSleep func(time.Duration) <-chan time.Time,
-	cleanSleep func(time.Duration) <-chan time.Time,
 	logger logrus.FieldLogger,
 ) *cache {
 	fs := newFilestore(dir, maxAge, filestoreSleep, logger)
 
 	c := &cache{
-		maxAge:     maxAge,
-		index:      make(map[string]*entry),
-		createFile: fs.Create,
-		stop:       make(chan struct{}),
-		logger:     logger,
-		dir:        dir,
-		sleepLoop:  dontpanic.NewForever(time.Minute),
+		minAge:          maxAge,
+		index:           make(map[string]*entry),
+		createFile:      fs.Create,
+		stopFileCleaner: fs.Stop,
+		logger:          logger,
+		dir:             dir,
 	}
-
-	c.sleepLoop.Go(func() {
-		sleepLoop(c.stop, c.maxAge, cleanSleep, c.clean)
-	})
-	go func() {
-		<-c.stop
-		c.sleepLoop.Cancel()
-		fs.Stop()
-	}()
 
 	return c
 }
 
-func (c *cache) Stop() {
-	c.stopOnce.Do(func() { close(c.stop) })
-}
-
-func (c *cache) clean() {
-	c.m.Lock()
-	defer c.m.Unlock()
-
-	var removed []*entry
-	cutoff := time.Now().Add(-c.maxAge)
-	for k, e := range c.index {
-		if e.created.Before(cutoff) {
-			c.delete(k)
-			removed = append(removed, e)
-		}
-	}
-
-	// Batch together file removals in a goroutine, without holding the mutex
-	go func() {
-		for _, e := range removed {
-			if err := e.pipe.RemoveFile(); err != nil && !os.IsNotExist(err) {
-				c.logger.WithError(err).Error("streamcache: remove file evicted from index")
-			}
-		}
-
-		if c.removalCond != nil {
-			c.removalCond.L.Lock()
-			defer c.removalCond.L.Unlock()
-			c.removalCond.Broadcast()
-		}
-	}()
-}
+func (c *cache) Stop() { c.stopFileCleaner() }
 
 func (c *cache) delete(key string) {
 	delete(c.index, key)
+	delete(c.oldIndex, key)
 	c.setIndexSize()
 }
 
 func (c *cache) setIndexSize() {
-	cacheIndexSize.WithLabelValues(c.dir).Set(float64(len(c.index)))
+	cacheIndexSize.WithLabelValues(c.dir).Set(float64(len(c.index) + len(c.oldIndex)))
 }
 
 func (c *cache) Fetch(ctx context.Context, key string, dst io.Writer, create func(io.Writer) error) (written int64, created bool, err error) {
@@ -257,43 +217,48 @@ func (c *cache) getStream(key string, create func(io.Writer) error) (_ io.ReadCl
 	c.m.Lock()
 	defer c.m.Unlock()
 
-	if e := c.index[key]; e != nil {
-		if r, err := e.pipe.OpenReader(); err == nil {
-			return r, e.waiter, false, nil
-		}
+	defer c.setIndexSize()
 
-		// In this case err != nil. That is allowed to happen, for instance if
-		// the *filestore cleanup goroutine deleted the file already. But let's
-		// remove the key from the cache to save the next caller the effort of
-		// trying to open this entry.
-		c.delete(key)
+	if now := time.Now(); now.Sub(c.rotatedAt) > c.minAge {
+		c.rotatedAt = now
+		c.oldIndex = c.index
+		c.index = make(map[string]*entry, len(c.oldIndex))
 	}
 
+	if oldEntry := c.oldIndex[key]; oldEntry != nil {
+		c.index[key] = oldEntry
+		delete(c.oldIndex, key)
+	}
+
+	if e := c.index[key]; e != nil {
+		if r, err := e.pipe.OpenReader(); err != nil {
+			delete(c.index, key) // Bad entry
+			if !errors.Is(err, fs.ErrNotExist) {
+				c.logger.WithError(err).Error("open cache entry")
+			}
+		} else {
+			return r, e.waiter, false, nil // Cache hit
+		}
+	}
+
+	// Cache miss
 	r, e, err := c.newEntry(key, create)
 	if err != nil {
 		return nil, nil, false, err
 	}
 
 	c.index[key] = e
-	c.setIndexSize()
-
 	return r, e.waiter, true, nil
 }
 
 type entry struct {
-	key     string
-	cache   *cache
-	pipe    *pipe
-	created time.Time
-	waiter  *waiter
+	pipe   *pipe
+	waiter *waiter
 }
 
 func (c *cache) newEntry(key string, create func(io.Writer) error) (_ io.ReadCloser, _ *entry, err error) {
 	e := &entry{
-		key:     key,
-		cache:   c,
-		created: time.Now(),
-		waiter:  newWaiter(),
+		waiter: newWaiter(),
 	}
 
 	// Every entry gets a unique underlying file. We do not want to reuse
