@@ -190,3 +190,20 @@ func (fs *filestore) diskUsage() float64 {
 	})
 	return total
 }
+
+func sleepLoop(done chan struct{}, period time.Duration, after func(time.Duration) <-chan time.Time, callback func()) {
+	const maxPeriod = time.Minute
+	if period <= 0 || period >= maxPeriod {
+		period = maxPeriod
+	}
+
+	for {
+		select {
+		case <-done:
+			return
+		case <-after(period):
+		}
+
+		callback()
+	}
+}

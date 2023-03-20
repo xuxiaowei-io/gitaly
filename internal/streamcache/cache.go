@@ -349,20 +349,3 @@ func (w *waiter) Wait(ctx context.Context) error {
 		return w.err
 	}
 }
-
-func sleepLoop(done chan struct{}, period time.Duration, sleep func(time.Duration) <-chan time.Time, callback func()) {
-	const maxPeriod = time.Minute
-	if period <= 0 || period >= maxPeriod {
-		period = maxPeriod
-	}
-
-	for {
-		select {
-		case <-done:
-			return
-		case <-sleep(period):
-		}
-
-		callback()
-	}
-}
