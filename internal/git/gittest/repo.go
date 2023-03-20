@@ -20,6 +20,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -98,12 +99,26 @@ type CreateRepositoryConfig struct {
 }
 
 func dialService(tb testing.TB, ctx context.Context, cfg config.Cfg) *grpc.ClientConn {
+	tb.Helper()
+
 	dialOptions := []grpc.DialOption{internalclient.UnaryInterceptor(), internalclient.StreamInterceptor()}
 	if cfg.Auth.Token != "" {
 		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(cfg.Auth.Token)))
 	}
 
-	conn, err := client.DialContext(ctx, cfg.SocketPath, dialOptions)
+	var addr string
+	switch {
+	case cfg.SocketPath != "" && cfg.SocketPath != testcfg.UnconfiguredSocketPath:
+		addr = cfg.SocketPath
+	case cfg.ListenAddr != "":
+		addr = cfg.ListenAddr
+	case cfg.TLSListenAddr != "":
+		addr = cfg.TLSListenAddr
+	default:
+		require.FailNow(tb, "cannot dial service without configured address")
+	}
+
+	conn, err := client.DialContext(ctx, addr, dialOptions)
 	require.NoError(tb, err)
 	return conn
 }
