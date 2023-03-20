@@ -39,41 +39,41 @@ var configKeyRegex = regexp.MustCompile(`^[[:alnum:]]+(\.[*-/_:@a-zA-Z0-9]+)+$`)
 
 // DailyJob enables a daily task to be scheduled for specific storages
 type DailyJob struct {
-	Hour     uint              `toml:"start_hour"`
-	Minute   uint              `toml:"start_minute"`
-	Duration duration.Duration `toml:"duration"`
-	Storages []string          `toml:"storages"`
+	Hour     uint              `toml:"start_hour" json:"start_hour"`
+	Minute   uint              `toml:"start_minute" json:"start_minute"`
+	Duration duration.Duration `toml:"duration" json:"duration"`
+	Storages []string          `toml:"storages" json:"storages"`
 
 	// Disabled will completely disable a daily job, even in cases where a
 	// default schedule is implied
-	Disabled bool `toml:"disabled"`
+	Disabled bool `toml:"disabled" json:"disabled"`
 }
 
 // Cfg is a container for all config derived from config.toml.
 type Cfg struct {
-	SocketPath             string              `toml:"socket_path" split_words:"true"`
-	ListenAddr             string              `toml:"listen_addr" split_words:"true"`
-	TLSListenAddr          string              `toml:"tls_listen_addr" split_words:"true"`
-	PrometheusListenAddr   string              `toml:"prometheus_listen_addr" split_words:"true"`
-	BinDir                 string              `toml:"bin_dir"`
-	RuntimeDir             string              `toml:"runtime_dir"`
-	Git                    Git                 `toml:"git" envconfig:"git"`
-	Storages               []Storage           `toml:"storage" envconfig:"storage"`
-	Logging                Logging             `toml:"logging" envconfig:"logging"`
-	Prometheus             prometheus.Config   `toml:"prometheus"`
-	Auth                   auth.Config         `toml:"auth"`
-	TLS                    TLS                 `toml:"tls"`
-	Ruby                   Ruby                `toml:"gitaly-ruby"`
-	Gitlab                 Gitlab              `toml:"gitlab"`
-	GitlabShell            GitlabShell         `toml:"gitlab-shell"`
-	Hooks                  Hooks               `toml:"hooks"`
-	Concurrency            []Concurrency       `toml:"concurrency"`
-	RateLimiting           []RateLimiting      `toml:"rate_limiting"`
-	GracefulRestartTimeout duration.Duration   `toml:"graceful_restart_timeout"`
-	DailyMaintenance       DailyJob            `toml:"daily_maintenance"`
-	Cgroups                cgroups.Config      `toml:"cgroups"`
-	PackObjectsCache       StreamCacheConfig   `toml:"pack_objects_cache"`
-	PackObjectsLimiting    PackObjectsLimiting `toml:"pack_objects_limiting"`
+	SocketPath             string              `toml:"socket_path" json:"socket_path" split_words:"true"`
+	ListenAddr             string              `toml:"listen_addr" json:"listen_addr" split_words:"true"`
+	TLSListenAddr          string              `toml:"tls_listen_addr" json:"tls_listen_addr" split_words:"true"`
+	PrometheusListenAddr   string              `toml:"prometheus_listen_addr" json:"prometheus_listen_addr" split_words:"true"`
+	BinDir                 string              `toml:"bin_dir" json:"bin_dir"`
+	RuntimeDir             string              `toml:"runtime_dir" json:"runtime_dir"`
+	Git                    Git                 `toml:"git" json:"git" envconfig:"git"`
+	Storages               []Storage           `toml:"storage" json:"storage" envconfig:"storage"`
+	Logging                Logging             `toml:"logging" json:"logging" envconfig:"logging"`
+	Prometheus             prometheus.Config   `toml:"prometheus" json:"prometheus"`
+	Auth                   auth.Config         `toml:"auth" json:"auth"`
+	TLS                    TLS                 `toml:"tls" json:"tls"`
+	Ruby                   Ruby                `toml:"gitaly-ruby" json:"gitaly-ruby"`
+	Gitlab                 Gitlab              `toml:"gitlab" json:"gitlab"`
+	GitlabShell            GitlabShell         `toml:"gitlab-shell" json:"gitlab-shell"`
+	Hooks                  Hooks               `toml:"hooks" json:"hooks"`
+	Concurrency            []Concurrency       `toml:"concurrency" json:"concurrency"`
+	RateLimiting           []RateLimiting      `toml:"rate_limiting" json:"rate_limiting"`
+	GracefulRestartTimeout duration.Duration   `toml:"graceful_restart_timeout" json:"graceful_restart_timeout"`
+	DailyMaintenance       DailyJob            `toml:"daily_maintenance" json:"daily_maintenance"`
+	Cgroups                cgroups.Config      `toml:"cgroups" json:"cgroups"`
+	PackObjectsCache       StreamCacheConfig   `toml:"pack_objects_cache" json:"pack_objects_cache"`
+	PackObjectsLimiting    PackObjectsLimiting `toml:"pack_objects_limiting" json:"pack_objects_limiting"`
 }
 
 // TLS configuration
@@ -111,20 +111,20 @@ type HTTPSettings struct {
 
 // Git contains the settings for the Git executable
 type Git struct {
-	UseBundledBinaries bool        `toml:"use_bundled_binaries"`
-	BinPath            string      `toml:"bin_path"`
-	CatfileCacheSize   int         `toml:"catfile_cache_size"`
-	Config             []GitConfig `toml:"config"`
-	IgnoreGitconfig    bool        `toml:"ignore_gitconfig"`
-	SigningKey         string      `toml:"signing_key"`
+	UseBundledBinaries bool        `toml:"use_bundled_binaries" json:"use_bundled_binaries"`
+	BinPath            string      `toml:"bin_path" json:"bin_path"`
+	CatfileCacheSize   int         `toml:"catfile_cache_size" json:"catfile_cache_size"`
+	Config             []GitConfig `toml:"config" json:"config"`
+	IgnoreGitconfig    bool        `toml:"ignore_gitconfig" json:"ignore_gitconfig"`
+	SigningKey         string      `toml:"signing_key" json:"signing_key"`
 }
 
 // GitConfig contains a key-value pair which is to be passed to git as configuration.
 type GitConfig struct {
 	// Key is the key of the config entry, e.g. `core.gc`.
-	Key string `toml:"key"`
+	Key string `toml:"key" json:"key"`
 	// Value is the value of the config entry, e.g. `false`.
-	Value string `toml:"value"`
+	Value string `toml:"value" json:"value"`
 }
 
 // Validate validates that the Git configuration conforms to a format that Git understands.
@@ -176,7 +176,7 @@ type Logging struct {
 	internallog.Config
 	Sentry
 
-	RubySentryDSN string `toml:"ruby_sentry_dsn"`
+	RubySentryDSN string `toml:"ruby_sentry_dsn" json:"ruby_sentry_dsn"`
 }
 
 // Concurrency allows endpoints to be limited to a maximum concurrency per repo.
@@ -184,15 +184,15 @@ type Logging struct {
 // in a queue that is bounded by MaxQueueSize.
 type Concurrency struct {
 	// RPC is the name of the RPC to set concurrency limits for
-	RPC string `toml:"rpc"`
+	RPC string `toml:"rpc" json:"rpc"`
 	// MaxPerRepo is the maximum number of concurrent calls for a given repository
-	MaxPerRepo int `toml:"max_per_repo"`
+	MaxPerRepo int `toml:"max_per_repo" json:"max_per_repo"`
 	// MaxQueueSize is the maximum number of requests in the queue waiting to be picked up
 	// after which subsequent requests will return with an error.
-	MaxQueueSize int `toml:"max_queue_size"`
+	MaxQueueSize int `toml:"max_queue_size" json:"max_queue_size"`
 	// MaxQueueWait is the maximum time a request can remain in the concurrency queue
 	// waiting to be picked up by Gitaly
-	MaxQueueWait duration.Duration `toml:"max_queue_wait"`
+	MaxQueueWait duration.Duration `toml:"max_queue_wait" json:"max_queue_wait"`
 }
 
 // RateLimiting allows endpoints to be limited to a maximum request rate per
@@ -203,12 +203,12 @@ type Concurrency struct {
 // value.
 type RateLimiting struct {
 	// RPC is the full name of the RPC including the service name
-	RPC string `toml:"rpc"`
+	RPC string `toml:"rpc" json:"rpc"`
 	// Interval sets the interval with which the token bucket will
 	// be refilled to what is configured in Burst.
-	Interval duration.Duration `toml:"interval"`
+	Interval duration.Duration `toml:"interval" json:"interval"`
 	// Burst sets the capacity of the token bucket (see above).
-	Burst int `toml:"burst"`
+	Burst int `toml:"burst" json:"burst"`
 }
 
 // PackObjectsLimitingKey is the key for limiting pack objects concurrency
@@ -252,21 +252,21 @@ func (p *PackObjectsLimitingKey) UnmarshalText(text []byte) error {
 type PackObjectsLimiting struct {
 	// Key is the key by which concurrency will be limited. Supported keys
 	// are: user_id, repository.
-	Key PackObjectsLimitingKey `toml:"key,omitempty"`
+	Key PackObjectsLimitingKey `toml:"key,omitempty" json:"key,omitempty"`
 	// MaxConcurrency is the maximum number of concurrent pack objects processes
 	// for a given key.
-	MaxConcurrency int `toml:"max_concurrency,omitempty"`
+	MaxConcurrency int `toml:"max_concurrency,omitempty" json:"max_concurrency,omitempty"`
 	// MaxQueueWait is the maximum time a request can remain in the concurrency queue
 	// waiting to be picked up by Gitaly.
-	MaxQueueWait duration.Duration `toml:"max_queue_wait,omitempty"`
+	MaxQueueWait duration.Duration `toml:"max_queue_wait,omitempty" json:"max_queue_wait,omitempty"`
 }
 
 // StreamCacheConfig contains settings for a streamcache instance.
 type StreamCacheConfig struct {
-	Enabled        bool              `toml:"enabled"` // Default: false
-	Dir            string            `toml:"dir"`     // Default: <FIRST STORAGE PATH>/+gitaly/PackObjectsCache
-	MaxAge         duration.Duration `toml:"max_age"` // Default: 5m
-	MinOccurrences int               `toml:"min_occurrences"`
+	Enabled        bool              `toml:"enabled" json:"enabled"` // Default: false
+	Dir            string            `toml:"dir" json:"dir"`         // Default: <FIRST STORAGE PATH>/+gitaly/PackObjectsCache
+	MaxAge         duration.Duration `toml:"max_age" json:"max_age"` // Default: 5m
+	MinOccurrences int               `toml:"min_occurrences" json:"min_occurrences"`
 }
 
 // Load initializes the Config variable from file and the environment.
