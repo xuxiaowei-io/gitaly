@@ -34,6 +34,11 @@ func BuildGitalyLFSSmudge(tb testing.TB, cfg config.Cfg) string {
 	return buildGitalyCommand(tb, cfg, "gitaly-lfs-smudge")
 }
 
+// BuildGitalyBench builds the gitaly-bench command and installs it into the binary directory.
+func BuildGitalyBench(tb testing.TB, cfg config.Cfg) string {
+	return buildGitalyCommand(tb, cfg, "gitaly-bench")
+}
+
 // BuildGitalyHooks builds the gitaly-hooks command and installs it into the binary directory.
 func BuildGitalyHooks(tb testing.TB, cfg config.Cfg) string {
 	return buildGitalyCommand(tb, cfg, "gitaly-hooks")
