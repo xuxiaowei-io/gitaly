@@ -1,4 +1,4 @@
-package lstree
+package localrepo
 
 import (
 	"bufio"
@@ -7,7 +7,6 @@ import (
 	"io"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 )
 
 // ErrParse is returned when the parse of an entry was unsuccessful
@@ -28,7 +27,7 @@ func NewParser(src io.Reader, objectHash git.ObjectHash) *Parser {
 }
 
 // NextEntry reads a tree entry as it would be written by `git ls-tree -z`.
-func (p *Parser) NextEntry() (*localrepo.TreeEntry, error) {
+func (p *Parser) NextEntry() (*TreeEntry, error) {
 	// Each tree entry is expected to have a format of `<mode> SP <type> SP <objectid> TAB <path> NUL`.
 	treeEntryMode, err := p.reader.ReadBytes(' ')
 	if err != nil {
@@ -63,11 +62,11 @@ func (p *Parser) NextEntry() (*localrepo.TreeEntry, error) {
 		return nil, err
 	}
 
-	return &localrepo.TreeEntry{
+	return &TreeEntry{
 		Mode: string(treeEntryMode),
 		OID:  objectID,
 		Path: string(treeEntryPath),
-		Type: localrepo.ToEnum(string(treeEntryType)),
+		Type: ToEnum(string(treeEntryType)),
 	}, nil
 }
 

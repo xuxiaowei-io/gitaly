@@ -7,7 +7,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/lstree"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
@@ -86,7 +85,7 @@ func (s *server) listFiles(repo git.RepositoryExecutor, revision string, stream 
 
 	sender := chunk.New(&listFilesSender{stream: stream})
 
-	for parser := lstree.NewParser(cmd, git.ObjectHashSHA1); ; {
+	for parser := localrepo.NewParser(cmd, git.ObjectHashSHA1); ; {
 		entry, err := parser.NextEntry()
 		if err == io.EOF {
 			break

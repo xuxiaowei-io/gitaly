@@ -1,4 +1,4 @@
-package lstree
+package localrepo
 
 import (
 	"bytes"
@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 )
 
 var (
@@ -34,10 +33,10 @@ type ListEntriesConfig struct {
 // config.
 func ListEntries(
 	ctx context.Context,
-	repo *localrepo.Repo,
+	repo *Repo,
 	treeish git.Revision,
 	cfg *ListEntriesConfig,
-) ([]*localrepo.TreeEntry, error) {
+) ([]*TreeEntry, error) {
 	if cfg == nil {
 		cfg = &ListEntriesConfig{}
 	}
@@ -71,7 +70,7 @@ func ListEntries(
 	}
 
 	parser := NewParser(cmd, objectHash)
-	var entries []*localrepo.TreeEntry
+	var entries []*TreeEntry
 	for {
 		entry, err := parser.NextEntry()
 		if err != nil {
