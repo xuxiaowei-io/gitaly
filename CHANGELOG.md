@@ -1,5 +1,37 @@
 # Gitaly changelog
 
+## 15.10.0 (2023-03-21)
+
+### Added (4 changes)
+
+- [catfile: Add encoding information to GitCommit](gitlab-org/gitaly@cf24112527408773814956ae6aaf94a8f4a41ad9) by @arkn98 ([merge request](gitlab-org/gitaly!5506))
+- [Cgroups: add cpu_quota_us limit](gitlab-org/gitaly@80ce55b0fb2388d11f0016d0b470a3778b00e057) ([merge request](gitlab-org/gitaly!5422))
+- [housekeeping: Implement logic to write cruft packs](gitlab-org/gitaly@b18ae51043f470a170e815bf40750f65da0dcbc7) ([merge request](gitlab-org/gitaly!5454))
+- [gitaly-backup: Add -remove-all-repositories flag](gitlab-org/gitaly@d7db18aebaae231014257e545f21eb4934be2df1) ([merge request](gitlab-org/gitaly!5410))
+
+### Fixed (6 changes)
+
+- [housekeeping: Don't write cruft packs in pool repositories](gitlab-org/gitaly@548aa80a683a330319d115cd7750862b42b6ddf6) ([merge request](gitlab-org/gitaly!5488))
+- [housekeeping: Clean packfile locks left behind by fetches and pushes](gitlab-org/gitaly@7562da2cfbc0f98916c610e744515b24366fdfd4) ([merge request](gitlab-org/gitaly!5479))
+- [repository: Handle empty root trees in GetArchive](gitlab-org/gitaly@60d2b90d4d5d93602a4092bc993ded2dbfab1514) ([merge request](gitlab-org/gitaly!5455))
+- [catfile: Don't return readers to cache when their queues are in use](gitlab-org/gitaly@21579e11482d2cdb9eccd0d4dcce26e314703a0b) ([merge request](gitlab-org/gitaly!5439))
+- [Fix positional argument error when file starts with `-`](gitlab-org/gitaly@0ab47cf61488ed6c40630cf0564852d9b5a0cf75) ([merge request](gitlab-org/gitaly!5445))
+- [Makefile: Don't override PKG_CONFIG_PATH](gitlab-org/gitaly@0232d01c91458dc4c1530b21d6d9dcaee1494335) ([merge request](gitlab-org/gitaly!5433))
+
+### Changed (3 changes)
+
+- [housekeeping: Unconditionally enable writing multi-pack indices](gitlab-org/gitaly@ea924d434a5485dcacb6bc2d4e89dca98fdaa2fc) ([merge request](gitlab-org/gitaly!5426))
+- [git: Bump Git distribution's default version to v2.39](gitlab-org/gitaly@7511b286aa0a0db89aea3b6870ad92aa5b556de6) ([merge request](gitlab-org/gitaly!5425))
+- [git: Always use Git v2.39](gitlab-org/gitaly@45fa9e34dd953cdb9e92dfad725af9130fe6efa8) ([merge request](gitlab-org/gitaly!5425))
+
+### Deprecated (1 change)
+
+- [proto: Deprecate `root_oid` field in the TreeEntry message](gitlab-org/gitaly@9eba19b5b2efd3ef97a5abda98cc230a36b92d18) ([merge request](gitlab-org/gitaly!5509))
+
+### Other (1 change)
+
+- [Simplify streamcache.Cache for efficient null implementation](gitlab-org/gitaly@de53fe2f5c773a059b599674ccaf459b5daf4b49) ([merge request](gitlab-org/gitaly!5444))
+
 ## 15.9.3 (2023-03-09)
 
 No changes.
