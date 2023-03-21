@@ -5,6 +5,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 )
 
 // Unary is a unary server interceptor that converts error happened during the call into a
@@ -32,13 +33,9 @@ func wrapCtxErr(ctx context.Context, err error) error {
 	case err == nil:
 		return nil
 	case ctx.Err() == context.DeadlineExceeded:
-		//nolint:gitaly-linters // Structerr will unwrap to the inner status, deliberately use '%v'
-		// to retain `DeadlineExceeded` status.
-		return structerr.NewDeadlineExceeded("%v", err)
+		return structerr.New("%w", err).WithGRPCCode(codes.DeadlineExceeded)
 	case ctx.Err() == context.Canceled:
-		//nolint:gitaly-linters // Structerr will unwrap to the inner status, deliberately use '%v'
-		// to return the `Canceled` status to clients.
-		return structerr.NewCanceled("%v", err)
+		return structerr.New("%w", err).WithGRPCCode(codes.Canceled)
 	default:
 		return structerr.NewInternal("%w", err)
 	}
