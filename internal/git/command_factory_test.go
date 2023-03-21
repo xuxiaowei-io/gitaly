@@ -973,6 +973,9 @@ func testTrace2TracingExporter(t *testing.T, testCtx context.Context) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
+			// Disable other hooks
+			testCtx := featureflag.ContextWithFeatureFlag(testCtx, featureflag.ExportTrace2PackObjectsMetrics, false)
+
 			reporter, cleanup := testhelper.StubTracingReporter(t, tc.tracerOptions...)
 			defer cleanup()
 			ctx := tc.setup(t, command.InitContextStats(testCtx))
@@ -1000,7 +1003,12 @@ func testTrace2TracingExporter(t *testing.T, testCtx context.Context) {
 }
 
 func TestDefaultTrace2HooksFor(t *testing.T) {
-	featureSet := testhelper.NewFeatureSets(featureflag.ExportTrace2Tracing)
+	t.Parallel()
+
+	featureSet := testhelper.NewFeatureSets(
+		featureflag.ExportTrace2Tracing,
+		featureflag.ExportTrace2PackObjectsMetrics,
+	)
 	featureSet.Run(t, testDefaultTrace2HooksFor)
 }
 
@@ -1015,29 +1023,41 @@ func testDefaultTrace2HooksFor(t *testing.T, ctx context.Context) {
 		{
 			desc: "there is no active span",
 			setup: func(t *testing.T) (context.Context, []trace2.Hook) {
-				return testhelper.Context(t), nil
+				ctx := testhelper.Context(t)
+				var hooks []trace2.Hook
+				if featureflag.ExportTrace2PackObjectsMetrics.IsEnabled(ctx) {
+					hooks = append(hooks, trace2hooks.NewPackObjectsMetrics())
+				}
+				return ctx, hooks
 			},
 		},
 		{
 			desc: "active span is sampled",
 			setup: func(t *testing.T) (context.Context, []trace2.Hook) {
 				_, ctx = tracing.StartSpan(testhelper.Context(t), "root", nil)
+				var hooks []trace2.Hook
 
-				if !featureflag.ExportTrace2Tracing.IsEnabled(ctx) {
-					return ctx, nil
+				if featureflag.ExportTrace2Tracing.IsEnabled(ctx) {
+					hooks = append(hooks, &trace2hooks.TracingExporter{})
 				}
 
-				return ctx, []trace2.Hook{
-					&trace2hooks.TracingExporter{},
+				if featureflag.ExportTrace2PackObjectsMetrics.IsEnabled(ctx) {
+					hooks = append(hooks, trace2hooks.NewPackObjectsMetrics())
 				}
+
+				return ctx, hooks
 			},
 		},
 		{
 			desc: "active span is not sampled",
 			setup: func(t *testing.T) (context.Context, []trace2.Hook) {
 				_, ctx = tracing.StartSpan(testhelper.Context(t), "root", nil)
+				var hooks []trace2.Hook
+				if featureflag.ExportTrace2PackObjectsMetrics.IsEnabled(ctx) {
+					hooks = append(hooks, trace2hooks.NewPackObjectsMetrics())
+				}
 
-				return ctx, nil
+				return ctx, hooks
 			},
 			tracerOptions: []testhelper.StubTracingReporterOption{testhelper.NeverSampled()},
 		},
@@ -1049,7 +1069,7 @@ func testDefaultTrace2HooksFor(t *testing.T, ctx context.Context) {
 			ctx, expectedHooks := tc.setup(t)
 			hooks := git.DefaultTrace2HooksFor(ctx, tc.subCmd)
 
-			require.Equal(t, expectedHooks, hooks)
+			require.Equal(t, hookNames(expectedHooks), hookNames(hooks))
 		})
 	}
 }
@@ -1082,4 +1102,12 @@ func performPackObjectGit(t *testing.T, ctx context.Context, opts ...git.ExecCom
 
 	err = cmd.Wait()
 	require.NoError(t, err)
+}
+
+func hookNames(hooks []trace2.Hook) []string {
+	var names []string
+	for _, hook := range hooks {
+		names = append(names, hook.Name())
+	}
+	return names
 }

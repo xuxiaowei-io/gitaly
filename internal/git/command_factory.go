@@ -98,6 +98,9 @@ func DefaultTrace2HooksFor(ctx context.Context, subCmd string) []trace2.Hook {
 	if featureflag.ExportTrace2Tracing.IsEnabled(ctx) && tracing.IsSampled(ctx) {
 		hooks = append(hooks, &trace2hooks.TracingExporter{})
 	}
+	if featureflag.ExportTrace2PackObjectsMetrics.IsEnabled(ctx) {
+		hooks = append(hooks, trace2hooks.NewPackObjectsMetrics())
+	}
 	return hooks
 }
 
