@@ -204,6 +204,9 @@ func ContextWithoutCancel(opts ...ContextOpt) context.Context {
 	// Randomly enable the use of the catfile cache in localrepo.ReadObject.
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.LocalrepoReadObjectCached, rnd.Int()%2 == 0)
 
+	// Randomly enable the use of trace2 tracing exporter.
+	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.ExportTrace2Tracing, rnd.Int()%2 == 0)
+
 	for _, opt := range opts {
 		ctx = opt(ctx)
 	}

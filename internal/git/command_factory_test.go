@@ -21,10 +21,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/trace2"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git/trace2hooks"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/tracing"
 )
 
 func TestGitCommandProxy(t *testing.T) {
@@ -889,33 +892,7 @@ func TestWithTrace2Hooks(t *testing.T) {
 				ctx = command.InitContextStats(ctx)
 			}
 
-			cfg := testcfg.Build(t)
-			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg,
-				gittest.CreateRepositoryConfig{SkipCreationViaService: true},
-			)
-
-			var input bytes.Buffer
-			for i := 0; i <= 10; i++ {
-				input.WriteString(gittest.WriteCommit(t, cfg, repoPath).String())
-				input.WriteString("\n")
-			}
-
-			gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg, git.WithTrace2Hooks(hooks))
-			require.NoError(t, err)
-			defer cleanup()
-
-			cmd, err := gitCmdFactory.New(ctx, repoProto, git.Command{
-				Name: "pack-objects",
-				Flags: []git.Option{
-					git.Flag{Name: "--compression=0"},
-					git.Flag{Name: "--stdout"},
-					git.Flag{Name: "-q"},
-				},
-			}, git.WithStdin(&input))
-			require.NoError(t, err)
-
-			err = cmd.Wait()
-			require.NoError(t, err)
+			performPackObjectGit(t, ctx, git.WithTrace2Hooks(hooks))
 
 			if tc.withStats {
 				stats := command.StatsFromContext(ctx)
@@ -930,4 +907,179 @@ func TestWithTrace2Hooks(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestTrace2TracingExporter(t *testing.T) {
+	featureSet := testhelper.NewFeatureSets(featureflag.ExportTrace2Tracing)
+	featureSet.Run(t, testTrace2TracingExporter)
+}
+
+func testTrace2TracingExporter(t *testing.T, testCtx context.Context) {
+	for _, tc := range []struct {
+		desc          string
+		tracerOptions []testhelper.StubTracingReporterOption
+		setup         func(*testing.T, context.Context) context.Context
+		assert        func(*testing.T, []string, map[string]any)
+	}{
+		{
+			desc: "there is no active span",
+			setup: func(t *testing.T, ctx context.Context) context.Context {
+				return ctx
+			},
+			assert: func(t *testing.T, spans []string, statFields map[string]any) {
+				require.NotContains(t, statFields, "trace2.activated")
+				require.NotContains(t, statFields, "trace2.hooks")
+				for _, span := range spans {
+					require.NotEqual(t, "trace2.parse", span)
+				}
+			},
+		},
+		{
+			desc: "active span is sampled",
+			setup: func(t *testing.T, ctx context.Context) context.Context {
+				_, ctx = tracing.StartSpan(ctx, "root", nil)
+				return ctx
+			},
+			assert: func(t *testing.T, spans []string, statFields map[string]any) {
+				require.Equal(t, statFields["trace2.activated"], "true")
+				require.Equal(t, statFields["trace2.hooks"], "tracing_exporter")
+				require.Subset(t, spans, []string{
+					"git",
+					"git-pack-objects",
+					"trace2.parse",
+					"git:version",
+					"git:start",
+					"git:pack-objects:enumerate-objects",
+					"git:pack-objects:prepare-pack",
+					"git:pack-objects:write-pack-file",
+					"git:data:pack-objects:write_pack_file/wrote",
+				})
+			},
+		},
+		{
+			desc:          "active span is not sampled",
+			tracerOptions: []testhelper.StubTracingReporterOption{testhelper.NeverSampled()},
+			setup: func(t *testing.T, ctx context.Context) context.Context {
+				_, ctx = tracing.StartSpan(ctx, "root", nil)
+				return ctx
+			},
+			assert: func(t *testing.T, spans []string, statFields map[string]any) {
+				require.NotContains(t, statFields, "trace2.activated")
+				require.NotContains(t, statFields, "trace2.hooks")
+				for _, span := range spans {
+					require.NotEqual(t, "trace2.parse", span)
+				}
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			reporter, cleanup := testhelper.StubTracingReporter(t, tc.tracerOptions...)
+			defer cleanup()
+			ctx := tc.setup(t, command.InitContextStats(testCtx))
+
+			performPackObjectGit(t, ctx)
+
+			stats := command.StatsFromContext(ctx)
+			require.NotNil(t, stats)
+			statFields := stats.Fields()
+
+			if !featureflag.ExportTrace2Tracing.IsEnabled(ctx) {
+				require.NotContains(t, statFields, "trace2.activated")
+				require.NotContains(t, statFields, "trace2.hooks")
+				return
+			}
+
+			var spans []string
+			for _, span := range testhelper.ReportedSpans(t, reporter) {
+				spans = append(spans, span.Operation)
+			}
+
+			tc.assert(t, spans, statFields)
+		})
+	}
+}
+
+func TestDefaultTrace2HooksFor(t *testing.T) {
+	featureSet := testhelper.NewFeatureSets(featureflag.ExportTrace2Tracing)
+	featureSet.Run(t, testDefaultTrace2HooksFor)
+}
+
+// This test modifies global tracing tracer. Thus, it cannot run in parallel.
+func testDefaultTrace2HooksFor(t *testing.T, ctx context.Context) {
+	for _, tc := range []struct {
+		desc          string
+		subCmd        string
+		setup         func(t *testing.T) (context.Context, []trace2.Hook)
+		tracerOptions []testhelper.StubTracingReporterOption
+	}{
+		{
+			desc: "there is no active span",
+			setup: func(t *testing.T) (context.Context, []trace2.Hook) {
+				return testhelper.Context(t), nil
+			},
+		},
+		{
+			desc: "active span is sampled",
+			setup: func(t *testing.T) (context.Context, []trace2.Hook) {
+				_, ctx = tracing.StartSpan(testhelper.Context(t), "root", nil)
+
+				if !featureflag.ExportTrace2Tracing.IsEnabled(ctx) {
+					return ctx, nil
+				}
+
+				return ctx, []trace2.Hook{
+					&trace2hooks.TracingExporter{},
+				}
+			},
+		},
+		{
+			desc: "active span is not sampled",
+			setup: func(t *testing.T) (context.Context, []trace2.Hook) {
+				_, ctx = tracing.StartSpan(testhelper.Context(t), "root", nil)
+
+				return ctx, nil
+			},
+			tracerOptions: []testhelper.StubTracingReporterOption{testhelper.NeverSampled()},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			_, cleanup := testhelper.StubTracingReporter(t, tc.tracerOptions...)
+			defer cleanup()
+
+			ctx, expectedHooks := tc.setup(t)
+			hooks := git.DefaultTrace2HooksFor(ctx, tc.subCmd)
+
+			require.Equal(t, expectedHooks, hooks)
+		})
+	}
+}
+
+func performPackObjectGit(t *testing.T, ctx context.Context, opts ...git.ExecCommandFactoryOption) {
+	cfg := testcfg.Build(t)
+	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg,
+		gittest.CreateRepositoryConfig{SkipCreationViaService: true},
+	)
+
+	var input bytes.Buffer
+	for i := 0; i <= 10; i++ {
+		input.WriteString(gittest.WriteCommit(t, cfg, repoPath).String())
+		input.WriteString("\n")
+	}
+
+	gitCmdFactory, cleanup, err := git.NewExecCommandFactory(cfg, opts...)
+	require.NoError(t, err)
+	defer cleanup()
+
+	cmd, err := gitCmdFactory.New(ctx, repoProto, git.Command{
+		Name: "pack-objects",
+		Flags: []git.Option{
+			git.Flag{Name: "--compression=0"},
+			git.Flag{Name: "--stdout"},
+			git.Flag{Name: "-q"},
+		},
+	}, git.WithStdin(&input))
+	require.NoError(t, err)
+
+	err = cmd.Wait()
+	require.NoError(t, err)
 }
