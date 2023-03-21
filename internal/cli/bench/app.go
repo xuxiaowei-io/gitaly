@@ -64,6 +64,35 @@ func NewApp() *cli.App {
 				},
 				Action: RunCoordinator,
 			},
+			{
+				Name:  "client",
+				Usage: "send gRPC requests to Gitaly for benchmarking",
+				Description: "Run on a client machine to benchmark RPC performance and order " +
+					"the coordinator to start/stop Gitaly.",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:     "out-dir",
+						Usage:    "Directory to write results to",
+						Required: true,
+					},
+					&cli.StringFlag{
+						Name:     "server-addr",
+						Usage:    "Address of Gitaly server",
+						Required: true,
+					},
+					&cli.StringFlag{
+						Name:  "coord-port",
+						Value: "7075",
+						Usage: "TCP port coordinator is listening on",
+					},
+					&cli.StringFlag{
+						Name:  "query-dir",
+						Value: "/opt/ghz/queries",
+						Usage: "Path to directory containing queries to execute",
+					},
+				},
+				Action: RunClient,
+			},
 		},
 	}
 }
