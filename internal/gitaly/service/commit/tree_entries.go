@@ -106,7 +106,7 @@ func (s *server) sendTreeEntries(
 			return err
 		}
 
-		treeEntries, err := localrepo.ListEntries(ctx, repo, git.Revision(revision), &localrepo.ListEntriesConfig{
+		treeEntries, err := repo.ListEntries(ctx, git.Revision(revision), &localrepo.ListEntriesConfig{
 			Recursive:    recursive,
 			RelativePath: path,
 		})

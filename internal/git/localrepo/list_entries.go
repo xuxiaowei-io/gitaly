@@ -31,9 +31,8 @@ type ListEntriesConfig struct {
 // ListEntries lists tree entries for the given treeish. By default, this will do a non-recursive
 // listing starting from the root of the given treeish. This behaviour can be changed by passing a
 // config.
-func ListEntries(
+func (repo *Repo) ListEntries(
 	ctx context.Context,
-	repo *Repo,
 	treeish git.Revision,
 	cfg *ListEntriesConfig,
 ) ([]*TreeEntry, error) {
