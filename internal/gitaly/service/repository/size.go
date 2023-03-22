@@ -13,24 +13,14 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
-// RepositorySize returns the size of the specified repository in kibibytes.
-// By default, this calculation is performed using the disk usage command.
-//
-// Optionally the feature flags `revlist_for_repo_size` or `catfile_repo_size`
-// can be enabled to log an alternative calculation of the repository size.
-// The original size derived from disk usage is still returned.
-//
-// In conjunction with the other flags the `use_new_repository_size` feature
-// flag can be enabled to return the alternative repository size calculation
-// instead of the size derived from the disk usage command.
+// RepositorySize returns the size of the specified repository in kibibytes. By default, this
+// calculation is performed using the disk usage command.
 func (s *server) RepositorySize(ctx context.Context, in *gitalypb.RepositorySizeRequest) (*gitalypb.RepositorySizeResponse, error) {
 	repository := in.GetRepository()
 	if err := service.ValidateRepository(repository); err != nil {
@@ -53,41 +43,7 @@ func (s *server) RepositorySize(ctx context.Context, in *gitalypb.RepositorySize
 		sizeKiB = getPathSize(ctx, path)
 	}
 
-	logger := ctxlogrus.Extract(ctx).WithField("repo_size_du_bytes", sizeKiB*1024)
-
-	if featureflag.RevlistForRepoSize.IsEnabled(ctx) {
-		newSizeBytes, err := calculateSizeWithRevlist(ctx, repo)
-		if err != nil {
-			return nil, fmt.Errorf("calculating repository size with git-rev-list: %w", err)
-		}
-
-		logger.WithField("repo_size_revlist_bytes", newSizeBytes).Info("repository size calculated")
-
-		if featureflag.UseNewRepoSize.IsEnabled(ctx) {
-			sizeKiB = newSizeBytes / 1024
-		}
-	}
-
 	return &gitalypb.RepositorySizeResponse{Size: sizeKiB}, nil
-}
-
-func calculateSizeWithRevlist(ctx context.Context, repo *localrepo.Repo) (int64, error) {
-	var excludes []string
-	for refPrefix := range git.InternalRefPrefixes {
-		excludes = append(excludes, refPrefix+"*")
-	}
-
-	size, err := repo.Size(
-		ctx,
-		localrepo.WithExcludeRefs(excludes...),
-		localrepo.WithoutAlternates(),
-	)
-	if err != nil {
-		return 0, err
-	}
-
-	// return the size in bytes
-	return size, nil
 }
 
 func (s *server) GetObjectDirectorySize(ctx context.Context, in *gitalypb.GetObjectDirectorySizeRequest) (*gitalypb.GetObjectDirectorySizeResponse, error) {
