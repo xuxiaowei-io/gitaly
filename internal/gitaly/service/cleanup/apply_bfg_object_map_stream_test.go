@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package cleanup
 
 import (
@@ -21,8 +19,9 @@ import (
 )
 
 func TestApplyBfgObjectMapStreamSuccess(t *testing.T) {
-	ctx := testhelper.Context(t)
+	t.Parallel()
 
+	ctx := testhelper.Context(t)
 	cfg, protoRepo, repoPath, client := setupCleanupService(t, ctx)
 
 	testcfg.BuildGitalyHooks(t, cfg)
@@ -56,10 +55,10 @@ func TestApplyBfgObjectMapStreamSuccess(t *testing.T) {
 	const filterRepoCommitMapHeader = "old                                      new\n"
 	objectMapData := fmt.Sprintf(
 		filterRepoCommitMapHeader+strings.Repeat("%s %s\n", 5),
-		commitID.String(), git.ObjectHashSHA1.ZeroOID.String(),
-		git.ObjectHashSHA1.ZeroOID.String(), blobID,
-		git.ObjectHashSHA1.ZeroOID.String(), tagID,
-		blobID, git.ObjectHashSHA1.ZeroOID.String(),
+		commitID, gittest.DefaultObjectHash.ZeroOID,
+		gittest.DefaultObjectHash.ZeroOID, blobID,
+		gittest.DefaultObjectHash.ZeroOID, tagID,
+		blobID, gittest.DefaultObjectHash.ZeroOID,
 		tagID, tagID,
 	)
 
