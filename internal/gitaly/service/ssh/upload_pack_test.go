@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package ssh
 
 import (
@@ -185,7 +183,7 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 			client: func(clientConn *sidechannel.ClientConn, _ func()) error {
 				gittest.WritePktlineString(t, clientConn, "command=fetch\n")
 				gittest.WritePktlineString(t, clientConn, "agent=git/2.36.1\n")
-				gittest.WritePktlineString(t, clientConn, "object-format=sha1\n")
+				gittest.WritePktlinef(t, clientConn, "object-format=%s\n", gittest.DefaultObjectHash.Format)
 				gittest.WritePktlineDelim(t, clientConn)
 				gittest.WritePktlinef(t, clientConn, "want %s\n", commitID)
 				gittest.WritePktlineString(t, clientConn, "done\n")
@@ -225,7 +223,7 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 			client: func(clientConn *sidechannel.ClientConn, _ func()) error {
 				gittest.WritePktlineString(t, clientConn, "command=fetch\n")
 				gittest.WritePktlineString(t, clientConn, "agent=git/2.36.1\n")
-				gittest.WritePktlineString(t, clientConn, "object-format=sha1\n")
+				gittest.WritePktlinef(t, clientConn, "object-format=%s\n", gittest.DefaultObjectHash.Format)
 				gittest.WritePktlineDelim(t, clientConn)
 				gittest.WritePktlinef(t, clientConn, "want %s\n", commitID)
 				gittest.WritePktlineString(t, clientConn, "done\n")
@@ -246,7 +244,9 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 				Repository: repo,
 			},
 			client: func(clientConn *sidechannel.ClientConn, _ func()) error {
-				gittest.WritePktlineString(t, clientConn, "want "+strings.Repeat("1", 40)+" multi_ack\n")
+				oid := strings.Repeat("1", gittest.DefaultObjectHash.EncodedLen())
+
+				gittest.WritePktlinef(t, clientConn, "want %s multi_ack\n", oid)
 				gittest.WritePktlineFlush(t, clientConn)
 				gittest.WritePktlineString(t, clientConn, "done\n")
 
@@ -255,7 +255,7 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 				return nil
 			},
 			expectedErr: structerr.NewInternal("cmd wait: exit status 128, stderr: %q",
-				"fatal: git upload-pack: not our ref "+strings.Repeat("1", 40)+"\n",
+				"fatal: git upload-pack: not our ref "+strings.Repeat("1", gittest.DefaultObjectHash.EncodedLen())+"\n",
 			),
 		},
 		{
