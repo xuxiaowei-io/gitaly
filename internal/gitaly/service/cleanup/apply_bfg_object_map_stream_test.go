@@ -126,7 +126,7 @@ func TestApplyBfgObjectMapStreamFailsOnInvalidInput(t *testing.T) {
 			ObjectMap:  []byte("invalid-data here as you can see"),
 		})
 		require.Nil(t, response)
-		testhelper.RequireGrpcError(t, structerr.NewInvalidArgument("object map invalid at line 0"), err)
+		testhelper.RequireGrpcError(t, structerr.NewInvalidArgument("invalid old object ID at line 0"), err)
 	})
 
 	t.Run("no repository provided", func(t *testing.T) {
