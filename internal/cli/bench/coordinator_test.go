@@ -2,6 +2,8 @@ package bench
 
 import (
 	"net"
+	"os"
+	"path/filepath"
 	"runtime"
 	"testing"
 
@@ -174,6 +176,7 @@ func TestBenchCoordinator(t *testing.T) {
 				Listener: l,
 				StartCmd: tc.startCmd,
 				StopCmd:  tc.stopCmd,
+				LogCmd:   []string{"/bin/bash", "-c", "echo 'hi'"},
 			}
 
 			respCh := make(chan ([]CoordResp), 1)
@@ -187,6 +190,110 @@ func TestBenchCoordinator(t *testing.T) {
 
 			responses := <-respCh
 			require.Equal(t, tc.expectedResps, responses)
+		})
+	}
+}
+
+func TestBenchCoordinator_writeLogs(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name          string
+		logCmd        []string
+		incomingCmds  func(string) []CoordCmd
+		expectedLog   string
+		expectedResps []CoordResp
+		expectedErr   string
+	}{
+		{
+			name:   "log cmd fails",
+			logCmd: []string{"/bin/bash", "-c", "exit 1"},
+			incomingCmds: func(outDir string) []CoordCmd {
+				return []CoordCmd{
+					{
+						Action: startGitalyAction,
+						OutDir: outDir,
+					},
+					{
+						Action: stopGitalyAction,
+						OutDir: outDir,
+					},
+				}
+			},
+			expectedResps: []CoordResp{
+				{
+					Error: "",
+				},
+				{
+					Error: "finish benchmarking: capture gitaly logs: exit status 1",
+				},
+			},
+			expectedErr: "coordinator: session: finish benchmarking: capture gitaly logs: exit status 1",
+		},
+		{
+			name:   "ok",
+			logCmd: []string{"/bin/bash", "-c", "echo 'hello, world'"},
+			incomingCmds: func(outDir string) []CoordCmd {
+				return []CoordCmd{
+					{
+						Action: startGitalyAction,
+						OutDir: outDir,
+					},
+					{
+						Action: stopGitalyAction,
+						OutDir: outDir,
+					},
+					{
+						Action: exitCoordAction,
+					},
+				}
+			},
+			expectedResps: []CoordResp{
+				{
+					Error: "",
+				},
+				{
+					Error: "",
+				},
+				{
+					Error: "",
+				},
+			},
+			expectedLog: "hello, world\n",
+		},
+	} {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			l, addr := testhelper.GetLocalhostListener(t)
+			defer l.Close()
+
+			coord := &Coordinator{
+				Listener: l,
+				StartCmd: cmdOK(true),
+				StopCmd:  cmdOK(true),
+				LogCmd:   tc.logCmd,
+			}
+
+			outDir := testhelper.TempDir(t)
+
+			respCh := make(chan ([]CoordResp), 1)
+			go sendCmds(t, addr, tc.incomingCmds(outDir), respCh)
+
+			if tc.expectedErr != "" {
+				require.ErrorContains(t, coord.run(), tc.expectedErr)
+			} else {
+				require.NoError(t, coord.run())
+
+				logs, err := os.ReadFile(filepath.Join(outDir, "gitaly.log"))
+				require.NoError(t, err)
+
+				require.Equal(t, tc.expectedLog, string(logs))
+			}
+
+			require.Equal(t, tc.expectedResps, <-respCh)
 		})
 	}
 }

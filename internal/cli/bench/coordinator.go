@@ -1,11 +1,13 @@
 package bench
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"time"
 
 	"github.com/urfave/cli/v2"
@@ -17,6 +19,7 @@ type Coordinator struct {
 	Listener net.Listener
 	StartCmd []string
 	StopCmd  []string
+	LogCmd   []string
 	rw       *jsonRW
 }
 
@@ -37,6 +40,7 @@ func newCoordinator(listener net.Listener) *Coordinator {
 		Listener: listener,
 		StartCmd: []string{"/usr/bin/systemctl", "start", "gitaly"},
 		StopCmd:  []string{"/usr/bin/systemctl", "stop", "gitaly"},
+		LogCmd:   []string{"/bin/bash", "-c", "journalctl --output=cat _PID=$(pidof -s gitaly)"},
 		rw:       nil,
 	}
 }
@@ -135,6 +139,12 @@ func (c *Coordinator) finishBench() error {
 		return errors.New("received command other than 'stop' while Gitaly was running")
 	}
 
+	// We need to capture logs prior to stopping Gitaly for `pidof`.
+	if err := c.captureLogs(cmd.OutDir); err != nil {
+		_ = c.stopGitaly()
+		return err
+	}
+
 	return c.stopGitaly()
 }
 
@@ -177,5 +187,25 @@ func (c *Coordinator) stopGitaly() error {
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("stop gitaly: %w", err)
 	}
+	return nil
+}
+
+func (c *Coordinator) captureLogs(outDir string) error {
+	if err := os.MkdirAll(outDir, perm.PrivateDir); err != nil {
+		return fmt.Errorf("create output directory %q: %w", outDir, err)
+	}
+
+	var stdout bytes.Buffer
+	cmd := exec.Command(c.LogCmd[0], c.LogCmd[1:]...)
+	cmd.Stdout = &stdout
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("capture gitaly logs: %w", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(outDir, "gitaly.log"), stdout.Bytes(), perm.PrivateFile); err != nil {
+		return fmt.Errorf("writing log file: %w", err)
+	}
+
 	return nil
 }
