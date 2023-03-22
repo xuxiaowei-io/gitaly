@@ -127,4 +127,5 @@ func (m *RepositoryManager) Collect(metrics chan<- prometheus.Metric) {
 	m.dataStructureExistence.Collect(metrics)
 	m.dataStructureCount.Collect(metrics)
 	m.dataStructureSize.Collect(metrics)
+	m.dataStructureTimeSinceLastOptimization.Collect(metrics)
 }
