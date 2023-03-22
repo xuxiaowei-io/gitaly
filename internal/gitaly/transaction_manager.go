@@ -109,6 +109,9 @@ type ReferenceUpdates map[git.ReferenceName]ReferenceUpdate
 type Snapshot struct {
 	// ReadIndex is the index of the log entry this Transaction is reading the data at.
 	ReadIndex LogIndex
+	// HookIndex is index of the hooks on the disk that are included in this Transactions's snapshot
+	// and were the latest on the read index.
+	HookIndex LogIndex
 }
 
 // Transaction is a unit-of-work that contains reference changes to perform on the repository.
@@ -143,8 +146,11 @@ func (mgr *TransactionManager) Begin(ctx context.Context) (*Transaction, error) 
 	}
 
 	mgr.mutex.RLock()
-	readIndex := mgr.appendedLogIndex
-	readReady := mgr.applyNotifications[readIndex]
+	snapshot := Snapshot{
+		ReadIndex: mgr.appendedLogIndex,
+		HookIndex: mgr.hookIndex,
+	}
+	readReady := mgr.applyNotifications[snapshot.ReadIndex]
 	mgr.mutex.RUnlock()
 	if readReady == nil {
 		// The snapshot log entry is already applied if there is no notification channel for it.
@@ -160,10 +166,8 @@ func (mgr *TransactionManager) Begin(ctx context.Context) (*Transaction, error) 
 		return nil, ErrTransactionProcessingStopped
 	case <-readReady:
 		return &Transaction{
-			commit: mgr.commit,
-			snapshot: Snapshot{
-				ReadIndex: readIndex,
-			},
+			commit:   mgr.commit,
+			snapshot: snapshot,
 		}, nil
 	}
 }
@@ -287,6 +291,8 @@ type TransactionManager struct {
 	appendedLogIndex LogIndex
 	// appliedLogIndex holds the index of the last log entry applied to the repository
 	appliedLogIndex LogIndex
+	// hookIndex stores the log index of the latest committed hooks in the repository.
+	hookIndex LogIndex
 }
 
 // repository is the localrepo interface used by TransactionManager.
@@ -453,6 +459,52 @@ func (mgr *TransactionManager) initialize() error {
 		return nil
 	}); err != nil {
 		return fmt.Errorf("determine appended log index: %w", err)
+	}
+
+	// Determine the latest hooks in the repository.
+	//
+	// 1. First we iterate through the unapplied log in reverse order. The first log entry that
+	//    contains custom hooks must have the latest hooks since it is the latest log entry.
+	// 2. If we don't find any custom hooks in the log, the latest hooks could have been applied
+	//    to the repository already and the log entry pruned away. Look at the hooks on the disk
+	//    to see which are the latest.
+	// 3. If we found no hooks in the log nor in the repository, there are no hooks configured.
+	for i := mgr.appendedLogIndex; mgr.appliedLogIndex < i; i-- {
+		logEntry, err := mgr.readLogEntry(i)
+		if err != nil {
+			return fmt.Errorf("read log entry: %w", err)
+		}
+
+		if logEntry.CustomHooksUpdate != nil {
+			mgr.hookIndex = i
+			break
+		}
+	}
+
+	if mgr.hookIndex == 0 {
+		repoPath, err := mgr.repository.Path()
+		if err != nil {
+			return fmt.Errorf("repository path: %w", err)
+		}
+
+		hookDirs, err := os.ReadDir(filepath.Join(repoPath, "wal/hooks"))
+		if err != nil {
+			// If the directory doesn't exist, then there are no hooks yet.
+			if !errors.Is(err, fs.ErrNotExist) {
+				return fmt.Errorf("read hook directories: %w", err)
+			}
+		} else {
+			for _, dir := range hookDirs {
+				hookIndex, err := strconv.ParseInt(dir.Name(), 10, 64)
+				if err != nil {
+					return fmt.Errorf("parse hook index: %w", err)
+				}
+
+				if mgr.hookIndex < LogIndex(hookIndex) {
+					mgr.hookIndex = LogIndex(hookIndex)
+				}
+			}
+		}
 	}
 
 	// Each unapplied log entry should have a notification channel that gets closed when it is applied.
@@ -629,6 +681,9 @@ func (mgr *TransactionManager) appendLogEntry(logEntry *gitalypb.LogEntry) error
 
 	mgr.mutex.Lock()
 	mgr.appendedLogIndex = nextLogIndex
+	if logEntry.CustomHooksUpdate != nil {
+		mgr.hookIndex = nextLogIndex
+	}
 	mgr.applyNotifications[nextLogIndex] = make(chan struct{})
 	mgr.mutex.Unlock()
 
@@ -637,10 +692,8 @@ func (mgr *TransactionManager) appendLogEntry(logEntry *gitalypb.LogEntry) error
 
 // applyLogEntry reads a log entry at the given index and applies it to the repository.
 func (mgr *TransactionManager) applyLogEntry(ctx context.Context, logIndex LogIndex) error {
-	var logEntry gitalypb.LogEntry
-	key := keyLogEntry(getRepositoryID(mgr.repository), logIndex)
-
-	if err := mgr.readKey(key, &logEntry); err != nil {
+	logEntry, err := mgr.readLogEntry(logIndex)
+	if err != nil {
 		return fmt.Errorf("read log entry: %w", err)
 	}
 
@@ -665,7 +718,7 @@ func (mgr *TransactionManager) applyLogEntry(ctx context.Context, logIndex LogIn
 		return fmt.Errorf("set applied log index: %w", err)
 	}
 
-	if err := mgr.deleteKey(key); err != nil {
+	if err := mgr.deleteLogEntry(logIndex); err != nil {
 		return fmt.Errorf("deleting log entry: %w", err)
 	}
 
@@ -742,6 +795,23 @@ func (mgr *TransactionManager) applyCustomHooks(ctx context.Context, logIndex Lo
 	}
 
 	return nil
+}
+
+// deleteLogEntry deletes the log entry at the given index from the log.
+func (mgr *TransactionManager) deleteLogEntry(index LogIndex) error {
+	return mgr.deleteKey(keyLogEntry(getRepositoryID(mgr.repository), index))
+}
+
+// readLogEntry returns the log entry from the given position in the log.
+func (mgr *TransactionManager) readLogEntry(index LogIndex) (*gitalypb.LogEntry, error) {
+	var logEntry gitalypb.LogEntry
+	key := keyLogEntry(getRepositoryID(mgr.repository), index)
+
+	if err := mgr.readKey(key, &logEntry); err != nil {
+		return nil, fmt.Errorf("read key: %w", err)
+	}
+
+	return &logEntry, nil
 }
 
 // storeLogEntry stores the log entry in the repository's write-ahead log at the given index.
