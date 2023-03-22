@@ -98,8 +98,10 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 			strategy: HeuristicalOptimizationStrategy{
 				info: stats.RepositoryInfo{
 					Packfiles: stats.PackfilesInfo{
-						Count:             1,
-						HasMultiPackIndex: true,
+						Count: 1,
+						MultiPackIndex: stats.MultiPackIndexInfo{
+							Exists: true,
+						},
 					},
 				},
 			},
@@ -190,7 +192,9 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 								Bitmap: stats.BitmapInfo{
 									Exists: true,
 								},
-								HasMultiPackIndex: true,
+								MultiPackIndex: stats.MultiPackIndexInfo{
+									Exists: true,
+								},
 							},
 							Alternates: tc.alternates,
 						},
@@ -274,7 +278,9 @@ func testHeuristicalOptimizationStrategyShouldRepackObjects(t *testing.T, ctx co
 							Bitmap: stats.BitmapInfo{
 								Exists: true,
 							},
-							HasMultiPackIndex: true,
+							MultiPackIndex: stats.MultiPackIndexInfo{
+								Exists: true,
+							},
 						},
 					},
 				}

@@ -265,8 +265,8 @@ type PackfilesInfo struct {
 	GarbageSize uint64 `json:"garbage_size"`
 	// Bitmap contains information about the bitmap, if any exists.
 	Bitmap BitmapInfo `json:"bitmap"`
-	// HasMultiPackIndex indicates whether there is a multi-pack-index.
-	HasMultiPackIndex bool `json:"has_multi_pack_index"`
+	// MultiPackIndex confains information about the multi-pack-index, if any exists.
+	MultiPackIndex MultiPackIndexInfo `json:"multi_pack_index"`
 	// MultiPackIndexBitmap contains information about the bitmap for the multi-pack-index, if
 	// any exists.
 	MultiPackIndexBitmap BitmapInfo `json:"multi_pack_index_bitmap"`
@@ -334,7 +334,12 @@ func PackfilesInfoForRepository(repo *localrepo.Repo) (PackfilesInfo, error) {
 
 			info.Bitmap = bitmap
 		case entryName == "multi-pack-index":
-			info.HasMultiPackIndex = true
+			midxInfo, err := MultiPackIndexInfoForPath(filepath.Join(packfilesPath, entryName))
+			if err != nil {
+				return PackfilesInfo{}, fmt.Errorf("reading multi-pack-index: %w", err)
+			}
+
+			info.MultiPackIndex = midxInfo
 		case hasPrefixAndSuffix(entryName, "multi-pack-index-", ".bitmap"):
 			bitmap, err := BitmapInfoForPath(filepath.Join(packfilesPath, entryName))
 			if err != nil {

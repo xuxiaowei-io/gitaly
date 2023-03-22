@@ -47,7 +47,7 @@ func requireObjectsState(tb testing.TB, repo *localrepo.Repo, expectedState obje
 		packfiles:               repoInfo.Packfiles.Count,
 		cruftPacks:              repoInfo.Packfiles.CruftCount,
 		hasBitmap:               repoInfo.Packfiles.Bitmap.Exists,
-		hasMultiPackIndex:       repoInfo.Packfiles.HasMultiPackIndex,
+		hasMultiPackIndex:       repoInfo.Packfiles.MultiPackIndex.Exists,
 		hasMultiPackIndexBitmap: repoInfo.Packfiles.MultiPackIndexBitmap.Exists,
 	})
 }

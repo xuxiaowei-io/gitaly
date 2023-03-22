@@ -806,12 +806,17 @@ func TestPackfileInfoForRepository(t *testing.T) {
 		{
 			desc: "multi-pack-index",
 			seedRepository: func(t *testing.T, repoPath string) {
-				packfileDir := filepath.Join(repoPath, "objects", "pack")
-				require.NoError(t, os.MkdirAll(packfileDir, perm.SharedDir))
-				require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "multi-pack-index"), nil, perm.SharedFile))
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Ad", "--write-midx")
 			},
 			expectedInfo: PackfilesInfo{
-				HasMultiPackIndex: true,
+				Count: 1,
+				Size:  hashDependentSize(163, 189),
+				MultiPackIndex: MultiPackIndexInfo{
+					Exists:        true,
+					Version:       1,
+					PackfileCount: 1,
+				},
 			},
 		},
 		{
@@ -821,9 +826,13 @@ func TestPackfileInfoForRepository(t *testing.T) {
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Adb", "--write-midx")
 			},
 			expectedInfo: PackfilesInfo{
-				Count:             1,
-				Size:              hashDependentSize(163, 189),
-				HasMultiPackIndex: true,
+				Count: 1,
+				Size:  hashDependentSize(163, 189),
+				MultiPackIndex: MultiPackIndexInfo{
+					Exists:        true,
+					Version:       1,
+					PackfileCount: 1,
+				},
 				MultiPackIndexBitmap: BitmapInfo{
 					Exists:       true,
 					Version:      1,
@@ -842,11 +851,15 @@ func TestPackfileInfoForRepository(t *testing.T) {
 				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "objects", "pack", "garbage"), []byte("1"), perm.SharedFile))
 			},
 			expectedInfo: PackfilesInfo{
-				Count:             2,
-				Size:              hashDependentSize(315, 367),
-				GarbageCount:      1,
-				GarbageSize:       1,
-				HasMultiPackIndex: true,
+				Count:        2,
+				Size:         hashDependentSize(315, 367),
+				GarbageCount: 1,
+				GarbageSize:  1,
+				MultiPackIndex: MultiPackIndexInfo{
+					Exists:        true,
+					Version:       1,
+					PackfileCount: 2,
+				},
 				MultiPackIndexBitmap: BitmapInfo{
 					Exists:       true,
 					Version:      1,
@@ -862,11 +875,15 @@ func TestPackfileInfoForRepository(t *testing.T) {
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "--cruft", "-db", "--write-midx")
 			},
 			expectedInfo: PackfilesInfo{
-				Count:             1,
-				Size:              hashDependentSize(162, 188),
-				CruftCount:        1,
-				CruftSize:         hashDependentSize(156, 183),
-				HasMultiPackIndex: true,
+				Count:      1,
+				Size:       hashDependentSize(162, 188),
+				CruftCount: 1,
+				CruftSize:  hashDependentSize(156, 183),
+				MultiPackIndex: MultiPackIndexInfo{
+					Exists:        true,
+					Version:       1,
+					PackfileCount: 2,
+				},
 				MultiPackIndexBitmap: BitmapInfo{
 					Exists:       true,
 					Version:      1,
