@@ -3,11 +3,11 @@ package git
 import (
 	"bytes"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/errors/cfgerror"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -159,19 +159,28 @@ func TestGlobalOption(t *testing.T) {
 			expectedArgs: []string{"-c", "http.https://*.example.com/.proxy=http://proxy.example.com"},
 		},
 		{
-			desc:        "config pair with invalid section format",
-			option:      ConfigPair{Key: "foo", Value: "value"},
-			expectedErr: fmt.Errorf("invalid configuration key %q: %w", "foo", errors.New("key must contain at least one section")),
+			desc:   "config pair with invalid section format",
+			option: ConfigPair{Key: "foo", Value: "value"},
+			expectedErr: fmt.Errorf(
+				"invalid configuration key \"foo\": %w",
+				cfgerror.NewValidationError(fmt.Errorf("key %q must contain at least one section", "foo"), "key"),
+			),
 		},
 		{
-			desc:        "config pair with leading whitespace",
-			option:      ConfigPair{Key: " foo.bar", Value: "value"},
-			expectedErr: fmt.Errorf("invalid configuration key %q: %w", " foo.bar", errors.New("key failed regexp validation")),
+			desc:   "config pair with leading whitespace",
+			option: ConfigPair{Key: " foo.bar", Value: "value"},
+			expectedErr: fmt.Errorf(
+				"invalid configuration key \" foo.bar\": %w",
+				cfgerror.NewValidationError(fmt.Errorf("key %q failed regexp validation", " foo.bar"), "key"),
+			),
 		},
 		{
-			desc:        "config pair with disallowed character in key",
-			option:      ConfigPair{Key: "foo.b=r", Value: "value"},
-			expectedErr: fmt.Errorf("invalid configuration key %q: %w", "foo.b=r", errors.New("key cannot contain assignment")),
+			desc:   "config pair with disallowed character in key",
+			option: ConfigPair{Key: "foo.b=r", Value: "value"},
+			expectedErr: fmt.Errorf(
+				"invalid configuration key \"foo.b=r\": %w",
+				cfgerror.NewValidationError(fmt.Errorf("key %q cannot contain \"=\"", "foo.b=r"), "key"),
+			),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

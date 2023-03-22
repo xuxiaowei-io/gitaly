@@ -28,6 +28,7 @@ func NewApp() *cli.App {
 		Commands: []*cli.Command{
 			newServeCommand(),
 			newCheckCommand(),
+			newConfigurationCommand(),
 		},
 	}
 }

@@ -1,5 +1,9 @@
 package cgroups
 
+import (
+	"gitlab.com/gitlab-org/gitaly/v15/internal/errors/cfgerror"
+)
+
 // Config is a struct for cgroups config
 type Config struct {
 	// Mountpoint is where the cgroup filesystem is mounted, usually under /sys/fs/cgroup/
@@ -45,6 +49,13 @@ func (c *Config) FallbackToOldVersion() {
 	}
 }
 
+// Validate runs validation on all fields and compose all found errors.
+func (c *Config) Validate() error {
+	return cfgerror.New().
+		Append(c.Repositories.Validate(c.MemoryBytes, c.CPUShares, c.CPUQuotaUs), "repositories").
+		AsError()
+}
+
 // Repositories configures cgroups to be created that are isolated by repository.
 type Repositories struct {
 	// Count is the number of cgroups that will be created for repository-level isolation
@@ -61,6 +72,15 @@ type Repositories struct {
 	//
 	// The cfs_period_us is hardcoded to 100ms
 	CPUQuotaUs int64 `toml:"cpu_quota_us"`
+}
+
+// Validate runs validation on all fields and compose all found errors.
+func (r *Repositories) Validate(memBytes int64, cpuShares uint64, cpuQuotaUs int64) error {
+	return cfgerror.New().
+		Append(cfgerror.InRange(0, memBytes, r.MemoryBytes, cfgerror.InRangeOptIncludeMin, cfgerror.InRangeOptIncludeMax), "memory_bytes").
+		Append(cfgerror.InRange(0, cpuShares, r.CPUShares, cfgerror.InRangeOptIncludeMin, cfgerror.InRangeOptIncludeMax), "cpu_shares").
+		Append(cfgerror.InRange(0, cpuQuotaUs, r.CPUQuotaUs, cfgerror.InRangeOptIncludeMin, cfgerror.InRangeOptIncludeMax), "cpu_quota_us").
+		AsError()
 }
 
 // Memory is a struct storing cgroups memory config

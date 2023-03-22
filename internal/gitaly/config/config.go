@@ -1,11 +1,13 @@
 package config
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -18,6 +20,7 @@ import (
 
 	"github.com/pelletier/go-toml/v2"
 	log "github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/errors/cfgerror"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/auth"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/cgroups"
 	internallog "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/log"
@@ -49,6 +52,35 @@ type DailyJob struct {
 	// Disabled will completely disable a daily job, even in cases where a
 	// default schedule is implied
 	Disabled bool `toml:"disabled,omitempty" json:"disabled"`
+}
+
+// Validate runs validation on all fields and compose all found errors.
+func (dj DailyJob) Validate(allowedStorages []string) error {
+	if dj.Disabled {
+		return nil
+	}
+
+	inRangeOpts := []cfgerror.InRangeOpt{cfgerror.InRangeOptIncludeMin, cfgerror.InRangeOptIncludeMax}
+	errs := cfgerror.New().
+		Append(cfgerror.InRange(0, 23, dj.Hour, inRangeOpts...), "start_hour").
+		Append(cfgerror.InRange(0, 59, dj.Minute, inRangeOpts...), "start_minute").
+		Append(cfgerror.InRange(time.Duration(0), 24*time.Hour, dj.Duration.Duration(), inRangeOpts...), "duration")
+
+	for i, storage := range dj.Storages {
+		var found bool
+		for _, allowed := range allowedStorages {
+			if allowed == storage {
+				found = true
+				break
+			}
+		}
+		if !found {
+			cause := fmt.Errorf("%w: %q", cfgerror.ErrDoesntExist, storage)
+			errs = errs.Append(cfgerror.NewValidationError(cause, "storages", fmt.Sprintf("[%d]", i)))
+		}
+	}
+
+	return errs.AsError()
 }
 
 // Cfg is a container for all config derived from config.toml.
@@ -90,9 +122,47 @@ type TLS struct {
 	KeyPath  string `toml:"key_path,omitempty" json:"key_path"`
 }
 
+// Validate runs validation on all fields and compose all found errors.
+func (t TLS) Validate() error {
+	if t.CertPath == "" && t.KeyPath == "" {
+		return nil
+	}
+
+	errs := cfgerror.New().
+		Append(cfgerror.FileExists(t.CertPath), "certificate_path").
+		Append(cfgerror.FileExists(t.KeyPath), "key_path")
+
+	if len(errs) != 0 {
+		// In case of problems with files attempt to load
+		// will fail and pollute output with useless info.
+		return errs.AsError()
+	}
+
+	if _, err := tls.LoadX509KeyPair(t.CertPath, t.KeyPath); err != nil {
+		if strings.Contains(err.Error(), "in certificate input") {
+			return cfgerror.NewValidationError(err, "certificate_path")
+		}
+
+		if strings.Contains(err.Error(), "in key input") {
+			return cfgerror.NewValidationError(err, "key_path")
+		}
+
+		return cfgerror.NewValidationError(err)
+	}
+
+	return nil
+}
+
 // GitlabShell contains the settings required for executing `gitlab-shell`
 type GitlabShell struct {
 	Dir string `toml:"dir" json:"dir"`
+}
+
+// Validate runs validation on all fields and compose all found errors.
+func (gs GitlabShell) Validate() error {
+	return cfgerror.New().
+		Append(cfgerror.DirExists(gs.Dir), "dir").
+		AsError()
 }
 
 // Gitlab contains settings required to connect to the Gitlab api
@@ -103,18 +173,55 @@ type Gitlab struct {
 	SecretFile      string       `toml:"secret_file,omitempty" json:"secret_file"`
 }
 
+// Validate runs validation on all fields and compose all found errors.
+func (gl Gitlab) Validate() error {
+	var errs cfgerror.ValidationErrors
+	if err := cfgerror.NotBlank(gl.URL); err != nil {
+		errs = errs.Append(err, "url")
+	} else {
+		if _, err := url.Parse(gl.URL); err != nil {
+			errs = errs.Append(err, "url")
+		}
+	}
+
+	return errs.Append(cfgerror.FileExists(gl.SecretFile), "secret_file").
+		Append(gl.HTTPSettings.Validate(), "http-settings").
+		AsError()
+}
+
 // Hooks contains the settings required for hooks
 type Hooks struct {
 	CustomHooksDir string `toml:"custom_hooks_dir,omitempty" json:"custom_hooks_dir"`
 }
 
-//nolint:revive // This is unintentionally missing documentation.
+// HTTPSettings contains configuration settings used to setup HTTP transport
+// and basic HTTP authorization.
 type HTTPSettings struct {
-	ReadTimeout int    `toml:"read_timeout,omitempty" json:"read_timeout"`
+	ReadTimeout uint64 `toml:"read_timeout,omitempty" json:"read_timeout"`
 	User        string `toml:"user,omitempty" json:"user"`
 	Password    string `toml:"password,omitempty" json:"password"`
 	CAFile      string `toml:"ca_file,omitempty" json:"ca_file"`
 	CAPath      string `toml:"ca_path,omitempty" json:"ca_path"`
+}
+
+// Validate runs validation on all fields and compose all found errors.
+func (ss HTTPSettings) Validate() error {
+	var errs cfgerror.ValidationErrors
+	if ss.User != "" || ss.Password != "" {
+		// If one of the basic auth parameters is set the other one must be set as well.
+		errs = errs.Append(cfgerror.NotBlank(ss.User), "user").
+			Append(cfgerror.NotBlank(ss.Password), "password")
+	}
+
+	if ss.CAFile != "" {
+		errs = errs.Append(cfgerror.FileExists(ss.CAFile), "ca_file")
+	}
+
+	if ss.CAPath != "" {
+		errs = errs.Append(cfgerror.DirExists(ss.CAPath), "ca_path")
+	}
+
+	return errs.AsError()
 }
 
 // Git contains the settings for the Git executable
@@ -125,6 +232,16 @@ type Git struct {
 	Config             []GitConfig `toml:"config,omitempty" json:"config"`
 	IgnoreGitconfig    bool        `toml:"ignore_gitconfig,omitempty" json:"ignore_gitconfig"`
 	SigningKey         string      `toml:"signing_key,omitempty" json:"signing_key"`
+}
+
+// Validate runs validation on all fields and compose all found errors.
+func (g Git) Validate() error {
+	var errs cfgerror.ValidationErrors
+	for _, gc := range g.Config {
+		errs = errs.Append(gc.Validate(), "config")
+	}
+
+	return errs.AsError()
 }
 
 // GitConfig contains a key-value pair which is to be passed to git as configuration.
@@ -140,20 +257,32 @@ func (cfg GitConfig) Validate() error {
 	// Even though redundant, this block checks for a few things up front to give better error
 	// messages to the administrator in case any of the keys fails validation.
 	if cfg.Key == "" {
-		return errors.New("key cannot be empty")
+		return cfgerror.NewValidationError(cfgerror.ErrNotSet, "key")
 	}
 	if strings.Contains(cfg.Key, "=") {
-		return errors.New("key cannot contain assignment")
+		return cfgerror.NewValidationError(
+			fmt.Errorf(`key %q cannot contain "="`, cfg.Key),
+			"key",
+		)
 	}
 	if !strings.Contains(cfg.Key, ".") {
-		return errors.New("key must contain at least one section")
+		return cfgerror.NewValidationError(
+			fmt.Errorf("key %q must contain at least one section", cfg.Key),
+			"key",
+		)
 	}
 	if strings.HasPrefix(cfg.Key, ".") || strings.HasSuffix(cfg.Key, ".") {
-		return errors.New("key must not start or end with a dot")
+		return cfgerror.NewValidationError(
+			fmt.Errorf("key %q must not start or end with a dot", cfg.Key),
+			"key",
+		)
 	}
 
 	if !configKeyRegex.MatchString(cfg.Key) {
-		return fmt.Errorf("key failed regexp validation")
+		return cfgerror.NewValidationError(
+			fmt.Errorf("key %q failed regexp validation", cfg.Key),
+			"key",
+		)
 	}
 
 	return nil
@@ -171,8 +300,61 @@ func (cfg GitConfig) GlobalArgs() ([]string, error) {
 
 // Storage contains a single storage-shard
 type Storage struct {
-	Name string
-	Path string
+	Name string `toml:"name"`
+	Path string `toml:"path"`
+}
+
+// Validate runs validation on all fields and compose all found errors.
+func (s Storage) Validate() error {
+	return cfgerror.New().
+		Append(cfgerror.NotEmpty(s.Name), "name").
+		Append(cfgerror.DirExists(s.Path), "path").
+		AsError()
+}
+
+func validateStorages(storages []Storage) error {
+	if len(storages) == 0 {
+		return cfgerror.NewValidationError(cfgerror.ErrNotSet)
+	}
+
+	var errs cfgerror.ValidationErrors
+	for i, s := range storages {
+		errs = errs.Append(s.Validate(), fmt.Sprintf("[%d]", i))
+	}
+
+	for i, storage := range storages {
+		for _, other := range storages[:i] {
+			if other.Name == storage.Name {
+				err := fmt.Errorf("%w: %q", cfgerror.ErrNotUnique, storage.Name)
+				cause := cfgerror.NewValidationError(err, "name")
+				errs = errs.Append(cause, fmt.Sprintf("[%d]", i))
+			}
+
+			if storage.Path == other.Path {
+				// This is weird, but we allow it for legacy gitlab.com reasons.
+				continue
+			}
+
+			if storage.Path == "" || other.Path == "" {
+				// If one of Path-s is not set the code below will produce an error
+				// that only confuses, so we stop here.
+				continue
+			}
+
+			if strings.HasPrefix(storage.Path, other.Path) || strings.HasPrefix(other.Path, storage.Path) {
+				// If storages have the same subdirectory, that is allowed.
+				if filepath.Dir(storage.Path) == filepath.Dir(other.Path) {
+					continue
+				}
+
+				cause := fmt.Errorf("can't nest: %q and %q", storage.Path, other.Path)
+				err := cfgerror.NewValidationError(cause, "path")
+				errs = errs.Append(err, fmt.Sprintf("[%d]", i))
+			}
+		}
+	}
+
+	return errs.AsError()
 }
 
 // Sentry is a sentry.Config. We redefine this type to a different name so
@@ -240,7 +422,7 @@ func ParsePackObjectsLimitingKey(k string) (PackObjectsLimitingKey, error) {
 	case PackObjectsLimitingKeyRepository:
 		return PackObjectsLimitingKeyRepository, nil
 	default:
-		return "", fmt.Errorf("unsupported pack objects limiting key: %s", k)
+		return "", fmt.Errorf("unsupported pack objects limiting key: %q", k)
 	}
 }
 
@@ -263,10 +445,17 @@ type PackObjectsLimiting struct {
 	Key PackObjectsLimitingKey `toml:"key,omitempty" json:"key,omitempty"`
 	// MaxConcurrency is the maximum number of concurrent pack objects processes
 	// for a given key.
-	MaxConcurrency int `toml:"max_concurrency,omitempty" json:"max_concurrency,omitempty"`
+	MaxConcurrency uint `toml:"max_concurrency,omitempty" json:"max_concurrency,omitempty"`
 	// MaxQueueWait is the maximum time a request can remain in the concurrency queue
 	// waiting to be picked up by Gitaly.
 	MaxQueueWait duration.Duration `toml:"max_queue_wait,omitempty" json:"max_queue_wait,omitempty"`
+}
+
+// Validate runs validation on all fields and compose all found errors.
+func (pol PackObjectsLimiting) Validate() error {
+	return cfgerror.New().
+		Append(cfgerror.IsPositive(pol.MaxQueueWait.Duration()), "max_queue_wait").
+		AsError()
 }
 
 // StreamCacheConfig contains settings for a streamcache instance.
@@ -275,6 +464,18 @@ type StreamCacheConfig struct {
 	Dir            string            `toml:"dir" json:"dir"`         // Default: <FIRST STORAGE PATH>/+gitaly/PackObjectsCache
 	MaxAge         duration.Duration `toml:"max_age" json:"max_age"` // Default: 5m
 	MinOccurrences int               `toml:"min_occurrences" json:"min_occurrences"`
+}
+
+// Validate runs validation on all fields and compose all found errors.
+func (scc StreamCacheConfig) Validate() error {
+	if !scc.Enabled {
+		return nil
+	}
+
+	return cfgerror.New().
+		Append(cfgerror.PathIsAbs(scc.Dir), "dir").
+		Append(cfgerror.IsPositive(scc.MaxAge.Duration()), "max_age").
+		AsError()
 }
 
 // Load initializes the Config variable from file and the environment.
@@ -336,6 +537,67 @@ func (cfg *Cfg) Validate() error {
 	}
 
 	return nil
+}
+
+// ValidateV2 is a new validation method that is a replacement for the existing Validate.
+// It exists as a demonstration of the new validation implementation based on the usage
+// of the cfgerror package.
+func (cfg *Cfg) ValidateV2() error {
+	var errs cfgerror.ValidationErrors
+	for _, check := range []struct {
+		field    string
+		validate func() error
+	}{
+		{field: "", validate: func() error {
+			if cfg.SocketPath == "" && cfg.ListenAddr == "" && cfg.TLSListenAddr == "" {
+				return fmt.Errorf(`none of "socket_path", "listen_addr" or "tls_listen_addr" is set`)
+			}
+			return nil
+		}},
+		{field: "bin_dir", validate: func() error {
+			return cfgerror.DirExists(cfg.BinDir)
+		}},
+		{field: "runtime_dir", validate: func() error {
+			if cfg.RuntimeDir != "" {
+				return cfgerror.DirExists(cfg.RuntimeDir)
+			}
+			return nil
+		}},
+		{field: "git", validate: cfg.Git.Validate},
+		{field: "storage", validate: func() error {
+			var errs cfgerror.ValidationErrors
+			for i, storage := range cfg.Storages {
+				errs = errs.Append(storage.Validate(), fmt.Sprintf("[%d]", i))
+			}
+			return errs.AsError()
+		}},
+		{field: "prometheus", validate: cfg.Prometheus.Validate},
+		{field: "tls", validate: cfg.TLS.Validate},
+		{field: "ruby", validate: cfg.Ruby.Validate},
+		{field: "gitlab", validate: cfg.Gitlab.Validate},
+		{field: "gitlab-shell", validate: cfg.GitlabShell.Validate},
+		{field: "graceful_restart_timeout", validate: func() error {
+			return cfgerror.IsPositive(cfg.GracefulRestartTimeout.Duration())
+		}},
+		{field: "daily_maintenance", validate: func() error {
+			storages := make([]string, len(cfg.Storages))
+			for i := 0; i < len(cfg.Storages); i++ {
+				storages[i] = cfg.Storages[i].Name
+			}
+			return cfg.DailyMaintenance.Validate(storages)
+		}},
+		{field: "cgroups", validate: cfg.Cgroups.Validate},
+		{field: "pack_objects_cache", validate: cfg.PackObjectsCache.Validate},
+		{field: "pack_objects_limiting", validate: cfg.PackObjectsLimiting.Validate},
+	} {
+		var fields []string
+		if check.field != "" {
+			fields = append(fields, check.field)
+		}
+		errs = errs.Append(check.validate(), fields...)
+	}
+
+	return errs.AsError()
 }
 
 func (cfg *Cfg) setDefaults() error {

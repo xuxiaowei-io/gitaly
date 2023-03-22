@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/errors/cfgerror"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/auth"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config/prometheus"
@@ -470,16 +472,16 @@ func TestValidateStorages(t *testing.T) {
 	filePath := filepath.Join(testhelper.TempDir(t), "temporary-file")
 	require.NoError(t, os.WriteFile(filePath, []byte{}, perm.PublicFile))
 
-	invalidDir := filepath.Join(repositories, t.Name())
+	invalidDir := filepath.Join(filepath.Dir(repositories), t.Name())
 
 	testCases := []struct {
-		desc      string
-		storages  []Storage
-		expErrMsg string
+		desc        string
+		storages    []Storage
+		expectedErr error
 	}{
 		{
-			desc:      "no storages",
-			expErrMsg: "no storage configurations found. Are you using the right format? https://gitlab.com/gitlab-org/gitaly/issues/397",
+			desc:        "no storages",
+			expectedErr: cfgerror.NewValidationError(cfgerror.ErrNotSet),
 		},
 		{
 			desc: "just 1 storage",
@@ -509,7 +511,13 @@ func TestValidateStorages(t *testing.T) {
 				{Name: "other", Path: repositories},
 				{Name: "third", Path: nestedRepositories},
 			},
-			expErrMsg: `storage paths may not nest: "third" and "default"`,
+			expectedErr: cfgerror.ValidationErrors{{
+				Key:   []string{"[2]", "path"},
+				Cause: fmt.Errorf(`can't nest: %q and %q`, nestedRepositories, repositories),
+			}, {
+				Key:   []string{"[2]", "path"},
+				Cause: fmt.Errorf(`can't nest: %q and %q`, nestedRepositories, repositories),
+			}},
 		},
 		{
 			desc: "nested paths 2",
@@ -518,7 +526,13 @@ func TestValidateStorages(t *testing.T) {
 				{Name: "other", Path: repositories},
 				{Name: "third", Path: repositories},
 			},
-			expErrMsg: `storage paths may not nest: "other" and "default"`,
+			expectedErr: cfgerror.ValidationErrors{{
+				Key:   []string{"[1]", "path"},
+				Cause: fmt.Errorf(`can't nest: %q and %q`, repositories, nestedRepositories),
+			}, {
+				Key:   []string{"[2]", "path"},
+				Cause: fmt.Errorf(`can't nest: %q and %q`, repositories, nestedRepositories),
+			}},
 		},
 		{
 			desc: "duplicate definition",
@@ -526,7 +540,10 @@ func TestValidateStorages(t *testing.T) {
 				{Name: "default", Path: repositories},
 				{Name: "default", Path: repositories},
 			},
-			expErrMsg: `storage "default" is defined more than once`,
+			expectedErr: cfgerror.ValidationErrors{cfgerror.NewValidationError(
+				fmt.Errorf(`%w: "default"`, cfgerror.ErrNotUnique),
+				"[1]", "name",
+			)},
 		},
 		{
 			desc: "re-definition",
@@ -534,7 +551,12 @@ func TestValidateStorages(t *testing.T) {
 				{Name: "default", Path: repositories},
 				{Name: "default", Path: repositories2},
 			},
-			expErrMsg: `storage "default" is defined more than once`,
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					fmt.Errorf(`%w: "default"`, cfgerror.ErrNotUnique),
+					"[1]", "name",
+				),
+			},
 		},
 		{
 			desc: "empty name",
@@ -542,15 +564,12 @@ func TestValidateStorages(t *testing.T) {
 				{Name: "some", Path: repositories},
 				{Name: "", Path: repositories},
 			},
-			expErrMsg: `empty storage name at declaration 2`,
-		},
-		{
-			desc: "empty path",
-			storages: []Storage{
-				{Name: "some", Path: repositories},
-				{Name: "default", Path: ""},
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					cfgerror.ErrNotSet,
+					"[1]", "name",
+				),
 			},
-			expErrMsg: `empty storage path for storage "default"`,
 		},
 		{
 			desc: "non existing directory",
@@ -558,7 +577,12 @@ func TestValidateStorages(t *testing.T) {
 				{Name: "default", Path: repositories},
 				{Name: "nope", Path: invalidDir},
 			},
-			expErrMsg: fmt.Sprintf(`storage path %q for storage "nope" doesn't exist`, invalidDir),
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: %q", cfgerror.ErrDoesntExist, invalidDir),
+					"[1]", "path",
+				),
+			},
 		},
 		{
 			desc: "path points to the regular file",
@@ -566,21 +590,41 @@ func TestValidateStorages(t *testing.T) {
 				{Name: "default", Path: repositories},
 				{Name: "is_file", Path: filePath},
 			},
-			expErrMsg: fmt.Sprintf(`storage path %q for storage "is_file" is not a dir`, filePath),
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: %q", cfgerror.ErrNotDir, filePath),
+					"[1]", "path",
+				),
+			},
+		},
+		{
+			desc: "multiple errors",
+			storages: []Storage{
+				{Name: "", Path: repositories},
+				{Name: "default", Path: "somewhat"},
+			},
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					cfgerror.ErrNotSet,
+					"[0]", "name",
+				),
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: %q", cfgerror.ErrDoesntExist, "somewhat"),
+					"[1]", "path",
+				),
+			},
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			cfg := Cfg{Storages: tc.storages}
-
-			err := cfg.validateStorages()
-			if tc.expErrMsg != "" {
-				assert.EqualError(t, err, tc.expErrMsg, "%+v", tc.storages)
+			err := validateStorages(tc.storages)
+			if tc.expectedErr != nil {
+				assert.Equalf(t, tc.expectedErr, err, "%+v", tc.storages)
 				return
 			}
 
-			assert.NoError(t, err, "%+v", tc.storages)
+			assert.NoErrorf(t, err, "%+v", tc.storages)
 		})
 	}
 }
@@ -638,7 +682,7 @@ value = "second-value"
 	}, cfg.Git)
 }
 
-func TestValidateGitConfig(t *testing.T) {
+func TestGit_Validate(t *testing.T) {
 	testCases := []struct {
 		desc        string
 		configPairs []GitConfig
@@ -658,36 +702,60 @@ func TestValidateGitConfig(t *testing.T) {
 			configPairs: []GitConfig{
 				{Value: "value"},
 			},
-			expectedErr: fmt.Errorf("invalid configuration key \"\": %w", errors.New("key cannot be empty")),
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					errors.New("not set"),
+					"config", "key",
+				),
+			},
 		},
 		{
 			desc: "key has no section",
 			configPairs: []GitConfig{
 				{Key: "foo", Value: "value"},
 			},
-			expectedErr: fmt.Errorf("invalid configuration key \"foo\": %w", errors.New("key must contain at least one section")),
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					errors.New(`key "foo" must contain at least one section`),
+					"config", "key",
+				),
+			},
 		},
 		{
 			desc: "key with leading dot",
 			configPairs: []GitConfig{
 				{Key: ".foo.bar", Value: "value"},
 			},
-			expectedErr: fmt.Errorf("invalid configuration key \".foo.bar\": %w", errors.New("key must not start or end with a dot")),
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					errors.New(`key ".foo.bar" must not start or end with a dot`),
+					"config", "key",
+				),
+			},
 		},
 		{
 			desc: "key with trailing dot",
 			configPairs: []GitConfig{
 				{Key: "foo.bar.", Value: "value"},
 			},
-			expectedErr: fmt.Errorf("invalid configuration key \"foo.bar.\": %w", errors.New("key must not start or end with a dot")),
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					errors.New(`key "foo.bar." must not start or end with a dot`),
+					"config", "key",
+				),
+			},
 		},
 		{
 			desc: "key has assignment",
 			configPairs: []GitConfig{
 				{Key: "foo.bar=value", Value: "value"},
 			},
-			expectedErr: fmt.Errorf("invalid configuration key \"foo.bar=value\": %w",
-				errors.New("key cannot contain assignment")),
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					errors.New(`key "foo.bar=value" cannot contain "="`),
+					"config", "key",
+				),
+			},
 		},
 		{
 			desc: "missing value",
@@ -700,7 +768,7 @@ func TestValidateGitConfig(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			cfg := Cfg{BinDir: testhelper.TempDir(t), Git: Git{Config: tc.configPairs}}
-			require.Equal(t, tc.expectedErr, cfg.validateGit())
+			require.Equal(t, tc.expectedErr, cfg.Git.Validate())
 		})
 	}
 }
@@ -808,9 +876,8 @@ func TestConfigureRuby(t *testing.T) {
 
 func TestConfigureRubyNumWorkers(t *testing.T) {
 	testCases := []struct {
-		in, out int
+		in, out uint
 	}{
-		{in: -1, out: 2},
 		{in: 0, out: 2},
 		{in: 1, out: 2},
 		{in: 2, out: 2},
@@ -1652,7 +1719,7 @@ func TestPackObjectsLimiting(t *testing.T) {
 			max_concurrency = 10
 			max_queue_wait = "1m"
 			`,
-			expectedErrString: "unsupported pack objects limiting key: project",
+			expectedErrString: `unsupported pack objects limiting key: "project"`,
 		},
 	}
 
@@ -1668,6 +1735,411 @@ func TestPackObjectsLimiting(t *testing.T) {
 
 			require.NoError(t, err)
 			require.Equal(t, tc.expectedCfg, cfg.PackObjectsLimiting)
+		})
+	}
+}
+
+func TestPackObjectsLimiting_Validate(t *testing.T) {
+	t.Parallel()
+	require.NoError(t, PackObjectsLimiting{MaxQueueWait: duration.Duration(1)}.Validate())
+	require.Equal(
+		t,
+		cfgerror.ValidationErrors{
+			cfgerror.NewValidationError(
+				fmt.Errorf("%w: -1m0s", cfgerror.ErrIsNegative),
+				"max_queue_wait",
+			),
+		},
+		PackObjectsLimiting{MaxQueueWait: duration.Duration(-time.Minute)}.Validate(),
+	)
+}
+
+func TestStorage_Validate(t *testing.T) {
+	t.Parallel()
+
+	dirPath := testhelper.TempDir(t)
+	filePath := filepath.Join(dirPath, "file")
+	require.NoError(t, os.WriteFile(filePath, nil, perm.SharedFile))
+	for _, tc := range []struct {
+		name        string
+		storage     Storage
+		expectedErr error
+	}{
+		{
+			name:    "valid",
+			storage: Storage{Name: "name", Path: dirPath},
+		},
+		{
+			name:    "invalid",
+			storage: Storage{Name: "", Path: filePath},
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					cfgerror.ErrNotSet,
+					"name",
+				),
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: %q", cfgerror.ErrNotDir, filePath),
+					"path",
+				),
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.storage.Validate()
+			require.Equal(t, tc.expectedErr, err)
+		})
+	}
+}
+
+func TestTLS_Validate(t *testing.T) {
+	t.Parallel()
+	const certPath = "../server/testdata/gitalycert.pem"
+	const keyPath = "../server/testdata/gitalykey.pem"
+
+	tmpDir := testhelper.TempDir(t)
+	tmpFile := filepath.Join(tmpDir, "file")
+	require.NoError(t, os.WriteFile(tmpFile, []byte("I am not a certificate"), perm.SharedFile))
+
+	for _, tc := range []struct {
+		name        string
+		setup       func(t *testing.T) TLS
+		expectedErr error
+	}{
+		{
+			name: "empty",
+			setup: func(t *testing.T) TLS {
+				return TLS{}
+			},
+		},
+		{
+			name: "valid",
+			setup: func(t *testing.T) TLS {
+				return TLS{CertPath: certPath, KeyPath: keyPath}
+			},
+		},
+		{
+			name: "no cert path, bad key path",
+			setup: func(t *testing.T) TLS {
+				return TLS{CertPath: "", KeyPath: "somewhere"}
+			},
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: %q", cfgerror.ErrDoesntExist, ""),
+					"certificate_path",
+				),
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: %q", cfgerror.ErrDoesntExist, "somewhere"),
+					"key_path",
+				),
+			},
+		},
+		{
+			name: "bad cert",
+			setup: func(t *testing.T) TLS {
+				return TLS{CertPath: tmpFile, KeyPath: keyPath}
+			},
+			expectedErr: cfgerror.NewValidationError(
+				errors.New("tls: failed to find any PEM data in certificate input"),
+				"certificate_path",
+			),
+		},
+		{
+			name: "bad key",
+			setup: func(t *testing.T) TLS {
+				return TLS{CertPath: certPath, KeyPath: "config_test.go"}
+			},
+			expectedErr: cfgerror.NewValidationError(
+				errors.New("tls: failed to find any PEM data in key input"),
+				"key_path",
+			),
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tlsCfg := tc.setup(t)
+			err := tlsCfg.Validate()
+			require.Equal(t, tc.expectedErr, err)
+		})
+	}
+}
+
+func TestGitlabShell_Validate(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := testhelper.TempDir(t)
+	tmpFile := filepath.Join(tmpDir, "file")
+	require.NoError(t, os.WriteFile(tmpFile, nil, perm.SharedFile))
+
+	for _, tc := range []struct {
+		name        string
+		gitlabShell GitlabShell
+		expectedErr error
+	}{
+		{
+			name:        "valid",
+			gitlabShell: GitlabShell{Dir: tmpDir},
+		},
+		{
+			name:        "dir does not exist",
+			gitlabShell: GitlabShell{Dir: "/does/not/exist"},
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: %q", cfgerror.ErrDoesntExist, "/does/not/exist"),
+					"dir",
+				),
+			},
+		},
+		{
+			name:        "dir is not a directory",
+			gitlabShell: GitlabShell{Dir: tmpFile},
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: %q", cfgerror.ErrNotDir, tmpFile),
+					"dir",
+				),
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.gitlabShell.Validate()
+			require.Equal(t, tc.expectedErr, err)
+		})
+	}
+}
+
+func TestDailyJob_Validate(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name        string
+		dailyJob    DailyJob
+		storage     []string
+		expectedErr error
+	}{
+		{
+			name:     "empty",
+			dailyJob: DailyJob{},
+		},
+		{
+			name: "all valid",
+			dailyJob: DailyJob{
+				Hour:     5,
+				Minute:   30,
+				Duration: duration.Duration(100),
+				Disabled: false,
+				Storages: []string{"1", "2"},
+			},
+			storage: []string{"1", "2"},
+		},
+		{
+			name: "all invalid",
+			dailyJob: DailyJob{
+				Hour:     100,
+				Minute:   90,
+				Duration: duration.Duration(80 * time.Hour),
+				Disabled: false,
+				Storages: []string{"1", "2"},
+			},
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: 100 out of [0, 23]", cfgerror.ErrNotInRange),
+					"start_hour",
+				),
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: 90 out of [0, 59]", cfgerror.ErrNotInRange),
+					"start_minute",
+				),
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: 80h0m0s out of [0s, 24h0m0s]", cfgerror.ErrNotInRange),
+					"duration",
+				),
+				cfgerror.NewValidationError(
+					fmt.Errorf(`%w: "1"`, cfgerror.ErrDoesntExist),
+					"storages", "[0]",
+				),
+				cfgerror.NewValidationError(
+					fmt.Errorf(`%w: "2"`, cfgerror.ErrDoesntExist),
+					"storages", "[1]",
+				),
+			},
+		},
+		{
+			name: "invalid, but disabled",
+			dailyJob: DailyJob{
+				Hour:     100,
+				Disabled: true,
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.dailyJob.Validate(tc.storage)
+			require.Equal(t, tc.expectedErr, err)
+		})
+	}
+}
+
+func TestHTTPSettings_Validate(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := testhelper.TempDir(t)
+	tmpFile := filepath.Join(tmpDir, "tmpfile")
+	require.NoError(t, os.WriteFile(tmpFile, []byte{}, perm.PublicFile))
+
+	for _, tc := range []struct {
+		name         string
+		httpSettings HTTPSettings
+		expectedErr  error
+	}{
+		{
+			name: "empty",
+		},
+		{
+			name: "all valid",
+			httpSettings: HTTPSettings{
+				User:     "user",
+				Password: "psswrd",
+				CAFile:   tmpFile,
+				CAPath:   tmpDir,
+			},
+		},
+		{
+			name: "all invalid",
+			httpSettings: HTTPSettings{
+				User:     "user",
+				Password: "",
+				CAFile:   tmpDir,
+				CAPath:   tmpFile,
+			},
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					cfgerror.ErrBlankOrEmpty,
+					"password",
+				),
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: %q", cfgerror.ErrNotFile, tmpDir),
+					"ca_file",
+				),
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: %q", cfgerror.ErrNotDir, tmpFile),
+					"ca_path",
+				),
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.httpSettings.Validate()
+			require.Equal(t, tc.expectedErr, err)
+		})
+	}
+}
+
+func TestGitlab_Validate(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := testhelper.TempDir(t)
+	tmpFile := filepath.Join(tmpDir, "tmpfile")
+	require.NoError(t, os.WriteFile(tmpFile, []byte{}, perm.PublicFile))
+
+	for _, tc := range []struct {
+		name        string
+		gitLab      Gitlab
+		expectedErr error
+	}{
+		{
+			name: "all valid",
+			gitLab: Gitlab{
+				URL:             "https://gitlab.com",
+				RelativeURLRoot: "api/v1",
+				HTTPSettings: HTTPSettings{
+					User:     "user",
+					Password: "psswrd",
+					CAFile:   tmpFile,
+					CAPath:   tmpDir,
+				},
+				SecretFile: tmpFile,
+			},
+		},
+		{
+			name: "all invalid",
+			gitLab: Gitlab{
+				URL:             string(rune(0x7f)),
+				RelativeURLRoot: "",
+				HTTPSettings: HTTPSettings{
+					CAFile: "/doesnt/exist",
+				},
+				SecretFile: tmpDir,
+			},
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					&url.Error{
+						Op:  "parse",
+						URL: string(rune(0x7f)),
+						Err: errors.New("net/url: invalid control character in URL"),
+					},
+					"url",
+				),
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: %q", cfgerror.ErrNotFile, tmpDir),
+					"secret_file",
+				),
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: %q", cfgerror.ErrDoesntExist, "/doesnt/exist"),
+					"http-settings", "ca_file",
+				),
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.gitLab.Validate()
+			require.Equal(t, tc.expectedErr, err)
+		})
+	}
+}
+
+func TestStreamCacheConfig_Validate(t *testing.T) {
+	t.Parallel()
+
+	absPath, err := filepath.Abs(".")
+	require.NoError(t, err)
+
+	for _, tc := range []struct {
+		name        string
+		streamCache StreamCacheConfig
+		expectedErr error
+	}{
+		{
+			name:        "disable",
+			streamCache: StreamCacheConfig{MaxAge: duration.Duration(-1)},
+		},
+		{
+			name: "valid",
+			streamCache: StreamCacheConfig{
+				Enabled: true,
+				Dir:     absPath,
+				MaxAge:  duration.Duration(1),
+			},
+		},
+		{
+			name: "invalid",
+			streamCache: StreamCacheConfig{
+				Enabled: true,
+				Dir:     "relative/path",
+				MaxAge:  duration.Duration(-1),
+			},
+			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: %q", cfgerror.ErrNotAbsolutePath, "relative/path"),
+					"dir",
+				),
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: %s", cfgerror.ErrIsNegative, time.Duration(-1)),
+					"max_age",
+				),
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.streamCache.Validate()
+			require.Equal(t, tc.expectedErr, err)
 		})
 	}
 }

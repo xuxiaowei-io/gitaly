@@ -279,7 +279,7 @@ func run(cfg config.Cfg) error {
 		packObjectsConcurrencyLimit = 200
 	}
 	packObjectsLimiter := limithandler.NewConcurrencyLimiter(
-		packObjectsConcurrencyLimit,
+		int(packObjectsConcurrencyLimit),
 		0,
 		func() helper.Ticker {
 			return helper.NewTimerTicker(cfg.PackObjectsLimiting.MaxQueueWait.Duration())
