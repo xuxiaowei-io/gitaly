@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package internalgitaly
 
 import (
@@ -39,6 +37,8 @@ func (w *streamWrapper) Send(resp *gitalypb.WalkReposResponse) error {
 }
 
 func TestWalkRepos(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
@@ -49,17 +49,14 @@ func TestWalkRepos(t *testing.T) {
 	// of the sequence to ensure the walk proceeds normally
 	testRepo1, testRepo1Path := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 		RelativePath:           "a",
 	})
 	deletedRepo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 		RelativePath:           "b",
 	})
 	testRepo2, testRepo2Path := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 		RelativePath:           "c",
 	})
 
