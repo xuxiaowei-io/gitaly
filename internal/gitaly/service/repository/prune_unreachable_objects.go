@@ -2,11 +2,13 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -32,10 +34,37 @@ func (s *server) PruneUnreachableObjects(
 		return nil, err
 	}
 
+	// Verify that the repository is not an object pool. Pruning objects in object pools is not
+	// a safe operation and is likely to cause corruption of object pool members.
+	repoInfo, err := stats.RepositoryInfoForRepository(repo)
+	if err != nil {
+		return nil, fmt.Errorf("deriving repository info: %w", err)
+	}
+	if repoInfo.IsObjectPool {
+		return nil, structerr.NewInvalidArgument("pruning objects for object pool")
+	}
+
+	expireBefore := time.Now().Add(-30 * time.Minute)
+
+	// We need to prune loose unreachable objects that exist in the repository.
 	if err := housekeeping.PruneObjects(ctx, repo, housekeeping.PruneObjectsConfig{
-		ExpireBefore: time.Now().Add(-30 * time.Minute),
+		ExpireBefore: expireBefore,
 	}); err != nil {
 		return nil, structerr.NewInternal("pruning objects: %w", err)
+	}
+
+	// But we also have to prune unreachable objects part of cruft packs. The only way to do
+	// that is to do a full repack. So unfortunately, this is quite expensive.
+	if featureflag.WriteCruftPacks.IsEnabled(ctx) {
+		if err := housekeeping.RepackObjects(ctx, repo, housekeeping.RepackObjectsConfig{
+			FullRepack:          true,
+			WriteCruftPack:      true,
+			WriteMultiPackIndex: true,
+			WriteBitmap:         len(repoInfo.Alternates) == 0,
+			CruftExpireBefore:   expireBefore,
+		}); err != nil {
+			return nil, structerr.NewInternal("repacking objects: %w", err)
+		}
 	}
 
 	// Rewrite the commit-graph so that it doesn't contain references to pruned commits
