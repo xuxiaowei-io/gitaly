@@ -1,4 +1,4 @@
-package notifier
+package cleanup
 
 import (
 	"context"
@@ -9,25 +9,25 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
 
-// Notifier sends messages stating that an OID has been rewritten, looking
+// notifier sends messages stating that an OID has been rewritten, looking
 // up the type of the OID if necessary. It is not safe for concurrent use
-type Notifier struct {
+type notifier struct {
 	objectInfoReader catfile.ObjectInfoReader
 	chunker          *chunk.Chunker
 }
 
-// New instantiates a new Notifier
-func New(ctx context.Context, catfileCache catfile.Cache, repo git.RepositoryExecutor, chunker *chunk.Chunker) (*Notifier, func(), error) {
+// newNotifier instantiates a new notifier.
+func newNotifier(ctx context.Context, catfileCache catfile.Cache, repo git.RepositoryExecutor, chunker *chunk.Chunker) (*notifier, func(), error) {
 	objectInfoReader, cancel, err := catfileCache.ObjectInfoReader(ctx, repo)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return &Notifier{objectInfoReader: objectInfoReader, chunker: chunker}, cancel, nil
+	return &notifier{objectInfoReader: objectInfoReader, chunker: chunker}, cancel, nil
 }
 
-// Notify builds a new message and sends it to the chunker
-func (n *Notifier) Notify(ctx context.Context, oldOid, newOid string, isInternalRef bool) error {
+// notify builds a new message and sends it to the chunker
+func (n *notifier) notify(ctx context.Context, oldOid, newOid string, isInternalRef bool) error {
 	objectType := n.lookupType(ctx, newOid, isInternalRef)
 
 	entry := &gitalypb.ApplyBfgObjectMapStreamResponse_Entry{
@@ -39,7 +39,7 @@ func (n *Notifier) Notify(ctx context.Context, oldOid, newOid string, isInternal
 	return n.chunker.Send(entry)
 }
 
-func (n *Notifier) lookupType(ctx context.Context, oid string, isInternalRef bool) gitalypb.ObjectType {
+func (n *notifier) lookupType(ctx context.Context, oid string, isInternalRef bool) gitalypb.ObjectType {
 	if isInternalRef {
 		return gitalypb.ObjectType_COMMIT
 	}
