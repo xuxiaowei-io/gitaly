@@ -1,11 +1,8 @@
-//go:build !gitaly_test_sha256
-
 package maintenance
 
 import (
 	"context"
 	"math/rand"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -42,19 +39,30 @@ func (mo *mockOptimizer) OptimizeRepository(ctx context.Context, repository repo
 }
 
 func TestOptimizeReposRandomly(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
 	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("0", "1", "2"))
 	cfg := cfgBuilder.Build(t)
 
 	for _, storage := range cfg.Storages {
-		gittest.Exec(t, cfg, "init", "--bare", filepath.Join(storage.Path, "a"))
-		gittest.Exec(t, cfg, "init", "--bare", filepath.Join(storage.Path, "b"))
+		gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			SkipCreationViaService: true,
+			Storage:                storage,
+			RelativePath:           "a",
+		})
+
+		gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+			SkipCreationViaService: true,
+			Storage:                storage,
+			RelativePath:           "b",
+		})
 	}
 
 	cfg.Storages = append(cfg.Storages, config.Storage{
 		Name: "duplicate",
 		Path: cfg.Storages[0].Path,
 	})
-	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
 		desc     string
