@@ -11,7 +11,6 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/lstree"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
@@ -73,14 +72,13 @@ func (s *Server) updateSubmodule(ctx context.Context, quarantineRepo *localrepo.
 	// tree with the new tree abcabc. Continue iterating up the tree,
 	// writing a new tree object each time.
 	for {
-		entries, err := lstree.ListEntries(
+		entries, err := quarantineRepo.ListEntries(
 			ctx,
-			quarantineRepo,
+
 			git.Revision("refs/heads/"+string(req.GetBranch())),
-			&lstree.ListEntriesConfig{
+			&localrepo.ListEntriesConfig{
 				RelativePath: path,
-			},
-		)
+			})
 		if err != nil {
 			if strings.Contains(err.Error(), "invalid object name") {
 				return "", fmt.Errorf("submodule: %s", git2go.LegacyErrPrefixInvalidSubmodulePath)

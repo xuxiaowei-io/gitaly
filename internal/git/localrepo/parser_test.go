@@ -1,4 +1,4 @@
-package lstree
+package localrepo
 
 import (
 	"bytes"
@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 )
@@ -36,33 +35,33 @@ func TestParser(t *testing.T) {
 	for _, tc := range []struct {
 		desc            string
 		treeID          git.ObjectID
-		expectedEntries localrepo.Entries
+		expectedEntries Entries
 	}{
 		{
 			desc:   "regular entries",
 			treeID: regularEntriesTreeID,
-			expectedEntries: localrepo.Entries{
+			expectedEntries: Entries{
 				{
 					Mode: "100644",
-					Type: localrepo.Blob,
+					Type: Blob,
 					OID:  gitignoreBlobID,
 					Path: ".gitignore",
 				},
 				{
 					Mode: "100644",
-					Type: localrepo.Blob,
+					Type: Blob,
 					OID:  gitmodulesBlobID,
 					Path: ".gitmodules",
 				},
 				{
 					Mode: "040000",
-					Type: localrepo.Tree,
+					Type: Tree,
 					OID:  gittest.DefaultObjectHash.EmptyTreeOID,
 					Path: "entry with space",
 				},
 				{
 					Mode: "160000",
-					Type: localrepo.Submodule,
+					Type: Submodule,
 					OID:  submoduleCommitID,
 					Path: "gitlab-shell",
 				},
@@ -73,7 +72,7 @@ func TestParser(t *testing.T) {
 			treeData := gittest.Exec(t, cfg, "-C", repoPath, "ls-tree", "-z", tc.treeID.String())
 
 			parser := NewParser(bytes.NewReader(treeData), gittest.DefaultObjectHash)
-			parsedEntries := localrepo.Entries{}
+			parsedEntries := Entries{}
 			for {
 				entry, err := parser.NextEntry()
 				if err == io.EOF {

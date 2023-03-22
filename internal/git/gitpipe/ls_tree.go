@@ -9,7 +9,6 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/lstree"
 )
 
 // lsTreeConfig is configuration for the LsTree pipeline step.
@@ -97,7 +96,7 @@ func LsTree(
 			return
 		}
 
-		parser := lstree.NewParser(cmd, objectHash)
+		parser := localrepo.NewParser(cmd, objectHash)
 		for {
 			entry, err := parser.NextEntry()
 			if err != nil {

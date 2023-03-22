@@ -9,7 +9,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/log"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/lstree"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -88,7 +87,7 @@ func (s *server) listLastCommitsForTree(in *gitalypb.ListLastCommitsForTreeReque
 	return sendCommitsForTree(batch, stream)
 }
 
-func getLSTreeEntries(parser *lstree.Parser) (localrepo.Entries, error) {
+func getLSTreeEntries(parser *localrepo.Parser) (localrepo.Entries, error) {
 	entries := localrepo.Entries{}
 
 	for {
@@ -109,7 +108,7 @@ func getLSTreeEntries(parser *lstree.Parser) (localrepo.Entries, error) {
 	return entries, nil
 }
 
-func (s *server) newLSTreeParser(in *gitalypb.ListLastCommitsForTreeRequest, stream gitalypb.CommitService_ListLastCommitsForTreeServer) (*command.Command, *lstree.Parser, error) {
+func (s *server) newLSTreeParser(in *gitalypb.ListLastCommitsForTreeRequest, stream gitalypb.CommitService_ListLastCommitsForTreeServer) (*command.Command, *localrepo.Parser, error) {
 	path := string(in.GetPath())
 	if path == "" || path == "/" {
 		path = "."
@@ -126,7 +125,7 @@ func (s *server) newLSTreeParser(in *gitalypb.ListLastCommitsForTreeRequest, str
 		return nil, nil, err
 	}
 
-	return cmd, lstree.NewParser(cmd, git.ObjectHashSHA1), nil
+	return cmd, localrepo.NewParser(cmd, git.ObjectHashSHA1), nil
 }
 
 func sendCommitsForTree(batch []*gitalypb.ListLastCommitsForTreeResponse_CommitForTree, stream gitalypb.CommitService_ListLastCommitsForTreeServer) error {

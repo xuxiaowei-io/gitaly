@@ -1,4 +1,4 @@
-package lstree
+package localrepo
 
 import (
 	"bytes"
@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 )
 
 var (
@@ -32,12 +31,11 @@ type ListEntriesConfig struct {
 // ListEntries lists tree entries for the given treeish. By default, this will do a non-recursive
 // listing starting from the root of the given treeish. This behaviour can be changed by passing a
 // config.
-func ListEntries(
+func (repo *Repo) ListEntries(
 	ctx context.Context,
-	repo *localrepo.Repo,
 	treeish git.Revision,
 	cfg *ListEntriesConfig,
-) ([]*localrepo.TreeEntry, error) {
+) ([]*TreeEntry, error) {
 	if cfg == nil {
 		cfg = &ListEntriesConfig{}
 	}
@@ -71,7 +69,7 @@ func ListEntries(
 	}
 
 	parser := NewParser(cmd, objectHash)
-	var entries []*localrepo.TreeEntry
+	var entries []*TreeEntry
 	for {
 		entry, err := parser.NextEntry()
 		if err != nil {

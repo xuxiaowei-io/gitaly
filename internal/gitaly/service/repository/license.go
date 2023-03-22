@@ -15,7 +15,6 @@ import (
 	"github.com/go-enry/go-license-detector/v4/licensedb/filer"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/lstree"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/tracing"
@@ -210,7 +209,7 @@ func (f *gitFiler) ReadDir(string) ([]filer.File, error) {
 		return nil, err
 	}
 
-	tree := lstree.NewParser(cmd, git.ObjectHashSHA1)
+	tree := localrepo.NewParser(cmd, git.ObjectHashSHA1)
 
 	var files []filer.File
 	for {

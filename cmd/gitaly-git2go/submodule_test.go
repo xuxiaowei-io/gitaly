@@ -11,7 +11,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/lstree"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -125,7 +124,7 @@ func TestSubmodule(t *testing.T) {
 				fmt.Sprintf("%s^{tree}:", response.CommitID),
 				tc.command.Submodule,
 			)
-			parser := lstree.NewParser(bytes.NewReader(entry), git.ObjectHashSHA1)
+			parser := localrepo.NewParser(bytes.NewReader(entry), git.ObjectHashSHA1)
 			parsedEntry, err := parser.NextEntry()
 			require.NoError(t, err)
 			require.Equal(t, tc.command.Submodule, parsedEntry.Path)

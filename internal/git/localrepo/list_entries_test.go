@@ -1,4 +1,4 @@
-package lstree
+package localrepo
 
 import (
 	"testing"
@@ -6,7 +6,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 )
@@ -20,7 +19,7 @@ func TestListEntries(t *testing.T) {
 	repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
 	})
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	repo := NewTestRepo(t, cfg, repoProto)
 
 	blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("blob contents"))
 	emptyTreeID := gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{})
@@ -46,7 +45,7 @@ func TestListEntries(t *testing.T) {
 		desc            string
 		treeish         git.Revision
 		cfg             *ListEntriesConfig
-		expectedResults []*localrepo.TreeEntry
+		expectedResults []*TreeEntry
 		expectedErr     error
 	}{
 		{
@@ -56,23 +55,23 @@ func TestListEntries(t *testing.T) {
 		{
 			desc:    "tree with blob",
 			treeish: treeWithBlob.Revision(),
-			expectedResults: []*localrepo.TreeEntry{
-				{Mode: "100755", Type: localrepo.Blob, OID: blobID, Path: "executable"},
-				{Mode: "100644", Type: localrepo.Blob, OID: blobID, Path: "nonexecutable"},
+			expectedResults: []*TreeEntry{
+				{Mode: "100755", Type: Blob, OID: blobID, Path: "executable"},
+				{Mode: "100644", Type: Blob, OID: blobID, Path: "nonexecutable"},
 			},
 		},
 		{
 			desc:    "tree with subtree",
 			treeish: treeWithSubtree.Revision(),
-			expectedResults: []*localrepo.TreeEntry{
-				{Mode: "040000", Type: localrepo.Tree, OID: emptyTreeID, Path: "subdir"},
+			expectedResults: []*TreeEntry{
+				{Mode: "040000", Type: Tree, OID: emptyTreeID, Path: "subdir"},
 			},
 		},
 		{
 			desc:    "nested trees",
 			treeish: treeWithNestedSubtrees.Revision(),
-			expectedResults: []*localrepo.TreeEntry{
-				{Mode: "040000", Type: localrepo.Tree, OID: treeWithSubtree, Path: "nested-subdir"},
+			expectedResults: []*TreeEntry{
+				{Mode: "040000", Type: Tree, OID: treeWithSubtree, Path: "nested-subdir"},
 			},
 		},
 		{
@@ -81,9 +80,9 @@ func TestListEntries(t *testing.T) {
 			cfg: &ListEntriesConfig{
 				Recursive: true,
 			},
-			expectedResults: []*localrepo.TreeEntry{
-				{Mode: "040000", Type: localrepo.Tree, OID: treeWithSubtree, Path: "nested-subdir"},
-				{Mode: "040000", Type: localrepo.Tree, OID: emptyTreeID, Path: "nested-subdir/subdir"},
+			expectedResults: []*TreeEntry{
+				{Mode: "040000", Type: Tree, OID: treeWithSubtree, Path: "nested-subdir"},
+				{Mode: "040000", Type: Tree, OID: emptyTreeID, Path: "nested-subdir/subdir"},
 			},
 		},
 		{
@@ -92,8 +91,8 @@ func TestListEntries(t *testing.T) {
 			cfg: &ListEntriesConfig{
 				RelativePath: "nested-subdir",
 			},
-			expectedResults: []*localrepo.TreeEntry{
-				{Mode: "040000", Type: localrepo.Tree, OID: emptyTreeID, Path: "subdir"},
+			expectedResults: []*TreeEntry{
+				{Mode: "040000", Type: Tree, OID: emptyTreeID, Path: "subdir"},
 			},
 		},
 		{
@@ -103,10 +102,10 @@ func TestListEntries(t *testing.T) {
 				RelativePath: "subdir",
 				Recursive:    true,
 			},
-			expectedResults: []*localrepo.TreeEntry{
-				{Mode: "100644", Type: localrepo.Blob, OID: blobID, Path: "blob"},
-				{Mode: "040000", Type: localrepo.Tree, OID: treeWithSubtree, Path: "subdir"},
-				{Mode: "040000", Type: localrepo.Tree, OID: emptyTreeID, Path: "subdir/subdir"},
+			expectedResults: []*TreeEntry{
+				{Mode: "100644", Type: Blob, OID: blobID, Path: "blob"},
+				{Mode: "040000", Type: Tree, OID: treeWithSubtree, Path: "subdir"},
+				{Mode: "040000", Type: Tree, OID: emptyTreeID, Path: "subdir/subdir"},
 			},
 		},
 		{
@@ -115,10 +114,10 @@ func TestListEntries(t *testing.T) {
 			cfg: &ListEntriesConfig{
 				Recursive: true,
 			},
-			expectedResults: []*localrepo.TreeEntry{
-				{Mode: "100644", Type: localrepo.Blob, OID: blobID, Path: "blob"},
-				{Mode: "040000", Type: localrepo.Tree, OID: treeWithSubtree, Path: "subdir"},
-				{Mode: "040000", Type: localrepo.Tree, OID: emptyTreeID, Path: "subdir/subdir"},
+			expectedResults: []*TreeEntry{
+				{Mode: "100644", Type: Blob, OID: blobID, Path: "blob"},
+				{Mode: "040000", Type: Tree, OID: treeWithSubtree, Path: "subdir"},
+				{Mode: "040000", Type: Tree, OID: emptyTreeID, Path: "subdir/subdir"},
 			},
 		},
 		{
@@ -152,7 +151,7 @@ func TestListEntries(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			results, err := ListEntries(ctx, repo, tc.treeish, tc.cfg)
+			results, err := repo.ListEntries(ctx, tc.treeish, tc.cfg)
 			require.Equal(t, tc.expectedErr, err)
 			require.Equal(t, tc.expectedResults, results)
 		})

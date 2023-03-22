@@ -13,7 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/lstree"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
@@ -732,7 +731,7 @@ func testUserUpdateSubmodule(t *testing.T, ctx context.Context) {
 				setupData.expectedResponse.BranchUpdate.CommitId = newCommitID
 
 				entry := gittest.Exec(t, cfg, "-C", repoPath, "ls-tree", "-z", fmt.Sprintf("%s^{tree}:", response.BranchUpdate.CommitId), tc.subPath)
-				parser := lstree.NewParser(bytes.NewReader(entry), git.ObjectHashSHA1)
+				parser := localrepo.NewParser(bytes.NewReader(entry), git.ObjectHashSHA1)
 				parsedEntry, err := parser.NextEntry()
 				require.NoError(t, err)
 				require.Equal(t, tc.subPath, parsedEntry.Path)

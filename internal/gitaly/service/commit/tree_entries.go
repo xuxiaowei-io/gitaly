@@ -13,7 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/lstree"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
@@ -107,19 +106,19 @@ func (s *server) sendTreeEntries(
 			return err
 		}
 
-		treeEntries, err := lstree.ListEntries(ctx, repo, git.Revision(revision), &lstree.ListEntriesConfig{
+		treeEntries, err := repo.ListEntries(ctx, git.Revision(revision), &localrepo.ListEntriesConfig{
 			Recursive:    recursive,
 			RelativePath: path,
 		})
 		if err != nil {
 			// Design wart: we do not return an error if the request does not
 			// point to a tree object, but just return nothing.
-			if errors.Is(err, lstree.ErrNotTreeish) {
+			if errors.Is(err, localrepo.ErrNotTreeish) {
 				return nil
 			}
 
 			// Same if we try to list tree entries of a revision which doesn't exist.
-			if errors.Is(err, lstree.ErrNotExist) {
+			if errors.Is(err, localrepo.ErrNotExist) {
 				return nil
 			}
 
@@ -251,7 +250,7 @@ func toLsTreeEnum(input gitalypb.TreeEntry_EntryType) (localrepo.ObjectType, err
 	case gitalypb.TreeEntry_BLOB:
 		return localrepo.Blob, nil
 	default:
-		return -1, lstree.ErrParse
+		return -1, localrepo.ErrParse
 	}
 }
 
