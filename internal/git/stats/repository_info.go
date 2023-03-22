@@ -509,3 +509,59 @@ func BitmapInfoForPath(path string) (BitmapInfo, error) {
 		HasLookupTable: flags&0x10 == 0x10,
 	}, nil
 }
+
+// MultiPackIndexInfo contains information about a multi-pack-index.
+type MultiPackIndexInfo struct {
+	// Exists determines whether the multi-pack-index exists or not.
+	Exists bool `json:"exists"`
+	// Version is the version of the multi-pack-index. Currently, Git only recognizes version 1.
+	Version uint8 `json:"version"`
+	// PackfileCount is the count of packfiles that the multi-pack-index tracks.
+	PackfileCount uint32 `json:"packfile_count"`
+}
+
+// MultiPackIndexInfoForPath reads the multi-pack-index at the given path and returns information on
+// it. Returns an error in case the file cannot be read or in case its format is not understood.
+func MultiPackIndexInfoForPath(path string) (MultiPackIndexInfo, error) {
+	// Please refer to gitformat-pack(5) for the definition of the multi-pack-index header.
+	midxHeader := []byte{
+		0, 0, 0, 0, // 4-byte signature
+		0,          // 1-byte version number
+		0,          // 1-byte object ID version
+		0,          // 1-byte number of chunks
+		0,          // 1-byte number of base multi-pack-index files
+		0, 0, 0, 0, // 4-byte number of packfiles
+	}
+
+	file, err := os.Open(path)
+	if err != nil {
+		return MultiPackIndexInfo{}, fmt.Errorf("opening multi-pack-index: %w", err)
+	}
+	defer file.Close()
+
+	if _, err := io.ReadFull(file, midxHeader); err != nil {
+		return MultiPackIndexInfo{}, fmt.Errorf("reading header: %w", err)
+	}
+
+	if !bytes.Equal(midxHeader[0:4], []byte{'M', 'I', 'D', 'X'}) {
+		return MultiPackIndexInfo{}, fmt.Errorf("invalid signature: %q", string(midxHeader[0:4]))
+	}
+
+	version := midxHeader[4]
+	if version != 1 {
+		return MultiPackIndexInfo{}, fmt.Errorf("invalid version: %d", version)
+	}
+
+	baseFiles := midxHeader[7]
+	if baseFiles != 0 {
+		return MultiPackIndexInfo{}, fmt.Errorf("unsupported number of base files: %d", baseFiles)
+	}
+
+	packfileCount := binary.BigEndian.Uint32(midxHeader[8:12])
+
+	return MultiPackIndexInfo{
+		Exists:        true,
+		Version:       version,
+		PackfileCount: packfileCount,
+	}, nil
+}

@@ -1196,6 +1196,183 @@ func TestBitmapInfoForPath(t *testing.T) {
 	}
 }
 
+func TestMultiPackIndexInfoForPath(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg := testcfg.Build(t)
+
+	setupFile := func(content []byte) func(t *testing.T) string {
+		return func(t *testing.T) string {
+			t.Helper()
+			path := filepath.Join(testhelper.TempDir(t), "midx")
+			require.NoError(t, os.WriteFile(path, content, perm.PrivateFile))
+			return path
+		}
+	}
+
+	setupRepo := func(seedRepo func(t *testing.T, repoPath string)) func(t *testing.T) string {
+		return func(t *testing.T) string {
+			t.Helper()
+
+			_, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+				SkipCreationViaService: true,
+			})
+			seedRepo(t, repoPath)
+
+			return filepath.Join(repoPath, "objects", "pack", "multi-pack-index")
+		}
+	}
+
+	for _, tc := range []struct {
+		desc         string
+		setup        func(t *testing.T) string
+		expectedErr  error
+		expectedInfo MultiPackIndexInfo
+	}{
+		{
+			desc: "nonexistent path",
+			setup: func(t *testing.T) string {
+				return "/does/not/exist"
+			},
+			expectedErr: fmt.Errorf("opening multi-pack-index: %w", &fs.PathError{
+				Op:   "open",
+				Path: "/does/not/exist",
+				Err:  syscall.ENOENT,
+			}),
+		},
+		{
+			desc: "header is too short",
+			setup: setupFile([]byte{
+				'M', 'I', 'D', 'Y', 0x1, 0x1, 0x0, 0x0, 0x0, 0x0, 0x0,
+			}),
+			expectedErr: fmt.Errorf("reading header: %w", io.ErrUnexpectedEOF),
+		},
+		{
+			desc: "invalid signature",
+			setup: setupFile([]byte{
+				'M', 'I', 'D', 'Y', 0x1, 0x1, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+			}),
+			expectedErr: fmt.Errorf("invalid signature: %q", "MIDY"),
+		},
+		{
+			desc: "invalid version",
+			setup: setupFile([]byte{
+				'M', 'I', 'D', 'X', 0x2, 0x1, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+			}),
+			expectedErr: fmt.Errorf("invalid version: 2"),
+		},
+		{
+			desc: "unsupported number of bases",
+			setup: setupFile([]byte{
+				'M', 'I', 'D', 'X', 0x1, 0x1, 0x0, 0x1, 0x0, 0x0, 0x0, 0x0,
+			}),
+			expectedErr: fmt.Errorf("unsupported number of base files: 1"),
+		},
+		{
+			desc: "valid multi-pack-index",
+			setup: setupFile([]byte{
+				'M', 'I', 'D', 'X', 0x1, 0x1, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1,
+			}),
+			expectedInfo: MultiPackIndexInfo{
+				Exists:        true,
+				Version:       1,
+				PackfileCount: 1,
+			},
+		},
+		{
+			desc: "actual multi-pack-index",
+			setup: setupRepo(func(t *testing.T, repoPath string) {
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Ad", "--write-midx")
+			}),
+			expectedInfo: MultiPackIndexInfo{
+				Exists:        true,
+				Version:       1,
+				PackfileCount: 1,
+			},
+		},
+		{
+			desc: "multi-pack-index with multiple packfiles",
+			setup: setupRepo(func(t *testing.T, repoPath string) {
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("first"), gittest.WithBranch("main"))
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A")
+
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("second"), gittest.WithBranch("main"))
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "--write-midx")
+			}),
+			expectedInfo: MultiPackIndexInfo{
+				Exists:        true,
+				Version:       1,
+				PackfileCount: 2,
+			},
+		},
+		{
+			desc: "multi-pack-index with cruft pack",
+			setup: setupRepo(func(t *testing.T, repoPath string) {
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("reachable"), gittest.WithBranch("main"))
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("unreachable"), gittest.WithBranch("main"))
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "--cruft", "-d", "--write-midx")
+			}),
+			expectedInfo: MultiPackIndexInfo{
+				Exists:  true,
+				Version: 1,
+				// Cruft packs should be tracked via the multi-pack-index even if
+				// all of their objects are unreachable.
+				PackfileCount: 2,
+			},
+		},
+		{
+			desc: "multi-pack-index with alternate",
+			setup: func(t *testing.T) string {
+				// Create a pool repository and write a packfile in there.
+				_, poolPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
+				sharedCommit := gittest.WriteCommit(t, cfg, poolPath, gittest.WithMessage("shared"), gittest.WithBranch("main"))
+				gittest.Exec(t, cfg, "-C", poolPath, "repack", "-Ad")
+
+				// Write a second repository which we're linking to the pool
+				// repository. We create another commit that uses the shared commit
+				// as parent so that we have shared objects, but also unique
+				// objects. The result should be that we have one packfile in the
+				// pool, and one in the pool member.
+				_, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+					SkipCreationViaService: true,
+				})
+				require.NoError(t, os.WriteFile(
+					filepath.Join(repoPath, "objects", "info", "alternates"),
+					[]byte(filepath.Join(poolPath, "objects")),
+					perm.PrivateFile,
+				))
+				gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(sharedCommit), gittest.WithBranch("main"))
+				gittest.Exec(t, cfg, "-C", repoPath, "repack", "-Adl", "--write-midx")
+
+				return filepath.Join(repoPath, "objects", "pack", "multi-pack-index")
+			},
+			expectedInfo: MultiPackIndexInfo{
+				Exists:  true,
+				Version: 1,
+				// Even though we essentially use two packfiles, the member
+				// repository's multi-pack-index still only references its own
+				// packfile.
+				PackfileCount: 1,
+			},
+		},
+	} {
+		tc := tc
+
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			midxPath := tc.setup(t)
+			info, err := MultiPackIndexInfoForPath(midxPath)
+			require.Equal(t, tc.expectedErr, err)
+			require.Equal(t, tc.expectedInfo, info)
+		})
+	}
+}
+
 func hashDependentSize(sha1, sha256 uint64) uint64 {
 	if gittest.DefaultObjectHash.Format == "sha1" {
 		return sha1
