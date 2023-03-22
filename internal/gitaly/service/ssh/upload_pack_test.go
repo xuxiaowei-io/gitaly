@@ -139,10 +139,8 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 	cfg := testcfg.Build(t)
 	cfg.SocketPath = runSSHServer(t, cfg)
 
-	repo, repoPath := gittest.CreateRepository(t, testhelper.Context(t), cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
-	commitID := gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD^{commit}")
+	repo, repoPath := gittest.CreateRepository(t, testhelper.Context(t), cfg)
+	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
 
 	registry := sidechannel.NewRegistry()
 	clientHandshaker := sidechannel.NewClientHandshaker(testhelper.NewDiscardingLogEntry(t), registry)
@@ -168,7 +166,7 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 				Repository: repo,
 			},
 			client: func(clientConn *sidechannel.ClientConn, _ func()) error {
-				gittest.WritePktlineString(t, clientConn, "want "+text.ChompBytes(commitID)+" multi_ack\n")
+				gittest.WritePktlinef(t, clientConn, "want %s multi_ack\n", commitID)
 				gittest.WritePktlineFlush(t, clientConn)
 				gittest.WritePktlineString(t, clientConn, "done\n")
 
@@ -189,7 +187,7 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 				gittest.WritePktlineString(t, clientConn, "agent=git/2.36.1\n")
 				gittest.WritePktlineString(t, clientConn, "object-format=sha1\n")
 				gittest.WritePktlineDelim(t, clientConn)
-				gittest.WritePktlineString(t, clientConn, "want "+text.ChompBytes(commitID)+"\n")
+				gittest.WritePktlinef(t, clientConn, "want %s\n", commitID)
 				gittest.WritePktlineString(t, clientConn, "done\n")
 				gittest.WritePktlineFlush(t, clientConn)
 
@@ -206,7 +204,7 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 				GitProtocol: git.ProtocolV2,
 			},
 			client: func(clientConn *sidechannel.ClientConn, _ func()) error {
-				gittest.WritePktlineString(t, clientConn, "want "+text.ChompBytes(commitID)+" multi_ack\n")
+				gittest.WritePktlinef(t, clientConn, "want %s multi_ack\n", commitID)
 				gittest.WritePktlineFlush(t, clientConn)
 				gittest.WritePktlineString(t, clientConn, "done\n")
 
@@ -215,8 +213,8 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 				return nil
 			},
 			expectedErr: structerr.NewInternal(
-				"cmd wait: exit status 128, stderr: %q",
-				"fatal: unknown capability 'want 1e292f8fedd741b75372e19097c76d327140c312 multi_ack'\n",
+				"cmd wait: exit status 128, stderr: \"fatal: unknown capability 'want %s multi_ack'\\n\"",
+				commitID,
 			),
 		},
 		{
@@ -229,7 +227,7 @@ func TestUploadPackWithSidechannel_client(t *testing.T) {
 				gittest.WritePktlineString(t, clientConn, "agent=git/2.36.1\n")
 				gittest.WritePktlineString(t, clientConn, "object-format=sha1\n")
 				gittest.WritePktlineDelim(t, clientConn)
-				gittest.WritePktlineString(t, clientConn, "want "+text.ChompBytes(commitID)+"\n")
+				gittest.WritePktlinef(t, clientConn, "want %s\n", commitID)
 				gittest.WritePktlineString(t, clientConn, "done\n")
 				gittest.WritePktlineFlush(t, clientConn)
 
@@ -673,9 +671,8 @@ func TestUploadPack_packObjectsHook(t *testing.T) {
 
 	cfg.SocketPath = runSSHServer(t, cfg)
 
-	repo, _ := gittest.CreateRepository(t, testhelper.Context(t), cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
+	repo, repoPath := gittest.CreateRepository(t, testhelper.Context(t), cfg)
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
 
 	localRepoPath := testhelper.TempDir(t)
 
@@ -700,16 +697,15 @@ func testUploadPackWithoutSideband(t *testing.T, opts ...testcfg.Option) {
 
 	cfg.SocketPath = runSSHServer(t, cfg)
 
-	repo, _ := gittest.CreateRepository(t, testhelper.Context(t), cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
+	repo, repoPath := gittest.CreateRepository(t, testhelper.Context(t), cfg)
+	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
 
 	// While Git knows the side-band-64 capability, some other clients don't. There is no way
 	// though to have Git not use that capability, so we're instead manually crafting a packfile
 	// negotiation without that capability and send it along.
 	negotiation := bytes.NewBuffer([]byte{})
-	gittest.WritePktlineString(t, negotiation, "want 1e292f8fedd741b75372e19097c76d327140c312 multi_ack_detailed thin-pack include-tag ofs-delta agent=git/2.29.1")
-	gittest.WritePktlineString(t, negotiation, "want 1e292f8fedd741b75372e19097c76d327140c312")
+	gittest.WritePktlinef(t, negotiation, "want %s multi_ack_detailed thin-pack include-tag ofs-delta agent=git/2.29.1", commitID)
+	gittest.WritePktlinef(t, negotiation, "want %s", commitID)
 	gittest.WritePktlineFlush(t, negotiation)
 	gittest.WritePktlineString(t, negotiation, "done")
 
@@ -733,7 +729,7 @@ func testUploadPackWithoutSideband(t *testing.T, opts ...testcfg.Option) {
 	out, err := uploadPack.CombinedOutput()
 	require.NoError(t, err)
 	require.True(t, uploadPack.ProcessState.Success())
-	require.Contains(t, string(out), "refs/heads/master")
+	require.Contains(t, string(out), git.DefaultRef.String())
 	require.Contains(t, string(out), "Counting objects")
 	require.Contains(t, string(out), "PACK")
 }
@@ -747,9 +743,7 @@ func TestUploadPack_invalidStorage(t *testing.T) {
 
 	testcfg.BuildGitalySSH(t, cfg)
 
-	repo, _ := gittest.CreateRepository(t, testhelper.Context(t), cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
+	repo, _ := gittest.CreateRepository(t, testhelper.Context(t), cfg)
 
 	localRepoPath := testhelper.TempDir(t)
 
@@ -775,9 +769,7 @@ func TestUploadPack_gitFailure(t *testing.T) {
 	cfg := testcfg.Build(t)
 	cfg.SocketPath = runSSHServer(t, cfg)
 
-	repo, repoPath := gittest.CreateRepository(t, testhelper.Context(t), cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
+	repo, repoPath := gittest.CreateRepository(t, testhelper.Context(t), cfg)
 
 	client := newSSHClient(t, cfg.SocketPath)
 
