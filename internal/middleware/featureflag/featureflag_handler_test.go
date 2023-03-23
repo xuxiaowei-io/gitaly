@@ -5,7 +5,6 @@ import (
 	"net"
 	"testing"
 
-	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpcmwlogrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
@@ -40,7 +39,7 @@ func TestFeatureFlagLogs(t *testing.T) {
 
 	service := &mockService{}
 	server := grpc.NewServer(
-		grpcmw.WithUnaryServerChain(
+		grpc.ChainUnaryInterceptor(
 			grpcmwlogrus.UnaryServerInterceptor(
 				logrus.NewEntry(logger),
 				grpcmwlogrus.WithMessageProducer(

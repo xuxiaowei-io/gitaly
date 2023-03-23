@@ -7,7 +7,6 @@ package praefect
 import (
 	"time"
 
-	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpcmwlogrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	grpcmwtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	grpcprometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
@@ -50,9 +49,9 @@ func NewBackchannelServerFactory(logger *logrus.Entry, refSvc gitalypb.RefTransa
 		lm := listenmux.New(insecure.NewCredentials())
 		lm.Register(sidechannel.NewServerHandshaker(registry))
 		srv := grpc.NewServer(
-			grpc.UnaryInterceptor(grpcmw.ChainUnaryServer(
+			grpc.ChainUnaryInterceptor(
 				commonUnaryServerInterceptors(logger)...,
-			)),
+			),
 			grpc.Creds(lm),
 		)
 		gitalypb.RegisterRefTransactionServer(srv, refSvc)
@@ -116,14 +115,14 @@ func NewGRPCServer(
 
 	grpcOpts = append(grpcOpts, proxyRequiredOpts(director)...)
 	grpcOpts = append(grpcOpts, []grpc.ServerOption{
-		grpc.StreamInterceptor(grpcmw.ChainStreamServer(streamInterceptors...)),
-		grpc.UnaryInterceptor(grpcmw.ChainUnaryServer(
+		grpc.ChainStreamInterceptor(streamInterceptors...),
+		grpc.ChainUnaryInterceptor(
 			append(
 				commonUnaryServerInterceptors(logger),
 				middleware.MethodTypeUnaryInterceptor(registry),
 				auth.UnaryServerInterceptor(conf.Auth),
 			)...,
-		)),
+		),
 		// We deliberately set the server MinTime to significantly less than the client interval of 20
 		// seconds to allow for network jitter. We can afford to be forgiving as the maximum number of
 		// concurrent clients for a Gitaly server is typically in the hundreds and this volume of

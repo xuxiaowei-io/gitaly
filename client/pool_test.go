@@ -6,7 +6,6 @@ import (
 	"sync"
 	"testing"
 
-	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
@@ -180,16 +179,16 @@ func runServerWithAddr(t *testing.T, creds, addr string) (*health.Server, string
 	var opts []grpc.ServerOption
 	if creds != "" {
 		opts = []grpc.ServerOption{
-			grpc.StreamInterceptor(grpcmw.ChainStreamServer(
+			grpc.ChainStreamInterceptor(
 				auth.StreamServerInterceptor(gitalycfgauth.Config{
 					Token: creds,
 				}),
-			)),
-			grpc.UnaryInterceptor(grpcmw.ChainUnaryServer(
+			),
+			grpc.ChainUnaryInterceptor(
 				auth.UnaryServerInterceptor(gitalycfgauth.Config{
 					Token: creds,
 				}),
-			)),
+			),
 		}
 	}
 
