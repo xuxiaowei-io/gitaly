@@ -174,7 +174,7 @@ func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 		step = mgr.locator.BeginFull(ctx, req.Repository, mgr.backupID)
 	}
 
-	refs, err := mgr.listRefs(ctx, req.Server, req.Repository)
+	refs, err := repo.ListRefs(ctx)
 	if err != nil {
 		return fmt.Errorf("manager: %w", err)
 	}
@@ -494,36 +494,6 @@ func (mgr *Manager) restoreCustomHooks(ctx context.Context, path string, server 
 		return fmt.Errorf("restore custom hooks, %q: %w", path, err)
 	}
 	return nil
-}
-
-// listRefs fetches the full set of refs and targets for the repository
-func (mgr *Manager) listRefs(ctx context.Context, server storage.ServerInfo, repo *gitalypb.Repository) ([]*gitalypb.ListRefsResponse_Reference, error) {
-	refClient, err := mgr.newRefClient(ctx, server)
-	if err != nil {
-		return nil, fmt.Errorf("list refs: %w", err)
-	}
-	stream, err := refClient.ListRefs(ctx, &gitalypb.ListRefsRequest{
-		Repository: repo,
-		Head:       true,
-		Patterns:   [][]byte{[]byte("refs/")},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("list refs: %w", err)
-	}
-
-	var refs []*gitalypb.ListRefsResponse_Reference
-
-	for {
-		resp, err := stream.Recv()
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			return nil, fmt.Errorf("list refs: %w", err)
-		}
-		refs = append(refs, resp.GetReferences()...)
-	}
-
-	return refs, nil
 }
 
 // writeRefs writes the previously fetched list of refs in the same output
