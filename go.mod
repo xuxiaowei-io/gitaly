@@ -6,7 +6,7 @@ go 1.18
 replace github.com/go-enry/go-license-detector/v4 => github.com/gl-gitaly/go-license-detector/v4 v4.0.0-20230217131025-5f34a24251ba
 
 require (
-	github.com/ProtonMail/go-crypto v0.0.0-20230316153859-cb82d937a5d9
+	github.com/ProtonMail/go-crypto v0.0.0-20230321155629-9a39f2531310
 	github.com/beevik/ntp v0.3.0
 	github.com/cloudflare/tableflip v1.2.3
 	github.com/containerd/cgroups v1.1.0
@@ -183,11 +183,11 @@ require (
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
-	golang.org/x/crypto v0.6.0 // indirect
+	golang.org/x/crypto v0.7.0 // indirect
 	golang.org/x/mod v0.8.0 // indirect
-	golang.org/x/net v0.6.0 // indirect
+	golang.org/x/net v0.8.0 // indirect
 	golang.org/x/oauth2 v0.5.0 // indirect
-	golang.org/x/text v0.7.0 // indirect
+	golang.org/x/text v0.8.0 // indirect
 	golang.org/x/tools v0.6.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	gonum.org/v1/gonum v0.8.2 // indirect
