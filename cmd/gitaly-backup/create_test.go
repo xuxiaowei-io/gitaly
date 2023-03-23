@@ -64,7 +64,7 @@ func TestCreateSubcommand(t *testing.T) {
 	require.NoError(t, fs.Parse([]string{"-path", path, "-id", "the-new-backup"}))
 	require.EqualError(t,
 		cmd.Run(ctx, &stdin, io.Discard),
-		"create: pipeline: 1 failures encountered:\n - invalid: manager: isEmpty: could not dial source: invalid connection string: \"invalid\"\n")
+		"create: pipeline: 1 failures encountered:\n - invalid: manager: could not dial source: invalid connection string: \"invalid\"\n")
 
 	for _, repo := range repos {
 		bundlePath := filepath.Join(path, repo.RelativePath, "the-new-backup", "001.bundle")

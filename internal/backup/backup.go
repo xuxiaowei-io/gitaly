@@ -152,7 +152,12 @@ func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 		return fmt.Errorf("manager: %w", err)
 	}
 
-	if isEmpty, err := mgr.isEmpty(ctx, req.Server, req.Repository); err != nil {
+	repo, err := mgr.newRemoteRepo(ctx, req.Repository, req.Server)
+	if err != nil {
+		return fmt.Errorf("manager: %w", err)
+	}
+
+	if isEmpty, err := repo.IsEmpty(ctx); err != nil {
 		return fmt.Errorf("manager: %w", err)
 	} else if isEmpty {
 		return fmt.Errorf("manager: repository empty: %w", ErrSkipped)
@@ -252,21 +257,6 @@ func setContextServerInfo(ctx context.Context, server *storage.ServerInfo, stora
 	var err error
 	*server, err = storage.ExtractGitalyServer(ctx, storageName)
 	return err
-}
-
-func (mgr *Manager) isEmpty(ctx context.Context, server storage.ServerInfo, repo *gitalypb.Repository) (bool, error) {
-	repoClient, err := mgr.newRepoClient(ctx, server)
-	if err != nil {
-		return false, fmt.Errorf("isEmpty: %w", err)
-	}
-	hasLocalBranches, err := repoClient.HasLocalBranches(ctx, &gitalypb.HasLocalBranchesRequest{Repository: repo})
-	switch {
-	case status.Code(err) == codes.NotFound:
-		return true, nil
-	case err != nil:
-		return false, fmt.Errorf("isEmpty: %w", err)
-	}
-	return !hasLocalBranches.GetValue(), nil
 }
 
 func (mgr *Manager) removeRepository(ctx context.Context, server storage.ServerInfo, repo *gitalypb.Repository) error {
@@ -575,4 +565,13 @@ func (mgr *Manager) newRefClient(ctx context.Context, server storage.ServerInfo)
 	}
 
 	return gitalypb.NewRefServiceClient(conn), nil
+}
+
+func (mgr *Manager) newRemoteRepo(ctx context.Context, repo *gitalypb.Repository, server storage.ServerInfo) (*remoteRepository, error) {
+	conn, err := mgr.conns.Dial(ctx, server.Address, server.Token)
+	if err != nil {
+		return nil, err
+	}
+
+	return newRemoteRepository(repo, conn), nil
 }
