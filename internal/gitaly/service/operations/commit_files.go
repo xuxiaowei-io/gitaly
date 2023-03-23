@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"path/filepath"
 	"strings"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
@@ -18,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -125,6 +127,255 @@ func validatePath(rootPath, relPath string) (string, error) {
 	return path, nil
 }
 
+// ErrNotFile indicates an error when a file was expected.
+var ErrNotFile = errors.New("not a file")
+
+func applyAction(ctx context.Context, action git2go.Action, treeish git.ObjectID, repo *localrepo.Repo) (git.ObjectID, error) {
+	var treeID git.ObjectID
+	var err error
+	var path string
+
+	switch action := action.(type) {
+	case git2go.ChangeFileMode:
+		path = action.Path
+		treeID, err = repo.ModifyTreeEntry(
+			ctx,
+			git.Revision(treeish),
+			action.Path,
+			func(entry *localrepo.TreeEntry) error {
+				if action.ExecutableMode {
+					if entry.Mode != "100755" {
+						entry.Mode = "100755"
+					}
+				} else {
+					if entry.Mode == "100755" {
+						entry.Mode = "100644"
+					}
+				}
+
+				return nil
+			})
+	case git2go.UpdateFile:
+		path = action.Path
+		treeID, err = repo.ModifyTreeEntry(
+			ctx,
+			git.Revision(treeish),
+			action.Path,
+			func(entry *localrepo.TreeEntry) error {
+				entry.OID = git.ObjectID(action.OID)
+				return nil
+			})
+	case git2go.MoveFile:
+		path = action.NewPath
+		treeID, err = repo.DeleteTreeEntry(
+			ctx,
+			git.Revision(treeish),
+			action.Path,
+		)
+		if err != nil {
+			return "", translateToGit2GoError(err, action.Path)
+		}
+
+		if action.OID == "" {
+			info, err := repo.ReadObjectInfo(
+				ctx,
+				git.Revision(
+					fmt.Sprintf(
+						"%s:%s",
+						treeish,
+						action.Path,
+					),
+				),
+			)
+			if err != nil {
+				return "", err
+			}
+
+			if !info.IsBlob() {
+				return "", translateToGit2GoError(ErrNotFile, action.Path)
+			}
+			action.OID = string(info.ObjectID())
+		}
+
+		treeID, err = repo.AddTreeEntry(
+			ctx,
+			git.Revision(treeID),
+			action.NewPath,
+			&localrepo.TreeEntry{
+				OID:  git.ObjectID(action.OID),
+				Mode: "100644",
+				Path: filepath.Base(action.NewPath),
+			},
+			false,
+			true,
+		)
+	case git2go.CreateDirectory:
+		path = action.Path
+
+		treeID, err = repo.AddTreeEntry(
+			ctx,
+			git.Revision(treeish),
+			path,
+			&localrepo.TreeEntry{
+				Mode: "040000",
+				Path: filepath.Base(path),
+				Type: localrepo.Tree,
+			},
+			false,
+			false,
+		)
+	case git2go.CreateFile:
+		path = action.Path
+		mode := "100644"
+		if action.ExecutableMode {
+			mode = "100755"
+		}
+
+		treeID, err = repo.AddTreeEntry(
+			ctx,
+			git.Revision(treeish),
+			action.Path,
+			&localrepo.TreeEntry{
+				OID:  git.ObjectID(action.OID),
+				Path: filepath.Base(action.Path),
+				Mode: mode,
+			},
+			false,
+			true,
+		)
+	case git2go.DeleteFile:
+		path = action.Path
+		treeID, err = repo.DeleteTreeEntry(
+			ctx,
+			git.Revision(treeish),
+			action.Path,
+		)
+	default:
+		return "", errors.New("unsupported action")
+	}
+
+	return treeID, translateToGit2GoError(err, path)
+}
+
+func translateToGit2GoError(err error, path string) error {
+	switch err {
+	case localrepo.ErrEntryNotFound:
+		fallthrough
+	case ErrNotFile:
+		fallthrough
+	case localrepo.ErrObjectNotFound:
+		return git2go.IndexError{
+			Path: path,
+			Type: git2go.ErrFileNotFound,
+		}
+	case localrepo.ErrInvalidPath:
+		//The error coming back from git2go has the path in single
+		//quotes. This is to match the git2go error for now.
+		//nolint:gitaly-linters
+		return git2go.UnknownIndexError(
+			fmt.Sprintf("invalid path: '%s'", path),
+		)
+	case localrepo.ErrPathTraversal:
+		return git2go.IndexError{
+			Path: path,
+			Type: git2go.ErrDirectoryTraversal,
+		}
+	case localrepo.ErrEntryExists:
+		return git2go.IndexError{
+			Path: path,
+			Type: git2go.ErrFileExists,
+		}
+	case localrepo.ErrDirExists:
+		return git2go.IndexError{
+			Path: path,
+			Type: git2go.ErrDirectoryExists,
+		}
+	}
+	return err
+}
+
+// ErrSignatureMissingNameOrEmail matches the git2go error
+var ErrSignatureMissingNameOrEmail = errors.New(
+	"commit: failed to parse signature - Signature cannot have an empty name or email",
+)
+
+func (s *Server) userCommitFilesGit(
+	ctx context.Context,
+	header *gitalypb.UserCommitFilesRequestHeader,
+	parentCommitOID git.ObjectID,
+	quarantineRepo *localrepo.Repo,
+	repoPath string,
+	actions []git2go.Action,
+) (git.ObjectID, error) {
+	now, err := dateFromProto(header)
+	if err != nil {
+		return "", structerr.NewInvalidArgument("%w", err)
+	}
+
+	var treeish git.ObjectID
+
+	if parentCommitOID != "" {
+		treeish, err = quarantineRepo.ResolveRevision(
+			ctx,
+			git.Revision(fmt.Sprintf("%s^{tree}", parentCommitOID)),
+		)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	for _, action := range actions {
+		if treeish, err = applyAction(
+			ctx,
+			action,
+			treeish,
+			quarantineRepo); err != nil {
+			return "", err
+		}
+	}
+
+	if treeish == "" {
+		objectHash, err := quarantineRepo.ObjectHash(ctx)
+		if err != nil {
+			return "", fmt.Errorf("getting object hash: %w", err)
+		}
+
+		treeish = objectHash.EmptyTreeOID
+	}
+
+	cfg := localrepo.WriteCommitConfig{
+		AuthorDate:     now,
+		AuthorName:     strings.TrimSpace(string(header.CommitAuthorName)),
+		AuthorEmail:    strings.TrimSpace(string(header.CommitAuthorEmail)),
+		CommitterDate:  now,
+		CommitterName:  strings.TrimSpace(string(header.User.Name)),
+		CommitterEmail: strings.TrimSpace(string(header.User.Email)),
+		Message:        string(header.CommitMessage),
+		TreeID:         treeish,
+	}
+
+	if cfg.AuthorName == "" {
+		cfg.AuthorName = cfg.CommitterName
+	}
+
+	if cfg.AuthorEmail == "" {
+		cfg.AuthorEmail = cfg.CommitterEmail
+	}
+
+	if cfg.AuthorName == "" || cfg.AuthorEmail == "" {
+		return "", structerr.NewInvalidArgument("%w", ErrSignatureMissingNameOrEmail)
+	}
+
+	if parentCommitOID != "" {
+		cfg.Parents = []git.ObjectID{parentCommitOID}
+	}
+
+	return quarantineRepo.WriteCommit(
+		ctx,
+		cfg,
+	)
+}
+
 func (s *Server) userCommitFilesGit2Go(
 	ctx context.Context,
 	header *gitalypb.UserCommitFilesRequestHeader,
@@ -153,7 +404,7 @@ func (s *Server) userCommitFilesGit2Go(
 		Actions:    actions,
 	})
 	if err != nil {
-		return "", fmt.Errorf("commit: %w", err)
+		return "", fmt.Errorf("%w", err)
 	}
 
 	return commitID, nil
@@ -295,7 +546,6 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 					return err
 				}
 			}
-
 			actions = append(actions, git2go.MoveFile{
 				Path:    prevPath,
 				NewPath: path,
@@ -322,14 +572,28 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 		}
 	}
 
-	commitID, err := s.userCommitFilesGit2Go(
-		ctx,
-		header,
-		parentCommitOID,
-		quarantineRepo,
-		repoPath,
-		actions,
-	)
+	var commitID git.ObjectID
+
+	if featureflag.CommitFilesInGit.IsEnabled(ctx) {
+		commitID, err = s.userCommitFilesGit(
+			ctx,
+			header,
+			parentCommitOID,
+			quarantineRepo,
+			repoPath,
+			actions,
+		)
+	} else {
+		commitID, err = s.userCommitFilesGit2Go(
+			ctx,
+			header,
+			parentCommitOID,
+			quarantineRepo,
+			repoPath,
+			actions,
+		)
+	}
+
 	if err != nil {
 		return err
 	}
