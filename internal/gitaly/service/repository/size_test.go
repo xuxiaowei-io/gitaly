@@ -7,8 +7,6 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
@@ -19,7 +17,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -33,11 +30,7 @@ const testRepoMinSizeKB = 10000
 func TestRepositorySize_SuccessfulRequest(t *testing.T) {
 	t.Parallel()
 
-	featureSet := testhelper.NewFeatureSets(
-		featureflag.RepositorySizeViaWalk,
-		featureflag.RevlistForRepoSize,
-		featureflag.UseNewRepoSize,
-	)
+	featureSet := testhelper.NewFeatureSets(featureflag.RepositorySizeViaWalk)
 
 	featureSet.Run(t, testSuccessfulRepositorySizeRequest)
 	featureSet.Run(t, testSuccessfulRepositorySizeRequestPoolMember)
@@ -93,19 +86,13 @@ func testSuccessfulRepositorySizeRequestPoolMember(t *testing.T, ctx context.Con
 
 	response, err = repoClient.RepositorySize(ctx, sizeRequest)
 	require.NoError(t, err)
-
-	if featureflag.UseNewRepoSize.IsEnabled(ctx) && featureflag.RevlistForRepoSize.IsEnabled(ctx) {
-		assert.Equal(t, int64(0), response.GetSize())
-	} else {
-		assert.Less(t, response.GetSize(), sizeBeforePool)
-	}
+	assert.Less(t, response.GetSize(), sizeBeforePool)
 }
 
 func testSuccessfulRepositorySizeRequest(t *testing.T, ctx context.Context) {
 	t.Parallel()
 
-	logger, hook := test.NewNullLogger()
-	cfg, repo, repoPath, client := setupRepositoryService(t, ctx, testserver.WithLogger(logger))
+	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
 
 	request := &gitalypb.RepositorySizeRequest{Repository: repo}
 	response, err := client.RepositorySize(ctx, request)
@@ -135,49 +122,13 @@ func testSuccessfulRepositorySizeRequest(t *testing.T, ctx context.Context) {
 
 	responseAfterRefs, err := client.RepositorySize(ctx, request)
 	require.NoError(t, err)
-
-	// We expect two log entries with "repository size calculated"
-	// since we called RepositorySize twice, but we are really interested
-	// in the results of the second log.
-	var entries []*logrus.Entry
-	switch {
-	case featureflag.RevlistForRepoSize.IsEnabled(ctx):
-		for _, entry := range hook.AllEntries() {
-			_, ok := entry.Data["repo_size_revlist_bytes"]
-			if ok {
-				entries = append(entries, entry)
-			}
-		}
-
-		require.Len(t, entries, 2)
-		revlistSizeInLog, ok := entries[1].Data["repo_size_revlist_bytes"]
-		require.True(t, ok)
-		require.Equal(t, "repository size calculated", entries[1].Message)
-
-		duSizeInLog, ok := entries[1].Data["repo_size_du_bytes"]
-		require.True(t, ok)
-
-		require.Less(t, revlistSizeInLog, duSizeInLog)
-		if featureflag.UseNewRepoSize.IsEnabled(ctx) {
-			assert.Equal(
-				t,
-				response.Size,
-				responseAfterRefs.Size,
-				"excluded refs do not contribute to the repository size",
-			)
-		}
-	default:
-		assert.Less(t, response.Size, responseAfterRefs.Size)
-	}
+	assert.Less(t, response.Size, responseAfterRefs.Size)
 }
 
-func TestRepositorySize_FailedRequest(t *testing.T) {
+func TestFailedRepositorySizeRequest(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.RevlistForRepoSize).
-		Run(t, testFailedRepositorySizeRequest)
-}
 
-func testFailedRepositorySizeRequest(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
 	_, client := setupRepositoryServiceWithoutRepo(t)
 
 	testCases := []struct {
@@ -216,7 +167,6 @@ func BenchmarkRepositorySize(b *testing.B) {
 			setupContext: func(b *testing.B) context.Context {
 				ctx := testhelper.Context(b)
 				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RepositorySizeViaWalk, false)
-				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RevlistForRepoSize, false)
 				return ctx
 			},
 		},
@@ -225,17 +175,6 @@ func BenchmarkRepositorySize(b *testing.B) {
 			setupContext: func(b *testing.B) context.Context {
 				ctx := testhelper.Context(b)
 				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RepositorySizeViaWalk, true)
-				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RevlistForRepoSize, false)
-				return ctx
-			},
-		},
-		{
-			desc: "rev-list",
-			setupContext: func(b *testing.B) context.Context {
-				ctx := testhelper.Context(b)
-				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RepositorySizeViaWalk, false)
-				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.RevlistForRepoSize, true)
-				ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.UseNewRepoSize, true)
 				return ctx
 			},
 		},
@@ -283,8 +222,7 @@ func BenchmarkRepositorySize(b *testing.B) {
 
 func TestRepositorySize_SuccessfulGetObjectDirectorySizeRequest(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.RevlistForRepoSize, featureflag.RepositorySizeViaWalk).
-		Run(t, testSuccessfulGetObjectDirectorySizeRequest)
+	testhelper.NewFeatureSets(featureflag.RepositorySizeViaWalk).Run(t, testSuccessfulGetObjectDirectorySizeRequest)
 }
 
 func testSuccessfulGetObjectDirectorySizeRequest(t *testing.T, ctx context.Context) {
@@ -303,8 +241,7 @@ func testSuccessfulGetObjectDirectorySizeRequest(t *testing.T, ctx context.Conte
 
 func TestRepositorySize_GetObjectDirectorySize_quarantine(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.RevlistForRepoSize, featureflag.RepositorySizeViaWalk).
-		Run(t, testGetObjectDirectorySizeQuarantine)
+	testhelper.NewFeatureSets(featureflag.RepositorySizeViaWalk).Run(t, testGetObjectDirectorySizeQuarantine)
 }
 
 func testGetObjectDirectorySizeQuarantine(t *testing.T, ctx context.Context) {
