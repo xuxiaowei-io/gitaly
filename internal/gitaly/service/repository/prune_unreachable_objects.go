@@ -57,8 +57,7 @@ func (s *server) PruneUnreachableObjects(
 	// that is to do a full repack. So unfortunately, this is quite expensive.
 	if featureflag.WriteCruftPacks.IsEnabled(ctx) {
 		if err := housekeeping.RepackObjects(ctx, repo, housekeeping.RepackObjectsConfig{
-			FullRepack:          true,
-			WriteCruftPack:      true,
+			Strategy:            housekeeping.RepackObjectsStrategyFullWithCruft,
 			WriteMultiPackIndex: true,
 			WriteBitmap:         len(repoInfo.Alternates) == 0,
 			CruftExpireBefore:   expireBefore,

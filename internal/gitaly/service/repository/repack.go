@@ -32,7 +32,7 @@ func (s *server) RepackFull(ctx context.Context, in *gitalypb.RepackFullRequest)
 
 	repo := s.localrepo(repository)
 	cfg := housekeeping.RepackObjectsConfig{
-		FullRepack:  true,
+		Strategy:    housekeeping.RepackObjectsStrategyFullWithLooseUnreachable,
 		WriteBitmap: in.GetCreateBitmap(),
 	}
 
@@ -64,7 +64,7 @@ func (s *server) RepackIncremental(ctx context.Context, in *gitalypb.RepackIncre
 
 	repo := s.localrepo(repository)
 	cfg := housekeeping.RepackObjectsConfig{
-		FullRepack:  false,
+		Strategy:    housekeeping.RepackObjectsStrategyIncremental,
 		WriteBitmap: false,
 	}
 

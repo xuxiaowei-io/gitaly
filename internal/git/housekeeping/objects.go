@@ -24,20 +24,33 @@ const (
 	rfc2822DateFormat = "Mon Jan 02 2006 15:04:05 -0700"
 )
 
+// RepackObjectsStrategy defines how objects shall be repacked.
+type RepackObjectsStrategy int
+
+const (
+	// RepackObjectsStrategyIncremental performs an incremental repack by writing all loose
+	// objects that are currently reachable into a new packfile.
+	RepackObjectsStrategyIncremental = RepackObjectsStrategy(iota + 1)
+	// RepackObjectsStrategyFullWithLooseUnreachable performs a full repack by writing all
+	// reachable objects into a new packfile. Unreachable objects will be exploded into loose
+	// objects.
+	RepackObjectsStrategyFullWithLooseUnreachable
+	// RepackObjectsStrategyFullWithCruft performs a full repack by writing all reachable
+	// objects into a new packfile. Unreachable objects will be written into a separate cruft
+	// packfile.
+	RepackObjectsStrategyFullWithCruft
+)
+
 // RepackObjectsConfig is configuration for RepackObjects.
 type RepackObjectsConfig struct {
-	// FullRepack determines whether all reachable objects should be repacked into a single
-	// packfile. This is much less efficient than doing incremental repacks, which only soak up
-	// all loose objects into a new packfile.
-	FullRepack bool
+	// Strategy determines the strategy with which to repack objects.
+	Strategy RepackObjectsStrategy
 	// WriteBitmap determines whether reachability bitmaps should be written or not. There is no
 	// reason to set this to `false`, except for legacy compatibility reasons with existing RPC
 	// behaviour
 	WriteBitmap bool
 	// WriteMultiPackIndex determines whether a multi-pack index should be written or not.
 	WriteMultiPackIndex bool
-	// WriteCruftPack determines whether unreachable objects shall be written into cruft packs.
-	WriteCruftPack bool
 	// CruftExpireBefore determines the cutoff date before which unreachable cruft objects shall
 	// be expired and thus deleted.
 	CruftExpireBefore time.Time
@@ -51,30 +64,30 @@ func RepackObjects(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsC
 		return err
 	}
 
-	if !cfg.FullRepack && !cfg.WriteMultiPackIndex && cfg.WriteBitmap {
-		return structerr.NewInvalidArgument("cannot write packfile bitmap for an incremental repack")
-	}
-
-	if !cfg.FullRepack && cfg.WriteCruftPack {
-		return structerr.NewInvalidArgument("cannot write cruft packs for an incremental repack")
-	}
-
-	if !cfg.WriteCruftPack && !cfg.CruftExpireBefore.IsZero() {
-		return structerr.NewInvalidArgument("cannot expire cruft objects when not writing cruft packs")
-	}
-
 	var options []git.Option
-	if cfg.FullRepack {
-		options = append(options,
+	var isFullRepack bool
+
+	switch cfg.Strategy {
+	case RepackObjectsStrategyIncremental:
+		options = []git.Option{
+			git.Flag{Name: "-d"},
+		}
+	case RepackObjectsStrategyFullWithLooseUnreachable:
+		options = []git.Option{
+			git.Flag{Name: "-A"},
 			git.Flag{Name: "--pack-kept-objects"},
 			git.Flag{Name: "-l"},
-		)
-
-		if cfg.WriteCruftPack {
-			options = append(options, git.Flag{Name: "--cruft"})
-		} else {
-			options = append(options, git.Flag{Name: "-A"})
+			git.Flag{Name: "-d"},
 		}
+		isFullRepack = true
+	case RepackObjectsStrategyFullWithCruft:
+		options = []git.Option{
+			git.Flag{Name: "--cruft"},
+			git.Flag{Name: "--pack-kept-objects"},
+			git.Flag{Name: "-l"},
+			git.Flag{Name: "-d"},
+		}
+		isFullRepack = true
 
 		if !cfg.CruftExpireBefore.IsZero() {
 			options = append(options, git.ValueFlag{
@@ -82,7 +95,21 @@ func RepackObjects(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsC
 				Value: cfg.CruftExpireBefore.Format(rfc2822DateFormat),
 			})
 		}
+	default:
+		return structerr.NewInvalidArgument("invalid strategy %d", cfg.Strategy)
+	}
+	if cfg.WriteMultiPackIndex {
+		options = append(options, git.Flag{Name: "--write-midx"})
+	}
 
+	if !isFullRepack && !cfg.WriteMultiPackIndex && cfg.WriteBitmap {
+		return structerr.NewInvalidArgument("cannot write packfile bitmap for an incremental repack")
+	}
+	if cfg.Strategy != RepackObjectsStrategyFullWithCruft && !cfg.CruftExpireBefore.IsZero() {
+		return structerr.NewInvalidArgument("cannot expire cruft objects when not writing cruft packs")
+	}
+
+	if isFullRepack {
 		// When we have performed a full repack we're updating the "full-repack-timestamp"
 		// file. This is done so that we can tell when we have last performed a full repack
 		// in a repository. This information can be used by our heuristics to effectively
@@ -98,15 +125,9 @@ func RepackObjects(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsC
 		}
 	}
 
-	if cfg.WriteMultiPackIndex {
-		options = append(options, git.Flag{Name: "--write-midx"})
-	}
-
 	if err := repo.ExecAndWait(ctx, git.Command{
-		Name: "repack",
-		Flags: append([]git.Option{
-			git.Flag{Name: "-d"},
-		}, options...),
+		Name:  "repack",
+		Flags: options,
 	}, git.WithConfig(GetRepackGitConfig(ctx, repo, cfg.WriteBitmap)...)); err != nil {
 		return err
 	}

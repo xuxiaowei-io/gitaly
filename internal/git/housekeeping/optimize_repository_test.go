@@ -69,10 +69,15 @@ func TestRepackIfNeeded(t *testing.T) {
 
 		didRepack, repackObjectsCfg, err := repackIfNeeded(ctx, repo, mockOptimizationStrategy{
 			shouldRepackObjects: true,
+			repackObjectsCfg: RepackObjectsConfig{
+				Strategy: RepackObjectsStrategyIncremental,
+			},
 		})
 		require.NoError(t, err)
 		require.True(t, didRepack)
-		require.Equal(t, RepackObjectsConfig{}, repackObjectsCfg)
+		require.Equal(t, RepackObjectsConfig{
+			Strategy: RepackObjectsStrategyIncremental,
+		}, repackObjectsCfg)
 
 		requireObjectsState(t, repo, objectsState{
 			packfiles: 2,
@@ -96,13 +101,13 @@ func TestRepackIfNeeded(t *testing.T) {
 		didRepack, repackObjectsCfg, err := repackIfNeeded(ctx, repo, mockOptimizationStrategy{
 			shouldRepackObjects: true,
 			repackObjectsCfg: RepackObjectsConfig{
-				FullRepack: true,
+				Strategy: RepackObjectsStrategyFullWithLooseUnreachable,
 			},
 		})
 		require.NoError(t, err)
 		require.True(t, didRepack)
 		require.Equal(t, RepackObjectsConfig{
-			FullRepack: true,
+			Strategy: RepackObjectsStrategyFullWithLooseUnreachable,
 		}, repackObjectsCfg)
 
 		requireObjectsState(t, repo, objectsState{
@@ -126,16 +131,14 @@ func TestRepackIfNeeded(t *testing.T) {
 		didRepack, repackObjectsCfg, err := repackIfNeeded(ctx, repo, mockOptimizationStrategy{
 			shouldRepackObjects: true,
 			repackObjectsCfg: RepackObjectsConfig{
-				FullRepack:        true,
-				WriteCruftPack:    true,
+				Strategy:          RepackObjectsStrategyFullWithCruft,
 				CruftExpireBefore: expiryTime,
 			},
 		})
 		require.NoError(t, err)
 		require.True(t, didRepack)
 		require.Equal(t, RepackObjectsConfig{
-			FullRepack:        true,
-			WriteCruftPack:    true,
+			Strategy:          RepackObjectsStrategyFullWithCruft,
 			CruftExpireBefore: expiryTime,
 		}, repackObjectsCfg)
 
@@ -162,16 +165,14 @@ func TestRepackIfNeeded(t *testing.T) {
 		didRepack, repackObjectsCfg, err := repackIfNeeded(ctx, repo, mockOptimizationStrategy{
 			shouldRepackObjects: true,
 			repackObjectsCfg: RepackObjectsConfig{
-				FullRepack:        true,
-				WriteCruftPack:    true,
+				Strategy:          RepackObjectsStrategyFullWithCruft,
 				CruftExpireBefore: expiryTime,
 			},
 		})
 		require.NoError(t, err)
 		require.True(t, didRepack)
 		require.Equal(t, RepackObjectsConfig{
-			FullRepack:        true,
-			WriteCruftPack:    true,
+			Strategy:          RepackObjectsStrategyFullWithCruft,
 			CruftExpireBefore: expiryTime,
 		}, repackObjectsCfg)
 

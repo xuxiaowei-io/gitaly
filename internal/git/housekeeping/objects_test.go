@@ -41,9 +41,20 @@ func TestRepackObjects(t *testing.T) {
 		expectedErr       error
 	}{
 		{
+			desc:  "default strategy fails",
+			setup: func(t *testing.T, repoPath string) {},
+			repackCfg: RepackObjectsConfig{
+				Strategy: 0,
+			},
+			expectedErr: structerr.NewInvalidArgument("invalid strategy 0"),
+		},
+		{
 			desc: "incremental repack packs objects",
 			setup: func(t *testing.T, repoPath string) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+			},
+			repackCfg: RepackObjectsConfig{
+				Strategy: RepackObjectsStrategyIncremental,
 			},
 			stateBeforeRepack: objectsState{
 				looseObjects: 2,
@@ -61,6 +72,9 @@ func TestRepackObjects(t *testing.T) {
 				repack(t, repoPath, "-d")
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("third"), gittest.WithBranch("third"))
 			},
+			repackCfg: RepackObjectsConfig{
+				Strategy: RepackObjectsStrategyIncremental,
+			},
 			stateBeforeRepack: objectsState{
 				packfiles:    2,
 				looseObjects: 1,
@@ -75,6 +89,7 @@ func TestRepackObjects(t *testing.T) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("first"), gittest.WithBranch("first"))
 			},
 			repackCfg: RepackObjectsConfig{
+				Strategy:    RepackObjectsStrategyIncremental,
 				WriteBitmap: true,
 			},
 			stateBeforeRepack: objectsState{
@@ -96,7 +111,7 @@ func TestRepackObjects(t *testing.T) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("third"), gittest.WithBranch("third"))
 			},
 			repackCfg: RepackObjectsConfig{
-				FullRepack: true,
+				Strategy: RepackObjectsStrategyFullWithLooseUnreachable,
 			},
 			stateBeforeRepack: objectsState{
 				looseObjects: 1,
@@ -117,7 +132,7 @@ func TestRepackObjects(t *testing.T) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("third"), gittest.WithBranch("third"))
 			},
 			repackCfg: RepackObjectsConfig{
-				FullRepack:  true,
+				Strategy:    RepackObjectsStrategyFullWithLooseUnreachable,
 				WriteBitmap: true,
 			},
 			stateBeforeRepack: objectsState{
@@ -135,6 +150,7 @@ func TestRepackObjects(t *testing.T) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
 			},
 			repackCfg: RepackObjectsConfig{
+				Strategy:            RepackObjectsStrategyIncremental,
 				WriteMultiPackIndex: true,
 			},
 			stateBeforeRepack: objectsState{
@@ -151,6 +167,7 @@ func TestRepackObjects(t *testing.T) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
 			},
 			repackCfg: RepackObjectsConfig{
+				Strategy:            RepackObjectsStrategyIncremental,
 				WriteMultiPackIndex: true,
 				WriteBitmap:         true,
 			},
@@ -174,7 +191,7 @@ func TestRepackObjects(t *testing.T) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("third"), gittest.WithBranch("third"))
 			},
 			repackCfg: RepackObjectsConfig{
-				FullRepack:          true,
+				Strategy:            RepackObjectsStrategyFullWithLooseUnreachable,
 				WriteMultiPackIndex: true,
 			},
 			stateBeforeRepack: objectsState{
@@ -197,7 +214,7 @@ func TestRepackObjects(t *testing.T) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("third"), gittest.WithBranch("third"))
 			},
 			repackCfg: RepackObjectsConfig{
-				FullRepack:          true,
+				Strategy:            RepackObjectsStrategyFullWithLooseUnreachable,
 				WriteBitmap:         true,
 				WriteMultiPackIndex: true,
 			},
@@ -219,6 +236,7 @@ func TestRepackObjects(t *testing.T) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("second"), gittest.WithBranch("second"))
 			},
 			repackCfg: RepackObjectsConfig{
+				Strategy:            RepackObjectsStrategyIncremental,
 				WriteBitmap:         true,
 				WriteMultiPackIndex: true,
 			},
@@ -251,7 +269,7 @@ func TestRepackObjects(t *testing.T) {
 				repack(t, repoPath, "-d")
 			},
 			repackCfg: RepackObjectsConfig{
-				FullRepack:          true,
+				Strategy:            RepackObjectsStrategyFullWithLooseUnreachable,
 				WriteBitmap:         true,
 				WriteMultiPackIndex: true,
 			},
@@ -266,22 +284,13 @@ func TestRepackObjects(t *testing.T) {
 			},
 		},
 		{
-			desc:  "writing cruft pack requires full repack",
-			setup: func(t *testing.T, repoPath string) {},
-			repackCfg: RepackObjectsConfig{
-				WriteCruftPack: true,
-			},
-			expectedErr: structerr.NewInvalidArgument("cannot write cruft packs for an incremental repack"),
-		},
-		{
 			desc: "unreachable objects get moved into cruft pack",
 			setup: func(t *testing.T, repoPath string) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("reachable"), gittest.WithBranch("reachable"))
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("unreachable"))
 			},
 			repackCfg: RepackObjectsConfig{
-				FullRepack:     true,
-				WriteCruftPack: true,
+				Strategy: RepackObjectsStrategyFullWithCruft,
 			},
 			stateBeforeRepack: objectsState{
 				looseObjects: 3,
@@ -295,6 +304,7 @@ func TestRepackObjects(t *testing.T) {
 			desc:  "expiring cruft objects requires writing cruft packs",
 			setup: func(t *testing.T, repoPath string) {},
 			repackCfg: RepackObjectsConfig{
+				Strategy:          RepackObjectsStrategyIncremental,
 				CruftExpireBefore: time.Now(),
 			},
 			expectedErr: structerr.NewInvalidArgument("cannot expire cruft objects when not writing cruft packs"),
@@ -306,8 +316,7 @@ func TestRepackObjects(t *testing.T) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("unreachable"))
 			},
 			repackCfg: RepackObjectsConfig{
-				FullRepack:        true,
-				WriteCruftPack:    true,
+				Strategy:          RepackObjectsStrategyFullWithCruft,
 				CruftExpireBefore: time.Now().Add(time.Hour),
 			},
 			stateBeforeRepack: objectsState{
@@ -328,8 +337,7 @@ func TestRepackObjects(t *testing.T) {
 				gittest.WriteCommit(t, cfg, repoPath, gittest.WithMessage("unreachable"))
 			},
 			repackCfg: RepackObjectsConfig{
-				FullRepack:        true,
-				WriteCruftPack:    true,
+				Strategy:          RepackObjectsStrategyFullWithCruft,
 				CruftExpireBefore: time.Now().Add(-1 * time.Hour),
 			},
 			stateBeforeRepack: objectsState{
@@ -350,8 +358,7 @@ func TestRepackObjects(t *testing.T) {
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "--cruft", "-d", "-n", "--no-write-bitmap-index")
 			},
 			repackCfg: RepackObjectsConfig{
-				FullRepack:        true,
-				WriteCruftPack:    true,
+				Strategy:          RepackObjectsStrategyFullWithCruft,
 				CruftExpireBefore: time.Now().Add(-1 * time.Hour),
 			},
 			stateBeforeRepack: objectsState{
@@ -371,8 +378,7 @@ func TestRepackObjects(t *testing.T) {
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "--cruft", "-d", "-n", "--no-write-bitmap-index")
 			},
 			repackCfg: RepackObjectsConfig{
-				FullRepack:        true,
-				WriteCruftPack:    true,
+				Strategy:          RepackObjectsStrategyFullWithCruft,
 				CruftExpireBefore: time.Now().Add(1 * time.Hour),
 			},
 			stateBeforeRepack: objectsState{
@@ -400,9 +406,10 @@ func TestRepackObjects(t *testing.T) {
 			require.Equal(t, tc.expectedErr, RepackObjects(ctx, repo, tc.repackCfg))
 			requireObjectsState(t, repo, tc.stateAfterRepack)
 
-			if tc.repackCfg.FullRepack {
+			switch tc.repackCfg.Strategy {
+			case RepackObjectsStrategyFullWithLooseUnreachable, RepackObjectsStrategyFullWithCruft:
 				require.FileExists(t, filepath.Join(repoPath, stats.FullRepackTimestampFilename))
-			} else {
+			default:
 				require.NoFileExists(t, filepath.Join(repoPath, stats.FullRepackTimestampFilename))
 			}
 
@@ -423,7 +430,7 @@ func TestRepackObjects(t *testing.T) {
 
 		gittest.TestDeltaIslands(t, cfg, repoPath, repoPath, stats.IsPoolRepository(repoProto), func() error {
 			return RepackObjects(ctx, repo, RepackObjectsConfig{
-				FullRepack: true,
+				Strategy: RepackObjectsStrategyFullWithLooseUnreachable,
 			})
 		})
 	})

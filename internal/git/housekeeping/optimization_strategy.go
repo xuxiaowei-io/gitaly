@@ -95,7 +95,7 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 		math.Log(float64(s.info.Packfiles.Size/1024/1024))/math.Log(log))) <= s.info.Packfiles.Count {
 
 		cfg := RepackObjectsConfig{
-			FullRepack:          true,
+			Strategy:            RepackObjectsStrategyFullWithLooseUnreachable,
 			WriteBitmap:         len(s.info.Alternates) == 0,
 			WriteMultiPackIndex: true,
 		}
@@ -108,7 +108,7 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 		// This is left for another iteration though once we have determined that this is
 		// even necessary.
 		if featureflag.WriteCruftPacks.IsEnabled(ctx) && !s.info.IsObjectPool {
-			cfg.WriteCruftPack = true
+			cfg.Strategy = RepackObjectsStrategyFullWithCruft
 			cfg.CruftExpireBefore = s.expireBefore
 		}
 
@@ -130,7 +130,7 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 	// it is necessary on the client side. We thus take a much stricter limit of 1024 objects.
 	if s.info.LooseObjects.Count > looseObjectLimit {
 		return true, RepackObjectsConfig{
-			FullRepack: false,
+			Strategy: RepackObjectsStrategyIncremental,
 			// Without multi-pack-index we cannot write bitmaps during an incremental
 			// repack.
 			WriteBitmap:         len(s.info.Alternates) == 0,
@@ -142,7 +142,7 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 	// multi-pack-index we perform an incremental repack to generate one.
 	if !s.info.Packfiles.MultiPackIndex.Exists {
 		return true, RepackObjectsConfig{
-			FullRepack:          false,
+			Strategy:            RepackObjectsStrategyIncremental,
 			WriteBitmap:         len(s.info.Alternates) == 0,
 			WriteMultiPackIndex: true,
 		}
@@ -188,7 +188,7 @@ func (s HeuristicalOptimizationStrategy) ShouldWriteCommitGraph(ctx context.Cont
 			// Same as with pruning: if we are repacking the repository and write cruft
 			// packs with an expiry date then we may end up pruning objects. We thus
 			// need to replace the commit-graph chain in that case.
-			ReplaceChain: repackCfg.WriteCruftPack && !repackCfg.CruftExpireBefore.IsZero(),
+			ReplaceChain: repackCfg.Strategy == RepackObjectsStrategyFullWithCruft && !repackCfg.CruftExpireBefore.IsZero(),
 		}
 	}
 
@@ -273,7 +273,7 @@ func NewEagerOptimizationStrategy(info stats.RepositoryInfo) EagerOptimizationSt
 // not have any alterantes.
 func (s EagerOptimizationStrategy) ShouldRepackObjects(ctx context.Context) (bool, RepackObjectsConfig) {
 	cfg := RepackObjectsConfig{
-		FullRepack:          true,
+		Strategy:            RepackObjectsStrategyFullWithLooseUnreachable,
 		WriteBitmap:         len(s.info.Alternates) == 0,
 		WriteMultiPackIndex: true,
 	}
@@ -281,7 +281,7 @@ func (s EagerOptimizationStrategy) ShouldRepackObjects(ctx context.Context) (boo
 	// Object pools should neither have unreachable objects, nor should we ever try to delete
 	// any if there are some. So we disable cruft packs and expiration of them for them.
 	if featureflag.WriteCruftPacks.IsEnabled(ctx) && !s.info.IsObjectPool {
-		cfg.WriteCruftPack = true
+		cfg.Strategy = RepackObjectsStrategyFullWithCruft
 		cfg.CruftExpireBefore = s.expireBefore
 	}
 
