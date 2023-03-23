@@ -41,6 +41,8 @@ type RepositoryServiceClient interface {
 	WriteCommitGraph(ctx context.Context, in *WriteCommitGraphRequest, opts ...grpc.CallOption) (*WriteCommitGraphResponse, error)
 	// This comment is left unintentionally blank.
 	RepositorySize(ctx context.Context, in *RepositorySizeRequest, opts ...grpc.CallOption) (*RepositorySizeResponse, error)
+	// RepositoryInfo returns detailed information about a repository and its data structures.
+	RepositoryInfo(ctx context.Context, in *RepositoryInfoRequest, opts ...grpc.CallOption) (*RepositoryInfoResponse, error)
 	// ObjectFormat determines the object format that is being used by the repository.
 	ObjectFormat(ctx context.Context, in *ObjectFormatRequest, opts ...grpc.CallOption) (*ObjectFormatResponse, error)
 	// This comment is left unintentionally blank.
@@ -233,6 +235,15 @@ func (c *repositoryServiceClient) WriteCommitGraph(ctx context.Context, in *Writ
 func (c *repositoryServiceClient) RepositorySize(ctx context.Context, in *RepositorySizeRequest, opts ...grpc.CallOption) (*RepositorySizeResponse, error) {
 	out := new(RepositorySizeResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/RepositorySize", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *repositoryServiceClient) RepositoryInfo(ctx context.Context, in *RepositoryInfoRequest, opts ...grpc.CallOption) (*RepositoryInfoResponse, error) {
+	out := new(RepositoryInfoResponse)
+	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/RepositoryInfo", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -970,6 +981,8 @@ type RepositoryServiceServer interface {
 	WriteCommitGraph(context.Context, *WriteCommitGraphRequest) (*WriteCommitGraphResponse, error)
 	// This comment is left unintentionally blank.
 	RepositorySize(context.Context, *RepositorySizeRequest) (*RepositorySizeResponse, error)
+	// RepositoryInfo returns detailed information about a repository and its data structures.
+	RepositoryInfo(context.Context, *RepositoryInfoRequest) (*RepositoryInfoResponse, error)
 	// ObjectFormat determines the object format that is being used by the repository.
 	ObjectFormat(context.Context, *ObjectFormatRequest) (*ObjectFormatResponse, error)
 	// This comment is left unintentionally blank.
@@ -1117,6 +1130,9 @@ func (UnimplementedRepositoryServiceServer) WriteCommitGraph(context.Context, *W
 }
 func (UnimplementedRepositoryServiceServer) RepositorySize(context.Context, *RepositorySizeRequest) (*RepositorySizeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RepositorySize not implemented")
+}
+func (UnimplementedRepositoryServiceServer) RepositoryInfo(context.Context, *RepositoryInfoRequest) (*RepositoryInfoResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RepositoryInfo not implemented")
 }
 func (UnimplementedRepositoryServiceServer) ObjectFormat(context.Context, *ObjectFormatRequest) (*ObjectFormatResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ObjectFormat not implemented")
@@ -1370,6 +1386,24 @@ func _RepositoryService_RepositorySize_Handler(srv interface{}, ctx context.Cont
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RepositoryServiceServer).RepositorySize(ctx, req.(*RepositorySizeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RepositoryService_RepositoryInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RepositoryInfoRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RepositoryServiceServer).RepositoryInfo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/gitaly.RepositoryService/RepositoryInfo",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RepositoryServiceServer).RepositoryInfo(ctx, req.(*RepositoryInfoRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2180,6 +2214,10 @@ var RepositoryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RepositorySize",
 			Handler:    _RepositoryService_RepositorySize_Handler,
+		},
+		{
+			MethodName: "RepositoryInfo",
+			Handler:    _RepositoryService_RepositoryInfo_Handler,
 		},
 		{
 			MethodName: "ObjectFormat",
