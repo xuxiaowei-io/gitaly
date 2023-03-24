@@ -53,17 +53,34 @@ func (s *server) FindChangedPaths(in *gitalypb.FindChangedPathsRequest, stream g
 		requests[i] = str
 	}
 
+	flags := []git.Option{
+		git.Flag{Name: "-z"},
+		git.Flag{Name: "--stdin"},
+		git.Flag{Name: "-r"},
+		git.Flag{Name: "--no-renames"},
+		git.Flag{Name: "--no-commit-id"},
+		git.Flag{Name: "--diff-filter=AMDTC"},
+	}
+	switch in.MergeCommitDiffMode {
+	case gitalypb.FindChangedPathsRequest_MERGE_COMMIT_DIFF_MODE_INCLUDE_MERGES, gitalypb.FindChangedPathsRequest_MERGE_COMMIT_DIFF_MODE_UNSPECIFIED:
+		// By default, git diff-tree --stdin does not show differences
+		// for merge commits. With this flag, it shows differences to
+		// that commit from all of its parents.
+		flags = append(flags, git.Flag{Name: "-m"})
+	case gitalypb.FindChangedPathsRequest_MERGE_COMMIT_DIFF_MODE_ALL_PARENTS:
+		// This flag changes the way a merge commit is displayed (which
+		// means it is useful only when the command is given one
+		// <tree-ish>, or --stdin). It shows the differences from each
+		// of the parents to the merge result simultaneously instead of
+		// showing pairwise diff between a parent and the result one at
+		// a time (which is what the -m option does). Furthermore, it
+		// lists only files which were modified from all parents.
+		flags = append(flags, git.Flag{Name: "-c"})
+	}
+
 	cmd, err := s.gitCmdFactory.New(stream.Context(), in.Repository, git.Command{
-		Name: "diff-tree",
-		Flags: []git.Option{
-			git.Flag{Name: "-z"},
-			git.Flag{Name: "--stdin"},
-			git.Flag{Name: "-m"},
-			git.Flag{Name: "-r"},
-			git.Flag{Name: "--no-renames"},
-			git.Flag{Name: "--no-commit-id"},
-			git.Flag{Name: "--diff-filter=AMDTC"},
-		},
+		Name:  "diff-tree",
+		Flags: flags,
 	}, git.WithStdin(strings.NewReader(strings.Join(requests, "\n")+"\n")))
 	if err != nil {
 		return structerr.NewInternal("cmd err: %w", err)
@@ -82,7 +99,7 @@ func (s *server) FindChangedPaths(in *gitalypb.FindChangedPathsRequest, stream g
 
 func parsePaths(reader *bufio.Reader, chunker *chunk.Chunker) error {
 	for {
-		path, err := nextPath(reader)
+		paths, err := nextPath(reader)
 		if err != nil {
 			if err == io.EOF {
 				break
@@ -91,15 +108,57 @@ func parsePaths(reader *bufio.Reader, chunker *chunk.Chunker) error {
 			return fmt.Errorf("next path err: %w", err)
 		}
 
-		if err := chunker.Send(path); err != nil {
-			return fmt.Errorf("err sending to chunker: %w", err)
+		for _, path := range paths {
+			if err := chunker.Send(path); err != nil {
+				return fmt.Errorf("err sending to chunker: %w", err)
+			}
 		}
 	}
 
 	return nil
 }
 
-func nextPath(reader *bufio.Reader) (*gitalypb.ChangedPaths, error) {
+func nextPath(reader *bufio.Reader) ([]*gitalypb.ChangedPaths, error) {
+	// When using git-diff-tree(1) option '-c' each line will be in the format:
+	//
+	//    1. a colon for each source.
+	//    2. mode for each "src"; 000000 if creation or unmerged.
+	//    3. a space.
+	//    4. mode for "dst"; 000000 if deletion or unmerged.
+	//    5. a space.
+	//    6. oid for each "src"; 0{40} if creation or unmerged.
+	//    7. a space.
+	//    8. oid for "dst"; 0{40} if deletion, unmerged or "work tree out of
+	//       sync with the index".
+	//    9. a space.
+	//   10. status is concatenated status characters for each parent
+	//   11. a tab or a NUL when -z option is used.
+	//   12. path for "src"
+	//   13. a tab or a NUL when -z option is used; only exists for C or R.
+	//   14. path for "dst"; only exists for C or R.
+	//
+	// Example output:
+	//
+	// ::100644 100644 100644 fabadb8 cc95eb0 4866510 MM       desc.c
+	// ::100755 100755 100755 52b7a2d 6d1ac04 d2ac7d7 RM       bar.sh
+	// ::100644 100644 100644 e07d6c5 9042e82 ee91881 RR       phooey.c
+	//
+	// This example has 2 sources, the mode and oid represent the values at
+	// each of the parents. When option '-m' was used this would be shown as:
+	//
+	// :100644 100644 fabadb8 4866510 M       desc.c
+	// :100755 100755 52b7a2d d2ac7d7 R       bar.sh
+	// :100644 100644 e07d6c5 ee91881 R       phooey.c
+	// :100644 100644 cc95eb0 4866510 M       desc.c
+	// :100755 100755 6d1ac04 d2ac7d7 M       bar.sh
+	// :100644 100644 9042e82 ee91881 R       phooey.c
+	//
+	// The number of sources returned depends on the number of parents of
+	// the commit, so we don't know in advance. First step is to count
+	// number of colons.
+
+	// Read up to the first colon. If trees were passed to the command,
+	// git-diff-tree(1) will print them, but are swallowed.
 	_, err := reader.ReadBytes(':')
 	if err != nil {
 		return nil, err
@@ -110,26 +169,29 @@ func nextPath(reader *bufio.Reader) (*gitalypb.ChangedPaths, error) {
 		return nil, err
 	}
 	split := bytes.Split(line[:len(line)-1], []byte(" "))
-	if len(split) != 5 || len(split[4]) != 1 {
+
+	// Determine the number of sources.
+	// The first colon was eaten by reader.ReadBytes(':') so we need to add
+	// one extra to get the total source count.
+	srcCount := bytes.LastIndexByte(split[0], byte(':')) + 2
+	split[0] = split[0][srcCount-1:]
+
+	pathStatus := split[len(split)-1]
+
+	// Sanity check on the number of fields. There should be:
+	// * a mode + hash for each source
+	// * a mode + hash for the destination
+	// * a status indicator (might be concatenated for multiple sources)
+	if len(split) != (2*srcCount)+2+1 || len(pathStatus) != srcCount {
 		return nil, fmt.Errorf("git diff-tree parsing failed on: %v", line)
 	}
 
-	oldMode, err := strconv.ParseInt(string(split[0]), 8, 32)
-	if err != nil {
-		return nil, fmt.Errorf("parsing old mode: %w", err)
-	}
-
-	newMode, err := strconv.ParseInt(string(split[1]), 8, 32)
-	if err != nil {
-		return nil, fmt.Errorf("parsing new mode: %w", err)
-	}
-
-	pathStatus := split[4]
-
+	// Read the path (until the next NUL delimiter)
 	path, err := reader.ReadBytes(numStatDelimiter)
 	if err != nil {
 		return nil, err
 	}
+	path = path[:len(path)-1]
 
 	statusTypeMap := map[string]gitalypb.ChangedPaths_Status{
 		"M": gitalypb.ChangedPaths_MODIFIED,
@@ -139,19 +201,33 @@ func nextPath(reader *bufio.Reader) (*gitalypb.ChangedPaths, error) {
 		"A": gitalypb.ChangedPaths_ADDED,
 	}
 
-	parsedPath, ok := statusTypeMap[string(pathStatus)]
-	if !ok {
-		return nil, structerr.NewInternal("unknown changed paths returned: %v", string(pathStatus))
+	// Produce a gitalypb.ChangedPaths for each source
+	changedPaths := make([]*gitalypb.ChangedPaths, srcCount)
+	for i := range changedPaths {
+		oldMode, err := strconv.ParseInt(string(split[i]), 8, 32)
+		if err != nil {
+			return nil, fmt.Errorf("parsing old mode: %w", err)
+		}
+
+		newMode, err := strconv.ParseInt(string(split[srcCount]), 8, 32)
+		if err != nil {
+			return nil, fmt.Errorf("parsing new mode: %w", err)
+		}
+
+		parsedPath, ok := statusTypeMap[string(pathStatus[i:i+1])]
+		if !ok {
+			return nil, structerr.NewInternal("unknown changed paths returned: %v", string(pathStatus))
+		}
+
+		changedPaths[i] = &gitalypb.ChangedPaths{
+			Status:  parsedPath,
+			Path:    path,
+			OldMode: int32(oldMode),
+			NewMode: int32(newMode),
+		}
 	}
 
-	changedPath := &gitalypb.ChangedPaths{
-		Status:  parsedPath,
-		Path:    path[:len(path)-1],
-		OldMode: int32(oldMode),
-		NewMode: int32(newMode),
-	}
-
-	return changedPath, nil
+	return changedPaths, nil
 }
 
 // This sender implements the interface in the chunker class

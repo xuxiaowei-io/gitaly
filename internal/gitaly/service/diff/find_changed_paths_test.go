@@ -29,6 +29,7 @@ func TestFindChangedPathsRequest_success(t *testing.T) {
 
 	type setupData struct {
 		repo          *gitalypb.Repository
+		diffMode      gitalypb.FindChangedPathsRequest_MergeCommitDiffMode
 		commits       []commitRequest
 		trees         []treeRequest
 		expectedPaths []*gitalypb.ChangedPaths
@@ -540,13 +541,153 @@ func TestFindChangedPathsRequest_success(t *testing.T) {
 				}
 			},
 		},
+		{
+			desc: "Returns the expected results when using ALL_PARENTS diff mode",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				oldCommit := gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{Path: "common.txt", Mode: "100644", Content: "before"},
+					),
+				)
+				leftCommit := gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithParents(oldCommit),
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{Path: "common.txt", Mode: "100644", Content: "before"},
+						gittest.TreeEntry{Path: "conflicted.txt", Mode: "100644", Content: "left"},
+					),
+				)
+				rightCommit := gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithParents(oldCommit),
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{Path: "common.txt", Mode: "100644", Content: "after"},
+						gittest.TreeEntry{Path: "conflicted.txt", Mode: "100644", Content: "right"},
+					),
+				)
+				mergeCommit := gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithParents(leftCommit, rightCommit),
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{Path: "common.txt", Mode: "100644", Content: "after"},
+						gittest.TreeEntry{Path: "conflicted.txt", Mode: "100644", Content: "left\nright"},
+					),
+				)
+
+				expectedPaths := []*gitalypb.ChangedPaths{
+					{
+						Status:  gitalypb.ChangedPaths_MODIFIED,
+						Path:    []byte("conflicted.txt"),
+						OldMode: 0o100644,
+						NewMode: 0o100644,
+					},
+					{
+						Status:  gitalypb.ChangedPaths_MODIFIED,
+						Path:    []byte("conflicted.txt"),
+						OldMode: 0o100644,
+						NewMode: 0o100644,
+					},
+				}
+
+				return setupData{
+					repo:          repo,
+					diffMode:      gitalypb.FindChangedPathsRequest_MERGE_COMMIT_DIFF_MODE_ALL_PARENTS,
+					commits:       []commitRequest{{commit: mergeCommit.String()}},
+					expectedPaths: expectedPaths,
+				}
+			},
+		},
+		{
+			desc: "Returns the expected results on octopus merge when using diff mode ALL_PARENTS",
+			setup: func(t *testing.T) setupData {
+				repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+				oldCommit := gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{Path: "README.md", Mode: "100644", Content: "# Hello"},
+					),
+				)
+				commit1 := gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithParents(oldCommit),
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{Path: "README.md", Mode: "100644", Content: "# Hello\nWelcome"},
+					),
+				)
+				commit2 := gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithParents(oldCommit),
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{Path: "README.md", Mode: "100644", Content: "# Hello\nto"},
+					),
+				)
+				commit3 := gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithParents(oldCommit),
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{Path: "README.md", Mode: "100644", Content: "# Hello\nthis"},
+					),
+				)
+				commit4 := gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithParents(oldCommit),
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{Path: "README.md", Mode: "100644", Content: "# Hello\nproject"},
+					),
+				)
+				mergeCommit := gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithParents(oldCommit, commit1, commit2, commit3, commit4),
+					gittest.WithTreeEntries(
+						gittest.TreeEntry{Path: "README.md", Mode: "100644", Content: "# Hello\nWelcome to this project"},
+					),
+				)
+
+				expectedPaths := []*gitalypb.ChangedPaths{
+					{
+						Status:  gitalypb.ChangedPaths_MODIFIED,
+						Path:    []byte("README.md"),
+						OldMode: 0o100644,
+						NewMode: 0o100644,
+					},
+					{
+						Status:  gitalypb.ChangedPaths_MODIFIED,
+						Path:    []byte("README.md"),
+						OldMode: 0o100644,
+						NewMode: 0o100644,
+					},
+					{
+						Status:  gitalypb.ChangedPaths_MODIFIED,
+						Path:    []byte("README.md"),
+						OldMode: 0o100644,
+						NewMode: 0o100644,
+					},
+					{
+						Status:  gitalypb.ChangedPaths_MODIFIED,
+						Path:    []byte("README.md"),
+						OldMode: 0o100644,
+						NewMode: 0o100644,
+					},
+					{
+						Status:  gitalypb.ChangedPaths_MODIFIED,
+						Path:    []byte("README.md"),
+						OldMode: 0o100644,
+						NewMode: 0o100644,
+					},
+				}
+
+				return setupData{
+					repo:          repo,
+					diffMode:      gitalypb.FindChangedPathsRequest_MERGE_COMMIT_DIFF_MODE_ALL_PARENTS,
+					commits:       []commitRequest{{commit: mergeCommit.String()}},
+					expectedPaths: expectedPaths,
+				}
+			},
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			setupData := tc.setup(t)
 
-			rpcRequest := &gitalypb.FindChangedPathsRequest{Repository: setupData.repo}
+			rpcRequest := &gitalypb.FindChangedPathsRequest{
+				Repository:          setupData.repo,
+				MergeCommitDiffMode: setupData.diffMode,
+			}
 
 			for _, commitReq := range setupData.commits {
 				req := &gitalypb.FindChangedPathsRequest_Request{
