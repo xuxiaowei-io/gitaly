@@ -159,6 +159,21 @@ func New(ctx context.Context, nameAndArgs []string, opts ...Option) (*Command, e
 		panic("command spawned with context without Done() channel")
 	}
 
+	// Don't launch the command if the context is already canceled. This matches
+	// Go's own CommandContext's behavior which doesn't start a command if the
+	// context is already canceled. We can't use it currently due to it sending a
+	// SIGKILL to the command when the context is canceled during execution. This is not
+	// fine as we don't have proper logic to recover from git crashes by for example
+	// cleaning stale reference locks.
+	//
+	// Without this, racy behavior will emerge as the command execution will race with the
+	// context cancellation. This really only helps with cases when the context is already
+	// canceled before calling New. Raciness still ensues if the context is canceled after
+	// this check. More details at: https://gitlab.com/gitlab-org/gitaly/-/issues/5021
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
 	if len(nameAndArgs) == 0 {
 		panic("command spawned without name")
 	}

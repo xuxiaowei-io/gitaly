@@ -144,6 +144,17 @@ func TestNew_unexportedEnv(t *testing.T) {
 	require.NotContains(t, strings.Split(buf.String(), "\n"), fmt.Sprintf("%s=%s", unexportedEnvKey, unexportedEnvVal))
 }
 
+func TestNew_dontSpawnWithCanceledContext(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(testhelper.Context(t))
+	cancel()
+
+	cmd, err := New(ctx, nil)
+	require.Equal(t, err, ctx.Err())
+	require.Nil(t, cmd)
+}
+
 func TestNew_rejectContextWithoutDone(t *testing.T) {
 	t.Parallel()
 
