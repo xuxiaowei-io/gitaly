@@ -286,7 +286,7 @@ func (s *server) syncCustomHooks(ctx context.Context, in *gitalypb.ReplicateRepo
 		return request.GetData(), err
 	})
 
-	if err := s.setCustomHooksTransaction(ctx, reader, in.GetRepository()); err != nil {
+	if err := s.setCustomHooks(ctx, reader, in.GetRepository()); err != nil {
 		return fmt.Errorf("setting custom hooks: %w", err)
 	}
 

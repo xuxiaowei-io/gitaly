@@ -42,12 +42,6 @@ type transactionsCondition func(context.Context) bool
 func transactionsEnabled(context.Context) bool  { return true }
 func transactionsDisabled(context.Context) bool { return false }
 
-func transactionsFlag(flag featureflag.FeatureFlag) transactionsCondition {
-	return func(ctx context.Context) bool {
-		return flag.IsEnabled(ctx)
-	}
-}
-
 // transactionRPCs contains the list of repository-scoped mutating calls which may take part in
 // transactions. An optional feature flag can be added to conditionally enable transactional
 // behaviour. If none is given, it's always enabled.
@@ -82,6 +76,8 @@ var transactionRPCs = map[string]transactionsCondition{
 	"/gitaly.RepositoryService/FetchSourceBranch":            transactionsEnabled,
 	"/gitaly.RepositoryService/RemoveRepository":             transactionsEnabled,
 	"/gitaly.RepositoryService/ReplicateRepository":          transactionsEnabled,
+	"/gitaly.RepositoryService/RestoreCustomHooks":           transactionsEnabled,
+	"/gitaly.RepositoryService/SetCustomHooks":               transactionsEnabled,
 	"/gitaly.RepositoryService/SetFullPath":                  transactionsEnabled,
 	"/gitaly.RepositoryService/WriteRef":                     transactionsEnabled,
 	"/gitaly.SSHService/SSHReceivePack":                      transactionsEnabled,
@@ -95,11 +91,6 @@ var transactionRPCs = map[string]transactionsCondition{
 	"/gitaly.ObjectPoolService/LinkRepositoryToObjectPool": transactionsDisabled,
 	"/gitaly.ObjectPoolService/ReduplicateRepository":      transactionsDisabled,
 	"/gitaly.RepositoryService/RenameRepository":           transactionsDisabled,
-
-	// The `RestoreCustomHooks` RPC can be make transactional by enabling the
-	// `TransactionalRestoreCustomHooks` feature flag.
-	"/gitaly.RepositoryService/RestoreCustomHooks": transactionsFlag(featureflag.TransactionalRestoreCustomHooks),
-	"/gitaly.RepositoryService/SetCustomHooks":     transactionsFlag(featureflag.TransactionalRestoreCustomHooks),
 }
 
 // forcePrimaryRoutingRPCs tracks RPCs which need to always get routed to the primary. This should

@@ -18,7 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
@@ -32,12 +31,8 @@ import (
 
 func TestSetCustomHooksRequest_success(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.TransactionalRestoreCustomHooks).
-		Run(t, testSuccessfulSetCustomHooksRequest)
-}
 
-func testSuccessfulSetCustomHooksRequest(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
 		desc         string
@@ -136,27 +131,18 @@ func testSuccessfulSetCustomHooksRequest(t *testing.T, ctx context.Context) {
 			require.NoError(t, err)
 
 			require.FileExists(t, filepath.Join(repoPath, "custom_hooks", "pre-push.sample"))
-
-			if featureflag.TransactionalRestoreCustomHooks.IsEnabled(ctx) {
-				require.Equal(t, 2, len(txManager.Votes()))
-				assert.Equal(t, voting.Prepared, txManager.Votes()[0].Phase)
-				assert.Equal(t, expectedVote, txManager.Votes()[1].Vote)
-				assert.Equal(t, voting.Committed, txManager.Votes()[1].Phase)
-			} else {
-				require.Equal(t, 0, len(txManager.Votes()))
-			}
+			require.Equal(t, 2, len(txManager.Votes()))
+			assert.Equal(t, voting.Prepared, txManager.Votes()[0].Phase)
+			assert.Equal(t, expectedVote, txManager.Votes()[1].Vote)
+			assert.Equal(t, voting.Committed, txManager.Votes()[1].Phase)
 		})
 	}
 }
 
 func TestSetCustomHooks_failedValidation(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.TransactionalRestoreCustomHooks).
-		Run(t, testFailedSetCustomHooksDueToValidations)
-}
 
-func testFailedSetCustomHooksDueToValidations(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
 		desc         string
@@ -202,12 +188,8 @@ func testFailedSetCustomHooksDueToValidations(t *testing.T, ctx context.Context)
 
 func TestSetCustomHooks_corruptTar(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.TransactionalRestoreCustomHooks).
-		Run(t, testFailedSetCustomHooksDueToBadTar)
-}
 
-func testFailedSetCustomHooksDueToBadTar(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 
 	for _, tc := range []struct {
 		desc         string
