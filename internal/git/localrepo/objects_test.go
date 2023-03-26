@@ -280,6 +280,49 @@ func testRepoReadObject(t *testing.T, ctx context.Context) {
 	}
 }
 
+func TestRepoReadObjectInfo(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	cfg, repo, repoPath := setupRepo(t)
+	blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("content"))
+	objectHash, err := repo.ObjectHash(ctx)
+	require.NoError(t, err)
+
+	for _, tc := range []struct {
+		desc               string
+		oid                git.ObjectID
+		content            string
+		expectedErr        error
+		expectedObjectInfo catfile.ObjectInfo
+	}{
+		{
+			desc:        "missing object",
+			oid:         git.ObjectID("abcdefg"),
+			expectedErr: InvalidObjectError("abcdefg"),
+		},
+		{
+			desc:    "valid object",
+			oid:     blobID,
+			content: "content",
+			expectedObjectInfo: catfile.ObjectInfo{
+				Oid:    blobID,
+				Type:   "blob",
+				Size:   7,
+				Format: objectHash.Format,
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			info, err := repo.ReadObjectInfo(ctx, git.Revision(tc.oid))
+			require.Equal(t, tc.expectedErr, err)
+			if tc.expectedErr == nil {
+				require.Equal(t, tc.expectedObjectInfo, *info)
+			}
+		})
+	}
+}
+
 func TestRepo_ReadObject_catfileCount(t *testing.T) {
 	t.Parallel()
 
