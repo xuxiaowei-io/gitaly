@@ -140,7 +140,7 @@ func (s HeuristicalOptimizationStrategy) ShouldRepackObjects(ctx context.Context
 
 	// In case both packfiles and loose objects are in a good state, but we don't yet have a
 	// multi-pack-index we perform an incremental repack to generate one.
-	if !s.info.Packfiles.HasMultiPackIndex {
+	if !s.info.Packfiles.MultiPackIndex.Exists {
 		return true, RepackObjectsConfig{
 			FullRepack:          false,
 			WriteBitmap:         len(s.info.Alternates) == 0,

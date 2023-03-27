@@ -91,7 +91,7 @@ func (m *RepositoryManager) reportRepositoryInfo(ctx context.Context, info stats
 	m.reportDataStructureExistence("bitmap", info.Packfiles.Bitmap.Exists)
 	m.reportDataStructureExistence("bitmap_hash_cache", info.Packfiles.Bitmap.HasHashCache)
 	m.reportDataStructureExistence("bitmap_lookup_table", info.Packfiles.Bitmap.HasLookupTable)
-	m.reportDataStructureExistence("multi_pack_index", info.Packfiles.HasMultiPackIndex)
+	m.reportDataStructureExistence("multi_pack_index", info.Packfiles.MultiPackIndex.Exists)
 	m.reportDataStructureExistence("multi_pack_index_bitmap", info.Packfiles.MultiPackIndexBitmap.Exists)
 	m.reportDataStructureExistence("multi_pack_index_bitmap_hash_cache", info.Packfiles.MultiPackIndexBitmap.HasHashCache)
 	m.reportDataStructureExistence("multi_pack_index_bitmap_lookup_table", info.Packfiles.MultiPackIndexBitmap.HasLookupTable)
@@ -103,6 +103,7 @@ func (m *RepositoryManager) reportRepositoryInfo(ctx context.Context, info stats
 	m.reportDataStructureCount("packfiles_cruft", info.Packfiles.CruftCount)
 	m.reportDataStructureCount("packfiles_keep", info.Packfiles.KeepCount)
 	m.reportDataStructureCount("packfiles_reverse_indices", info.Packfiles.ReverseIndexCount)
+	m.reportDataStructureCount("multi_pack_index_packfile_count", uint64(info.Packfiles.MultiPackIndex.PackfileCount))
 	m.reportDataStructureCount("loose_references", info.References.LooseReferencesCount)
 
 	m.reportDataStructureSize("loose_objects_recent", info.LooseObjects.Size-info.LooseObjects.StaleSize)
