@@ -109,6 +109,13 @@ func dirSizeInKB(path string) (int64, error) {
 
 	if err := filepath.WalkDir(path, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
+			// It can happen that we try to walk a directory like the object shards or
+			// an empty reference directory that gets deleted concurrently. This is fine
+			// and expected to happen, so let's ignore any such errors.
+			if errors.Is(err, os.ErrNotExist) {
+				return nil
+			}
+
 			return err
 		}
 
