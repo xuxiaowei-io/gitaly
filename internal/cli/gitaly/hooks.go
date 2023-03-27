@@ -1,0 +1,165 @@
+package gitaly
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"time"
+
+	"github.com/sirupsen/logrus"
+	"github.com/urfave/cli/v2"
+	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
+	"gitlab.com/gitlab-org/gitaly/v15/client"
+	internalclient "gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/client"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
+	gitalylog "gitlab.com/gitlab-org/gitaly/v15/internal/log"
+	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v15/streamio"
+	"google.golang.org/grpc"
+)
+
+const (
+	flagStorage    = "storage"
+	flagRepository = "repository"
+	flagConfig     = "config"
+)
+
+func newHooksCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "hooks",
+		Usage: "manage hooks for a git repository",
+		Subcommands: []*cli.Command{
+			{
+				Name:        "set",
+				Usage:       "set custom hooks for a git repository",
+				Description: "Reads a tarball containing custom git hooks from stdin and writes the hooks to the specified repository",
+				Action:      setHooksAction,
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:  flagStorage,
+						Usage: "storage containing the repository",
+						Value: "default",
+					},
+					&cli.StringFlag{
+						Name:     flagRepository,
+						Usage:    "repository to set hooks for",
+						Required: true,
+					},
+					&cli.StringFlag{
+						Name:     flagConfig,
+						Usage:    "path to Gitaly config",
+						Aliases:  []string{"c"},
+						Required: true,
+					},
+				},
+			},
+		},
+	}
+}
+
+func setHooksAction(ctx *cli.Context) error {
+	// Since the custom logger set for gRPC is very chatty by default, its
+	// logging level is set to "error" to suppress noise.
+	gitalylog.GrpcGo().Logger.SetLevel(logrus.ErrorLevel)
+
+	cfg, err := loadConfig(ctx.String(flagConfig))
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	address, err := getAddressWithScheme(cfg)
+	if err != nil {
+		return fmt.Errorf("get Gitaly address: %w", err)
+	}
+
+	conn, err := dial(ctx.Context, address, cfg.Auth.Token, 10*time.Second)
+	if err != nil {
+		return fmt.Errorf("create connection: %w", err)
+	}
+	defer conn.Close()
+
+	if err := setRepoHooks(ctx.Context, conn,
+		ctx.App.Reader,
+		ctx.String(flagStorage),
+		ctx.String(flagRepository),
+	); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// setRepoHooks sets custom hooks for the specified repository. The specified reader is expected to
+// provide a tarball containing custom git hooks within a `custom_hooks` directory.
+func setRepoHooks(ctx context.Context, conn *grpc.ClientConn, reader io.Reader, storage, relativePath string) error {
+	repoClient := gitalypb.NewRepositoryServiceClient(conn)
+	stream, err := repoClient.SetCustomHooks(ctx)
+	if err != nil {
+		return fmt.Errorf("create repository client: %w", err)
+	}
+
+	// Send first request containing only repository information.
+	if err := stream.Send(&gitalypb.SetCustomHooksRequest{
+		Repository: &gitalypb.Repository{
+			StorageName:  storage,
+			RelativePath: relativePath,
+		},
+	}); err != nil {
+		return err
+	}
+
+	// Configure streamWriter to transmit tarball data to stream.
+	streamWriter := streamio.NewWriter(func(p []byte) error {
+		return stream.Send(&gitalypb.SetCustomHooksRequest{Data: p})
+	})
+
+	if _, err := io.Copy(streamWriter, reader); err != nil {
+		// Ignore EOF errors to avoid race caused by server closing stream
+		// prematurely. This allows us to get an accurate error message as to
+		// why the stream was closed.
+		if !errors.Is(err, io.EOF) {
+			return fmt.Errorf("copying hooks archive: %w", err)
+		}
+	}
+
+	if _, err := stream.CloseAndRecv(); err != nil {
+		return fmt.Errorf("closing hooks archive stream: %w", err)
+	}
+
+	return nil
+}
+
+func dial(ctx context.Context, addr, token string, timeout time.Duration, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	opts = append(opts,
+		grpc.WithBlock(),
+		internalclient.UnaryInterceptor(),
+		internalclient.StreamInterceptor(),
+	)
+
+	if len(token) > 0 {
+		opts = append(opts,
+			grpc.WithPerRPCCredentials(
+				gitalyauth.RPCCredentialsV2(token),
+			),
+		)
+	}
+
+	return client.DialContext(ctx, addr, opts)
+}
+
+func getAddressWithScheme(cfg config.Cfg) (string, error) {
+	switch {
+	case cfg.SocketPath != "":
+		return "unix:" + cfg.SocketPath, nil
+	case cfg.ListenAddr != "":
+		return "tcp://" + cfg.ListenAddr, nil
+	case cfg.TLSListenAddr != "":
+		return "tls://" + cfg.TLSListenAddr, nil
+	default:
+		return "", errors.New("no address configured")
+	}
+}

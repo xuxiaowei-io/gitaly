@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 )
 
 // CustomHooksDir is the directory in which the custom hooks are stored in the repository.
@@ -42,16 +43,18 @@ func ExtractHooks(ctx context.Context, reader io.Reader, path string, stripPrefi
 	}
 
 	if err := cmd.Wait(); err != nil {
+		stderr := stderrBuilder.String()
+
 		// GNU and BSD tar versions have differing errors when attempting to
 		// extract specified members from a valid tar archive. If the tar
 		// archive is valid the errors for GNU and BSD tar should have the
 		// same prefix, which can be checked to validate whether the expected
 		// content is present in the archive for extraction.
-		if strings.HasPrefix(stderrBuilder.String(), "tar: custom_hooks: Not found in archive") {
+		if strings.HasPrefix(stderr, "tar: custom_hooks: Not found in archive") {
 			return nil
 		}
 
-		return fmt.Errorf("waiting for tar command completion: %w", err)
+		return structerr.New("waiting for tar command completion: %w", err).WithMetadata("stderr", stderr)
 	}
 
 	return nil

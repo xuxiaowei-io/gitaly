@@ -29,6 +29,7 @@ func NewApp() *cli.App {
 			newServeCommand(),
 			newCheckCommand(),
 			newConfigurationCommand(),
+			newHooksCommand(),
 		},
 	}
 }

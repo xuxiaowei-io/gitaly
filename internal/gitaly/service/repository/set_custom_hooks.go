@@ -103,7 +103,7 @@ func (s *server) setCustomHooks(ctx context.Context, reader io.Reader, repo repo
 		return nil
 	}
 
-	repoPath, err := s.locator.GetPath(repo)
+	repoPath, err := s.locator.GetRepoPath(repo)
 	if err != nil {
 		return fmt.Errorf("getting repo path: %w", err)
 	}
