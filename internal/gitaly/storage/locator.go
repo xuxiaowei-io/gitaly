@@ -13,11 +13,12 @@ import (
 
 // Locator allows to get info about location of the repository or storage at the local file system.
 type Locator interface {
-	// GetRepoPath returns the full path of the repository referenced by an
-	// RPC Repository message. It verifies the path is an existing git directory.
-	// The errors returned are gRPC errors with relevant error codes and should
-	// be passed back to gRPC without further decoration.
-	GetRepoPath(repo repository.GitRepo) (string, error)
+	// GetRepoPath returns the full path of the repository referenced by an RPC Repository message.
+	// By default, it verifies that the path is an existing git directory. However, if invoked with
+	// the `GetRepoPathOption` produced by `WithRepositoryVerificationSkipped()`, this validation
+	// will be skipped. The errors returned are gRPC errors with relevant error codes and should be
+	// passed back to gRPC without further decoration.
+	GetRepoPath(repo repository.GitRepo, opts ...GetRepoPathOption) (string, error)
 	// GetPath returns the path of the repo passed as first argument. An error is
 	// returned when either the storage can't be found or the path includes
 	// constructs trying to perform directory traversal.
@@ -30,8 +31,26 @@ type Locator interface {
 	CacheDir(storageName string) (string, error)
 	// TempDir returns the path to the temp dir for a storage.
 	TempDir(storageName string) (string, error)
-	// StateDir returns the path to the state dir for a stogare.
+	// StateDir returns the path to the state dir for a storage.
 	StateDir(storageName string) (string, error)
+}
+
+// GetRepoPathConfig is used to configure GetRepoPath.
+type GetRepoPathConfig struct {
+	// SkipRepositoryVerification will cause GetRepoPath to skip verification the verification whether the
+	// computed path is an actual Git repository or not.
+	SkipRepositoryVerification bool
+}
+
+// GetRepoPathOption can be passed to GetRepoPath to change its default behavior.
+type GetRepoPathOption func(*GetRepoPathConfig)
+
+// WithRepositoryVerificationSkipped skips the repository path validation that ensures the Git
+// directory is valid.
+func WithRepositoryVerificationSkipped() GetRepoPathOption {
+	return func(cfg *GetRepoPathConfig) {
+		cfg.SkipRepositoryVerification = true
+	}
 }
 
 //nolint:revive // This is unintentionally missing documentation.

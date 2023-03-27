@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/setup"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -46,6 +47,7 @@ func TestConfigLocator_GetRepoPath(t *testing.T) {
 	for _, tc := range []struct {
 		desc    string
 		repo    *gitalypb.Repository
+		opts    []storage.GetRepoPathOption
 		expPath string
 		expErr  error
 	}{
@@ -84,6 +86,18 @@ func TestConfigLocator_GetRepoPath(t *testing.T) {
 			expErr: structerr.NewNotFound(`GetRepoPath: not a git repository: %q`, filepath.Join(cfg.Storages[0].Path, notRepositoryFolder)),
 		},
 		{
+			desc:    "unknown relative path without repo verification",
+			repo:    &gitalypb.Repository{StorageName: storageName, RelativePath: "invalid"},
+			opts:    []storage.GetRepoPathOption{storage.WithRepositoryVerificationSkipped()},
+			expPath: filepath.Join(cfg.Storages[0].Path, "invalid"),
+		},
+		{
+			desc:    "path exists but not a git repository without repo verification",
+			repo:    &gitalypb.Repository{StorageName: storageName, RelativePath: notRepositoryFolder},
+			opts:    []storage.GetRepoPathOption{storage.WithRepositoryVerificationSkipped()},
+			expPath: filepath.Join(cfg.Storages[0].Path, notRepositoryFolder),
+		},
+		{
 			desc:   "relative path escapes parent folder",
 			repo:   &gitalypb.Repository{StorageName: storageName, RelativePath: "../.."},
 			expErr: structerr.NewInvalidArgument(`GetRepoPath: %w`, fmt.Errorf("relative path escapes root directory")),
@@ -95,7 +109,7 @@ func TestConfigLocator_GetRepoPath(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			path, err := locator.GetRepoPath(tc.repo)
+			path, err := locator.GetRepoPath(tc.repo, tc.opts...)
 			require.Equal(t, tc.expPath, path)
 			require.Equal(t, tc.expErr, err)
 		})
