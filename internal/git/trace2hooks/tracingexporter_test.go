@@ -218,7 +218,7 @@ func TestTracingExporter_Handle(t *testing.T) {
 			reporter.Reset()
 			ctx, trace := tc.setup(t)
 
-			exporter := TracingExporter{}
+			exporter := NewTracingExporter()
 			err := exporter.Handle(ctx, trace)
 			require.NoError(t, err)
 
