@@ -13,7 +13,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -478,11 +477,24 @@ func (scc StreamCacheConfig) Validate() error {
 		AsError()
 }
 
+func defaultPackObjectsCacheConfig() StreamCacheConfig {
+	return StreamCacheConfig{
+		// The Pack-Objects cache is effective at deduplicating concurrent
+		// identical fetches such as those coming from CI pipelines. But for
+		// unique requests, it adds no value. By setting this minimum to 1, we
+		// prevent unique requests from being cached, which saves about 50% of
+		// cache disk space. Also see
+		// https://gitlab.com/gitlab-com/gl-infra/scalability/-/issues/2222.
+		MinOccurrences: 1,
+	}
+}
+
 // Load initializes the Config variable from file and the environment.
 // Environment variables take precedence over the file.
 func Load(file io.Reader) (Cfg, error) {
 	cfg := Cfg{
-		Prometheus: prometheus.DefaultConfig(),
+		Prometheus:       prometheus.DefaultConfig(),
+		PackObjectsCache: defaultPackObjectsCacheConfig(),
 	}
 
 	if err := toml.NewDecoder(file).Decode(&cfg); err != nil {
@@ -900,11 +912,6 @@ func (cfg *Cfg) configurePackObjectsCache() error {
 
 	if !filepath.IsAbs(poc.Dir) {
 		return errPackObjectsCacheRelativePath
-	}
-
-	// Temporary environment variable for validation on GitLab.com
-	if n, err := strconv.Atoi(os.Getenv("GITALY_PACK_OBJECTS_CACHE_MIN_OCCURRENCES")); err == nil && n > 0 {
-		poc.MinOccurrences = n
 	}
 
 	return nil
