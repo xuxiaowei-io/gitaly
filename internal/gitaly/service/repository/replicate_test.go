@@ -28,7 +28,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
@@ -42,11 +41,7 @@ import (
 func TestReplicateRepository_success(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.ReplicateRepositoryHooks).
-		Run(t, testReplicateRepositorySuccess)
-}
-
-func testReplicateRepositorySuccess(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
 	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "replica"))
 	cfg := cfgBuilder.Build(t)
 
@@ -120,11 +115,7 @@ func testReplicateRepositorySuccess(t *testing.T, ctx context.Context) {
 func TestReplicateRepository_hiddenRefs(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.ReplicateRepositoryHooks).
-		Run(t, testReplicateRepositoryHiddenRefs)
-}
-
-func testReplicateRepositoryHiddenRefs(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
 	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "replica"))
 	cfg := cfgBuilder.Build(t)
 
@@ -207,11 +198,8 @@ func testReplicateRepositoryHiddenRefs(t *testing.T, ctx context.Context) {
 
 func TestReplicateRepository_transactional(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.ReplicateRepositoryHooks).
-		Run(t, testReplicateRepositoryTransactional)
-}
 
-func testReplicateRepositoryTransactional(t *testing.T, ctx context.Context) {
+	ctx := testhelper.Context(t)
 	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "replica"))
 	cfg := cfgBuilder.Build(t)
 
@@ -280,10 +268,8 @@ func testReplicateRepositoryTransactional(t *testing.T, ctx context.Context) {
 		hex.EncodeToString(gitconfigVote[:]),
 		hex.EncodeToString(gitattributesVote[:]),
 		hex.EncodeToString(gitattributesVote[:]),
-	}
-
-	if featureflag.ReplicateRepositoryHooks.IsEnabled(ctx) {
-		expectedVotes = append(expectedVotes, noHooksVote, noHooksVote)
+		noHooksVote,
+		noHooksVote,
 	}
 
 	require.Equal(t, expectedVotes, votes)
@@ -314,10 +300,8 @@ func testReplicateRepositoryTransactional(t *testing.T, ctx context.Context) {
 		hex.EncodeToString(gitattributesVote[:]),
 		hex.EncodeToString(replicationVote[:]),
 		hex.EncodeToString(replicationVote[:]),
-	}
-
-	if featureflag.ReplicateRepositoryHooks.IsEnabled(ctx) {
-		expectedVotes = append(expectedVotes, noHooksVote, noHooksVote)
+		noHooksVote,
+		noHooksVote,
 	}
 
 	require.Equal(t, expectedVotes, votes)
@@ -404,11 +388,8 @@ func TestReplicateRepositoryInvalidArguments(t *testing.T) {
 func TestReplicateRepository_BadRepository(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.ReplicateRepositoryHooks).
-		Run(t, testReplicateRepositoryBadRepository)
-}
+	ctx := testhelper.Context(t)
 
-func testReplicateRepositoryBadRepository(t *testing.T, ctx context.Context) {
 	for _, tc := range []struct {
 		desc          string
 		invalidSource bool
@@ -680,12 +661,7 @@ func TestFetchInternalRemote_failure(t *testing.T) {
 func TestReplicateRepository_hooks(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.ReplicateRepositoryHooks).
-		Run(t, testReplicateRepositoryHooks)
-}
-
-func testReplicateRepositoryHooks(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 
 	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "replica"))
 	cfg := cfgBuilder.Build(t)
@@ -725,9 +701,5 @@ func testReplicateRepositoryHooks(t *testing.T, ctx context.Context) {
 	targetHooksPath := filepath.Join(targetRepoPath, gitalyhook.CustomHooksDir)
 
 	// Make sure target repo contains replicated custom hooks from source repository.
-	if featureflag.ReplicateRepositoryHooks.IsEnabled(ctx) {
-		require.FileExists(t, filepath.Join(targetHooksPath, "pre-push.sample"))
-	} else {
-		require.NoDirExists(t, targetHooksPath)
-	}
+	require.FileExists(t, filepath.Join(targetHooksPath, "pre-push.sample"))
 }

@@ -22,7 +22,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/tempdir"
@@ -90,10 +89,8 @@ func (s *server) ReplicateRepository(ctx context.Context, in *gitalypb.Replicate
 		return nil, structerr.NewInternal("synchronizing repository: %w", err)
 	}
 
-	if featureflag.ReplicateRepositoryHooks.IsEnabled(ctx) {
-		if err := s.syncCustomHooks(ctx, in); err != nil {
-			return nil, structerr.NewInternal("synchronizing custom hooks: %w", err)
-		}
+	if err := s.syncCustomHooks(ctx, in); err != nil {
+		return nil, structerr.NewInternal("synchronizing custom hooks: %w", err)
 	}
 
 	return &gitalypb.ReplicateRepositoryResponse{}, nil
