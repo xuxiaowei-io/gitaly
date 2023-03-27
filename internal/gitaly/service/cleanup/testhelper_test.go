@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package cleanup
 
 import (
@@ -25,12 +23,9 @@ func TestMain(m *testing.M) {
 
 func setupCleanupService(t *testing.T, ctx context.Context) (config.Cfg, *gitalypb.Repository, string, gitalypb.CleanupServiceClient) {
 	cfg := testcfg.Build(t)
-
 	cfg.SocketPath = runCleanupServiceServer(t, cfg)
 
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
 	client, conn := newCleanupServiceClient(t, cfg.SocketPath)
 	t.Cleanup(func() { conn.Close() })

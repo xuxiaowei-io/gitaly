@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package cleanup
 
 import (
@@ -21,46 +19,46 @@ import (
 )
 
 func TestApplyBfgObjectMapStreamSuccess(t *testing.T) {
-	ctx := testhelper.Context(t)
+	t.Parallel()
 
+	ctx := testhelper.Context(t)
 	cfg, protoRepo, repoPath, client := setupCleanupService(t, ctx)
 
 	testcfg.BuildGitalyHooks(t, cfg)
 
 	repo := localrepo.NewTestRepo(t, cfg, protoRepo)
 
-	headCommit, err := repo.ReadCommit(ctx, "HEAD")
-	require.NoError(t, err)
-
-	// A known blob: the CHANGELOG in the test repository
-	blobID := "53855584db773c3df5b5f61f72974cb298822fbb"
-
-	// A known tag: v1.0.0
-	tagID := "f4e6814c3e4e7a0de82a9e7cd20c626cc963a2f8"
+	blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("blob contents"))
+	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "blob", Mode: "100644", OID: blobID},
+	))
+	tagID := gittest.WriteTag(t, cfg, repoPath, "v1.0.0", commitID.Revision(), gittest.WriteTagConfig{
+		Message: "annotated tag",
+	})
 
 	// Create some refs pointing to HEAD
-	for _, ref := range []string{
+	for _, ref := range []git.ReferenceName{
 		"refs/environments/1", "refs/keep-around/1", "refs/merge-requests/1", "refs/pipelines/1",
 		"refs/heads/_keep", "refs/tags/_keep", "refs/notes/_keep",
 	} {
-		gittest.Exec(t, cfg, "-C", repoPath, "update-ref", ref, headCommit.Id)
+		gittest.WriteRef(t, cfg, repoPath, ref, commitID)
 	}
 
 	// Create some refs pointing to ref/tags/v1.0.0, simulating an unmodified
 	// commit that predates bad data being added to the repository.
-	for _, ref := range []string{
+	for _, ref := range []git.ReferenceName{
 		"refs/environments/_keep", "refs/keep-around/_keep", "refs/merge-requests/_keep", "refs/pipelines/_keep",
 	} {
-		gittest.Exec(t, cfg, "-C", repoPath, "update-ref", ref, tagID)
+		gittest.WriteRef(t, cfg, repoPath, ref, tagID)
 	}
 
 	const filterRepoCommitMapHeader = "old                                      new\n"
 	objectMapData := fmt.Sprintf(
 		filterRepoCommitMapHeader+strings.Repeat("%s %s\n", 5),
-		headCommit.Id, git.ObjectHashSHA1.ZeroOID.String(),
-		git.ObjectHashSHA1.ZeroOID.String(), blobID,
-		git.ObjectHashSHA1.ZeroOID.String(), tagID,
-		blobID, git.ObjectHashSHA1.ZeroOID.String(),
+		commitID, gittest.DefaultObjectHash.ZeroOID,
+		gittest.DefaultObjectHash.ZeroOID, blobID,
+		gittest.DefaultObjectHash.ZeroOID, tagID,
+		blobID, gittest.DefaultObjectHash.ZeroOID,
 		tagID, tagID,
 	)
 
@@ -101,18 +99,18 @@ func TestApplyBfgObjectMapStreamSuccess(t *testing.T) {
 
 	// Ensure that the returned entry is correct
 	require.Len(t, entries, 4, "wrong number of entries returned")
-	requireEntry(t, entries[0], headCommit.Id, git.ObjectHashSHA1.ZeroOID.String(), gitalypb.ObjectType_COMMIT)
-	requireEntry(t, entries[1], git.ObjectHashSHA1.ZeroOID.String(), blobID, gitalypb.ObjectType_BLOB)
-	requireEntry(t, entries[2], git.ObjectHashSHA1.ZeroOID.String(), tagID, gitalypb.ObjectType_TAG)
-	requireEntry(t, entries[3], blobID, git.ObjectHashSHA1.ZeroOID.String(), gitalypb.ObjectType_UNKNOWN)
+	requireEntry(t, entries[0], commitID, gittest.DefaultObjectHash.ZeroOID, gitalypb.ObjectType_COMMIT)
+	requireEntry(t, entries[1], gittest.DefaultObjectHash.ZeroOID, blobID, gitalypb.ObjectType_BLOB)
+	requireEntry(t, entries[2], gittest.DefaultObjectHash.ZeroOID, tagID, gitalypb.ObjectType_TAG)
+	requireEntry(t, entries[3], blobID, gittest.DefaultObjectHash.ZeroOID, gitalypb.ObjectType_UNKNOWN)
 }
 
-func requireEntry(t *testing.T, entry *gitalypb.ApplyBfgObjectMapStreamResponse_Entry, oldOid, newOid string, objectType gitalypb.ObjectType) {
+func requireEntry(t *testing.T, entry *gitalypb.ApplyBfgObjectMapStreamResponse_Entry, oldOid, newOid git.ObjectID, objectType gitalypb.ObjectType) {
 	t.Helper()
 
 	require.Equal(t, objectType, entry.Type)
-	require.Equal(t, oldOid, entry.OldOid)
-	require.Equal(t, newOid, entry.NewOid)
+	require.Equal(t, oldOid, git.ObjectID(entry.OldOid))
+	require.Equal(t, newOid, git.ObjectID(entry.NewOid))
 }
 
 func TestApplyBfgObjectMapStreamFailsOnInvalidInput(t *testing.T) {
@@ -127,7 +125,7 @@ func TestApplyBfgObjectMapStreamFailsOnInvalidInput(t *testing.T) {
 			ObjectMap:  []byte("invalid-data here as you can see"),
 		})
 		require.Nil(t, response)
-		testhelper.RequireGrpcError(t, structerr.NewInvalidArgument("object map invalid at line 0"), err)
+		testhelper.RequireGrpcError(t, structerr.NewInvalidArgument("invalid old object ID at line 0"), err)
 	})
 
 	t.Run("no repository provided", func(t *testing.T) {

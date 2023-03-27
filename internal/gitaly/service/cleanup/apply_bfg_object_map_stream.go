@@ -4,8 +4,6 @@ import (
 	"io"
 
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/cleanup/internalrefs"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/cleanup/notifier"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -40,7 +38,7 @@ func (s *server) ApplyBfgObjectMapStream(server gitalypb.CleanupService_ApplyBfg
 	reader := &bfgStreamReader{firstRequest: firstRequest, server: server}
 	chunker := chunk.New(&bfgStreamWriter{server: server})
 
-	notifier, cancel, err := notifier.New(ctx, s.catfileCache, repo, chunker)
+	notifier, cancel, err := newNotifier(ctx, s.catfileCache, repo, chunker)
 	if err != nil {
 		return structerr.NewInternal("%w", err)
 	}
@@ -48,13 +46,13 @@ func (s *server) ApplyBfgObjectMapStream(server gitalypb.CleanupService_ApplyBfg
 
 	// It doesn't matter if new internal references are added after this RPC
 	// starts running - they shouldn't point to the objects removed by the BFG
-	cleaner, err := internalrefs.NewCleaner(ctx, repo, notifier.Notify)
+	cleaner, err := newCleaner(ctx, repo, notifier.notify)
 	if err != nil {
 		return structerr.NewInternal("%w", err)
 	}
 
-	if err := cleaner.ApplyObjectMap(ctx, reader.streamReader()); err != nil {
-		if invalidErr, ok := err.(internalrefs.ErrInvalidObjectMap); ok {
+	if err := cleaner.applyObjectMap(ctx, reader.streamReader()); err != nil {
+		if invalidErr, ok := err.(errInvalidObjectMap); ok {
 			return structerr.NewInvalidArgument("%w", invalidErr)
 		}
 
