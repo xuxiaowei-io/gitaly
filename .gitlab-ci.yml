@@ -21,8 +21,8 @@ variables:
   GO_VERSION: "1.19"
   RUBY_VERSION: "3.0"
   RUST_VERSION: "1.65.0"
-  POSTGRES_VERSION: "12.6-alpine"
-  PGBOUNCER_VERSION: "1.16.1"
+  POSTGRES_VERSION: "12-alpine"
+  PGBOUNCER_VERSION: "1.17.0"
   BUNDLE_PATH: "${CI_PROJECT_DIR}/_build/cache/ruby"
   GOCACHE: "${CI_PROJECT_DIR}/_build/cache/go-build"
   GOMODCACHE: "${CI_PROJECT_DIR}/_build/cache/go-mod"
@@ -229,7 +229,7 @@ test:
       # the minimum version changes, please change this to the new minimum
       # version. Furthermore, please make sure to update the minimum required
       # version in `datastore.CheckPostgresVersion()`.
-      - POSTGRES_VERSION: "11.14-alpine"
+      - POSTGRES_VERSION: "11-alpine"
         TEST_TARGET: [ test, test-with-praefect ]
 
 test:coverage:
@@ -256,15 +256,11 @@ test:pgbouncer:
     <<: *test_variables
     # The following variables are used by PgBouncer to connect to Postgres.
     POSTGRESQL_HOST: "${PGHOST}"
-    # The image doesn't support setting `auth_user`, so we're cheating and use
-    # "command line injection" here. In any case, `auth_user` is required so
-    # that we can connect as a different user, but authenticate as the actual
-    # PGUSER. We can fix this when
-    # https://github.com/bitnami/bitnami-docker-pgbouncer/pull/22 lands.
-    POSTGRESQL_PORT: "${PGPORT} auth_user=${PGUSER}"
+    POSTGRESQL_PORT: "${PGPORT}"
     POSTGRESQL_USERNAME: "${PGUSER}"
     # These variables define how PgBouncer itself is configured
     PGBOUNCER_AUTH_TYPE: trust
+    PGBOUNCER_AUTH_USER: "${PGUSER}"
     PGBOUNCER_DATABASE: "*"
     PGBOUNCER_IGNORE_STARTUP_PARAMETERS: extra_float_digits
     PGBOUNCER_POOL_MODE: transaction
