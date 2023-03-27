@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package main
 
 import (
@@ -11,8 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -34,23 +30,14 @@ func TestVisibilityOfHiddenRefs(t *testing.T) {
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
 
 	address := testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 
 	// Create a keep-around ref
-	existingSha := git.ObjectID("1e292f8fedd741b75372e19097c76d327140c312")
-	keepAroundRef := fmt.Sprintf("%s/%s", keepAroundNamespace, existingSha)
-
-	localRepo := localrepo.NewTestRepo(t, cfg, repo)
-	updater, err := updateref.New(ctx, localRepo)
-	defer testhelper.MustClose(t, updater)
-
-	require.NoError(t, err)
-	require.NoError(t, updater.Start())
-	require.NoError(t, updater.Create(git.ReferenceName(keepAroundRef), existingSha))
-	require.NoError(t, updater.Commit())
+	commitID := gittest.WriteCommit(t, cfg, repoPath)
+	keepAroundRef := fmt.Sprintf("%s/%s", keepAroundNamespace, commitID)
+	gittest.WriteRef(t, cfg, repoPath, git.ReferenceName(keepAroundRef), commitID)
 
 	gittest.Exec(t, cfg, "-C", repoPath, "config", "transfer.hideRefs", keepAroundNamespace)
 
@@ -96,9 +83,9 @@ func TestVisibilityOfHiddenRefs(t *testing.T) {
 			}, "ls-remote", fmt.Sprintf("%s:%s", "git@localhost", repoPath), keepAroundRef)
 
 			if test.HiddenRefFound {
-				require.Equal(t, fmt.Sprintf("%s\t%s\n", existingSha, keepAroundRef), string(stdout))
+				require.Equal(t, fmt.Sprintf("%s\t%s\n", commitID, keepAroundRef), string(stdout))
 			} else {
-				require.NotEqual(t, fmt.Sprintf("%s\t%s\n", existingSha, keepAroundRef), string(stdout))
+				require.NotEqual(t, fmt.Sprintf("%s\t%s\n", commitID, keepAroundRef), string(stdout))
 			}
 		})
 	}

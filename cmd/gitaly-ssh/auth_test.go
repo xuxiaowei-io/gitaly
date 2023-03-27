@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package main
 
 import (
@@ -10,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service/setup"
@@ -28,10 +27,10 @@ func TestConnectivity(t *testing.T) {
 	testcfg.BuildGitalySSH(t, cfg)
 	testcfg.BuildGitalyHooks(t, cfg)
 
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 		SkipCreationViaService: true,
-		Seed:                   gittest.SeedGitLabTest,
 	})
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
 
 	cwd, err := os.Getwd()
 	require.NoError(t, err)
@@ -131,8 +130,8 @@ func TestConnectivity(t *testing.T) {
 
 			output := gittest.ExecOpts(t, cfg, gittest.ExecConfig{
 				Env: env,
-			}, "ls-remote", "git@localhost:test/test.git", "refs/heads/master")
-			require.True(t, strings.HasSuffix(strings.TrimSpace(string(output)), "refs/heads/master"))
+			}, "ls-remote", "git@localhost:test/test.git", git.DefaultRef.String())
+			require.True(t, strings.HasSuffix(strings.TrimSpace(string(output)), git.DefaultRef.String()))
 		})
 	}
 }

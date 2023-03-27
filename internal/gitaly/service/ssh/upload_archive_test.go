@@ -1,5 +1,3 @@
-//go:build !gitaly_test_sha256
-
 package ssh
 
 import (
@@ -9,6 +7,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
@@ -27,9 +26,7 @@ func TestFailedUploadArchiveRequestDueToTimeout(t *testing.T) {
 	cfg.SocketPath = runSSHServerWithOptions(t, cfg, []ServerOpt{WithArchiveRequestTimeout(100 * time.Microsecond)})
 
 	ctx := testhelper.Context(t)
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
+	repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	client := newSSHClient(t, cfg.SocketPath)
 
@@ -128,9 +125,8 @@ func TestUploadArchiveSuccess(t *testing.T) {
 	cfg.SocketPath = runSSHServer(t, cfg)
 
 	ctx := testhelper.Context(t)
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(git.DefaultBranch))
 
 	payload, err := protojson.Marshal(&gitalypb.SSHUploadArchiveRequest{
 		Repository: repo,
@@ -144,7 +140,7 @@ func TestUploadArchiveSuccess(t *testing.T) {
 			fmt.Sprintf("PATH=%s", ".:"+os.Getenv("PATH")),
 			fmt.Sprintf(`GIT_SSH_COMMAND=%s upload-archive`, cfg.BinaryPath("gitaly-ssh")),
 		},
-	}, "archive", "master", "--remote=git@localhost:test/test.git")
+	}, "archive", git.DefaultBranch, "--remote=git@localhost:test/test.git")
 }
 
 func testUploadArchiveFailedResponse(t *testing.T, stream gitalypb.SSHService_SSHUploadArchiveClient) error {
