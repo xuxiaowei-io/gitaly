@@ -431,6 +431,12 @@ func TestHeuristicalOptimizationStrategy_ShouldRepackReferences(t *testing.T) {
 func TestHeuristicalOptimizationStrategy_NeedsWriteCommitGraph(t *testing.T) {
 	t.Parallel()
 
+	testhelper.NewFeatureSets(featureflag.WriteCruftPacks).Run(t, testHeuristicalOptimizationStrategyNeedsWriteCommitGraph)
+}
+
+func testHeuristicalOptimizationStrategyNeedsWriteCommitGraph(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
 	for _, tc := range []struct {
 		desc           string
 		strategy       HeuristicalOptimizationStrategy
@@ -571,10 +577,34 @@ func TestHeuristicalOptimizationStrategy_NeedsWriteCommitGraph(t *testing.T) {
 				ReplaceChain: true,
 			},
 		},
+		{
+			desc: "writing cruft packs with expiry rewrites commit graph chain",
+			strategy: HeuristicalOptimizationStrategy{
+				info: stats.RepositoryInfo{
+					Packfiles: stats.PackfilesInfo{
+						Count: 9000,
+					},
+					References: stats.ReferencesInfo{
+						LooseReferencesCount: 1,
+					},
+					CommitGraph: stats.CommitGraphInfo{
+						CommitGraphChainLength: 1,
+						HasBloomFilters:        true,
+						HasGenerationData:      true,
+					},
+				},
+				expireBefore: time.Now(),
+			},
+			// When we have a valid commit-graph, but objects are expired via cruft
+			// packs, then some objects may be deleted and thus cause us to end up with
+			// a stale commit-graph. We thus need to replace the whole chain.
+			expectedNeeded: true,
+			expectedCfg: WriteCommitGraphConfig{
+				ReplaceChain: featureflag.WriteCruftPacks.IsEnabled(ctx),
+			},
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx := testhelper.Context(t)
-
 			needed, writeCommitGraphCfg := tc.strategy.ShouldWriteCommitGraph(ctx)
 			require.Equal(t, tc.expectedNeeded, needed)
 			require.Equal(t, tc.expectedCfg, writeCommitGraphCfg)

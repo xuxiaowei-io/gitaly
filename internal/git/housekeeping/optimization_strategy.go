@@ -183,8 +183,13 @@ func (s HeuristicalOptimizationStrategy) ShouldWriteCommitGraph(ctx context.Cont
 
 	// When we repacked the repository then chances are high that we have accumulated quite some
 	// objects since the last time we wrote a commit-graph.
-	if needsRepacking, _ := s.ShouldRepackObjects(ctx); needsRepacking {
-		return true, WriteCommitGraphConfig{}
+	if needsRepacking, repackCfg := s.ShouldRepackObjects(ctx); needsRepacking {
+		return true, WriteCommitGraphConfig{
+			// Same as with pruning: if we are repacking the repository and write cruft
+			// packs with an expiry date then we may end up pruning objects. We thus
+			// need to replace the commit-graph chain in that case.
+			ReplaceChain: repackCfg.WriteCruftPack && !repackCfg.CruftExpireBefore.IsZero(),
+		}
 	}
 
 	return false, WriteCommitGraphConfig{}
