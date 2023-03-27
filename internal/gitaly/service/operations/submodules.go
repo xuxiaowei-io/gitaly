@@ -14,7 +14,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 )
@@ -173,34 +172,6 @@ func (s *Server) updateSubmodule(ctx context.Context, quarantineRepo *localrepo.
 	return string(newCommitID), nil
 }
 
-func (s *Server) updateSubmoduleWithGit2Go(ctx context.Context, quarantineRepo *localrepo.Repo, req *gitalypb.UserUpdateSubmoduleRequest) (string, error) {
-	repoPath, err := quarantineRepo.Path()
-	if err != nil {
-		return "", structerr.NewInternal("locate repo: %w", err)
-	}
-
-	authorDate, err := dateFromProto(req)
-	if err != nil {
-		return "", structerr.NewInvalidArgument("%w", err)
-	}
-
-	result, err := s.git2goExecutor.Submodule(ctx, quarantineRepo, git2go.SubmoduleCommand{
-		Repository: repoPath,
-		AuthorMail: string(req.GetUser().GetEmail()),
-		AuthorName: string(req.GetUser().GetName()),
-		AuthorDate: authorDate,
-		Branch:     string(req.GetBranch()),
-		CommitSHA:  req.GetCommitSha(),
-		Submodule:  string(req.GetSubmodule()),
-		Message:    string(req.GetCommitMessage()),
-	})
-	if err != nil {
-		return "", err
-	}
-
-	return result.CommitID, nil
-}
-
 func (s *Server) userUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpdateSubmoduleRequest) (*gitalypb.UserUpdateSubmoduleResponse, error) {
 	quarantineDir, quarantineRepo, err := s.quarantinedRepo(ctx, req.GetRepository())
 	if err != nil {
@@ -246,14 +217,7 @@ func (s *Server) userUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpda
 		}
 	}
 
-	var commitID string
-
-	if featureflag.SubmoduleInGit.IsEnabled(ctx) {
-		commitID, err = s.updateSubmodule(ctx, quarantineRepo, req)
-	} else {
-		commitID, err = s.updateSubmoduleWithGit2Go(ctx, quarantineRepo, req)
-	}
-
+	commitID, err := s.updateSubmodule(ctx, quarantineRepo, req)
 	if err != nil {
 		errStr := strings.TrimPrefix(err.Error(), "submodule: ")
 		errStr = strings.TrimSpace(errStr)
