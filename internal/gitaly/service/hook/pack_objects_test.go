@@ -440,6 +440,29 @@ func testServerPackObjectsHookWithSidechannelWithRuntimeDir(t *testing.T, ctx co
 
 			expectedMetrics := `# HELP gitaly_pack_objects_concurrent_processes Number of concurrent processes
 # TYPE gitaly_pack_objects_concurrent_processes histogram
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="0"} 0
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="5"} 1
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="10"} 1
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="15"} 1
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="20"} 1
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="25"} 1
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="30"} 1
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="35"} 1
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="40"} 1
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="45"} 1
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="50"} 1
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="55"} 1
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="60"} 1
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="65"} 1
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="70"} 1
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="75"} 1
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="80"} 1
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="85"} 1
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="90"} 1
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="95"} 1
+gitaly_pack_objects_concurrent_processes_bucket{segment="remote_ip",le="+Inf"} 1
+gitaly_pack_objects_concurrent_processes_sum{segment="remote_ip"} 1
+gitaly_pack_objects_concurrent_processes_count{segment="remote_ip"} 1
 gitaly_pack_objects_concurrent_processes_bucket{segment="repository",le="0"} 0
 gitaly_pack_objects_concurrent_processes_bucket{segment="repository",le="5"} 1
 gitaly_pack_objects_concurrent_processes_bucket{segment="repository",le="10"} 1
@@ -488,10 +511,12 @@ gitaly_pack_objects_concurrent_processes_sum{segment="user_id"} 1
 gitaly_pack_objects_concurrent_processes_count{segment="user_id"} 1
 # HELP gitaly_pack_objects_process_active_callers Number of unique callers that have an active pack objects processes
 # TYPE gitaly_pack_objects_process_active_callers gauge
+gitaly_pack_objects_process_active_callers{segment="remote_ip"} 0
 gitaly_pack_objects_process_active_callers{segment="repository"} 0
 gitaly_pack_objects_process_active_callers{segment="user_id"} 0
 # HELP gitaly_pack_objects_process_active_callers_total Total unique callers that have initiated a pack objects processes
 # TYPE gitaly_pack_objects_process_active_callers_total counter
+gitaly_pack_objects_process_active_callers_total{segment="remote_ip"} 1
 gitaly_pack_objects_process_active_callers_total{segment="repository"} 1
 gitaly_pack_objects_process_active_callers_total{segment="user_id"} 1
 `

@@ -79,11 +79,12 @@ func TestWithPackObjectsHookEnv(t *testing.T) {
 	userID := "user-123"
 	username := "username"
 	protocol := "protocol"
+	remoteIP := "1.2.3.4"
 
 	opt := git.WithPackObjectsHookEnv(repo, protocol)
 	subCmd := git.Command{Name: "upload-pack", Args: []string{"a/b/c"}}
 
-	ctx = grpcmetadata.AppendToOutgoingContext(ctx, "user_id", userID, "username", username)
+	ctx = grpcmetadata.AppendToOutgoingContext(ctx, "user_id", userID, "username", username, "remote_ip", remoteIP)
 	ctx = metadata.OutgoingToIncoming(ctx)
 
 	cmd, err := gittest.NewCommandFactory(t, cfg, git.WithSkipHooks()).New(ctx, repo, subCmd, opt)
@@ -95,4 +96,5 @@ func TestWithPackObjectsHookEnv(t *testing.T) {
 	require.Equal(t, userID, payload.UserDetails.UserID)
 	require.Equal(t, username, payload.UserDetails.Username)
 	require.Equal(t, protocol, payload.UserDetails.Protocol)
+	require.Equal(t, remoteIP, payload.UserDetails.RemoteIP)
 }

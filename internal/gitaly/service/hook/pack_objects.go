@@ -207,13 +207,18 @@ func runPackObjects(
 		defer finishRepoLog()
 
 		userID := req.GetGlId()
-
 		if userID == "" {
 			userID = "none"
 		}
-
 		finishUserLog := concurrencyTracker.LogConcurrency(ctx, "user_id", userID)
 		defer finishUserLog()
+
+		remoteIP := req.GetRemoteIp()
+		if remoteIP == "" {
+			remoteIP = "none"
+		}
+		finishRemoteIPLog := concurrencyTracker.LogConcurrency(ctx, "remote_ip", remoteIP)
+		defer finishRemoteIPLog()
 	}
 
 	counter := &helper.CountingWriter{W: w}
