@@ -39,6 +39,11 @@ const (
 	// objects into a new packfile. Unreachable objects will be written into a separate cruft
 	// packfile.
 	RepackObjectsStrategyFullWithCruft
+	// RepackObjectsStrategyGeometric performs an geometric repack. This strategy will repack
+	// packfiles so that the resulting pack structure forms a geometric sequence in the number
+	// of objects. Loose objects will get soaked up as part of the repack regardless of their
+	// reachability.
+	RepackObjectsStrategyGeometric
 )
 
 // RepackObjectsConfig is configuration for RepackObjects.
@@ -94,6 +99,40 @@ func RepackObjects(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsC
 				Name:  "--cruft-expiration",
 				Value: cfg.CruftExpireBefore.Format(rfc2822DateFormat),
 			})
+		}
+	case RepackObjectsStrategyGeometric:
+		options = []git.Option{
+			// We use a geometric factor `r`, which means that every successively larger
+			// packfile must have at least `r` times the number of objects.
+			//
+			// This factor ultimately determines how many packfiles there can be at a
+			// maximum in a repository for a given number of objects. The maximum number
+			// of objects with `n` packfiles and a factor `r` is `(1 - r^n) / (1 - r)`.
+			// E.g. with a factor of 4 and 10 packfiles, we can have at most 349,525
+			// objects, with 16 packfiles we can have 1,431,655,765 objects. Contrary to
+			// that, having a factor of 2 will translate to 1023 objects at 10 packfiles
+			// and 65535 objects at 16 packfiles at a maximum.
+			//
+			// So what we're effectively choosing here is how often we need to repack
+			// larger parts of the repository. The higher the factor the more we'll have
+			// to repack as the packfiles will be larger. On the other hand, having a
+			// smaller factor means we'll have to repack less objects as the slices we
+			// need to repack will have less objects.
+			//
+			// The end result is a hybrid approach between incremental repacks and full
+			// repacks: we won't typically repack the full repository, but only a subset
+			// of packfiles.
+			//
+			// For now, we choose a geometric factor of two. Large repositories nowadays
+			// typically have a few million objects, which would boil down to having at
+			// most 32 packfiles in the repository. This number is not scientifically
+			// chosen though any may be changed at a later point in time.
+			git.ValueFlag{Name: "--geometric", Value: "2"},
+			// Make sure to delete loose objects and packfiles that are made obsolete
+			// by the new packfile.
+			git.Flag{Name: "-d"},
+			// Don't include objects part of an alternate.
+			git.Flag{Name: "-l"},
 		}
 	default:
 		return structerr.NewInvalidArgument("invalid strategy %d", cfg.Strategy)
