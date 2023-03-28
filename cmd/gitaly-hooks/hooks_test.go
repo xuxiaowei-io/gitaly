@@ -28,13 +28,18 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	gitalylog "gitlab.com/gitlab-org/gitaly/v15/internal/log"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/labkit/correlation"
+	labkitcorrelation "gitlab.com/gitlab-org/labkit/correlation/grpc"
+	labkittracing "gitlab.com/gitlab-org/labkit/tracing"
 	"google.golang.org/grpc"
+	grpcmetadata "google.golang.org/grpc/metadata"
 )
 
 type glHookValues struct {
@@ -49,6 +54,9 @@ type proxyValues struct {
 var (
 	enabledFeatureFlag  = featureflag.FeatureFlag{Name: "enabled-feature-flag", OnByDefault: false}
 	disabledFeatureFlag = featureflag.FeatureFlag{Name: "disabled-feature-flag", OnByDefault: true}
+	correlationID       = "correlation-id-999"
+	glID                = "key-1234"
+	glUsername          = "iamgitlab"
 )
 
 func featureFlags(ctx context.Context) map[featureflag.FeatureFlag]bool {
@@ -73,6 +81,9 @@ func envForHooks(tb testing.TB, ctx context.Context, cfg config.Cfg, repo *gital
 		"user-tracer-id=1:2:3:4",
 	}...)
 	env = append(env, gitPushOptions...)
+
+	ctx = correlation.ContextWithCorrelation(ctx, correlationID)
+	env = labkittracing.NewEnvInjector()(ctx, env)
 
 	if proxyValues.HTTPProxy != "" {
 		env = append(env, fmt.Sprintf("HTTP_PROXY=%s", proxyValues.HTTPProxy))
@@ -140,10 +151,7 @@ func testHooksPrePostReceive(t *testing.T, cfg config.Cfg, repo *gitalypb.Reposi
 	ctx := testhelper.Context(t)
 
 	secretToken := "secret token"
-	glID := "key-1234"
-	glUsername := "iamgitlab"
 	glProtocol := "ssh"
-
 	changes := "abc"
 
 	gitPushOptions := []string{"gitpushoption1", "gitpushoption2"}
@@ -180,7 +188,7 @@ func testHooksPrePostReceive(t *testing.T, cfg config.Cfg, repo *gitalypb.Reposi
 	gitlabClient, err := gitlab.NewHTTPClient(logger, cfg.Gitlab, cfg.TLS, prometheus.Config{})
 	require.NoError(t, err)
 
-	runHookServiceWithGitlabClient(t, cfg, gitlabClient)
+	runHookServiceWithGitlabClient(t, cfg, true, gitlabClient)
 
 	gitObjectDirRegex := regexp.MustCompile(`(?m)^GIT_OBJECT_DIRECTORY=(.*)$`)
 	gitAlternateObjectDirRegex := regexp.MustCompile(`(?m)^GIT_ALTERNATE_OBJECT_DIRECTORIES=(.*)$`)
@@ -261,8 +269,6 @@ func testHooksPrePostReceive(t *testing.T, cfg config.Cfg, repo *gitalypb.Reposi
 func TestHooksUpdate(t *testing.T) {
 	ctx := testhelper.Context(t)
 
-	glID := "key-1234"
-	glUsername := "iamgitlab"
 	glProtocol := "ssh"
 
 	customHooksDir := testhelper.TempDir(t)
@@ -278,7 +284,7 @@ func TestHooksUpdate(t *testing.T) {
 
 	cfg.Gitlab.SecretFile = gitlab.WriteShellSecretFile(t, cfg.GitlabShell.Dir, "the wrong token")
 
-	runHookServiceServer(t, cfg)
+	runHookServiceServer(t, cfg, true)
 
 	testHooksUpdate(t, ctx, cfg, glHookValues{
 		GLID:       glID,
@@ -335,8 +341,6 @@ func testHooksUpdate(t *testing.T, ctx context.Context, cfg config.Cfg, glValues
 
 func TestHooksPostReceiveFailed(t *testing.T) {
 	secretToken := "secret token"
-	glID := "key-1234"
-	glUsername := "iamgitlab"
 	glProtocol := "ssh"
 	changes := "oldhead newhead"
 
@@ -375,7 +379,7 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 	gitlabClient, err := gitlab.NewHTTPClient(logger, cfg.Gitlab, cfg.TLS, prometheus.Config{})
 	require.NoError(t, err)
 
-	runHookServiceWithGitlabClient(t, cfg, gitlabClient)
+	runHookServiceWithGitlabClient(t, cfg, true, gitlabClient)
 
 	customHookOutputPath := gittest.WriteEnvToCustomHook(t, repoPath, "post-receive")
 
@@ -452,8 +456,6 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 
 func TestHooksNotAllowed(t *testing.T) {
 	secretToken := "secret token"
-	glID := "key-1234"
-	glUsername := "iamgitlab"
 	glProtocol := "ssh"
 	changes := "oldhead newhead"
 
@@ -491,7 +493,7 @@ func TestHooksNotAllowed(t *testing.T) {
 	gitlabClient, err := gitlab.NewHTTPClient(logger, cfg.Gitlab, cfg.TLS, prometheus.Config{})
 	require.NoError(t, err)
 
-	runHookServiceWithGitlabClient(t, cfg, gitlabClient)
+	runHookServiceWithGitlabClient(t, cfg, true, gitlabClient)
 
 	var stderr, stdout bytes.Buffer
 
@@ -515,52 +517,65 @@ func TestHooksNotAllowed(t *testing.T) {
 	require.NoFileExists(t, customHookOutputPath)
 }
 
-func runHookServiceServer(t *testing.T, cfg config.Cfg, serverOpts ...testserver.GitalyServerOpt) {
-	runHookServiceWithGitlabClient(t, cfg, gitlab.NewMockClient(
+func runHookServiceServer(t *testing.T, cfg config.Cfg, assertUserDetails bool, serverOpts ...testserver.GitalyServerOpt) {
+	runHookServiceWithGitlabClient(t, cfg, assertUserDetails, gitlab.NewMockClient(
 		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
 	), serverOpts...)
 }
 
-type featureFlagAsserter struct {
+type baggageAsserter struct {
 	gitalypb.UnimplementedHookServiceServer
-	t       testing.TB
-	wrapped gitalypb.HookServiceServer
+	t                 testing.TB
+	wrapped           gitalypb.HookServiceServer
+	assertUserDetails bool
 }
 
-func (svc featureFlagAsserter) assertFlags(ctx context.Context) {
+func (svc baggageAsserter) assert(ctx context.Context) {
 	assert.True(svc.t, enabledFeatureFlag.IsEnabled(ctx))
 	assert.True(svc.t, disabledFeatureFlag.IsDisabled(ctx))
+
+	md, ok := grpcmetadata.FromIncomingContext(ctx)
+	assert.True(svc.t, ok)
+	correlationID := labkitcorrelation.CorrelationIDFromMetadata(md)
+	assert.NotEmpty(svc.t, correlationID)
+
+	if svc.assertUserDetails {
+		assert.Equal(svc.t, glID, metadata.GetValue(ctx, "user_id"))
+		assert.Equal(svc.t, glUsername, metadata.GetValue(ctx, "username"))
+	}
 }
 
-func (svc featureFlagAsserter) PreReceiveHook(stream gitalypb.HookService_PreReceiveHookServer) error {
-	svc.assertFlags(stream.Context())
+func (svc baggageAsserter) PreReceiveHook(stream gitalypb.HookService_PreReceiveHookServer) error {
+	svc.assert(stream.Context())
 	return svc.wrapped.PreReceiveHook(stream)
 }
 
-func (svc featureFlagAsserter) PostReceiveHook(stream gitalypb.HookService_PostReceiveHookServer) error {
-	svc.assertFlags(stream.Context())
+func (svc baggageAsserter) PostReceiveHook(stream gitalypb.HookService_PostReceiveHookServer) error {
+	svc.assert(stream.Context())
 	return svc.wrapped.PostReceiveHook(stream)
 }
 
-func (svc featureFlagAsserter) UpdateHook(request *gitalypb.UpdateHookRequest, stream gitalypb.HookService_UpdateHookServer) error {
-	svc.assertFlags(stream.Context())
+func (svc baggageAsserter) UpdateHook(request *gitalypb.UpdateHookRequest, stream gitalypb.HookService_UpdateHookServer) error {
+	svc.assert(stream.Context())
 	return svc.wrapped.UpdateHook(request, stream)
 }
 
-func (svc featureFlagAsserter) ReferenceTransactionHook(stream gitalypb.HookService_ReferenceTransactionHookServer) error {
-	svc.assertFlags(stream.Context())
+func (svc baggageAsserter) ReferenceTransactionHook(stream gitalypb.HookService_ReferenceTransactionHookServer) error {
+	svc.assert(stream.Context())
 	return svc.wrapped.ReferenceTransactionHook(stream)
 }
 
-func (svc featureFlagAsserter) PackObjectsHookWithSidechannel(ctx context.Context, req *gitalypb.PackObjectsHookWithSidechannelRequest) (*gitalypb.PackObjectsHookWithSidechannelResponse, error) {
-	svc.assertFlags(ctx)
+func (svc baggageAsserter) PackObjectsHookWithSidechannel(ctx context.Context, req *gitalypb.PackObjectsHookWithSidechannelRequest) (*gitalypb.PackObjectsHookWithSidechannelResponse, error) {
+	svc.assert(ctx)
 	return svc.wrapped.PackObjectsHookWithSidechannel(ctx, req)
 }
 
-func runHookServiceWithGitlabClient(t *testing.T, cfg config.Cfg, gitlabClient gitlab.Client, serverOpts ...testserver.GitalyServerOpt) {
+func runHookServiceWithGitlabClient(t *testing.T, cfg config.Cfg, assertUserDetails bool, gitlabClient gitlab.Client, serverOpts ...testserver.GitalyServerOpt) {
 	testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterHookServiceServer(srv, featureFlagAsserter{
-			t: t, wrapped: hook.NewServer(deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache(), deps.GetPackObjectsConcurrencyTracker(), deps.GetPackObjectsLimiter()),
+		gitalypb.RegisterHookServiceServer(srv, baggageAsserter{
+			t:                 t,
+			assertUserDetails: assertUserDetails,
+			wrapped:           hook.NewServer(deps.GetHookManager(), deps.GetGitCmdFactory(), deps.GetPackObjectsCache(), deps.GetPackObjectsConcurrencyTracker(), deps.GetPackObjectsLimiter()),
 		})
 	}, append(serverOpts, testserver.WithGitLabClient(gitlabClient))...)
 }
@@ -586,7 +601,7 @@ func TestGitalyHooksPackObjects(t *testing.T) {
 	})
 
 	logger, hook := test.NewNullLogger()
-	runHookServiceServer(t, cfg, testserver.WithLogger(logger))
+	runHookServiceServer(t, cfg, false, testserver.WithLogger(logger))
 
 	testcfg.BuildGitalyHooks(t, cfg)
 	testcfg.BuildGitalySSH(t, cfg)
@@ -617,9 +632,8 @@ func TestGitalyHooksPackObjects(t *testing.T) {
 
 			args := append(baseArgs, tc.extraArgs...)
 			args = append(args, repoPath, tempDir)
-
 			gittest.ExecOpts(t, cfg, gittest.ExecConfig{
-				Env: (envForHooks(t, ctx, cfg, repo, glHookValues{}, proxyValues{})),
+				Env: envForHooks(t, ctx, cfg, repo, glHookValues{}, proxyValues{}),
 			}, args...)
 		})
 	}

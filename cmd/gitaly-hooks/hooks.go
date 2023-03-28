@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/sirupsen/logrus"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v15/auth"
 	"gitlab.com/gitlab-org/gitaly/v15/client"
@@ -21,6 +22,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/tracing"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
+	labkitcorrelation "gitlab.com/gitlab-org/labkit/correlation/grpc"
 	labkittracing "gitlab.com/gitlab-org/labkit/tracing"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -126,6 +128,8 @@ func executeHook(cmd hookCommand, args []string) error {
 		return nil
 	}
 
+	ctx = injectMetadataIntoOutgoingCtx(ctx, payload)
+
 	conn, err := dialGitaly(payload)
 	if err != nil {
 		return fmt.Errorf("error when connecting to gitaly: %w", err)
@@ -134,15 +138,28 @@ func executeHook(cmd hookCommand, args []string) error {
 
 	hookClient := gitalypb.NewHookServiceClient(conn)
 
-	for _, flag := range payload.FeatureFlagsWithValue {
-		ctx = featureflag.OutgoingCtxWithFeatureFlag(ctx, flag.Flag, flag.Enabled)
-	}
-
 	if err := cmd.exec(ctx, payload, hookClient, args); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func injectMetadataIntoOutgoingCtx(ctx context.Context, payload git.HooksPayload) context.Context {
+	if payload.UserDetails != nil {
+		ctx = metadata.AppendToOutgoingContext(
+			ctx,
+			"user_id",
+			payload.UserDetails.UserID,
+			"username",
+			payload.UserDetails.Username,
+		)
+	}
+
+	for _, flag := range payload.FeatureFlagsWithValue {
+		ctx = featureflag.OutgoingCtxWithFeatureFlag(ctx, flag.Flag, flag.Enabled)
+	}
+	return ctx
 }
 
 func noopSender(c chan error) {}
@@ -153,12 +170,27 @@ func dialGitaly(payload git.HooksPayload) (*grpc.ClientConn, error) {
 		dialOpts = append(dialOpts, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(payload.InternalSocketToken)))
 	}
 
-	initializeTracing()
-	if spanContext, err := tracing.ExtractSpanContextFromEnv(os.Environ()); err == nil {
-		dialOpts = append(dialOpts, grpc.WithUnaryInterceptor(tracing.UnaryPassthroughInterceptor(spanContext)))
-		dialOpts = append(dialOpts, grpc.WithStreamInterceptor(tracing.StreamPassthroughInterceptor(spanContext)))
+	// Propagate correlation ID
+	unaryInterceptors := []grpc.UnaryClientInterceptor{
+		labkitcorrelation.UnaryClientCorrelationInterceptor(
+			labkitcorrelation.WithClientName("gitaly-hooks"),
+		),
+	}
+	streamInterceptors := []grpc.StreamClientInterceptor{
+		labkitcorrelation.StreamClientCorrelationInterceptor(
+			labkitcorrelation.WithClientName("gitaly-hooks"),
+		),
 	}
 
+	// Setup tracing is possible
+	initializeTracing()
+	if spanContext, err := tracing.ExtractSpanContextFromEnv(os.Environ()); err == nil {
+		unaryInterceptors = append(unaryInterceptors, tracing.UnaryPassthroughInterceptor(spanContext))
+		streamInterceptors = append(streamInterceptors, tracing.StreamPassthroughInterceptor(spanContext))
+	}
+
+	dialOpts = append(dialOpts, grpc.WithUnaryInterceptor(grpc_middleware.ChainUnaryClient(unaryInterceptors...)))
+	dialOpts = append(dialOpts, grpc.WithStreamInterceptor(grpc_middleware.ChainStreamClient(streamInterceptors...)))
 	conn, err := client.Dial("unix://"+payload.InternalSocket, dialOpts)
 	if err != nil {
 		return nil, fmt.Errorf("error when dialing: %w", err)
@@ -371,16 +403,6 @@ func handlePackObjectsWithSidechannel(ctx context.Context, payload git.HooksPayl
 		glUsername = payload.UserDetails.Username
 		gitProtocol = payload.UserDetails.Protocol
 	}
-
-	ctx = metadata.AppendToOutgoingContext(
-		ctx,
-		"user_id",
-		glID,
-		"username",
-		glUsername,
-		"protocol",
-		gitProtocol,
-	)
 
 	if _, err := hookClient.PackObjectsHookWithSidechannel(
 		ctx,
