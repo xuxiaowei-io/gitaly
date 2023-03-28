@@ -1,9 +1,6 @@
 package repository
 
 import (
-	"io"
-
-	"gitlab.com/gitlab-org/gitaly/v15/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
@@ -22,26 +19,12 @@ func (s *server) CreateBundle(req *gitalypb.CreateBundleRequest, stream gitalypb
 		return structerr.NewInternal("running Cleanup on repository: %w", err)
 	}
 
-	cmd, err := s.gitCmdFactory.New(ctx, repository, git.Command{
-		Name:   "bundle",
-		Action: "create",
-		Flags:  []git.Option{git.OutputToStdout, git.Flag{Name: "--all"}},
-	})
-	if err != nil {
-		return structerr.NewInternal("cmd start failed: %w", err)
-	}
-
 	writer := streamio.NewWriter(func(p []byte) error {
 		return stream.Send(&gitalypb.CreateBundleResponse{Data: p})
 	})
 
-	_, err = io.Copy(writer, cmd)
-	if err != nil {
-		return structerr.NewInternal("stream writer failed: %w", err)
-	}
-
-	if err := cmd.Wait(); err != nil {
-		return structerr.NewInternal("cmd wait failed: %w", err)
+	if err := s.localrepo(repository).CreateBundle(ctx, writer); err != nil {
+		return err
 	}
 
 	return nil
