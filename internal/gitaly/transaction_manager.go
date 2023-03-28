@@ -106,18 +106,62 @@ type ReferenceUpdates map[git.ReferenceName]ReferenceUpdate
 
 // Transaction is a unit-of-work that contains reference changes to perform on the repository.
 type Transaction struct {
-	// SkipVerificationFailures causes references updates that failed the verification step to be
-	// dropped from the transaction. By default, any verification failures abort the entire transaction.
-	//
-	// The default behavior maps to the `--atomic` flag of `git push`. When this is set, the behavior matches
-	// what happens git's behavior without the flag.
-	SkipVerificationFailures bool
-	// ReferenceUpdates contains the reference updates to be performed.
-	ReferenceUpdates
-	// DefaultBranchUpdate contains the information to update the default branch of the repo.
-	DefaultBranchUpdate *DefaultBranchUpdate
-	// CustomHooksUpdate contains the custom hooks to set in the repository.
-	CustomHooksUpdate *CustomHooksUpdate
+	// commit commits the Transaction through the TransactionManager.
+	commit func(context.Context, *Transaction) error
+	// result is where the outcome of the transaction is sent ot by TransactionManager once it
+	// has been determined.
+	result chan error
+
+	skipVerificationFailures bool
+	referenceUpdates         ReferenceUpdates
+	defaultBranchUpdate      *DefaultBranchUpdate
+	customHooksUpdate        *CustomHooksUpdate
+}
+
+// Begin opens a new transaction. The caller must call either Commit or Rollback to release
+// the resources tied to the transaction. The returned Transaction is not safe for concurrent use.
+func (mgr *TransactionManager) Begin(ctx context.Context) (*Transaction, error) {
+	return &Transaction{commit: mgr.commit}, nil
+}
+
+// Commit performs the changes. If no error is returned, the transaction was successful and the changes
+// have been performed. If an error was returned, the transaction may or may not be persisted.
+func (txn *Transaction) Commit(ctx context.Context) error {
+	return txn.commit(ctx, txn)
+}
+
+// Rollback releases resources associated with the transaction without performing any changes.
+func (txn *Transaction) Rollback() {}
+
+// SkipVerificationFailures configures the transaction to skip reference updates that fail verification.
+// If a reference update fails verification with this set, the update is dropped from the transaction but
+// other successful reference updates will be made. By default, the entire transaction is aborted if a
+// reference fails verification.
+//
+// The default behavior models `git push --atomic`. Toggling this option models the behavior without
+// the `--atomic` flag.
+func (txn *Transaction) SkipVerificationFailures() {
+	txn.skipVerificationFailures = true
+}
+
+// UpdateReferences updates the given references as part of the transaction. If UpdateReferences is called
+// multiple times, only the changes from the latest invocation take place.
+func (txn *Transaction) UpdateReferences(updates ReferenceUpdates) {
+	txn.referenceUpdates = updates
+}
+
+// SetDefaultBranch sets the default branch as part of the transaction. If SetDefaultBranch is called
+// multiple times, only the changes from the latest invocation take place. The reference is validated
+// to exist.
+func (txn *Transaction) SetDefaultBranch(new git.ReferenceName) {
+	txn.defaultBranchUpdate = &DefaultBranchUpdate{Reference: new}
+}
+
+// SetCustomHooks sets the custom hooks as part of the transaction. If SetCustomHooks is called multiple
+// times, only the changes from the latest invocation take place. The hooks are extracted as is and are
+// not validated. Setting a nil hooksTAR removes the hooks from the repository.
+func (txn *Transaction) SetCustomHooks(hooksTAR []byte) {
+	txn.customHooksUpdate = &CustomHooksUpdate{CustomHooksTAR: hooksTAR}
 }
 
 // TransactionManager is responsible for transaction management of a single repository. Each repository has
@@ -179,7 +223,7 @@ type TransactionManager struct {
 	db database
 	// admissionQueue is where the incoming writes are waiting to be admitted to the transaction
 	// manager.
-	admissionQueue chan transactionFuture
+	admissionQueue chan *Transaction
 
 	// appendedLogIndex holds the index of the last log entry appended to the log.
 	appendedLogIndex LogIndex
@@ -205,7 +249,7 @@ func NewTransactionManager(db *badger.DB, repository *localrepo.Repo) *Transacti
 		stop:           cancel,
 		repository:     repository,
 		db:             newDatabaseAdapter(db),
-		admissionQueue: make(chan transactionFuture),
+		admissionQueue: make(chan *Transaction),
 	}
 }
 
@@ -213,31 +257,14 @@ func NewTransactionManager(db *badger.DB, repository *localrepo.Repo) *Transacti
 // outcome has been decided.
 type resultChannel chan error
 
-// transactionFuture holds a transaction and the resultChannel the transaction queuer is waiting
-// for the result on.
-type transactionFuture struct {
-	transaction Transaction
-	result      resultChannel
-}
-
-// Propose queues a transaction for the TransactionManager to process. Propose returns once the transaction
-// has been successfully applied to the repository.
-//
-// Transaction is not committed if any of the following errors is returned:
-// - InvalidReferenceFormatError is returned when attempting to update a reference with an invalid name.
-// - ReferenceVerificationError is returned when the reference does not point to the expected old tip.
-//
-// Transaction may or may not be committed if any of the following errors is returned:
-//   - ErrTransactionProcessing stopped is returned when the TransactionManager is closing and stops processing
-//     transactions.
-//   - Unexpected error occurs.
-func (mgr *TransactionManager) Propose(ctx context.Context, transaction Transaction) error {
-	queuedTransaction := transactionFuture{transaction: transaction, result: make(resultChannel, 1)}
+// commit queus the transaction for processing and returns once the result has been determined.
+func (mgr *TransactionManager) commit(ctx context.Context, transaction *Transaction) error {
+	transaction.result = make(resultChannel, 1)
 
 	select {
-	case mgr.admissionQueue <- queuedTransaction:
+	case mgr.admissionQueue <- transaction:
 		select {
-		case err := <-queuedTransaction.result:
+		case err := <-transaction.result:
 			return unwrapExpectedError(err)
 		case <-ctx.Done():
 			return ctx.Err()
@@ -268,10 +295,10 @@ func unwrapExpectedError(err error) error {
 // references, logging the transaction and finally applying it to the repository. The transactions are acknowledged
 // once they've been applied to the repository.
 //
-// Run keeps running until Stop is called or it encounters a fatal error. All active Propose calls return
+// Run keeps running until Stop is called or it encounters a fatal error. All transactions will error with
 // ErrTransactionProcessingStopped when Run returns.
 func (mgr *TransactionManager) Run() error {
-	// Defer the Stop in order to release all on-going Propose calls in case of error.
+	// Defer the Stop in order to release all on-going Commit calls in case of error.
 	defer close(mgr.runDone)
 	defer mgr.Stop()
 
@@ -302,7 +329,7 @@ func (mgr *TransactionManager) Run() error {
 			continue
 		}
 
-		var transaction transactionFuture
+		var transaction *Transaction
 		select {
 		case transaction = <-mgr.admissionQueue:
 		case <-mgr.ctx.Done():
@@ -315,14 +342,14 @@ func (mgr *TransactionManager) Run() error {
 		}
 
 		if err := func() error {
-			logEntry, err := mgr.verifyReferences(mgr.ctx, transaction.transaction)
+			logEntry, err := mgr.verifyReferences(mgr.ctx, transaction)
 			if err != nil {
 				return fmt.Errorf("verify references: %w", err)
 			}
 
-			if transaction.transaction.CustomHooksUpdate != nil {
+			if transaction.customHooksUpdate != nil {
 				logEntry.CustomHooksUpdate = &gitalypb.LogEntry_CustomHooksUpdate{
-					CustomHooksTar: transaction.transaction.CustomHooksUpdate.CustomHooksTAR,
+					CustomHooksTar: transaction.customHooksUpdate.CustomHooksTAR,
 				}
 			}
 
@@ -377,9 +404,9 @@ func (mgr *TransactionManager) initialize() error {
 // verifyReferences verifies that the references in the transaction apply on top of the already accepted
 // reference changes. The old tips in the transaction are verified against the current actual tips.
 // It returns the write-ahead log entry for the transaction if it was successfully verified.
-func (mgr *TransactionManager) verifyReferences(ctx context.Context, transaction Transaction) (*gitalypb.LogEntry, error) {
+func (mgr *TransactionManager) verifyReferences(ctx context.Context, transaction *Transaction) (*gitalypb.LogEntry, error) {
 	logEntry := &gitalypb.LogEntry{}
-	for referenceName, tips := range transaction.ReferenceUpdates {
+	for referenceName, tips := range transaction.referenceUpdates {
 		// 'git update-ref' doesn't ensure the loose references end up in the
 		// refs directory so we enforce that here.
 		if !strings.HasPrefix(referenceName.String(), "refs/") {
@@ -408,7 +435,7 @@ func (mgr *TransactionManager) verifyReferences(ctx context.Context, transaction
 		}
 
 		if tips.OldOID != actualOldTip {
-			if transaction.SkipVerificationFailures {
+			if transaction.skipVerificationFailures {
 				continue
 			}
 
@@ -437,13 +464,13 @@ func (mgr *TransactionManager) verifyReferences(ctx context.Context, transaction
 		return nil, fmt.Errorf("verify references with git: %w", err)
 	}
 
-	if transaction.DefaultBranchUpdate != nil {
+	if transaction.defaultBranchUpdate != nil {
 		if err := mgr.verifyDefaultBranchUpdate(ctx, transaction); err != nil {
 			return nil, fmt.Errorf("verify default branch update: %w", err)
 		}
 
 		logEntry.DefaultBranchUpdate = &gitalypb.LogEntry_DefaultBranchUpdate{
-			ReferenceName: []byte(transaction.DefaultBranchUpdate.Reference),
+			ReferenceName: []byte(transaction.defaultBranchUpdate.Reference),
 		}
 	}
 
@@ -467,12 +494,12 @@ func (mgr *TransactionManager) verifyReferencesWithGit(ctx context.Context, refe
 // the references in the current transaction which is not scheduled to be deleted. If not, we check if its a valid reference
 // name in the repository. We don't do reference name validation because any reference going through the transaction manager
 // has name validation and we can rely on that.
-func (mgr *TransactionManager) verifyDefaultBranchUpdate(ctx context.Context, transaction Transaction) error {
-	referenceName := transaction.DefaultBranchUpdate.Reference
+func (mgr *TransactionManager) verifyDefaultBranchUpdate(ctx context.Context, transaction *Transaction) error {
+	referenceName := transaction.defaultBranchUpdate.Reference
 
 	// Check the transaction reference updates, to see if the refname exists, if we find it here
 	// we don't have to invoke git to do a refname check.
-	if refUpdate, ok := transaction.ReferenceUpdates[referenceName]; ok {
+	if refUpdate, ok := transaction.referenceUpdates[referenceName]; ok {
 		objectHash, err := mgr.repository.ObjectHash(ctx)
 		if err != nil {
 			return fmt.Errorf("obtaining object hash: %w", err)
