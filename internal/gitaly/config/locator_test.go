@@ -23,21 +23,18 @@ import (
 
 func TestConfigLocator_GetRepoPath(t *testing.T) {
 	t.Parallel()
-	const storageName = "exists"
+
 	ctx := testhelper.Context(t)
+
+	const storageName = "exists"
 	cfg := testcfg.Build(t, testcfg.WithStorages(storageName, "removed"))
 	cfg.SocketPath = testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
-	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	locator := config.NewLocator(cfg)
 
-	t.Run("proper repository path", func(t *testing.T) {
-		if testhelper.IsPraefectEnabled() {
-			repo.RelativePath = strings.TrimPrefix(repoPath, cfg.Storages[0].Path)
-		}
-		path, err := locator.GetRepoPath(repo)
-		require.NoError(t, err)
-		require.Equal(t, filepath.Join(cfg.Storages[0].Path, repo.GetRelativePath()), path)
-	})
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	if testhelper.IsPraefectEnabled() {
+		repo.RelativePath = strings.TrimPrefix(repoPath, cfg.Storages[0].Path)
+	}
 
 	// The storage name still present in the storages list, but not on the disk.
 	require.NoError(t, os.RemoveAll(cfg.Storages[1].Path))
@@ -47,9 +44,10 @@ func TestConfigLocator_GetRepoPath(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Join(cfg.Storages[0].Path, notRepositoryFolder), perm.SharedDir))
 
 	for _, tc := range []struct {
-		desc   string
-		repo   *gitalypb.Repository
-		expErr error
+		desc    string
+		repo    *gitalypb.Repository
+		expPath string
+		expErr  error
 	}{
 		{
 			desc:   "storage is empty",
@@ -90,10 +88,15 @@ func TestConfigLocator_GetRepoPath(t *testing.T) {
 			repo:   &gitalypb.Repository{StorageName: storageName, RelativePath: "../.."},
 			expErr: structerr.NewInvalidArgument(`GetRepoPath: %w`, fmt.Errorf("relative path escapes root directory")),
 		},
+		{
+			desc:    "proper repository path",
+			repo:    repo,
+			expPath: filepath.Join(cfg.Storages[0].Path, repo.GetRelativePath()),
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			locator := config.NewLocator(cfg)
-			_, err := locator.GetRepoPath(tc.repo)
+			path, err := locator.GetRepoPath(tc.repo)
+			require.Equal(t, tc.expPath, path)
 			require.Equal(t, tc.expErr, err)
 		})
 	}
