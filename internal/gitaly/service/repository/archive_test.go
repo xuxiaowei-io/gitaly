@@ -40,7 +40,20 @@ func TestGetArchive_success(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRepositoryService(t, ctx)
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "LICENSE", Mode: "100644", Content: "license content"},
+		gittest.TreeEntry{Path: "README.md", Mode: "100644", Content: "readme content"},
+		gittest.TreeEntry{Path: "subdir", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+			{Path: "subfile", Mode: "100644", Content: "subfile content"},
+			{Path: "subsubdir", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
+				{Path: "subsubfile", Mode: "100644", Content: "subsubfile content"},
+			})},
+		})},
+	))
 
 	for _, format := range []gitalypb.GetArchiveRequest_Format{
 		gitalypb.GetArchiveRequest_ZIP,
@@ -54,122 +67,183 @@ func TestGetArchive_success(t *testing.T) {
 			t.Parallel()
 
 			for _, tc := range []struct {
-				desc     string
-				request  *gitalypb.GetArchiveRequest
-				contents []string
-				excluded []string
+				desc             string
+				request          *gitalypb.GetArchiveRequest
+				expectedContents map[string]string
 			}{
 				{
 					desc: "without-prefix",
 					request: &gitalypb.GetArchiveRequest{
 						Repository: repo,
 						Format:     format,
-						CommitId:   "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863",
+						CommitId:   commitID.String(),
 					},
-					contents: []string{"/.gitignore", "/LICENSE", "/README.md"},
+					expectedContents: map[string]string{
+						"/":                            "",
+						"/LICENSE":                     "license content",
+						"/README.md":                   "readme content",
+						"/subdir/":                     "",
+						"/subdir/subfile":              "subfile content",
+						"/subdir/subsubdir/":           "",
+						"/subdir/subsubdir/subsubfile": "subsubfile content",
+					},
 				},
 				{
 					desc: "with-prefix",
 					request: &gitalypb.GetArchiveRequest{
 						Repository: repo,
 						Format:     format,
-						CommitId:   "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863",
+						CommitId:   commitID.String(),
 						Prefix:     "my-prefix",
 					},
-					contents: []string{"/.gitignore", "/LICENSE", "/README.md"},
+					expectedContents: map[string]string{
+						"my-prefix/":                            "",
+						"my-prefix/LICENSE":                     "license content",
+						"my-prefix/README.md":                   "readme content",
+						"my-prefix/subdir/":                     "",
+						"my-prefix/subdir/subfile":              "subfile content",
+						"my-prefix/subdir/subsubdir/":           "",
+						"my-prefix/subdir/subsubdir/subsubfile": "subsubfile content",
+					},
 				},
 				{
 					desc: "with path as blank string",
 					request: &gitalypb.GetArchiveRequest{
 						Repository: repo,
 						Format:     format,
-						CommitId:   "1e292f8fedd741b75372e19097c76d327140c312",
+						CommitId:   commitID.String(),
 						Prefix:     "",
 						Path:       []byte(""),
 					},
-					contents: []string{"/.gitignore", "/LICENSE", "/README.md"},
+					expectedContents: map[string]string{
+						"/":                            "",
+						"/LICENSE":                     "license content",
+						"/README.md":                   "readme content",
+						"/subdir/":                     "",
+						"/subdir/subfile":              "subfile content",
+						"/subdir/subsubdir/":           "",
+						"/subdir/subsubdir/subsubfile": "subsubfile content",
+					},
 				},
 				{
 					desc: "with path as nil",
 					request: &gitalypb.GetArchiveRequest{
 						Repository: repo,
 						Format:     format,
-						CommitId:   "1e292f8fedd741b75372e19097c76d327140c312",
+						CommitId:   commitID.String(),
 						Prefix:     "",
 						Path:       nil,
 					},
-					contents: []string{"/.gitignore", "/LICENSE", "/README.md"},
+					expectedContents: map[string]string{
+						"/":                            "",
+						"/LICENSE":                     "license content",
+						"/README.md":                   "readme content",
+						"/subdir/":                     "",
+						"/subdir/subfile":              "subfile content",
+						"/subdir/subsubdir/":           "",
+						"/subdir/subsubdir/subsubfile": "subsubfile content",
+					},
 				},
 				{
 					desc: "with path",
 					request: &gitalypb.GetArchiveRequest{
 						Repository: repo,
 						Format:     format,
-						CommitId:   "1e292f8fedd741b75372e19097c76d327140c312",
+						CommitId:   commitID.String(),
 						Prefix:     "",
-						Path:       []byte("files"),
+						Path:       []byte("subdir"),
 					},
-					contents: []string{"/files/whitespace", "/files/html/500.html"},
+					expectedContents: map[string]string{
+						"/":                            "",
+						"/subdir/":                     "",
+						"/subdir/subfile":              "subfile content",
+						"/subdir/subsubdir/":           "",
+						"/subdir/subsubdir/subsubfile": "subsubfile content",
+					},
 				},
 				{
 					desc: "with path and trailing slash",
 					request: &gitalypb.GetArchiveRequest{
 						Repository: repo,
 						Format:     format,
-						CommitId:   "1e292f8fedd741b75372e19097c76d327140c312",
+						CommitId:   commitID.String(),
 						Prefix:     "",
-						Path:       []byte("files/"),
+						Path:       []byte("subdir/"),
 					},
-					contents: []string{"/files/whitespace", "/files/html/500.html"},
+					expectedContents: map[string]string{
+						"/":                            "",
+						"/subdir/":                     "",
+						"/subdir/subfile":              "subfile content",
+						"/subdir/subsubdir/":           "",
+						"/subdir/subsubdir/subsubfile": "subsubfile content",
+					},
 				},
 				{
 					desc: "with exclusion",
 					request: &gitalypb.GetArchiveRequest{
 						Repository: repo,
 						Format:     format,
-						CommitId:   "1e292f8fedd741b75372e19097c76d327140c312",
+						CommitId:   commitID.String(),
 						Prefix:     "",
-						Exclude:    [][]byte{[]byte("files")},
+						Exclude:    [][]byte{[]byte("subdir")},
 					},
-					contents: []string{"/.gitignore", "/LICENSE", "/README.md"},
-					excluded: []string{"/files/whitespace", "/files/html/500.html"},
+					expectedContents: map[string]string{
+						"/":          "",
+						"/LICENSE":   "license content",
+						"/README.md": "readme content",
+					},
 				},
 				{
 					desc: "with path elision",
 					request: &gitalypb.GetArchiveRequest{
 						Repository: repo,
 						Format:     format,
-						CommitId:   "1e292f8fedd741b75372e19097c76d327140c312",
+						CommitId:   commitID.String(),
 						Prefix:     "my-prefix",
 						ElidePath:  true,
-						Path:       []byte("files/"),
+						Path:       []byte("subdir/"),
 					},
-					contents: []string{"/whitespace", "/html/500.html"},
+					expectedContents: map[string]string{
+						"my-prefix/":                     "",
+						"my-prefix/subfile":              "subfile content",
+						"my-prefix/subsubdir/":           "",
+						"my-prefix/subsubdir/subsubfile": "subsubfile content",
+					},
 				},
 				{
 					desc: "with path elision and exclusion",
 					request: &gitalypb.GetArchiveRequest{
 						Repository: repo,
 						Format:     format,
-						CommitId:   "1e292f8fedd741b75372e19097c76d327140c312",
+						CommitId:   commitID.String(),
 						Prefix:     "my-prefix",
 						ElidePath:  true,
-						Path:       []byte("files/"),
-						Exclude:    [][]byte{[]byte("files/images")},
+						Path:       []byte("subdir/"),
+						Exclude:    [][]byte{[]byte("subdir/subsubdir")},
 					},
-					contents: []string{"/whitespace", "/html/500.html"},
-					excluded: []string{"/images/emoji.png"},
+					expectedContents: map[string]string{
+						"my-prefix/":        "",
+						"my-prefix/subfile": "subfile content",
+					},
 				},
 				{
 					desc: "with path elision at root",
 					request: &gitalypb.GetArchiveRequest{
 						Repository: repo,
 						Format:     format,
-						CommitId:   "1e292f8fedd741b75372e19097c76d327140c312",
+						CommitId:   commitID.String(),
 						Prefix:     "my-prefix",
 						ElidePath:  true,
 					},
-					contents: []string{"/files/whitespace", "/files/html/500.html"},
+					expectedContents: map[string]string{
+						"my-prefix/":                            "",
+						"my-prefix/LICENSE":                     "license content",
+						"my-prefix/README.md":                   "readme content",
+						"my-prefix/subdir/":                     "",
+						"my-prefix/subdir/subfile":              "subfile content",
+						"my-prefix/subdir/subsubdir/":           "",
+						"my-prefix/subdir/subsubdir/subsubfile": "subsubfile content",
+					},
 				},
 			} {
 				tc := tc
@@ -182,16 +256,7 @@ func TestGetArchive_success(t *testing.T) {
 
 					data, err := consumeArchive(stream)
 					require.NoError(t, err)
-
-					contents := compressedFileContents(t, format, data)
-
-					for _, content := range tc.contents {
-						require.Contains(t, contents, tc.request.Prefix+content)
-					}
-
-					for _, excluded := range tc.excluded {
-						require.NotContains(t, contents, tc.request.Prefix+excluded)
-					}
+					require.Equal(t, tc.expectedContents, compressedFileContents(t, format, data))
 				})
 			}
 		})
