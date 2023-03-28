@@ -3,12 +3,14 @@
 package repository
 
 import (
+	"archive/tar"
 	"archive/zip"
 	"bytes"
+	"compress/bzip2"
+	"compress/gzip"
+	"errors"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -18,7 +20,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/git/smudge"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
-	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
@@ -108,7 +109,7 @@ func TestGetArchive_success(t *testing.T) {
 						Prefix:     "",
 						Path:       []byte("files"),
 					},
-					contents: []string{"/whitespace", "/html/500.html"},
+					contents: []string{"/files/whitespace", "/files/html/500.html"},
 				},
 				{
 					desc: "with path and trailing slash",
@@ -119,7 +120,7 @@ func TestGetArchive_success(t *testing.T) {
 						Prefix:     "",
 						Path:       []byte("files/"),
 					},
-					contents: []string{"/whitespace", "/html/500.html"},
+					contents: []string{"/files/whitespace", "/files/html/500.html"},
 				},
 				{
 					desc: "with exclusion",
@@ -497,16 +498,13 @@ func TestGetArchive_pathInjection(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoFileExists(t, outputPath)
-	require.Equal(t,
-		strings.Join([]string{
-			"/",
-			"/--output=/",
-			"/--output=/non/",
-			"/--output=/non/existent/",
-			"/--output=/non/existent/injected file",
-		}, "\n"),
-		compressedFileContents(t, gitalypb.GetArchiveRequest_TAR, content),
-	)
+	require.Equal(t, map[string]string{
+		"/":                                     "",
+		"/--output=/":                           "",
+		"/--output=/non/":                       "",
+		"/--output=/non/existent/":              "",
+		"/--output=/non/existent/injected file": "injected content",
+	}, compressedFileContents(t, gitalypb.GetArchiveRequest_TAR, content))
 }
 
 func TestGetArchive_environment(t *testing.T) {
@@ -589,23 +587,66 @@ func TestGetArchive_environment(t *testing.T) {
 	}
 }
 
-func compressedFileContents(t *testing.T, format gitalypb.GetArchiveRequest_Format, contents []byte) string {
-	path := filepath.Join(testhelper.TempDir(t), "archive")
-	require.NoError(t, os.WriteFile(path, contents, perm.SharedFile))
-
+func compressedFileContents(t *testing.T, format gitalypb.GetArchiveRequest_Format, contents []byte) map[string]string {
 	switch format {
-	case gitalypb.GetArchiveRequest_TAR:
-		return text.ChompBytes(testhelper.MustRunCommand(t, nil, "tar", "tf", path))
 	case gitalypb.GetArchiveRequest_TAR_GZ:
-		return text.ChompBytes(testhelper.MustRunCommand(t, nil, "tar", "ztf", path))
+		reader, err := gzip.NewReader(bytes.NewReader(contents))
+		require.NoError(t, err)
+
+		contents, err = io.ReadAll(reader)
+		require.NoError(t, err)
 	case gitalypb.GetArchiveRequest_TAR_BZ2:
-		return text.ChompBytes(testhelper.MustRunCommand(t, nil, "tar", "jtf", path))
+		reader := bzip2.NewReader(bytes.NewReader(contents))
+
+		var err error
+		contents, err = io.ReadAll(reader)
+		require.NoError(t, err)
+	}
+
+	reader := bytes.NewReader(contents)
+
+	contentByName := map[string]string{}
+	switch format {
+	case gitalypb.GetArchiveRequest_TAR, gitalypb.GetArchiveRequest_TAR_GZ, gitalypb.GetArchiveRequest_TAR_BZ2:
+		tarReader := tar.NewReader(reader)
+
+		for {
+			header, err := tarReader.Next()
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			require.NoError(t, err)
+
+			if header.Typeflag != tar.TypeReg && header.Typeflag != tar.TypeDir {
+				continue
+			}
+
+			content, err := io.ReadAll(tarReader)
+			require.NoError(t, err)
+
+			contentByName[header.Name] = string(content)
+		}
 	case gitalypb.GetArchiveRequest_ZIP:
-		return text.ChompBytes(testhelper.MustRunCommand(t, nil, "unzip", "-l", path))
+		zipReader, err := zip.NewReader(reader, int64(len(contents)))
+		require.NoError(t, err)
+
+		for _, file := range zipReader.File {
+			reader, err := file.Open()
+			require.NoError(t, err)
+			defer testhelper.MustClose(t, reader)
+
+			content, err := io.ReadAll(reader)
+			require.NoError(t, err)
+
+			contentByName[file.Name] = string(content)
+
+			require.NoError(t, reader.Close())
+		}
 	default:
 		require.FailNow(t, "unsupported archive format: %v", format)
-		return ""
 	}
+
+	return contentByName
 }
 
 func consumeArchive(stream gitalypb.RepositoryService_GetArchiveClient) ([]byte, error) {
