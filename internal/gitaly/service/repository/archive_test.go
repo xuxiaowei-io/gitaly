@@ -21,14 +21,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v15/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v15/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v15/streamio"
 	"gitlab.com/gitlab-org/labkit/correlation"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 const (
@@ -36,7 +35,7 @@ const (
 	lfsBody     = "hello world\n"
 )
 
-func TestGetArchive_success(t *testing.T) {
+func TestGetArchive(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
@@ -69,8 +68,121 @@ func TestGetArchive_success(t *testing.T) {
 			for _, tc := range []struct {
 				desc             string
 				request          *gitalypb.GetArchiveRequest
+				expectedErr      error
 				expectedContents map[string]string
 			}{
+				{
+					desc: "invalid storage",
+					request: &gitalypb.GetArchiveRequest{
+						Repository: &gitalypb.Repository{
+							StorageName:  "fake",
+							RelativePath: "path",
+						},
+						CommitId: commitID.String(),
+						Format:   gitalypb.GetArchiveRequest_ZIP,
+					},
+					expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
+						`GetStorageByName: no such storage: "fake"`,
+						"repo scoped: invalid Repository",
+					)),
+				},
+				{
+					desc: "unset repository",
+					request: &gitalypb.GetArchiveRequest{
+						Repository: nil,
+						CommitId:   commitID.String(),
+						Format:     gitalypb.GetArchiveRequest_ZIP,
+					},
+					expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
+						"empty Repository",
+						"repo scoped: empty Repository",
+					)),
+				},
+				{
+					desc: "empty commit ID",
+					request: &gitalypb.GetArchiveRequest{
+						Repository: repo,
+						CommitId:   "",
+						Format:     gitalypb.GetArchiveRequest_ZIP,
+					},
+					expectedErr: structerr.NewInvalidArgument("invalid commitId: empty revision"),
+				},
+				{
+					desc: "invalid format",
+					request: &gitalypb.GetArchiveRequest{
+						Repository: repo,
+						CommitId:   commitID.String(),
+						Format:     gitalypb.GetArchiveRequest_Format(-1),
+					},
+					expectedErr: structerr.NewInvalidArgument("invalid format"),
+				},
+				{
+					desc: "non-existent path in commit",
+					request: &gitalypb.GetArchiveRequest{
+						Repository: repo,
+						CommitId:   commitID.String(),
+						Format:     gitalypb.GetArchiveRequest_ZIP,
+						Path:       []byte("unknown-path"),
+					},
+					expectedErr: structerr.NewFailedPrecondition("path doesn't exist"),
+				},
+				{
+					desc: "empty root tree",
+					request: &gitalypb.GetArchiveRequest{
+						Repository: repo,
+						CommitId:   gittest.DefaultObjectHash.EmptyTreeOID.String(),
+						Format:     gitalypb.GetArchiveRequest_ZIP,
+						Path:       []byte("."),
+					},
+					expectedErr: structerr.NewFailedPrecondition("path doesn't exist"),
+				},
+				{
+					desc: "nonexistent excluded path",
+					request: &gitalypb.GetArchiveRequest{
+						Repository: repo,
+						CommitId:   commitID.String(),
+						Format:     gitalypb.GetArchiveRequest_ZIP,
+						Exclude:    [][]byte{[]byte("files/")},
+					},
+					expectedErr: structerr.NewFailedPrecondition("exclude[0] doesn't exist"),
+				},
+				{
+					desc: "path contains directory traversal outside repository root",
+					request: &gitalypb.GetArchiveRequest{
+						Repository: repo,
+						CommitId:   commitID.String(),
+						Format:     gitalypb.GetArchiveRequest_ZIP,
+						Path:       []byte("../../foo"),
+					},
+					expectedErr: structerr.NewInvalidArgument("relative path escapes root directory"),
+				},
+				{
+					desc: "repo with missing relative path",
+					request: &gitalypb.GetArchiveRequest{
+						Repository: &gitalypb.Repository{
+							StorageName: repo.GetStorageName(),
+						},
+						Prefix:   "qwert",
+						CommitId: commitID.String(),
+						Format:   gitalypb.GetArchiveRequest_TAR,
+					},
+					expectedErr: structerr.NewInvalidArgument(testhelper.GitalyOrPraefect(
+						"empty RelativePath",
+						"repo scoped: invalid Repository",
+					)),
+				},
+				{
+					desc: "with path is file and path elision",
+					request: &gitalypb.GetArchiveRequest{
+						Repository: repo,
+						CommitId:   commitID.String(),
+						Prefix:     "my-prefix",
+						ElidePath:  true,
+						Path:       []byte("subdir/subsubdir/subsubfile"),
+						Exclude:    [][]byte{[]byte("subdir/subsubdir")},
+					},
+					expectedErr: structerr.NewInvalidArgument(`invalid exclude: "subdir/subsubdir" is not a subdirectory of "subdir/subsubdir/subsubfile"`),
+				},
 				{
 					desc: "without-prefix",
 					request: &gitalypb.GetArchiveRequest{
@@ -255,7 +367,12 @@ func TestGetArchive_success(t *testing.T) {
 					require.NoError(t, err)
 
 					data, err := consumeArchive(stream)
-					require.NoError(t, err)
+					testhelper.RequireGrpcError(t, tc.expectedErr, err)
+					if err != nil {
+						require.Empty(t, data)
+						return
+					}
+
 					require.Equal(t, tc.expectedContents, compressedFileContents(t, format, data))
 				})
 			}
@@ -372,152 +489,6 @@ func TestGetArchive_includeLfsBlobs(t *testing.T) {
 
 				require.True(t, found, "expected to find LFS file")
 			}
-		})
-	}
-}
-
-func TestGetArchive_inputValidation(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-	_, repo, _, client := setupRepositoryService(t, ctx)
-
-	commitID := "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"
-
-	testCases := []struct {
-		desc        string
-		repo        *gitalypb.Repository
-		prefix      string
-		commitID    string
-		format      gitalypb.GetArchiveRequest_Format
-		path        []byte
-		exclude     [][]byte
-		elidePath   bool
-		expectedErr error
-	}{
-		{
-			desc:     "Repository doesn't exist",
-			repo:     &gitalypb.Repository{StorageName: "fake", RelativePath: "path"},
-			prefix:   "",
-			commitID: commitID,
-			format:   gitalypb.GetArchiveRequest_ZIP,
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				`GetStorageByName: no such storage: "fake"`,
-				"repo scoped: invalid Repository",
-			)),
-		},
-		{
-			desc:     "Repository is nil",
-			repo:     nil,
-			prefix:   "",
-			commitID: commitID,
-			format:   gitalypb.GetArchiveRequest_ZIP,
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"empty Repository",
-				"repo scoped: empty Repository",
-			)),
-		},
-		{
-			desc:        "CommitId is empty",
-			repo:        repo,
-			prefix:      "",
-			commitID:    "",
-			format:      gitalypb.GetArchiveRequest_ZIP,
-			expectedErr: status.Error(codes.InvalidArgument, "invalid commitId: empty revision"),
-		},
-		{
-			desc:        "Format is invalid",
-			repo:        repo,
-			prefix:      "",
-			commitID:    "stub",
-			format:      gitalypb.GetArchiveRequest_Format(-1),
-			expectedErr: status.Error(codes.InvalidArgument, "invalid format"),
-		},
-		{
-			desc:        "Non-existing path in repository",
-			repo:        repo,
-			prefix:      "",
-			commitID:    "1e292f8fedd741b75372e19097c76d327140c312",
-			format:      gitalypb.GetArchiveRequest_ZIP,
-			path:        []byte("unknown-path"),
-			expectedErr: status.Error(codes.FailedPrecondition, "path doesn't exist"),
-		},
-		{
-			desc:        "Root tree is empty",
-			repo:        repo,
-			prefix:      "",
-			commitID:    "7efb185dd22fd5c51ef044795d62b7847900c341",
-			format:      gitalypb.GetArchiveRequest_ZIP,
-			path:        []byte("."),
-			expectedErr: status.Error(codes.FailedPrecondition, "path doesn't exist"),
-		},
-		{
-			desc:        "Non-existing path in repository on commit ID",
-			repo:        repo,
-			prefix:      "",
-			commitID:    commitID,
-			format:      gitalypb.GetArchiveRequest_ZIP,
-			path:        []byte("files/"),
-			expectedErr: status.Error(codes.FailedPrecondition, "path doesn't exist"),
-		},
-		{
-			desc:        "Non-existing exclude path in repository on commit ID",
-			repo:        repo,
-			prefix:      "",
-			commitID:    commitID,
-			format:      gitalypb.GetArchiveRequest_ZIP,
-			exclude:     [][]byte{[]byte("files/")},
-			expectedErr: status.Error(codes.FailedPrecondition, "exclude[0] doesn't exist"),
-		},
-		{
-			desc:        "path contains directory traversal outside repository root",
-			repo:        repo,
-			prefix:      "",
-			commitID:    "1e292f8fedd741b75372e19097c76d327140c312",
-			format:      gitalypb.GetArchiveRequest_ZIP,
-			path:        []byte("../../foo"),
-			expectedErr: status.Error(codes.InvalidArgument, "relative path escapes root directory"),
-		},
-		{
-			desc:     "repo missing fields",
-			repo:     &gitalypb.Repository{StorageName: repo.GetStorageName()},
-			prefix:   "qwert",
-			commitID: "sadf",
-			format:   gitalypb.GetArchiveRequest_TAR,
-			path:     []byte("Here is a string...."),
-			expectedErr: status.Error(codes.InvalidArgument, testhelper.GitalyOrPraefect(
-				"empty RelativePath",
-				"repo scoped: invalid Repository",
-			)),
-		},
-		{
-			desc:        "with path is file and path elision",
-			repo:        repo,
-			commitID:    "1e292f8fedd741b75372e19097c76d327140c312",
-			prefix:      "my-prefix",
-			elidePath:   true,
-			path:        []byte("files/html/500.html"),
-			exclude:     [][]byte{[]byte("files/html")},
-			expectedErr: status.Error(codes.InvalidArgument, `invalid exclude: "files/html" is not a subdirectory of "files/html/500.html"`),
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.desc, func(t *testing.T) {
-			req := &gitalypb.GetArchiveRequest{
-				Repository: tc.repo,
-				CommitId:   tc.commitID,
-				Prefix:     tc.prefix,
-				Format:     tc.format,
-				Path:       tc.path,
-				Exclude:    tc.exclude,
-				ElidePath:  tc.elidePath,
-			}
-			stream, err := client.GetArchive(ctx, req)
-			require.NoError(t, err)
-
-			_, err = consumeArchive(stream)
-			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
 	}
 }
