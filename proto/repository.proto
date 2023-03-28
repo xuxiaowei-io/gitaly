@@ -64,6 +64,13 @@ service RepositoryService {
     };
   }
 
+  // RepositoryInfo returns detailed information about a repository and its data structures.
+  rpc RepositoryInfo(RepositoryInfoRequest) returns (RepositoryInfoResponse) {
+    option (op_type) = {
+      op: ACCESSOR
+    };
+  }
+
   // ObjectFormat determines the object format that is being used by the repository.
   rpc ObjectFormat(ObjectFormatRequest) returns (ObjectFormatResponse) {
     option (op_type) = {
@@ -266,7 +273,7 @@ service RepositoryService {
   }
 
   // SetCustomHooks sets the git hooks for a repository. The hooks are sent in a
-  // tar archive containing a `custom_hooks` directory. This directory is 
+  // tar archive containing a `custom_hooks` directory. This directory is
   // ultimately extracted to the repository.
   rpc SetCustomHooks(stream SetCustomHooksRequest) returns (SetCustomHooksResponse) {
     option (op_type) = {
@@ -480,6 +487,69 @@ message RepositorySizeRequest {
 message RepositorySizeResponse {
   // Repository size in kilobytes
   int64 size = 1;
+}
+
+// RepositoryInfoRequest is a request for the RepositoryInfo RPC.
+message RepositoryInfoRequest {
+  // Repository is the repository to query for information.
+  Repository repository = 1 [(target_repository)=true];
+}
+
+// RepositoryInfoResponse is a response for the RepositoryInfo RPC.
+message RepositoryInfoResponse {
+  // ReferencesInfo hosts information about references.
+  message ReferencesInfo {
+    // LooseCount is the number of loose references that exist in the repository. These references
+    // are written whenever any reference either gets updated or created. Loose references have not
+    // yet been compressed into a packed format, which is an action that Gitaly performs regularly
+    // during repository maintenance.
+    //
+    // We do not provide the total size of loose references as it is a constant factor of the count
+    // anyway: `$count * $object_hash_length`.
+    uint64 loose_count = 1;
+    // PackedSize is the size of packed references in bytes. Packed references are a more efficient
+    // way to store loose references. Given that determining the exact amount of references stored
+    // in packed format would require us to process the complete contents we don't provide the size
+    // here. A very rough estimate would be: `$size / 100`.
+    uint64 packed_size = 2;
+  }
+
+  // ObjectsInfo hosts info about objects contained in a repository. It tries to bridge the gap
+  // between the actual on-disk state that is changing over time as Git introduces new ways to
+  // perform repository housekeeping and specific classifications of objects.
+  //
+  // One of the distinctions is between "recent" and "stale" objects. The set of recent objects
+  // contains these objects that have either been recently written/accessed or those which are
+  // reachable via any of the references. Stale objects on the other hand are those that are older
+  // than a certain grace period and which are not reachable via any reference. The exact details
+  // when the set of stale and recent objects is updated is an internal implementation detail of
+  // Gitaly and subject to change. It is safe to assume though that unreachable objects will
+  // eventually be marked stale when repository housekeeping runs on a repository.
+  message ObjectsInfo {
+    // Size is the total size of all objects in the repository in bytes. It makes no distinction
+    // between the way they are stored or whether they are pending deletion.
+    uint64 size = 1;
+    // RecentSize is the total size of all objects in bytes that are considered to be recent. Recent
+    // objects are likely reachable and will not be considered for deletion.
+    uint64 recent_size = 2;
+    // StaleSize is the total size of all objects in bytes that are considered to be stale. Stale
+    // objects are likely unreachable and will eventually be deleted after a grace period. Objects
+    // which are part of cruft packs are always considered to be stale.
+    uint64 stale_size = 3;
+    // KeepSize is the total size of all kept packfiles. Kept packfiles are packfiles that have a
+    // `.keep` file accompanying them. Packfiles marked with such a file will never be deleted by
+    // Git and will thus stay around forever, even if their objects are part of
+    // other packfiles already.
+    uint64 keep_size = 4;
+  }
+
+  // Size is the total size of all files part of the repository. It does not include the size of
+  // directories.
+  uint64 size = 1;
+  // References contains information about references.
+  ReferencesInfo references = 2;
+  // ObjectsInfo contains information about objects.
+  ObjectsInfo objects = 3;
 }
 
 // ObjectFormatRequest is a request for the ObjectFormat RPC.

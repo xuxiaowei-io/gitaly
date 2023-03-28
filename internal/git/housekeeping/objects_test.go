@@ -287,7 +287,7 @@ func TestRepackObjects(t *testing.T) {
 				looseObjects: 3,
 			},
 			stateAfterRepack: objectsState{
-				packfiles:  1,
+				packfiles:  2,
 				cruftPacks: 1,
 			},
 		},
@@ -338,7 +338,7 @@ func TestRepackObjects(t *testing.T) {
 			// The loose object is newer than the expiration date, so it should not get
 			// pruned but instead it should be added to the cruft pack.
 			stateAfterRepack: objectsState{
-				packfiles:  1,
+				packfiles:  2,
 				cruftPacks: 1,
 			},
 		},
@@ -355,11 +355,11 @@ func TestRepackObjects(t *testing.T) {
 				CruftExpireBefore: time.Now().Add(-1 * time.Hour),
 			},
 			stateBeforeRepack: objectsState{
-				packfiles:  1,
+				packfiles:  2,
 				cruftPacks: 1,
 			},
 			stateAfterRepack: objectsState{
-				packfiles:  1,
+				packfiles:  2,
 				cruftPacks: 1,
 			},
 		},
@@ -376,7 +376,7 @@ func TestRepackObjects(t *testing.T) {
 				CruftExpireBefore: time.Now().Add(1 * time.Hour),
 			},
 			stateBeforeRepack: objectsState{
-				packfiles:  1,
+				packfiles:  2,
 				cruftPacks: 1,
 			},
 			stateAfterRepack: objectsState{

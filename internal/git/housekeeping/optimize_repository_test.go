@@ -140,7 +140,7 @@ func TestRepackIfNeeded(t *testing.T) {
 		}, repackObjectsCfg)
 
 		requireObjectsState(t, repo, objectsState{
-			packfiles:  1,
+			packfiles:  2,
 			cruftPacks: 1,
 		})
 	})

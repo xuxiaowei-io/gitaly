@@ -35,10 +35,12 @@ func (s *server) RepositorySize(ctx context.Context, in *gitalypb.RepositorySize
 
 	var sizeKiB int64
 	if featureflag.RepositorySizeViaWalk.IsEnabled(ctx) {
-		sizeKiB, err = dirSizeInKB(path)
+		sizeBytes, err := dirSizeInBytes(path)
 		if err != nil {
 			return nil, fmt.Errorf("calculating directory size: %w", err)
 		}
+
+		sizeKiB = sizeBytes / 1024
 	} else {
 		sizeKiB = getPathSize(ctx, path)
 	}
@@ -60,10 +62,12 @@ func (s *server) GetObjectDirectorySize(ctx context.Context, in *gitalypb.GetObj
 
 	var sizeKiB int64
 	if featureflag.RepositorySizeViaWalk.IsEnabled(ctx) {
-		sizeKiB, err = dirSizeInKB(path)
+		sizeBytes, err := dirSizeInBytes(path)
 		if err != nil {
 			return nil, fmt.Errorf("calculating directory size: %w", err)
 		}
+
+		sizeKiB = sizeBytes / 1024
 	} else {
 		sizeKiB = getPathSize(ctx, path)
 	}
@@ -104,7 +108,7 @@ func getPathSize(ctx context.Context, path string) int64 {
 	return size
 }
 
-func dirSizeInKB(path string) (int64, error) {
+func dirSizeInBytes(path string) (int64, error) {
 	var totalSize int64
 
 	if err := filepath.WalkDir(path, func(path string, d fs.DirEntry, err error) error {
@@ -140,5 +144,5 @@ func dirSizeInKB(path string) (int64, error) {
 		return 0, fmt.Errorf("walking directory: %w", err)
 	}
 
-	return totalSize / 1024, nil
+	return totalSize, nil
 }

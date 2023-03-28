@@ -756,6 +756,8 @@ func TestPackfileInfoForRepository(t *testing.T) {
 				require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "pack-foo.keep"), []byte("foobar"), perm.SharedFile))
 			},
 			expectedInfo: PackfilesInfo{
+				Count:     1,
+				Size:      6,
 				KeepCount: 1,
 				KeepSize:  6,
 			},
@@ -769,6 +771,8 @@ func TestPackfileInfoForRepository(t *testing.T) {
 				require.NoError(t, os.WriteFile(filepath.Join(packfileDir, "pack-foo.mtimes"), []byte("foobar"), perm.SharedFile))
 			},
 			expectedInfo: PackfilesInfo{
+				Count:      1,
+				Size:       6,
 				CruftCount: 1,
 				CruftSize:  6,
 			},
@@ -875,8 +879,8 @@ func TestPackfileInfoForRepository(t *testing.T) {
 				gittest.Exec(t, cfg, "-C", repoPath, "repack", "--cruft", "-db", "--write-midx")
 			},
 			expectedInfo: PackfilesInfo{
-				Count:      1,
-				Size:       hashDependentSize(162, 188),
+				Count:      2,
+				Size:       hashDependentSize(318, 371),
 				CruftCount: 1,
 				CruftSize:  hashDependentSize(156, 183),
 				MultiPackIndex: MultiPackIndexInfo{

@@ -245,9 +245,9 @@ func isValidLooseObjectName(s string) bool {
 
 // PackfilesInfo contains information about packfiles.
 type PackfilesInfo struct {
-	// Count is the number of loose objects, including stale ones.
+	// Count is the number of all packfiles, including stale and kept ones.
 	Count uint64 `json:"count"`
-	// Size is the total size of all loose objects in bytes, including stale ones.
+	// Size is the total size of all packfiles in bytes, including stale and kept ones.
 	Size uint64 `json:"size"`
 	// ReverseIndexCount is the number of reverse indices.
 	ReverseIndexCount uint64 `json:"reverse_index_count"`
@@ -305,6 +305,9 @@ func PackfilesInfoForRepository(repo *localrepo.Repo) (PackfilesInfo, error) {
 				return PackfilesInfo{}, fmt.Errorf("getting packfile size: %w", err)
 			}
 
+			info.Count++
+			info.Size += size
+
 			metadata := packfilesMetadata[entryName]
 			switch {
 			case metadata.hasKeep:
@@ -313,9 +316,6 @@ func PackfilesInfoForRepository(repo *localrepo.Repo) (PackfilesInfo, error) {
 			case metadata.hasMtimes:
 				info.CruftCount++
 				info.CruftSize += size
-			default:
-				info.Count++
-				info.Size += size
 			}
 		case hasPrefixAndSuffix(entryName, "pack-", ".idx"):
 			// We ignore normal indices as every packfile would have one anyway, or
