@@ -162,7 +162,9 @@ message PackObjectsHookWithSidechannelRequest {
   string gl_username = 5;
   // GitProtocol is the protocol used for the fetch
   string git_protocol = 6;
-
+  // RemoteIP is the original IP of the initator of the fetch. This field is used as the key for
+  // concurrency limiting before we trigger git-pack-objects command
+  string remote_ip = 7;
 }
 
 // This comment is left unintentionally blank.
