@@ -111,7 +111,7 @@ func TestGetSidechannel(t *testing.T) {
 			)
 			_, err := GetSidechannel(ctx)
 			require.Error(t, err)
-			require.Equal(t, ErrInvalidSidechannelAddress{tc}, err)
+			require.Equal(t, InvalidSidechannelAddressError{tc}, err)
 		})
 	}
 }

@@ -159,7 +159,7 @@ func TestUpdater_properErrorOnWriteFailure(t *testing.T) {
 					continue
 				}
 
-				require.Equal(t, ErrInvalidReferenceFormat{ReferenceName: referenceName}, err)
+				require.Equal(t, InvalidReferenceFormatError{ReferenceName: referenceName}, err)
 				break
 			}
 		})
@@ -246,7 +246,7 @@ func TestUpdater_fileDirectoryConflict(t *testing.T) {
 						require.NoError(t, updater.Start())
 						require.NoError(t, updater.Create(tc.secondReference, commitID))
 
-						require.Equal(t, ErrFileDirectoryConflict{
+						require.Equal(t, FileDirectoryConflictError{
 							ExistingReferenceName:    tc.firstReference.String(),
 							ConflictingReferenceName: tc.secondReference.String(),
 						}, method.finish(updater))
@@ -262,7 +262,7 @@ func TestUpdater_fileDirectoryConflict(t *testing.T) {
 						require.NoError(t, updater.Create(tc.firstReference, commitID))
 						require.NoError(t, updater.Create(tc.secondReference, commitID))
 
-						require.Equal(t, ErrInTransactionConflict{
+						require.Equal(t, InTransactionConflictError{
 							FirstReferenceName:  tc.firstReference.String(),
 							SecondReferenceName: tc.secondReference.String(),
 						}, method.finish(updater))
@@ -394,7 +394,7 @@ func TestUpdater_invalidReferenceName(t *testing.T) {
 	const referenceName = `refs/heads\master`
 	require.NoError(t, updater.Start())
 	require.NoError(t, updater.Update(referenceName, commitID, ""))
-	require.Equal(t, ErrInvalidReferenceFormat{ReferenceName: referenceName}, updater.Prepare())
+	require.Equal(t, InvalidReferenceFormatError{ReferenceName: referenceName}, updater.Prepare())
 }
 
 func TestUpdater_concurrentLocking(t *testing.T) {
@@ -428,9 +428,9 @@ func TestUpdater_concurrentLocking(t *testing.T) {
 	// Preparing this second updater should fail though because we notice that the reference is
 	// locked.
 	err = secondUpdater.Prepare()
-	var errAlreadyLocked *ErrAlreadyLocked
-	require.ErrorAs(t, err, &errAlreadyLocked)
-	require.Equal(t, err, &ErrAlreadyLocked{
+	var alreadyLockedErr *AlreadyLockedError
+	require.ErrorAs(t, err, &alreadyLockedErr)
+	require.Equal(t, err, &AlreadyLockedError{
 		Ref: "refs/heads/master",
 	})
 

@@ -9,9 +9,10 @@ linters:
   disable-all: true
   enable:
     - bidichk
-    - errcheck
-    - exportloopref
     - depguard
+    - errcheck
+    - errname
+    - exportloopref
     - forbidigo
     - gci
     # We use both gofmt and gofumpt because gofumpt doesn't seem to be linting
@@ -31,6 +32,7 @@ linters:
     - revive
     - staticcheck
     - stylecheck
+    - tenv
     - thelper
     - unconvert
     - unused
@@ -81,11 +83,6 @@ linters-settings:
       # they're tested as expected.
       - ^context.Background$
       - ^context.TODO$
-      # Tests should not set the bare environment functions, but instead use
-      # `t.Setenv()` or `testhelper.Unsetenv()`. These functions have sanity
-      # checks to verify we don't use `t.Parallel()` when setting envvars.
-      - ^os.Setenv$
-      - ^os.Unsetenv$
   paralleltest:
     # Ignore missing calls to `t.Parallel()` and only report incorrect uses of it.
     ignore-missing: true

@@ -92,13 +92,13 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 
 	if err := updater.Prepare(); err != nil {
 		if featureflag.DeleteRefsStructuredErrors.IsEnabled(ctx) {
-			var errAlreadyLocked *updateref.ErrAlreadyLocked
-			if errors.As(err, &errAlreadyLocked) {
+			var alreadyLockedErr *updateref.AlreadyLockedError
+			if errors.As(err, &alreadyLockedErr) {
 				return nil, structerr.NewFailedPrecondition("cannot lock references").WithDetail(
 					&gitalypb.DeleteRefsError{
 						Error: &gitalypb.DeleteRefsError_ReferencesLocked{
 							ReferencesLocked: &gitalypb.ReferencesLockedError{
-								Refs: [][]byte{[]byte(errAlreadyLocked.Ref)},
+								Refs: [][]byte{[]byte(alreadyLockedErr.Ref)},
 							},
 						},
 					},

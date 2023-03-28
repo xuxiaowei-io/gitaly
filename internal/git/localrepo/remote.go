@@ -56,17 +56,17 @@ type FetchOpts struct {
 	DisableTransactions bool
 }
 
-// ErrFetchFailed indicates that the fetch has failed.
-type ErrFetchFailed struct {
+// FetchFailedError indicates that the fetch has failed.
+type FetchFailedError struct {
 	err error
 }
 
 // Error returns the error message.
-func (e ErrFetchFailed) Error() string {
+func (e FetchFailedError) Error() string {
 	return e.err.Error()
 }
 
-// FetchRemote fetches changes from the specified remote. Returns an ErrFetchFailed error in case
+// FetchRemote fetches changes from the specified remote. Returns an FetchFailedError error in case
 // the fetch itself failed.
 func (repo *Repo) FetchRemote(ctx context.Context, remoteName string, opts FetchOpts) error {
 	if err := validateNotBlank(remoteName, "remoteName"); err != nil {
@@ -107,14 +107,14 @@ func (repo *Repo) FetchRemote(ctx context.Context, remoteName string, opts Fetch
 	}
 
 	if err := cmd.Wait(); err != nil {
-		return ErrFetchFailed{errorWithStderr(err, stderr.Bytes())}
+		return FetchFailedError{errorWithStderr(err, stderr.Bytes())}
 	}
 
 	return nil
 }
 
 // FetchInternal performs a fetch from an internal Gitaly-hosted repository. Returns an
-// ErrFetchFailed error in case git-fetch(1) failed.
+// FetchFailedError error in case git-fetch(1) failed.
 func (repo *Repo) FetchInternal(
 	ctx context.Context,
 	remoteRepo *gitalypb.Repository,
@@ -165,7 +165,7 @@ func (repo *Repo) FetchInternal(
 		},
 		commandOptions...,
 	); err != nil {
-		return ErrFetchFailed{errorWithStderr(err, stderr.Bytes())}
+		return FetchFailedError{errorWithStderr(err, stderr.Bytes())}
 	}
 
 	return nil

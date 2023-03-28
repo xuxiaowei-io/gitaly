@@ -197,7 +197,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 		err := repo.FetchRemote(ctx, "doesnotexist", FetchOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "fatal: 'doesnotexist' does not appear to be a git repository")
-		require.IsType(t, err, ErrFetchFailed{})
+		require.IsType(t, err, FetchFailedError{})
 	})
 
 	t.Run("generates reverse index", func(t *testing.T) {

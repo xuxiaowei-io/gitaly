@@ -91,7 +91,7 @@ func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourc
 			localrepo.FetchOpts{Tags: localrepo.FetchOptsTagsNone},
 		); err != nil {
 			// Design quirk: if the fetch fails, this RPC returns Result: false, but no error.
-			if errors.As(err, &localrepo.ErrFetchFailed{}) {
+			if errors.As(err, &localrepo.FetchFailedError{}) {
 				ctxlogrus.Extract(ctx).
 					WithField("oid", sourceOid.String()).
 					WithError(err).Warn("git fetch failed")

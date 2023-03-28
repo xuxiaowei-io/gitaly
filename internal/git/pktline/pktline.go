@@ -190,9 +190,11 @@ type writerFunc func([]byte) (int, error)
 
 func (wf writerFunc) Write(p []byte) (int, error) { return wf(p) }
 
-type errNotSideband struct{ pkt string }
+type invalidSidebandPacketError struct{ pkt string }
 
-func (err *errNotSideband) Error() string { return fmt.Sprintf("invalid sideband packet: %q", err.pkt) }
+func (err *invalidSidebandPacketError) Error() string {
+	return fmt.Sprintf("invalid sideband packet: %q", err.pkt)
+}
 
 // EachSidebandPacket iterates over a side-band-64k pktline stream. For
 // each packet, it will call fn with the band ID and the packet. Fn must
@@ -203,7 +205,7 @@ func EachSidebandPacket(r io.Reader, fn func(byte, []byte) error) error {
 	for scanner.Scan() {
 		data := Data(scanner.Bytes())
 		if len(data) == 0 {
-			return &errNotSideband{scanner.Text()}
+			return &invalidSidebandPacketError{scanner.Text()}
 		}
 		if err := fn(data[0], data[1:]); err != nil {
 			return err

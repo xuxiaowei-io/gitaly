@@ -233,7 +233,7 @@ func fetchInternalRemote(
 			},
 		},
 	); err != nil {
-		if errors.As(err, &localrepo.ErrFetchFailed{}) {
+		if errors.As(err, &localrepo.FetchFailedError{}) {
 			return fmt.Errorf("fetch: %w, stderr: %q", err, stderr.String())
 		}
 
