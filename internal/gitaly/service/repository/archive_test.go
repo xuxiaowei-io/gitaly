@@ -53,87 +53,122 @@ func TestGetArchive_success(t *testing.T) {
 			t.Parallel()
 
 			for _, tc := range []struct {
-				desc      string
-				prefix    string
-				commitID  string
-				path      []byte
-				exclude   [][]byte
-				elidePath bool
-				contents  []string
-				excluded  []string
+				desc     string
+				request  *gitalypb.GetArchiveRequest
+				contents []string
+				excluded []string
 			}{
 				{
-					desc:     "without-prefix",
-					commitID: "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863",
-					prefix:   "",
+					desc: "without-prefix",
+					request: &gitalypb.GetArchiveRequest{
+						Repository: repo,
+						Format:     format,
+						CommitId:   "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863",
+					},
 					contents: []string{"/.gitignore", "/LICENSE", "/README.md"},
 				},
 				{
-					desc:     "with-prefix",
-					commitID: "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863",
-					prefix:   "my-prefix",
+					desc: "with-prefix",
+					request: &gitalypb.GetArchiveRequest{
+						Repository: repo,
+						Format:     format,
+						CommitId:   "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863",
+						Prefix:     "my-prefix",
+					},
 					contents: []string{"/.gitignore", "/LICENSE", "/README.md"},
 				},
 				{
-					desc:     "with path as blank string",
-					commitID: "1e292f8fedd741b75372e19097c76d327140c312",
-					prefix:   "",
-					path:     []byte(""),
+					desc: "with path as blank string",
+					request: &gitalypb.GetArchiveRequest{
+						Repository: repo,
+						Format:     format,
+						CommitId:   "1e292f8fedd741b75372e19097c76d327140c312",
+						Prefix:     "",
+						Path:       []byte(""),
+					},
 					contents: []string{"/.gitignore", "/LICENSE", "/README.md"},
 				},
 				{
-					desc:     "with path as nil",
-					commitID: "1e292f8fedd741b75372e19097c76d327140c312",
-					prefix:   "",
-					path:     nil,
+					desc: "with path as nil",
+					request: &gitalypb.GetArchiveRequest{
+						Repository: repo,
+						Format:     format,
+						CommitId:   "1e292f8fedd741b75372e19097c76d327140c312",
+						Prefix:     "",
+						Path:       nil,
+					},
 					contents: []string{"/.gitignore", "/LICENSE", "/README.md"},
 				},
 				{
-					desc:     "with path",
-					commitID: "1e292f8fedd741b75372e19097c76d327140c312",
-					prefix:   "",
-					path:     []byte("files"),
+					desc: "with path",
+					request: &gitalypb.GetArchiveRequest{
+						Repository: repo,
+						Format:     format,
+						CommitId:   "1e292f8fedd741b75372e19097c76d327140c312",
+						Prefix:     "",
+						Path:       []byte("files"),
+					},
 					contents: []string{"/whitespace", "/html/500.html"},
 				},
 				{
-					desc:     "with path and trailing slash",
-					commitID: "1e292f8fedd741b75372e19097c76d327140c312",
-					prefix:   "",
-					path:     []byte("files/"),
+					desc: "with path and trailing slash",
+					request: &gitalypb.GetArchiveRequest{
+						Repository: repo,
+						Format:     format,
+						CommitId:   "1e292f8fedd741b75372e19097c76d327140c312",
+						Prefix:     "",
+						Path:       []byte("files/"),
+					},
 					contents: []string{"/whitespace", "/html/500.html"},
 				},
 				{
-					desc:     "with exclusion",
-					commitID: "1e292f8fedd741b75372e19097c76d327140c312",
-					prefix:   "",
-					exclude:  [][]byte{[]byte("files")},
+					desc: "with exclusion",
+					request: &gitalypb.GetArchiveRequest{
+						Repository: repo,
+						Format:     format,
+						CommitId:   "1e292f8fedd741b75372e19097c76d327140c312",
+						Prefix:     "",
+						Exclude:    [][]byte{[]byte("files")},
+					},
 					contents: []string{"/.gitignore", "/LICENSE", "/README.md"},
 					excluded: []string{"/files/whitespace", "/files/html/500.html"},
 				},
 				{
-					desc:      "with path elision",
-					commitID:  "1e292f8fedd741b75372e19097c76d327140c312",
-					prefix:    "my-prefix",
-					elidePath: true,
-					path:      []byte("files/"),
-					contents:  []string{"/whitespace", "/html/500.html"},
+					desc: "with path elision",
+					request: &gitalypb.GetArchiveRequest{
+						Repository: repo,
+						Format:     format,
+						CommitId:   "1e292f8fedd741b75372e19097c76d327140c312",
+						Prefix:     "my-prefix",
+						ElidePath:  true,
+						Path:       []byte("files/"),
+					},
+					contents: []string{"/whitespace", "/html/500.html"},
 				},
 				{
-					desc:      "with path elision and exclusion",
-					commitID:  "1e292f8fedd741b75372e19097c76d327140c312",
-					prefix:    "my-prefix",
-					elidePath: true,
-					path:      []byte("files/"),
-					exclude:   [][]byte{[]byte("files/images")},
-					contents:  []string{"/whitespace", "/html/500.html"},
-					excluded:  []string{"/images/emoji.png"},
+					desc: "with path elision and exclusion",
+					request: &gitalypb.GetArchiveRequest{
+						Repository: repo,
+						Format:     format,
+						CommitId:   "1e292f8fedd741b75372e19097c76d327140c312",
+						Prefix:     "my-prefix",
+						ElidePath:  true,
+						Path:       []byte("files/"),
+						Exclude:    [][]byte{[]byte("files/images")},
+					},
+					contents: []string{"/whitespace", "/html/500.html"},
+					excluded: []string{"/images/emoji.png"},
 				},
 				{
-					desc:      "with path elision at root",
-					commitID:  "1e292f8fedd741b75372e19097c76d327140c312",
-					prefix:    "my-prefix",
-					elidePath: true,
-					contents:  []string{"/files/whitespace", "/files/html/500.html"},
+					desc: "with path elision at root",
+					request: &gitalypb.GetArchiveRequest{
+						Repository: repo,
+						Format:     format,
+						CommitId:   "1e292f8fedd741b75372e19097c76d327140c312",
+						Prefix:     "my-prefix",
+						ElidePath:  true,
+					},
+					contents: []string{"/files/whitespace", "/files/html/500.html"},
 				},
 			} {
 				tc := tc
@@ -141,16 +176,7 @@ func TestGetArchive_success(t *testing.T) {
 				t.Run(tc.desc, func(t *testing.T) {
 					t.Parallel()
 
-					req := &gitalypb.GetArchiveRequest{
-						Repository: repo,
-						CommitId:   tc.commitID,
-						Prefix:     tc.prefix,
-						Format:     format,
-						Path:       tc.path,
-						Exclude:    tc.exclude,
-						ElidePath:  tc.elidePath,
-					}
-					stream, err := client.GetArchive(ctx, req)
+					stream, err := client.GetArchive(ctx, tc.request)
 					require.NoError(t, err)
 
 					data, err := consumeArchive(stream)
@@ -159,11 +185,11 @@ func TestGetArchive_success(t *testing.T) {
 					contents := compressedFileContents(t, format, data)
 
 					for _, content := range tc.contents {
-						require.Contains(t, contents, tc.prefix+content)
+						require.Contains(t, contents, tc.request.Prefix+content)
 					}
 
 					for _, excluded := range tc.excluded {
-						require.NotContains(t, contents, tc.prefix+excluded)
+						require.NotContains(t, contents, tc.request.Prefix+excluded)
 					}
 				})
 			}
