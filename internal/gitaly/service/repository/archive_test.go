@@ -30,20 +30,36 @@ import (
 	"gitlab.com/gitlab-org/labkit/correlation"
 )
 
-const (
-	secretToken = "topsecret"
-	lfsBody     = "hello world\n"
-)
-
 func TestGetArchive(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+
+	gitlabURL, cleanup := gitlab.NewTestServer(t, gitlab.TestServerOptions{
+		SecretToken: "gitlab-secret-token",
+		LfsBody:     "replaced LFS pointer contents",
+	})
+	t.Cleanup(cleanup)
+
+	cfg := testcfg.Build(t, testcfg.WithBase(config.Cfg{
+		Gitlab: config.Gitlab{
+			URL:        gitlabURL,
+			SecretFile: gitlab.WriteShellSecretFile(t, testhelper.TempDir(t), "gitlab-secret-token"),
+		},
+	}))
+	testcfg.BuildGitalyLFSSmudge(t, cfg)
+
+	client, socketPath := runRepositoryService(t, cfg, nil)
+	cfg.SocketPath = socketPath
 
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 
+	gitattributesContent := "*.lfs filter=lfs diff=lfs merge=lfs -text"
+	lfsPointerContent := "version https://git-lfs.github.com/spec/v1\noid sha256:bad71f905b60729f502ca339f7c9f001281a3d12c68a5da7f15de8009f4bd63d\nsize 18\n"
+
 	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: ".gitattributes", Mode: "100644", Content: gitattributesContent},
+		gittest.TreeEntry{Path: "pointer.lfs", Mode: "100644", Content: lfsPointerContent},
 		gittest.TreeEntry{Path: "LICENSE", Mode: "100644", Content: "license content"},
 		gittest.TreeEntry{Path: "README.md", Mode: "100644", Content: "readme content"},
 		gittest.TreeEntry{Path: "subdir", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
@@ -192,6 +208,8 @@ func TestGetArchive(t *testing.T) {
 					},
 					expectedContents: map[string]string{
 						"/":                            "",
+						"/.gitattributes":              gitattributesContent,
+						"/pointer.lfs":                 lfsPointerContent,
 						"/LICENSE":                     "license content",
 						"/README.md":                   "readme content",
 						"/subdir/":                     "",
@@ -210,6 +228,8 @@ func TestGetArchive(t *testing.T) {
 					},
 					expectedContents: map[string]string{
 						"my-prefix/":                            "",
+						"my-prefix/.gitattributes":              gitattributesContent,
+						"my-prefix/pointer.lfs":                 lfsPointerContent,
 						"my-prefix/LICENSE":                     "license content",
 						"my-prefix/README.md":                   "readme content",
 						"my-prefix/subdir/":                     "",
@@ -229,6 +249,8 @@ func TestGetArchive(t *testing.T) {
 					},
 					expectedContents: map[string]string{
 						"/":                            "",
+						"/.gitattributes":              gitattributesContent,
+						"/pointer.lfs":                 lfsPointerContent,
 						"/LICENSE":                     "license content",
 						"/README.md":                   "readme content",
 						"/subdir/":                     "",
@@ -248,6 +270,8 @@ func TestGetArchive(t *testing.T) {
 					},
 					expectedContents: map[string]string{
 						"/":                            "",
+						"/.gitattributes":              gitattributesContent,
+						"/pointer.lfs":                 lfsPointerContent,
 						"/LICENSE":                     "license content",
 						"/README.md":                   "readme content",
 						"/subdir/":                     "",
@@ -300,9 +324,11 @@ func TestGetArchive(t *testing.T) {
 						Exclude:    [][]byte{[]byte("subdir")},
 					},
 					expectedContents: map[string]string{
-						"/":          "",
-						"/LICENSE":   "license content",
-						"/README.md": "readme content",
+						"/":               "",
+						"/.gitattributes": gitattributesContent,
+						"/pointer.lfs":    lfsPointerContent,
+						"/LICENSE":        "license content",
+						"/README.md":      "readme content",
 					},
 				},
 				{
@@ -349,6 +375,50 @@ func TestGetArchive(t *testing.T) {
 					},
 					expectedContents: map[string]string{
 						"my-prefix/":                            "",
+						"my-prefix/.gitattributes":              gitattributesContent,
+						"my-prefix/pointer.lfs":                 lfsPointerContent,
+						"my-prefix/LICENSE":                     "license content",
+						"my-prefix/README.md":                   "readme content",
+						"my-prefix/subdir/":                     "",
+						"my-prefix/subdir/subfile":              "subfile content",
+						"my-prefix/subdir/subsubdir/":           "",
+						"my-prefix/subdir/subsubdir/subsubfile": "subsubfile content",
+					},
+				},
+				{
+					desc: "without prefix and with LFS blobs",
+					request: &gitalypb.GetArchiveRequest{
+						Repository:      repo,
+						Format:          format,
+						CommitId:        commitID.String(),
+						Prefix:          "",
+						IncludeLfsBlobs: true,
+					},
+					expectedContents: map[string]string{
+						"/":                            "",
+						"/.gitattributes":              gitattributesContent,
+						"/pointer.lfs":                 "replaced LFS pointer contents",
+						"/LICENSE":                     "license content",
+						"/README.md":                   "readme content",
+						"/subdir/":                     "",
+						"/subdir/subfile":              "subfile content",
+						"/subdir/subsubdir/":           "",
+						"/subdir/subsubdir/subsubfile": "subsubfile content",
+					},
+				},
+				{
+					desc: "with prefix and with LFS blobs",
+					request: &gitalypb.GetArchiveRequest{
+						Repository:      repo,
+						Format:          format,
+						CommitId:        commitID.String(),
+						Prefix:          "my-prefix",
+						IncludeLfsBlobs: true,
+					},
+					expectedContents: map[string]string{
+						"my-prefix/":                            "",
+						"my-prefix/.gitattributes":              gitattributesContent,
+						"my-prefix/pointer.lfs":                 "replaced LFS pointer contents",
 						"my-prefix/LICENSE":                     "license content",
 						"my-prefix/README.md":                   "readme content",
 						"my-prefix/subdir/":                     "",
@@ -375,119 +445,6 @@ func TestGetArchive(t *testing.T) {
 
 					require.Equal(t, tc.expectedContents, compressedFileContents(t, format, data))
 				})
-			}
-		})
-	}
-}
-
-func TestGetArchive_includeLfsBlobs(t *testing.T) {
-	t.Parallel()
-
-	ctx := testhelper.Context(t)
-
-	defaultOptions := gitlab.TestServerOptions{
-		SecretToken: secretToken,
-		LfsBody:     lfsBody,
-	}
-
-	url, cleanup := gitlab.NewTestServer(t, defaultOptions)
-	t.Cleanup(cleanup)
-
-	shellDir := testhelper.TempDir(t)
-
-	cfg := testcfg.Build(t, testcfg.WithBase(config.Cfg{
-		GitlabShell: config.GitlabShell{Dir: shellDir},
-		Gitlab: config.Gitlab{
-			URL:        url,
-			SecretFile: gitlab.WriteShellSecretFile(t, shellDir, defaultOptions.SecretToken),
-		},
-	}))
-
-	client, serverSocketPath := runRepositoryService(t, cfg, nil)
-	cfg.SocketPath = serverSocketPath
-
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
-
-	testcfg.BuildGitalyLFSSmudge(t, cfg)
-
-	// lfs-moar branch SHA
-	sha := "46abbb087fcc0fd02c340f0f2f052bd2c7708da3"
-
-	testCases := []struct {
-		desc            string
-		prefix          string
-		path            []byte
-		includeLfsBlobs bool
-	}{
-		{
-			desc:            "without prefix and with LFS blobs",
-			prefix:          "",
-			includeLfsBlobs: true,
-		},
-		{
-			desc:            "without prefix and without LFS blobs",
-			prefix:          "",
-			includeLfsBlobs: false,
-		},
-		{
-			desc:            "with prefix and with LFS blobs",
-			prefix:          "my-prefix",
-			includeLfsBlobs: true,
-		},
-		{
-			desc:            "with prefix and without LFS blobs",
-			prefix:          "my-prefix",
-			includeLfsBlobs: false,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.desc, func(t *testing.T) {
-			req := &gitalypb.GetArchiveRequest{
-				Repository:      repo,
-				CommitId:        sha,
-				Prefix:          tc.prefix,
-				Format:          gitalypb.GetArchiveRequest_ZIP,
-				Path:            tc.path,
-				IncludeLfsBlobs: tc.includeLfsBlobs,
-			}
-			stream, err := client.GetArchive(ctx, req)
-			require.NoError(t, err)
-
-			data, err := consumeArchive(stream)
-			require.NoError(t, err)
-			reader := bytes.NewReader(data)
-
-			zipReader, err := zip.NewReader(reader, int64(reader.Len()))
-			require.NoError(t, err)
-
-			lfsFiles := []string{"/30170.lfs", "/another.lfs"}
-			for _, lfsFile := range lfsFiles {
-				found := false
-				for _, f := range zipReader.File {
-					if f.Name != tc.prefix+lfsFile {
-						continue
-					}
-
-					found = true
-
-					fc, err := f.Open()
-					require.NoError(t, err)
-					defer fc.Close()
-
-					data, err := io.ReadAll(fc)
-					require.NoError(t, err)
-
-					if tc.includeLfsBlobs {
-						require.Equal(t, lfsBody, string(data))
-					} else {
-						require.Contains(t, string(data), "oid sha256:")
-					}
-				}
-
-				require.True(t, found, "expected to find LFS file")
 			}
 		})
 	}
