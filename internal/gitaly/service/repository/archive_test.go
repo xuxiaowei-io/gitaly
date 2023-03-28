@@ -454,7 +454,7 @@ func TestGetArchive_pathInjection(t *testing.T) {
 	t.Parallel()
 
 	ctx := testhelper.Context(t)
-	cfg, repo, repoPath, client := setupRepositoryService(t, ctx)
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	// It used to be possible to inject options into `git-archive(1)`, with the worst outcome
 	// being that an adversary may create or overwrite arbitrary files in the filesystem in case
@@ -467,6 +467,7 @@ func TestGetArchive_pathInjection(t *testing.T) {
 	// a path and does not interpret it as an option.
 	outputPath := "/non/existent"
 
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
 	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTree(gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 		{Path: "--output=", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
 			{Path: "non", Mode: "040000", OID: gittest.WriteTree(t, cfg, repoPath, []gittest.TreeEntry{
@@ -503,8 +504,6 @@ func TestGetArchive_pathInjection(t *testing.T) {
 func TestGetArchive_environment(t *testing.T) {
 	t.Parallel()
 
-	testhelper.SkipWithPraefect(t, "It's not possible to create repositories through the API with the git command overwritten by the script.")
-
 	ctx := testhelper.Context(t)
 	cfg := testcfg.Build(t)
 
@@ -524,11 +523,10 @@ func TestGetArchive_environment(t *testing.T) {
 	client, serverSocketPath := runRepositoryService(t, cfg, nil, testserver.WithGitCommandFactory(gitCmdFactory))
 	cfg.SocketPath = serverSocketPath
 
-	repo, _ := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-		Seed: gittest.SeedGitLabTest,
-	})
-
-	commitID := "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "some file", Mode: "100644", Content: "some content"},
+	))
 
 	correlationID := correlation.SafeRandomID()
 	ctx = correlation.ContextWithCorrelation(ctx, correlationID)
@@ -568,7 +566,7 @@ func TestGetArchive_environment(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			stream, err := client.GetArchive(ctx, &gitalypb.GetArchiveRequest{
 				Repository:      repo,
-				CommitId:        commitID,
+				CommitId:        commitID.String(),
 				IncludeLfsBlobs: tc.includeLFSBlobs,
 			})
 			require.NoError(t, err)
