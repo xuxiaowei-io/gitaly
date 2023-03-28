@@ -189,7 +189,7 @@ func testPruneUnreachableObjects(t *testing.T, ctx context.Context) {
 		gittest.Exec(t, cfg, "-C", repoPath, "repack", "--cruft", "-d")
 		packfilesInfo, err := stats.PackfilesInfoForRepository(repo)
 		require.NoError(t, err)
-		require.EqualValues(t, 1, packfilesInfo.Count)
+		require.EqualValues(t, 2, packfilesInfo.Count)
 		require.EqualValues(t, 1, packfilesInfo.CruftCount)
 
 		_, err = client.PruneUnreachableObjects(ctx, &gitalypb.PruneUnreachableObjectsRequest{
@@ -226,7 +226,7 @@ func testPruneUnreachableObjects(t *testing.T, ctx context.Context) {
 		gittest.Exec(t, cfg, "-C", repoPath, "repack", "--cruft", "-d")
 		packfilesInfo, err := stats.PackfilesInfoForRepository(repo)
 		require.NoError(t, err)
-		require.EqualValues(t, 1, packfilesInfo.Count)
+		require.EqualValues(t, 2, packfilesInfo.Count)
 		require.EqualValues(t, 1, packfilesInfo.CruftCount)
 
 		_, err = client.PruneUnreachableObjects(ctx, &gitalypb.PruneUnreachableObjectsRequest{
