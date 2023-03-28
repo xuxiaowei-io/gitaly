@@ -366,19 +366,10 @@ func handlePackObjectsWithSidechannel(ctx context.Context, payload git.HooksPayl
 
 	var glID, glUsername, gitProtocol string
 
-	// TODO: remove this conditional in 15.2.
-	// Since the git2go binary is replaced before the gitaly binary, there
-	// is a period of time during an upgrade when the gitaly binary is older
-	// than the corresponding git2go binary, which means gitaly will still
-	// be sending ReceiveHooksPayload until the upgrade is finished.
 	if payload.UserDetails != nil {
 		glID = payload.UserDetails.UserID
 		glUsername = payload.UserDetails.Username
 		gitProtocol = payload.UserDetails.Protocol
-	} else if payload.ReceiveHooksPayload != nil {
-		glID = payload.ReceiveHooksPayload.UserID
-		glUsername = payload.ReceiveHooksPayload.Username
-		gitProtocol = payload.ReceiveHooksPayload.Protocol
 	}
 
 	ctx = metadata.AppendToOutgoingContext(

@@ -83,12 +83,6 @@ type HooksPayload struct {
 	// UserDetails contains information required when executing
 	// git-receive-pack or git-upload-pack
 	UserDetails *UserDetails `json:"user_details"`
-	// ReceiveHooksPayload should be identical to UserDetails.
-	// Since the git2go binary is replaced before the gitaly binary, there
-	// is a period of time during an upgrade when the gitaly binary is older
-	// than the corresponding git2go binary. So, we need to keep the
-	// receive_hooks_payload key for one release before we can remove it.
-	ReceiveHooksPayload *UserDetails `json:"receive_hooks_payload"`
 }
 
 // UserDetails contains all information which is required for hooks
