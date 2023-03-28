@@ -13,50 +13,50 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v15/internal/structerr"
 )
 
-// ErrAlreadyLocked indicates a reference cannot be locked because another
+// AlreadyLockedError indicates a reference cannot be locked because another
 // process has already locked it.
-type ErrAlreadyLocked struct {
+type AlreadyLockedError struct {
 	Ref string
 }
 
-func (e *ErrAlreadyLocked) Error() string {
+func (e *AlreadyLockedError) Error() string {
 	return fmt.Sprintf("reference is already locked: %q", e.Ref)
 }
 
-// ErrInvalidReferenceFormat indicates a reference name was invalid.
-type ErrInvalidReferenceFormat struct {
+// InvalidReferenceFormatError indicates a reference name was invalid.
+type InvalidReferenceFormatError struct {
 	// ReferenceName is the invalid reference name.
 	ReferenceName string
 }
 
-func (e ErrInvalidReferenceFormat) Error() string {
+func (e InvalidReferenceFormatError) Error() string {
 	return fmt.Sprintf("invalid reference format: %q", e.ReferenceName)
 }
 
-// ErrFileDirectoryConflict is returned when an operation would causes a file-directory conflict
+// FileDirectoryConflictError is returned when an operation would causes a file-directory conflict
 // in the reference store.
-type ErrFileDirectoryConflict struct {
+type FileDirectoryConflictError struct {
 	// ConflictingReferenceName is the name of the reference that would have conflicted.
 	ConflictingReferenceName string
 	// ExistingReferenceName is the name of the already existing reference.
 	ExistingReferenceName string
 }
 
-func (e ErrFileDirectoryConflict) Error() string {
+func (e FileDirectoryConflictError) Error() string {
 	return fmt.Sprintf("%q conflicts with %q", e.ConflictingReferenceName, e.ExistingReferenceName)
 }
 
-// ErrInTransactionConflict is returned when attempting to modify two references in the same transaction
+// InTransactionConflictError is returned when attempting to modify two references in the same transaction
 // in a manner that is not allowed. For example, modifying 'refs/heads/parent' and creating
 // 'refs/heads/parent/child' is not allowed.
-type ErrInTransactionConflict struct {
+type InTransactionConflictError struct {
 	// FirstReferenceName is the name of the first reference that was modified.
 	FirstReferenceName string
 	// SecondReferenceName is the name of the second reference that was modified.
 	SecondReferenceName string
 }
 
-func (e ErrInTransactionConflict) Error() string {
+func (e InTransactionConflictError) Error() string {
 	return fmt.Sprintf("%q and %q conflict in the same transaction", e.FirstReferenceName, e.SecondReferenceName)
 }
 
@@ -381,17 +381,17 @@ func (u *Updater) handleIOError(fallbackErr error) error {
 
 	matches := refLockedRegex.FindSubmatch(stderr)
 	if len(matches) > 1 {
-		return &ErrAlreadyLocked{Ref: string(matches[1])}
+		return &AlreadyLockedError{Ref: string(matches[1])}
 	}
 
 	matches = refInvalidFormatRegex.FindSubmatch(stderr)
 	if len(matches) > 1 {
-		return ErrInvalidReferenceFormat{ReferenceName: string(matches[1])}
+		return InvalidReferenceFormatError{ReferenceName: string(matches[1])}
 	}
 
 	matches = referenceExistsConflictRegex.FindSubmatch(stderr)
 	if len(matches) > 1 {
-		return ErrFileDirectoryConflict{
+		return FileDirectoryConflictError{
 			ExistingReferenceName:    string(matches[2]),
 			ConflictingReferenceName: string(matches[1]),
 		}
@@ -399,7 +399,7 @@ func (u *Updater) handleIOError(fallbackErr error) error {
 
 	matches = inTransactionConflictRegex.FindSubmatch(stderr)
 	if len(matches) > 1 {
-		return ErrInTransactionConflict{
+		return InTransactionConflictError{
 			FirstReferenceName:  string(matches[1]),
 			SecondReferenceName: string(matches[2]),
 		}

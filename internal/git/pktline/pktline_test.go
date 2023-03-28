@@ -327,7 +327,7 @@ func TestEachSidebandPacket(t *testing.T) {
 		{
 			desc: "stream without band",
 			in:   "0004",
-			err:  &errNotSideband{pkt: "0004"},
+			err:  &invalidSidebandPacketError{pkt: "0004"},
 		},
 	}
 

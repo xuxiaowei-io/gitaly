@@ -9,9 +9,10 @@ linters:
   disable-all: true
   enable:
     - bidichk
-    - errcheck
-    - exportloopref
     - depguard
+    - errcheck
+    - errname
+    - exportloopref
     - forbidigo
     - gci
     # We use both gofmt and gofumpt because gofumpt doesn't seem to be linting

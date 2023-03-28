@@ -179,7 +179,7 @@ func TestTransactionManager(t *testing.T) {
 						"refs/heads/main":    {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 						"refs/heads/../main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedCommitError:   updateref.ErrInvalidReferenceFormat{ReferenceName: "refs/heads/../main"},
+					ExpectedCommitError:   updateref.InvalidReferenceFormatError{ReferenceName: "refs/heads/../main"},
 					ExpectedDefaultBranch: "",
 				},
 			},
@@ -191,7 +191,7 @@ func TestTransactionManager(t *testing.T) {
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/../main": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedCommitError:   updateref.ErrInvalidReferenceFormat{ReferenceName: "refs/heads/../main"},
+					ExpectedCommitError:   updateref.InvalidReferenceFormatError{ReferenceName: "refs/heads/../main"},
 					ExpectedDefaultBranch: "",
 				},
 				{
@@ -283,7 +283,7 @@ func TestTransactionManager(t *testing.T) {
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/parent/child": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedCommitError: updateref.ErrFileDirectoryConflict{
+					ExpectedCommitError: updateref.FileDirectoryConflictError{
 						ExistingReferenceName:    "refs/heads/parent",
 						ConflictingReferenceName: "refs/heads/parent/child",
 					},
@@ -303,7 +303,7 @@ func TestTransactionManager(t *testing.T) {
 						"refs/heads/parent":       {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 						"refs/heads/parent/child": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedCommitError: updateref.ErrInTransactionConflict{
+					ExpectedCommitError: updateref.InTransactionConflictError{
 						FirstReferenceName:  "refs/heads/parent",
 						SecondReferenceName: "refs/heads/parent/child",
 					},
@@ -321,7 +321,7 @@ func TestTransactionManager(t *testing.T) {
 						"refs/heads/parent":       {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 						"refs/heads/parent/child": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 					},
-					ExpectedCommitError: updateref.ErrInTransactionConflict{
+					ExpectedCommitError: updateref.InTransactionConflictError{
 						FirstReferenceName:  "refs/heads/parent",
 						SecondReferenceName: "refs/heads/parent/child",
 					},
@@ -361,7 +361,7 @@ func TestTransactionManager(t *testing.T) {
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/parent": {OldOID: objectHash.ZeroOID, NewOID: objectHash.ZeroOID},
 					},
-					ExpectedCommitError: updateref.ErrFileDirectoryConflict{
+					ExpectedCommitError: updateref.FileDirectoryConflictError{
 						ExistingReferenceName:    "refs/heads/parent/child",
 						ConflictingReferenceName: "refs/heads/parent",
 					},
@@ -381,7 +381,7 @@ func TestTransactionManager(t *testing.T) {
 						"refs/heads/parent/child": {OldOID: objectHash.ZeroOID, NewOID: rootCommitOID},
 						"refs/heads/parent":       {OldOID: objectHash.ZeroOID, NewOID: objectHash.ZeroOID},
 					},
-					ExpectedCommitError: updateref.ErrInTransactionConflict{
+					ExpectedCommitError: updateref.InTransactionConflictError{
 						FirstReferenceName:  "refs/heads/parent",
 						SecondReferenceName: "refs/heads/parent/child",
 					},
@@ -1967,7 +1967,7 @@ func TestTransactionManager(t *testing.T) {
 		var err error
 		err = InvalidReferenceFormatError{ReferenceName: invalidReference}
 		if tc.updateRefError {
-			err = updateref.ErrInvalidReferenceFormat{ReferenceName: invalidReference.String()}
+			err = updateref.InvalidReferenceFormatError{ReferenceName: invalidReference.String()}
 		}
 
 		testCases = append(testCases, testCase{

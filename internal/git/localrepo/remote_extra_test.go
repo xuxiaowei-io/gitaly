@@ -140,7 +140,7 @@ func TestRepo_FetchInternal(t *testing.T) {
 			localrepo.FetchOpts{Stderr: &stderr},
 		)
 		require.EqualError(t, err, "exit status 128")
-		require.IsType(t, err, localrepo.ErrFetchFailed{})
+		require.IsType(t, err, localrepo.FetchFailedError{})
 		require.Equal(t, stderr.String(), "fatal: couldn't find remote ref refs/does/not/exist\n")
 	})
 
@@ -185,7 +185,7 @@ func TestRepo_FetchInternal(t *testing.T) {
 			StorageName:  cfg.Storages[0].Name,
 		}, []string{"refs/does/not/exist"}, localrepo.FetchOpts{})
 		require.Error(t, err)
-		require.IsType(t, err, localrepo.ErrFetchFailed{})
+		require.IsType(t, err, localrepo.FetchFailedError{})
 
 		expectedMsg := "GetRepoPath: not a git repository"
 		if testhelper.IsPraefectEnabled() {

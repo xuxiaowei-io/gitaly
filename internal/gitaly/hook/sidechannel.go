@@ -22,10 +22,10 @@ const (
 	sidechannelSocket = "sidechannel"
 )
 
-// ErrInvalidSidechannelAddress is returned by GetSidechannel if improper address is used.
-type ErrInvalidSidechannelAddress struct{ address string }
+// InvalidSidechannelAddressError is returned by GetSidechannel if improper address is used.
+type InvalidSidechannelAddressError struct{ address string }
 
-func (e ErrInvalidSidechannelAddress) Error() string {
+func (e InvalidSidechannelAddressError) Error() string {
 	return fmt.Sprintf("invalid side channel address: %q", e.address)
 }
 
@@ -34,7 +34,7 @@ func (e ErrInvalidSidechannelAddress) Error() string {
 func GetSidechannel(ctx context.Context) (net.Conn, error) {
 	address := gitaly_metadata.GetValue(ctx, sidechannelHeader)
 	if path.Base(address) != sidechannelSocket {
-		return nil, ErrInvalidSidechannelAddress{address: address}
+		return nil, InvalidSidechannelAddressError{address: address}
 	}
 
 	return net.DialTimeout("unix", address, time.Second)

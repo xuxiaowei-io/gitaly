@@ -373,7 +373,7 @@ func (s *server) PackObjectsHookWithSidechannel(ctx context.Context, req *gitaly
 
 	c, err := gitalyhook.GetSidechannel(ctx)
 	if err != nil {
-		if errors.As(err, &gitalyhook.ErrInvalidSidechannelAddress{}) {
+		if errors.As(err, &gitalyhook.InvalidSidechannelAddressError{}) {
 			return nil, structerr.NewInvalidArgument("%w", err)
 		}
 		return nil, structerr.NewInternal("get side-channel: %w", err)
