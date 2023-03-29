@@ -3,6 +3,7 @@
 package conflicts
 
 import (
+	"context"
 	"io"
 	"strings"
 	"testing"
@@ -20,64 +21,81 @@ type conflictFile struct {
 	Content []byte
 }
 
-func TestSuccessfulListConflictFilesRequest(t *testing.T) {
+func TestListConflictFiles(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
-	_, repo, _, client := setupConflictsService(t, ctx, nil)
-
-	ourCommitOid := "1a35b5a77cf6af7edf6703f88e82f6aff613666f"
-	theirCommitOid := "8309e68585b28d61eb85b7e2834849dda6bf1733"
-
-	conflictContent1 := `<<<<<<< encoding/codagé
-Content is not important, file name is
-=======
-Content can be important, but here, file name is of utmost importance
->>>>>>> encoding/codagé
-`
-	conflictContent2 := `<<<<<<< files/ruby/feature.rb
-class Feature
-  def foo
-    puts 'bar'
-  end
-=======
-# This file was changed in feature branch
-# We put different code here to make merge conflict
-class Conflict
->>>>>>> files/ruby/feature.rb
-end
-`
-
-	request := &gitalypb.ListConflictFilesRequest{
-		Repository:     repo,
-		OurCommitOid:   ourCommitOid,
-		TheirCommitOid: theirCommitOid,
+	type setupData struct {
+		request       *gitalypb.ListConflictFilesRequest
+		client        gitalypb.ConflictsServiceClient
+		expectedFiles []*conflictFile
 	}
 
-	c, err := client.ListConflictFiles(ctx, request)
-	require.NoError(t, err)
+	for _, tc := range []struct {
+		desc  string
+		setup func(testing.TB, context.Context) setupData
+	}{
+		{
+			"Lists the expected conflict files",
+			func(tb testing.TB, ctx context.Context) setupData {
+				cfg, client := setupConflictsServiceWithoutRepo(tb, nil)
+				repo, repoPath := gittest.CreateRepository(tb, ctx, cfg)
 
-	expectedFiles := []*conflictFile{
-		{
-			Header: &gitalypb.ConflictFileHeader{
-				CommitOid: ourCommitOid,
-				OurMode:   int32(0o100644),
-				OurPath:   []byte("encoding/codagé"),
-				TheirPath: []byte("encoding/codagé"),
+				ourCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "a", Mode: "100644", Content: "apple"},
+					gittest.TreeEntry{Path: "b", Mode: "100644", Content: "banana"},
+				))
+				theirCommitID := gittest.WriteCommit(tb, cfg, repoPath, gittest.WithTreeEntries(
+					gittest.TreeEntry{Path: "a", Mode: "100644", Content: "mango"},
+					gittest.TreeEntry{Path: "b", Mode: "100644", Content: "peach"},
+				))
+
+				request := &gitalypb.ListConflictFilesRequest{
+					Repository:     repo,
+					OurCommitOid:   ourCommitID.String(),
+					TheirCommitOid: theirCommitID.String(),
+				}
+
+				return setupData{
+					client:  client,
+					request: request,
+					expectedFiles: []*conflictFile{
+						{
+							Header: &gitalypb.ConflictFileHeader{
+								CommitOid: ourCommitID.String(),
+								TheirPath: []byte("a"),
+								OurPath:   []byte("a"),
+								OurMode:   int32(0o100644),
+							},
+							Content: []byte("<<<<<<< a\napple\n=======\nmango\n>>>>>>> a\n"),
+						},
+						{
+							Header: &gitalypb.ConflictFileHeader{
+								CommitOid: ourCommitID.String(),
+								TheirPath: []byte("b"),
+								OurPath:   []byte("b"),
+								OurMode:   int32(0o100644),
+							},
+							Content: []byte("<<<<<<< b\nbanana\n=======\npeach\n>>>>>>> b\n"),
+						},
+					},
+				}
 			},
-			Content: []byte(conflictContent1),
 		},
-		{
-			Header: &gitalypb.ConflictFileHeader{
-				CommitOid: ourCommitOid,
-				OurMode:   int32(0o100644),
-				OurPath:   []byte("files/ruby/feature.rb"),
-				TheirPath: []byte("files/ruby/feature.rb"),
-			},
-			Content: []byte(conflictContent2),
-		},
+	} {
+		tc := tc
+
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			data := tc.setup(t, ctx)
+			c, err := data.client.ListConflictFiles(ctx, data.request)
+			require.NoError(t, err)
+
+			testhelper.ProtoEqual(t, data.expectedFiles, getConflictFiles(t, c))
+		})
 	}
-
-	testhelper.ProtoEqual(t, expectedFiles, getConflictFiles(t, c))
 }
 
 func TestSuccessfulListConflictFilesRequestWithAncestor(t *testing.T) {
