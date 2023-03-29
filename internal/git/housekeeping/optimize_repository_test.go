@@ -248,8 +248,10 @@ func TestPackRefsIfNeeded(t *testing.T) {
 	packedRefsPath := filepath.Join(repoPath, "packed-refs")
 	looseRefPath := filepath.Join(repoPath, "refs", "heads", "main")
 
+	manager := NewManager(gitalycfgprom.Config{}, nil)
+
 	// We shouldn't pack refs when the strategy says not to.
-	didRepack, err := packRefsIfNeeded(ctx, repo, mockOptimizationStrategy{
+	didRepack, err := manager.packRefsIfNeeded(ctx, repo, mockOptimizationStrategy{
 		shouldRepackReferences: false,
 	})
 	require.NoError(t, err)
@@ -259,7 +261,7 @@ func TestPackRefsIfNeeded(t *testing.T) {
 	require.FileExists(t, looseRefPath)
 
 	// On the other hand, we should repack if the strategy tells us to.
-	didRepack, err = packRefsIfNeeded(ctx, repo, mockOptimizationStrategy{
+	didRepack, err = manager.packRefsIfNeeded(ctx, repo, mockOptimizationStrategy{
 		shouldRepackReferences: true,
 	})
 	require.NoError(t, err)

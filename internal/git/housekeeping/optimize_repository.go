@@ -205,7 +205,7 @@ func optimizeRepository(
 	timer.ObserveDuration()
 
 	timer = prometheus.NewTimer(m.tasksLatency.WithLabelValues("pack-refs"))
-	didPackRefs, err := packRefsIfNeeded(ctx, repo, strategy)
+	didPackRefs, err := m.packRefsIfNeeded(ctx, repo, strategy)
 	if err != nil {
 		optimizations["packed_refs"] = "failure"
 		return fmt.Errorf("could not pack refs: %w", err)
@@ -276,7 +276,7 @@ func pruneIfNeeded(ctx context.Context, repo *localrepo.Repo, strategy Optimizat
 	return true, nil
 }
 
-func packRefsIfNeeded(ctx context.Context, repo *localrepo.Repo, strategy OptimizationStrategy) (bool, error) {
+func (m *RepositoryManager) packRefsIfNeeded(ctx context.Context, repo *localrepo.Repo, strategy OptimizationStrategy) (bool, error) {
 	if !strategy.ShouldRepackReferences(ctx) {
 		return false, nil
 	}
