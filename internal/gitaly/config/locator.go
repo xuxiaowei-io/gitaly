@@ -34,17 +34,23 @@ type configLocator struct {
 	conf Cfg
 }
 
-// GetRepoPath returns the full path of the repository referenced by an
-// RPC Repository message. It verifies the path is an existing git directory.
-// The errors returned are gRPC errors with relevant error codes and should
-// be passed back to gRPC without further decoration.
-func (l *configLocator) GetRepoPath(repo repository.GitRepo) (string, error) {
+// GetRepoPath returns the full path of the repository referenced by an RPC Repository message.
+// By default, it verifies that the path is an existing git directory. However, if invoked with
+// the `GetRepoPathOption` produced by `WithRepositoryVerificationSkipped()`, this validation
+// will be skipped. The errors returned are gRPC errors with relevant error codes and should be
+// passed back to gRPC without further decoration.
+func (l *configLocator) GetRepoPath(repo repository.GitRepo, opts ...storage.GetRepoPathOption) (string, error) {
+	var cfg storage.GetRepoPathConfig
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
 	repoPath, err := l.GetPath(repo)
 	if err != nil {
 		return "", err
 	}
 
-	if storage.IsGitDirectory(repoPath) {
+	if cfg.SkipRepositoryVerification || storage.IsGitDirectory(repoPath) {
 		return repoPath, nil
 	}
 
